@@ -89,6 +89,7 @@ cargo build -p harness_business --bin fake_agent  # scripted agent used by the d
 HARNESS_REQUIRE_FAKE_AGENT=1 cargo test -p harness_desktop
 bun run build:ui                                  # production UI bundle
 bun run desktop-entry                             # Linux: register the dev build so Wayland shows its icon (-- --remove to undo)
+bun run logo-lab                                  # loop, slow down and scrub the logo launch (http://localhost:1430/logo-lab.html)
 ```
 
 Bundling (`bun run build`) needs the updater signing key; see

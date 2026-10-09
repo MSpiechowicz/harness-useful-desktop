@@ -20,6 +20,7 @@
     "guard": "bun scripts/check-file-size.ts && bun scripts/check-forbidden.ts && bun scripts/check-ipc-contract.ts",
     "dup": "jscpd --config .jscpd.json",
     "desktop-entry": "bun scripts/linux-desktop-entry.ts",
+    "logo-lab": "vite --config ui/vite.config.ts --mode mock --port 1430 --open /logo-lab.html",
     "audit": "bun audit --ignore=GHSA-vfj7-8cjw-p6xm"
   },
   "dependencies": {
