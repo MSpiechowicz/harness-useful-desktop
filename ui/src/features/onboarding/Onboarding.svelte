@@ -102,7 +102,7 @@
         <StepProgress />
 
         <!-- Stacked grid cell: the outgoing and incoming steps overlap while they slide. -->
-        <div class="step-area grid min-h-0 flex-1 overflow-x-hidden overflow-y-auto *:col-start-1 *:row-start-1">
+        <div class="step-area -m-6 grid min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-6 *:col-start-1 *:row-start-1">
           {#key onboarding.step}
             <div
               class={cx(
