@@ -1,10 +1,10 @@
-//! `omp --mode rpc`: command line, configured approval mode and the sessions directory.
+//! `omp --mode rpc`: command line and configured approval mode.
 //!
 //! Flags mirror `cli/flag-tables.ts` (18.6.1): `--approval-mode <always-ask|write|yolo>` overrides
 //! `tools.approvalMode` for one session and `--resume <id prefix|path>` resumes a session. Flags
 //! that skip approvals or detach the extension UI are never passed, and sessions always persist.
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use serde_json::Value;
 
@@ -70,9 +70,4 @@ fn approval_mode_in(settings: Option<&Value>) -> Option<ApprovalMode> {
     let dotted = settings.get("tools.approvalMode");
 
     nested.or(dotted).and_then(Value::as_str).and_then(parse_approval_mode)
-}
-
-/// `<agent dir>/sessions`.
-pub fn omp_sessions_dir(env: &Env) -> PathBuf {
-    omp_paths(env, None).agent_dir.join("sessions")
 }

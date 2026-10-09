@@ -7,9 +7,9 @@
     "title": "Streaming parser spike",
     "titleSource": "user",
     "cwd": "/home/demo/Projects/demo",
-    "createdAt": "2026-10-08T09:12:00Z",
+    "createdAt": "2026-10-08T09:12:00.000Z",
     "updatedAt": "2026-10-08T09:47:31Z",
-    "sizeBytes": 31090,
+    "sizeBytes": 3718,
     "model": "claude-sonnet-4-5",
     "firstPrompt": "Sketch a streaming variant of `parse` that reads from any `BufRead`.",
     "parentSession": null
@@ -22,9 +22,9 @@
     "title": null,
     "titleSource": null,
     "cwd": "/home/demo/Projects/demo",
-    "createdAt": "2026-10-06T18:40:22Z",
+    "createdAt": "2026-10-06T18:40:22.000Z",
     "updatedAt": "2026-10-06T18:41:10Z",
-    "sizeBytes": 4512,
+    "sizeBytes": 794,
     "model": "claude-sonnet-4-5",
     "firstPrompt": "Which edition does the crate use?",
     "parentSession": null

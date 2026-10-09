@@ -7,8 +7,10 @@
 //!
 //! The agent RPC protocol lives here too: framing and the dialect trait ([`rpc`]), the shared
 //! event decoder ([`events`]), extension UI requests ([`ui_request`]), payload normalization
-//! ([`normalize`]), touched-path extraction ([`touched`]) and session-file lookup
-//! ([`session_files`]).
+//! ([`normalize`]) and touched-path extraction ([`touched`]).
+//!
+//! Saved sessions on disk (listing, branch trees, transcripts, lookup by id) live in
+//! [`sessions`].
 
 pub mod config_files;
 pub mod events;
@@ -17,7 +19,7 @@ pub mod mcp_config;
 pub mod normalize;
 pub mod resources;
 pub mod rpc;
-pub mod session_files;
+pub mod sessions;
 pub mod skills;
 pub mod touched;
 pub mod ui_request;

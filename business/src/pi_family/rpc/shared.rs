@@ -10,7 +10,7 @@ use crate::error::{BusinessError, Result};
 use crate::harness::CommandCatalog;
 use crate::model::{AgentAction, AgentReply, BashOutput, ChatMessage, HarnessId, StreamingBehavior};
 use crate::pi_family::normalize::{model_option, session_state, session_stats, string, strings};
-use crate::pi_family::session_files::find_session_file;
+use crate::pi_family::sessions::find_session;
 use crate::security::redact_text;
 
 /// Largest `bash` output passed to the webview (1 MiB).
@@ -53,7 +53,7 @@ pub fn encode_shared(
                 ));
             }
 
-            let path = find_session_file(context.sessions_dir, &session.id)?;
+            let path = find_session(context.sessions_dir, &session.id)?;
             frame("switch_session", vec![("sessionPath", text(&path.to_string_lossy()))])
         }
         A::Fork { entry_id } => frame("fork", vec![("entryId", text(entry_id))]),

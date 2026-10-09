@@ -31,6 +31,14 @@ const COMMANDS: &[&str] = &[
     "agent_bash",
     "agent_stop",
     "agent_list",
+    "sessions_list",
+    "session_tree",
+    "session_messages",
+    "session_files_touched",
+    "git_status",
+    "git_branches",
+    "git_diff",
+    "review_compose",
 ];
 
 fn main() {

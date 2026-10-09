@@ -61,7 +61,8 @@ pub enum Handshake {
 /// Inputs an encoder may need beyond the action.
 #[derive(Debug, Clone, Copy)]
 pub struct EncodeContext<'a> {
-    /// Root of the harness's session folders, for resolving a `SessionRef` to a file.
+    /// The project's session folder ([`crate::harness::Harness::sessions_dir`]), for resolving a
+    /// `SessionRef` to a file.
     pub sessions_dir: &'a Path,
 }
 

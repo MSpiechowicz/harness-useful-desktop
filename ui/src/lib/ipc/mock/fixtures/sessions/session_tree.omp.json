@@ -9,17 +9,27 @@
       "parentId": null,
       "kind": "modelChange",
       "preview": null,
-      "timestamp": "2026-10-09T10:00:00Z",
+      "timestamp": "2026-10-09T10:00:00.000Z",
+      "label": null,
+      "onActivePath": true,
+      "childCount": 1
+    },
+    {
+      "id": "tl1",
+      "parentId": "n01",
+      "kind": "other",
+      "preview": null,
+      "timestamp": "2026-10-09T10:01:00.000Z",
       "label": null,
       "onActivePath": true,
       "childCount": 1
     },
     {
       "id": "n02",
-      "parentId": "n01",
+      "parentId": "tl1",
       "kind": "user",
       "preview": "Make `parse` handle empty input and explain the change.",
-      "timestamp": "2026-10-09T10:01:00Z",
+      "timestamp": "2026-10-09T10:03:00.000Z",
       "label": null,
       "onActivePath": true,
       "childCount": 1
@@ -29,7 +39,7 @@
       "parentId": "n02",
       "kind": "assistant",
       "preview": "I'll read `src/lib.rs` first.",
-      "timestamp": "2026-10-09T10:02:00Z",
+      "timestamp": "2026-10-09T10:04:00.000Z",
       "label": null,
       "onActivePath": true,
       "childCount": 1
@@ -39,7 +49,7 @@
       "parentId": "n03",
       "kind": "toolResult",
       "preview": null,
-      "timestamp": "2026-10-09T10:03:00Z",
+      "timestamp": "2026-10-09T10:05:00.000Z",
       "label": null,
       "onActivePath": true,
       "childCount": 1
@@ -49,7 +59,7 @@
       "parentId": "n04",
       "kind": "assistant",
       "preview": "`parse` now returns an empty list for empty input instead of an error.",
-      "timestamp": "2026-10-09T10:04:00Z",
+      "timestamp": "2026-10-09T10:06:00.000Z",
       "label": null,
       "onActivePath": true,
       "childCount": 2
@@ -59,7 +69,7 @@
       "parentId": "n05",
       "kind": "user",
       "preview": "Also reject whitespace-only input.",
-      "timestamp": "2026-10-09T10:05:00Z",
+      "timestamp": "2026-10-09T10:07:00.000Z",
       "label": null,
       "onActivePath": false,
       "childCount": 1
@@ -69,7 +79,7 @@
       "parentId": "n06",
       "kind": "assistant",
       "preview": "Done: whitespace-only input now returns `Error::Empty`.",
-      "timestamp": "2026-10-09T10:06:00Z",
+      "timestamp": "2026-10-09T10:08:00.000Z",
       "label": null,
       "onActivePath": false,
       "childCount": 0
@@ -79,7 +89,7 @@
       "parentId": "n05",
       "kind": "branchSummary",
       "preview": null,
-      "timestamp": "2026-10-09T10:07:00Z",
+      "timestamp": "2026-10-09T10:09:00.000Z",
       "label": null,
       "onActivePath": true,
       "childCount": 1
@@ -89,7 +99,7 @@
       "parentId": "n08",
       "kind": "user",
       "preview": "Keep whitespace accepted, but add a test for empty input.",
-      "timestamp": "2026-10-09T10:08:00Z",
+      "timestamp": "2026-10-09T10:10:00.000Z",
       "label": null,
       "onActivePath": true,
       "childCount": 1
@@ -99,7 +109,7 @@
       "parentId": "n09",
       "kind": "assistant",
       "preview": "Adding the test.",
-      "timestamp": "2026-10-09T10:09:00Z",
+      "timestamp": "2026-10-09T10:11:00.000Z",
       "label": null,
       "onActivePath": true,
       "childCount": 1
@@ -109,7 +119,7 @@
       "parentId": "n10",
       "kind": "toolResult",
       "preview": null,
-      "timestamp": "2026-10-09T10:10:00Z",
+      "timestamp": "2026-10-09T10:12:00.000Z",
       "label": null,
       "onActivePath": true,
       "childCount": 1
@@ -119,7 +129,7 @@
       "parentId": "n11",
       "kind": "assistant",
       "preview": "Added `parses_empty_input`; the error type moved to `src/error.rs`.",
-      "timestamp": "2026-10-09T10:11:00Z",
+      "timestamp": "2026-10-09T10:13:00.000Z",
       "label": "empty-input fix",
       "onActivePath": true,
       "childCount": 2
@@ -129,17 +139,27 @@
       "parentId": "n12",
       "kind": "user",
       "preview": "Run the tests.",
-      "timestamp": "2026-10-09T10:12:00Z",
+      "timestamp": "2026-10-09T10:15:00.000Z",
+      "label": null,
+      "onActivePath": false,
+      "childCount": 1
+    },
+    {
+      "id": "fe1",
+      "parentId": "n13",
+      "kind": "other",
+      "preview": null,
+      "timestamp": "2026-10-09T10:16:00.000Z",
       "label": null,
       "onActivePath": false,
       "childCount": 1
     },
     {
       "id": "n14",
-      "parentId": "n13",
+      "parentId": "fe1",
       "kind": "assistant",
       "preview": "All 14 tests pass.",
-      "timestamp": "2026-10-09T10:13:00Z",
+      "timestamp": "2026-10-09T10:17:00.000Z",
       "label": null,
       "onActivePath": false,
       "childCount": 0
@@ -149,7 +169,7 @@
       "parentId": "n12",
       "kind": "user",
       "preview": "Now update the README example.",
-      "timestamp": "2026-10-09T10:14:00Z",
+      "timestamp": "2026-10-09T10:18:00.000Z",
       "label": null,
       "onActivePath": true,
       "childCount": 1
@@ -159,7 +179,7 @@
       "parentId": "n15",
       "kind": "assistant",
       "preview": "Updating the README.",
-      "timestamp": "2026-10-09T10:15:00Z",
+      "timestamp": "2026-10-09T10:19:00.000Z",
       "label": null,
       "onActivePath": true,
       "childCount": 1
@@ -169,17 +189,27 @@
       "parentId": "n16",
       "kind": "toolResult",
       "preview": null,
-      "timestamp": "2026-10-09T10:16:00Z",
+      "timestamp": "2026-10-09T10:20:00.000Z",
       "label": null,
       "onActivePath": true,
       "childCount": 1
     },
     {
-      "id": "n18",
+      "id": "lb1",
       "parentId": "n17",
+      "kind": "label",
+      "preview": null,
+      "timestamp": "2026-10-09T10:21:00.000Z",
+      "label": "empty-input fix",
+      "onActivePath": true,
+      "childCount": 1
+    },
+    {
+      "id": "n18",
+      "parentId": "lb1",
       "kind": "assistant",
       "preview": "The README example now shows that empty input parses to no records.",
-      "timestamp": "2026-10-09T10:17:00Z",
+      "timestamp": "2026-10-09T10:22:00.000Z",
       "label": null,
       "onActivePath": true,
       "childCount": 0

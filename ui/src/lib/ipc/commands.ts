@@ -6,12 +6,22 @@ import type { AgentStartRequest } from './bindings/AgentStartRequest';
 import type { AppInfo } from './bindings/AppInfo';
 import type { AppPrefs } from './bindings/AppPrefs';
 import type { BashOutput } from './bindings/BashOutput';
+import type { Branch } from './bindings/Branch';
 import type { CommandSpec as CatalogCommand } from './bindings/CommandSpec';
+import type { ComposedReview } from './bindings/ComposedReview';
 import type { ConfigView } from './bindings/ConfigView';
+import type { DiffRequest } from './bindings/DiffRequest';
 import type { ExtensionsView } from './bindings/ExtensionsView';
+import type { FileDiff } from './bindings/FileDiff';
+import type { GitStatus } from './bindings/GitStatus';
 import type { HarnessId } from './bindings/HarnessId';
 import type { HarnessSummary } from './bindings/HarnessSummary';
 import type { ProjectInfo } from './bindings/ProjectInfo';
+import type { ReviewRequest } from './bindings/ReviewRequest';
+import type { SessionMessagesPage } from './bindings/SessionMessagesPage';
+import type { SessionRef } from './bindings/SessionRef';
+import type { SessionSummary } from './bindings/SessionSummary';
+import type { SessionTree } from './bindings/SessionTree';
 import type { UiResponse } from './bindings/UiResponse';
 import type { EventSink } from './transport';
 
@@ -53,6 +63,14 @@ export const commands = {
   agent_bash: cmd<{ key: string; command: string; confirmed: boolean }, BashOutput>(),
   agent_stop: cmd<{ key: string }, null>(),
   agent_list: cmd<undefined, AgentSessionInfo[]>(),
+  sessions_list: cmd<{ harness: HarnessId; project: string }, SessionSummary[]>(),
+  session_tree: cmd<{ session: SessionRef; project: string }, SessionTree>(),
+  session_messages: cmd<{ session: SessionRef; project: string; cursor: string | null; limit: number }, SessionMessagesPage>(),
+  session_files_touched: cmd<{ session: SessionRef; project: string }, string[]>(),
+  git_status: cmd<{ project: string }, GitStatus>(),
+  git_branches: cmd<{ project: string }, Branch[]>(),
+  git_diff: cmd<{ project: string; request: DiffRequest }, FileDiff[]>(),
+  review_compose: cmd<{ request: ReviewRequest }, ComposedReview>(),
 };
 
 export type CommandName = keyof typeof commands;

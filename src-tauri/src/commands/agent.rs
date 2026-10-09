@@ -194,9 +194,29 @@ mod tests {
     /// How long a test waits for the fake agent.
     const WAIT: Duration = Duration::from_secs(10);
 
+    /// Set to `1` (CI) to make the tests that need `fake_agent` fail instead of skipping.
+    const REQUIRE_FAKE_AGENT: &str = "HARNESS_REQUIRE_FAKE_AGENT";
+
     /// `fake_agent` from the business crate, built next to this test binary by
     /// `cargo test --workspace` (Cargo exposes `CARGO_BIN_EXE_*` only to the owning package).
+    /// `None` (the caller skips) when it is missing, unless [`REQUIRE_FAKE_AGENT`] is `1`.
     fn fake_agent() -> Option<PathBuf> {
+        let found = built_fake_agent();
+
+        if found.is_none() {
+            assert_ne!(
+                std::env::var(REQUIRE_FAKE_AGENT).as_deref(),
+                Ok("1"),
+                "fake_agent is not built but {REQUIRE_FAKE_AGENT}=1 \
+                 (run `cargo build -p harness_business --bin fake_agent` first)"
+            );
+            eprintln!("skipped: fake_agent is not built (run `cargo test --workspace`)");
+        }
+
+        found
+    }
+
+    fn built_fake_agent() -> Option<PathBuf> {
         let exe = std::env::current_exe().ok()?;
         let target_dir = exe.parent()?.parent()?;
         let path = target_dir.join(format!("fake_agent{}", std::env::consts::EXE_SUFFIX));
@@ -338,7 +358,6 @@ mod tests {
     #[test]
     fn a_session_streams_its_events_over_the_channel_until_it_stops() {
         let Some(binary) = fake_agent() else {
-            eprintln!("skipped: fake_agent is not built (run `cargo test --workspace`)");
             return;
         };
         let setup = setup(&binary, "omp_basic.jsonl");
@@ -384,7 +403,6 @@ mod tests {
     #[test]
     fn a_session_is_stopped_when_its_channel_closes() {
         let Some(binary) = fake_agent() else {
-            eprintln!("skipped: fake_agent is not built (run `cargo test --workspace`)");
             return;
         };
         let setup = setup(&binary, "omp_basic.jsonl");
@@ -408,7 +426,6 @@ mod tests {
     #[test]
     fn a_channel_closed_during_startup_leaves_no_session() {
         let Some(binary) = fake_agent() else {
-            eprintln!("skipped: fake_agent is not built (run `cargo test --workspace`)");
             return;
         };
         let setup = setup(&binary, "omp_basic.jsonl");

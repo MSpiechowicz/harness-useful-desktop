@@ -20,7 +20,7 @@ use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::harness::{Harness, LaunchRequest};
 use crate::model::{AgentAction, AgentReply, AgentSessionInfo, AgentStartRequest, BashOutput, UiResponse};
-use crate::pi_family::session_files::is_safe_session_id;
+use crate::pi_family::sessions::is_safe_session_id;
 use crate::process::{ProcessSpawner, ResolvedBinary};
 use crate::security::validate_project_dir;
 
@@ -144,7 +144,7 @@ impl AgentManager {
             spawner: deps.spawner.as_ref(),
             dialect: harness.dialect(),
             project: project.clone(),
-            sessions_dir: harness.sessions_dir(deps.env),
+            sessions_dir: harness.sessions_dir(deps.env, &project),
             sink,
             options: &self.options,
         })

@@ -9,9 +9,11 @@
   import CodeBlock from '$lib/components/CodeBlock.svelte';
   import Spinner from '$lib/components/Spinner.svelte';
   import { changesFiles, commandOf, primaryArg, TOOL_ICONS, toolKind, toolTitle } from '$lib/chat/tool-meta';
+  import { toolContext } from '$lib/chat/tool-context';
   import type { ToolCallState, ToolStatus } from '$lib/chat/types';
   import { scaled } from '$lib/design/motion';
-  import { nav } from '$lib/stores/nav.svelte';
+  import { git } from '$lib/stores/git.svelte';
+  import { project } from '$lib/stores/project.svelte';
   import { cx } from '$lib/utils/cx';
 
   import TerminalBlock from './TerminalBlock.svelte';
@@ -27,6 +29,8 @@
 
   let open = $state(false);
 
+  const where = toolContext();
+
   const kind = $derived(toolKind(call.name));
   const Icon = $derived(TOOL_ICONS[kind]);
   const summary = $derived(primaryArg(call.args));
@@ -35,6 +39,14 @@
 
   const STATUS_LABEL: Record<ToolStatus, string> = { pending: 'Waiting', running: 'Running', ok: 'Done', error: 'Failed' };
   const label = $derived(call.status === 'pending' && !active ? 'Not run' : STATUS_LABEL[call.status]);
+
+  /** Opens Changes limited to the files this call touched, in the project its chat belongs to. */
+  function viewChanges(): void {
+    const target = where?.project ?? project.active?.path;
+    if (target) {
+      git.showPaths(target, call.touchedPaths, where?.label ?? 'this chat');
+    }
+  }
 </script>
 
 <div class={cx('rounded-lg border bg-surface-1/60', call.status === 'error' ? 'border-danger/40' : 'border-line')} data-tool-status={call.status}>
@@ -86,7 +98,7 @@
           {#each call.touchedPaths as path (path)}
             <code class="rounded-sm bg-surface-3 px-2 py-0.5 font-mono text-xs text-fg-2">{path}</code>
           {/each}
-          <Button size="sm" variant="ghost" onclick={() => nav.go('changes')}>View changes</Button>
+          <Button size="sm" variant="ghost" onclick={viewChanges}>View changes</Button>
         </div>
       {/if}
     </div>

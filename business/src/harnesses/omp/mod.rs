@@ -11,6 +11,7 @@ mod launch;
 mod marketplaces;
 mod paths;
 mod plugins;
+mod sessions;
 mod themes;
 
 pub use catalog::OmpCatalog;
@@ -18,10 +19,10 @@ pub use config::omp_config_view;
 pub use dialect::OmpDialect;
 pub use extensions::omp_extensions_view;
 pub use launch::{
-    DEFAULT_APPROVAL_MODE, cli_approval_mode, configured_approval_mode, omp_launch_spec, omp_sessions_dir,
-    parse_approval_mode,
+    DEFAULT_APPROVAL_MODE, cli_approval_mode, configured_approval_mode, omp_launch_spec, parse_approval_mode,
 };
 pub use paths::{active_profile, omp_paths};
+pub use sessions::{omp_sessions_dir, omp_sessions_root};
 
 use crate::harness::prelude::*;
 
@@ -85,8 +86,8 @@ impl Harness for Omp {
         &OmpDialect
     }
 
-    fn sessions_dir(&self, env: &Env) -> PathBuf {
-        omp_sessions_dir(env)
+    fn sessions_dir(&self, env: &Env, project: &Path) -> PathBuf {
+        omp_sessions_dir(env, project)
     }
 
     fn configured_approval_mode(&self, env: &Env, project: Option<&Path>) -> Option<ApprovalMode> {

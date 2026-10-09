@@ -1,0 +1,190 @@
+//! Hardened `git` invocations.
+//!
+//! `git` is resolved with [`resolve_binary`] (never through a shell) and every run goes through a
+//! [`ProcessRunner`] with a 15 s timeout and a 16 MiB output cap. Each command line starts with
+//! options that switch off what a repository's own configuration could otherwise execute or
+//! redirect: the fsmonitor hook, the untracked cache, external diff programs, pagers, colors and
+//! path quoting. Pathspecs are literal. The environment disables prompts and optional locks
+//! (`status` never rewrites the index) and fixes the locale so messages can be matched. `HOME`
+//! and `XDG_CONFIG_HOME` come from the injected [`Env`], so the global configuration read is the
+//! one of that home.
+//!
+//! Every `GIT_*` variable inherited from the app's own environment is dropped (only the ones set
+//! here reach git): `GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE`, `GIT_OBJECT_DIRECTORY`,
+//! `GIT_COMMON_DIR` and friends would point git at another repository, and `GIT_CONFIG_*`,
+//! `GIT_EXTERNAL_DIFF`, `GIT_PAGER`, `GIT_EXEC_PATH`, `GIT_SSH*`, `GIT_ASKPASS` or `GIT_TRACE*`
+//! would add configuration, run programs or write files. This includes `GIT_CONFIG_GLOBAL`,
+//! `GIT_CONFIG_SYSTEM`, `GIT_CONFIG_NOSYSTEM` and `GIT_CEILING_DIRECTORIES`: the user's global
+//! configuration is still read from the default locations under `HOME`/`XDG_CONFIG_HOME`, and the
+//! system configuration from its default location.
+
+use std::ffi::OsString;
+use std::path::{Path, PathBuf};
+use std::time::Duration;
+
+use crate::env::Env;
+use crate::error::{BusinessError, Result};
+use crate::process::{ExecOutput, ExecSpec, ProcessRunner, resolve_binary};
+
+/// Time limit of one git command.
+pub const GIT_TIMEOUT: Duration = Duration::from_secs(15);
+
+/// Output cap of one git command (per stream).
+pub const GIT_OUTPUT_CAP: usize = 16 * 1024 * 1024;
+
+/// Options placed before every git subcommand.
+const HARDENING: [&str; 15] = [
+    "--no-pager",
+    "--literal-pathspecs",
+    "-c",
+    "core.fsmonitor=false",
+    "-c",
+    "core.untrackedCache=false",
+    "-c",
+    "diff.external=",
+    "-c",
+    "core.pager=cat",
+    "-c",
+    "color.ui=false",
+    "-c",
+    "core.quotepath=off",
+    "--no-optional-locks",
+];
+
+/// Environment of every git command.
+const GIT_ENV: [(&str, &str); 3] = [
+    ("GIT_TERMINAL_PROMPT", "0"),
+    ("GIT_OPTIONAL_LOCKS", "0"),
+    ("LC_ALL", "C"),
+];
+
+/// A git command runner bound to one project directory.
+pub struct GitCli<'a> {
+    program: PathBuf,
+    project: PathBuf,
+    home: PathBuf,
+    xdg_config: PathBuf,
+    runner: &'a dyn ProcessRunner,
+}
+
+impl<'a> GitCli<'a> {
+    /// Resolves `git` for `env`; `NotFound` when it is not installed. Batch-script wrappers are
+    /// refused because `cmd.exe` would re-parse the arguments.
+    pub fn new(env: &Env, runner: &'a dyn ProcessRunner, project: &Path) -> Result<Self> {
+        let binary = resolve_binary(env, "git", None).ok_or_else(|| BusinessError::NotFound("git".to_owned()))?;
+
+        if binary.is_batch_script {
+            return Err(BusinessError::Unsupported(
+                "git must be an executable, not a script".to_owned(),
+            ));
+        }
+
+        let xdg_config = env
+            .var("XDG_CONFIG_HOME")
+            .map(PathBuf::from)
+            .filter(|dir| dir.is_absolute())
+            .unwrap_or_else(|| env.home.join(".config"));
+
+        Ok(Self {
+            program: binary.path,
+            project: project.to_path_buf(),
+            home: env.home.clone(),
+            xdg_config,
+            runner,
+        })
+    }
+
+    /// The project directory.
+    pub fn project(&self) -> &Path {
+        &self.project
+    }
+
+    /// Runs `git -C <project> <hardening> <args>` and returns its output, whatever the exit code.
+    pub async fn run<I, S>(&self, args: I) -> Result<ExecOutput>
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<OsString>,
+    {
+        let mut spec = ExecSpec::new(&self.program)
+            .args([OsString::from("-C"), self.project.clone().into_os_string()])
+            .args(HARDENING)
+            .args(args)
+            .cwd(&self.project)
+            .env_remove_prefix("GIT_")
+            .env("HOME", &self.home)
+            .env("XDG_CONFIG_HOME", &self.xdg_config)
+            .timeout(GIT_TIMEOUT)
+            .max_output_bytes(GIT_OUTPUT_CAP);
+
+        for (name, value) in GIT_ENV {
+            spec = spec.env(name, value);
+        }
+
+        let output = self.runner.run(&spec).await?;
+
+        if output.timed_out {
+            return Err(BusinessError::Timeout(format!(
+                "git did not finish within {} s",
+                GIT_TIMEOUT.as_secs()
+            )));
+        }
+
+        Ok(output)
+    }
+
+    /// Like [`GitCli::run`] but fails unless git exited with status 0.
+    pub async fn run_ok<I, S>(&self, args: I) -> Result<ExecOutput>
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<OsString>,
+    {
+        let output = self.run(args).await?;
+
+        if !output.success() {
+            return Err(failure(&output));
+        }
+
+        Ok(output)
+    }
+
+    /// The project's path inside its work tree (`""` at the top, else `sub/dir/`), or `None` when
+    /// the project is not inside a git work tree.
+    pub async fn prefix(&self) -> Result<Option<String>> {
+        let output = self.run(["rev-parse", "--show-prefix"]).await?;
+
+        if output.success() {
+            return Ok(Some(output.stdout.trim_end_matches(['\n', '\r']).to_owned()));
+        }
+
+        if is_not_a_work_tree(&output.stderr) {
+            return Ok(None);
+        }
+
+        Err(failure(&output))
+    }
+}
+
+/// True for git's "not a repository" and "must be run in a work tree" errors.
+fn is_not_a_work_tree(stderr: &str) -> bool {
+    stderr.contains("not a git repository") || stderr.contains("must be run in a work tree")
+}
+
+/// A process error carrying git's first `fatal:`/`error:` line (no file contents).
+fn failure(output: &ExecOutput) -> BusinessError {
+    let reason = output
+        .stderr
+        .lines()
+        .find(|line| line.starts_with("fatal:") || line.starts_with("error:"))
+        .unwrap_or("git failed")
+        .chars()
+        .take(300)
+        .collect::<String>();
+
+    BusinessError::Process(reason)
+}
+
+/// `path` relative to the project: `repo_path` without the project `prefix`; `None` outside it.
+pub fn project_relative(repo_path: &str, prefix: &str) -> Option<String> {
+    let relative = repo_path.strip_prefix(prefix)?;
+    (!relative.is_empty()).then(|| relative.to_owned())
+}

@@ -16,7 +16,7 @@ pub struct LaunchRequest<'a> {
     pub binary: &'a ResolvedBinary,
     /// Canonical project directory (the working directory).
     pub project: &'a Path,
-    /// Session id to resume; already checked with `pi_family::session_files::is_safe_session_id`.
+    /// Session id to resume; already checked with `pi_family::sessions::is_safe_session_id`.
     pub resume: Option<&'a str>,
     /// Approval mode for this session only (harnesses with `capabilities.approvalModes`).
     pub approval_override: Option<ApprovalMode>,

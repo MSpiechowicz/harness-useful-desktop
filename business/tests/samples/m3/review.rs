@@ -1,6 +1,7 @@
-//! Synthetic review fixture (`review/`): comments on the `git/` diff composed into a prompt.
+//! Review fixture (`review/`): comments on the `git/` diff composed by the real composer.
 
-use harness_business::model::{CommentSide, ComposedReview, ReviewComment, ReviewRequest};
+use harness_business::model::{CommentSide, ReviewComment, ReviewRequest};
+use harness_business::review::compose_review;
 use serde_json::Value;
 
 use super::to_json;
@@ -52,62 +53,8 @@ fn request() -> ReviewRequest {
     }
 }
 
-fn language(path: &str) -> &'static str {
-    match path.rsplit('.').next() {
-        Some("rs") => "rust",
-        Some("md") => "markdown",
-        _ => "",
-    }
-}
-
-fn comment_text(comment: &ReviewComment) -> String {
-    let side = match comment.side {
-        CommentSide::Old => "old",
-        CommentSide::New => "new",
-    };
-    let lines = if comment.start_line == comment.end_line {
-        format!("Line {}", comment.start_line)
-    } else {
-        format!("Lines {}–{}", comment.start_line, comment.end_line)
-    };
-    let snippet = comment.snippet.join("\n");
-
-    format!(
-        "- {lines} ({side}): {}\n\n```{}\n{snippet}\n```\n",
-        comment.body,
-        language(&comment.path)
-    )
-}
-
-/// The prompt as the composer lays it out: intro, note, then comments grouped by file in first
-/// appearance order.
-fn composed(request: &ReviewRequest) -> ComposedReview {
-    let mut files: Vec<&str> = Vec::new();
-    for comment in &request.comments {
-        if !files.contains(&comment.path.as_str()) {
-            files.push(&comment.path);
-        }
-    }
-
-    let mut sections = vec!["Please address these review comments on the current changes.\n".to_owned()];
-    sections.extend(request.note.as_ref().map(|note| format!("{note}\n")));
-
-    for path in &files {
-        sections.push(format!("### {path}\n"));
-        let comments = request.comments.iter().filter(|comment| comment.path == *path);
-        sections.extend(comments.map(comment_text));
-    }
-
-    let prompt = sections.join("\n");
-    ComposedReview {
-        bytes: prompt.len() as u32,
-        file_count: files.len() as u32,
-        comment_count: request.comments.len() as u32,
-        prompt,
-    }
-}
-
 /// The `review/` fixtures.
 pub fn fixtures() -> Vec<(&'static str, Value)> {
-    vec![("review/review_composed.json", to_json(composed(&request())))]
+    let composed = compose_review(&request()).expect("the sample review composes");
+    vec![("review/review_composed.json", to_json(composed))]
 }

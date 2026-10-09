@@ -11,8 +11,9 @@
 //!    - [`process`] — shell-free process execution behind injectable traits.
 //! 3. Domain modules built on the foundations: [`prefs`]; the harness abstraction ([`harness`])
 //!    with its adapters ([`harnesses`]) and the parsing and RPC protocol they share
-//!    ([`pi_family`]); running agent chat sessions over that protocol ([`agent`]). Sessions on
-//!    disk, git and ecosystem follow in later milestones.
+//!    ([`pi_family`], including saved sessions on disk); running agent chat sessions over that
+//!    protocol ([`agent`]); the project repository through the git CLI ([`git`]); diff review
+//!    prompts ([`review`]). Ecosystem integration follows in a later milestone.
 //!
 //! Rules every module follows: no shell is ever spawned, every file read goes through
 //! [`security::SafeReader`], every path is derived from an injected [`env::Env`], and nothing
@@ -21,6 +22,7 @@
 pub mod agent;
 pub mod env;
 pub mod error;
+pub mod git;
 pub mod harness;
 pub mod harnesses;
 pub mod model;
@@ -28,6 +30,7 @@ pub mod pi_family;
 pub mod prefs;
 pub mod process;
 pub mod project;
+pub mod review;
 pub mod security;
 
 #[cfg(any(test, feature = "test-support"))]

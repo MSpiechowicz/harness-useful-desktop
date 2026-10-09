@@ -145,6 +145,12 @@ impl SafeReader {
             .map_err(|_| BusinessError::InvalidInput(format!("{} is not valid UTF-8", path.display())))
     }
 
+    /// Opens a file for a bounded streaming read (session transcripts, untracked files). The
+    /// caller caps how much it reads. Same access checks as [`SafeReader::read_to_string`].
+    pub fn open(path: &Path) -> Result<File> {
+        open_checked(path).map(|(file, _)| file)
+    }
+
     /// Reads up to `n` lines from the start of a file, splitting on `\n` only (Unicode line
     /// separators stay inside lines) and stripping one trailing `\r` per line.
     ///

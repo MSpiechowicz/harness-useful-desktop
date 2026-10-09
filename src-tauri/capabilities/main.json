@@ -26,6 +26,14 @@
     "allow-agent-ui-respond",
     "allow-agent-bash",
     "allow-agent-stop",
-    "allow-agent-list"
+    "allow-agent-list",
+    "allow-sessions-list",
+    "allow-session-tree",
+    "allow-session-messages",
+    "allow-session-files-touched",
+    "allow-git-status",
+    "allow-git-branches",
+    "allow-git-diff",
+    "allow-review-compose"
   ]
 }

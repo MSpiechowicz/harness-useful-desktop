@@ -9,6 +9,7 @@ use std::sync::{Arc, Mutex, PoisonError};
 use harness_business::env::Env;
 use harness_business::harness::HarnessRegistry;
 use harness_business::model::{HarnessId, HarnessSummary};
+use harness_business::pi_family::sessions::SessionCache;
 use harness_business::prefs::PrefsStore;
 use harness_business::process::TokioRunner;
 use tauri::async_runtime::RwLock;
@@ -33,6 +34,8 @@ pub struct AppState {
     pub dialog: DialogGuard,
     /// The running agent sessions.
     pub agents: Arc<Agents>,
+    /// Saved-session summaries by file, reused by `sessions_list` while a file is unchanged.
+    pub sessions: Arc<SessionCache>,
 }
 
 impl AppState {
@@ -53,6 +56,7 @@ impl AppState {
             detections: RwLock::new(HashMap::new()),
             dialog: DialogGuard::default(),
             agents: Arc::new(Agents::new()),
+            sessions: Arc::new(SessionCache::default()),
         }
     }
 }

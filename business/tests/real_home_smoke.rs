@@ -60,3 +60,80 @@ fn real_home_smoke() {
         }
     }
 }
+
+/// Projects whose saved sessions the session smoke reads (missing ones are skipped).
+const SESSION_PROJECTS: [&str; 2] = [
+    "/home/frogius/Projekty/harness-useful-desktop",
+    "/home/frogius/Projekty/harness-useful-skills",
+];
+
+#[test]
+#[ignore = "reads real session files; run manually"]
+fn real_sessions_smoke() {
+    use harness_business::pi_family::sessions::{SessionCache, read_tree};
+
+    let env = Env::from_process().unwrap();
+    let cache = SessionCache::default();
+
+    for (index, raw) in SESSION_PROJECTS.iter().enumerate() {
+        let Ok(project) = dunce::canonicalize(raw) else {
+            println!("project#{index}: missing");
+            continue;
+        };
+
+        for harness in HarnessRegistry::with_defaults().all() {
+            let sessions = harness.list_sessions(&env, &project, &cache).unwrap();
+            let (mut nodes, mut branches, mut bad_lines, mut truncated, mut errors) = (0, 0, 0, 0, 0);
+
+            for summary in &sessions {
+                let tree = harness
+                    .resolve_session(&env, &project, &summary.session)
+                    .and_then(|path| read_tree(&path, &summary.session));
+
+                match tree {
+                    Ok(report) => {
+                        nodes += report.tree.nodes.len();
+                        branches += report.tree.branch_count as usize;
+                        bad_lines += report.bad_lines;
+                        truncated += usize::from(report.tree.truncated);
+                    }
+                    Err(_) => errors += 1,
+                }
+            }
+
+            println!(
+                "project#{index} {:?}: sessions={} nodes={nodes} branches={branches} bad_lines={bad_lines} \
+                 truncated={truncated} errors={errors}",
+                harness.id(),
+                sessions.len()
+            );
+        }
+    }
+}
+
+#[tokio::test]
+#[ignore = "runs git on this repository; run manually"]
+async fn real_git_smoke() {
+    use harness_business::git::{git_branches, git_status};
+    use harness_business::process::TokioRunner;
+
+    let env = Env::from_process().unwrap();
+    let project = dunce::canonicalize(env!("CARGO_MANIFEST_DIR")).unwrap();
+    let project = project.parent().unwrap();
+
+    let status = git_status(&env, &TokioRunner, project).await.unwrap();
+    let branches = git_branches(&env, &TokioRunner, project).await.unwrap();
+
+    println!(
+        "git: is_repo={} detached={} has_upstream={} ahead={} behind={} entries={} branches={} local={} remote={}",
+        status.is_repo,
+        status.branch.is_none(),
+        status.upstream.is_some(),
+        status.ahead,
+        status.behind,
+        status.entries.len(),
+        branches.len(),
+        branches.iter().filter(|branch| !branch.is_remote).count(),
+        branches.iter().filter(|branch| branch.is_remote).count(),
+    );
+}

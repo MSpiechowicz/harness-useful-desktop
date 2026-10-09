@@ -6,12 +6,14 @@
 //! the files are machine-independent. Detection depends on real binaries, so `harness_list.json`
 //! and `project_recent.json` stay synthetic. The agent chat fixtures under `agent/` are engine
 //! output: `fake_agent` scenarios run through the real session engine (`tests/samples`). The
-//! session, git and review fixtures under `sessions/`, `git/` and `review/` are synthetic DTO
-//! samples (`tests/samples/m3`).
+//! session, git and review fixtures under `sessions/`, `git/` and `review/` are real adapter, git
+//! and composer output over fixed inputs (`tests/samples/m3`; git must be installed).
 
 mod agent_support;
 mod common;
+mod git_support;
 mod samples;
+mod session_support;
 
 use std::fs;
 use std::path::PathBuf;

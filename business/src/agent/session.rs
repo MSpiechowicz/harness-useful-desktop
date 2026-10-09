@@ -59,7 +59,7 @@ pub struct SessionLaunch<'a> {
     pub dialect: &'static dyn RpcDialect,
     /// Canonical project directory.
     pub project: PathBuf,
-    /// The harness's session folders (for `switchSession`).
+    /// The project's session folder (for `switchSession`).
     pub sessions_dir: PathBuf,
     /// Receives the events.
     pub sink: Arc<dyn EventSink>,

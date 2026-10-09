@@ -1,0 +1,84 @@
+<script lang="ts">
+  import CircleAlert from '@lucide/svelte/icons/circle-alert';
+
+  import Button from '$lib/components/Button.svelte';
+  import Skeleton from '$lib/components/Skeleton.svelte';
+  import SplitPane from '$lib/components/SplitPane.svelte';
+  import type { SessionSummary } from '$lib/ipc/bindings/SessionSummary';
+  import { agentSessions } from '$lib/stores/agentSession.svelte';
+  import { forkInChat, resumeInChat } from '$lib/stores/session-actions';
+  import { sessionDetail as detail } from '$lib/stores/sessions.svelte';
+
+  import BranchTree from './BranchTree.svelte';
+  import SessionHeader from './SessionHeader.svelte';
+  import Transcript from './Transcript.svelte';
+
+  interface Props {
+    summary: SessionSummary;
+    project: string;
+  }
+
+  let { summary, project }: Props = $props();
+
+  let treeSize = $state(400);
+  let pickedId = $state<string | null>(null);
+  let busy = $state(false);
+
+  const tree = $derived(detail.tree);
+  const selectedId = $derived(pickedId ?? tree?.leafId ?? null);
+  const selectedNode = $derived(tree?.nodes.find((node) => node.id === selectedId) ?? null);
+
+  async function resume(): Promise<void> {
+    busy = true;
+    await resumeInChat(agentSessions, summary.ref, project);
+    busy = false;
+  }
+
+  async function fork(): Promise<void> {
+    if (!selectedNode) {
+      return;
+    }
+
+    busy = true;
+    await forkInChat(agentSessions, summary.ref, selectedNode.id, project);
+    busy = false;
+  }
+</script>
+
+<div class="flex size-full min-h-0 flex-col">
+  <SessionHeader {summary} {project} touched={detail.touched} node={selectedNode} {busy} onresume={() => void resume()} onfork={() => void fork()} />
+
+  <div class="min-h-0 flex-1">
+    <SplitPane label="Resize branch tree" bind:size={treeSize} min={260} minSecond={320}>
+      {#snippet first()}
+        <section aria-label="Branches" class="flex size-full min-h-0 flex-col">
+          {#if detail.treeStatus === 'loading' || detail.treeStatus === 'idle'}
+            <div class="flex flex-col gap-2 p-4" role="status" aria-label="Loading branches">
+              <Skeleton height="1.25rem" />
+              <Skeleton width="70%" height="1.25rem" />
+              <Skeleton width="85%" height="1.25rem" />
+            </div>
+          {:else if detail.treeStatus === 'error' || !tree}
+            <div class="flex flex-col items-center gap-3 p-6 text-center" role="alert">
+              <CircleAlert size={24} class="text-danger" aria-hidden="true" />
+              <p class="text-base text-fg-2">{detail.treeError?.message ?? 'The branch tree could not be read.'}</p>
+              <Button onclick={() => detail.reload()}>Try again</Button>
+            </div>
+          {:else}
+            <p class="tabular border-b border-line px-4 py-2 text-xs text-fg-3">
+              {tree.nodes.length} entries · {tree.branchCount} {tree.branchCount === 1 ? 'branch point' : 'branch points'}
+              {#if tree.truncated}· only the first entries are shown{/if}
+            </p>
+            <div class="min-h-0 flex-1">
+              <BranchTree {tree} selected={selectedId} onselect={(id) => (pickedId = id)} />
+            </div>
+          {/if}
+        </section>
+      {/snippet}
+
+      {#snippet second()}
+        <Transcript {detail} {project} />
+      {/snippet}
+    </SplitPane>
+  </div>
+</div>

@@ -65,6 +65,14 @@ pub fn run() -> ExitCode {
             commands::agent::agent_bash,
             commands::agent::agent_stop,
             commands::agent::agent_list,
+            commands::sessions::sessions_list,
+            commands::sessions::session_tree,
+            commands::sessions::session_messages,
+            commands::sessions::session_files_touched,
+            commands::git::git_status,
+            commands::git::git_branches,
+            commands::git::git_diff,
+            commands::review::review_compose,
         ])
         .on_page_load(lifecycle::on_page_load)
         .build(tauri::generate_context!());

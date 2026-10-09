@@ -11,12 +11,14 @@ mod extensions;
 mod launch;
 mod layers;
 mod packages;
+mod sessions;
 
 pub use catalog::PiCatalog;
 pub use config::pi_config_view;
 pub use dialect::PiDialect;
 pub use extensions::pi_extensions_view;
-pub use launch::{pi_launch_spec, pi_sessions_dir};
+pub use launch::pi_launch_spec;
+pub use sessions::pi_sessions_dir;
 
 use crate::harness::prelude::*;
 
@@ -100,8 +102,8 @@ impl Harness for Pi {
         &PiDialect
     }
 
-    fn sessions_dir(&self, env: &Env) -> PathBuf {
-        pi_sessions_dir(env)
+    fn sessions_dir(&self, env: &Env, project: &Path) -> PathBuf {
+        pi_sessions_dir(env, project)
     }
 
     fn install_hint(&self) -> InstallHint {

@@ -15,7 +15,7 @@
       "errorMessage": null,
       "usage": null,
       "costUsd": null,
-      "timestamp": 1791540060000,
+      "timestamp": 1791540180000,
       "toolCallId": null,
       "toolName": null,
       "isError": null
@@ -50,7 +50,7 @@
         "total": 12832
       },
       "costUsd": 0.0125,
-      "timestamp": 1791540120000,
+      "timestamp": 1791540240000,
       "toolCallId": null,
       "toolName": null,
       "isError": null
@@ -70,7 +70,7 @@
       "errorMessage": null,
       "usage": null,
       "costUsd": null,
-      "timestamp": 1791540180000,
+      "timestamp": 1791540300000,
       "toolCallId": "call-s1",
       "toolName": "read",
       "isError": false
@@ -96,7 +96,7 @@
         "total": 12920
       },
       "costUsd": 0.0125,
-      "timestamp": 1791540240000,
+      "timestamp": 1791540360000,
       "toolCallId": null,
       "toolName": null,
       "isError": null
@@ -116,7 +116,7 @@
       "errorMessage": null,
       "usage": null,
       "costUsd": null,
-      "timestamp": 1791540420000,
+      "timestamp": 1791540540000,
       "toolCallId": null,
       "toolName": null,
       "isError": null
@@ -136,7 +136,7 @@
       "errorMessage": null,
       "usage": null,
       "costUsd": null,
-      "timestamp": 1791540480000,
+      "timestamp": 1791540600000,
       "toolCallId": null,
       "toolName": null,
       "isError": null
@@ -173,7 +173,7 @@
         "total": 13010
       },
       "costUsd": 0.0125,
-      "timestamp": 1791540540000,
+      "timestamp": 1791540660000,
       "toolCallId": null,
       "toolName": null,
       "isError": null
@@ -193,7 +193,7 @@
       "errorMessage": null,
       "usage": null,
       "costUsd": null,
-      "timestamp": 1791540600000,
+      "timestamp": 1791540720000,
       "toolCallId": "call-s2",
       "toolName": "edit",
       "isError": false
@@ -219,7 +219,7 @@
         "total": 12864
       },
       "costUsd": 0.0125,
-      "timestamp": 1791540660000,
+      "timestamp": 1791540780000,
       "toolCallId": null,
       "toolName": null,
       "isError": null
@@ -239,7 +239,7 @@
       "errorMessage": null,
       "usage": null,
       "costUsd": null,
-      "timestamp": 1791540840000,
+      "timestamp": 1791541080000,
       "toolCallId": null,
       "toolName": null,
       "isError": null
@@ -262,6 +262,26 @@
             "newText": "parse(\"\")"
           },
           "intent": null
+        },
+        {
+          "type": "toolCall",
+          "id": "call-s4",
+          "name": "write",
+          "args": {
+            "path": "../outside.txt",
+            "content": "x"
+          },
+          "intent": null
+        },
+        {
+          "type": "toolCall",
+          "id": "call-s5",
+          "name": "write",
+          "args": {
+            "file_path": "/etc/hosts",
+            "content": "x"
+          },
+          "intent": null
         }
       ],
       "model": "claude-sonnet-4-5",
@@ -276,7 +296,7 @@
         "total": 12848
       },
       "costUsd": 0.0125,
-      "timestamp": 1791540900000,
+      "timestamp": 1791541140000,
       "toolCallId": null,
       "toolName": null,
       "isError": null
@@ -296,7 +316,7 @@
       "errorMessage": null,
       "usage": null,
       "costUsd": null,
-      "timestamp": 1791540960000,
+      "timestamp": 1791541200000,
       "toolCallId": "call-s3",
       "toolName": "edit",
       "isError": false
@@ -322,7 +342,7 @@
         "total": 12840
       },
       "costUsd": 0.0125,
-      "timestamp": 1791541020000,
+      "timestamp": 1791541320000,
       "toolCallId": null,
       "toolName": null,
       "isError": null

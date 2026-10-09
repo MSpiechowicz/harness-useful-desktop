@@ -1,23 +1,29 @@
 [
   {
-    "path": "src/lib.rs",
-    "oldPath": null,
-    "status": "modified",
-    "staged": false,
+    "path": "docs/guide.md",
+    "oldPath": "docs/usage.md",
+    "status": "renamed",
+    "staged": true,
     "isBinary": false,
     "hunks": [
       {
-        "header": "@@ -1,6 +1,10 @@",
+        "header": "@@ -1,4 +1,4 @@",
         "oldStart": 1,
-        "oldLines": 6,
+        "oldLines": 4,
         "newStart": 1,
-        "newLines": 10,
+        "newLines": 4,
         "lines": [
           {
-            "kind": "context",
+            "kind": "remove",
             "oldNo": 1,
+            "newNo": null,
+            "text": "# Usage"
+          },
+          {
+            "kind": "add",
+            "oldNo": null,
             "newNo": 1,
-            "text": "//! Line-oriented record parser."
+            "text": "# Guide"
           },
           {
             "kind": "context",
@@ -26,158 +32,23 @@
             "text": ""
           },
           {
-            "kind": "add",
-            "oldNo": null,
-            "newNo": 3,
-            "text": "mod error;"
-          },
-          {
-            "kind": "add",
-            "oldNo": null,
-            "newNo": 4,
-            "text": ""
-          },
-          {
-            "kind": "add",
-            "oldNo": null,
-            "newNo": 5,
-            "text": "pub use error::Error;"
-          },
-          {
-            "kind": "add",
-            "oldNo": null,
-            "newNo": 6,
-            "text": ""
-          },
-          {
-            "kind": "remove",
+            "kind": "context",
             "oldNo": 3,
-            "newNo": null,
-            "text": "pub fn parse(input: &str) -> Result<Vec<Record>, String> {"
-          },
-          {
-            "kind": "add",
-            "oldNo": null,
-            "newNo": 7,
-            "text": "pub fn parse(input: &str) -> Result<Vec<Record>, Error> {"
+            "newNo": 3,
+            "text": "Call `demo::parse` with the file contents."
           },
           {
             "kind": "context",
             "oldNo": 4,
-            "newNo": 8,
-            "text": "    let mut records = Vec::new();"
-          },
-          {
-            "kind": "context",
-            "oldNo": 5,
-            "newNo": 9,
-            "text": "    for line in input.lines() {"
-          },
-          {
-            "kind": "context",
-            "oldNo": 6,
-            "newNo": 10,
-            "text": "        records.push(Record::from_line(line)?);"
-          }
-        ]
-      },
-      {
-        "header": "@@ -20,4 +24,12 @@ impl Record {",
-        "oldStart": 20,
-        "oldLines": 4,
-        "newStart": 24,
-        "newLines": 12,
-        "lines": [
-          {
-            "kind": "context",
-            "oldNo": 20,
-            "newNo": 24,
-            "text": "    pub fn is_empty(&self) -> bool {"
-          },
-          {
-            "kind": "context",
-            "oldNo": 21,
-            "newNo": 25,
-            "text": "        self.fields.is_empty()"
-          },
-          {
-            "kind": "context",
-            "oldNo": 22,
-            "newNo": 26,
-            "text": "    }"
-          },
-          {
-            "kind": "remove",
-            "oldNo": 23,
-            "newNo": null,
-            "text": "}"
-          },
-          {
-            "kind": "noNewline",
-            "oldNo": null,
-            "newNo": null,
-            "text": ""
-          },
-          {
-            "kind": "add",
-            "oldNo": null,
-            "newNo": 27,
-            "text": "}"
-          },
-          {
-            "kind": "add",
-            "oldNo": null,
-            "newNo": 28,
-            "text": ""
-          },
-          {
-            "kind": "add",
-            "oldNo": null,
-            "newNo": 29,
-            "text": "#[cfg(test)]"
-          },
-          {
-            "kind": "add",
-            "oldNo": null,
-            "newNo": 30,
-            "text": "mod tests {"
-          },
-          {
-            "kind": "add",
-            "oldNo": null,
-            "newNo": 31,
-            "text": "    #[test]"
-          },
-          {
-            "kind": "add",
-            "oldNo": null,
-            "newNo": 32,
-            "text": "    fn parses_empty_input() {"
-          },
-          {
-            "kind": "add",
-            "oldNo": null,
-            "newNo": 33,
-            "text": "        assert!(super::parse(\"\").unwrap().is_empty());"
-          },
-          {
-            "kind": "add",
-            "oldNo": null,
-            "newNo": 34,
-            "text": "    }"
-          },
-          {
-            "kind": "add",
-            "oldNo": null,
-            "newNo": 35,
-            "text": "}"
+            "newNo": 4,
+            "text": "Each line is one record."
           }
         ]
       }
     ],
     "truncated": false,
-    "additions": 14,
-    "deletions": 2
+    "additions": 1,
+    "deletions": 1
   },
   {
     "path": "src/error.rs",
@@ -237,51 +108,6 @@
     "deletions": 0
   },
   {
-    "path": "docs/guide.md",
-    "oldPath": "docs/usage.md",
-    "status": "renamed",
-    "staged": true,
-    "isBinary": false,
-    "hunks": [
-      {
-        "header": "@@ -1,3 +1,3 @@",
-        "oldStart": 1,
-        "oldLines": 3,
-        "newStart": 1,
-        "newLines": 3,
-        "lines": [
-          {
-            "kind": "remove",
-            "oldNo": 1,
-            "newNo": null,
-            "text": "# Usage"
-          },
-          {
-            "kind": "add",
-            "oldNo": null,
-            "newNo": 1,
-            "text": "# Guide"
-          },
-          {
-            "kind": "context",
-            "oldNo": 2,
-            "newNo": 2,
-            "text": ""
-          },
-          {
-            "kind": "context",
-            "oldNo": 3,
-            "newNo": 3,
-            "text": "Call `demo::parse` with the file contents."
-          }
-        ]
-      }
-    ],
-    "truncated": false,
-    "additions": 1,
-    "deletions": 1
-  },
-  {
     "path": "assets/logo.png",
     "oldPath": null,
     "status": "modified",
@@ -291,6 +117,243 @@
     "truncated": false,
     "additions": 0,
     "deletions": 0
+  },
+  {
+    "path": "src/lib.rs",
+    "oldPath": null,
+    "status": "modified",
+    "staged": false,
+    "isBinary": false,
+    "hunks": [
+      {
+        "header": "@@ -1,6 +1,10 @@",
+        "oldStart": 1,
+        "oldLines": 6,
+        "newStart": 1,
+        "newLines": 10,
+        "lines": [
+          {
+            "kind": "context",
+            "oldNo": 1,
+            "newNo": 1,
+            "text": "//! Line-oriented record parser."
+          },
+          {
+            "kind": "context",
+            "oldNo": 2,
+            "newNo": 2,
+            "text": ""
+          },
+          {
+            "kind": "remove",
+            "oldNo": 3,
+            "newNo": null,
+            "text": "pub fn parse(input: &str) -> Result<Vec<Record>, String> {"
+          },
+          {
+            "kind": "add",
+            "oldNo": null,
+            "newNo": 3,
+            "text": "mod error;"
+          },
+          {
+            "kind": "add",
+            "oldNo": null,
+            "newNo": 4,
+            "text": ""
+          },
+          {
+            "kind": "add",
+            "oldNo": null,
+            "newNo": 5,
+            "text": "pub use error::Error;"
+          },
+          {
+            "kind": "add",
+            "oldNo": null,
+            "newNo": 6,
+            "text": ""
+          },
+          {
+            "kind": "add",
+            "oldNo": null,
+            "newNo": 7,
+            "text": "pub fn parse(input: &str) -> Result<Vec<Record>, Error> {"
+          },
+          {
+            "kind": "context",
+            "oldNo": 4,
+            "newNo": 8,
+            "text": "    let mut records = Vec::new();"
+          },
+          {
+            "kind": "context",
+            "oldNo": 5,
+            "newNo": 9,
+            "text": "    for line in input.lines() {"
+          },
+          {
+            "kind": "context",
+            "oldNo": 6,
+            "newNo": 10,
+            "text": "        records.push(Record::from_line(line)?);"
+          }
+        ]
+      },
+      {
+        "header": "@@ -13,7 +17,7 @@ pub struct Record {",
+        "oldStart": 13,
+        "oldLines": 7,
+        "newStart": 17,
+        "newLines": 7,
+        "lines": [
+          {
+            "kind": "context",
+            "oldNo": 13,
+            "newNo": 17,
+            "text": "}"
+          },
+          {
+            "kind": "context",
+            "oldNo": 14,
+            "newNo": 18,
+            "text": ""
+          },
+          {
+            "kind": "context",
+            "oldNo": 15,
+            "newNo": 19,
+            "text": "impl Record {"
+          },
+          {
+            "kind": "remove",
+            "oldNo": 16,
+            "newNo": null,
+            "text": "    fn from_line(line: &str) -> Result<Self, String> {"
+          },
+          {
+            "kind": "add",
+            "oldNo": null,
+            "newNo": 20,
+            "text": "    fn from_line(line: &str) -> Result<Self, Error> {"
+          },
+          {
+            "kind": "context",
+            "oldNo": 17,
+            "newNo": 21,
+            "text": "        let fields = line.split(',').map(str::to_owned).collect();"
+          },
+          {
+            "kind": "context",
+            "oldNo": 18,
+            "newNo": 22,
+            "text": "        Ok(Self { fields })"
+          },
+          {
+            "kind": "context",
+            "oldNo": 19,
+            "newNo": 23,
+            "text": "    }"
+          }
+        ]
+      },
+      {
+        "header": "@@ -21,4 +25,12 @@ impl Record {",
+        "oldStart": 21,
+        "oldLines": 4,
+        "newStart": 25,
+        "newLines": 12,
+        "lines": [
+          {
+            "kind": "context",
+            "oldNo": 21,
+            "newNo": 25,
+            "text": "    pub fn is_empty(&self) -> bool {"
+          },
+          {
+            "kind": "context",
+            "oldNo": 22,
+            "newNo": 26,
+            "text": "        self.fields.is_empty()"
+          },
+          {
+            "kind": "context",
+            "oldNo": 23,
+            "newNo": 27,
+            "text": "    }"
+          },
+          {
+            "kind": "remove",
+            "oldNo": 24,
+            "newNo": null,
+            "text": "}"
+          },
+          {
+            "kind": "noNewline",
+            "oldNo": null,
+            "newNo": null,
+            "text": ""
+          },
+          {
+            "kind": "add",
+            "oldNo": null,
+            "newNo": 28,
+            "text": "}"
+          },
+          {
+            "kind": "add",
+            "oldNo": null,
+            "newNo": 29,
+            "text": ""
+          },
+          {
+            "kind": "add",
+            "oldNo": null,
+            "newNo": 30,
+            "text": "#[cfg(test)]"
+          },
+          {
+            "kind": "add",
+            "oldNo": null,
+            "newNo": 31,
+            "text": "mod tests {"
+          },
+          {
+            "kind": "add",
+            "oldNo": null,
+            "newNo": 32,
+            "text": "    #[test]"
+          },
+          {
+            "kind": "add",
+            "oldNo": null,
+            "newNo": 33,
+            "text": "    fn parses_empty_input() {"
+          },
+          {
+            "kind": "add",
+            "oldNo": null,
+            "newNo": 34,
+            "text": "        assert!(super::parse(\"\").unwrap().is_empty());"
+          },
+          {
+            "kind": "add",
+            "oldNo": null,
+            "newNo": 35,
+            "text": "    }"
+          },
+          {
+            "kind": "add",
+            "oldNo": null,
+            "newNo": 36,
+            "text": "}"
+          }
+        ]
+      }
+    ],
+    "truncated": false,
+    "additions": 15,
+    "deletions": 3
   },
   {
     "path": "notes/todo.md",

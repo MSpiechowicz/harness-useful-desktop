@@ -151,9 +151,7 @@ fn switch_session_sends_the_resolved_session_file() {
     std::fs::write(folder.join("2026-10-09T10-00-00_abc123.jsonl"), "{}\n").unwrap();
     std::fs::write(folder.join("2026-10-09T10-00-00_abc1234.jsonl"), "{}\n").unwrap();
 
-    let context = EncodeContext {
-        sessions_dir: sessions.path(),
-    };
+    let context = EncodeContext { sessions_dir: &folder };
     let action = AgentAction::SwitchSession {
         session: SessionRef {
             harness: HarnessId::Pi,

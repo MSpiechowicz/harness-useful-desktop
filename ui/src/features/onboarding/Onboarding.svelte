@@ -68,22 +68,23 @@
     aria-modal="true"
     aria-labelledby="onboarding-title"
     use:focusTrap={{ onEscape: onboarding.rerun ? () => onboarding.dismiss() : undefined }}
-    transition:fade={{ duration: scaled(300) }}
+    out:fade={{ duration: scaled(300) }}
     class="fixed inset-0 z-[70] overflow-hidden bg-canvas text-fg outline-none"
   >
+    <!-- The canvas colour above is opaque from the first frame, so the shell never shows through; only the layers on top fade in. -->
     <!-- The aurora dims in the light theme through the same opacity token the shell backdrop uses. -->
-    <div class="pointer-events-none absolute inset-0" style:opacity="var(--aurora-opacity)" aria-hidden="true">
+    <div class="pointer-events-none absolute inset-0" style:opacity="var(--aurora-opacity)" aria-hidden="true" in:fade|global={{ duration: scaled(300) }}>
       <AuroraCanvas class="size-full" intensity={aurora.current} animated={motion.level === 'full'} />
     </div>
 
     {#if onboarding.rerun}
-      <div class="absolute top-4 right-4 z-10">
+      <div class="absolute top-4 right-4 z-10" in:fade|global={{ duration: scaled(300) }}>
         <IconButton icon={X} label="Close setup" side="bottom" onclick={() => onboarding.dismiss()} />
       </div>
     {/if}
 
     <!-- The whole block (progress, step, actions) is centred; on short windows the page scrolls instead of clipping. -->
-    <div class="relative h-full overflow-x-hidden overflow-y-auto">
+    <div class="relative h-full overflow-x-hidden overflow-y-auto" in:fade|global={{ duration: scaled(300) }}>
       <div class="mx-auto flex min-h-full w-full max-w-[52rem] flex-col justify-center gap-8 px-6 py-14 [@media(max-height:720px)]:gap-5 [@media(max-height:720px)]:py-8">
         <div class={cx('mx-auto w-full', WIDTH[STEP_WIDTH[onboarding.step]])}>
           <StepProgress />

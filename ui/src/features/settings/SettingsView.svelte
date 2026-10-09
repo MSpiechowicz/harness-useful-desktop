@@ -20,6 +20,7 @@
   import { onboarding } from '../onboarding/onboarding.svelte';
   import HarnessSettings from './HarnessSettings.svelte';
   import AboutCard from './AboutCard.svelte';
+  import PrivacySection from './PrivacySection.svelte';
   import SettingRow from './SettingRow.svelte';
   import SettingsSection from './SettingsSection.svelte';
 
@@ -110,6 +111,7 @@
         {/snippet}
       </SettingRow>
     </SettingsSection>
+    <PrivacySection />
   {/if}
 
   <AboutCard />

@@ -19,6 +19,10 @@ pub const CAPTURED_VARS: &[&str] = &[
     "PI_CONFIG_DIR",
     "PI_CODING_AGENT_DIR",
     "PI_CODING_AGENT_SESSION_DIR",
+    // The temp root (`os.tmpdir()`), which OMP session folder names are relative to.
+    "TMPDIR",
+    "TEMP",
+    "TMP",
     "OMP_PROFILE",
     "PI_PROFILE",
     "HARNESS_DASHBOARD_HOME",

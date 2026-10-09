@@ -32,7 +32,17 @@ const sampleArgs = (sessionKey: string): { [K in CommandName]: CommandArgs<K> } 
   agent_bash: { key: sessionKey, command: 'ls', confirmed: true },
   agent_stop: { key: sessionKey },
   agent_list: undefined,
+  sessions_list: { harness: 'omp', project: fixtures.recentProjects[0].path },
+  session_tree: { session: SESSION, project: fixtures.recentProjects[0].path },
+  session_messages: { session: SESSION, project: fixtures.recentProjects[0].path, cursor: null, limit: 50 },
+  session_files_touched: { session: SESSION, project: fixtures.recentProjects[0].path },
+  git_status: { project: fixtures.recentProjects[0].path },
+  git_branches: { project: fixtures.recentProjects[0].path },
+  git_diff: { project: fixtures.recentProjects[0].path, request: { scope: 'all', paths: [] } },
+  review_compose: { request: { comments: [{ path: 'src/lib.rs', side: 'new', startLine: 3, endLine: 3, body: 'Why?', snippet: ['mod error;'] }], note: null } },
 });
+
+const SESSION = { harness: 'omp', id: fixtures.sessions.list.omp[0].ref.id } as const;
 
 const START_REQUEST = { harness: 'omp', project: fixtures.recentProjects[0].path, resume: null, approvalOverride: null, trustOnce: false } as const;
 
@@ -53,6 +63,24 @@ describe('mock transport', () => {
 
     await expect(mock.invoke('config_view', { harness: 'omp', project: '/etc' })).rejects.toMatchObject({ code: 'forbidden' });
     await expect(mock.invoke('extensions_view', { harness: 'omp', project: '/etc' })).rejects.toMatchObject({ code: 'forbidden' });
+  });
+
+  it('refuses session and git requests for a project that is neither active nor recent', async () => {
+    const mock = transport();
+
+    await expect(mock.invoke('sessions_list', { harness: 'omp', project: '/etc' })).rejects.toMatchObject({ code: 'forbidden' });
+    await expect(mock.invoke('session_tree', { session: SESSION, project: '/etc' })).rejects.toMatchObject({ code: 'forbidden' });
+    await expect(mock.invoke('git_status', { project: '/etc' })).rejects.toMatchObject({ code: 'forbidden' });
+    await expect(mock.invoke('git_diff', { project: '/etc', request: { scope: 'all', paths: [] } })).rejects.toMatchObject({ code: 'forbidden' });
+  });
+
+  it('reports a folder that is not a repository as such, with no branches or diffs', async () => {
+    const mock = transport();
+    const plain = fixtures.recentProjects[1].path;
+
+    await expect(mock.invoke('git_status', { project: plain })).resolves.toMatchObject({ isRepo: false, entries: [] });
+    await expect(mock.invoke('git_branches', { project: plain })).resolves.toEqual([]);
+    await expect(mock.invoke('git_diff', { project: plain, request: { scope: 'all', paths: [] } })).resolves.toEqual([]);
   });
 
   it('leaves out the project layer when no project is open', async () => {

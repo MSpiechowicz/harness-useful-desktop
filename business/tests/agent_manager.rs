@@ -154,14 +154,22 @@ fn configured_approval_mode_comes_from_the_omp_config_and_defaults_to_yolo() {
 }
 
 #[test]
-fn sessions_live_under_the_agent_dirs() {
+fn sessions_live_in_per_project_folders_under_the_agent_dirs() {
     let env = Env::for_tests("/home/demo");
+    let project = Path::new("/home/demo/Projects/demo");
 
-    assert_eq!(Omp.sessions_dir(&env), PathBuf::from("/home/demo/.omp/agent/sessions"));
-    assert_eq!(Pi.sessions_dir(&env), PathBuf::from("/home/demo/.pi/agent/sessions"));
+    assert_eq!(
+        Omp.sessions_dir(&env, project),
+        PathBuf::from("/home/demo/.omp/agent/sessions/-Projects-demo")
+    );
+    assert_eq!(
+        Pi.sessions_dir(&env, project),
+        PathBuf::from("/home/demo/.pi/agent/sessions/--home-demo-Projects-demo--")
+    );
 
     let custom = env.with_var("PI_CODING_AGENT_SESSION_DIR", "/data/pi-sessions");
-    assert_eq!(Pi.sessions_dir(&custom), PathBuf::from("/data/pi-sessions"));
+    assert_eq!(Pi.sessions_dir(&custom, project), PathBuf::from("/data/pi-sessions"));
+    assert_eq!(Omp.sessions_dir(&custom, project), PathBuf::from("/data/pi-sessions"));
 }
 
 #[tokio::test]
@@ -276,7 +284,8 @@ async fn switch_session_resolves_the_id_to_a_session_file_and_refreshes_the_stat
         },
     };
 
-    let sessions = run.home.path().join(".omp/agent/sessions/-Projects-demo");
+    let project = dunce::canonicalize(run.project.path()).unwrap();
+    let sessions = Omp.sessions_dir(&Env::for_tests(run.home.path()), &project);
     std::fs::create_dir_all(&sessions).unwrap();
     std::fs::write(sessions.join("2026-10-09T10-00-00-000Z_abc123.jsonl"), "{}\n").unwrap();
 

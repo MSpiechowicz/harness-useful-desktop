@@ -6,6 +6,7 @@
   import Button from '$lib/components/Button.svelte';
   import VirtualList from '$lib/components/VirtualList.svelte';
   import type { ChatSession } from '$lib/chat/session.svelte';
+  import { provideToolContext } from '$lib/chat/tool-context';
   import type { TranscriptItem } from '$lib/chat/types';
   import { rise } from '$lib/design/motion';
 
@@ -16,6 +17,8 @@
   }
 
   let { session }: Props = $props();
+
+  provideToolContext({ project: untrack(() => session.info.project), label: 'this chat' });
 
   const ESTIMATED_ROW_PX = 96;
   const ENTRANCE_MS = 240;

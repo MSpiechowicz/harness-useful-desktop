@@ -14,7 +14,9 @@
 //! The UI renders from [`HarnessInfo`], [`Capabilities`] and the views, so no UI change is needed.
 //!
 //! Chat sessions additionally need [`Harness::launch_spec`] (the RPC command line) and
-//! [`Harness::dialect`] (how the harness speaks the PI-family RPC protocol).
+//! [`Harness::dialect`] (how the harness speaks the PI-family RPC protocol). Saved sessions need
+//! [`Harness::sessions_dir`]; listing, trees and transcripts default to the PI-family session
+//! format and are overridden by harnesses that store sessions differently.
 
 mod catalog;
 mod detect;
@@ -45,12 +47,13 @@ pub mod prelude {
 use std::path::{Path, PathBuf};
 
 use crate::env::Env;
-use crate::error::Result;
+use crate::error::{BusinessError, Result};
 use crate::model::{
     ApprovalMode, Capabilities, ConfigView, Detection, ExtensionsView, HarnessId, HarnessInfo, HarnessSummary,
-    InstallHint, VersionSupport,
+    InstallHint, SessionMessagesPage, SessionRef, SessionSummary, SessionTree, VersionSupport,
 };
 use crate::pi_family::rpc::RpcDialect;
+use crate::pi_family::sessions::{self, SessionCache};
 use crate::process::{BoxFuture, ExecSpec, ProcessRunner};
 
 /// Where a harness keeps its files, resolved from an [`Env`] (and the project, if any).
@@ -103,8 +106,53 @@ pub trait Harness: Send + Sync {
     /// The RPC dialect the harness speaks in `--mode rpc`.
     fn dialect(&self) -> &'static dyn RpcDialect;
 
-    /// Root of the harness's session folders (`<root>/<encoded cwd>/<timestamp>_<id>.jsonl`).
-    fn sessions_dir(&self, env: &Env) -> PathBuf;
+    /// The folder holding the saved sessions of `project` (a canonical project directory): the
+    /// harness's encoded per-project folder or a configured session directory.
+    fn sessions_dir(&self, env: &Env, project: &Path) -> PathBuf;
+
+    /// Saved sessions of `project`, newest first (default: PI-family session files, see
+    /// [`crate::pi_family::sessions`]). A missing folder lists nothing.
+    fn list_sessions(&self, env: &Env, project: &Path, cache: &SessionCache) -> Result<Vec<SessionSummary>> {
+        Ok(sessions::list_sessions(
+            self.id(),
+            &self.sessions_dir(env, project),
+            cache,
+        ))
+    }
+
+    /// The session file `session` names, looked up only in `project`'s session folder.
+    fn resolve_session(&self, env: &Env, project: &Path, session: &SessionRef) -> Result<PathBuf> {
+        if session.harness != self.id() {
+            return Err(BusinessError::InvalidInput(
+                "the session belongs to another harness".to_owned(),
+            ));
+        }
+
+        sessions::find_session(&self.sessions_dir(env, project), &session.id)
+    }
+
+    /// The branch tree of a saved session.
+    fn session_tree(&self, env: &Env, project: &Path, session: &SessionRef) -> Result<SessionTree> {
+        sessions::session_tree(&self.resolve_session(env, project, session)?, session)
+    }
+
+    /// One page of the active-path transcript of a saved session (see
+    /// [`sessions::session_messages`] for the cursor).
+    fn session_messages(
+        &self,
+        env: &Env,
+        project: &Path,
+        session: &SessionRef,
+        cursor: Option<&str>,
+        limit: u32,
+    ) -> Result<SessionMessagesPage> {
+        sessions::session_messages(&self.resolve_session(env, project, session)?, cursor, limit)
+    }
+
+    /// Project-relative files the edit tools of a saved session may have changed.
+    fn session_files_touched(&self, env: &Env, project: &Path, session: &SessionRef) -> Result<Vec<String>> {
+        sessions::session_files_touched(&self.resolve_session(env, project, session)?, project)
+    }
 
     /// The approval mode the user configured for `project` (harnesses with
     /// `capabilities.approvalModes`); `None` when the harness has no approval modes.

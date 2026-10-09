@@ -1,9 +1,11 @@
 import { motion } from '$lib/stores/motion.svelte';
 
 import { agentHandlers } from './agent-handlers';
+import { gitHandlers } from './git-handlers';
 import { harnessHandlers } from './harness-handlers';
 import { hostHandlers } from './host-handlers';
 import { projectHandlers } from './project-handlers';
+import { sessionHandlers } from './session-handlers';
 import { MockState } from './state';
 import type { Handlers, Scenario } from './types';
 
@@ -25,6 +27,8 @@ export function defaultScenario(): Scenario {
     ...harnessHandlers(state),
     ...projectHandlers(state),
     ...agentHandlers(state, agentPace),
+    ...sessionHandlers(state),
+    ...gitHandlers(state),
   };
 
   return { name: 'default', handlers };

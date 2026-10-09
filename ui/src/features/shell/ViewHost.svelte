@@ -28,6 +28,14 @@
         {#await import('../chat/ChatView.svelte') then { default: ChatView }}
           <ChatView />
         {/await}
+      {:else if nav.current === 'sessions'}
+        {#await import('../sessions/SessionsView.svelte') then { default: SessionsView }}
+          <SessionsView />
+        {/await}
+      {:else if nav.current === 'changes'}
+        {#await import('../changes/ChangesView.svelte') then { default: ChangesView }}
+          <ChangesView />
+        {/await}
       {:else if nav.current === 'settings'}
         <SettingsView />
       {:else if nav.current === 'config'}

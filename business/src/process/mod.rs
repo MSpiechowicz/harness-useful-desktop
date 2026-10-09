@@ -23,7 +23,7 @@ pub use resolve::{ResolvedBinary, extra_search_dirs, find_override, is_batch_scr
 pub use runner::{ExecOutput, ProcessRunner, TokioRunner};
 pub use spawner::{ChildHandle, ProcessSpawner, SpawnedProcess, TokioSpawner};
 
-use std::ffi::OsString;
+use std::ffi::{OsStr, OsString};
 use std::future::Future;
 use std::path::PathBuf;
 use std::pin::Pin;
@@ -43,7 +43,8 @@ pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
 /// Default per-stream output cap for run-to-completion commands (1 MiB).
 pub const DEFAULT_MAX_OUTPUT_BYTES: usize = 1024 * 1024;
 
-/// What to execute. The child inherits the parent environment plus `env` overrides.
+/// What to execute. The child inherits the parent environment minus the variables named by
+/// `env_remove_prefixes`, plus `env` overrides.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExecSpec {
     /// Absolute path of the executable (resolve it first, see [`resolve_binary`]).
@@ -54,6 +55,9 @@ pub struct ExecSpec {
     pub cwd: Option<PathBuf>,
     /// Extra environment variables layered over the inherited environment.
     pub env: Vec<(OsString, OsString)>,
+    /// Inherited variables whose names start with one of these prefixes are not passed on
+    /// (ASCII case-insensitively on Windows); `env` overrides are set regardless.
+    pub env_remove_prefixes: Vec<OsString>,
     /// Time limit for [`ProcessRunner::run`] (ignored by spawners).
     pub timeout: Duration,
     /// Per-stream (stdout, stderr) capture cap for [`ProcessRunner::run`] (ignored by spawners).
@@ -68,6 +72,7 @@ impl ExecSpec {
             args: Vec::new(),
             cwd: None,
             env: Vec::new(),
+            env_remove_prefixes: Vec::new(),
             timeout: DEFAULT_TIMEOUT,
             max_output_bytes: DEFAULT_MAX_OUTPUT_BYTES,
         }
@@ -92,6 +97,13 @@ impl ExecSpec {
     /// Adds an environment override.
     pub fn env(mut self, name: impl Into<OsString>, value: impl Into<OsString>) -> Self {
         self.env.push((name.into(), value.into()));
+        self
+    }
+
+    /// Drops every inherited variable whose name starts with `prefix` (see
+    /// [`ExecSpec::env_remove_prefixes`]).
+    pub fn env_remove_prefix(mut self, prefix: impl Into<OsString>) -> Self {
+        self.env_remove_prefixes.push(prefix.into());
         self
     }
 
@@ -150,6 +162,12 @@ fn build_command(spec: &ExecSpec, stdin: Stdio) -> Result<Command> {
     }
 
     let mut command = Command::new(&spec.program);
+
+    // Removals first: the overrides in `spec.env` must survive them.
+    for name in removed_vars(&spec.env_remove_prefixes) {
+        command.env_remove(name);
+    }
+
     command
         .args(&spec.args)
         .envs(spec.env.iter().map(|(name, value)| (name, value)))
@@ -166,6 +184,35 @@ fn build_command(spec: &ExecSpec, stdin: Stdio) -> Result<Command> {
     command.process_group(0);
 
     Ok(command)
+}
+
+/// The names of the current process's variables that start with one of `prefixes`, read at spawn
+/// time so variables set after startup are covered too.
+fn removed_vars(prefixes: &[OsString]) -> Vec<OsString> {
+    if prefixes.is_empty() {
+        return Vec::new();
+    }
+
+    std::env::vars_os()
+        .map(|(name, _)| name)
+        .filter(|name| prefixes.iter().any(|prefix| has_prefix(name, prefix)))
+        .collect()
+}
+
+/// True when variable `name` starts with `prefix`; Windows variable names ignore ASCII case.
+fn has_prefix(name: &OsStr, prefix: &OsStr) -> bool {
+    let name = name.as_encoded_bytes();
+    let prefix = prefix.as_encoded_bytes();
+
+    let Some(head) = name.get(..prefix.len()) else {
+        return false;
+    };
+
+    if cfg!(windows) {
+        head.eq_ignore_ascii_case(prefix)
+    } else {
+        head == prefix
+    }
 }
 
 /// Spawns `command`, mapping failures to a [`BusinessError`] that names only the program.
