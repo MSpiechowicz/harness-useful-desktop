@@ -33,11 +33,12 @@
       aria-describedby={describedby}
       onclick={onselect}
       class={cx(
-        'group/item relative flex h-10 w-full items-center gap-3 rounded-md px-2.5 text-left transition-[color,background-color,transform] duration-[var(--dur-fast)] active:scale-[0.97]',
+        'group/item relative flex h-10 w-full items-center gap-3 rounded-md px-[9.5px] text-left transition-[color,background-color,transform] duration-[var(--dur-fast)] active:scale-[0.97]',
         active ? 'text-accent-text' : 'text-fg-2 hover:bg-hover hover:text-fg',
       )}
     >
-      <span class="relative grid size-5 shrink-0 place-items-center">
+      <!-- Sized in pixels like the icon, so the collapsed rail centers it: (64px rail - 1px border - 24px padding - 20px icon) / 2. -->
+      <span class="relative grid size-[20px] shrink-0 place-items-center">
         <view.icon size={ICON.lg} strokeWidth={1.8} aria-hidden="true" />
 
         {#if badge && !expanded}

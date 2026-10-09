@@ -75,19 +75,18 @@
   aria-label="Primary"
   data-expanded={expanded}
   class={cx(
-    'intro-enter intro-left relative flex shrink-0 flex-col gap-1 border-r border-line bg-surface-1/70 px-3 py-3 transition-[width] duration-[var(--dur-slow)] ease-[var(--ease-out-expo)]',
+    'intro-enter intro-left relative flex shrink-0 flex-col gap-1 border-r border-line bg-surface-1/70 px-[12px] py-3 transition-[width] duration-[var(--dur-slow)] ease-[var(--ease-out-expo)]',
     expanded ? 'w-[var(--rail-expanded)]' : 'w-[var(--rail-collapsed)]',
   )}
 >
-  <!-- Active indicator: a glowing tile that springs between destinations. -->
+  <!-- Active indicator: a glowing tile that springs between destinations. Pixel insets (not rem) keep it centered on
+       the fixed-width rail at any root font size. -->
   <span
     aria-hidden="true"
-    class="pointer-events-none absolute top-0 left-3 h-10 rounded-md border border-accent/30 bg-accent-wash shadow-glow transition-[width] duration-[var(--dur-slow)] ease-[var(--ease-out-expo)]"
-    style:width={expanded ? 'calc(100% - 24px)' : '40px'}
+    class="pointer-events-none absolute top-0 left-[12px] h-10 rounded-md border border-accent/30 bg-accent-wash shadow-glow transition-[width] duration-[var(--dur-slow)] ease-[var(--ease-out-expo)]"
+    style:width="calc(100% - 24px)"
     style:transform="translateY({indicatorY.current}px)"
-  >
-    <span class="absolute top-2 bottom-2 -left-3 w-[3px] rounded-r-full bg-[image:var(--brand-gradient)]"></span>
-  </span>
+  ></span>
 
   {#each VIEWS as view, index (view.id)}
     <div class={cx('flex', view.id === 'settings' && 'mt-auto')}>
