@@ -1,18 +1,15 @@
 <script lang="ts">
   import ClipboardCopy from '@lucide/svelte/icons/clipboard-copy';
-  import ExternalLink from '@lucide/svelte/icons/external-link';
   import Trash from '@lucide/svelte/icons/trash-2';
 
   import Button from '$lib/components/Button.svelte';
   import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
-  import { openExternal } from '$lib/ipc/actions';
   import { app } from '$lib/stores/app.svelte';
   import { harness } from '$lib/stores/harness.svelte';
   import { project } from '$lib/stores/project.svelte';
   import { toasts } from '$lib/stores/toasts.svelte';
 
   import { diagnosticsText } from './diagnostics';
-  import { REPOSITORY_URL } from './links';
   import { PRIVACY_FACTS } from './privacy-facts';
   import SettingRow from './SettingRow.svelte';
   import SettingsSection from './SettingsSection.svelte';
@@ -78,15 +75,6 @@
       <Button onclick={() => void copyDiagnostics()}>
         {#snippet leading()}<ClipboardCopy size={16} aria-hidden="true" />{/snippet}
         Copy diagnostics
-      </Button>
-    {/snippet}
-  </SettingRow>
-
-  <SettingRow title="Source code" description="Free software under GPL-3.0-or-later. Read exactly what it does.">
-    {#snippet control()}
-      <Button onclick={() => void openExternal(REPOSITORY_URL)}>
-        {#snippet leading()}<ExternalLink size={16} aria-hidden="true" />{/snippet}
-        Open repository
       </Button>
     {/snippet}
   </SettingRow>

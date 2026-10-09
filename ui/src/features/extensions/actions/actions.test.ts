@@ -183,4 +183,18 @@ describe('extension actions', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     await waitFor(() => expect(screen.queryByRole('button', { name: /pi-review-kit/ })).toBeNull());
   });
+
+  it('does not call an empty install field an error until the user tries to continue', async () => {
+    await open('omp', /Plugins/, /npm-helper/);
+    await fireEvent.click(screen.getByRole('button', { name: 'Install plugin' }));
+
+    const install = within(await dialog());
+    const field = install.getByRole('textbox', { name: /^Plugin/ });
+    await fireEvent.blur(field);
+    expect(install.queryByRole('alert')).toBeNull();
+
+    await fireEvent.click(install.getByRole('button', { name: 'Review' }));
+
+    expect(await install.findByRole('alert')).toHaveTextContent('Enter a value.');
+  });
 });

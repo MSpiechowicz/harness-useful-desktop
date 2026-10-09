@@ -51,6 +51,21 @@ describe('Intro', () => {
     expect(intro.phase).toBe('handoff');
   });
 
+  it('lets the lockup leave before the next screen, then removes it', async () => {
+    render(Intro);
+    intro.play('full');
+    await nextTick();
+    expect(document.querySelector('[data-leaving]')).toBeNull();
+
+    await fireEvent(document.querySelector('[data-part="cursor"]') as Element, new Event('animationend', { bubbles: true }));
+    expect(document.querySelector('[data-leaving]')).not.toBeNull();
+    expect(logo()).not.toBeNull();
+
+    intro.skip();
+    await nextTick();
+    expect(logo()).toBeNull();
+  });
+
   it('shows no logo under reduced motion, only a crossfade of the shell', async () => {
     prefs.value = samplePrefs({ motion: 'reduced' });
     render(Intro);

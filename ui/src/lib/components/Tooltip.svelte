@@ -27,6 +27,10 @@
   let { text, shortcut, side = 'top', disabled = false, class: className = 'inline-flex', children }: Props = $props();
 
   const SHOW_DELAY_MS = 350;
+  /** Focus that lands right after the trigger appears is the app moving focus into a new dialog, not the user tabbing. */
+  const SETTLE_MS = 300;
+
+  const mountedAt = performance.now();
 
   const id = uid('tooltip');
   let anchor: HTMLElement | undefined = $state();
@@ -71,8 +75,12 @@
     visible = true;
   }
 
-  // Only keyboard focus reveals the tooltip; clicks and programmatic focus would just add noise.
+  // Only keyboard focus reveals the tooltip; clicks and focus placed by a freshly opened dialog would just add noise.
   function onFocusIn(event: FocusEvent): void {
+    if (performance.now() - mountedAt < SETTLE_MS) {
+      return;
+    }
+
     if (event.target instanceof HTMLElement && event.target.matches(':focus-visible')) {
       showNow();
     }

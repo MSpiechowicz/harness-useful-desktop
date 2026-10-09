@@ -51,6 +51,13 @@ describe('PrivacySection', () => {
     expect(agents).not.toHaveTextContent(/never changes your approval mode/);
   });
 
+  it('leaves the repository link to the About card instead of repeating it', () => {
+    render(PrivacySection);
+
+    expect(screen.queryByText('Source code')).toBeNull();
+    expect(screen.queryByRole('button', { name: /repository/i })).toBeNull();
+  });
+
   it('forgets every recent project and tells the user', async () => {
     expect(project.recents.length).toBeGreaterThan(1);
     render(PrivacySection);

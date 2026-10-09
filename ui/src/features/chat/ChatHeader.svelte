@@ -25,7 +25,7 @@
   const projectName = $derived(session.info.project.split(/[\\/]/).filter(Boolean).at(-1) ?? session.info.project);
 </script>
 
-<header class="page-gutter flex items-center gap-3 border-b border-line py-2">
+<header class="page-gutter flex items-center gap-3 border-b border-line py-1.5">
   {#if summary}<HarnessBadge info={summary.info} size="sm" />{/if}
   <SessionName {session} />
 

@@ -75,7 +75,8 @@
 /*
  * Shell panels entering after the intro. The shell root carries
  * `data-intro="idle|playing|handoff|done"`; panels opt in with `.intro-enter`
- * plus a direction class and an optional `--intro-delay`.
+ * plus a direction class and an optional `--intro-delay`. `--intro-lead` (set on the shell root)
+ * is the beat the intro's lockup needs to leave first; reduced motion collapses it with the stagger.
  */
 [data-intro="idle"] .intro-enter,
 [data-intro="playing"] .intro-enter {
@@ -84,7 +85,7 @@
 
 [data-intro="handoff"] .intro-enter {
   animation: var(--intro-anim, enter-fade) var(--dur-enter) var(--ease-spring) both;
-  animation-delay: calc(var(--intro-delay, 0ms) * var(--stagger));
+  animation-delay: calc((var(--intro-lead, 0ms) + var(--intro-delay, 0ms)) * var(--stagger));
 }
 
 .intro-left { --intro-anim: enter-from-left; }

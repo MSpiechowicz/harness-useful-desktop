@@ -179,7 +179,7 @@
 }
 
 /*
- * The chat stage is a size container; inside it, `.bleed` blocks (code, tables, tool cards) grow past
+ * The chat stage is a size container; inside it, `.bleed` blocks (code and tool cards) grow past
  * the chat measure while the window has room and stay inside it otherwise. Anywhere else `.bleed` is inert.
  */
 .chat-stage {

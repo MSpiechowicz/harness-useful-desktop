@@ -7,8 +7,9 @@ import { intro } from '../intro/intro.svelte';
 export type OnboardingStep = 'welcome' | 'harnesses' | 'project' | 'approval' | 'done';
 
 /**
- * The first-run flow. It appears once the intro is over and preferences are loaded, until the
- * user finishes it; "Run onboarding again" brings it back (and lets them close it).
+ * The first-run flow. It appears as the intro hands over, so the lockup is followed by the setup
+ * and never by a flash of the shell, once preferences are loaded. It stays until the user finishes
+ * it; "Run onboarding again" brings it back (and lets them close it).
  */
 export class OnboardingController {
   step = $state<OnboardingStep>('welcome');
@@ -108,4 +109,4 @@ export class OnboardingController {
   }
 }
 
-export const onboarding = new OnboardingController(prefs, harness, () => intro.phase === 'done');
+export const onboarding = new OnboardingController(prefs, harness, () => intro.phase === 'handoff' || intro.phase === 'done');

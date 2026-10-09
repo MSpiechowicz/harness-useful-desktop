@@ -11,7 +11,7 @@
   import { configView, extensionsView } from '$lib/stores/views.svelte';
   import { matchesShortcut } from '$lib/utils/shortcuts';
 
-  import { intro } from '../intro/intro.svelte';
+  import { intro, INTRO_LEAD_MS } from '../intro/intro.svelte';
   import { onboarding } from '../onboarding/onboarding.svelte';
   import RestartConfirm from '../updates/RestartConfirm.svelte';
   import UpdateNotice from '../updates/UpdateNotice.svelte';
@@ -110,7 +110,7 @@
 
 <svelte:window onkeydown={onKeydown} />
 
-<div class="relative z-10 flex h-full" data-intro={intro.phase} inert={onboarding.visible}>
+<div class="relative z-10 flex h-full" data-intro={intro.phase} style:--intro-lead="{INTRO_LEAD_MS}ms" inert={onboarding.visible}>
   <Rail />
 
   <div class="relative flex min-w-0 flex-1 flex-col">

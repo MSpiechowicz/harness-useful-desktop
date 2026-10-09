@@ -14,6 +14,7 @@
   import { project } from '$lib/stores/project.svelte';
   import { cx } from '$lib/utils/cx';
 
+  import { intro, INTRO_LEAD_MS } from '../intro/intro.svelte';
   import ApprovalStep from './ApprovalStep.svelte';
   import DoneStep from './DoneStep.svelte';
   import HarnessesStep from './HarnessesStep.svelte';
@@ -25,6 +26,18 @@
   import WelcomeStep from './WelcomeStep.svelte';
 
   let finishing = $state(false);
+
+  // The page is taller than the window only on short ones; then the sticky actions get a backdrop so text does not run under them.
+  let viewHeight = $state(0);
+  let pageHeight = $state(0);
+  const scrolls = $derived(pageHeight > viewHeight);
+
+  /** Opening straight out of the intro, the setup waits for the lockup to leave; opened later, it appears at once. */
+  function enterFade(): { delay: number; duration: number } {
+    const afterLockup = intro.phase === 'handoff' && motion.level === 'full';
+
+    return { delay: afterLockup ? INTRO_LEAD_MS : 0, duration: scaled(300) };
+  }
 
   // The backdrop glows brighter on the bookend steps and settles while the user is choosing.
   const aurora = createSpring(AURORA_INTENSITY.welcome);
@@ -73,19 +86,19 @@
   >
     <!-- The canvas colour above is opaque from the first frame, so the shell never shows through; only the layers on top fade in. -->
     <!-- The aurora dims in the light theme through the same opacity token the shell backdrop uses. -->
-    <div class="pointer-events-none absolute inset-0" style:opacity="var(--aurora-opacity)" aria-hidden="true" in:fade|global={{ duration: scaled(300) }}>
+    <div class="pointer-events-none absolute inset-0" style:opacity="var(--aurora-opacity)" aria-hidden="true" in:fade|global={enterFade()}>
       <AuroraCanvas class="size-full" intensity={aurora.current} animated={motion.level === 'full'} />
     </div>
 
     {#if onboarding.rerun}
-      <div class="absolute top-4 right-4 z-10" in:fade|global={{ duration: scaled(300) }}>
+      <div class="absolute top-4 right-4 z-10" in:fade|global={enterFade()}>
         <IconButton icon={X} label="Close setup" side="bottom" onclick={() => onboarding.dismiss()} />
       </div>
     {/if}
 
     <!-- The whole block (progress, step, actions) is centred; on short windows the page scrolls instead of clipping. -->
-    <div class="relative h-full overflow-x-hidden overflow-y-auto" in:fade|global={{ duration: scaled(300) }}>
-      <div class="mx-auto flex min-h-full w-full max-w-[52rem] flex-col justify-center gap-8 px-6 py-14 [@media(max-height:720px)]:gap-5 [@media(max-height:720px)]:py-8">
+    <div bind:offsetHeight={viewHeight} class="relative h-full overflow-x-hidden overflow-y-auto" in:fade|global={enterFade()}>
+      <div bind:offsetHeight={pageHeight} class="mx-auto flex min-h-full w-full max-w-[52rem] flex-col justify-center gap-8 px-6 py-14 [@media(max-height:720px)]:gap-5 [@media(max-height:720px)]:py-8">
         <div class={cx('mx-auto w-full', WIDTH[STEP_WIDTH[onboarding.step]])}>
           <StepProgress />
         </div>
@@ -109,19 +122,22 @@
           {/key}
         </div>
 
-        <footer class={cx('mx-auto flex w-full items-center', WIDTH[STEP_WIDTH[onboarding.step]], onboarding.index === 0 ? 'justify-center' : 'justify-between')}>
-          {#if onboarding.index > 0}
-            <Button variant="ghost" onclick={() => onboarding.back()}>
-              {#snippet leading()}<ArrowLeft size={16} aria-hidden="true" />{/snippet}
-              Back
-            </Button>
-          {/if}
+        <!-- When the page scrolls, the actions stay in reach: this strip sticks to the bottom edge and fades the content out behind it. -->
+        <div class={cx('sticky bottom-0 z-10 -mx-6 -mt-6 -mb-4 px-6 pt-6 pb-4', scrolls && 'bg-gradient-to-t from-canvas from-55% to-transparent')}>
+          <footer class={cx('mx-auto flex w-full items-center', WIDTH[STEP_WIDTH[onboarding.step]], onboarding.index === 0 ? 'justify-center' : 'justify-between')}>
+            {#if onboarding.index > 0}
+              <Button variant="ghost" onclick={() => onboarding.back()}>
+                {#snippet leading()}<ArrowLeft size={16} aria-hidden="true" />{/snippet}
+                Back
+              </Button>
+            {/if}
 
-          <Button variant="primary" size="lg" loading={finishing} onclick={() => void advance()}>
-            {primaryLabel}
-            {#snippet trailing()}<ArrowRight size={18} aria-hidden="true" />{/snippet}
-          </Button>
-        </footer>
+            <Button variant="primary" size="lg" loading={finishing} onclick={() => void advance()}>
+              {primaryLabel}
+              {#snippet trailing()}<ArrowRight size={18} aria-hidden="true" />{/snippet}
+            </Button>
+          </footer>
+        </div>
       </div>
     </div>
   </div>

@@ -49,8 +49,8 @@
   }
 </script>
 
-<div class="mx-2 flex min-w-0 items-center gap-1 border-l border-line pl-4">
-  <div role="tablist" aria-label="Chats" class="flex min-w-0 items-center gap-1 overflow-x-auto py-1">
+<div class="flex min-w-0 flex-1 items-center gap-1">
+  <div role="tablist" aria-label="Chats" class="flex min-w-0 items-center gap-1 overflow-x-auto py-0.5">
     {#each sessions as session, index (session.key)}
       {@const selected = session.key === agentSessions.activeKey}
       {@const summary = harness.get(session.info.harness)}
@@ -62,7 +62,7 @@
           aria-selected={selected}
           tabindex={selected ? 0 : -1}
           title={session.info.project}
-          class="flex h-8 max-w-52 items-center gap-2 pr-1 pl-2.5 text-sm"
+          class="flex h-7 max-w-52 items-center gap-2 pr-1 pl-2.5 text-sm"
           onclick={() => agentSessions.select(session.key)}
           onkeydown={(event) => onKeydown(event, index)}
         >

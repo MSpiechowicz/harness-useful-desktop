@@ -69,7 +69,7 @@
     transition:slide={{ duration: scaled(DURATION.slow), easing: expoOut }}
     class="shrink-0 overflow-hidden border-b border-line bg-surface-2"
   >
-    <div class="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2.5">
+    <div class="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2">
       <span class="shrink-0" aria-hidden="true">
         {#if working}
           <Spinner size={18} class="text-accent-text" />
@@ -82,7 +82,8 @@
         {/if}
       </span>
 
-      <div class="flex min-w-48 flex-1 flex-col" role="status">
+      <!-- Title and detail share a line while there is room, so the band costs one row instead of two. -->
+      <div class="flex min-w-48 flex-1 flex-wrap items-baseline gap-x-3" role="status">
         <p class="text-base font-medium text-fg">{title}</p>
         {#if body}<p class="text-sm text-fg-2">{body}</p>{/if}
       </div>

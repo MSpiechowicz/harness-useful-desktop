@@ -75,19 +75,13 @@
   font-size: 13px;
 }
 
+/* Tables keep the prose edge (only code and tool cards bleed past the chat measure) and scroll sideways when wider. */
 .md-html table {
   display: block;
+  width: fit-content;
   max-width: 100%;
   overflow-x: auto;
   border-collapse: collapse;
-}
-
-/* In the chat, wide tables may use the same extra room as code blocks and tool cards. */
-.chat-stage .md-html table {
-  --bleed: clamp(0px, (100cqw - 100%) / 2 - var(--gutter), var(--chat-bleed));
-  width: fit-content;
-  max-width: calc(100% + 2 * var(--bleed));
-  margin-inline: calc(-1 * var(--bleed));
 }
 
 .md-html th,

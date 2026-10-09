@@ -28,7 +28,8 @@
     {#snippet trigger({ props })}
       <button type="button" {...props} class="inline-flex h-8 items-center gap-2 rounded-md border border-line bg-surface-2 px-2.5 text-sm text-fg-2 transition-colors hover:bg-surface-3 hover:text-fg">
         <Brain size={16} aria-hidden="true" />
-        <span>Thinking: {level ?? 'default'}</span>
+        <!-- The word "Thinking" drops out of sight on narrow windows (the icon says it) but stays in the accessible name. -->
+        <span><span class="max-[1100px]:sr-only">{'Thinking: '}</span>{level ?? 'default'}</span>
         <ChevronDown size={16} aria-hidden="true" class="text-fg-3" />
       </button>
     {/snippet}

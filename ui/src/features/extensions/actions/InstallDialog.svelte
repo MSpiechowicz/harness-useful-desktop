@@ -56,6 +56,7 @@
 
   let value = $state('');
   let scope = $state<InstallScope>('user');
+  // An empty field is not an error until the user tries to continue; leaving it half-typed is.
   let touched = $state(false);
 
   const problem = $derived(targetProblem(value));
@@ -99,7 +100,7 @@
         spellcheck="false"
         aria-describedby={hintId}
         aria-invalid={shownProblem ? 'true' : undefined}
-        onblur={() => (touched = true)}
+        onblur={() => (touched ||= value.trim() !== '')}
         class="h-10 w-full rounded-md border bg-surface-2 px-3 font-mono text-base text-fg outline-none focus:border-focus {shownProblem ? 'border-danger' : 'border-line-strong'}"
       />
       <span id={hintId} class="text-xs {shownProblem ? 'text-danger' : 'text-fg-3'}" role={shownProblem ? 'alert' : undefined}>{shownProblem ?? copy.hint}</span>

@@ -1,32 +1,22 @@
 <script lang="ts">
   import FolderOpen from '@lucide/svelte/icons/folder-open';
-  import GitCompare from '@lucide/svelte/icons/git-compare';
   import MessageSquare from '@lucide/svelte/icons/message-square';
-  import MessageSquarePlus from '@lucide/svelte/icons/message-square-plus';
   import PackageOpen from '@lucide/svelte/icons/package-open';
 
   import Button from '$lib/components/Button.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
-  import { ICON } from '$lib/components/icon';
-  import Kbd from '$lib/components/Kbd.svelte';
   import Skeleton from '$lib/components/Skeleton.svelte';
-  import ViewHeader from '$lib/components/ViewHeader.svelte';
   import { agentSessions } from '$lib/stores/agentSession.svelte';
-  import { git } from '$lib/stores/git.svelte';
   import { harness } from '$lib/stores/harness.svelte';
-  import { nav } from '$lib/stores/nav.svelte';
   import { project } from '$lib/stores/project.svelte';
 
   import { onboarding } from '../onboarding/onboarding.svelte';
-  import { newChat } from '../shell/actions';
-  import { count, scopeLabel } from '../shell/scope';
+  import ChatBar from './ChatBar.svelte';
   import ChatPane from './ChatPane.svelte';
-  import SessionTabs from './SessionTabs.svelte';
 
   const active = $derived(harness.active);
   const session = $derived(agentSessions.active);
   const ready = $derived(Boolean(active?.detection.installed && project.active));
-  const changed = $derived(git.status?.isRepo ? git.status.entries.length : 0);
   let starting = $state(false);
 
   async function start(): Promise<void> {
@@ -41,25 +31,7 @@
 </script>
 
 <div class="flex size-full min-h-0 flex-col">
-  <ViewHeader title="Chat" icon={MessageSquare} context={scopeLabel(agentSessions.sessions.length > 0 ? count(agentSessions.sessions.length, 'chat') : null)}>
-    {#snippet actions()}
-      <Button variant="ghost" disabled={!project.active} onclick={() => nav.go('changes')}>
-        {#snippet leading()}<GitCompare size={ICON.sm} aria-hidden="true" />{/snippet}
-        <span class="max-[1100px]:sr-only">View changes</span>
-        {#if changed > 0}<span class="tabular rounded-full bg-surface-3 px-1.5 text-xs leading-5 text-fg-2">{changed}</span>{/if}
-      </Button>
-
-      <Button variant="primary" disabled={!ready} onclick={() => void newChat()}>
-        {#snippet leading()}<MessageSquarePlus size={ICON.sm} aria-hidden="true" />{/snippet}
-        <span class="max-[1100px]:sr-only">New chat</span>
-        <span class="max-[1100px]:hidden"><Kbd keys="mod+n" /></span>
-      </Button>
-    {/snippet}
-
-    {#snippet center()}
-      {#if agentSessions.sessions.length > 0}<SessionTabs />{/if}
-    {/snippet}
-  </ViewHeader>
+  <ChatBar />
 
   <div class="min-h-0 flex-1">
     {#if harness.status === 'idle' || harness.status === 'loading'}

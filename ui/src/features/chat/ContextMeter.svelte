@@ -29,7 +29,7 @@
       aria-describedby={describedby}
       class="inline-flex h-8 items-center gap-2 rounded-md px-2 text-xs text-fg-3"
     >
-      <span class="h-1.5 w-14 overflow-hidden rounded-full bg-surface-3" aria-hidden="true">
+      <span class="h-1.5 w-14 overflow-hidden rounded-full bg-surface-3 max-[1100px]:hidden" aria-hidden="true">
         <span class={cx('block h-full rounded-full transition-[width] duration-[var(--dur-slow)]', tone)} style:width="{percent}%"></span>
       </span>
       <span class="tabular w-10">{usage ? `${percent.toFixed(percent < 10 ? 1 : 0)}%` : '—'}</span>

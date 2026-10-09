@@ -157,7 +157,7 @@
 /*
  * Layout scale. Pages sit in one of four containers and use one gutter, so every view lines up:
  * narrow (forms), reading (long text), wide (dense lists), full (split views and canvases).
- * The chat column is the reading measure of a conversation; code, tables and tool cards may
+ * The chat column is the reading measure of a conversation; code and tool cards may
  * bleed past it up to --chat-bleed per side while the window has room (see `bleed` in app.css).
  */
 :root {
