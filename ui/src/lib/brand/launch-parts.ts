@@ -1,6 +1,6 @@
 /** Debris of the launch animation: what falls out of the crack and what the landing kicks up. */
 
-/** Soft dust puffs at the impact; `slow` ones linger longer. */
+/** A soft dust puff; `slow` ones linger longer. */
 export interface Puff {
   cx: number;
   cy: number;
@@ -12,19 +12,31 @@ export interface Puff {
   slow?: boolean;
 }
 
+/**
+ * Impact dust: the slab lands flat and drives the air out from under it, so the dust starts beneath the whole
+ * block, jets out low and fast along the ground (further at the ends), then slows and billows up at the front.
+ * Deliberately uneven: sizes, timing, reach and rise differ, the right side is stronger.
+ */
 export const PUFFS: readonly Puff[] = [
-  { cx: 76, cy: 91.5, r: 5, dx: -19, dy: -8, scale: 2.2, delay: 0 },
-  { cx: 79, cy: 93, r: 4.2, dx: -28, dy: -2, scale: 1.9, delay: 0.03 },
-  { cx: 87, cy: 94, r: 4.6, dx: -5, dy: -13, scale: 2.1, delay: 0.02 },
-  { cx: 94, cy: 94, r: 4.6, dx: 6, dy: -12, scale: 2.0, delay: 0.04 },
-  { cx: 99, cy: 93, r: 4.2, dx: 27, dy: -3, scale: 1.9, delay: 0.02 },
-  { cx: 101, cy: 91.5, r: 5, dx: 19, dy: -9, scale: 2.3, delay: 0 },
-  { cx: 82, cy: 92, r: 6.5, dx: -22, dy: -14, scale: 2.3, delay: 0.08, slow: true },
-  { cx: 96, cy: 92, r: 6.5, dx: 22, dy: -15, scale: 2.4, delay: 0.1, slow: true },
-  // Rollers: low, wide clouds that keep drifting along the ground after the burst has faded.
-  { cx: 78, cy: 93, r: 5.5, dx: -36, dy: -4, scale: 2.6, delay: 0.12, slow: true },
-  { cx: 99, cy: 93, r: 5.5, dx: 36, dy: -5, scale: 2.6, delay: 0.14, slow: true },
+  // Left jet, from the slab's left end outward.
+  { cx: 75, cy: 93.5, r: 5.7, dx: -46, dy: -7, scale: 2.3, delay: 0 },
+  { cx: 79, cy: 94, r: 4.6, dx: -33, dy: -4, scale: 1.9, delay: 0.03 },
+  { cx: 84, cy: 94, r: 4.1, dx: -19, dy: -10, scale: 1.7, delay: 0.06 },
+  // Middle: pushed out less, rises a little.
+  { cx: 89, cy: 94, r: 5.1, dx: -5, dy: -12, scale: 1.8, delay: 0.04 },
+  { cx: 93, cy: 94, r: 4.3, dx: 8, dy: -9, scale: 1.6, delay: 0.08 },
+  // Right jet, the stronger side.
+  { cx: 98, cy: 94, r: 5.9, dx: 30, dy: -5, scale: 2.2, delay: 0.01 },
+  { cx: 102, cy: 93.5, r: 6.8, dx: 54, dy: -9, scale: 2.6, delay: 0 },
+  { cx: 100, cy: 94, r: 4.3, dx: 41, dy: -2, scale: 1.8, delay: 0.05 },
+  // Front billows that keep rolling and rising after the jet has spent itself.
+  { cx: 76, cy: 93, r: 7.3, dx: -52, dy: -24, scale: 2.6, delay: 0.09, slow: true },
+  { cx: 103, cy: 93, r: 8.1, dx: 60, dy: -28, scale: 3, delay: 0.07, slow: true },
+  { cx: 88, cy: 93, r: 6.2, dx: 4, dy: -26, scale: 2.4, delay: 0.14, slow: true },
 ];
+
+/** The dust skirt: a thin, wide sheet that spreads along the ground the instant the slab lands. */
+export const SKIRT = { cx: 88.5, cy: 94.5, rx: 18, ry: 2.2 } as const;
 
 /** Small irregular shards, as outlines around their own origin: splinters of the glyph, not pixels. */
 export const SHARDS = [

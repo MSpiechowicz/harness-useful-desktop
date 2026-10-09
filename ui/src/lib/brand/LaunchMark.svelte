@@ -1,7 +1,7 @@
 <svelte:options namespace="svg" />
 
 <script lang="ts">
-  import { CHIPS, CRACK, GRIT, PUFFS, SHARDS, SNAP_PUFFS } from './launch-parts';
+  import { CHIPS, CRACK, GRIT, PUFFS, SHARDS, SKIRT, SNAP_PUFFS } from './launch-parts';
   import { CURSOR, H_BROKEN, H_INTACT, LEG_PIVOT, STEM_PIECE } from './geometry';
 
   interface Props {
@@ -37,15 +37,19 @@
 
 <g filter="url(#{blur})" style:fill="var(--logo-dust)">
   {#each SNAP_PUFFS as puff, index (index)}
-    <circle class="puff snap" cx={puff.cx} cy={puff.cy} r={puff.r} style:--dx="{puff.dx}px" style:--dy="{puff.dy}px" style:--s={puff.scale} style:--d="{puff.delay}s" />
+    <ellipse class="puff snap" cx={puff.cx} cy={puff.cy} rx={puff.r * 1.35} ry={puff.r * 0.85} style:--dx="{puff.dx}px" style:--dy="{puff.dy}px" style:--s={puff.scale} style:--d="{puff.delay}s" />
   {/each}
 
+  <ellipse class="skirt" cx={SKIRT.cx} cy={SKIRT.cy} rx={SKIRT.rx} ry={SKIRT.ry} />
+
   {#each PUFFS as puff, index (index)}
-    <circle
+    <!-- Flattened puffs: dust hugs the ground and spreads sideways more than it rises. -->
+    <ellipse
       class={['puff', puff.slow && 'slow']}
       cx={puff.cx}
       cy={puff.cy}
-      r={puff.r}
+      rx={puff.r * 1.35}
+      ry={puff.r * 0.85}
       style:--dx="{puff.dx}px"
       style:--dy="{puff.dy}px"
       style:--s={puff.scale}
@@ -112,7 +116,7 @@
     transform-box: view-box;
     animation:
       shiver 0.26s 0.98s linear both,
-      shudder 0.22s 1.85s ease-out both;
+      shudder 0.3s 1.85s ease-out both;
   }
 
   /* The crack opens: the intact H gives way to the splintered H and the stem piece, which sags a hair. */
@@ -155,12 +159,20 @@
   }
 
   /* Impact: dust puffs (rollers keep drifting along the ground), splinters, a shudder. */
+  /* Air driven out from under the slab: a fast, low jet that brakes hard, then the dust drifts and billows up. */
   .puff {
-    animation: puff 0.95s calc(1.85s + var(--d, 0s)) cubic-bezier(0.12, 0.7, 0.25, 1) both;
+    animation: blast 1.1s calc(1.85s + var(--d, 0s)) linear both;
   }
 
   .puff.slow {
-    animation-duration: 1.3s;
+    animation-duration: 1.6s;
+  }
+
+  .skirt {
+    transform-box: fill-box;
+    transform-origin: center;
+    opacity: 0;
+    animation: skirt 0.7s 1.85s cubic-bezier(0.05, 0.8, 0.2, 1) both;
   }
 
   .puff.snap {
@@ -169,6 +181,40 @@
 
   .fleck {
     animation: fleck 0.7s calc(1.85s + var(--d, 0s)) linear both;
+  }
+
+  @keyframes blast {
+    0% {
+      opacity: 0;
+      transform: translate(0, 0) scale(0.35, 0.2);
+      animation-timing-function: cubic-bezier(0.05, 0.85, 0.25, 1);
+    }
+    6% {
+      opacity: 0.9;
+    }
+    38% {
+      opacity: 0.75;
+      transform: translate(calc(var(--dx) * 0.78), calc(var(--dy) * 0.25)) scale(calc(var(--s) * 0.75), calc(var(--s) * 0.42));
+      animation-timing-function: cubic-bezier(0.3, 0.2, 0.4, 1);
+    }
+    100% {
+      opacity: 0;
+      transform: translate(var(--dx), var(--dy)) scale(var(--s), calc(var(--s) * 0.9));
+    }
+  }
+
+  @keyframes skirt {
+    0% {
+      opacity: 0;
+      transform: scale(0.4, 1);
+    }
+    10% {
+      opacity: 0.8;
+    }
+    100% {
+      opacity: 0;
+      transform: scale(2.6, 1.6);
+    }
   }
 
   @keyframes give {
@@ -223,15 +269,19 @@
     }
   }
 
+  /* A heavy hit: the glyph takes the blow, rebounds, settles. */
   @keyframes shudder {
     0% {
       transform: translateY(0);
     }
-    30% {
-      transform: translateY(1.6px);
+    20% {
+      transform: translateY(2.2px);
     }
-    65% {
-      transform: translateY(-0.6px);
+    45% {
+      transform: translateY(-0.9px);
+    }
+    70% {
+      transform: translateY(0.4px);
     }
     100% {
       transform: translateY(0);

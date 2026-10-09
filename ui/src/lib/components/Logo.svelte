@@ -78,7 +78,22 @@
 
       {#if playing}
         <AccentGradient id={legGradient} transform="rotate(90 {LEG_PIVOT.x} {LEG_PIVOT.y})" />
-        <filter id={blur} filterUnits="userSpaceOnUse" x="20" y="30" width="140" height="100"><feGaussianBlur stdDeviation="2.8" /></filter>
+        <!--
+          Dust: fractal noise tears the edges of each puff (displacement), punches wispy holes through it (alpha
+          mask), and drifts while the dust spreads; a light blur softens what is left. No shape reads as a circle.
+        -->
+        <filter id={blur} filterUnits="userSpaceOnUse" x="10" y="26" width="160" height="104" color-interpolation-filters="sRGB">
+          <feTurbulence type="fractalNoise" baseFrequency="0.07 0.11" numOctaves="3" seed="4" result="edges">
+            <animate attributeName="baseFrequency" values="0.07 0.11;0.05 0.085" dur="3s" fill="freeze" />
+          </feTurbulence>
+          <feDisplacementMap in="SourceGraphic" in2="edges" scale="11" xChannelSelector="R" yChannelSelector="G" result="torn" />
+          <feTurbulence type="fractalNoise" baseFrequency="0.1 0.15" numOctaves="2" seed="9" result="grain">
+            <animate attributeName="baseFrequency" values="0.1 0.15;0.075 0.11" dur="3s" fill="freeze" />
+          </feTurbulence>
+          <feColorMatrix in="grain" type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  1.5 0 0 0 -0.12" result="wisps" />
+          <feComposite in="torn" in2="wisps" operator="in" result="smoke" />
+          <feGaussianBlur in="smoke" stdDeviation="1.8" />
+        </filter>
       {/if}
     </defs>
 
