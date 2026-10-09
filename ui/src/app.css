@@ -126,7 +126,8 @@
  * anti-aliased edge instead of two stacked ones.
  */
 @utility edge-accent {
-  border-color: color-mix(in oklch, var(--accent) 55%, var(--surface-1));
+  /* The same colour as the accent at 50% over the page, made opaque. */
+  border-color: color-mix(in oklch, var(--color-accent) 50%, var(--canvas));
   background-clip: padding-box;
 }
 
