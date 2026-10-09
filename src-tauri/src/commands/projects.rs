@@ -16,12 +16,14 @@ use crate::state::AppState;
 /// remembers it (when recent projects are remembered). `None` when cancelled.
 #[tauri::command]
 pub async fn project_pick(app: AppHandle, state: State<'_, AppState>) -> CommandResult<Option<ProjectInfo>> {
-    // Start where projects live: next to the most recent one, else the home directory.
+    // Start among the projects: given a folder, KDE's dialog opens its parent with that folder
+    // highlighted, so passing the most recent project shows its siblings (other projects) rather than
+    // the home directory and its loose files. Without one, fall back to the home directory.
     let recent = with_projects(&state, |projects| Ok(projects.recent())).await?;
     let start = recent
         .iter()
         .find(|project| project.exists)
-        .and_then(|project| PathBuf::from(&project.path).parent().map(PathBuf::from))
+        .map(|project| PathBuf::from(&project.path))
         .unwrap_or_else(|| state.env.home.clone());
 
     let Some(picked) = dialogs::pick(&app, &state.dialog, Pick::Folder, "Open a project folder", Some(&start)).await?

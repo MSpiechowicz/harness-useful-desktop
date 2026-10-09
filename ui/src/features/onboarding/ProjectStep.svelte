@@ -168,17 +168,20 @@
         class="absolute top-4 right-[48px] left-[calc(75%+40px)] h-px bg-[linear-gradient(90deg,var(--accent-3),var(--accent-1))] opacity-60"
         aria-hidden="true"
       ></span>
-      <span class="absolute top-0 right-0 flex flex-col items-center gap-1 text-accent-text" aria-hidden="true">
-        <span class="relative grid size-8 place-items-center">
+      <!-- Same structure as a step (ring, title row, line), so its title sits level with the others. -->
+      <span class="absolute top-0 right-0 flex flex-col items-end gap-2 text-right" aria-hidden="true">
+        <span class="relative grid size-8 place-items-center text-accent-text">
           <svg class="absolute -inset-1 size-10" viewBox="0 0 40 40">
             <circle cx="20" cy="20" r="15.5" fill="var(--color-accent)" fill-opacity="0.1" stroke="var(--color-accent)" stroke-opacity="0.6" stroke-width="1" stroke-dasharray="3 3" />
           </svg>
           <Repeat class="relative" size={14} />
         </span>
-        <span class="text-[11px] font-medium tracking-wider text-fg-3 uppercase">Repeat</span>
+        <span class="mt-1 text-sm font-medium text-fg">Repeat</span>
+        <span class="text-xs text-fg-3">Ask again.</span>
       </span>
+
       {#each LOOP as step, index (step.title)}
-        <li class="relative flex flex-col items-start gap-2 pr-6">
+        <li class={cx('relative flex flex-col items-start gap-2', index === LOOP.length - 1 ? 'pr-24' : 'pr-6')}>
           <!-- The node is SVG, so its ring is always anti-aliased. -->
           <span class="relative grid size-8 place-items-center text-xs font-semibold text-accent-text tabular">
             <svg class="absolute -inset-1 size-10 overflow-visible" viewBox="0 0 40 40" aria-hidden="true">
