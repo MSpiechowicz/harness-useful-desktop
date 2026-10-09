@@ -1,0 +1,144 @@
+@import "tailwindcss";
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/jetbrains-mono";
+@import "./lib/design/tokens.css";
+@import "./lib/design/motion.css";
+
+/* Map tokens into Tailwind utilities (bg-surface-2, text-fg-2, rounded-md, shadow-pop ...). */
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-surface-4: var(--surface-4);
+  --color-glass: var(--surface-glass);
+  --color-scrim: var(--scrim);
+
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+  --color-hover: var(--hover-wash);
+  --color-press: var(--press-wash);
+
+  --color-fg: var(--text);
+  --color-fg-2: var(--text-2);
+  --color-fg-3: var(--text-3);
+  --color-on-accent: var(--on-accent);
+
+  --color-accent: var(--accent-2);
+  --color-accent-text: var(--accent-text);
+  --color-accent-wash: var(--accent-wash);
+  --color-accent-fill: var(--accent-fill);
+  --color-focus: var(--focus);
+
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-info: var(--info);
+  --color-danger-fill: var(--danger-fill);
+  --color-success-wash: var(--success-wash);
+  --color-warning-wash: var(--warning-wash);
+  --color-danger-wash: var(--danger-wash);
+  --color-info-wash: var(--info-wash);
+
+  --color-omp: var(--harness-omp);
+  --color-pi: var(--harness-pi);
+  --color-omp-wash: var(--harness-omp-wash);
+  --color-pi-wash: var(--harness-pi-wash);
+
+  --font-sans: var(--font-ui);
+  --font-mono: var(--font-code);
+
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-base: 14px;
+  --text-lg: 16px;
+  --text-xl: 20px;
+  --text-2xl: 24px;
+  --text-3xl: 32px;
+  --text-4xl: 48px;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+
+  --shadow-raised: var(--elev-1);
+  --shadow-float: var(--elev-2);
+  --shadow-pop: var(--elev-3);
+  --shadow-glow: var(--glow);
+}
+
+@layer base {
+  html,
+  body {
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+    background: var(--canvas);
+    color: var(--text);
+    font-family: var(--font-ui);
+    font-size: 14px;
+    line-height: 1.5;
+    font-feature-settings: "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  #app {
+    height: 100%;
+  }
+
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.02em;
+    font-weight: 600;
+  }
+
+  ::selection {
+    background: oklch(0.68 0.2 295 / 0.4);
+    color: inherit;
+  }
+
+  /* One focus ring for everything reached by keyboard. */
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  button:not(:disabled),
+  [role="button"],
+  [role="switch"],
+  select {
+    cursor: pointer;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+  }
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@utility text-gradient {
+  background: var(--brand-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* A raised, hairline-bordered surface with a soft top highlight. */
+@utility surface {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  box-shadow: var(--elev-1);
+}
+
+@utility glass {
+  background: var(--surface-glass);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(24px) saturate(1.4);
+}

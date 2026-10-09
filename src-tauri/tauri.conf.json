@@ -1,0 +1,58 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Harness Desktop",
+  "version": "../package.json",
+  "identifier": "com.mspiechowicz.harness-useful-desktop",
+  "build": {
+    "beforeDevCommand": "bun run dev:ui",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "bun run build:ui",
+    "frontendDist": "../ui/dist",
+    "removeUnusedCommands": true
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [
+      {
+        "label": "main",
+        "create": false,
+        "title": "Harness Desktop",
+        "width": 1280,
+        "height": 820,
+        "minWidth": 960,
+        "minHeight": 600,
+        "center": true,
+        "resizable": true,
+        "decorations": true,
+        "visible": true,
+        "backgroundColor": "#070b14",
+        "dragDropEnabled": false
+      }
+    ],
+    "security": {
+      "freezePrototype": true,
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src ipc: http://ipc.localhost; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'",
+      "devCsp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src ipc: http://ipc.localhost ws://localhost:1420; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'",
+      "dangerousDisableAssetCspModification": ["style-src"]
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["appimage", "deb", "rpm", "nsis", "msi", "dmg", "app"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "category": "DeveloperTool",
+    "shortDescription": "Desktop companion for the OMP and PI coding-agent harnesses",
+    "longDescription": "Harness Desktop is a native desktop app for the OMP and PI coding-agent CLIs: browse their configuration, extensions and sessions, chat with agents over RPC, and review working-tree changes, without telemetry.",
+    "publisher": "Maciej Spiechowicz",
+    "copyright": "Copyright (C) 2026 Maciej Spiechowicz",
+    "license": "GPL-3.0-or-later",
+    "licenseFile": "../LICENSE"
+  }
+}

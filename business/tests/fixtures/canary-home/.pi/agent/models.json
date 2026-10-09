@@ -1,0 +1,12 @@
+{
+  "providers": {
+    "local": {
+      "baseUrl": "http://localhost:11434/v1",
+      "api": "openai-completions",
+      "apiKey": "CANARY-7f3a9c-json-apikey",
+      "headers": { "x-api-version": "CANARY-7f3a9c-json-pi-header" },
+      "models": [{ "id": "qwen3-coder:30b", "contextWindow": 262144 }]
+    },
+    "cloud": { "baseUrl": "https://api.example.com", "apiKey": "!pass show cloud/CANARY-7f3a9c-json-pi-command" }
+  }
+}

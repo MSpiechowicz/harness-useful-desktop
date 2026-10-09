@@ -1,0 +1,53 @@
+# Workspace root: the business crate and the thin Tauri shell.
+[workspace]
+resolver = "3"
+members = ["business", "src-tauri"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/MSpiechowicz/harness-useful-desktop"
+rust-version = "1.98"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+
+# Pinned once here; member crates use `name.workspace = true`.
+[workspace.dependencies]
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+thiserror = "2.0.21"
+tokio = { version = "1.53", features = ["process", "io-util", "sync", "time", "macros", "rt-multi-thread"] }
+which = "8.0.6"
+dirs = "7.0.0"
+ts-rs = { version = "12.0.1", features = ["serde-json-impl"] }
+serde_norway = "0.9.42"
+regex = "1.13"
+tracing = "0.1.44"
+uuid = { version = "1.27", features = ["v4"] }
+similar = "3.2.0"
+# Desktop shell (Tauri 2 only; Tauri 3 alpha is not used).
+tauri = "2.12.2"
+tauri-build = "2.7.1"
+tauri-plugin-single-instance = "2.5.2"
+tauri-plugin-window-state = "2.5.0"
+tauri-plugin-dialog = "2.8.1"
+tauri-plugin-opener = "2.7.0"
+tauri-plugin-log = "2.10.0"
+dunce = "1.0.5"
+# Unix-only: process-group kill (`killpg`) and non-blocking open flags.
+nix = { version = "0.31.3", default-features = false, features = ["signal", "fs", "process"] }
+# Dev dependencies
+tempfile = "3.27.0"
+insta = { version = "1.49.0", features = ["json"] }
+pretty_assertions = "1.4"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = true

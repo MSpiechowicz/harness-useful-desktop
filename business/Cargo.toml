@@ -1,0 +1,38 @@
+[package]
+name = "harness_business"
+description = "Business layer of Harness Desktop (no Tauri dependency)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[features]
+# Exposes `harness_business::testing` (in-memory process doubles) to other crates' tests.
+test-support = []
+
+[dependencies]
+dunce.workspace = true
+regex.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+ts-rs.workspace = true
+which.workspace = true
+dirs.workspace = true
+
+[target.'cfg(unix)'.dependencies]
+nix.workspace = true
+
+[dev-dependencies]
+# Self dev-dependency: enables `test-support` for this crate's integration tests.
+harness_business = { path = ".", features = ["test-support"] }
+pretty_assertions.workspace = true
+serde_norway.workspace = true
+tempfile.workspace = true
+
+[lints]
+workspace = true

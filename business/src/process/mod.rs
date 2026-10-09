@@ -1,0 +1,214 @@
+//! Shell-free process execution behind injectable traits.
+//!
+//! - [`ProcessRunner`] runs a command to completion with a timeout and an output cap
+//!   (version probes, `omp plugin …`, git).
+//! - [`ProcessSpawner`] starts a long-lived child with piped stdio (RPC agent sessions).
+//! - [`resolve`] finds harness binaries without asking a shell for `PATH`.
+//!
+//! Every spawn uses a fixed, absolute program path plus an explicit argv; a shell is never
+//! involved. On Unix each child leads its own process group so a kill reaches its descendants.
+//!
+//! # Why boxed futures
+//!
+//! The traits return [`BoxFuture`] instead of using `async fn` in traits: callers hold them as
+//! `&dyn ProcessRunner` / `Box<dyn ChildHandle>` (native `async fn` in traits is not
+//! dyn-compatible), and the futures must be `Send` for multi-threaded Tauri commands. One boxed
+//! allocation per process is negligible next to spawning it, and no `async-trait` macro is needed.
+
+mod resolve;
+mod runner;
+mod spawner;
+
+pub use resolve::{ResolvedBinary, extra_search_dirs, find_override, is_batch_script, resolve_binary};
+pub use runner::{ExecOutput, ProcessRunner, TokioRunner};
+pub use spawner::{ChildHandle, ProcessSpawner, SpawnedProcess, TokioSpawner};
+
+use std::ffi::OsString;
+use std::future::Future;
+use std::path::PathBuf;
+use std::pin::Pin;
+use std::process::{ExitStatus, Stdio};
+use std::time::Duration;
+
+use tokio::process::{Child, Command};
+
+use crate::error::{BusinessError, Result};
+
+/// A `Send` future boxed for use behind trait objects.
+pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
+
+/// Default timeout for run-to-completion commands.
+pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// Default per-stream output cap for run-to-completion commands (1 MiB).
+pub const DEFAULT_MAX_OUTPUT_BYTES: usize = 1024 * 1024;
+
+/// What to execute. The child inherits the parent environment plus `env` overrides.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExecSpec {
+    /// Absolute path of the executable (resolve it first, see [`resolve_binary`]).
+    pub program: PathBuf,
+    /// Arguments, passed verbatim (no shell, no globbing).
+    pub args: Vec<OsString>,
+    /// Working directory; inherits the parent's when `None`.
+    pub cwd: Option<PathBuf>,
+    /// Extra environment variables layered over the inherited environment.
+    pub env: Vec<(OsString, OsString)>,
+    /// Time limit for [`ProcessRunner::run`] (ignored by spawners).
+    pub timeout: Duration,
+    /// Per-stream (stdout, stderr) capture cap for [`ProcessRunner::run`] (ignored by spawners).
+    pub max_output_bytes: usize,
+}
+
+impl ExecSpec {
+    /// A spec with default timeout and output cap.
+    pub fn new(program: impl Into<PathBuf>) -> Self {
+        Self {
+            program: program.into(),
+            args: Vec::new(),
+            cwd: None,
+            env: Vec::new(),
+            timeout: DEFAULT_TIMEOUT,
+            max_output_bytes: DEFAULT_MAX_OUTPUT_BYTES,
+        }
+    }
+
+    /// Appends arguments.
+    pub fn args<I, S>(mut self, args: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<OsString>,
+    {
+        self.args.extend(args.into_iter().map(Into::into));
+        self
+    }
+
+    /// Sets the working directory.
+    pub fn cwd(mut self, cwd: impl Into<PathBuf>) -> Self {
+        self.cwd = Some(cwd.into());
+        self
+    }
+
+    /// Adds an environment override.
+    pub fn env(mut self, name: impl Into<OsString>, value: impl Into<OsString>) -> Self {
+        self.env.push((name.into(), value.into()));
+        self
+    }
+
+    /// Sets the timeout.
+    pub fn timeout(mut self, timeout: Duration) -> Self {
+        self.timeout = timeout;
+        self
+    }
+
+    /// Sets the per-stream output cap.
+    pub fn max_output_bytes(mut self, max: usize) -> Self {
+        self.max_output_bytes = max;
+        self
+    }
+
+    /// Short label for error messages: the program's file name only (never arguments, which
+    /// may carry user text).
+    pub(crate) fn label(&self) -> String {
+        self.program
+            .file_name()
+            .map(|name| name.to_string_lossy().into_owned())
+            .unwrap_or_else(|| "process".to_owned())
+    }
+}
+
+/// How a child process ended.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct ExitInfo {
+    /// Exit code, when the process exited normally.
+    pub code: Option<i32>,
+    /// Terminating signal on Unix.
+    pub signal: Option<i32>,
+}
+
+impl From<ExitStatus> for ExitInfo {
+    fn from(status: ExitStatus) -> Self {
+        #[cfg(unix)]
+        let signal = std::os::unix::process::ExitStatusExt::signal(&status);
+        #[cfg(not(unix))]
+        let signal = None;
+
+        Self {
+            code: status.code(),
+            signal,
+        }
+    }
+}
+
+/// Builds a shell-free command: absolute program, explicit argv, `kill_on_drop`, own process group.
+fn build_command(spec: &ExecSpec, stdin: Stdio) -> Result<Command> {
+    if !spec.program.is_absolute() {
+        return Err(BusinessError::InvalidInput(format!(
+            "program must be an absolute path: {}",
+            spec.label()
+        )));
+    }
+
+    let mut command = Command::new(&spec.program);
+    command
+        .args(&spec.args)
+        .envs(spec.env.iter().map(|(name, value)| (name, value)))
+        .stdin(stdin)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .kill_on_drop(true);
+
+    if let Some(cwd) = &spec.cwd {
+        command.current_dir(cwd);
+    }
+
+    #[cfg(unix)]
+    command.process_group(0);
+
+    Ok(command)
+}
+
+/// Spawns `command`, mapping failures to a [`BusinessError`] that names only the program.
+fn spawn_command(mut command: Command, spec: &ExecSpec) -> Result<Child> {
+    command.spawn().map_err(|error| match error.kind() {
+        std::io::ErrorKind::NotFound => BusinessError::NotFound(format!("executable {}", spec.label())),
+        _ => BusinessError::Process(format!("failed to start {}: {error}", spec.label())),
+    })
+}
+
+/// Kills the child and, on Unix, its whole process group. A no-op once the child was reaped.
+fn kill_tree(child: &mut Child) -> Result<()> {
+    // `id()` is `None` once tokio reaped the child; the pid (and its group id) may then be reused.
+    let Some(pid) = child.id() else {
+        return Ok(());
+    };
+
+    #[cfg(unix)]
+    kill_group(pid);
+    #[cfg(not(unix))]
+    let _ = pid;
+
+    match child.start_kill() {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::InvalidInput => Ok(()),
+        Err(error) => Err(BusinessError::Process(format!("failed to kill process: {error}"))),
+    }
+}
+
+/// Sends SIGKILL to the process group led by `pid` (the child was spawned with `process_group(0)`).
+#[cfg(unix)]
+fn kill_group(pid: u32) {
+    use nix::sys::signal::{Signal, killpg};
+    use nix::unistd::Pid;
+
+    let Ok(raw) = i32::try_from(pid) else {
+        return;
+    };
+
+    // ESRCH (group already gone) is the expected race; anything else is not actionable here.
+    if let Err(error) = killpg(Pid::from_raw(raw), Signal::SIGKILL)
+        && error != nix::errno::Errno::ESRCH
+    {
+        tracing::debug!(%error, "killpg failed");
+    }
+}

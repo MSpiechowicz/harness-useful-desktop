@@ -1,0 +1,38 @@
+[package]
+name = "harness_desktop"
+description = "Harness Desktop: a thin Tauri shell over the harness_business crate"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[lib]
+name = "harness_desktop_lib"
+path = "src/lib.rs"
+
+[[bin]]
+name = "harness-desktop"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build.workspace = true
+
+[dependencies]
+harness_business = { path = "../business" }
+serde.workspace = true
+tauri.workspace = true
+tauri-plugin-dialog.workspace = true
+tauri-plugin-log.workspace = true
+tauri-plugin-opener.workspace = true
+tauri-plugin-single-instance.workspace = true
+tauri-plugin-window-state.workspace = true
+# `log` feature: tracing events from the business crate reach tauri-plugin-log (no subscriber is installed).
+tracing = { workspace = true, features = ["log"] }
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[lints]
+workspace = true

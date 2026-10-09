@@ -1,0 +1,40 @@
+use serde::{Deserialize, Serialize};
+use ts_rs::TS;
+
+/// Stable error category returned over IPC; the UI branches on this, never on the message.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub enum IpcErrorCode {
+    /// The request was malformed or failed validation.
+    InvalidInput,
+    /// A file, binary, session or other resource does not exist.
+    NotFound,
+    /// The operation is refused by a security rule (deny-list, path containment, ...).
+    Forbidden,
+    /// The harness or platform does not support the operation.
+    Unsupported,
+    /// A filesystem or I/O failure.
+    Io,
+    /// A child process failed to start or exited unexpectedly.
+    Process,
+    /// An operation exceeded its time limit.
+    Timeout,
+    /// A harness spoke an unexpected protocol.
+    Protocol,
+    /// A bug or an unexpected internal state.
+    Internal,
+}
+
+/// Error payload of every failed IPC command.
+///
+/// `message` is human-readable and must never contain secret values or file contents.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct IpcError {
+    /// Machine-readable category.
+    pub code: IpcErrorCode,
+    /// Short description safe to display.
+    pub message: String,
+}

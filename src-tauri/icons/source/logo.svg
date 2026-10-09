@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Harness Desktop app icon (source for `tauri icon`).
+  Mark geometry is ui/src/lib/components/Logo.svelte (64-unit grid: two harness rails joined
+  through an orbiting node), drawn in white on a rounded tile filled with the brand gradient
+  (violet oklch(0.56 0.22 295) -> indigo oklch(0.55 0.18 262) -> cyan oklch(0.66 0.13 215)).
+  Strokes are heavier than in the UI logo so the mark stays legible at 16 px.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="tile" x1="96" y1="64" x2="928" y2="960" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#824ae4"/>
+      <stop offset="0.55" stop-color="#326ad9"/>
+      <stop offset="1" stop-color="#00a5c3"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="48" x2="0" y2="976" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.22"/>
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="48" y="48" width="928" height="928" rx="208" fill="url(#tile)"/>
+  <rect x="48" y="48" width="928" height="928" rx="208" fill="url(#sheen)"/>
+
+  <g transform="translate(512 512) scale(11.5) translate(-32 -32)" fill="none" stroke="#ffffff" stroke-linecap="round">
+    <g stroke-width="5.5">
+      <path d="M19 11V53"/>
+      <path d="M45 11V53"/>
+      <path d="M19 32H24.5M39.5 32H45"/>
+      <circle cx="32" cy="32" r="7.5"/>
+    </g>
+    <ellipse cx="32" cy="32" rx="17" ry="6.5" transform="rotate(-28 32 32)" stroke-width="2.4" stroke-opacity="0.85"/>
+    <circle cx="32" cy="32" r="3.2" fill="#ffffff" stroke="none"/>
+  </g>
+</svg>

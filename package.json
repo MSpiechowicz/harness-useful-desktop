@@ -1,0 +1,45 @@
+{
+  "name": "harness-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "GPL-3.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MSpiechowicz/harness-useful-desktop.git"
+  },
+  "scripts": {
+    "dev": "tauri dev",
+    "dev:ui": "vite --config ui/vite.config.ts",
+    "dev:mock": "vite --config ui/vite.config.ts --mode mock",
+    "build:ui": "vite build --config ui/vite.config.ts",
+    "build": "tauri build",
+    "tauri": "tauri",
+    "check": "svelte-check --tsconfig ui/tsconfig.json --fail-on-warnings",
+    "test": "vitest run --config ui/vitest.config.ts --passWithNoTests",
+    "guard": "bun scripts/check-file-size.ts && bun scripts/check-forbidden.ts && bun scripts/check-ipc-contract.ts",
+    "dup": "jscpd --config .jscpd.json"
+  },
+  "dependencies": {
+    "@fontsource-variable/inter": "^5.3.0",
+    "@fontsource-variable/jetbrains-mono": "^5.3.0",
+    "@lucide/svelte": "^1.54.0",
+    "@tauri-apps/api": "^2.12.2"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^7.3.1",
+    "@tailwindcss/vite": "^4.3.3",
+    "@tauri-apps/cli": "^2.12.1",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/svelte": "^5.4.2",
+    "@types/bun": "^1.4.2",
+    "happy-dom": "^20.14.6",
+    "jscpd": "^5.4.0",
+    "svelte": "^5.57.2",
+    "svelte-check": "^4.7.6",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^6.0.3",
+    "vite": "^8.3.4",
+    "vitest": "^5.0.3"
+  }
+}

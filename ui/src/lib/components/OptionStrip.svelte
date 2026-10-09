@@ -1,0 +1,137 @@
+<script lang="ts" generics="T extends string">
+  import { cx } from '$lib/utils/cx';
+  import { rovingIndex } from '$lib/utils/roving';
+
+  import type { StripOption } from './strip';
+
+  interface Props {
+    options: StripOption<T>[];
+    value: T;
+    /** `tabs` renders a tablist (used with a panel); `radio` renders a radiogroup. */
+    kind: 'tabs' | 'radio';
+    appearance: 'underline' | 'pill';
+    label: string;
+    /** Prefix for the generated tab/panel ids that tie tabs to their panel. */
+    idBase: string;
+    onchange?: (value: T) => void;
+    class?: string;
+  }
+
+  let { options, value = $bindable(), kind, appearance, label, idBase, onchange, class: className }: Props = $props();
+
+  let container: HTMLElement | undefined = $state();
+  let buttons: (HTMLButtonElement | undefined)[] = $state([]);
+  let box = $state({ x: 0, width: 0 });
+  let measured = $state(false);
+  let settled = $state(false);
+
+  const activeIndex = $derived(options.findIndex((option) => option.value === value));
+
+  function measure(): void {
+    const element = buttons[activeIndex];
+    if (!element) {
+      return;
+    }
+
+    box = { x: element.offsetLeft, width: element.offsetWidth };
+    measured = true;
+  }
+
+  // Re-measure when the selection or options change.
+  $effect(() => {
+    void [value, options];
+    measure();
+  });
+
+  // Re-measure on resize; enable the slide animation only after the first placement.
+  $effect(() => {
+    if (!container || typeof ResizeObserver === 'undefined') {
+      return;
+    }
+
+    const observer = new ResizeObserver(measure);
+    observer.observe(container);
+    const frame = requestAnimationFrame(() => (settled = true));
+
+    return () => {
+      observer.disconnect();
+      cancelAnimationFrame(frame);
+    };
+  });
+
+  function select(option: StripOption<T>): void {
+    if (option.disabled || option.value === value) {
+      return;
+    }
+
+    value = option.value;
+    onchange?.(option.value);
+  }
+
+  function onKeydown(event: KeyboardEvent, index: number): void {
+    const next = rovingIndex(event.key, index, options.length, 'horizontal');
+    if (next === null) {
+      return;
+    }
+
+    event.preventDefault();
+    select(options[next]);
+    buttons[next]?.focus();
+  }
+
+  const INDICATOR: Record<'underline' | 'pill', string> = {
+    underline: 'bottom-0 h-0.5 rounded-full bg-[image:var(--brand-gradient)]',
+    pill: 'inset-y-0.5 rounded-sm border border-line-strong bg-surface-4 shadow-raised',
+  };
+</script>
+
+<div
+  bind:this={container}
+  role={kind === 'tabs' ? 'tablist' : 'radiogroup'}
+  aria-label={label}
+  class={cx(
+    'relative inline-flex items-center',
+    appearance === 'pill' ? 'rounded-md border border-line bg-surface-2 p-0.5' : 'gap-1 border-b border-line',
+    className,
+  )}
+>
+  <span
+    aria-hidden="true"
+    class={cx(
+      'pointer-events-none absolute left-0',
+      INDICATOR[appearance],
+      measured ? 'opacity-100' : 'opacity-0',
+      settled && 'transition-[transform,width] duration-[var(--dur-slow)] ease-[var(--ease-spring)]',
+    )}
+    style:width="{box.width}px"
+    style:transform="translateX({box.x}px)"
+  ></span>
+
+  {#each options as option, index (option.value)}
+    {@const selected = option.value === value}
+    <button
+      bind:this={buttons[index]}
+      type="button"
+      id="{idBase}-tab-{option.value}"
+      role={kind === 'tabs' ? 'tab' : 'radio'}
+      aria-selected={kind === 'tabs' ? selected : undefined}
+      aria-checked={kind === 'radio' ? selected : undefined}
+      aria-controls={kind === 'tabs' ? `${idBase}-panel` : undefined}
+      tabindex={selected ? 0 : -1}
+      disabled={option.disabled}
+      onclick={() => select(option)}
+      onkeydown={(event) => onKeydown(event, index)}
+      class={cx(
+        'relative z-10 inline-flex items-center gap-2 px-3.5 text-sm font-medium transition-colors duration-[var(--dur-fast)] disabled:cursor-not-allowed disabled:opacity-50',
+        appearance === 'pill' ? 'h-8 rounded-sm' : 'h-10',
+        selected ? 'text-fg' : 'text-fg-2 hover:text-fg',
+      )}
+    >
+      {#if option.icon}
+        {@const Icon = option.icon}
+        <Icon size={16} strokeWidth={1.8} aria-hidden="true" />
+      {/if}
+      {option.label}
+    </button>
+  {/each}
+</div>

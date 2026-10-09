@@ -1,0 +1,130 @@
+/*
+ * Design tokens: "aurora glass".
+ *
+ * Dark is the default; the light palette overrides it under `[data-theme="light"]`.
+ * The theme store always writes the resolved theme to `data-theme`, so no
+ * `prefers-color-scheme` duplication of the palette is needed here.
+ *
+ * Every text/background pair used by the components is checked for WCAG AA
+ * (>= 4.5:1 text, >= 3:1 UI) by the pairs documented next to each group.
+ */
+:root {
+  color-scheme: dark;
+
+  /* Canvas and layered surfaces (each step is one elevation higher). */
+  --canvas: oklch(0.15 0.02 265);
+  --surface-1: oklch(0.185 0.022 265);
+  --surface-2: oklch(0.22 0.024 265);
+  --surface-3: oklch(0.265 0.026 265);
+  --surface-4: oklch(0.31 0.028 265);
+  --surface-glass: oklch(0.2 0.025 265 / 0.74);
+  --scrim: oklch(0.08 0.02 265 / 0.62);
+
+  /* Hairlines and inner highlights. */
+  --border: oklch(1 0 0 / 0.08);
+  --border-strong: oklch(1 0 0 / 0.16);
+  --highlight: oklch(1 0 0 / 0.07);
+  --hover-wash: oklch(1 0 0 / 0.06);
+  --press-wash: oklch(1 0 0 / 0.1);
+
+  /* Text. */
+  --text: oklch(0.97 0.008 265);
+  --text-2: oklch(0.8 0.02 265);
+  --text-3: oklch(0.68 0.025 265);
+  --on-accent: oklch(1 0 0);
+
+  /* Brand accent: violet -> indigo -> cyan. Use sparingly. */
+  --accent-1: oklch(0.68 0.2 295);
+  --accent-2: oklch(0.7 0.16 250);
+  --accent-3: oklch(0.87 0.1 200);
+  --accent-text: oklch(0.8 0.12 285);
+  --accent-wash: oklch(0.68 0.2 295 / 0.16);
+  --accent-fill: oklch(0.48 0.21 290);
+  --accent-fill-end: oklch(0.48 0.17 255);
+  --focus: oklch(0.74 0.15 270);
+
+  /* Semantic text colors, each paired with a translucent wash. */
+  --success: oklch(0.87 0.16 155);
+  --warning: oklch(0.89 0.15 80);
+  --danger: oklch(0.87 0.1 20);
+  --info: oklch(0.87 0.1 235);
+  --danger-fill: oklch(0.48 0.19 25);
+  --success-wash: oklch(0.87 0.16 155 / 0.12);
+  --warning-wash: oklch(0.89 0.15 80 / 0.12);
+  --danger-wash: oklch(0.87 0.1 20 / 0.12);
+  --info-wash: oklch(0.87 0.1 235 / 0.12);
+
+  /* Per-harness accents. */
+  --harness-omp: oklch(0.88 0.14 65);
+  --harness-pi: oklch(0.88 0.11 175);
+  --harness-omp-wash: oklch(0.88 0.14 65 / 0.12);
+  --harness-pi-wash: oklch(0.88 0.11 175 / 0.12);
+
+  /* Elevation: layered shadows plus a soft glow for the accent. */
+  --elev-1: 0 1px 2px oklch(0 0 0 / 0.35), 0 1px 0 var(--highlight) inset;
+  --elev-2: 0 6px 20px oklch(0 0 0 / 0.35), 0 1px 0 var(--highlight) inset;
+  --elev-3: 0 20px 60px oklch(0 0 0 / 0.55), 0 1px 0 var(--highlight) inset;
+  --glow: 0 0 24px oklch(0.68 0.2 295 / 0.35), 0 0 2px oklch(0.7 0.16 250 / 0.6);
+
+  /* Aurora shown behind the shell. */
+  --aurora-opacity: 0.55;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --canvas: oklch(0.975 0.006 265);
+  --surface-1: oklch(1 0 0);
+  --surface-2: oklch(0.965 0.008 265);
+  --surface-3: oklch(0.935 0.01 265);
+  --surface-4: oklch(0.9 0.012 265);
+  --surface-glass: oklch(1 0 0 / 0.78);
+  --scrim: oklch(0.25 0.04 265 / 0.38);
+
+  --border: oklch(0.25 0.04 265 / 0.1);
+  --border-strong: oklch(0.25 0.04 265 / 0.2);
+  --highlight: oklch(1 0 0 / 0.9);
+  --hover-wash: oklch(0.25 0.04 265 / 0.05);
+  --press-wash: oklch(0.25 0.04 265 / 0.09);
+
+  --text: oklch(0.22 0.03 265);
+  --text-2: oklch(0.4 0.03 265);
+  --text-3: oklch(0.48 0.03 265);
+
+  --accent-1: oklch(0.6 0.2 295);
+  --accent-2: oklch(0.6 0.17 255);
+  --accent-3: oklch(0.66 0.13 205);
+  --accent-text: oklch(0.48 0.2 285);
+  --accent-wash: oklch(0.55 0.2 290 / 0.1);
+  --focus: oklch(0.55 0.2 275);
+
+  --success: oklch(0.45 0.13 155);
+  --warning: oklch(0.47 0.11 70);
+  --danger: oklch(0.5 0.19 25);
+  --info: oklch(0.48 0.13 245);
+  --success-wash: oklch(0.55 0.15 155 / 0.12);
+  --warning-wash: oklch(0.65 0.15 80 / 0.16);
+  --danger-wash: oklch(0.55 0.2 25 / 0.1);
+  --info-wash: oklch(0.55 0.14 245 / 0.1);
+
+  --harness-omp: oklch(0.48 0.12 55);
+  --harness-pi: oklch(0.44 0.09 180);
+  --harness-omp-wash: oklch(0.7 0.15 65 / 0.16);
+  --harness-pi-wash: oklch(0.65 0.12 175 / 0.14);
+
+  --elev-1: 0 1px 2px oklch(0.25 0.04 265 / 0.1), 0 0 0 1px var(--border);
+  --elev-2: 0 8px 24px oklch(0.25 0.04 265 / 0.12), 0 0 0 1px var(--border);
+  --elev-3: 0 24px 64px oklch(0.25 0.04 265 / 0.22), 0 0 0 1px var(--border);
+  --glow: 0 0 20px oklch(0.6 0.2 290 / 0.25);
+
+  --aurora-opacity: 0;
+}
+
+/* Shared, theme-independent tokens. */
+:root {
+  --font-ui: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-code: "JetBrains Mono Variable", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --brand-gradient: linear-gradient(120deg, var(--accent-1), var(--accent-2) 55%, var(--accent-3));
+  --brand-fill: linear-gradient(135deg, var(--accent-fill), var(--accent-fill-end));
+}

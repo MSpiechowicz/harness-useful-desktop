@@ -1,0 +1,8 @@
+{
+  "defaultProvider": "anthropic",
+  "defaultModel": "claude-sonnet-4-5",
+  "defaultThinkingLevel": "medium",
+  "httpProxy": "http://proxyuser:CANARY-7f3a9c-json-proxy@proxy.local:3128",
+  "packages": ["npm:@scope/pi-tools@1.2.3"],
+  "telemetry": { "sessionCookie": "CANARY-7f3a9c-json-cookie" }
+}

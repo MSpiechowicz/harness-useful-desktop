@@ -1,0 +1,13 @@
+.tasks
+node_modules/
+target/
+ui/dist/
+src-tauri/gen/
+coverage/
+playwright-report/
+test-results/
+.DS_Store
+*.log
+.env.local
+report/
+.vite/

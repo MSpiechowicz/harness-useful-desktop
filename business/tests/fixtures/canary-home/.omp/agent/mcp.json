@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "github": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": { "GITHUB_PERSONAL_ACCESS_TOKEN": "CANARY-7f3a9c-json-env", "LOG_LEVEL": "CANARY-7f3a9c-json-env-plain" },
+      "enabled": true,
+      "timeout": 30000
+    },
+    "remote": {
+      "type": "http",
+      "url": "https://mcp.example.com/sse?api_key=CANARY-7f3a9c-json-query&region=eu",
+      "headers": { "Authorization": "Bearer CANARY-7f3a9c-json-bearer", "X-Org": "CANARY-7f3a9c-json-header" },
+      "auth": { "type": "oauth", "clientId": "desktop-client", "clientSecret": "CANARY-7f3a9c-json-client-secret", "credentialId": "CANARY-7f3a9c-json-credential-id", "refresh": "CANARY-7f3a9c-json-auth-other" },
+      "oauth": { "scope": "repo read:org", "redirectUri": "http://127.0.0.1:7777/callback", "clientSecret": "CANARY-7f3a9c-json-oauth-secret", "pkce": { "verifier": "CANARY-7f3a9c-json-oauth-nested" } }
+    }
+  },
+  "disabledServers": ["legacy"]
+}

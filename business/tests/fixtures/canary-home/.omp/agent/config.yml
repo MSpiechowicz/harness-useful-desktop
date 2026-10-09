@@ -1,0 +1,21 @@
+# OMP settings fixture: every secret holds the canary.
+modelRoles:
+  default: anthropic/claude-sonnet-4-5
+theme:
+  dark: titanium
+  light: light
+tools:
+  approvalMode: yolo
+providers:
+  anthropic:
+    apiKey: CANARY-7f3a9c-yaml-apikey
+    baseUrl: https://user:CANARY-7f3a9c-yaml-userinfo@api.example.com/v1
+  openai:
+    api_key: "!op read op://vault/CANARY-7f3a9c-yaml-command"
+  custom:
+    authToken: ${CANARY_TOKEN_VAR}
+    headers:
+      X-Trace: CANARY-7f3a9c-yaml-header
+search:
+  maxTokens: 4096
+  token_limit: CANARY-7f3a9c-yaml-token
