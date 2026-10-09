@@ -167,6 +167,8 @@ export interface LimitWindow {
   provider: string;
   plan: string | null;
   window: string;
+  /** A sub-limit within the window, e.g. one model family's own cap; null for the plan-wide limit. */
+  scope: string | null;
   /** 0..100, or null when the last reading no longer applies. */
   usedPercent: number | null;
   resetsAt: string | null;
@@ -180,6 +182,7 @@ export function readLimits(result: DashboardResult): LimitWindow[] {
     provider: text(window, 'provider') ?? 'unknown',
     plan: text(window, 'plan'),
     window: text(window, 'window') ?? '',
+    scope: text(window, 'scope'),
     usedPercent: number(window, 'usedPercent'),
     resetsAt: text(window, 'resetsAt'),
     status: text(window, 'status') ?? 'unknown',

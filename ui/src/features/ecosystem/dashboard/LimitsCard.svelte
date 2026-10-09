@@ -19,6 +19,13 @@
     return `${window.provider} ${window.plan ?? ''}`.trim();
   }
 
+  /** The window's name plus its scope, so a plan-wide 7-day limit and a per-model one read apart. */
+  function period(window: LimitWindow): string {
+    const name = WINDOWS[window.window] ?? window.window;
+
+    return window.scope ? `${name}, ${window.scope}` : name;
+  }
+
   function tone(status: string): 'success' | 'warning' | 'neutral' {
     if (status === 'fresh') {
       return 'success';
@@ -34,16 +41,17 @@
       <p class="text-sm text-fg-3" role="status">The dashboard has not recorded any plan limits yet.</p>
     {:else}
       <ul class="flex flex-col gap-4">
-        {#each windows as window (`${window.provider}${window.window}`)}
+        <!-- Keyed by position: the dashboard may report several windows with the same provider and period. -->
+        {#each windows as window, row (row)}
           {@const reset = window.resetsAt ? timeUntil(window.resetsAt) : null}
 
           <li class="flex flex-col gap-1.5">
             <div class="flex items-baseline justify-between gap-2 text-sm">
-              <span class="min-w-0 truncate"><span class="font-medium text-fg capitalize">{title(window)}</span> <span class="text-fg-3">· {WINDOWS[window.window] ?? window.window}</span></span>
+              <span class="min-w-0 truncate"><span class="font-medium text-fg capitalize">{title(window)}</span> <span class="text-fg-3">· {period(window)}</span></span>
               <Badge tone={tone(window.status)}>{window.status}</Badge>
             </div>
             <Meter
-              label="{title(window)} {WINDOWS[window.window] ?? window.window}"
+              label="{title(window)} {period(window)}"
               percent={window.usedPercent}
               valueText={window.usedPercent === null ? '' : formatPercent(window.usedPercent)}
             />

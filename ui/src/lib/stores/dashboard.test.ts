@@ -44,7 +44,7 @@ describe('dashboard panel', () => {
     expect(store.usage.data?.costUsd).toBeCloseTo(38.4127, 4);
     expect(store.byModel.data?.rows[0].key).toBe('claude-opus-5-5');
     expect(store.byProvider.data?.rows.map((row) => row.key)).toEqual(['omp', 'claude', 'pi', 'codex']);
-    expect(store.limits.data).toHaveLength(4);
+    expect(store.limits.data).toHaveLength(5);
     expect(store.budgets.data?.map((budget) => budget.scope)).toEqual(['daily', 'monthly', 'project']);
     expect(queries.find((query) => query.tool === 'usageSummary')?.args).toEqual({ range: '7d' });
   });

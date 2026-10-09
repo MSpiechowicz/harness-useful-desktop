@@ -102,6 +102,9 @@ describe('Ecosystem view', () => {
 
     expect(screen.getByRole('meter', { name: 'claude max 5-hour window' })).toHaveAttribute('aria-valuenow', '43');
     expect(screen.getByRole('meter', { name: 'codex pro 5-hour window' })).toHaveAttribute('aria-valuetext', 'no reading');
+    // A per-model cap shares provider and period with the plan-wide one; both render, told apart by scope.
+    expect(screen.getByRole('meter', { name: 'claude max 7-day window' })).toHaveAttribute('aria-valuenow', '61');
+    expect(screen.getByRole('meter', { name: 'claude max 7-day window, Fable' })).toHaveAttribute('aria-valuenow', '12');
   });
 
   it('lists recent failures and tips', async () => {

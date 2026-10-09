@@ -36,7 +36,7 @@
       <p class="text-sm text-fg-3" role="status">No budgets are set. Add a cap in the dashboard to see it here.</p>
     {:else}
       <ul class="flex flex-col gap-4">
-        {#each budgets as budget (`${budget.scope}${budget.project}${budget.period}`)}
+        {#each budgets as budget, row (row)}
           {@const status = STATUS[budget.status] ?? { label: budget.status, tone: 'neutral' as const }}
           {@const projectedOver = budget.projectedUsd !== null && budget.projectedUsd > budget.capUsd}
 
