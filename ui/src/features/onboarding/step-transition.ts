@@ -8,24 +8,26 @@ export interface StepSlideParams {
   direction: 1 | -1;
 }
 
-/** The incoming step slides in from the side the user is heading towards; reduced motion crossfades, off is instant. */
-export function stepIn(_node: Element, { direction }: StepSlideParams): TransitionConfig {
-  const distance = travel(44) * direction;
-
+/**
+ * The incoming step only fades its frame in; its pieces then build themselves one after another (the `step-build`
+ * cascade in Onboarding.svelte), each gliding in from the side the user is heading towards. Reduced motion
+ * crossfades, off is instant.
+ */
+export function stepIn(_node: Element): TransitionConfig {
   return {
-    delay: scaled(100),
-    duration: scaled(DURATION.enter),
+    delay: scaled(140),
+    duration: scaled(DURATION.base),
     easing: expoOut,
-    css: (t, u) => `opacity: ${t}; transform: translateX(${u * distance}px)`,
+    css: (t) => `opacity: ${t}`,
   };
 }
 
-/** The outgoing step drifts the opposite way while it fades, so the pair reads as one movement. */
+/** The outgoing step leaves quickly, drifting the opposite way, so the new one has the stage. */
 export function stepOut(_node: Element, { direction }: StepSlideParams): TransitionConfig {
-  const distance = travel(28) * direction;
+  const distance = travel(24) * direction;
 
   return {
-    duration: scaled(DURATION.base),
+    duration: scaled(180),
     easing: cubicOut,
     css: (t, u) => `opacity: ${t}; transform: translateX(${-u * distance}px)`,
   };

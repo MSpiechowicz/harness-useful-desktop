@@ -58,8 +58,8 @@
       <h3 id="first-steps" class="text-sm font-medium tracking-wider text-fg-3 uppercase">Where to find things</h3>
       <ul class="flex flex-col gap-3">
         {#each TIPS as tip (tip.keys)}
-          <li class="grid grid-cols-[5.5rem_1fr] items-start gap-3">
-            <span class="pt-0.5"><Kbd keys={tip.keys} /></span>
+          <li class="grid grid-cols-[max-content_1fr] items-start gap-4">
+            <span class="pt-0.5"><Kbd keys={tip.keys} uniform /></span>
             <div class="flex flex-col gap-0.5">
               <p class="text-sm font-medium text-fg">{tip.title}</p>
               <p class="text-sm text-fg-2">{tip.body}</p>

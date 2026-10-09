@@ -106,11 +106,12 @@
           {#key onboarding.step}
             <div
               class={cx(
-                'mx-auto w-full min-w-0',
+                'step-build mx-auto w-full min-w-0',
                 onboarding.step === 'welcome' ? '[align-self:safe_center]' : 'self-start',
                 WIDTH[STEP_WIDTH[onboarding.step]],
               )}
-              in:stepIn={{ direction: onboarding.direction }}
+              style:--dir={onboarding.direction}
+              in:stepIn
               out:stepOut={{ direction: onboarding.direction }}
             >
               {#if onboarding.step === 'welcome'}
@@ -148,6 +149,31 @@
 {/if}
 
 <style>
+  /*
+   * The incoming step builds itself: eyebrow, title, text, then each block, one after another, each gliding a short
+   * way in from the side the user is heading towards (--dir). The motion tokens zero the travel and the stagger
+   * for reduced motion, and the duration for motion off.
+   */
+  .step-build > :global(*) > :global(*:not(header)),
+  .step-build :global(header) > :global(*) {
+    animation: step-piece var(--dur-enter) var(--ease-out-expo) both;
+    animation-delay: calc((160ms + var(--n, 0) * 55ms) * var(--stagger));
+  }
+
+  .step-build :global(header) > :global(:nth-child(2)) { --n: 1; }
+  .step-build :global(header) > :global(:nth-child(3)) { --n: 2; }
+  .step-build > :global(*) > :global(:nth-child(2)) { --n: 3; }
+  .step-build > :global(*) > :global(:nth-child(3)) { --n: 4; }
+  .step-build > :global(*) > :global(:nth-child(4)) { --n: 5; }
+  .step-build > :global(*) > :global(:nth-child(5)) { --n: 6; }
+
+  @keyframes step-piece {
+    from {
+      opacity: 0;
+      transform: translateX(calc(var(--dir, 1) * var(--shift) * 3));
+    }
+  }
+
   /* No scrollbar line beside the step: when a step is taller than the frame, its bottom edge fades instead. */
   .step-area {
     scrollbar-width: none;
