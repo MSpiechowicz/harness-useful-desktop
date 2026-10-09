@@ -84,7 +84,7 @@ jobs:
       - name: Install pinned Rust toolchain
         run: rustup show active-toolchain || rustup toolchain install
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-      - run: cargo test -p harness_business export_bindings --no-fail-fast
+      - run: cargo test -p harness_business export_ --no-fail-fast
       - name: Fail on modified generated files
         run: git diff --exit-code -- ui/src/lib/ipc/bindings ui/src/lib/ipc/mock/fixtures
       - name: Fail on untracked generated files
@@ -95,6 +95,19 @@ jobs:
             echo "$untracked"
             exit 1
           fi
+
+  # Supply-chain policy for Rust dependencies (see deny.toml).
+  rust-deps:
+    name: Rust dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: taiki-e/install-action@f7e5d7c961414b23f5b25b2da9294395d08513ad # v2.87.26
+        with:
+          tool: cargo-deny
+      - run: cargo deny check advisories bans licenses sources
 
   ui-check:
     name: UI type check
@@ -137,6 +150,7 @@ jobs:
         with:
           bun-version: ${{ env.BUN_VERSION }}
       - run: bun install --frozen-lockfile
+      - run: bun audit
       - run: bun run guard
       - run: bun run dup
 
@@ -187,4 +201,5 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run build:ui
       - run: cargo clippy -p harness_desktop -- -D warnings
+      - run: cargo test -p harness_desktop
       - run: bunx tauri build --debug --no-bundle

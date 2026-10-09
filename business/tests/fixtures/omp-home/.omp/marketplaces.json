@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "marketplaces": [
+    {
+      "name": "demo",
+      "sourceType": "github",
+      "sourceUri": "demo-org/demo-marketplace",
+      "catalogPath": "~/.omp/plugins/cache/marketplaces/demo/marketplace.json",
+      "addedAt": "2026-07-02T08:30:00.000Z",
+      "updatedAt": "2026-10-07T21:05:00.000Z"
+    },
+    {
+      "name": "escape",
+      "sourceType": "git",
+      "sourceUri": "https://deploy:CANARY-7f3a9c@git.example.com/team/plugins.git",
+      "catalogPath": "../../../outside-catalog.json",
+      "addedAt": "2026-07-02T08:30:00.000Z",
+      "updatedAt": "2026-07-02T08:30:00.000Z"
+    },
+    {
+      "name": "fresh",
+      "sourceType": "local",
+      "sourceUri": "~/plugins/fresh-marketplace",
+      "catalogPath": "~/.omp/plugins/cache/marketplaces/fresh/marketplace.json",
+      "addedAt": "2026-10-08T17:40:00.000Z",
+      "updatedAt": "2026-10-08T17:40:00.000Z"
+    }
+  ]
+}

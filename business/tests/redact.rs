@@ -62,14 +62,15 @@ fn key_name_rules_leave_numbers_booleans_and_ordinary_keys_visible() {
 fn key_name_rules_cover_nested_values_and_lists() {
     let redacted = under_key("credentials", json!({ "user": "me", "list": ["a", "b"] }));
 
+    // Fields keep source order (serde_json `preserve_order`).
     let expected = ConfigValue::Map(vec![
-        ConfigField {
-            key: "list".into(),
-            value: ConfigValue::List(vec![HIDDEN, HIDDEN]),
-        },
         ConfigField {
             key: "user".into(),
             value: HIDDEN,
+        },
+        ConfigField {
+            key: "list".into(),
+            value: ConfigValue::List(vec![HIDDEN, HIDDEN]),
         },
     ]);
     assert_eq!(redacted, expected);

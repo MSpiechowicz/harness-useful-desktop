@@ -7,7 +7,25 @@
 use tauri_build::{AppManifest, Attributes};
 
 /// Every `#[tauri::command]` in `src/commands`; keep in sync with `generate_handler!` in `lib.rs`.
-const COMMANDS: &[&str] = &["app_info", "prefs_get", "prefs_set"];
+const COMMANDS: &[&str] = &[
+    "app_info",
+    "prefs_get",
+    "prefs_set",
+    "harness_list",
+    "harness_detect",
+    "harness_pick_binary",
+    "harness_clear_binary",
+    "config_view",
+    "extensions_view",
+    "commands_catalog",
+    "project_pick",
+    "project_open",
+    "project_close",
+    "project_recent",
+    "project_forget",
+    "reveal_path",
+    "open_external",
+];
 
 fn main() {
     let attributes = Attributes::new().app_manifest(AppManifest::new().commands(COMMANDS));

@@ -3,6 +3,8 @@
 
   import { rise, scaled } from '$lib/design/motion';
   import { nav } from '$lib/stores/nav.svelte';
+  import ConfigViewer from '../config/ConfigViewer.svelte';
+  import ExtensionsViewer from '../extensions/ExtensionsViewer.svelte';
   import SettingsView from '../settings/SettingsView.svelte';
 
   import PlaceholderView from './PlaceholderView.svelte';
@@ -23,6 +25,10 @@
 
       {#if nav.current === 'settings'}
         <SettingsView />
+      {:else if nav.current === 'config'}
+        <ConfigViewer />
+      {:else if nav.current === 'extensions'}
+        <ExtensionsViewer />
       {:else}
         <PlaceholderView view={meta} />
       {/if}

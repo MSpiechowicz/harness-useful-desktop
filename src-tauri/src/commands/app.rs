@@ -23,10 +23,13 @@ pub async fn prefs_get(state: State<'_, AppState>) -> CommandResult<AppPrefs> {
     blocking(move || Ok(prefs.with(|store| store.load()))).await
 }
 
-/// Validates, normalizes and stores `prefs`; returns what was stored.
+/// Validates, normalizes and stores the UI-managed fields of `prefs`; returns what was stored.
+///
+/// The server-managed fields (`activeProject`, `recentProjects`, `binaryOverrides`) keep their
+/// stored values whatever the webview sends; the project and harness commands change them.
 #[tauri::command]
 pub async fn prefs_set(state: State<'_, AppState>, prefs: AppPrefs) -> CommandResult<AppPrefs> {
     let store = state.prefs.clone();
 
-    blocking(move || Ok(store.with(|store| store.save(&prefs))?)).await
+    blocking(move || Ok(store.with(|store| store.save_ui(&prefs))?)).await
 }

@@ -1,0 +1,1 @@
+{ "mcp": { "servers": { "vscode-only": { "command": "node", "args": ["server.js"] } } } }

@@ -1,0 +1,1 @@
+{ "mcpServers": { "context7": { "enabled": false }, "project-tools": { "command": "uvx", "args": ["tools-mcp"] } } }

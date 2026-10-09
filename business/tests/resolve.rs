@@ -72,6 +72,21 @@ fn path_is_searched_before_extra_dirs() {
 }
 
 #[test]
+fn relative_and_empty_path_entries_are_never_searched() {
+    let home = TempDir::new().unwrap();
+    executable(home.path().join("bin").join(tool_file()));
+    executable(home.path().join(tool_file()));
+    let fallback = executable(home.path().join(".bun/bin").join(tool_file()));
+
+    let separator = if cfg!(windows) { ";" } else { ":" };
+    let path_var = [".", "", "bin"].join(separator);
+    let env = Env::for_tests(home.path()).with_var("PATH", path_var);
+
+    // Only the absolute install-dir fallback may match, never `<home>/bin` or `<home>/.`.
+    assert_eq!(resolve_binary(&env, TOOL, None).unwrap().path, fallback);
+}
+
+#[test]
 fn extra_dirs_in_the_home_are_discovered_without_path() {
     let home = TempDir::new().unwrap();
     let env = Env::for_tests(home.path());

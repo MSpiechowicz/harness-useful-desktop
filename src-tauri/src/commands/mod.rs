@@ -1,7 +1,10 @@
-//! IPC commands. Each is a thin adapter over `harness_business`; names are the C0 contract in
+//! IPC commands. Each is a thin adapter over `harness_business`; names are the C0/M1 contract in
 //! `ui/src/lib/ipc/commands.ts` and must also be listed in `build.rs` and `capabilities/main.json`.
 
 pub mod app;
+pub mod harness;
+pub mod projects;
+pub mod system;
 
 use crate::error::{CommandError, CommandResult};
 

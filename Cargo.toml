@@ -19,7 +19,8 @@ all = { level = "warn", priority = -1 }
 # Pinned once here; member crates use `name.workspace = true`.
 [workspace.dependencies]
 serde = { version = "1.0.229", features = ["derive"] }
-serde_json = "1.0.151"
+# `preserve_order`: config viewer shows keys in source order (Value maps keep insertion order).
+serde_json = { version = "1.0.151", features = ["preserve_order"] }
 thiserror = "2.0.21"
 tokio = { version = "1.53", features = ["process", "io-util", "sync", "time", "macros", "rt-multi-thread"] }
 which = "8.0.6"

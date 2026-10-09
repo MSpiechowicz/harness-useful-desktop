@@ -27,3 +27,117 @@ impl HarnessId {
         }
     }
 }
+
+/// Static description of a harness, shown in onboarding and the harness switcher.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct HarnessInfo {
+    /// The harness this describes.
+    pub id: HarnessId,
+    /// Display name (`"Oh My Pi"`, `"Pi"`).
+    pub name: String,
+    /// Short label for compact UI (`"OMP"`, `"PI"`).
+    pub short_name: String,
+    /// Default executable name looked up on PATH (`"omp"`, `"pi"`).
+    pub binary_name: String,
+    /// One-sentence description of the harness.
+    pub description: String,
+    /// Project homepage or documentation URL.
+    pub homepage: String,
+}
+
+/// Feature flags that decide which tabs and actions the UI renders for a harness.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct Capabilities {
+    /// Installable plugins (OMP `omp plugin …`).
+    pub plugins: bool,
+    /// Plugin marketplaces with browsable catalogs.
+    pub marketplaces: bool,
+    /// Packages that bundle resources (PI `pi install …`).
+    pub packages: bool,
+    /// MCP server configuration.
+    pub mcp: bool,
+    /// `SKILL.md` skills.
+    pub skills: bool,
+    /// Markdown prompt templates exposed as slash commands.
+    pub prompt_templates: bool,
+    /// Code extension modules loaded by the harness.
+    pub extension_modules: bool,
+    /// Custom colour themes.
+    pub themes: bool,
+    /// Named configuration profiles.
+    pub profiles: bool,
+    /// A configurable tool approval mode (OMP `tools.approvalMode`).
+    pub approval_modes: bool,
+    /// Project trust gating of project-local resources (PI `.pi/`).
+    pub project_trust: bool,
+    /// Slash commands run by sending their text as a prompt.
+    pub slash_commands_via_prompt: bool,
+    /// Sessions form a branching tree (fork/resume from any entry).
+    pub session_tree: bool,
+}
+
+/// How the detected CLI version relates to the versions this app was tested with.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub enum VersionSupport {
+    /// Within the tested range.
+    Supported,
+    /// Newer or older than the tested range; may still work.
+    Untested,
+    /// The version could not be determined.
+    Unknown,
+}
+
+/// How to install a missing harness.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct InstallHint {
+    /// A copyable install command (shown, never executed by the app).
+    pub command: String,
+    /// Installation documentation URL.
+    pub docs_url: String,
+}
+
+/// Result of probing the machine for a harness CLI and its configuration directory.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct Detection {
+    /// True when an executable was found.
+    pub installed: bool,
+    /// Absolute path of the resolved executable.
+    pub binary_path: Option<String>,
+    /// True when the executable is a Windows batch shim (`.cmd`/`.bat`).
+    pub is_batch_script: bool,
+    /// Version reported by the CLI (e.g. `"18.6.1"`).
+    pub version: Option<String>,
+    /// Whether `version` is in the tested range.
+    pub version_support: VersionSupport,
+    /// Absolute path of the harness configuration directory (whether or not it exists).
+    pub config_dir: Option<String>,
+    /// True when `config_dir` exists on disk.
+    pub config_dir_exists: bool,
+    /// Install instructions, present when the harness is not installed.
+    pub install_hint: Option<InstallHint>,
+    /// Short, secret-free description of a probe failure (e.g. a version check timeout).
+    pub error: Option<String>,
+}
+
+/// Everything the UI needs to list a harness: what it is, what it can do and whether it is here.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct HarnessSummary {
+    /// Static description.
+    pub info: HarnessInfo,
+    /// Feature flags.
+    pub capabilities: Capabilities,
+    /// Detection result on this machine.
+    pub detection: Detection,
+}

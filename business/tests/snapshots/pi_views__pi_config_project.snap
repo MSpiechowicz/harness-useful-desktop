@@ -1,0 +1,685 @@
+---
+source: business/tests/pi_views.rs
+expression: "exported(config(&env, Some(&project)), &home, &project)"
+---
+{
+  "harness": "pi",
+  "sections": [
+    {
+      "id": "user.settings",
+      "title": "Settings",
+      "description": "Default model, thinking level, theme, resources and packages.",
+      "source": {
+        "path": "/home/demo/.pi/agent/settings.json",
+        "layer": "user",
+        "profile": null,
+        "format": "json",
+        "exists": true
+      },
+      "entries": [
+        {
+          "key": "defaultProvider",
+          "value": {
+            "kind": "text",
+            "value": "anthropic-proxy"
+          }
+        },
+        {
+          "key": "defaultModel",
+          "value": {
+            "kind": "text",
+            "value": "claude-sonnet-4-5"
+          }
+        },
+        {
+          "key": "defaultThinkingLevel",
+          "value": {
+            "kind": "text",
+            "value": "medium"
+          }
+        },
+        {
+          "key": "theme",
+          "value": {
+            "kind": "text",
+            "value": "light/nightfall"
+          }
+        },
+        {
+          "key": "packages",
+          "value": {
+            "kind": "list",
+            "value": [
+              {
+                "kind": "text",
+                "value": "npm:@demo/pi-review-kit@1.0.0"
+              },
+              {
+                "kind": "map",
+                "value": [
+                  {
+                    "key": "source",
+                    "value": {
+                      "kind": "text",
+                      "value": "git:github.com/demo/pi-prompts@v1"
+                    }
+                  },
+                  {
+                    "key": "prompts",
+                    "value": {
+                      "kind": "list",
+                      "value": [
+                        {
+                          "kind": "text",
+                          "value": "prompts/*.md"
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "key": "skills",
+                    "value": {
+                      "kind": "list",
+                      "value": []
+                    }
+                  }
+                ]
+              },
+              {
+                "kind": "text",
+                "value": "https://••••@git.example.com/demo/pi-private.git"
+              }
+            ]
+          }
+        },
+        {
+          "key": "extensions",
+          "value": {
+            "kind": "list",
+            "value": [
+              {
+                "kind": "text",
+                "value": "-extensions/legacy.ts"
+              },
+              {
+                "kind": "text",
+                "value": "-builtin:mcp"
+              }
+            ]
+          }
+        },
+        {
+          "key": "compaction",
+          "value": {
+            "kind": "map",
+            "value": [
+              {
+                "key": "enabled",
+                "value": {
+                  "kind": "bool",
+                  "value": true
+                }
+              },
+              {
+                "key": "reserveTokens",
+                "value": {
+                  "kind": "number",
+                  "value": "16384"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "key": "httpProxy",
+          "value": {
+            "kind": "text",
+            "value": "http://••••@proxy.demo.internal:3128"
+          }
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "user.models",
+      "title": "Models",
+      "description": "Custom providers, endpoints and models.",
+      "source": {
+        "path": "/home/demo/.pi/agent/models.json",
+        "layer": "user",
+        "profile": null,
+        "format": "json",
+        "exists": true
+      },
+      "entries": [
+        {
+          "key": "providers",
+          "value": {
+            "kind": "map",
+            "value": [
+              {
+                "key": "anthropic-proxy",
+                "value": {
+                  "kind": "map",
+                  "value": [
+                    {
+                      "key": "baseUrl",
+                      "value": {
+                        "kind": "text",
+                        "value": "https://llm-proxy.demo.internal/anthropic"
+                      }
+                    },
+                    {
+                      "key": "api",
+                      "value": {
+                        "kind": "text",
+                        "value": "anthropic-messages"
+                      }
+                    },
+                    {
+                      "key": "apiKey",
+                      "value": {
+                        "kind": "secret",
+                        "value": {
+                          "type": "command"
+                        }
+                      }
+                    },
+                    {
+                      "key": "models",
+                      "value": {
+                        "kind": "list",
+                        "value": [
+                          {
+                            "kind": "map",
+                            "value": [
+                              {
+                                "key": "id",
+                                "value": {
+                                  "kind": "text",
+                                  "value": "claude-sonnet-4-5"
+                                }
+                              },
+                              {
+                                "key": "name",
+                                "value": {
+                                  "kind": "text",
+                                  "value": "Claude Sonnet 4.5 (proxy)"
+                                }
+                              },
+                              {
+                                "key": "contextWindow",
+                                "value": {
+                                  "kind": "number",
+                                  "value": "200000"
+                                }
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "key": "openai",
+                "value": {
+                  "kind": "map",
+                  "value": [
+                    {
+                      "key": "baseUrl",
+                      "value": {
+                        "kind": "text",
+                        "value": "https://api.openai.com/v1"
+                      }
+                    },
+                    {
+                      "key": "api",
+                      "value": {
+                        "kind": "text",
+                        "value": "openai-responses"
+                      }
+                    },
+                    {
+                      "key": "apiKey",
+                      "value": {
+                        "kind": "secret",
+                        "value": {
+                          "type": "envRef",
+                          "name": "OPENAI_API_KEY"
+                        }
+                      }
+                    },
+                    {
+                      "key": "models",
+                      "value": {
+                        "kind": "list",
+                        "value": [
+                          {
+                            "kind": "map",
+                            "value": [
+                              {
+                                "key": "id",
+                                "value": {
+                                  "kind": "text",
+                                  "value": "gpt-5.1-codex"
+                                }
+                              },
+                              {
+                                "key": "name",
+                                "value": {
+                                  "kind": "text",
+                                  "value": "GPT-5.1 Codex"
+                                }
+                              },
+                              {
+                                "key": "reasoning",
+                                "value": {
+                                  "kind": "bool",
+                                  "value": true
+                                }
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "key": "local-llama",
+                "value": {
+                  "kind": "map",
+                  "value": [
+                    {
+                      "key": "baseUrl",
+                      "value": {
+                        "kind": "text",
+                        "value": "http://localhost:11434/v1"
+                      }
+                    },
+                    {
+                      "key": "api",
+                      "value": {
+                        "kind": "text",
+                        "value": "openai-completions"
+                      }
+                    },
+                    {
+                      "key": "headers",
+                      "value": {
+                        "kind": "map",
+                        "value": [
+                          {
+                            "key": "X-Api-Key",
+                            "value": {
+                              "kind": "secret",
+                              "value": {
+                                "type": "value"
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "key": "models",
+                      "value": {
+                        "kind": "list",
+                        "value": [
+                          {
+                            "kind": "map",
+                            "value": [
+                              {
+                                "key": "id",
+                                "value": {
+                                  "kind": "text",
+                                  "value": "llama3.3:70b"
+                                }
+                              },
+                              {
+                                "key": "name",
+                                "value": {
+                                  "kind": "text",
+                                  "value": "Llama 3.3 70B"
+                                }
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "user.keybindings",
+      "title": "Keybindings",
+      "description": "Terminal UI shortcuts.",
+      "source": {
+        "path": "/home/demo/.pi/agent/keybindings.json",
+        "layer": "user",
+        "profile": null,
+        "format": "json",
+        "exists": true
+      },
+      "entries": [
+        {
+          "key": "app.interrupt",
+          "value": {
+            "kind": "text",
+            "value": "escape"
+          }
+        },
+        {
+          "key": "app.model.cycle",
+          "value": {
+            "kind": "text",
+            "value": "ctrl+p"
+          }
+        },
+        {
+          "key": "editor.newLine",
+          "value": {
+            "kind": "text",
+            "value": "shift+enter"
+          }
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "user.mcp",
+      "title": "MCP servers",
+      "description": "Model Context Protocol servers available in every project.",
+      "source": {
+        "path": "/home/demo/.pi/agent/mcp.json",
+        "layer": "user",
+        "profile": null,
+        "format": "json",
+        "exists": true
+      },
+      "entries": [
+        {
+          "key": "mcpServers",
+          "value": {
+            "kind": "map",
+            "value": [
+              {
+                "key": "context7",
+                "value": {
+                  "kind": "map",
+                  "value": [
+                    {
+                      "key": "url",
+                      "value": {
+                        "kind": "text",
+                        "value": "https://mcp.context7.com/mcp"
+                      }
+                    },
+                    {
+                      "key": "headers",
+                      "value": {
+                        "kind": "map",
+                        "value": [
+                          {
+                            "key": "CONTEXT7_API_KEY",
+                            "value": {
+                              "kind": "secret",
+                              "value": {
+                                "type": "value"
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "key": "filesystem",
+                "value": {
+                  "kind": "map",
+                  "value": [
+                    {
+                      "key": "command",
+                      "value": {
+                        "kind": "text",
+                        "value": "npx"
+                      }
+                    },
+                    {
+                      "key": "args",
+                      "value": {
+                        "kind": "list",
+                        "value": [
+                          {
+                            "kind": "text",
+                            "value": "-y"
+                          },
+                          {
+                            "kind": "text",
+                            "value": "@modelcontextprotocol/server-filesystem"
+                          },
+                          {
+                            "kind": "text",
+                            "value": "."
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "key": "enabled",
+                      "value": {
+                        "kind": "bool",
+                        "value": false
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "key": "internal-tools",
+                "value": {
+                  "kind": "map",
+                  "value": [
+                    {
+                      "key": "type",
+                      "value": {
+                        "kind": "text",
+                        "value": "streamable-http"
+                      }
+                    },
+                    {
+                      "key": "url",
+                      "value": {
+                        "kind": "text",
+                        "value": "https://tools.demo.internal/mcp"
+                      }
+                    },
+                    {
+                      "key": "oauth",
+                      "value": {
+                        "kind": "map",
+                        "value": [
+                          {
+                            "key": "clientId",
+                            "value": {
+                              "kind": "text",
+                              "value": "my-client"
+                            }
+                          },
+                          {
+                            "key": "clientSecret",
+                            "value": {
+                              "kind": "secret",
+                              "value": {
+                                "type": "value"
+                              }
+                            }
+                          },
+                          {
+                            "key": "callbackPort",
+                            "value": {
+                              "kind": "number",
+                              "value": "8765"
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "user.trust",
+      "title": "Project trust",
+      "description": "Saved project trust decisions.",
+      "source": {
+        "path": "/home/demo/.pi/agent/trust.json",
+        "layer": "user",
+        "profile": null,
+        "format": "json",
+        "exists": true
+      },
+      "entries": [],
+      "error": null
+    },
+    {
+      "id": "project.settings",
+      "title": "Project settings",
+      "description": "Overrides for this project; Pi applies them only to trusted projects.",
+      "source": {
+        "path": "/home/demo/Projects/demo/.pi/settings.json",
+        "layer": "project",
+        "profile": null,
+        "format": "json",
+        "exists": true
+      },
+      "entries": [
+        {
+          "key": "defaultThinkingLevel",
+          "value": {
+            "kind": "text",
+            "value": "high"
+          }
+        },
+        {
+          "key": "packages",
+          "value": {
+            "kind": "list",
+            "value": [
+              {
+                "kind": "text",
+                "value": "../tools/pi-local"
+              }
+            ]
+          }
+        },
+        {
+          "key": "skills",
+          "value": {
+            "kind": "list",
+            "value": [
+              {
+                "kind": "text",
+                "value": "../tools/pi-local/skills"
+              }
+            ]
+          }
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "project.mcp",
+      "title": "Project MCP servers",
+      "description": "Servers for this project; Pi starts them only in trusted projects.",
+      "source": {
+        "path": "/home/demo/Projects/demo/.pi/mcp.json",
+        "layer": "project",
+        "profile": null,
+        "format": "json",
+        "exists": true
+      },
+      "entries": [
+        {
+          "key": "mcpServers",
+          "value": {
+            "kind": "map",
+            "value": [
+              {
+                "key": "context7",
+                "value": {
+                  "kind": "map",
+                  "value": [
+                    {
+                      "key": "enabled",
+                      "value": {
+                        "kind": "bool",
+                        "value": false
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "key": "project-tools",
+                "value": {
+                  "kind": "map",
+                  "value": [
+                    {
+                      "key": "command",
+                      "value": {
+                        "kind": "text",
+                        "value": "uvx"
+                      }
+                    },
+                    {
+                      "key": "args",
+                      "value": {
+                        "kind": "list",
+                        "value": [
+                          {
+                            "kind": "text",
+                            "value": "tools-mcp"
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "error": null
+    }
+  ],
+  "notices": [
+    {
+      "level": "info",
+      "message": "Project resources load only for trusted projects (Pi project trust)."
+    },
+    {
+      "level": "info",
+      "message": "Credential files (auth.json, mcp-auth.json, models-store.json) are never read."
+    }
+  ]
+}

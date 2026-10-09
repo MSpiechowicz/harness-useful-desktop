@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-commands-catalog"
+description = "Enables the commands_catalog command without any pre-configured scope."
+commands.allow = ["commands_catalog"]
+
+[[permission]]
+identifier = "deny-commands-catalog"
+description = "Denies the commands_catalog command without any pre-configured scope."
+commands.deny = ["commands_catalog"]

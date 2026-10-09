@@ -5,4 +5,6 @@ export interface StripOption<V extends string = string> {
   label: string;
   icon?: IconComponent;
   disabled?: boolean;
+  /** Small count pill after the label. */
+  count?: number;
 }

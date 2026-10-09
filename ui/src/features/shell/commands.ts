@@ -12,6 +12,7 @@ import { nav } from '$lib/stores/nav.svelte';
 import { prefs } from '$lib/stores/prefs.svelte';
 
 import { intro } from '../intro/intro.svelte';
+import { buildSwitchCommands } from './switch-commands';
 import { VIEWS, viewShortcut } from './views';
 
 const THEMES: { value: ThemePref; label: string; icon: PaletteCommand['icon'] }[] = [
@@ -68,5 +69,5 @@ export function buildCommands(): PaletteCommand[] {
     run: () => intro.play(motion.level),
   };
 
-  return [...navigation, ...appearance, ...motionSettings, replay];
+  return [...navigation, ...buildSwitchCommands(), ...appearance, ...motionSettings, replay];
 }

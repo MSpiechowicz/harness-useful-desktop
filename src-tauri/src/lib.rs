@@ -1,10 +1,14 @@
 //! Harness Desktop: the Tauri shell. It hosts the UI and exposes `harness_business` through
 //! IPC commands; all domain logic lives in the business crate.
 
+mod access;
 mod commands;
+mod dialogs;
 mod error;
 mod logging;
 pub mod state;
+#[cfg(test)]
+mod test_support;
 mod window;
 
 use std::process::ExitCode;
@@ -38,6 +42,20 @@ pub fn run() -> ExitCode {
             commands::app::app_info,
             commands::app::prefs_get,
             commands::app::prefs_set,
+            commands::harness::harness_list,
+            commands::harness::harness_detect,
+            commands::harness::harness_pick_binary,
+            commands::harness::harness_clear_binary,
+            commands::harness::config_view,
+            commands::harness::extensions_view,
+            commands::harness::commands_catalog,
+            commands::projects::project_pick,
+            commands::projects::project_open,
+            commands::projects::project_close,
+            commands::projects::project_recent,
+            commands::projects::project_forget,
+            commands::system::reveal_path,
+            commands::system::open_external,
         ])
         .run(tauri::generate_context!());
 

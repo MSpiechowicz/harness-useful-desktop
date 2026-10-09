@@ -27,6 +27,12 @@ impl CommandError {
             message: message.into(),
         })
     }
+
+    /// The error category (what the UI branches on).
+    #[cfg(test)]
+    pub fn code(&self) -> IpcErrorCode {
+        self.0.code
+    }
 }
 
 impl From<BusinessError> for CommandError {

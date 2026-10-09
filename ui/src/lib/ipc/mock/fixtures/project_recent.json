@@ -1,0 +1,20 @@
+[
+  {
+    "path": "/home/demo/Projects/demo",
+    "name": "demo",
+    "exists": true,
+    "isGitRepo": true
+  },
+  {
+    "path": "/home/demo/Notes/research",
+    "name": "research",
+    "exists": true,
+    "isGitRepo": false
+  },
+  {
+    "path": "/home/demo/Archive/legacy-api",
+    "name": "legacy-api",
+    "exists": false,
+    "isGitRepo": false
+  }
+]

@@ -1,9 +1,11 @@
-//! Wire format of the C0 contract types (what the webview receives).
+//! Wire format of the contract types (what the webview receives).
 
 use harness_business::BusinessError;
 use harness_business::model::{
-    AppInfo, AppPrefs, ConfigField, ConfigValue, HarnessId, IpcError, IpcErrorCode, SecretKind,
+    AgentActionKind, AppInfo, AppPrefs, CommandInvocation, CommandSource, CommandSpec, ConfigField, ConfigValue,
+    Detection, GuiTarget, HarnessId, InstallHint, IpcError, IpcErrorCode, SecretKind, VersionSupport,
 };
+use harness_business::security::Redactor;
 use pretty_assertions::assert_eq;
 use serde_json::json;
 
@@ -154,4 +156,99 @@ fn app_info_reports_the_build_target() {
     assert_eq!(info.os, std::env::consts::OS);
     assert_eq!(info.arch, std::env::consts::ARCH);
     assert_eq!(serde_json::to_value(&info).unwrap()["version"], "0.1.0");
+}
+
+#[test]
+fn command_invocations_are_tagged_by_kind() {
+    let invocations = [
+        CommandInvocation::PromptText,
+        CommandInvocation::Rpc {
+            action: AgentActionKind::SetSessionName,
+        },
+        CommandInvocation::Gui {
+            target: GuiTarget::ModelPicker,
+        },
+        CommandInvocation::Unsupported {
+            reason: "Use the terminal".into(),
+        },
+    ];
+
+    assert_eq!(
+        serde_json::to_value(invocations).unwrap(),
+        json!([
+            { "kind": "promptText" },
+            { "kind": "rpc", "action": "setSessionName" },
+            { "kind": "gui", "target": "modelPicker" },
+            { "kind": "unsupported", "reason": "Use the terminal" }
+        ])
+    );
+}
+
+#[test]
+fn command_specs_round_trip_with_camel_case_fields() {
+    let wire = json!({
+        "name": "mcp-triage",
+        "description": "Triage issues",
+        "argumentHint": "[team]",
+        "source": "mcpPrompt",
+        "invocation": { "kind": "promptText" }
+    });
+
+    let spec: CommandSpec = serde_json::from_value(wire.clone()).unwrap();
+
+    assert_eq!(spec.source, CommandSource::McpPrompt);
+    assert_eq!(serde_json::to_value(&spec).unwrap(), wire);
+}
+
+#[test]
+fn missing_harness_detection_carries_an_install_hint() {
+    let detection = Detection {
+        installed: false,
+        binary_path: None,
+        is_batch_script: false,
+        version: None,
+        version_support: VersionSupport::Unknown,
+        config_dir: Some("/home/demo/.pi".into()),
+        config_dir_exists: false,
+        install_hint: Some(InstallHint {
+            command: "npm install -g example".into(),
+            docs_url: "https://example.invalid/docs".into(),
+        }),
+        error: None,
+    };
+
+    assert_eq!(
+        serde_json::to_value(&detection).unwrap(),
+        json!({
+            "installed": false,
+            "binaryPath": null,
+            "isBatchScript": false,
+            "version": null,
+            "versionSupport": "unknown",
+            "configDir": "/home/demo/.pi",
+            "configDirExists": false,
+            "installHint": { "command": "npm install -g example", "docsUrl": "https://example.invalid/docs" },
+            "error": null
+        })
+    );
+}
+
+fn top_level_keys(value: ConfigValue) -> Vec<String> {
+    let ConfigValue::Map(fields) = value else {
+        panic!("expected a map");
+    };
+
+    fields.into_iter().map(|field| field.key).collect()
+}
+
+#[test]
+fn redacted_documents_keep_source_key_order() {
+    let from_json: serde_json::Value = serde_json::from_str(r#"{"theme":1,"apiKey":"x","compaction":2}"#).unwrap();
+    let from_yaml: serde_json::Value = serde_norway::from_str("zeta: 1\nalpha: 2\nmid: 3\n").unwrap();
+
+    assert_eq!(
+        top_level_keys(Redactor.redact(&from_json)),
+        ["theme", "apiKey", "compaction"]
+    );
+    assert_eq!(top_level_keys(Redactor.redact(&from_yaml)), ["zeta", "alpha", "mid"]);
 }

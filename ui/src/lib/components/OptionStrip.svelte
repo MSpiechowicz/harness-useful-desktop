@@ -132,6 +132,9 @@
         <Icon size={16} strokeWidth={1.8} aria-hidden="true" />
       {/if}
       {option.label}
+      {#if option.count !== undefined}
+        <span class="tabular rounded-full bg-surface-3 px-1.5 text-xs leading-5 text-fg-2">{option.count}</span>
+      {/if}
     </button>
   {/each}
 </div>

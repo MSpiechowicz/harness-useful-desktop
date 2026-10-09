@@ -1,16 +1,15 @@
 <script lang="ts">
   import ArrowLeft from '@lucide/svelte/icons/arrow-left';
   import ArrowRight from '@lucide/svelte/icons/arrow-right';
-  import Folder from '@lucide/svelte/icons/folder';
   import Search from '@lucide/svelte/icons/search';
 
-  import Badge from '$lib/components/Badge.svelte';
   import IconButton from '$lib/components/IconButton.svelte';
   import Kbd from '$lib/components/Kbd.svelte';
   import Logo from '$lib/components/Logo.svelte';
   import { nav } from '$lib/stores/nav.svelte';
 
-  import DisabledChip from './DisabledChip.svelte';
+  import HarnessSwitcher from './HarnessSwitcher.svelte';
+  import ProjectSwitcher from './ProjectSwitcher.svelte';
 
   interface Props {
     onpalette: () => void;
@@ -29,21 +28,8 @@
     <IconButton icon={ArrowRight} label="Forward" size="sm" side="bottom" disabled={!nav.canGoForward} onclick={() => nav.forward()} />
   </div>
 
-  <div role="group" aria-label="Harness" class="flex items-center gap-1.5">
-    <DisabledChip label="OMP" hint="Harness switching arrives with setup">
-      {#snippet content()}<Badge harness="omp">OMP</Badge>{/snippet}
-    </DisabledChip>
-    <DisabledChip label="PI" hint="Harness switching arrives with setup">
-      {#snippet content()}<Badge harness="pi">PI</Badge>{/snippet}
-    </DisabledChip>
-  </div>
-
-  <DisabledChip label="Project" hint="Project selection arrives with setup">
-    {#snippet content()}
-      <Folder size={14} aria-hidden="true" />
-      No project
-    {/snippet}
-  </DisabledChip>
+  <HarnessSwitcher />
+  <ProjectSwitcher />
 
   <button
     type="button"

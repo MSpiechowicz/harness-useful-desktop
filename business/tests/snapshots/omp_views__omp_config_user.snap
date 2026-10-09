@@ -1,0 +1,418 @@
+---
+source: business/tests/omp_views.rs
+expression: "exported(config(&env, None), &home, &project)"
+---
+{
+  "harness": "omp",
+  "sections": [
+    {
+      "id": "user.settings",
+      "title": "Settings",
+      "description": "Global OMP settings: models, theme, tools and approvals.",
+      "source": {
+        "path": "/home/demo/.omp/agent/config.yml",
+        "layer": "user",
+        "profile": null,
+        "format": "yaml",
+        "exists": true
+      },
+      "entries": [
+        {
+          "key": "theme",
+          "value": {
+            "kind": "map",
+            "value": [
+              {
+                "key": "dark",
+                "value": {
+                  "kind": "text",
+                  "value": "dark-nord"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "key": "modelRoles",
+          "value": {
+            "kind": "map",
+            "value": [
+              {
+                "key": "default",
+                "value": {
+                  "kind": "text",
+                  "value": "anthropic/claude-sonnet-4-5"
+                }
+              },
+              {
+                "key": "smol",
+                "value": {
+                  "kind": "text",
+                  "value": "anthropic/claude-haiku-4-5"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "key": "tools",
+          "value": {
+            "kind": "map",
+            "value": [
+              {
+                "key": "approvalMode",
+                "value": {
+                  "kind": "text",
+                  "value": "write"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "key": "compaction",
+          "value": {
+            "kind": "map",
+            "value": [
+              {
+                "key": "enabled",
+                "value": {
+                  "kind": "bool",
+                  "value": true
+                }
+              },
+              {
+                "key": "reserveTokens",
+                "value": {
+                  "kind": "number",
+                  "value": "16384"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "key": "providers",
+          "value": {
+            "kind": "map",
+            "value": [
+              {
+                "key": "openrouter",
+                "value": {
+                  "kind": "map",
+                  "value": [
+                    {
+                      "key": "apiKey",
+                      "value": {
+                        "kind": "secret",
+                        "value": {
+                          "type": "value"
+                        }
+                      }
+                    },
+                    {
+                      "key": "baseUrl",
+                      "value": {
+                        "kind": "text",
+                        "value": "https://openrouter.ai/api/v1"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "key": "disabledExtensions",
+          "value": {
+            "kind": "list",
+            "value": [
+              {
+                "kind": "text",
+                "value": "extension-module:muted"
+              }
+            ]
+          }
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "user.mcp",
+      "title": "MCP servers",
+      "description": "Model Context Protocol servers OMP starts for sessions.",
+      "source": {
+        "path": "/home/demo/.omp/agent/mcp.json",
+        "layer": "user",
+        "profile": null,
+        "format": "json",
+        "exists": true
+      },
+      "entries": [
+        {
+          "key": "mcpServers",
+          "value": {
+            "kind": "map",
+            "value": [
+              {
+                "key": "github",
+                "value": {
+                  "kind": "map",
+                  "value": [
+                    {
+                      "key": "command",
+                      "value": {
+                        "kind": "text",
+                        "value": "npx"
+                      }
+                    },
+                    {
+                      "key": "args",
+                      "value": {
+                        "kind": "list",
+                        "value": [
+                          {
+                            "kind": "text",
+                            "value": "-y"
+                          },
+                          {
+                            "kind": "text",
+                            "value": "@modelcontextprotocol/server-github"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "key": "env",
+                      "value": {
+                        "kind": "map",
+                        "value": [
+                          {
+                            "key": "GITHUB_PERSONAL_ACCESS_TOKEN",
+                            "value": {
+                              "kind": "secret",
+                              "value": {
+                                "type": "value"
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "key": "linear",
+                "value": {
+                  "kind": "map",
+                  "value": [
+                    {
+                      "key": "type",
+                      "value": {
+                        "kind": "text",
+                        "value": "http"
+                      }
+                    },
+                    {
+                      "key": "url",
+                      "value": {
+                        "kind": "text",
+                        "value": "https://mcp.linear.app/mcp"
+                      }
+                    },
+                    {
+                      "key": "headers",
+                      "value": {
+                        "kind": "map",
+                        "value": [
+                          {
+                            "key": "Authorization",
+                            "value": {
+                              "kind": "secret",
+                              "value": {
+                                "type": "value"
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "key": "timeout",
+                      "value": {
+                        "kind": "number",
+                        "value": "30000"
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "key": "sso-tools",
+                "value": {
+                  "kind": "map",
+                  "value": [
+                    {
+                      "key": "type",
+                      "value": {
+                        "kind": "text",
+                        "value": "sse"
+                      }
+                    },
+                    {
+                      "key": "url",
+                      "value": {
+                        "kind": "text",
+                        "value": "https://tools.example.com/sse?api_key=••••"
+                      }
+                    },
+                    {
+                      "key": "oauth",
+                      "value": {
+                        "kind": "map",
+                        "value": [
+                          {
+                            "key": "clientId",
+                            "value": {
+                              "kind": "text",
+                              "value": "desktop-client"
+                            }
+                          },
+                          {
+                            "key": "clientSecret",
+                            "value": {
+                              "kind": "secret",
+                              "value": {
+                                "type": "value"
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "key": "postgres",
+                "value": {
+                  "kind": "map",
+                  "value": [
+                    {
+                      "key": "command",
+                      "value": {
+                        "kind": "text",
+                        "value": "npx"
+                      }
+                    },
+                    {
+                      "key": "args",
+                      "value": {
+                        "kind": "list",
+                        "value": [
+                          {
+                            "kind": "text",
+                            "value": "-y"
+                          },
+                          {
+                            "kind": "text",
+                            "value": "@modelcontextprotocol/server-postgres"
+                          },
+                          {
+                            "kind": "text",
+                            "value": "postgresql://••••@localhost:5432/demo"
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "key": "legacy",
+                "value": {
+                  "kind": "map",
+                  "value": [
+                    {
+                      "key": "command",
+                      "value": {
+                        "kind": "text",
+                        "value": "legacy-mcp"
+                      }
+                    },
+                    {
+                      "key": "enabled",
+                      "value": {
+                        "kind": "bool",
+                        "value": false
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "key": "paused",
+                "value": {
+                  "kind": "map",
+                  "value": [
+                    {
+                      "key": "command",
+                      "value": {
+                        "kind": "text",
+                        "value": "paused-mcp"
+                      }
+                    },
+                    {
+                      "key": "enabled",
+                      "value": {
+                        "kind": "text",
+                        "value": "false"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "key": "disabledServers",
+          "value": {
+            "kind": "list",
+            "value": [
+              {
+                "kind": "text",
+                "value": "postgres"
+              }
+            ]
+          }
+        },
+        {
+          "key": "enabledServers",
+          "value": {
+            "kind": "list",
+            "value": [
+              {
+                "kind": "text",
+                "value": "legacy"
+              }
+            ]
+          }
+        }
+      ],
+      "error": null
+    }
+  ],
+  "notices": [
+    {
+      "level": "info",
+      "message": "Profiles: home-lab, work. Start OMP with --profile <name> to use one."
+    },
+    {
+      "level": "info",
+      "message": "Credential and history databases (agent.db and other *.db files) are never read."
+    }
+  ]
+}

@@ -1,0 +1,77 @@
+[
+  {
+    "info": {
+      "id": "omp",
+      "name": "Oh My Pi",
+      "shortName": "OMP",
+      "binaryName": "omp",
+      "description": "Batteries-included coding agent with plugins, marketplaces and profiles.",
+      "homepage": "https://omp.sh"
+    },
+    "capabilities": {
+      "plugins": true,
+      "marketplaces": true,
+      "packages": false,
+      "mcp": true,
+      "skills": true,
+      "promptTemplates": false,
+      "extensionModules": true,
+      "themes": true,
+      "profiles": true,
+      "approvalModes": true,
+      "projectTrust": false,
+      "slashCommandsViaPrompt": true,
+      "sessionTree": true
+    },
+    "detection": {
+      "installed": true,
+      "binaryPath": "/home/demo/.bun/bin/omp",
+      "isBatchScript": false,
+      "version": "18.6.1",
+      "versionSupport": "supported",
+      "configDir": "/home/demo/.omp",
+      "configDirExists": true,
+      "installHint": null,
+      "error": null
+    }
+  },
+  {
+    "info": {
+      "id": "pi",
+      "name": "Pi",
+      "shortName": "PI",
+      "binaryName": "pi",
+      "description": "Minimal, extensible terminal coding agent.",
+      "homepage": "https://github.com/earendil-works/pi"
+    },
+    "capabilities": {
+      "plugins": false,
+      "marketplaces": false,
+      "packages": true,
+      "mcp": true,
+      "skills": true,
+      "promptTemplates": true,
+      "extensionModules": true,
+      "themes": true,
+      "profiles": false,
+      "approvalModes": false,
+      "projectTrust": true,
+      "slashCommandsViaPrompt": false,
+      "sessionTree": true
+    },
+    "detection": {
+      "installed": false,
+      "binaryPath": null,
+      "isBatchScript": false,
+      "version": null,
+      "versionSupport": "unknown",
+      "configDir": "/home/demo/.pi",
+      "configDirExists": true,
+      "installHint": {
+        "command": "npm install -g @earendil-works/pi-coding-agent",
+        "docsUrl": "https://github.com/earendil-works/pi"
+      },
+      "error": null
+    }
+  }
+]

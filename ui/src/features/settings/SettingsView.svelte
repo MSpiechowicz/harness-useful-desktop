@@ -2,6 +2,7 @@
   import Monitor from '@lucide/svelte/icons/monitor';
   import Moon from '@lucide/svelte/icons/moon';
   import Play from '@lucide/svelte/icons/play';
+  import Wand from '@lucide/svelte/icons/wand-sparkles';
   import Sun from '@lucide/svelte/icons/sun';
 
   import Button from '$lib/components/Button.svelte';
@@ -13,7 +14,11 @@
   import { motion } from '$lib/stores/motion.svelte';
   import { prefs } from '$lib/stores/prefs.svelte';
 
+  import { project } from '$lib/stores/project.svelte';
+
   import { intro } from '../intro/intro.svelte';
+  import { onboarding } from '../onboarding/onboarding.svelte';
+  import HarnessSettings from './HarnessSettings.svelte';
   import AboutCard from './AboutCard.svelte';
   import SettingRow from './SettingRow.svelte';
   import SettingsSection from './SettingsSection.svelte';
@@ -75,6 +80,33 @@
             {#snippet leading()}<Play size={14} aria-hidden="true" />{/snippet}
             Replay intro
           </Button>
+        {/snippet}
+      </SettingRow>
+    </SettingsSection>
+
+    <SettingsSection title="Harnesses">
+      <HarnessSettings />
+
+      <SettingRow title="Setup" description="Detect your harnesses again, choose your daily driver and a project.">
+        {#snippet control()}
+          <Button onclick={() => onboarding.restart()}>
+            {#snippet leading()}<Wand size={14} aria-hidden="true" />{/snippet}
+            Run onboarding again
+          </Button>
+        {/snippet}
+      </SettingRow>
+    </SettingsSection>
+
+    <SettingsSection title="Projects">
+      <SettingRow title="Remember recent projects" description="Keep a list of the folders you opened. Turning this off clears the list.">
+        {#snippet control()}
+          <Switch
+            label="Remember recent projects"
+            bind:checked={
+              () => prefs.value?.rememberRecentProjects ?? true,
+              (rememberRecentProjects) => void prefs.update({ rememberRecentProjects }).then(() => project.refreshRecents())
+            }
+          />
         {/snippet}
       </SettingRow>
     </SettingsSection>

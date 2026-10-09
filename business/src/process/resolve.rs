@@ -45,14 +45,18 @@ pub fn find_override(overrides: &[BinaryOverride], harness: HarnessId) -> Option
 /// Locates executable `name`.
 ///
 /// Order: `explicit` override (used only when it is an absolute path to an existing file;
-/// otherwise discovery continues) → `PATH` from `env` → [`extra_search_dirs`].
+/// otherwise discovery continues) → absolute `PATH` entries from `env` → [`extra_search_dirs`].
+///
+/// Relative and empty `PATH` entries (`.`, `bin`, `::`) are ignored: they would resolve against
+/// whatever directory the app happens to run in, which lets a project plant a fake binary.
 pub fn resolve_binary(env: &Env, name: &str, explicit: Option<&Path>) -> Option<ResolvedBinary> {
     if let Some(path) = explicit.filter(|path| path.is_absolute() && path.is_file()) {
         return Some(ResolvedBinary::new(path.to_path_buf()));
     }
 
     if let Some(path_var) = env.var("PATH")
-        && let Ok(found) = which::which_in(name, Some(path_var), &env.home)
+        && let Some(search_path) = absolute_path_entries(path_var)
+        && let Ok(found) = which::which_in(name, Some(search_path), &env.home)
     {
         return Some(ResolvedBinary::new(found));
     }
@@ -61,6 +65,20 @@ pub fn resolve_binary(env: &Env, name: &str, explicit: Option<&Path>) -> Option<
         .iter()
         .find_map(|dir| find_in_dir(env.os, dir, name))
         .map(ResolvedBinary::new)
+}
+
+/// `path_var` reduced to its absolute entries, re-joined with the platform separator; `None`
+/// when no absolute entry is left.
+fn absolute_path_entries(path_var: &str) -> Option<std::ffi::OsString> {
+    let absolute: Vec<PathBuf> = std::env::split_paths(path_var)
+        .filter(|entry| entry.is_absolute())
+        .collect();
+
+    if absolute.is_empty() {
+        return None;
+    }
+
+    std::env::join_paths(absolute).ok()
 }
 
 /// Install directories searched after `PATH`, in order.

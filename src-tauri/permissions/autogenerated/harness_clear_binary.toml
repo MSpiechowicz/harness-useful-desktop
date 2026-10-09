@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-harness-clear-binary"
+description = "Enables the harness_clear_binary command without any pre-configured scope."
+commands.allow = ["harness_clear_binary"]
+
+[[permission]]
+identifier = "deny-harness-clear-binary"
+description = "Denies the harness_clear_binary command without any pre-configured scope."
+commands.deny = ["harness_clear_binary"]

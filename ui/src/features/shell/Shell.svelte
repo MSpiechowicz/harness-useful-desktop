@@ -5,6 +5,7 @@
   import { matchesShortcut } from '$lib/utils/shortcuts';
 
   import { intro } from '../intro/intro.svelte';
+  import { onboarding } from '../onboarding/onboarding.svelte';
   import { buildCommands } from './commands';
   import ConnectionBanner from './ConnectionBanner.svelte';
   import Rail from './Rail.svelte';
@@ -30,6 +31,11 @@
   ];
 
   function onKeydown(event: KeyboardEvent): void {
+    // Setup is modal: the shell behind it takes no shortcuts.
+    if (onboarding.visible) {
+      return;
+    }
+
     const shortcut = SHORTCUTS.find((entry) => matchesShortcut(event, entry.combo));
     if (!shortcut || (isEditable(event.target) && !shortcut.allowInInputs)) {
       return;
@@ -47,7 +53,7 @@
 
 <svelte:window onkeydown={onKeydown} />
 
-<div class="relative z-10 flex h-full" data-intro={intro.phase}>
+<div class="relative z-10 flex h-full" data-intro={intro.phase} inert={onboarding.visible}>
   <Rail />
 
   <div class="flex min-w-0 flex-1 flex-col">

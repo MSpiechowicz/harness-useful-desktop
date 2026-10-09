@@ -1,0 +1,8 @@
+{
+  "plugins": {
+    "demo-plugin": { "version": "1.2.0", "enabledFeatures": null, "enabled": true },
+    "npm-helper": { "version": "0.4.2", "enabledFeatures": ["fast"], "enabled": true },
+    "../../escape": { "version": "1.0.0", "enabledFeatures": null, "enabled": true }
+  },
+  "settings": { "npm-helper": { "apiToken": "CANARY-7f3a9c-plugin-setting" } }
+}

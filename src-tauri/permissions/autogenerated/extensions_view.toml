@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-extensions-view"
+description = "Enables the extensions_view command without any pre-configured scope."
+commands.allow = ["extensions_view"]
+
+[[permission]]
+identifier = "deny-extensions-view"
+description = "Denies the extensions_view command without any pre-configured scope."
+commands.deny = ["extensions_view"]

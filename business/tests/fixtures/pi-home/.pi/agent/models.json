@@ -1,0 +1,22 @@
+{
+  "providers": {
+    "anthropic-proxy": {
+      "baseUrl": "https://llm-proxy.demo.internal/anthropic",
+      "api": "anthropic-messages",
+      "apiKey": "!op read op://Demo/CANARY-7f3a9c/credential",
+      "models": [{ "id": "claude-sonnet-4-5", "name": "Claude Sonnet 4.5 (proxy)", "contextWindow": 200000 }]
+    },
+    "openai": {
+      "baseUrl": "https://api.openai.com/v1",
+      "api": "openai-responses",
+      "apiKey": "$OPENAI_API_KEY",
+      "models": [{ "id": "gpt-5.1-codex", "name": "GPT-5.1 Codex", "reasoning": true }]
+    },
+    "local-llama": {
+      "baseUrl": "http://localhost:11434/v1",
+      "api": "openai-completions",
+      "headers": { "X-Api-Key": "sk-CANARY-7f3a9c0000000000000000" },
+      "models": [{ "id": "llama3.3:70b", "name": "Llama 3.3 70B" }]
+    }
+  }
+}

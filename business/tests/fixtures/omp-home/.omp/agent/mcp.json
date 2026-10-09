@@ -1,0 +1,34 @@
+{
+  "mcpServers": {
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": { "GITHUB_PERSONAL_ACCESS_TOKEN": "CANARY-7f3a9c-github-token" }
+    },
+    "linear": {
+      "type": "http",
+      "url": "https://mcp.linear.app/mcp",
+      "headers": { "Authorization": "Bearer CANARY-7f3a9c-linear" },
+      "timeout": 30000
+    },
+    "sso-tools": {
+      "type": "sse",
+      "url": "https://tools.example.com/sse?api_key=CANARY-7f3a9c",
+      "oauth": { "clientId": "desktop-client", "clientSecret": "CANARY-7f3a9c-client-secret" }
+    },
+    "postgres": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-postgres", "postgresql://demo:CANARY-7f3a9c@localhost:5432/demo"]
+    },
+    "legacy": {
+      "command": "legacy-mcp",
+      "enabled": false
+    },
+    "paused": {
+      "command": "paused-mcp",
+      "enabled": "false"
+    }
+  },
+  "disabledServers": ["postgres"],
+  "enabledServers": ["legacy"]
+}

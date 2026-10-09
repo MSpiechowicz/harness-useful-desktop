@@ -1,5 +1,7 @@
 <script lang="ts">
   import { app } from '$lib/stores/app.svelte';
+  import { harness } from '$lib/stores/harness.svelte';
+  import { project } from '$lib/stores/project.svelte';
   import { cx } from '$lib/utils/cx';
 
   const connected = $derived(app.status === 'ready');
@@ -14,7 +16,13 @@
     {label}
   </span>
 
-  {#if app.info}
-    <span class="tabular">{app.info.name} v{app.info.version} · {app.info.os}/{app.info.arch}</span>
-  {/if}
+  <span class="tabular flex items-center gap-3">
+    {#if harness.active}
+      <span>{harness.active.info.shortName}{harness.active.detection.version ? ` v${harness.active.detection.version}` : ''}</span>
+    {/if}
+    <span>{project.active ? project.active.name : 'No project'}</span>
+    {#if app.info}
+      <span>{app.info.name} v{app.info.version}</span>
+    {/if}
+  </span>
 </footer>

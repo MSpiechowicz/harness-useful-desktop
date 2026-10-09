@@ -1,0 +1,262 @@
+[
+  {
+    "name": "new",
+    "description": "Start a new session",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "rpc",
+      "action": "newSession"
+    }
+  },
+  {
+    "name": "compact",
+    "description": "Compact the current context",
+    "argumentHint": "[instructions]",
+    "source": "builtin",
+    "invocation": {
+      "kind": "rpc",
+      "action": "compact"
+    }
+  },
+  {
+    "name": "name",
+    "description": "Set the session display name",
+    "argumentHint": "<name>",
+    "source": "builtin",
+    "invocation": {
+      "kind": "rpc",
+      "action": "setSessionName"
+    }
+  },
+  {
+    "name": "clone",
+    "description": "Duplicate the current session at its current position",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "rpc",
+      "action": "clone"
+    }
+  },
+  {
+    "name": "export",
+    "description": "Export the session as HTML",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "rpc",
+      "action": "exportHtml"
+    }
+  },
+  {
+    "name": "session",
+    "description": "Show current session information and statistics",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "rpc",
+      "action": "getSessionStats"
+    }
+  },
+  {
+    "name": "copy",
+    "description": "Copy the last assistant message",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "rpc",
+      "action": "getLastAssistantText"
+    }
+  },
+  {
+    "name": "model",
+    "description": "Select a model",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "gui",
+      "target": "modelPicker"
+    }
+  },
+  {
+    "name": "thinking",
+    "description": "Set the thinking level",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "gui",
+      "target": "thinkingPicker"
+    }
+  },
+  {
+    "name": "fork",
+    "description": "Create a new session from an earlier user message",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "gui",
+      "target": "forkPicker"
+    }
+  },
+  {
+    "name": "tree",
+    "description": "Navigate the session tree",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "gui",
+      "target": "sessionTree"
+    }
+  },
+  {
+    "name": "resume",
+    "description": "Switch to another saved session",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "gui",
+      "target": "resumePicker"
+    }
+  },
+  {
+    "name": "settings",
+    "description": "Open settings",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "gui",
+      "target": "settings"
+    }
+  },
+  {
+    "name": "login",
+    "description": "Add provider authentication",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Sign in from a terminal: run pi and use /login."
+    }
+  },
+  {
+    "name": "logout",
+    "description": "Remove provider authentication",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Sign out from a terminal: run pi and use /logout."
+    }
+  },
+  {
+    "name": "trust",
+    "description": "Save a project trust decision",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "The desktop app asks for project trust each time it starts Pi."
+    }
+  },
+  {
+    "name": "reload",
+    "description": "Reload keybindings, extensions, skills, templates, themes and context files",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Start a new session to load changed resources."
+    }
+  },
+  {
+    "name": "share",
+    "description": "Upload the session and return a viewer link",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Uploading sessions is not available in the desktop app."
+    }
+  },
+  {
+    "name": "import",
+    "description": "Import and resume a JSONL session",
+    "argumentHint": "<path>",
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Import sessions from a terminal: pi /import <path>."
+    }
+  },
+  {
+    "name": "bug",
+    "description": "Prepare a private bug report for the Pi developers",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Report bugs from a terminal: run pi and use /bug."
+    }
+  },
+  {
+    "name": "changelog",
+    "description": "Show changelog entries",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Run pi and use /changelog in a terminal."
+    }
+  },
+  {
+    "name": "hotkeys",
+    "description": "Show active keyboard shortcuts",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Terminal shortcuts do not apply to the desktop app."
+    }
+  },
+  {
+    "name": "scoped-models",
+    "description": "Configure the models used by interactive cycling",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Configure scoped models from a terminal: run pi and use /scoped-models."
+    }
+  },
+  {
+    "name": "llama",
+    "description": "Manage models on the configured llama.cpp router",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Manage llama.cpp models from a terminal: run pi and use /llama."
+    }
+  },
+  {
+    "name": "quit",
+    "description": "Quit Pi",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Stop the session from the desktop app instead."
+    }
+  },
+  {
+    "name": "abort",
+    "description": "Stop the running turn",
+    "argumentHint": null,
+    "source": "shared",
+    "invocation": {
+      "kind": "rpc",
+      "action": "abort"
+    }
+  }
+]

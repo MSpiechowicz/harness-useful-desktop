@@ -1,0 +1,475 @@
+[
+  {
+    "name": "security",
+    "description": "Plan, run, inspect, import, and compare OMP-native security scans",
+    "argumentHint": "<plan|scan|status|cancel|scans|show|import|export|validate|compare|disposition>",
+    "source": "builtin",
+    "invocation": {
+      "kind": "promptText"
+    }
+  },
+  {
+    "name": "model",
+    "description": "Show current model selection",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "gui",
+      "target": "modelPicker"
+    }
+  },
+  {
+    "name": "switch",
+    "description": "Switch model for this session only",
+    "argumentHint": "[model]",
+    "source": "builtin",
+    "invocation": {
+      "kind": "promptText"
+    }
+  },
+  {
+    "name": "fast",
+    "description": "Toggle fast mode",
+    "argumentHint": "[on|ultra|off|status]",
+    "source": "builtin",
+    "invocation": {
+      "kind": "promptText"
+    }
+  },
+  {
+    "name": "slow",
+    "description": "Toggle slow mode",
+    "argumentHint": "[on|off|status]",
+    "source": "builtin",
+    "invocation": {
+      "kind": "promptText"
+    }
+  },
+  {
+    "name": "skillful",
+    "description": "Toggle skill listing",
+    "argumentHint": "[on|off|status]",
+    "source": "builtin",
+    "invocation": {
+      "kind": "promptText"
+    }
+  },
+  {
+    "name": "extended-context",
+    "description": "Toggle extended context",
+    "argumentHint": "[on|off|status]",
+    "source": "builtin",
+    "invocation": {
+      "kind": "promptText"
+    }
+  },
+  {
+    "name": "computer",
+    "description": "Toggle computer use",
+    "argumentHint": "[on|off|status]",
+    "source": "builtin",
+    "invocation": {
+      "kind": "promptText"
+    }
+  },
+  {
+    "name": "ratchet",
+    "description": "Build (or reuse) an eval for an LLM flow, then hillclimb it unattended",
+    "argumentHint": "[flow and goal]",
+    "source": "builtin",
+    "invocation": {
+      "kind": "promptText"
+    }
+  },
+  {
+    "name": "prewalk",
+    "description": "Arm or restart prewalk",
+    "argumentHint": "[restart]",
+    "source": "builtin",
+    "invocation": {
+      "kind": "promptText"
+    }
+  },
+  {
+    "name": "modelpreset",
+    "description": "Manage model presets",
+    "argumentHint": "[list|save|switch|delete] [name]",
+    "source": "builtin",
+    "invocation": {
+      "kind": "promptText"
+    }
+  },
+  {
+    "name": "effort",
+    "description": "Set or show reasoning effort (thinking level, intelligence)",
+    "argumentHint": "[level]",
+    "source": "builtin",
+    "invocation": {
+      "kind": "promptText"
+    }
+  },
+  {
+    "name": "advisor",
+    "description": "Toggle advisor",
+    "argumentHint": "[on|off|status|dump [raw]|configure]",
+    "source": "builtin",
+    "invocation": {
+      "kind": "promptText"
+    }
+  },
+  {
+    "name": "export",
+    "description": "Export session to HTML file",
+    "argumentHint": "[--themes] [path]",
+    "source": "builtin",
+    "invocation": {
+      "kind": "promptText"
+    }
+  },
+  {
+    "name": "trace",
+    "description": "Open this session's trace in the stats dashboard",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "promptText"
+    }
+  },
+  {
+    "name": "dump",
+    "description": "Return full transcript as plain text, with LLM request JSON path",
+    "argumentHint": "[all]",
+    "source": "builtin",
+    "invocation": {
+      "kind": "promptText"
+    }
+  },
+  {
+    "name": "share",
+    "description": "Share session via an encrypted link (share server or secret gist)",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "promptText"
+    }
+  },
+  {
+    "name": "browser",
+    "description": "Toggle browser eval-prelude headless vs visible mode",
+    "argumentHint": "[headless|visible]",
+    "source": "builtin",
+    "invocation": {
+      "kind": "promptText"
+    }
+  },
+  {
+    "name": "todo",
+    "description": "Manage todos",
+    "argumentHint": "<subcommand>",
+    "source": "builtin",
+    "invocation": {
+      "kind": "promptText"
+    }
+  },
+  {
+    "name": "session",
+    "description": "Show or configure the current session",
+    "argumentHint": "[info|delete|pin [account]]",
+    "source": "builtin",
+    "invocation": {
+      "kind": "promptText"
+    }
+  },
+  {
+    "name": "jobs",
+    "description": "Show background jobs",
+    "argumentHint": "[full]",
+    "source": "builtin",
+    "invocation": {
+      "kind": "promptText"
+    }
+  },
+  {
+    "name": "usage",
+    "description": "Show token usage",
+    "argumentHint": "[show|reset [provider/credential-id|provider/active]]",
+    "source": "builtin",
+    "invocation": {
+      "kind": "promptText"
+    }
+  },
+  {
+    "name": "stats",
+    "description": "Launch the local stats dashboard",
+    "argumentHint": "[--port <port>] [--host <host>]",
+    "source": "builtin",
+    "invocation": {
+      "kind": "promptText"
+    }
+  },
+  {
+    "name": "changelog",
+    "description": "Show changelog",
+    "argumentHint": "[full|last [N]]",
+    "source": "builtin",
+    "invocation": {
+      "kind": "promptText"
+    }
+  },
+  {
+    "name": "tools",
+    "description": "Show available tools",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "promptText"
+    }
+  },
+  {
+    "name": "context",
+    "description": "Show context usage",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "promptText"
+    }
+  },
+  {
+    "name": "mcp",
+    "description": "Manage MCP servers",
+    "argumentHint": "<subcommand>",
+    "source": "builtin",
+    "invocation": {
+      "kind": "promptText"
+    }
+  },
+  {
+    "name": "ssh",
+    "description": "Manage SSH connections",
+    "argumentHint": "<subcommand>",
+    "source": "builtin",
+    "invocation": {
+      "kind": "promptText"
+    }
+  },
+  {
+    "name": "fresh",
+    "description": "Reset provider stream state without changing the local transcript",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "promptText"
+    }
+  },
+  {
+    "name": "compact",
+    "description": "Compact the conversation",
+    "argumentHint": "[soft|remote|snapcompact] [focus]",
+    "source": "builtin",
+    "invocation": {
+      "kind": "promptText"
+    }
+  },
+  {
+    "name": "shake",
+    "description": "Shake heavy content out of the conversation context",
+    "argumentHint": "[elide|images|thinking]",
+    "source": "builtin",
+    "invocation": {
+      "kind": "promptText"
+    }
+  },
+  {
+    "name": "handoff",
+    "description": "Summarize the session into a handoff document and compact in place",
+    "argumentHint": "[focus instructions]",
+    "source": "builtin",
+    "invocation": {
+      "kind": "promptText"
+    }
+  },
+  {
+    "name": "pin",
+    "description": "Pin or unpin a session at the top of the resume list",
+    "argumentHint": "[session id]",
+    "source": "builtin",
+    "invocation": {
+      "kind": "promptText"
+    }
+  },
+  {
+    "name": "retry",
+    "description": "Retry the last failed agent turn",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "promptText"
+    }
+  },
+  {
+    "name": "memory",
+    "description": "Manage memory",
+    "argumentHint": "<subcommand>",
+    "source": "builtin",
+    "invocation": {
+      "kind": "promptText"
+    }
+  },
+  {
+    "name": "rename",
+    "description": "Rename the current session (omit title to generate)",
+    "argumentHint": "[title]",
+    "source": "builtin",
+    "invocation": {
+      "kind": "promptText"
+    }
+  },
+  {
+    "name": "move",
+    "description": "Move the current session to a different directory",
+    "argumentHint": "[<path>]",
+    "source": "builtin",
+    "invocation": {
+      "kind": "promptText"
+    }
+  },
+  {
+    "name": "wt",
+    "description": "Move this session into a new worktree, changes included",
+    "argumentHint": "[<branch>]",
+    "source": "builtin",
+    "invocation": {
+      "kind": "promptText"
+    }
+  },
+  {
+    "name": "add-dir",
+    "description": "Add a workspace directory to this session",
+    "argumentHint": "<path>",
+    "source": "builtin",
+    "invocation": {
+      "kind": "promptText"
+    }
+  },
+  {
+    "name": "remove-dir",
+    "description": "Remove a workspace directory from this session",
+    "argumentHint": "<path>",
+    "source": "builtin",
+    "invocation": {
+      "kind": "promptText"
+    }
+  },
+  {
+    "name": "dirs",
+    "description": "List this session's workspace directories",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "promptText"
+    }
+  },
+  {
+    "name": "marketplace",
+    "description": "Manage plugins from marketplaces",
+    "argumentHint": "<subcommand>",
+    "source": "builtin",
+    "invocation": {
+      "kind": "promptText"
+    }
+  },
+  {
+    "name": "plugins",
+    "description": "Manage plugins",
+    "argumentHint": "[list|enable|disable]",
+    "source": "builtin",
+    "invocation": {
+      "kind": "promptText"
+    }
+  },
+  {
+    "name": "reload-plugins",
+    "description": "Reload all plugins",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "promptText"
+    }
+  },
+  {
+    "name": "force",
+    "description": "Force next turn to use a specific tool",
+    "argumentHint": "<tool-name> [prompt]",
+    "source": "builtin",
+    "invocation": {
+      "kind": "promptText"
+    }
+  },
+  {
+    "name": "green",
+    "description": "Generate a prompt to iterate on CI failures until the branch is green",
+    "argumentHint": null,
+    "source": "custom",
+    "invocation": {
+      "kind": "promptText"
+    }
+  },
+  {
+    "name": "review",
+    "description": "Launch interactive code review",
+    "argumentHint": null,
+    "source": "custom",
+    "invocation": {
+      "kind": "promptText"
+    }
+  },
+  {
+    "name": "annotate",
+    "description": "Annotate a diff or text from a file, prompt, latest reply, or session",
+    "argumentHint": null,
+    "source": "custom",
+    "invocation": {
+      "kind": "promptText"
+    }
+  },
+  {
+    "name": "new",
+    "description": "Start a new session",
+    "argumentHint": null,
+    "source": "shared",
+    "invocation": {
+      "kind": "rpc",
+      "action": "newSession"
+    }
+  },
+  {
+    "name": "thinking",
+    "description": "Choose the thinking level",
+    "argumentHint": null,
+    "source": "shared",
+    "invocation": {
+      "kind": "gui",
+      "target": "thinkingPicker"
+    }
+  },
+  {
+    "name": "name",
+    "description": "Rename this session",
+    "argumentHint": "<name>",
+    "source": "shared",
+    "invocation": {
+      "kind": "rpc",
+      "action": "setSessionName"
+    }
+  },
+  {
+    "name": "abort",
+    "description": "Stop the running turn",
+    "argumentHint": null,
+    "source": "shared",
+    "invocation": {
+      "kind": "rpc",
+      "action": "abort"
+    }
+  }
+]

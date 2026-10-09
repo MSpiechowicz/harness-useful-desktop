@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "context7": {
+      "url": "https://mcp.context7.com/mcp",
+      "headers": { "CONTEXT7_API_KEY": "CANARY-7f3a9c-context7" }
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "."],
+      "enabled": false
+    },
+    "internal-tools": {
+      "type": "streamable-http",
+      "url": "https://tools.demo.internal/mcp",
+      "oauth": { "clientId": "my-client", "clientSecret": "CANARY-7f3a9c-oauth", "callbackPort": 8765 }
+    }
+  }
+}

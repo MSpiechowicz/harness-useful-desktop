@@ -23,6 +23,7 @@ tracing.workspace = true
 ts-rs.workspace = true
 which.workspace = true
 dirs.workspace = true
+serde_norway.workspace = true
 
 [target.'cfg(unix)'.dependencies]
 nix.workspace = true
@@ -30,8 +31,8 @@ nix.workspace = true
 [dev-dependencies]
 # Self dev-dependency: enables `test-support` for this crate's integration tests.
 harness_business = { path = ".", features = ["test-support"] }
+insta.workspace = true
 pretty_assertions.workspace = true
-serde_norway.workspace = true
 tempfile.workspace = true
 
 [lints]

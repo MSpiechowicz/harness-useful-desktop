@@ -1,3 +1,4 @@
 # The canary fixtures must be committed even where the root .gitignore excludes the pattern.
 !*.log
 !.env
+!node_modules/

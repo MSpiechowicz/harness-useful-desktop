@@ -1,0 +1,4 @@
+modelRoles:
+  default: openai/gpt-5.1-codex
+tools:
+  approvalMode: always-ask

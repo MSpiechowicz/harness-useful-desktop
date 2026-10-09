@@ -3,5 +3,23 @@
   "identifier": "main",
   "description": "Main window. Grants only the app's own IPC commands. No core:* permission is granted: the UI calls nothing but invoke() of app commands, and Channel delivery (__TAURI_CHANNEL__ fetch) is not ACL-gated. No plugin permission is granted: dialog/opener/window-state/log are driven from Rust only, so their JS APIs stay unreachable from the webview.",
   "windows": ["main"],
-  "permissions": ["allow-app-info", "allow-prefs-get", "allow-prefs-set"]
+  "permissions": [
+    "allow-app-info",
+    "allow-prefs-get",
+    "allow-prefs-set",
+    "allow-harness-list",
+    "allow-harness-detect",
+    "allow-harness-pick-binary",
+    "allow-harness-clear-binary",
+    "allow-config-view",
+    "allow-extensions-view",
+    "allow-commands-catalog",
+    "allow-project-pick",
+    "allow-project-open",
+    "allow-project-close",
+    "allow-project-recent",
+    "allow-project-forget",
+    "allow-reveal-path",
+    "allow-open-external"
+  ]
 }

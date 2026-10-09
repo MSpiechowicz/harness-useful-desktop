@@ -1,0 +1,14 @@
+{
+  "defaultProvider": "anthropic-proxy",
+  "defaultModel": "claude-sonnet-4-5",
+  "defaultThinkingLevel": "medium",
+  "theme": "light/nightfall",
+  "packages": [
+    "npm:@demo/pi-review-kit@1.0.0",
+    { "source": "git:github.com/demo/pi-prompts@v1", "prompts": ["prompts/*.md"], "skills": [] },
+    "https://ci-bot:CANARY-7f3a9c@git.example.com/demo/pi-private.git"
+  ],
+  "extensions": ["-extensions/legacy.ts", "-builtin:mcp"],
+  "compaction": { "enabled": true, "reserveTokens": 16384 },
+  "httpProxy": "http://demo:CANARY-7f3a9c@proxy.demo.internal:3128"
+}

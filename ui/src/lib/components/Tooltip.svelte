@@ -10,11 +10,15 @@
   interface Props {
     text: string;
     side?: Side;
+    /** Suppresses the tooltip (e.g. when the hint only applies in some states). */
+    disabled?: boolean;
+    /** Layout classes of the wrapper; defaults to `inline-flex`. */
+    class?: string;
     /** Receives the id to wire into the trigger's `aria-describedby`. */
     children: Snippet<[{ describedby: string }]>;
   }
 
-  let { text, side = 'top', children }: Props = $props();
+  let { text, side = 'top', disabled = false, class: className = 'inline-flex', children }: Props = $props();
 
   const SHOW_DELAY_MS = 350;
   const PLACEMENT: Record<Side, string> = {
@@ -29,11 +33,19 @@
 
   function showSoon(): void {
     clearTimeout(timer);
+    if (disabled) {
+      return;
+    }
+
     timer = setTimeout(() => (visible = true), SHOW_DELAY_MS);
   }
 
   function showNow(): void {
     clearTimeout(timer);
+    if (disabled) {
+      return;
+    }
+
     visible = true;
   }
 
@@ -57,7 +69,7 @@
 </script>
 
 <span
-  class="relative inline-flex"
+  class={cx('relative', className)}
   onpointerenter={showSoon}
   onpointerleave={hide}
   onfocusin={onFocusIn}

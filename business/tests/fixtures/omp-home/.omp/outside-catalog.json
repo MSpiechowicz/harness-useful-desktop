@@ -1,0 +1,1 @@
+{ "name": "escape", "owner": { "name": "x" }, "plugins": [{ "name": "CANARY-7f3a9c", "source": "./x", "description": "CANARY-7f3a9c must never be read" }] }

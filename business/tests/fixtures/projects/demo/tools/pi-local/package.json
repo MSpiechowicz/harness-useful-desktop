@@ -1,0 +1,1 @@
+{ "name": "pi-local", "version": "0.0.1", "pi": { "skills": ["./skills"] } }

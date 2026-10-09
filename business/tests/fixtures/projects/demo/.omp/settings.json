@@ -1,0 +1,4 @@
+{
+  "extensions": ["./tools/omp-ext.ts"],
+  "compaction": { "enabled": true },
+}

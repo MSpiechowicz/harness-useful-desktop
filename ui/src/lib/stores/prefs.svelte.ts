@@ -32,6 +32,27 @@ export class PrefsStore {
     }
   }
 
+  /**
+   * Re-reads the fields the backend owns (active project, recent projects, binary overrides)
+   * without disturbing the UI-managed ones or an in-flight update.
+   */
+  async syncServerManaged(): Promise<void> {
+    try {
+      const fresh = await this.transport.invoke('prefs_get', undefined);
+
+      if (this.value) {
+        this.value = {
+          ...this.value,
+          activeProject: fresh.activeProject,
+          recentProjects: fresh.recentProjects,
+          binaryOverrides: fresh.binaryOverrides,
+        };
+      }
+    } catch {
+      // Cosmetic data (e.g. whether "Reset binary" shows); the next full load repairs it.
+    }
+  }
+
   /** Applies the patch immediately, persists it, and rolls back with a toast if the backend rejects it. */
   async update(patch: Partial<AppPrefs>): Promise<void> {
     const before = this.value;

@@ -1,0 +1,8 @@
+{
+  "name": "demo",
+  "owner": { "name": "Demo Org" },
+  "plugins": [
+    { "name": "demo-plugin", "source": "./plugins/demo-plugin", "version": "1.2.0", "description": "Lints and formats on save." },
+    { "name": "commit-helper", "source": "./plugins/commit-helper", "version": "2.0.0", "description": "Suggests conventional commit messages." }
+  ]
+}

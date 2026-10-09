@@ -1,0 +1,23 @@
+{
+  "version": 2,
+  "plugins": {
+    "demo-plugin@demo": [
+      {
+        "scope": "user",
+        "installPath": "~/.omp/plugins/cache/plugins/demo-plugin",
+        "version": "1.2.0",
+        "installedAt": "2026-08-14T09:12:00.000Z",
+        "lastUpdated": "2026-10-01T10:00:00.000Z"
+      }
+    ],
+    "escaping-plugin@demo": [
+      {
+        "scope": "user",
+        "installPath": "~/.omp/agent",
+        "version": "0.0.1",
+        "installedAt": "2026-08-14T09:12:00.000Z",
+        "lastUpdated": "2026-08-14T09:12:00.000Z"
+      }
+    ]
+  }
+}

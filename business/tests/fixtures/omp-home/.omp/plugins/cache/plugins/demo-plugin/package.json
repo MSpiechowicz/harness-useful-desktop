@@ -1,0 +1,13 @@
+{
+  "name": "demo-plugin",
+  "version": "1.2.0",
+  "description": "Demo marketplace plugin.",
+  "omp": {
+    "description": "Lints and formats on save.",
+    "features": {
+      "lint": { "description": "Run the linter", "default": true },
+      "format": { "description": "Run the formatter", "default": false }
+    },
+    "settings": { "apiToken": { "type": "string", "secret": true } }
+  }
+}

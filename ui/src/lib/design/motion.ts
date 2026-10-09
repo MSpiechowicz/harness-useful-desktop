@@ -44,7 +44,7 @@ export function rise(_node: Element, { y = 8, duration = DURATION.base, delay = 
   const distance = travel(y);
 
   return {
-    delay,
+    delay: scaled(delay),
     duration: scaled(duration),
     easing: expoOut,
     css: (t, u) => `opacity: ${t}; transform: translateY(${u * distance}px)`,

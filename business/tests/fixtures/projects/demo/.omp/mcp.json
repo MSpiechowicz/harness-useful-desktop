@@ -1,0 +1,1 @@
+{ "mcpServers": { "project-db": { "command": "db-mcp", "args": ["--readonly"], "env": { "DB_PASSWORD": "CANARY-7f3a9c" } }, "github": { "command": "gh-mcp-project" } } }

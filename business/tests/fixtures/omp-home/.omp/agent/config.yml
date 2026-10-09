@@ -1,0 +1,17 @@
+# Synthetic OMP settings for tests (never copied from a real home).
+theme:
+  dark: dark-nord
+modelRoles:
+  default: anthropic/claude-sonnet-4-5
+  smol: anthropic/claude-haiku-4-5
+tools:
+  approvalMode: write
+compaction:
+  enabled: true
+  reserveTokens: 16384
+providers:
+  openrouter:
+    apiKey: sk-or-v1-CANARY-7f3a9c-0000000000000000
+    baseUrl: https://openrouter.ai/api/v1
+disabledExtensions:
+  - extension-module:muted
