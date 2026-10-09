@@ -53,6 +53,7 @@
     { icon: MessageSquare, title: 'You ask', body: 'Describe the change in Chat.', keys: 'mod+n' },
     { icon: Bot, title: 'The agent works', body: 'It reads and edits files in this folder.' },
     { icon: GitCompare, title: 'You review', body: 'Comment on its diff in Changes and send it back.', keys: 'mod+3' },
+    { icon: History, title: 'Pick up later', body: 'Every chat is kept in Sessions, ready to resume.', keys: 'mod+2' },
   ];
 
   /** What the open project turns on, with live facts where the app has them. */
@@ -151,10 +152,15 @@
   <section class="flex flex-col gap-3 [@media(max-height:720px)]:hidden" aria-labelledby="how-it-works">
     <h3 id="how-it-works" class="text-sm font-medium tracking-wider text-fg-3 uppercase">How it works</h3>
     <!-- A timeline: three nodes on one gradient track, left-aligned like the rest of the step. -->
-    <ol class="relative grid grid-cols-3">
-      <!-- The track runs between the nodes in two segments that stop short of each ring, so nothing needs masking. -->
-      <span class="absolute top-4 left-[40px] h-px w-[calc(33.333%-48px)] bg-[linear-gradient(90deg,var(--accent-1),var(--accent-2))] opacity-60" aria-hidden="true"></span>
-      <span class="absolute top-4 left-[calc(33.333%+40px)] h-px w-[calc(33.333%-48px)] bg-[linear-gradient(90deg,var(--accent-2),var(--accent-3))] opacity-60" aria-hidden="true"></span>
+    <ol class="relative grid grid-cols-4">
+      <!-- The track runs between the nodes in segments that stop short of each ring, so nothing needs masking. -->
+      {#each LOOP.slice(1) as step, index (step.title)}
+        <span
+          class="absolute top-4 h-px w-[calc(25%-48px)] bg-[linear-gradient(90deg,var(--accent-1),var(--accent-2),var(--accent-3))] opacity-60"
+          style:left="calc({index * 25}% + 40px)"
+          aria-hidden="true"
+        ></span>
+      {/each}
       {#each LOOP as step, index (step.title)}
         <li class="relative flex flex-col items-start gap-2 pr-6">
           <!-- The node is SVG, so its ring is always anti-aliased. -->
@@ -165,7 +171,7 @@
             <span class="relative">{index + 1}</span>
           </span>
           <p class="mt-1 flex items-center gap-2 text-sm font-medium text-fg"><step.icon class="text-fg-3" size={14} aria-hidden="true" />{step.title}</p>
-          <p class="max-w-60 text-xs text-fg-3">{step.body}</p>
+          <p class="text-xs text-fg-3">{step.body}</p>
           {#if step.keys}<Kbd keys={step.keys} />{/if}
         </li>
       {/each}
