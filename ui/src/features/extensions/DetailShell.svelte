@@ -3,9 +3,9 @@
   import type { Snippet } from 'svelte';
 
   import Badge from '$lib/components/Badge.svelte';
-  import IconButton from '$lib/components/IconButton.svelte';
+  import Button from '$lib/components/Button.svelte';
+  import { ICON } from '$lib/components/icon';
   import { revealPath } from '$lib/ipc/actions';
-  import { breakable } from '$lib/utils/format';
 
   import type { Fact } from './extension-detail';
   import type { ExtBadge } from './extension-items';
@@ -20,9 +20,13 @@
   }
 
   let { title, badges, description, facts, children }: Props = $props();
+
+  // A fact the badges already state (scope, version, marketplace) is not said a second time.
+  const shown = $derived(facts.filter((fact) => !badges.some((badge) => badge.label === fact.value || badge.label === `v${fact.value}`)));
 </script>
 
-<article class="flex min-h-full flex-col gap-5 p-6" aria-labelledby="extension-title">
+<!-- One column: title and badges, the remaining facts as plain rows, then whatever the tab adds. Nothing floats. -->
+<article class="flex min-h-full max-w-5xl flex-col gap-5 p-6" aria-labelledby="extension-title">
   <header class="flex flex-col gap-2">
     <h2 id="extension-title" class="text-2xl break-words text-fg">{title}</h2>
 
@@ -37,24 +41,22 @@
     {/if}
   </header>
 
-  <!-- Wide panes put the facts beside the tab-specific sections instead of leaving that space empty. -->
-  <div class="grid gap-5 @4xl:grid-cols-[minmax(0,1fr)_22rem] @4xl:items-start">
-    {#if facts.length > 0}
-      <dl class="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2.5 rounded-lg border border-line bg-surface-1 p-4 text-sm @4xl:sticky @4xl:top-0 @4xl:order-last">
-        {#each facts as fact (fact.label)}
-          <dt class="text-fg-3">{fact.label}</dt>
-          <dd class="flex min-w-0 items-center gap-2 text-fg {fact.mono ? 'font-mono' : ''}">
-            <span class="min-w-0 [overflow-wrap:anywhere]">{fact.path ? breakable(fact.value) : fact.value}</span>
-            {#if fact.path}
-              <IconButton icon={FolderSearch} label="Reveal {fact.label.toLowerCase()} in file manager" size="sm" onclick={() => void revealPath(fact.value)} />
-            {/if}
-          </dd>
-        {/each}
-      </dl>
-    {/if}
+  {#if shown.length > 0}
+    <dl class="divide-y divide-line rounded-md border border-line bg-surface-1 text-sm">
+      {#each shown as fact (fact.label)}
+        <div class="flex min-h-10 items-center gap-4 py-1.5 pr-1.5 pl-3">
+          <dt class="w-32 shrink-0 text-fg-3">{fact.label}</dt>
+          <dd class={['min-w-0 flex-1 truncate text-fg', fact.mono && 'font-mono']} title={fact.value}>{fact.value}</dd>
+          {#if fact.path}
+            <Button size="sm" variant="ghost" onclick={() => void revealPath(fact.value)}>
+              {#snippet leading()}<FolderSearch size={ICON.sm} aria-hidden="true" />{/snippet}
+              Reveal
+            </Button>
+          {/if}
+        </div>
+      {/each}
+    </dl>
+  {/if}
 
-    <div class="flex min-w-0 flex-col gap-5">
-      {@render children?.()}
-    </div>
-  </div>
+  {@render children?.()}
 </article>
