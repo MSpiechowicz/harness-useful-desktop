@@ -52,6 +52,10 @@ pub struct PluginInfo {
     pub features: Vec<PluginFeature>,
     /// Absolute install directory.
     pub path: Option<String>,
+    /// The version its marketplace catalog offers, when the catalog is cached.
+    pub latest_version: Option<String>,
+    /// The catalog offers a newer version than the one installed.
+    pub update_available: bool,
 }
 
 /// One plugin listed in a marketplace catalog.

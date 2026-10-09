@@ -8,6 +8,7 @@
   import type { ExtensionAction } from '$lib/ipc/bindings/ExtensionAction';
   import { harness } from '$lib/stores/harness.svelte';
   import { project } from '$lib/stores/project.svelte';
+  import { extensionsView } from '$lib/stores/views.svelte';
 
   import { actionRequest, type ActionRequest, type ComposeKind } from './action-model';
   import { actionRunner } from './action-runner.svelte';
@@ -27,12 +28,19 @@
     compose?: ComposeKind;
     action?: ExtensionAction;
     primary?: boolean;
+    /** Greys the action out while there is nothing for it to do. */
+    idle?: () => boolean;
   }
 
   const TOOLBARS: Record<string, ToolbarAction[]> = {
     plugins: [
       { label: 'Install plugin', icon: Plus, compose: 'plugin', primary: true },
-      { label: 'Upgrade all', icon: ArrowUpFromLine, action: { type: 'pluginUpgrade', name: null } },
+      {
+        label: 'Upgrade all',
+        icon: ArrowUpFromLine,
+        action: { type: 'pluginUpgrade', name: null },
+        idle: () => !(extensionsView.data?.plugins.some((plugin) => plugin.updateAvailable) ?? false),
+      },
     ],
     marketplaces: [
       { label: 'Add marketplace', icon: Plus, compose: 'marketplace', primary: true },
@@ -66,7 +74,7 @@
 </script>
 
 {#each actions as entry (entry.label)}
-  <Button variant={entry.primary ? 'primary' : 'secondary'} size="sm" disabled={busy || !harness.active} onclick={() => run(entry)}>
+  <Button variant={entry.primary ? 'primary' : 'secondary'} size="sm" disabled={busy || !harness.active || entry.idle?.()} onclick={() => run(entry)}>
     {#snippet leading()}<entry.icon size={ICON.sm} aria-hidden="true" />{/snippet}
     {entry.label}
   </Button>

@@ -33,6 +33,18 @@ fn limits() -> Value {
                 "ageMinutes": 3,
                 "status": "fresh",
             },
+            // A per-model window: the dashboard reports some plans per model as well as in total.
+            {
+                "provider": "claude",
+                "plan": "max",
+                "window": "7d",
+                "scope": "Fable",
+                "usedPercent": 12.0,
+                "resetsAt": "2026-10-12T08:00:00.000Z",
+                "observedAt": "2026-10-09T12:27:00.000Z",
+                "ageMinutes": 3,
+                "status": "fresh",
+            },
             {
                 "provider": "codex",
                 "plan": "pro",

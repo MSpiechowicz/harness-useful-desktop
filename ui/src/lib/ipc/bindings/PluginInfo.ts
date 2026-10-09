@@ -41,4 +41,12 @@ features: Array<PluginFeature>,
 /**
  * Absolute install directory.
  */
-path: string | null, };
+path: string | null, 
+/**
+ * The version its marketplace catalog offers, when the catalog is cached.
+ */
+latestVersion: string | null, 
+/**
+ * The catalog offers a newer version than the one installed.
+ */
+updateAvailable: boolean, };

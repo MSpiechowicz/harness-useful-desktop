@@ -107,6 +107,13 @@
     outline-offset: 2px;
   }
 
+  /* Scrollable blocks and panels draw the ring inside their own box, so a clipping parent never cuts it into stray lines. */
+  div:focus-visible,
+  pre:focus-visible,
+  section:focus-visible {
+    outline-offset: -2px;
+  }
+
   button:not(:disabled),
   [role="button"],
   [role="switch"],

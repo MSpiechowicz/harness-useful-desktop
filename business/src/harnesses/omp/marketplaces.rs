@@ -108,6 +108,55 @@ fn catalog_entries(
     Ok(entries)
 }
 
+/// Marks each marketplace plugin with the version its catalog offers and whether that is newer
+/// than the installed one. Plugins without a cached catalog entry are left untouched.
+pub fn mark_updates(plugins: &mut [PluginInfo], marketplaces: &[MarketplaceInfo]) {
+    for plugin in plugins {
+        let Some(marketplace) = plugin.marketplace.as_deref() else {
+            continue;
+        };
+        let name = plugin.id.rsplit_once('@').map_or(plugin.id.as_str(), |(name, _)| name);
+        let latest = marketplaces
+            .iter()
+            .find(|candidate| candidate.name == marketplace)
+            .and_then(|candidate| candidate.entries.iter().find(|entry| entry.name == name))
+            .and_then(|entry| entry.version.clone());
+
+        plugin.update_available = match (&latest, &plugin.version) {
+            (Some(latest), Some(installed)) => is_newer(latest, installed),
+            (Some(_), None) => true,
+            (None, _) => false,
+        };
+        plugin.latest_version = latest;
+    }
+}
+
+/// Whether `candidate` is a higher version than `current`: numeric dot-separated parts compared
+/// in order, a missing part counting as zero; anything unparsable falls back to plain inequality.
+pub fn is_newer(candidate: &str, current: &str) -> bool {
+    fn parts(version: &str) -> Option<Vec<u64>> {
+        version
+            .trim_start_matches('v')
+            .split(['-', '+'])
+            .next()?
+            .split('.')
+            .map(|part| part.parse::<u64>().ok())
+            .collect()
+    }
+
+    match (parts(candidate), parts(current)) {
+        (Some(a), Some(b)) => {
+            let len = a.len().max(b.len());
+            let at = |list: &Vec<u64>, index: usize| list.get(index).copied().unwrap_or(0);
+            (0..len)
+                .map(|index| (at(&a, index), at(&b, index)))
+                .find(|(x, y)| x != y)
+                .is_some_and(|(x, y)| x > y)
+        }
+        _ => candidate != current,
+    }
+}
+
 /// The canonical catalog path, refused unless it lies inside `cache_root`.
 fn contained_catalog(cache_root: &Path, catalog: &Path) -> Result<PathBuf, String> {
     match canonical_within(cache_root, catalog) {
@@ -115,5 +164,27 @@ fn contained_catalog(cache_root: &Path, catalog: &Path) -> Result<PathBuf, Strin
         Err(BusinessError::NotFound(_)) => Err(NOT_CACHED.to_owned()),
         Err(BusinessError::Forbidden(_)) => Err(OUTSIDE_CACHE.to_owned()),
         Err(error) => Err(error.to_string()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_newer;
+
+    #[test]
+    fn compares_versions_numerically() {
+        assert!(is_newer("1.3.0", "1.2.0"));
+        assert!(is_newer("1.10.0", "1.9.9"));
+        assert!(is_newer("2", "1.9.9"));
+        assert!(is_newer("v0.2.30", "0.2.28"));
+        assert!(!is_newer("1.2.0", "1.2.0"));
+        assert!(!is_newer("1.2.0", "1.3.0"));
+        assert!(!is_newer("0.2.28", "0.2.28-dev"));
+    }
+
+    #[test]
+    fn falls_back_to_inequality_for_odd_versions() {
+        assert!(is_newer("nightly-b", "nightly-a"));
+        assert!(!is_newer("nightly", "nightly"));
     }
 }

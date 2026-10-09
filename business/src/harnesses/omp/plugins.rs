@@ -190,6 +190,8 @@ impl Installs<'_> {
             marketplace,
             features: features(manifest.as_ref(), self.state.selected_features(&package_name)),
             path: shown_path.map(|path| path.to_string_lossy().into_owned()),
+            latest_version: None,
+            update_available: false,
         };
 
         Install {
@@ -236,6 +238,8 @@ fn npm_plugins(plugins_dir: &Path, state: &RuntimeState, found: &mut InstalledPl
             marketplace: None,
             features: features(manifest.as_ref(), state.selected_features(&name)),
             path: Some(dir.to_string_lossy().into_owned()),
+            latest_version: None,
+            update_available: false,
         };
 
         if plugin.enabled {

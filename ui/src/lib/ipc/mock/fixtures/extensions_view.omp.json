@@ -19,7 +19,9 @@
           "enabled": true
         }
       ],
-      "path": "/home/demo/.omp/plugins/cache/plugins/demo-plugin"
+      "path": "/home/demo/.omp/plugins/cache/plugins/demo-plugin",
+      "latestVersion": "1.3.0",
+      "updateAvailable": true
     },
     {
       "id": "escaping-plugin@demo",
@@ -30,7 +32,9 @@
       "scope": "user",
       "marketplace": "demo",
       "features": [],
-      "path": "/home/demo/.omp/agent"
+      "path": "/home/demo/.omp/agent",
+      "latestVersion": null,
+      "updateAvailable": false
     },
     {
       "id": "npm-helper",
@@ -50,7 +54,9 @@
           "enabled": false
         }
       ],
-      "path": "/home/demo/.omp/plugins/node_modules/npm-helper"
+      "path": "/home/demo/.omp/plugins/node_modules/npm-helper",
+      "latestVersion": null,
+      "updateAvailable": false
     }
   ],
   "marketplaces": [
@@ -63,7 +69,7 @@
       "entries": [
         {
           "name": "demo-plugin",
-          "version": "1.2.0",
+          "version": "1.3.0",
           "description": "Lints and formats on save.",
           "installed": true
         },

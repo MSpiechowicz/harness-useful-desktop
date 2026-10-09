@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use serde_json::Value;
 
 use super::config::{McpFile, UserLayer, mcp_files, project_settings, user_settings};
-use super::marketplaces::marketplaces;
+use super::marketplaces::{mark_updates, marketplaces};
 use super::paths::{PROJECT_DIR_NAME, omp_paths};
 use super::plugins::installed_plugins;
 use super::themes::BUILTIN_THEMES;
@@ -62,8 +62,9 @@ impl Settings {
 pub fn omp_extensions_view(env: &Env, project: Option<&Path>) -> ExtensionsView {
     let paths = omp_paths(env, project);
     let settings = Settings::load(&paths);
-    let plugins = installed_plugins(env, &paths);
+    let mut plugins = installed_plugins(env, &paths);
     let (marketplaces, marketplace_notices) = marketplaces(env, &paths, &plugins.plugins);
+    mark_updates(&mut plugins.plugins, &marketplaces);
 
     let mut notices = plugins.notices;
     notices.extend(marketplace_notices);

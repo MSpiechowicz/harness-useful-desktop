@@ -16,18 +16,30 @@ function scopeOf(scope: string): InstallScope {
   return scope === 'project' ? 'project' : 'user';
 }
 
-/** Enable or disable, upgrade and uninstall of an installed plugin. */
+/**
+ * Enable or disable, upgrade and uninstall of an installed plugin. Upgrade is offered only when the marketplace
+ * catalog has a newer version: the CLI would otherwise reinstall the same version and call it a success.
+ */
 export function pluginActions(harness: HarnessId, plugin: PluginInfo, project: string | null): BarAction[] {
   const scope = scopeOf(plugin.scope);
   const request = (action: Parameters<typeof actionRequest>[1]) => actionRequest(harness, action, scope, project);
-
-  return [
+  const actions: BarAction[] = [
     plugin.enabled
       ? { label: 'Disable', icon: PowerOff, request: request({ type: 'pluginDisable', name: plugin.id }) }
       : { label: 'Enable', icon: Power, request: request({ type: 'pluginEnable', name: plugin.id }) },
-    { label: 'Upgrade', icon: ArrowUpFromLine, request: request({ type: 'pluginUpgrade', name: plugin.id }) },
-    { label: 'Uninstall', icon: Trash2, danger: true, request: request({ type: 'pluginUninstall', name: plugin.id }) },
   ];
+
+  if (plugin.updateAvailable) {
+    actions.push({
+      label: plugin.latestVersion ? `Upgrade to v${plugin.latestVersion}` : 'Upgrade',
+      icon: ArrowUpFromLine,
+      request: request({ type: 'pluginUpgrade', name: plugin.id }),
+    });
+  }
+
+  actions.push({ label: 'Uninstall', icon: Trash2, danger: true, request: request({ type: 'pluginUninstall', name: plugin.id }) });
+
+  return actions;
 }
 
 /** Refresh the catalog of a marketplace, or remove it. */

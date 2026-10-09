@@ -32,7 +32,7 @@
   <OptionStrip options={items} bind:value kind="tabs" appearance="underline" {label} {idBase} {onchange} class={stripClass} />
 
   {#key value}
-    <div id="{idBase}-panel" role="tabpanel" aria-labelledby="{idBase}-tab-{value}" tabindex="0" in:rise={{ y: 6 }} class={panelClass}>
+    <div id="{idBase}-panel" role="tabpanel" aria-labelledby="{idBase}-tab-{value}" in:rise={{ y: 6 }} class={panelClass}>
       {@render panel(value)}
     </div>
   {/key}

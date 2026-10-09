@@ -97,6 +97,9 @@ function pluginItems(view: ExtensionsView): ExtItem[] {
     if (plugin.marketplace) {
       badges.push({ label: plugin.marketplace, tone: 'accent' });
     }
+    if (plugin.updateAvailable) {
+      badges.push({ label: plugin.latestVersion ? `v${plugin.latestVersion} available` : 'Update available', tone: 'info' });
+    }
 
     return { ...base(plugin.id, plugin.name, plugin.description, badges, [plugin.id]), tab: 'plugins', data: plugin };
   });

@@ -172,6 +172,8 @@ export function applyAction(view: ExtensionsView, { action, project }: Pick<Appl
           marketplace,
           features: [],
           path: null,
+          latestVersion: entry?.version ?? null,
+          updateAvailable: false,
         });
       }
       break;
