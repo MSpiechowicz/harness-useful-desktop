@@ -135,8 +135,14 @@
     font-weight: inherit;
   }
 
+  /*
+   * Monospace gives every letter the same cell, so the thin regular "desktop" sits in more air than the bold
+   * "harness" and the two words read as differently spaced. A real gap between them plus tighter tracking on
+   * the light word gives both the same rhythm.
+   */
   .name span {
-    margin-left: 0.08em;
+    margin-left: 0.3em;
+    letter-spacing: -0.06em;
     font-weight: 400;
     color: var(--text-3);
   }

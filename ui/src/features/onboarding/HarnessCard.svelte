@@ -40,7 +40,7 @@
 <article
   aria-label={label}
   class={cx(
-    'flex flex-col gap-4 rounded-lg border bg-glass p-5 shadow-float backdrop-blur-md transition-colors duration-[var(--dur-base)]',
+    'flex flex-col gap-4 rounded-lg border bg-glass p-5 shadow-float backdrop-blur-md transition-colors duration-[var(--dur-base)] [@media(max-height:720px)]:gap-3 [@media(max-height:720px)]:p-4',
     selected ? 'border-accent/50 shadow-glow' : 'border-line',
   )}
 >
@@ -63,9 +63,11 @@
         detection.installed ? 'hover:bg-hover active:bg-press' : 'cursor-not-allowed opacity-50',
       )}
     >
-      <span class={cx('grid size-4 place-items-center rounded-full border', selected ? 'border-accent' : 'border-fg-3')} aria-hidden="true">
-        {#if selected}<span class="size-2 rounded-full bg-accent"></span>{/if}
-      </span>
+      <!-- One SVG, two circles on the same centre: concentric and crisp even on a half-pixel position. -->
+      <svg class={cx('size-4 shrink-0', selected ? 'text-accent' : 'text-fg-3')} viewBox="0 0 16 16" aria-hidden="true">
+        <circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" stroke-width="1.5" />
+        {#if selected}<circle cx="8" cy="8" r="3.5" fill="currentColor" />{/if}
+      </svg>
       {selected ? 'Daily driver' : 'Use as daily driver'}
     </button>
   </header>
@@ -108,15 +110,16 @@
       <p class="text-sm text-fg-3">{detection.error}</p>
     {/if}
 
-    <div class="flex flex-wrap gap-2">
+    <!-- An even row of equal-width actions, not a ragged wrap. -->
+    <div class={cx('grid gap-2', detection.installHint ? 'grid-cols-2' : 'grid-cols-1')}>
       {#if detection.installHint}
         {@const docsUrl = detection.installHint.docsUrl}
-        <Button size="sm" onclick={() => void openExternal(docsUrl)}>
+        <Button size="sm" class="w-full" onclick={() => void openExternal(docsUrl)}>
           {#snippet leading()}<ExternalLink size={16} aria-hidden="true" />{/snippet}
-          Open install docs
+          Install docs
         </Button>
       {/if}
-      <Button size="sm" onclick={() => void harness.pickBinary(summary.info.id)}>
+      <Button size="sm" class="w-full" onclick={() => void harness.pickBinary(summary.info.id)}>
         {#snippet leading()}<FolderOpen size={16} aria-hidden="true" />{/snippet}
         Choose binary…
       </Button>

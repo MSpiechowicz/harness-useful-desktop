@@ -2,7 +2,7 @@ import type { OnboardingStep } from './onboarding.svelte';
 
 /** Content widths: the cards steps need room to sit side by side, text steps read best narrower. */
 export const WIDTH = {
-  wide: 'max-w-[52rem]',
+  wide: 'max-w-[60rem]',
   narrow: 'max-w-[38rem]',
 } as const;
 

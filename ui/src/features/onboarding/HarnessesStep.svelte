@@ -27,7 +27,7 @@
   }
 </script>
 
-<div class={cx('mx-auto flex w-full flex-col gap-8', WIDTH.wide)}>
+<div class={cx('mx-auto flex w-full flex-col gap-8 [@media(max-height:720px)]:gap-4', WIDTH.wide)}>
   <StepHeader
     eyebrow="Your harnesses"
     title="Which agent do you use every day?"
@@ -44,6 +44,21 @@
       Could not scan for harnesses: {harness.error?.message}
     </p>
   {:else}
+    <!-- What the scan found, with the way to scan again right next to it. -->
+    <div class="-mb-1 flex items-center justify-between gap-3">
+      <p class="text-sm text-fg-3">
+        {#if installed.length === 0}
+          No harness found yet. You can continue and install one later.
+        {:else}
+          Found {installed.length} of {harness.summaries.length} on this machine.
+        {/if}
+      </p>
+      <Button variant="ghost" size="sm" loading={harness.scanning} onclick={() => void harness.rescan()}>
+        {#snippet leading()}<RotateCw size={16} aria-hidden="true" />{/snippet}
+        Re-scan
+      </Button>
+    </div>
+
     <!-- Arrow keys are a convenience on top of the radio buttons, which are individually focusable. -->
     <div role="radiogroup" aria-label="Daily driver" tabindex="-1" class="grid grid-cols-2 items-start gap-4 outline-none" onkeydown={onKeydown}>
       {#each harness.summaries as summary (summary.info.id)}
@@ -51,14 +66,5 @@
       {/each}
     </div>
 
-    <div class="flex items-center gap-3">
-      <Button loading={harness.scanning} onclick={() => void harness.rescan()}>
-        {#snippet leading()}<RotateCw size={16} aria-hidden="true" />{/snippet}
-        Re-scan
-      </Button>
-      {#if installed.length === 0}
-        <p class="text-sm text-fg-2">No harness found yet. You can continue and install one later.</p>
-      {/if}
-    </div>
   {/if}
 </div>
