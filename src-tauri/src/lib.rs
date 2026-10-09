@@ -2,9 +2,12 @@
 //! IPC commands; all domain logic lives in the business crate.
 
 mod access;
+mod agent_sink;
+mod agents;
 mod commands;
 mod dialogs;
 mod error;
+mod lifecycle;
 mod logging;
 pub mod state;
 #[cfg(test)]
@@ -17,7 +20,7 @@ use tauri::Manager;
 
 use crate::state::AppState;
 
-/// Builds and runs the app until the last window closes.
+/// Builds and runs the app until the last window closes and every agent session stopped.
 pub fn run() -> ExitCode {
     let result = tauri::Builder::default()
         // Must be registered first so a second launch exits before anything else starts.
@@ -56,11 +59,22 @@ pub fn run() -> ExitCode {
             commands::projects::project_forget,
             commands::system::reveal_path,
             commands::system::open_external,
+            commands::agent::agent_start,
+            commands::agent::agent_send,
+            commands::agent::agent_ui_respond,
+            commands::agent::agent_bash,
+            commands::agent::agent_stop,
+            commands::agent::agent_list,
         ])
-        .run(tauri::generate_context!());
+        .on_page_load(lifecycle::on_page_load)
+        .build(tauri::generate_context!());
 
     match result {
-        Ok(()) => ExitCode::SUCCESS,
+        Ok(app) => {
+            // Exit waits (bounded) until every agent session stopped; see `lifecycle`.
+            app.run(lifecycle::on_run_event);
+            ExitCode::SUCCESS
+        }
         Err(error) => {
             // The logger may not be running yet, so report on stderr as well.
             eprintln!("Harness Desktop failed: {error}");

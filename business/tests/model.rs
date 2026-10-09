@@ -2,12 +2,15 @@
 
 use harness_business::BusinessError;
 use harness_business::model::{
-    AgentActionKind, AppInfo, AppPrefs, CommandInvocation, CommandSource, CommandSpec, ConfigField, ConfigValue,
-    Detection, GuiTarget, HarnessId, InstallHint, IpcError, IpcErrorCode, SecretKind, VersionSupport,
+    AgentAction, AgentActionKind, AgentEnvelope, AgentReply, AppInfo, AppPrefs, CommandInvocation, CommandSource,
+    CommandSpec, ConfigField, ConfigValue, Detection, GuiTarget, HarnessId, InstallHint, IpcError, IpcErrorCode,
+    MAX_ACTION_TEXT_BYTES, ModelOption, SecretKind, UiRequest, UiResponse, VersionSupport,
 };
 use harness_business::security::Redactor;
 use pretty_assertions::assert_eq;
-use serde_json::json;
+use serde::Serialize;
+use serde::de::DeserializeOwned;
+use serde_json::{Value, json};
 
 #[test]
 fn default_prefs_serialize_with_camel_case_fields() {
@@ -251,4 +254,138 @@ fn redacted_documents_keep_source_key_order() {
         ["theme", "apiKey", "compaction"]
     );
     assert_eq!(top_level_keys(Redactor.redact(&from_yaml)), ["zeta", "alpha", "mid"]);
+}
+
+/// Asserts that every `wire` value parses as `T` and serializes back unchanged.
+fn assert_round_trips<T: Serialize + DeserializeOwned>(wire: &[Value]) {
+    for value in wire {
+        let parsed: T = serde_json::from_value(value.clone()).unwrap_or_else(|error| panic!("{value}: {error}"));
+
+        assert_eq!(&serde_json::to_value(parsed).unwrap(), value);
+    }
+}
+
+#[test]
+fn agent_actions_are_tagged_with_camel_case_fields() {
+    assert_round_trips::<AgentAction>(&[
+        json!({ "type": "prompt", "message": "hi", "streamingBehavior": "followUp" }),
+        json!({ "type": "abort" }),
+        json!({ "type": "switchSession", "session": { "harness": "pi", "id": "0199c1f2" } }),
+        json!({ "type": "setModel", "provider": "anthropic", "modelId": "claude-sonnet-4-5" }),
+        json!({ "type": "compact", "instructions": null }),
+        json!({ "type": "getHistory", "cursor": "page-2", "limit": 50 }),
+    ]);
+}
+
+#[test]
+fn agent_actions_outside_the_whitelist_are_rejected() {
+    let raw_rpc = json!({ "type": "bash", "command": "cargo test" });
+
+    assert!(serde_json::from_value::<AgentAction>(raw_rpc).is_err());
+}
+
+#[test]
+fn agent_action_text_and_page_limits_are_enforced() {
+    let prompt = |size: usize| AgentAction::Prompt {
+        message: "x".repeat(size),
+        streaming_behavior: None,
+    };
+    let history = |limit: u32| AgentAction::GetHistory { cursor: None, limit };
+
+    assert!(prompt(MAX_ACTION_TEXT_BYTES).validate().is_ok());
+    assert!(history(200).validate().is_ok());
+
+    for action in [prompt(MAX_ACTION_TEXT_BYTES + 1), history(0), history(201)] {
+        let error = IpcError::from(action.validate().unwrap_err());
+        assert_eq!(error.code, IpcErrorCode::InvalidInput);
+    }
+}
+
+#[test]
+fn agent_events_are_enveloped_and_tagged_with_camel_case_fields() {
+    let envelope = |event: Value| json!({ "sessionKey": "k", "seq": 7, "event": event });
+
+    assert_round_trips::<AgentEnvelope>(&[
+        envelope(json!({ "type": "agentStart" })),
+        envelope(json!({ "type": "messageStart", "messageId": "m1", "role": "toolResult" })),
+        envelope(json!({ "type": "textDelta", "messageId": "m1", "contentIndex": 2, "delta": "**hi**" })),
+        envelope(json!({
+            "type": "toolEnd", "toolCallId": "c1", "name": "edit", "isError": false,
+            "result": { "content": [] }, "touchedPaths": ["src/lib.rs"]
+        })),
+        envelope(json!({
+            "type": "promptResult", "requestId": null, "status": "error", "error": "429", "retryable": true
+        })),
+        envelope(json!({ "type": "queueUpdate", "steering": ["a"], "followUp": [] })),
+        envelope(json!({ "type": "uiCancel", "requestId": "ui-1" })),
+        envelope(json!({ "type": "frameError", "originalType": null, "error": "bad json" })),
+        envelope(json!({ "type": "exited", "code": null, "signal": 9 })),
+        envelope(json!({ "type": "unknown", "eventType": "live_start" })),
+    ]);
+}
+
+#[test]
+fn ui_requests_and_responses_are_tagged_by_type() {
+    assert_round_trips::<UiRequest>(&[
+        json!({ "id": "a", "kind": {
+            "type": "select", "title": "Allow bash?", "options": ["Approve", "Deny"],
+            "details": ["once", null], "timeoutMs": 30000
+        }}),
+        json!({ "id": "b", "kind": { "type": "confirm", "title": "T", "message": "M", "timeoutMs": null } }),
+        json!({ "id": "c", "kind": { "type": "input", "title": "T", "placeholder": null, "timeoutMs": null } }),
+        json!({ "id": "d", "kind": { "type": "editor", "title": "T", "prefill": "x" } }),
+    ]);
+    assert_round_trips::<UiResponse>(&[
+        json!({ "id": "a", "outcome": { "type": "value", "value": "Approve" } }),
+        json!({ "id": "b", "outcome": { "type": "confirmed", "confirmed": false } }),
+        json!({ "id": "c", "outcome": { "type": "cancelled" } }),
+    ]);
+}
+
+#[test]
+fn agent_replies_are_tagged_by_type() {
+    assert_round_trips::<AgentReply>(&[
+        json!({ "type": "ack" }),
+        json!({ "type": "prompt", "agentInvoked": false, "disposition": null }),
+        json!({ "type": "thinkingLevels", "levels": ["off", "high"] }),
+        json!({ "type": "text", "text": null }),
+        json!({ "type": "history", "messages": [{
+            "id": "e1", "role": "assistant",
+            "blocks": [
+                { "type": "thinking", "text": "", "redacted": true },
+                { "type": "toolCall", "id": "c1", "name": "read", "args": { "path": "a" }, "intent": null },
+                { "type": "image", "mimeType": "image/png" }
+            ],
+            "model": "m", "provider": "p", "stopReason": "toolUse", "errorMessage": null,
+            "usage": { "input": 1, "output": 2, "cacheRead": 3, "cacheWrite": 4, "total": 10 },
+            "costUsd": 0.5, "timestamp": 1_791_540_000_000_i64, "toolCallId": null, "toolName": null, "isError": null
+        }], "nextCursor": null, "total": 1 }),
+    ]);
+}
+
+#[test]
+fn model_options_never_carry_provider_payloads() {
+    let harness_model = json!({
+        "provider": "corp", "id": "m1", "name": "M1", "reasoning": false, "contextWindow": 128000,
+        "maxTokens": 8192, "input": ["text"], "api": "openai-completions",
+        "baseUrl": "https://llm.corp.invalid/v1", "headers": { "Authorization": "Bearer CANARY" },
+        "compat": { "supportsStore": false }, "cost": { "input": 1.0 }
+    });
+
+    let model: ModelOption = serde_json::from_value(harness_model).unwrap();
+    let wire = serde_json::to_value(model).unwrap();
+    let keys: Vec<&str> = wire.as_object().unwrap().keys().map(String::as_str).collect();
+
+    assert_eq!(
+        keys,
+        [
+            "provider",
+            "id",
+            "name",
+            "reasoning",
+            "contextWindow",
+            "maxTokens",
+            "input"
+        ]
+    );
 }

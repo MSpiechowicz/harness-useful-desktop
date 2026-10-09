@@ -1,0 +1,16 @@
+// The approved run. Exported as agent/stream_approval.json.
+{"include":"omp_approval_prefix.jsonl"}
+{"expect":"extension_ui_response","match":{"id":"approval-1","value":"Approve"}}
+{"emit":{"type":"tool_execution_update","toolCallId":"call-1","toolName":"bash","args":{"command":"cargo test"},"partialResult":{"content":[{"type":"text","text":"running 12 tests"}],"details":{}}}}
+{"emit":{"type":"tool_execution_end","toolCallId":"call-1","toolName":"bash","result":{"content":[{"type":"text","text":"test result: ok. 12 passed; 0 failed"}]},"isError":false}}
+{"emit":{"type":"message_start","messageId":"msg-3","message":{"role":"toolResult","toolCallId":"call-1","toolName":"bash","content":[{"type":"text","text":"test result: ok. 12 passed; 0 failed"}],"details":{"secret":"CANARY-7f3a9c"},"isError":false,"timestamp":1791540006000}}}
+{"emit":{"type":"message_end","messageId":"msg-3","message":{"role":"toolResult","toolCallId":"call-1","toolName":"bash","content":[{"type":"text","text":"test result: ok. 12 passed; 0 failed"}],"details":{"secret":"CANARY-7f3a9c"},"isError":false,"timestamp":1791540006000}}}
+{"emit":{"type":"turn_end"}}
+{"emit":{"type":"turn_start"}}
+{"emit":{"type":"message_start","messageId":"msg-4","message":{"role":"assistant"}}}
+{"emit":{"type":"message_update","messageId":"msg-4","message":{"role":"assistant"},"assistantMessageEvent":{"type":"text_delta","contentIndex":0,"delta":"All 12 tests pass."}}}
+{"emit":{"type":"message_end","messageId":"msg-4","message":{"role":"assistant","content":[{"type":"text","text":"All 12 tests pass."}],"api":"anthropic-messages","provider":"anthropic","model":"claude-sonnet-4-5","usage":{"input":4200,"output":9,"cacheRead":12800,"cacheWrite":0,"totalTokens":17009,"cost":{"input":0.0126,"output":0.000135,"cacheRead":0.0042,"cacheWrite":0,"total":0.016935}},"stopReason":"stop","timestamp":1791540005000,"providerPayload":{"secret":"CANARY-7f3a9c"}}}}
+{"emit":{"type":"turn_end"}}
+{"emit":{"type":"agent_end","messages":[]}}
+{"emit":{"type":"prompt_result","id":"$p","agentInvoked":true,"status":"completed","sessionSettled":true}}
+{"emit":{"type":"session_settled"}}

@@ -15,21 +15,48 @@
   ];
 </script>
 
-<div class="flex flex-col items-start gap-8">
+<div class="flex flex-col items-center gap-10 text-center [@media(max-height:720px)]:gap-6">
   <Logo size={72} wordmark animate={motion.level === 'full'} class="text-fg" />
 
-  <header class="flex flex-col gap-2">
-    <h2 id="onboarding-title" tabindex="-1" use:autofocus class="text-4xl text-fg outline-none">Welcome. Let’s find your harness.</h2>
-    <p class="max-w-xl text-lg text-fg-2">A one-minute setup: detect your agent CLIs, choose your daily driver, and open a project.</p>
+  <header class="flex flex-col items-center gap-4">
+    <h2
+      id="onboarding-title"
+      tabindex="-1"
+      use:autofocus
+      class="max-w-[22ch] text-[clamp(2.25rem,1.3rem+3vw,3.75rem)] leading-[1.05] tracking-tight text-balance text-fg outline-none"
+    >
+      Welcome. Let’s find <span class="bg-[image:var(--brand-gradient)] bg-clip-text text-transparent">your harness.</span>
+    </h2>
+    <p class="max-w-xl text-lg text-pretty text-fg-2">A one-minute setup: detect your agent CLIs, choose your daily driver, and open a project.</p>
   </header>
 
-  <ul class="grid w-full grid-cols-3 gap-4">
-    {#each POINTS as point (point.title)}
-      <li class="flex flex-col gap-2 rounded-lg border border-line bg-glass p-4 backdrop-blur-md">
-        <point.icon class="text-accent-text" size={20} strokeWidth={1.8} aria-hidden="true" />
+  <ul class="grid w-full grid-cols-1 gap-4 text-left sm:grid-cols-3">
+    {#each POINTS as point, index (point.title)}
+      <li
+        class="point flex flex-col gap-3 rounded-lg border border-line bg-glass p-5 backdrop-blur-md transition-colors duration-[var(--dur-base)] hover:border-line-strong"
+        style:--i={index}
+      >
+        <span class="grid size-10 place-items-center rounded-md bg-accent-wash">
+          <point.icon class="text-accent-text" size={20} strokeWidth={1.8} aria-hidden="true" />
+        </span>
         <p class="text-base font-medium text-fg">{point.title}</p>
         <p class="text-sm text-fg-2">{point.body}</p>
       </li>
     {/each}
   </ul>
 </div>
+
+<style>
+  /* Cards rise in one after another once the step has slid into place; the motion tokens zero this out when reduced. */
+  .point {
+    animation: point-in var(--dur-enter) var(--ease-out-expo) both;
+    animation-delay: calc((220ms + var(--i) * 90ms) * var(--stagger));
+  }
+
+  @keyframes point-in {
+    from {
+      opacity: 0;
+      transform: translateY(calc(var(--shift) * 2));
+    }
+  }
+</style>

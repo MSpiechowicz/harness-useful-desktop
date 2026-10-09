@@ -14,6 +14,8 @@ use harness_business::process::TokioRunner;
 use tauri::async_runtime::RwLock;
 use tauri::{AppHandle, Manager, Runtime};
 
+use crate::agents::Agents;
+
 /// State shared by all IPC commands.
 pub struct AppState {
     /// Preferences in the OS app-config directory.
@@ -29,6 +31,8 @@ pub struct AppState {
     pub detections: RwLock<HashMap<HarnessId, HarnessSummary>>,
     /// Set while a native dialog is open, so the webview cannot stack dialogs.
     pub dialog: DialogGuard,
+    /// The running agent sessions.
+    pub agents: Arc<Agents>,
 }
 
 impl AppState {
@@ -48,6 +52,7 @@ impl AppState {
             runner: TokioRunner,
             detections: RwLock::new(HashMap::new()),
             dialog: DialogGuard::default(),
+            agents: Arc::new(Agents::new()),
         }
     }
 }

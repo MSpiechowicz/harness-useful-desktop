@@ -201,5 +201,8 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run build:ui
       - run: cargo clippy -p harness_desktop -- -D warnings
+      # The agent command tests spawn this binary and skip silently when it is missing;
+      # `cargo test -p harness_desktop` alone does not build it.
+      - run: cargo build -p harness_business --bin fake_agent
       - run: cargo test -p harness_desktop
       - run: bunx tauri build --debug --no-bundle

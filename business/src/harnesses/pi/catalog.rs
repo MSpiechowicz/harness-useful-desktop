@@ -3,9 +3,12 @@
 //! PI's built-in slash commands are terminal-only: sent as prompt text over RPC they would reach
 //! the model. Each one therefore maps to the matching RPC command, a desktop view, or is marked
 //! unsupported with a reason (PI docs `slash-commands.md`, `rpc.md`). Commands added by
-//! extensions, prompt templates and skills arrive with a running session's live list.
+//! extensions, prompt templates and skills arrive with a running session's live list
+//! (`get_commands`, which excludes the builtins) and run as prompt text.
 
-use crate::harness::{CommandCatalog, gui, rpc, spec, unsupported};
+use serde_json::Value;
+
+use crate::harness::{CommandCatalog, gui, parse_live_commands, rpc, spec, unsupported};
 use crate::model::{AgentActionKind, CommandInvocation, CommandSource, CommandSpec, GuiTarget};
 
 use AgentActionKind as Action;
@@ -22,6 +25,20 @@ impl CommandCatalog for PiCatalog {
                 spec(name, description, hint, CommandSource::Builtin, invocation)
             })
             .collect()
+    }
+
+    fn parse_live(&self, raw: &[Value]) -> Vec<CommandSpec> {
+        parse_live_commands(raw, live_source, |_| CommandInvocation::PromptText)
+    }
+}
+
+/// PI's `get_commands` source labels.
+fn live_source(label: &str) -> Option<CommandSource> {
+    match label {
+        "extension" => Some(CommandSource::Extension),
+        "prompt" => Some(CommandSource::Prompt),
+        "skill" => Some(CommandSource::Skill),
+        _ => None,
     }
 }
 

@@ -1,0 +1,6 @@
+{
+  "prompt": "Please address these review comments on the current changes.\n\nAddress every comment, then run `cargo test`.\n\n### src/lib.rs\n\n- Lines 32–34 (new): Also cover whitespace-only input here.\n\n```rust\n    fn parses_empty_input() {\n        assert!(super::parse(\"\").unwrap().is_empty());\n    }\n```\n\n- Line 3 (old): This signature is public API; note the breaking change in CHANGELOG.md.\n\n```rust\npub fn parse(input: &str) -> Result<Vec<Record>, String> {\n```\n\n### docs/guide.md\n\n- Line 1 (new): Keep the `# Usage` title; external links point to it.\n\n```markdown\n# Guide\n```\n",
+  "bytes": 567,
+  "fileCount": 2,
+  "commentCount": 3
+}

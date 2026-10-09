@@ -8,7 +8,7 @@ import { samplePrefs } from '../../../../tests/helpers';
 import { fixtures } from './fixtures';
 
 /** One valid call per command; typed so adding a command to the map forces an entry here. */
-const SAMPLE_ARGS: { [K in CommandName]: CommandArgs<K> } = {
+const sampleArgs = (sessionKey: string): { [K in CommandName]: CommandArgs<K> } => ({
   app_info: undefined,
   prefs_get: undefined,
   prefs_set: { prefs: samplePrefs() },
@@ -26,7 +26,15 @@ const SAMPLE_ARGS: { [K in CommandName]: CommandArgs<K> } = {
   project_close: undefined,
   project_recent: undefined,
   project_forget: { path: fixtures.recentProjects[1].path },
-};
+  agent_start: { request: START_REQUEST, onEvent: () => {} },
+  agent_send: { key: sessionKey, action: { type: 'getState' } },
+  agent_ui_respond: { key: sessionKey, response: { id: 'none', outcome: { type: 'cancelled' } } },
+  agent_bash: { key: sessionKey, command: 'ls', confirmed: true },
+  agent_stop: { key: sessionKey },
+  agent_list: undefined,
+});
+
+const START_REQUEST = { harness: 'omp', project: fixtures.recentProjects[0].path, resume: null, approvalOverride: null, trustOnce: false } as const;
 
 function transport() {
   return createMockTransport(defaultScenario(), 0);
@@ -34,7 +42,10 @@ function transport() {
 
 describe('mock transport', () => {
   it.each(Object.keys(commands) as CommandName[])('implements %s', async (name) => {
-    await expect(transport().invoke(name, SAMPLE_ARGS[name] as never)).resolves.not.toBeInstanceOf(IpcFailure);
+    const mock = transport();
+    const { key } = await mock.invoke('agent_start', { request: START_REQUEST, onEvent: () => {} });
+
+    await expect(mock.invoke(name, sampleArgs(key)[name] as never)).resolves.not.toBeInstanceOf(IpcFailure);
   });
 
   it('refuses a project that is neither active nor recent', async () => {

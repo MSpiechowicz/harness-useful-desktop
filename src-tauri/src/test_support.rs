@@ -2,6 +2,10 @@
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::{Arc, Mutex};
+
+use serde_json::Value;
+use tauri::ipc::{Channel, InvokeResponseBody};
 
 /// A uniquely named directory under the OS temp dir, removed on drop. Its path is canonical, so
 /// containment checks compare like with like (macOS `/var` → `/private/var`).
@@ -33,4 +37,23 @@ impl Drop for TempDir {
     fn drop(&mut self) {
         std::fs::remove_dir_all(&self.0).ok();
     }
+}
+
+/// A channel that keeps every message it receives, parsed as JSON.
+pub fn collecting_channel<T>() -> (Channel<T>, Arc<Mutex<Vec<Value>>>) {
+    let received = Arc::new(Mutex::new(Vec::new()));
+    let messages = received.clone();
+
+    let channel = Channel::new(move |body| {
+        if let InvokeResponseBody::Json(json) = body {
+            let message = serde_json::from_str(&json).expect("channel messages are JSON");
+            messages
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .push(message);
+        }
+        Ok(())
+    });
+
+    (channel, received)
 }

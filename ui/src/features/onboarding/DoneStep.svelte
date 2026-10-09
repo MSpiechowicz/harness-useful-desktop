@@ -5,17 +5,19 @@
   import HarnessBadge from '$lib/components/HarnessBadge.svelte';
   import { harness } from '$lib/stores/harness.svelte';
   import { project } from '$lib/stores/project.svelte';
+  import { cx } from '$lib/utils/cx';
 
+  import { WIDTH } from './layout';
   import { onboarding } from './onboarding.svelte';
   import StepHeader from './StepHeader.svelte';
 
   const driver = $derived(onboarding.driver ? harness.get(onboarding.driver) : undefined);
 </script>
 
-<div class="flex flex-col gap-6">
+<div class={cx('mx-auto flex w-full flex-col gap-8', WIDTH.narrow)}>
   <StepHeader eyebrow="All set" title="You’re ready to go" body="Here is what we’ll start with. Everything can be changed later from the top bar or Settings." />
 
-  <dl class="grid max-w-xl grid-cols-[max-content_1fr] items-center gap-x-6 gap-y-4 rounded-lg border border-line bg-glass p-5 backdrop-blur-md">
+  <dl class="grid grid-cols-[max-content_1fr] items-center gap-x-6 gap-y-4 rounded-lg border border-line bg-glass p-5 backdrop-blur-md">
     <dt class="text-sm text-fg-3">Daily driver</dt>
     <dd class="flex items-center gap-3 text-base text-fg">
       {#if driver}

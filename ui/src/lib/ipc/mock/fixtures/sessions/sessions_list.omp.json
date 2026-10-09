@@ -1,0 +1,47 @@
+[
+  {
+    "ref": {
+      "harness": "omp",
+      "id": "0199c3a8-0b1e-7c42-8d5f-1a2b3c4d5e6f"
+    },
+    "title": null,
+    "titleSource": null,
+    "cwd": "/home/demo/Projects/demo",
+    "createdAt": "2026-10-09T11:02:41Z",
+    "updatedAt": "2026-10-09T11:20:05Z",
+    "sizeBytes": 12874,
+    "model": "claude-sonnet-4-5",
+    "firstPrompt": "Why does `cargo test` hang on CI when the parser reads from stdin?",
+    "parentSession": "0199c1f2-5d3e-7a10-9b2c-4e6f8a1d3c57"
+  },
+  {
+    "ref": {
+      "harness": "omp",
+      "id": "0199c1f2-5d3e-7a10-9b2c-4e6f8a1d3c57"
+    },
+    "title": "Handle empty input in parse",
+    "titleSource": "auto",
+    "cwd": "/home/demo/Projects/demo",
+    "createdAt": "2026-10-09T10:00:00Z",
+    "updatedAt": "2026-10-09T10:17:30Z",
+    "sizeBytes": 48213,
+    "model": "claude-sonnet-4-5",
+    "firstPrompt": "Make `parse` handle empty input and explain the change.",
+    "parentSession": null
+  },
+  {
+    "ref": {
+      "harness": "omp",
+      "id": "01999e40-7d21-7f03-a4b6-c8d9e0f1a2b3"
+    },
+    "title": "Release checklist",
+    "titleSource": "user",
+    "cwd": "/home/demo/Projects/demo",
+    "createdAt": "2026-10-07T15:30:12Z",
+    "updatedAt": "2026-10-07T16:05:48Z",
+    "sizeBytes": 203557,
+    "model": "gpt-5",
+    "firstPrompt": "Draft the release checklist for 0.3.1.",
+    "parentSession": null
+  }
+]

@@ -1,0 +1,13 @@
+// always-ask approval: the bash call waits for an Approve / Deny answer. Shared prefix of
+// omp_approval.jsonl and omp_approval_denied.jsonl.
+{"include":"omp_startup.jsonl"}
+{"expect":"prompt","as":"p","reply":{"success":true}}
+{"emit":{"type":"agent_start"}}
+{"emit":{"type":"turn_start"}}
+{"emit":{"type":"message_start","messageId":"msg-1","message":{"role":"user","content":"Run the tests.","timestamp":1791540000000}}}
+{"emit":{"type":"message_end","messageId":"msg-1","message":{"role":"user","content":"Run the tests.","timestamp":1791540000000}}}
+{"emit":{"type":"message_start","messageId":"msg-2","message":{"role":"assistant"}}}
+{"emit":{"type":"message_update","messageId":"msg-2","message":{"role":"assistant"},"assistantMessageEvent":{"type":"text_delta","contentIndex":0,"delta":"Running the test suite."}}}
+{"emit":{"type":"message_end","messageId":"msg-2","message":{"role":"assistant","content":[{"type":"text","text":"Running the test suite."},{"type":"toolCall","id":"call-1","name":"bash","arguments":{"command":"cargo test"},"intent":"Run the tests"}],"api":"anthropic-messages","provider":"anthropic","model":"claude-sonnet-4-5","usage":{"input":4200,"output":38,"cacheRead":12800,"cacheWrite":0,"totalTokens":17038,"cost":{"input":0.0126,"output":0.00057,"cacheRead":0.0042,"cacheWrite":0,"total":0.01737}},"stopReason":"toolUse","timestamp":1791540005000,"providerPayload":{"secret":"CANARY-7f3a9c"}}}}
+{"emit":{"type":"tool_execution_start","toolCallId":"call-1","toolName":"bash","args":{"command":"cargo test"},"intent":"Run the tests"}}
+{"emit":{"type":"extension_ui_request","id":"approval-1","method":"select","title":"Allow bash: cargo test?","options":["Approve","Deny"],"optionDetails":[{"description":"Runs once in the project directory"},{}]}}

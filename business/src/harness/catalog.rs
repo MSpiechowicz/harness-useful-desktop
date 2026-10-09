@@ -106,8 +106,8 @@ pub trait CommandCatalog: Send + Sync {
             .collect()
     }
 
-    /// Parses the command list reported by a running agent. Session support arrives with the agent
-    /// contract; until then no live commands exist.
+    /// Parses the command list reported by a running agent (see [`parse_live_commands`]). The
+    /// default knows no live commands.
     fn parse_live(&self, _raw: &[Value]) -> Vec<CommandSpec> {
         Vec::new()
     }
@@ -130,6 +130,61 @@ pub fn merge_commands(native: Vec<CommandSpec>, live: Vec<CommandSpec>, shared: 
     }
 
     merged
+}
+
+/// Longest accepted live command name.
+const MAX_LIVE_NAME: usize = 128;
+
+/// Longest live description kept, in characters.
+const MAX_LIVE_DESCRIPTION: usize = 512;
+
+/// Parses a live command list: objects with `name`, optional `description`, optional
+/// `input.hint` (OMP) and `source`. `source` maps the harness's source label (entries it rejects
+/// are skipped) and `invocation` decides how each name runs. Names lose a leading `/`; empty
+/// names, names with whitespace or control characters, and repeated names are skipped.
+pub fn parse_live_commands(
+    raw: &[Value],
+    source: impl Fn(&str) -> Option<CommandSource>,
+    invocation: impl Fn(&str) -> CommandInvocation,
+) -> Vec<CommandSpec> {
+    let mut commands: Vec<CommandSpec> = Vec::new();
+
+    for entry in raw {
+        let Some(name) = entry
+            .get("name")
+            .and_then(Value::as_str)
+            .map(|name| name.trim_start_matches('/'))
+        else {
+            continue;
+        };
+
+        let valid_name = !name.is_empty()
+            && name.len() <= MAX_LIVE_NAME
+            && !name
+                .chars()
+                .any(|character| character.is_whitespace() || character.is_control());
+
+        let Some(source) = entry.get("source").and_then(Value::as_str).and_then(&source) else {
+            continue;
+        };
+
+        if !valid_name || commands.iter().any(|existing| existing.name == name) {
+            continue;
+        }
+
+        let description: String = entry
+            .get("description")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .chars()
+            .take(MAX_LIVE_DESCRIPTION)
+            .collect();
+        let hint = entry.pointer("/input/hint").and_then(Value::as_str);
+
+        commands.push(spec(name, &description, hint, source, invocation(name)));
+    }
+
+    commands
 }
 
 /// Builds a [`CommandSpec`].

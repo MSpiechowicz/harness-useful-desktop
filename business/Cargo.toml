@@ -24,6 +24,14 @@ ts-rs.workspace = true
 which.workspace = true
 dirs.workspace = true
 serde_norway.workspace = true
+uuid.workspace = true
+
+# Scripted OMP/PI peer for the agent-session integration tests (`CARGO_BIN_EXE_fake_agent`).
+[[bin]]
+name = "fake_agent"
+path = "src/bin/fake_agent.rs"
+test = false
+doc = false
 
 [target.'cfg(unix)'.dependencies]
 nix.workspace = true

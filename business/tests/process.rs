@@ -131,26 +131,41 @@ fn assert_process_gone(pid: i32) {
 }
 
 #[cfg(unix)]
-fn grandchild_pid(output: &str) -> i32 {
+fn find_grandchild_pid(output: &str) -> Option<i32> {
     output
         .lines()
         .find_map(|line| line.strip_prefix("GRANDCHILD="))
-        .unwrap_or_else(|| panic!("no grandchild pid in {output:?}"))
-        .parse()
-        .unwrap()
+        .map(|pid| pid.trim().parse().expect("numeric grandchild pid"))
 }
+
+/// Runner timeouts for the process-group test, shortest first. The helper must start its
+/// grandchild and print its pid before the timeout fires; a loaded machine can take longer than
+/// the shortest timeout for that, so a run without the pid is retried with the next one.
+#[cfg(unix)]
+const GROUP_KILL_TIMEOUTS: [Duration; 4] = [
+    Duration::from_secs(2),
+    Duration::from_secs(5),
+    Duration::from_secs(10),
+    Duration::from_secs(20),
+];
 
 #[cfg(unix)]
 #[tokio::test]
 async fn runner_timeout_kills_the_whole_process_group() {
-    let output = TokioRunner
-        .run(&helper("grandchild").timeout(Duration::from_secs(2)))
-        .await
-        .unwrap();
+    for timeout in GROUP_KILL_TIMEOUTS {
+        let output = TokioRunner.run(&helper("grandchild").timeout(timeout)).await.unwrap();
 
-    // The grandchild holds the stdout pipe; output only arrives because it was killed too.
-    assert!(output.timed_out);
-    assert_process_gone(grandchild_pid(&output.stdout));
+        // Every run ends by the timeout: the helper sleeps for 60 s.
+        assert!(output.timed_out, "{output:?}");
+
+        // The grandchild holds the stdout pipe; output only arrives because it was killed too.
+        if let Some(pid) = find_grandchild_pid(&output.stdout) {
+            assert_process_gone(pid);
+            return;
+        }
+    }
+
+    panic!("the helper never reported its grandchild within {GROUP_KILL_TIMEOUTS:?}");
 }
 
 #[tokio::test]

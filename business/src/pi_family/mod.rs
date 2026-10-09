@@ -4,12 +4,23 @@
 //! sections ([`config_files`]), Markdown frontmatter ([`frontmatter`]), `SKILL.md` discovery
 //! ([`skills`]), MCP server entries ([`mcp_config`]) and shallow scans for themes and extension
 //! modules ([`resources`]). Every file read goes through [`crate::security::SafeReader`].
+//!
+//! The agent RPC protocol lives here too: framing and the dialect trait ([`rpc`]), the shared
+//! event decoder ([`events`]), extension UI requests ([`ui_request`]), payload normalization
+//! ([`normalize`]), touched-path extraction ([`touched`]) and session-file lookup
+//! ([`session_files`]).
 
 pub mod config_files;
+pub mod events;
 pub mod frontmatter;
 pub mod mcp_config;
+pub mod normalize;
 pub mod resources;
+pub mod rpc;
+pub mod session_files;
 pub mod skills;
+pub mod touched;
+pub mod ui_request;
 
 pub use config_files::{
     Document, SectionText, first_existing, optional_section, parse_text, read_document, read_json, section,

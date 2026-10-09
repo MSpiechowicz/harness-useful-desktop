@@ -105,3 +105,45 @@
   transition-duration: 0.001ms !important;
   transition-delay: 0ms !important;
 }
+
+/* Streaming affordances: a blinking caret after live text and a sheen over "working" labels. */
+@keyframes caret-blink {
+  50% { opacity: 0; }
+}
+
+@keyframes sheen {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+.caret {
+  display: inline-block;
+  width: 0.5em;
+  height: 1.05em;
+  margin-left: 2px;
+  border-radius: 1px;
+  background: var(--accent-text);
+  vertical-align: text-bottom;
+  animation: caret-blink 1.1s steps(1) infinite;
+}
+
+.sheen {
+  background: linear-gradient(90deg, var(--text-3) 30%, var(--text) 50%, var(--text-3) 70%) 0 0 / 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: sheen 2.2s linear infinite;
+}
+
+:root[data-motion="reduced"] .caret,
+:root[data-motion="off"] .caret,
+:root[data-motion="reduced"] .sheen,
+:root[data-motion="off"] .sheen {
+  animation: none;
+}
+
+:root[data-motion="reduced"] .sheen,
+:root[data-motion="off"] .sheen {
+  background: none;
+  color: var(--text-2);
+}

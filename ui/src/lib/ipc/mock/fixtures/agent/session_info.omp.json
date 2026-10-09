@@ -1,0 +1,10 @@
+{
+  "key": "3f9a1c2e-7b4d-4e8f-9a6b-2c1d0e5f7a8b",
+  "harness": "omp",
+  "project": "/home/demo/Projects/demo",
+  "startedAt": "2026-10-09T10:00:00Z",
+  "approvalOverride": null,
+  "configuredApprovalMode": "yolo",
+  "trustedOnce": false,
+  "protocolVersion": 1
+}

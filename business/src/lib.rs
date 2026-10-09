@@ -10,13 +10,15 @@
 //!      containment;
 //!    - [`process`] — shell-free process execution behind injectable traits.
 //! 3. Domain modules built on the foundations: [`prefs`]; the harness abstraction ([`harness`])
-//!    with its adapters ([`harnesses`]) and the parsing they share ([`pi_family`]). Sessions, git
-//!    and ecosystem follow in later milestones.
+//!    with its adapters ([`harnesses`]) and the parsing and RPC protocol they share
+//!    ([`pi_family`]); running agent chat sessions over that protocol ([`agent`]). Sessions on
+//!    disk, git and ecosystem follow in later milestones.
 //!
 //! Rules every module follows: no shell is ever spawned, every file read goes through
 //! [`security::SafeReader`], every path is derived from an injected [`env::Env`], and nothing
 //! secret is returned to the webview unredacted.
 
+pub mod agent;
 pub mod env;
 pub mod error;
 pub mod harness;

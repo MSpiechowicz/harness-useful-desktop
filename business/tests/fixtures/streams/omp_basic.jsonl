@@ -1,0 +1,42 @@
+// OMP happy path: thinking and text deltas, a read and an edit tool call with results, a final
+// reply, prompt_result and session_settled. Exported as agent/stream_basic.json.
+{"include":"omp_startup.jsonl"}
+
+// the prompt
+{"expect":"prompt","as":"p","reply":{"success":true}}
+{"emit":{"type":"agent_start"}}
+{"emit":{"type":"turn_start"}}
+{"emit":{"type":"message_start","messageId":"msg-1","message":{"role":"user","content":"Make `parse` handle empty input and explain the change.","timestamp":1791540000000}}}
+{"emit":{"type":"message_end","messageId":"msg-1","message":{"role":"user","content":"Make `parse` handle empty input and explain the change.","timestamp":1791540000000}}}
+{"emit":{"type":"message_start","messageId":"msg-2","message":{"role":"assistant"}}}
+{"emit":{"type":"message_update","messageId":"msg-2","message":{"role":"assistant"},"assistantMessageEvent":{"type":"thinking_delta","contentIndex":0,"delta":"The parser panics on empty input. "}}}
+{"emit":{"type":"message_update","messageId":"msg-2","message":{"role":"assistant"},"assistantMessageEvent":{"type":"thinking_delta","contentIndex":0,"delta":"Read `src/lib.rs` first, then make `parse` return an `Option` "}}}
+{"emit":{"type":"message_update","messageId":"msg-2","message":{"role":"assistant"},"assistantMessageEvent":{"type":"thinking_delta","contentIndex":0,"delta":"so callers can show an empty state."}}}
+{"emit":{"type":"message_update","messageId":"msg-2","message":{"role":"assistant"},"assistantMessageEvent":{"type":"text_delta","contentIndex":1,"delta":"## Plan\n\n"}}}
+{"emit":{"type":"message_update","messageId":"msg-2","message":{"role":"assistant"},"assistantMessageEvent":{"type":"text_delta","contentIndex":1,"delta":"`parse` calls `Config::from` without checking for empty input. I will:\n\n"}}}
+{"emit":{"type":"message_update","messageId":"msg-2","message":{"role":"assistant"},"assistantMessageEvent":{"type":"text_delta","contentIndex":1,"delta":"1. Return `Option<Config>` from `parse`.\n2. Add a regression test for blank input.\n\n"}}}
+{"emit":{"type":"message_update","messageId":"msg-2","message":{"role":"assistant"},"assistantMessageEvent":{"type":"text_delta","contentIndex":1,"delta":"```rust\npub fn parse(input: &str) -> Option<Config> {\n    if input.trim().is_empty() {\n        return None;\n    }\n    Some(Config::from(input))\n}\n```\n\n"}}}
+{"emit":{"type":"message_update","messageId":"msg-2","message":{"role":"assistant"},"assistantMessageEvent":{"type":"text_delta","contentIndex":1,"delta":"The TypeScript caller only needs a null check:\n\n"}}}
+{"emit":{"type":"message_update","messageId":"msg-2","message":{"role":"assistant"},"assistantMessageEvent":{"type":"text_delta","contentIndex":1,"delta":"```ts\nconst config = parse(text);\nif (config === null) showEmptyState();\n```\n\n"}}}
+{"emit":{"type":"message_update","messageId":"msg-2","message":{"role":"assistant"},"assistantMessageEvent":{"type":"text_delta","contentIndex":1,"delta":"| File | Change |\n| --- | --- |\n| `src/lib.rs` | `parse` returns `Option` |\n| `ui/app.ts` | handles `null` |\n\n"}}}
+{"emit":{"type":"message_update","messageId":"msg-2","message":{"role":"assistant"},"assistantMessageEvent":{"type":"text_delta","contentIndex":1,"delta":"Background: [Option in the Rust book](https://doc.rust-lang.org/book/ch06-01-defining-an-enum.html).\n\n"}}}
+{"emit":{"type":"message_end","messageId":"msg-2","message":{"role":"assistant","content":[{"type":"thinking","thinking":"The parser panics on empty input. Read `src/lib.rs` first, then make `parse` return an `Option` so callers can show an empty state.","thinkingSignature":"CANARY-7f3a9c"},{"type":"text","text":"## Plan\n\n`parse` calls `Config::from` without checking for empty input. I will:\n\n1. Return `Option<Config>` from `parse`.\n2. Add a regression test for blank input.\n\n```rust\npub fn parse(input: &str) -> Option<Config> {\n    if input.trim().is_empty() {\n        return None;\n    }\n    Some(Config::from(input))\n}\n```\n\nThe TypeScript caller only needs a null check:\n\n```ts\nconst config = parse(text);\nif (config === null) showEmptyState();\n```\n\n| File | Change |\n| --- | --- |\n| `src/lib.rs` | `parse` returns `Option` |\n| `ui/app.ts` | handles `null` |\n\nBackground: [Option in the Rust book](https://doc.rust-lang.org/book/ch06-01-defining-an-enum.html).\n\n"},{"type":"toolCall","id":"call-1","name":"read","arguments":{"path":"src/lib.rs"},"intent":"Read the parser"},{"type":"toolCall","id":"call-2","name":"edit","arguments":{"path":"src/lib.rs","edits":[{"oldText":"pub fn parse(input: &str) -> Config {","newText":"pub fn parse(input: &str) -> Option<Config> {"}]},"intent":"Return Option from parse"}],"api":"anthropic-messages","provider":"anthropic","model":"claude-sonnet-4-5","usage":{"input":4200,"output":612,"cacheRead":12800,"cacheWrite":0,"totalTokens":17612,"cost":{"input":0.0126,"output":0.00918,"cacheRead":0.0042,"cacheWrite":0,"total":0.02598}},"stopReason":"toolUse","timestamp":1791540005000,"providerPayload":{"secret":"CANARY-7f3a9c"}}}}
+
+// tools run after the assistant message
+{"emit":{"type":"tool_execution_start","toolCallId":"call-1","toolName":"read","args":{"path":"src/lib.rs"},"intent":"Read the parser"}}
+{"emit":{"type":"tool_execution_end","toolCallId":"call-1","toolName":"read","result":{"content":[{"type":"text","text":"pub fn parse(input: &str) -> Config {\n    Config::from(input)\n}\n"}],"details":{"secret":"CANARY-7f3a9c"}},"isError":false}}
+{"emit":{"type":"message_start","messageId":"msg-3","message":{"role":"toolResult","toolCallId":"call-1","toolName":"read","content":[{"type":"text","text":"pub fn parse(input: &str) -> Config {\n    Config::from(input)\n}\n"}],"details":{"secret":"CANARY-7f3a9c"},"isError":false,"timestamp":1791540006000}}}
+{"emit":{"type":"message_end","messageId":"msg-3","message":{"role":"toolResult","toolCallId":"call-1","toolName":"read","content":[{"type":"text","text":"pub fn parse(input: &str) -> Config {\n    Config::from(input)\n}\n"}],"details":{"secret":"CANARY-7f3a9c"},"isError":false,"timestamp":1791540006000}}}
+{"emit":{"type":"tool_execution_start","toolCallId":"call-2","toolName":"edit","args":{"path":"src/lib.rs","edits":[{"oldText":"pub fn parse(input: &str) -> Config {","newText":"pub fn parse(input: &str) -> Option<Config> {"}]},"intent":"Return Option from parse"}}
+{"emit":{"type":"tool_execution_end","toolCallId":"call-2","toolName":"edit","result":{"content":[{"type":"text","text":"Updated src/lib.rs (1 replacement)"}],"details":{"perFileResults":[{"path":"src/lib.rs","oldText":"pub fn parse(input: &str) -> Config {","newText":"pub fn parse(input: &str) -> Option<Config> {"}]}},"isError":false}}
+{"emit":{"type":"message_start","messageId":"msg-4","message":{"role":"toolResult","toolCallId":"call-2","toolName":"edit","content":[{"type":"text","text":"Updated src/lib.rs (1 replacement)"}],"details":{"secret":"CANARY-7f3a9c"},"isError":false,"timestamp":1791540006000}}}
+{"emit":{"type":"message_end","messageId":"msg-4","message":{"role":"toolResult","toolCallId":"call-2","toolName":"edit","content":[{"type":"text","text":"Updated src/lib.rs (1 replacement)"}],"details":{"secret":"CANARY-7f3a9c"},"isError":false,"timestamp":1791540006000}}}
+{"emit":{"type":"turn_end"}}
+{"emit":{"type":"turn_start"}}
+{"emit":{"type":"message_start","messageId":"msg-5","message":{"role":"assistant"}}}
+{"emit":{"type":"message_update","messageId":"msg-5","message":{"role":"assistant"},"assistantMessageEvent":{"type":"text_delta","contentIndex":0,"delta":"Done: `parse` now returns `None` for blank input."}}}
+{"emit":{"type":"message_end","messageId":"msg-5","message":{"role":"assistant","content":[{"type":"text","text":"Done: `parse` now returns `None` for blank input."}],"api":"anthropic-messages","provider":"anthropic","model":"claude-sonnet-4-5","usage":{"input":4200,"output":44,"cacheRead":12800,"cacheWrite":0,"totalTokens":17044,"cost":{"input":0.0126,"output":0.00066,"cacheRead":0.0042,"cacheWrite":0,"total":0.01746}},"stopReason":"stop","timestamp":1791540005000,"providerPayload":{"secret":"CANARY-7f3a9c"}}}}
+{"emit":{"type":"turn_end"}}
+{"emit":{"type":"agent_end","messages":[]}}
+{"emit":{"type":"prompt_result","id":"$p","agentInvoked":true,"status":"completed","sessionSettled":false}}
+{"emit":{"type":"session_settled"}}

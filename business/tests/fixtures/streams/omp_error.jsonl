@@ -1,0 +1,16 @@
+// A rate-limited model call: a failed retry, a warning and a retryable error. Exported as agent/stream_error.json.
+{"include":"omp_startup.jsonl"}
+{"expect":"prompt","as":"p","reply":{"success":true}}
+{"emit":{"type":"agent_start"}}
+{"emit":{"type":"turn_start"}}
+{"emit":{"type":"message_start","messageId":"msg-1","message":{"role":"user","content":"Summarize the open TODOs.","timestamp":1791540000000}}}
+{"emit":{"type":"message_end","messageId":"msg-1","message":{"role":"user","content":"Summarize the open TODOs.","timestamp":1791540000000}}}
+{"emit":{"type":"auto_retry_start","attempt":1,"maxAttempts":1,"delayMs":2000,"errorMessage":"429 Too Many Requests: rate limit exceeded"}}
+{"emit":{"type":"auto_retry_end","success":false,"attempt":1,"finalError":"Retry failed","retryErrors":[]}}
+{"emit":{"type":"message_start","messageId":"msg-2","message":{"role":"assistant"}}}
+{"emit":{"type":"message_end","messageId":"msg-2","message":{"role":"assistant","content":[],"api":"anthropic-messages","provider":"anthropic","model":"claude-sonnet-4-5","usage":{"input":4200,"output":0,"cacheRead":12800,"cacheWrite":0,"totalTokens":17000,"cost":{"input":0.0126,"output":0.0,"cacheRead":0.0042,"cacheWrite":0,"total":0.0168}},"stopReason":"error","timestamp":1791540005000,"providerPayload":{"secret":"CANARY-7f3a9c"},"errorMessage":"429 Too Many Requests: rate limit exceeded"}}}
+{"emit":{"type":"notice","level":"warning","message":"anthropic is rate limiting requests; try again in a minute.","source":"retry"}}
+{"emit":{"type":"turn_end"}}
+{"emit":{"type":"agent_end","messages":[]}}
+{"emit":{"type":"prompt_result","id":"$p","agentInvoked":true,"status":"error","error":{"message":"429 Too Many Requests: rate limit exceeded","provider":"anthropic","model":"claude-sonnet-4-5","httpStatus":429,"retryable":true},"sessionSettled":true}}
+{"emit":{"type":"session_settled"}}

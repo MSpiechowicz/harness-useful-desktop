@@ -1,0 +1,10 @@
+// The denied run. Exported as agent/stream_approval_denied.json.
+{"include":"omp_approval_prefix.jsonl"}
+{"expect":"extension_ui_response","match":{"id":"approval-1","value":"Deny"}}
+{"emit":{"type":"tool_execution_end","toolCallId":"call-1","toolName":"bash","result":{"content":[{"type":"text","text":"Tool call denied by the user"}]},"isError":true}}
+{"emit":{"type":"message_start","messageId":"msg-3","message":{"role":"toolResult","toolCallId":"call-1","toolName":"bash","content":[{"type":"text","text":"Tool call denied by the user"}],"details":{"secret":"CANARY-7f3a9c"},"isError":true,"timestamp":1791540006000}}}
+{"emit":{"type":"message_end","messageId":"msg-3","message":{"role":"toolResult","toolCallId":"call-1","toolName":"bash","content":[{"type":"text","text":"Tool call denied by the user"}],"details":{"secret":"CANARY-7f3a9c"},"isError":true,"timestamp":1791540006000}}}
+{"emit":{"type":"turn_end"}}
+{"emit":{"type":"agent_end","messages":[]}}
+{"emit":{"type":"prompt_result","id":"$p","agentInvoked":true,"status":"aborted","sessionSettled":true}}
+{"emit":{"type":"session_settled"}}

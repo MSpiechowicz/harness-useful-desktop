@@ -109,7 +109,7 @@ pub async fn commands_catalog(state: State<'_, AppState>, harness: HarnessId) ->
     Ok(find(&state, harness)?.catalog().merged(&[]))
 }
 
-fn find(state: &AppState, harness: HarnessId) -> CommandResult<&dyn Harness> {
+pub(super) fn find(state: &AppState, harness: HarnessId) -> CommandResult<&dyn Harness> {
     find_in(&state.registry, harness)
 }
 
@@ -131,7 +131,7 @@ async fn cached_summaries(state: &AppState) -> Option<Vec<HarnessSummary>> {
 }
 
 /// Detects `harness` with its stored override and caches the result.
-async fn detect(state: &AppState, harness: HarnessId) -> CommandResult<HarnessSummary> {
+pub(super) async fn detect(state: &AppState, harness: HarnessId) -> CommandResult<HarnessSummary> {
     let found = find(state, harness)?;
     let overrides = stored_overrides(state).await?;
 

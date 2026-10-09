@@ -1,0 +1,53 @@
+{
+  "type": "models",
+  "models": [
+    {
+      "provider": "anthropic",
+      "id": "claude-sonnet-4-5",
+      "name": "Claude Sonnet 4.5",
+      "reasoning": true,
+      "contextWindow": 200000,
+      "maxTokens": 50000,
+      "input": [
+        "text",
+        "image"
+      ]
+    },
+    {
+      "provider": "anthropic",
+      "id": "claude-haiku-4-5",
+      "name": "Claude Haiku 4.5",
+      "reasoning": true,
+      "contextWindow": 200000,
+      "maxTokens": 50000,
+      "input": [
+        "text",
+        "image"
+      ]
+    },
+    {
+      "provider": "openai",
+      "id": "gpt-5",
+      "name": "GPT-5",
+      "reasoning": true,
+      "contextWindow": 400000,
+      "maxTokens": 64000,
+      "input": [
+        "text",
+        "image"
+      ]
+    },
+    {
+      "provider": "ollama",
+      "id": "qwen3-coder:30b",
+      "name": null,
+      "reasoning": false,
+      "contextWindow": null,
+      "maxTokens": null,
+      "input": [
+        "text",
+        "image"
+      ]
+    }
+  ]
+}

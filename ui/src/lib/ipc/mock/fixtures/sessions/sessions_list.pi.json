@@ -1,0 +1,32 @@
+[
+  {
+    "ref": {
+      "harness": "pi",
+      "id": "8c2d4e6f-1a3b-4c5d-8e7f-9a0b1c2d3e4f"
+    },
+    "title": "Streaming parser spike",
+    "titleSource": "user",
+    "cwd": "/home/demo/Projects/demo",
+    "createdAt": "2026-10-08T09:12:00Z",
+    "updatedAt": "2026-10-08T09:47:31Z",
+    "sizeBytes": 31090,
+    "model": "claude-sonnet-4-5",
+    "firstPrompt": "Sketch a streaming variant of `parse` that reads from any `BufRead`.",
+    "parentSession": null
+  },
+  {
+    "ref": {
+      "harness": "pi",
+      "id": "5b7c9d1e-3f4a-4b6c-8d0e-2f4a6b8c0d1e"
+    },
+    "title": null,
+    "titleSource": null,
+    "cwd": "/home/demo/Projects/demo",
+    "createdAt": "2026-10-06T18:40:22Z",
+    "updatedAt": "2026-10-06T18:41:10Z",
+    "sizeBytes": 4512,
+    "model": "claude-sonnet-4-5",
+    "firstPrompt": "Which edition does the crate use?",
+    "parentSession": null
+  }
+]

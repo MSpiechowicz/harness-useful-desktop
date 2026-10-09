@@ -1,0 +1,191 @@
+{
+  "ref": {
+    "harness": "omp",
+    "id": "0199c1f2-5d3e-7a10-9b2c-4e6f8a1d3c57"
+  },
+  "nodes": [
+    {
+      "id": "n01",
+      "parentId": null,
+      "kind": "modelChange",
+      "preview": null,
+      "timestamp": "2026-10-09T10:00:00Z",
+      "label": null,
+      "onActivePath": true,
+      "childCount": 1
+    },
+    {
+      "id": "n02",
+      "parentId": "n01",
+      "kind": "user",
+      "preview": "Make `parse` handle empty input and explain the change.",
+      "timestamp": "2026-10-09T10:01:00Z",
+      "label": null,
+      "onActivePath": true,
+      "childCount": 1
+    },
+    {
+      "id": "n03",
+      "parentId": "n02",
+      "kind": "assistant",
+      "preview": "I'll read `src/lib.rs` first.",
+      "timestamp": "2026-10-09T10:02:00Z",
+      "label": null,
+      "onActivePath": true,
+      "childCount": 1
+    },
+    {
+      "id": "n04",
+      "parentId": "n03",
+      "kind": "toolResult",
+      "preview": null,
+      "timestamp": "2026-10-09T10:03:00Z",
+      "label": null,
+      "onActivePath": true,
+      "childCount": 1
+    },
+    {
+      "id": "n05",
+      "parentId": "n04",
+      "kind": "assistant",
+      "preview": "`parse` now returns an empty list for empty input instead of an error.",
+      "timestamp": "2026-10-09T10:04:00Z",
+      "label": null,
+      "onActivePath": true,
+      "childCount": 2
+    },
+    {
+      "id": "n06",
+      "parentId": "n05",
+      "kind": "user",
+      "preview": "Also reject whitespace-only input.",
+      "timestamp": "2026-10-09T10:05:00Z",
+      "label": null,
+      "onActivePath": false,
+      "childCount": 1
+    },
+    {
+      "id": "n07",
+      "parentId": "n06",
+      "kind": "assistant",
+      "preview": "Done: whitespace-only input now returns `Error::Empty`.",
+      "timestamp": "2026-10-09T10:06:00Z",
+      "label": null,
+      "onActivePath": false,
+      "childCount": 0
+    },
+    {
+      "id": "n08",
+      "parentId": "n05",
+      "kind": "branchSummary",
+      "preview": null,
+      "timestamp": "2026-10-09T10:07:00Z",
+      "label": null,
+      "onActivePath": true,
+      "childCount": 1
+    },
+    {
+      "id": "n09",
+      "parentId": "n08",
+      "kind": "user",
+      "preview": "Keep whitespace accepted, but add a test for empty input.",
+      "timestamp": "2026-10-09T10:08:00Z",
+      "label": null,
+      "onActivePath": true,
+      "childCount": 1
+    },
+    {
+      "id": "n10",
+      "parentId": "n09",
+      "kind": "assistant",
+      "preview": "Adding the test.",
+      "timestamp": "2026-10-09T10:09:00Z",
+      "label": null,
+      "onActivePath": true,
+      "childCount": 1
+    },
+    {
+      "id": "n11",
+      "parentId": "n10",
+      "kind": "toolResult",
+      "preview": null,
+      "timestamp": "2026-10-09T10:10:00Z",
+      "label": null,
+      "onActivePath": true,
+      "childCount": 1
+    },
+    {
+      "id": "n12",
+      "parentId": "n11",
+      "kind": "assistant",
+      "preview": "Added `parses_empty_input`; the error type moved to `src/error.rs`.",
+      "timestamp": "2026-10-09T10:11:00Z",
+      "label": "empty-input fix",
+      "onActivePath": true,
+      "childCount": 2
+    },
+    {
+      "id": "n13",
+      "parentId": "n12",
+      "kind": "user",
+      "preview": "Run the tests.",
+      "timestamp": "2026-10-09T10:12:00Z",
+      "label": null,
+      "onActivePath": false,
+      "childCount": 1
+    },
+    {
+      "id": "n14",
+      "parentId": "n13",
+      "kind": "assistant",
+      "preview": "All 14 tests pass.",
+      "timestamp": "2026-10-09T10:13:00Z",
+      "label": null,
+      "onActivePath": false,
+      "childCount": 0
+    },
+    {
+      "id": "n15",
+      "parentId": "n12",
+      "kind": "user",
+      "preview": "Now update the README example.",
+      "timestamp": "2026-10-09T10:14:00Z",
+      "label": null,
+      "onActivePath": true,
+      "childCount": 1
+    },
+    {
+      "id": "n16",
+      "parentId": "n15",
+      "kind": "assistant",
+      "preview": "Updating the README.",
+      "timestamp": "2026-10-09T10:15:00Z",
+      "label": null,
+      "onActivePath": true,
+      "childCount": 1
+    },
+    {
+      "id": "n17",
+      "parentId": "n16",
+      "kind": "toolResult",
+      "preview": null,
+      "timestamp": "2026-10-09T10:16:00Z",
+      "label": null,
+      "onActivePath": true,
+      "childCount": 1
+    },
+    {
+      "id": "n18",
+      "parentId": "n17",
+      "kind": "assistant",
+      "preview": "The README example now shows that empty input parses to no records.",
+      "timestamp": "2026-10-09T10:17:00Z",
+      "label": null,
+      "onActivePath": true,
+      "childCount": 0
+    }
+  ],
+  "leafId": "n18",
+  "branchCount": 2,
+  "truncated": false
+}

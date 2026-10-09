@@ -1,0 +1,21 @@
+// An extension command (/setup) drives every dialog and host UI method; OMP acknowledges it with
+// agentInvoked: false, which completes the prompt as handled. Exported as agent/stream_ui_requests.json.
+{"include":"omp_startup.jsonl"}
+
+// an extension command runs its dialogs before OMP acknowledges the prompt
+{"expect":"prompt","as":"p","hold":true,"match":{"message":"/setup"}}
+{"emit":{"type":"extension_ui_request","id":"ui-0","method":"setTitle","title":"Project setup"}}
+{"emit":{"type":"extension_ui_request","id":"ui-s1","method":"setStatus","statusKey":"setup","statusText":"Configuring hooks…"}}
+{"emit":{"type":"extension_ui_request","id":"ui-1","method":"confirm","title":"Install hooks","message":"Add a pre-commit hook to .git/hooks?","timeout":60000}}
+{"expect":"extension_ui_response","match":{"id":"ui-1","confirmed":true}}
+{"emit":{"type":"extension_ui_request","id":"ui-2","method":"input","title":"Hook name","placeholder":"pre-commit"}}
+{"expect":"extension_ui_response","match":{"id":"ui-2","value":"pre-commit"}}
+{"emit":{"type":"extension_ui_request","id":"ui-3","method":"editor","title":"Edit the hook script","prefill":"#!/bin/sh\ncargo fmt --all --check\n","promptStyle":false}}
+{"expect":"extension_ui_response","match":{"id":"ui-3"}}
+{"emit":{"type":"extension_ui_request","id":"ui-w","method":"setWidget","widgetKey":"setup","widgetLines":["Step 3 of 3","Hook installed"],"widgetPlacement":"belowEditor"}}
+{"emit":{"type":"extension_ui_request","id":"ui-n","method":"notify","message":"Installed the pre-commit hook.","notifyType":"info"}}
+{"emit":{"type":"extension_ui_request","id":"ui-e","method":"set_editor_text","text":"/review src/lib.rs"}}
+{"emit":{"type":"extension_ui_request","id":"ui-u","method":"open_url","url":"https://github.com/settings/tokens","launchUrl":"http://127.0.0.1:9/x","instructions":"Create a token with the repo scope, then paste it when asked."}}
+{"emit":{"type":"extension_ui_request","id":"ui-s2","method":"setStatus","statusKey":"setup"}}
+{"respond":"p","command":"prompt","reply":{"success":true,"data":{"agentInvoked":false}}}
+{"emit":{"type":"session_settled"}}

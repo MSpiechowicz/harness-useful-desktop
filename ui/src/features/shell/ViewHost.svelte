@@ -23,7 +23,12 @@
     >
       <h1 class="sr-only" aria-live="polite">{meta.label}</h1>
 
-      {#if nav.current === 'settings'}
+      {#if nav.current === 'chat'}
+        <!-- Split out of the first load: Markdown, the sanitizer and the chat UI arrive while the intro plays. -->
+        {#await import('../chat/ChatView.svelte') then { default: ChatView }}
+          <ChatView />
+        {/await}
+      {:else if nav.current === 'settings'}
         <SettingsView />
       {:else if nav.current === 'config'}
         <ConfigViewer />

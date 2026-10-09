@@ -1,7 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { invoke } = vi.hoisted(() => ({ invoke: vi.fn() }));
-vi.mock('@tauri-apps/api/core', () => ({ invoke }));
+const { invoke, FakeChannel } = vi.hoisted(() => ({
+  invoke: vi.fn(),
+  FakeChannel: class {
+    onmessage: (message: unknown) => void = () => {};
+  },
+}));
+vi.mock('@tauri-apps/api/core', () => ({ invoke, Channel: FakeChannel }));
 
 type TauriModule = typeof import('./tauri-transport');
 type TransportModule = typeof import('./transport');
@@ -41,5 +46,22 @@ describe('createTauriTransport', () => {
       code: 'internal',
       message: 'command app_info not found',
     });
+  });
+
+  it('hands event sinks to the backend as channels that deliver to the sink', async () => {
+    invoke.mockResolvedValueOnce({ key: 'k' });
+    const received: unknown[] = [];
+
+    await createTauriTransport().invoke('agent_start', {
+      request: { harness: 'omp', project: '/p', resume: null, approvalOverride: null, trustOnce: false },
+      onEvent: (event) => received.push(event),
+    });
+
+    const sent = invoke.mock.calls.at(-1)?.[1] as { request: unknown; onEvent: InstanceType<typeof FakeChannel> };
+    expect(sent.onEvent).toBeInstanceOf(FakeChannel);
+    expect(sent.request).toMatchObject({ harness: 'omp' });
+
+    sent.onEvent.onmessage({ sessionKey: 'k', seq: 1 });
+    expect(received).toEqual([{ sessionKey: 'k', seq: 1 }]);
   });
 });

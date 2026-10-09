@@ -1,0 +1,334 @@
+[
+  {
+    "path": "src/lib.rs",
+    "oldPath": null,
+    "status": "modified",
+    "staged": false,
+    "isBinary": false,
+    "hunks": [
+      {
+        "header": "@@ -1,6 +1,10 @@",
+        "oldStart": 1,
+        "oldLines": 6,
+        "newStart": 1,
+        "newLines": 10,
+        "lines": [
+          {
+            "kind": "context",
+            "oldNo": 1,
+            "newNo": 1,
+            "text": "//! Line-oriented record parser."
+          },
+          {
+            "kind": "context",
+            "oldNo": 2,
+            "newNo": 2,
+            "text": ""
+          },
+          {
+            "kind": "add",
+            "oldNo": null,
+            "newNo": 3,
+            "text": "mod error;"
+          },
+          {
+            "kind": "add",
+            "oldNo": null,
+            "newNo": 4,
+            "text": ""
+          },
+          {
+            "kind": "add",
+            "oldNo": null,
+            "newNo": 5,
+            "text": "pub use error::Error;"
+          },
+          {
+            "kind": "add",
+            "oldNo": null,
+            "newNo": 6,
+            "text": ""
+          },
+          {
+            "kind": "remove",
+            "oldNo": 3,
+            "newNo": null,
+            "text": "pub fn parse(input: &str) -> Result<Vec<Record>, String> {"
+          },
+          {
+            "kind": "add",
+            "oldNo": null,
+            "newNo": 7,
+            "text": "pub fn parse(input: &str) -> Result<Vec<Record>, Error> {"
+          },
+          {
+            "kind": "context",
+            "oldNo": 4,
+            "newNo": 8,
+            "text": "    let mut records = Vec::new();"
+          },
+          {
+            "kind": "context",
+            "oldNo": 5,
+            "newNo": 9,
+            "text": "    for line in input.lines() {"
+          },
+          {
+            "kind": "context",
+            "oldNo": 6,
+            "newNo": 10,
+            "text": "        records.push(Record::from_line(line)?);"
+          }
+        ]
+      },
+      {
+        "header": "@@ -20,4 +24,12 @@ impl Record {",
+        "oldStart": 20,
+        "oldLines": 4,
+        "newStart": 24,
+        "newLines": 12,
+        "lines": [
+          {
+            "kind": "context",
+            "oldNo": 20,
+            "newNo": 24,
+            "text": "    pub fn is_empty(&self) -> bool {"
+          },
+          {
+            "kind": "context",
+            "oldNo": 21,
+            "newNo": 25,
+            "text": "        self.fields.is_empty()"
+          },
+          {
+            "kind": "context",
+            "oldNo": 22,
+            "newNo": 26,
+            "text": "    }"
+          },
+          {
+            "kind": "remove",
+            "oldNo": 23,
+            "newNo": null,
+            "text": "}"
+          },
+          {
+            "kind": "noNewline",
+            "oldNo": null,
+            "newNo": null,
+            "text": ""
+          },
+          {
+            "kind": "add",
+            "oldNo": null,
+            "newNo": 27,
+            "text": "}"
+          },
+          {
+            "kind": "add",
+            "oldNo": null,
+            "newNo": 28,
+            "text": ""
+          },
+          {
+            "kind": "add",
+            "oldNo": null,
+            "newNo": 29,
+            "text": "#[cfg(test)]"
+          },
+          {
+            "kind": "add",
+            "oldNo": null,
+            "newNo": 30,
+            "text": "mod tests {"
+          },
+          {
+            "kind": "add",
+            "oldNo": null,
+            "newNo": 31,
+            "text": "    #[test]"
+          },
+          {
+            "kind": "add",
+            "oldNo": null,
+            "newNo": 32,
+            "text": "    fn parses_empty_input() {"
+          },
+          {
+            "kind": "add",
+            "oldNo": null,
+            "newNo": 33,
+            "text": "        assert!(super::parse(\"\").unwrap().is_empty());"
+          },
+          {
+            "kind": "add",
+            "oldNo": null,
+            "newNo": 34,
+            "text": "    }"
+          },
+          {
+            "kind": "add",
+            "oldNo": null,
+            "newNo": 35,
+            "text": "}"
+          }
+        ]
+      }
+    ],
+    "truncated": false,
+    "additions": 14,
+    "deletions": 2
+  },
+  {
+    "path": "src/error.rs",
+    "oldPath": null,
+    "status": "added",
+    "staged": true,
+    "isBinary": false,
+    "hunks": [
+      {
+        "header": "@@ -0,0 +1,6 @@",
+        "oldStart": 0,
+        "oldLines": 0,
+        "newStart": 1,
+        "newLines": 6,
+        "lines": [
+          {
+            "kind": "add",
+            "oldNo": null,
+            "newNo": 1,
+            "text": "/// Errors returned by [`crate::parse`]."
+          },
+          {
+            "kind": "add",
+            "oldNo": null,
+            "newNo": 2,
+            "text": "#[derive(Debug, PartialEq, Eq)]"
+          },
+          {
+            "kind": "add",
+            "oldNo": null,
+            "newNo": 3,
+            "text": "pub enum Error {"
+          },
+          {
+            "kind": "add",
+            "oldNo": null,
+            "newNo": 4,
+            "text": "    /// A line is not a valid record."
+          },
+          {
+            "kind": "add",
+            "oldNo": null,
+            "newNo": 5,
+            "text": "    InvalidLine { line: usize },"
+          },
+          {
+            "kind": "add",
+            "oldNo": null,
+            "newNo": 6,
+            "text": "}"
+          }
+        ]
+      }
+    ],
+    "truncated": false,
+    "additions": 6,
+    "deletions": 0
+  },
+  {
+    "path": "docs/guide.md",
+    "oldPath": "docs/usage.md",
+    "status": "renamed",
+    "staged": true,
+    "isBinary": false,
+    "hunks": [
+      {
+        "header": "@@ -1,3 +1,3 @@",
+        "oldStart": 1,
+        "oldLines": 3,
+        "newStart": 1,
+        "newLines": 3,
+        "lines": [
+          {
+            "kind": "remove",
+            "oldNo": 1,
+            "newNo": null,
+            "text": "# Usage"
+          },
+          {
+            "kind": "add",
+            "oldNo": null,
+            "newNo": 1,
+            "text": "# Guide"
+          },
+          {
+            "kind": "context",
+            "oldNo": 2,
+            "newNo": 2,
+            "text": ""
+          },
+          {
+            "kind": "context",
+            "oldNo": 3,
+            "newNo": 3,
+            "text": "Call `demo::parse` with the file contents."
+          }
+        ]
+      }
+    ],
+    "truncated": false,
+    "additions": 1,
+    "deletions": 1
+  },
+  {
+    "path": "assets/logo.png",
+    "oldPath": null,
+    "status": "modified",
+    "staged": false,
+    "isBinary": true,
+    "hunks": [],
+    "truncated": false,
+    "additions": 0,
+    "deletions": 0
+  },
+  {
+    "path": "notes/todo.md",
+    "oldPath": null,
+    "status": "untracked",
+    "staged": false,
+    "isBinary": false,
+    "hunks": [
+      {
+        "header": "@@ -0,0 +1,3 @@",
+        "oldStart": 0,
+        "oldLines": 0,
+        "newStart": 1,
+        "newLines": 3,
+        "lines": [
+          {
+            "kind": "add",
+            "oldNo": null,
+            "newNo": 1,
+            "text": "# TODO"
+          },
+          {
+            "kind": "add",
+            "oldNo": null,
+            "newNo": 2,
+            "text": ""
+          },
+          {
+            "kind": "add",
+            "oldNo": null,
+            "newNo": 3,
+            "text": "- Benchmark `parse` on 100 MB inputs."
+          }
+        ]
+      }
+    ],
+    "truncated": false,
+    "additions": 3,
+    "deletions": 0
+  }
+]

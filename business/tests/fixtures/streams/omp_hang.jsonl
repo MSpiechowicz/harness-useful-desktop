@@ -1,0 +1,3 @@
+// Ignores stdin EOF: stop must kill it after the grace period.
+{"include":"omp_startup.jsonl"}
+{"hang":true}

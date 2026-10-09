@@ -5,7 +5,9 @@
 
 mod catalog;
 mod config;
+mod dialect;
 mod extensions;
+mod launch;
 mod marketplaces;
 mod paths;
 mod plugins;
@@ -13,7 +15,12 @@ mod themes;
 
 pub use catalog::OmpCatalog;
 pub use config::omp_config_view;
+pub use dialect::OmpDialect;
 pub use extensions::omp_extensions_view;
+pub use launch::{
+    DEFAULT_APPROVAL_MODE, cli_approval_mode, configured_approval_mode, omp_launch_spec, omp_sessions_dir,
+    parse_approval_mode,
+};
 pub use paths::{active_profile, omp_paths};
 
 use crate::harness::prelude::*;
@@ -68,6 +75,22 @@ impl Harness for Omp {
 
     fn catalog(&self) -> &dyn CommandCatalog {
         &OmpCatalog
+    }
+
+    fn launch_spec(&self, request: &LaunchRequest<'_>) -> Result<ExecSpec> {
+        omp_launch_spec(request)
+    }
+
+    fn dialect(&self) -> &'static dyn RpcDialect {
+        &OmpDialect
+    }
+
+    fn sessions_dir(&self, env: &Env) -> PathBuf {
+        omp_sessions_dir(env)
+    }
+
+    fn configured_approval_mode(&self, env: &Env, project: Option<&Path>) -> Option<ApprovalMode> {
+        Some(configured_approval_mode(env, project))
     }
 
     fn install_hint(&self) -> InstallHint {

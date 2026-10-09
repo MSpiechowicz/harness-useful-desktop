@@ -1,10 +1,13 @@
 <script lang="ts">
   import ShieldAlert from '@lucide/svelte/icons/shield-alert';
 
+  import { cx } from '$lib/utils/cx';
+
+  import { WIDTH } from './layout';
   import StepHeader from './StepHeader.svelte';
 </script>
 
-<div class="flex flex-col gap-6">
+<div class={cx('mx-auto flex w-full flex-col gap-8', WIDTH.narrow)}>
   <StepHeader
     eyebrow="Good to know"
     title="OMP can run tools without asking"

@@ -1,0 +1,9 @@
+// OMP closes an open dialog with cancel; ask and unknown methods are answered with cancelled.
+{"include":"omp_startup.jsonl"}
+{"emit":{"type":"extension_ui_request","id":"sel-1","method":"select","title":"Pick one","options":["a","b"],"timeout":5000}}
+{"emit":{"type":"extension_ui_request","id":"c-1","method":"cancel","targetId":"sel-1"}}
+{"emit":{"type":"extension_ui_request","id":"ask-1","method":"ask","questions":[{"id":"q","question":"?","options":[{"label":"x"}]}]}}
+{"expect":"extension_ui_response","match":{"id":"ask-1","cancelled":true}}
+{"emit":{"type":"extension_ui_request","id":"odd-1","method":"teleport"}}
+{"expect":"extension_ui_response","match":{"id":"odd-1","cancelled":true}}
+{"emit":{"type":"notice","level":"info","message":"after the auto replies"}}

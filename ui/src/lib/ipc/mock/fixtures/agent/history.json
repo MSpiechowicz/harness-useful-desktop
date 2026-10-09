@@ -1,0 +1,113 @@
+{
+  "type": "history",
+  "messages": [
+    {
+      "id": null,
+      "role": "user",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "Which edition does the crate use?"
+        }
+      ],
+      "model": null,
+      "provider": null,
+      "stopReason": null,
+      "errorMessage": null,
+      "usage": null,
+      "costUsd": null,
+      "timestamp": 1791540060000,
+      "toolCallId": null,
+      "toolName": null,
+      "isError": null
+    },
+    {
+      "id": null,
+      "role": "assistant",
+      "blocks": [
+        {
+          "type": "thinking",
+          "text": "The edition is in the manifest.",
+          "redacted": false
+        },
+        {
+          "type": "toolCall",
+          "id": "call-h1",
+          "name": "read",
+          "args": {
+            "path": "Cargo.toml"
+          },
+          "intent": "Read the manifest"
+        }
+      ],
+      "model": "claude-sonnet-4-5",
+      "provider": "anthropic",
+      "stopReason": "toolUse",
+      "errorMessage": null,
+      "usage": {
+        "input": 4200,
+        "output": 48,
+        "cacheRead": 12800,
+        "cacheWrite": 0,
+        "total": 17048
+      },
+      "costUsd": 0.01752,
+      "timestamp": 1791540062000,
+      "toolCallId": null,
+      "toolName": null,
+      "isError": null
+    },
+    {
+      "id": null,
+      "role": "toolResult",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "[package]\nname = \"demo\"\nversion = \"0.3.1\"\nedition = \"2024\"\n"
+        },
+        {
+          "type": "image",
+          "mimeType": "image/png"
+        }
+      ],
+      "model": null,
+      "provider": null,
+      "stopReason": null,
+      "errorMessage": null,
+      "usage": null,
+      "costUsd": null,
+      "timestamp": 1791540063000,
+      "toolCallId": "call-h1",
+      "toolName": "read",
+      "isError": false
+    },
+    {
+      "id": null,
+      "role": "assistant",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "The crate uses **Rust 2024** (`edition = \"2024\"` in `Cargo.toml`)."
+        }
+      ],
+      "model": "claude-sonnet-4-5",
+      "provider": "anthropic",
+      "stopReason": "stop",
+      "errorMessage": null,
+      "usage": {
+        "input": 4200,
+        "output": 31,
+        "cacheRead": 12800,
+        "cacheWrite": 0,
+        "total": 17031
+      },
+      "costUsd": 0.017265,
+      "timestamp": 1791540064000,
+      "toolCallId": null,
+      "toolName": null,
+      "isError": null
+    }
+  ],
+  "nextCursor": "2",
+  "total": 6
+}

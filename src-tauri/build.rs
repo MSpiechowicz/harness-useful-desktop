@@ -25,6 +25,12 @@ const COMMANDS: &[&str] = &[
     "project_forget",
     "reveal_path",
     "open_external",
+    "agent_start",
+    "agent_send",
+    "agent_ui_respond",
+    "agent_bash",
+    "agent_stop",
+    "agent_list",
 ];
 
 fn main() {

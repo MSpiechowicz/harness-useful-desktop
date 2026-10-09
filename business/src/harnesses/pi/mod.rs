@@ -6,13 +6,17 @@
 
 mod catalog;
 mod config;
+mod dialect;
 mod extensions;
+mod launch;
 mod layers;
 mod packages;
 
 pub use catalog::PiCatalog;
 pub use config::pi_config_view;
+pub use dialect::PiDialect;
 pub use extensions::pi_extensions_view;
+pub use launch::{pi_launch_spec, pi_sessions_dir};
 
 use crate::harness::prelude::*;
 
@@ -86,6 +90,18 @@ impl Harness for Pi {
 
     fn catalog(&self) -> &dyn CommandCatalog {
         &PiCatalog
+    }
+
+    fn launch_spec(&self, request: &LaunchRequest<'_>) -> Result<ExecSpec> {
+        pi_launch_spec(request)
+    }
+
+    fn dialect(&self) -> &'static dyn RpcDialect {
+        &PiDialect
+    }
+
+    fn sessions_dir(&self, env: &Env) -> PathBuf {
+        pi_sessions_dir(env)
     }
 
     fn install_hint(&self) -> InstallHint {

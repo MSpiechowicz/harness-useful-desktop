@@ -1,0 +1,29 @@
+{
+  "type": "state",
+  "state": {
+    "sessionId": "0199c1f2-5d3e-7a10-9b2c-4e6f8a1d3c57",
+    "sessionName": "Handle empty config input",
+    "model": {
+      "provider": "anthropic",
+      "id": "claude-sonnet-4-5",
+      "name": "Claude Sonnet 4.5",
+      "reasoning": true,
+      "contextWindow": 200000,
+      "maxTokens": 50000,
+      "input": [
+        "text",
+        "image"
+      ]
+    },
+    "thinkingLevel": "medium",
+    "isStreaming": false,
+    "isCompacting": false,
+    "messageCount": 6,
+    "queuedCount": 0,
+    "contextUsage": {
+      "tokens": 17600,
+      "contextWindow": 200000,
+      "percent": 8.8
+    }
+  }
+}

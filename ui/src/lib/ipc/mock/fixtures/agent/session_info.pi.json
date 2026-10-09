@@ -1,0 +1,10 @@
+{
+  "key": "8c2d4e6f-1a3b-4c5d-8e7f-9a0b1c2d3e4f",
+  "harness": "pi",
+  "project": "/home/demo/Projects/demo",
+  "startedAt": "2026-10-09T10:00:00Z",
+  "approvalOverride": null,
+  "configuredApprovalMode": null,
+  "trustedOnce": false,
+  "protocolVersion": null
+}

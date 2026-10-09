@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-agent-bash"
+description = "Enables the agent_bash command without any pre-configured scope."
+commands.allow = ["agent_bash"]
+
+[[permission]]
+identifier = "deny-agent-bash"
+description = "Denies the agent_bash command without any pre-configured scope."
+commands.deny = ["agent_bash"]

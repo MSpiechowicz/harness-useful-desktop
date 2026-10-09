@@ -1,0 +1,6 @@
+// Exits while a request is waiting for its response.
+{"include":"omp_startup.jsonl"}
+{"expect":"get_state","hold":true}
+{"stderr":"fatal: out of memory"}
+{"sleep":100}
+{"exit":3}

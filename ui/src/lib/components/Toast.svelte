@@ -8,6 +8,7 @@
   import { rise } from '$lib/design/motion';
   import type { ToastItem, ToastTone } from '$lib/stores/toasts.svelte';
 
+  import Button from './Button.svelte';
   import IconButton from './IconButton.svelte';
   import type { IconComponent } from './icon';
 
@@ -58,6 +59,10 @@
     <p class="text-base font-medium text-fg">{toast.title}</p>
     {#if toast.description}
       <p class="text-sm break-words text-fg-2">{toast.description}</p>
+    {/if}
+    {#if toast.action}
+      {@const action = toast.action}
+      <Button size="sm" class="mt-1.5 self-start" onclick={() => { action.run(); ondismiss(toast.id); }}>{action.label}</Button>
     {/if}
   </div>
 

@@ -3,6 +3,7 @@
 @import "@fontsource-variable/jetbrains-mono";
 @import "./lib/design/tokens.css";
 @import "./lib/design/motion.css";
+@import "./lib/components/markdown.css";
 
 /* Map tokens into Tailwind utilities (bg-surface-2, text-fg-2, rounded-md, shadow-pop ...). */
 @theme inline {

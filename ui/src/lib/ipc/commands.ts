@@ -1,11 +1,19 @@
+import type { AgentAction } from './bindings/AgentAction';
+import type { AgentEnvelope } from './bindings/AgentEnvelope';
+import type { AgentReply } from './bindings/AgentReply';
+import type { AgentSessionInfo } from './bindings/AgentSessionInfo';
+import type { AgentStartRequest } from './bindings/AgentStartRequest';
 import type { AppInfo } from './bindings/AppInfo';
 import type { AppPrefs } from './bindings/AppPrefs';
+import type { BashOutput } from './bindings/BashOutput';
 import type { CommandSpec as CatalogCommand } from './bindings/CommandSpec';
 import type { ConfigView } from './bindings/ConfigView';
 import type { ExtensionsView } from './bindings/ExtensionsView';
 import type { HarnessId } from './bindings/HarnessId';
 import type { HarnessSummary } from './bindings/HarnessSummary';
 import type { ProjectInfo } from './bindings/ProjectInfo';
+import type { UiResponse } from './bindings/UiResponse';
+import type { EventSink } from './transport';
 
 /** Phantom entry: carries the argument and result types of one command, no runtime data. */
 export interface CommandSpec<Args, Result> {
@@ -39,6 +47,12 @@ export const commands = {
   project_close: cmd<undefined, null>(),
   project_recent: cmd<undefined, ProjectInfo[]>(),
   project_forget: cmd<{ path: string }, ProjectInfo[]>(),
+  agent_start: cmd<{ request: AgentStartRequest; onEvent: EventSink<AgentEnvelope> }, AgentSessionInfo>(),
+  agent_send: cmd<{ key: string; action: AgentAction }, AgentReply>(),
+  agent_ui_respond: cmd<{ key: string; response: UiResponse }, null>(),
+  agent_bash: cmd<{ key: string; command: string; confirmed: boolean }, BashOutput>(),
+  agent_stop: cmd<{ key: string }, null>(),
+  agent_list: cmd<undefined, AgentSessionInfo[]>(),
 };
 
 export type CommandName = keyof typeof commands;

@@ -1,0 +1,40 @@
+{
+  "isRepo": true,
+  "branch": "feat/empty-input",
+  "head": "4e1d2c7",
+  "upstream": "origin/feat/empty-input",
+  "ahead": 2,
+  "behind": 1,
+  "entries": [
+    {
+      "path": "assets/logo.png",
+      "origPath": null,
+      "staged": null,
+      "unstaged": "modified"
+    },
+    {
+      "path": "docs/guide.md",
+      "origPath": "docs/usage.md",
+      "staged": "renamed",
+      "unstaged": null
+    },
+    {
+      "path": "notes/todo.md",
+      "origPath": null,
+      "staged": null,
+      "unstaged": "untracked"
+    },
+    {
+      "path": "src/error.rs",
+      "origPath": null,
+      "staged": "added",
+      "unstaged": null
+    },
+    {
+      "path": "src/lib.rs",
+      "origPath": null,
+      "staged": null,
+      "unstaged": "modified"
+    }
+  ]
+}

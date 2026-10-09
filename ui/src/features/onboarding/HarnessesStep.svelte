@@ -4,9 +4,11 @@
   import Button from '$lib/components/Button.svelte';
   import Skeleton from '$lib/components/Skeleton.svelte';
   import { harness } from '$lib/stores/harness.svelte';
+  import { cx } from '$lib/utils/cx';
   import { rovingIndex } from '$lib/utils/roving';
 
   import HarnessCard from './HarnessCard.svelte';
+  import { WIDTH } from './layout';
   import { onboarding } from './onboarding.svelte';
   import StepHeader from './StepHeader.svelte';
 
@@ -25,7 +27,7 @@
   }
 </script>
 
-<div class="flex flex-col gap-6">
+<div class={cx('mx-auto flex w-full flex-col gap-8', WIDTH.wide)}>
   <StepHeader
     eyebrow="Your harnesses"
     title="Which agent do you use every day?"

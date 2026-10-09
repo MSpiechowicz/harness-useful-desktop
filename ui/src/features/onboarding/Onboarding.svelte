@@ -8,7 +8,7 @@
   import AuroraCanvas from '$lib/components/AuroraCanvas.svelte';
   import Button from '$lib/components/Button.svelte';
   import IconButton from '$lib/components/IconButton.svelte';
-  import { rise, scaled } from '$lib/design/motion';
+  import { createSpring, moveSpring, scaled } from '$lib/design/motion';
   import { harness } from '$lib/stores/harness.svelte';
   import { motion } from '$lib/stores/motion.svelte';
   import { project } from '$lib/stores/project.svelte';
@@ -17,11 +17,21 @@
   import ApprovalStep from './ApprovalStep.svelte';
   import DoneStep from './DoneStep.svelte';
   import HarnessesStep from './HarnessesStep.svelte';
+  import { AURORA_INTENSITY, STEP_WIDTH, WIDTH } from './layout';
   import { onboarding } from './onboarding.svelte';
   import ProjectStep from './ProjectStep.svelte';
+  import { stepIn, stepOut } from './step-transition';
+  import StepProgress from './StepProgress.svelte';
   import WelcomeStep from './WelcomeStep.svelte';
 
   let finishing = $state(false);
+
+  // The backdrop glows brighter on the bookend steps and settles while the user is choosing.
+  const aurora = createSpring(AURORA_INTENSITY.welcome);
+
+  $effect(() => {
+    moveSpring(aurora, AURORA_INTENSITY[onboarding.step]);
+  });
 
   /** Label of the primary action per step. */
   const primaryLabel = $derived.by(() => {
@@ -63,65 +73,55 @@
   >
     <!-- The aurora dims in the light theme through the same opacity token the shell backdrop uses. -->
     <div class="pointer-events-none absolute inset-0" style:opacity="var(--aurora-opacity)" aria-hidden="true">
-      <AuroraCanvas class="size-full" intensity={0.55} animated={motion.level === 'full'} />
+      <AuroraCanvas class="size-full" intensity={aurora.current} animated={motion.level === 'full'} />
     </div>
 
-    <div class="relative mx-auto flex h-full max-w-4xl flex-col gap-6 px-10 py-8">
-      <div class="flex items-center justify-between">
-        <ol class="flex items-center gap-2" aria-label="Setup progress">
-          {#each onboarding.steps as step, index (step)}
-            <li
-              aria-current={step === onboarding.step ? 'step' : undefined}
-              class={cx(
-                'h-1.5 rounded-full transition-[width,background-color] duration-[var(--dur-slow)] ease-[var(--ease-out-expo)]',
-                step === onboarding.step ? 'w-8 bg-[image:var(--brand-gradient)]' : 'w-4',
-                index < onboarding.index ? 'bg-accent/60' : step !== onboarding.step && 'bg-line-strong',
-              )}
-            >
-              <span class="sr-only">Step {index + 1} of {onboarding.steps.length}</span>
-            </li>
-          {/each}
-        </ol>
-
-        {#if onboarding.rerun}
-          <IconButton icon={X} label="Close setup" side="bottom" onclick={() => onboarding.dismiss()} />
-        {/if}
+    {#if onboarding.rerun}
+      <div class="absolute top-4 right-4 z-10">
+        <IconButton icon={X} label="Close setup" side="bottom" onclick={() => onboarding.dismiss()} />
       </div>
+    {/if}
 
-      <!-- Stacked grid cell: the outgoing and incoming steps overlap during the transition. -->
-      <div class="-mx-4 grid min-h-0 flex-1 overflow-y-auto px-4 *:col-start-1 *:row-start-1">
-        {#key onboarding.step}
-          <div class="py-2" in:rise={{ y: 14 * onboarding.direction, delay: 120, duration: 420 }} out:fade={{ duration: scaled(120) }}>
-            {#if onboarding.step === 'welcome'}
-              <WelcomeStep />
-            {:else if onboarding.step === 'harnesses'}
-              <HarnessesStep />
-            {:else if onboarding.step === 'project'}
-              <ProjectStep />
-            {:else if onboarding.step === 'approval'}
-              <ApprovalStep />
-            {:else}
-              <DoneStep />
-            {/if}
-          </div>
-        {/key}
-      </div>
+    <!-- The whole block (progress, step, actions) is centred; on short windows the page scrolls instead of clipping. -->
+    <div class="relative h-full overflow-x-hidden overflow-y-auto">
+      <div class="mx-auto flex min-h-full w-full max-w-[52rem] flex-col justify-center gap-8 px-6 py-14 [@media(max-height:720px)]:gap-5 [@media(max-height:720px)]:py-8">
+        <div class={cx('mx-auto w-full', WIDTH[STEP_WIDTH[onboarding.step]])}>
+          <StepProgress />
+        </div>
 
-      <footer class="flex items-center justify-between">
-        <div>
+        <!-- Stacked grid cell: the outgoing and incoming steps overlap while they slide. -->
+        <div class="grid *:col-start-1 *:row-start-1">
+          {#key onboarding.step}
+            <div class="min-w-0" in:stepIn={{ direction: onboarding.direction }} out:stepOut={{ direction: onboarding.direction }}>
+              {#if onboarding.step === 'welcome'}
+                <WelcomeStep />
+              {:else if onboarding.step === 'harnesses'}
+                <HarnessesStep />
+              {:else if onboarding.step === 'project'}
+                <ProjectStep />
+              {:else if onboarding.step === 'approval'}
+                <ApprovalStep />
+              {:else}
+                <DoneStep />
+              {/if}
+            </div>
+          {/key}
+        </div>
+
+        <footer class={cx('mx-auto flex w-full items-center', WIDTH[STEP_WIDTH[onboarding.step]], onboarding.index === 0 ? 'justify-center' : 'justify-between')}>
           {#if onboarding.index > 0}
             <Button variant="ghost" onclick={() => onboarding.back()}>
               {#snippet leading()}<ArrowLeft size={16} aria-hidden="true" />{/snippet}
               Back
             </Button>
           {/if}
-        </div>
 
-        <Button variant="primary" size="lg" loading={finishing} onclick={() => void advance()}>
-          {primaryLabel}
-          {#snippet trailing()}<ArrowRight size={18} aria-hidden="true" />{/snippet}
-        </Button>
-      </footer>
+          <Button variant="primary" size="lg" loading={finishing} onclick={() => void advance()}>
+            {primaryLabel}
+            {#snippet trailing()}<ArrowRight size={18} aria-hidden="true" />{/snippet}
+          </Button>
+        </footer>
+      </div>
     </div>
   </div>
 {/if}

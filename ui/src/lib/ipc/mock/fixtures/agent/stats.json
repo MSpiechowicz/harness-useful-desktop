@@ -1,0 +1,22 @@
+{
+  "type": "stats",
+  "stats": {
+    "userMessages": 3,
+    "assistantMessages": 5,
+    "toolCalls": 4,
+    "totalMessages": 12,
+    "tokens": {
+      "input": 21400,
+      "output": 3150,
+      "cacheRead": 51200,
+      "cacheWrite": 6400,
+      "total": 82150
+    },
+    "costUsd": 0.0874,
+    "contextUsage": {
+      "tokens": 17600,
+      "contextWindow": 200000,
+      "percent": 8.8
+    }
+  }
+}

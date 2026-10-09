@@ -2,6 +2,12 @@ import type { IpcError } from './bindings/IpcError';
 import type { IpcErrorCode } from './bindings/IpcErrorCode';
 import type { CommandArgs, CommandName, CommandResult } from './commands';
 
+/**
+ * Receives the events of a streaming command. Passed as a command argument; the Tauri transport
+ * turns it into a `Channel`, the mock transport calls it directly.
+ */
+export type EventSink<T> = (event: T) => void;
+
 /** The seam between the UI and the backend; Tauri, mock and "unavailable" implement it. */
 export interface Transport {
   invoke<K extends CommandName>(name: K, args: CommandArgs<K>): Promise<CommandResult<K>>;

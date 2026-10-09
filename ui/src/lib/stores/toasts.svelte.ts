@@ -6,6 +6,13 @@ export interface ToastInput {
   tone?: ToastTone;
   /** Milliseconds before auto-dismiss; 0 keeps the toast until dismissed. */
   duration?: number;
+  /** One follow-up action, e.g. "Reveal"; running it dismisses the toast. */
+  action?: ToastAction;
+}
+
+export interface ToastAction {
+  label: string;
+  run: () => void;
 }
 
 export interface ToastItem {
@@ -14,6 +21,7 @@ export interface ToastItem {
   description?: string;
   tone: ToastTone;
   duration: number;
+  action?: ToastAction;
 }
 
 const DEFAULT_DURATION_MS = 5000;
@@ -34,6 +42,7 @@ export class ToastsStore {
       description: input.description,
       tone: input.tone ?? 'neutral',
       duration: input.duration ?? DEFAULT_DURATION_MS,
+      action: input.action,
     };
 
     this.items = [...this.items, item].slice(-MAX_VISIBLE);

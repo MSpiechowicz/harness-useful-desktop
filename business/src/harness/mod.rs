@@ -12,23 +12,34 @@
 //! 3. Add one line to [`HarnessRegistry::with_defaults`].
 //!
 //! The UI renders from [`HarnessInfo`], [`Capabilities`] and the views, so no UI change is needed.
+//!
+//! Chat sessions additionally need [`Harness::launch_spec`] (the RPC command line) and
+//! [`Harness::dialect`] (how the harness speaks the PI-family RPC protocol).
 
 mod catalog;
 mod detect;
+mod launch;
 mod registry;
 
-pub use catalog::{CommandCatalog, SharedCommand, gui, merge_commands, rpc, spec, unsupported};
+pub use catalog::{CommandCatalog, SharedCommand, gui, merge_commands, parse_live_commands, rpc, spec, unsupported};
 pub use detect::{VERSION_TIMEOUT, first_semver, override_name_matches};
+pub use launch::{LaunchRequest, flag_with, rpc_exec_spec};
 pub use registry::HarnessRegistry;
 
 /// Everything an adapter's `impl Harness` block needs: `use crate::harness::prelude::*;`.
 pub mod prelude {
     pub use std::path::Path;
 
-    pub use super::{CommandCatalog, Harness, HarnessPaths};
+    pub use std::path::PathBuf;
+
+    pub use super::{CommandCatalog, Harness, HarnessPaths, LaunchRequest};
     pub use crate::env::Env;
     pub use crate::error::Result;
-    pub use crate::model::{Capabilities, ConfigView, ExtensionsView, HarnessId, HarnessInfo, InstallHint};
+    pub use crate::model::{
+        ApprovalMode, Capabilities, ConfigView, ExtensionsView, HarnessId, HarnessInfo, InstallHint,
+    };
+    pub use crate::pi_family::rpc::RpcDialect;
+    pub use crate::process::ExecSpec;
 }
 
 use std::path::{Path, PathBuf};
@@ -36,10 +47,11 @@ use std::path::{Path, PathBuf};
 use crate::env::Env;
 use crate::error::Result;
 use crate::model::{
-    Capabilities, ConfigView, Detection, ExtensionsView, HarnessId, HarnessInfo, HarnessSummary, InstallHint,
-    VersionSupport,
+    ApprovalMode, Capabilities, ConfigView, Detection, ExtensionsView, HarnessId, HarnessInfo, HarnessSummary,
+    InstallHint, VersionSupport,
 };
-use crate::process::{BoxFuture, ProcessRunner};
+use crate::pi_family::rpc::RpcDialect;
+use crate::process::{BoxFuture, ExecSpec, ProcessRunner};
 
 /// Where a harness keeps its files, resolved from an [`Env`] (and the project, if any).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -84,6 +96,21 @@ pub trait Harness: Send + Sync {
 
     /// The slash-command catalog.
     fn catalog(&self) -> &dyn CommandCatalog;
+
+    /// The shell-free command line that runs the harness in RPC mode for `request`.
+    fn launch_spec(&self, request: &LaunchRequest<'_>) -> Result<ExecSpec>;
+
+    /// The RPC dialect the harness speaks in `--mode rpc`.
+    fn dialect(&self) -> &'static dyn RpcDialect;
+
+    /// Root of the harness's session folders (`<root>/<encoded cwd>/<timestamp>_<id>.jsonl`).
+    fn sessions_dir(&self, env: &Env) -> PathBuf;
+
+    /// The approval mode the user configured for `project` (harnesses with
+    /// `capabilities.approvalModes`); `None` when the harness has no approval modes.
+    fn configured_approval_mode(&self, _env: &Env, _project: Option<&Path>) -> Option<ApprovalMode> {
+        None
+    }
 
     /// Copyable install instructions shown when the CLI is missing.
     fn install_hint(&self) -> InstallHint;

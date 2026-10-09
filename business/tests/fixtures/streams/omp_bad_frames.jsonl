@@ -1,0 +1,13 @@
+// Invalid JSON, a non-object, an oversized event, a blank line, an agent-side rpc_frame_error,
+// Unicode line separators inside a string, a CRLF frame and an oversized response.
+{"include":"omp_startup.jsonl"}
+{"raw":"this is not json"}
+{"raw":"[1,2,3]"}
+{"big":{"type":"message_update","bytes":5000000}}
+{"raw":"   "}
+{"emit":{"type":"rpc_frame_error","originalType":"tool_execution_end","error":"RPC frame exceeded the transport limit"}}
+{"emit":{"type":"notice","level":"info","message":"line separator kept"}}
+{"raw":"{\"type\":\"notice\",\"level\":\"warning\",\"message\":\"crlf\"}\r"}
+{"expect":"get_state","as":"s"}
+{"big":{"type":"response","id":"$s","bytes":5000000}}
+{"emit":{"type":"notice","level":"info","message":"still reading"}}

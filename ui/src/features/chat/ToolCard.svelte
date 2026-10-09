@@ -1,0 +1,94 @@
+<script lang="ts">
+  import ChevronRight from '@lucide/svelte/icons/chevron-right';
+  import CircleCheck from '@lucide/svelte/icons/circle-check';
+  import CircleX from '@lucide/svelte/icons/circle-x';
+  import Clock from '@lucide/svelte/icons/clock';
+  import { slide } from 'svelte/transition';
+
+  import Button from '$lib/components/Button.svelte';
+  import CodeBlock from '$lib/components/CodeBlock.svelte';
+  import Spinner from '$lib/components/Spinner.svelte';
+  import { changesFiles, commandOf, primaryArg, TOOL_ICONS, toolKind, toolTitle } from '$lib/chat/tool-meta';
+  import type { ToolCallState, ToolStatus } from '$lib/chat/types';
+  import { scaled } from '$lib/design/motion';
+  import { nav } from '$lib/stores/nav.svelte';
+  import { cx } from '$lib/utils/cx';
+
+  import TerminalBlock from './TerminalBlock.svelte';
+  import ToolResult from './ToolResult.svelte';
+
+  interface Props {
+    call: ToolCallState;
+    /** Whether the agent is still working; a tool that never started is "waiting" then, "not run" after. */
+    active: boolean;
+  }
+
+  let { call, active }: Props = $props();
+
+  let open = $state(false);
+
+  const kind = $derived(toolKind(call.name));
+  const Icon = $derived(TOOL_ICONS[kind]);
+  const summary = $derived(primaryArg(call.args));
+  const command = $derived(commandOf(call));
+  const argsJson = $derived(call.args === null ? '' : JSON.stringify(call.args, null, 2));
+
+  const STATUS_LABEL: Record<ToolStatus, string> = { pending: 'Waiting', running: 'Running', ok: 'Done', error: 'Failed' };
+  const label = $derived(call.status === 'pending' && !active ? 'Not run' : STATUS_LABEL[call.status]);
+</script>
+
+<div class={cx('rounded-lg border bg-surface-1/60', call.status === 'error' ? 'border-danger/40' : 'border-line')} data-tool-status={call.status}>
+  <button
+    type="button"
+    aria-expanded={open}
+    class="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors hover:bg-hover"
+    onclick={() => (open = !open)}
+  >
+    <Icon size={16} class="shrink-0 text-fg-2" aria-hidden="true" />
+
+    <span class="min-w-0 flex-1 truncate text-sm">
+      <span class="font-medium text-fg">{toolTitle(call)}</span>
+      {#if summary}<span class="ml-2 font-mono text-xs text-fg-3">{summary}</span>{/if}
+    </span>
+
+    <span class="inline-flex shrink-0 items-center gap-1.5 text-xs text-fg-3">
+      {#if call.status === 'running'}
+        <Spinner size={14} class="text-accent-text" />
+      {:else if call.status === 'ok'}
+        <CircleCheck size={14} class="text-success" aria-hidden="true" />
+      {:else if call.status === 'error'}
+        <CircleX size={14} class="text-danger" aria-hidden="true" />
+      {:else}
+        <Clock size={14} aria-hidden="true" />
+      {/if}
+      <span>{label}</span>
+    </span>
+
+    <ChevronRight size={14} aria-hidden="true" class={cx('shrink-0 text-fg-3 transition-transform duration-[var(--dur-fast)]', open && 'rotate-90')} />
+  </button>
+
+  {#if call.status === 'running' && call.partial && !open}
+    <p class="truncate px-3 pb-2 font-mono text-xs text-fg-3">{call.partial.trimEnd().split('\n').at(-1)}</p>
+  {/if}
+
+  {#if open}
+    <div transition:slide={{ duration: scaled(180) }} class="flex flex-col gap-3 overflow-hidden px-3 pb-3">
+      {#if command !== null}
+        <TerminalBlock text="" {command} />
+      {:else if argsJson !== ''}
+        <CodeBlock code={argsJson} lang="json" />
+      {/if}
+
+      <ToolResult text={call.status === 'running' ? call.partial : call.resultText} running={call.status === 'running'} failed={call.status === 'error'} />
+
+      {#if changesFiles(kind) && call.touchedPaths.length > 0}
+        <div class="flex flex-wrap items-center gap-2">
+          {#each call.touchedPaths as path (path)}
+            <code class="rounded-sm bg-surface-3 px-2 py-0.5 font-mono text-xs text-fg-2">{path}</code>
+          {/each}
+          <Button size="sm" variant="ghost" onclick={() => nav.go('changes')}>View changes</Button>
+        </div>
+      {/if}
+    </div>
+  {/if}
+</div>

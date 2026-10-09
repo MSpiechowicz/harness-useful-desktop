@@ -1,0 +1,176 @@
+import { describe, expect, it, vi } from 'vitest';
+
+import type { AgentEnvelope } from '$lib/ipc/bindings/AgentEnvelope';
+import type { AgentStartRequest } from '$lib/ipc/bindings/AgentStartRequest';
+import { fixtures } from '$lib/ipc/mock/fixtures';
+import { IpcFailure, type Transport } from '$lib/ipc/transport';
+
+import { PROJECT, sampleInfo, storeWithMock } from '../../../tests/chat-helpers';
+import { AgentSessionsStore } from './agentSession.svelte';
+import { ToastsStore } from './toasts.svelte';
+
+const REQUEST: AgentStartRequest = { harness: 'omp', project: PROJECT, resume: null, approvalOverride: null, trustOnce: false };
+
+function messageTexts(chat: { items: { kind: string; blocks?: { type: string; text?: string }[] }[] }): string[] {
+  return chat.items.flatMap((item) => (item.kind === 'message' ? (item.blocks ?? []).flatMap((block) => (block.type === 'text' ? [block.text ?? ''] : [])) : []));
+}
+
+describe('starting sessions', () => {
+  it('keeps events that arrive before the start command returns', async () => {
+    const info = sampleInfo();
+    const early: AgentEnvelope = { sessionKey: info.key, seq: 1, event: { type: 'ready', protocolVersion: 1 } };
+    const transport: Transport = {
+      invoke: async (name, args) => {
+        if (name === 'agent_start') {
+          (args as { onEvent: (envelope: AgentEnvelope) => void }).onEvent(early);
+
+          return info as never;
+        }
+
+        return [] as never;
+      },
+    };
+
+    const store = new AgentSessionsStore(transport, new ToastsStore());
+    const session = await store.start(REQUEST);
+    session?.flush();
+
+    expect(session?.chat.readyCount).toBe(1);
+    expect(session?.chat.phase).toBe('idle');
+  });
+
+  it('shows a toast and adds no tab when the agent cannot start', async () => {
+    const notifications = new ToastsStore();
+    const transport: Transport = { invoke: () => Promise.reject(new IpcFailure({ code: 'process', message: 'omp is not installed' })) };
+    const store = new AgentSessionsStore(transport, notifications);
+
+    expect(await store.start(REQUEST)).toBeNull();
+    expect(store.sessions).toHaveLength(0);
+    expect(notifications.items[0]).toMatchObject({ title: 'Could not start the agent', description: 'omp is not installed', tone: 'danger' });
+  });
+
+  it('opens a tab per session, activates the newest and loads the slash catalog once per harness', async () => {
+    const { store, of } = storeWithMock();
+
+    const first = await store.create('omp', PROJECT);
+    const second = await store.create('omp', PROJECT);
+
+    expect(store.sessions).toHaveLength(2);
+    expect(store.active).toBe(second);
+    expect(first?.key).not.toBe(second?.key);
+    await vi.waitFor(() => expect(first?.catalog.length).toBeGreaterThan(0));
+    expect(of('commands_catalog')).toHaveLength(1);
+  });
+});
+
+describe('talking to the agent', () => {
+  it('streams a reply into the transcript and refreshes state once it settles', async () => {
+    const { store, of } = storeWithMock();
+    const session = await store.create('omp', PROJECT);
+
+    await session?.submit('Make parse handle empty input', 'send');
+    await vi.waitFor(() => expect(session?.chat.settledCount).toBe(1));
+
+    expect(messageTexts(session!.chat).join('\n')).toContain('Make parse handle empty input');
+    expect(messageTexts(session!.chat).join('\n')).toContain('Return `Option<Config>`');
+    expect(of('agent_send').map((call) => call.action.type)).toEqual(expect.arrayContaining(['refreshCommands', 'prompt', 'getState']));
+    expect(session?.commands.some((command) => command.name === 'review')).toBe(true);
+  });
+
+  it('answers an approval request: the card goes away and the agent gets the answer', async () => {
+    const { store, of } = storeWithMock();
+    const session = await store.create('omp', PROJECT);
+
+    await session?.submit('needs approval', 'send');
+    await vi.waitFor(() => expect(session?.approval).not.toBeNull());
+    expect(session?.approval?.title).toMatch(/bash/);
+
+    const prompt = session!.approval!;
+    await session?.respond(prompt.id, { type: 'value', value: prompt.deny });
+
+    expect(session?.approval).toBeNull();
+    expect(of('agent_ui_respond')[0].response).toEqual({ id: prompt.id, outcome: { type: 'value', value: 'Deny' } });
+    await vi.waitFor(() => expect(session?.chat.phase).toBe('idle'));
+    expect(Object.values(session!.chat.toolCalls)[0].status).toBe('error');
+  });
+
+  it('retries the last message after a retryable failure', async () => {
+    const { store, of } = storeWithMock();
+    const session = await store.create('omp', PROJECT);
+
+    await session?.submit('an error please', 'send');
+    await vi.waitFor(() => expect(session?.chat.promptError?.retryable).toBe(true));
+    await session?.retry();
+
+    const prompts = of('agent_send').flatMap((call) => (call.action.type === 'prompt' ? [call.action.message] : []));
+    expect(prompts).toEqual(['an error please', 'an error please']);
+    expect(session?.chat.promptError).toBeNull();
+  });
+
+  it('shows the crash state when the agent exits', async () => {
+    const { store } = storeWithMock();
+    const session = await store.create('omp', PROJECT);
+
+    await session?.submit('crash now', 'send');
+    await vi.waitFor(() => expect(session?.ended).toBe(true));
+
+    expect(session?.chat.crash?.stderr.length).toBeGreaterThan(0);
+  });
+
+  it('turns a rejected action into a toast and a null reply', async () => {
+    const { store, notifications } = storeWithMock();
+    const session = await store.create('omp', PROJECT);
+    await store.stop(session!.key);
+
+    expect(await session?.send({ type: 'getState' })).toBeNull();
+    expect(notifications.items[0].title).toBe('The agent did not accept that');
+  });
+});
+
+describe('tabs', () => {
+  it('closing the active tab stops its agent and selects a neighbour', async () => {
+    const { store, of } = storeWithMock();
+    const first = await store.create('omp', PROJECT);
+    const second = await store.create('omp', PROJECT);
+
+    await store.stop(second!.key);
+
+    expect(of('agent_stop')).toEqual([{ key: second!.key }]);
+    expect(store.active).toBe(first);
+    expect(store.sessions).toHaveLength(1);
+  });
+
+  it('restarts in place with a new approval mode and resumes the same conversation', async () => {
+    const { store, of } = storeWithMock();
+    const first = await store.create('omp', PROJECT);
+    const second = await store.create('omp', PROJECT);
+    first!.draft = 'half-written';
+    await vi.waitFor(() => expect(first?.chat.session?.sessionId).toBeTruthy());
+
+    const fresh = await store.restart(first!.key, { approvalOverride: 'alwaysAsk' });
+
+    expect(store.sessions.map((session) => session.key)).toEqual([fresh!.key, second!.key]);
+    expect(store.active).toBe(fresh);
+    expect(fresh?.info.approvalOverride).toBe('alwaysAsk');
+    expect(fresh?.draft).toBe('half-written');
+    expect(of('agent_start').at(-1)?.request).toMatchObject({
+      resume: { harness: 'omp', id: fixtures.agent.state.state.sessionId },
+      approvalOverride: 'alwaysAsk',
+      trustOnce: false,
+    });
+    expect(of('agent_stop')).toEqual([{ key: first!.key }]);
+  });
+
+  it('trusts a PI project only for the restart that asks for it', async () => {
+    const { store, of } = storeWithMock();
+    const session = await store.create('pi', PROJECT);
+    await vi.waitFor(() => expect(session?.chat.session).not.toBeNull());
+
+    const fresh = await store.restart(session!.key, { trustOnce: true });
+    const again = await store.restart(fresh!.key, {});
+
+    expect(fresh?.info.trustedOnce).toBe(true);
+    expect(again?.info.trustedOnce).toBe(false);
+    expect(of('agent_start').map((call) => call.request.trustOnce)).toEqual([false, true, false]);
+  });
+});

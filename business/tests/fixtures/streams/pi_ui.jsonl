@@ -1,0 +1,17 @@
+// PI extension dialogs (confirm, input cancelled, editor) during a handled prompt, then a queued
+// prompt whose run fails.
+{"include":"pi_startup.jsonl"}
+{"expect":"prompt","as":"p","hold":true,"match":{"message":"/setup"}}
+{"emit":{"type":"extension_ui_request","id":"u1","method":"confirm","title":"Proceed?","message":"Write files"}}
+{"expect":"extension_ui_response","match":{"id":"u1","confirmed":false}}
+{"emit":{"type":"extension_ui_request","id":"u2","method":"input","title":"Name"}}
+{"expect":"extension_ui_response","match":{"id":"u2","cancelled":true}}
+{"emit":{"type":"extension_ui_request","id":"u3","method":"editor","title":"Body","prefill":"a\nb"}}
+{"expect":"extension_ui_response","match":{"id":"u3","value":"a\nb\nc"}}
+{"respond":"p","command":"prompt","reply":{"success":true,"data":{"disposition":"handled"}}}
+{"expect":"prompt","as":"q","match":{"message":"fail please"},"reply":{"success":true,"data":{"disposition":"queued"}}}
+{"emit":{"type":"agent_start"}}
+{"emit":{"type":"message_start","message":{"role":"assistant","content":[]}}}
+{"emit":{"type":"message_end","message":{"role":"assistant","content":[],"api":"anthropic-messages","provider":"anthropic","model":"claude-sonnet-4-5","usage":{"input":4200,"output":0,"cacheRead":12800,"cacheWrite":0,"totalTokens":17000,"cost":{"input":0.0126,"output":0.0,"cacheRead":0.0042,"cacheWrite":0,"total":0.0168}},"stopReason":"error","timestamp":1791540005000,"providerPayload":{"secret":"CANARY-7f3a9c"},"errorMessage":"overloaded"}}}
+{"emit":{"type":"agent_end","messages":[],"willRetry":false}}
+{"emit":{"type":"agent_settled","aborted":false}}

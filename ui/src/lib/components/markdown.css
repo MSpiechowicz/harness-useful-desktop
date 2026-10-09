@@ -1,0 +1,115 @@
+/*
+ * Typography for rendered Markdown (`Markdown.svelte`). The HTML inside is generated, so it is
+ * styled here by element rather than with utility classes.
+ */
+.md {
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.md > * + *,
+.md-html > * + * {
+  margin-top: 0.75em;
+}
+
+.md-html h1,
+.md-html h2,
+.md-html h3,
+.md-html h4,
+.md-html h5,
+.md-html h6 {
+  margin-top: 1.1em;
+  line-height: 1.3;
+}
+
+.md-html > :first-child {
+  margin-top: 0;
+}
+
+.md-html h1 { font-size: 20px; }
+.md-html h2 { font-size: 17px; }
+.md-html h3 { font-size: 15px; }
+.md-html h4,
+.md-html h5,
+.md-html h6 { font-size: 14px; }
+
+.md-html ul,
+.md-html ol {
+  padding-left: 1.5em;
+}
+
+.md-html ul { list-style: disc; }
+.md-html ol { list-style: decimal; }
+.md-html li + li { margin-top: 0.25em; }
+.md-html li > ul,
+.md-html li > ol { margin-top: 0.25em; }
+
+.md-html blockquote {
+  border-left: 3px solid var(--border-strong);
+  padding-left: 0.9em;
+  color: var(--text-2);
+}
+
+.md-html hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+
+.md-html :not(pre) > code {
+  padding: 0.1em 0.38em;
+  border-radius: 6px;
+  background: var(--surface-3);
+  font-family: var(--font-code);
+  font-size: 0.9em;
+}
+
+.md-html .md-pre {
+  overflow-x: auto;
+  padding: 0.75em 0.9em;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-2);
+  font-family: var(--font-code);
+  font-size: 13px;
+}
+
+.md-html table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+
+.md-html th,
+.md-html td {
+  padding: 0.4em 0.8em;
+  border: 1px solid var(--border);
+  text-align: left;
+}
+
+.md-html th {
+  background: var(--surface-2);
+  font-weight: 600;
+}
+
+.md-html .md-link {
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font: inherit;
+  text-align: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.md-html .md-link:hover { text-decoration-thickness: 2px; }
+
+.md-html .md-image {
+  color: var(--text-3);
+  font-style: italic;
+}

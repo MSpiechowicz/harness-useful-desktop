@@ -10,8 +10,12 @@
   let { eyebrow, title, body }: Props = $props();
 </script>
 
-<header class="flex flex-col gap-2">
-  <p class="text-sm font-medium tracking-wider text-accent-text uppercase">{eyebrow}</p>
-  <h2 id="onboarding-title" tabindex="-1" use:autofocus class="text-3xl text-fg outline-none">{title}</h2>
-  <p class="max-w-xl text-lg text-fg-2">{body}</p>
+<header class="flex flex-col gap-3">
+  <p class="flex items-center gap-3 text-sm font-medium tracking-wider text-accent-text uppercase">
+    <span class="h-px w-6 bg-accent/60" aria-hidden="true"></span>{eyebrow}
+  </p>
+  <h2 id="onboarding-title" tabindex="-1" use:autofocus class="text-[clamp(1.75rem,1.25rem+1.4vw,2.5rem)] leading-[1.1] tracking-tight text-balance text-fg outline-none">
+    {title}
+  </h2>
+  <p class="max-w-xl text-lg text-pretty text-fg-2">{body}</p>
 </header>

@@ -4,9 +4,13 @@
 //! advertises over RPC (`BUILTIN_SLASH_COMMANDS_INTERNAL` entries with a non-TUI handler, using
 //! their RPC description and input hint) plus the bundled custom commands. TUI-only builtins such
 //! as `/new`, `/tree` or `/resume` are absent; the shared desktop commands cover them over RPC.
-//! A running session reports its live list, which adds skills, extension and MCP commands.
+//! A running session reports its live list (`available_commands_update`,
+//! `get_available_commands`), which adds skills, extension, custom, file and MCP prompt commands;
+//! every live command runs as prompt text except `/model`, which opens the model picker.
 
-use crate::harness::{CommandCatalog, gui, spec};
+use serde_json::Value;
+
+use crate::harness::{CommandCatalog, gui, parse_live_commands, spec};
 use crate::model::{CommandInvocation, CommandSource, CommandSpec, GuiTarget};
 
 /// `(name, description, argument hint)` of the RPC-capable builtins.
@@ -176,6 +180,23 @@ impl CommandCatalog for OmpCatalog {
         });
 
         builtins.chain(bundled).collect()
+    }
+
+    fn parse_live(&self, raw: &[Value]) -> Vec<CommandSpec> {
+        parse_live_commands(raw, live_source, invocation)
+    }
+}
+
+/// OMP's `SlashCommandSource` labels.
+fn live_source(label: &str) -> Option<CommandSource> {
+    match label {
+        "builtin" => Some(CommandSource::Builtin),
+        "skill" => Some(CommandSource::Skill),
+        "extension" => Some(CommandSource::Extension),
+        "custom" => Some(CommandSource::Custom),
+        "mcp_prompt" => Some(CommandSource::McpPrompt),
+        "file" => Some(CommandSource::File),
+        _ => None,
     }
 }
 

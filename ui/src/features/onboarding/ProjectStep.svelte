@@ -4,11 +4,13 @@
   import Button from '$lib/components/Button.svelte';
   import ProjectRow from '$lib/components/ProjectRow.svelte';
   import { project } from '$lib/stores/project.svelte';
+  import { cx } from '$lib/utils/cx';
 
+  import { WIDTH } from './layout';
   import StepHeader from './StepHeader.svelte';
 </script>
 
-<div class="flex flex-col gap-6">
+<div class={cx('mx-auto flex w-full flex-col gap-8', WIDTH.narrow)}>
   <StepHeader
     eyebrow="Your project"
     title="Pick a project to work in"

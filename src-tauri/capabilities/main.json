@@ -20,6 +20,12 @@
     "allow-project-recent",
     "allow-project-forget",
     "allow-reveal-path",
-    "allow-open-external"
+    "allow-open-external",
+    "allow-agent-start",
+    "allow-agent-send",
+    "allow-agent-ui-respond",
+    "allow-agent-bash",
+    "allow-agent-stop",
+    "allow-agent-list"
   ]
 }

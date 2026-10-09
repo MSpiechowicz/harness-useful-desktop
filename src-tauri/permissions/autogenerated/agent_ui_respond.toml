@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-agent-ui-respond"
+description = "Enables the agent_ui_respond command without any pre-configured scope."
+commands.allow = ["agent_ui_respond"]
+
+[[permission]]
+identifier = "deny-agent-ui-respond"
+description = "Denies the agent_ui_respond command without any pre-configured scope."
+commands.deny = ["agent_ui_respond"]
