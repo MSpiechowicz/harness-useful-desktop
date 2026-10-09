@@ -11,7 +11,10 @@
   const intensity = createSpring(0);
   const phase = $derived(intro.phase);
   const covering = $derived(phase === 'playing');
-  const animated = $derived(motion.level === 'full' && (phase === 'playing' || phase === 'handoff'));
+  // Keeps drifting behind the shell: a frozen frame of the curtains reads as smudges, not light.
+  const animated = $derived(motion.level === 'full' && phase !== 'idle');
+  // Behind the shell it is ambient: slower and at a capped frame rate, so it costs little GPU time.
+  const ambient = $derived(phase === 'done');
 
   $effect(() => {
     moveSpring(intensity, INTENSITY[phase]);
@@ -28,7 +31,7 @@
   class:z-0={!covering}
   style:opacity={phase === 'idle' ? 0 : covering ? 1 : 'var(--aurora-opacity)'}
 >
-  <AuroraCanvas class="size-full" intensity={intensity.current} {animated} />
+  <AuroraCanvas class="size-full" intensity={intensity.current} {animated} speed={ambient ? 0.5 : 1} maxFps={ambient ? 30 : Infinity} />
 
   <!-- During the intro a scrim keeps only a faint hint of the aurora, so nothing competes with the logo. -->
   <div

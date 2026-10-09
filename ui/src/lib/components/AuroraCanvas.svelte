@@ -7,10 +7,14 @@
     intensity?: number;
     /** Run the animation loop; when false a single static frame is drawn. */
     animated?: boolean;
+    /** Drift speed relative to the base animation. */
+    speed?: number;
+    /** Frame-rate cap for the animation loop; a slow drift needs few frames. */
+    maxFps?: number;
     class?: string;
   }
 
-  let { intensity = 1, animated = true, class: className }: Props = $props();
+  let { intensity = 1, animated = true, speed = 1, maxFps = Infinity, class: className }: Props = $props();
 
   /** Time offset of the still frame, chosen to show an attractive composition. */
   const STATIC_SECONDS = 7;
@@ -19,6 +23,8 @@
   let renderer: AuroraRenderer | null = $state.raw(null);
   let contextLost = $state(false);
   let ready = $state(false);
+  /** Animation clock in seconds; survives loop restarts so the picture resumes where it stopped. */
+  let seconds = STATIC_SECONDS;
 
   // Create the GL renderer once the canvas exists; no WebGL2 leaves `renderer` null (CSS fallback shows).
   $effect(() => {
@@ -29,7 +35,7 @@
     const created = createAuroraRenderer(canvas, (lost) => (contextLost = lost));
     const observer = new ResizeObserver(([entry]) => {
       created?.resize(entry.contentRect.width, entry.contentRect.height);
-      created?.render(STATIC_SECONDS, intensity);
+      created?.render(seconds, intensity);
     });
     observer.observe(canvas);
     renderer = created;
@@ -48,19 +54,27 @@
     }
 
     if (!animated) {
-      renderer.render(STATIC_SECONDS, intensity);
+      renderer.render(seconds, intensity);
       ready = true;
 
       return;
     }
 
     const active = renderer;
-    const started = performance.now();
+    let last = performance.now();
+    let drawn = -Infinity;
     let frame = 0;
 
+    // `speed`, `maxFps` and `intensity` are read inside the frame callback, so changing them never restarts the loop
+    // (and never jumps the picture): the clock advances by elapsed time times the current speed.
     const tick = (now: number): void => {
-      if (!document.hidden) {
-        active.render(STATIC_SECONDS + (now - started) / 1000, intensity);
+      seconds += ((now - last) / 1000) * speed;
+      last = now;
+
+      // Small tolerance so rAF jitter on a 60 Hz display doesn't halve a 30 fps cap.
+      if (!document.hidden && now - drawn >= 1000 / maxFps - 2) {
+        drawn = now;
+        active.render(seconds, intensity);
         ready = true;
       }
 
