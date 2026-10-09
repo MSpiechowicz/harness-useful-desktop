@@ -51,6 +51,12 @@
     md: 'h-9 gap-2 rounded-md px-4 text-base',
     lg: 'h-11 gap-2.5 rounded-md px-5 text-lg',
   };
+  // An icon's glyph sits inside its box, so the side it is on gets one step less padding to look as tight as the text side.
+  const ICON_SIDE: Record<Size, { leading: string; trailing: string }> = {
+    sm: { leading: 'pl-2.5', trailing: 'pr-2.5' },
+    md: { leading: 'pl-3', trailing: 'pr-3' },
+    lg: { leading: 'pl-4', trailing: 'pr-4' },
+  };
 </script>
 
 <button
@@ -61,6 +67,8 @@
     'relative isolate inline-flex select-none items-center justify-center overflow-hidden font-medium whitespace-nowrap transition-[transform,background-color,color] duration-[var(--dur-fast)] ease-[var(--ease-out-expo)] active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100',
     VARIANTS[variant],
     SIZES[size],
+    (leading || loading) && children && ICON_SIDE[size].leading,
+    trailing && children && ICON_SIDE[size].trailing,
     className,
   )}
   {...rest}

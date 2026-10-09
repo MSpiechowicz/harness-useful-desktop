@@ -27,7 +27,7 @@
   </div>
 
   <p class="flex items-center gap-2 text-xs text-fg-3">
-    <Info size={ICON.sm} class="shrink-0 text-accent-text" aria-hidden="true" />
+    <Info size={ICON.sm} class="shrink-0 text-info" aria-hidden="true" />
     Each action shows its exact command and, where the CLI can, a preview before it runs.
   </p>
 </section>
