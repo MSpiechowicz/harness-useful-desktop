@@ -7,10 +7,16 @@ import type { AppInfo } from './bindings/AppInfo';
 import type { AppPrefs } from './bindings/AppPrefs';
 import type { BashOutput } from './bindings/BashOutput';
 import type { Branch } from './bindings/Branch';
+import type { CliResult } from './bindings/CliResult';
 import type { CommandSpec as CatalogCommand } from './bindings/CommandSpec';
 import type { ComposedReview } from './bindings/ComposedReview';
 import type { ConfigView } from './bindings/ConfigView';
+import type { DashboardAvailability } from './bindings/DashboardAvailability';
+import type { DashboardQuery } from './bindings/DashboardQuery';
+import type { DashboardResult } from './bindings/DashboardResult';
 import type { DiffRequest } from './bindings/DiffRequest';
+import type { EcosystemStatus } from './bindings/EcosystemStatus';
+import type { ExtensionAction } from './bindings/ExtensionAction';
 import type { ExtensionsView } from './bindings/ExtensionsView';
 import type { FileDiff } from './bindings/FileDiff';
 import type { GitStatus } from './bindings/GitStatus';
@@ -23,6 +29,8 @@ import type { SessionRef } from './bindings/SessionRef';
 import type { SessionSummary } from './bindings/SessionSummary';
 import type { SessionTree } from './bindings/SessionTree';
 import type { UiResponse } from './bindings/UiResponse';
+import type { UpdateInfo } from './bindings/UpdateInfo';
+import type { UpdateProgress } from './bindings/UpdateProgress';
 import type { EventSink } from './transport';
 
 /** Phantom entry: carries the argument and result types of one command, no runtime data. */
@@ -71,6 +79,13 @@ export const commands = {
   git_branches: cmd<{ project: string }, Branch[]>(),
   git_diff: cmd<{ project: string; request: DiffRequest }, FileDiff[]>(),
   review_compose: cmd<{ request: ReviewRequest }, ComposedReview>(),
+  ecosystem_status: cmd<undefined, EcosystemStatus>(),
+  dashboard_availability: cmd<undefined, DashboardAvailability>(),
+  dashboard_query: cmd<{ query: DashboardQuery }, DashboardResult>(),
+  extension_action: cmd<{ harness: HarnessId; action: ExtensionAction; dryRun: boolean; project: string | null }, CliResult>(),
+  update_check: cmd<undefined, UpdateInfo | null>(),
+  update_install: cmd<{ onProgress: EventSink<UpdateProgress> }, null>(),
+  app_relaunch: cmd<undefined, null>(),
 };
 
 export type CommandName = keyof typeof commands;

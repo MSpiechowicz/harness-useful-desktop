@@ -1,0 +1,5 @@
+// An answer over the 4 MiB limit fails its request; the next answer is read normally.
+{"include": "mcp_handshake.jsonl"}
+{"expect": "tools/call", "as": "big", "hold": true}
+{"big": {"id": "$big", "bytes": 4300000}}
+{"expect": "tools/call", "reply": {"result": {"content": [], "structuredContent": {"ok": true}, "isError": false}}}

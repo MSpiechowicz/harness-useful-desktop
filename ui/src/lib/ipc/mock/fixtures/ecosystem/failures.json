@@ -1,0 +1,134 @@
+{
+  "tool": "failures",
+  "data": {
+    "range": {
+      "name": "7d",
+      "from": "2026-10-02T22:00:00.000Z",
+      "to": "2026-10-09T12:30:00.000Z"
+    },
+    "totals": {
+      "calls": 2914,
+      "failed": 38,
+      "declined": 4,
+      "interruptedPrompts": 3,
+      "errorRate": 0.013
+    },
+    "causes": [
+      {
+        "cause": "exit_code",
+        "count": 21,
+        "share": 0.5,
+        "tools": [
+          "bash"
+        ]
+      },
+      {
+        "cause": "edit_mismatch",
+        "count": 9,
+        "share": 0.214,
+        "tools": [
+          "edit"
+        ]
+      },
+      {
+        "cause": "not_found",
+        "count": 6,
+        "share": 0.143,
+        "tools": [
+          "read",
+          "bash"
+        ]
+      },
+      {
+        "cause": "rejected",
+        "count": 4,
+        "share": 0.095,
+        "tools": [
+          "bash"
+        ]
+      },
+      {
+        "cause": "timeout",
+        "count": 2,
+        "share": 0.048,
+        "tools": [
+          "bash"
+        ]
+      }
+    ],
+    "tools": [
+      {
+        "tool": "bash",
+        "calls": 1288,
+        "failed": 27,
+        "declined": 4,
+        "errorRate": 0.021,
+        "mainCause": "exit_code"
+      },
+      {
+        "tool": "edit",
+        "calls": 604,
+        "failed": 9,
+        "declined": 0,
+        "errorRate": 0.015,
+        "mainCause": "edit_mismatch"
+      },
+      {
+        "tool": "read",
+        "calls": 1022,
+        "failed": 2,
+        "declined": 0,
+        "errorRate": 0.002,
+        "mainCause": "not_found"
+      }
+    ],
+    "recent": [
+      {
+        "time": "2026-10-09T12:14:31.000Z",
+        "tool": "bash",
+        "cause": "exit_code",
+        "error": "error[E0308]: mismatched types: expected `Result<Vec<Record>, String>`, found `Vec<Record>`",
+        "input": "cargo test",
+        "provider": "omp",
+        "project": "demo",
+        "sessionId": "omp:0199c1f2-5d3e-7a10-9b2c-4e6f8a1d3c57"
+      },
+      {
+        "time": "2026-10-09T11:52:08.000Z",
+        "tool": "edit",
+        "cause": "edit_mismatch",
+        "error": "Could not find the text to replace in src/lib.rs. Verify the content matches the file.",
+        "input": "src/lib.rs",
+        "provider": "omp",
+        "project": "demo",
+        "sessionId": "omp:0199c1f2-5d3e-7a10-9b2c-4e6f8a1d3c57"
+      },
+      {
+        "time": "2026-10-08T16:31:44.000Z",
+        "tool": "read",
+        "cause": "not_found",
+        "error": "ENOENT: no such file or directory, open 'docs/usage.md'",
+        "input": "docs/usage.md",
+        "provider": "pi",
+        "project": "demo",
+        "sessionId": "pi:8c2d4e6f-1a3b-4c5d-8e7f-9a0b1c2d3e4f"
+      }
+    ],
+    "apiErrors": {
+      "failedRequests": 5,
+      "rate": 0.003,
+      "classes": [
+        {
+          "class": "rate_limit",
+          "count": 3
+        },
+        {
+          "class": "overloaded",
+          "count": 2
+        }
+      ]
+    }
+  },
+  "text": null,
+  "isError": false
+}

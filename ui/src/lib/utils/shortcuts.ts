@@ -48,6 +48,11 @@ const KEY_LABELS: Record<string, string> = {
   arrowdown: '↓',
   enter: '↵',
   escape: 'Esc',
+  tab: 'Tab',
+  home: 'Home',
+  end: 'End',
+  ' ': 'Space',
+  click: 'Click',
 };
 
 /** Display tokens for a combo, one per key cap. */

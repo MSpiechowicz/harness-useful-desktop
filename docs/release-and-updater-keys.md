@@ -59,10 +59,20 @@ Updater artifacts are signed with a Tauri signing key. The private key never goe
    - `TAURI_SIGNING_PRIVATE_KEY`: the full content of `~/.tauri/harness-desktop.key` (paste the content, a file path
      is not usable in CI);
    - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`: the password you chose.
-3. Put the **public** key (content of `~/.tauri/harness-desktop.key.pub`) into `src-tauri/tauri.conf.json` under
-   `plugins.updater.pubkey`. Milestone M5 adds the `plugins.updater` section (with `endpoints` pointing at the
-   GitHub release `latest.json`) and `bundle.createUpdaterArtifacts`; until then the signing secrets are unused
-   and no `latest.json` is produced. The public key is safe to commit.
+3. Put the **public** key (content of `~/.tauri/harness-desktop.key.pub`, a single base64 line) into
+   `src-tauri/tauri.conf.json` under `plugins.updater.pubkey`, replacing the `NOT_CONFIGURED: ...` placeholder. The
+   public key is safe to commit. Until it is replaced, builds start normally but have updates off: the update
+   check answers "updates are not configured for this build" without any network access. The same section pins
+   the endpoint (the GitHub release `latest.json`, HTTPS only) and sets `requireSignedVersion: true`: an update
+   installs only when its signature verifies with this key, was made for the version `latest.json` announces, and
+   that version is newer than the running one. `tauri build` (tauri-action in CI) binds every signature to the app
+   version automatically; if you ever sign an artifact by hand (`tauri signer sign`), pass `--app-version X.Y.Z`,
+   or the app rejects the update.
+
+`bundle.createUpdaterArtifacts` is `true`, so a bundling build (`bun tauri build` without `--no-bundle`) needs
+`TAURI_SIGNING_PRIVATE_KEY` (and its password) in the environment; CI has them as secrets. Local builds without
+the key use `bun tauri build --no-bundle`, or `--config '{"bundle":{"createUpdaterArtifacts":false}}'` to bundle
+unsigned.
 
 Rotating the key means shipping one release signed by the old key that carries the new public key; after that the
 old key can be retired.
@@ -73,12 +83,22 @@ old key can be retired.
 
 | Format | Notes |
 | --- | --- |
-| AppImage | Portable (`chmod +x` and run). **Auto-update works for AppImage only.** |
-| deb | `sudo apt install ./harness-desktop_X.Y.Z_amd64.deb`. Updates by downloading the new release. |
-| rpm | `sudo dnf install ./harness-desktop-X.Y.Z-1.x86_64.rpm`. Updates by downloading the new release. |
+| AppImage | Portable (`chmod +x` and run). The in-app updater replaces the AppImage file in place, no password needed. |
+| deb | `sudo apt install ./harness-desktop_X.Y.Z_amd64.deb`. The in-app updater installs the new `.deb` after the system's administrator prompt (pkexec, or zenity/kdialog). |
+| rpm | `sudo dnf install ./harness-desktop-X.Y.Z-1.x86_64.rpm`. Same as deb, with `rpm -U`. |
 
-The in-app updater replaces the AppImage file in place; installs from deb/rpm are managed by the system package
-manager, so those users update by installing the new package. Only the AppImage is a supported auto-update target.
+Every format updates in-app: each build knows how it was installed and downloads the matching artifact
+(`latest.json` lists `linux-x86_64-appimage`, `-deb` and `-rpm`). Every download is signature-checked before the
+package manager sees it. Installing the new package by hand works too.
+
+## Release safeguards
+
+- The release job fails before any tag is created when `plugins.updater.pubkey` is still the placeholder or the
+  `TAURI_SIGNING_PRIVATE_KEY` secret is missing, so no release can ship that installs but never updates.
+- The bundle jobs merge their entries into one `latest.json`, and two jobs finishing at the same moment can drop
+  each other's entries. The publish job checks that `latest.json` announces the release version and has a signed
+  HTTPS entry for every platform and installer type before un-drafting. If it fails, the release stays a draft:
+  re-run the bundle job of the missing platform (it merges its entries again), then re-run the publish job.
 
 ### macOS and Windows: unsigned installers
 

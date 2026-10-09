@@ -1,0 +1,3 @@
+// The legacy handshake of `harness-dashboard mcp` (src/mcp/server.ts): initialize, then the initialized notification.
+{"expect": "initialize", "match": {"jsonrpc": "2.0", "/params/protocolVersion": "2025-11-25", "/params/clientInfo/name": "harness-desktop", "/params/capabilities": {}}, "reply": {"result": {"protocolVersion": "2025-11-25", "capabilities": {"tools": {}}, "serverInfo": {"name": "harness-dashboard", "title": "Harness Dashboard", "version": "1.22.1"}, "instructions": "Read-only token usage."}}}
+{"expect": "notifications/initialized", "match": {"jsonrpc": "2.0"}}

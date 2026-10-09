@@ -1,0 +1,57 @@
+{
+  "tool": "sessionCost",
+  "data": {
+    "sessionId": "omp:0199c1f2-5d3e-7a10-9b2c-4e6f8a1d3c57",
+    "resolvedBy": "session_id",
+    "provider": "omp",
+    "title": "Handle empty input in the record parser",
+    "project": "/home/demo/Projects/demo",
+    "branch": "feat/empty-input",
+    "started": "2026-10-09T09:58:12.000Z",
+    "lastActivity": "2026-10-09T12:27:09.000Z",
+    "costUsd": 2.341,
+    "ownCostUsd": 1.9284,
+    "linesChanged": {
+      "added": 142,
+      "removed": 37,
+      "costPer100LinesUsd": 1.3078
+    },
+    "tokens": {
+      "total": 2001500,
+      "input": 64200,
+      "output": 38900,
+      "cacheRead": 1802000,
+      "cacheWrite": 96400,
+      "reasoning": 7300
+    },
+    "modelCalls": 58,
+    "prompts": 9,
+    "subagents": {
+      "count": 2,
+      "costUsd": 0.4126,
+      "tokens": 412800
+    },
+    "models": [
+      {
+        "model": "claude-opus-5-5",
+        "costUsd": 1.6102,
+        "tokens": 1610300
+      },
+      {
+        "model": "claude-sonnet-5",
+        "costUsd": 0.3182,
+        "tokens": 391200
+      }
+    ],
+    "commits": 2,
+    "pullRequestCount": 0,
+    "pullRequests": [],
+    "compactions": {
+      "count": 1,
+      "estimatedCostUsd": 0.0841
+    },
+    "note": "Costs are USD at API-equivalent list prices, not what a subscription bills."
+  },
+  "text": null,
+  "isError": false
+}

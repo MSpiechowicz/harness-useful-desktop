@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Monochrome "H_" for the tray / menu bar (macOS template image: the OS tints the single colour).
+  Not wired to any tray code yet.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="13 14.5 95 95">
+  <g fill="#000000">
+    <path d="M18 20 H33 V50 H58 V20 H73 V64 H33 V94 H18 Z"/>
+    <rect x="73" y="79" width="30" height="15"/>
+  </g>
+</svg>

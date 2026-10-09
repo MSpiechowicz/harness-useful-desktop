@@ -1,0 +1,50 @@
+{
+  "tool": "limits",
+  "data": {
+    "windows": [
+      {
+        "provider": "claude",
+        "plan": "max",
+        "window": "5h",
+        "usedPercent": 42.5,
+        "resetsAt": "2026-10-09T15:00:00.000Z",
+        "observedAt": "2026-10-09T12:27:00.000Z",
+        "ageMinutes": 3,
+        "status": "fresh"
+      },
+      {
+        "provider": "claude",
+        "plan": "max",
+        "window": "7d",
+        "usedPercent": 61.2,
+        "resetsAt": "2026-10-12T08:00:00.000Z",
+        "observedAt": "2026-10-09T12:27:00.000Z",
+        "ageMinutes": 3,
+        "status": "fresh"
+      },
+      {
+        "provider": "codex",
+        "plan": "pro",
+        "window": "5h",
+        "usedPercent": null,
+        "resetsAt": null,
+        "observedAt": "2026-10-09T06:10:00.000Z",
+        "ageMinutes": 380,
+        "status": "reset since reading"
+      },
+      {
+        "provider": "codex",
+        "plan": "pro",
+        "window": "7d",
+        "usedPercent": 18.0,
+        "resetsAt": "2026-10-14T06:10:00.000Z",
+        "observedAt": "2026-10-09T06:10:00.000Z",
+        "ageMinutes": 380,
+        "status": "stale"
+      }
+    ],
+    "note": "Readings older than 15 minutes are stale. The dashboard refreshes them every few minutes while it runs."
+  },
+  "text": null,
+  "isError": false
+}

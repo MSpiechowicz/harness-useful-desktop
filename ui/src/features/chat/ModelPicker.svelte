@@ -44,9 +44,9 @@
 <Popover label="Choose model" kind="dialog" bind:open={session.ui.modelPicker} class="w-80">
   {#snippet trigger({ props })}
     <button type="button" {...props} class="inline-flex h-8 max-w-56 items-center gap-2 rounded-md border border-line bg-surface-2 px-2.5 text-sm text-fg-2 transition-colors hover:bg-surface-3 hover:text-fg">
-      <Cpu size={14} aria-hidden="true" class="shrink-0" />
+      <Cpu size={16} aria-hidden="true" class="shrink-0" />
       <span class="truncate">{current ? (current.name ?? current.id) : 'Choose model'}</span>
-      <ChevronDown size={14} aria-hidden="true" class="shrink-0 text-fg-3" />
+      <ChevronDown size={16} aria-hidden="true" class="shrink-0 text-fg-3" />
     </button>
   {/snippet}
 

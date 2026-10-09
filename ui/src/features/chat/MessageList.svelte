@@ -52,14 +52,14 @@
   }
 </script>
 
-<div class="relative min-h-0 flex-1">
+<div class="chat-stage relative min-h-0 flex-1">
   <VirtualList bind:this={list} bind:atBottom items={session.chat.items} variable stick estimate={ESTIMATED_ROW_PX} label="Conversation" key={(item) => item.key} class="size-full">
     {#snippet row(item, index)}
-      <div class="mx-auto w-full max-w-3xl px-6 py-2" in:rise|global={{ y: 8, duration: entrance(item) }}>
+      <div class="chat-col py-2" in:rise|global={{ y: 8, duration: entrance(item) }}>
         {#if index === 0 && session.hasEarlier}
           <div class="mb-3 flex justify-center">
             <Button size="sm" variant="ghost" loading={loadingEarlier} onclick={loadEarlier}>
-              {#snippet leading()}<History size={14} aria-hidden="true" />{/snippet}
+              {#snippet leading()}<History size={16} aria-hidden="true" />{/snippet}
               Load earlier messages
             </Button>
           </div>
@@ -78,7 +78,7 @@
   {#if !atBottom}
     <div class="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center">
       <Button size="sm" class="pointer-events-auto shadow-float" onclick={() => list?.scrollToEnd()}>
-        {#snippet leading()}<ArrowDown size={14} aria-hidden="true" />{/snippet}
+        {#snippet leading()}<ArrowDown size={16} aria-hidden="true" />{/snippet}
         Jump to latest
       </Button>
     </div>

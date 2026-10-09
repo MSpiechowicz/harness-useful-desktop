@@ -6,6 +6,11 @@
   import VirtualList from '$lib/components/VirtualList.svelte';
   import type { MarketplaceEntry } from '$lib/ipc/bindings/MarketplaceEntry';
   import type { MarketplaceInfo } from '$lib/ipc/bindings/MarketplaceInfo';
+  import { harness } from '$lib/stores/harness.svelte';
+
+  import ActionBar from './actions/ActionBar.svelte';
+  import EntryInstall from './actions/EntryInstall.svelte';
+  import { marketplaceActions } from './actions/item-actions';
 
   interface Props {
     marketplace: MarketplaceInfo;
@@ -19,10 +24,16 @@
 
   let query = $state('');
 
+  const id = $derived(harness.active?.info.id);
+
   const entries = $derived(
     marketplace.entries.filter((entry) => `${entry.name} ${entry.description ?? ''}`.toLowerCase().includes(query.trim().toLowerCase())),
   );
 </script>
+
+{#if id}
+  <ActionBar actions={marketplaceActions(id, marketplace)} />
+{/if}
 
 {#if marketplace.error}
   <div class="flex items-start gap-3 rounded-md border border-line bg-danger-wash p-4 text-sm text-fg" role="alert">
@@ -74,6 +85,8 @@
     {/if}
     {#if entry.installed}
       <Badge tone="success">Installed</Badge>
+    {:else if !marketplace.error}
+      <EntryInstall marketplace={marketplace.name} entry={entry.name} />
     {/if}
   </div>
 {/snippet}

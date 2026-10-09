@@ -23,12 +23,12 @@
 </script>
 
 {#if session.info.trustedOnce}
-  <Badge tone="success"><ShieldCheck size={12} aria-hidden="true" /> Project trusted for this session</Badge>
+  <Badge tone="success"><ShieldCheck size={16} aria-hidden="true" /> Project trusted for this session</Badge>
 {:else}
   <Popover label="Trust this project" kind="dialog" bind:open class="w-80">
     {#snippet trigger({ props })}
       <button type="button" {...props} class="inline-flex h-8 items-center gap-2 rounded-md border border-line bg-surface-2 px-2.5 text-sm text-fg-2 transition-colors hover:bg-surface-3 hover:text-fg">
-        <ShieldQuestion size={14} aria-hidden="true" />
+        <ShieldQuestion size={16} aria-hidden="true" />
         Trust project once
       </button>
     {/snippet}

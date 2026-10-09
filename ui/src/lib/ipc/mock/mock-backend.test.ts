@@ -40,6 +40,13 @@ const sampleArgs = (sessionKey: string): { [K in CommandName]: CommandArgs<K> } 
   git_branches: { project: fixtures.recentProjects[0].path },
   git_diff: { project: fixtures.recentProjects[0].path, request: { scope: 'all', paths: [] } },
   review_compose: { request: { comments: [{ path: 'src/lib.rs', side: 'new', startLine: 3, endLine: 3, body: 'Why?', snippet: ['mod error;'] }], note: null } },
+  ecosystem_status: undefined,
+  dashboard_availability: undefined,
+  dashboard_query: { query: { tool: 'limits', args: {} } },
+  extension_action: { harness: 'omp', action: { type: 'pluginEnable', name: 'npm-helper' }, dryRun: true, project: null },
+  update_check: undefined,
+  update_install: { onProgress: () => {} },
+  app_relaunch: undefined,
 });
 
 const SESSION = { harness: 'omp', id: fixtures.sessions.list.omp[0].ref.id } as const;
@@ -54,6 +61,7 @@ describe('mock transport', () => {
   it.each(Object.keys(commands) as CommandName[])('implements %s', async (name) => {
     const mock = transport();
     const { key } = await mock.invoke('agent_start', { request: START_REQUEST, onEvent: () => {} });
+    await mock.invoke('update_check', undefined);
 
     await expect(mock.invoke(name, sampleArgs(key)[name] as never)).resolves.not.toBeInstanceOf(IpcFailure);
   });

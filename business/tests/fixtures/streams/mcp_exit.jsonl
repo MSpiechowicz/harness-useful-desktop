@@ -1,0 +1,4 @@
+// The server exits while a call is open.
+{"include": "mcp_handshake.jsonl"}
+{"expect": "tools/call"}
+{"exit": 1}

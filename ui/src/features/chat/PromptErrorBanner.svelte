@@ -13,7 +13,7 @@
   let { error, canRetry, onretry }: Props = $props();
 </script>
 
-<div role="alert" class="mx-auto mb-2 flex w-full max-w-3xl items-start gap-3 px-6">
+<div role="alert" class="chat-col mb-2 flex items-start gap-3">
   <div class="flex flex-1 items-start gap-3 rounded-lg border border-danger/40 bg-danger-wash px-4 py-3">
     <CircleAlert size={18} class="mt-0.5 shrink-0 text-danger" aria-hidden="true" />
     <div class="min-w-0 flex-1">

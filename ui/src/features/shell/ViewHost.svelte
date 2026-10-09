@@ -4,6 +4,7 @@
   import { rise, scaled } from '$lib/design/motion';
   import { nav } from '$lib/stores/nav.svelte';
   import ConfigViewer from '../config/ConfigViewer.svelte';
+  import EcosystemView from '../ecosystem/EcosystemView.svelte';
   import ExtensionsViewer from '../extensions/ExtensionsViewer.svelte';
   import SettingsView from '../settings/SettingsView.svelte';
 
@@ -21,7 +22,8 @@
       in:rise={{ y: 10 * nav.direction, delay: 80, duration: 320 }}
       out:fade={{ duration: scaled(120) }}
     >
-      <h1 class="sr-only" aria-live="polite">{meta.label}</h1>
+      <!-- Each view's own header carries the h1; this only announces the move to screen readers. -->
+      <p class="sr-only" role="status">{meta.label}</p>
 
       {#if nav.current === 'chat'}
         <!-- Split out of the first load: Markdown, the sanitizer and the chat UI arrive while the intro plays. -->
@@ -42,6 +44,8 @@
         <ConfigViewer />
       {:else if nav.current === 'extensions'}
         <ExtensionsViewer />
+      {:else if nav.current === 'ecosystem'}
+        <EcosystemView />
       {:else}
         <PlaceholderView view={meta} />
       {/if}

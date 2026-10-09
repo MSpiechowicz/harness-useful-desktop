@@ -1,0 +1,73 @@
+//! The Harness Useful ecosystem: the companion tools shown on the Ecosystem tab (`ecosystem_status`).
+//!
+//! The app only detects these tools and shows how to install them; install steps are copyable text
+//! and are never executed by the app.
+
+use serde::{Deserialize, Serialize};
+use ts_rs::TS;
+
+/// A companion tool of the ecosystem.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub enum EcosystemId {
+    /// Harness Dashboard: token usage and cost across AI coding tools (`harness-dashboard`).
+    Dashboard,
+    /// Useful Skills: the `us-*` skills plugin for OMP.
+    Skills,
+    /// Useful Sidebar: live token charts and session history for OMP in a tmux sidebar.
+    Sidebar,
+}
+
+/// One copyable step of an installation.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct InstallStep {
+    /// What the step does (e.g. `"Add the marketplace"`).
+    pub label: String,
+    /// The shell command to copy; shown only, never run by the app.
+    pub command: String,
+}
+
+/// A companion tool with its detection result on this machine.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct EcosystemItem {
+    /// Which tool this is.
+    pub id: EcosystemId,
+    /// Display name (e.g. `"Harness Dashboard"`).
+    pub name: String,
+    /// One-line summary.
+    pub tagline: String,
+    /// A short paragraph on what the tool does and how it relates to the app.
+    pub description: String,
+    /// Source repository URL.
+    pub repo_url: String,
+    /// Documentation URL.
+    pub docs_url: String,
+    /// True when the tool was found on this machine (in any of the `via` forms).
+    pub installed: bool,
+    /// Installed version, when known.
+    pub version: Option<String>,
+    /// How the tool was found, one entry per form, with home-relative paths (e.g.
+    /// `"binary ~/.local/bin/harness-dashboard"`,
+    /// `"OMP plugin harness-useful-skills@harness-useful-skills v0.2.36"`).
+    pub via: Vec<String>,
+    /// False when the tool does not run on this operating system (the sidebar on Windows).
+    pub supported_on_this_os: bool,
+    /// Installation steps for this operating system, in order; empty when unsupported.
+    pub install_steps: Vec<InstallStep>,
+    /// Extra remarks for the card (requirements, restarts, what the app reads).
+    pub notes: Vec<String>,
+}
+
+/// Result of `ecosystem_status`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct EcosystemStatus {
+    /// One item per [`EcosystemId`], in display order (dashboard, skills, sidebar).
+    pub items: Vec<EcosystemItem>,
+}

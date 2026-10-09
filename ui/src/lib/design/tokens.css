@@ -2,13 +2,15 @@
  * Design tokens: "aurora glass".
  *
  * Dark is the default; the light palette overrides it under `[data-theme="light"]`.
+ * `.theme-dark` re-applies the dark palette to a subtree (the intro is always dark).
  * The theme store always writes the resolved theme to `data-theme`, so no
  * `prefers-color-scheme` duplication of the palette is needed here.
  *
  * Every text/background pair used by the components is checked for WCAG AA
  * (>= 4.5:1 text, >= 3:1 UI) by the pairs documented next to each group.
  */
-:root {
+:root,
+.theme-dark {
   color-scheme: dark;
 
   /* Canvas and layered surfaces (each step is one elevation higher). */
@@ -68,6 +70,9 @@
 
   /* Aurora shown behind the shell. */
   --aurora-opacity: 0.55;
+
+  /* Dust kicked up by the logo's launch animation. */
+  --logo-dust: #c9d2e6;
 
   /* Syntax colors read by the code highlighter's CSS-variables theme (all >= 4.5:1 on --surface-2). */
   --shiki-foreground: var(--text);
@@ -130,6 +135,7 @@
   --glow: 0 0 20px oklch(0.6 0.2 290 / 0.25);
 
   --aurora-opacity: 0;
+  --logo-dust: #7e889c;
 
   --shiki-token-keyword: oklch(0.46 0.2 310);
   --shiki-token-string: oklch(0.44 0.12 155);
@@ -147,3 +153,37 @@
   --brand-gradient: linear-gradient(120deg, var(--accent-1), var(--accent-2) 55%, var(--accent-3));
   --brand-fill: linear-gradient(135deg, var(--accent-fill), var(--accent-fill-end));
 }
+
+/*
+ * Layout scale. Pages sit in one of four containers and use one gutter, so every view lines up:
+ * narrow (forms), reading (long text), wide (dense lists), full (split views and canvases).
+ * The chat column is the reading measure of a conversation; code, tables and tool cards may
+ * bleed past it up to --chat-bleed per side while the window has room (see `bleed` in app.css).
+ */
+:root {
+  /* px, not rem: the root font size is 14px, and these are measures in pixels. */
+  --page-narrow: 720px;
+  --page-reading: 920px;
+  --page-wide: 1280px;
+  --gutter: 24px;
+  --chat-measure: 880px;
+  --chat-col: calc(var(--chat-measure) + 2 * var(--gutter));
+  --chat-bleed: 110px;
+  --rail-collapsed: 64px;
+  --rail-expanded: 200px;
+}
+
+@media (min-width: 1280px) {
+  :root {
+    --gutter: 32px;
+  }
+}
+
+/*
+ * Design scales, one place:
+ *   icons      16 / 18 / 20 px      (ICON in components/icon.ts)
+ *   spacing    4 px grid            (Tailwind spacing: 1 = 4 px)
+ *   radius     8 / 12 / 16 / 24 px  (rounded-sm / md / lg / xl)
+ *   elevation  raised / float / pop (shadow-raised / shadow-float / shadow-pop)
+ *   text       12 / 13 / 14 / 16 / 20 / 24 / 32 px
+ */

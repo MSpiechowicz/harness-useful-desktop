@@ -5,6 +5,7 @@
   import ListDetail from '$lib/components/ListDetail.svelte';
   import SearchField from '$lib/components/SearchField.svelte';
   import type { ExtensionsView } from '$lib/ipc/bindings/ExtensionsView';
+  import { viewState } from '$lib/stores/view-state.svelte';
 
   import ExtensionDetail from './ExtensionDetail.svelte';
   import ExtensionList from './ExtensionList.svelte';
@@ -19,12 +20,9 @@
 
   const def = $derived(TABS.find((candidate) => candidate.id === tab) ?? TABS[0]);
 
-  let query = $state('');
-  let selectedId = $state<string | null>(null);
-
   const all = $derived(buildItems(tab, view));
-  const items = $derived(filterItems(all, query));
-  const selected = $derived(items.find((entry) => entry.id === selectedId) ?? items[0]);
+  const items = $derived(filterItems(all, viewState.extensionsQuery));
+  const selected = $derived(items.find((entry) => entry.id === viewState.extensionsItem) ?? items[0]);
 </script>
 
 {#if all.length === 0}
@@ -32,16 +30,16 @@
     <EmptyState icon={PackageOpen} title="No {def.noun} found" body="Nothing is configured for this harness in the current scope." />
   </div>
 {:else}
-  <ListDetail label="Resize list">
+  <ListDetail label="Resize list" scrollKey="extensions:detail">
     {#snippet list()}
       <div class="p-3">
-        <SearchField bind:value={query} label="Search {def.noun}" placeholder="Search {def.noun}" />
+        <SearchField bind:value={viewState.extensionsQuery} label="Search {def.noun}" placeholder="Search {def.noun}" />
       </div>
 
       {#if items.length === 0}
-        <p class="px-4 py-6 text-center text-sm text-fg-3" role="status">No {def.noun} match “{query.trim()}”.</p>
+        <p class="px-4 py-6 text-center text-sm text-fg-3" role="status">No {def.noun} match “{viewState.extensionsQuery.trim()}”.</p>
       {:else}
-        <ExtensionList {items} selectedId={selected?.id ?? ''} label={def.label} onselect={(id) => (selectedId = id)} />
+        <ExtensionList {items} selectedId={selected?.id ?? ''} label={def.label} onselect={(id) => (viewState.extensionsItem = id)} />
       {/if}
     {/snippet}
 

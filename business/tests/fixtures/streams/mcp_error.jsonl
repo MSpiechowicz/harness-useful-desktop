@@ -1,0 +1,4 @@
+// A JSON-RPC error fails one request; the next one is answered.
+{"include": "mcp_handshake.jsonl"}
+{"expect": "tools/call", "reply": {"error": {"code": -32602, "message": "Unknown tool: nope token=abc123secret"}}}
+{"expect": "tools/call", "reply": {"result": {"content": [{"type": "text", "text": "[1,2]"}], "isError": false}}}

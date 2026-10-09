@@ -21,9 +21,9 @@
       aria-label={project.active ? `Project: ${project.active.name}. Switch project` : 'No project open. Switch project'}
       class="inline-flex h-8 max-w-56 items-center gap-2 rounded-full border border-line bg-surface-2 px-3 text-sm text-fg transition-colors duration-[var(--dur-fast)] hover:border-line-strong hover:bg-surface-3"
     >
-      <Folder size={14} class="shrink-0 text-fg-3" aria-hidden="true" />
+      <Folder size={16} class="shrink-0 text-fg-3" aria-hidden="true" />
       <span class="truncate {project.active ? '' : 'text-fg-2'}">{project.active ? project.active.name : 'No project'}</span>
-      <ChevronDown size={14} class="shrink-0 text-fg-3" aria-hidden="true" />
+      <ChevronDown size={16} class="shrink-0 text-fg-3" aria-hidden="true" />
     </button>
   {/snippet}
 
@@ -38,7 +38,7 @@
               <span class="truncate text-base font-medium text-fg">{project.active.name}</span>
               <span class="truncate font-mono text-xs text-fg-3">{project.active.path}</span>
             </div>
-            <Button size="sm" data-menu-item onclick={() => void project.close().then(close)}>Close project</Button>
+            <Button size="sm" variant="dangerQuiet" data-menu-item onclick={() => void project.close().then(close)}>Close project</Button>
           </div>
         {:else}
           <p class="px-1 text-sm text-fg-2">No project open. Config and extensions show your user-level setup.</p>

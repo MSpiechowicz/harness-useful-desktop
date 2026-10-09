@@ -53,7 +53,7 @@
       {#snippet children({ describedby })}
         <button type="button" {...props} aria-describedby={describedby} class="rounded-full" aria-label="Approval mode: {info?.label ?? 'unknown'}. Change it">
           <Badge tone={info?.tone ?? 'neutral'}>
-            {#if info?.tone === 'warning'}<ShieldAlert size={12} aria-hidden="true" />{:else}<ShieldCheck size={12} aria-hidden="true" />{/if}
+            {#if info?.tone === 'warning'}<ShieldAlert size={16} aria-hidden="true" />{:else}<ShieldCheck size={16} aria-hidden="true" />{/if}
             Approvals: {info?.label ?? 'unknown'}
           </Badge>
         </button>

@@ -28,8 +28,27 @@ describe('PrivacySection', () => {
 
     expect(screen.getByText(/No chat content, tokens or passwords are saved/)).toBeInTheDocument();
     expect(screen.getByText(/mcp-auth\.json/)).toBeInTheDocument();
-    expect(screen.getByText(/makes no network requests of its own/)).toBeInTheDocument();
     expect(screen.getByText(/never what you say/)).toBeInTheDocument();
+  });
+
+  // The statements below are promises (docs/security-privacy.md#network); each topic must stay in the fact that owns it.
+  it('names every network use in the Network fact, and every other use as one that needs you', () => {
+    render(PrivacySection);
+    const network = screen.getByText('Network').closest('li')!;
+
+    for (const topic of [/latest\.json/, /update key/, /update setting/, /turned off/, /only when you click/, /stdio/, /no network/, /may download packages/, /only after you confirm/, /as in your terminal/]) {
+      expect(network).toHaveTextContent(topic);
+    }
+
+    expect(screen.queryByText(/no network requests of its own/)).toBeNull();
+  });
+
+  it('promises not to edit harness settings, since a per-session approval choice exists', () => {
+    render(PrivacySection);
+    const agents = screen.getByText('Agents').closest('li')!;
+
+    expect(agents).toHaveTextContent(/never edits your harness/);
+    expect(agents).not.toHaveTextContent(/never changes your approval mode/);
   });
 
   it('forgets every recent project and tells the user', async () => {
@@ -37,6 +56,8 @@ describe('PrivacySection', () => {
     render(PrivacySection);
 
     await fireEvent.click(screen.getByRole('button', { name: 'Clear recent projects' }));
+    expect(project.recents.length).toBeGreaterThan(1);
+    await fireEvent.click(await screen.findByRole('button', { name: 'Clear list' }));
 
     await waitFor(() => expect(project.recents).toEqual([]));
     expect(screen.getByRole('button', { name: 'Clear recent projects' })).toBeDisabled();

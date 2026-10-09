@@ -20,12 +20,12 @@
 
   {#if status.ahead > 0}
     <span class="tabular inline-flex items-center text-xs text-success" title="{status.ahead} ahead of {status.upstream ?? 'upstream'}">
-      <ArrowUp size={12} aria-hidden="true" />{status.ahead}<span class="sr-only">{' ahead'}</span>
+      <ArrowUp size={16} aria-hidden="true" />{status.ahead}<span class="sr-only">{' ahead'}</span>
     </span>
   {/if}
   {#if status.behind > 0}
     <span class="tabular inline-flex items-center text-xs text-warning" title="{status.behind} behind {status.upstream ?? 'upstream'}">
-      <ArrowDown size={12} aria-hidden="true" />{status.behind}<span class="sr-only">{' behind'}</span>
+      <ArrowDown size={16} aria-hidden="true" />{status.behind}<span class="sr-only">{' behind'}</span>
     </span>
   {/if}
 </span>

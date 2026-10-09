@@ -50,6 +50,21 @@ jobs:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
           fetch-depth: 0 # semantic-release needs the full history and tags
           persist-credentials: false # semantic-release authenticates with GITHUB_TOKEN itself
+      # Runs before any tag exists: a release without the updater public key and its signing secret would
+      # install fine but could never update. Only whether the secret is set reaches this step, never its value.
+      - name: Check the updater key is configured
+        env:
+          HAS_SIGNING_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
+        run: |
+          pubkey=$(jq -r '.plugins.updater.pubkey // ""' src-tauri/tauri.conf.json)
+          if [[ -z "$pubkey" || "$pubkey" == NOT_CONFIGURED* ]]; then
+            echo "::error::plugins.updater.pubkey in src-tauri/tauri.conf.json is still the placeholder. See docs/release-and-updater-keys.md."
+            exit 1
+          fi
+          if [[ "$HAS_SIGNING_KEY" != 'true' ]]; then
+            echo "::error::The TAURI_SIGNING_PRIVATE_KEY secret is not set. See docs/release-and-updater-keys.md."
+            exit 1
+          fi
       # semantic-release is a Node program (it needs Node >= 22.14); bunx runs it through `node`.
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -135,6 +150,31 @@ jobs:
     permissions:
       contents: write # un-draft the release
     steps:
+      # Each bundle job merges its platforms into latest.json (read, delete, re-upload), so two jobs finishing
+      # together can drop each other's entries. A platform missing from the manifest could never update, so the
+      # release stays a draft until it is complete: re-run the failed platform's bundle job, then this job.
+      - name: Check latest.json lists every platform
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.release.outputs.version }}
+        run: |
+          gh release download "v$VERSION" --repo "$GITHUB_REPOSITORY" --pattern latest.json --dir "$RUNNER_TEMP"
+          manifest="$RUNNER_TEMP/latest.json"
+          if ! jq -e --arg version "$VERSION" '(.version | ltrimstr("v")) == $version' "$manifest" > /dev/null; then
+            echo "::error::latest.json does not announce version $VERSION"
+            exit 1
+          fi
+          missing=0
+          for platform in \
+            linux-x86_64 linux-x86_64-appimage linux-x86_64-deb linux-x86_64-rpm \
+            darwin-aarch64 darwin-aarch64-app darwin-x86_64 darwin-x86_64-app \
+            windows-x86_64 windows-x86_64-nsis windows-x86_64-msi; do
+            if ! jq -e --arg platform "$platform" '.platforms[$platform] | ((.url // "") | startswith("https://")) and ((.signature // "") | length > 0)' "$manifest" > /dev/null; then
+              echo "::error::latest.json has no usable entry for $platform"
+              missing=1
+            fi
+          done
+          exit "$missing"
       - name: Publish the draft release as latest
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

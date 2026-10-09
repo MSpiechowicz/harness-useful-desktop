@@ -5,6 +5,7 @@
   import Badge from '$lib/components/Badge.svelte';
   import IconButton from '$lib/components/IconButton.svelte';
   import { revealPath } from '$lib/ipc/actions';
+  import { breakable } from '$lib/utils/format';
 
   import type { Fact } from './extension-detail';
   import type { ExtBadge } from './extension-items';
@@ -32,23 +33,28 @@
     </div>
 
     {#if description}
-      <p class="text-base text-fg-2">{description}</p>
+      <p class="max-w-3xl text-base text-fg-2">{description}</p>
     {/if}
   </header>
 
-  {#if facts.length > 0}
-    <dl class="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2.5 rounded-lg border border-line bg-surface-1 p-4 text-sm">
-      {#each facts as fact (fact.label)}
-        <dt class="text-fg-3">{fact.label}</dt>
-        <dd class="flex min-w-0 items-center gap-2 text-fg {fact.mono ? 'font-mono' : ''}">
-          <span class="min-w-0 break-all">{fact.value}</span>
-          {#if fact.path}
-            <IconButton icon={FolderSearch} label="Reveal {fact.label.toLowerCase()} in file manager" size="sm" onclick={() => void revealPath(fact.value)} />
-          {/if}
-        </dd>
-      {/each}
-    </dl>
-  {/if}
+  <!-- Wide panes put the facts beside the tab-specific sections instead of leaving that space empty. -->
+  <div class="grid gap-5 @4xl:grid-cols-[minmax(0,1fr)_22rem] @4xl:items-start">
+    {#if facts.length > 0}
+      <dl class="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2.5 rounded-lg border border-line bg-surface-1 p-4 text-sm @4xl:sticky @4xl:top-0 @4xl:order-last">
+        {#each facts as fact (fact.label)}
+          <dt class="text-fg-3">{fact.label}</dt>
+          <dd class="flex min-w-0 items-center gap-2 text-fg {fact.mono ? 'font-mono' : ''}">
+            <span class="min-w-0 [overflow-wrap:anywhere]">{fact.path ? breakable(fact.value) : fact.value}</span>
+            {#if fact.path}
+              <IconButton icon={FolderSearch} label="Reveal {fact.label.toLowerCase()} in file manager" size="sm" onclick={() => void revealPath(fact.value)} />
+            {/if}
+          </dd>
+        {/each}
+      </dl>
+    {/if}
 
-  {@render children?.()}
+    <div class="flex min-w-0 flex-col gap-5">
+      {@render children?.()}
+    </div>
+  </div>
 </article>

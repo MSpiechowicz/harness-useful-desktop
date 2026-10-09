@@ -1,6 +1,7 @@
 import type { SessionNode } from '$lib/ipc/bindings/SessionNode';
 import type { SessionNodeKind } from '$lib/ipc/bindings/SessionNodeKind';
 import type { SessionSummary } from '$lib/ipc/bindings/SessionSummary';
+import { formatDateTime } from '$lib/utils/format';
 
 const TITLE_MAX = 80;
 
@@ -45,7 +46,8 @@ export function previewText(node: SessionNode): string {
 
 /** Tooltip of a tree row: kind, time and the text. */
 export function nodeTooltip(node: SessionNode): string {
-  const when = node.timestamp ? ` · ${new Date(node.timestamp).toLocaleString()}` : '';
+  const time = node.timestamp ? formatDateTime(node.timestamp) : '';
+  const when = time ? ` · ${time}` : '';
 
   return `${kindLabel(node.kind)}${when}\n${node.preview ?? ''}`.trim();
 }

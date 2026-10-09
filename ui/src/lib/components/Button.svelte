@@ -6,7 +6,7 @@
 
   import Spinner from './Spinner.svelte';
 
-  type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
+  type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'dangerQuiet';
   type Size = 'sm' | 'md' | 'lg';
 
   interface Props extends Omit<HTMLButtonAttributes, 'children' | 'class'> {
@@ -41,6 +41,8 @@
     secondary: 'border border-line-strong bg-surface-2 text-fg shadow-raised hover:bg-surface-3',
     ghost: 'text-fg-2 hover:bg-hover hover:text-fg',
     danger: `bg-danger-fill ${VEIL}`,
+    // A destructive action that is not the main one: red text, no fill until it is hovered.
+    dangerQuiet: 'border border-danger/30 text-danger hover:bg-danger-wash active:bg-danger-wash',
   };
   const SIZES: Record<Size, string> = {
     sm: 'h-8 gap-1.5 rounded-sm px-3 text-sm',

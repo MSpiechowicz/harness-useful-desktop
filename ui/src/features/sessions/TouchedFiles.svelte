@@ -20,7 +20,7 @@
     {#each paths.slice(0, SHOWN) as path (path)}
       <button
         type="button"
-        class="rounded-sm bg-surface-3 px-2 py-0.5 font-mono text-xs text-fg-2 transition-colors hover:bg-hover hover:text-fg"
+        class="rounded-sm bg-surface-3 px-2 py-0.5 font-mono text-xs text-fg-2 transition-colors hover:bg-hover active:bg-press hover:text-fg"
         title="Show the changes to {path}"
         onclick={() => git.showPaths(project, [path], LABEL)}
       >

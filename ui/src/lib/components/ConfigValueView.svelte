@@ -28,7 +28,7 @@
         aria-describedby={describedby}
         class="inline-flex items-center gap-1.5 rounded-full border border-line-strong bg-surface-3 px-2 py-0.5 text-xs font-medium text-fg-2"
       >
-        <Lock size={11} aria-hidden="true" />
+        <Lock size={16} aria-hidden="true" />
         <span aria-hidden="true">{secretLabel(secret)}</span>
       </span>
     {/snippet}

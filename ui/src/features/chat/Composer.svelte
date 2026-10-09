@@ -135,9 +135,9 @@
   }
 </script>
 
-<div class="relative mx-auto w-full max-w-3xl px-6 pt-2 pb-4">
+<div class="chat-col relative pt-2 pb-4">
   {#if menuOpen}
-    <div class="absolute inset-x-6 top-0">
+    <div class="absolute inset-x-[var(--gutter)] top-0">
       <SlashMenu id={menuId} commands={suggestions} query={query ?? ''} {active} onaccept={accept} onhover={(index) => (active = index)} />
     </div>
   {/if}
@@ -155,7 +155,7 @@
 
   <div class="rounded-xl border border-line-strong bg-surface-1/80 shadow-float transition-colors focus-within:border-focus">
     {#if bash}
-      <p class="flex items-center gap-1.5 px-3.5 pt-2.5 text-xs text-warning"><Terminal size={13} aria-hidden="true" /> Shell command · you will confirm it before it runs</p>
+      <p class="flex items-center gap-1.5 px-3.5 pt-2.5 text-xs text-warning"><Terminal size={16} aria-hidden="true" /> Shell command · you will confirm it before it runs</p>
     {/if}
 
     <textarea
@@ -187,14 +187,14 @@
 
       {#if session.streaming}
         <Button size="sm" variant="danger" onclick={() => void session.abort()}>
-          {#snippet leading()}<Square size={13} aria-hidden="true" />{/snippet}
+          {#snippet leading()}<Square size={16} aria-hidden="true" />{/snippet}
           Stop
         </Button>
         <Button size="sm" disabled={!canSend} onclick={() => void submit('followUp')}>Follow-up</Button>
         <Button size="sm" variant="primary" disabled={!canSend} onclick={() => void submit('steer')}>Steer</Button>
       {:else}
         <Button size="sm" variant="primary" disabled={!canSend} onclick={() => void submit('send')}>
-          {#snippet trailing()}<CornerDownLeft size={13} aria-hidden="true" />{/snippet}
+          {#snippet trailing()}<CornerDownLeft size={16} aria-hidden="true" />{/snippet}
           {bash ? 'Review command' : 'Send'}
         </Button>
       {/if}

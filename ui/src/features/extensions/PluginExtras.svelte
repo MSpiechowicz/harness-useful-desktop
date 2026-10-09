@@ -1,13 +1,24 @@
 <script lang="ts">
   import Badge from '$lib/components/Badge.svelte';
   import type { PluginInfo } from '$lib/ipc/bindings/PluginInfo';
+  import { harness } from '$lib/stores/harness.svelte';
+  import { project } from '$lib/stores/project.svelte';
+
+  import ActionBar from './actions/ActionBar.svelte';
+  import { pluginActions } from './actions/item-actions';
 
   interface Props {
     plugin: PluginInfo;
   }
 
   let { plugin }: Props = $props();
+
+  const id = $derived(harness.active?.info.id);
 </script>
+
+{#if id}
+  <ActionBar actions={pluginActions(id, plugin, project.active?.path ?? null)} />
+{/if}
 
 {#if plugin.features.length > 0}
   <section class="flex flex-col gap-2" aria-label="Features">

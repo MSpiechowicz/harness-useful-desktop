@@ -1,0 +1,39 @@
+{
+  "tool": "usageSummary",
+  "data": {
+    "range": {
+      "name": "30d",
+      "from": "2026-09-09T22:00:00.000Z",
+      "to": "2026-10-09T12:30:00.000Z"
+    },
+    "costUsd": 142.9071,
+    "tokens": {
+      "total": 127507600,
+      "input": 5310400,
+      "output": 2588900,
+      "cacheRead": 112403000,
+      "cacheWrite": 7205300,
+      "reasoning": 590100
+    },
+    "modelCalls": 6215,
+    "sessions": 171,
+    "prompts": 1204,
+    "activeDays": 22,
+    "cacheHitRate": 0.9,
+    "costPerPromptUsd": 0.1187,
+    "firstActivity": "2026-09-10T08:03:15.000Z",
+    "lastActivity": "2026-10-09T12:27:09.000Z",
+    "previousPeriod": {
+      "from": "2026-08-11T07:30:00.000Z",
+      "to": "2026-09-09T22:00:00.000Z",
+      "costUsd": 163.441,
+      "tokens": 131220400,
+      "sessions": 190,
+      "prompts": 1351,
+      "costChange": -0.126
+    },
+    "note": "Costs are USD at API-equivalent list prices, not what a subscription bills."
+  },
+  "text": null,
+  "isError": false
+}

@@ -1,0 +1,41 @@
+{
+  "tool": "budgetStatus",
+  "data": {
+    "user": "demo",
+    "budgets": [
+      {
+        "scope": "daily",
+        "period": "2026-10-09",
+        "capUsd": 10.0,
+        "spentUsd": 4.8312,
+        "usedPercent": 48.3,
+        "remainingUsd": 5.1688,
+        "status": "ok"
+      },
+      {
+        "scope": "monthly",
+        "period": "2026-10",
+        "capUsd": 150.0,
+        "spentUsd": 61.2304,
+        "usedPercent": 40.8,
+        "remainingUsd": 88.7696,
+        "projectedUsd": 210.9047,
+        "status": "ok"
+      },
+      {
+        "scope": "project",
+        "project": "/home/demo/Projects/demo",
+        "period": "2026-10",
+        "capUsd": 40.0,
+        "spentUsd": 34.1077,
+        "usedPercent": 85.3,
+        "remainingUsd": 5.8923,
+        "projectedUsd": 117.4821,
+        "status": "warning"
+      }
+    ],
+    "note": "Costs are USD at API-equivalent list prices, not what a subscription bills."
+  },
+  "text": null,
+  "isError": false
+}

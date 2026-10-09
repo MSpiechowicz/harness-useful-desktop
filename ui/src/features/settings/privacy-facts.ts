@@ -40,11 +40,12 @@ export const PRIVACY_FACTS: PrivacyFact[] = [
     text: 'Secret-looking configuration values appear hidden: API keys and tokens, MCP server env and headers, auth and OAuth fields, !command values (never run) and credentials inside URLs. Environment references like $NAME show the name only. Agent error output and shell output are redacted before they reach the screen.',
   },
   {
-    // tauri.conf.json CSP (connect-src ipc only), src-tauri/src/access.rs link allowlist.
+    // business/src/update.rs, src-tauri/src/commands/updates.rs (https only), tauri.conf.json CSP (connect-src ipc only),
+    // src-tauri/src/access.rs link allowlist, ui/src/lib/ipc/actions.ts. Same facts as docs/security-privacy.md#network.
     id: 'network',
     icon: Globe,
     title: 'Network',
-    text: 'The app makes no network requests of its own; the interface can only talk to the app itself. Links open in your browser only when you click them, and only for the project and harness sites. Your harness CLIs talk to their providers exactly as they do in your terminal.',
+    text: 'The app itself makes one kind of request: the update check, which fetches the release file latest.json from GitHub. It happens only when this build has an update key, follows your update setting, and can be turned off. Links open in your browser only when you click them, and only for project and harness sites. The Harness Dashboard widgets use a local process over stdio, with no network. Harness CLIs talk to their providers as in your terminal, and extension actions run the CLI, which may download packages, only after you confirm.',
   },
   {
     id: 'telemetry',
@@ -53,11 +54,11 @@ export const PRIVACY_FACTS: PrivacyFact[] = [
     text: 'No analytics, no tracking, no accounts, no sign-in.',
   },
   {
-    // business/src/agent, ui/src/features/chat/Composer.svelte, ApprovalBadge.svelte.
+    // business/src/agent, ui/src/features/chat/Composer.svelte, ApprovalBadge.svelte. The approval override is per session.
     id: 'agents',
     icon: Bot,
     title: 'Agents',
-    text: 'Agents run on your machine with your environment and configuration. Harness Desktop never changes your approval mode and shows the active one in the chat header when the harness has one. Shell commands from the composer always ask for confirmation. This app uploads nothing.',
+    text: 'Agents run on your machine with your environment and configuration. Harness Desktop never edits your harness’s settings; an approval choice you make for a chat applies to that chat only, and the active mode shows in the chat header when the harness has one. Shell commands from the composer always ask for confirmation. This app uploads nothing.',
   },
   {
     // business/src/git/cli.rs, business/src/git/mod.rs.

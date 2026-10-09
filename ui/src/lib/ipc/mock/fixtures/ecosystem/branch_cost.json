@@ -1,0 +1,84 @@
+{
+  "tool": "branchCost",
+  "data": {
+    "branch": "feat/empty-input",
+    "project": "/home/demo/Projects/demo",
+    "costUsd": 7.8813,
+    "tokens": 7310400,
+    "modelCalls": 203,
+    "sessions": 4,
+    "prompts": 31,
+    "firstActivity": "2026-10-07T08:15:40.000Z",
+    "lastActivity": "2026-10-09T12:27:09.000Z",
+    "linesChanged": {
+      "added": 318,
+      "removed": 96,
+      "files": 7,
+      "costPer100LinesUsd": 1.9037
+    },
+    "commits": 5,
+    "pullRequests": [
+      {
+        "number": 12,
+        "url": "https://github.com/demo/demo/pull/12"
+      }
+    ],
+    "costPerCommitUsd": 1.5763,
+    "costPerPullRequestUsd": 7.8813,
+    "models": [
+      {
+        "model": "claude-opus-5-5",
+        "costUsd": 6.0412,
+        "tokens": 5402100,
+        "linesChanged": 351
+      },
+      {
+        "model": "claude-sonnet-5",
+        "costUsd": 1.8401,
+        "tokens": 1908300,
+        "linesChanged": 63
+      }
+    ],
+    "latestSessions": [
+      {
+        "id": "omp:0199c1f2-5d3e-7a10-9b2c-4e6f8a1d3c57",
+        "title": "Handle empty input in the record parser",
+        "provider": "omp",
+        "costUsd": 2.341,
+        "subagents": 2,
+        "lastActivity": "2026-10-09T12:27:09.000Z"
+      },
+      {
+        "id": "omp:01999e40-7d21-7f03-a4b6-c8d9e0f1a2b3",
+        "title": "Sketch the streaming parser",
+        "provider": "omp",
+        "costUsd": 3.9127,
+        "lastActivity": "2026-10-08T16:40:02.000Z"
+      },
+      {
+        "id": "pi:8c2d4e6f-1a3b-4c5d-8e7f-9a0b1c2d3e4f",
+        "title": "Review the parser error messages",
+        "provider": "pi",
+        "costUsd": 1.6276,
+        "lastActivity": "2026-10-07T14:05:33.000Z"
+      }
+    ],
+    "topEditedFiles": [
+      {
+        "file": "src/lib.rs",
+        "edits": 23
+      },
+      {
+        "file": "tests/parse.rs",
+        "edits": 11
+      },
+      {
+        "file": "docs/guide.md",
+        "edits": 4
+      }
+    ],
+    "note": "Costs are USD at API-equivalent list prices, not what a subscription bills."
+  },
+  "text": null,
+  "isError": false
+}

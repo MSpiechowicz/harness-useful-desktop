@@ -17,7 +17,7 @@
   const reason = $derived(crash.code !== null ? `code ${crash.code}` : crash.signal !== null ? `signal ${crash.signal}` : 'no exit status');
 </script>
 
-<section role="alert" aria-label="Agent stopped" class="mx-auto mb-2 w-full max-w-3xl px-6">
+<section role="alert" aria-label="Agent stopped" class="chat-col mb-2">
   <div class="flex flex-col gap-3 rounded-xl border border-danger/40 bg-danger-wash px-4 py-3.5">
     <div class="flex items-center gap-3">
       <Power size={18} class="shrink-0 text-danger" aria-hidden="true" />

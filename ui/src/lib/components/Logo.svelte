@@ -1,125 +1,158 @@
 <script lang="ts">
+  import AccentGradient from '$lib/brand/AccentGradient.svelte';
+  import { boxAttribute, CURSOR, GLYPH_BOX, H_BROKEN, ICON_BOX, LEG_PIVOT } from '$lib/brand/geometry';
+  import LaunchMark from '$lib/brand/LaunchMark.svelte';
+  import { motion } from '$lib/stores/motion.svelte';
   import { cx } from '$lib/utils/cx';
   import { uid } from '$lib/utils/ids';
 
   interface Props {
-    /** Mark size in px. */
+    /** Height of the mark in px; the name scales with it unless `nameSize` is given. */
     size?: number;
+    /** Show the name next to the mark. */
     wordmark?: boolean;
-    layout?: 'inline' | 'stacked';
-    /** Play the reveal: stroke draw, fill fade, glow pulse, staggered wordmark. */
-    animate?: boolean;
+    /** `lockup` mark + name, `mark` the glyph alone cropped flush, `icon` the glyph on a padded square (favicon shape). */
+    variant?: 'lockup' | 'mark' | 'icon';
+    /** `launch` plays the break-and-topple intro once; reduced motion and motion off show the finished mark. */
+    animate?: 'launch' | null;
+    /** Idle is completely still; working blinks the cursor. */
+    state?: 'idle' | 'working';
+    /** Font size of the name in px. */
+    nameSize?: number;
+    /** Called when the launch has finished (immediately when motion is reduced or off). */
+    onfinish?: () => void;
     class?: string;
   }
 
-  let { size = 28, wordmark = false, layout = 'inline', animate = false, class: className }: Props = $props();
+  let {
+    size = 24,
+    wordmark = false,
+    variant = wordmark ? 'lockup' : 'mark',
+    animate = null,
+    // Renamed locally: a binding called `state` would shadow the `$state` rune.
+    state: activity = 'idle',
+    nameSize = Math.round(size * 0.93 * 2) / 2,
+    onfinish,
+    class: className,
+  }: Props = $props();
 
-  const gradientId = uid('logo-gradient');
   const NAME = 'Harness Desktop';
-  const letters = Array.from(NAME);
+  const gradient = uid('logo-gradient');
+  const legGradient = uid('logo-leg-gradient');
+  const blur = uid('logo-dust-blur');
+
+  // The launch is skipped, never shortened: anything but full motion goes straight to the finished mark.
+  const launching = $derived(animate === 'launch' && motion.level === 'full');
+  const blinking = $derived(activity === 'working' && motion.level === 'full');
+  const box = $derived(variant === 'icon' ? ICON_BOX : GLYPH_BOX);
+  const width = $derived((size * box.width) / box.height);
+  const showName = $derived(wordmark || variant === 'lockup');
+
+  let finished = $state(false);
+  const playing = $derived(launching && !finished);
+
+  // A launch that cannot play (reduced motion, motion off) is complete at once.
+  $effect(() => {
+    if (animate === 'launch' && !launching) {
+      onfinish?.();
+    }
+  });
+
+  function finish(): void {
+    finished = true;
+    onfinish?.();
+  }
 </script>
 
 <span
-  class={cx('inline-flex items-center', layout === 'stacked' ? 'flex-col gap-4' : 'gap-2.5', className)}
-  class:animate
+  class={cx('logo inline-flex items-center', className)}
+  style:font-size="{nameSize}px"
   role="img"
   aria-label={NAME}
+  data-state={activity}
+  data-launching={playing ? '' : undefined}
 >
-  <!-- Mark: two harness rails joined through an orbiting node. -->
-  <svg class="mark" width={size} height={size} viewBox="0 0 64 64" fill="none" aria-hidden="true">
+  <svg {width} height={size} viewBox={boxAttribute(box)} aria-hidden="true">
     <defs>
-      <linearGradient id={gradientId} x1="8" y1="6" x2="56" y2="58" gradientUnits="userSpaceOnUse">
-        <stop offset="0" stop-color="var(--accent-1)" />
-        <stop offset="0.55" stop-color="var(--accent-2)" />
-        <stop offset="1" stop-color="var(--accent-3)" />
-      </linearGradient>
+      <AccentGradient id={gradient} />
+
+      {#if playing}
+        <AccentGradient id={legGradient} transform="rotate(90 {LEG_PIVOT.x} {LEG_PIVOT.y})" />
+        <filter id={blur} filterUnits="userSpaceOnUse" x="20" y="30" width="140" height="100"><feGaussianBlur stdDeviation="2.8" /></filter>
+      {/if}
     </defs>
 
-    <g stroke="url(#{gradientId})" stroke-width="4.5" stroke-linecap="round">
-      <path class="draw" style:--i="0" pathLength="1" d="M19 11V53" />
-      <path class="draw" style:--i="1" pathLength="1" d="M45 11V53" />
-      <path class="draw" style:--i="2" pathLength="1" d="M19 32H24.5M39.5 32H45" />
-      <circle class="draw" style:--i="3" pathLength="1" cx="32" cy="32" r="7.5" />
-    </g>
-    <ellipse
-      class="draw orbit"
-      style:--i="4"
-      pathLength="1"
-      cx="32"
-      cy="32"
-      rx="17"
-      ry="6.5"
-      transform="rotate(-28 32 32)"
-      stroke="url(#{gradientId})"
-      stroke-width="1.6"
-      stroke-linecap="round"
-    />
-    <circle class="node" cx="32" cy="32" r="3.2" fill="url(#{gradientId})" />
+    {#if playing}
+      <LaunchMark {gradient} {legGradient} {blur} onfinish={finish} />
+    {:else}
+      <path d={H_BROKEN} fill="url(#{gradient})" />
+      <rect class={['cursor', blinking && 'blink']} data-part="cursor" {...CURSOR} fill="url(#{gradient})" />
+    {/if}
   </svg>
 
-  {#if wordmark}
-    <span
-      class="wordmark font-semibold tracking-tight text-fg"
-      style:font-size="{layout === 'stacked' ? size * 0.34 : size * 0.62}px"
-      aria-hidden="true"
-    >
-      {#each letters as letter, index (index)}<span class="letter" style:--i={index}>{letter === ' ' ? ' ' : letter}</span>{/each}
+  {#if showName}
+    <span class={['name font-mono', playing && 'enter']} aria-hidden="true">
+      <b>harness</b><span>desktop</span>
     </span>
   {/if}
 </span>
 
 <style>
-  /* Reveal timeline in ms from when `.animate` is applied (total under 1.2 s). */
-  .animate .draw {
-    stroke-dasharray: 1;
-    stroke-dashoffset: 1;
-    animation: draw 520ms var(--ease-out-expo) forwards;
-    animation-delay: calc(80ms + var(--i) * 90ms);
+  /* Sizes and weights of the name; the intro overrides them for its larger lockup. */
+  .logo {
+    gap: var(--logo-gap, 0.5em);
   }
 
-  .animate .node {
-    transform-origin: 32px 32px;
-    animation: node-in 380ms var(--ease-spring) 640ms both;
+  svg {
+    overflow: visible;
+    flex-shrink: 0;
   }
 
-  .animate .mark {
-    animation: glow 520ms ease-out 760ms both;
+  .name {
+    font-weight: var(--logo-name-weight, 650);
+    letter-spacing: var(--logo-tracking, -0.02em);
+    line-height: 1;
+    white-space: nowrap;
+    color: var(--text);
   }
 
-  .animate .letter {
-    display: inline-block;
-    animation: letter-in 340ms var(--ease-out-expo) both;
-    animation-delay: calc(560ms + var(--i) * 22ms);
+  .name b {
+    font-weight: inherit;
   }
 
-  .orbit {
-    opacity: 0.8;
+  .name span {
+    margin-left: 0.08em;
+    font-weight: 400;
+    color: var(--text-3);
   }
 
-  @keyframes draw {
+  .name.enter {
+    opacity: 0;
+    animation: name-in 0.55s 1.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  }
+
+  .cursor.blink {
+    animation: blink 1.05s steps(1, end) infinite;
+  }
+
+  @keyframes name-in {
+    from {
+      transform: translateX(-0.18em);
+    }
     to {
-      stroke-dashoffset: 0;
+      opacity: 1;
+      transform: none;
     }
   }
 
-  @keyframes node-in {
-    from {
+  @keyframes blink {
+    0%,
+    55% {
+      opacity: 1;
+    }
+    56%,
+    100% {
       opacity: 0;
-      transform: scale(0);
-    }
-  }
-
-  @keyframes glow {
-    50% {
-      filter: drop-shadow(0 0 14px var(--accent-1)) drop-shadow(0 0 28px var(--accent-2));
-    }
-  }
-
-  @keyframes letter-in {
-    from {
-      opacity: 0;
-      transform: translateY(0.4em);
-      filter: blur(4px);
     }
   }
 </style>

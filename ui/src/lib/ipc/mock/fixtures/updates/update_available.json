@@ -1,0 +1,6 @@
+{
+  "version": "0.2.0",
+  "currentVersion": "0.1.0",
+  "date": "2026-10-08T18:42:11Z",
+  "notes": "## 0.2.0 (2026-10-08)\n\n### Features\n\n* **chat:** pick the thinking level per session\n* **updates:** check for updates at startup and install them in the app\n\n### Bug Fixes\n\n* **changes:** keep the selected file when the diff refreshes\n"
+}

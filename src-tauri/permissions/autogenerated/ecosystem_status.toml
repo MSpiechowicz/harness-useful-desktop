@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-ecosystem-status"
+description = "Enables the ecosystem_status command without any pre-configured scope."
+commands.allow = ["ecosystem_status"]
+
+[[permission]]
+identifier = "deny-ecosystem-status"
+description = "Denies the ecosystem_status command without any pre-configured scope."
+commands.deny = ["ecosystem_status"]

@@ -6,6 +6,7 @@
   import type { FileDiff } from '$lib/ipc/bindings/FileDiff';
   import type { HighlightedLine } from '$lib/markdown/highlight';
 
+  import DiffNotice from './DiffNotice.svelte';
   import DiffViewComposer from './DiffViewComposer.svelte';
   import DiffViewSplitRow from './DiffViewSplitRow.svelte';
   import DiffViewThread from './DiffViewThread.svelte';
@@ -22,9 +23,11 @@
     oncomment: (target: RangeTarget, body: string) => void;
     onedit: (id: number, body: string) => void;
     onremove: (id: number) => void;
+    /** Opens the file in the file manager, for the notice shown instead of a binary diff. */
+    onreveal?: () => void;
   }
 
-  let { diff, mode, comments, maxBytes, oncomment, onedit, onremove }: Props = $props();
+  let { diff, mode, comments, maxBytes, oncomment, onedit, onremove, onreveal }: Props = $props();
 
   const ROW_ESTIMATE_PX = 18;
   const OVERSCAN_ROWS = 20;
@@ -156,22 +159,14 @@
     });
   }
 
-  const placeholder = $derived.by(() => {
-    if (diff.isBinary) {
-      return 'Binary file: its contents are not shown.';
-    }
-    if (diff.hunks.length > 0) {
-      return null;
-    }
-
-    return diff.truncated ? 'This file is too large or not readable as text, so its diff is not shown.' : 'No content changes (a rename or a mode change).';
-  });
+  /** Binary, withheld and rename-only files have no lines to show. */
+  const noLines = $derived(diff.isBinary || diff.hunks.length === 0);
 </script>
 
 <svelte:window onpointerup={pick.finish} onpointercancel={pick.finish} />
 
-{#if placeholder}
-  <p class="grid size-full place-items-center p-8 text-center text-base text-fg-2" role="status">{placeholder}</p>
+{#if noLines}
+  <DiffNotice {diff} {onreveal} />
 {:else}
   <div class="relative flex size-full min-h-0 flex-col" onscrollcapture={trackHunk}>
     {#if stickyHeader}

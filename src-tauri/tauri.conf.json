@@ -53,6 +53,14 @@
     "publisher": "Maciej Spiechowicz",
     "copyright": "Copyright (C) 2026 Maciej Spiechowicz",
     "license": "GPL-3.0-or-later",
-    "licenseFile": "../LICENSE"
+    "licenseFile": "../LICENSE",
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "NOT_CONFIGURED: replace with the content of the updater .key.pub file (see docs/release-and-updater-keys.md)",
+      "endpoints": ["https://github.com/MSpiechowicz/harness-useful-desktop/releases/latest/download/latest.json"],
+      "requireSignedVersion": true
+    }
   }
 }

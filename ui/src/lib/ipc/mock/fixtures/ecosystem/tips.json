@@ -1,0 +1,47 @@
+{
+  "tool": "tips",
+  "data": {
+    "range": {
+      "name": "30d",
+      "from": "2026-09-09T22:00:00.000Z",
+      "to": "2026-10-09T12:30:00.000Z"
+    },
+    "tips": [
+      {
+        "id": "premium-small-prompts",
+        "severity": "info",
+        "category": "models",
+        "title": "64 small prompts on a premium model",
+        "detail": "64 short prompts ($11.82) ran on claude-opus-5-5. Quick questions often work just as well on a faster, cheaper model or at lower effort.",
+        "impactUsdPerMonth": 7.4512
+      },
+      {
+        "id": "cache-expired",
+        "severity": "info",
+        "category": "cache",
+        "title": "The cache expired 23 times during a pause",
+        "detail": "The prompt cache lives 5 minutes. After a longer pause the next call writes the whole context again, which cost about $3.17 here. Finish a step before a break, or compact a long session before stepping away.",
+        "impactUsdPerMonth": 2.219
+      },
+      {
+        "id": "long-session",
+        "severity": "info",
+        "category": "context",
+        "title": "Very long session: 412 calls ($9.64)",
+        "detail": "\"Refactor the record parser\" ran for 412 model calls. Context grows with every turn — split long efforts into focused sessions.",
+        "impactUsdPerMonth": 1.928,
+        "sessionId": "omp:01999e40-7d21-7f03-a4b6-c8d9e0f1a2b3"
+      },
+      {
+        "id": "tool-loops",
+        "severity": "warn",
+        "category": "workflow",
+        "title": "2 prompts with 150+ tool calls",
+        "detail": "The busiest prompt triggered 187 tool calls. Long tool loops often mean a missing instruction or a flaky test — consider breaking the task up.",
+        "promptId": "omp:01999e40-7d21-7f03-a4b6-c8d9e0f1a2b3:p17"
+      }
+    ]
+  },
+  "text": null,
+  "isError": false
+}

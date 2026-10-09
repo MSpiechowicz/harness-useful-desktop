@@ -4,6 +4,7 @@
 //! mirrors. Shared PI-family parsing comes from [`crate::pi_family`].
 
 mod catalog;
+mod cli;
 mod config;
 mod dialect;
 mod extensions;
@@ -15,6 +16,7 @@ mod sessions;
 mod themes;
 
 pub use catalog::OmpCatalog;
+pub use cli::{omp_cli_action, omp_failure_line};
 pub use config::omp_config_view;
 pub use dialect::OmpDialect;
 pub use extensions::omp_extensions_view;
@@ -22,6 +24,7 @@ pub use launch::{
     DEFAULT_APPROVAL_MODE, cli_approval_mode, configured_approval_mode, omp_launch_spec, parse_approval_mode,
 };
 pub use paths::{active_profile, omp_paths};
+pub use plugins::{InstalledPlugins, installed_plugins};
 pub use sessions::{omp_sessions_dir, omp_sessions_root};
 
 use crate::harness::prelude::*;
@@ -92,6 +95,14 @@ impl Harness for Omp {
 
     fn configured_approval_mode(&self, env: &Env, project: Option<&Path>) -> Option<ApprovalMode> {
         Some(configured_approval_mode(env, project))
+    }
+
+    fn cli_action(&self, action: &ExtensionAction, project: Option<&Path>) -> Result<CliInvocation> {
+        omp_cli_action(action, project)
+    }
+
+    fn cli_failure_line(&self, stdout: &str, stderr: &str) -> Option<String> {
+        omp_failure_line(stdout, stderr)
     }
 
     fn install_hint(&self) -> InstallHint {

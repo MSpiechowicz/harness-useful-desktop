@@ -1,0 +1,25 @@
+{
+  "ok": true,
+  "summary": "✔ Installed harness-useful-sidebar from harness-useful-sidebar (1.0.71)",
+  "exitCode": 0,
+  "stdout": "✔ Installed harness-useful-sidebar from harness-useful-sidebar (1.0.71)\n",
+  "stderr": "",
+  "truncated": false,
+  "timedOut": false,
+  "argv": [
+    "omp",
+    "plugin",
+    "install",
+    "harness-useful-sidebar@harness-useful-sidebar",
+    "--scope",
+    "user"
+  ],
+  "command": [
+    "omp",
+    "plugin",
+    "install",
+    "harness-useful-sidebar@harness-useful-sidebar",
+    "--scope",
+    "user"
+  ]
+}

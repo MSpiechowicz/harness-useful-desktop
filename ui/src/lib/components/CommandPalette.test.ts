@@ -1,5 +1,7 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
-import { describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import { paletteRecents } from '$lib/stores/palette-recents.svelte';
 
 import CommandPalette from './CommandPalette.svelte';
 import type { PaletteCommand } from './palette';
@@ -24,6 +26,8 @@ function optionNames(): string[] {
 }
 
 describe('CommandPalette', () => {
+  afterEach(() => paletteRecents.clear());
+
   it('lists commands grouped, with the first one active', async () => {
     const input = await openPalette(commands());
 
@@ -48,10 +52,11 @@ describe('CommandPalette', () => {
     await fireEvent.input(input, { target: { value: 'zzzz' } });
 
     expect(screen.queryAllByRole('option')).toHaveLength(0);
-    expect(screen.getByText('No matching commands')).toBeInTheDocument();
+    expect(screen.getByText('No results for “zzzz”')).toBeInTheDocument();
+    expect(screen.getByRole('list', { name: 'Narrow the search' })).toBeInTheDocument();
   });
 
-  it('moves the selection with the arrow keys (wrapping) and runs the active command on Enter', async () => {
+  it('moves the selection with the arrow keys (wrapping, skipping what cannot run) and runs the active command on Enter', async () => {
     const run = vi.fn();
     const list = commands();
     list[1].run = run;
@@ -62,7 +67,7 @@ describe('CommandPalette', () => {
 
     await fireEvent.keyDown(input, { key: 'ArrowUp' });
     await fireEvent.keyDown(input, { key: 'ArrowUp' });
-    expect(screen.getAllByRole('option')[3]).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getAllByRole('option')[2]).toHaveAttribute('aria-selected', 'true');
 
     await fireEvent.keyDown(input, { key: 'ArrowDown' });
     await fireEvent.keyDown(input, { key: 'ArrowDown' });
@@ -99,5 +104,50 @@ describe('CommandPalette', () => {
 
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(run).not.toHaveBeenCalled();
+  });
+
+  it('narrows to sessions after @ and runs the secondary action on Shift+Enter', async () => {
+    const open = vi.fn();
+    const resume = vi.fn();
+    const input = await openPalette([
+      ...commands(),
+      { id: 'session-a', label: 'Fix the parser', group: 'Sessions', kind: 'session', detail: '1 hour ago', run: open, secondary: { label: 'Resume in chat', run: resume } },
+      { id: 'session-b', label: 'Release checklist', group: 'Sessions', kind: 'session', run: vi.fn() },
+    ]);
+
+    await fireEvent.input(input, { target: { value: '@' } });
+
+    expect(optionNames()).toHaveLength(2);
+    expect(optionNames()[0]).toContain('Fix the parser');
+    expect(optionNames()[0]).toContain('Resume in chat');
+    expect(optionNames()[1]).toContain('Release checklist');
+    expect(screen.getByText('Sessions', { selector: 'span' })).toBeInTheDocument();
+
+    await fireEvent.keyDown(input, { key: 'Enter', shiftKey: true });
+
+    expect(resume).toHaveBeenCalledTimes(1);
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  it('lists the prefixes in its footer and applies one when it is clicked', async () => {
+    const input = (await openPalette(commands())) as HTMLInputElement;
+
+    await fireEvent.click(screen.getByRole('button', { name: /Actions/ }));
+
+    expect(input.value).toBe('>');
+    expect(input).toHaveFocus();
+  });
+
+  it('puts what you ran last at the top next time', async () => {
+    const run = vi.fn();
+    await openPalette(commands(run));
+    await fireEvent.click(screen.getByRole('option', { name: 'Go to Settings' }));
+
+    // Closing and reopening: the palette is a fresh instance, the recents persist.
+    cleanup();
+    await openPalette(commands(run));
+
+    expect(screen.getAllByRole('group').map((group) => group.getAttribute('aria-label'))[0]).toBe('Recent');
+    expect(optionNames()[0]).toBe('Go to Settings');
   });
 });

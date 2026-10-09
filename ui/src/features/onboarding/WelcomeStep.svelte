@@ -6,17 +6,16 @@
   import { autofocus } from '$lib/a11y/autofocus';
   import type { IconComponent } from '$lib/components/icon';
   import Logo from '$lib/components/Logo.svelte';
-  import { motion } from '$lib/stores/motion.svelte';
 
   const POINTS: { icon: IconComponent; title: string; body: string }[] = [
     { icon: Eye, title: 'See your setup', body: 'Read your OMP and PI configuration and extensions in one place, secrets masked.' },
     { icon: HardDrive, title: 'Your harness stays yours', body: 'Harness Desktop uses the CLIs you already installed. Nothing is copied or uploaded.' },
-    { icon: ShieldCheck, title: 'Local and private', body: 'No telemetry, no accounts. The only network use is checking for updates, and links you click.' },
+    { icon: ShieldCheck, title: 'Local and private', body: 'No telemetry, no accounts. The app itself only checks GitHub for updates, if this build has an update key and you allow it, and opens links you click.' },
   ];
 </script>
 
 <div class="flex flex-col items-center gap-10 text-center [@media(max-height:720px)]:gap-6">
-  <Logo size={72} wordmark animate={motion.level === 'full'} class="text-fg" />
+  <Logo size={56} wordmark />
 
   <header class="flex flex-col items-center gap-4">
     <h2

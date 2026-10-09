@@ -37,7 +37,7 @@
         />
       {:else}
         <div class="flex items-start gap-2 px-3 py-2">
-          <MessageSquare size={14} class="mt-1 shrink-0 text-accent-text" aria-hidden="true" />
+          <MessageSquare size={16} class="mt-1 shrink-0 text-accent-text" aria-hidden="true" />
           <div class="flex min-w-0 flex-1 flex-col gap-0.5">
             <p class="text-xs text-fg-3">{commentHeading(comment)}</p>
             <p class="text-base break-words whitespace-pre-wrap text-fg">{comment.body}</p>

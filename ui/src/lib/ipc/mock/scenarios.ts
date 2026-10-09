@@ -1,6 +1,8 @@
 import { motion } from '$lib/stores/motion.svelte';
 
 import { agentHandlers } from './agent-handlers';
+import { ecosystemHandlers } from './ecosystem-handlers';
+import { extensionActionHandlers } from './extension-action-handlers';
 import { gitHandlers } from './git-handlers';
 import { harnessHandlers } from './harness-handlers';
 import { hostHandlers } from './host-handlers';
@@ -8,6 +10,7 @@ import { projectHandlers } from './project-handlers';
 import { sessionHandlers } from './session-handlers';
 import { MockState } from './state';
 import type { Handlers, Scenario } from './types';
+import { updateHandlers } from './update-handlers';
 
 export type { Handlers, Scenario } from './types';
 
@@ -22,13 +25,20 @@ function agentPace(): number {
 export function defaultScenario(): Scenario {
   const state = new MockState();
 
-  const handlers: Handlers = {
+  const base = {
     ...hostHandlers(state),
     ...harnessHandlers(state),
     ...projectHandlers(state),
     ...agentHandlers(state, agentPace),
     ...sessionHandlers(state),
     ...gitHandlers(state),
+  };
+
+  const handlers: Handlers = {
+    ...base,
+    ...ecosystemHandlers(),
+    ...updateHandlers(agentPace),
+    ...extensionActionHandlers(state, base.extensions_view),
   };
 
   return { name: 'default', handlers };

@@ -1,14 +1,20 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
 
+  import { portal } from '$lib/a11y/portal';
   import { rise } from '$lib/design/motion';
-  import { uid } from '$lib/utils/ids';
   import { cx } from '$lib/utils/cx';
+  import { floatingPosition } from '$lib/utils/floating';
+  import { uid } from '$lib/utils/ids';
+
+  import Kbd from './Kbd.svelte';
 
   type Side = 'top' | 'bottom' | 'right';
 
   interface Props {
     text: string;
+    /** Shortcut combo such as `mod+k`, shown as key caps next to the text. */
+    shortcut?: string;
     side?: Side;
     /** Suppresses the tooltip (e.g. when the hint only applies in some states). */
     disabled?: boolean;
@@ -18,18 +24,34 @@
     children: Snippet<[{ describedby: string }]>;
   }
 
-  let { text, side = 'top', disabled = false, class: className = 'inline-flex', children }: Props = $props();
+  let { text, shortcut, side = 'top', disabled = false, class: className = 'inline-flex', children }: Props = $props();
 
   const SHOW_DELAY_MS = 350;
-  const PLACEMENT: Record<Side, string> = {
-    top: 'bottom-full left-1/2 mb-2 -translate-x-1/2',
-    bottom: 'top-full left-1/2 mt-2 -translate-x-1/2',
-    right: 'left-full top-1/2 ml-3 -translate-y-1/2',
-  };
 
   const id = uid('tooltip');
+  let anchor: HTMLElement | undefined = $state();
   let visible = $state(false);
   let timer: ReturnType<typeof setTimeout> | undefined;
+
+  /**
+   * The label lives in `document.body` (see `portal`) so no `overflow` ancestor, such as a dialog, can
+   * clip it; this places it next to the trigger and keeps it inside the window.
+   */
+  function place(node: HTMLElement): void {
+    if (!anchor) {
+      return;
+    }
+
+    const { left, top } = floatingPosition(
+      anchor.getBoundingClientRect(),
+      { width: node.offsetWidth, height: node.offsetHeight },
+      side,
+      { width: window.innerWidth, height: window.innerHeight },
+    );
+
+    node.style.left = `${left}px`;
+    node.style.top = `${top}px`;
+  }
 
   function showSoon(): void {
     clearTimeout(timer);
@@ -69,6 +91,7 @@
 </script>
 
 <span
+  bind:this={anchor}
   class={cx('relative', className)}
   onpointerenter={showSoon}
   onpointerleave={hide}
@@ -83,13 +106,13 @@
     <span
       {id}
       role="tooltip"
+      use:portal
+      use:place
       transition:rise={{ y: 4, duration: 140 }}
-      class={cx(
-        'pointer-events-none absolute z-50 rounded-sm border border-line-strong bg-surface-4 px-2 py-1 text-xs font-medium whitespace-nowrap text-fg shadow-float',
-        PLACEMENT[side],
-      )}
+      class="pointer-events-none fixed z-[85] inline-flex items-center gap-2 rounded-sm border border-line-strong bg-surface-4 px-2 py-1 text-xs font-medium whitespace-nowrap text-fg shadow-float"
     >
       {text}
+      {#if shortcut}<Kbd keys={shortcut} />{/if}
     </span>
   {/if}
 </span>

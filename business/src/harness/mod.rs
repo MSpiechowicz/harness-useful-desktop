@@ -11,19 +11,27 @@
 //! 2. Create `harnesses/<name>/` with a type implementing [`Harness`] and a [`CommandCatalog`].
 //! 3. Add one line to [`HarnessRegistry::with_defaults`].
 //!
-//! The UI renders from [`HarnessInfo`], [`Capabilities`] and the views, so no UI change is needed.
+//! The UI renders most of a harness from [`HarnessInfo`], [`Capabilities`] and the views, but it
+//! still has per-harness touch points (badge labels, colour tokens, mock fixtures): see
+//! `docs/adding-a-harness.md`.
 //!
 //! Chat sessions additionally need [`Harness::launch_spec`] (the RPC command line) and
 //! [`Harness::dialect`] (how the harness speaks the PI-family RPC protocol). Saved sessions need
 //! [`Harness::sessions_dir`]; listing, trees and transcripts default to the PI-family session
-//! format and are overridden by harnesses that store sessions differently.
+//! format and are overridden by harnesses that store sessions differently. Extension actions
+//! (install, remove, …) need [`Harness::cli_action`], run by [`run_cli_action`].
 
 mod catalog;
+mod cli;
 mod detect;
 mod launch;
 mod registry;
 
 pub use catalog::{CommandCatalog, SharedCommand, gui, merge_commands, parse_live_commands, rpc, spec, unsupported};
+pub use cli::{
+    CLI_ACTION_TIMEOUT, CliInvocation, CliRun, MAX_CLI_TARGET_CHARS, TargetKind, cli_target, optional_cli_target,
+    run_cli_action,
+};
 pub use detect::{VERSION_TIMEOUT, first_semver, override_name_matches};
 pub use launch::{LaunchRequest, flag_with, rpc_exec_spec};
 pub use registry::HarnessRegistry;
@@ -34,11 +42,11 @@ pub mod prelude {
 
     pub use std::path::PathBuf;
 
-    pub use super::{CommandCatalog, Harness, HarnessPaths, LaunchRequest};
+    pub use super::{CliInvocation, CommandCatalog, Harness, HarnessPaths, LaunchRequest};
     pub use crate::env::Env;
     pub use crate::error::Result;
     pub use crate::model::{
-        ApprovalMode, Capabilities, ConfigView, ExtensionsView, HarnessId, HarnessInfo, InstallHint,
+        ApprovalMode, Capabilities, ConfigView, ExtensionAction, ExtensionsView, HarnessId, HarnessInfo, InstallHint,
     };
     pub use crate::pi_family::rpc::RpcDialect;
     pub use crate::process::ExecSpec;
@@ -49,8 +57,8 @@ use std::path::{Path, PathBuf};
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::model::{
-    ApprovalMode, Capabilities, ConfigView, Detection, ExtensionsView, HarnessId, HarnessInfo, HarnessSummary,
-    InstallHint, SessionMessagesPage, SessionRef, SessionSummary, SessionTree, VersionSupport,
+    ApprovalMode, Capabilities, ConfigView, Detection, ExtensionAction, ExtensionsView, HarnessId, HarnessInfo,
+    HarnessSummary, InstallHint, SessionMessagesPage, SessionRef, SessionSummary, SessionTree, VersionSupport,
 };
 use crate::pi_family::rpc::RpcDialect;
 use crate::pi_family::sessions::{self, SessionCache};
@@ -157,6 +165,24 @@ pub trait Harness: Send + Sync {
     /// The approval mode the user configured for `project` (harnesses with
     /// `capabilities.approvalModes`); `None` when the harness has no approval modes.
     fn configured_approval_mode(&self, _env: &Env, _project: Option<&Path>) -> Option<ApprovalMode> {
+        None
+    }
+
+    /// The CLI arguments of an extension action (see [`run_cli_action`]). `project` is the
+    /// authorized project directory when the UI acts on the project layer (the CLI then runs in
+    /// it). Default: every action is unsupported.
+    fn cli_action(&self, action: &ExtensionAction, project: Option<&Path>) -> Result<CliInvocation> {
+        let _ = (action, project);
+
+        Err(BusinessError::Unsupported(format!(
+            "{} has no extension actions",
+            self.info().short_name
+        )))
+    }
+
+    /// The output line that reports a failed extension action although the CLI exited with 0
+    /// (`stdout` and `stderr` are already cleaned and redacted). Default: the exit code decides.
+    fn cli_failure_line(&self, _stdout: &str, _stderr: &str) -> Option<String> {
         None
     }
 

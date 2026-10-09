@@ -39,6 +39,13 @@ const COMMANDS: &[&str] = &[
     "git_branches",
     "git_diff",
     "review_compose",
+    "ecosystem_status",
+    "dashboard_availability",
+    "dashboard_query",
+    "extension_action",
+    "update_check",
+    "update_install",
+    "app_relaunch",
 ];
 
 fn main() {

@@ -22,17 +22,18 @@ tauri-build.workspace = true
 [dependencies]
 harness_business = { path = "../business" }
 serde.workspace = true
+# `generate_context!` embeds the `plugins` section of `tauri.conf.json` as `serde_json` values.
+serde_json.workspace = true
 tauri.workspace = true
 tauri-plugin-dialog.workspace = true
 tauri-plugin-log.workspace = true
 tauri-plugin-opener.workspace = true
 tauri-plugin-single-instance.workspace = true
+tauri-plugin-updater.workspace = true
 tauri-plugin-window-state.workspace = true
+time.workspace = true
 # `log` feature: tracing events from the business crate reach tauri-plugin-log (no subscriber is installed).
 tracing = { workspace = true, features = ["log"] }
-
-[dev-dependencies]
-serde_json.workspace = true
 
 [lints]
 workspace = true

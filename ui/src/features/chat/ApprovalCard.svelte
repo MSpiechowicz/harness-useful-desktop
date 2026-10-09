@@ -47,7 +47,7 @@
 
 <svelte:window {onkeydown} />
 
-<section aria-label="Approval needed" aria-live="assertive" data-approval-card class="mx-auto mb-2 w-full max-w-3xl px-6">
+<section aria-label="Approval needed" aria-live="assertive" data-approval-card class="chat-col mb-2">
   <div class="flex flex-col gap-3 rounded-xl border border-warning/40 bg-warning-wash px-4 py-3.5 shadow-float">
     <div class="flex items-start gap-3">
       <Icon size={18} class="mt-0.5 shrink-0 text-warning" aria-hidden="true" />

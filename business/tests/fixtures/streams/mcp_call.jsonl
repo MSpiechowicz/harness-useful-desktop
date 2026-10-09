@@ -1,0 +1,7 @@
+// A structured result, then an explained tool error answered after a notification and a stale answer.
+{"include": "mcp_handshake.jsonl"}
+{"expect": "tools/call", "match": {"/params/name": "usage_summary", "/params/arguments": {"range": "7d", "provider": "omp"}}, "reply": {"result": {"content": [{"type": "text", "text": "{\"range\":\"7d\",\"costUsd\":1.5}"}], "structuredContent": {"range": "7d", "costUsd": 1.5}, "isError": false}}}
+{"expect": "tools/call", "as": "session", "match": {"/params/name": "session_cost", "/params/arguments": {"session_id": "0199c1f2-unknown"}}, "hold": true}
+{"emit": {"jsonrpc": "2.0", "method": "notifications/message", "params": {"level": "info", "data": "scanning"}}}
+{"emit": {"jsonrpc": "2.0", "id": 999, "result": {"stale": true}}}
+{"respond": "session", "reply": {"result": {"content": [{"type": "text", "text": "No session 0199c1f2-unknown in the database yet."}], "isError": true}}}

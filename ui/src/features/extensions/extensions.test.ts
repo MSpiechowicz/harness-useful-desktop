@@ -54,12 +54,6 @@ describe('ExtensionsViewer', () => {
 
     expect(screen.getByRole('heading', { level: 2, name: first.name })).toBeInTheDocument();
   });
-
-  it('is read-only: no install, enable or remove actions', async () => {
-    await useHarness('omp');
-
-    expect(screen.queryByRole('button', { name: /^(install|uninstall|enable|disable|remove|update)\b/i })).toBeNull();
-  });
 });
 
 describe('items', () => {

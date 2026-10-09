@@ -4,6 +4,7 @@
   import Trash from '@lucide/svelte/icons/trash-2';
 
   import Button from '$lib/components/Button.svelte';
+  import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
   import { openExternal } from '$lib/ipc/actions';
   import { app } from '$lib/stores/app.svelte';
   import { harness } from '$lib/stores/harness.svelte';
@@ -11,11 +12,18 @@
   import { toasts } from '$lib/stores/toasts.svelte';
 
   import { diagnosticsText } from './diagnostics';
+  import { REPOSITORY_URL } from './links';
   import { PRIVACY_FACTS } from './privacy-facts';
   import SettingRow from './SettingRow.svelte';
   import SettingsSection from './SettingsSection.svelte';
 
-  const REPOSITORY_URL = 'https://github.com/MSpiechowicz/harness-useful-desktop';
+  interface Props {
+    id?: string;
+  }
+
+  let { id }: Props = $props();
+
+  let confirmClear = $state(false);
 
   async function clearRecents(): Promise<void> {
     for (const recent of [...project.recents]) {
@@ -40,12 +48,12 @@
   }
 </script>
 
-<SettingsSection title="Privacy & security">
+<SettingsSection {id} title="Privacy & security">
   <ul class="flex flex-col gap-4 pb-4" aria-label="What Harness Desktop does with data">
     {#each PRIVACY_FACTS as fact (fact.id)}
       <li class="flex items-start gap-3">
         <span class="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md bg-surface-2 text-fg-2">
-          <fact.icon size={15} aria-hidden="true" />
+          <fact.icon size={16} aria-hidden="true" />
         </span>
 
         <div class="flex min-w-0 flex-col gap-0.5">
@@ -58,8 +66,8 @@
 
   <SettingRow title="Recent projects" description="Forget every remembered folder. If your open project is on the list, it is closed too.">
     {#snippet control()}
-      <Button disabled={project.recents.length === 0} onclick={() => void clearRecents()}>
-        {#snippet leading()}<Trash size={14} aria-hidden="true" />{/snippet}
+      <Button variant="dangerQuiet" disabled={project.recents.length === 0} onclick={() => (confirmClear = true)}>
+        {#snippet leading()}<Trash size={16} aria-hidden="true" />{/snippet}
         Clear recent projects
       </Button>
     {/snippet}
@@ -68,7 +76,7 @@
   <SettingRow title="Diagnostics" description="Copies the app version, OS and harness versions for a bug report. No paths, projects or content.">
     {#snippet control()}
       <Button onclick={() => void copyDiagnostics()}>
-        {#snippet leading()}<ClipboardCopy size={14} aria-hidden="true" />{/snippet}
+        {#snippet leading()}<ClipboardCopy size={16} aria-hidden="true" />{/snippet}
         Copy diagnostics
       </Button>
     {/snippet}
@@ -77,9 +85,17 @@
   <SettingRow title="Source code" description="Free software under GPL-3.0-or-later. Read exactly what it does.">
     {#snippet control()}
       <Button onclick={() => void openExternal(REPOSITORY_URL)}>
-        {#snippet leading()}<ExternalLink size={14} aria-hidden="true" />{/snippet}
+        {#snippet leading()}<ExternalLink size={16} aria-hidden="true" />{/snippet}
         Open repository
       </Button>
     {/snippet}
   </SettingRow>
 </SettingsSection>
+
+<ConfirmDialog
+  bind:open={confirmClear}
+  title="Clear recent projects?"
+  description="Every remembered folder is forgotten. If your open project is on the list, it is closed too. Your files are not touched."
+  confirmLabel="Clear list"
+  onconfirm={() => void clearRecents()}
+/>

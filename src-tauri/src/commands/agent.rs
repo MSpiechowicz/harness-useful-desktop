@@ -12,15 +12,14 @@ use std::sync::Arc;
 use harness_business::BusinessError;
 use harness_business::agent::AgentDeps;
 use harness_business::model::{
-    AgentAction, AgentEnvelope, AgentReply, AgentSessionInfo, AgentStartRequest, BashOutput, HarnessId, UiResponse,
+    AgentAction, AgentEnvelope, AgentReply, AgentSessionInfo, AgentStartRequest, BashOutput, UiResponse,
 };
-use harness_business::process::ResolvedBinary;
 use harness_business::project::Projects;
 use tauri::State;
 use tauri::ipc::Channel;
 
 use super::blocking;
-use super::harness::{detect, find};
+use super::harness::{find, installed_binary};
 use crate::agent_sink::{ChannelSink, OnClosed};
 use crate::agents::Agents;
 use crate::error::CommandResult;
@@ -141,27 +140,6 @@ async fn authorized_project(state: &AppState, project: String) -> CommandResult<
     Ok(path.to_string_lossy().into_owned())
 }
 
-/// The detected binary of `harness` (detecting it when the cache has no entry yet); `notFound`
-/// when it is not installed.
-async fn installed_binary(state: &AppState, harness: HarnessId) -> CommandResult<ResolvedBinary> {
-    let cached = state.detections.read().await.get(&harness).cloned();
-
-    let summary = match cached {
-        Some(summary) => summary,
-        None => detect(state, harness).await?,
-    };
-
-    let detection = summary.detection;
-
-    match detection.binary_path {
-        Some(path) if detection.installed => Ok(ResolvedBinary {
-            path: PathBuf::from(path),
-            is_batch_script: detection.is_batch_script,
-        }),
-        _ => Err(BusinessError::NotFound(format!("{harness:?} is not installed")).into()),
-    }
-}
-
 /// Stops the session in the background once its channel closes. Holds the agents weakly: the
 /// sink lives inside a session the agents own.
 fn stop_when_closed(agents: &Arc<Agents>) -> OnClosed {
@@ -183,13 +161,13 @@ mod tests {
 
     use harness_business::agent::{AgentManager, SessionOptions};
     use harness_business::env::Env;
-    use harness_business::model::{Detection, HarnessSummary, IpcErrorCode, VersionSupport};
+    use harness_business::model::{HarnessId, IpcErrorCode};
     use harness_business::process::{ExecSpec, ProcessSpawner, SpawnedProcess, TokioSpawner};
     use serde_json::Value;
     use tauri::async_runtime::block_on;
 
     use super::*;
-    use crate::test_support::{TempDir, collecting_channel};
+    use crate::test_support::{TempDir, cache_detection, collecting_channel};
 
     /// How long a test waits for the fake agent.
     const WAIT: Duration = Duration::from_secs(10);
@@ -276,7 +254,7 @@ mod tests {
         };
         state.agents = Arc::new(Agents::with(AgentManager::with_options(options), spawner.clone()));
 
-        cache_detection(&state, Some(binary));
+        cache_detection(&state, HarnessId::Omp, Some(binary));
 
         Setup {
             state,
@@ -284,28 +262,6 @@ mod tests {
             project,
             _dir: dir,
         }
-    }
-
-    /// Caches an OMP detection: installed at `binary`, or not installed.
-    fn cache_detection(state: &AppState, binary: Option<&Path>) {
-        let omp = state.registry.get(HarnessId::Omp).expect("OMP is registered");
-        let summary = HarnessSummary {
-            info: omp.info(),
-            capabilities: omp.capabilities(),
-            detection: Detection {
-                installed: binary.is_some(),
-                binary_path: binary.map(|path| path.to_string_lossy().into_owned()),
-                is_batch_script: false,
-                version: None,
-                version_support: VersionSupport::Unknown,
-                config_dir: None,
-                config_dir_exists: false,
-                install_hint: None,
-                error: None,
-            },
-        };
-
-        block_on(state.detections.write()).insert(HarnessId::Omp, summary);
     }
 
     fn request(project: &Path) -> AgentStartRequest {
@@ -453,7 +409,7 @@ mod tests {
         let forbidden = block_on(start(&setup.state, request(&stranger), channel)).expect_err("unknown project");
         assert_eq!(forbidden.code(), IpcErrorCode::Forbidden);
 
-        cache_detection(&setup.state, None);
+        cache_detection(&setup.state, HarnessId::Omp, None);
         let (channel, _) = collecting_channel();
         let missing = block_on(start(&setup.state, request(&setup.project), channel)).expect_err("not installed");
         assert_eq!(missing.code(), IpcErrorCode::NotFound);

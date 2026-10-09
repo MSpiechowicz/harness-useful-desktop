@@ -10,6 +10,7 @@
   import { statusName, statusTone } from '$lib/git/entries';
   import type { StatusEntry } from '$lib/ipc/bindings/StatusEntry';
   import { git } from '$lib/stores/git.svelte';
+  import { revealPath } from '$lib/ipc/actions';
   import { MAX_TEXT_BYTES, review } from '$lib/stores/review.svelte';
 
   import { diffMode } from './diff-mode.svelte';
@@ -93,6 +94,7 @@
           oncomment={add}
           onedit={(id, body) => review.edit(project, id, body)}
           onremove={(id) => review.remove(project, id)}
+          onreveal={() => void revealPath(`${project}/${entry.path}`)}
         />
       {/key}
     {:else}

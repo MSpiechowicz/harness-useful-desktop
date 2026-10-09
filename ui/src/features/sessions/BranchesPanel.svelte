@@ -17,9 +17,9 @@
 
 <section aria-label="Git branches" class={cx('flex min-h-0 flex-col border-t border-line', open && 'max-h-[45%]')}>
   <div class="flex items-center gap-1 pr-2 pl-1">
-    <button type="button" aria-expanded={open} class="flex h-9 flex-1 items-center gap-1.5 rounded-md px-2 text-sm font-medium text-fg hover:bg-hover" onclick={() => (open = !open)}>
-      <ChevronRight size={14} class={cx('transition-transform duration-[var(--dur-fast)]', open && 'rotate-90')} aria-hidden="true" />
-      <GitBranch size={14} class="text-accent-text" aria-hidden="true" />
+    <button type="button" aria-expanded={open} class="flex h-9 flex-1 items-center gap-1.5 rounded-md px-2 text-sm font-medium text-fg hover:bg-hover active:bg-press" onclick={() => (open = !open)}>
+      <ChevronRight size={16} class={cx('transition-transform duration-[var(--dur-fast)]', open && 'rotate-90')} aria-hidden="true" />
+      <GitBranch size={16} class="text-accent-text" aria-hidden="true" />
       Git branches
       {#if git.status?.isRepo}<span class="tabular rounded-full bg-surface-3 px-1.5 text-xs leading-5 text-fg-2">{git.branches.length}</span>{/if}
     </button>

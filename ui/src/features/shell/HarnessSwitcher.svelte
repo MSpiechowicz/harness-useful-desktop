@@ -43,7 +43,7 @@
         <StatusDot tone="neutral" class="ml-1.5" />
         <span class="text-fg-2">No harness</span>
       {/if}
-      <ChevronDown size={14} class="text-fg-3" aria-hidden="true" />
+      <ChevronDown size={16} class="text-fg-3" aria-hidden="true" />
     </button>
   {/snippet}
 
@@ -64,7 +64,7 @@
               onclick={() => void choose(summary.info.id, installed, close)}
               class={cx(
                 'flex w-full items-center gap-3 rounded-md px-2.5 py-2 text-left transition-colors duration-[var(--dur-fast)]',
-                current ? 'bg-accent-wash' : 'hover:bg-hover',
+                current ? 'bg-accent-wash' : 'hover:bg-hover active:bg-press',
                 !installed && 'cursor-not-allowed opacity-60',
               )}
             >
@@ -91,7 +91,7 @@
           close();
           onboarding.restart('harnesses');
         }}
-        class="flex w-full items-center gap-3 rounded-md px-2.5 py-2 text-left text-sm text-fg-2 transition-colors duration-[var(--dur-fast)] hover:bg-hover hover:text-fg"
+        class="flex w-full items-center gap-3 rounded-md px-2.5 py-2 text-left text-sm text-fg-2 transition-colors duration-[var(--dur-fast)] hover:bg-hover active:bg-press hover:text-fg"
       >
         <Settings2 size={16} aria-hidden="true" />
         Detect or set up harnesses…

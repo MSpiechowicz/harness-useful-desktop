@@ -26,9 +26,9 @@
     class="flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-left text-sm text-fg-3 transition-colors hover:text-fg-2"
     onclick={() => (chosen = !open)}
   >
-    <Brain size={14} aria-hidden="true" />
+    <Brain size={16} aria-hidden="true" />
     <span class={cx(streaming && 'sheen')}>{streaming ? 'Thinking…' : 'Thought process'}</span>
-    <ChevronRight size={14} aria-hidden="true" class={cx('ml-auto transition-transform duration-[var(--dur-fast)]', open && 'rotate-90')} />
+    <ChevronRight size={16} aria-hidden="true" class={cx('ml-auto transition-transform duration-[var(--dur-fast)]', open && 'rotate-90')} />
   </button>
 
   {#if open}

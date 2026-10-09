@@ -25,8 +25,6 @@ pub const CAPTURED_VARS: &[&str] = &[
     "TMP",
     "OMP_PROFILE",
     "PI_PROFILE",
-    "HARNESS_DASHBOARD_HOME",
-    "HARNESS_DASHBOARD_DB",
 ];
 
 /// Operating-system family, used for platform-specific paths.

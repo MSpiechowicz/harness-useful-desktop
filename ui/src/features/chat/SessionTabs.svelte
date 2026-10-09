@@ -2,10 +2,12 @@
   import Plus from '@lucide/svelte/icons/plus';
   import X from '@lucide/svelte/icons/x';
 
+  import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
   import HarnessBadge from '$lib/components/HarnessBadge.svelte';
   import IconButton from '$lib/components/IconButton.svelte';
   import Spinner from '$lib/components/Spinner.svelte';
   import StatusDot from '$lib/components/StatusDot.svelte';
+  import type { ChatSession } from '$lib/chat/session.svelte';
   import { agentSessions } from '$lib/stores/agentSession.svelte';
   import { harness } from '$lib/stores/harness.svelte';
   import { project } from '$lib/stores/project.svelte';
@@ -16,6 +18,20 @@
   const canCreate = $derived(Boolean(harness.active?.detection.installed && project.active));
 
   let tabs: (HTMLElement | undefined)[] = $state([]);
+  let closing = $state<ChatSession | null>(null);
+  let confirmOpen = $state(false);
+
+  /** Closing a chat that is still working loses the turn in progress, so it asks first. */
+  function close(session: ChatSession): void {
+    if (session.streaming) {
+      closing = session;
+      confirmOpen = true;
+
+      return;
+    }
+
+    void agentSessions.stop(session.key);
+  }
 
   function create(): void {
     if (harness.active && project.active) {
@@ -33,12 +49,12 @@
   }
 </script>
 
-<div class="flex items-center gap-1 border-b border-line px-3 pt-2">
-  <div role="tablist" aria-label="Chats" class="flex min-w-0 items-center gap-1 overflow-x-auto">
+<div class="mx-2 flex min-w-0 items-center gap-1 border-l border-line pl-4">
+  <div role="tablist" aria-label="Chats" class="flex min-w-0 items-center gap-1 overflow-x-auto py-1">
     {#each sessions as session, index (session.key)}
       {@const selected = session.key === agentSessions.activeKey}
       {@const summary = harness.get(session.info.harness)}
-      <div class={cx('group flex shrink-0 items-center rounded-t-md border border-b-0 pr-1 transition-colors', selected ? 'border-line bg-surface-1 text-fg' : 'border-transparent text-fg-2 hover:bg-hover')}>
+      <div class={cx('group flex shrink-0 items-center rounded-md border pr-0.5 transition-colors', selected ? 'border-line-strong bg-surface-3 text-fg shadow-raised' : 'border-transparent text-fg-2 hover:bg-hover active:bg-press')}>
         <button
           bind:this={tabs[index]}
           type="button"
@@ -46,23 +62,32 @@
           aria-selected={selected}
           tabindex={selected ? 0 : -1}
           title={session.info.project}
-          class="flex h-9 max-w-52 items-center gap-2 pr-1 pl-2.5 text-sm"
+          class="flex h-8 max-w-52 items-center gap-2 pr-1 pl-2.5 text-sm"
           onclick={() => agentSessions.select(session.key)}
           onkeydown={(event) => onKeydown(event, index)}
         >
           {#if summary}<HarnessBadge info={summary.info} size="sm" />{/if}
           <span class="truncate">{session.name ?? 'New chat'}</span>
           {#if session.streaming}
-            <Spinner size={12} class="text-accent-text" label="Working" />
+            <Spinner size={16} class="text-accent-text" label="Working" />
           {:else if session.ended}
             <StatusDot tone="danger" />
             <span class="sr-only">Stopped</span>
           {/if}
         </button>
-        <IconButton icon={X} label="Close chat" size="sm" onclick={() => void agentSessions.stop(session.key)} />
+        <IconButton icon={X} label="Close chat" size="sm" onclick={() => close(session)} />
       </div>
     {/each}
   </div>
 
-  <IconButton icon={Plus} label={canCreate ? 'New chat' : 'Open a project and install a harness to start a chat'} size="sm" disabled={!canCreate} onclick={create} class="mb-0.5" />
+  <IconButton icon={Plus} label={canCreate ? 'Open another chat' : 'Open a project and install a harness to start a chat'} size="sm" disabled={!canCreate} onclick={create} />
 </div>
+
+<ConfirmDialog
+  bind:open={confirmOpen}
+  title="Stop this chat?"
+  description="{closing?.name ?? 'This chat'} is still working. Closing it stops the agent and discards the answer in progress."
+  confirmLabel="Stop chat"
+  cancelLabel="Keep working"
+  onconfirm={() => closing && void agentSessions.stop(closing.key)}
+/>

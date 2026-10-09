@@ -30,17 +30,17 @@
 {:else if item.kind === 'compaction' || item.kind === 'retry'}
   <p class="flex items-center justify-center gap-2 py-1 text-xs text-fg-3" role="status">
     {#if item.phase === 'running'}
-      <Spinner size={12} />
+      <Spinner size={16} />
     {:else if item.phase === 'failed'}
-      <TriangleAlert size={12} class="text-warning" aria-hidden="true" />
+      <TriangleAlert size={16} class="text-warning" aria-hidden="true" />
     {:else}
-      <CircleCheck size={12} class="text-success" aria-hidden="true" />
+      <CircleCheck size={16} class="text-success" aria-hidden="true" />
     {/if}
     <span class="break-words">{item.text}</span>
   </p>
 {:else if item.kind === 'url'}
   <div class="flex flex-col gap-2 rounded-md border border-line-strong bg-surface-1/60 px-3.5 py-3">
-    <p class="flex items-center gap-2 text-sm font-medium text-fg"><Link size={14} class="text-accent-text" aria-hidden="true" /> The agent shared a link</p>
+    <p class="flex items-center gap-2 text-sm font-medium text-fg"><Link size={16} class="text-accent-text" aria-hidden="true" /> The agent shared a link</p>
     {#if item.instructions}<p class="text-sm break-words text-fg-2">{item.instructions}</p>{/if}
     <div class="flex items-center gap-1 rounded-sm bg-canvas px-2.5 py-1.5">
       <code class="min-w-0 flex-1 font-mono text-xs break-all text-fg">{item.url}</code>

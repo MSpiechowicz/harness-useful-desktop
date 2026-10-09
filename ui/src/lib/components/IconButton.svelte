@@ -3,7 +3,7 @@
 
   import { cx } from '$lib/utils/cx';
 
-  import type { IconComponent } from './icon';
+  import { ICON, type IconComponent } from './icon';
   import Tooltip from './Tooltip.svelte';
 
   type Size = 'sm' | 'md' | 'lg';
@@ -13,17 +13,19 @@
     icon: IconComponent;
     /** Required: used as the accessible name and the tooltip text. */
     label: string;
+    /** Shortcut combo shown in the tooltip, e.g. `mod+k`. */
+    shortcut?: string;
     size?: Size;
     side?: 'top' | 'bottom' | 'right';
   }
 
-  let { icon: Icon, label, size = 'md', side = 'top', type = 'button', class: className, ...rest }: Props = $props();
+  let { icon: Icon, label, shortcut, size = 'md', side = 'top', type = 'button', class: className, ...rest }: Props = $props();
 
   const BOX: Record<Size, string> = { sm: 'size-7', md: 'size-9', lg: 'size-11' };
-  const GLYPH: Record<Size, number> = { sm: 15, md: 18, lg: 22 };
+  const GLYPH: Record<Size, number> = { sm: ICON.sm, md: ICON.md, lg: ICON.lg };
 </script>
 
-<Tooltip text={label} {side}>
+<Tooltip text={label} {shortcut} {side}>
   {#snippet children({ describedby })}
     <button
       {type}

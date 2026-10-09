@@ -7,58 +7,70 @@
   import IconButton from '$lib/components/IconButton.svelte';
   import NoticeBanner from '$lib/components/NoticeBanner.svelte';
   import Tabs from '$lib/components/Tabs.svelte';
+  import ViewHeader from '$lib/components/ViewHeader.svelte';
   import { harness } from '$lib/stores/harness.svelte';
-  import { project } from '$lib/stores/project.svelte';
+  import { viewState } from '$lib/stores/view-state.svelte';
   import { extensionsView } from '$lib/stores/views.svelte';
 
   import HarnessGate from '../harness/HarnessGate.svelte';
+  import { scopeLabel } from '../shell/scope';
+  import ActionDialog from './actions/ActionDialog.svelte';
+  import ExtensionToolbar from './actions/ExtensionToolbar.svelte';
   import { tabCount, visibleTabs, type ExtTab } from './extension-items';
   import ExtensionsPanel from './ExtensionsPanel.svelte';
 
-  let chosen = $state<ExtTab>('plugins');
-
   const tabs = $derived(harness.active ? visibleTabs(harness.active.capabilities) : []);
+  const currentTab = $derived(tabs.some((tab) => tab.id === viewState.extensionsTab) ? viewState.extensionsTab : tabs[0]?.id);
+
+  function chooseTab(next: ExtTab): void {
+    viewState.extensionsTab = next;
+    viewState.extensionsItem = null;
+    viewState.extensionsQuery = '';
+  }
 </script>
 
-<HarnessGate loader={extensionsView} noun="extensions">
-  {#snippet children(view)}
-    {@const options = tabs.map((tab) => ({ value: tab.id, label: tab.label, count: tabCount(tab.id, view) }))}
-    {@const current = options.some((option) => option.value === chosen) ? chosen : options[0]?.value}
-
-    <header class="flex items-center gap-3 px-6 pt-5 pb-3">
-      {#if harness.active}
-        <HarnessBadge info={harness.active.info} />
-      {/if}
-      <div class="flex min-w-0 flex-1 flex-col">
-        <h2 class="text-xl text-fg">Extensions</h2>
-        <p class="truncate text-sm text-fg-2">
-          {harness.active?.info.name} · {project.active ? project.active.name : 'no project open'}
-        </p>
-      </div>
+<div class="flex size-full min-h-0 flex-col">
+  <ViewHeader title="Extensions" context={scopeLabel()}>
+    {#snippet leading()}
+      {#if harness.active}<HarnessBadge info={harness.active.info} />{/if}
+    {/snippet}
+    {#snippet actions()}
+      <ExtensionToolbar tab={currentTab ?? undefined} />
       <IconButton icon={RotateCw} label="Reload extensions" side="bottom" onclick={() => extensionsView.refresh()} />
-    </header>
+    {/snippet}
+  </ViewHeader>
 
-    {#if view.notices.length > 0}
-      <div class="px-6 pb-3"><NoticeBanner notices={view.notices} /></div>
-    {/if}
+  <ActionDialog />
 
-    {#if current}
-      <Tabs
-        items={options}
-        bind:value={() => current, (next) => (chosen = next)}
-        label="Extension types"
-        class="min-h-0 flex-1 gap-0"
-        stripClass="mx-6 self-start"
-        panelClass="min-h-0 flex-1 border-t border-line"
-      >
-        {#snippet panel(tab)}
-          <ExtensionsPanel {tab} {view} />
-        {/snippet}
-      </Tabs>
-    {:else}
-      <div class="grid flex-1 place-items-center">
-        <EmptyState icon={Blocks} title="No extension types" body="This harness does not expose plugins, skills or MCP servers." />
-      </div>
-    {/if}
-  {/snippet}
-</HarnessGate>
+  <div class="relative min-h-0 flex-1">
+    <HarnessGate loader={extensionsView} noun="extensions">
+      {#snippet children(view)}
+        {@const options = tabs.map((tab) => ({ value: tab.id, label: tab.label, count: tabCount(tab.id, view) }))}
+        {@const current = options.some((option) => option.value === viewState.extensionsTab) ? (viewState.extensionsTab as ExtTab) : options[0]?.value}
+
+        {#if view.notices.length > 0}
+          <div class="page-gutter pt-3"><NoticeBanner notices={view.notices} /></div>
+        {/if}
+
+        {#if current}
+          <Tabs
+            items={options}
+            bind:value={() => current, chooseTab}
+            label="Extension types"
+            class="mt-1 min-h-0 flex-1 gap-0"
+            stripClass="mx-[var(--gutter)] max-w-[calc(100%-2*var(--gutter))] self-start overflow-x-auto"
+            panelClass="min-h-0 flex-1 border-t border-line"
+          >
+            {#snippet panel(tab)}
+              <ExtensionsPanel {tab} {view} />
+            {/snippet}
+          </Tabs>
+        {:else}
+          <div class="grid flex-1 place-items-center">
+            <EmptyState icon={Blocks} title="No extension types" body="This harness does not expose plugins, skills or MCP servers." />
+          </div>
+        {/if}
+      {/snippet}
+    </HarnessGate>
+  </div>
+</div>

@@ -2,13 +2,24 @@
   import Badge from '$lib/components/Badge.svelte';
   import ConfigValueView from '$lib/components/ConfigValueView.svelte';
   import type { PackageInfo } from '$lib/ipc/bindings/PackageInfo';
+  import { harness } from '$lib/stores/harness.svelte';
+  import { project } from '$lib/stores/project.svelte';
+
+  import ActionBar from './actions/ActionBar.svelte';
+  import { packageActions } from './actions/item-actions';
 
   interface Props {
     pkg: PackageInfo;
   }
 
   let { pkg }: Props = $props();
+
+  const actions = $derived(harness.active ? packageActions(harness.active.info.id, pkg, project.active?.path ?? null) : []);
 </script>
+
+{#if actions.length > 0}
+  <ActionBar {actions} />
+{/if}
 
 <section class="flex flex-col gap-2" aria-label="Source">
   <h3 class="text-sm font-medium tracking-wider text-fg-3 uppercase">Source</h3>

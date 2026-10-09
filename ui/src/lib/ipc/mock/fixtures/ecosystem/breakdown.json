@@ -1,0 +1,63 @@
+{
+  "tool": "breakdown",
+  "data": {
+    "dimension": "model",
+    "range": {
+      "name": "30d",
+      "from": "2026-09-09T22:00:00.000Z",
+      "to": "2026-10-09T12:30:00.000Z"
+    },
+    "totalCostUsd": 142.9071,
+    "totalTokens": 127507600,
+    "rows": [
+      {
+        "key": "claude-opus-5-5",
+        "costUsd": 88.1203,
+        "share": 0.617,
+        "tokens": 71220000,
+        "modelCalls": 3104,
+        "sessions": 96,
+        "prompts": 642,
+        "cacheHitRate": 0.921,
+        "lastActivity": "2026-10-09T12:27:09.000Z"
+      },
+      {
+        "key": "claude-sonnet-5",
+        "costUsd": 31.441,
+        "share": 0.22,
+        "tokens": 34105600,
+        "modelCalls": 1880,
+        "sessions": 61,
+        "prompts": 377,
+        "cacheHitRate": 0.904,
+        "lastActivity": "2026-10-09T11:02:51.000Z"
+      },
+      {
+        "key": "gpt-6-sol",
+        "costUsd": 17.2289,
+        "share": 0.121,
+        "tokens": 15982000,
+        "modelCalls": 958,
+        "sessions": 23,
+        "prompts": 141,
+        "cacheHitRate": 0.873,
+        "lastActivity": "2026-10-08T17:45:30.000Z"
+      },
+      {
+        "key": "gemini-3-pro",
+        "costUsd": 6.1169,
+        "share": 0.043,
+        "tokens": 6200000,
+        "modelCalls": 273,
+        "sessions": 9,
+        "prompts": 44,
+        "cacheHitRate": 0.812,
+        "lastActivity": "2026-10-01T09:14:05.000Z",
+        "estimatedPrice": true
+      }
+    ],
+    "note": "Costs are USD at API-equivalent list prices, not what a subscription bills."
+  },
+  "text": null,
+  "isError": false
+}

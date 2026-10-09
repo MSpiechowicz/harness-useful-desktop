@@ -7,7 +7,7 @@ use harness_business::BusinessError;
 use harness_business::env::Env;
 use harness_business::harness::{Harness, HarnessRegistry};
 use harness_business::model::{BinaryOverride, CommandSpec, ConfigView, ExtensionsView, HarnessId, HarnessSummary};
-use harness_business::process::find_override;
+use harness_business::process::{ResolvedBinary, find_override};
 use harness_business::project::Projects;
 use tauri::{AppHandle, State};
 
@@ -142,6 +142,27 @@ pub(super) async fn detect(state: &AppState, harness: HarnessId) -> CommandResul
     state.detections.write().await.insert(harness, summary.clone());
 
     Ok(summary)
+}
+
+/// The detected binary of `harness` (detecting it when the cache has no entry yet); `notFound`
+/// when it is not installed.
+pub(super) async fn installed_binary(state: &AppState, harness: HarnessId) -> CommandResult<ResolvedBinary> {
+    let cached = state.detections.read().await.get(&harness).cloned();
+
+    let summary = match cached {
+        Some(summary) => summary,
+        None => detect(state, harness).await?,
+    };
+
+    let detection = summary.detection;
+
+    match detection.binary_path {
+        Some(path) if detection.installed => Ok(ResolvedBinary {
+            path: PathBuf::from(path),
+            is_batch_script: detection.is_batch_script,
+        }),
+        _ => Err(BusinessError::NotFound(format!("{harness:?} is not installed")).into()),
+    }
 }
 
 async fn stored_overrides(state: &AppState) -> CommandResult<Vec<BinaryOverride>> {

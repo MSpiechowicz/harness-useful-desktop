@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Harness Desktop app icon, tighter crop for 32 px and below (source for `tauri icon`).
+  Flat dark tile (#141A2B to #0A0E18) with a 1px white 9% rim and the approved "H_" mark in the
+  dark-theme accent gradient. Mark geometry matches ui/src/lib/brand/geometry.ts (128 grid).
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="mark" gradientUnits="userSpaceOnUse" x1="18" y1="20" x2="103" y2="94">
+      <stop offset="0" stop-color="#A478FF"/>
+      <stop offset="0.55" stop-color="#42A3FD"/>
+      <stop offset="1" stop-color="#7DE8EE"/>
+    </linearGradient>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#141A2B"/>
+      <stop offset="1" stop-color="#0A0E18"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="120" height="120" rx="28" fill="url(#tile)"/>
+  <rect x="4.5" y="4.5" width="119" height="119" rx="27.5" fill="none" stroke="#FFFFFF" stroke-opacity="0.09"/>
+  <g transform="translate(64 64) scale(.86) translate(-60.5 -57)" fill="url(#mark)">
+    <path d="M18 20 H33 V50 H58 V20 H73 V64 H33 V94 H18 Z"/>
+    <rect x="73" y="79" width="30" height="15"/>
+  </g>
+</svg>

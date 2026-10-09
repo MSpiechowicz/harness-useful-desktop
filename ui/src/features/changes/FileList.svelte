@@ -69,7 +69,7 @@
         aria-selected={selected}
         tabindex={selected ? 0 : -1}
         title={entry.path}
-        class={cx('flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left transition-colors duration-[var(--dur-fast)]', selected ? 'bg-accent-wash' : 'hover:bg-hover')}
+        class={cx('flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left transition-colors duration-[var(--dur-fast)]', selected ? 'bg-accent-wash' : 'hover:bg-hover active:bg-press')}
         onclick={() => git.select(entry.path)}
         onkeydown={(event) => onKeydown(event, index)}
       >

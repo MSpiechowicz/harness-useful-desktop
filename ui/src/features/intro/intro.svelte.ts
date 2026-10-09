@@ -1,11 +1,13 @@
 import type { MotionLevel } from '$lib/stores/motion.svelte';
 
 /**
- * Timeline of the cold-start intro (milliseconds from start).
- * Everything the user waits for is over by `TOTAL_MS` (<= 1.6 s).
+ * Timeline of the cold-start intro (milliseconds from start). The logo's launch animation takes
+ * 2.92 s (crack, topple, impact, two cursor blinks); the shell takes over right after it, and
+ * `launched()` hands over the moment the logo reports it is done. Any key or click skips it all.
  */
-export const HANDOFF_MS = 900;
-export const TOTAL_MS = 1600;
+export const HANDOFF_MS = 2950;
+export const HANDOFF_DURATION_MS = 700;
+export const TOTAL_MS = HANDOFF_MS + HANDOFF_DURATION_MS;
 export const REDUCED_MS = 250;
 
 export type IntroPhase = 'idle' | 'playing' | 'handoff' | 'done';
@@ -30,8 +32,15 @@ export class IntroController {
       this.schedule(() => (this.phase = 'done'), REDUCED_MS);
     } else {
       this.phase = 'playing';
-      this.schedule(() => (this.phase = 'handoff'), HANDOFF_MS);
-      this.schedule(() => (this.phase = 'done'), TOTAL_MS);
+      this.schedule(() => this.handOff(), HANDOFF_MS);
+    }
+  }
+
+  /** The logo finished its launch: hand over to the shell without waiting for the fallback timer. */
+  launched(): void {
+    if (this.phase === 'playing') {
+      this.clearTimers();
+      this.handOff();
     }
   }
 
@@ -44,6 +53,11 @@ export class IntroController {
   /** The intro is neither skipped nor disabled: input should skip it. */
   get active(): boolean {
     return this.phase === 'playing' || this.phase === 'handoff';
+  }
+
+  private handOff(): void {
+    this.phase = 'handoff';
+    this.schedule(() => (this.phase = 'done'), HANDOFF_DURATION_MS);
   }
 
   private schedule(action: () => void, ms: number): void {

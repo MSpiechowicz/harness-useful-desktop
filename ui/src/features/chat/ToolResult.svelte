@@ -33,7 +33,7 @@
     <TerminalBlock text={shown} {running} class={cx(failed && 'border-danger/40')} />
 
     {#if long}
-      <button type="button" class="self-start text-xs text-accent-text underline underline-offset-2" onclick={() => (expanded = !expanded)}>
+      <button type="button" class="self-start rounded-sm text-xs text-accent-text underline underline-offset-2 transition-colors hover:text-fg" onclick={() => (expanded = !expanded)}>
         {expanded ? 'Show less' : `Show all (${lines.length} lines)`}
       </button>
     {/if}

@@ -1,8 +1,6 @@
 <script lang="ts">
   import GitFork from '@lucide/svelte/icons/git-fork';
-  import RotateCw from '@lucide/svelte/icons/rotate-cw';
 
-  import IconButton from '$lib/components/IconButton.svelte';
   import SearchField from '$lib/components/SearchField.svelte';
   import VirtualList from '$lib/components/VirtualList.svelte';
   import type { SessionSummary } from '$lib/ipc/bindings/SessionSummary';
@@ -15,11 +13,9 @@
     sessions: SessionSummary[];
     selectedId: string | null;
     onselect: (summary: SessionSummary) => void;
-    onrefresh: () => void;
-    refreshing: boolean;
   }
 
-  let { sessions, selectedId, onselect, onrefresh, refreshing }: Props = $props();
+  let { sessions, selectedId, onselect }: Props = $props();
 
   const ROW_PX = 68;
 
@@ -44,9 +40,8 @@
 </script>
 
 <div class="flex min-h-0 flex-1 flex-col">
-  <div class="flex items-center gap-2 px-3 pt-3 pb-2">
-    <SearchField bind:value={query} label="Search sessions" placeholder="Search sessions…" class="flex-1" />
-    <IconButton icon={RotateCw} label="Refresh sessions" side="bottom" disabled={refreshing} onclick={onrefresh} />
+  <div class="px-3 pt-3 pb-2">
+    <SearchField bind:value={query} label="Search sessions" placeholder="Search sessions…" />
   </div>
 
   {#if shown.length === 0}
@@ -60,7 +55,7 @@
             type="button"
             data-session={summary.ref.id}
             aria-current={selected ? 'true' : undefined}
-            class={cx('flex w-full flex-col justify-center gap-0.5 border-l-2 px-3 py-2 text-left transition-colors duration-[var(--dur-fast)]', selected ? 'border-accent bg-accent-wash' : 'border-transparent hover:bg-hover')}
+            class={cx('flex w-full flex-col justify-center gap-0.5 border-l-2 px-3 py-2 text-left transition-colors duration-[var(--dur-fast)]', selected ? 'border-accent bg-accent-wash' : 'border-transparent hover:bg-hover active:bg-press')}
             style:height="{ROW_PX}px"
             onclick={() => onselect(summary)}
           >
@@ -69,7 +64,7 @@
               <span>{relativeTime(summary.updatedAt)}</span>
               {#if summary.model}<span class="truncate">· {summary.model}</span>{/if}
               <span class="shrink-0">· {formatBytes(summary.sizeBytes)}</span>
-              {#if summary.parentSession}<GitFork size={12} class="shrink-0" aria-label="Forked from another session" />{/if}
+              {#if summary.parentSession}<GitFork size={16} class="shrink-0" aria-label="Forked from another session" />{/if}
             </span>
           </button>
         {/snippet}

@@ -49,6 +49,20 @@ export class GitStore {
 
   constructor(private readonly transport: Transport) {}
 
+  /** The project whose git state is loaded (or loading), if any. */
+  get activeProject(): string | null {
+    return this.project;
+  }
+
+  /** Makes sure the project's git state is loaded; unlike `activate` it leaves an already-loaded one alone. */
+  ensure(project: string | null): void {
+    if (project === this.project && this.loadStatus !== 'idle') {
+      return;
+    }
+
+    this.activate(project);
+  }
+
   /** Loads (or quietly reloads) the project's git state; switching projects starts clean. */
   activate(project: string | null): void {
     if (project === this.project && this.loadStatus !== 'idle') {
@@ -113,6 +127,19 @@ export class GitStore {
     if (path !== null && !this.diffs[path]) {
       void this.fetchDiffs([path]);
     }
+  }
+
+  /** Selects a changed file even when the scope tab or the path filter hides it, by widening both. */
+  reveal(path: string): void {
+    const visible = this.entries.some((entry) => entry.path === path);
+
+    if (!visible) {
+      this.filter = null;
+      this.scope = 'all';
+      this.reload();
+    }
+
+    this.select(path);
   }
 
   clearFilter(): void {

@@ -22,7 +22,7 @@
     className,
   )}
 >
-  <Search size={14} aria-hidden="true" />
+  <Search size={16} aria-hidden="true" />
   <input
     bind:value
     type="search"

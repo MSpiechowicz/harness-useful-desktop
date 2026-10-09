@@ -1,0 +1,2 @@
+// The server rejects the handshake.
+{"expect": "initialize", "reply": {"error": {"code": -32602, "message": "params.protocolVersion is required"}}}

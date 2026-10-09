@@ -7,6 +7,8 @@
 //! the crash) and never include the `exited` caused by stopping the fake agent.
 
 pub mod m3;
+pub mod m4;
+pub mod m5;
 
 use std::sync::{Arc, OnceLock};
 

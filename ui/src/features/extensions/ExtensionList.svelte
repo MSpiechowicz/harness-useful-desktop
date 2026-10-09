@@ -42,7 +42,7 @@
     class={cx(
       'flex w-full flex-col justify-center gap-1 rounded-md border px-3 py-2 text-left transition-colors duration-[var(--dur-fast)]',
       fixed && 'h-[80px]',
-      selected ? 'border-accent/30 bg-accent-wash' : 'border-transparent hover:bg-hover',
+      selected ? 'border-accent/30 bg-accent-wash' : 'border-transparent hover:bg-hover active:bg-press',
     )}
   >
     <span class="truncate text-base font-medium text-fg">{entry.title}</span>

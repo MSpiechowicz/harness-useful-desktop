@@ -1,14 +1,17 @@
-//! IPC commands. Each is a thin adapter over `harness_business`; names are the C0/M1 contract in
+//! IPC commands. Each is a thin adapter over `harness_business`; names are the C0–C4 contract in
 //! `ui/src/lib/ipc/commands.ts` and must also be listed in `build.rs` and `capabilities/main.json`.
 
 pub mod agent;
 pub mod app;
+pub mod ecosystem;
 pub mod git;
 pub mod harness;
+pub mod plugins;
 pub mod projects;
 pub mod review;
 pub mod sessions;
 pub mod system;
+pub mod updates;
 
 use std::path::PathBuf;
 

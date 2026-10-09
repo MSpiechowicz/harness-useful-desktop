@@ -31,6 +31,9 @@ regex = "1.13"
 tracing = "0.1.44"
 uuid = { version = "1.27", features = ["v4"] }
 similar = "3.2.0"
+# Updater public-key validation (the same decoders tauri-plugin-updater verifies signatures with).
+base64 = "0.22"
+minisign-verify = "0.2"
 # Desktop shell (Tauri 2 only; Tauri 3 alpha is not used).
 tauri = "2.12.2"
 tauri-build = "2.7.1"
@@ -39,6 +42,11 @@ tauri-plugin-window-state = "2.5.0"
 tauri-plugin-dialog = "2.8.1"
 tauri-plugin-opener = "2.7.0"
 tauri-plugin-log = "2.10.0"
+# Signed in-app updates over TLS. `zip` (Tauri v1 update bundles) is not needed: the bundler
+# writes v2 updater artifacts (`bundle.createUpdaterArtifacts: true`).
+tauri-plugin-updater = { version = "2.13.2", default-features = false, features = ["rustls-tls", "system-proxy"] }
+# Formats the release date the updater parses (RFC 3339).
+time = { version = "0.3.55", features = ["formatting"] }
 dunce = "1.0.5"
 # Unix-only: process-group kill (`killpg`) and non-blocking open flags.
 nix = { version = "0.31.3", default-features = false, features = ["signal", "fs", "process"] }

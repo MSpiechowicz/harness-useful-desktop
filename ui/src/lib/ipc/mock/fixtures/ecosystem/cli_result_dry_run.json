@@ -1,0 +1,26 @@
+{
+  "ok": true,
+  "summary": "[dry-run] Would install harness-useful-sidebar@harness-useful-sidebar",
+  "exitCode": 0,
+  "stdout": "[dry-run] Would install harness-useful-sidebar@harness-useful-sidebar\n",
+  "stderr": "",
+  "truncated": false,
+  "timedOut": false,
+  "argv": [
+    "omp",
+    "plugin",
+    "install",
+    "harness-useful-sidebar@harness-useful-sidebar",
+    "--scope",
+    "user",
+    "--dry-run"
+  ],
+  "command": [
+    "omp",
+    "plugin",
+    "install",
+    "harness-useful-sidebar@harness-useful-sidebar",
+    "--scope",
+    "user"
+  ]
+}

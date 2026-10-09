@@ -1,0 +1,3 @@
+// An old dashboard without the failures and tips tools.
+{"include": "mcp_handshake.jsonl"}
+{"expect": "tools/list", "reply": {"result": {"tools": [{"name": "usage_summary"}, {"name": "breakdown"}, {"name": "session_cost"}, {"name": "branch_cost"}, {"name": "limits"}, {"name": "budget_status"}]}}}

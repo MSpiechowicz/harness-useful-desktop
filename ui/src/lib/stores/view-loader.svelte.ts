@@ -39,11 +39,9 @@ export class ViewLoader<T> {
     void this.run();
   }
 
-  /** Re-fetches the current pair. */
-  refresh(): void {
-    if (this.target) {
-      void this.run();
-    }
+  /** Re-fetches the current pair; resolves once the new data (or the error) is in place. */
+  refresh(): Promise<void> {
+    return this.target ? this.run() : Promise.resolve();
   }
 
   private reset(): void {

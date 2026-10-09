@@ -4,6 +4,7 @@
   import IconButton from '$lib/components/IconButton.svelte';
   import Popover from '$lib/components/Popover.svelte';
   import type { ChatSession } from '$lib/chat/session.svelte';
+  import { formatCount } from '$lib/utils/format';
 
   interface Props {
     session: ChatSession;
@@ -16,11 +17,11 @@
     stats
       ? [
           ['Messages', `${stats.userMessages} sent · ${stats.assistantMessages} replies`],
-          ['Tool calls', stats.toolCalls.toLocaleString()],
-          ['Input tokens', stats.tokens.input.toLocaleString()],
-          ['Output tokens', stats.tokens.output.toLocaleString()],
-          ['Cache read / write', `${stats.tokens.cacheRead.toLocaleString()} / ${stats.tokens.cacheWrite.toLocaleString()}`],
-          ['Total tokens', stats.tokens.total.toLocaleString()],
+          ['Tool calls', formatCount(stats.toolCalls)],
+          ['Input tokens', formatCount(stats.tokens.input)],
+          ['Output tokens', formatCount(stats.tokens.output)],
+          ['Cache read / write', `${formatCount(stats.tokens.cacheRead)} / ${formatCount(stats.tokens.cacheWrite)}`],
+          ['Total tokens', formatCount(stats.tokens.total)],
           ['Cost', stats.costUsd === null ? 'not reported' : `$${stats.costUsd.toFixed(4)}`],
         ]
       : [],

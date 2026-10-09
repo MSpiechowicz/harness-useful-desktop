@@ -1,0 +1,172 @@
+[
+  {
+    "phase": "downloading",
+    "downloaded": 65536,
+    "total": 2097152
+  },
+  {
+    "phase": "downloading",
+    "downloaded": 131072,
+    "total": 2097152
+  },
+  {
+    "phase": "downloading",
+    "downloaded": 196608,
+    "total": 2097152
+  },
+  {
+    "phase": "downloading",
+    "downloaded": 262144,
+    "total": 2097152
+  },
+  {
+    "phase": "downloading",
+    "downloaded": 327680,
+    "total": 2097152
+  },
+  {
+    "phase": "downloading",
+    "downloaded": 393216,
+    "total": 2097152
+  },
+  {
+    "phase": "downloading",
+    "downloaded": 458752,
+    "total": 2097152
+  },
+  {
+    "phase": "downloading",
+    "downloaded": 524288,
+    "total": 2097152
+  },
+  {
+    "phase": "downloading",
+    "downloaded": 589824,
+    "total": 2097152
+  },
+  {
+    "phase": "downloading",
+    "downloaded": 655360,
+    "total": 2097152
+  },
+  {
+    "phase": "downloading",
+    "downloaded": 720896,
+    "total": 2097152
+  },
+  {
+    "phase": "downloading",
+    "downloaded": 786432,
+    "total": 2097152
+  },
+  {
+    "phase": "downloading",
+    "downloaded": 851968,
+    "total": 2097152
+  },
+  {
+    "phase": "downloading",
+    "downloaded": 917504,
+    "total": 2097152
+  },
+  {
+    "phase": "downloading",
+    "downloaded": 983040,
+    "total": 2097152
+  },
+  {
+    "phase": "downloading",
+    "downloaded": 1048576,
+    "total": 2097152
+  },
+  {
+    "phase": "downloading",
+    "downloaded": 1114112,
+    "total": 2097152
+  },
+  {
+    "phase": "downloading",
+    "downloaded": 1179648,
+    "total": 2097152
+  },
+  {
+    "phase": "downloading",
+    "downloaded": 1245184,
+    "total": 2097152
+  },
+  {
+    "phase": "downloading",
+    "downloaded": 1310720,
+    "total": 2097152
+  },
+  {
+    "phase": "downloading",
+    "downloaded": 1376256,
+    "total": 2097152
+  },
+  {
+    "phase": "downloading",
+    "downloaded": 1441792,
+    "total": 2097152
+  },
+  {
+    "phase": "downloading",
+    "downloaded": 1507328,
+    "total": 2097152
+  },
+  {
+    "phase": "downloading",
+    "downloaded": 1572864,
+    "total": 2097152
+  },
+  {
+    "phase": "downloading",
+    "downloaded": 1638400,
+    "total": 2097152
+  },
+  {
+    "phase": "downloading",
+    "downloaded": 1703936,
+    "total": 2097152
+  },
+  {
+    "phase": "downloading",
+    "downloaded": 1769472,
+    "total": 2097152
+  },
+  {
+    "phase": "downloading",
+    "downloaded": 1835008,
+    "total": 2097152
+  },
+  {
+    "phase": "downloading",
+    "downloaded": 1900544,
+    "total": 2097152
+  },
+  {
+    "phase": "downloading",
+    "downloaded": 1966080,
+    "total": 2097152
+  },
+  {
+    "phase": "downloading",
+    "downloaded": 2031616,
+    "total": 2097152
+  },
+  {
+    "phase": "downloading",
+    "downloaded": 2097152,
+    "total": 2097152
+  },
+  {
+    "phase": "installing",
+    "downloaded": 2097152,
+    "total": 2097152
+  },
+  {
+    "phase": "done",
+    "downloaded": 2097152,
+    "total": 2097152
+  }
+]

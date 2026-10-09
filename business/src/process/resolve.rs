@@ -1,7 +1,10 @@
 //! Harness binary discovery without a shell.
 //!
 //! GUI apps on macOS (and some Linux launchers) do not inherit the login shell's `PATH`, so after
-//! `PATH` the well-known install directories of bun, npm, cargo, pipx and Homebrew are searched.
+//! `PATH` the well-known install directories are searched ([`extra_search_dirs`]): bun
+//! (`~/.bun/bin`), `~/.local/bin`, cargo (`~/.cargo/bin`), npm (`~/.npm-global/bin`, and
+//! `%APPDATA%\npm` on Windows), Homebrew (`/opt/homebrew/bin` on macOS) and `/usr/local/bin`
+//! (macOS and Linux).
 //! The shell is never asked for its `PATH`.
 
 use std::path::{Path, PathBuf};

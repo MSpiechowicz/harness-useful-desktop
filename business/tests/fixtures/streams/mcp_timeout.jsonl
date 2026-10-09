@@ -1,0 +1,4 @@
+// The server accepts a call and never answers.
+{"include": "mcp_handshake.jsonl"}
+{"expect": "tools/call"}
+{"hang": true}

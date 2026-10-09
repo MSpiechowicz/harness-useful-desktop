@@ -37,13 +37,13 @@
 {#if comments.length > 0}
   <section aria-label="Review" class="flex max-h-[45%] min-h-0 flex-col border-t border-line-strong bg-surface-1">
     <div class="flex items-center gap-3 px-4 py-2">
-      <button type="button" aria-expanded={open} class="flex items-center gap-2 text-sm font-medium text-fg" onclick={() => (open = !open)}>
+      <button type="button" aria-expanded={open} class="flex items-center gap-2 rounded-sm px-1.5 py-0.5 text-sm font-medium text-fg transition-colors hover:bg-hover active:bg-press" onclick={() => (open = !open)}>
         {#if open}<ChevronDown size={16} aria-hidden="true" />{:else}<ChevronUp size={16} aria-hidden="true" />{/if}
         Review · {label}
       </button>
 
       <div class="ml-auto flex items-center gap-2">
-        <Button size="sm" variant="ghost" onclick={() => (confirmDiscard = true)}>Discard</Button>
+        <Button size="sm" variant="dangerQuiet" onclick={() => (confirmDiscard = true)}>Discard</Button>
         <Button size="sm" variant="primary" disabled={noteTooLong} onclick={() => (sending = true)}>Preview &amp; send</Button>
       </div>
     </div>

@@ -6,16 +6,18 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 
+use harness_business::ecosystem::{Dashboard, DashboardOptions};
 use harness_business::env::Env;
 use harness_business::harness::HarnessRegistry;
 use harness_business::model::{HarnessId, HarnessSummary};
 use harness_business::pi_family::sessions::SessionCache;
 use harness_business::prefs::PrefsStore;
-use harness_business::process::TokioRunner;
+use harness_business::process::{TokioRunner, TokioSpawner};
 use tauri::async_runtime::RwLock;
 use tauri::{AppHandle, Manager, Runtime};
 
 use crate::agents::Agents;
+use crate::updates::Updates;
 
 /// State shared by all IPC commands.
 pub struct AppState {
@@ -36,6 +38,10 @@ pub struct AppState {
     pub agents: Arc<Agents>,
     /// Saved-session summaries by file, reused by `sessions_list` while a file is unchanged.
     pub sessions: Arc<SessionCache>,
+    /// The pooled `harness-dashboard mcp` connection (stops after 30 s without a query).
+    pub dashboard: Arc<Dashboard>,
+    /// The in-app updater (off when the build has no updater public key).
+    pub updates: Updates,
 }
 
 impl AppState {
@@ -43,10 +49,13 @@ impl AppState {
     pub fn from_app<R: Runtime>(app: &AppHandle<R>) -> Result<Self, Box<dyn Error>> {
         let config_dir = app.path().app_config_dir()?;
 
-        Ok(Self::new(config_dir, Env::from_process()?))
+        Ok(Self {
+            updates: Updates::from_config(app.config()),
+            ..Self::new(config_dir, Env::from_process()?)
+        })
     }
 
-    /// State over the prefs in `prefs_dir` and `env`, with the default harnesses.
+    /// State over the prefs in `prefs_dir` and `env`, with the default harnesses and updates off.
     pub fn new(prefs_dir: PathBuf, env: Env) -> Self {
         Self {
             prefs: SharedPrefs::new(PrefsStore::new(prefs_dir)),
@@ -57,6 +66,8 @@ impl AppState {
             dialog: DialogGuard::default(),
             agents: Arc::new(Agents::new()),
             sessions: Arc::new(SessionCache::default()),
+            dashboard: Arc::new(Dashboard::new(Arc::new(TokioSpawner), DashboardOptions::default())),
+            updates: Updates::new(None),
         }
     }
 }

@@ -49,11 +49,11 @@
   }
 </script>
 
-<div class={cx('rounded-lg border bg-surface-1/60', call.status === 'error' ? 'border-danger/40' : 'border-line')} data-tool-status={call.status}>
+<div class={cx('bleed rounded-lg border bg-surface-1/60', call.status === 'error' ? 'border-danger/40' : 'border-line')} data-tool-status={call.status}>
   <button
     type="button"
     aria-expanded={open}
-    class="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors hover:bg-hover"
+    class="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors hover:bg-hover active:bg-press"
     onclick={() => (open = !open)}
   >
     <Icon size={16} class="shrink-0 text-fg-2" aria-hidden="true" />
@@ -65,18 +65,18 @@
 
     <span class="inline-flex shrink-0 items-center gap-1.5 text-xs text-fg-3">
       {#if call.status === 'running'}
-        <Spinner size={14} class="text-accent-text" />
+        <Spinner size={16} class="text-accent-text" />
       {:else if call.status === 'ok'}
-        <CircleCheck size={14} class="text-success" aria-hidden="true" />
+        <CircleCheck size={16} class="text-success" aria-hidden="true" />
       {:else if call.status === 'error'}
-        <CircleX size={14} class="text-danger" aria-hidden="true" />
+        <CircleX size={16} class="text-danger" aria-hidden="true" />
       {:else}
-        <Clock size={14} aria-hidden="true" />
+        <Clock size={16} aria-hidden="true" />
       {/if}
       <span>{label}</span>
     </span>
 
-    <ChevronRight size={14} aria-hidden="true" class={cx('shrink-0 text-fg-3 transition-transform duration-[var(--dur-fast)]', open && 'rotate-90')} />
+    <ChevronRight size={16} aria-hidden="true" class={cx('shrink-0 text-fg-3 transition-transform duration-[var(--dur-fast)]', open && 'rotate-90')} />
   </button>
 
   {#if call.status === 'running' && call.partial && !open}

@@ -7,7 +7,11 @@
 //! and `project_recent.json` stay synthetic. The agent chat fixtures under `agent/` are engine
 //! output: `fake_agent` scenarios run through the real session engine (`tests/samples`). The
 //! session, git and review fixtures under `sessions/`, `git/` and `review/` are real adapter, git
-//! and composer output over fixed inputs (`tests/samples/m3`; git must be installed).
+//! and composer output over fixed inputs (`tests/samples/m3`; git must be installed). The
+//! ecosystem, dashboard and extension-action fixtures under `ecosystem/` are synthetic
+//! (`tests/samples/m4`): they need real binaries, a real usage database or real harness runs. The
+//! update fixtures under `updates/` hold a synthetic release and the progress reports of the real
+//! tracker (`tests/samples/m5`).
 
 mod agent_support;
 mod common;
@@ -21,7 +25,10 @@ use std::path::PathBuf;
 use common::{CANARY, DEMO_HOME, DEMO_PROJECT, demo_project, env_at, exported, omp_home, pi_home};
 use harness_business::harness::Harness;
 use harness_business::harnesses::{Omp, Pi};
-use harness_business::model::{Detection, HarnessSummary, ProjectInfo, VersionSupport};
+use harness_business::model::{
+    CliResult, DashboardResult, DashboardTool, Detection, EcosystemId, EcosystemStatus, HarnessSummary, ProjectInfo,
+    UpdateInfo, UpdatePhase, UpdateProgress, VersionSupport,
+};
 use serde::Serialize;
 use serde_json::{Value, json};
 
@@ -58,6 +65,8 @@ fn fixtures() -> Vec<(&'static str, Value)> {
 
     fixtures.extend(samples::agent_fixtures());
     fixtures.extend(samples::m3::m3_fixtures());
+    fixtures.extend(samples::m4::m4_fixtures());
+    fixtures.extend(samples::m5::m5_fixtures());
     fixtures
 }
 
@@ -340,4 +349,135 @@ fn composed_review_reports_its_prompt_size() {
     assert_eq!(review["bytes"], prompt.len());
     assert_eq!(review["commentCount"], prompt.matches("\n- Line").count());
     assert_eq!(review["fileCount"], prompt.matches("\n### ").count());
+}
+
+/// The dashboard tool results among the `ecosystem/` fixtures.
+fn dashboard_results() -> Vec<(&'static str, DashboardResult)> {
+    fixtures()
+        .into_iter()
+        .filter(|(name, _)| name.starts_with("ecosystem/") && *name != "ecosystem/status.json")
+        .filter(|(name, _)| !name.starts_with("ecosystem/cli_result"))
+        .map(|(name, value)| (name, serde_json::from_value(value).expect("a DashboardResult")))
+        .collect()
+}
+
+#[test]
+fn dashboard_results_carry_data_or_an_error_text() {
+    let results = dashboard_results();
+
+    for tool in DashboardTool::ALL {
+        assert!(results.iter().any(|(_, result)| result.tool == tool), "{tool:?}");
+    }
+
+    for (name, result) in &results {
+        assert_eq!(result.is_error, result.data.is_null(), "{name}");
+        assert_eq!(result.is_error, result.text.is_some(), "{name}");
+        assert!(
+            name.contains(result.tool.wire_name()),
+            "{name} holds a {} result",
+            result.tool.wire_name()
+        );
+    }
+}
+
+#[test]
+fn breakdowns_add_up_to_the_thirty_day_summary() {
+    let summary = &fixture("ecosystem/usage_summary.30d.json")["data"];
+
+    for name in ["ecosystem/breakdown.json", "ecosystem/breakdown.provider.json"] {
+        let data = &fixture(name)["data"];
+        let rows = data["rows"].as_array().expect("rows");
+        let costs: Vec<f64> = rows.iter().map(|row| row["costUsd"].as_f64().unwrap()).collect();
+        let shares: f64 = rows.iter().map(|row| row["share"].as_f64().unwrap()).sum();
+        let tokens: u64 = rows.iter().map(|row| row["tokens"].as_u64().unwrap()).sum();
+
+        assert!(
+            costs.windows(2).all(|pair| pair[0] >= pair[1]),
+            "{name} is most expensive first"
+        );
+        assert!(
+            (costs.iter().sum::<f64>() - data["totalCostUsd"].as_f64().unwrap()).abs() < 1e-6,
+            "{name}"
+        );
+        assert!((shares - 1.0).abs() < 0.01, "{name} shares sum to {shares}");
+        assert_eq!(data["totalTokens"], tokens, "{name}");
+        assert_eq!(data["totalCostUsd"], summary["costUsd"], "{name}");
+        assert_eq!(data["totalTokens"], summary["tokens"]["total"], "{name}");
+    }
+}
+
+#[test]
+fn usage_summaries_grow_with_their_range() {
+    let cost = |name: &str| fixture(name)["data"]["costUsd"].as_f64().expect("costUsd");
+
+    assert!(cost("ecosystem/usage_summary.json") <= cost("ecosystem/usage_summary.7d.json"));
+    assert!(cost("ecosystem/usage_summary.7d.json") <= cost("ecosystem/usage_summary.30d.json"));
+}
+
+#[test]
+fn cli_results_report_failure_through_ok_and_confirm_the_command_without_the_preview_flag() {
+    let result = |name: &str| -> CliResult { serde_json::from_value(fixture(name)).expect("a CliResult") };
+    let failed = result("ecosystem/cli_result_failed.json");
+    let installed = result("ecosystem/cli_result_ok.json");
+    let dry_run = result("ecosystem/cli_result_dry_run.json");
+
+    assert!(!failed.ok);
+    assert_eq!(failed.exit_code, Some(0));
+    assert!(
+        failed
+            .stderr
+            .lines()
+            .any(|line| Some(line) == failed.summary.as_deref())
+    );
+    assert!(installed.ok && installed.exit_code == Some(0));
+    assert!(dry_run.ok && dry_run.exit_code == Some(0));
+
+    assert_eq!(failed.command, failed.argv);
+    assert_eq!(installed.command, installed.argv);
+    assert_eq!(dry_run.argv.last().map(String::as_str), Some("--dry-run"));
+    assert_eq!(dry_run.argv[..dry_run.argv.len() - 1], dry_run.command[..]);
+    assert_eq!(
+        dry_run.command, installed.command,
+        "the preview confirms what the install runs"
+    );
+}
+
+#[test]
+fn ecosystem_status_lists_each_tool_once_with_consistent_detection() {
+    let status: EcosystemStatus = serde_json::from_value(fixture("ecosystem/status.json")).expect("a status");
+    let ids: Vec<EcosystemId> = status.items.iter().map(|item| item.id).collect();
+
+    assert_eq!(ids, [EcosystemId::Dashboard, EcosystemId::Skills, EcosystemId::Sidebar]);
+
+    for item in &status.items {
+        assert_eq!(item.installed, !item.via.is_empty(), "{:?}", item.id);
+        assert!(item.installed || item.version.is_none(), "{:?}", item.id);
+        assert!(!item.install_steps.is_empty(), "{:?}", item.id);
+    }
+    assert!(status.items.iter().any(|item| !item.installed));
+}
+
+#[test]
+fn update_progress_downloads_everything_before_installing() {
+    let reports: Vec<UpdateProgress> =
+        serde_json::from_value(fixture("updates/progress.json")).expect("progress reports");
+    let phases: Vec<UpdatePhase> = reports.iter().map(|report| report.phase).collect();
+    let (downloads, finish) = reports.split_at(reports.len() - 2);
+
+    assert_eq!(
+        &phases[phases.len() - 2..],
+        [UpdatePhase::Installing, UpdatePhase::Done]
+    );
+    assert!(downloads.iter().all(|report| report.phase == UpdatePhase::Downloading));
+    assert!(downloads.windows(2).all(|pair| pair[0].downloaded < pair[1].downloaded));
+
+    let last = downloads.last().expect("download reports");
+    assert_eq!(Some(last.downloaded), last.total);
+    assert!(finish.iter().all(|report| report.downloaded == last.downloaded));
+
+    let update: Option<UpdateInfo> =
+        serde_json::from_value(fixture("updates/update_available.json")).expect("an update");
+    let none: Option<UpdateInfo> = serde_json::from_value(fixture("updates/no_update.json")).expect("no update");
+    assert!(update.is_some_and(|update| update.notes.is_some()));
+    assert!(none.is_none());
 }

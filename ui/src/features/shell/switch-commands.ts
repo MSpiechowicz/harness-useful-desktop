@@ -15,7 +15,7 @@ export function buildSwitchCommands(): PaletteCommand[] {
   const harnesses: PaletteCommand[] = harness.summaries.map((summary) => ({
     id: `switch-harness-${summary.info.id}`,
     label: `Switch harness: ${summary.info.shortName}`,
-    group: 'Harness',
+    group: 'Actions',
     icon: Replace,
     keywords: `${summary.info.name} agent cli`,
     disabled: !summary.detection.installed || harness.active?.info.id === summary.info.id,
@@ -25,7 +25,7 @@ export function buildSwitchCommands(): PaletteCommand[] {
   const open: PaletteCommand = {
     id: 'open-project',
     label: 'Open project…',
-    group: 'Project',
+    group: 'Actions',
     icon: FolderOpen,
     keywords: 'folder directory pick',
     run: () => void project.pick(),
@@ -34,7 +34,7 @@ export function buildSwitchCommands(): PaletteCommand[] {
   const recents: PaletteCommand[] = project.recents.map((recent) => ({
     id: `open-recent-${recent.path}`,
     label: `Open recent: ${recent.name}`,
-    group: 'Project',
+    group: 'Actions',
     icon: Folder,
     keywords: recent.path,
     disabled: !recent.exists || project.active?.path === recent.path,
@@ -42,13 +42,13 @@ export function buildSwitchCommands(): PaletteCommand[] {
   }));
 
   const close: PaletteCommand[] = project.active
-    ? [{ id: 'close-project', label: 'Close project', group: 'Project', icon: FolderX, keywords: 'folder', run: () => void project.close() }]
+    ? [{ id: 'close-project', label: 'Close project', group: 'Actions', icon: FolderX, keywords: 'folder', run: () => void project.close() }]
     : [];
 
   const setup: PaletteCommand = {
     id: 'run-onboarding',
     label: 'Run onboarding again',
-    group: 'Harness',
+    group: 'Actions',
     icon: Wand,
     keywords: 'setup detect welcome',
     run: () => onboarding.restart(),

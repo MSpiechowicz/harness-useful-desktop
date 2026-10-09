@@ -1,16 +1,20 @@
-//! Scripted OMP/PI RPC peer for the agent-session integration tests.
+//! Scripted OMP/PI RPC peer for the agent-session integration tests, and scripted MCP server for
+//! the MCP client tests.
 //!
-//! `fake_agent --dialect omp|pi --scenario <file.jsonl>` plays a scenario: one JSON step per line
-//! (blank lines and `//` comments are skipped). With `--dialect omp` the OMP `ready` frame is
-//! sent first. Steps:
+//! `fake_agent --dialect omp|pi|mcp --scenario <file.jsonl>` plays a scenario: one JSON step per
+//! line (blank lines and `//` comments are skipped). With `--dialect omp` the OMP `ready` frame is
+//! sent first. With `--dialect mcp` messages are JSON-RPC 2.0: an `expect` names a `method`
+//! instead of a `type`, and replies are `{"jsonrpc":"2.0","id":…, ...reply}` (so `reply` holds
+//! `result` or `error`). Steps:
 //!
 //! - `{"emit": {...}}` — write a frame; string values `"$name"` become the id captured as `name`.
 //! - `{"raw": "text"}` — write `text` and a newline verbatim (invalid JSON, CRLF, …).
 //! - `{"big": {"type": "t", "id": "$name", "bytes": n}}` — write a frame of type `t` (and id)
-//!   padded to `n` bytes.
+//!   padded to `n` bytes (MCP: a response to `id` whose `result` is padded).
 //! - `{"expect": "type", "as": "name", "match": {...}, "reply": {...}, "hold": true}` — wait for a
 //!   frame of `type` (frames of other types are kept for later expects), capture its id (as
-//!   `name`, default `type`), check that it contains every `match` field, then answer
+//!   `name`, default `type`), check that it contains every `match` field (keys starting with `/`
+//!   are JSON pointers, e.g. `/params/name`), then answer
 //!   `{"type":"response","id":…,"command":type, ...reply}` unless `hold` or no `reply`.
 //! - `{"respond": "name", "command": "type", "reply": {...}}` — answer a held request later.
 //! - `{"sleep": ms}`, `{"stderr": "line"}`, `{"stderrRepeat": {"line": "x", "count": n}}`.
@@ -38,7 +42,7 @@ fn main() {
     };
 
     let (Some(dialect), Some(scenario)) = (option("--dialect"), option("--scenario")) else {
-        fail(2, "usage: fake_agent --dialect omp|pi --scenario <file.jsonl>");
+        fail(2, "usage: fake_agent --dialect omp|pi|mcp --scenario <file.jsonl>");
     };
 
     let steps = load(Path::new(&scenario));
@@ -46,6 +50,7 @@ fn main() {
         stdin: spawn_stdin_reader(),
         unclaimed: Vec::new(),
         ids: HashMap::new(),
+        mcp: dialect == "mcp",
     };
 
     if dialect == "omp" {
@@ -117,6 +122,8 @@ struct Agent {
     stdin: Receiver<Value>,
     unclaimed: Vec<Value>,
     ids: HashMap<String, Value>,
+    /// JSON-RPC framing: frames are matched by `method`, replies carry `jsonrpc` and no `type`.
+    mcp: bool,
 }
 
 impl Agent {
@@ -179,7 +186,11 @@ impl Agent {
         let padding = "x".repeat(usize::try_from(bytes).unwrap_or(0));
         let id = big.get("id").map_or(Value::Null, |id| self.substitute(id));
 
-        self.write(&json!({ "type": kind, "id": id, "pad": padding }));
+        if self.mcp {
+            self.write(&json!({ "jsonrpc": "2.0", "id": id, "result": { "pad": padding } }));
+        } else {
+            self.write(&json!({ "type": kind, "id": id, "pad": padding }));
+        }
     }
 
     fn expect(&mut self, kind: &str, step: &Value) {
@@ -189,8 +200,15 @@ impl Agent {
 
         if let Some(Value::Object(expected)) = step.get("match") {
             for (key, value) in expected {
-                if frame.get(key) != Some(value) {
-                    fail(4, &format!("{kind}.{key} was {:?}, expected {value}", frame.get(key)));
+                // A key starting with `/` is a JSON pointer into the frame.
+                let actual = if key.starts_with('/') {
+                    frame.pointer(key)
+                } else {
+                    frame.get(key)
+                };
+
+                if actual != Some(value) {
+                    fail(4, &format!("{kind}.{key} was {actual:?}, expected {value}"));
                 }
             }
         }
@@ -205,9 +223,15 @@ impl Agent {
 
     fn reply(&self, id: Value, command: &str, reply: Option<&Value>) {
         let mut frame = Map::new();
-        frame.insert("type".to_owned(), json!("response"));
-        frame.insert("id".to_owned(), id);
-        frame.insert("command".to_owned(), json!(command));
+
+        if self.mcp {
+            frame.insert("jsonrpc".to_owned(), json!("2.0"));
+            frame.insert("id".to_owned(), id);
+        } else {
+            frame.insert("type".to_owned(), json!("response"));
+            frame.insert("id".to_owned(), id);
+            frame.insert("command".to_owned(), json!(command));
+        }
 
         if let Some(Value::Object(fields)) = reply.map(|reply| self.substitute(reply)) {
             frame.extend(fields);
@@ -218,7 +242,9 @@ impl Agent {
 
     /// The next frame of `kind`; exits quietly when stdin closes first.
     fn next_of(&mut self, kind: &str) -> Value {
-        if let Some(index) = self.unclaimed.iter().position(|frame| frame["type"] == kind) {
+        let key = if self.mcp { "method" } else { "type" };
+
+        if let Some(index) = self.unclaimed.iter().position(|frame| frame[key] == kind) {
             return self.unclaimed.remove(index);
         }
 
@@ -227,7 +253,7 @@ impl Agent {
                 std::process::exit(0);
             };
 
-            if frame["type"] == kind {
+            if frame[key] == kind {
                 return frame;
             }
 

@@ -95,7 +95,7 @@
         aria-current={isSelected ? 'true' : undefined}
         tabindex={isSelected || (selected === null && index === 0) ? 0 : -1}
         title={node ? nodeTooltip(node) : `Show ${item.folded.length} more messages`}
-        class={cx('flex w-full items-center gap-1 pr-3 text-left transition-colors duration-[var(--dur-fast)]', isSelected ? 'bg-accent-wash' : 'hover:bg-hover')}
+        class={cx('flex w-full items-center gap-1 pr-3 text-left transition-colors duration-[var(--dur-fast)]', isSelected ? 'bg-accent-wash' : 'hover:bg-hover active:bg-press')}
         style:height="{ROW_PX}px"
         onclick={() => activate(item)}
       >
@@ -107,10 +107,10 @@
           </span>
 
           {#if node.label}
-            <span class="inline-flex shrink-0 items-center gap-1 rounded-full bg-info-wash px-2 text-xs text-info"><Tag size={11} aria-hidden="true" />{node.label}</span>
+            <span class="inline-flex shrink-0 items-center gap-1 rounded-full bg-info-wash px-2 text-xs text-info"><Tag size={16} aria-hidden="true" />{node.label}</span>
           {/if}
           {#if item.branchPoint}
-            <span class="inline-flex shrink-0 items-center gap-1 text-xs text-accent-text" title="{node.childCount} branches start here"><GitFork size={12} aria-hidden="true" />{node.childCount}<span class="sr-only">{' branches'}</span></span>
+            <span class="inline-flex shrink-0 items-center gap-1 text-xs text-accent-text" title="{node.childCount} branches start here"><GitFork size={16} aria-hidden="true" />{node.childCount}<span class="sr-only">{' branches'}</span></span>
           {/if}
         {:else}
           <span class="min-w-0 flex-1 truncate text-sm text-fg-3 italic">{item.folded.length} more messages</span>

@@ -53,7 +53,7 @@
 
     <div class="flex items-center gap-3">
       <Button loading={harness.scanning} onclick={() => void harness.rescan()}>
-        {#snippet leading()}<RotateCw size={14} aria-hidden="true" />{/snippet}
+        {#snippet leading()}<RotateCw size={16} aria-hidden="true" />{/snippet}
         Re-scan
       </Button>
       {#if installed.length === 0}

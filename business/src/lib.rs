@@ -13,13 +13,15 @@
 //!    with its adapters ([`harnesses`]) and the parsing and RPC protocol they share
 //!    ([`pi_family`], including saved sessions on disk); running agent chat sessions over that
 //!    protocol ([`agent`]); the project repository through the git CLI ([`git`]); diff review
-//!    prompts ([`review`]). Ecosystem integration follows in a later milestone.
+//!    prompts ([`review`]); the companion tools and the dashboard's data ([`ecosystem`]); the
+//!    in-app updater's key check and progress reporting ([`update`]).
 //!
 //! Rules every module follows: no shell is ever spawned, every file read goes through
 //! [`security::SafeReader`], every path is derived from an injected [`env::Env`], and nothing
 //! secret is returned to the webview unredacted.
 
 pub mod agent;
+pub mod ecosystem;
 pub mod env;
 pub mod error;
 pub mod git;
@@ -32,6 +34,7 @@ pub mod process;
 pub mod project;
 pub mod review;
 pub mod security;
+pub mod update;
 
 #[cfg(any(test, feature = "test-support"))]
 pub mod testing;

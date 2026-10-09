@@ -13,7 +13,7 @@
 </script>
 
 {#if widgets.length > 0 || statuses.length > 0}
-  <div class="mx-auto flex w-full max-w-3xl flex-wrap items-start gap-2 px-6 pb-2">
+  <div class="chat-col flex flex-wrap items-start gap-2 pb-2">
     {#each statuses as [name, text] (name)}
       <p class="rounded-full bg-surface-3 px-3 py-1 text-xs text-fg-2" role="status">{text}</p>
     {/each}

@@ -5,6 +5,7 @@
 //! verified live yet, so every detected version reports as untested.
 
 mod catalog;
+mod cli;
 mod config;
 mod dialect;
 mod extensions;
@@ -14,6 +15,7 @@ mod packages;
 mod sessions;
 
 pub use catalog::PiCatalog;
+pub use cli::pi_cli_action;
 pub use config::pi_config_view;
 pub use dialect::PiDialect;
 pub use extensions::pi_extensions_view;
@@ -104,6 +106,10 @@ impl Harness for Pi {
 
     fn sessions_dir(&self, env: &Env, project: &Path) -> PathBuf {
         pi_sessions_dir(env, project)
+    }
+
+    fn cli_action(&self, action: &ExtensionAction, project: Option<&Path>) -> Result<CliInvocation> {
+        pi_cli_action(action, project)
     }
 
     fn install_hint(&self) -> InstallHint {

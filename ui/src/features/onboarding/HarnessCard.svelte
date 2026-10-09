@@ -60,7 +60,7 @@
       class={cx(
         'flex h-8 shrink-0 items-center gap-2 rounded-full border px-3 whitespace-nowrap text-sm font-medium transition-colors duration-[var(--dur-fast)]',
         selected ? 'border-accent/50 bg-accent-wash text-fg' : 'border-line-strong text-fg-2',
-        detection.installed ? 'hover:bg-hover' : 'cursor-not-allowed opacity-50',
+        detection.installed ? 'hover:bg-hover active:bg-press' : 'cursor-not-allowed opacity-50',
       )}
     >
       <span class={cx('grid size-4 place-items-center rounded-full border', selected ? 'border-accent' : 'border-fg-3')} aria-hidden="true">
@@ -112,12 +112,12 @@
       {#if detection.installHint}
         {@const docsUrl = detection.installHint.docsUrl}
         <Button size="sm" onclick={() => void openExternal(docsUrl)}>
-          {#snippet leading()}<ExternalLink size={14} aria-hidden="true" />{/snippet}
+          {#snippet leading()}<ExternalLink size={16} aria-hidden="true" />{/snippet}
           Open install docs
         </Button>
       {/if}
       <Button size="sm" onclick={() => void harness.pickBinary(summary.info.id)}>
-        {#snippet leading()}<FolderOpen size={14} aria-hidden="true" />{/snippet}
+        {#snippet leading()}<FolderOpen size={16} aria-hidden="true" />{/snippet}
         Choose binary…
       </Button>
     </div>

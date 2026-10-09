@@ -82,6 +82,14 @@
   border-collapse: collapse;
 }
 
+/* In the chat, wide tables may use the same extra room as code blocks and tool cards. */
+.chat-stage .md-html table {
+  --bleed: clamp(0px, (100cqw - 100%) / 2 - var(--gutter), var(--chat-bleed));
+  width: fit-content;
+  max-width: calc(100% + 2 * var(--bleed));
+  margin-inline: calc(-1 * var(--bleed));
+}
+
 .md-html th,
 .md-html td {
   padding: 0.4em 0.8em;

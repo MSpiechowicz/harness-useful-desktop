@@ -1,0 +1,21 @@
+{
+  "ok": false,
+  "summary": "✘ Failed to disable harness-useful-sidebar: Error: Plugin harness-useful-sidebar not found in runtime config",
+  "exitCode": 0,
+  "stdout": "",
+  "stderr": "✘ Failed to disable harness-useful-sidebar: Error: Plugin harness-useful-sidebar not found in runtime config\n",
+  "truncated": false,
+  "timedOut": false,
+  "argv": [
+    "omp",
+    "plugin",
+    "disable",
+    "harness-useful-sidebar"
+  ],
+  "command": [
+    "omp",
+    "plugin",
+    "disable",
+    "harness-useful-sidebar"
+  ]
+}

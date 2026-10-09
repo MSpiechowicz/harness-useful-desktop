@@ -109,13 +109,13 @@
         onfocus={() => (focusIndex = index)}
         style:padding-left="{row.depth * INDENT_PX + 8}px"
         class={cx(
-          'group flex items-start gap-2 rounded-sm py-1 pr-3 outline-offset-[-2px] transition-colors duration-[var(--dur-fast)] hover:bg-hover',
+          'group flex items-start gap-2 rounded-sm py-1 pr-3 outline-offset-[-2px] transition-colors duration-[var(--dur-fast)] hover:bg-hover active:bg-press',
           toggleable(row) && 'cursor-pointer',
         )}
       >
         <span class="mt-0.5 grid size-4 shrink-0 place-items-center text-fg-3" aria-hidden="true">
           {#if toggleable(row)}
-            <ChevronRight size={14} class={cx('transition-transform duration-[var(--dur-fast)]', row.expanded && 'rotate-90')} />
+            <ChevronRight size={16} class={cx('transition-transform duration-[var(--dur-fast)]', row.expanded && 'rotate-90')} />
           {/if}
         </span>
 

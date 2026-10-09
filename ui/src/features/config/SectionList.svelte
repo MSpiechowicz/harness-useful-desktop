@@ -29,7 +29,7 @@
           onclick={() => onselect(section.id)}
           class={cx(
             'flex flex-col gap-1 rounded-md border px-3 py-2 text-left transition-colors duration-[var(--dur-fast)]',
-            selected ? 'border-accent/30 bg-accent-wash' : 'border-transparent hover:bg-hover',
+            selected ? 'border-accent/30 bg-accent-wash' : 'border-transparent hover:bg-hover active:bg-press',
           )}
         >
           <span class="flex items-center gap-2">

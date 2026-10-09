@@ -2,6 +2,7 @@
   import Tooltip from '$lib/components/Tooltip.svelte';
   import type { ContextUsage } from '$lib/ipc/bindings/ContextUsage';
   import { cx } from '$lib/utils/cx';
+  import { formatCount } from '$lib/utils/format';
 
   interface Props {
     usage: ContextUsage | null;
@@ -11,7 +12,7 @@
 
   const percent = $derived(usage ? Math.min(100, Math.max(0, usage.percent)) : 0);
   const tone = $derived(percent >= 90 ? 'bg-danger' : percent >= 75 ? 'bg-warning' : 'bg-accent');
-  const detail = $derived(usage ? `${usage.tokens.toLocaleString()} of ${usage.contextWindow.toLocaleString()} tokens in context` : 'Context usage is not known yet');
+  const detail = $derived(usage ? `${formatCount(usage.tokens)} of ${formatCount(usage.contextWindow)} tokens in context` : 'Context usage is not known yet');
 </script>
 
 <Tooltip text={detail} side="bottom">

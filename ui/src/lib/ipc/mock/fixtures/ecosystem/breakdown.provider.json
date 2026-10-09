@@ -1,0 +1,62 @@
+{
+  "tool": "breakdown",
+  "data": {
+    "dimension": "provider",
+    "range": {
+      "name": "30d",
+      "from": "2026-09-09T22:00:00.000Z",
+      "to": "2026-10-09T12:30:00.000Z"
+    },
+    "totalCostUsd": 142.9071,
+    "totalTokens": 127507600,
+    "rows": [
+      {
+        "key": "omp",
+        "costUsd": 96.3302,
+        "share": 0.674,
+        "tokens": 85400000,
+        "modelCalls": 4011,
+        "sessions": 102,
+        "prompts": 731,
+        "cacheHitRate": 0.917,
+        "lastActivity": "2026-10-09T12:27:09.000Z"
+      },
+      {
+        "key": "claude",
+        "costUsd": 30.118,
+        "share": 0.211,
+        "tokens": 27007600,
+        "modelCalls": 1302,
+        "sessions": 38,
+        "prompts": 301,
+        "cacheHitRate": 0.908,
+        "lastActivity": "2026-10-08T19:20:12.000Z"
+      },
+      {
+        "key": "pi",
+        "costUsd": 11.041,
+        "share": 0.077,
+        "tokens": 9800000,
+        "modelCalls": 612,
+        "sessions": 20,
+        "prompts": 118,
+        "cacheHitRate": 0.889,
+        "lastActivity": "2026-10-07T15:33:47.000Z"
+      },
+      {
+        "key": "codex",
+        "costUsd": 5.4179,
+        "share": 0.038,
+        "tokens": 5300000,
+        "modelCalls": 290,
+        "sessions": 11,
+        "prompts": 54,
+        "cacheHitRate": 0.861,
+        "lastActivity": "2026-10-04T10:08:22.000Z"
+      }
+    ],
+    "note": "Costs are USD at API-equivalent list prices, not what a subscription bills."
+  },
+  "text": null,
+  "isError": false
+}

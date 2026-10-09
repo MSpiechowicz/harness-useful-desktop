@@ -5,8 +5,10 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 
 use harness_business::env::Env;
+use harness_business::model::{Detection, HarnessId, HarnessSummary, VersionSupport};
 use harness_business::project::Projects;
 use serde_json::Value;
+use tauri::async_runtime::block_on;
 use tauri::ipc::{Channel, InvokeResponseBody};
 
 use crate::state::AppState;
@@ -73,4 +75,26 @@ pub fn collecting_channel<T>() -> (Channel<T>, Arc<Mutex<Vec<Value>>>) {
     });
 
     (channel, received)
+}
+
+/// Caches a detection of `harness`: installed at `binary`, or not installed.
+pub fn cache_detection(state: &AppState, harness: HarnessId, binary: Option<&Path>) {
+    let found = state.registry.get(harness).expect("the harness is registered");
+    let summary = HarnessSummary {
+        info: found.info(),
+        capabilities: found.capabilities(),
+        detection: Detection {
+            installed: binary.is_some(),
+            binary_path: binary.map(|path| path.to_string_lossy().into_owned()),
+            is_batch_script: false,
+            version: None,
+            version_support: VersionSupport::Unknown,
+            config_dir: None,
+            config_dir_exists: false,
+            install_hint: None,
+            error: None,
+        },
+    };
+
+    block_on(state.detections.write()).insert(harness, summary);
 }

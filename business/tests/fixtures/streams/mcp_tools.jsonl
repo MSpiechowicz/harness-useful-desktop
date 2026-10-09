@@ -1,0 +1,4 @@
+// A current dashboard: all eight tools, then one call on the same process.
+{"include": "mcp_handshake.jsonl"}
+{"expect": "tools/list", "reply": {"result": {"tools": [{"name": "usage_summary"}, {"name": "breakdown"}, {"name": "session_cost"}, {"name": "branch_cost"}, {"name": "limits"}, {"name": "budget_status"}, {"name": "failures"}, {"name": "tips"}]}}}
+{"expect": "tools/call", "match": {"/params/name": "limits", "/params/arguments": {}}, "reply": {"result": {"content": [{"type": "text", "text": "{\"windows\":[]}"}], "structuredContent": {"windows": []}, "isError": false}}}

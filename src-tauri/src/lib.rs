@@ -12,6 +12,7 @@ mod logging;
 pub mod state;
 #[cfg(test)]
 mod test_support;
+mod updates;
 mod window;
 
 use std::process::ExitCode;
@@ -32,6 +33,8 @@ pub fn run() -> ExitCode {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(logging::plugin())
+        // Driven from the update commands only; its own JS commands are not granted to the webview.
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             app.manage(AppState::from_app(app.handle())?);
             window::create_main_window(app)?;
@@ -73,6 +76,13 @@ pub fn run() -> ExitCode {
             commands::git::git_branches,
             commands::git::git_diff,
             commands::review::review_compose,
+            commands::ecosystem::ecosystem_status,
+            commands::ecosystem::dashboard_availability,
+            commands::ecosystem::dashboard_query,
+            commands::plugins::extension_action,
+            commands::updates::update_check,
+            commands::updates::update_install,
+            commands::updates::app_relaunch,
         ])
         .on_page_load(lifecycle::on_page_load)
         .build(tauri::generate_context!());
