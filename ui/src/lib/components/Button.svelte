@@ -32,9 +32,11 @@
     ...rest
   }: Props = $props();
 
-  // A translucent white veil that fades in on hover while keeping white text above 4.5:1.
+  // A translucent white veil that fades in on hover while keeping white text above 4.5:1. It fades its colour, not its
+  // opacity: an opacity animation gives the button its own compositing layer in WebKitGTK, which snaps the label by
+  // half a pixel on hover-in and hover-out.
   const VEIL =
-    'text-on-accent shadow-float before:absolute before:inset-0 before:-z-10 before:bg-white/8 before:opacity-0 before:transition-opacity hover:before:opacity-100';
+    'text-on-accent shadow-float before:absolute before:inset-0 before:-z-10 before:bg-white/0 before:transition-colors hover:before:bg-white/8';
 
   const VARIANTS: Record<Variant, string> = {
     primary: `bg-[image:var(--brand-fill)] ${VEIL}`,

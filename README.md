@@ -88,6 +88,7 @@ cargo test -p harness_business export_            # regenerate TypeScript bindin
 cargo build -p harness_business --bin fake_agent  # scripted agent used by the desktop-shell tests
 HARNESS_REQUIRE_FAKE_AGENT=1 cargo test -p harness_desktop
 bun run build:ui                                  # production UI bundle
+bun run desktop-entry                             # Linux: register the dev build so Wayland shows its icon (-- --remove to undo)
 ```
 
 Bundling (`bun run build`) needs the updater signing key; see

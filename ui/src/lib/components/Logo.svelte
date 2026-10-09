@@ -128,7 +128,7 @@
 
   .name.enter {
     opacity: 0;
-    animation: name-in 0.55s 1.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+    animation: name-in 0.55s 2.13s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
   }
 
   .cursor.blink {

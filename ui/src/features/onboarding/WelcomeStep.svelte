@@ -14,8 +14,9 @@
   ];
 </script>
 
+<!-- The brand is a quiet signature with room of its own; the headline is the hero of this step. -->
 <div class="flex flex-col items-center gap-10 text-center [@media(max-height:720px)]:gap-6">
-  <Logo size={56} wordmark />
+  <Logo size={28} wordmark class="mb-6 [@media(max-height:720px)]:mb-2" />
 
   <header class="flex flex-col items-center gap-4">
     <h2

@@ -82,21 +82,21 @@
 </g>
 
 <style>
-  /* Timeline in seconds from mount (the approved launch): crack .28, shiver .38, snap .62, impact 1.22, blinks 1.82. */
+  /* Timeline in seconds from mount (approved launch, slower crack): crack .3, shiver .95, snap 1.25, impact 1.85, blinks 2.45. */
 
-  /* Crack draws across the joint, grit trickles out, the whole glyph shivers. */
+  /* Crack draws slowly across the joint, grit trickles out, the whole glyph shivers just before the snap. */
   .crack {
     stroke-dasharray: 1;
     stroke-dashoffset: 1;
     animation:
-      crack-draw 0.22s 0.28s cubic-bezier(0.6, 0, 0.4, 1) forwards,
-      crack-gone 0.01s 0.7s forwards;
+      crack-draw 0.55s 0.3s cubic-bezier(0.6, 0, 0.4, 1) forwards,
+      crack-gone 0.01s 1.33s forwards;
   }
 
   .crack.branch {
     animation:
-      crack-draw 0.14s 0.44s cubic-bezier(0.6, 0, 0.4, 1) forwards,
-      crack-gone 0.01s 0.7s forwards;
+      crack-draw 0.32s 0.68s cubic-bezier(0.6, 0, 0.4, 1) forwards,
+      crack-gone 0.01s 1.33s forwards;
   }
 
   .grit,
@@ -108,49 +108,49 @@
   }
 
   .grit {
-    animation: grit 0.55s calc(0.36s + var(--d, 0s)) cubic-bezier(0.5, 0, 1, 1) both;
+    animation: grit 0.8s calc(0.48s + var(--d, 0s)) cubic-bezier(0.5, 0, 1, 1) both;
   }
 
   .body {
     transform-box: view-box;
     animation:
-      shiver 0.24s 0.38s linear both,
-      shudder 0.22s 1.22s ease-out both;
+      shiver 0.3s 0.95s linear both,
+      shudder 0.22s 1.85s ease-out both;
   }
 
   /* The snap: the intact H is replaced by the broken H and the separate leg in the same frame. */
   .intact {
-    animation: swap-out 0.01s 0.62s forwards;
+    animation: swap-out 0.01s 1.25s forwards;
   }
 
   .broken,
   .leg-visible {
     opacity: 0;
-    animation: swap-in 0.01s 0.62s forwards;
+    animation: swap-in 0.01s 1.25s forwards;
   }
 
   /* The leg topples 90 degrees about its bottom-right corner, lands with a small bounce, and gains its final colour. */
   .leg {
     transform-box: view-box;
-    animation: topple 0.78s 0.62s cubic-bezier(0.55, 0, 1, 0.5) both;
+    animation: topple 0.78s 1.25s cubic-bezier(0.55, 0, 1, 0.5) both;
   }
 
   .leg-color {
     opacity: 0;
-    animation: fade-in 0.45s 1.27s ease-out forwards;
+    animation: fade-in 0.45s 1.9s ease-out forwards;
   }
 
   .leg-base {
-    animation: fade-out 0.45s 1.27s ease-out forwards;
+    animation: fade-out 0.45s 1.9s ease-out forwards;
   }
 
   .cursor {
-    animation: blink-twice 1.1s 1.82s steps(1, end) both;
+    animation: blink-twice 1.1s 2.45s steps(1, end) both;
   }
 
   /* Impact: dust puffs, pixel chips, a shudder. */
   .puff {
-    animation: puff 0.95s calc(1.22s + var(--d, 0s)) cubic-bezier(0.12, 0.7, 0.25, 1) both;
+    animation: puff 0.95s calc(1.85s + var(--d, 0s)) cubic-bezier(0.12, 0.7, 0.25, 1) both;
   }
 
   .puff.slow {
@@ -158,7 +158,7 @@
   }
 
   .fleck {
-    animation: fleck 0.7s calc(1.22s + var(--d, 0s)) linear both;
+    animation: fleck 0.7s calc(1.85s + var(--d, 0s)) linear both;
   }
 
   @keyframes crack-draw {

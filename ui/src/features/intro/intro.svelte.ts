@@ -2,14 +2,14 @@ import type { MotionLevel } from '$lib/stores/motion.svelte';
 
 /**
  * Timeline of the cold-start intro (milliseconds from start). The logo's launch animation takes
- * 2.92 s (crack, topple, impact, two cursor blinks); the hand-over starts right after it, and
+ * 3.55 s (a slow crack, topple, impact, two cursor blinks); the hand-over starts right after it, and
  * `launched()` starts it the moment the logo reports it is done. Any key or click skips it all.
  *
  * The hand-over is two beats: the lockup leaves (`INTRO_EXIT_MS`), then the next screen, the
  * shell or the setup, enters after `INTRO_LEAD_MS` while the dark veil behind the lockup lifts.
  * The phase lasts until the slowest entrance has settled.
  */
-export const HANDOFF_MS = 2950;
+export const HANDOFF_MS = 3580;
 export const INTRO_EXIT_MS = 320;
 export const INTRO_LEAD_MS = 240;
 export const HANDOFF_DURATION_MS = 900;
