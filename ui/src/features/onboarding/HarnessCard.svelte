@@ -41,7 +41,7 @@
   aria-label={label}
   class={cx(
     'flex flex-col gap-4 rounded-lg border bg-glass p-5 shadow-float transition-colors duration-[var(--dur-base)] [@media(max-height:720px)]:gap-3 [@media(max-height:720px)]:p-4',
-    selected ? 'border-accent/50 shadow-glow' : 'border-line',
+    selected ? 'edge-accent shadow-glow' : 'border-line',
   )}
 >
   <header class="flex items-start gap-3">
@@ -59,7 +59,7 @@
       onclick={() => detection.installed && onselect()}
       class={cx(
         'flex h-8 shrink-0 items-center gap-2 rounded-full border px-3 whitespace-nowrap text-sm font-medium transition-colors duration-[var(--dur-fast)]',
-        selected ? 'border-accent/50 bg-accent-wash text-fg' : 'border-line-strong text-fg-2',
+        selected ? 'edge-accent bg-accent-wash text-fg' : 'border-line-strong text-fg-2',
         detection.installed ? 'hover:bg-hover active:bg-press' : 'cursor-not-allowed opacity-50',
       )}
     >

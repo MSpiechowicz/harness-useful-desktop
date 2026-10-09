@@ -47,7 +47,7 @@
   {#if current}
     {@const Icon = current.isGitRepo ? FolderGit2 : Folder}
     <section
-      class="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-5 rounded-xl border border-accent/45 bg-[linear-gradient(135deg,oklch(0.24_0.06_285/0.9),oklch(0.2_0.03_265/0.9))] p-5 shadow-glow"
+      class="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-5 rounded-xl border edge-accent bg-[linear-gradient(135deg,oklch(0.24_0.06_285/0.9),oklch(0.2_0.03_265/0.9))] p-5 shadow-glow"
       aria-label="Selected project"
     >
       <span class="grid size-14 place-items-center rounded-xl bg-[image:var(--brand-fill)] text-white">

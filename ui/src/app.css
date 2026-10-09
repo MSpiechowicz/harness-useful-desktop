@@ -120,6 +120,16 @@
   }
 }
 
+/*
+ * A smooth accent edge on a rounded card: an opaque border colour (a translucent one is drawn fainter on the curved
+ * corners than on the straight sides) and a background that stops inside the border, so the corner arc is one
+ * anti-aliased edge instead of two stacked ones.
+ */
+@utility edge-accent {
+  border-color: color-mix(in oklch, var(--accent) 55%, var(--surface-1));
+  background-clip: padding-box;
+}
+
 @utility tabular {
   font-variant-numeric: tabular-nums;
 }
