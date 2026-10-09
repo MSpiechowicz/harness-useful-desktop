@@ -8,6 +8,7 @@
   import GitCompare from '@lucide/svelte/icons/git-compare';
   import History from '@lucide/svelte/icons/history';
   import MessageSquare from '@lucide/svelte/icons/message-square';
+  import Repeat from '@lucide/svelte/icons/repeat';
 
   import Button from '$lib/components/Button.svelte';
   import type { IconComponent } from '$lib/components/icon';
@@ -161,6 +162,21 @@
           aria-hidden="true"
         ></span>
       {/each}
+
+      <!-- The loop closes: the track runs on from the last step to a repeat ring at the right edge. -->
+      <span
+        class="absolute top-4 right-[48px] left-[calc(75%+40px)] h-px bg-[linear-gradient(90deg,var(--accent-3),var(--accent-1))] opacity-60"
+        aria-hidden="true"
+      ></span>
+      <span class="absolute top-0 right-0 flex flex-col items-center gap-1 text-accent-text" aria-hidden="true">
+        <span class="relative grid size-8 place-items-center">
+          <svg class="absolute -inset-1 size-10" viewBox="0 0 40 40">
+            <circle cx="20" cy="20" r="15.5" fill="var(--color-accent)" fill-opacity="0.1" stroke="var(--color-accent)" stroke-opacity="0.6" stroke-width="1" stroke-dasharray="3 3" />
+          </svg>
+          <Repeat class="relative" size={14} />
+        </span>
+        <span class="text-[11px] font-medium tracking-wider text-fg-3 uppercase">Repeat</span>
+      </span>
       {#each LOOP as step, index (step.title)}
         <li class="relative flex flex-col items-start gap-2 pr-6">
           <!-- The node is SVG, so its ring is always anti-aliased. -->
