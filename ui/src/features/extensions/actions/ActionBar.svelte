@@ -1,4 +1,6 @@
 <script lang="ts">
+  import Info from '@lucide/svelte/icons/info';
+
   import Button from '$lib/components/Button.svelte';
   import { ICON, type IconComponent } from '$lib/components/icon';
 
@@ -24,5 +26,8 @@
     {/each}
   </div>
 
-  <p class="text-xs text-fg-3">Each action shows its exact command and, where the CLI can, a preview before it runs.</p>
+  <p class="flex items-center gap-2 text-xs text-fg-3">
+    <Info size={ICON.sm} class="shrink-0 text-accent-text" aria-hidden="true" />
+    Each action shows its exact command and, where the CLI can, a preview before it runs.
+  </p>
 </section>
