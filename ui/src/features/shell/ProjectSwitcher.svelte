@@ -8,23 +8,44 @@
   import IconButton from '$lib/components/IconButton.svelte';
   import Popover from '$lib/components/Popover.svelte';
   import ProjectRow from '$lib/components/ProjectRow.svelte';
+  import Tooltip from '$lib/components/Tooltip.svelte';
   import { project } from '$lib/stores/project.svelte';
+  import { cx } from '$lib/utils/cx';
+
+  interface Props {
+    /** Icon-only trigger for the collapsed rail; the name moves into a tooltip. */
+    compact?: boolean;
+  }
+
+  let { compact = false }: Props = $props();
 
   let open = $state(false);
 </script>
 
 <Popover bind:open label="Projects" kind="dialog" class="w-96">
   {#snippet trigger({ props })}
-    <button
-      type="button"
-      {...props}
-      aria-label={project.active ? `Project: ${project.active.name}. Switch project` : 'No project open. Switch project'}
-      class="inline-flex h-8 max-w-56 items-center gap-2 rounded-full border border-line bg-surface-2 px-3 text-sm text-fg transition-colors duration-[var(--dur-fast)] hover:border-line-strong hover:bg-surface-3"
-    >
-      <Folder size={16} class="shrink-0 text-fg-3" aria-hidden="true" />
-      <span class="truncate {project.active ? '' : 'text-fg-2'}">{project.active ? project.active.name : 'No project'}</span>
-      <ChevronDown size={16} class="shrink-0 text-fg-3" aria-hidden="true" />
-    </button>
+    <Tooltip text="Project: {project.active ? project.active.name : 'none open'}" side="right" disabled={!compact} class={compact ? 'inline-flex' : 'flex w-full'}>
+      {#snippet children({ describedby })}
+        <button
+          type="button"
+          {...props}
+          aria-label={project.active ? `Project: ${project.active.name}. Switch project` : 'No project open. Switch project'}
+          aria-describedby={compact ? describedby : undefined}
+          class={cx(
+            'inline-flex items-center text-sm text-fg transition-colors duration-[var(--dur-fast)]',
+            compact
+              ? 'size-10 justify-center rounded-md hover:bg-hover'
+              : 'h-8 w-full gap-2 rounded-md border border-line bg-surface-2 px-2.5 hover:border-line-strong hover:bg-surface-3',
+          )}
+        >
+          <Folder size={16} class={cx('shrink-0', project.active ? 'text-accent-text' : 'text-fg-3')} aria-hidden="true" />
+          {#if !compact}
+            <span class="truncate {project.active ? '' : 'text-fg-2'}">{project.active ? project.active.name : 'No project'}</span>
+            <ChevronDown size={16} class="ml-auto shrink-0 text-fg-3" aria-hidden="true" />
+          {/if}
+        </button>
+      {/snippet}
+    </Tooltip>
   {/snippet}
 
   {#snippet children({ close })}

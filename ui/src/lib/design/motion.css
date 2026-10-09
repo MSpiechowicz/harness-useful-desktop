@@ -107,6 +107,28 @@
   transition-delay: 0ms !important;
 }
 
+/* A live indicator at rest: a slow breath in brightness and size, never a hard blink. */
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.breathe {
+  animation: breathe 2.8s ease-in-out infinite;
+}
+
+:root[data-motion="reduced"] .breathe,
+:root[data-motion="off"] .breathe {
+  animation: none;
+}
+
 /* Streaming affordances: a blinking caret after live text and a sheen over "working" labels. */
 @keyframes caret-blink {
   50% { opacity: 0; }

@@ -11,6 +11,8 @@
   import { RAIL_EXPAND_MIN_WIDTH, ui } from '$lib/stores/ui-state.svelte';
   import { cx } from '$lib/utils/cx';
 
+  import HarnessSwitcher from './HarnessSwitcher.svelte';
+  import ProjectSwitcher from './ProjectSwitcher.svelte';
   import { railBadge } from './rail-badges';
   import RailItem from './RailItem.svelte';
   import { VIEWS, viewShortcut } from './views';
@@ -81,7 +83,7 @@
     side="right"
     size="sm"
     aria-expanded={expanded}
-    class="border border-line bg-surface-2 text-fg-2 shadow-raised hover:border-line-strong hover:bg-surface-3"
+    class="text-fg-2 hover:text-fg"
     onclick={() => ui.toggleRail()}
   />
 {/snippet}
@@ -104,8 +106,14 @@
     {/if}
   </div>
 
+  <!-- Where you are: the harness and the project, both switchable. -->
+  <div class={cx('flex shrink-0 flex-col gap-1 border-b border-line px-[12px] py-2', !expanded && 'items-center')}>
+    <HarnessSwitcher compact={!expanded} />
+    <ProjectSwitcher compact={!expanded} />
+  </div>
+
   {#if !expanded && ui.roomForLabels}
-    <div class="flex justify-center pt-3">
+    <div class="flex justify-center pt-2">
       {@render toggle()}
     </div>
   {/if}
@@ -119,7 +127,7 @@
     style:transform="translateY({indicatorY.current}px)"
   ></span>
 
-  <div class="flex flex-col gap-1 px-[12px] py-3">
+  <div class="flex flex-col gap-1 px-[12px] py-2">
     {#each VIEWS as view, index (view.id)}
       {#if view.id === 'settings'}
         <div class="my-1 border-t border-line" aria-hidden="true"></div>

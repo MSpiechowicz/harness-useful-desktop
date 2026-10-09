@@ -11,9 +11,17 @@
 
   import { onboarding } from '../onboarding/onboarding.svelte';
 
+  interface Props {
+    /** Icon-only trigger for the collapsed rail; the name moves into a tooltip. */
+    compact?: boolean;
+  }
+
+  let { compact = false }: Props = $props();
+
   let open = $state(false);
 
   const active = $derived(harness.active);
+  const name = $derived(active ? `${active.info.name}${active.detection.version ? ` v${active.detection.version}` : ''}` : 'No harness detected');
 
   async function choose(id: Parameters<typeof harness.select>[0], installed: boolean, close: () => void): Promise<void> {
     if (!installed) {
@@ -27,24 +35,36 @@
 
 <Popover bind:open label="Switch harness" kind="menu" class="w-72">
   {#snippet trigger({ props })}
-    <button
-      type="button"
-      {...props}
-      aria-label={active ? `Harness: ${active.info.name}. Switch harness` : 'Harness: none detected'}
-      class="inline-flex h-8 items-center gap-2 rounded-full border border-line bg-surface-2 pr-2.5 pl-1.5 text-sm text-fg transition-colors duration-[var(--dur-fast)] hover:border-line-strong hover:bg-surface-3"
-    >
-      {#if active}
-        <HarnessBadge info={active.info} size="sm" class="rounded-full" />
-        <span class="font-medium">{active.info.shortName}</span>
-        {#if active.detection.version}
-          <span class="tabular text-fg-3">v{active.detection.version}</span>
-        {/if}
-      {:else}
-        <StatusDot tone="neutral" class="ml-1.5" />
-        <span class="text-fg-2">No harness</span>
-      {/if}
-      <ChevronDown size={16} class="text-fg-3" aria-hidden="true" />
-    </button>
+    <Tooltip text="Harness: {name}" side="right" disabled={!compact} class={compact ? 'inline-flex' : 'flex w-full'}>
+      {#snippet children({ describedby })}
+        <button
+          type="button"
+          {...props}
+          aria-label={active ? `Harness: ${active.info.name}. Switch harness` : 'Harness: none detected'}
+          aria-describedby={compact ? describedby : undefined}
+          class={cx(
+            'inline-flex items-center text-sm text-fg transition-colors duration-[var(--dur-fast)]',
+            compact
+              ? 'size-10 justify-center rounded-md hover:bg-hover'
+              : 'h-8 w-full gap-2 rounded-md border border-line bg-surface-2 pr-2 pl-1.5 hover:border-line-strong hover:bg-surface-3',
+          )}
+        >
+          {#if active}
+            <HarnessBadge info={active.info} size="sm" />
+            {#if !compact}
+              <span class="font-medium">{active.info.shortName}</span>
+              {#if active.detection.version}
+                <span class="tabular truncate text-fg-3">v{active.detection.version}</span>
+              {/if}
+            {/if}
+          {:else}
+            <StatusDot tone="neutral" class={compact ? '' : 'ml-1.5'} />
+            {#if !compact}<span class="text-fg-2">No harness</span>{/if}
+          {/if}
+          {#if !compact}<ChevronDown size={16} class="ml-auto shrink-0 text-fg-3" aria-hidden="true" />{/if}
+        </button>
+      {/snippet}
+    </Tooltip>
   {/snippet}
 
   {#snippet children({ close })}
