@@ -82,7 +82,7 @@
           Dust: fractal noise tears the edges of each puff (displacement), punches wispy holes through it (alpha
           mask), and drifts while the dust spreads; a light blur softens what is left. No shape reads as a circle.
         -->
-        <filter id={blur} filterUnits="userSpaceOnUse" x="10" y="26" width="160" height="104" color-interpolation-filters="sRGB">
+        <filter id={blur} filterUnits="userSpaceOnUse" x="-40" y="10" width="260" height="130" color-interpolation-filters="sRGB">
           <feTurbulence type="fractalNoise" baseFrequency="0.07 0.11" numOctaves="3" seed="4" result="edges">
             <animate attributeName="baseFrequency" values="0.07 0.11;0.05 0.085" dur="3s" fill="freeze" />
           </feTurbulence>

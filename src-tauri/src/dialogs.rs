@@ -4,7 +4,7 @@
 //! way was chosen by the user in an OS dialog. The pickers do not block the async runtime: the
 //! plugin runs the dialog on the main thread and reports through a callback.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use harness_business::BusinessError;
 use tauri::async_runtime::channel;
@@ -24,12 +24,14 @@ pub enum Pick {
     File,
 }
 
-/// Shows a native picker over the main window; `None` when the user cancelled.
+/// Shows a native picker over the main window, opened in `start` when given (otherwise some desktops
+/// open on their "Recent" view, a list of unrelated history); `None` when the user cancelled.
 pub async fn pick<R: Runtime>(
     app: &AppHandle<R>,
     guard: &DialogGuard,
     kind: Pick,
     title: &str,
+    start: Option<&Path>,
 ) -> CommandResult<Option<PathBuf>> {
     let _open = open(guard)?;
     let (sender, mut receiver) = channel(1);
@@ -38,8 +40,8 @@ pub async fn pick<R: Runtime>(
     };
 
     match kind {
-        Pick::Folder => file_dialog(app, title).pick_folder(report),
-        Pick::File => file_dialog(app, title).pick_file(report),
+        Pick::Folder => file_dialog(app, title, start).pick_folder(report),
+        Pick::File => file_dialog(app, title, start).pick_file(report),
     }
 
     picked_path(receiver.recv().await)
@@ -52,8 +54,12 @@ fn open(guard: &DialogGuard) -> CommandResult<OpenDialog<'_>> {
         .ok_or_else(|| BusinessError::InvalidInput("a dialog is already open".to_owned()).into())
 }
 
-fn file_dialog<R: Runtime>(app: &AppHandle<R>, title: &str) -> FileDialogBuilder<R> {
-    let builder = app.dialog().file().set_title(title);
+fn file_dialog<R: Runtime>(app: &AppHandle<R>, title: &str, start: Option<&Path>) -> FileDialogBuilder<R> {
+    let mut builder = app.dialog().file().set_title(title);
+
+    if let Some(start) = start.filter(|dir| dir.is_dir()) {
+        builder = builder.set_directory(start);
+    }
 
     match app.get_webview_window(MAIN_WINDOW) {
         Some(window) => builder.set_parent(&window),

@@ -53,7 +53,7 @@ pub async fn harness_pick_binary(
     let binary_name = find(&state, harness)?.binary_name();
     let title = format!("Choose the `{binary_name}` executable");
 
-    let Some(picked) = dialogs::pick(&app, &state.dialog, Pick::File, &title).await? else {
+    let Some(picked) = dialogs::pick(&app, &state.dialog, Pick::File, &title, Some(&state.env.home)).await? else {
         return Ok(None);
     };
 

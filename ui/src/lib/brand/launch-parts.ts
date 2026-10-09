@@ -19,19 +19,19 @@ export interface Puff {
  */
 export const PUFFS: readonly Puff[] = [
   // Left jet, from the slab's left end outward.
-  { cx: 75, cy: 93.5, r: 5.7, dx: -46, dy: -7, scale: 2.3, delay: 0 },
-  { cx: 79, cy: 94, r: 4.6, dx: -33, dy: -4, scale: 1.9, delay: 0.03 },
+  { cx: 75, cy: 93.5, r: 5.7, dx: -37, dy: -7, scale: 1.89, delay: 0 },
+  { cx: 79, cy: 94, r: 4.6, dx: -26, dy: -4, scale: 1.56, delay: 0.03 },
   { cx: 84, cy: 94, r: 4.1, dx: -19, dy: -10, scale: 1.7, delay: 0.06 },
   // Middle: pushed out less, rises a little.
   { cx: 89, cy: 94, r: 5.1, dx: -5, dy: -12, scale: 1.8, delay: 0.04 },
   { cx: 93, cy: 94, r: 4.3, dx: 8, dy: -9, scale: 1.6, delay: 0.08 },
   // Right jet, the stronger side.
-  { cx: 98, cy: 94, r: 5.9, dx: 30, dy: -5, scale: 2.2, delay: 0.01 },
-  { cx: 102, cy: 93.5, r: 6.8, dx: 54, dy: -9, scale: 2.6, delay: 0 },
-  { cx: 100, cy: 94, r: 4.3, dx: 41, dy: -2, scale: 1.8, delay: 0.05 },
+  { cx: 98, cy: 94, r: 5.9, dx: 24, dy: -5, scale: 1.8, delay: 0.01 },
+  { cx: 102, cy: 93.5, r: 6.8, dx: 43, dy: -9, scale: 2.13, delay: 0 },
+  { cx: 100, cy: 94, r: 4.3, dx: 33, dy: -2, scale: 1.48, delay: 0.05 },
   // Front billows that keep rolling and rising after the jet has spent itself.
-  { cx: 76, cy: 93, r: 7.3, dx: -52, dy: -24, scale: 2.6, delay: 0.09, slow: true },
-  { cx: 103, cy: 93, r: 8.1, dx: 60, dy: -28, scale: 3, delay: 0.07, slow: true },
+  { cx: 76, cy: 93, r: 7.3, dx: -42, dy: -24, scale: 2.13, delay: 0.09, slow: true },
+  { cx: 103, cy: 93, r: 8.1, dx: 48, dy: -28, scale: 2.46, delay: 0.07, slow: true },
   { cx: 88, cy: 93, r: 6.2, dx: 4, dy: -26, scale: 2.4, delay: 0.14, slow: true },
 ];
 

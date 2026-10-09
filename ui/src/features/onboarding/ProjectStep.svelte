@@ -1,5 +1,5 @@
 <script lang="ts">
-  import ArrowLeftRight from '@lucide/svelte/icons/arrow-left-right';
+  import Bot from '@lucide/svelte/icons/bot';
   import FileCog from '@lucide/svelte/icons/file-cog';
   import Folder from '@lucide/svelte/icons/folder';
   import FolderGit2 from '@lucide/svelte/icons/folder-git-2';
@@ -8,34 +8,60 @@
   import GitCompare from '@lucide/svelte/icons/git-compare';
   import History from '@lucide/svelte/icons/history';
   import MessageSquare from '@lucide/svelte/icons/message-square';
-  import ShieldCheck from '@lucide/svelte/icons/shield-check';
 
   import Button from '$lib/components/Button.svelte';
   import type { IconComponent } from '$lib/components/icon';
   import Kbd from '$lib/components/Kbd.svelte';
+  import { git } from '$lib/stores/git.svelte';
+  import { harness } from '$lib/stores/harness.svelte';
   import { project } from '$lib/stores/project.svelte';
   import { cx } from '$lib/utils/cx';
 
   import { WIDTH } from './layout';
+  import { onboarding } from './onboarding.svelte';
   import StepHeader from './StepHeader.svelte';
 
   const current = $derived(project.active);
   /** Without a project yet, the remembered ones can be reopened in one click. */
   const reopen = $derived(project.recents.filter((recent) => recent.exists).slice(0, 4));
 
-  /** What the open project turns on; Changes needs a git repository. */
+  // A live fact about the chosen project: its git state.
+  $effect(() => {
+    git.ensure(current?.path ?? null);
+  });
+
+  const driverName = $derived(onboarding.driver ? (harness.get(onboarding.driver)?.info.name ?? null) : null);
+  const changed = $derived(git.activeProject === current?.path ? (git.status?.entries.length ?? null) : null);
+  const branch = $derived(git.activeProject === current?.path ? (git.status?.branch ?? null) : null);
+
+  function changesLine(): string {
+    if (current && !current.isGitRepo) {
+      return 'Needs git.';
+    }
+
+    if (changed === null) {
+      return 'The agent’s diff.';
+    }
+
+    const where = branch ? ` on ${branch}` : '';
+
+    return changed === 0 ? `Clean${where}.` : `${changed} changed${where}.`;
+  }
+
+  /** The app's core loop, taught while the folder it will run in is chosen. */
+  const LOOP: { icon: IconComponent; title: string; body: string; keys?: string }[] = [
+    { icon: MessageSquare, title: 'You ask', body: 'Describe the change in Chat.', keys: 'mod+n' },
+    { icon: Bot, title: 'The agent works', body: 'It reads and edits files in this folder.' },
+    { icon: GitCompare, title: 'You review', body: 'Comment on its diff in Changes and send it back.', keys: 'mod+3' },
+  ];
+
+  /** What the open project turns on, with live facts where the app has them. */
   const tiles = $derived<{ icon: IconComponent; title: string; body: string; off?: boolean }[]>([
-    { icon: MessageSquare, title: 'Chat', body: 'Works in this folder.' },
-    {
-      icon: GitCompare,
-      title: 'Changes',
-      body: current && !current.isGitRepo ? 'Needs git.' : 'The agent’s diff.',
-      off: Boolean(current && !current.isGitRepo),
-    },
-    { icon: History, title: 'Sessions', body: 'Earlier chats here.' },
+    { icon: MessageSquare, title: 'Chat', body: driverName ? `Ready with ${driverName}.` : 'Works in this folder.' },
+    { icon: GitCompare, title: 'Changes', body: changesLine(), off: Boolean(current && !current.isGitRepo) },
+    { icon: History, title: 'Sessions', body: 'Chats you can resume.' },
     { icon: FileCog, title: 'Project settings', body: 'Beside your global ones.' },
   ]);
-
 </script>
 
 <div class={cx('mx-auto flex w-full flex-col gap-5 [@media(max-height:720px)]:gap-4', WIDTH.wide)}>
@@ -121,14 +147,24 @@
     </ul>
   </section>
 
-  <ul class="grid grid-cols-2 gap-6 text-sm text-fg-2 [@media(max-height:720px)]:hidden" aria-label="Good to know">
-    <li class="flex items-center gap-3">
-      <ShieldCheck class="shrink-0 text-fg-3" size={16} aria-hidden="true" />
-      The agent reads and edits files in this folder, as in your terminal.
-    </li>
-    <li class="flex flex-wrap items-center gap-1.5">
-      <ArrowLeftRight class="mr-1.5 shrink-0 text-fg-3" size={16} aria-hidden="true" />
-      Switch any time from the top bar or <Kbd keys="mod+k" />
-    </li>
-  </ul>
+  <!-- How the app works, in three steps: the loop that happens in the folder chosen above. -->
+  <section class="flex flex-col gap-3 [@media(max-height:720px)]:hidden" aria-labelledby="how-it-works">
+    <h3 id="how-it-works" class="text-sm font-medium tracking-wider text-fg-3 uppercase">How it works</h3>
+    <!-- A timeline: three nodes on one gradient track, each step centred under its node. -->
+    <ol class="relative grid grid-cols-3">
+      <span
+        class="absolute top-4 right-[16.667%] left-[16.667%] h-px bg-[linear-gradient(90deg,var(--accent-1),var(--accent-2),var(--accent-3))] opacity-60"
+        aria-hidden="true"
+      ></span>
+      {#each LOOP as step, index (step.title)}
+        <li class="relative flex flex-col items-center gap-2 px-4 text-center">
+          <span class="grid size-8 place-items-center rounded-full border border-accent/50 bg-canvas text-xs font-semibold text-accent-text tabular shadow-[0_0_0_4px_var(--canvas)]">{index + 1}</span>
+          <p class="mt-1 flex items-center gap-2 text-sm font-medium text-fg"><step.icon class="text-fg-3" size={14} aria-hidden="true" />{step.title}</p>
+          <p class="max-w-56 text-xs text-fg-3">{step.body}</p>
+          {#if step.keys}<Kbd keys={step.keys} />{/if}
+        </li>
+      {/each}
+    </ol>
+  </section>
+
 </div>
