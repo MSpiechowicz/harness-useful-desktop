@@ -11,10 +11,11 @@
   let { tone, class: className }: Props = $props();
 
   const TONES: Record<Tone, string> = {
-    success: 'bg-success',
-    warning: 'bg-warning',
-    danger: 'bg-danger',
-    neutral: 'bg-fg-3',
+    // `text-*` carries the same color into `currentColor`, which the breathing halo (.breathe) glows with.
+    success: 'bg-success text-success',
+    warning: 'bg-warning text-warning',
+    danger: 'bg-danger text-danger',
+    neutral: 'bg-fg-3 text-fg-3',
   };
 </script>
 

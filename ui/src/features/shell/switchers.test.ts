@@ -6,9 +6,8 @@ import { harness } from '$lib/stores/harness.svelte';
 import { prefs } from '$lib/stores/prefs.svelte';
 import { project } from '$lib/stores/project.svelte';
 
-import HarnessSwitcher from './HarnessSwitcher.svelte';
-import ProjectSwitcher from './ProjectSwitcher.svelte';
 import { buildSwitchCommands } from './switch-commands';
+import WorkspaceSwitcher from './WorkspaceSwitcher.svelte';
 
 beforeAll(async () => {
   vi.stubEnv('VITE_TRANSPORT', 'mock');
@@ -18,62 +17,62 @@ beforeAll(async () => {
   await Promise.all([harness.load(), project.load()]);
 });
 
-describe('HarnessSwitcher', () => {
+describe('WorkspaceSwitcher: harness', () => {
   it('lists every harness and refuses the ones that are not installed', async () => {
-    render(HarnessSwitcher);
+    render(WorkspaceSwitcher);
 
     await fireEvent.click(screen.getByRole('button', { name: /Harness: Oh My Pi/ }));
 
     expect(screen.getByRole('menuitemradio', { name: /Oh My Pi/ })).toHaveAttribute('aria-checked', 'true');
-    const missing = screen.getByRole('menuitemradio', { name: /Pi.*Not installed/ });
+    const missing = screen.getByRole('menuitemradio', { name: /^Pi.*Not installed/ });
     expect(missing).toHaveAttribute('aria-disabled', 'true');
 
     await fireEvent.click(missing);
 
     expect(prefs.value?.defaultHarness).not.toBe('pi');
-    expect(screen.getByRole('menu')).toBeInTheDocument();
+    expect(screen.getByRole('menu', { name: 'Harness and project' })).toBeInTheDocument();
   });
 
   it('switches the daily driver once the other harness is installed, and closes on Escape', async () => {
     await harness.pickBinary('pi');
-    render(HarnessSwitcher);
+    render(WorkspaceSwitcher);
 
-    await fireEvent.click(screen.getByRole('button', { name: /Switch harness/ }));
+    await fireEvent.click(screen.getByRole('button', { name: /Switch harness or project/ }));
     await fireEvent.click(screen.getByRole('menuitemradio', { name: /^Pi/ }));
 
     await waitFor(() => expect(screen.getByRole('button', { name: /Harness: Pi/ })).toBeInTheDocument());
     expect(prefs.value?.defaultHarness).toBe('pi');
     expect(screen.queryByRole('menu')).toBeNull();
 
-    await fireEvent.click(screen.getByRole('button', { name: /Switch harness/ }));
+    await fireEvent.click(screen.getByRole('button', { name: /Switch harness or project/ }));
     await fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
 
     await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
-    expect(screen.getByRole('button', { name: /Switch harness/ })).toHaveFocus();
+    expect(screen.getByRole('button', { name: /Switch harness or project/ })).toHaveFocus();
   });
 });
 
-describe('ProjectSwitcher', () => {
+describe('WorkspaceSwitcher: project', () => {
   it('opens a folder, closes the project and forgets a recent one', async () => {
-    render(ProjectSwitcher);
-    const trigger = () => screen.getByRole('button', { name: /Switch project/ });
+    render(WorkspaceSwitcher);
+    const trigger = () => screen.getByRole('button', { name: /Switch harness or project/ });
 
     expect(trigger()).toHaveAccessibleName(/No project open/);
 
     await fireEvent.click(trigger());
-    await fireEvent.click(screen.getByRole('button', { name: 'Open folder…' }));
+    await fireEvent.click(screen.getByRole('menuitem', { name: 'Open folder…' }));
     await waitFor(() => expect(trigger()).toHaveAccessibleName(/Project: harness-useful-desktop/));
     await waitFor(() => expect(trigger()).toHaveAttribute('aria-expanded', 'false'));
 
     await fireEvent.click(trigger());
-    expect(screen.getByRole('dialog', { name: 'Projects' })).toBeInTheDocument();
-    await fireEvent.click(screen.getByRole('button', { name: 'Close project' }));
+    expect(screen.getByRole('menu', { name: 'Harness and project' })).toBeInTheDocument();
+    await fireEvent.click(screen.getByRole('menuitem', { name: 'Close project' }));
     await waitFor(() => expect(trigger()).toHaveAccessibleName(/No project open/));
     await waitFor(() => expect(trigger()).toHaveAttribute('aria-expanded', 'false'));
 
     await fireEvent.click(trigger());
     for (const missing of fixtures.recentProjects.filter((recent) => !recent.exists)) {
-      expect(screen.getByRole('button', { name: new RegExp(`^${missing.name}`) })).toHaveAttribute('aria-disabled', 'true');
+      expect(screen.getByRole('menuitemradio', { name: new RegExp(`^${missing.name}`) })).toHaveAttribute('aria-disabled', 'true');
     }
 
     const forgotten = fixtures.recentProjects[0].name;

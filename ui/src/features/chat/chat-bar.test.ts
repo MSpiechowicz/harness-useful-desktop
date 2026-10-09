@@ -19,7 +19,7 @@ afterEach(() => {
 });
 
 describe('chat header bar', () => {
-  it('puts the chat tabs and both actions in one header that still names the page', () => {
+  it('puts the chat tabs and the new-chat action in one header that still names the page', () => {
     const { session } = chatSession();
     agentSessions.sessions = [session];
     agentSessions.activeKey = session.key;
@@ -29,7 +29,6 @@ describe('chat header bar', () => {
     const header = screen.getByRole('banner');
     expect(within(header).getByRole('heading', { level: 1, name: 'Chat' })).toBeInTheDocument();
     expect(within(header).getByRole('tablist', { name: 'Chats' })).toBeInTheDocument();
-    expect(within(header).getByRole('button', { name: /View changes/ })).toBeInTheDocument();
     expect(within(header).getByRole('button', { name: /New chat/ })).toBeInTheDocument();
   });
 
@@ -41,14 +40,13 @@ describe('chat header bar', () => {
     expect(screen.getByRole('button', { name: /New chat/ })).toBeInTheDocument();
   });
 
-  it('cannot start a chat or open changes without a project', () => {
+  it('cannot start a chat without a project', () => {
     const open = project.active;
     project.active = null;
 
     render(ChatBar);
 
     expect(screen.getByRole('button', { name: /New chat/ })).toBeDisabled();
-    expect(screen.getByRole('button', { name: /View changes/ })).toBeDisabled();
 
     project.active = open;
   });

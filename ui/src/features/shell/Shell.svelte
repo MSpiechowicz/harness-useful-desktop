@@ -6,6 +6,7 @@
   import { project } from '$lib/stores/project.svelte';
   import { sessionList } from '$lib/stores/sessions.svelte';
   import { ui } from '$lib/stores/ui-state.svelte';
+  import { palette } from '$lib/stores/palette.svelte';
   import { prefs } from '$lib/stores/prefs.svelte';
   import { updates } from '$lib/stores/updates.svelte';
   import { configView, extensionsView } from '$lib/stores/views.svelte';
@@ -26,13 +27,12 @@
   import ViewHost from './ViewHost.svelte';
   import { VIEWS } from './views';
 
-  let paletteOpen = $state(false);
   let shortcutsOpen = $state(false);
 
   const commands = $derived(buildCommands({ openShortcuts: () => (shortcutsOpen = true) }));
 
   const shortcuts = globalShortcuts({
-    togglePalette: () => (paletteOpen = !paletteOpen),
+    togglePalette: () => palette.toggle(),
     openShortcuts: () => (shortcutsOpen = !shortcutsOpen),
     goBack: () => nav.back(),
     goForward: () => nav.forward(),
@@ -57,7 +57,7 @@
 
   // The palette searches sessions, configuration and extensions; make sure they are loaded when it opens.
   $effect(() => {
-    if (!paletteOpen) {
+    if (!palette.open) {
       return;
     }
 
@@ -99,7 +99,7 @@
     }
 
     // While an overlay is open only its own toggle applies.
-    if ((paletteOpen && shortcut.id !== 'palette') || (shortcutsOpen && shortcut.id !== 'shortcuts')) {
+    if ((palette.open && shortcut.id !== 'palette') || (shortcutsOpen && shortcut.id !== 'shortcuts')) {
       return;
     }
 
@@ -114,7 +114,7 @@
   <Rail />
 
   <div class="relative flex min-w-0 flex-1 flex-col">
-    <TopBar onpalette={() => (paletteOpen = true)} />
+    <TopBar />
 
     <UpdateNotice />
 
@@ -128,5 +128,5 @@
 </div>
 
 <RestartConfirm />
-<CommandPalette bind:open={paletteOpen} {commands} />
+<CommandPalette bind:open={palette.open} {commands} />
 <ShortcutsOverlay open={shortcutsOpen} {groups} onclose={() => (shortcutsOpen = false)} />

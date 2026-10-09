@@ -11,11 +11,10 @@
   import { RAIL_EXPAND_MIN_WIDTH, ui } from '$lib/stores/ui-state.svelte';
   import { cx } from '$lib/utils/cx';
 
-  import HarnessSwitcher from './HarnessSwitcher.svelte';
-  import ProjectSwitcher from './ProjectSwitcher.svelte';
   import { railBadge } from './rail-badges';
   import RailItem from './RailItem.svelte';
   import { VIEWS, viewShortcut } from './views';
+  import WorkspaceSwitcher from './WorkspaceSwitcher.svelte';
 
   let rail: HTMLElement | undefined = $state();
   let buttons: (HTMLButtonElement | undefined)[] = $state([]);
@@ -106,10 +105,9 @@
     {/if}
   </div>
 
-  <!-- Where you are: the harness and the project, both switchable. -->
-  <div class={cx('flex shrink-0 flex-col gap-1 border-b border-line px-[12px] py-2', !expanded && 'items-center')}>
-    <HarnessSwitcher compact={!expanded} />
-    <ProjectSwitcher compact={!expanded} />
+  <!-- Where you are: one control for the harness and the project. -->
+  <div class={cx('flex shrink-0 border-b border-line px-[12px] py-2', !expanded && 'justify-center')}>
+    <WorkspaceSwitcher compact={!expanded} />
   </div>
 
   {#if !expanded && ui.roomForLabels}

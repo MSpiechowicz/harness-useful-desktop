@@ -21,13 +21,16 @@
     kind?: 'menu' | 'dialog';
     align?: 'start' | 'end';
     open?: boolean;
+    /** Classes of the panel. */
     class?: string;
+    /** Classes of the wrapper around trigger and panel, e.g. `w-full` for a trigger that fills its row. */
+    rootClass?: string;
     /** Receives the attributes to spread onto the trigger button. */
     trigger: Snippet<[{ props: TriggerProps; open: boolean }]>;
     children: Snippet<[{ close: () => void }]>;
   }
 
-  let { label, kind = 'menu', align = 'start', open = $bindable(false), class: className, trigger, children }: Props = $props();
+  let { label, kind = 'menu', align = 'start', open = $bindable(false), class: className, rootClass, trigger, children }: Props = $props();
 
   const panelId = uid('popover');
 
@@ -108,7 +111,7 @@
   }
 </script>
 
-<div bind:this={root} class="relative inline-flex" onkeydown={onKeydown} onfocusout={onFocusOut} role="presentation">
+<div bind:this={root} class={cx('relative inline-flex min-w-0', rootClass)} onkeydown={onKeydown} onfocusout={onFocusOut} role="presentation">
   {@render trigger({ props: triggerProps, open })}
 
   {#if open}
