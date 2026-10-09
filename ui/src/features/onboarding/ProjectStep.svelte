@@ -150,17 +150,22 @@
   <!-- How the app works, in three steps: the loop that happens in the folder chosen above. -->
   <section class="flex flex-col gap-3 [@media(max-height:720px)]:hidden" aria-labelledby="how-it-works">
     <h3 id="how-it-works" class="text-sm font-medium tracking-wider text-fg-3 uppercase">How it works</h3>
-    <!-- A timeline: three nodes on one gradient track, each step centred under its node. -->
+    <!-- A timeline: three nodes on one gradient track, left-aligned like the rest of the step. -->
     <ol class="relative grid grid-cols-3">
-      <span
-        class="absolute top-4 right-[16.667%] left-[16.667%] h-px bg-[linear-gradient(90deg,var(--accent-1),var(--accent-2),var(--accent-3))] opacity-60"
-        aria-hidden="true"
-      ></span>
+      <!-- The track runs between the nodes in two segments that stop short of each ring, so nothing needs masking. -->
+      <span class="absolute top-4 left-[40px] h-px w-[calc(33.333%-48px)] bg-[linear-gradient(90deg,var(--accent-1),var(--accent-2))] opacity-60" aria-hidden="true"></span>
+      <span class="absolute top-4 left-[calc(33.333%+40px)] h-px w-[calc(33.333%-48px)] bg-[linear-gradient(90deg,var(--accent-2),var(--accent-3))] opacity-60" aria-hidden="true"></span>
       {#each LOOP as step, index (step.title)}
-        <li class="relative flex flex-col items-center gap-2 px-4 text-center">
-          <span class="grid size-8 place-items-center rounded-full border border-accent/50 bg-canvas text-xs font-semibold text-accent-text tabular shadow-[0_0_0_4px_var(--canvas)]">{index + 1}</span>
+        <li class="relative flex flex-col items-start gap-2 pr-6">
+          <!-- The node is SVG, so its ring is always anti-aliased. -->
+          <span class="relative grid size-8 place-items-center text-xs font-semibold text-accent-text tabular">
+            <svg class="absolute -inset-1 size-10 overflow-visible" viewBox="0 0 40 40" aria-hidden="true">
+              <circle cx="20" cy="20" r="15.5" fill="var(--color-accent)" fill-opacity="0.1" stroke="var(--color-accent)" stroke-opacity="0.6" stroke-width="1" />
+            </svg>
+            <span class="relative">{index + 1}</span>
+          </span>
           <p class="mt-1 flex items-center gap-2 text-sm font-medium text-fg"><step.icon class="text-fg-3" size={14} aria-hidden="true" />{step.title}</p>
-          <p class="max-w-56 text-xs text-fg-3">{step.body}</p>
+          <p class="max-w-60 text-xs text-fg-3">{step.body}</p>
           {#if step.keys}<Kbd keys={step.keys} />{/if}
         </li>
       {/each}
