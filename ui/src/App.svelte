@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
 
+  import ErrorBoundary from '$lib/components/ErrorBoundary.svelte';
   import ToastHost from '$lib/components/ToastHost.svelte';
   import { app } from '$lib/stores/app.svelte';
   import { harness } from '$lib/stores/harness.svelte';
@@ -31,8 +32,9 @@
   }
 </script>
 
-<AuroraBackdrop />
-<Shell />
-<Onboarding />
-<Intro />
-<ToastHost />
+<!-- Each layer fails on its own: decorative ones disappear, the shell and the setup show "Something went wrong". -->
+<ErrorBoundary area="The background" variant="silent"><AuroraBackdrop /></ErrorBoundary>
+<ErrorBoundary area="Harness Desktop" variant="screen"><Shell /></ErrorBoundary>
+<ErrorBoundary area="The setup" variant="screen"><Onboarding /></ErrorBoundary>
+<ErrorBoundary area="The intro" variant="silent"><Intro /></ErrorBoundary>
+<ErrorBoundary area="Notifications" variant="silent"><ToastHost /></ErrorBoundary>
