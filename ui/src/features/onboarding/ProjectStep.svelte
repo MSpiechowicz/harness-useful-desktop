@@ -61,8 +61,8 @@
   const tiles = $derived<{ icon: IconComponent; title: string; body: string; off?: boolean }[]>([
     { icon: MessageSquare, title: 'Chat', body: driverName ? `Ready with ${driverName}.` : 'Works in this folder.' },
     { icon: GitCompare, title: 'Changes', body: changesLine(), off: Boolean(current && !current.isGitRepo) },
-    { icon: History, title: 'Sessions', body: 'Chats you can resume.' },
-    { icon: FileCog, title: 'Project settings', body: 'Beside your global ones.' },
+    { icon: History, title: 'Sessions', body: 'Resume any chat.' },
+    { icon: FileCog, title: 'Project settings', body: 'Read with global ones.' },
   ]);
 </script>
 
@@ -134,9 +134,10 @@
       </div>
     {/if}
 
-    <ul class="mt-[22px] grid grid-cols-4 gap-4 border-t border-line pt-[18px]" aria-label="In this project">
+    <!-- Four equal cells with thin dividers, so the spacing reads the same whatever the text length. -->
+    <ul class="mt-[22px] grid grid-cols-4 divide-x divide-line border-t border-line pt-[18px]" aria-label="In this project">
       {#each tiles as tile (tile.title)}
-        <li class={cx('flex items-start gap-3', (tile.off || !current) && 'opacity-55')}>
+        <li class={cx('flex items-start gap-3 px-4 first:pl-0 last:pr-0', (tile.off || !current) && 'opacity-55')}>
           <span class={cx('grid size-8 shrink-0 place-items-center rounded-md', tile.off ? 'bg-surface-2' : 'bg-accent-wash')}>
             <tile.icon class={tile.off ? 'text-fg-3' : 'text-accent-text'} size={16} aria-hidden="true" />
           </span>
@@ -153,35 +154,14 @@
   <section class="flex flex-col gap-3 [@media(max-height:720px)]:hidden" aria-labelledby="how-it-works">
     <h3 id="how-it-works" class="text-sm font-medium tracking-wider text-fg-3 uppercase">How it works</h3>
     <!-- A timeline: three nodes on one gradient track, left-aligned like the rest of the step. -->
-    <ol class="relative grid grid-cols-4">
-      <!-- The track runs between the nodes in segments that stop short of each ring, so nothing needs masking. -->
-      {#each LOOP.slice(1) as step, index (step.title)}
-        <span
-          class="absolute top-4 h-px w-[calc(25%-48px)] bg-[linear-gradient(90deg,var(--accent-1),var(--accent-2),var(--accent-3))] opacity-60"
-          style:left="calc({index * 25}% + 40px)"
-          aria-hidden="true"
-        ></span>
-      {/each}
-
-      <!-- The loop closes: the track runs on from the last step to a repeat ring at the right edge. -->
-      <span
-        class="absolute top-4 right-[48px] left-[calc(75%+40px)] h-px bg-[linear-gradient(90deg,var(--accent-3),var(--accent-1))] opacity-60"
-        aria-hidden="true"
-      ></span>
-      <!-- Same structure as a step (ring, title row, line), so its title sits level with the others. -->
-      <span class="absolute top-0 right-0 flex flex-col items-end gap-2 text-right" aria-hidden="true">
-        <span class="relative grid size-8 place-items-center text-accent-text">
-          <svg class="absolute -inset-1 size-10" viewBox="0 0 40 40">
-            <circle cx="20" cy="20" r="15.5" fill="var(--color-accent)" fill-opacity="0.1" stroke="var(--color-accent)" stroke-opacity="0.6" stroke-width="1" stroke-dasharray="3 3" />
-          </svg>
-          <Repeat class="relative" size={14} />
-        </span>
-        <span class="mt-1 text-sm font-medium text-fg">Repeat</span>
-        <span class="text-xs text-fg-3">Ask again.</span>
-      </span>
-
+    <!-- Four equal step columns and a narrow repeat column; each step draws its own track to the next ring. -->
+    <ol class="grid grid-cols-[repeat(4,minmax(0,1fr))_auto]">
       {#each LOOP as step, index (step.title)}
-        <li class={cx('relative flex flex-col items-start gap-2', index === LOOP.length - 1 ? 'pr-24' : 'pr-6')}>
+        <li class="relative flex flex-col items-start gap-2 pr-6">
+          <span
+            class="absolute top-4 right-2 left-[40px] h-px bg-[linear-gradient(90deg,var(--accent-1),var(--accent-2),var(--accent-3))] opacity-60"
+            aria-hidden="true"
+          ></span>
           <!-- The node is SVG, so its ring is always anti-aliased. -->
           <span class="relative grid size-8 place-items-center text-xs font-semibold text-accent-text tabular">
             <svg class="absolute -inset-1 size-10 overflow-visible" viewBox="0 0 40 40" aria-hidden="true">
@@ -194,6 +174,18 @@
           {#if step.keys}<Kbd keys={step.keys} />{/if}
         </li>
       {/each}
+
+      <!-- The loop closes: a dashed repeat ring, built like a step so its title sits level with the others. -->
+      <li class="flex flex-col items-start gap-2" aria-label="Then repeat: ask again">
+        <span class="relative grid size-8 place-items-center text-accent-text" aria-hidden="true">
+          <svg class="absolute -inset-1 size-10" viewBox="0 0 40 40">
+            <circle cx="20" cy="20" r="15.5" fill="var(--color-accent)" fill-opacity="0.1" stroke="var(--color-accent)" stroke-opacity="0.6" stroke-width="1" stroke-dasharray="3 3" />
+          </svg>
+          <Repeat class="relative" size={14} />
+        </span>
+        <p class="mt-1 text-sm font-medium text-fg">Repeat</p>
+        <p class="text-xs text-fg-3">Ask again.</p>
+      </li>
     </ol>
   </section>
 
