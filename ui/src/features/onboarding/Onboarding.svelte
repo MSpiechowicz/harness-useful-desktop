@@ -93,8 +93,9 @@
 
     <!--
       One fixed frame for every step, sized for the tallest one and centred in the window, so nothing jumps between
-      steps: the progress bar is pinned to the top, the actions to the bottom, and each step sits centred between
-      them (no dead gap above the buttons). Only that middle area scrolls on short windows.
+      steps: the progress bar is pinned to the top, the actions to the bottom; the hero sits centred between
+      them on the welcome step; every later step starts at the same place (the title of step 2) and flows down.
+      Only that middle area scrolls on short windows.
     -->
     <div class="relative flex h-full items-center" in:fade|global={enterFade()}>
       <div class="mx-auto flex h-full max-h-[52rem] w-full max-w-[60rem] flex-col gap-7 px-6 py-10 [@media(max-height:720px)]:gap-5 [@media(max-height:720px)]:py-6">
@@ -104,7 +105,11 @@
         <div class="step-area grid min-h-0 flex-1 overflow-x-hidden overflow-y-auto *:col-start-1 *:row-start-1">
           {#key onboarding.step}
             <div
-              class={cx('mx-auto w-full min-w-0 [align-self:safe_center]', WIDTH[STEP_WIDTH[onboarding.step]])}
+              class={cx(
+                'mx-auto w-full min-w-0',
+                onboarding.step === 'welcome' ? '[align-self:safe_center]' : 'self-start',
+                WIDTH[STEP_WIDTH[onboarding.step]],
+              )}
               in:stepIn={{ direction: onboarding.direction }}
               out:stepOut={{ direction: onboarding.direction }}
             >
