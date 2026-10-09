@@ -1,8 +1,8 @@
 <svelte:options namespace="svg" />
 
 <script lang="ts">
-  import { CHIPS, CRACK, GRIT, PUFFS } from './launch-parts';
-  import { CURSOR, H_BROKEN, H_INTACT, LEG_PIVOT } from './geometry';
+  import { CHIPS, CRACK, GRIT, PUFFS, SHARDS, SNAP_PUFFS } from './launch-parts';
+  import { CURSOR, H_BROKEN, H_INTACT, LEG_PIVOT, STEM_PIECE } from './geometry';
 
   interface Props {
     /** Gradient painting the whole mark; defined inside the same `<svg>` so theme variables resolve. */
@@ -25,13 +25,21 @@
   }
 </script>
 
-<!-- Intact H until the snap; then the broken H and the separate leg take over in the same frame. -->
+<!--
+  Intact H until the crack has run across; then the H with its splintered edge and the stem piece below it,
+  which gives a little; at the snap the piece is replaced by the leg, which carries the matching edge.
+-->
 <g class="body" fill="url(#{gradient})">
-  <path class="intact" d={H_INTACT} />
   <path class="broken" d={H_BROKEN} />
+  <path class="piece" d={STEM_PIECE} />
+  <path class="intact" d={H_INTACT} />
 </g>
 
 <g filter="url(#{blur})" style:fill="var(--logo-dust)">
+  {#each SNAP_PUFFS as puff, index (index)}
+    <circle class="puff snap" cx={puff.cx} cy={puff.cy} r={puff.r} style:--dx="{puff.dx}px" style:--dy="{puff.dy}px" style:--s={puff.scale} style:--d="{puff.delay}s" />
+  {/each}
+
   {#each PUFFS as puff, index (index)}
     <circle
       class={['puff', puff.slow && 'slow']}
@@ -46,57 +54,46 @@
   {/each}
 </g>
 
-<g style:fill="var(--text)">
+<g fill="url(#{gradient})">
   {#each CHIPS as chip, index (index)}
-    <rect
-      class="fleck"
-      x={chip.x}
-      y={chip.y}
-      width={chip.size}
-      height={chip.size}
-      style:--dx="{chip.dx}px"
-      style:--h="{chip.rise}px"
-      style:--d="{chip.delay}s"
-    />
+    <g transform="translate({chip.x} {chip.y}) scale({chip.scale})">
+      <path class="fleck" d={SHARDS[chip.shard]} style:--dx="{chip.dx / chip.scale}px" style:--h="{chip.rise / chip.scale}px" style:--d="{chip.delay}s" />
+    </g>
   {/each}
 </g>
 
 <g class="leg-visible">
   <g class="cursor" data-part="cursor" onanimationend={onLegEnd}>
     <g class="leg" style:transform-origin="{LEG_PIVOT.x}px {LEG_PIVOT.y}px">
-      <rect class="leg-base" {...CURSOR} fill="url(#{legGradient})" />
-      <rect class="leg-color" {...CURSOR} fill="url(#{gradient})" />
+      <path class="leg-base" d={CURSOR} fill="url(#{legGradient})" />
+      <path class="leg-color" d={CURSOR} fill="url(#{gradient})" />
     </g>
   </g>
 </g>
 
-<g fill="none" stroke-linecap="round" stroke-linejoin="round" style:stroke="var(--canvas)">
-  <path class="crack" pathLength="1" stroke-width={CRACK.main.width} d={CRACK.main.d} />
-  <path class="crack branch" pathLength="1" stroke-width={CRACK.branch.width} d={CRACK.branch.d} />
-</g>
+<path class="crack" pathLength="1" fill="none" stroke-linecap="butt" stroke-linejoin="miter" style:stroke="var(--canvas)" stroke-width={CRACK.width} d={CRACK.d} />
 
-<g style:fill="var(--text)">
+<g fill="url(#{gradient})">
   {#each GRIT as grit, index (index)}
-    <rect class="grit" x={grit.x} y={grit.y} width={grit.size} height={grit.size} style:--dx="{grit.dx}px" style:--d="{grit.delay}s" />
+    <g transform="translate({grit.x} {grit.y}) scale({grit.scale})">
+      <path class="grit" d={SHARDS[grit.shard]} style:--dx="{grit.dx / grit.scale}px" style:--d="{grit.delay}s" />
+    </g>
   {/each}
 </g>
 
 <style>
-  /* Timeline in seconds from mount (approved launch, slower crack): crack .3, shiver .95, snap 1.25, impact 1.85, blinks 2.45. */
+  /*
+   * Timeline in seconds from mount: the crack runs .3-1.0, the stem piece gives at 1.02, shiver .98, snap 1.25
+   * (with a puff of dust from the crack), impact 1.85, blinks 2.45.
+   */
 
-  /* Crack draws slowly across the joint, grit trickles out, the whole glyph shivers just before the snap. */
+  /* A thin, sharp crack runs fast, then slows as it reaches the inner edge; grit trickles out of it. */
   .crack {
     stroke-dasharray: 1;
     stroke-dashoffset: 1;
     animation:
-      crack-draw 0.55s 0.3s cubic-bezier(0.6, 0, 0.4, 1) forwards,
-      crack-gone 0.01s 1.33s forwards;
-  }
-
-  .crack.branch {
-    animation:
-      crack-draw 0.32s 0.68s cubic-bezier(0.6, 0, 0.4, 1) forwards,
-      crack-gone 0.01s 1.33s forwards;
+      crack-draw 0.7s 0.3s cubic-bezier(0.2, 0.8, 0.3, 1) forwards,
+      crack-gone 0.01s 1.02s forwards;
   }
 
   .grit,
@@ -108,22 +105,31 @@
   }
 
   .grit {
-    animation: grit 0.8s calc(0.48s + var(--d, 0s)) cubic-bezier(0.5, 0, 1, 1) both;
+    animation: grit 0.8s calc(0.55s + var(--d, 0s)) cubic-bezier(0.5, 0, 1, 1) both;
   }
 
   .body {
     transform-box: view-box;
     animation:
-      shiver 0.3s 0.95s linear both,
+      shiver 0.26s 0.98s linear both,
       shudder 0.22s 1.85s ease-out both;
   }
 
-  /* The snap: the intact H is replaced by the broken H and the separate leg in the same frame. */
+  /* The crack opens: the intact H gives way to the splintered H and the stem piece, which sags a hair. */
   .intact {
-    animation: swap-out 0.01s 1.25s forwards;
+    animation: swap-out 0.01s 1.02s forwards;
   }
 
-  .broken,
+  .piece {
+    transform-box: view-box;
+    opacity: 0;
+    animation:
+      swap-in 0.01s 1.02s forwards,
+      give 0.25s 1.02s cubic-bezier(0.5, 0, 0.8, 0.4) forwards,
+      swap-out 0.01s 1.25s forwards;
+  }
+
+  /* The snap: the piece is replaced by the leg, which carries the same splintered edge, in the same frame. */
   .leg-visible {
     opacity: 0;
     animation: swap-in 0.01s 1.25s forwards;
@@ -148,7 +154,7 @@
     animation: blink-twice 1.1s 2.45s steps(1, end) both;
   }
 
-  /* Impact: dust puffs, pixel chips, a shudder. */
+  /* Impact: dust puffs (rollers keep drifting along the ground), splinters, a shudder. */
   .puff {
     animation: puff 0.95s calc(1.85s + var(--d, 0s)) cubic-bezier(0.12, 0.7, 0.25, 1) both;
   }
@@ -157,8 +163,18 @@
     animation-duration: 1.3s;
   }
 
+  .puff.snap {
+    animation: puff 0.8s calc(1.25s + var(--d, 0s)) cubic-bezier(0.12, 0.7, 0.25, 1) both;
+  }
+
   .fleck {
     animation: fleck 0.7s calc(1.85s + var(--d, 0s)) linear both;
+  }
+
+  @keyframes give {
+    to {
+      transform: translate(0.35px, 0.9px);
+    }
   }
 
   @keyframes crack-draw {
@@ -235,8 +251,9 @@
   }
 
   @keyframes topple {
+    /* Starts where the stem piece sagged to, so nothing jumps at the snap. */
     0% {
-      transform: rotate(-90deg);
+      transform: rotate(-90deg) translate(-0.9px, 0.35px);
     }
     78% {
       transform: rotate(0deg);

@@ -86,7 +86,7 @@
       <LaunchMark {gradient} {legGradient} {blur} onfinish={finish} />
     {:else}
       <path d={H_BROKEN} fill="url(#{gradient})" />
-      <rect class={['cursor', blinking && 'blink']} data-part="cursor" {...CURSOR} fill="url(#{gradient})" />
+      <path class={['cursor', blinking && 'blink']} data-part="cursor" d={CURSOR} fill="url(#{gradient})" />
     {/if}
   </svg>
 
