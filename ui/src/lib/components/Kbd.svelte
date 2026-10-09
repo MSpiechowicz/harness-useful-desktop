@@ -17,8 +17,8 @@
   {#each caps as cap (cap)}
     <kbd
       class={[
-        'inline-flex h-5 items-center justify-center rounded-sm border border-line-strong bg-surface-2 font-sans text-xs leading-none font-medium text-fg-2 shadow-raised',
-        uniform ? 'w-10' : 'min-w-5 px-1.5',
+        'inline-flex items-center justify-center rounded-sm border border-line-strong bg-surface-2 font-sans leading-none font-medium text-fg-2 shadow-raised',
+        uniform ? 'h-6 w-12 text-[11px]' : 'h-5 min-w-5 px-1.5 text-xs',
       ]}
       aria-hidden="true">{cap}</kbd
     >

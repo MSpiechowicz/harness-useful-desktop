@@ -27,7 +27,7 @@
   <StepHeader eyebrow="All set" title="You’re ready to go" body="Here is what we’ll start with. Everything can be changed later from the top bar or Settings." />
 
   <div class="grid grid-cols-2 items-start gap-4">
-    <section class="flex flex-col gap-4 rounded-lg border border-line bg-glass p-5 backdrop-blur-md" aria-labelledby="setup-summary">
+    <section class="flex flex-col gap-4 rounded-lg border border-line bg-glass p-5" aria-labelledby="setup-summary">
       <h3 id="setup-summary" class="text-sm font-medium tracking-wider text-fg-3 uppercase">Your setup</h3>
       <dl class="grid grid-cols-[max-content_1fr] items-center gap-x-6 gap-y-4">
         <dt class="text-sm text-fg-3">Daily driver</dt>
@@ -54,7 +54,7 @@
       <p class="inline-flex items-center gap-2 border-t border-line pt-3 text-sm text-fg-2"><Check class="text-success" size={16} aria-hidden="true" />Nothing leaves this device.</p>
     </section>
 
-    <section class="flex flex-col gap-3 rounded-lg border border-line bg-glass p-5 backdrop-blur-md" aria-labelledby="first-steps">
+    <section class="flex flex-col gap-3 rounded-lg border border-line bg-glass p-5" aria-labelledby="first-steps">
       <h3 id="first-steps" class="text-sm font-medium tracking-wider text-fg-3 uppercase">Where to find things</h3>
       <ul class="flex flex-col gap-3">
         {#each TIPS as tip (tip.keys)}

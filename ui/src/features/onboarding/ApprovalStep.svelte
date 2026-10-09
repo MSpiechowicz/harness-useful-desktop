@@ -31,7 +31,7 @@
   <ul class="grid grid-cols-3 gap-4" aria-label="OMP approval modes">
     {#each MODE_ORDER as mode (mode)}
       {@const info = MODES[mode]}
-      <li class={cx('flex flex-col gap-2 rounded-lg border bg-glass p-5 backdrop-blur-md', TONE[info.tone])}>
+      <li class={cx('flex flex-col gap-2 rounded-lg border bg-glass p-5', TONE[info.tone])}>
         <div class="flex items-center justify-between gap-2">
           <p class="text-base font-medium text-fg first-letter:uppercase">{info.label}</p>
           {#if mode === 'yolo'}<span class="rounded-full bg-warning/15 px-2 py-0.5 text-xs font-medium text-warning">OMP default</span>{/if}

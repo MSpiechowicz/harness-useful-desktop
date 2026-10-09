@@ -40,7 +40,7 @@
 <article
   aria-label={label}
   class={cx(
-    'flex flex-col gap-4 rounded-lg border bg-glass p-5 shadow-float backdrop-blur-md transition-colors duration-[var(--dur-base)] [@media(max-height:720px)]:gap-3 [@media(max-height:720px)]:p-4',
+    'flex flex-col gap-4 rounded-lg border bg-glass p-5 shadow-float transition-colors duration-[var(--dur-base)] [@media(max-height:720px)]:gap-3 [@media(max-height:720px)]:p-4',
     selected ? 'border-accent/50 shadow-glow' : 'border-line',
   )}
 >

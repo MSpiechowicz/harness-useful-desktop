@@ -150,22 +150,18 @@
 
 <style>
   /*
-   * The incoming step builds itself: eyebrow, title, text, then each block, one after another, each gliding a short
-   * way in from the side the user is heading towards (--dir). The motion tokens zero the travel and the stagger
-   * for reduced motion, and the duration for motion off.
+   * The incoming step builds in two clean beats: the heading block, then each content block a moment later, gliding a
+   * short way in from the side the user is heading towards (--dir). Whole blocks only, never their insides, so nothing
+   * inside a card appears late. The motion tokens zero the travel and the stagger for reduced motion, the duration for off.
    */
-  .step-build > :global(*) > :global(*:not(header)),
-  .step-build :global(header) > :global(*) {
+  .step-build > :global(*) > :global(*) {
     animation: step-piece var(--dur-enter) var(--ease-out-expo) both;
-    animation-delay: calc((160ms + var(--n, 0) * 55ms) * var(--stagger));
+    animation-delay: calc((140ms + var(--n, 0) * 70ms) * var(--stagger));
   }
 
-  .step-build :global(header) > :global(:nth-child(2)) { --n: 1; }
-  .step-build :global(header) > :global(:nth-child(3)) { --n: 2; }
-  .step-build > :global(*) > :global(:nth-child(2)) { --n: 3; }
-  .step-build > :global(*) > :global(:nth-child(3)) { --n: 4; }
-  .step-build > :global(*) > :global(:nth-child(4)) { --n: 5; }
-  .step-build > :global(*) > :global(:nth-child(5)) { --n: 6; }
+  .step-build > :global(*) > :global(:nth-child(2)) { --n: 1; }
+  .step-build > :global(*) > :global(:nth-child(3)) { --n: 2; }
+  .step-build > :global(*) > :global(:nth-child(n + 4)) { --n: 3; }
 
   @keyframes step-piece {
     from {

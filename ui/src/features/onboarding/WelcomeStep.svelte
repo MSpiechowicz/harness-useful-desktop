@@ -31,10 +31,9 @@
   </header>
 
   <ul class="grid w-full grid-cols-1 gap-4 text-left sm:grid-cols-3">
-    {#each POINTS as point, index (point.title)}
+    {#each POINTS as point (point.title)}
       <li
-        class="point flex flex-col gap-3 rounded-lg border border-line bg-glass p-5 backdrop-blur-md transition-colors duration-[var(--dur-base)] hover:border-line-strong"
-        style:--i={index}
+        class="flex flex-col gap-3 rounded-lg border border-line bg-glass p-5 transition-colors duration-[var(--dur-base)] hover:border-line-strong"
       >
         <span class="grid size-10 place-items-center rounded-md bg-accent-wash">
           <point.icon class="text-accent-text" size={20} strokeWidth={1.8} aria-hidden="true" />
@@ -46,17 +45,3 @@
   </ul>
 </div>
 
-<style>
-  /* Cards rise in one after another once the step has slid into place; the motion tokens zero this out when reduced. */
-  .point {
-    animation: point-in var(--dur-enter) var(--ease-out-expo) both;
-    animation-delay: calc((220ms + var(--i) * 90ms) * var(--stagger));
-  }
-
-  @keyframes point-in {
-    from {
-      opacity: 0;
-      transform: translateY(calc(var(--shift) * 2));
-    }
-  }
-</style>
