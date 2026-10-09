@@ -170,7 +170,7 @@ async fn a_missing_binary_reports_the_install_hint() {
     assert!(!detection.installed);
     assert_eq!(detection.version_support, VersionSupport::Unknown);
     let hint = detection.install_hint.unwrap();
-    assert_eq!(hint.command, "npm install -g @earendil-works/pi-coding-agent");
+    assert_eq!(hint.command, "curl -fsSL https://pi.dev/install.sh | sh");
     assert_eq!(hint.docs_url, "https://github.com/earendil-works/pi");
 }
 

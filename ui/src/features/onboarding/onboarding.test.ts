@@ -37,7 +37,7 @@ describe('Onboarding', () => {
     expect(await screen.findByRole('article', { name: 'Oh My Pi' })).toHaveTextContent('Supported');
     const piCard = screen.getByRole('article', { name: 'Pi' });
     expect(piCard).toHaveTextContent('Not found');
-    expect(piCard).toHaveTextContent('npm install -g @earendil-works/pi-coding-agent');
+    expect(piCard).toHaveTextContent('curl -fsSL https://pi.dev/install.sh | sh');
     expect(screen.getByRole('radio', { name: 'Use Pi as daily driver' })).toHaveAttribute('aria-disabled', 'true');
 
     await click('Choose binary…');

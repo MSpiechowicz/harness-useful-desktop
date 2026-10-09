@@ -68,7 +68,7 @@
       "configDir": "/home/demo/.pi",
       "configDirExists": true,
       "installHint": {
-        "command": "npm install -g @earendil-works/pi-coding-agent",
+        "command": "curl -fsSL https://pi.dev/install.sh | sh",
         "docsUrl": "https://github.com/earendil-works/pi"
       },
       "error": null

@@ -114,7 +114,7 @@ impl Harness for Pi {
 
     fn install_hint(&self) -> InstallHint {
         InstallHint {
-            command: "npm install -g @earendil-works/pi-coding-agent".to_owned(),
+            command: "curl -fsSL https://pi.dev/install.sh | sh".to_owned(),
             docs_url: "https://github.com/earendil-works/pi".to_owned(),
         }
     }
