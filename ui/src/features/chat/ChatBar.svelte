@@ -19,7 +19,7 @@
   const changed = $derived(git.status?.isRepo ? git.status.entries.length : 0);
 </script>
 
-<!-- Chat's header is one slim row: the chat tabs are the title, and the breadcrumb above already says where you are. -->
+<!-- Chat's header is one slim row: the chat tabs are the title once a chat exists; before that the view names itself. -->
 <header data-view-header class="sticky top-0 z-20 shrink-0 border-b border-line bg-surface-1/80 backdrop-blur-xl">
   <div class="page-gutter flex h-10 items-center gap-3">
     <h1 class={hasChats ? 'sr-only' : 'flex-1 text-base font-medium text-fg'}>Chat</h1>

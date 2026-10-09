@@ -9,11 +9,11 @@
   import Tabs from '$lib/components/Tabs.svelte';
   import ViewHeader from '$lib/components/ViewHeader.svelte';
   import { harness } from '$lib/stores/harness.svelte';
+  import { project } from '$lib/stores/project.svelte';
   import { viewState } from '$lib/stores/view-state.svelte';
   import { extensionsView } from '$lib/stores/views.svelte';
 
   import HarnessGate from '../harness/HarnessGate.svelte';
-  import { scopeLabel } from '../shell/scope';
   import ActionDialog from './actions/ActionDialog.svelte';
   import ExtensionToolbar from './actions/ExtensionToolbar.svelte';
   import { tabCount, visibleTabs, type ExtTab } from './extension-items';
@@ -30,7 +30,7 @@
 </script>
 
 <div class="flex size-full min-h-0 flex-col">
-  <ViewHeader title="Extensions" context={scopeLabel()}>
+  <ViewHeader title="Extensions" context={project.active ? 'Project and user-level extensions' : 'User-level extensions'}>
     {#snippet leading()}
       {#if harness.active}<HarnessBadge info={harness.active.info} />{/if}
     {/snippet}

@@ -10,14 +10,12 @@
   import Zap from '@lucide/svelte/icons/zap';
 
   import { ICON } from '$lib/components/icon';
-  import Logo from '$lib/components/Logo.svelte';
+  import StatusDot from '$lib/components/StatusDot.svelte';
   import { agentSessions } from '$lib/stores/agentSession.svelte';
   import { app } from '$lib/stores/app.svelte';
   import { git } from '$lib/stores/git.svelte';
-  import { harness } from '$lib/stores/harness.svelte';
   import { nav } from '$lib/stores/nav.svelte';
   import { prefs } from '$lib/stores/prefs.svelte';
-  import { project } from '$lib/stores/project.svelte';
   import { updates } from '$lib/stores/updates.svelte';
   import { cx } from '$lib/utils/cx';
 
@@ -36,12 +34,10 @@
   const connected = $derived(app.status === 'ready');
   const chat = $derived(agentSessions.active?.chat ?? null);
   const agent = $derived(chat ? chatStatus(chat) : null);
-  // The mark blinks while any agent, not just the visible one, is working.
-  const working = $derived(agentSessions.sessions.some((session) => session.chat.phase === 'streaming'));
   const label = $derived(
     app.status === 'ready' ? (agent?.label ?? 'Ready · no agent running') : app.status === 'loading' ? 'Connecting…' : 'Desktop runtime unavailable',
   );
-  const tone = $derived(!connected || agent?.tone === 'warning' ? 'warning' : agent?.tone === 'danger' ? 'danger' : 'ok');
+  const tone = $derived(!connected || agent?.tone === 'warning' ? 'warning' : agent?.tone === 'danger' ? 'danger' : 'success');
 
   const status = $derived(git.status?.isRepo ? git.status : null);
   const themeIcon = $derived({ system: Monitor, dark: Moon, light: Sun }[prefs.value?.theme ?? 'system']);
@@ -50,15 +46,15 @@
   const updateLabel = $derived(indicatorLabel(updates.state, updates.fraction));
 </script>
 
+<!-- Live state only: what the agent is doing, the branch, a pending update, and the quick toggles. Which harness,
+     project and app this is already shows in the top bar and in Settings, so the status bar does not repeat it. -->
 <footer class="intro-enter intro-top flex h-8 shrink-0 items-center justify-between gap-3 border-t border-line bg-surface-1/70 px-2 text-xs text-fg-3" style:--intro-delay="140ms">
   <div class="flex min-w-0 items-center gap-1">
     <span class="sr-only" role="status">{label}</span>
 
     <StatusItem label="{label}. Open chat" onclick={() => nav.go('chat')}>
       {#snippet content()}
-        <span class="grid size-4 place-items-center" aria-hidden="true">
-          <Logo size={14} state={working ? 'working' : 'idle'} />
-        </span>
+        <StatusDot {tone} class={cx(chat?.phase === 'streaming' && 'animate-pulse')} />
         <span class={cx('truncate', tone === 'warning' && 'text-warning', tone === 'danger' && 'text-danger')}>{label}</span>
       {/snippet}
     </StatusItem>
@@ -83,33 +79,9 @@
           <span>{updateLabel}</span>
         {/snippet}
       </StatusItem>
+
+      <span class="mx-1 h-4 w-px bg-line-strong" aria-hidden="true"></span>
     {/if}
-
-    {#if harness.active}
-      <span class="max-[1100px]:hidden">
-        <StatusItem label="{harness.active.info.name} configuration" onclick={() => nav.go('config')}>
-          {#snippet content()}
-            {harness.active?.info.shortName}{harness.active?.detection.version ? ` v${harness.active.detection.version}` : ''}
-          {/snippet}
-        </StatusItem>
-      </span>
-    {/if}
-
-    <span class="max-[900px]:hidden">
-      <StatusItem label="{project.active ? project.active.name : 'No project'}. Browse sessions" onclick={() => nav.go('sessions')}>
-        {#snippet content()}{project.active ? project.active.name : 'No project'}{/snippet}
-      </StatusItem>
-    </span>
-
-    {#if app.info}
-      <span class="max-[1100px]:hidden">
-        <StatusItem label="{app.info.name} v{app.info.version}. Open settings" onclick={() => nav.go('settings')}>
-          {#snippet content()}{app.info?.name} v{app.info?.version}{/snippet}
-        </StatusItem>
-      </span>
-    {/if}
-
-    <span class="mx-1 h-4 w-px bg-line-strong" aria-hidden="true"></span>
 
     <StatusItem label="Theme: {themeName}. Click to change" onclick={cycleTheme}>
       {#snippet content()}

@@ -114,7 +114,7 @@
   <Rail />
 
   <div class="relative flex min-w-0 flex-1 flex-col">
-    <TopBar onpalette={() => (paletteOpen = true)} onshortcuts={() => (shortcutsOpen = true)} />
+    <TopBar onpalette={() => (paletteOpen = true)} />
 
     <UpdateNotice />
 

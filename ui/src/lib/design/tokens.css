@@ -178,7 +178,7 @@
   --chat-col: calc(var(--chat-measure) + 2 * var(--gutter));
   --chat-bleed: 110px;
   --rail-collapsed: 64px;
-  --rail-expanded: 200px;
+  --rail-expanded: 220px;
 }
 
 @media (min-width: 1280px) {

@@ -1,9 +1,10 @@
 <script lang="ts">
-  import ChevronsLeft from '@lucide/svelte/icons/chevrons-left';
-  import ChevronsRight from '@lucide/svelte/icons/chevrons-right';
+  import PanelLeftClose from '@lucide/svelte/icons/panel-left-close';
+  import PanelLeftOpen from '@lucide/svelte/icons/panel-left-open';
 
   import { createSpring, moveSpring } from '$lib/design/motion';
   import IconButton from '$lib/components/IconButton.svelte';
+  import Logo from '$lib/components/Logo.svelte';
   import { agentSessions } from '$lib/stores/agentSession.svelte';
   import { git } from '$lib/stores/git.svelte';
   import { nav } from '$lib/stores/nav.svelte';
@@ -22,6 +23,8 @@
   const activeIndex = $derived(VIEWS.findIndex((view) => view.id === nav.current));
   const expanded = $derived(ui.railShowsLabels);
   const chat = $derived(agentSessions.active?.chat ?? null);
+  // The mark blinks while any agent, not just the visible one, is working.
+  const working = $derived(agentSessions.sessions.some((session) => session.chat.phase === 'streaming'));
 
   function placeIndicator(): void {
     const button = buttons[activeIndex];
@@ -70,15 +73,43 @@
   });
 </script>
 
+{#snippet toggle()}
+  <IconButton
+    icon={expanded ? PanelLeftClose : PanelLeftOpen}
+    label={expanded ? 'Collapse sidebar' : 'Expand sidebar'}
+    shortcut="mod+b"
+    side="right"
+    size="sm"
+    aria-expanded={expanded}
+    class="border border-line bg-surface-2 text-fg-2 shadow-raised hover:border-line-strong hover:bg-surface-3"
+    onclick={() => ui.toggleRail()}
+  />
+{/snippet}
+
 <nav
   bind:this={rail}
   aria-label="Primary"
   data-expanded={expanded}
   class={cx(
-    'intro-enter intro-left relative flex shrink-0 flex-col gap-1 border-r border-line bg-surface-1/70 px-[12px] py-3 transition-[width] duration-[var(--dur-slow)] ease-[var(--ease-out-expo)]',
+    'intro-enter intro-left relative flex shrink-0 flex-col border-r border-line bg-surface-1/70 transition-[width] duration-[var(--dur-slow)] ease-[var(--ease-out-expo)]',
     expanded ? 'w-[var(--rail-expanded)]' : 'w-[var(--rail-collapsed)]',
   )}
 >
+  <!-- The brand sits top-left, on the same baseline as the top bar; the collapse toggle lives next to it. -->
+  <div class={cx('flex h-11 shrink-0 items-center border-b border-line px-[12px]', expanded ? 'justify-between' : 'justify-center')}>
+    <Logo size={expanded ? 15 : 18} wordmark={expanded} state={working ? 'working' : 'idle'} />
+
+    {#if expanded && ui.roomForLabels}
+      {@render toggle()}
+    {/if}
+  </div>
+
+  {#if !expanded && ui.roomForLabels}
+    <div class="flex justify-center pt-3">
+      {@render toggle()}
+    </div>
+  {/if}
+
   <!-- Active indicator: a glowing tile that springs between destinations. Pixel insets (not rem) keep it centered on
        the fixed-width rail at any root font size. -->
   <span
@@ -88,31 +119,23 @@
     style:transform="translateY({indicatorY.current}px)"
   ></span>
 
-  {#each VIEWS as view, index (view.id)}
-    <div class={cx('flex', view.id === 'settings' && 'mt-auto')}>
-      <RailItem
-        {view}
-        shortcut={viewShortcut(view.id)}
-        active={view.id === nav.current}
-        {expanded}
-        badge={railBadge(view.id, chat, git.status)}
-        bind:button={buttons[index]}
-        onselect={() => nav.go(view.id)}
-      />
-    </div>
-  {/each}
+  <div class="flex flex-col gap-1 px-[12px] py-3">
+    {#each VIEWS as view, index (view.id)}
+      {#if view.id === 'settings'}
+        <div class="my-1 border-t border-line" aria-hidden="true"></div>
+      {/if}
 
-  {#if ui.roomForLabels}
-    <div class={cx('mt-1 flex border-t border-line pt-2', expanded ? 'justify-end' : 'justify-center')}>
-      <IconButton
-        icon={expanded ? ChevronsLeft : ChevronsRight}
-        label={expanded ? 'Collapse sidebar' : 'Expand sidebar'}
-        shortcut="mod+b"
-        side="right"
-        size="sm"
-        aria-expanded={expanded}
-        onclick={() => ui.toggleRail()}
-      />
-    </div>
-  {/if}
+      <div class="flex">
+        <RailItem
+          {view}
+          shortcut={viewShortcut(view.id)}
+          active={view.id === nav.current}
+          {expanded}
+          badge={railBadge(view.id, chat, git.status)}
+          bind:button={buttons[index]}
+          onselect={() => nav.go(view.id)}
+        />
+      </div>
+    {/each}
+  </div>
 </nav>
