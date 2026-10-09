@@ -3,7 +3,6 @@
   import GitBranch from '@lucide/svelte/icons/git-branch';
   import PackageOpen from '@lucide/svelte/icons/package-open';
   import PanelLeftOpen from '@lucide/svelte/icons/panel-left-open';
-  import RotateCw from '@lucide/svelte/icons/rotate-cw';
   import { untrack } from 'svelte';
   import { fade, fly } from 'svelte/transition';
 
@@ -11,10 +10,10 @@
   import Button from '$lib/components/Button.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
   import { ICON } from '$lib/components/icon';
-  import IconButton from '$lib/components/IconButton.svelte';
   import Skeleton from '$lib/components/Skeleton.svelte';
   import SplitPane from '$lib/components/SplitPane.svelte';
   import ViewHeader from '$lib/components/ViewHeader.svelte';
+  import RefreshButton from '$lib/components/RefreshButton.svelte';
   import { scaled } from '$lib/design/motion';
   import type { SessionSummary } from '$lib/ipc/bindings/SessionSummary';
   import { git } from '$lib/stores/git.svelte';
@@ -91,7 +90,7 @@
           <span class="tabular rounded-full bg-surface-3 px-1.5 text-xs leading-5 text-fg-2">{sessions.length}</span>
         </Button>
       {/if}
-      <IconButton icon={RotateCw} label="Refresh sessions" side="bottom" disabled={sessionList.status === 'loading'} onclick={() => sessionList.refresh()} />
+      <RefreshButton label="Refresh sessions" busy={sessionList.status === 'loading'} onclick={() => sessionList.refresh()} />
     {/snippet}
   </ViewHeader>
 

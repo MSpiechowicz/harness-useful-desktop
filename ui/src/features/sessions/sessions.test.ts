@@ -215,7 +215,7 @@ describe('git branches', () => {
     expect(screen.getByRole('list', { name: 'Remote branches' }).querySelectorAll('li')).toHaveLength(fixtures.git.branches.filter((branch) => branch.isRemote).length);
   });
 
-  it('collapses and can be refreshed', async () => {
+  it('collapses', async () => {
     git.activate(PROJECT);
     render(BranchesPanel);
     await waitFor(() => expect(screen.getByRole('list', { name: 'Local branches' })).toBeInTheDocument());
@@ -223,7 +223,6 @@ describe('git branches', () => {
     await fireEvent.click(screen.getByRole('button', { name: /Git branches/ }));
 
     expect(screen.queryByRole('list', { name: 'Local branches' })).toBeNull();
-    expect(screen.getByRole('button', { name: 'Refresh branches' })).toBeEnabled();
   });
 
   it('says so when the project is not a repository', async () => {

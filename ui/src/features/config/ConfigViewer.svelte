@@ -1,11 +1,10 @@
 <script lang="ts">
-  import RotateCw from '@lucide/svelte/icons/rotate-cw';
 
   import HarnessBadge from '$lib/components/HarnessBadge.svelte';
-  import IconButton from '$lib/components/IconButton.svelte';
   import ListDetail from '$lib/components/ListDetail.svelte';
   import NoticeBanner from '$lib/components/NoticeBanner.svelte';
   import ViewHeader from '$lib/components/ViewHeader.svelte';
+  import RefreshButton from '$lib/components/RefreshButton.svelte';
   import type { ConfigView } from '$lib/ipc/bindings/ConfigView';
   import { harness } from '$lib/stores/harness.svelte';
   import { viewState } from '$lib/stores/view-state.svelte';
@@ -38,7 +37,7 @@
       {#if harness.active}<HarnessBadge info={harness.active.info} />{/if}
     {/snippet}
     {#snippet actions()}
-      <IconButton icon={RotateCw} label="Reload configuration" side="bottom" onclick={() => configView.refresh()} />
+      <RefreshButton label="Reload configuration" onclick={() => configView.refresh()} />
     {/snippet}
   </ViewHeader>
 

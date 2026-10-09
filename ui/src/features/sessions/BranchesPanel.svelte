@@ -1,10 +1,8 @@
 <script lang="ts">
   import ChevronRight from '@lucide/svelte/icons/chevron-right';
   import GitBranch from '@lucide/svelte/icons/git-branch';
-  import RotateCw from '@lucide/svelte/icons/rotate-cw';
 
   import Badge from '$lib/components/Badge.svelte';
-  import IconButton from '$lib/components/IconButton.svelte';
   import { git } from '$lib/stores/git.svelte';
   import { cx } from '$lib/utils/cx';
   import { relativeTime } from '$lib/utils/format';
@@ -16,14 +14,13 @@
 </script>
 
 <section aria-label="Git branches" class={cx('flex min-h-0 flex-col border-t border-line', open && 'max-h-[45%]')}>
-  <div class="flex items-center gap-1 pr-2 pl-1">
+  <div class="flex items-center px-1">
     <button type="button" aria-expanded={open} class="flex h-9 flex-1 items-center gap-1.5 rounded-md px-2 text-sm font-medium text-fg hover:bg-hover active:bg-press" onclick={() => (open = !open)}>
       <ChevronRight size={16} class={cx('transition-transform duration-[var(--dur-fast)]', open && 'rotate-90')} aria-hidden="true" />
       <GitBranch size={16} class="text-accent-text" aria-hidden="true" />
       Git branches
       {#if git.status?.isRepo}<span class="tabular rounded-full bg-surface-3 px-1.5 text-xs leading-5 text-fg-2">{git.branches.length}</span>{/if}
     </button>
-    <IconButton icon={RotateCw} label="Refresh branches" size="sm" disabled={git.refreshing} onclick={() => void git.refresh()} />
   </div>
 
   {#if open}

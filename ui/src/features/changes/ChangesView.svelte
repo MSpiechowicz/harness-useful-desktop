@@ -3,17 +3,16 @@
   import FolderOpen from '@lucide/svelte/icons/folder-open';
   import GitCompare from '@lucide/svelte/icons/git-compare';
   import MessageSquare from '@lucide/svelte/icons/message-square';
-  import RotateCw from '@lucide/svelte/icons/rotate-cw';
   import SearchX from '@lucide/svelte/icons/search-x';
   import { untrack } from 'svelte';
 
   import Button from '$lib/components/Button.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
   import { ICON } from '$lib/components/icon';
-  import IconButton from '$lib/components/IconButton.svelte';
   import ListDetail from '$lib/components/ListDetail.svelte';
   import Skeleton from '$lib/components/Skeleton.svelte';
   import ViewHeader from '$lib/components/ViewHeader.svelte';
+  import RefreshButton from '$lib/components/RefreshButton.svelte';
   import { SCOPE_LABELS } from '$lib/git/entries';
   import { agentSessions } from '$lib/stores/agentSession.svelte';
   import { git } from '$lib/stores/git.svelte';
@@ -66,7 +65,7 @@
           Back to chat
         </Button>
       {/if}
-      <IconButton icon={RotateCw} label="Refresh changes" side="bottom" disabled={!active || git.refreshing} onclick={() => void git.refresh()} />
+      <RefreshButton label="Refresh changes" disabled={!active} busy={git.refreshing} onclick={() => void git.refresh()} />
     {/snippet}
   </ViewHeader>
 

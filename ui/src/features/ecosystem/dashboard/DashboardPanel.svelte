@@ -1,9 +1,8 @@
 <script lang="ts">
-  import RotateCw from '@lucide/svelte/icons/rotate-cw';
 
-  import IconButton from '$lib/components/IconButton.svelte';
   import SegmentedControl from '$lib/components/SegmentedControl.svelte';
   import type { StripOption } from '$lib/components/strip';
+  import RefreshButton from '$lib/components/RefreshButton.svelte';
   import { dashboard, PANEL_RANGES, type PanelRange } from '$lib/stores/dashboard.svelte';
 
   import BreakdownCard from './BreakdownCard.svelte';
@@ -28,7 +27,7 @@
 
     <div class="flex items-center gap-2">
       <SegmentedControl label="Time range" options={OPTIONS} bind:value={() => dashboard.range, (range) => void dashboard.setRange(range)} />
-      <IconButton icon={RotateCw} label="Refresh usage" side="bottom" disabled={reloading} onclick={() => void dashboard.openPanel(true)} />
+      <RefreshButton label="Refresh usage" busy={reloading} onclick={() => void dashboard.openPanel(true)} />
     </div>
   </header>
 

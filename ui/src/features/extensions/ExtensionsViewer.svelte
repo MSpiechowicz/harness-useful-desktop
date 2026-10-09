@@ -1,13 +1,12 @@
 <script lang="ts">
   import Blocks from '@lucide/svelte/icons/blocks';
-  import RotateCw from '@lucide/svelte/icons/rotate-cw';
 
   import EmptyState from '$lib/components/EmptyState.svelte';
   import HarnessBadge from '$lib/components/HarnessBadge.svelte';
-  import IconButton from '$lib/components/IconButton.svelte';
   import NoticeBanner from '$lib/components/NoticeBanner.svelte';
   import Tabs from '$lib/components/Tabs.svelte';
   import ViewHeader from '$lib/components/ViewHeader.svelte';
+  import RefreshButton from '$lib/components/RefreshButton.svelte';
   import { harness } from '$lib/stores/harness.svelte';
   import { project } from '$lib/stores/project.svelte';
   import { viewState } from '$lib/stores/view-state.svelte';
@@ -36,7 +35,7 @@
     {/snippet}
     {#snippet actions()}
       <ExtensionToolbar tab={currentTab ?? undefined} />
-      <IconButton icon={RotateCw} label="Reload extensions" side="bottom" onclick={() => extensionsView.refresh()} />
+      <RefreshButton label="Reload extensions" onclick={() => extensionsView.refresh()} />
     {/snippet}
   </ViewHeader>
 

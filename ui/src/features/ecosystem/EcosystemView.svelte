@@ -1,15 +1,14 @@
 <script lang="ts">
   import CircleAlert from '@lucide/svelte/icons/circle-alert';
   import Orbit from '@lucide/svelte/icons/orbit';
-  import RotateCw from '@lucide/svelte/icons/rotate-cw';
   import { onMount } from 'svelte';
 
   import { scrollMemory } from '$lib/a11y/scroll-memory';
   import Button from '$lib/components/Button.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
-  import IconButton from '$lib/components/IconButton.svelte';
   import Skeleton from '$lib/components/Skeleton.svelte';
   import ViewHeader from '$lib/components/ViewHeader.svelte';
+  import RefreshButton from '$lib/components/RefreshButton.svelte';
   import { dashboard } from '$lib/stores/dashboard.svelte';
   import { ecosystem } from '$lib/stores/ecosystem.svelte';
 
@@ -43,7 +42,7 @@
 <div class="@container flex size-full min-h-0 flex-col">
   <ViewHeader title="Ecosystem" icon={Orbit} {context}>
     {#snippet actions()}
-      <IconButton icon={RotateCw} label="Refresh ecosystem" side="bottom" disabled={refreshing} onclick={refresh} />
+      <RefreshButton label="Refresh ecosystem" busy={refreshing} onclick={refresh} />
     {/snippet}
   </ViewHeader>
 
