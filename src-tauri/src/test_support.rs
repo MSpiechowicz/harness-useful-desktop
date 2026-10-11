@@ -30,7 +30,9 @@ impl TempDir {
         let path = std::env::temp_dir().join(name);
         std::fs::create_dir_all(&path).expect("create temp dir");
 
-        Self(std::fs::canonicalize(&path).expect("canonical temp dir"))
+        // `dunce`, as the business crate stores projects: std's canonical form on Windows is `\\?\C:\...`,
+        // which would never match a stored project path.
+        Self(dunce::canonicalize(&path).expect("canonical temp dir"))
     }
 
     /// The directory.

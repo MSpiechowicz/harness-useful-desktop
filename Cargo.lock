@@ -1630,6 +1630,7 @@ dependencies = [
 name = "harness_desktop"
 version = "0.1.0"
 dependencies = [
+ "dunce",
  "harness_business",
  "reqwest",
  "rodio",
