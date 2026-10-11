@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 
-use harness_business::ecosystem::{Dashboard, DashboardOptions};
+use harness_business::ecosystem::{CompanionReleases, Dashboard, DashboardOptions};
 use harness_business::env::Env;
 use harness_business::harness::HarnessRegistry;
 use harness_business::model::{HarnessId, HarnessSummary};
@@ -42,6 +42,8 @@ pub struct AppState {
     pub dashboard: Arc<Dashboard>,
     /// The in-app updater (off when the build has no updater public key).
     pub updates: Updates,
+    /// The cached latest GitHub releases of the companion tools (`ecosystem_releases`).
+    pub releases: CompanionReleases,
 }
 
 impl AppState {
@@ -68,6 +70,7 @@ impl AppState {
             sessions: Arc::new(SessionCache::default()),
             dashboard: Arc::new(Dashboard::new(Arc::new(TokioSpawner), DashboardOptions::default())),
             updates: Updates::new(None),
+            releases: CompanionReleases::default(),
         }
     }
 }

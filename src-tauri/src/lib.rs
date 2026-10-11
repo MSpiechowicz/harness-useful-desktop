@@ -9,6 +9,7 @@ mod dialogs;
 mod error;
 mod lifecycle;
 mod logging;
+mod releases;
 pub mod state;
 #[cfg(test)]
 mod test_support;
@@ -81,6 +82,7 @@ pub fn run() -> ExitCode {
             commands::git::git_diff,
             commands::review::review_compose,
             commands::ecosystem::ecosystem_status,
+            commands::ecosystem::ecosystem_releases,
             commands::ecosystem::dashboard_availability,
             commands::ecosystem::dashboard_query,
             commands::plugins::extension_action,

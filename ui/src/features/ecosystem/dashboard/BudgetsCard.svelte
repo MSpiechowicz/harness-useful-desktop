@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Wallet from '@lucide/svelte/icons/wallet';
   import TriangleAlert from '@lucide/svelte/icons/triangle-alert';
 
   import Badge from '$lib/components/Badge.svelte';
@@ -7,6 +8,7 @@
   import { dashboard } from '$lib/stores/dashboard.svelte';
 
   import Meter from '../charts/Meter.svelte';
+  import CardEmpty from './CardEmpty.svelte';
   import SlotCard from './SlotCard.svelte';
 
   interface Props {
@@ -33,7 +35,7 @@
 <SlotCard title="Budgets" subtitle="Spending caps set in the dashboard" slot={dashboard.budgets} onretry={() => void dashboard.openPanel(true)} {index}>
   {#snippet children(budgets)}
     {#if budgets.length === 0}
-      <p class="text-sm text-fg-3" role="status">No budgets are set. Add a cap in the dashboard to see it here.</p>
+      <CardEmpty icon={Wallet} title="No budgets are set." hint="Add a cap in the dashboard to see it here." />
     {:else}
       <ul class="flex flex-col gap-4">
         {#each budgets as budget, row (row)}

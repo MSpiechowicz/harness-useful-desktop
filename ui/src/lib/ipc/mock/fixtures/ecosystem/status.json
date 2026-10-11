@@ -9,6 +9,8 @@
       "docsUrl": "https://github.com/MSpiechowicz/harness-useful-dashboard#readme",
       "installed": true,
       "version": "1.22.1",
+      "latestVersion": null,
+      "updateAvailable": false,
       "via": [
         "binary ~/.local/bin/harness-dashboard"
       ],
@@ -26,13 +28,15 @@
     },
     {
       "id": "skills",
-      "name": "Useful Skills",
+      "name": "Harness Skills",
       "tagline": "From a natural-language request to reviewed, verified work.",
       "description": "Owned `us-*` skills for development, focused audits, delivery and project memory, installed as an OMP plugin.",
       "repoUrl": "https://github.com/MSpiechowicz/harness-useful-skills",
       "docsUrl": "https://github.com/MSpiechowicz/harness-useful-skills#readme",
       "installed": true,
       "version": "0.2.36",
+      "latestVersion": null,
+      "updateAvailable": false,
       "via": [
         "OMP plugin harness-useful-skills@harness-useful-skills v0.2.36"
       ],
@@ -54,13 +58,15 @@
     },
     {
       "id": "sidebar",
-      "name": "Useful Sidebar",
+      "name": "Harness Sidebar",
       "tagline": "Live token charts and persistent session history for OMP in a tmux sidebar.",
       "description": "Shows live token charts and the session history next to OMP in tmux, and in a native pane for Claude Code.",
       "repoUrl": "https://github.com/MSpiechowicz/harness-useful-sidebar",
       "docsUrl": "https://github.com/MSpiechowicz/harness-useful-sidebar#readme",
       "installed": false,
       "version": null,
+      "latestVersion": null,
+      "updateAvailable": false,
       "via": [],
       "supportedOnThisOs": true,
       "installSteps": [

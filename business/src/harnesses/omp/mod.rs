@@ -23,6 +23,7 @@ pub use extensions::omp_extensions_view;
 pub use launch::{
     DEFAULT_APPROVAL_MODE, cli_approval_mode, configured_approval_mode, omp_launch_spec, parse_approval_mode,
 };
+pub use marketplaces::{mark_updates, marketplaces};
 pub use paths::{active_profile, omp_paths};
 pub use plugins::{InstalledPlugins, installed_plugins};
 pub use sessions::{omp_sessions_dir, omp_sessions_root};

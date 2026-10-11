@@ -1631,7 +1631,9 @@ name = "harness_desktop"
 version = "0.1.0"
 dependencies = [
  "harness_business",
+ "reqwest",
  "rodio",
+ "rustls",
  "serde",
  "serde_json",
  "tauri",

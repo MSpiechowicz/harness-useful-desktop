@@ -54,7 +54,7 @@
   }
 </script>
 
-<ul role="listbox" aria-label="Changed files" class="flex flex-col gap-0.5 p-2">
+<ul role="listbox" aria-label="Changed files" class="flex flex-col gap-0.5 p-3">
   {#each entries as entry, index (entry.path)}
     {@const status = displayStatus(entry, git.scope)}
     {@const selected = entry.path === git.selected}
@@ -69,7 +69,11 @@
         aria-selected={selected}
         tabindex={selected ? 0 : -1}
         title={entry.path}
-        class={cx('flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left transition-colors duration-[var(--dur-fast)]', selected ? 'bg-accent-wash' : 'hover:bg-hover active:bg-press')}
+        class={cx(
+          // As in the Extensions list: the focus ring lies on the row's own border, so the scrolling list cannot clip it.
+          'flex w-full items-center gap-2.5 rounded-md border px-2.5 py-1.5 text-left transition-colors duration-[var(--dur-fast)] focus-visible:outline-offset-[-1px]',
+          selected ? 'border-accent/30 bg-accent-wash' : 'border-transparent hover:bg-hover active:bg-press',
+        )}
         onclick={() => git.select(entry.path)}
         onkeydown={(event) => onKeydown(event, index)}
       >

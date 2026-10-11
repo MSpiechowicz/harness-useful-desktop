@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-ecosystem-releases"
+description = "Enables the ecosystem_releases command without any pre-configured scope."
+commands.allow = ["ecosystem_releases"]
+
+[[permission]]
+identifier = "deny-ecosystem-releases"
+description = "Denies the ecosystem_releases command without any pre-configured scope."
+commands.deny = ["ecosystem_releases"]

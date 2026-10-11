@@ -3,7 +3,7 @@
   import { rise } from '$lib/design/motion';
   import type { EcosystemItem } from '$lib/ipc/bindings/EcosystemItem';
 
-  import { installedSummary } from './ecosystem-items';
+  import { installedSummary, updatesSummary } from './ecosystem-items';
   import EcosystemOrbit from './EcosystemOrbit.svelte';
 
   interface Props {
@@ -18,7 +18,7 @@
 <section
   aria-labelledby="ecosystem-hero-title"
   in:rise={{ y: 12, duration: 420 }}
-  class="relative isolate overflow-hidden rounded-xl border border-line bg-surface-1 p-6 shadow-float @3xl:grid @3xl:grid-cols-[minmax(0,1fr)_22rem] @3xl:items-center @3xl:gap-8 @3xl:p-8"
+  class="relative isolate overflow-hidden rounded-xl border border-line bg-surface-1 p-6 shadow-float @3xl:grid @3xl:grid-cols-[minmax(0,1fr)_auto] @3xl:items-center @3xl:gap-8 @3xl:p-8"
 >
   <div class="flex min-w-0 flex-col gap-3">
     <p class="text-xs font-semibold tracking-widest text-accent-text uppercase">Harness Useful</p>
@@ -27,14 +27,14 @@
       Harness Useful is a small family of open-source companions for your coding agents. The <strong class="font-medium text-fg">dashboard</strong> measures what they cost, the <strong class="font-medium text-fg">skills</strong> make their work repeatable, and the
       <strong class="font-medium text-fg">sidebar</strong> keeps their sessions in view. Harness Desktop works on its own and shows more with each one you add.
     </p>
-    <p class="tabular text-sm text-fg-3" role="status">{items ? installedSummary(items) : failed ? 'The installed companions could not be read.' : 'Looking for companions…'}</p>
+    <p class="tabular text-sm text-fg-3" role="status">{items ? [installedSummary(items), updatesSummary(items)].filter(Boolean).join(' · ') : failed ? 'The installed companions could not be read.' : 'Looking for companions…'}</p>
   </div>
 
   <div class="mt-6 @3xl:mt-0">
     {#if items}
       <EcosystemOrbit {items} />
     {:else if !failed}
-      <Skeleton height="12.5rem" class="mx-auto max-w-80 rounded-lg" />
+      <Skeleton height="178px" class="mx-auto w-[240px] rounded-lg" />
     {/if}
   </div>
 </section>

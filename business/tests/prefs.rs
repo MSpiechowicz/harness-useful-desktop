@@ -4,7 +4,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use harness_business::model::{AppPrefs, BinaryOverride, HarnessId, ThemePref};
-use harness_business::prefs::{MAX_RECENT_PROJECTS, PREFS_FILE, PrefsStore};
+use harness_business::prefs::{MAX_RECENT_PROJECTS, PREFS_FILE, PrefsOrigin, PrefsStore};
 use pretty_assertions::assert_eq;
 use tempfile::TempDir;
 
@@ -158,4 +158,24 @@ fn save_drops_relative_active_project_and_normalizes_overrides() {
     assert_eq!(stored.version, 1);
     assert_eq!(stored.active_project, None);
     assert_eq!(stored.binary_overrides, [entry(HarnessId::Omp, abs("new-omp"))]);
+}
+
+#[test]
+fn load_checked_tells_a_missing_file_from_an_unusable_one() {
+    let dir = TempDir::new().unwrap();
+    let store = PrefsStore::new(dir.path().to_path_buf());
+
+    assert_eq!(store.load_checked(), (AppPrefs::default(), PrefsOrigin::Missing));
+
+    let saved = store.save(&AppPrefs::default()).unwrap();
+    assert_eq!(store.load_checked(), (saved, PrefsOrigin::Stored));
+
+    fs::write(dir.path().join(PREFS_FILE), r#"{"version":1,"theme":"bogus"}"#).unwrap();
+    assert_eq!(store.load_checked(), (AppPrefs::default(), PrefsOrigin::Unusable));
+
+    // The corrupt file was moved aside; later loads still do not take it for "never stored".
+    assert_eq!(store.load_checked().1, PrefsOrigin::Unusable);
+
+    store.save(&AppPrefs::default()).unwrap();
+    assert_eq!(store.load_checked().1, PrefsOrigin::Stored);
 }

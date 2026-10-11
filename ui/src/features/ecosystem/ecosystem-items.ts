@@ -19,4 +19,11 @@ export function installedSummary(items: EcosystemItem[]): string {
   return `${installed} of ${supported.length} installed`;
 }
 
+/** "1 update available", or nothing when every installed companion is current. */
+export function updatesSummary(items: EcosystemItem[]): string | null {
+  const count = items.filter((item) => itemState(item) === 'installed' && item.updateAvailable).length;
+
+  return count === 0 ? null : `${count} ${count === 1 ? 'update' : 'updates'} available`;
+}
+
 export const SHORT_NAMES: Record<EcosystemId, string> = { dashboard: 'Dashboard', skills: 'Skills', sidebar: 'Sidebar' };

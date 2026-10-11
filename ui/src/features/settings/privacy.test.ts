@@ -36,7 +36,7 @@ describe('PrivacySection', () => {
     render(PrivacySection);
     const network = screen.getByText('Network').closest('li')!;
 
-    for (const topic of [/latest\.json/, /update key/, /update setting/, /turned off/, /only when you click/, /stdio/, /no network/, /may download packages/, /only after you confirm/, /as in your terminal/]) {
+    for (const topic of [/latest\.json/, /latest release number/, /every six hours while the app runs/, /does not reveal which ones you have/, /update key/, /update setting/, /turned off/, /only when you click/, /stdio/, /no network/, /may download packages/, /only after you confirm/, /as in your terminal/]) {
       expect(network).toHaveTextContent(topic);
     }
 

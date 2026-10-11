@@ -70,7 +70,7 @@ fn dashboard(os: OsKind) -> EcosystemItem {
 fn skills() -> EcosystemItem {
     item(
         EcosystemId::Skills,
-        "Useful Skills",
+        "Harness Skills",
         "From a natural-language request to reviewed, verified work.",
         "Owned `us-*` skills for development, focused audits, delivery and project memory, installed as an OMP \
          plugin.",
@@ -91,7 +91,7 @@ fn sidebar() -> EcosystemItem {
 
     item(
         EcosystemId::Sidebar,
-        "Useful Sidebar",
+        "Harness Sidebar",
         "Live token charts and persistent session history for OMP in a tmux sidebar.",
         "Shows live token charts and the session history next to OMP in tmux, and in a native pane for Claude \
          Code.",
@@ -133,6 +133,8 @@ fn item(
         repo_url: repo,
         installed: false,
         version: None,
+        latest_version: None,
+        update_available: false,
         via: Vec::new(),
         supported_on_this_os: true,
         install_steps,

@@ -139,12 +139,32 @@ function branchCost(args: Record<string, JsonValue>): DashboardResult {
   return result;
 }
 
+/** When the limits sample was taken; its reset times are moved so they stay ahead of the real clock. */
+const LIMITS_SAMPLED_AT = Date.parse('2026-10-09T12:30:00Z');
+
+function limits(): DashboardResult {
+  const result = fixtureOf(samples.limits);
+  const shift = Date.now() - LIMITS_SAMPLED_AT;
+
+  for (const window of dataOf(result).windows as Record<string, JsonValue>[]) {
+    for (const key of ['resetsAt', 'observedAt']) {
+      const value = window[key];
+
+      if (typeof value === 'string') {
+        window[key] = new Date(Date.parse(value) + shift).toISOString();
+      }
+    }
+  }
+
+  return result;
+}
+
 const READERS: Record<DashboardTool, (args: Record<string, JsonValue>) => DashboardResult> = {
   usageSummary: usage,
   breakdown,
   sessionCost,
   branchCost,
-  limits: () => fixtureOf(samples.limits),
+  limits,
   budgetStatus: () => fixtureOf(samples.budgetStatus),
   failures: (args) => {
     const result = fixtureOf(samples.failures);

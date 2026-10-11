@@ -40,6 +40,7 @@ const COMMANDS: &[&str] = &[
     "git_diff",
     "review_compose",
     "ecosystem_status",
+    "ecosystem_releases",
     "dashboard_availability",
     "dashboard_query",
     "extension_action",

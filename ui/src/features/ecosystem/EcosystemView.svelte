@@ -15,7 +15,7 @@
   import DashboardSection from './dashboard/DashboardSection.svelte';
   import EcosystemCard from './EcosystemCard.svelte';
   import EcosystemHero from './EcosystemHero.svelte';
-  import { installedSummary } from './ecosystem-items';
+  import { installedSummary, updatesSummary } from './ecosystem-items';
 
   const items = $derived(ecosystem.status?.items ?? null);
   const failed = $derived(ecosystem.state === 'error' && items === null);
@@ -26,7 +26,9 @@
       return failed ? 'Could not look for companions' : 'Looking for companions…';
     }
 
-    return dashboard.availability?.type === 'available' ? `${installedSummary(items)} · dashboard connected` : installedSummary(items);
+    const parts = [installedSummary(items), updatesSummary(items), dashboard.availability?.type === 'available' ? 'dashboard connected' : null];
+
+    return parts.filter(Boolean).join(' · ');
   });
 
   function refresh(): void {
@@ -54,7 +56,10 @@
         <div class="min-w-0"><DashboardSection /></div>
 
         <section aria-labelledby="companions-title" class="flex min-w-0 flex-col gap-4">
-          <h2 id="companions-title" class="text-xl text-fg">Companions</h2>
+          <div class="flex min-w-0 flex-col">
+            <h2 id="companions-title" class="text-xl text-fg">Companions</h2>
+            <p class="truncate text-sm text-fg-3">Found on this machine.</p>
+          </div>
 
           {#if items}
             <div class="grid gap-4 @3xl:grid-cols-3 @6xl:grid-cols-1">

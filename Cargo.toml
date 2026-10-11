@@ -45,6 +45,10 @@ tauri-plugin-log = "2.10.0"
 # Signed in-app updates over TLS. `zip` (Tauri v1 update bundles) is not needed: the bundler
 # writes v2 updater artifacts (`bundle.createUpdaterArtifacts: true`).
 tauri-plugin-updater = { version = "2.13.2", default-features = false, features = ["rustls-tls", "system-proxy"] }
+# The companion release lookup (`ecosystem_releases`) reuses the updater's HTTP and TLS stack:
+# the same reqwest and rustls versions and features, so no crate is added to the lockfile.
+reqwest = { version = "0.13.5", default-features = false, features = ["rustls-no-provider", "system-proxy"] }
+rustls = { version = "0.23", default-features = false, features = ["ring"] }
 # Formats the release date the updater parses (RFC 3339).
 time = { version = "0.3.55", features = ["formatting"] }
 # Plays the launch sound natively: Tauri gives the Linux webview no way to allow audio before a user gesture.

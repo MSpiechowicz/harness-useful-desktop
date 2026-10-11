@@ -41,6 +41,7 @@ const sampleArgs = (sessionKey: string): { [K in CommandName]: CommandArgs<K> } 
   git_diff: { project: fixtures.recentProjects[0].path, request: { scope: 'all', paths: [] } },
   review_compose: { request: { comments: [{ path: 'src/lib.rs', side: 'new', startLine: 3, endLine: 3, body: 'Why?', snippet: ['mod error;'] }], note: null } },
   ecosystem_status: undefined,
+  ecosystem_releases: { installed: [{ id: 'skills', version: '0.2.36' }] },
   dashboard_availability: undefined,
   dashboard_query: { query: { tool: 'limits', args: {} } },
   extension_action: { harness: 'omp', action: { type: 'pluginEnable', name: 'npm-helper' }, dryRun: true, project: null },

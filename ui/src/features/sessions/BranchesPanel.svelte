@@ -34,7 +34,8 @@
   </div>
 
   {#if open}
-    <div class="min-h-0 overflow-y-auto px-2 pb-2">
+    <!-- As in the Extensions list: a 12 px inset, so the current row's tint and border never touch the scroll edge. -->
+    <div class="min-h-0 overflow-y-auto px-3 pb-3">
       {#if git.status && !git.status.isRepo}
         <p class="px-2 py-3 text-sm text-fg-3" role="status">This project is not a git repository.</p>
       {:else if git.error && !git.status}
@@ -45,7 +46,7 @@
         {#each [{ title: 'Local', icon: Laptop, branches: local }, { title: 'Remote', icon: Cloud, branches: remote }] as group, index (group.title)}
           {#if group.branches.length > 0}
             <!-- Each group opens with a clear header; the second one is set apart by a divider. -->
-            <h3 class={cx('flex items-center gap-2 px-2 pb-2 text-xs font-semibold tracking-wider text-fg-2 uppercase', index > 0 && local.length > 0 ? 'mt-3 border-t border-line pt-4' : 'pt-2')}>
+            <h3 class={cx('flex items-center gap-2 px-[13px] pb-2 text-xs font-semibold tracking-wider text-fg-2 uppercase', index > 0 && local.length > 0 ? 'mt-3 border-t border-line pt-4' : 'pt-2')}>
               <group.icon size={14} class="text-fg-3" aria-hidden="true" />
               {group.title}
               <span class="tabular rounded-full bg-surface-3 px-1.5 text-[11px] leading-[18px] font-medium tracking-normal text-fg-3 normal-case">{group.branches.length}</span>
@@ -54,7 +55,7 @@
               {#each group.branches as branch (branch.name)}
                 {@const [prefix, rest] = branch.isRemote ? splitRemote(branch.name) : ['', branch.name]}
                 <li
-                  class={cx('flex flex-col gap-1 rounded-md px-2.5 py-2', branch.isCurrent && 'bg-accent-wash')}
+                  class={cx('flex flex-col gap-1 rounded-md border px-3 py-2', branch.isCurrent ? 'border-accent/30 bg-accent-wash' : 'border-transparent')}
                   aria-current={branch.isCurrent ? 'true' : undefined}
                 >
                   <span class="flex items-center gap-2">

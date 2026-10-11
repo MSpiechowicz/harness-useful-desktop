@@ -54,8 +54,8 @@ code-signed) are in
 ## Privacy
 
 Everything runs on your machine. No telemetry, no accounts, no stored tokens. Credential stores, databases, logs and
-private keys are never read, secrets in configuration are masked, and the only network request the app makes itself is
-the signed update check. The app stores only preferences, window geometry, a few UI choices and a local log file. Details and the exact rules:
+private keys are never read, secrets in configuration are masked, and the only network requests the app makes itself are
+the signed update check and a lookup of the companions' latest release numbers on GitHub; both can be turned off. The app stores only preferences, window geometry, a few UI choices and a local log file. Details and the exact rules:
 [docs/security-privacy.md](docs/security-privacy.md).
 
 ## Development

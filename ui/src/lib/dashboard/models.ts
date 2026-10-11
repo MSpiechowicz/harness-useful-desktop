@@ -172,6 +172,8 @@ export interface LimitWindow {
   /** 0..100, or null when the last reading no longer applies. */
   usedPercent: number | null;
   resetsAt: string | null;
+  /** Minutes since the dashboard recorded this reading; null when it did not say. */
+  ageMinutes: number | null;
   status: string;
 }
 
@@ -185,6 +187,7 @@ export function readLimits(result: DashboardResult): LimitWindow[] {
     scope: text(window, 'scope'),
     usedPercent: number(window, 'usedPercent'),
     resetsAt: text(window, 'resetsAt'),
+    ageMinutes: number(window, 'ageMinutes'),
     status: text(window, 'status') ?? 'unknown',
   }));
 }

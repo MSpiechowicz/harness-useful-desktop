@@ -29,6 +29,7 @@ fn default_prefs_serialize_with_camel_case_fields() {
             "rememberRecentProjects": true,
             "recentProjects": [],
             "updatePolicy": "startupAsk",
+            "checkCompanionUpdates": true,
             "onboardingCompleted": false,
             "approvalNoticeSeen": false,
             "binaryOverrides": []
@@ -50,6 +51,8 @@ fn partial_prefs_fill_defaults_and_ignore_unknown_fields() {
     assert_eq!(serde_json::to_value(prefs.theme).unwrap(), "dark");
     assert_eq!(serde_json::to_value(prefs.update_policy).unwrap(), "autoInstall");
     assert!(prefs.intro_enabled);
+    // Files written before the companion check existed turn it on.
+    assert!(prefs.check_companion_updates);
     assert_eq!(prefs.version, 1);
 }
 

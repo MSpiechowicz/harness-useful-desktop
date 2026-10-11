@@ -52,6 +52,11 @@ recentProjects: Array<string>,
  */
 updatePolicy: UpdatePolicy, 
 /**
+ * Whether the Ecosystem view looks up the latest GitHub release of the companion tools.
+ * Independent of `update_policy`; when off, `ecosystem_releases` makes no request.
+ */
+checkCompanionUpdates: boolean, 
+/**
  * Whether onboarding was completed.
  */
 onboardingCompleted: boolean, 

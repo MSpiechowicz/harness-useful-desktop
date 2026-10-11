@@ -33,6 +33,9 @@ tauri-plugin-single-instance.workspace = true
 tauri-plugin-updater.workspace = true
 tauri-plugin-window-state.workspace = true
 rodio.workspace = true
+# The companion release lookup (`releases`): the updater's own reqwest/rustls, nothing new.
+reqwest.workspace = true
+rustls.workspace = true
 time.workspace = true
 # `log` feature: tracing events from the business crate reach tauri-plugin-log (no subscriber is installed).
 tracing = { workspace = true, features = ["log"] }

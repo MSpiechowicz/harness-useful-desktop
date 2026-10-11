@@ -15,6 +15,8 @@ import type { DashboardAvailability } from './bindings/DashboardAvailability';
 import type { DashboardQuery } from './bindings/DashboardQuery';
 import type { DashboardResult } from './bindings/DashboardResult';
 import type { DiffRequest } from './bindings/DiffRequest';
+import type { EcosystemInstalled } from './bindings/EcosystemInstalled';
+import type { EcosystemRelease } from './bindings/EcosystemRelease';
 import type { EcosystemStatus } from './bindings/EcosystemStatus';
 import type { ExtensionAction } from './bindings/ExtensionAction';
 import type { ExtensionsView } from './bindings/ExtensionsView';
@@ -80,6 +82,7 @@ export const commands = {
   git_diff: cmd<{ project: string; request: DiffRequest }, FileDiff[]>(),
   review_compose: cmd<{ request: ReviewRequest }, ComposedReview>(),
   ecosystem_status: cmd<undefined, EcosystemStatus>(),
+  ecosystem_releases: cmd<{ installed: EcosystemInstalled[] }, EcosystemRelease[]>(),
   dashboard_availability: cmd<undefined, DashboardAvailability>(),
   dashboard_query: cmd<{ query: DashboardQuery }, DashboardResult>(),
   extension_action: cmd<{ harness: HarnessId; action: ExtensionAction; dryRun: boolean; project: string | null }, CliResult>(),

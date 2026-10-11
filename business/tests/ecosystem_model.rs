@@ -128,13 +128,15 @@ fn dashboard_results_carry_structured_content_as_data() {
 fn ecosystem_items_use_camel_case_fields() {
     let item = EcosystemItem {
         id: EcosystemId::Sidebar,
-        name: "Useful Sidebar".to_owned(),
+        name: "Harness Sidebar".to_owned(),
         tagline: "t".to_owned(),
         description: "d".to_owned(),
         repo_url: "https://github.com/MSpiechowicz/harness-useful-sidebar".to_owned(),
         docs_url: "https://github.com/MSpiechowicz/harness-useful-sidebar#readme".to_owned(),
         installed: false,
         version: None,
+        latest_version: None,
+        update_available: false,
         via: Vec::new(),
         supported_on_this_os: false,
         install_steps: vec![InstallStep {
@@ -148,13 +150,15 @@ fn ecosystem_items_use_camel_case_fields() {
         item,
         json!({
             "id": "sidebar",
-            "name": "Useful Sidebar",
+            "name": "Harness Sidebar",
             "tagline": "t",
             "description": "d",
             "repoUrl": "https://github.com/MSpiechowicz/harness-useful-sidebar",
             "docsUrl": "https://github.com/MSpiechowicz/harness-useful-sidebar#readme",
             "installed": false,
             "version": null,
+            "latestVersion": null,
+            "updateAvailable": false,
             "via": [],
             "supportedOnThisOs": false,
             "installSteps": [{

@@ -9,10 +9,12 @@
   import Markdown from '$lib/components/Markdown.svelte';
   import NoticeBanner from '$lib/components/NoticeBanner.svelte';
   import SegmentedControl from '$lib/components/SegmentedControl.svelte';
+  import Switch from '$lib/components/Switch.svelte';
   import type { StripOption } from '$lib/components/strip';
   import type { UpdatePolicy } from '$lib/ipc/bindings/UpdatePolicy';
   import { openExternal } from '$lib/ipc/actions';
   import { app } from '$lib/stores/app.svelte';
+  import { ecosystem } from '$lib/stores/ecosystem.svelte';
   import { prefs } from '$lib/stores/prefs.svelte';
   import { retryable, updates } from '$lib/stores/updates.svelte';
 
@@ -65,6 +67,23 @@
   <SettingRow title="When the app starts" description={POLICY_HINTS[policy]}>
     {#snippet control()}
       <SegmentedControl size="md" label="Update policy" options={POLICY_OPTIONS} bind:value={() => policy, (updatePolicy) => void prefs.update({ updatePolicy })} />
+    {/snippet}
+  </SettingRow>
+
+  <!-- The companions' own lookup (ecosystem_releases): separate from the app's updates, and off means no request at all. -->
+  <SettingRow
+    title="Check companions for updates"
+    description="When you open Ecosystem, ask GitHub for the latest Harness Dashboard, Skills and Sidebar releases, at most every six hours while the app runs. GitHub sees your IP address and the app version, not which companions you have."
+  >
+    {#snippet control()}
+      <Switch
+        label="Check companions for updates"
+        bind:checked={
+          () => prefs.value?.checkCompanionUpdates ?? true,
+          // Forget the last reading, so Ecosystem shows (or drops) the GitHub badges on its next visit, not 30 s later.
+          (checkCompanionUpdates) => void prefs.update({ checkCompanionUpdates }).then(() => ecosystem.reset())
+        }
+      />
     {/snippet}
   </SettingRow>
 

@@ -31,12 +31,18 @@
   let { slot, range, onretry }: Props = $props();
 
   const phrase = $derived(phraseOf(slot.data?.range, range));
+
+  // Every tile has the same four slots at fixed heights (label, value, detail), so no range, state
+  // or number length can resize one. The grid, the skeleton and the error box all rely on these.
+  const GRID = 'grid auto-rows-fr gap-3 @xl:grid-cols-2';
+  const TILE = 'flex min-w-0 flex-col gap-2 rounded-lg border border-line bg-surface-1 p-4';
+  const DETAIL = 'h-12';
 </script>
 
 {#if slot.data !== null}
   {@const usage = slot.data}
 
-  <div class={cx('grid gap-3 transition-opacity duration-[var(--dur-base)] @xl:grid-cols-2', slot.stale && 'opacity-60')} aria-busy={slot.stale}>
+  <div class={cx(GRID, 'transition-opacity duration-[var(--dur-base)]', slot.stale && 'opacity-60')} aria-busy={slot.stale}>
     {@render tile(0, 'Cost', Coins, formatUsd(usage.costUsd), costDetail)}
     {@render tile(1, 'Tokens', Layers, formatTokens(usage.tokens.total), tokenDetail)}
     {@render tile(2, 'Sessions', MessagesSquare, formatCount(usage.sessions), sessionDetail)}
@@ -48,14 +54,24 @@
       {@const change = usage.costChange}
       {@const Arrow = change === 0 ? Minus : change > 0 ? ArrowUpRight : ArrowDownRight}
 
-      <p class={cx('flex items-center gap-1 text-sm font-medium', change > 0 ? 'text-warning' : change < 0 ? 'text-success' : 'text-fg-3')}>
-        <Arrow size={ICON.sm} aria-hidden="true" />
-        <span class="tabular">{formatChange(change)}</span>
-        <span class="font-normal text-fg-3">vs the period before</span>
+      <div class="flex h-6 min-w-0 items-center gap-2">
+        <!-- More spend is the one to notice; less is good news. -->
+        <span
+          class={cx(
+            'tabular inline-flex shrink-0 items-center gap-0.5 rounded-full py-0.5 pr-2 pl-1.5 text-xs font-medium',
+            change > 0 ? 'bg-warning-wash text-warning' : change < 0 ? 'bg-success-wash text-success' : 'bg-surface-3 text-fg-3',
+          )}
+        >
+          <Arrow size={14} aria-hidden="true" />
+          {formatChange(change)}
+        </span>
+        <span class="truncate text-sm text-fg-3">vs the period before</span>
+      </div>
+      <p class="tabular h-4 truncate text-xs leading-4 text-fg-3">
+        {usage.previousCostUsd === null ? '' : `That was ${formatUsd(usage.previousCostUsd)}`}
       </p>
-      {#if usage.previousCostUsd !== null}<p class="tabular text-xs text-fg-3">That was {formatUsd(usage.previousCostUsd)}</p>{/if}
     {:else}
-      <p class="text-sm text-fg-3">No earlier period to compare with.</p>
+      <p class="h-6 truncate text-sm leading-6 text-fg-3">No earlier period to compare with</p>
     {/if}
   {/snippet}
 
@@ -64,45 +80,60 @@
   {/snippet}
 
   {#snippet sessionDetail()}
-    <p class="tabular text-sm text-fg-2">{formatCount(usage.prompts)} prompts</p>
-    <p class="tabular text-xs text-fg-3">{formatCount(usage.modelCalls)} model calls</p>
+    <p class="tabular h-6 truncate text-sm leading-6 text-fg-2">{formatCount(usage.prompts)} prompts</p>
+    <p class="tabular h-4 truncate text-xs leading-4 text-fg-3">{formatCount(usage.modelCalls)} model calls</p>
   {/snippet}
 
   {#snippet efficiencyDetail()}
-    <p class="tabular text-sm text-fg-2">{usage.cacheHitRate === null ? 'No cache data' : `${formatPercent(usage.cacheHitRate * 100)} served from cache`}</p>
-    <p class="text-xs text-fg-3">Share of input tokens read from the prompt cache</p>
+    {#if usage.cacheHitRate === null}
+      <p class="h-6 truncate text-sm leading-6 text-fg-3">No cache data</p>
+    {:else}
+      {@const share = Math.min(Math.max(usage.cacheHitRate, 0), 1)}
+
+      <div class="flex h-6 min-w-0 items-center gap-2">
+        <!-- The meter repeats the sentence beside it, so it stays out of the accessibility tree. -->
+        <span class="h-1.5 w-14 shrink-0 overflow-hidden rounded-full bg-surface-3" aria-hidden="true">
+          <span class="block h-full rounded-full bg-accent-text transition-[width] duration-[var(--dur-slow)]" style:width="{share * 100}%"></span>
+        </span>
+        <span class="tabular truncate text-sm text-fg-2">{formatPercent(share * 100)} served from cache</span>
+      </div>
+    {/if}
+    <p class="h-4 truncate text-xs leading-4 text-fg-3" title="Share of input tokens read from the prompt cache">Share of input tokens read from the cache</p>
   {/snippet}
 {:else if slot.status === 'error'}
-  <div class="flex items-start gap-3 rounded-lg border border-line bg-danger-wash p-4 text-sm" role="alert">
-    <CircleAlert class="mt-0.5 shrink-0 text-danger" size={16} aria-hidden="true" />
+  <!-- As tall as the two rows of tiles, so a failed load does not collapse the page under it. -->
+  <div class="flex items-center gap-3 rounded-lg border border-line bg-danger-wash p-4 text-sm @xl:min-h-[20.75rem]" role="alert">
+    <CircleAlert class="shrink-0 text-danger" size={ICON.md} aria-hidden="true" />
     <div class="flex flex-col items-start gap-2">
       <p class="text-fg-2">{slot.error}</p>
       <Button size="sm" onclick={onretry}>Try again</Button>
     </div>
   </div>
 {:else}
-  <div class="grid gap-3 @xl:grid-cols-2" role="status" aria-label="Loading usage">
+  <div class={GRID} role="status" aria-label="Loading usage">
     {#each [0, 1, 2, 3] as placeholder (placeholder)}
-      <div class="flex flex-col gap-3 rounded-lg border border-line bg-surface-1 p-4">
-        <Skeleton width="40%" height="0.875rem" />
-        <Skeleton width="65%" height="2rem" />
-        <Skeleton width="85%" height="0.875rem" />
+      <div class={cx(TILE, 'shadow-raised')}>
+        <div class="flex h-7 items-center gap-2">
+          <Skeleton width="1.75rem" height="1.75rem" class="rounded-sm" />
+          <Skeleton width="30%" height="0.875rem" />
+        </div>
+        <div class="flex h-9 items-center"><Skeleton width="55%" height="1.75rem" /></div>
+        <div class={cx(DETAIL, 'flex flex-col gap-2')}>
+          <Skeleton width="80%" height="1rem" />
+          <Skeleton width="50%" height="0.75rem" />
+        </div>
       </div>
     {/each}
   </div>
 {/if}
 
 {#snippet tile(index: number, label: string, Icon: IconComponent, value: string, detail: Snippet)}
-  <article
-    aria-label="{label}, {phrase}"
-    in:rise={{ y: 14, delay: index * 60, duration: 420 }}
-    class="flex min-w-0 flex-col gap-2 rounded-lg border border-line bg-surface-1 p-4 shadow-raised"
-  >
-    <header class="flex items-center gap-2 text-sm text-fg-3">
-      <span class="grid size-7 place-items-center rounded-sm bg-accent-wash text-accent-text"><Icon size={ICON.sm} aria-hidden="true" /></span>
-      {label}
+  <article aria-label="{label}, {phrase}" in:rise={{ y: 14, delay: index * 60, duration: 420 }} class={cx(TILE, 'shadow-raised')}>
+    <header class="flex h-7 items-center gap-2 text-sm font-medium text-fg-2">
+      <span class="grid size-7 shrink-0 place-items-center rounded-sm bg-accent-wash text-accent-text"><Icon size={ICON.sm} aria-hidden="true" /></span>
+      <span class="truncate">{label}</span>
     </header>
-    <p class="tabular text-3xl leading-none font-semibold tracking-tight text-fg">{value}</p>
-    <div class="flex flex-col gap-0.5">{@render detail()}</div>
+    <p class="tabular h-9 truncate text-3xl leading-9 font-semibold tracking-tight text-fg">{value}</p>
+    <div class={cx(DETAIL, 'flex flex-col gap-0.5')}>{@render detail()}</div>
   </article>
 {/snippet}

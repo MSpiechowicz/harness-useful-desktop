@@ -13,9 +13,9 @@ use ts_rs::TS;
 pub enum EcosystemId {
     /// Harness Dashboard: token usage and cost across AI coding tools (`harness-dashboard`).
     Dashboard,
-    /// Useful Skills: the `us-*` skills plugin for OMP.
+    /// Harness Skills: the `us-*` skills plugin for OMP.
     Skills,
-    /// Useful Sidebar: live token charts and session history for OMP in a tmux sidebar.
+    /// Harness Sidebar: live token charts and session history for OMP in a tmux sidebar.
     Sidebar,
 }
 
@@ -51,6 +51,11 @@ pub struct EcosystemItem {
     pub installed: bool,
     /// Installed version, when known.
     pub version: Option<String>,
+    /// The newest version a cached OMP marketplace catalog offers (skills and sidebar only; the
+    /// dashboard binary has no local source for it).
+    pub latest_version: Option<String>,
+    /// The catalog offers a newer version than the installed one.
+    pub update_available: bool,
     /// How the tool was found, one entry per form, with home-relative paths (e.g.
     /// `"binary ~/.local/bin/harness-dashboard"`,
     /// `"OMP plugin harness-useful-skills@harness-useful-skills v0.2.36"`).
@@ -70,4 +75,29 @@ pub struct EcosystemItem {
 pub struct EcosystemStatus {
     /// One item per [`EcosystemId`], in display order (dashboard, skills, sidebar).
     pub items: Vec<EcosystemItem>,
+}
+
+/// An installed companion and its version, as the UI knows it from `ecosystem_status`
+/// (input of `ecosystem_releases`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct EcosystemInstalled {
+    /// Which tool.
+    pub id: EcosystemId,
+    /// The installed version (e.g. `"0.2.36"`); only compared, never sent anywhere.
+    pub version: String,
+}
+
+/// The latest GitHub release of an installed companion (output of `ecosystem_releases`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct EcosystemRelease {
+    /// Which tool.
+    pub id: EcosystemId,
+    /// The latest release's version without a leading `v` (e.g. `"1.25.0"`).
+    pub latest_version: String,
+    /// The latest release is newer than the installed version.
+    pub update_available: bool,
 }

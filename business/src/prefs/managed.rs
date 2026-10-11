@@ -69,6 +69,7 @@ pub fn with_ui_fields(stored: AppPrefs, ui: &AppPrefs) -> AppPrefs {
         default_harness,
         remember_recent_projects,
         update_policy,
+        check_companion_updates,
         onboarding_completed,
         approval_notice_seen,
         // Server-managed: kept from `stored`.
@@ -85,6 +86,7 @@ pub fn with_ui_fields(stored: AppPrefs, ui: &AppPrefs) -> AppPrefs {
         default_harness,
         remember_recent_projects,
         update_policy,
+        check_companion_updates,
         onboarding_completed,
         approval_notice_seen,
         ..stored

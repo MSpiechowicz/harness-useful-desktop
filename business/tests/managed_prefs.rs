@@ -49,6 +49,7 @@ fn save_ui_stores_ui_fields_and_keeps_server_managed_fields() {
         sound_enabled: false,
         default_harness: Some(HarnessId::Pi),
         update_policy: UpdatePolicy::Off,
+        check_companion_updates: false,
         onboarding_completed: true,
         approval_notice_seen: true,
         active_project: Some(abs("elsewhere")),
@@ -66,6 +67,7 @@ fn save_ui_stores_ui_fields_and_keeps_server_managed_fields() {
         sound_enabled: false,
         default_harness: Some(HarnessId::Pi),
         update_policy: UpdatePolicy::Off,
+        check_companion_updates: false,
         onboarding_completed: true,
         approval_notice_seen: true,
         ..stored

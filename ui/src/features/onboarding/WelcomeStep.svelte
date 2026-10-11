@@ -10,7 +10,7 @@
   const POINTS: { icon: IconComponent; title: string; body: string }[] = [
     { icon: Eye, title: 'See your setup', body: 'Read your OMP and PI configuration and extensions in one place, secrets masked.' },
     { icon: HardDrive, title: 'Your harness stays yours', body: 'Harness Desktop uses the CLIs you already installed. Nothing is copied or uploaded.' },
-    { icon: ShieldCheck, title: 'Local and private', body: 'No telemetry, no accounts. The app itself only checks GitHub for updates, if this build has an update key and you allow it, and opens links you click.' },
+    { icon: ShieldCheck, title: 'Local and private', body: 'No telemetry, no accounts. The app itself only asks GitHub for new versions of itself and its companions, which you can turn off, and opens links you click.' },
   ];
 </script>
 

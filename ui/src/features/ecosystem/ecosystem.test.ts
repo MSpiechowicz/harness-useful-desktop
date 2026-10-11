@@ -34,16 +34,29 @@ describe('Ecosystem view', () => {
     const dashboardCard = await screen.findByRole('article', { name: /Harness Dashboard/ });
     expect(within(dashboardCard).getByText('Installed')).toBeInTheDocument();
     expect(within(dashboardCard).getByText('v1.22.1')).toBeInTheDocument();
+
+    // Where it was found is secondary detail, one click away.
+    await fireEvent.click(within(dashboardCard).getByRole('button', { name: 'Details' }));
     expect(within(dashboardCard).getByText('binary ~/.local/bin/harness-dashboard')).toBeInTheDocument();
 
-    const sidebar = screen.getByRole('article', { name: /Useful Sidebar/ });
+    const sidebar = screen.getByRole('article', { name: /Harness Sidebar/ });
     expect(within(sidebar).getByText('Not installed')).toBeInTheDocument();
-    expect(screen.getByText('2 of 3 installed', { selector: 'p[role="status"]' })).toBeInTheDocument();
+    // The GitHub release lookup lands just after the local reading.
+    expect(await screen.findByText('2 of 3 installed · 1 update available', { selector: 'p[role="status"]' })).toBeInTheDocument();
+  });
+
+  it('flags a companion whose GitHub release is newer and opens its update steps', async () => {
+    await show();
+
+    const skills = await screen.findByRole('article', { name: /Harness Skills/ });
+    expect(await within(skills).findByText('Update available')).toBeInTheDocument();
+    expect(within(skills).getByText('v0.2.40')).toBeInTheDocument();
+    expect(within(skills).getByRole('button', { name: /How to update/ })).toHaveAttribute('aria-expanded', 'true');
   });
 
   it('shows copyable install steps for a missing companion and never runs them', async () => {
     const { calls } = await show();
-    const sidebar = await screen.findByRole('article', { name: /Useful Sidebar/ });
+    const sidebar = await screen.findByRole('article', { name: /Harness Sidebar/ });
 
     const steps = within(sidebar).getByRole('list', { name: 'Install steps' });
     expect(within(steps).getAllByRole('listitem')).toHaveLength(3);
@@ -57,14 +70,13 @@ describe('Ecosystem view', () => {
     expect(calls('extension_action')).toHaveLength(0);
   });
 
-  it('opens documentation and repository only through the allow-listed external opener', async () => {
+  it('opens the repository only through the allow-listed external opener', async () => {
     const { calls } = await show();
-    const card = await screen.findByRole('article', { name: /Useful Skills/ });
+    const card = await screen.findByRole('article', { name: /Harness Skills/ });
 
-    await fireEvent.click(within(card).getByRole('button', { name: /^Docs/ }));
-    await fireEvent.click(within(card).getByRole('button', { name: /^Repository/ }));
+    await fireEvent.click(within(card).getByRole('button', { name: /^GitHub/ }));
 
-    await waitFor(() => expect(calls('open_external').map((call) => call.url)).toEqual(['https://github.com/MSpiechowicz/harness-useful-skills#readme', 'https://github.com/MSpiechowicz/harness-useful-skills']));
+    await waitFor(() => expect(calls('open_external').map((call) => call.url)).toEqual(['https://github.com/MSpiechowicz/harness-useful-skills']));
   });
 
   it('fills the usage panel and follows the range switch', async () => {
@@ -82,14 +94,17 @@ describe('Ecosystem view', () => {
 
   it('charts the spend by model and by harness with exact values in text', async () => {
     await show();
-    const models = await screen.findByRole('group', { name: 'Cost by model, the last 7 days' });
-
-    expect(within(models).getByRole('img', { name: /claude-opus-5-5: \$23\.69, 62%/ })).toBeInTheDocument();
+    // The ring is one picture whose name carries every figure; the legend beside it is the readable table.
+    const models = await screen.findByRole('img', { name: /^Cost by model, the last 7 days: \$\d/ });
+    expect(models.getAttribute('aria-label')).toMatch(/claude-opus-5-5 \$23\.69 \(62%\)/);
+    const modelRows = screen.getByRole('list', { name: 'Cost by model, the last 7 days, values' });
+    expect(within(modelRows).getByText('claude-opus-5-5')).toBeInTheDocument();
+    expect(within(modelRows).getByText('$23.69')).toBeInTheDocument();
 
     await fireEvent.click(screen.getByRole('radio', { name: 'By harness' }));
 
-    const harnesses = await screen.findByRole('group', { name: 'Cost by harness, the last 7 days' });
-    expect(within(harnesses).getAllByRole('img').map((row) => row.getAttribute('aria-label')?.split(':')[0])).toEqual(['omp', 'claude', 'pi', 'codex']);
+    const harnesses = await screen.findByRole('list', { name: 'Cost by harness, the last 7 days, values' });
+    expect(within(harnesses).getAllByRole('listitem').map((row) => row.querySelector('[title]')?.textContent)).toEqual(['omp', 'claude', 'pi', 'codex']);
   });
 
   it('shows plan limits and budgets as meters with words, not only colors', async () => {
@@ -100,11 +115,23 @@ describe('Ecosystem view', () => {
     expect(nearCap).toHaveAttribute('aria-valuetext', '85%, high');
     expect(screen.getAllByText(/projected \$210\.90, over the cap/)).toHaveLength(1);
 
-    expect(screen.getByRole('meter', { name: 'claude max 5-hour window' })).toHaveAttribute('aria-valuenow', '43');
-    expect(screen.getByRole('meter', { name: 'codex pro 5-hour window' })).toHaveAttribute('aria-valuetext', 'no reading');
-    // A per-model cap shares provider and period with the plan-wide one; both render, told apart by scope.
-    expect(screen.getByRole('meter', { name: 'claude max 7-day window' })).toHaveAttribute('aria-valuenow', '61');
-    expect(screen.getByRole('meter', { name: 'claude max 7-day window, Fable' })).toHaveAttribute('aria-valuenow', '12');
+    const fiveHour = screen.getByRole('meter', { name: /^Claude Max 5-hour limit: 57% left/ });
+    expect(fiveHour).toHaveAttribute('aria-valuenow', '57');
+    expect(fiveHour).toHaveAttribute('aria-valuetext', '57% left');
+    expect(screen.getByText('Weekly limit · Fable')).toBeInTheDocument();
+    expect(screen.getByRole('meter', { name: /^Claude Max Weekly limit · Fable: 88% left/ })).toHaveAttribute('aria-valuenow', '88');
+    // One provider per page: the other waits behind its tab, with a name that says where it sits.
+    expect(screen.queryByRole('meter', { name: /^Codex/ })).toBeNull();
+    const claudeTab = screen.getByRole('tab', { name: 'Provider 1 of 2: Claude' });
+    expect(claudeTab).toHaveAttribute('aria-selected', 'true');
+
+    await fireEvent.keyDown(claudeTab, { key: 'ArrowRight' });
+
+    expect(screen.getByRole('tab', { name: 'Provider 2 of 2: Codex' })).toHaveAttribute('aria-selected', 'true');
+    // A window that reset after it was recorded reads whole again, without a pace.
+    const reset = screen.getByRole('meter', { name: 'Codex Pro 5-hour limit: 100% left, has reset since last seen' });
+    expect(reset).toHaveAttribute('aria-valuenow', '100');
+    expect(screen.queryByRole('meter', { name: /^Claude/ })).toBeNull();
   });
 
   it('lists recent failures and tips', async () => {

@@ -63,7 +63,8 @@
           aria-describedby={compact ? describedby : undefined}
           class={cx(
             'inline-flex items-center rounded-md text-left transition-colors duration-[var(--dur-fast)] hover:bg-hover active:bg-press',
-            compact ? 'size-10 justify-center' : 'h-11 w-full gap-2.5 px-1.5',
+            // One height in both states, so collapsing the rail never shifts the menu below it.
+            compact ? 'h-11 w-10 justify-center' : 'h-11 w-full gap-2.5 px-1.5',
           )}
         >
           <!-- The badge matches the two lines of text beside it. -->

@@ -1,16 +1,9 @@
-/** Category colors come from theme tokens, so every chart follows dark and light. */
-const PROVIDER_COLORS: Record<string, string> = {
-  omp: 'var(--harness-omp)',
-  pi: 'var(--harness-pi)',
-  claude: 'var(--accent-1)',
-  codex: 'var(--info)',
-};
+import { OTHER, makerModelHex, modelFamily, poolHex, providerHex } from '$lib/dashboard/palette';
+import { theme } from '$lib/stores/theme.svelte';
 
-const FALLBACK_COLOR = 'var(--text-3)';
-
-/** The same harness always gets the same color; it matches the OMP and PI badges. */
+/** The same harness always gets the same color, the one the Harness Dashboard gives it; it follows the theme. */
 export function providerColor(key: string): string {
-  return PROVIDER_COLORS[key.toLowerCase()] ?? FALLBACK_COLOR;
+  return providerHex(key, theme.resolved);
 }
 
 /** Bars of a ranking that has no category meaning of its own share the accent. */
@@ -35,3 +28,30 @@ export const TONE_FILLS: Record<MeterTone, string> = {
   warning: 'bg-warning',
   danger: 'bg-danger',
 };
+
+/**
+ * A model's color, the way the Harness Dashboard paints it. `peers` are all the models on screen, largest first
+ * (the desktop has no all-time ranking, so the current cost order stands in for the dashboard's): models of
+ * Anthropic and OpenAI take their provider's shades ranked within the maker, the top one wearing the provider's own
+ * color; other makers' models take the general pool in order, past its end the "Other" gray.
+ */
+export function modelColor(model: string, peers: readonly string[]): string {
+  const mode = theme.resolved;
+  const shaded = makerModelHex(model, peers, mode);
+
+  if (shaded) {
+    return shaded;
+  }
+
+  return poolHex(peers.filter((peer) => !modelFamily(peer)).indexOf(model), mode);
+}
+
+/** The `index`-th value of a dimension that owns no family wears the dashboard's general pool, in order. */
+export function poolColor(index: number): string {
+  return poolHex(index, theme.resolved);
+}
+
+/** Everything folded into "Other". */
+export function otherColor(): string {
+  return OTHER[theme.resolved];
+}

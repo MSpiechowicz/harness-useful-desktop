@@ -20,6 +20,17 @@ pub const MAX_RECENT_PROJECTS: usize = 12;
 /// Size cap for reading the prefs file.
 const MAX_PREFS_BYTES: u64 = 256 * 1024;
 
+/// Where the prefs returned by [`PrefsStore::load_checked`] came from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PrefsOrigin {
+    /// Read from `prefs.json`.
+    Stored,
+    /// Defaults: nothing was ever stored.
+    Missing,
+    /// Defaults standing in for a file that exists, existed as corrupt, or could not be read.
+    Unusable,
+}
+
 /// Reads and writes `prefs.json` in one directory.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PrefsStore {
@@ -41,29 +52,46 @@ impl PrefsStore {
     /// a missing or unreadable file yields defaults; a corrupt file (invalid JSON, invalid UTF-8,
     /// oversized) is renamed to `prefs.json.corrupt-<unix-seconds>` and defaults are returned.
     pub fn load(&self) -> AppPrefs {
+        self.load_checked().0
+    }
+
+    /// [`load`](Self::load), also telling whether the prefs are the stored ones, defaults for a
+    /// store that never held a file, or defaults standing in for a file that could not be used.
+    ///
+    /// A file moved aside as corrupt (by this or an earlier load) counts as unusable until the
+    /// next save writes a new `prefs.json`, so a choice the user made is never taken as "unset".
+    pub fn load_checked(&self) -> (AppPrefs, PrefsOrigin) {
         let path = self.path();
 
         let text = match SafeReader::read_to_string(&path, MAX_PREFS_BYTES) {
             Ok(text) => text,
-            Err(BusinessError::NotFound(_)) => return AppPrefs::default(),
+            Err(BusinessError::NotFound(_)) => {
+                let origin = if self.has_quarantined() {
+                    PrefsOrigin::Unusable
+                } else {
+                    PrefsOrigin::Missing
+                };
+
+                return (AppPrefs::default(), origin);
+            }
             Err(BusinessError::InvalidInput(reason)) => {
                 tracing::warn!(%reason, "unreadable prefs file");
                 self.quarantine(&path);
-                return AppPrefs::default();
+                return (AppPrefs::default(), PrefsOrigin::Unusable);
             }
             Err(error) => {
                 tracing::warn!(%error, "cannot read prefs; using defaults");
-                return AppPrefs::default();
+                return (AppPrefs::default(), PrefsOrigin::Unusable);
             }
         };
 
         match serde_json::from_str::<AppPrefs>(&text) {
-            Ok(prefs) => normalize(prefs),
+            Ok(prefs) => (normalize(prefs), PrefsOrigin::Stored),
             Err(error) => {
                 // serde_json errors carry a position, not file contents.
                 tracing::warn!(%error, "corrupt prefs file");
                 self.quarantine(&path);
-                AppPrefs::default()
+                (AppPrefs::default(), PrefsOrigin::Unusable)
             }
         }
     }
@@ -104,6 +132,18 @@ impl PrefsStore {
         }
 
         Ok(())
+    }
+
+    /// Whether a corrupt file was moved aside (see [`quarantine`](Self::quarantine)).
+    fn has_quarantined(&self) -> bool {
+        let prefix = format!("{PREFS_FILE}.corrupt-");
+        let Ok(entries) = fs::read_dir(&self.dir) else {
+            return false;
+        };
+
+        entries
+            .flatten()
+            .any(|entry| entry.file_name().to_string_lossy().starts_with(&prefix))
     }
 
     /// Moves a corrupt file aside so the next save does not destroy it.

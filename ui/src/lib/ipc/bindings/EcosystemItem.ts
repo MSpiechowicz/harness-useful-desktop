@@ -39,6 +39,15 @@ installed: boolean,
  */
 version: string | null, 
 /**
+ * The newest version a cached OMP marketplace catalog offers (skills and sidebar only; the
+ * dashboard binary has no local source for it).
+ */
+latestVersion: string | null, 
+/**
+ * The catalog offers a newer version than the installed one.
+ */
+updateAvailable: boolean, 
+/**
  * How the tool was found, one entry per form, with home-relative paths (e.g.
  * `"binary ~/.local/bin/harness-dashboard"`,
  * `"OMP plugin harness-useful-skills@harness-useful-skills v0.2.36"`).

@@ -6,8 +6,8 @@ not guaranteed, it says so under [Limits](#limits).
 ## Guarantees in short
 
 - Local only. No telemetry, no analytics, no accounts, no sign-in, no tokens stored.
-- The app itself makes one kind of network request: the update check and download, and only when the build carries
-  an updater key. See [Network](#network).
+- The app itself makes two kinds of network request, both to GitHub and both possible to turn off: the update check and
+  download (only when the build carries an updater key), and the companion release lookup. See [Network](#network).
 - The app never reads credential stores, databases, logs or private keys, even through a symlink.
 - Secrets in configuration and in the app's own CLI output are masked before they reach the screen.
 - No shell is ever spawned. Every process has an absolute program path and an explicit argument list.
@@ -30,11 +30,12 @@ your terminal (see [Limits](#limits)).
 
 ## Network
 
-The app contains no analytics client and no HTTP client of its own besides the updater. Enumerated:
+The app contains no analytics client. Its only HTTP clients are the updater and the companion release lookup. Enumerated:
 
 | Request | When | Details |
 | --- | --- | --- |
 | Update check and download | Only if `plugins.updater.pubkey` in `src-tauri/tauri.conf.json` holds a valid public key (`configured_pubkey`, `business/src/update.rs`), and the user or the update policy asks | One URL: `UPDATE_ENDPOINT`, the GitHub release `latest.json`. The client is `https_only(true)` with 15 s connect and 30 s read timeouts (`src-tauri/src/commands/updates.rs`). The code sends nothing beyond the updater's standard headers. |
+| Companion release lookup | When the Ecosystem view loads or is refreshed, at most once per companion every 6 hours while the app runs (the cache is in memory, so a restart asks again; failed lookups, including rate limits, retry after 5 minutes), and only while **Check companions for updates** (`checkCompanionUpdates` in prefs, on by default) is on. A prefs file that exists but cannot be read counts as off. | Three fixed URLs, `https://api.github.com/repos/MSpiechowicz/harness-useful-{dashboard,skills,sidebar}/releases/latest`, HTTPS only, with timeouts and a capped response. Only `tag_name` is read. The request carries a `User-Agent` (`harness-desktop/<version>`) and an `Accept` header and nothing else: no token, no cookies, no referer, no installed versions or other local data. While at least one companion is installed, all three are requested, so the request set does not reveal which ones (with none installed, nothing is requested); GitHub sees the IP address, the app version and when Ecosystem was opened. The comparison with the installed version happens on this machine (`ecosystem_releases`). Redirects are followed only to `https://api.github.com` on port 443. System proxy settings apply, as for the updater. A failed lookup only means no update badge. |
 | Opening a link | Only when the user clicks one | `open_external` hands an allowlisted `https` URL to the OS browser. The app itself does not fetch it. |
 
 Everything else:

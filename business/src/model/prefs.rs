@@ -83,6 +83,9 @@ pub struct AppPrefs {
     pub recent_projects: Vec<String>,
     /// Update behaviour.
     pub update_policy: UpdatePolicy,
+    /// Whether the Ecosystem view looks up the latest GitHub release of the companion tools.
+    /// Independent of `update_policy`; when off, `ecosystem_releases` makes no request.
+    pub check_companion_updates: bool,
     /// Whether onboarding was completed.
     pub onboarding_completed: bool,
     /// Whether the one-time approval-mode notice was dismissed.
@@ -109,6 +112,7 @@ impl Default for AppPrefs {
             remember_recent_projects: true,
             recent_projects: Vec::new(),
             update_policy: UpdatePolicy::StartupAsk,
+            check_companion_updates: true,
             onboarding_completed: false,
             approval_notice_seen: false,
             binary_overrides: Vec::new(),

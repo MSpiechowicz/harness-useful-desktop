@@ -36,6 +36,7 @@
     "allow-git-diff",
     "allow-review-compose",
     "allow-ecosystem-status",
+    "allow-ecosystem-releases",
     "allow-dashboard-availability",
     "allow-dashboard-query",
     "allow-extension-action",

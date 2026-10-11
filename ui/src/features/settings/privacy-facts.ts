@@ -41,11 +41,12 @@ export const PRIVACY_FACTS: PrivacyFact[] = [
   },
   {
     // business/src/update.rs, src-tauri/src/commands/updates.rs (https only), tauri.conf.json CSP (connect-src ipc only),
-    // src-tauri/src/access.rs link allowlist, ui/src/lib/ipc/actions.ts. Same facts as docs/security-privacy.md#network.
+    // src-tauri/src/access.rs link allowlist, ui/src/lib/ipc/actions.ts, the ecosystem_releases command (companion
+    // release lookups, gated by checkCompanionUpdates). Same facts as docs/security-privacy.md#network.
     id: 'network',
     icon: Globe,
     title: 'Network',
-    text: 'The app itself makes one kind of request: the update check, which fetches the release file latest.json from GitHub. It happens only when this build has an update key, follows your update setting, and can be turned off. Links open in your browser only when you click them, and only for project and harness sites. The Harness Dashboard widgets use a local process over stdio, with no network. Harness CLIs talk to their providers as in your terminal, and extension actions run the CLI, which may download packages, only after you confirm.',
+    text: 'The app itself makes two kinds of request, both to GitHub, and both can be turned off. The update check fetches the release file latest.json; it happens only when this build has an update key and follows your update setting. The companion check asks GitHub for the latest release number of Harness Dashboard, Skills and Sidebar when you open Ecosystem, at most every six hours while the app runs (a failed check retries after a few minutes). It always asks about all three, so it does not reveal which ones you have; GitHub sees only your IP address and the app version. Links open in your browser only when you click them, and only for project and harness sites. The Harness Dashboard widgets use a local process over stdio, with no network. Harness CLIs talk to their providers as in your terminal, and extension actions run the CLI, which may download packages, only after you confirm.',
   },
   {
     id: 'telemetry',

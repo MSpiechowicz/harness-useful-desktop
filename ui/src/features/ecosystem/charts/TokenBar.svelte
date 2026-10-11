@@ -35,13 +35,14 @@
     {/if}
   </svg>
 
-  <!-- The key is the label: every segment is named with its exact count, not left to color. -->
-  <dl class="tabular flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-fg-3">
+  <!-- The key is the label: every segment is named with its exact count, not left to color.
+       Two fixed columns keep it two lines tall whatever the counts read, so a range switch never reflows it. -->
+  <dl class="tabular grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs leading-4 text-fg-3">
     {#each parts as part (part.name)}
-      <div class="flex items-center gap-1">
-        <span class="size-1.5 rounded-full" style:background={part.color} aria-hidden="true"></span>
+      <div class="flex min-w-0 items-center gap-1.5">
+        <span class="size-1.5 shrink-0 rounded-full" style:background={part.color} aria-hidden="true"></span>
         <dt class="sr-only">{part.name}</dt>
-        <dd>{formatTokens(part.value)} {part.name}</dd>
+        <dd class="truncate" title="{formatTokens(part.value)} {part.name}">{formatTokens(part.value)} {part.name}</dd>
       </div>
     {/each}
   </dl>

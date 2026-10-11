@@ -1,10 +1,9 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-
   import { motion } from '$lib/stores/motion.svelte';
   import { cx } from '$lib/utils/cx';
 
   import { meterTone, TONE_FILLS, TONE_WORDS } from './colors';
+  import { growOnMount } from './grow.svelte';
 
   interface Props {
     /** What is measured: "Claude 5h window". */
@@ -22,16 +21,7 @@
   const clamped = $derived(percent === null ? 0 : Math.min(100, Math.max(0, percent)));
   const tone = $derived(meterTone(clamped));
   const word = $derived(percent === null ? null : TONE_WORDS[tone]);
-
-  let grown = $state(motion.level !== 'full');
-
-  onMount(() => {
-    if (!grown) {
-      const frame = requestAnimationFrame(() => (grown = true));
-
-      return () => cancelAnimationFrame(frame);
-    }
-  });
+  const growth = growOnMount();
 </script>
 
 <div
@@ -53,7 +43,7 @@
     <span
       class={cx('absolute inset-y-0 left-0 origin-left rounded-full transition-[width,transform] duration-[var(--dur-enter)] ease-[var(--ease-out-expo)]', TONE_FILLS[tone])}
       style:width="{clamped}%"
-      style:transform="scaleX({grown ? 1 : 0})"
+      style:transform="scaleX({growth.grown ? 1 : 0})"
     ></span>
   </span>
 
