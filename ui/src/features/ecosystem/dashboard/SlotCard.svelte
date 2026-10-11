@@ -34,12 +34,12 @@
   in:rise={{ y: 14, delay: index * 60, duration: 420 }}
   class={cx('flex min-w-0 flex-col gap-4 rounded-lg border border-line bg-surface-1 p-5 shadow-raised', className)}
 >
-  <header class="flex items-start justify-between gap-3">
-    <div class="flex min-w-0 flex-col">
+  <header class="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
+    <div class="flex min-w-48 flex-1 flex-col">
       <h3 id={titleId} class="text-base font-semibold text-fg">{title}</h3>
       {#if subtitle}<p class="text-sm text-fg-3">{subtitle}</p>{/if}
     </div>
-    {#if actions}<div class="shrink-0">{@render actions()}</div>{/if}
+    {#if actions}<div class="max-w-full shrink-0">{@render actions()}</div>{/if}
   </header>
 
   {#if slot.data !== null}

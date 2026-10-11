@@ -12,8 +12,9 @@
     leftShare,
     leftTone,
     paceOf,
-    planName,
-    providerName,
+    planSubject,
+    providerHarness,
+    recentGroups,
     runsOutBeforeReset,
     windowName,
   } from '$lib/dashboard/limits';
@@ -26,7 +27,6 @@
   import { uid } from '$lib/utils/ids';
 
   import LimitBar from '../charts/LimitBar.svelte';
-  import { providerColor } from '../charts/colors';
   import LimitPager from './LimitPager.svelte';
   import CardEmpty from './CardEmpty.svelte';
   import SlotCard from './SlotCard.svelte';
@@ -39,7 +39,7 @@
 
   const idBase = uid('limits');
 
-  const groups = $derived(groupLimits(dashboard.limits.data ?? []));
+  const groups = $derived(recentGroups(groupLimits(dashboard.limits.data ?? [])));
 
   /** The shown provider is remembered by key, so a refresh stays on it and one that has gone falls back to the first. */
   let current = $state<string | null>(null);
@@ -70,10 +70,6 @@
     }
 
     return window.resetsAt ? 'has reset since last seen' : 'no reset time given';
-  }
-
-  function subject(provider: string, plan: string | null): string {
-    return plan ? `${providerName(provider)} ${planName(plan)}` : providerName(provider);
   }
 
   function paceText(outAt: number | null, out: boolean): string {
@@ -114,16 +110,17 @@
             )}
             style:transform={shown ? 'none' : `translateY(${travel(6)}px)`}
           >
-            <header class="flex items-center gap-2.5">
-              <span class="size-2.5 shrink-0 rounded-full" style:background={providerColor(group.provider)} aria-hidden="true"></span>
-              <h4 class="text-sm font-semibold text-fg">{providerName(group.provider)}</h4>
-              {#if group.plan}
-                <span class="rounded-full border border-line px-2 py-px text-xs text-fg-2">{planName(group.plan)}</span>
-              {/if}
-              {#if group.staleMinutes !== null}
-                <span class="ml-auto shrink-0 text-xs text-fg-3">as of {formatAge(group.staleMinutes)}</span>
-              {/if}
-            </header>
+            <!-- The tabs already name the plan; the line names it only without tabs, and dates a stale reading. -->
+            {#if groups.length === 1 || group.staleMinutes !== null}
+              <header class="flex items-center gap-2.5">
+                {#if groups.length === 1}
+                  <h4 class="text-sm font-semibold text-fg">{planSubject(group.provider, group.plan)}</h4>
+                {/if}
+                {#if group.staleMinutes !== null}
+                  <span class="ml-auto shrink-0 text-xs text-fg-3">as of {formatAge(group.staleMinutes)}</span>
+                {/if}
+              </header>
+            {/if}
 
             <!-- Keyed by position: a provider may report several windows with the same name. -->
             {#each group.windows as window, row (row)}
@@ -145,10 +142,10 @@
                 </div>
 
                 <LimitBar
-                  label="{subject(group.provider, group.plan)} {name}: {percent}, {reset}{pace?.outAt != null ? `. ${paceText(pace.outAt, out)}` : ''}"
+                  label="{planSubject(group.provider, group.plan)} {name}: {percent}, {reset}{pace?.outAt != null ? `. ${paceText(pace.outAt, out)}` : ''}"
                   {left}
                   timeLeft={pace?.timeLeft ?? null}
-                  provider={group.provider}
+                  provider={providerHarness(group.provider)}
                 />
 
                 {#if pace?.outAt != null}

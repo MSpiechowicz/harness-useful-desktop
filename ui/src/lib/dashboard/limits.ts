@@ -20,6 +20,12 @@ const PROVIDER_NAMES: Record<string, string> = {
   'google-gemini-cli': 'Gemini',
   xai: 'xAI',
   deepseek: 'DeepSeek',
+  'opencode-go': 'OpenCode Go',
+};
+
+/** Limit providers that are a subscription of a harness wear that harness's color. */
+const PROVIDER_HARNESS: Record<string, string> = {
+  'opencode-go': 'opencode',
 };
 
 const PLAN_NAMES: Record<string, string> = {
@@ -44,6 +50,27 @@ export function providerName(provider: string): string {
 
 export function planName(plan: string): string {
   return PLAN_NAMES[plan.toLowerCase()] ?? titleCase(plan);
+}
+
+/** The plan's name beside its provider, or null when it only repeats the provider ("OpenCode Go" on OpenCode Go). */
+export function planLabel(provider: string, plan: string | null): string | null {
+  if (plan === null) {
+    return null;
+  }
+
+  const name = planName(plan);
+  return name.toLowerCase() === providerName(provider).toLowerCase() ? null : name;
+}
+
+/** The provider with its plan when the plan adds something: "Claude Max", "OpenCode Go". */
+export function planSubject(provider: string, plan: string | null): string {
+  const label = planLabel(provider, plan);
+  return label ? `${providerName(provider)} ${label}` : providerName(provider);
+}
+
+/** The harness whose color a limit provider wears. */
+export function providerHarness(provider: string): string {
+  return PROVIDER_HARNESS[provider.toLowerCase()] ?? provider;
 }
 
 /** How long a window lasts, from its name ("5h", "7d"); null for a provider's own window name. */
@@ -192,6 +219,39 @@ export function groupLimits(windows: LimitWindow[]): LimitGroup[] {
   }
 
   return [...groups.values()];
+}
+
+/** How many plans the card pages through: the ones in use. */
+export const SHOWN_PLANS = 2;
+
+/**
+ * The plans in use, one per provider, at most `count` of them, in the dashboard's order.
+ * The dashboard refreshes every signed-in plan whether it is used or not, so a fresh reading alone
+ * means little: a plan counts as in use when a window still shows some of it spent (a reading from
+ * before a reset carries no amount). With none in use, the most recently read plans stand in so
+ * the card is never empty.
+ */
+export function recentGroups(groups: LimitGroup[], count = SHOWN_PLANS): LimitGroup[] {
+  const inUse = groups.filter((group) => group.windows.some((window) => (window.usedPercent ?? 0) > 0));
+  const pool = inUse.length > 0 ? inUse : [...groups].sort((a, b) => recency(a) - recency(b));
+  const shown = new Map<string, LimitGroup>();
+
+  for (const group of pool) {
+    if (!shown.has(group.provider)) {
+      shown.set(group.provider, group);
+    }
+  }
+
+  return [...shown.values()].slice(0, count);
+}
+
+/** Minutes since the group's newest reading; a fresh reading counts as now, an undated one as oldest. */
+function recency(group: LimitGroup): number {
+  if (group.windows.some((window) => window.status === 'fresh')) {
+    return 0;
+  }
+
+  return group.staleMinutes ?? Number.POSITIVE_INFINITY;
 }
 
 function staleMinutes(windows: LimitWindow[]): number | null {

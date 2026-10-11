@@ -122,12 +122,12 @@ describe('Ecosystem view', () => {
     expect(screen.getByRole('meter', { name: /^Claude Max Weekly limit · Fable: 88% left/ })).toHaveAttribute('aria-valuenow', '88');
     // One provider per page: the other waits behind its tab, with a name that says where it sits.
     expect(screen.queryByRole('meter', { name: /^Codex/ })).toBeNull();
-    const claudeTab = screen.getByRole('tab', { name: 'Provider 1 of 2: Claude' });
+    const claudeTab = screen.getByRole('tab', { name: 'Provider 1 of 2: Claude Max' });
     expect(claudeTab).toHaveAttribute('aria-selected', 'true');
 
     await fireEvent.keyDown(claudeTab, { key: 'ArrowRight' });
 
-    expect(screen.getByRole('tab', { name: 'Provider 2 of 2: Codex' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: 'Provider 2 of 2: Codex Pro' })).toHaveAttribute('aria-selected', 'true');
     // A window that reset after it was recorded reads whole again, without a pace.
     const reset = screen.getByRole('meter', { name: 'Codex Pro 5-hour limit: 100% left, has reset since last seen' });
     expect(reset).toHaveAttribute('aria-valuenow', '100');

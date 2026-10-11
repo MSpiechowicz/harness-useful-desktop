@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatAge, formatClock, groupLimits, leftShare, leftTone, paceOf, planName, providerName, runsOutBeforeReset, windowLengthMs, windowName } from './limits';
+import { formatAge, formatClock, groupLimits, leftShare, leftTone, paceOf, planLabel, planName, providerHarness, providerName, recentGroups, runsOutBeforeReset, windowLengthMs, windowName } from './limits';
 import type { LimitWindow } from './models';
 
 const HOUR = 3_600_000;
@@ -139,5 +139,41 @@ describe('grouping', () => {
 
     expect(fresh[0]?.staleMinutes).toBeNull();
     expect(stale[0]?.staleMinutes).toBe(200);
+  });
+});
+
+describe('recentGroups', () => {
+  it('keeps the plans in use, not the ones the dashboard merely refreshed', () => {
+    const groups = groupLimits([
+      window(),
+      window({ provider: 'codex', plan: 'prolite', usedPercent: null, status: 'reset since reading', ageMinutes: 40_000 }),
+      window({ provider: 'codex', plan: 'free', usedPercent: 0 }),
+      window({ provider: 'opencode-go', plan: 'OpenCode Go', usedPercent: 1 }),
+    ]);
+
+    expect(recentGroups(groups).map((group) => [group.provider, group.plan])).toEqual([
+      ['claude', 'max'],
+      ['opencode-go', 'OpenCode Go'],
+    ]);
+  });
+
+  it('falls back to the most recently read plans when none is in use', () => {
+    const groups = groupLimits([
+      window({ provider: 'codex', plan: 'free', usedPercent: 0, status: 'stale', ageMinutes: 600 }),
+      window({ provider: 'codex', plan: 'pro', usedPercent: 0, status: 'stale', ageMinutes: 30 }),
+    ]);
+
+    expect(recentGroups(groups).map((group) => group.plan)).toEqual(['pro']);
+  });
+});
+
+describe('OpenCode Go', () => {
+  it('names the subscription once and wears the OpenCode color', () => {
+    expect(providerName('opencode-go')).toBe('OpenCode Go');
+    expect(planLabel('opencode-go', 'OpenCode Go')).toBeNull();
+    expect(planLabel('claude', 'max')).toBe('Max');
+    expect(planLabel('claude', null)).toBeNull();
+    expect(providerHarness('opencode-go')).toBe('opencode');
+    expect(providerHarness('claude')).toBe('claude');
   });
 });

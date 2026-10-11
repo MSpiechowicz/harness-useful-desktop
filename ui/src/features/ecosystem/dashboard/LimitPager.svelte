@@ -1,9 +1,7 @@
 <script lang="ts">
-  import { providerName, type LimitGroup } from '$lib/dashboard/limits';
+  import { planSubject, type LimitGroup } from '$lib/dashboard/limits';
   import { cx } from '$lib/utils/cx';
   import { rovingIndex } from '$lib/utils/roving';
-
-  import { providerColor } from '../charts/colors';
 
   interface Props {
     groups: LimitGroup[];
@@ -33,7 +31,7 @@
 <div role="tablist" aria-label="Provider" class="inline-flex h-8 items-center rounded-md border border-line bg-surface-2 p-0.5">
   {#each groups as group, index (group.key)}
     {@const selected = index === page}
-    {@const name = providerName(group.provider)}
+    {@const name = planSubject(group.provider, group.plan)}
     <button
       bind:this={tabs[index]}
       type="button"
@@ -50,7 +48,6 @@
         selected ? 'border-line-strong bg-surface-4 text-fg shadow-raised' : 'border-transparent text-fg-2 hover:text-fg',
       )}
     >
-      <span class="size-2 shrink-0 rounded-full" style:background={providerColor(group.provider)} aria-hidden="true"></span>
       {name}
     </button>
   {/each}
