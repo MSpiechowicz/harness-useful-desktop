@@ -16,7 +16,7 @@ https://github.com/user-attachments/assets/edf7e511-22ea-454c-988f-8e2639f7f818
 
 <sub>A 73-second tour with sound: chat with live tool calls and subagents, approvals, sessions and branches, review
 comments sent back to the agent, config and extensions, the Harness family and Harness Dashboard data, themes and
-privacy. Made with the app's demo data. [Download the full-quality 4K video](docs/video/harness-desktop-tour.mp4?raw=true)
+privacy. Made with the app's demo data. [Download the full-quality 4K video](https://raw.githubusercontent.com/MSpiechowicz/harness-useful-desktop/main/docs/video/harness-desktop-tour.mp4)
 (54 MB).</sub>
 
 ## Features
