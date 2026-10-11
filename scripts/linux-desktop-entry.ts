@@ -9,8 +9,13 @@
 // KDE and GNOME fall back to a generic icon. This writes only under $XDG_DATA_HOME (default ~/.local/share),
 // never needs root, and `--remove` deletes exactly what it wrote. Remove it before installing a release
 // package: a user entry with the same name hides the system one.
+//
+// The icon's name carries a hash of the icon files (`harness-desktop-1a2b3c4d`): KWin and Plasma keep icons
+// they loaded in memory by name for the whole session, so a new logo under the same name would not show
+// until the next login. A changed logo gets a new name, and the previous icon files are removed.
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 
@@ -20,13 +25,27 @@ const ICONS = join(ROOT, 'src-tauri', 'icons');
 const DATA_HOME = process.env.XDG_DATA_HOME || join(homedir(), '.local', 'share');
 
 /** The icons the bundler ships, by hicolor directory. Small sizes use the tighter crop (`logo-small.svg`). */
-const ICON_FILES: { dir: string; source: string; name: string }[] = [
-  { dir: '32x32/apps', source: '32x32.png', name: `${APP_ID}.png` },
-  { dir: '128x128/apps', source: '128x128.png', name: `${APP_ID}.png` },
-  { dir: '256x256/apps', source: '128x128@2x.png', name: `${APP_ID}.png` },
-  { dir: '512x512/apps', source: 'icon.png', name: `${APP_ID}.png` },
-  { dir: 'scalable/apps', source: 'source/logo-small.svg', name: `${APP_ID}.svg` },
+const ICON_FILES: { dir: string; source: string; extension: 'png' | 'svg' }[] = [
+  { dir: '32x32/apps', source: '32x32.png', extension: 'png' },
+  { dir: '128x128/apps', source: '128x128.png', extension: 'png' },
+  { dir: '256x256/apps', source: '128x128@2x.png', extension: 'png' },
+  { dir: '512x512/apps', source: 'icon.png', extension: 'png' },
+  { dir: 'scalable/apps', source: 'source/logo-small.svg', extension: 'svg' },
 ];
+
+/** Every icon file name this script has ever written: the plain name and any hashed one. */
+const OWN_ICON = new RegExp(`^${APP_ID}(-[0-9a-f]{8})?\\.(png|svg)$`);
+
+/** `harness-desktop-<first 8 hex of a SHA-256 over the icon files>`. */
+function iconName(): string {
+  const hash = createHash('sha256');
+
+  for (const icon of ICON_FILES) {
+    hash.update(readFileSync(join(ICONS, icon.source)));
+  }
+
+  return `${APP_ID}-${hash.digest('hex').slice(0, 8)}`;
+}
 
 const entryPath = join(DATA_HOME, 'applications', `${APP_ID}.desktop`);
 const iconPath = (dir: string, name: string) => join(DATA_HOME, 'icons', 'hicolor', dir, name);
@@ -40,14 +59,14 @@ function execArgument(value: string): string {
   return `"${value.replace(/(["`$\\])/g, '\\$1')}"`;
 }
 
-function desktopEntry(binary: string): string {
+function desktopEntry(binary: string, icon: string): string {
   return [
     '[Desktop Entry]',
     'Type=Application',
     'Name=Harness Desktop (dev)',
     'Comment=Development build of Harness Desktop',
     `Exec=${execArgument(binary)}`,
-    `Icon=${APP_ID}`,
+    `Icon=${icon}`,
     `StartupWMClass=${APP_ID}`,
     'Terminal=false',
     'Categories=Development;',
@@ -67,17 +86,32 @@ function refreshCaches(): void {
   }
 }
 
+/** Deletes the icon files this script wrote, under any name it used. */
+function removeIcons(): void {
+  for (const icon of ICON_FILES) {
+    const dir = iconPath(icon.dir, '');
+
+    if (existsSync(dir)) {
+      for (const file of readdirSync(dir).filter((name) => OWN_ICON.test(name))) {
+        rmSync(join(dir, file));
+      }
+    }
+  }
+}
+
 function install(): void {
   const binary = join(ROOT, 'target', 'debug', APP_ID);
+  const icon = iconName();
 
   mkdirSync(dirname(entryPath), { recursive: true });
-  writeFileSync(entryPath, desktopEntry(binary));
+  writeFileSync(entryPath, desktopEntry(binary, icon));
 
-  for (const icon of ICON_FILES) {
-    const target = iconPath(icon.dir, icon.name);
+  removeIcons();
+  for (const file of ICON_FILES) {
+    const target = iconPath(file.dir, `${icon}.${file.extension}`);
 
     mkdirSync(dirname(target), { recursive: true });
-    copyFileSync(join(ICONS, icon.source), target);
+    copyFileSync(join(ICONS, file.source), target);
   }
 
   refreshCaches();
@@ -87,13 +121,11 @@ function install(): void {
 }
 
 function remove(): void {
-  const written = [entryPath, ...ICON_FILES.map((icon) => iconPath(icon.dir, icon.name))];
-
-  for (const path of written) {
-    if (existsSync(path)) {
-      rmSync(path);
-    }
+  if (existsSync(entryPath)) {
+    rmSync(entryPath);
   }
+
+  removeIcons();
 
   refreshCaches();
 
