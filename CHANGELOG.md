@@ -1,3 +1,11 @@
+## [0.1.5](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.1.4...v0.1.5) (2026-10-11)
+
+
+### Bug Fixes
+
+* the composer and user messages get the same 2px outline as the chat cards ([bd8dc00](https://github.com/MSpiechowicz/harness-useful-desktop/commit/bd8dc00654ff1c97a09ca88da14880ae25bce938))
+* tool and thinking cards get a 2px outline on 1x screens ([9901516](https://github.com/MSpiechowicz/harness-useful-desktop/commit/990151662555b2ce568fe5fe7df66c0a23ccf076))
+
 ## [0.1.4](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.1.3...v0.1.4) (2026-10-11)
 
 
