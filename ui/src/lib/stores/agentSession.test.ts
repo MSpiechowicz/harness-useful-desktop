@@ -64,7 +64,13 @@ describe('starting sessions', () => {
   });
 
   it('numbers unnamed chats with the lowest free number and cycles through the tabs', async () => {
-    const { store } = storeWithMock();
+    // Drop the agent's events: the mock's first `state` event names the chat, and whether it lands before the
+    // assertions depends on the runner's speed.
+    const { transport } = storeWithMock();
+    const unnamed: Transport = {
+      invoke: (name, args) => transport.invoke(name, (name === 'agent_start' ? { ...args, onEvent: () => {} } : args) as never),
+    };
+    const store = new AgentSessionsStore(unnamed, new ToastsStore());
     const first = await store.create('omp', PROJECT);
     const second = await store.create('omp', PROJECT);
 
