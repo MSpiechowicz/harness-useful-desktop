@@ -176,10 +176,8 @@ jobs:
             exit 1
           fi
 
-  # Runs once the Tauri shell (src-tauri) exists.
   tauri-check:
     name: Tauri check (${{ matrix.os }})
-    if: ${{ hashFiles('src-tauri/Cargo.toml') != '' }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
