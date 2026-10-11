@@ -65,7 +65,7 @@ Prerequisites:
 - Rust via [rustup](https://rustup.rs); `rust-toolchain.toml` selects the pinned toolchain (clippy, rustfmt included).
 - [bun](https://bun.sh) 1.4+.
 - Linux only: the Tauri system packages (`libwebkit2gtk-4.1-dev`, `libappindicator3-dev`, `librsvg2-dev`,
-  `patchelf`, `libxdo-dev`, `libssl-dev`, `build-essential`).
+  `patchelf`, `libxdo-dev`, `libssl-dev`, `libasound2-dev`, `build-essential`).
 
 Commands:
 
