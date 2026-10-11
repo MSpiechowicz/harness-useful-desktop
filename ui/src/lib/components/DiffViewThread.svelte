@@ -37,9 +37,10 @@
         />
       {:else}
         <div class="flex items-start gap-2 px-3 py-2">
-          <MessageSquare size={16} class="mt-1 shrink-0 text-accent-text" aria-hidden="true" />
+          <!-- The icon sits on the heading line: both are 16px tall. -->
+          <MessageSquare size={16} class="shrink-0 text-accent-text" aria-hidden="true" />
           <div class="flex min-w-0 flex-1 flex-col gap-0.5">
-            <p class="text-xs text-fg-3">{commentHeading(comment)}</p>
+            <p class="text-xs leading-4 text-fg-3">{commentHeading(comment)}</p>
             <p class="text-base break-words whitespace-pre-wrap text-fg">{comment.body}</p>
           </div>
           <IconButton icon={Pencil} label="Edit comment" size="sm" onclick={() => (editing = comment.id)} />

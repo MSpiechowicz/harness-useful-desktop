@@ -9,7 +9,7 @@ import { fixtures } from './fixtures';
 import type { MockState } from './state';
 import type { Handlers } from './types';
 
-type AgentCommands = 'agent_start' | 'agent_send' | 'agent_ui_respond' | 'agent_bash' | 'agent_stop' | 'agent_list';
+type AgentCommands = 'agent_start' | 'agent_send' | 'agent_ui_respond' | 'agent_bash' | 'agent_stop' | 'agent_list' | 'agent_move_project';
 
 const MAX_SESSIONS = 8;
 const THINKING_LEVELS = ['off', 'minimal', 'low', 'medium', 'high'];
@@ -193,6 +193,20 @@ export function agentHandlers(state: MockState, pace: () => number): Pick<Handle
       sessions.delete(key);
 
       return null;
+    },
+
+    agent_move_project: ({ key, project }) => {
+      const entry = session(key);
+      if (entry.info.harness !== 'omp') {
+        throw IpcFailure.from({ code: 'unsupported', message: 'This harness cannot move a session to another project.' });
+      }
+      if (entry.stream.streaming) {
+        throw IpcFailure.from({ code: 'unsupported', message: 'The agent is working; move the chat once it is done.' });
+      }
+
+      entry.info = { ...entry.info, project };
+
+      return structuredClone(entry.info);
     },
 
     agent_list: () => [...sessions.values()].map((entry) => structuredClone(entry.info)),

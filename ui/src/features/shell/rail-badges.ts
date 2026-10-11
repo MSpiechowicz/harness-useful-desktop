@@ -13,17 +13,16 @@ export interface RailBadge {
   busy: boolean;
 }
 
-/** What the rail says about a view without opening it: unsent work, pending questions, running agents. */
+/**
+ * What the rail says about a view without opening it: changed files, and a chat waiting on the user (an approval or a
+ * question). A working agent needs no badge: the animated logo and the status bar already say so.
+ */
 export function railBadge(view: ViewId, chat: ChatState | null, git: GitStatus | null): RailBadge | null {
   if (view === 'chat' && chat) {
     const status = chatStatus(chat);
 
     if (status.tone === 'warning') {
       return { text: '', label: status.label, tone: 'warning', busy: true };
-    }
-
-    if (chat.phase === 'streaming') {
-      return { text: '', label: 'the agent is working', tone: 'accent', busy: true };
     }
   }
 

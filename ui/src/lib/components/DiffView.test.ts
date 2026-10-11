@@ -247,3 +247,16 @@ describe('saved comments', () => {
     expect(screen.getByText('Breaking change.')).toBeInTheDocument();
   });
 });
+
+describe('commenting by clicking a line', () => {
+  it('opens the comment box when the line itself is clicked, on the side the line belongs to', async () => {
+    const handlers = mount();
+    const removed = document.querySelector<HTMLElement>('[data-kind="remove"]');
+    expect(removed).not.toBeNull();
+
+    await fireEvent.click(removed!.querySelector('[data-line], span:last-child') ?? removed!);
+    await commentOn('Why remove this?');
+
+    expect(handlers.oncomment).toHaveBeenCalledWith(expect.objectContaining({ side: 'old' }), 'Why remove this?');
+  });
+});

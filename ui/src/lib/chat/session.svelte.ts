@@ -60,11 +60,15 @@ export class ChatSession {
   private flushScheduled = false;
   private historyLoaded = false;
 
+  /** The session's launch info; `project` changes when the chat moves to another project. */
+  info: AgentSessionInfo = $state.raw() as unknown as AgentSessionInfo;
+
   constructor(
-    readonly info: AgentSessionInfo,
+    info: AgentSessionInfo,
     private readonly transport: Transport,
     private readonly notifications: ToastsStore,
   ) {
+    this.info = info;
     this.key = info.key;
     this.chat = initialChatState(info.key);
   }

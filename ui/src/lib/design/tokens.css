@@ -83,6 +83,9 @@
   --shiki-token-comment: var(--text-3);
   --shiki-token-punctuation: var(--text-2);
   --shiki-token-link: var(--accent-text);
+  /* Diff lines (`+` / `-`): the success and danger hues, readable on the line tints below. */
+  --shiki-token-inserted: oklch(0.82 0.14 155);
+  --shiki-token-deleted: oklch(0.76 0.15 25);
 }
 
 :root[data-theme="light"] {
@@ -140,6 +143,8 @@
   --shiki-token-constant: oklch(0.46 0.12 60);
   --shiki-token-function: oklch(0.45 0.14 250);
   --shiki-token-parameter: oklch(0.46 0.12 25);
+  --shiki-token-inserted: oklch(0.45 0.13 155);
+  --shiki-token-deleted: oklch(0.5 0.17 25);
 }
 
 /* Shared, theme-independent tokens. */

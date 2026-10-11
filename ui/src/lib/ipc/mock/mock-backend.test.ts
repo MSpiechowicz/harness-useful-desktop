@@ -30,6 +30,7 @@ const sampleArgs = (sessionKey: string): { [K in CommandName]: CommandArgs<K> } 
   agent_send: { key: sessionKey, action: { type: 'getState' } },
   agent_ui_respond: { key: sessionKey, response: { id: 'none', outcome: { type: 'cancelled' } } },
   agent_bash: { key: sessionKey, command: 'ls', confirmed: true },
+  agent_move_project: { key: sessionKey, project: fixtures.recentProjects[1].path },
   agent_stop: { key: sessionKey },
   agent_list: undefined,
   sessions_list: { harness: 'omp', project: fixtures.recentProjects[0].path },

@@ -2,6 +2,7 @@
 //! stderr reader (redacted, rate-limited lines) and the exit waiter.
 
 use std::collections::{HashSet, VecDeque};
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
 
@@ -46,6 +47,8 @@ pub(crate) struct Shared {
     pub events: mpsc::UnboundedSender<EmitMsg>,
     dialogs: Mutex<HashSet<String>>,
     stderr_tail: Mutex<VecDeque<String>>,
+    /// A project the session moved to, applied by the reader before it decodes the next frame.
+    project_change: Mutex<Option<PathBuf>>,
 }
 
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -65,7 +68,13 @@ impl Shared {
             events,
             dialogs: Mutex::new(HashSet::new()),
             stderr_tail: Mutex::new(VecDeque::new()),
+            project_change: Mutex::new(None),
         }
+    }
+
+    /// Makes the reader resolve paths (touched files) against `project` from the next frame on.
+    pub fn change_project(&self, project: PathBuf) {
+        *lock(&self.project_change) = Some(project);
     }
 
     pub fn emit(&self, event: AgentEvent) {
@@ -123,6 +132,10 @@ pub(crate) async fn read_loop(
     let mut ready = Some(ready);
 
     while let Some(frame) = frames.next_frame().await {
+        if let Some(project) = lock(&shared.project_change).take() {
+            state.set_project(project);
+        }
+
         let inbound = match frame {
             Frame::Json(value) => shared.dialect.decode(value, &mut state),
             Frame::Fault(fault) => {

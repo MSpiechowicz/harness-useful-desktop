@@ -1,4 +1,5 @@
 <script lang="ts">
+  import MessageSquarePlus from '@lucide/svelte/icons/message-square-plus';
   import CircleAlert from '@lucide/svelte/icons/circle-alert';
 
   import Badge from '$lib/components/Badge.svelte';
@@ -70,7 +71,7 @@
     {/if}
   </header>
 
-  <div class="min-h-0 flex-1">
+  <div class="flex min-h-0 flex-1 flex-col">
     {#if !loaded || loaded.status === 'loading'}
       <div class="flex flex-col gap-2 p-4" role="status" aria-label="Loading diff">
         <Skeleton width="40%" height="1rem" />
@@ -85,6 +86,13 @@
         <Button onclick={() => git.retryDiff(entry.path)}>Try again</Button>
       </div>
     {:else if shown}
+      {#if review.commentsFor(project).length === 0}
+        <p class="flex items-center gap-1.5 border-b border-line px-3 py-1.5 text-xs text-fg-3">
+          <MessageSquarePlus size={14} aria-hidden="true" class="shrink-0" />
+          Click a line to comment on it (Shift+click for a range); then send the comments to the chat that made the change.
+        </p>
+      {/if}
+      <div class="min-h-0 flex-1">
       {#key `${shown.path}:${shown.staged}`}
         <DiffView
           diff={shown}
@@ -97,6 +105,7 @@
           onreveal={() => void revealPath(`${project}/${entry.path}`)}
         />
       {/key}
+      </div>
     {:else}
       <p class="grid size-full place-items-center p-8 text-center text-base text-fg-2" role="status">No diff is available for this file.</p>
     {/if}

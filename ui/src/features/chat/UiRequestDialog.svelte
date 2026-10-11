@@ -105,7 +105,7 @@
       rows="12"
       spellcheck="false"
       onkeydown={onEditorKeydown}
-      class="w-full resize-y rounded-md border border-line-strong bg-surface-2 px-3 py-2 font-mono text-sm text-fg outline-none focus:border-focus"
+      class="w-full resize-none rounded-md border border-line-strong bg-surface-2 px-3 py-2 font-mono text-sm text-fg outline-none focus:border-focus"
     ></textarea>
   {/if}
 

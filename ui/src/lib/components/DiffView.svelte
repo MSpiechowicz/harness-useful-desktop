@@ -29,7 +29,7 @@
 
   let { diff, mode, comments, maxBytes, oncomment, onedit, onremove, onreveal }: Props = $props();
 
-  const ROW_ESTIMATE_PX = 18;
+  const ROW_ESTIMATE_PX = 20;
   const OVERSCAN_ROWS = 20;
 
   interface Selection extends RangeTarget {

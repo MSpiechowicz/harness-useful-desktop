@@ -72,6 +72,7 @@ export const commands = {
   agent_ui_respond: cmd<{ key: string; response: UiResponse }, null>(),
   agent_bash: cmd<{ key: string; command: string; confirmed: boolean }, BashOutput>(),
   agent_stop: cmd<{ key: string }, null>(),
+  agent_move_project: cmd<{ key: string; project: string }, AgentSessionInfo>(),
   agent_list: cmd<undefined, AgentSessionInfo[]>(),
   sessions_list: cmd<{ harness: HarnessId; project: string }, SessionSummary[]>(),
   session_tree: cmd<{ session: SessionRef; project: string }, SessionTree>(),

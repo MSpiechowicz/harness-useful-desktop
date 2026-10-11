@@ -21,6 +21,9 @@ export default defineConfig({
     host: process.env.TAURI_DEV_HOST || false,
     watch: { ignored: ['**/src-tauri/**', '**/business/**'] },
   },
+  // Scan every source file at startup, lazily loaded pages included, so the dev server bundles all their
+  // dependencies up front; otherwise it re-bundles on first use and the page's import fails with a 504.
+  optimizeDeps: { entries: ['index.html', 'src/**/*.svelte', 'src/**/*.ts', '!src/**/*.test.ts'] },
   envPrefix: ['VITE_', 'TAURI_ENV_'],
   build: {
     outDir: fileURLToPath(new URL('./dist', import.meta.url)),

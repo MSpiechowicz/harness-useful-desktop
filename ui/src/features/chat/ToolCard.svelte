@@ -55,7 +55,7 @@
   }
 </script>
 
-<div class={cx('rounded-lg border bg-surface-1 bg-clip-padding', call.status === 'error' ? 'border-danger/40' : 'border-line')} data-tool-status={call.status}>
+<div class={cx('rounded-lg border bg-surface-1 bg-clip-padding', call.status === 'error' ? 'border-danger-edge' : 'border-line')} data-tool-status={call.status}>
   <button
     type="button"
     aria-expanded={open}

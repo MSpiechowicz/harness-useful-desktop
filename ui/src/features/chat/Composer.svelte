@@ -12,7 +12,7 @@
   import { acceptCommand, filterCommands, resolveSlash, slashQuery } from '$lib/chat/slash';
   import type { CommandSpec } from '$lib/ipc/bindings/CommandSpec';
   import { uid } from '$lib/utils/ids';
-  import { formatShortcut } from '$lib/utils/shortcuts';
+  import { isMacPlatform } from '$lib/utils/shortcuts';
 
   import ContextMeter from './ContextMeter.svelte';
   import ModelPicker from './ModelPicker.svelte';
@@ -139,7 +139,7 @@
   }
 </script>
 
-<div class="chat-col relative pt-2 pb-5">
+<div class="chat-col relative pt-0 pb-5">
   {#if menuOpen}
     <div class="absolute inset-x-[var(--gutter)] top-0">
       <SlashMenu id={menuId} commands={suggestions} query={query ?? ''} {active} onaccept={accept} onhover={(index) => (active = index)} />
@@ -207,7 +207,7 @@
 
   <p class="mt-2 truncate text-center text-xs text-fg-3">
     {#if session.streaming}
-      Enter steers the agent · {formatShortcut('mod+enter').join('+')} queues a follow-up
+      Enter steers the agent · {isMacPlatform() ? '⌘' : 'Ctrl'}+Enter queues a follow-up
     {:else}
       Enter to send · Shift+Enter for a new line
     {/if}

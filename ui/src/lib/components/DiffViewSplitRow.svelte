@@ -1,10 +1,12 @@
 <script lang="ts">
   import { lineSign, lineSpoken, type IndexedLine, type PairRow } from '$lib/git/diff-rows';
-  import type { PickHandlers } from '$lib/git/comment-range';
+  import { commentOnLineClick, type PickHandlers } from '$lib/git/comment-range';
   import type { CommentSide } from '$lib/ipc/bindings/CommentSide';
   import type { HighlightedLine } from '$lib/markdown/highlight';
   import { cx } from '$lib/utils/cx';
 
+  import { DIFF_TEXT } from './diff-tones';
+  import DiffViewAddComment from './DiffViewAddComment.svelte';
   import DiffViewCode from './DiffViewCode.svelte';
   import DiffViewGutter from './DiffViewGutter.svelte';
 
@@ -37,14 +39,21 @@
 
 <div class="grid grid-cols-2 divide-x divide-line" data-pair={row.key}>
   {#each [{ cell: row.left, side: 'old' }, { cell: row.right, side: 'new' }] as const as half (half.side)}
-    <div class={cx('flex min-w-0 items-start', tone(half.cell, half.side))} data-side={half.side} data-kind={half.cell?.line.kind ?? 'empty'}>
+    {@const cell = half.cell}
+    <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -- the gutter buttons are the keyboard path; clicking the line is a pointer shortcut -->
+    <div
+      class={cx('group/line flex min-w-0 items-start', cell && 'cursor-pointer', tone(half.cell, half.side))}
+      data-side={half.side}
+      data-kind={half.cell?.line.kind ?? 'empty'}
+      onclick={(event) => cell && commentOnLineClick(event, pick, cell.index, half.side)}
+    >
       {#if half.cell}
         <DiffViewGutter number={half.side === 'old' ? half.cell.line.oldNo : half.cell.line.newNo} side={half.side} index={half.cell.index} {pick} />
-        <span class="w-4 shrink-0 text-center font-mono text-[13px] leading-[18px] text-fg-3 select-none" aria-hidden="true">{lineSign(half.cell.line.kind)}</span>
+        <DiffViewAddComment sign={lineSign(half.cell.line.kind)} tone={DIFF_TEXT[half.cell.line.kind]} index={half.cell.index} side={half.side} {pick} />
         <span class="sr-only">{lineSpoken(half.cell.line.kind)}</span>
-        <DiffViewCode text={half.cell.line.text} tokens={highlighted.get(half.cell.index)} />
+        <DiffViewCode text={half.cell.line.text} tokens={highlighted.get(half.cell.index)} kind={half.cell.line.kind} />
       {:else}
-        <span class="min-h-[18px] w-full" aria-hidden="true"></span>
+        <span class="min-h-[20px] w-full" aria-hidden="true"></span>
       {/if}
     </div>
   {/each}

@@ -1,0 +1,5 @@
+// A chat moved to another project with OMP's `/move`: idle check, the move prompt, then the session file in the new folder.
+{"include":"omp_startup.jsonl"}
+{"expect":"get_state","reply":{"success":true,"data":{"sessionId":"0199c1f2","isStreaming":false,"messageCount":2,"sessionFile":"/home/demo/.omp/agent/sessions/-Projects-demo/0199c1f2.jsonl"}}}
+{"expect":"prompt","match":{"message":"/move /work/moved"},"reply":{"success":true,"data":{"agentInvoked":false}}}
+{"expect":"get_state","reply":{"success":true,"data":{"sessionId":"0199c1f2","isStreaming":false,"messageCount":2,"sessionFile":"/home/demo/.omp/agent/sessions/-work-moved/0199c1f2.jsonl"}}}

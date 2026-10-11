@@ -51,7 +51,7 @@
     {onkeydown}
     rows="3"
     placeholder="Leave a comment for the agent…"
-    class="w-full resize-y rounded-sm border border-line bg-surface-2 px-3 py-2 text-base text-fg outline-none placeholder:text-fg-3 focus:border-focus"
+    class="w-full resize-none rounded-sm border border-line bg-surface-2 px-3 py-2 text-base text-fg outline-none placeholder:text-fg-3 focus:border-focus"
   ></textarea>
 
   <div class="flex items-center justify-end gap-2">

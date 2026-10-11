@@ -1,5 +1,5 @@
 import { waitFor } from '@testing-library/svelte';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { ReviewComment } from '$lib/ipc/bindings/ReviewComment';
 
@@ -8,6 +8,9 @@ import { nav } from './nav.svelte';
 import { MAX_COMMENTS, ReviewStore } from './review.svelte';
 
 const COMMENT: ReviewComment = { path: 'src/lib.rs', side: 'new', startLine: 3, endLine: 5, body: 'Group these.', snippet: ['a', 'b', 'c'] };
+
+// Drafts persist in the webview's storage; every test starts from none.
+beforeEach(() => localStorage.clear());
 
 function reviewStore() {
   const backend = storeWithMock();
@@ -139,5 +142,30 @@ describe('composing and sending', () => {
 
     expect(review.commentsFor(PROJECT)).toHaveLength(1);
     expect(notifications.items.at(-1)?.title).toBe('That chat is no longer open');
+  });
+});
+
+describe('persistence', () => {
+  it('keeps pending comments and the note across a restart, and forgets them once discarded', () => {
+    const { review } = reviewStore();
+    review.add(PROJECT, COMMENT);
+    review.setNote(PROJECT, 'Then run the tests.');
+
+    const reopened = reviewStore().review;
+    expect(reopened.commentsFor(PROJECT)).toHaveLength(1);
+    expect(reopened.commentsFor(PROJECT)[0].body).toBe(COMMENT.body);
+    expect(reopened.noteFor(PROJECT)).toBe('Then run the tests.');
+
+    reopened.add(PROJECT, { ...COMMENT, startLine: 9, endLine: 9 });
+    expect(new Set(reopened.commentsFor(PROJECT).map((comment) => comment.id)).size).toBe(2);
+
+    reopened.discard(PROJECT);
+    expect(reviewStore().review.commentsFor(PROJECT)).toEqual([]);
+  });
+
+  it('ignores a corrupt saved record', () => {
+    localStorage.setItem('harness:review-drafts', '{not json');
+
+    expect(reviewStore().review.commentsFor(PROJECT)).toEqual([]);
   });
 });

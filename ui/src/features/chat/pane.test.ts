@@ -8,12 +8,13 @@ vi.mock('$lib/stores/agentSession.svelte', async (original) => ({
 }));
 
 import type { AgentEvent } from '$lib/ipc/bindings/AgentEvent';
+import type { ChatMessage } from '$lib/ipc/bindings/ChatMessage';
 import { fixtures } from '$lib/ipc/mock/fixtures';
 import { harness } from '$lib/stores/harness.svelte';
 import { nav } from '$lib/stores/nav.svelte';
 import { prefs } from '$lib/stores/prefs.svelte';
 
-import { chatSession, startedSession } from '../../../tests/chat-helpers';
+import { chatSession, STREAMING, startedSession } from '../../../tests/chat-helpers';
 import { samplePrefs } from '../../../tests/helpers';
 import ChatHeader from './ChatHeader.svelte';
 import ChatPane from './ChatPane.svelte';
@@ -234,6 +235,29 @@ describe('transcript', () => {
 
       await waitFor(() => expect(screen.queryByRole('button', { name: /Thought process/ })).toBeNull());
       expect(screen.getByRole('button', { name: 'Show thought process' })).toHaveAttribute('aria-pressed', 'false');
+    } finally {
+      prefs.value = null;
+    }
+  });
+
+  it('says the agent is working while nothing visible has arrived yet', async () => {
+    const user = { id: null, role: 'user', blocks: [{ type: 'text', text: 'can you resume?' }], model: null, provider: null, stopReason: null, errorMessage: null, usage: null, costUsd: null, timestamp: 1, toolCallId: null, toolName: null, isError: null } satisfies ChatMessage;
+    const { session } = chatSession([
+      ...STREAMING,
+      { type: 'messageStart', messageId: 'u', role: 'user' },
+      { type: 'messageEnd', messageId: 'u', message: user },
+    ]);
+    render(ChatPane, { session });
+
+    expect(await screen.findByText('Working…')).toBeInTheDocument();
+
+    prefs.value = samplePrefs({ showThinking: false });
+    try {
+      session.ingest({ sessionKey: session.key, seq: 100, event: { type: 'messageStart', messageId: 'a', role: 'assistant' } });
+      session.ingest({ sessionKey: session.key, seq: 101, event: { type: 'thinkingDelta', messageId: 'a', contentIndex: 0, delta: 'Hmm' } });
+      session.flush();
+
+      expect(await screen.findByText('Thinking…')).toBeInTheDocument();
     } finally {
       prefs.value = null;
     }

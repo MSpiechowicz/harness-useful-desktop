@@ -78,6 +78,8 @@ pub struct Capabilities {
     pub slash_commands_via_prompt: bool,
     /// Sessions form a branching tree (fork/resume from any entry).
     pub session_tree: bool,
+    /// A running chat can move, conversation included, to another project (OMP `/move`).
+    pub move_session: bool,
 }
 
 /// How the detected CLI version relates to the versions this app was tested with.

@@ -341,3 +341,44 @@ async fn pi_live_commands_add_prompts_skills_and_extensions_but_builtins_win() {
 
     run.manager.stop(run.key()).await.unwrap();
 }
+
+#[tokio::test]
+async fn omp_moves_a_chat_to_another_project_and_confirms_it_by_the_session_file() {
+    let run = start_omp("omp_move.jsonl").await;
+
+    let info = run
+        .manager
+        .move_project(
+            run.key(),
+            std::path::PathBuf::from("/work/moved"),
+            std::path::PathBuf::from("/home/demo/.omp/agent/sessions/-work-moved"),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(info.project, "/work/moved");
+    assert_eq!(run.manager.info(run.key()).unwrap().project, "/work/moved");
+
+    run.manager.stop(run.key()).await.unwrap();
+}
+
+#[tokio::test]
+async fn pi_cannot_move_a_chat_and_stays_in_its_project() {
+    let run = start_pi("pi_basic.jsonl").await;
+    let before = run.manager.info(run.key()).unwrap().project;
+
+    let error = run
+        .manager
+        .move_project(
+            run.key(),
+            std::path::PathBuf::from("/work/moved"),
+            std::path::PathBuf::from("/tmp/x"),
+        )
+        .await
+        .unwrap_err();
+
+    assert!(matches!(error, harness_business::BusinessError::Unsupported(_)));
+    assert_eq!(run.manager.info(run.key()).unwrap().project, before);
+
+    run.manager.stop(run.key()).await.unwrap();
+}

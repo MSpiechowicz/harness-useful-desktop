@@ -107,29 +107,62 @@ describe('palette commands', () => {
 });
 
 describe('switchProject', () => {
-  it('shows the open chat of the chosen project, or starts one there', async () => {
+  async function setup() {
     const { agentSessions } = await import('$lib/stores/agentSession.svelte');
     const { switchProject } = await import('./actions');
     await harness.select('omp');
-    const open = vi.spyOn(project, 'open').mockImplementation(async (path) => {
+    vi.spyOn(project, 'open').mockImplementation(async (path) => {
       project.active = { ...project.recents[0], path };
 
       return true;
     });
-    const create = vi.spyOn(agentSessions, 'create').mockResolvedValue(null);
-    const existing = { key: 'chat-in-demo', info: { project: '/work/demo' }, ended: false } as never;
-    agentSessions.sessions = [existing];
+    const fresh = { key: 'fresh', info: { harness: 'pi', project: '/work/demo' } } as never;
+
+    return {
+      agentSessions,
+      switchProject,
+      create: vi.spyOn(agentSessions, 'create').mockResolvedValue(fresh),
+      takeOver: vi.spyOn(agentSessions, 'takeOver').mockResolvedValue(),
+      move: vi.spyOn(agentSessions, 'moveProject').mockResolvedValue(true),
+    };
+  }
+
+  function chat(key: string, harnessId: 'omp' | 'pi', items: number) {
+    return { key, info: { harness: harnessId, project: '/work/other' }, streaming: false, ended: false, chat: { items: Array(items).fill({}) }, draft: '' } as never;
+  }
+
+  it('moves an OMP chat to the project in place, even when another chat already works there', async () => {
+    const { agentSessions, switchProject, create, move } = await setup();
+    agentSessions.sessions = [chat('chat-1', 'omp', 2), chat('chat-3', 'omp', 4)];
+    agentSessions.activeKey = 'chat-3';
 
     await switchProject('/work/demo');
-    expect(agentSessions.activeKey).toBe('chat-in-demo');
-    expect(create).not.toHaveBeenCalled();
 
-    await switchProject('/work/other');
-    expect(open).toHaveBeenLastCalledWith('/work/other');
-    expect(create).toHaveBeenCalledWith(expect.anything(), '/work/other');
+    expect(move).toHaveBeenCalledWith('chat-3', '/work/demo');
+    expect(create).not.toHaveBeenCalled();
+    agentSessions.sessions = [];
+    agentSessions.activeKey = null;
+    vi.restoreAllMocks();
+  });
+
+  it('opens a new PI chat next to a busy one, and replaces an empty one in its tab', async () => {
+    const { agentSessions, switchProject, create, takeOver, move } = await setup();
+    agentSessions.sessions = [chat('chat-3', 'pi', 4)];
+    agentSessions.activeKey = 'chat-3';
+
+    await switchProject('/work/demo');
+    expect(move).not.toHaveBeenCalled();
+    expect(create).toHaveBeenCalledWith('pi', '/work/demo');
+    expect(takeOver).not.toHaveBeenCalled();
+
+    agentSessions.sessions = [chat('chat-4', 'pi', 0)];
+    agentSessions.activeKey = 'chat-4';
+
+    await switchProject('/work/demo');
+    expect(takeOver).toHaveBeenCalledWith('chat-4', 'fresh');
 
     agentSessions.sessions = [];
-    open.mockRestore();
-    create.mockRestore();
+    agentSessions.activeKey = null;
+    vi.restoreAllMocks();
   });
 });

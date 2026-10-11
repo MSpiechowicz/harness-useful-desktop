@@ -1,11 +1,14 @@
 <script lang="ts">
+  import Check from '@lucide/svelte/icons/check';
+  import MessageSquare from '@lucide/svelte/icons/message-square';
+  import Plus from '@lucide/svelte/icons/plus';
   import { onMount, untrack } from 'svelte';
 
   import Button from '$lib/components/Button.svelte';
   import Dialog from '$lib/components/Dialog.svelte';
-  import Select from '$lib/components/Select.svelte';
+  import Markdown from '$lib/components/Markdown.svelte';
   import Skeleton from '$lib/components/Skeleton.svelte';
-  import type { StripOption } from '$lib/components/strip';
+  import { cx } from '$lib/utils/cx';
   import type { ComposedReview } from '$lib/ipc/bindings/ComposedReview';
   import { IpcFailure } from '$lib/ipc/transport';
   import { agentSessions } from '$lib/stores/agentSession.svelte';
@@ -29,17 +32,28 @@
   const chats = $derived(agentSessions.sessions.filter((session) => session.info.project === project && !session.ended));
   const canStartNew = $derived(harness.active?.detection.installed ?? false);
 
-  const options = $derived<StripOption<string>[]>([
-    ...chats.map((session) => ({ value: session.key, label: `${agentSessions.title(session.key)} · ${session.streaming ? 'busy, sends as follow-up' : 'idle'}` })),
-    ...(canStartNew ? [{ value: NEW_SESSION, label: 'New session' }] : []),
+  /** Where the review can go: each open chat of the project, then a new session. */
+  const options = $derived<{ value: string; title: string; detail: string; fresh: boolean }[]>([
+    ...chats.map((session) => ({
+      value: session.key,
+      title: agentSessions.title(session.key),
+      detail: session.streaming ? 'Busy · sends as a follow-up' : 'Idle',
+      fresh: false,
+    })),
+    ...(canStartNew ? [{ value: NEW_SESSION, title: 'New session', detail: 'Starts a chat with the review', fresh: true }] : []),
   ]);
 
-  // Prefer the chat the user is looking at, else the first open one, else a new session.
+  /**
+   * Prefer the chat that made the commented changes (its tools edited those files), then the chat the user is
+   * looking at, then the first open one, else a new session.
+   */
   function defaultTarget(): string {
     const open = agentSessions.sessions.filter((session) => session.info.project === project && !session.ended);
+    const paths = new Set(review.commentsFor(project).map((comment) => comment.path));
+    const author = [...open].reverse().find((session) => Object.values(session.chat.toolCalls).some((call) => call.touchedPaths.some((path) => paths.has(path))));
     const showing = open.find((session) => session.key === agentSessions.activeKey);
 
-    return (showing ?? open[0])?.key ?? NEW_SESSION;
+    return (author ?? showing ?? open[0])?.key ?? NEW_SESSION;
   }
 
   let target = $state<string>(untrack(defaultTarget));
@@ -74,12 +88,34 @@
     <p class="text-base text-danger" role="alert">{failure}</p>
   {:else if composed}
     <p class="mb-2 text-xs text-fg-3 tabular">{composed.commentCount} {composed.commentCount === 1 ? 'comment' : 'comments'} · {composed.fileCount} {composed.fileCount === 1 ? 'file' : 'files'} · {composed.bytes} bytes</p>
+    <!-- The prompt reads as it will in the chat; the quoted code shows as code blocks. -->
     <!-- svelte-ignore a11y_no_noninteractive_tabindex -- a scrollable region must be reachable by keyboard -->
-    <pre tabindex="0" aria-label="Prompt to send" class="max-h-[40vh] overflow-auto rounded-md border border-line bg-surface-2 p-3 font-mono text-xs leading-relaxed break-words whitespace-pre-wrap text-fg">{composed.prompt}</pre>
+    <div tabindex="0" aria-label="Prompt to send" class="max-h-[40vh] overflow-auto rounded-md border border-line bg-surface-1 bg-clip-padding px-4 py-3">
+      <Markdown source={composed.prompt} />
+    </div>
 
-    <div class="mt-4 flex items-center gap-3">
-      <span class="text-sm text-fg-2">Send to</span>
-      <Select {options} bind:value={target} label="Send to" class="min-w-0 flex-1" />
+    <p class="mt-5 mb-2 text-sm font-medium text-fg-2" id="send-to-label">Send to</p>
+    <div class="flex flex-col gap-1" role="radiogroup" aria-labelledby="send-to-label">
+      {#each options as option (option.value)}
+        {@const selected = option.value === target}
+        <button
+          type="button"
+          role="radio"
+          aria-checked={selected}
+          class={cx(
+            'flex w-full items-center gap-3 rounded-md border px-3 py-2 text-left transition-colors duration-[var(--dur-fast)]',
+            selected ? 'border-accent/30 bg-accent-wash' : 'border-transparent hover:bg-hover active:bg-press',
+          )}
+          onclick={() => (target = option.value)}
+        >
+          {#if option.fresh}<Plus size={16} aria-hidden="true" class="shrink-0 text-fg-3" />{:else}<MessageSquare size={16} aria-hidden="true" class="shrink-0 text-fg-3" />{/if}
+          <span class="flex min-w-0 flex-1 flex-col">
+            <span class="truncate text-sm font-medium text-fg">{option.title}</span>
+            <span class="truncate text-xs text-fg-3">{option.detail}</span>
+          </span>
+          <Check size={16} aria-hidden="true" class={cx('shrink-0 text-accent-text', !selected && 'invisible')} />
+        </button>
+      {/each}
     </div>
   {:else}
     <div class="flex flex-col gap-2" role="status" aria-label="Composing the prompt">

@@ -10,6 +10,7 @@
   import { agentSessions } from '$lib/stores/agentSession.svelte';
   import { harness } from '$lib/stores/harness.svelte';
   import { project } from '$lib/stores/project.svelte';
+  import { restoreWorkspace } from '$lib/stores/workspace.svelte';
 
   import { onboarding } from '../onboarding/onboarding.svelte';
   import ChatBar from './ChatBar.svelte';
@@ -23,8 +24,18 @@
   // The target whose automatic start failed, so a broken harness shows a retry instead of looping.
   let failed = $state<string | null>(null);
 
+  /** The launch's first start reopens the last run's chats instead, when there are any. */
+  let restoring = false;
+
   async function start(): Promise<void> {
-    if (!active || !project.active || !target) {
+    if (!active || !project.active || !target || restoring) {
+      return;
+    }
+
+    restoring = true;
+    const restored = await restoreWorkspace(agentSessions);
+    restoring = false;
+    if (restored || agentSessions.sessions.length > 0) {
       return;
     }
 

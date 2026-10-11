@@ -1,6 +1,7 @@
 <script lang="ts">
   import CommandPalette from '$lib/components/CommandPalette.svelte';
   import { agentSessions } from '$lib/stores/agentSession.svelte';
+  import { saveWorkspaceWhenReady } from '$lib/stores/workspace.svelte';
   import { harness } from '$lib/stores/harness.svelte';
   import { git } from '$lib/stores/git.svelte';
   import { nav } from '$lib/stores/nav.svelte';
@@ -47,6 +48,19 @@
     goTo: (index) => nav.go(VIEWS[index].id),
   });
   const groups = $derived(shortcutGroups(shortcuts));
+
+  // Where the user is (page, open chats, the one showing) is saved as it changes, so the next launch reopens it.
+  $effect(() => {
+    void nav.current;
+    void agentSessions.activeKey;
+    for (const session of agentSessions.sessions) {
+      void session.chat.session?.sessionId;
+      void session.chat.items.length;
+      void session.ended;
+    }
+
+    saveWorkspaceWhenReady(agentSessions);
+  });
 
   // The rail and the status bar show git state everywhere, not only in Changes.
   $effect(() => {

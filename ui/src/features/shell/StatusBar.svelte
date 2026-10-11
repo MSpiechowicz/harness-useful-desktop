@@ -64,7 +64,7 @@
       <StatusItem label="Branch {status.branch ?? 'detached'}. Open changes" onclick={() => nav.go('changes')}>
         {#snippet content()}
           <GitBranch size={ICON.sm} aria-hidden="true" />
-          <span class="max-w-40 truncate">{status.branch ?? 'detached HEAD'}</span>
+          <span class="max-w-[28rem] truncate" title={status.branch ?? undefined}>{status.branch ?? 'detached HEAD'}</span>
           {#if status.ahead > 0}<span class="tabular inline-flex items-center text-success"><ArrowUp size={ICON.sm} aria-hidden="true" />{status.ahead}<span class="sr-only">{' ahead'}</span></span>{/if}
           {#if status.behind > 0}<span class="tabular inline-flex items-center text-warning"><ArrowDown size={ICON.sm} aria-hidden="true" />{status.behind}<span class="sr-only">{' behind'}</span></span>{/if}
         {/snippet}

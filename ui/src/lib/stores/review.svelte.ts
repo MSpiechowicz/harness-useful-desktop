@@ -32,19 +32,61 @@ export function byteLength(text: string): number {
   return new TextEncoder().encode(text).length;
 }
 
+/** Where drafts are kept between launches (the webview's storage, on this device only). */
+const STORAGE_KEY = 'harness:review-drafts';
+
+function isComment(value: unknown): value is DraftComment {
+  const comment = value as DraftComment | null;
+
+  return (
+    typeof comment?.id === 'number' &&
+    typeof comment.path === 'string' &&
+    (comment.side === 'old' || comment.side === 'new') &&
+    typeof comment.startLine === 'number' &&
+    typeof comment.endLine === 'number' &&
+    typeof comment.body === 'string' &&
+    Array.isArray(comment.snippet)
+  );
+}
+
+/** The saved drafts, keeping only well-formed entries; an unreadable record is an empty one. */
+function loadDrafts(): Record<string, ProjectReview> {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}') as Record<string, Partial<ProjectReview>>;
+
+    return Object.fromEntries(
+      Object.entries(saved).map(([project, review]) => [
+        project,
+        { comments: (Array.isArray(review?.comments) ? review.comments : []).filter(isComment).slice(0, MAX_COMMENTS), note: typeof review?.note === 'string' ? review.note : '' },
+      ]),
+    );
+  } catch {
+    return {};
+  }
+}
+
 /**
- * Pending review comments per project. They live in memory only: they survive switching views
- * and projects, and disappear when sent, discarded or when the app closes.
+ * Pending review comments per project. They survive switching views and projects and closing the app (saved on this
+ * device), and disappear when sent or discarded.
  */
 export class ReviewStore {
-  private reviews = $state.raw<Record<string, ProjectReview>>({});
-  private nextId = 1;
+  private reviews = $state.raw<Record<string, ProjectReview>>(loadDrafts());
+  private nextId = Math.max(0, ...Object.values(this.reviews).flatMap((review) => review.comments.map((comment) => comment.id))) + 1;
 
   constructor(
     private readonly transport: Transport,
     private readonly agents: AgentSessionsStore,
     private readonly notifications: ToastsStore,
   ) {}
+
+  private persist(): void {
+    try {
+      const kept = Object.fromEntries(Object.entries(this.reviews).filter(([, review]) => review.comments.length > 0 || review.note.trim() !== ''));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(kept));
+    } catch {
+      // Storage can be unavailable; the drafts then last until the app closes.
+    }
+  }
 
   commentsFor(project: string | null): DraftComment[] {
     return project === null ? EMPTY.comments : this.of(project).comments;
@@ -86,6 +128,7 @@ export class ReviewStore {
   /** Forgets every comment and the note of a project. */
   discard(project: string): void {
     this.reviews = Object.fromEntries(Object.entries(this.reviews).filter(([key]) => key !== project));
+    this.persist();
   }
 
   /** The request the backend composes: comments grouped by file in a stable order. */
@@ -145,6 +188,7 @@ export class ReviewStore {
 
   private set(project: string, review: ProjectReview): void {
     this.reviews = { ...this.reviews, [project]: review };
+    this.persist();
   }
 }
 

@@ -30,7 +30,7 @@
 
 {#if text !== null && text !== ''}
   <div class="flex flex-col gap-1.5">
-    <TerminalBlock text={shown} {running} class={cx(failed && 'border-danger/40')} />
+    <TerminalBlock text={shown} {running} class={cx(failed && 'border-danger-edge')} />
 
     {#if long}
       <button type="button" class="self-start rounded-sm text-xs text-accent-text underline underline-offset-2 transition-colors hover:text-fg" onclick={() => (expanded = !expanded)}>

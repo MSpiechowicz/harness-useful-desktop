@@ -96,6 +96,11 @@ impl DecodeState {
         }
     }
 
+    /// Follows the session to another project (OMP `/move`).
+    pub fn set_project(&mut self, project: PathBuf) {
+        self.project = project;
+    }
+
     /// The project directory.
     pub fn project(&self) -> &Path {
         &self.project
@@ -195,6 +200,12 @@ pub trait RpcDialect: Send + Sync {
     /// Commands sent (without `id`) right after the handshake, before `get_state`.
     fn after_handshake(&self) -> Vec<Value> {
         Vec::new()
+    }
+
+    /// The prompt text that moves the running session (conversation file and working directory)
+    /// to `project`, or `None` when the harness cannot move a session.
+    fn move_prompt(&self, _project: &str) -> Option<String> {
+        None
     }
 
     /// Like [`RpcDialect::after_handshake`], but a refusal (an older harness without the command)

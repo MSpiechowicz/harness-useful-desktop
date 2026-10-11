@@ -55,4 +55,8 @@ slashCommandsViaPrompt: boolean,
 /**
  * Sessions form a branching tree (fork/resume from any entry).
  */
-sessionTree: boolean, };
+sessionTree: boolean, 
+/**
+ * A running chat can move, conversation included, to another project (OMP `/move`).
+ */
+moveSession: boolean, };

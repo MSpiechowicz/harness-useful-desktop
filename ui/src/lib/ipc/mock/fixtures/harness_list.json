@@ -21,7 +21,8 @@
       "approvalModes": true,
       "projectTrust": false,
       "slashCommandsViaPrompt": true,
-      "sessionTree": true
+      "sessionTree": true,
+      "moveSession": true
     },
     "detection": {
       "installed": true,
@@ -57,7 +58,8 @@
       "approvalModes": false,
       "projectTrust": true,
       "slashCommandsViaPrompt": false,
-      "sessionTree": true
+      "sessionTree": true,
+      "moveSession": false
     },
     "detection": {
       "installed": false,

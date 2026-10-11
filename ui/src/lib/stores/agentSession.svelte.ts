@@ -212,6 +212,27 @@ export class AgentSessionsStore {
     }
   }
 
+  /**
+   * Moves chat `key`, conversation included, to `project` (OMP `/move`): the tab, its messages and its draft stay,
+   * only the project changes. Returns false, with a notification, when the harness refuses (PI, a busy agent).
+   */
+  async moveProject(key: string, project: string): Promise<boolean> {
+    const session = this.get(key);
+    if (!session) {
+      return false;
+    }
+
+    try {
+      session.info = await this.transport.invoke('agent_move_project', { key, project });
+
+      return true;
+    } catch (error) {
+      this.notifications.push({ title: 'Could not move the chat', description: IpcFailure.from(error).message, tone: 'warning' });
+
+      return false;
+    }
+  }
+
   /** Shows the next (`1`) or previous (`-1`) tab, wrapping around; starting chats count as tabs. */
   cycle(step: 1 | -1): void {
     const keys = [...this.sessions.map((session) => session.key), ...this.starting.map((chat) => chat.key)];

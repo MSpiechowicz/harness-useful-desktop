@@ -72,6 +72,7 @@ pub fn run() -> ExitCode {
             commands::agent::agent_ui_respond,
             commands::agent::agent_bash,
             commands::agent::agent_stop,
+            commands::agent::agent_move_project,
             commands::agent::agent_list,
             commands::sessions::sessions_list,
             commands::sessions::session_tree,

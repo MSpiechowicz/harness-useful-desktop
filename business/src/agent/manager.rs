@@ -8,7 +8,7 @@
 //! before [`AgentManager::bash`].
 
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use tokio::task::JoinSet;
@@ -194,6 +194,31 @@ impl AgentManager {
     /// user's explicit confirmation.
     pub async fn bash(&self, key: &str, command: &str) -> Result<BashOutput> {
         self.session(key)?.bash(command).await
+    }
+
+    /// The info of session `key`.
+    pub fn info(&self, key: &str) -> Result<AgentSessionInfo> {
+        self.lock()
+            .sessions
+            .get(key)
+            .map(|entry| entry.info.clone())
+            .ok_or_else(|| BusinessError::NotFound(format!("agent session {key}")))
+    }
+
+    /// Moves session `key`, conversation included, to `project` (a canonical, authorized project
+    /// directory whose session folder is `sessions_dir`); returns the updated info. The chat keeps
+    /// going in the new project; a refused or failed move leaves it where it was.
+    pub async fn move_project(&self, key: &str, project: PathBuf, sessions_dir: PathBuf) -> Result<AgentSessionInfo> {
+        self.session(key)?.move_project(&project, &sessions_dir).await?;
+
+        let mut slots = self.lock();
+        let entry = slots
+            .sessions
+            .get_mut(key)
+            .ok_or_else(|| BusinessError::NotFound(format!("agent session {key}")))?;
+        entry.info.project = project.to_string_lossy().into_owned();
+
+        Ok(entry.info.clone())
     }
 
     /// Stops session `key` and forgets it; unknown keys are ignored.

@@ -15,7 +15,7 @@
 
   let { number, side, index, pick, class: className }: Props = $props();
 
-  const BASE = 'w-12 shrink-0 select-none px-1.5 text-right font-mono text-xs leading-[18px] tabular text-fg-3';
+  const BASE = 'w-12 shrink-0 select-none px-1.5 text-right font-mono text-[13px] leading-[20px] tabular text-fg-3';
 
   function onpointerdown(event: PointerEvent): void {
     if (event.button === 0) {

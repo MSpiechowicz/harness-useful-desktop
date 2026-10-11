@@ -5,6 +5,7 @@
   import ErrorPanel from '$lib/components/ErrorPanel.svelte';
   import { rise, scaled } from '$lib/design/motion';
   import { nav } from '$lib/stores/nav.svelte';
+  import { lazyPage } from '$lib/utils/lazy-page';
   import ConfigViewer from '../config/ConfigViewer.svelte';
   import EcosystemView from '../ecosystem/EcosystemView.svelte';
   import ExtensionsViewer from '../extensions/ExtensionsViewer.svelte';
@@ -32,19 +33,19 @@
       <ErrorBoundary area="The {meta.label} page">
         {#if nav.current === 'chat'}
           <!-- Split out of the first load: Markdown, the sanitizer and the chat UI arrive while the intro plays. -->
-          {#await import('../chat/ChatView.svelte') then { default: ChatView }}
+          {#await lazyPage(() => import('../chat/ChatView.svelte')) then { default: ChatView }}
             <ChatView />
           {:catch error}
             <ErrorPanel area="The {meta.label} page" {error} />
           {/await}
         {:else if nav.current === 'sessions'}
-          {#await import('../sessions/SessionsView.svelte') then { default: SessionsView }}
+          {#await lazyPage(() => import('../sessions/SessionsView.svelte')) then { default: SessionsView }}
             <SessionsView />
           {:catch error}
             <ErrorPanel area="The {meta.label} page" {error} />
           {/await}
         {:else if nav.current === 'changes'}
-          {#await import('../changes/ChangesView.svelte') then { default: ChangesView }}
+          {#await lazyPage(() => import('../changes/ChangesView.svelte')) then { default: ChangesView }}
             <ChangesView />
           {:catch error}
             <ErrorPanel area="The {meta.label} page" {error} />

@@ -39,6 +39,11 @@ impl RpcDialect for OmpDialect {
         vec![json!({ "type": "set_event_filter", "events": null, "messageUpdates": "delta" })]
     }
 
+    fn move_prompt(&self, project: &str) -> Option<String> {
+        // `/move <path>` takes the rest of the line as the path, spaces included.
+        Some(format!("/move {project}"))
+    }
+
     fn optional_after_handshake(&self) -> Vec<Value> {
         vec![subscription_frame()]
     }

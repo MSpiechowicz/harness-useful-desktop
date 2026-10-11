@@ -8,7 +8,7 @@
 //! Stop: close stdin → wait up to the grace period (3 s) → kill the process group. `exited` is
 //! always the last event and is emitted exactly once, also when the agent crashes.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
@@ -47,6 +47,12 @@ const MAX_HISTORY_PAGES: usize = 64;
 /// Frames queued for stdin at most.
 const WRITER_QUEUE: usize = 64;
 
+/// How often a move is checked for (the agent answers the prompt before the file is in place).
+const MOVE_CHECKS: usize = 10;
+
+/// Pause between two move checks.
+const MOVE_CHECK_INTERVAL: Duration = Duration::from_millis(200);
+
 /// Everything needed to start a session.
 pub struct SessionLaunch<'a> {
     /// Desktop session key.
@@ -70,7 +76,8 @@ pub struct SessionLaunch<'a> {
 /// A running agent session (see the module docs).
 pub struct AgentSession {
     shared: Arc<Shared>,
-    sessions_dir: PathBuf,
+    /// The project's session folder; follows the session when it moves to another project.
+    sessions_dir: Mutex<PathBuf>,
     next_id: AtomicU64,
     exited: watch::Receiver<Option<ExitInfo>>,
     kill: watch::Sender<bool>,
@@ -105,7 +112,7 @@ impl AgentSession {
 
         let mut session = Self {
             shared,
-            sessions_dir: launch.sessions_dir,
+            sessions_dir: Mutex::new(launch.sessions_dir),
             next_id: AtomicU64::new(0),
             exited: exit_rx,
             kill: kill_tx,
@@ -237,8 +244,9 @@ impl AgentSession {
     /// Encodes `action`, sends it and parses the reply (no side effects).
     async fn call(&self, action: &AgentAction, limit: Duration) -> Result<AgentReply> {
         let id = self.next_id();
+        let sessions_dir = self.sessions_dir();
         let context = EncodeContext {
-            sessions_dir: &self.sessions_dir,
+            sessions_dir: &sessions_dir,
         };
         let frame = self.shared.dialect.encode(action, &id, &context)?;
 
@@ -292,6 +300,77 @@ impl AgentSession {
         }
 
         Ok(reply)
+    }
+
+    fn sessions_dir(&self) -> PathBuf {
+        self.sessions_dir.lock().unwrap_or_else(PoisonError::into_inner).clone()
+    }
+
+    /// Moves the running session, conversation file and working directory, to `project` (whose
+    /// session folder is `sessions_dir`) with the harness's move command (OMP `/move`). The move is
+    /// confirmed by the session file now living in `sessions_dir`; otherwise it fails and the
+    /// session stays where it was (OMP rolls a failed move back itself).
+    pub async fn move_project(&self, project: &Path, sessions_dir: &Path) -> Result<()> {
+        self.ensure_running()?;
+
+        let target = project
+            .to_str()
+            .ok_or_else(|| BusinessError::InvalidInput("the project path is not valid UTF-8".to_owned()))?;
+        let prompt = self.shared.dialect.move_prompt(target).ok_or_else(|| {
+            BusinessError::Unsupported("this harness cannot move a session to another project".to_owned())
+        })?;
+
+        if self.state().await?.is_streaming {
+            return Err(BusinessError::Unsupported(
+                "the agent is working; move the chat once it is done".to_owned(),
+            ));
+        }
+
+        self.call(
+            &AgentAction::Prompt {
+                message: prompt,
+                streaming_behavior: None,
+            },
+            DEFAULT_TIMEOUT,
+        )
+        .await?;
+
+        for _ in 0..MOVE_CHECKS {
+            if self
+                .session_file()
+                .await?
+                .is_some_and(|file| file.starts_with(sessions_dir))
+            {
+                *self.sessions_dir.lock().unwrap_or_else(PoisonError::into_inner) = sessions_dir.to_path_buf();
+                self.shared.change_project(project.to_path_buf());
+
+                return Ok(());
+            }
+
+            tokio::time::sleep(MOVE_CHECK_INTERVAL).await;
+        }
+
+        Err(BusinessError::Process(
+            "the agent did not move the session; it stays in its current project".to_owned(),
+        ))
+    }
+
+    /// The session file the agent writes to (`get_state`'s `sessionFile`), kept out of [`SessionState`].
+    async fn session_file(&self) -> Result<Option<PathBuf>> {
+        let id = self.next_id();
+        let sessions_dir = self.sessions_dir();
+        let context = EncodeContext {
+            sessions_dir: &sessions_dir,
+        };
+        let frame = self.shared.dialect.encode(&AgentAction::GetState, &id, &context)?;
+        let response = self.request(&frame, &id, RequestKind::Other, DEFAULT_TIMEOUT).await?;
+
+        Ok(response
+            .data
+            .as_ref()
+            .and_then(|data| data.get("sessionFile"))
+            .and_then(Value::as_str)
+            .map(PathBuf::from))
     }
 
     async fn state(&self) -> Result<SessionState> {

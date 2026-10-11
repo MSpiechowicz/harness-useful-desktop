@@ -1,8 +1,10 @@
 <script lang="ts">
   import { highlight, type HighlightedLine } from '$lib/markdown/highlight';
+  import { grammarFor } from '$lib/markdown/languages';
   import { cx } from '$lib/utils/cx';
 
   import CopyButton from './CopyButton.svelte';
+  import { DIFF_ROW, DIFF_TEXT } from './diff-tones';
 
   interface Props {
     code: string;
@@ -42,6 +44,23 @@
   });
 
   /** Colored lines for the code highlighted so far, plus any text appended since (plain until the next pass). */
+  /** Diffs tint whole lines (added, removed, hunk header), across the full scroll width. */
+  const isDiff = $derived(grammarFor(lang) === 'diff');
+
+  function diffKind(line: string): 'add' | 'remove' | 'hunk' | null {
+    if (line.startsWith('@@')) {
+      return 'hunk';
+    }
+    if (line.startsWith('+') && !line.startsWith('+++')) {
+      return 'add';
+    }
+    if (line.startsWith('-') && !line.startsWith('---')) {
+      return 'remove';
+    }
+
+    return null;
+  }
+
   const view = $derived(highlighted && code.startsWith(highlighted.code) ? { lines: highlighted.lines, tail: code.slice(highlighted.code.length) } : null);
 </script>
 
@@ -52,5 +71,11 @@
   </figcaption>
 
   <!-- svelte-ignore a11y_no_noninteractive_tabindex -- a scrollable region must be reachable by keyboard -->
-  <pre class="max-h-[28rem] overflow-auto px-3.5 py-3 font-mono text-[13px] leading-relaxed text-fg" tabindex="0"><code>{#if view}{#each view.lines as line, row (row)}{#each line as token, column (column)}<span style:color={token.color} class:font-semibold={token.bold} class:italic={token.italic}>{token.content}</span>{/each}{#if row < view.lines.length - 1}{'\n'}{/if}{/each}{view.tail}{:else}{code}{/if}</code></pre>
+  <!-- Long lines wrap and the block shows in full: the conversation is the only scroller, so no scrollbar ever sits
+       over the code (WebKitGTK widens its overlay bars on hover). Copy keeps the original lines. -->
+  {#if isDiff}
+    <pre class="py-3 font-mono text-[13px] leading-5 [overflow-wrap:anywhere] whitespace-pre-wrap text-fg"><code class="grid">{#each code.split('\n') as line, row (row)}{@const kind = diffKind(line)}<span class={cx('px-3.5', kind === 'hunk' && 'text-info', kind !== null && kind !== 'hunk' && `${DIFF_ROW[kind]} ${DIFF_TEXT[kind]}`)}>{line || ' '}</span>{/each}</code></pre>
+  {:else}
+  <pre class="px-3.5 py-3 font-mono text-[13px] leading-5 [overflow-wrap:anywhere] whitespace-pre-wrap text-fg"><code>{#if view}{#each view.lines as line, row (row)}{#each line as token, column (column)}<span style:color={token.color} class:font-semibold={token.bold} class:italic={token.italic}>{token.content}</span>{/each}{#if row < view.lines.length - 1}{'\n'}{/if}{/each}{view.tail}{:else}{code}{/if}</code></pre>
+  {/if}
 </figure>

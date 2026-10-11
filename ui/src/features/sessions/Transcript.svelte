@@ -99,7 +99,7 @@
     <VirtualList bind:this={list} items={chat.items} variable estimate={ESTIMATED_ROW_PX} overscan={10} label="Session transcript" key={(item) => item.key} class="min-h-0 flex-1">
       {#snippet row(item, index)}
         {@const forkId = onpick ? forkable(index) : null}
-        <div class={cx('mx-auto w-full max-w-3xl px-6 py-2', index === 0 && 'pt-6', index === chat.items.length - 1 && 'pb-8')}>
+        <div class={cx('w-full max-w-3xl px-6 py-2', index === 0 && 'pt-6', index === chat.items.length - 1 && 'pb-8')}>
           <!-- The negative margin and matching padding let the highlight frame the message without moving it. -->
           {#if forkId}
             <div

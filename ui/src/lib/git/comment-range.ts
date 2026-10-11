@@ -86,3 +86,17 @@ export interface PickHandlers {
   /** The selection is complete (pointer released, or a keyboard activation). */
   finish: () => void;
 }
+
+/**
+ * A click on a diff line itself (not its gutter) comments on that line. A click that ends a text selection is left
+ * alone, so copying code keeps working; clicks on buttons inside the row are theirs.
+ */
+export function commentOnLineClick(event: MouseEvent, pick: PickHandlers, index: number, side: CommentSide): void {
+  const target = event.target instanceof Element ? event.target : null;
+  if (target?.closest('button') || (window.getSelection()?.toString() ?? '') !== '') {
+    return;
+  }
+
+  pick.start(index, side, event.shiftKey);
+  pick.finish();
+}

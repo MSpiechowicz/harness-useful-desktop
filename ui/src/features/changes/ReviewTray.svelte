@@ -71,7 +71,7 @@
             oninput={(event) => review.setNote(project, event.currentTarget.value)}
             rows="2"
             placeholder="e.g. Fix these, then run the tests."
-            class="w-full resize-y rounded-sm border border-line bg-surface-2 px-3 py-2 text-base font-normal text-fg outline-none placeholder:text-fg-3 focus:border-focus"
+            class="w-full resize-none rounded-sm border border-line bg-surface-2 px-3 py-2 text-base font-normal text-fg outline-none placeholder:text-fg-3 focus:border-focus"
           ></textarea>
           {#if noteTooLong}<span class="text-danger" role="alert">Too long: the instruction holds at most {MAX_TEXT_BYTES / 1024} KiB.</span>{/if}
         </label>

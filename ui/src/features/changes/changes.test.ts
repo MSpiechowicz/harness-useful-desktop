@@ -146,9 +146,12 @@ describe('reviewing changes', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Preview & send' }));
 
     const prompt = await screen.findByLabelText('Prompt to send');
-    expect(prompt).toHaveTextContent(`### ${LIB}`);
+    expect(within(prompt).getByRole('heading', { name: LIB })).toBeInTheDocument();
     expect(prompt).toHaveTextContent('Why is this needed?');
     expect(prompt).toHaveTextContent('Then run the tests.');
+
+    expect(screen.getByRole('radiogroup', { name: 'Send to' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: /New session/ })).toHaveAttribute('aria-checked', 'true');
 
     await fireEvent.click(screen.getByRole('button', { name: 'Send to agent' }));
 

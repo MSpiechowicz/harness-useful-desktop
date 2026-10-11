@@ -60,6 +60,22 @@ pub async fn agent_bash(
     bash(&state, &key, &command, confirmed).await
 }
 
+/// Moves chat `key`, conversation included, to `project` (the active project or a recent one) and
+/// returns its updated info. Only harnesses that can move a session support it (OMP `/move`).
+#[tauri::command]
+pub async fn agent_move_project(
+    state: State<'_, AppState>,
+    key: String,
+    project: String,
+) -> CommandResult<AgentSessionInfo> {
+    let manager = state.agents.manager();
+    let harness = find(&state, manager.info(&key)?.harness)?;
+    let project = PathBuf::from(authorized_project(&state, project).await?);
+    let sessions_dir = harness.sessions_dir(&state.env, &project);
+
+    Ok(manager.move_project(&key, project, sessions_dir).await?)
+}
+
 /// Stops session `key` (close stdin → 3 s → kill); unknown keys are ignored.
 #[tauri::command]
 pub async fn agent_stop(state: State<'_, AppState>, key: String) -> CommandResult<()> {

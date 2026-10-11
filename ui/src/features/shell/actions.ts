@@ -56,24 +56,44 @@ export async function newChat(): Promise<void> {
 }
 
 /**
- * Works in another project from the chat: makes it the active project, then shows its open chat or starts one there.
- * A chat runs inside its project's folder, so switching projects means switching chats.
+ * Works in another project from the chat. A harness that can move a session (OMP `/move`) takes the chat along:
+ * the tab, its messages and its draft stay, only the project changes. Otherwise the agent cannot leave its folder,
+ * so an empty chat (nothing said, nothing typed) is replaced in its own tab and any other one stays, with the new
+ * chat opening next to it. Several chats may share a project either way.
  */
 export async function switchProject(path: string): Promise<void> {
+  const current = agentSessions.active;
+  if (current?.info.project === path) {
+    return;
+  }
   if (project.active?.path !== path && !(await project.open(path))) {
     return;
   }
 
-  const open = agentSessions.sessions.find((session) => session.info.project === path && !session.ended);
-  if (open) {
-    nav.go('chat');
-    agentSessions.select(open.key);
-    focusComposer();
+  if (current && !current.ended && harness.get(current.info.harness)?.capabilities.moveSession) {
+    if (await agentSessions.moveProject(current.key, path)) {
+      focusComposer();
+    }
 
     return;
   }
 
-  await newChat();
+  const replaceable = current && current.info.project !== path && !current.streaming && current.chat.items.length === 0 && current.draft.trim() === '';
+  const harnessId = current?.info.harness ?? harness.active?.info.id;
+  if (!harnessId) {
+    await newChat();
+
+    return;
+  }
+
+  nav.go('chat');
+  const fresh = await agentSessions.create(harnessId, path);
+  if (fresh && replaceable) {
+    await agentSessions.takeOver(current.key, fresh.key);
+  }
+  if (fresh) {
+    focusComposer();
+  }
 }
 
 /** Picks a folder with the native dialog and switches the chat to it. */
