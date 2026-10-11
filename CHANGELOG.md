@@ -1,3 +1,10 @@
+## [0.1.4](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.1.3...v0.1.4) (2026-10-11)
+
+
+### Bug Fixes
+
+* failed tool cards get a red border, not a purple one ([72be896](https://github.com/MSpiechowicz/harness-useful-desktop/commit/72be896505bbdadc16b39d1bd3577f1cacdb59a2)), closes [#623b5f](https://github.com/MSpiechowicz/harness-useful-desktop/issues/623b5f) [#d8a2d0](https://github.com/MSpiechowicz/harness-useful-desktop/issues/d8a2d0)
+
 ## [0.1.3](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.1.2...v0.1.3) (2026-10-11)
 
 
