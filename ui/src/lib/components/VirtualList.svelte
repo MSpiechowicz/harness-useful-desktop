@@ -142,15 +142,16 @@
 <div bind:this={scroller} bind:clientHeight={viewport} {onscroll} role="list" aria-label={label} class={cx('relative overflow-y-auto', className)}>
   <div class="relative w-full" style:height="{visible.total}px">
     {#each indexes as index (key ? key(items[index], index) : index)}
+      <!-- `top`, not a transform: WebKitGTK composites transformed rows and blurs their text at fractional scales. -->
       <div
         role="listitem"
         aria-posinset={index + 1}
         aria-setsize={items.length}
         data-key={keyOf(index)}
         use:track
-        class="absolute inset-x-0 top-0"
+        class="absolute inset-x-0"
         style:height={variable ? undefined : `${estimate}px`}
-        style:transform="translateY({offsets[index]}px)"
+        style:top="{offsets[index]}px"
       >
         {@render row(items[index], index)}
       </div>

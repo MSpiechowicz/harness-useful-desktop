@@ -65,7 +65,6 @@
 
   --shadow-raised: var(--elev-1);
   --shadow-float: var(--elev-2);
-  --shadow-drop: var(--elev-2-drop);
   --shadow-pop: var(--elev-3);
   --shadow-glow: var(--glow);
 }

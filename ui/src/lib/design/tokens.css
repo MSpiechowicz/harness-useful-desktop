@@ -64,8 +64,6 @@
   /* Elevation: quiet shadows; no coloured glow. */
   --elev-1: 0 1px 2px rgb(0 0 0 / 0.3), 0 1px 0 var(--highlight) inset;
   --elev-2: 0 8px 24px rgb(0 0 0 / 0.35), 0 1px 0 var(--highlight) inset;
-  /* elev-2's drop shadow alone, for a card whose border must stay a single crisp line. */
-  --elev-2-drop: 0 8px 24px rgb(0 0 0 / 0.35);
   --elev-3: 0 20px 48px rgb(0 0 0 / 0.5), 0 1px 0 var(--highlight) inset;
   --glow: 0 0 0 0 transparent;
 
@@ -132,7 +130,6 @@
 
   --elev-1: 0 1px 2px rgb(24 24 27 / 0.06), 0 0 0 1px var(--border);
   --elev-2: 0 6px 20px rgb(24 24 27 / 0.08), 0 0 0 1px var(--border);
-  --elev-2-drop: 0 6px 20px rgb(24 24 27 / 0.08);
   --elev-3: 0 20px 48px rgb(24 24 27 / 0.16), 0 0 0 1px var(--border);
 
   --logo-dust: #71717a;
