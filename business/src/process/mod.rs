@@ -15,6 +15,8 @@
 //! dyn-compatible), and the futures must be `Send` for multi-threaded Tauri commands. One boxed
 //! allocation per process is negligible next to spawning it, and no `async-trait` macro is needed.
 
+#[cfg(unix)]
+mod appimage;
 mod resolve;
 mod runner;
 mod spawner;
@@ -43,8 +45,8 @@ pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
 /// Default per-stream output cap for run-to-completion commands (1 MiB).
 pub const DEFAULT_MAX_OUTPUT_BYTES: usize = 1024 * 1024;
 
-/// What to execute. The child inherits the parent environment minus the variables named by
-/// `env_remove_prefixes`, plus `env` overrides.
+/// What to execute. The child inherits the parent environment (with an AppImage launcher's changes
+/// undone) minus the variables named by `env_remove_prefixes`, plus `env` overrides.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExecSpec {
     /// Absolute path of the executable (resolve it first, see [`resolve_binary`]).
@@ -162,6 +164,15 @@ fn build_command(spec: &ExecSpec, stdin: Stdio) -> Result<Command> {
     }
 
     let mut command = Command::new(&spec.program);
+
+    // Inside an AppImage, give the child the host's environment, not the launcher's.
+    #[cfg(unix)]
+    for (name, value) in appimage::host_env(std::env::vars_os()) {
+        match value {
+            Some(value) => command.env(name, value),
+            None => command.env_remove(name),
+        };
+    }
 
     // Removals first: the overrides in `spec.env` must survive them.
     for name in removed_vars(&spec.env_remove_prefixes) {
