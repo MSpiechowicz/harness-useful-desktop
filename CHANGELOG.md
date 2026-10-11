@@ -1,3 +1,10 @@
+## [0.1.3](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.1.2...v0.1.3) (2026-10-11)
+
+
+### Bug Fixes
+
+* reopening the last run's chats no longer fails on a chat that was never used ([48e1858](https://github.com/MSpiechowicz/harness-useful-desktop/commit/48e1858bafb63e324e44db912b164d48955c05f3))
+
 ## [0.1.2](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.1.1...v0.1.2) (2026-10-11)
 
 
