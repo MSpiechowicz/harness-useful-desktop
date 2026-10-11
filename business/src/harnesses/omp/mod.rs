@@ -13,6 +13,7 @@ mod marketplaces;
 mod paths;
 mod plugins;
 mod sessions;
+mod subagents;
 mod themes;
 
 pub use catalog::OmpCatalog;

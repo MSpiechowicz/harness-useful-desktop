@@ -3,6 +3,7 @@
   import ChevronDown from '@lucide/svelte/icons/chevron-down';
 
   import Popover from '$lib/components/Popover.svelte';
+  import { rememberThinking } from '$lib/chat/chat-defaults';
   import type { ChatSession } from '$lib/chat/session.svelte';
 
   import MenuItem from './MenuItem.svelte';
@@ -24,12 +25,12 @@
 </script>
 
 {#if supported}
-  <Popover label="Thinking level" kind="menu" bind:open={session.ui.thinkingPicker} class="min-w-44">
+  <Popover label="Thinking level" kind="menu" side="top" align="end" bind:open={session.ui.thinkingPicker} class="min-w-44">
     {#snippet trigger({ props })}
-      <button type="button" {...props} class="inline-flex h-8 items-center gap-2 rounded-md border border-line bg-surface-2 px-2.5 text-sm text-fg-2 transition-colors hover:bg-surface-3 hover:text-fg">
+      <button type="button" {...props} class="inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-sm text-fg-3 transition-colors duration-[var(--dur-fast)] hover:bg-hover hover:text-fg aria-expanded:bg-hover aria-expanded:text-fg">
         <Brain size={16} aria-hidden="true" />
-        <!-- The word "Thinking" drops out of sight on narrow windows (the icon says it) but stays in the accessible name. -->
-        <span><span class="max-[1100px]:sr-only">{'Thinking: '}</span>{level ?? 'default'}</span>
+        <!-- The icon says "thinking"; the word stays in the accessible name. -->
+        <span><span class="sr-only">{'Thinking: '}</span>{level ?? 'default'}</span>
         <ChevronDown size={16} aria-hidden="true" class="text-fg-3" />
       </button>
     {/snippet}
@@ -44,6 +45,7 @@
             selected={option === level}
             onselect={() => {
               void session.chooseThinking(option);
+              rememberThinking(session.info.harness, option);
               close();
             }}
           />

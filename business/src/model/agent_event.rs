@@ -4,7 +4,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use ts_rs::TS;
 
-use super::{ChatMessage, CommandSpec, MessageRole, ModelOption, NoticeLevel, PromptStatus, SessionState, UiRequest};
+use super::{
+    ChatMessage, CommandSpec, MessageRole, ModelOption, NoticeLevel, PromptStatus, SessionState, Subagent, UiRequest,
+};
 
 /// One event of a session's stream.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
@@ -111,6 +113,11 @@ pub enum AgentEvent {
         /// Project-relative paths (forward slashes) a file-editing tool may have changed; only
         /// paths inside the project are kept.
         touched_paths: Vec<String>,
+    },
+    /// A subagent started, made progress or finished (OMP); the webview upserts it by `id`.
+    Subagent {
+        /// Its latest snapshot (boxed: it is by far the largest event).
+        subagent: Box<Subagent>,
     },
     /// The slash-command catalog changed (already merged with the desktop commands).
     CommandsUpdated {

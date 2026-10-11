@@ -25,6 +25,7 @@ mod prefs;
 mod project;
 mod review;
 mod session;
+mod subagent;
 mod ui_request;
 mod update;
 
@@ -57,7 +58,7 @@ pub use git::{
 };
 pub use harness::{Capabilities, Detection, HarnessId, HarnessInfo, HarnessSummary, InstallHint, VersionSupport};
 pub use ipc_error::{IpcError, IpcErrorCode};
-pub use prefs::{AppPrefs, BinaryOverride, MotionPref, ThemePref, UpdatePolicy};
+pub use prefs::{AppPrefs, BinaryOverride, ChatDefaults, MotionPref, ThemePref, UpdatePolicy};
 pub use project::ProjectInfo;
 pub use review::{
     CommentSide, ComposedReview, MAX_REVIEW_COMMENTS, MAX_REVIEW_PROMPT_BYTES, MAX_REVIEW_SNIPPET_LINES,
@@ -67,5 +68,6 @@ pub use session::{
     MAX_FIRST_PROMPT_CHARS, MAX_NODE_PREVIEW_CHARS, MAX_SESSION_PAGE, MAX_TREE_NODES, SessionMessagesPage, SessionNode,
     SessionNodeKind, SessionSummary, SessionTitleSource, SessionTree,
 };
+pub use subagent::{Subagent, SubagentStatus, SubagentTool};
 pub use ui_request::{UiOutcome, UiRequest, UiRequestKind, UiResponse};
 pub use update::{MAX_UPDATE_NOTES_BYTES, UpdateInfo, UpdatePhase, UpdateProgress};

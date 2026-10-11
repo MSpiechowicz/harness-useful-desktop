@@ -1,21 +1,25 @@
 <script lang="ts">
-  import CornerDownLeft from '@lucide/svelte/icons/corner-down-left';
+  import ArrowUp from '@lucide/svelte/icons/arrow-up';
   import Square from '@lucide/svelte/icons/square';
   import Terminal from '@lucide/svelte/icons/terminal';
   import { untrack } from 'svelte';
 
   import Badge from '$lib/components/Badge.svelte';
   import Button from '$lib/components/Button.svelte';
-  import Kbd from '$lib/components/Kbd.svelte';
   import { autofocus } from '$lib/a11y/autofocus';
   import { bashCommand, isBashDraft, sendIntent, type SendMode } from '$lib/chat/composer';
   import type { ChatSession } from '$lib/chat/session.svelte';
   import { acceptCommand, filterCommands, resolveSlash, slashQuery } from '$lib/chat/slash';
   import type { CommandSpec } from '$lib/ipc/bindings/CommandSpec';
   import { uid } from '$lib/utils/ids';
+  import { formatShortcut } from '$lib/utils/shortcuts';
 
+  import ContextMeter from './ContextMeter.svelte';
+  import ModelPicker from './ModelPicker.svelte';
+  import ProjectPicker from './ProjectPicker.svelte';
   import { runSlash } from './slash-run';
   import SlashMenu from './SlashMenu.svelte';
+  import ThinkingPicker from './ThinkingPicker.svelte';
 
   interface Props {
     session: ChatSession;
@@ -39,7 +43,7 @@
   const canSend = $derived(session.draft.trim() !== '' && !session.ended);
   const queued = $derived(session.chat.queue.steering.length + session.chat.queue.followUp.length);
 
-  const placeholder = $derived(bash ? 'Shell command to run in the project…' : session.streaming ? 'Steer the agent, or queue a follow-up…' : 'Message the agent… (/ for commands, ! for a shell command)');
+  const placeholder = $derived(bash ? 'Shell command to run in the project…' : session.streaming ? 'Steer the agent, or queue a follow-up…' : 'Message the agent…');
 
   $effect(() => {
     void suggestions;
@@ -135,7 +139,7 @@
   }
 </script>
 
-<div class="chat-col relative pt-2 pb-4">
+<div class="chat-col relative pt-2 pb-5">
   {#if menuOpen}
     <div class="absolute inset-x-[var(--gutter)] top-0">
       <SlashMenu id={menuId} commands={suggestions} query={query ?? ''} {active} onaccept={accept} onhover={(index) => (active = index)} />
@@ -153,9 +157,11 @@
     </ul>
   {/if}
 
-  <div class="rounded-xl border border-line-strong bg-surface-1/80 shadow-float transition-colors focus-within:border-focus">
+  <div
+    class="rounded-lg border border-line-strong bg-surface-1 bg-clip-padding shadow-drop transition-[border-color,box-shadow] duration-[var(--dur-fast)] focus-within:border-[color-mix(in_oklch,var(--color-fg)_28%,var(--surface-1))]"
+  >
     {#if bash}
-      <p class="flex items-center gap-1.5 px-3.5 pt-2.5 text-xs text-warning"><Terminal size={16} aria-hidden="true" /> Shell command · you will confirm it before it runs</p>
+      <p class="flex items-center gap-1.5 px-4 pt-3 text-xs text-warning"><Terminal size={14} aria-hidden="true" /> Shell command · you confirm it before it runs</p>
     {/if}
 
     <textarea
@@ -173,31 +179,37 @@
       aria-autocomplete="list"
       spellcheck="true"
       {placeholder}
-      class="block max-h-56 w-full resize-none bg-transparent px-3.5 py-3 text-base text-fg outline-none placeholder:text-fg-3 disabled:cursor-not-allowed disabled:opacity-60 {bash ? 'font-mono' : ''}"
+      class="block max-h-56 min-h-14 w-full resize-none bg-transparent px-4 pt-3.5 pb-1 text-[15px] leading-6 text-fg outline-none placeholder:text-fg-3 disabled:cursor-not-allowed disabled:opacity-60 {bash ? 'font-mono text-sm' : ''}"
     ></textarea>
 
-    <div class="flex items-center gap-2 px-2.5 pb-2.5">
-      <p class="min-w-0 flex-1 truncate text-xs text-fg-3">
-        {#if session.streaming}
-          <Kbd keys="enter" /> steer · <Kbd keys="mod+enter" /> follow-up
-        {:else}
-          <Kbd keys="enter" /> send · <Kbd keys="shift+enter" /> new line
-        {/if}
-      </p>
+    <div class="flex items-center gap-1 px-2 pb-2">
+      <ModelPicker {session} />
+      <ThinkingPicker {session} />
 
-      {#if session.streaming}
-        <Button size="sm" variant="danger" onclick={() => void session.abort()}>
-          {#snippet leading()}<Square size={16} aria-hidden="true" />{/snippet}
-          Stop
-        </Button>
-        <Button size="sm" disabled={!canSend} onclick={() => void submit('followUp')}>Follow-up</Button>
-        <Button size="sm" variant="primary" disabled={!canSend} onclick={() => void submit('steer')}>Steer</Button>
-      {:else}
-        <Button size="sm" variant="primary" disabled={!canSend} onclick={() => void submit('send')}>
-          {#snippet trailing()}<CornerDownLeft size={16} aria-hidden="true" />{/snippet}
-          {bash ? 'Review command' : 'Send'}
-        </Button>
-      {/if}
+      <div class="ml-auto flex min-w-0 items-center gap-1.5">
+        <ProjectPicker {session} />
+        <ContextMeter usage={session.chat.session?.contextUsage ?? null} />
+
+        {#if session.streaming}
+          <Button size="sm" variant="ghost" disabled={!canSend} onclick={() => void submit('followUp')}>Follow-up</Button>
+          <Button size="sm" variant="secondary" disabled={!canSend} onclick={() => void submit('steer')}>Steer</Button>
+          <Button size="sm" variant="danger" class="size-8 rounded-full! px-0!" aria-label="Stop" onclick={() => void session.abort()}>
+            <Square size={12} aria-hidden="true" class="fill-current" />
+          </Button>
+        {:else}
+          <Button size="sm" variant="primary" class="size-8 rounded-full! px-0!" aria-label={bash ? 'Review command' : 'Send'} disabled={!canSend} onclick={() => void submit('send')}>
+            {#if bash}<Terminal size={16} aria-hidden="true" />{:else}<ArrowUp size={18} strokeWidth={2.25} aria-hidden="true" />{/if}
+          </Button>
+        {/if}
+      </div>
     </div>
   </div>
+
+  <p class="mt-2 truncate text-center text-xs text-fg-3">
+    {#if session.streaming}
+      Enter steers the agent · {formatShortcut('mod+enter').join('+')} queues a follow-up
+    {:else}
+      Enter to send · Shift+Enter for a new line
+    {/if}
+  </p>
 </div>

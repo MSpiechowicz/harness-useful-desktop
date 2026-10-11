@@ -24,7 +24,8 @@ export class MockState {
     theme: 'system',
     motion: 'full',
     introEnabled: true,
-    soundEnabled: true,
+    soundEnabled: false,
+    showThinking: true,
     defaultHarness: null,
     activeProject: null,
     rememberRecentProjects: true,
@@ -34,6 +35,7 @@ export class MockState {
     onboardingCompleted: false,
     approvalNoticeSeen: false,
     binaryOverrides: [],
+    chatDefaults: [],
   };
 
   overrides: BinaryOverride[] = [];

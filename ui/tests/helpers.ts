@@ -31,6 +31,7 @@ export function samplePrefs(overrides: Partial<AppPrefs> = {}): AppPrefs {
     motion: 'full',
     introEnabled: true,
     soundEnabled: true,
+    showThinking: true,
     defaultHarness: null,
     activeProject: null,
     rememberRecentProjects: true,
@@ -40,6 +41,7 @@ export function samplePrefs(overrides: Partial<AppPrefs> = {}): AppPrefs {
     onboardingCompleted: false,
     approvalNoticeSeen: false,
     binaryOverrides: [],
+    chatDefaults: [],
     ...overrides,
   };
 }

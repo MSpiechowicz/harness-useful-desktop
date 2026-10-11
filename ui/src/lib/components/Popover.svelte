@@ -20,6 +20,8 @@
     /** `menu` for a list of `[data-menu-item]` actions; `dialog` for free-form content. */
     kind?: 'menu' | 'dialog';
     align?: 'start' | 'end';
+    /** Which side of the trigger the panel opens on; `top` for triggers near the bottom of the window. */
+    side?: 'top' | 'bottom';
     open?: boolean;
     /** Classes of the panel. */
     class?: string;
@@ -30,12 +32,17 @@
     children: Snippet<[{ close: () => void }]>;
   }
 
-  let { label, kind = 'menu', align = 'start', open = $bindable(false), class: className, rootClass, trigger, children }: Props = $props();
+  let { label, kind = 'menu', align = 'start', side = 'bottom', open = $bindable(false), class: className, rootClass, trigger, children }: Props = $props();
 
   const panelId = uid('popover');
 
   let root: HTMLElement | undefined = $state();
   let panel: HTMLElement | undefined = $state();
+  /** Horizontal nudge and height cap that keep the open panel inside the window. */
+  let shift = $state(0);
+  let maxHeight = $state<number | null>(null);
+
+  const EDGE = 8;
 
   const triggerProps = $derived<TriggerProps>({
     'aria-haspopup': kind,
@@ -62,6 +69,24 @@
     if (open) {
       queueMicrotask(() => (items()[0] ?? panel)?.focus({ preventScroll: true }));
     }
+  });
+
+  // Measured from layout sizes, not the panel's rect, since the open transition scales it.
+  $effect(() => {
+    if (!open || !panel || !root) {
+      shift = 0;
+      maxHeight = null;
+
+      return;
+    }
+
+    const anchor = root.getBoundingClientRect();
+    const width = Math.min(panel.offsetWidth, window.innerWidth - EDGE * 2);
+    const left = align === 'end' ? anchor.right - width : anchor.left;
+    const clamped = Math.min(Math.max(left, EDGE), window.innerWidth - EDGE - width);
+    shift = clamped - left;
+    const room = side === 'top' ? anchor.top : window.innerHeight - anchor.bottom;
+    maxHeight = Math.max(room - EDGE * 2, 120);
   });
 
   // Pointer interaction outside the popover dismisses it.
@@ -122,8 +147,11 @@
       aria-label={label}
       tabindex="-1"
       transition:pop={{ duration: 180, from: 0.97 }}
+      style:translate={shift ? `${shift}px 0` : null}
+      style:max-height={maxHeight === null ? null : `${maxHeight}px`}
       class={cx(
-        'absolute top-full z-50 mt-2 min-w-64 origin-top rounded-lg border border-line-strong bg-glass p-1.5 shadow-pop backdrop-blur-xl outline-none',
+        'absolute z-50 max-w-[calc(100vw-1rem)] min-w-64 overflow-y-auto rounded-lg border border-line-strong bg-glass p-1.5 shadow-pop backdrop-blur-xl outline-none',
+        side === 'top' ? 'bottom-full mb-2 origin-bottom' : 'top-full mt-2 origin-top',
         align === 'end' ? 'right-0' : 'left-0',
         className,
       )}

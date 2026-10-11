@@ -671,7 +671,7 @@
     "seq": 14,
     "event": {
       "type": "promptResult",
-      "requestId": "req-4",
+      "requestId": "req-5",
       "status": "handled",
       "error": null,
       "retryable": false

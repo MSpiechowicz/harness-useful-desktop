@@ -4,6 +4,7 @@
 
   import Popover from '$lib/components/Popover.svelte';
   import SearchField from '$lib/components/SearchField.svelte';
+  import { rememberModel } from '$lib/chat/chat-defaults';
   import type { ChatSession } from '$lib/chat/session.svelte';
   import type { ModelOption } from '$lib/ipc/bindings/ModelOption';
   import { fuzzyMatch } from '$lib/utils/fuzzy';
@@ -41,9 +42,9 @@
   }
 </script>
 
-<Popover label="Choose model" kind="dialog" bind:open={session.ui.modelPicker} class="w-80">
+<Popover label="Choose model" kind="dialog" side="top" align="end" bind:open={session.ui.modelPicker} class="w-80">
   {#snippet trigger({ props })}
-    <button type="button" {...props} class="inline-flex h-8 max-w-56 items-center gap-2 rounded-md border border-line bg-surface-2 px-2.5 text-sm text-fg-2 transition-colors hover:bg-surface-3 hover:text-fg">
+    <button type="button" {...props} class="inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-sm text-fg-3 transition-colors duration-[var(--dur-fast)] hover:bg-hover hover:text-fg aria-expanded:bg-hover aria-expanded:text-fg max-w-64">
       <Cpu size={16} aria-hidden="true" class="shrink-0" />
       <span class="truncate">{current ? (current.name ?? current.id) : 'Choose model'}</span>
       <ChevronDown size={16} aria-hidden="true" class="shrink-0 text-fg-3" />
@@ -71,6 +72,7 @@
                 selected={sameModel(model)}
                 onselect={() => {
                   void session.chooseModel(model);
+                  rememberModel(session.info.harness, model);
                   close();
                 }}
               />

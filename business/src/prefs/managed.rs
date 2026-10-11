@@ -66,12 +66,14 @@ pub fn with_ui_fields(stored: AppPrefs, ui: &AppPrefs) -> AppPrefs {
         motion,
         intro_enabled,
         sound_enabled,
+        show_thinking,
         default_harness,
         remember_recent_projects,
         update_policy,
         check_companion_updates,
         onboarding_completed,
         approval_notice_seen,
+        chat_defaults,
         // Server-managed: kept from `stored`.
         active_project: _,
         recent_projects: _,
@@ -83,12 +85,14 @@ pub fn with_ui_fields(stored: AppPrefs, ui: &AppPrefs) -> AppPrefs {
         motion,
         intro_enabled,
         sound_enabled,
+        show_thinking,
         default_harness,
         remember_recent_projects,
         update_policy,
         check_companion_updates,
         onboarding_completed,
         approval_notice_seen,
+        chat_defaults,
         ..stored
     }
 }

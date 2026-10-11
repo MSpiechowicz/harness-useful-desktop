@@ -55,6 +55,35 @@ export async function newChat(): Promise<void> {
   }
 }
 
+/**
+ * Works in another project from the chat: makes it the active project, then shows its open chat or starts one there.
+ * A chat runs inside its project's folder, so switching projects means switching chats.
+ */
+export async function switchProject(path: string): Promise<void> {
+  if (project.active?.path !== path && !(await project.open(path))) {
+    return;
+  }
+
+  const open = agentSessions.sessions.find((session) => session.info.project === path && !session.ended);
+  if (open) {
+    nav.go('chat');
+    agentSessions.select(open.key);
+    focusComposer();
+
+    return;
+  }
+
+  await newChat();
+}
+
+/** Picks a folder with the native dialog and switches the chat to it. */
+export async function switchToPickedProject(): Promise<void> {
+  const picked = await project.pick();
+  if (picked) {
+    await switchProject(picked.path);
+  }
+}
+
 /** Goes to the chat that is open, composer ready. */
 export function jumpToChat(): void {
   nav.go('chat');

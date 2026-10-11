@@ -6,6 +6,7 @@ import type { UiRequest } from '$lib/ipc/bindings/UiRequest';
 import { asApproval } from './approval';
 import { messageDelta, messageEnd, messageStart } from './messages';
 import { appendItem, findLastIndex, updateItem } from './state';
+import { applySubagent } from './subagents';
 import { interruptRunningTools, toolEnd, toolStart, toolUpdate } from './tools';
 import type { BannerItem, BannerPhase, ChatState, TranscriptItem } from './types';
 
@@ -127,6 +128,9 @@ export function applyEvent(state: ChatState, event: AgentEvent): ChatState {
 
     case 'toolEnd':
       return toolEnd(state, event.toolCallId, event.name, event.isError, event.result, event.touchedPaths);
+
+    case 'subagent':
+      return applySubagent(state, event.subagent);
 
     case 'commandsUpdated':
       return { ...state, commands: event.commands };

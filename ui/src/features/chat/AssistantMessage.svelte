@@ -3,6 +3,8 @@
 
   import Markdown from '$lib/components/Markdown.svelte';
   import type { MessageItem, ToolCallState } from '$lib/chat/types';
+  import type { Subagent } from '$lib/ipc/bindings/Subagent';
+  import { prefs } from '$lib/stores/prefs.svelte';
 
   import MessageMeta from './MessageMeta.svelte';
   import ThinkingBlock from './ThinkingBlock.svelte';
@@ -13,18 +15,22 @@
     toolCalls: Record<string, ToolCallState>;
     /** The agent is still working (a tool that never started is "waiting", not "not run"). */
     active: boolean;
+    /** The session's subagents, for the `task` calls in this message. */
+    subagents?: Record<string, Subagent>;
   }
 
-  let { item, toolCalls, active }: Props = $props();
+  let { item, toolCalls, active, subagents = {} }: Props = $props();
 
   const lastIndex = $derived(item.blocks.length - 1);
   const empty = $derived(item.blocks.length === 0);
+  /** The thought process can be hidden from the chat header or Settings. */
+  const showThinking = $derived(prefs.value?.showThinking ?? true);
 </script>
 
 <article class="flex flex-col gap-3" aria-label="Assistant message" aria-busy={item.streaming}>
   {#each item.blocks as block, index (index)}
     {#if block.type === 'thinking'}
-      <ThinkingBlock text={block.text} redacted={block.redacted} streaming={item.streaming && index === lastIndex} />
+      {#if showThinking}<ThinkingBlock text={block.text} redacted={block.redacted} streaming={item.streaming && index === lastIndex} />{/if}
     {:else if block.type === 'text'}
       <div>
         <Markdown source={block.text} streaming={item.streaming && index === lastIndex} />
@@ -33,7 +39,7 @@
     {:else if block.type === 'tool'}
       {@const call = toolCalls[block.toolCallId]}
       {#if call}
-        <ToolCard {call} {active} />
+        <ToolCard {call} {active} {subagents} />
       {/if}
     {:else if block.type === 'image'}
       <p class="text-sm text-fg-3">[image · {block.mimeType}]</p>

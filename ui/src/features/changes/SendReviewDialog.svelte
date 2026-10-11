@@ -30,7 +30,7 @@
   const canStartNew = $derived(harness.active?.detection.installed ?? false);
 
   const options = $derived<StripOption<string>[]>([
-    ...chats.map((session) => ({ value: session.key, label: `${session.name ?? 'New chat'} · ${session.streaming ? 'busy, sends as follow-up' : 'idle'}` })),
+    ...chats.map((session) => ({ value: session.key, label: `${agentSessions.title(session.key)} · ${session.streaming ? 'busy, sends as follow-up' : 'idle'}` })),
     ...(canStartNew ? [{ value: NEW_SESSION, label: 'New session' }] : []),
   ]);
 

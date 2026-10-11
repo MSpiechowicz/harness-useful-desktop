@@ -133,6 +133,45 @@ describe('resuming and forking', () => {
     await waitFor(() => expect(of('agent_send').some(({ action }) => action.type === 'getHistory')).toBe(true));
   });
 
+  it('resumes into an empty chat instead of opening another tab', async () => {
+    const { store, of } = storeWithMock();
+    const empty = await store.create('omp', PROJECT);
+    expect(empty?.chat.items).toHaveLength(0);
+    nav.go('sessions');
+
+    expect(await resumeInChat(store, REF, PROJECT)).toBe(true);
+
+    expect(store.sessions).toHaveLength(1);
+    expect(store.sessions[0].key).not.toBe(empty!.key);
+    expect(store.activeKey).toBe(store.sessions[0].key);
+    expect(store.title(store.sessions[0].key)).not.toBe('Chat 2');
+    expect(of('agent_stop').map(({ key }) => key)).toContain(empty!.key);
+  });
+
+  it('keeps a chat the user has typed in and opens the session next to it', async () => {
+    const { store } = storeWithMock();
+    const busy = await store.create('omp', PROJECT);
+    busy!.draft = 'half-written question';
+
+    await resumeInChat(store, REF, PROJECT);
+
+    expect(store.sessions).toHaveLength(2);
+    expect(store.get(busy!.key)).toBeDefined();
+  });
+
+  it('keeps the previous session on screen while a quick switch loads', async () => {
+    const detail = new SessionDetail(recordingTransport().transport);
+    detail.open(REF, PROJECT);
+    await waitFor(() => expect(detail.transcriptStatus).toBe('ready'));
+    const other = fixtures.sessions.list.omp[0].ref;
+
+    detail.open(other, PROJECT);
+
+    expect(detail.treeStatus).toBe('ready');
+    expect(detail.transcriptStatus).toBe('ready');
+    expect(detail.messages.length).toBeGreaterThan(0);
+  });
+
   it('opens the chat that already runs a session instead of starting a second agent', async () => {
     const { store, of } = storeWithMock();
     const running = { harness: 'omp', id: fixtures.agent.state.state.sessionId } as const;

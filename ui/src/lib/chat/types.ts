@@ -4,6 +4,7 @@ import type { JsonValue } from '$lib/ipc/bindings/serde_json/JsonValue';
 import type { MessageRole } from '$lib/ipc/bindings/MessageRole';
 import type { NoticeLevel } from '$lib/ipc/bindings/NoticeLevel';
 import type { SessionState } from '$lib/ipc/bindings/SessionState';
+import type { Subagent } from '$lib/ipc/bindings/Subagent';
 import type { TokenUsage } from '$lib/ipc/bindings/TokenUsage';
 import type { UiRequest } from '$lib/ipc/bindings/UiRequest';
 
@@ -145,6 +146,8 @@ export interface ChatState {
   readyCount: number;
   items: TranscriptItem[];
   toolCalls: Record<string, ToolCallState>;
+  /** Subagents the session's `task` calls spawned, by id (OMP). */
+  subagents: Record<string, Subagent>;
   /** Agent UI requests waiting for an answer, oldest first. */
   openRequests: UiRequest[];
   queue: { steering: string[]; followUp: string[] };

@@ -36,7 +36,7 @@
     {#if segment.type === 'html'}
       <div class="md-html">{@html segment.html}</div><!-- guard-allow: html-injection -->
     {:else}
-      <CodeBlock class="bleed" code={segment.code} lang={segment.lang} {streaming} />
+      <CodeBlock code={segment.code} lang={segment.lang} {streaming} />
     {/if}
   {/each}
 </div>

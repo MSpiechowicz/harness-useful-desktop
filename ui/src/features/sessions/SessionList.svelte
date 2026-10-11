@@ -51,22 +51,27 @@
       <VirtualList items={shown} estimate={ROW_PX} overscan={8} label="Sessions" key={(summary) => summary.ref.id} class="size-full">
         {#snippet row(summary)}
           {@const selected = summary.ref.id === selectedId}
-          <button
-            type="button"
-            data-session={summary.ref.id}
-            aria-current={selected ? 'true' : undefined}
-            class={cx('flex w-full flex-col justify-center gap-0.5 border-l-2 px-3 py-2 text-left transition-colors duration-[var(--dur-fast)]', selected ? 'border-accent bg-accent-wash' : 'border-transparent hover:bg-hover active:bg-press')}
-            style:height="{ROW_PX}px"
-            onclick={() => onselect(summary)}
-          >
-            <span class="truncate text-base font-medium text-fg">{sessionTitle(summary)}</span>
-            <span class="tabular flex items-center gap-1.5 truncate text-xs text-fg-3">
-              <span>{relativeTime(summary.updatedAt)}</span>
-              {#if summary.model}<span class="truncate">· {summary.model}</span>{/if}
-              <span class="shrink-0">· {formatBytes(summary.sizeBytes)}</span>
-              {#if summary.parentSession}<GitFork size={16} class="shrink-0" aria-label="Forked from another session" />{/if}
-            </span>
-          </button>
+          <!-- The same row as the plugin lists: a rounded card inset from the edges, outlined when selected. -->
+          <div class="px-2 py-0.5" style:height="{ROW_PX}px">
+            <button
+              type="button"
+              data-session={summary.ref.id}
+              aria-current={selected ? 'true' : undefined}
+              class={cx(
+                'flex size-full flex-col justify-center gap-0.5 rounded-md border px-3 text-left transition-colors duration-[var(--dur-fast)] focus-visible:outline-offset-[-1px]',
+                selected ? 'border-accent/30 bg-accent-wash' : 'border-transparent hover:bg-hover active:bg-press',
+              )}
+              onclick={() => onselect(summary)}
+            >
+              <span class="truncate text-base font-medium text-fg">{sessionTitle(summary)}</span>
+              <span class="tabular flex items-center gap-1.5 truncate text-xs text-fg-3">
+                <span>{relativeTime(summary.updatedAt)}</span>
+                {#if summary.model}<span class="truncate">· {summary.model}</span>{/if}
+                <span class="shrink-0">· {formatBytes(summary.sizeBytes)}</span>
+                {#if summary.parentSession}<GitFork size={16} class="shrink-0" aria-label="Forked from another session" />{/if}
+              </span>
+            </button>
+          </div>
         {/snippet}
       </VirtualList>
     </div>

@@ -28,10 +28,12 @@
 </script>
 
 <header class="flex flex-col gap-2.5 border-b border-line px-5 py-3">
-  <div class="flex flex-wrap items-center gap-3">
+  <!-- The actions sit on the title line, their top edge level with the top of the title's capitals (7px into its line). -->
+  <div class="flex flex-wrap items-start gap-3">
     <div class="flex min-w-0 flex-1 flex-col">
       <h2 class="truncate text-xl text-fg" title={summary.title ?? summary.firstPrompt ?? undefined}>{sessionTitle(summary)}</h2>
-      <p class="tabular flex flex-wrap items-center gap-x-2 text-xs text-fg-3">
+      <!-- Always as tall as the "Forked" badge, so the header does not jump when a session has one. -->
+      <p class="tabular flex h-5 items-center gap-x-2 overflow-hidden text-xs whitespace-nowrap text-fg-3">
         <span>Updated {relativeTime(summary.updatedAt)}</span>
         {#if summary.model}<span>· {summary.model}</span>{/if}
         <span>· {formatBytes(summary.sizeBytes)}</span>
@@ -39,17 +41,18 @@
       </p>
     </div>
 
-    <div class="flex items-center gap-2">
+    <div class="mt-[7px] flex items-center gap-2">
       <Button
         variant="secondary"
+        size="sm"
         disabled={!canFork || busy}
-        title={canFork ? 'Start a new session from the selected message' : 'Select one of your messages in the tree to fork from it'}
+        title={canFork ? 'Start a new session from the selected message' : 'Pick one of your messages, in the tree or the transcript, to fork from it'}
         onclick={onfork}
       >
         {#snippet leading()}<GitFork size={16} aria-hidden="true" />{/snippet}
         Fork from here
       </Button>
-      <Button variant="primary" loading={busy} onclick={onresume}>
+      <Button variant="primary" size="sm" loading={busy} onclick={onresume}>
         {#snippet leading()}<Play size={16} aria-hidden="true" />{/snippet}
         Resume in chat
       </Button>

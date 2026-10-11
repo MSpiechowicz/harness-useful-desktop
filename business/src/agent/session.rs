@@ -141,6 +141,14 @@ impl AgentSession {
             self.request(&frame, &id, RequestKind::Other, DEFAULT_TIMEOUT).await?;
         }
 
+        for mut frame in dialect.optional_after_handshake() {
+            let id = self.next_id();
+            frame["id"] = Value::from(id.as_str());
+            if let Err(error) = self.request(&frame, &id, RequestKind::Other, DEFAULT_TIMEOUT).await {
+                tracing::debug!(%error, "the agent refused an optional startup command");
+            }
+        }
+
         let state = match self.call(&AgentAction::GetState, limit).await? {
             AgentReply::State { state } => state,
             _ => return Err(BusinessError::Protocol("get_state returned no state".to_owned())),

@@ -75,7 +75,7 @@
   font-size: 13px;
 }
 
-/* Tables keep the prose edge (only code and tool cards bleed past the chat measure) and scroll sideways when wider. */
+/* Tables keep the prose edge and scroll sideways when wider. */
 .md-html table {
   display: block;
   width: fit-content;

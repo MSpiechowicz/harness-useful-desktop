@@ -197,6 +197,12 @@ pub trait RpcDialect: Send + Sync {
         Vec::new()
     }
 
+    /// Like [`RpcDialect::after_handshake`], but a refusal (an older harness without the command)
+    /// does not fail the startup.
+    fn optional_after_handshake(&self) -> Vec<Value> {
+        Vec::new()
+    }
+
     /// The command frame for `action` with request `id`. `getHistory` is handled by
     /// [`RpcDialect::history_request`]; unsupported actions fail with `Unsupported`.
     fn encode(&self, action: &AgentAction, id: &str, context: &EncodeContext<'_>) -> Result<Value>;

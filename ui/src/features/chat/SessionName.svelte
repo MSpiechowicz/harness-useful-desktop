@@ -1,27 +1,26 @@
 <script lang="ts">
-  import Pencil from '@lucide/svelte/icons/pencil';
+  import { untrack } from 'svelte';
 
-  import IconButton from '$lib/components/IconButton.svelte';
   import { autofocus } from '$lib/a11y/autofocus';
   import type { ChatSession } from '$lib/chat/session.svelte';
+  import { agentSessions } from '$lib/stores/agentSession.svelte';
 
   interface Props {
     session: ChatSession;
+    /** Called when editing ends, committed or cancelled. */
+    ondone: () => void;
   }
 
-  let { session }: Props = $props();
+  let { session, ondone }: Props = $props();
 
-  let editing = $state(false);
-  let value = $state('');
-
-  function start(): void {
-    value = session.name ?? '';
-    editing = true;
-  }
+  // Starts from the name at the moment editing begins; later renames do not overwrite what is being typed.
+  let value = $state(untrack(() => agentSessions.title(session.key)));
 
   function commit(): void {
-    editing = false;
-    void session.rename(value);
+    if (value.trim() !== '' && value.trim() !== agentSessions.title(session.key)) {
+      void session.rename(value);
+    }
+    ondone();
   }
 
   function onkeydown(event: KeyboardEvent): void {
@@ -31,22 +30,25 @@
     } else if (event.key === 'Escape') {
       event.preventDefault();
       event.stopPropagation();
-      editing = false;
+      ondone();
     }
   }
 </script>
 
-{#if editing}
+<!--
+  The tab's name, edited in place (double-click or F2 on a tab): the text itself becomes editable, with no box of its
+  own. An invisible copy of the text sizes the field, so it is always exactly as wide as the name.
+-->
+<span class="ml-1 inline-grid h-7 max-w-52 min-w-8 items-center text-sm">
+  <span class="invisible col-start-1 row-start-1 overflow-hidden whitespace-pre" aria-hidden="true">{value || ' '}</span>
   <input
     bind:value
     use:autofocus
     {onkeydown}
     onblur={commit}
-    aria-label="Session name"
+    onfocus={(event) => event.currentTarget.select()}
+    aria-label="Chat name"
     maxlength={120}
-    class="h-8 min-w-0 flex-1 rounded-md border border-focus bg-surface-2 px-2.5 text-lg text-fg outline-none"
+    class="col-start-1 row-start-1 w-full min-w-0 bg-transparent p-0 text-fg outline-none"
   />
-{:else}
-  <h2 class="min-w-0 truncate text-lg text-fg">{session.name ?? 'New chat'}</h2>
-  <IconButton icon={Pencil} label="Rename session" size="sm" side="bottom" onclick={start} disabled={session.ended} />
-{/if}
+</span>

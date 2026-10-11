@@ -11,11 +11,13 @@
   let { usage }: Props = $props();
 
   const percent = $derived(usage ? Math.min(100, Math.max(0, usage.percent)) : 0);
-  const tone = $derived(percent >= 90 ? 'bg-danger' : percent >= 75 ? 'bg-warning' : 'bg-accent');
+  const tone = $derived(percent >= 90 ? 'text-danger' : percent >= 75 ? 'text-warning' : 'text-accent');
+  // A 16px ring: radius 6 with a 2px stroke.
+  const CIRCUMFERENCE = 2 * Math.PI * 6;
   const detail = $derived(usage ? `${formatCount(usage.tokens)} of ${formatCount(usage.contextWindow)} tokens in context` : 'Context usage is not known yet');
 </script>
 
-<Tooltip text={detail} side="bottom">
+<Tooltip text={detail} side="top">
   {#snippet children({ describedby })}
     <!-- svelte-ignore a11y_no_noninteractive_tabindex -- focusable so keyboard users can reach the tooltip -->
     <div
@@ -27,12 +29,24 @@
       aria-valuenow={usage ? Math.round(percent) : undefined}
       aria-valuetext={usage ? `${percent.toFixed(1)} percent` : 'unknown'}
       aria-describedby={describedby}
-      class="inline-flex h-8 items-center gap-2 rounded-md px-2 text-xs text-fg-3"
+      class="inline-flex h-8 items-center gap-1.5 rounded-md px-1.5 text-xs text-fg-3"
     >
-      <span class="h-1.5 w-14 overflow-hidden rounded-full bg-surface-3 max-[1100px]:hidden" aria-hidden="true">
-        <span class={cx('block h-full rounded-full transition-[width] duration-[var(--dur-slow)]', tone)} style:width="{percent}%"></span>
-      </span>
-      <span class="tabular w-10">{usage ? `${percent.toFixed(percent < 10 ? 1 : 0)}%` : '—'}</span>
+      <svg viewBox="0 0 16 16" class="size-4 -rotate-90" aria-hidden="true">
+        <circle cx="8" cy="8" r="6" fill="none" stroke-width="2" class="stroke-surface-3" />
+        <circle
+          cx="8"
+          cy="8"
+          r="6"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-dasharray={CIRCUMFERENCE}
+          stroke-dashoffset={CIRCUMFERENCE * (1 - percent / 100)}
+          class={cx('transition-[stroke-dashoffset] duration-[var(--dur-slow)]', tone, percent === 0 && 'opacity-0')}
+        />
+      </svg>
+      <span class="tabular">{usage ? `${percent.toFixed(percent < 10 ? 1 : 0)}%` : '—'}</span>
     </div>
   {/snippet}
 </Tooltip>

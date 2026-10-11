@@ -64,6 +64,8 @@
   /* Elevation: quiet shadows; no coloured glow. */
   --elev-1: 0 1px 2px rgb(0 0 0 / 0.3), 0 1px 0 var(--highlight) inset;
   --elev-2: 0 8px 24px rgb(0 0 0 / 0.35), 0 1px 0 var(--highlight) inset;
+  /* elev-2's drop shadow alone, for a card whose border must stay a single crisp line. */
+  --elev-2-drop: 0 8px 24px rgb(0 0 0 / 0.35);
   --elev-3: 0 20px 48px rgb(0 0 0 / 0.5), 0 1px 0 var(--highlight) inset;
   --glow: 0 0 0 0 transparent;
 
@@ -127,6 +129,7 @@
 
   --elev-1: 0 1px 2px rgb(24 24 27 / 0.06), 0 0 0 1px var(--border);
   --elev-2: 0 6px 20px rgb(24 24 27 / 0.08), 0 0 0 1px var(--border);
+  --elev-2-drop: 0 6px 20px rgb(24 24 27 / 0.08);
   --elev-3: 0 20px 48px rgb(24 24 27 / 0.16), 0 0 0 1px var(--border);
 
   --logo-dust: #71717a;
@@ -152,8 +155,8 @@
 /*
  * Layout scale. Pages sit in one of four containers and use one gutter, so every view lines up:
  * narrow (forms), reading (long text), wide (dense lists), full (split views and canvases).
- * The chat column is the reading measure of a conversation; code and tool cards may
- * bleed past it up to --chat-bleed per side while the window has room (see `bleed` in app.css).
+ * The chat column is the reading measure of a conversation; every block in it, code and tool cards
+ * included, keeps that one column.
  */
 :root {
   /* px, not rem: the root font size is 14px, and these are measures in pixels. */
@@ -163,7 +166,6 @@
   --gutter: 24px;
   --chat-measure: 880px;
   --chat-col: calc(var(--chat-measure) + 2 * var(--gutter));
-  --chat-bleed: 110px;
   --rail-collapsed: 64px;
   --rail-expanded: 220px;
 }

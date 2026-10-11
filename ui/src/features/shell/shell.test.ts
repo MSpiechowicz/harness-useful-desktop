@@ -41,7 +41,7 @@ describe('keyboard shortcuts overlay', () => {
 
     const overlay = await screen.findByRole('dialog', { name: 'Keyboard shortcuts' });
     const groups = within(overlay).getByTestId('shortcut-groups');
-    const registered = globalShortcuts({ togglePalette() {}, openShortcuts() {}, goBack() {}, goForward() {}, newChat() {}, jumpToChat() {}, toggleRail() {}, goTo() {} });
+    const registered = globalShortcuts({ togglePalette() {}, openShortcuts() {}, goBack() {}, goForward() {}, newChat() {}, jumpToChat() {}, cycleChat() {}, toggleRail() {}, goTo() {} });
 
     for (const shortcut of registered) {
       expect(within(groups).getByText(shortcut.label)).toBeInTheDocument();
@@ -70,7 +70,7 @@ describe('keyboard shortcuts overlay', () => {
   });
 
   it('groups the shell shortcuts under their areas', () => {
-    const groups = shortcutGroups(globalShortcuts({ togglePalette() {}, openShortcuts() {}, goBack() {}, goForward() {}, newChat() {}, jumpToChat() {}, toggleRail() {}, goTo() {} }));
+    const groups = shortcutGroups(globalShortcuts({ togglePalette() {}, openShortcuts() {}, goBack() {}, goForward() {}, newChat() {}, jumpToChat() {}, cycleChat() {}, toggleRail() {}, goTo() {} }));
     const goTo = groups.find((group) => group.area === 'Go to');
 
     expect(goTo?.rows.map((row) => row.label)).toEqual(expect.arrayContaining(VIEWS.map((view) => view.label)));

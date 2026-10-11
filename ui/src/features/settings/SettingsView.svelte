@@ -122,6 +122,12 @@
               {/snippet}
             </SettingRow>
 
+            <SettingRow title="Show thought process" description="The agent's reasoning, folded under each reply. Also toggled from the chat header.">
+              {#snippet control()}
+                <Switch label="Show thought process" bind:checked={() => prefs.value?.showThinking ?? true, (showThinking) => void prefs.update({ showThinking })} />
+              {/snippet}
+            </SettingRow>
+
             <SettingRow title="Motion" description="Reduced keeps simple fades; Off disables all animation. Your OS reduced-motion setting always applies.">
               {#snippet control()}
                 <SegmentedControl size="md" label="Motion" options={MOTION_OPTIONS} bind:value={() => prefs.value?.motion ?? 'full', (next) => void prefs.update({ motion: next })} />
@@ -138,7 +144,7 @@
 
             <SettingRow title="Intro sound" description="The logo's sound while the intro plays. It is never played when the intro is off or skipped.">
               {#snippet control()}
-                <Switch label="Intro sound" bind:checked={() => prefs.value?.soundEnabled ?? true, (soundEnabled) => void prefs.update({ soundEnabled })} />
+                <Switch label="Intro sound" bind:checked={() => prefs.value?.soundEnabled ?? false, (soundEnabled) => void prefs.update({ soundEnabled })} />
               {/snippet}
             </SettingRow>
 

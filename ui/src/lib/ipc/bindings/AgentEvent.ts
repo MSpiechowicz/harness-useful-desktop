@@ -6,6 +6,7 @@ import type { ModelOption } from "./ModelOption";
 import type { NoticeLevel } from "./NoticeLevel";
 import type { PromptStatus } from "./PromptStatus";
 import type { SessionState } from "./SessionState";
+import type { Subagent } from "./Subagent";
 import type { UiRequest } from "./UiRequest";
 import type { JsonValue } from "./serde_json/JsonValue";
 
@@ -109,7 +110,11 @@ result: JsonValue,
  * Project-relative paths (forward slashes) a file-editing tool may have changed; only
  * paths inside the project are kept.
  */
-touchedPaths: Array<string>, } | { "type": "commandsUpdated", 
+touchedPaths: Array<string>, } | { "type": "subagent", 
+/**
+ * Its latest snapshot (boxed: it is by far the largest event).
+ */
+subagent: Subagent, } | { "type": "commandsUpdated", 
 /**
  * The merged catalog.
  */

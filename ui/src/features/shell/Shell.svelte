@@ -1,5 +1,6 @@
 <script lang="ts">
   import CommandPalette from '$lib/components/CommandPalette.svelte';
+  import { agentSessions } from '$lib/stores/agentSession.svelte';
   import { harness } from '$lib/stores/harness.svelte';
   import { git } from '$lib/stores/git.svelte';
   import { nav } from '$lib/stores/nav.svelte';
@@ -38,6 +39,10 @@
     goForward: () => nav.forward(),
     newChat: () => void newChat(),
     jumpToChat,
+    cycleChat: (step) => {
+      nav.go('chat');
+      agentSessions.cycle(step);
+    },
     toggleRail: () => ui.toggleRail(),
     goTo: (index) => nav.go(VIEWS[index].id),
   });

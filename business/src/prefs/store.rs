@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::error::{BusinessError, Result};
-use crate::model::{AppPrefs, BinaryOverride};
+use crate::model::{AppPrefs, BinaryOverride, ChatDefaults};
 use crate::security::SafeReader;
 
 /// File name inside the store directory.
@@ -162,7 +162,9 @@ impl PrefsStore {
 ///   [`MAX_RECENT_PROJECTS`], and empty when `rememberRecentProjects` is off;
 /// - `activeProject`: absolute or `None`;
 /// - `binaryOverrides`: absolute paths only, one per harness (the last entry wins, keeping its
-///   position among the survivors).
+///   position among the survivors);
+/// - `chatDefaults`: one per harness (the last entry wins), each value at most
+///   [`MAX_CHAT_DEFAULT_LEN`] bytes and free of control characters (anything else is dropped).
 pub fn normalize(mut prefs: AppPrefs) -> AppPrefs {
     prefs.version = AppPrefs::VERSION;
 
@@ -183,8 +185,42 @@ pub fn normalize(mut prefs: AppPrefs) -> AppPrefs {
 
     prefs.active_project = prefs.active_project.filter(|project| is_absolute(project));
     prefs.binary_overrides = normalize_overrides(prefs.binary_overrides);
+    prefs.chat_defaults = normalize_chat_defaults(prefs.chat_defaults);
 
     prefs
+}
+
+/// Longest model provider, model id or thinking level kept in `chatDefaults`.
+pub const MAX_CHAT_DEFAULT_LEN: usize = 200;
+
+fn normalize_chat_defaults(defaults: Vec<ChatDefaults>) -> Vec<ChatDefaults> {
+    let clean = |value: Option<String>| {
+        value.filter(|value| {
+            !value.is_empty() && value.len() <= MAX_CHAT_DEFAULT_LEN && !value.chars().any(char::is_control)
+        })
+    };
+    let mut kept: Vec<ChatDefaults> = Vec::new();
+
+    for entry in defaults.into_iter().rev() {
+        if kept.iter().any(|existing| existing.harness == entry.harness) {
+            continue;
+        }
+
+        let (provider, model_id) = match (clean(entry.provider), clean(entry.model_id)) {
+            (Some(provider), Some(model_id)) => (Some(provider), Some(model_id)),
+            _ => (None, None),
+        };
+
+        kept.push(ChatDefaults {
+            harness: entry.harness,
+            provider,
+            model_id,
+            thinking_level: clean(entry.thinking_level),
+        });
+    }
+
+    kept.reverse();
+    kept
 }
 
 fn normalize_overrides(overrides: Vec<BinaryOverride>) -> Vec<BinaryOverride> {

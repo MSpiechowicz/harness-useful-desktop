@@ -21,14 +21,14 @@
   {#if item.role === 'user'}
     <UserMessage {item} />
   {:else if item.role === 'assistant'}
-    <AssistantMessage {item} toolCalls={chat.toolCalls} {active} />
+    <AssistantMessage {item} toolCalls={chat.toolCalls} {active} subagents={chat.subagents} />
   {:else}
     <SystemMessage {item} />
   {/if}
 {:else if item.kind === 'tool'}
   {@const call = chat.toolCalls[item.toolCallId]}
   {#if call}
-    <ToolCard {call} {active} />
+    <ToolCard {call} {active} subagents={chat.subagents} />
   {/if}
 {:else}
   <TranscriptNote {item} />

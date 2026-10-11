@@ -39,6 +39,8 @@ export interface ShellCommands {
   goForward: () => void;
   newChat: () => void;
   jumpToChat: () => void;
+  /** Shows the next (`1`) or previous (`-1`) chat tab. */
+  cycleChat: (step: 1 | -1) => void;
   toggleRail: () => void;
   goTo: (index: number) => void;
 }
@@ -61,6 +63,8 @@ export function globalShortcuts(shell: ShellCommands): ShortcutAction[] {
     { id: 'toggle-rail', combo: 'mod+b', label: 'Expand or collapse the sidebar', area: 'Global', inInputs: 'all', run: shell.toggleRail },
     { id: 'back', combo: 'alt+arrowleft', label: 'Back', area: 'Global', inInputs: 'none', run: shell.goBack },
     { id: 'forward', combo: 'alt+arrowright', label: 'Forward', area: 'Global', inInputs: 'none', run: shell.goForward },
+    { id: 'next-chat', combo: 'mod+tab', also: ['mod+pagedown'], label: 'Next chat', area: 'Global', inInputs: 'all', run: () => shell.cycleChat(1) },
+    { id: 'previous-chat', combo: 'mod+shift+tab', also: ['mod+pageup'], label: 'Previous chat', area: 'Global', inInputs: 'all', run: () => shell.cycleChat(-1) },
     { id: 'jump-chat', combo: 'mod+0', label: 'Jump to the active chat', area: 'Go to', inInputs: 'all', run: shell.jumpToChat },
     ...views,
   ];

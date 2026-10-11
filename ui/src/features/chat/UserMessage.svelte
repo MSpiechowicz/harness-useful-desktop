@@ -11,7 +11,7 @@
 </script>
 
 <div class="flex justify-end">
-  <article aria-label="Your message" class="max-w-[85%] rounded-lg rounded-br-sm border border-line-strong bg-accent-wash px-4 py-2.5 text-base break-words whitespace-pre-wrap text-fg">
+  <article aria-label="Your message" class="max-w-[85%] rounded-lg border border-line-strong bg-accent-wash bg-clip-padding px-4 py-2.5 text-base break-words whitespace-pre-wrap text-fg">
     {text}
   </article>
 </div>

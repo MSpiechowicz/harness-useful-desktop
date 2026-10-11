@@ -22,6 +22,13 @@
 
   let treeSize = $state(400);
   let pickedId = $state<string | null>(null);
+  let focus = $state<{ id: string; nonce: number } | null>(null);
+
+  /** A click in the tree picks the node (for forking) and brings its message into view. */
+  function pick(id: string): void {
+    pickedId = id;
+    focus = { id, nonce: (focus?.nonce ?? 0) + 1 };
+  }
   let busy = $state(false);
 
   const tree = $derived(detail.tree);
@@ -70,14 +77,14 @@
               {#if tree.truncated}· only the first entries are shown{/if}
             </p>
             <div class="min-h-0 flex-1">
-              <BranchTree {tree} selected={selectedId} onselect={(id) => (pickedId = id)} />
+              <BranchTree {tree} selected={selectedId} onselect={pick} />
             </div>
           {/if}
         </section>
       {/snippet}
 
       {#snippet second()}
-        <Transcript {detail} {project} />
+        <Transcript {detail} {project} {focus} picked={selectedId} onpick={(id) => (pickedId = id)} />
       {/snippet}
     </SplitPane>
   </div>

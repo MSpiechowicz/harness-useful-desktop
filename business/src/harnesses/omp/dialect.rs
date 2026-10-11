@@ -12,6 +12,7 @@
 use serde_json::json;
 
 use super::catalog::OmpCatalog;
+use super::subagents::{decode_subagent, subscription_frame};
 use crate::pi_family::rpc::prelude::*;
 
 /// Largest page OMP serves.
@@ -36,6 +37,10 @@ impl RpcDialect for OmpDialect {
 
     fn after_handshake(&self) -> Vec<Value> {
         vec![json!({ "type": "set_event_filter", "events": null, "messageUpdates": "delta" })]
+    }
+
+    fn optional_after_handshake(&self) -> Vec<Value> {
+        vec![subscription_frame()]
     }
 
     fn encode(&self, action: &AgentAction, id: &str, context: &EncodeContext<'_>) -> Result<Value> {
@@ -75,6 +80,12 @@ impl RpcDialect for OmpDialect {
                 .and_then(|version| u32::try_from(version).ok());
 
             return vec![Inbound::Ready(version)];
+        }
+
+        if let Some(subagent) = decode_subagent(&frame) {
+            return vec![Inbound::Event(AgentEvent::Subagent {
+                subagent: Box::new(subagent),
+            })];
         }
 
         decode_common(&frame, state)

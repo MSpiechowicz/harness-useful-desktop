@@ -16,6 +16,82 @@ function messageTexts(chat: { items: { kind: string; blocks?: { type: string; te
 }
 
 describe('starting sessions', () => {
+  /** A transport whose agent_start waits until the test lets it finish. */
+  function slowStart(info = sampleInfo()) {
+    let finish: (ok: boolean) => void = () => {};
+    const transport: Transport = {
+      invoke: (name) => {
+        if (name === 'agent_start') {
+          return new Promise((resolve, reject) => {
+            finish = (ok) => (ok ? resolve(info as never) : reject(new IpcFailure({ code: 'process', message: 'omp exited' })));
+          });
+        }
+
+        return Promise.resolve([] as never);
+      },
+    };
+
+    return { store: new AgentSessionsStore(transport, new ToastsStore()), finish: (ok: boolean) => finish(ok), info };
+  }
+
+  it('shows a new chat as a starting tab at once and swaps in the session when the agent is ready', async () => {
+    const { store, finish, info } = slowStart();
+
+    const created = store.create('omp', PROJECT);
+    expect(store.starting).toHaveLength(1);
+    expect(store.activeStarting?.key).toBe(store.starting[0].key);
+
+    finish(true);
+    await created;
+
+    expect(store.starting).toHaveLength(0);
+    expect(store.activeKey).toBe(info.key);
+  });
+
+  it('leaves the user on the tab they switched to while the chat was starting', async () => {
+    const first = storeWithMock();
+    const existing = await first.store.create('omp', PROJECT);
+    const { store, finish, info } = slowStart(sampleInfo({ key: 'late-chat' }));
+    store.sessions = [existing!];
+
+    const created = store.create('omp', PROJECT);
+    store.select(existing!.key);
+    finish(true);
+    await created;
+
+    expect(store.activeKey).toBe(existing!.key);
+    expect(store.get(info.key)).toBeDefined();
+  });
+
+  it('numbers unnamed chats with the lowest free number and cycles through the tabs', async () => {
+    const { store } = storeWithMock();
+    const first = await store.create('omp', PROJECT);
+    const second = await store.create('omp', PROJECT);
+
+    expect(store.title(first!.key)).toBe('Chat 1');
+    expect(store.title(second!.key)).toBe('Chat 2');
+
+    store.cycle(1);
+    expect(store.activeKey).toBe(first!.key);
+    store.cycle(-1);
+    expect(store.activeKey).toBe(second!.key);
+
+    await store.stop(first!.key);
+    const third = await store.create('omp', PROJECT);
+    expect(store.title(third!.key)).toBe('Chat 1');
+  });
+
+  it('drops the starting tab when the agent fails to start', async () => {
+    const { store, finish } = slowStart();
+
+    const created = store.create('omp', PROJECT);
+    finish(false);
+
+    expect(await created).toBeNull();
+    expect(store.starting).toHaveLength(0);
+    expect(store.activeKey).toBeNull();
+  });
+
   it('keeps events that arrive before the start command returns', async () => {
     const info = sampleInfo();
     const early: AgentEnvelope = { sessionKey: info.key, seq: 1, event: { type: 'ready', protocolVersion: 1 } };

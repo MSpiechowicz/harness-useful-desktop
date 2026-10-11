@@ -52,7 +52,7 @@
 
 <!-- One control for where you are: the harness you talk to and the project it works in. The menu is one flat list:
      harnesses, then projects, then the rare actions. -->
-<Popover bind:open label="Harness and project" kind="menu" class="w-64" rootClass={compact ? undefined : 'w-full'}>
+<Popover bind:open label="Harness and project" kind="menu" class="w-max max-w-md!" rootClass={compact ? undefined : 'w-full'}>
   {#snippet trigger({ props })}
     <Tooltip text="{harnessLine} · {projectName}" side="right" disabled={!compact} class={compact ? 'inline-flex' : 'flex w-full'}>
       {#snippet children({ describedby })}

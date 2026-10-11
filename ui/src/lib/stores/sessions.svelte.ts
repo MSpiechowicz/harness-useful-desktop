@@ -13,6 +13,8 @@ import { ViewLoader, type ViewStatus } from './view-loader.svelte';
 export const sessionList = new ViewLoader<SessionSummary[]>((harness, project) => (project === null ? Promise.resolve([]) : ipc.invoke('sessions_list', { harness, project })));
 
 const TRANSCRIPT_PAGE = 100;
+/** How long a session switch keeps the previous session on screen before showing the loading state. */
+const STALE_MS = 250;
 
 interface SessionTarget {
   ref: SessionRef;
@@ -39,6 +41,8 @@ export class SessionDetail {
 
   private target: SessionTarget | null = null;
   private generation = 0;
+  /** Which parts of the session being opened have arrived. */
+  private settled = { tree: false, page: false };
 
   constructor(
     private readonly transport: Transport,
@@ -57,11 +61,38 @@ export class SessionDetail {
     }
 
     this.generation += 1;
+    const generation = this.generation;
+    const hadSession = this.target !== null;
     this.target = ref && project ? { ref, project } : null;
-    this.clear();
+    this.settled = { tree: false, page: false };
+
+    if (!this.target || !hadSession) {
+      this.clear();
+    } else {
+      // Switching sessions keeps the previous one on screen: a quick read swaps straight to the new one, and only a
+      // slow one falls back to the loading placeholders.
+      setTimeout(() => this.showLoading(generation), STALE_MS);
+      this.nextCursor = null;
+      this.loadingMore = false;
+    }
 
     if (this.target) {
-      void this.load(this.target, this.generation);
+      void this.load(this.target, generation);
+    }
+  }
+
+  /** The loading state for whatever has not arrived yet, once a switch takes longer than [`STALE_MS`]. */
+  private showLoading(generation: number): void {
+    if (generation !== this.generation) {
+      return;
+    }
+
+    if (!this.settled.tree) {
+      this.tree = null;
+      this.treeStatus = 'loading';
+    }
+    if (!this.settled.page) {
+      this.transcriptStatus = 'loading';
     }
   }
 
@@ -123,12 +154,14 @@ export class SessionDetail {
     try {
       const tree = await this.transport.invoke('session_tree', { session: ref, project });
       if (generation === this.generation) {
+        this.settled.tree = true;
         this.tree = tree;
         this.treeError = null;
         this.treeStatus = 'ready';
       }
     } catch (error) {
       if (generation === this.generation) {
+        this.settled.tree = true;
         this.treeError = IpcFailure.from(error);
         this.treeStatus = 'error';
       }
@@ -139,6 +172,7 @@ export class SessionDetail {
     try {
       const page = await this.transport.invoke('session_messages', { session: ref, project, cursor: null, limit: this.pageSize });
       if (generation === this.generation) {
+        this.settled.page = true;
         this.messages = page.messages;
         this.nextCursor = page.nextCursor;
         this.total = page.total;
@@ -147,6 +181,7 @@ export class SessionDetail {
       }
     } catch (error) {
       if (generation === this.generation) {
+        this.settled.page = true;
         this.transcriptError = IpcFailure.from(error);
         this.transcriptStatus = 'error';
       }

@@ -9,13 +9,16 @@
   import CodeBlock from '$lib/components/CodeBlock.svelte';
   import Spinner from '$lib/components/Spinner.svelte';
   import { changesFiles, commandOf, primaryArg, TOOL_ICONS, toolKind, toolTitle } from '$lib/chat/tool-meta';
+  import { spawnedBy } from '$lib/chat/subagents';
   import { toolContext } from '$lib/chat/tool-context';
+  import type { Subagent } from '$lib/ipc/bindings/Subagent';
   import type { ToolCallState, ToolStatus } from '$lib/chat/types';
   import { scaled } from '$lib/design/motion';
   import { git } from '$lib/stores/git.svelte';
   import { project } from '$lib/stores/project.svelte';
   import { cx } from '$lib/utils/cx';
 
+  import SubagentList from './SubagentList.svelte';
   import TerminalBlock from './TerminalBlock.svelte';
   import ToolResult from './ToolResult.svelte';
 
@@ -23,9 +26,11 @@
     call: ToolCallState;
     /** Whether the agent is still working; a tool that never started is "waiting" then, "not run" after. */
     active: boolean;
+    /** The session's subagents; a `task` call lists the ones it spawned. */
+    subagents?: Record<string, Subagent>;
   }
 
-  let { call, active }: Props = $props();
+  let { call, active, subagents = {} }: Props = $props();
 
   let open = $state(false);
 
@@ -35,6 +40,7 @@
   const Icon = $derived(TOOL_ICONS[kind]);
   const summary = $derived(primaryArg(call.args));
   const command = $derived(commandOf(call));
+  const spawned = $derived(kind === 'task' ? spawnedBy(subagents, call.id) : []);
   const argsJson = $derived(call.args === null ? '' : JSON.stringify(call.args, null, 2));
 
   const STATUS_LABEL: Record<ToolStatus, string> = { pending: 'Waiting', running: 'Running', ok: 'Done', error: 'Failed' };
@@ -49,11 +55,11 @@
   }
 </script>
 
-<div class={cx('bleed rounded-lg border bg-surface-1/60', call.status === 'error' ? 'border-danger/40' : 'border-line')} data-tool-status={call.status}>
+<div class={cx('rounded-lg border bg-surface-1 bg-clip-padding', call.status === 'error' ? 'border-danger/40' : 'border-line')} data-tool-status={call.status}>
   <button
     type="button"
     aria-expanded={open}
-    class="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors hover:bg-hover active:bg-press"
+    class="flex w-full items-center gap-3 rounded-lg px-4 py-2.5 text-left transition-colors hover:bg-hover active:bg-press"
     onclick={() => (open = !open)}
   >
     <Icon size={16} class="shrink-0 text-fg-2" aria-hidden="true" />
@@ -80,11 +86,15 @@
   </button>
 
   {#if call.status === 'running' && call.partial && !open}
-    <p class="truncate px-3 pb-2 font-mono text-xs text-fg-3">{call.partial.trimEnd().split('\n').at(-1)}</p>
+    <p class="truncate px-4 pb-2.5 font-mono text-xs text-fg-3">{call.partial.trimEnd().split('\n').at(-1)}</p>
+  {/if}
+
+  {#if spawned.length > 0}
+    <SubagentList subagents={spawned} />
   {/if}
 
   {#if open}
-    <div transition:slide={{ duration: scaled(180) }} class="flex flex-col gap-3 overflow-hidden px-3 pb-3">
+    <div transition:slide={{ duration: scaled(180) }} class="flex flex-col gap-4 overflow-hidden border-t border-line px-4 pt-4 pb-4">
       {#if command !== null}
         <TerminalBlock text="" {command} />
       {:else if argsJson !== ''}

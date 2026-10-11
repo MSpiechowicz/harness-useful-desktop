@@ -3,7 +3,7 @@
 use std::fs;
 use std::path::PathBuf;
 
-use harness_business::model::{AppPrefs, BinaryOverride, HarnessId, ThemePref};
+use harness_business::model::{AppPrefs, BinaryOverride, ChatDefaults, HarnessId, ThemePref};
 use harness_business::prefs::{MAX_RECENT_PROJECTS, PREFS_FILE, PrefsOrigin, PrefsStore};
 use pretty_assertions::assert_eq;
 use tempfile::TempDir;
@@ -158,6 +158,48 @@ fn save_drops_relative_active_project_and_normalizes_overrides() {
     assert_eq!(stored.version, 1);
     assert_eq!(stored.active_project, None);
     assert_eq!(stored.binary_overrides, [entry(HarnessId::Omp, abs("new-omp"))]);
+}
+
+#[test]
+fn save_keeps_one_clean_chat_default_per_harness() {
+    let dir = TempDir::new().unwrap();
+    let store = PrefsStore::new(dir.path().to_path_buf());
+    let some = |value: &str| Some(value.to_owned());
+    let entry = |harness, provider, model_id, thinking_level| ChatDefaults {
+        harness,
+        provider,
+        model_id,
+        thinking_level,
+    };
+
+    let stored = store
+        .save(&AppPrefs {
+            chat_defaults: vec![
+                entry(HarnessId::Omp, some("anthropic"), some("old"), some("low")),
+                // A model without its provider is dropped as a pair; a control character drops the level.
+                entry(HarnessId::Pi, None, some("orphan"), some("hi\u{7}gh")),
+                entry(HarnessId::Omp, some("minimax"), some("MiniMax-M3"), some("high")),
+            ],
+            ..AppPrefs::default()
+        })
+        .unwrap();
+
+    assert_eq!(
+        stored.chat_defaults,
+        [
+            entry(HarnessId::Pi, None, None, None),
+            entry(HarnessId::Omp, some("minimax"), some("MiniMax-M3"), some("high")),
+        ]
+    );
+
+    let long = "x".repeat(harness_business::prefs::MAX_CHAT_DEFAULT_LEN + 1);
+    let stored = store
+        .save(&AppPrefs {
+            chat_defaults: vec![entry(HarnessId::Omp, some("p"), Some(long), some("high"))],
+            ..AppPrefs::default()
+        })
+        .unwrap();
+    assert_eq!(stored.chat_defaults, [entry(HarnessId::Omp, None, None, some("high"))]);
 }
 
 #[test]

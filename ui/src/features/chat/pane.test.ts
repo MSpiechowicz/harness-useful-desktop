@@ -11,10 +11,13 @@ import type { AgentEvent } from '$lib/ipc/bindings/AgentEvent';
 import { fixtures } from '$lib/ipc/mock/fixtures';
 import { harness } from '$lib/stores/harness.svelte';
 import { nav } from '$lib/stores/nav.svelte';
+import { prefs } from '$lib/stores/prefs.svelte';
 
 import { chatSession, startedSession } from '../../../tests/chat-helpers';
+import { samplePrefs } from '../../../tests/helpers';
 import ChatHeader from './ChatHeader.svelte';
 import ChatPane from './ChatPane.svelte';
+import Composer from './Composer.svelte';
 import { chatStatus } from './chat-status';
 
 beforeEach(() => {
@@ -95,10 +98,10 @@ describe('PI trust', () => {
 });
 
 describe('header controls', () => {
-  it('lists models grouped by provider and switches the model', async () => {
+  it('lists models grouped by provider and switches the model from the composer', async () => {
     const { session, of } = await startedSession();
     session.apply((state) => ({ ...state, session: fixtures.agent.state.state }));
-    render(ChatHeader, { session });
+    render(Composer, { session });
 
     await fireEvent.click(screen.getByRole('button', { name: /Claude Sonnet 4.5/ }));
     const group = await screen.findByRole('group', { name: 'Models' });
@@ -113,12 +116,18 @@ describe('header controls', () => {
     await waitFor(() => expect(session.chat.session?.model?.id).toBe('gpt-5'));
   });
 
-  it('shows the context usage and loads statistics on demand', async () => {
+  it('shows the context usage in the composer', async () => {
+    const { session } = await startedSession();
+    session.apply((state) => ({ ...state, session: fixtures.agent.state.state }));
+    render(Composer, { session });
+
+    expect(screen.getByRole('meter', { name: 'Context window used' })).toHaveAttribute('aria-valuenow', '9');
+  });
+
+  it('loads statistics on demand', async () => {
     const { session } = await startedSession();
     session.apply((state) => ({ ...state, session: fixtures.agent.state.state }));
     render(ChatHeader, { session });
-
-    expect(screen.getByRole('meter', { name: 'Context window used' })).toHaveAttribute('aria-valuenow', '9');
 
     await fireEvent.click(screen.getByRole('button', { name: 'Session statistics' }));
 
@@ -211,6 +220,23 @@ describe('transcript', () => {
     await fireEvent.click(toggle);
 
     expect(await screen.findByText(/The parser panics on empty input/)).toBeInTheDocument();
+  });
+
+  it('hides the thought process when the chat header toggle turns it off', async () => {
+    prefs.value = samplePrefs();
+    try {
+      const { session } = chatSession(replayed('basic'));
+      render(ChatPane, { session });
+
+      expect(await screen.findByRole('button', { name: /Thought process/ })).toBeInTheDocument();
+
+      prefs.value = samplePrefs({ showThinking: false });
+
+      await waitFor(() => expect(screen.queryByRole('button', { name: /Thought process/ })).toBeNull());
+      expect(screen.getByRole('button', { name: 'Show thought process' })).toHaveAttribute('aria-pressed', 'false');
+    } finally {
+      prefs.value = null;
+    }
   });
 
   it('keeps the thinking block open and marked as live while it streams', () => {

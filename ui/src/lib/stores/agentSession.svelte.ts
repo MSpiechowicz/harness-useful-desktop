@@ -1,3 +1,6 @@
+import { applyChatDefaults } from '$lib/chat/chat-defaults';
+import { SvelteMap } from 'svelte/reactivity';
+
 import { ChatSession } from '$lib/chat/session.svelte';
 import type { AgentEnvelope } from '$lib/ipc/bindings/AgentEnvelope';
 import type { AgentStartRequest } from '$lib/ipc/bindings/AgentStartRequest';
@@ -15,12 +18,41 @@ export interface RestartOptions {
   trustOnce?: boolean;
 }
 
+/** A chat whose agent is still starting: shown as a tab at once, replaced by the session when the agent is ready. */
+export interface StartingChat {
+  key: string;
+  harness: HarnessId;
+  project: string;
+}
+
 /** Every open chat session (the tabs) and which one is showing. */
 export class AgentSessionsStore {
   sessions = $state.raw<ChatSession[]>([]);
+  /** New chats whose agent is still starting (it can take a few seconds). */
+  starting = $state.raw<StartingChat[]>([]);
   activeKey = $state<string | null>(null);
 
   active: ChatSession | null = $derived(this.sessions.find((session) => session.key === this.activeKey) ?? null);
+  activeStarting: StartingChat | null = $derived(this.starting.find((chat) => chat.key === this.activeKey) ?? null);
+
+  private startingCount = 0;
+  /** Each open chat's number, the "3" of "Chat 3" (the lowest free one), kept while the agent has not named it. */
+  private numbers = new SvelteMap<string, number>();
+
+  /** A tab's title: the name the agent gave the chat, else "Chat N". */
+  title(key: string): string {
+    return this.get(key)?.name ?? `Chat ${this.numbers.get(key) ?? 1}`;
+  }
+
+  private nextNumber(): number {
+    const used = new Set(this.numbers.values());
+    let next = 1;
+    while (used.has(next)) {
+      next += 1;
+    }
+
+    return next;
+  }
 
   private catalogs = new Map<HarnessId, Promise<CommandSpec[]>>();
 
@@ -34,7 +66,7 @@ export class AgentSessionsStore {
   }
 
   /** Starts an agent. Events can arrive before the command returns, so they wait in `pending` until the session exists. */
-  async start(request: AgentStartRequest): Promise<ChatSession | null> {
+  async start(request: AgentStartRequest, activate = true): Promise<ChatSession | null> {
     const pending: AgentEnvelope[] = [];
     let session: ChatSession | null = null;
     const onEvent = (envelope: AgentEnvelope): void => (session ? session.ingest(envelope) : void pending.push(envelope));
@@ -53,15 +85,42 @@ export class AgentSessionsStore {
     }
 
     this.sessions = [...this.sessions, session];
-    this.activeKey = session.key;
+    if (!this.numbers.has(session.key)) {
+      this.numbers.set(session.key, this.nextNumber());
+    }
+    if (activate) {
+      this.activeKey = session.key;
+    }
     void this.loadCatalog(session);
 
     return session;
   }
 
-  /** Starts a chat for the harness and project the user is working in. */
+  /** Starts a chat for the harness and project the user is working in, on the model and thinking level last picked. */
+  /**
+   * The tab appears at once as a starting chat and turns into the session when the agent is ready; the new chat is
+   * shown then only if the user is still looking at its tab.
+   */
   async create(harness: HarnessId, project: string): Promise<ChatSession | null> {
-    return this.start({ harness, project, resume: null, approvalOverride: null, trustOnce: false });
+    this.startingCount += 1;
+    const placeholder: StartingChat = { key: `starting-${this.startingCount}`, harness, project };
+    this.numbers.set(placeholder.key, this.nextNumber());
+    this.starting = [...this.starting, placeholder];
+    this.activeKey = placeholder.key;
+
+    const session = await this.start({ harness, project, resume: null, approvalOverride: null, trustOnce: false }, false);
+    this.starting = this.starting.filter((chat) => chat.key !== placeholder.key);
+    this.handOverNumber(placeholder.key, session?.key ?? null);
+
+    if (this.activeKey === placeholder.key) {
+      this.activeKey = session?.key ?? this.sessions.at(-1)?.key ?? this.starting.at(-1)?.key ?? null;
+    }
+
+    if (session) {
+      void applyChatDefaults(session);
+    }
+
+    return session;
   }
 
   /** Closes a tab and stops its agent. */
@@ -72,8 +131,9 @@ export class AgentSessionsStore {
     }
 
     this.sessions = this.sessions.filter((session) => session.key !== key);
+    this.numbers.delete(key);
     if (this.activeKey === key) {
-      this.activeKey = this.sessions[Math.min(index, this.sessions.length - 1)]?.key ?? null;
+      this.activeKey = this.sessions[Math.min(index, this.sessions.length - 1)]?.key ?? this.starting.at(-1)?.key ?? null;
     }
 
     try {
@@ -97,8 +157,13 @@ export class AgentSessionsStore {
     const resume = sessionId ? { harness: old.info.harness, id: sessionId } : null;
     const draft = old.draft;
     const index = this.sessions.indexOf(old);
+    const number = this.numbers.get(key);
 
     await this.stop(key);
+    if (number !== undefined) {
+      // Reserved under a temporary key so the replacement keeps the tab's number.
+      this.numbers.set(`restart-${key}`, number);
+    }
 
     const fresh = await this.start({
       harness: old.info.harness,
@@ -108,6 +173,7 @@ export class AgentSessionsStore {
       trustOnce: options.trustOnce ?? false,
     });
 
+    this.handOverNumber(`restart-${key}`, fresh?.key ?? null);
     if (!fresh) {
       return null;
     }
@@ -121,8 +187,44 @@ export class AgentSessionsStore {
     return fresh;
   }
 
+  /**
+   * Puts session `freshKey` in the place of `oldKey` (same tab position and number, shown) and stops the old one;
+   * how a resumed or forked session takes over an empty chat instead of opening another tab.
+   */
+  async takeOver(oldKey: string, freshKey: string): Promise<void> {
+    const index = this.sessions.findIndex((session) => session.key === oldKey);
+    if (index === -1 || !this.get(freshKey)) {
+      return;
+    }
+
+    this.handOverNumber(oldKey, freshKey);
+    this.moveTo(freshKey, index);
+    this.activeKey = freshKey;
+    await this.stop(oldKey);
+  }
+
+  /** Moves the number reserved under `from` to session `to` (or frees it when the start failed). */
+  private handOverNumber(from: string, to: string | null): void {
+    const number = this.numbers.get(from);
+    this.numbers.delete(from);
+    if (to !== null && number !== undefined) {
+      this.numbers.set(to, number);
+    }
+  }
+
+  /** Shows the next (`1`) or previous (`-1`) tab, wrapping around; starting chats count as tabs. */
+  cycle(step: 1 | -1): void {
+    const keys = [...this.sessions.map((session) => session.key), ...this.starting.map((chat) => chat.key)];
+    if (keys.length === 0) {
+      return;
+    }
+
+    const current = this.activeKey === null ? -1 : keys.indexOf(this.activeKey);
+    this.activeKey = keys[(current + step + keys.length) % keys.length];
+  }
+
   select(key: string): void {
-    if (this.get(key)) {
+    if (this.get(key) || this.starting.some((chat) => chat.key === key)) {
       this.activeKey = key;
     }
   }

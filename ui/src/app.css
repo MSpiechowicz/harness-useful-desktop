@@ -65,6 +65,7 @@
 
   --shadow-raised: var(--elev-1);
   --shadow-float: var(--elev-2);
+  --shadow-drop: var(--elev-2-drop);
   --shadow-pop: var(--elev-3);
   --shadow-glow: var(--glow);
 }
@@ -190,15 +191,11 @@
 }
 
 /*
- * The chat stage is a size container; inside it, `.bleed` blocks (code and tool cards) grow past
- * the chat measure while the window has room and stay inside it otherwise. Anywhere else `.bleed` is inert.
+ * The chat stage is a size container. Every block of the conversation (messages, thinking, tool cards, code) keeps
+ * the one chat column; nothing grows past it, so the left and right edges line up all the way down.
  */
 .chat-stage {
   container-type: inline-size;
-}
-
-.chat-stage .bleed {
-  margin-inline: calc(-1 * clamp(0px, (100cqw - 100%) / 2 - var(--gutter), var(--chat-bleed)));
 }
 
 /* A pill button: the harness and project switchers, status toggles. */

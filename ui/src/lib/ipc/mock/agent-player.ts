@@ -4,6 +4,7 @@ import type { UiOutcome } from '../bindings/UiOutcome';
 import type { UiResponse } from '../bindings/UiResponse';
 import type { EventSink } from '../transport';
 import { fixtures, type StreamName } from './fixtures';
+import { SUBAGENT_STEP_MS, subagentDemo } from './subagent-demo';
 
 /** `ready`, `state` and `commandsUpdated` open every recorded stream; they belong to session start, not to a prompt. */
 const START_EVENTS = new Set<AgentEvent['type']>(['ready', 'state', 'commandsUpdated']);
@@ -12,7 +13,10 @@ const DELTA_MS: readonly [number, number] = [15, 40];
 const STEP_MS = 90;
 
 /** Which recorded stream answers a prompt: keywords in the text pick the scenario. */
-export function pickStream(prompt: string): StreamName {
+export function pickStream(prompt: string): StreamName | 'subagents' {
+  if (/\bsubagents?\b/i.test(prompt)) {
+    return 'subagents';
+  }
   if (/\bapproval\b/i.test(prompt)) {
     return 'approval';
   }
@@ -54,6 +58,12 @@ export function retag(event: AgentEvent, prefix: string): AgentEvent {
     case 'promptResult':
       return { ...event, requestId: event.requestId === null ? null : prefix + event.requestId };
 
+    case 'subagent': {
+      const { subagent } = event;
+
+      return { ...event, subagent: { ...subagent, parentToolCallId: subagent.parentToolCallId === null ? null : prefix + subagent.parentToolCallId } };
+    }
+
     default:
       return event;
   }
@@ -93,6 +103,9 @@ function isDenial(outcome: UiOutcome | null): boolean {
 function delayFor(event: AgentEvent): number {
   if (event.type === 'textDelta' || event.type === 'thinkingDelta') {
     return DELTA_MS[0] + Math.random() * (DELTA_MS[1] - DELTA_MS[0]);
+  }
+  if (event.type === 'subagent' && event.subagent.status !== 'pending') {
+    return SUBAGENT_STEP_MS;
   }
 
   return STEP_MS;
@@ -138,7 +151,7 @@ export class MockAgentStream {
 
     const name = pickStream(prompt);
     const prefix = `p${run}-`;
-    let events = promptEvents(name, prompt, prefix);
+    let events = name === 'subagents' ? subagentDemo(prompt).map((event) => retag(event, prefix)) : promptEvents(name, prompt, prefix);
     const denied = name === 'approval' ? promptEvents('approvalDenied', prompt, prefix) : null;
 
     for (let index = 0; index < events.length; index += 1) {

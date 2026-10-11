@@ -138,7 +138,7 @@
       {/if}
       {option.label}
       {#if option.count !== undefined}
-        <span class="tabular rounded-full bg-surface-3 px-1.5 text-xs leading-5 text-fg-2">{option.count}</span>
+        <span class="tabular inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-surface-3 px-1.5 text-xs leading-none text-fg-2">{option.count}</span>
       {/if}
     </button>
   {/each}

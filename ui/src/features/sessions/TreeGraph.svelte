@@ -40,7 +40,10 @@
     <line x1={xOf(line.lane)} y1="0" x2={xOf(line.lane)} y2={ROW_PX} stroke={stroke(line.active)} stroke-width="2" />
   {/each}
 
-  {#if row.from !== null}
+  {#if row.node === null}
+    <!-- A folded run: the trunk turns into a dotted line, saying "there is more here" without covering it. -->
+    <line x1={x} y1="0" x2={x} y2={ROW_PX} stroke={stroke(row.active)} stroke-width="2" stroke-linecap="round" stroke-dasharray="0.01 5" />
+  {:else if row.from !== null}
     {#if row.from === row.lane}
       <line x1={x} y1="0" x2={x} y2={mid} stroke={stroke(row.active)} stroke-width="2" />
     {:else}
@@ -48,19 +51,19 @@
     {/if}
   {/if}
 
-  {#if row.down}
+  {#if row.down && row.node !== null}
     <line x1={x} y1={mid} x2={x} y2={ROW_PX} stroke={stroke(row.active)} stroke-width="2" />
   {/if}
 
-  {#if row.node === null}
-    <!-- A folded run: three small dots on the trunk. -->
-    <circle cx={x} cy={mid - 5} r="1.6" style="fill: var(--text-3)" />
-    <circle cx={x} cy={mid} r="1.6" style="fill: var(--text-3)" />
-    <circle cx={x} cy={mid + 5} r="1.6" style="fill: var(--text-3)" />
-  {:else}
+  {#if row.node !== null}
     {#if row.branchPoint}
       <circle cx={x} cy={mid} r="8" fill="none" stroke={stroke(row.active)} stroke-width="1.5" stroke-dasharray="3 2" />
     {/if}
-    <circle cx={x} cy={mid} r={selected ? 5.5 : 4.5}  fill={row.active ? stroke(true) : 'var(--surface-4)'} stroke="var(--surface-1)" stroke-width="1.5" />
+    {#if selected}
+      <!-- The selected node gets a soft halo instead of a bigger dot, so it reads at a glance on the tinted row. -->
+      <circle cx={x} cy={mid} r="8" style="fill: var(--accent-2)" opacity="0.22" />
+    {/if}
+    <!-- No knockout outline: a ring in the panel colour shows as a dark band on the selected row's tint. -->
+    <circle cx={x} cy={mid} r={selected ? 4.5 : 3.5} fill={row.active ? stroke(true) : 'var(--border-strong)'} />
   {/if}
 </svg>

@@ -105,3 +105,31 @@ describe('palette commands', () => {
     expect(pi?.disabled).toBe(true);
   });
 });
+
+describe('switchProject', () => {
+  it('shows the open chat of the chosen project, or starts one there', async () => {
+    const { agentSessions } = await import('$lib/stores/agentSession.svelte');
+    const { switchProject } = await import('./actions');
+    await harness.select('omp');
+    const open = vi.spyOn(project, 'open').mockImplementation(async (path) => {
+      project.active = { ...project.recents[0], path };
+
+      return true;
+    });
+    const create = vi.spyOn(agentSessions, 'create').mockResolvedValue(null);
+    const existing = { key: 'chat-in-demo', info: { project: '/work/demo' }, ended: false } as never;
+    agentSessions.sessions = [existing];
+
+    await switchProject('/work/demo');
+    expect(agentSessions.activeKey).toBe('chat-in-demo');
+    expect(create).not.toHaveBeenCalled();
+
+    await switchProject('/work/other');
+    expect(open).toHaveBeenLastCalledWith('/work/other');
+    expect(create).toHaveBeenCalledWith(expect.anything(), '/work/other');
+
+    agentSessions.sessions = [];
+    open.mockRestore();
+    create.mockRestore();
+  });
+});

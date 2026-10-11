@@ -15,7 +15,8 @@
   import { newChat } from '../shell/actions';
   import SessionTabs from './SessionTabs.svelte';
 
-  const hasChats = $derived(agentSessions.sessions.length > 0);
+  // A single chat needs no tab strip; tabs appear once there is a second chat to switch to.
+  const hasChats = $derived(agentSessions.sessions.length + agentSessions.starting.length > 1);
   const ready = $derived(Boolean(harness.active?.detection.installed && project.active));
 </script>
 

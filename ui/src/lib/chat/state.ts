@@ -10,6 +10,7 @@ export function initialChatState(key: string): ChatState {
     readyCount: 0,
     items: [],
     toolCalls: {},
+    subagents: {},
     openRequests: [],
     queue: { steering: [], followUp: [] },
     statuses: {},

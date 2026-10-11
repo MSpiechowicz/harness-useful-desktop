@@ -1,7 +1,6 @@
 <script lang="ts">
-  import ChartNoAxesColumn from '@lucide/svelte/icons/chart-no-axes-column';
+  import Activity from '@lucide/svelte/icons/activity';
 
-  import IconButton from '$lib/components/IconButton.svelte';
   import Popover from '$lib/components/Popover.svelte';
   import type { ChatSession } from '$lib/chat/session.svelte';
   import { formatCount } from '$lib/utils/format';
@@ -36,7 +35,15 @@
 
 <Popover label="Session statistics" kind="dialog" align="end" bind:open={session.ui.stats} class="w-80">
   {#snippet trigger({ props })}
-    <IconButton icon={ChartNoAxesColumn} label="Session statistics" size="sm" side="bottom" {...props} />
+    <button
+      type="button"
+      {...props}
+      aria-label="Session statistics"
+      class="inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-sm text-fg-2 transition-colors duration-[var(--dur-fast)] hover:bg-hover hover:text-fg aria-expanded:bg-hover aria-expanded:text-fg"
+    >
+      <Activity size={16} aria-hidden="true" class="shrink-0" />
+      Stats
+    </button>
   {/snippet}
 
   {#snippet children()}
