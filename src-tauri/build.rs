@@ -31,6 +31,7 @@ const COMMANDS: &[&str] = &[
     "agent_bash",
     "agent_stop",
     "agent_list",
+    "agent_move_project",
     "sessions_list",
     "session_tree",
     "session_messages",

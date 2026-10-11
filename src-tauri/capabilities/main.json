@@ -27,6 +27,7 @@
     "allow-agent-bash",
     "allow-agent-stop",
     "allow-agent-list",
+    "allow-agent-move-project",
     "allow-sessions-list",
     "allow-session-tree",
     "allow-session-messages",

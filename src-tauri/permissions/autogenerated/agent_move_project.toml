@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-agent-move-project"
+description = "Enables the agent_move_project command without any pre-configured scope."
+commands.allow = ["agent_move_project"]
+
+[[permission]]
+identifier = "deny-agent-move-project"
+description = "Denies the agent_move_project command without any pre-configured scope."
+commands.deny = ["agent_move_project"]
