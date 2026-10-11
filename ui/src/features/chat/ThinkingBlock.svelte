@@ -19,7 +19,7 @@
   const open = $derived(chosen ?? streaming);
 </script>
 
-<div class="rounded-lg border border-line bg-surface-1/50">
+<div class="border-card rounded-lg border-line bg-surface-1/50">
   <button
     type="button"
     aria-expanded={open}

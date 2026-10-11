@@ -211,6 +211,19 @@
   border-color: color-mix(in oklab, var(--color-danger) 55%, var(--canvas));
 }
 
+/*
+ * The outline of a transcript card (tool calls, thinking): two device pixels on a 1x screen, where a 1px outline on a
+ * rounded corner is anti-aliased into faint, broken pixels against the dark canvas. A 2x screen gets the same two device
+ * pixels from 1px.
+ */
+@utility border-card {
+  border-width: 2px;
+
+  @media (min-resolution: 2dppx) {
+    border-width: 1px;
+  }
+}
+
 /* A pill button: the harness and project switchers, status toggles. */
 @utility chip {
   display: inline-flex;
