@@ -212,7 +212,7 @@
 }
 
 /*
- * The outline of a transcript card (tool calls, thinking): two device pixels on a 1x screen, where a 1px outline on a
+ * The outline of a chat card (the composer, messages, tool calls, thinking): two device pixels on a 1x screen, where a 1px outline on a
  * rounded corner is anti-aliased into faint, broken pixels against the dark canvas. A 2x screen gets the same two device
  * pixels from 1px.
  */
