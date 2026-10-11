@@ -58,7 +58,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "NOT_CONFIGURED: replace with the content of the updater .key.pub file (see docs/release-and-updater-keys.md)",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEQxQzFCRUIxQzJEOTgyREQKUldUZGd0bkNzYjdCMGQ1QkZSY28zS2IxZGlQdHZvUTBNeGZEUFY3d1ZMaGgyOU1BUko0MU5uLzYK",
       "endpoints": ["https://github.com/MSpiechowicz/harness-useful-desktop/releases/latest/download/latest.json"],
       "requireSignedVersion": true
     }
