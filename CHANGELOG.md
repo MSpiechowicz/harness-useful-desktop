@@ -1,3 +1,12 @@
+## [0.1.2](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.1.1...v0.1.2) (2026-10-11)
+
+
+### Bug Fixes
+
+* extension notices, status, widgets and titles show without terminal color codes ([2b919f4](https://github.com/MSpiechowicz/harness-useful-desktop/commit/2b919f40d377dc0fced43ff5757e54100f432a83))
+* **linux:** agents started from the AppImage get the host environment ([015c67d](https://github.com/MSpiechowicz/harness-useful-desktop/commit/015c67d6f489703d8a84ed7dc6fd5a2e9b924865))
+* moving a chat to another project is allowed by the ACL ([92f4a12](https://github.com/MSpiechowicz/harness-useful-desktop/commit/92f4a127c029447d1f7d04b31e896c6ca76ba130))
+
 ## [0.1.1](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.1.0...v0.1.1) (2026-10-11)
 
 
