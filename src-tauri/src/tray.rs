@@ -20,8 +20,12 @@ const QUIT: &str = "quit";
 
 /// Adds the tray icon. Failing to create it is not fatal: the app works without a tray.
 pub fn create_tray<R: Runtime>(app: &App<R>) {
-    if let Err(error) = build(app) {
-        tracing::warn!(%error, "cannot create the tray icon");
+    // On Linux the indicator library is loaded on first use, and `libappindicator-sys` panics when no
+    // usable copy loads (missing, or built against a newer GLib than the AppImage bundles).
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| build(app))) {
+        Ok(Ok(_)) => {}
+        Ok(Err(error)) => tracing::warn!(%error, "cannot create the tray icon"),
+        Err(_) => tracing::warn!("cannot create the tray icon: the system tray library failed to load"),
     }
 }
 

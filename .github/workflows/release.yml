@@ -99,7 +99,10 @@ jobs:
         include:
           - name: Linux x64 (AppImage, deb, rpm)
             os: ubuntu-22.04
-            args: --bundles appimage,deb,rpm
+            # The tray library is loaded at runtime, so linuxdeploy can't see it: the extra config ships it (and,
+            # through it, dbusmenu) in the AppImage, built against the GLib the AppImage bundles. Without it the
+            # host's copy is loaded, which needs a newer GLib and crashes the app on current distributions.
+            args: --bundles appimage,deb,rpm --config src-tauri/tauri.appimage.conf.json
           - name: macOS arm64
             os: macos-latest
             target: aarch64-apple-darwin
@@ -120,7 +123,7 @@ jobs:
         if: ${{ runner.os == 'Linux' }}
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf \
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf \
             build-essential curl wget file libxdo-dev libssl-dev libasound2-dev
       - name: Install pinned Rust toolchain
         run: rustup show active-toolchain || rustup toolchain install
