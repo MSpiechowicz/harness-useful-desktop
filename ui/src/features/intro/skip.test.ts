@@ -6,7 +6,7 @@ import { prefs } from '$lib/stores/prefs.svelte';
 
 import { samplePrefs } from '../../../tests/helpers';
 import Intro from './Intro.svelte';
-import { intro } from './intro.svelte';
+import { intro } from './intro-state.svelte';
 
 const logo = () => document.querySelector('harness-logo');
 const finishLaunch = () => fireEvent(logo() as Element, new CustomEvent('finish', { bubbles: true, composed: true }));

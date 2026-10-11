@@ -9,7 +9,7 @@
   import { cx } from '$lib/utils/cx';
 
   import { WIDTH } from './layout';
-  import { onboarding } from './onboarding.svelte';
+  import { onboarding } from './onboarding-state.svelte';
   import StepHeader from './StepHeader.svelte';
 
   const driver = $derived(onboarding.driver ? harness.get(onboarding.driver) : undefined);

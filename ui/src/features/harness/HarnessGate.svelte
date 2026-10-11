@@ -12,7 +12,7 @@
   import { project } from '$lib/stores/project.svelte';
   import type { ViewLoader } from '$lib/stores/view-loader.svelte';
 
-  import { onboarding } from '../onboarding/onboarding.svelte';
+  import { onboarding } from '../onboarding/onboarding-state.svelte';
 
   interface Props {
     loader: ViewLoader<T>;

@@ -12,7 +12,7 @@
   import { project } from '$lib/stores/project.svelte';
   import { restoreWorkspace } from '$lib/stores/workspace.svelte';
 
-  import { onboarding } from '../onboarding/onboarding.svelte';
+  import { onboarding } from '../onboarding/onboarding-state.svelte';
   import ChatBar from './ChatBar.svelte';
   import ChatPane from './ChatPane.svelte';
 

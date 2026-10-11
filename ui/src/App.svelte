@@ -10,7 +10,7 @@
   import { project } from '$lib/stores/project.svelte';
 
   import Intro from './features/intro/Intro.svelte';
-  import { intro } from './features/intro/intro.svelte';
+  import { intro } from './features/intro/intro-state.svelte';
   import Onboarding from './features/onboarding/Onboarding.svelte';
   import Shell from './features/shell/Shell.svelte';
 

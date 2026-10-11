@@ -22,8 +22,8 @@
   import { viewState, type SettingsSectionId } from '$lib/stores/view-state.svelte';
   import { cx } from '$lib/utils/cx';
 
-  import { intro } from '../intro/intro.svelte';
-  import { onboarding } from '../onboarding/onboarding.svelte';
+  import { intro } from '../intro/intro-state.svelte';
+  import { onboarding } from '../onboarding/onboarding-state.svelte';
   import AboutCard from './AboutCard.svelte';
   import HarnessSettings from './HarnessSettings.svelte';
   import PrivacySection from './PrivacySection.svelte';

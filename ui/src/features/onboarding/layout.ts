@@ -1,4 +1,4 @@
-import type { OnboardingStep } from './onboarding.svelte';
+import type { OnboardingStep } from './onboarding-state.svelte';
 
 /** Content width of the steps (the frame width), so every step lines up with the next. */
 export const WIDTH = {

@@ -5,7 +5,7 @@
   import { motion } from '$lib/stores/motion.svelte';
   import { prefs } from '$lib/stores/prefs.svelte';
 
-  import { intro, INTRO_EXIT_MS, INTRO_LEAD_MS } from './intro.svelte';
+  import { intro, INTRO_EXIT_MS, INTRO_LEAD_MS } from './intro-state.svelte';
 
   /** Width of the mark on the splash. */
   const MARK_WIDTH = 168;

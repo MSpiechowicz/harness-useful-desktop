@@ -147,17 +147,20 @@ fn omp_folders_honor_profiles_xdg_data_and_the_session_dir_variable() {
         home.home.join(".omp/profiles/work/agent/sessions/-Projects-demo")
     );
 
-    let xdg = home.home.join("xdg");
-    fs::create_dir_all(xdg.join("omp")).unwrap();
-    let with_xdg = home
-        .env
-        .clone()
-        .with_os(OsKind::Linux)
-        .with_var("XDG_DATA_HOME", xdg.to_string_lossy());
-    assert_eq!(
-        Omp.sessions_dir(&with_xdg, project),
-        xdg.join("omp/sessions/-Projects-demo")
-    );
+    // XDG data applies on Linux and macOS only, and a Windows temp path cannot pass for a Linux one.
+    if cfg!(unix) {
+        let xdg = home.home.join("xdg");
+        fs::create_dir_all(xdg.join("omp")).unwrap();
+        let with_xdg = home
+            .env
+            .clone()
+            .with_os(OsKind::Linux)
+            .with_var("XDG_DATA_HOME", xdg.to_string_lossy());
+        assert_eq!(
+            Omp.sessions_dir(&with_xdg, project),
+            xdg.join("omp/sessions/-Projects-demo")
+        );
+    }
 
     let custom = home
         .env

@@ -22,7 +22,7 @@
   import { sessionDetail, sessionList } from '$lib/stores/sessions.svelte';
   import { viewState } from '$lib/stores/view-state.svelte';
 
-  import { onboarding } from '../onboarding/onboarding.svelte';
+  import { onboarding } from '../onboarding/onboarding-state.svelte';
   import { count, scopeLabel } from '../shell/scope';
   import BranchesPanel from './BranchesPanel.svelte';
   import SessionList from './SessionList.svelte';

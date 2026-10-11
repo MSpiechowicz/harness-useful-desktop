@@ -9,7 +9,7 @@
 
   import HarnessCard from './HarnessCard.svelte';
   import { WIDTH } from './layout';
-  import { onboarding } from './onboarding.svelte';
+  import { onboarding } from './onboarding-state.svelte';
   import StepHeader from './StepHeader.svelte';
 
   const installed = $derived(harness.installed);
