@@ -73,6 +73,13 @@ jobs:
         with:
           bun-version: ${{ env.BUN_VERSION }}
       - run: bun install --frozen-lockfile
+      # semantic-release numbers a first release 1.0.0. A local v0.0.0 on the root commit (never pushed) makes the
+      # first `feat:` release 0.1.0; once a v* tag exists this step does nothing.
+      - name: Baseline tag for the first release
+        run: |
+          if [ -z "$(git tag --list 'v*')" ]; then
+            git tag v0.0.0 "$(git rev-list --max-parents=0 HEAD | tail -n 1)"
+          fi
       - name: semantic-release
         id: semantic-release
         env:
