@@ -61,8 +61,8 @@ tempfile = "3.27.0"
 insta = { version = "1.49.0", features = ["json"] }
 pretty_assertions = "1.4"
 
+# Default codegen units and no cross-crate LTO: the release bundles compile in about half the time, and an app
+# that mostly waits on the webview and the agents gains nothing measurable from the slower settings.
 [profile.release]
 opt-level = 3
-lto = "thin"
-codegen-units = 1
 strip = true
