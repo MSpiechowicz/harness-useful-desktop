@@ -175,6 +175,17 @@ jobs:
             fi
           done
           exit "$missing"
+      # install.sh / install.ps1 install nothing without a SHA-256 to compare against.
+      - name: Upload checksums.txt
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.release.outputs.version }}
+        run: |
+          assets="$RUNNER_TEMP/assets"
+          gh release download "v$VERSION" --repo "$GITHUB_REPOSITORY" --dir "$assets"
+          rm -f "$assets/checksums.txt"
+          (cd "$assets" && sha256sum -- * > "$RUNNER_TEMP/checksums.txt")
+          gh release upload "v$VERSION" "$RUNNER_TEMP/checksums.txt" --repo "$GITHUB_REPOSITORY" --clobber
       - name: Publish the draft release as latest
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
