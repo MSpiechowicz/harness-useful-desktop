@@ -40,5 +40,9 @@ time.workspace = true
 # `log` feature: tracing events from the business crate reach tauri-plugin-log (no subscriber is installed).
 tracing = { workspace = true, features = ["log"] }
 
+[dev-dependencies]
+# Test temp dirs canonicalize like the business crate: plain `C:\...` on Windows, not the `\\?\` verbatim form.
+dunce.workspace = true
+
 [lints]
 workspace = true
