@@ -8,7 +8,7 @@ import type { PaletteCommand } from '$lib/components/palette';
 import { harness } from '$lib/stores/harness.svelte';
 import { project } from '$lib/stores/project.svelte';
 
-import { onboarding } from '../onboarding/onboarding.svelte';
+import { onboarding } from '../onboarding/onboarding-state.svelte';
 
 /** Palette entries for switching harness and project, and for re-running setup. */
 export function buildSwitchCommands(): PaletteCommand[] {

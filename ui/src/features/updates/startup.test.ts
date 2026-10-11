@@ -6,8 +6,8 @@ import { prefs } from '$lib/stores/prefs.svelte';
 import { updates } from '$lib/stores/updates.svelte';
 
 import { samplePrefs } from '../../../tests/helpers';
-import { intro } from '../intro/intro.svelte';
-import { onboarding } from '../onboarding/onboarding.svelte';
+import { intro } from '../intro/intro-state.svelte';
+import { onboarding } from '../onboarding/onboarding-state.svelte';
 import Shell from '../shell/Shell.svelte';
 
 beforeAll(async () => {

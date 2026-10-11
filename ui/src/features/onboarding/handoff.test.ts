@@ -3,8 +3,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { prefs } from '$lib/stores/prefs.svelte';
 
 import { samplePrefs } from '../../../tests/helpers';
-import { intro } from '../intro/intro.svelte';
-import { onboarding } from './onboarding.svelte';
+import { intro } from '../intro/intro-state.svelte';
+import { onboarding } from './onboarding-state.svelte';
 
 beforeEach(() => {
   prefs.value = samplePrefs({ onboardingCompleted: false });

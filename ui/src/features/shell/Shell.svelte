@@ -14,8 +14,8 @@
   import { configView, extensionsView } from '$lib/stores/views.svelte';
   import { matchesShortcut } from '$lib/utils/shortcuts';
 
-  import { intro, INTRO_LEAD_MS } from '../intro/intro.svelte';
-  import { onboarding } from '../onboarding/onboarding.svelte';
+  import { intro, INTRO_LEAD_MS } from '../intro/intro-state.svelte';
+  import { onboarding } from '../onboarding/onboarding-state.svelte';
   import RestartConfirm from '../updates/RestartConfirm.svelte';
   import UpdateNotice from '../updates/UpdateNotice.svelte';
   import { jumpToChat, newChat } from './actions';

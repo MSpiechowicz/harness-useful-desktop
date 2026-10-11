@@ -13,12 +13,12 @@
   import { project } from '$lib/stores/project.svelte';
   import { cx } from '$lib/utils/cx';
 
-  import { intro, INTRO_LEAD_MS } from '../intro/intro.svelte';
+  import { intro, INTRO_LEAD_MS } from '../intro/intro-state.svelte';
   import ApprovalStep from './ApprovalStep.svelte';
   import DoneStep from './DoneStep.svelte';
   import HarnessesStep from './HarnessesStep.svelte';
   import { STEP_WIDTH, WIDTH } from './layout';
-  import { onboarding } from './onboarding.svelte';
+  import { onboarding } from './onboarding-state.svelte';
   import ProjectStep from './ProjectStep.svelte';
   import { stepIn, stepOut } from './step-transition';
   import StepProgress from './StepProgress.svelte';

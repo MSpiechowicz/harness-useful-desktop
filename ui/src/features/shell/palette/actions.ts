@@ -28,7 +28,7 @@ import { sessionList } from '$lib/stores/sessions.svelte';
 import { ui } from '$lib/stores/ui-state.svelte';
 import { viewState } from '$lib/stores/view-state.svelte';
 
-import { intro } from '../../intro/intro.svelte';
+import { intro } from '../../intro/intro-state.svelte';
 import { SETTINGS_SECTIONS } from '../../settings/sections';
 import { cycleMotion, cycleTheme, jumpToChat, newChat, resumeLastSession } from '../actions';
 import { VIEWS, viewShortcut } from '../views';

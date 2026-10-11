@@ -5,9 +5,9 @@ import { harness } from '$lib/stores/harness.svelte';
 import { prefs } from '$lib/stores/prefs.svelte';
 import { project } from '$lib/stores/project.svelte';
 
-import { intro } from '../intro/intro.svelte';
+import { intro } from '../intro/intro-state.svelte';
 import Onboarding from './Onboarding.svelte';
-import { onboarding } from './onboarding.svelte';
+import { onboarding } from './onboarding-state.svelte';
 
 // The component talks to the real stores, which talk to the in-memory mock backend.
 beforeAll(async () => {

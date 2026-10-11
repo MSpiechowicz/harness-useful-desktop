@@ -2,7 +2,7 @@ import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
 import { harness, type HarnessStore } from '$lib/stores/harness.svelte';
 import { prefs, type PrefsStore } from '$lib/stores/prefs.svelte';
 
-import { intro } from '../intro/intro.svelte';
+import { intro } from '../intro/intro-state.svelte';
 
 export type OnboardingStep = 'welcome' | 'harnesses' | 'project' | 'approval' | 'done';
 

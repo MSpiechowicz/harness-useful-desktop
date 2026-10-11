@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { HANDOFF_DURATION_MS, HANDOFF_MS, IntroController, REDUCED_MS, TOTAL_MS } from './intro.svelte';
+import { HANDOFF_DURATION_MS, HANDOFF_MS, IntroController, REDUCED_MS, TOTAL_MS } from './intro-state.svelte';
 
 beforeEach(() => {
   vi.useFakeTimers();

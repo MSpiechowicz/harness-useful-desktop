@@ -17,7 +17,7 @@
   import { project } from '$lib/stores/project.svelte';
   import { cx } from '$lib/utils/cx';
 
-  import { onboarding } from '../onboarding/onboarding.svelte';
+  import { onboarding } from '../onboarding/onboarding-state.svelte';
 
   interface Props {
     /** Icon-only trigger for the collapsed rail; the names move into a tooltip. */

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { cx } from '$lib/utils/cx';
 
-  import { onboarding } from './onboarding.svelte';
+  import { onboarding } from './onboarding-state.svelte';
 </script>
 
 <div class="flex items-center justify-between">

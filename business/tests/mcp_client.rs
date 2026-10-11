@@ -181,13 +181,13 @@ impl ProcessSpawner for ServerSpawner {
     }
 }
 
-/// A home with an executable `~/.local/bin/harness-dashboard` (never run: the spawner replaces it).
+/// A home with an executable `~/.local/bin/harness-dashboard` (`.exe` on Windows; never run: the spawner replaces it).
 fn home_with_dashboard() -> (TempDir, Env, PathBuf) {
     let home = tempfile::tempdir().expect("temp home");
     let bin = home.path().join(".local/bin");
     std::fs::create_dir_all(&bin).expect("create bin");
 
-    let binary = bin.join("harness-dashboard");
+    let binary = bin.join(format!("harness-dashboard{}", std::env::consts::EXE_SUFFIX));
     std::fs::write(&binary, "").expect("write placeholder");
     make_executable(&binary);
 
