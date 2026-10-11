@@ -7,6 +7,7 @@ import type { AgentStartRequest } from '$lib/ipc/bindings/AgentStartRequest';
 import type { ApprovalMode } from '$lib/ipc/bindings/ApprovalMode';
 import type { CommandSpec } from '$lib/ipc/bindings/CommandSpec';
 import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
+import type { SessionRef } from '$lib/ipc/bindings/SessionRef';
 import { ipc } from '$lib/ipc/client';
 import { IpcFailure, type Transport } from '$lib/ipc/transport';
 
@@ -65,8 +66,11 @@ export class AgentSessionsStore {
     return this.sessions.find((session) => session.key === key);
   }
 
-  /** Starts an agent. Events can arrive before the command returns, so they wait in `pending` until the session exists. */
-  async start(request: AgentStartRequest, activate = true): Promise<ChatSession | null> {
+  /**
+   * Starts an agent. Events can arrive before the command returns, so they wait in `pending` until the session exists.
+   * `quiet` drops a failure without a toast (reopening last run's chats: one that can't come back just stays closed).
+   */
+  async start(request: AgentStartRequest, { activate = true, quiet = false } = {}): Promise<ChatSession | null> {
     const pending: AgentEnvelope[] = [];
     let session: ChatSession | null = null;
     const onEvent = (envelope: AgentEnvelope): void => (session ? session.ingest(envelope) : void pending.push(envelope));
@@ -75,7 +79,9 @@ export class AgentSessionsStore {
       const info = await this.transport.invoke('agent_start', { request, onEvent });
       session = new ChatSession(info, this.transport, this.notifications);
     } catch (error) {
-      this.notifications.push({ title: 'Could not start the agent', description: IpcFailure.from(error).message, tone: 'danger' });
+      if (!quiet) {
+        this.notifications.push({ title: 'Could not start the agent', description: IpcFailure.from(error).message, tone: 'danger' });
+      }
 
       return null;
     }
@@ -108,7 +114,7 @@ export class AgentSessionsStore {
     this.starting = [...this.starting, placeholder];
     this.activeKey = placeholder.key;
 
-    const session = await this.start({ harness, project, resume: null, approvalOverride: null, trustOnce: false }, false);
+    const session = await this.start({ harness, project, resume: null, approvalOverride: null, trustOnce: false }, { activate: false });
     this.starting = this.starting.filter((chat) => chat.key !== placeholder.key);
     this.handOverNumber(placeholder.key, session?.key ?? null);
 
@@ -153,8 +159,7 @@ export class AgentSessionsStore {
       return null;
     }
 
-    const sessionId = old.chat.session?.sessionId;
-    const resume = sessionId ? { harness: old.info.harness, id: sessionId } : null;
+    const resume = resumable(old);
     const draft = old.draft;
     const index = this.sessions.indexOf(old);
     const number = this.numbers.get(key);
@@ -273,3 +278,14 @@ export class AgentSessionsStore {
 }
 
 export const agentSessions = new AgentSessionsStore(ipc, toasts);
+
+/**
+ * The session to resume for `session`'s conversation, or null while it has none: the agent writes its session file
+ * with the first message, so an untouched chat (notices from extensions don't count) has nothing to resume.
+ */
+export function resumable(session: ChatSession): SessionRef | null {
+  const sessionId = session.chat.session?.sessionId;
+  const conversation = session.chat.items.some((item) => item.kind === 'message');
+
+  return sessionId && conversation ? { harness: session.info.harness, id: sessionId } : null;
+}

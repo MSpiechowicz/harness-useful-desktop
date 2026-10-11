@@ -228,6 +228,7 @@ describe('tabs', () => {
     const second = await store.create('omp', PROJECT);
     first!.draft = 'half-written';
     await vi.waitFor(() => expect(first?.chat.session?.sessionId).toBeTruthy());
+    first!.chat.items = [{ kind: 'message', id: 'm1', role: 'user', blocks: [{ type: 'text', text: 'hi' }] } as never];
 
     const fresh = await store.restart(first!.key, { approvalOverride: 'alwaysAsk' });
 
@@ -241,6 +242,16 @@ describe('tabs', () => {
       trustOnce: false,
     });
     expect(of('agent_stop')).toEqual([{ key: first!.key }]);
+  });
+
+  it('restarts a chat with no message yet as a new session: the agent has saved nothing to resume', async () => {
+    const { store, of } = storeWithMock();
+    const chat = await store.create('omp', PROJECT);
+    await vi.waitFor(() => expect(chat?.chat.session?.sessionId).toBeTruthy());
+
+    await store.restart(chat!.key, { approvalOverride: 'alwaysAsk' });
+
+    expect(of('agent_start').at(-1)?.request.resume).toBeNull();
   });
 
   it('trusts a PI project only for the restart that asks for it', async () => {

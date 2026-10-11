@@ -1,6 +1,6 @@
 import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
 
-import type { AgentSessionsStore } from './agentSession.svelte';
+import { type AgentSessionsStore, resumable } from './agentSession.svelte';
 import { nav, VIEW_IDS, type ViewId } from './nav.svelte';
 
 /**
@@ -19,11 +19,15 @@ const KEY = 'harness:workspace';
 const MAX_RESTORED = 6;
 
 export function saveWorkspace(agents: AgentSessionsStore): void {
-  const open = agents.sessions.filter((session) => !session.ended && session.chat.session?.sessionId && session.chat.items.length > 0);
+  const open = agents.sessions.flatMap((session) => {
+    const ref = session.ended ? null : resumable(session);
+
+    return ref ? [{ session, ref }] : [];
+  });
   const record: SavedWorkspace = {
     view: nav.current,
-    chats: open.map((session) => ({ harness: session.info.harness, sessionId: session.chat.session!.sessionId, project: session.info.project })),
-    active: open.findIndex((session) => session.key === agents.activeKey),
+    chats: open.map(({ session, ref }) => ({ harness: ref.harness, sessionId: ref.id, project: session.info.project })),
+    active: open.findIndex(({ session }) => session.key === agents.activeKey),
   };
 
   try {
@@ -85,7 +89,7 @@ export function restoreWorkspace(agents: AgentSessionsStore): Promise<boolean> {
     for (const [index, chat] of saved.chats.slice(0, MAX_RESTORED).entries()) {
       const session = await agents.start(
         { harness: chat.harness, project: chat.project, resume: { harness: chat.harness, id: chat.sessionId }, approvalOverride: null, trustOnce: false },
-        false,
+        { activate: false, quiet: true },
       );
       if (session) {
         restored += 1;
