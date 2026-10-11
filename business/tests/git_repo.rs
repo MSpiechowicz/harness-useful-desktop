@@ -162,12 +162,14 @@ async fn diffs_carry_line_numbers_no_newline_markers_and_crlf_content() {
 
 #[tokio::test]
 async fn diffs_cover_renames_deletions_binaries_and_unusual_paths() {
+    // Windows filenames cannot hold a tab or a double quote, so it checks a path with a space instead.
+    let quoted = if cfg!(windows) { "space q.txt" } else { "tab\t\"q\".txt" };
     let home = git_home();
     let mut repo = home.repo("repo");
     repo.write("docs/usage.md", "# Usage\n\nCall parse.\nMore.\nEven more.\n");
     repo.write("gone.txt", "bye\n");
     repo.write("logo.png", b"\x89PNG\r\n\x1a\n\0\0\0\rIHDR");
-    repo.write("tab\t\"q\".txt", "q\n");
+    repo.write(quoted, "q\n");
     repo.write("zażółć.txt", "z\n");
     repo.commit("base");
 
@@ -176,7 +178,7 @@ async fn diffs_cover_renames_deletions_binaries_and_unusual_paths() {
     repo.git(&["add", "docs/guide.md"]);
     repo.git(&["rm", "-q", "gone.txt"]);
     repo.write("logo.png", b"\x89PNG\r\n\x1a\n\0\0\0\rIHDR2");
-    repo.write("tab\t\"q\".txt", "q2\n");
+    repo.write(quoted, "q2\n");
     repo.write("zażółć.txt", "z2\n");
 
     let files = diff(&home, &repo, DiffScope::All).await;
@@ -192,7 +194,7 @@ async fn diffs_cover_renames_deletions_binaries_and_unusual_paths() {
     assert!(binary.is_binary);
     assert!(binary.hunks.is_empty());
 
-    assert_eq!(find(&files, "tab\t\"q\".txt", false).additions, 1);
+    assert_eq!(find(&files, quoted, false).additions, 1);
     assert_eq!(find(&files, "zażółć.txt", false).additions, 1);
 
     let staged_only = diff(&home, &repo, DiffScope::Staged).await;

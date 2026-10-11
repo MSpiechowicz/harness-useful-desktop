@@ -127,9 +127,11 @@ async fn an_agent_ignoring_stdin_eof_is_killed_after_the_grace_period() {
     let Some(AgentEvent::Exited { code, signal }) = last else {
         panic!("exited is the last event");
     };
-    assert_eq!(code, None);
+    // Unix reports the SIGKILL, Windows has no signals and TerminateProcess leaves exit code 1.
     if cfg!(unix) {
-        assert_eq!(signal, Some(9));
+        assert_eq!((code, signal), (None, Some(9)));
+    } else {
+        assert_eq!((code, signal), (Some(1), None));
     }
 }
 
