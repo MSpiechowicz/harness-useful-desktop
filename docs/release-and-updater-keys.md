@@ -6,6 +6,8 @@ Releases are fully automated from Conventional Commits. The only manual work is 
 
 1. **Commit messages decide the version.** On `main`, `fix:` releases a patch, `feat:` a minor, and a
    `BREAKING CHANGE:` footer or `feat!:` a major. Other types (`chore:`, `docs:`, `test:`, ...) do not release.
+   The first release is 0.1.0: until a `v*` tag exists, the release job tags the root commit `v0.0.0` locally (never
+   pushed), so the first `feat:` bumps the minor version instead of semantic-release's default 1.0.0.
 2. **CI runs** on the push to `main` (`.github/workflows/ci.yml`).
 3. **`Release` workflow** (`.github/workflows/release.yml`) starts when CI finishes successfully for a push to `main`
    (`workflow_run`). It can also be started by hand with `workflow_dispatch` on `main`.
