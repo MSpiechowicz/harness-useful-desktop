@@ -11,3 +11,6 @@ test-results/
 .env.local
 report/
 .vite/
+
+# HyperFrames project of the README video (the rendered MP4 lives in docs/video)
+videos/
