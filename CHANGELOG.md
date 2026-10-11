@@ -1,3 +1,10 @@
+## [0.1.1](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.1.0...v0.1.1) (2026-10-11)
+
+
+### Bug Fixes
+
+* **linux:** the AppImage no longer crashes at launch on current distributions ([52825d5](https://github.com/MSpiechowicz/harness-useful-desktop/commit/52825d5b3c63ba3eb175a670ce937a472c967e31))
+
 # [0.1.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.0.0...v0.1.0) (2026-10-11)
 
 
