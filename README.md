@@ -40,7 +40,32 @@ choose the executable yourself. It does not install harnesses.
 
 ## Install
 
-Download the installer for your OS from the [releases page](https://github.com/MSpiechowicz/harness-useful-desktop/releases):
+**macOS and Linux**
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/MSpiechowicz/harness-useful-desktop/main/install.sh | sh
+```
+
+On Linux this installs the AppImage as `~/.local/bin/harness-desktop` and adds an applications-menu entry. On macOS it
+installs `~/Applications/Harness Desktop.app` (Apple Silicon or Intel), clears the download quarantine and gives the app
+an ad-hoc signature, since the release is not notarized. The installer verifies the release checksum and installs
+nothing without one. AppImages need FUSE 2: if the app does not start, install `libfuse2` (`libfuse2t64` on Ubuntu
+24.04 and newer).
+
+**Windows (PowerShell)**
+
+```powershell
+powershell -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/MSpiechowicz/harness-useful-desktop/main/install.ps1 | iex"
+```
+
+This verifies the checksum and runs the NSIS installer silently: a per-user install in `%LOCALAPPDATA%\Harness Desktop`
+with a Start menu shortcut.
+
+Installer options (environment variables): `HARNESS_DESKTOP_VERSION=v0.2.0` pins a release,
+`HARNESS_DESKTOP_INSTALL_DIR=…` picks the Linux install directory and `HARNESS_DESKTOP_NO_SHORTCUT=1` skips the Linux
+applications-menu entry.
+
+You can also download an installer from the [releases page](https://github.com/MSpiechowicz/harness-useful-desktop/releases):
 
 - Linux: AppImage, deb, rpm
 - macOS: dmg (Apple Silicon and Intel)
@@ -50,6 +75,31 @@ Formats, update behaviour per format and the first-run warning on macOS and Wind
 code-signed) are in
 [What users get](docs/release-and-updater-keys.md#what-users-get) and
 [unsigned installers](docs/release-and-updater-keys.md#macos-and-windows-unsigned-installers).
+
+### Updating
+
+The app checks GitHub releases and offers signed updates itself (Settings). Re-running the install command also
+upgrades.
+
+### Uninstalling
+
+```sh
+rm ~/.local/bin/harness-desktop                                              # Linux
+rm ~/.local/share/applications/harness-desktop.desktop                       # Linux launcher
+rm ~/.local/share/icons/hicolor/256x256/apps/harness-desktop.png             # Linux icon
+rm -rf ~/Applications/"Harness Desktop.app"                                  # macOS
+# preferences, WebView data and logs (optional):
+rm -rf ~/.config/com.mspiechowicz.harness-useful-desktop ~/.local/share/com.mspiechowicz.harness-useful-desktop  # Linux
+rm -rf ~/Library/Application\ Support/com.mspiechowicz.harness-useful-desktop \
+  ~/Library/Logs/com.mspiechowicz.harness-useful-desktop \
+  ~/Library/WebKit/com.mspiechowicz.harness-useful-desktop \
+  ~/Library/Caches/com.mspiechowicz.harness-useful-desktop                   # macOS
+```
+
+On Windows, uninstall **Harness Desktop** from Settings > Apps (or run `%LOCALAPPDATA%\Harness Desktop\uninstall.exe`),
+then optionally delete `%APPDATA%\com.mspiechowicz.harness-useful-desktop` and
+`%LOCALAPPDATA%\com.mspiechowicz.harness-useful-desktop`. A deb or rpm install is removed with
+`sudo apt remove harness-desktop` or `sudo dnf remove harness-desktop`.
 
 ## Privacy
 
