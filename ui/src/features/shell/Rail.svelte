@@ -3,7 +3,9 @@
   import PanelLeftOpen from '@lucide/svelte/icons/panel-left-open';
 
   import { createSpring, moveSpring } from '$lib/design/motion';
-  import IconButton from '$lib/components/IconButton.svelte';
+  import Kbd from '$lib/components/Kbd.svelte';
+  import Tooltip from '$lib/components/Tooltip.svelte';
+  import { ICON } from '$lib/components/icon';
   import Logo from '$lib/components/Logo.svelte';
   import { agentSessions } from '$lib/stores/agentSession.svelte';
   import { git } from '$lib/stores/git.svelte';
@@ -74,17 +76,28 @@
   });
 </script>
 
+<!-- The last row of the rail, under Settings: shaped like a destination, so it reads as part of the list. -->
 {#snippet toggle()}
-  <IconButton
-    icon={expanded ? PanelLeftClose : PanelLeftOpen}
-    label={expanded ? 'Collapse sidebar' : 'Expand sidebar'}
-    shortcut="mod+b"
-    side="right"
-    size="sm"
-    aria-expanded={expanded}
-    class="text-fg-2 hover:text-fg"
-    onclick={() => ui.toggleRail()}
-  />
+  {@const label = expanded ? 'Collapse sidebar' : 'Expand sidebar'}
+  {@const Icon = expanded ? PanelLeftClose : PanelLeftOpen}
+  <Tooltip text={label} shortcut="mod+b" side="right" disabled={expanded} class="flex w-full">
+    {#snippet children({ describedby })}
+      <button
+        type="button"
+        aria-label={label}
+        aria-expanded={expanded}
+        aria-describedby={describedby}
+        onclick={() => ui.toggleRail()}
+        class="group/item flex h-10 w-full items-center gap-3 rounded-md px-[9.5px] text-left text-fg-2 transition-colors duration-[var(--dur-fast)] hover:bg-hover hover:text-fg"
+      >
+        <span class="grid size-[20px] shrink-0 place-items-center"><Icon size={ICON.lg} strokeWidth={1.8} aria-hidden="true" /></span>
+        {#if expanded}
+          <span class="min-w-0 flex-1 truncate text-base font-medium whitespace-nowrap">{label}</span>
+          <span class="hidden shrink-0 group-hover/item:inline-flex group-focus-visible/item:inline-flex"><Kbd keys="mod+b" /></span>
+        {/if}
+      </button>
+    {/snippet}
+  </Tooltip>
 {/snippet}
 
 <nav
@@ -96,25 +109,16 @@
     expanded ? 'w-[var(--rail-expanded)]' : 'w-[var(--rail-collapsed)]',
   )}
 >
-  <!-- The brand sits top-left, on the same baseline as the top bar; the collapse toggle lives next to it. -->
-  <div class={cx('flex h-11 shrink-0 items-center border-b border-line px-[12px]', expanded ? 'justify-between' : 'justify-center')}>
+  <!-- The brand sits top-left, on the same baseline as the top bar. Expanded, the mark is centered on the menu icons'
+       column (12px gutter + 9.5px item padding + half of the 20px icon, less half of the ~17px mark). -->
+  <div class={cx('flex h-12 shrink-0 items-center border-b border-line', expanded ? 'pl-[23px]' : 'justify-center px-[12px]')}>
     <Logo size={expanded ? 15 : 18} wordmark={expanded} state={working ? 'working' : 'idle'} />
-
-    {#if expanded && ui.roomForLabels}
-      {@render toggle()}
-    {/if}
   </div>
 
   <!-- Where you are: one control for the harness and the project. -->
   <div class={cx('flex shrink-0 border-b border-line px-[12px] py-2', !expanded && 'justify-center')}>
     <WorkspaceSwitcher compact={!expanded} />
   </div>
-
-  {#if !expanded && ui.roomForLabels}
-    <div class="flex justify-center pt-2">
-      {@render toggle()}
-    </div>
-  {/if}
 
   <!-- Active indicator: a glowing tile that springs between destinations. Pixel insets (not rem) keep it centered on
        the fixed-width rail at any root font size. -->
@@ -143,5 +147,9 @@
         />
       </div>
     {/each}
+
+    {#if ui.roomForLabels}
+      <div class="flex">{@render toggle()}</div>
+    {/if}
   </div>
 </nav>

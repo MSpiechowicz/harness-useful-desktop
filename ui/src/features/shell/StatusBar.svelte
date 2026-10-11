@@ -48,14 +48,14 @@
 
 <!-- Live state only: what the agent is doing, the branch, a pending update, and the quick toggles. Which harness,
      project and app this is already shows in the top bar and in Settings, so the status bar does not repeat it. -->
-<footer class="intro-enter intro-top flex h-11 shrink-0 items-center justify-between gap-3 border-t border-line bg-surface-1/70 px-2 text-sm text-fg-3" style:--intro-delay="140ms">
+<footer class="intro-enter intro-top flex h-12 shrink-0 items-center justify-between gap-3 border-t border-line bg-surface-1/70 px-2 text-sm text-fg-3" style:--intro-delay="140ms">
   <div class="flex min-w-0 items-center gap-1">
     <span class="sr-only" role="status">{label}</span>
 
     <StatusItem label="{label}. Open chat" onclick={() => nav.go('chat')}>
       {#snippet content()}
-        <!-- The dot is alive: it breathes slowly while ready and pulses while the agent streams. -->
-        <StatusDot {tone} class={chat?.phase === 'streaming' ? 'animate-pulse' : 'breathe'} />
+        <!-- The dot is alive: it pings like the dashboard's while ready or streaming, and stays still on a problem. -->
+        <StatusDot {tone} live={tone === 'success'} />
         <span class={cx('truncate', tone === 'warning' && 'text-warning', tone === 'danger' && 'text-danger')}>{label}</span>
       {/snippet}
     </StatusItem>

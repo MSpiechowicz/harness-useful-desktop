@@ -1,29 +1,34 @@
-import { fireEvent, render, screen } from '@testing-library/svelte';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { fireEvent, render } from '@testing-library/svelte';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { ipc } from '$lib/ipc/client';
 import { prefs } from '$lib/stores/prefs.svelte';
 
 import { samplePrefs } from '../../../tests/helpers';
 import Intro from './Intro.svelte';
 import { intro } from './intro.svelte';
 
-const logo = () => screen.queryByRole('img', { name: 'Harness Desktop', hidden: true });
+const logo = () => document.querySelector('harness-logo');
+const finishLaunch = () => fireEvent(logo() as Element, new CustomEvent('finish', { bubbles: true, composed: true }));
 
 beforeEach(() => {
   prefs.value = samplePrefs({ motion: 'full' });
 });
 
-afterEach(() => intro.skip());
+afterEach(() => {
+  intro.skip();
+  vi.restoreAllMocks();
+});
 
 describe('Intro', () => {
-  it('plays the logo launch on the dark canvas while the intro is active', async () => {
+  it('plays the short launch of the shared logo while the intro is active', async () => {
     render(Intro);
 
     intro.play('full');
     await nextTick();
 
-    expect(logo()).toHaveAttribute('data-launching');
-    expect(logo()?.closest('.theme-dark')).not.toBeNull();
+    expect(logo()).toHaveAttribute('version', 'short');
+    expect(logo()).toHaveAttribute('autoplay');
   });
 
   it.each([
@@ -46,7 +51,8 @@ describe('Intro', () => {
     intro.play('full');
     await nextTick();
 
-    await fireEvent(document.querySelector('[data-part="cursor"]') as Element, new Event('animationend', { bubbles: true }));
+    await finishLaunch();
+    await new Promise((resolve) => setTimeout(resolve, 350));
 
     expect(intro.phase).toBe('handoff');
   });
@@ -57,7 +63,8 @@ describe('Intro', () => {
     await nextTick();
     expect(document.querySelector('[data-leaving]')).toBeNull();
 
-    await fireEvent(document.querySelector('[data-part="cursor"]') as Element, new Event('animationend', { bubbles: true }));
+    await finishLaunch();
+    await new Promise((resolve) => setTimeout(resolve, 350));
     expect(document.querySelector('[data-leaving]')).not.toBeNull();
     expect(logo()).not.toBeNull();
 
@@ -74,6 +81,31 @@ describe('Intro', () => {
     await nextTick();
 
     expect(logo()).toBeNull();
+  });
+
+  it.each([
+    [true, [{ play: true }]],
+    [false, []],
+  ])('plays the native launch sound only when the intro sound is on (%s)', async (soundEnabled, expected) => {
+    const invoke = vi.spyOn(ipc, 'invoke').mockResolvedValue(null as never);
+    prefs.value = samplePrefs({ motion: 'full', soundEnabled });
+    render(Intro);
+
+    intro.play('full');
+    await nextTick();
+
+    expect(invoke.mock.calls.filter(([name]) => name === 'launch_sound').map(([, args]) => args)).toEqual(expected);
+  });
+
+  it('stops the sound when the intro is skipped', async () => {
+    const invoke = vi.spyOn(ipc, 'invoke').mockResolvedValue(null as never);
+    render(Intro);
+    intro.play('full');
+    await nextTick();
+
+    await fireEvent.keyDown(window, { key: 'Escape' });
+
+    expect(invoke).toHaveBeenLastCalledWith('launch_sound', { play: false });
   });
 });
 

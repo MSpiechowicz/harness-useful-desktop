@@ -46,6 +46,7 @@ const COMMANDS: &[&str] = &[
     "update_check",
     "update_install",
     "app_relaunch",
+    "launch_sound",
 ];
 
 fn main() {

@@ -71,6 +71,8 @@ pub struct AppPrefs {
     pub motion: MotionPref,
     /// Whether the opening animation plays.
     pub intro_enabled: bool,
+    /// Whether the opening animation plays its sound.
+    pub sound_enabled: bool,
     /// The harness opened by default ("daily driver").
     pub default_harness: Option<HarnessId>,
     /// Absolute path of the active project directory.
@@ -101,6 +103,7 @@ impl Default for AppPrefs {
             theme: ThemePref::System,
             motion: MotionPref::Full,
             intro_enabled: true,
+            sound_enabled: true,
             default_harness: None,
             active_project: None,
             remember_recent_projects: true,

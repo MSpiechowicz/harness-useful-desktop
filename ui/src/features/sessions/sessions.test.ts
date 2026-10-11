@@ -203,9 +203,9 @@ describe('git branches', () => {
     render(BranchesPanel);
 
     const current = fixtures.git.branches.find((branch) => branch.isCurrent);
-    await waitFor(() => expect(screen.getByRole('list', { name: 'Local branches' })).toBeInTheDocument());
+    const localList = await waitFor(() => screen.getByRole('list', { name: 'Local branches' }));
 
-    const row = screen.getByText(current?.name ?? '').closest('li') as HTMLElement;
+    const row = within(localList).getByText(current?.name ?? '').closest('li') as HTMLElement;
     expect(row).toHaveAttribute('aria-current', 'true');
     expect(row).toHaveTextContent('Current');
     expect(row).toHaveTextContent(`↑${current?.ahead}`);

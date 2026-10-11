@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/svelte';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { render, screen } from '@testing-library/svelte';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import { prefs } from '$lib/stores/prefs.svelte';
 
@@ -12,21 +12,22 @@ const cursorOf = (root: HTMLElement) => root.querySelector('[data-part="cursor"]
 beforeEach(() => setMotion('full'));
 
 describe('Logo', () => {
-  it('paints the whole mark with a gradient defined inside its own SVG', () => {
+  it('paints the whole mark with the logo gradient defined inside its own SVG', () => {
     render(Logo, { props: { size: 32 } });
 
     const svg = screen.getByRole('img', { name: 'Harness Desktop' }).querySelector('svg') as SVGElement;
     const gradient = svg.querySelector('linearGradient') as SVGElement;
-    const fills = [...svg.querySelectorAll('path, rect')].map((shape) => shape.getAttribute('fill'));
 
-    expect(gradient).not.toBeNull();
-    expect(fills).toHaveLength(2);
-    expect(new Set(fills)).toEqual(new Set([`url(#${gradient.id})`]));
-    expect([...gradient.querySelectorAll('stop')].map((stop) => (stop as SVGElement).style.stopColor)).toEqual([
-      'var(--accent-1)',
-      'var(--accent-2)',
-      'var(--accent-3)',
-    ]);
+    expect(svg.querySelectorAll('path')).toHaveLength(2);
+    expect(svg.querySelector('g')).toHaveAttribute('fill', `url(#${gradient.id})`);
+    expect([...gradient.querySelectorAll('stop')].map((stop) => stop.getAttribute('stop-color'))).toEqual(['#38BDF8', '#818CF8']);
+  });
+
+  it("wears another family product's gradient when asked", () => {
+    render(Logo, { props: { product: 'dashboard' } });
+
+    const stops = [...document.querySelectorAll('linearGradient stop')].map((stop) => stop.getAttribute('stop-color'));
+    expect(stops).toEqual(['#F59E0B', '#F472B6']);
   });
 
   it('gives every instance its own gradient so theme variables resolve in each', () => {
@@ -40,7 +41,7 @@ describe('Logo', () => {
 
   it('shows the name only as a lockup', () => {
     const { container, rerender } = render(Logo, { props: { wordmark: true } });
-    expect(container).toHaveTextContent('harnessdesktop');
+    expect(container).toHaveTextContent('harness desktop');
 
     rerender({ wordmark: false });
     expect(container).not.toHaveTextContent('harness');
@@ -64,35 +65,5 @@ describe('Logo', () => {
     const { container } = render(Logo, { props: { state: 'working' } });
 
     expect(cursorOf(container)).not.toHaveClass('blink');
-  });
-
-  it('plays the launch and calls back once the cursor has finished blinking', async () => {
-    const onfinish = vi.fn();
-    const { container } = render(Logo, { props: { animate: 'launch', onfinish } });
-    const logo = screen.getByRole('img');
-
-    expect(logo).toHaveAttribute('data-launching');
-    expect(container.querySelector('.crack')).not.toBeNull();
-
-    // Animations of the cursor's children bubble up; only the cursor's own end finishes the launch.
-    await fireEvent(container.querySelector('.leg') as Element, new Event('animationend', { bubbles: true }));
-    expect(onfinish).not.toHaveBeenCalled();
-    expect(logo).toHaveAttribute('data-launching');
-
-    await fireEvent(cursorOf(container), new Event('animationend', { bubbles: true }));
-    expect(onfinish).toHaveBeenCalledTimes(1);
-    expect(logo).not.toHaveAttribute('data-launching');
-    expect(container.querySelector('.crack')).toBeNull();
-  });
-
-  it.each(['reduced', 'off'] as const)('shows the finished mark without any launch motion under %s motion', (motion) => {
-    setMotion(motion);
-    const onfinish = vi.fn();
-    const { container } = render(Logo, { props: { animate: 'launch', wordmark: true, onfinish } });
-
-    expect(screen.getByRole('img')).not.toHaveAttribute('data-launching');
-    expect(container.querySelector('.crack, .leg, .puff')).toBeNull();
-    expect(container).toHaveTextContent('harnessdesktop');
-    expect(onfinish).toHaveBeenCalledTimes(1);
   });
 });

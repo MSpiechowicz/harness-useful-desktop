@@ -2,7 +2,6 @@
   import Blocks from '@lucide/svelte/icons/blocks';
 
   import EmptyState from '$lib/components/EmptyState.svelte';
-  import HarnessBadge from '$lib/components/HarnessBadge.svelte';
   import NoticeBanner from '$lib/components/NoticeBanner.svelte';
   import Tabs from '$lib/components/Tabs.svelte';
   import ViewHeader from '$lib/components/ViewHeader.svelte';
@@ -29,10 +28,7 @@
 </script>
 
 <div class="flex size-full min-h-0 flex-col">
-  <ViewHeader title="Extensions" context={project.active ? 'Project and user-level extensions' : 'User-level extensions'}>
-    {#snippet leading()}
-      {#if harness.active}<HarnessBadge info={harness.active.info} />{/if}
-    {/snippet}
+  <ViewHeader title="Extensions" icon={Blocks} context={project.active ? 'Project and user-level extensions' : 'User-level extensions'}>
     {#snippet actions()}
       <ExtensionToolbar tab={currentTab ?? undefined} />
       <RefreshButton label="Reload extensions" onclick={() => extensionsView.refresh()} />

@@ -1,18 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="13 14.5 95 95" width="64" height="64">
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
   <defs>
-    <linearGradient id="a" gradientUnits="userSpaceOnUse" x1="18" y1="20" x2="103" y2="94">
-      <stop class="s0" offset="0" stop-color="#A478FF" />
-      <stop class="s1" offset="0.55" stop-color="#42A3FD" />
-      <stop class="s2" offset="1" stop-color="#7DE8EE" />
-    </linearGradient>
+    <linearGradient id="hl-mark" gradientUnits="userSpaceOnUse" x1="0" y1="94" x2="0" y2="20"><stop offset="0" stop-color="#38BDF8"/><stop offset="1" stop-color="#818CF8"/></linearGradient>
+    <linearGradient id="hl-tile" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#232327"/><stop offset="1" stop-color="#101012"/></linearGradient>
   </defs>
-  <style>
-    @media (prefers-color-scheme: light) {
-      .s0 { stop-color: #8C5EE8; }
-      .s1 { stop-color: #2A80E2; }
-      .s2 { stop-color: #00A8B8; }
-    }
-  </style>
-  <path d="M18 20 H33 V50 H58 V20 H73 L73 62.9 L71.3 64.6 L69.9 63.8 L67.6 66.3 L66.1 64.9 L64.4 65.6 L62.2 63.7 L60.4 65.9 L58 64.6 L58 64 H33 V94 H18 Z" fill="url(#a)" />
-  <path d="M73 79 L102.4 79 L101.1 81.4 L103.3 83.2 L101.4 85.4 L102.1 87.1 L100.7 88.6 L103.2 90.9 L102.4 92.3 L104.1 94 L73 94 Z" fill="url(#a)" />
+  <rect width="128" height="128" rx="32" fill="url(#hl-tile)"/>
+  <rect x="2" y="2" width="124" height="124" rx="30" fill="none" stroke="#fff" stroke-opacity="0.08" stroke-width="4"/>
+  <g transform="translate(64 64) scale(0.884) translate(-60.556 -56.362)" fill="url(#hl-mark)">
+    <path d="M18 20 H33 V50 H58 V20 H73 V64 H33 V94 H18 Z" transform="rotate(7.000 33 94)"/>
+    <path d="M58 64 H73 V94 H58 Z" transform="rotate(90 73 94)"/>
+  </g>
 </svg>

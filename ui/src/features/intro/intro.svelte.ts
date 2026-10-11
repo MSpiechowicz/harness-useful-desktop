@@ -1,15 +1,15 @@
 import type { MotionLevel } from '$lib/stores/motion.svelte';
 
 /**
- * Timeline of the cold-start intro (milliseconds from start). The logo's launch animation takes
- * 3.55 s (a slow crack, topple, impact, two cursor blinks); the hand-over starts right after it, and
- * `launched()` starts it the moment the logo reports it is done. Any key or click skips it all.
+ * Timeline of the cold-start intro (milliseconds from start). The short launch of the shared Harness logo
+ * takes 1.9 s (the leg falls off and becomes the cursor, two blinks); `launched()` starts the hand-over a
+ * short hold after the logo reports it is done, and `HANDOFF_MS` is the fallback. Any key or click skips it all.
  *
- * The hand-over is two beats: the lockup leaves (`INTRO_EXIT_MS`), then the next screen, the
- * shell or the setup, enters after `INTRO_LEAD_MS` while the dark veil behind the lockup lifts.
+ * The hand-over is two beats: the mark leaves (`INTRO_EXIT_MS`), then the next screen, the
+ * shell or the setup, enters after `INTRO_LEAD_MS` while the veil behind the mark lifts.
  * The phase lasts until the slowest entrance has settled.
  */
-export const HANDOFF_MS = 3580;
+export const HANDOFF_MS = 2400;
 export const INTRO_EXIT_MS = 320;
 export const INTRO_LEAD_MS = 240;
 export const HANDOFF_DURATION_MS = 900;
@@ -20,7 +20,7 @@ export type IntroPhase = 'idle' | 'playing' | 'handoff' | 'done';
 
 /**
  * Drives the intro sequence. The shell reads `phase` to hide, stagger in or show
- * its panels; the aurora and logo layers read it to dim and fade out.
+ * its panels; the logo layer reads it to fade out.
  */
 export class IntroController {
   phase = $state<IntroPhase>('idle');

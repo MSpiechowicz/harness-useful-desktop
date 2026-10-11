@@ -42,7 +42,7 @@
   </header>
 
   {#if shown.length > 0}
-    <dl class="divide-y divide-line rounded-md border border-line bg-surface-1 text-sm">
+    <dl class="divide-y divide-line rounded-lg border border-line bg-surface-1 text-sm">
       {#each shown as fact (fact.label)}
         <div class="flex min-h-10 items-center gap-4 py-1.5 pr-1.5 pl-3">
           <dt class="w-32 shrink-0 text-fg-3">{fact.label}</dt>

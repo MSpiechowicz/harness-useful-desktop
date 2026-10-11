@@ -11,7 +11,7 @@
         aria-current={step === onboarding.step ? 'step' : undefined}
         class={cx(
           'h-1.5 rounded-full transition-[width,background-color] duration-[var(--dur-slow)] ease-[var(--ease-out-expo)]',
-          step === onboarding.step ? 'w-8 bg-[image:var(--brand-gradient)]' : 'w-4',
+          step === onboarding.step ? 'w-8 bg-accent-fill' : 'w-4',
           index < onboarding.index ? 'bg-accent/60' : step !== onboarding.step && 'bg-line-strong',
         )}
       >

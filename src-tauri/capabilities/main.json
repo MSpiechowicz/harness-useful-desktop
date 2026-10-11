@@ -41,6 +41,7 @@
     "allow-extension-action",
     "allow-update-check",
     "allow-update-install",
-    "allow-app-relaunch"
+    "allow-app-relaunch",
+    "allow-launch-sound"
   ]
 }

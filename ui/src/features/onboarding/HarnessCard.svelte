@@ -76,7 +76,7 @@
 
   {#if detection.installed}
     <div class="flex flex-wrap items-center gap-2">
-      <Badge tone="success"><StatusDot tone="success" class="bg-current" />Installed</Badge>
+      <Badge tone="success"><StatusDot tone="success" />Installed</Badge>
       {#if detection.version}
         <Badge class="tabular">v{detection.version}</Badge>
       {/if}
@@ -93,7 +93,7 @@
     </dl>
   {:else}
     <div class="flex flex-wrap items-center gap-2">
-      <Badge tone="warning"><StatusDot tone="warning" class="bg-current" />Not found</Badge>
+      <Badge tone="warning"><StatusDot tone="warning" />Not found</Badge>
     </div>
 
     {#if detection.installHint}

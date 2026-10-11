@@ -81,7 +81,7 @@
     class={cx(
       'flex flex-col rounded-[16px] border p-[22px]',
       current
-        ? 'edge-accent bg-[linear-gradient(135deg,oklch(0.24_0.06_285/0.9),oklch(0.2_0.03_265/0.9))] shadow-[0_18px_50px_-20px_oklch(0.5_0.2_285/0.6)]'
+        ? 'edge-accent bg-surface-1 shadow-float'
         : 'border-dashed border-line-strong',
     )}
     aria-label={current ? 'Selected project' : 'No project yet'}
@@ -89,7 +89,7 @@
     {#if current}
       {@const Icon = current.isGitRepo ? FolderGit2 : Folder}
       <div class="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-[18px]">
-        <span class="grid size-[64px] place-items-center rounded-[16px] bg-[linear-gradient(135deg,var(--accent-1),var(--accent-2))] text-white">
+        <span class="grid size-[64px] place-items-center rounded-[16px] bg-accent-fill text-on-accent">
           <Icon size={30} aria-hidden="true" />
         </span>
         <div class="flex min-w-0 flex-col gap-1">
@@ -153,13 +153,13 @@
   <!-- How the app works, in three steps: the loop that happens in the folder chosen above. -->
   <section class="flex flex-col gap-3 [@media(max-height:720px)]:hidden" aria-labelledby="how-it-works">
     <h3 id="how-it-works" class="text-sm font-medium tracking-wider text-fg-3 uppercase">How it works</h3>
-    <!-- A timeline: three nodes on one gradient track, left-aligned like the rest of the step. -->
+    <!-- A timeline: three nodes on one track, left-aligned like the rest of the step. -->
     <!-- Four equal step columns and a narrow repeat column; each step draws its own track to the next ring. -->
     <ol class="grid grid-cols-[repeat(4,minmax(0,1fr))_auto]">
       {#each LOOP as step, index (step.title)}
         <li class="relative flex flex-col items-start gap-2 pr-6">
           <span
-            class="absolute top-4 right-2 left-[40px] h-px bg-[linear-gradient(90deg,var(--accent-1),var(--accent-2),var(--accent-3))] opacity-60"
+            class="absolute top-4 right-2 left-[40px] h-px bg-line-strong"
             aria-hidden="true"
           ></span>
           <!-- The node is SVG, so its ring is always anti-aliased. -->

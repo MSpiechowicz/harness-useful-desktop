@@ -86,6 +86,7 @@ export const commands = {
   update_check: cmd<undefined, UpdateInfo | null>(),
   update_install: cmd<{ onProgress: EventSink<UpdateProgress> }, null>(),
   app_relaunch: cmd<undefined, null>(),
+  launch_sound: cmd<{ play: boolean }, null>(),
 };
 
 export type CommandName = keyof typeof commands;

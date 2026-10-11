@@ -97,7 +97,7 @@
   }
 
   ::selection {
-    background: oklch(0.68 0.2 295 / 0.4);
+    background: rgb(59 130 246 / 0.32);
     color: inherit;
   }
 
@@ -140,13 +140,6 @@
 
 @utility tabular {
   font-variant-numeric: tabular-nums;
-}
-
-@utility text-gradient {
-  background: var(--brand-gradient);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
 }
 
 /* A raised, hairline-bordered surface with a soft top highlight. */

@@ -20,8 +20,9 @@
 </script>
 
 <section aria-label="About" class="flex flex-col gap-4 rounded-lg border border-line bg-surface-1 p-5 shadow-raised">
-  <div class="flex items-center gap-5">
-    <Logo size={44} />
+  <!-- The badge sits on the title line, like the controls of a settings row. -->
+  <div class="flex items-start gap-5">
+    <Logo size={44} class="self-center" />
 
     <div class="flex min-w-0 flex-1 flex-col gap-1">
       {#if app.info}
@@ -33,7 +34,7 @@
       {/if}
     </div>
 
-    <Badge tone="success"><ShieldCheck size={16} aria-hidden="true" />Local only</Badge>
+    <Badge tone="success" class="mt-1 px-3 py-1"><ShieldCheck size={14} aria-hidden="true" />Local only</Badge>
   </div>
 
   <ul class="flex flex-wrap gap-2 border-t border-line pt-4" aria-label="Project links">

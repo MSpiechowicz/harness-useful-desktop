@@ -23,6 +23,7 @@ fn default_prefs_serialize_with_camel_case_fields() {
             "theme": "system",
             "motion": "full",
             "introEnabled": true,
+            "soundEnabled": true,
             "defaultHarness": null,
             "activeProject": null,
             "rememberRecentProjects": true,

@@ -9,7 +9,6 @@
   import { prefs } from '$lib/stores/prefs.svelte';
   import { project } from '$lib/stores/project.svelte';
 
-  import AuroraBackdrop from './features/intro/AuroraBackdrop.svelte';
   import Intro from './features/intro/Intro.svelte';
   import { intro } from './features/intro/intro.svelte';
   import Onboarding from './features/onboarding/Onboarding.svelte';
@@ -33,7 +32,6 @@
 </script>
 
 <!-- Each layer fails on its own: decorative ones disappear, the shell and the setup show "Something went wrong". -->
-<ErrorBoundary area="The background" variant="silent"><AuroraBackdrop /></ErrorBoundary>
 <ErrorBoundary area="Harness Desktop" variant="screen"><Shell /></ErrorBoundary>
 <ErrorBoundary area="The setup" variant="screen"><Onboarding /></ErrorBoundary>
 <ErrorBoundary area="The intro" variant="silent"><Intro /></ErrorBoundary>

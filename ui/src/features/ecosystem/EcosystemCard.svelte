@@ -5,13 +5,14 @@
   import Badge from '$lib/components/Badge.svelte';
   import Button from '$lib/components/Button.svelte';
   import Disclosure from '$lib/components/Disclosure.svelte';
+  import Logo from '$lib/components/Logo.svelte';
   import { ICON } from '$lib/components/icon';
   import { rise } from '$lib/design/motion';
   import { openExternal } from '$lib/ipc/actions';
   import type { EcosystemItem } from '$lib/ipc/bindings/EcosystemItem';
   import { app } from '$lib/stores/app.svelte';
 
-  import { ECOSYSTEM_ICONS, itemState } from './ecosystem-items';
+  import { itemState } from './ecosystem-items';
   import InlineCode from './InlineCode.svelte';
   import InstallSteps from './InstallSteps.svelte';
 
@@ -24,7 +25,6 @@
   let { item, index = 0 }: Props = $props();
 
   const status = $derived(itemState(item));
-  const Icon = $derived(ECOSYSTEM_ICONS[item.id]);
   const titleId = $derived(`ecosystem-${item.id}`);
 
   // A missing companion shows how to get it straight away; an installed one tucks the steps away.
@@ -40,7 +40,8 @@
   class="flex min-w-0 flex-col gap-3 rounded-lg border border-line bg-surface-1 p-5 shadow-raised"
 >
   <header class="flex items-start gap-3">
-    <span class="grid size-10 shrink-0 place-items-center rounded-md border border-line bg-surface-2 text-accent-text shadow-raised"><Icon size={ICON.lg} strokeWidth={1.7} aria-hidden="true" /></span>
+    <!-- The product's own family mark, on a tile like its app icon. -->
+    <span class="grid size-10 shrink-0 place-items-center rounded-md border border-line bg-surface-2 shadow-raised" aria-hidden="true"><Logo variant="mark" product={item.id} size={18} /></span>
 
     <div class="flex min-w-0 flex-1 flex-col">
       <h3 id={titleId} class="truncate text-lg text-fg">{item.name}</h3>

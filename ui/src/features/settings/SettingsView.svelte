@@ -118,13 +118,13 @@
           <SettingsSection id="appearance" title="Appearance">
             <SettingRow title="Theme" description="Follow your system or pick one. The change previews immediately.">
               {#snippet control()}
-                <SegmentedControl label="Theme" options={THEME_OPTIONS} bind:value={() => prefs.value?.theme ?? 'system', (theme) => void prefs.update({ theme })} />
+                <SegmentedControl size="md" label="Theme" options={THEME_OPTIONS} bind:value={() => prefs.value?.theme ?? 'system', (theme) => void prefs.update({ theme })} />
               {/snippet}
             </SettingRow>
 
             <SettingRow title="Motion" description="Reduced keeps simple fades; Off disables all animation. Your OS reduced-motion setting always applies.">
               {#snippet control()}
-                <SegmentedControl label="Motion" options={MOTION_OPTIONS} bind:value={() => prefs.value?.motion ?? 'full', (next) => void prefs.update({ motion: next })} />
+                <SegmentedControl size="md" label="Motion" options={MOTION_OPTIONS} bind:value={() => prefs.value?.motion ?? 'full', (next) => void prefs.update({ motion: next })} />
               {/snippet}
             </SettingRow>
           </SettingsSection>
@@ -133,6 +133,12 @@
             <SettingRow title="Play intro on launch" description="A short animated welcome when the app opens. Any key or click skips it.">
               {#snippet control()}
                 <Switch label="Play intro on launch" bind:checked={() => prefs.value?.introEnabled ?? true, (introEnabled) => void prefs.update({ introEnabled })} />
+              {/snippet}
+            </SettingRow>
+
+            <SettingRow title="Intro sound" description="The logo's sound while the intro plays. It is never played when the intro is off or skipped.">
+              {#snippet control()}
+                <Switch label="Intro sound" bind:checked={() => prefs.value?.soundEnabled ?? true, (soundEnabled) => void prefs.update({ soundEnabled })} />
               {/snippet}
             </SettingRow>
 

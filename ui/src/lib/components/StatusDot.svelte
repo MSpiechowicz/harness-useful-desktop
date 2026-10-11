@@ -1,22 +1,32 @@
 <script lang="ts">
+  import { motion } from '$lib/stores/motion.svelte';
   import { cx } from '$lib/utils/cx';
 
   type Tone = 'success' | 'warning' | 'danger' | 'neutral';
 
   interface Props {
     tone: Tone;
+    /**
+     * A live indicator: a copy of the dot grows out of it and fades, the same ping the Harness dashboard uses. The
+     * dot itself never moves. Off unless motion is full.
+     */
+    live?: boolean;
     class?: string;
   }
 
-  let { tone, class: className }: Props = $props();
+  let { tone, live = false, class: className }: Props = $props();
 
   const TONES: Record<Tone, string> = {
-    // `text-*` carries the same color into `currentColor`, which the breathing halo (.breathe) glows with.
-    success: 'bg-success text-success',
-    warning: 'bg-warning text-warning',
-    danger: 'bg-danger text-danger',
-    neutral: 'bg-fg-3 text-fg-3',
+    success: 'bg-success',
+    warning: 'bg-warning',
+    danger: 'bg-danger',
+    neutral: 'bg-fg-3',
   };
 </script>
 
-<span class={cx('inline-block size-2 shrink-0 rounded-full', TONES[tone], className)} aria-hidden="true"></span>
+<span class={cx('relative inline-flex size-[8px] shrink-0', className)} aria-hidden="true">
+  {#if live && motion.level === 'full'}
+    <span class={cx('absolute inline-flex size-full animate-ping rounded-full opacity-60', TONES[tone])}></span>
+  {/if}
+  <span class={cx('relative inline-flex size-full rounded-full', TONES[tone])}></span>
+</span>

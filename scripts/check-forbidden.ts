@@ -109,7 +109,9 @@ const RULES: readonly Rule[] = [
     pattern: /\bfetch\s*\(|\bXMLHttpRequest\b|\bWebSocket\s*\(|\bEventSource\s*\(/,
     extensions: ['.ts', '.svelte', '.js'],
     only: ['ui/src/**'],
-    skip: TEST_FILES,
+    // The vendored logo (copied from ../harness-useful-logo, never edited) contains a fetch for its optional sound
+    // sprite. The app never turns that on (the launch sound plays natively), and the CSP allows no such request.
+    skip: [...TEST_FILES, 'ui/src/lib/brand/vendor/harness-logo.js'],
     optOut: true,
   },
 ];

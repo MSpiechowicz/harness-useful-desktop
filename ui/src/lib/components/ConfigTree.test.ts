@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import type { ConfigField } from '$lib/ipc/bindings/ConfigField';
 import type { ConfigValue } from '$lib/ipc/bindings/ConfigValue';
 
-import { countMatches, flattenTree } from './config-tree';
+import { countMatches, flattenTree, toggleableIds } from './config-tree';
 import ConfigTree from './ConfigTree.svelte';
 
 const text = (value: string): ConfigValue => ({ kind: 'text', value });
@@ -36,6 +36,25 @@ const FIELDS: ConfigField[] = [
 ];
 
 describe('ConfigTree', () => {
+  it('opens and closes every branch and long text at once', async () => {
+    const { component } = render(ConfigTree, { props: { fields: FIELDS, label: 'Settings' } });
+    const tree = screen.getByRole('tree');
+
+    component.setAll(true);
+    await Promise.resolve();
+    expect(within(tree).getByText('apiKey')).toBeInTheDocument();
+    expect(tree.querySelectorAll('[aria-expanded="false"]')).toHaveLength(0);
+
+    component.setAll(false);
+    await Promise.resolve();
+    expect(within(tree).queryByText('openai')).toBeNull();
+    expect(tree.querySelectorAll('[aria-expanded="true"]')).toHaveLength(0);
+  });
+
+  it('lists every row that can open, at any depth', () => {
+    expect(toggleableIds(FIELDS)).toEqual(['providers', 'providers\u001fopenai', 'systemPrompt']);
+  });
+
   it('renders each kind of secret as a lock chip and never a value', async () => {
     const { container } = render(ConfigTree, { props: { fields: FIELDS, label: 'Settings', defaultDepth: 3 } });
 

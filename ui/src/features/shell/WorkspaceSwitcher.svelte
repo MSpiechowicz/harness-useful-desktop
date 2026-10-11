@@ -66,10 +66,11 @@
             compact ? 'size-10 justify-center' : 'h-11 w-full gap-2.5 px-1.5',
           )}
         >
+          <!-- The badge matches the two lines of text beside it. -->
           {#if active}
-            <HarnessBadge info={active.info} size="sm" />
+            <HarnessBadge info={active.info} />
           {:else}
-            <span class="grid size-6 shrink-0 place-items-center"><StatusDot tone="neutral" /></span>
+            <span class="grid size-9 shrink-0 place-items-center"><StatusDot tone="neutral" /></span>
           {/if}
 
           {#if !compact}

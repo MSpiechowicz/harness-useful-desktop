@@ -13,12 +13,3 @@ export const STEP_WIDTH: Record<OnboardingStep, keyof typeof WIDTH> = {
   approval: 'wide',
   done: 'wide',
 };
-
-/** Brightness of the backdrop aurora per step: loudest on arrival and departure, calmer while choosing. */
-export const AURORA_INTENSITY: Record<OnboardingStep, number> = {
-  welcome: 0.85,
-  harnesses: 0.5,
-  project: 0.45,
-  approval: 0.4,
-  done: 0.8,
-};

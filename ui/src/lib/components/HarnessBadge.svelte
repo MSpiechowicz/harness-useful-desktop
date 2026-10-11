@@ -15,13 +15,14 @@
     md: 'h-9 min-w-9 rounded-md px-1.5 text-xs',
     lg: 'h-12 min-w-12 rounded-lg px-2 text-sm',
   } as const;
-  const COLORS = { omp: 'bg-omp-wash text-omp border-omp/30', pi: 'bg-pi-wash text-pi border-pi/30' } as const;
+  // A plain wash, no outline: a translucent hairline reads as a muddy double edge on the rounded corners.
+  const COLORS = { omp: 'bg-omp-wash text-omp', pi: 'bg-pi-wash text-pi' } as const;
 </script>
 
 <!-- Initials in the harness accent; decorative, the harness name always appears next to it. -->
 <span
   aria-hidden="true"
-  class={cx('inline-grid shrink-0 place-items-center border font-semibold tracking-wide', SIZES[size], COLORS[info.id], className)}
+  class={cx('inline-grid shrink-0 place-items-center font-semibold tracking-wide', SIZES[size], COLORS[info.id], className)}
 >
   {info.shortName}
 </span>

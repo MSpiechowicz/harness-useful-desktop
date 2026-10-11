@@ -33,7 +33,7 @@
       aria-describedby={describedby}
       onclick={onselect}
       class={cx(
-        'group/item relative flex h-10 w-full items-center gap-3 rounded-md px-[9.5px] text-left transition-[color,background-color,transform] duration-[var(--dur-fast)] active:scale-[0.97]',
+        'group/item relative flex h-10 w-full items-center gap-3 rounded-md px-[9.5px] text-left transition-[color,background-color] duration-[var(--dur-fast)]',
         active ? 'text-accent-text' : 'text-fg-2 hover:bg-hover hover:text-fg',
       )}
     >

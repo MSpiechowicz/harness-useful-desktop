@@ -35,7 +35,7 @@
   use:portal={SHELL_HEADER_SLOT}
   in:fade|global={{ duration: scaled(160), delay: 80 }}
   out:fade|global={{ duration: scaled(100) }}
-  class={cx('flex h-11 min-w-0 items-center gap-3 px-2', className)}
+  class={cx('flex h-12 min-w-0 items-center gap-3 px-2', className)}
 >
   {#if leading}
     {@render leading()}

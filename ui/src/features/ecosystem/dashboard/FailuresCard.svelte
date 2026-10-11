@@ -29,7 +29,7 @@
       label: words(cause.cause),
       value: cause.count,
       valueLabel: `${cause.count} · ${formatShare(cause.share)}`,
-      description: `${words(cause.cause)}: ${cause.count} failures, ${formatShare(cause.share)}${cause.tools.length > 0 ? `, in ${cause.tools.join(', ')}` : ''}`,
+      description: `${words(cause.cause)}: ${cause.count} ${cause.count === 1 ? 'failure' : 'failures'}, ${formatShare(cause.share)}${cause.tools.length > 0 ? `, in ${cause.tools.join(', ')}` : ''}`,
       color: ACCENT_COLOR,
     }));
   }

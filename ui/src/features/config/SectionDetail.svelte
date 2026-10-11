@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ChevronDown from '@lucide/svelte/icons/chevron-down';
   import CircleAlert from '@lucide/svelte/icons/circle-alert';
   import FileQuestion from '@lucide/svelte/icons/file-question-mark';
   import FileText from '@lucide/svelte/icons/file-text';
@@ -13,6 +14,7 @@
   import SearchField from '$lib/components/SearchField.svelte';
   import type { ConfigSection } from '$lib/ipc/bindings/ConfigSection';
   import { revealPath } from '$lib/ipc/actions';
+  import { cx } from '$lib/utils/cx';
 
   import { FORMAT_LABELS, LAYER_TITLES } from './sections';
 
@@ -25,6 +27,9 @@
   let { section, query = $bindable('') }: Props = $props();
 
   const matches = $derived(countMatches(section.entries, query));
+
+  let tree: ConfigTree | undefined = $state();
+  let openCount = $state(0);
   const layer = $derived(section.source.profile ? `${LAYER_TITLES[section.source.layer]} · ${section.source.profile}` : LAYER_TITLES[section.source.layer]);
 </script>
 
@@ -78,10 +83,16 @@
           {section.entries.length} top-level {section.entries.length === 1 ? 'entry' : 'entries'}
         {/if}
       </p>
+
+      <!-- One toggle for the whole tree: collapse while anything is open, otherwise expand everything. One chevron that turns, like the rows'. -->
+      <Button size="sm" variant="ghost" class="ml-auto" onclick={() => tree?.setAll(openCount === 0)}>
+        {#snippet leading()}<ChevronDown size={ICON.sm} class={cx('transition-transform duration-[var(--dur-fast)]', openCount > 0 && 'rotate-180')} aria-hidden="true" />{/snippet}
+        {openCount > 0 ? 'Collapse all' : 'Expand all'}
+      </Button>
     </div>
 
     <div class="rounded-lg border border-line bg-surface-1 p-2">
-      <ConfigTree fields={section.entries} label="{section.title} settings" {query} />
+      <ConfigTree bind:this={tree} bind:openCount fields={section.entries} label="{section.title} settings" {query} />
     </div>
 
     <p class="flex items-center gap-2 text-xs text-fg-3">

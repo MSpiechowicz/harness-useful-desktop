@@ -175,3 +175,14 @@ export function flattenTree(fields: ConfigField[], options: FlattenOptions): Tre
 
   return rows;
 }
+
+/** Ids of every row that can open (branches and long texts) at any depth, for collapse all / expand all. */
+export function toggleableIds(fields: ConfigField[], parentId: string | null = null): string[] {
+  return fields.flatMap((entry) => {
+    const id = parentId === null ? entry.key : `${parentId}\u001f${entry.key}`;
+    const children = childrenOf(entry.value);
+    const own = children.length > 0 || isLongText(entry.value) ? [id] : [];
+
+    return [...own, ...toggleableIds(children, id)];
+  });
+}

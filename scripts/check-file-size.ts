@@ -19,6 +19,8 @@ const EXCLUDED = [
   'CHANGELOG.md',
   'src-tauri/gen/**',
   'src-tauri/icons/**',
+  // Copied from ../harness-useful-logo renders, never edited here.
+  'ui/src/lib/brand/vendor/**',
 ];
 
 function countLines(text: string): number {

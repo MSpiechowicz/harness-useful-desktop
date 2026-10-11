@@ -20,9 +20,6 @@
   in:rise={{ y: 12, duration: 420 }}
   class="relative isolate overflow-hidden rounded-xl border border-line bg-surface-1 p-6 shadow-float @3xl:grid @3xl:grid-cols-[minmax(0,1fr)_22rem] @3xl:items-center @3xl:gap-8 @3xl:p-8"
 >
-  <!-- A soft wash of the brand colors; decoration only. -->
-  <span class="pointer-events-none absolute -top-24 -right-16 -z-10 size-72 rounded-full opacity-35 blur-3xl" style:background="var(--brand-gradient)" aria-hidden="true"></span>
-
   <div class="flex min-w-0 flex-col gap-3">
     <p class="text-xs font-semibold tracking-widest text-accent-text uppercase">Harness Useful</p>
     <h2 id="ecosystem-hero-title" class="text-3xl text-fg">Tools that make agents measurable</h2>

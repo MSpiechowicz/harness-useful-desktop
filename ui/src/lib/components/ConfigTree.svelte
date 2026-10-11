@@ -5,7 +5,7 @@
   import { cx } from '$lib/utils/cx';
   import { rovingIndex } from '$lib/utils/roving';
 
-  import { flattenTree, type TreeRow } from './config-tree';
+  import { flattenTree, toggleableIds, type TreeRow } from './config-tree';
   import ConfigValueView from './ConfigValueView.svelte';
 
   interface Props {
@@ -16,9 +16,11 @@
     query?: string;
     /** Branches shallower than this start expanded. */
     defaultDepth?: number;
+    /** Out: how many rows are open right now, so a parent can offer "Collapse all" or "Expand all". */
+    openCount?: number;
   }
 
-  let { fields, label, query = '', defaultDepth = 1 }: Props = $props();
+  let { fields, label, query = '', defaultDepth = 1, openCount = $bindable(0) }: Props = $props();
 
   const INDENT_PX = 18;
 
@@ -28,6 +30,18 @@
 
   const rows = $derived(flattenTree(fields, { query, overrides, defaultDepth }));
   const tabStop = $derived(Math.min(focusIndex, Math.max(rows.length - 1, 0)));
+
+  // A flat list of plain values needs no room for chevrons; the slot exists only when some row can open.
+  const anyToggleable = $derived(rows.some(toggleable));
+
+  $effect(() => {
+    openCount = rows.filter((row) => toggleable(row) && row.expanded).length;
+  });
+
+  /** Opens or closes every branch and long text, at every depth. */
+  export function setAll(open: boolean): void {
+    overrides = new Map(toggleableIds(fields).map((id) => [id, open]));
+  }
 
   function setOpen(row: TreeRow, open: boolean): void {
     overrides = new Map(overrides).set(row.id, open);
@@ -113,11 +127,13 @@
           toggleable(row) && 'cursor-pointer',
         )}
       >
-        <span class="mt-0.5 grid size-4 shrink-0 place-items-center text-fg-3" aria-hidden="true">
-          {#if toggleable(row)}
-            <ChevronRight size={16} class={cx('transition-transform duration-[var(--dur-fast)]', row.expanded && 'rotate-90')} />
-          {/if}
-        </span>
+        {#if anyToggleable}
+          <span class="mt-0.5 grid size-4 shrink-0 place-items-center text-fg-3" aria-hidden="true">
+            {#if toggleable(row)}
+              <ChevronRight size={16} class={cx('transition-transform duration-[var(--dur-fast)]', row.expanded && 'rotate-90')} />
+            {/if}
+          </span>
+        {/if}
 
         <span class="shrink-0 text-fg-2">{row.key}</span>
 

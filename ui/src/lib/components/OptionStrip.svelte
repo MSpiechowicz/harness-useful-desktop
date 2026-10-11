@@ -14,10 +14,12 @@
     /** Prefix for the generated tab/panel ids that tie tabs to their panel. */
     idBase: string;
     onchange?: (value: T) => void;
+    /** Pill strips only: as tall as a `sm` button (toolbars) or a default `md` button (forms, settings rows). */
+    size?: 'sm' | 'md';
     class?: string;
   }
 
-  let { options, value = $bindable(), kind, appearance, label, idBase, onchange, class: className }: Props = $props();
+  let { options, value = $bindable(), kind, appearance, label, idBase, onchange, size = 'sm', class: className }: Props = $props();
 
   let container: HTMLElement | undefined = $state();
   let buttons: (HTMLButtonElement | undefined)[] = $state([]);
@@ -80,7 +82,7 @@
   }
 
   const INDICATOR: Record<'underline' | 'pill', string> = {
-    underline: 'bottom-0 h-0.5 rounded-full bg-[image:var(--brand-gradient)]',
+    underline: 'bottom-0 h-0.5 rounded-full bg-accent-fill',
     pill: 'inset-y-0.5 rounded-sm border border-line-strong bg-surface-4 shadow-raised',
   };
 </script>
@@ -91,7 +93,8 @@
   aria-label={label}
   class={cx(
     'relative inline-flex items-center',
-    appearance === 'pill' ? 'rounded-md border border-line bg-surface-2 p-0.5' : 'gap-1 border-b border-line',
+    // The pill strip is exactly as tall as the button size it sits beside, so they line up.
+    appearance === 'pill' ? cx('rounded-md border border-line bg-surface-2 p-0.5', size === 'md' ? 'h-9' : 'h-8') : 'gap-1 border-b border-line',
     className,
   )}
 >
@@ -123,7 +126,9 @@
       onkeydown={(event) => onKeydown(event, index)}
       class={cx(
         'relative z-10 inline-flex items-center gap-2 px-3.5 text-sm font-medium transition-colors duration-[var(--dur-fast)] disabled:cursor-not-allowed disabled:opacity-50',
-        appearance === 'pill' ? 'h-8 rounded-sm' : 'h-10',
+        // Underline tabs sit in a strip that clips anything outside them, so their focus ring is drawn inside the tab,
+        // far enough in to leave a clear gap above the selected tab's underline instead of touching it.
+        appearance === 'pill' ? 'h-full rounded-sm' : 'h-10 rounded-md focus-visible:outline-offset-[-6px]',
         selected ? 'text-fg' : 'text-fg-2 hover:text-fg',
       )}
     >

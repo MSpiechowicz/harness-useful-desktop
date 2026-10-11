@@ -26,7 +26,7 @@
   use:portal={SHELL_HEADER_SLOT}
   in:fade|global={{ duration: scaled(160), delay: 80 }}
   out:fade|global={{ duration: scaled(100) }}
-  class="flex h-11 min-w-0 items-center gap-3 px-2"
+  class="flex h-12 min-w-0 items-center gap-3 px-2"
 >
   <h1 class={hasChats ? 'sr-only' : 'flex-1 text-base leading-5 font-medium text-fg'}>Chat</h1>
 

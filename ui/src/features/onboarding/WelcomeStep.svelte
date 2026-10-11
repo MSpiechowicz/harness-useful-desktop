@@ -25,7 +25,7 @@
       use:autofocus
       class="max-w-[22ch] text-[clamp(2.25rem,1.3rem+3vw,3.75rem)] leading-[1.05] tracking-tight text-balance text-fg outline-none"
     >
-      Welcome. Let’s find <span class="bg-[image:var(--brand-gradient)] bg-clip-text text-transparent">your harness.</span>
+      Welcome. Let’s find <span class="text-accent-text">your harness.</span>
     </h2>
     <p class="max-w-xl text-lg text-pretty text-fg-2">A one-minute setup: detect your agent CLIs, choose your daily driver, and open a project.</p>
   </header>

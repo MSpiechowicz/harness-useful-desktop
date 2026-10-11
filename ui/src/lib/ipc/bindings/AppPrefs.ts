@@ -28,6 +28,10 @@ motion: MotionPref,
  */
 introEnabled: boolean, 
 /**
+ * Whether the opening animation plays its sound.
+ */
+soundEnabled: boolean, 
+/**
  * The harness opened by default ("daily driver").
  */
 defaultHarness: HarnessId | null, 

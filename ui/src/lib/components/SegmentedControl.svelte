@@ -9,9 +9,11 @@
     value: T;
     label: string;
     onchange?: (value: T) => void;
+    /** Matches the button size beside it: `sm` in toolbars, `md` in forms and settings rows. */
+    size?: 'sm' | 'md';
   }
 
-  let { options, value = $bindable(), label, onchange }: Props = $props();
+  let { options, value = $bindable(), label, onchange, size = 'sm' }: Props = $props();
 </script>
 
-<OptionStrip {options} bind:value kind="radio" appearance="pill" {label} idBase={uid('segmented')} {onchange} />
+<OptionStrip {options} bind:value kind="radio" appearance="pill" {label} {size} idBase={uid('segmented')} {onchange} />

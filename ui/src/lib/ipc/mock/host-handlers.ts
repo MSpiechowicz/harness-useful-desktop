@@ -2,7 +2,7 @@ import type { AppInfo } from '../bindings/AppInfo';
 import type { MockState } from './state';
 import type { Handlers } from './types';
 
-type HostCommands = 'app_info' | 'prefs_get' | 'prefs_set' | 'open_external' | 'reveal_path';
+type HostCommands = 'app_info' | 'prefs_get' | 'prefs_set' | 'open_external' | 'reveal_path' | 'launch_sound';
 
 const MOCK_INFO: AppInfo = {
   name: 'Harness Desktop',
@@ -12,7 +12,7 @@ const MOCK_INFO: AppInfo = {
   debug: true,
 };
 
-/** App facts, preferences and the "open something outside the window" commands (no-ops in a browser). */
+/** App facts, preferences, the launch sound and the "open something outside the window" commands (no-ops in a browser). */
 export function hostHandlers(state: MockState): Pick<Handlers, HostCommands> {
   return {
     app_info: () => MOCK_INFO,
@@ -20,5 +20,6 @@ export function hostHandlers(state: MockState): Pick<Handlers, HostCommands> {
     prefs_set: ({ prefs }) => state.save(prefs),
     open_external: () => null,
     reveal_path: () => null,
+    launch_sound: () => null,
   };
 }

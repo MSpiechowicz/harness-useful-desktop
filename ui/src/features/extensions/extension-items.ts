@@ -108,7 +108,7 @@ function pluginItems(view: ExtensionsView): ExtItem[] {
 function marketplaceItems(view: ExtensionsView): ExtItem[] {
   return view.marketplaces.map((marketplace) => {
     const badges: ExtBadge[] = [{ label: marketplace.sourceType, tone: 'neutral' }];
-    badges.push(marketplace.error ? { label: 'Unreadable', tone: 'danger' } : { label: `${marketplace.entries.length} plugins`, tone: 'accent' });
+    badges.push(marketplace.error ? { label: 'Unreadable', tone: 'danger' } : { label: `${marketplace.entries.length} ${marketplace.entries.length === 1 ? 'plugin' : 'plugins'}`, tone: 'accent' });
 
     return { ...base(marketplace.name, marketplace.name, marketplace.source, badges), tab: 'marketplaces', data: marketplace };
   });

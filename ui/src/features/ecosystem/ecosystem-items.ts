@@ -1,16 +1,6 @@
-import ChartNoAxesColumn from '@lucide/svelte/icons/chart-no-axes-column';
-import PanelRight from '@lucide/svelte/icons/panel-right';
-import Sparkles from '@lucide/svelte/icons/sparkles';
-
-import type { IconComponent } from '$lib/components/icon';
 import type { EcosystemId } from '$lib/ipc/bindings/EcosystemId';
 import type { EcosystemItem } from '$lib/ipc/bindings/EcosystemItem';
 
-export const ECOSYSTEM_ICONS: Record<EcosystemId, IconComponent> = {
-  dashboard: ChartNoAxesColumn,
-  skills: Sparkles,
-  sidebar: PanelRight,
-};
 
 /** One companion's state in words, for badges and the illustration's text alternative. */
 export function itemState(item: EcosystemItem): 'installed' | 'missing' | 'unsupported' {

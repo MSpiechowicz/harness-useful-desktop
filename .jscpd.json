@@ -21,6 +21,7 @@
     "**/report/**",
     "**/bindings/**",
     "**/mock/fixtures/**",
+    "ui/src/lib/brand/vendor/**",
     "business/tests/fixtures/**",
     "**/*.lock",
     "src-tauri/gen/**",

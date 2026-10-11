@@ -25,19 +25,40 @@ export function pluginActions(harness: HarnessId, plugin: PluginInfo, project: s
   const request = (action: Parameters<typeof actionRequest>[1]) => actionRequest(harness, action, scope, project);
   const actions: BarAction[] = [
     plugin.enabled
-      ? { label: 'Disable', icon: PowerOff, request: request({ type: 'pluginDisable', name: plugin.id }) }
-      : { label: 'Enable', icon: Power, request: request({ type: 'pluginEnable', name: plugin.id }) },
+      ? {
+          label: 'Disable',
+          title: 'Disable plugin',
+          description: 'Turn it off without uninstalling. You can enable it again any time.',
+          icon: PowerOff,
+          request: request({ type: 'pluginDisable', name: plugin.id }),
+        }
+      : {
+          label: 'Enable',
+          title: 'Enable plugin',
+          description: 'Turn it back on.',
+          icon: Power,
+          request: request({ type: 'pluginEnable', name: plugin.id }),
+        },
   ];
 
   if (plugin.updateAvailable) {
     actions.push({
       label: plugin.latestVersion ? `Upgrade to v${plugin.latestVersion}` : 'Upgrade',
+      title: 'Upgrade available',
+      description: plugin.latestVersion ? `Version ${plugin.latestVersion} is in the marketplace catalog.` : 'The marketplace catalog has a newer version.',
       icon: ArrowUpFromLine,
       request: request({ type: 'pluginUpgrade', name: plugin.id }),
     });
   }
 
-  actions.push({ label: 'Uninstall', icon: Trash2, danger: true, request: request({ type: 'pluginUninstall', name: plugin.id }) });
+  actions.push({
+    label: 'Uninstall',
+    title: 'Uninstall plugin',
+    description: 'Remove it from this harness.',
+    icon: Trash2,
+    danger: true,
+    request: request({ type: 'pluginUninstall', name: plugin.id }),
+  });
 
   return actions;
 }
@@ -45,8 +66,21 @@ export function pluginActions(harness: HarnessId, plugin: PluginInfo, project: s
 /** Refresh the catalog of a marketplace, or remove it. */
 export function marketplaceActions(harness: HarnessId, marketplace: MarketplaceInfo): BarAction[] {
   return [
-    { label: 'Update catalog', icon: RefreshCw, request: actionRequest(harness, { type: 'marketplaceUpdate', name: marketplace.name }, 'user', null) },
-    { label: 'Remove', icon: Trash2, danger: true, request: actionRequest(harness, { type: 'marketplaceRemove', name: marketplace.name }, 'user', null) },
+    {
+      label: 'Update',
+      title: 'Update catalog',
+      description: 'Fetch the latest plugin list for this marketplace.',
+      icon: RefreshCw,
+      request: actionRequest(harness, { type: 'marketplaceUpdate', name: marketplace.name }, 'user', null),
+    },
+    {
+      label: 'Remove',
+      title: 'Remove marketplace',
+      description: 'Unregister it from this harness.',
+      icon: Trash2,
+      danger: true,
+      request: actionRequest(harness, { type: 'marketplaceRemove', name: marketplace.name }, 'user', null),
+    },
   ];
 }
 
@@ -60,8 +94,21 @@ export function packageActions(harness: HarnessId, pkg: PackageInfo, project: st
   const scope = scopeOf(pkg.scope);
 
   return [
-    { label: 'Update', icon: RefreshCw, request: actionRequest(harness, { type: 'packageUpdate', source }, scope, project) },
-    { label: 'Remove', icon: Trash2, danger: true, request: actionRequest(harness, { type: 'packageRemove', source }, scope, project) },
+    {
+      label: 'Update',
+      title: 'Update package',
+      description: 'Fetch the newest version from its source.',
+      icon: RefreshCw,
+      request: actionRequest(harness, { type: 'packageUpdate', source }, scope, project),
+    },
+    {
+      label: 'Remove',
+      title: 'Remove package',
+      description: 'Uninstall it from this harness.',
+      icon: Trash2,
+      danger: true,
+      request: actionRequest(harness, { type: 'packageRemove', source }, scope, project),
+    },
   ];
 }
 

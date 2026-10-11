@@ -20,3 +20,12 @@ export async function openExternal(url: string): Promise<void> {
     toasts.push({ title: 'Could not open the link', description: IpcFailure.from(error).message, tone: 'danger' });
   }
 }
+
+/** Starts or stops the native launch sound; it is decoration, so a failure stays silent. */
+export async function launchSound(play: boolean): Promise<void> {
+  try {
+    await ipc.invoke('launch_sound', { play });
+  } catch {
+    // No sound is fine.
+  }
+}

@@ -13,12 +13,13 @@
 
 {#each harness.summaries as summary (summary.info.id)}
   <SettingRow title="{summary.info.name} binary" description={resolvedPath(summary)}>
+    <!-- One width for every harness, so the titles line up. -->
+    {#snippet leading()}<HarnessBadge info={summary.info} class="w-12" />{/snippet}
     {#snippet control()}
       <div class="flex items-center gap-2">
-        <HarnessBadge info={summary.info} size="sm" />
-        <Button size="sm" onclick={() => void harness.pickBinary(summary.info.id)}>Choose…</Button>
+        <Button onclick={() => void harness.pickBinary(summary.info.id)}>Choose…</Button>
         {#if harness.hasOverride(summary.info.id)}
-          <Button size="sm" variant="ghost" onclick={() => void harness.clearBinary(summary.info.id)}>Reset</Button>
+          <Button variant="ghost" onclick={() => void harness.clearBinary(summary.info.id)}>Reset</Button>
         {/if}
       </div>
     {/snippet}

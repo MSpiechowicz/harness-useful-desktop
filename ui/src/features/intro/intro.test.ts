@@ -34,7 +34,7 @@ describe('IntroController', () => {
     vi.advanceTimersByTime(HANDOFF_MS - 1);
 
     expect(intro.phase).toBe('playing');
-    expect(HANDOFF_MS).toBeGreaterThanOrEqual(2920);
+    expect(HANDOFF_MS).toBeGreaterThanOrEqual(1900);
   });
 
   it('hands over as soon as the logo reports its launch finished', () => {

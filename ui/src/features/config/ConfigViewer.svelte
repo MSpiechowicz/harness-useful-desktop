@@ -1,6 +1,6 @@
 <script lang="ts">
+  import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
 
-  import HarnessBadge from '$lib/components/HarnessBadge.svelte';
   import ListDetail from '$lib/components/ListDetail.svelte';
   import NoticeBanner from '$lib/components/NoticeBanner.svelte';
   import ViewHeader from '$lib/components/ViewHeader.svelte';
@@ -32,10 +32,7 @@
 </script>
 
 <div class="flex size-full min-h-0 flex-col">
-  <ViewHeader title="Configuration" context={scopeLabel(files === undefined ? null : count(files, 'file'))}>
-    {#snippet leading()}
-      {#if harness.active}<HarnessBadge info={harness.active.info} />{/if}
-    {/snippet}
+  <ViewHeader title="Configuration" icon={SlidersHorizontal} context={scopeLabel(files === undefined ? null : count(files, 'file'))}>
     {#snippet actions()}
       <RefreshButton label="Reload configuration" onclick={() => configView.refresh()} />
     {/snippet}

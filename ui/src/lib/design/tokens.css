@@ -1,60 +1,59 @@
 /*
- * Design tokens: "aurora glass".
+ * Design tokens: "graphite".
  *
- * Dark is the default; the light palette overrides it under `[data-theme="light"]`.
- * `.theme-dark` re-applies the dark palette to a subtree (the intro is always dark).
- * The theme store always writes the resolved theme to `data-theme`, so no
- * `prefers-color-scheme` duplication of the palette is needed here.
+ * Neutral zinc greys (taken from the app tile) and one solid blue accent; the logo's teal-to-blue gradient is
+ * the only gradient and lives in the mark. Teal is the success colour. The canvas is flat and still.
  *
- * Every text/background pair used by the components is checked for WCAG AA
- * (>= 4.5:1 text, >= 3:1 UI) by the pairs documented next to each group.
+ * Dark is the default; the light palette overrides it under `[data-theme="light"]`. The theme store always
+ * writes the resolved theme to `data-theme`, so no `prefers-color-scheme` duplication of the palette is needed.
+ *
+ * Every text/background pair used by the components is meant for WCAG AA (>= 4.5:1 text, >= 3:1 UI).
  */
-:root,
-.theme-dark {
+:root {
   color-scheme: dark;
 
   /* Canvas and layered surfaces (each step is one elevation higher). */
-  --canvas: oklch(0.15 0.02 265);
-  --surface-1: oklch(0.185 0.022 265);
-  --surface-2: oklch(0.22 0.024 265);
-  --surface-3: oklch(0.265 0.026 265);
-  --surface-4: oklch(0.31 0.028 265);
-  --surface-glass: oklch(0.2 0.025 265 / 0.74);
-  --scrim: oklch(0.08 0.02 265 / 0.62);
+  --canvas: #0f0f11;
+  --surface-1: #161618;
+  --surface-2: #1c1c1f;
+  --surface-3: #26262a;
+  --surface-4: #313136;
+  --surface-glass: rgb(24 24 27 / 0.94);
+  --scrim: rgb(0 0 0 / 0.6);
 
   /* Hairlines and inner highlights. */
-  --border: oklch(1 0 0 / 0.08);
-  --border-strong: oklch(1 0 0 / 0.16);
-  --highlight: oklch(1 0 0 / 0.07);
-  --hover-wash: oklch(1 0 0 / 0.06);
-  --press-wash: oklch(1 0 0 / 0.1);
+  --border: rgb(255 255 255 / 0.08);
+  --border-strong: rgb(255 255 255 / 0.14);
+  --highlight: rgb(255 255 255 / 0.04);
+  --hover-wash: rgb(255 255 255 / 0.05);
+  --press-wash: rgb(255 255 255 / 0.08);
 
   /* Text. */
-  --text: oklch(0.97 0.008 265);
-  --text-2: oklch(0.8 0.02 265);
-  --text-3: oklch(0.68 0.025 265);
-  --on-accent: oklch(1 0 0);
+  --text: #ededef;
+  --text-2: #b4b4bc;
+  --text-3: #8b8b95;
+  --on-accent: #ffffff;
 
-  /* Brand accent: violet -> indigo -> cyan. Use sparingly. */
-  --accent-1: oklch(0.68 0.2 295);
-  --accent-2: oklch(0.7 0.16 250);
-  --accent-3: oklch(0.87 0.1 200);
-  --accent-text: oklch(0.8 0.12 285);
-  --accent-wash: oklch(0.68 0.2 295 / 0.16);
-  --accent-fill: oklch(0.48 0.21 290);
-  --accent-fill-end: oklch(0.48 0.17 255);
-  --focus: oklch(0.74 0.15 270);
+  /* Accent: one blue. accent-1..3 are the data/brand trio (deep blue, sky blue, teal) for charts and graphs. */
+  --accent-1: #3b82f6;
+  --accent-2: #5ea8ff;
+  --accent-3: #2dd4a8;
+  --accent-text: #79b8ff;
+  --accent-wash: rgb(94 168 255 / 0.12);
+  --accent-fill: #2563eb;
+  --accent-fill-end: #2563eb;
+  --focus: #5ea8ff;
 
   /* Semantic text colors, each paired with a translucent wash. */
-  --success: oklch(0.87 0.16 155);
-  --warning: oklch(0.89 0.15 80);
-  --danger: oklch(0.87 0.1 20);
-  --info: oklch(0.87 0.1 235);
-  --danger-fill: oklch(0.48 0.19 25);
-  --success-wash: oklch(0.87 0.16 155 / 0.12);
-  --warning-wash: oklch(0.89 0.15 80 / 0.12);
-  --danger-wash: oklch(0.87 0.1 20 / 0.12);
-  --info-wash: oklch(0.87 0.1 235 / 0.12);
+  --success: #3dd6a8;
+  --warning: #f2b84b;
+  --danger: #f87171;
+  --info: #79b8ff;
+  --danger-fill: #c9302c;
+  --success-wash: rgb(45 212 168 / 0.12);
+  --warning-wash: rgb(242 184 75 / 0.12);
+  --danger-wash: rgb(248 113 113 / 0.12);
+  --info-wash: rgb(94 168 255 / 0.12);
 
   /* Per-harness accents. */
   --harness-omp: oklch(0.88 0.14 65);
@@ -62,23 +61,14 @@
   --harness-omp-wash: oklch(0.88 0.14 65 / 0.12);
   --harness-pi-wash: oklch(0.88 0.11 175 / 0.12);
 
-  /* Elevation: layered shadows plus a soft glow for the accent. */
-  --elev-1: 0 1px 2px oklch(0 0 0 / 0.35), 0 1px 0 var(--highlight) inset;
-  --elev-2: 0 6px 20px oklch(0 0 0 / 0.35), 0 1px 0 var(--highlight) inset;
-  --elev-3: 0 20px 60px oklch(0 0 0 / 0.55), 0 1px 0 var(--highlight) inset;
-  /* Layered glow: a tight soft halo and a faint wide bloom set a little low (reads as light, not a smudge; one big
-     high-alpha blur bands on dark backgrounds). No ring: the element's own border is the edge, and a second outline
-     beside it doubles the rounded corners. */
-  --glow:
-    0 2px 10px -2px oklch(0.62 0.2 290 / 0.32),
-    0 10px 32px -6px oklch(0.6 0.19 275 / 0.22),
-    0 22px 60px -18px oklch(0.62 0.16 250 / 0.18);
-
-  /* Aurora shown behind the shell. */
-  --aurora-opacity: 0.55;
+  /* Elevation: quiet shadows; no coloured glow. */
+  --elev-1: 0 1px 2px rgb(0 0 0 / 0.3), 0 1px 0 var(--highlight) inset;
+  --elev-2: 0 8px 24px rgb(0 0 0 / 0.35), 0 1px 0 var(--highlight) inset;
+  --elev-3: 0 20px 48px rgb(0 0 0 / 0.5), 0 1px 0 var(--highlight) inset;
+  --glow: 0 0 0 0 transparent;
 
   /* Dust kicked up by the logo's launch animation. */
-  --logo-dust: #c9d2e6;
+  --logo-dust: #a1a1aa;
 
   /* Syntax colors read by the code highlighter's CSS-variables theme (all >= 4.5:1 on --surface-2). */
   --shiki-foreground: var(--text);
@@ -96,54 +86,50 @@
 :root[data-theme="light"] {
   color-scheme: light;
 
-  --canvas: oklch(0.975 0.006 265);
-  --surface-1: oklch(1 0 0);
-  --surface-2: oklch(0.965 0.008 265);
-  --surface-3: oklch(0.935 0.01 265);
-  --surface-4: oklch(0.9 0.012 265);
-  --surface-glass: oklch(1 0 0 / 0.78);
-  --scrim: oklch(0.25 0.04 265 / 0.38);
+  --canvas: #f7f7f8;
+  --surface-1: #ffffff;
+  --surface-2: #f3f3f5;
+  --surface-3: #e9e9ec;
+  --surface-4: #dcdce0;
+  --surface-glass: rgb(255 255 255 / 0.96);
+  --scrim: rgb(15 15 17 / 0.32);
 
-  --border: oklch(0.25 0.04 265 / 0.1);
-  --border-strong: oklch(0.25 0.04 265 / 0.2);
-  --highlight: oklch(1 0 0 / 0.9);
-  --hover-wash: oklch(0.25 0.04 265 / 0.05);
-  --press-wash: oklch(0.25 0.04 265 / 0.09);
+  --border: rgb(24 24 27 / 0.1);
+  --border-strong: rgb(24 24 27 / 0.18);
+  --highlight: rgb(255 255 255 / 0.9);
+  --hover-wash: rgb(24 24 27 / 0.04);
+  --press-wash: rgb(24 24 27 / 0.08);
 
-  --text: oklch(0.22 0.03 265);
-  --text-2: oklch(0.4 0.03 265);
-  --text-3: oklch(0.48 0.03 265);
+  --text: #18181b;
+  --text-2: #3f3f46;
+  --text-3: #63636b;
 
-  --accent-1: oklch(0.6 0.2 295);
-  --accent-2: oklch(0.6 0.17 255);
-  --accent-3: oklch(0.66 0.13 205);
-  --accent-text: oklch(0.48 0.2 285);
-  --accent-wash: oklch(0.55 0.2 290 / 0.1);
-  --focus: oklch(0.55 0.2 275);
+  --accent-1: #2563eb;
+  --accent-2: #3b82f6;
+  --accent-3: #0d9f7a;
+  --accent-text: #1d4ed8;
+  --accent-wash: rgb(37 99 235 / 0.08);
+  --focus: #2563eb;
 
-  --success: oklch(0.45 0.13 155);
-  --warning: oklch(0.47 0.11 70);
-  --danger: oklch(0.5 0.19 25);
-  --info: oklch(0.48 0.13 245);
-  --success-wash: oklch(0.55 0.15 155 / 0.12);
-  --warning-wash: oklch(0.65 0.15 80 / 0.16);
-  --danger-wash: oklch(0.55 0.2 25 / 0.1);
-  --info-wash: oklch(0.55 0.14 245 / 0.1);
+  --success: #0a7058;
+  --warning: #9a5a06;
+  --danger: #c42626;
+  --info: #1d4ed8;
+  --success-wash: rgb(11 127 98 / 0.1);
+  --warning-wash: rgb(217 119 6 / 0.12);
+  --danger-wash: rgb(220 38 38 / 0.08);
+  --info-wash: rgb(37 99 235 / 0.08);
 
   --harness-omp: oklch(0.48 0.12 55);
   --harness-pi: oklch(0.44 0.09 180);
   --harness-omp-wash: oklch(0.7 0.15 65 / 0.16);
   --harness-pi-wash: oklch(0.65 0.12 175 / 0.14);
 
-  --elev-1: 0 1px 2px oklch(0.25 0.04 265 / 0.1), 0 0 0 1px var(--border);
-  --elev-2: 0 8px 24px oklch(0.25 0.04 265 / 0.12), 0 0 0 1px var(--border);
-  --elev-3: 0 24px 64px oklch(0.25 0.04 265 / 0.22), 0 0 0 1px var(--border);
-  --glow:
-    0 2px 8px -2px oklch(0.55 0.2 290 / 0.18),
-    0 10px 28px -8px oklch(0.55 0.18 275 / 0.14);
+  --elev-1: 0 1px 2px rgb(24 24 27 / 0.06), 0 0 0 1px var(--border);
+  --elev-2: 0 6px 20px rgb(24 24 27 / 0.08), 0 0 0 1px var(--border);
+  --elev-3: 0 20px 48px rgb(24 24 27 / 0.16), 0 0 0 1px var(--border);
 
-  --aurora-opacity: 0;
-  --logo-dust: #7e889c;
+  --logo-dust: #71717a;
 
   --shiki-token-keyword: oklch(0.46 0.2 310);
   --shiki-token-string: oklch(0.44 0.12 155);
@@ -158,8 +144,9 @@
   --font-ui: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-code: "JetBrains Mono Variable", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 
-  --brand-gradient: linear-gradient(120deg, var(--accent-1), var(--accent-2) 55%, var(--accent-3));
-  --brand-fill: linear-gradient(135deg, var(--accent-fill), var(--accent-fill-end));
+  /* Solid in practice: an image so `bg-[image:var(--brand-fill)]` call sites keep working. */
+  --brand-fill: linear-gradient(var(--accent-fill), var(--accent-fill-end));
+
 }
 
 /*
@@ -191,7 +178,8 @@
  * Design scales, one place:
  *   icons      16 / 18 / 20 px      (ICON in components/icon.ts)
  *   spacing    4 px grid            (Tailwind spacing: 1 = 4 px)
- *   radius     8 / 12 / 16 / 24 px  (rounded-sm / md / lg / xl)
+ *   radius     8 / 12 / 16 / 24 px  (rounded-sm / md / lg / xl): controls and single-line bars md,
+ *              multi-row cards and lists lg, dialogs xl
  *   elevation  raised / float / pop (shadow-raised / shadow-float / shadow-pop)
  *   text       12 / 13 / 14 / 16 / 20 / 24 / 32 px
  */

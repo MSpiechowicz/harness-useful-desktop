@@ -30,6 +30,7 @@ export function samplePrefs(overrides: Partial<AppPrefs> = {}): AppPrefs {
     theme: 'system',
     motion: 'full',
     introEnabled: true,
+    soundEnabled: true,
     defaultHarness: null,
     activeProject: null,
     rememberRecentProjects: true,

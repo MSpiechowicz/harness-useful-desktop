@@ -2,14 +2,14 @@
   import Check from '@lucide/svelte/icons/check';
   import Plus from '@lucide/svelte/icons/plus';
 
-  import { ICON } from '$lib/components/icon';
+  import { FAMILY } from '$lib/brand/family';
   import Logo from '$lib/components/Logo.svelte';
   import { rise } from '$lib/design/motion';
   import type { EcosystemItem } from '$lib/ipc/bindings/EcosystemItem';
   import { motion } from '$lib/stores/motion.svelte';
   import { cx } from '$lib/utils/cx';
 
-  import { ECOSYSTEM_ICONS, installedSummary, itemState, SHORT_NAMES } from './ecosystem-items';
+  import { installedSummary, itemState, SHORT_NAMES } from './ecosystem-items';
 
   interface Props {
     items: EcosystemItem[];
@@ -41,7 +41,7 @@
         y1={CENTER.y}
         x2={spot.x}
         y2={spot.y}
-        stroke={installed ? 'var(--accent-2)' : 'var(--text-3)'}
+        stroke={installed ? FAMILY[item.id][1] : 'var(--text-3)'}
         stroke-width={installed ? 2 : 1.5}
         stroke-dasharray={installed ? undefined : '3 6'}
         stroke-linecap="round"
@@ -65,7 +65,6 @@
   {#each items.slice(0, SPOTS.length) as item, index (item.id)}
     {@const spot = SPOTS[index]}
     {@const status = itemState(item)}
-    {@const Icon = ECOSYSTEM_ICONS[item.id]}
 
     <div
       in:rise={{ y: 10, delay: 120 + index * 90, duration: 480 }}
@@ -76,10 +75,13 @@
       <span
         class={cx(
           'relative grid size-11 place-items-center rounded-full border bg-surface-1 shadow-raised',
-          status === 'installed' ? 'border-accent/50 text-accent-text' : 'border-dashed border-line-strong text-fg-3',
+          status === 'installed' ? 'border-line-strong' : 'border-dashed border-line-strong',
         )}
       >
-        <Icon size={ICON.lg} aria-hidden="true" />
+        <!-- Each companion wears its own family mark; one not installed yet is shown greyed out. -->
+        <span class={cx('grid place-items-center', status !== 'installed' && 'opacity-45 grayscale')} aria-hidden="true">
+          <Logo variant="mark" product={item.id} size={18} />
+        </span>
         <span
           class={cx(
             'absolute -right-1 -bottom-1 grid size-4 place-items-center rounded-full border border-surface-1',

@@ -107,38 +107,6 @@
   transition-delay: 0ms !important;
 }
 
-/*
- * A live indicator at rest. The dot itself never changes size (scaling an 8px circle lands on fractional pixels
- * and ruins its edge); instead a soft glow in its own color swells and a thin ring drifts out and fades.
- */
-@keyframes breathe {
-  0% {
-    box-shadow:
-      0 0 4px 0 color-mix(in oklch, currentColor 45%, transparent),
-      0 0 0 0 color-mix(in oklch, currentColor 55%, transparent);
-  }
-  60% {
-    box-shadow:
-      0 0 8px 1px color-mix(in oklch, currentColor 70%, transparent),
-      0 0 0 5px transparent;
-  }
-  100% {
-    box-shadow:
-      0 0 4px 0 color-mix(in oklch, currentColor 45%, transparent),
-      0 0 0 5px transparent;
-  }
-}
-
-.breathe {
-  animation: breathe 2.6s cubic-bezier(0.3, 0.6, 0.3, 1) infinite;
-}
-
-:root[data-motion="reduced"] .breathe,
-:root[data-motion="off"] .breathe {
-  animation: none;
-  box-shadow: 0 0 4px 0 color-mix(in oklch, currentColor 45%, transparent);
-}
-
 /* Streaming affordances: a blinking caret after live text and a sheen over "working" labels. */
 @keyframes caret-blink {
   50% { opacity: 0; }

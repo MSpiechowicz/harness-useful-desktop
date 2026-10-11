@@ -7,7 +7,11 @@ import type { InstallScope } from '$lib/ipc/bindings/InstallScope';
 
 /** One button of an item's action bar. */
 export interface BarAction {
+  /** The button text. */
   label: string;
+  /** The row's heading and its one-line explanation, shown beside the button. */
+  title: string;
+  description: string;
   icon: IconComponent;
   /** Destructive actions use the quiet danger tone; the dialog repeats it on the confirm button. */
   danger?: boolean;

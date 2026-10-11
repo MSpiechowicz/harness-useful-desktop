@@ -12,6 +12,7 @@ mod logging;
 pub mod state;
 #[cfg(test)]
 mod test_support;
+mod tray;
 mod updates;
 mod window;
 
@@ -38,6 +39,9 @@ pub fn run() -> ExitCode {
         .setup(|app| {
             app.manage(AppState::from_app(app.handle())?);
             window::create_main_window(app)?;
+            tray::create_tray(app);
+            // Opens the audio device now, so the intro's sound starts without delay.
+            commands::sound::warm_up();
 
             let version = app.package_info().version.to_string();
             tracing::info!(%version, "Harness Desktop started");
@@ -83,6 +87,7 @@ pub fn run() -> ExitCode {
             commands::updates::update_check,
             commands::updates::update_install,
             commands::updates::app_relaunch,
+            commands::sound::launch_sound,
         ])
         .on_page_load(lifecycle::on_page_load)
         .build(tauri::generate_context!());

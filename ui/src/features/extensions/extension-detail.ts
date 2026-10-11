@@ -1,3 +1,5 @@
+import { formatDateTime, relativeTime } from '$lib/utils/format';
+
 import type { ExtItem } from './extension-items';
 import { scopeLabel } from './extension-items';
 
@@ -21,6 +23,13 @@ function present(facts: (Fact | null)[]): Fact[] {
 
 function optional(label: string, value: string | null, options: Partial<Fact> = {}): Fact | null {
   return value ? { label, value, ...options } : null;
+}
+
+/** A timestamp as people read it, `Sep 14, 2026, 12:21 PM · 4 weeks ago`; anything unparsable stays as written. */
+function when(label: string, iso: string | null): Fact | null {
+  const date = iso ? formatDateTime(iso) : '';
+
+  return iso ? { label, value: date ? `${date} · ${relativeTime(iso)}` : iso } : null;
 }
 
 /** The description and key facts of an item, independent of how they are rendered. */
@@ -49,8 +58,8 @@ export function detailBasics(entry: ExtItem): DetailBasics {
         facts: present([
           { label: 'Source type', value: marketplace.sourceType },
           { label: 'Source', value: marketplace.source, mono: true },
-          optional('Added', marketplace.addedAt),
-          optional('Catalog refreshed', marketplace.updatedAt),
+          when('Added', marketplace.addedAt),
+          when('Catalog refreshed', marketplace.updatedAt),
         ]),
       };
     }

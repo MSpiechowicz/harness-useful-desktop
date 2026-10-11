@@ -5,10 +5,9 @@
   import { fade } from 'svelte/transition';
 
   import { focusTrap } from '$lib/a11y/focus-trap';
-  import AuroraCanvas from '$lib/components/AuroraCanvas.svelte';
   import Button from '$lib/components/Button.svelte';
   import IconButton from '$lib/components/IconButton.svelte';
-  import { createSpring, moveSpring, scaled } from '$lib/design/motion';
+  import { scaled } from '$lib/design/motion';
   import { harness } from '$lib/stores/harness.svelte';
   import { motion } from '$lib/stores/motion.svelte';
   import { project } from '$lib/stores/project.svelte';
@@ -18,7 +17,7 @@
   import ApprovalStep from './ApprovalStep.svelte';
   import DoneStep from './DoneStep.svelte';
   import HarnessesStep from './HarnessesStep.svelte';
-  import { AURORA_INTENSITY, STEP_WIDTH, WIDTH } from './layout';
+  import { STEP_WIDTH, WIDTH } from './layout';
   import { onboarding } from './onboarding.svelte';
   import ProjectStep from './ProjectStep.svelte';
   import { stepIn, stepOut } from './step-transition';
@@ -33,13 +32,6 @@
 
     return { delay: afterLockup ? INTRO_LEAD_MS : 0, duration: scaled(300) };
   }
-
-  // The backdrop glows brighter on the bookend steps and settles while the user is choosing.
-  const aurora = createSpring(AURORA_INTENSITY.welcome);
-
-  $effect(() => {
-    moveSpring(aurora, AURORA_INTENSITY[onboarding.step]);
-  });
 
   /** Label of the primary action per step. */
   const primaryLabel = $derived.by(() => {
@@ -80,10 +72,6 @@
     class="fixed inset-0 z-[70] overflow-hidden bg-canvas text-fg outline-none"
   >
     <!-- The canvas colour above is opaque from the first frame, so the shell never shows through; only the layers on top fade in. -->
-    <!-- The aurora dims in the light theme through the same opacity token the shell backdrop uses. -->
-    <div class="pointer-events-none absolute inset-0" style:opacity="var(--aurora-opacity)" aria-hidden="true" in:fade|global={enterFade()}>
-      <AuroraCanvas class="size-full" intensity={aurora.current} animated={motion.level === 'full'} />
-    </div>
 
     {#if onboarding.rerun}
       <div class="absolute top-4 right-4 z-10" in:fade|global={enterFade()}>

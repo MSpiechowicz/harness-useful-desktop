@@ -24,6 +24,7 @@ export class MockState {
     theme: 'system',
     motion: 'full',
     introEnabled: true,
+    soundEnabled: true,
     defaultHarness: null,
     activeProject: null,
     rememberRecentProjects: true,

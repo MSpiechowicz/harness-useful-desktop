@@ -64,7 +64,7 @@
 
   <SettingRow title="When the app starts" description={POLICY_HINTS[policy]}>
     {#snippet control()}
-      <SegmentedControl label="Update policy" options={POLICY_OPTIONS} bind:value={() => policy, (updatePolicy) => void prefs.update({ updatePolicy })} />
+      <SegmentedControl size="md" label="Update policy" options={POLICY_OPTIONS} bind:value={() => policy, (updatePolicy) => void prefs.update({ updatePolicy })} />
     {/snippet}
   </SettingRow>
 
@@ -74,7 +74,7 @@
 
       <p class="min-w-0 flex-1">This build is not set up for updates, so it will not look for new versions. Nothing is wrong. Get new versions from the releases page.</p>
 
-      <Button size="sm" class="shrink-0" onclick={() => void openExternal(RELEASES_URL)}>
+      <Button class="shrink-0" onclick={() => void openExternal(RELEASES_URL)}>
         {#snippet leading()}<ExternalLink size={ICON.sm} aria-hidden="true" />{/snippet}
         Open releases
       </Button>
