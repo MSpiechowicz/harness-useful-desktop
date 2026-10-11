@@ -15,14 +15,14 @@
 // Tauri also rejects a command at runtime ("not allowed by ACL") unless it is listed in `COMMANDS` in
 // `src-tauri/build.rs` and granted as `allow-<kebab-name>` in `src-tauri/capabilities/main.json`, so every
 // Rust command must appear in both, and neither may list a command that does not exist.
-import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 
-import { failWith, listFiles, readText, repoRoot } from "./git-files";
+import { failWith, listFiles, readText, repoRoot } from './git-files';
 
-const COMMANDS_TS = "ui/src/lib/ipc/commands.ts";
-const BUILD_RS = "src-tauri/build.rs";
-const CAPABILITY = "src-tauri/capabilities/main.json";
+const COMMANDS_TS = 'ui/src/lib/ipc/commands.ts';
+const BUILD_RS = 'src-tauri/build.rs';
+const CAPABILITY = 'src-tauri/capabilities/main.json';
 
 // `#[tauri::command]` (optionally with arguments), other attributes/comments, then the fn name.
 const RUST_COMMAND =
@@ -32,7 +32,7 @@ function rustCommandNames(): Set<string> {
   const names = new Set<string>();
 
   for (const path of listFiles()) {
-    if (!path.startsWith("src-tauri/src/") || !path.endsWith(".rs")) {
+    if (!path.startsWith('src-tauri/src/') || !path.endsWith('.rs')) {
       continue;
     }
 
@@ -51,17 +51,15 @@ function tsCommandNames(): Set<string> {
   }
 
   const lines = readText(COMMANDS_TS).split(/\r?\n/);
-  const start = lines.findIndex((line) =>
-    /^export const commands\b/.test(line),
-  );
+  const start = lines.findIndex((line) => /^export const commands\b/.test(line));
   if (start === -1) {
-    failWith("check-ipc-contract: cannot find the command map", [
+    failWith('check-ipc-contract: cannot find the command map', [
       `${COMMANDS_TS} must contain a line starting with "export const commands"`,
     ]);
   }
 
   for (const line of lines.slice(start + 1)) {
-    if (line.startsWith("}")) {
+    if (line.startsWith('}')) {
       break;
     }
 
@@ -76,35 +74,22 @@ function tsCommandNames(): Set<string> {
 
 /** The names in `const COMMANDS: &[&str] = &[ ... ];` of the build script. */
 function aclCommandNames(): Set<string> {
-  const list = /const COMMANDS: &\[&str\] = &\[([^\]]*)\];/.exec(
-    readText(BUILD_RS),
-  );
+  const list = /const COMMANDS: &\[&str\] = &\[([^\]]*)\];/.exec(readText(BUILD_RS));
   if (!list) {
-    failWith("check-ipc-contract: cannot find the ACL command list", [
-      `${BUILD_RS} must define const COMMANDS: &[&str] = &[ ... ];`,
-    ]);
+    failWith('check-ipc-contract: cannot find the ACL command list', [`${BUILD_RS} must define const COMMANDS: &[&str] = &[ ... ];`]);
   }
 
-  return new Set(
-    [...list[1].matchAll(/"([a-z][a-z0-9_]*)"/g)].map((match) => match[1]),
-  );
+  return new Set([...list[1].matchAll(/"([a-z][a-z0-9_]*)"/g)].map((match) => match[1]));
 }
 
 /** App commands granted by the main capability, back in snake_case (plugin and core grants contain a colon). */
 function grantedCommandNames(): Set<string> {
-  const capability = JSON.parse(readText(CAPABILITY)) as {
-    permissions?: unknown[];
-  };
+  const capability = JSON.parse(readText(CAPABILITY)) as { permissions?: unknown[] };
 
   return new Set(
     (capability.permissions ?? [])
-      .filter(
-        (permission): permission is string =>
-          typeof permission === "string" && permission.startsWith("allow-"),
-      )
-      .map((permission) =>
-        permission.slice("allow-".length).replaceAll("-", "_"),
-      ),
+      .filter((permission): permission is string => typeof permission === 'string' && permission.startsWith('allow-'))
+      .map((permission) => permission.slice('allow-'.length).replaceAll('-', '_')),
   );
 }
 
@@ -116,7 +101,7 @@ const rust = rustCommandNames();
 const ts = tsCommandNames();
 
 if (rust.size === 0 && ts.size === 0) {
-  console.log("check-ipc-contract: no IPC commands yet");
+  console.log('check-ipc-contract: no IPC commands yet');
   process.exit(0);
 }
 
@@ -124,29 +109,12 @@ const acl = aclCommandNames();
 const granted = grantedCommandNames();
 
 const problems = [
-  ...difference(rust, ts).map(
-    (name) => `${name}: Rust #[tauri::command] has no entry in ${COMMANDS_TS}`,
-  ),
-  ...difference(ts, rust).map(
-    (name) =>
-      `${name}: listed in ${COMMANDS_TS} but no Rust #[tauri::command] found`,
-  ),
-  ...difference(rust, acl).map(
-    (name) =>
-      `${name}: missing from COMMANDS in ${BUILD_RS} (Tauri rejects it as "not allowed by ACL")`,
-  ),
-  ...difference(acl, rust).map(
-    (name) =>
-      `${name}: listed in COMMANDS in ${BUILD_RS} but no Rust #[tauri::command] found`,
-  ),
-  ...difference(rust, granted).map(
-    (name) =>
-      `${name}: not granted in ${CAPABILITY} (add "allow-${name.replaceAll("_", "-")}")`,
-  ),
-  ...difference(granted, rust).map(
-    (name) =>
-      `${name}: granted in ${CAPABILITY} but no Rust #[tauri::command] found`,
-  ),
+  ...difference(rust, ts).map((name) => `${name}: Rust #[tauri::command] has no entry in ${COMMANDS_TS}`),
+  ...difference(ts, rust).map((name) => `${name}: listed in ${COMMANDS_TS} but no Rust #[tauri::command] found`),
+  ...difference(rust, acl).map((name) => `${name}: missing from COMMANDS in ${BUILD_RS} (Tauri rejects it as "not allowed by ACL")`),
+  ...difference(acl, rust).map((name) => `${name}: listed in COMMANDS in ${BUILD_RS} but no Rust #[tauri::command] found`),
+  ...difference(rust, granted).map((name) => `${name}: not granted in ${CAPABILITY} (add "allow-${name.replaceAll('_', '-')}")`),
+  ...difference(granted, rust).map((name) => `${name}: granted in ${CAPABILITY} but no Rust #[tauri::command] found`),
 ];
 
 if (problems.length > 0) {
