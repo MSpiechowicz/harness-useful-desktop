@@ -208,4 +208,6 @@ jobs:
       - run: cargo test -p harness_desktop
         env:
           HARNESS_REQUIRE_FAKE_AGENT: "1"
-      - run: bunx tauri build --debug --no-bundle
+      # On main the release bundles build the app on every OS right after, so pull requests alone pay for this.
+      - if: ${{ github.event_name == 'pull_request' }}
+        run: bunx tauri build --debug --no-bundle
