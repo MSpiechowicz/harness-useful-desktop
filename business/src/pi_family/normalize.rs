@@ -15,6 +15,46 @@ pub(crate) fn string(value: &Value, key: &str) -> Option<String> {
     value.get(key).and_then(Value::as_str).map(str::to_owned)
 }
 
+/// `text` without terminal escape sequences (colors, cursor moves, OSC links): extensions format
+/// for the TUI, the desktop shows plain text.
+pub(crate) fn plain_text(text: &str) -> String {
+    const ESC: char = '\u{1b}';
+    const BEL: char = '\u{7}';
+
+    let mut plain = String::with_capacity(text.len());
+    let mut chars = text.chars().peekable();
+    while let Some(char) = chars.next() {
+        if char != ESC {
+            plain.push(char);
+            continue;
+        }
+
+        match chars.next() {
+            // CSI: parameters and intermediates up to a final byte in `@`..=`~`.
+            Some('[') => {
+                for char in chars.by_ref() {
+                    if ('@'..='~').contains(&char) {
+                        break;
+                    }
+                }
+            }
+            // OSC: up to BEL or the ESC `\` string terminator.
+            Some(']') => {
+                while let Some(char) = chars.next() {
+                    if char == BEL || (char == ESC && chars.next_if_eq(&'\\').is_some()) {
+                        break;
+                    }
+                }
+            }
+            // Any other escape: intermediates in ` `..=`/` (as in the charset switch `ESC ( B`), then one final.
+            Some(' '..='/') => while chars.next().is_some_and(|char| (' '..='/').contains(&char)) {},
+            _ => {}
+        }
+    }
+
+    plain
+}
+
 /// A non-negative integer field (floats are truncated).
 pub(crate) fn unsigned(value: &Value, key: &str) -> Option<u64> {
     let field = value.get(key)?;
@@ -269,4 +309,23 @@ pub fn tool_result(value: Option<&Value>) -> Value {
     };
 
     json!({ "content": blocks })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::plain_text;
+
+    #[test]
+    fn plain_text_drops_terminal_escapes() {
+        assert_eq!(
+            plain_text("\u{1b}[38;5;215mUsage Dashboard\u{1b}[39m ready"),
+            "Usage Dashboard ready"
+        );
+        assert_eq!(
+            plain_text("\u{1b}]8;;https://example.com\u{7}link\u{1b}]8;;\u{1b}\\ done"),
+            "link done"
+        );
+        assert_eq!(plain_text("\u{1b}(Bplain \u{1b}[1;2Htext"), "plain text");
+        assert_eq!(plain_text("no escapes: 50% [ok]"), "no escapes: 50% [ok]");
+    }
 }

@@ -7,7 +7,7 @@
 
 use serde_json::{Value, json};
 
-use super::normalize::{string, strings, unsigned};
+use super::normalize::{plain_text, string, strings, unsigned};
 use super::rpc::Inbound;
 use crate::model::{AgentEvent, NoticeLevel, UiOutcome, UiRequest, UiRequestKind, UiResponse};
 use crate::security::redact_text;
@@ -25,7 +25,7 @@ pub fn decode_ui_request(frame: &Value) -> Vec<Inbound> {
 
     let dialog = |kind: UiRequestKind| vec![Inbound::UiRequest(UiRequest { id: id.clone(), kind })];
     let event = |event: AgentEvent| vec![Inbound::Event(event)];
-    let title = || string(frame, "title").unwrap_or_default();
+    let title = || plain_text(&string(frame, "title").unwrap_or_default());
     let timeout_ms = || unsigned(frame, "timeout");
 
     match method {
@@ -55,15 +55,18 @@ pub fn decode_ui_request(frame: &Value) -> Vec<Inbound> {
         },
         "notify" => event(AgentEvent::Notice {
             level: notice_level(frame.get("notifyType")),
-            message: redact_text(&string(frame, "message").unwrap_or_default()),
+            message: redact_text(&plain_text(&string(frame, "message").unwrap_or_default())),
         }),
         "setStatus" => event(AgentEvent::Status {
             key: string(frame, "statusKey").unwrap_or_default(),
-            text: string(frame, "statusText"),
+            text: string(frame, "statusText").map(|text| plain_text(&text)),
         }),
         "setWidget" => event(AgentEvent::Widget {
             key: string(frame, "widgetKey").unwrap_or_default(),
-            lines: strings(frame, "widgetLines"),
+            lines: strings(frame, "widgetLines")
+                .iter()
+                .map(|line| plain_text(line))
+                .collect(),
             placement: string(frame, "widgetPlacement").unwrap_or_else(|| DEFAULT_WIDGET_PLACEMENT.to_owned()),
         }),
         "setTitle" => event(AgentEvent::Title { title: title() }),
@@ -118,4 +121,33 @@ pub fn encode_ui_response(response: &UiResponse) -> Value {
 /// Dismisses dialog `id`.
 pub fn cancelled_response(id: &str) -> Value {
     json!({ "type": "extension_ui_response", "id": id, "cancelled": true })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn extension_text_reaches_the_desktop_without_terminal_colors() {
+        let frame = json!({
+            "id": "n1",
+            "method": "notify",
+            "notifyType": "warning",
+            "message": "\u{1b}[38;5;215mUsage Dashboard · Warning\u{1b}[39m \u{1b}[39mHistory could not be saved.\u{1b}[39m",
+        });
+
+        let notice = decode_ui_request(&frame);
+        let [Inbound::Event(AgentEvent::Notice { level, message })] = notice.as_slice() else {
+            panic!("expected one notice");
+        };
+        assert_eq!(*level, NoticeLevel::Warning);
+        assert_eq!(message, "Usage Dashboard · Warning History could not be saved.");
+
+        let frame = json!({ "id": "w1", "method": "setWidget", "widgetKey": "usage", "widgetLines": ["\u{1b}[1mtokens\u{1b}[22m 12k"] });
+        let widget = decode_ui_request(&frame);
+        let [Inbound::Event(AgentEvent::Widget { lines, .. })] = widget.as_slice() else {
+            panic!("expected one widget");
+        };
+        assert_eq!(lines, &["tokens 12k"]);
+    }
 }
