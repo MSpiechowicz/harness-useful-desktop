@@ -138,8 +138,8 @@
  * anti-aliased edge instead of two stacked ones.
  */
 @utility edge-accent {
-  /* The same colour as the accent at 50% over the page, made opaque. */
-  border-color: color-mix(in oklch, var(--color-accent) 50%, var(--canvas));
+  /* The same colour as the accent at 50% over the page, made opaque (in OKLab, see `border-danger-edge`). */
+  border-color: color-mix(in oklab, var(--color-accent) 50%, var(--canvas));
   background-clip: padding-box;
 }
 
@@ -204,10 +204,11 @@
 
 /*
  * An opaque red edge for failed cards: a translucent border (`border-danger/40`) is drawn unevenly on rounded corners,
- * where it overlaps itself, so the colour is mixed with the page instead.
+ * where it overlaps itself, so the colour is mixed with the page instead. Mixed in OKLab, not OKLCH: the canvas grey
+ * carries a faint blue hue, and an OKLCH mix travels the hue wheel from red through magenta, which turned it purple.
  */
 @utility border-danger-edge {
-  border-color: color-mix(in oklch, var(--color-danger) 45%, var(--canvas));
+  border-color: color-mix(in oklab, var(--color-danger) 55%, var(--canvas));
 }
 
 /* A pill button: the harness and project switchers, status toggles. */
