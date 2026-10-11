@@ -1,11 +1,23 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/lockup-dark.svg">
+    <img src="docs/brand/lockup-light.svg" alt="harness desktop" width="430">
+  </picture>
+</p>
+
 # Harness Desktop
 
-Harness Desktop is a native desktop app for coding-agent harness CLIs. It runs on top of the CLI you already have
-installed: chat with the agent in a window, browse its sessions and branches, review the working-tree changes it made
+**Your coding-agent CLI, in a native desktop window.** Harness Desktop is a native desktop app for coding-agent harness
+CLIs. It runs on top of the CLI you already have installed: chat with the agent in a window, browse its sessions and branches, review the working-tree changes it made
 and send your comments back, and read and manage its configuration and extensions. Everything is local: the app has
 no telemetry, no accounts and stores no tokens, and credential files are never read.
 
-<!-- screenshots: added after the visual pass -->
+https://github.com/user-attachments/assets/edf7e511-22ea-454c-988f-8e2639f7f818
+
+<sub>A 73-second tour with sound: chat with live tool calls and subagents, approvals, sessions and branches, review
+comments sent back to the agent, config and extensions, the Harness family and Harness Dashboard data, themes and
+privacy. Made with the app's demo data. [Download the full-quality 4K video](docs/video/harness-desktop-tour.mp4?raw=true)
+(54 MB).</sub>
 
 ## Features
 
