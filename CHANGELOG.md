@@ -1,3 +1,10 @@
+# [0.3.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.2.0...v0.3.0) (2026-10-12)
+
+
+### Features
+
+* the app speaks English, German, Spanish, French and Polish, and the sidebar matches the dashboard ([e324085](https://github.com/MSpiechowicz/harness-useful-desktop/commit/e324085090315b5f5e1854bfdd86299c4d574b74))
+
 # [0.2.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.1.7...v0.2.0) (2026-10-12)
 
 
