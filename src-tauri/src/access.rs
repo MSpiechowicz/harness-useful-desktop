@@ -37,12 +37,7 @@ pub fn link_allowlist(registry: &HarnessRegistry) -> Vec<String> {
 /// but not `.../pi-evil`. Comparing parsed URLs (with `.`/`..` segments resolved) defeats tricks
 /// such as `https://github.com.evil.com/` or `https://github.com@evil.com/`.
 pub fn allowed_link(allowlist: &[String], raw: &str) -> CommandResult<Url> {
-    let url = Url::parse(raw).map_err(|_| refused())?;
-
-    let has_credentials = !url.username().is_empty() || url.password().is_some();
-    if url.scheme() != "https" || has_credentials {
-        return Err(refused());
-    }
+    let url = secure_link(raw)?;
 
     let allowed = allowlist
         .iter()
@@ -50,6 +45,19 @@ pub fn allowed_link(allowlist: &[String], raw: &str) -> CommandResult<Url> {
         .any(|prefix| starts_with_prefix(&url, &prefix));
 
     if allowed { Ok(url) } else { Err(refused()) }
+}
+
+/// Parses `raw` and returns it (normalized) when it is an `https` link without credentials, to any
+/// site; else `Forbidden`. For when the user has chosen to open every web link.
+pub fn secure_link(raw: &str) -> CommandResult<Url> {
+    let url = Url::parse(raw).map_err(|_| refused())?;
+
+    let has_credentials = !url.username().is_empty() || url.password().is_some();
+    if url.scheme() != "https" || has_credentials {
+        return Err(refused());
+    }
+
+    Ok(url)
 }
 
 fn starts_with_prefix(url: &Url, prefix: &Url) -> bool {
@@ -167,6 +175,25 @@ mod tests {
             "",
         ] {
             assert_refused(raw);
+        }
+    }
+
+    #[test]
+    fn any_secure_link_opens_only_over_https_without_credentials() {
+        let url = secure_link("https://github.com/someone/repo/pull/12").expect("allowed");
+        assert_eq!(url.as_str(), "https://github.com/someone/repo/pull/12");
+
+        for raw in [
+            "http://github.com/someone/repo/pull/12",
+            "https://user:pass@github.com/",
+            "javascript:alert(1)",
+            "file:///etc/passwd",
+            "data:text/html,hi",
+            "github.com/someone/",
+            "",
+        ] {
+            let error = secure_link(raw).expect_err(raw);
+            assert_eq!(error.code(), IpcErrorCode::Forbidden, "{raw}");
         }
     }
 

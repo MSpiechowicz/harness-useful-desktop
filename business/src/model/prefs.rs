@@ -104,6 +104,9 @@ pub struct AppPrefs {
     /// Whether the Ecosystem view looks up the latest GitHub release of the companion tools.
     /// Independent of `update_policy`; when off, `ecosystem_releases` makes no request.
     pub check_companion_updates: bool,
+    /// Whether any `https` link (a pull request the agent opened, docs it cites) opens in the browser.
+    /// Off: only project and harness sites do.
+    pub open_any_link: bool,
     /// Whether onboarding was completed.
     pub onboarding_completed: bool,
     /// Whether the one-time approval-mode notice was dismissed.
@@ -134,6 +137,7 @@ impl Default for AppPrefs {
             recent_projects: Vec::new(),
             update_policy: UpdatePolicy::StartupAsk,
             check_companion_updates: true,
+            open_any_link: false,
             onboarding_completed: false,
             approval_notice_seen: false,
             binary_overrides: Vec::new(),

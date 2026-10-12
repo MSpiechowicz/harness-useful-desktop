@@ -4,8 +4,10 @@
 
   import Button from '$lib/components/Button.svelte';
   import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
+  import Switch from '$lib/components/Switch.svelte';
   import { app } from '$lib/stores/app.svelte';
   import { harness } from '$lib/stores/harness.svelte';
+  import { prefs } from '$lib/stores/prefs.svelte';
   import { project } from '$lib/stores/project.svelte';
   import { toasts } from '$lib/stores/toasts.svelte';
 
@@ -60,6 +62,15 @@
       </li>
     {/each}
   </ul>
+
+  <SettingRow
+    title="Open any web link"
+    description="Links in chats, such as a pull request the agent opened, open in your browser. Off: only project and harness sites open. Always https only."
+  >
+    {#snippet control()}
+      <Switch label="Open any web link" bind:checked={() => prefs.value?.openAnyLink ?? false, (openAnyLink) => void prefs.update({ openAnyLink })} />
+    {/snippet}
+  </SettingRow>
 
   <SettingRow title="Recent projects" description="Forget every remembered folder. If your open project is on the list, it is closed too.">
     {#snippet control()}

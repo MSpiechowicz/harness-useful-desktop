@@ -20,7 +20,7 @@ not guaranteed, it says so under [Limits](#limits).
 | A project (cloned repository, hostile files) tries to make the app read secrets or run code | Deny-list and `SafeReader`; hardened git (see [Limits](#limits) for filter drivers); project paths only from the native picker; the app executes no project file itself |
 | Content shown in the UI (agent output, Markdown, config text) tries to script the webview or reach the network | Strict CSP, DOMPurify-sanitized Markdown, no `eval`, no `fetch`; the webview can only call allow-listed commands |
 | The webview (or a compromised dependency) tries to escape through Tauri | ACL grants only app commands; no `core:*`, no plugin permissions; navigation and pop-up guards |
-| A UI bug passes a path or URL the user did not choose | Rust re-validates: active/recent project check, `canonical_within`, link allowlist, argv charset |
+| A UI bug passes a path or URL the user did not choose | Rust re-validates: active/recent project check, `canonical_within`, link allowlist (any `https` URL without credentials when `openAnyLink` is on), argv charset |
 | A tampered or downgraded update | Signature check against the built-in key, signed version, HTTPS only, newer versions only |
 | Credentials leak into logs, prefs or fixtures | Payload-free logging; `prefs.json` holds only the fields of `AppPrefs`; canary tests; fixtures checked for secrets |
 | Another local user reads app data | Prefs directory `0700` and file `0600` on Unix |
@@ -36,7 +36,7 @@ The app contains no analytics client. Its only HTTP clients are the updater and 
 | --- | --- | --- |
 | Update check and download | Only if `plugins.updater.pubkey` in `src-tauri/tauri.conf.json` holds a valid public key (`configured_pubkey`, `business/src/update.rs`), and the user or the update policy asks | One URL: `UPDATE_ENDPOINT`, the GitHub release `latest.json`. The client is `https_only(true)` with 15 s connect and 30 s read timeouts (`src-tauri/src/commands/updates.rs`). The code sends nothing beyond the updater's standard headers. |
 | Companion release lookup | When the Ecosystem view loads or is refreshed, at most once per companion every 6 hours while the app runs (the cache is in memory, so a restart asks again; failed lookups, including rate limits, retry after 5 minutes), and only while **Check companions for updates** (`checkCompanionUpdates` in prefs, on by default) is on. A prefs file that exists but cannot be read counts as off. | Three fixed URLs, `https://api.github.com/repos/MSpiechowicz/harness-useful-{dashboard,skills,sidebar}/releases/latest`, HTTPS only, with timeouts and a capped response. Only `tag_name` is read. The request carries a `User-Agent` (`harness-desktop/<version>`) and an `Accept` header and nothing else: no token, no cookies, no referer, no installed versions or other local data. While at least one companion is installed, all three are requested, so the request set does not reveal which ones (with none installed, nothing is requested); GitHub sees the IP address, the app version and when Ecosystem was opened. The comparison with the installed version happens on this machine (`ecosystem_releases`). Redirects are followed only to `https://api.github.com` on port 443. System proxy settings apply, as for the updater. A failed lookup only means no update badge. |
-| Opening a link | Only when the user clicks one | `open_external` hands an allowlisted `https` URL to the OS browser. The app itself does not fetch it. |
+| Opening a link | Only when the user clicks one | `open_external` hands an allowlisted `https` URL (any `https` URL with **Open any web link** on) to the OS browser. The app itself does not fetch it. |
 
 Everything else:
 
@@ -144,6 +144,13 @@ boundary. The allowlist is two static prefixes (`https://github.com/MSpiechowicz
 `github.com.evil.com`, `github.com@evil.com`, `.../pi-evil` and `javascript:` URLs are refused. Chat Markdown links are
 inert buttons that carry only `http(s)` targets; clicking calls the same command.
 
+The **Open any web link** setting (`openAnyLink`, off by default) widens this to any `https` URL without credentials
+(`secure_link`), so links the agent posts, such as a pull request, open too. Rust reads the preference itself on each
+call and fails closed: a missing or unusable prefs file keeps the allowlist. The setting is UI-managed (the webview
+sets it through `prefs_set`), so it is a user choice rather than a boundary against a compromised webview, which could
+already reach the agent through `agent_send` and `agent_bash`. With it on, the link text is the agent's: the real
+target shows as the link's tooltip, and `https` links to `localhost` or the local network open too.
+
 ## Process spawning
 
 - **No shell.** `build_command` (`business/src/process/mod.rs`) requires an absolute program path and passes the
@@ -233,7 +240,8 @@ Details of keys and releases: [release-and-updater-keys.md](release-and-updater-
 **Server-managed fields** (`business/src/prefs/managed.rs`): `activeProject`, `recentProjects` and `binaryOverrides`
 decide which directories are read and which programs run. Only Rust changes them, through the native pickers and the
 project and harness commands. `prefs_set` stores the UI-managed fields only (`theme`, `motion`, `introEnabled`,
-`defaultHarness`, `rememberRecentProjects`, `updatePolicy`, `onboardingCompleted`, `approvalNoticeSeen`) and keeps the
+`soundEnabled`, `showThinking`, `defaultHarness`, `rememberRecentProjects`, `updatePolicy`, `checkCompanionUpdates`,
+`openAnyLink`, `onboardingCompleted`, `approvalNoticeSeen`, `chatDefaults`) and keeps the
 rest as stored. The exhaustive destructuring in `with_ui_fields` makes a new field fail to compile until it is
 classified. Turning off `rememberRecentProjects` clears the recent list.
 

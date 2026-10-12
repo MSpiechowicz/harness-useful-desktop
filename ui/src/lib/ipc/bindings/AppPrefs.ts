@@ -62,6 +62,11 @@ updatePolicy: UpdatePolicy,
  */
 checkCompanionUpdates: boolean, 
 /**
+ * Whether any `https` link (a pull request the agent opened, docs it cites) opens in the browser.
+ * Off: only project and harness sites do.
+ */
+openAnyLink: boolean, 
+/**
  * Whether onboarding was completed.
  */
 onboardingCompleted: boolean, 

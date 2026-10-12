@@ -38,6 +38,7 @@ export function samplePrefs(overrides: Partial<AppPrefs> = {}): AppPrefs {
     recentProjects: [],
     updatePolicy: 'startupAsk',
     checkCompanionUpdates: true,
+    openAnyLink: false,
     onboardingCompleted: false,
     approvalNoticeSeen: false,
     binaryOverrides: [],

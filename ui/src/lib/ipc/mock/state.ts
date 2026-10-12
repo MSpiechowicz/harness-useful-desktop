@@ -32,6 +32,7 @@ export class MockState {
     recentProjects: [],
     updatePolicy: 'startupAsk',
     checkCompanionUpdates: true,
+    openAnyLink: false,
     onboardingCompleted: false,
     approvalNoticeSeen: false,
     binaryOverrides: [],

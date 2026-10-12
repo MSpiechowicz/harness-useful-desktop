@@ -32,6 +32,7 @@ fn default_prefs_serialize_with_camel_case_fields() {
             "recentProjects": [],
             "updatePolicy": "startupAsk",
             "checkCompanionUpdates": true,
+            "openAnyLink": false,
             "onboardingCompleted": false,
             "approvalNoticeSeen": false,
             "binaryOverrides": []
@@ -55,6 +56,8 @@ fn partial_prefs_fill_defaults_and_ignore_unknown_fields() {
     assert!(prefs.intro_enabled);
     // Files written before the companion check existed turn it on.
     assert!(prefs.check_companion_updates);
+    // Any web link stays closed until the user opts in.
+    assert!(!prefs.open_any_link);
     assert_eq!(prefs.version, 1);
 }
 
