@@ -89,7 +89,7 @@
       </div>
 
       {#if working}
-        <div class="w-56 max-w-full"><UpdateProgress /></div>
+        <UpdateProgress inline />
       {/if}
 
       <div class="flex flex-wrap items-center gap-2">
