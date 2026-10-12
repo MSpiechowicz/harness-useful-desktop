@@ -1,3 +1,10 @@
+## [0.1.6](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.1.5...v0.1.6) (2026-10-12)
+
+
+### Bug Fixes
+
+* agents start when the app is opened from the Finder and the harness is a bun or node script ([ebc098d](https://github.com/MSpiechowicz/harness-useful-desktop/commit/ebc098d60874aeddd69f4a02d29db852e34811e7))
+
 ## [0.1.5](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.1.4...v0.1.5) (2026-10-11)
 
 
