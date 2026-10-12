@@ -12,7 +12,7 @@
 
 <!-- The one bar above the content: history, then the current view's own header (title, state, search, actions).
      Who and where you are (brand, harness, project) live on the rail. -->
-<div class="intro-enter intro-top flex h-12 shrink-0 items-center gap-2 border-b border-line bg-surface-1/70 px-2" style:--intro-delay="60ms">
+<div class="intro-enter intro-top flex h-[52px] shrink-0 items-center gap-2 border-b border-line bg-surface-1/70 px-2" style:--intro-delay="60ms">
   <div class="flex shrink-0 items-center">
     <IconButton icon={ArrowLeft} label={t('common.back')} shortcut="alt+arrowleft" size="sm" side="bottom" disabled={!nav.canGoBack} onclick={() => nav.back()} />
     <IconButton icon={ArrowRight} label={t('shell.topbar.forward')} shortcut="alt+arrowright" size="sm" side="bottom" disabled={!nav.canGoForward} onclick={() => nav.forward()} />
