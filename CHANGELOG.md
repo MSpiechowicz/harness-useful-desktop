@@ -1,3 +1,15 @@
+# [0.2.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.1.7...v0.2.0) (2026-10-12)
+
+
+### Bug Fixes
+
+* Changes and Sessions follow the agent while it works ([93a1bfd](https://github.com/MSpiechowicz/harness-useful-desktop/commit/93a1bfd371a8b70a0087690379f437364b73adc9))
+
+
+### Features
+
+* an "Open any web link" setting lets links from chats open ([30cdfb7](https://github.com/MSpiechowicz/harness-useful-desktop/commit/30cdfb7a5d7167581b59306f70e4bf66de630edf))
+
 ## [0.1.7](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.1.6...v0.1.7) (2026-10-12)
 
 
