@@ -1,3 +1,10 @@
+## [0.1.7](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.1.6...v0.1.7) (2026-10-12)
+
+
+### Bug Fixes
+
+* the update band shows download progress on one line ([6d46479](https://github.com/MSpiechowicz/harness-useful-desktop/commit/6d4647947d30c82e3251ca9c5373f4607d406552))
+
 ## [0.1.6](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.1.5...v0.1.6) (2026-10-12)
 
 
