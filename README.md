@@ -59,6 +59,7 @@ Harness Desktop is one of a set of local tools for coding-agent harnesses:
 | [harness-useful-sidebar](https://github.com/MSpiechowicz/harness-useful-sidebar) | Live token charts and persistent session history for OMP in a tmux sidebar. |
 | [harness-useful-desktop](https://github.com/MSpiechowicz/harness-useful-desktop) | This app: your coding-agent CLI in a native desktop window. |
 | [harness-useful-dashboard](https://github.com/MSpiechowicz/harness-useful-dashboard) | Token usage and cost across your AI coding tools, in one local app. Its data powers the dashboard widgets here. |
+| [harness-useful-skills](https://github.com/MSpiechowicz/harness-useful-skills) | Skills that take a natural-language request to reviewed, verified work. |
 
 ## Install
 
