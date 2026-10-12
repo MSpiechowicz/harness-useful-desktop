@@ -50,6 +50,16 @@ privacy. Made with the app's demo data. [Download the full-quality 4K video](htt
 The app finds the CLI on `PATH` and in the usual install directories (bun, cargo, npm global, `~/.local/bin`, Homebrew), or you can
 choose the executable yourself. It does not install harnesses.
 
+## Harness Useful family
+
+Harness Desktop is one of a set of local tools for coding-agent harnesses:
+
+| Project | What it is |
+| --- | --- |
+| [harness-useful-sidebar](https://github.com/MSpiechowicz/harness-useful-sidebar) | Live token charts and persistent session history for OMP in a tmux sidebar. |
+| [harness-useful-desktop](https://github.com/MSpiechowicz/harness-useful-desktop) | This app: your coding-agent CLI in a native desktop window. |
+| [harness-useful-dashboard](https://github.com/MSpiechowicz/harness-useful-dashboard) | Token usage and cost across your AI coding tools, in one local app. Its data powers the dashboard widgets here. |
+
 ## Install
 
 **macOS and Linux**
