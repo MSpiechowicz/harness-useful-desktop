@@ -11,6 +11,8 @@ import { nav } from './nav.svelte';
 
 /** Up to this many changed files are diffed in one request; beyond it a diff is fetched when its file is selected. */
 const BULK_LIMIT = 200;
+/** Agent edits come in bursts; one re-read follows the last of them by this long. */
+const SOON_MS = 400;
 
 export type LoadStatus = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -46,6 +48,7 @@ export class GitStore {
   private project: string | null = null;
   private generation = 0;
   private diffGeneration = 0;
+  private soonTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(private readonly transport: Transport) {}
 
@@ -79,8 +82,23 @@ export class GitStore {
     }
   }
 
-  /** Re-reads status and branches, then the diffs of the files in view. */
-  async refresh(): Promise<void> {
+  /** Re-reads quietly once a burst of changes (an agent editing files) has passed. */
+  refreshSoon(): void {
+    if (this.soonTimer !== null) {
+      clearTimeout(this.soonTimer);
+    }
+
+    this.soonTimer = setTimeout(() => {
+      this.soonTimer = null;
+      void this.refresh({ quiet: true });
+    }, SOON_MS);
+  }
+
+  /**
+   * Re-reads status and branches, then the diffs of the files in view. A `quiet` refresh happens in the background:
+   * no spinner, and the diffs on screen stay until their new versions arrive.
+   */
+  async refresh({ quiet = false } = {}): Promise<void> {
     const project = this.project;
     if (project === null) {
       return;
@@ -88,7 +106,9 @@ export class GitStore {
 
     this.generation += 1;
     const mine = this.generation;
-    this.refreshing = true;
+    if (!quiet) {
+      this.refreshing = true;
+    }
     if (this.status === null) {
       this.loadStatus = 'loading';
     }
@@ -103,9 +123,10 @@ export class GitStore {
       this.branches = branches;
       this.error = null;
       this.loadStatus = 'ready';
-      this.reload();
+      this.reload(quiet);
     } catch (error) {
-      if (mine === this.generation) {
+      // A background re-read that fails keeps the state on screen; the next one tries again.
+      if (mine === this.generation && !(quiet && this.status !== null)) {
         this.error = IpcFailure.from(error);
         this.loadStatus = 'error';
       }
@@ -170,10 +191,11 @@ export class GitStore {
     void this.fetchDiffs([path]);
   }
 
-  /** The diffs of the files in view are stale: forget them, keep a valid selection, fetch again. */
-  private reload(): void {
+  /** The diffs of the files in view are stale: forget them (or, `quiet`, keep showing them), keep a valid selection, fetch again. */
+  private reload(quiet = false): void {
     this.diffGeneration += 1;
-    this.diffs = {};
+    const visible = new Set(this.entries.map((entry) => entry.path));
+    this.diffs = quiet ? Object.fromEntries(Object.entries(this.diffs).filter(([path, diff]) => visible.has(path) && diff.status === 'ready')) : {};
 
     const stillThere = this.selected !== null && this.entries.some((entry) => entry.path === this.selected);
     if (!stillThere) {
@@ -181,9 +203,9 @@ export class GitStore {
     }
 
     if (this.entries.length > 0 && this.entries.length <= BULK_LIMIT) {
-      void this.fetchDiffs(this.entries.map((entry) => entry.path));
+      void this.fetchDiffs(this.entries.map((entry) => entry.path), quiet);
     } else if (this.selected !== null) {
-      void this.fetchDiffs([this.selected]);
+      void this.fetchDiffs([this.selected], quiet);
     }
   }
 
@@ -191,7 +213,7 @@ export class GitStore {
    * Fetches the diffs of some visible files. Without a filter a bulk request asks for the whole
    * scope, so git can still pair renames; with one it names the paths (and their old names).
    */
-  private async fetchDiffs(paths: string[]): Promise<void> {
+  private async fetchDiffs(paths: string[], quiet = false): Promise<void> {
     const project = this.project;
     if (project === null) {
       return;
@@ -202,7 +224,7 @@ export class GitStore {
     const entries = this.entries.filter((entry) => paths.includes(entry.path));
     const requested = bulk ? [] : entries.flatMap((entry) => (entry.origPath ? [entry.path, entry.origPath] : [entry.path]));
 
-    this.putDiffs(mine, paths, { status: 'loading' });
+    this.putDiffs(mine, quiet ? paths.filter((path) => this.diffs[path]?.status !== 'ready') : paths, { status: 'loading' });
 
     try {
       const found = await this.transport.invoke('git_diff', { project, request: { scope: this.scope, paths: requested } });
@@ -210,7 +232,8 @@ export class GitStore {
         this.putDiffs(mine, [path], { status: 'ready', diffs: found.filter((diff) => diff.path === path) });
       }
     } catch (error) {
-      this.putDiffs(mine, paths, { status: 'error', error: IpcFailure.from(error) });
+      const failed = quiet ? paths.filter((path) => this.diffs[path]?.status !== 'ready') : paths;
+      this.putDiffs(mine, failed, { status: 'error', error: IpcFailure.from(error) });
     }
   }
 
@@ -235,6 +258,10 @@ export class GitStore {
   }
 
   private reset(): void {
+    if (this.soonTimer !== null) {
+      clearTimeout(this.soonTimer);
+      this.soonTimer = null;
+    }
     this.generation += 1;
     this.diffGeneration += 1;
     this.status = null;

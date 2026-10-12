@@ -65,6 +65,38 @@ describe('ViewLoader', () => {
     expect(calls).toHaveLength(2);
   });
 
+  it('re-reads a pair it already holds on revalidate, without a loading state', async () => {
+    const { loader, calls } = recorder();
+    loader.revalidate('omp', '/work/app');
+    await settle();
+
+    loader.revalidate('omp', '/work/app');
+
+    expect(loader.status).toBe('ready');
+    await settle();
+    expect(calls).toHaveLength(2);
+    expect(loader.data).toEqual({ harness: 'omp', project: '/work/app' });
+  });
+
+  it('keeps what is shown when a quiet refresh fails', async () => {
+    let fail = false;
+    const loader = new ViewLoader<string>(async () => {
+      if (fail) {
+        throw new Error('disk busy');
+      }
+
+      return 'sessions';
+    });
+    loader.sync('omp', null);
+    await settle();
+
+    fail = true;
+    await loader.refresh({ quiet: true });
+
+    expect(loader.status).toBe('ready');
+    expect(loader.data).toBe('sessions');
+  });
+
   it('ignores a slow response for a pair that is no longer current', async () => {
     const slow = deferred<Loaded>();
     const loader = new ViewLoader<Loaded>((harness, project) => (harness === 'omp' ? slow.promise : Promise.resolve({ harness, project })));

@@ -39,9 +39,23 @@ export class ViewLoader<T> {
     void this.run();
   }
 
-  /** Re-fetches the current pair; resolves once the new data (or the error) is in place. */
-  refresh(): Promise<void> {
-    return this.target ? this.run() : Promise.resolve();
+  /**
+   * Re-fetches the current pair; resolves once the new data (or the error) is in place. A `quiet` refresh runs in the
+   * background: no loading state, and a failure keeps what is shown.
+   */
+  refresh({ quiet = false } = {}): Promise<void> {
+    return this.target ? this.run(quiet) : Promise.resolve();
+  }
+
+  /** Like `sync`, but a pair already loaded is quietly re-read, so a view shows what changed while it was closed. */
+  revalidate(harness: HarnessId | null, project: string | null): void {
+    const loaded = harness !== null && this.key === `${harness}\u0000${project ?? ''}`;
+
+    if (loaded) {
+      void this.refresh({ quiet: true });
+    } else {
+      this.sync(harness, project);
+    }
   }
 
   private reset(): void {
@@ -53,7 +67,7 @@ export class ViewLoader<T> {
     this.status = 'idle';
   }
 
-  private async run(): Promise<void> {
+  private async run(quiet = false): Promise<void> {
     const target = this.target;
     if (!target) {
       return;
@@ -61,7 +75,9 @@ export class ViewLoader<T> {
 
     this.generation += 1;
     const mine = this.generation;
-    this.status = 'loading';
+    if (!quiet) {
+      this.status = 'loading';
+    }
 
     try {
       const data = await this.fetcher(target.harness, target.project);
@@ -72,7 +88,7 @@ export class ViewLoader<T> {
         this.status = 'ready';
       }
     } catch (error) {
-      if (mine === this.generation) {
+      if (mine === this.generation && !quiet) {
         this.data = null;
         this.error = IpcFailure.from(error);
         this.status = 'error';

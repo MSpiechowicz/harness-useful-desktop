@@ -1,5 +1,5 @@
 import { waitFor } from '@testing-library/svelte';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import type { FileDiff } from '$lib/ipc/bindings/FileDiff';
 import { fixtures } from '$lib/ipc/mock/fixtures';
@@ -147,5 +147,50 @@ describe('changes', () => {
     await waitFor(() => expect(store.diffFor(ENTRIES[0].path)?.status).toBe('ready'));
     const state = store.diffFor(ENTRIES[0].path);
     expect(state?.status === 'ready' ? state.diffs.every((diff: FileDiff) => diff.path === ENTRIES[0].path) : false).toBe(true);
+  });
+
+  it('re-reads quietly after a burst of agent edits, keeping the diffs on screen until the new ones arrive', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      const { store, of } = open();
+      await vi.waitFor(() => expect(store.diffFor(ENTRIES[0].path)?.status).toBe('ready'));
+      const reads = of('git_status').length;
+
+      store.refreshSoon();
+      store.refreshSoon();
+      store.refreshSoon();
+      expect(store.refreshing).toBe(false);
+      vi.advanceTimersByTime(400);
+
+      expect(store.refreshing).toBe(false);
+      expect(store.diffFor(ENTRIES[0].path)?.status).toBe('ready');
+      await vi.waitFor(() => expect(of('git_diff')).toHaveLength(2));
+      expect(of('git_status')).toHaveLength(reads + 1);
+      expect(store.diffFor(ENTRIES[0].path)?.status).toBe('ready');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('keeps what is shown when a background re-read fails, and leaves a user refresh spinning', async () => {
+    const backend = recordingTransport();
+    let fail = false;
+    const flaky: Transport = {
+      invoke: (name, args) => (fail ? Promise.reject(IpcFailure.from({ code: 'process', message: 'index.lock exists' })) : backend.transport.invoke(name, args)),
+    };
+    const store = new GitStore(flaky);
+    store.activate(PROJECT);
+    await loaded(store);
+
+    void store.refresh();
+    fail = true;
+    const quiet = store.refresh({ quiet: true });
+    expect(store.refreshing).toBe(true);
+    await quiet;
+
+    expect(store.loadStatus).toBe('ready');
+    expect(store.error).toBeNull();
+    expect(store.status?.entries).toHaveLength(ENTRIES.length);
+    expect(store.diffFor(ENTRIES[0].path)?.status).toBe('ready');
   });
 });

@@ -47,6 +47,10 @@ export class ChatSession {
   thinkingLevels = $state.raw<string[] | null>(null);
   stats = $state.raw<SessionStats | null>(null);
   catalog = $state.raw<CommandSpec[]>([]);
+  /** Counts finished tool runs: each may have changed files, so git state and the saved session go stale. */
+  toolRuns = $state(0);
+  /** Counts finished turns, as a number that only changes when a turn ends. */
+  settledCount = $derived(this.chat.settledCount);
   ui = $state<SessionUi>({ modelPicker: false, thinkingPicker: false, stats: false, approvalChooser: false, ask: null, confirmBash: null });
 
   approval = $derived<ApprovalPrompt | null>(pendingApproval(this.chat));
@@ -96,8 +100,12 @@ export class ChatSession {
     const before = this.chat;
     let next = before;
 
+    let toolRuns = 0;
     for (const envelope of batch) {
       next = reduceEnvelope(next, envelope);
+      if (envelope.event.type === 'toolEnd') {
+        toolRuns += 1;
+      }
     }
 
     if (next.gaps > before.gaps) {
@@ -105,6 +113,9 @@ export class ChatSession {
     }
 
     this.chat = next;
+    if (toolRuns > 0) {
+      this.toolRuns += toolRuns;
+    }
     this.afterChange(before, next);
   }
 

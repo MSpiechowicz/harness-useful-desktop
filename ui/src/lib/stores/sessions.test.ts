@@ -56,6 +56,41 @@ describe('session detail', () => {
     expect(requests.slice(1).every((request) => request.cursor !== null)).toBe(true);
   });
 
+  it('follows a session being written by re-reading only its newest loaded page', async () => {
+    const backend = recordingTransport();
+    const detail = new SessionDetail(backend.transport, 5);
+    detail.open(REF, PROJECT);
+    await waitFor(() => expect(detail.transcriptStatus).toBe('ready'));
+    await detail.loadMore();
+    const shown = detail.messages.map((message) => message.id);
+    const lastCursor = backend.of('session_messages').at(-1)?.cursor;
+
+    await detail.follow();
+
+    expect(backend.of('session_messages').at(-1)?.cursor).toBe(lastCursor);
+    expect(detail.messages.map((message) => message.id)).toEqual(shown);
+    expect(detail.transcriptStatus).toBe('ready');
+  });
+
+  it('keeps the transcript on screen when following fails', async () => {
+    const backend = recordingTransport();
+    let fail = false;
+    const flaky: Transport = {
+      invoke: (name, args) => (fail ? Promise.reject(IpcFailure.from({ code: 'io', message: 'busy' })) : backend.transport.invoke(name, args)),
+    };
+    const detail = new SessionDetail(flaky, 5);
+    detail.open(REF, PROJECT);
+    await waitFor(() => expect(detail.transcriptStatus).toBe('ready'));
+    const shown = detail.messages;
+
+    fail = true;
+    await detail.follow();
+
+    expect(detail.messages).toBe(shown);
+    expect(detail.transcriptStatus).toBe('ready');
+    expect(detail.treeStatus).toBe('ready');
+  });
+
   it('shows tool results on the card of their call, even across a page boundary', async () => {
     const detail = new SessionDetail(recordingTransport().transport, 2);
 

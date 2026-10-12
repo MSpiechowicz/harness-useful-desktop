@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
+
   import CommandPalette from '$lib/components/CommandPalette.svelte';
   import { agentSessions } from '$lib/stores/agentSession.svelte';
   import { saveWorkspaceWhenReady } from '$lib/stores/workspace.svelte';
@@ -6,7 +8,7 @@
   import { git } from '$lib/stores/git.svelte';
   import { nav } from '$lib/stores/nav.svelte';
   import { project } from '$lib/stores/project.svelte';
-  import { sessionList } from '$lib/stores/sessions.svelte';
+  import { sessionDetail, sessionList } from '$lib/stores/sessions.svelte';
   import { ui } from '$lib/stores/ui-state.svelte';
   import { palette } from '$lib/stores/palette.svelte';
   import { prefs } from '$lib/stores/prefs.svelte';
@@ -28,6 +30,9 @@
   import TopBar from './TopBar.svelte';
   import ViewHost from './ViewHost.svelte';
   import { VIEWS } from './views';
+
+  /** How long after agent activity the sessions list is re-read. */
+  const SESSIONS_SOON_MS = 1000;
 
   let shortcutsOpen = $state(false);
 
@@ -66,6 +71,63 @@
   $effect(() => {
     git.ensure(project.active?.path ?? null);
   });
+
+  // An agent working in the open project edits files and writes its session as it goes: the Changes count and the
+  // sessions list follow in the background instead of waiting for their views to be opened again.
+  // Counted as a number, so streamed text (a new `chat` on every batch) does not count as activity.
+  const activity = $derived.by(() => {
+    const path = project.active?.path ?? null;
+    let total = 0;
+    for (const session of agentSessions.sessions) {
+      if (session.info.project === path) {
+        total += session.toolRuns + session.settledCount;
+      }
+    }
+
+    return total;
+  });
+  let seenActivity = 0;
+
+  $effect(() => {
+    const current = activity;
+    // Closing a tab or switching project lowers the count without anything having changed on disk.
+    const grew = current > seenActivity;
+    seenActivity = current;
+
+    if (grew) {
+      untrack(() => {
+        git.refreshSoon();
+        sessionsSoon();
+      });
+    }
+  });
+
+  $effect(() => () => {
+    if (sessionsTimer !== null) {
+      clearTimeout(sessionsTimer);
+    }
+  });
+
+  // Sessions follow agent activity a beat later than git; a turn writes several entries in quick succession.
+  let sessionsTimer: ReturnType<typeof setTimeout> | null = null;
+  function sessionsSoon(): void {
+    if (sessionsTimer !== null) {
+      clearTimeout(sessionsTimer);
+    }
+
+    sessionsTimer = setTimeout(() => {
+      sessionsTimer = null;
+      void sessionList.refresh({ quiet: true });
+      if (isLive(sessionDetail.ref?.id ?? null)) {
+        void sessionDetail.follow();
+      }
+    }, SESSIONS_SOON_MS);
+  }
+
+  /** Whether a saved session is one an open chat is still running, so its transcript grows. */
+  function isLive(id: string | null): boolean {
+    return id !== null && agentSessions.sessions.some((session) => session.chat.session?.sessionId === id && !session.ended);
+  }
 
   // The update policy runs once the intro and setup have handed over to the shell, never during them.
   $effect(() => {
@@ -127,7 +189,8 @@
   }
 </script>
 
-<svelte:window onkeydown={onKeydown} />
+<!-- Back from a terminal or an editor: a commit or edit made there shows up in the Changes count. -->
+<svelte:window onkeydown={onKeydown} onfocus={() => git.refreshSoon()} />
 
 <div class="relative z-10 flex h-full" data-intro={intro.phase} style:--intro-lead="{INTRO_LEAD_MS}ms" inert={onboarding.visible}>
   <Rail />

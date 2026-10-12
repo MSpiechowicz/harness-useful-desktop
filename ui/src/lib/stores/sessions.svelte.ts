@@ -41,6 +41,8 @@ export class SessionDetail {
 
   private target: SessionTarget | null = null;
   private generation = 0;
+  /** Where the newest loaded page starts: its cursor, and how many messages come before it. */
+  private tail: { cursor: string | null; offset: number } = { cursor: null, offset: 0 };
   /** Which parts of the session being opened have arrived. */
   private settled = { tree: false, page: false };
 
@@ -110,6 +112,7 @@ export class SessionDetail {
     try {
       const page = await this.transport.invoke('session_messages', { session: target.ref, project: target.project, cursor, limit: this.pageSize });
       if (mine === this.generation) {
+        this.tail = { cursor, offset: this.messages.length };
         this.messages = [...this.messages, ...page.messages];
         this.nextCursor = page.nextCursor;
         this.total = page.total;
@@ -129,7 +132,44 @@ export class SessionDetail {
   reload(): void {
     if (this.target) {
       this.generation += 1;
+      this.loadingMore = false;
       void this.load(this.target, this.generation);
+    }
+  }
+
+  /**
+   * Catches up with a session that is still being written, in the background: the newest loaded page is read again
+   * (older pages stay as they are), with the tree and the touched files. A failure keeps what is shown.
+   */
+  async follow(): Promise<void> {
+    const target = this.target;
+    if (!target || this.transcriptStatus !== 'ready' || this.loadingMore) {
+      return;
+    }
+
+    const mine = this.generation;
+    const tail = this.tail;
+
+    try {
+      const [page, tree, touched] = await Promise.all([
+        this.transport.invoke('session_messages', { session: target.ref, project: target.project, cursor: tail.cursor, limit: this.pageSize }),
+        this.transport.invoke('session_tree', { session: target.ref, project: target.project }),
+        this.transport.invoke('session_files_touched', { session: target.ref, project: target.project }),
+      ]);
+      // A newer page or another session arrived meanwhile; this reading is already behind.
+      if (mine !== this.generation || this.tail !== tail || this.loadingMore) {
+        return;
+      }
+
+      this.messages = [...this.messages.slice(0, tail.offset), ...page.messages];
+      this.nextCursor = page.nextCursor;
+      this.total = page.total;
+      this.tree = tree;
+      this.treeError = null;
+      this.treeStatus = 'ready';
+      this.touched = touched;
+    } catch {
+      // The next activity tries again.
     }
   }
 
@@ -144,6 +184,7 @@ export class SessionDetail {
     this.transcriptError = null;
     this.loadingMore = false;
     this.touched = [];
+    this.tail = { cursor: null, offset: 0 };
   }
 
   private async load(target: SessionTarget, generation: number): Promise<void> {
@@ -173,6 +214,7 @@ export class SessionDetail {
       const page = await this.transport.invoke('session_messages', { session: ref, project, cursor: null, limit: this.pageSize });
       if (generation === this.generation) {
         this.settled.page = true;
+        this.tail = { cursor: null, offset: 0 };
         this.messages = page.messages;
         this.nextCursor = page.nextCursor;
         this.total = page.total;

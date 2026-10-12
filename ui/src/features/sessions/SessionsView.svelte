@@ -43,14 +43,14 @@
   const selected = $derived(sessions.find((summary) => summary.ref.id === viewState.sessionId) ?? sessions[0] ?? null);
   const drawer = $derived(width > 0 && width < DRAWER_BELOW_PX);
 
-  // Reload whenever the harness or project changes; the loader ignores a pair it already holds.
+  // Opening this view (or switching harness or project) re-reads the sessions, so ones started since show up.
   $effect(() => {
     const harnessId = active?.info.id ?? null;
     const path = current?.path ?? null;
 
     // The stores read their own state while loading; only the harness and project may re-run this.
     untrack(() => {
-      sessionList.sync(harnessId, path);
+      sessionList.revalidate(harnessId, path);
       git.activate(path);
     });
   });
