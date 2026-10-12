@@ -267,7 +267,12 @@ fn child_path(spec: &ExecSpec, host_env: &[(OsString, Option<OsString>)]) -> Opt
         .rev()
         .find(|(name, _)| is_path_var(name))
         .map(|(_, value)| Some(value.clone()))
-        .or_else(|| host_env.iter().find(|(name, _)| is_path_var(name)).map(|(_, value)| value.clone()))
+        .or_else(|| {
+            host_env
+                .iter()
+                .find(|(name, _)| is_path_var(name))
+                .map(|(_, value)| value.clone())
+        })
         .unwrap_or_else(|| std::env::var_os("PATH"));
 
     appended_path(base.as_deref(), &spec.search_dirs)
@@ -278,7 +283,11 @@ fn child_path(spec: &ExecSpec, host_env: &[(OsString, Option<OsString>)]) -> Opt
 /// entries (the working directory) are dropped.
 fn appended_path(base: Option<&OsStr>, dirs: &[PathBuf]) -> Option<OsString> {
     let mut entries: Vec<PathBuf> = base
-        .map(|base| std::env::split_paths(base).filter(|entry| !entry.as_os_str().is_empty()).collect())
+        .map(|base| {
+            std::env::split_paths(base)
+                .filter(|entry| !entry.as_os_str().is_empty())
+                .collect()
+        })
         .unwrap_or_default();
     let before = entries.len();
 
