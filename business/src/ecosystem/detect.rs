@@ -14,7 +14,7 @@ use crate::harness::{VERSION_TIMEOUT, first_semver};
 use crate::harnesses::omp::{installed_plugins, mark_updates, marketplaces, omp_paths};
 use crate::model::{EcosystemId, EcosystemItem, EcosystemStatus, PluginInfo};
 use crate::pi_family::tilde;
-use crate::process::{ExecSpec, ProcessRunner, ResolvedBinary};
+use crate::process::{ExecSpec, ProcessRunner, ResolvedBinary, launcher_search_dirs};
 
 /// Output cap of the version probe.
 const VERSION_OUTPUT_BYTES: usize = 64 * 1024;
@@ -52,7 +52,7 @@ async fn detect_dashboard(env: &Env, runner: &dyn ProcessRunner, item: &mut Ecos
     item.installed = true;
     item.via.push(format!("binary {}", tilde(env, &binary.path)));
 
-    match dashboard_version(runner, &binary).await {
+    match dashboard_version(env, runner, &binary).await {
         Some(version) => item.version = Some(version),
         None => item
             .notes
@@ -60,9 +60,10 @@ async fn detect_dashboard(env: &Env, runner: &dyn ProcessRunner, item: &mut Ecos
     }
 }
 
-async fn dashboard_version(runner: &dyn ProcessRunner, binary: &ResolvedBinary) -> Option<String> {
+async fn dashboard_version(env: &Env, runner: &dyn ProcessRunner, binary: &ResolvedBinary) -> Option<String> {
     let spec = ExecSpec::new(&binary.path)
         .args(["version"])
+        .search_dirs(launcher_search_dirs(env, &binary.path))
         .timeout(VERSION_TIMEOUT)
         .max_output_bytes(VERSION_OUTPUT_BYTES);
 

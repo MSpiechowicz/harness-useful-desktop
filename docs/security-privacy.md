@@ -152,7 +152,8 @@ inert buttons that carry only `http(s)` targets; clicking calls the same command
 - **Binary resolution.** `resolve_binary` uses absolute `PATH` entries only, then the standard install directories. A
   relative or empty `PATH` entry is ignored, so a project cannot plant a binary. A user-chosen override must be an
   absolute existing file whose name is exactly the harness binary name, and is set only through the native file
-  dialog (`harness_pick_binary`), never through `prefs_set`.
+  dialog (`harness_pick_binary`), never through `prefs_set`. Harness children get the binary's directory and the
+  standard install directories appended (never prepended) to their `PATH`, so the user's own entries keep precedence.
 - **Arguments.** Extension targets pass `cli_target`: non-empty, 512 characters at most, no leading `-`, only
   `A-Z a-z 0-9 @ . _ / : + = , -`, no URL credentials. Windows `.cmd`/`.bat` shims (re-parsed by `cmd.exe`) only
   receive arguments that pass `is_safe_arg` after the leading dashes are removed. The webview sends typed actions,

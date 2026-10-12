@@ -20,7 +20,7 @@ use super::mcp_client::{McpClient, McpOptions, ToolOutput, clean_error_text};
 use crate::env::{Env, OsKind};
 use crate::error::{BusinessError, Result};
 use crate::model::{DashboardAvailability, DashboardQuery, DashboardResult, DashboardTool};
-use crate::process::{ExecSpec, ProcessSpawner, ResolvedBinary, resolve_binary};
+use crate::process::{ExecSpec, ProcessSpawner, ResolvedBinary, launcher_search_dirs, resolve_binary};
 
 /// How the pooled client behaves.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -241,6 +241,7 @@ fn server_spec(env: &Env, binary: &Path) -> ExecSpec {
         .cwd(&env.home)
         .env_remove_prefix("CLAUDE_CODE_SESSION_ID")
         .env("NO_COLOR", "1")
+        .search_dirs(launcher_search_dirs(env, binary))
 }
 
 /// Maps a `tools/call` result: `structuredContent` (or the text parsed as JSON) as `data`, the

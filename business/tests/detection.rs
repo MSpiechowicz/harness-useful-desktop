@@ -236,6 +236,23 @@ async fn a_real_fake_omp_on_path_is_detected() {
     assert!(detection.config_dir_exists);
 }
 
+/// A Finder-launched app has launchd's `PATH`: a bun-installed `omp` (`#!/usr/bin/env bun`) is
+/// found in `~/.bun/bin`, and its interpreter next to it must be found too.
+#[cfg(unix)]
+#[tokio::test]
+async fn a_launcher_script_finds_its_interpreter_outside_the_inherited_path() {
+    let home = TempDir::new().unwrap();
+    let bun_bin = home.path().join(".bun/bin");
+    fake_binary(&bun_bin, "harness-test-bun", "#!/bin/sh\necho omp/18.6.1\n");
+    fake_binary(&bun_bin, "omp", "#!/usr/bin/env harness-test-bun\n");
+    let env = Env::for_tests(home.path()).with_var("PATH", "/usr/bin:/bin");
+
+    let detection = Omp.detect(&env, &TokioRunner, None).await;
+
+    assert_eq!(detection.error, None);
+    assert_eq!(detection.version.as_deref(), Some("18.6.1"));
+}
+
 #[cfg(unix)]
 #[tokio::test]
 async fn the_registry_detects_every_harness_and_honours_overrides() {

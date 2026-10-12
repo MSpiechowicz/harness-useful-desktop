@@ -115,6 +115,20 @@ pub fn extra_search_dirs(env: &Env) -> Vec<PathBuf> {
     dirs
 }
 
+/// Directories a launcher at `program` may need on the child's `PATH`: its own directory (bun and
+/// npm install the interpreter next to their global binaries), then [`extra_search_dirs`].
+pub fn launcher_search_dirs(env: &Env, program: &Path) -> Vec<PathBuf> {
+    let mut dirs: Vec<PathBuf> = program.parent().map(Path::to_path_buf).into_iter().collect();
+
+    for dir in extra_search_dirs(env) {
+        if !dirs.contains(&dir) {
+            dirs.push(dir);
+        }
+    }
+
+    dirs
+}
+
 /// Candidate file names for `name` on `os` (Windows tries executables before batch wrappers).
 fn candidate_names(os: OsKind, name: &str) -> Vec<String> {
     match os {

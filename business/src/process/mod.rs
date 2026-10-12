@@ -21,7 +21,9 @@ mod resolve;
 mod runner;
 mod spawner;
 
-pub use resolve::{ResolvedBinary, extra_search_dirs, find_override, is_batch_script, resolve_binary};
+pub use resolve::{
+    ResolvedBinary, extra_search_dirs, find_override, is_batch_script, launcher_search_dirs, resolve_binary,
+};
 pub use runner::{ExecOutput, ProcessRunner, TokioRunner};
 pub use spawner::{ChildHandle, ProcessSpawner, SpawnedProcess, TokioSpawner};
 
@@ -46,7 +48,8 @@ pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
 pub const DEFAULT_MAX_OUTPUT_BYTES: usize = 1024 * 1024;
 
 /// What to execute. The child inherits the parent environment (with an AppImage launcher's changes
-/// undone) minus the variables named by `env_remove_prefixes`, plus `env` overrides.
+/// undone) minus the variables named by `env_remove_prefixes`, plus `env` overrides, with
+/// `search_dirs` appended to its `PATH`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExecSpec {
     /// Absolute path of the executable (resolve it first, see [`resolve_binary`]).
@@ -64,6 +67,10 @@ pub struct ExecSpec {
     pub timeout: Duration,
     /// Per-stream (stdout, stderr) capture cap for [`ProcessRunner::run`] (ignored by spawners).
     pub max_output_bytes: usize,
+    /// Directories appended to the child's `PATH` when missing from it. Apps started from the
+    /// macOS Finder (and some Linux launchers) lack the login shell's `PATH`, so a launcher script
+    /// such as `#!/usr/bin/env bun` could not find its interpreter without them.
+    pub search_dirs: Vec<PathBuf>,
 }
 
 impl ExecSpec {
@@ -75,6 +82,7 @@ impl ExecSpec {
             cwd: None,
             env: Vec::new(),
             env_remove_prefixes: Vec::new(),
+            search_dirs: Vec::new(),
             timeout: DEFAULT_TIMEOUT,
             max_output_bytes: DEFAULT_MAX_OUTPUT_BYTES,
         }
@@ -106,6 +114,12 @@ impl ExecSpec {
     /// [`ExecSpec::env_remove_prefixes`]).
     pub fn env_remove_prefix(mut self, prefix: impl Into<OsString>) -> Self {
         self.env_remove_prefixes.push(prefix.into());
+        self
+    }
+
+    /// Appends directories to the child's `PATH` (see [`ExecSpec::search_dirs`]).
+    pub fn search_dirs(mut self, dirs: impl IntoIterator<Item = PathBuf>) -> Self {
+        self.search_dirs.extend(dirs);
         self
     }
 
@@ -167,7 +181,11 @@ fn build_command(spec: &ExecSpec, stdin: Stdio) -> Result<Command> {
 
     // Inside an AppImage, give the child the host's environment, not the launcher's.
     #[cfg(unix)]
-    for (name, value) in appimage::host_env(std::env::vars_os()) {
+    let host_env = appimage::host_env(std::env::vars_os());
+    #[cfg(not(unix))]
+    let host_env: Vec<(OsString, Option<OsString>)> = Vec::new();
+
+    for (name, value) in &host_env {
         match value {
             Some(value) => command.env(name, value),
             None => command.env_remove(name),
@@ -189,6 +207,10 @@ fn build_command(spec: &ExecSpec, stdin: Stdio) -> Result<Command> {
 
     if let Some(cwd) = &spec.cwd {
         command.current_dir(cwd);
+    }
+
+    if let Some(path) = child_path(spec, &host_env) {
+        command.env("PATH", path);
     }
 
     #[cfg(unix)]
@@ -224,6 +246,53 @@ fn has_prefix(name: &OsStr, prefix: &OsStr) -> bool {
     } else {
         head == prefix
     }
+}
+
+/// True when variable `name` is `PATH` (any ASCII case on Windows).
+fn is_path_var(name: &OsStr) -> bool {
+    name.len() == 4 && has_prefix(name, OsStr::new("PATH"))
+}
+
+/// The child's `PATH` with `spec.search_dirs` appended, or `None` when nothing is appended.
+/// The base is what the child would otherwise get: the last `PATH` override in `spec.env`, else
+/// the AppImage-restored value in `host_env`, else the inherited one.
+fn child_path(spec: &ExecSpec, host_env: &[(OsString, Option<OsString>)]) -> Option<OsString> {
+    if spec.search_dirs.is_empty() {
+        return None;
+    }
+
+    let base = spec
+        .env
+        .iter()
+        .rev()
+        .find(|(name, _)| is_path_var(name))
+        .map(|(_, value)| Some(value.clone()))
+        .or_else(|| host_env.iter().find(|(name, _)| is_path_var(name)).map(|(_, value)| value.clone()))
+        .unwrap_or_else(|| std::env::var_os("PATH"));
+
+    appended_path(base.as_deref(), &spec.search_dirs)
+}
+
+/// `base` followed by every directory of `dirs` it does not already contain; `None` when nothing
+/// is missing or the result cannot be joined (an entry containing the separator). Empty `base`
+/// entries (the working directory) are dropped.
+fn appended_path(base: Option<&OsStr>, dirs: &[PathBuf]) -> Option<OsString> {
+    let mut entries: Vec<PathBuf> = base
+        .map(|base| std::env::split_paths(base).filter(|entry| !entry.as_os_str().is_empty()).collect())
+        .unwrap_or_default();
+    let before = entries.len();
+
+    for dir in dirs {
+        if !entries.contains(dir) {
+            entries.push(dir.clone());
+        }
+    }
+
+    if entries.len() == before {
+        return None;
+    }
+
+    std::env::join_paths(entries).ok()
 }
 
 /// Spawns `command`, mapping failures to a [`BusinessError`] that names only the program.

@@ -21,7 +21,7 @@ use super::Harness;
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::model::{CliResult, ExtensionAction, MAX_CLI_OUTPUT_BYTES};
-use crate::process::{ExecOutput, ExecSpec, ProcessRunner, ResolvedBinary};
+use crate::process::{ExecOutput, ExecSpec, ProcessRunner, ResolvedBinary, launcher_search_dirs};
 use crate::security::{is_safe_arg, redact_text};
 
 /// Time limit of one CLI action (installs may download packages).
@@ -202,6 +202,7 @@ pub async fn run_cli_action(run: CliRun<'_>) -> Result<CliResult> {
         .cwd(cwd)
         .env("NO_COLOR", "1")
         .env("FORCE_COLOR", "0")
+        .search_dirs(launcher_search_dirs(run.env, &run.binary.path))
         .timeout(CLI_ACTION_TIMEOUT)
         .max_output_bytes(MAX_CLI_OUTPUT_BYTES);
 

@@ -108,6 +108,9 @@ Implement `binary_name` (or rely on `HarnessId::binary_name`), `install_hint`, `
   name is exactly the binary name, see `override_name_matches`), then absolute `PATH` entries, then the usual install
   directories (`~/.bun/bin`, `~/.local/bin`, `~/.cargo/bin`, `~/.npm-global/bin`, Homebrew paths on macOS, `/usr/local/bin`). A shell is never asked for `PATH`. Relative `PATH` entries are
   ignored.
+- Every spawn of the binary (version probe, CLI actions, RPC launch) appends the binary's own directory and the same
+  install directories to the child's `PATH` (`launcher_search_dirs`, `ExecSpec::search_dirs`): an app started from
+  the Finder has launchd's `PATH`, and a launcher such as `#!/usr/bin/env bun` must still find its interpreter.
 - It runs `<binary> <version_args>` through a `ProcessRunner` with `VERSION_TIMEOUT` (5 s) and a 64 KiB output cap,
   and reports the config directory from `paths(env, None).config_root`.
 - Failures become a short secret-free `Detection.error`; a missing binary yields `install_hint`.

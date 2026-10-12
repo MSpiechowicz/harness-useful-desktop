@@ -10,7 +10,7 @@ use regex::Regex;
 use super::Harness;
 use crate::env::{Env, OsKind};
 use crate::model::{Detection, VersionSupport};
-use crate::process::{ExecSpec, ProcessRunner, ResolvedBinary, resolve_binary};
+use crate::process::{ExecSpec, ProcessRunner, ResolvedBinary, launcher_search_dirs, resolve_binary};
 use crate::security::is_safe_arg;
 
 /// Time limit for the `--version` probe.
@@ -91,7 +91,7 @@ pub(super) async fn detect<H: Harness + ?Sized>(
             detection.binary_path = Some(binary.path.to_string_lossy().into_owned());
             detection.is_batch_script = binary.is_batch_script;
 
-            match probe_version(harness, runner, &binary).await {
+            match probe_version(harness, env, runner, &binary).await {
                 Ok(version) => {
                     detection.version_support = harness.version_support(&version);
                     detection.version = Some(version);
@@ -112,6 +112,7 @@ pub(super) async fn detect<H: Harness + ?Sized>(
 /// Runs `<binary> <version args>` (never through a shell) and parses the version.
 async fn probe_version<H: Harness + ?Sized>(
     harness: &H,
+    env: &Env,
     runner: &dyn ProcessRunner,
     binary: &ResolvedBinary,
 ) -> Result<String, String> {
@@ -127,6 +128,7 @@ async fn probe_version<H: Harness + ?Sized>(
 
     let spec = ExecSpec::new(&binary.path)
         .args(args.iter().copied())
+        .search_dirs(launcher_search_dirs(env, &binary.path))
         .timeout(VERSION_TIMEOUT)
         .max_output_bytes(VERSION_OUTPUT_BYTES);
 

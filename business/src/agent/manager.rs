@@ -21,7 +21,7 @@ use crate::error::{BusinessError, Result};
 use crate::harness::{Harness, LaunchRequest};
 use crate::model::{AgentAction, AgentReply, AgentSessionInfo, AgentStartRequest, BashOutput, UiResponse};
 use crate::pi_family::sessions::is_safe_session_id;
-use crate::process::{ProcessSpawner, ResolvedBinary};
+use crate::process::{ProcessSpawner, ResolvedBinary, launcher_search_dirs};
 use crate::security::validate_project_dir;
 
 /// Sessions that may run at once.
@@ -127,13 +127,15 @@ impl AgentManager {
         let approval_override = request.approval_override.filter(|_| capabilities.approval_modes);
         let trust_once = request.trust_once && capabilities.project_trust;
 
-        let spec = harness.launch_spec(&LaunchRequest {
-            binary: &deps.binary,
-            project: &project,
-            resume,
-            approval_override,
-            trust_once,
-        })?;
+        let spec = harness
+            .launch_spec(&LaunchRequest {
+                binary: &deps.binary,
+                project: &project,
+                resume,
+                approval_override,
+                trust_once,
+            })?
+            .search_dirs(launcher_search_dirs(deps.env, &deps.binary.path));
 
         let _reservation = self.reserve()?;
         let key = (self.options.key)();
