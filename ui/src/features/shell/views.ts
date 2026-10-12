@@ -6,6 +6,7 @@ import Orbit from '@lucide/svelte/icons/orbit';
 import Settings from '@lucide/svelte/icons/settings';
 import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
 
+import { t } from '$lib/i18n/i18n.svelte';
 import type { IconComponent } from '$lib/components/icon';
 import type { ViewId } from '$lib/stores/nav.svelte';
 
@@ -13,6 +14,8 @@ export interface ViewMeta {
   id: ViewId;
   label: string;
   icon: IconComponent;
+  /** Rail group heading shown above this view, which starts a new group. */
+  section?: string;
   /** Empty-state copy for views whose feature has not shipped yet. */
   heading: string;
   body: string;
@@ -22,52 +25,100 @@ export interface ViewMeta {
 export const VIEWS: readonly ViewMeta[] = [
   {
     id: 'chat',
-    label: 'Chat',
+    get label() {
+      return t('shell.view.chat');
+    },
     icon: MessageSquare,
-    heading: 'Talk to your agent',
-    body: 'Stream responses, follow tool calls and steer your harness without leaving the window.',
+    get heading() {
+      return t('shell.view.chat.heading');
+    },
+    get body() {
+      return t('shell.view.chat.body');
+    },
   },
   {
     id: 'sessions',
-    label: 'Sessions',
+    get label() {
+      return t('shell.view.sessions');
+    },
     icon: GitBranch,
-    heading: 'Every session, one timeline',
-    body: 'Browse, resume and fork sessions, and see which branch each one ran on.',
+    get heading() {
+      return t('shell.view.sessions.heading');
+    },
+    get body() {
+      return t('shell.view.sessions.body');
+    },
   },
   {
     id: 'changes',
-    label: 'Changes',
+    get label() {
+      return t('shell.view.changes');
+    },
     icon: GitCompare,
-    heading: 'Review what the agent changed',
-    body: 'A graphical diff of your working tree. Comment on any line and send it straight back to the agent.',
+    get heading() {
+      return t('shell.view.changes.heading');
+    },
+    get body() {
+      return t('shell.view.changes.body');
+    },
   },
   {
     id: 'config',
-    label: 'Config',
+    get label() {
+      return t('shell.view.config');
+    },
+    get section() {
+      return t('shell.section.harness');
+    },
     icon: SlidersHorizontal,
-    heading: 'Your harness configuration, readable',
-    body: 'Settings, MCP servers and profiles from OMP and PI in one place, with secrets safely masked.',
+    get heading() {
+      return t('shell.view.config.heading');
+    },
+    get body() {
+      return t('shell.view.config.body');
+    },
   },
   {
     id: 'extensions',
-    label: 'Extensions',
+    get label() {
+      return t('shell.view.extensions');
+    },
     icon: Blocks,
-    heading: 'Plugins, skills and MCP',
-    body: 'Manage plugins, marketplaces, skills and themes, with a dry-run preview before anything changes.',
+    get heading() {
+      return t('shell.view.extensions.heading');
+    },
+    get body() {
+      return t('shell.view.extensions.body');
+    },
   },
   {
     id: 'ecosystem',
-    label: 'Ecosystem',
+    get label() {
+      return t('shell.view.ecosystem');
+    },
     icon: Orbit,
-    heading: 'The Harness Useful ecosystem',
-    body: 'Dashboard, skills and sidebar at a glance, with live usage and cost from your dashboard.',
+    get heading() {
+      return t('shell.view.ecosystem.heading');
+    },
+    get body() {
+      return t('shell.view.ecosystem.body');
+    },
   },
   {
     id: 'settings',
-    label: 'Settings',
+    get label() {
+      return t('shell.view.settings');
+    },
+    get section() {
+      return t('shell.section.app');
+    },
     icon: Settings,
-    heading: 'Settings',
-    body: 'Theme, motion and startup behavior.',
+    get heading() {
+      return t('shell.view.settings.heading');
+    },
+    get body() {
+      return t('shell.view.settings.body');
+    },
   },
 ];
 

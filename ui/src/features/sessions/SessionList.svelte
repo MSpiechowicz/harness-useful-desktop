@@ -3,6 +3,7 @@
 
   import SearchField from '$lib/components/SearchField.svelte';
   import VirtualList from '$lib/components/VirtualList.svelte';
+  import { t } from '$lib/i18n/i18n.svelte';
   import type { SessionSummary } from '$lib/ipc/bindings/SessionSummary';
   import { cx } from '$lib/utils/cx';
   import { formatBytes, relativeTime } from '$lib/utils/format';
@@ -41,14 +42,14 @@
 
 <div class="flex min-h-0 flex-1 flex-col">
   <div class="px-3 pt-3 pb-2">
-    <SearchField bind:value={query} label="Search sessions" placeholder="Search sessions…" />
+    <SearchField bind:value={query} label={t('sessions.list.search')} placeholder={t('sessions.list.searchPlaceholder')} />
   </div>
 
   {#if shown.length === 0}
-    <p class="p-6 text-center text-sm text-fg-3" role="status">{query === '' ? 'No saved sessions for this project yet.' : 'No session matches that search.'}</p>
+    <p class="p-6 text-center text-sm text-fg-3" role="status">{query === '' ? t('sessions.list.empty') : t('sessions.list.noMatch')}</p>
   {:else}
     <div bind:this={container} class="min-h-0 flex-1" role="presentation" onkeydown={onKeydown}>
-      <VirtualList items={shown} estimate={ROW_PX} overscan={8} label="Sessions" key={(summary) => summary.ref.id} class="size-full">
+      <VirtualList items={shown} estimate={ROW_PX} overscan={8} label={t('sessions.list.label')} key={(summary) => summary.ref.id} class="size-full">
         {#snippet row(summary)}
           {@const selected = summary.ref.id === selectedId}
           <!-- The same row as the plugin lists: a rounded card inset from the edges, outlined when selected. -->
@@ -68,7 +69,7 @@
                 <span>{relativeTime(summary.updatedAt)}</span>
                 {#if summary.model}<span class="truncate">· {summary.model}</span>{/if}
                 <span class="shrink-0">· {formatBytes(summary.sizeBytes)}</span>
-                {#if summary.parentSession}<GitFork size={16} class="shrink-0" aria-label="Forked from another session" />{/if}
+                {#if summary.parentSession}<GitFork size={16} class="shrink-0" aria-label={t('sessions.list.forked')} />{/if}
               </span>
             </button>
           </div>

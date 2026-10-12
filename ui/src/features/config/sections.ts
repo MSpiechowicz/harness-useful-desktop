@@ -1,18 +1,28 @@
+import { t } from '$lib/i18n/i18n.svelte';
 import type { ConfigFormat } from '$lib/ipc/bindings/ConfigFormat';
 import type { ConfigLayer } from '$lib/ipc/bindings/ConfigLayer';
 import type { ConfigSection } from '$lib/ipc/bindings/ConfigSection';
 
+/** Getters, so a title follows the language on screen. */
 export const LAYER_TITLES: Record<ConfigLayer, string> = {
-  user: 'User',
-  profile: 'Profile',
-  project: 'Project',
+  get user() {
+    return t('config.layer.user');
+  },
+  get profile() {
+    return t('config.layer.profile');
+  },
+  get project() {
+    return t('config.layer.project');
+  },
 };
 
 export const FORMAT_LABELS: Record<ConfigFormat, string> = {
   yaml: 'YAML',
   json: 'JSON',
   markdown: 'Markdown',
-  text: 'Text',
+  get text() {
+    return t('config.format.text');
+  },
 };
 
 const LAYER_ORDER: ConfigLayer[] = ['user', 'profile', 'project'];

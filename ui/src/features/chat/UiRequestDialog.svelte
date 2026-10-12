@@ -5,6 +5,7 @@
   import type { UiRequest } from '$lib/ipc/bindings/UiRequest';
   import { autofocus } from '$lib/a11y/autofocus';
   import { rovingIndex } from '$lib/utils/roving';
+  import { t } from '$lib/i18n/i18n.svelte';
 
   import Countdown from './Countdown.svelte';
 
@@ -65,7 +66,7 @@
 
 <Dialog open title={kind.title} size={kind.type === 'editor' ? 'lg' : 'md'} onclose={cancel}>
   {#if timeoutMs}
-    <div class="mb-3 flex items-center gap-2 text-sm text-fg-3">Closes by itself when the time runs out <Countdown {timeoutMs} requestId={request.id} ontimeout={cancel} /></div>
+    <div class="mb-3 flex items-center gap-2 text-sm text-fg-3">{t('chat.request.closes')} <Countdown {timeoutMs} requestId={request.id} ontimeout={cancel} /></div>
   {/if}
 
   {#if kind.type === 'select'}
@@ -111,13 +112,13 @@
 
   {#snippet footer()}
     {#if kind.type === 'confirm'}
-      <Button onclick={() => void session.respond(request.id, { type: 'confirmed', confirmed: false })}>No</Button>
-      <Button variant="primary" onclick={() => void session.respond(request.id, { type: 'confirmed', confirmed: true })}>Yes</Button>
+      <Button onclick={() => void session.respond(request.id, { type: 'confirmed', confirmed: false })}>{t('chat.request.no')}</Button>
+      <Button variant="primary" onclick={() => void session.respond(request.id, { type: 'confirmed', confirmed: true })}>{t('chat.request.yes')}</Button>
     {:else if kind.type === 'input' || kind.type === 'editor'}
-      <Button onclick={cancel}>Cancel</Button>
-      <Button variant="primary" onclick={submitText}>Submit</Button>
+      <Button onclick={cancel}>{t('chat.request.cancel')}</Button>
+      <Button variant="primary" onclick={submitText}>{t('chat.request.submit')}</Button>
     {:else}
-      <Button onclick={cancel}>Cancel</Button>
+      <Button onclick={cancel}>{t('chat.request.cancel')}</Button>
     {/if}
   {/snippet}
 </Dialog>

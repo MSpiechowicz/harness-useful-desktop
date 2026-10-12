@@ -13,6 +13,7 @@
   import type { CommandSpec } from '$lib/ipc/bindings/CommandSpec';
   import { uid } from '$lib/utils/ids';
   import { isMacPlatform } from '$lib/utils/shortcuts';
+  import { t } from '$lib/i18n/i18n.svelte';
 
   import ContextMeter from './ContextMeter.svelte';
   import ModelPicker from './ModelPicker.svelte';
@@ -43,7 +44,7 @@
   const canSend = $derived(session.draft.trim() !== '' && !session.ended);
   const queued = $derived(session.chat.queue.steering.length + session.chat.queue.followUp.length);
 
-  const placeholder = $derived(bash ? 'Shell command to run in the project…' : session.streaming ? 'Steer the agent, or queue a follow-up…' : 'Message the agent…');
+  const placeholder = $derived(bash ? t('chat.composer.placeholder.bash') : session.streaming ? t('chat.composer.placeholder.streaming') : t('chat.composer.placeholder'));
 
   $effect(() => {
     void suggestions;
@@ -147,12 +148,12 @@
   {/if}
 
   {#if queued > 0}
-    <ul class="mb-2 flex flex-wrap gap-1.5" aria-label="Queued messages">
+    <ul class="mb-2 flex flex-wrap gap-1.5" aria-label={t('chat.composer.queued')}>
       {#each session.chat.queue.steering as message, index (`s${index}`)}
-        <li><Badge tone="accent">Steering: {message.slice(0, 48)}</Badge></li>
+        <li><Badge tone="accent">{t('chat.composer.steering', { text: message.slice(0, 48) })}</Badge></li>
       {/each}
       {#each session.chat.queue.followUp as message, index (`f${index}`)}
-        <li><Badge tone="info">Next: {message.slice(0, 48)}</Badge></li>
+        <li><Badge tone="info">{t('chat.composer.next', { text: message.slice(0, 48) })}</Badge></li>
       {/each}
     </ul>
   {/if}
@@ -161,7 +162,7 @@
     class="border-card rounded-lg border-line-strong bg-surface-1 bg-clip-padding transition-[border-color] duration-[var(--dur-fast)] focus-within:border-[color-mix(in_oklch,var(--color-fg)_28%,var(--surface-1))]"
   >
     {#if bash}
-      <p class="flex items-center gap-1.5 px-4 pt-3 text-xs text-warning"><Terminal size={14} aria-hidden="true" /> Shell command · you confirm it before it runs</p>
+      <p class="flex items-center gap-1.5 px-4 pt-3 text-xs text-warning"><Terminal size={14} aria-hidden="true" /> {t('chat.composer.bashHint')}</p>
     {/if}
 
     <textarea
@@ -171,7 +172,7 @@
       {onkeydown}
       rows="1"
       disabled={session.ended}
-      aria-label="Message"
+      aria-label={t('chat.composer.aria')}
       role="combobox"
       aria-expanded={menuOpen}
       aria-controls={menuOpen ? menuId : undefined}
@@ -191,13 +192,13 @@
         <ContextMeter usage={session.chat.session?.contextUsage ?? null} />
 
         {#if session.streaming}
-          <Button size="sm" variant="ghost" disabled={!canSend} onclick={() => void submit('followUp')}>Follow-up</Button>
-          <Button size="sm" variant="secondary" disabled={!canSend} onclick={() => void submit('steer')}>Steer</Button>
-          <Button size="sm" variant="danger" class="size-8 rounded-full! px-0!" aria-label="Stop" onclick={() => void session.abort()}>
+          <Button size="sm" variant="ghost" disabled={!canSend} onclick={() => void submit('followUp')}>{t('chat.composer.followUp')}</Button>
+          <Button size="sm" variant="secondary" disabled={!canSend} onclick={() => void submit('steer')}>{t('chat.composer.steer')}</Button>
+          <Button size="sm" variant="danger" class="size-8 rounded-full! px-0!" aria-label={t('chat.composer.stop')} onclick={() => void session.abort()}>
             <Square size={12} aria-hidden="true" class="fill-current" />
           </Button>
         {:else}
-          <Button size="sm" variant="primary" class="size-8 rounded-full! px-0!" aria-label={bash ? 'Review command' : 'Send'} disabled={!canSend} onclick={() => void submit('send')}>
+          <Button size="sm" variant="primary" class="size-8 rounded-full! px-0!" aria-label={bash ? t('chat.composer.reviewCommand') : t('chat.composer.send')} disabled={!canSend} onclick={() => void submit('send')}>
             {#if bash}<Terminal size={16} aria-hidden="true" />{:else}<ArrowUp size={18} strokeWidth={2.25} aria-hidden="true" />{/if}
           </Button>
         {/if}
@@ -207,9 +208,9 @@
 
   <p class="mt-2 truncate text-center text-xs text-fg-3">
     {#if session.streaming}
-      Enter steers the agent · {isMacPlatform() ? '⌘' : 'Ctrl'}+Enter queues a follow-up
+      {t('chat.composer.hint.streaming', { mod: isMacPlatform() ? '⌘' : 'Ctrl' })}
     {:else}
-      Enter to send · Shift+Enter for a new line
+      {t('chat.composer.hint')}
     {/if}
   </p>
 </div>

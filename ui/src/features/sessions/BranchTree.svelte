@@ -4,6 +4,7 @@
   import { tick } from 'svelte';
 
   import VirtualList from '$lib/components/VirtualList.svelte';
+  import { t, tn } from '$lib/i18n/i18n.svelte';
   import type { SessionTree } from '$lib/ipc/bindings/SessionTree';
   import { cx } from '$lib/utils/cx';
   import { uid } from '$lib/utils/ids';
@@ -84,7 +85,7 @@
 
 <!-- Arrow keys move through the rows; the list itself is a plain scroller. -->
 <div bind:this={container} class="size-full" role="presentation" onkeydown={onKeydown}>
-  <VirtualList bind:this={list} items={layout.rows} estimate={ROW_PX} overscan={12} label="Session branches" key={(row) => row.key} class="size-full">
+  <VirtualList bind:this={list} items={layout.rows} estimate={ROW_PX} overscan={12} label={t('sessions.tree.label')} key={(row) => row.key} class="size-full">
     {#snippet row(item, index)}
       {@const node = item.node}
       {@const isSelected = item.key === selected}
@@ -94,7 +95,7 @@
         data-active-path={item.active}
         aria-current={isSelected ? 'true' : undefined}
         tabindex={isSelected || (selected === null && index === 0) ? 0 : -1}
-        title={node ? nodeTooltip(node) : `Show ${item.folded.length} more messages`}
+        title={node ? nodeTooltip(node) : tn('sessions.tree.showFolded', item.folded.length)}
         class={cx('flex w-full items-center gap-1 pr-3 text-left transition-colors duration-[var(--dur-fast)]', isSelected ? 'bg-accent-wash' : 'hover:bg-hover active:bg-press')}
         style:height="{ROW_PX}px"
         onclick={() => activate(item)}
@@ -110,10 +111,10 @@
             <span class="inline-flex shrink-0 items-center gap-1 rounded-full bg-info-wash px-2 text-xs text-info"><Tag size={16} aria-hidden="true" />{node.label}</span>
           {/if}
           {#if item.branchPoint}
-            <span class="inline-flex shrink-0 items-center gap-1 text-xs text-accent-text" title="{node.childCount} branches start here"><GitFork size={16} aria-hidden="true" />{node.childCount}<span class="sr-only">{' branches'}</span></span>
+            <span class="inline-flex shrink-0 items-center gap-1 text-xs text-accent-text" title={tn('sessions.tree.startHere', node.childCount)}><GitFork size={16} aria-hidden="true" />{node.childCount}<span class="sr-only">{` ${tn('sessions.tree.branchWord', node.childCount)}`}</span></span>
           {/if}
         {:else}
-          <span class="min-w-0 flex-1 truncate text-sm text-fg-3 italic">{item.folded.length} more messages</span>
+          <span class="min-w-0 flex-1 truncate text-sm text-fg-3 italic">{tn('sessions.tree.folded', item.folded.length)}</span>
         {/if}
       </button>
     {/snippet}

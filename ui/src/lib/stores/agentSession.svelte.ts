@@ -1,6 +1,7 @@
 import { applyChatDefaults } from '$lib/chat/chat-defaults';
 import { SvelteMap } from 'svelte/reactivity';
 
+import { t } from '$lib/i18n/i18n.svelte';
 import { ChatSession } from '$lib/chat/session.svelte';
 import type { AgentEnvelope } from '$lib/ipc/bindings/AgentEnvelope';
 import type { AgentStartRequest } from '$lib/ipc/bindings/AgentStartRequest';
@@ -42,7 +43,7 @@ export class AgentSessionsStore {
 
   /** A tab's title: the name the agent gave the chat, else "Chat N". */
   title(key: string): string {
-    return this.get(key)?.name ?? `Chat ${this.numbers.get(key) ?? 1}`;
+    return this.get(key)?.name ?? t('chat.tab.default', { number: this.numbers.get(key) ?? 1 });
   }
 
   private nextNumber(): number {
@@ -80,7 +81,7 @@ export class AgentSessionsStore {
       session = new ChatSession(info, this.transport, this.notifications);
     } catch (error) {
       if (!quiet) {
-        this.notifications.push({ title: 'Could not start the agent', description: IpcFailure.from(error).message, tone: 'danger' });
+        this.notifications.push({ title: t('chat.toast.startFailed'), description: IpcFailure.from(error).message, tone: 'danger' });
       }
 
       return null;
@@ -145,7 +146,7 @@ export class AgentSessionsStore {
     try {
       await this.transport.invoke('agent_stop', { key });
     } catch (error) {
-      this.notifications.push({ title: 'Could not stop the agent', description: IpcFailure.from(error).message, tone: 'warning' });
+      this.notifications.push({ title: t('chat.toast.stopFailed'), description: IpcFailure.from(error).message, tone: 'warning' });
     }
   }
 
@@ -232,7 +233,7 @@ export class AgentSessionsStore {
 
       return true;
     } catch (error) {
-      this.notifications.push({ title: 'Could not move the chat', description: IpcFailure.from(error).message, tone: 'warning' });
+      this.notifications.push({ title: t('chat.toast.moveFailed'), description: IpcFailure.from(error).message, tone: 'warning' });
 
       return false;
     }

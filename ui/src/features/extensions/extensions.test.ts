@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/sve
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import type { ExtensionsView } from '$lib/ipc/bindings/ExtensionsView';
+import { i18n } from '$lib/i18n/i18n.svelte';
 import { harness } from '$lib/stores/harness.svelte';
 import { prefs } from '$lib/stores/prefs.svelte';
 import { extensionsView } from '$lib/stores/views.svelte';
@@ -109,5 +110,27 @@ describe('items', () => {
 
     expect(filterItems(entries, 'REMOTE')).toHaveLength(1);
     expect(filterItems(entries, 'nothing')).toHaveLength(0);
+  });
+});
+
+describe('in Polish', () => {
+  it('translates the tabs and counts a marketplace\'s plugins with the Polish plural forms', async () => {
+    await i18n.load('pl');
+    const marketplace = (entries: number) => ({ name: 'demo', source: 'a/b', sourceType: 'github', error: null, entries: Array.from({ length: entries }, (_, index) => ({ name: `p${index}` })) });
+    const view = { marketplaces: [marketplace(1)] } as unknown as ExtensionsView;
+
+    expect(buildItems('marketplaces', view)[0].badges.map((badge) => badge.label)).toContain('1 wtyczka');
+    for (const [count, label] of [[2, '2 wtyczki'], [5, '5 wtyczek'], [22, '22 wtyczki']] as const) {
+      view.marketplaces = [marketplace(count)] as never;
+
+      expect(buildItems('marketplaces', view)[0].badges.map((badge) => badge.label)).toContain(label);
+    }
+
+    prefs.value = samplePrefs({ motion: 'off', defaultHarness: 'omp' });
+    render(ExtensionsViewer);
+    await screen.findByRole('tab', { name: /Skille/ });
+
+    expect(tabNames()).toEqual(['Wtyczki', 'Marketplace’y', 'Skille', 'Serwery MCP', 'Motywy', 'Moduły']);
+    expect(screen.getByRole('searchbox', { name: 'Szukaj wtyczek' })).toBeInTheDocument();
   });
 });

@@ -1,9 +1,25 @@
+import { t, type MessageKey } from '$lib/i18n/i18n.svelte';
+
 import { VIEWS, viewShortcut } from './views';
 
 export type ShortcutArea = 'Global' | 'Go to' | 'Chat composer' | 'Review & diff' | 'Sessions & lists' | 'Command palette';
 
 /** Order of the areas in the shortcuts overlay. */
 export const SHORTCUT_AREAS: readonly ShortcutArea[] = ['Global', 'Go to', 'Chat composer', 'Review & diff', 'Sessions & lists', 'Command palette'];
+
+const AREA_KEYS: Record<ShortcutArea, MessageKey> = {
+  Global: 'shell.shortcuts.area.global',
+  'Go to': 'shell.shortcuts.area.goTo',
+  'Chat composer': 'shell.shortcuts.area.composer',
+  'Review & diff': 'shell.shortcuts.area.review',
+  'Sessions & lists': 'shell.shortcuts.area.lists',
+  'Command palette': 'shell.shortcuts.area.palette',
+};
+
+/** The area's name in the language on screen; the area itself stays an id. */
+export function areaLabel(area: ShortcutArea): string {
+  return t(AREA_KEYS[area]);
+}
 
 /** A shortcut the shell itself handles. */
 export interface ShortcutAction {
@@ -50,52 +66,54 @@ export function globalShortcuts(shell: ShellCommands): ShortcutAction[] {
     id: `go-${view.id}`,
     combo: viewShortcut(view.id),
     also: view.id === 'settings' ? ['mod+,'] : undefined,
-    label: view.label,
+    get label() {
+      return view.label;
+    },
     area: 'Go to',
     inInputs: 'all',
     run: () => shell.goTo(index),
   }));
 
   return [
-    { id: 'palette', combo: 'mod+k', label: 'Open the command palette', area: 'Global', inInputs: 'all', run: shell.togglePalette },
-    { id: 'shortcuts', combo: 'shift+?', also: ['mod+/'], label: 'Show keyboard shortcuts', area: 'Global', inInputs: 'modified', run: shell.openShortcuts },
-    { id: 'new-chat', combo: 'mod+n', label: 'New chat', area: 'Global', inInputs: 'all', run: shell.newChat },
-    { id: 'toggle-rail', combo: 'mod+b', label: 'Expand or collapse the sidebar', area: 'Global', inInputs: 'all', run: shell.toggleRail },
-    { id: 'back', combo: 'alt+arrowleft', label: 'Back', area: 'Global', inInputs: 'none', run: shell.goBack },
-    { id: 'forward', combo: 'alt+arrowright', label: 'Forward', area: 'Global', inInputs: 'none', run: shell.goForward },
-    { id: 'next-chat', combo: 'mod+tab', also: ['mod+pagedown'], label: 'Next chat', area: 'Global', inInputs: 'all', run: () => shell.cycleChat(1) },
-    { id: 'previous-chat', combo: 'mod+shift+tab', also: ['mod+pageup'], label: 'Previous chat', area: 'Global', inInputs: 'all', run: () => shell.cycleChat(-1) },
-    { id: 'jump-chat', combo: 'mod+0', label: 'Jump to the active chat', area: 'Go to', inInputs: 'all', run: shell.jumpToChat },
+    { id: 'palette', combo: 'mod+k', get label() { return t('shell.shortcut.palette'); }, area: 'Global', inInputs: 'all', run: shell.togglePalette },
+    { id: 'shortcuts', combo: 'shift+?', also: ['mod+/'], get label() { return t('shell.shortcut.shortcuts'); }, area: 'Global', inInputs: 'modified', run: shell.openShortcuts },
+    { id: 'new-chat', combo: 'mod+n', get label() { return t('shell.shortcut.newChat'); }, area: 'Global', inInputs: 'all', run: shell.newChat },
+    { id: 'toggle-rail', combo: 'mod+b', get label() { return t('shell.shortcut.toggleRail'); }, area: 'Global', inInputs: 'all', run: shell.toggleRail },
+    { id: 'back', combo: 'alt+arrowleft', get label() { return t('shell.shortcut.back'); }, area: 'Global', inInputs: 'none', run: shell.goBack },
+    { id: 'forward', combo: 'alt+arrowright', get label() { return t('shell.shortcut.forward'); }, area: 'Global', inInputs: 'none', run: shell.goForward },
+    { id: 'next-chat', combo: 'mod+tab', also: ['mod+pagedown'], get label() { return t('shell.shortcut.nextChat'); }, area: 'Global', inInputs: 'all', run: () => shell.cycleChat(1) },
+    { id: 'previous-chat', combo: 'mod+shift+tab', also: ['mod+pageup'], get label() { return t('shell.shortcut.previousChat'); }, area: 'Global', inInputs: 'all', run: () => shell.cycleChat(-1) },
+    { id: 'jump-chat', combo: 'mod+0', get label() { return t('shell.shortcut.jumpChat'); }, area: 'Go to', inInputs: 'all', run: shell.jumpToChat },
     ...views,
   ];
 }
 
 export const DOCUMENTED_SHORTCUTS: readonly ShortcutDoc[] = [
-  { combos: ['enter'], label: 'Send the message (steer the agent while it works)', area: 'Chat composer' },
-  { combos: ['shift+enter'], label: 'New line', area: 'Chat composer' },
-  { combos: ['mod+enter'], label: 'Queue a follow-up while the agent works', area: 'Chat composer' },
-  { combos: ['arrowup', 'arrowdown'], joiner: 'and', label: 'Move through slash commands after typing /', area: 'Chat composer' },
-  { combos: ['tab'], label: 'Accept the highlighted slash command', area: 'Chat composer' },
-  { combos: ['escape'], label: 'Dismiss the slash menu', area: 'Chat composer' },
+  { combos: ['enter'], get label() { return t('shell.shortcut.composer.send'); }, area: 'Chat composer' },
+  { combos: ['shift+enter'], get label() { return t('shell.shortcut.composer.newline'); }, area: 'Chat composer' },
+  { combos: ['mod+enter'], get label() { return t('shell.shortcut.composer.queue'); }, area: 'Chat composer' },
+  { combos: ['arrowup', 'arrowdown'], joiner: 'and', get label() { return t('shell.shortcut.composer.slashMove'); }, area: 'Chat composer' },
+  { combos: ['tab'], get label() { return t('shell.shortcut.composer.slashAccept'); }, area: 'Chat composer' },
+  { combos: ['escape'], get label() { return t('shell.shortcut.composer.slashDismiss'); }, area: 'Chat composer' },
 
-  { combos: ['arrowup', 'arrowdown'], joiner: 'and', label: 'Move between changed files', area: 'Review & diff' },
-  { combos: ['mod+enter'], label: 'Save a line comment', area: 'Review & diff' },
-  { combos: ['escape'], label: 'Cancel a line comment', area: 'Review & diff' },
-  { combos: ['shift+click'], label: 'Extend a comment over a range of lines (click a line number)', area: 'Review & diff' },
+  { combos: ['arrowup', 'arrowdown'], joiner: 'and', get label() { return t('shell.shortcut.review.move'); }, area: 'Review & diff' },
+  { combos: ['mod+enter'], get label() { return t('shell.shortcut.review.save'); }, area: 'Review & diff' },
+  { combos: ['escape'], get label() { return t('shell.shortcut.review.cancel'); }, area: 'Review & diff' },
+  { combos: ['shift+click'], get label() { return t('shell.shortcut.review.range'); }, area: 'Review & diff' },
 
-  { combos: ['arrowup', 'arrowdown'], joiner: 'and', label: 'Move through sessions, tree entries and files', area: 'Sessions & lists' },
-  { combos: ['home', 'end'], joiner: 'and', label: 'Jump to the first or last entry', area: 'Sessions & lists' },
-  { combos: ['arrowleft', 'arrowright'], joiner: 'and', label: 'Collapse or expand a configuration key; resize a focused divider', area: 'Sessions & lists' },
-  { combos: ['shift+arrowright'], label: 'Resize a focused divider in larger steps', area: 'Sessions & lists' },
+  { combos: ['arrowup', 'arrowdown'], joiner: 'and', get label() { return t('shell.shortcut.lists.move'); }, area: 'Sessions & lists' },
+  { combos: ['home', 'end'], joiner: 'and', get label() { return t('shell.shortcut.lists.jump'); }, area: 'Sessions & lists' },
+  { combos: ['arrowleft', 'arrowright'], joiner: 'and', get label() { return t('shell.shortcut.lists.collapse'); }, area: 'Sessions & lists' },
+  { combos: ['shift+arrowright'], get label() { return t('shell.shortcut.lists.resize'); }, area: 'Sessions & lists' },
 
-  { combos: ['arrowup', 'arrowdown'], joiner: 'and', label: 'Move through results', area: 'Command palette' },
-  { combos: ['enter'], label: 'Run the highlighted result', area: 'Command palette' },
-  { combos: ['shift+enter'], label: 'Run its secondary action, such as Resume in chat', area: 'Command palette' },
-  { combos: ['escape'], label: 'Close', area: 'Command palette' },
-  { combos: ['>'], label: 'Only actions and views', area: 'Command palette' },
-  { combos: ['/'], label: 'Slash commands of the active chat', area: 'Command palette' },
-  { combos: ['@'], label: 'Sessions of this project', area: 'Command palette' },
-  { combos: ['#'], label: 'Changed files', area: 'Command palette' },
+  { combos: ['arrowup', 'arrowdown'], joiner: 'and', get label() { return t('shell.shortcut.palette.move'); }, area: 'Command palette' },
+  { combos: ['enter'], get label() { return t('shell.shortcut.palette.run'); }, area: 'Command palette' },
+  { combos: ['shift+enter'], get label() { return t('shell.shortcut.palette.secondary'); }, area: 'Command palette' },
+  { combos: ['escape'], get label() { return t('shell.shortcut.palette.close'); }, area: 'Command palette' },
+  { combos: ['>'], get label() { return t('shell.shortcut.palette.actions'); }, area: 'Command palette' },
+  { combos: ['/'], get label() { return t('shell.shortcut.palette.slash'); }, area: 'Command palette' },
+  { combos: ['@'], get label() { return t('shell.shortcut.palette.sessions'); }, area: 'Command palette' },
+  { combos: ['#'], get label() { return t('shell.shortcut.palette.files'); }, area: 'Command palette' },
 ];
 
 export interface ShortcutRow {

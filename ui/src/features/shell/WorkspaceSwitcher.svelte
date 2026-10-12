@@ -13,6 +13,7 @@
   import Popover from '$lib/components/Popover.svelte';
   import StatusDot from '$lib/components/StatusDot.svelte';
   import Tooltip from '$lib/components/Tooltip.svelte';
+  import { t } from '$lib/i18n/i18n.svelte';
   import { harness } from '$lib/stores/harness.svelte';
   import { project } from '$lib/stores/project.svelte';
   import { cx } from '$lib/utils/cx';
@@ -29,10 +30,13 @@
   let open = $state(false);
 
   const active = $derived(harness.active);
-  const harnessLine = $derived(active ? `${active.info.shortName}${active.detection.version ? ` v${active.detection.version}` : ''}` : 'No harness');
-  const projectName = $derived(project.active ? project.active.name : 'No project');
+  const harnessLine = $derived(active ? `${active.info.shortName}${active.detection.version ? ` v${active.detection.version}` : ''}` : t('shell.workspace.noHarness'));
+  const projectName = $derived(project.active ? project.active.name : t('shell.workspace.noProject'));
   const summary = $derived(
-    `${active ? `Harness: ${active.info.name}` : 'No harness detected'}. ${project.active ? `Project: ${project.active.name}` : 'No project open'}`,
+    t('shell.workspace.summary', {
+      harness: active ? t('shell.workspace.harnessIs', { name: active.info.name }) : t('shell.workspace.noneDetected'),
+      project: project.active ? t('shell.workspace.projectIs', { name: project.active.name }) : t('shell.workspace.noneOpen'),
+    }),
   );
 
   const ROW = 'flex h-9 w-full items-center gap-2.5 rounded-md px-2 text-left text-sm transition-colors duration-[var(--dur-fast)]';
@@ -52,14 +56,14 @@
 
 <!-- One control for where you are: the harness you talk to and the project it works in. The menu is one flat list:
      harnesses, then projects, then the rare actions. -->
-<Popover bind:open label="Harness and project" kind="menu" class="w-max max-w-md!" rootClass={compact ? undefined : 'w-full'}>
+<Popover bind:open label={t('shell.workspace.label')} kind="menu" class="w-max max-w-md!" rootClass={compact ? undefined : 'w-full'}>
   {#snippet trigger({ props })}
     <Tooltip text="{harnessLine} · {projectName}" side="right" disabled={!compact} class={compact ? 'inline-flex' : 'flex w-full'}>
       {#snippet children({ describedby })}
         <button
           type="button"
           {...props}
-          aria-label="{summary}. Switch harness or project"
+          aria-label={t('shell.workspace.switchAria', { summary })}
           aria-describedby={compact ? describedby : undefined}
           class={cx(
             'inline-flex items-center rounded-md text-left transition-colors duration-[var(--dur-fast)] hover:bg-hover active:bg-press',
@@ -87,7 +91,7 @@
   {/snippet}
 
   {#snippet children({ close })}
-    <div class="flex flex-col gap-0.5" role="group" aria-label="Harness">
+    <div class="flex flex-col gap-0.5" role="group" aria-label={t('shell.workspace.harnessGroup')}>
       {#each harness.summaries as item (item.info.id)}
         {@const installed = item.detection.installed}
         {@const current = active?.info.id === item.info.id}
@@ -96,7 +100,7 @@
           role="menuitemradio"
           aria-checked={current}
           aria-disabled={!installed}
-          aria-label="{item.info.name}{installed ? (item.detection.version ? ` v${item.detection.version}` : '') : '. Not installed'}"
+          aria-label={installed ? `${item.info.name}${item.detection.version ? ` v${item.detection.version}` : ''}` : t('shell.workspace.notInstalledAria', { name: item.info.name })}
           data-menu-item
           onclick={() => void choose(item.info.id, installed, close)}
           class={cx(ROW, installed ? ENABLED : DISABLED)}
@@ -104,7 +108,7 @@
           <HarnessBadge info={item.info} size="sm" class={installed ? '' : 'opacity-60'} />
           <span class="min-w-0 flex-1 truncate">{item.info.name}</span>
           {#if !installed}
-            <span class="text-xs text-fg-3">Not installed</span>
+            <span class="text-xs text-fg-3">{t('shell.workspace.notInstalled')}</span>
           {:else if item.detection.version}
             <span class="tabular text-xs text-fg-3">v{item.detection.version}</span>
           {/if}
@@ -115,9 +119,9 @@
 
     <div class="my-1.5 border-t border-line" role="separator"></div>
 
-    <div class="flex max-h-56 flex-col gap-0.5 overflow-y-auto" role="group" aria-label="Project">
+    <div class="flex max-h-56 flex-col gap-0.5 overflow-y-auto" role="group" aria-label={t('shell.workspace.projectGroup')}>
       {#if project.recents.length === 0 && !project.active}
-        <p class="px-2 py-1.5 text-sm text-fg-3">No project open</p>
+        <p class="px-2 py-1.5 text-sm text-fg-3">{t('shell.workspace.noneOpen')}</p>
       {/if}
 
       {#each project.recents as recent (recent.path)}
@@ -129,7 +133,7 @@
             role="menuitemradio"
             aria-checked={current}
             aria-disabled={!recent.exists}
-            aria-label="{recent.name}{recent.exists ? '' : '. Folder is missing'}"
+            aria-label={recent.exists ? recent.name : t('shell.workspace.folderMissingAria', { name: recent.name })}
             title={recent.path}
             data-menu-item
             onclick={() => recent.exists && void project.open(recent.path).then(close)}
@@ -142,7 +146,7 @@
           <!-- Forget shows on hover or focus only; the list stays quiet otherwise. -->
           <button
             type="button"
-            aria-label="Forget {recent.name}"
+            aria-label={t('shell.workspace.forget', { name: recent.name })}
             data-menu-item
             onclick={() => void project.forget(recent.path)}
             class="grid size-7 shrink-0 place-items-center rounded-md text-fg-3 opacity-0 transition-opacity duration-[var(--dur-fast)] group-hover/row:opacity-100 hover:bg-hover hover:text-fg focus-visible:opacity-100"
@@ -158,12 +162,12 @@
     <div class="flex flex-col gap-0.5">
       <button type="button" role="menuitem" data-menu-item onclick={() => void project.pick().then(close)} class={cx(ROW, ACTION)}>
         <FolderOpen size={ICON.sm} aria-hidden="true" />
-        Open folder…
+        {t('shell.workspace.openFolder')}
       </button>
       {#if project.active}
         <button type="button" role="menuitem" data-menu-item onclick={() => void project.close().then(close)} class={cx(ROW, ACTION)}>
           <FolderX size={ICON.sm} aria-hidden="true" />
-          Close project
+          {t('shell.workspace.closeProject')}
         </button>
       {/if}
       <button
@@ -177,7 +181,7 @@
         class={cx(ROW, ACTION)}
       >
         <Settings2 size={ICON.sm} aria-hidden="true" />
-        Set up harnesses…
+        {t('shell.workspace.setUp')}
       </button>
     </div>
   {/snippet}

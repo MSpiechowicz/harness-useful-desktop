@@ -1,3 +1,4 @@
+import { t } from '$lib/i18n/i18n.svelte';
 import type { AgentAction } from '$lib/ipc/bindings/AgentAction';
 import type { AgentEnvelope } from '$lib/ipc/bindings/AgentEnvelope';
 import type { AgentReply } from '$lib/ipc/bindings/AgentReply';
@@ -143,7 +144,7 @@ export class ChatSession {
 
       return reply;
     } catch (error) {
-      this.notifications.push({ title: 'The agent did not accept that', description: IpcFailure.from(error).message, tone: 'danger' });
+      this.notifications.push({ title: t('chat.toast.notAccepted'), description: IpcFailure.from(error).message, tone: 'danger' });
 
       return null;
     }
@@ -189,7 +190,7 @@ export class ChatSession {
     try {
       await this.transport.invoke('agent_ui_respond', { key: this.key, response: { id: requestId, outcome } });
     } catch (error) {
-      this.notifications.push({ title: 'The agent did not get your answer', description: IpcFailure.from(error).message, tone: 'danger' });
+      this.notifications.push({ title: t('chat.toast.noAnswer'), description: IpcFailure.from(error).message, tone: 'danger' });
     }
   }
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n/i18n.svelte';
   import { highlight, type HighlightedLine } from '$lib/markdown/highlight';
   import { grammarFor } from '$lib/markdown/languages';
   import { cx } from '$lib/utils/cx';
@@ -67,7 +68,7 @@
 <figure class={cx('overflow-hidden rounded-md border border-line bg-canvas', className)}>
   <figcaption class="flex h-8 items-center justify-between border-b border-line pr-1 pl-3.5 text-xs text-fg-3">
     <span class="font-mono">{lang || 'text'}</span>
-    <CopyButton text={code} label="Copy code" />
+    <CopyButton text={code} label={t('components.copy.code')} />
   </figcaption>
 
   <!-- svelte-ignore a11y_no_noninteractive_tabindex -- a scrollable region must be reachable by keyboard -->

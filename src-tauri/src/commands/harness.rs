@@ -11,9 +11,10 @@ use harness_business::process::{ResolvedBinary, find_override};
 use harness_business::project::Projects;
 use tauri::{AppHandle, State};
 
-use super::blocking;
+use super::{blocking, saved_language};
 use crate::dialogs::{self, Pick};
 use crate::error::CommandResult;
+use crate::native_text::native_text;
 use crate::state::AppState;
 
 /// Every registered harness with a detection. Detects all of them concurrently on first use;
@@ -51,7 +52,7 @@ pub async fn harness_pick_binary(
     harness: HarnessId,
 ) -> CommandResult<Option<HarnessSummary>> {
     let binary_name = find(&state, harness)?.binary_name();
-    let title = format!("Choose the `{binary_name}` executable");
+    let title = native_text(&saved_language(&state).await?).choose_executable(binary_name);
 
     let Some(picked) = dialogs::pick(&app, &state.dialog, Pick::File, &title, Some(&state.env.home)).await? else {
         return Ok(None);

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n/i18n.svelte';
   import Spinner from '$lib/components/Spinner.svelte';
 
   interface Props {
@@ -22,5 +23,5 @@
 <p class="mt-3 flex items-center gap-2 text-sm text-fg-3" role="status">
   <Spinner size={14} class="text-accent-text" />
   <span>{label}…</span>
-  {#if seconds >= 3}<span class="tabular text-xs">{seconds}s</span>{/if}
+  {#if seconds >= 3}<span class="tabular text-xs">{t('chat.working.seconds', { seconds })}</span>{/if}
 </p>

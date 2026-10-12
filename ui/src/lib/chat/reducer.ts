@@ -1,3 +1,4 @@
+import { t } from '$lib/i18n/i18n.svelte';
 import type { AgentEnvelope } from '$lib/ipc/bindings/AgentEnvelope';
 import type { AgentEvent } from '$lib/ipc/bindings/AgentEvent';
 import type { NoticeLevel } from '$lib/ipc/bindings/NoticeLevel';
@@ -60,22 +61,23 @@ function banner(state: ChatState, kind: BannerItem['kind'], phase: 'start' | 'en
 }
 
 function retryText(event: Extract<AgentEvent, { type: 'retry' }>): string {
-  const progress = event.attempt !== null && event.maxAttempts !== null ? ` (attempt ${event.attempt} of ${event.maxAttempts})` : '';
+  const label = event.phase === 'start' ? t('chat.retry.start') : t('chat.retry.end');
+  const text = event.attempt !== null && event.maxAttempts !== null ? t('chat.retry.attempt', { label, attempt: event.attempt, max: event.maxAttempts }) : label;
 
-  return `${event.phase === 'start' ? 'Retrying' : 'Retry'}${progress}${event.message ? `: ${event.message}` : ''}`;
+  return event.message ? t('chat.retry.detail', { text, message: event.message }) : text;
 }
 
 function compactionText(event: Extract<AgentEvent, { type: 'compaction' }>): string {
   if (event.phase === 'start') {
-    return event.reason ? `Compacting the conversation (${event.reason})…` : 'Compacting the conversation…';
+    return event.reason ? t('chat.compaction.runningReason', { reason: event.reason }) : t('chat.compaction.running');
   }
 
-  return event.error ? `Compaction failed: ${event.error}` : 'Conversation compacted';
+  return event.error ? t('chat.compaction.failed', { error: event.error }) : t('chat.compaction.done');
 }
 
 function promptResult(state: ChatState, event: Extract<AgentEvent, { type: 'promptResult' }>): ChatState {
   if (event.status === 'error') {
-    return { ...state, promptError: { message: event.error ?? 'The agent could not finish this turn.', retryable: event.retryable } };
+    return { ...state, promptError: { message: event.error ?? t('chat.promptError.fallback'), retryable: event.retryable } };
   }
 
   return { ...state, promptError: null };
@@ -187,9 +189,9 @@ export function applyEvent(state: ChatState, event: AgentEvent): ChatState {
       return appendItem(state, (key, order) => ({ kind: 'url', key, order, url: event.url, instructions: event.instructions }));
 
     case 'frameError': {
-      const where = event.originalType ? ` (${event.originalType})` : '';
+      const message = event.originalType ? t('chat.frameError.typed', { type: event.originalType, error: event.error }) : t('chat.frameError', { error: event.error });
 
-      return addNotice(state, 'warning', `The agent sent a message the app could not read${where}: ${event.error}`);
+      return addNotice(state, 'warning', message);
     }
 
     case 'stderr':

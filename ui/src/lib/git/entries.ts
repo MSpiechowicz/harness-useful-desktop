@@ -1,10 +1,25 @@
+import { t, type MessageKey } from '$lib/i18n/i18n.svelte';
 import type { DiffScope } from '$lib/ipc/bindings/DiffScope';
 import type { GitFileStatus } from '$lib/ipc/bindings/GitFileStatus';
 import type { StatusEntry } from '$lib/ipc/bindings/StatusEntry';
 
 export const SCOPES: readonly DiffScope[] = ['all', 'unstaged', 'staged', 'untracked'];
 
-export const SCOPE_LABELS: Record<DiffScope, string> = { all: 'All', unstaged: 'Unstaged', staged: 'Staged', untracked: 'Untracked' };
+/** The tab names; read at use time, so they follow the language on screen. */
+export const SCOPE_LABELS: Record<DiffScope, string> = {
+  get all() {
+    return t('changes.scope.all');
+  },
+  get unstaged() {
+    return t('changes.scope.unstaged');
+  },
+  get staged() {
+    return t('changes.scope.staged');
+  },
+  get untracked() {
+    return t('changes.scope.untracked');
+  },
+};
 
 /** Whether a changed path belongs under a scope tab. */
 export function inScope(entry: StatusEntry, scope: DiffScope): boolean {
@@ -45,24 +60,24 @@ const LETTERS: Record<GitFileStatus, string> = {
   ignored: 'I',
 };
 
-const NAMES: Record<GitFileStatus, string> = {
-  modified: 'Modified',
-  added: 'Added',
-  deleted: 'Deleted',
-  renamed: 'Renamed',
-  copied: 'Copied',
-  typeChanged: 'Type changed',
-  untracked: 'Untracked',
-  conflicted: 'Conflicted',
-  ignored: 'Ignored',
-};
+const NAMES = {
+  modified: 'changes.status.modified',
+  added: 'changes.status.added',
+  deleted: 'changes.status.deleted',
+  renamed: 'changes.status.renamed',
+  copied: 'changes.status.copied',
+  typeChanged: 'changes.status.typeChanged',
+  untracked: 'changes.status.untracked',
+  conflicted: 'changes.status.conflicted',
+  ignored: 'changes.status.ignored',
+} as const satisfies Record<GitFileStatus, MessageKey>;
 
 export function statusLetter(status: GitFileStatus): string {
   return LETTERS[status];
 }
 
 export function statusName(status: GitFileStatus): string {
-  return NAMES[status];
+  return t(NAMES[status]);
 }
 
 export type StatusTone = 'success' | 'warning' | 'danger' | 'info' | 'neutral';

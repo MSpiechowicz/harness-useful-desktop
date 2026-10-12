@@ -273,3 +273,79 @@
     background: var(--press-wash);
   }
 }
+
+/* The rail footer's controls, as in the Harness dashboard, in pixels (this app's root font is 14px, the dashboard's
+   16px). The language trigger is a bordered 32px control; the theme choice is a row of 32px squares whose hairline is
+   an outline drawn inside them, so the chosen square fills the whole box. */
+.footer-control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-2);
+  box-shadow: var(--elev-1);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+  transition: background-color var(--dur-fast);
+
+  &:hover {
+    background: var(--surface-3);
+  }
+}
+
+:root[data-theme="light"] .footer-control {
+  background: var(--surface-1);
+  box-shadow: none;
+
+  &:hover {
+    background: var(--surface-2);
+  }
+}
+
+.seg-icons {
+  display: inline-flex;
+  border-radius: 8px;
+  background: var(--surface-2);
+  outline: 1px solid var(--border);
+  outline-offset: -1px;
+
+  & button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    color: var(--text-2);
+    transition:
+      background-color var(--dur-fast),
+      color var(--dur-fast);
+
+    &:first-child {
+      border-radius: 8px 0 0 8px;
+    }
+
+    &:last-child {
+      border-radius: 0 8px 8px 0;
+    }
+
+    &:hover {
+      color: var(--text);
+    }
+
+    &[aria-checked="true"] {
+      background: var(--surface-4);
+      color: var(--text);
+      box-shadow: 0 0 0 1px var(--border-strong), var(--elev-1);
+    }
+  }
+}
+
+:root[data-theme="light"] .seg-icons button[aria-checked="true"] {
+  background: var(--surface-1);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.12);
+}

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n/i18n.svelte';
   import { motion } from '$lib/stores/motion.svelte';
   import { cx } from '$lib/utils/cx';
 
@@ -48,7 +49,7 @@
     return { ...best, tracks: tracks.join(' ') };
   });
 
-  const summary = $derived(segments.map((segment) => `${segment.label} ${segment.shareLabel}`).join(', '));
+  const summary = $derived(segments.map((segment) => t('ecosystem.chart.share', { label: segment.label, share: segment.shareLabel })).join(', '));
 
   // Pointing at a square or a legend row brings that segment forward and quiets the rest.
   let active = $state<string | null>(null);
@@ -58,7 +59,7 @@
   <!-- The legend below carries every exact figure, so the grid itself is one picture for assistive technology. -->
   <div
     role="img"
-    aria-label="{label}: {summary}"
+    aria-label={t('ecosystem.chart.waffle', { label, summary })}
     class="grid"
     style:grid-template-columns={fit.tracks}
     style:grid-auto-rows="{fit.cell}px"

@@ -2,7 +2,11 @@
   import Tooltip from '$lib/components/Tooltip.svelte';
   import type { ContextUsage } from '$lib/ipc/bindings/ContextUsage';
   import { cx } from '$lib/utils/cx';
-  import { formatCount } from '$lib/utils/format';
+  import { formatCount, perLocale } from '$lib/utils/format';
+  import { t } from '$lib/i18n/i18n.svelte';
+
+  const ONE_DECIMAL = perLocale((locale) => new Intl.NumberFormat(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 }));
+  const WHOLE = perLocale((locale) => new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }));
 
   interface Props {
     usage: ContextUsage | null;
@@ -14,7 +18,8 @@
   const tone = $derived(percent >= 90 ? 'text-danger' : percent >= 75 ? 'text-warning' : 'text-accent');
   // A 16px ring: radius 6 with a 2px stroke.
   const CIRCUMFERENCE = 2 * Math.PI * 6;
-  const detail = $derived(usage ? `${formatCount(usage.tokens)} of ${formatCount(usage.contextWindow)} tokens in context` : 'Context usage is not known yet');
+  const detail = $derived(usage ? t('chat.context.detail', { used: formatCount(usage.tokens), total: formatCount(usage.contextWindow) }) : t('chat.context.unknownDetail'));
+  const fraction = $derived(percent < 10 ? ONE_DECIMAL() : WHOLE());
 </script>
 
 <Tooltip text={detail} side="top">
@@ -23,11 +28,11 @@
     <div
       role="meter"
       tabindex="0"
-      aria-label="Context window used"
+      aria-label={t('chat.context.label')}
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={usage ? Math.round(percent) : undefined}
-      aria-valuetext={usage ? `${percent.toFixed(1)} percent` : 'unknown'}
+      aria-valuetext={usage ? t('chat.context.valueText', { value: ONE_DECIMAL().format(percent) }) : t('chat.context.unknown')}
       aria-describedby={describedby}
       class="inline-flex h-8 items-center gap-1.5 rounded-md px-1.5 text-xs text-fg-3"
     >
@@ -46,7 +51,7 @@
           class={cx('transition-[stroke-dashoffset] duration-[var(--dur-slow)]', tone, percent === 0 && 'opacity-0')}
         />
       </svg>
-      <span class="tabular">{usage ? `${percent.toFixed(percent < 10 ? 1 : 0)}%` : '—'}</span>
+      <span class="tabular">{usage ? `${fraction.format(percent)}%` : '—'}</span>
     </div>
   {/snippet}
 </Tooltip>

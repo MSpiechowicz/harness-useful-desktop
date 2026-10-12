@@ -4,6 +4,7 @@ import PowerOff from '@lucide/svelte/icons/power-off';
 import RefreshCw from '@lucide/svelte/icons/refresh-cw';
 import Trash2 from '@lucide/svelte/icons/trash-2';
 
+import { t } from '$lib/i18n/i18n.svelte';
 import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
 import type { InstallScope } from '$lib/ipc/bindings/InstallScope';
 import type { MarketplaceInfo } from '$lib/ipc/bindings/MarketplaceInfo';
@@ -26,16 +27,16 @@ export function pluginActions(harness: HarnessId, plugin: PluginInfo, project: s
   const actions: BarAction[] = [
     plugin.enabled
       ? {
-          label: 'Disable',
-          title: 'Disable plugin',
-          description: 'Turn it off without uninstalling. You can enable it again any time.',
+          label: t('extensions.verb.disable'),
+          title: t('extensions.action.disable.title'),
+          description: t('extensions.action.disable.description'),
           icon: PowerOff,
           request: request({ type: 'pluginDisable', name: plugin.id }),
         }
       : {
-          label: 'Enable',
-          title: 'Enable plugin',
-          description: 'Turn it back on.',
+          label: t('extensions.verb.enable'),
+          title: t('extensions.action.enable.title'),
+          description: t('extensions.action.enable.description'),
           icon: Power,
           request: request({ type: 'pluginEnable', name: plugin.id }),
         },
@@ -43,18 +44,18 @@ export function pluginActions(harness: HarnessId, plugin: PluginInfo, project: s
 
   if (plugin.updateAvailable) {
     actions.push({
-      label: plugin.latestVersion ? `Upgrade to v${plugin.latestVersion}` : 'Upgrade',
-      title: 'Upgrade available',
-      description: plugin.latestVersion ? `Version ${plugin.latestVersion} is in the marketplace catalog.` : 'The marketplace catalog has a newer version.',
+      label: plugin.latestVersion ? t('extensions.verb.upgradeTo', { version: plugin.latestVersion }) : t('extensions.verb.upgrade'),
+      title: t('extensions.action.upgrade.title'),
+      description: plugin.latestVersion ? t('extensions.action.upgrade.version', { version: plugin.latestVersion }) : t('extensions.action.upgrade.newer'),
       icon: ArrowUpFromLine,
       request: request({ type: 'pluginUpgrade', name: plugin.id }),
     });
   }
 
   actions.push({
-    label: 'Uninstall',
-    title: 'Uninstall plugin',
-    description: 'Remove it from this harness.',
+    label: t('extensions.verb.uninstall'),
+    title: t('extensions.action.uninstall.title'),
+    description: t('extensions.action.uninstall.description'),
     icon: Trash2,
     danger: true,
     request: request({ type: 'pluginUninstall', name: plugin.id }),
@@ -67,16 +68,16 @@ export function pluginActions(harness: HarnessId, plugin: PluginInfo, project: s
 export function marketplaceActions(harness: HarnessId, marketplace: MarketplaceInfo): BarAction[] {
   return [
     {
-      label: 'Update',
-      title: 'Update catalog',
-      description: 'Fetch the latest plugin list for this marketplace.',
+      label: t('extensions.verb.update'),
+      title: t('extensions.action.updateCatalog.title'),
+      description: t('extensions.action.updateCatalog.description'),
       icon: RefreshCw,
       request: actionRequest(harness, { type: 'marketplaceUpdate', name: marketplace.name }, 'user', null),
     },
     {
-      label: 'Remove',
-      title: 'Remove marketplace',
-      description: 'Unregister it from this harness.',
+      label: t('extensions.verb.remove'),
+      title: t('extensions.verb.removeMarketplace'),
+      description: t('extensions.action.removeMarketplace.description'),
       icon: Trash2,
       danger: true,
       request: actionRequest(harness, { type: 'marketplaceRemove', name: marketplace.name }, 'user', null),
@@ -95,16 +96,16 @@ export function packageActions(harness: HarnessId, pkg: PackageInfo, project: st
 
   return [
     {
-      label: 'Update',
-      title: 'Update package',
-      description: 'Fetch the newest version from its source.',
+      label: t('extensions.verb.update'),
+      title: t('extensions.action.updatePackage.title'),
+      description: t('extensions.action.updatePackage.description'),
       icon: RefreshCw,
       request: actionRequest(harness, { type: 'packageUpdate', source }, scope, project),
     },
     {
-      label: 'Remove',
-      title: 'Remove package',
-      description: 'Uninstall it from this harness.',
+      label: t('extensions.verb.remove'),
+      title: t('extensions.action.removePackage.title'),
+      description: t('extensions.action.removePackage.description'),
       icon: Trash2,
       danger: true,
       request: actionRequest(harness, { type: 'packageRemove', source }, scope, project),

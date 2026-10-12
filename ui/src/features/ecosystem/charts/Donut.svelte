@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n/i18n.svelte';
   import { motion } from '$lib/stores/motion.svelte';
   import { cx } from '$lib/utils/cx';
 
@@ -45,7 +46,9 @@
     });
   });
 
-  const summary = $derived(segments.map((segment) => `${segment.label} ${segment.valueLabel} (${segment.shareLabel})`).join(', '));
+  const summary = $derived(
+    segments.map((segment) => t('ecosystem.chart.segment', { label: segment.label, value: segment.valueLabel, share: segment.shareLabel })).join(', '),
+  );
 
   // Pointing at an arc or a legend row brings that part forward and quiets the rest.
   let active = $state<string | null>(null);
@@ -54,7 +57,7 @@
 <!-- Tall enough for the most the legend can show (five parts and a two-line "other"), so switching what the ring
      groups by never resizes the card. -->
 <div class="flex flex-col items-center gap-6 @xl:min-h-[13rem] @xl:flex-row @xl:items-center">
-  <div role="img" aria-label="{label}: {total} {caption}; {summary}" class="relative shrink-0" style:width="{SIZE}px" style:height="{SIZE}px">
+  <div role="img" aria-label={t('ecosystem.chart.donut', { label, total, caption, summary })} class="relative shrink-0" style:width="{SIZE}px" style:height="{SIZE}px">
     <svg width={SIZE} height={SIZE} viewBox="0 0 {SIZE} {SIZE}" class={cx(motion.level === 'full' && 'donut-spin')} aria-hidden="true">
       <circle cx={SIZE / 2} cy={SIZE / 2} r={RADIUS} fill="none" stroke="var(--surface-3)" stroke-width={STROKE} />
       {#each arcs as { segment, d } (segment.key)}

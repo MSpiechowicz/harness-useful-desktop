@@ -1,4 +1,5 @@
 import type { ChatSession } from '$lib/chat/session.svelte';
+import { t } from '$lib/i18n/i18n.svelte';
 import type { ComposedReview } from '$lib/ipc/bindings/ComposedReview';
 import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
 import type { ReviewComment } from '$lib/ipc/bindings/ReviewComment';
@@ -100,7 +101,7 @@ export class ReviewStore {
   add(project: string, comment: ReviewComment): boolean {
     const current = this.of(project);
     if (current.comments.length >= MAX_COMMENTS) {
-      this.notifications.push({ title: `A review holds at most ${MAX_COMMENTS} comments`, description: 'Send or discard the current ones first.', tone: 'warning' });
+      this.notifications.push({ title: t('changes.toast.limit.title', { max: MAX_COMMENTS }), description: t('changes.toast.limit.description'), tone: 'warning' });
 
       return false;
     }
@@ -176,7 +177,7 @@ export class ReviewStore {
 
     const open = this.agents.get(target);
     if (!open) {
-      this.notifications.push({ title: 'That chat is no longer open', description: 'Pick another chat, or start a new one.', tone: 'warning' });
+      this.notifications.push({ title: t('changes.toast.closed.title'), description: t('changes.toast.closed.description'), tone: 'warning' });
     }
 
     return open ?? null;

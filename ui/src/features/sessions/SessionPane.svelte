@@ -4,6 +4,7 @@
   import Button from '$lib/components/Button.svelte';
   import Skeleton from '$lib/components/Skeleton.svelte';
   import SplitPane from '$lib/components/SplitPane.svelte';
+  import { t, tn } from '$lib/i18n/i18n.svelte';
   import type { SessionSummary } from '$lib/ipc/bindings/SessionSummary';
   import { agentSessions } from '$lib/stores/agentSession.svelte';
   import { forkInChat, resumeInChat } from '$lib/stores/session-actions';
@@ -56,11 +57,11 @@
   <SessionHeader {summary} {project} touched={detail.touched} node={selectedNode} {busy} onresume={() => void resume()} onfork={() => void fork()} />
 
   <div class="min-h-0 flex-1">
-    <SplitPane label="Resize branch tree" bind:size={treeSize} min={260} minSecond={320}>
+    <SplitPane label={t('sessions.tree.resize')} bind:size={treeSize} min={260} minSecond={320}>
       {#snippet first()}
-        <section aria-label="Branches" class="flex size-full min-h-0 flex-col">
+        <section aria-label={t('sessions.tree.section')} class="flex size-full min-h-0 flex-col">
           {#if detail.treeStatus === 'loading' || detail.treeStatus === 'idle'}
-            <div class="flex flex-col gap-2 p-4" role="status" aria-label="Loading branches">
+            <div class="flex flex-col gap-2 p-4" role="status" aria-label={t('sessions.tree.loading')}>
               <Skeleton height="1.25rem" />
               <Skeleton width="70%" height="1.25rem" />
               <Skeleton width="85%" height="1.25rem" />
@@ -68,13 +69,13 @@
           {:else if detail.treeStatus === 'error' || !tree}
             <div class="flex flex-col items-center gap-3 p-6 text-center" role="alert">
               <CircleAlert size={24} class="text-danger" aria-hidden="true" />
-              <p class="text-base text-fg-2">{detail.treeError?.message ?? 'The branch tree could not be read.'}</p>
-              <Button onclick={() => detail.reload()}>Try again</Button>
+              <p class="text-base text-fg-2">{detail.treeError?.message ?? t('sessions.tree.unreadable')}</p>
+              <Button onclick={() => detail.reload()}>{t('sessions.tryAgain')}</Button>
             </div>
           {:else}
             <p class="tabular border-b border-line px-4 py-2 text-xs text-fg-3">
-              {tree.nodes.length} entries · {tree.branchCount} {tree.branchCount === 1 ? 'branch point' : 'branch points'}
-              {#if tree.truncated}· only the first entries are shown{/if}
+              {tn('sessions.tree.entries', tree.nodes.length)} · {tn('sessions.tree.branchPoints', tree.branchCount)}
+              {#if tree.truncated}· {t('sessions.tree.truncated')}{/if}
             </p>
             <div class="min-h-0 flex-1">
               <BranchTree {tree} selected={selectedId} onselect={pick} />

@@ -1,3 +1,4 @@
+import { t } from '$lib/i18n/i18n.svelte';
 import type { ApprovalMode } from '$lib/ipc/bindings/ApprovalMode';
 
 export type ModeTone = 'warning' | 'success' | 'info';
@@ -9,10 +10,35 @@ export interface ModeInfo {
   explanation: string;
 }
 
+/** The words are getters so they follow the language on screen. */
 export const MODES: Record<ApprovalMode, ModeInfo> = {
-  yolo: { label: 'yolo', tone: 'warning', explanation: 'tools run without asking' },
-  write: { label: 'ask for writes', tone: 'info', explanation: 'asks before tools that change files or run commands' },
-  alwaysAsk: { label: 'ask every time', tone: 'success', explanation: 'asks before every tool call' },
+  yolo: {
+    get label() {
+      return t('chat.mode.yolo.label');
+    },
+    tone: 'warning',
+    get explanation() {
+      return t('chat.mode.yolo.explanation');
+    },
+  },
+  write: {
+    get label() {
+      return t('chat.mode.write.label');
+    },
+    tone: 'info',
+    get explanation() {
+      return t('chat.mode.write.explanation');
+    },
+  },
+  alwaysAsk: {
+    get label() {
+      return t('chat.mode.alwaysAsk.label');
+    },
+    tone: 'success',
+    get explanation() {
+      return t('chat.mode.alwaysAsk.explanation');
+    },
+  },
 };
 
 export const MODE_ORDER: ApprovalMode[] = ['alwaysAsk', 'write', 'yolo'];

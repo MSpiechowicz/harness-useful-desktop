@@ -1,3 +1,4 @@
+import { t } from '$lib/i18n/i18n.svelte';
 import type { ChatBlock } from '$lib/ipc/bindings/ChatBlock';
 import type { ChatMessage } from '$lib/ipc/bindings/ChatMessage';
 import type { JsonValue } from '$lib/ipc/bindings/serde_json/JsonValue';
@@ -135,7 +136,7 @@ export function interruptRunningTools(state: ChatState): ChatState {
 
   const toolCalls = { ...state.toolCalls };
   for (const call of running) {
-    toolCalls[call.id] = { ...call, status: 'error', partial: null, resultText: call.resultText ?? 'Interrupted before it finished.' };
+    toolCalls[call.id] = { ...call, status: 'error', partial: null, resultText: call.resultText ?? t('chat.tool.interrupted') };
   }
 
   return { ...state, toolCalls };

@@ -2,6 +2,7 @@
   import Eye from '@lucide/svelte/icons/eye';
   import EyeOff from '@lucide/svelte/icons/eye-off';
 
+  import { t } from '$lib/i18n/i18n.svelte';
   import { prefs } from '$lib/stores/prefs.svelte';
 
   const shown = $derived(prefs.value?.showThinking ?? true);
@@ -11,11 +12,11 @@
 <button
   type="button"
   aria-pressed={shown}
-  aria-label="Show thought process"
-  title={shown ? 'Hide the thought process in chats' : 'Show the thought process in chats'}
+  aria-label={t('chat.thinking.toggleAria')}
+  title={shown ? t('chat.thinking.hide') : t('chat.thinking.show')}
   onclick={() => void prefs.update({ showThinking: !shown })}
   class="inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-sm text-fg-2 transition-colors duration-[var(--dur-fast)] hover:bg-hover hover:text-fg"
 >
   {#if shown}<Eye size={16} aria-hidden="true" class="shrink-0" />{:else}<EyeOff size={16} aria-hidden="true" class="shrink-0" />{/if}
-  Thinking
+  {t('chat.thinking.toggle')}
 </button>

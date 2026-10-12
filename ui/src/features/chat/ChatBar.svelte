@@ -6,11 +6,11 @@
   import Button from '$lib/components/Button.svelte';
   import { ICON } from '$lib/components/icon';
   import Kbd from '$lib/components/Kbd.svelte';
-  import PaletteButton from '$lib/components/PaletteButton.svelte';
   import { scaled } from '$lib/design/motion';
   import { agentSessions } from '$lib/stores/agentSession.svelte';
   import { harness } from '$lib/stores/harness.svelte';
   import { project } from '$lib/stores/project.svelte';
+  import { t } from '$lib/i18n/i18n.svelte';
 
   import { newChat } from '../shell/actions';
   import SessionTabs from './SessionTabs.svelte';
@@ -29,17 +29,16 @@
   out:fade|global={{ duration: scaled(100) }}
   class="flex h-12 min-w-0 items-center gap-3 px-2"
 >
-  <h1 class={hasChats ? 'sr-only' : 'flex-1 text-base leading-5 font-medium text-fg'}>Chat</h1>
+  <h1 class={hasChats ? 'sr-only' : 'flex-1 text-base leading-5 font-medium text-fg'}>{t('chat.title')}</h1>
 
   {#if hasChats}
     <SessionTabs />
   {/if}
 
   <div class="flex shrink-0 items-center gap-2">
-    <PaletteButton />
     <Button variant="primary" size="sm" disabled={!ready} onclick={() => void newChat()}>
       {#snippet leading()}<MessageSquarePlus size={ICON.sm} aria-hidden="true" />{/snippet}
-      <span class="max-[1100px]:sr-only">New chat</span>
+      <span class="max-[1100px]:sr-only">{t('chat.bar.newChat')}</span>
       <span class="max-[1100px]:hidden"><Kbd keys="mod+n" /></span>
     </Button>
   </div>

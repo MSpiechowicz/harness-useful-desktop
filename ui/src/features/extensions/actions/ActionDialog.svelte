@@ -8,6 +8,7 @@
   import Dialog from '$lib/components/Dialog.svelte';
   import Disclosure from '$lib/components/Disclosure.svelte';
   import Spinner from '$lib/components/Spinner.svelte';
+  import { t } from '$lib/i18n/i18n.svelte';
   import type { CliResult } from '$lib/ipc/bindings/CliResult';
   import { harness } from '$lib/stores/harness.svelte';
   import { project } from '$lib/stores/project.svelte';
@@ -39,7 +40,7 @@
     open
     size="md"
     title={request.title}
-    description="{name} · {request.scope === 'project' ? 'this project' : 'your user account'}"
+    description={t(request.scope === 'project' ? 'extensions.dialog.descriptionProject' : 'extensions.dialog.descriptionUser', { name })}
     dismissible={runner.phase !== 'running'}
     onclose={() => runner.close()}
   >
@@ -47,54 +48,54 @@
       <p class="text-sm text-fg-2">{scopeSentence(request, projectName)}</p>
 
       {#if command}
-        <section class="flex flex-col gap-1.5" aria-label="Command">
-          <h3 class="text-xs font-medium tracking-wider text-fg-3 uppercase">{ran ? 'Command that ran' : 'Command that will run'}</h3>
+        <section class="flex flex-col gap-1.5" aria-label={t('extensions.dialog.command')}>
+          <h3 class="text-xs font-medium tracking-wider text-fg-3 uppercase">{ran ? t('extensions.dialog.commandRan') : t('extensions.dialog.commandWillRun')}</h3>
           <div class="flex items-start gap-1 rounded-md border border-line bg-surface-2 py-1 pr-1 pl-3">
             <code class="min-w-0 flex-1 py-1 font-mono text-sm leading-snug [overflow-wrap:anywhere] whitespace-pre-wrap text-fg">{command}</code>
-            <CopyButton text={command} label="Copy command" />
+            <CopyButton text={command} label={t('extensions.dialog.copyCommand')} />
           </div>
         </section>
       {/if}
 
       {#if runner.phase === 'previewing'}
-        <p class="flex items-center gap-2 text-sm text-fg-2" role="status"><Spinner size={16} />Checking what would happen…</p>
+        <p class="flex items-center gap-2 text-sm text-fg-2" role="status"><Spinner size={16} />{t('extensions.dialog.checking')}</p>
       {:else if runner.error && runner.phase === 'ready'}
-        {@render problem('This action cannot run', runner.error)}
+        {@render problem(t('extensions.dialog.cannotRun'), runner.error)}
       {:else if runner.phase === 'ready' && runner.preview}
         {@const preview = runner.preview}
 
-        <section class="flex flex-col gap-1.5" aria-label="Preview">
-          <h3 class="text-xs font-medium tracking-wider text-fg-3 uppercase">Preview</h3>
+        <section class="flex flex-col gap-1.5" aria-label={t('extensions.dialog.preview')}>
+          <h3 class="text-xs font-medium tracking-wider text-fg-3 uppercase">{t('extensions.dialog.preview')}</h3>
 
           {#if hasNoPreview(preview)}
             <p class="flex items-start gap-2 rounded-md border border-line bg-surface-2 px-3 py-2 text-sm text-fg-2">
               <Info size={16} class="mt-0.5 shrink-0 text-info" aria-hidden="true" />
-              No preview available — the command will run as shown.
+              {t('extensions.dialog.noPreview')}
             </p>
           {:else if !runner.confirmable}
-            {@render problem('The preview reports a problem, so this would fail too', preview.summary ?? 'The command failed.')}
-            {#if output(preview)}{@render log(output(preview), 'Preview output')}{/if}
+            {@render problem(t('extensions.dialog.previewProblem'), preview.summary ?? t('extensions.failure.default'))}
+            {#if output(preview)}{@render log(output(preview), t('extensions.dialog.previewOutput'))}{/if}
           {:else}
-            {@render log(output(preview) || 'The preview printed nothing.', 'Preview output')}
-            <p class="text-xs text-fg-3">Nothing has changed yet. Confirm to run the command above.</p>
-            <p class="text-xs text-fg-3 [overflow-wrap:anywhere]">Previewed with <code class="font-mono">{preview.argv.join(' ')}</code></p>
+            {@render log(output(preview) || t('extensions.dialog.previewEmpty'), t('extensions.dialog.previewOutput'))}
+            <p class="text-xs text-fg-3">{t('extensions.dialog.nothingChanged')}</p>
+            <p class="text-xs text-fg-3 [overflow-wrap:anywhere]">{t('extensions.dialog.previewedWith')} <code class="font-mono">{preview.argv.join(' ')}</code></p>
           {/if}
         </section>
       {:else if runner.phase === 'running'}
-        <p class="flex items-center gap-2 text-sm text-fg-2" role="status"><Spinner size={16} />Running… this can take a minute while packages download.</p>
+        <p class="flex items-center gap-2 text-sm text-fg-2" role="status"><Spinner size={16} />{t('extensions.dialog.running')}</p>
       {:else if runner.phase === 'done'}
         {#if runner.failure !== null || runner.error}
-          {@render problem(runner.error ? 'The action could not run' : 'The action failed', runner.error ?? runner.failure ?? '')}
+          {@render problem(runner.error ? t('extensions.dialog.couldNotRun') : t('extensions.dialog.failed'), runner.error ?? runner.failure ?? '')}
         {:else}
           <p class="flex items-start gap-2 rounded-md border border-line bg-success-wash px-3 py-2.5 text-sm text-fg" role="status">
             <CircleCheck size={16} class="mt-0.5 shrink-0 text-success" aria-hidden="true" />
-            <span class="flex flex-col"><span class="font-medium">{runner.result?.summary ?? 'Done.'}</span><span class="text-fg-2">{runner.outcome ? OUTCOME_TEXT[runner.outcome] : OUTCOME_TEXT.unchecked}</span></span>
+            <span class="flex flex-col"><span class="font-medium">{runner.result?.summary ?? t('extensions.dialog.done')}</span><span class="text-fg-2">{runner.outcome ? OUTCOME_TEXT[runner.outcome] : OUTCOME_TEXT.unchecked}</span></span>
           </p>
         {/if}
 
         {#if runner.result && output(runner.result)}
-          <Disclosure label="Output log" bind:open={logOpen}>
-            {@render log(`${output(runner.result)}${runner.result.truncated ? '\n… output was cut short' : ''}`, 'Command output')}
+          <Disclosure label={t('extensions.dialog.outputLog')} bind:open={logOpen}>
+            {@render log(`${output(runner.result)}${runner.result.truncated ? `\n${t('extensions.dialog.truncated')}` : ''}`, t('extensions.dialog.commandOutput'))}
           </Disclosure>
         {/if}
       {/if}
@@ -102,9 +103,9 @@
 
     {#snippet footer()}
       {#if runner.phase === 'done'}
-        <Button variant="primary" onclick={() => runner.close()}>Close</Button>
+        <Button variant="primary" onclick={() => runner.close()}>{t('extensions.dialog.close')}</Button>
       {:else}
-        <Button variant="ghost" disabled={runner.phase === 'running'} onclick={() => runner.close()}>Cancel</Button>
+        <Button variant="ghost" disabled={runner.phase === 'running'} onclick={() => runner.close()}>{t('extensions.dialog.cancel')}</Button>
         <Button
           variant={request.destructive ? 'danger' : 'primary'}
           loading={runner.phase === 'running'}

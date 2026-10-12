@@ -13,6 +13,7 @@ import History from '@lucide/svelte/icons/history';
 import MessageSquare from '@lucide/svelte/icons/message-square';
 
 import type { PaletteCommand } from '$lib/components/palette';
+import { t, type MessageKey } from '$lib/i18n/i18n.svelte';
 import type { MotionPref } from '$lib/ipc/bindings/MotionPref';
 import type { ThemePref } from '$lib/ipc/bindings/ThemePref';
 import { agentSessions } from '$lib/stores/agentSession.svelte';
@@ -33,16 +34,16 @@ import { SETTINGS_SECTIONS } from '../../settings/sections';
 import { cycleMotion, cycleTheme, jumpToChat, newChat, resumeLastSession } from '../actions';
 import { VIEWS, viewShortcut } from '../views';
 
-const THEMES: { value: ThemePref; label: string; icon: PaletteCommand['icon'] }[] = [
-  { value: 'system', label: 'Theme: Follow system', icon: Monitor },
-  { value: 'dark', label: 'Theme: Dark', icon: Moon },
-  { value: 'light', label: 'Theme: Light', icon: Sun },
+const THEMES: { value: ThemePref; label: MessageKey; icon: PaletteCommand['icon'] }[] = [
+  { value: 'system', label: 'shell.palette.themeSystem', icon: Monitor },
+  { value: 'dark', label: 'shell.palette.themeDark', icon: Moon },
+  { value: 'light', label: 'shell.palette.themeLight', icon: Sun },
 ];
 
-const MOTIONS: { value: MotionPref; label: string }[] = [
-  { value: 'full', label: 'Motion: Full' },
-  { value: 'reduced', label: 'Motion: Reduced' },
-  { value: 'off', label: 'Motion: Off' },
+const MOTIONS: { value: MotionPref; label: MessageKey }[] = [
+  { value: 'full', label: 'shell.palette.motionFull' },
+  { value: 'reduced', label: 'shell.palette.motionReduced' },
+  { value: 'off', label: 'shell.palette.motionOff' },
 ];
 
 export interface PaletteHandlers {
@@ -53,8 +54,8 @@ export interface PaletteHandlers {
 export function navigationCommands(): PaletteCommand[] {
   return VIEWS.map((view) => ({
     id: `go-${view.id}`,
-    label: `Go to ${view.label}`,
-    group: 'Navigate',
+    label: t('shell.palette.goTo', { view: view.label }),
+    group: t('shell.palette.group.navigate'),
     kind: 'nav',
     icon: view.icon,
     shortcut: viewShortcut(view.id),
@@ -68,26 +69,27 @@ export function navigationCommands(): PaletteCommand[] {
 export function actionCommands({ openShortcuts }: PaletteHandlers): PaletteCommand[] {
   const hasChat = agentSessions.active !== null;
   const hasSessions = (sessionList.data?.length ?? 0) > 0;
+  const actions = t('shell.palette.group.actions');
 
   return [
-    { id: 'new-chat', label: 'New chat', group: 'Actions', icon: MessageSquarePlus, shortcut: 'mod+n', keywords: 'start conversation agent', run: () => void newChat() },
+    { id: 'new-chat', label: t('shell.palette.newChat'), group: actions, icon: MessageSquarePlus, shortcut: 'mod+n', keywords: t('shell.palette.newChat.keywords'), run: () => void newChat() },
     {
       id: 'resume-last',
-      label: 'Resume last session',
-      group: 'Actions',
+      label: t('shell.palette.resumeLast'),
+      group: actions,
       icon: History,
-      keywords: 'continue previous conversation',
+      keywords: t('shell.palette.resumeLast.keywords'),
       disabled: !hasSessions || !project.active,
       run: () => void resumeLastSession(),
     },
-    { id: 'jump-chat', label: 'Jump to active chat', group: 'Actions', icon: MessageSquare, shortcut: 'mod+0', keywords: 'composer focus', disabled: !hasChat, run: jumpToChat },
-    { id: 'rescan-harnesses', label: 'Re-scan harnesses', group: 'Actions', icon: ScanSearch, keywords: 'detect omp pi install refresh', disabled: harness.scanning, run: () => void harness.rescan() },
+    { id: 'jump-chat', label: t('shell.palette.jumpChat'), group: actions, icon: MessageSquare, shortcut: 'mod+0', keywords: t('shell.palette.jumpChat.keywords'), disabled: !hasChat, run: jumpToChat },
+    { id: 'rescan-harnesses', label: t('shell.palette.rescan'), group: actions, icon: ScanSearch, keywords: t('shell.palette.rescan.keywords'), disabled: harness.scanning, run: () => void harness.rescan() },
     {
       id: 'refresh-changes',
-      label: 'Refresh changes',
-      group: 'Actions',
+      label: t('shell.palette.refreshChanges'),
+      group: actions,
       icon: RotateCw,
-      keywords: 'git status diff reload',
+      keywords: t('shell.palette.refreshChanges.keywords'),
       disabled: !project.active,
       run: () => {
         void git.refresh();
@@ -96,22 +98,30 @@ export function actionCommands({ openShortcuts }: PaletteHandlers): PaletteComma
     },
     {
       id: 'refresh-dashboard',
-      label: 'Ecosystem: refresh dashboard',
-      group: 'Actions',
+      label: t('shell.palette.refreshDashboard'),
+      group: actions,
       icon: ChartNoAxesColumn,
-      keywords: 'usage cost tokens spend companions reload',
+      keywords: t('shell.palette.refreshDashboard.keywords'),
       run: () => {
         void ecosystem.load(true);
         void dashboard.openPanel(true);
         nav.go('ecosystem');
       },
     },
-    { id: 'show-shortcuts', label: 'Show keyboard shortcuts', group: 'Actions', icon: Keyboard, shortcut: 'shift+?', keywords: 'keys help cheatsheet', run: openShortcuts },
-    { id: 'toggle-sidebar', label: ui.railExpanded ? 'Collapse the sidebar' : 'Expand the sidebar', group: 'Actions', icon: PanelLeft, shortcut: 'mod+b', keywords: 'rail labels navigation', run: () => ui.toggleRail() },
+    { id: 'show-shortcuts', label: t('shell.palette.showShortcuts'), group: actions, icon: Keyboard, shortcut: 'shift+?', keywords: t('shell.palette.showShortcuts.keywords'), run: openShortcuts },
+    {
+      id: 'toggle-sidebar',
+      label: ui.railExpanded ? t('shell.palette.collapseSidebar') : t('shell.palette.expandSidebar'),
+      group: actions,
+      icon: PanelLeft,
+      shortcut: 'mod+b',
+      keywords: t('shell.palette.sidebar.keywords'),
+      run: () => ui.toggleRail(),
+    },
     ...SETTINGS_SECTIONS.map<PaletteCommand>((section) => ({
       id: `settings-${section.id}`,
-      label: `Settings: ${section.label}`,
-      group: 'Actions',
+      label: t('shell.palette.settings', { section: section.label }),
+      group: actions,
       icon: section.icon,
       keywords: section.keywords,
       run: () => {
@@ -124,31 +134,41 @@ export function actionCommands({ openShortcuts }: PaletteHandlers): PaletteComma
 
 /** Theme, motion and the intro. */
 export function appearanceCommands(): PaletteCommand[] {
+  const appearance = t('shell.palette.group.appearance');
+
   const themes = THEMES.map<PaletteCommand>((theme) => ({
     id: `theme-${theme.value}`,
-    label: theme.label,
-    group: 'Appearance',
+    label: t(theme.label),
+    group: appearance,
     icon: theme.icon,
-    keywords: 'color scheme appearance',
+    keywords: t('shell.palette.theme.keywords'),
     disabled: prefs.value?.theme === theme.value,
     run: () => void prefs.update({ theme: theme.value }),
   }));
 
   const motions = MOTIONS.map<PaletteCommand>((setting) => ({
     id: `motion-${setting.value}`,
-    label: setting.label,
-    group: 'Appearance',
+    label: t(setting.label),
+    group: appearance,
     icon: Zap,
-    keywords: 'animation accessibility',
+    keywords: t('shell.palette.motion.keywords'),
     disabled: prefs.value?.motion === setting.value,
     run: () => void prefs.update({ motion: setting.value }),
   }));
 
   return [
-    { id: 'cycle-theme', label: 'Toggle theme', group: 'Appearance', icon: Sun, keywords: 'dark light system switch', run: cycleTheme },
-    { id: 'cycle-motion', label: 'Toggle motion', group: 'Appearance', icon: Zap, keywords: 'animation reduce full off', run: cycleMotion },
+    { id: 'cycle-theme', label: t('shell.palette.toggleTheme'), group: appearance, icon: Sun, keywords: t('shell.palette.toggleTheme.keywords'), run: cycleTheme },
+    { id: 'cycle-motion', label: t('shell.palette.toggleMotion'), group: appearance, icon: Zap, keywords: t('shell.palette.toggleMotion.keywords'), run: cycleMotion },
     ...themes,
     ...motions,
-    { id: 'replay-intro', label: 'Replay intro', group: 'Appearance', icon: Play, keywords: 'animation startup splash', disabled: motion.level === 'off', run: () => intro.play(motion.level) },
+    {
+      id: 'replay-intro',
+      label: t('shell.palette.replayIntro'),
+      group: appearance,
+      icon: Play,
+      keywords: t('shell.palette.replayIntro.keywords'),
+      disabled: motion.level === 'off',
+      run: () => intro.play(motion.level),
+    },
   ];
 }

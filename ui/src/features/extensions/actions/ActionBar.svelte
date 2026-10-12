@@ -3,6 +3,7 @@
 
   import Button from '$lib/components/Button.svelte';
   import { ICON } from '$lib/components/icon';
+  import { t } from '$lib/i18n/i18n.svelte';
 
   import type { BarAction } from './action-model';
   import { actionRunner } from './action-runner.svelte';
@@ -16,7 +17,7 @@
 
 <!-- Each action is a row like a settings row: what it does on the left, its button on the right. The note is a caption. -->
 <section class="flex flex-col gap-3" aria-labelledby="actions-title">
-  <h3 id="actions-title" class="text-sm font-medium tracking-wider text-fg-3 uppercase">Actions</h3>
+  <h3 id="actions-title" class="text-sm font-medium tracking-wider text-fg-3 uppercase">{t('extensions.bar.heading')}</h3>
 
   <ul class="divide-y divide-line rounded-lg border border-line bg-surface-1">
     {#each actions as action (action.title)}
@@ -40,6 +41,6 @@
 
   <p class="flex items-center gap-2 text-xs text-fg-3">
     <Info size={ICON.sm} class="shrink-0 text-info" aria-hidden="true" />
-    Each action shows its exact command and, where the CLI can, a preview before it runs.
+    {t('extensions.bar.note')}
   </p>
 </section>

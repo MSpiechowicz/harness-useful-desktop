@@ -1,3 +1,5 @@
+import { i18n, t } from '$lib/i18n/i18n.svelte';
+
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
@@ -9,35 +11,62 @@ const UNITS: { limit: number; size: number; unit: Intl.RelativeTimeFormatUnit }[
   { limit: 365 * DAY, size: 30 * DAY, unit: 'month' },
 ];
 
-/** The UI is English, so numbers and dates follow it and never the language of the operating system. */
-export const LOCALE = 'en-US';
+/** The locale of the language on screen, so numbers and dates follow it and never the language of the operating system. */
+export function locale(): string {
+  return i18n.locale;
+}
 
-const relative = new Intl.RelativeTimeFormat(LOCALE, { numeric: 'auto' });
-const COUNT = new Intl.NumberFormat(LOCALE);
-const CLOCK = new Intl.DateTimeFormat(LOCALE, { hour: '2-digit', minute: '2-digit' });
-const LONG_DATE = new Intl.DateTimeFormat(LOCALE, { year: 'numeric', month: 'long', day: 'numeric' });
-const DATE_TIME = new Intl.DateTimeFormat(LOCALE, { dateStyle: 'medium', timeStyle: 'short' });
+/** One formatter per locale, made on first use. */
+export function perLocale<T>(make: (locale: string) => T): () => T {
+  const made = new Map<string, T>();
+
+  return () => {
+    const current = locale();
+    let formatter = made.get(current);
+
+    if (!formatter) {
+      formatter = make(current);
+      made.set(current, formatter);
+    }
+
+    return formatter;
+  };
+}
+
+const relative = perLocale((l) => new Intl.RelativeTimeFormat(l, { numeric: 'auto' }));
+const COUNT = perLocale((l) => new Intl.NumberFormat(l));
+const CLOCK = perLocale((l) => new Intl.DateTimeFormat(l, { hour: '2-digit', minute: '2-digit' }));
+const LONG_DATE = perLocale((l) => new Intl.DateTimeFormat(l, { year: 'numeric', month: 'long', day: 'numeric' }));
+const DATE_TIME = perLocale((l) => new Intl.DateTimeFormat(l, { dateStyle: 'medium', timeStyle: 'short' }));
+const ONE_DECIMAL = perLocale((l) => new Intl.NumberFormat(l, { minimumFractionDigits: 1, maximumFractionDigits: 1 }));
+const WHOLE = perLocale((l) => new Intl.NumberFormat(l, { maximumFractionDigits: 0 }));
+const COST = perLocale((l) => new Intl.NumberFormat(l, { minimumFractionDigits: 4, maximumFractionDigits: 4 }));
 
 /** A whole number with grouping: `2,914`. */
 export function formatCount(count: number): string {
-  return COUNT.format(count);
+  return COUNT().format(count);
+}
+
+/** A per-call cost in USD with four decimals, in the language's notation: `$0.0123`, `$0,0123`. */
+export function formatCost(usd: number): string {
+  return `$${COST().format(usd)}`;
 }
 
 /** The time of day: `02:30 PM`. */
 export function formatClock(date: Date): string {
-  return CLOCK.format(date);
+  return CLOCK().format(date);
 }
 
 /** A calendar date: `October 8, 2026`. */
 export function formatLongDate(date: Date): string {
-  return LONG_DATE.format(date);
+  return LONG_DATE().format(date);
 }
 
 /** A date with its time: `Oct 8, 2026, 6:42 PM`; empty for a value that is not a date. */
 export function formatDateTime(value: string | number | Date): string {
   const date = new Date(value);
 
-  return Number.isNaN(date.getTime()) ? '' : DATE_TIME.format(date);
+  return Number.isNaN(date.getTime()) ? '' : DATE_TIME().format(date);
 }
 
 /** "just now", "5 minutes ago", "yesterday", "3 months ago" for an RFC 3339 time. */
@@ -49,15 +78,15 @@ export function relativeTime(iso: string, now: number = Date.now()): string {
 
   const elapsed = now - time;
   if (elapsed < MINUTE) {
-    return 'just now';
+    return t('common.justNow');
   }
 
   const step = UNITS.find((candidate) => elapsed < candidate.limit);
   if (!step) {
-    return relative.format(-Math.floor(elapsed / (365 * DAY)), 'year');
+    return relative().format(-Math.floor(elapsed / (365 * DAY)), 'year');
   }
 
-  return relative.format(-Math.floor(elapsed / step.size), step.unit);
+  return relative().format(-Math.floor(elapsed / step.size), step.unit);
 }
 
 /** "812 B", "48.2 KB", "1.9 MB". */
@@ -75,7 +104,7 @@ export function formatBytes(bytes: number): string {
     unit += 1;
   }
 
-  return `${value.toFixed(value < 10 ? 1 : 0)} ${units[unit]}`;
+  return `${(value < 10 ? ONE_DECIMAL() : WHOLE()).format(value)} ${units[unit]}`;
 }
 
 /** A path that may wrap after each separator, so a narrow column never splits a file name. */

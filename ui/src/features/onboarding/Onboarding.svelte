@@ -8,6 +8,7 @@
   import Button from '$lib/components/Button.svelte';
   import IconButton from '$lib/components/IconButton.svelte';
   import { scaled } from '$lib/design/motion';
+  import { t } from '$lib/i18n/i18n.svelte';
   import { harness } from '$lib/stores/harness.svelte';
   import { motion } from '$lib/stores/motion.svelte';
   import { project } from '$lib/stores/project.svelte';
@@ -37,15 +38,15 @@
   const primaryLabel = $derived.by(() => {
     switch (onboarding.step) {
       case 'welcome':
-        return 'Get started';
+        return t('onboarding.action.getStarted');
       case 'harnesses':
-        return harness.installed.length === 0 ? 'Continue without a harness' : 'Continue';
+        return harness.installed.length === 0 ? t('onboarding.action.continueWithout') : t('onboarding.action.continue');
       case 'project':
-        return project.active ? 'Continue' : 'Skip for now';
+        return project.active ? t('onboarding.action.continue') : t('onboarding.action.skip');
       case 'approval':
-        return 'Got it';
+        return t('onboarding.action.gotIt');
       case 'done':
-        return 'Open Harness Desktop';
+        return t('onboarding.action.open');
     }
   });
 
@@ -75,7 +76,7 @@
 
     {#if onboarding.rerun}
       <div class="absolute top-4 right-4 z-10" in:fade|global={enterFade()}>
-        <IconButton icon={X} label="Close setup" side="bottom" onclick={() => onboarding.dismiss()} />
+        <IconButton icon={X} label={t('onboarding.close')} side="bottom" onclick={() => onboarding.dismiss()} />
       </div>
     {/if}
 
@@ -122,7 +123,7 @@
             <!-- Back and Continue are the wizard's two navigation buttons: same size and width, Back the quieter one. -->
             <Button variant="secondary" size="lg" class="min-w-36" onclick={() => onboarding.back()}>
               {#snippet leading()}<ArrowLeft size={18} aria-hidden="true" />{/snippet}
-              Back
+              {t('onboarding.back')}
             </Button>
           {/if}
 

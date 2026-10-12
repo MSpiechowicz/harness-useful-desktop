@@ -1,3 +1,5 @@
+import { t } from '$lib/i18n/i18n.svelte';
+
 import { createTauriTransport } from './tauri-transport';
 import { IpcFailure, type Transport } from './transport';
 
@@ -5,7 +7,7 @@ import { IpcFailure, type Transport } from './transport';
 function createUnavailableTransport(): Transport {
   const failure = new IpcFailure({
     code: 'internal',
-    message: 'The desktop runtime is not available. Start the app with `bun run dev`, or `bun run dev:mock` for a browser preview.',
+    message: t('components.ipc.unavailable'),
   });
 
   return {

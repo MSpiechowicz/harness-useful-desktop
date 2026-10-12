@@ -6,6 +6,7 @@ import Slash from '@lucide/svelte/icons/slash';
 
 import { childrenOf, scalarText } from '$lib/components/config-tree';
 import type { PaletteCommand } from '$lib/components/palette';
+import { t } from '$lib/i18n/i18n.svelte';
 import { statusName } from '$lib/git/entries';
 import type { ConfigField } from '$lib/ipc/bindings/ConfigField';
 import { agentSessions } from '$lib/stores/agentSession.svelte';
@@ -20,7 +21,7 @@ import { viewState } from '$lib/stores/view-state.svelte';
 import { relativeTime } from '$lib/utils/format';
 
 import { insertSlashCommand } from '../actions';
-import { buildItems, TABS, visibleTabs } from '../../extensions/extension-items';
+import { buildItems, visibleTabs } from '../../extensions/extension-items';
 import { sessionTitle } from '../../sessions/session-format';
 import { LAYER_TITLES } from '../../config/sections';
 
@@ -33,14 +34,14 @@ export function sessionCommands(): PaletteCommand[] {
     label: sessionTitle(summary),
     detail: [relativeTime(summary.updatedAt), summary.model].filter(Boolean).join(' · '),
     keywords: summary.firstPrompt ?? '',
-    group: 'Sessions',
+    group: t('shell.palette.group.sessions'),
     kind: 'session',
     icon: GitBranch,
     run: () => {
       viewState.sessionId = summary.ref.id;
       nav.go('sessions');
     },
-    secondary: path ? { label: 'Resume in chat', run: () => void resumeInChat(agentSessions, summary.ref, path) } : undefined,
+    secondary: path ? { label: t('shell.palette.resumeInChat'), run: () => void resumeInChat(agentSessions, summary.ref, path) } : undefined,
   }));
 }
 
@@ -52,8 +53,8 @@ export function fileCommands(): PaletteCommand[] {
     return {
       id: `file-${entry.path}`,
       label: entry.path,
-      detail: status ? (status === 'untracked' ? 'Untracked' : statusName(status)) : '',
-      group: 'Changes',
+      detail: status ? (status === 'untracked' ? t('shell.palette.untracked') : statusName(status)) : '',
+      group: t('shell.palette.group.changes'),
       kind: 'file',
       icon: FileDiff,
       run: () => {
@@ -104,7 +105,7 @@ export function configCommands(): PaletteCommand[] {
       label: hit.path,
       detail: `${section.title} · ${LAYER_TITLES[section.source.layer]}`,
       keywords: hit.value,
-      group: 'Config',
+      group: t('shell.palette.group.config'),
       kind: 'config',
       icon: SlidersHorizontal,
       run: () => {
@@ -128,9 +129,9 @@ export function extensionCommands(): PaletteCommand[] {
     buildItems(tab.id, view).map<PaletteCommand>((item) => ({
       id: `extension-${tab.id}-${item.id}`,
       label: item.title,
-      detail: TABS.find((candidate) => candidate.id === tab.id)?.label.replace(/s$/, '') ?? tab.label,
+      detail: tab.singular,
       keywords: [item.subtitle, ...item.badges.map((badge) => badge.label)].filter(Boolean).join(' '),
-      group: 'Extensions',
+      group: t('shell.palette.group.extensions'),
       kind: 'extension',
       icon: Blocks,
       run: () => {
@@ -152,7 +153,7 @@ export function slashCommands(): PaletteCommand[] {
     label: `/${spec.name}`,
     detail: spec.description,
     keywords: spec.argumentHint ?? '',
-    group: 'Slash commands',
+    group: t('shell.palette.group.slash'),
     kind: 'slash',
     icon: Slash,
     run: () => insertSlashCommand(spec.name),

@@ -11,6 +11,7 @@
   import type { TranscriptItem } from '$lib/chat/types';
   import { rise } from '$lib/design/motion';
   import { prefs } from '$lib/stores/prefs.svelte';
+  import { t } from '$lib/i18n/i18n.svelte';
 
   import MessageRow from './MessageRow.svelte';
   import WorkingIndicator from './WorkingIndicator.svelte';
@@ -21,7 +22,7 @@
 
   let { session }: Props = $props();
 
-  provideToolContext({ project: untrack(() => session.info.project), label: 'this chat' });
+  provideToolContext({ project: untrack(() => session.info.project), label: t('chat.list.thisChat') });
 
   const ESTIMATED_ROW_PX = 96;
   const ENTRANCE_MS = 240;
@@ -64,10 +65,10 @@
         return null;
       }
 
-      return 'Thinking';
+      return t('chat.working.thinking');
     }
 
-    return 'Working';
+    return t('chat.working.working');
   });
 
   async function loadEarlier(): Promise<void> {
@@ -92,7 +93,7 @@
     variable
     stick
     estimate={ESTIMATED_ROW_PX}
-    label="Conversation"
+    label={t('chat.list.label')}
     key={(item) => item.key}
     class="size-full"
   >
@@ -102,7 +103,7 @@
           <div class="mb-3 flex justify-center">
             <Button size="sm" variant="ghost" loading={loadingEarlier} onclick={loadEarlier}>
               {#snippet leading()}<History size={16} aria-hidden="true" />{/snippet}
-              Load earlier messages
+              {t('chat.list.loadEarlier')}
             </Button>
           </div>
         {/if}
@@ -119,7 +120,7 @@
 
   {#if session.chat.items.length === 0}
     <p class="pointer-events-none absolute inset-0 grid place-items-center px-8 text-center text-base text-fg-3">
-      {session.ended ? 'This session has ended.' : 'Ask anything. Type / for commands or ! to run a shell command.'}
+      {session.ended ? t('chat.list.ended') : t('chat.list.empty')}
     </p>
   {/if}
 
@@ -127,7 +128,7 @@
     <div class="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center">
       <Button size="sm" class="pointer-events-auto shadow-float" onclick={() => list?.scrollToEnd()}>
         {#snippet leading()}<ArrowDown size={16} aria-hidden="true" />{/snippet}
-        Jump to latest
+        {t('chat.list.jump')}
       </Button>
     </div>
   {/if}

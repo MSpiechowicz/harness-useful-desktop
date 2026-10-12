@@ -1,5 +1,6 @@
 <script lang="ts">
   import { planSubject, type LimitGroup } from '$lib/dashboard/limits';
+  import { t } from '$lib/i18n/i18n.svelte';
   import { cx } from '$lib/utils/cx';
   import { rovingIndex } from '$lib/utils/roving';
 
@@ -28,7 +29,7 @@
   }
 </script>
 
-<div role="tablist" aria-label="Provider" class="inline-flex h-8 items-center rounded-md border border-line bg-surface-2 p-0.5">
+<div role="tablist" aria-label={t('ecosystem.limits.provider')} class="inline-flex h-8 items-center rounded-md border border-line bg-surface-2 p-0.5">
   {#each groups as group, index (group.key)}
     {@const selected = index === page}
     {@const name = planSubject(group.provider, group.plan)}
@@ -39,7 +40,7 @@
       id="{idBase}-tab-{index}"
       aria-selected={selected}
       aria-controls="{idBase}-page-{index}"
-      aria-label="Provider {index + 1} of {groups.length}: {name}"
+      aria-label={t('ecosystem.limits.pager', { n: index + 1, total: groups.length, name })}
       tabindex={selected ? 0 : -1}
       onclick={() => onpage(index)}
       onkeydown={(event) => onKeydown(event, index)}

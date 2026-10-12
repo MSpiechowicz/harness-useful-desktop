@@ -27,6 +27,33 @@ describe('PrefsStore', () => {
     expect(store.value?.theme).toBe('dark');
   });
 
+  it('shares one request between concurrent loads', async () => {
+    const read = deferred<ReturnType<typeof samplePrefs>>();
+    let calls = 0;
+    const store = new PrefsStore(
+      fakeTransport({
+        prefs_get: () => {
+          calls += 1;
+
+          return read.promise;
+        },
+      }),
+      new ToastsStore(),
+    );
+
+    const first = store.load();
+    const second = store.load();
+    read.resolve(samplePrefs({ theme: 'dark' }));
+    await Promise.all([first, second]);
+
+    expect(calls).toBe(1);
+    expect(store.value?.theme).toBe('dark');
+
+    await store.load();
+
+    expect(calls).toBe(2);
+  });
+
   it('reports a failed load without throwing', async () => {
     const failure = { code: 'io', message: 'disk unreadable' };
     const store = new PrefsStore(

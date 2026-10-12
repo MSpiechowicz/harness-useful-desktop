@@ -1,6 +1,7 @@
 <script lang="ts">
   import ChevronRight from '@lucide/svelte/icons/chevron-right';
 
+  import { t } from '$lib/i18n/i18n.svelte';
   import type { ConfigField } from '$lib/ipc/bindings/ConfigField';
   import { cx } from '$lib/utils/cx';
   import { rovingIndex } from '$lib/utils/roving';
@@ -103,7 +104,7 @@
 
 {#if rows.length === 0}
   <p class="px-3 py-6 text-center text-sm text-fg-3" role="status">
-    {query.trim() === '' ? 'No entries in this file.' : 'No entries match your filter.'}
+    {query.trim() === '' ? t('components.config.none') : t('components.config.noMatch')}
   </p>
 {:else}
   <!-- Flat rows with aria-level: a valid ARIA tree whose keyboard model is a single roving tab stop. -->

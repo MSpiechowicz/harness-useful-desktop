@@ -1,6 +1,8 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { i18n } from '$lib/i18n/i18n.svelte';
+import type { ConfigSection } from '$lib/ipc/bindings/ConfigSection';
 import { fixtures } from '$lib/ipc/mock/fixtures';
 import { harness } from '$lib/stores/harness.svelte';
 import { prefs } from '$lib/stores/prefs.svelte';
@@ -9,6 +11,7 @@ import { configView } from '$lib/stores/views.svelte';
 
 import { samplePrefs } from '../../../tests/helpers';
 import ConfigViewer from './ConfigViewer.svelte';
+import SectionDetail from './SectionDetail.svelte';
 import { baseName, groupSections } from './sections';
 
 beforeAll(async () => {
@@ -106,5 +109,32 @@ describe('sections', () => {
   it('extracts the file name for either separator', () => {
     expect(baseName('/home/u/.omp/agent/config.yml')).toBe('config.yml');
     expect(baseName('C:\\Users\\u\\.pi\\settings.json')).toBe('settings.json');
+  });
+});
+
+describe('in Polish', () => {
+  const section = (count: number): ConfigSection => ({
+    id: 'user.settings',
+    title: 'Settings',
+    description: null,
+    source: { path: '/cfg/settings.json', layer: 'user', profile: null, format: 'json', exists: true },
+    entries: Array.from({ length: count }, (_, index) => ({ key: `key${index}`, value: { kind: 'text' as const, value: 'x' } })),
+    error: null,
+  });
+
+  it('labels the detail and counts its entries with the Polish plural forms', async () => {
+    await i18n.load('pl');
+
+    for (const [count, text] of [
+      [1, '1 wpis najwyższego poziomu'],
+      [2, '2 wpisy najwyższego poziomu'],
+      [5, '5 wpisów najwyższego poziomu'],
+    ] as const) {
+      const { unmount } = render(SectionDetail, { props: { section: section(count) } });
+
+      expect(screen.getByRole('button', { name: 'Pokaż w menedżerze plików' })).toBeInTheDocument();
+      expect(screen.getByText(text)).toBeInTheDocument();
+      unmount();
+    }
   });
 });

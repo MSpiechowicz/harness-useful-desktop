@@ -5,6 +5,7 @@
   import Button from '$lib/components/Button.svelte';
   import Skeleton from '$lib/components/Skeleton.svelte';
   import { rise } from '$lib/design/motion';
+  import { i18n, t } from '$lib/i18n/i18n.svelte';
   import type { QuerySlot } from '$lib/stores/dashboard.svelte';
   import { cx } from '$lib/utils/cx';
   import { uid } from '$lib/utils/ids';
@@ -26,6 +27,9 @@
   let { title, subtitle, slot, onretry, index = 0, actions, children, class: className }: Props = $props();
 
   const titleId = uid('slot-card');
+
+  // Read out as "Loading plan limits"; German nouns keep their capital.
+  const named = $derived(i18n.lang === 'de' ? title : title.toLocaleLowerCase(i18n.locale));
 </script>
 
 <section
@@ -52,11 +56,11 @@
       <CircleAlert class="mt-0.5 shrink-0 text-danger" size={16} aria-hidden="true" />
       <div class="flex min-w-0 flex-1 flex-col items-start gap-2">
         <p class="text-fg-2">{slot.error}</p>
-        <Button size="sm" onclick={onretry}>Try again</Button>
+        <Button size="sm" onclick={onretry}>{t('ecosystem.retry')}</Button>
       </div>
     </div>
   {:else}
-    <div class="flex flex-col gap-3" role="status" aria-label="Loading {title.toLowerCase()}">
+    <div class="flex flex-col gap-3" role="status" aria-label={t('ecosystem.slot.loading', { title: named })}>
       <Skeleton height="1.25rem" />
       <Skeleton height="1.25rem" width="85%" />
       <Skeleton height="1.25rem" width="70%" />

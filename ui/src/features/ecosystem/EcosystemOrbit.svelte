@@ -6,6 +6,7 @@
   import { FAMILY } from '$lib/brand/family';
   import Logo from '$lib/components/Logo.svelte';
   import { rise } from '$lib/design/motion';
+  import { t } from '$lib/i18n/i18n.svelte';
   import type { EcosystemItem } from '$lib/ipc/bindings/EcosystemItem';
   import { motion } from '$lib/stores/motion.svelte';
   import { cx } from '$lib/utils/cx';
@@ -55,9 +56,15 @@
   const animated = $derived(motion.level === 'full');
   const layers = $derived(shown.map((item, index) => ({ item, index, installed: itemState(item) === 'installed' })));
 
-  const description = $derived(
-    `${installedSummary(items)}: ${items.map((item) => `${item.name} ${itemState(item) !== 'installed' ? 'not installed' : item.updateAvailable ? 'installed, update available' : 'installed'}`).join(', ')}`,
-  );
+  function stateOf(item: EcosystemItem): string {
+    if (itemState(item) !== 'installed') {
+      return t('ecosystem.orbit.missing', { name: item.name });
+    }
+
+    return t(item.updateAvailable ? 'ecosystem.orbit.updating' : 'ecosystem.orbit.installed', { name: item.name });
+  }
+
+  const description = $derived(t('ecosystem.orbit.description', { summary: installedSummary(items), items: items.map(stateOf).join(', ') }));
 </script>
 
 <div role="img" aria-label={description} class="relative mx-auto shrink-0" style:width="{WIDTH}px" style:height="{HEIGHT}px">

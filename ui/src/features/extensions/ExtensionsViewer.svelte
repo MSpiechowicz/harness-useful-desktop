@@ -2,6 +2,7 @@
   import Blocks from '@lucide/svelte/icons/blocks';
 
   import EmptyState from '$lib/components/EmptyState.svelte';
+  import { t } from '$lib/i18n/i18n.svelte';
   import NoticeBanner from '$lib/components/NoticeBanner.svelte';
   import Tabs from '$lib/components/Tabs.svelte';
   import ViewHeader from '$lib/components/ViewHeader.svelte';
@@ -28,17 +29,17 @@
 </script>
 
 <div class="flex size-full min-h-0 flex-col">
-  <ViewHeader title="Extensions" icon={Blocks} context={project.active ? 'Project and user-level extensions' : 'User-level extensions'}>
+  <ViewHeader title={t('extensions.title')} icon={Blocks} context={project.active ? t('extensions.context.project') : t('extensions.context.user')}>
     {#snippet actions()}
       <ExtensionToolbar tab={currentTab ?? undefined} />
-      <RefreshButton label="Reload extensions" onclick={() => extensionsView.refresh()} />
+      <RefreshButton label={t('extensions.reload')} onclick={() => extensionsView.refresh()} />
     {/snippet}
   </ViewHeader>
 
   <ActionDialog />
 
   <div class="relative min-h-0 flex-1">
-    <HarnessGate loader={extensionsView} noun="extensions">
+    <HarnessGate loader={extensionsView} area="extensions">
       {#snippet children(view)}
         {@const options = tabs.map((tab) => ({ value: tab.id, label: tab.label, count: tabCount(tab.id, view) }))}
         {@const current = options.some((option) => option.value === viewState.extensionsTab) ? (viewState.extensionsTab as ExtTab) : options[0]?.value}
@@ -51,7 +52,7 @@
           <Tabs
             items={options}
             bind:value={() => current, chooseTab}
-            label="Extension types"
+            label={t('extensions.types')}
             class="mt-1 min-h-0 flex-1 gap-0"
             stripClass="mx-[var(--gutter)] max-w-[calc(100%-2*var(--gutter))] self-start overflow-x-auto"
             panelClass="min-h-0 flex-1 border-t border-line"
@@ -62,7 +63,7 @@
           </Tabs>
         {:else}
           <div class="grid flex-1 place-items-center">
-            <EmptyState icon={Blocks} title="No extension types" body="This harness does not expose plugins, skills or MCP servers." />
+            <EmptyState icon={Blocks} title={t('extensions.noTypes.title')} body={t('extensions.noTypes.body')} />
           </div>
         {/if}
       {/snippet}

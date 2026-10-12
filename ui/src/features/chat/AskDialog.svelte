@@ -5,6 +5,7 @@
   import Dialog from '$lib/components/Dialog.svelte';
   import type { ChatSession } from '$lib/chat/session.svelte';
   import { autofocus } from '$lib/a11y/autofocus';
+  import { t } from '$lib/i18n/i18n.svelte';
 
   interface Props {
     session: ChatSession;
@@ -13,24 +14,13 @@
 
   let { session, kind }: Props = $props();
 
-  const COPY = {
-    compact: {
-      title: 'Compact the conversation',
-      description: 'Summarizes older messages to free up context. You can tell the agent what to keep.',
-      label: 'Instructions (optional)',
-      placeholder: 'Keep the decisions about the parser',
-      submit: 'Compact',
-    },
-    name: {
-      title: 'Name this session',
-      description: 'The name shows in the tab and in your session list.',
-      label: 'Session name',
-      placeholder: 'Handle empty config input',
-      submit: 'Save name',
-    },
-  } as const;
-
-  const copy = $derived(COPY[kind]);
+  const copy = $derived({
+    title: t(`chat.ask.${kind}.title`),
+    description: t(`chat.ask.${kind}.description`),
+    label: t(`chat.ask.${kind}.label`),
+    placeholder: t(`chat.ask.${kind}.placeholder`),
+    submit: t(`chat.ask.${kind}.submit`),
+  });
 
   let value = $state(untrack(() => (kind === 'name' ? (session.name ?? '') : '')));
 
@@ -63,7 +53,7 @@
   </label>
 
   {#snippet footer()}
-    <Button onclick={close}>Cancel</Button>
+    <Button onclick={close}>{t('chat.ask.cancel')}</Button>
     <Button variant="primary" onclick={submit}>{copy.submit}</Button>
   {/snippet}
 </Dialog>

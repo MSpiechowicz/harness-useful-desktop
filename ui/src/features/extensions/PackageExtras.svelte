@@ -1,6 +1,7 @@
 <script lang="ts">
   import Badge from '$lib/components/Badge.svelte';
   import ConfigValueView from '$lib/components/ConfigValueView.svelte';
+  import { t } from '$lib/i18n/i18n.svelte';
   import type { PackageInfo } from '$lib/ipc/bindings/PackageInfo';
   import { harness } from '$lib/stores/harness.svelte';
   import { project } from '$lib/stores/project.svelte';
@@ -21,14 +22,14 @@
   <ActionBar {actions} />
 {/if}
 
-<section class="flex flex-col gap-2" aria-label="Source">
-  <h3 class="text-sm font-medium tracking-wider text-fg-3 uppercase">Source</h3>
+<section class="flex flex-col gap-2" aria-label={t('extensions.package.source')}>
+  <h3 class="text-sm font-medium tracking-wider text-fg-3 uppercase">{t('extensions.package.source')}</h3>
   <div class="font-mono text-sm break-all"><ConfigValueView value={pkg.source} expanded /></div>
 </section>
 
 {#if pkg.resources.length > 0}
-  <section class="flex flex-col gap-2" aria-label="Provides">
-    <h3 class="text-sm font-medium tracking-wider text-fg-3 uppercase">Provides</h3>
+  <section class="flex flex-col gap-2" aria-label={t('extensions.package.provides')}>
+    <h3 class="text-sm font-medium tracking-wider text-fg-3 uppercase">{t('extensions.package.provides')}</h3>
     <div class="flex flex-wrap gap-1.5">
       {#each pkg.resources as resource (resource)}
         <Badge tone="accent">{resource}</Badge>

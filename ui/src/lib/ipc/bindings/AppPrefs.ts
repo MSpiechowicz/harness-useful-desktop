@@ -25,6 +25,12 @@ theme: ThemePref,
  */
 motion: MotionPref, 
 /**
+ * UI language code, one of `LANGUAGES` (`en`, `de`, `es`, `fr`, `pl`); default `en`.
+ * Any other stored value (an unknown code, or not a string at all) loads as `en` instead of
+ * making the file unusable.
+ */
+language: string, 
+/**
  * Whether the opening animation plays.
  */
 introEnabled: boolean, 

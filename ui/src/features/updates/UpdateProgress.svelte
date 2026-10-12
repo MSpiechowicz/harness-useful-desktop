@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n/i18n.svelte';
   import { updates } from '$lib/stores/updates.svelte';
 
   import { progressLabel } from './copy';
@@ -8,14 +9,14 @@
 
   const state = $derived(updates.state);
   const fraction = $derived(updates.fraction);
-  const title = $derived(state.kind === 'installing' ? 'Installing' : 'Downloading');
+  const title = $derived(state.kind === 'installing' ? t('updates.progress.installing') : t('updates.progress.downloading'));
   const detail = $derived(state.kind === 'installing' ? '' : progressLabel(state));
 </script>
 
 {#snippet bar()}
   <div
     role="progressbar"
-    aria-label="Update progress"
+    aria-label={t('updates.progress.label')}
     aria-valuemin={0}
     aria-valuemax={100}
     aria-valuenow={fraction === null ? undefined : Math.round(fraction * 100)}
@@ -31,14 +32,14 @@
 
 {#if inline}
   <div class="flex items-center gap-3 text-sm whitespace-nowrap">
-    <span class="text-fg-2">{title}…</span>
+    <span class="text-fg-2">{title}</span>
     <div class="w-40">{@render bar()}</div>
     {#if detail}<span class="tabular text-fg-3">{detail}</span>{/if}
   </div>
 {:else}
   <div class="flex flex-col gap-2">
     <div class="flex items-baseline justify-between gap-3 text-sm">
-      <span class="text-fg-2">{title}…</span>
+      <span class="text-fg-2">{title}</span>
       <span class="tabular text-fg-3">{detail}</span>
     </div>
     {@render bar()}

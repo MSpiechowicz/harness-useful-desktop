@@ -1,6 +1,7 @@
 import type { SlashOutcome } from '$lib/chat/slash';
 import type { ChatSession } from '$lib/chat/session.svelte';
 import { clearTranscript } from '$lib/chat/reducer';
+import { t } from '$lib/i18n/i18n.svelte';
 import type { GuiTarget } from '$lib/ipc/bindings/GuiTarget';
 import { revealPath } from '$lib/ipc/actions';
 import { nav, type ViewId } from '$lib/stores/nav.svelte';
@@ -33,16 +34,16 @@ function openGui(session: ChatSession, target: GuiTarget): void {
 
 async function copyLastReply(text: string | null): Promise<void> {
   if (!text) {
-    toasts.push({ title: 'Nothing to copy yet', description: 'The agent has not answered in this session.', tone: 'info' });
+    toasts.push({ title: t('chat.toast.nothingToCopy'), description: t('chat.toast.nothingToCopyBody'), tone: 'info' });
 
     return;
   }
 
   try {
     await navigator.clipboard.writeText(text);
-    toasts.push({ title: 'Copied the last reply', tone: 'success' });
+    toasts.push({ title: t('chat.toast.copied'), tone: 'success' });
   } catch {
-    toasts.push({ title: 'Could not copy', description: 'The clipboard is not available.', tone: 'warning' });
+    toasts.push({ title: t('chat.toast.copyFailed'), description: t('chat.toast.copyFailedBody'), tone: 'warning' });
   }
 }
 
@@ -62,7 +63,7 @@ async function runAction(session: ChatSession, outcome: Extract<SlashOutcome, { 
     session.apply(clearTranscript);
   } else if (outcome.kind === 'exportHtml' && reply.type === 'exported') {
     const path = reply.path;
-    toasts.push({ title: 'Session exported', description: path, tone: 'success', duration: 9000, action: { label: 'Reveal', run: () => void revealPath(path) } });
+    toasts.push({ title: t('chat.toast.exported'), description: path, tone: 'success', duration: 9000, action: { label: t('chat.toast.reveal'), run: () => void revealPath(path) } });
   } else if (outcome.kind === 'getLastAssistantText' && reply.type === 'text') {
     await copyLastReply(reply.text);
   }
@@ -87,7 +88,7 @@ export async function runSlash(session: ChatSession, outcome: SlashOutcome): Pro
       return;
 
     case 'unsupported':
-      toasts.push({ title: 'Not available in the desktop app', description: outcome.reason, tone: 'info' });
+      toasts.push({ title: t('chat.toast.unsupported'), description: outcome.reason, tone: 'info' });
 
       return;
 

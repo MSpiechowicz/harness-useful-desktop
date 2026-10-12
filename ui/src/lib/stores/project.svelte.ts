@@ -1,4 +1,5 @@
 import type { ProjectInfo } from '$lib/ipc/bindings/ProjectInfo';
+import { t, type MessageKey } from '$lib/i18n/i18n.svelte';
 import { ipc } from '$lib/ipc/client';
 import { IpcFailure, type Transport } from '$lib/ipc/transport';
 
@@ -30,7 +31,7 @@ export class ProjectStore {
     try {
       this.recents = await this.transport.invoke('project_recent', undefined);
     } catch (error) {
-      this.fail('Could not read recent projects', error);
+      this.fail('harness.toast.recents', error);
     }
   }
 
@@ -45,7 +46,7 @@ export class ProjectStore {
 
       return picked;
     } catch (error) {
-      this.fail('Could not open that folder', error);
+      this.fail('harness.toast.pickFolder', error);
 
       return null;
     }
@@ -59,7 +60,7 @@ export class ProjectStore {
 
       return true;
     } catch (error) {
-      this.fail('Could not open the project', error);
+      this.fail('harness.toast.openProject', error);
 
       return false;
     }
@@ -70,7 +71,7 @@ export class ProjectStore {
       await this.transport.invoke('project_close', undefined);
       this.active = null;
     } catch (error) {
-      this.fail('Could not close the project', error);
+      this.fail('harness.toast.closeProject', error);
     }
   }
 
@@ -82,7 +83,7 @@ export class ProjectStore {
         this.active = null;
       }
     } catch (error) {
-      this.fail('Could not forget the project', error);
+      this.fail('harness.toast.forgetProject', error);
     }
   }
 
@@ -95,8 +96,8 @@ export class ProjectStore {
     }
   }
 
-  private fail(title: string, error: unknown): void {
-    this.notifications.push({ title, description: IpcFailure.from(error).message, tone: 'danger' });
+  private fail(title: MessageKey, error: unknown): void {
+    this.notifications.push({ title: t(title), description: IpcFailure.from(error).message, tone: 'danger' });
   }
 }
 

@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { i18n } from '$lib/i18n/i18n.svelte';
 import { dashboard } from '$lib/stores/dashboard.svelte';
 import { ecosystem } from '$lib/stores/ecosystem.svelte';
 import { nav } from '$lib/stores/nav.svelte';
@@ -172,6 +173,21 @@ describe('Ecosystem view', () => {
     expect(await screen.findByText('Could not look for companions', { selector: 'h2' })).toBeInTheDocument();
     expect(ecosystem.state).toBe('error');
     expect(screen.getByRole('button', { name: 'Try again', description: '' })).toBeInTheDocument();
+  });
+});
+
+describe('Ecosystem view in Polish', () => {
+  it('reads in Polish with the plural form each count needs', async () => {
+    await i18n.load('pl');
+    await show();
+
+    expect(await screen.findByRole('heading', { level: 2, name: 'Narzędzia, dzięki którym agentów da się zmierzyć' })).toBeInTheDocument();
+    expect(await screen.findByText('Zainstalowano 2 z 3 · 1 dostępna aktualizacja', { selector: 'p[role="status"]' })).toBeInTheDocument();
+
+    const sessions = await screen.findByRole('article', { name: 'Sesje, ostatnie 7 dni' });
+    expect(sessions).toHaveTextContent('318 promptów');
+    expect(sessions).toHaveTextContent(/1\s?672 wywołania modelu/);
+    expect(screen.getByRole('radio', { name: '30 dni' })).toBeInTheDocument();
   });
 });
 

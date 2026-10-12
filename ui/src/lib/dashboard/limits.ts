@@ -1,5 +1,7 @@
-import { LOCALE } from '$lib/utils/format';
+import { t, tn } from '$lib/i18n/i18n.svelte';
+import { locale } from '$lib/utils/format';
 
+import { formatSpan } from './format';
 import type { LimitWindow } from './models';
 
 const MINUTE_MS = 60_000;
@@ -95,16 +97,16 @@ export function windowName(window: string, scope: string | null): string {
 
 function lengthName(length: number): string {
   if (length === DAY_MS) {
-    return 'Daily limit';
+    return t('ecosystem.limits.daily');
   }
   if (length === 7 * DAY_MS) {
-    return 'Weekly limit';
+    return t('ecosystem.limits.weekly');
   }
   if (length % DAY_MS === 0) {
-    return `${length / DAY_MS}-day limit`;
+    return tn('ecosystem.limits.days', length / DAY_MS);
   }
 
-  return `${length / HOUR_MS}-hour limit`;
+  return tn('ecosystem.limits.hours', length / HOUR_MS);
 }
 
 /** The share of a window that is left, 0..1. A window that has reset since the reading is whole again. */
@@ -174,19 +176,19 @@ export function formatClock(time: number, now: number): string {
       ? { weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }
       : { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' };
 
-  return new Intl.DateTimeFormat(LOCALE, options).format(time);
+  return new Intl.DateTimeFormat(locale(), options).format(time);
 }
 
 /** "12m ago", "6h ago", "3d ago". */
 export function formatAge(minutes: number): string {
   if (minutes < 60) {
-    return `${Math.max(1, Math.round(minutes))}m ago`;
+    return t('ecosystem.time.ago', { time: formatSpan(Math.max(1, Math.round(minutes)), 'minute') });
   }
   if (minutes < 24 * 60) {
-    return `${Math.round(minutes / 60)}h ago`;
+    return t('ecosystem.time.ago', { time: formatSpan(Math.round(minutes / 60), 'hour') });
   }
 
-  return `${Math.round(minutes / (24 * 60))}d ago`;
+  return t('ecosystem.time.ago', { time: formatSpan(Math.round(minutes / (24 * 60)), 'day') });
 }
 
 export interface LimitGroup {

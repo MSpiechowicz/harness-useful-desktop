@@ -9,6 +9,7 @@
   import Skeleton from '$lib/components/Skeleton.svelte';
   import type { RangeTarget } from '$lib/git/comment-range';
   import { statusName, statusTone } from '$lib/git/entries';
+  import { t } from '$lib/i18n/i18n.svelte';
   import type { StatusEntry } from '$lib/ipc/bindings/StatusEntry';
   import { git } from '$lib/stores/git.svelte';
   import { revealPath } from '$lib/ipc/actions';
@@ -55,17 +56,17 @@
       {/if}
     {/if}
     {#if shown?.oldPath}
-      <span class="truncate text-xs text-fg-3">renamed from {shown.oldPath}</span>
+      <span class="truncate text-xs text-fg-3">{t('changes.diff.renamedFrom', { path: shown.oldPath })}</span>
     {/if}
 
     {#if diffs.length > 1}
       <SegmentedControl
         options={[
-          { value: 'unstaged', label: 'Unstaged' },
-          { value: 'staged', label: 'Staged' },
+          { value: 'unstaged', label: t('changes.diff.unstaged') },
+          { value: 'staged', label: t('changes.diff.staged') },
         ]}
         value={which}
-        label="Which version of the file"
+        label={t('changes.diff.version')}
         onchange={(value) => (which = value)}
       />
     {/if}
@@ -73,7 +74,7 @@
 
   <div class="flex min-h-0 flex-1 flex-col">
     {#if !loaded || loaded.status === 'loading'}
-      <div class="flex flex-col gap-2 p-4" role="status" aria-label="Loading diff">
+      <div class="flex flex-col gap-2 p-4" role="status" aria-label={t('changes.diff.loading')}>
         <Skeleton width="40%" height="1rem" />
         <Skeleton height="1rem" />
         <Skeleton height="1rem" />
@@ -83,13 +84,13 @@
       <div class="flex flex-col items-center gap-3 p-8 text-center" role="alert">
         <CircleAlert size={24} class="text-danger" aria-hidden="true" />
         <p class="text-base text-fg-2">{loaded.error.message}</p>
-        <Button onclick={() => git.retryDiff(entry.path)}>Try again</Button>
+        <Button onclick={() => git.retryDiff(entry.path)}>{t('changes.tryAgain')}</Button>
       </div>
     {:else if shown}
       {#if review.commentsFor(project).length === 0}
         <p class="flex items-center gap-1.5 border-b border-line px-3 py-1.5 text-xs text-fg-3">
           <MessageSquarePlus size={14} aria-hidden="true" class="shrink-0" />
-          Click a line to comment on it (Shift+click for a range); then send the comments to the chat that made the change.
+          {t('changes.diff.hint')}
         </p>
       {/if}
       <div class="min-h-0 flex-1">
@@ -107,7 +108,7 @@
       {/key}
       </div>
     {:else}
-      <p class="grid size-full place-items-center p-8 text-center text-base text-fg-2" role="status">No diff is available for this file.</p>
+      <p class="grid size-full place-items-center p-8 text-center text-base text-fg-2" role="status">{t('changes.diff.unavailable')}</p>
     {/if}
   </div>
 </div>

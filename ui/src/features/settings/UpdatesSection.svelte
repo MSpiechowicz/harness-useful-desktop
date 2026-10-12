@@ -11,6 +11,7 @@
   import SegmentedControl from '$lib/components/SegmentedControl.svelte';
   import Switch from '$lib/components/Switch.svelte';
   import type { StripOption } from '$lib/components/strip';
+  import { t } from '$lib/i18n/i18n.svelte';
   import type { UpdatePolicy } from '$lib/ipc/bindings/UpdatePolicy';
   import { openExternal } from '$lib/ipc/actions';
   import { app } from '$lib/stores/app.svelte';
@@ -18,7 +19,7 @@
   import { prefs } from '$lib/stores/prefs.svelte';
   import { retryable, updates } from '$lib/stores/updates.svelte';
 
-  import { failureMessage, formatReleaseDate, INSTALLER_CLOSES_APP, releaseNotes, RESTART_STOPS_AGENTS, statusLine } from '../updates/copy';
+  import { failureMessage, formatReleaseDate, installerClosesApp, releaseNotes, restartStopsAgents, statusLine } from '../updates/copy';
   import UpdateProgress from '../updates/UpdateProgress.svelte';
   import { RELEASES_URL } from './links';
   import SettingRow from './SettingRow.svelte';
@@ -31,14 +32,29 @@
   let { id }: Props = $props();
 
   const POLICY_OPTIONS: StripOption<UpdatePolicy>[] = [
-    { value: 'startupAsk', label: 'Ask first' },
-    { value: 'autoInstall', label: 'Automatic' },
-    { value: 'off', label: 'Off' },
+    {
+      value: 'startupAsk',
+      get label() {
+        return t('settings.updates.policy.startupAsk');
+      },
+    },
+    {
+      value: 'autoInstall',
+      get label() {
+        return t('settings.updates.policy.autoInstall');
+      },
+    },
+    {
+      value: 'off',
+      get label() {
+        return t('settings.updates.policy.off');
+      },
+    },
   ];
-  const POLICY_HINTS: Record<UpdatePolicy, string> = {
-    startupAsk: 'Looks for a new version when the app starts and asks before installing it.',
-    autoInstall: 'Looks when the app starts and installs a new version. You choose when to restart.',
-    off: 'Never looks by itself. Use Check now when you want to.',
+  const POLICY_HINTS: Record<UpdatePolicy, () => string> = {
+    startupAsk: () => t('settings.updates.policy.startupAsk.hint'),
+    autoInstall: () => t('settings.updates.policy.autoInstall.hint'),
+    off: () => t('settings.updates.policy.off.hint'),
   };
 
   const state = $derived(updates.state);
@@ -52,32 +68,32 @@
   const canRetry = $derived(failure !== null && failure.during === 'install' && retryable(failure.reason));
 </script>
 
-<SettingsSection {id} title="Updates">
-  <SettingRow title="Version {app.info?.version ?? ''}" description={statusLine(state)}>
+<SettingsSection {id} title={t('settings.section.updates')}>
+  <SettingRow title={t('settings.updates.version', { version: app.info?.version ?? '' })} description={statusLine(state)}>
     {#snippet control()}
       {#if canCheck}
         <Button disabled={updates.busy} loading={state.kind === 'checking'} onclick={() => void updates.check()}>
           {#snippet leading()}<RefreshCw size={ICON.sm} aria-hidden="true" />{/snippet}
-          Check now
+          {t('settings.updates.check')}
         </Button>
       {/if}
     {/snippet}
   </SettingRow>
 
-  <SettingRow title="When the app starts" description={POLICY_HINTS[policy]}>
+  <SettingRow title={t('settings.updates.policy.title')} description={POLICY_HINTS[policy]()}>
     {#snippet control()}
-      <SegmentedControl size="md" label="Update policy" options={POLICY_OPTIONS} bind:value={() => policy, (updatePolicy) => void prefs.update({ updatePolicy })} />
+      <SegmentedControl size="md" label={t('settings.updates.policy.label')} options={POLICY_OPTIONS} bind:value={() => policy, (updatePolicy) => void prefs.update({ updatePolicy })} />
     {/snippet}
   </SettingRow>
 
   <!-- The companions' own lookup (ecosystem_releases): separate from the app's updates, and off means no request at all. -->
   <SettingRow
-    title="Check companions for updates"
-    description="When you open Ecosystem, ask GitHub for the latest Harness Dashboard, Skills and Sidebar releases, at most every six hours while the app runs. GitHub sees your IP address and the app version, not which companions you have."
+    title={t('settings.updates.companions.title')}
+    description={t('settings.updates.companions.description')}
   >
     {#snippet control()}
       <Switch
-        label="Check companions for updates"
+        label={t('settings.updates.companions.title')}
         bind:checked={
           () => prefs.value?.checkCompanionUpdates ?? true,
           // Forget the last reading, so Ecosystem shows (or drops) the GitHub badges on its next visit, not 30 s later.
@@ -91,11 +107,11 @@
     <div class="flex items-start gap-3 py-4 text-sm text-fg-2" role="status">
       <Info class="mt-0.5 shrink-0 text-fg-3" size={ICON.sm} aria-hidden="true" />
 
-      <p class="min-w-0 flex-1">This build is not set up for updates, so it will not look for new versions. Nothing is wrong. Get new versions from the releases page.</p>
+      <p class="min-w-0 flex-1">{t('settings.updates.notConfigured')}</p>
 
       <Button class="shrink-0" onclick={() => void openExternal(RELEASES_URL)}>
         {#snippet leading()}<ExternalLink size={ICON.sm} aria-hidden="true" />{/snippet}
-        Open releases
+        {t('settings.updates.openReleases')}
       </Button>
     </div>
   {/if}
@@ -107,7 +123,7 @@
       </div>
 
       {#if canRetry}
-        <Button onclick={() => void updates.install()}>Try again</Button>
+        <Button onclick={() => void updates.install()}>{t('settings.updates.retry')}</Button>
       {/if}
     </div>
   {/if}
@@ -115,33 +131,33 @@
   {#if release && state.kind !== 'failed'}
     <div class="flex flex-col gap-4 py-4">
       <div class="flex items-baseline justify-between gap-4">
-        <p class="text-base font-medium text-fg">Version {release.version}</p>
+        <p class="text-base font-medium text-fg">{t('settings.updates.version', { version: release.version })}</p>
         {#if date}<p class="text-sm text-fg-3">{date}</p>{/if}
       </div>
 
       {#if notes}
         <!-- The notes are untrusted text from the release; only the sanitized Markdown component may show them. -->
         <!-- svelte-ignore a11y_no_noninteractive_tabindex -- a scrollable region must be reachable by keyboard -->
-        <div class="max-h-64 overflow-y-auto rounded-md border border-line bg-surface-2 p-4" role="region" aria-label="Release notes" tabindex="0">
+        <div class="max-h-64 overflow-y-auto rounded-md border border-line bg-surface-2 p-4" role="region" aria-label={t('settings.updates.notes')} tabindex="0">
           <Markdown source={notes} />
         </div>
       {/if}
 
       {#if state.kind === 'available'}
         <div class="flex flex-wrap items-center gap-3">
-          <Button variant="primary" onclick={() => void updates.install()}>Install update</Button>
-          {#if updates.closesApp}<p class="text-sm text-fg-3">{INSTALLER_CLOSES_APP}</p>{/if}
+          <Button variant="primary" onclick={() => void updates.install()}>{t('settings.updates.install')}</Button>
+          {#if updates.closesApp}<p class="text-sm text-fg-3">{installerClosesApp()}</p>{/if}
         </div>
       {:else if state.kind === 'downloading' || state.kind === 'installing'}
         <UpdateProgress />
-        {#if updates.closesApp}<p class="text-sm text-fg-3">{INSTALLER_CLOSES_APP}</p>{/if}
+        {#if updates.closesApp}<p class="text-sm text-fg-3">{installerClosesApp()}</p>{/if}
       {:else if state.kind === 'readyToRelaunch'}
         <div class="flex flex-wrap items-center gap-3">
           <Button variant="primary" onclick={() => void updates.requestRelaunch()}>
             {#snippet leading()}<RotateCw size={ICON.sm} aria-hidden="true" />{/snippet}
-            {updates.closesApp ? 'Finish update' : 'Restart to finish'}
+            {updates.closesApp ? t('settings.updates.finish') : t('settings.updates.restart')}
           </Button>
-          <p class="text-sm text-fg-3">{updates.closesApp ? INSTALLER_CLOSES_APP : RESTART_STOPS_AGENTS}</p>
+          <p class="text-sm text-fg-3">{updates.closesApp ? installerClosesApp() : restartStopsAgents()}</p>
         </div>
       {/if}
     </div>

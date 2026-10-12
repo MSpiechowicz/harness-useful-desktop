@@ -6,6 +6,7 @@
   import Popover from '$lib/components/Popover.svelte';
   import { formatTokens, formatUsd } from '$lib/dashboard/format';
   import { rise } from '$lib/design/motion';
+  import { t } from '$lib/i18n/i18n.svelte';
   import { dashboard, type CostTool } from '$lib/stores/dashboard.svelte';
   import { nav } from '$lib/stores/nav.svelte';
   import { cx } from '$lib/utils/cx';
@@ -31,7 +32,8 @@
   const tool = $derived<CostTool>(kind === 'session' ? 'sessionCost' : 'branchCost');
   const entry = $derived(args ? dashboard.cost(tool, args) : undefined);
   const summary = $derived(entry?.status === 'unavailable' ? null : (entry?.summary ?? null));
-  const noun = $derived(kind === 'session' ? 'Session' : 'Branch');
+
+  const title = $derived(t(kind === 'session' ? 'components.cost.title.session' : 'components.cost.title.branch'));
 
   let open = $state(false);
   let previousKey: unknown = untrack(() => refreshKey);
@@ -63,19 +65,19 @@
     }
 
     const lines: [string, string][] = [
-      ['Tokens', formatTokens(summary.tokens)],
-      ['Model calls', formatCount(summary.modelCalls)],
-      ['Prompts', formatCount(summary.prompts)],
+      [t('components.cost.tokens'), formatTokens(summary.tokens)],
+      [t('components.cost.calls'), formatCount(summary.modelCalls)],
+      [t('components.cost.prompts'), formatCount(summary.prompts)],
     ];
 
     if (summary.subagentCostUsd !== null) {
-      lines.push(['Subagents', formatUsd(summary.subagentCostUsd)]);
+      lines.push([t('components.cost.subagents'), formatUsd(summary.subagentCostUsd)]);
     }
     if (summary.commits !== null) {
-      lines.push(['Commits', String(summary.commits)]);
+      lines.push([t('components.cost.commits'), String(summary.commits)]);
     }
     if (summary.linesAdded !== null) {
-      lines.push(['Lines', `+${summary.linesAdded} −${summary.linesRemoved ?? 0}`]);
+      lines.push([t('components.cost.lines'), `+${summary.linesAdded} −${summary.linesRemoved ?? 0}`]);
     }
 
     return lines;
@@ -84,12 +86,12 @@
 
 {#if summary}
   <span in:rise={{ y: 4, duration: 240 }} class={cx('inline-flex', className)}>
-    <Popover label="{noun} cost" kind="dialog" {align} bind:open class="w-72">
+    <Popover label={title} kind="dialog" {align} bind:open class="w-72">
       {#snippet trigger({ props })}
         <button
           type="button"
           {...props}
-          aria-label="{noun} cost {formatUsd(summary.costUsd)}. Show details"
+          aria-label={t(kind === 'session' ? 'components.cost.aria.session' : 'components.cost.aria.branch', { amount: formatUsd(summary.costUsd) })}
           class="tabular inline-flex h-8 items-center gap-1.5 rounded-md border border-line bg-surface-2 px-2.5 text-sm text-fg-2 transition-[background-color,color,transform] duration-[var(--dur-fast)] hover:bg-surface-3 hover:text-fg active:scale-[0.97]"
         >
           <Coins size={16} class="text-accent-text" aria-hidden="true" />
@@ -100,7 +102,7 @@
       {#snippet children({ close })}
         <div class="flex flex-col gap-3 p-1.5">
           <div class="flex flex-col">
-            <h3 class="text-sm font-semibold text-fg">{noun} cost</h3>
+            <h3 class="text-sm font-semibold text-fg">{title}</h3>
             {#if summary.title}<p class="truncate text-xs text-fg-3" title={summary.title}>{summary.title}</p>{/if}
           </div>
 
@@ -114,21 +116,21 @@
           </dl>
 
           {#if summary.models.length > 0}
-            <ul class="tabular flex flex-col gap-0.5 border-t border-line pt-2 text-xs text-fg-2" aria-label="Cost by model">
+            <ul class="tabular flex flex-col gap-0.5 border-t border-line pt-2 text-xs text-fg-2" aria-label={t('components.cost.byModel')}>
               {#each summary.models.slice(0, 4) as model (model.model)}
                 <li class="flex justify-between gap-3"><span class="truncate">{model.model}</span><span>{formatUsd(model.costUsd)}</span></li>
               {/each}
             </ul>
           {/if}
 
-          <p class="text-xs text-fg-3">API list prices from your Harness Dashboard, not what a subscription bills.</p>
+          <p class="text-xs text-fg-3">{t('components.cost.note')}</p>
 
           <Button
             size="sm"
             onclick={() => {
               close();
               nav.go('ecosystem');
-            }}>Open Ecosystem</Button
+            }}>{t('components.cost.open')}</Button
           >
         </div>
       {/snippet}

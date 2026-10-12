@@ -9,6 +9,7 @@
   import Button from '$lib/components/Button.svelte';
   import { formatUsd } from '$lib/dashboard/format';
   import { scaled } from '$lib/design/motion';
+  import { t, tn } from '$lib/i18n/i18n.svelte';
   import { dashboard } from '$lib/stores/dashboard.svelte';
   import { cx } from '$lib/utils/cx';
   import { uid } from '$lib/utils/ids';
@@ -40,22 +41,22 @@
   }
 </script>
 
-<SlotCard title="Ways to spend less" subtitle="Suggestions from the last 30 days" slot={dashboard.tips} onretry={() => void dashboard.openPanel(true)} {index}>
+<SlotCard title={t('ecosystem.tips.title')} subtitle={t('ecosystem.tips.subtitle')} slot={dashboard.tips} onretry={() => void dashboard.openPanel(true)} {index}>
   {#snippet actions()}
     {@const tips = dashboard.tips.data ?? []}
     {@const total = totalImpact(tips)}
     {#if total !== null}
       <!-- The tips can overlap, so the sum is an upper bound, not a promise. -->
       <p class="tabular flex shrink-0 flex-col items-end text-right">
-        <span class="text-lg leading-6 font-semibold text-fg">≈ {formatUsd(total)}<span class="text-sm font-normal text-fg-3">/mo</span></span>
-        <span class="text-xs text-fg-3">up to, across {tips.length} {tips.length === 1 ? 'suggestion' : 'suggestions'}</span>
+        <span class="text-lg leading-6 font-semibold text-fg">≈ {formatUsd(total)}<span class="text-sm font-normal text-fg-3">{t('ecosystem.tips.perMonth')}</span></span>
+        <span class="text-xs text-fg-3">{tn('ecosystem.count.suggestion', tips.length)}</span>
       </p>
     {/if}
   {/snippet}
 
   {#snippet children(tips)}
     {#if tips.length === 0}
-      <CardEmpty icon={Lightbulb} title="Nothing to suggest right now." />
+      <CardEmpty icon={Lightbulb} title={t('ecosystem.tips.empty')} />
     {:else}
       <div class="flex flex-col gap-4">
         <ul id={listId} class="mt-2 flex flex-col">
@@ -77,14 +78,14 @@
               <div class="flex min-w-0 flex-col gap-1.5">
                 <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
                   <h4 class="min-w-48 flex-1 basis-64 text-sm leading-6 font-semibold text-fg">
-                    <span class="sr-only">{warn ? 'Heads up: ' : 'Tip: '}</span>{tip.title}
+                    <span class="sr-only">{warn ? t('ecosystem.tips.warnPrefix') : t('ecosystem.tips.tipPrefix')}</span>{tip.title}
                   </h4>
 
                   {#if tip.impactUsdPerMonth !== null}
                     <p class="tabular flex shrink-0 items-baseline gap-1 whitespace-nowrap">
-                      <span class="sr-only">Estimated savings: </span>
+                      <span class="sr-only">{t('ecosystem.tips.savings')}</span>
                       <span class="text-base leading-6 font-semibold text-fg">≈ {formatUsd(tip.impactUsdPerMonth)}</span>
-                      <span class="text-xs text-fg-3">/mo est.</span>
+                      <span class="text-xs text-fg-3">{t('ecosystem.tips.perMonthEst')}</span>
                     </p>
                   {/if}
                 </div>
@@ -97,7 +98,7 @@
 
         {#if tips.length > COLLAPSED}
           <Button variant="ghost" size="sm" class="-mt-1 -ml-3 self-start" aria-expanded={expanded} aria-controls={listId} onclick={() => (expanded = !expanded)}>
-            {expanded ? 'Show fewer' : `Show all ${tips.length}`}
+            {expanded ? t('ecosystem.tips.showFewer') : t('ecosystem.tips.showAll', { count: tips.length })}
             {#snippet trailing()}
               <ChevronDown size={16} aria-hidden="true" class={cx('transition-transform duration-[var(--dur-base)]', expanded && 'rotate-180')} />
             {/snippet}

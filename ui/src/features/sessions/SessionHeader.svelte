@@ -4,6 +4,7 @@
 
   import Badge from '$lib/components/Badge.svelte';
   import Button from '$lib/components/Button.svelte';
+  import { t } from '$lib/i18n/i18n.svelte';
   import type { SessionNode } from '$lib/ipc/bindings/SessionNode';
   import type { SessionSummary } from '$lib/ipc/bindings/SessionSummary';
   import { formatBytes, relativeTime } from '$lib/utils/format';
@@ -34,10 +35,10 @@
       <h2 class="truncate text-xl text-fg" title={summary.title ?? summary.firstPrompt ?? undefined}>{sessionTitle(summary)}</h2>
       <!-- Always as tall as the "Forked" badge, so the header does not jump when a session has one. -->
       <p class="tabular flex h-5 items-center gap-x-2 overflow-hidden text-xs whitespace-nowrap text-fg-3">
-        <span>Updated {relativeTime(summary.updatedAt)}</span>
+        <span>{t('sessions.header.updated', { time: relativeTime(summary.updatedAt) })}</span>
         {#if summary.model}<span>· {summary.model}</span>{/if}
         <span>· {formatBytes(summary.sizeBytes)}</span>
-        {#if summary.parentSession}<Badge tone="info">Forked</Badge>{/if}
+        {#if summary.parentSession}<Badge tone="info">{t('sessions.header.forked')}</Badge>{/if}
       </p>
     </div>
 
@@ -46,15 +47,15 @@
         variant="secondary"
         size="sm"
         disabled={!canFork || busy}
-        title={canFork ? 'Start a new session from the selected message' : 'Pick one of your messages, in the tree or the transcript, to fork from it'}
+        title={canFork ? t('sessions.header.forkHint') : t('sessions.header.forkNeedsPick')}
         onclick={onfork}
       >
         {#snippet leading()}<GitFork size={16} aria-hidden="true" />{/snippet}
-        Fork from here
+        {t('sessions.header.fork')}
       </Button>
       <Button variant="primary" size="sm" loading={busy} onclick={onresume}>
         {#snippet leading()}<Play size={16} aria-hidden="true" />{/snippet}
-        Resume in chat
+        {t('sessions.header.resume')}
       </Button>
     </div>
   </div>

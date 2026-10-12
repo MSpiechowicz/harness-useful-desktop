@@ -1,6 +1,8 @@
 <script lang="ts">
+  import { t } from '$lib/i18n/i18n.svelte';
   import { motion } from '$lib/stores/motion.svelte';
   import { cx } from '$lib/utils/cx';
+  import { locale } from '$lib/utils/format';
 
   import { meterTone, TONE_FILLS, TONE_WORDS } from './colors';
   import { growOnMount } from './grow.svelte';
@@ -30,7 +32,7 @@
   aria-valuemin={0}
   aria-valuemax={100}
   aria-valuenow={percent === null ? undefined : Math.round(clamped)}
-  aria-valuetext={percent === null ? 'no reading' : `${valueText}${word ? `, ${word.toLowerCase()}` : ''}`}
+  aria-valuetext={percent === null ? t('ecosystem.meter.noReading') : `${valueText}${word ? `, ${word.toLocaleLowerCase(locale())}` : ''}`}
   class="flex items-center gap-3"
 >
   <span class="relative h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-surface-3" aria-hidden="true">

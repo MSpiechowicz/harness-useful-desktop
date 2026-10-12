@@ -5,6 +5,7 @@
   import Popover from '$lib/components/Popover.svelte';
   import { rememberThinking } from '$lib/chat/chat-defaults';
   import type { ChatSession } from '$lib/chat/session.svelte';
+  import { t } from '$lib/i18n/i18n.svelte';
 
   import MenuItem from './MenuItem.svelte';
 
@@ -25,19 +26,19 @@
 </script>
 
 {#if supported}
-  <Popover label="Thinking level" kind="menu" side="top" align="end" bind:open={session.ui.thinkingPicker} class="min-w-44">
+  <Popover label={t('chat.thinking.picker')} kind="menu" side="top" align="end" bind:open={session.ui.thinkingPicker} class="min-w-44">
     {#snippet trigger({ props })}
       <button type="button" {...props} class="inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-sm text-fg-3 transition-colors duration-[var(--dur-fast)] hover:bg-hover hover:text-fg aria-expanded:bg-hover aria-expanded:text-fg">
         <Brain size={16} aria-hidden="true" />
         <!-- The icon says "thinking"; the word stays in the accessible name. -->
-        <span><span class="sr-only">{'Thinking: '}</span>{level ?? 'default'}</span>
+        <span><span class="sr-only">{t('chat.thinking.prefix')}</span>{level ?? t('chat.thinking.default')}</span>
         <ChevronDown size={16} aria-hidden="true" class="text-fg-3" />
       </button>
     {/snippet}
 
     {#snippet children({ close })}
       {#if session.thinkingLevels === null}
-        <p class="px-2.5 py-2 text-sm text-fg-3" role="status">Loading…</p>
+        <p class="px-2.5 py-2 text-sm text-fg-3" role="status">{t('chat.thinking.loading')}</p>
       {:else}
         {#each session.thinkingLevels as option (option)}
           <MenuItem

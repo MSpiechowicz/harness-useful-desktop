@@ -1,4 +1,5 @@
 import { OTHER, makerModelHex, modelFamily, poolHex, providerHex } from '$lib/dashboard/palette';
+import { t } from '$lib/i18n/i18n.svelte';
 import { theme } from '$lib/stores/theme.svelte';
 
 /** The same harness always gets the same color, the one the Harness Dashboard gives it; it follows the theme. */
@@ -21,7 +22,15 @@ export function meterTone(percent: number): MeterTone {
 }
 
 /** The words that say what the color says, so color is never the only signal. */
-export const TONE_WORDS: Record<MeterTone, string | null> = { accent: null, warning: 'High', danger: 'Nearly full' };
+export const TONE_WORDS: Record<MeterTone, string | null> = {
+  accent: null,
+  get warning() {
+    return t('ecosystem.meter.high');
+  },
+  get danger() {
+    return t('ecosystem.meter.full');
+  },
+};
 
 export const TONE_FILLS: Record<MeterTone, string> = {
   accent: 'bg-accent',

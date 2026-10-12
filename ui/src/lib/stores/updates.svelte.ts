@@ -1,3 +1,4 @@
+import { t } from '$lib/i18n/i18n.svelte';
 import type { UpdateInfo } from '$lib/ipc/bindings/UpdateInfo';
 import type { UpdateProgress } from '$lib/ipc/bindings/UpdateProgress';
 import { ipc } from '$lib/ipc/client';
@@ -208,7 +209,7 @@ export class UpdatesStore {
     try {
       await this.transport.invoke('app_relaunch', undefined);
     } catch (error) {
-      this.notifications.push({ title: 'Could not restart', description: IpcFailure.from(error).message, tone: 'danger' });
+      this.notifications.push({ title: t('updates.restart.failed'), description: IpcFailure.from(error).message, tone: 'danger' });
     }
   }
 

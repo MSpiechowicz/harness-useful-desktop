@@ -12,6 +12,7 @@
   import { countMatches } from '$lib/components/config-tree';
   import { ICON } from '$lib/components/icon';
   import SearchField from '$lib/components/SearchField.svelte';
+  import { t, tn } from '$lib/i18n/i18n.svelte';
   import type { ConfigSection } from '$lib/ipc/bindings/ConfigSection';
   import { revealPath } from '$lib/ipc/actions';
   import { cx } from '$lib/utils/cx';
@@ -53,7 +54,7 @@
     <code class="min-w-0 flex-1 truncate font-mono text-sm text-fg-2" title={section.source.path}>{section.source.path}</code>
     <Button size="sm" variant="ghost" disabled={!section.source.exists} onclick={() => void revealPath(section.source.path)}>
       {#snippet leading()}<FolderSearch size={ICON.sm} aria-hidden="true" />{/snippet}
-      Reveal in file manager
+      {t('config.detail.reveal')}
     </Button>
   </div>
 
@@ -61,7 +62,7 @@
     <div class="flex items-start gap-3 rounded-md border border-line bg-danger-wash p-4 text-sm text-fg" role="alert">
       <CircleAlert class="mt-0.5 shrink-0 text-danger" size={ICON.sm} aria-hidden="true" />
       <div class="flex flex-col gap-1">
-        <p class="font-medium">This file could not be read</p>
+        <p class="font-medium">{t('config.detail.readError')}</p>
         <p class="text-fg-2">{section.error}</p>
       </div>
     </div>
@@ -69,35 +70,35 @@
     <div class="flex items-start gap-3 rounded-md border border-line bg-surface-1 p-4 text-sm" role="status">
       <FileQuestion class="mt-0.5 shrink-0 text-fg-3" size={ICON.sm} aria-hidden="true" />
       <div class="flex flex-col gap-1">
-        <p class="font-medium text-fg">No file here yet</p>
-        <p class="text-fg-2">The harness has no settings at this path. Settings from this layer will appear once the file exists.</p>
+        <p class="font-medium text-fg">{t('config.detail.missingTitle')}</p>
+        <p class="text-fg-2">{t('config.detail.missingBody')}</p>
       </div>
     </div>
   {:else}
     <div class="flex items-center gap-3">
-      <SearchField bind:value={query} label="Filter keys and values" placeholder="Filter keys and values" class="max-w-sm flex-1" />
+      <SearchField bind:value={query} label={t('config.detail.filter')} placeholder={t('config.detail.filter')} class="max-w-sm flex-1" />
       <p class="text-sm text-fg-3" aria-live="polite">
         {#if query.trim() !== ''}
-          {matches} {matches === 1 ? 'match' : 'matches'}
+          {tn('config.detail.matches', matches)}
         {:else}
-          {section.entries.length} top-level {section.entries.length === 1 ? 'entry' : 'entries'}
+          {tn('config.detail.entries', section.entries.length)}
         {/if}
       </p>
 
       <!-- One toggle for the whole tree: collapse while anything is open, otherwise expand everything. One chevron that turns, like the rows'. -->
       <Button size="sm" variant="ghost" class="ml-auto" onclick={() => tree?.setAll(openCount === 0)}>
         {#snippet leading()}<ChevronDown size={ICON.sm} class={cx('transition-transform duration-[var(--dur-fast)]', openCount > 0 && 'rotate-180')} aria-hidden="true" />{/snippet}
-        {openCount > 0 ? 'Collapse all' : 'Expand all'}
+        {openCount > 0 ? t('config.detail.collapseAll') : t('config.detail.expandAll')}
       </Button>
     </div>
 
     <div class="rounded-lg border border-line bg-surface-1 p-2">
-      <ConfigTree bind:this={tree} bind:openCount fields={section.entries} label="{section.title} settings" {query} />
+      <ConfigTree bind:this={tree} bind:openCount fields={section.entries} label={t('config.detail.treeLabel', { title: section.title })} {query} />
     </div>
 
     <p class="flex items-center gap-2 text-xs text-fg-3">
       <ShieldCheck size={ICON.sm} class="shrink-0 text-success" aria-hidden="true" />
-      Secrets are masked here and never leave the backend.
+      {t('config.detail.secrets')}
     </p>
   {/if}
 </article>

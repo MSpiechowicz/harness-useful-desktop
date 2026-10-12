@@ -3,10 +3,12 @@
   import PanelLeftOpen from '@lucide/svelte/icons/panel-left-open';
 
   import { createSpring, moveSpring } from '$lib/design/motion';
+  import { t } from '$lib/i18n/i18n.svelte';
   import Kbd from '$lib/components/Kbd.svelte';
   import Tooltip from '$lib/components/Tooltip.svelte';
   import { ICON } from '$lib/components/icon';
   import Logo from '$lib/components/Logo.svelte';
+  import PaletteButton from '$lib/components/PaletteButton.svelte';
   import { agentSessions } from '$lib/stores/agentSession.svelte';
   import { git } from '$lib/stores/git.svelte';
   import { nav } from '$lib/stores/nav.svelte';
@@ -14,6 +16,7 @@
   import { cx } from '$lib/utils/cx';
 
   import { railBadge } from './rail-badges';
+  import RailFooter from './RailFooter.svelte';
   import RailItem from './RailItem.svelte';
   import { VIEWS, viewShortcut } from './views';
   import WorkspaceSwitcher from './WorkspaceSwitcher.svelte';
@@ -78,7 +81,7 @@
 
 <!-- The last row of the rail, under Settings: shaped like a destination, so it reads as part of the list. -->
 {#snippet toggle()}
-  {@const label = expanded ? 'Collapse sidebar' : 'Expand sidebar'}
+  {@const label = expanded ? t('shell.rail.collapse') : t('shell.rail.expand')}
   {@const Icon = expanded ? PanelLeftClose : PanelLeftOpen}
   <Tooltip text={label} shortcut="mod+b" side="right" disabled={expanded} class="flex w-full">
     {#snippet children({ describedby })}
@@ -88,11 +91,11 @@
         aria-expanded={expanded}
         aria-describedby={describedby}
         onclick={() => ui.toggleRail()}
-        class="group/item flex h-10 w-full items-center gap-3 rounded-md px-[9.5px] text-left text-fg-2 transition-colors duration-[var(--dur-fast)] hover:bg-hover hover:text-fg"
+        class={cx('group/item flex h-[28px] w-full items-center gap-[10px] rounded-sm text-left text-fg-2 transition-[color,background-color,padding] duration-[var(--dur-fast)] hover:bg-hover hover:text-fg', expanded ? 'px-[12px]' : 'px-[15.5px]')}
       >
-        <span class="grid size-[20px] shrink-0 place-items-center"><Icon size={ICON.lg} strokeWidth={1.8} aria-hidden="true" /></span>
+        <span class="grid size-[16px] shrink-0 place-items-center"><Icon size={ICON.sm} aria-hidden="true" /></span>
         {#if expanded}
-          <span class="min-w-0 flex-1 truncate text-base font-medium whitespace-nowrap">{label}</span>
+          <span class="min-w-0 flex-1 truncate text-base whitespace-nowrap">{label}</span>
           <span class="hidden shrink-0 group-hover/item:inline-flex group-focus-visible/item:inline-flex"><Kbd keys="mod+b" /></span>
         {/if}
       </button>
@@ -102,37 +105,40 @@
 
 <nav
   bind:this={rail}
-  aria-label="Primary"
+  aria-label={t('shell.rail.label')}
   data-expanded={expanded}
   class={cx(
     'intro-enter intro-left relative flex shrink-0 flex-col border-r border-line bg-surface-1/70 transition-[width] duration-[var(--dur-slow)] ease-[var(--ease-out-expo)]',
     expanded ? 'w-[var(--rail-expanded)]' : 'w-[var(--rail-collapsed)]',
   )}
 >
-  <!-- The brand sits top-left, on the same baseline as the top bar. Expanded, the mark is centered on the menu icons'
-       column (12px gutter + 9.5px item padding + half of the 20px icon, less half of the ~17px mark). -->
-  <div class={cx('flex h-12 shrink-0 items-center border-b border-line', expanded ? 'pl-[23px]' : 'justify-center px-[12px]')}>
-    <Logo size={expanded ? 15 : 18} wordmark={expanded} state={working ? 'working' : 'idle'} />
+  <!-- The brand, as in the dashboard: a 56px row, 24px mark and 15px name, 16px from the edge. -->
+  <div class={cx('flex h-[56px] shrink-0 items-center', expanded ? 'pl-[16px]' : 'justify-center')}>
+    <Logo size={24} nameSize={15} wordmark={expanded} state={working ? 'working' : 'idle'} />
   </div>
 
-  <!-- Where you are: one control for the harness and the project. -->
-  <div class={cx('flex shrink-0 border-b border-line px-[12px] py-2', !expanded && 'justify-center')}>
-    <WorkspaceSwitcher compact={!expanded} />
+  <!-- Search and commands right under the logo, as in the dashboard. -->
+  <div class="flex shrink-0 px-[8px] pt-[4px]">
+    <PaletteButton compact={!expanded} />
   </div>
 
-  <!-- Active indicator: a glowing tile that springs between destinations. Pixel insets (not rem) keep it centered on
+  <!-- Active indicator: a tinted row that springs between destinations. Pixel insets (not rem) keep it centered on
        the fixed-width rail at any root font size. -->
   <span
     aria-hidden="true"
-    class="pointer-events-none absolute top-0 left-[12px] h-10 rounded-md border border-accent/30 bg-accent-wash shadow-glow transition-[width] duration-[var(--dur-slow)] ease-[var(--ease-out-expo)]"
-    style:width="calc(100% - 24px)"
+    class="pointer-events-none absolute top-0 left-[8px] h-[28px] rounded-sm bg-accent-wash transition-[width] duration-[var(--dur-slow)] ease-[var(--ease-out-expo)]"
+    style:width="calc(100% - 16px)"
     style:transform="translateY({indicatorY.current}px)"
   ></span>
 
-  <div class="flex flex-col gap-1 px-[12px] py-2">
+  <div class="flex flex-col px-[8px] py-[8px]">
     {#each VIEWS as view, index (view.id)}
-      {#if view.id === 'settings'}
-        <div class="my-1 border-t border-line" aria-hidden="true"></div>
+      <!-- A group heading, or a hairline in its place while collapsed: one height for both, so rows never jump. -->
+      {#if view.section}
+        <div class="relative mt-[12px] mb-[4px] h-[16px] px-[12px]" aria-hidden="true">
+          <span class={cx('block truncate text-[11px] leading-[16px] font-medium tracking-wide whitespace-nowrap text-fg-3 uppercase transition-opacity duration-[var(--dur-base)]', expanded ? 'opacity-100' : 'opacity-0')}>{view.section}</span>
+          <span class={cx('absolute inset-x-[12px] top-1/2 h-px bg-line transition-opacity duration-[var(--dur-base)]', expanded ? 'opacity-0' : 'opacity-100')}></span>
+        </div>
       {/if}
 
       <div class="flex">
@@ -152,4 +158,11 @@
       <div class="flex">{@render toggle()}</div>
     {/if}
   </div>
+
+  <!-- Where you are, the harness and the project: under the menu for now. -->
+  <div class={cx('flex shrink-0 border-t border-line px-[12px] py-2', !expanded && 'justify-center')}>
+    <WorkspaceSwitcher compact={!expanded} />
+  </div>
+
+  <RailFooter {expanded} />
 </nav>

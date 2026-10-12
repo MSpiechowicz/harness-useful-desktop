@@ -7,11 +7,13 @@
   import SegmentedControl from '$lib/components/SegmentedControl.svelte';
   import type { StripOption } from '$lib/components/strip';
   import { SCOPE_LABELS, SCOPES, scopeCounts } from '$lib/git/entries';
+  import { t } from '$lib/i18n/i18n.svelte';
   import type { DiffScope } from '$lib/ipc/bindings/DiffScope';
   import type { GitStatus } from '$lib/ipc/bindings/GitStatus';
   import { git } from '$lib/stores/git.svelte';
   import { project } from '$lib/stores/project.svelte';
 
+  import { count } from '../shell/scope';
   import BranchSummary from './BranchSummary.svelte';
   import { diffMode, type DiffMode } from './diff-mode.svelte';
 
@@ -25,27 +27,27 @@
   const counts = $derived(scopeCounts(status.entries));
   const scopes = $derived<StripOption<DiffScope>[]>(SCOPES.map((scope) => ({ value: scope, label: SCOPE_LABELS[scope], count: counts[scope] })));
 
-  const MODES: StripOption<DiffMode>[] = [
-    { value: 'unified', label: 'Unified', icon: Rows2 },
-    { value: 'split', label: 'Split', icon: Columns2 },
-  ];
+  const modes = $derived<StripOption<DiffMode>[]>([
+    { value: 'unified', label: t('changes.header.unified'), icon: Rows2 },
+    { value: 'split', label: t('changes.header.split'), icon: Columns2 },
+  ]);
 </script>
 
-<div class="page-gutter flex flex-wrap items-center gap-x-4 gap-y-2 py-2.5" role="toolbar" aria-label="Changes filters">
+<div class="page-gutter flex flex-wrap items-center gap-x-4 gap-y-2 py-2.5" role="toolbar" aria-label={t('changes.header.label')}>
   <BranchSummary {status} />
   <CostChip kind="branch" args={costArgs} align="start" />
 
   {#if git.filter}
     <span class="inline-flex items-center gap-1 rounded-full bg-accent-wash py-0.5 pr-1 pl-3 text-xs font-medium text-accent-text" data-testid="touched-filter">
-      Touched by {git.filter.label} · {git.filter.paths.length} {git.filter.paths.length === 1 ? 'file' : 'files'}
-      <button type="button" aria-label="Show all changes" class="grid size-5 place-items-center rounded-full hover:bg-hover" onclick={() => git.clearFilter()}>
+      {t('changes.header.touched', { label: git.filter.label, files: count(git.filter.paths.length, 'file') })}
+      <button type="button" aria-label={t('changes.showAll')} class="grid size-5 place-items-center rounded-full hover:bg-hover" onclick={() => git.clearFilter()}>
         <X size={16} aria-hidden="true" />
       </button>
     </span>
   {/if}
 
   <div class="ml-auto flex flex-wrap items-center gap-3">
-    <SegmentedControl options={scopes} value={git.scope} label="Which changes" onchange={(scope) => git.setScope(scope)} />
-    <SegmentedControl options={MODES} value={diffMode.value} label="Diff layout" onchange={(mode) => diffMode.set(mode)} />
+    <SegmentedControl options={scopes} value={git.scope} label={t('changes.header.scope')} onchange={(scope) => git.setScope(scope)} />
+    <SegmentedControl options={modes} value={diffMode.value} label={t('changes.header.layout')} onchange={(mode) => diffMode.set(mode)} />
   </div>
 </div>

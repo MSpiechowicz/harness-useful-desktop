@@ -37,43 +37,39 @@ fn store_with_server_state(dir: &TempDir) -> (PrefsStore, AppPrefs) {
     (store, stored)
 }
 
+/// `base` with every UI-managed field changed from its default, as the webview would send it.
+fn with_ui_changes(base: AppPrefs) -> AppPrefs {
+    AppPrefs {
+        theme: ThemePref::Light,
+        motion: MotionPref::Off,
+        language: "pl".to_owned(),
+        intro_enabled: false,
+        sound_enabled: false,
+        default_harness: Some(HarnessId::Pi),
+        update_policy: UpdatePolicy::Off,
+        check_companion_updates: false,
+        open_any_link: true,
+        onboarding_completed: true,
+        approval_notice_seen: true,
+        ..base
+    }
+}
+
 #[test]
 fn save_ui_stores_ui_fields_and_keeps_server_managed_fields() {
     let dir = TempDir::new().unwrap();
     let (store, stored) = store_with_server_state(&dir);
 
-    let from_webview = AppPrefs {
-        theme: ThemePref::Light,
-        motion: MotionPref::Off,
-        intro_enabled: false,
-        sound_enabled: false,
-        default_harness: Some(HarnessId::Pi),
-        update_policy: UpdatePolicy::Off,
-        check_companion_updates: false,
-        open_any_link: true,
-        onboarding_completed: true,
-        approval_notice_seen: true,
+    let from_webview = with_ui_changes(AppPrefs {
         active_project: Some(abs("elsewhere")),
         recent_projects: vec![abs("elsewhere")],
         binary_overrides: vec![override_for(HarnessId::Omp, &abs("evil/omp"))],
         ..AppPrefs::default()
-    };
+    });
 
     let saved = store.save_ui(&from_webview).unwrap();
 
-    let expected = AppPrefs {
-        theme: ThemePref::Light,
-        motion: MotionPref::Off,
-        intro_enabled: false,
-        sound_enabled: false,
-        default_harness: Some(HarnessId::Pi),
-        update_policy: UpdatePolicy::Off,
-        check_companion_updates: false,
-        open_any_link: true,
-        onboarding_completed: true,
-        approval_notice_seen: true,
-        ..stored
-    };
+    let expected = with_ui_changes(stored);
     assert_eq!(saved, expected);
     assert_eq!(store.load(), expected);
 }

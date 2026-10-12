@@ -7,7 +7,6 @@
   import { cx } from '$lib/utils/cx';
 
   import { ICON, type IconComponent } from './icon';
-  import PaletteButton from './PaletteButton.svelte';
 
   interface Props {
     /** What this view is: "Sessions". It is the page's one `h1`. */
@@ -59,7 +58,6 @@
   {/if}
 
   <div class="flex shrink-0 items-center justify-end gap-2">
-    <PaletteButton />
     {#if actions}
       {@render actions()}
     {/if}

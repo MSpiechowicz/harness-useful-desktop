@@ -5,6 +5,7 @@
   import { SHELL_HEADER_SLOT } from '$lib/actions/portal';
   import IconButton from '$lib/components/IconButton.svelte';
   import { ICON } from '$lib/components/icon';
+  import { t } from '$lib/i18n/i18n.svelte';
   import { nav } from '$lib/stores/nav.svelte';
 
 </script>
@@ -13,8 +14,8 @@
      Who and where you are (brand, harness, project) live on the rail. -->
 <div class="intro-enter intro-top flex h-12 shrink-0 items-center gap-2 border-b border-line bg-surface-1/70 px-2" style:--intro-delay="60ms">
   <div class="flex shrink-0 items-center">
-    <IconButton icon={ArrowLeft} label="Back" shortcut="alt+arrowleft" size="sm" side="bottom" disabled={!nav.canGoBack} onclick={() => nav.back()} />
-    <IconButton icon={ArrowRight} label="Forward" shortcut="alt+arrowright" size="sm" side="bottom" disabled={!nav.canGoForward} onclick={() => nav.forward()} />
+    <IconButton icon={ArrowLeft} label={t('common.back')} shortcut="alt+arrowleft" size="sm" side="bottom" disabled={!nav.canGoBack} onclick={() => nav.back()} />
+    <IconButton icon={ArrowRight} label={t('shell.topbar.forward')} shortcut="alt+arrowright" size="sm" side="bottom" disabled={!nav.canGoForward} onclick={() => nav.forward()} />
   </div>
 
   <!-- Stacked cell: during a page switch the outgoing and incoming headers crossfade in place. -->

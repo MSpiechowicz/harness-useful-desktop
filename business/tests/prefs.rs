@@ -101,6 +101,104 @@ fn unknown_fields_are_ignored_and_missing_fields_defaulted() {
 }
 
 #[test]
+fn save_keeps_a_known_language_and_falls_back_to_english() {
+    let dir = TempDir::new().unwrap();
+    let store = PrefsStore::new(dir.path().to_path_buf());
+    let cases = [
+        ("pl", "pl"),
+        ("PL", "pl"),
+        (" de ", "de"),
+        ("xx", "en"),
+        ("", "en"),
+        ("en-US", "en"),
+    ];
+
+    for (language, expected) in cases {
+        let stored = store
+            .save(&AppPrefs {
+                language: language.to_owned(),
+                ..AppPrefs::default()
+            })
+            .unwrap();
+
+        assert_eq!(stored.language, expected, "{language:?}");
+        assert_eq!(store.load().language, expected, "{language:?}");
+    }
+}
+
+/// The 16-byte limit counts surrounding whitespace: a padded known code just over it is rejected too.
+#[test]
+fn a_language_longer_than_sixteen_bytes_falls_back_to_english() {
+    let dir = TempDir::new().unwrap();
+    let store = PrefsStore::new(dir.path().to_path_buf());
+    let save = |language: String| {
+        store
+            .save(&AppPrefs {
+                language,
+                ..AppPrefs::default()
+            })
+            .unwrap()
+            .language
+    };
+
+    assert_eq!(save(format!("{}pl", " ".repeat(14))), "pl");
+    assert_eq!(save(format!("{}pl", " ".repeat(15))), "en");
+    assert_eq!(save("de".repeat(1 << 20)), "en");
+    assert_eq!(store.load().language, "en");
+}
+
+#[test]
+fn stored_language_is_normalized_on_load() {
+    let dir = TempDir::new().unwrap();
+    fs::write(dir.path().join(PREFS_FILE), r#"{ "version": 1, "language": "FR" }"#).unwrap();
+    let store = PrefsStore::new(dir.path().to_path_buf());
+
+    assert_eq!(
+        store.load_checked(),
+        (
+            AppPrefs {
+                language: "fr".to_owned(),
+                ..AppPrefs::default()
+            },
+            PrefsOrigin::Stored
+        )
+    );
+
+    fs::write(
+        dir.path().join(PREFS_FILE),
+        r#"{ "version": 1, "language": "klingon" }"#,
+    )
+    .unwrap();
+
+    assert_eq!(store.load_checked(), (AppPrefs::default(), PrefsOrigin::Stored));
+}
+
+#[test]
+fn a_language_that_is_not_a_string_loads_as_english_and_keeps_the_file() {
+    let dir = TempDir::new().unwrap();
+    let store = PrefsStore::new(dir.path().to_path_buf());
+
+    for language in ["null", "3", "[]", r#"{ "code": "de" }"#, "true"] {
+        let text = format!(r#"{{ "version": 1, "theme": "dark", "language": {language}, "showThinking": false }}"#);
+        fs::write(store.path(), text).unwrap();
+
+        assert_eq!(
+            store.load_checked(),
+            (
+                AppPrefs {
+                    theme: ThemePref::Dark,
+                    show_thinking: false,
+                    ..AppPrefs::default()
+                },
+                PrefsOrigin::Stored
+            ),
+            "{language}"
+        );
+        assert_eq!(file_names(dir.path()), vec![PREFS_FILE.to_owned()], "{language}");
+    }
+}
+
+#[test]
 fn save_normalizes_recent_projects() {
     let dir = TempDir::new().unwrap();
     let store = PrefsStore::new(dir.path().to_path_buf());

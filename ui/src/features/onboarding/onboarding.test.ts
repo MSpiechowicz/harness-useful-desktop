@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { i18n } from '$lib/i18n/i18n.svelte';
 import { harness } from '$lib/stores/harness.svelte';
 import { prefs } from '$lib/stores/prefs.svelte';
 import { project } from '$lib/stores/project.svelte';
@@ -104,5 +105,19 @@ describe('Onboarding', () => {
 
     expect(await screen.findByRole('button', { name: 'Continue without a harness' })).toBeEnabled();
     expect(screen.getByText(/No harness found yet/)).toBeInTheDocument();
+  });
+
+  it('welcomes in Polish and keeps the language through the steps', async () => {
+    await i18n.load('pl');
+    onboarding.restart();
+    render(Onboarding);
+
+    await next(/Znajdźmy twój harness/);
+    await click('Zaczynamy');
+
+    await next('Którego agenta używasz na co dzień?');
+    expect(await screen.findByRole('button', { name: 'Szukaj ponownie' })).toBeInTheDocument();
+    expect(screen.getByRole('radiogroup', { name: 'Codzienny harness' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Wstecz' })).toBeInTheDocument();
   });
 });

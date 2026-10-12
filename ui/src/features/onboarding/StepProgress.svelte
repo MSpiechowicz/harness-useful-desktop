@@ -1,11 +1,12 @@
 <script lang="ts">
+  import { t } from '$lib/i18n/i18n.svelte';
   import { cx } from '$lib/utils/cx';
 
   import { onboarding } from './onboarding-state.svelte';
 </script>
 
 <div class="flex items-center justify-between">
-  <ol class="flex items-center gap-2" aria-label="Setup progress">
+  <ol class="flex items-center gap-2" aria-label={t('onboarding.progress.label')}>
     {#each onboarding.steps as step, index (step)}
       <li
         aria-current={step === onboarding.step ? 'step' : undefined}
@@ -15,7 +16,7 @@
           index < onboarding.index ? 'bg-accent/60' : step !== onboarding.step && 'bg-line-strong',
         )}
       >
-        <span class="sr-only">Step {index + 1} of {onboarding.steps.length}</span>
+        <span class="sr-only">{t('onboarding.progress.step', { step: index + 1, total: onboarding.steps.length })}</span>
       </li>
     {/each}
   </ol>

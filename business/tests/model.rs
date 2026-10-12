@@ -22,6 +22,7 @@ fn default_prefs_serialize_with_camel_case_fields() {
             "version": 1,
             "theme": "system",
             "motion": "full",
+            "language": "en",
             "introEnabled": true,
             "soundEnabled": false,
             "showThinking": true,
@@ -58,6 +59,8 @@ fn partial_prefs_fill_defaults_and_ignore_unknown_fields() {
     assert!(prefs.check_companion_updates);
     // Any web link stays closed until the user opts in.
     assert!(!prefs.open_any_link);
+    // Files written before the language choice existed show English.
+    assert_eq!(prefs.language, "en");
     assert_eq!(prefs.version, 1);
 }
 

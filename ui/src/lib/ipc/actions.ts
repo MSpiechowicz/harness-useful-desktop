@@ -1,3 +1,4 @@
+import { t } from '$lib/i18n/i18n.svelte';
 import { nav } from '$lib/stores/nav.svelte';
 import { prefs } from '$lib/stores/prefs.svelte';
 import { toasts } from '$lib/stores/toasts.svelte';
@@ -11,7 +12,7 @@ export async function revealPath(path: string): Promise<void> {
   try {
     await ipc.invoke('reveal_path', { path });
   } catch (error) {
-    toasts.push({ title: 'Could not reveal the file', description: IpcFailure.from(error).message, tone: 'danger' });
+    toasts.push({ title: t('components.action.revealFailed'), description: IpcFailure.from(error).message, tone: 'danger' });
   }
 }
 
@@ -26,16 +27,16 @@ export async function openExternal(url: string): Promise<void> {
     const failure = IpcFailure.from(error);
 
     if (failure.code === 'forbidden' && prefs.value?.openAnyLink) {
-      toasts.push({ title: 'Link not opened', description: 'Only https links without a user name or password open.', tone: 'warning' });
+      toasts.push({ title: t('components.action.linkRefused'), description: t('components.action.httpsOnly'), tone: 'warning' });
     } else if (failure.code === 'forbidden') {
       toasts.push({
-        title: 'Link not opened',
-        description: 'Security settings allow only project and harness sites. You can change this in Settings → Privacy & security → Open any web link.',
+        title: t('components.action.linkRefused'),
+        description: t('components.action.sitesOnly'),
         tone: 'warning',
-        action: { label: 'Open Settings', run: viewLinkSetting },
+        action: { label: t('components.action.openSettings'), run: viewLinkSetting },
       });
     } else {
-      toasts.push({ title: 'Could not open the link', description: failure.message, tone: 'danger' });
+      toasts.push({ title: t('components.action.linkFailed'), description: failure.message, tone: 'danger' });
     }
   }
 }

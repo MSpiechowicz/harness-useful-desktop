@@ -12,6 +12,7 @@
   import { harness } from '$lib/stores/harness.svelte';
   import { project } from '$lib/stores/project.svelte';
   import { cx } from '$lib/utils/cx';
+  import { t } from '$lib/i18n/i18n.svelte';
 
   import { switchProject, switchToPickedProject } from '../shell/actions';
 
@@ -62,14 +63,14 @@
 </script>
 
 <!-- The chat's project, and a quick way to work in another one: its open chat, or a new chat there. -->
-<Popover label="Switch project" kind="menu" side="top" align="end" bind:open class="w-max max-w-md!">
+<Popover label={t('chat.project.popover')} kind="menu" side="top" align="end" bind:open class="w-max max-w-md!">
   {#snippet trigger({ props })}
     <button
       type="button"
       {...props}
-      title={locked ? 'The chat can move to another project once the agent is done' : path}
+      title={locked ? t('chat.project.locked') : path}
       disabled={locked}
-      aria-label="Project: {name}. Switch project"
+      aria-label={t('chat.project.aria', { name })}
       class="inline-flex h-8 min-w-0 items-center gap-1.5 rounded-md px-2 text-sm text-fg-3 transition-colors duration-[var(--dur-fast)] hover:bg-hover hover:text-fg disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-transparent aria-expanded:bg-hover aria-expanded:text-fg"
     >
       <Folder size={14} aria-hidden="true" class="shrink-0" />
@@ -79,7 +80,7 @@
   {/snippet}
 
   {#snippet children({ close })}
-    <div class="flex max-h-72 flex-col gap-0.5 overflow-y-auto" role="group" aria-label="Recent projects">
+    <div class="flex max-h-72 flex-col gap-0.5 overflow-y-auto" role="group" aria-label={t('chat.project.recent')}>
       {#each others as recent (recent.path)}
         {@const current = recent.path === path}
         {@const Icon = recent.isGitRepo ? FolderGit2 : Folder}
@@ -109,7 +110,7 @@
       }}
     >
       <FolderOpen size={16} aria-hidden="true" class="shrink-0 text-fg-3" />
-      Open folder…
+      {t('chat.project.open')}
     </button>
   {/snippet}
 </Popover>

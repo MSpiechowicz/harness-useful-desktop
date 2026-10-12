@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::error::{BusinessError, Result};
-use crate::model::{AppPrefs, BinaryOverride, ChatDefaults};
+use crate::model::{AppPrefs, BinaryOverride, ChatDefaults, DEFAULT_LANGUAGE, LANGUAGES};
 use crate::security::SafeReader;
 
 /// File name inside the store directory.
@@ -158,6 +158,8 @@ impl PrefsStore {
 
 /// Applies the storage invariants:
 /// - `version` is the current schema version;
+/// - `language`: trimmed and ASCII-lowercased when that is one of [`LANGUAGES`], otherwise
+///   [`DEFAULT_LANGUAGE`] (also for anything longer than 16 bytes);
 /// - `recentProjects`: absolute paths only, duplicates removed (first occurrence kept), at most
 ///   [`MAX_RECENT_PROJECTS`], and empty when `rememberRecentProjects` is off;
 /// - `activeProject`: absolute or `None`;
@@ -167,6 +169,7 @@ impl PrefsStore {
 ///   [`MAX_CHAT_DEFAULT_LEN`] bytes and free of control characters (anything else is dropped).
 pub fn normalize(mut prefs: AppPrefs) -> AppPrefs {
     prefs.version = AppPrefs::VERSION;
+    prefs.language = normalize_language(&prefs.language);
 
     prefs.recent_projects = if prefs.remember_recent_projects {
         let mut seen = Vec::<String>::new();
@@ -188,6 +191,24 @@ pub fn normalize(mut prefs: AppPrefs) -> AppPrefs {
     prefs.chat_defaults = normalize_chat_defaults(prefs.chat_defaults);
 
     prefs
+}
+
+/// Longest stored `language` value, surrounding whitespace included, that can still be one of
+/// [`LANGUAGES`]; anything longer becomes [`DEFAULT_LANGUAGE`] without being copied.
+const MAX_LANGUAGE_LEN: usize = 16;
+
+fn normalize_language(language: &str) -> String {
+    if language.len() > MAX_LANGUAGE_LEN {
+        return DEFAULT_LANGUAGE.to_owned();
+    }
+
+    let code = language.trim().to_ascii_lowercase();
+
+    if LANGUAGES.contains(&code.as_str()) {
+        code
+    } else {
+        DEFAULT_LANGUAGE.to_owned()
+    }
 }
 
 /// Longest model provider, model id or thinking level kept in `chatDefaults`.

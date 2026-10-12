@@ -3,6 +3,7 @@
   import SearchX from '@lucide/svelte/icons/search-x';
   import Search from '@lucide/svelte/icons/search';
 
+  import { t } from '$lib/i18n/i18n.svelte';
   import { paletteRecents } from '$lib/stores/palette-recents.svelte';
   import { uid } from '$lib/utils/ids';
 
@@ -10,7 +11,7 @@
   import { ICON } from './icon';
   import Kbd from './Kbd.svelte';
   import Overlay from './Overlay.svelte';
-  import { MODE_PREFIXES, RECENT_GROUP, searchPalette, type PaletteCommand } from './palette';
+  import { MODE_PREFIXES, recentGroup, searchPalette, type PaletteCommand } from './palette';
 
   interface Props {
     open?: boolean;
@@ -18,7 +19,7 @@
     placeholder?: string;
   }
 
-  let { open = $bindable(false), commands, placeholder = 'Search, or type > for actions, @ for sessions, # for files' }: Props = $props();
+  let { open = $bindable(false), commands, placeholder }: Props = $props();
 
   const listId = uid('palette-list');
 
@@ -109,14 +110,14 @@
 
   const emptyMessage = $derived.by(() => {
     if (results.mode !== 'all' && results.text.trim() === '') {
-      return `No ${modeInfo?.noun ?? 'results'} to show here yet`;
+      return t('components.palette.emptyMode', { noun: modeInfo?.noun ?? t('components.palette.noun.results') });
     }
 
-    return `No results for “${results.text.trim()}”`;
+    return t('components.palette.noResults', { query: results.text.trim() });
   });
 </script>
 
-<Overlay {open} placement="top" label="Command palette" onclose={close} class="w-[40rem]">
+<Overlay {open} placement="top" label={t('components.palette.label')} onclose={close} class="w-[40rem]">
   <div class="overflow-hidden rounded-xl border border-line-strong bg-glass shadow-pop backdrop-blur-xl">
     <div class="flex items-center gap-3 border-b border-line px-4">
       <Search class="shrink-0 text-fg-3" size={ICON.lg} aria-hidden="true" />
@@ -126,14 +127,14 @@
         onkeydown={onKeydown}
         type="text"
         role="combobox"
-        aria-label="Search commands"
+        aria-label={t('components.palette.input')}
         aria-expanded="true"
         aria-controls={listId}
         aria-autocomplete="list"
         aria-activedescendant={activeEntry ? optionId(activeEntry.command.id) : undefined}
         autocomplete="off"
         spellcheck="false"
-        {placeholder}
+        placeholder={placeholder ?? t('components.palette.placeholder')}
         class="h-14 min-w-0 flex-1 bg-transparent text-lg text-fg outline-none placeholder:text-fg-3"
       />
       {#if modeInfo}
@@ -142,13 +143,13 @@
       <Kbd keys="escape" />
     </div>
 
-    <div id={listId} role="listbox" aria-label="Results" class="max-h-[50vh] overflow-y-auto p-2">
+    <div id={listId} role="listbox" aria-label={t('components.palette.results')} class="max-h-[50vh] overflow-y-auto p-2">
       {#each groups as group (group.name)}
         <div role="group" aria-label={group.name}>
           <p class="flex items-baseline gap-2 px-3 pt-2 pb-1 text-xs font-medium tracking-wider text-fg-3 uppercase" aria-hidden="true">
             {group.name}
             {#if group.hidden > 0}
-              <span class="font-normal tracking-normal normal-case">+{group.hidden} more · narrow with a prefix</span>
+              <span class="font-normal tracking-normal normal-case">{t('components.palette.more', { count: group.hidden })}</span>
             {/if}
           </p>
 
@@ -186,7 +187,7 @@
                 <span class="inline-flex shrink-0 items-center gap-1.5 text-xs text-fg-3"><Kbd keys="shift+enter" /> {command.secondary.label}</span>
               {:else if command.shortcut}
                 <Kbd keys={command.shortcut} />
-              {:else if selected && group.name !== RECENT_GROUP}
+              {:else if selected && group.name !== recentGroup()}
                 <CornerDownLeft size={ICON.sm} class="shrink-0 text-fg-3" aria-hidden="true" />
               {/if}
             </button>
@@ -198,8 +199,8 @@
           <p class="text-base text-fg-2">{emptyMessage}</p>
 
           {#if results.mode === 'all'}
-            <p class="text-sm text-fg-3">Try fewer letters, or narrow the search:</p>
-            <ul class="flex flex-wrap justify-center gap-2" aria-label="Narrow the search">
+            <p class="text-sm text-fg-3">{t('components.palette.hint')}</p>
+            <ul class="flex flex-wrap justify-center gap-2" aria-label={t('components.palette.narrow')}>
               {#each MODE_PREFIXES as entry (entry.prefix)}
                 <li>
                   <button type="button" class="chip px-3" onclick={() => usePrefix(entry.prefix)}>
@@ -215,10 +216,10 @@
     </div>
 
     <footer class="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-line px-4 py-2.5 text-xs text-fg-3">
-      <span class="inline-flex items-center gap-1.5"><Kbd keys="arrowup" /><Kbd keys="arrowdown" /> navigate</span>
-      <span class="inline-flex items-center gap-1.5"><Kbd keys="enter" /> run</span>
+      <span class="inline-flex items-center gap-1.5"><Kbd keys="arrowup" /><Kbd keys="arrowdown" /> {t('components.palette.navigate')}</span>
+      <span class="inline-flex items-center gap-1.5"><Kbd keys="enter" /> {t('components.palette.run')}</span>
 
-      <ul class="ml-auto flex items-center gap-3" aria-label="Search modes">
+      <ul class="ml-auto flex items-center gap-3" aria-label={t('components.palette.modes')}>
         {#each MODE_PREFIXES as entry (entry.prefix)}
           <li>
             <button type="button" class="inline-flex items-center gap-1.5 rounded-sm px-1 transition-colors hover:text-fg" onclick={() => usePrefix(entry.prefix)}>

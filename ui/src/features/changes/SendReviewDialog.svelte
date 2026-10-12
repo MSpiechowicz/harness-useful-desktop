@@ -8,6 +8,7 @@
   import Dialog from '$lib/components/Dialog.svelte';
   import Markdown from '$lib/components/Markdown.svelte';
   import Skeleton from '$lib/components/Skeleton.svelte';
+  import { t, tn } from '$lib/i18n/i18n.svelte';
   import { cx } from '$lib/utils/cx';
   import type { ComposedReview } from '$lib/ipc/bindings/ComposedReview';
   import { IpcFailure } from '$lib/ipc/transport';
@@ -37,10 +38,10 @@
     ...chats.map((session) => ({
       value: session.key,
       title: agentSessions.title(session.key),
-      detail: session.streaming ? 'Busy · sends as a follow-up' : 'Idle',
+      detail: session.streaming ? t('changes.send.busy') : t('changes.send.idle'),
       fresh: false,
     })),
-    ...(canStartNew ? [{ value: NEW_SESSION, title: 'New session', detail: 'Starts a chat with the review', fresh: true }] : []),
+    ...(canStartNew ? [{ value: NEW_SESSION, title: t('changes.send.new'), detail: t('changes.send.newDetail'), fresh: true }] : []),
   ]);
 
   /**
@@ -83,18 +84,22 @@
   }
 </script>
 
-<Dialog bind:open title="Review prompt" description="This exact text is sent to the agent." size="lg" {onclose}>
+<Dialog bind:open title={t('changes.send.title')} description={t('changes.send.description')} size="lg" {onclose}>
   {#if failure}
     <p class="text-base text-danger" role="alert">{failure}</p>
   {:else if composed}
-    <p class="mb-2 text-xs text-fg-3 tabular">{composed.commentCount} {composed.commentCount === 1 ? 'comment' : 'comments'} · {composed.fileCount} {composed.fileCount === 1 ? 'file' : 'files'} · {composed.bytes} bytes</p>
+    <p class="mb-2 text-xs text-fg-3 tabular">{t('changes.review.summary', {
+        comments: tn('changes.review.comments', composed.commentCount),
+        files: tn('changes.review.files', composed.fileCount),
+        bytes: tn('changes.review.bytes', composed.bytes),
+      })}</p>
     <!-- The prompt reads as it will in the chat; the quoted code shows as code blocks. -->
     <!-- svelte-ignore a11y_no_noninteractive_tabindex -- a scrollable region must be reachable by keyboard -->
-    <div tabindex="0" aria-label="Prompt to send" class="max-h-[40vh] overflow-auto rounded-md border border-line bg-surface-1 bg-clip-padding px-4 py-3">
+    <div tabindex="0" aria-label={t('changes.send.prompt')} class="max-h-[40vh] overflow-auto rounded-md border border-line bg-surface-1 bg-clip-padding px-4 py-3">
       <Markdown source={composed.prompt} />
     </div>
 
-    <p class="mt-5 mb-2 text-sm font-medium text-fg-2" id="send-to-label">Send to</p>
+    <p class="mt-5 mb-2 text-sm font-medium text-fg-2" id="send-to-label">{t('changes.send.to')}</p>
     <div class="flex flex-col gap-1" role="radiogroup" aria-labelledby="send-to-label">
       {#each options as option (option.value)}
         {@const selected = option.value === target}
@@ -118,7 +123,7 @@
       {/each}
     </div>
   {:else}
-    <div class="flex flex-col gap-2" role="status" aria-label="Composing the prompt">
+    <div class="flex flex-col gap-2" role="status" aria-label={t('changes.send.composing')}>
       <Skeleton height="1rem" />
       <Skeleton height="1rem" />
       <Skeleton width="60%" height="1rem" />
@@ -126,7 +131,7 @@
   {/if}
 
   {#snippet footer()}
-    <Button variant="ghost" onclick={onclose}>Cancel</Button>
-    <Button variant="primary" loading={sending} disabled={!composed || options.length === 0} onclick={() => void send()}>Send to agent</Button>
+    <Button variant="ghost" onclick={onclose}>{t('changes.send.cancel')}</Button>
+    <Button variant="primary" loading={sending} disabled={!composed || options.length === 0} onclick={() => void send()}>{t('changes.send.submit')}</Button>
   {/snippet}
 </Dialog>

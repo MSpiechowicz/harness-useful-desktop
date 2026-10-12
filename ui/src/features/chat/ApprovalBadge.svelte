@@ -12,6 +12,7 @@
   import type { ChatSession } from '$lib/chat/session.svelte';
   import type { ApprovalMode } from '$lib/ipc/bindings/ApprovalMode';
   import { agentSessions } from '$lib/stores/agentSession.svelte';
+  import { t } from '$lib/i18n/i18n.svelte';
 
   import { activeMode, MODE_ORDER, MODES } from './approval-modes';
   import ApprovalOption from './ApprovalOption.svelte';
@@ -31,7 +32,8 @@
 
   const mode = $derived(activeMode(session.info.approvalOverride, session.info.configuredApprovalMode));
   const info = $derived(mode ? MODES[mode] : null);
-  const source = $derived(session.info.approvalOverride ? 'chosen for this session' : 'from your harness configuration');
+  const source = $derived(session.info.approvalOverride ? t('chat.approval.source.session') : t('chat.approval.source.config'));
+  const modeName = $derived(info?.label ?? t('chat.approval.unknown'));
   const configured = $derived(session.info.configuredApprovalMode);
   const changed = $derived(choice !== session.info.approvalOverride);
 
@@ -52,14 +54,14 @@
   }
 </script>
 
-<Popover label="Approval mode" kind="dialog" bind:open={session.ui.approvalChooser} class="w-[22rem]">
+<Popover label={t('chat.approval.popover')} kind="dialog" bind:open={session.ui.approvalChooser} class="w-[22rem]">
   {#snippet trigger({ props })}
-    <Tooltip text={info ? `${info.explanation} (${source})` : 'The approval mode is not known'} side="bottom">
+    <Tooltip text={info ? t('chat.approval.tooltip', { explanation: info.explanation, source }) : t('chat.approval.unknownTooltip')} side="bottom">
       {#snippet children({ describedby })}
-        <button type="button" {...props} aria-describedby={describedby} class="rounded-full" aria-label="Approval mode: {info?.label ?? 'unknown'}. Change it">
+        <button type="button" {...props} aria-describedby={describedby} class="rounded-full" aria-label={t('chat.approval.aria', { mode: modeName })}>
           <Badge tone={info?.tone ?? 'neutral'}>
             {#if info?.tone === 'warning'}<ShieldAlert size={16} aria-hidden="true" />{:else}<ShieldCheck size={16} aria-hidden="true" />{/if}
-            Approvals: {info?.label ?? 'unknown'}
+            {t('chat.approval.badge', { mode: modeName })}
           </Badge>
         </button>
       {/snippet}
@@ -69,14 +71,14 @@
   {#snippet children()}
     <div class="flex flex-col">
       <header class="flex flex-col gap-0.5 px-2.5 pt-2 pb-3">
-        <h2 class="text-sm font-semibold text-fg">Approvals</h2>
-        <p class="text-xs text-fg-3">When the agent asks before it runs a tool.</p>
+        <h2 class="text-sm font-semibold text-fg">{t('chat.approval.heading')}</h2>
+        <p class="text-xs text-fg-3">{t('chat.approval.subtitle')}</p>
       </header>
 
-      <div class="flex flex-col gap-0.5" role="radiogroup" aria-label="Approval mode for this session">
+      <div class="flex flex-col gap-0.5" role="radiogroup" aria-label={t('chat.approval.group')}>
         <ApprovalOption
-          label="Use my configuration"
-          description={configured ? `${MODES[configured].label}, from your harness settings` : 'From your harness settings'}
+          label={t('chat.approval.useConfig')}
+          description={configured ? t('chat.approval.useConfig.known', { mode: MODES[configured].label }) : t('chat.approval.useConfig.unknown')}
           icon={SlidersHorizontal}
           tone="neutral"
           selected={choice === null}
@@ -99,9 +101,9 @@
       <footer class="mt-1.5 flex flex-col gap-4 border-t border-line px-2.5 pt-3 pb-1.5">
         <p class="flex items-start gap-1.5 text-xs text-fg-3">
           <RotateCcw size={14} aria-hidden="true" class="mt-px shrink-0" />
-          The session restarts to apply it and picks up where it left off.
+          {t('chat.approval.restartNote')}
         </p>
-        <Button variant="primary" size="sm" disabled={!changed} loading={restarting} onclick={apply}>Restart with this mode</Button>
+        <Button variant="primary" size="sm" disabled={!changed} loading={restarting} onclick={apply}>{t('chat.approval.restart')}</Button>
       </footer>
     </div>
   {/snippet}

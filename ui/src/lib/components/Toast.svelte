@@ -6,6 +6,7 @@
   import X from '@lucide/svelte/icons/x';
 
   import { rise } from '$lib/design/motion';
+  import { t } from '$lib/i18n/i18n.svelte';
   import type { ToastItem, ToastTone } from '$lib/stores/toasts.svelte';
 
   import Button from './Button.svelte';
@@ -66,5 +67,5 @@
     {/if}
   </div>
 
-  <IconButton icon={X} label="Dismiss notification" size="sm" onclick={() => ondismiss(toast.id)} />
+  <IconButton icon={X} label={t('components.toast.dismiss')} size="sm" onclick={() => ondismiss(toast.id)} />
 </div>

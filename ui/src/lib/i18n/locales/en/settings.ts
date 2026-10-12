@@ -1,0 +1,132 @@
+export const settings = {
+  'settings.title': 'Settings',
+  'settings.context': 'Changes apply instantly and are saved on this device',
+  'settings.nav.label': 'Settings sections',
+
+  'settings.section.appearance': 'Appearance',
+  'settings.section.startup': 'Startup',
+  'settings.section.harnesses': 'Harnesses',
+  'settings.section.projects': 'Projects',
+  'settings.section.updates': 'Updates',
+  'settings.section.privacy': 'Privacy & security',
+  'settings.section.about': 'About',
+
+  // Words the command palette matches a "Settings: {section}" command by.
+  'settings.keywords.appearance': 'theme motion dark light animation language',
+  'settings.keywords.startup': 'intro launch splash',
+  'settings.keywords.harnesses': 'binary omp pi path setup',
+  'settings.keywords.projects': 'recent folders',
+  'settings.keywords.updates': 'version upgrade release install check new',
+  'settings.keywords.privacy': 'data telemetry diagnostics clear',
+  'settings.keywords.about': 'version build',
+
+  'settings.theme.title': 'Theme',
+  'settings.theme.description': 'Follow your system or pick one. The change previews immediately.',
+  'settings.theme.system': 'System',
+  'settings.theme.dark': 'Dark',
+  'settings.theme.light': 'Light',
+
+  'settings.language.title': 'Language',
+  'settings.language.description': 'The language of the whole app. The change applies immediately.',
+
+  'settings.thinking.title': 'Show thought process',
+  'settings.thinking.description': "The agent's reasoning, folded under each reply. Also toggled from the chat header.",
+
+  'settings.motion.title': 'Motion',
+  'settings.motion.description': 'Reduced keeps simple fades; Off disables all animation. Your OS reduced-motion setting always applies.',
+  'settings.motion.full': 'Full',
+  'settings.motion.reduced': 'Reduced',
+  'settings.motion.off': 'Off',
+
+  'settings.intro.title': 'Play intro on launch',
+  'settings.intro.description': 'A short animated welcome when the app opens. Any key or click skips it.',
+  'settings.sound.title': 'Intro sound',
+  'settings.sound.description': "The logo's sound while the intro plays. It is never played when the intro is off or skipped.",
+  'settings.replay.title': 'Replay intro',
+  'settings.replay.motionOff': 'Motion is off; turn it on to replay the intro.',
+  'settings.replay.ready': 'Watch it once more.',
+
+  'settings.harness.binary': '{name} binary',
+  'settings.harness.notFound': 'Not found on this machine',
+  'settings.harness.choose': 'Choose…',
+  'settings.harness.reset': 'Reset',
+  'settings.setup.title': 'Setup',
+  'settings.setup.description': 'Detect your harnesses again, choose your daily driver and a project.',
+  'settings.setup.run': 'Run onboarding again',
+
+  'settings.recents.title': 'Remember recent projects',
+  'settings.recents.description': 'Keep a list of the folders you opened. Turning this off clears the list.',
+
+  'settings.updates.version': 'Version {version}',
+  'settings.updates.check': 'Check now',
+  'settings.updates.policy.title': 'When the app starts',
+  'settings.updates.policy.label': 'Update policy',
+  'settings.updates.policy.startupAsk': 'Ask first',
+  'settings.updates.policy.autoInstall': 'Automatic',
+  'settings.updates.policy.off': 'Off',
+  'settings.updates.policy.startupAsk.hint': 'Looks for a new version when the app starts and asks before installing it.',
+  'settings.updates.policy.autoInstall.hint': 'Looks when the app starts and installs a new version. You choose when to restart.',
+  'settings.updates.policy.off.hint': 'Never looks by itself. Use Check now when you want to.',
+  'settings.updates.companions.title': 'Check companions for updates',
+  'settings.updates.companions.description':
+    'When you open Ecosystem, ask GitHub for the latest Harness Dashboard, Skills and Sidebar releases, at most every six hours while the app runs. GitHub sees your IP address and the app version, not which companions you have.',
+  'settings.updates.notConfigured': 'This build is not set up for updates, so it will not look for new versions. Nothing is wrong. Get new versions from the releases page.',
+  'settings.updates.openReleases': 'Open releases',
+  'settings.updates.retry': 'Try again',
+  'settings.updates.notes': 'Release notes',
+  'settings.updates.install': 'Install update',
+  'settings.updates.finish': 'Finish update',
+  'settings.updates.restart': 'Restart to finish',
+
+  'settings.about.label': 'About',
+  'settings.about.version': 'Version {version} · {os} {arch}',
+  'settings.about.versionDebug': 'Version {version} · {os} {arch} · debug build',
+  'settings.about.localOnly': 'Local only',
+  'settings.about.links': 'Project links',
+  'settings.about.source': 'Source code',
+  'settings.about.releases': 'Releases',
+  'settings.about.licence': 'GPL-3.0-or-later licence',
+
+  'settings.privacy.label': 'What Harness Desktop does with data',
+  'settings.privacy.stored.title': 'Stored on this device',
+  'settings.privacy.stored.text':
+    'Only app preferences: theme, language, motion, intro, default harness, update policy, setup progress, window size and position, diff layout, the folder you last opened, recent project paths (if remembered) and binary paths you chose. They live in your OS app-config folder. No chat content, tokens or passwords are saved.',
+  'settings.privacy.neverRead.title': 'Never read',
+  'settings.privacy.neverRead.text':
+    'Credential stores (auth.json, mcp-auth.json, credentials, .env files), private keys (.pem, .key, .p12, SSH keys), databases (.db, .sqlite), log files, agent blob caches and terminal sessions. The check also follows symlinks.',
+  'settings.privacy.redacted.title': 'Shown redacted',
+  'settings.privacy.redacted.text':
+    'Secret-looking configuration values appear hidden: API keys and tokens, MCP server env and headers, auth and OAuth fields, !command values (never run) and credentials inside URLs. Environment references like $NAME show the name only. Agent error output and shell output are redacted before they reach the screen.',
+  'settings.privacy.network.title': 'Network',
+  'settings.privacy.network.text':
+    'The app itself makes two kinds of request, both to GitHub, and both can be turned off. The update check fetches the release file latest.json; it happens only when this build has an update key and follows your update setting. The companion check asks GitHub for the latest release number of Harness Dashboard, Skills and Sidebar when you open Ecosystem, at most every six hours while the app runs (a failed check retries after a few minutes). It always asks about all three, so it does not reveal which ones you have; GitHub sees only your IP address and the app version. Links open in your browser only when you click them, and only for project and harness sites unless you allow every https link below. The Harness Dashboard widgets use a local process over stdio, with no network. Harness CLIs talk to their providers as in your terminal, and extension actions run the CLI, which may download packages, only after you confirm.',
+  'settings.privacy.telemetry.title': 'No telemetry',
+  'settings.privacy.telemetry.text': 'No analytics, no tracking, no accounts, no sign-in.',
+  'settings.privacy.agents.title': 'Agents',
+  'settings.privacy.agents.text':
+    'Agents run on your machine with your environment and configuration. Harness Desktop never edits your harness’s settings; an approval choice you make for a chat applies to that chat only, and the active mode shows in the chat header when the harness has one. Shell commands from the composer always ask for confirmation. This app uploads nothing.',
+  'settings.privacy.git.title': 'Git',
+  'settings.privacy.git.text':
+    'The Changes view runs your local git read-only (status, diff, branch list) with pagers, external diff programs and filesystem monitors off, and with credential prompts disabled.',
+  'settings.privacy.logs.title': 'Logs',
+  'settings.privacy.logs.text':
+    'A local log file in your OS log folder records what the app does, never what you say. It holds no prompts, chat content or file contents, and is rotated at 1 MiB.',
+
+  'settings.privacy.openLink.title': 'Open any web link',
+  'settings.privacy.openLink.description':
+    'Links in chats, such as a pull request the agent opened, open in your browser. Off: only project and harness sites open. Always https only.',
+  'settings.privacy.recents.title': 'Recent projects',
+  'settings.privacy.recents.description': 'Forget every remembered folder. If your open project is on the list, it is closed too.',
+  'settings.privacy.recents.clear': 'Clear recent projects',
+  'settings.privacy.recents.confirmTitle': 'Clear recent projects?',
+  'settings.privacy.recents.confirmDescription': 'Every remembered folder is forgotten. If your open project is on the list, it is closed too. Your files are not touched.',
+  'settings.privacy.recents.confirmLabel': 'Clear list',
+  'settings.privacy.recents.cleared': 'Recent projects cleared',
+  'settings.privacy.diagnostics.title': 'Diagnostics',
+  'settings.privacy.diagnostics.description': 'Copies the app version, OS and harness versions for a bug report. No paths, projects or content.',
+  'settings.privacy.diagnostics.copy': 'Copy diagnostics',
+  'settings.privacy.diagnostics.copied': 'Diagnostics copied',
+  'settings.privacy.diagnostics.copiedDescription': 'App version, OS and harness versions only. No paths or content.',
+  'settings.privacy.diagnostics.failed': 'Could not copy',
+  'settings.privacy.diagnostics.failedDescription': 'The clipboard is not available.',
+} satisfies Record<string, string>;

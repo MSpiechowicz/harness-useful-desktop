@@ -1,5 +1,6 @@
 <script lang="ts">
   import { displayStatus, statusLetter, statusName, statusTone, type StatusTone } from '$lib/git/entries';
+  import { t, tn } from '$lib/i18n/i18n.svelte';
   import type { StatusEntry } from '$lib/ipc/bindings/StatusEntry';
   import { git } from '$lib/stores/git.svelte';
   import { cx } from '$lib/utils/cx';
@@ -54,7 +55,7 @@
   }
 </script>
 
-<ul role="listbox" aria-label="Changed files" class="flex flex-col gap-0.5 p-3">
+<ul role="listbox" aria-label={t('changes.files.label')} class="flex flex-col gap-0.5 p-3">
   {#each entries as entry, index (entry.path)}
     {@const status = displayStatus(entry, git.scope)}
     {@const selected = entry.path === git.selected}
@@ -89,7 +90,7 @@
         </span>
 
         {#if comments > 0}
-          <span class="tabular rounded-full bg-accent-wash px-1.5 text-xs leading-5 text-accent-text" title="{comments} pending {comments === 1 ? 'comment' : 'comments'}">{comments}<span class="sr-only">{' comments'}</span></span>
+          <span class="tabular rounded-full bg-accent-wash px-1.5 text-xs leading-5 text-accent-text" title={tn('changes.files.pending', comments)}>{comments}<span class="sr-only">{` ${tn('changes.files.commentWord', comments)}`}</span></span>
         {/if}
 
         {#if counts}

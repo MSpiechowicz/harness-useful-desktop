@@ -1,6 +1,7 @@
 <script lang="ts">
   import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
 
+  import { t } from '$lib/i18n/i18n.svelte';
   import ListDetail from '$lib/components/ListDetail.svelte';
   import NoticeBanner from '$lib/components/NoticeBanner.svelte';
   import ViewHeader from '$lib/components/ViewHeader.svelte';
@@ -32,14 +33,14 @@
 </script>
 
 <div class="flex size-full min-h-0 flex-col">
-  <ViewHeader title="Configuration" icon={SlidersHorizontal} context={scopeLabel(files === undefined ? null : count(files, 'file'))}>
+  <ViewHeader title={t('config.title')} icon={SlidersHorizontal} context={scopeLabel(files === undefined ? null : count(files, 'file'))}>
     {#snippet actions()}
-      <RefreshButton label="Reload configuration" onclick={() => configView.refresh()} />
+      <RefreshButton label={t('config.reload')} onclick={() => configView.refresh()} />
     {/snippet}
   </ViewHeader>
 
   <div class="relative min-h-0 flex-1">
-    <HarnessGate loader={configView} noun="configuration">
+    <HarnessGate loader={configView} area="config">
       {#snippet children(view)}
         {@const section = pick(view)}
 
@@ -49,7 +50,7 @@
 
         <div class="mt-3 min-h-0 flex-1 border-t border-line">
           {#if section}
-            <ListDetail label="Resize file list" scrollKey="config:detail">
+            <ListDetail label={t('config.resize')} scrollKey="config:detail">
               {#snippet list()}
                 <SectionList sections={view.sections} selectedId={section.id} onselect={choose} />
               {/snippet}
@@ -60,7 +61,7 @@
               {/snippet}
             </ListDetail>
           {:else}
-            <p class="p-8 text-center text-base text-fg-2" role="status">No configuration files were found for this harness.</p>
+            <p class="p-8 text-center text-base text-fg-2" role="status">{t('config.empty')}</p>
           {/if}
         </div>
       {/snippet}

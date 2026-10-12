@@ -2,6 +2,7 @@
   import ChevronDown from '@lucide/svelte/icons/chevron-down';
 
   import type { Notice } from '$lib/ipc/bindings/Notice';
+  import { t } from '$lib/i18n/i18n.svelte';
   import { cx } from '$lib/utils/cx';
 
   import { ICON } from './icon';
@@ -31,19 +32,19 @@
       <span class="flex h-5 shrink-0 items-center"><look.icon class={look.color} size={ICON.sm} aria-hidden="true" /></span>
       <span class="min-w-0 flex-1 truncate">{notices[0].message}</span>
       <button type="button" class={TOGGLE} aria-expanded="false" onclick={() => (expanded = true)}>
-        +{notices.length - 1} more
+        {t('components.notice.more', { count: notices.length - 1 })}
         <ChevronDown size={ICON.sm} aria-hidden="true" />
       </button>
     </div>
   {:else}
-    <ul class="flex flex-col gap-2" aria-label="Notices">
+    <ul class="flex flex-col gap-2" aria-label={t('components.notice.list')}>
       {#each notices as notice, index (index)}
         {@const look = NOTICE_LOOKS[notice.level]}
         <li class={cx(ROW, look.box)} role={notice.level === 'error' ? 'alert' : 'status'}>
           <span class="flex h-5 shrink-0 items-center"><look.icon class={look.color} size={ICON.sm} aria-hidden="true" /></span>
           <span class="min-w-0 flex-1">{notice.message}</span>
           {#if expanded && index === 0}
-            <button type="button" class={TOGGLE} aria-expanded="true" onclick={() => (expanded = false)}>Show less</button>
+            <button type="button" class={TOGGLE} aria-expanded="true" onclick={() => (expanded = false)}>{t('components.notice.less')}</button>
           {/if}
         </li>
       {/each}

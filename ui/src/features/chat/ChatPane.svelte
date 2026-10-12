@@ -2,6 +2,7 @@
   import { pendingApproval } from '$lib/chat/approval';
   import type { ChatSession } from '$lib/chat/session.svelte';
   import { agentSessions } from '$lib/stores/agentSession.svelte';
+  import { t } from '$lib/i18n/i18n.svelte';
 
   import ApprovalCard from './ApprovalCard.svelte';
   import AskDialog from './AskDialog.svelte';
@@ -35,7 +36,7 @@
   <ChatHeader {session} />
   <MessageList {session} />
 
-  <span class="sr-only" role="status">{session.streaming ? 'The agent is responding' : ''}</span>
+  <span class="sr-only" role="status">{session.streaming ? t('chat.list.responding') : ''}</span>
 
   <WidgetStrip {chat} placement="above" />
 

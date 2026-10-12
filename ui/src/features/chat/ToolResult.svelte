@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t, tn } from '$lib/i18n/i18n.svelte';
   import { cx } from '$lib/utils/cx';
 
   import TerminalBlock from './TerminalBlock.svelte';
@@ -34,10 +35,10 @@
 
     {#if long}
       <button type="button" class="self-start rounded-sm text-xs text-accent-text underline underline-offset-2 transition-colors hover:text-fg" onclick={() => (expanded = !expanded)}>
-        {expanded ? 'Show less' : `Show all (${lines.length} lines)`}
+        {expanded ? t('chat.tool.showLess') : tn('chat.tool.showAll', lines.length)}
       </button>
     {/if}
   </div>
 {:else if running}
-  <p class="text-xs text-fg-3">Waiting for output…</p>
+  <p class="text-xs text-fg-3">{t('chat.tool.waiting')}</p>
 {/if}

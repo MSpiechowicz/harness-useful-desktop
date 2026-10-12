@@ -6,6 +6,7 @@
   import { approvalSubject, type ApprovalPrompt } from '$lib/chat/approval';
   import type { ChatSession } from '$lib/chat/session.svelte';
   import { commandOf, primaryArg, TOOL_ICONS, toolKind, toolTitle } from '$lib/chat/tool-meta';
+  import { t } from '$lib/i18n/i18n.svelte';
 
   import Countdown from './Countdown.svelte';
   import TerminalBlock from './TerminalBlock.svelte';
@@ -47,7 +48,7 @@
 
 <svelte:window {onkeydown} />
 
-<section aria-label="Approval needed" aria-live="assertive" data-approval-card class="chat-col mb-2">
+<section aria-label={t('chat.approvalCard.label')} aria-live="assertive" data-approval-card class="chat-col mb-2">
   <div class="flex flex-col gap-3 rounded-xl border border-warning/40 bg-warning-wash px-4 py-3.5 shadow-float">
     <div class="flex items-start gap-3">
       <Icon size={18} class="mt-0.5 shrink-0 text-warning" aria-hidden="true" />
@@ -77,7 +78,7 @@
       {#each prompt.others as other (other.option)}
         <Button size="sm" onclick={() => answer(other.option)}>{other.option}</Button>
       {/each}
-      <span class="ml-auto text-xs text-fg-3"><Kbd keys="escape" /> denies</span>
+      <span class="ml-auto text-xs text-fg-3"><Kbd keys="escape" /> {t('chat.approvalCard.denies')}</span>
     </div>
   </div>
 </section>

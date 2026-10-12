@@ -3,6 +3,7 @@
   import FileX from '@lucide/svelte/icons/file-x';
   import FolderSearch from '@lucide/svelte/icons/folder-search';
 
+  import { t } from '$lib/i18n/i18n.svelte';
   import type { FileDiff as FileDiffData } from '$lib/ipc/bindings/FileDiff';
 
   import Button from './Button.svelte';
@@ -18,14 +19,14 @@
 
   const notice = $derived.by(() => {
     if (diff.isBinary) {
-      return { icon: FileX, title: 'Binary file', body: 'Its contents are not shown. Open it in the file manager to see what changed.' };
+      return { icon: FileX, title: t('components.diff.binary.title'), body: t('components.diff.binary.body') };
     }
 
     if (diff.truncated) {
-      return { icon: FileX, title: 'Diff not shown', body: 'This file is too large or not readable as text, so its diff is not shown.' };
+      return { icon: FileX, title: t('components.diff.hidden.title'), body: t('components.diff.hidden.body') };
     }
 
-    return { icon: FileDiff, title: 'No content changes', body: 'This is a rename or a mode change; no lines differ.' };
+    return { icon: FileDiff, title: t('components.diff.unchanged.title'), body: t('components.diff.unchanged.body') };
   });
 </script>
 
@@ -44,7 +45,7 @@
     {#if diff.isBinary && onreveal}
       <Button onclick={onreveal}>
         {#snippet leading()}<FolderSearch size={ICON.sm} aria-hidden="true" />{/snippet}
-        Reveal in file manager
+        {t('components.diff.reveal')}
       </Button>
     {/if}
   </div>

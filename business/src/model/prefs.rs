@@ -72,6 +72,12 @@ pub struct ChatDefaults {
     pub thinking_level: Option<String>,
 }
 
+/// UI language codes the app ships translations for.
+pub const LANGUAGES: [&str; 5] = ["en", "de", "es", "fr", "pl"];
+
+/// UI language used when none is stored or the stored one is not in [`LANGUAGES`].
+pub const DEFAULT_LANGUAGE: &str = "en";
+
 /// Persisted user preferences. Holds no secrets and no chat content.
 ///
 /// `#[serde(default)]` lets older or partial files load; unknown fields are ignored.
@@ -85,6 +91,12 @@ pub struct AppPrefs {
     pub theme: ThemePref,
     /// Animation level.
     pub motion: MotionPref,
+    /// UI language code, one of `LANGUAGES` (`en`, `de`, `es`, `fr`, `pl`); default `en`.
+    /// Any other stored value (an unknown code, or not a string at all) loads as `en` instead of
+    /// making the file unusable.
+    #[serde(with = "lenient_language")]
+    #[ts(as = "String")]
+    pub language: String,
     /// Whether the opening animation plays.
     pub intro_enabled: bool,
     /// Whether the opening animation plays its sound.
@@ -128,6 +140,7 @@ impl Default for AppPrefs {
             version: Self::VERSION,
             theme: ThemePref::System,
             motion: MotionPref::Full,
+            language: DEFAULT_LANGUAGE.to_owned(),
             intro_enabled: true,
             sound_enabled: false,
             show_thinking: true,
@@ -142,6 +155,27 @@ impl Default for AppPrefs {
             approval_notice_seen: false,
             binary_overrides: Vec::new(),
             chat_defaults: Vec::new(),
+        }
+    }
+}
+
+/// `language` as stored: written as the string it is; read from any JSON value, keeping a string as
+/// is (the store whitelists it) and turning anything else into [`DEFAULT_LANGUAGE`], so one
+/// hand-edited value cannot make the whole file unusable.
+mod lenient_language {
+    use serde::{Deserialize, Deserializer, Serializer};
+    use serde_json::Value;
+
+    use super::DEFAULT_LANGUAGE;
+
+    pub fn serialize<S: Serializer>(language: &str, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(language)
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(deserializer: D) -> Result<String, D::Error> {
+        match Value::deserialize(deserializer)? {
+            Value::String(language) => Ok(language),
+            _ => Ok(DEFAULT_LANGUAGE.to_owned()),
         }
     }
 }

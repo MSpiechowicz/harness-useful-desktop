@@ -15,6 +15,7 @@
   import { formatChange, formatPercent, formatTokens, formatUsd } from '$lib/dashboard/format';
   import type { UsageSummary } from '$lib/dashboard/models';
   import { rise } from '$lib/design/motion';
+  import { t, tn } from '$lib/i18n/i18n.svelte';
   import type { PanelRange, QuerySlot } from '$lib/stores/dashboard.svelte';
   import { cx } from '$lib/utils/cx';
   import { formatCount } from '$lib/utils/format';
@@ -43,10 +44,10 @@
   {@const usage = slot.data}
 
   <div class={cx(GRID, 'transition-opacity duration-[var(--dur-base)]', slot.stale && 'opacity-60')} aria-busy={slot.stale}>
-    {@render tile(0, 'Cost', Coins, formatUsd(usage.costUsd), costDetail)}
-    {@render tile(1, 'Tokens', Layers, formatTokens(usage.tokens.total), tokenDetail)}
-    {@render tile(2, 'Sessions', MessagesSquare, formatCount(usage.sessions), sessionDetail)}
-    {@render tile(3, 'Cost per prompt', Gauge, usage.costPerPromptUsd === null ? '—' : formatUsd(usage.costPerPromptUsd), efficiencyDetail)}
+    {@render tile(0, t('ecosystem.usage.cost'), Coins, formatUsd(usage.costUsd), costDetail)}
+    {@render tile(1, t('ecosystem.usage.tokens'), Layers, formatTokens(usage.tokens.total), tokenDetail)}
+    {@render tile(2, t('ecosystem.usage.sessions'), MessagesSquare, formatCount(usage.sessions), sessionDetail)}
+    {@render tile(3, t('ecosystem.usage.perPrompt'), Gauge, usage.costPerPromptUsd === null ? '—' : formatUsd(usage.costPerPromptUsd), efficiencyDetail)}
   </div>
 
   {#snippet costDetail()}
@@ -65,13 +66,13 @@
           <Arrow size={14} aria-hidden="true" />
           {formatChange(change)}
         </span>
-        <span class="truncate text-sm text-fg-3">vs the period before</span>
+        <span class="truncate text-sm text-fg-3">{t('ecosystem.usage.vsPrevious')}</span>
       </div>
       <p class="tabular h-4 truncate text-xs leading-4 text-fg-3">
-        {usage.previousCostUsd === null ? '' : `That was ${formatUsd(usage.previousCostUsd)}`}
+        {usage.previousCostUsd === null ? '' : t('ecosystem.usage.wasAmount', { amount: formatUsd(usage.previousCostUsd) })}
       </p>
     {:else}
-      <p class="h-6 truncate text-sm leading-6 text-fg-3">No earlier period to compare with</p>
+      <p class="h-6 truncate text-sm leading-6 text-fg-3">{t('ecosystem.usage.noPrevious')}</p>
     {/if}
   {/snippet}
 
@@ -80,13 +81,13 @@
   {/snippet}
 
   {#snippet sessionDetail()}
-    <p class="tabular h-6 truncate text-sm leading-6 text-fg-2">{formatCount(usage.prompts)} prompts</p>
-    <p class="tabular h-4 truncate text-xs leading-4 text-fg-3">{formatCount(usage.modelCalls)} model calls</p>
+    <p class="tabular h-6 truncate text-sm leading-6 text-fg-2">{tn('ecosystem.count.prompt', usage.prompts)}</p>
+    <p class="tabular h-4 truncate text-xs leading-4 text-fg-3">{tn('ecosystem.count.modelCall', usage.modelCalls)}</p>
   {/snippet}
 
   {#snippet efficiencyDetail()}
     {#if usage.cacheHitRate === null}
-      <p class="h-6 truncate text-sm leading-6 text-fg-3">No cache data</p>
+      <p class="h-6 truncate text-sm leading-6 text-fg-3">{t('ecosystem.usage.noCache')}</p>
     {:else}
       {@const share = Math.min(Math.max(usage.cacheHitRate, 0), 1)}
 
@@ -95,10 +96,10 @@
         <span class="h-1.5 w-14 shrink-0 overflow-hidden rounded-full bg-surface-3" aria-hidden="true">
           <span class="block h-full rounded-full bg-accent-text transition-[width] duration-[var(--dur-slow)]" style:width="{share * 100}%"></span>
         </span>
-        <span class="tabular truncate text-sm text-fg-2">{formatPercent(share * 100)} served from cache</span>
+        <span class="tabular truncate text-sm text-fg-2">{t('ecosystem.usage.fromCache', { percent: formatPercent(share * 100) })}</span>
       </div>
     {/if}
-    <p class="h-4 truncate text-xs leading-4 text-fg-3" title="Share of input tokens read from the prompt cache">Share of input tokens read from the cache</p>
+    <p class="h-4 truncate text-xs leading-4 text-fg-3" title={t('ecosystem.usage.cacheShareTitle')}>{t('ecosystem.usage.cacheShare')}</p>
   {/snippet}
 {:else if slot.status === 'error'}
   <!-- As tall as the two rows of tiles, so a failed load does not collapse the page under it. -->
@@ -106,11 +107,11 @@
     <CircleAlert class="shrink-0 text-danger" size={ICON.md} aria-hidden="true" />
     <div class="flex flex-col items-start gap-2">
       <p class="text-fg-2">{slot.error}</p>
-      <Button size="sm" onclick={onretry}>Try again</Button>
+      <Button size="sm" onclick={onretry}>{t('ecosystem.retry')}</Button>
     </div>
   </div>
 {:else}
-  <div class={GRID} role="status" aria-label="Loading usage">
+  <div class={GRID} role="status" aria-label={t('ecosystem.usage.loading')}>
     {#each [0, 1, 2, 3] as placeholder (placeholder)}
       <div class={cx(TILE, 'shadow-raised')}>
         <div class="flex h-7 items-center gap-2">
@@ -128,7 +129,7 @@
 {/if}
 
 {#snippet tile(index: number, label: string, Icon: IconComponent, value: string, detail: Snippet)}
-  <article aria-label="{label}, {phrase}" in:rise={{ y: 14, delay: index * 60, duration: 420 }} class={cx(TILE, 'shadow-raised')}>
+  <article aria-label={t('ecosystem.usage.tile', { label, phrase })} in:rise={{ y: 14, delay: index * 60, duration: 420 }} class={cx(TILE, 'shadow-raised')}>
     <header class="flex h-7 items-center gap-2 text-sm font-medium text-fg-2">
       <span class="grid size-7 shrink-0 place-items-center rounded-sm bg-accent-wash text-accent-text"><Icon size={ICON.sm} aria-hidden="true" /></span>
       <span class="truncate">{label}</span>

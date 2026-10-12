@@ -233,15 +233,17 @@ Details of keys and releases: [release-and-updater-keys.md](release-and-updater-
 | UI choices | Webview `localStorage` | Rail expanded (`harness.railExpanded`), command-palette recents (`harness.paletteRecents`), diff layout. |
 | Log files | The OS log directory | See [Logging](#logging). Rotated at 1 MiB, 3 files kept. |
 
-`AppPrefs` (`business/src/model/prefs.rs`) has twelve fields and never holds secrets or chat content:
-`version`, `theme`, `motion`, `introEnabled`, `defaultHarness`, `activeProject`, `rememberRecentProjects`,
-`recentProjects` (12 at most), `updatePolicy`, `onboardingCompleted`, `approvalNoticeSeen`, `binaryOverrides`.
+`AppPrefs` (`business/src/model/prefs.rs`) has eighteen fields and never holds secrets or chat content:
+`version`, `theme`, `motion`, `language` (`en`, `de`, `es`, `fr` or `pl`; anything else loads as `en`), `introEnabled`,
+`soundEnabled`, `showThinking`, `defaultHarness`, `activeProject`, `rememberRecentProjects`, `recentProjects` (12 at
+most), `updatePolicy`, `checkCompanionUpdates`, `openAnyLink`, `onboardingCompleted`, `approvalNoticeSeen`,
+`binaryOverrides`, `chatDefaults`.
 
 **Server-managed fields** (`business/src/prefs/managed.rs`): `activeProject`, `recentProjects` and `binaryOverrides`
 decide which directories are read and which programs run. Only Rust changes them, through the native pickers and the
-project and harness commands. `prefs_set` stores the UI-managed fields only (`theme`, `motion`, `introEnabled`,
-`soundEnabled`, `showThinking`, `defaultHarness`, `rememberRecentProjects`, `updatePolicy`, `checkCompanionUpdates`,
-`openAnyLink`, `onboardingCompleted`, `approvalNoticeSeen`, `chatDefaults`) and keeps the
+project and harness commands. `prefs_set` stores the UI-managed fields only (`theme`, `motion`, `language`,
+`introEnabled`, `soundEnabled`, `showThinking`, `defaultHarness`, `rememberRecentProjects`, `updatePolicy`,
+`checkCompanionUpdates`, `openAnyLink`, `onboardingCompleted`, `approvalNoticeSeen`, `chatDefaults`) and keeps the
 rest as stored. The exhaustive destructuring in `with_ui_fields` makes a new field fail to compile until it is
 classified. Turning off `rememberRecentProjects` clears the recent list.
 

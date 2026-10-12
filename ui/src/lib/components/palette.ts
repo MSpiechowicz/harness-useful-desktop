@@ -1,3 +1,4 @@
+import { t } from '$lib/i18n/i18n.svelte';
 import { fuzzyMatch } from '$lib/utils/fuzzy';
 
 import type { IconComponent } from './icon';
@@ -40,14 +41,53 @@ export interface PaletteGroup {
 
 export type PaletteMode = 'all' | 'action' | 'slash' | 'session' | 'file';
 
-export const RECENT_GROUP = 'Recent';
+/** The name of the group of recently run entries; read when shown, so it follows the language. */
+export function recentGroup(): string {
+  return t('components.palette.recent');
+}
 
 /** Typing one of these first narrows the palette; shown in its footer. */
-export const MODE_PREFIXES: readonly { prefix: string; mode: Exclude<PaletteMode, 'all'>; label: string; noun: string }[] = [
-  { prefix: '>', mode: 'action', label: 'Actions', noun: 'actions' },
-  { prefix: '/', mode: 'slash', label: 'Slash commands', noun: 'slash commands' },
-  { prefix: '@', mode: 'session', label: 'Sessions', noun: 'sessions' },
-  { prefix: '#', mode: 'file', label: 'Files', noun: 'changed files' },
+export const MODE_PREFIXES: readonly { prefix: string; mode: Exclude<PaletteMode, 'all'>; readonly label: string; readonly noun: string }[] = [
+  {
+    prefix: '>',
+    mode: 'action',
+    get label() {
+      return t('components.palette.mode.action');
+    },
+    get noun() {
+      return t('components.palette.noun.action');
+    },
+  },
+  {
+    prefix: '/',
+    mode: 'slash',
+    get label() {
+      return t('components.palette.mode.slash');
+    },
+    get noun() {
+      return t('components.palette.noun.slash');
+    },
+  },
+  {
+    prefix: '@',
+    mode: 'session',
+    get label() {
+      return t('components.palette.mode.session');
+    },
+    get noun() {
+      return t('components.palette.noun.session');
+    },
+  },
+  {
+    prefix: '#',
+    mode: 'file',
+    get label() {
+      return t('components.palette.mode.file');
+    },
+    get noun() {
+      return t('components.palette.noun.file');
+    },
+  },
 ];
 
 const MODE_KINDS: Record<PaletteMode, PaletteKind[] | null> = {
@@ -194,5 +234,5 @@ function withRecents(groups: PaletteGroup[], recents: readonly string[]): Palett
     .map((group) => ({ ...group, entries: group.entries.filter((entry) => !taken.has(entry.command.id)) }))
     .filter((group) => group.entries.length > 0);
 
-  return [{ name: RECENT_GROUP, entries: recent, hidden: 0 }, ...rest];
+  return [{ name: recentGroup(), entries: recent, hidden: 0 }, ...rest];
 }

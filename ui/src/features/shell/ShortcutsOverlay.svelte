@@ -4,11 +4,12 @@
 
   import IconButton from '$lib/components/IconButton.svelte';
   import { ICON } from '$lib/components/icon';
+  import { t } from '$lib/i18n/i18n.svelte';
   import Kbd from '$lib/components/Kbd.svelte';
   import Overlay from '$lib/components/Overlay.svelte';
   import { uid } from '$lib/utils/ids';
 
-  import type { ShortcutGroup } from './shortcuts';
+  import { areaLabel, type ShortcutGroup } from './shortcuts';
 
   interface Props {
     open: boolean;
@@ -19,6 +20,10 @@
   let { open, groups, onclose }: Props = $props();
 
   const titleId = uid('shortcuts-title');
+
+  // The hint holds a key cap in the middle of a sentence: split around a marker the cap replaces.
+  const KEYS_MARK = '\u0000';
+  const hint = $derived(t('shell.shortcuts.hint', { keys: KEYS_MARK }).split(KEYS_MARK));
 </script>
 
 <Overlay {open} labelledby={titleId} {onclose} class="w-[56rem]">
@@ -29,17 +34,17 @@
       </span>
 
       <div class="flex min-w-0 flex-1 flex-col">
-        <h2 id={titleId} class="text-lg text-fg">Keyboard shortcuts</h2>
-        <p class="text-sm text-fg-2">Everything has a key. Press <Kbd keys="shift+?" /> anywhere to see this again.</p>
+        <h2 id={titleId} class="text-lg text-fg">{t('shell.shortcuts.title')}</h2>
+        <p class="text-sm text-fg-2">{hint[0]}<Kbd keys="shift+?" />{hint[1]}</p>
       </div>
 
-      <IconButton icon={X} label="Close shortcuts" size="sm" side="bottom" data-dismiss onclick={onclose} />
+      <IconButton icon={X} label={t('shell.shortcuts.close')} size="sm" side="bottom" data-dismiss onclick={onclose} />
     </header>
 
     <div class="grid grid-cols-1 gap-x-10 gap-y-7 overflow-y-auto px-6 py-6 md:grid-cols-2" data-testid="shortcut-groups">
       {#each groups as group (group.area)}
         <section aria-labelledby="{titleId}-{group.area}" class="flex flex-col gap-1">
-          <h3 id="{titleId}-{group.area}" class="pb-1 text-xs font-medium tracking-wider text-fg-3 uppercase">{group.area}</h3>
+          <h3 id="{titleId}-{group.area}" class="pb-1 text-xs font-medium tracking-wider text-fg-3 uppercase">{areaLabel(group.area)}</h3>
 
           <ul class="flex flex-col">
             {#each group.rows as row, index (`${index}:${row.label}`)}
@@ -48,7 +53,7 @@
 
                 <span class="flex shrink-0 items-center gap-1.5">
                   {#each row.combos as combo, index (combo)}
-                    {#if index > 0 && row.joiner === 'or'}<span class="text-xs text-fg-3">or</span>{/if}
+                    {#if index > 0 && row.joiner === 'or'}<span class="text-xs text-fg-3">{t('shell.shortcuts.or')}</span>{/if}
                     <Kbd keys={combo} />
                   {/each}
                 </span>

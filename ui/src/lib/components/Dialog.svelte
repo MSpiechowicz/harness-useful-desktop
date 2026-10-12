@@ -2,6 +2,7 @@
   import type { Snippet } from 'svelte';
   import X from '@lucide/svelte/icons/x';
 
+  import { t } from '$lib/i18n/i18n.svelte';
   import { uid } from '$lib/utils/ids';
   import { cx } from '$lib/utils/cx';
 
@@ -45,7 +46,7 @@
       </div>
 
       {#if dismissible}
-        <IconButton icon={X} label="Close dialog" size="sm" data-dismiss onclick={close} />
+        <IconButton icon={X} label={t('components.dialog.close')} size="sm" data-dismiss onclick={close} />
       {/if}
     </header>
 

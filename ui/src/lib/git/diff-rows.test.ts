@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
+import { i18n } from '$lib/i18n/i18n.svelte';
 import type { DiffLine } from '$lib/ipc/bindings/DiffLine';
 import type { FileDiff } from '$lib/ipc/bindings/FileDiff';
 import { fixtures } from '$lib/ipc/mock/fixtures';
 
-import { flatLines, rowIndexes, splitRows, unifiedRows } from './diff-rows';
+import { flatLines, lineSpoken, rowIndexes, splitRows, unifiedRows } from './diff-rows';
 
 function line(kind: DiffLine['kind'], oldNo: number | null, newNo: number | null, text = ''): DiffLine {
   return { kind, oldNo, newNo, text };
@@ -87,5 +88,15 @@ describe('split rows', () => {
 
     expect(rowIndexes(pairs[0])).toEqual([0]);
     expect(rowIndexes(pairs[1])).toEqual([1, 2]);
+  });
+});
+
+describe('spoken line markers', () => {
+  it('say added and removed in the current language', async () => {
+    expect([lineSpoken('add'), lineSpoken('remove'), lineSpoken('context')]).toEqual(['Added: ', 'Removed: ', '']);
+
+    await i18n.load('pl');
+
+    expect([lineSpoken('add'), lineSpoken('remove'), lineSpoken('context')]).toEqual(['Dodano: ', 'Usunięto: ', '']);
   });
 });

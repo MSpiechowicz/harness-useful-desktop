@@ -1,3 +1,4 @@
+import { t, tn } from '$lib/i18n/i18n.svelte';
 import type { Capabilities } from '$lib/ipc/bindings/Capabilities';
 import type { ExtensionScope } from '$lib/ipc/bindings/ExtensionScope';
 import type { ExtensionsView } from '$lib/ipc/bindings/ExtensionsView';
@@ -14,22 +15,52 @@ export type ExtTab = 'plugins' | 'marketplaces' | 'skills' | 'prompts' | 'mcp' |
 
 export interface TabDef {
   id: ExtTab;
-  label: string;
-  /** Singular/plural noun for empty states. */
-  noun: string;
+  /** The tab's name, plural. */
+  readonly label: string;
+  /** One item of the tab: "Plugin", "MCP server". */
+  readonly singular: string;
+  /** The empty state's title: "No plugins found". */
+  readonly empty: string;
+  /** The search field's label and placeholder: "Search plugins". */
+  readonly search: string;
+  /** Said when the search matches nothing: `No plugins match “zzz”.` */
+  noMatch: (query: string) => string;
   capability: keyof Capabilities;
+}
+
+/** One tab; its texts follow the language on screen, so they are getters over the `extensions.tab.<id>` keys. */
+function tab(id: ExtTab, capability: keyof Capabilities): TabDef {
+  const key = `extensions.tab.${id}` as const;
+
+  return {
+    id,
+    get label() {
+      return t(key);
+    },
+    get singular() {
+      return t(`${key}.singular`);
+    },
+    get empty() {
+      return t(`${key}.empty`);
+    },
+    get search() {
+      return t(`${key}.search`);
+    },
+    noMatch: (query) => t(`${key}.noMatch`, { query }),
+    capability,
+  };
 }
 
 /** All tabs in display order; a harness shows the ones its capabilities enable. */
 export const TABS: readonly TabDef[] = [
-  { id: 'plugins', label: 'Plugins', noun: 'plugins', capability: 'plugins' },
-  { id: 'marketplaces', label: 'Marketplaces', noun: 'marketplaces', capability: 'marketplaces' },
-  { id: 'skills', label: 'Skills', noun: 'skills', capability: 'skills' },
-  { id: 'prompts', label: 'Prompts', noun: 'prompt templates', capability: 'promptTemplates' },
-  { id: 'mcp', label: 'MCP servers', noun: 'MCP servers', capability: 'mcp' },
-  { id: 'themes', label: 'Themes', noun: 'themes', capability: 'themes' },
-  { id: 'packages', label: 'Packages', noun: 'packages', capability: 'packages' },
-  { id: 'modules', label: 'Modules', noun: 'extension modules', capability: 'extensionModules' },
+  tab('plugins', 'plugins'),
+  tab('marketplaces', 'marketplaces'),
+  tab('skills', 'skills'),
+  tab('prompts', 'promptTemplates'),
+  tab('mcp', 'mcp'),
+  tab('themes', 'themes'),
+  tab('packages', 'packages'),
+  tab('modules', 'extensionModules'),
 ];
 
 export function visibleTabs(capabilities: Capabilities): TabDef[] {
@@ -63,15 +94,8 @@ export type ExtItem =
   | (ItemBase & { tab: 'packages'; data: PackageInfo })
   | (ItemBase & { tab: 'modules'; data: ExtensionModuleInfo });
 
-const SCOPE_LABELS: Record<ExtensionScope, string> = {
-  user: 'User',
-  project: 'Project',
-  builtin: 'Built-in',
-  plugin: 'Plugin',
-};
-
 export function scopeLabel(scope: ExtensionScope): string {
-  return SCOPE_LABELS[scope];
+  return t(`extensions.scope.${scope}`);
 }
 
 function scopeBadge(scope: ExtensionScope): ExtBadge {
@@ -79,7 +103,7 @@ function scopeBadge(scope: ExtensionScope): ExtBadge {
 }
 
 function enabledBadge(enabled: boolean): ExtBadge {
-  return enabled ? { label: 'Enabled', tone: 'success' } : { label: 'Disabled', tone: 'neutral' };
+  return enabled ? { label: t('extensions.state.enabled'), tone: 'success' } : { label: t('extensions.state.disabled'), tone: 'neutral' };
 }
 
 function base(id: string, title: string, subtitle: string | null, badges: ExtBadge[], extra: string[] = []): ItemBase {
@@ -98,7 +122,10 @@ function pluginItems(view: ExtensionsView): ExtItem[] {
       badges.push({ label: plugin.marketplace, tone: 'accent' });
     }
     if (plugin.updateAvailable) {
-      badges.push({ label: plugin.latestVersion ? `v${plugin.latestVersion} available` : 'Update available', tone: 'info' });
+      badges.push({
+        label: plugin.latestVersion ? t('extensions.badge.updateTo', { version: plugin.latestVersion }) : t('extensions.badge.updateAvailable'),
+        tone: 'info',
+      });
     }
 
     return { ...base(plugin.id, plugin.name, plugin.description, badges, [plugin.id]), tab: 'plugins', data: plugin };
@@ -108,7 +135,11 @@ function pluginItems(view: ExtensionsView): ExtItem[] {
 function marketplaceItems(view: ExtensionsView): ExtItem[] {
   return view.marketplaces.map((marketplace) => {
     const badges: ExtBadge[] = [{ label: marketplace.sourceType, tone: 'neutral' }];
-    badges.push(marketplace.error ? { label: 'Unreadable', tone: 'danger' } : { label: `${marketplace.entries.length} ${marketplace.entries.length === 1 ? 'plugin' : 'plugins'}`, tone: 'accent' });
+    badges.push(
+      marketplace.error
+        ? { label: t('extensions.badge.unreadable'), tone: 'danger' }
+        : { label: tn('extensions.count.plugin', marketplace.entries.length), tone: 'accent' },
+    );
 
     return { ...base(marketplace.name, marketplace.name, marketplace.source, badges), tab: 'marketplaces', data: marketplace };
   });
@@ -147,7 +178,7 @@ function mcpItems(view: ExtensionsView): ExtItem[] {
     const badges: ExtBadge[] = [
       enabledBadge(server.enabled),
       { label: server.transport, tone: 'neutral' },
-      { label: server.source.layer === 'project' ? 'Project' : 'User', tone: server.source.layer === 'project' ? 'info' : 'neutral' },
+      { label: scopeLabel(server.source.layer === 'project' ? 'project' : 'user'), tone: server.source.layer === 'project' ? 'info' : 'neutral' },
     ];
 
     return { ...base(`${server.name}\u001f${server.source.path}`, server.name, serverSummary(server), badges), tab: 'mcp', data: server };
@@ -158,7 +189,7 @@ function themeItems(view: ExtensionsView): ExtItem[] {
   return view.themes.map((theme) => {
     const badges: ExtBadge[] = [scopeBadge(theme.scope)];
     if (theme.active) {
-      badges.unshift({ label: 'Active', tone: 'accent' });
+      badges.unshift({ label: t('extensions.badge.active'), tone: 'accent' });
     }
 
     return { ...base(`${theme.name}\u001f${theme.scope}`, theme.name, null, badges), tab: 'themes', data: theme };
@@ -167,7 +198,7 @@ function themeItems(view: ExtensionsView): ExtItem[] {
 
 function packageItems(view: ExtensionsView): ExtItem[] {
   return view.packages.map((pkg, index) => {
-    const title = pkg.source.kind === 'text' ? pkg.source.value : 'Hidden source';
+    const title = pkg.source.kind === 'text' ? pkg.source.value : t('extensions.badge.hiddenSource');
     const badges: ExtBadge[] = [{ label: pkg.kind, tone: 'neutral' }, scopeBadge(pkg.scope)];
 
     return { ...base(`${index}\u001f${title}`, title, pkg.resources.join(', ') || null, badges), tab: 'packages', data: pkg };

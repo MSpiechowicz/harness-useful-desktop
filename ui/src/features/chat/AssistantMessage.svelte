@@ -5,6 +5,7 @@
   import type { MessageItem, ToolCallState } from '$lib/chat/types';
   import type { Subagent } from '$lib/ipc/bindings/Subagent';
   import { prefs } from '$lib/stores/prefs.svelte';
+  import { t } from '$lib/i18n/i18n.svelte';
 
   import MessageMeta from './MessageMeta.svelte';
   import ThinkingBlock from './ThinkingBlock.svelte';
@@ -27,7 +28,7 @@
   const showThinking = $derived(prefs.value?.showThinking ?? true);
 </script>
 
-<article class="flex flex-col gap-3" aria-label="Assistant message" aria-busy={item.streaming}>
+<article class="flex flex-col gap-3" aria-label={t('chat.assistant.label')} aria-busy={item.streaming}>
   {#each item.blocks as block, index (index)}
     {#if block.type === 'thinking'}
       {#if showThinking}<ThinkingBlock text={block.text} redacted={block.redacted} streaming={item.streaming && index === lastIndex} />{/if}
@@ -42,14 +43,14 @@
         <ToolCard {call} {active} {subagents} />
       {/if}
     {:else if block.type === 'image'}
-      <p class="text-sm text-fg-3">[image · {block.mimeType}]</p>
+      <p class="text-sm text-fg-3">{t('chat.assistant.image', { type: block.mimeType })}</p>
     {:else}
       <p class="text-sm text-fg-3">[{block.kind}]</p>
     {/if}
   {/each}
 
   {#if empty && item.streaming}
-    <p class="text-sm text-fg-3" role="status"><span class="sheen">Working…</span></p>
+    <p class="text-sm text-fg-3" role="status"><span class="sheen">{t('chat.assistant.working')}</span></p>
   {/if}
 
   {#if item.meta?.errorMessage}

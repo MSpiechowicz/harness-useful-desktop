@@ -2,6 +2,7 @@
   import CircleAlert from '@lucide/svelte/icons/circle-alert';
 
   import Badge from '$lib/components/Badge.svelte';
+  import { t } from '$lib/i18n/i18n.svelte';
   import SearchField from '$lib/components/SearchField.svelte';
   import VirtualList from '$lib/components/VirtualList.svelte';
   import type { MarketplaceEntry } from '$lib/ipc/bindings/MarketplaceEntry';
@@ -39,25 +40,25 @@
   <div class="flex items-start gap-3 rounded-md border border-line bg-danger-wash p-4 text-sm text-fg" role="alert">
     <CircleAlert class="mt-0.5 shrink-0 text-danger" size={16} aria-hidden="true" />
     <div class="flex flex-col gap-1">
-      <p class="font-medium">The catalog could not be read</p>
+      <p class="font-medium">{t('extensions.catalog.unreadable')}</p>
       <p class="text-fg-2">{marketplace.error}</p>
     </div>
   </div>
 {:else}
-  <section class="flex flex-col gap-3" aria-label="Catalog">
+  <section class="flex flex-col gap-3" aria-label={t('extensions.catalog.label')}>
     <div class="flex items-center justify-between gap-3">
-      <h3 class="text-sm font-medium tracking-wider text-fg-3 uppercase">Catalog · {marketplace.entries.length}</h3>
+      <h3 class="text-sm font-medium tracking-wider text-fg-3 uppercase">{t('extensions.catalog.heading', { count: marketplace.entries.length })}</h3>
       {#if marketplace.entries.length > 0}
-        <SearchField bind:value={query} label="Filter catalog" placeholder="Filter catalog" class="w-60" />
+        <SearchField bind:value={query} label={t('extensions.catalog.filter')} placeholder={t('extensions.catalog.filter')} class="w-60" />
       {/if}
     </div>
 
     {#if marketplace.entries.length === 0}
-      <p class="text-sm text-fg-3">This marketplace lists no plugins.</p>
+      <p class="text-sm text-fg-3">{t('extensions.catalog.none')}</p>
     {:else if entries.length === 0}
-      <p class="text-sm text-fg-3" role="status">No catalog entries match.</p>
+      <p class="text-sm text-fg-3" role="status">{t('extensions.catalog.noMatch')}</p>
     {:else if entries.length > VIRTUALIZE_ABOVE}
-      <VirtualList items={entries} estimate={ROW_HEIGHT} label="Catalog entries" key={(entry) => entry.name} class="h-96 rounded-lg border border-line bg-surface-1">
+      <VirtualList items={entries} estimate={ROW_HEIGHT} label={t('extensions.catalog.entries')} key={(entry) => entry.name} class="h-96 rounded-lg border border-line bg-surface-1">
         {#snippet row(entry)}
           {@render entryRow(entry)}
         {/snippet}
@@ -84,7 +85,7 @@
       <span class="tabular text-xs text-fg-3">v{entry.version}</span>
     {/if}
     {#if entry.installed}
-      <Badge tone="success">Installed</Badge>
+      <Badge tone="success">{t('extensions.catalog.installed')}</Badge>
     {:else if !marketplace.error}
       <EntryInstall marketplace={marketplace.name} entry={entry.name} />
     {/if}

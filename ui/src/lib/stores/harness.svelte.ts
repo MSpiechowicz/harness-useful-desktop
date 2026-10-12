@@ -1,5 +1,6 @@
 import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
 import type { HarnessSummary } from '$lib/ipc/bindings/HarnessSummary';
+import { t, type MessageKey } from '$lib/i18n/i18n.svelte';
 import { ipc } from '$lib/ipc/client';
 import { IpcFailure, type Transport } from '$lib/ipc/transport';
 
@@ -54,7 +55,7 @@ export class HarnessStore {
       const fresh = await Promise.all(this.summaries.map((summary) => this.transport.invoke('harness_detect', { harness: summary.info.id })));
       this.summaries = fresh;
     } catch (error) {
-      this.fail('Could not scan for harnesses', error);
+      this.fail('harness.toast.scan', error);
     } finally {
       this.scanning = false;
     }
@@ -73,7 +74,7 @@ export class HarnessStore {
 
       return true;
     } catch (error) {
-      this.fail('Could not use that file', error);
+      this.fail('harness.toast.pickBinary', error);
 
       return false;
     }
@@ -84,7 +85,7 @@ export class HarnessStore {
       this.adopt(await this.transport.invoke('harness_clear_binary', { harness: id }));
       await this.preferences.syncServerManaged();
     } catch (error) {
-      this.fail('Could not reset the binary', error);
+      this.fail('harness.toast.clearBinary', error);
     }
   }
 
@@ -110,8 +111,8 @@ export class HarnessStore {
     this.summaries = this.summaries.map((existing) => (existing.info.id === summary.info.id ? summary : existing));
   }
 
-  private fail(title: string, error: unknown): void {
-    this.notifications.push({ title, description: IpcFailure.from(error).message, tone: 'danger' });
+  private fail(title: MessageKey, error: unknown): void {
+    this.notifications.push({ title: t(title), description: IpcFailure.from(error).message, tone: 'danger' });
   }
 }
 

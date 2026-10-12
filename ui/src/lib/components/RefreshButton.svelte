@@ -3,6 +3,7 @@
 
   import Button from './Button.svelte';
   import { ICON } from './icon';
+  import { t } from '$lib/i18n/i18n.svelte';
   import { cx } from '$lib/utils/cx';
 
   interface Props {
@@ -21,5 +22,5 @@
      rather than a stray icon. -->
 <Button variant="secondary" size="sm" aria-label={label} disabled={disabled || busy} {onclick}>
   {#snippet leading()}<RotateCw size={ICON.sm} class={cx(busy && 'animate-spin')} aria-hidden="true" />{/snippet}
-  <span class="max-[1100px]:sr-only">Refresh</span>
+  <span class="max-[1100px]:sr-only">{t('components.refresh')}</span>
 </Button>

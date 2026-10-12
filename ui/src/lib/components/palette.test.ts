@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { parseQuery, RECENT_GROUP, searchPalette, type PaletteCommand, type PaletteKind } from './palette';
+import { parseQuery, recentGroup, searchPalette, type PaletteCommand, type PaletteKind } from './palette';
 
 function command(id: string, label: string, kind: PaletteKind, extra: Partial<PaletteCommand> = {}): PaletteCommand {
   return { id, label, kind, group: { nav: 'Navigate', action: 'Actions', session: 'Sessions', file: 'Changes', slash: 'Slash commands', config: 'Config', extension: 'Extensions' }[kind], run: vi.fn(), ...extra };
@@ -44,7 +44,7 @@ describe('searchPalette', () => {
     const withDisabled = COMMANDS.map((entry) => (entry.id === 'go-settings' ? { ...entry, disabled: true } : entry));
     const results = searchPalette(withDisabled, '', { recents: ['theme', 'go-settings', 'gone', 'go-chat'] });
 
-    expect(results.groups[0].name).toBe(RECENT_GROUP);
+    expect(results.groups[0].name).toBe(recentGroup());
     expect(names(results)).toEqual([['theme', 'go-chat'], ['go-settings'], ['new-chat']]);
   });
 

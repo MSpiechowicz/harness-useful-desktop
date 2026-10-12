@@ -1,5 +1,6 @@
 <script lang="ts">
   import Badge from '$lib/components/Badge.svelte';
+  import { t } from '$lib/i18n/i18n.svelte';
   import type { ConfigSection } from '$lib/ipc/bindings/ConfigSection';
   import { cx } from '$lib/utils/cx';
 
@@ -16,9 +17,9 @@
   const groups = $derived(groupSections(sections));
 </script>
 
-<nav aria-label="Configuration files" class="flex flex-col gap-5 overflow-y-auto p-3">
+<nav aria-label={t('config.list.label')} class="flex flex-col gap-5 overflow-y-auto p-3">
   {#each groups as group (group.layer)}
-    <section class="flex flex-col gap-1" aria-label="{group.title} layer">
+    <section class="flex flex-col gap-1" aria-label={t('config.list.layer', { layer: group.title })}>
       <h3 class="px-2 text-xs font-medium tracking-wider text-fg-3 uppercase">{group.title}</h3>
 
       {#each group.sections as section (section.id)}
@@ -42,9 +43,9 @@
           <span class="flex items-center gap-2 text-xs text-fg-3">
             <span class="min-w-0 flex-1 truncate font-mono">{baseName(section.source.path)}</span>
             {#if section.error}
-              <Badge tone="danger">Error</Badge>
+              <Badge tone="danger">{t('config.list.error')}</Badge>
             {:else if !section.source.exists}
-              <Badge tone="neutral">Not found</Badge>
+              <Badge tone="neutral">{t('config.list.notFound')}</Badge>
             {/if}
             <Badge>{FORMAT_LABELS[section.source.format]}</Badge>
           </span>

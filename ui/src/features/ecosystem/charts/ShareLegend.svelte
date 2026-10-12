@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n/i18n.svelte';
   import { cx } from '$lib/utils/cx';
 
   import type { ShareSegment } from './share';
@@ -14,7 +15,7 @@
 </script>
 
 <!-- The legend is the table view: every part named with its exact figure and share, so color never stands alone. -->
-<ul class="tabular flex min-w-0 flex-col text-sm" aria-label="{label}, values">
+<ul class="tabular flex min-w-0 flex-col text-sm" aria-label={t('ecosystem.chart.values', { label })}>
   {#each segments as segment (segment.key)}
     <li
       class={cx(

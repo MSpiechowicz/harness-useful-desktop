@@ -12,11 +12,12 @@
   import { spawnedBy } from '$lib/chat/subagents';
   import { toolContext } from '$lib/chat/tool-context';
   import type { Subagent } from '$lib/ipc/bindings/Subagent';
-  import type { ToolCallState, ToolStatus } from '$lib/chat/types';
+  import type { ToolCallState } from '$lib/chat/types';
   import { scaled } from '$lib/design/motion';
   import { git } from '$lib/stores/git.svelte';
   import { project } from '$lib/stores/project.svelte';
   import { cx } from '$lib/utils/cx';
+  import { t } from '$lib/i18n/i18n.svelte';
 
   import SubagentList from './SubagentList.svelte';
   import TerminalBlock from './TerminalBlock.svelte';
@@ -43,14 +44,13 @@
   const spawned = $derived(kind === 'task' ? spawnedBy(subagents, call.id) : []);
   const argsJson = $derived(call.args === null ? '' : JSON.stringify(call.args, null, 2));
 
-  const STATUS_LABEL: Record<ToolStatus, string> = { pending: 'Waiting', running: 'Running', ok: 'Done', error: 'Failed' };
-  const label = $derived(call.status === 'pending' && !active ? 'Not run' : STATUS_LABEL[call.status]);
+  const label = $derived(call.status === 'pending' && !active ? t('chat.tool.notRun') : t(`chat.tool.status.${call.status}`));
 
   /** Opens Changes limited to the files this call touched, in the project its chat belongs to. */
   function viewChanges(): void {
     const target = where?.project ?? project.active?.path;
     if (target) {
-      git.showPaths(target, call.touchedPaths, where?.label ?? 'this chat');
+      git.showPaths(target, call.touchedPaths, where?.label ?? t('chat.list.thisChat'));
     }
   }
 </script>
@@ -108,7 +108,7 @@
           {#each call.touchedPaths as path (path)}
             <code class="rounded-sm bg-surface-3 px-2 py-0.5 font-mono text-xs text-fg-2">{path}</code>
           {/each}
-          <Button size="sm" variant="ghost" onclick={viewChanges}>View changes</Button>
+          <Button size="sm" variant="ghost" onclick={viewChanges}>{t('chat.tool.viewChanges')}</Button>
         </div>
       {/if}
     </div>

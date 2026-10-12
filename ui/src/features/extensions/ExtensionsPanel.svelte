@@ -2,6 +2,7 @@
   import PackageOpen from '@lucide/svelte/icons/package-open';
 
   import EmptyState from '$lib/components/EmptyState.svelte';
+  import { t } from '$lib/i18n/i18n.svelte';
   import ListDetail from '$lib/components/ListDetail.svelte';
   import SearchField from '$lib/components/SearchField.svelte';
   import type { ExtensionsView } from '$lib/ipc/bindings/ExtensionsView';
@@ -27,17 +28,17 @@
 
 {#if all.length === 0}
   <div class="grid h-full place-items-center">
-    <EmptyState icon={PackageOpen} title="No {def.noun} found" body="Nothing is configured for this harness in the current scope." />
+    <EmptyState icon={PackageOpen} title={def.empty} body={t('extensions.empty.body')} />
   </div>
 {:else}
-  <ListDetail label="Resize list" scrollKey="extensions:detail">
+  <ListDetail label={t('extensions.resize')} scrollKey="extensions:detail">
     {#snippet list()}
       <div class="p-3">
-        <SearchField bind:value={viewState.extensionsQuery} label="Search {def.noun}" placeholder="Search {def.noun}" />
+        <SearchField bind:value={viewState.extensionsQuery} label={def.search} placeholder={def.search} />
       </div>
 
       {#if items.length === 0}
-        <p class="px-4 py-6 text-center text-sm text-fg-3" role="status">No {def.noun} match “{viewState.extensionsQuery.trim()}”.</p>
+        <p class="px-4 py-6 text-center text-sm text-fg-3" role="status">{def.noMatch(viewState.extensionsQuery.trim())}</p>
       {:else}
         <ExtensionList {items} selectedId={selected?.id ?? ''} label={def.label} onselect={(id) => (viewState.extensionsItem = id)} />
       {/if}

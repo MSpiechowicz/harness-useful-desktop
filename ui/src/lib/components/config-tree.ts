@@ -1,3 +1,4 @@
+import { t, tn } from '$lib/i18n/i18n.svelte';
 import type { ConfigField } from '$lib/ipc/bindings/ConfigField';
 import type { ConfigValue } from '$lib/ipc/bindings/ConfigValue';
 import type { SecretKind } from '$lib/ipc/bindings/SecretKind';
@@ -65,9 +66,9 @@ export function scalarText(value: ConfigValue): string | null {
 export function secretLabel(secret: SecretKind): string {
   switch (secret.type) {
     case 'value':
-      return '•••• set';
+      return t('components.config.secret.value');
     case 'command':
-      return 'command (hidden)';
+      return t('components.config.secret.command');
     case 'envRef':
       return `$${secret.name}`;
   }
@@ -76,11 +77,11 @@ export function secretLabel(secret: SecretKind): string {
 export function secretHint(secret: SecretKind): string {
   switch (secret.type) {
     case 'value':
-      return 'A secret is set here. Its value is never shown.';
+      return t('components.config.hint.value');
     case 'command':
-      return 'A command produces this secret. The command is hidden and never run.';
+      return t('components.config.hint.command');
     case 'envRef':
-      return `read from environment variable ${secret.name} — value never read`;
+      return t('components.config.hint.envRef', { name: secret.name });
   }
 }
 
@@ -91,13 +92,12 @@ export function describeContainer(value: ConfigValue): string | null {
   }
 
   const count = value.value.length;
-  const noun = value.kind === 'map' ? 'key' : 'item';
 
   if (count === 0) {
-    return 'empty';
+    return t('components.config.empty');
   }
 
-  return `${count} ${noun}${count === 1 ? '' : 's'}`;
+  return value.kind === 'map' ? tn('components.config.key', count) : tn('components.config.item', count);
 }
 
 function matchesSelf(key: string, value: ConfigValue, needle: string): boolean {

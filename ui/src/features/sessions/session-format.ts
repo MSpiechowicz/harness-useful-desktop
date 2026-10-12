@@ -1,6 +1,7 @@
 import type { SessionNode } from '$lib/ipc/bindings/SessionNode';
 import type { SessionNodeKind } from '$lib/ipc/bindings/SessionNodeKind';
 import type { SessionSummary } from '$lib/ipc/bindings/SessionSummary';
+import { t, type MessageKey } from '$lib/i18n/i18n.svelte';
 import { formatDateTime } from '$lib/utils/format';
 
 const TITLE_MAX = 80;
@@ -9,7 +10,7 @@ const TITLE_MAX = 80;
 export function sessionTitle(summary: SessionSummary): string {
   const text = (summary.title ?? summary.firstPrompt ?? '').replace(/\s+/g, ' ').trim();
   if (text === '') {
-    return 'Untitled';
+    return t('sessions.untitled');
   }
 
   return text.length > TITLE_MAX ? `${text.slice(0, TITLE_MAX - 1)}…` : text;
@@ -23,20 +24,20 @@ export function matchesQuery(summary: SessionSummary, query: string): boolean {
   return words.every((word) => haystack.includes(word));
 }
 
-const KIND_LABELS: Record<SessionNodeKind, string> = {
-  user: 'You',
-  assistant: 'Assistant',
-  toolResult: 'Tool result',
-  bash: 'Command',
-  compaction: 'Compaction',
-  branchSummary: 'Branch summary',
-  label: 'Label',
-  modelChange: 'Model change',
-  other: 'Entry',
-};
+const KIND_KEYS = {
+  user: 'sessions.kind.user',
+  assistant: 'sessions.kind.assistant',
+  toolResult: 'sessions.kind.toolResult',
+  bash: 'sessions.kind.bash',
+  compaction: 'sessions.kind.compaction',
+  branchSummary: 'sessions.kind.branchSummary',
+  label: 'sessions.kind.label',
+  modelChange: 'sessions.kind.modelChange',
+  other: 'sessions.kind.entry',
+} as const satisfies Record<SessionNodeKind, MessageKey>;
 
 export function kindLabel(kind: SessionNodeKind): string {
-  return KIND_LABELS[kind];
+  return t(KIND_KEYS[kind]);
 }
 
 /** The message text of a user or assistant entry on one line; empty for other kinds. */

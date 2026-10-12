@@ -5,6 +5,7 @@
   import Badge from '$lib/components/Badge.svelte';
   import Button from '$lib/components/Button.svelte';
   import { ICON } from '$lib/components/icon';
+  import { t } from '$lib/i18n/i18n.svelte';
   import { revealPath } from '$lib/ipc/actions';
 
   import type { Fact } from './extension-detail';
@@ -50,7 +51,7 @@
           {#if fact.path}
             <Button size="sm" variant="ghost" onclick={() => void revealPath(fact.value)}>
               {#snippet leading()}<FolderSearch size={ICON.sm} aria-hidden="true" />{/snippet}
-              Reveal
+              {t('extensions.fact.reveal')}
             </Button>
           {/if}
         </div>

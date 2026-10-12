@@ -3,6 +3,7 @@
   import FolderGit2 from '@lucide/svelte/icons/folder-git-2';
 
   import Badge from '$lib/components/Badge.svelte';
+  import { t } from '$lib/i18n/i18n.svelte';
   import type { ProjectInfo } from '$lib/ipc/bindings/ProjectInfo';
   import { cx } from '$lib/utils/cx';
 
@@ -37,8 +38,8 @@
     <span class="truncate font-mono text-xs text-fg-3">{project.path}</span>
   </span>
   {#if !project.exists}
-    <Badge tone="warning">Missing</Badge>
+    <Badge tone="warning">{t('components.project.missing')}</Badge>
   {:else if active}
-    <Badge tone="accent">Open</Badge>
+    <Badge tone="accent">{t('components.project.open')}</Badge>
   {/if}
 </button>

@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 
+import { i18n } from '$lib/i18n/i18n.svelte';
 import { prefs } from '$lib/stores/prefs.svelte';
 import { viewState } from '$lib/stores/view-state.svelte';
 import { afterEach } from 'vitest';
@@ -28,3 +29,6 @@ prefs.value = samplePrefs({ motion: 'off' });
 
 // Views remember what was selected; a test must not inherit the previous one's selection.
 afterEach(() => viewState.resetAll());
+
+// A test that switched language must not leave the next one reading it. English applies synchronously.
+afterEach(() => void i18n.load('en'));

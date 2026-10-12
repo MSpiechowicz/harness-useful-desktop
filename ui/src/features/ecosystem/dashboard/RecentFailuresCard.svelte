@@ -1,5 +1,6 @@
 <script lang="ts">
   import CircleCheck from '@lucide/svelte/icons/circle-check';
+  import { t } from '$lib/i18n/i18n.svelte';
   import { dashboard, type PanelRange } from '$lib/stores/dashboard.svelte';
   import { relativeTime } from '$lib/utils/format';
 
@@ -19,10 +20,10 @@
   const phrase = $derived(phraseOf(dashboard.failures.data?.range, range));
 </script>
 
-<SlotCard title="Recent failures" subtitle="The latest failed tool calls in {phrase}" slot={dashboard.failures} onretry={() => void dashboard.openPanel(true)} {index}>
+<SlotCard title={t('ecosystem.recent.title')} subtitle={t('ecosystem.recent.subtitle', { phrase })} slot={dashboard.failures} onretry={() => void dashboard.openPanel(true)} {index}>
   {#snippet children(failures)}
     {#if failures.recent.length === 0}
-      <CardEmpty icon={CircleCheck} tone="success" title="No tool call failed in this range." />
+      <CardEmpty icon={CircleCheck} tone="success" title={t('ecosystem.recent.empty')} />
     {:else}
       <ol class="-mt-1 flex flex-col divide-y divide-line">
         {#each failures.recent.slice(0, LIMIT) as failure, row (row)}

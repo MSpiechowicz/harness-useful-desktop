@@ -1,3 +1,4 @@
+import { t } from '$lib/i18n/i18n.svelte';
 import type { AppPrefs } from '$lib/ipc/bindings/AppPrefs';
 import { ipc } from '$lib/ipc/client';
 import { IpcFailure, type Transport } from '$lib/ipc/transport';
@@ -14,12 +15,24 @@ export class PrefsStore {
   /** Incremented per update so only the newest request may overwrite or roll back state. */
   private revision = 0;
 
+  /** The load in flight, if any. */
+  private loading: Promise<void> | null = null;
+
   constructor(
     private readonly transport: Transport,
     private readonly notifications: ToastsStore,
   ) {}
 
-  async load(): Promise<void> {
+  /** Concurrent calls share one request, so two reads can never resolve out of order. */
+  load(): Promise<void> {
+    this.loading ??= this.read().finally(() => {
+      this.loading = null;
+    });
+
+    return this.loading;
+  }
+
+  private async read(): Promise<void> {
     this.status = 'loading';
 
     try {
@@ -77,7 +90,7 @@ export class PrefsStore {
       }
 
       this.notifications.push({
-        title: 'Could not save settings',
+        title: t('shell.toast.saveFailed'),
         description: IpcFailure.from(error).message,
         tone: 'danger',
       });

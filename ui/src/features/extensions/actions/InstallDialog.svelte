@@ -3,6 +3,7 @@
   import Button from '$lib/components/Button.svelte';
   import Dialog from '$lib/components/Dialog.svelte';
   import SegmentedControl from '$lib/components/SegmentedControl.svelte';
+  import { t } from '$lib/i18n/i18n.svelte';
   import type { StripOption } from '$lib/components/strip';
   import type { InstallScope } from '$lib/ipc/bindings/InstallScope';
   import { harness } from '$lib/stores/harness.svelte';
@@ -19,39 +20,64 @@
 
   let { kind, onsubmit, onclose }: Props = $props();
 
+  // The texts follow the language on screen; the placeholders are examples of what to type and stay as written.
   const COPY = {
     plugin: {
-      title: 'Install a plugin',
-      description: 'You will see the exact command and a preview before anything is installed.',
-      label: 'Plugin',
+      get title() {
+        return t('extensions.compose.plugin.title');
+      },
+      get description() {
+        return t('extensions.compose.plugin.description');
+      },
+      get label() {
+        return t('extensions.compose.plugin.label');
+      },
       placeholder: 'plugin-name@marketplace',
-      hint: 'A plugin of a marketplace you added, written name@marketplace, or an npm package name.',
+      get hint() {
+        return t('extensions.compose.plugin.hint');
+      },
       scoped: true,
     },
     marketplace: {
-      title: 'Add a marketplace',
-      description: 'A marketplace is a catalog of plugins. Adding one installs nothing by itself.',
-      label: 'Marketplace source',
+      get title() {
+        return t('extensions.compose.marketplace.title');
+      },
+      get description() {
+        return t('extensions.compose.marketplace.description');
+      },
+      get label() {
+        return t('extensions.compose.marketplace.label');
+      },
       placeholder: 'owner/repository',
-      hint: 'A GitHub repository (owner/repo) or a git address.',
+      get hint() {
+        return t('extensions.compose.marketplace.hint');
+      },
       scoped: false,
     },
     package: {
-      title: 'Install a package',
-      description: 'You will see the exact command before anything is installed.',
-      label: 'Package source',
+      get title() {
+        return t('extensions.compose.package.title');
+      },
+      get description() {
+        return t('extensions.compose.package.description');
+      },
+      get label() {
+        return t('extensions.compose.package.label');
+      },
       placeholder: 'npm:package-name',
-      hint: 'npm:name, git:host/owner/repo, or a local path.',
+      get hint() {
+        return t('extensions.compose.package.hint');
+      },
       scoped: true,
     },
-  } as const;
+  };
 
   const copy = $derived(COPY[kind]);
   const hintId = uid('install-hint');
   const projectPath = $derived(project.active?.path ?? null);
   const scopes = $derived<StripOption<InstallScope>[]>([
-    { value: 'user', label: 'For me' },
-    { value: 'project', label: project.active ? `This project (${project.active.name})` : 'This project', disabled: projectPath === null },
+    { value: 'user', label: t('extensions.compose.forMe') },
+    { value: 'project', label: project.active ? t('extensions.compose.thisProjectNamed', { name: project.active.name }) : t('extensions.compose.thisProject'), disabled: projectPath === null },
   ]);
 
   let value = $state('');
@@ -108,18 +134,18 @@
 
     {#if copy.scoped}
       <div class="flex flex-col gap-1.5 text-sm text-fg-2">
-        <span>Install for</span>
-        <SegmentedControl label="Install for" options={scopes} bind:value={() => scope, (next) => (scope = next)} />
-        {#if projectPath === null}<span class="text-xs text-fg-3">Open a project to install into it.</span>{/if}
+        <span>{t('extensions.compose.installFor')}</span>
+        <SegmentedControl label={t('extensions.compose.installFor')} options={scopes} bind:value={() => scope, (next) => (scope = next)} />
+        {#if projectPath === null}<span class="text-xs text-fg-3">{t('extensions.compose.openFirst')}</span>{/if}
       </div>
     {/if}
 
     <!-- Enter in the field submits through this hidden button. -->
-    <button type="submit" class="hidden" tabindex="-1" aria-hidden="true">Review</button>
+    <button type="submit" class="hidden" tabindex="-1" aria-hidden="true">{t('extensions.compose.review')}</button>
   </form>
 
   {#snippet footer()}
-    <Button variant="ghost" onclick={onclose}>Cancel</Button>
-    <Button variant="primary" disabled={problem !== null && touched} onclick={submit}>Review</Button>
+    <Button variant="ghost" onclick={onclose}>{t('extensions.compose.cancel')}</Button>
+    <Button variant="primary" disabled={problem !== null && touched} onclick={submit}>{t('extensions.compose.review')}</Button>
   {/snippet}
 </Dialog>

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n/i18n.svelte';
   import { anchorIndex, commentHeading, coveredIndexes, rangeTarget, type PickHandlers, type RangeTarget, type ThreadComment } from '$lib/git/comment-range';
   import { highlightDiff } from '$lib/git/diff-highlight';
   import { flatLines, rowIndexes, splitRows, unifiedRows, type DiffRow } from '$lib/git/diff-rows';
@@ -173,12 +174,12 @@
       <div class="pointer-events-none absolute inset-x-0 top-0 z-10 truncate border-b border-line bg-surface-3 px-3 py-1 font-mono text-xs text-fg-2" aria-hidden="true">{stickyHeader}</div>
     {/if}
 
-    <VirtualList items={rows} variable estimate={ROW_ESTIMATE_PX} overscan={OVERSCAN_ROWS} label="Changes in {diff.path}" key={(row) => row.key} class="min-h-0 flex-1">
+    <VirtualList items={rows} variable estimate={ROW_ESTIMATE_PX} overscan={OVERSCAN_ROWS} label={t('components.diff.changesIn', { path: diff.path })} key={(row) => row.key} class="min-h-0 flex-1">
       {#snippet row(item)}
         {#if item.kind === 'hunk'}
           <div class="border-y border-line bg-info-wash px-3 py-1 font-mono text-xs text-fg-2">{item.header}</div>
         {:else if item.kind === 'note'}
-          <p class="px-3 py-0.5 pl-28 text-xs text-fg-3 italic">No newline at end of file</p>
+          <p class="px-3 py-0.5 pl-28 text-xs text-fg-3 italic">{t('components.diff.noNewline')}</p>
         {:else if item.kind === 'pair'}
           <DiffViewSplitRow row={item} {highlighted} {covered} {pick} />
         {:else}
@@ -197,7 +198,7 @@
     </VirtualList>
 
     {#if diff.truncated}
-      <p class="border-t border-line bg-warning-wash px-3 py-1.5 text-xs text-fg" role="status">This diff was cut at a size limit; only the first part is shown.</p>
+      <p class="border-t border-line bg-warning-wash px-3 py-1.5 text-xs text-fg" role="status">{t('components.diff.truncated')}</p>
     {/if}
   </div>
 {/if}

@@ -33,19 +33,21 @@
       aria-describedby={describedby}
       onclick={onselect}
       class={cx(
-        'group/item relative flex h-10 w-full items-center gap-3 rounded-md px-[9.5px] text-left transition-[color,background-color] duration-[var(--dur-fast)]',
-        active ? 'text-accent-text' : 'text-fg-2 hover:bg-hover hover:text-fg',
+        // Pixel sizes, not rem: this app's root font is 14px, the dashboard's 16px, and the rows match the dashboard's.
+        'group/item relative flex h-[28px] w-full items-center gap-[10px] rounded-sm text-left transition-[color,background-color,padding] duration-[var(--dur-fast)]',
+        // Expanded the dashboard's 12px padding; collapsed the icon centers: (64px rail - 1px border - 16px nav padding - 16px icon) / 2.
+        expanded ? 'px-[12px]' : 'px-[15.5px]',
+        active ? 'font-medium text-accent-text' : 'text-fg-2 hover:bg-hover hover:text-fg',
       )}
     >
-      <!-- Sized in pixels like the icon, so the collapsed rail centers it: (64px rail - 1px border - 24px padding - 20px icon) / 2. -->
-      <span class="relative grid size-[20px] shrink-0 place-items-center">
-        <view.icon size={ICON.lg} strokeWidth={1.8} aria-hidden="true" />
+      <span class="relative grid size-[16px] shrink-0 place-items-center">
+        <view.icon size={ICON.sm} aria-hidden="true" />
 
         {#if badge && !expanded}
           <span
             aria-hidden="true"
             class={cx(
-              'absolute -top-1.5 -right-2 grid h-4 min-w-4 place-items-center rounded-full border border-surface-1 px-1 text-[10px] leading-none font-semibold',
+              'absolute -top-[6px] -right-[8px] grid h-[16px] min-w-[16px] place-items-center rounded-full border border-surface-1 px-1 text-[10px] leading-none font-semibold',
               badge.tone === 'warning' ? 'bg-warning text-surface-1' : 'bg-accent-fill text-on-accent',
               badge.text === '' && 'size-2.5 min-w-0 p-0',
               badge.busy && 'animate-pulse',
@@ -54,7 +56,7 @@
         {/if}
       </span>
 
-      <span class={cx('min-w-0 flex-1 truncate text-base font-medium whitespace-nowrap transition-opacity duration-[var(--dur-base)]', expanded ? 'opacity-100' : 'opacity-0')} aria-hidden={!expanded}>
+      <span class={cx('min-w-0 flex-1 truncate text-base whitespace-nowrap transition-opacity duration-[var(--dur-base)]', expanded ? 'opacity-100' : 'opacity-0')} aria-hidden={!expanded}>
         {view.label}
       </span>
 

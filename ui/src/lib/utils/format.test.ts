@@ -47,3 +47,42 @@ describe('number and date formatting', () => {
     expect(format.formatDateTime('not a date')).toBe('');
   });
 });
+
+describe('formatting follows the language on screen', () => {
+  it('groups counts with the Polish separator once the UI is Polish', async () => {
+    const { format } = await onPolishSystem();
+    const { i18n: fresh } = await import('$lib/i18n/i18n.svelte');
+
+    await fresh.load('pl');
+
+    expect(format.formatCount(17_612)).toBe('17\u00a0612');
+    expect(format.formatLongDate(new Date(2026, 9, 8))).toBe('8 października 2026');
+    expect(format.formatClock(new Date(2026, 9, 8, 18, 42))).toBe('18:42');
+  });
+
+  it('writes relative times and "just now" in the language', async () => {
+    const { format } = await onPolishSystem();
+    const { i18n: fresh } = await import('$lib/i18n/i18n.svelte');
+    const now = Date.parse('2026-10-08T12:00:00Z');
+
+    expect(format.relativeTime('2026-10-08T11:59:30Z', now)).toBe('just now');
+    expect(format.relativeTime('2026-10-08T11:55:00Z', now)).toBe('5 minutes ago');
+
+    await fresh.load('de');
+
+    expect(format.relativeTime('2026-10-08T11:59:30Z', now)).toBe('gerade eben');
+    expect(format.relativeTime('2026-10-08T11:55:00Z', now)).toBe('vor 5 Minuten');
+  });
+
+  it('writes sizes with the decimal mark of the language', async () => {
+    const { format } = await onPolishSystem();
+    const { i18n: fresh } = await import('$lib/i18n/i18n.svelte');
+
+    expect(format.formatBytes(812)).toBe('812 B');
+    expect(format.formatBytes(1_990_000)).toBe('1.9 MB');
+
+    await fresh.load('de');
+
+    expect(format.formatBytes(1_990_000)).toBe('1,9 MB');
+  });
+});

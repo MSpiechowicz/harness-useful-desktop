@@ -58,7 +58,9 @@ pub use git::{
 };
 pub use harness::{Capabilities, Detection, HarnessId, HarnessInfo, HarnessSummary, InstallHint, VersionSupport};
 pub use ipc_error::{IpcError, IpcErrorCode};
-pub use prefs::{AppPrefs, BinaryOverride, ChatDefaults, MotionPref, ThemePref, UpdatePolicy};
+pub use prefs::{
+    AppPrefs, BinaryOverride, ChatDefaults, DEFAULT_LANGUAGE, LANGUAGES, MotionPref, ThemePref, UpdatePolicy,
+};
 pub use project::ProjectInfo;
 pub use review::{
     CommentSide, ComposedReview, MAX_REVIEW_COMMENTS, MAX_REVIEW_PROMPT_BYTES, MAX_REVIEW_SNIPPET_LINES,

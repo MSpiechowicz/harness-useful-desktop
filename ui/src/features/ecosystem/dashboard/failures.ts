@@ -1,6 +1,8 @@
-/** A failure cause in words: "edit_mismatch" reads "edit mismatch". */
+import { tMaybe } from '$lib/i18n/i18n.svelte';
+
+/** A failure cause in words: "edit_mismatch" reads "edit mismatch". A cause the app has no words for keeps the dashboard's name, with spaces for underscores. */
 export function causeWords(cause: string): string {
-  return cause.replaceAll('_', ' ');
+  return tMaybe(`ecosystem.cause.${cause}`) ?? cause.replaceAll('_', ' ');
 }
 
 /** The causes the dashboard names; anything else (its own "other" included) folds into "Other". */

@@ -7,6 +7,7 @@
   import CopyButton from '$lib/components/CopyButton.svelte';
   import HarnessBadge from '$lib/components/HarnessBadge.svelte';
   import StatusDot from '$lib/components/StatusDot.svelte';
+  import { t } from '$lib/i18n/i18n.svelte';
   import type { HarnessSummary } from '$lib/ipc/bindings/HarnessSummary';
   import type { VersionSupport } from '$lib/ipc/bindings/VersionSupport';
   import { openExternal } from '$lib/ipc/actions';
@@ -22,15 +23,11 @@
 
   let { summary, selected, onselect }: Props = $props();
 
-  const SUPPORT: Record<VersionSupport, { label: string; tone: 'success' | 'warning' | 'neutral'; note: string | null }> = {
-    supported: { label: 'Supported', tone: 'success', note: null },
-    untested: {
-      label: 'Untested version',
-      tone: 'warning',
-      note: 'This version is newer than the ones Harness Desktop was tested with. It should work, but some views may be incomplete.',
-    },
-    unknown: { label: 'Version unknown', tone: 'neutral', note: 'The version could not be read, so compatibility is unknown.' },
-  };
+  const SUPPORT = $derived<Record<VersionSupport, { label: string; tone: 'success' | 'warning' | 'neutral'; note: string | null }>>({
+    supported: { label: t('onboarding.card.supported'), tone: 'success', note: null },
+    untested: { label: t('onboarding.card.untested'), tone: 'warning', note: t('onboarding.card.untested.note') },
+    unknown: { label: t('onboarding.card.unknownVersion'), tone: 'neutral', note: t('onboarding.card.unknownVersion.note') },
+  });
 
   const detection = $derived(summary.detection);
   const support = $derived(SUPPORT[detection.versionSupport]);
@@ -55,7 +52,7 @@
       role="radio"
       aria-checked={selected}
       aria-disabled={!detection.installed}
-      aria-label="Use {label} as daily driver"
+      aria-label={t('onboarding.card.use', { name: label })}
       onclick={() => detection.installed && onselect()}
       class={cx(
         'flex h-8 shrink-0 items-center gap-2 rounded-full border px-3 whitespace-nowrap text-sm font-medium transition-colors duration-[var(--dur-fast)]',
@@ -68,7 +65,7 @@
         <circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" stroke-width="1.5" />
         {#if selected}<circle cx="8" cy="8" r="3.5" fill="currentColor" />{/if}
       </svg>
-      {selected ? 'Daily driver' : 'Use as daily driver'}
+      {selected ? t('onboarding.card.driver') : t('onboarding.card.useAs')}
     </button>
   </header>
 
@@ -76,7 +73,7 @@
 
   {#if detection.installed}
     <div class="flex flex-wrap items-center gap-2">
-      <Badge tone="success"><StatusDot tone="success" />Installed</Badge>
+      <Badge tone="success"><StatusDot tone="success" />{t('onboarding.card.installed')}</Badge>
       {#if detection.version}
         <Badge class="tabular">v{detection.version}</Badge>
       {/if}
@@ -88,20 +85,20 @@
     {/if}
 
     <dl class="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1.5 text-sm">
-      <dt class="text-fg-3">Binary</dt>
+      <dt class="text-fg-3">{t('onboarding.card.binary')}</dt>
       <dd class="min-w-0 truncate font-mono text-fg-2" title={detection.binaryPath ?? undefined}>{detection.binaryPath}</dd>
     </dl>
   {:else}
     <div class="flex flex-wrap items-center gap-2">
-      <Badge tone="warning"><StatusDot tone="warning" />Not found</Badge>
+      <Badge tone="warning"><StatusDot tone="warning" />{t('onboarding.card.notFound')}</Badge>
     </div>
 
     {#if detection.installHint}
       <div class="flex flex-col gap-2">
-        <p class="text-sm text-fg-2">Install it with:</p>
+        <p class="text-sm text-fg-2">{t('onboarding.card.installWith')}</p>
         <div class="flex items-center gap-2 rounded-md border border-line bg-surface-1 py-1 pr-1 pl-3">
           <code class="min-w-0 flex-1 py-1.5 font-mono text-sm break-all text-fg">{detection.installHint.command}</code>
-          <CopyButton text={detection.installHint.command} label="Copy install command" />
+          <CopyButton text={detection.installHint.command} label={t('onboarding.card.copyInstall')} />
         </div>
       </div>
     {/if}
@@ -116,21 +113,21 @@
         {@const docsUrl = detection.installHint.docsUrl}
         <Button size="sm" class="w-full" onclick={() => void openExternal(docsUrl)}>
           {#snippet leading()}<ExternalLink size={16} aria-hidden="true" />{/snippet}
-          Install docs
+          {t('onboarding.card.installDocs')}
         </Button>
       {/if}
       <Button size="sm" class="w-full" onclick={() => void harness.pickBinary(summary.info.id)}>
         {#snippet leading()}<FolderOpen size={16} aria-hidden="true" />{/snippet}
-        Choose binary…
+        {t('onboarding.card.chooseBinary')}
       </Button>
     </div>
   {/if}
 
   <dl class="grid grid-cols-[max-content_1fr] items-center gap-x-4 gap-y-1.5 border-t border-line pt-3 text-sm">
-    <dt class="text-fg-3">Config</dt>
+    <dt class="text-fg-3">{t('onboarding.card.config')}</dt>
     <dd class="flex min-w-0 items-center gap-2">
-      <span class="min-w-0 truncate font-mono text-fg-2" title={detection.configDir ?? undefined}>{detection.configDir ?? 'unknown'}</span>
-      <Badge tone={detection.configDirExists ? 'success' : 'neutral'}>{detection.configDirExists ? 'Found' : 'Not created yet'}</Badge>
+      <span class="min-w-0 truncate font-mono text-fg-2" title={detection.configDir ?? undefined}>{detection.configDir ?? t('onboarding.card.unknown')}</span>
+      <Badge tone={detection.configDirExists ? 'success' : 'neutral'}>{detection.configDirExists ? t('onboarding.card.found') : t('onboarding.card.notCreated')}</Badge>
     </dd>
   </dl>
 </article>

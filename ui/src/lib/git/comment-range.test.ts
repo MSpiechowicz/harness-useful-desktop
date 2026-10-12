@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { DiffLine } from '$lib/ipc/bindings/DiffLine';
+import { i18n } from '$lib/i18n/i18n.svelte';
 import { fixtures } from '$lib/ipc/mock/fixtures';
 
 import { anchorIndex, commentHeading, coveredIndexes, MAX_SNIPPET_LINES, rangeTarget } from './comment-range';
@@ -60,6 +61,13 @@ describe('anchors and highlights', () => {
   it('describes a range for people', () => {
     expect(commentHeading({ side: 'new', startLine: 4, endLine: 4 })).toBe('Line 4 (new)');
     expect(commentHeading({ side: 'old', startLine: 3, endLine: 5 })).toBe('Lines 3–5 (old)');
+  });
+
+  it('describes a range in the chosen language', async () => {
+    await i18n.load('pl');
+
+    expect(commentHeading({ side: 'new', startLine: 4, endLine: 4 })).toBe('Linia 4 (po)');
+    expect(commentHeading({ side: 'old', startLine: 3, endLine: 5 })).toBe('Linie 3–5 (przed)');
   });
 
   it('resolves every line of the sample diffs back to its numbers', () => {

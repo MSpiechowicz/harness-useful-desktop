@@ -4,6 +4,7 @@
   import ErrorBoundary from '$lib/components/ErrorBoundary.svelte';
   import ErrorPanel from '$lib/components/ErrorPanel.svelte';
   import { rise, scaled } from '$lib/design/motion';
+  import { t } from '$lib/i18n/i18n.svelte';
   import { nav } from '$lib/stores/nav.svelte';
   import { lazyPage } from '$lib/utils/lazy-page';
   import ConfigViewer from '../config/ConfigViewer.svelte';
@@ -15,6 +16,7 @@
   import { viewMeta } from './views';
 
   const meta = $derived(viewMeta(nav.current));
+  const pageName = $derived(t('shell.view.page', { view: meta.label }));
 </script>
 
 <!-- Stacked grid cell so the outgoing and incoming views crossfade in place. -->
@@ -30,25 +32,25 @@
 
       <!-- A page that throws shows "Something went wrong" in its place; switching pages remounts (and retries) it.
            A lazy page whose code fails to load gets the same panel, with only a reload to fetch it again. -->
-      <ErrorBoundary area="The {meta.label} page">
+      <ErrorBoundary area={pageName}>
         {#if nav.current === 'chat'}
           <!-- Split out of the first load: Markdown, the sanitizer and the chat UI arrive while the intro plays. -->
           {#await lazyPage(() => import('../chat/ChatView.svelte')) then { default: ChatView }}
             <ChatView />
           {:catch error}
-            <ErrorPanel area="The {meta.label} page" {error} />
+            <ErrorPanel area={pageName} {error} />
           {/await}
         {:else if nav.current === 'sessions'}
           {#await lazyPage(() => import('../sessions/SessionsView.svelte')) then { default: SessionsView }}
             <SessionsView />
           {:catch error}
-            <ErrorPanel area="The {meta.label} page" {error} />
+            <ErrorPanel area={pageName} {error} />
           {/await}
         {:else if nav.current === 'changes'}
           {#await lazyPage(() => import('../changes/ChangesView.svelte')) then { default: ChangesView }}
             <ChangesView />
           {:catch error}
-            <ErrorPanel area="The {meta.label} page" {error} />
+            <ErrorPanel area={pageName} {error} />
           {/await}
         {:else if nav.current === 'settings'}
           <SettingsView />

@@ -1,3 +1,4 @@
+import { t } from '$lib/i18n/i18n.svelte';
 import type { DiffLine } from '$lib/ipc/bindings/DiffLine';
 import type { FileDiff } from '$lib/ipc/bindings/FileDiff';
 
@@ -146,8 +147,8 @@ export function lineSign(kind: DiffLine['kind']): string {
 /** The same marker for screen readers. */
 export function lineSpoken(kind: DiffLine['kind']): string {
   if (kind === 'add') {
-    return 'Added: ';
+    return t('components.diff.spoken.added');
   }
 
-  return kind === 'remove' ? 'Removed: ' : '';
+  return kind === 'remove' ? t('components.diff.spoken.removed') : '';
 }

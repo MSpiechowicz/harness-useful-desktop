@@ -10,11 +10,12 @@
   import IconButton from '$lib/components/IconButton.svelte';
   import Spinner from '$lib/components/Spinner.svelte';
   import { DURATION, scaled } from '$lib/design/motion';
+  import { t } from '$lib/i18n/i18n.svelte';
   import { nav } from '$lib/stores/nav.svelte';
   import { retryable, updates } from '$lib/stores/updates.svelte';
 
   import { viewUpdates } from './actions';
-  import { failureMessage, INSTALLER_CLOSES_APP, RESTART_STOPS_AGENTS } from './copy';
+  import { failureMessage, installerClosesApp } from './copy';
   import UpdateProgress from './UpdateProgress.svelte';
 
   const state = $derived(updates.state);
@@ -24,31 +25,31 @@
   const title = $derived.by(() => {
     switch (state.kind) {
       case 'available':
-        return `Update ${version} is available`;
+        return t('updates.notice.available', { version });
 
       case 'downloading':
       case 'installing':
-        return `Updating to ${version}`;
+        return t('updates.notice.updating', { version });
 
       case 'readyToRelaunch':
-        return `Version ${version} is installed`;
+        return t('updates.notice.installed', { version });
 
       default:
-        return 'The update was not installed';
+        return t('updates.notice.failed');
     }
   });
 
   const body = $derived.by(() => {
     switch (state.kind) {
       case 'available':
-        return updates.closesApp ? INSTALLER_CLOSES_APP : 'It installs in the background. You choose when to restart.';
+        return updates.closesApp ? installerClosesApp() : t('updates.notice.availableBody');
 
       case 'downloading':
       case 'installing':
-        return updates.closesApp ? INSTALLER_CLOSES_APP : '';
+        return updates.closesApp ? installerClosesApp() : '';
 
       case 'readyToRelaunch':
-        return updates.closesApp ? INSTALLER_CLOSES_APP : `Restart to finish. ${RESTART_STOPS_AGENTS}`;
+        return updates.closesApp ? installerClosesApp() : t('updates.notice.restartBody');
 
       case 'failed':
         return failureMessage(state.reason, 'install');
@@ -65,7 +66,7 @@
 <!-- A band between the top bar and the view, in the flow of the page, so it pushes content down instead of covering it. -->
 {#if updates.noticeVisible && nav.current !== 'settings'}
   <section
-    aria-label="Update"
+    aria-label={t('updates.notice.label')}
     transition:slide={{ duration: scaled(DURATION.slow), easing: expoOut }}
     class="shrink-0 overflow-hidden border-b border-line bg-surface-2"
   >
@@ -94,22 +95,22 @@
 
       <div class="flex flex-wrap items-center gap-2">
         {#if state.kind === 'available'}
-          <Button size="sm" variant="primary" onclick={() => void updates.install()}>Install</Button>
-          <Button size="sm" onclick={viewUpdates}>View</Button>
-          <Button size="sm" variant="ghost" onclick={() => updates.dismiss()}>Later</Button>
+          <Button size="sm" variant="primary" onclick={() => void updates.install()}>{t('updates.notice.install')}</Button>
+          <Button size="sm" onclick={viewUpdates}>{t('updates.notice.view')}</Button>
+          <Button size="sm" variant="ghost" onclick={() => updates.dismiss()}>{t('updates.notice.later')}</Button>
         {:else if state.kind === 'readyToRelaunch'}
-          <Button size="sm" variant="primary" onclick={() => void updates.requestRelaunch()}>{updates.closesApp ? 'Finish update' : 'Restart now'}</Button>
-          <Button size="sm" variant="ghost" onclick={() => updates.dismiss()}>Later</Button>
+          <Button size="sm" variant="primary" onclick={() => void updates.requestRelaunch()}>{updates.closesApp ? t('updates.notice.finish') : t('updates.notice.restart')}</Button>
+          <Button size="sm" variant="ghost" onclick={() => updates.dismiss()}>{t('updates.notice.later')}</Button>
         {:else if state.kind === 'failed'}
           {#if canRetry}
-            <Button size="sm" onclick={() => void updates.install()}>Try again</Button>
+            <Button size="sm" onclick={() => void updates.install()}>{t('updates.notice.retry')}</Button>
           {/if}
-          <Button size="sm" variant="ghost" onclick={viewUpdates}>View</Button>
+          <Button size="sm" variant="ghost" onclick={viewUpdates}>{t('updates.notice.view')}</Button>
         {:else}
-          <Button size="sm" variant="ghost" onclick={viewUpdates}>View</Button>
+          <Button size="sm" variant="ghost" onclick={viewUpdates}>{t('updates.notice.view')}</Button>
         {/if}
 
-        <IconButton icon={X} label="Dismiss" size="sm" onclick={() => updates.dismiss()} />
+        <IconButton icon={X} label={t('updates.notice.dismiss')} size="sm" onclick={() => updates.dismiss()} />
       </div>
     </div>
   </section>

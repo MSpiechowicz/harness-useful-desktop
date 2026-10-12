@@ -4,6 +4,7 @@
 
   import Button from '$lib/components/Button.svelte';
   import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
+  import { t } from '$lib/i18n/i18n.svelte';
   import Switch from '$lib/components/Switch.svelte';
   import { app } from '$lib/stores/app.svelte';
   import { harness } from '$lib/stores/harness.svelte';
@@ -30,7 +31,7 @@
     }
 
     if (project.recents.length === 0) {
-      toasts.push({ title: 'Recent projects cleared', tone: 'success' });
+      toasts.push({ title: t('settings.privacy.recents.cleared'), tone: 'success' });
     }
   }
 
@@ -38,17 +39,17 @@
     try {
       await navigator.clipboard.writeText(diagnosticsText(app.info, harness.summaries));
     } catch {
-      toasts.push({ title: 'Could not copy', description: 'The clipboard is not available.', tone: 'warning' });
+      toasts.push({ title: t('settings.privacy.diagnostics.failed'), description: t('settings.privacy.diagnostics.failedDescription'), tone: 'warning' });
 
       return;
     }
 
-    toasts.push({ title: 'Diagnostics copied', description: 'App version, OS and harness versions only. No paths or content.', tone: 'success' });
+    toasts.push({ title: t('settings.privacy.diagnostics.copied'), description: t('settings.privacy.diagnostics.copiedDescription'), tone: 'success' });
   }
 </script>
 
-<SettingsSection {id} title="Privacy & security">
-  <ul class="flex flex-col gap-4 pb-4" aria-label="What Harness Desktop does with data">
+<SettingsSection {id} title={t('settings.section.privacy')}>
+  <ul class="flex flex-col gap-4 pb-4" aria-label={t('settings.privacy.label')}>
     {#each PRIVACY_FACTS as fact (fact.id)}
       <li class="flex items-start gap-3">
         <span class="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md bg-surface-2 text-fg-2">
@@ -64,28 +65,28 @@
   </ul>
 
   <SettingRow
-    title="Open any web link"
-    description="Links in chats, such as a pull request the agent opened, open in your browser. Off: only project and harness sites open. Always https only."
+    title={t('settings.privacy.openLink.title')}
+    description={t('settings.privacy.openLink.description')}
   >
     {#snippet control()}
-      <Switch label="Open any web link" bind:checked={() => prefs.value?.openAnyLink ?? false, (openAnyLink) => void prefs.update({ openAnyLink })} />
+      <Switch label={t('settings.privacy.openLink.title')} bind:checked={() => prefs.value?.openAnyLink ?? false, (openAnyLink) => void prefs.update({ openAnyLink })} />
     {/snippet}
   </SettingRow>
 
-  <SettingRow title="Recent projects" description="Forget every remembered folder. If your open project is on the list, it is closed too.">
+  <SettingRow title={t('settings.privacy.recents.title')} description={t('settings.privacy.recents.description')}>
     {#snippet control()}
       <Button variant="dangerQuiet" disabled={project.recents.length === 0} onclick={() => (confirmClear = true)}>
         {#snippet leading()}<Trash size={16} aria-hidden="true" />{/snippet}
-        Clear recent projects
+        {t('settings.privacy.recents.clear')}
       </Button>
     {/snippet}
   </SettingRow>
 
-  <SettingRow title="Diagnostics" description="Copies the app version, OS and harness versions for a bug report. No paths, projects or content.">
+  <SettingRow title={t('settings.privacy.diagnostics.title')} description={t('settings.privacy.diagnostics.description')}>
     {#snippet control()}
       <Button onclick={() => void copyDiagnostics()}>
         {#snippet leading()}<ClipboardCopy size={16} aria-hidden="true" />{/snippet}
-        Copy diagnostics
+        {t('settings.privacy.diagnostics.copy')}
       </Button>
     {/snippet}
   </SettingRow>
@@ -93,8 +94,8 @@
 
 <ConfirmDialog
   bind:open={confirmClear}
-  title="Clear recent projects?"
-  description="Every remembered folder is forgotten. If your open project is on the list, it is closed too. Your files are not touched."
-  confirmLabel="Clear list"
+  title={t('settings.privacy.recents.confirmTitle')}
+  description={t('settings.privacy.recents.confirmDescription')}
+  confirmLabel={t('settings.privacy.recents.confirmLabel')}
   onconfirm={() => void clearRecents()}
 />

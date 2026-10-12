@@ -21,6 +21,7 @@
   import type { LimitWindow } from '$lib/dashboard/models';
   import { limitInk } from '$lib/dashboard/palette';
   import { travel } from '$lib/design/motion';
+  import { t } from '$lib/i18n/i18n.svelte';
   import { dashboard } from '$lib/stores/dashboard.svelte';
   import { theme } from '$lib/stores/theme.svelte';
   import { cx } from '$lib/utils/cx';
@@ -61,25 +62,25 @@
   /** When the window resets, in words: it may already have, or never have said. */
   function resetText(window: LimitWindow): string {
     if (window.usedPercent === null) {
-      return 'has reset since last seen';
+      return t('ecosystem.limits.resetSince');
     }
 
     const countdown = window.resetsAt ? timeUntil(window.resetsAt, now) : null;
     if (countdown) {
-      return `resets ${countdown}`;
+      return t('ecosystem.limits.resets', { time: countdown });
     }
 
-    return window.resetsAt ? 'has reset since last seen' : 'no reset time given';
+    return window.resetsAt ? t('ecosystem.limits.resetSince') : t('ecosystem.limits.noReset');
   }
 
   function paceText(outAt: number | null, out: boolean): string {
-    return out && outAt !== null ? `On pace to run out around ${formatClock(outAt, now)}` : 'On pace to last until the reset';
+    return out && outAt !== null ? t('ecosystem.limits.paceOut', { time: formatClock(outAt, now) }) : t('ecosystem.limits.paceLasts');
   }
 </script>
 
 <SlotCard
-  title="Plan limits"
-  subtitle="What is left of each limit. The tick marks the time left."
+  title={t('ecosystem.limits.title')}
+  subtitle={t('ecosystem.limits.subtitle')}
   slot={dashboard.limits}
   onretry={() => void dashboard.openPanel(true)}
   {index}
@@ -92,7 +93,7 @@
 
   {#snippet children(windows)}
     {#if windows.length === 0}
-      <CardEmpty icon={Gauge} title="No plan limits recorded yet." hint="The dashboard reads them while your agents run." />
+      <CardEmpty icon={Gauge} title={t('ecosystem.limits.empty')} hint={t('ecosystem.limits.emptyHint')} />
     {:else}
       <!-- Every provider sits in the same grid cell, so the card stays as tall as the tallest one and nothing jumps while paging. -->
       <div class="grid">
@@ -117,7 +118,7 @@
                   <h4 class="text-sm font-semibold text-fg">{planSubject(group.provider, group.plan)}</h4>
                 {/if}
                 {#if group.staleMinutes !== null}
-                  <span class="ml-auto shrink-0 text-xs text-fg-3">as of {formatAge(group.staleMinutes)}</span>
+                  <span class="ml-auto shrink-0 text-xs text-fg-3">{t('ecosystem.limits.asOf', { age: formatAge(group.staleMinutes) })}</span>
                 {/if}
               </header>
             {/if}
@@ -129,7 +130,7 @@
               {@const pace = paceOf(window, now)}
               {@const out = pace !== null && runsOutBeforeReset(pace, window.resetsAt)}
               {@const name = windowName(window.window, window.scope)}
-              {@const percent = `${Math.round(left * 100)}% left`}
+              {@const percent = t('ecosystem.limits.left', { percent: Math.round(left * 100) })}
               {@const reset = resetText(window)}
 
               <div class="flex flex-col gap-1.5">
@@ -142,7 +143,9 @@
                 </div>
 
                 <LimitBar
-                  label="{planSubject(group.provider, group.plan)} {name}: {percent}, {reset}{pace?.outAt != null ? `. ${paceText(pace.outAt, out)}` : ''}"
+                  label={pace?.outAt != null
+                    ? t('ecosystem.limits.labelPace', { subject: planSubject(group.provider, group.plan), name, left: percent, reset, pace: paceText(pace.outAt, out) })
+                    : t('ecosystem.limits.label', { subject: planSubject(group.provider, group.plan), name, left: percent, reset })}
                   {left}
                   timeLeft={pace?.timeLeft ?? null}
                   provider={providerHarness(group.provider)}

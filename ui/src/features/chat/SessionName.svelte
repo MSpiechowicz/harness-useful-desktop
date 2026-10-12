@@ -4,6 +4,7 @@
   import { autofocus } from '$lib/a11y/autofocus';
   import type { ChatSession } from '$lib/chat/session.svelte';
   import { agentSessions } from '$lib/stores/agentSession.svelte';
+  import { t } from '$lib/i18n/i18n.svelte';
 
   interface Props {
     session: ChatSession;
@@ -47,7 +48,7 @@
     {onkeydown}
     onblur={commit}
     onfocus={(event) => event.currentTarget.select()}
-    aria-label="Chat name"
+    aria-label={t('chat.name.aria')}
     maxlength={120}
     class="col-start-1 row-start-1 w-full min-w-0 bg-transparent p-0 text-fg outline-none"
   />

@@ -6,6 +6,7 @@ use tauri::{AppHandle, State};
 use super::blocking;
 use crate::error::CommandResult;
 use crate::state::AppState;
+use crate::tray;
 
 /// Product name, version, OS, architecture and build profile.
 #[tauri::command]
@@ -27,9 +28,25 @@ pub async fn prefs_get(state: State<'_, AppState>) -> CommandResult<AppPrefs> {
 ///
 /// The server-managed fields (`activeProject`, `recentProjects`, `binaryOverrides`) keep their
 /// stored values whatever the webview sends; the project and harness commands change them.
+/// A changed language relabels the tray menu in the background.
 #[tauri::command]
-pub async fn prefs_set(state: State<'_, AppState>, prefs: AppPrefs) -> CommandResult<AppPrefs> {
+pub async fn prefs_set(app: AppHandle, state: State<'_, AppState>, prefs: AppPrefs) -> CommandResult<AppPrefs> {
     let store = state.prefs.clone();
 
-    blocking(move || Ok(store.with(|store| store.save_ui(&prefs))?)).await
+    let (previous_language, saved) = blocking(move || {
+        Ok(store.with(|store| {
+            let previous_language = store.load().language;
+
+            store.save_ui(&prefs).map(|saved| (previous_language, saved))
+        })?)
+    })
+    .await?;
+
+    // Saving does not wait for the tray: the relabel runs in the background, and failing to relabel
+    // leaves the old labels without undoing the save.
+    if saved.language != previous_language {
+        drop(tauri::async_runtime::spawn_blocking(move || tray::relabel(&app)));
+    }
+
+    Ok(saved)
 }

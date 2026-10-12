@@ -4,6 +4,7 @@
   import type { CommandSpec } from '$lib/ipc/bindings/CommandSpec';
   import { fuzzyMatch } from '$lib/utils/fuzzy';
   import { cx } from '$lib/utils/cx';
+  import { t } from '$lib/i18n/i18n.svelte';
 
   interface Props {
     id: string;
@@ -18,7 +19,7 @@
 </script>
 
 <!-- Pointer picks only; the textarea keeps focus and drives the list with the keyboard (aria-activedescendant). -->
-<ul {id} role="listbox" aria-label="Slash commands" class="absolute inset-x-0 bottom-full z-30 mb-2 max-h-72 overflow-y-auto rounded-lg border border-line-strong bg-glass p-1.5 shadow-pop backdrop-blur-xl">
+<ul {id} role="listbox" aria-label={t('chat.slash.label')} class="absolute inset-x-0 bottom-full z-30 mb-2 max-h-72 overflow-y-auto rounded-lg border border-line-strong bg-glass p-1.5 shadow-pop backdrop-blur-xl">
   {#each commands as command, index (command.name)}
     <!-- svelte-ignore a11y_click_events_have_key_events -- the textarea owns the keyboard -->
     <li

@@ -1,3 +1,4 @@
+import { t } from '$lib/i18n/i18n.svelte';
 import type { IconComponent } from '$lib/components/icon';
 import type { CliResult } from '$lib/ipc/bindings/CliResult';
 import type { ExtensionAction } from '$lib/ipc/bindings/ExtensionAction';
@@ -36,30 +37,72 @@ export interface ActionRequest {
   destructive: boolean;
 }
 
+/** The confirm button's verb and the dialog title of one kind of action, both in the language on screen. */
 interface Copy {
-  verb: string;
+  verb: () => string;
   destructive?: boolean;
-  subject: (action: ExtensionAction) => string;
+  title: (action: ExtensionAction) => string;
 }
 
-const name = (action: ExtensionAction): string => ('name' in action && action.name ? action.name : 'everything');
-const source = (action: ExtensionAction): string => ('source' in action && action.source ? action.source : 'every package');
+const verb = (key: 'install' | 'uninstall' | 'enable' | 'disable' | 'upgrade' | 'update' | 'remove' | 'addMarketplace' | 'removeMarketplace') => () =>
+  t(`extensions.verb.${key}`);
+
+const name = (action: ExtensionAction): string | null => ('name' in action && action.name ? action.name : null);
+const source = (action: ExtensionAction): string | null => ('source' in action && action.source ? action.source : null);
+
+/** A title of the form "Uninstall {subject}", where the subject is the action's name, or "everything" without one. */
+const named = (key: 'uninstall' | 'enable' | 'disable') => (action: ExtensionAction) =>
+  t(`extensions.title.${key}`, { subject: name(action) ?? t('extensions.subject.everything') });
+
+const sourced = (key: 'installPackage' | 'removePackage') => (action: ExtensionAction) =>
+  t(`extensions.title.${key}`, { subject: source(action) ?? t('extensions.subject.everyPackage') });
 
 const COPY: Record<ExtensionAction['type'], Copy> = {
-  pluginInstall: { verb: 'Install', subject: (action) => ('target' in action ? action.target : '') },
-  pluginUninstall: { verb: 'Uninstall', destructive: true, subject: name },
-  pluginEnable: { verb: 'Enable', subject: name },
-  pluginDisable: { verb: 'Disable', subject: name },
-  pluginUpgrade: { verb: 'Upgrade', subject: (action) => (name(action) === 'everything' ? 'all plugins' : name(action)) },
-  marketplaceAdd: { verb: 'Add marketplace', subject: source },
-  marketplaceRemove: { verb: 'Remove marketplace', destructive: true, subject: name },
-  marketplaceUpdate: { verb: 'Update', subject: (action) => (name(action) === 'everything' ? 'all marketplaces' : name(action)) },
-  packageInstall: { verb: 'Install', subject: source },
-  packageRemove: { verb: 'Remove', destructive: true, subject: source },
-  packageUpdate: { verb: 'Update', subject: (action) => (source(action) === 'every package' ? 'all packages' : source(action)) },
+  pluginInstall: { verb: verb('install'), title: (action) => t('extensions.title.install', { subject: 'target' in action ? action.target : '' }) },
+  pluginUninstall: { verb: verb('uninstall'), destructive: true, title: named('uninstall') },
+  pluginEnable: { verb: verb('enable'), title: named('enable') },
+  pluginDisable: { verb: verb('disable'), title: named('disable') },
+  pluginUpgrade: {
+    verb: verb('upgrade'),
+    title: (action) => {
+      const subject = name(action);
+
+      return subject ? t('extensions.title.upgrade', { subject }) : t('extensions.title.upgradeAll');
+    },
+  },
+  marketplaceAdd: {
+    verb: verb('addMarketplace'),
+    title: (action) => t('extensions.title.addMarketplace', { subject: source(action) ?? t('extensions.subject.everyPackage') }),
+  },
+  marketplaceRemove: {
+    verb: verb('removeMarketplace'),
+    destructive: true,
+    title: (action) => t('extensions.title.removeMarketplace', { subject: name(action) ?? t('extensions.subject.everything') }),
+  },
+  marketplaceUpdate: {
+    verb: verb('update'),
+    title: (action) => {
+      const subject = name(action);
+
+      return subject ? t('extensions.title.updateMarketplace', { subject }) : t('extensions.title.updateAllMarketplaces');
+    },
+  },
+  packageInstall: { verb: verb('install'), title: sourced('installPackage') },
+  packageRemove: { verb: verb('remove'), destructive: true, title: sourced('removePackage') },
+  packageUpdate: {
+    verb: verb('update'),
+    title: (action) => {
+      const subject = source(action);
+
+      return subject ? t('extensions.title.updatePackage', { subject }) : t('extensions.title.updateAllPackages');
+    },
+  },
 };
 
-/** Builds the request for one mutation; user scope never carries a project folder. */
+/**
+ * Builds the request for one mutation; user scope never carries a project folder. The dialog's title and verb are
+ * read when shown, so an open dialog follows a language switch.
+ */
 export function actionRequest(harness: HarnessId, action: ExtensionAction, scope: InstallScope, projectPath: string | null): ActionRequest {
   const copy = COPY[action.type];
   const project = scope === 'project' ? projectPath : null;
@@ -69,25 +112,29 @@ export function actionRequest(harness: HarnessId, action: ExtensionAction, scope
     action,
     scope,
     project,
-    verb: copy.verb,
     destructive: copy.destructive ?? false,
-    title: `${copy.verb} ${copy.subject(action)}`,
+    get verb() {
+      return copy.verb();
+    },
+    get title() {
+      return copy.title(action);
+    },
   };
 }
 
 /** The line that says what the command acts on, for the dialog. */
 export function scopeSentence(request: ActionRequest, projectName: string | null): string {
   if (request.scope === 'project') {
-    return `Project scope: runs inside ${projectName ?? 'the open project'} and changes only that project.`;
+    return projectName ? t('extensions.scopeLine.projectNamed', { project: projectName }) : t('extensions.scopeLine.projectOpen');
   }
 
-  return 'User scope: applies to every project of this account.';
+  return t('extensions.scopeLine.user');
 }
 
 /** The line of a result that reports a failure, or null. OMP reports failures with exit code 0. */
 export function failureLine(result: CliResult): string | null {
   if (!result.ok) {
-    return result.summary ?? 'The command failed.';
+    return result.summary ?? t('extensions.failure.default');
   }
 
   const lines = [...result.stderr.split('\n'), ...result.stdout.split('\n')].map((line) => line.trim());
@@ -137,9 +184,15 @@ export function outcomeIn(view: ExtensionsView, action: ExtensionAction): Outcom
 }
 
 export const OUTCOME_TEXT: Record<Outcome, string> = {
-  confirmed: 'Confirmed: the refreshed list shows the change.',
-  missing: 'The refreshed list does not show the change yet. Some changes apply after the harness restarts.',
-  unchecked: 'The list was refreshed.',
+  get confirmed() {
+    return t('extensions.outcome.confirmed');
+  },
+  get missing() {
+    return t('extensions.outcome.missing');
+  },
+  get unchecked() {
+    return t('extensions.outcome.unchecked');
+  },
 };
 
 /** Mirrors the backend's argument rules, so a bad value is caught before a round trip. */
@@ -147,19 +200,19 @@ export function targetProblem(value: string): string | null {
   const text = value.trim();
 
   if (text === '') {
-    return 'Enter a value.';
+    return t('extensions.problem.empty');
   }
   if (text.length > 512) {
-    return 'That is too long (at most 512 characters).';
+    return t('extensions.problem.tooLong');
   }
   if (text.startsWith('-')) {
-    return 'It must not start with a dash.';
+    return t('extensions.problem.dash');
   }
   if (!/^[\w@./:+=,-]+$/.test(text)) {
-    return 'Use only letters, digits and @ . _ / : + = , -';
+    return t('extensions.problem.characters');
   }
   if (/:\/\/[^/]*@/.test(text)) {
-    return 'Do not put credentials in the address.';
+    return t('extensions.problem.credentials');
   }
 
   return null;

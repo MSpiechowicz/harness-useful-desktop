@@ -9,6 +9,7 @@ mod dialogs;
 mod error;
 mod lifecycle;
 mod logging;
+mod native_text;
 mod releases;
 pub mod state;
 #[cfg(test)]

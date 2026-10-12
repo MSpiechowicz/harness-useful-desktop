@@ -9,6 +9,7 @@
   import Skeleton from '$lib/components/Skeleton.svelte';
   import ViewHeader from '$lib/components/ViewHeader.svelte';
   import RefreshButton from '$lib/components/RefreshButton.svelte';
+  import { t } from '$lib/i18n/i18n.svelte';
   import { dashboard } from '$lib/stores/dashboard.svelte';
   import { ecosystem } from '$lib/stores/ecosystem.svelte';
 
@@ -23,10 +24,10 @@
 
   const context = $derived.by(() => {
     if (!items) {
-      return failed ? 'Could not look for companions' : 'Looking for companions…';
+      return failed ? t('ecosystem.view.failed') : t('ecosystem.view.looking');
     }
 
-    const parts = [installedSummary(items), updatesSummary(items), dashboard.availability?.type === 'available' ? 'dashboard connected' : null];
+    const parts = [installedSummary(items), updatesSummary(items), dashboard.availability?.type === 'available' ? t('ecosystem.view.connected') : null];
 
     return parts.filter(Boolean).join(' · ');
   });
@@ -42,9 +43,9 @@
 </script>
 
 <div class="@container flex size-full min-h-0 flex-col">
-  <ViewHeader title="Ecosystem" icon={Orbit} {context}>
+  <ViewHeader title={t('ecosystem.title')} icon={Orbit} {context}>
     {#snippet actions()}
-      <RefreshButton label="Refresh ecosystem" busy={refreshing} onclick={refresh} />
+      <RefreshButton label={t('ecosystem.refresh')} busy={refreshing} onclick={refresh} />
     {/snippet}
   </ViewHeader>
 
@@ -57,8 +58,8 @@
 
         <section aria-labelledby="companions-title" class="flex min-w-0 flex-col gap-4">
           <div class="flex min-w-0 flex-col">
-            <h2 id="companions-title" class="text-xl text-fg">Companions</h2>
-            <p class="truncate text-sm text-fg-3">Found on this machine.</p>
+            <h2 id="companions-title" class="text-xl text-fg">{t('ecosystem.companions.title')}</h2>
+            <p class="truncate text-sm text-fg-3">{t('ecosystem.companions.subtitle')}</p>
           </div>
 
           {#if items}
@@ -69,14 +70,14 @@
             </div>
           {:else if failed}
             <div class="rounded-lg border border-line bg-surface-1 shadow-raised">
-              <EmptyState icon={CircleAlert} title="Could not look for companions" body={ecosystem.error ?? undefined}>
+              <EmptyState icon={CircleAlert} title={t('ecosystem.view.failed')} body={ecosystem.error ?? undefined}>
                 {#snippet action()}
-                  <Button variant="primary" onclick={() => void ecosystem.load(true)}>Try again</Button>
+                  <Button variant="primary" onclick={() => void ecosystem.load(true)}>{t('ecosystem.retry')}</Button>
                 {/snippet}
               </EmptyState>
             </div>
           {:else}
-            <div class="grid gap-4 @3xl:grid-cols-3 @6xl:grid-cols-1" role="status" aria-label="Looking for companions">
+            <div class="grid gap-4 @3xl:grid-cols-3 @6xl:grid-cols-1" role="status" aria-label={t('ecosystem.companions.looking')}>
               {#each [0, 1, 2] as placeholder (placeholder)}
                 <Skeleton height="14rem" class="rounded-lg" />
               {/each}

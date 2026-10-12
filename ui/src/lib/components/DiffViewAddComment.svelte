@@ -1,6 +1,7 @@
 <script lang="ts">
   import Plus from '@lucide/svelte/icons/plus';
 
+  import { t } from '$lib/i18n/i18n.svelte';
   import type { PickHandlers } from '$lib/git/comment-range';
   import type { CommentSide } from '$lib/ipc/bindings/CommentSide';
   import { cx } from '$lib/utils/cx';
@@ -24,7 +25,7 @@
   <button
     type="button"
     tabindex="-1"
-    title="Comment on this line"
+    title={t('components.diff.commentLine')}
     class="invisible absolute inset-0 m-auto grid size-4 place-items-center rounded-sm bg-accent-fill text-on-accent group-hover/line:visible"
     onclick={(event) => {
       pick.start(index, side, event.shiftKey);

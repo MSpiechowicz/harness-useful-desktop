@@ -1,6 +1,7 @@
 <script lang="ts">
   import Badge from '$lib/components/Badge.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
+  import { t } from '$lib/i18n/i18n.svelte';
   import ViewHeader from '$lib/components/ViewHeader.svelte';
 
   import type { ViewMeta } from './views';
@@ -18,7 +19,7 @@
   <div class="grid min-h-0 flex-1 place-items-center overflow-y-auto">
     <EmptyState icon={view.icon} title={view.heading} body={view.body}>
       {#snippet action()}
-        <Badge tone="accent" dot>Coming soon</Badge>
+        <Badge tone="accent" dot>{t('shell.placeholder.soon')}</Badge>
       {/snippet}
     </EmptyState>
   </div>

@@ -1,0 +1,134 @@
+import type { settings as enSettings } from '../en/settings';
+import type { AreaMessages } from '../types';
+
+export const settings: AreaMessages<typeof enSettings> = {
+  'settings.title': 'Paramètres',
+  'settings.context': 'Les modifications s’appliquent immédiatement et sont enregistrées sur cet appareil',
+  'settings.nav.label': 'Sections des paramètres',
+
+  'settings.section.appearance': 'Apparence',
+  'settings.section.startup': 'Démarrage',
+  'settings.section.harnesses': 'Harnesses',
+  'settings.section.projects': 'Projets',
+  'settings.section.updates': 'Mises à jour',
+  'settings.section.privacy': 'Confidentialité et sécurité',
+  'settings.section.about': 'À propos',
+
+  'settings.keywords.appearance': 'thème animations mouvement sombre clair animation langue',
+  'settings.keywords.startup': 'intro lancement démarrage',
+  'settings.keywords.harnesses': 'exécutable binaire omp pi chemin configuration',
+  'settings.keywords.projects': 'récents dossiers',
+  'settings.keywords.updates': 'version mise à jour release installer rechercher nouvelle',
+  'settings.keywords.privacy': 'données télémétrie diagnostic effacer confidentialité',
+  'settings.keywords.about': 'version build à propos',
+
+  'settings.theme.title': 'Thème',
+  'settings.theme.description': 'Suivre votre système ou en choisir un. Le changement s’affiche immédiatement en aperçu.',
+  'settings.theme.system': 'Système',
+  'settings.theme.dark': 'Sombre',
+  'settings.theme.light': 'Clair',
+
+  'settings.language.title': 'Langue',
+  'settings.language.description': 'La langue de toute l’application. Le changement s’applique immédiatement.',
+
+  'settings.thinking.title': 'Afficher le raisonnement',
+  'settings.thinking.description': 'Le raisonnement de l’agent, replié sous chaque réponse. Peut aussi être activé depuis l’en-tête du chat.',
+
+  'settings.motion.title': 'Animations',
+  'settings.motion.description': 'Réduites garde de simples fondus ; Désactivées coupe toute animation. Le réglage de mouvement réduit de votre système s’applique toujours.',
+  'settings.motion.full': 'Complètes',
+  'settings.motion.reduced': 'Réduites',
+  'settings.motion.off': 'Désactivées',
+
+  'settings.intro.title': 'Lire l’intro au lancement',
+  'settings.intro.description': 'Une courte animation de bienvenue à l’ouverture de l’application. Une touche ou un clic la passe.',
+  'settings.sound.title': 'Son de l’intro',
+  'settings.sound.description': 'Le son du logo pendant l’intro. Il n’est jamais joué quand l’intro est désactivée ou passée.',
+  'settings.replay.title': 'Revoir l’intro',
+  'settings.replay.motionOff': 'Les animations sont désactivées ; activez-les pour revoir l’intro.',
+  'settings.replay.ready': 'La regarder encore une fois.',
+
+  'settings.harness.binary': 'Exécutable de {name}',
+  'settings.harness.notFound': 'Introuvable sur cet ordinateur',
+  'settings.harness.choose': 'Choisir…',
+  'settings.harness.reset': 'Réinitialiser',
+  'settings.setup.title': 'Configuration initiale',
+  'settings.setup.description': 'Détecter à nouveau vos harnesses, choisir votre harness du quotidien et un projet.',
+  'settings.setup.run': 'Relancer la configuration initiale',
+
+  'settings.recents.title': 'Mémoriser les projets récents',
+  'settings.recents.description': 'Conserver la liste des dossiers que vous avez ouverts. La désactiver efface la liste.',
+
+  'settings.updates.version': 'Version {version}',
+  'settings.updates.check': 'Rechercher maintenant',
+  'settings.updates.policy.title': 'Au démarrage de l’application',
+  'settings.updates.policy.label': 'Règle de mise à jour',
+  'settings.updates.policy.startupAsk': 'Demander d’abord',
+  'settings.updates.policy.autoInstall': 'Automatique',
+  'settings.updates.policy.off': 'Désactivée',
+  'settings.updates.policy.startupAsk.hint': 'Recherche une nouvelle version au démarrage de l’application et demande avant de l’installer.',
+  'settings.updates.policy.autoInstall.hint': 'Recherche au démarrage de l’application et installe la nouvelle version. Vous choisissez quand redémarrer.',
+  'settings.updates.policy.off.hint': 'Ne recherche jamais d’elle-même. Utilisez Rechercher maintenant quand vous le souhaitez.',
+  'settings.updates.companions.title': 'Rechercher les mises à jour des compagnons',
+  'settings.updates.companions.description':
+    'À l’ouverture d’Ecosystem, demande à GitHub les dernières versions de Harness Dashboard, Skills et Sidebar, au plus toutes les six heures tant que l’application tourne. GitHub voit votre adresse IP et la version de l’application, pas les compagnons que vous avez.',
+  'settings.updates.notConfigured': 'Cette version n’est pas configurée pour les mises à jour et ne recherchera donc pas de nouvelles versions. Tout va bien. Récupérez les nouvelles versions sur la page des versions.',
+  'settings.updates.openReleases': 'Ouvrir les versions',
+  'settings.updates.retry': 'Réessayer',
+  'settings.updates.notes': 'Notes de version',
+  'settings.updates.install': 'Installer la mise à jour',
+  'settings.updates.finish': 'Terminer la mise à jour',
+  'settings.updates.restart': 'Redémarrer pour terminer',
+
+  'settings.about.label': 'À propos',
+  'settings.about.version': 'Version {version} · {os} {arch}',
+  'settings.about.versionDebug': 'Version {version} · {os} {arch} · build de débogage',
+  'settings.about.localOnly': 'Local uniquement',
+  'settings.about.links': 'Liens du projet',
+  'settings.about.source': 'Code source',
+  'settings.about.releases': 'Versions',
+  'settings.about.licence': 'Licence GPL-3.0-or-later',
+
+  'settings.privacy.label': 'Ce que Harness Desktop fait des données',
+  'settings.privacy.stored.title': 'Stocké sur cet appareil',
+  'settings.privacy.stored.text':
+    'Uniquement les préférences de l’application : thème, langue, animations, intro, harness par défaut, règle de mise à jour, progression de la configuration, taille et position de la fenêtre, disposition du diff, le dernier dossier ouvert, les chemins des projets récents (s’ils sont mémorisés) et les chemins d’exécutables que vous avez choisis. Elles se trouvent dans le dossier de configuration des applications de votre système. Aucun contenu de chat, jeton ou mot de passe n’est enregistré.',
+  'settings.privacy.neverRead.title': 'Jamais lu',
+  'settings.privacy.neverRead.text':
+    'Les magasins d’identifiants (auth.json, mcp-auth.json, credentials, fichiers .env), les clés privées (.pem, .key, .p12, clés SSH), les bases de données (.db, .sqlite), les fichiers journaux, les caches de blobs des agents et les sessions de terminal. La vérification suit aussi les liens symboliques.',
+  'settings.privacy.redacted.title': 'Affiché masqué',
+  'settings.privacy.redacted.text':
+    'Les valeurs de configuration qui ressemblent à des secrets apparaissent masquées : clés d’API et jetons, variables d’environnement et en-têtes des serveurs MCP, champs d’authentification et OAuth, valeurs !command (jamais exécutées) et identifiants dans les URL. Les références d’environnement comme $NAME n’affichent que le nom. La sortie d’erreur des agents et la sortie du shell sont masquées avant d’arriver à l’écran.',
+  'settings.privacy.network.title': 'Réseau',
+  'settings.privacy.network.text':
+    'L’application elle-même fait deux types de requêtes, toutes deux vers GitHub, et les deux peuvent être désactivées. La recherche de mises à jour récupère le fichier de version latest.json ; elle n’a lieu que si cette version contient une clé de mise à jour et suit votre réglage de mise à jour. La vérification des compagnons demande à GitHub le numéro de la dernière version de Harness Dashboard, Skills et Sidebar à l’ouverture d’Ecosystem, au plus toutes les six heures tant que l’application tourne (une vérification échouée est retentée après quelques minutes). Elle interroge toujours les trois, donc elle ne révèle pas lesquels vous avez ; GitHub ne voit que votre adresse IP et la version de l’application. Les liens ne s’ouvrent dans votre navigateur que lorsque vous cliquez dessus, et seulement pour les sites de projets et de harnesses, sauf si vous autorisez ci-dessous tous les liens https. Les widgets de Harness Dashboard utilisent un processus local via stdio, sans réseau. Les CLI des harnesses communiquent avec leurs fournisseurs comme dans votre terminal, et les actions des extensions lancent la CLI, qui peut télécharger des paquets, seulement après votre confirmation.',
+  'settings.privacy.telemetry.title': 'Aucune télémétrie',
+  'settings.privacy.telemetry.text': 'Aucune analyse, aucun suivi, aucun compte, aucune connexion.',
+  'settings.privacy.agents.title': 'Agents',
+  'settings.privacy.agents.text':
+    'Les agents s’exécutent sur votre machine avec votre environnement et votre configuration. Harness Desktop ne modifie jamais les réglages de votre harness ; un choix d’approbation fait pour un chat ne vaut que pour ce chat, et le mode actif s’affiche dans l’en-tête du chat lorsque le harness en a un. Les commandes shell saisies dans le chat demandent toujours une confirmation. Cette application n’envoie rien.',
+  'settings.privacy.git.title': 'Git',
+  'settings.privacy.git.text':
+    'La vue Modifications exécute votre Git local en lecture seule (état, diff, liste des branches), sans paginateurs, sans programmes de diff externes et sans moniteurs du système de fichiers, et avec les demandes d’identifiants désactivées.',
+  'settings.privacy.logs.title': 'Journaux',
+  'settings.privacy.logs.text':
+    'Un fichier journal local dans le dossier des journaux de votre système consigne ce que fait l’application, jamais ce que vous dites. Il ne contient ni prompts, ni contenu de chat, ni contenu de fichiers, et il est renouvelé à 1 Mio.',
+
+  'settings.privacy.openLink.title': 'Ouvrir n’importe quel lien web',
+  'settings.privacy.openLink.description':
+    'Les liens des chats, comme une pull request ouverte par l’agent, s’ouvrent dans votre navigateur. Désactivé : seuls les sites de projets et de harnesses s’ouvrent. Toujours en https uniquement.',
+  'settings.privacy.recents.title': 'Projets récents',
+  'settings.privacy.recents.description': 'Oublier tous les dossiers mémorisés. Si votre projet ouvert figure dans la liste, il est aussi fermé.',
+  'settings.privacy.recents.clear': 'Effacer les projets récents',
+  'settings.privacy.recents.confirmTitle': 'Effacer les projets récents ?',
+  'settings.privacy.recents.confirmDescription': 'Chaque dossier mémorisé est oublié. Si votre projet ouvert figure dans la liste, il est aussi fermé. Vos fichiers ne sont pas touchés.',
+  'settings.privacy.recents.confirmLabel': 'Effacer la liste',
+  'settings.privacy.recents.cleared': 'Projets récents effacés',
+  'settings.privacy.diagnostics.title': 'Diagnostic',
+  'settings.privacy.diagnostics.description': 'Copie la version de l’application, du système et des harnesses pour un rapport de bug. Aucun chemin, projet ni contenu.',
+  'settings.privacy.diagnostics.copy': 'Copier le diagnostic',
+  'settings.privacy.diagnostics.copied': 'Diagnostic copié',
+  'settings.privacy.diagnostics.copiedDescription': 'Uniquement la version de l’application, du système et des harnesses. Aucun chemin ni contenu.',
+  'settings.privacy.diagnostics.failed': 'Copie impossible',
+  'settings.privacy.diagnostics.failedDescription': 'Le presse-papiers n’est pas disponible.',
+};

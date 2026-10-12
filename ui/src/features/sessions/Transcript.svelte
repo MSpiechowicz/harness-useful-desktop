@@ -6,9 +6,11 @@
   import Button from '$lib/components/Button.svelte';
   import Skeleton from '$lib/components/Skeleton.svelte';
   import VirtualList from '$lib/components/VirtualList.svelte';
+  import { t, tn } from '$lib/i18n/i18n.svelte';
   import type { TranscriptItem } from '$lib/chat/types';
   import type { SessionDetail } from '$lib/stores/sessions.svelte';
   import { cx } from '$lib/utils/cx';
+  import { formatCount } from '$lib/utils/format';
 
   import MessageRow from '../chat/MessageRow.svelte';
   import { focusRow, rowMessage, transcriptRow } from './transcript-focus';
@@ -75,14 +77,19 @@
 
   $effect(() => () => clearTimeout(highlightTimer));
 
-  provideToolContext({ project: untrack(() => project), label: 'this session' });
+  provideToolContext({
+    project: untrack(() => project),
+    get label() {
+      return t('sessions.touched.source');
+    },
+  });
 
   const chat = $derived(detail.transcript);
 </script>
 
 <div class="flex size-full min-h-0 flex-col">
   {#if detail.transcriptStatus === 'loading'}
-    <div class="flex flex-col gap-3 p-6" role="status" aria-label="Loading transcript">
+    <div class="flex flex-col gap-3 p-6" role="status" aria-label={t('sessions.transcript.loading')}>
       <Skeleton width="60%" height="2.5rem" />
       <Skeleton height="4rem" />
       <Skeleton width="80%" height="2.5rem" />
@@ -90,13 +97,13 @@
   {:else if detail.transcriptStatus === 'error'}
     <div class="flex flex-col items-center gap-3 p-8 text-center" role="alert">
       <CircleAlert size={24} class="text-danger" aria-hidden="true" />
-      <p class="text-base text-fg-2">{detail.transcriptError?.message ?? 'The transcript could not be read.'}</p>
-      <Button onclick={() => detail.reload()}>Try again</Button>
+      <p class="text-base text-fg-2">{detail.transcriptError?.message ?? t('sessions.transcript.unreadable')}</p>
+      <Button onclick={() => detail.reload()}>{t('sessions.tryAgain')}</Button>
     </div>
   {:else if chat.items.length === 0}
-    <p class="grid size-full place-items-center p-8 text-center text-base text-fg-3" role="status">This session has no messages yet.</p>
+    <p class="grid size-full place-items-center p-8 text-center text-base text-fg-3" role="status">{t('sessions.transcript.empty')}</p>
   {:else}
-    <VirtualList bind:this={list} items={chat.items} variable estimate={ESTIMATED_ROW_PX} overscan={10} label="Session transcript" key={(item) => item.key} class="min-h-0 flex-1">
+    <VirtualList bind:this={list} items={chat.items} variable estimate={ESTIMATED_ROW_PX} overscan={10} label={t('sessions.transcript.label')} key={(item) => item.key} class="min-h-0 flex-1">
       {#snippet row(item, index)}
         {@const forkId = onpick ? forkable(index) : null}
         <div class={cx('w-full max-w-3xl px-6 py-2', index === 0 && 'pt-6', index === chat.items.length - 1 && 'pb-8')}>
@@ -106,8 +113,8 @@
               role="button"
               tabindex="0"
               aria-pressed={picked === forkId}
-              aria-label="Pick this message to fork from"
-              title="Pick this message to fork from"
+              aria-label={t('sessions.transcript.pick')}
+              title={t('sessions.transcript.pick')}
               class={cx(
                 '-m-2 cursor-pointer rounded-lg border p-2 transition-colors duration-[var(--dur-fast)]',
                 picked === forkId ? 'border-accent/40 bg-accent-wash' : highlighted === item.key ? 'border-transparent bg-accent-wash' : 'border-transparent hover:bg-hover',
@@ -130,8 +137,8 @@
 
           {#if index === chat.items.length - 1 && detail.nextCursor !== null}
             <div class="mt-3 flex items-center justify-center gap-3">
-              <span class="tabular text-xs text-fg-3">{detail.messages.length} of {detail.total} messages</span>
-              <Button size="sm" loading={detail.loadingMore} onclick={() => void detail.loadMore()}>Load more messages</Button>
+              <span class="tabular text-xs text-fg-3">{tn('sessions.transcript.progress', detail.total, { shown: formatCount(detail.messages.length) })}</span>
+              <Button size="sm" loading={detail.loadingMore} onclick={() => void detail.loadMore()}>{t('sessions.transcript.loadMore')}</Button>
             </div>
           {/if}
         </div>

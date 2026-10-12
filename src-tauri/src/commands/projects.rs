@@ -7,7 +7,7 @@ use harness_business::model::ProjectInfo;
 use harness_business::project::Projects;
 use tauri::{AppHandle, State};
 
-use super::blocking;
+use super::{blocking, saved_language};
 use crate::dialogs::{self, Pick};
 use crate::error::CommandResult;
 use crate::state::AppState;
@@ -26,8 +26,9 @@ pub async fn project_pick(app: AppHandle, state: State<'_, AppState>) -> Command
         .map(|project| PathBuf::from(&project.path))
         .unwrap_or_else(|| state.env.home.clone());
 
-    let Some(picked) = dialogs::pick(&app, &state.dialog, Pick::Folder, "Open a project folder", Some(&start)).await?
-    else {
+    let title = crate::native_text::native_text(&saved_language(&state).await?).open_project_folder;
+
+    let Some(picked) = dialogs::pick(&app, &state.dialog, Pick::Folder, title, Some(&start)).await? else {
         return Ok(None);
     };
 

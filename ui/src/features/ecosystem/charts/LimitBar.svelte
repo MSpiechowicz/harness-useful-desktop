@@ -1,6 +1,7 @@
 <script lang="ts">
   import { leftTone } from '$lib/dashboard/limits';
   import { LIMIT_COLORS, limitFill } from '$lib/dashboard/palette';
+  import { t } from '$lib/i18n/i18n.svelte';
   import { motion } from '$lib/stores/motion.svelte';
   import { theme } from '$lib/stores/theme.svelte';
   import { cx } from '$lib/utils/cx';
@@ -34,7 +35,7 @@
   aria-valuemin={0}
   aria-valuemax={100}
   aria-valuenow={Math.round(left * 100)}
-  aria-valuetext="{Math.round(left * 100)}% left"
+  aria-valuetext={t('ecosystem.limits.left', { percent: Math.round(left * 100) })}
   class="relative"
 >
   <div class="relative h-2 overflow-hidden rounded-full" style:background={LIMIT_COLORS.track[mode]} aria-hidden="true">

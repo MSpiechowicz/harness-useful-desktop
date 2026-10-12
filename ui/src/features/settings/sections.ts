@@ -7,17 +7,81 @@ import ShieldCheck from '@lucide/svelte/icons/shield-check';
 import Terminal from '@lucide/svelte/icons/terminal';
 
 import type { IconComponent } from '$lib/components/icon';
+import { t } from '$lib/i18n/i18n.svelte';
 import type { SettingsSectionId } from '$lib/stores/view-state.svelte';
 
 /** The sections of the settings page, in reading order; the section nav and the scroll-spy follow it. */
 export const SETTINGS_SECTIONS: readonly { id: SettingsSectionId; label: string; icon: IconComponent; keywords: string }[] = [
-  { id: 'appearance', label: 'Appearance', icon: Palette, keywords: 'theme motion dark light animation' },
-  { id: 'startup', label: 'Startup', icon: Rocket, keywords: 'intro launch splash' },
-  { id: 'harnesses', label: 'Harnesses', icon: Terminal, keywords: 'binary omp pi path setup' },
-  { id: 'projects', label: 'Projects', icon: FolderClock, keywords: 'recent folders' },
-  { id: 'updates', label: 'Updates', icon: Download, keywords: 'version upgrade release install check new' },
-  { id: 'privacy', label: 'Privacy & security', icon: ShieldCheck, keywords: 'data telemetry diagnostics clear' },
-  { id: 'about', label: 'About', icon: Info, keywords: 'version build' },
+  {
+    id: 'appearance',
+    get label() {
+      return t('settings.section.appearance');
+    },
+    icon: Palette,
+    get keywords() {
+      return t('settings.keywords.appearance');
+    },
+  },
+  {
+    id: 'startup',
+    get label() {
+      return t('settings.section.startup');
+    },
+    icon: Rocket,
+    get keywords() {
+      return t('settings.keywords.startup');
+    },
+  },
+  {
+    id: 'harnesses',
+    get label() {
+      return t('settings.section.harnesses');
+    },
+    icon: Terminal,
+    get keywords() {
+      return t('settings.keywords.harnesses');
+    },
+  },
+  {
+    id: 'projects',
+    get label() {
+      return t('settings.section.projects');
+    },
+    icon: FolderClock,
+    get keywords() {
+      return t('settings.keywords.projects');
+    },
+  },
+  {
+    id: 'updates',
+    get label() {
+      return t('settings.section.updates');
+    },
+    icon: Download,
+    get keywords() {
+      return t('settings.keywords.updates');
+    },
+  },
+  {
+    id: 'privacy',
+    get label() {
+      return t('settings.section.privacy');
+    },
+    icon: ShieldCheck,
+    get keywords() {
+      return t('settings.keywords.privacy');
+    },
+  },
+  {
+    id: 'about',
+    get label() {
+      return t('settings.section.about');
+    },
+    icon: Info,
+    get keywords() {
+      return t('settings.keywords.about');
+    },
+  },
 ];
 
 export interface SectionBox {

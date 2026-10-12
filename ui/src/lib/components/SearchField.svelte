@@ -2,6 +2,7 @@
   import Search from '@lucide/svelte/icons/search';
   import X from '@lucide/svelte/icons/x';
 
+  import { t } from '$lib/i18n/i18n.svelte';
   import { cx } from '$lib/utils/cx';
 
   import IconButton from './IconButton.svelte';
@@ -13,7 +14,7 @@
     class?: string;
   }
 
-  let { value = $bindable(''), label, placeholder = 'Filter…', class: className }: Props = $props();
+  let { value = $bindable(''), label, placeholder, class: className }: Props = $props();
 </script>
 
 <div
@@ -27,12 +28,12 @@
     bind:value
     type="search"
     aria-label={label}
-    {placeholder}
+    placeholder={placeholder ?? t('components.filter.placeholder')}
     autocomplete="off"
     spellcheck="false"
     class="h-full min-w-0 flex-1 bg-transparent text-base text-fg outline-none placeholder:text-fg-3 [&::-webkit-search-cancel-button]:hidden"
   />
   {#if value !== ''}
-    <IconButton icon={X} label="Clear filter" size="sm" onclick={() => (value = '')} />
+    <IconButton icon={X} label={t('components.filter.clear')} size="sm" onclick={() => (value = '')} />
   {/if}
 </div>

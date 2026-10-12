@@ -64,6 +64,7 @@ pub fn with_ui_fields(stored: AppPrefs, ui: &AppPrefs) -> AppPrefs {
         version: _,
         theme,
         motion,
+        language,
         intro_enabled,
         sound_enabled,
         show_thinking,
@@ -84,6 +85,7 @@ pub fn with_ui_fields(stored: AppPrefs, ui: &AppPrefs) -> AppPrefs {
     AppPrefs {
         theme,
         motion,
+        language,
         intro_enabled,
         sound_enabled,
         show_thinking,

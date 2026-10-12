@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { i18n } from '$lib/i18n/i18n.svelte';
 import { fixtures } from '$lib/ipc/mock/fixtures';
 import { createMockTransport } from '$lib/ipc/mock/transport';
 import { defaultScenario } from '$lib/ipc/mock/scenarios';
@@ -234,5 +235,23 @@ describe('git branches', () => {
     expect(await screen.findByText('This project is not a git repository.')).toBeInTheDocument();
 
     await project.open(PROJECT);
+  });
+});
+
+describe('in Polish', () => {
+  it('translates the session list and the branch tree, with Polish plural forms', async () => {
+    await i18n.load('pl');
+    nav.go('sessions');
+    render(SessionsView);
+
+    expect(await screen.findByRole('searchbox', { name: 'Szukaj sesji' })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole('list', { name: 'Gałęzie sesji' })).toBeInTheDocument());
+
+    expect(screen.getByRole('button', { name: /Rozgałęź stąd/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Wznów w czacie' })).toBeInTheDocument();
+
+    const forms = new Set(['wpis', 'wpisy', 'wpisów', 'wpisu']);
+    const summary = await screen.findByText(new RegExp(`^${TREE.nodes.length.toLocaleString('pl-PL')} (${[...forms].join('|')}) ·`));
+    expect(summary).toBeInTheDocument();
   });
 });

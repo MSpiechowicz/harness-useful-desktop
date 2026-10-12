@@ -4,6 +4,7 @@
   import { slide } from 'svelte/transition';
 
   import { scaled } from '$lib/design/motion';
+  import { t } from '$lib/i18n/i18n.svelte';
   import { cx } from '$lib/utils/cx';
 
   interface Props {
@@ -27,14 +28,14 @@
     onclick={() => (chosen = !open)}
   >
     <Brain size={16} aria-hidden="true" />
-    <span class={cx(streaming && 'sheen')}>{streaming ? 'Thinking…' : 'Thought process'}</span>
+    <span class={cx(streaming && 'sheen')}>{streaming ? t('chat.thinking.active') : t('chat.thinking.done')}</span>
     <ChevronRight size={16} aria-hidden="true" class={cx('ml-auto transition-transform duration-[var(--dur-fast)]', open && 'rotate-90')} />
   </button>
 
   {#if open}
     <div transition:slide={{ duration: scaled(180) }} class="overflow-hidden">
       <p class="px-3 pb-3 text-sm leading-relaxed break-words whitespace-pre-wrap text-fg-2">
-        {redacted ? 'The provider keeps this reasoning private.' : text}{#if streaming}<span class="caret" aria-hidden="true"></span>{/if}
+        {redacted ? t('chat.thinking.redacted') : text}{#if streaming}<span class="caret" aria-hidden="true"></span>{/if}
       </p>
     </div>
   {/if}

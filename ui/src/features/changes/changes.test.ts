@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/sve
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import type { ToolCallState } from '$lib/chat/types';
+import { i18n } from '$lib/i18n/i18n.svelte';
 import { fixtures } from '$lib/ipc/mock/fixtures';
 import { agentSessions } from '$lib/stores/agentSession.svelte';
 import { git } from '$lib/stores/git.svelte';
@@ -189,5 +190,28 @@ describe('reviewing changes', () => {
 
     git.activate(null);
     expect(review.commentsFor(path)).toHaveLength(1);
+  });
+});
+
+describe('in Polish', () => {
+  it('translates the labels and picks the Polish plural form of the pending comments', async () => {
+    const path = fixtures.recentProjects[0].path;
+    await i18n.load('pl');
+
+    render(ChangesView);
+    expect(await screen.findByRole('radio', { name: /^Zindeksowane/ })).toBeInTheDocument();
+    expect(screen.getByRole('listbox', { name: 'Zmienione pliki' })).toBeInTheDocument();
+
+    const add = (count: number): void => {
+      for (let index = 0; index < count; index += 1) {
+        review.add(path, { path: LIB, side: 'new', startLine: index + 1, endLine: index + 1, body: `Note ${index}`, snippet: ['x'] });
+      }
+    };
+    add(2);
+    expect(await screen.findByRole('button', { name: 'Przegląd · 2 komentarze' })).toBeInTheDocument();
+
+    add(3);
+    expect(await screen.findByRole('button', { name: 'Przegląd · 5 komentarzy' })).toBeInTheDocument();
+
   });
 });

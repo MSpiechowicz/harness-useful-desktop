@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
 
+import { i18n } from '$lib/i18n/i18n.svelte';
 import type { ConfigField } from '$lib/ipc/bindings/ConfigField';
 import type { ConfigValue } from '$lib/ipc/bindings/ConfigValue';
 
@@ -36,6 +37,29 @@ const FIELDS: ConfigField[] = [
 ];
 
 describe('ConfigTree', () => {
+  it('speaks Polish: labels, hints and the plural of the entries a branch holds', async () => {
+    await i18n.load('pl');
+
+    const entries = (count: number): ConfigField[] => Array.from({ length: count }, (_, index) => ({ key: `k${index}`, value: text('v') }));
+    const fields: ConfigField[] = [
+      { key: 'two', value: map(entries(2)) },
+      { key: 'five', value: map(entries(5)) },
+      { key: 'none', value: map([]) },
+      { key: 'helper', value: { kind: 'secret', value: { type: 'command' } } },
+    ];
+    const { unmount } = render(ConfigTree, { props: { fields, label: 'Ustawienia', defaultDepth: 0 } });
+
+    expect(screen.getByText('2 klucze')).toBeInTheDocument();
+    expect(screen.getByText('5 kluczy')).toBeInTheDocument();
+    expect(screen.getByText('pusto')).toBeInTheDocument();
+    expect(screen.getByText('polecenie (ukryte)')).toBeInTheDocument();
+
+    unmount();
+    render(ConfigTree, { props: { fields: [], label: 'Ustawienia' } });
+
+    expect(screen.getByRole('status')).toHaveTextContent('Brak wpisów w tym pliku.');
+  });
+
   it('opens and closes every branch and long text at once', async () => {
     const { component } = render(ConfigTree, { props: { fields: FIELDS, label: 'Settings' } });
     const tree = screen.getByRole('tree');

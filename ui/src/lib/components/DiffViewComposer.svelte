@@ -3,6 +3,7 @@
 
   import Button from './Button.svelte';
   import { autofocus } from '$lib/a11y/autofocus';
+  import { t } from '$lib/i18n/i18n.svelte';
   import { uid } from '$lib/utils/ids';
 
   interface Props {
@@ -16,7 +17,7 @@
     oncancel: () => void;
   }
 
-  let { heading, initial = '', saveLabel = 'Comment', maxBytes, onsave, oncancel }: Props = $props();
+  let { heading, initial = '', saveLabel, maxBytes, onsave, oncancel }: Props = $props();
 
   const fieldId = uid('comment');
   let body = $state(untrack(() => initial));
@@ -50,13 +51,13 @@
     use:autofocus
     {onkeydown}
     rows="3"
-    placeholder="Leave a comment for the agent…"
+    placeholder={t('components.diff.placeholder')}
     class="w-full resize-none rounded-sm border border-line bg-surface-2 px-3 py-2 text-base text-fg outline-none placeholder:text-fg-3 focus:border-focus"
   ></textarea>
 
   <div class="flex items-center justify-end gap-2">
-    {#if tooLong}<span class="mr-auto text-xs text-danger" role="alert">Too long: a comment holds at most {maxBytes / 1024} KiB.</span>{/if}
-    <Button size="sm" variant="ghost" onclick={oncancel}>Cancel</Button>
-    <Button size="sm" variant="primary" disabled={text === '' || tooLong} onclick={save}>{saveLabel}</Button>
+    {#if tooLong}<span class="mr-auto text-xs text-danger" role="alert">{t('components.diff.tooLong', { size: maxBytes / 1024 })}</span>{/if}
+    <Button size="sm" variant="ghost" onclick={oncancel}>{t('components.diff.cancel')}</Button>
+    <Button size="sm" variant="primary" disabled={text === '' || tooLong} onclick={save}>{saveLabel ?? t('components.diff.comment')}</Button>
   </div>
 </div>

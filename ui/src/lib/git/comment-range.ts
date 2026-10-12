@@ -1,3 +1,4 @@
+import { t } from '$lib/i18n/i18n.svelte';
 import type { CommentSide } from '$lib/ipc/bindings/CommentSide';
 import type { DiffLine } from '$lib/ipc/bindings/DiffLine';
 
@@ -72,9 +73,13 @@ export interface ThreadComment {
 
 /** "Line 4 (new)" or "Lines 3–5 (old)". */
 export function commentHeading(range: Pick<RangeTarget, 'side' | 'startLine' | 'endLine'>): string {
-  const lines = range.startLine === range.endLine ? `Line ${range.startLine}` : `Lines ${range.startLine}–${range.endLine}`;
+  const side = t(range.side === 'old' ? 'changes.comment.side.old' : 'changes.comment.side.new');
 
-  return `${lines} (${range.side})`;
+  if (range.startLine === range.endLine) {
+    return t('changes.comment.line', { line: range.startLine, side });
+  }
+
+  return t('changes.comment.lines', { start: range.startLine, end: range.endLine, side });
 }
 
 /** What a line-number gutter reports while the user picks a line or drags out a range. */

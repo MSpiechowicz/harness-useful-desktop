@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { t } from '$lib/i18n/i18n.svelte';
+
   interface Props {
     timeoutMs: number;
     /** Restarts the countdown when the request changes. */
@@ -31,4 +33,4 @@
   });
 </script>
 
-<span class="tabular shrink-0 rounded-full bg-surface-3 px-2 py-0.5 text-xs text-fg-2" role="timer" aria-label="Time left to answer">{Math.ceil(remainingMs / 1000)}s</span>
+<span class="tabular shrink-0 rounded-full bg-surface-3 px-2 py-0.5 text-xs text-fg-2" role="timer" aria-label={t('chat.countdown.label')}>{t('chat.countdown.value', { seconds: Math.ceil(remainingMs / 1000) })}</span>

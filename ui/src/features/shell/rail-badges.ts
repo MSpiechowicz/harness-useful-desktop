@@ -1,4 +1,5 @@
 import { chatStatus } from '../chat/chat-status';
+import { tn } from '$lib/i18n/i18n.svelte';
 import type { ChatState } from '$lib/chat/types';
 import type { GitStatus } from '$lib/ipc/bindings/GitStatus';
 import type { ViewId } from '$lib/stores/nav.svelte';
@@ -29,7 +30,7 @@ export function railBadge(view: ViewId, chat: ChatState | null, git: GitStatus |
   if (view === 'changes' && git?.isRepo && git.entries.length > 0) {
     const count = git.entries.length;
 
-    return { text: count > 99 ? '99+' : String(count), label: `${count} changed ${count === 1 ? 'file' : 'files'}`, tone: 'accent', busy: false };
+    return { text: count > 99 ? '99+' : String(count), label: tn('shell.count.changedFile', count), tone: 'accent', busy: false };
   }
 
   return null;

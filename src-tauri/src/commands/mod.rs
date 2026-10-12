@@ -43,3 +43,10 @@ async fn authorized_dir(state: &AppState, project: String) -> CommandResult<Path
 
     authorized.ok_or_else(|| CommandError::internal("an authorized project has no path"))
 }
+
+/// The saved UI language, for the text the Rust side shows (native dialog titles).
+async fn saved_language(state: &AppState) -> CommandResult<String> {
+    let prefs = state.prefs.clone();
+
+    blocking(move || Ok(prefs.with(|store| store.load()).language)).await
+}

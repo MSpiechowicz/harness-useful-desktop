@@ -1,3 +1,4 @@
+import { t } from '$lib/i18n/i18n.svelte';
 import { formatDateTime, relativeTime } from '$lib/utils/format';
 
 import type { ExtItem } from './extension-items';
@@ -15,6 +16,10 @@ export interface Fact {
 export interface DetailBasics {
   description: string | null;
   facts: Fact[];
+}
+
+function enabledText(enabled: boolean): string {
+  return t(enabled ? 'extensions.state.enabled' : 'extensions.state.disabled');
 }
 
 function present(facts: (Fact | null)[]): Fact[] {
@@ -41,11 +46,11 @@ export function detailBasics(entry: ExtItem): DetailBasics {
       return {
         description: plugin.description,
         facts: present([
-          { label: 'Identifier', value: plugin.id, mono: true },
-          optional('Version', plugin.version),
-          { label: 'Scope', value: scopeLabel(plugin.scope) },
-          optional('Marketplace', plugin.marketplace),
-          optional('Install directory', plugin.path, { mono: true, path: true }),
+          { label: t('extensions.fact.identifier'), value: plugin.id, mono: true },
+          optional(t('extensions.fact.version'), plugin.version),
+          { label: t('extensions.fact.scope'), value: scopeLabel(plugin.scope) },
+          optional(t('extensions.fact.marketplace'), plugin.marketplace),
+          optional(t('extensions.fact.installDir'), plugin.path, { mono: true, path: true }),
         ]),
       };
     }
@@ -56,10 +61,10 @@ export function detailBasics(entry: ExtItem): DetailBasics {
       return {
         description: null,
         facts: present([
-          { label: 'Source type', value: marketplace.sourceType },
-          { label: 'Source', value: marketplace.source, mono: true },
-          when('Added', marketplace.addedAt),
-          when('Catalog refreshed', marketplace.updatedAt),
+          { label: t('extensions.fact.sourceType'), value: marketplace.sourceType },
+          { label: t('extensions.fact.source'), value: marketplace.source, mono: true },
+          when(t('extensions.fact.added'), marketplace.addedAt),
+          when(t('extensions.fact.refreshed'), marketplace.updatedAt),
         ]),
       };
     }
@@ -70,9 +75,9 @@ export function detailBasics(entry: ExtItem): DetailBasics {
       return {
         description: skill.description,
         facts: [
-          { label: 'Scope', value: scopeLabel(skill.scope) },
-          { label: 'Origin', value: skill.origin },
-          { label: 'File', value: skill.path, mono: true, path: true },
+          { label: t('extensions.fact.scope'), value: scopeLabel(skill.scope) },
+          { label: t('extensions.fact.origin'), value: skill.origin },
+          { label: t('extensions.fact.file'), value: skill.path, mono: true, path: true },
         ],
       };
     }
@@ -83,9 +88,9 @@ export function detailBasics(entry: ExtItem): DetailBasics {
       return {
         description: prompt.description,
         facts: present([
-          optional('Arguments', prompt.argumentHint, { mono: true }),
-          { label: 'Scope', value: scopeLabel(prompt.scope) },
-          { label: 'File', value: prompt.path, mono: true, path: true },
+          optional(t('extensions.fact.arguments'), prompt.argumentHint, { mono: true }),
+          { label: t('extensions.fact.scope'), value: scopeLabel(prompt.scope) },
+          { label: t('extensions.fact.file'), value: prompt.path, mono: true, path: true },
         ]),
       };
     }
@@ -96,10 +101,10 @@ export function detailBasics(entry: ExtItem): DetailBasics {
       return {
         description: null,
         facts: present([
-          { label: 'Transport', value: server.transport },
-          { label: 'Status', value: server.enabled ? 'Enabled' : 'Disabled' },
-          optional('Command', server.command, { mono: true }),
-          { label: 'Defined in', value: server.source.path, mono: true, path: server.source.exists },
+          { label: t('extensions.fact.transport'), value: server.transport },
+          { label: t('extensions.fact.status'), value: enabledText(server.enabled) },
+          optional(t('extensions.fact.command'), server.command, { mono: true }),
+          { label: t('extensions.fact.definedIn'), value: server.source.path, mono: true, path: server.source.exists },
         ]),
       };
     }
@@ -108,8 +113,8 @@ export function detailBasics(entry: ExtItem): DetailBasics {
       const theme = entry.data;
 
       return {
-        description: theme.active ? 'This theme is currently selected.' : null,
-        facts: present([{ label: 'Scope', value: scopeLabel(theme.scope) }, optional('File', theme.path, { mono: true, path: true })]),
+        description: theme.active ? t('extensions.fact.themeActive') : null,
+        facts: present([{ label: t('extensions.fact.scope'), value: scopeLabel(theme.scope) }, optional(t('extensions.fact.file'), theme.path, { mono: true, path: true })]),
       };
     }
 
@@ -119,8 +124,8 @@ export function detailBasics(entry: ExtItem): DetailBasics {
       return {
         description: null,
         facts: [
-          { label: 'Kind', value: pkg.kind },
-          { label: 'Scope', value: scopeLabel(pkg.scope) },
+          { label: t('extensions.fact.kind'), value: pkg.kind },
+          { label: t('extensions.fact.scope'), value: scopeLabel(pkg.scope) },
         ],
       };
     }
@@ -131,9 +136,9 @@ export function detailBasics(entry: ExtItem): DetailBasics {
       return {
         description: null,
         facts: [
-          { label: 'Status', value: module.enabled ? 'Enabled' : 'Disabled' },
-          { label: 'Scope', value: scopeLabel(module.scope) },
-          { label: 'Path', value: module.path, mono: true, path: true },
+          { label: t('extensions.fact.status'), value: enabledText(module.enabled) },
+          { label: t('extensions.fact.scope'), value: scopeLabel(module.scope) },
+          { label: t('extensions.fact.path'), value: module.path, mono: true, path: true },
         ],
       };
     }

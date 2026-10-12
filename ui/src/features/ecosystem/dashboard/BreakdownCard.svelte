@@ -6,6 +6,7 @@
   import type { StripOption } from '$lib/components/strip';
   import { formatShare, formatTokens, formatUsd } from '$lib/dashboard/format';
   import type { Breakdown, BreakdownRow } from '$lib/dashboard/models';
+  import { t, tn } from '$lib/i18n/i18n.svelte';
   import { dashboard, type PanelDimension, type PanelRange } from '$lib/stores/dashboard.svelte';
 
   import { modelColor, otherColor, providerColor } from '../charts/colors';
@@ -22,19 +23,29 @@
 
   let { range, index = 0 }: Props = $props();
 
-  const DIMENSIONS: StripOption<PanelDimension>[] = [
-    { value: 'model', label: 'By model' },
-    { value: 'provider', label: 'By harness' },
-  ];
+  const DIMENSIONS = $derived<StripOption<PanelDimension>[]>([
+    { value: 'model', label: t('ecosystem.breakdown.byModel') },
+    { value: 'provider', label: t('ecosystem.breakdown.byHarness') },
+  ]);
 
   const slot = $derived(dashboard.dimension === 'model' ? dashboard.byModel : dashboard.byProvider);
   const phrase = $derived(phraseOf(slot.data?.range, range));
-  const noun = $derived(dashboard.dimension === 'model' ? 'model' : 'harness');
+  const by = $derived(dashboard.dimension === 'model' ? 'model' : 'provider');
+
+  /** "17.6k tokens": the compact figure, with the noun agreeing with the exact count. */
+  function tokensText(count: number): string {
+    return tn('ecosystem.count.token', count, { tokens: formatTokens(count) });
+  }
 
   function describe(row: BreakdownRow): string {
-    const parts = [`${row.key}: ${formatUsd(row.costUsd)}`, formatShare(row.share), `${formatTokens(row.tokens)} tokens`, `${row.sessions} sessions`];
+    const parts = [
+      `${row.key}: ${formatUsd(row.costUsd)}`,
+      formatShare(row.share),
+      tokensText(row.tokens),
+      tn('ecosystem.count.session', row.sessions),
+    ];
     if (row.estimatedPrice) {
-      parts.push('price estimated');
+      parts.push(t('ecosystem.breakdown.priceEstimated'));
     }
 
     return parts.join(', ');
@@ -71,12 +82,12 @@
 
       parts.push({
         key: '__other',
-        label: 'other',
+        label: t('ecosystem.breakdown.rest'),
         value: cost,
         valueLabel: formatUsd(cost),
         shareLabel: formatShare(share),
         note: names,
-        description: `other (${names}): ${formatUsd(cost)}, ${formatShare(share)}`,
+        description: t('ecosystem.breakdown.otherDescription', { names, cost: formatUsd(cost), share: formatShare(share) }),
         color: otherColor(),
       });
     }
@@ -89,21 +100,26 @@
   }
 </script>
 
-<SlotCard title="Where the spend goes" subtitle="Cost by {noun} for {phrase}" {slot} onretry={load} {index} class="@container">
+<SlotCard title={t('ecosystem.breakdown.title')} subtitle={t(`ecosystem.breakdown.subtitle.${by}`, { phrase })} {slot} onretry={load} {index} class="@container">
   {#snippet actions()}
-    <SegmentedControl label="Group the cost by" options={DIMENSIONS} bind:value={() => dashboard.dimension, (next) => (dashboard.dimension = next)} />
+    <SegmentedControl label={t('ecosystem.breakdown.group')} options={DIMENSIONS} bind:value={() => dashboard.dimension, (next) => (dashboard.dimension = next)} />
   {/snippet}
 
   {#snippet children(breakdown)}
     {#if breakdown.rows.length === 0}
-      <CardEmpty icon={CircleDollarSign} title="Nothing was spent in this range." />
+      <CardEmpty icon={CircleDollarSign} title={t('ecosystem.breakdown.empty')} />
     {:else}
-      <Donut segments={segments(breakdown)} label="Cost by {noun}, {phraseOf(breakdown.range, range)}" total={formatUsd(breakdown.totalCostUsd)} caption="total" />
+      <Donut
+        segments={segments(breakdown)}
+        label={t(`ecosystem.breakdown.label.${by}`, { phrase: phraseOf(breakdown.range, range) })}
+        total={formatUsd(breakdown.totalCostUsd)}
+        caption={t('ecosystem.breakdown.total')}
+      />
 
       <p class="tabular mt-3 flex items-center gap-1.5 border-t border-line pt-3 text-xs text-fg-3">
         <Info size={16} class="shrink-0" aria-hidden="true" />
-        Total {formatUsd(breakdown.totalCostUsd)} · {formatTokens(breakdown.totalTokens)} tokens, at API list prices.
-        {#if breakdown.rows.some((row) => row.estimatedPrice)}Some prices are estimated.{/if}
+        {t('ecosystem.breakdown.footer', { cost: formatUsd(breakdown.totalCostUsd), tokens: tokensText(breakdown.totalTokens) })}
+        {#if breakdown.rows.some((row) => row.estimatedPrice)}{t('ecosystem.breakdown.estimated')}{/if}
       </p>
     {/if}
   {/snippet}

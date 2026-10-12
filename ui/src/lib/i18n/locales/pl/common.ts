@@ -1,0 +1,31 @@
+import type { common as enCommon } from '../en/common';
+import type { AreaMessages } from '../types';
+
+export const common: AreaMessages<typeof enCommon> = {
+  'common.cancel': 'Anuluj',
+  'common.close': 'Zamknij',
+  'common.save': 'Zapisz',
+  'common.retry': 'Ponów',
+  'common.copy': 'Kopiuj',
+  'common.copied': 'Skopiowano',
+  'common.open': 'Otwórz',
+  'common.remove': 'Usuń',
+  'common.back': 'Wstecz',
+  'common.next': 'Dalej',
+  'common.done': 'Gotowe',
+  'common.loading': 'Ładowanie…',
+  'common.search': 'Szukaj',
+  'common.showMore': 'Pokaż więcej',
+  'common.showLess': 'Pokaż mniej',
+  'common.justNow': 'przed chwilą',
+  'common.unit.byte.one': 'bajt',
+  'common.unit.byte.few': 'bajty',
+  'common.unit.byte.many': 'bajtów',
+  'common.unit.byte.other': 'bajtów',
+  'common.language': 'Język',
+  'common.languageCurrent': 'Język: {language}',
+  'common.theme': 'Motyw',
+  'common.theme.system': 'Systemowy',
+  'common.theme.light': 'Jasny',
+  'common.theme.dark': 'Ciemny',
+};

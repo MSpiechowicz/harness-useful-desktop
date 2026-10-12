@@ -13,7 +13,7 @@
   import Skeleton from '$lib/components/Skeleton.svelte';
   import ViewHeader from '$lib/components/ViewHeader.svelte';
   import RefreshButton from '$lib/components/RefreshButton.svelte';
-  import { SCOPE_LABELS } from '$lib/git/entries';
+  import { t } from '$lib/i18n/i18n.svelte';
   import { agentSessions } from '$lib/stores/agentSession.svelte';
   import { git } from '$lib/stores/git.svelte';
   import { nav } from '$lib/stores/nav.svelte';
@@ -49,52 +49,64 @@
 
   const emptyMessage = $derived.by(() => {
     if (git.filter) {
-      return 'None of the files this session touched have uncommitted changes.';
+      return t('changes.empty.filtered');
     }
 
-    return git.scope === 'all' ? 'The working tree is clean.' : `No ${SCOPE_LABELS[git.scope].toLowerCase()} changes.`;
+    switch (git.scope) {
+      case 'all':
+        return t('changes.empty.clean');
+
+      case 'unstaged':
+        return t('changes.empty.unstaged');
+
+      case 'staged':
+        return t('changes.empty.staged');
+
+      case 'untracked':
+        return t('changes.empty.untracked');
+    }
   });
 </script>
 
 <div class="flex size-full min-h-0 flex-col">
-  <ViewHeader title="Changes" icon={GitCompare} context={scopeLabel(git.status?.isRepo ? count(git.status.entries.length, 'changed file') : null)}>
+  <ViewHeader title={t('changes.title')} icon={GitCompare} context={scopeLabel(git.status?.isRepo ? count(git.status.entries.length, 'changed file') : null)}>
     {#snippet actions()}
       {#if agentSessions.active}
         <Button variant="ghost" onclick={() => nav.go('chat')}>
           {#snippet leading()}<MessageSquare size={ICON.sm} aria-hidden="true" />{/snippet}
-          Back to chat
+          {t('changes.backToChat')}
         </Button>
       {/if}
-      <RefreshButton label="Refresh changes" disabled={!active} busy={git.refreshing} onclick={() => void git.refresh()} />
+      <RefreshButton label={t('changes.refresh')} disabled={!active} busy={git.refreshing} onclick={() => void git.refresh()} />
     {/snippet}
   </ViewHeader>
 
   <div class="relative min-h-0 flex-1">
     {#if !active}
       <div class="grid size-full place-items-center">
-        <EmptyState icon={FolderOpen} title="Open a project to see its changes" body="Changes shows the git diff of one project folder.">
+        <EmptyState icon={FolderOpen} title={t('changes.empty.noProject.title')} body={t('changes.empty.noProject.body')}>
           {#snippet action()}
-            <Button variant="primary" onclick={() => void project.pick()}>Open a project…</Button>
+            <Button variant="primary" onclick={() => void project.pick()}>{t('changes.empty.noProject.action')}</Button>
           {/snippet}
         </EmptyState>
       </div>
     {:else if !git.status && git.loadStatus === 'error'}
       <div class="grid size-full place-items-center">
-        <EmptyState icon={CircleAlert} title="Could not read the changes" body={git.error?.message}>
+        <EmptyState icon={CircleAlert} title={t('changes.empty.error')} body={git.error?.message}>
           {#snippet action()}
-            <Button onclick={() => void git.refresh()}>Try again</Button>
+            <Button onclick={() => void git.refresh()}>{t('changes.tryAgain')}</Button>
           {/snippet}
         </EmptyState>
       </div>
     {:else if !git.status}
-      <div class="flex flex-col gap-3 p-8" role="status" aria-label="Loading changes">
+      <div class="flex flex-col gap-3 p-8" role="status" aria-label={t('changes.loading')}>
         <Skeleton width="14rem" height="1.75rem" />
         <Skeleton height="2.5rem" />
         <Skeleton height="2.5rem" />
       </div>
     {:else if !git.status.isRepo}
       <div class="grid size-full place-items-center">
-        <EmptyState icon={GitCompare} title="{active.name} is not a git repository" body="Run git init in the folder, or open a project that is tracked by git." />
+        <EmptyState icon={GitCompare} title={t('changes.empty.notRepo.title', { name: active.name })} body={t('changes.empty.notRepo.body')} />
       </div>
     {:else}
       <div class="flex size-full min-h-0 flex-col">
@@ -105,12 +117,12 @@
             <div class="grid size-full place-items-center">
               <EmptyState icon={SearchX} title={emptyMessage}>
                 {#snippet action()}
-                  {#if git.filter}<Button onclick={() => git.clearFilter()}>Show all changes</Button>{/if}
+                  {#if git.filter}<Button onclick={() => git.clearFilter()}>{t('changes.showAll')}</Button>{/if}
                 {/snippet}
               </EmptyState>
             </div>
           {:else}
-            <ListDetail label="Resize file list" size={300}>
+            <ListDetail label={t('changes.resize')} size={300}>
               {#snippet list()}
                 <div class="min-h-0 flex-1 overflow-y-auto"><FileList entries={git.entries} {commentCounts} /></div>
               {/snippet}

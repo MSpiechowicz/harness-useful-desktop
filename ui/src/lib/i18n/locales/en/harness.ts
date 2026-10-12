@@ -1,0 +1,30 @@
+export const harness = {
+  'harness.boundary.setup': 'The setup',
+  'harness.boundary.intro': 'The intro',
+  'harness.boundary.notifications': 'Notifications',
+
+  'harness.gate.noneTitle': 'No harness found',
+  'harness.gate.noneBody': 'Harness Desktop works with OMP and PI. Run the setup to detect them.',
+  'harness.gate.missingTitle': '{name} is not installed',
+  'harness.gate.setup': 'Set up {name}',
+  'harness.gate.retry': 'Try again',
+  'harness.gate.banner': '{name} is not installed; showing what is on disk.',
+
+  'harness.gate.config.missingBody': 'Install it, or point Harness Desktop at an existing binary, to see its configuration here.',
+  'harness.gate.config.errorTitle': 'Could not read the configuration',
+  'harness.gate.config.loading': 'Loading configuration',
+  'harness.gate.config.refreshing': 'Refreshing configuration',
+  'harness.gate.extensions.missingBody': 'Install it, or point Harness Desktop at an existing binary, to see its extensions here.',
+  'harness.gate.extensions.errorTitle': 'Could not read the extensions',
+  'harness.gate.extensions.loading': 'Loading extensions',
+  'harness.gate.extensions.refreshing': 'Refreshing extensions',
+
+  'harness.toast.scan': 'Could not scan for harnesses',
+  'harness.toast.pickBinary': 'Could not use that file',
+  'harness.toast.clearBinary': 'Could not reset the binary',
+  'harness.toast.recents': 'Could not read recent projects',
+  'harness.toast.pickFolder': 'Could not open that folder',
+  'harness.toast.openProject': 'Could not open the project',
+  'harness.toast.closeProject': 'Could not close the project',
+  'harness.toast.forgetProject': 'Could not forget the project',
+} satisfies Record<string, string>;

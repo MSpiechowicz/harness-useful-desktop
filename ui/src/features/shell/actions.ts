@@ -1,3 +1,4 @@
+import { t } from '$lib/i18n/i18n.svelte';
 import type { MotionPref } from '$lib/ipc/bindings/MotionPref';
 import type { ThemePref } from '$lib/ipc/bindings/ThemePref';
 import { agentSessions } from '$lib/stores/agentSession.svelte';
@@ -19,7 +20,7 @@ export function focusComposer(): void {
   let attempts = 0;
 
   function tryFocus(): void {
-    const composer = document.querySelector<HTMLTextAreaElement>('textarea[aria-label="Message"]');
+    const composer = document.querySelector<HTMLTextAreaElement>('textarea[role="combobox"]');
 
     if (composer) {
       composer.focus();
@@ -39,13 +40,13 @@ export async function newChat(): Promise<void> {
   nav.go('chat');
 
   if (!active?.detection.installed) {
-    toasts.push({ title: 'No harness to chat with', description: 'Run the setup to detect OMP or PI.', tone: 'warning' });
+    toasts.push({ title: t('shell.toast.noHarness.title'), description: t('shell.toast.noHarness.description'), tone: 'warning' });
 
     return;
   }
 
   if (!project.active) {
-    toasts.push({ title: 'Open a project first', description: 'The agent works inside one folder.', tone: 'info' });
+    toasts.push({ title: t('shell.toast.needProject.title'), description: t('shell.toast.needProject.description'), tone: 'info' });
 
     return;
   }
@@ -128,7 +129,7 @@ export async function resumeLastSession(): Promise<void> {
   const path = project.active?.path;
 
   if (!newest || !path) {
-    toasts.push({ title: 'No saved session to resume', tone: 'info' });
+    toasts.push({ title: t('shell.toast.noSession'), tone: 'info' });
 
     return;
   }

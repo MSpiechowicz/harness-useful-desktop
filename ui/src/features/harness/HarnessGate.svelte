@@ -7,6 +7,7 @@
   import Button from '$lib/components/Button.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
   import Skeleton from '$lib/components/Skeleton.svelte';
+  import { t } from '$lib/i18n/i18n.svelte';
   import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
   import { harness } from '$lib/stores/harness.svelte';
   import { project } from '$lib/stores/project.svelte';
@@ -16,12 +17,12 @@
 
   interface Props {
     loader: ViewLoader<T>;
-    /** What the view shows, for messages: "configuration", "extensions". */
-    noun: string;
+    /** Which view the gate guards; each has its own full sentences. */
+    area: 'config' | 'extensions';
     children: Snippet<[T]>;
   }
 
-  let { loader, noun, children }: Props = $props();
+  let { loader, area, children }: Props = $props();
 
   const active = $derived(harness.active);
   const data = $derived(loader.data && loader.data.harness === active?.info.id ? loader.data : null);
@@ -36,21 +37,21 @@
   {@render loading()}
 {:else if !active}
   <div class="grid size-full place-items-center">
-    <EmptyState icon={PackageOpen} title="No harness found" body="Harness Desktop works with OMP and PI. Run the setup to detect them." />
+    <EmptyState icon={PackageOpen} title={t('harness.gate.noneTitle')} body={t('harness.gate.noneBody')} />
   </div>
 {:else if !active.detection.installed && !active.detection.configDirExists}
   <div class="grid size-full place-items-center">
-    <EmptyState icon={PackageOpen} title="{active.info.name} is not installed" body="Install it, or point Harness Desktop at an existing binary, to see its {noun} here.">
+    <EmptyState icon={PackageOpen} title={t('harness.gate.missingTitle', { name: active.info.name })} body={t(`harness.gate.${area}.missingBody`)}>
       {#snippet action()}
-        <Button variant="primary" onclick={() => onboarding.restart()}>Set up {active.info.shortName}</Button>
+        <Button variant="primary" onclick={() => onboarding.restart()}>{t('harness.gate.setup', { name: active.info.shortName })}</Button>
       {/snippet}
     </EmptyState>
   </div>
 {:else if loader.status === 'error' && !data}
   <div class="grid size-full place-items-center">
-    <EmptyState icon={CircleAlert} title="Could not read the {noun}" body={loader.error?.message}>
+    <EmptyState icon={CircleAlert} title={t(`harness.gate.${area}.errorTitle`)} body={loader.error?.message}>
       {#snippet action()}
-        <Button onclick={() => loader.refresh()}>Try again</Button>
+        <Button onclick={() => loader.refresh()}>{t('harness.gate.retry')}</Button>
       {/snippet}
     </EmptyState>
   </div>
@@ -59,8 +60,8 @@
     {#if !active.detection.installed}
       <div class="mx-6 mt-4 flex items-center gap-3 rounded-md border border-line bg-warning-wash px-3.5 py-2.5 text-sm text-fg" role="status">
         <TriangleAlert class="shrink-0 text-warning" size={16} aria-hidden="true" />
-        <span class="flex-1">{active.info.name} is not installed; showing what is on disk.</span>
-        <Button size="sm" onclick={() => onboarding.restart()}>Set up {active.info.shortName}</Button>
+        <span class="flex-1">{t('harness.gate.banner', { name: active.info.name })}</span>
+        <Button size="sm" onclick={() => onboarding.restart()}>{t('harness.gate.setup', { name: active.info.shortName })}</Button>
       </div>
     {/if}
 
@@ -71,7 +72,7 @@
 {/if}
 
 {#snippet loading()}
-  <div class="flex flex-col gap-3 p-8" role="status" aria-label="Loading {noun}">
+  <div class="flex flex-col gap-3 p-8" role="status" aria-label={t(`harness.gate.${area}.loading`)}>
     <Skeleton width="14rem" height="1.75rem" />
     <Skeleton height="2.5rem" />
     <Skeleton height="2.5rem" />
@@ -79,4 +80,4 @@
   </div>
 {/snippet}
 
-<span class="sr-only" aria-live="polite">{loader.status === 'loading' && data ? `Refreshing ${noun}` : ''}</span>
+<span class="sr-only" aria-live="polite">{loader.status === 'loading' && data ? t(`harness.gate.${area}.refreshing`) : ''}</span>

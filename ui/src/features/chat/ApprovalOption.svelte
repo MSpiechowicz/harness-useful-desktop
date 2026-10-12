@@ -3,6 +3,7 @@
   import type { Component } from 'svelte';
 
   import { cx } from '$lib/utils/cx';
+  import { t } from '$lib/i18n/i18n.svelte';
 
   import type { ModeTone } from './approval-modes';
 
@@ -46,7 +47,7 @@
   <span class="flex min-w-0 flex-1 flex-col gap-0.5">
     <span class="flex items-center gap-2 text-sm font-medium text-fg">
       <span class="truncate first-letter:uppercase">{label}</span>
-      {#if current}<span class="shrink-0 rounded-full bg-hover px-1.5 py-px text-[11px] font-normal text-fg-3">Current</span>{/if}
+      {#if current}<span class="shrink-0 rounded-full bg-hover px-1.5 py-px text-[11px] font-normal text-fg-3">{t('chat.approval.current')}</span>{/if}
     </span>
     <span class="truncate text-xs text-fg-3 first-letter:uppercase">{description}</span>
   </span>

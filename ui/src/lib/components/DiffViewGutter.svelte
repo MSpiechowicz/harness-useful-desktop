@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n/i18n.svelte';
   import type { PickHandlers } from '$lib/git/comment-range';
   import type { CommentSide } from '$lib/ipc/bindings/CommentSide';
   import { cx } from '$lib/utils/cx';
@@ -38,7 +39,7 @@
 {:else}
   <button
     type="button"
-    aria-label="Comment on {side} line {number}"
+    aria-label={t(side === 'old' ? 'components.diff.gutter.old' : 'components.diff.gutter.new', { number })}
     class={cx(BASE, 'cursor-pointer transition-colors duration-[var(--dur-fast)] hover:bg-accent-wash hover:text-accent-text focus-visible:text-accent-text', className)}
     {onpointerdown}
     onpointerenter={() => pick.extend(index, side)}

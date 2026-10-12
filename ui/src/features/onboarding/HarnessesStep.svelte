@@ -3,6 +3,7 @@
 
   import Button from '$lib/components/Button.svelte';
   import Skeleton from '$lib/components/Skeleton.svelte';
+  import { t } from '$lib/i18n/i18n.svelte';
   import { harness } from '$lib/stores/harness.svelte';
   import { cx } from '$lib/utils/cx';
   import { rovingIndex } from '$lib/utils/roving';
@@ -29,38 +30,38 @@
 
 <div class={cx('mx-auto flex w-full flex-col gap-8 [@media(max-height:720px)]:gap-4', WIDTH.wide)}>
   <StepHeader
-    eyebrow="Your harnesses"
-    title="Which agent do you use every day?"
-    body="We looked for OMP and PI on this machine. Pick your daily driver; you can switch any time from the top bar."
+    eyebrow={t('onboarding.harnesses.eyebrow')}
+    title={t('onboarding.harnesses.title')}
+    body={t('onboarding.harnesses.body')}
   />
 
   {#if harness.status === 'loading' || harness.status === 'idle'}
-    <div class="grid grid-cols-2 gap-4" role="status" aria-label="Looking for harnesses">
+    <div class="grid grid-cols-2 gap-4" role="status" aria-label={t('onboarding.harnesses.looking')}>
       <Skeleton height="16rem" />
       <Skeleton height="16rem" />
     </div>
   {:else if harness.status === 'error'}
     <p class="rounded-md border border-line bg-danger-wash p-4 text-sm text-fg" role="alert">
-      Could not scan for harnesses: {harness.error?.message}
+      {t('onboarding.harnesses.error', { message: harness.error?.message })}
     </p>
   {:else}
     <!-- What the scan found, with the way to scan again right next to it. -->
     <div class="-mb-1 flex items-center justify-between gap-3">
       <p class="text-sm text-fg-3">
         {#if installed.length === 0}
-          No harness found yet. You can continue and install one later.
+          {t('onboarding.harnesses.none')}
         {:else}
-          Found {installed.length} of {harness.summaries.length} on this machine.
+          {t('onboarding.harnesses.found', { found: installed.length, total: harness.summaries.length })}
         {/if}
       </p>
       <Button variant="ghost" size="sm" loading={harness.scanning} onclick={() => void harness.rescan()}>
         {#snippet leading()}<RotateCw size={16} aria-hidden="true" />{/snippet}
-        Re-scan
+        {t('onboarding.harnesses.rescan')}
       </Button>
     </div>
 
     <!-- Arrow keys are a convenience on top of the radio buttons, which are individually focusable. -->
-    <div role="radiogroup" aria-label="Daily driver" tabindex="-1" class="grid grid-cols-2 items-start gap-4 outline-none" onkeydown={onKeydown}>
+    <div role="radiogroup" aria-label={t('onboarding.harnesses.group')} tabindex="-1" class="grid grid-cols-2 items-start gap-4 outline-none" onkeydown={onKeydown}>
       {#each harness.summaries as summary (summary.info.id)}
         <HarnessCard {summary} selected={onboarding.driver === summary.info.id} onselect={() => onboarding.choose(summary.info.id)} />
       {/each}
