@@ -35,6 +35,8 @@ export const updates = {
   'updates.indicator.restart': 'Restart to update',
   'updates.indicator.failed': 'Update failed',
 
+  'updates.install.restart': 'Install & restart',
+
   'updates.notice.label': 'Update',
   'updates.notice.available': 'Update {version} is available',
   'updates.notice.updating': 'Updating to {version}',

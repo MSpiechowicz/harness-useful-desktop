@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Download from '@lucide/svelte/icons/download';
   import ExternalLink from '@lucide/svelte/icons/external-link';
   import Info from '@lucide/svelte/icons/info';
   import RefreshCw from '@lucide/svelte/icons/refresh-cw';
@@ -130,10 +131,7 @@
 
   {#if release && state.kind !== 'failed'}
     <div class="flex flex-col gap-4 py-4">
-      <div class="flex items-baseline justify-between gap-4">
-        <p class="text-base font-medium text-fg">{t('settings.updates.version', { version: release.version })}</p>
-        {#if date}<p class="text-sm text-fg-3">{date}</p>{/if}
-      </div>
+      {#if date}<p class="text-sm text-fg-3">{date}</p>{/if}
 
       {#if notes}
         <!-- The notes are untrusted text from the release; only the sanitized Markdown component may show them. -->
@@ -143,23 +141,59 @@
         </div>
       {/if}
 
-      {#if state.kind === 'available'}
-        <div class="flex flex-wrap items-center gap-3">
-          <Button variant="primary" onclick={() => void updates.install()}>{t('settings.updates.install')}</Button>
-          {#if updates.closesApp}<p class="text-sm text-fg-3">{installerClosesApp()}</p>{/if}
-        </div>
-      {:else if state.kind === 'downloading' || state.kind === 'installing'}
-        <UpdateProgress />
-        {#if updates.closesApp}<p class="text-sm text-fg-3">{installerClosesApp()}</p>{/if}
-      {:else if state.kind === 'readyToRelaunch'}
-        <div class="flex flex-wrap items-center gap-3">
-          <Button variant="primary" onclick={() => void updates.requestRelaunch()}>
-            {#snippet leading()}<RotateCw size={ICON.sm} aria-hidden="true" />{/snippet}
-            {updates.closesApp ? t('settings.updates.finish') : t('settings.updates.restart')}
-          </Button>
-          <p class="text-sm text-fg-3">{updates.closesApp ? installerClosesApp() : restartStopsAgents()}</p>
-        </div>
+      <!-- The dashboard's compact update card: a single rounded surface with the available version and a one-click
+           "Install & restart" button (whose download icon bobs so a waiting update is hard to miss). Mirrors the
+           pattern in harness-useful-dashboard so the two apps feel like the same product. -->
+      <div class="rounded-lg border border-line bg-accent-wash px-3 py-2.5 text-xs">
+        <div class="font-medium text-fg">{t('updates.status.available', { version: release.version })}</div>
+
+        {#if state.kind === 'available'}
+          <div class="mt-2">
+            <Button size="sm" variant="primary" onclick={() => void updates.install()}>
+              {#snippet leading()}<span class="update-arrow"><Download size={ICON.sm} aria-hidden="true" /></span>{/snippet}
+              {t('updates.install.restart')}
+            </Button>
+          </div>
+        {:else if state.kind === 'downloading' || state.kind === 'installing'}
+          <div class="mt-2"><UpdateProgress /></div>
+        {:else if state.kind === 'readyToRelaunch'}
+          <div class="mt-2">
+            <Button size="sm" variant="primary" onclick={() => void updates.requestRelaunch()}>
+              {#snippet leading()}<RotateCw size={ICON.sm} aria-hidden="true" />{/snippet}
+              {updates.closesApp ? t('settings.updates.finish') : t('settings.updates.restart')}
+            </Button>
+          </div>
+        {/if}
+      </div>
+
+      {#if updates.closesApp && (state.kind === 'available' || state.kind === 'downloading' || state.kind === 'installing')}
+        <p class="text-sm text-fg-3">{installerClosesApp()}</p>
+      {:else if state.kind === 'readyToRelaunch' && !updates.closesApp}
+        <p class="text-sm text-fg-3">{restartStopsAgents()}</p>
       {/if}
     </div>
   {/if}
 </SettingsSection>
+
+<style>
+  /* The download icon bobs on the "Install & restart" button so a waiting update is hard to miss. Still for whoever
+     asked for less motion. */
+  .update-arrow {
+    display: inline-flex;
+    animation: update-bob 1.8s ease-in-out infinite;
+  }
+  @keyframes update-bob {
+    0%,
+    100% {
+      transform: translateY(-1px);
+    }
+    50% {
+      transform: translateY(1.5px);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .update-arrow {
+      animation: none;
+    }
+  }
+</style>

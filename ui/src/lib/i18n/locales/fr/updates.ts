@@ -38,6 +38,8 @@ export const updates: AreaMessages<typeof enUpdates> = {
   'updates.indicator.restart': 'Redémarrer pour mettre à jour',
   'updates.indicator.failed': 'Échec de la mise à jour',
 
+  'updates.install.restart': 'Installer et redémarrer',
+
   'updates.notice.label': 'Mise à jour',
   'updates.notice.available': 'La mise à jour {version} est disponible',
   'updates.notice.updating': 'Mise à jour vers la version {version}',
