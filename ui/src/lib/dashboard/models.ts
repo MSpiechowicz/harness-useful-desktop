@@ -133,6 +133,8 @@ export interface BreakdownRow {
   share: number;
   tokens: number;
   sessions: number;
+  /** Share of the row's input tokens read from the cache, 0..1; null when the dashboard did not say. */
+  cacheHitRate: number | null;
   estimatedPrice: boolean;
 }
 
@@ -158,6 +160,7 @@ export function readBreakdown(result: DashboardResult): Breakdown {
       share: number(row, 'share') ?? 0,
       tokens: number(row, 'tokens') ?? 0,
       sessions: number(row, 'sessions') ?? 0,
+      cacheHitRate: number(row, 'cacheHitRate'),
       estimatedPrice: row.estimatedPrice === true,
     })),
   };

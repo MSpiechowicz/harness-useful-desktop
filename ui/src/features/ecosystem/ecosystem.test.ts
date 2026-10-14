@@ -102,10 +102,27 @@ describe('Ecosystem view', () => {
     expect(within(modelRows).getByText('claude-opus-5-5')).toBeInTheDocument();
     expect(within(modelRows).getByText('$23.69')).toBeInTheDocument();
 
-    await fireEvent.click(screen.getByRole('radio', { name: 'By harness' }));
+    const spend = screen.getByRole('region', { name: 'Where the spend goes' });
+    await fireEvent.click(within(spend).getByRole('radio', { name: 'By harness' }));
 
     const harnesses = await screen.findByRole('list', { name: 'Cost by harness, the last 7 days, values' });
     expect(within(harnesses).getAllByRole('listitem').map((row) => row.querySelector('[title]')?.textContent)).toEqual(['omp', 'claude', 'pi', 'codex']);
+    // The cache card has its own switch: it stays on models.
+    const cache = screen.getByRole('region', { name: 'Cache' });
+    expect(within(cache).getByRole('radio', { name: 'By model' })).toBeChecked();
+  });
+
+  it('groups the cache hit rate on its own switch, apart from the spend card', async () => {
+    await show();
+
+    const cache = await screen.findByRole('region', { name: 'Cache' });
+    expect(await within(cache).findByRole('list', { name: 'Hit rate by model' })).toBeInTheDocument();
+
+    await fireEvent.click(within(cache).getByRole('radio', { name: 'By harness' }));
+
+    expect(await within(cache).findByRole('list', { name: 'Hit rate by harness' })).toBeInTheDocument();
+    const spend = screen.getByRole('region', { name: 'Where the spend goes' });
+    expect(within(spend).getByRole('radio', { name: 'By model' })).toBeChecked();
   });
 
   it('shows plan limits and budgets as meters with words, not only colors', async () => {

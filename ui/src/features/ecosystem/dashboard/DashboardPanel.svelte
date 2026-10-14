@@ -7,6 +7,7 @@
 
   import BreakdownCard from './BreakdownCard.svelte';
   import BudgetsCard from './BudgetsCard.svelte';
+  import CacheCard from './CacheCard.svelte';
   import FailuresCard from './FailuresCard.svelte';
   import LimitsCard from './LimitsCard.svelte';
   import RecentFailuresCard from './RecentFailuresCard.svelte';
@@ -34,16 +35,19 @@
 
   <UsageTiles slot={dashboard.usage} range={dashboard.range} onretry={() => void dashboard.openPanel(true)} />
 
-  <BreakdownCard range={dashboard.range} index={2} />
-
   <div class="grid gap-4 @3xl:grid-cols-2">
-    <LimitsCard index={3} />
-    <BudgetsCard index={4} />
+    <BreakdownCard range={dashboard.range} index={2} />
+    <CacheCard range={dashboard.range} index={3} />
   </div>
 
   <div class="grid gap-4 @3xl:grid-cols-2">
-    <FailuresCard range={dashboard.range} index={5} />
-    <RecentFailuresCard range={dashboard.range} index={6} />
+    <LimitsCard index={4} />
+    <BudgetsCard index={5} />
   </div>
-  <TipsCard index={7} />
+
+  <div class="grid gap-4 @3xl:grid-cols-2">
+    <FailuresCard range={dashboard.range} index={6} />
+    <RecentFailuresCard range={dashboard.range} index={7} />
+  </div>
+  <TipsCard index={8} />
 </section>
