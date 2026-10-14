@@ -1,4 +1,5 @@
 import { applyChatDefaults } from '$lib/chat/chat-defaults';
+import { activeSubagentCount } from '$lib/chat/subagents';
 import { SvelteMap } from 'svelte/reactivity';
 
 import { t } from '$lib/i18n/i18n.svelte';
@@ -257,6 +258,52 @@ export class AgentSessionsStore {
     if (resume) {
       void fresh.loadHistory();
     }
+
+    return fresh;
+  }
+
+  /**
+   * Restarts the open chats of a harness that are not busy, so they load what changed (an updated or removed plugin);
+   * each resumes its conversation in the same tab. A chat that is answering or has helpers running is left alone.
+   * Returns how many were restarted.
+   */
+  async reloadIdle(harnessId: HarnessId): Promise<number> {
+    const idle = this.sessions.filter((session) => session.info.harness === harnessId && !session.ended && !session.streaming && activeSubagentCount(session.chat) === 0);
+
+    for (const session of idle) {
+      await this.restart(session.key, {});
+    }
+
+    return idle.length;
+  }
+
+  /**
+   * Hands a chat to another harness in its own tab. The agent cannot change harness mid-conversation, so a fresh one
+   * starts in the same project while the tab shows the new harness and a spinner; when it is ready it takes the tab's
+   * place, number, draft and any name the user gave it. The old conversation stays in Sessions. A failed start leaves
+   * the chat as it was.
+   */
+  async changeHarness(key: string, harnessId: HarnessId): Promise<ChatSession | null> {
+    const old = this.get(key);
+    if (!old || old.switchingTo || old.info.harness === harnessId) {
+      return null;
+    }
+
+    old.switchingTo = harnessId;
+    const fresh = await this.start({ harness: harnessId, project: old.info.project, resume: null, approvalOverride: null, trustOnce: false, utility: false }, { activate: false });
+    if (!fresh) {
+      old.switchingTo = null;
+
+      return null;
+    }
+
+    fresh.draft = old.draft;
+    if (old.userNamed) {
+      fresh.aiLabel = old.aiLabel;
+      fresh.userNamed = true;
+    }
+    void applyChatDefaults(fresh);
+    await this.takeOver(old.key, fresh.key);
 
     return fresh;
   }

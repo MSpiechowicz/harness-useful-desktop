@@ -19,6 +19,7 @@
   import AttachmentStrip from './AttachmentStrip.svelte';
   import ComposerFooter from './ComposerFooter.svelte';
   import ComposerMode from './ComposerMode.svelte';
+  import HarnessPicker from './HarnessPicker.svelte';
   import ModelPicker from './ModelPicker.svelte';
   import { runSlash } from './slash-run';
   import SlashMenu from './SlashMenu.svelte';
@@ -62,7 +63,7 @@
   const menuOpen = $derived(suggestions.length > 0 && dismissedFor !== session.draft && !session.ended);
   const bash = $derived(isBashDraft(session.draft));
   const attached = $derived(session.attached);
-  const canSend = $derived((session.draft.trim() !== '' || attached.files.length > 0) && !session.ended);
+  const canSend = $derived((session.draft.trim() !== '' || attached.files.length > 0) && !session.ended && !session.noModels);
   const attachFull = $derived(attached.images.length >= MAX_IMAGES && attached.files.length >= MAX_FILES);
   const stopArmed = $derived(stopArmedAt !== null);
   /** While the agent works and nothing is typed, the round button stops it. */
@@ -191,7 +192,7 @@
 
   async function submit(mode: SendMode): Promise<void> {
     const text = session.draft.trim();
-    if ((text === '' && attached.files.length === 0) || session.ended) {
+    if ((text === '' && attached.files.length === 0) || session.ended || session.noModels) {
       return;
     }
 
@@ -318,7 +319,8 @@
         <Paperclip size={16} aria-hidden="true" />
         <span class="@max-[560px]:hidden">{t('chat.composer.attach')}</span>
       </button>
-      <ModelPicker {session} />
+      <HarnessPicker {session} />
+      {#if !session.noModels}<ModelPicker {session} />{/if}
       <ThinkingPicker {session} />
 
       <div class="ml-auto flex shrink-0 items-center gap-1.5">

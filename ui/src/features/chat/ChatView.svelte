@@ -10,10 +10,11 @@
   import { agentSessions } from '$lib/stores/agentSession.svelte';
   import { harness } from '$lib/stores/harness.svelte';
   import { project } from '$lib/stores/project.svelte';
+  import { nav } from '$lib/stores/nav.svelte';
+  import { viewState } from '$lib/stores/view-state.svelte';
   import { restoreWorkspace } from '$lib/stores/workspace.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
 
-  import { onboarding } from '../onboarding/onboarding-state.svelte';
   import ChatBar from './ChatBar.svelte';
   import ChatPane from './ChatPane.svelte';
 
@@ -25,17 +26,14 @@
   // The target whose automatic start failed, so a broken harness shows a retry instead of looping.
   let failed = $state<string | null>(null);
 
-  /** Stands in for the project's name so the sentence can be split around it and the name styled on its own. */
-  const PROJECT_MARK = '\u0000';
-
-  function startingParts(harnessName: string | null): string[] {
-    const sentence = harnessName ? t('chat.view.starting', { harness: harnessName, project: PROJECT_MARK }) : t('chat.view.startingAgent', { project: PROJECT_MARK });
-
-    return sentence.split(PROJECT_MARK);
+  /** Without an installed harness there is no chat; Settings is where one is set up. */
+  function openHarnessSettings(): void {
+    viewState.settingsTarget = 'harnesses';
+    nav.go('settings');
   }
 
   /** The launch's first start reopens the last run's chats instead, when there are any. */
-  let restoring = false;
+  let restoring = $state(false);
 
   async function start(): Promise<void> {
     if (!active || !project.active || !target || restoring) {
@@ -64,10 +62,12 @@
 
 <!-- The agent can take a few seconds to start (longer right after a plugin update), so it says what it is doing. -->
 {#snippet startingChat(harnessName: string | null, projectName: string)}
-  {@const [before, after] = startingParts(harnessName)}
-  <div class="flex flex-col items-center gap-3 text-center" role="status" aria-label={t('chat.view.starting.label')}>
-    <Spinner size={20} class="text-accent-text" />
-    <p class="text-sm text-fg-2">{before}<span class="text-fg">{projectName}</span>{after}</p>
+  <div class="flex flex-col items-center gap-4 text-center" role="status" aria-label={t('chat.view.starting.label')}>
+    <Spinner size={32} class="text-accent-text" />
+    <div class="flex flex-col gap-1">
+      <p class="text-base text-fg">{restoring ? t('chat.view.restoring') : harnessName ? t('chat.view.starting', { harness: harnessName }) : t('chat.view.startingAgent')}</p>
+      <p class="text-sm text-fg-3">{t('chat.view.startingProject', { project: projectName })}</p>
+    </div>
   </div>
 {/snippet}
 
@@ -85,7 +85,7 @@
         {#if !active?.detection.installed}
           <EmptyState icon={PackageOpen} title={t('chat.view.install.title')} body={t('chat.view.install.body')}>
             {#snippet action()}
-              <Button variant="primary" onclick={() => onboarding.restart()}>{t('chat.view.install.action')}</Button>
+              <Button variant="primary" onclick={openHarnessSettings}>{t('chat.view.install.action')}</Button>
             {/snippet}
           </EmptyState>
         {:else if !project.active}

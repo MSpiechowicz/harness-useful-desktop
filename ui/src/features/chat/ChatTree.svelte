@@ -79,7 +79,7 @@
 <div role="group" aria-label={t('chat.tabs.label')} transition:slide={{ duration: scaled(200) }} class="-mt-[1px] flex flex-col gap-[3px] pb-[1px] pl-[20px]">
   {#each sessions as session, index (session.key)}
     {@const selected = session.key === agentSessions.activeKey && nav.current === 'chat'}
-    {@const summary = harness.get(session.info.harness)}
+    {@const summary = harness.get(session.switchingTo ?? session.info.harness)}
     {@const helpers = activeSubagentCount(session.chat)}
     {@const tip = agentSessions.tip(session.key)}
     {@const title = agentSessions.title(session.key)}
@@ -100,7 +100,9 @@
             >
               {#if summary}<HarnessBadge info={summary.info} size="xs" /><span class="sr-only">{t('chat.tabs.harness', { name: summary.info.name })}</span>{/if}
               {#if renaming !== session.key}<span class={cx('min-w-0 truncate', selected && 'font-medium')}>{title}</span>{/if}
-              {#if session.streaming || helpers > 0}
+              {#if session.switchingTo}
+                <Spinner size={14} class="shrink-0 text-accent-text" label={t('chat.tabs.starting')} />
+              {:else if session.streaming || helpers > 0}
                 <Spinner size={14} class="shrink-0 text-accent-text" label={t('chat.tabs.working')} />
                 {#if helpers > 0}<span class="tabular -ml-1 text-xs text-accent-text" title={tn('chat.tabs.subagents', helpers)}><span aria-hidden="true">{helpers}</span><span class="sr-only">{tn('chat.tabs.subagents', helpers)}</span></span>{/if}
               {:else if session.ended}

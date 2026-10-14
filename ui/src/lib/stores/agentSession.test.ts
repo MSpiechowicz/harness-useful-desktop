@@ -270,3 +270,50 @@ describe('tabs', () => {
     expect(of('agent_start').map((call) => call.request.trustOnce)).toEqual([false, true, false]);
   });
 });
+
+describe('handing a chat to another harness', () => {
+  it('replaces the chat in its own tab, keeping its place and draft, never adding a tab', async () => {
+    const { store } = storeWithMock();
+    const first = await store.create('omp', PROJECT);
+    const second = await store.create('omp', PROJECT);
+    const third = await store.create('omp', PROJECT);
+    second!.draft = 'half a thought';
+
+    const fresh = await store.changeHarness(second!.key, 'pi');
+
+    expect(fresh?.info.harness).toBe('pi');
+    expect(store.sessions.map((session) => session.key)).toEqual([first!.key, fresh!.key, third!.key]);
+    expect(store.starting).toHaveLength(0);
+    expect(store.activeKey).toBe(fresh!.key);
+    expect(fresh!.draft).toBe('half a thought');
+    expect(store.get(second!.key)).toBeUndefined();
+  });
+
+  it('leaves the chat as it was when the other harness does not start', async () => {
+    const { store } = storeWithMock();
+    const chat = await store.create('omp', PROJECT);
+    const failing: Transport = { invoke: () => Promise.reject(new IpcFailure({ code: 'process', message: 'pi exited' })) };
+    const broken = new AgentSessionsStore(failing, new ToastsStore());
+    broken.sessions = [chat!];
+
+    expect(await broken.changeHarness(chat!.key, 'pi')).toBeNull();
+    expect(broken.sessions).toEqual([chat]);
+    expect(chat!.switchingTo).toBeNull();
+  });
+});
+
+describe('reloading chats after a plugin changed', () => {
+  it('restarts the idle chats of that harness in place and leaves other harnesses alone', async () => {
+    const { store } = storeWithMock();
+    const chat = await store.create('omp', PROJECT);
+    const other = await store.create('pi', PROJECT);
+
+    expect(await store.reloadIdle('omp')).toBe(1);
+
+    expect(store.sessions).toHaveLength(2);
+    expect(store.get(chat!.key)).toBeUndefined();
+    expect(store.sessions[0].info.harness).toBe('omp');
+    expect(store.get(other!.key)).toBe(other);
+    expect(await store.reloadIdle('omp')).toBe(1);
+  });
+});

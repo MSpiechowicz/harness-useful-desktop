@@ -11,7 +11,8 @@
   let { info, size = 'md', class: className }: Props = $props();
 
   const SIZES = {
-    xs: 'h-[18px] min-w-[18px] rounded-sm px-1 text-[10px]',
+    /** As wide as the three-letter "OMP", so a two-letter "PI" beside it is not a smaller badge. */
+    xs: 'h-[18px] min-w-[34px] rounded-sm px-1 text-[10px]',
     sm: 'h-6 min-w-6 rounded-sm px-1 text-[10px]',
     /** The height of the controls in a view's top bar. */
     bar: 'h-control min-w-control rounded-md px-2 text-xs',

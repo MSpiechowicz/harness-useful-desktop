@@ -1,9 +1,12 @@
 <script lang="ts">
   import ArrowDown from '@lucide/svelte/icons/arrow-down';
   import History from '@lucide/svelte/icons/history';
+  import KeyRound from '@lucide/svelte/icons/key-round';
+  import RefreshCw from '@lucide/svelte/icons/refresh-cw';
   import { untrack } from 'svelte';
 
   import Button from '$lib/components/Button.svelte';
+  import EmptyState from '$lib/components/EmptyState.svelte';
   import VirtualList from '$lib/components/VirtualList.svelte';
   import { cx } from '$lib/utils/cx';
   import { matchesShortcut } from '$lib/utils/shortcuts';
@@ -11,6 +14,7 @@
   import { provideToolContext } from '$lib/chat/tool-context';
   import type { TranscriptItem } from '$lib/chat/types';
   import { rise } from '$lib/design/motion';
+  import { harness } from '$lib/stores/harness.svelte';
   import { prefs } from '$lib/stores/prefs.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
 
@@ -31,6 +35,13 @@
   let list: VirtualList<TranscriptItem> | undefined = $state();
   let atBottom = $state(true);
   let loadingEarlier = $state(false);
+  let rechecking = $state(false);
+
+  async function recheckModels(): Promise<void> {
+    rechecking = true;
+    await session.recheckModels();
+    rechecking = false;
+  }
 
   // Only what arrives while this list is open animates; scrolling rows back into view does not replay it.
   const firstNew = untrack(() => session.chat.nextOrder);
@@ -131,7 +142,19 @@
   <div class="pointer-events-none absolute inset-x-0 top-3 h-4 bg-gradient-to-b from-canvas to-transparent" aria-hidden="true"></div>
   <div class="pointer-events-none absolute inset-x-0 bottom-3 h-4 bg-gradient-to-t from-canvas to-transparent" aria-hidden="true"></div>
 
-  {#if session.chat.items.length === 0}
+  {#if session.chat.items.length === 0 && session.noModels && !session.ended}
+    <!-- A harness with no model to use cannot answer anything, so the page says that instead of inviting a question. -->
+    <div class="absolute inset-0 grid place-items-center">
+      <EmptyState icon={KeyRound} title={t('chat.noModels.title', { harness: harness.get(session.info.harness)?.info.name ?? '' })} body={t('chat.noModels.body', { harness: harness.get(session.info.harness)?.info.name ?? '' })}>
+        {#snippet action()}
+          <Button variant="primary" disabled={rechecking} onclick={() => void recheckModels()}>
+            {#snippet leading()}<RefreshCw size={16} aria-hidden="true" class={rechecking ? 'animate-spin' : undefined} />{/snippet}
+            {t('chat.noModels.action')}
+          </Button>
+        {/snippet}
+      </EmptyState>
+    </div>
+  {:else if session.chat.items.length === 0}
     <p class="pointer-events-none absolute inset-0 grid place-items-center px-8 text-center text-base text-fg-3">
       {session.ended ? t('chat.list.ended') : t('chat.list.empty')}
     </p>

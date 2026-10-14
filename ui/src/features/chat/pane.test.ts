@@ -315,3 +315,17 @@ describe('tool results', () => {
   });
 });
 
+
+describe('a harness with no model to use', () => {
+  it('says so in the middle of the page, blocks Send and hides the model picker and the usage meter', async () => {
+    const { session } = chatSession([{ type: 'ready', protocolVersion: 1 }]);
+    session.models = [];
+    session.draft = 'hello';
+    render(ChatPane, { session });
+
+    expect(await screen.findByRole('heading', { name: /has no model to use/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Check again' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: /Choose model|Models/i })).toBeNull();
+  });
+});

@@ -1,4 +1,5 @@
 import { t } from '$lib/i18n/i18n.svelte';
+import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
 import type { MotionPref } from '$lib/ipc/bindings/MotionPref';
 import type { ThemePref } from '$lib/ipc/bindings/ThemePref';
 import { agentSessions } from '$lib/stores/agentSession.svelte';
@@ -92,6 +93,37 @@ export async function switchProject(path: string): Promise<void> {
   if (fresh && replaceable) {
     await agentSessions.takeOver(current.key, fresh.key);
   }
+  if (fresh) {
+    focusComposer();
+  }
+}
+
+/**
+ * Talks to another harness from the chat. An agent cannot change harness mid-conversation, so the chat is replaced in
+ * its own tab (same place, number, draft and any name the user gave it) by a fresh one on the other harness; the old
+ * conversation stays in Sessions. Only /new and Ctrl+N open another tab. A chat that is answering is left alone.
+ */
+export async function switchHarness(id: HarnessId): Promise<void> {
+  const current = agentSessions.active;
+  if (current?.info.harness === id) {
+    return;
+  }
+
+  if (current?.streaming) {
+    toasts.push({ title: t('chat.harness.busy.title'), description: t('chat.harness.busy.description'), tone: 'warning' });
+
+    return;
+  }
+
+  await harness.select(id);
+
+  const path = current?.info.project ?? project.active?.path;
+  if (!path) {
+    return;
+  }
+
+  nav.go('chat');
+  const fresh = current ? await agentSessions.changeHarness(current.key, id) : await agentSessions.create(id, path);
   if (fresh) {
     focusComposer();
   }

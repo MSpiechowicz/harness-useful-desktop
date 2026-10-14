@@ -1,4 +1,5 @@
 import { t } from '$lib/i18n/i18n.svelte';
+import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
 import type { AgentAction } from '$lib/ipc/bindings/AgentAction';
 import type { AgentEnvelope } from '$lib/ipc/bindings/AgentEnvelope';
 import type { AgentReply } from '$lib/ipc/bindings/AgentReply';
@@ -69,6 +70,8 @@ export class ChatSession {
   name = $derived(this.chat.session?.sessionName ?? this.chat.title ?? null);
   /** A name the user typed; it beats every generated one. */
   userNamed = $state(false);
+  /** The harness this chat is being handed to: its tab shows that harness and a spinner until the new agent is ready. */
+  switchingTo = $state<HarnessId | null>(null);
   /** The name and description a helper agent gave the chat (the "AI chat names" setting); null until it answers. */
   aiLabel = $state.raw<ChatLabel | null>(null);
   /** What the chat was opened with, known only while the whole transcript is (not for a resumed chat's newest page). */
@@ -302,6 +305,17 @@ export class ChatSession {
     } catch (error) {
       this.apply((state) => finishBash(state, started.key, { error: IpcFailure.from(error).message }));
     }
+  }
+
+  /** The harness listed no model it can use (no provider signed in, no API key): nothing sent to it could be answered. */
+  get noModels(): boolean {
+    return this.models !== null && this.models.length === 0;
+  }
+
+  /** Asks again, after the user connected a provider. */
+  async recheckModels(): Promise<void> {
+    this.models = null;
+    await this.loadModels();
   }
 
   async loadModels(): Promise<void> {

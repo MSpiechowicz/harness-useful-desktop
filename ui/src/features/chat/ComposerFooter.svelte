@@ -39,7 +39,7 @@
     <span title={branch} class="inline-flex h-control min-w-0 shrink-[100] items-center gap-1.5 px-2 text-sm text-fg-3">
       <span class="sr-only">{t('chat.footer.branchLabel')}</span>
       <GitBranch size={14} aria-hidden="true" class="shrink-0" />
-      <span class="min-w-0 -mb-[3px] truncate pb-[3px] font-mono text-xs text-fg [text-box:trim-both_cap_alphabetic]">{branch}</span>
+      <span class="min-w-0 -mb-[3px] truncate pb-[3px] [text-box:trim-both_cap_alphabetic]">{branch}</span>
       {#if status.ahead > 0}
         <span class="tabular inline-flex shrink-0 items-center text-xs text-success"><ArrowUp size={12} aria-hidden="true" />{status.ahead}<span class="sr-only">{t('chat.footer.ahead', { count: status.ahead })}</span></span>
       {/if}
@@ -56,8 +56,11 @@
     {/if}
   {/if}
 
-  <div class="ml-auto flex shrink-0 items-center">
-    <ContextMeter usage={session.chat.session?.contextUsage ?? null} />
-    <CostChip kind="session" args={costArgs} refreshKey={session.streaming} align="end" side="top" quiet />
-  </div>
+  <!-- With no model there is no context to fill and nothing to pay for, so the empty meter and its dash are not shown. -->
+  {#if !session.noModels}
+    <div class="ml-auto flex shrink-0 items-center">
+      <ContextMeter usage={session.chat.session?.contextUsage ?? null} />
+      <CostChip kind="session" args={costArgs} refreshKey={session.streaming} align="end" side="top" quiet />
+    </div>
+  {/if}
 </div>

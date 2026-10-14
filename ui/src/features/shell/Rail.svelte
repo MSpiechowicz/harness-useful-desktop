@@ -22,7 +22,6 @@
   import RailFooter from './RailFooter.svelte';
   import RailItem from './RailItem.svelte';
   import { VIEWS, viewShortcut } from './views';
-  import WorkspaceSwitcher from './WorkspaceSwitcher.svelte';
 
   interface Props {
     onshortcuts: () => void;
@@ -190,11 +189,6 @@
     {#if ui.roomForLabels}
       <div class="flex">{@render action(expanded ? t('shell.rail.collapse') : t('shell.rail.expand'), expanded ? PanelLeftClose : PanelLeftOpen, 'mod+b', () => ui.toggleRail(), expanded)}</div>
     {/if}
-  </div>
-
-  <!-- Where you are, the harness and the project: under the menu for now. -->
-  <div class={cx('flex shrink-0 border-t border-line px-[12px] py-2', !expanded && 'justify-center')}>
-    <WorkspaceSwitcher compact={!expanded} />
   </div>
 
   <RailFooter {expanded} />

@@ -25,6 +25,14 @@
   const chat = $derived(session.chat);
   const approval = $derived(pendingApproval(chat));
 
+  // The model list is read as soon as the chat opens, not when the picker does: a harness with no model at all has to be
+  // known before the first message, not after it fails.
+  $effect(() => {
+    if (!session.ended) {
+      void session.loadModels();
+    }
+  });
+
   async function restart(): Promise<void> {
     restarting = true;
     await agentSessions.restart(session.key, {});
