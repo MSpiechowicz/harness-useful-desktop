@@ -93,7 +93,7 @@
           ondblclick={() => rename(session)}
           onkeydown={(event) => onKeydown(event, index)}
         >
-          {#if summary}<HarnessChatIcon harness={summary.info.id} class="grid shrink-0 place-items-center" /><span class="sr-only">{t('chat.tabs.harness', { name: summary.info.name })}</span>{/if}
+          {#if summary}<HarnessChatIcon harness={summary.info.id} class="shrink-0" /><span class="sr-only">{t('chat.tabs.harness', { name: summary.info.name })}</span>{/if}
           {#if renaming !== session.key}<span class={cx('min-w-0 truncate', selected && 'font-medium')}>{title}</span>{/if}
           {#if session.streaming || helpers > 0}
             <Spinner size={14} class="shrink-0 text-accent-text" label={t('chat.tabs.working')} />
@@ -136,7 +136,7 @@
         class={cx('flex h-[28px] w-full items-center gap-[8px] rounded-sm px-[8px] text-left text-base transition-colors', selected ? 'bg-accent-wash text-accent-text' : 'text-fg-2 hover:bg-hover hover:text-fg')}
         onclick={() => show(chat.key)}
       >
-        {#if summary}<HarnessChatIcon harness={summary.info.id} class="grid shrink-0 place-items-center" /><span class="sr-only">{t('chat.tabs.harness', { name: summary.info.name })}</span>{/if}
+        {#if summary}<HarnessChatIcon harness={summary.info.id} class="shrink-0" /><span class="sr-only">{t('chat.tabs.harness', { name: summary.info.name })}</span>{/if}
         <span class="min-w-0 truncate">{agentSessions.title(chat.key)}</span>
         <Spinner size={14} class="shrink-0 text-accent-text" label={t('chat.tabs.starting')} />
       </button>
