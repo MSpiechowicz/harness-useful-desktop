@@ -85,7 +85,7 @@
     {@const title = agentSessions.title(session.key)}
     <div in:fade={{ duration: scaled(160) }} class="group/card relative pl-[14px]">
       {@render branch(index === 0, index === sessions.length - 1 && agentSessions.starting.length === 0)}
-      <div class={cx('relative flex h-[28px] items-center rounded-sm transition-colors', renaming === session.key || selected ? 'bg-surface-3 text-fg' : 'text-fg-2 hover:bg-hover hover:text-fg')}>
+      <div class={cx('relative flex h-[28px] items-center rounded-sm transition-colors', renaming === session.key || selected ? 'bg-[color-mix(in_oklab,var(--text)_11%,transparent)] text-fg' : 'text-fg-2 hover:bg-hover hover:text-fg')}>
         <Tooltip text={tip.text} detail={[summary?.info.name, tip.detail].filter(Boolean).join('\n')} side="right" class="flex h-full min-w-0 flex-1">
           {#snippet children({ describedby })}
             <button
@@ -134,7 +134,7 @@
       <button
         type="button"
         aria-current={selected ? 'true' : undefined}
-        class={cx('flex h-[28px] w-full items-center gap-[8px] rounded-sm px-[8px] text-left text-base transition-colors', selected ? 'bg-surface-3 text-fg' : 'text-fg-2 hover:bg-hover hover:text-fg')}
+        class={cx('flex h-[28px] w-full items-center gap-[8px] rounded-sm px-[8px] text-left text-base transition-colors', selected ? 'bg-[color-mix(in_oklab,var(--text)_11%,transparent)] text-fg' : 'text-fg-2 hover:bg-hover hover:text-fg')}
         onclick={() => show(chat.key)}
       >
         {#if summary}<HarnessBadge info={summary.info} size="xs" /><span class="sr-only">{t('chat.tabs.harness', { name: summary.info.name })}</span>{/if}
