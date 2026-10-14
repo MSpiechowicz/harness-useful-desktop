@@ -36,7 +36,7 @@
     {#if message.files.length > 0}
       <ul class="flex flex-wrap gap-2" aria-label={t('chat.user.files')}>
         {#each message.files as file (file.path)}
-          <li title={file.path} class="flex max-w-60 items-center gap-2 rounded-lg border border-line-strong bg-surface-1 px-3 py-1.5 text-sm whitespace-normal">
+          <li title={file.path} class="flex max-w-60 items-center gap-2 rounded-md border border-line-strong bg-surface-1 px-3 py-1.5 text-sm whitespace-normal">
             <FileText size={16} aria-hidden="true" class="shrink-0 text-fg-3" />
             <span class="min-w-0 truncate text-fg">{file.name}</span>
             <span class="shrink-0 text-xs text-fg-3">{file.size}</span>
