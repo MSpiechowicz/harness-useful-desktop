@@ -65,7 +65,7 @@
     <VirtualList items={chat.items} variable estimate={ESTIMATED_ROW_PX} overscan={10} label={t('sessions.transcript.label')} key={(item) => item.key} class="min-h-0 flex-1">
       {#snippet row(item, index)}
         {@const userId = onfork ? userMessageId(index) : null}
-        <div class={cx('mx-auto w-full max-w-[820px] px-6 py-2', index === 0 && 'pt-6', index === chat.items.length - 1 && 'pb-8')}>
+        <div class={cx('chat-col py-2', index === 0 && 'pt-6', index === chat.items.length - 1 && 'pb-8')}>
           {#if userId !== null}
             <!-- Every user row has the same button, shown on hover or keyboard focus, to the left of the message. -->
             <div class="group/user flex items-start justify-end gap-2">
