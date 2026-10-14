@@ -58,8 +58,8 @@
   {#snippet trigger({ props })}
     <Tooltip text={info ? t('chat.approval.tooltip', { explanation: info.explanation, source }) : t('chat.approval.unknownTooltip')} side="bottom">
       {#snippet children({ describedby })}
-        <button type="button" {...props} aria-describedby={describedby} class="rounded-full" aria-label={t('chat.approval.aria', { mode: modeName })}>
-          <Badge tone={info?.tone ?? 'neutral'}>
+        <button type="button" {...props} aria-describedby={describedby} class="rounded-md" aria-label={t('chat.approval.aria', { mode: modeName })}>
+          <Badge tone={info?.tone ?? 'neutral'} class="h-8 rounded-md! px-2.5 text-sm!">
             {#if info?.tone === 'warning'}<ShieldAlert size={16} aria-hidden="true" />{:else}<ShieldCheck size={16} aria-hidden="true" />{/if}
             {t('chat.approval.badge', { mode: modeName })}
           </Badge>

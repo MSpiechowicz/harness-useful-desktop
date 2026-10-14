@@ -24,7 +24,7 @@
 </script>
 
 {#if session.info.trustedOnce}
-  <Badge tone="success"><ShieldCheck size={16} aria-hidden="true" /> {t('chat.trust.done')}</Badge>
+  <Badge tone="success" class="h-8 rounded-md! px-2.5 text-sm!"><ShieldCheck size={16} aria-hidden="true" /> {t('chat.trust.done')}</Badge>
 {:else}
   <Popover label={t('chat.trust.popover')} kind="dialog" bind:open class="w-80">
     {#snippet trigger({ props })}
