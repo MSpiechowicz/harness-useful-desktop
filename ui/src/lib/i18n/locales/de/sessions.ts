@@ -96,6 +96,7 @@ export const sessions: AreaMessages<typeof enSessions> = {
   'sessions.transcript.unreadable': 'Der Verlauf konnte nicht gelesen werden.',
   'sessions.transcript.empty': 'Diese Sitzung enthält noch keine Nachrichten.',
   'sessions.transcript.fork': 'Hier abzweigen',
+  'sessions.transcript.forkHint': 'Startet einen neuen Chat mit dem Gespräch bis einschließlich dieser Nachricht. Alles danach entfällt.',
   'sessions.transcript.progress.one': '{shown} von {count} Nachricht',
   'sessions.transcript.progress.other': '{shown} von {count} Nachrichten',
   'sessions.transcript.loadMore': 'Weitere Nachrichten laden',

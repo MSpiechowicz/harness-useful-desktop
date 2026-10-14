@@ -5,7 +5,6 @@
 
   import { provideToolContext } from '$lib/chat/tool-context';
   import Button from '$lib/components/Button.svelte';
-  import IconButton from '$lib/components/IconButton.svelte';
   import Skeleton from '$lib/components/Skeleton.svelte';
   import VirtualList from '$lib/components/VirtualList.svelte';
   import { t, tn } from '$lib/i18n/i18n.svelte';
@@ -67,14 +66,22 @@
         {@const userId = onfork ? userMessageId(index) : null}
         <div class={cx('chat-col py-2', index === 0 && 'pt-6', index === chat.items.length - 1 && 'pb-8')}>
           {#if userId !== null}
-            <!-- Every user row has the same button, shown on hover or keyboard focus, to the left of the message. -->
-            <div class="group/user flex items-start justify-end gap-2">
-              <span class="shrink-0 opacity-0 transition-opacity duration-[var(--dur-fast)] group-focus-within/user:opacity-100 group-hover/user:opacity-100">
-                <IconButton icon={GitFork} label={t('sessions.transcript.fork')} disabled={busy || userId === ''} onclick={() => onfork?.(userId)} />
-              </span>
+            <!-- Every user message has the same labelled button under it, always visible: the new chat keeps the conversation
+                 up to and including this message; everything after it is left out (the original session stays as it was). -->
+            <div class="flex flex-col items-end gap-0.5">
               <div class="max-w-[85%] min-w-0 [&_article]:max-w-full">
                 <MessageRow {item} {chat} />
               </div>
+              <button
+                type="button"
+                title={t('sessions.transcript.forkHint')}
+                disabled={busy || userId === ''}
+                onclick={() => onfork?.(userId)}
+                class="inline-flex h-control items-center gap-1.5 rounded-md px-2 text-sm text-fg-3 transition-colors duration-[var(--dur-fast)] hover:bg-hover hover:text-fg disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-fg-3"
+              >
+                <GitFork size={16} aria-hidden="true" />
+                {t('sessions.transcript.fork')}
+              </button>
             </div>
           {:else}
             <MessageRow {item} {chat} />

@@ -93,6 +93,7 @@ export const sessions = {
   'sessions.transcript.unreadable': 'The transcript could not be read.',
   'sessions.transcript.empty': 'This session has no messages yet.',
   'sessions.transcript.fork': 'Fork from here',
+  'sessions.transcript.forkHint': 'Starts a new chat with the conversation up to and including this message. Everything after it is left out.',
   'sessions.transcript.progress.one': '{shown} of {count} message',
   'sessions.transcript.progress.other': '{shown} of {count} messages',
   'sessions.transcript.loadMore': 'Load more messages',

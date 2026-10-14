@@ -110,6 +110,7 @@ export const sessions: AreaMessages<typeof enSessions> = {
   'sessions.transcript.unreadable': 'Nie udało się odczytać transkrypcji.',
   'sessions.transcript.empty': 'Ta sesja nie ma jeszcze wiadomości.',
   'sessions.transcript.fork': 'Rozgałęź stąd',
+  'sessions.transcript.forkHint': 'Rozpoczyna nowy czat z rozmową aż do tej wiadomości włącznie. Wszystko po niej zostaje pominięte.',
   'sessions.transcript.progress.one': '{shown} z {count} wiadomości',
   'sessions.transcript.progress.few': '{shown} z {count} wiadomości',
   'sessions.transcript.progress.many': '{shown} z {count} wiadomości',
