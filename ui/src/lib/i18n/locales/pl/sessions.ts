@@ -3,7 +3,6 @@ import type { AreaMessages } from '../types';
 
 export const sessions: AreaMessages<typeof enSessions> = {
   'sessions.title': 'Sesje',
-  'sessions.refresh': 'Odśwież sesje',
   'sessions.loading': 'Wczytywanie sesji',
   'sessions.tryAgain': 'Spróbuj ponownie',
   'sessions.drawer.label': 'Sesje',
@@ -19,6 +18,9 @@ export const sessions: AreaMessages<typeof enSessions> = {
   'sessions.empty.none.body': 'Sesje uruchomione w projekcie {project} przez {harness} pojawią się tutaj.',
 
   'sessions.list.label': 'Sesje',
+  'sessions.section.today': "Dzisiaj",
+  'sessions.section.week': "Wcześniej w tym tygodniu",
+  'sessions.section.older': "Starsze",
   'sessions.list.search': 'Szukaj sesji',
   'sessions.list.searchPlaceholder': 'Szukaj sesji…',
   'sessions.list.empty': 'Ten projekt nie ma jeszcze zapisanych sesji.',
@@ -117,15 +119,4 @@ export const sessions: AreaMessages<typeof enSessions> = {
   'sessions.transcript.progress.other': '{shown} z {count} wiadomości',
   'sessions.transcript.loadMore': 'Wczytaj więcej wiadomości',
 
-  'sessions.branches.title': 'Gałęzie Git',
-  'sessions.branches.notRepo': 'Ten projekt nie jest repozytorium git.',
-  'sessions.branches.none': 'Brak gałęzi.',
-  'sessions.branches.reading': 'Wczytywanie gałęzi…',
-  'sessions.branches.local': 'Lokalne',
-  'sessions.branches.remote': 'Zdalne',
-  'sessions.branches.localList': 'Gałęzie lokalne',
-  'sessions.branches.remoteList': 'Gałęzie zdalne',
-  'sessions.branches.current': 'Bieżąca',
-  'sessions.branches.ahead': '{count} do przodu',
-  'sessions.branches.behind': '{count} do tyłu',
 };

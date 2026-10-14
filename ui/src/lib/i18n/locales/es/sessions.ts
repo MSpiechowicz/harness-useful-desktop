@@ -3,7 +3,6 @@ import type { AreaMessages } from '../types';
 
 export const sessions: AreaMessages<typeof enSessions> = {
   'sessions.title': 'Sesiones',
-  'sessions.refresh': 'Actualizar sesiones',
   'sessions.loading': 'Cargando sesiones',
   'sessions.tryAgain': 'Reintentar',
   'sessions.drawer.label': 'Sesiones',
@@ -19,6 +18,9 @@ export const sessions: AreaMessages<typeof enSessions> = {
   'sessions.empty.none.body': 'Las sesiones que ejecutes en {project} con {harness} aparecerán aquí.',
 
   'sessions.list.label': 'Sesiones',
+  'sessions.section.today': "Hoy",
+  'sessions.section.week': "Antes esta semana",
+  'sessions.section.older': "Más antiguas",
   'sessions.list.search': 'Buscar sesiones',
   'sessions.list.searchPlaceholder': 'Buscar sesiones…',
   'sessions.list.empty': 'Este proyecto aún no tiene sesiones guardadas.',
@@ -101,15 +103,4 @@ export const sessions: AreaMessages<typeof enSessions> = {
   'sessions.transcript.progress.other': '{shown} de {count} mensajes',
   'sessions.transcript.loadMore': 'Cargar más mensajes',
 
-  'sessions.branches.title': 'Ramas de Git',
-  'sessions.branches.notRepo': 'Este proyecto no es un repositorio git.',
-  'sessions.branches.none': 'Aún no hay ramas.',
-  'sessions.branches.reading': 'Leyendo ramas…',
-  'sessions.branches.local': 'Locales',
-  'sessions.branches.remote': 'Remotas',
-  'sessions.branches.localList': 'Ramas locales',
-  'sessions.branches.remoteList': 'Ramas remotas',
-  'sessions.branches.current': 'Actual',
-  'sessions.branches.ahead': '{count} por delante',
-  'sessions.branches.behind': '{count} por detrás',
 };

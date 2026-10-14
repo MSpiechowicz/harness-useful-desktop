@@ -1,6 +1,5 @@
 export const sessions = {
   'sessions.title': 'Sessions',
-  'sessions.refresh': 'Refresh sessions',
   'sessions.loading': 'Loading sessions',
   'sessions.tryAgain': 'Try again',
   'sessions.drawer.label': 'Sessions',
@@ -16,6 +15,9 @@ export const sessions = {
   'sessions.empty.none.body': 'Sessions you run in {project} with {harness} appear here.',
 
   'sessions.list.label': 'Sessions',
+  'sessions.section.today': "Today",
+  'sessions.section.week': "Earlier this week",
+  'sessions.section.older': "Older",
   'sessions.list.search': 'Search sessions',
   'sessions.list.searchPlaceholder': 'Search sessions…',
   'sessions.list.empty': 'No saved sessions for this project yet.',
@@ -98,15 +100,4 @@ export const sessions = {
   'sessions.transcript.progress.other': '{shown} of {count} messages',
   'sessions.transcript.loadMore': 'Load more messages',
 
-  'sessions.branches.title': 'Git branches',
-  'sessions.branches.notRepo': 'This project is not a git repository.',
-  'sessions.branches.none': 'No branches yet.',
-  'sessions.branches.reading': 'Reading branches…',
-  'sessions.branches.local': 'Local',
-  'sessions.branches.remote': 'Remote',
-  'sessions.branches.localList': 'Local branches',
-  'sessions.branches.remoteList': 'Remote branches',
-  'sessions.branches.current': 'Current',
-  'sessions.branches.ahead': '{count} ahead',
-  'sessions.branches.behind': '{count} behind',
 } satisfies Record<string, string>;

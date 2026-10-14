@@ -3,7 +3,6 @@ import type { AreaMessages } from '../types';
 
 export const sessions: AreaMessages<typeof enSessions> = {
   'sessions.title': 'Sessions',
-  'sessions.refresh': 'Actualiser les sessions',
   'sessions.loading': 'Chargement des sessions',
   'sessions.tryAgain': 'Réessayer',
   'sessions.drawer.label': 'Sessions',
@@ -19,6 +18,9 @@ export const sessions: AreaMessages<typeof enSessions> = {
   'sessions.empty.none.body': 'Les sessions que vous lancez dans {project} avec {harness} apparaissent ici.',
 
   'sessions.list.label': 'Sessions',
+  'sessions.section.today': "Aujourd’hui",
+  'sessions.section.week': "Plus tôt cette semaine",
+  'sessions.section.older': "Plus anciennes",
   'sessions.list.search': 'Rechercher des sessions',
   'sessions.list.searchPlaceholder': 'Rechercher des sessions…',
   'sessions.list.empty': 'Aucune session enregistrée pour ce projet pour l’instant.',
@@ -101,15 +103,4 @@ export const sessions: AreaMessages<typeof enSessions> = {
   'sessions.transcript.progress.other': '{shown} sur {count} messages',
   'sessions.transcript.loadMore': 'Charger plus de messages',
 
-  'sessions.branches.title': 'Branches Git',
-  'sessions.branches.notRepo': 'Ce projet n’est pas un dépôt git.',
-  'sessions.branches.none': 'Aucune branche pour l’instant.',
-  'sessions.branches.reading': 'Lecture des branches…',
-  'sessions.branches.local': 'Locales',
-  'sessions.branches.remote': 'Distantes',
-  'sessions.branches.localList': 'Branches locales',
-  'sessions.branches.remoteList': 'Branches distantes',
-  'sessions.branches.current': 'Actuelle',
-  'sessions.branches.ahead': '{count} en avance',
-  'sessions.branches.behind': '{count} en retard',
 };

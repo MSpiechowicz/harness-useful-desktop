@@ -17,6 +17,8 @@ export class ViewState {
   extensionsQuery = $state('');
 
   sessionId = $state<string | null>(null);
+  /** What the Sessions search field in the top bar holds. */
+  sessionsQuery = $state('');
 
   /** A settings section waiting to be scrolled to; the settings view clears it once it has. */
   settingsTarget = $state<SettingsSectionId | null>(null);
@@ -51,6 +53,7 @@ export class ViewState {
       this.extensionsQuery = '';
     } else if (view === 'sessions') {
       this.sessionId = null;
+      this.sessionsQuery = '';
     }
   }
 }

@@ -16,7 +16,6 @@ import { SessionDetail } from '$lib/stores/sessions.svelte';
 import { toasts } from '$lib/stores/toasts.svelte';
 import { formatDateTime } from '$lib/utils/format';
 
-import BranchesPanel from './BranchesPanel.svelte';
 import { sessionTitle } from './session-format';
 import { groupSessions } from './session-groups';
 import SessionList from './SessionList.svelte';
@@ -74,12 +73,27 @@ describe('session list', () => {
 
     for (const [index, summary] of shown.entries()) {
       expect(buttons[index]).toHaveAccessibleName(sessionTitle(summary));
-      expect(rowOf(summary.ref.id)).toHaveTextContent(summary.model ?? '');
     }
 
     const untitled = SESSIONS.find((summary) => summary.title === null);
     expect(untitled).toBeDefined();
     expect(sessionTitle(untitled as (typeof SESSIONS)[number])).not.toBe('Untitled');
+  });
+
+  it('sorts the sessions under date headings that fold away', async () => {
+    await showSessions();
+
+    const headings = screen.getAllByRole('button', { expanded: true }).filter((button) => /^(Today|Earlier this week|Older)/.test(button.textContent?.trim() ?? ''));
+    expect(headings.length).toBeGreaterThan(0);
+
+    const before = sessionButtons().length;
+    await fireEvent.click(headings[0]);
+
+    expect(headings[0]).toHaveAttribute('aria-expanded', 'false');
+    expect(sessionButtons().length).toBeLessThan(before);
+
+    await fireEvent.click(headings[0]);
+    expect(sessionButtons()).toHaveLength(before);
   });
 
   it('searches titles, first prompts and models', async () => {
@@ -253,46 +267,6 @@ describe('transcript', () => {
     expect((await screen.findAllByLabelText('Your message'))[0]).toHaveTextContent(text?.type === 'text' ? text.text : '');
     expect(screen.queryByRole('textbox')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Fork from here' })).toBeNull();
-  });
-});
-
-describe('git branches', () => {
-  it('shows the current branch with its distance from upstream, then the others with their last commit', async () => {
-    git.activate(PROJECT);
-    render(BranchesPanel);
-
-    const current = fixtures.git.branches.find((branch) => branch.isCurrent);
-    const localList = await waitFor(() => screen.getByRole('list', { name: 'Local branches' }));
-
-    const row = within(localList).getByText(current?.name ?? '').closest('li') as HTMLElement;
-    expect(row).toHaveAttribute('aria-current', 'true');
-    expect(row).toHaveTextContent('Current');
-    expect(row).toHaveTextContent(`↑${current?.ahead}`);
-    expect(row).toHaveTextContent(`↓${current?.behind}`);
-    expect(row).toHaveTextContent(current?.lastCommit?.summary ?? '');
-
-    expect(screen.getByRole('list', { name: 'Remote branches' }).querySelectorAll('li')).toHaveLength(fixtures.git.branches.filter((branch) => branch.isRemote).length);
-  });
-
-  it('collapses', async () => {
-    git.activate(PROJECT);
-    render(BranchesPanel);
-    await waitFor(() => expect(screen.getByRole('list', { name: 'Local branches' })).toBeInTheDocument());
-
-    await fireEvent.click(screen.getByRole('button', { name: /Git branches/ }));
-
-    expect(screen.queryByRole('list', { name: 'Local branches' })).toBeNull();
-  });
-
-  it('says so when the project is not a repository', async () => {
-    const plain = fixtures.recentProjects.find((candidate) => !candidate.isGitRepo && candidate.exists);
-    await project.open(plain?.path ?? '');
-    git.activate(plain?.path ?? null);
-    render(BranchesPanel);
-
-    expect(await screen.findByText('This project is not a git repository.')).toBeInTheDocument();
-
-    await project.open(PROJECT);
   });
 });
 

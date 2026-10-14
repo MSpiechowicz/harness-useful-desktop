@@ -3,7 +3,6 @@ import type { AreaMessages } from '../types';
 
 export const sessions: AreaMessages<typeof enSessions> = {
   'sessions.title': 'Sitzungen',
-  'sessions.refresh': 'Sitzungen aktualisieren',
   'sessions.loading': 'Sitzungen werden geladen',
   'sessions.tryAgain': 'Erneut versuchen',
   'sessions.drawer.label': 'Sitzungen',
@@ -19,6 +18,9 @@ export const sessions: AreaMessages<typeof enSessions> = {
   'sessions.empty.none.body': 'Sitzungen, die du in {project} mit {harness} ausführst, erscheinen hier.',
 
   'sessions.list.label': 'Sitzungen',
+  'sessions.section.today': "Heute",
+  'sessions.section.week': "Früher in dieser Woche",
+  'sessions.section.older': "Älter",
   'sessions.list.search': 'Sitzungen suchen',
   'sessions.list.searchPlaceholder': 'Sitzungen suchen…',
   'sessions.list.empty': 'Für dieses Projekt gibt es noch keine gespeicherten Sitzungen.',
@@ -101,15 +103,4 @@ export const sessions: AreaMessages<typeof enSessions> = {
   'sessions.transcript.progress.other': '{shown} von {count} Nachrichten',
   'sessions.transcript.loadMore': 'Weitere Nachrichten laden',
 
-  'sessions.branches.title': 'Git-Zweige',
-  'sessions.branches.notRepo': 'Dieses Projekt ist kein Git-Repository.',
-  'sessions.branches.none': 'Noch keine Zweige.',
-  'sessions.branches.reading': 'Zweige werden gelesen…',
-  'sessions.branches.local': 'Lokal',
-  'sessions.branches.remote': 'Remote',
-  'sessions.branches.localList': 'Lokale Zweige',
-  'sessions.branches.remoteList': 'Remote-Zweige',
-  'sessions.branches.current': 'Aktuell',
-  'sessions.branches.ahead': '{count} voraus',
-  'sessions.branches.behind': '{count} zurück',
 };

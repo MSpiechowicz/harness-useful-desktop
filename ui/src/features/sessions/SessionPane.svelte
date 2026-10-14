@@ -6,7 +6,7 @@
   import { t } from '$lib/i18n/i18n.svelte';
   import type { SessionSummary } from '$lib/ipc/bindings/SessionSummary';
   import { agentSessions } from '$lib/stores/agentSession.svelte';
-  import { forkInChat, resumeInChat } from '$lib/stores/session-actions';
+  import { forkInChat } from '$lib/stores/session-actions';
   import { sessionDetail as detail } from '$lib/stores/sessions.svelte';
 
   import SessionDetails from './SessionDetails.svelte';
@@ -18,10 +18,11 @@
     project: string;
     /** How many sessions were forked from this one. */
     forks: number;
-    ondelete: () => void;
+    /** The session is being resumed in a chat; forking waits for it. */
+    resuming?: boolean;
   }
 
-  let { summary, project, forks, ondelete }: Props = $props();
+  let { summary, project, forks, resuming = false }: Props = $props();
 
   /** Below this width the details column moves into a sheet so the transcript keeps its room. */
   const SHEET_BELOW_PX = 900;
@@ -44,12 +45,6 @@
     document.querySelector<HTMLElement>('[data-details-toggle]')?.focus();
   }
 
-  async function resume(): Promise<void> {
-    busy = true;
-    await resumeInChat(agentSessions, summary.ref, project);
-    busy = false;
-  }
-
   async function fork(entryId: string): Promise<void> {
     busy = true;
     await forkInChat(agentSessions, summary.ref, entryId, project);
@@ -58,11 +53,11 @@
 </script>
 
 <div bind:clientWidth={width} class="relative flex size-full min-h-0 flex-col">
-  <SessionHeader {summary} {busy} detailsFolded={folded} onresume={() => void resume()} {ondelete} ondetails={() => (sheetOpen = !sheetOpen)} />
+  <SessionHeader {summary} detailsFolded={folded} ondetails={() => (sheetOpen = !sheetOpen)} />
 
   <div class="flex min-h-0 flex-1">
     <div class="min-w-0 flex-1">
-      <Transcript {detail} {project} {busy} onfork={(id) => void fork(id)} />
+      <Transcript {detail} {project} busy={busy || resuming} onfork={(id) => void fork(id)} />
     </div>
 
     {#if !folded}

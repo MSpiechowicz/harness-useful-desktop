@@ -1,9 +1,11 @@
 <script lang="ts">
+  import { autoRefresh } from '$lib/utils/auto-refresh';
   import FolderOpen from '@lucide/svelte/icons/folder-open';
   import GitBranch from '@lucide/svelte/icons/git-branch';
   import Layers from '@lucide/svelte/icons/layers';
   import PackageOpen from '@lucide/svelte/icons/package-open';
   import PanelLeftOpen from '@lucide/svelte/icons/panel-left-open';
+  import Play from '@lucide/svelte/icons/play';
   import { untrack } from 'svelte';
   import { fade, fly } from 'svelte/transition';
 
@@ -15,25 +17,24 @@
   import SplitPane from '$lib/components/SplitPane.svelte';
   import { t, tn } from '$lib/i18n/i18n.svelte';
   import ViewHeader from '$lib/components/ViewHeader.svelte';
-  import RefreshButton from '$lib/components/RefreshButton.svelte';
   import { scaled } from '$lib/design/motion';
   import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
   import type { SessionSummary } from '$lib/ipc/bindings/SessionSummary';
   import { ipc } from '$lib/ipc/client';
-  import { git } from '$lib/stores/git.svelte';
   import { agentSessions } from '$lib/stores/agentSession.svelte';
   import { harness } from '$lib/stores/harness.svelte';
   import { project } from '$lib/stores/project.svelte';
-  import { cleanUpCopies, deleteSession } from '$lib/stores/session-actions';
+  import { cleanUpCopies, deleteSession, resumeInChat } from '$lib/stores/session-actions';
   import { sessionDetail, sessionList } from '$lib/stores/sessions.svelte';
+  import SearchField from '$lib/components/SearchField.svelte';
   import { viewState } from '$lib/stores/view-state.svelte';
   import { formatBytes, relativeTime } from '$lib/utils/format';
 
   import { onboarding } from '../onboarding/onboarding-state.svelte';
   import { count, scopeLabel } from '../shell/scope';
-  import BranchesPanel from './BranchesPanel.svelte';
   import { sessionTitle } from './session-format';
   import { forkCount, groupSessions } from './session-groups';
+  import SessionMenu from './SessionMenu.svelte';
   import SessionConfirm, { type ConfirmRequest } from './SessionConfirm.svelte';
   import SessionList from './SessionList.svelte';
   import SessionPane from './SessionPane.svelte';
@@ -63,7 +64,6 @@
     // The stores read their own state while loading; only the harness and project may re-run this.
     untrack(() => {
       sessionList.revalidate(harnessId, path);
-      git.activate(path);
     });
   });
 
@@ -73,6 +73,14 @@
 
     untrack(() => sessionDetail.open(ref, path));
   });
+
+  let resuming = $state(false);
+
+  async function resume(summary: SessionSummary, path: string): Promise<void> {
+    resuming = true;
+    await resumeInChat(agentSessions, summary.ref, path);
+    resuming = false;
+  }
 
   function choose(summary: SessionSummary): void {
     viewState.sessionId = summary.ref.id;
@@ -150,6 +158,9 @@
     document.querySelector<HTMLElement>('[data-drawer-toggle]')?.focus();
   }
 
+  // New sessions appear while the view is open (an agent starts one), so the list re-reads quietly.
+  $effect(() => autoRefresh(() => void sessionList.refresh({ quiet: true }), 5000));
+
   // Widening the window past the breakpoint turns the drawer back into a column.
   $effect(() => {
     if (!drawer) {
@@ -161,6 +172,11 @@
 <div class="flex size-full min-h-0 flex-col">
   <ViewHeader title={t('sessions.title')} icon={GitBranch} context={scopeLabel(current && sessionList.data ? count(groups.rows.length, 'session') : null)}>
     {#snippet actions()}
+      {#if current && sessionList.data}
+        <div class="w-[340px] max-[900px]:w-[220px]">
+          <SearchField bind:value={viewState.sessionsQuery} label={t('sessions.list.search')} placeholder={t('sessions.list.searchPlaceholder')} shortcut="mod+f" />
+        </div>
+      {/if}
       {#if drawer && current}
         <Button data-drawer-toggle aria-haspopup="dialog" aria-expanded={drawerOpen} onclick={() => (drawerOpen = !drawerOpen)}>
           {#snippet leading()}<PanelLeftOpen size={ICON.sm} aria-hidden="true" />{/snippet}
@@ -168,7 +184,13 @@
           <span class="tabular rounded-full bg-surface-3 px-1.5 text-xs leading-5 text-fg-2">{groups.rows.length}</span>
         </Button>
       {/if}
-      <RefreshButton label={t('sessions.refresh')} busy={sessionList.status === 'loading'} onclick={() => sessionList.refresh()} />
+      {#if selected && current}
+        <Button variant="primary" loading={resuming} onclick={() => void resume(selected, current.path)}>
+          {#snippet leading()}<Play size={ICON.sm} aria-hidden="true" />{/snippet}
+          {t('sessions.header.resume')}
+        </Button>
+        <SessionMenu label={t('sessions.header.menu')} ondelete={() => remove(selected)} />
+      {/if}
     {/snippet}
   </ViewHeader>
 
@@ -245,15 +267,13 @@
     {:else}
       <SessionList {groups} selectedId={selected?.ref.id ?? null} onselect={choose} ondelete={remove} oncleanup={cleanUp} />
     {/if}
-
-    <BranchesPanel />
   </div>
 {/snippet}
 
 {#snippet detail(project: NonNullable<typeof current>, harness: NonNullable<typeof active>)}
   {#if selected}
     {#key selected.ref.id}
-      <SessionPane summary={selected} project={project.path} forks={forkCount(sessions, selected.ref.id)} ondelete={() => remove(selected)} />
+      <SessionPane summary={selected} project={project.path} forks={forkCount(sessions, selected.ref.id)} {resuming} />
     {/key}
   {:else}
     <div class="grid size-full place-items-center">
