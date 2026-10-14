@@ -62,7 +62,7 @@
 
   const fraction = $derived(updates.fraction);
   // The dashboard's compact button (28px, 12px text), like the rest of the rail.
-  const SMALL = 'h-[28px]! gap-1.5! px-3! text-xs!';
+  const SMALL = 'h-[28px]! gap-1.5! rounded-sm! px-3! text-xs!';
 
   const canRetry = $derived(state.kind === 'failed' && retryable(state.reason));
 </script>
