@@ -15,6 +15,7 @@ mod config;
 mod config_value;
 mod dashboard;
 mod dashboard_args;
+mod dropped;
 mod ecosystem;
 mod extension_action;
 mod extensions;
@@ -30,7 +31,10 @@ mod ui_request;
 mod update;
 
 pub use agent::{AgentSessionInfo, AgentStartRequest, ApprovalMode, BashOutput, SessionRef};
-pub use agent_action::{AgentAction, AgentReply, MAX_ACTION_TEXT_BYTES, MAX_HISTORY_PAGE, StreamingBehavior};
+pub use agent_action::{
+    AgentAction, AgentReply, IMAGE_MIME_TYPES, ImageAttachment, MAX_ACTION_IMAGE_BYTES, MAX_ACTION_IMAGES,
+    MAX_ACTION_TEXT_BYTES, MAX_HISTORY_PAGE, StreamingBehavior,
+};
 pub use agent_event::{AgentEnvelope, AgentEvent};
 pub use app::AppInfo;
 pub use chat::{
@@ -46,6 +50,7 @@ pub use dashboard_args::{
     MAX_DASHBOARD_ID_CHARS, MAX_DASHBOARD_NAME_CHARS, MAX_DASHBOARD_PATH_CHARS, MAX_DASHBOARD_REF_CHARS,
     MAX_DASHBOARD_ROWS, MAX_DASHBOARD_TIME_CHARS, MAX_DASHBOARD_TIPS, SessionCostArgs, TipsArgs, UsageSummaryArgs,
 };
+pub use dropped::{AttachedFile, DropEvent, DroppedImage};
 pub use ecosystem::{EcosystemId, EcosystemInstalled, EcosystemItem, EcosystemRelease, EcosystemStatus, InstallStep};
 pub use extension_action::{CliResult, ExtensionAction, InstallScope, MAX_CLI_OUTPUT_BYTES};
 pub use extensions::{

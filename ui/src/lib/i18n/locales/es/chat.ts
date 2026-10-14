@@ -46,6 +46,16 @@ export const chat: AreaMessages<typeof enChat> = {
   'chat.ask.cancel': 'Cancelar',
 
   'chat.assistant.label': 'Mensaje del asistente',
+  'chat.attach.add': 'Adjuntar archivos o imágenes',
+  'chat.attach.list': 'Imágenes adjuntas',
+  'chat.attach.remove': 'Quitar {name}',
+  'chat.attach.blind': 'El modelo actual no puede leer imágenes.',
+  'chat.attach.failed': 'No se pudo adjuntar {name}',
+  'chat.attach.unsupported': 'No se pueden adjuntar carpetas ni archivos ilegibles.',
+  'chat.attach.tooLarge': 'Demasiado grande, incluso reducida. El total por mensaje es de 3 MB.',
+  'chat.attach.unreadable': 'No se pudo leer el archivo como imagen.',
+  'chat.attach.limit': 'Un mensaje admite como máximo {max} imágenes.',
+  'chat.attach.limitFiles': 'Un mensaje admite como máximo {max} archivos.',
   'chat.assistant.image': '[imagen · {type}]',
   'chat.assistant.working': 'Trabajando…',
 
@@ -244,6 +254,9 @@ export const chat: AreaMessages<typeof enChat> = {
   'chat.request.submit': 'Enviar',
 
   'chat.user.label': 'Tu mensaje',
+  'chat.user.images': 'Imágenes adjuntas',
+  'chat.user.files': 'Archivos adjuntos',
+  'chat.user.image': 'Imagen adjunta {n}',
 
   'chat.retry.start': 'Reintentando',
   'chat.retry.end': 'Reintento',

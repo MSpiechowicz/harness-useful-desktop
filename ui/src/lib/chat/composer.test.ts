@@ -33,9 +33,16 @@ describe('Enter in the composer', () => {
 
 describe('messageAction', () => {
   it('maps each mode to the action that delivers it', () => {
-    expect(messageAction('hi', 'send')).toEqual({ type: 'prompt', message: 'hi', streamingBehavior: null });
-    expect(messageAction('hi', 'steer')).toEqual({ type: 'steer', message: 'hi' });
-    expect(messageAction('hi', 'followUp')).toEqual({ type: 'followUp', message: 'hi' });
+    expect(messageAction('hi', 'send')).toEqual({ type: 'prompt', message: 'hi', images: [], streamingBehavior: null });
+    expect(messageAction('hi', 'steer')).toEqual({ type: 'steer', message: 'hi', images: [] });
+    expect(messageAction('hi', 'followUp')).toEqual({ type: 'followUp', message: 'hi', images: [] });
+  });
+
+  it('carries the images', () => {
+    const images = [{ data: 'aGk=', mimeType: 'image/png' }];
+
+    expect(messageAction('hi', 'send', images)).toMatchObject({ type: 'prompt', images });
+    expect(messageAction('hi', 'steer', images)).toMatchObject({ type: 'steer', images });
   });
 });
 

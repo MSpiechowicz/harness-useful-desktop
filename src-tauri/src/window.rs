@@ -53,7 +53,10 @@ pub fn create_main_window<R: Runtime>(app: &App<R>) -> tauri::Result<WebviewWind
         builder = builder.initialization_script(CONTEXT_MENU_SCRIPT);
     }
 
-    builder.build()
+    let window = builder.build()?;
+    crate::drops::forward(&window);
+
+    Ok(window)
 }
 
 /// Brings the main window to the front (used when a second instance is launched).

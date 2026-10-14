@@ -11,6 +11,8 @@ import { IpcFailure, type Transport } from '$lib/ipc/transport';
 import type { ToastsStore } from '$lib/stores/toasts.svelte';
 
 import { pendingApproval, pendingDialog, type ApprovalPrompt } from './approval';
+import { splitFileNote, toImages, withFileNote } from './attachments';
+import { ComposerAttachments, type Attached } from './composer-attachments.svelte';
 import { finishBash, startBash } from './bash';
 import { messageAction, type SendMode } from './composer';
 import { labelFromPrompt, type ChatLabel } from './naming';
@@ -45,6 +47,10 @@ export class ChatSession {
 
   chat = $state.raw<ChatState>(initialChatState(''));
   draft = $state('');
+  /** Images and files waiting in the composer for the next message. */
+  readonly attached: ComposerAttachments;
+  /** Thumbnails of the images this window sent, by message key; the transcript itself keeps no image data. */
+  sentImages = $state.raw<Record<string, string[]>>({});
   models = $state.raw<ModelOption[] | null>(null);
   thinkingLevels = $state.raw<string[] | null>(null);
   stats = $state.raw<SessionStats | null>(null);
@@ -73,7 +79,7 @@ export class ChatSession {
 
     const first = this.chat.items.find((item) => item.kind === 'message' && item.role === 'user');
 
-    return first?.kind === 'message' ? first.blocks.flatMap((block) => (block.type === 'text' ? [block.text] : [])).join('\n') : '';
+    return first?.kind === 'message' ? splitFileNote(first.blocks.flatMap((block) => (block.type === 'text' ? [block.text] : [])).join('\n')).text : '';
   });
   /** The card text: the helper's when it answered, else the opening words of the first message. */
   label = $derived(this.aiLabel ?? labelFromPrompt(this.firstPrompt));
@@ -82,6 +88,8 @@ export class ChatSession {
 
   private incoming: AgentEnvelope[] = [];
   private flushScheduled = false;
+  /** Thumbnails of sent messages not yet matched to their transcript item, oldest first. */
+  private unmatchedImages: string[][] = [];
   private historyLoaded = false;
 
   /** The session's launch info; `project` changes when the chat moves to another project. */
@@ -93,6 +101,7 @@ export class ChatSession {
     private readonly notifications: ToastsStore,
   ) {
     this.info = info;
+    this.attached = new ComposerAttachments(transport, notifications);
     this.key = info.key;
     this.chat = initialChatState(info.key);
   }
@@ -133,10 +142,33 @@ export class ChatSession {
     }
 
     this.chat = next;
+    this.matchSentImages(next);
     if (toolRuns > 0) {
       this.toolRuns += toolRuns;
     }
     this.afterChange(before, next);
+  }
+
+  /** Gives each new user message that carries images the thumbnails of the oldest send still waiting. */
+  private matchSentImages(after: ChatState): void {
+    if (this.unmatchedImages.length === 0) {
+      return;
+    }
+
+    const matched: Record<string, string[]> = {};
+
+    for (const item of after.items) {
+      const hasImages = item.kind === 'message' && item.role === 'user' && item.blocks.some((block) => block.type === 'image');
+      if (!hasImages || item.key in this.sentImages || this.unmatchedImages.length === 0) {
+        continue;
+      }
+
+      matched[item.key] = this.unmatchedImages.shift() ?? [];
+    }
+
+    if (Object.keys(matched).length > 0) {
+      this.sentImages = { ...this.sentImages, ...matched };
+    }
   }
 
   /** Reacts to what a batch changed: ask for fresh facts once the agent is ready or settled. */
@@ -183,14 +215,54 @@ export class ChatSession {
     }
   }
 
-  /** Sends the user's text; false when it did not go out (so the composer can keep the draft). */
-  async submit(text: string, mode: SendMode): Promise<boolean> {
-    const message = text.trim();
+  /**
+   * Receives the files dragged in from the file manager while the returned function has not been
+   * called: `hover` follows a drag over the window and dropped images join the composer.
+   */
+  listenForDrops(hover: (active: boolean) => void): () => void {
+    let listening = true;
+
+    this.transport
+      .invoke('drop_listen', {
+        onDrop: (event) => {
+          if (!listening || this.ended) {
+            return;
+          }
+
+          if (event.type === 'hover') {
+            hover(event.active);
+          } else {
+            void this.attached.addDropped(event.images, event.files, event.skipped);
+          }
+        },
+      })
+      .catch(() => {});
+
+    return () => {
+      listening = false;
+      hover(false);
+    };
+  }
+
+  /** Sends the user's text with its images and files; false when it did not go out (so the composer can keep the draft). */
+  async submit(text: string, mode: SendMode, attached: Attached = { images: [], files: [] }): Promise<boolean> {
+    const message = withFileNote(text.trim(), attached.files);
     if (message === '') {
       return false;
     }
 
-    return (await this.send(messageAction(message, mode))) !== null;
+    // Queued before the send: the message event may land before the reply does.
+    const thumbnails = attached.images.map((image) => image.url);
+    if (thumbnails.length > 0) {
+      this.unmatchedImages.push(thumbnails);
+    }
+
+    const accepted = (await this.send(messageAction(message, mode, toImages(attached.images)))) !== null;
+    if (!accepted && thumbnails.length > 0) {
+      this.unmatchedImages = this.unmatchedImages.filter((queued) => queued !== thumbnails);
+    }
+
+    return accepted;
   }
 
   async abort(): Promise<void> {

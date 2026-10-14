@@ -57,6 +57,7 @@ fn portable(run: &Run, value: impl Serialize) -> Value {
 fn prompt(message: &str) -> AgentAction {
     AgentAction::Prompt {
         message: message.to_owned(),
+        images: Vec::new(),
         streaming_behavior: None,
     }
 }

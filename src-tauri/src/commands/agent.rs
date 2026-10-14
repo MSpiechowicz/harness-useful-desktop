@@ -344,6 +344,7 @@ mod tests {
 
         let prompt = AgentAction::Prompt {
             message: "Make `parse` handle empty input.".to_owned(),
+            images: Vec::new(),
             streaming_behavior: None,
         };
         let reply = block_on(agents.manager().send(&info.key, prompt)).expect("prompt accepted");
@@ -388,6 +389,7 @@ mod tests {
         open.store(false, Ordering::Release);
         let prompt = AgentAction::Prompt {
             message: "hello".to_owned(),
+            images: Vec::new(),
             streaming_behavior: None,
         };
         block_on(agents.manager().send(&info.key, prompt)).expect("prompt accepted");

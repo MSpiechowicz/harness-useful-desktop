@@ -15,6 +15,27 @@ pub const MAX_ACTION_TEXT_BYTES: usize = 512 * 1024;
 /// Largest accepted `getHistory` page size.
 pub const MAX_HISTORY_PAGE: u32 = 200;
 
+/// Most images that can go with one message.
+pub const MAX_ACTION_IMAGES: usize = 8;
+
+/// Largest total base64 size of the images of one message, in bytes (3 MiB). One RPC frame holds
+/// 4 MiB, and the message text and the JSON around the images need room too.
+pub const MAX_ACTION_IMAGE_BYTES: usize = 3 * 1024 * 1024;
+
+/// MIME types of images the harnesses accept.
+pub const IMAGE_MIME_TYPES: [&str; 4] = ["image/png", "image/jpeg", "image/gif", "image/webp"];
+
+/// An image attached to a message.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct ImageAttachment {
+    /// Base64-encoded image bytes (no `data:` prefix).
+    pub data: String,
+    /// One of [`IMAGE_MIME_TYPES`].
+    pub mime_type: String,
+}
+
 /// How a prompt sent while the agent is streaming is delivered.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
@@ -35,6 +56,9 @@ pub enum AgentAction {
     Prompt {
         /// Prompt text.
         message: String,
+        /// Images the agent should look at.
+        #[serde(default)]
+        images: Vec<ImageAttachment>,
         /// Delivery while the agent is streaming; `None` lets the harness decide.
         streaming_behavior: Option<StreamingBehavior>,
     },
@@ -42,11 +66,17 @@ pub enum AgentAction {
     Steer {
         /// Steering text.
         message: String,
+        /// Images the agent should look at.
+        #[serde(default)]
+        images: Vec<ImageAttachment>,
     },
     /// Queue a message for after the running turn.
     FollowUp {
         /// Follow-up text.
         message: String,
+        /// Images the agent should look at.
+        #[serde(default)]
+        images: Vec<ImageAttachment>,
     },
     /// Stop the running turn.
     Abort,
@@ -113,8 +143,11 @@ impl AgentAction {
     /// Checks the size limits of the action's free-text fields and the history page size.
     pub fn validate(&self) -> Result<()> {
         match self {
-            Self::Prompt { message, .. } | Self::Steer { message } | Self::FollowUp { message } => {
-                check_text("message", message)
+            Self::Prompt { message, images, .. }
+            | Self::Steer { message, images }
+            | Self::FollowUp { message, images } => {
+                check_text("message", message)?;
+                check_images(images)
             }
             Self::Compact {
                 instructions: Some(instructions),
@@ -134,6 +167,44 @@ fn check_text(field: &str, text: &str) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn check_images(images: &[ImageAttachment]) -> Result<()> {
+    if images.len() > MAX_ACTION_IMAGES {
+        return Err(BusinessError::InvalidInput(format!(
+            "a message holds at most {MAX_ACTION_IMAGES} images"
+        )));
+    }
+
+    if let Some(image) = images
+        .iter()
+        .find(|image| !IMAGE_MIME_TYPES.contains(&image.mime_type.as_str()))
+    {
+        return Err(BusinessError::InvalidInput(format!(
+            "unsupported image type {}",
+            image.mime_type
+        )));
+    }
+
+    let bytes: usize = images.iter().map(|image| image.data.len()).sum();
+    if bytes > MAX_ACTION_IMAGE_BYTES {
+        return Err(BusinessError::InvalidInput(format!(
+            "images exceed {MAX_ACTION_IMAGE_BYTES} bytes"
+        )));
+    }
+
+    if images
+        .iter()
+        .any(|image| image.data.is_empty() || !image.data.bytes().all(is_base64))
+    {
+        return Err(BusinessError::InvalidInput("an image is not valid base64".to_owned()));
+    }
+
+    Ok(())
+}
+
+fn is_base64(byte: u8) -> bool {
+    byte.is_ascii_alphanumeric() || matches!(byte, b'+' | b'/' | b'=')
 }
 
 fn check_history_limit(limit: u32) -> Result<()> {

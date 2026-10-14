@@ -329,6 +329,7 @@ impl AgentSession {
         self.call(
             &AgentAction::Prompt {
                 message: prompt,
+                images: Vec::new(),
                 streaming_behavior: None,
             },
             DEFAULT_TIMEOUT,

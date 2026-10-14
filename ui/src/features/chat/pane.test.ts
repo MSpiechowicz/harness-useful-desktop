@@ -158,7 +158,7 @@ describe('chat pane', () => {
 
     await fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
 
-    await waitFor(() => expect(of('agent_send').map((call) => call.action)).toContainEqual({ type: 'prompt', message: 'Summarize the open TODOs.', streamingBehavior: null }));
+    await waitFor(() => expect(of('agent_send').map((call) => call.action)).toContainEqual({ type: 'prompt', message: 'Summarize the open TODOs.', images: [], streamingBehavior: null }));
   });
 
   it('pins an approval card above the composer while the agent waits', () => {

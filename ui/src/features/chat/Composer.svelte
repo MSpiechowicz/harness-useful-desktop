@@ -1,12 +1,14 @@
 <script lang="ts">
   import ArrowUp from '@lucide/svelte/icons/arrow-up';
+  import Paperclip from '@lucide/svelte/icons/paperclip';
   import Square from '@lucide/svelte/icons/square';
   import Terminal from '@lucide/svelte/icons/terminal';
-  import { untrack } from 'svelte';
+  import { onMount, untrack } from 'svelte';
 
   import Badge from '$lib/components/Badge.svelte';
   import Button from '$lib/components/Button.svelte';
   import { autofocus } from '$lib/a11y/autofocus';
+  import { MAX_FILES, MAX_IMAGES, isLargePaste } from '$lib/chat/attachments';
   import { bashCommand, isBashDraft, sendIntent, type SendMode } from '$lib/chat/composer';
   import type { ChatSession } from '$lib/chat/session.svelte';
   import { acceptCommand, filterCommands, resolveSlash, slashQuery } from '$lib/chat/slash';
@@ -15,6 +17,7 @@
   import { isMacPlatform } from '$lib/utils/shortcuts';
   import { t } from '$lib/i18n/i18n.svelte';
 
+  import AttachmentStrip from './AttachmentStrip.svelte';
   import ContextMeter from './ContextMeter.svelte';
   import CostChip from '$lib/components/CostChip.svelte';
   import ModelPicker from './ModelPicker.svelte';
@@ -33,10 +36,23 @@
   const menuId = uid('slash-menu');
 
   let textarea: HTMLTextAreaElement | undefined = $state();
+  let fileInput: HTMLInputElement | undefined = $state();
+  let dragging = $state(false);
   let active = $state(0);
   /** The draft for which Escape closed the suggestions; typing brings them back. */
   let dismissedFor = $state<string | null>(null);
   let appliedNonce = untrack(() => session.chat.editorText?.nonce ?? 0);
+
+  // Files dragged in from the file manager arrive as native drops (see `drop_listen`); the HTML5
+  // handlers below cover browsers and pasted files.
+  onMount(() =>
+    session.listenForDrops((active) => {
+      dragging = active;
+      if (!active) {
+        textarea?.focus();
+      }
+    }),
+  );
 
   const query = $derived(slashQuery(session.draft));
   const suggestions = $derived(query === null ? [] : filterCommands(session.commands, query));
@@ -44,7 +60,9 @@
   const bash = $derived(isBashDraft(session.draft));
   const sessionId = $derived(session.chat.session?.sessionId ?? null);
   const costArgs = $derived(sessionId ? { session_id: sessionId } : null);
-  const canSend = $derived(session.draft.trim() !== '' && !session.ended);
+  const attached = $derived(session.attached);
+  const canSend = $derived((session.draft.trim() !== '' || attached.files.length > 0) && !session.ended);
+  const attachFull = $derived(attached.images.length >= MAX_IMAGES && attached.files.length >= MAX_FILES);
   const queued = $derived(session.chat.queue.steering.length + session.chat.queue.followUp.length);
 
   const placeholder = $derived(bash ? t('chat.composer.placeholder.bash') : session.streaming ? t('chat.composer.placeholder.streaming') : t('chat.composer.placeholder'));
@@ -73,6 +91,57 @@
     }
   });
 
+  function attach(files: Iterable<File>): void {
+    const list = Array.from(files);
+    if (list.length > 0 && !session.ended && !bash) {
+      void attached.add(list);
+    }
+  }
+
+  function onpaste(event: ClipboardEvent): void {
+    const files = Array.from(event.clipboardData?.files ?? []);
+    if (files.length > 0) {
+      event.preventDefault();
+      attach(files);
+
+      return;
+    }
+
+    // A pasted log would bury the composer: it goes along as a text file instead.
+    const text = event.clipboardData?.getData('text/plain') ?? '';
+    if (isLargePaste(text) && !bash && !session.ended) {
+      event.preventDefault();
+      void attached.addText(text);
+    }
+  }
+
+  function hasFiles(event: DragEvent): boolean {
+    return event.dataTransfer?.types.includes('Files') ?? false;
+  }
+
+  function ondragover(event: DragEvent): void {
+    if (hasFiles(event) && !session.ended) {
+      event.preventDefault();
+      dragging = true;
+    }
+  }
+
+  function ondrop(event: DragEvent): void {
+    dragging = false;
+    if (hasFiles(event)) {
+      event.preventDefault();
+      attach(event.dataTransfer?.files ?? []);
+      textarea?.focus();
+    }
+  }
+
+  function onpick(): void {
+    attach(fileInput?.files ?? []);
+    if (fileInput) {
+      fileInput.value = '';
+    }
+  }
+
   function accept(command: CommandSpec): void {
     const outcome = acceptCommand(command);
 
@@ -86,7 +155,7 @@
 
   async function submit(mode: SendMode): Promise<void> {
     const text = session.draft.trim();
-    if (text === '' || session.ended) {
+    if ((text === '' && attached.files.length === 0) || session.ended) {
       return;
     }
 
@@ -111,9 +180,11 @@
     }
 
     // Clear at once so the composer feels instant; a rejected message comes back.
+    const sent = attached.take();
     session.draft = '';
-    if (!(await session.submit(text, mode)) && session.draft === '') {
+    if (!(await session.submit(text, mode, sent)) && session.draft === '') {
       session.draft = text;
+      attached.restore(sent);
     }
   }
 
@@ -161,9 +232,15 @@
     </ul>
   {/if}
 
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
-    class="border-card chat-radius border-line-strong bg-surface-1 bg-clip-padding transition-[border-color] duration-[var(--dur-fast)] focus-within:border-[color-mix(in_oklch,var(--color-fg)_28%,var(--surface-1))]"
+    {ondragover}
+    ondragleave={() => (dragging = false)}
+    {ondrop}
+    class="border-card chat-radius border-line-strong bg-surface-1 bg-clip-padding transition-[border-color] duration-[var(--dur-fast)] focus-within:border-[color-mix(in_oklch,var(--color-fg)_28%,var(--surface-1))] {dragging ? 'border-accent!' : ''}"
   >
+    <AttachmentStrip {session} />
+
     {#if bash}
       <p class="flex items-center gap-1.5 px-4 pt-3 text-xs text-warning"><Terminal size={14} aria-hidden="true" /> {t('chat.composer.bashHint')}</p>
     {/if}
@@ -173,6 +250,7 @@
       bind:value={session.draft}
       use:autofocus
       {onkeydown}
+      {onpaste}
       rows="1"
       disabled={session.ended}
       aria-label={t('chat.composer.aria')}
@@ -187,6 +265,18 @@
     ></textarea>
 
     <div class="flex items-center gap-1 px-2 pb-2">
+      <input bind:this={fileInput} type="file" multiple class="hidden" tabindex="-1" aria-hidden="true" onchange={onpick} />
+      <Button
+        size="sm"
+        variant="ghost"
+        class="size-8 px-0!"
+        aria-label={t('chat.attach.add')}
+        title={t('chat.attach.add')}
+        disabled={session.ended || bash || attachFull}
+        onclick={() => fileInput?.click()}
+      >
+        <Paperclip size={16} aria-hidden="true" />
+      </Button>
       <ModelPicker {session} />
       <ThinkingPicker {session} />
 

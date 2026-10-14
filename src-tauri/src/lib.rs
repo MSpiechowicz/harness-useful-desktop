@@ -6,6 +6,7 @@ mod agent_sink;
 mod agents;
 mod commands;
 mod dialogs;
+mod drops;
 mod error;
 mod lifecycle;
 mod logging;
@@ -92,6 +93,8 @@ pub fn run() -> ExitCode {
             commands::updates::update_install,
             commands::updates::app_relaunch,
             commands::sound::launch_sound,
+            commands::drops::drop_listen,
+            commands::drops::attachment_save,
         ])
         .on_page_load(lifecycle::on_page_load)
         .build(tauri::generate_context!());

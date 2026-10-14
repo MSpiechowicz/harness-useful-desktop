@@ -33,7 +33,7 @@ describe('Composer keys', () => {
     await type(box, 'hello');
     await fireEvent.keyDown(box, { key: 'Enter' });
 
-    await waitFor(() => expect(sentActions(of)).toEqual([{ type: 'prompt', message: 'hello', streamingBehavior: null }]));
+    await waitFor(() => expect(sentActions(of)).toEqual([{ type: 'prompt', message: 'hello', images: [], streamingBehavior: null }]));
     expect(session.draft).toBe('');
   });
 
@@ -65,8 +65,8 @@ describe('Composer keys', () => {
 
     await waitFor(() =>
       expect(sentActions(of)).toEqual([
-        { type: 'steer', message: 'change course' },
-        { type: 'steer', message: 'again' },
+        { type: 'steer', message: 'change course', images: [] },
+        { type: 'steer', message: 'again', images: [] },
       ]),
     );
   });
@@ -77,7 +77,7 @@ describe('Composer keys', () => {
     await type(box, 'and then tests');
     await fireEvent.keyDown(box, { key: 'Enter', ctrlKey: true });
 
-    await waitFor(() => expect(sentActions(of)).toEqual([{ type: 'followUp', message: 'and then tests' }]));
+    await waitFor(() => expect(sentActions(of)).toEqual([{ type: 'followUp', message: 'and then tests', images: [] }]));
   });
 
   it('turns the send button into Stop, Follow-up and Steer while streaming', async () => {
@@ -205,5 +205,111 @@ describe('shell commands', () => {
 
     expect(session.ui.confirmBash).toBeNull();
     expect(of('agent_bash')).toEqual([]);
+  });
+});
+
+describe('Composer images', () => {
+  const png = () => new File(['png-bytes'], 'shot.png', { type: 'image/png' });
+
+  it('shows an attached image, sends it with the message and clears it', async () => {
+    const { box, of, session } = mount();
+    const input = document.querySelector<HTMLInputElement>('input[type="file"]')!;
+
+    await fireEvent.change(input, { target: { files: [png()] } });
+    await screen.findByRole('img', { name: 'shot.png' });
+    expect(session.attached.images).toHaveLength(1);
+
+    await type(box, 'what is this?');
+    await fireEvent.keyDown(box, { key: 'Enter' });
+
+    await waitFor(() =>
+      expect(sentActions(of)).toEqual([{ type: 'prompt', message: 'what is this?', images: [{ data: btoa('png-bytes'), mimeType: 'image/png' }], streamingBehavior: null }]),
+    );
+    expect(session.attached.images).toEqual([]);
+    expect(screen.queryByRole('img', { name: 'shot.png' })).toBeNull();
+  });
+
+  it('removes an attachment on request', async () => {
+    const { session } = mount();
+    const input = document.querySelector<HTMLInputElement>('input[type="file"]')!;
+
+    await fireEvent.change(input, { target: { files: [png()] } });
+    await fireEvent.click(await screen.findByRole('button', { name: 'Remove shot.png' }));
+
+    expect(session.attached.images).toEqual([]);
+  });
+
+  it('saves any other file and sends its path with the message', async () => {
+    const { box, of, session } = mount();
+    const input = document.querySelector<HTMLInputElement>('input[type="file"]')!;
+
+    await fireEvent.change(input, { target: { files: [new File(['error: boom'], 'build.log', { type: 'text/plain' })] } });
+    await screen.findByText('build.log');
+    expect(of('attachment_save')).toEqual([{ name: 'build.log', data: btoa('error: boom') }]);
+    expect(session.attached.images).toEqual([]);
+
+    await type(box, 'why does it fail?');
+    await fireEvent.keyDown(box, { key: 'Enter' });
+
+    await waitFor(() =>
+      expect(sentActions(of)).toEqual([
+        {
+          type: 'prompt',
+          message: 'why does it fail?\n\nAttached files (open them with your file tools):\n- /home/demo/.cache/attachments/mock/build.log (11 B)',
+          images: [],
+          streamingBehavior: null,
+        },
+      ]),
+    );
+    expect(session.attached.files).toEqual([]);
+  });
+
+  it('sends a file on its own, without text', async () => {
+    const { box, of } = mount();
+    const input = document.querySelector<HTMLInputElement>('input[type="file"]')!;
+
+    await fireEvent.change(input, { target: { files: [new File(['x'], 'a.json', { type: 'application/json' })] } });
+    await screen.findByText('a.json');
+    await fireEvent.keyDown(box, { key: 'Enter' });
+
+    await waitFor(() => expect(sentActions(of)).toHaveLength(1));
+  });
+
+  it('turns a large paste into a text file and leaves a short one alone', async () => {
+    const { box, of, session } = mount();
+    const paste = (text: string) => fireEvent.paste(box, { clipboardData: { files: [], getData: () => text } });
+
+    await paste('short');
+    expect(of('attachment_save')).toEqual([]);
+
+    await paste(Array.from({ length: 60 }, (_, line) => `log line ${line}`).join('\n'));
+    await waitFor(() => expect(session.attached.files).toHaveLength(1));
+    expect(session.attached.files[0].name).toMatch(/^pasted-text-\d{8}-\d{6}\.txt$/);
+  });
+
+  it('lists files a native drop only named', async () => {
+    const { of, session } = mount();
+    const [{ onDrop }] = of('drop_listen');
+
+    onDrop({ type: 'dropped', images: [], files: [{ name: 'huge.log', path: '/var/log/huge.log', bytes: 90_000_000 }], skipped: [] });
+    onDrop({ type: 'dropped', images: [], files: [{ name: 'huge.log', path: '/var/log/huge.log', bytes: 90_000_000 }], skipped: [] });
+
+    await screen.findByText('huge.log');
+    expect(session.attached.files).toHaveLength(1);
+  });
+
+  it('previews images dragged in from the file manager, which the shell reads', async () => {
+    const { of, session, notifications } = mount();
+    const [{ onDrop }] = of('drop_listen');
+
+    onDrop({ type: 'hover', active: true });
+    onDrop({ type: 'dropped', images: [{ name: 'photo.jpeg', mimeType: 'image/jpeg', data: btoa('jpeg-bytes') }], files: [], skipped: ['notes'] });
+
+    await screen.findByRole('img', { name: 'photo.jpeg' });
+    expect(session.attached.images.map((attachment) => attachment.mimeType)).toEqual(['image/jpeg']);
+    expect(notifications.items.map((toast) => toast.title)).toContain('Could not attach notes');
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Remove photo.jpeg' }));
+    expect(session.attached.images).toEqual([]);
   });
 });

@@ -86,7 +86,7 @@ export async function requestAiLabel(transport: Transport, request: AiNameReques
     }
 
     const settledBefore = state.settledCount;
-    await transport.invoke('agent_send', { key: helper.key, action: { type: 'prompt', message: namingPrompt(request.prompt), streamingBehavior: null } });
+    await transport.invoke('agent_send', { key: helper.key, action: { type: 'prompt', message: namingPrompt(request.prompt), images: [], streamingBehavior: null } });
 
     if (!(await until((current) => current.settledCount > settledBefore))) {
       return null;

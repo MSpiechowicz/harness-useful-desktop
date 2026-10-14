@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-drop-listen"
+description = "Enables the drop_listen command without any pre-configured scope."
+commands.allow = ["drop_listen"]
+
+[[permission]]
+identifier = "deny-drop-listen"
+description = "Denies the drop_listen command without any pre-configured scope."
+commands.deny = ["drop_listen"]

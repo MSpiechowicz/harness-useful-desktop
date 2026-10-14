@@ -104,7 +104,7 @@ describe('composing and sending', () => {
 
     expect(await review.send(PROJECT, 'omp', chat?.key ?? '', 'the prompt')).toBe(true);
 
-    expect(of('agent_send').filter(({ action }) => action.type === 'prompt')).toEqual([{ key: chat?.key, action: { type: 'prompt', message: 'the prompt', streamingBehavior: null } }]);
+    expect(of('agent_send').filter(({ action }) => action.type === 'prompt')).toEqual([{ key: chat?.key, action: { type: 'prompt', message: 'the prompt', images: [], streamingBehavior: null } }]);
     expect(review.commentsFor(PROJECT)).toEqual([]);
     expect(store.activeKey).toBe(chat?.key);
     expect(nav.current).toBe('chat');

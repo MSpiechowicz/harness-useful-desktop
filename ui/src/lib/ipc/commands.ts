@@ -11,6 +11,8 @@ import type { CliResult } from './bindings/CliResult';
 import type { CommandSpec as CatalogCommand } from './bindings/CommandSpec';
 import type { ComposedReview } from './bindings/ComposedReview';
 import type { ConfigView } from './bindings/ConfigView';
+import type { AttachedFile } from './bindings/AttachedFile';
+import type { DropEvent } from './bindings/DropEvent';
 import type { DashboardAvailability } from './bindings/DashboardAvailability';
 import type { DashboardQuery } from './bindings/DashboardQuery';
 import type { DashboardResult } from './bindings/DashboardResult';
@@ -91,6 +93,8 @@ export const commands = {
   update_install: cmd<{ onProgress: EventSink<UpdateProgress> }, null>(),
   app_relaunch: cmd<undefined, null>(),
   launch_sound: cmd<{ play: boolean }, null>(),
+  drop_listen: cmd<{ onDrop: EventSink<DropEvent> }, null>(),
+  attachment_save: cmd<{ name: string; data: string }, AttachedFile>(),
 };
 
 export type CommandName = keyof typeof commands;

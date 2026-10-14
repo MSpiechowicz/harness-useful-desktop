@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import type { AgentAction } from '../bindings/AgentAction';
 import type { AgentEnvelope } from '../bindings/AgentEnvelope';
 import type { AgentEvent } from '../bindings/AgentEvent';
 import type { AgentStartRequest } from '../bindings/AgentStartRequest';
@@ -17,7 +18,7 @@ async function start(request: AgentStartRequest = REQUEST) {
   return { transport, info, events, types: () => events.map((envelope) => envelope.event.type) };
 }
 
-const prompt = (message: string) => ({ type: 'prompt', message, streamingBehavior: null }) as const;
+const prompt = (message: string): AgentAction => ({ type: 'prompt', message, images: [], streamingBehavior: null });
 
 describe('mock agent', () => {
   it('announces itself right after start, with a fresh key and ordered sequence numbers', async () => {
@@ -111,7 +112,7 @@ describe('mock agent', () => {
     await expect.poll(() => types().includes('uiRequest')).toBe(true);
 
     await expect(transport.invoke('agent_send', { key: info.key, action: prompt('too soon') })).rejects.toMatchObject({ code: 'invalidInput' });
-    await transport.invoke('agent_send', { key: info.key, action: { type: 'followUp', message: 'later' } });
+    await transport.invoke('agent_send', { key: info.key, action: { type: 'followUp', message: 'later', images: [] } });
 
     const queue = events.map((envelope) => envelope.event).filter((event) => event.type === 'queueUpdate');
     expect(queue.at(-1)).toMatchObject({ followUp: ['later'] });

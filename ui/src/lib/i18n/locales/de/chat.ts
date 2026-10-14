@@ -46,6 +46,16 @@ export const chat: AreaMessages<typeof enChat> = {
   'chat.ask.cancel': 'Abbrechen',
 
   'chat.assistant.label': 'Nachricht des Assistenten',
+  'chat.attach.add': 'Dateien oder Bilder anhängen',
+  'chat.attach.list': 'Angehängte Bilder',
+  'chat.attach.remove': '{name} entfernen',
+  'chat.attach.blind': 'Das aktuelle Modell kann keine Bilder lesen.',
+  'chat.attach.failed': '{name} konnte nicht angehängt werden',
+  'chat.attach.unsupported': 'Ordner und nicht lesbare Dateien lassen sich nicht anhängen.',
+  'chat.attach.tooLarge': 'Zu groß, auch verkleinert. Pro Nachricht sind insgesamt 3 MB möglich.',
+  'chat.attach.unreadable': 'Die Datei konnte nicht als Bild gelesen werden.',
+  'chat.attach.limit': 'Eine Nachricht enthält höchstens {max} Bilder.',
+  'chat.attach.limitFiles': 'Eine Nachricht enthält höchstens {max} Dateien.',
   'chat.assistant.image': '[Bild · {type}]',
   'chat.assistant.working': 'Arbeitet…',
 
@@ -244,6 +254,9 @@ export const chat: AreaMessages<typeof enChat> = {
   'chat.request.submit': 'Senden',
 
   'chat.user.label': 'Deine Nachricht',
+  'chat.user.images': 'Angehängte Bilder',
+  'chat.user.files': 'Angehängte Dateien',
+  'chat.user.image': 'Angehängtes Bild {n}',
 
   'chat.retry.start': 'Wiederholung läuft',
   'chat.retry.end': 'Wiederholung',

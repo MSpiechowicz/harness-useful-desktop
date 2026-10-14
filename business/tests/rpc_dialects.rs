@@ -5,8 +5,8 @@ use std::path::Path;
 use harness_business::harness::Harness;
 use harness_business::harnesses::{Omp, Pi};
 use harness_business::model::{
-    AgentAction, AgentEvent, HarnessId, IpcErrorCode, PromptStatus, SessionRef, StreamingBehavior, UiOutcome,
-    UiRequestKind, UiResponse,
+    AgentAction, AgentEvent, HarnessId, ImageAttachment, IpcErrorCode, PromptStatus, SessionRef, StreamingBehavior,
+    UiOutcome, UiRequestKind, UiResponse,
 };
 use harness_business::pi_family::rpc::{DecodeState, EncodeContext, Handshake, Inbound, RpcDialect};
 use pretty_assertions::assert_eq;
@@ -30,6 +30,7 @@ fn both_dialects_share_the_pi_family_command_names() {
         (
             AgentAction::Prompt {
                 message: text("hi"),
+                images: Vec::new(),
                 streaming_behavior: Some(StreamingBehavior::FollowUp),
             },
             json!({ "id": "req-9", "type": "prompt", "message": "hi", "streamingBehavior": "followUp" }),
@@ -37,16 +38,23 @@ fn both_dialects_share_the_pi_family_command_names() {
         (
             AgentAction::Prompt {
                 message: text("hi"),
+                images: Vec::new(),
                 streaming_behavior: None,
             },
             json!({ "id": "req-9", "type": "prompt", "message": "hi" }),
         ),
         (
-            AgentAction::Steer { message: text("s") },
+            AgentAction::Steer {
+                message: text("s"),
+                images: Vec::new(),
+            },
             json!({ "id": "req-9", "type": "steer", "message": "s" }),
         ),
         (
-            AgentAction::FollowUp { message: text("f") },
+            AgentAction::FollowUp {
+                message: text("f"),
+                images: Vec::new(),
+            },
             json!({ "id": "req-9", "type": "follow_up", "message": "f" }),
         ),
         (AgentAction::Abort, json!({ "id": "req-9", "type": "abort" })),
@@ -100,6 +108,44 @@ fn both_dialects_share_the_pi_family_command_names() {
         for (action, expected) in &cases {
             assert_eq!(&encode(dialect, action.clone()), expected, "{:?}", dialect.harness());
         }
+    }
+}
+
+#[test]
+fn images_ride_along_with_prompt_steer_and_follow_up() {
+    let image = || ImageAttachment {
+        data: text("aGk="),
+        mime_type: text("image/png"),
+    };
+    let blocks = json!([{ "type": "image", "data": "aGk=", "mimeType": "image/png" }]);
+
+    for dialect in [Omp.dialect(), Pi.dialect()] {
+        let prompt = AgentAction::Prompt {
+            message: text("look"),
+            images: vec![image()],
+            streaming_behavior: None,
+        };
+        assert_eq!(encode(dialect, prompt)["images"], blocks);
+        assert_eq!(
+            encode(
+                dialect,
+                AgentAction::Steer {
+                    message: text("s"),
+                    images: vec![image()]
+                }
+            )["images"],
+            blocks
+        );
+        assert_eq!(
+            encode(
+                dialect,
+                AgentAction::FollowUp {
+                    message: text("f"),
+                    images: vec![image()]
+                }
+            )["images"],
+            blocks
+        );
     }
 }
 

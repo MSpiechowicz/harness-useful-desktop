@@ -107,7 +107,7 @@
             </Button>
           </div>
         {/if}
-        <MessageRow {item} chat={session.chat} />
+        <MessageRow {item} chat={session.chat} sentImages={session.sentImages} />
         {#if working && index === session.chat.items.length - 1}
           <WorkingIndicator label={working} />
         {/if}

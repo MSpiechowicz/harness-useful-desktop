@@ -10,16 +10,18 @@
   interface Props {
     item: TranscriptItem;
     chat: ChatState;
+    /** Thumbnails of the images sent with each user message, by message key. */
+    sentImages?: Record<string, string[]>;
   }
 
-  let { item, chat }: Props = $props();
+  let { item, chat, sentImages }: Props = $props();
 
   const active = $derived(chat.phase === 'streaming');
 </script>
 
 {#if item.kind === 'message'}
   {#if item.role === 'user'}
-    <UserMessage {item} />
+    <UserMessage {item} images={sentImages?.[item.key]} />
   {:else if item.role === 'assistant'}
     <AssistantMessage {item} toolCalls={chat.toolCalls} {active} subagents={chat.subagents} />
   {:else}

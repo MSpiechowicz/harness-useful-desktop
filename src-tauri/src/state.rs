@@ -17,6 +17,7 @@ use tauri::async_runtime::RwLock;
 use tauri::{AppHandle, Manager, Runtime};
 
 use crate::agents::Agents;
+use crate::drops::DropSink;
 use crate::updates::Updates;
 
 /// State shared by all IPC commands.
@@ -40,6 +41,10 @@ pub struct AppState {
     pub sessions: Arc<SessionCache>,
     /// The pooled `harness-dashboard mcp` connection (stops after 30 s without a query).
     pub dashboard: Arc<Dashboard>,
+    /// Where saved attachments live (the app's cache; the agent opens them by path).
+    pub attachments_dir: PathBuf,
+    /// Where native drag and drop events go.
+    pub drops: DropSink,
     /// The in-app updater (off when the build has no updater public key).
     pub updates: Updates,
     /// The cached latest GitHub releases of the companion tools (`ecosystem_releases`).
@@ -53,6 +58,7 @@ impl AppState {
 
         Ok(Self {
             updates: Updates::from_config(app.config()),
+            attachments_dir: app.path().app_cache_dir()?.join("attachments"),
             ..Self::new(config_dir, Env::from_process()?)
         })
     }
@@ -60,7 +66,7 @@ impl AppState {
     /// State over the prefs in `prefs_dir` and `env`, with the default harnesses and updates off.
     pub fn new(prefs_dir: PathBuf, env: Env) -> Self {
         Self {
-            prefs: SharedPrefs::new(PrefsStore::new(prefs_dir)),
+            prefs: SharedPrefs::new(PrefsStore::new(prefs_dir.clone())),
             env: Arc::new(env),
             registry: Arc::new(HarnessRegistry::with_defaults()),
             runner: TokioRunner,
@@ -69,6 +75,8 @@ impl AppState {
             agents: Arc::new(Agents::new()),
             sessions: Arc::new(SessionCache::default()),
             dashboard: Arc::new(Dashboard::new(Arc::new(TokioSpawner), DashboardOptions::default())),
+            attachments_dir: prefs_dir.join("attachments"),
+            drops: DropSink::default(),
             updates: Updates::new(None),
             releases: CompanionReleases::default(),
         }

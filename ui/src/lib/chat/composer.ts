@@ -1,4 +1,5 @@
 import type { AgentAction } from '$lib/ipc/bindings/AgentAction';
+import type { ImageAttachment } from '$lib/ipc/bindings/ImageAttachment';
 
 export type SendMode = 'send' | 'steer' | 'followUp';
 
@@ -27,17 +28,17 @@ export function sendIntent(event: KeyLike, streaming: boolean): SendMode | null 
   return event.ctrlKey || event.metaKey ? 'followUp' : 'steer';
 }
 
-/** The action that delivers `message` in this mode. */
-export function messageAction(message: string, mode: SendMode): AgentAction {
+/** The action that delivers `message` and its images in this mode. */
+export function messageAction(message: string, mode: SendMode, images: ImageAttachment[] = []): AgentAction {
   switch (mode) {
     case 'steer':
-      return { type: 'steer', message };
+      return { type: 'steer', message, images };
 
     case 'followUp':
-      return { type: 'followUp', message };
+      return { type: 'followUp', message, images };
 
     case 'send':
-      return { type: 'prompt', message, streamingBehavior: null };
+      return { type: 'prompt', message, images, streamingBehavior: null };
   }
 }
 

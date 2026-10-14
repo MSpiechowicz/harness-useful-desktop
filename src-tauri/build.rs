@@ -9,6 +9,8 @@ use tauri_build::{AppManifest, Attributes};
 /// Every `#[tauri::command]` in `src/commands`; keep in sync with `generate_handler!` in `lib.rs`.
 const COMMANDS: &[&str] = &[
     "app_info",
+    "drop_listen",
+    "attachment_save",
     "prefs_get",
     "prefs_set",
     "harness_list",

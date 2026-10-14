@@ -3,8 +3,9 @@
 use harness_business::BusinessError;
 use harness_business::model::{
     AgentAction, AgentActionKind, AgentEnvelope, AgentReply, AppInfo, AppPrefs, CommandInvocation, CommandSource,
-    CommandSpec, ConfigField, ConfigValue, Detection, GuiTarget, HarnessId, InstallHint, IpcError, IpcErrorCode,
-    MAX_ACTION_TEXT_BYTES, ModelOption, SecretKind, UiRequest, UiResponse, VersionSupport,
+    CommandSpec, ConfigField, ConfigValue, Detection, GuiTarget, HarnessId, ImageAttachment, InstallHint, IpcError,
+    IpcErrorCode, MAX_ACTION_IMAGE_BYTES, MAX_ACTION_IMAGES, MAX_ACTION_TEXT_BYTES, ModelOption, SecretKind, UiRequest,
+    UiResponse, VersionSupport,
 };
 use harness_business::security::Redactor;
 use pretty_assertions::assert_eq;
@@ -302,6 +303,7 @@ fn agent_actions_outside_the_whitelist_are_rejected() {
 fn agent_action_text_and_page_limits_are_enforced() {
     let prompt = |size: usize| AgentAction::Prompt {
         message: "x".repeat(size),
+        images: Vec::new(),
         streaming_behavior: None,
     };
     let history = |limit: u32| AgentAction::GetHistory { cursor: None, limit };
@@ -310,6 +312,33 @@ fn agent_action_text_and_page_limits_are_enforced() {
     assert!(history(200).validate().is_ok());
 
     for action in [prompt(MAX_ACTION_TEXT_BYTES + 1), history(0), history(201)] {
+        let error = IpcError::from(action.validate().unwrap_err());
+        assert_eq!(error.code, IpcErrorCode::InvalidInput);
+    }
+}
+
+#[test]
+fn agent_action_image_limits_are_enforced() {
+    let with = |images: Vec<ImageAttachment>| AgentAction::FollowUp {
+        message: "look".to_owned(),
+        images,
+    };
+    let image = |data: &str, mime: &str| ImageAttachment {
+        data: data.to_owned(),
+        mime_type: mime.to_owned(),
+    };
+
+    assert!(with(vec![image("aGk=", "image/webp")]).validate().is_ok());
+
+    let bad = [
+        with(vec![image("aGk=", "image/svg+xml")]),
+        with(vec![image("not base64!", "image/png")]),
+        with(vec![image("", "image/png")]),
+        with((0..=MAX_ACTION_IMAGES).map(|_| image("aGk=", "image/png")).collect()),
+        with(vec![image(&"A".repeat(MAX_ACTION_IMAGE_BYTES + 1), "image/png")]),
+    ];
+
+    for action in bad {
         let error = IpcError::from(action.validate().unwrap_err());
         assert_eq!(error.code, IpcErrorCode::InvalidInput);
     }

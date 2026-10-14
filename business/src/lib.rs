@@ -21,6 +21,8 @@
 //! secret is returned to the webview unredacted.
 
 pub mod agent;
+pub mod attachments;
+pub mod dropped;
 pub mod ecosystem;
 pub mod env;
 pub mod error;

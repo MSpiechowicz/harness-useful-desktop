@@ -50,6 +50,8 @@ const sampleArgs = (sessionKey: string): { [K in CommandName]: CommandArgs<K> } 
   update_install: { onProgress: () => {} },
   app_relaunch: undefined,
   launch_sound: { play: false },
+  drop_listen: { onDrop: () => {} },
+  attachment_save: { name: 'build.log', data: 'aGk=' },
 });
 
 const SESSION = { harness: 'omp', id: fixtures.sessions.list.omp[0].ref.id } as const;

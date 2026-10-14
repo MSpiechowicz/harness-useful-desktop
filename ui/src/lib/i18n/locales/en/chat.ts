@@ -43,6 +43,16 @@ export const chat = {
   'chat.ask.cancel': 'Cancel',
 
   'chat.assistant.label': 'Assistant message',
+  'chat.attach.add': 'Attach files or images',
+  'chat.attach.list': 'Attached images',
+  'chat.attach.remove': 'Remove {name}',
+  'chat.attach.blind': 'The current model cannot read images.',
+  'chat.attach.failed': 'Could not attach {name}',
+  'chat.attach.unsupported': 'Folders and unreadable files cannot be attached.',
+  'chat.attach.tooLarge': 'Too large, even scaled down. Total size per message is 3 MB.',
+  'chat.attach.unreadable': 'The file could not be read as an image.',
+  'chat.attach.limit': 'A message holds at most {max} images.',
+  'chat.attach.limitFiles': 'A message holds at most {max} files.',
   'chat.assistant.image': '[image · {type}]',
   'chat.assistant.working': 'Working…',
 
@@ -241,6 +251,9 @@ export const chat = {
   'chat.request.submit': 'Submit',
 
   'chat.user.label': 'Your message',
+  'chat.user.images': 'Attached images',
+  'chat.user.files': 'Attached files',
+  'chat.user.image': 'Attached image {n}',
 
   'chat.retry.start': 'Retrying',
   'chat.retry.end': 'Retry',

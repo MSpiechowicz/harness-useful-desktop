@@ -3,6 +3,7 @@
 
 pub mod agent;
 pub mod app;
+pub mod drops;
 pub mod ecosystem;
 pub mod git;
 pub mod harness;

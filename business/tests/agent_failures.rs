@@ -191,6 +191,7 @@ async fn invalid_requests_are_rejected_before_reaching_the_agent() {
 
     let huge = AgentAction::Prompt {
         message: "x".repeat(512 * 1024 + 1),
+        images: Vec::new(),
         streaming_behavior: None,
     };
     assert_eq!(

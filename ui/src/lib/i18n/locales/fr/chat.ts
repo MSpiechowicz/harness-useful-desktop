@@ -46,6 +46,16 @@ export const chat: AreaMessages<typeof enChat> = {
   'chat.ask.cancel': 'Annuler',
 
   'chat.assistant.label': 'Message de l’assistant',
+  'chat.attach.add': 'Joindre des fichiers ou des images',
+  'chat.attach.list': 'Images jointes',
+  'chat.attach.remove': 'Retirer {name}',
+  'chat.attach.blind': 'Le modèle actuel ne peut pas lire les images.',
+  'chat.attach.failed': 'Impossible de joindre {name}',
+  'chat.attach.unsupported': 'Les dossiers et les fichiers illisibles ne peuvent pas être joints.',
+  'chat.attach.tooLarge': 'Trop volumineuse, même réduite. Le total par message est de 3 Mo.',
+  'chat.attach.unreadable': 'Le fichier n\'a pas pu être lu comme une image.',
+  'chat.attach.limit': 'Un message contient au plus {max} images.',
+  'chat.attach.limitFiles': 'Un message contient au plus {max} fichiers.',
   'chat.assistant.image': '[image · {type}]',
   'chat.assistant.working': 'Travail en cours…',
 
@@ -249,6 +259,9 @@ export const chat: AreaMessages<typeof enChat> = {
   'chat.request.submit': 'Envoyer',
 
   'chat.user.label': 'Votre message',
+  'chat.user.images': 'Images jointes',
+  'chat.user.files': 'Fichiers joints',
+  'chat.user.image': 'Image jointe {n}',
 
   'chat.retry.start': 'Nouvelle tentative en cours',
   'chat.retry.end': 'Nouvelle tentative',

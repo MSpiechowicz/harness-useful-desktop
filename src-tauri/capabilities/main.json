@@ -5,6 +5,8 @@
   "windows": ["main"],
   "permissions": [
     "allow-app-info",
+    "allow-drop-listen",
+    "allow-attachment-save",
     "allow-prefs-get",
     "allow-prefs-set",
     "allow-harness-list",

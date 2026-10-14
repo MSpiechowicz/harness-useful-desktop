@@ -12,6 +12,7 @@ use pretty_assertions::assert_eq;
 fn prompt(message: &str) -> AgentAction {
     AgentAction::Prompt {
         message: message.to_owned(),
+        images: Vec::new(),
         streaming_behavior: None,
     }
 }

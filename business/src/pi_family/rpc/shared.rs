@@ -3,12 +3,12 @@
 //! OMP and PI accept the same command names and parameters for most actions; the dialects handle
 //! the rest (`clone`, the command list, history) themselves.
 
-use serde_json::Value;
+use serde_json::{Value, json};
 
 use super::{EncodeContext, command_frame};
 use crate::error::{BusinessError, Result};
 use crate::harness::CommandCatalog;
-use crate::model::{AgentAction, AgentReply, BashOutput, ChatMessage, HarnessId, StreamingBehavior};
+use crate::model::{AgentAction, AgentReply, BashOutput, ChatMessage, HarnessId, ImageAttachment, StreamingBehavior};
 use crate::pi_family::normalize::{model_option, session_state, session_stats, string, strings};
 use crate::pi_family::sessions::find_session;
 use crate::security::redact_text;
@@ -34,16 +34,20 @@ pub fn encode_shared(
     let encoded = match action {
         A::Prompt {
             message,
+            images,
             streaming_behavior,
         } => frame(
             "prompt",
-            vec![
-                ("message", text(message)),
-                ("streamingBehavior", streaming_behavior.map_or(Value::Null, behavior)),
-            ],
+            with_images(
+                vec![
+                    ("message", text(message)),
+                    ("streamingBehavior", streaming_behavior.map_or(Value::Null, behavior)),
+                ],
+                images,
+            ),
         ),
-        A::Steer { message } => frame("steer", vec![("message", text(message))]),
-        A::FollowUp { message } => frame("follow_up", vec![("message", text(message))]),
+        A::Steer { message, images } => frame("steer", with_images(vec![("message", text(message))], images)),
+        A::FollowUp { message, images } => frame("follow_up", with_images(vec![("message", text(message))], images)),
         A::Abort => frame("abort", Vec::new()),
         A::NewSession => frame("new_session", Vec::new()),
         A::SwitchSession { session } => {
@@ -77,6 +81,19 @@ pub fn encode_shared(
     };
 
     Ok(encoded)
+}
+
+/// `params` plus the `images` parameter, which is left out when there are none.
+fn with_images<'a>(mut params: Vec<(&'a str, Value)>, images: &[ImageAttachment]) -> Vec<(&'a str, Value)> {
+    if !images.is_empty() {
+        let blocks = images
+            .iter()
+            .map(|image| json!({ "type": "image", "data": image.data, "mimeType": image.mime_type }))
+            .collect();
+        params.push(("images", Value::Array(blocks)));
+    }
+
+    params
 }
 
 fn behavior(behavior: StreamingBehavior) -> Value {
