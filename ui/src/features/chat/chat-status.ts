@@ -4,10 +4,10 @@ import type { ChatState } from '$lib/chat/types';
 
 export interface StatusSummary {
   label: string;
-  tone: 'success' | 'warning' | 'danger' | 'neutral';
+  tone: 'success' | 'accent' | 'warning' | 'danger' | 'neutral';
 }
 
-/** One line for the status bar: what the active chat's agent is doing right now. */
+/** One line for the rail footer: what the active chat's agent is doing right now. */
 export function chatStatus(chat: ChatState): StatusSummary {
   if (chat.phase === 'exited') {
     return { label: t('chat.status.stopped'), tone: 'danger' };
@@ -25,7 +25,7 @@ export function chatStatus(chat: ChatState): StatusSummary {
   const withQueue = (status: string): string => (queued > 0 ? t('chat.status.withQueue', { status, queued: tn('chat.status.queued', queued) }) : status);
 
   if (chat.phase === 'streaming') {
-    return { label: withQueue(t('chat.status.streaming')), tone: 'success' };
+    return { label: withQueue(t('chat.status.streaming')), tone: 'accent' };
   }
 
   if (chat.phase === 'starting') {

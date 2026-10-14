@@ -2,7 +2,7 @@
   import { motion } from '$lib/stores/motion.svelte';
   import { cx } from '$lib/utils/cx';
 
-  type Tone = 'success' | 'warning' | 'danger' | 'neutral';
+  type Tone = 'success' | 'warning' | 'danger' | 'neutral' | 'accent';
 
   interface Props {
     tone: Tone;
@@ -21,6 +21,7 @@
     warning: 'bg-warning',
     danger: 'bg-danger',
     neutral: 'bg-fg-3',
+    accent: 'bg-accent',
   };
 </script>
 

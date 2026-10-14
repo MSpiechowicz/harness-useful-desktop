@@ -274,7 +274,7 @@ export const chat: AreaMessages<typeof enChat> = {
   'chat.status.stopped': 'Agent gestoppt',
   'chat.status.approval': 'Wartet auf deine Freigabe',
   'chat.status.answer': 'Wartet auf deine Antwort',
-  'chat.status.streaming': 'Antwortet',
+  'chat.status.streaming': 'Arbeitet',
   'chat.status.starting': 'Agent startet…',
   'chat.status.settled': 'Abgeschlossen',
   'chat.status.idle': 'Bereit',

@@ -186,9 +186,9 @@ describe('chat pane', () => {
     expect(screen.getByRole('button', { name: 'Copy link' })).toBeInTheDocument();
   });
 
-  it('shows what the status bar says about each state', () => {
+  it('shows what the rail footer says about each state', () => {
     expect(chatStatus(chatSession([{ type: 'ready', protocolVersion: 1 }]).session.chat)).toEqual({ label: 'Idle', tone: 'success' });
-    expect(chatStatus(chatSession([{ type: 'ready', protocolVersion: 1 }, { type: 'agentStart' }]).session.chat).label).toBe('Streaming');
+    expect(chatStatus(chatSession([{ type: 'ready', protocolVersion: 1 }, { type: 'agentStart' }]).session.chat).label).toBe('Working');
     expect(chatStatus(chatSession(replayed('basic')).session.chat).label).toBe('Settled');
     expect(chatStatus(chatSession(replayed('crash')).session.chat).tone).toBe('danger');
   });

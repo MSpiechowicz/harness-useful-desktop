@@ -1,11 +1,17 @@
 <script lang="ts">
+  import Download from '@lucide/svelte/icons/download';
+
   import LangPicker from '$lib/components/LangPicker.svelte';
   import StatusDot from '$lib/components/StatusDot.svelte';
   import ThemeToggle from '$lib/components/ThemeToggle.svelte';
   import { agentSessions } from '$lib/stores/agentSession.svelte';
   import { app } from '$lib/stores/app.svelte';
+  import { updates } from '$lib/stores/updates.svelte';
+  import { t } from '$lib/i18n/i18n.svelte';
   import { cx } from '$lib/utils/cx';
 
+  import { viewUpdates } from '../updates/actions';
+  import { indicatorLabel } from '../updates/copy';
   import { railStatus } from './rail-status';
 
   interface Props {
@@ -17,6 +23,7 @@
 
   const status = $derived(railStatus(app.status, agentSessions.active?.chat ?? null));
   const version = $derived(app.info?.version ?? '');
+  const updateLabel = $derived(indicatorLabel(updates.state, updates.fraction));
   const summary = $derived(version ? `${status.label} · v${version}` : status.label);
 </script>
 
@@ -36,6 +43,11 @@
 
     {#if expanded}
       <span class="min-w-0 flex-1 truncate" title={status.label}>{status.label}</span>
+      {#if updateLabel}
+        <button type="button" class="-my-[4px] inline-flex shrink-0 items-center gap-[4px] rounded-sm px-[4px] py-[2px] text-accent-text hover:bg-hover" title={updateLabel} aria-label="{updateLabel}. {t('shell.rail.updateOpen')}" onclick={viewUpdates}>
+          <Download size={12} aria-hidden="true" />
+        </button>
+      {/if}
       {#if version}<span class="tabular shrink-0">v{version}</span>{/if}
     {/if}
   </div>

@@ -6,22 +6,22 @@ import { chatStatus } from '../chat/chat-status';
 
 export interface RailStatus {
   label: string;
-  tone: 'success' | 'warning' | 'danger';
+  tone: 'success' | 'accent' | 'warning' | 'danger';
   /** The dot pings: the app is connected and nothing is wrong. */
   live: boolean;
 }
 
 /**
  * The rail footer's one status line: whether the desktop runtime answers, and otherwise what the active agent is
- * doing. Kept short to fit the rail; the tone rules are the status bar's, written out again on purpose so the status
- * bar can go without touching this.
+ * doing. Kept short to fit the rail.
  */
 export function railStatus(appStatus: AppStatus, chat: ChatState | null): RailStatus {
   const agent = chat ? chatStatus(chat) : null;
 
   const label =
     appStatus === 'ready' ? (agent?.label ?? t('shell.status.ready')) : appStatus === 'loading' ? t('shell.status.connecting') : t('shell.status.unavailable');
-  const tone = appStatus !== 'ready' || agent?.tone === 'warning' ? 'warning' : agent?.tone === 'danger' ? 'danger' : 'success';
+  const tone: RailStatus['tone'] =
+    appStatus !== 'ready' || agent?.tone === 'warning' ? 'warning' : agent?.tone === 'danger' ? 'danger' : agent?.tone === 'accent' ? 'accent' : 'success';
 
-  return { label, tone, live: tone === 'success' };
+  return { label, tone, live: tone === 'success' || tone === 'accent' };
 }

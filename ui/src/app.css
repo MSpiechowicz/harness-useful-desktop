@@ -266,30 +266,6 @@
   }
 }
 
-/* A quiet inline control for the status bar. */
-@utility status-item {
-  display: inline-flex;
-  height: 1.75rem;
-  align-items: center;
-  gap: 0.375rem;
-  border-radius: 8px;
-  padding-inline: 0.5rem;
-  white-space: nowrap;
-  color: var(--text-3);
-  transition:
-    background-color var(--dur-fast),
-    color var(--dur-fast);
-
-  &:hover {
-    background: var(--hover-wash);
-    color: var(--text);
-  }
-
-  &:active {
-    background: var(--press-wash);
-  }
-}
-
 /* The rail footer's controls, as in the Harness dashboard, in pixels (this app's root font is 14px, the dashboard's
    16px). The language trigger is a bordered 32px control; the theme choice is a row of 32px squares whose hairline is
    an outline drawn inside them, so the chosen square fills the whole box. */

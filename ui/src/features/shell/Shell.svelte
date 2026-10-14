@@ -26,7 +26,6 @@
   import Rail from './Rail.svelte';
   import { globalShortcuts, shortcutGroups, type ShortcutAction } from './shortcuts';
   import ShortcutsOverlay from './ShortcutsOverlay.svelte';
-  import StatusBar from './StatusBar.svelte';
   import TopBar from './TopBar.svelte';
   import ViewHost from './ViewHost.svelte';
   import { VIEWS } from './views';
@@ -82,7 +81,7 @@
     });
   });
 
-  // The rail and the status bar show git state everywhere, not only in Changes.
+  // The rail and the chat card show git state everywhere, not only in Changes.
   $effect(() => {
     git.ensure(project.active?.path ?? null);
   });
@@ -219,8 +218,6 @@
       <ConnectionBanner />
       <ViewHost />
     </main>
-
-    <StatusBar />
   </div>
 </div>
 

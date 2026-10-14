@@ -16,7 +16,7 @@ export interface RailBadge {
 
 /**
  * What the rail says about a view without opening it: changed files, and a chat waiting on the user (an approval or a
- * question). A working agent needs no badge: the animated logo and the status bar already say so.
+ * question). A working agent needs no badge: the animated logo and the rail status already say so.
  */
 export function railBadge(view: ViewId, chat: ChatState | null, git: GitStatus | null): RailBadge | null {
   if (view === 'chat' && chat) {

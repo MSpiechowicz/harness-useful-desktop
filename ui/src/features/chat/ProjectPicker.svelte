@@ -35,7 +35,7 @@
     }
   }
 
-  // Opening the menu reads every listed project's branch, so the list is current (the status bar shows the open one).
+  // Opening the menu reads every listed project's branch, so the list is current.
   $effect(() => {
     if (open) {
       for (const recent of others) {

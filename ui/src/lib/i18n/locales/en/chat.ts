@@ -271,7 +271,7 @@ export const chat = {
   'chat.status.stopped': 'Agent stopped',
   'chat.status.approval': 'Waiting for your approval',
   'chat.status.answer': 'Waiting for your answer',
-  'chat.status.streaming': 'Streaming',
+  'chat.status.streaming': 'Working',
   'chat.status.starting': 'Agent starting…',
   'chat.status.settled': 'Settled',
   'chat.status.idle': 'Idle',

@@ -36,6 +36,7 @@ export const shell: AreaMessages<typeof enShell> = {
   'shell.search.aria': 'Szukaj lub uruchom polecenie',
 
   'shell.status.ready': 'Gotowy',
+  'shell.rail.updateOpen': 'Otwórz ustawienia aktualizacji',
   'shell.status.connecting': 'Łączenie…',
   'shell.status.unavailable': 'Runtime niedostępny',
 
