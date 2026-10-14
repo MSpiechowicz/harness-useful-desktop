@@ -56,10 +56,12 @@
 </script>
 
 <div class={cx('border-card chat-radius bg-surface-1 bg-clip-padding', call.status === 'error' ? 'border-danger-edge' : 'border-line')} data-tool-status={call.status}>
+  <!-- Open, the body continues right under the header, so the header's bottom corners go square: a rounded hover wash would
+       leave dark wedges against the divider. -->
   <button
     type="button"
     aria-expanded={open}
-    class="flex w-full items-center gap-3 chat-radius px-4 py-2.5 text-left transition-colors hover:bg-hover active:bg-press"
+    class={cx('flex w-full items-center gap-3 chat-radius px-4 py-2.5 text-left transition-colors hover:bg-hover active:bg-press', open && 'rounded-b-none')}
     onclick={() => (open = !open)}
   >
     <Icon size={16} class="shrink-0 text-fg-2" aria-hidden="true" />
