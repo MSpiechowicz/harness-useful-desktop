@@ -78,7 +78,7 @@
     <section
       aria-label={t('updates.notice.label')}
       transition:slide={{ duration: scaled(DURATION.slow), easing: expoOut }}
-      class="shrink-0 overflow-hidden rounded-lg border border-line bg-accent-wash px-3 py-2.5 text-xs"
+      class="shrink-0 overflow-hidden rounded-[8px] border border-line bg-accent-wash px-3 py-2.5 text-xs"
     >
       <div class="font-medium text-fg" role="status">{title}</div>
       {#if body}<div class="mt-1 text-fg-2">{body}</div>{/if}
