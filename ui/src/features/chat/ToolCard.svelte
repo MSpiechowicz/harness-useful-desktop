@@ -55,11 +55,11 @@
   }
 </script>
 
-<div class={cx('border-card rounded-lg bg-surface-1 bg-clip-padding', call.status === 'error' ? 'border-danger-edge' : 'border-line')} data-tool-status={call.status}>
+<div class={cx('border-card chat-radius bg-surface-1 bg-clip-padding', call.status === 'error' ? 'border-danger-edge' : 'border-line')} data-tool-status={call.status}>
   <button
     type="button"
     aria-expanded={open}
-    class="flex w-full items-center gap-3 rounded-lg px-4 py-2.5 text-left transition-colors hover:bg-hover active:bg-press"
+    class="flex w-full items-center gap-3 chat-radius px-4 py-2.5 text-left transition-colors hover:bg-hover active:bg-press"
     onclick={() => (open = !open)}
   >
     <Icon size={16} class="shrink-0 text-fg-2" aria-hidden="true" />

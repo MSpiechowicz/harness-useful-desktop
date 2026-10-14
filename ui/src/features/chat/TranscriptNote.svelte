@@ -22,7 +22,7 @@
 
 {#if item.kind === 'notice'}
   {@const look = NOTICE_LOOKS[item.level]}
-  <p class="flex items-start gap-2.5 rounded-md border border-line px-3.5 py-2 text-sm text-fg {look.box}" role={item.level === 'error' ? 'alert' : 'status'}>
+  <p class="chat-radius flex items-start gap-2.5 border border-line px-3.5 py-2 text-sm text-fg {look.box}" role={item.level === 'error' ? 'alert' : 'status'}>
     <look.icon size={16} class="mt-0.5 shrink-0 {look.color}" aria-hidden="true" />
     <span class="break-words">{item.message}</span>
   </p>
@@ -40,7 +40,7 @@
     <span class="break-words">{item.text}</span>
   </p>
 {:else if item.kind === 'url'}
-  <div class="flex flex-col gap-2 rounded-md border border-line-strong bg-surface-1/60 px-3.5 py-3">
+  <div class="chat-radius flex flex-col gap-2 border border-line-strong bg-surface-1/60 px-3.5 py-3">
     <p class="flex items-center gap-2 text-sm font-medium text-fg"><Link size={16} class="text-accent-text" aria-hidden="true" /> {t('chat.note.link.title')}</p>
     {#if item.instructions}<p class="text-sm break-words text-fg-2">{item.instructions}</p>{/if}
     <div class="flex items-center gap-1 rounded-sm bg-canvas px-2.5 py-1.5">

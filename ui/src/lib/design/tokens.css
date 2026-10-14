@@ -183,7 +183,8 @@
  *   icons      16 / 18 / 20 px      (ICON in components/icon.ts)
  *   spacing    4 px grid            (Tailwind spacing: 1 = 4 px)
  *   radius     8 / 12 / 16 / 24 px  (rounded-sm / md / lg / xl): controls and single-line bars md,
- *              multi-row cards and lists lg, dialogs xl
+ *              multi-row cards and lists lg, dialogs xl. Chat windows use md (`chat-radius`),
+ *              including single-line tool rows, so they match the composer.
  *   elevation  raised / float / pop (shadow-raised / shadow-float / shadow-pop)
  *   text       12 / 13 / 14 / 16 / 20 / 24 / 32 px
  */

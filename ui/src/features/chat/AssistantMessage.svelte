@@ -54,7 +54,7 @@
   {/if}
 
   {#if item.meta?.errorMessage}
-    <p class="flex items-start gap-2 rounded-md border border-danger/30 bg-danger-wash px-3 py-2 text-sm text-fg" role="alert">
+    <p class="chat-radius flex items-start gap-2 border border-danger/30 bg-danger-wash px-3 py-2 text-sm text-fg" role="alert">
       <CircleAlert size={16} class="mt-0.5 shrink-0 text-danger" aria-hidden="true" />
       <span class="break-words">{item.meta.errorMessage}</span>
     </p>

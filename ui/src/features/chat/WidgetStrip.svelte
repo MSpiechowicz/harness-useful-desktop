@@ -18,7 +18,7 @@
       <p class="rounded-full bg-surface-3 px-3 py-1 text-xs text-fg-2" role="status">{text}</p>
     {/each}
     {#each widgets as [name, widget] (name)}
-      <div class="rounded-md border border-line bg-surface-1/60 px-3 py-2 text-sm text-fg-2">
+      <div class="chat-radius border border-line bg-surface-1/60 px-3 py-2 text-sm text-fg-2">
         {#each widget.lines as line, index (index)}<p class="break-words">{line}</p>{/each}
       </div>
     {/each}

@@ -49,7 +49,7 @@
 <svelte:window {onkeydown} />
 
 <section aria-label={t('chat.approvalCard.label')} aria-live="assertive" data-approval-card class="chat-col mb-2">
-  <div class="flex flex-col gap-3 rounded-xl border border-warning/40 bg-warning-wash px-4 py-3.5 shadow-float">
+  <div class="chat-radius flex flex-col gap-3 border border-warning/40 bg-warning-wash px-4 py-3.5 shadow-float">
     <div class="flex items-start gap-3">
       <Icon size={18} class="mt-0.5 shrink-0 text-warning" aria-hidden="true" />
 

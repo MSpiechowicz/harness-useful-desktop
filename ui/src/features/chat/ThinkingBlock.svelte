@@ -20,11 +20,11 @@
   const open = $derived(chosen ?? streaming);
 </script>
 
-<div class="border-card rounded-lg border-line bg-surface-1/50">
+<div class="border-card chat-radius border-line bg-surface-1/50">
   <button
     type="button"
     aria-expanded={open}
-    class="flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-left text-sm text-fg-3 transition-colors hover:text-fg-2"
+    class="flex w-full items-center gap-2 chat-radius px-3 py-1.5 text-left text-sm text-fg-3 transition-colors hover:text-fg-2"
     onclick={() => (chosen = !open)}
   >
     <Brain size={16} aria-hidden="true" />

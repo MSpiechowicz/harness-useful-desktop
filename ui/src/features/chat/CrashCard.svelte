@@ -21,7 +21,7 @@
 </script>
 
 <section role="alert" aria-label={t('chat.crash.label')} class="chat-col mb-2">
-  <div class="flex flex-col gap-3 rounded-xl border border-danger-edge bg-danger-wash bg-clip-padding px-4 py-3.5">
+  <div class="chat-radius flex flex-col gap-3 border border-danger-edge bg-danger-wash bg-clip-padding px-4 py-3.5">
     <div class="flex items-center gap-3">
       <Power size={18} class="shrink-0 text-danger" aria-hidden="true" />
       <div class="min-w-0 flex-1">

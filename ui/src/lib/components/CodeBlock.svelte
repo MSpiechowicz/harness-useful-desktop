@@ -65,7 +65,7 @@
   const view = $derived(highlighted && code.startsWith(highlighted.code) ? { lines: highlighted.lines, tail: code.slice(highlighted.code.length) } : null);
 </script>
 
-<figure class={cx('overflow-hidden rounded-md border border-line bg-canvas', className)}>
+<figure class={cx('chat-radius overflow-hidden border border-line bg-canvas', className)}>
   <figcaption class="flex h-8 items-center justify-between border-b border-line pr-1 pl-3.5 text-xs text-fg-3">
     <span class="font-mono">{lang || 'text'}</span>
     <CopyButton text={code} label={t('components.copy.code')} />

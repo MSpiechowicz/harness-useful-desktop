@@ -139,7 +139,7 @@
             {/if}
 
             {#if subagent.recentOutput && subagent.recentOutput.length > 0}
-              <pre class="max-h-40 overflow-auto rounded-md border border-line bg-canvas px-3 py-2 font-mono text-xs leading-relaxed whitespace-pre-wrap text-fg-2" aria-label={t('chat.subagents.recentOutput')}>{subagent.recentOutput.join('\n')}</pre>
+              <pre class="chat-radius max-h-40 overflow-auto border border-line bg-canvas px-3 py-2 font-mono text-xs leading-relaxed whitespace-pre-wrap text-fg-2" aria-label={t('chat.subagents.recentOutput')}>{subagent.recentOutput.join('\n')}</pre>
             {/if}
 
             <p class="tabular flex flex-wrap gap-x-3 text-xs text-fg-3">
