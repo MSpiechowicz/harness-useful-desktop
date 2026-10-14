@@ -1,19 +1,47 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
+
+import { i18n } from '$lib/i18n/i18n.svelte';
 
 import { collapse, crop, generatedName, generatedNameCount, labelFromPrompt, namingPrompt, parseLabel } from './naming';
 
 describe('generated names', () => {
-  it('are creatures, not numbers, and the numbering only shows once the list is used up', () => {
-    expect(generatedName(1)).toBe('Godzilla');
-    expect(generatedName(2)).toBe('Kraken');
-    expect(generatedName(30)).toBe('Behemoth');
-    expect(generatedName(31)).toBe('Godzilla 2');
+  afterEach(() => i18n.load('en'));
+
+  it('are an adjective and a creature, and the numbering only shows once every pair is used', () => {
+    expect(generatedName(1)).toBe('Swift Godzilla');
+    expect(generatedName(2)).toBe('Swift Kraken');
+    expect(generatedName(51)).toBe('Quiet Godzilla');
+    const total = generatedNameCount();
+    expect(generatedName(total)).not.toMatch(/\d$/);
+    expect(generatedName(total + 1)).toBe('Swift Godzilla 2');
+  });
+
+  it('all differ from each other within one round', () => {
+    const names = new Set(Array.from({ length: generatedNameCount() }, (_, index) => generatedName(index + 1)));
+
+    expect(names.size).toBe(generatedNameCount());
+  });
+
+  it('use the adjective form that agrees with the creature in languages that have genders', async () => {
+    await i18n.load('de');
+    // Hydra is feminine, Godzilla masculine.
+    expect(generatedName(1)).toBe('Flinker Godzilla');
+    expect(generatedName(6)).toBe('Flinke Hydra');
+
+    // The second adjective starts where the creatures run out: the first number whose creature is Godzilla again.
+    const second = Array.from({ length: 200 }, (_, index) => index + 2).find((number) => generatedName(number).endsWith('Godzilla'))!;
+    expect(generatedName(second)).toBe('Stiller Godzilla');
+    expect(generatedName(second + 5)).toBe('Stille Hydra');
+
+    await i18n.load('fr');
+    const frSecond = Array.from({ length: 200 }, (_, index) => index + 2).find((number) => generatedName(number).startsWith('Godzilla'))!;
+    expect(generatedName(frSecond + 5)).toBe('Hydre Discrète');
   });
 });
 
 describe('the number of generated names', () => {
-  it('matches the list, so a random pick stays inside it', () => {
-    expect(generatedNameCount()).toBe(30);
+  it('is every adjective with every creature, so a random pick stays inside the range', () => {
+    expect(generatedNameCount()).toBe(36 * 50);
   });
 });
 

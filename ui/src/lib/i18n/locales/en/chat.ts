@@ -1,6 +1,8 @@
 export const chat = {
   'chat.title': 'Chat',
-  'chat.names.list': 'Godzilla, Kraken, Phoenix, Yeti, Griffin, Hydra, Sphinx, Basilisk, Chimera, Minotaur, Pegasus, Leviathan, Banshee, Golem, Wyvern, Cerberus, Gargoyle, Kitsune, Selkie, Thunderbird, Nessie, Bigfoot, Mothra, Cthulhu, Centaur, Siren, Troll, Djinn, Tengu, Behemoth',
+  'chat.names.pattern': '{adjective} {creature}',
+  'chat.names.adjectives': 'Swift, Quiet, Bright, Bold, Clever, Calm, Brave, Lucky, Gentle, Mighty, Silver, Golden, Crimson, Amber, Azure, Misty, Stormy, Frosty, Sunny, Wild, Noble, Nimble, Steady, Curious, Cosmic, Electric, Velvet, Wandering, Hidden, Ancient, Polar, Lunar, Solar, Emerald, Jolly, Daring',
+  'chat.names.creatures': 'Godzilla, Kraken, Phoenix, Yeti, Griffin, Hydra, Sphinx, Basilisk, Chimera, Minotaur, Pegasus, Leviathan, Banshee, Golem, Wyvern, Cerberus, Gargoyle, Kitsune, Selkie, Thunderbird, Nessie, Bigfoot, Mothra, Cthulhu, Centaur, Siren, Troll, Djinn, Tengu, Behemoth, Falcon, Otter, Lynx, Heron, Badger, Raven, Fox, Wolf, Bear, Owl, Dolphin, Panther, Stag, Hawk, Orca, Lion, Tiger, Eagle, Salamander, Mantis',
 
   'chat.mode.yolo.label': 'yolo',
   'chat.mode.yolo.explanation': 'tools run without asking',

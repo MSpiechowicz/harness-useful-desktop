@@ -3,7 +3,9 @@ import type { AreaMessages } from '../types';
 
 export const chat: AreaMessages<typeof enChat> = {
   'chat.title': 'Chat',
-  'chat.names.list': 'Godzilla, Kraken, Fénix, Yeti, Grifo, Hidra, Esfinge, Basilisco, Quimera, Minotauro, Pegaso, Leviatán, Banshee, Golem, Wyvern, Cerbero, Gárgola, Kitsune, Selkie, Pájaro Trueno, Nessie, Bigfoot, Mothra, Cthulhu, Centauro, Sirena, Trol, Genio, Tengu, Behemot',
+  'chat.names.pattern': '{creature} {adjective}',
+  'chat.names.adjectives': 'Veloz, Sereno/Serena, Brillante, Audaz, Astuto/Astuta, Tranquilo/Tranquila, Valiente, Afortunado/Afortunada, Gentil, Poderoso/Poderosa, Plateado/Plateada, Dorado/Dorada, Carmesí, Ámbar, Azul, Nebuloso/Nebulosa, Tormentoso/Tormentosa, Helado/Helada, Soleado/Soleada, Salvaje, Noble, Ágil, Constante, Curioso/Curiosa, Cósmico/Cósmica, Eléctrico/Eléctrica, Errante, Oculto/Oculta, Antiguo/Antigua, Polar, Lunar, Solar, Esmeralda, Alegre, Atrevido/Atrevida',
+  'chat.names.creatures': 'Godzilla:m, Kraken:m, Fénix:m, Yeti:m, Grifo:m, Hidra:f, Esfinge:f, Basilisco:m, Quimera:f, Minotauro:m, Pegaso:m, Leviatán:m, Banshee:f, Golem:m, Wyvern:m, Cerbero:m, Gárgola:f, Kitsune:m, Selkie:f, Nessie:f, Bigfoot:m, Mothra:f, Cthulhu:m, Centauro:m, Sirena:f, Trol:m, Genio:m, Tengu:m, Behemot:m, Halcón:m, Nutria:f, Lince:m, Garza:f, Tejón:m, Cuervo:m, Zorro:m, Lobo:m, Oso:m, Búho:m, Delfín:m, Pantera:f, Ciervo:m, Águila:f, Orca:f, León:m, Tigre:m, Salamandra:f, Mantis:f',
 
   'chat.mode.yolo.label': 'yolo',
   'chat.mode.yolo.explanation': 'las herramientas se ejecutan sin preguntar',

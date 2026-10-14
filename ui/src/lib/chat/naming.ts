@@ -11,25 +11,53 @@ export const DESCRIPTION_MAX = 110;
 /** How much of the first message the naming helper sees: enough to name a chat, little enough to cost almost nothing. */
 const PROMPT_EXCERPT_MAX = 500;
 
-function nameList(): string[] {
-  return t('chat.names.list')
+interface Creature {
+  name: string;
+  /** Which form of an adjective goes with it: masculine, feminine or neuter (only some languages tell them apart). */
+  gender: 'm' | 'f' | 'n';
+}
+
+function words(key: 'chat.names.adjectives' | 'chat.names.creatures'): string[] {
+  return t(key)
     .split(',')
-    .map((name) => name.trim())
+    .map((word) => word.trim())
     .filter(Boolean);
 }
 
-/** How many different placeholder names there are before one repeats with a number. */
-export function generatedNameCount(): number {
-  return nameList().length;
+function creatures(): Creature[] {
+  return words('chat.names.creatures').map((entry) => {
+    const [name, gender] = entry.split(':');
+
+    return { name, gender: gender === 'f' || gender === 'n' ? gender : 'm' };
+  });
 }
 
-/** The placeholder a new chat is called until it has something to be named after: a creature, not a number. */
-export function generatedName(number: number): string {
-  const names = nameList();
-  const index = Math.max(number - 1, 0);
-  const round = Math.floor(index / names.length);
+/** An adjective in the form that agrees with the creature: "Swift" for all, or "Flinker/Flinke/Flinkes" by gender. */
+function agree(adjective: string, gender: Creature['gender']): string {
+  const forms = adjective.split('/');
 
-  return round === 0 ? names[index] : `${names[index % names.length]} ${round + 1}`;
+  return forms[{ m: 0, f: 1, n: 2 }[gender]] ?? forms[0];
+}
+
+/** How many different placeholder names there are (every adjective with every creature) before one repeats with a number. */
+export function generatedNameCount(): number {
+  return words('chat.names.adjectives').length * creatures().length;
+}
+
+/**
+ * The placeholder a new chat is called until it has something to be named after: an adjective and a creature, "Swift
+ * Falcon", not a number. A number picks one pair and the same number always gives the same name.
+ */
+export function generatedName(number: number): string {
+  const adjectives = words('chat.names.adjectives');
+  const animals = creatures();
+  const total = adjectives.length * animals.length;
+  const index = Math.max(number - 1, 0);
+  const animal = animals[index % animals.length];
+  const name = t('chat.names.pattern', { adjective: agree(adjectives[Math.floor(index / animals.length) % adjectives.length], animal.gender), creature: animal.name });
+  const round = Math.floor(index / total);
+
+  return round === 0 ? name : `${name} ${round + 1}`;
 }
 
 /** One line of plain words: line breaks, markdown marks and runs of spaces collapsed. */

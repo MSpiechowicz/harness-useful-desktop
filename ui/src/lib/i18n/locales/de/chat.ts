@@ -3,7 +3,9 @@ import type { AreaMessages } from '../types';
 
 export const chat: AreaMessages<typeof enChat> = {
   'chat.title': 'Chat',
-  'chat.names.list': 'Godzilla, Kraken, Phönix, Yeti, Greif, Hydra, Sphinx, Basilisk, Chimäre, Minotaurus, Pegasus, Leviathan, Banshee, Golem, Wyvern, Zerberus, Gargoyle, Kitsune, Selkie, Donnervogel, Nessie, Bigfoot, Mothra, Cthulhu, Zentaur, Sirene, Troll, Dschinn, Tengu, Behemoth',
+  'chat.names.pattern': '{adjective} {creature}',
+  'chat.names.adjectives': 'Flinker/Flinke/Flinkes, Stiller/Stille/Stilles, Heller/Helle/Helles, Kühner/Kühne/Kühnes, Kluger/Kluge/Kluges, Ruhiger/Ruhige/Ruhiges, Mutiger/Mutige/Mutiges, Glücklicher/Glückliche/Glückliches, Sanfter/Sanfte/Sanftes, Mächtiger/Mächtige/Mächtiges, Silberner/Silberne/Silbernes, Goldener/Goldene/Goldenes, Wilder/Wilde/Wildes, Edler/Edle/Edles, Neugieriger/Neugierige/Neugieriges, Kosmischer/Kosmische/Kosmisches, Wandernder/Wandernde/Wanderndes, Verborgener/Verborgene/Verborgenes, Uralter/Uralte/Uraltes, Heiterer/Heitere/Heiteres, Sonniger/Sonnige/Sonniges, Frostiger/Frostige/Frostiges, Stürmischer/Stürmische/Stürmisches, Tapferer/Tapfere/Tapferes, Listiger/Listige/Listiges, Wacher/Wache/Waches, Zäher/Zähe/Zähes',
+  'chat.names.creatures': 'Godzilla:m, Kraken:m, Phönix:m, Yeti:m, Greif:m, Hydra:f, Sphinx:f, Basilisk:m, Chimäre:f, Minotaurus:m, Pegasus:m, Leviathan:m, Banshee:f, Golem:m, Wyvern:m, Zerberus:m, Gargoyle:m, Kitsune:m, Selkie:f, Donnervogel:m, Nessie:f, Bigfoot:m, Mothra:f, Cthulhu:m, Zentaur:m, Sirene:f, Troll:m, Dschinn:m, Tengu:m, Behemoth:m, Falke:m, Fischotter:m, Luchs:m, Reiher:m, Dachs:m, Rabe:m, Fuchs:m, Wolf:m, Bär:m, Eule:f, Delfin:m, Panther:m, Hirsch:m, Habicht:m, Orca:m, Löwe:m, Tiger:m, Adler:m, Salamander:m, Gottesanbeterin:f',
 
   'chat.mode.yolo.label': 'yolo',
   'chat.mode.yolo.explanation': 'Tools laufen ohne Rückfrage',

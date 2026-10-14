@@ -3,7 +3,9 @@ import type { AreaMessages } from '../types';
 
 export const chat: AreaMessages<typeof enChat> = {
   'chat.title': 'Chat',
-  'chat.names.list': 'Godzilla, Kraken, Phénix, Yéti, Griffon, Hydre, Sphinx, Basilic, Chimère, Minotaure, Pégase, Léviathan, Banshee, Golem, Wyverne, Cerbère, Gargouille, Kitsune, Selkie, Oiseau-tonnerre, Nessie, Bigfoot, Mothra, Cthulhu, Centaure, Sirène, Troll, Djinn, Tengu, Béhémoth',
+  'chat.names.pattern': '{creature} {adjective}',
+  'chat.names.adjectives': 'Rapide, Discret/Discrète, Brillant/Brillante, Audacieux/Audacieuse, Malin/Maligne, Calme, Courageux/Courageuse, Chanceux/Chanceuse, Doux/Douce, Puissant/Puissante, Argenté/Argentée, Doré/Dorée, Pourpre, Ambré/Ambrée, Azur, Brumeux/Brumeuse, Orageux/Orageuse, Glacé/Glacée, Ensoleillé/Ensoleillée, Sauvage, Noble, Agile, Constant/Constante, Curieux/Curieuse, Cosmique, Électrique, Errant/Errante, Caché/Cachée, Antique, Polaire, Lunaire, Solaire, Émeraude, Joyeux/Joyeuse, Hardi/Hardie',
+  'chat.names.creatures': 'Godzilla:m, Kraken:m, Phénix:m, Yéti:m, Griffon:m, Hydre:f, Sphinx:m, Basilic:m, Chimère:f, Minotaure:m, Pégase:m, Léviathan:m, Banshee:f, Golem:m, Wyverne:f, Cerbère:m, Gargouille:f, Kitsune:m, Selkie:f, Nessie:f, Bigfoot:m, Mothra:f, Cthulhu:m, Centaure:m, Sirène:f, Troll:m, Djinn:m, Tengu:m, Béhémoth:m, Faucon:m, Loutre:f, Lynx:m, Héron:m, Blaireau:m, Corbeau:m, Renard:m, Loup:m, Ours:m, Hibou:m, Dauphin:m, Panthère:f, Cerf:m, Aigle:m, Orque:f, Lion:m, Tigre:m, Salamandre:f, Mante:f',
 
   'chat.mode.yolo.label': 'yolo',
   'chat.mode.yolo.explanation': 'les outils s’exécutent sans demander',

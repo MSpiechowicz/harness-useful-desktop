@@ -3,7 +3,9 @@ import type { AreaMessages } from '../types';
 
 export const chat: AreaMessages<typeof enChat> = {
   'chat.title': 'Czat',
-  'chat.names.list': 'Godzilla, Kraken, Feniks, Yeti, Gryf, Hydra, Sfinks, Bazyliszek, Chimera, Minotaur, Pegaz, Lewiatan, Banshee, Golem, Wiwerna, Cerber, Gargulec, Kitsune, Selkie, Ptak Gromu, Nessie, Wielka Stopa, Mothra, Cthulhu, Centaur, Syrena, Troll, Dżin, Tengu, Behemot',
+  'chat.names.pattern': '{adjective} {creature}',
+  'chat.names.adjectives': 'Szybki/Szybka/Szybkie, Cichy/Cicha/Ciche, Jasny/Jasna/Jasne, Śmiały/Śmiała/Śmiałe, Sprytny/Sprytna/Sprytne, Spokojny/Spokojna/Spokojne, Odważny/Odważna/Odważne, Szczęśliwy/Szczęśliwa/Szczęśliwe, Łagodny/Łagodna/Łagodne, Potężny/Potężna/Potężne, Srebrny/Srebrna/Srebrne, Złoty/Złota/Złote, Szkarłatny/Szkarłatna/Szkarłatne, Bursztynowy/Bursztynowa/Bursztynowe, Mglisty/Mglista/Mgliste, Burzowy/Burzowa/Burzowe, Mroźny/Mroźna/Mroźne, Słoneczny/Słoneczna/Słoneczne, Dziki/Dzika/Dzikie, Szlachetny/Szlachetna/Szlachetne, Zwinny/Zwinna/Zwinne, Ciekawski/Ciekawska/Ciekawskie, Kosmiczny/Kosmiczna/Kosmiczne, Elektryczny/Elektryczna/Elektryczne, Wędrowny/Wędrowna/Wędrowne, Ukryty/Ukryta/Ukryte, Starożytny/Starożytna/Starożytne, Polarny/Polarna/Polarne, Księżycowy/Księżycowa/Księżycowe, Wesoły/Wesoła/Wesołe',
+  'chat.names.creatures': 'Godzilla:f, Kraken:m, Feniks:m, Yeti:m, Gryf:m, Hydra:f, Sfinks:m, Bazyliszek:m, Chimera:f, Minotaur:m, Pegaz:m, Lewiatan:m, Banshee:f, Golem:m, Wywerna:f, Cerber:m, Gargulec:m, Kitsune:f, Selkie:f, Nessie:f, Bigfoot:m, Mothra:f, Cthulhu:m, Centaur:m, Syrena:f, Troll:m, Dżinn:m, Tengu:m, Behemot:m, Sokół:m, Wydra:f, Ryś:m, Czapla:f, Borsuk:m, Kruk:m, Lis:m, Wilk:m, Niedźwiedź:m, Sowa:f, Delfin:m, Pantera:f, Jeleń:m, Orzeł:m, Orka:f, Lew:m, Tygrys:m, Salamandra:f, Modliszka:f',
 
   'chat.mode.yolo.label': 'yolo',
   'chat.mode.yolo.explanation': 'narzędzia działają bez pytania',

@@ -76,8 +76,8 @@ describe('starting sessions', () => {
     const first = await store.create('omp', PROJECT);
     const second = await store.create('omp', PROJECT);
 
-    expect(store.title(first!.key)).toBe('Behemoth');
-    expect(store.title(second!.key)).toBe('Tengu');
+    expect(store.title(first!.key)).toBe('Daring Salamander');
+    expect(store.title(second!.key)).toBe('Daring Eagle');
 
     store.cycle(1);
     expect(store.activeKey).toBe(first!.key);
@@ -87,7 +87,7 @@ describe('starting sessions', () => {
     await store.stop(first!.key);
     random.mockReturnValue(0);
     const third = await store.create('omp', PROJECT);
-    expect(store.title(third!.key)).toBe('Godzilla');
+    expect(store.title(third!.key)).toBe('Swift Godzilla');
   });
 
   it('drops the starting tab when the agent fails to start', async () => {
