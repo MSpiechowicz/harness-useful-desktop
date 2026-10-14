@@ -4,13 +4,14 @@
 
   interface Props {
     info: Pick<HarnessInfo, 'id' | 'shortName'>;
-    size?: 'sm' | 'md' | 'lg';
+    size?: 'xs' | 'sm' | 'md' | 'lg';
     class?: string;
   }
 
   let { info, size = 'md', class: className }: Props = $props();
 
   const SIZES = {
+    xs: 'h-[18px] min-w-[18px] rounded-sm px-1 text-[10px]',
     sm: 'h-6 min-w-6 rounded-sm px-1 text-[10px]',
     md: 'h-9 min-w-9 rounded-md px-1.5 text-xs',
     lg: 'h-12 min-w-12 rounded-lg px-2 text-sm',
