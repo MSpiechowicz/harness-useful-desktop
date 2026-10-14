@@ -22,15 +22,22 @@ function plugin(overrides: Partial<PluginInfo> = {}): PluginInfo {
 }
 
 describe('pluginActions', () => {
-  it('offers no upgrade while the catalog has nothing newer', () => {
-    const labels = pluginActions('omp', plugin(), null).map((action) => action.label);
+  it('keeps the update row but greys it out while there is nothing newer', () => {
+    const actions = pluginActions('omp', plugin(), null);
 
-    expect(labels).toEqual(['Disable', 'Uninstall']);
+    expect(actions.map((action) => action.label)).toEqual(['Disable', 'Update', 'Uninstall']);
+    expect(actions[1].state).toBe('idle');
   });
 
   it('offers the upgrade, naming the version, once the catalog is ahead', () => {
     const labels = pluginActions('omp', plugin({ latestVersion: '1.3.0', updateAvailable: true }), null).map((action) => action.label);
 
-    expect(labels).toEqual(['Disable', 'Upgrade to v1.3.0', 'Uninstall']);
+    expect(labels).toEqual(['Disable', 'Update', 'Uninstall']);
+  });
+
+  it('makes the update the blue primary action once a newer version exists', () => {
+    const update = pluginActions('omp', plugin({ latestVersion: '1.3.0', updateAvailable: true }), null)[1];
+
+    expect(update.state).toBe('ready');
   });
 });

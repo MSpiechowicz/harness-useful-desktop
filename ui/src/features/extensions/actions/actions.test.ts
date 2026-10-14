@@ -27,13 +27,23 @@ async function open(id: 'omp' | 'pi', tab: RegExp, item: RegExp) {
   prefs.value = samplePrefs({ motion: 'off', defaultHarness: id });
   render(ExtensionsViewer);
 
-  await fireEvent.click(await screen.findByRole('tab', { name: tab }));
-  await fireEvent.click(await screen.findByRole('button', { name: item }));
+  // The item sits under the heading of its kind; look there, since another kind may hold a namesake.
+  const group = await screen.findByRole('region', { name: tab });
+  await fireEvent.click(within(group).getByRole('button', { name: item }));
 
   return backend;
 }
 
 const dialog = () => screen.findByRole('dialog');
+
+/** The facts card beside the detail: its Status row says whether the item is on. */
+const facts = () => screen.getByRole('complementary', { name: 'Extension details' });
+
+/** Picks an entry of the top bar's Install menu. */
+async function chooseInstall(name: string): Promise<void> {
+  await fireEvent.click(screen.getByRole('button', { name: 'Install' }));
+  await fireEvent.click(await screen.findByRole('menuitem', { name }));
+}
 
 /** Confirms once the preview has finished and the button is live. */
 async function confirmWith(name: string): Promise<void> {
@@ -45,7 +55,7 @@ async function confirmWith(name: string): Promise<void> {
 describe('extension actions', () => {
   it('previews first, runs only after the confirmation, then shows the refreshed list', async () => {
     const { calls } = await open('omp', /Plugins/, /npm-helper/);
-    expect(screen.getByRole('heading', { level: 2, name: 'npm-helper' }).parentElement).toHaveTextContent('Disabled');
+    expect(facts()).toHaveTextContent('Disabled');
 
     await fireEvent.click(screen.getByRole('button', { name: 'Enable' }));
 
@@ -62,7 +72,7 @@ describe('extension actions', () => {
 
     await fireEvent.click(screen.getByRole('button', { name: 'Close' }));
 
-    await waitFor(() => expect(screen.getByRole('heading', { level: 2, name: 'npm-helper' }).parentElement).toHaveTextContent('Enabled'));
+    await waitFor(() => expect(facts()).toHaveTextContent('Enabled'));
     expect(screen.getByRole('button', { name: 'Disable' })).toBeInTheDocument();
   });
 
@@ -150,7 +160,7 @@ describe('extension actions', () => {
   it('adds a marketplace from the toolbar, refusing unsafe text before anything is sent', async () => {
     const { calls } = await open('omp', /Marketplaces/, /^demo/);
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Add marketplace' }));
+    await chooseInstall('Add marketplace');
     const input = await screen.findByRole('textbox', { name: /Marketplace source/ });
 
     await fireEvent.input(input, { target: { value: '--evil' } });
@@ -186,7 +196,7 @@ describe('extension actions', () => {
 
   it('does not call an empty install field an error until the user tries to continue', async () => {
     await open('omp', /Plugins/, /npm-helper/);
-    await fireEvent.click(screen.getByRole('button', { name: 'Install plugin' }));
+    await chooseInstall('Install plugin');
 
     const install = within(await dialog());
     const field = install.getByRole('textbox', { name: /^Plugin/ });

@@ -10,6 +10,7 @@ import { extensionsView } from '$lib/stores/views.svelte';
 import { samplePrefs } from '../../../tests/helpers';
 import ExtensionDetail from './ExtensionDetail.svelte';
 import { buildItems, filterItems, visibleTabs } from './extension-items';
+import { groupFolds } from './group-folds.svelte';
 import ExtensionsViewer from './ExtensionsViewer.svelte';
 
 beforeAll(async () => {
@@ -17,43 +18,64 @@ beforeAll(async () => {
   await harness.load();
 });
 
-const tabNames = () => screen.getAllByRole('tab').map((tab) => tab.textContent?.replace(/\s*\d+$/, '').trim());
+/** The group headings on screen, without their counts. */
+const headings = () => screen.getAllByRole('button', { expanded: true }).concat(screen.queryAllByRole('button', { expanded: false })).map((button) => button.textContent?.replace(/\s*\d+$/, '').trim());
 
 async function useHarness(id: 'omp' | 'pi') {
   prefs.value = samplePrefs({ motion: 'off', defaultHarness: id });
+  groupFolds.reset();
   render(ExtensionsViewer);
-  await screen.findByRole('tab', { name: /Skills/ });
+  await screen.findByRole('navigation', { name: 'Extensions' });
 }
 
 describe('ExtensionsViewer', () => {
-  it('shows the tabs OMP supports, each with its count', async () => {
+  it('lists everything in one inventory, grouped by the kinds OMP has', async () => {
     await useHarness('omp');
+    const view = extensionsView.data!;
 
-    expect(tabNames()).toEqual(['Plugins', 'Marketplaces', 'Skills', 'MCP servers', 'Themes', 'Modules']);
-
-    const plugins = extensionsView.data?.plugins.length ?? -1;
-    expect(screen.getByRole('tab', { name: /Plugins/ })).toHaveTextContent(String(plugins));
-    expect(within(screen.getByRole('list', { name: 'Plugins' })).getAllByRole('button')).toHaveLength(plugins);
+    expect(screen.queryByRole('tab')).toBeNull();
+    expect(headings()).toEqual(expect.arrayContaining(['Plugins', 'Skills']));
+    expect(headings()).not.toContain('Prompts');
+    expect(within(screen.getByRole('region', { name: 'Plugins' })).getAllByRole('button')).toHaveLength(view.plugins.length + 1);
   });
 
-  it('shows the tabs PI supports instead', async () => {
+  it('lists the kinds PI has instead', async () => {
     await useHarness('pi');
 
-    expect(tabNames()).toEqual(['Skills', 'Prompts', 'MCP servers', 'Themes', 'Packages', 'Modules']);
+    expect(headings()).toContain('Prompts');
+    expect(headings()).not.toContain('Plugins');
   });
 
-  it('searches within a tab and shows the selected item in the detail pane', async () => {
+  it('folds a long group at first and a heading toggles it', async () => {
+    await useHarness('omp');
+    const long = extensionsView.data!.themes.length > 20;
+
+    const themes = screen.getByRole('button', { name: /^Themes/ });
+    expect(themes).toHaveAttribute('aria-expanded', String(!long));
+
+    await fireEvent.click(themes);
+    expect(themes).toHaveAttribute('aria-expanded', String(long));
+  });
+
+  it('searches every kind at once, opening the groups that match, and shows the selected item in the detail pane', async () => {
     await useHarness('omp');
     const first = extensionsView.data!.plugins[0];
 
-    const search = screen.getByRole('searchbox', { name: 'Search plugins' });
-    await fireEvent.input(search, { target: { value: 'zzz-no-such-plugin' } });
-    expect(await screen.findByRole('status')).toHaveTextContent('No plugins match');
+    const search = screen.getByRole('searchbox', { name: 'Search extensions and catalogs' });
+    await fireEvent.input(search, { target: { value: 'zzz-no-such-extension' } });
+    expect(await screen.findByRole('status')).toHaveTextContent('Nothing matches');
 
     await fireEvent.input(search, { target: { value: first.name } });
     await fireEvent.click(await screen.findByRole('button', { name: new RegExp(first.name) }));
 
     expect(screen.getByRole('heading', { level: 2, name: first.name })).toBeInTheDocument();
+  });
+
+  it('offers Reveal for an item that has a file and installs through one menu', async () => {
+    await useHarness('omp');
+
+    expect(screen.getByRole('button', { name: 'Install' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'More actions' })).toBeInTheDocument();
   });
 });
 
@@ -117,7 +139,7 @@ describe('in Polish', () => {
   it('translates the tabs and counts a marketplace\'s plugins with the Polish plural forms', async () => {
     await i18n.load('pl');
     const marketplace = (entries: number) => ({ name: 'demo', source: 'a/b', sourceType: 'github', error: null, entries: Array.from({ length: entries }, (_, index) => ({ name: `p${index}` })) });
-    const view = { marketplaces: [marketplace(1)] } as unknown as ExtensionsView;
+    const view = { plugins: [], marketplaces: [marketplace(1)] } as unknown as ExtensionsView;
 
     expect(buildItems('marketplaces', view)[0].badges.map((badge) => badge.label)).toContain('1 wtyczka');
     for (const [count, label] of [[2, '2 wtyczki'], [5, '5 wtyczek'], [22, '22 wtyczki']] as const) {
@@ -128,9 +150,9 @@ describe('in Polish', () => {
 
     prefs.value = samplePrefs({ motion: 'off', defaultHarness: 'omp' });
     render(ExtensionsViewer);
-    await screen.findByRole('tab', { name: /Skille/ });
+    await screen.findByRole('navigation', { name: 'Rozszerzenia' });
 
-    expect(tabNames()).toEqual(['Wtyczki', 'Marketplace’y', 'Skille', 'Serwery MCP', 'Motywy', 'Moduły']);
-    expect(screen.getByRole('searchbox', { name: 'Szukaj wtyczek' })).toBeInTheDocument();
+    expect(headings()).toEqual(expect.arrayContaining(['Wtyczki', 'Skille']));
+    expect(screen.getByRole('searchbox', { name: 'Szukaj rozszerzeń i katalogów' })).toBeInTheDocument();
   });
 });

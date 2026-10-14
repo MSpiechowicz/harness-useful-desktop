@@ -16,6 +16,8 @@ export interface BarAction {
   icon: IconComponent;
   /** Destructive actions use the quiet danger tone; the dialog repeats it on the confirm button. */
   danger?: boolean;
+  /** `ready`: there is something to do, so the button is the blue primary one. `idle`: nothing to do, so it stays but is greyed out. */
+  state?: 'ready' | 'idle';
   request: ActionRequest;
 }
 
@@ -44,7 +46,7 @@ interface Copy {
   title: (action: ExtensionAction) => string;
 }
 
-const verb = (key: 'install' | 'uninstall' | 'enable' | 'disable' | 'upgrade' | 'update' | 'remove' | 'addMarketplace' | 'removeMarketplace') => () =>
+const verb = (key: 'install' | 'uninstall' | 'enable' | 'disable' | 'update' | 'remove' | 'addMarketplace' | 'removeMarketplace') => () =>
   t(`extensions.verb.${key}`);
 
 const name = (action: ExtensionAction): string | null => ('name' in action && action.name ? action.name : null);
@@ -63,7 +65,7 @@ const COPY: Record<ExtensionAction['type'], Copy> = {
   pluginEnable: { verb: verb('enable'), title: named('enable') },
   pluginDisable: { verb: verb('disable'), title: named('disable') },
   pluginUpgrade: {
-    verb: verb('upgrade'),
+    verb: verb('update'),
     title: (action) => {
       const subject = name(action);
 

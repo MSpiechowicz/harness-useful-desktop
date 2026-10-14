@@ -8,6 +8,7 @@
   import { harness } from '$lib/stores/harness.svelte';
   import { motion } from '$lib/stores/motion.svelte';
   import { prefs } from '$lib/stores/prefs.svelte';
+  import { watchCompanions } from '$lib/stores/ecosystem.svelte';
   import { project } from '$lib/stores/project.svelte';
 
   import Intro from './features/intro/Intro.svelte';
@@ -17,6 +18,8 @@
 
   onMount(() => {
     void start();
+
+    return watchCompanions();
   });
 
   /** Cold start: load preferences and app info, then play the intro if the user wants it. */

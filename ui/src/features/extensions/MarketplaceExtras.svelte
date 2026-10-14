@@ -3,11 +3,12 @@
 
   import Badge from '$lib/components/Badge.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
-  import SearchField from '$lib/components/SearchField.svelte';
+  import FilterMenu from '$lib/components/FilterMenu.svelte';
   import VirtualList from '$lib/components/VirtualList.svelte';
   import type { MarketplaceEntry } from '$lib/ipc/bindings/MarketplaceEntry';
   import type { MarketplaceInfo } from '$lib/ipc/bindings/MarketplaceInfo';
   import { harness } from '$lib/stores/harness.svelte';
+  import { viewState } from '$lib/stores/view-state.svelte';
 
   import ActionBar from './actions/ActionBar.svelte';
   import EntryInstall from './actions/EntryInstall.svelte';
@@ -15,25 +16,47 @@
 
   interface Props {
     marketplace: MarketplaceInfo;
+    /** Installed plugins of this marketplace that have a newer version, by name: the catalog copy may be older than that. */
+    updates: Record<string, string | null>;
   }
 
-  let { marketplace }: Props = $props();
+  let { marketplace, updates }: Props = $props();
+
+  // The state of a catalog entry is what the row is for, so its badge is a size up from the ones that only label.
+  const STATE = 'px-2.5 py-1 text-sm';
 
   /** Above this many entries the catalog scrolls in a virtualized list. */
   const VIRTUALIZE_ABOVE = 100;
   const ROW_HEIGHT = 64;
 
-  let query = $state('');
+  type Show = 'all' | 'available' | 'installed';
+
+  let show = $state<Show>('all');
 
   const id = $derived(harness.active?.info.id);
 
-  const entries = $derived(
-    marketplace.entries.filter((entry) => `${entry.name} ${entry.description ?? ''}`.toLowerCase().includes(query.trim().toLowerCase())),
-  );
+  // Filtering by install state only means something while the catalog has both kinds.
+  const filterable = $derived(marketplace.entries.some((entry) => entry.installed) && marketplace.entries.some((entry) => !entry.installed));
+  const filter = $derived<Show>(filterable ? show : 'all');
+  const choices = $derived<{ value: Show; label: string }[]>([
+    { value: 'all', label: t('extensions.catalog.all') },
+    { value: 'available', label: t('extensions.catalog.available') },
+    { value: 'installed', label: t('extensions.catalog.installed') },
+  ]);
+
+  const matching = $derived.by(() => {
+    const needle = viewState.extensionsQuery.trim().toLowerCase();
+    const found = marketplace.entries.filter((entry) => `${entry.name} ${entry.description ?? ''}`.toLowerCase().includes(needle));
+
+    // The one search field of the view looks inside the catalog; when it matched the marketplace itself, the whole catalog shows.
+    return needle === '' || found.length === 0 ? marketplace.entries : found;
+  });
+
+  const entries = $derived(matching.filter((entry) => filter === 'all' || entry.installed === (filter === 'installed')));
 </script>
 
 {#if id}
-  <ActionBar actions={marketplaceActions(id, marketplace)} />
+  <ActionBar actions={marketplaceActions(id, marketplace, Object.keys(updates).length > 0)} />
 {/if}
 
 {#if marketplace.error}
@@ -47,9 +70,10 @@
 {:else}
   <section class="flex flex-col gap-3" aria-label={t('extensions.catalog.label')}>
     <div class="flex items-center justify-between gap-3">
-      <h3 class="text-sm font-medium tracking-wider text-fg-3 uppercase">{t('extensions.catalog.heading', { count: marketplace.entries.length })}</h3>
-      {#if marketplace.entries.length > 0}
-        <SearchField bind:value={query} label={t('extensions.catalog.filter')} placeholder={t('extensions.catalog.filter')} class="w-60" />
+      <h3 class="text-sm font-medium tracking-wider text-fg-3 uppercase">{t('extensions.catalog.label')}</h3>
+
+      {#if filterable}
+        <FilterMenu label={t('extensions.catalog.show')} options={choices} value={filter} onchange={(next) => (show = next)} />
       {/if}
     </div>
 
@@ -84,8 +108,10 @@
     {#if entry.version}
       <span class="tabular text-xs text-fg-3">v{entry.version}</span>
     {/if}
-    {#if entry.installed}
-      <Badge tone="success">{t('extensions.catalog.installed')}</Badge>
+    {#if entry.name in updates}
+      <Badge tone="info" class={STATE}>{updates[entry.name] ? t('extensions.badge.updateTo', { version: updates[entry.name] }) : t('extensions.badge.updateAvailable')}</Badge>
+    {:else if entry.installed}
+      <Badge tone="success" class={STATE}>{t('extensions.catalog.installed')}</Badge>
     {:else if !marketplace.error}
       <EntryInstall marketplace={marketplace.name} entry={entry.name} />
     {/if}

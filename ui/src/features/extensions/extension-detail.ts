@@ -1,6 +1,8 @@
 import { t } from '$lib/i18n/i18n.svelte';
+import { formatCount } from '$lib/utils/format';
 import { formatDateTime, relativeTime } from '$lib/utils/format';
 
+import { configStats } from '../config/stats';
 import type { ExtItem } from './extension-items';
 import { scopeLabel } from './extension-items';
 
@@ -9,8 +11,14 @@ export interface Fact {
   label: string;
   value: string;
   mono?: boolean;
-  /** Offer "Reveal in file manager" for this value (it is an absolute path). */
+  /** An absolute path: shown shortened, in the Location card. */
   path?: boolean;
+  /** Where the fact lives: the Location card holds identifiers and paths, the Details card everything else. */
+  location?: boolean;
+  /** The full text for the tooltip when the value shown is a shortened form of it. */
+  title?: string;
+  /** A switched-on state, drawn with a green dot. */
+  on?: boolean;
 }
 
 export interface DetailBasics {
@@ -30,11 +38,11 @@ function optional(label: string, value: string | null, options: Partial<Fact> = 
   return value ? { label, value, ...options } : null;
 }
 
-/** A timestamp as people read it, `Sep 14, 2026, 12:21 PM · 4 weeks ago`; anything unparsable stays as written. */
+/** A timestamp as people read it: `4 weeks ago`, with the exact date and time in the tooltip; anything unparsable stays as written. */
 function when(label: string, iso: string | null): Fact | null {
   const date = iso ? formatDateTime(iso) : '';
 
-  return iso ? { label, value: date ? `${date} · ${relativeTime(iso)}` : iso } : null;
+  return iso ? (date ? { label, value: relativeTime(iso), title: date } : { label, value: iso }) : null;
 }
 
 /** The description and key facts of an item, independent of how they are rendered. */
@@ -46,11 +54,13 @@ export function detailBasics(entry: ExtItem): DetailBasics {
       return {
         description: plugin.description,
         facts: present([
-          { label: t('extensions.fact.identifier'), value: plugin.id, mono: true },
-          optional(t('extensions.fact.version'), plugin.version),
+          { label: t('extensions.fact.status'), value: enabledText(plugin.enabled), on: plugin.enabled },
           { label: t('extensions.fact.scope'), value: scopeLabel(plugin.scope) },
+          optional(t('extensions.fact.version'), plugin.version),
+          plugin.updateAvailable ? { label: t('extensions.fact.update'), value: plugin.latestVersion ? t('extensions.badge.updateTo', { version: plugin.latestVersion }) : t('extensions.badge.updateAvailable') } : null,
           optional(t('extensions.fact.marketplace'), plugin.marketplace),
-          optional(t('extensions.fact.installDir'), plugin.path, { mono: true, path: true }),
+          { label: t('extensions.fact.identifier'), value: plugin.id, mono: true, location: true },
+          optional(t('extensions.fact.installDir'), plugin.path, { mono: true, path: true, location: true }),
         ]),
       };
     }
@@ -62,7 +72,7 @@ export function detailBasics(entry: ExtItem): DetailBasics {
         description: null,
         facts: present([
           { label: t('extensions.fact.sourceType'), value: marketplace.sourceType },
-          { label: t('extensions.fact.source'), value: marketplace.source, mono: true },
+          { label: t('extensions.fact.source'), value: marketplace.source, mono: true, location: true },
           when(t('extensions.fact.added'), marketplace.addedAt),
           when(t('extensions.fact.refreshed'), marketplace.updatedAt),
         ]),
@@ -77,7 +87,7 @@ export function detailBasics(entry: ExtItem): DetailBasics {
         facts: [
           { label: t('extensions.fact.scope'), value: scopeLabel(skill.scope) },
           { label: t('extensions.fact.origin'), value: skill.origin },
-          { label: t('extensions.fact.file'), value: skill.path, mono: true, path: true },
+          { label: t('extensions.fact.file'), value: skill.path, mono: true, path: true, location: true },
         ],
       };
     }
@@ -90,7 +100,7 @@ export function detailBasics(entry: ExtItem): DetailBasics {
         facts: present([
           optional(t('extensions.fact.arguments'), prompt.argumentHint, { mono: true }),
           { label: t('extensions.fact.scope'), value: scopeLabel(prompt.scope) },
-          { label: t('extensions.fact.file'), value: prompt.path, mono: true, path: true },
+          { label: t('extensions.fact.file'), value: prompt.path, mono: true, path: true, location: true },
         ]),
       };
     }
@@ -102,9 +112,9 @@ export function detailBasics(entry: ExtItem): DetailBasics {
         description: null,
         facts: present([
           { label: t('extensions.fact.transport'), value: server.transport },
-          { label: t('extensions.fact.status'), value: enabledText(server.enabled) },
+          { label: t('extensions.fact.status'), value: enabledText(server.enabled), on: server.enabled },
           optional(t('extensions.fact.command'), server.command, { mono: true }),
-          { label: t('extensions.fact.definedIn'), value: server.source.path, mono: true, path: server.source.exists },
+          { label: t('extensions.fact.definedIn'), value: server.source.path, mono: true, path: server.source.exists, location: true },
         ]),
       };
     }
@@ -114,7 +124,7 @@ export function detailBasics(entry: ExtItem): DetailBasics {
 
       return {
         description: theme.active ? t('extensions.fact.themeActive') : null,
-        facts: present([{ label: t('extensions.fact.scope'), value: scopeLabel(theme.scope) }, optional(t('extensions.fact.file'), theme.path, { mono: true, path: true })]),
+        facts: present([{ label: t('extensions.fact.scope'), value: scopeLabel(theme.scope) }, optional(t('extensions.fact.file'), theme.path, { mono: true, path: true, location: true })]),
       };
     }
 
@@ -136,11 +146,71 @@ export function detailBasics(entry: ExtItem): DetailBasics {
       return {
         description: null,
         facts: [
-          { label: t('extensions.fact.status'), value: enabledText(module.enabled) },
+          { label: t('extensions.fact.status'), value: enabledText(module.enabled), on: module.enabled },
           { label: t('extensions.fact.scope'), value: scopeLabel(module.scope) },
-          { label: t('extensions.fact.path'), value: module.path, mono: true, path: true },
+          { label: t('extensions.fact.path'), value: module.path, mono: true, path: true, location: true },
         ],
       };
     }
+  }
+}
+
+/** One number of the Overview card. */
+export interface Stat {
+  label: string;
+  value: string;
+}
+
+const NONE = '—';
+
+/** Counts that say what an item holds; kinds with nothing countable (a skill is one file) have none, and show no card. */
+export function overviewStats(entry: ExtItem): Stat[] {
+  const count = (label: string, value: number): Stat => ({ label, value: formatCount(value) });
+
+  switch (entry.tab) {
+    case 'plugins': {
+      const plugin = entry.data;
+      const on = plugin.features.filter((feature) => feature.enabled).length;
+      const update = plugin.updateAvailable ? (plugin.latestVersion ? `v${plugin.latestVersion}` : t('extensions.badge.updateAvailable')) : t('extensions.overview.upToDate');
+
+      return [
+        count(t('extensions.plugin.features'), plugin.features.length),
+        count(t('extensions.state.enabled'), on),
+        count(t('extensions.state.disabled'), plugin.features.length - on),
+        { label: t('extensions.fact.update'), value: update },
+      ];
+    }
+
+    case 'marketplaces': {
+      const marketplace = entry.data;
+      const installed = marketplace.entries.filter((candidate) => candidate.installed).length;
+
+      return [
+        count(t('extensions.tab.plugins'), marketplace.entries.length),
+        count(t('extensions.catalog.installed'), installed),
+        count(t('extensions.overview.available'), marketplace.entries.length - installed),
+        { label: t('extensions.catalog.label'), value: marketplace.error ? t('extensions.badge.unreadable') : t('extensions.overview.readable') },
+      ];
+    }
+
+    case 'mcp': {
+      const server = entry.data;
+      const settings = configStats(server.details);
+      const hidden = settings.secrets + server.args.filter((arg) => arg.kind === 'secret').length + (server.url?.kind === 'secret' ? 1 : 0);
+
+      return [
+        count(t('extensions.mcp.arguments'), server.args.length),
+        count(t('extensions.mcp.settings'), settings.entries),
+        count(t('extensions.overview.hidden'), hidden),
+        { label: t('extensions.overview.depth'), value: settings.entries === 0 ? NONE : formatCount(settings.depth) },
+      ];
+    }
+
+    case 'skills':
+    case 'prompts':
+    case 'themes':
+    case 'packages':
+    case 'modules':
+      return [];
   }
 }

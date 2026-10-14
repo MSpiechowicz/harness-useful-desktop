@@ -15,20 +15,14 @@ export type ExtTab = 'plugins' | 'marketplaces' | 'skills' | 'prompts' | 'mcp' |
 
 export interface TabDef {
   id: ExtTab;
-  /** The tab's name, plural. */
+  /** The group's name, plural: "Plugins". */
   readonly label: string;
-  /** One item of the tab: "Plugin", "MCP server". */
+  /** One item of the group: "Plugin", "MCP server". */
   readonly singular: string;
-  /** The empty state's title: "No plugins found". */
-  readonly empty: string;
-  /** The search field's label and placeholder: "Search plugins". */
-  readonly search: string;
-  /** Said when the search matches nothing: `No plugins match “zzz”.` */
-  noMatch: (query: string) => string;
   capability: keyof Capabilities;
 }
 
-/** One tab; its texts follow the language on screen, so they are getters over the `extensions.tab.<id>` keys. */
+/** One kind of extension; its texts follow the language on screen, so they are getters over the `extensions.tab.<id>` keys. */
 function tab(id: ExtTab, capability: keyof Capabilities): TabDef {
   const key = `extensions.tab.${id}` as const;
 
@@ -40,18 +34,11 @@ function tab(id: ExtTab, capability: keyof Capabilities): TabDef {
     get singular() {
       return t(`${key}.singular`);
     },
-    get empty() {
-      return t(`${key}.empty`);
-    },
-    get search() {
-      return t(`${key}.search`);
-    },
-    noMatch: (query) => t(`${key}.noMatch`, { query }),
     capability,
   };
 }
 
-/** All tabs in display order; a harness shows the ones its capabilities enable. */
+/** All kinds in display order; a harness shows the ones its capabilities enable. */
 export const TABS: readonly TabDef[] = [
   tab('plugins', 'plugins'),
   tab('marketplaces', 'marketplaces'),
@@ -81,12 +68,14 @@ interface ItemBase {
   badges: ExtBadge[];
   /** Lower-cased text the list filter searches. */
   search: string;
+  /** A newer version of it (or of something it lists) is available. */
+  update: boolean;
 }
 
 /** One list row plus the record its detail pane shows. */
 export type ExtItem =
   | (ItemBase & { tab: 'plugins'; data: PluginInfo })
-  | (ItemBase & { tab: 'marketplaces'; data: MarketplaceInfo })
+  | (ItemBase & { tab: 'marketplaces'; data: MarketplaceInfo; /** Plugins installed from it that have an update, by name, with the version when known. */ updates: Record<string, string | null> })
   | (ItemBase & { tab: 'skills'; data: SkillInfo })
   | (ItemBase & { tab: 'prompts'; data: PromptTemplateInfo })
   | (ItemBase & { tab: 'mcp'; data: McpServerInfo })
@@ -109,7 +98,7 @@ function enabledBadge(enabled: boolean): ExtBadge {
 function base(id: string, title: string, subtitle: string | null, badges: ExtBadge[], extra: string[] = []): ItemBase {
   const search = [title, subtitle ?? '', ...badges.map((badge) => badge.label), ...extra].join(' ').toLowerCase();
 
-  return { id, title, subtitle, badges, search };
+  return { id, title, subtitle, badges, search, update: false };
 }
 
 function pluginItems(view: ExtensionsView): ExtItem[] {
@@ -128,7 +117,7 @@ function pluginItems(view: ExtensionsView): ExtItem[] {
       });
     }
 
-    return { ...base(plugin.id, plugin.name, plugin.description, badges, [plugin.id]), tab: 'plugins', data: plugin };
+    return { ...base(plugin.id, plugin.name, plugin.description, badges, [plugin.id]), update: plugin.updateAvailable, tab: 'plugins', data: plugin };
   });
 }
 
@@ -141,7 +130,15 @@ function marketplaceItems(view: ExtensionsView): ExtItem[] {
         : { label: tn('extensions.count.plugin', marketplace.entries.length), tone: 'accent' },
     );
 
-    return { ...base(marketplace.name, marketplace.name, marketplace.source, badges), tab: 'marketplaces', data: marketplace };
+    // The catalog's entries are searchable from the one search field, so a marketplace is found by what it lists.
+    const listed = marketplace.entries.flatMap((entry) => [entry.name, entry.description ?? '']);
+
+    // The plugins installed from it that are outdated, so the catalog can say so before its own copy is refreshed.
+    const updates = Object.fromEntries(
+      view.plugins.filter((plugin) => (plugin.marketplace ?? plugin.id.split('@')[1]) === marketplace.name && plugin.updateAvailable).map((plugin) => [plugin.id.split('@')[0], plugin.latestVersion]),
+    );
+
+    return { ...base(marketplace.name, marketplace.name, marketplace.source, badges, listed), update: Object.keys(updates).length > 0, tab: 'marketplaces', data: marketplace, updates };
   });
 }
 
@@ -228,8 +225,32 @@ export function buildItems(tab: ExtTab, view: ExtensionsView): ExtItem[] {
   return BUILDERS[tab](view);
 }
 
-export function tabCount(tab: ExtTab, view: ExtensionsView): number {
-  return buildItems(tab, view).length;
+/** What a list row shows besides its title: a state dot, a short remark on the right, a pending update. */
+export interface RowInfo {
+  status: 'on' | 'off' | null;
+  meta: string | null;
+  update: boolean;
+}
+
+export function rowInfo(entry: ExtItem): RowInfo {
+  const state = (enabled: boolean) => (enabled ? 'on' : 'off');
+
+  switch (entry.tab) {
+    case 'plugins':
+      return { status: state(entry.data.enabled), meta: entry.data.version ? `v${entry.data.version}` : null, update: entry.update };
+    case 'marketplaces':
+      return { status: null, meta: entry.data.error ? t('extensions.badge.unreadable') : entry.data.sourceType, update: entry.update };
+    case 'skills':
+    case 'prompts':
+    case 'themes':
+      return { status: null, meta: entry.tab === 'themes' && entry.data.active ? t('extensions.badge.active') : scopeLabel(entry.data.scope), update: false };
+    case 'mcp':
+      return { status: state(entry.data.enabled), meta: entry.data.transport, update: false };
+    case 'packages':
+      return { status: null, meta: entry.data.kind, update: false };
+    case 'modules':
+      return { status: state(entry.data.enabled), meta: scopeLabel(entry.data.scope), update: false };
+  }
 }
 
 export function filterItems(items: ExtItem[], query: string): ExtItem[] {

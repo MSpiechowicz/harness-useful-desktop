@@ -4,6 +4,8 @@
   import Button from '$lib/components/Button.svelte';
   import { ICON } from '$lib/components/icon';
   import { t } from '$lib/i18n/i18n.svelte';
+  import { motion } from '$lib/stores/motion.svelte';
+  import { cx } from '$lib/utils/cx';
 
   import type { BarAction } from './action-model';
   import { actionRunner } from './action-runner.svelte';
@@ -21,17 +23,16 @@
 
   <ul class="divide-y divide-line rounded-lg border border-line bg-surface-1">
     {#each actions as action (action.title)}
-      <li class="flex items-start justify-between gap-6 px-4 py-3">
+      <li class="flex items-center justify-between gap-6 px-4 py-3">
         <div class="flex min-w-0 flex-col gap-0.5">
           <p class="text-base font-medium text-fg">{action.title}</p>
           <p class="text-sm text-fg-2">{action.description}</p>
         </div>
 
-        <!-- The button's top edge lines up with the top of the title's capitals (5px into its 21px line), so the gap
-             above both is the same. -->
-        <div class="shrink-0 pt-[5px]">
-          <Button variant={action.danger ? 'dangerQuiet' : 'secondary'} disabled={actionRunner.phase !== 'idle'} onclick={() => void actionRunner.begin(action.request)}>
-            {#snippet leading()}<action.icon size={ICON.sm} aria-hidden="true" />{/snippet}
+        <!-- Centred on the row, so the space above and below the button is the same whatever the text beside it. Every button has the same width, so a column of them reads as one. -->
+        <div class="w-40 shrink-0">
+          <Button class="w-full" variant={action.danger ? 'dangerQuiet' : action.state === 'ready' ? 'primary' : 'secondary'} disabled={actionRunner.phase !== 'idle' || action.state === 'idle'} onclick={() => void actionRunner.begin(action.request)}>
+            {#snippet leading()}<span class={cx('inline-flex', action.state === 'ready' && motion.level === 'full' && 'update-arrow')}><action.icon size={ICON.sm} aria-hidden="true" /></span>{/snippet}
             {action.label}
           </Button>
         </div>

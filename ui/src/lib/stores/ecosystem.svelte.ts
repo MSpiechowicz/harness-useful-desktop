@@ -139,3 +139,22 @@ export class EcosystemStore {
 }
 
 export const ecosystem = new EcosystemStore(ipc);
+
+/** How often the app looks for a newer companion release while it is open; the backend still asks GitHub at most every six hours. */
+const COMPANION_CHECK_MS = 30 * 60_000;
+
+/**
+ * The job that keeps update information current without any view open: reads the companions once now, then every half
+ * hour while the window is visible. Returns the function that stops it.
+ */
+export function watchCompanions(store: EcosystemStore = ecosystem, ms: number = COMPANION_CHECK_MS): () => void {
+  void store.load();
+
+  const timer = setInterval(() => {
+    if (!document.hidden) {
+      void store.load(true);
+    }
+  }, ms);
+
+  return () => clearInterval(timer);
+}

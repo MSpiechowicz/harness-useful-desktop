@@ -1,63 +1,102 @@
 <script lang="ts">
-  import FolderSearch from '@lucide/svelte/icons/folder-search';
   import type { Snippet } from 'svelte';
 
-  import Badge from '$lib/components/Badge.svelte';
-  import Button from '$lib/components/Button.svelte';
-  import { ICON } from '$lib/components/icon';
+  import Card from '$lib/components/Card.svelte';
+  import StatusDot from '$lib/components/StatusDot.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
-  import { revealPath } from '$lib/ipc/actions';
+  import { cx } from '$lib/utils/cx';
 
-  import type { Fact } from './extension-detail';
-  import type { ExtBadge } from './extension-items';
+  import { shortPath } from '../config/path';
+  import type { Fact, Stat } from './extension-detail';
 
   interface Props {
     title: string;
-    badges: ExtBadge[];
+    /** The kind of item, then one line of what it is: "Plugin · Persistent usage dashboard". */
+    subtitle: string;
     description: string | null;
     facts: Fact[];
-    /** Tab-specific sections below the facts. */
+    /** The numbers of the Overview card; none, and the card is left out. */
+    stats?: Stat[];
+    /** Kind-specific sections below the description. */
     children?: Snippet;
   }
 
-  let { title, badges, description, facts, children }: Props = $props();
+  let { title, subtitle, description, facts, stats = [], children }: Props = $props();
 
-  // A fact the badges already state (scope, version, marketplace) is not said a second time.
-  const shown = $derived(facts.filter((fact) => !badges.some((badge) => badge.label === fact.value || badge.label === `v${fact.value}`)));
+  /** How many characters at the end of a long value stay visible when its middle is cut. */
+  const TAIL = 12;
+
+  const details = $derived(facts.filter((fact) => !fact.location));
+  const location = $derived(facts.filter((fact) => fact.location));
 </script>
 
-<!-- One column: title and badges, the remaining facts as plain rows, then whatever the tab adds. Nothing floats. -->
-<article class="flex min-h-full max-w-5xl flex-col gap-5 p-6" aria-labelledby="extension-title">
-  <header class="flex flex-col gap-2">
-    <h2 id="extension-title" class="text-2xl break-words text-fg">{title}</h2>
+<!-- The Configuration detail: title and content on the left, the item's facts in a column of cards on the right (below the content when narrow). -->
+<article class="flex min-h-full flex-col @[760px]:h-full @[760px]:flex-row" aria-labelledby="extension-title">
+  <div class="flex min-w-0 flex-1 flex-col @[760px]:min-h-0">
+    <header class="shrink-0 border-b border-line px-5 pt-4 pb-3">
+      <h2 id="extension-title" class="truncate text-lg leading-6 font-semibold text-fg" title={title}>{title}</h2>
+      <p class="mt-0.5 truncate text-xs text-fg-3" title={subtitle}>{subtitle}</p>
+    </header>
 
-    <div class="flex flex-wrap gap-1.5">
-      {#each badges as badge (badge.label)}
-        <Badge tone={badge.tone}>{badge.label}</Badge>
-      {/each}
+    <div class="flex min-h-0 flex-1 flex-col gap-4 px-5 pt-4 pb-6 @[760px]:overflow-y-auto">
+      {#if description}
+        <Card as="section" padded={false} class="p-3.5">
+          <h3 class="mb-2.5 text-xs font-medium tracking-wider text-fg-3 uppercase">{t('extensions.detail.description')}</h3>
+          <p class="text-sm leading-relaxed break-words text-fg-2">{description}</p>
+        </Card>
+      {/if}
+
+      <!-- Identifiers and paths are long, so they get the width of the content, not of the narrow column. -->
+      {@render facts_card(t('extensions.detail.location'), location, false)}
+
+      {@render children?.()}
     </div>
+  </div>
 
-    {#if description}
-      <p class="max-w-3xl text-base text-fg-2">{description}</p>
+  <aside
+    aria-label={t('extensions.detail.aside')}
+    class="flex shrink-0 flex-col gap-3 border-t border-line p-4 @[760px]:w-[280px] @[760px]:overflow-y-auto @[760px]:border-t-0 @[760px]:border-l"
+  >
+    {#if stats.length > 0}
+      <Card as="section" padded={false} class="p-3.5">
+        <h3 class="mb-2.5 text-xs font-medium tracking-wider text-fg-3 uppercase">{t('extensions.overview.title')}</h3>
+        <dl class="grid grid-cols-2 gap-x-3 gap-y-3">
+          {#each stats as stat (stat.label)}
+            <div class="flex min-w-0 flex-col-reverse">
+              <dt class="truncate text-xs text-fg-3">{stat.label}</dt>
+              <dd class="tabular truncate text-lg font-semibold text-fg" title={stat.value}>{stat.value}</dd>
+            </div>
+          {/each}
+        </dl>
+      </Card>
     {/if}
-  </header>
 
-  {#if shown.length > 0}
-    <dl class="divide-y divide-line rounded-lg border border-line bg-surface-1 text-sm">
-      {#each shown as fact (fact.label)}
-        <div class="flex min-h-10 items-center gap-4 py-1.5 pr-1.5 pl-3">
-          <dt class="w-32 shrink-0 text-fg-3">{fact.label}</dt>
-          <dd class={['min-w-0 flex-1 truncate text-fg', fact.mono && 'font-mono']} title={fact.value}>{fact.value}</dd>
-          {#if fact.path}
-            <Button variant="ghost" onclick={() => void revealPath(fact.value)}>
-              {#snippet leading()}<FolderSearch size={ICON.sm} aria-hidden="true" />{/snippet}
-              {t('extensions.fact.reveal')}
-            </Button>
-          {/if}
-        </div>
-      {/each}
-    </dl>
-  {/if}
-
-  {@render children?.()}
+    {@render facts_card(t('extensions.detail.details'), details, false)}
+  </aside>
 </article>
+
+{#snippet facts_card(heading: string, rows: Fact[], shorten: boolean)}
+  {#if rows.length > 0}
+    <Card as="section" padded={false} class="p-3.5">
+      <h3 class="mb-2.5 text-xs font-medium tracking-wider text-fg-3 uppercase">{heading}</h3>
+      <dl class="flex flex-col">
+        {#each rows as fact (fact.label)}
+          {@const text = shorten && fact.path ? shortPath(fact.value) : fact.value}
+          <!-- Every row is the label on the left and the value on the right, on one line. A long value is shortened in the
+               middle, so both its start and its end (the version, the file name) stay readable; the tooltip has all of it. -->
+          <div class="flex justify-between gap-3 py-1 text-sm">
+            <dt class="shrink-0 text-fg-2">{fact.label}</dt>
+            <dd class={cx('flex min-w-0 items-center justify-end gap-1.5 text-right', fact.on ? 'text-success' : 'text-fg')} title={fact.title ?? fact.value}>
+              {#if fact.on}<StatusDot tone="success" />{/if}
+              {#if fact.mono && text.length > TAIL}
+                <span class="flex min-w-0 font-mono text-xs leading-5"><span class="truncate">{text.slice(0, -TAIL)}</span><span class="shrink-0">{text.slice(-TAIL)}</span></span>
+              {:else}
+                <span class={cx('truncate', fact.mono && 'font-mono text-xs leading-5')}>{text}</span>
+              {/if}
+            </dd>
+          </div>
+        {/each}
+      </dl>
+    </Card>
+  {/if}
+{/snippet}

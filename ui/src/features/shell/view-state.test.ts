@@ -36,10 +36,9 @@ describe('views remember where you were', () => {
     expect(within(again).getByText('MCP servers').closest('button')).toHaveAttribute('aria-current', 'true');
   });
 
-  it('Extensions reopens on the tab and the item you had open', async () => {
+  it('Extensions reopens on the item you had open', async () => {
     const first = render(ExtensionsViewer);
-    await fireEvent.click(await screen.findByRole('tab', { name: /Skills/ }));
-    const skills = within(await screen.findByRole('list', { name: 'Skills' })).getAllByRole('button');
+    const skills = within(await screen.findByRole('region', { name: 'Skills' })).getAllByRole('button').slice(1);
     expect(skills.length).toBeGreaterThan(1);
     const chosen = skills[1].textContent;
     await fireEvent.click(skills[1]);
@@ -47,8 +46,7 @@ describe('views remember where you were', () => {
 
     render(ExtensionsViewer);
 
-    expect(await screen.findByRole('tab', { name: /Skills/ })).toHaveAttribute('aria-selected', 'true');
-    const current = within(await screen.findByRole('list', { name: 'Skills' })).getAllByRole('button').find((button) => button.getAttribute('aria-current') === 'true');
+    const current = within(await screen.findByRole('region', { name: 'Skills' })).getAllByRole('button').find((button) => button.getAttribute('aria-current') === 'true');
     expect(current?.textContent).toBe(chosen);
   });
 

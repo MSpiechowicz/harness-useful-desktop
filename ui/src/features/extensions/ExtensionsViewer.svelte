@@ -1,39 +1,87 @@
 <script lang="ts">
   import { autoRefresh } from '$lib/utils/auto-refresh';
   import Blocks from '@lucide/svelte/icons/blocks';
+  import FolderSearch from '@lucide/svelte/icons/folder-search';
+  import PackageOpen from '@lucide/svelte/icons/package-open';
 
+  import Button from '$lib/components/Button.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
-  import { t } from '$lib/i18n/i18n.svelte';
+  import { ICON } from '$lib/components/icon';
+  import ListDetail from '$lib/components/ListDetail.svelte';
   import NoticeBanner from '$lib/components/NoticeBanner.svelte';
-  import Tabs from '$lib/components/Tabs.svelte';
+  import SearchField from '$lib/components/SearchField.svelte';
   import ViewHeader from '$lib/components/ViewHeader.svelte';
+  import { t, tn } from '$lib/i18n/i18n.svelte';
+  import { revealPath } from '$lib/ipc/actions';
+  import { ecosystem } from '$lib/stores/ecosystem.svelte';
   import { harness } from '$lib/stores/harness.svelte';
-  import { project } from '$lib/stores/project.svelte';
   import { viewState } from '$lib/stores/view-state.svelte';
   import { extensionsView } from '$lib/stores/views.svelte';
 
   import HarnessGate from '../harness/HarnessGate.svelte';
+  import { scopeLabel } from '../shell/scope';
   import ActionDialog from './actions/ActionDialog.svelte';
   import ExtensionToolbar from './actions/ExtensionToolbar.svelte';
-  import { tabCount, visibleTabs, type ExtTab } from './extension-items';
-  import ExtensionsPanel from './ExtensionsPanel.svelte';
+  import { withCompanionUpdates } from './companion-updates';
+  import ExtensionDetail from './ExtensionDetail.svelte';
+  import ExtensionList from './ExtensionList.svelte';
+  import { buildGroups, pickItem, revealTarget } from './extension-groups';
+  import type { ExtItem } from './extension-items';
 
-  const tabs = $derived(harness.active ? visibleTabs(harness.active.capabilities) : []);
-  const currentTab = $derived(tabs.some((tab) => tab.id === viewState.extensionsTab) ? viewState.extensionsTab : tabs[0]?.id);
+  $effect(() =>
+    autoRefresh(() => {
+      void extensionsView.refresh({ quiet: true });
+      void ecosystem.load();
+    }, 5000),
+  );
 
-  $effect(() => autoRefresh(() => void extensionsView.refresh({ quiet: true }), 5000));
+  // The catalogs OMP keeps are only as new as their last refresh; the companions' GitHub releases add the updates they miss.
+  const view = $derived(extensionsView.data && extensionsView.data.harness === harness.active?.info.id ? withCompanionUpdates(extensionsView.data, ecosystem.status) : undefined);
+  const query = $derived(viewState.extensionsQuery.trim());
+  // The groups before the search say whether there is anything at all; the ones after say what matches.
+  const everything = $derived(view && harness.active ? buildGroups(view, harness.active.capabilities, '') : []);
+  const groups = $derived(view && harness.active ? buildGroups(view, harness.active.capabilities, viewState.extensionsQuery) : []);
+  const selected = $derived(pickItem(groups, viewState.extensionsTab, viewState.extensionsItem));
+  const total = $derived(everything.reduce((sum, group) => sum + group.total, 0));
+  const target = $derived(selected ? revealTarget(selected) : null);
 
-  function chooseTab(next: ExtTab): void {
-    viewState.extensionsTab = next;
-    viewState.extensionsItem = null;
-    viewState.extensionsQuery = '';
+  function choose(entry: ExtItem): void {
+    viewState.extensionsTab = entry.tab;
+    viewState.extensionsItem = entry.id;
+  }
+
+  function onSearchKey(event: KeyboardEvent): void {
+    if (event.key === 'Escape' && viewState.extensionsQuery !== '') {
+      event.preventDefault();
+      event.stopPropagation();
+      viewState.extensionsQuery = '';
+    }
   }
 </script>
 
 <div class="flex size-full min-h-0 flex-col">
-  <ViewHeader title={t('extensions.title')} icon={Blocks} context={project.active ? t('extensions.context.project') : t('extensions.context.user')}>
+  <ViewHeader title={t('extensions.title')} icon={Blocks} context={scopeLabel(view ? tn('extensions.count.item', total) : null)}>
     {#snippet actions()}
-      <ExtensionToolbar tab={currentTab ?? undefined} />
+      {#if total > 0}
+        <div class="w-[340px] max-[900px]:w-[220px]">
+          <SearchField
+            bind:value={viewState.extensionsQuery}
+            label={t('extensions.search.label')}
+            placeholder={t('extensions.search.placeholder')}
+            shortcut="mod+f"
+            onkeydown={onSearchKey}
+          />
+        </div>
+      {/if}
+
+      {#if target}
+        <Button onclick={() => void revealPath(target)}>
+          {#snippet leading()}<FolderSearch size={ICON.sm} aria-hidden="true" />{/snippet}
+          {t('extensions.reveal')}
+        </Button>
+      {/if}
+
+      <ExtensionToolbar />
     {/snippet}
   </ViewHeader>
 
@@ -41,32 +89,36 @@
 
   <div class="relative min-h-0 flex-1">
     <HarnessGate loader={extensionsView} area="extensions">
-      {#snippet children(view)}
-        {@const options = tabs.map((tab) => ({ value: tab.id, label: tab.label, count: tabCount(tab.id, view) }))}
-        {@const current = options.some((option) => option.value === viewState.extensionsTab) ? (viewState.extensionsTab as ExtTab) : options[0]?.value}
-
-        {#if view.notices.length > 0}
-          <div class="page-gutter pt-3"><NoticeBanner notices={view.notices} /></div>
+      {#snippet children(data)}
+        {#if data.notices.length > 0}
+          <div class="page-gutter border-b border-line py-3"><NoticeBanner notices={data.notices} /></div>
         {/if}
 
-        {#if current}
-          <Tabs
-            items={options}
-            bind:value={() => current, chooseTab}
-            label={t('extensions.types')}
-            class="mt-1 min-h-0 flex-1 gap-0"
-            stripClass="mx-[var(--gutter)] max-w-[calc(100%-2*var(--gutter))] self-start overflow-x-auto"
-            panelClass="min-h-0 flex-1 border-t border-line"
-          >
-            {#snippet panel(tab)}
-              <ExtensionsPanel {tab} {view} />
-            {/snippet}
-          </Tabs>
-        {:else}
-          <div class="grid flex-1 place-items-center">
-            <EmptyState icon={Blocks} title={t('extensions.noTypes.title')} body={t('extensions.noTypes.body')} />
+        <div class="min-h-0 flex-1">
+        {#if total === 0}
+          <div class="grid size-full place-items-center">
+            <EmptyState icon={PackageOpen} title={t('extensions.empty.title')} body={t('extensions.empty.body')} />
           </div>
+        {:else}
+          <ListDetail label={t('extensions.resize')} scrollKey="extensions:detail" size={288}>
+            {#snippet list()}
+              {#if groups.length === 0}
+                <p class="px-4 py-6 text-center text-sm text-fg-3" role="status">{t('extensions.search.noMatch', { query })}</p>
+              {:else}
+                <ExtensionList {groups} {selected} searching={query !== ''} onselect={choose} />
+              {/if}
+            {/snippet}
+
+            {#snippet detail()}
+              {#if selected}
+                {#key `${selected.tab}:${selected.id}`}
+                  <ExtensionDetail entry={selected} />
+                {/key}
+              {/if}
+            {/snippet}
+          </ListDetail>
         {/if}
+        </div>
       {/snippet}
     </HarnessGate>
   </div>

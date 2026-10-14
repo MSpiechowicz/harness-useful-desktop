@@ -1,7 +1,6 @@
 import ArrowUpFromLine from '@lucide/svelte/icons/arrow-up-from-line';
 import Power from '@lucide/svelte/icons/power';
 import PowerOff from '@lucide/svelte/icons/power-off';
-import RefreshCw from '@lucide/svelte/icons/refresh-cw';
 import Trash2 from '@lucide/svelte/icons/trash-2';
 
 import { t } from '$lib/i18n/i18n.svelte';
@@ -42,15 +41,19 @@ export function pluginActions(harness: HarnessId, plugin: PluginInfo, project: s
         },
   ];
 
-  if (plugin.updateAvailable) {
-    actions.push({
-      label: plugin.latestVersion ? t('extensions.verb.upgradeTo', { version: plugin.latestVersion }) : t('extensions.verb.upgrade'),
-      title: t('extensions.action.upgrade.title'),
-      description: plugin.latestVersion ? t('extensions.action.upgrade.version', { version: plugin.latestVersion }) : t('extensions.action.upgrade.newer'),
-      icon: ArrowUpFromLine,
-      request: request({ type: 'pluginUpgrade', name: plugin.id }),
-    });
-  }
+  // Always listed, so the row is where the user expects it: blue when there is a newer version, greyed out when there is not.
+  actions.push({
+    label: t('extensions.verb.update'),
+    title: plugin.updateAvailable ? t('extensions.action.upgrade.title') : t('extensions.action.upgrade.none.title'),
+    description: !plugin.updateAvailable
+      ? t('extensions.action.upgrade.none.description')
+      : plugin.latestVersion
+        ? t('extensions.action.upgrade.version', { version: plugin.latestVersion })
+        : t('extensions.action.upgrade.newer'),
+    icon: ArrowUpFromLine,
+    state: plugin.updateAvailable ? 'ready' : 'idle',
+    request: request({ type: 'pluginUpgrade', name: plugin.id }),
+  });
 
   actions.push({
     label: t('extensions.verb.uninstall'),
@@ -64,14 +67,15 @@ export function pluginActions(harness: HarnessId, plugin: PluginInfo, project: s
   return actions;
 }
 
-/** Refresh the catalog of a marketplace, or remove it. */
-export function marketplaceActions(harness: HarnessId, marketplace: MarketplaceInfo): BarAction[] {
+/** Refresh the catalog of a marketplace (blue while an installed plugin of it has an update waiting, greyed out otherwise), or remove it. */
+export function marketplaceActions(harness: HarnessId, marketplace: MarketplaceInfo, outdated: boolean): BarAction[] {
   return [
     {
       label: t('extensions.verb.update'),
       title: t('extensions.action.updateCatalog.title'),
-      description: t('extensions.action.updateCatalog.description'),
-      icon: RefreshCw,
+      description: outdated ? t('extensions.action.updateCatalog.description') : t('extensions.action.updateCatalog.idle'),
+      icon: ArrowUpFromLine,
+      state: outdated ? 'ready' : 'idle',
       request: actionRequest(harness, { type: 'marketplaceUpdate', name: marketplace.name }, 'user', null),
     },
     {
@@ -99,7 +103,7 @@ export function packageActions(harness: HarnessId, pkg: PackageInfo, project: st
       label: t('extensions.verb.update'),
       title: t('extensions.action.updatePackage.title'),
       description: t('extensions.action.updatePackage.description'),
-      icon: RefreshCw,
+      icon: ArrowUpFromLine,
       request: actionRequest(harness, { type: 'packageUpdate', source }, scope, project),
     },
     {

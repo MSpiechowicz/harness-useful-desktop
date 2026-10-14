@@ -12,6 +12,7 @@ export class ViewState {
   /** Filter of the open configuration section; the palette sets it to highlight a key. */
   configQuery = $state('');
 
+  /** The kind of the selected extension (an id alone is not unique across kinds). */
   extensionsTab = $state<string | null>(null);
   extensionsItem = $state<string | null>(null);
   extensionsQuery = $state('');
