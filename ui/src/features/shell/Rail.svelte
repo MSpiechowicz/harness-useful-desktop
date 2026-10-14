@@ -35,6 +35,8 @@
   const activeIndex = $derived(VIEWS.findIndex((view) => view.id === nav.current));
   const expanded = $derived(ui.railShowsLabels);
   const chatCount = $derived(agentSessions.sessions.length + agentSessions.starting.length);
+  // With the chat cards showing under Chat, the open card carries the tint and the parent keeps only its blue text.
+  const treeOwnsTint = $derived(nav.current === 'chat' && expanded && chatCount > 0 && chatsOpen);
   const chat = $derived(agentSessions.active?.chat ?? null);
   // The mark blinks while any agent, not just the visible one, is working.
   const working = $derived(agentSessions.sessions.some((session) => session.chat.phase === 'streaming'));
@@ -137,7 +139,7 @@
        the fixed-width rail at any root font size. -->
   <span
     aria-hidden="true"
-    class="pointer-events-none absolute top-0 left-[8px] h-[28px] rounded-sm bg-accent-wash transition-[width] duration-[var(--dur-slow)] ease-[var(--ease-out-expo)]"
+    class={cx('pointer-events-none absolute top-0 left-[8px] h-[28px] rounded-sm bg-accent-wash transition-[width,opacity] duration-[var(--dur-slow)] ease-[var(--ease-out-expo)]', treeOwnsTint && 'opacity-0')}
     style:width="calc(100% - 16px)"
     style:transform="translateY({indicatorY.current}px)"
   ></span>
