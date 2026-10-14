@@ -107,7 +107,7 @@
       class="inline-flex h-control max-w-full min-w-0 items-center gap-1.5 rounded-md px-2 text-sm text-fg-3 transition-colors duration-[var(--dur-fast)] hover:bg-hover hover:text-fg disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-transparent aria-expanded:bg-hover aria-expanded:text-fg"
     >
       <Folder size={14} aria-hidden="true" class="shrink-0" />
-      <span class="min-w-0 truncate @max-[460px]:hidden">{name}</span>
+      <span class="-mb-[3px] min-w-0 truncate pb-[3px] [text-box:trim-both_cap_alphabetic] @max-[460px]:hidden">{name}</span>
       <ChevronDown size={16} aria-hidden="true" class="shrink-0 text-fg-3 @max-[460px]:hidden" />
     </button>
   {/snippet}

@@ -103,7 +103,7 @@ export const chat: AreaMessages<typeof enChat> = {
   'chat.composer.stopHint': 'Zatrzymaj (Esc dwa razy)',
   'chat.footer.changed': 'Zmienione: {count}',
   'chat.footer.openChanges': 'Otwórz zmiany',
-  'chat.footer.branch': 'Gałąź {name}. Otwórz zmiany',
+  'chat.footer.branchLabel': 'Gałąź',
   'chat.footer.detached': 'odłączony HEAD',
   'chat.footer.ahead': '{count} do przodu',
   'chat.footer.behind': 'o {count} z tyłu',

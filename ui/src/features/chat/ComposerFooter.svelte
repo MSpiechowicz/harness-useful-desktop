@@ -35,21 +35,22 @@
   <ProjectPicker {session} />
 
   {#if status}
-    <button type="button" title={branch} aria-label={t('chat.footer.branch', { name: branch })} onclick={() => nav.go('changes')} class="{CHIP} shrink-[100]">
+    <span title={branch} class="inline-flex h-control min-w-0 shrink-[100] items-center gap-1.5 px-2 text-sm text-fg-3">
+      <span class="sr-only">{t('chat.footer.branchLabel')}</span>
       <GitBranch size={14} aria-hidden="true" class="shrink-0" />
-      <span class="min-w-0 truncate font-mono text-xs text-fg">{branch}</span>
+      <span class="min-w-0 -mb-[3px] truncate pb-[3px] font-mono text-xs text-fg [text-box:trim-both_cap_alphabetic]">{branch}</span>
       {#if status.ahead > 0}
         <span class="tabular inline-flex shrink-0 items-center text-xs text-success"><ArrowUp size={12} aria-hidden="true" />{status.ahead}<span class="sr-only">{t('chat.footer.ahead', { count: status.ahead })}</span></span>
       {/if}
       {#if status.behind > 0}
         <span class="tabular inline-flex shrink-0 items-center text-xs text-warning"><ArrowDown size={12} aria-hidden="true" />{status.behind}<span class="sr-only">{t('chat.footer.behind', { count: status.behind })}</span></span>
       {/if}
-    </button>
+    </span>
 
     {#if changed > 0}
       <button type="button" title={t('chat.footer.openChanges')} onclick={() => nav.go('changes')} class="{CHIP} shrink-0 text-warning hover:bg-warning-wash hover:text-warning">
         <span aria-hidden="true">●</span>
-        <span class="tabular"><span class="@max-[460px]:sr-only">{t('chat.footer.changed', { count: changed })}</span><span class="@min-[461px]:hidden" aria-hidden="true">{changed}</span></span>
+        <span class="tabular [text-box:trim-both_cap_alphabetic]"><span class="@max-[460px]:sr-only">{t('chat.footer.changed', { count: changed })}</span><span class="@min-[461px]:hidden" aria-hidden="true">{changed}</span></span>
       </button>
     {/if}
   {/if}

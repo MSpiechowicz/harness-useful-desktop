@@ -100,7 +100,7 @@ export const chat = {
   'chat.composer.stopHint': 'Stop (Esc twice)',
   'chat.footer.changed': '{count} changed',
   'chat.footer.openChanges': 'Open changes',
-  'chat.footer.branch': 'Branch {name}. Open changes',
+  'chat.footer.branchLabel': 'Branch',
   'chat.footer.detached': 'detached HEAD',
   'chat.footer.ahead': '{count} ahead',
   'chat.footer.behind': '{count} behind',
