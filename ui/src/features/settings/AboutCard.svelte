@@ -41,7 +41,7 @@
   <ul class="flex flex-wrap gap-2 border-t border-line pt-4" aria-label={t('settings.about.links')}>
     {#each LINKS as link (link.url)}
       <li>
-        <Button variant="ghost" size="sm" onclick={() => void openExternal(link.url)}>
+        <Button variant="ghost" onclick={() => void openExternal(link.url)}>
           {#snippet leading()}<ExternalLink size={ICON.sm} aria-hidden="true" />{/snippet}
           {link.label()}
         </Button>

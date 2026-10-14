@@ -130,13 +130,15 @@ pub trait Harness: Send + Sync {
 
     /// The session file `session` names, looked up only in `project`'s session folder.
     fn resolve_session(&self, env: &Env, project: &Path, session: &SessionRef) -> Result<PathBuf> {
-        if session.harness != self.id() {
-            return Err(BusinessError::InvalidInput(
-                "the session belongs to another harness".to_owned(),
-            ));
-        }
-
+        own_session(self.id(), session)?;
         sessions::find_session(&self.sessions_dir(env, project), &session.id)
+    }
+
+    /// Deletes a saved session of `project` with its companion directory and backups (see
+    /// [`sessions::delete_session`]); with `empty_copy_only`, only an empty copy is deleted.
+    fn delete_session(&self, env: &Env, project: &Path, session: &SessionRef, empty_copy_only: bool) -> Result<()> {
+        own_session(self.id(), session)?;
+        sessions::delete_session(&self.sessions_dir(env, project), &session.id, empty_copy_only)
     }
 
     /// The branch tree of a saved session.
@@ -244,4 +246,15 @@ pub trait Harness: Send + Sync {
             }
         })
     }
+}
+
+/// Fails with `InvalidInput` when `session` belongs to a harness other than `harness`.
+fn own_session(harness: HarnessId, session: &SessionRef) -> Result<()> {
+    if session.harness != harness {
+        return Err(BusinessError::InvalidInput(
+            "the session belongs to another harness".to_owned(),
+        ));
+    }
+
+    Ok(())
 }

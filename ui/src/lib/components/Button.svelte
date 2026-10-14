@@ -7,12 +7,12 @@
   import Spinner from './Spinner.svelte';
 
   type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'dangerQuiet';
-  type Size = 'sm' | 'md' | 'lg';
 
   interface Props extends Omit<HTMLButtonAttributes, 'children' | 'class'> {
     class?: string;
     variant?: Variant;
-    size?: Size;
+    /** Onboarding-only: it keeps its own `sm`/`lg` sizes. Everything else omits this and gets the one control height. */
+    size?: 'sm' | 'lg';
     loading?: boolean;
     leading?: Snippet;
     trailing?: Snippet;
@@ -21,7 +21,7 @@
 
   let {
     variant = 'secondary',
-    size = 'md',
+    size,
     loading = false,
     disabled = false,
     type = 'button',
@@ -46,17 +46,19 @@
     // A destructive action that is not the main one: red text, no fill until it is hovered.
     dangerQuiet: 'border border-danger/30 text-danger hover:bg-danger-wash active:bg-danger-wash',
   };
-  const SIZES: Record<Size, string> = {
+  const SIZES = {
+    control: 'h-control gap-2 rounded-md px-4 text-base',
     sm: 'h-8 gap-1.5 rounded-sm px-3 text-sm',
-    md: 'h-9 gap-2 rounded-md px-4 text-base',
     lg: 'h-11 gap-2.5 rounded-md px-5 text-lg',
-  };
+  } as const;
   // An icon's glyph sits inside its box, so the side it is on gets one step less padding to look as tight as the text side.
-  const ICON_SIDE: Record<Size, { leading: string; trailing: string }> = {
+  const ICON_SIDE = {
+    control: { leading: 'pl-3', trailing: 'pr-3' },
     sm: { leading: 'pl-2.5', trailing: 'pr-2.5' },
-    md: { leading: 'pl-3', trailing: 'pr-3' },
     lg: { leading: 'pl-4', trailing: 'pr-4' },
-  };
+  } as const;
+
+  const sizeKey = $derived(size ?? 'control');
 </script>
 
 <button
@@ -66,9 +68,9 @@
   class={cx(
     'relative isolate inline-flex select-none items-center justify-center overflow-hidden font-medium whitespace-nowrap transition-[transform,background-color,color] duration-[var(--dur-fast)] ease-[var(--ease-out-expo)] active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100',
     VARIANTS[variant],
-    SIZES[size],
-    (leading || loading) && children && ICON_SIDE[size].leading,
-    trailing && children && ICON_SIDE[size].trailing,
+    SIZES[sizeKey],
+    (leading || loading) && children && ICON_SIDE[sizeKey].leading,
+    trailing && children && ICON_SIDE[sizeKey].trailing,
     className,
   )}
   {...rest}

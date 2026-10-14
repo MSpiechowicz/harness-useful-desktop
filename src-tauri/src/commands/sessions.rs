@@ -1,5 +1,5 @@
-//! Saved-session commands: a project's sessions, and one session's branch tree, active-path
-//! transcript and edited files.
+//! Saved-session commands: a project's sessions, one session's branch tree, active-path
+//! transcript and edited files, and deleting a session.
 //!
 //! The project must be the active project or a recent one. A session is named only by its
 //! harness and id; the harness looks the id up in that project's session folder, so the webview
@@ -60,6 +60,19 @@ pub async fn session_files_touched(
     files_touched(&state, session, project).await
 }
 
+/// Deletes `session` with its companion folder and backups. With `emptyCopyOnly` only an empty
+/// copy is deleted (`invalidInput` otherwise). A session an agent holds (open in a chat, starting
+/// or stopping) is `forbidden`: close the chat first.
+#[tauri::command]
+pub async fn session_delete(
+    state: State<'_, AppState>,
+    session: SessionRef,
+    project: String,
+    empty_copy_only: bool,
+) -> CommandResult<()> {
+    delete(&state, session, project, empty_copy_only).await
+}
+
 async fn list(state: &AppState, harness: HarnessId, project: String) -> CommandResult<Vec<SessionSummary>> {
     let cache = state.sessions.clone();
 
@@ -96,6 +109,20 @@ async fn files_touched(state: &AppState, session: SessionRef, project: String) -
     .await
 }
 
+async fn delete(state: &AppState, session: SessionRef, project: String, empty_copy_only: bool) -> CommandResult<()> {
+    let agents = state.agents.clone();
+
+    // Held until the files are gone, so no chat can resume the session meanwhile.
+    let Some(_claim) = agents.manager().claim_session(&session.id) else {
+        return Err(BusinessError::Forbidden("close the chat first".to_owned()).into());
+    };
+
+    with_store(state, session.harness, project, move |harness, env, project| {
+        harness.delete_session(env, project, &session, empty_copy_only)
+    })
+    .await
+}
+
 /// Authorizes `project` and runs `read` with `harness` and the canonical project directory in a
 /// blocking task.
 async fn with_store<T, F>(state: &AppState, harness: HarnessId, project: String, read: F) -> CommandResult<T>
@@ -120,16 +147,24 @@ where
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
+    use std::sync::Arc;
 
-    use harness_business::model::IpcErrorCode;
+    use harness_business::agent::{AgentDeps, AgentManager, CollectingSink};
+    use harness_business::model::{AgentStartRequest, IpcErrorCode};
+    use harness_business::process::ResolvedBinary;
     use tauri::async_runtime::block_on;
 
     use super::*;
-    use crate::test_support::{TempDir, state_with_project};
+    use crate::agents::Agents;
+    use crate::test_support::{ScenarioSpawner, TempDir, fake_agent, state_with_project};
 
     /// The main OMP fixture session: two branch points, edits inside and outside the project.
     const MAIN_ID: &str = "0199c1f2-5d3e-7a10-9b2c-4e6f8a1d3c57";
     const MAIN_FILE: &str = "2026-10-09T10-00-00-000Z_0199c1f2-5d3e-7a10-9b2c-4e6f8a1d3c57.jsonl";
+
+    /// The session of the unknown project next to it.
+    const STRANGER_ID: &str = "01999e40-7d21-7f03-a4b6-c8d9e0f1a2b3";
+    const STRANGER_FILE: &str = "2026-10-07T15-30-12-000Z_01999e40-7d21-7f03-a4b6-c8d9e0f1a2b3.jsonl";
 
     struct Setup {
         state: AppState,
@@ -150,11 +185,7 @@ mod tests {
         let state = state_with_project(&dir, Env::for_tests(&home), &project);
 
         copy_fixture(&state, &project, MAIN_FILE);
-        copy_fixture(
-            &state,
-            &stranger,
-            "2026-10-07T15-30-12-000Z_01999e40-7d21-7f03-a4b6-c8d9e0f1a2b3.jsonl",
-        );
+        copy_fixture(&state, &stranger, STRANGER_FILE);
 
         Setup {
             state,
@@ -164,9 +195,13 @@ mod tests {
         }
     }
 
-    fn copy_fixture(state: &AppState, project: &Path, file: &str) {
+    fn sessions_dir(state: &AppState, project: &Path) -> PathBuf {
         let omp = state.registry.get(HarnessId::Omp).expect("OMP is registered");
-        let sessions = omp.sessions_dir(&state.env, project);
+        omp.sessions_dir(&state.env, project)
+    }
+
+    fn copy_fixture(state: &AppState, project: &Path, file: &str) {
+        let sessions = sessions_dir(state, project);
         std::fs::create_dir_all(&sessions).expect("create sessions dir");
 
         let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -221,18 +256,85 @@ mod tests {
     fn unknown_projects_are_refused() {
         let setup = setup();
         let (state, stranger) = (&setup.state, text(&setup.stranger));
-        let id = "01999e40-7d21-7f03-a4b6-c8d9e0f1a2b3";
+        let id = STRANGER_ID;
 
         let errors = [
             block_on(list(state, HarnessId::Omp, stranger.clone())).map(drop),
             block_on(tree(state, omp(id), stranger.clone())).map(drop),
             block_on(messages(state, omp(id), stranger.clone(), None, 10)).map(drop),
-            block_on(files_touched(state, omp(id), stranger)).map(drop),
+            block_on(files_touched(state, omp(id), stranger.clone())).map(drop),
+            block_on(delete(state, omp(id), stranger, false)),
         ];
 
         for error in errors {
             assert_eq!(error.expect_err("unknown project").code(), IpcErrorCode::Forbidden);
         }
+
+        let kept = sessions_dir(state, &setup.stranger).join(STRANGER_FILE);
+        assert!(kept.is_file(), "the refused delete removed nothing");
+    }
+
+    #[test]
+    fn a_deleted_session_leaves_the_list() {
+        let setup = setup();
+        let (state, project) = (&setup.state, text(&setup.project));
+        let file = sessions_dir(state, &setup.project).join(MAIN_FILE);
+
+        // Not an empty copy: refused, nothing removed.
+        let refused = block_on(delete(state, omp(MAIN_ID), project.clone(), true)).expect_err("not a copy");
+        assert_eq!(refused.code(), IpcErrorCode::InvalidInput);
+        assert!(file.is_file());
+
+        block_on(delete(state, omp(MAIN_ID), project.clone(), false)).expect("delete");
+        assert!(!file.exists());
+
+        let listed = block_on(list(state, HarnessId::Omp, project.clone())).expect("list");
+        assert!(listed.is_empty(), "{listed:?}");
+
+        let again = block_on(delete(state, omp(MAIN_ID), project, false)).expect_err("already deleted");
+        assert_eq!(again.code(), IpcErrorCode::NotFound);
+    }
+
+    #[test]
+    fn a_session_open_in_a_chat_is_not_deleted() {
+        let Some(binary) = fake_agent() else {
+            return;
+        };
+        let mut setup = setup();
+        let spawner = ScenarioSpawner::new(&binary, "omp_basic.jsonl");
+        setup.state.agents = Arc::new(Agents::with(AgentManager::new(), spawner.clone()));
+
+        let (state, project) = (&setup.state, text(&setup.project));
+        let file = sessions_dir(state, &setup.project).join(MAIN_FILE);
+
+        let request = AgentStartRequest {
+            harness: HarnessId::Omp,
+            project: project.clone(),
+            resume: Some(omp(MAIN_ID)),
+            approval_override: None,
+            trust_once: false,
+            utility: false,
+        };
+        let deps = AgentDeps {
+            harness: state.registry.get(HarnessId::Omp).expect("OMP is registered"),
+            env: &state.env,
+            spawner,
+            binary: ResolvedBinary {
+                path: binary.clone(),
+                is_batch_script: false,
+            },
+        };
+        let manager = state.agents.manager();
+        let info = block_on(manager.start(request, deps, CollectingSink::new())).expect("the chat starts");
+
+        let refused = block_on(delete(state, omp(MAIN_ID), project.clone(), false)).expect_err("open in a chat");
+        assert_eq!(refused.code(), IpcErrorCode::Forbidden);
+        assert!(file.is_file());
+
+        block_on(manager.stop(&info.key)).expect("stop");
+
+        block_on(delete(state, omp(MAIN_ID), project, false)).expect("delete once the chat closed");
+        assert!(!file.exists());
     }
 
     #[test]
@@ -241,12 +343,14 @@ mod tests {
         let (state, project) = (&setup.state, text(&setup.project));
 
         // The stranger's session exists, but not in this project's folder.
-        let foreign = block_on(tree(
-            state,
-            omp("01999e40-7d21-7f03-a4b6-c8d9e0f1a2b3"),
-            project.clone(),
-        ));
+        let foreign = block_on(tree(state, omp(STRANGER_ID), project.clone()));
         assert_eq!(foreign.expect_err("foreign session").code(), IpcErrorCode::NotFound);
+
+        let foreign_delete = block_on(delete(state, omp(STRANGER_ID), project.clone(), false));
+        assert_eq!(
+            foreign_delete.expect_err("foreign session").code(),
+            IpcErrorCode::NotFound
+        );
 
         for id in ["../stranger", "/etc/passwd", MAIN_FILE, ""] {
             let error = block_on(tree(state, omp(id), project.clone())).expect_err(id);

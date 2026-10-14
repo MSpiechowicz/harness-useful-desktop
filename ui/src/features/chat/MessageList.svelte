@@ -101,7 +101,7 @@
       <div class={cx('chat-col py-2', index === 0 && 'pt-4', index === session.chat.items.length - 1 && 'pb-4')} in:rise|global={{ y: 8, duration: entrance(item) }}>
         {#if index === 0 && session.hasEarlier}
           <div class="mb-3 flex justify-center">
-            <Button size="sm" variant="ghost" loading={loadingEarlier} onclick={loadEarlier}>
+            <Button variant="ghost" loading={loadingEarlier} onclick={loadEarlier}>
               {#snippet leading()}<History size={16} aria-hidden="true" />{/snippet}
               {t('chat.list.loadEarlier')}
             </Button>
@@ -126,7 +126,7 @@
 
   {#if !atBottom}
     <div class="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center">
-      <Button size="sm" class="pointer-events-auto shadow-float" onclick={() => list?.scrollToEnd()}>
+      <Button class="pointer-events-auto shadow-float" onclick={() => list?.scrollToEnd()}>
         {#snippet leading()}<ArrowDown size={16} aria-hidden="true" />{/snippet}
         {t('chat.list.jump')}
       </Button>

@@ -36,7 +36,7 @@
 
 <Popover label={t('extensions.install.label', { entry })} kind="menu" align="end" bind:open class="mt-0! mb-2! bottom-full! top-auto! w-56 origin-bottom">
   {#snippet trigger({ props })}
-    <Button size="sm" {...props} disabled={actionRunner.phase !== 'idle'} aria-label={t('extensions.install.label', { entry })}>
+    <Button {...props} disabled={actionRunner.phase !== 'idle'} aria-label={t('extensions.install.label', { entry })}>
       {#snippet leading()}<Download size={ICON.sm} aria-hidden="true" />{/snippet}
       {t('extensions.install.button')}
       {#snippet trailing()}<ChevronDown size={ICON.sm} aria-hidden="true" />{/snippet}

@@ -61,7 +61,7 @@
       <div class="mx-6 mt-4 flex items-center gap-3 rounded-md border border-line bg-warning-wash px-3.5 py-2.5 text-sm text-fg" role="status">
         <TriangleAlert class="shrink-0 text-warning" size={16} aria-hidden="true" />
         <span class="flex-1">{t('harness.gate.banner', { name: active.info.name })}</span>
-        <Button size="sm" onclick={() => onboarding.restart()}>{t('harness.gate.setup', { name: active.info.shortName })}</Button>
+        <Button onclick={() => onboarding.restart()}>{t('harness.gate.setup', { name: active.info.shortName })}</Button>
       </div>
     {/if}
 

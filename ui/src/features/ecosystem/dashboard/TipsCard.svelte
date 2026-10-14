@@ -97,7 +97,7 @@
         </ul>
 
         {#if tips.length > COLLAPSED}
-          <Button variant="ghost" size="sm" class="-mt-1 -ml-3 self-start" aria-expanded={expanded} aria-controls={listId} onclick={() => (expanded = !expanded)}>
+          <Button variant="ghost" class="-mt-1 -ml-3 self-start" aria-expanded={expanded} aria-controls={listId} onclick={() => (expanded = !expanded)}>
             {expanded ? t('ecosystem.tips.showFewer') : t('ecosystem.tips.showAll', { count: tips.length })}
             {#snippet trailing()}
               <ChevronDown size={16} aria-hidden="true" class={cx('transition-transform duration-[var(--dur-base)]', expanded && 'rotate-180')} />

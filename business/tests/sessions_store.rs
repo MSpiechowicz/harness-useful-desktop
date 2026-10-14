@@ -9,10 +9,15 @@ use std::fs;
 use common::CANARY;
 use harness_business::harness::Harness;
 use harness_business::harnesses::{Omp, Pi};
-use harness_business::model::{HarnessId, IpcErrorCode, MessageRole, SessionNodeKind, SessionTitleSource};
+use harness_business::model::{
+    HarnessId, IpcErrorCode, MessageRole, ModelTurns, SessionNodeKind, SessionTitleSource, TranscriptStats,
+};
 use harness_business::pi_family::sessions::{SessionCache, read_tree};
 use pretty_assertions::assert_eq;
 use session_support::{OMP_FORK, OMP_MAIN, OMP_RELEASE, PI_NAMED, PI_UNTITLED, SessionHome, session, set_mtime};
+
+/// The fixture copy of [`OMP_MAIN`] (see `sessions_copies.rs`).
+const OMP_COPY: &str = "0199c2b0-4e1a-7d2b-9c3d-2f5e8a7b6c41";
 
 fn omp_home() -> SessionHome {
     SessionHome::with_fixtures(&[(&Omp, "omp")])
@@ -34,7 +39,8 @@ fn omp_lists_top_level_sessions_newest_first_without_drafts_or_companions() {
         .unwrap();
 
     let ids: Vec<&str> = list.iter().map(|summary| summary.session.id.as_str()).collect();
-    assert_eq!(ids, [OMP_FORK, OMP_MAIN, OMP_RELEASE]);
+    // The empty copy of the main session keeps the default (oldest) file time.
+    assert_eq!(ids, [OMP_FORK, OMP_MAIN, OMP_RELEASE, OMP_COPY]);
 
     let main = &list[1];
     assert_eq!(main.title.as_deref(), Some("Handle empty input in parse"));
@@ -329,6 +335,26 @@ fn transcript_pages_follow_the_active_path_from_the_root() {
     assert_eq!(all.total, 13);
     assert_eq!(all.next_cursor, None);
 
+    // Totals of the active path: 3 prompts and 6 replies, 5 tool calls, the last reply's usage.
+    let stats = all.stats.clone().expect("the first page carries stats");
+    let cost = stats.cost_usd.expect("replies report cost");
+    assert!((cost - 0.075).abs() < 1e-9, "{cost}");
+    assert_eq!(
+        stats,
+        TranscriptStats {
+            messages: 9,
+            tool_calls: 5,
+            context_tokens: Some(12_840),
+            cost_usd: stats.cost_usd,
+            models: vec![ModelTurns {
+                model: "claude-sonnet-4-5".to_owned(),
+                turns: 6,
+            }],
+            started_at: Some(1_791_540_180_000),
+            ended_at: Some(1_791_541_320_000),
+        }
+    );
+
     let summary = &all.messages[4];
     assert_eq!(summary.role, MessageRole::BranchSummary);
     assert_eq!(summary.timestamp, Some(1_791_540_540_000), "from the entry time");
@@ -339,10 +365,12 @@ fn transcript_pages_follow_the_active_path_from_the_root() {
     assert_eq!(first.messages[0].id.as_deref(), Some("n02"));
     assert_eq!(first.next_cursor.as_deref(), Some("5"));
     assert_eq!(first.total, 13);
+    assert_eq!(first.stats, all.stats, "stats cover the whole path, not the page");
 
     let second = page(Some("5"), 5);
     assert_eq!(second.messages[0].id.as_deref(), Some("n09"));
     assert_eq!(second.next_cursor.as_deref(), Some("10"));
+    assert_eq!(second.stats, None, "later pages carry no stats");
 
     let last = page(Some("10"), 5);
     let ids: Vec<&str> = last

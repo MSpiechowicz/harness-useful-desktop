@@ -19,7 +19,7 @@
 
 <div
   class={cx(
-    'flex h-9 items-center gap-2 rounded-md border border-line bg-surface-2 pr-1 pl-3 text-fg-3 transition-colors duration-[var(--dur-fast)] focus-within:border-focus hover:border-line-strong',
+    'flex h-control items-center gap-2 rounded-md border border-line bg-surface-2 pr-1 pl-3 text-fg-3 transition-colors duration-[var(--dur-fast)] focus-within:border-focus hover:border-line-strong',
     className,
   )}
 >
@@ -34,6 +34,6 @@
     class="h-full min-w-0 flex-1 bg-transparent text-base text-fg outline-none placeholder:text-fg-3 [&::-webkit-search-cancel-button]:hidden"
   />
   {#if value !== ''}
-    <IconButton icon={X} label={t('components.filter.clear')} size="sm" onclick={() => (value = '')} />
+    <IconButton icon={X} label={t('components.filter.clear')} class="size-7!" onclick={() => (value = '')} />
   {/if}
 </div>

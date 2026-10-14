@@ -139,7 +139,7 @@
             aria-current={selected ? 'true' : undefined}
             onclick={() => jump(section.id)}
             class={cx(
-              'inline-flex h-9 max-w-full shrink-0 items-center gap-2.5 rounded-md border px-3 text-sm font-medium whitespace-nowrap transition-colors duration-[var(--dur-fast)] active:scale-[0.98]',
+              'inline-flex h-control max-w-full shrink-0 items-center gap-2.5 rounded-md border px-3 text-sm font-medium whitespace-nowrap transition-colors duration-[var(--dur-fast)] active:scale-[0.98]',
               selected ? 'border-accent/30 bg-accent-wash text-fg' : 'border-transparent text-fg-2 hover:bg-hover active:bg-press hover:text-fg',
             )}
           >
@@ -155,7 +155,7 @@
           <SettingsSection id="appearance" title={t('settings.section.appearance')}>
             <SettingRow title={t('settings.theme.title')} description={t('settings.theme.description')}>
               {#snippet control()}
-                <SegmentedControl size="md" label={t('settings.theme.title')} options={THEME_OPTIONS} bind:value={() => prefs.value?.theme ?? 'system', (theme) => void prefs.update({ theme })} />
+                <SegmentedControl label={t('settings.theme.title')} options={THEME_OPTIONS} bind:value={() => prefs.value?.theme ?? 'system', (theme) => void prefs.update({ theme })} />
               {/snippet}
             </SettingRow>
 
@@ -179,7 +179,7 @@
 
             <SettingRow title={t('settings.motion.title')} description={t('settings.motion.description')}>
               {#snippet control()}
-                <SegmentedControl size="md" label={t('settings.motion.title')} options={MOTION_OPTIONS} bind:value={() => prefs.value?.motion ?? 'full', (next) => void prefs.update({ motion: next })} />
+                <SegmentedControl label={t('settings.motion.title')} options={MOTION_OPTIONS} bind:value={() => prefs.value?.motion ?? 'full', (next) => void prefs.update({ motion: next })} />
               {/snippet}
             </SettingRow>
           </SettingsSection>

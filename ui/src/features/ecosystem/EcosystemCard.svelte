@@ -120,7 +120,7 @@
   </header>
 
   <div class="flex flex-wrap items-center gap-1.5">
-    <Button size="sm" onclick={() => void openExternal(item.repoUrl)}>
+    <Button onclick={() => void openExternal(item.repoUrl)}>
       {#snippet trailing()}<ExternalLink size={ICON.sm} aria-hidden="true" />{/snippet}
       GitHub
       <span class="sr-only">{t('ecosystem.card.repoSr', { name: item.name })}</span>

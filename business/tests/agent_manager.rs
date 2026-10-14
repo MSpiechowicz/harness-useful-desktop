@@ -1,5 +1,6 @@
-//! Launching sessions: command lines per harness, the start-request rules the manager enforces,
-//! the configured approval mode and the session limit.
+//! Launching sessions: the start-request rules the manager enforces, the configured approval
+//! mode and the session limit. One live agent per session id is in `agent_session_ids.rs`,
+//! command lines are in `agent_launch.rs`.
 
 mod agent_support;
 mod common;
@@ -12,14 +13,13 @@ use agent_support::{ScenarioSpawner, binary, options, project, request, start_wi
 use common::{demo_project, omp_home};
 use harness_business::agent::{AgentDeps, AgentManager, CollectingSink, MAX_SESSIONS};
 use harness_business::env::Env;
-use harness_business::harness::{Harness, LaunchRequest};
+use harness_business::harness::Harness;
 use harness_business::harnesses::{Omp, Pi};
-use harness_business::model::{AgentAction, AgentEvent, AgentReply, ApprovalMode, HarnessId, IpcErrorCode, SessionRef};
-use harness_business::process::ResolvedBinary;
+use harness_business::model::{ApprovalMode, HarnessId, IpcErrorCode, SessionRef};
 use pretty_assertions::assert_eq;
 
-/// A manager, a project and an empty home for OMP sessions of `scenario`.
-struct Setup {
+/// A manager of OMP agents playing `scenario`, a project and an empty home.
+struct OmpManager {
     project: tempfile::TempDir,
     _home: tempfile::TempDir,
     env: Env,
@@ -27,129 +27,27 @@ struct Setup {
     spawner: Arc<ScenarioSpawner>,
 }
 
-fn setup(scenario: &str) -> Setup {
+fn omp_manager(scenario: &str) -> OmpManager {
     let home = tempfile::tempdir().unwrap();
+    let env = Env::for_tests(home.path());
 
-    Setup {
+    OmpManager {
         project: project(),
-        env: Env::for_tests(home.path()),
         _home: home,
+        env,
         manager: AgentManager::with_options(options()),
         spawner: ScenarioSpawner::new("omp", scenario),
     }
 }
 
 /// OMP start dependencies over `spawner`.
-fn omp_deps<'a>(env: &'a Env, spawner: &Arc<ScenarioSpawner>) -> AgentDeps<'a> {
+fn deps<'a>(env: &'a Env, spawner: &Arc<ScenarioSpawner>) -> AgentDeps<'a> {
     AgentDeps {
         harness: &Omp,
         env,
         spawner: spawner.clone(),
         binary: binary(),
     }
-}
-
-fn args(harness: &dyn Harness, launch: LaunchRequest<'_>) -> Vec<String> {
-    let spec = harness.launch_spec(&launch).expect("launch spec");
-    assert_eq!(spec.cwd.as_deref(), Some(launch.project));
-
-    spec.args.iter().map(|arg| arg.to_string_lossy().into_owned()).collect()
-}
-
-fn launch<'a>(binary: &'a ResolvedBinary, project: &'a Path) -> LaunchRequest<'a> {
-    LaunchRequest {
-        binary,
-        project,
-        resume: None,
-        approval_override: None,
-        trust_once: false,
-        utility: false,
-    }
-}
-
-#[test]
-fn omp_runs_in_rpc_mode_with_optional_approval_override_and_resume() {
-    let binary = binary();
-    let project = PathBuf::from("/work/demo");
-    let base = launch(&binary, &project);
-
-    assert_eq!(args(&Omp, base), ["--mode", "rpc"]);
-
-    let full = LaunchRequest {
-        approval_override: Some(ApprovalMode::AlwaysAsk),
-        resume: Some("0199c1f2"),
-        trust_once: true,
-        ..base
-    };
-    assert_eq!(
-        args(&Omp, full),
-        ["--mode", "rpc", "--approval-mode", "always-ask", "--resume", "0199c1f2"]
-    );
-}
-
-#[test]
-fn pi_passes_approve_only_for_trust_once_and_resumes_with_session() {
-    let binary = binary();
-    let project = PathBuf::from("/work/demo");
-    let base = launch(&binary, &project);
-
-    assert_eq!(args(&Pi, base), ["--mode", "rpc"]);
-
-    let full = LaunchRequest {
-        trust_once: true,
-        resume: Some("pi-session-1"),
-        approval_override: Some(ApprovalMode::Yolo),
-        ..base
-    };
-    let expected = ["--mode", "rpc", "--approve", "--session", "pi-session-1"]; // guard-allow: approve-flag
-    assert_eq!(args(&Pi, full), expected);
-}
-
-#[test]
-fn a_utility_helper_runs_without_tools_session_or_thinking() {
-    let binary = binary();
-    let project = PathBuf::from("/work/demo");
-    let helper = LaunchRequest {
-        utility: true,
-        ..launch(&binary, &project)
-    };
-    let expected = ["--mode", "rpc", "--no-session", "--no-tools", "--thinking", "off"];
-
-    assert_eq!(args(&Omp, helper), expected);
-    assert_eq!(args(&Pi, helper), expected);
-}
-
-#[test]
-fn no_launch_ever_disables_dialogs_skips_approvals_or_drops_the_session() {
-    let binary = binary();
-    let project = PathBuf::from("/work/demo");
-    let forbidden = ["no-ui", "auto", "no-session", "yolo-mode", "login"]; // guard-allow: login-rpc
-
-    for harness in [&Omp as &dyn Harness, &Pi] {
-        for approval in [None, Some(ApprovalMode::Write)] {
-            let all = LaunchRequest {
-                approval_override: approval,
-                trust_once: true,
-                ..launch(&binary, &project)
-            };
-
-            for arg in args(harness, all) {
-                assert!(!forbidden.iter().any(|word| arg.contains(word)), "{arg}");
-            }
-        }
-    }
-}
-
-#[test]
-fn batch_script_launchers_accept_the_rpc_arguments() {
-    let batch = ResolvedBinary {
-        path: PathBuf::from("C:/npm/omp.cmd"),
-        is_batch_script: true,
-    };
-    let project = PathBuf::from("C:/work/demo");
-
-    let plain = Omp.launch_spec(&launch(&batch, &project)).expect("safe arguments");
-    assert_eq!(plain.args, [OsString::from("--mode"), OsString::from("rpc")]);
 }
 
 #[test]
@@ -222,15 +120,15 @@ async fn start_reports_overrides_only_where_the_harness_supports_them() {
 
 #[tokio::test]
 async fn invalid_start_requests_are_refused_before_spawning() {
-    let Setup {
+    let OmpManager {
         project,
         env,
         manager,
         spawner,
         ..
-    } = setup("omp_hang.jsonl");
+    } = omp_manager("omp_hang.jsonl");
 
-    let attempt = |request| manager.start(request, omp_deps(&env, &spawner), CollectingSink::new());
+    let attempt = |request| manager.start(request, deps(&env, &spawner), CollectingSink::new());
 
     let other_harness = request(HarnessId::Pi, project.path());
     assert_eq!(
@@ -259,17 +157,17 @@ async fn invalid_start_requests_are_refused_before_spawning() {
 
 #[tokio::test]
 async fn at_most_eight_sessions_run_at_once() {
-    let Setup {
+    let OmpManager {
         project,
         env,
         manager,
         spawner,
         ..
-    } = setup("omp_out_of_order.jsonl");
+    } = omp_manager("omp_out_of_order.jsonl");
 
     let start = || {
         let request = request(HarnessId::Omp, project.path());
-        manager.start(request, omp_deps(&env, &spawner), CollectingSink::new())
+        manager.start(request, deps(&env, &spawner), CollectingSink::new())
     };
 
     for _ in 0..MAX_SESSIONS {
@@ -285,41 +183,4 @@ async fn at_most_eight_sessions_run_at_once() {
     manager.stop_all().await;
     assert!(manager.list().is_empty());
     manager.stop("unknown").await.unwrap();
-}
-
-#[tokio::test]
-async fn switch_session_resolves_the_id_to_a_session_file_and_refreshes_the_state() {
-    let run = start_with(HarnessId::Omp, "omp", "omp_switch.jsonl", options(), |_| {})
-        .await
-        .unwrap();
-    let switch = |harness: HarnessId, id: &str| AgentAction::SwitchSession {
-        session: SessionRef {
-            harness,
-            id: id.to_owned(),
-        },
-    };
-
-    let project = dunce::canonicalize(run.project.path()).unwrap();
-    let sessions = Omp.sessions_dir(&Env::for_tests(run.home.path()), &project);
-    std::fs::create_dir_all(&sessions).unwrap();
-    std::fs::write(sessions.join("2026-10-09T10-00-00-000Z_abc123.jsonl"), "{}\n").unwrap();
-
-    let missing = run.manager.send(run.key(), switch(HarnessId::Omp, "missing")).await;
-    assert_eq!(missing.unwrap_err().code(), IpcErrorCode::NotFound);
-    let foreign = run.manager.send(run.key(), switch(HarnessId::Pi, "abc123")).await;
-    assert_eq!(foreign.unwrap_err().code(), IpcErrorCode::InvalidInput);
-
-    let reply = run
-        .manager
-        .send(run.key(), switch(HarnessId::Omp, "abc123"))
-        .await
-        .unwrap();
-    assert_eq!(reply, AgentReply::Ack);
-    run.wait(
-        "refreshed state",
-        |event| matches!(event, AgentEvent::State { state } if state.message_count == 6),
-    )
-    .await;
-
-    run.manager.stop(run.key()).await.unwrap();
 }

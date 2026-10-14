@@ -26,7 +26,7 @@
         <!-- Shown as text only: the command is for the user's terminal, never run by the app. -->
         <div class="flex items-start gap-1 rounded-md border border-line bg-surface-2 py-1 pr-1 pl-3">
           <code class="min-w-0 flex-1 py-1 font-mono text-sm leading-snug [overflow-wrap:anywhere] whitespace-pre-wrap text-fg">{step.command}</code>
-          <CopyButton text={step.command} label={t('ecosystem.install.copy', { label: title })} />
+          <CopyButton text={step.command} label={t('ecosystem.install.copy', { label: title })} control />
         </div>
       </li>
     {/each}

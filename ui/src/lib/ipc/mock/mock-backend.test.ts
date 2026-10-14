@@ -37,6 +37,7 @@ const sampleArgs = (sessionKey: string): { [K in CommandName]: CommandArgs<K> } 
   session_tree: { session: SESSION, project: fixtures.recentProjects[0].path },
   session_messages: { session: SESSION, project: fixtures.recentProjects[0].path, cursor: null, limit: 50 },
   session_files_touched: { session: SESSION, project: fixtures.recentProjects[0].path },
+  session_delete: { session: SESSION, project: fixtures.recentProjects[0].path, emptyCopyOnly: false },
   git_status: { project: fixtures.recentProjects[0].path },
   git_branches: { project: fixtures.recentProjects[0].path },
   git_diff: { project: fixtures.recentProjects[0].path, request: { scope: 'all', paths: [] } },
@@ -85,6 +86,34 @@ describe('mock transport', () => {
     await expect(mock.invoke('session_tree', { session: SESSION, project: '/etc' })).rejects.toMatchObject({ code: 'forbidden' });
     await expect(mock.invoke('git_status', { project: '/etc' })).rejects.toMatchObject({ code: 'forbidden' });
     await expect(mock.invoke('git_diff', { project: '/etc', request: { scope: 'all', paths: [] } })).rejects.toMatchObject({ code: 'forbidden' });
+  });
+
+  it('deletes a session, and only an empty copy when asked to', async () => {
+    const mock = transport();
+    const project = fixtures.recentProjects[0].path;
+    const copy = fixtures.sessions.list.omp.find((summary) => summary.emptyCopy);
+    const ids = async () => (await mock.invoke('sessions_list', { harness: 'omp', project })).map((summary) => summary.ref.id);
+
+    await expect(mock.invoke('session_delete', { session: SESSION, project, emptyCopyOnly: true })).rejects.toMatchObject({ code: 'invalidInput' });
+    expect(await ids()).toContain(SESSION.id);
+
+    await mock.invoke('session_delete', { session: SESSION, project, emptyCopyOnly: false });
+    expect(await ids()).not.toContain(SESSION.id);
+    await expect(mock.invoke('session_tree', { session: SESSION, project })).rejects.toMatchObject({ code: 'notFound' });
+
+    await mock.invoke('session_delete', { session: copy!.ref, project, emptyCopyOnly: true });
+    expect(await ids()).not.toContain(copy!.ref.id);
+  });
+
+  it('sends transcript stats with the first page only', async () => {
+    const mock = transport();
+    const project = fixtures.recentProjects[0].path;
+
+    const first = await mock.invoke('session_messages', { session: SESSION, project, cursor: null, limit: 2 });
+    const next = await mock.invoke('session_messages', { session: SESSION, project, cursor: first.nextCursor, limit: 2 });
+
+    expect(first.stats).toEqual(fixtures.sessions.messages.stats);
+    expect(next.stats).toBeNull();
   });
 
   it('reports a folder that is not a repository as such, with no branches or diffs', async () => {

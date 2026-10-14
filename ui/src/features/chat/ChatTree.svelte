@@ -75,7 +75,7 @@
   <span aria-hidden="true" class="absolute top-[14px] left-0 h-px w-[10px] bg-line-strong"></span>
 {/snippet}
 
-<div role="group" aria-label={t('chat.tabs.label')} transition:slide={{ duration: scaled(200) }} class="flex flex-col gap-[3px] pt-[2px] pb-[4px] pl-[20px]">
+<div role="group" aria-label={t('chat.tabs.label')} transition:slide={{ duration: scaled(200) }} class="-mt-[1px] flex flex-col gap-[3px] pb-[1px] pl-[20px]">
   {#each sessions as session, index (session.key)}
     {@const selected = session.key === agentSessions.activeKey && nav.current === 'chat'}
     {@const summary = harness.get(session.info.harness)}
@@ -119,7 +119,7 @@
           />
         {/if}
         <div class="absolute top-[3px] right-[3px] opacity-0 transition-opacity focus-within:opacity-100 group-hover/card:opacity-100">
-          <IconButton icon={X} label={t('chat.tabs.close')} size="sm" side="right" class="size-[22px] text-fg-3" onclick={() => close(session)} />
+          <IconButton icon={X} label={t('chat.tabs.close')} side="right" class="size-[22px]! text-fg-3" onclick={() => close(session)} />
         </div>
       </div>
     </div>

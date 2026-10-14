@@ -12,6 +12,9 @@
 :root {
   color-scheme: dark;
 
+  /* The one height of every control: buttons, icon buttons, fields, pickers, strips and the tiles in a view's top bar. */
+  --control-h: 36px;
+
   /* Canvas and layered surfaces (each step is one elevation higher). */
   --canvas: #0f0f11;
   --surface-1: #161618;

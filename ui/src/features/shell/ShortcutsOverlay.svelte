@@ -38,7 +38,7 @@
         <p class="text-sm text-fg-2">{hint[0]}<Kbd keys="shift+?" />{hint[1]}</p>
       </div>
 
-      <IconButton icon={X} label={t('shell.shortcuts.close')} size="sm" side="bottom" data-dismiss onclick={onclose} />
+      <IconButton icon={X} label={t('shell.shortcuts.close')} side="bottom" data-dismiss onclick={onclose} />
     </header>
 
     <div class="grid grid-cols-1 gap-x-10 gap-y-7 overflow-y-auto px-6 py-6 md:grid-cols-2" data-testid="shortcut-groups">

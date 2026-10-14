@@ -1,0 +1,3 @@
+// OMP startup that answers only after a pause, so a start stays in flight for a while.
+{"sleep":500}
+{"include":"omp_startup.jsonl"}

@@ -3,7 +3,7 @@ import { prependHistory } from '$lib/chat/messages';
 import type { ChatMessage } from '$lib/ipc/bindings/ChatMessage';
 import type { SessionRef } from '$lib/ipc/bindings/SessionRef';
 import type { SessionSummary } from '$lib/ipc/bindings/SessionSummary';
-import type { SessionTree } from '$lib/ipc/bindings/SessionTree';
+import type { TranscriptStats } from '$lib/ipc/bindings/TranscriptStats';
 import { ipc } from '$lib/ipc/client';
 import { IpcFailure, type Transport } from '$lib/ipc/transport';
 
@@ -21,12 +21,8 @@ interface SessionTarget {
   project: string;
 }
 
-/** Everything the Sessions view shows about the selected session: its tree, transcript and touched files. */
+/** Everything the Sessions view shows about the selected session: its transcript, totals and touched files. */
 export class SessionDetail {
-  tree = $state.raw<SessionTree | null>(null);
-  treeStatus = $state<ViewStatus>('idle');
-  treeError = $state.raw<IpcFailure | null>(null);
-
   messages = $state.raw<ChatMessage[]>([]);
   nextCursor = $state<string | null>(null);
   total = $state(0);
@@ -34,6 +30,8 @@ export class SessionDetail {
   transcriptError = $state.raw<IpcFailure | null>(null);
   loadingMore = $state(false);
 
+  /** Totals of the whole active path; they arrive with the first page. */
+  stats = $state.raw<TranscriptStats | null>(null);
   touched = $state.raw<string[]>([]);
 
   /** The active path as read-only chat state, so the chat's own message rendering shows it. */
@@ -43,8 +41,8 @@ export class SessionDetail {
   private generation = 0;
   /** Where the newest loaded page starts: its cursor, and how many messages come before it. */
   private tail: { cursor: string | null; offset: number } = { cursor: null, offset: 0 };
-  /** Which parts of the session being opened have arrived. */
-  private settled = { tree: false, page: false };
+  /** Whether the first page of the session being opened has arrived. */
+  private settled = false;
 
   constructor(
     private readonly transport: Transport,
@@ -66,7 +64,7 @@ export class SessionDetail {
     const generation = this.generation;
     const hadSession = this.target !== null;
     this.target = ref && project ? { ref, project } : null;
-    this.settled = { tree: false, page: false };
+    this.settled = false;
 
     if (!this.target || !hadSession) {
       this.clear();
@@ -76,6 +74,10 @@ export class SessionDetail {
       setTimeout(() => this.showLoading(generation), STALE_MS);
       this.nextCursor = null;
       this.loadingMore = false;
+
+      // The totals and touched files belong to the previous session; they must never show under the new one.
+      this.stats = null;
+      this.touched = [];
     }
 
     if (this.target) {
@@ -83,17 +85,9 @@ export class SessionDetail {
     }
   }
 
-  /** The loading state for whatever has not arrived yet, once a switch takes longer than [`STALE_MS`]. */
+  /** The loading state, if the first page has not arrived once a switch takes longer than [`STALE_MS`]. */
   private showLoading(generation: number): void {
-    if (generation !== this.generation) {
-      return;
-    }
-
-    if (!this.settled.tree) {
-      this.tree = null;
-      this.treeStatus = 'loading';
-    }
-    if (!this.settled.page) {
+    if (generation === this.generation && !this.settled) {
       this.transcriptStatus = 'loading';
     }
   }
@@ -139,7 +133,7 @@ export class SessionDetail {
 
   /**
    * Catches up with a session that is still being written, in the background: the newest loaded page is read again
-   * (older pages stay as they are), with the tree and the touched files. A failure keeps what is shown.
+   * (older pages stay as they are), with the touched files. A failure keeps what is shown.
    */
   async follow(): Promise<void> {
     const target = this.target;
@@ -151,9 +145,8 @@ export class SessionDetail {
     const tail = this.tail;
 
     try {
-      const [page, tree, touched] = await Promise.all([
+      const [page, touched] = await Promise.all([
         this.transport.invoke('session_messages', { session: target.ref, project: target.project, cursor: tail.cursor, limit: this.pageSize }),
-        this.transport.invoke('session_tree', { session: target.ref, project: target.project }),
         this.transport.invoke('session_files_touched', { session: target.ref, project: target.project }),
       ]);
       // A newer page or another session arrived meanwhile; this reading is already behind.
@@ -164,58 +157,41 @@ export class SessionDetail {
       this.messages = [...this.messages.slice(0, tail.offset), ...page.messages];
       this.nextCursor = page.nextCursor;
       this.total = page.total;
-      this.tree = tree;
-      this.treeError = null;
-      this.treeStatus = 'ready';
       this.touched = touched;
+
+      // Only the first page carries the totals.
+      if (tail.cursor === null) {
+        this.stats = page.stats;
+      }
     } catch {
       // The next activity tries again.
     }
   }
 
   private clear(): void {
-    this.tree = null;
-    this.treeStatus = this.target ? 'loading' : 'idle';
-    this.treeError = null;
     this.messages = [];
     this.nextCursor = null;
     this.total = 0;
     this.transcriptStatus = this.target ? 'loading' : 'idle';
     this.transcriptError = null;
     this.loadingMore = false;
+    this.stats = null;
     this.touched = [];
     this.tail = { cursor: null, offset: 0 };
   }
 
   private async load(target: SessionTarget, generation: number): Promise<void> {
-    await Promise.all([this.loadTree(target, generation), this.loadFirstPage(target, generation), this.loadTouched(target, generation)]);
-  }
-
-  private async loadTree({ ref, project }: SessionTarget, generation: number): Promise<void> {
-    try {
-      const tree = await this.transport.invoke('session_tree', { session: ref, project });
-      if (generation === this.generation) {
-        this.settled.tree = true;
-        this.tree = tree;
-        this.treeError = null;
-        this.treeStatus = 'ready';
-      }
-    } catch (error) {
-      if (generation === this.generation) {
-        this.settled.tree = true;
-        this.treeError = IpcFailure.from(error);
-        this.treeStatus = 'error';
-      }
-    }
+    await Promise.all([this.loadFirstPage(target, generation), this.loadTouched(target, generation)]);
   }
 
   private async loadFirstPage({ ref, project }: SessionTarget, generation: number): Promise<void> {
     try {
       const page = await this.transport.invoke('session_messages', { session: ref, project, cursor: null, limit: this.pageSize });
       if (generation === this.generation) {
-        this.settled.page = true;
+        this.settled = true;
         this.tail = { cursor: null, offset: 0 };
         this.messages = page.messages;
+        this.stats = page.stats;
         this.nextCursor = page.nextCursor;
         this.total = page.total;
         this.transcriptError = null;
@@ -223,7 +199,8 @@ export class SessionDetail {
       }
     } catch (error) {
       if (generation === this.generation) {
-        this.settled.page = true;
+        this.settled = true;
+        this.stats = null;
         this.transcriptError = IpcFailure.from(error);
         this.transcriptStatus = 'error';
       }

@@ -12,7 +12,8 @@
     "sizeBytes": 3718,
     "model": "claude-sonnet-4-5",
     "firstPrompt": "Sketch a streaming variant of `parse` that reads from any `BufRead`.",
-    "parentSession": null
+    "parentSession": null,
+    "emptyCopy": false
   },
   {
     "ref": {
@@ -27,6 +28,7 @@
     "sizeBytes": 794,
     "model": "claude-sonnet-4-5",
     "firstPrompt": "Which edition does the crate use?",
-    "parentSession": null
+    "parentSession": null,
+    "emptyCopy": false
   }
 ]

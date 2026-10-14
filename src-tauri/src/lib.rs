@@ -80,6 +80,7 @@ pub fn run() -> ExitCode {
             commands::sessions::session_tree,
             commands::sessions::session_messages,
             commands::sessions::session_files_touched,
+            commands::sessions::session_delete,
             commands::git::git_status,
             commands::git::git_branches,
             commands::git::git_diff,

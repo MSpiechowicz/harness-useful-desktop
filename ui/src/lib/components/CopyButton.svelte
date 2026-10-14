@@ -4,6 +4,7 @@
 
   import { t } from '$lib/i18n/i18n.svelte';
   import { toasts } from '$lib/stores/toasts.svelte';
+  import { cx } from '$lib/utils/cx';
 
   import IconButton from './IconButton.svelte';
 
@@ -11,9 +12,12 @@
     /** Text placed on the clipboard. */
     text: string;
     label?: string;
+    /** Full control height; without it the button is the compact 28px size the onboarding card still uses. */
+    control?: boolean;
+    class?: string;
   }
 
-  let { text, label }: Props = $props();
+  let { text, label, control = false, class: className }: Props = $props();
 
   const CONFIRM_MS = 1600;
 
@@ -35,4 +39,4 @@
   }
 </script>
 
-<IconButton icon={copied ? Check : Copy} label={copied ? t('components.copy.copied') : (label ?? t('components.copy.label'))} size="sm" onclick={copy} />
+<IconButton icon={copied ? Check : Copy} label={copied ? t('components.copy.copied') : (label ?? t('components.copy.label'))} class={cx(!control && 'size-7!', className)} onclick={copy} />

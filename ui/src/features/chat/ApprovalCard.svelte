@@ -67,16 +67,16 @@
     {#if command}<TerminalBlock text="" {command} />{/if}
 
     <div class="flex flex-wrap items-center gap-2">
-      <Button variant="primary" size="sm" onclick={() => answer(prompt.approve)}>
+      <Button variant="primary" onclick={() => answer(prompt.approve)}>
         {prompt.approve}
         {#snippet trailing()}<Kbd keys="alt+y" />{/snippet}
       </Button>
-      <Button variant="danger" size="sm" onclick={() => answer(prompt.deny)}>
+      <Button variant="danger" onclick={() => answer(prompt.deny)}>
         {prompt.deny}
         {#snippet trailing()}<Kbd keys="alt+n" />{/snippet}
       </Button>
       {#each prompt.others as other (other.option)}
-        <Button size="sm" onclick={() => answer(other.option)}>{other.option}</Button>
+        <Button onclick={() => answer(other.option)}>{other.option}</Button>
       {/each}
       <span class="ml-auto text-xs text-fg-3"><Kbd keys="escape" /> {t('chat.approvalCard.denies')}</span>
     </div>

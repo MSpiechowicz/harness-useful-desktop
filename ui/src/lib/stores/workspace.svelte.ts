@@ -44,6 +44,15 @@ function isLabel(value: unknown): value is ChatLabel {
   return typeof label?.name === 'string' && label.name !== '' && typeof label.description === 'string';
 }
 
+function sameSession(a: SavedWorkspace['chats'][number], b: SavedWorkspace['chats'][number]): boolean {
+  return a.harness === b.harness && a.sessionId === b.sessionId;
+}
+
+/** Keeps the first chat of each session: two agents must never run (and append to) one session. */
+function uniqueSessions(chats: SavedWorkspace['chats']): SavedWorkspace['chats'] {
+  return chats.filter((chat, index) => chats.findIndex((other) => sameSession(other, chat)) === index);
+}
+
 function readWorkspace(): SavedWorkspace | null {
   try {
     const record = JSON.parse(localStorage.getItem(KEY) ?? 'null') as SavedWorkspace | null;
@@ -51,12 +60,18 @@ function readWorkspace(): SavedWorkspace | null {
       return null;
     }
 
-    return {
-      view: VIEW_IDS.includes(record.view) ? record.view : 'chat',
-      chats: record.chats
+    const wanted = typeof record.active === 'number' ? record.chats[record.active] : undefined;
+    const chats = uniqueSessions(
+      record.chats
         .filter((chat) => typeof chat?.sessionId === 'string' && typeof chat.project === 'string' && (chat.harness === 'omp' || chat.harness === 'pi'))
         .map((chat) => ({ ...chat, label: isLabel(chat.label) ? chat.label : null, userNamed: chat.userNamed === true })),
-      active: typeof record.active === 'number' ? record.active : -1,
+    );
+
+    return {
+      view: VIEW_IDS.includes(record.view) ? record.view : 'chat',
+      chats,
+      // The index counted the chats as saved; find the same session among those kept.
+      active: wanted ? chats.findIndex((chat) => sameSession(chat, wanted)) : -1,
     };
   } catch {
     return null;

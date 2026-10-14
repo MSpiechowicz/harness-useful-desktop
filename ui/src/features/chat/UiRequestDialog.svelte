@@ -96,7 +96,7 @@
       aria-label={kind.title}
       placeholder={kind.placeholder ?? ''}
       onkeydown={(event) => event.key === 'Enter' && submitText()}
-      class="h-10 w-full rounded-md border border-line-strong bg-surface-2 px-3 text-base text-fg outline-none focus:border-focus"
+      class="h-control w-full rounded-md border border-line-strong bg-surface-2 px-3 text-base text-fg outline-none focus:border-focus"
     />
   {:else}
     <textarea

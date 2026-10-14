@@ -349,5 +349,19 @@
     }
   ],
   "nextCursor": null,
-  "total": 13
+  "total": 13,
+  "stats": {
+    "messages": 9,
+    "toolCalls": 5,
+    "contextTokens": 12840,
+    "costUsd": 0.075,
+    "models": [
+      {
+        "model": "claude-sonnet-4-5",
+        "turns": 6
+      }
+    ],
+    "startedAt": 1791540180000,
+    "endedAt": 1791541320000
+  }
 }

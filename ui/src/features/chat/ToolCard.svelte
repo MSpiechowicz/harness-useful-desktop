@@ -108,7 +108,7 @@
           {#each call.touchedPaths as path (path)}
             <code class="rounded-sm bg-surface-3 px-2 py-0.5 font-mono text-xs text-fg-2">{path}</code>
           {/each}
-          <Button size="sm" variant="ghost" onclick={viewChanges}>{t('chat.tool.viewChanges')}</Button>
+          <Button variant="ghost" onclick={viewChanges}>{t('chat.tool.viewChanges')}</Button>
         </div>
       {/if}
     </div>

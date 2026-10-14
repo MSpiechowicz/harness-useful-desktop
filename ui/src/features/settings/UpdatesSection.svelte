@@ -83,7 +83,7 @@
 
   <SettingRow title={t('settings.updates.policy.title')} description={POLICY_HINTS[policy]()}>
     {#snippet control()}
-      <SegmentedControl size="md" label={t('settings.updates.policy.label')} options={POLICY_OPTIONS} bind:value={() => policy, (updatePolicy) => void prefs.update({ updatePolicy })} />
+      <SegmentedControl label={t('settings.updates.policy.label')} options={POLICY_OPTIONS} bind:value={() => policy, (updatePolicy) => void prefs.update({ updatePolicy })} />
     {/snippet}
   </SettingRow>
 
@@ -149,7 +149,7 @@
 
         {#if state.kind === 'available'}
           <div class="mt-2">
-            <Button size="sm" variant="primary" onclick={() => void updates.install()}>
+            <Button variant="primary" onclick={() => void updates.install()}>
               {#snippet leading()}<span class="update-arrow"><Download size={ICON.sm} aria-hidden="true" /></span>{/snippet}
               {t('updates.install.restart')}
             </Button>
@@ -158,7 +158,7 @@
           <div class="mt-2"><UpdateProgress /></div>
         {:else if state.kind === 'readyToRelaunch'}
           <div class="mt-2">
-            <Button size="sm" variant="primary" onclick={() => void updates.requestRelaunch()}>
+            <Button variant="primary" onclick={() => void updates.requestRelaunch()}>
               {#snippet leading()}<RotateCw size={ICON.sm} aria-hidden="true" />{/snippet}
               {updates.closesApp ? t('settings.updates.finish') : t('settings.updates.restart')}
             </Button>

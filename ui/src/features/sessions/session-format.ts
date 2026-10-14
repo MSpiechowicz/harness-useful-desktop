@@ -2,7 +2,7 @@ import type { SessionNode } from '$lib/ipc/bindings/SessionNode';
 import type { SessionNodeKind } from '$lib/ipc/bindings/SessionNodeKind';
 import type { SessionSummary } from '$lib/ipc/bindings/SessionSummary';
 import { t, type MessageKey } from '$lib/i18n/i18n.svelte';
-import { formatDateTime } from '$lib/utils/format';
+import { formatDateTime, perLocale } from '$lib/utils/format';
 
 const TITLE_MAX = 80;
 
@@ -51,4 +51,28 @@ export function nodeTooltip(node: SessionNode): string {
   const when = time ? ` · ${time}` : '';
 
   return `${kindLabel(node.kind)}${when}\n${node.preview ?? ''}`.trim();
+}
+
+const TOKENS = perLocale((l) => new Intl.NumberFormat(l, { notation: 'compact', maximumFractionDigits: 1 }));
+const MINUTES = perLocale((l) => new Intl.NumberFormat(l, { style: 'unit', unit: 'minute', unitDisplay: 'short' }));
+const HOURS = perLocale((l) => new Intl.NumberFormat(l, { style: 'unit', unit: 'hour', unitDisplay: 'short' }));
+
+/** A token count in the short form of the language: `14.5K`. */
+export function formatTokens(tokens: number): string {
+  return TOKENS().format(tokens);
+}
+
+/** A span of time in whole minutes and hours: `44 min`, `1 hr 5 min`; under a minute it reads `< 1 min`. */
+export function formatDuration(ms: number): string {
+  const minutes = Math.floor(ms / 60_000);
+  if (minutes < 1) {
+    return `< ${MINUTES().format(1)}`;
+  }
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 1) {
+    return MINUTES().format(minutes);
+  }
+
+  return minutes % 60 === 0 ? HOURS().format(hours) : `${HOURS().format(hours)} ${MINUTES().format(minutes % 60)}`;
 }

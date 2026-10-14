@@ -30,7 +30,7 @@
         <!-- The button's top edge lines up with the top of the title's capitals (5px into its 21px line), so the gap
              above both is the same. -->
         <div class="shrink-0 pt-[5px]">
-          <Button variant={action.danger ? 'dangerQuiet' : 'secondary'} size="sm" disabled={actionRunner.phase !== 'idle'} onclick={() => void actionRunner.begin(action.request)}>
+          <Button variant={action.danger ? 'dangerQuiet' : 'secondary'} disabled={actionRunner.phase !== 'idle'} onclick={() => void actionRunner.begin(action.request)}>
             {#snippet leading()}<action.icon size={ICON.sm} aria-hidden="true" />{/snippet}
             {action.label}
           </Button>

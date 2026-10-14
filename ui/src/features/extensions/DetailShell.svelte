@@ -49,7 +49,7 @@
           <dt class="w-32 shrink-0 text-fg-3">{fact.label}</dt>
           <dd class={['min-w-0 flex-1 truncate text-fg', fact.mono && 'font-mono']} title={fact.value}>{fact.value}</dd>
           {#if fact.path}
-            <Button size="sm" variant="ghost" onclick={() => void revealPath(fact.value)}>
+            <Button variant="ghost" onclick={() => void revealPath(fact.value)}>
               {#snippet leading()}<FolderSearch size={ICON.sm} aria-hidden="true" />{/snippet}
               {t('extensions.fact.reveal')}
             </Button>

@@ -8,6 +8,7 @@
   import { rise } from '$lib/design/motion';
   import { t } from '$lib/i18n/i18n.svelte';
   import type { ToastItem, ToastTone } from '$lib/stores/toasts.svelte';
+  import { cx } from '$lib/utils/cx';
 
   import Button from './Button.svelte';
   import IconButton from './IconButton.svelte';
@@ -54,7 +55,9 @@
   onfocusout={() => (paused = false)}
   class="pointer-events-auto flex w-80 items-start gap-3 rounded-lg border border-line-strong bg-glass p-3.5 shadow-pop backdrop-blur-xl"
 >
-  <Icon class={tone.color} size={18} aria-hidden="true" />
+  <!-- The icon and the close button are centred on the title line (21px); the button's negative margins keep the
+       36px control from making the toast taller. -->
+  <Icon class={cx(tone.color, 'mt-[1.5px] shrink-0')} size={18} aria-hidden="true" />
 
   <div class="flex min-w-0 flex-1 flex-col gap-0.5">
     <p class="text-base font-medium text-fg">{toast.title}</p>
@@ -63,9 +66,9 @@
     {/if}
     {#if toast.action}
       {@const action = toast.action}
-      <Button size="sm" class="mt-1.5 self-start" onclick={() => { action.run(); ondismiss(toast.id); }}>{action.label}</Button>
+      <Button class="mt-1.5 self-start" onclick={() => { action.run(); ondismiss(toast.id); }}>{action.label}</Button>
     {/if}
   </div>
 
-  <IconButton icon={X} label={t('components.toast.dismiss')} size="sm" onclick={() => ondismiss(toast.id)} />
+  <IconButton icon={X} label={t('components.toast.dismiss')} class="-my-[7.5px] -mr-1.5 shrink-0" onclick={() => ondismiss(toast.id)} />
 </div>

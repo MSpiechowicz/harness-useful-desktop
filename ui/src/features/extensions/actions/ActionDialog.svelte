@@ -52,7 +52,7 @@
           <h3 class="text-xs font-medium tracking-wider text-fg-3 uppercase">{ran ? t('extensions.dialog.commandRan') : t('extensions.dialog.commandWillRun')}</h3>
           <div class="flex items-start gap-1 rounded-md border border-line bg-surface-2 py-1 pr-1 pl-3">
             <code class="min-w-0 flex-1 py-1 font-mono text-sm leading-snug [overflow-wrap:anywhere] whitespace-pre-wrap text-fg">{command}</code>
-            <CopyButton text={command} label={t('extensions.dialog.copyCommand')} />
+            <CopyButton text={command} label={t('extensions.dialog.copyCommand')} control />
           </div>
         </section>
       {/if}

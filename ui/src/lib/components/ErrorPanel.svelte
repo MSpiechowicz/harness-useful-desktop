@@ -47,7 +47,7 @@
         <Disclosure label={t('components.error.details')} class="w-full text-left">
           <div class="flex items-start gap-2 rounded-md border border-line bg-surface-2 p-3">
             <code class="min-w-0 flex-1 font-mono text-xs break-words whitespace-pre-wrap text-fg-2">{message}</code>
-            <CopyButton text={details} label={t('components.error.copy')} />
+            <CopyButton text={details} label={t('components.error.copy')} control />
           </div>
         </Disclosure>
       </div>

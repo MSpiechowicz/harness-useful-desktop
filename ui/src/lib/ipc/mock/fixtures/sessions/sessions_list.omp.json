@@ -12,7 +12,8 @@
     "sizeBytes": 1408,
     "model": "claude-sonnet-4-5",
     "firstPrompt": "Why does `cargo test` hang on CI when the parser reads from stdin?",
-    "parentSession": "0199c1f2-5d3e-7a10-9b2c-4e6f8a1d3c57"
+    "parentSession": "0199c1f2-5d3e-7a10-9b2c-4e6f8a1d3c57",
+    "emptyCopy": false
   },
   {
     "ref": {
@@ -27,7 +28,8 @@
     "sizeBytes": 8190,
     "model": "claude-sonnet-4-5",
     "firstPrompt": "Make `parse` handle empty input and explain the change.",
-    "parentSession": null
+    "parentSession": null,
+    "emptyCopy": false
   },
   {
     "ref": {
@@ -42,6 +44,23 @@
     "sizeBytes": 1420,
     "model": "gpt-5",
     "firstPrompt": "Draft the release checklist for 0.3.1.",
-    "parentSession": null
+    "parentSession": null,
+    "emptyCopy": false
+  },
+  {
+    "ref": {
+      "harness": "omp",
+      "id": "0199c2b0-4e1a-7d2b-9c3d-2f5e8a7b6c41"
+    },
+    "title": null,
+    "titleSource": null,
+    "cwd": "/home/demo/Projects/demo",
+    "createdAt": "2026-10-09T10:30:00.000Z",
+    "updatedAt": "2026-10-01T00:00:00Z",
+    "sizeBytes": 2984,
+    "model": "claude-sonnet-4-5",
+    "firstPrompt": "Make `parse` handle empty input and explain the change.",
+    "parentSession": "0199c1f2-5d3e-7a10-9b2c-4e6f8a1d3c57",
+    "emptyCopy": true
   }
 ]

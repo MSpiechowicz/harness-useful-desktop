@@ -34,6 +34,7 @@
     "allow-session-tree",
     "allow-session-messages",
     "allow-session-files-touched",
+    "allow-session-delete",
     "allow-git-status",
     "allow-git-branches",
     "allow-git-diff",

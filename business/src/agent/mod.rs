@@ -1,7 +1,8 @@
 //! Agent chat sessions: a harness CLI running in `--mode rpc`, driven through its
 //! [`RpcDialect`](crate::pi_family::rpc::RpcDialect).
 //!
-//! - [`AgentManager`] — every running session by key (at most [`MAX_SESSIONS`]).
+//! - [`AgentManager`] — every running session by key (at most [`MAX_SESSIONS`]); a
+//!   [`SessionClaim`] keeps agents off a session id while its files are deleted.
 //! - [`AgentSession`] — one process: writer, reader, stderr and waiter tasks, request
 //!   correlation, dialogs, startup and shutdown.
 //! - [`EventSink`] — where the normalized [`AgentEnvelope`](crate::model::AgentEnvelope)s go
@@ -16,15 +17,17 @@ mod io;
 mod manager;
 mod session;
 mod sink;
+mod slots;
 
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 pub use coalesce::{COALESCE_WINDOW, DeltaCoalescer};
 pub use io::{MAX_STDERR_LINE, MAX_STDERR_PER_SECOND};
-pub use manager::{AgentDeps, AgentManager, MAX_SESSIONS};
+pub use manager::{AgentDeps, AgentManager, MAX_SESSIONS, Stopping};
 pub use session::{AgentSession, BASH_TIMEOUT, SessionLaunch};
 pub use sink::{CollectingSink, EventSink};
+pub use slots::SessionClaim;
 
 /// Time limit for the handshake and the first `get_state`.
 pub const STARTUP_TIMEOUT: Duration = Duration::from_secs(10);

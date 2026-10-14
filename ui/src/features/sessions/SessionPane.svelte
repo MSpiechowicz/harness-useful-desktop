@@ -1,40 +1,48 @@
 <script lang="ts">
-  import CircleAlert from '@lucide/svelte/icons/circle-alert';
+  import { fade, fly } from 'svelte/transition';
 
-  import Button from '$lib/components/Button.svelte';
-  import Skeleton from '$lib/components/Skeleton.svelte';
-  import SplitPane from '$lib/components/SplitPane.svelte';
-  import { t, tn } from '$lib/i18n/i18n.svelte';
+  import { focusTrap } from '$lib/a11y/focus-trap';
+  import { scaled } from '$lib/design/motion';
+  import { t } from '$lib/i18n/i18n.svelte';
   import type { SessionSummary } from '$lib/ipc/bindings/SessionSummary';
   import { agentSessions } from '$lib/stores/agentSession.svelte';
   import { forkInChat, resumeInChat } from '$lib/stores/session-actions';
   import { sessionDetail as detail } from '$lib/stores/sessions.svelte';
 
-  import BranchTree from './BranchTree.svelte';
+  import SessionDetails from './SessionDetails.svelte';
   import SessionHeader from './SessionHeader.svelte';
   import Transcript from './Transcript.svelte';
 
   interface Props {
     summary: SessionSummary;
     project: string;
+    /** How many sessions were forked from this one. */
+    forks: number;
+    ondelete: () => void;
   }
 
-  let { summary, project }: Props = $props();
+  let { summary, project, forks, ondelete }: Props = $props();
 
-  let treeSize = $state(400);
-  let pickedId = $state<string | null>(null);
-  let focus = $state<{ id: string; nonce: number } | null>(null);
+  /** Below this width the details column moves into a sheet so the transcript keeps its room. */
+  const SHEET_BELOW_PX = 900;
 
-  /** A click in the tree picks the node (for forking) and brings its message into view. */
-  function pick(id: string): void {
-    pickedId = id;
-    focus = { id, nonce: (focus?.nonce ?? 0) + 1 };
-  }
+  let width = $state(0);
+  let sheetOpen = $state(false);
   let busy = $state(false);
 
-  const tree = $derived(detail.tree);
-  const selectedId = $derived(pickedId ?? tree?.leafId ?? null);
-  const selectedNode = $derived(tree?.nodes.find((node) => node.id === selectedId) ?? null);
+  const folded = $derived(width > 0 && width < SHEET_BELOW_PX);
+
+  // Widening the pane past the breakpoint turns the sheet back into a column.
+  $effect(() => {
+    if (!folded) {
+      sheetOpen = false;
+    }
+  });
+
+  function closeSheet(): void {
+    sheetOpen = false;
+    document.querySelector<HTMLElement>('[data-details-toggle]')?.focus();
+  }
 
   async function resume(): Promise<void> {
     busy = true;
@@ -42,51 +50,37 @@
     busy = false;
   }
 
-  async function fork(): Promise<void> {
-    if (!selectedNode) {
-      return;
-    }
-
+  async function fork(entryId: string): Promise<void> {
     busy = true;
-    await forkInChat(agentSessions, summary.ref, selectedNode.id, project);
+    await forkInChat(agentSessions, summary.ref, entryId, project);
     busy = false;
   }
 </script>
 
-<div class="flex size-full min-h-0 flex-col">
-  <SessionHeader {summary} {project} touched={detail.touched} node={selectedNode} {busy} onresume={() => void resume()} onfork={() => void fork()} />
+<div bind:clientWidth={width} class="relative flex size-full min-h-0 flex-col">
+  <SessionHeader {summary} {busy} detailsFolded={folded} onresume={() => void resume()} {ondelete} ondetails={() => (sheetOpen = !sheetOpen)} />
 
-  <div class="min-h-0 flex-1">
-    <SplitPane label={t('sessions.tree.resize')} bind:size={treeSize} min={260} minSecond={320}>
-      {#snippet first()}
-        <section aria-label={t('sessions.tree.section')} class="flex size-full min-h-0 flex-col">
-          {#if detail.treeStatus === 'loading' || detail.treeStatus === 'idle'}
-            <div class="flex flex-col gap-2 p-4" role="status" aria-label={t('sessions.tree.loading')}>
-              <Skeleton height="1.25rem" />
-              <Skeleton width="70%" height="1.25rem" />
-              <Skeleton width="85%" height="1.25rem" />
-            </div>
-          {:else if detail.treeStatus === 'error' || !tree}
-            <div class="flex flex-col items-center gap-3 p-6 text-center" role="alert">
-              <CircleAlert size={24} class="text-danger" aria-hidden="true" />
-              <p class="text-base text-fg-2">{detail.treeError?.message ?? t('sessions.tree.unreadable')}</p>
-              <Button onclick={() => detail.reload()}>{t('sessions.tryAgain')}</Button>
-            </div>
-          {:else}
-            <p class="tabular border-b border-line px-4 py-2 text-xs text-fg-3">
-              {tn('sessions.tree.entries', tree.nodes.length)} · {tn('sessions.tree.branchPoints', tree.branchCount)}
-              {#if tree.truncated}· {t('sessions.tree.truncated')}{/if}
-            </p>
-            <div class="min-h-0 flex-1">
-              <BranchTree {tree} selected={selectedId} onselect={pick} />
-            </div>
-          {/if}
-        </section>
-      {/snippet}
+  <div class="flex min-h-0 flex-1">
+    <div class="min-w-0 flex-1">
+      <Transcript {detail} {project} {busy} onfork={(id) => void fork(id)} />
+    </div>
 
-      {#snippet second()}
-        <Transcript {detail} {project} {focus} picked={selectedId} onpick={(id) => (pickedId = id)} />
-      {/snippet}
-    </SplitPane>
+    {#if !folded}
+      <SessionDetails {summary} stats={detail.stats} touched={detail.touched} {project} {forks} class="w-[300px] shrink-0 border-l border-line" />
+    {/if}
   </div>
+
+  {#if folded && sheetOpen}
+    <button type="button" tabindex="-1" aria-hidden="true" class="absolute inset-0 z-30 cursor-default bg-scrim backdrop-blur-sm" transition:fade={{ duration: scaled(160) }} onclick={closeSheet}></button>
+
+    <div
+      role="dialog"
+      aria-label={t('sessions.details.label')}
+      use:focusTrap={{ onEscape: closeSheet }}
+      transition:fly={{ x: 32, duration: scaled(240) }}
+      class="absolute inset-y-0 right-0 z-40 flex w-[min(21rem,92%)] flex-col border-l border-line-strong bg-surface-1 shadow-pop outline-none"
+    >
+      <SessionDetails {summary} stats={detail.stats} touched={detail.touched} {project} {forks} class="min-h-0 flex-1" />
+    </div>
+  {/if}
 </div>

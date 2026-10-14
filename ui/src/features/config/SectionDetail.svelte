@@ -52,7 +52,7 @@
   <div class="flex items-center gap-3 rounded-md border border-line bg-surface-1 py-1.5 pr-1.5 pl-3">
     <FileText size={ICON.sm} class="shrink-0 text-fg-3" aria-hidden="true" />
     <code class="min-w-0 flex-1 truncate font-mono text-sm text-fg-2" title={section.source.path}>{section.source.path}</code>
-    <Button size="sm" variant="ghost" disabled={!section.source.exists} onclick={() => void revealPath(section.source.path)}>
+    <Button variant="ghost" disabled={!section.source.exists} onclick={() => void revealPath(section.source.path)}>
       {#snippet leading()}<FolderSearch size={ICON.sm} aria-hidden="true" />{/snippet}
       {t('config.detail.reveal')}
     </Button>
@@ -86,7 +86,7 @@
       </p>
 
       <!-- One toggle for the whole tree: collapse while anything is open, otherwise expand everything. One chevron that turns, like the rows'. -->
-      <Button size="sm" variant="ghost" class="ml-auto" onclick={() => tree?.setAll(openCount === 0)}>
+      <Button variant="ghost" class="ml-auto" onclick={() => tree?.setAll(openCount === 0)}>
         {#snippet leading()}<ChevronDown size={ICON.sm} class={cx('transition-transform duration-[var(--dur-fast)]', openCount > 0 && 'rotate-180')} aria-hidden="true" />{/snippet}
         {openCount > 0 ? t('config.detail.collapseAll') : t('config.detail.expandAll')}
       </Button>

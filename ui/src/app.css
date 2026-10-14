@@ -58,6 +58,9 @@
   --text-3xl: 32px;
   --text-4xl: 48px;
 
+  /* h-control / size-control / min-w-control: the one control height (the root font is 14px, so rem steps drift). */
+  --spacing-control: var(--control-h);
+
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
@@ -70,6 +73,11 @@
 }
 
 @layer base {
+  /* Onboarding keeps the control height it was designed with (h-9 at the 14px root); the rest of the app uses 36px. */
+  [aria-labelledby='onboarding-title'] {
+    --control-h: 2.25rem;
+  }
+
   /* Text fields keep the size the layout gives them; no drag handle in the corner. */
   textarea {
     resize: none;

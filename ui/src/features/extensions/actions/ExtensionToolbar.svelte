@@ -86,7 +86,7 @@
 </script>
 
 {#each actions as entry (entry.label)}
-  <Button variant={entry.primary ? 'primary' : 'secondary'} size="sm" disabled={busy || !harness.active || entry.idle?.()} onclick={() => run(entry)}>
+  <Button variant={entry.primary ? 'primary' : 'secondary'} disabled={busy || !harness.active || entry.idle?.()} onclick={() => run(entry)}>
     {#snippet leading()}<entry.icon size={ICON.sm} aria-hidden="true" />{/snippet}
     {entry.label}
   </Button>

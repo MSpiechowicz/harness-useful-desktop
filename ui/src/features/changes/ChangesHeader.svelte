@@ -38,9 +38,9 @@
   <CostChip kind="branch" args={costArgs} align="start" />
 
   {#if git.filter}
-    <span class="inline-flex items-center gap-1 rounded-full bg-accent-wash py-0.5 pr-1 pl-3 text-xs font-medium text-accent-text" data-testid="touched-filter">
+    <span class="inline-flex h-control items-center gap-1 rounded-full bg-accent-wash pr-1.5 pl-3 text-xs font-medium text-accent-text" data-testid="touched-filter">
       {t('changes.header.touched', { label: git.filter.label, files: count(git.filter.paths.length, 'file') })}
-      <button type="button" aria-label={t('changes.showAll')} class="grid size-5 place-items-center rounded-full hover:bg-hover" onclick={() => git.clearFilter()}>
+      <button type="button" aria-label={t('changes.showAll')} class="grid size-7 place-items-center rounded-full hover:bg-hover" onclick={() => git.clearFilter()}>
         <X size={16} aria-hidden="true" />
       </button>
     </span>

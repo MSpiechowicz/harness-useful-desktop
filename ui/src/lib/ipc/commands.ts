@@ -80,6 +80,7 @@ export const commands = {
   session_tree: cmd<{ session: SessionRef; project: string }, SessionTree>(),
   session_messages: cmd<{ session: SessionRef; project: string; cursor: string | null; limit: number }, SessionMessagesPage>(),
   session_files_touched: cmd<{ session: SessionRef; project: string }, string[]>(),
+  session_delete: cmd<{ session: SessionRef; project: string; emptyCopyOnly: boolean }, null>(),
   git_status: cmd<{ project: string }, GitStatus>(),
   git_branches: cmd<{ project: string }, Branch[]>(),
   git_diff: cmd<{ project: string; request: DiffRequest }, FileDiff[]>(),

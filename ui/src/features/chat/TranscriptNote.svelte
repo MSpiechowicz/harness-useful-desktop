@@ -45,7 +45,7 @@
     {#if item.instructions}<p class="text-sm break-words text-fg-2">{item.instructions}</p>{/if}
     <div class="flex items-center gap-1 rounded-sm bg-canvas px-2.5 py-1.5">
       <code class="min-w-0 flex-1 font-mono text-xs break-all text-fg">{item.url}</code>
-      <CopyButton text={item.url} label={t('chat.note.link.copy')} />
+      <CopyButton text={item.url} label={t('chat.note.link.copy')} control />
     </div>
     <p class="text-xs text-fg-3">{t('chat.note.link.warning')}</p>
   </div>

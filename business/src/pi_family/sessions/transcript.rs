@@ -6,7 +6,7 @@
 //! the next later page (`None` once the leaf is reached), and each page is oldest first. (The
 //! live chat history of M2 pages the other way.) Two streaming passes keep memory to the
 //! entry ids of the file plus one page: the first finds the path, the second normalizes only the
-//! page's entries.
+//! page's entries and, for the first page, tallies the [`TranscriptStats`] of the whole path.
 
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::path::Path;
@@ -15,7 +15,7 @@ use serde_json::{Value, json};
 
 use super::parse::{Entries, Entry, epoch_millis};
 use crate::error::{BusinessError, Result};
-use crate::model::{ChatMessage, MAX_SESSION_PAGE, SessionMessagesPage};
+use crate::model::{ChatMessage, MAX_SESSION_PAGE, ModelTurns, SessionMessagesPage, TranscriptStats};
 use crate::pi_family::normalize::chat_message;
 use crate::pi_family::touched::touched_paths;
 
@@ -25,7 +25,8 @@ const MAX_INDEXED_ENTRIES: usize = 500_000;
 /// One page of the active-path transcript of the session file at `path`.
 ///
 /// `cursor` is `None` for the first (oldest) page or a previous page's `nextCursor`; `limit` is clamped
-/// to `1..=`[`MAX_SESSION_PAGE`]. An unknown cursor fails with `InvalidInput`.
+/// to `1..=`[`MAX_SESSION_PAGE`]. An unknown cursor fails with `InvalidInput`. Only the first page
+/// carries `stats`.
 pub fn session_messages(path: &Path, cursor: Option<&str>, limit: u32) -> Result<SessionMessagesPage> {
     let transcript = transcript_entries(path)?;
     let total = transcript.len();
@@ -48,10 +49,22 @@ pub fn session_messages(path: &Path, cursor: Option<&str>, limit: u32) -> Result
         .collect();
 
     let mut page: Vec<Option<ChatMessage>> = vec![None; end - start];
+    let mut tally = cursor.is_none().then(Tally::default);
+
+    // Path ordinals ascend (parents precede children), so one index walks the path.
+    let mut next_on_path = 0;
 
     for (ordinal, entry) in Entries::open(path)?.enumerate() {
         if let Some(&slot) = wanted.get(&ordinal) {
             page[slot] = transcript_message(&entry);
+        }
+
+        if transcript.get(next_on_path) == Some(&ordinal) {
+            next_on_path += 1;
+
+            if let Some(tally) = tally.as_mut() {
+                tally.note(&entry);
+            }
         }
     }
 
@@ -59,7 +72,102 @@ pub fn session_messages(path: &Path, cursor: Option<&str>, limit: u32) -> Result
         messages: page.into_iter().flatten().collect(),
         next_cursor: (end < total).then(|| end.to_string()),
         total: u32::try_from(total).unwrap_or(u32::MAX),
+        stats: tally.map(Tally::finish),
     })
+}
+
+/// Running totals of the transcript entries on the active path.
+#[derive(Default)]
+struct Tally {
+    messages: u32,
+    tool_calls: u32,
+    context_tokens: Option<u64>,
+    cost_usd: Option<f64>,
+    models: Vec<ModelTurns>,
+    started_at: Option<i64>,
+    ended_at: Option<i64>,
+}
+
+impl Tally {
+    fn note(&mut self, entry: &Entry) {
+        let message = entry.message();
+        let message_time = message
+            .and_then(|message| message.get("timestamp"))
+            .and_then(Value::as_i64);
+        let time = entry.text("timestamp").and_then(epoch_millis).or(message_time);
+
+        self.started_at = self.started_at.or(time);
+        self.ended_at = time.or(self.ended_at);
+
+        match (entry.role(), message) {
+            (Some("user"), _) => self.messages += 1,
+            (Some("assistant"), Some(reply)) => {
+                self.messages += 1;
+                self.note_reply(reply);
+            }
+            _ => {}
+        }
+    }
+
+    fn note_reply(&mut self, reply: &Value) {
+        let blocks = reply.get("content").and_then(Value::as_array);
+        let tool_calls = blocks
+            .into_iter()
+            .flatten()
+            .filter(|block| block.get("type").and_then(Value::as_str) == Some("toolCall"))
+            .count();
+        self.tool_calls = self
+            .tool_calls
+            .saturating_add(u32::try_from(tool_calls).unwrap_or(u32::MAX));
+
+        if let Some(model) = reply.get("model").and_then(Value::as_str) {
+            match self.models.iter_mut().find(|turns| turns.model == model) {
+                Some(turns) => turns.turns += 1,
+                None => self.models.push(ModelTurns {
+                    model: model.to_owned(),
+                    turns: 1,
+                }),
+            }
+        }
+
+        let usage = reply.get("usage").unwrap_or(&Value::Null);
+
+        if let Some(cost) = usage.pointer("/cost/total").and_then(Value::as_f64) {
+            self.cost_usd = Some(self.cost_usd.unwrap_or(0.0) + cost);
+        }
+
+        // Aborted and failed replies report no usage; the context is the last one that does.
+        if let Some(tokens) = total_tokens(usage).filter(|tokens| *tokens > 0) {
+            self.context_tokens = Some(tokens);
+        }
+    }
+
+    fn finish(mut self) -> TranscriptStats {
+        self.models.sort_by_key(|turns| std::cmp::Reverse(turns.turns));
+
+        TranscriptStats {
+            messages: self.messages,
+            tool_calls: self.tool_calls,
+            context_tokens: self.context_tokens,
+            cost_usd: self.cost_usd,
+            models: self.models,
+            started_at: self.started_at,
+            ended_at: self.ended_at,
+        }
+    }
+}
+
+/// `totalTokens` of a message's usage, or the sum of its parts.
+fn total_tokens(usage: &Value) -> Option<u64> {
+    if let Some(total) = usage.get("totalTokens").and_then(Value::as_u64) {
+        return Some(total);
+    }
+
+    let parts = ["input", "output", "cacheRead", "cacheWrite"].map(|key| usage.get(key).and_then(Value::as_u64));
+    parts
+        .iter()
+        .any(Option::is_some)
+        .then(|| parts.into_iter().flatten().sum())
 }
 
 /// Project-relative paths of every file an edit tool call in the session (any branch) may have

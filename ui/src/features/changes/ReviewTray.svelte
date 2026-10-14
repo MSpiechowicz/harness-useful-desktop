@@ -44,8 +44,8 @@
       </button>
 
       <div class="ml-auto flex items-center gap-2">
-        <Button size="sm" variant="dangerQuiet" onclick={() => (confirmDiscard = true)}>{t('changes.review.discard')}</Button>
-        <Button size="sm" variant="primary" disabled={noteTooLong} onclick={() => (sending = true)}>{t('changes.review.preview')}</Button>
+        <Button variant="dangerQuiet" onclick={() => (confirmDiscard = true)}>{t('changes.review.discard')}</Button>
+        <Button variant="primary" disabled={noteTooLong} onclick={() => (sending = true)}>{t('changes.review.preview')}</Button>
       </div>
     </div>
 
@@ -60,7 +60,7 @@
                 </button>
                 <p class="text-sm break-words whitespace-pre-wrap text-fg">{comment.body}</p>
               </div>
-              <IconButton icon={Trash2} label={t('changes.review.delete')} size="sm" onclick={() => review.remove(project, comment.id)} />
+              <IconButton icon={Trash2} label={t('changes.review.delete')} class="size-7!" onclick={() => review.remove(project, comment.id)} />
             </li>
           {/each}
         </ul>

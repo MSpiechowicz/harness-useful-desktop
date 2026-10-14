@@ -107,7 +107,7 @@
     <CircleAlert class="shrink-0 text-danger" size={ICON.md} aria-hidden="true" />
     <div class="flex flex-col items-start gap-2">
       <p class="text-fg-2">{slot.error}</p>
-      <Button size="sm" onclick={onretry}>{t('ecosystem.retry')}</Button>
+      <Button onclick={onretry}>{t('ecosystem.retry')}</Button>
     </div>
   </div>
 {:else}

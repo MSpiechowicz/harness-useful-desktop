@@ -10,26 +10,30 @@
 
   let { project, paths }: Props = $props();
 
-  const SHOWN = 6;
+  const SHOWN = 8;
 </script>
 
-{#if paths.length > 0}
-  <div class="flex flex-wrap items-center gap-2" role="group" aria-label={t('sessions.touched.label')}>
-    <span class="text-xs font-medium text-fg-3">{t('sessions.touched.label')}</span>
+<div role="group" aria-label={t('sessions.touched.label')}>
+  {#if paths.length === 0}
+    <p class="text-sm text-fg-3">{t('sessions.touched.none')}</p>
+  {:else}
+    <ul class="flex flex-col">
+      {#each paths.slice(0, SHOWN) as path (path)}
+        <li>
+          <button
+            type="button"
+            class="block w-full truncate rounded-sm px-1.5 py-1 text-left font-mono text-xs text-fg-2 transition-colors hover:bg-hover hover:text-fg active:bg-press"
+            title={t('sessions.touched.show', { path })}
+            onclick={() => git.showPaths(project, [path], t('sessions.touched.source'))}
+          >
+            {path}
+          </button>
+        </li>
+      {/each}
+    </ul>
 
-    {#each paths.slice(0, SHOWN) as path (path)}
-      <button
-        type="button"
-        class="rounded-sm bg-surface-3 px-2 py-0.5 font-mono text-xs text-fg-2 transition-colors hover:bg-hover active:bg-press hover:text-fg"
-        title={t('sessions.touched.show', { path })}
-        onclick={() => git.showPaths(project, [path], t('sessions.touched.source'))}
-      >
-        {path}
-      </button>
-    {/each}
+    {#if paths.length > SHOWN}<p class="px-1.5 pt-1 text-xs text-fg-3">{t('sessions.touched.more', { count: paths.length - SHOWN })}</p>{/if}
 
-    {#if paths.length > SHOWN}<span class="text-xs text-fg-3">{t('sessions.touched.more', { count: paths.length - SHOWN })}</span>{/if}
-
-    <Button size="sm" variant="ghost" onclick={() => git.showPaths(project, paths, t('sessions.touched.source'))}>{t('sessions.touched.view')}</Button>
-  </div>
-{/if}
+    <Button variant="ghost" class="mt-2 -ml-2" onclick={() => git.showPaths(project, paths, t('sessions.touched.source'))}>{t('sessions.touched.view')}</Button>
+  {/if}
+</div>

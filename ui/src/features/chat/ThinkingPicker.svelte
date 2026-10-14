@@ -28,7 +28,7 @@
 {#if supported}
   <Popover label={t('chat.thinking.picker')} kind="menu" side="top" align="end" bind:open={session.ui.thinkingPicker} class="min-w-44">
     {#snippet trigger({ props })}
-      <button type="button" {...props} class="inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-sm text-fg-3 transition-colors duration-[var(--dur-fast)] hover:bg-hover hover:text-fg aria-expanded:bg-hover aria-expanded:text-fg">
+      <button type="button" {...props} class="inline-flex h-control items-center gap-1.5 rounded-md px-2 text-sm text-fg-3 transition-colors duration-[var(--dur-fast)] hover:bg-hover hover:text-fg aria-expanded:bg-hover aria-expanded:text-fg">
         <Brain size={16} aria-hidden="true" />
         <!-- The icon says "thinking"; the word stays in the accessible name. -->
         <span><span class="sr-only">{t('chat.thinking.prefix')}</span>{level ?? t('chat.thinking.default')}</span>

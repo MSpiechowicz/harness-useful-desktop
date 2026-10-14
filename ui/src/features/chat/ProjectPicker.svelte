@@ -71,7 +71,7 @@
       title={locked ? t('chat.project.locked') : path}
       disabled={locked}
       aria-label={t('chat.project.aria', { name })}
-      class="inline-flex h-8 min-w-0 items-center gap-1.5 rounded-md px-2 text-sm text-fg-3 transition-colors duration-[var(--dur-fast)] hover:bg-hover hover:text-fg disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-transparent aria-expanded:bg-hover aria-expanded:text-fg"
+      class="inline-flex h-control min-w-0 items-center gap-1.5 rounded-md px-2 text-sm text-fg-3 transition-colors duration-[var(--dur-fast)] hover:bg-hover hover:text-fg disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-transparent aria-expanded:bg-hover aria-expanded:text-fg"
     >
       <Folder size={14} aria-hidden="true" class="shrink-0" />
       <span class="min-w-0 truncate">{name}</span>

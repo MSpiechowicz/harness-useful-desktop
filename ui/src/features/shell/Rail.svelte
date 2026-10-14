@@ -140,11 +140,12 @@
     style:transform="translateY({indicatorY.current}px)"
   ></span>
 
-  <div bind:this={list} class="flex flex-col px-[8px] py-[8px]">
+  <!-- 3px between rows (as between the chats under Chat), so neighbouring highlights never touch. -->
+  <div bind:this={list} class="flex flex-col gap-[3px] px-[8px] py-[8px]">
     {#each VIEWS as view, index (view.id)}
       <!-- A group heading, or a hairline in its place while collapsed: one height for both, so rows never jump. -->
       {#if view.section}
-        <div class="relative mt-[12px] mb-[4px] h-[16px] px-[12px]" aria-hidden="true">
+        <div class="relative mt-[9px] mb-[1px] h-[16px] px-[12px]" aria-hidden="true">
           <span class={cx('block truncate text-[11px] leading-[16px] font-medium tracking-wide whitespace-nowrap text-fg-3 uppercase transition-opacity duration-[var(--dur-base)]', expanded ? 'opacity-100' : 'opacity-0')}>{view.section}</span>
           <span class={cx('absolute inset-x-[12px] top-1/2 h-px bg-line transition-opacity duration-[var(--dur-base)]', expanded ? 'opacity-0' : 'opacity-100')}></span>
         </div>

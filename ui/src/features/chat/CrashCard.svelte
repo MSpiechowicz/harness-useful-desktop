@@ -28,7 +28,7 @@
         <h3 class="text-base font-semibold text-fg">{t('chat.crash.title')}</h3>
         <p class="text-sm text-fg-2">{t('chat.crash.body', { reason })}</p>
       </div>
-      <Button variant="primary" size="sm" loading={restarting} onclick={onrestart}>{t('chat.crash.restart')}</Button>
+      <Button variant="primary" loading={restarting} onclick={onrestart}>{t('chat.crash.restart')}</Button>
     </div>
 
     {#if crash.stderr.length > 0}

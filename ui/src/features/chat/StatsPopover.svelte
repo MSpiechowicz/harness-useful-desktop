@@ -43,7 +43,7 @@
       type="button"
       {...props}
       aria-label={t('chat.stats.popover')}
-      class="inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-sm text-fg-2 transition-colors duration-[var(--dur-fast)] hover:bg-hover hover:text-fg aria-expanded:bg-hover aria-expanded:text-fg"
+      class="inline-flex h-control items-center gap-1.5 rounded-md px-2 text-sm text-fg-2 transition-colors duration-[var(--dur-fast)] hover:bg-hover hover:text-fg aria-expanded:bg-hover aria-expanded:text-fg"
     >
       <Activity size={16} aria-hidden="true" class="shrink-0" />
       {t('chat.stats.trigger')}

@@ -267,9 +267,8 @@
     <div class="flex items-center gap-1 px-2 pb-2">
       <input bind:this={fileInput} type="file" multiple class="hidden" tabindex="-1" aria-hidden="true" onchange={onpick} />
       <Button
-        size="sm"
         variant="ghost"
-        class="size-8 px-0!"
+        class="size-control px-0!"
         aria-label={t('chat.attach.add')}
         title={t('chat.attach.add')}
         disabled={session.ended || bash || attachFull}
@@ -286,13 +285,13 @@
         <CostChip kind="session" args={costArgs} refreshKey={session.streaming} align="end" side="top" quiet />
 
         {#if session.streaming}
-          <Button size="sm" variant="ghost" disabled={!canSend} onclick={() => void submit('followUp')}>{t('chat.composer.followUp')}</Button>
-          <Button size="sm" variant="secondary" disabled={!canSend} onclick={() => void submit('steer')}>{t('chat.composer.steer')}</Button>
-          <Button size="sm" variant="danger" class="size-8 rounded-full! px-0!" aria-label={t('chat.composer.stop')} onclick={() => void session.abort()}>
+          <Button variant="ghost" disabled={!canSend} onclick={() => void submit('followUp')}>{t('chat.composer.followUp')}</Button>
+          <Button variant="secondary" disabled={!canSend} onclick={() => void submit('steer')}>{t('chat.composer.steer')}</Button>
+          <Button variant="danger" class="size-control rounded-full! px-0!" aria-label={t('chat.composer.stop')} onclick={() => void session.abort()}>
             <Square size={12} aria-hidden="true" class="fill-current" />
           </Button>
         {:else}
-          <Button size="sm" variant="primary" class="size-8 rounded-full! px-0!" aria-label={bash ? t('chat.composer.reviewCommand') : t('chat.composer.send')} disabled={!canSend} onclick={() => void submit('send')}>
+          <Button variant="primary" class="size-control rounded-full! px-0!" aria-label={bash ? t('chat.composer.reviewCommand') : t('chat.composer.send')} disabled={!canSend} onclick={() => void submit('send')}>
             {#if bash}<Terminal size={16} aria-hidden="true" />{:else}<ArrowUp size={18} strokeWidth={2.25} aria-hidden="true" />{/if}
           </Button>
         {/if}

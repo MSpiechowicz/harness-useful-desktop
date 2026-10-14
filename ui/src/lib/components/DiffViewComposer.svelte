@@ -57,7 +57,7 @@
 
   <div class="flex items-center justify-end gap-2">
     {#if tooLong}<span class="mr-auto text-xs text-danger" role="alert">{t('components.diff.tooLong', { size: maxBytes / 1024 })}</span>{/if}
-    <Button size="sm" variant="ghost" onclick={oncancel}>{t('components.diff.cancel')}</Button>
-    <Button size="sm" variant="primary" disabled={text === '' || tooLong} onclick={save}>{saveLabel ?? t('components.diff.comment')}</Button>
+    <Button variant="ghost" onclick={oncancel}>{t('components.diff.cancel')}</Button>
+    <Button variant="primary" disabled={text === '' || tooLong} onclick={save}>{saveLabel ?? t('components.diff.comment')}</Button>
   </div>
 </div>

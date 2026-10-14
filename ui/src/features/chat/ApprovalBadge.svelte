@@ -59,7 +59,7 @@
     <Tooltip text={info ? t('chat.approval.tooltip', { explanation: info.explanation, source }) : t('chat.approval.unknownTooltip')} side="bottom">
       {#snippet children({ describedby })}
         <button type="button" {...props} aria-describedby={describedby} class="rounded-md" aria-label={t('chat.approval.aria', { mode: modeName })}>
-          <Badge tone={info?.tone ?? 'neutral'} class="h-8 rounded-md! px-2.5 text-sm!">
+          <Badge tone={info?.tone ?? 'neutral'} class="h-control rounded-md! px-2.5 text-sm!">
             {#if info?.tone === 'warning'}<ShieldAlert size={16} aria-hidden="true" />{:else}<ShieldCheck size={16} aria-hidden="true" />{/if}
             {t('chat.approval.badge', { mode: modeName })}
           </Badge>
@@ -103,7 +103,7 @@
           <RotateCcw size={14} aria-hidden="true" class="mt-px shrink-0" />
           {t('chat.approval.restartNote')}
         </p>
-        <Button variant="primary" size="sm" disabled={!changed} loading={restarting} onclick={apply}>{t('chat.approval.restart')}</Button>
+        <Button variant="primary" disabled={!changed} loading={restarting} onclick={apply}>{t('chat.approval.restart')}</Button>
       </footer>
     </div>
   {/snippet}

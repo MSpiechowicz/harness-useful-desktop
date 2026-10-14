@@ -34,7 +34,7 @@
       aria-valuenow={usage ? Math.round(percent) : undefined}
       aria-valuetext={usage ? t('chat.context.valueText', { value: ONE_DECIMAL().format(percent) }) : t('chat.context.unknown')}
       aria-describedby={describedby}
-      class="inline-flex h-8 items-center gap-1.5 rounded-md px-1.5 text-xs text-fg-3"
+      class="inline-flex h-control items-center gap-1.5 rounded-md px-1.5 text-xs text-fg-3"
     >
       <svg viewBox="0 0 16 16" class="size-4 -rotate-90" aria-hidden="true">
         <circle cx="8" cy="8" r="6" fill="none" stroke-width="2" class="stroke-surface-3" />

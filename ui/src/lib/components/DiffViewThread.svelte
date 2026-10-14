@@ -44,8 +44,8 @@
             <p class="text-xs leading-4 text-fg-3">{commentHeading(comment)}</p>
             <p class="text-base break-words whitespace-pre-wrap text-fg">{comment.body}</p>
           </div>
-          <IconButton icon={Pencil} label={t('components.diff.edit')} size="sm" onclick={() => (editing = comment.id)} />
-          <IconButton icon={Trash2} label={t('components.diff.delete')} size="sm" onclick={() => onremove(comment.id)} />
+          <IconButton icon={Pencil} label={t('components.diff.edit')} class="size-7!" onclick={() => (editing = comment.id)} />
+          <IconButton icon={Trash2} label={t('components.diff.delete')} class="size-7!" onclick={() => onremove(comment.id)} />
         </div>
       {/if}
     </li>

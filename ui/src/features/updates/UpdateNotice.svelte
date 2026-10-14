@@ -95,22 +95,22 @@
 
       <div class="flex flex-wrap items-center gap-2">
         {#if state.kind === 'available'}
-          <Button size="sm" variant="primary" onclick={() => void updates.install()}>{t('updates.notice.install')}</Button>
-          <Button size="sm" onclick={viewUpdates}>{t('updates.notice.view')}</Button>
-          <Button size="sm" variant="ghost" onclick={() => updates.dismiss()}>{t('updates.notice.later')}</Button>
+          <Button variant="primary" onclick={() => void updates.install()}>{t('updates.notice.install')}</Button>
+          <Button onclick={viewUpdates}>{t('updates.notice.view')}</Button>
+          <Button variant="ghost" onclick={() => updates.dismiss()}>{t('updates.notice.later')}</Button>
         {:else if state.kind === 'readyToRelaunch'}
-          <Button size="sm" variant="primary" onclick={() => void updates.requestRelaunch()}>{updates.closesApp ? t('updates.notice.finish') : t('updates.notice.restart')}</Button>
-          <Button size="sm" variant="ghost" onclick={() => updates.dismiss()}>{t('updates.notice.later')}</Button>
+          <Button variant="primary" onclick={() => void updates.requestRelaunch()}>{updates.closesApp ? t('updates.notice.finish') : t('updates.notice.restart')}</Button>
+          <Button variant="ghost" onclick={() => updates.dismiss()}>{t('updates.notice.later')}</Button>
         {:else if state.kind === 'failed'}
           {#if canRetry}
-            <Button size="sm" onclick={() => void updates.install()}>{t('updates.notice.retry')}</Button>
+            <Button onclick={() => void updates.install()}>{t('updates.notice.retry')}</Button>
           {/if}
-          <Button size="sm" variant="ghost" onclick={viewUpdates}>{t('updates.notice.view')}</Button>
+          <Button variant="ghost" onclick={viewUpdates}>{t('updates.notice.view')}</Button>
         {:else}
-          <Button size="sm" variant="ghost" onclick={viewUpdates}>{t('updates.notice.view')}</Button>
+          <Button variant="ghost" onclick={viewUpdates}>{t('updates.notice.view')}</Button>
         {/if}
 
-        <IconButton icon={X} label={t('updates.notice.dismiss')} size="sm" onclick={() => updates.dismiss()} />
+        <IconButton icon={X} label={t('updates.notice.dismiss')} onclick={() => updates.dismiss()} />
       </div>
     </div>
   </section>

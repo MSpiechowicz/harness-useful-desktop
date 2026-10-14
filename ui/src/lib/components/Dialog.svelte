@@ -14,15 +14,18 @@
   interface Props {
     open?: boolean;
     title: string;
+    /** What the dialog acts on, e.g. the session being deleted: a row between hairlines under the text. */
+    subject?: Snippet;
     description?: string;
     size?: Size;
     dismissible?: boolean;
     onclose?: () => void;
     footer?: Snippet;
-    children: Snippet;
+    /** The body; a confirmation has none, only its title, description and buttons. */
+    children?: Snippet;
   }
 
-  let { open = $bindable(false), title, description, size = 'md', dismissible = true, onclose, footer, children }: Props = $props();
+  let { open = $bindable(false), title, subject, description, size = 'md', dismissible = true, onclose, footer, children }: Props = $props();
 
   const SIZES: Record<Size, string> = { sm: 'w-[24rem]', md: 'w-[32rem]', lg: 'w-[44rem]' };
 
@@ -37,25 +40,36 @@
 
 <Overlay {open} labelledby={titleId} describedby={description ? descriptionId : undefined} {dismissible} onclose={close}>
   <div class={cx('flex max-h-[85vh] flex-col rounded-xl border border-line-strong bg-glass shadow-pop backdrop-blur-xl', SIZES[size])}>
-    <header class="flex items-start justify-between gap-4 px-6 pt-5">
-      <div class="flex flex-col gap-1">
+    <!-- The close button is centred on the title line; its negative margins keep the 36px control from making the line
+         taller or pushing the glyph in from the edge. The title's letters start 16px below the top edge (9px of
+         padding plus the leading above them), the same as the room under the footer's buttons. -->
+    <header class={cx('flex flex-col gap-1 px-6 pt-[9px]', subject ? 'pb-4' : !children && 'pb-5')}>
+      <div class="flex items-center justify-between gap-4">
         <h2 id={titleId} class="text-xl text-fg">{title}</h2>
-        {#if description}
-          <p id={descriptionId} class="text-base text-fg-2">{description}</p>
+        {#if dismissible}
+          <IconButton icon={X} label={t('components.dialog.close')} class="-my-2 -mr-1.5 shrink-0" data-dismiss onclick={close} />
         {/if}
       </div>
 
-      {#if dismissible}
-        <IconButton icon={X} label={t('components.dialog.close')} size="sm" data-dismiss onclick={close} />
+      {#if description}
+        <p id={descriptionId} class="text-base text-fg-2">{description}</p>
       {/if}
     </header>
 
-    <div class="overflow-y-auto px-6 py-5">
-      {@render children()}
-    </div>
+    {#if subject}
+      <div class="border-t border-line px-6 py-3.5">
+        {@render subject()}
+      </div>
+    {/if}
+
+    {#if children}
+      <div class="overflow-y-auto px-6 py-5">
+        {@render children()}
+      </div>
+    {/if}
 
     {#if footer}
-      <footer class="flex justify-end gap-2 border-t border-line px-6 py-4">
+      <footer class="flex justify-end gap-2 border-t border-line px-6 py-[16px]">
         {@render footer()}
       </footer>
     {/if}

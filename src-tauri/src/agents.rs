@@ -72,21 +72,21 @@ impl Agents {
         self.phase.load(Ordering::Acquire) == STOPPED
     }
 
-    /// Stops session `key` without waiting (its event channel closed).
-    pub fn stop_in_background(self: &Arc<Self>, key: String) {
-        let agents = self.clone();
-
-        self.track(async_runtime::spawn(async move {
-            // `stop` never fails; unknown keys are ignored.
-            agents.manager.stop(&key).await.ok();
-        }));
+    /// Stops session `key` without waiting (its event channel closed); unknown keys are ignored.
+    /// The session leaves the manager at once, but its id stays held until the agent exited.
+    pub fn stop_in_background(&self, key: String) {
+        if let Some(stopping) = self.manager.begin_stop(&key) {
+            self.track(async_runtime::spawn(stopping.finish()));
+        }
     }
 
-    /// Stops every session without waiting (the webview reloaded, so every channel is dead).
-    pub fn stop_all_in_background(self: &Arc<Self>) {
-        let agents = self.clone();
+    /// Stops every session without waiting (the webview reloaded, so every channel is dead). The
+    /// reloaded page may resume the same session ids at once: those starts wait for the old
+    /// agents to exit.
+    pub fn stop_all_in_background(&self) {
+        let stopping = self.manager.begin_stop_all();
 
-        self.track(async_runtime::spawn(async move { agents.manager.stop_all().await }));
+        self.track(async_runtime::spawn(stopping.finish()));
     }
 
     fn track(&self, task: JoinHandle<()>) {

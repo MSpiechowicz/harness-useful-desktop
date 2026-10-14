@@ -45,6 +45,9 @@ export class MockState {
   recents: ProjectInfo[] = structuredClone(fixtures.recentProjects);
   active: ProjectInfo | null = null;
 
+  /** Fixture sessions removed by `session_delete`, as `harness:id`. */
+  deletedSessions = new Set<string>();
+
   private pickable: ProjectInfo[] = structuredClone(PICKABLE_FOLDERS);
 
   /** Preferences as the real backend returns them: stored UI fields plus the server-managed ones. */

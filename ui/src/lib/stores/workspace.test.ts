@@ -29,6 +29,41 @@ describe('workspace restore', () => {
   });
 });
 
+describe('workspace restore of a saved duplicate', () => {
+  async function relaunch() {
+    vi.resetModules();
+
+    return import('./workspace.svelte');
+  }
+
+  function save(chats: { sessionId: string }[], active: number): void {
+    localStorage.setItem('harness:workspace', JSON.stringify({ view: 'chat', chats: chats.map(({ sessionId }) => ({ harness: 'omp', sessionId, project: PROJECT })), active }));
+  }
+
+  it('starts one agent for a session saved twice and keeps the chat after it active', async () => {
+    save([{ sessionId: 'dup' }, { sessionId: 'dup' }, { sessionId: 'other' }], 2);
+    const { restoreWorkspace: restore } = await relaunch();
+    const { store, of } = storeWithMock();
+
+    expect(await restore(store)).toBe(true);
+
+    expect(of('agent_start').map(({ request }) => request.resume?.id)).toEqual(['dup', 'other']);
+    expect(store.sessions).toHaveLength(2);
+    expect(store.activeKey).toBe(store.sessions[1].key);
+  });
+
+  it('shows the kept chat when the active one was the dropped duplicate', async () => {
+    save([{ sessionId: 'dup' }, { sessionId: 'other' }, { sessionId: 'dup' }], 2);
+    const { restoreWorkspace: restore } = await relaunch();
+    const { store, of } = storeWithMock();
+
+    await restore(store);
+
+    expect(of('agent_start')).toHaveLength(2);
+    expect(store.activeKey).toBe(store.sessions[0].key);
+  });
+});
+
 describe('chat names across a restart', () => {
   it('keeps the helper\'s name and description, and that the user renamed the chat since', async () => {
     const { store } = storeWithMock();

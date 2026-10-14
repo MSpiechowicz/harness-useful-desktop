@@ -1,7 +1,8 @@
 import { waitFor } from '@testing-library/svelte';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import type { SessionMessagesPage } from '$lib/ipc/bindings/SessionMessagesPage';
+import { ipc } from '$lib/ipc/client';
 import { fixtures } from '$lib/ipc/mock/fixtures';
 import { IpcFailure, type Transport } from '$lib/ipc/transport';
 
@@ -11,21 +12,20 @@ import { nav } from './nav.svelte';
 import { forkInChat, resumeInChat } from './session-actions';
 import { SessionDetail } from './sessions.svelte';
 import { AgentSessionsStore } from './agentSession.svelte';
-import { ToastsStore } from './toasts.svelte';
+import { toasts, ToastsStore } from './toasts.svelte';
+import { viewState } from './view-state.svelte';
 
 const REF = fixtures.sessions.list.omp[1].ref;
 const TOTAL = fixtures.sessions.messages.messages.length;
 
 describe('session detail', () => {
-  it('loads the tree, the first transcript page and the touched files together', async () => {
+  it('loads the first transcript page with the session totals, and the touched files', async () => {
     const detail = new SessionDetail(recordingTransport().transport);
 
     detail.open(REF, PROJECT);
-    await waitFor(() => expect(detail.treeStatus).toBe('ready'));
     await waitFor(() => expect(detail.transcriptStatus).toBe('ready'));
 
-    expect(detail.tree?.ref).toEqual(REF);
-    expect(detail.tree?.nodes.length).toBeGreaterThan(0);
+    expect(detail.stats).toEqual(fixtures.sessions.messages.stats);
     expect(detail.messages).toHaveLength(Math.min(TOTAL, 100));
     expect(detail.touched).toEqual(fixtures.sessions.filesTouched);
   });
@@ -88,7 +88,37 @@ describe('session detail', () => {
 
     expect(detail.messages).toBe(shown);
     expect(detail.transcriptStatus).toBe('ready');
-    expect(detail.treeStatus).toBe('ready');
+  });
+
+  it('refreshes the totals when following a session whose newest page is the first', async () => {
+    const totals = { messages: 4, toolCalls: 1, contextTokens: null, costUsd: null, models: [], startedAt: null, endedAt: null };
+    let reply = totals;
+    const transport = fakeTransport({
+      session_files_touched: () => [],
+      session_messages: () => ({ messages: [], nextCursor: null, total: 0, stats: reply }),
+    });
+    const detail = new SessionDetail(transport);
+    detail.open(REF, PROJECT);
+    await waitFor(() => expect(detail.stats).toEqual(totals));
+
+    reply = { ...totals, messages: 6 };
+    await detail.follow();
+
+    expect(detail.stats?.messages).toBe(6);
+  });
+
+  it('keeps the totals when following a later page, which does not carry them', async () => {
+    const backend = recordingTransport();
+    const detail = new SessionDetail(backend.transport, 5);
+    detail.open(REF, PROJECT);
+    await waitFor(() => expect(detail.stats).not.toBeNull());
+    await detail.loadMore();
+    const stats = detail.stats;
+
+    await detail.follow();
+
+    expect(backend.of('session_messages').at(-1)?.cursor).not.toBeNull();
+    expect(detail.stats).toBe(stats);
   });
 
   it('shows tool results on the card of their call, even across a page boundary', async () => {
@@ -117,9 +147,8 @@ describe('session detail', () => {
     const slow = new Promise<SessionMessagesPage>((resolve) => (releaseFirst = resolve));
     const second = fixtures.sessions.list.omp[2].ref;
     const transport = fakeTransport({
-      session_tree: ({ session }: { session: typeof REF }) => ({ ...fixtures.sessions.tree, ref: session }),
       session_files_touched: () => [],
-      session_messages: ({ session }: { session: typeof REF }) => (session.id === REF.id ? slow : { messages: [], nextCursor: null, total: 0 }),
+      session_messages: ({ session }: { session: typeof REF }) => (session.id === REF.id ? slow : { messages: [], nextCursor: null, total: 0, stats: null }),
     });
     const detail = new SessionDetail(transport);
 
@@ -130,8 +159,45 @@ describe('session detail', () => {
     await new Promise((resolve) => setTimeout(resolve, 20));
 
     expect(detail.ref?.id).toBe(second.id);
-    expect(detail.tree?.ref.id).toBe(second.id);
+    expect(detail.stats).toBeNull();
     expect(detail.messages).toHaveLength(0);
+  });
+
+  it('drops the totals and touched files of the previous session the moment another is selected', async () => {
+    const second = fixtures.sessions.list.omp[2].ref;
+    const never = new Promise<never>(() => {});
+    const transport = fakeTransport({
+      session_files_touched: ({ session }: { session: typeof REF }) => (session.id === REF.id ? fixtures.sessions.filesTouched : never),
+      session_messages: ({ session }: { session: typeof REF }) => (session.id === REF.id ? fixtures.sessions.messages : never),
+    });
+    const detail = new SessionDetail(transport);
+    detail.open(REF, PROJECT);
+    await waitFor(() => expect(detail.stats).not.toBeNull());
+    await waitFor(() => expect(detail.touched).not.toHaveLength(0));
+
+    detail.open(second, PROJECT);
+
+    expect(detail.stats).toBeNull();
+    expect(detail.touched).toEqual([]);
+    // The transcript itself stays on screen until the new one arrives or the wait gets long.
+    expect(detail.messages.length).toBeGreaterThan(0);
+  });
+
+  it('shows no totals of the previous session when the next one cannot be read', async () => {
+    const second = fixtures.sessions.list.omp[2].ref;
+    const transport = fakeTransport({
+      session_files_touched: ({ session }: { session: typeof REF }) => (session.id === REF.id ? fixtures.sessions.filesTouched : Promise.reject(IpcFailure.from({ code: 'io', message: 'Busy.' }))),
+      session_messages: ({ session }: { session: typeof REF }) => (session.id === REF.id ? fixtures.sessions.messages : Promise.reject(IpcFailure.from({ code: 'io', message: 'Busy.' }))),
+    });
+    const detail = new SessionDetail(transport);
+    detail.open(REF, PROJECT);
+    await waitFor(() => expect(detail.stats).not.toBeNull());
+
+    detail.open(second, PROJECT);
+    await waitFor(() => expect(detail.transcriptStatus).toBe('error'));
+
+    expect(detail.stats).toBeNull();
+    expect(detail.touched).toEqual([]);
   });
 
   it('reports a transcript that cannot be read', async () => {
@@ -141,7 +207,7 @@ describe('session detail', () => {
           throw IpcFailure.from({ code: 'notFound', message: 'That session no longer exists.' });
         }
 
-        return (name === 'session_tree' ? fixtures.sessions.tree : []) as never;
+        return [] as never;
       },
     };
     const detail = new SessionDetail(transport);
@@ -150,7 +216,6 @@ describe('session detail', () => {
     await waitFor(() => expect(detail.transcriptStatus).toBe('error'));
 
     expect(detail.transcriptError?.message).toBe('That session no longer exists.');
-    expect(detail.treeStatus).toBe('ready');
   });
 });
 
@@ -202,7 +267,6 @@ describe('resuming and forking', () => {
 
     detail.open(other, PROJECT);
 
-    expect(detail.treeStatus).toBe('ready');
     expect(detail.transcriptStatus).toBe('ready');
     expect(detail.messages.length).toBeGreaterThan(0);
   });
@@ -239,6 +303,52 @@ describe('resuming and forking', () => {
     expect(calls[fork][1]).toMatchObject({ action: { type: 'fork', entryId: 'n09' } });
     expect(calls[start][1]).toMatchObject({ request: { resume: REF } });
     expect(nav.current).toBe('chat');
+  });
+
+  it('forks inside the chat that already runs the session, without a second agent', async () => {
+    const { store, of } = storeWithMock();
+    const running = { harness: 'omp', id: fixtures.agent.state.state.sessionId } as const;
+    const chat = await store.create('omp', PROJECT);
+    await waitFor(() => expect(chat?.chat.session?.sessionId).toBe(running.id));
+    await chat!.loadHistory();
+    expect(chat!.chat.items.length).toBeGreaterThan(0);
+    const shown = chat!.chat.items.length;
+    // What the fork's path no longer contains.
+    chat!.chat.items = [...chat!.chat.items, { kind: 'notice', id: 'stale', level: 'info', message: 'Before the fork' } as never];
+    await store.create('omp', PROJECT);
+    expect(store.activeKey).not.toBe(chat!.key);
+    nav.go('sessions');
+
+    expect(await forkInChat(store, running, 'n09', PROJECT)).toBe(true);
+
+    expect(of('agent_start')).toHaveLength(2);
+    expect(store.sessions).toHaveLength(2);
+    expect(store.activeKey).toBe(chat!.key);
+    expect(nav.current).toBe('chat');
+    expect(chat!.chat.items).toHaveLength(shown);
+    expect(of('agent_send').filter(({ action }) => action.type === 'fork')).toEqual([{ key: chat!.key, action: { type: 'fork', entryId: 'n09' } }]);
+  });
+
+  it('leaves the open chat running when its fork is refused', async () => {
+    const backend = recordingTransport();
+    const refusing: Transport = {
+      invoke: (name, args) =>
+        name === 'agent_send' && (args as { action: { type: string } }).action.type === 'fork'
+          ? Promise.reject(IpcFailure.from({ code: 'invalidInput', message: 'Cannot fork there.' }))
+          : backend.transport.invoke(name, args),
+    };
+    const store = new AgentSessionsStore(refusing, new ToastsStore());
+    const running = { harness: 'omp', id: fixtures.agent.state.state.sessionId } as const;
+    const chat = await store.create('omp', PROJECT);
+    await waitFor(() => expect(chat?.chat.session?.sessionId).toBe(running.id));
+    nav.go('sessions');
+
+    expect(await forkInChat(store, running, 'n09', PROJECT)).toBe(false);
+
+    expect(backend.of('agent_start')).toHaveLength(1);
+    expect(backend.of('agent_stop')).toHaveLength(0);
+    expect(store.get(chat!.key)).toBeDefined();
+    expect(nav.current).toBe('sessions');
   });
 
   it('stops the agent again when the fork is refused', async () => {

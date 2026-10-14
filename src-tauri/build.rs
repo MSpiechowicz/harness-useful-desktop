@@ -38,6 +38,7 @@ const COMMANDS: &[&str] = &[
     "session_tree",
     "session_messages",
     "session_files_touched",
+    "session_delete",
     "git_status",
     "git_branches",
     "git_diff",

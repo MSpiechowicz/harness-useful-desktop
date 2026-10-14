@@ -59,6 +59,11 @@ pub struct SessionSummary {
     pub first_prompt: Option<String>,
     /// Id of the session this one was forked from, when recorded in the header.
     pub parent_session: Option<String>,
+    /// True for a copy that adds nothing to its parent: the parent is listed in the same
+    /// folder and every entry predates the copy (the header time) except appended
+    /// `session_exit` records. OMP leaves such copies when a second process resumes a session
+    /// another live process owns.
+    pub empty_copy: bool,
 }
 
 /// What a session entry is.
@@ -139,4 +144,42 @@ pub struct SessionMessagesPage {
     pub next_cursor: Option<String>,
     /// Number of messages on the active path.
     pub total: u32,
+    /// Totals of the active path; only on the first page (no cursor).
+    pub stats: Option<TranscriptStats>,
+}
+
+/// Totals of a saved session's active path (root to leaf), sent with the first
+/// `session_messages` page.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct TranscriptStats {
+    /// User prompts and model replies.
+    pub messages: u32,
+    /// Tool calls made by the model.
+    pub tool_calls: u32,
+    /// Context size after the last reply that reports usage (its total tokens).
+    #[ts(type = "number | null")]
+    pub context_tokens: Option<u64>,
+    /// Summed API-equivalent cost in US dollars, when any reply reports one.
+    pub cost_usd: Option<f64>,
+    /// Replies per model, most used first.
+    pub models: Vec<ModelTurns>,
+    /// Time of the first transcript message (Unix milliseconds).
+    #[ts(type = "number | null")]
+    pub started_at: Option<i64>,
+    /// Time of the last transcript message (Unix milliseconds).
+    #[ts(type = "number | null")]
+    pub ended_at: Option<i64>,
+}
+
+/// How many replies of a session one model produced.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct ModelTurns {
+    /// Model id (e.g. `claude-sonnet-4-5`).
+    pub model: String,
+    /// Replies by the model.
+    pub turns: u32,
 }

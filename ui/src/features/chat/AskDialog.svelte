@@ -48,7 +48,7 @@
       use:autofocus
       placeholder={copy.placeholder}
       onkeydown={(event) => event.key === 'Enter' && void submit()}
-      class="h-10 w-full rounded-md border border-line-strong bg-surface-2 px-3 text-base text-fg outline-none focus:border-focus"
+      class="h-control w-full rounded-md border border-line-strong bg-surface-2 px-3 text-base text-fg outline-none focus:border-focus"
     />
   </label>
 

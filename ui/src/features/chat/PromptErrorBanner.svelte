@@ -22,7 +22,7 @@
       <p class="text-sm break-words text-fg-2">{error.message}</p>
     </div>
     {#if error.retryable && canRetry}
-      <Button size="sm" onclick={onretry}>{t('chat.promptError.retry')}</Button>
+      <Button onclick={onretry}>{t('chat.promptError.retry')}</Button>
     {/if}
   </div>
 </div>

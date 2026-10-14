@@ -376,6 +376,13 @@ export class ChatSession {
     }
   }
 
+  /** Replaces the transcript with the session's history, after the session changed under the chat (a fork). */
+  async reloadHistory(): Promise<void> {
+    this.historyLoaded = false;
+    this.apply((state) => ({ ...state, items: [], toolCalls: {}, subagents: {}, nextOrder: 0, lastUserText: null, historyCursor: null, historyTotal: null }));
+    await this.loadHistory();
+  }
+
   get hasEarlier(): boolean {
     return this.chat.historyCursor !== null;
   }

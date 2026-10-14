@@ -39,7 +39,7 @@
   {#if leading}
     {@render leading()}
   {:else if Icon}
-    <span class="grid size-7 shrink-0 place-items-center rounded-sm border border-line bg-surface-2 text-accent-text">
+    <span class="grid size-control shrink-0 place-items-center rounded-md border border-line bg-surface-2 text-accent-text">
       <Icon size={ICON.sm} strokeWidth={1.8} aria-hidden="true" />
     </span>
   {/if}

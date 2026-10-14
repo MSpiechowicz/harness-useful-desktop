@@ -97,7 +97,7 @@
           {...props}
           aria-label={t(kind === 'session' ? 'components.cost.aria.session' : 'components.cost.aria.branch', { amount: formatUsd(summary.costUsd) })}
           class={cx(
-            'tabular inline-flex h-8 items-center gap-1.5 rounded-md transition-[background-color,color,transform] duration-[var(--dur-fast)] active:scale-[0.97]',
+            'tabular inline-flex h-control items-center gap-1.5 rounded-md transition-[background-color,color,transform] duration-[var(--dur-fast)] active:scale-[0.97]',
             quiet ? 'px-1.5 text-xs text-fg-3 hover:bg-hover hover:text-fg' : 'border border-line bg-surface-2 px-2.5 text-sm text-fg-2 hover:bg-surface-3 hover:text-fg',
           )}
         >
@@ -133,7 +133,6 @@
           <p class="text-xs text-fg-3">{t('components.cost.note')}</p>
 
           <Button
-            size="sm"
             onclick={() => {
               close();
               nav.go('ecosystem');

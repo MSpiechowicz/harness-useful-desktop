@@ -25,8 +25,8 @@
 
 <section aria-label={t('sessions.branches.title')} class={cx('flex min-h-0 flex-col border-t border-line', open && 'max-h-[45%]')}>
   <!-- Room above and below, so the hover wash never touches the divider lines. -->
-  <div class="flex items-center px-1 py-1">
-    <button type="button" aria-expanded={open} class="flex h-9 flex-1 items-center gap-1.5 rounded-md px-2 text-sm font-medium text-fg hover:bg-hover active:bg-press" onclick={() => (open = !open)}>
+  <div class="flex items-center px-3 py-1">
+    <button type="button" aria-expanded={open} class="flex h-control flex-1 items-center gap-1.5 rounded-md px-[11.5px] text-sm font-medium text-fg hover:bg-hover active:bg-press" onclick={() => (open = !open)}>
       <ChevronRight size={16} class={cx('transition-transform duration-[var(--dur-fast)]', open && 'rotate-90')} aria-hidden="true" />
       <GitBranch size={16} class="text-accent-text" aria-hidden="true" />
       {t('sessions.branches.title')}
@@ -47,7 +47,7 @@
         {#each [{ id: 'local', title: t('sessions.branches.local'), list: t('sessions.branches.localList'), icon: Laptop, branches: local }, { id: 'remote', title: t('sessions.branches.remote'), list: t('sessions.branches.remoteList'), icon: Cloud, branches: remote }] as group, index (group.id)}
           {#if group.branches.length > 0}
             <!-- Each group opens with a clear header; the second one is set apart by a divider. -->
-            <h3 class={cx('flex items-center gap-2 px-[13px] pb-2 text-xs font-semibold tracking-wider text-fg-2 uppercase', index > 0 && local.length > 0 ? 'mt-3 border-t border-line pt-4' : 'pt-2')}>
+            <h3 class={cx('flex items-center gap-2 px-[11.5px] pb-2 text-xs font-semibold tracking-wider text-fg-2 uppercase', index > 0 && local.length > 0 ? 'mt-3 border-t border-line pt-4' : 'pt-2')}>
               <group.icon size={14} class="text-fg-3" aria-hidden="true" />
               {group.title}
               <span class="tabular rounded-full bg-surface-3 px-1.5 text-[11px] leading-[18px] font-medium tracking-normal text-fg-3 normal-case">{group.branches.length}</span>

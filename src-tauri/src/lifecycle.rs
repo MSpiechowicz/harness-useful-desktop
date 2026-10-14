@@ -2,6 +2,10 @@
 //! session (their channels died with the old page), and app exit stops them before the process
 //! ends.
 //!
+//! A reload takes the sessions out of the manager at once and stops their agents in the
+//! background. Their session ids stay held until each agent exited, so the reloaded page resuming
+//! its chats waits for the old agents instead of running a second agent on the same session.
+//!
 //! Exit is held back (`prevent_exit`) while a separate thread waits for
 //! [`Agents::stop_all`](crate::agents::Agents::stop_all), at most [`EXIT_BUDGET`]; the event loop
 //! keeps running meanwhile. Then the app exits for real.

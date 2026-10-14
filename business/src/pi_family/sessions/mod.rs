@@ -13,13 +13,16 @@
 //! - [`session_tree`]: the branch tree for `session_tree`.
 //! - [`session_messages`]: the paged active-path transcript for `session_messages`.
 //! - [`session_files_touched`]: edited files for `session_files_touched`.
+//! - [`delete_session`]: removes a session with its companion directory for `session_delete`.
 
+mod delete;
 pub mod encode;
 mod parse;
 mod scan;
 mod transcript;
 mod tree;
 
+pub use delete::delete_session;
 pub use encode::{canonical_text, omp_dir_name, pi_dir_name, temp_root};
 pub use parse::epoch_millis;
 pub use scan::{MAX_SESSION_FILES, SUMMARY_BYTES, SessionCache, list_sessions};
@@ -58,12 +61,30 @@ pub fn session_id_of(file_name: &str) -> Option<String> {
 
 /// The session file of `id` in the project's session folder `dir`: a top-level regular file
 /// named `<timestamp>_<id>.jsonl` (symlinks, subdirectories and deny-listed files never match).
+/// When several files carry the id, the first one found is returned.
 pub fn find_session(dir: &Path, id: &str) -> Result<PathBuf> {
+    session_paths(dir, id)?.into_iter().next().ok_or_else(|| not_found(id))
+}
+
+/// Like [`find_session`], but an id carried by several files is `InvalidInput`.
+fn find_only_session(dir: &Path, id: &str) -> Result<PathBuf> {
+    let mut paths = session_paths(dir, id)?;
+
+    if paths.len() > 1 {
+        return Err(BusinessError::InvalidInput(format!("several files carry session {id}")));
+    }
+
+    paths.pop().ok_or_else(|| not_found(id))
+}
+
+/// Every file of `dir` that [`find_session`] could return for `id`.
+fn session_paths(dir: &Path, id: &str) -> Result<Vec<PathBuf>> {
     if !is_safe_session_id(id) {
         return Err(BusinessError::InvalidInput("invalid session id".to_owned()));
     }
 
     let entries = fs::read_dir(dir).map_err(|_| not_found(id))?;
+    let mut paths = Vec::new();
 
     for entry in entries.take(MAX_ENTRIES).flatten() {
         let is_file = entry.file_type().is_ok_and(|kind| kind.is_file());
@@ -75,11 +96,11 @@ pub fn find_session(dir: &Path, id: &str) -> Result<PathBuf> {
         let path = entry.path();
 
         if is_file && matches && is_denied(&path).is_none() {
-            return Ok(path);
+            paths.push(path);
         }
     }
 
-    Err(not_found(id))
+    Ok(paths)
 }
 
 fn not_found(id: &str) -> BusinessError {

@@ -178,64 +178,14 @@ mod tests {
     use harness_business::agent::{AgentManager, SessionOptions};
     use harness_business::env::Env;
     use harness_business::model::{HarnessId, IpcErrorCode};
-    use harness_business::process::{ExecSpec, ProcessSpawner, SpawnedProcess, TokioSpawner};
     use serde_json::Value;
     use tauri::async_runtime::block_on;
 
     use super::*;
-    use crate::test_support::{TempDir, cache_detection, collecting_channel};
+    use crate::test_support::{ScenarioSpawner, TempDir, cache_detection, collecting_channel, fake_agent};
 
     /// How long a test waits for the fake agent.
     const WAIT: Duration = Duration::from_secs(10);
-
-    /// Set to `1` (CI) to make the tests that need `fake_agent` fail instead of skipping.
-    const REQUIRE_FAKE_AGENT: &str = "HARNESS_REQUIRE_FAKE_AGENT";
-
-    /// `fake_agent` from the business crate, built next to this test binary by
-    /// `cargo test --workspace` (Cargo exposes `CARGO_BIN_EXE_*` only to the owning package).
-    /// `None` (the caller skips) when it is missing, unless [`REQUIRE_FAKE_AGENT`] is `1`.
-    fn fake_agent() -> Option<PathBuf> {
-        let found = built_fake_agent();
-
-        if found.is_none() {
-            assert_ne!(
-                std::env::var(REQUIRE_FAKE_AGENT).as_deref(),
-                Ok("1"),
-                "fake_agent is not built but {REQUIRE_FAKE_AGENT}=1 \
-                 (run `cargo build -p harness_business --bin fake_agent` first)"
-            );
-            eprintln!("skipped: fake_agent is not built (run `cargo test --workspace`)");
-        }
-
-        found
-    }
-
-    fn built_fake_agent() -> Option<PathBuf> {
-        let exe = std::env::current_exe().ok()?;
-        let target_dir = exe.parent()?.parent()?;
-        let path = target_dir.join(format!("fake_agent{}", std::env::consts::EXE_SUFFIX));
-
-        path.is_file().then_some(path)
-    }
-
-    /// Runs `fake_agent --dialect omp --scenario <scenario>` in the requested directory.
-    struct ScenarioSpawner {
-        binary: PathBuf,
-        scenario: PathBuf,
-        spawned: AtomicUsize,
-    }
-
-    impl ProcessSpawner for ScenarioSpawner {
-        fn spawn(&self, spec: &ExecSpec) -> harness_business::Result<SpawnedProcess> {
-            self.spawned.fetch_add(1, Ordering::Relaxed);
-
-            let scenario = self.scenario.to_string_lossy().into_owned();
-            let mut fake = ExecSpec::new(&self.binary).args(["--dialect", "omp", "--scenario", scenario.as_str()]);
-            fake.cwd = spec.cwd.clone();
-
-            TokioSpawner.spawn(&fake)
-        }
-    }
 
     struct Setup {
         state: AppState,
@@ -257,13 +207,7 @@ mod tests {
             Projects::new(store, &state.env).open(&project).expect("open project");
         });
 
-        let spawner = Arc::new(ScenarioSpawner {
-            binary: binary.to_path_buf(),
-            scenario: Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("../business/tests/fixtures/streams")
-                .join(scenario),
-            spawned: AtomicUsize::new(0),
-        });
+        let spawner = ScenarioSpawner::new(binary, scenario);
         let options = SessionOptions {
             coalesce_window: Duration::ZERO,
             ..SessionOptions::default()
@@ -415,7 +359,7 @@ mod tests {
 
         wait_until("the session to stop", || agents.manager().list().is_empty());
         block_on(agents.stop_all());
-        assert_eq!(setup.spawner.spawned.load(Ordering::Relaxed), 1);
+        assert_eq!(setup.spawner.spawned(), 1);
     }
 
     #[test]
@@ -433,7 +377,7 @@ mod tests {
         let missing = block_on(start(&setup.state, request(&setup.project), channel)).expect_err("not installed");
         assert_eq!(missing.code(), IpcErrorCode::NotFound);
 
-        assert_eq!(setup.spawner.spawned.load(Ordering::Relaxed), 0);
+        assert_eq!(setup.spawner.spawned(), 0);
     }
 
     #[test]
@@ -446,7 +390,7 @@ mod tests {
         let error = block_on(start(&setup.state, request(&setup.project), channel)).expect_err("shutting down");
 
         assert_eq!(error.code(), IpcErrorCode::Unsupported);
-        assert_eq!(setup.spawner.spawned.load(Ordering::Relaxed), 0);
+        assert_eq!(setup.spawner.spawned(), 0);
     }
 
     #[test]

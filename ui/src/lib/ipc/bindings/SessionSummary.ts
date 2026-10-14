@@ -45,4 +45,11 @@ firstPrompt: string | null,
 /**
  * Id of the session this one was forked from, when recorded in the header.
  */
-parentSession: string | null, };
+parentSession: string | null, 
+/**
+ * True for a copy that adds nothing to its parent: the parent is listed in the same
+ * folder and every entry predates the copy (the header time) except appended
+ * `session_exit` records. OMP leaves such copies when a second process resumes a session
+ * another live process owns.
+ */
+emptyCopy: boolean, };
