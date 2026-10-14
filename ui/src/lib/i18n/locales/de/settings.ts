@@ -34,8 +34,10 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.thinking.title': 'Denkprozess anzeigen',
   'settings.thinking.description': 'Die Überlegungen des Agenten, unter jeder Antwort eingeklappt. Lässt sich auch im Chat-Kopf umschalten.',
   'settings.aiNames.title': 'Chats mit KI benennen',
-  'settings.aiNames.description':
-    'Nach Ihrer ersten Nachricht schreibt der Agent des Chats einen kurzen Namen und eine Beschreibung für die Chat-Karte. Das kostet eine sehr kleine Anfrage pro Chat mit dem Modell des Chats und sendet nur die ersten 500 Zeichen dieser Nachricht. Aus: Der Name sind die ersten Wörter, die Sie tippen.',
+  'settings.aiNames.description': 'Ein kurzer Name und eine Beschreibung für jeden Chat, geschrieben vom Agenten des Chats direkt nach Ihrer ersten Nachricht.',
+  'settings.aiNames.cost': 'Kostet eine sehr kleine Anfrage pro Chat, mit dem Modell des Chats.',
+  'settings.aiNames.sent': 'Sendet nur die ersten 500 Zeichen dieser ersten Nachricht.',
+  'settings.aiNames.off': 'Aus: Der Name sind die ersten Wörter, die Sie tippen, und nichts wird gesendet.',
 
   'settings.motion.title': 'Animationen',
   'settings.motion.description': 'Reduziert behält einfache Überblendungen; Aus schaltet alle Animationen ab. Die Einstellung deines Betriebssystems für weniger Bewegung gilt immer.',

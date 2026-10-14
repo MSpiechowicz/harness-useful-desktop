@@ -34,8 +34,10 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.thinking.title': 'Pokazuj tok rozumowania',
   'settings.thinking.description': 'Rozumowanie agenta, zwinięte pod każdą odpowiedzią. Można je też przełączyć w nagłówku czatu.',
   'settings.aiNames.title': 'Nazywaj czaty za pomocą AI',
-  'settings.aiNames.description':
-    'Po pierwszej wiadomości agent czatu pisze krótką nazwę i opis na karcie czatu. Kosztuje to jedno bardzo małe zapytanie na czat, na modelu czatu, i wysyła tylko pierwsze 500 znaków tej wiadomości. Wyłączone: nazwą są pierwsze wpisane słowa.',
+  'settings.aiNames.description': 'Krótka nazwa i opis każdego czatu, napisane przez agenta czatu zaraz po pierwszej wiadomości.',
+  'settings.aiNames.cost': 'Kosztuje jedno bardzo małe zapytanie na czat, na modelu czatu.',
+  'settings.aiNames.sent': 'Wysyła tylko pierwsze 500 znaków tej pierwszej wiadomości.',
+  'settings.aiNames.off': 'Wyłączone: nazwą są pierwsze wpisane słowa i nic nie jest wysyłane.',
 
   'settings.motion.title': 'Animacje',
   'settings.motion.description': 'Ograniczone zostawia proste zanikanie; Wyłączone wyłącza wszystkie animacje. Ustawienie ograniczenia ruchu w systemie zawsze ma pierwszeństwo.',

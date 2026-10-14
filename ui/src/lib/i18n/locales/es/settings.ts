@@ -34,8 +34,10 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.thinking.title': 'Mostrar el proceso de razonamiento',
   'settings.thinking.description': 'El razonamiento del agente, plegado bajo cada respuesta. También se activa desde la cabecera del chat.',
   'settings.aiNames.title': 'Nombrar los chats con IA',
-  'settings.aiNames.description':
-    'Tras tu primer mensaje, el agente del propio chat escribe un nombre y una descripción cortos para la tarjeta del chat. Cuesta una petición muy pequeña por chat con el modelo del chat y solo envía los primeros 500 caracteres de ese mensaje. Desactivado: el nombre son las primeras palabras que escribes.',
+  'settings.aiNames.description': 'Un nombre y una descripción cortos para cada chat, escritos por el agente del propio chat justo después de tu primer mensaje.',
+  'settings.aiNames.cost': 'Cuesta una petición muy pequeña por chat, con el modelo del chat.',
+  'settings.aiNames.sent': 'Solo envía los primeros 500 caracteres de ese primer mensaje.',
+  'settings.aiNames.off': 'Desactivado: el nombre son las primeras palabras que escribes y no se envía nada.',
 
   'settings.motion.title': 'Animaciones',
   'settings.motion.description': 'Reducidas conserva los fundidos simples; Sin animaciones las desactiva todas. El ajuste de movimiento reducido de tu sistema siempre se respeta.',

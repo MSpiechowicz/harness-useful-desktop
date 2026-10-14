@@ -34,8 +34,10 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.thinking.title': 'Afficher le raisonnement',
   'settings.thinking.description': 'Le raisonnement de l’agent, replié sous chaque réponse. Peut aussi être activé depuis l’en-tête du chat.',
   'settings.aiNames.title': 'Nommer les chats avec l’IA',
-  'settings.aiNames.description':
-    'Après votre premier message, l’agent du chat écrit un nom et une description courts pour la carte du chat. Cela coûte une très petite requête par chat sur le modèle du chat et n’envoie que les 500 premiers caractères de ce message. Désactivé : le nom reprend les premiers mots que vous tapez.',
+  'settings.aiNames.description': 'Un nom et une description courts pour chaque chat, écrits par l’agent du chat juste après votre premier message.',
+  'settings.aiNames.cost': 'Coûte une très petite requête par chat, sur le modèle du chat.',
+  'settings.aiNames.sent': 'N’envoie que les 500 premiers caractères de ce premier message.',
+  'settings.aiNames.off': 'Désactivé : le nom reprend les premiers mots que vous tapez et rien n’est envoyé.',
 
   'settings.motion.title': 'Animations',
   'settings.motion.description': 'Réduites garde de simples fondus ; Désactivées coupe toute animation. Le réglage de mouvement réduit de votre système s’applique toujours.',
