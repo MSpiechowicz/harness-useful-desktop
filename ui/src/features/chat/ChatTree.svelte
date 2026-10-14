@@ -70,9 +70,8 @@
 <!-- The open chats under the Chat destination, hung on a line from its icon: rows the size and style of the menu's own
      (28px, no border, the same tint when open), each with its harness dot, name and what it is doing. What a chat is
      about is in its tooltip. -->
-{#snippet branch(first: boolean, last: boolean)}
-  <!-- The first row's line reaches up under the Chat icon (8px: the group's top padding and the icon's inset in its row). -->
-  <span aria-hidden="true" class={cx('absolute left-0 w-px bg-line-strong', first ? '-top-[8px]' : 'top-0', last ? (first ? 'h-[22px]' : 'h-[14px]') : first ? 'h-[calc(100%+11px)]' : 'h-[calc(100%+3px)]')}></span>
+{#snippet branch(last: boolean)}
+  <span aria-hidden="true" class={cx('absolute top-0 left-0 w-px bg-line-strong', last ? 'h-[14px]' : 'h-[calc(100%+3px)]')}></span>
   <span aria-hidden="true" class="absolute top-[14px] left-0 h-px w-[10px] bg-line-strong"></span>
 {/snippet}
 
@@ -84,7 +83,7 @@
     {@const tip = agentSessions.tip(session.key)}
     {@const title = agentSessions.title(session.key)}
     <div in:fade={{ duration: scaled(160) }} class="group/card relative pl-[14px]">
-      {@render branch(index === 0, index === sessions.length - 1 && agentSessions.starting.length === 0)}
+      {@render branch(index === sessions.length - 1 && agentSessions.starting.length === 0)}
       <div class={cx('relative flex h-[28px] items-center rounded-sm transition-colors', renaming === session.key || selected ? 'bg-[color-mix(in_oklab,var(--text)_11%,transparent)] text-fg' : 'text-fg-2 hover:bg-hover hover:text-fg')}>
         <Tooltip text={tip.text} detail={[summary?.info.name, tip.detail].filter(Boolean).join('\n')} side="right" class="flex h-full min-w-0 flex-1">
           {#snippet children({ describedby })}
@@ -130,7 +129,7 @@
     {@const summary = harness.get(chat.harness)}
     <!-- A chat whose agent is still starting: the row is there at once, the session takes it over when ready. -->
     <div class="relative pl-[14px]">
-      {@render branch(sessions.length === 0 && index === 0, index === agentSessions.starting.length - 1)}
+      {@render branch(index === agentSessions.starting.length - 1)}
       <button
         type="button"
         aria-current={selected ? 'true' : undefined}
