@@ -13,6 +13,8 @@
 
   interface Props {
     text: string;
+    /** A second, quieter paragraph under the text; line breaks are kept and long lines wrap. */
+    detail?: string;
     /** Shortcut combo such as `mod+k`, shown as key caps next to the text. */
     shortcut?: string;
     side?: Side;
@@ -24,7 +26,7 @@
     children: Snippet<[{ describedby: string }]>;
   }
 
-  let { text, shortcut, side = 'top', disabled = false, class: className = 'inline-flex', children }: Props = $props();
+  let { text, detail, shortcut, side = 'top', disabled = false, class: className = 'inline-flex', children }: Props = $props();
 
   const SHOW_DELAY_MS = 350;
   /** Focus that lands right after the trigger appears is the app moving focus into a new dialog, not the user tabbing. */
@@ -117,10 +119,18 @@
       use:portal
       use:place
       transition:rise={{ y: 4, duration: 140 }}
-      class="pointer-events-none fixed z-[85] inline-flex items-center gap-2 rounded-sm border border-line-strong bg-surface-4 px-2 py-1 text-xs font-medium whitespace-nowrap text-fg shadow-float"
+      class={cx(
+        'pointer-events-none fixed z-[85] rounded-sm border border-line-strong bg-surface-4 px-2 py-1 text-xs text-fg shadow-float',
+        detail ? 'flex max-w-[280px] flex-col gap-0.5 py-1.5' : 'inline-flex items-center gap-2 font-medium whitespace-nowrap',
+      )}
     >
-      {text}
-      {#if shortcut}<Kbd keys={shortcut} />{/if}
+      {#if detail}
+        <span class="flex items-center gap-2 font-medium">{text}{#if shortcut}<Kbd keys={shortcut} />{/if}</span>
+        <span class="font-normal whitespace-pre-line text-fg-3">{detail}</span>
+      {:else}
+        {text}
+        {#if shortcut}<Kbd keys={shortcut} />{/if}
+      {/if}
     </span>
   {/if}
 </span>

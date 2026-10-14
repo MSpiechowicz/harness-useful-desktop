@@ -139,8 +139,6 @@ export const chat: AreaMessages<typeof enChat> = {
   'chat.name.aria': 'Chat-Name',
 
   'chat.tabs.label': 'Chats',
-  'chat.tabs.tip': '{title} · Doppelklick zum Umbenennen',
-  'chat.tabs.tipHarness': '{title} · {harness} · Doppelklick zum Umbenennen',
   'chat.tabs.harness': '{name}: ',
   'chat.tabs.working': 'Arbeitet',
   'chat.tabs.starting': 'Startet',

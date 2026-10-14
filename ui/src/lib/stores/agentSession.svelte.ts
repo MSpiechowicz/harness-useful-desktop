@@ -58,6 +58,18 @@ export class AgentSessionsStore {
     return (session.userNamed ? session.name : null) ?? session.aiLabel?.name ?? session.name ?? session.label?.name ?? generated;
   }
 
+  /**
+   * What a chat's tooltip says: a name cut short by the row shows the message it came from in full rather than the
+   * same words twice; otherwise the name, and below it what the chat is about.
+   */
+  tip(key: string): { text: string; detail: string } {
+    const title = this.title(key);
+    const description = this.description(key);
+    const stem = title.replace(/…$/, '');
+
+    return description.startsWith(stem) ? { text: description, detail: '' } : { text: title, detail: description };
+  }
+
   /** The line under a chat's title on its card; empty when there is nothing to add to the title. */
   description(key: string): string {
     return this.get(key)?.label?.description ?? '';

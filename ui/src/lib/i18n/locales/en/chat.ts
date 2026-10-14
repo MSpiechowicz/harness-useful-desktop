@@ -136,8 +136,6 @@ export const chat = {
   'chat.name.aria': 'Chat name',
 
   'chat.tabs.label': 'Chats',
-  'chat.tabs.tip': '{title} · double-click to rename',
-  'chat.tabs.tipHarness': '{title} · {harness} · double-click to rename',
   'chat.tabs.harness': '{name}: ',
   'chat.tabs.working': 'Working',
   'chat.tabs.starting': 'Starting',

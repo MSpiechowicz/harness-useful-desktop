@@ -4,6 +4,8 @@
 
   import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
   import HarnessBadge from '$lib/components/HarnessBadge.svelte';
+  import IconButton from '$lib/components/IconButton.svelte';
+  import Tooltip from '$lib/components/Tooltip.svelte';
   import Spinner from '$lib/components/Spinner.svelte';
   import StatusDot from '$lib/components/StatusDot.svelte';
   import type { ChatSession } from '$lib/chat/session.svelte';
@@ -79,31 +81,35 @@
     {@const selected = session.key === agentSessions.activeKey && nav.current === 'chat'}
     {@const summary = harness.get(session.info.harness)}
     {@const helpers = activeSubagentCount(session.chat)}
-    {@const description = agentSessions.description(session.key)}
+    {@const tip = agentSessions.tip(session.key)}
     {@const title = agentSessions.title(session.key)}
     <div in:fade={{ duration: scaled(160) }} class="group/card relative pl-[14px]">
       {@render branch(index === 0, index === sessions.length - 1 && agentSessions.starting.length === 0)}
       <div class={cx('relative flex h-[28px] items-center rounded-sm transition-colors', renaming === session.key || selected ? 'bg-surface-3 text-fg' : 'text-fg-2 hover:bg-hover hover:text-fg')}>
-        <button
-          bind:this={rows[index]}
-          type="button"
-          aria-current={selected ? 'true' : undefined}
-          title={[summary ? t('chat.tabs.tipHarness', { title, harness: summary.info.name }) : t('chat.tabs.tip', { title }), description].filter(Boolean).join('\n')}
-          class="flex h-full min-w-0 flex-1 items-center gap-[8px] pr-[26px] pl-[8px] text-left text-base"
-          onclick={() => show(session.key)}
-          ondblclick={() => rename(session)}
-          onkeydown={(event) => onKeydown(event, index)}
-        >
-          {#if summary}<HarnessBadge info={summary.info} size="xs" /><span class="sr-only">{t('chat.tabs.harness', { name: summary.info.name })}</span>{/if}
-          {#if renaming !== session.key}<span class={cx('min-w-0 truncate', selected && 'font-medium')}>{title}</span>{/if}
-          {#if session.streaming || helpers > 0}
-            <Spinner size={14} class="shrink-0 text-accent-text" label={t('chat.tabs.working')} />
-            {#if helpers > 0}<span class="tabular -ml-1 text-xs text-accent-text" title={tn('chat.tabs.subagents', helpers)}><span aria-hidden="true">{helpers}</span><span class="sr-only">{tn('chat.tabs.subagents', helpers)}</span></span>{/if}
-          {:else if session.ended}
-            <StatusDot tone="danger" />
-            <span class="sr-only">{t('chat.tabs.stopped')}</span>
-          {/if}
-        </button>
+        <Tooltip text={tip.text} detail={[summary?.info.name, tip.detail].filter(Boolean).join('\n')} side="right" class="flex h-full min-w-0 flex-1">
+          {#snippet children({ describedby })}
+            <button
+              bind:this={rows[index]}
+              type="button"
+              aria-current={selected ? 'true' : undefined}
+              aria-describedby={describedby}
+              class="flex h-full w-full min-w-0 items-center gap-[8px] pr-[26px] pl-[8px] text-left text-base"
+              onclick={() => show(session.key)}
+              ondblclick={() => rename(session)}
+              onkeydown={(event) => onKeydown(event, index)}
+            >
+              {#if summary}<HarnessBadge info={summary.info} size="xs" /><span class="sr-only">{t('chat.tabs.harness', { name: summary.info.name })}</span>{/if}
+              {#if renaming !== session.key}<span class={cx('min-w-0 truncate', selected && 'font-medium')}>{title}</span>{/if}
+              {#if session.streaming || helpers > 0}
+                <Spinner size={14} class="shrink-0 text-accent-text" label={t('chat.tabs.working')} />
+                {#if helpers > 0}<span class="tabular -ml-1 text-xs text-accent-text" title={tn('chat.tabs.subagents', helpers)}><span aria-hidden="true">{helpers}</span><span class="sr-only">{tn('chat.tabs.subagents', helpers)}</span></span>{/if}
+              {:else if session.ended}
+                <StatusDot tone="danger" />
+                <span class="sr-only">{t('chat.tabs.stopped')}</span>
+              {/if}
+            </button>
+          {/snippet}
+        </Tooltip>
         {#if renaming === session.key}
           <SessionName
             {session}
@@ -113,15 +119,9 @@
             }}
           />
         {/if}
-        <button
-          type="button"
-          aria-label={t('chat.tabs.close')}
-          title={t('chat.tabs.close')}
-          class="absolute top-[3px] right-[3px] grid size-[22px] place-items-center rounded-sm text-fg-3 opacity-0 transition-opacity hover:bg-hover hover:text-fg focus-visible:opacity-100 group-focus-within/card:opacity-100 group-hover/card:opacity-100"
-          onclick={() => close(session)}
-        >
-          <X size={14} aria-hidden="true" />
-        </button>
+        <div class="absolute top-[3px] right-[3px] opacity-0 transition-opacity focus-within:opacity-100 group-hover/card:opacity-100">
+          <IconButton icon={X} label={t('chat.tabs.close')} size="sm" side="right" class="size-[22px] text-fg-3" onclick={() => close(session)} />
+        </div>
       </div>
     </div>
   {/each}
