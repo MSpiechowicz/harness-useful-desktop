@@ -311,7 +311,7 @@
         title={t('chat.attach.add')}
         disabled={session.ended || bash || attachFull}
         onclick={() => fileInput?.click()}
-        class="inline-flex h-control items-center justify-center gap-1.5 rounded-md px-2 text-sm text-fg-3 transition-colors duration-[var(--dur-fast)] hover:bg-hover hover:text-fg disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-fg-3 @max-[560px]:w-control"
+        class="inline-flex h-control items-center justify-center gap-1.5 rounded-md pr-2 pl-1.5 text-sm text-fg-3 transition-colors duration-[var(--dur-fast)] hover:bg-hover hover:text-fg disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-fg-3 @max-[560px]:w-control @max-[560px]:px-0"
       >
         <Paperclip size={16} aria-hidden="true" />
         <span class="@max-[560px]:hidden">{t('chat.composer.attach')}</span>
