@@ -1,5 +1,4 @@
 <script lang="ts">
-  import Kbd from '$lib/components/Kbd.svelte';
   import Tooltip from '$lib/components/Tooltip.svelte';
   import { ICON } from '$lib/components/icon';
   import { cx } from '$lib/utils/cx';
@@ -65,12 +64,11 @@
 
       {#if expanded}
         {#if badge && badge.text !== ''}
-          <span aria-hidden="true" class={cx('tabular rounded-full px-1.5 text-xs leading-5 group-hover/item:hidden group-focus-visible/item:hidden', badge.tone === 'warning' ? 'bg-warning-wash text-warning' : 'bg-surface-3 text-fg-2')}>{badge.text}</span>
+          <span aria-hidden="true" class={cx('tabular rounded-full px-1.5 text-xs leading-5', badge.tone === 'warning' ? 'bg-warning-wash text-warning' : 'bg-surface-3 text-fg-2')}>{badge.text}</span>
         {:else if badge}
-          <span aria-hidden="true" class={cx('size-2 rounded-full group-hover/item:hidden', badge.tone === 'warning' ? 'bg-warning' : 'bg-accent', badge.busy && 'animate-pulse')}></span>
+          <span aria-hidden="true" class={cx('size-2 rounded-full', badge.tone === 'warning' ? 'bg-warning' : 'bg-accent', badge.busy && 'animate-pulse')}></span>
         {/if}
 
-        <span class="hidden shrink-0 group-hover/item:inline-flex group-focus-visible/item:inline-flex"><Kbd keys={shortcut} /></span>
       {/if}
     </button>
   {/snippet}

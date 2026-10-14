@@ -5,7 +5,6 @@
 
   import { createSpring, moveSpring } from '$lib/design/motion';
   import { t } from '$lib/i18n/i18n.svelte';
-  import Kbd from '$lib/components/Kbd.svelte';
   import Tooltip from '$lib/components/Tooltip.svelte';
   import { ICON } from '$lib/components/icon';
   import Logo from '$lib/components/Logo.svelte';
@@ -107,7 +106,6 @@
         <span class="grid size-[16px] shrink-0 place-items-center"><Icon size={ICON.sm} aria-hidden="true" /></span>
         {#if expanded}
           <span class="min-w-0 flex-1 truncate text-base whitespace-nowrap">{label}</span>
-          <span class="hidden shrink-0 group-hover/item:inline-flex group-focus-visible/item:inline-flex"><Kbd keys="mod+b" /></span>
         {/if}
       </button>
     {/snippet}
