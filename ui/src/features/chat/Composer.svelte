@@ -252,7 +252,8 @@
 
 <svelte:window onkeydown={onwindowkeydown} />
 
-<div class="chat-col relative pt-0 pb-5">
+<!-- 26.5px lifts the card until its top edge lines up with the top border of the rail footer when an update card is showing. -->
+<div class="chat-col relative pt-0 pb-[26.5px]">
   {#if menuOpen}
     <div class="absolute inset-x-[var(--gutter)] top-0">
       <SlashMenu id={menuId} commands={suggestions} query={query ?? ''} {active} onaccept={accept} onhover={(index) => (active = index)} />
