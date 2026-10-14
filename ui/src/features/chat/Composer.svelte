@@ -305,17 +305,17 @@
 
     <div class="flex items-center gap-1 px-2 pb-2">
       <input bind:this={fileInput} type="file" multiple class="hidden" tabindex="-1" aria-hidden="true" onchange={onpick} />
-      <Button
-        variant="ghost"
-        class="gap-1.5! px-2! @max-[560px]:size-control @max-[560px]:px-0!"
+      <button
+        type="button"
         aria-label={t('chat.attach.add')}
         title={t('chat.attach.add')}
         disabled={session.ended || bash || attachFull}
         onclick={() => fileInput?.click()}
+        class="inline-flex h-control items-center justify-center gap-1.5 rounded-md px-2 text-sm text-fg-3 transition-colors duration-[var(--dur-fast)] hover:bg-hover hover:text-fg disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-fg-3 @max-[560px]:w-control"
       >
         <Paperclip size={16} aria-hidden="true" />
         <span class="@max-[560px]:hidden">{t('chat.composer.attach')}</span>
-      </Button>
+      </button>
       <ModelPicker {session} />
       <ThinkingPicker {session} />
 
