@@ -17,6 +17,7 @@
   import { byteLength, MAX_TEXT_BYTES, review, type DraftComment } from '$lib/stores/review.svelte';
   import { cx } from '$lib/utils/cx';
   import { uid } from '$lib/utils/ids';
+  import { splitPath } from './paths';
 
   interface Props {
     open: boolean;
@@ -73,15 +74,9 @@
     editing = null;
   });
 
-  function split(path: string): { dir: string; name: string } {
-    const cut = path.lastIndexOf('/');
-
-    return cut === -1 ? { dir: '', name: path } : { dir: path.slice(0, cut + 1), name: path.slice(cut + 1) };
-  }
-
   /** The path in two pieces (folder, file name), each cut at the edges of the words the search found. */
   function pathPieces(path: string): { dir: Piece[]; name: Piece[] } {
-    const parts = split(path);
+    const parts = splitPath(path);
     const spans = needle === null ? [] : matchRanges(path, needle);
 
     return { dir: cutPieces(parts.dir, 0, spans), name: cutPieces(parts.name, parts.dir.length, spans) };

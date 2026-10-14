@@ -2,6 +2,7 @@
   import ShieldCheck from '@lucide/svelte/icons/shield-check';
 
   import Card from '$lib/components/Card.svelte';
+  import StatGrid from '$lib/components/StatGrid.svelte';
   import { ICON } from '$lib/components/icon';
   import { t } from '$lib/i18n/i18n.svelte';
   import type { ConfigSection } from '$lib/ipc/bindings/ConfigSection';
@@ -44,14 +45,7 @@
 <aside aria-label={t('config.detail.aside')} class={cx('flex flex-col gap-3 p-4', className)}>
   <Card as="section" padded={false} class="p-3.5">
     {@render title(t('config.overview.title'))}
-    <dl class="grid grid-cols-2 gap-x-3 gap-y-3">
-      {#each overview as stat (stat.label)}
-        <div class="flex flex-col-reverse">
-          <dt class="text-xs text-fg-3">{stat.label}</dt>
-          <dd class="tabular text-lg font-semibold text-fg">{stat.value}</dd>
-        </div>
-      {/each}
-    </dl>
+    <StatGrid stats={overview} />
   </Card>
 
   <Card as="section" padded={false} class="p-3.5">

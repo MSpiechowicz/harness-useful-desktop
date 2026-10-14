@@ -11,6 +11,7 @@
   import { rovingIndex } from '$lib/utils/roving';
 
   import { folded } from './sections.svelte';
+  import { splitPath } from './paths';
 
   interface Props {
     entries: StatusEntry[];
@@ -49,12 +50,6 @@
 
   const keyOf = (row: Row): string => `${row.section}:${row.entry.path}`;
   const isSelected = (row: Row): boolean => row.entry.path === git.selected && row.section === git.section;
-
-  function split(path: string): { dir: string; name: string } {
-    const cut = path.lastIndexOf('/');
-
-    return cut === -1 ? { dir: '', name: path } : { dir: path.slice(0, cut + 1), name: path.slice(cut + 1) };
-  }
 
   /** Added and removed lines of a file under a heading, once its diff has loaded. */
   function stats(path: string, section: Section): { additions: number; deletions: number } | null {
@@ -109,7 +104,7 @@
             {@const entry = row.entry}
             {@const selected = isSelected(row)}
             {@const status = (group.section === 'staged' ? entry.staged : entry.unstaged) ?? entry.staged ?? 'modified'}
-            {@const parts = split(entry.path)}
+            {@const parts = splitPath(entry.path)}
             {@const counts = stats(entry.path, group.section)}
             {@const comments = commentCounts.get(entry.path) ?? 0}
             <li role="presentation">

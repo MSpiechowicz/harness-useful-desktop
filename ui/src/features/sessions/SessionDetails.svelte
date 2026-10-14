@@ -1,5 +1,6 @@
 <script lang="ts">
   import Card from '$lib/components/Card.svelte';
+  import StatGrid from '$lib/components/StatGrid.svelte';
   import { t, tn } from '$lib/i18n/i18n.svelte';
   import type { SessionSummary } from '$lib/ipc/bindings/SessionSummary';
   import type { TranscriptStats } from '$lib/ipc/bindings/TranscriptStats';
@@ -50,14 +51,7 @@
 <aside aria-label={t('sessions.details.label')} class={cx('flex flex-col gap-3 overflow-y-auto p-4', className)}>
   <Card as="section" padded={false} class="p-3.5">
     {@render title(t('sessions.details.overview'))}
-    <dl class="grid grid-cols-2 gap-x-3 gap-y-3">
-      {#each overview as stat (stat.label)}
-        <div class="flex flex-col-reverse">
-          <dt class="text-xs text-fg-3">{stat.label}</dt>
-          <dd class="tabular text-lg font-semibold text-fg">{stat.value}</dd>
-        </div>
-      {/each}
-    </dl>
+    <StatGrid stats={overview} />
   </Card>
 
   <Card as="section" padded={false} class="p-3.5">

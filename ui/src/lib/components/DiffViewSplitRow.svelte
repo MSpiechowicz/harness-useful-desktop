@@ -1,24 +1,21 @@
 <script lang="ts">
   import { lineSign, lineSpoken, type IndexedLine, type PairRow } from '$lib/git/diff-rows';
-  import { commentOnLineClick, type PickHandlers } from '$lib/git/comment-range';
+  import { commentOnLineClick } from '$lib/git/comment-range';
   import type { CommentSide } from '$lib/ipc/bindings/CommentSide';
   import type { HighlightedLine } from '$lib/markdown/highlight';
   import { cx } from '$lib/utils/cx';
 
+  import type { DiffRowShared } from './diff-row-props';
   import { DIFF_TEXT } from './diff-tones';
   import DiffViewAddComment from './DiffViewAddComment.svelte';
   import DiffViewCode from './DiffViewCode.svelte';
   import DiffViewGutter from './DiffViewGutter.svelte';
 
-  interface Props {
+  interface Props extends DiffRowShared {
     row: PairRow;
     highlighted: ReadonlyMap<number, HighlightedLine>;
     /** Flat indexes inside the range being commented on. */
     covered: ReadonlySet<number>;
-    pick: PickHandlers;
-    /** The normalized search query, and the flat index of the match being stepped through. */
-    query?: string | null;
-    currentMatch?: number;
   }
 
   let { row, highlighted, covered, pick, query = null, currentMatch = -1 }: Props = $props();

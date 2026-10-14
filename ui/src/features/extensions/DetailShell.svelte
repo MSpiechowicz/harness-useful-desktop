@@ -2,6 +2,7 @@
   import type { Snippet } from 'svelte';
 
   import Card from '$lib/components/Card.svelte';
+  import StatGrid from '$lib/components/StatGrid.svelte';
   import StatusDot from '$lib/components/StatusDot.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
   import { cx } from '$lib/utils/cx';
@@ -60,14 +61,7 @@
     {#if stats.length > 0}
       <Card as="section" padded={false} class="p-3.5">
         <h3 class="mb-2.5 text-xs font-medium tracking-wider text-fg-3 uppercase">{t('extensions.overview.title')}</h3>
-        <dl class="grid grid-cols-2 gap-x-3 gap-y-3">
-          {#each stats as stat (stat.label)}
-            <div class="flex min-w-0 flex-col-reverse">
-              <dt class="truncate text-xs text-fg-3">{stat.label}</dt>
-              <dd class="tabular truncate text-lg font-semibold text-fg" title={stat.value}>{stat.value}</dd>
-            </div>
-          {/each}
-        </dl>
+        <StatGrid stats={stats} />
       </Card>
     {/if}
 

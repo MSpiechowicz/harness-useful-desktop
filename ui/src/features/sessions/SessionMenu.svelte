@@ -1,22 +1,19 @@
 <script lang="ts">
-  import Ellipsis from '@lucide/svelte/icons/ellipsis';
   import Trash2 from '@lucide/svelte/icons/trash-2';
 
-  import { ICON } from '$lib/components/icon';
-  import IconButton from '$lib/components/IconButton.svelte';
-  import Popover from '$lib/components/Popover.svelte';
+  import MenuItem from '$lib/components/MenuItem.svelte';
+  import MoreMenu from '$lib/components/MoreMenu.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
 
-  interface Props {
+  type Props = {
     /** Accessible name of the trigger, e.g. "Session actions". */
     label: string;
+    /** Whether the menu is open; the row keeps its buttons visible while it is. */
     open?: boolean;
-    /** Classes of the trigger button. */
-    class?: string;
     ondelete: () => void;
-  }
+  };
 
-  let { label, open = $bindable(false), class: className, ondelete }: Props = $props();
+  let { label, open = $bindable(false), ondelete }: Props = $props();
 
   function remove(close: () => void): void {
     close();
@@ -24,23 +21,8 @@
   }
 </script>
 
-<Popover {label} kind="menu" align="end" bind:open class="w-44 min-w-0!">
-  {#snippet trigger({ props })}
-    <IconButton {...props} icon={Ellipsis} {label} class={className} />
-  {/snippet}
-
+<MoreMenu {label} bind:open panelClass="w-44">
   {#snippet children({ close })}
-    <div role="none" class="flex flex-col">
-      <button
-        type="button"
-        role="menuitem"
-        data-menu-item
-        class="flex items-center gap-2 rounded-sm px-2.5 py-2 text-left text-sm text-danger transition-colors hover:bg-danger-wash focus-visible:bg-danger-wash"
-        onclick={() => remove(close)}
-      >
-        <Trash2 size={ICON.sm} aria-hidden="true" />
-        {t('sessions.menu.delete')}
-      </button>
-    </div>
+    <MenuItem tone="danger" icon={Trash2} onclick={() => remove(close)}>{t('sessions.menu.delete')}</MenuItem>
   {/snippet}
-</Popover>
+</MoreMenu>

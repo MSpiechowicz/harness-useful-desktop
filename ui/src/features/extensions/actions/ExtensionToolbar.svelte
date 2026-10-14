@@ -1,12 +1,12 @@
 <script lang="ts">
   import ArrowUpFromLine from '@lucide/svelte/icons/arrow-up-from-line';
-  import ChevronDown from '@lucide/svelte/icons/chevron-down';
-  import Ellipsis from '@lucide/svelte/icons/ellipsis';
   import Plus from '@lucide/svelte/icons/plus';
 
   import Button from '$lib/components/Button.svelte';
+  import DropdownButton from '$lib/components/DropdownButton.svelte';
   import { ICON, type IconComponent } from '$lib/components/icon';
-  import IconButton from '$lib/components/IconButton.svelte';
+  import MenuItem from '$lib/components/MenuItem.svelte';
+  import MoreMenu from '$lib/components/MoreMenu.svelte';
   import Popover from '$lib/components/Popover.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
   import type { ExtensionAction } from '$lib/ipc/bindings/ExtensionAction';
@@ -69,9 +69,6 @@
   const bulk = $derived(BULK.filter((item) => capabilities?.[item.needs]));
   const busy = $derived(actionRunner.phase !== 'idle');
 
-  const ITEM =
-    'flex items-center gap-2 rounded-sm px-2.5 py-2 text-left text-sm text-fg transition-colors duration-[var(--dur-fast)] hover:bg-hover focus-visible:bg-hover disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-transparent';
-
   function run(item: Entry, close: () => void): void {
     const active = harness.active;
 
@@ -98,44 +95,30 @@
 {:else if adds.length > 1}
   <Popover label={t('extensions.install.button')} kind="menu" align="end" class="w-52 min-w-0!">
     {#snippet trigger({ props })}
-      <Button {...props} variant="primary" disabled={busy}>
-        {#snippet leading()}<Plus size={ICON.sm} aria-hidden="true" />{/snippet}
-        {t('extensions.install.button')}
-        {#snippet trailing()}<ChevronDown size={ICON.sm} aria-hidden="true" />{/snippet}
-      </Button>
+      <DropdownButton {...props} variant="primary" icon={Plus} disabled={busy}>{t('extensions.install.button')}</DropdownButton>
     {/snippet}
 
     {#snippet children({ close })}
       <div role="none" class="flex flex-col">
-        {#each adds as item (item.label)}
-          <button type="button" role="menuitem" data-menu-item class={ITEM} onclick={() => run(item, close)}>
-            <item.icon size={ICON.sm} aria-hidden="true" />
-            {item.label}
-          </button>
-        {/each}
+        {@render entries(adds, close)}
       </div>
     {/snippet}
   </Popover>
 {/if}
 
 {#if bulk.length > 0}
-<Popover label={t('extensions.menu.label')} kind="menu" align="end" class="w-60 min-w-0!">
-  {#snippet trigger({ props })}
-    <IconButton {...props} icon={Ellipsis} label={t('extensions.menu.label')} />
-  {/snippet}
-
-  {#snippet children({ close })}
-    <div role="none" class="flex flex-col">
-      {#each bulk as item (item.label)}
-        <button type="button" role="menuitem" data-menu-item class={ITEM} disabled={busy || item.idle?.()} onclick={() => run(item, close)}>
-          <item.icon size={ICON.sm} aria-hidden="true" />
-          {item.label}
-        </button>
-      {/each}
-    </div>
-  {/snippet}
-</Popover>
+  <MoreMenu label={t('extensions.menu.label')} panelClass="w-60">
+    {#snippet children({ close })}
+      {@render entries(bulk, close)}
+    {/snippet}
+  </MoreMenu>
 {/if}
+
+{#snippet entries(list: Entry[], close: () => void)}
+  {#each list as item (item.label)}
+    <MenuItem icon={item.icon} disabled={busy || item.idle?.()} onclick={() => run(item, close)}>{item.label}</MenuItem>
+  {/each}
+{/snippet}
 
 {#if composing}
   <InstallDialog kind={composing} onsubmit={review} onclose={() => (composing = null)} />
