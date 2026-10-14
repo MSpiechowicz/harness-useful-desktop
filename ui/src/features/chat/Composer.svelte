@@ -16,6 +16,7 @@
   import { t } from '$lib/i18n/i18n.svelte';
 
   import ContextMeter from './ContextMeter.svelte';
+  import CostChip from '$lib/components/CostChip.svelte';
   import ModelPicker from './ModelPicker.svelte';
   import ProjectPicker from './ProjectPicker.svelte';
   import { runSlash } from './slash-run';
@@ -41,6 +42,8 @@
   const suggestions = $derived(query === null ? [] : filterCommands(session.commands, query));
   const menuOpen = $derived(suggestions.length > 0 && dismissedFor !== session.draft && !session.ended);
   const bash = $derived(isBashDraft(session.draft));
+  const sessionId = $derived(session.chat.session?.sessionId ?? null);
+  const costArgs = $derived(sessionId ? { session_id: sessionId } : null);
   const canSend = $derived(session.draft.trim() !== '' && !session.ended);
   const queued = $derived(session.chat.queue.steering.length + session.chat.queue.followUp.length);
 
@@ -190,6 +193,7 @@
       <div class="ml-auto flex min-w-0 items-center gap-1.5">
         <ProjectPicker {session} />
         <ContextMeter usage={session.chat.session?.contextUsage ?? null} />
+        <CostChip kind="session" args={costArgs} refreshKey={session.streaming} align="end" side="top" quiet />
 
         {#if session.streaming}
           <Button size="sm" variant="ghost" disabled={!canSend} onclick={() => void submit('followUp')}>{t('chat.composer.followUp')}</Button>

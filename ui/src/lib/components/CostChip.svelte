@@ -21,10 +21,14 @@
     refreshKey?: unknown;
     /** Which edge of the chip the details open from. */
     align?: 'start' | 'end';
+    /** Which side of the chip the details open on; `top` near the bottom of the window. */
+    side?: 'top' | 'bottom';
+    /** Plain text beside other small meters instead of a bordered chip. */
+    quiet?: boolean;
     class?: string;
   }
 
-  let { kind, args, refreshKey, align = 'end', class: className }: Props = $props();
+  let { kind, args, refreshKey, align = 'end', side = 'bottom', quiet = false, class: className }: Props = $props();
 
   /** The dashboard rescans every 30 seconds, so asking more often only repeats an answer. */
   const POLL_MS = 60_000;
@@ -86,15 +90,18 @@
 
 {#if summary}
   <span in:rise={{ y: 4, duration: 240 }} class={cx('inline-flex', className)}>
-    <Popover label={title} kind="dialog" {align} bind:open class="w-72">
+    <Popover label={title} kind="dialog" {align} {side} bind:open class="w-72">
       {#snippet trigger({ props })}
         <button
           type="button"
           {...props}
           aria-label={t(kind === 'session' ? 'components.cost.aria.session' : 'components.cost.aria.branch', { amount: formatUsd(summary.costUsd) })}
-          class="tabular inline-flex h-8 items-center gap-1.5 rounded-md border border-line bg-surface-2 px-2.5 text-sm text-fg-2 transition-[background-color,color,transform] duration-[var(--dur-fast)] hover:bg-surface-3 hover:text-fg active:scale-[0.97]"
+          class={cx(
+            'tabular inline-flex h-8 items-center gap-1.5 rounded-md transition-[background-color,color,transform] duration-[var(--dur-fast)] active:scale-[0.97]',
+            quiet ? 'px-1.5 text-xs text-fg-3 hover:bg-hover hover:text-fg' : 'border border-line bg-surface-2 px-2.5 text-sm text-fg-2 hover:bg-surface-3 hover:text-fg',
+          )}
         >
-          <Coins size={16} class="text-accent-text" aria-hidden="true" />
+          <Coins size={16} class={quiet ? undefined : 'text-accent-text'} aria-hidden="true" />
           {formatUsd(summary.costUsd)}
         </button>
       {/snippet}

@@ -4,7 +4,6 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { fixtures } from '$lib/ipc/mock/fixtures';
 import { agentSessions } from '$lib/stores/agentSession.svelte';
 import { harness } from '$lib/stores/harness.svelte';
-import { project } from '$lib/stores/project.svelte';
 
 import { chatSession } from '../../../tests/chat-helpers';
 import ChatBar from './ChatBar.svelte';
@@ -19,8 +18,8 @@ afterEach(() => {
 });
 
 describe('chat header bar', () => {
-  it('has no tab strip: the open chats live in the rail, and the page is named after the open one', () => {
-    const { session } = chatSession();
+  it('shows the open chat\'s harness, its name and its controls, with no tab strip and no new-chat button', () => {
+    const { session } = chatSession([], { configuredApprovalMode: 'yolo', approvalOverride: null });
     const { session: other } = chatSession([], { key: 'second-chat' });
     agentSessions.sessions = [session, other];
     agentSessions.activeKey = session.key;
@@ -29,25 +28,18 @@ describe('chat header bar', () => {
 
     const header = screen.getByRole('banner');
     expect(within(header).getByRole('heading', { level: 1, name: agentSessions.title(session.key) })).toBeInTheDocument();
+    expect(within(header).getByText('OMP')).toBeInTheDocument();
+    expect(within(header).getByText('Approvals: yolo')).toBeInTheDocument();
+    expect(within(header).getByRole('button', { name: /thought process/i })).toBeInTheDocument();
+    expect(within(header).getByText('Stats')).toBeInTheDocument();
     expect(within(header).queryByRole('tablist')).toBeNull();
-    expect(within(header).getByRole('button', { name: /New chat/ })).toBeInTheDocument();
+    expect(within(header).queryByRole('button', { name: /New chat/ })).toBeNull();
   });
 
-  it('names the page "Chat" before the first chat, and keeps the actions', () => {
+  it('names the page "Chat" before the first chat, with no controls', () => {
     render(ChatBar);
 
     expect(screen.getByRole('heading', { level: 1, name: 'Chat' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /New chat/ })).toBeInTheDocument();
-  });
-
-  it('cannot start a chat without a project', () => {
-    const open = project.active;
-    project.active = null;
-
-    render(ChatBar);
-
-    expect(screen.getByRole('button', { name: /New chat/ })).toBeDisabled();
-
-    project.active = open;
+    expect(screen.queryByText(/Approvals:/)).toBeNull();
   });
 });

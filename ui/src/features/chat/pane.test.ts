@@ -16,7 +16,7 @@ import { prefs } from '$lib/stores/prefs.svelte';
 
 import { chatSession, STREAMING, startedSession } from '../../../tests/chat-helpers';
 import { samplePrefs } from '../../../tests/helpers';
-import ChatHeader from './ChatHeader.svelte';
+import ChatControls from './ChatControls.svelte';
 import ChatPane from './ChatPane.svelte';
 import Composer from './Composer.svelte';
 import { chatStatus } from './chat-status';
@@ -33,7 +33,7 @@ function replayed(name: keyof typeof fixtures.agent.streams, count?: number): Ag
 describe('approval mode badge', () => {
   it('warns that yolo runs tools without asking', async () => {
     const { session } = chatSession([], { configuredApprovalMode: 'yolo', approvalOverride: null });
-    render(ChatHeader, { session });
+    render(ChatControls, { session });
 
     const badge = screen.getByText('Approvals: yolo');
     expect(badge.className).toContain('bg-warning-wash');
@@ -46,7 +46,7 @@ describe('approval mode badge', () => {
 
   it('shows the session override instead of the configured mode', () => {
     const { session } = chatSession([], { configuredApprovalMode: 'yolo', approvalOverride: 'alwaysAsk' });
-    render(ChatHeader, { session });
+    render(ChatControls, { session });
 
     const badge = screen.getByText('Approvals: ask every time');
     expect(badge.className).toContain('bg-success-wash');
@@ -55,7 +55,7 @@ describe('approval mode badge', () => {
 
   it('restarts the session with the chosen mode', async () => {
     const { session } = chatSession([], { configuredApprovalMode: 'yolo', approvalOverride: null });
-    render(ChatHeader, { session });
+    render(ChatControls, { session });
 
     await fireEvent.click(screen.getByRole('button', { name: /Approval mode: yolo/ }));
     const apply = await screen.findByRole('button', { name: 'Restart with this mode' });
@@ -69,7 +69,7 @@ describe('approval mode badge', () => {
 
   it('is left out for a harness without approval modes', () => {
     const { session } = chatSession([], { harness: 'pi', configuredApprovalMode: null });
-    render(ChatHeader, { session });
+    render(ChatControls, { session });
 
     expect(screen.queryByText(/Approvals:/)).toBeNull();
   });
@@ -78,7 +78,7 @@ describe('approval mode badge', () => {
 describe('PI trust', () => {
   it('trusts the project only on the explicit restart', async () => {
     const { session } = chatSession([], { harness: 'pi', configuredApprovalMode: null, trustedOnce: false });
-    render(ChatHeader, { session });
+    render(ChatControls, { session });
 
     await fireEvent.click(screen.getByRole('button', { name: 'Trust project once' }));
     expect(await screen.findByText(/applies to this session only/)).toBeInTheDocument();
@@ -91,7 +91,7 @@ describe('PI trust', () => {
 
   it('shows that the project is trusted for this launch', () => {
     const { session } = chatSession([], { harness: 'pi', configuredApprovalMode: null, trustedOnce: true });
-    render(ChatHeader, { session });
+    render(ChatControls, { session });
 
     expect(screen.getByText('Project trusted for this session')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Trust project once' })).toBeNull();
@@ -128,7 +128,7 @@ describe('header controls', () => {
   it('loads statistics on demand', async () => {
     const { session } = await startedSession();
     session.apply((state) => ({ ...state, session: fixtures.agent.state.state }));
-    render(ChatHeader, { session });
+    render(ChatControls, { session });
 
     await fireEvent.click(screen.getByRole('button', { name: 'Session statistics' }));
 
@@ -223,11 +223,12 @@ describe('transcript', () => {
     expect(await screen.findByText(/The parser panics on empty input/)).toBeInTheDocument();
   });
 
-  it('hides the thought process when the chat header toggle turns it off', async () => {
+  it('hides the thought process when the top bar toggle turns it off', async () => {
     prefs.value = samplePrefs();
     try {
       const { session } = chatSession(replayed('basic'));
       render(ChatPane, { session });
+      render(ChatControls, { session });
 
       expect(await screen.findByRole('button', { name: /Thought process/ })).toBeInTheDocument();
 

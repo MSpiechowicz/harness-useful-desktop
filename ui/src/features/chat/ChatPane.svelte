@@ -7,7 +7,6 @@
   import ApprovalCard from './ApprovalCard.svelte';
   import AskDialog from './AskDialog.svelte';
   import BashConfirmDialog from './BashConfirmDialog.svelte';
-  import ChatHeader from './ChatHeader.svelte';
   import Composer from './Composer.svelte';
   import CrashCard from './CrashCard.svelte';
   import MessageList from './MessageList.svelte';
@@ -33,7 +32,6 @@
 </script>
 
 <div class="flex size-full min-h-0 flex-col">
-  <ChatHeader {session} />
   <MessageList {session} />
 
   <span class="sr-only" role="status">{session.streaming ? t('chat.list.responding') : ''}</span>

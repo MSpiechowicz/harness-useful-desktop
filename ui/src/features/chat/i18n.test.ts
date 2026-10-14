@@ -9,7 +9,7 @@ import { harness } from '$lib/stores/harness.svelte';
 
 import { chatSession } from '../../../tests/chat-helpers';
 import { chatStatus } from './chat-status';
-import ChatHeader from './ChatHeader.svelte';
+import ChatControls from './ChatControls.svelte';
 import MessageMetaLine from './MessageMeta.svelte';
 import ToolResult from './ToolResult.svelte';
 
@@ -26,7 +26,7 @@ describe('chat in Polish', () => {
     await i18n.load('pl');
     const { session } = chatSession([], { configuredApprovalMode: 'yolo', approvalOverride: null });
 
-    render(ChatHeader, { session });
+    render(ChatControls, { session });
 
     expect(screen.getByText('Zatwierdzanie: yolo')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Tryb zatwierdzania: yolo. Zmień' })).toBeInTheDocument();
