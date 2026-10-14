@@ -3,7 +3,6 @@ import type { AreaMessages } from '../types';
 
 export const ecosystem: AreaMessages<typeof enEcosystem> = {
   'ecosystem.title': 'Ecosistema',
-  'ecosystem.refresh': 'Actualizar el ecosistema',
   'ecosystem.retry': 'Reintentar',
   'ecosystem.view.looking': 'Buscando complementos…',
   'ecosystem.view.failed': 'No se pudo buscar complementos',

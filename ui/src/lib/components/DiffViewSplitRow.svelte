@@ -16,9 +16,12 @@
     /** Flat indexes inside the range being commented on. */
     covered: ReadonlySet<number>;
     pick: PickHandlers;
+    /** The normalized search query, and the flat index of the match being stepped through. */
+    query?: string | null;
+    currentMatch?: number;
   }
 
-  let { row, highlighted, covered, pick }: Props = $props();
+  let { row, highlighted, covered, pick, query = null, currentMatch = -1 }: Props = $props();
 
   function tone(cell: IndexedLine | null, side: CommentSide): string {
     if (cell === null) {
@@ -51,7 +54,7 @@
         <DiffViewGutter number={half.side === 'old' ? half.cell.line.oldNo : half.cell.line.newNo} side={half.side} index={half.cell.index} {pick} />
         <DiffViewAddComment sign={lineSign(half.cell.line.kind)} tone={DIFF_TEXT[half.cell.line.kind]} index={half.cell.index} side={half.side} {pick} />
         <span class="sr-only">{lineSpoken(half.cell.line.kind)}</span>
-        <DiffViewCode text={half.cell.line.text} tokens={highlighted.get(half.cell.index)} kind={half.cell.line.kind} />
+        <DiffViewCode text={half.cell.line.text} tokens={highlighted.get(half.cell.index)} kind={half.cell.line.kind} {query} current={half.cell.index === currentMatch} />
       {:else}
         <span class="min-h-[20px] w-full" aria-hidden="true"></span>
       {/if}

@@ -3,7 +3,6 @@ import type { AreaMessages } from '../types';
 
 export const config: AreaMessages<typeof enConfig> = {
   'config.title': 'Konfiguration',
-  'config.reload': 'Konfiguration neu laden',
   'config.resize': 'Größe der Dateiliste ändern',
   'config.empty': 'Für dieses Harness wurden keine Konfigurationsdateien gefunden.',
 

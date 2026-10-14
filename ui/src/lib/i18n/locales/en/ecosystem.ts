@@ -1,6 +1,5 @@
 export const ecosystem = {
   'ecosystem.title': 'Ecosystem',
-  'ecosystem.refresh': 'Refresh ecosystem',
   'ecosystem.retry': 'Try again',
   'ecosystem.view.looking': 'Looking for companions…',
   'ecosystem.view.failed': 'Could not look for companions',

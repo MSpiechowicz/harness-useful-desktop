@@ -1,11 +1,11 @@
 <script lang="ts">
+  import { autoRefresh } from '$lib/utils/auto-refresh';
   import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
 
   import { t } from '$lib/i18n/i18n.svelte';
   import ListDetail from '$lib/components/ListDetail.svelte';
   import NoticeBanner from '$lib/components/NoticeBanner.svelte';
   import ViewHeader from '$lib/components/ViewHeader.svelte';
-  import RefreshButton from '$lib/components/RefreshButton.svelte';
   import type { ConfigView } from '$lib/ipc/bindings/ConfigView';
   import { harness } from '$lib/stores/harness.svelte';
   import { viewState } from '$lib/stores/view-state.svelte';
@@ -29,14 +29,14 @@
     viewState.configQuery = '';
   }
 
+  // Config files change on disk under an open view (the agent edits them), so it re-reads quietly.
+  $effect(() => autoRefresh(() => void configView.refresh({ quiet: true }), 5000));
+
   const files = $derived(configView.data?.harness === harness.active?.info.id ? configView.data?.sections.length : undefined);
 </script>
 
 <div class="flex size-full min-h-0 flex-col">
   <ViewHeader title={t('config.title')} icon={SlidersHorizontal} context={scopeLabel(files === undefined ? null : count(files, 'file'))}>
-    {#snippet actions()}
-      <RefreshButton label={t('config.reload')} onclick={() => configView.refresh()} />
-    {/snippet}
   </ViewHeader>
 
   <div class="relative min-h-0 flex-1">

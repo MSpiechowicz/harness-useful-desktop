@@ -5,7 +5,6 @@ export const extensions: AreaMessages<typeof enExtensions> = {
   'extensions.title': 'Extensions',
   'extensions.context.project': 'Extensions du projet et de l’utilisateur',
   'extensions.context.user': 'Extensions de l’utilisateur',
-  'extensions.reload': 'Recharger les extensions',
   'extensions.types': 'Types d’extensions',
   'extensions.noTypes.title': 'Aucun type d’extension',
   'extensions.noTypes.body': 'Ce harness n’expose ni plugins, ni skills, ni serveurs MCP.',

@@ -30,7 +30,7 @@ export function railBadge(view: ViewId, chat: ChatState | null, git: GitStatus |
   if (view === 'changes' && git?.isRepo && git.entries.length > 0) {
     const count = git.entries.length;
 
-    return { text: count > 99 ? '99+' : String(count), label: tn('shell.count.changedFile', count), tone: 'accent', busy: false };
+    return { text: count > 99 ? '99+' : String(count), label: tn('shell.count.changedFile', count), tone: 'warning', busy: false };
   }
 
   return null;

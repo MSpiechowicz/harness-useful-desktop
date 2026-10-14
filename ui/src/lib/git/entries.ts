@@ -38,6 +38,15 @@ export function inScope(entry: StatusEntry, scope: DiffScope): boolean {
   }
 }
 
+/** The headings the changed files are listed under, in order. A file both staged and edited is under two of them. */
+export const SECTIONS = ['unstaged', 'staged', 'untracked'] as const;
+export type Section = (typeof SECTIONS)[number];
+
+/** The sections a changed path belongs to. */
+export function entrySections(entry: StatusEntry): Section[] {
+  return SECTIONS.filter((section) => inScope(entry, section));
+}
+
 /** Paths compare equal across `./` prefixes and Windows separators. */
 export function normalizePath(path: string): string {
   return path.replaceAll('\\', '/').replace(/^\.\//, '');

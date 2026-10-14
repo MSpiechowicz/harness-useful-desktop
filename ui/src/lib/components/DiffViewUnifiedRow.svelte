@@ -16,9 +16,12 @@
     /** The line is inside the range being commented on. */
     selected: boolean;
     pick: PickHandlers;
+    /** The normalized search query, and the flat index of the match being stepped through. */
+    query?: string | null;
+    currentMatch?: number;
   }
 
-  let { row, tokens, selected, pick }: Props = $props();
+  let { row, tokens, selected, pick, query = null, currentMatch = -1 }: Props = $props();
 
   /** A removed line can only be commented on its old side; every other line on its new side. */
   const side = $derived(row.line.kind === 'remove' ? 'old' : 'new');
@@ -37,5 +40,5 @@
   <DiffViewGutter number={row.line.newNo} side="new" index={row.index} {pick} />
   <DiffViewAddComment sign={lineSign(row.line.kind)} tone={DIFF_TEXT[row.line.kind]} index={row.index} {side} {pick} />
   <span class="sr-only">{lineSpoken(row.line.kind)}</span>
-  <DiffViewCode text={row.line.text} {tokens} kind={row.line.kind} />
+  <DiffViewCode text={row.line.text} {tokens} kind={row.line.kind} {query} current={row.index === currentMatch} />
 </div>

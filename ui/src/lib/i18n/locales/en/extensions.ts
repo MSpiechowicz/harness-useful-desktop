@@ -2,7 +2,6 @@ export const extensions = {
   'extensions.title': 'Extensions',
   'extensions.context.project': 'Project and user-level extensions',
   'extensions.context.user': 'User-level extensions',
-  'extensions.reload': 'Reload extensions',
   'extensions.types': 'Extension types',
   'extensions.noTypes.title': 'No extension types',
   'extensions.noTypes.body': 'This harness does not expose plugins, skills or MCP servers.',

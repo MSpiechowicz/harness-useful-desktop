@@ -1,4 +1,5 @@
-import { inScope, matchesPaths, normalizePath } from '$lib/git/entries';
+import { entrySections, inScope, matchesPaths, normalizePath, type Section } from '$lib/git/entries';
+import { matchingLines, normalizeQuery, type FileHit } from '$lib/git/search';
 import type { Branch } from '$lib/ipc/bindings/Branch';
 import type { DiffScope } from '$lib/ipc/bindings/DiffScope';
 import type { FileDiff } from '$lib/ipc/bindings/FileDiff';
@@ -40,10 +41,46 @@ export class GitStore {
   scope = $state<DiffScope>('all');
   filter = $state.raw<PathFilter | null>(null);
   selected = $state<string | null>(null);
+  /** Which heading the selected file was picked under; a file both staged and edited shows a different diff under each. */
+  section = $state<Section | null>(null);
   diffs = $state.raw<Record<string, DiffState>>({});
 
+  /** What the user typed in the search field: it matches paths and the lines of the diffs. */
+  search = $state('');
+  /** Which matching line of the open file is the current one, and how many there are (the diff view reports it). */
+  cursor = $state(0);
+  matchTotal = $state(0);
+
   /** Changed paths under the scope tab and the path filter. */
-  entries: StatusEntry[] = $derived(this.visibleEntries());
+  scopeEntries: StatusEntry[] = $derived(this.visibleEntries());
+
+  /** Per path, what the search found; empty without a query. A file whose diff has not loaded yet only has its path checked. */
+  hits: ReadonlyMap<string, FileHit> = $derived.by(() => {
+    const needle = normalizeQuery(this.search);
+    const found = new Map<string, FileHit>();
+
+    if (needle === null) {
+      return found;
+    }
+
+    for (const entry of this.scopeEntries) {
+      const state = this.diffs[entry.path];
+      const lines = state?.status === 'ready' ? state.diffs.reduce((sum, diff) => sum + matchingLines(diff, needle).length, 0) : 0;
+      const path = entry.path.toLowerCase().includes(needle) || (entry.origPath?.toLowerCase().includes(needle) ?? false);
+
+      if (path || lines > 0) {
+        found.set(entry.path, { path, lines });
+      }
+    }
+
+    return found;
+  });
+
+  /** Changed paths under the scope tab, the path filter and the search. */
+  entries: StatusEntry[] = $derived(normalizeQuery(this.search) === null ? this.scopeEntries : this.scopeEntries.filter((entry) => this.hits.has(entry.path)));
+
+  /** Some file in view has no diff to search yet. */
+  searching = $derived(normalizeQuery(this.search) !== null && this.scopeEntries.some((entry) => this.diffs[entry.path]?.status === 'loading' || this.diffs[entry.path] === undefined));
 
   private project: string | null = null;
   private generation = 0;
@@ -142,12 +179,47 @@ export class GitStore {
     this.reload();
   }
 
-  select(path: string | null): void {
-    this.selected = path;
+  /** Searches paths and contents; the diffs of the files in view are loaded first so contents can be read. */
+  setSearch(query: string): void {
+    this.search = query;
+    this.cursor = 0;
+
+    if (normalizeQuery(query) === null) {
+      return;
+    }
+
+    const missing = this.scopeEntries.filter((entry) => !this.diffs[entry.path]).map((entry) => entry.path);
+    if (missing.length > 0) {
+      void this.fetchDiffs(missing);
+    }
+
+    if (!this.entries.some((entry) => entry.path === this.selected)) {
+      this.choose(this.entries[0]?.path ?? null);
+    }
+  }
+
+  /** Moves to the next or previous match of the open file, wrapping around. */
+  stepMatch(direction: 1 | -1): void {
+    if (this.matchTotal > 0) {
+      this.cursor = (this.cursor + direction + this.matchTotal) % this.matchTotal;
+    }
+  }
+
+  /** Selects a file under a heading; without one, the first heading that holds it. */
+  select(path: string | null, section?: Section): void {
+    this.choose(path, section);
+    this.cursor = 0;
 
     if (path !== null && !this.diffs[path]) {
       void this.fetchDiffs([path]);
     }
+  }
+
+  private choose(path: string | null, section?: Section): void {
+    const entry = path === null ? undefined : this.status?.entries.find((candidate) => candidate.path === path);
+
+    this.selected = path;
+    this.section = path === null ? null : (section ?? (entry ? entrySections(entry)[0] : undefined) ?? null);
   }
 
   /** Selects a changed file even when the scope tab or the path filter hides it, by widening both. */
@@ -155,6 +227,7 @@ export class GitStore {
     const visible = this.entries.some((entry) => entry.path === path);
 
     if (!visible) {
+      this.search = '';
       this.filter = null;
       this.scope = 'all';
       this.reload();
@@ -194,16 +267,18 @@ export class GitStore {
   /** The diffs of the files in view are stale: forget them (or, `quiet`, keep showing them), keep a valid selection, fetch again. */
   private reload(quiet = false): void {
     this.diffGeneration += 1;
-    const visible = new Set(this.entries.map((entry) => entry.path));
+    const visible = new Set(this.scopeEntries.map((entry) => entry.path));
     this.diffs = quiet ? Object.fromEntries(Object.entries(this.diffs).filter(([path, diff]) => visible.has(path) && diff.status === 'ready')) : {};
 
-    const stillThere = this.selected !== null && this.entries.some((entry) => entry.path === this.selected);
-    if (!stillThere) {
-      this.selected = this.entries[0]?.path ?? null;
+    const current = this.selected === null ? undefined : this.entries.find((entry) => entry.path === this.selected);
+    if (!current) {
+      this.choose(this.entries[0]?.path ?? null);
+    } else if (this.section === null || !entrySections(current).includes(this.section)) {
+      this.choose(current.path);
     }
 
-    if (this.entries.length > 0 && this.entries.length <= BULK_LIMIT) {
-      void this.fetchDiffs(this.entries.map((entry) => entry.path), quiet);
+    if (this.scopeEntries.length > 0 && this.scopeEntries.length <= BULK_LIMIT) {
+      void this.fetchDiffs(this.scopeEntries.map((entry) => entry.path), quiet);
     } else if (this.selected !== null) {
       void this.fetchDiffs([this.selected], quiet);
     }
@@ -221,7 +296,7 @@ export class GitStore {
 
     const mine = this.diffGeneration;
     const bulk = paths.length > 1 && !this.filter;
-    const entries = this.entries.filter((entry) => paths.includes(entry.path));
+    const entries = this.scopeEntries.filter((entry) => paths.includes(entry.path));
     const requested = bulk ? [] : entries.flatMap((entry) => (entry.origPath ? [entry.path, entry.origPath] : [entry.path]));
 
     this.putDiffs(mine, quiet ? paths.filter((path) => this.diffs[path]?.status !== 'ready') : paths, { status: 'loading' });
@@ -229,7 +304,15 @@ export class GitStore {
     try {
       const found = await this.transport.invoke('git_diff', { project, request: { scope: this.scope, paths: requested } });
       for (const path of paths) {
-        this.putDiffs(mine, [path], { status: 'ready', diffs: found.filter((diff) => diff.path === path) });
+        const diffs = found.filter((diff) => diff.path === path);
+        const before = this.diffs[path];
+
+        // A quiet re-read that found the same diff keeps the one on screen, so an open comment or a gap the reader opened stays put.
+        if (before?.status === 'ready' && JSON.stringify(before.diffs) === JSON.stringify(diffs)) {
+          continue;
+        }
+
+        this.putDiffs(mine, [path], { status: 'ready', diffs });
       }
     } catch (error) {
       const failed = quiet ? paths.filter((path) => this.diffs[path]?.status !== 'ready') : paths;
@@ -271,7 +354,11 @@ export class GitStore {
     this.refreshing = false;
     this.scope = 'all';
     this.filter = null;
+    this.search = '';
+    this.cursor = 0;
+    this.matchTotal = 0;
     this.selected = null;
+    this.section = null;
     this.diffs = {};
   }
 }

@@ -6,6 +6,8 @@
   import { t } from '$lib/i18n/i18n.svelte';
   import { commentHeading, type ThreadComment } from '$lib/git/comment-range';
 
+  import Badge from './Badge.svelte';
+  import ConfirmDialog from './ConfirmDialog.svelte';
   import DiffViewComposer from './DiffViewComposer.svelte';
   import IconButton from './IconButton.svelte';
 
@@ -19,11 +21,27 @@
   let { comments, maxBytes, onedit, onremove }: Props = $props();
 
   let editing = $state<number | null>(null);
+  /** The comment waiting for an answer to "are you sure?". */
+  let deleting = $state<ThreadComment | null>(null);
+  let confirmOpen = $state(false);
+
+  function ask(comment: ThreadComment): void {
+    deleting = comment;
+    confirmOpen = true;
+  }
+
+  function confirmDelete(): void {
+    if (deleting) {
+      onremove(deleting.id);
+    }
+  }
 </script>
 
+<!-- A saved comment keeps the card it was written in: the same width and corners, the same badge naming the lines. Edit and
+     delete are always there, at the height of the badge beside them. -->
 <ul class="flex flex-col gap-2" aria-label={t('components.diff.comments')}>
   {#each comments as comment (comment.id)}
-    <li class="rounded-md border border-line bg-surface-2">
+    <li class="max-w-[640px]">
       {#if editing === comment.id}
         <DiffViewComposer
           heading={commentHeading(comment)}
@@ -37,17 +55,26 @@
           oncancel={() => (editing = null)}
         />
       {:else}
-        <div class="flex items-start gap-2 px-3 py-2">
-          <!-- The icon sits on the heading line: both are 16px tall. -->
-          <MessageSquare size={16} class="shrink-0 text-accent-text" aria-hidden="true" />
-          <div class="flex min-w-0 flex-1 flex-col gap-0.5">
-            <p class="text-xs leading-4 text-fg-3">{commentHeading(comment)}</p>
-            <p class="text-base break-words whitespace-pre-wrap text-fg">{comment.body}</p>
+        <div class="group/comment flex flex-col gap-2 rounded-lg border border-line-strong bg-surface-1 p-3 shadow-raised">
+          <div class="flex items-center gap-2">
+            <Badge tone="accent" class="h-control rounded-md! px-2.5 text-sm!">{commentHeading(comment)}</Badge>
+            <span class="ml-auto flex items-center gap-2">
+              <IconButton icon={Pencil} label={t('components.diff.edit')} iconSize={16} class="bg-surface-3! hover:bg-surface-4!" onclick={() => (editing = comment.id)} />
+              <IconButton icon={Trash2} label={t('components.diff.delete')} iconSize={16} class="bg-danger-wash! text-danger! hover:bg-danger/25!" onclick={() => ask(comment)} />
+            </span>
           </div>
-          <IconButton icon={Pencil} label={t('components.diff.edit')} class="size-7!" onclick={() => (editing = comment.id)} />
-          <IconButton icon={Trash2} label={t('components.diff.delete')} class="size-7!" onclick={() => onremove(comment.id)} />
+          <p class="px-0.5 text-base break-words whitespace-pre-wrap text-fg">{comment.body}</p>
         </div>
       {/if}
     </li>
   {/each}
 </ul>
+
+<ConfirmDialog
+  bind:open={confirmOpen}
+  title={t('components.diff.deleteTitle')}
+  description={t('components.diff.deleteBody')}
+  subject={deleting ? { icon: MessageSquare, name: deleting.body, details: commentHeading(deleting) } : undefined}
+  confirmLabel={t('components.diff.deleteConfirm')}
+  onconfirm={confirmDelete}
+/>

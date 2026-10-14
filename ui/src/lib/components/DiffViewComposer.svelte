@@ -1,7 +1,9 @@
 <script lang="ts">
   import { untrack } from 'svelte';
 
+  import Badge from './Badge.svelte';
   import Button from './Button.svelte';
+  import Kbd from './Kbd.svelte';
   import { autofocus } from '$lib/a11y/autofocus';
   import { t } from '$lib/i18n/i18n.svelte';
   import { uid } from '$lib/utils/ids';
@@ -43,20 +45,34 @@
   }
 </script>
 
-<div class="flex flex-col gap-2 rounded-md border border-line-strong bg-surface-1 p-3 shadow-raised">
-  <label for={fieldId} class="text-xs font-medium text-fg-2">{heading}</label>
-  <textarea
-    id={fieldId}
-    bind:value={body}
-    use:autofocus
-    {onkeydown}
-    rows="3"
-    placeholder={t('components.diff.placeholder')}
-    class="w-full resize-none rounded-sm border border-line bg-surface-2 px-3 py-2 text-base text-fg outline-none placeholder:text-fg-3 focus:border-focus"
-  ></textarea>
+<!-- A card no wider than a comfortable line, not a bar across the whole diff. The selected lines are already highlighted above
+     it, so it only names them; the footer says how to send and cancel. -->
+<div class="@container flex max-w-[640px] flex-col rounded-lg border border-line-strong bg-surface-1 shadow-raised">
+  <div class="px-3 pt-3">
+    <label for={fieldId} class="inline-flex"><Badge tone="accent" class="h-control rounded-md! px-2.5 text-sm!">{heading}</Badge></label>
+  </div>
 
-  <div class="flex items-center justify-end gap-2">
-    {#if tooLong}<span class="mr-auto text-xs text-danger" role="alert">{t('components.diff.tooLong', { size: maxBytes / 1024 })}</span>{/if}
+  <div class="px-3 py-2.5">
+    <textarea
+      id={fieldId}
+      bind:value={body}
+      use:autofocus
+      {onkeydown}
+      rows="3"
+      placeholder={t('components.diff.placeholder')}
+      class="w-full resize-none rounded-md border border-line bg-surface-2 px-3 py-2 text-base text-fg outline-none placeholder:text-fg-3 focus:border-focus"
+    ></textarea>
+  </div>
+
+  <div class="flex items-center gap-2 border-t border-line px-3 py-2.5">
+    {#if tooLong}
+      <span class="text-xs text-danger" role="alert">{t('components.diff.tooLong', { size: maxBytes / 1024 })}</span>
+    {:else}
+      <span class="hidden items-center gap-1.5 text-xs text-fg-3 @md:inline-flex">
+        <Kbd keys="mod+enter" small />{t('components.diff.hintSend')}<span aria-hidden="true">·</span><Kbd keys="escape" small />{t('components.diff.hintCancel')}
+      </span>
+    {/if}
+    <span class="flex-1"></span>
     <Button variant="ghost" onclick={oncancel}>{t('components.diff.cancel')}</Button>
     <Button variant="primary" disabled={text === '' || tooLong} onclick={save}>{saveLabel ?? t('components.diff.comment')}</Button>
   </div>

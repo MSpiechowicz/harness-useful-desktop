@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { autoRefresh } from '$lib/utils/auto-refresh';
   import CircleAlert from '@lucide/svelte/icons/circle-alert';
   import Orbit from '@lucide/svelte/icons/orbit';
   import { onMount } from 'svelte';
@@ -8,7 +9,6 @@
   import EmptyState from '$lib/components/EmptyState.svelte';
   import Skeleton from '$lib/components/Skeleton.svelte';
   import ViewHeader from '$lib/components/ViewHeader.svelte';
-  import RefreshButton from '$lib/components/RefreshButton.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
   import { dashboard } from '$lib/stores/dashboard.svelte';
   import { ecosystem } from '$lib/stores/ecosystem.svelte';
@@ -20,7 +20,6 @@
 
   const items = $derived(ecosystem.status?.items ?? null);
   const failed = $derived(ecosystem.state === 'error' && items === null);
-  const refreshing = $derived(ecosystem.state === 'loading' || dashboard.usage.status === 'loading');
 
   const context = $derived.by(() => {
     if (!items) {
@@ -32,21 +31,21 @@
     return parts.filter(Boolean).join(' · ');
   });
 
-  function refresh(): void {
-    void ecosystem.load(true);
-    void dashboard.openPanel(true);
-  }
-
   onMount(() => {
     void ecosystem.load();
   });
+
+  // Both stores keep their own freshness windows, so asking every half minute only costs a request when one has lapsed.
+  $effect(() =>
+    autoRefresh(() => {
+      void ecosystem.load();
+      void dashboard.openPanel();
+    }, 30_000),
+  );
 </script>
 
 <div class="@container flex size-full min-h-0 flex-col">
   <ViewHeader title={t('ecosystem.title')} icon={Orbit} {context}>
-    {#snippet actions()}
-      <RefreshButton label={t('ecosystem.refresh')} busy={refreshing} onclick={refresh} />
-    {/snippet}
   </ViewHeader>
 
   <div use:scrollMemory={'ecosystem'} class="min-h-0 flex-1 overflow-y-auto">

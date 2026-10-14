@@ -1,16 +1,18 @@
 <script lang="ts">
-  import MessageSquarePlus from '@lucide/svelte/icons/message-square-plus';
   import CircleAlert from '@lucide/svelte/icons/circle-alert';
+  import ChevronDown from '@lucide/svelte/icons/chevron-down';
+  import ChevronUp from '@lucide/svelte/icons/chevron-up';
 
   import Badge from '$lib/components/Badge.svelte';
   import Button from '$lib/components/Button.svelte';
+  import IconButton from '$lib/components/IconButton.svelte';
   import DiffView from '$lib/components/DiffView.svelte';
-  import SegmentedControl from '$lib/components/SegmentedControl.svelte';
   import Skeleton from '$lib/components/Skeleton.svelte';
   import type { RangeTarget } from '$lib/git/comment-range';
   import { statusName, statusTone } from '$lib/git/entries';
   import { t } from '$lib/i18n/i18n.svelte';
   import type { StatusEntry } from '$lib/ipc/bindings/StatusEntry';
+  import { ipc } from '$lib/ipc/client';
   import { git } from '$lib/stores/git.svelte';
   import { revealPath } from '$lib/ipc/actions';
   import { MAX_TEXT_BYTES, review } from '$lib/stores/review.svelte';
@@ -27,17 +29,10 @@
   const loaded = $derived(git.diffFor(entry.path));
   const diffs = $derived(loaded?.status === 'ready' ? loaded.diffs : []);
 
-  // A file that is both staged and modified has two diffs; one is shown at a time.
-  let which = $state<'staged' | 'unstaged'>('unstaged');
+  // A file that is both staged and edited has two diffs; the heading it was picked under says which one to show.
   const staged = $derived(diffs.find((diff) => diff.staged));
   const unstaged = $derived(diffs.find((diff) => !diff.staged));
-  const shown = $derived.by(() => {
-    if (diffs.length <= 1) {
-      return diffs[0];
-    }
-
-    return which === 'staged' ? staged : unstaged;
-  });
+  const shown = $derived(git.section === 'staged' ? (staged ?? unstaged) : (unstaged ?? staged));
 
   const comments = $derived(review.commentsFor(project).filter((comment) => comment.path === entry.path));
 
@@ -47,8 +42,8 @@
 </script>
 
 <div class="flex size-full min-h-0 flex-col">
-  <header class="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-line px-4 py-2.5">
-    <h3 class="min-w-0 truncate font-mono text-sm text-fg" title={entry.path}>{entry.path}</h3>
+  <header class="flex h-[52px] shrink-0 items-center gap-3 border-b border-line px-4">
+    <h3 class="min-w-0 shrink truncate font-mono text-sm text-fg" title={entry.path}>{entry.path}</h3>
     {#if shown}
       <Badge tone={statusTone(shown.status)}>{statusName(shown.status)}</Badge>
       {#if !shown.isBinary}
@@ -59,16 +54,14 @@
       <span class="truncate text-xs text-fg-3">{t('changes.diff.renamedFrom', { path: shown.oldPath })}</span>
     {/if}
 
-    {#if diffs.length > 1}
-      <SegmentedControl
-        options={[
-          { value: 'unstaged', label: t('changes.diff.unstaged') },
-          { value: 'staged', label: t('changes.diff.staged') },
-        ]}
-        value={which}
-        label={t('changes.diff.version')}
-        onchange={(value) => (which = value)}
-      />
+    {#if git.matchTotal > 0}
+      <div class="ml-auto flex shrink-0 items-center gap-1" role="group" aria-label={t('changes.search.matches')}>
+        <span class="tabular px-1 text-xs text-fg-2" aria-live="polite">{t('changes.search.position', { current: git.cursor + 1, total: git.matchTotal })}</span>
+        <IconButton icon={ChevronUp} label={t('changes.search.previous')} onclick={() => git.stepMatch(-1)} />
+        <IconButton icon={ChevronDown} label={t('changes.search.next')} onclick={() => git.stepMatch(1)} />
+      </div>
+    {:else if review.commentsFor(project).length === 0}
+      <p class="ml-auto hidden min-w-0 truncate text-xs text-fg-3 @2xl:block">{t('changes.diff.hint')}</p>
     {/if}
   </header>
 
@@ -87,17 +80,15 @@
         <Button onclick={() => git.retryDiff(entry.path)}>{t('changes.tryAgain')}</Button>
       </div>
     {:else if shown}
-      {#if review.commentsFor(project).length === 0}
-        <p class="flex items-center gap-1.5 border-b border-line px-3 py-1.5 text-xs text-fg-3">
-          <MessageSquarePlus size={14} aria-hidden="true" class="shrink-0" />
-          {t('changes.diff.hint')}
-        </p>
-      {/if}
       <div class="min-h-0 flex-1">
       {#key `${shown.path}:${shown.staged}`}
         <DiffView
           diff={shown}
           mode={diffMode.value}
+          query={git.search}
+          cursor={git.cursor}
+          onmatches={(count) => (git.matchTotal = count)}
+          loadLines={shown.isBinary ? undefined : () => ipc.invoke('git_file_lines', { project, path: shown.path, staged: shown.staged })}
           {comments}
           maxBytes={MAX_TEXT_BYTES}
           oncomment={add}

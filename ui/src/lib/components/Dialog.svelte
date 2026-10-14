@@ -9,7 +9,7 @@
   import IconButton from './IconButton.svelte';
   import Overlay from './Overlay.svelte';
 
-  type Size = 'sm' | 'md' | 'lg';
+  type Size = 'sm' | 'md' | 'lg' | 'xl';
 
   interface Props {
     open?: boolean;
@@ -27,7 +27,7 @@
 
   let { open = $bindable(false), title, subject, description, size = 'md', dismissible = true, onclose, footer, children }: Props = $props();
 
-  const SIZES: Record<Size, string> = { sm: 'w-[24rem]', md: 'w-[32rem]', lg: 'w-[44rem]' };
+  const SIZES: Record<Size, string> = { sm: 'w-[24rem]', md: 'w-[32rem]', lg: 'w-[44rem]', xl: 'w-[min(62rem,calc(100vw-2rem))]' };
 
   const titleId = uid('dialog-title');
   const descriptionId = uid('dialog-description');

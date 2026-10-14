@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { autoRefresh } from '$lib/utils/auto-refresh';
   import Blocks from '@lucide/svelte/icons/blocks';
 
   import EmptyState from '$lib/components/EmptyState.svelte';
@@ -6,7 +7,6 @@
   import NoticeBanner from '$lib/components/NoticeBanner.svelte';
   import Tabs from '$lib/components/Tabs.svelte';
   import ViewHeader from '$lib/components/ViewHeader.svelte';
-  import RefreshButton from '$lib/components/RefreshButton.svelte';
   import { harness } from '$lib/stores/harness.svelte';
   import { project } from '$lib/stores/project.svelte';
   import { viewState } from '$lib/stores/view-state.svelte';
@@ -21,6 +21,8 @@
   const tabs = $derived(harness.active ? visibleTabs(harness.active.capabilities) : []);
   const currentTab = $derived(tabs.some((tab) => tab.id === viewState.extensionsTab) ? viewState.extensionsTab : tabs[0]?.id);
 
+  $effect(() => autoRefresh(() => void extensionsView.refresh({ quiet: true }), 5000));
+
   function chooseTab(next: ExtTab): void {
     viewState.extensionsTab = next;
     viewState.extensionsItem = null;
@@ -32,7 +34,6 @@
   <ViewHeader title={t('extensions.title')} icon={Blocks} context={project.active ? t('extensions.context.project') : t('extensions.context.user')}>
     {#snippet actions()}
       <ExtensionToolbar tab={currentTab ?? undefined} />
-      <RefreshButton label={t('extensions.reload')} onclick={() => extensionsView.refresh()} />
     {/snippet}
   </ViewHeader>
 

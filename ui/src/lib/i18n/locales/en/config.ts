@@ -1,6 +1,5 @@
 export const config = {
   'config.title': 'Configuration',
-  'config.reload': 'Reload configuration',
   'config.resize': 'Resize file list',
   'config.empty': 'No configuration files were found for this harness.',
 

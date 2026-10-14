@@ -46,12 +46,12 @@ describe('rendering a diff', () => {
     expect(document.querySelector('[data-kind="add"]')).toHaveTextContent('Added:');
   });
 
-  it('shows hunk headers as text', () => {
-    const diff = LIB();
-    mount({ diff });
+  it('says how many unchanged lines lie between changes instead of showing git\'s header text', () => {
+    mount({ diff: LIB() });
 
-    expect(screen.getByText(diff.hunks[0].header)).toBeInTheDocument();
-    expect(screen.getByText(diff.hunks[1].header)).toBeInTheDocument();
+    expect(screen.getByText('13 unchanged lines')).toBeInTheDocument();
+    expect(screen.queryByText(/^@@/)).toBeNull();
+    expect(screen.queryByText('impl Record {')).toBeNull();
   });
 
   it('never interprets diff text as markup', () => {
@@ -145,6 +145,19 @@ describe('commenting on lines', () => {
     expect(target.snippet).toEqual(['mod error;', '', 'pub use error::Error;']);
   });
 
+  it('opens the composer only on the second shift-click of a range', async () => {
+    const { oncomment } = mount();
+
+    await fireEvent.click(gutter('new', 3), { shiftKey: true });
+    expect(screen.queryByPlaceholderText('Leave a comment for the agent…')).toBeNull();
+
+    await fireEvent.click(gutter('new', 5), { shiftKey: true });
+    expect(screen.getByText('Lines 3–5 (new)')).toBeInTheDocument();
+    await commentOn('Group these.');
+
+    expect(oncomment.mock.calls[0][0]).toMatchObject({ side: 'new', startLine: 3, endLine: 5 });
+  });
+
   it('drags out a range with the pointer', async () => {
     const { oncomment } = mount();
 
@@ -236,6 +249,15 @@ describe('saved comments', () => {
     expect(onedit).toHaveBeenCalledWith(2, 'Breaking change: update the changelog.');
 
     await fireEvent.click(within(screen.getByText('Check the module name.').closest('li') as HTMLElement).getByRole('button', { name: 'Delete comment' }));
+
+    // Nothing goes until the dialog is answered; keeping the comment leaves it alone.
+    expect(onremove).not.toHaveBeenCalled();
+    const dialog = screen.getByRole('dialog', { name: 'Delete this comment?' });
+    await fireEvent.click(within(dialog).getByRole('button', { name: /^Keep/ }));
+    expect(onremove).not.toHaveBeenCalled();
+
+    await fireEvent.click(within(screen.getByText('Check the module name.').closest('li') as HTMLElement).getByRole('button', { name: 'Delete comment' }));
+    await fireEvent.click(within(screen.getByRole('dialog', { name: 'Delete this comment?' })).getByRole('button', { name: 'Delete' }));
 
     expect(onremove).toHaveBeenCalledWith(1);
   });

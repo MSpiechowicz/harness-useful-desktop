@@ -24,13 +24,13 @@
 <!-- A resizable master/detail layout; each pane scrolls on its own, and the detail pane is a container for responsive content. -->
 <SplitPane {label} bind:size {min} minSecond={minDetail}>
   {#snippet first()}
-    <div class="flex size-full flex-col overflow-hidden">{@render list()}</div>
+    <div class="relative flex size-full flex-col overflow-hidden">{@render list()}</div>
   {/snippet}
   {#snippet second()}
     {#if scrollKey}
-      <div class="@container size-full overflow-y-auto" use:scrollMemory={scrollKey}>{@render detail()}</div>
+      <div class="@container relative size-full overflow-y-auto" use:scrollMemory={scrollKey}>{@render detail()}</div>
     {:else}
-      <div class="@container size-full overflow-y-auto">{@render detail()}</div>
+      <div class="@container relative size-full overflow-y-auto">{@render detail()}</div>
     {/if}
   {/snippet}
 </SplitPane>

@@ -12,6 +12,7 @@ import { prefs } from '$lib/stores/prefs.svelte';
 import { project } from '$lib/stores/project.svelte';
 import { review } from '$lib/stores/review.svelte';
 
+import { entrySections } from '$lib/git/entries';
 import ToolCard from '../chat/ToolCard.svelte';
 import ChangesView from './ChangesView.svelte';
 
@@ -33,37 +34,54 @@ afterEach(() => {
   nav.go('chat');
 });
 
-const files = () => within(screen.getByRole('listbox', { name: 'Changed files' }));
+const files = () => within(screen.getByTestId('file-list'));
 
 async function showChanges(): Promise<void> {
   render(ChangesView);
-  await waitFor(() => expect(screen.getByRole('listbox', { name: 'Changed files' })).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByTestId('file-list')).toBeInTheDocument());
 }
 
 describe('Changes view', () => {
-  it('shows the branch, its distance from upstream and every changed file', async () => {
+  it('lists the changed files under Unstaged, Staged and Untracked headings', async () => {
     await showChanges();
 
-    expect(screen.getByText(fixtures.git.status.branch ?? '')).toBeInTheDocument();
-    expect(screen.getByText('ahead', { exact: false })).toBeInTheDocument();
-    expect(files().getAllByRole('option')).toHaveLength(ENTRIES.length);
-    expect(screen.getByRole('radio', { name: /^All/ })).toHaveAttribute('aria-checked', 'true');
+    const rows = ENTRIES.reduce((sum, entry) => sum + entrySections(entry).length, 0);
+    expect(files().getAllByRole('option')).toHaveLength(rows);
+    for (const name of ['Unstaged', 'Staged', 'Untracked']) {
+      expect(screen.getByRole('button', { name: new RegExp(`^${name}`) })).toHaveAttribute('aria-expanded', 'true');
+    }
   });
 
-  it('narrows the list with the scope tabs and shows rename arrows', async () => {
+  it('shows rename arrows and folds a heading away', async () => {
     await showChanges();
     const renamed = ENTRIES.find((entry) => entry.origPath !== null);
 
     expect(files().getByText(`${renamed?.origPath} → ${renamed?.path}`)).toBeInTheDocument();
 
-    await fireEvent.click(screen.getByRole('radio', { name: /^Staged/ }));
+    const before = files().getAllByRole('option').length;
+    await fireEvent.click(screen.getByRole('button', { name: /^Staged/ }));
 
-    const staged = ENTRIES.filter((entry) => entry.staged !== null);
-    expect(files().getAllByRole('option')).toHaveLength(staged.length);
+    expect(screen.getByRole('button', { name: /^Staged/ })).toHaveAttribute('aria-expanded', 'false');
+    expect(files().getAllByRole('option')).toHaveLength(before - ENTRIES.filter((entry) => entry.staged !== null).length);
 
-    await fireEvent.click(screen.getByRole('radio', { name: /^Untracked/ }));
+    await fireEvent.click(screen.getByRole('button', { name: /^Staged/ }));
+    expect(files().getAllByRole('option')).toHaveLength(before);
+  });
 
-    expect(files().getAllByRole('option')).toHaveLength(ENTRIES.filter((entry) => entry.unstaged === 'untracked').length);
+  it('searches paths and the contents of the diffs', async () => {
+    await showChanges();
+    const box = screen.getByRole('searchbox', { name: 'Search files and contents' });
+
+    await fireEvent.input(box, { target: { value: 'guide.md' } });
+    await waitFor(() => expect(files().getAllByRole('option')).toHaveLength(1));
+
+    await fireEvent.input(box, { target: { value: 'demo::parse' } });
+    await waitFor(() => expect(files().getAllByRole('option').length).toBeGreaterThan(0));
+    expect(files().getAllByRole('option').length).toBeLessThan(ENTRIES.length);
+    expect(files().getAllByText(/^\d+$/).length).toBeGreaterThan(0);
+
+    await fireEvent.input(box, { target: { value: 'zzz-no-such-text' } });
+    expect(await screen.findByText(/Nothing matches/)).toBeInTheDocument();
   });
 
   it('shows the diff of the chosen file with counts and keyboard navigation', async () => {
@@ -168,16 +186,18 @@ describe('reviewing changes', () => {
     const added = fixtures.git.diff.find((diff) => diff.path === LIB)?.hunks[0].lines.find((line) => line.kind === 'add');
 
     await comment(added?.newNo ?? 1, 'Will be discarded.');
-    await fireEvent.click(await screen.findByRole('button', { name: 'Discard' }));
+    await fireEvent.click(await screen.findByRole('button', { name: /Review · 1 comment$/ }));
+    const review_ = await screen.findByRole('dialog', { name: 'Review' });
+    await fireEvent.click(within(review_).getByRole('button', { name: 'Discard all' }));
 
-    expect(screen.getByRole('dialog', { name: 'Discard this review?' })).toBeInTheDocument();
+    const confirm = await screen.findByRole('dialog', { name: 'Discard this review?' });
     expect(review.commentsFor(path)).toHaveLength(1);
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Keep comments' }));
+    await fireEvent.click(within(confirm).getByRole('button', { name: 'Keep comments' }));
     expect(review.commentsFor(path)).toHaveLength(1);
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
-    await fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Discard' }));
+    await fireEvent.click(within(review_).getByRole('button', { name: 'Discard all' }));
+    await fireEvent.click(within(await screen.findByRole('dialog', { name: 'Discard this review?' })).getByRole('button', { name: 'Discard' }));
 
     expect(review.commentsFor(path)).toEqual([]);
   });
@@ -193,14 +213,41 @@ describe('reviewing changes', () => {
   });
 });
 
+describe('the review dialog', () => {
+  it('searches file paths and comments, marks the words found and says plainly when nothing matches', async () => {
+    const path = fixtures.recentProjects[0].path;
+    review.add(path, { path: LIB, side: 'new', startLine: 3, endLine: 3, body: 'Rename this retries counter', snippet: ['x'] });
+    review.add(path, { path: 'docs/guide.md', side: 'new', startLine: 1, endLine: 2, body: 'Fix the typo', snippet: ['x', 'y'] });
+    await showChanges();
+
+    await fireEvent.click(await screen.findByRole('button', { name: /Review · 2 comments/ }));
+    const dialog = await screen.findByRole('dialog', { name: 'Review' });
+    const box = within(dialog).getByRole('searchbox', { name: 'Search files and comments' });
+
+    await fireEvent.input(box, { target: { value: 'typo' } });
+    expect(within(dialog).getByText('1 comment in 1 file')).toBeInTheDocument();
+    expect(dialog.querySelector('mark')).toHaveTextContent('typo');
+    expect(within(dialog).queryByText(/retries counter/)).toBeNull();
+
+    await fireEvent.input(box, { target: { value: 'guide' } });
+    expect(within(dialog).getByText('Fix the typo')).toBeInTheDocument();
+
+    await fireEvent.input(box, { target: { value: 'zzz' } });
+    expect(within(dialog).getByText('Nothing matches “zzz”')).toBeInTheDocument();
+
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Clear search' }));
+    expect(within(dialog).getAllByRole('button', { name: /guide\.md|lib\.rs/ })).toHaveLength(2);
+  });
+});
+
 describe('in Polish', () => {
   it('translates the labels and picks the Polish plural form of the pending comments', async () => {
     const path = fixtures.recentProjects[0].path;
     await i18n.load('pl');
 
     render(ChangesView);
-    expect(await screen.findByRole('radio', { name: /^Zindeksowane/ })).toBeInTheDocument();
-    expect(screen.getByRole('listbox', { name: 'Zmienione pliki' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /^Zindeksowane/ })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Zmienione pliki' })).toBeInTheDocument();
 
     const add = (count: number): void => {
       for (let index = 0; index < count; index += 1) {

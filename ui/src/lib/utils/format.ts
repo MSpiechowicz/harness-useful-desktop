@@ -69,6 +69,32 @@ export function formatDateTime(value: string | number | Date): string {
   return Number.isNaN(date.getTime()) ? '' : DATE_TIME().format(date);
 }
 
+const SHORT_UNIT = perLocale((l) => (unit: Intl.NumberFormatOptions['unit'], value: number) => new Intl.NumberFormat(l, { style: 'unit', unit, unitDisplay: 'narrow' }).format(value));
+
+/** A list row's age in as few characters as the language allows: "6h", "2d", "3w", "5mo". */
+export function compactAge(iso: string, now: number = Date.now()): string {
+  const time = Date.parse(iso);
+  if (Number.isNaN(time)) {
+    return '';
+  }
+
+  const elapsed = Math.max(0, now - time);
+  if (elapsed < MINUTE) {
+    return t('common.justNow');
+  }
+
+  const steps: { limit: number; size: number; unit: string }[] = [
+    { limit: HOUR, size: MINUTE, unit: 'minute' },
+    { limit: DAY, size: HOUR, unit: 'hour' },
+    { limit: 7 * DAY, size: DAY, unit: 'day' },
+    { limit: 30 * DAY, size: 7 * DAY, unit: 'week' },
+    { limit: 365 * DAY, size: 30 * DAY, unit: 'month' },
+  ];
+  const step = steps.find((candidate) => elapsed < candidate.limit);
+
+  return step ? SHORT_UNIT()(step.unit, Math.floor(elapsed / step.size)) : SHORT_UNIT()('year', Math.floor(elapsed / (365 * DAY)));
+}
+
 /** "just now", "5 minutes ago", "yesterday", "3 months ago" for an RFC 3339 time. */
 export function relativeTime(iso: string, now: number = Date.now()): string {
   const time = Date.parse(iso);
