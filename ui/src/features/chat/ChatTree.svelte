@@ -72,11 +72,11 @@
      about is in its tooltip. -->
 {#snippet branch(first: boolean, last: boolean)}
   <!-- The first row's line reaches up under the Chat icon (8px: the group's top padding and the icon's inset in its row). -->
-  <span aria-hidden="true" class={cx('absolute left-0 w-px bg-line-strong', first ? '-top-[8px]' : 'top-0', last ? (first ? 'h-[22px]' : 'h-[14px]') : first ? 'h-[calc(100%+8px)]' : 'h-full')}></span>
+  <span aria-hidden="true" class={cx('absolute left-0 w-px bg-line-strong', first ? '-top-[8px]' : 'top-0', last ? (first ? 'h-[22px]' : 'h-[14px]') : first ? 'h-[calc(100%+11px)]' : 'h-[calc(100%+3px)]')}></span>
   <span aria-hidden="true" class="absolute top-[14px] left-0 h-px w-[10px] bg-line-strong"></span>
 {/snippet}
 
-<div role="group" aria-label={t('chat.tabs.label')} transition:slide={{ duration: scaled(200) }} class="flex flex-col pt-[2px] pb-[4px] pl-[20px]">
+<div role="group" aria-label={t('chat.tabs.label')} transition:slide={{ duration: scaled(200) }} class="flex flex-col gap-[3px] pt-[2px] pb-[4px] pl-[20px]">
   {#each sessions as session, index (session.key)}
     {@const selected = session.key === agentSessions.activeKey && nav.current === 'chat'}
     {@const summary = harness.get(session.info.harness)}
