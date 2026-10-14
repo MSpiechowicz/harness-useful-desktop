@@ -98,7 +98,8 @@
       {:else}
         <div class="mt-2 flex items-center gap-2">
           {#if state.kind === 'available'}
-            <Button variant="primary" class="{SMALL} w-full" onclick={() => void updates.install()}>{@render arrow()}{t('updates.notice.install')}</Button>
+            <Button variant="primary" class="{SMALL} flex-1" onclick={() => void updates.install()}>{@render arrow()}{t('updates.notice.install')}</Button>
+            <Button class="{SMALL} flex-1" onclick={() => updates.dismiss()}>{t('updates.notice.later')}</Button>
           {:else if state.kind === 'readyToRelaunch'}
             <Button variant="primary" class={SMALL} onclick={() => void updates.requestRelaunch()}>{updates.closesApp ? t('updates.notice.finish') : t('updates.notice.restart')}</Button>
             <Button variant="ghost" class={SMALL} onclick={() => updates.dismiss()}>{t('updates.notice.later')}</Button>

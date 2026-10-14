@@ -154,6 +154,13 @@ export const chat: AreaMessages<typeof enChat> = {
   'chat.project.aria': 'Projet : {name}. Changer de projet',
   'chat.project.recent': 'Projets récents',
   'chat.project.open': 'Ouvrir un dossier…',
+  'chat.project.search': 'Trouver un projet…',
+  'chat.project.edit': 'Modifier la liste',
+  'chat.project.done': 'Terminé',
+  'chat.project.none': 'Aucun projet ne correspond',
+  'chat.project.keep': 'Le projet ouvert ne peut pas être retiré',
+  'chat.project.remove.one': 'Retirer {count} de la liste',
+  'chat.project.remove.other': 'Retirer {count} de la liste',
 
   'chat.promptError.title': 'L’agent n’a pas pu terminer',
   'chat.promptError.retry': 'Réessayer',

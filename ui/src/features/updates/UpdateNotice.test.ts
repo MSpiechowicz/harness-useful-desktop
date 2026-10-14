@@ -21,8 +21,8 @@ afterEach(async () => {
 });
 
 describe('UpdateNotice', () => {
-  it('appears for an update and goes away for this version on "Later"', async () => {
-    updates.state = { kind: 'readyToRelaunch', info: { ...INFO, version: '0.1.5' } };
+  it('appears for an available update and goes away for this version on "Later"', async () => {
+    updates.state = { kind: 'available', info: { ...INFO, version: '0.1.5' } };
     render(UpdateNotice);
 
     expect(screen.getByRole('region', { name: 'Update' })).toHaveTextContent('0.1.5');

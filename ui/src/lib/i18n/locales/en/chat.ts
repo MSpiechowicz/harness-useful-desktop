@@ -150,6 +150,13 @@ export const chat = {
   'chat.project.aria': 'Project: {name}. Switch project',
   'chat.project.recent': 'Recent projects',
   'chat.project.open': 'Open folder…',
+  'chat.project.search': 'Find a project…',
+  'chat.project.edit': 'Edit list',
+  'chat.project.done': 'Done',
+  'chat.project.none': 'No projects match',
+  'chat.project.keep': 'The open project cannot be removed',
+  'chat.project.remove.one': 'Remove {count} from list',
+  'chat.project.remove.other': 'Remove {count} from list',
 
   'chat.promptError.title': 'The agent could not finish that',
   'chat.promptError.retry': 'Retry',

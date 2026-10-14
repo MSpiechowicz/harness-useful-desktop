@@ -153,6 +153,13 @@ export const chat: AreaMessages<typeof enChat> = {
   'chat.project.aria': 'Projekt: {name}. Projekt wechseln',
   'chat.project.recent': 'Zuletzt geöffnete Projekte',
   'chat.project.open': 'Ordner öffnen…',
+  'chat.project.search': 'Projekt suchen…',
+  'chat.project.edit': 'Liste bearbeiten',
+  'chat.project.done': 'Fertig',
+  'chat.project.none': 'Kein Projekt passt',
+  'chat.project.keep': 'Das geöffnete Projekt kann nicht entfernt werden',
+  'chat.project.remove.one': '{count} aus der Liste entfernen',
+  'chat.project.remove.other': '{count} aus der Liste entfernen',
 
   'chat.promptError.title': 'Der Agent konnte das nicht abschließen',
   'chat.promptError.retry': 'Erneut versuchen',
