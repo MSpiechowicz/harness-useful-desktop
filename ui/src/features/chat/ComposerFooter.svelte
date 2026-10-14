@@ -28,9 +28,10 @@
   const costArgs = $derived(session.chat.session?.sessionId ? { session_id: session.chat.session.sessionId } : null);
 </script>
 
-<!-- Where the chat works (project, branch, changes) on the left, how much it has used on the right. The branch gives
+<!-- The right padding plus the meters' own 6px puts the last text 16px from the edge, under the send button's right edge.
+     Where the chat works (project, branch, changes) on the left, how much it has used on the right. The branch gives
      way first when the card is narrow; below 460px the project shrinks to its icon. -->
-<div class="flex items-center gap-1 border-t border-line px-2 pb-1 pt-1">
+<div class="flex items-center gap-1 border-t border-line pr-2.5 pb-1 pl-2 pt-1">
   <ProjectPicker {session} />
 
   {#if status}
