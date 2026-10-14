@@ -26,7 +26,7 @@
   out:fade|global={{ duration: scaled(100) }}
   class="flex h-[52px] min-w-0 items-center gap-3 px-2"
 >
-  {#if runner}<HarnessBadge info={runner} size="sm" />{/if}
+  {#if runner}<HarnessBadge info={runner} size="bar" />{/if}
   <h1 class="min-w-0 flex-1 truncate text-base leading-5 font-medium text-fg">{heading}</h1>
 
   {#if session}<ChatControls {session} />{/if}

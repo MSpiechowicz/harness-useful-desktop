@@ -4,7 +4,7 @@
 
   interface Props {
     info: Pick<HarnessInfo, 'id' | 'shortName'>;
-    size?: 'xs' | 'sm' | 'md' | 'lg';
+    size?: 'xs' | 'sm' | 'bar' | 'md' | 'lg';
     class?: string;
   }
 
@@ -13,6 +13,8 @@
   const SIZES = {
     xs: 'h-[18px] min-w-[18px] rounded-sm px-1 text-[10px]',
     sm: 'h-6 min-w-6 rounded-sm px-1 text-[10px]',
+    /** The height of the controls in a view's top bar. */
+    bar: 'h-8 min-w-8 rounded-md px-2 text-xs',
     md: 'h-9 min-w-9 rounded-md px-1.5 text-xs',
     lg: 'h-12 min-w-12 rounded-lg px-2 text-sm',
   } as const;
