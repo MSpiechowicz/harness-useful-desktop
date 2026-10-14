@@ -38,6 +38,12 @@ The app contains no analytics client. Its only HTTP clients are the updater and 
 | Companion release lookup | When the Ecosystem view loads or is refreshed, at most once per companion every 6 hours while the app runs (the cache is in memory, so a restart asks again; failed lookups, including rate limits, retry after 5 minutes), and only while **Check companions for updates** (`checkCompanionUpdates` in prefs, on by default) is on. A prefs file that exists but cannot be read counts as off. | Three fixed URLs, `https://api.github.com/repos/MSpiechowicz/harness-useful-{dashboard,skills,sidebar}/releases/latest`, HTTPS only, with timeouts and a capped response. Only `tag_name` is read. The request carries a `User-Agent` (`harness-desktop/<version>`) and an `Accept` header and nothing else: no token, no cookies, no referer, no installed versions or other local data. While at least one companion is installed, all three are requested, so the request set does not reveal which ones (with none installed, nothing is requested); GitHub sees the IP address, the app version and when Ecosystem was opened. The comparison with the installed version happens on this machine (`ecosystem_releases`). Redirects are followed only to `https://api.github.com` on port 443. System proxy settings apply, as for the updater. A failed lookup only means no update badge. |
 | Opening a link | Only when the user clicks one | `open_external` hands an allowlisted `https` URL (any `https` URL with **Open any web link** on) to the OS browser. The app itself does not fetch it. |
 
+- **AI chat names** (`aiChatNames`, off by default). When on, after the first message of a new chat the app starts one
+  throwaway agent of the chat's own harness (`utility` launch: `--no-session --no-tools --thinking off`, no resume,
+  stopped right after the reply), on the chat's model, and sends it the first 500 characters of that message with a
+  fixed instruction. The app opens no connection itself; the request goes through the harness exactly as your own chat
+  does, and costs one very small request per chat. Without it, names come from the first message locally.
+
 Everything else:
 
 - With the placeholder or an invalid key, `update_check` and `update_install` fail with `unsupported` ("updates are not

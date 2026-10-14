@@ -31,6 +31,9 @@ export const settings = {
 
   'settings.thinking.title': 'Show thought process',
   'settings.thinking.description': "The agent's reasoning, folded under each reply. Also toggled from the chat header.",
+  'settings.aiNames.title': 'Name chats with AI',
+  'settings.aiNames.description':
+    "After your first message, the chat's own agent writes a short name and description for the chat card. It costs one very small request per chat on the chat's model, and sends only the first 500 characters of that message. Off: the name is the first words you type.",
 
   'settings.motion.title': 'Motion',
   'settings.motion.description': 'Reduced keeps simple fades; Off disables all animation. Your OS reduced-motion setting always applies.',

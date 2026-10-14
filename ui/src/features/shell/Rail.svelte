@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ChevronRight from '@lucide/svelte/icons/chevron-right';
   import PanelLeftClose from '@lucide/svelte/icons/panel-left-close';
   import PanelLeftOpen from '@lucide/svelte/icons/panel-left-open';
 
@@ -15,6 +16,8 @@
   import { RAIL_EXPAND_MIN_WIDTH, ui } from '$lib/stores/ui-state.svelte';
   import { cx } from '$lib/utils/cx';
 
+  import ChatTree from '../chat/ChatTree.svelte';
+
   import { railBadge } from './rail-badges';
   import RailFooter from './RailFooter.svelte';
   import RailItem from './RailItem.svelte';
@@ -24,10 +27,14 @@
   let rail: HTMLElement | undefined = $state();
   let buttons: (HTMLButtonElement | undefined)[] = $state([]);
   let placed = false;
+  let list: HTMLElement | undefined = $state();
+  /** Whether the open chats show under Chat; open unless the user folds them away. */
+  let chatsOpen = $state(true);
 
   const indicatorY = createSpring(0);
   const activeIndex = $derived(VIEWS.findIndex((view) => view.id === nav.current));
   const expanded = $derived(ui.railShowsLabels);
+  const chatCount = $derived(agentSessions.sessions.length + agentSessions.starting.length);
   const chat = $derived(agentSessions.active?.chat ?? null);
   // The mark blinks while any agent, not just the visible one, is working.
   const working = $derived(agentSessions.sessions.some((session) => session.chat.phase === 'streaming'));
@@ -63,6 +70,10 @@
       placeIndicator();
     });
     observer.observe(rail);
+    // The chat cards push the rows below them down as chats open and close, so the indicator follows the list's height.
+    if (list) {
+      observer.observe(list);
+    }
 
     return () => observer.disconnect();
   });
@@ -131,7 +142,7 @@
     style:transform="translateY({indicatorY.current}px)"
   ></span>
 
-  <div class="flex flex-col px-[8px] py-[8px]">
+  <div bind:this={list} class="flex flex-col px-[8px] py-[8px]">
     {#each VIEWS as view, index (view.id)}
       <!-- A group heading, or a hairline in its place while collapsed: one height for both, so rows never jump. -->
       {#if view.section}
@@ -141,9 +152,10 @@
         </div>
       {/if}
 
-      <div class="flex">
+      <div class="relative flex">
         <RailItem
           {view}
+          reserve={view.id === 'chat' && expanded && chatCount > 0}
           shortcut={viewShortcut(view.id)}
           active={view.id === nav.current}
           {expanded}
@@ -151,7 +163,22 @@
           bind:button={buttons[index]}
           onselect={() => nav.go(view.id)}
         />
+        {#if view.id === 'chat' && expanded && chatCount > 0}
+          <button
+            type="button"
+            aria-label={chatsOpen ? t('shell.rail.chats.hide') : t('shell.rail.chats.show')}
+            aria-expanded={chatsOpen}
+            onclick={() => (chatsOpen = !chatsOpen)}
+            class="absolute top-[2px] right-[6px] grid size-[24px] place-items-center rounded-sm text-fg-3 transition-colors hover:bg-hover hover:text-fg"
+          >
+            <ChevronRight size={ICON.sm} aria-hidden="true" class={cx('transition-transform duration-[var(--dur-base)]', chatsOpen && 'rotate-90')} />
+          </button>
+        {/if}
       </div>
+
+      {#if view.id === 'chat' && expanded && chatCount > 0 && chatsOpen}
+        <ChatTree />
+      {/if}
     {/each}
 
     {#if ui.roomForLabels}

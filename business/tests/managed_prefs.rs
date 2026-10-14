@@ -49,6 +49,7 @@ fn with_ui_changes(base: AppPrefs) -> AppPrefs {
         update_policy: UpdatePolicy::Off,
         check_companion_updates: false,
         open_any_link: true,
+        ai_chat_names: true,
         onboarding_completed: true,
         approval_notice_seen: true,
         ..base

@@ -33,7 +33,7 @@ pub use cli::{
     run_cli_action,
 };
 pub use detect::{VERSION_TIMEOUT, first_semver, override_name_matches};
-pub use launch::{LaunchRequest, flag_with, rpc_exec_spec};
+pub use launch::{LaunchRequest, flag_with, rpc_exec_spec, utility_args};
 pub use registry::HarnessRegistry;
 
 /// Everything an adapter's `impl Harness` block needs: `use crate::harness::prelude::*;`.

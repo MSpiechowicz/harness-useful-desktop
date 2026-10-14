@@ -123,6 +123,12 @@ impl AgentManager {
             None => None,
         };
 
+        if request.utility && request.resume.is_some() {
+            return Err(BusinessError::InvalidInput(
+                "a utility agent cannot resume a session".to_owned(),
+            ));
+        }
+
         let capabilities = harness.capabilities();
         let approval_override = request.approval_override.filter(|_| capabilities.approval_modes);
         let trust_once = request.trust_once && capabilities.project_trust;
@@ -134,6 +140,7 @@ impl AgentManager {
                 resume,
                 approval_override,
                 trust_once,
+                utility: request.utility,
             })?
             .search_dirs(launcher_search_dirs(deps.env, &deps.binary.path));
 

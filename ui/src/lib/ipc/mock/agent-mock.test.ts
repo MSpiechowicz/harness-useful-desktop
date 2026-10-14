@@ -7,7 +7,7 @@ import { fixtures } from './fixtures';
 import { defaultScenario } from './scenarios';
 import { createMockTransport } from './transport';
 
-const REQUEST: AgentStartRequest = { harness: 'omp', project: fixtures.recentProjects[0].path, resume: null, approvalOverride: null, trustOnce: false };
+const REQUEST: AgentStartRequest = { harness: 'omp', project: fixtures.recentProjects[0].path, resume: null, approvalOverride: null, trustOnce: false, utility: false };
 
 async function start(request: AgentStartRequest = REQUEST) {
   const transport = createMockTransport(defaultScenario(), 0);

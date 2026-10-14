@@ -119,6 +119,9 @@ pub struct AppPrefs {
     /// Whether any `https` link (a pull request the agent opened, docs it cites) opens in the browser.
     /// Off: only project and harness sites do.
     pub open_any_link: bool,
+    /// Whether a new chat asks its own agent for a short name and description after the first message
+    /// (one small request per chat, on the chat's model). Off: the name comes from the first message.
+    pub ai_chat_names: bool,
     /// Whether onboarding was completed.
     pub onboarding_completed: bool,
     /// Whether the one-time approval-mode notice was dismissed.
@@ -151,6 +154,7 @@ impl Default for AppPrefs {
             update_policy: UpdatePolicy::StartupAsk,
             check_companion_updates: true,
             open_any_link: false,
+            ai_chat_names: false,
             onboarding_completed: false,
             approval_notice_seen: false,
             binary_overrides: Vec::new(),

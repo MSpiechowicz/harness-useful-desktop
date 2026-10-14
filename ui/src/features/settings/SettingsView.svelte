@@ -171,6 +171,12 @@
               {/snippet}
             </SettingRow>
 
+            <SettingRow title={t('settings.aiNames.title')} description={t('settings.aiNames.description')}>
+              {#snippet control()}
+                <Switch label={t('settings.aiNames.title')} bind:checked={() => prefs.value?.aiChatNames ?? false, (aiChatNames) => void prefs.update({ aiChatNames })} />
+              {/snippet}
+            </SettingRow>
+
             <SettingRow title={t('settings.motion.title')} description={t('settings.motion.description')}>
               {#snippet control()}
                 <SegmentedControl size="md" label={t('settings.motion.title')} options={MOTION_OPTIONS} bind:value={() => prefs.value?.motion ?? 'full', (next) => void prefs.update({ motion: next })} />

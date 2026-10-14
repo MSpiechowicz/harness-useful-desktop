@@ -33,6 +33,7 @@ export class MockState {
     updatePolicy: 'startupAsk',
     checkCompanionUpdates: true,
     openAnyLink: false,
+    aiChatNames: false,
     language: 'en',
     onboardingCompleted: false,
     approvalNoticeSeen: false,

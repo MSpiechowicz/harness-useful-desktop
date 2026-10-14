@@ -287,6 +287,7 @@ mod tests {
             resume: None,
             approval_override: None,
             trust_once: false,
+            utility: false,
         }
     }
 

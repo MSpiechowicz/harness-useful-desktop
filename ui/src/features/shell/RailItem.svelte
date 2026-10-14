@@ -14,11 +14,13 @@
     /** Show the label next to the icon. */
     expanded: boolean;
     badge: RailBadge | null;
+    /** Leave room at the right edge for a control laid over the row. */
+    reserve?: boolean;
     button?: HTMLButtonElement;
     onselect: () => void;
   }
 
-  let { view, shortcut, active, expanded, badge, button = $bindable(), onselect }: Props = $props();
+  let { view, shortcut, active, expanded, badge, reserve = false, button = $bindable(), onselect }: Props = $props();
 
   const description = $derived(badge ? `${view.label}, ${badge.label}` : view.label);
 </script>
@@ -37,6 +39,7 @@
         'group/item relative flex h-[28px] w-full items-center gap-[10px] rounded-sm text-left transition-[color,background-color,padding] duration-[var(--dur-fast)]',
         // Expanded the dashboard's 12px padding; collapsed the icon centers: (64px rail - 1px border - 16px nav padding - 16px icon) / 2.
         expanded ? 'px-[12px]' : 'px-[15.5px]',
+        expanded && reserve && 'pr-[34px]',
         active ? 'font-medium text-accent-text' : 'text-fg-2 hover:bg-hover hover:text-fg',
       )}
     >

@@ -54,7 +54,7 @@ const sampleArgs = (sessionKey: string): { [K in CommandName]: CommandArgs<K> } 
 
 const SESSION = { harness: 'omp', id: fixtures.sessions.list.omp[0].ref.id } as const;
 
-const START_REQUEST = { harness: 'omp', project: fixtures.recentProjects[0].path, resume: null, approvalOverride: null, trustOnce: false } as const;
+const START_REQUEST = { harness: 'omp', project: fixtures.recentProjects[0].path, resume: null, approvalOverride: null, trustOnce: false, utility: false } as const;
 
 function transport() {
   return createMockTransport(defaultScenario(), 0);

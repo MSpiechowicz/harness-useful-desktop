@@ -34,6 +34,7 @@ fn default_prefs_serialize_with_camel_case_fields() {
             "updatePolicy": "startupAsk",
             "checkCompanionUpdates": true,
             "openAnyLink": false,
+            "aiChatNames": false,
             "onboardingCompleted": false,
             "approvalNoticeSeen": false,
             "binaryOverrides": []
@@ -59,6 +60,7 @@ fn partial_prefs_fill_defaults_and_ignore_unknown_fields() {
     assert!(prefs.check_companion_updates);
     // Any web link stays closed until the user opts in.
     assert!(!prefs.open_any_link);
+    assert!(!prefs.ai_chat_names);
     // Files written before the language choice existed show English.
     assert_eq!(prefs.language, "en");
     assert_eq!(prefs.version, 1);

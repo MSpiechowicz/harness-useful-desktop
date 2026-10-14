@@ -88,7 +88,7 @@ export function restoreWorkspace(agents: AgentSessionsStore): Promise<boolean> {
     let restored = 0;
     for (const [index, chat] of saved.chats.slice(0, MAX_RESTORED).entries()) {
       const session = await agents.start(
-        { harness: chat.harness, project: chat.project, resume: { harness: chat.harness, id: chat.sessionId }, approvalOverride: null, trustOnce: false },
+        { harness: chat.harness, project: chat.project, resume: { harness: chat.harness, id: chat.sessionId }, approvalOverride: null, trustOnce: false, utility: false },
         { activate: false, quiet: true },
       );
       if (session) {

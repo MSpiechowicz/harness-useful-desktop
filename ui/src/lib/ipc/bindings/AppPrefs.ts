@@ -73,6 +73,11 @@ checkCompanionUpdates: boolean,
  */
 openAnyLink: boolean, 
 /**
+ * Whether a new chat asks its own agent for a short name and description after the first message
+ * (one small request per chat, on the chat's model). Off: the name comes from the first message.
+ */
+aiChatNames: boolean, 
+/**
  * Whether onboarding was completed.
  */
 onboardingCompleted: boolean, 

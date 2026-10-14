@@ -152,6 +152,7 @@ pub fn request(harness: HarnessId, project: &Path) -> AgentStartRequest {
         resume: None,
         approval_override: None,
         trust_once: false,
+        utility: false,
     }
 }
 

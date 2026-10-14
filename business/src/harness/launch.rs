@@ -22,6 +22,8 @@ pub struct LaunchRequest<'a> {
     pub approval_override: Option<ApprovalMode>,
     /// Trust the project's local resources for this launch only (`capabilities.projectTrust`).
     pub trust_once: bool,
+    /// Launch a throwaway helper: `--no-session --no-tools --thinking off`.
+    pub utility: bool,
 }
 
 /// `binary args…` in `project`. Batch-script wrappers (`.cmd`/`.bat`, re-parsed by `cmd.exe`)
@@ -36,6 +38,11 @@ pub fn rpc_exec_spec(binary: &ResolvedBinary, project: &Path, args: &[String]) -
     }
 
     Ok(ExecSpec::new(&binary.path).args(args.iter().cloned()).cwd(project))
+}
+
+/// The flags both PI-family harnesses accept for a helper that must not touch the project or save anything.
+pub fn utility_args() -> [String; 4] {
+    ["--no-session", "--no-tools", "--thinking", "off"].map(str::to_owned)
 }
 
 /// `[flag, value]` as owned arguments.

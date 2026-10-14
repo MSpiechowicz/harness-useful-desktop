@@ -12,7 +12,7 @@ use super::config::{project_settings, user_settings};
 use super::paths::omp_paths;
 use crate::env::Env;
 use crate::error::Result;
-use crate::harness::{LaunchRequest, flag_with, rpc_exec_spec};
+use crate::harness::{LaunchRequest, flag_with, rpc_exec_spec, utility_args};
 use crate::model::ApprovalMode;
 use crate::process::ExecSpec;
 
@@ -48,6 +48,10 @@ pub fn omp_launch_spec(request: &LaunchRequest<'_>) -> Result<ExecSpec> {
 
     if let Some(id) = request.resume {
         args.extend(flag_with("--resume", id));
+    }
+
+    if request.utility {
+        args.extend(utility_args());
     }
 
     rpc_exec_spec(request.binary, request.project, &args)

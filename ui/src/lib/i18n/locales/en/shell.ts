@@ -28,6 +28,8 @@ export const shell = {
   'shell.rail.label': 'Primary',
   'shell.rail.collapse': 'Collapse sidebar',
   'shell.rail.expand': 'Expand sidebar',
+  'shell.rail.chats.hide': 'Hide chats',
+  'shell.rail.chats.show': 'Show chats',
   'shell.search.aria': 'Search or run a command',
 
   'shell.status.ready': 'Ready',

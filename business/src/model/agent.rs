@@ -47,6 +47,9 @@ pub struct AgentStartRequest {
     /// Trust the project's local resources for this launch only (PI project trust); honoured only
     /// by harnesses with `capabilities.projectTrust`. Never implied.
     pub trust_once: bool,
+    /// A throwaway helper agent (naming a chat): no tools, no saved session, no thinking. Cannot
+    /// resume a session.
+    pub utility: bool,
 }
 
 /// A running agent session as returned by `agent_start` and `agent_list`.

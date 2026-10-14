@@ -39,6 +39,7 @@ export function samplePrefs(overrides: Partial<AppPrefs> = {}): AppPrefs {
     updatePolicy: 'startupAsk',
     checkCompanionUpdates: true,
     openAnyLink: false,
+    aiChatNames: false,
     language: 'en',
     onboardingCompleted: false,
     approvalNoticeSeen: false,

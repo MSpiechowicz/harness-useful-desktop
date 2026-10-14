@@ -13,6 +13,7 @@ import type { ToastsStore } from '$lib/stores/toasts.svelte';
 import { pendingApproval, pendingDialog, type ApprovalPrompt } from './approval';
 import { finishBash, startBash } from './bash';
 import { messageAction, type SendMode } from './composer';
+import { labelFromPrompt, type ChatLabel } from './naming';
 import { prependHistory } from './messages';
 import { applyEvent, dropRequest, reduceEnvelope } from './reducer';
 import { mergeCatalog } from './slash';
@@ -60,6 +61,24 @@ export class ChatSession {
   streaming = $derived(this.chat.phase === 'streaming');
   ended = $derived(this.chat.phase === 'exited');
   name = $derived(this.chat.session?.sessionName ?? this.chat.title ?? null);
+  /** A name the user typed; it beats every generated one. */
+  userNamed = $state(false);
+  /** The name and description a helper agent gave the chat (the "AI chat names" setting); null until it answers. */
+  aiLabel = $state.raw<ChatLabel | null>(null);
+  /** What the chat was opened with, known only while the whole transcript is (not for a resumed chat's newest page). */
+  firstPrompt = $derived.by(() => {
+    if (this.chat.historyCursor !== null) {
+      return '';
+    }
+
+    const first = this.chat.items.find((item) => item.kind === 'message' && item.role === 'user');
+
+    return first?.kind === 'message' ? first.blocks.flatMap((block) => (block.type === 'text' ? [block.text] : [])).join('\n') : '';
+  });
+  /** The card text: the helper's when it answered, else the opening words of the first message. */
+  label = $derived(this.aiLabel ?? labelFromPrompt(this.firstPrompt));
+  /** Called once, when the first user message of a new chat lands. */
+  onFirstPrompt: ((session: ChatSession) => void) | null = null;
 
   private incoming: AgentEnvelope[] = [];
   private flushScheduled = false;
@@ -128,6 +147,12 @@ export class ChatSession {
 
     if (after.settledCount > before.settledCount) {
       void this.send({ type: 'getState' });
+    }
+
+    if (before.lastUserText === null && after.lastUserText !== null) {
+      const callback = this.onFirstPrompt;
+      this.onFirstPrompt = null;
+      callback?.(this);
     }
   }
 
@@ -258,6 +283,9 @@ export class ChatSession {
     }
 
     const reply = await this.send({ type: 'setSessionName', name: trimmed });
+    if (reply) {
+      this.userNamed = true;
+    }
     if (reply && session) {
       this.apply((state) => applyEvent(state, { type: 'state', state: { ...(state.session ?? session), sessionName: trimmed } }));
     }

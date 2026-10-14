@@ -3,7 +3,7 @@ import type { AreaMessages } from '../types';
 
 export const chat: AreaMessages<typeof enChat> = {
   'chat.title': 'Czat',
-  'chat.tab.default': 'Czat {number}',
+  'chat.names.list': 'Godzilla, Kraken, Feniks, Yeti, Gryf, Hydra, Sfinks, Bazyliszek, Chimera, Minotaur, Pegaz, Lewiatan, Banshee, Golem, Wiwerna, Cerber, Gargulec, Kitsune, Selkie, Ptak Gromu, Nessie, Wielka Stopa, Mothra, Cthulhu, Centaur, Syrena, Troll, Dżin, Tengu, Behemot',
 
   'chat.mode.yolo.label': 'yolo',
   'chat.mode.yolo.explanation': 'narzędzia działają bez pytania',

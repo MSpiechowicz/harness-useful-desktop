@@ -63,6 +63,7 @@ fn launch<'a>(binary: &'a ResolvedBinary, project: &'a Path) -> LaunchRequest<'a
         resume: None,
         approval_override: None,
         trust_once: false,
+        utility: false,
     }
 }
 
@@ -102,6 +103,20 @@ fn pi_passes_approve_only_for_trust_once_and_resumes_with_session() {
     };
     let expected = ["--mode", "rpc", "--approve", "--session", "pi-session-1"]; // guard-allow: approve-flag
     assert_eq!(args(&Pi, full), expected);
+}
+
+#[test]
+fn a_utility_helper_runs_without_tools_session_or_thinking() {
+    let binary = binary();
+    let project = PathBuf::from("/work/demo");
+    let helper = LaunchRequest {
+        utility: true,
+        ..launch(&binary, &project)
+    };
+    let expected = ["--mode", "rpc", "--no-session", "--no-tools", "--thinking", "off"];
+
+    assert_eq!(args(&Omp, helper), expected);
+    assert_eq!(args(&Pi, helper), expected);
 }
 
 #[test]

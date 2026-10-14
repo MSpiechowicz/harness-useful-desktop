@@ -31,6 +31,8 @@ export const shell: AreaMessages<typeof enShell> = {
   'shell.rail.label': 'Menu principal',
   'shell.rail.collapse': 'Réduire la barre latérale',
   'shell.rail.expand': 'Développer la barre latérale',
+  'shell.rail.chats.hide': 'Masquer les chats',
+  'shell.rail.chats.show': 'Afficher les chats',
   'shell.search.aria': 'Rechercher ou exécuter une commande',
 
   'shell.status.ready': 'Prêt',

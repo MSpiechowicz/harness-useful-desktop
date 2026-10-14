@@ -219,6 +219,7 @@ async fn live_omp_handshake_state_commands_and_shutdown() {
             resume: None,
             approval_override: None,
             trust_once: false,
+            utility: false,
         })
         .unwrap();
     println!("command: {} {:?}", spec.program.display(), spec.args);
@@ -233,6 +234,7 @@ async fn live_omp_handshake_state_commands_and_shutdown() {
         resume: None,
         approval_override: None,
         trust_once: false,
+        utility: false,
     };
     let deps = AgentDeps {
         harness: &Omp,

@@ -1,6 +1,6 @@
 export const chat = {
   'chat.title': 'Chat',
-  'chat.tab.default': 'Chat {number}',
+  'chat.names.list': 'Godzilla, Kraken, Phoenix, Yeti, Griffin, Hydra, Sphinx, Basilisk, Chimera, Minotaur, Pegasus, Leviathan, Banshee, Golem, Wyvern, Cerberus, Gargoyle, Kitsune, Selkie, Thunderbird, Nessie, Bigfoot, Mothra, Cthulhu, Centaur, Siren, Troll, Djinn, Tengu, Behemoth',
 
   'chat.mode.yolo.label': 'yolo',
   'chat.mode.yolo.explanation': 'tools run without asking',

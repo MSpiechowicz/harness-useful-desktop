@@ -13,15 +13,13 @@
   import { t } from '$lib/i18n/i18n.svelte';
 
   import { newChat } from '../shell/actions';
-  import SessionTabs from './SessionTabs.svelte';
 
-  // A single chat needs no tab strip; tabs appear once there is a second chat to switch to.
-  const hasChats = $derived(agentSessions.sessions.length + agentSessions.starting.length > 1);
+  // The open chat names the page; with the rail collapsed it is the only place its name shows.
+  const heading = $derived(agentSessions.activeKey ? agentSessions.title(agentSessions.activeKey) : t('chat.title'));
   const ready = $derived(Boolean(harness.active?.detection.installed && project.active));
 </script>
 
-<!-- Chat's header, rendered into the shell's top bar like every view's: the chat tabs are the title once a chat
-     exists; before that the view names itself. -->
+<!-- Chat's header, rendered into the shell's top bar like every view's. The open chats live in the rail, under Chat. -->
 <header
   data-view-header
   use:portal={SHELL_HEADER_SLOT}
@@ -29,11 +27,7 @@
   out:fade|global={{ duration: scaled(100) }}
   class="flex h-[52px] min-w-0 items-center gap-3 px-2"
 >
-  <h1 class={hasChats ? 'sr-only' : 'flex-1 text-base leading-5 font-medium text-fg'}>{t('chat.title')}</h1>
-
-  {#if hasChats}
-    <SessionTabs />
-  {/if}
+  <h1 class="min-w-0 flex-1 truncate text-base leading-5 font-medium text-fg">{heading}</h1>
 
   <div class="flex shrink-0 items-center gap-2">
     <Button variant="primary" size="sm" disabled={!ready} onclick={() => void newChat()}>

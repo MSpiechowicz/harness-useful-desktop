@@ -27,4 +27,9 @@ approvalOverride: ApprovalMode | null,
  * Trust the project's local resources for this launch only (PI project trust); honoured only
  * by harnesses with `capabilities.projectTrust`. Never implied.
  */
-trustOnce: boolean, };
+trustOnce: boolean, 
+/**
+ * A throwaway helper agent (naming a chat): no tools, no saved session, no thinking. Cannot
+ * resume a session.
+ */
+utility: boolean, };

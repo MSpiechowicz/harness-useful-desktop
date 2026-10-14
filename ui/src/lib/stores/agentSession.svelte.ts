@@ -2,6 +2,8 @@ import { applyChatDefaults } from '$lib/chat/chat-defaults';
 import { SvelteMap } from 'svelte/reactivity';
 
 import { t } from '$lib/i18n/i18n.svelte';
+import { requestAiLabel } from '$lib/chat/ai-name';
+import { generatedName } from '$lib/chat/naming';
 import { ChatSession } from '$lib/chat/session.svelte';
 import type { AgentEnvelope } from '$lib/ipc/bindings/AgentEnvelope';
 import type { AgentStartRequest } from '$lib/ipc/bindings/AgentStartRequest';
@@ -12,6 +14,7 @@ import type { SessionRef } from '$lib/ipc/bindings/SessionRef';
 import { ipc } from '$lib/ipc/client';
 import { IpcFailure, type Transport } from '$lib/ipc/transport';
 
+import { prefs } from './prefs.svelte';
 import { toasts, type ToastsStore } from './toasts.svelte';
 
 /** Options a restart can change; everything else carries over from the session being replaced. */
@@ -41,9 +44,23 @@ export class AgentSessionsStore {
   /** Each open chat's number, the "3" of "Chat 3" (the lowest free one), kept while the agent has not named it. */
   private numbers = new SvelteMap<string, number>();
 
-  /** A tab's title: the name the agent gave the chat, else "Chat N". */
+  /**
+   * A chat's title: the name the user typed, else the helper's, else the agent's own, else the opening words of the
+   * first message, else a generated creature name.
+   */
   title(key: string): string {
-    return this.get(key)?.name ?? t('chat.tab.default', { number: this.numbers.get(key) ?? 1 });
+    const session = this.get(key);
+    const generated = generatedName(this.numbers.get(key) ?? 1);
+    if (!session) {
+      return generated;
+    }
+
+    return (session.userNamed ? session.name : null) ?? session.aiLabel?.name ?? session.name ?? session.label?.name ?? generated;
+  }
+
+  /** The line under a chat's title on its card; empty when there is nothing to add to the title. */
+  description(key: string): string {
+    return this.get(key)?.label?.description ?? '';
   }
 
   private nextNumber(): number {
@@ -91,6 +108,10 @@ export class AgentSessionsStore {
       session.ingest(envelope);
     }
 
+    if (!request.utility && !request.resume) {
+      session.onFirstPrompt = (named) => void this.nameWithAi(named);
+    }
+
     this.sessions = [...this.sessions, session];
     if (!this.numbers.has(session.key)) {
       this.numbers.set(session.key, this.nextNumber());
@@ -101,6 +122,29 @@ export class AgentSessionsStore {
     void this.loadCatalog(session);
 
     return session;
+  }
+
+  /**
+   * With "AI chat names" on, asks a throwaway agent for a short name and description once per chat, right after its
+   * first message. Any failure leaves the name made from the first message.
+   */
+  private async nameWithAi(session: ChatSession): Promise<void> {
+    const prompt = session.firstPrompt;
+    if (!prefs.value?.aiChatNames || prompt === '' || prompt.startsWith('/') || prompt.startsWith('!')) {
+      return;
+    }
+
+    const model = session.chat.session?.model ?? null;
+    const label = await requestAiLabel(this.transport, {
+      harness: session.info.harness,
+      project: session.info.project,
+      model: model ? { provider: model.provider, id: model.id } : null,
+      prompt,
+    });
+
+    if (label && this.get(session.key)) {
+      session.aiLabel = label;
+    }
   }
 
   /** Starts a chat for the harness and project the user is working in, on the model and thinking level last picked. */
@@ -115,7 +159,7 @@ export class AgentSessionsStore {
     this.starting = [...this.starting, placeholder];
     this.activeKey = placeholder.key;
 
-    const session = await this.start({ harness, project, resume: null, approvalOverride: null, trustOnce: false }, { activate: false });
+    const session = await this.start({ harness, project, resume: null, approvalOverride: null, trustOnce: false, utility: false }, { activate: false });
     this.starting = this.starting.filter((chat) => chat.key !== placeholder.key);
     this.handOverNumber(placeholder.key, session?.key ?? null);
 
@@ -177,6 +221,7 @@ export class AgentSessionsStore {
       resume,
       approvalOverride: options.approvalOverride === undefined ? old.info.approvalOverride : options.approvalOverride,
       trustOnce: options.trustOnce ?? false,
+      utility: false,
     });
 
     this.handOverNumber(`restart-${key}`, fresh?.key ?? null);
@@ -185,6 +230,8 @@ export class AgentSessionsStore {
     }
 
     fresh.draft = draft;
+    fresh.aiLabel = old.aiLabel;
+    fresh.userNamed = old.userNamed;
     this.moveTo(fresh.key, index);
     if (resume) {
       void fresh.loadHistory();

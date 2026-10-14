@@ -9,7 +9,7 @@ import { PROJECT, sampleInfo, storeWithMock } from '../../../tests/chat-helpers'
 import { AgentSessionsStore } from './agentSession.svelte';
 import { ToastsStore } from './toasts.svelte';
 
-const REQUEST: AgentStartRequest = { harness: 'omp', project: PROJECT, resume: null, approvalOverride: null, trustOnce: false };
+const REQUEST: AgentStartRequest = { harness: 'omp', project: PROJECT, resume: null, approvalOverride: null, trustOnce: false, utility: false };
 
 function messageTexts(chat: { items: { kind: string; blocks?: { type: string; text?: string }[] }[] }): string[] {
   return chat.items.flatMap((item) => (item.kind === 'message' ? (item.blocks ?? []).flatMap((block) => (block.type === 'text' ? [block.text ?? ''] : [])) : []));
@@ -63,7 +63,7 @@ describe('starting sessions', () => {
     expect(store.get(info.key)).toBeDefined();
   });
 
-  it('numbers unnamed chats with the lowest free number and cycles through the tabs', async () => {
+  it('names unnamed chats with the lowest free creature and cycles through the tabs', async () => {
     // Drop the agent's events: the mock's first `state` event names the chat, and whether it lands before the
     // assertions depends on the runner's speed.
     const { transport } = storeWithMock();
@@ -74,8 +74,8 @@ describe('starting sessions', () => {
     const first = await store.create('omp', PROJECT);
     const second = await store.create('omp', PROJECT);
 
-    expect(store.title(first!.key)).toBe('Chat 1');
-    expect(store.title(second!.key)).toBe('Chat 2');
+    expect(store.title(first!.key)).toBe('Godzilla');
+    expect(store.title(second!.key)).toBe('Kraken');
 
     store.cycle(1);
     expect(store.activeKey).toBe(first!.key);
@@ -84,7 +84,7 @@ describe('starting sessions', () => {
 
     await store.stop(first!.key);
     const third = await store.create('omp', PROJECT);
-    expect(store.title(third!.key)).toBe('Chat 1');
+    expect(store.title(third!.key)).toBe('Godzilla');
   });
 
   it('drops the starting tab when the agent fails to start', async () => {
