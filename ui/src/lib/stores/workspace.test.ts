@@ -29,6 +29,39 @@ describe('workspace restore', () => {
   });
 });
 
+describe('chat names across a restart', () => {
+  it('keeps the helper\'s name and description, and that the user renamed the chat since', async () => {
+    const { store } = storeWithMock();
+    const chat = await store.create('omp', PROJECT);
+    await vi.waitFor(() => expect(chat?.chat.session?.sessionId).toBeTruthy());
+    chat!.chat.items = [{ kind: 'message', id: 'm1', role: 'user', blocks: [{ type: 'text', text: 'hi' }] } as never];
+    chat!.aiLabel = { name: 'Dependency check', description: 'Which packages are outdated.' };
+    chat!.userNamed = true;
+    saveWorkspace(store);
+
+    // A launch restores once: a fresh copy of the module stands for the next launch.
+    vi.resetModules();
+    const relaunched = await import('./workspace.svelte');
+    const { store: next } = storeWithMock();
+    await relaunched.restoreWorkspace(next);
+
+    expect(next.sessions[0].aiLabel).toEqual({ name: 'Dependency check', description: 'Which packages are outdated.' });
+    expect(next.sessions[0].userNamed).toBe(true);
+    expect(next.description(next.sessions[0].key)).toBe('Which packages are outdated.');
+  });
+
+  it('ignores a damaged saved label', async () => {
+    localStorage.setItem('harness:workspace', JSON.stringify({ view: 'chat', chats: [{ harness: 'omp', sessionId: 'abc', project: PROJECT, label: { name: 7 } }], active: 0 }));
+    vi.resetModules();
+    const relaunched = await import('./workspace.svelte');
+    const { store } = storeWithMock();
+
+    await relaunched.restoreWorkspace(store);
+
+    expect(store.sessions[0].aiLabel).toBeNull();
+  });
+});
+
 describe('workspace save', () => {
   function saved(): { chats: { sessionId: string }[] } {
     return JSON.parse(localStorage.getItem('harness:workspace') ?? 'null');

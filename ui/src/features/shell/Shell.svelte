@@ -62,9 +62,24 @@
       void session.chat.session?.sessionId;
       void session.chat.items.length;
       void session.ended;
+      void session.aiLabel;
+      void session.userNamed;
     }
 
     saveWorkspaceWhenReady(agentSessions);
+  });
+
+  // The open chat decides the project: switching chats brings that chat's project along, and with it the git state, the
+  // Changes view with its review comments, the sessions list and the rail's count. Only the chat (not the project)
+  // re-runs this, so choosing another project by hand is not undone until the chat changes again.
+  $effect(() => {
+    const path = agentSessions.active?.info.project ?? null;
+
+    untrack(() => {
+      if (path !== null && project.active?.path !== path) {
+        void project.open(path);
+      }
+    });
   });
 
   // The rail and the status bar show git state everywhere, not only in Changes.

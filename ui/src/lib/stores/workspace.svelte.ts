@@ -1,3 +1,4 @@
+import type { ChatLabel } from '$lib/chat/naming';
 import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
 
 import { type AgentSessionsStore, resumable } from './agentSession.svelte';
@@ -9,7 +10,7 @@ import { nav, VIEW_IDS, type ViewId } from './nav.svelte';
  */
 interface SavedWorkspace {
   view: ViewId;
-  chats: { harness: HarnessId; sessionId: string; project: string }[];
+  chats: { harness: HarnessId; sessionId: string; project: string; /** The helper's name and description, and whether the user renamed the chat since. */ label?: ChatLabel | null; userNamed?: boolean }[];
   /** Index into `chats` of the chat that was showing, or -1. */
   active: number;
 }
@@ -26,7 +27,7 @@ export function saveWorkspace(agents: AgentSessionsStore): void {
   });
   const record: SavedWorkspace = {
     view: nav.current,
-    chats: open.map(({ session, ref }) => ({ harness: ref.harness, sessionId: ref.id, project: session.info.project })),
+    chats: open.map(({ session, ref }) => ({ harness: ref.harness, sessionId: ref.id, project: session.info.project, label: session.aiLabel, userNamed: session.userNamed })),
     active: open.findIndex(({ session }) => session.key === agents.activeKey),
   };
 
@@ -35,6 +36,12 @@ export function saveWorkspace(agents: AgentSessionsStore): void {
   } catch {
     // Storage can be unavailable; restoring is a convenience.
   }
+}
+
+function isLabel(value: unknown): value is ChatLabel {
+  const label = value as ChatLabel | null;
+
+  return typeof label?.name === 'string' && label.name !== '' && typeof label.description === 'string';
 }
 
 function readWorkspace(): SavedWorkspace | null {
@@ -46,7 +53,9 @@ function readWorkspace(): SavedWorkspace | null {
 
     return {
       view: VIEW_IDS.includes(record.view) ? record.view : 'chat',
-      chats: record.chats.filter((chat) => typeof chat?.sessionId === 'string' && typeof chat.project === 'string' && (chat.harness === 'omp' || chat.harness === 'pi')),
+      chats: record.chats
+        .filter((chat) => typeof chat?.sessionId === 'string' && typeof chat.project === 'string' && (chat.harness === 'omp' || chat.harness === 'pi'))
+        .map((chat) => ({ ...chat, label: isLabel(chat.label) ? chat.label : null, userNamed: chat.userNamed === true })),
       active: typeof record.active === 'number' ? record.active : -1,
     };
   } catch {
@@ -93,6 +102,8 @@ export function restoreWorkspace(agents: AgentSessionsStore): Promise<boolean> {
       );
       if (session) {
         restored += 1;
+        session.aiLabel = chat.label ?? null;
+        session.userNamed = chat.userNamed ?? false;
         void session.loadHistory();
         if (index === saved.active || activeKey === null) {
           activeKey = session.key;
