@@ -43,6 +43,6 @@ describe('a marketplace whose plugin is outdated', () => {
     const [item] = buildItems('marketplaces', view);
 
     expect(rowInfo(item).update).toBe(true);
-    expect(item.tab === 'marketplaces' && item.updates).toEqual({ tool: '0.3.0' });
+    expect(item.tab === 'marketplaces' && Object.keys(item.updates)).toEqual(['tool']);
   });
 });

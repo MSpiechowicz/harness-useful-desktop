@@ -1,6 +1,7 @@
 <script lang="ts">
   import ArrowUpFromLine from '@lucide/svelte/icons/arrow-up-from-line';
   import Plus from '@lucide/svelte/icons/plus';
+  import RefreshCw from '@lucide/svelte/icons/refresh-cw';
 
   import Button from '$lib/components/Button.svelte';
   import DropdownButton from '$lib/components/DropdownButton.svelte';
@@ -58,7 +59,7 @@
       action: { type: 'pluginUpgrade', name: null },
       idle: () => !(extensionsView.data && withCompanionUpdates(extensionsView.data, ecosystem.status).plugins.some((plugin) => plugin.updateAvailable)),
     }),
-    entry('title.updateAllMarketplaces', { icon: ArrowUpFromLine, needs: 'marketplaces', action: { type: 'marketplaceUpdate', name: null } }),
+    entry('title.updateAllMarketplaces', { icon: RefreshCw, needs: 'marketplaces', action: { type: 'marketplaceUpdate', name: null } }),
     entry('title.updateAllPackages', { icon: ArrowUpFromLine, needs: 'packages', action: { type: 'packageUpdate', source: null } }),
   ];
 

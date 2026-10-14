@@ -1,7 +1,10 @@
 import type { CliResult } from '$lib/ipc/bindings/CliResult';
 import type { ExtensionsView } from '$lib/ipc/bindings/ExtensionsView';
 import { ipc } from '$lib/ipc/client';
+import { t } from '$lib/i18n/i18n.svelte';
 import { IpcFailure, type Transport } from '$lib/ipc/transport';
+import { agentSessions } from '$lib/stores/agentSession.svelte';
+import { toasts } from '$lib/stores/toasts.svelte';
 import { extensionsView } from '$lib/stores/views.svelte';
 
 import { failureLine, outcomeIn, type ActionRequest, type Outcome } from './action-model';
@@ -28,6 +31,8 @@ export class ActionRunner {
   constructor(
     private readonly transport: Transport,
     private readonly reload: () => Promise<ExtensionsView | null>,
+    /** Called after a run that went through, with the request: open chats may need to pick the change up. */
+    private readonly applied: (request: ActionRequest) => Promise<void> = async () => {},
   ) {}
 
   /** The failure line of the real run, or null while it has not failed. */
@@ -85,6 +90,9 @@ export class ActionRunner {
 
     // Even a failed run may have changed something: look again either way.
     const view = await this.reload();
+    if (this.result && this.failure === null) {
+      await this.applied(request);
+    }
 
     if (mine === this.token) {
       this.outcome = this.result && this.failure === null && view ? outcomeIn(view, request.action) : null;
@@ -108,8 +116,19 @@ export class ActionRunner {
   }
 }
 
-export const actionRunner = new ActionRunner(ipc, async () => {
-  await extensionsView.refresh();
+/** What changes the plugins an agent has loaded; a chat that started before it has to be restarted to see it. */
+const PLUGIN_CHANGES = new Set(['pluginInstall', 'pluginUpgrade', 'pluginUninstall', 'pluginEnable', 'pluginDisable']);
 
-  return extensionsView.data;
-});
+export const actionRunner = new ActionRunner(
+  ipc,
+  async () => {
+    await extensionsView.refresh();
+
+    return extensionsView.data;
+  },
+  async (request) => {
+    if (PLUGIN_CHANGES.has(request.action.type) && (await agentSessions.reloadIdle(request.harness)) > 0) {
+      toasts.push({ title: t('extensions.toast.chatsReloaded'), tone: 'info' });
+    }
+  },
+);

@@ -75,7 +75,7 @@ interface ItemBase {
 /** One list row plus the record its detail pane shows. */
 export type ExtItem =
   | (ItemBase & { tab: 'plugins'; data: PluginInfo })
-  | (ItemBase & { tab: 'marketplaces'; data: MarketplaceInfo; /** Plugins installed from it that have an update, by name, with the version when known. */ updates: Record<string, string | null> })
+  | (ItemBase & { tab: 'marketplaces'; data: MarketplaceInfo; /** Plugins installed from it that have an update, by name. */ updates: Record<string, PluginInfo> })
   | (ItemBase & { tab: 'skills'; data: SkillInfo })
   | (ItemBase & { tab: 'prompts'; data: PromptTemplateInfo })
   | (ItemBase & { tab: 'mcp'; data: McpServerInfo })
@@ -135,7 +135,7 @@ function marketplaceItems(view: ExtensionsView): ExtItem[] {
 
     // The plugins installed from it that are outdated, so the catalog can say so before its own copy is refreshed.
     const updates = Object.fromEntries(
-      view.plugins.filter((plugin) => (plugin.marketplace ?? plugin.id.split('@')[1]) === marketplace.name && plugin.updateAvailable).map((plugin) => [plugin.id.split('@')[0], plugin.latestVersion]),
+      view.plugins.filter((plugin) => (plugin.marketplace ?? plugin.id.split('@')[1]) === marketplace.name && plugin.updateAvailable).map((plugin) => [plugin.id.split('@')[0], plugin]),
     );
 
     return { ...base(marketplace.name, marketplace.name, marketplace.source, badges, listed), update: Object.keys(updates).length > 0, tab: 'marketplaces', data: marketplace, updates };

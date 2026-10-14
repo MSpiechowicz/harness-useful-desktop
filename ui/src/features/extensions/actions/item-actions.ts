@@ -1,4 +1,5 @@
 import ArrowUpFromLine from '@lucide/svelte/icons/arrow-up-from-line';
+import RefreshCw from '@lucide/svelte/icons/refresh-cw';
 import Power from '@lucide/svelte/icons/power';
 import PowerOff from '@lucide/svelte/icons/power-off';
 import Trash2 from '@lucide/svelte/icons/trash-2';
@@ -14,6 +15,11 @@ import { actionRequest, type BarAction } from './action-model';
 
 function scopeOf(scope: string): InstallScope {
   return scope === 'project' ? 'project' : 'user';
+}
+
+/** The request that updates an installed plugin, in the scope it was installed in. */
+export function pluginUpdateRequest(harness: HarnessId, plugin: PluginInfo, project: string | null) {
+  return actionRequest(harness, { type: 'pluginUpgrade', name: plugin.id }, scopeOf(plugin.scope), project);
 }
 
 /**
@@ -52,7 +58,7 @@ export function pluginActions(harness: HarnessId, plugin: PluginInfo, project: s
         : t('extensions.action.upgrade.newer'),
     icon: ArrowUpFromLine,
     state: plugin.updateAvailable ? 'ready' : 'idle',
-    request: request({ type: 'pluginUpgrade', name: plugin.id }),
+    request: pluginUpdateRequest(harness, plugin, project),
   });
 
   actions.push({
@@ -67,15 +73,14 @@ export function pluginActions(harness: HarnessId, plugin: PluginInfo, project: s
   return actions;
 }
 
-/** Refresh the catalog of a marketplace (blue while an installed plugin of it has an update waiting, greyed out otherwise), or remove it. */
-export function marketplaceActions(harness: HarnessId, marketplace: MarketplaceInfo, outdated: boolean): BarAction[] {
+/** Re-read the catalog of a marketplace (what it offers; nothing is installed), or remove it. */
+export function marketplaceActions(harness: HarnessId, marketplace: MarketplaceInfo): BarAction[] {
   return [
     {
-      label: t('extensions.verb.update'),
+      label: t('extensions.verb.refresh'),
       title: t('extensions.action.updateCatalog.title'),
-      description: outdated ? t('extensions.action.updateCatalog.description') : t('extensions.action.updateCatalog.idle'),
-      icon: ArrowUpFromLine,
-      state: outdated ? 'ready' : 'idle',
+      description: t('extensions.action.updateCatalog.description'),
+      icon: RefreshCw,
       request: actionRequest(harness, { type: 'marketplaceUpdate', name: marketplace.name }, 'user', null),
     },
     {

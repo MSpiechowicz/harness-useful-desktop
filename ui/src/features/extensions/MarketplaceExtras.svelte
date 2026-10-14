@@ -1,23 +1,28 @@
 <script lang="ts">
+  import ArrowUpFromLine from '@lucide/svelte/icons/arrow-up-from-line';
   import CircleAlert from '@lucide/svelte/icons/circle-alert';
 
   import Badge from '$lib/components/Badge.svelte';
+  import Button from '$lib/components/Button.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
   import FilterMenu from '$lib/components/FilterMenu.svelte';
   import VirtualList from '$lib/components/VirtualList.svelte';
   import type { MarketplaceEntry } from '$lib/ipc/bindings/MarketplaceEntry';
   import type { MarketplaceInfo } from '$lib/ipc/bindings/MarketplaceInfo';
+  import type { PluginInfo } from '$lib/ipc/bindings/PluginInfo';
   import { harness } from '$lib/stores/harness.svelte';
+  import { project } from '$lib/stores/project.svelte';
   import { viewState } from '$lib/stores/view-state.svelte';
 
+  import { actionRunner } from './actions/action-runner.svelte';
   import ActionBar from './actions/ActionBar.svelte';
   import EntryInstall from './actions/EntryInstall.svelte';
-  import { marketplaceActions } from './actions/item-actions';
+  import { marketplaceActions, pluginUpdateRequest } from './actions/item-actions';
 
   interface Props {
     marketplace: MarketplaceInfo;
     /** Installed plugins of this marketplace that have a newer version, by name: the catalog copy may be older than that. */
-    updates: Record<string, string | null>;
+    updates: Record<string, PluginInfo>;
   }
 
   let { marketplace, updates }: Props = $props();
@@ -56,7 +61,7 @@
 </script>
 
 {#if id}
-  <ActionBar actions={marketplaceActions(id, marketplace, Object.keys(updates).length > 0)} />
+  <ActionBar actions={marketplaceActions(id, marketplace)} />
 {/if}
 
 {#if marketplace.error}
@@ -109,7 +114,10 @@
       <span class="tabular text-xs text-fg-3">v{entry.version}</span>
     {/if}
     {#if entry.name in updates}
-      <Badge tone="info" class={STATE}>{updates[entry.name] ? t('extensions.badge.updateTo', { version: updates[entry.name] }) : t('extensions.badge.updateAvailable')}</Badge>
+      <Button variant="primary" disabled={actionRunner.phase !== 'idle' || !id} onclick={() => id && void actionRunner.begin(pluginUpdateRequest(id, updates[entry.name], project.active?.path ?? null))}>
+        {#snippet leading()}<ArrowUpFromLine size={16} aria-hidden="true" />{/snippet}
+        {t('extensions.verb.update')}
+      </Button>
     {:else if entry.installed}
       <Badge tone="success" class={STATE}>{t('extensions.catalog.installed')}</Badge>
     {:else if !marketplace.error}

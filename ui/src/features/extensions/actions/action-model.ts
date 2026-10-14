@@ -46,7 +46,7 @@ interface Copy {
   title: (action: ExtensionAction) => string;
 }
 
-const verb = (key: 'install' | 'uninstall' | 'enable' | 'disable' | 'update' | 'remove' | 'addMarketplace' | 'removeMarketplace') => () =>
+const verb = (key: 'install' | 'uninstall' | 'enable' | 'disable' | 'update' | 'refresh' | 'remove' | 'addMarketplace' | 'removeMarketplace') => () =>
   t(`extensions.verb.${key}`);
 
 const name = (action: ExtensionAction): string | null => ('name' in action && action.name ? action.name : null);
@@ -82,7 +82,7 @@ const COPY: Record<ExtensionAction['type'], Copy> = {
     title: (action) => t('extensions.title.removeMarketplace', { subject: name(action) ?? t('extensions.subject.everything') }),
   },
   marketplaceUpdate: {
-    verb: verb('update'),
+    verb: verb('refresh'),
     title: (action) => {
       const subject = name(action);
 
