@@ -208,7 +208,7 @@
 <svelte:window onkeydown={onKeydown} onfocus={() => git.refreshSoon()} />
 
 <div class="relative z-10 flex h-full" data-intro={intro.phase} style:--intro-lead="{INTRO_LEAD_MS}ms" inert={onboarding.visible}>
-  <Rail />
+  <Rail onshortcuts={() => (shortcutsOpen = true)} />
 
   <div class="relative flex min-w-0 flex-1 flex-col">
     <TopBar />
@@ -220,7 +220,7 @@
       <ViewHost />
     </main>
 
-    <StatusBar onshortcuts={() => (shortcutsOpen = true)} />
+    <StatusBar />
   </div>
 </div>
 

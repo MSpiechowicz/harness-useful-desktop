@@ -57,10 +57,10 @@
       onclick={onselect}
     ></button>
 
-    <div class="pointer-events-none relative flex size-full flex-col justify-center gap-0.5 pr-[44px] pl-3">
-      <span class="truncate text-base font-medium text-fg" aria-hidden="true">{title}</span>
+    <div class="pointer-events-none relative flex size-full flex-col justify-center gap-2 pr-[44px] pl-3">
+      <span class="truncate text-base font-medium text-fg [text-box:trim-both_cap_alphabetic]" aria-hidden="true">{title}</span>
       <span class="tabular flex items-center gap-1.5 text-xs text-fg-3">
-        <span class="truncate">
+        <span class="truncate [text-box:trim-both_cap_alphabetic]">
           {relativeTime(summary.updatedAt)}
           {#if summary.model}· {summary.model}{/if}
           · {formatBytes(summary.sizeBytes)}

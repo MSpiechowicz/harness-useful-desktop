@@ -3,7 +3,6 @@
   import ArrowUp from '@lucide/svelte/icons/arrow-up';
   import Download from '@lucide/svelte/icons/download';
   import GitBranch from '@lucide/svelte/icons/git-branch';
-  import Keyboard from '@lucide/svelte/icons/keyboard';
   import Monitor from '@lucide/svelte/icons/monitor';
   import Moon from '@lucide/svelte/icons/moon';
   import Sun from '@lucide/svelte/icons/sun';
@@ -24,12 +23,6 @@
   import { viewUpdates } from '../updates/actions';
   import { indicatorLabel } from '../updates/copy';
   import StatusItem from './StatusItem.svelte';
-
-  interface Props {
-    onshortcuts: () => void;
-  }
-
-  let { onshortcuts }: Props = $props();
 
   const connected = $derived(app.status === 'ready');
   const chat = $derived(agentSessions.active?.chat ?? null);
@@ -93,10 +86,6 @@
 
     <StatusItem label="Motion: {motionName}. Click to change" onclick={cycleMotion}>
       {#snippet content()}<Zap size={ICON.sm} aria-hidden="true" />{/snippet}
-    </StatusItem>
-
-    <StatusItem label="Keyboard shortcuts" shortcut="shift+?" onclick={onshortcuts}>
-      {#snippet content()}<Keyboard size={ICON.sm} aria-hidden="true" />{/snippet}
     </StatusItem>
   </div>
 </footer>

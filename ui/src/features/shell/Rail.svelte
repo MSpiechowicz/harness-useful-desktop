@@ -1,12 +1,13 @@
 <script lang="ts">
   import ChevronRight from '@lucide/svelte/icons/chevron-right';
+  import Keyboard from '@lucide/svelte/icons/keyboard';
   import PanelLeftClose from '@lucide/svelte/icons/panel-left-close';
   import PanelLeftOpen from '@lucide/svelte/icons/panel-left-open';
 
   import { createSpring, moveSpring } from '$lib/design/motion';
   import { t } from '$lib/i18n/i18n.svelte';
   import Tooltip from '$lib/components/Tooltip.svelte';
-  import { ICON } from '$lib/components/icon';
+  import { ICON, type IconComponent } from '$lib/components/icon';
   import Logo from '$lib/components/Logo.svelte';
   import PaletteButton from '$lib/components/PaletteButton.svelte';
   import { agentSessions } from '$lib/stores/agentSession.svelte';
@@ -22,6 +23,12 @@
   import RailItem from './RailItem.svelte';
   import { VIEWS, viewShortcut } from './views';
   import WorkspaceSwitcher from './WorkspaceSwitcher.svelte';
+
+  interface Props {
+    onshortcuts: () => void;
+  }
+
+  let { onshortcuts }: Props = $props();
 
   let rail: HTMLElement | undefined = $state();
   let buttons: (HTMLButtonElement | undefined)[] = $state([]);
@@ -89,18 +96,16 @@
   });
 </script>
 
-<!-- The last row of the rail, under Settings: shaped like a destination, so it reads as part of the list. -->
-{#snippet toggle()}
-  {@const label = expanded ? t('shell.rail.collapse') : t('shell.rail.expand')}
-  {@const Icon = expanded ? PanelLeftClose : PanelLeftOpen}
-  <Tooltip text={label} shortcut="mod+b" side="right" disabled={expanded} class="flex w-full">
+<!-- The last rows of the rail, under Settings: shaped like destinations, so they read as part of the list. -->
+{#snippet action(label: string, Icon: IconComponent, shortcut: string, onclick: () => void, pressed?: boolean)}
+  <Tooltip text={label} {shortcut} side="right" disabled={expanded} class="flex w-full">
     {#snippet children({ describedby })}
       <button
         type="button"
         aria-label={label}
-        aria-expanded={expanded}
+        aria-expanded={pressed}
         aria-describedby={describedby}
-        onclick={() => ui.toggleRail()}
+        {onclick}
         class={cx('group/item flex h-[28px] w-full items-center gap-[10px] rounded-sm text-left text-fg-2 transition-[color,background-color,padding] duration-[var(--dur-fast)] hover:bg-hover hover:text-fg', expanded ? 'px-[12px]' : 'px-[15.5px]')}
       >
         <span class="grid size-[16px] shrink-0 place-items-center"><Icon size={ICON.sm} aria-hidden="true" /></span>
@@ -180,8 +185,10 @@
       {/if}
     {/each}
 
+    <div class="flex">{@render action(t('shell.shortcuts.title'), Keyboard, 'shift+?', onshortcuts)}</div>
+
     {#if ui.roomForLabels}
-      <div class="flex">{@render toggle()}</div>
+      <div class="flex">{@render action(expanded ? t('shell.rail.collapse') : t('shell.rail.expand'), expanded ? PanelLeftClose : PanelLeftOpen, 'mod+b', () => ui.toggleRail(), expanded)}</div>
     {/if}
   </div>
 

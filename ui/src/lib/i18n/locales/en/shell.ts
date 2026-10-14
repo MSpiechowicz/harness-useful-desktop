@@ -101,6 +101,7 @@ export const shell = {
   'shell.shortcut.composer.slashMove': 'Move through slash commands after typing /',
   'shell.shortcut.composer.slashAccept': 'Accept the highlighted slash command',
   'shell.shortcut.composer.slashDismiss': 'Dismiss the slash menu',
+  'shell.shortcut.composer.latest': 'Jump to the latest message',
   'shell.shortcut.review.move': 'Move between changed files',
   'shell.shortcut.review.save': 'Save a line comment',
   'shell.shortcut.review.cancel': 'Cancel a line comment',

@@ -95,6 +95,7 @@ export const DOCUMENTED_SHORTCUTS: readonly ShortcutDoc[] = [
   { combos: ['arrowup', 'arrowdown'], joiner: 'and', get label() { return t('shell.shortcut.composer.slashMove'); }, area: 'Chat composer' },
   { combos: ['tab'], get label() { return t('shell.shortcut.composer.slashAccept'); }, area: 'Chat composer' },
   { combos: ['escape'], get label() { return t('shell.shortcut.composer.slashDismiss'); }, area: 'Chat composer' },
+  { combos: ['mod+end'], get label() { return t('shell.shortcut.composer.latest'); }, area: 'Chat composer' },
 
   { combos: ['arrowup', 'arrowdown'], joiner: 'and', get label() { return t('shell.shortcut.review.move'); }, area: 'Review & diff' },
   { combos: ['mod+enter'], get label() { return t('shell.shortcut.review.save'); }, area: 'Review & diff' },

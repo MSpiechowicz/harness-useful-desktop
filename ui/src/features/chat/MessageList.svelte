@@ -6,6 +6,7 @@
   import Button from '$lib/components/Button.svelte';
   import VirtualList from '$lib/components/VirtualList.svelte';
   import { cx } from '$lib/utils/cx';
+  import { matchesShortcut } from '$lib/utils/shortcuts';
   import type { ChatSession } from '$lib/chat/session.svelte';
   import { provideToolContext } from '$lib/chat/tool-context';
   import type { TranscriptItem } from '$lib/chat/types';
@@ -45,6 +46,16 @@
     return item.order >= firstNew ? ENTRANCE_MS : 0;
   }
 
+  /** Ctrl/Cmd+End is the keyboard's "Jump to latest"; it works from the composer too, where plain End belongs to the text. */
+  function onkeydown(event: KeyboardEvent): void {
+    if (event.defaultPrevented || !matchesShortcut(event, 'mod+end') || document.querySelector('[role="dialog"][aria-modal="true"]')) {
+      return;
+    }
+
+    event.preventDefault();
+    list?.scrollToEnd();
+  }
+
   const showThinking = $derived(prefs.value?.showThinking ?? true);
 
   /**
@@ -81,6 +92,8 @@
     }
   }
 </script>
+
+<svelte:window {onkeydown} />
 
 <!-- The conversation scrolls inside an equal gap at the top and the bottom, so text never runs under the bar above or the composer below. -->
 <div class="chat-stage relative min-h-0 flex-1 py-3">

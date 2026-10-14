@@ -4,6 +4,7 @@
 
   import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
   import HarnessBadge from '$lib/components/HarnessBadge.svelte';
+  import { ICON } from '$lib/components/icon';
   import IconButton from '$lib/components/IconButton.svelte';
   import Tooltip from '$lib/components/Tooltip.svelte';
   import Spinner from '$lib/components/Spinner.svelte';
@@ -118,8 +119,8 @@
             }}
           />
         {/if}
-        <div class="absolute top-[3px] right-[3px] opacity-0 transition-opacity focus-within:opacity-100 group-hover/card:opacity-100">
-          <IconButton icon={X} label={t('chat.tabs.close')} side="right" class="size-[22px]! text-fg-3" onclick={() => close(session)} />
+        <div class="absolute top-[2px] right-[6px] opacity-0 transition-opacity focus-within:opacity-100 group-hover/card:opacity-100">
+          <IconButton icon={X} label={t('chat.tabs.close')} side="right" iconSize={ICON.sm} class="size-[24px]! text-fg-3" onclick={() => close(session)} />
         </div>
       </div>
     </div>

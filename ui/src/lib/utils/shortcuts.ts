@@ -51,6 +51,8 @@ const KEY_LABELS: Record<string, string> = {
   tab: 'Tab',
   home: 'Home',
   end: 'End',
+  pagedown: 'PgDn',
+  pageup: 'PgUp',
   ' ': 'Space',
   click: 'Click',
 };

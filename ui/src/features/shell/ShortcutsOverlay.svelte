@@ -28,7 +28,7 @@
 
 <Overlay {open} labelledby={titleId} {onclose} class="w-[56rem]">
   <div class="flex max-h-[85vh] flex-col overflow-hidden rounded-xl border border-line-strong bg-glass shadow-pop backdrop-blur-xl">
-    <header class="flex items-center gap-3 border-b border-line px-6 py-4">
+    <header class="flex items-start gap-3 border-b border-line px-6 py-4">
       <span class="grid size-9 place-items-center rounded-md border border-line bg-surface-2 text-accent-text shadow-raised">
         <Keyboard size={ICON.md} aria-hidden="true" />
       </span>
@@ -38,10 +38,10 @@
         <p class="text-sm text-fg-2">{hint[0]}<Kbd keys="shift+?" />{hint[1]}</p>
       </div>
 
-      <IconButton icon={X} label={t('shell.shortcuts.close')} side="bottom" data-dismiss onclick={onclose} />
+      <IconButton icon={X} label={t('shell.shortcuts.close')} side="bottom" class="-mt-1.5 -mr-1.5 shrink-0" data-dismiss onclick={onclose} />
     </header>
 
-    <div class="grid grid-cols-1 gap-x-10 gap-y-7 overflow-y-auto px-6 py-6 md:grid-cols-2" data-testid="shortcut-groups">
+    <div class="grid grid-cols-1 gap-x-10 gap-y-7 overflow-y-auto px-6 pt-6 pb-2.5 md:grid-cols-2" data-testid="shortcut-groups">
       {#each groups as group (group.area)}
         <section aria-labelledby="{titleId}-{group.area}" class="flex flex-col gap-1">
           <h3 id="{titleId}-{group.area}" class="pb-1 text-xs font-medium tracking-wider text-fg-3 uppercase">{areaLabel(group.area)}</h3>
@@ -54,7 +54,7 @@
                 <span class="flex shrink-0 items-center gap-1.5">
                   {#each row.combos as combo, index (combo)}
                     {#if index > 0 && row.joiner === 'or'}<span class="text-xs text-fg-3">{t('shell.shortcuts.or')}</span>{/if}
-                    <Kbd keys={combo} />
+                    <Kbd keys={combo} even />
                   {/each}
                 </span>
               </li>

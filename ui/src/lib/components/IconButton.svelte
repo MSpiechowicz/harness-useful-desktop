@@ -14,9 +14,11 @@
     /** Shortcut combo shown in the tooltip, e.g. `mod+k`. */
     shortcut?: string;
     side?: 'top' | 'bottom' | 'right';
+    /** Glyph size in px; the button keeps its own size. */
+    iconSize?: number;
   }
 
-  let { icon: Icon, label, shortcut, side = 'top', type = 'button', class: className, ...rest }: Props = $props();
+  let { icon: Icon, label, shortcut, side = 'top', iconSize = ICON.md, type = 'button', class: className, ...rest }: Props = $props();
 </script>
 
 <Tooltip text={label} {shortcut} {side}>
@@ -32,7 +34,7 @@
       )}
       {...rest}
     >
-      <Icon size={ICON.md} strokeWidth={1.8} aria-hidden="true" />
+      <Icon size={iconSize} strokeWidth={1.8} aria-hidden="true" />
     </button>
   {/snippet}
 </Tooltip>
