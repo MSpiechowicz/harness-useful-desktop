@@ -17,7 +17,7 @@
 
 <!-- What a message does while the agent works. Steer is the default: it is picked up at the agent's next step and
      nothing is interrupted; Queue waits until the agent has finished. -->
-<div role="radiogroup" aria-label={t('chat.composer.mode.label')} class="inline-flex h-control items-center gap-0.5 rounded-full border border-line bg-surface-2 p-[3px]">
+<div role="radiogroup" aria-label={t('chat.composer.mode.label')} class="inline-flex h-control items-center gap-0.5 rounded-md border border-line bg-surface-2 p-[3px]">
   {#each OPTIONS as option (option.mode)}
     {@const on = value === option.mode}
     <button
@@ -27,7 +27,7 @@
       title={t(option.hint)}
       onclick={() => (value = option.mode)}
       class={cx(
-        'inline-flex h-full items-center rounded-full px-3 text-sm transition-colors duration-[var(--dur-fast)]',
+        'inline-flex h-full items-center rounded-[9px] px-3 text-sm transition-colors duration-[var(--dur-fast)]',
         on ? (option.mode === 'steer' ? 'bg-accent-wash text-accent-text' : 'bg-surface-4 text-fg') : 'text-fg-3 hover:text-fg',
       )}
     >

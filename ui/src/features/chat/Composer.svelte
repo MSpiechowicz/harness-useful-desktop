@@ -1,7 +1,6 @@
 <script lang="ts">
   import ArrowUp from '@lucide/svelte/icons/arrow-up';
   import Paperclip from '@lucide/svelte/icons/paperclip';
-  import Square from '@lucide/svelte/icons/square';
   import Terminal from '@lucide/svelte/icons/terminal';
   import { onDestroy, onMount, untrack } from 'svelte';
 
@@ -332,22 +331,22 @@
         {#if stopping}
           <Button
             variant="danger"
-            class={cx('size-control rounded-full! px-0!', stopArmed && 'animate-pulse')}
+            class={cx('size-control px-0!', stopArmed && 'animate-pulse')}
             aria-label={t('chat.composer.stop')}
             title={t('chat.composer.stopHint')}
             onclick={() => void session.abort()}
           >
-            <Square size={12} aria-hidden="true" class="fill-current" />
+            <svg viewBox="0 0 24 24" class="size-[18px]" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3.5" fill="currentColor" /></svg>
           </Button>
         {:else}
           <Button
             variant="primary"
-            class="size-control rounded-full! px-0!"
+            class="size-control px-0!"
             aria-label={bash ? t('chat.composer.reviewCommand') : t('chat.composer.send')}
             disabled={!canSend}
             onclick={() => void submit(session.streaming ? whenBusy : 'send')}
           >
-            {#if bash}<Terminal size={16} aria-hidden="true" />{:else}<ArrowUp size={18} strokeWidth={2.25} aria-hidden="true" />{/if}
+            {#if bash}<Terminal size={18} aria-hidden="true" />{:else}<ArrowUp size={20} strokeWidth={2.5} aria-hidden="true" />{/if}
           </Button>
         {/if}
       </div>
