@@ -68,9 +68,9 @@
         <div class={cx('chat-col py-2', index === 0 && 'pt-6', index === chat.items.length - 1 && 'pb-8')}>
           {#if userId !== null}
             <!-- Every user row has the same button, shown on hover or keyboard focus, to the left of the message. -->
-            <div class="group/user flex items-stretch justify-end gap-2">
-              <span class="flex shrink-0 opacity-0 transition-opacity duration-[var(--dur-fast)] group-focus-within/user:opacity-100 group-hover/user:opacity-100">
-                <IconButton icon={GitFork} class="h-auto! min-h-control" label={t('sessions.transcript.fork')} disabled={busy || userId === ''} onclick={() => onfork?.(userId)} />
+            <div class="group/user flex items-start justify-end gap-2">
+              <span class="shrink-0 opacity-0 transition-opacity duration-[var(--dur-fast)] group-focus-within/user:opacity-100 group-hover/user:opacity-100">
+                <IconButton icon={GitFork} label={t('sessions.transcript.fork')} disabled={busy || userId === ''} onclick={() => onfork?.(userId)} />
               </span>
               <div class="max-w-[85%] min-w-0 [&_article]:max-w-full">
                 <MessageRow {item} {chat} />
