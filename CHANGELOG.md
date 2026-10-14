@@ -1,3 +1,25 @@
+# [0.4.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.3.0...v0.4.0) (2026-10-14)
+
+
+### Bug Fixes
+
+* **sessions:** bounded agent startup, project-chosen session folders shown on delete ([8fb9c81](https://github.com/MSpiechowicz/harness-useful-desktop/commit/8fb9c8116405c5a548f12605aebac5edd7e872b0))
+* **ui:** use explicit 52px top bar height to match dashboard ([d871e75](https://github.com/MSpiechowicz/harness-useful-desktop/commit/d871e75e54a7eb1cbbd9dfb1cedf4899fa2ce54c))
+* **ui:** use explicit pixel sizes for Switch track and knob travel ([9277c5d](https://github.com/MSpiechowicz/harness-useful-desktop/commit/9277c5d9b332640f7f3a58a6694f9df06db00e19))
+
+
+### Features
+
+* **chat:** attach images and files to a message ([#10](https://github.com/MSpiechowicz/harness-useful-desktop/issues/10)) ([977c7e7](https://github.com/MSpiechowicz/harness-useful-desktop/commit/977c7e7b334c47b0cf49d8baf718b608284ab2b6))
+* **ecosystem:** cache card with hit rate, token sources and per-model rates ([344ccf2](https://github.com/MSpiechowicz/harness-useful-desktop/commit/344ccf2fdc830ab3e01029d591df156e769ac67a)), closes [#13](https://github.com/MSpiechowicz/harness-useful-desktop/issues/13)
+* **sessions:** redesigned view, one agent per session, delete and clean-up ([2df8665](https://github.com/MSpiechowicz/harness-useful-desktop/commit/2df86657ba069912b8436c2cd3c1742c1fb12a67))
+* **shell:** Ctrl+End jumps to the latest message; shortcuts in the rail menu, even key caps, aligned icons ([f239586](https://github.com/MSpiechowicz/harness-useful-desktop/commit/f2395862f6eb33b6535530d7b238f17978274b47))
+* **ui:** chat controls move to the top bar, cost joins the context meter ([5e984f5](https://github.com/MSpiechowicz/harness-useful-desktop/commit/5e984f57fc1ce1256d26973602b35d070cac7711))
+* **ui:** chats live in a tree under Chat, named by a generator or AI ([8773c13](https://github.com/MSpiechowicz/harness-useful-desktop/commit/8773c134a41db609d9bcac5d4dc2035b7a0c44e9))
+* **ui:** mirror dashboard's compact update card in Settings ([be93195](https://github.com/MSpiechowicz/harness-useful-desktop/commit/be93195fe29ce9950a21cdbb1965c2a3495660f0))
+* **ui:** setting descriptions cap at 700px and can list key points; reword AI chat names ([9c51d9b](https://github.com/MSpiechowicz/harness-useful-desktop/commit/9c51d9b9cb8543e7be39661c2e90c8300a36705e))
+* **ui:** the open chat sets the project; AI chat names survive a restart ([c9a2468](https://github.com/MSpiechowicz/harness-useful-desktop/commit/c9a24683564b32dfae12cf7ae44edc8b81f5d758))
+
 # [0.3.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.2.0...v0.3.0) (2026-10-12)
 
 
