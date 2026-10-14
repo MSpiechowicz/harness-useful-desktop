@@ -5,6 +5,7 @@
   import Layers from '@lucide/svelte/icons/layers';
   import PackageOpen from '@lucide/svelte/icons/package-open';
   import PanelLeftOpen from '@lucide/svelte/icons/panel-left-open';
+  import MessageSquarePlus from '@lucide/svelte/icons/message-square-plus';
   import Play from '@lucide/svelte/icons/play';
   import { untrack } from 'svelte';
   import { fade, fly } from 'svelte/transition';
@@ -22,6 +23,7 @@
   import type { SessionSummary } from '$lib/ipc/bindings/SessionSummary';
   import { ipc } from '$lib/ipc/client';
   import { agentSessions } from '$lib/stores/agentSession.svelte';
+  import { nav } from '$lib/stores/nav.svelte';
   import { harness } from '$lib/stores/harness.svelte';
   import { project } from '$lib/stores/project.svelte';
   import { cleanUpCopies, deleteSession, resumeInChat } from '$lib/stores/session-actions';
@@ -54,6 +56,8 @@
 
   // The chosen session, or the newest one that is not a folded empty copy until the user chooses.
   const selected = $derived(sessions.find((summary) => summary.ref.id === viewState.sessionId) ?? groups.rows[0] ?? null);
+  // Nothing saved for this project: one page with the way forward, not an empty list beside a message.
+  const none = $derived(sessionList.status !== 'error' && sessionList.data != null && sessions.length === 0);
   const drawer = $derived(width > 0 && width < DRAWER_BELOW_PX);
 
   // Opening this view (or switching harness or project) re-reads the sessions, so ones started since show up.
@@ -172,12 +176,12 @@
 <div class="flex size-full min-h-0 flex-col">
   <ViewHeader title={t('sessions.title')} icon={GitBranch} context={scopeLabel(current && sessionList.data ? count(groups.rows.length, 'session') : null)}>
     {#snippet actions()}
-      {#if current && sessionList.data}
+      {#if current && sessionList.data && !none}
         <div class="w-[340px] max-[900px]:w-[220px]">
           <SearchField bind:value={viewState.sessionsQuery} label={t('sessions.list.search')} placeholder={t('sessions.list.searchPlaceholder')} shortcut="mod+f" />
         </div>
       {/if}
-      {#if drawer && current}
+      {#if drawer && current && !none}
         <Button data-drawer-toggle aria-haspopup="dialog" aria-expanded={drawerOpen} onclick={() => (drawerOpen = !drawerOpen)}>
           {#snippet leading()}<PanelLeftOpen size={ICON.sm} aria-hidden="true" />{/snippet}
           {t('sessions.drawer.label')}
@@ -214,6 +218,17 @@
         <EmptyState icon={FolderOpen} title={t('sessions.empty.noProject.title')} body={t('sessions.empty.noProject.body')}>
           {#snippet action()}
             <Button variant="primary" onclick={() => void project.pick()}>{t('sessions.empty.noProject.action')}</Button>
+          {/snippet}
+        </EmptyState>
+      </div>
+    {:else if none}
+      <div class="grid size-full place-items-center">
+        <EmptyState icon={GitBranch} title={t('sessions.empty.none.title')} body={t('sessions.empty.none.body', { project: current.name, harness: active.info.name })}>
+          {#snippet action()}
+            <Button variant="primary" onclick={() => nav.go('chat')}>
+              {#snippet leading()}<MessageSquarePlus size={ICON.sm} aria-hidden="true" />{/snippet}
+              {t('sessions.empty.none.action')}
+            </Button>
           {/snippet}
         </EmptyState>
       </div>

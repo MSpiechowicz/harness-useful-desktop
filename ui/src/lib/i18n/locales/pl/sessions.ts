@@ -15,7 +15,8 @@ export const sessions: AreaMessages<typeof enSessions> = {
   'sessions.empty.noProject.body': 'Sesje są zapisywane osobno dla każdego folderu projektu. Wybierz projekt, którego historię chcesz przejrzeć.',
   'sessions.empty.noProject.action': 'Otwórz projekt…',
   'sessions.empty.none.title': 'Brak sesji',
-  'sessions.empty.none.body': 'Sesje uruchomione w projekcie {project} przez {harness} pojawią się tutaj.',
+  'sessions.empty.none.body': 'Sesje uruchomione w {project} przez {harness} pojawią się tutaj, gotowe do przeczytania lub wznowienia.',
+  'sessions.empty.none.action': 'Rozpocznij czat',
 
   'sessions.list.label': 'Sesje',
   'sessions.section.today': "Dzisiaj",

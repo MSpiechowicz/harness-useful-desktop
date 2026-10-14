@@ -42,6 +42,19 @@ async function showChanges(): Promise<void> {
 }
 
 describe('Changes view', () => {
+  it('says the tree is clean on a page of its own, without an empty list or the review controls', async () => {
+    render(ChangesView);
+    await waitFor(() => expect(screen.getByTestId('file-list')).toBeInTheDocument());
+
+    git.status = { ...git.status!, entries: [] };
+
+    expect(await screen.findByRole('heading', { name: 'Nothing to review' })).toBeInTheDocument();
+    expect(screen.getByText(git.status!.branch!)).toBeInTheDocument();
+    expect(screen.queryByTestId('file-list')).toBeNull();
+    expect(screen.queryByRole('searchbox')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Refresh changes' })).toBeInTheDocument();
+  });
+
   it('lists the changed files under Unstaged, Staged and Untracked headings', async () => {
     await showChanges();
 

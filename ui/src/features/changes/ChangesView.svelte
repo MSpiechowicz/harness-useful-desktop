@@ -1,5 +1,7 @@
 <script lang="ts">
   import CircleAlert from '@lucide/svelte/icons/circle-alert';
+  import CircleCheck from '@lucide/svelte/icons/circle-check';
+  import GitBranch from '@lucide/svelte/icons/git-branch';
   import FolderOpen from '@lucide/svelte/icons/folder-open';
   import GitCompare from '@lucide/svelte/icons/git-compare';
   import SearchX from '@lucide/svelte/icons/search-x';
@@ -16,6 +18,7 @@
   import Rows2 from '@lucide/svelte/icons/rows-2';
   import { ICON } from '$lib/components/icon';
   import ListDetail from '$lib/components/ListDetail.svelte';
+  import RefreshButton from '$lib/components/RefreshButton.svelte';
   import Skeleton from '$lib/components/Skeleton.svelte';
   import ViewHeader from '$lib/components/ViewHeader.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
@@ -76,6 +79,9 @@
     }
   }
 
+  /** Nothing changed at all: no list to show, so the page says so in full instead of leaving an empty list beside a message. */
+  const clean = $derived(git.status?.isRepo === true && git.status.entries.length === 0);
+
   const emptyMessage = $derived.by(() => {
     if (git.searching && git.search.trim() !== '') {
       return t('changes.search.searching');
@@ -96,7 +102,9 @@
 <div class="flex size-full min-h-0 flex-col">
   <ViewHeader title={t('changes.title')} icon={GitCompare} context={scopeLabel(git.status?.isRepo ? count(git.status.entries.length, 'changed file') : null)}>
     {#snippet actions()}
-      {#if active && git.status?.isRepo}
+      {#if clean}
+        <RefreshButton label={t('changes.refresh')} busy={git.loadStatus === 'loading'} onclick={() => void git.refresh()} />
+      {:else if active && git.status?.isRepo}
         <ReviewButton project={active.path} />
         <div class="w-[340px] max-[900px]:w-[220px]">
           <SearchField bind:value={() => git.search, (query) => git.setSearch(query)} label={t('changes.search.label')} placeholder={t('changes.search.placeholder')} shortcut="mod+f" onkeydown={onSearchKey} />
@@ -134,6 +142,20 @@
         <EmptyState icon={GitCompare} title={t('changes.empty.notRepo.title', { name: active.name })} body={t('changes.empty.notRepo.body')} />
       </div>
     {:else}
+      {#if clean}
+        <div class="grid size-full place-items-center">
+          <EmptyState icon={CircleCheck} title={t('changes.empty.clean.title')} body={t('changes.empty.clean.body')}>
+            {#snippet action()}
+              {#if git.status?.branch}
+                <span class="inline-flex h-control items-center gap-2 rounded-md border border-line bg-surface-2 px-3.5 text-sm text-fg-2">
+                  <GitBranch size={ICON.sm} aria-hidden="true" />
+                  <span class="font-mono">{git.status?.branch}</span>
+                </span>
+              {/if}
+            {/snippet}
+          </EmptyState>
+        </div>
+      {:else}
       <div class="flex size-full min-h-0 flex-col">
         <div class="min-h-0 flex-1">
           <ListDetail label={t('changes.resize')} size={320}>
@@ -174,6 +196,7 @@
         </div>
 
       </div>
+      {/if}
     {/if}
   </div>
 </div>

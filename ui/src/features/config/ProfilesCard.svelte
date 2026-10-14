@@ -26,17 +26,13 @@
   const sentence = $derived(t('config.profiles.hint', { harness: harness.active?.info.shortName ?? '' }).split(FLAG));
 </script>
 
-<!-- One line per profile, like the rows of the other cards; the way to use one sits under a hairline. -->
+<!-- One plain line per profile, no count or bullets (the rows and "Show all" already say how many); the way to use one sits under a hairline. -->
 <Card as="section" padded={false} class="p-3.5">
-  <h3 class="mb-2 flex items-center justify-between gap-1.5 text-xs font-medium tracking-wider text-fg-3 uppercase">
-    {t('config.profiles.title')}
-    <span class="tabular tracking-normal">{formatCount(names.length)}</span>
-  </h3>
+  <h3 class="mb-2 text-xs font-medium tracking-wider text-fg-3 uppercase">{t('config.profiles.title')}</h3>
 
   <ul class="flex flex-col">
     {#each shown as name (name)}
-      <li class="flex h-7 items-center gap-2.5 text-sm text-fg-2" title={name}>
-        <span class="size-1.5 shrink-0 rounded-full bg-fg-3" aria-hidden="true"></span>
+      <li class="flex h-7 items-center text-sm text-fg-2" title={name}>
         <span class="min-w-0 truncate font-mono text-xs">{name}</span>
       </li>
     {/each}

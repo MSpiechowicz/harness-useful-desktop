@@ -12,7 +12,8 @@ export const sessions = {
   'sessions.empty.noProject.body': 'Sessions are saved per project folder. Pick the project whose history you want to browse.',
   'sessions.empty.noProject.action': 'Open a project…',
   'sessions.empty.none.title': 'No sessions yet',
-  'sessions.empty.none.body': 'Sessions you run in {project} with {harness} appear here.',
+  'sessions.empty.none.body': 'Sessions you run in {project} with {harness} show up here, ready to read or resume.',
+  'sessions.empty.none.action': 'Start a chat',
 
   'sessions.list.label': 'Sessions',
   'sessions.section.today': "Today",
