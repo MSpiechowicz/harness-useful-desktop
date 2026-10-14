@@ -31,21 +31,14 @@ export const updates: AreaMessages<typeof enUpdates> = {
   'updates.status.failedCheck': 'Die Suche nach Updates ist fehlgeschlagen.',
   'updates.status.failedInstall': 'Das Update wurde nicht installiert.',
 
-  'updates.indicator.available': 'Update {version}',
-  'updates.indicator.updating': 'Aktualisiere…',
-  'updates.indicator.updatingPercent': 'Aktualisiere {percent} %',
-  'updates.indicator.installing': 'Installiere…',
-  'updates.indicator.restart': 'Zum Aktualisieren neu starten',
-  'updates.indicator.failed': 'Update fehlgeschlagen',
 
   'updates.install.restart': 'Installieren & neu starten',
 
   'updates.notice.label': 'Update',
-  'updates.notice.available': 'Update {version} ist verfügbar',
+  'updates.notice.available': 'Version {version} ist verfügbar',
   'updates.notice.updating': 'Aktualisierung auf {version}',
   'updates.notice.installed': 'Version {version} ist installiert',
   'updates.notice.failed': 'Das Update wurde nicht installiert',
-  'updates.notice.availableBody': 'Es wird im Hintergrund installiert. Du entscheidest, wann neu gestartet wird.',
   'updates.notice.restartBody': 'Starte neu, um abzuschließen. Laufende Agenten werden beendet, wenn die App neu startet.',
   'updates.notice.install': 'Installieren',
   'updates.notice.view': 'Ansehen',

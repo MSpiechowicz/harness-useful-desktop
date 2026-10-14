@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { bashCommand, messageAction, sendIntent } from './composer';
+import { bashCommand, escapeStep, messageAction, sendIntent, STOP_WINDOW_MS } from './composer';
 
 function key(init: Partial<Parameters<typeof sendIntent>[0]> = {}) {
   return { key: 'Enter', shiftKey: false, ctrlKey: false, metaKey: false, altKey: false, ...init };
@@ -23,6 +23,12 @@ describe('Enter in the composer', () => {
     expect(sendIntent(key({ altKey: true }), true)).toBe('steer');
     expect(sendIntent(key({ ctrlKey: true }), true)).toBe('followUp');
     expect(sendIntent(key({ metaKey: true }), true)).toBe('followUp');
+  });
+
+  it('does the other mode on Ctrl/Cmd+Enter when Queue is the default', () => {
+    expect(sendIntent(key(), true, 'followUp')).toBe('followUp');
+    expect(sendIntent(key({ ctrlKey: true }), true, 'followUp')).toBe('steer');
+    expect(sendIntent(key(), false, 'followUp')).toBe('send');
   });
 
   it('ignores other keys and IME composition', () => {
@@ -56,5 +62,16 @@ describe('bashCommand', () => {
     expect(bashCommand('git status')).toBeNull();
     expect(bashCommand('!')).toBeNull();
     expect(bashCommand('! ')).toBeNull();
+  });
+});
+
+describe('double Escape', () => {
+  it('arms on the first press and stops on a second one inside the window', () => {
+    expect(escapeStep(null, 1000)).toBe('arm');
+    expect(escapeStep(1000, 1000 + STOP_WINDOW_MS)).toBe('stop');
+  });
+
+  it('starts over when the second press comes too late', () => {
+    expect(escapeStep(1000, 1000 + STOP_WINDOW_MS + 1)).toBe('arm');
   });
 });

@@ -1,22 +1,22 @@
 <script lang="ts">
-  import CircleAlert from '@lucide/svelte/icons/circle-alert';
-  import CircleCheck from '@lucide/svelte/icons/circle-check';
   import Download from '@lucide/svelte/icons/download';
-  import X from '@lucide/svelte/icons/x';
   import { expoOut } from 'svelte/easing';
   import { slide } from 'svelte/transition';
 
   import Button from '$lib/components/Button.svelte';
-  import IconButton from '$lib/components/IconButton.svelte';
   import Spinner from '$lib/components/Spinner.svelte';
   import { DURATION, scaled } from '$lib/design/motion';
+  import { motion } from '$lib/stores/motion.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
   import { nav } from '$lib/stores/nav.svelte';
   import { retryable, updates } from '$lib/stores/updates.svelte';
 
   import { viewUpdates } from './actions';
   import { failureMessage, installerClosesApp } from './copy';
-  import UpdateProgress from './UpdateProgress.svelte';
+  import { cx } from '$lib/utils/cx';
+
+  /** The rail shows the whole card; collapsed, only the icon remains. */
+  let { expanded = true }: { expanded?: boolean } = $props();
 
   const state = $derived(updates.state);
   const version = $derived(updates.info?.version ?? '');
@@ -42,7 +42,8 @@
   const body = $derived.by(() => {
     switch (state.kind) {
       case 'available':
-        return updates.closesApp ? installerClosesApp() : t('updates.notice.availableBody');
+        // Like the dashboard's card: a title and one button; Settings explains the rest.
+        return updates.closesApp ? installerClosesApp() : '';
 
       case 'downloading':
       case 'installing':
@@ -59,59 +60,67 @@
     }
   });
 
+  const fraction = $derived(updates.fraction);
+  // The dashboard's compact button (28px, 12px text), like the rest of the rail.
+  const SMALL = 'h-[28px]! gap-1.5! px-3! text-xs!';
+
   const canRetry = $derived(state.kind === 'failed' && retryable(state.reason));
 </script>
 
 <!-- Settings shows the same update in full, so the notice would only repeat it there. -->
-<!-- A band between the top bar and the view, in the flow of the page, so it pushes content down instead of covering it. -->
-{#if updates.noticeVisible && nav.current !== 'settings'}
-  <section
-    aria-label={t('updates.notice.label')}
-    transition:slide={{ duration: scaled(DURATION.slow), easing: expoOut }}
-    class="shrink-0 overflow-hidden border-b border-line bg-surface-2"
-  >
-    <div class="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2">
-      <span class="shrink-0" aria-hidden="true">
-        {#if working}
-          <Spinner size={18} class="text-accent-text" />
-        {:else if state.kind === 'readyToRelaunch'}
-          <CircleCheck class="text-success" size={18} />
-        {:else if state.kind === 'failed'}
-          <CircleAlert class="text-warning" size={18} />
-        {:else}
-          <Download class="text-accent-text" size={18} />
-        {/if}
-      </span>
+<!-- The Harness dashboard's card, above the language picker: the arrow inside the button bobs while an update waits. -->
+{#snippet arrow()}
+  <span class={cx('inline-flex', motion.level === 'full' && 'update-arrow')}><Download size={13} aria-hidden="true" /></span>
+{/snippet}
 
-      <!-- Title and detail share a line while there is room, so the band costs one row instead of two. -->
-      <div class="flex min-w-48 flex-1 flex-wrap items-baseline gap-x-3" role="status">
-        <p class="text-base font-medium text-fg">{title}</p>
-        {#if body}<p class="text-sm text-fg-2">{body}</p>{/if}
-      </div>
+{#if updates.noticeVisible && nav.current !== 'settings'}
+  {#if expanded}
+    <section
+      aria-label={t('updates.notice.label')}
+      transition:slide={{ duration: scaled(DURATION.slow), easing: expoOut }}
+      class="shrink-0 overflow-hidden rounded-lg border border-line bg-accent-wash px-3 py-2.5 text-xs"
+    >
+      <div class="font-medium text-fg" role="status">{title}</div>
+      {#if body}<div class="mt-1 text-fg-2">{body}</div>{/if}
 
       {#if working}
-        <UpdateProgress inline />
-      {/if}
-
-      <div class="flex flex-wrap items-center gap-2">
-        {#if state.kind === 'available'}
-          <Button variant="primary" onclick={() => void updates.install()}>{t('updates.notice.install')}</Button>
-          <Button onclick={viewUpdates}>{t('updates.notice.view')}</Button>
-          <Button variant="ghost" onclick={() => updates.dismiss()}>{t('updates.notice.later')}</Button>
-        {:else if state.kind === 'readyToRelaunch'}
-          <Button variant="primary" onclick={() => void updates.requestRelaunch()}>{updates.closesApp ? t('updates.notice.finish') : t('updates.notice.restart')}</Button>
-          <Button variant="ghost" onclick={() => updates.dismiss()}>{t('updates.notice.later')}</Button>
-        {:else if state.kind === 'failed'}
-          {#if canRetry}
-            <Button onclick={() => void updates.install()}>{t('updates.notice.retry')}</Button>
+        <div class="mt-1 flex items-center gap-1.5 text-fg-2"><Spinner size={13} />{t(state.kind === 'installing' ? 'updates.progress.installing' : 'updates.progress.downloading')}{#if state.kind === 'downloading' && fraction !== null}<span class="tabular">{Math.round(fraction * 100)}%</span>{/if}</div>
+        <div
+          role="progressbar"
+          aria-label={t('updates.progress.label')}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={fraction === null ? undefined : Math.round(fraction * 100)}
+          class="mt-2 h-1 overflow-hidden rounded-full bg-surface-3"
+        >
+          <div class="h-full rounded-full bg-accent transition-[width] duration-[var(--dur-base)]" style:width="{(fraction ?? 0.15) * 100}%"></div>
+        </div>
+      {:else}
+        <div class="mt-2 flex items-center gap-2">
+          {#if state.kind === 'available'}
+            <Button variant="primary" class="{SMALL} w-full" onclick={() => void updates.install()}>{@render arrow()}{t('updates.notice.install')}</Button>
+          {:else if state.kind === 'readyToRelaunch'}
+            <Button variant="primary" class={SMALL} onclick={() => void updates.requestRelaunch()}>{updates.closesApp ? t('updates.notice.finish') : t('updates.notice.restart')}</Button>
+            <Button variant="ghost" class={SMALL} onclick={() => updates.dismiss()}>{t('updates.notice.later')}</Button>
+          {:else}
+            {#if canRetry}
+              <Button variant="primary" class={SMALL} onclick={() => void updates.install()}>{t('updates.notice.retry')}</Button>
+            {/if}
+            <Button variant="ghost" class={SMALL} onclick={viewUpdates}>{t('updates.notice.view')}</Button>
+            <Button variant="ghost" class={SMALL} onclick={() => updates.dismiss()}>{t('updates.notice.dismiss')}</Button>
           {/if}
-          <Button variant="ghost" onclick={viewUpdates}>{t('updates.notice.view')}</Button>
-        {:else}
-          <Button variant="ghost" onclick={viewUpdates}>{t('updates.notice.view')}</Button>
-        {/if}
-
-        <IconButton icon={X} label={t('updates.notice.dismiss')} onclick={() => updates.dismiss()} />
-      </div>
-    </div>
-  </section>
+        </div>
+      {/if}
+    </section>
+  {:else}
+    <button
+      type="button"
+      onclick={viewUpdates}
+      title={title}
+      aria-label="{title}. {t('updates.notice.view')}"
+      class="mx-auto inline-flex size-control items-center justify-center rounded-md text-accent-text hover:bg-hover"
+    >
+      {#if working}<Spinner size={16} />{:else}{@render arrow()}{/if}
+    </button>
+  {/if}
 {/if}

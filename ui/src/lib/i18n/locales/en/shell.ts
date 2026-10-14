@@ -33,7 +33,6 @@ export const shell = {
   'shell.search.aria': 'Search or run a command',
 
   'shell.status.ready': 'Ready',
-  'shell.rail.updateOpen': 'Open update settings',
   'shell.status.connecting': 'Connecting…',
   'shell.status.unavailable': 'Runtime unavailable',
 

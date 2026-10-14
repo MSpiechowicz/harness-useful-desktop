@@ -21,8 +21,8 @@ afterEach(async () => {
 });
 
 describe('UpdateNotice', () => {
-  it('appears for an available update and goes away for this version on "Later"', async () => {
-    updates.state = { kind: 'available', info: { ...INFO, version: '0.1.5' } };
+  it('appears for an update and goes away for this version on "Later"', async () => {
+    updates.state = { kind: 'readyToRelaunch', info: { ...INFO, version: '0.1.5' } };
     render(UpdateNotice);
 
     expect(screen.getByRole('region', { name: 'Update' })).toHaveTextContent('0.1.5');
@@ -32,8 +32,8 @@ describe('UpdateNotice', () => {
     await waitFor(() => expect(screen.queryByRole('region', { name: 'Update' })).toBeNull());
   });
 
-  it('"View" opens Settings at the Updates section, which then shows the update itself', async () => {
-    updates.state = { kind: 'available', info: { ...INFO, version: '0.4.0' } };
+  it('after a failed install, "View" opens Settings at the Updates section, which then shows the update itself', async () => {
+    updates.state = { kind: 'failed', during: 'install', reason: 'network', info: { ...INFO, version: '0.4.0' } };
     render(UpdateNotice);
 
     await fireEvent.click(screen.getByRole('button', { name: 'View' }));

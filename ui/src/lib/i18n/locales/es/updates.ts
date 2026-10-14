@@ -31,21 +31,14 @@ export const updates: AreaMessages<typeof enUpdates> = {
   'updates.status.failedCheck': 'No se pudo buscar actualizaciones.',
   'updates.status.failedInstall': 'La actualización no se instaló.',
 
-  'updates.indicator.available': 'Actualización {version}',
-  'updates.indicator.updating': 'Actualizando…',
-  'updates.indicator.updatingPercent': 'Actualizando {percent} %',
-  'updates.indicator.installing': 'Instalando…',
-  'updates.indicator.restart': 'Reinicia para actualizar',
-  'updates.indicator.failed': 'Error al actualizar',
 
   'updates.install.restart': 'Instalar y reiniciar',
 
   'updates.notice.label': 'Actualización',
-  'updates.notice.available': 'La actualización {version} está disponible',
+  'updates.notice.available': 'La versión {version} está disponible',
   'updates.notice.updating': 'Actualizando a {version}',
   'updates.notice.installed': 'La versión {version} está instalada',
   'updates.notice.failed': 'La actualización no se instaló',
-  'updates.notice.availableBody': 'Se instala en segundo plano. Tú eliges cuándo reiniciar.',
   'updates.notice.restartBody': 'Reinicia para terminar. Los agentes en ejecución se detienen al reiniciar la app.',
   'updates.notice.install': 'Instalar',
   'updates.notice.view': 'Ver',

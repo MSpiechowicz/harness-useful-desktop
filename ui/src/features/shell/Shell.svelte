@@ -19,7 +19,6 @@
   import { intro, INTRO_LEAD_MS } from '../intro/intro-state.svelte';
   import { onboarding } from '../onboarding/onboarding-state.svelte';
   import RestartConfirm from '../updates/RestartConfirm.svelte';
-  import UpdateNotice from '../updates/UpdateNotice.svelte';
   import { jumpToChat, newChat } from './actions';
   import { buildCommands } from './commands';
   import ConnectionBanner from './ConnectionBanner.svelte';
@@ -211,8 +210,6 @@
 
   <div class="relative flex min-w-0 flex-1 flex-col">
     <TopBar />
-
-    <UpdateNotice />
 
     <main class="intro-enter intro-scale flex min-h-0 flex-1 flex-col" style:--intro-delay="100ms">
       <ConnectionBanner />

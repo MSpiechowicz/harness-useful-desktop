@@ -12,11 +12,17 @@ interface KeyLike {
   isComposing?: boolean;
 }
 
+/** What a message does while the agent works: reaches it at its next step, or waits until it has finished. */
+export type BusyMode = 'steer' | 'followUp';
+
+/** A second Escape within this long after the first stops the agent. */
+export const STOP_WINDOW_MS = 1500;
+
 /**
- * What an Enter keypress in the composer means. Shift+Enter is a newline (null). While the
- * agent streams, Enter and Alt+Enter steer it and Ctrl/Cmd+Enter queues a follow-up.
+ * What an Enter keypress in the composer means. Shift+Enter is a newline (null). While the agent streams, Enter does
+ * what the composer's switch says (steer by default) and Ctrl/Cmd+Enter does the other one.
  */
-export function sendIntent(event: KeyLike, streaming: boolean): SendMode | null {
+export function sendIntent(event: KeyLike, streaming: boolean, preferred: BusyMode = 'steer'): SendMode | null {
   if (event.key !== 'Enter' || event.shiftKey || event.isComposing) {
     return null;
   }
@@ -25,7 +31,14 @@ export function sendIntent(event: KeyLike, streaming: boolean): SendMode | null 
     return 'send';
   }
 
-  return event.ctrlKey || event.metaKey ? 'followUp' : 'steer';
+  const other: BusyMode = preferred === 'steer' ? 'followUp' : 'steer';
+
+  return event.ctrlKey || event.metaKey ? other : preferred;
+}
+
+/** One Escape arms the stop; a second inside the window (`armedAt` is when the first came) carries it out. */
+export function escapeStep(armedAt: number | null, now: number): 'arm' | 'stop' {
+  return armedAt !== null && now - armedAt <= STOP_WINDOW_MS ? 'stop' : 'arm';
 }
 
 /** The action that delivers `message` and its images in this mode. */

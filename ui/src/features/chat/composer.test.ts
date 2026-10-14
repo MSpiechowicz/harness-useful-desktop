@@ -80,14 +80,53 @@ describe('Composer keys', () => {
     await waitFor(() => expect(sentActions(of)).toEqual([{ type: 'followUp', message: 'and then tests', images: [] }]));
   });
 
-  it('turns the send button into Stop, Follow-up and Steer while streaming', async () => {
+  it('turns the send button into Stop while streaming with nothing typed', async () => {
     const { of } = mount(true);
 
-    await fireEvent.click(screen.getByRole('button', { name: /Stop/ }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Stop' }));
 
     await waitFor(() => expect(sentActions(of)).toEqual([{ type: 'abort' }]));
-    expect(screen.getByRole('button', { name: /Follow-up/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Steer/ })).toBeInTheDocument();
+    expect(screen.queryByRole('radiogroup')).toBeNull();
+  });
+
+  it('steers by default while streaming, and queues once Queue is chosen', async () => {
+    const { box, of } = mount(true);
+
+    await type(box, 'also the empty case');
+    expect(screen.getByRole('radio', { name: 'Steer' })).toBeChecked();
+    expect(screen.queryByRole('button', { name: 'Stop' })).toBeNull();
+    await fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await waitFor(() => expect(sentActions(of)).toEqual([{ type: 'steer', message: 'also the empty case', images: [] }]));
+
+    await type(box, 'then the tests');
+    await fireEvent.click(screen.getByRole('radio', { name: 'Queue' }));
+    await fireEvent.keyDown(box, { key: 'Enter' });
+    await waitFor(() => expect(sentActions(of).at(-1)).toEqual({ type: 'followUp', message: 'then the tests', images: [] }));
+
+    await type(box, 'and steer');
+    await fireEvent.keyDown(box, { key: 'Enter', ctrlKey: true });
+    await waitFor(() => expect(sentActions(of).at(-1)).toEqual({ type: 'steer', message: 'and steer', images: [] }));
+  });
+
+  it('stops the agent on a second Escape, not on a single one', async () => {
+    const { of } = mount(true);
+
+    await fireEvent.keyDown(window, { key: 'Escape' });
+    expect(await screen.findByText('Esc again to stop')).toBeInTheDocument();
+    expect(sentActions(of)).toEqual([]);
+
+    await fireEvent.keyDown(window, { key: 'Escape' });
+    await waitFor(() => expect(sentActions(of)).toEqual([{ type: 'abort' }]));
+    expect(screen.queryByText('Esc again to stop')).toBeNull();
+  });
+
+  it('does not stop an idle agent on Escape', async () => {
+    const { of } = mount();
+
+    await fireEvent.keyDown(window, { key: 'Escape' });
+    await fireEvent.keyDown(window, { key: 'Escape' });
+
+    expect(sentActions(of)).toEqual([]);
   });
 
   it('puts text the agent asks for into the composer', async () => {

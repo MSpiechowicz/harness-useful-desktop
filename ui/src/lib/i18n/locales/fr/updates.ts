@@ -31,21 +31,14 @@ export const updates: AreaMessages<typeof enUpdates> = {
   'updates.status.failedCheck': 'Impossible de rechercher les mises à jour.',
   'updates.status.failedInstall': 'La mise à jour n’a pas été installée.',
 
-  'updates.indicator.available': 'Mise à jour {version}',
-  'updates.indicator.updating': 'Mise à jour…',
-  'updates.indicator.updatingPercent': 'Mise à jour {percent} %',
-  'updates.indicator.installing': 'Installation…',
-  'updates.indicator.restart': 'Redémarrer pour mettre à jour',
-  'updates.indicator.failed': 'Échec de la mise à jour',
 
   'updates.install.restart': 'Installer et redémarrer',
 
   'updates.notice.label': 'Mise à jour',
-  'updates.notice.available': 'La mise à jour {version} est disponible',
+  'updates.notice.available': 'La version {version} est disponible',
   'updates.notice.updating': 'Mise à jour vers la version {version}',
   'updates.notice.installed': 'La version {version} est installée',
   'updates.notice.failed': 'La mise à jour n’a pas été installée',
-  'updates.notice.availableBody': 'Elle s’installe en arrière-plan. Vous choisissez quand redémarrer.',
   'updates.notice.restartBody': 'Redémarrez pour terminer. Les agents en cours s’arrêtent au redémarrage de l’application.',
   'updates.notice.install': 'Installer',
   'updates.notice.view': 'Voir',

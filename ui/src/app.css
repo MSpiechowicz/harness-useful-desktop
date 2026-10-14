@@ -266,6 +266,28 @@
   }
 }
 
+/* The arrow of a waiting update bobs, as in the Harness dashboard; still for whoever asked for less motion. */
+.update-arrow {
+  animation: update-bob 1.8s ease-in-out infinite;
+}
+
+@keyframes update-bob {
+  0%,
+  100% {
+    transform: translateY(-1px);
+  }
+
+  50% {
+    transform: translateY(1.5px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .update-arrow {
+    animation: none;
+  }
+}
+
 /* The rail footer's controls, as in the Harness dashboard, in pixels (this app's root font is 14px, the dashboard's
    16px). The language trigger is a bordered 32px control; the theme choice is a row of 32px squares whose hairline is
    an outline drawn inside them, so the chosen square fills the whole box. */

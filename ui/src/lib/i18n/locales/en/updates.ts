@@ -28,21 +28,14 @@ export const updates = {
   'updates.status.failedCheck': 'Could not check for updates.',
   'updates.status.failedInstall': 'The update was not installed.',
 
-  'updates.indicator.available': 'Update {version}',
-  'updates.indicator.updating': 'Updating…',
-  'updates.indicator.updatingPercent': 'Updating {percent}%',
-  'updates.indicator.installing': 'Installing…',
-  'updates.indicator.restart': 'Restart to update',
-  'updates.indicator.failed': 'Update failed',
 
   'updates.install.restart': 'Install & restart',
 
   'updates.notice.label': 'Update',
-  'updates.notice.available': 'Update {version} is available',
+  'updates.notice.available': 'Version {version} is available',
   'updates.notice.updating': 'Updating to {version}',
   'updates.notice.installed': 'Version {version} is installed',
   'updates.notice.failed': 'The update was not installed',
-  'updates.notice.availableBody': 'It installs in the background. You choose when to restart.',
   'updates.notice.restartBody': 'Restart to finish. Running agents stop when the app restarts.',
   'updates.notice.install': 'Install',
   'updates.notice.view': 'View',

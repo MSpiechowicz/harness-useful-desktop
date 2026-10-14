@@ -33,21 +33,14 @@ export const updates: AreaMessages<typeof enUpdates> = {
   'updates.status.failedCheck': 'Nie udało się sprawdzić aktualizacji.',
   'updates.status.failedInstall': 'Aktualizacja nie została zainstalowana.',
 
-  'updates.indicator.available': 'Aktualizacja {version}',
-  'updates.indicator.updating': 'Aktualizowanie…',
-  'updates.indicator.updatingPercent': 'Aktualizowanie {percent}%',
-  'updates.indicator.installing': 'Instalowanie…',
-  'updates.indicator.restart': 'Uruchom ponownie, aby zaktualizować',
-  'updates.indicator.failed': 'Aktualizacja nie powiodła się',
 
   'updates.install.restart': 'Zainstaluj i uruchom ponownie',
 
   'updates.notice.label': 'Aktualizacja',
-  'updates.notice.available': 'Dostępna jest aktualizacja {version}',
+  'updates.notice.available': 'Dostępna jest wersja {version}',
   'updates.notice.updating': 'Aktualizowanie do {version}',
   'updates.notice.installed': 'Wersja {version} jest zainstalowana',
   'updates.notice.failed': 'Aktualizacja nie została zainstalowana',
-  'updates.notice.availableBody': 'Instaluje się w tle. Sam wybierasz, kiedy uruchomić ponownie.',
   'updates.notice.restartBody': 'Uruchom ponownie, aby dokończyć. Działający agenci zatrzymują się przy ponownym uruchomieniu aplikacji.',
   'updates.notice.install': 'Zainstaluj',
   'updates.notice.view': 'Zobacz',

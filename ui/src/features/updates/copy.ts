@@ -125,26 +125,3 @@ export function progressLabel(state: UpdateState): string {
 
   return total ? t('updates.progress.of', { downloaded: formatBytes(downloaded), total: formatBytes(total) }) : formatBytes(downloaded);
 }
-
-/** The short label of the status-bar indicator; empty when there is nothing to show. */
-export function indicatorLabel(state: UpdateState, fraction: number | null): string {
-  switch (state.kind) {
-    case 'available':
-      return t('updates.indicator.available', { version: state.info.version });
-
-    case 'downloading':
-      return fraction === null ? t('updates.indicator.updating') : t('updates.indicator.updatingPercent', { percent: Math.round(fraction * 100) });
-
-    case 'installing':
-      return t('updates.indicator.installing');
-
-    case 'readyToRelaunch':
-      return t('updates.indicator.restart');
-
-    case 'failed':
-      return state.info ? t('updates.indicator.failed') : '';
-
-    default:
-      return '';
-  }
-}

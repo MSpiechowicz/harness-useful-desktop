@@ -3,25 +3,24 @@
   import Paperclip from '@lucide/svelte/icons/paperclip';
   import Square from '@lucide/svelte/icons/square';
   import Terminal from '@lucide/svelte/icons/terminal';
-  import { onMount, untrack } from 'svelte';
+  import { onDestroy, onMount, untrack } from 'svelte';
 
   import Badge from '$lib/components/Badge.svelte';
   import Button from '$lib/components/Button.svelte';
+  import { cx } from '$lib/utils/cx';
   import { autofocus } from '$lib/a11y/autofocus';
   import { MAX_FILES, MAX_IMAGES, isLargePaste } from '$lib/chat/attachments';
-  import { bashCommand, isBashDraft, sendIntent, type SendMode } from '$lib/chat/composer';
+  import { bashCommand, escapeStep, isBashDraft, sendIntent, STOP_WINDOW_MS, type BusyMode, type SendMode } from '$lib/chat/composer';
   import type { ChatSession } from '$lib/chat/session.svelte';
   import { acceptCommand, filterCommands, resolveSlash, slashQuery } from '$lib/chat/slash';
   import type { CommandSpec } from '$lib/ipc/bindings/CommandSpec';
   import { uid } from '$lib/utils/ids';
-  import { isMacPlatform } from '$lib/utils/shortcuts';
   import { t } from '$lib/i18n/i18n.svelte';
 
   import AttachmentStrip from './AttachmentStrip.svelte';
-  import ContextMeter from './ContextMeter.svelte';
-  import CostChip from '$lib/components/CostChip.svelte';
+  import ComposerFooter from './ComposerFooter.svelte';
+  import ComposerMode from './ComposerMode.svelte';
   import ModelPicker from './ModelPicker.svelte';
-  import ProjectPicker from './ProjectPicker.svelte';
   import { runSlash } from './slash-run';
   import SlashMenu from './SlashMenu.svelte';
   import ThinkingPicker from './ThinkingPicker.svelte';
@@ -41,6 +40,11 @@
   let active = $state(0);
   /** The draft for which Escape closed the suggestions; typing brings them back. */
   let dismissedFor = $state<string | null>(null);
+  /** What Enter does while the agent works; always Steer again once it has finished. */
+  let whenBusy = $state<BusyMode>('steer');
+  /** The time of the first Escape, while the stop waits for a second one. */
+  let stopArmedAt = $state<number | null>(null);
+  let stopTimer: ReturnType<typeof setTimeout> | undefined;
   let appliedNonce = untrack(() => session.chat.editorText?.nonce ?? 0);
 
   // Files dragged in from the file manager arrive as native drops (see `drop_listen`); the HTML5
@@ -58,14 +62,47 @@
   const suggestions = $derived(query === null ? [] : filterCommands(session.commands, query));
   const menuOpen = $derived(suggestions.length > 0 && dismissedFor !== session.draft && !session.ended);
   const bash = $derived(isBashDraft(session.draft));
-  const sessionId = $derived(session.chat.session?.sessionId ?? null);
-  const costArgs = $derived(sessionId ? { session_id: sessionId } : null);
   const attached = $derived(session.attached);
   const canSend = $derived((session.draft.trim() !== '' || attached.files.length > 0) && !session.ended);
   const attachFull = $derived(attached.images.length >= MAX_IMAGES && attached.files.length >= MAX_FILES);
+  const stopArmed = $derived(stopArmedAt !== null);
+  /** While the agent works and nothing is typed, the round button stops it. */
+  const stopping = $derived(session.streaming && !canSend);
   const queued = $derived(session.chat.queue.steering.length + session.chat.queue.followUp.length);
 
   const placeholder = $derived(bash ? t('chat.composer.placeholder.bash') : session.streaming ? t('chat.composer.placeholder.streaming') : t('chat.composer.placeholder'));
+
+  $effect(() => {
+    if (!session.streaming) {
+      whenBusy = 'steer';
+      disarmStop();
+    }
+  });
+
+  onDestroy(() => clearTimeout(stopTimer));
+
+  function disarmStop(): void {
+    clearTimeout(stopTimer);
+    stopArmedAt = null;
+  }
+
+  // Escape twice stops the agent; one Escape alone is too easy to hit. Menus and dialogs take their own Escape first.
+  function onwindowkeydown(event: KeyboardEvent): void {
+    if (event.key !== 'Escape' || event.defaultPrevented || event.repeat || event.isComposing || !session.streaming) {
+      return;
+    }
+
+    if (escapeStep(stopArmedAt, Date.now()) === 'stop') {
+      disarmStop();
+      void session.abort();
+
+      return;
+    }
+
+    clearTimeout(stopTimer);
+    stopArmedAt = Date.now();
+    stopTimer = setTimeout(disarmStop, STOP_WINDOW_MS);
+  }
 
   $effect(() => {
     void suggestions;
@@ -206,13 +243,15 @@
       return;
     }
 
-    const intent = sendIntent(event, session.streaming);
+    const intent = sendIntent(event, session.streaming, whenBusy);
     if (intent) {
       event.preventDefault();
       void submit(intent);
     }
   }
 </script>
+
+<svelte:window onkeydown={onwindowkeydown} />
 
 <div class="chat-col relative pt-0 pb-5">
   {#if menuOpen}
@@ -237,7 +276,7 @@
     {ondragover}
     ondragleave={() => (dragging = false)}
     {ondrop}
-    class="border-card chat-radius border-line-strong bg-surface-1 bg-clip-padding transition-[border-color] duration-[var(--dur-fast)] focus-within:border-[color-mix(in_oklch,var(--color-fg)_28%,var(--surface-1))] {dragging ? 'border-accent!' : ''}"
+    class="@container border-card chat-radius border-line-strong bg-surface-1 bg-clip-padding transition-[border-color] duration-[var(--dur-fast)] focus-within:border-[color-mix(in_oklch,var(--color-fg)_28%,var(--surface-1))] {dragging ? 'border-accent!' : ''}"
   >
     <AttachmentStrip {session} />
 
@@ -268,42 +307,51 @@
       <input bind:this={fileInput} type="file" multiple class="hidden" tabindex="-1" aria-hidden="true" onchange={onpick} />
       <Button
         variant="ghost"
-        class="size-control px-0!"
+        class="gap-1.5! px-2! @max-[560px]:size-control @max-[560px]:px-0!"
         aria-label={t('chat.attach.add')}
         title={t('chat.attach.add')}
         disabled={session.ended || bash || attachFull}
         onclick={() => fileInput?.click()}
       >
         <Paperclip size={16} aria-hidden="true" />
+        <span class="@max-[560px]:hidden">{t('chat.composer.attach')}</span>
       </Button>
       <ModelPicker {session} />
       <ThinkingPicker {session} />
 
-      <div class="ml-auto flex min-w-0 items-center gap-1.5">
-        <ProjectPicker {session} />
-        <ContextMeter usage={session.chat.session?.contextUsage ?? null} />
-        <CostChip kind="session" args={costArgs} refreshKey={session.streaming} align="end" side="top" quiet />
+      <div class="ml-auto flex shrink-0 items-center gap-1.5">
+        {#if stopArmed}
+          <span class="text-xs text-danger @max-[460px]:hidden" role="status">{t('chat.composer.stopArmed')}</span>
+        {/if}
 
-        {#if session.streaming}
-          <Button variant="ghost" disabled={!canSend} onclick={() => void submit('followUp')}>{t('chat.composer.followUp')}</Button>
-          <Button variant="secondary" disabled={!canSend} onclick={() => void submit('steer')}>{t('chat.composer.steer')}</Button>
-          <Button variant="danger" class="size-control rounded-full! px-0!" aria-label={t('chat.composer.stop')} onclick={() => void session.abort()}>
+        {#if session.streaming && !stopping}
+          <ComposerMode bind:value={whenBusy} />
+        {/if}
+
+        {#if stopping}
+          <Button
+            variant="danger"
+            class={cx('size-control rounded-full! px-0!', stopArmed && 'animate-pulse')}
+            aria-label={t('chat.composer.stop')}
+            title={t('chat.composer.stopHint')}
+            onclick={() => void session.abort()}
+          >
             <Square size={12} aria-hidden="true" class="fill-current" />
           </Button>
         {:else}
-          <Button variant="primary" class="size-control rounded-full! px-0!" aria-label={bash ? t('chat.composer.reviewCommand') : t('chat.composer.send')} disabled={!canSend} onclick={() => void submit('send')}>
+          <Button
+            variant="primary"
+            class="size-control rounded-full! px-0!"
+            aria-label={bash ? t('chat.composer.reviewCommand') : t('chat.composer.send')}
+            disabled={!canSend}
+            onclick={() => void submit(session.streaming ? whenBusy : 'send')}
+          >
             {#if bash}<Terminal size={16} aria-hidden="true" />{:else}<ArrowUp size={18} strokeWidth={2.25} aria-hidden="true" />{/if}
           </Button>
         {/if}
       </div>
     </div>
-  </div>
 
-  <p class="mt-2 truncate text-center text-xs text-fg-3">
-    {#if session.streaming}
-      {t('chat.composer.hint.streaming', { mod: isMacPlatform() ? '⌘' : 'Ctrl' })}
-    {:else}
-      {t('chat.composer.hint')}
-    {/if}
-  </p>
+    <ComposerFooter {session} />
+  </div>
 </div>

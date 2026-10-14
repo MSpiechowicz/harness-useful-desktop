@@ -30,7 +30,8 @@ describe('update check at startup', () => {
 
     prefs.value = samplePrefs({ motion: 'off', onboardingCompleted: true });
 
-    expect(await screen.findByRole('region', { name: 'Update' })).toHaveTextContent('0.2.0');
+    // The rail may be collapsed here; either way the notice names the version.
+    expect(await screen.findByRole('button', { name: /Version 0\.2\.0 is available/ })).toBeInTheDocument();
     expect(updates.state.kind).toBe('available');
   });
 });
