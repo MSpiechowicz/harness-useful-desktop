@@ -72,6 +72,7 @@ export const sessions: AreaMessages<typeof enSessions> = {
   'sessions.delete.title': '¿Eliminar esta sesión?',
   'sessions.delete.body': 'La sesión y sus adjuntos se borrarán del disco. No se puede deshacer.',
   'sessions.delete.confirm': 'Eliminar sesión',
+  'sessions.delete.configuredFolder': 'Carpeta elegida en los ajustes de este proyecto: {path}',
   'sessions.delete.openInChat': 'Esta sesión está abierta en un chat',
   'sessions.delete.openInChatBody': 'Cierra primero ese chat y luego elimina la sesión.',
   'sessions.delete.failed': 'No se pudo eliminar la sesión',

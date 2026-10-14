@@ -34,6 +34,7 @@ const sampleArgs = (sessionKey: string): { [K in CommandName]: CommandArgs<K> } 
   agent_stop: { key: sessionKey },
   agent_list: undefined,
   sessions_list: { harness: 'omp', project: fixtures.recentProjects[0].path },
+  sessions_folder: { harness: 'pi', project: fixtures.recentProjects[0].path },
   session_tree: { session: SESSION, project: fixtures.recentProjects[0].path },
   session_messages: { session: SESSION, project: fixtures.recentProjects[0].path, cursor: null, limit: 50 },
   session_files_touched: { session: SESSION, project: fixtures.recentProjects[0].path },
@@ -83,6 +84,7 @@ describe('mock transport', () => {
     const mock = transport();
 
     await expect(mock.invoke('sessions_list', { harness: 'omp', project: '/etc' })).rejects.toMatchObject({ code: 'forbidden' });
+    await expect(mock.invoke('sessions_folder', { harness: 'pi', project: '/etc' })).rejects.toMatchObject({ code: 'forbidden' });
     await expect(mock.invoke('session_tree', { session: SESSION, project: '/etc' })).rejects.toMatchObject({ code: 'forbidden' });
     await expect(mock.invoke('git_status', { project: '/etc' })).rejects.toMatchObject({ code: 'forbidden' });
     await expect(mock.invoke('git_diff', { project: '/etc', request: { scope: 'all', paths: [] } })).rejects.toMatchObject({ code: 'forbidden' });

@@ -69,6 +69,7 @@ export const sessions = {
   'sessions.delete.title': 'Delete this session?',
   'sessions.delete.body': 'The session and its attachments will be removed from disk. This cannot be undone.',
   'sessions.delete.confirm': 'Delete session',
+  'sessions.delete.configuredFolder': "Folder set by this project's settings: {path}",
   'sessions.delete.openInChat': 'This session is open in a chat',
   'sessions.delete.openInChatBody': 'Close that chat first, then delete the session.',
   'sessions.delete.failed': 'Could not delete the session',

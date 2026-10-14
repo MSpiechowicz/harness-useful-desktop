@@ -1,5 +1,5 @@
-//! Saved-session commands: a project's sessions, one session's branch tree, active-path
-//! transcript and edited files, and deleting a session.
+//! Saved-session commands: a project's sessions and their folder, one session's branch tree,
+//! active-path transcript and edited files, and deleting a session.
 //!
 //! The project must be the active project or a recent one. A session is named only by its
 //! harness and id; the harness looks the id up in that project's session folder, so the webview
@@ -10,7 +10,7 @@ use std::path::Path;
 use harness_business::BusinessError;
 use harness_business::env::Env;
 use harness_business::harness::Harness;
-use harness_business::model::{HarnessId, SessionMessagesPage, SessionRef, SessionSummary, SessionTree};
+use harness_business::model::{HarnessId, SessionFolder, SessionMessagesPage, SessionRef, SessionSummary, SessionTree};
 use tauri::State;
 
 use super::{authorized_dir, blocking};
@@ -25,6 +25,17 @@ pub async fn sessions_list(
     project: String,
 ) -> CommandResult<Vec<SessionSummary>> {
     list(&state, harness, project).await
+}
+
+/// The folder `harness` keeps the sessions of `project` in; `configured` when the project's own
+/// settings chose it.
+#[tauri::command]
+pub async fn sessions_folder(
+    state: State<'_, AppState>,
+    harness: HarnessId,
+    project: String,
+) -> CommandResult<SessionFolder> {
+    folder(&state, harness, project).await
 }
 
 /// The branch tree of `session`, with its active path marked.
@@ -78,6 +89,13 @@ async fn list(state: &AppState, harness: HarnessId, project: String) -> CommandR
 
     with_store(state, harness, project, move |harness, env, project| {
         harness.list_sessions(env, project, &cache)
+    })
+    .await
+}
+
+async fn folder(state: &AppState, harness: HarnessId, project: String) -> CommandResult<SessionFolder> {
+    with_store(state, harness, project, |harness, env, project| {
+        Ok(harness.session_folder(env, project))
     })
     .await
 }
@@ -260,6 +278,7 @@ mod tests {
 
         let errors = [
             block_on(list(state, HarnessId::Omp, stranger.clone())).map(drop),
+            block_on(folder(state, HarnessId::Pi, stranger.clone())).map(drop),
             block_on(tree(state, omp(id), stranger.clone())).map(drop),
             block_on(messages(state, omp(id), stranger.clone(), None, 10)).map(drop),
             block_on(files_touched(state, omp(id), stranger.clone())).map(drop),
@@ -272,6 +291,24 @@ mod tests {
 
         let kept = sessions_dir(state, &setup.stranger).join(STRANGER_FILE);
         assert!(kept.is_file(), "the refused delete removed nothing");
+    }
+
+    #[test]
+    fn the_folder_is_configured_only_by_the_projects_own_setting() {
+        let setup = setup();
+        let (state, project) = (&setup.state, text(&setup.project));
+
+        let omp = block_on(folder(state, HarnessId::Omp, project.clone())).expect("OMP folder");
+        assert_eq!(omp.path, text(&sessions_dir(state, &setup.project)));
+        assert!(!omp.configured);
+
+        std::fs::create_dir_all(setup.project.join(".pi")).expect("create .pi");
+        std::fs::write(setup.project.join(".pi/settings.json"), r#"{ "sessionDir": "chats" }"#)
+            .expect("write settings");
+
+        let pi = block_on(folder(state, HarnessId::Pi, project)).expect("PI folder");
+        assert_eq!(pi.path, text(&setup.project.join("chats")));
+        assert!(pi.configured);
     }
 
     #[test]

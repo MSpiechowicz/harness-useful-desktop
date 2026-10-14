@@ -17,7 +17,9 @@
   import ViewHeader from '$lib/components/ViewHeader.svelte';
   import RefreshButton from '$lib/components/RefreshButton.svelte';
   import { scaled } from '$lib/design/motion';
+  import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
   import type { SessionSummary } from '$lib/ipc/bindings/SessionSummary';
+  import { ipc } from '$lib/ipc/client';
   import { git } from '$lib/stores/git.svelte';
   import { agentSessions } from '$lib/stores/agentSession.svelte';
   import { harness } from '$lib/stores/harness.svelte';
@@ -86,14 +88,26 @@
       return;
     }
 
-    void deleteSession(agentSessions, summary.ref, current.path, () =>
+    const path = current.path;
+
+    void deleteSession(agentSessions, summary.ref, path, async () =>
       ask({
         title: t('sessions.delete.title'),
         description: t('sessions.delete.body'),
-        subject: { icon: GitBranch, name: sessionTitle(summary), details: sessionDetails(summary) },
+        subject: { icon: GitBranch, name: sessionTitle(summary), details: sessionDetails(summary), note: await folderNote(summary.ref.harness, path) },
         confirmLabel: t('sessions.delete.confirm'),
       }),
     );
+  }
+
+  /**
+   * A warning when the project's own settings chose where its sessions live (PI `sessionDir`), so a delete can never
+   * reach another folder unnoticed. Nothing when the folder is the harness's own or cannot be read.
+   */
+  async function folderNote(harnessId: HarnessId, project: string): Promise<string | undefined> {
+    const folder = await ipc.invoke('sessions_folder', { harness: harnessId, project }).catch(() => null);
+
+    return folder?.configured ? t('sessions.delete.configuredFolder', { path: folder.path }) : undefined;
   }
 
   /** When, on which model and how big: the details that tell sessions with the same first prompt apart. */
@@ -102,7 +116,7 @@
   }
 
   /** The copies' session when they all belong to one, else how many sessions they repeat; with their total size. */
-  function copiesSubject(copies: SessionSummary[]): ConfirmRequest['subject'] {
+  function copiesSubject(copies: SessionSummary[]): NonNullable<ConfirmRequest['subject']> {
     const roots = [...groups.copiesByRoot].filter(([, listed]) => listed.some((copy) => copies.includes(copy))).map(([id]) => id);
     const size = formatBytes(copies.reduce((total, copy) => total + copy.sizeBytes, 0));
     const root = roots.length === 1 ? sessions.find((summary) => summary.ref.id === roots[0]) : undefined;
@@ -119,11 +133,13 @@
       return;
     }
 
-    void cleanUpCopies(agentSessions, copies, current.path, () =>
+    const path = current.path;
+
+    void cleanUpCopies(agentSessions, copies, path, async () =>
       ask({
         title: tn('sessions.cleanup.confirmTitle', copies.length),
         description: t('sessions.cleanup.confirmBody'),
-        subject: copiesSubject(copies),
+        subject: { ...copiesSubject(copies), note: copies[0] ? await folderNote(copies[0].ref.harness, path) : undefined },
         confirmLabel: t('sessions.cleanup.confirm'),
       }),
     );

@@ -283,7 +283,7 @@ fn assert_round_trips<T: Serialize + DeserializeOwned>(wire: &[Value]) {
 #[test]
 fn agent_actions_are_tagged_with_camel_case_fields() {
     assert_round_trips::<AgentAction>(&[
-        json!({ "type": "prompt", "message": "hi", "streamingBehavior": "followUp" }),
+        json!({ "type": "prompt", "message": "hi", "images": [], "streamingBehavior": "followUp" }),
         json!({ "type": "abort" }),
         json!({ "type": "switchSession", "session": { "harness": "pi", "id": "0199c1f2" } }),
         json!({ "type": "setModel", "provider": "anthropic", "modelId": "claude-sonnet-4-5" }),

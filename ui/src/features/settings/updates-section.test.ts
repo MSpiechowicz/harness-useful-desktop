@@ -34,7 +34,7 @@ describe('Updates settings', () => {
 
     await fireEvent.click(screen.getByRole('button', { name: 'Check now' }));
 
-    expect(await screen.findByRole('button', { name: 'Install update' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Install & restart' })).toBeInTheDocument();
     expect(within(screen.getByRole('region', { name: 'Release notes' })).getByText(/keep the selected file/)).toBeInTheDocument();
   });
 
@@ -45,7 +45,7 @@ describe('Updates settings', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Check now' }));
 
     await waitFor(() => expect(updates.state.kind).toBe('upToDate'));
-    expect(screen.queryByRole('button', { name: 'Install update' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Install & restart' })).toBeNull();
   });
 
   it('renders untrusted release notes as text, never as markup', () => {

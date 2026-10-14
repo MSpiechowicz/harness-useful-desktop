@@ -31,6 +31,7 @@
     "allow-agent-list",
     "allow-agent-move-project",
     "allow-sessions-list",
+    "allow-sessions-folder",
     "allow-session-tree",
     "allow-session-messages",
     "allow-session-files-touched",

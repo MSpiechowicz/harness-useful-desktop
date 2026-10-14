@@ -79,7 +79,6 @@ export const settings = {
   'settings.updates.openReleases': 'Open releases',
   'settings.updates.retry': 'Try again',
   'settings.updates.notes': 'Release notes',
-  'settings.updates.install': 'Install update',
   'settings.updates.finish': 'Finish update',
   'settings.updates.restart': 'Restart to finish',
 

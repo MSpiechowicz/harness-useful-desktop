@@ -72,8 +72,9 @@ pub use review::{
     MAX_REVIEW_TEXT_BYTES, ReviewComment, ReviewRequest,
 };
 pub use session::{
-    MAX_FIRST_PROMPT_CHARS, MAX_NODE_PREVIEW_CHARS, MAX_SESSION_PAGE, MAX_TREE_NODES, ModelTurns, SessionMessagesPage,
-    SessionNode, SessionNodeKind, SessionSummary, SessionTitleSource, SessionTree, TranscriptStats,
+    MAX_FIRST_PROMPT_CHARS, MAX_NODE_PREVIEW_CHARS, MAX_SESSION_PAGE, MAX_TREE_NODES, ModelTurns, SessionFolder,
+    SessionMessagesPage, SessionNode, SessionNodeKind, SessionSummary, SessionTitleSource, SessionTree,
+    TranscriptStats,
 };
 pub use subagent::{Subagent, SubagentStatus, SubagentTool};
 pub use ui_request::{UiOutcome, UiRequest, UiRequestKind, UiResponse};

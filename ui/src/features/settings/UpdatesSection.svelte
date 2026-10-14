@@ -166,7 +166,7 @@
         {/if}
       </div>
 
-      {#if updates.closesApp && (state.kind === 'available' || state.kind === 'downloading' || state.kind === 'installing')}
+      {#if updates.closesApp && ['available', 'downloading', 'installing', 'readyToRelaunch'].includes(state.kind)}
         <p class="text-sm text-fg-3">{installerClosesApp()}</p>
       {:else if state.kind === 'readyToRelaunch' && !updates.closesApp}
         <p class="text-sm text-fg-3">{restartStopsAgents()}</p>

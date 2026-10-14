@@ -28,6 +28,7 @@ import type { HarnessId } from './bindings/HarnessId';
 import type { HarnessSummary } from './bindings/HarnessSummary';
 import type { ProjectInfo } from './bindings/ProjectInfo';
 import type { ReviewRequest } from './bindings/ReviewRequest';
+import type { SessionFolder } from './bindings/SessionFolder';
 import type { SessionMessagesPage } from './bindings/SessionMessagesPage';
 import type { SessionRef } from './bindings/SessionRef';
 import type { SessionSummary } from './bindings/SessionSummary';
@@ -77,6 +78,7 @@ export const commands = {
   agent_move_project: cmd<{ key: string; project: string }, AgentSessionInfo>(),
   agent_list: cmd<undefined, AgentSessionInfo[]>(),
   sessions_list: cmd<{ harness: HarnessId; project: string }, SessionSummary[]>(),
+  sessions_folder: cmd<{ harness: HarnessId; project: string }, SessionFolder>(),
   session_tree: cmd<{ session: SessionRef; project: string }, SessionTree>(),
   session_messages: cmd<{ session: SessionRef; project: string; cursor: string | null; limit: number }, SessionMessagesPage>(),
   session_files_touched: cmd<{ session: SessionRef; project: string }, string[]>(),

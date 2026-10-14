@@ -6,6 +6,8 @@
     icon: IconComponent;
     name: string;
     details?: string;
+    /** Something to double-check, in the warning tone: e.g. that the files sit in a folder a project chose. */
+    note?: string;
   }
 </script>
 
@@ -43,6 +45,7 @@
     <div class="min-w-0">
       <p class="line-clamp-2 font-medium break-words text-fg">{item.name}</p>
       {#if item.details}<p class="tabular truncate text-xs text-fg-3">{item.details}</p>{/if}
+      {#if item.note}<p class="mt-1 text-xs break-all text-warning">{item.note}</p>{/if}
     </div>
   </div>
 {/snippet}

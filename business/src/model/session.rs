@@ -1,8 +1,9 @@
-//! Saved harness sessions on disk (`sessions_list`, `session_tree`, `session_messages`,
-//! `session_files_touched`).
+//! Saved harness sessions on disk (`sessions_list`, `sessions_folder`, `session_tree`,
+//! `session_messages`, `session_files_touched`).
 //!
 //! Sessions are addressed by an opaque [`SessionRef`]; the business layer resolves it inside the
-//! harness's sessions directory for the project, so no session file path ever reaches the webview.
+//! harness's sessions directory for the project, so no session file path ever reaches the webview
+//! (only the folder itself, shown to the user).
 
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
@@ -30,6 +31,19 @@ pub enum SessionTitleSource {
     Auto,
     /// Set by the user (OMP rename, PI `/name`).
     User,
+}
+
+/// Where a harness keeps a project's saved sessions (`sessions_folder`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct SessionFolder {
+    /// The folder the harness reads and writes the project's sessions in; canonical when the
+    /// project's settings chose it and it exists (a symlinked `sessionDir` shows its target).
+    pub path: String,
+    /// True when the project's own settings chose the folder (PI `.pi/settings.json`
+    /// `sessionDir`); false for the harness default and user-level settings.
+    pub configured: bool,
 }
 
 /// One saved session in `sessions_list` (newest first).

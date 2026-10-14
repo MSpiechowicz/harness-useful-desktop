@@ -324,6 +324,7 @@ describe('deleting sessions', () => {
     await fireEvent.click(await screen.findByRole('menuitem', { name: 'Delete' }));
     expect(await screen.findByText('Delete this session?')).toBeInTheDocument();
     expect(deleteCalls(invoke)).toHaveLength(0);
+    expect(screen.queryByText(/Folder set by this project/)).toBeNull();
 
     await confirmDelete('Delete session');
 
@@ -341,6 +342,19 @@ describe('deleting sessions', () => {
 
     expect(deleteCalls(invoke)).toHaveLength(0);
     expect(sessionButton(ROOT.ref.id)).toBeTruthy();
+  });
+
+  it("names the folder when the project's own settings chose where its sessions live", async () => {
+    const invoke = ipc.invoke.bind(ipc);
+    vi.spyOn(ipc, 'invoke').mockImplementation(((name: string, args: unknown) =>
+      name === 'sessions_folder' ? Promise.resolve({ path: '/elsewhere/sessions', configured: true }) : invoke(name as never, args as never)) as typeof ipc.invoke);
+    await showSessions();
+
+    await fireEvent.click(within(rowOf(ROOT.ref.id)).getByRole('button', { name: 'Session actions' }));
+    await fireEvent.click(await screen.findByRole('menuitem', { name: 'Delete' }));
+
+    expect(await screen.findByText("Folder set by this project's settings: /elsewhere/sessions")).toBeInTheDocument();
+    await confirmDelete('Keep it');
   });
 
   it('deletes the shown session from the header menu and moves on to the next one', async () => {

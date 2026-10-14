@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-sessions-folder"
+description = "Enables the sessions_folder command without any pre-configured scope."
+commands.allow = ["sessions_folder"]
+
+[[permission]]
+identifier = "deny-sessions-folder"
+description = "Denies the sessions_folder command without any pre-configured scope."
+commands.deny = ["sessions_folder"]

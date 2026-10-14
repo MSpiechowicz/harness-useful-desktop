@@ -72,6 +72,7 @@ export const sessions: AreaMessages<typeof enSessions> = {
   'sessions.delete.title': 'Diese Sitzung löschen?',
   'sessions.delete.body': 'Die Sitzung und die zugehörigen Anhänge werden von der Festplatte entfernt. Das lässt sich nicht rückgängig machen.',
   'sessions.delete.confirm': 'Sitzung löschen',
+  'sessions.delete.configuredFolder': 'Ordner aus den Einstellungen dieses Projekts: {path}',
   'sessions.delete.openInChat': 'Diese Sitzung ist in einem Chat geöffnet',
   'sessions.delete.openInChatBody': 'Schließe zuerst diesen Chat und lösche die Sitzung dann.',
   'sessions.delete.failed': 'Die Sitzung konnte nicht gelöscht werden',

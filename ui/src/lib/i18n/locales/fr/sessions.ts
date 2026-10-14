@@ -72,6 +72,7 @@ export const sessions: AreaMessages<typeof enSessions> = {
   'sessions.delete.title': 'Supprimer cette session ?',
   'sessions.delete.body': 'La session et ses pièces jointes seront supprimées du disque. Cette action est irréversible.',
   'sessions.delete.confirm': 'Supprimer la session',
+  'sessions.delete.configuredFolder': 'Dossier défini par les réglages de ce projet : {path}',
   'sessions.delete.openInChat': 'Cette session est ouverte dans un chat',
   'sessions.delete.openInChatBody': 'Fermez d’abord ce chat, puis supprimez la session.',
   'sessions.delete.failed': 'Impossible de supprimer la session',

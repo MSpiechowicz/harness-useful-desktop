@@ -1,4 +1,5 @@
 import type { AppPrefs } from '$lib/ipc/bindings/AppPrefs';
+import { defaultPrefs } from '$lib/ipc/mock/state';
 import type { CommandArgs, CommandName, CommandResult } from '$lib/ipc/commands';
 import type { Transport } from '$lib/ipc/transport';
 
@@ -25,28 +26,7 @@ export function fakeMedia(initial: boolean) {
 }
 
 export function samplePrefs(overrides: Partial<AppPrefs> = {}): AppPrefs {
-  return {
-    version: 1,
-    theme: 'system',
-    motion: 'full',
-    introEnabled: true,
-    soundEnabled: true,
-    showThinking: true,
-    defaultHarness: null,
-    activeProject: null,
-    rememberRecentProjects: true,
-    recentProjects: [],
-    updatePolicy: 'startupAsk',
-    checkCompanionUpdates: true,
-    openAnyLink: false,
-    aiChatNames: false,
-    language: 'en',
-    onboardingCompleted: false,
-    approvalNoticeSeen: false,
-    binaryOverrides: [],
-    chatDefaults: [],
-    ...overrides,
-  };
+  return { ...defaultPrefs(), soundEnabled: true, ...overrides };
 }
 
 type Handler = (args: never) => unknown;

@@ -1,9 +1,7 @@
 //! One running agent process spoken to over RPC.
 //!
-//! Startup: spawn → handshake (OMP `ready` within 10 s; PI none) → the dialect's post-handshake
-//! commands → `get_state` (PI's probe, also within 10 s) → the command list → `ready`, `state`
-//! and `commandsUpdated` are emitted, then everything the agent sent meanwhile. A failed startup
-//! kills the process and emits nothing.
+//! Startup: spawn, then the steps of `startup.rs`, all within a deadline. A failed startup kills
+//! the process and emits nothing.
 //!
 //! Stop: close stdin → wait up to the grace period (3 s) → kill the process group. `exited` is
 //! always the last event and is emitted exactly once, also when the agent crashes.
@@ -19,15 +17,15 @@ use tokio::task::JoinHandle;
 
 use super::SessionOptions;
 use super::io::{Readers, Shared, WriterMsg, read_loop, stderr_loop, wait_loop, write_loop};
-use super::sink::{EmitMsg, EventSink, spawn_emitter};
+use super::sink::{EventSink, spawn_emitter};
+use super::startup::{StartAbort, with_stderr};
 use crate::error::{BusinessError, Result};
 use crate::model::{AgentAction, AgentEvent, AgentReply, BashOutput, MAX_ACTION_TEXT_BYTES, SessionState, UiResponse};
 use crate::pi_family::normalize::{chat_message, model_option, string};
 use crate::pi_family::rpc::pending::DEFAULT_TIMEOUT;
 use crate::pi_family::rpc::shared::{items, parse_bash, parse_reply, slice_history};
 use crate::pi_family::rpc::{
-    DecodeState, EncodeContext, Handshake, RequestKind, RpcDialect, RpcResponse, await_response, encode_frame,
-    timeout_for,
+    DecodeState, EncodeContext, RequestKind, RpcDialect, RpcResponse, await_response, encode_frame, timeout_for,
 };
 use crate::process::{ExecSpec, ExitInfo, ProcessSpawner};
 use crate::security::redact_text;
@@ -71,11 +69,13 @@ pub struct SessionLaunch<'a> {
     pub sink: Arc<dyn EventSink>,
     /// Timing knobs.
     pub options: &'a SessionOptions,
+    /// Gives the startup up when it resolves first.
+    pub abort: StartAbort<'a>,
 }
 
 /// A running agent session (see the module docs).
 pub struct AgentSession {
-    shared: Arc<Shared>,
+    pub(super) shared: Arc<Shared>,
     /// The project's session folder; follows the session when it moves to another project.
     sessions_dir: Mutex<PathBuf>,
     next_id: AtomicU64,
@@ -83,7 +83,7 @@ pub struct AgentSession {
     kill: watch::Sender<bool>,
     emitter: Mutex<Option<JoinHandle<()>>>,
     stop_grace: Duration,
-    protocol_version: Option<u32>,
+    pub(super) protocol_version: Option<u32>,
 }
 
 impl AgentSession {
@@ -121,61 +121,13 @@ impl AgentSession {
             protocol_version: None,
         };
 
-        match session.startup(ready_rx, launch.options.startup_timeout).await {
+        match session.startup(ready_rx, launch.options, launch.abort).await {
             Ok(()) => Ok(session),
             Err(error) => {
                 session.kill_now().await;
                 Err(with_stderr(error, &session.shared.stderr_tail()))
             }
         }
-    }
-
-    async fn startup(&mut self, ready: oneshot::Receiver<Option<u32>>, limit: Duration) -> Result<()> {
-        let dialect = self.shared.dialect;
-
-        if dialect.handshake() == Handshake::ReadyFrame {
-            self.protocol_version = tokio::time::timeout(limit, ready)
-                .await
-                .map_err(|_| {
-                    BusinessError::Timeout(format!("the agent sent no ready frame within {} s", limit.as_secs()))
-                })?
-                .map_err(|_| BusinessError::Process("the agent exited during startup".to_owned()))?;
-        }
-
-        for mut frame in dialect.after_handshake() {
-            let id = self.next_id();
-            frame["id"] = Value::from(id.as_str());
-            self.request(&frame, &id, RequestKind::Other, DEFAULT_TIMEOUT).await?;
-        }
-
-        for mut frame in dialect.optional_after_handshake() {
-            let id = self.next_id();
-            frame["id"] = Value::from(id.as_str());
-            if let Err(error) = self.request(&frame, &id, RequestKind::Other, DEFAULT_TIMEOUT).await {
-                tracing::debug!(%error, "the agent refused an optional startup command");
-            }
-        }
-
-        let state = match self.call(&AgentAction::GetState, limit).await? {
-            AgentReply::State { state } => state,
-            _ => return Err(BusinessError::Protocol("get_state returned no state".to_owned())),
-        };
-
-        let commands = match self.call(&AgentAction::RefreshCommands, DEFAULT_TIMEOUT).await {
-            Ok(AgentReply::Commands { commands }) => commands,
-            _ => dialect.catalog().merged(&[]),
-        };
-
-        let first = vec![
-            AgentEvent::Ready {
-                protocol_version: self.protocol_version,
-            },
-            AgentEvent::State { state },
-            AgentEvent::CommandsUpdated { commands },
-        ];
-        self.shared.events.send(EmitMsg::Open(first)).ok();
-
-        Ok(())
     }
 
     /// RPC protocol version from the handshake (OMP).
@@ -201,12 +153,18 @@ impl AgentSession {
         Err(BusinessError::Process("the agent session has exited".to_owned()))
     }
 
-    fn next_id(&self) -> String {
+    pub(super) fn next_id(&self) -> String {
         format!("req-{}", self.next_id.fetch_add(1, Ordering::Relaxed) + 1)
     }
 
     /// Sends `frame` (whose id is `id`) and waits for its successful response.
-    async fn request(&self, frame: &Value, id: &str, kind: RequestKind, limit: Duration) -> Result<RpcResponse> {
+    pub(super) async fn request(
+        &self,
+        frame: &Value,
+        id: &str,
+        kind: RequestKind,
+        limit: Duration,
+    ) -> Result<RpcResponse> {
         let label = frame
             .get("type")
             .and_then(Value::as_str)
@@ -242,7 +200,7 @@ impl AgentSession {
     }
 
     /// Encodes `action`, sends it and parses the reply (no side effects).
-    async fn call(&self, action: &AgentAction, limit: Duration) -> Result<AgentReply> {
+    pub(super) async fn call(&self, action: &AgentAction, limit: Duration) -> Result<AgentReply> {
         let id = self.next_id();
         let sessions_dir = self.sessions_dir();
         let context = EncodeContext {
@@ -477,19 +435,5 @@ impl Drop for AgentSession {
     fn drop(&mut self) {
         // Safety net: a session dropped without `stop` must not leave its agent running.
         self.kill.send_replace(true);
-    }
-}
-
-/// Adds the agent's last stderr lines to a startup error.
-fn with_stderr(error: BusinessError, tail: &str) -> BusinessError {
-    if tail.is_empty() {
-        return error;
-    }
-
-    match error {
-        BusinessError::Timeout(message) => BusinessError::Timeout(format!("{message} (stderr: {tail})")),
-        BusinessError::Process(message) => BusinessError::Process(format!("{message} (stderr: {tail})")),
-        BusinessError::Protocol(message) => BusinessError::Protocol(format!("{message} (stderr: {tail})")),
-        other => other,
     }
 }

@@ -81,7 +81,6 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.updates.openReleases': 'Ouvrir les versions',
   'settings.updates.retry': 'Réessayer',
   'settings.updates.notes': 'Notes de version',
-  'settings.updates.install': 'Installer la mise à jour',
   'settings.updates.finish': 'Terminer la mise à jour',
   'settings.updates.restart': 'Redémarrer pour terminer',
 

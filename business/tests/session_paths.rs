@@ -211,3 +211,61 @@ fn pi_folders_prefer_the_variable_then_project_then_user_setting() {
         .with_var("PI_CODING_AGENT_SESSION_DIR", absolute.to_string_lossy());
     assert_eq!(Pi.sessions_dir(&custom, project), absolute);
 }
+
+#[test]
+fn only_a_projects_own_session_dir_setting_counts_as_configured() {
+    let home = session_home();
+    let project = &home.project;
+    let text = |path: PathBuf| path.to_string_lossy().into_owned();
+
+    // OMP has no project-level setting, not even with the user-level variable set.
+    let omp = Omp.session_folder(&home.env, project);
+    assert_eq!(omp.path, text(Omp.sessions_dir(&home.env, project)));
+    assert!(!omp.configured);
+
+    let variable = home.env.clone().with_var("PI_CODING_AGENT_SESSION_DIR", "elsewhere");
+    assert!(!Omp.session_folder(&variable, project).configured);
+
+    // PI: the user's setting is not the project's.
+    fs::create_dir_all(home.home.join(".pi/agent")).unwrap();
+    fs::write(
+        home.home.join(".pi/agent/settings.json"),
+        r#"{ "sessionDir": "~/pi-sessions" }"#,
+    )
+    .unwrap();
+    let user = Pi.session_folder(&home.env, project);
+    assert_eq!(user.path, text(home.home.join("pi-sessions")));
+    assert!(!user.configured);
+
+    fs::create_dir_all(project.join(".pi")).unwrap();
+    fs::write(project.join(".pi/settings.json"), r#"{ "sessionDir": ".sessions" }"#).unwrap();
+    let own = Pi.session_folder(&home.env, project);
+    assert_eq!(own.path, text(project.join(".sessions")));
+    assert!(own.configured);
+
+    // The variable outranks the project's setting.
+    let overridden = Pi.session_folder(&variable, project);
+    assert_eq!(overridden.path, text(project.join("elsewhere")));
+    assert!(!overridden.configured);
+}
+
+#[cfg(unix)]
+#[test]
+fn a_projects_symlinked_session_dir_shows_its_real_folder() {
+    let home = session_home();
+    let project = &home.project;
+    let target = home.home.join(".pi/agent/sessions/--other-project--");
+    fs::create_dir_all(&target).unwrap();
+    std::os::unix::fs::symlink(&target, project.join("chats")).unwrap();
+
+    fs::create_dir_all(project.join(".pi")).unwrap();
+    fs::write(project.join(".pi/settings.json"), r#"{ "sessionDir": "chats" }"#).unwrap();
+
+    let folder = Pi.session_folder(&home.env, project);
+    // The temporary home may itself sit behind a link (macOS /var), so compare with the resolved target.
+    assert_eq!(folder.path, dunce::canonicalize(&target).unwrap().to_string_lossy());
+    assert!(folder.configured);
+
+    // Listing and deleting still use the configured folder.
+    assert_eq!(Pi.sessions_dir(&home.env, project), project.join("chats"));
+}

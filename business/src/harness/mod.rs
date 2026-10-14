@@ -47,6 +47,7 @@ pub mod prelude {
     pub use crate::error::Result;
     pub use crate::model::{
         ApprovalMode, Capabilities, ConfigView, ExtensionAction, ExtensionsView, HarnessId, HarnessInfo, InstallHint,
+        SessionFolder,
     };
     pub use crate::pi_family::rpc::RpcDialect;
     pub use crate::process::ExecSpec;
@@ -58,7 +59,8 @@ use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::model::{
     ApprovalMode, Capabilities, ConfigView, Detection, ExtensionAction, ExtensionsView, HarnessId, HarnessInfo,
-    HarnessSummary, InstallHint, SessionMessagesPage, SessionRef, SessionSummary, SessionTree, VersionSupport,
+    HarnessSummary, InstallHint, SessionFolder, SessionMessagesPage, SessionRef, SessionSummary, SessionTree,
+    VersionSupport,
 };
 use crate::pi_family::rpc::RpcDialect;
 use crate::pi_family::sessions::{self, SessionCache};
@@ -117,6 +119,15 @@ pub trait Harness: Send + Sync {
     /// The folder holding the saved sessions of `project` (a canonical project directory): the
     /// harness's encoded per-project folder or a configured session directory.
     fn sessions_dir(&self, env: &Env, project: &Path) -> PathBuf;
+
+    /// [`Harness::sessions_dir`] for display, and whether the project's own settings chose it
+    /// (default: never; harnesses with a project-level session folder setting override this).
+    fn session_folder(&self, env: &Env, project: &Path) -> SessionFolder {
+        SessionFolder {
+            path: self.sessions_dir(env, project).to_string_lossy().into_owned(),
+            configured: false,
+        }
+    }
 
     /// Saved sessions of `project`, newest first (default: PI-family session files, see
     /// [`crate::pi_family::sessions`]). A missing folder lists nothing.

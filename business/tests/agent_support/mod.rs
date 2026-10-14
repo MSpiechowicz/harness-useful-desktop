@@ -1,12 +1,13 @@
 //! Runs the real agent engine against `fake_agent` scenarios (`tests/fixtures/streams`).
 //!
 //! [`ScenarioSpawner`] records the command line the engine asked for and starts `fake_agent`
-//! with the scenario instead, in the same working directory. Each test crate uses a different
+//! with the scenario instead, in the same working directory, and counts the agents it saw exit.
+//! Each test crate uses a different
 //! subset, hence the `dead_code` allowance.
 #![allow(dead_code)]
 
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -14,7 +15,9 @@ use harness_business::agent::{AgentDeps, AgentManager, CollectingSink, SessionOp
 use harness_business::env::Env;
 use harness_business::harness::{Harness, HarnessRegistry};
 use harness_business::model::{AgentEvent, AgentSessionInfo, AgentStartRequest, HarnessId};
-use harness_business::process::{ExecSpec, ProcessSpawner, ResolvedBinary, SpawnedProcess, TokioSpawner};
+use harness_business::process::{
+    BoxFuture, ChildHandle, ExecSpec, ExitInfo, ProcessSpawner, ResolvedBinary, SpawnedProcess, TokioSpawner,
+};
 use tempfile::TempDir;
 
 /// How long tests wait for an event.
@@ -32,6 +35,7 @@ pub struct ScenarioSpawner {
     dialect: &'static str,
     scenario: PathBuf,
     requested: Mutex<Vec<ExecSpec>>,
+    exited: Arc<AtomicUsize>,
 }
 
 impl ScenarioSpawner {
@@ -40,12 +44,18 @@ impl ScenarioSpawner {
             dialect,
             scenario: scenario(scenario_name),
             requested: Mutex::new(Vec::new()),
+            exited: Arc::default(),
         })
     }
 
     /// The specs the engine asked to spawn.
     pub fn requested(&self) -> Vec<ExecSpec> {
         self.requested.lock().unwrap().clone()
+    }
+
+    /// How many of the spawned agents were reaped.
+    pub fn exited(&self) -> usize {
+        self.exited.load(Ordering::SeqCst)
     }
 }
 
@@ -61,7 +71,37 @@ impl ProcessSpawner for ScenarioSpawner {
         ]);
         fake.cwd = spec.cwd.clone();
 
-        TokioSpawner.spawn(&fake)
+        let mut process = TokioSpawner.spawn(&fake)?;
+        process.child = Box::new(CountedChild {
+            inner: process.child,
+            exited: self.exited.clone(),
+        });
+
+        Ok(process)
+    }
+}
+
+/// Counts the exit of its child once `wait` returned.
+struct CountedChild {
+    inner: Box<dyn ChildHandle>,
+    exited: Arc<AtomicUsize>,
+}
+
+impl ChildHandle for CountedChild {
+    fn id(&self) -> Option<u32> {
+        self.inner.id()
+    }
+
+    fn wait(&mut self) -> BoxFuture<'_, harness_business::Result<ExitInfo>> {
+        Box::pin(async move {
+            let result = self.inner.wait().await;
+            self.exited.fetch_add(1, Ordering::SeqCst);
+            result
+        })
+    }
+
+    fn start_kill(&mut self) -> harness_business::Result<()> {
+        self.inner.start_kill()
     }
 }
 

@@ -18,6 +18,7 @@ mod manager;
 mod session;
 mod sink;
 mod slots;
+mod startup;
 
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -28,9 +29,14 @@ pub use manager::{AgentDeps, AgentManager, MAX_SESSIONS, Stopping};
 pub use session::{AgentSession, BASH_TIMEOUT, SessionLaunch};
 pub use sink::{CollectingSink, EventSink};
 pub use slots::SessionClaim;
+pub use startup::StartAbort;
 
 /// Time limit for the handshake and the first `get_state`.
 pub const STARTUP_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// Time limit for the whole startup, which open dialogs do not extend (nobody can answer them
+/// before startup completes).
+pub const STARTUP_DEADLINE: Duration = Duration::from_secs(30);
 
 /// How long `stop` waits after closing stdin before killing the process group.
 pub const STOP_GRACE: Duration = Duration::from_secs(3);
@@ -47,6 +53,8 @@ pub struct SessionOptions {
     pub stop_grace: Duration,
     /// See [`STARTUP_TIMEOUT`].
     pub startup_timeout: Duration,
+    /// See [`STARTUP_DEADLINE`].
+    pub startup_deadline: Duration,
     /// Session keys (uuid v4 by default).
     pub key: Generator,
     /// `startedAt` timestamps (RFC 3339 UTC by default).
@@ -59,6 +67,7 @@ impl Default for SessionOptions {
             coalesce_window: COALESCE_WINDOW,
             stop_grace: STOP_GRACE,
             startup_timeout: STARTUP_TIMEOUT,
+            startup_deadline: STARTUP_DEADLINE,
             key: Arc::new(|| uuid::Uuid::new_v4().to_string()),
             clock: Arc::new(|| rfc3339(SystemTime::now())),
         }
@@ -71,6 +80,7 @@ impl std::fmt::Debug for SessionOptions {
             .field("coalesce_window", &self.coalesce_window)
             .field("stop_grace", &self.stop_grace)
             .field("startup_timeout", &self.startup_timeout)
+            .field("startup_deadline", &self.startup_deadline)
             .finish_non_exhaustive()
     }
 }

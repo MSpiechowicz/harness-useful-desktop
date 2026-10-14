@@ -1,3 +1,4 @@
+import type { SessionFolder } from '../bindings/SessionFolder';
 import type { SessionMessagesPage } from '../bindings/SessionMessagesPage';
 import type { SessionRef } from '../bindings/SessionRef';
 import type { SessionSummary } from '../bindings/SessionSummary';
@@ -6,7 +7,13 @@ import { fixtures } from './fixtures';
 import type { MockState } from './state';
 import type { Handlers } from './types';
 
-type SessionCommands = 'sessions_list' | 'session_tree' | 'session_messages' | 'session_files_touched' | 'session_delete';
+type SessionCommands =
+  | 'sessions_list'
+  | 'sessions_folder'
+  | 'session_tree'
+  | 'session_messages'
+  | 'session_files_touched'
+  | 'session_delete';
 
 const MAX_PAGE = 200;
 
@@ -24,6 +31,18 @@ function requireSession(state: MockState, session: SessionRef): SessionSummary {
   }
 
   return found;
+}
+
+const HOME = '/home/demo';
+
+/** The harness's default session folder for `project` under the demo home (never configured by the project). */
+function folderOf(harness: SessionRef['harness'], project: string): SessionFolder {
+  const path =
+    harness === 'pi'
+      ? `${HOME}/.pi/agent/sessions/--${project.replace(/^\//, '').replaceAll('/', '-')}--`
+      : `${HOME}/.omp/agent/sessions/-${project.replace(`${HOME}/`, '').replaceAll('/', '-')}`;
+
+  return { path, configured: false };
 }
 
 /** Index-based cursor over the active path, like the real transcript reader. */
@@ -52,6 +71,12 @@ export function sessionHandlers(state: MockState): Pick<Handlers, SessionCommand
       state.requireKnown(project);
 
       return structuredClone(listed(state, harness));
+    },
+
+    sessions_folder: ({ harness, project }) => {
+      state.requireKnown(project);
+
+      return folderOf(harness, project);
     },
 
     session_tree: ({ session, project }) => {

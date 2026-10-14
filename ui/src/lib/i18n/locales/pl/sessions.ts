@@ -76,6 +76,7 @@ export const sessions: AreaMessages<typeof enSessions> = {
   'sessions.delete.title': 'Usunąć tę sesję?',
   'sessions.delete.body': 'Sesja i jej załączniki zostaną usunięte z dysku. Tej operacji nie można cofnąć.',
   'sessions.delete.confirm': 'Usuń sesję',
+  'sessions.delete.configuredFolder': 'Folder wskazany w ustawieniach tego projektu: {path}',
   'sessions.delete.openInChat': 'Ta sesja jest otwarta w czacie',
   'sessions.delete.openInChatBody': 'Najpierw zamknij ten czat, potem usuń sesję.',
   'sessions.delete.failed': 'Nie udało się usunąć sesji',

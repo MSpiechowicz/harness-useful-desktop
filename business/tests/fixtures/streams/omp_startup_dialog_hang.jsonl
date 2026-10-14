@@ -1,0 +1,5 @@
+// An extension asks a question while OMP starts (the dialog is held back until startup completes,
+// so nobody can answer it), then OMP never answers a startup command and ignores stdin EOF.
+{"emit":{"type":"extension_ui_request","id":"startup-1","method":"confirm","title":"Trust this project?","message":"Load the project's extensions?"}}
+{"expect":"set_event_filter","hold":true}
+{"hang":true}

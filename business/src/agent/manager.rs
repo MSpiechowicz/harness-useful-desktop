@@ -15,14 +15,16 @@
 //! agent in the background) waits for that agent to exit. A [`SessionClaim`] holds an id without
 //! an agent (while the session's files are deleted).
 //!
-//! A start still in flight when every session is stopped stops its own agent instead of
-//! registering it, so no agent outlives [`AgentManager::begin_stop_all`]; its id counts as
-//! stopping meanwhile.
+//! A start still in flight when every session is stopped gives its startup up at once (or, when
+//! startup already completed, stops its agent instead of registering it), so no agent outlives
+//! [`AgentManager::begin_stop_all`]; its id counts as stopping until the agent exited. A startup
+//! that never completes fails at its deadline, which releases the id as well.
 
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
 
+use tokio::sync::watch;
 use tokio::task::JoinSet;
 use tokio::time::Instant;
 
@@ -87,6 +89,8 @@ impl Stopping {
 #[derive(Default)]
 pub struct AgentManager {
     slots: Mutex<Slots>,
+    /// [`Slots::generation`], watched by starts in flight to give up when every session stops.
+    stopped_all: watch::Sender<u64>,
     options: SessionOptions,
 }
 
@@ -100,6 +104,7 @@ impl AgentManager {
     pub fn with_options(options: SessionOptions) -> Self {
         Self {
             slots: Mutex::default(),
+            stopped_all: watch::Sender::default(),
             options,
         }
     }
@@ -210,6 +215,11 @@ impl AgentManager {
         }
 
         let reservation = self.reserve(resume)?;
+        let mut stopped_all = self.stopped_all.subscribe();
+        let generation = reservation.generation;
+        let abort = Box::pin(async move {
+            stopped_all.wait_for(|current| *current != generation).await.ok();
+        });
         let key = (self.options.key)();
         let bound: Bound = Arc::new(Mutex::new(resume.map(str::to_owned)));
         let sink = Arc::new(BindingSink {
@@ -226,6 +236,7 @@ impl AgentManager {
             sessions_dir: harness.sessions_dir(deps.env, &project),
             sink,
             options: &self.options,
+            abort,
         })
         .await?;
 
@@ -396,10 +407,11 @@ impl AgentManager {
     }
 
     /// Takes every session out of the manager; their agents stop when the result is finished.
-    /// Starts in flight stop their agents themselves.
+    /// Starts in flight give up and stop their agents themselves.
     pub fn begin_stop_all(&self) -> Stopping {
         let mut slots = self.lock();
         slots.generation = slots.generation.wrapping_add(1);
+        self.stopped_all.send_replace(slots.generation);
 
         let entries: Vec<Entry> = slots.sessions.drain().map(|(_, entry)| entry).collect();
 

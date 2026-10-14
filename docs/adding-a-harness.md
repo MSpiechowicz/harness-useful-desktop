@@ -86,6 +86,8 @@ differs.
 | `detect(env, runner, override)` | no | `harness::detect` | See [Detection](#3-detection). |
 | `summary(...)` | no | info + capabilities + detection | What `harness_list` returns. |
 | `list_sessions`, `resolve_session`, `session_tree`, `session_messages`, `session_files_touched` | no | PI-family session files | See [Sessions](#7-sessions). |
+| `delete_session` | no | PI-family session files | Deletes a session file with its companion folder and backups. |
+| `session_folder(env, project)` | no | `sessions_dir`, not configured | Where the sessions live and whether the project's own settings chose that folder (shown when deleting). |
 | `configured_approval_mode(env, project)` | no | `None` | Only for harnesses with `capabilities.approvalModes`. |
 | `cli_action(action, project)` | no | `Unsupported` error | See [CLI actions](#8-cli-actions). |
 | `cli_failure_line(stdout, stderr)` | no | `None` (exit code decides) | For CLIs that exit 0 on failure. |

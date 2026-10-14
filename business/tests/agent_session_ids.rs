@@ -3,11 +3,11 @@
 
 mod agent_support;
 
-use std::sync::Arc;
-use std::time::Duration;
+use std::sync::{Arc, Mutex, Weak};
+use std::time::{Duration, Instant};
 
 use agent_support::{ScenarioSpawner, WAIT, binary, options, project, request, start_with};
-use harness_business::agent::{AgentDeps, AgentManager, CollectingSink, SessionOptions};
+use harness_business::agent::{AgentDeps, AgentManager, CollectingSink, Generator, SessionOptions};
 use harness_business::env::Env;
 use harness_business::harness::Harness;
 use harness_business::harnesses::{Omp, Pi};
@@ -21,7 +21,7 @@ struct Setup {
     project: tempfile::TempDir,
     _home: tempfile::TempDir,
     env: Env,
-    manager: AgentManager,
+    manager: Arc<AgentManager>,
     spawner: Arc<ScenarioSpawner>,
 }
 
@@ -36,7 +36,7 @@ fn setup_with(scenario: &str, options: SessionOptions) -> Setup {
         project: project(),
         env: Env::for_tests(home.path()),
         _home: home,
-        manager: AgentManager::with_options(options),
+        manager: Arc::new(AgentManager::with_options(options)),
         spawner: ScenarioSpawner::new("omp", scenario),
     }
 }
@@ -61,6 +61,16 @@ fn hanging_setup() -> Setup {
 impl Setup {
     /// Starts an agent resuming OMP session `id`.
     async fn resume(&self, id: &str, sink: Arc<CollectingSink>) -> harness_business::Result<AgentSessionInfo> {
+        self.resume_with(id, &self.spawner, sink).await
+    }
+
+    /// Starts an agent of `spawner` resuming OMP session `id`.
+    async fn resume_with(
+        &self,
+        id: &str,
+        spawner: &Arc<ScenarioSpawner>,
+        sink: Arc<CollectingSink>,
+    ) -> harness_business::Result<AgentSessionInfo> {
         let start = AgentStartRequest {
             resume: Some(SessionRef {
                 harness: HarnessId::Omp,
@@ -69,9 +79,7 @@ impl Setup {
             ..request(HarnessId::Omp, self.project.path())
         };
 
-        self.manager
-            .start(start, omp_deps(&self.env, &self.spawner), sink)
-            .await
+        self.manager.start(start, omp_deps(&self.env, spawner), sink).await
     }
 
     /// Starts an agent on a new OMP session and waits for its startup state.
@@ -294,7 +302,8 @@ async fn a_start_in_flight_when_every_session_stops_stops_its_agent() {
     let (started, ()) = tokio::join!(setup.resume(REPORTED_ID, sink.clone()), stop_all);
 
     assert_eq!(started.unwrap_err().code(), IpcErrorCode::Process);
-    assert!(matches!(sink.events().last(), Some(AgentEvent::Exited { .. })));
+    assert_eq!(setup.spawner.exited(), 1, "the agent was stopped");
+    assert!(sink.events().is_empty(), "a start given up emits nothing");
     assert!(setup.manager.list().is_empty());
     assert!(!setup.manager.holds_session(REPORTED_ID));
 }
@@ -374,7 +383,7 @@ async fn a_resume_after_every_session_stopped_waits_for_a_start_in_flight() {
 
         setup.manager.begin_stop_all().finish().await;
         let resumed = setup.resume(REPORTED_ID, CollectingSink::new()).await;
-        let stale_exited = matches!(stale.events().last(), Some(AgentEvent::Exited { .. }));
+        let stale_exited = setup.spawner.exited() == 1;
 
         (resumed, stale_exited)
     };
@@ -387,4 +396,95 @@ async fn a_resume_after_every_session_stopped_waits_for_a_start_in_flight() {
     assert_eq!(setup.manager.list().len(), 1);
 
     setup.manager.stop_all().await;
+}
+
+#[tokio::test]
+async fn a_start_whose_startup_completed_before_every_session_stopped_stops_its_agent() {
+    // The `startedAt` clock runs after startup completed and before the agent is registered, so
+    // stopping every session from it (once) lands exactly in that gap.
+    let mut setup = setup("omp_out_of_order.jsonl");
+    setup.manager = Arc::new_cyclic(|manager: &Weak<AgentManager>| {
+        let target = Mutex::new(Some(manager.clone()));
+        let clock: Generator = Arc::new(move || {
+            if let Some(manager) = target.lock().unwrap().take().and_then(|weak| weak.upgrade()) {
+                drop(manager.begin_stop_all());
+            }
+
+            "2026-10-14T00:00:00Z".to_owned()
+        });
+
+        AgentManager::with_options(SessionOptions { clock, ..options() })
+    });
+
+    let sink = CollectingSink::new();
+    let stale = setup.resume(REPORTED_ID, sink.clone()).await.unwrap_err();
+
+    assert_eq!(stale.code(), IpcErrorCode::Process);
+    assert!(matches!(sink.events().last(), Some(AgentEvent::Exited { .. })));
+    assert_eq!(setup.spawner.exited(), 1, "the agent was stopped");
+    assert!(setup.manager.list().is_empty());
+    assert!(!setup.manager.holds_session(REPORTED_ID));
+
+    setup.resume(REPORTED_ID, CollectingSink::new()).await.unwrap();
+    assert!(setup.manager.holds_session(REPORTED_ID));
+
+    setup.manager.stop_all().await;
+}
+
+/// Startup deadline of the hung-startup test.
+const HUNG_DEADLINE: Duration = Duration::from_millis(500);
+
+#[tokio::test]
+async fn a_start_hung_behind_a_startup_dialog_fails_at_its_deadline_and_frees_the_id() {
+    let setup = setup_with(
+        "omp_startup_dialog_hang.jsonl",
+        SessionOptions {
+            startup_deadline: HUNG_DEADLINE,
+            ..options()
+        },
+    );
+
+    let started = Instant::now();
+    let hung = tokio::time::timeout(WAIT, setup.resume(REPORTED_ID, CollectingSink::new()));
+    let error = hung.await.expect("the start gives up").unwrap_err();
+
+    assert_eq!(error.code(), IpcErrorCode::Timeout);
+    assert!(started.elapsed() < HUNG_DEADLINE * 4, "{:?}", started.elapsed());
+    assert_eq!(setup.spawner.exited(), 1, "the hung agent was killed");
+    assert!(!setup.manager.holds_session(REPORTED_ID));
+
+    let working = ScenarioSpawner::new("omp", "omp_out_of_order.jsonl");
+    setup
+        .resume_with(REPORTED_ID, &working, CollectingSink::new())
+        .await
+        .unwrap();
+    assert!(setup.manager.holds_session(REPORTED_ID));
+
+    setup.manager.stop_all().await;
+}
+
+#[tokio::test]
+async fn stopping_every_session_aborts_a_hung_start_at_once() {
+    // The production deadline: only the stop can end the start quickly.
+    let setup = setup("omp_startup_dialog_hang.jsonl");
+
+    let stop_all = async {
+        while setup.spawner.requested().is_empty() {
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        setup.manager.stop_all().await;
+    };
+    let started = Instant::now();
+    let hung = tokio::time::timeout(WAIT, setup.resume(REPORTED_ID, CollectingSink::new()));
+    let (result, ()) = tokio::join!(hung, stop_all);
+
+    assert_eq!(
+        result.expect("the start gives up").unwrap_err().code(),
+        IpcErrorCode::Process
+    );
+    assert!(started.elapsed() < Duration::from_secs(3), "{:?}", started.elapsed());
+    assert_eq!(setup.spawner.exited(), 1, "the hung agent was killed");
+    assert!(!setup.manager.holds_session(REPORTED_ID));
 }

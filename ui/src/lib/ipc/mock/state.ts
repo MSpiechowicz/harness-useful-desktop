@@ -13,13 +13,9 @@ const PICKABLE_FOLDERS: ProjectInfo[] = [
 
 const MAX_RECENT = 12;
 
-/**
- * The mock backend's server-managed state. Mirrors the contract: the webview may only change
- * UI-managed preferences, while the active project, recent projects and binary overrides
- * move through their own commands.
- */
-export class MockState {
-  prefs: AppPrefs = {
+/** The preferences of a first launch: what the mock backend starts from and what tests build their samples on. */
+export function defaultPrefs(): AppPrefs {
+  return {
     version: 1,
     theme: 'system',
     motion: 'full',
@@ -40,6 +36,15 @@ export class MockState {
     binaryOverrides: [],
     chatDefaults: [],
   };
+}
+
+/**
+ * The mock backend's server-managed state. Mirrors the contract: the webview may only change
+ * UI-managed preferences, while the active project, recent projects and binary overrides
+ * move through their own commands.
+ */
+export class MockState {
+  prefs: AppPrefs = defaultPrefs();
 
   overrides: BinaryOverride[] = [];
   recents: ProjectInfo[] = structuredClone(fixtures.recentProjects);
