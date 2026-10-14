@@ -1,3 +1,11 @@
+# [0.6.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.5.0...v0.6.0) (2026-10-14)
+
+
+### Features
+
+* **chat:** switch harness from the chat, replace the rail switcher, handle a harness with no models ([c4f743b](https://github.com/MSpiechowicz/harness-useful-desktop/commit/c4f743bdfdbc62d6b0c6036bbc7a19693bf6acb5))
+* **extensions:** separate Refresh catalog from Update, update from the catalog row, reload chats after a plugin change ([cabd0a4](https://github.com/MSpiechowicz/harness-useful-desktop/commit/cabd0a4f837286fad76f9084fabe70cf3da1def7))
+
 # [0.5.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.4.0...v0.5.0) (2026-10-14)
 
 
