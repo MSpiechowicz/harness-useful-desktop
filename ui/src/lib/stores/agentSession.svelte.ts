@@ -3,7 +3,7 @@ import { SvelteMap } from 'svelte/reactivity';
 
 import { t } from '$lib/i18n/i18n.svelte';
 import { requestAiLabel } from '$lib/chat/ai-name';
-import { generatedName } from '$lib/chat/naming';
+import { generatedName, generatedNameCount } from '$lib/chat/naming';
 import { ChatSession } from '$lib/chat/session.svelte';
 import type { AgentEnvelope } from '$lib/ipc/bindings/AgentEnvelope';
 import type { AgentStartRequest } from '$lib/ipc/bindings/AgentStartRequest';
@@ -41,7 +41,7 @@ export class AgentSessionsStore {
   activeStarting: StartingChat | null = $derived(this.starting.find((chat) => chat.key === this.activeKey) ?? null);
 
   private startingCount = 0;
-  /** Each open chat's number, the "3" of "Chat 3" (the lowest free one), kept while the agent has not named it. */
+  /** Each open chat's number, the "3" of "Chat 3" (a random free one), kept while the agent has not named it. */
   private numbers = new SvelteMap<string, number>();
 
   /**
@@ -75,8 +75,17 @@ export class AgentSessionsStore {
     return this.get(key)?.label?.description ?? '';
   }
 
+  /**
+   * A placeholder name for a new chat: a random one of the names no open chat has, so a fresh chat is not always the
+   * first of the list. Once every name is taken, the lowest free number (a name with "2", "3"...) follows.
+   */
   private nextNumber(): number {
     const used = new Set(this.numbers.values());
+    const free = Array.from({ length: generatedNameCount() }, (_, index) => index + 1).filter((number) => !used.has(number));
+    if (free.length > 0) {
+      return free[Math.floor(Math.random() * free.length)];
+    }
+
     let next = 1;
     while (used.has(next)) {
       next += 1;

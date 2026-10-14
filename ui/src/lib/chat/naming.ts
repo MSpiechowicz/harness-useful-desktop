@@ -11,12 +11,21 @@ export const DESCRIPTION_MAX = 110;
 /** How much of the first message the naming helper sees: enough to name a chat, little enough to cost almost nothing. */
 const PROMPT_EXCERPT_MAX = 500;
 
-/** The placeholder a new chat is called until it has something to be named after: a creature, not a number. */
-export function generatedName(number: number): string {
-  const names = t('chat.names.list')
+function nameList(): string[] {
+  return t('chat.names.list')
     .split(',')
     .map((name) => name.trim())
     .filter(Boolean);
+}
+
+/** How many different placeholder names there are before one repeats with a number. */
+export function generatedNameCount(): number {
+  return nameList().length;
+}
+
+/** The placeholder a new chat is called until it has something to be named after: a creature, not a number. */
+export function generatedName(number: number): string {
+  const names = nameList();
   const index = Math.max(number - 1, 0);
   const round = Math.floor(index / names.length);
 

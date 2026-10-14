@@ -63,19 +63,21 @@ describe('starting sessions', () => {
     expect(store.get(info.key)).toBeDefined();
   });
 
-  it('names unnamed chats with the lowest free creature and cycles through the tabs', async () => {
+  it('gives unnamed chats a random free creature and cycles through the tabs', async () => {
     // Drop the agent's events: the mock's first `state` event names the chat, and whether it lands before the
     // assertions depends on the runner's speed.
     const { transport } = storeWithMock();
     const unnamed: Transport = {
       invoke: (name, args) => transport.invoke(name, (name === 'agent_start' ? { ...args, onEvent: () => {} } : args) as never),
     };
+    // Draws near 1 pick the last free name; a draw of 0 picks the first free one.
+    const random = vi.spyOn(Math, 'random').mockReturnValue(0.999);
     const store = new AgentSessionsStore(unnamed, new ToastsStore());
     const first = await store.create('omp', PROJECT);
     const second = await store.create('omp', PROJECT);
 
-    expect(store.title(first!.key)).toBe('Godzilla');
-    expect(store.title(second!.key)).toBe('Kraken');
+    expect(store.title(first!.key)).toBe('Behemoth');
+    expect(store.title(second!.key)).toBe('Tengu');
 
     store.cycle(1);
     expect(store.activeKey).toBe(first!.key);
@@ -83,6 +85,7 @@ describe('starting sessions', () => {
     expect(store.activeKey).toBe(second!.key);
 
     await store.stop(first!.key);
+    random.mockReturnValue(0);
     const third = await store.create('omp', PROJECT);
     expect(store.title(third!.key)).toBe('Godzilla');
   });

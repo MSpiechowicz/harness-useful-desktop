@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { collapse, crop, generatedName, labelFromPrompt, namingPrompt, parseLabel } from './naming';
+import { collapse, crop, generatedName, generatedNameCount, labelFromPrompt, namingPrompt, parseLabel } from './naming';
 
 describe('generated names', () => {
   it('are creatures, not numbers, and the numbering only shows once the list is used up', () => {
@@ -8,6 +8,12 @@ describe('generated names', () => {
     expect(generatedName(2)).toBe('Kraken');
     expect(generatedName(30)).toBe('Behemoth');
     expect(generatedName(31)).toBe('Godzilla 2');
+  });
+});
+
+describe('the number of generated names', () => {
+  it('matches the list, so a random pick stays inside it', () => {
+    expect(generatedNameCount()).toBe(30);
   });
 });
 
