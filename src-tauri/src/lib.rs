@@ -85,6 +85,7 @@ pub fn run() -> ExitCode {
             commands::git::git_status,
             commands::git::git_branches,
             commands::git::git_diff,
+            commands::git::git_file_lines,
             commands::review::review_compose,
             commands::ecosystem::ecosystem_status,
             commands::ecosystem::ecosystem_releases,

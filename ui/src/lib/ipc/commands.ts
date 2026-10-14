@@ -86,6 +86,7 @@ export const commands = {
   git_status: cmd<{ project: string }, GitStatus>(),
   git_branches: cmd<{ project: string }, Branch[]>(),
   git_diff: cmd<{ project: string; request: DiffRequest }, FileDiff[]>(),
+  git_file_lines: cmd<{ project: string; path: string; staged: boolean }, string[]>(),
   review_compose: cmd<{ request: ReviewRequest }, ComposedReview>(),
   ecosystem_status: cmd<undefined, EcosystemStatus>(),
   ecosystem_releases: cmd<{ installed: EcosystemInstalled[] }, EcosystemRelease[]>(),

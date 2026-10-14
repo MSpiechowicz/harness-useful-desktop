@@ -39,6 +39,7 @@
     "allow-git-status",
     "allow-git-branches",
     "allow-git-diff",
+    "allow-git-file-lines",
     "allow-review-compose",
     "allow-ecosystem-status",
     "allow-ecosystem-releases",

@@ -43,6 +43,7 @@ const COMMANDS: &[&str] = &[
     "git_status",
     "git_branches",
     "git_diff",
+    "git_file_lines",
     "review_compose",
     "ecosystem_status",
     "ecosystem_releases",

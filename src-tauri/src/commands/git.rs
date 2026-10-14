@@ -36,6 +36,18 @@ pub async fn git_diff(
     diff(&state, project, request).await
 }
 
+/// The lines of one changed file (project-relative `path`), from the index when `staged`, so the diff
+/// view can expand the unchanged lines between hunks. Deny-listed, binary and oversized files are refused.
+#[tauri::command]
+pub async fn git_file_lines(
+    state: State<'_, AppState>,
+    project: String,
+    path: String,
+    staged: bool,
+) -> CommandResult<Vec<String>> {
+    file_lines(&state, project, path, staged).await
+}
+
 async fn status(state: &AppState, project: String) -> CommandResult<GitStatus> {
     let project = authorized_dir(state, project).await?;
 
@@ -55,6 +67,15 @@ async fn diff(state: &AppState, project: String, request: DiffRequest) -> Comman
     let runner = state.runner;
 
     blocking(move || Ok(block_on(git::git_diff(&env, &runner, &project, &request))?)).await
+}
+
+/// Runs in a blocking task: the working-tree side is read from disk.
+async fn file_lines(state: &AppState, project: String, path: String, staged: bool) -> CommandResult<Vec<String>> {
+    let project = authorized_dir(state, project).await?;
+    let env = state.env.clone();
+    let runner = state.runner;
+
+    blocking(move || Ok(block_on(git::git_file_lines(&env, &runner, &project, &path, staged))?)).await
 }
 
 #[cfg(test)]
@@ -185,5 +206,43 @@ mod tests {
             let error = block_on(diff(state, setup.project.clone(), request(DiffScope::All, &[path]))).expect_err(path);
             assert_eq!(error.code(), IpcErrorCode::InvalidInput, "{path}");
         }
+    }
+
+    #[test]
+    fn a_changed_files_lines_come_from_the_working_tree_or_the_index() {
+        let setup = setup();
+        let (state, project) = (&setup.state, &setup.project);
+
+        let working =
+            block_on(file_lines(state, project.clone(), "code.txt".to_owned(), false)).expect("working lines");
+        assert_eq!(working, ["two"]);
+
+        // The index still holds the committed text.
+        let index = block_on(file_lines(state, project.clone(), "code.txt".to_owned(), true)).expect("index lines");
+        assert_eq!(index, ["one"]);
+    }
+
+    #[test]
+    fn file_lines_refuse_secrets_and_escaping_paths() {
+        let setup = setup();
+        let (state, project) = (&setup.state, &setup.project);
+        std::fs::write(Path::new(project).join(".env"), "TOKEN=1\n").expect("write");
+
+        let secret = block_on(file_lines(state, project.clone(), ".env".to_owned(), false)).expect_err("secret");
+        assert_eq!(secret.code(), IpcErrorCode::Forbidden);
+
+        let escaping = block_on(file_lines(state, project.clone(), "../x".to_owned(), false)).expect_err("escape");
+        assert_eq!(escaping.code(), IpcErrorCode::InvalidInput);
+
+        let stranger = Path::new(project).parent().unwrap().join("stranger");
+        std::fs::create_dir_all(&stranger).expect("create");
+        let unknown = block_on(file_lines(
+            state,
+            stranger.to_string_lossy().into_owned(),
+            "a".to_owned(),
+            false,
+        ))
+        .expect_err("unknown project");
+        assert_eq!(unknown.code(), IpcErrorCode::Forbidden);
     }
 }

@@ -7,7 +7,7 @@ import { fixtures } from './fixtures';
 import type { MockState } from './state';
 import type { Handlers } from './types';
 
-type GitCommands = 'git_status' | 'git_branches' | 'git_diff' | 'review_compose';
+type GitCommands = 'git_status' | 'git_branches' | 'git_diff' | 'git_file_lines' | 'review_compose';
 
 const MAX_COMMENTS = 100;
 const NOT_A_REPO: GitStatus = { isRepo: false, branch: null, head: null, upstream: null, ahead: 0, behind: 0, entries: [] };
@@ -75,6 +75,21 @@ export function gitHandlers(state: MockState): Pick<Handlers, GitCommands> {
       const diffs = fixtures.git.diff.filter((diff) => SCOPES[request.scope](diff) && (wanted.size === 0 || wanted.has(diff.path)));
 
       return structuredClone(diffs);
+    },
+
+    git_file_lines: ({ project, path, staged }) => {
+      state.requireKnown(project);
+
+      const diff = fixtures.git.diff.find((candidate) => candidate.path === path && candidate.staged === staged);
+      if (!diff || diff.isBinary) {
+        throw IpcFailure.from({ code: 'notFound', message: 'The file is gone.' });
+      }
+
+      // The fixture only knows the lines near its hunks; the rest of the file is filler.
+      const known = new Map(diff.hunks.flatMap((hunk) => hunk.lines.filter((line) => line.newNo !== null).map((line) => [line.newNo as number, line.text])));
+      const last = Math.max(0, ...diff.hunks.map((hunk) => hunk.newStart + hunk.newLines)) + 20;
+
+      return Array.from({ length: last }, (_, index) => known.get(index + 1) ?? `unchanged line ${index + 1}`);
     },
 
     review_compose: ({ request }) => {

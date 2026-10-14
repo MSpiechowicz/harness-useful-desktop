@@ -15,12 +15,14 @@
 mod branches;
 mod cli;
 mod diff_parse;
+mod file_lines;
 mod status;
 mod untracked;
 
 pub use branches::parse_branches;
 pub use cli::{GIT_OUTPUT_CAP, GIT_TIMEOUT, GitCli};
 pub use diff_parse::{DiffBudget, parse_diff, unquote};
+pub use file_lines::git_file_lines;
 pub use status::{not_a_repo, parse_status};
 
 use std::path::{Component, Path};
