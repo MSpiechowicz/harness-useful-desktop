@@ -303,7 +303,8 @@
       class="block max-h-56 min-h-14 w-full resize-none bg-transparent px-4 pt-3.5 pb-1 text-[15px] leading-6 text-fg outline-none placeholder:text-fg-3 disabled:cursor-not-allowed disabled:opacity-60 {bash ? 'font-mono text-sm' : ''}"
     ></textarea>
 
-    <div class="flex items-center gap-1 px-2 pb-2">
+    <!-- Left: 8px + the button's own padding puts the paperclip about 16px from the edge; the send button gets the same 16px. -->
+    <div class="flex items-center gap-1 pr-4 pb-2 pl-2">
       <input bind:this={fileInput} type="file" multiple class="hidden" tabindex="-1" aria-hidden="true" onchange={onpick} />
       <button
         type="button"
