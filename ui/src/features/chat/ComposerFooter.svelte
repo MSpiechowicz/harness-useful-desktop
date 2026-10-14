@@ -2,6 +2,7 @@
   import ArrowDown from '@lucide/svelte/icons/arrow-down';
   import ArrowUp from '@lucide/svelte/icons/arrow-up';
   import GitBranch from '@lucide/svelte/icons/git-branch';
+  import GitCompare from '@lucide/svelte/icons/git-compare';
 
   import CostChip from '$lib/components/CostChip.svelte';
   import type { ChatSession } from '$lib/chat/session.svelte';
@@ -49,7 +50,7 @@
 
     {#if changed > 0}
       <button type="button" title={t('chat.footer.openChanges')} onclick={() => nav.go('changes')} class="{CHIP} shrink-0 text-warning hover:bg-warning-wash hover:text-warning">
-        <span aria-hidden="true">●</span>
+        <GitCompare size={16} aria-hidden="true" class="shrink-0" />
         <span class="tabular [text-box:trim-both_cap_alphabetic]"><span class="@max-[460px]:sr-only">{t('chat.footer.changed', { count: changed })}</span><span class="@min-[461px]:hidden" aria-hidden="true">{changed}</span></span>
       </button>
     {/if}
