@@ -1,3 +1,47 @@
+# [0.5.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.4.0...v0.5.0) (2026-10-14)
+
+
+### Bug Fixes
+
+* **chat:** an open tool card's header has square bottom corners so its hover wash fills the divider ([eaddb3c](https://github.com/MSpiechowicz/harness-useful-desktop/commit/eaddb3c91c3c1e11805c759664a542272f17221b))
+* **chat:** Attach is styled like the pickers beside it ([3b2626e](https://github.com/MSpiechowicz/harness-useful-desktop/commit/3b2626e7255bb48e68a995e36dca8367d6b5afa3))
+* **chat:** even out the optical padding of the Attach button ([1aa7129](https://github.com/MSpiechowicz/harness-useful-desktop/commit/1aa7129aa746ae4151f7ef47698280349d4814b3))
+* **chat:** footer text ends under the send button's right edge ([1354db0](https://github.com/MSpiechowicz/harness-useful-desktop/commit/1354db08c738bfe0f860af9c8ebb6cd714ba2111))
+* **chat:** footer text shares one baseline; the branch is plain text, only the changes count opens Changes ([ed69a96](https://github.com/MSpiechowicz/harness-useful-desktop/commit/ed69a96d6f0ea10077cf2af7e2f3c487467dc615))
+* **chat:** lift the chat so the composer's bottom edge meets the language picker's top edge ([3291c3c](https://github.com/MSpiechowicz/harness-useful-desktop/commit/3291c3c46ba039ee3186b142aebe54d8128349ef))
+* **chat:** lift the composer so its top lines up with the rail footer's top border ([2542b85](https://github.com/MSpiechowicz/harness-useful-desktop/commit/2542b859f586ccc8b2a783b445d6a486d8654657))
+* **chat:** the attached file chip in a message uses the standard 12px corner ([cd36185](https://github.com/MSpiechowicz/harness-useful-desktop/commit/cd361857df8b810d6004dd982b7e974738c31331))
+* **chat:** the changes count in the card footer uses the Changes view's icon ([83cdbbb](https://github.com/MSpiechowicz/harness-useful-desktop/commit/83cdbbbb60e3cfd33f8dc2408a711714ead22eeb))
+* **chat:** the send button sits as far from the card edge as the paperclip ([a24d5ae](https://github.com/MSpiechowicz/harness-useful-desktop/commit/a24d5ae79e5491faf7be3ca7e35d58994f1d8f37))
+* **ci:** update rustls past four advisories and remove the duplicated markup the 0% clone guard found ([343b8e9](https://github.com/MSpiechowicz/harness-useful-desktop/commit/343b8e9023744d0ec0cceee767d6cfe703b4b67e))
+* **sessions:** the fork button is as tall as the message beside it ([24595b0](https://github.com/MSpiechowicz/harness-useful-desktop/commit/24595b03e1c8b808693e5a521b48879ffdec7451))
+* **sessions:** the transcript uses the chat column, 880px like the composer card ([0f1dca8](https://github.com/MSpiechowicz/harness-useful-desktop/commit/0f1dca80fffcbe2532ceab4767942aee8e446c5a))
+* **updates:** Install is the wide button, Later a quiet ghost button ([c85f255](https://github.com/MSpiechowicz/harness-useful-desktop/commit/c85f2550714357a519165b901efa773018dd51ec))
+* **updates:** small rail buttons use the 8px corner ([b0bcb6f](https://github.com/MSpiechowicz/harness-useful-desktop/commit/b0bcb6f91fbb537825447626ae4bbf95a1dcf275))
+* **updates:** the update card uses the rail footer's 8px corner ([3aacd5f](https://github.com/MSpiechowicz/harness-useful-desktop/commit/3aacd5f460988aa05129df37b46df76f05ceceac))
+
+
+### Features
+
+* **changes:** rebuilt Changes view with sections, search, expandable diff gaps and a review dialog ([bfa94fc](https://github.com/MSpiechowicz/harness-useful-desktop/commit/bfa94fc8c42122efc53dfb3a29d32237068f9f55))
+* **chat:** a new chat's placeholder name is a random free creature, not always the first ([5d1e6bb](https://github.com/MSpiechowicz/harness-useful-desktop/commit/5d1e6bb350bf2cd21390fc32168e5c0214067d1c))
+* **chat:** composer card with project, branch, changes, context and cost; Steer/Queue; Esc Esc stops ([9674e2f](https://github.com/MSpiechowicz/harness-useful-desktop/commit/9674e2ff6289f5a63b7a4d63fe24269e9adee12f))
+* **chat:** placeholder chat names combine an adjective and a creature, 1800 in English, agreeing in gender in de/es/fr/pl ([b6d8aa5](https://github.com/MSpiechowicz/harness-useful-desktop/commit/b6d8aa5f0af1684dfe19c9eac39bcfd45f23fdec))
+* **chat:** project picker with search and an edit mode to remove projects from the list ([fc9d6b3](https://github.com/MSpiechowicz/harness-useful-desktop/commit/fc9d6b38d1c494e7e3cf8e8ae5dae1a6588889ef))
+* **chat:** send and stop are rounded squares with bigger icons; the Steer/Queue switch follows ([e3abdc9](https://github.com/MSpiechowicz/harness-useful-desktop/commit/e3abdc926dc4d642411172ef009a2b748ad1ae2e))
+* **config:** Configuration view rebuilt on the Sessions and Changes shell with Structured and Source modes ([fe52211](https://github.com/MSpiechowicz/harness-useful-desktop/commit/fe52211a9b8c706fc0f8f5cad991d2cf8f6e53a8))
+* **extensions:** one grouped inventory replaces the tabs, with GitHub-aware update checks ([25ae6c7](https://github.com/MSpiechowicz/harness-useful-desktop/commit/25ae6c74e4619b0acaae7fb424f910b452c92613))
+* **git:** read a changed file's lines so the diff can open the gaps between hunks ([228e012](https://github.com/MSpiechowicz/harness-useful-desktop/commit/228e0123e7c8d7e917ffc7283b47ff08e6b36caa))
+* **sessions:** a visible Fork from here button under every user message ([ca1a0a0](https://github.com/MSpiechowicz/harness-useful-desktop/commit/ca1a0a074cd6c9d9a961390c4bcb2275420cd507))
+* **sessions:** date sections, one-line rows and the actions in the top bar ([b83775c](https://github.com/MSpiechowicz/harness-useful-desktop/commit/b83775c08760332ad18277bc4ecd9b49b74b4d4b))
+* **shell:** remove the status bar; the rail footer shows Working and the update indicator ([524ce56](https://github.com/MSpiechowicz/harness-useful-desktop/commit/524ce56ed03230a737a6230af7ba8a5354f55c83))
+* **ui:** empty-state pages for Changes and Sessions, plainer Profiles card ([f07c7af](https://github.com/MSpiechowicz/harness-useful-desktop/commit/f07c7af601f7138601b012cda3a9ad159f9343d6))
+
+
+### Reverts
+
+* the fork button goes back to the standard control size ([5f17cf7](https://github.com/MSpiechowicz/harness-useful-desktop/commit/5f17cf7584fa75b6fd278523e45e293ac471e38a))
+
 # [0.4.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.3.0...v0.4.0) (2026-10-14)
 
 
