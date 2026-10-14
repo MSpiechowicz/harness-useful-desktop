@@ -25,6 +25,14 @@ export const FORMAT_LABELS: Record<ConfigFormat, string> = {
   },
 };
 
+/** The short mark on a file's row in the list; the same in every language. */
+export const FORMAT_TILES: Record<ConfigFormat, string> = {
+  yaml: 'YAML',
+  json: 'JSON',
+  markdown: 'MD',
+  text: 'TXT',
+};
+
 const LAYER_ORDER: ConfigLayer[] = ['user', 'profile', 'project'];
 
 export interface SectionGroup {

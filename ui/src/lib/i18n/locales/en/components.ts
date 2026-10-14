@@ -70,6 +70,18 @@ export const components = {
   'components.config.none': 'No entries in this file.',
   'components.config.noMatch': 'No entries match your filter.',
 
+  'components.configView.section.modelRoles': 'Model roles',
+  'components.configView.section.appearance': 'Appearance',
+  'components.configView.section.behavior': 'Behavior',
+  'components.configView.section.memory': 'Memory',
+  'components.configView.section.developer': 'Developer',
+  'components.configView.section.misc': 'Other',
+  'components.configView.roles.role': 'Role',
+  'components.configView.roles.model': 'Model',
+  'components.configView.roles.thinking': 'Thinking',
+  'components.configView.source.fold': 'Fold block at line {no}',
+  'components.configView.source.unfold': 'Unfold block at line {no}',
+
   'components.cost.title.session': 'Session cost',
   'components.cost.title.branch': 'Branch cost',
   'components.cost.aria.session': 'Session cost {amount}. Show details',

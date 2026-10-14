@@ -77,7 +77,7 @@ describe('palette content', () => {
 
     expect(nav.current).toBe('config');
     render(ConfigViewer);
-    expect(await screen.findByRole('searchbox', { name: 'Filter keys and values' })).toHaveValue('approvalMode');
+    expect(await screen.findByRole('searchbox', { name: 'Search keys and values' })).toHaveValue('approvalMode');
   });
 
   it('jumps to an extension on its own tab', async () => {

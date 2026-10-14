@@ -72,6 +72,18 @@ export const components: AreaMessages<typeof enComponents> = {
   'components.config.none': 'No hay entradas en este archivo.',
   'components.config.noMatch': 'Ninguna entrada coincide con tu filtro.',
 
+  'components.configView.section.modelRoles': 'Roles de modelo',
+  'components.configView.section.appearance': 'Apariencia',
+  'components.configView.section.behavior': 'Comportamiento',
+  'components.configView.section.memory': 'Memoria',
+  'components.configView.section.developer': 'Desarrollo',
+  'components.configView.section.misc': 'Otros',
+  'components.configView.roles.role': 'Rol',
+  'components.configView.roles.model': 'Modelo',
+  'components.configView.roles.thinking': 'Razonamiento',
+  'components.configView.source.fold': 'Contraer el bloque de la línea {no}',
+  'components.configView.source.unfold': 'Expandir el bloque de la línea {no}',
+
   'components.cost.title.session': 'Coste de la sesión',
   'components.cost.title.branch': 'Coste de la rama',
   'components.cost.aria.session': 'Coste de la sesión {amount}. Mostrar detalles',

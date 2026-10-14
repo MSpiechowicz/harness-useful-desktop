@@ -100,7 +100,13 @@ export function describeContainer(value: ConfigValue): string | null {
   return value.kind === 'map' ? tn('components.config.key', count) : tn('components.config.item', count);
 }
 
-function matchesSelf(key: string, value: ConfigValue, needle: string): boolean {
+/** Lower-cased, trimmed query; empty means no filter. */
+export function normalizeNeedle(query: string): string {
+  return query.trim().toLowerCase();
+}
+
+/** Whether the entry's own key or plain value contains the (already normalized) needle; secrets never match by value. */
+export function matchesSelf(key: string, value: ConfigValue, needle: string): boolean {
   if (key.toLowerCase().includes(needle)) {
     return true;
   }
@@ -108,12 +114,31 @@ function matchesSelf(key: string, value: ConfigValue, needle: string): boolean {
   return scalarText(value)?.toLowerCase().includes(needle) ?? false;
 }
 
-function matchesDeep(key: string, value: ConfigValue, needle: string): boolean {
+/** Whether the entry or any entry below it matches the (already normalized) needle. */
+export function matchesDeep(key: string, value: ConfigValue, needle: string): boolean {
   return matchesSelf(key, value, needle) || childrenOf(value).some((child) => matchesDeep(child.key, child.value, needle));
 }
 
 function hasMatchingDescendant(value: ConfigValue, needle: string): boolean {
   return childrenOf(value).some((child) => matchesDeep(child.key, child.value, needle));
+}
+
+/** Indices of every character covered by an occurrence of the (already normalized) needle in `text`. */
+export function matchIndices(text: string, needle: string): number[] {
+  if (needle === '') {
+    return [];
+  }
+
+  const haystack = text.toLowerCase();
+  const indices: number[] = [];
+
+  for (let at = haystack.indexOf(needle); at !== -1; at = haystack.indexOf(needle, at + needle.length)) {
+    for (let offset = 0; offset < needle.length; offset += 1) {
+      indices.push(at + offset);
+    }
+  }
+
+  return indices;
 }
 
 /** Number of entries (at any depth) whose key or value matches the query. */
