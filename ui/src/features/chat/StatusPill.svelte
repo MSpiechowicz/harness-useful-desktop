@@ -14,8 +14,8 @@
   const TONES = { ok: 'bg-success-wash text-success', run: 'bg-accent-wash text-accent-text', error: 'bg-danger-wash text-danger', idle: 'bg-surface-2 text-fg-3' };
 </script>
 
-<!-- A fixed width, so the icon (spinner, check, clock) and the label start at the same x on every row. -->
-<span class={cx('grid h-6 w-30 grid-cols-[16px_minmax(0,1fr)] items-center gap-x-1.5 rounded-full pr-2.5 pl-2 text-xs font-medium', TONES[tone])}>
-  <span class="grid size-4 place-items-center">{@render icon()}</span>
+<!-- Hugs its content: icon and label are centred as one group with even padding. -->
+<span class={cx('inline-flex h-6 max-w-30 items-center gap-1.5 rounded-full px-2.5 text-xs leading-none font-medium', TONES[tone])}>
+  <span class="grid size-4 shrink-0 place-items-center">{@render icon()}</span>
   <span class="truncate" title={label}>{label}</span>
 </span>

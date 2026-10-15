@@ -10,6 +10,7 @@
   import { scrollMemory } from '$lib/a11y/scroll-memory';
   import Button from '$lib/components/Button.svelte';
   import { ICON } from '$lib/components/icon';
+  import SearchField from '$lib/components/SearchField.svelte';
   import SegmentedControl from '$lib/components/SegmentedControl.svelte';
   import type { StripOption } from '$lib/components/strip';
   import Switch from '$lib/components/Switch.svelte';
@@ -120,19 +121,60 @@
     viewState.settingsTarget = null;
     void tick().then(() => requestAnimationFrame(() => jump(target)));
   });
+
+  let query = $state('');
+  /** Ids of the sections whose text contains the query; null while the query is empty. */
+  let matches = $state<Set<string> | null>(null);
+  const visibleSections = $derived(matches ? SETTINGS_SECTIONS.filter((section) => matches!.has(section.id)) : SETTINGS_SECTIONS);
+
+  // Sections own opaque children (updates, privacy, about), so match on their rendered text and hide the rest.
+  $effect(() => {
+    const needle = query.trim().toLocaleLowerCase();
+    const loaded = prefs.value;
+    void t('settings.title'); // re-run when the language changes
+
+    void tick().then(() => {
+      if (!scroller || !loaded) {
+        return;
+      }
+
+      const hits = new Set<string>();
+
+      for (const { id } of SETTINGS_SECTIONS) {
+        const element = sectionElement(id);
+
+        if (!element) {
+          continue;
+        }
+
+        const hit = needle === '' || (element.textContent ?? '').toLocaleLowerCase().includes(needle);
+
+        element.style.display = hit ? '' : 'none';
+
+        if (hit) {
+          hits.add(id);
+        }
+      }
+
+      matches = needle === '' ? null : hits;
+    });
+  });
 </script>
 
 <div class="@container flex size-full min-h-0 flex-col">
   <ViewHeader title={t('settings.title')} icon={Settings} context={t('settings.context')} />
 
   <div bind:this={scroller} use:scrollMemory={'settings'} onscroll={spy} class="min-h-0 flex-1 overflow-y-auto">
+    <div class="mx-auto w-full max-w-[1152px] px-[var(--gutter)] pt-6 @4xl:pt-8">
+      <SearchField bind:value={query} label={t('settings.search.label')} placeholder={t('settings.search.placeholder')} shortcut="mod+f" class="@4xl:max-w-sm" />
+    </div>
     <div class="mx-auto w-full max-w-[1152px] px-[var(--gutter)] py-6 @4xl:grid @4xl:grid-cols-[208px_minmax(0,1fr)] @4xl:gap-10 @4xl:py-8">
       <!-- Section nav: a sticky chip row on narrow panes, a left rail with scroll-spy on wide ones. -->
       <nav
         aria-label={t('settings.nav.label')}
         class="sticky top-0 z-10 -mx-[var(--gutter)] mb-6 flex gap-2 overflow-x-auto bg-canvas/80 px-[var(--gutter)] py-2 backdrop-blur-xl @4xl:top-8 @4xl:z-0 @4xl:m-0 @4xl:mb-0 @4xl:flex-col @4xl:gap-1 @4xl:self-start @4xl:overflow-visible @4xl:bg-transparent @4xl:p-0 @4xl:backdrop-blur-none"
       >
-        {#each SETTINGS_SECTIONS as section (section.id)}
+        {#each visibleSections as section (section.id)}
           {@const selected = section.id === current}
           <button
             type="button"
@@ -246,6 +288,9 @@
         {/if}
 
         <div id="about" data-settings-section="about" class="scroll-mt-6"><AboutCard /></div>
+        {#if matches?.size === 0}
+          <p class="px-1 text-sm text-fg-3" role="status">{t('settings.search.noMatch')}</p>
+        {/if}
       </div>
     </div>
   </div>

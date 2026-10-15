@@ -5,6 +5,9 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.title': 'Einstellungen',
   'settings.context': 'Änderungen gelten sofort und werden auf diesem Gerät gespeichert',
   'settings.nav.label': 'Einstellungsbereiche',
+  'settings.search.label': 'Einstellungen durchsuchen',
+  'settings.search.placeholder': 'Einstellungen durchsuchen…',
+  'settings.search.noMatch': 'Keine Einstellung passt zu dieser Suche.',
 
   'settings.section.appearance': 'Darstellung',
   'settings.section.startup': 'Start',

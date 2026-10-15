@@ -5,6 +5,9 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.title': 'Ajustes',
   'settings.context': 'Los cambios se aplican al instante y se guardan en este dispositivo',
   'settings.nav.label': 'Secciones de ajustes',
+  'settings.search.label': 'Buscar ajustes',
+  'settings.search.placeholder': 'Buscar ajustes…',
+  'settings.search.noMatch': 'Ningún ajuste coincide con la búsqueda.',
 
   'settings.section.appearance': 'Apariencia',
   'settings.section.startup': 'Inicio',

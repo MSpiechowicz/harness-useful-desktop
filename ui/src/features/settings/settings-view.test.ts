@@ -49,6 +49,19 @@ describe('SettingsView', () => {
     expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
   });
 
+  it('narrows the nav to sections whose text matches the search', async () => {
+    render(SettingsView);
+    const nav = screen.getByRole('navigation', { name: 'Settings sections' });
+
+    await fireEvent.input(screen.getByRole('searchbox', { name: 'Search settings' }), { target: { value: 'remember recent' } });
+
+    await waitFor(() => expect(within(nav).getAllByRole('button').map((button) => button.textContent?.trim())).toEqual(['Projects']));
+
+    await fireEvent.input(screen.getByRole('searchbox', { name: 'Search settings' }), { target: { value: 'zzzz no such' } });
+
+    await waitFor(() => expect(screen.getByText('No setting matches that search.')).toBeInTheDocument());
+  });
+
   it('scrolls to the section the command palette asked for', async () => {
     viewState.settingsTarget = 'projects';
 

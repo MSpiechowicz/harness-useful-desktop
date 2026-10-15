@@ -2,6 +2,9 @@ export const settings = {
   'settings.title': 'Settings',
   'settings.context': 'Changes apply instantly and are saved on this device',
   'settings.nav.label': 'Settings sections',
+  'settings.search.label': 'Search settings',
+  'settings.search.placeholder': 'Search settings…',
+  'settings.search.noMatch': 'No setting matches that search.',
 
   'settings.section.appearance': 'Appearance',
   'settings.section.startup': 'Startup',
