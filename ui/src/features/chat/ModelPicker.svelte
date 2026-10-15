@@ -54,7 +54,7 @@
 
   {#snippet children({ close })}
     <div class="flex flex-col gap-2" role="presentation" onkeydown={keepCaretKeys}>
-      <SearchField bind:value={query} label={t('chat.model.filter')} placeholder={t('chat.model.filterPlaceholder')} />
+      <SearchField bind:value={query} label={t('chat.model.filter')} placeholder={t('chat.model.filterPlaceholder')} autofocus />
 
       <div class="flex max-h-72 flex-col gap-2 overflow-y-auto" role="group" aria-label={t('chat.model.group')}>
         {#if session.models === null}

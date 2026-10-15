@@ -12,6 +12,7 @@
   import { retryable, updates } from '$lib/stores/updates.svelte';
 
   import { viewUpdates } from './actions';
+  import UpdateBar from './UpdateBar.svelte';
   import { failureMessage, installerClosesApp } from './copy';
   import { cx } from '$lib/utils/cx';
 
@@ -85,16 +86,7 @@
 
       {#if working}
         <div class="mt-1 flex items-center gap-1.5 text-fg-2"><Spinner size={13} />{t(state.kind === 'installing' ? 'updates.progress.installing' : 'updates.progress.downloading')}{#if state.kind === 'downloading' && fraction !== null}<span class="tabular">{Math.round(fraction * 100)}%</span>{/if}</div>
-        <div
-          role="progressbar"
-          aria-label={t('updates.progress.label')}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={fraction === null ? undefined : Math.round(fraction * 100)}
-          class="mt-2 h-1 overflow-hidden rounded-full bg-surface-3"
-        >
-          <div class="h-full rounded-full bg-accent transition-[width] duration-[var(--dur-base)]" style:width="{(fraction ?? 0.15) * 100}%"></div>
-        </div>
+        <div class="mt-2"><UpdateBar /></div>
       {:else}
         <div class="mt-2 flex items-center gap-2">
           {#if state.kind === 'available'}

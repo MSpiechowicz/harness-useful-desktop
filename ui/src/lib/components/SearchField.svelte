@@ -19,9 +19,11 @@
     shortcut?: string;
     /** A short result line shown at the end of the field while it holds text, e.g. "3 comments in 2 files". */
     status?: string;
+    /** Marks the input as the element a surrounding popover focuses when it opens. */
+    autofocus?: boolean;
   }
 
-  let { value = $bindable(''), label, placeholder, class: className, onkeydown, shortcut, status }: Props = $props();
+  let { value = $bindable(''), label, placeholder, class: className, onkeydown, shortcut, status, autofocus = false }: Props = $props();
 
   let input: HTMLInputElement | undefined = $state();
 
@@ -50,6 +52,7 @@
     {onkeydown}
     type="search"
     aria-label={label}
+    data-autofocus={autofocus ? '' : undefined}
     placeholder={placeholder ?? t('components.filter.placeholder')}
     autocomplete="off"
     spellcheck="false"

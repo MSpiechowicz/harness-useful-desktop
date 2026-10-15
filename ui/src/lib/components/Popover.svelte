@@ -64,10 +64,10 @@
     }
   }
 
-  // On open, move focus to the first action (or the panel itself for free-form content).
+  // On open, move focus to a `[data-autofocus]` element (e.g. a filter field), else the first action, else the panel.
   $effect(() => {
     if (open) {
-      queueMicrotask(() => (items()[0] ?? panel)?.focus({ preventScroll: true }));
+      queueMicrotask(() => (panel?.querySelector<HTMLElement>('[data-autofocus]') ?? items()[0] ?? panel)?.focus({ preventScroll: true }));
     }
   });
 

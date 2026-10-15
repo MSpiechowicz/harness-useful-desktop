@@ -4,14 +4,12 @@
   import Folder from '@lucide/svelte/icons/folder';
   import FolderGit2 from '@lucide/svelte/icons/folder-git-2';
   import FolderOpen from '@lucide/svelte/icons/folder-open';
-  import GitBranch from '@lucide/svelte/icons/git-branch';
   import Trash2 from '@lucide/svelte/icons/trash-2';
 
   import Popover from '$lib/components/Popover.svelte';
   import SearchField from '$lib/components/SearchField.svelte';
   import Button from '$lib/components/Button.svelte';
   import type { ChatSession } from '$lib/chat/session.svelte';
-  import { ipc } from '$lib/ipc/client';
   import { harness } from '$lib/stores/harness.svelte';
   import { project } from '$lib/stores/project.svelte';
   import { cx } from '$lib/utils/cx';
@@ -32,28 +30,6 @@
   let editing = $state(false);
   let ticked = $state<string[]>([]);
   let removing = $state(false);
-  /** The checked-out branch of each project, by path (`null`: not a repository or a detached HEAD). */
-  let branches = $state<Record<string, string | null>>({});
-
-  async function readBranch(target: string): Promise<void> {
-    try {
-      const status = await ipc.invoke('git_status', { project: target });
-      branches = { ...branches, [target]: status.isRepo ? (status.branch ?? (status.head ? status.head.slice(0, 7) : null)) : null };
-    } catch {
-      // A branch is a hint; a project git cannot read simply shows none.
-    }
-  }
-
-  // Opening the menu reads every listed project's branch, so the list is current.
-  $effect(() => {
-    if (open) {
-      for (const recent of others) {
-        if (recent.isGitRepo) {
-          void readBranch(recent.path);
-        }
-      }
-    }
-  });
 
   const path = $derived(session.info.project);
   const name = $derived(path.split(/[\\/]/).filter(Boolean).at(-1) ?? path);
@@ -85,7 +61,7 @@
   /** A chat that moves with its project (OMP) cannot move while the agent works. */
   const locked = $derived(session.streaming && Boolean(harness.get(session.info.harness)?.capabilities.moveSession));
 
-  const ROW = 'flex w-full items-center gap-2.5 rounded-sm px-2.5 py-1.5 text-left text-sm transition-colors duration-[var(--dur-fast)] hover:bg-hover active:bg-press focus-visible:bg-hover';
+  const ROW = 'flex w-full items-center gap-2.5 rounded-sm px-2.5 py-1.5 text-left text-sm transition-colors duration-[var(--dur-fast)] hover:bg-hover active:bg-press focus-visible:bg-hover focus-visible:-outline-offset-2';
 
   function choose(target: string, close: () => void): void {
     close();
@@ -115,7 +91,7 @@
   {#snippet children({ close })}
     <!-- Home/End belong to the search field, not to the list navigation of the popover. -->
     <div class="flex w-80 max-w-full flex-col gap-1" role="presentation" onkeydown={(event) => (event.key === 'Home' || event.key === 'End') && event.stopPropagation()}>
-      <SearchField bind:value={query} label={t('chat.project.search')} placeholder={t('chat.project.search')} />
+      <SearchField bind:value={query} label={t('chat.project.search')} placeholder={t('chat.project.search')} autofocus />
 
       <div class="flex items-center justify-between px-2.5 pt-1.5">
         <span class="text-xs font-medium tracking-wide text-fg-3 uppercase">{t('chat.project.recent')}</span>
@@ -150,12 +126,6 @@
             {/if}
             <Icon size={16} aria-hidden="true" class={cx('shrink-0', current ? 'text-accent-text' : 'text-fg-3')} />
             <span class="min-w-0 flex-1 truncate">{recent.name}</span>
-            {#if branches[recent.path] && !editing}
-              <span class="flex max-w-40 min-w-0 items-center gap-1 text-xs text-fg-3">
-                <GitBranch size={12} aria-hidden="true" class="shrink-0" />
-                <span class="truncate">{branches[recent.path]}</span>
-              </span>
-            {/if}
             {#if !editing}
               <Check size={16} aria-hidden="true" class={cx('shrink-0 text-accent-text', !current && 'invisible')} />
             {/if}
