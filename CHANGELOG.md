@@ -1,3 +1,15 @@
+# [0.9.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.8.1...v0.9.0) (2026-10-15)
+
+
+### Bug Fixes
+
+* **ui:** pickers focus their search field and draw the row focus ring inside, project picker drops the branch, update bar spans the card ([719efea](https://github.com/MSpiechowicz/harness-useful-desktop/commit/719efea3e598716672a42fac373ac5bc0266048f))
+
+
+### Features
+
+* **chat:** queued messages list above the composer with a remove button per message and Alt+Up to take the latest back (OMP remove_queued_message) ([3122a72](https://github.com/MSpiechowicz/harness-useful-desktop/commit/3122a7260159e84e9357ea6191a63323254e93ea))
+
 ## [0.8.1](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.8.0...v0.8.1) (2026-10-15)
 
 
