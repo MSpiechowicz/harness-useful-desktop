@@ -29,7 +29,10 @@
 
   import { count, scopeLabel } from '../shell/scope';
 
+  import type { StatusEntry } from '$lib/ipc/bindings/StatusEntry';
+  import ChangesMenu from './ChangesMenu.svelte';
   import DiffPanel from './DiffPanel.svelte';
+  import DiscardFileDialog from './DiscardFileDialog.svelte';
   import { diffMode, type DiffMode } from './diff-mode.svelte';
   import FileList from './FileList.svelte';
   import ReviewButton from './ReviewButton.svelte';
@@ -40,6 +43,7 @@
 
   const active = $derived(project.active);
   const costArgs = $derived(git.status?.branch && active ? { branch: git.status.branch, project: active.path } : null);
+  let discarding = $state<StatusEntry | null>(null);
   const selected = $derived(git.entries.find((entry) => entry.path === git.selected));
 
   // Switching to this view (or project) re-reads git, so edits the agent just made are visible.
@@ -110,6 +114,7 @@
           <SearchField bind:value={() => git.search, (query) => git.setSearch(query)} label={t('changes.search.label')} placeholder={t('changes.search.placeholder')} shortcut="mod+f" onkeydown={onSearchKey} />
         </div>
         <SegmentedControl options={modes} value={diffMode.value} label={t('changes.header.layout')} onchange={(mode) => diffMode.set(mode)} />
+        <ChangesMenu project={active.name} file={selected} ondiscardfile={(entry) => (discarding = entry)} />
       {/if}
     {/snippet}
   </ViewHeader>
@@ -200,3 +205,5 @@
     {/if}
   </div>
 </div>
+
+<DiscardFileDialog bind:file={discarding} />

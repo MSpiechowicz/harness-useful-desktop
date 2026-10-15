@@ -25,7 +25,7 @@
   data-menu-item
   {...rest}
   class={cx(
-    'flex items-center gap-2 rounded-sm px-2.5 py-2 text-left text-sm transition-colors duration-[var(--dur-fast)] disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-transparent',
+    'flex items-center gap-2 rounded-sm focus-visible:outline-offset-[-2px] px-2.5 py-2 text-left text-sm transition-colors duration-[var(--dur-fast)] disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-transparent',
     tone === 'danger' ? 'text-danger hover:bg-danger-wash focus-visible:bg-danger-wash' : 'text-fg hover:bg-hover focus-visible:bg-hover',
     className,
   )}

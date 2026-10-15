@@ -53,6 +53,12 @@ export class MockState {
   /** Fixture sessions removed by `session_delete`, as `harness:id`. */
   deletedSessions = new Set<string>();
 
+  /** Projects whose fixture changes `git_discard_all` threw away: their tree is clean from then on. */
+  discardedProjects = new Set<string>();
+
+  /** Fixture files `git_discard_files` threw away, as `project\0path`. */
+  discardedFiles = new Set<string>();
+
   private pickable: ProjectInfo[] = structuredClone(PICKABLE_FOLDERS);
 
   /** Preferences as the real backend returns them: stored UI fields plus the server-managed ones. */

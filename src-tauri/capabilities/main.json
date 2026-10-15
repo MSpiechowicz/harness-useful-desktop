@@ -40,6 +40,8 @@
     "allow-git-branches",
     "allow-git-diff",
     "allow-git-file-lines",
+    "allow-git-discard-all",
+    "allow-git-discard-files",
     "allow-review-compose",
     "allow-ecosystem-status",
     "allow-ecosystem-releases",

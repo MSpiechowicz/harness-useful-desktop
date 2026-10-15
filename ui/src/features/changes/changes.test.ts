@@ -4,6 +4,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { ToolCallState } from '$lib/chat/types';
 import { i18n } from '$lib/i18n/i18n.svelte';
 import { fixtures } from '$lib/ipc/mock/fixtures';
+import { ipc } from '$lib/ipc/client';
 import { agentSessions } from '$lib/stores/agentSession.svelte';
 import { git } from '$lib/stores/git.svelte';
 import { harness } from '$lib/stores/harness.svelte';
@@ -250,6 +251,66 @@ describe('the review dialog', () => {
 
     await fireEvent.click(within(dialog).getByRole('button', { name: 'Clear search' }));
     expect(within(dialog).getAllByRole('button', { name: /guide\.md|lib\.rs/ })).toHaveLength(2);
+  });
+});
+
+describe('discarding all changes', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('asks first, counting every changed file even when a filter hides some, and only then discards', async () => {
+    const path = fixtures.recentProjects[0].path;
+    const original = ipc.invoke.bind(ipc);
+    // The discard itself is answered here, so the fixture changes stay for the tests after this one.
+    const invoke = vi.spyOn(ipc, 'invoke').mockImplementation((name, args) => (name === 'git_discard_all' ? Promise.resolve(null as never) : original(name, args as never)));
+    const discards = () => invoke.mock.calls.filter(([name]) => name === 'git_discard_all').map(([, args]) => args);
+    git.showPaths(path, [LIB], 'this chat');
+    await showChanges();
+
+    const open = async () => {
+      await fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+      await fireEvent.click(await screen.findByRole('menuitem', { name: 'Discard all changes…' }));
+
+      return screen.findByRole('dialog', { name: 'Discard all changes?' });
+    };
+
+    const asked = await open();
+    expect(asked).toHaveTextContent(`${ENTRIES.length} changed files`);
+    expect(asked).toHaveTextContent('Includes files the current filter or search hides.');
+
+    await fireEvent.click(within(asked).getByRole('button', { name: 'Keep it' }));
+    expect(discards()).toEqual([]);
+
+    await fireEvent.click(within(await open()).getByRole('button', { name: 'Discard all' }));
+    await waitFor(() => expect(discards()).toEqual([{ project: path }]));
+  });
+});
+
+describe('discarding one file', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('asks first from the menu, and sends only the shown file', async () => {
+    const path = fixtures.recentProjects[0].path;
+    const original = ipc.invoke.bind(ipc);
+    const invoke = vi.spyOn(ipc, 'invoke').mockImplementation((name, args) => (name === 'git_discard_files' ? Promise.resolve(null as never) : original(name, args as never)));
+    const discards = () => invoke.mock.calls.filter(([name]) => name === 'git_discard_files').map(([, args]) => args);
+    git.showPaths(path, [LIB], 'this chat');
+    await showChanges();
+    const file = git.selected;
+
+    const open = async () => {
+      await fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+      await fireEvent.click(await screen.findByRole('menuitem', { name: 'Discard this file…' }));
+
+      return screen.findByRole('dialog', { name: 'Discard this file?' });
+    };
+
+    const asked = await open();
+    expect(asked).toHaveTextContent(file as string);
+    await fireEvent.click(within(asked).getByRole('button', { name: 'Keep it' }));
+    expect(discards()).toEqual([]);
+
+    await fireEvent.click(within(await open()).getByRole('button', { name: 'Discard file' }));
+    await waitFor(() => expect(discards()).toEqual([{ project: path, paths: [file] }]));
   });
 });
 

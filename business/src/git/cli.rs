@@ -170,7 +170,7 @@ fn is_not_a_work_tree(stderr: &str) -> bool {
 }
 
 /// A process error carrying git's first `fatal:`/`error:` line (no file contents).
-fn failure(output: &ExecOutput) -> BusinessError {
+pub(super) fn failure(output: &ExecOutput) -> BusinessError {
     let reason = output
         .stderr
         .lines()

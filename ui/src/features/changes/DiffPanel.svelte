@@ -34,6 +34,8 @@
   const unstaged = $derived(diffs.find((diff) => !diff.staged));
   const shown = $derived(git.section === 'staged' ? (staged ?? unstaged) : (unstaged ?? staged));
 
+  const name = $derived(entry.path.slice(entry.path.lastIndexOf('/') + 1));
+
   const comments = $derived(review.commentsFor(project).filter((comment) => comment.path === entry.path));
 
   function add(target: RangeTarget, body: string): void {
@@ -43,15 +45,16 @@
 
 <div class="flex size-full min-h-0 flex-col">
   <header class="flex h-[52px] shrink-0 items-center gap-3 border-b border-line px-4">
-    <h3 class="min-w-0 shrink truncate font-mono text-sm text-fg" title={entry.path}>{entry.path}</h3>
+    <!-- Only the file name: the full path is the tooltip and the accessible name. -->
+    <h3 class="min-w-0 shrink truncate font-mono text-sm text-fg" title={entry.path} aria-label={entry.path}>{name}</h3>
     {#if shown}
-      <Badge tone={statusTone(shown.status)}>{statusName(shown.status)}</Badge>
+      <span class="flex shrink-0"><Badge tone={statusTone(shown.status)}>{statusName(shown.status)}</Badge></span>
       {#if !shown.isBinary}
-        <span class="tabular text-xs"><span class="text-success">+{shown.additions}</span> <span class="text-danger">−{shown.deletions}</span></span>
+        <span class="tabular shrink-0 text-xs whitespace-nowrap"><span class="text-success">+{shown.additions}</span> <span class="text-danger">−{shown.deletions}</span></span>
       {/if}
     {/if}
     {#if shown?.oldPath}
-      <span class="truncate text-xs text-fg-3">{t('changes.diff.renamedFrom', { path: shown.oldPath })}</span>
+      <span class="min-w-0 truncate text-xs text-fg-3">{t('changes.diff.renamedFrom', { path: shown.oldPath })}</span>
     {/if}
 
     {#if git.matchTotal > 0}

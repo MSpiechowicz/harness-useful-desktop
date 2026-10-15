@@ -264,6 +264,34 @@ export class GitStore {
     void this.fetchDiffs([path]);
   }
 
+  /** Throws away every change in the project (staged, unstaged and untracked), then re-reads git, also after a failure that may have done part of it. */
+  async discardAll(): Promise<void> {
+    const project = this.project;
+    if (project === null) {
+      return;
+    }
+
+    try {
+      await this.transport.invoke('git_discard_all', { project });
+    } finally {
+      await this.refresh();
+    }
+  }
+
+  /** Throws away the changes of one file (and, for a rename, its old name), then re-reads git, also after a failure. */
+  async discardFile(entry: StatusEntry): Promise<void> {
+    const project = this.project;
+    if (project === null) {
+      return;
+    }
+
+    try {
+      await this.transport.invoke('git_discard_files', { project, paths: entry.origPath ? [entry.path, entry.origPath] : [entry.path] });
+    } finally {
+      await this.refresh();
+    }
+  }
+
   /** The diffs of the files in view are stale: forget them (or, `quiet`, keep showing them), keep a valid selection, fetch again. */
   private reload(quiet = false): void {
     this.diffGeneration += 1;

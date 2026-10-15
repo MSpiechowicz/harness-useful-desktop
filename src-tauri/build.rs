@@ -44,6 +44,8 @@ const COMMANDS: &[&str] = &[
     "git_branches",
     "git_diff",
     "git_file_lines",
+    "git_discard_all",
+    "git_discard_files",
     "review_compose",
     "ecosystem_status",
     "ecosystem_releases",

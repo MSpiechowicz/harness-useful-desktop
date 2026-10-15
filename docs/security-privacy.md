@@ -182,8 +182,9 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
   -c color.ui=false -c core.quotepath=off`, a 15 s timeout and a 16 MiB output cap per stream. It sets
   `GIT_TERMINAL_PROMPT=0`, `GIT_OPTIONAL_LOCKS=0`, `LC_ALL=C`, and `HOME`/`XDG_CONFIG_HOME` from the injected `Env`.
   Every inherited `GIT_*` variable is dropped (`GIT_DIR`, `GIT_CONFIG_*`, `GIT_EXTERNAL_DIFF`, `GIT_SSH*`,
-  `GIT_ASKPASS`, `GIT_TRACE*`, ...). Diffs use `--no-ext-diff --no-textconv`. Git is read-only here: status, diff,
-  branch list.
+  `GIT_ASKPASS`, `GIT_TRACE*`, ...). Diffs use `--no-ext-diff --no-textconv`. Git reads status, diffs and the branch
+  list; its only writes are `git_discard_all` and `git_discard_files` (one file and, for a rename, its old name), which the UI runs only after the user confirms: `restore --source=HEAD
+  --staged --worktree` and `clean -f -d` (no `-x`, so ignored files stay), both limited to the project directory.
 - **Children.** Each child gets `kill_on_drop` and, on Unix, its own process group, which is killed with it. Agents stop by
   closing stdin, waiting 3 s, then killing the group. Output of run-to-completion commands has a time limit and a size
   cap.

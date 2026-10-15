@@ -7,7 +7,7 @@ import { fixtures } from './fixtures';
 import type { MockState } from './state';
 import type { Handlers } from './types';
 
-type GitCommands = 'git_status' | 'git_branches' | 'git_diff' | 'git_file_lines' | 'review_compose';
+type GitCommands = 'git_status' | 'git_branches' | 'git_diff' | 'git_file_lines' | 'git_discard_all' | 'git_discard_files' | 'review_compose';
 
 const MAX_COMMENTS = 100;
 const NOT_A_REPO: GitStatus = { isRepo: false, branch: null, head: null, upstream: null, ahead: 0, behind: 0, entries: [] };
@@ -56,7 +56,13 @@ export function gitHandlers(state: MockState): Pick<Handlers, GitCommands> {
     git_status: ({ project }) => {
       state.requireKnown(project);
 
-      return structuredClone(isRepo(state, project) ? fixtures.git.status : NOT_A_REPO);
+      const status = structuredClone(isRepo(state, project) ? fixtures.git.status : NOT_A_REPO);
+
+      if (state.discardedProjects.has(project)) {
+        return { ...status, entries: [] };
+      }
+
+      return { ...status, entries: status.entries.filter((entry) => !state.discardedFiles.has(`${project}\0${entry.path}`)) };
     },
 
     git_branches: ({ project }) => {
@@ -67,12 +73,12 @@ export function gitHandlers(state: MockState): Pick<Handlers, GitCommands> {
 
     git_diff: ({ project, request }) => {
       state.requireKnown(project);
-      if (!isRepo(state, project)) {
+      if (!isRepo(state, project) || state.discardedProjects.has(project)) {
         return [];
       }
 
       const wanted = new Set(request.paths);
-      const diffs = fixtures.git.diff.filter((diff) => SCOPES[request.scope](diff) && (wanted.size === 0 || wanted.has(diff.path)));
+      const diffs = fixtures.git.diff.filter((diff) => SCOPES[request.scope](diff) && (wanted.size === 0 || wanted.has(diff.path)) && !state.discardedFiles.has(`${project}\0${diff.path}`));
 
       return structuredClone(diffs);
     },
@@ -90,6 +96,24 @@ export function gitHandlers(state: MockState): Pick<Handlers, GitCommands> {
       const last = Math.max(0, ...diff.hunks.map((hunk) => hunk.newStart + hunk.newLines)) + 20;
 
       return Array.from({ length: last }, (_, index) => known.get(index + 1) ?? `unchanged line ${index + 1}`);
+    },
+
+    git_discard_all: ({ project }) => {
+      state.requireKnown(project);
+      if (isRepo(state, project)) {
+        state.discardedProjects.add(project);
+      }
+
+      return null;
+    },
+
+    git_discard_files: ({ project, paths }) => {
+      state.requireKnown(project);
+      for (const path of paths) {
+        state.discardedFiles.add(`${project}\0${path}`);
+      }
+
+      return null;
     },
 
     review_compose: ({ request }) => {

@@ -1,4 +1,5 @@
-//! Git commands for the Changes view: status, branches and working-tree diffs of a project.
+//! Git commands for the Changes view: status, branches and working-tree diffs of a project, and
+//! discarding changes in it.
 //!
 //! The project must be the active project or a recent one. git runs through the business layer's
 //! hardened runner (no shell, time and output limits, repository programs and inherited `GIT_*`
@@ -48,6 +49,24 @@ pub async fn git_file_lines(
     file_lines(&state, project, path, staged).await
 }
 
+/// Reverts every staged and unstaged change in `project` to HEAD and deletes its untracked files
+/// (ignored ones stay). The UI asks the user to confirm first.
+#[tauri::command]
+pub async fn git_discard_all(state: State<'_, AppState>, project: String) -> CommandResult<()> {
+    discard_all(&state, project).await
+}
+
+/// Reverts the project-relative `paths` of one changed file (the file and, for a rename, its old
+/// name) to HEAD, deleting an untracked or newly staged one. The UI asks the user to confirm first.
+#[tauri::command]
+pub async fn git_discard_files(
+    state: State<'_, AppState>,
+    project: String,
+    paths: Vec<String>,
+) -> CommandResult<()> {
+    discard_files(&state, project, paths).await
+}
+
 async fn status(state: &AppState, project: String) -> CommandResult<GitStatus> {
     let project = authorized_dir(state, project).await?;
 
@@ -60,6 +79,12 @@ async fn branches(state: &AppState, project: String) -> CommandResult<Vec<Branch
     Ok(git::git_branches(&state.env, &state.runner, &project).await?)
 }
 
+async fn discard_all(state: &AppState, project: String) -> CommandResult<()> {
+    let project = authorized_dir(state, project).await?;
+
+    Ok(git::git_discard_all(&state.env, &state.runner, &project).await?)
+}
+
 /// Runs in a blocking task: besides running git, a diff reads the untracked files itself.
 async fn diff(state: &AppState, project: String, request: DiffRequest) -> CommandResult<Vec<FileDiff>> {
     let project = authorized_dir(state, project).await?;
@@ -67,6 +92,12 @@ async fn diff(state: &AppState, project: String, request: DiffRequest) -> Comman
     let runner = state.runner;
 
     blocking(move || Ok(block_on(git::git_diff(&env, &runner, &project, &request))?)).await
+}
+
+async fn discard_files(state: &AppState, project: String, paths: Vec<String>) -> CommandResult<()> {
+    let project = authorized_dir(state, project).await?;
+
+    Ok(git::git_discard_files(&state.env, &state.runner, &project, &paths).await?)
 }
 
 /// Runs in a blocking task: the working-tree side is read from disk.
@@ -196,7 +227,8 @@ mod tests {
         let refused = [
             block_on(status(state, stranger.clone())).map(drop),
             block_on(branches(state, stranger.clone())).map(drop),
-            block_on(diff(state, stranger, request(DiffScope::All, &[]))).map(drop),
+            block_on(diff(state, stranger.clone(), request(DiffScope::All, &[]))).map(drop),
+            block_on(discard_all(state, stranger)),
         ];
         for error in refused {
             assert_eq!(error.expect_err("unknown project").code(), IpcErrorCode::Forbidden);
@@ -220,6 +252,83 @@ mod tests {
         // The index still holds the committed text.
         let index = block_on(file_lines(state, project.clone(), "code.txt".to_owned(), true)).expect("index lines");
         assert_eq!(index, ["one"]);
+    }
+
+    #[test]
+    fn discarding_all_reverts_staged_and_unstaged_edits_and_deletes_untracked_files() {
+        let setup = setup();
+        let (state, project) = (&setup.state, &setup.project);
+        let dir = Path::new(project);
+        let home = dir.parent().unwrap();
+        std::fs::write(dir.join(".gitignore"), "*.log\n").expect("write");
+        std::fs::write(dir.join("kept.log"), "ignored\n").expect("write");
+        std::fs::write(dir.join("added.txt"), "staged\n").expect("write");
+        git(home, dir, &["add", ".gitignore"]);
+        git(home, dir, &["commit", "-q", "-m", "ignore"]);
+        git(home, dir, &["add", "added.txt"]);
+        std::fs::create_dir_all(dir.join("scratch")).expect("create");
+        std::fs::write(dir.join("scratch/notes.txt"), "draft\n").expect("write");
+
+        block_on(discard_all(state, project.clone())).expect("discard");
+
+        let status = block_on(status(state, project.clone())).expect("status");
+        assert!(status.entries.is_empty(), "{:?}", status.entries);
+        assert_eq!(std::fs::read_to_string(dir.join("code.txt")).expect("read"), "one\n");
+        assert!(!dir.join("added.txt").exists() && !dir.join("scratch").exists() && !dir.join("new.txt").exists());
+        assert!(dir.join("kept.log").exists(), "ignored files stay");
+    }
+
+    #[test]
+    fn discarding_files_touches_only_the_named_ones() {
+        let setup = setup();
+        let (state, project) = (&setup.state, &setup.project);
+        let dir = Path::new(project);
+        let home = dir.parent().unwrap();
+        std::fs::write(dir.join("other.txt"), "keep\n").expect("write");
+        std::fs::write(dir.join("added.txt"), "staged\n").expect("write");
+        git(home, dir, &["add", "added.txt", "code.txt"]);
+
+        let discard = |paths: &[&str]| {
+            block_on(discard_files(state, project.clone(), paths.iter().map(|path| (*path).to_owned()).collect()))
+        };
+        discard(&["code.txt"]).expect("tracked");
+        discard(&["added.txt", "new.txt"]).expect("staged new and untracked");
+
+        assert_eq!(std::fs::read_to_string(dir.join("code.txt")).expect("read"), "one\n");
+        assert!(!dir.join("added.txt").exists() && !dir.join("new.txt").exists());
+        assert!(dir.join("other.txt").exists(), "other files stay");
+        let status = block_on(status(state, project.clone())).expect("status");
+        assert_eq!(status.entries.len(), 1, "{:?}", status.entries);
+
+        assert_eq!(discard(&[]).expect_err("empty").code(), IpcErrorCode::InvalidInput);
+        assert_eq!(discard(&["../x"]).expect_err("escape").code(), IpcErrorCode::InvalidInput);
+    }
+
+    #[test]
+    fn discarding_all_in_a_subdirectory_project_leaves_the_rest_of_the_repository() {
+        let dir = TempDir::new("git-sub");
+        let home = dir.path().join("home");
+        let repo = home.join("repo");
+        let project = repo.join("app");
+        std::fs::create_dir_all(&project).expect("create project");
+
+        git(&home, &repo, &["init", "-q", "-b", "main"]);
+        std::fs::write(repo.join("outside.txt"), "one\n").expect("write");
+        std::fs::write(project.join("inside.txt"), "one\n").expect("write");
+        git(&home, &repo, &["add", "."]);
+        git(&home, &repo, &["commit", "-q", "-m", "base"]);
+        std::fs::write(repo.join("outside.txt"), "two\n").expect("write");
+        std::fs::write(repo.join("stray.txt"), "new\n").expect("write");
+        std::fs::write(project.join("inside.txt"), "two\n").expect("write");
+
+        let path = std::env::var("PATH").unwrap_or_default();
+        let state = state_with_project(&dir, Env::for_tests(&home).with_var("PATH", path), &project);
+
+        block_on(discard_all(&state, project.to_string_lossy().into_owned())).expect("discard");
+
+        assert_eq!(std::fs::read_to_string(project.join("inside.txt")).expect("read"), "one\n");
+        assert_eq!(std::fs::read_to_string(repo.join("outside.txt")).expect("read"), "two\n");
+        assert!(repo.join("stray.txt").exists());
     }
 
     #[test]

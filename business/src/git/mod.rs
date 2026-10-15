@@ -1,4 +1,5 @@
-//! The project repository through the `git` CLI: status, branches and working-tree diffs.
+//! The project repository through the `git` CLI: status, branches, working-tree diffs and
+//! discarding changes.
 //!
 //! Every command runs through [`GitCli`] (shell-free, hardened, time- and size-limited). Paths
 //! in results are relative to the project, which may be a subdirectory of the work tree; a
@@ -15,6 +16,7 @@
 mod branches;
 mod cli;
 mod diff_parse;
+mod discard;
 mod file_lines;
 mod status;
 mod untracked;
@@ -49,6 +51,16 @@ pub async fn git_status(env: &Env, runner: &dyn ProcessRunner, project: &Path) -
 /// `git_branches` for the canonical project directory `project`.
 pub async fn git_branches(env: &Env, runner: &dyn ProcessRunner, project: &Path) -> Result<Vec<Branch>> {
     branches::git_branches(&GitCli::new(env, runner, project)?).await
+}
+
+/// `git_discard_all` for the canonical project directory `project`.
+pub async fn git_discard_all(env: &Env, runner: &dyn ProcessRunner, project: &Path) -> Result<()> {
+    discard::git_discard_all(&GitCli::new(env, runner, project)?).await
+}
+
+/// `git_discard_files` for the canonical project directory `project` and its project-relative `paths`.
+pub async fn git_discard_files(env: &Env, runner: &dyn ProcessRunner, project: &Path, paths: &[String]) -> Result<()> {
+    discard::git_discard_files(&GitCli::new(env, runner, project)?, paths).await
 }
 
 /// `git_diff` for the canonical project directory `project`: staged, then unstaged, then

@@ -87,6 +87,8 @@ export const commands = {
   git_branches: cmd<{ project: string }, Branch[]>(),
   git_diff: cmd<{ project: string; request: DiffRequest }, FileDiff[]>(),
   git_file_lines: cmd<{ project: string; path: string; staged: boolean }, string[]>(),
+  git_discard_all: cmd<{ project: string }, null>(),
+  git_discard_files: cmd<{ project: string; paths: string[] }, null>(),
   review_compose: cmd<{ request: ReviewRequest }, ComposedReview>(),
   ecosystem_status: cmd<undefined, EcosystemStatus>(),
   ecosystem_releases: cmd<{ installed: EcosystemInstalled[] }, EcosystemRelease[]>(),
