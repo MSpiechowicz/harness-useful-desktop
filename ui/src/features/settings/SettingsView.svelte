@@ -162,12 +162,15 @@
 </script>
 
 <div class="@container flex size-full min-h-0 flex-col">
-  <ViewHeader title={t('settings.title')} icon={Settings} context={t('settings.context')} />
+  <ViewHeader title={t('settings.title')} icon={Settings} context={t('settings.context')}>
+    {#snippet actions()}
+      <div class="w-[340px] max-[900px]:w-[220px]">
+        <SearchField bind:value={query} label={t('settings.search.label')} placeholder={t('settings.search.placeholder')} shortcut="mod+f" />
+      </div>
+    {/snippet}
+  </ViewHeader>
 
   <div bind:this={scroller} use:scrollMemory={'settings'} onscroll={spy} class="min-h-0 flex-1 overflow-y-auto">
-    <div class="mx-auto w-full max-w-[1152px] px-[var(--gutter)] pt-6 @4xl:pt-8">
-      <SearchField bind:value={query} label={t('settings.search.label')} placeholder={t('settings.search.placeholder')} shortcut="mod+f" class="@4xl:max-w-sm" />
-    </div>
     <div class="mx-auto w-full max-w-[1152px] px-[var(--gutter)] py-6 @4xl:grid @4xl:grid-cols-[208px_minmax(0,1fr)] @4xl:gap-10 @4xl:py-8">
       <!-- Section nav: a sticky chip row on narrow panes, a left rail with scroll-spy on wide ones. -->
       <nav
