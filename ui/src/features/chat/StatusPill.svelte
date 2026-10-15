@@ -16,6 +16,6 @@
 
 <!-- Hugs its content: icon and label are centred as one group with even padding. -->
 <span class={cx('inline-flex h-6 max-w-30 items-center gap-1.5 rounded-full px-2.5 text-xs leading-none font-medium', TONES[tone])}>
-  <span class="grid size-4 shrink-0 place-items-center">{@render icon()}</span>
+  <span class="grid size-[16px] shrink-0 place-items-center">{@render icon()}</span>
   <span class="truncate" title={label}>{label}</span>
 </span>
