@@ -58,9 +58,11 @@
     return item.order >= firstNew ? ENTRANCE_MS : 0;
   }
 
-  /** Ctrl/Cmd+End is the keyboard's "Jump to latest"; it works from the composer too, where plain End belongs to the text. */
+  /** Ctrl/Cmd+End or Ctrl/Cmd+Down is the keyboard's "Jump to latest" (laptops without an End key); it works from the composer too, where plain End belongs to the text. */
   function onkeydown(event: KeyboardEvent): void {
-    if (event.defaultPrevented || !matchesShortcut(event, 'mod+end') || document.querySelector('[role="dialog"][aria-modal="true"]')) {
+    const jump = matchesShortcut(event, 'mod+end') || matchesShortcut(event, 'mod+arrowdown');
+
+    if (event.defaultPrevented || !jump || document.querySelector('[role="dialog"][aria-modal="true"]')) {
       return;
     }
 
@@ -163,9 +165,9 @@
 
   {#if !atBottom}
     <div class="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center">
-      <Button class="pointer-events-auto shadow-float" aria-keyshortcuts="Control+End Meta+End" onclick={() => list?.scrollToEnd()}>
+      <Button class="pointer-events-auto shadow-float" aria-keyshortcuts="Control+End Meta+End Control+ArrowDown Meta+ArrowDown" onclick={() => list?.scrollToEnd()}>
         {#snippet leading()}<ArrowDown size={16} aria-hidden="true" />{/snippet}
-        {#snippet trailing()}<span class="flex items-center" aria-hidden="true"><Kbd keys="mod+end" small /></span>{/snippet}
+        {#snippet trailing()}<span class="flex items-center" aria-hidden="true"><Kbd keys="mod+arrowdown" small /></span>{/snippet}
         {t('chat.list.jump')}
       </Button>
     </div>
