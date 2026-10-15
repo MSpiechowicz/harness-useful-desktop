@@ -6,6 +6,7 @@
   import { untrack } from 'svelte';
 
   import Button from '$lib/components/Button.svelte';
+  import Kbd from '$lib/components/Kbd.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
   import VirtualList from '$lib/components/VirtualList.svelte';
   import { cx } from '$lib/utils/cx';
@@ -162,8 +163,9 @@
 
   {#if !atBottom}
     <div class="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center">
-      <Button class="pointer-events-auto shadow-float" onclick={() => list?.scrollToEnd()}>
+      <Button class="pointer-events-auto shadow-float" aria-keyshortcuts="Control+End Meta+End" onclick={() => list?.scrollToEnd()}>
         {#snippet leading()}<ArrowDown size={16} aria-hidden="true" />{/snippet}
+        {#snippet trailing()}<span class="flex items-center" aria-hidden="true"><Kbd keys="mod+end" small /></span>{/snippet}
         {t('chat.list.jump')}
       </Button>
     </div>

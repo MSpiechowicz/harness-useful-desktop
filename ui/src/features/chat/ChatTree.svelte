@@ -93,22 +93,25 @@
               type="button"
               aria-current={selected ? 'true' : undefined}
               aria-describedby={describedby}
-              class="flex h-full w-full min-w-0 items-center gap-[8px] pr-[26px] pl-[8px] text-left text-base"
+              class={cx('flex h-full w-full min-w-0 items-center gap-[8px] pl-[8px] text-left text-base', helpers > 0 ? 'pr-[48px]' : 'pr-[30px]')}
               onclick={() => show(session.key)}
               ondblclick={() => rename(session)}
               onkeydown={(event) => onKeydown(event, index)}
             >
               {#if summary}<HarnessBadge info={summary.info} size="xs" /><span class="sr-only">{t('chat.tabs.harness', { name: summary.info.name })}</span>{/if}
               {#if renaming !== session.key}<span class={cx('min-w-0 truncate', selected && 'font-medium')}>{title}</span>{/if}
-              {#if session.switchingTo}
-                <Spinner size={14} class="shrink-0 text-accent-text" label={t('chat.tabs.starting')} />
-              {:else if session.streaming || helpers > 0}
-                <Spinner size={14} class="shrink-0 text-accent-text" label={t('chat.tabs.working')} />
-                {#if helpers > 0}<span class="tabular -ml-1 text-xs text-accent-text" title={tn('chat.tabs.subagents', helpers)}><span aria-hidden="true">{helpers}</span><span class="sr-only">{tn('chat.tabs.subagents', helpers)}</span></span>{/if}
-              {:else if session.ended}
-                <StatusDot tone="danger" />
-                <span class="sr-only">{t('chat.tabs.stopped')}</span>
-              {/if}
+              <!-- What the chat is doing sits in the close button's column (the rail chevron's too), and gives way to it on hover. -->
+              <span class="pointer-events-none absolute top-[2px] right-[6px] flex h-[24px] items-center transition-opacity group-hover/card:opacity-0 group-has-[[data-close]:focus-within]/card:opacity-0">
+                {#if session.switchingTo}
+                  <span class="grid size-[24px] place-items-center"><Spinner size={14} class="text-accent-text" label={t('chat.tabs.starting')} /></span>
+                {:else if session.streaming || helpers > 0}
+                  {#if helpers > 0}<span class="tabular text-xs text-accent-text" title={tn('chat.tabs.subagents', helpers)}><span aria-hidden="true">{helpers}</span><span class="sr-only">{tn('chat.tabs.subagents', helpers)}</span></span>{/if}
+                  <span class="grid size-[24px] place-items-center"><Spinner size={14} class="text-accent-text" label={t('chat.tabs.working')} /></span>
+                {:else if session.ended}
+                  <span class="grid size-[24px] place-items-center"><StatusDot tone="danger" /></span>
+                  <span class="sr-only">{t('chat.tabs.stopped')}</span>
+                {/if}
+              </span>
             </button>
           {/snippet}
         </Tooltip>
@@ -121,7 +124,7 @@
             }}
           />
         {/if}
-        <div class="absolute top-[2px] right-[6px] opacity-0 transition-opacity focus-within:opacity-100 group-hover/card:opacity-100">
+        <div data-close class="absolute top-[2px] right-[6px] opacity-0 transition-opacity focus-within:opacity-100 group-hover/card:opacity-100">
           <IconButton icon={X} label={t('chat.tabs.close')} side="right" iconSize={ICON.sm} class="size-[24px]! text-fg-3" onclick={() => close(session)} />
         </div>
       </div>
@@ -136,12 +139,12 @@
       <button
         type="button"
         aria-current={selected ? 'true' : undefined}
-        class={cx('flex h-[28px] w-full items-center gap-[8px] rounded-sm px-[8px] text-left text-base transition-colors', selected ? 'bg-[color-mix(in_oklab,var(--text)_11%,transparent)] text-fg' : 'text-fg-2 hover:bg-hover hover:text-fg')}
+        class={cx('relative flex h-[28px] w-full items-center gap-[8px] rounded-sm pr-[30px] pl-[8px] text-left text-base transition-colors', selected ? 'bg-[color-mix(in_oklab,var(--text)_11%,transparent)] text-fg' : 'text-fg-2 hover:bg-hover hover:text-fg')}
         onclick={() => show(chat.key)}
       >
         {#if summary}<HarnessBadge info={summary.info} size="xs" /><span class="sr-only">{t('chat.tabs.harness', { name: summary.info.name })}</span>{/if}
         <span class="min-w-0 truncate">{agentSessions.title(chat.key)}</span>
-        <Spinner size={14} class="shrink-0 text-accent-text" label={t('chat.tabs.starting')} />
+        <span class="absolute top-[2px] right-[6px] grid size-[24px] place-items-center"><Spinner size={14} class="text-accent-text" label={t('chat.tabs.starting')} /></span>
       </button>
     </div>
   {/each}

@@ -62,13 +62,16 @@
         {view.label}
       </span>
 
-      {#if expanded}
-        {#if badge && badge.text !== ''}
-          <span aria-hidden="true" class={cx('tabular rounded-full px-1.5 text-xs leading-5', badge.tone === 'warning' ? 'bg-warning-wash text-warning' : 'bg-surface-3 text-fg-2')}>{badge.text}</span>
-        {:else if badge}
-          <span aria-hidden="true" class={cx('size-2 rounded-full', badge.tone === 'warning' ? 'bg-warning' : 'bg-accent', badge.busy && 'animate-pulse')}></span>
-        {/if}
-
+      {#if expanded && badge}
+        <!-- Centered on the column of the row-end buttons (the chats chevron, a chat's close button): 24px ending 6px from the
+             edge. A row with the chevron there keeps it just before it. -->
+        <span aria-hidden="true" class={cx('flex min-w-[24px] shrink-0 justify-center', !reserve && '-mr-[6px]')}>
+          {#if badge.text !== ''}
+            <span class={cx('tabular rounded-full px-1.5 text-xs leading-5', badge.tone === 'warning' ? 'bg-warning-wash text-warning' : 'bg-surface-3 text-fg-2')}>{badge.text}</span>
+          {:else}
+            <span class={cx('size-2 rounded-full', badge.tone === 'warning' ? 'bg-warning' : 'bg-accent', badge.busy && 'animate-pulse')}></span>
+          {/if}
+        </span>
       {/if}
     </button>
   {/snippet}
