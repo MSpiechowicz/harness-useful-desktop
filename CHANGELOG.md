@@ -1,3 +1,11 @@
+# [0.15.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.14.0...v0.15.0) (2026-10-15)
+
+
+### Features
+
+* **onboarding:** recommended setup step installs the dashboard, the skills and the dashboard MCP entry for every detected harness ([a81bf72](https://github.com/MSpiechowicz/harness-useful-desktop/commit/a81bf72e8355704b583bb1a4cdbe10dffb2a9dd0))
+* **settings:** share setup exports and imports your extensions and MCP servers as a code or a file ([8b0495f](https://github.com/MSpiechowicz/harness-useful-desktop/commit/8b0495f28bd80b3120d615e56a7e6819a84a47fb))
+
 # [0.14.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.13.0...v0.14.0) (2026-10-15)
 
 
