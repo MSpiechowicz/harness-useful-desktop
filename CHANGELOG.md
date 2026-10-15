@@ -1,3 +1,10 @@
+# [0.11.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.10.0...v0.11.0) (2026-10-15)
+
+
+### Features
+
+* **shell:** Cmd+Shift+B opens the list drawer of Sessions, Changes, Config and Extensions; next and previous chat use Cmd+Option+Arrow on macOS ([25b5f2e](https://github.com/MSpiechowicz/harness-useful-desktop/commit/25b5f2e915c1e1a5618677024631ba0c782752c8))
+
 # [0.10.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.9.0...v0.10.0) (2026-10-15)
 
 
