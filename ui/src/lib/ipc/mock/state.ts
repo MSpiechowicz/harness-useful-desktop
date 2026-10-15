@@ -29,6 +29,7 @@ export function defaultPrefs(): AppPrefs {
     recentProjects: [],
     updatePolicy: 'startupAsk',
     checkCompanionUpdates: true,
+    autoUpdateExtensions: true,
     openAnyLink: false,
     aiChatNames: false,
     language: 'en',

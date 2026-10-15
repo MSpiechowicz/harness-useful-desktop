@@ -82,6 +82,9 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.updates.companions.title': 'Buscar actualizaciones de los complementos',
   'settings.updates.companions.description':
     'Al abrir Ecosystem, pide a GitHub las últimas versiones de Harness Dashboard, Skills y Sidebar, como máximo cada seis horas mientras la app está en marcha. GitHub ve tu dirección IP y la versión de la app, no qué complementos tienes.',
+  'settings.updates.extensions.title': 'Actualizar las extensiones automáticamente',
+  'settings.updates.extensions.description':
+    'Cada diez minutos la app actualiza los marketplaces e instala las versiones nuevas de los plugins y paquetes de tu harness, con un aviso cuando lo hace. Desactivado: actualiza a mano desde Extensiones.',
   'settings.updates.notConfigured': 'Esta compilación no está preparada para actualizaciones, así que no buscará versiones nuevas. No pasa nada. Descarga las versiones nuevas desde la página de versiones.',
   'settings.updates.openReleases': 'Abrir versiones',
   'settings.updates.retry': 'Reintentar',

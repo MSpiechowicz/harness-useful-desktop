@@ -80,6 +80,9 @@ export const settings = {
   'settings.updates.companions.title': 'Check companions for updates',
   'settings.updates.companions.description':
     'When you open Ecosystem, ask GitHub for the latest Harness Dashboard, Skills and Sidebar releases, at most every six hours while the app runs. GitHub sees your IP address and the app version, not which companions you have.',
+  'settings.updates.extensions.title': 'Update extensions automatically',
+  'settings.updates.extensions.description':
+    'Every ten minutes the app refreshes the marketplaces and installs new versions of your harness\'s plugins and packages, with a message when it does. Off: update by hand from Extensions.',
   'settings.updates.notConfigured': 'This build is not set up for updates, so it will not look for new versions. Nothing is wrong. Get new versions from the releases page.',
   'settings.updates.openReleases': 'Open releases',
   'settings.updates.retry': 'Try again',

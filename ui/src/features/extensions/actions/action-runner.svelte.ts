@@ -1,5 +1,6 @@
 import type { CliResult } from '$lib/ipc/bindings/CliResult';
 import type { ExtensionsView } from '$lib/ipc/bindings/ExtensionsView';
+import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
 import { ipc } from '$lib/ipc/client';
 import { t } from '$lib/i18n/i18n.svelte';
 import { IpcFailure, type Transport } from '$lib/ipc/transport';
@@ -119,6 +120,13 @@ export class ActionRunner {
 /** What changes the plugins an agent has loaded; a chat that started before it has to be restarted to see it. */
 const PLUGIN_CHANGES = new Set(['pluginInstall', 'pluginUpgrade', 'pluginUninstall', 'pluginEnable', 'pluginDisable']);
 
+/** Restarts the harness's idle chats so they load changed plugins, and says so when any were. */
+export async function reloadChatsAfterPluginChange(harness: HarnessId): Promise<void> {
+  if ((await agentSessions.reloadIdle(harness)) > 0) {
+    toasts.push({ title: t('extensions.toast.chatsReloaded'), tone: 'info' });
+  }
+}
+
 export const actionRunner = new ActionRunner(
   ipc,
   async () => {
@@ -127,8 +135,8 @@ export const actionRunner = new ActionRunner(
     return extensionsView.data;
   },
   async (request) => {
-    if (PLUGIN_CHANGES.has(request.action.type) && (await agentSessions.reloadIdle(request.harness)) > 0) {
-      toasts.push({ title: t('extensions.toast.chatsReloaded'), tone: 'info' });
+    if (PLUGIN_CHANGES.has(request.action.type)) {
+      await reloadChatsAfterPluginChange(request.harness);
     }
   },
 );

@@ -19,6 +19,7 @@
 
   import { intro, INTRO_LEAD_MS } from '../intro/intro-state.svelte';
   import { onboarding } from '../onboarding/onboarding-state.svelte';
+  import { extensionUpdater } from '../extensions/actions/extension-updater';
   import RestartConfirm from '../updates/RestartConfirm.svelte';
   import { jumpToChat, newChat } from './actions';
   import { buildCommands } from './commands';
@@ -148,6 +149,13 @@
   $effect(() => {
     if (intro.phase === 'done' && prefs.value && !onboarding.visible) {
       void updates.startup();
+    }
+  });
+
+  // Extensions keep themselves current while the setting is on; the schedule stops the moment it is switched off.
+  $effect(() => {
+    if (intro.phase === 'done' && prefs.value?.autoUpdateExtensions && !onboarding.visible) {
+      return extensionUpdater.start();
     }
   });
 
