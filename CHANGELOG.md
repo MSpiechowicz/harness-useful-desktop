@@ -1,3 +1,10 @@
+# [0.8.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.7.0...v0.8.0) (2026-10-15)
+
+
+### Features
+
+* **ui:** spinner and close button share one slot in the chat tree, scroll-to-latest shows its shortcut, rail badge grows toward the left ([16aa4e0](https://github.com/MSpiechowicz/harness-useful-desktop/commit/16aa4e0ff6dd0f0d74c481dd2e1ef2d0c6aa786e))
+
 # [0.7.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.6.0...v0.7.0) (2026-10-15)
 
 
