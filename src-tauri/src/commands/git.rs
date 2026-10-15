@@ -59,11 +59,7 @@ pub async fn git_discard_all(state: State<'_, AppState>, project: String) -> Com
 /// Reverts the project-relative `paths` of one changed file (the file and, for a rename, its old
 /// name) to HEAD, deleting an untracked or newly staged one. The UI asks the user to confirm first.
 #[tauri::command]
-pub async fn git_discard_files(
-    state: State<'_, AppState>,
-    project: String,
-    paths: Vec<String>,
-) -> CommandResult<()> {
+pub async fn git_discard_files(state: State<'_, AppState>, project: String, paths: Vec<String>) -> CommandResult<()> {
     discard_files(&state, project, paths).await
 }
 
@@ -149,6 +145,23 @@ mod tests {
             project: project.to_string_lossy().into_owned(),
             _dir: dir,
         }
+    }
+
+    impl Setup {
+        /// The project directory.
+        fn dir(&self) -> &Path {
+            Path::new(&self.project)
+        }
+
+        /// The empty home directory the project sits in.
+        fn home(&self) -> &Path {
+            self.dir().parent().expect("project has a parent")
+        }
+    }
+
+    /// A file's text with Windows line endings read as `\n`: Git there may check files out with CRLF.
+    fn read_lf(path: &Path) -> String {
+        std::fs::read_to_string(path).expect("read").replace("\r\n", "\n")
     }
 
     /// A setup git command with an empty home, no system configuration and a fixed identity.
@@ -257,9 +270,7 @@ mod tests {
     #[test]
     fn discarding_all_reverts_staged_and_unstaged_edits_and_deletes_untracked_files() {
         let setup = setup();
-        let (state, project) = (&setup.state, &setup.project);
-        let dir = Path::new(project);
-        let home = dir.parent().unwrap();
+        let (state, project, dir, home) = (&setup.state, &setup.project, setup.dir(), setup.home());
         std::fs::write(dir.join(".gitignore"), "*.log\n").expect("write");
         std::fs::write(dir.join("kept.log"), "ignored\n").expect("write");
         std::fs::write(dir.join("added.txt"), "staged\n").expect("write");
@@ -273,7 +284,7 @@ mod tests {
 
         let status = block_on(status(state, project.clone())).expect("status");
         assert!(status.entries.is_empty(), "{:?}", status.entries);
-        assert_eq!(std::fs::read_to_string(dir.join("code.txt")).expect("read"), "one\n");
+        assert_eq!(read_lf(&dir.join("code.txt")), "one\n");
         assert!(!dir.join("added.txt").exists() && !dir.join("scratch").exists() && !dir.join("new.txt").exists());
         assert!(dir.join("kept.log").exists(), "ignored files stay");
     }
@@ -281,27 +292,32 @@ mod tests {
     #[test]
     fn discarding_files_touches_only_the_named_ones() {
         let setup = setup();
-        let (state, project) = (&setup.state, &setup.project);
-        let dir = Path::new(project);
-        let home = dir.parent().unwrap();
+        let (state, project, dir, home) = (&setup.state, &setup.project, setup.dir(), setup.home());
         std::fs::write(dir.join("other.txt"), "keep\n").expect("write");
         std::fs::write(dir.join("added.txt"), "staged\n").expect("write");
         git(home, dir, &["add", "added.txt", "code.txt"]);
 
         let discard = |paths: &[&str]| {
-            block_on(discard_files(state, project.clone(), paths.iter().map(|path| (*path).to_owned()).collect()))
+            block_on(discard_files(
+                state,
+                project.clone(),
+                paths.iter().map(|path| (*path).to_owned()).collect(),
+            ))
         };
         discard(&["code.txt"]).expect("tracked");
         discard(&["added.txt", "new.txt"]).expect("staged new and untracked");
 
-        assert_eq!(std::fs::read_to_string(dir.join("code.txt")).expect("read"), "one\n");
+        assert_eq!(read_lf(&dir.join("code.txt")), "one\n");
         assert!(!dir.join("added.txt").exists() && !dir.join("new.txt").exists());
         assert!(dir.join("other.txt").exists(), "other files stay");
         let status = block_on(status(state, project.clone())).expect("status");
         assert_eq!(status.entries.len(), 1, "{:?}", status.entries);
 
         assert_eq!(discard(&[]).expect_err("empty").code(), IpcErrorCode::InvalidInput);
-        assert_eq!(discard(&["../x"]).expect_err("escape").code(), IpcErrorCode::InvalidInput);
+        assert_eq!(
+            discard(&["../x"]).expect_err("escape").code(),
+            IpcErrorCode::InvalidInput
+        );
     }
 
     #[test]
@@ -326,8 +342,8 @@ mod tests {
 
         block_on(discard_all(&state, project.to_string_lossy().into_owned())).expect("discard");
 
-        assert_eq!(std::fs::read_to_string(project.join("inside.txt")).expect("read"), "one\n");
-        assert_eq!(std::fs::read_to_string(repo.join("outside.txt")).expect("read"), "two\n");
+        assert_eq!(read_lf(&project.join("inside.txt")), "one\n");
+        assert_eq!(read_lf(&repo.join("outside.txt")), "two\n");
         assert!(repo.join("stray.txt").exists());
     }
 

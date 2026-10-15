@@ -53,9 +53,18 @@ pub async fn git_discard_files(git: &GitCli<'_>, paths: &[String]) -> Result<()>
     let (mut known, mut new) = (Vec::new(), Vec::new());
 
     for path in paths {
-        let in_head = has_head && !git.run_ok(["ls-tree", "--name-only", "HEAD", "--", path]).await?.stdout.is_empty();
+        let in_head = has_head
+            && !git
+                .run_ok(["ls-tree", "--name-only", "HEAD", "--", path])
+                .await?
+                .stdout
+                .is_empty();
 
-        if in_head { known.push(path.clone()) } else { new.push(path.clone()) }
+        if in_head {
+            known.push(path.clone())
+        } else {
+            new.push(path.clone())
+        }
     }
 
     if !known.is_empty() {
