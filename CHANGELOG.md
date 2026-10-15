@@ -1,3 +1,11 @@
+# [0.13.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.12.0...v0.13.0) (2026-10-15)
+
+
+### Features
+
+* **chat:** Cmd/Ctrl+Down also jumps to the latest message, for keyboards without End ([2985b78](https://github.com/MSpiechowicz/harness-useful-desktop/commit/2985b78257e078c2a042466f7351ad6b110cd0aa))
+* **extensions:** update plugins, marketplaces and packages automatically, with a setting and toasts ([#18](https://github.com/MSpiechowicz/harness-useful-desktop/issues/18)) ([04edd79](https://github.com/MSpiechowicz/harness-useful-desktop/commit/04edd79d193b6b322e473c5231eb3f2c26356b33)), closes [#12](https://github.com/MSpiechowicz/harness-useful-desktop/issues/12)
+
 # [0.12.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.11.0...v0.12.0) (2026-10-15)
 
 
