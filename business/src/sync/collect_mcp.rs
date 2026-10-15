@@ -1,0 +1,213 @@
+//! Export reader for MCP servers: the user MCP file of [`mcp_target_paths`]. See
+//! [`super::collect`].
+//!
+//! Only an allowlist of fields is shared: the transport, the command and arguments (stdio) or the
+//! URL (http/sse), and the key names of `env` and `headers`. Their values, `auth`/`oauth`, `cwd` and
+//! any other field stay here (noted on the item). A server whose command, arguments or URL holds a
+//! secret, credentials, a local path or an env reference the import would refuse is left out whole.
+//! The dashboard's own entry ([`DASHBOARD_MCP_SERVER`]) is skipped without a row: Recommended
+//! setup installs it, and the import refuses that name.
+
+use serde_json::{Map, Value};
+
+use super::collect::{CollectedItem, Entry, Found, excluded_reason, item_id, preview_row, safe_label};
+use super::schema::{McpServer, Transport};
+use super::secrets::{args_exportable, exportable};
+use super::validate;
+use crate::ecosystem::catalog::DASHBOARD_MCP_SERVER;
+use crate::ecosystem::mcp_target_paths;
+use crate::env::Env;
+use crate::harness::Harness;
+use crate::model::{SyncExcludedReason, SyncExportItem, SyncItemKind, SyncNote};
+use crate::pi_family::{Document, read_json, tilde};
+
+/// Fields that are shared (or deliberately dropped without a note).
+const KNOWN_FIELDS: &[&str] = &[
+    "type", "command", "args", "url", "env", "headers", "enabled", "auth", "oauth", "cwd",
+];
+
+/// The servers of `harness`'s user MCP file; nothing when it has none, the file is missing, or it
+/// has no `mcpServers`. A file that cannot be read or parsed, or whose `mcpServers` is not an
+/// object, is listed as excluded (`invalid`, labelled with its home-relative path).
+pub(super) fn mcp_servers(env: &Env, harness: &dyn Harness, found: &mut Found) {
+    let Some((path, _)) = mcp_target_paths(env, harness) else {
+        return;
+    };
+
+    let kind = SyncItemKind::McpServer;
+    let document = read_json(&path);
+    let servers = match &document {
+        Document::Missing => return,
+        Document::Invalid(_) => None,
+        Document::Parsed(value) => match value.get("mcpServers") {
+            None => return,
+            Some(servers) => servers.as_object(),
+        },
+    };
+
+    let Some(servers) = servers else {
+        let label = safe_label(Some(&tilde(env, &path)));
+        found.exclude(harness.id(), kind, label, SyncExcludedReason::Invalid);
+        return;
+    };
+
+    for (name, server) in servers {
+        if name.eq_ignore_ascii_case(DASHBOARD_MCP_SERVER) {
+            continue;
+        }
+
+        match shared_server(name, server) {
+            Ok((server, notes)) => found.items.push(CollectedItem {
+                preview: preview(item_id(harness.id(), kind, name), &server, notes),
+                entry: Entry::McpServer(server),
+            }),
+            Err(reason) => found.exclude(harness.id(), kind, safe_label(Some(name)), reason),
+        }
+    }
+}
+
+fn preview(id: String, server: &McpServer, notes: Vec<SyncNote>) -> SyncExportItem {
+    SyncExportItem {
+        id,
+        detail: Some(server.detail()),
+        runs_program: server.transport == Transport::Stdio,
+        env_keys: server.env_keys.clone(),
+        header_keys: server.header_keys.clone(),
+        notes,
+        ..preview_row(SyncItemKind::McpServer, server.name.clone())
+    }
+}
+
+/// The shared form of one server and the notes on what stays here, or why it is left out.
+fn shared_server(name: &str, server: &Value) -> Result<(McpServer, Vec<SyncNote>), SyncExcludedReason> {
+    validate::mcp_name(name).map_err(excluded_reason)?;
+
+    let fields = server.as_object().ok_or(SyncExcludedReason::Invalid)?;
+    let transport = transport(fields).ok_or(SyncExcludedReason::Unsupported)?;
+
+    let (command, args, url) = match transport {
+        Transport::Stdio => (Some(text(fields, "command")?), list(fields, "args")?, None),
+        Transport::Http | Transport::Sse => (None, Vec::new(), Some(text(fields, "url")?)),
+    };
+
+    endpoint_problem(command.as_deref(), &args, url.as_deref())?;
+
+    let env_keys = keys(fields, "env")?;
+    let header_keys = keys(fields, "headers")?;
+    let notes = notes(fields, transport, &env_keys, &header_keys);
+
+    let server = McpServer {
+        name: name.to_owned(),
+        transport,
+        command,
+        args,
+        url,
+        env_keys,
+        header_keys,
+    };
+    validate::mcp_server(&server).map_err(excluded_reason)?;
+
+    Ok((server, notes))
+}
+
+/// `type` when present (`stdio`, `http`/`streamable-http`, `sse`), else stdio for a `command` and
+/// HTTP for a `url`; `None` when unknown.
+fn transport(fields: &Map<String, Value>) -> Option<Transport> {
+    match fields.get("type") {
+        Some(Value::String(kind)) => match kind.as_str() {
+            "stdio" => Some(Transport::Stdio),
+            "http" | "streamable-http" => Some(Transport::Http),
+            "sse" => Some(Transport::Sse),
+            _ => None,
+        },
+        Some(_) => None,
+        None if fields.contains_key("command") => Some(Transport::Stdio),
+        None if fields.contains_key("url") => Some(Transport::Http),
+        None => None,
+    }
+}
+
+/// A required string field.
+fn text(fields: &Map<String, Value>, key: &str) -> Result<String, SyncExcludedReason> {
+    match fields.get(key) {
+        Some(Value::String(value)) => Ok(value.clone()),
+        _ => Err(SyncExcludedReason::Invalid),
+    }
+}
+
+/// An optional list of strings.
+fn list(fields: &Map<String, Value>, key: &str) -> Result<Vec<String>, SyncExcludedReason> {
+    let Some(value) = fields.get(key) else {
+        return Ok(Vec::new());
+    };
+
+    let items = value.as_array().ok_or(SyncExcludedReason::Invalid)?;
+    items
+        .iter()
+        .map(|item| item.as_str().map(str::to_owned).ok_or(SyncExcludedReason::Invalid))
+        .collect()
+}
+
+/// The key names of an optional object (`env`, `headers`), never its values. Key names that look
+/// like secrets leave the server out.
+fn keys(fields: &Map<String, Value>, key: &str) -> Result<Vec<String>, SyncExcludedReason> {
+    let Some(value) = fields.get(key) else {
+        return Ok(Vec::new());
+    };
+
+    let object = value.as_object().ok_or(SyncExcludedReason::Invalid)?;
+    if !object.keys().all(|name| exportable(name)) {
+        return Err(SyncExcludedReason::ContainsSecret);
+    }
+
+    Ok(object.keys().cloned().collect())
+}
+
+/// Why the command, arguments or URL may not leave this machine: credentials, then secrets, then a
+/// local path (checked before the import validators so the reason names the actual problem).
+fn endpoint_problem(command: Option<&str>, args: &[String], url: Option<&str>) -> Result<(), SyncExcludedReason> {
+    let values = || command.into_iter().chain(url);
+
+    if values().any(validate::has_credentials) {
+        return Err(SyncExcludedReason::Credentials);
+    }
+
+    if !values().all(exportable) || !args_exportable(args) {
+        return Err(SyncExcludedReason::ContainsSecret);
+    }
+
+    if values().any(validate::is_local_path) || args.iter().any(|arg| validate::is_local_path(arg)) {
+        return Err(SyncExcludedReason::LocalPath);
+    }
+
+    Ok(())
+}
+
+/// What is not shared: env and header values, auth, `cwd`, and fields outside the allowlist (also
+/// a `url` on a stdio server, or a `command`/`args` on an http/sse server).
+fn notes(
+    fields: &Map<String, Value>,
+    transport: Transport,
+    env_keys: &[String],
+    header_keys: &[String],
+) -> Vec<SyncNote> {
+    let unused_endpoint = match transport {
+        Transport::Stdio => fields.contains_key("url"),
+        Transport::Http | Transport::Sse => fields.contains_key("command") || fields.contains_key("args"),
+    };
+    let other = unused_endpoint || fields.keys().any(|key| !KNOWN_FIELDS.contains(&key.as_str()));
+
+    [
+        (!env_keys.is_empty(), SyncNote::EnvValuesNotShared),
+        (!header_keys.is_empty(), SyncNote::HeaderValuesNotShared),
+        (
+            fields.contains_key("auth") || fields.contains_key("oauth"),
+            SyncNote::AuthNotShared,
+        ),
+        (fields.contains_key("cwd"), SyncNote::CwdNotShared),
+        (other, SyncNote::OtherFieldsNotShared),
+    ]
+    .into_iter()
+    .filter_map(|(applies, note)| applies.then_some(note))
+    .collect()
+}

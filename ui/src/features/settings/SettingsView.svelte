@@ -27,6 +27,7 @@
 
   import { intro } from '../intro/intro-state.svelte';
   import { onboarding } from '../onboarding/onboarding-state.svelte';
+  import SyncSection from '../sync/SyncSection.svelte';
   import AboutCard from './AboutCard.svelte';
   import HarnessSettings from './HarnessSettings.svelte';
   import PrivacySection from './PrivacySection.svelte';
@@ -270,6 +271,8 @@
               {/snippet}
             </SettingRow>
           </SettingsSection>
+
+          <SyncSection id="sync" />
 
           <SettingsSection id="projects" title={t('settings.section.projects')}>
             <SettingRow title={t('settings.recents.title')} description={t('settings.recents.description')}>

@@ -115,7 +115,7 @@
   </SettingRow>
 
   {#if state.kind === 'notConfigured'}
-    <div class="flex items-start gap-3 py-4 text-sm text-fg-2 last:pb-0" role="status">
+    <div class="flex items-start gap-3 py-4 text-sm text-fg-2" role="status">
       <Info class="mt-0.5 shrink-0 text-fg-3" size={ICON.sm} aria-hidden="true" />
 
       <p class="min-w-0 flex-1">{t('settings.updates.notConfigured')}</p>
@@ -128,7 +128,7 @@
   {/if}
 
   {#if failure}
-    <div class="flex flex-col items-start gap-3 py-4 last:pb-0">
+    <div class="flex flex-col items-start gap-3 py-4">
       <div class="w-full">
         <NoticeBanner notices={[{ level: failure.reason === 'verification' ? 'error' : 'warning', message: failureMessage(failure.reason, failure.during) }]} />
       </div>
@@ -140,7 +140,7 @@
   {/if}
 
   {#if release && state.kind !== 'failed'}
-    <div class="flex flex-col gap-4 py-4 last:pb-0">
+    <div class="flex flex-col gap-4 py-4">
       {#if date}<p class="text-sm text-fg-3">{date}</p>{/if}
 
       {#if notes}

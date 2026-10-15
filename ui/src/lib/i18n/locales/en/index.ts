@@ -11,6 +11,7 @@ import { settings } from './settings';
 import { updates } from './updates';
 import { harness } from './harness';
 import { components } from './components';
+import { sync } from './sync';
 
 export const en = {
   ...common,
@@ -26,6 +27,7 @@ export const en = {
   ...updates,
   ...harness,
   ...components,
+  ...sync,
 } satisfies Record<string, string>;
 
 /** Every message key of the app; the other languages must have exactly these. */

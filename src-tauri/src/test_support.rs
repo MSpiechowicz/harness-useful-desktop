@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
+use harness_business::ecosystem::mcp_target_paths;
 use harness_business::env::Env;
 use harness_business::model::{Detection, HarnessId, HarnessSummary, VersionSupport};
 use harness_business::process::{ExecSpec, ProcessSpawner, SpawnedProcess, TokioSpawner};
@@ -46,6 +47,21 @@ impl Drop for TempDir {
     fn drop(&mut self) {
         std::fs::remove_dir_all(&self.0).ok();
     }
+}
+
+/// App state over a fresh `<dir>/home` with its prefs in `<dir>/config`; nothing is detected yet.
+pub fn home_state(dir: &TempDir) -> AppState {
+    let home = dir.path().join("home");
+    std::fs::create_dir_all(&home).expect("create home");
+
+    AppState::new(dir.path().join("config"), Env::for_tests(home))
+}
+
+/// The user MCP file of OMP in `state`'s home.
+pub fn omp_mcp_file(state: &AppState) -> PathBuf {
+    let omp = state.registry.get(HarnessId::Omp).expect("omp");
+
+    mcp_target_paths(&state.env, omp).expect("omp has a user MCP file").0
 }
 
 /// App state over `env` with its prefs in `<dir>/config` and `project` created and opened (the

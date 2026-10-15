@@ -12,6 +12,7 @@ import { sessionHandlers } from './session-handlers';
 import { setupHandlers, setupScenarioFromLocation } from './setup-handlers';
 import { rosterFor, rosterSummaries } from './setup-roster';
 import { MockState } from './state';
+import { syncHandlers } from './sync-handlers';
 import type { Handlers, Scenario } from './types';
 import { updateHandlers } from './update-handlers';
 
@@ -56,6 +57,7 @@ export function defaultScenario(): Scenario {
     ...updateHandlers(agentPace),
     ...actions,
     ...setup.handlers,
+    ...syncHandlers(),
     // A completed action may be one of the setup step's, which the next `setup_status` then reports as done.
     extension_action: async (args) => {
       const result = await actions.extension_action(args);

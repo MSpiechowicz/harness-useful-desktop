@@ -23,7 +23,7 @@ const OUTSIDE_CACHE: &str = "The catalog path points outside the marketplace cac
 const NOT_CACHED: &str = "Catalog not cached yet; refresh the marketplace to load its plugins.";
 
 /// A GitHub `owner/repo` shorthand: GitHub's own character rules for both names.
-static GITHUB_REPO: LazyLock<Regex> = LazyLock::new(|| {
+pub(crate) static GITHUB_REPO: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"^([A-Za-z0-9](?:[A-Za-z0-9-]{0,38}))/([A-Za-z0-9._-]{1,100})$").expect("valid regex")
 });
 
@@ -63,6 +63,37 @@ pub fn marketplaces(env: &Env, paths: &HarnessPaths, installed: &[PluginInfo]) -
     (marketplaces, Vec::new())
 }
 
+/// One registry entry as written, for "Share setup" ([`crate::sync`]). Nothing is redacted: the
+/// caller decides what may leave the machine and never logs or shows these values.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct MarketplaceRecord {
+    /// `name`.
+    pub name: Option<String>,
+    /// `sourceType` (`github`, `git`, `url`, `local`, ...).
+    pub source_type: Option<String>,
+    /// `sourceUri`, unmasked.
+    pub source_uri: Option<String>,
+}
+
+/// The object entries of the marketplace registry, in file order; empty when it is missing or
+/// unreadable.
+pub(crate) fn marketplace_records(paths: &HarnessPaths) -> Vec<MarketplaceRecord> {
+    let registry = read_json(&marketplaces_registry(paths));
+    let Some(entries) = registry.get("marketplaces").and_then(Value::as_array) else {
+        return Vec::new();
+    };
+
+    entries
+        .iter()
+        .filter(|entry| entry.is_object())
+        .map(|entry| MarketplaceRecord {
+            name: text_field(entry, "name"),
+            source_type: text_field(entry, "sourceType"),
+            source_uri: text_field(entry, "sourceUri"),
+        })
+        .collect()
+}
+
 fn marketplace(env: &Env, cache_root: &Path, entry: &Value, installed: &[PluginInfo]) -> MarketplaceInfo {
     let name = text_field(entry, "name").unwrap_or_default();
     let catalog = text_field(entry, "catalogPath").map(|raw| env.expand_home(&raw));
@@ -98,7 +129,7 @@ fn display_source(uri: &str) -> String {
     }
 }
 
-fn is_word_like(name: &str) -> bool {
+pub(crate) fn is_word_like(name: &str) -> bool {
     name.split(['-', '_', '.']).all(|part| NAME_PART.is_match(part))
 }
 

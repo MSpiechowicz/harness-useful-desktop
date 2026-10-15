@@ -28,6 +28,7 @@ mod review;
 mod session;
 mod setup;
 mod subagent;
+mod sync;
 mod ui_request;
 mod update;
 
@@ -82,5 +83,11 @@ pub use setup::{
     RecommendedSetup, SkillsSetup,
 };
 pub use subagent::{Subagent, SubagentStatus, SubagentTool};
+pub use sync::{
+    SyncBlockReason, SyncExcluded, SyncExcludedReason, SyncExportItem, SyncExportPreview, SyncExportSection,
+    SyncExported, SyncImportItem, SyncImportPlan, SyncImportResult, SyncImportSection, SyncInput, SyncInvalidReason,
+    SyncItemKind, SyncItemOutcome, SyncItemStatus, SyncMcpPreview, SyncNote, SyncOutcome, SyncProgress, SyncSkipReason,
+    SyncStep, SyncUnsupported,
+};
 pub use ui_request::{UiOutcome, UiRequest, UiRequestKind, UiResponse};
 pub use update::{MAX_UPDATE_NOTES_BYTES, UpdateInfo, UpdatePhase, UpdateProgress};

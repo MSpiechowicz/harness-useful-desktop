@@ -1,7 +1,7 @@
 import type { ViewId } from './nav.svelte';
 
 /** The settings sections the palette and the section nav can jump to. */
-export type SettingsSectionId = 'appearance' | 'startup' | 'harnesses' | 'projects' | 'updates' | 'privacy' | 'about';
+export type SettingsSectionId = 'appearance' | 'startup' | 'harnesses' | 'projects' | 'updates' | 'privacy' | 'sync' | 'about';
 
 /**
  * What each view had selected when the user left it, so coming back (or jumping in from the

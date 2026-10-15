@@ -6,6 +6,7 @@
 //! - [`detect`]: which tools are installed (`ecosystem_status`).
 //! - [`setup`]: what the "Recommended setup" step offers (`setup_status`).
 //! - [`installer`]: runs the dashboard's installer for the setup step, once the user confirms.
+//! - [`mcp_merge`]: adds server entries to a harness's user MCP file without overwriting any.
 //! - [`mcp_register`]: the dashboard's MCP server in a harness's user MCP file.
 //! - [`mcp_client`]: a minimal MCP stdio client.
 //! - [`releases`]: the latest GitHub release of each installed tool (`ecosystem_releases`).
@@ -17,6 +18,7 @@ pub mod dashboard;
 pub mod detect;
 pub mod installer;
 pub mod mcp_client;
+pub mod mcp_merge;
 pub mod mcp_register;
 pub mod releases;
 pub mod setup;
@@ -26,6 +28,7 @@ pub use dashboard::{Dashboard, DashboardOptions, resolve_dashboard};
 pub use detect::ecosystem_status;
 pub use installer::{InstallerSpec, dashboard_installer, run_dashboard_installer, run_dashboard_installer_with};
 pub use mcp_client::{McpClient, McpOptions, ToolOutput};
+pub use mcp_merge::{MergeOutcome, MergeResult, MergedServer, existing_server, merge_servers};
 pub use mcp_register::{mcp_state, register_dashboard_mcp};
 pub use releases::{CompanionReleases, release_endpoint};
 pub use setup::{mcp_target_paths, setup_status};

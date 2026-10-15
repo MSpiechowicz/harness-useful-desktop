@@ -210,6 +210,86 @@ impl Installs<'_> {
     }
 }
 
+/// A user plugin as recorded on disk, for "Share setup" ([`crate::sync`]). Nothing is redacted:
+/// the caller decides what may leave the machine and never logs or shows these values.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct PluginRecord {
+    /// `name@marketplace` (a marketplace install) or the npm package name.
+    pub id: String,
+    /// The installed version, when recorded.
+    pub version: Option<String>,
+    /// How it was installed.
+    pub origin: PluginOrigin,
+}
+
+/// Where a [`PluginRecord`] comes from.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum PluginOrigin {
+    /// `installed_plugins.json`; `user_scope` is false when no entry has the user scope.
+    Marketplace { user_scope: bool },
+    /// A `dependencies` entry of `<plugins>/package.json` with its spec (`^1.2.0`, `file:…`, …);
+    /// `None` when the spec is not a string.
+    Npm { spec: Option<String> },
+}
+
+/// The plugins of the user plugin registry (in key order), then the npm dependencies of
+/// `<plugins>/package.json` whose name is not the name part of a registry id. Missing or unreadable
+/// files contribute nothing.
+pub(crate) fn user_plugin_records(paths: &HarnessPaths) -> Vec<PluginRecord> {
+    let plugins_dir = plugins_dir(paths);
+    let registry = read_json(&plugins_dir.join("installed_plugins.json"));
+    let mut records = Vec::new();
+
+    for (id, entries) in object(registry.get("plugins")) {
+        let entries = entries.as_array().cloned().unwrap_or_default();
+        let user = entries.iter().find(|entry| {
+            let scope = entry.get("scope").and_then(Value::as_str);
+            entry.is_object() && scope.is_none_or(|scope| scope == "user")
+        });
+
+        records.push(PluginRecord {
+            id,
+            version: user.and_then(|entry| text_field(entry, "version")),
+            origin: PluginOrigin::Marketplace {
+                user_scope: user.is_some(),
+            },
+        });
+    }
+
+    let marketplace_names: Vec<String> = records
+        .iter()
+        .map(|record| {
+            record
+                .id
+                .rsplit_once('@')
+                .map_or(record.id.as_str(), |(name, _)| name)
+                .to_owned()
+        })
+        .collect();
+
+    let manifest = read_json(&plugins_dir.join("package.json"));
+    for (name, spec) in object(manifest.get("dependencies")) {
+        if marketplace_names.contains(&name) {
+            continue;
+        }
+
+        let version = PACKAGE_NAME
+            .is_match(&name)
+            .then(|| read_json(&plugins_dir.join("node_modules").join(&name).join("package.json")))
+            .and_then(|package| package.value().and_then(|package| text_field(package, "version")));
+
+        records.push(PluginRecord {
+            id: name,
+            version,
+            origin: PluginOrigin::Npm {
+                spec: spec.as_str().map(str::to_owned),
+            },
+        });
+    }
+
+    records
+}
+
 /// npm and linked plugins not already listed as marketplace installs.
 fn npm_plugins(plugins_dir: &Path, state: &RuntimeState, found: &mut InstalledPlugins) {
     let manifest = read_json(&plugins_dir.join("package.json"));

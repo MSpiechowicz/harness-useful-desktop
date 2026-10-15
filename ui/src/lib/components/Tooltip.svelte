@@ -12,7 +12,9 @@
   type Side = 'top' | 'bottom' | 'right';
 
   interface Props {
-    text: string;
+    text?: string;
+    /** Roomy free-form content (a list of points) instead of `text`; the tooltip becomes a small panel. */
+    rich?: Snippet;
     /** A second, quieter paragraph under the text; line breaks are kept and long lines wrap. */
     detail?: string;
     /** Shortcut combo such as `mod+k`, shown as key caps next to the text. */
@@ -26,7 +28,7 @@
     children: Snippet<[{ describedby: string }]>;
   }
 
-  let { text, detail, shortcut, side = 'top', disabled = false, class: className = 'inline-flex', children }: Props = $props();
+  let { text = '', rich, detail, shortcut, side = 'top', disabled = false, class: className = 'inline-flex', children }: Props = $props();
 
   const SHOW_DELAY_MS = 350;
   /** Focus that lands right after the trigger appears is the app moving focus into a new dialog, not the user tabbing. */
@@ -121,10 +123,12 @@
       transition:rise={{ y: 4, duration: 140 }}
       class={cx(
         'pointer-events-none fixed z-[85] rounded-sm border border-line-strong bg-surface-4 px-2 py-1 text-xs text-fg shadow-float',
-        detail ? 'flex max-w-[280px] flex-col gap-0.5 py-1.5' : 'inline-flex items-center gap-2 font-medium whitespace-nowrap',
+        rich ? 'block w-max max-w-[340px] px-3.5 py-3 text-sm leading-snug' : detail ? 'flex max-w-[280px] flex-col gap-0.5 py-1.5' : 'inline-flex items-center gap-2 font-medium whitespace-nowrap',
       )}
     >
-      {#if detail}
+      {#if rich}
+        {@render rich()}
+      {:else if detail}
         <span class="flex items-center gap-2 font-medium">{text}{#if shortcut}<Kbd keys={shortcut} />{/if}</span>
         <span class="font-normal whitespace-pre-line text-fg-3">{detail}</span>
       {:else}

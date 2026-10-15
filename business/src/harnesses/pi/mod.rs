@@ -20,7 +20,7 @@ pub use config::pi_config_view;
 pub use dialect::PiDialect;
 pub use extensions::pi_extensions_view;
 pub use launch::pi_launch_spec;
-pub(crate) use packages::user_has_package;
+pub(crate) use packages::{PackageRecord, user_has_package, user_package_records};
 pub use sessions::{pi_session_folder, pi_sessions_dir};
 
 use crate::harness::prelude::*;
@@ -132,6 +132,15 @@ impl Harness for Pi {
                 source: crate::ecosystem::catalog::PI_SKILLS_SOURCE,
             },
             mcp: McpTarget::UserMcpJson { also_read: &[] },
+        }
+    }
+
+    fn share_support(&self) -> ShareSupport {
+        ShareSupport {
+            marketplaces: false,
+            plugins: false,
+            packages: true,
+            mcp_servers: true,
         }
     }
 }

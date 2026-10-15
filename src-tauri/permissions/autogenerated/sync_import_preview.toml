@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-sync-import-preview"
+description = "Enables the sync_import_preview command without any pre-configured scope."
+commands.allow = ["sync_import_preview"]
+
+[[permission]]
+identifier = "deny-sync-import-preview"
+description = "Denies the sync_import_preview command without any pre-configured scope."
+commands.deny = ["sync_import_preview"]

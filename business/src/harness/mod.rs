@@ -44,7 +44,8 @@ pub mod prelude {
     pub use std::path::PathBuf;
 
     pub use super::{
-        CliInvocation, CommandCatalog, CompanionSetup, Harness, HarnessPaths, LaunchRequest, McpTarget, SkillsStrategy,
+        CliInvocation, CommandCatalog, CompanionSetup, Harness, HarnessPaths, LaunchRequest, McpTarget, ShareSupport,
+        SkillsStrategy,
     };
     pub use crate::env::Env;
     pub use crate::error::Result;
@@ -63,7 +64,7 @@ use crate::error::{BusinessError, Result};
 use crate::model::{
     ApprovalMode, Capabilities, ConfigView, Detection, ExtensionAction, ExtensionsView, HarnessId, HarnessInfo,
     HarnessSummary, InstallHint, SessionFolder, SessionMessagesPage, SessionRef, SessionSummary, SessionTree,
-    VersionSupport,
+    SyncItemKind, VersionSupport,
 };
 use crate::pi_family::rpc::RpcDialect;
 use crate::pi_family::sessions::{self, SessionCache};
@@ -129,6 +130,41 @@ pub enum McpTarget {
     },
     /// The harness has no user MCP file the app can register a server in.
     Unsupported,
+}
+
+/// Which kinds of items "Share setup" exports from a harness and imports into it (see
+/// [`crate::sync`]). The default shares nothing, so a new harness opts in kind by kind; MCP servers
+/// also need a [`McpTarget::UserMcpJson`] in [`Harness::companion_setup`].
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct ShareSupport {
+    /// Plugin marketplaces (OMP's marketplace registry).
+    pub marketplaces: bool,
+    /// Plugins installed in the user scope (OMP's plugin registry and npm plugins).
+    pub plugins: bool,
+    /// Packages of the user settings (PI's `packages`).
+    pub packages: bool,
+    /// Servers of the user MCP file.
+    pub mcp_servers: bool,
+}
+
+impl ShareSupport {
+    /// Shares nothing.
+    pub const NONE: Self = Self {
+        marketplaces: false,
+        plugins: false,
+        packages: false,
+        mcp_servers: false,
+    };
+
+    /// True when items of `kind` are shared.
+    pub fn supports(self, kind: SyncItemKind) -> bool {
+        match kind {
+            SyncItemKind::Marketplace => self.marketplaces,
+            SyncItemKind::Plugin => self.plugins,
+            SyncItemKind::Package => self.packages,
+            SyncItemKind::McpServer => self.mcp_servers,
+        }
+    }
 }
 
 /// A coding-agent CLI adapter. See the module docs for how to add one.
@@ -254,6 +290,12 @@ pub trait Harness: Send + Sync {
     /// How the "Recommended setup" step installs the skills and registers the dashboard's MCP
     /// server for this harness.
     fn companion_setup(&self) -> CompanionSetup;
+
+    /// Which kinds of items "Share setup" exports from and imports into this harness. Default:
+    /// nothing.
+    fn share_support(&self) -> ShareSupport {
+        ShareSupport::NONE
+    }
 
     /// Arguments that make the CLI print its version and exit.
     fn version_args(&self) -> &'static [&'static str] {

@@ -133,15 +133,14 @@ fn outcome(state: &McpState) -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use std::path::{Path, PathBuf};
+    use std::path::Path;
     use std::sync::atomic::{AtomicUsize, Ordering};
 
-    use harness_business::env::Env;
     use harness_business::model::IpcErrorCode;
     use harness_business::process::{ExecSpec, SpawnedProcess};
 
     use super::*;
-    use crate::test_support::{TempDir, cache_detection, collecting_channel};
+    use crate::test_support::{TempDir, cache_detection, collecting_channel, home_state, omp_mcp_file};
 
     /// Counts spawn attempts and starts nothing.
     #[derive(Default)]
@@ -157,10 +156,7 @@ mod tests {
 
     /// A state over `<dir>/home` with OMP detected at a binary that must never run.
     fn state(dir: &TempDir) -> AppState {
-        let home = dir.path().join("home");
-        std::fs::create_dir_all(&home).expect("create home");
-
-        let state = AppState::new(dir.path().join("config"), Env::for_tests(home));
+        let state = home_state(dir);
         cache_detection(&state, HarnessId::Omp, Some(&dir.path().join("missing-omp")));
 
         state
@@ -179,12 +175,6 @@ mod tests {
             use std::os::unix::fs::PermissionsExt;
             std::fs::set_permissions(&binary, std::fs::Permissions::from_mode(0o755)).expect("chmod binary");
         }
-    }
-
-    fn omp_mcp_file(state: &AppState) -> PathBuf {
-        let omp = state.registry.get(HarnessId::Omp).expect("omp");
-
-        mcp_target_paths(&state.env, omp).expect("omp has a user MCP file").0
     }
 
     #[test]

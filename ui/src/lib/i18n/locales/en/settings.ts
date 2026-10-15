@@ -12,6 +12,7 @@ export const settings = {
   'settings.section.projects': 'Projects',
   'settings.section.updates': 'Updates',
   'settings.section.privacy': 'Privacy & security',
+  'settings.section.sync': 'Share setup',
   'settings.section.about': 'About',
 
   // Words the command palette matches a "Settings: {section}" command by.
@@ -21,6 +22,7 @@ export const settings = {
   'settings.keywords.projects': 'recent folders',
   'settings.keywords.updates': 'version upgrade release install check new',
   'settings.keywords.privacy': 'data telemetry diagnostics clear',
+  'settings.keywords.sync': 'export import share backup copy code file extensions plugins packages marketplaces mcp servers machine',
   'settings.keywords.about': 'version build',
 
   'settings.theme.title': 'Theme',

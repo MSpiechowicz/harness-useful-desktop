@@ -49,7 +49,7 @@
 </script>
 
 <SettingsSection {id} title={t('settings.section.privacy')}>
-  <ul class="flex flex-col gap-4 pb-4" aria-label={t('settings.privacy.label')}>
+  <ul class="flex flex-col gap-4 py-4" aria-label={t('settings.privacy.label')}>
     {#each PRIVACY_FACTS as fact (fact.id)}
       <li class="flex items-start gap-3">
         <span class="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md bg-surface-2 text-fg-2">

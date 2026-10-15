@@ -55,9 +55,9 @@
   onfocusout={() => (paused = false)}
   class="pointer-events-auto flex w-80 items-start gap-3 rounded-lg border border-line-strong bg-glass p-3.5 shadow-pop backdrop-blur-xl"
 >
-  <!-- The icon and the close button are centred on the title line (21px); the button's negative margins keep the
-       36px control from making the toast taller. -->
-  <Icon class={cx(tone.color, 'mt-[1.5px] shrink-0')} size={18} aria-hidden="true" />
+  <!-- The icon and the close button sit on the optical middle of the title's letters, one pixel under the middle of its
+       21px line box; the button's negative margins keep the 36px control from making the toast taller. -->
+  <Icon class={cx(tone.color, 'mt-[2.5px] shrink-0')} size={18} aria-hidden="true" />
 
   <div class="flex min-w-0 flex-1 flex-col gap-0.5">
     <p class="text-base font-medium text-fg">{toast.title}</p>
@@ -70,5 +70,5 @@
     {/if}
   </div>
 
-  <IconButton icon={X} label={t('components.toast.dismiss')} class="-my-[7.5px] -mr-1.5 shrink-0" onclick={() => ondismiss(toast.id)} />
+  <IconButton icon={X} label={t('components.toast.dismiss')} class="-mt-[6.5px] -mb-[8.5px] -mr-1.5 shrink-0" onclick={() => ondismiss(toast.id)} />
 </div>

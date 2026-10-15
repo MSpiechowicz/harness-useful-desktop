@@ -54,6 +54,11 @@ const sampleArgs = (sessionKey: string): { [K in CommandName]: CommandArgs<K> } 
   setup_status: undefined,
   setup_install_dashboard: { confirmed: true, onLog: () => {} },
   setup_register_mcp: { harness: 'omp' },
+  sync_export_preview: undefined,
+  sync_export: { selected: ['omp:marketplace:acme-tools'] },
+  sync_export_save: { selected: ['omp:marketplace:acme-tools'] },
+  sync_import_preview: { input: { type: 'text', text: 'hud1:abc' } },
+  sync_import_apply: { planId: 'plan-1', selected: ['omp:marketplace:harness-useful-skills'], confirmed: true, onProgress: () => {} },
   update_check: undefined,
   update_install: { onProgress: () => {} },
   app_relaunch: undefined,
@@ -75,6 +80,11 @@ describe('mock transport', () => {
     const mock = transport();
     const { key } = await mock.invoke('agent_start', { request: START_REQUEST, onEvent: () => {} });
     await mock.invoke('update_check', undefined);
+
+    // An import applies a plan that a review made first.
+    if (name === 'sync_import_apply') {
+      await mock.invoke('sync_import_preview', { input: { type: 'file' } });
+    }
 
     await expect(mock.invoke(name, sampleArgs(key)[name] as never)).resolves.not.toBeInstanceOf(IpcFailure);
   });

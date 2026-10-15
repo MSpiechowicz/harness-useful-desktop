@@ -47,6 +47,49 @@ pub(crate) fn user_has_package(paths: &HarnessPaths, needle: &str) -> bool {
     })
 }
 
+/// A package of the user settings as written, for "Share setup" ([`crate::sync`]). Nothing is
+/// redacted: the caller decides what may leave the machine and never logs or shows these values.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct PackageRecord {
+    /// The source string, unmasked (with any pin it has).
+    pub source: String,
+    /// `npm`, `git`, `local` or `unknown` (see [`package_kind`]).
+    pub kind: &'static str,
+    /// True for an object entry with any field besides `source` (resource filters such as
+    /// `"skills": []`).
+    pub filtered: bool,
+}
+
+/// The packages of the user settings (`<agent dir>/settings.json`), in file order: string entries
+/// and the `source` of object entries; anything else is skipped.
+pub(crate) fn user_package_records(paths: &HarnessPaths) -> Vec<PackageRecord> {
+    let settings = read_json(&paths.agent_dir.join("settings.json"));
+    let Some(items) = settings.get("packages").and_then(Value::as_array) else {
+        return Vec::new();
+    };
+
+    items
+        .iter()
+        .filter_map(|item| match item {
+            Value::String(raw) => Some((raw.as_str(), false)),
+            Value::Object(fields) => {
+                let filtered = fields.keys().any(|key| key != "source");
+
+                fields
+                    .get("source")
+                    .and_then(Value::as_str)
+                    .map(|source| (source, filtered))
+            }
+            _ => None,
+        })
+        .map(|(source, filtered)| PackageRecord {
+            source: source.to_owned(),
+            kind: package_kind(source),
+            filtered,
+        })
+        .collect()
+}
+
 fn layer_packages(env: &Env, layer: &Layer) -> Vec<PackageInfo> {
     let Some(items) = layer.settings.get("packages").and_then(Value::as_array) else {
         return Vec::new();

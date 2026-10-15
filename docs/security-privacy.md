@@ -9,8 +9,12 @@ not guaranteed, it says so under [Limits](#limits).
 - The app itself makes two kinds of network request, both to GitHub and both possible to turn off: the update check and
   download (only when the build carries an updater key), and the companion release lookup. See [Network](#network).
 - The app never reads credential stores, databases, logs or private keys, even through a symlink.
-- The only thing the app writes into a harness's configuration is one `harness-dashboard` entry in its user `mcp.json`,
-  and only when you choose it in Recommended setup. See [Process spawning](#process-spawning).
+- The only things the app writes into a harness's configuration are entries in its user `mcp.json`: the
+  `harness-dashboard` entry when you choose it in Recommended setup, and the MCP servers you tick when you import a
+  shared setup. Never an overwrite. See [Process spawning](#process-spawning) and [Shared setups](#shared-setups).
+- A shared setup carries references and the names (never the values) of environment variables and headers, and nothing
+  in it runs until you have read the review and confirmed. Secret and path detection in free-form text is best effort,
+  and host names are part of sources and URLs. Bundles are not signed. See [Shared setups](#shared-setups).
 - Secrets in configuration and in the app's own CLI output are masked before they reach the screen.
 - No shell is spawned, with one exception: the Harness Dashboard installer of Recommended setup, a fixed command that
   runs only after you confirm it (see [Process spawning](#process-spawning)). Every process has an absolute program
@@ -26,6 +30,7 @@ not guaranteed, it says so under [Limits](#limits).
 | The webview (or a compromised dependency) tries to escape through Tauri | ACL grants only app commands; no `core:*`, no plugin permissions; navigation and pop-up guards |
 | A UI bug passes a path or URL the user did not choose | Rust re-validates: active/recent project check, `canonical_within`, link allowlist (any `https` URL without credentials when `openAnyLink` is on), argv charset |
 | A tampered or downgraded update | Signature check against the built-in key, signed version, HTTPS only, newer versions only |
+| A shared setup (pasted string or file) tries to run a command, install something unexpected or leak a secret | Every field validated in Rust; the webview sends only a plan id and item ids; only add-actions exist; review and explicit confirmation first; env and header values, `auth` and `oauth` never exported, secrets in free-form text caught by heuristics; see [Shared setups](#shared-setups) |
 | Credentials leak into logs, prefs or fixtures | Payload-free logging; `prefs.json` holds only the fields of `AppPrefs`; canary tests; fixtures checked for secrets |
 | Another local user reads app data | Prefs directory `0700` and file `0600` on Unix |
 
@@ -72,6 +77,9 @@ Everything else:
   setup installs the Harness Skills for OMP the same way (`omp plugin marketplace add`, then `omp plugin install` at
   user scope, through `extension_action`, after you confirm). For PI it only shows `pi install
   git:github.com/MSpiechowicz/harness-useful-skills` for copying; the app never runs it.
+- Share setup opens no connection. Export and import read and write local files; an import's marketplace, plugin and
+  package installs go through the harness CLI, which fetches from the sources in the setup you confirmed, exactly as
+  `omp plugin install` or `pi install` do in your terminal.
 - The Ecosystem tab shows install commands for copying (`business/src/ecosystem/catalog.rs`). The app never runs them,
   except the Harness Dashboard installer of Recommended setup (see [Process spawning](#process-spawning)).
 
@@ -205,15 +213,18 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
 - **Flags never passed.** `--auto-approve`, `--no-ui`, login and credential RPCs (`get_login_providers`),
   `set_ask_dialog`. `--approve` goes to PI only for the user's explicit "trust this project once" choice, for that launch.
   The OMP `--approval-mode` flag is sent only when the user picks a per-session mode. The app does not edit either
-  harness's settings, with one exception: Recommended setup can add a `harness-dashboard` entry to the user `mcp.json`
-  of a detected harness (`setup_register_mcp`, `business/src/ecosystem/mcp_register.rs`). The webview sends only a
-  harness id; the file is `<agent dir>/mcp.json` from the harness's own paths, and both the harness and the dashboard
-  must be installed. The app merges `{"command": "harness-dashboard", "args": ["mcp"]}` into `mcpServers` and keeps
-  every other key and server. It writes nothing when an entry for the dashboard already exists (in that file or one of
-  the harness's other MCP files, even switched off; it never enables one). It refuses, and changes nothing, on invalid
-  JSON, a root or `mcpServers` that is not an object, a symlink, anything but a regular file, a file over 2 MiB, or a
-  file that changed while it was read. The write is atomic (temporary sibling, flushed, renamed) and keeps the file's
-  permissions; a new file is created with `0600`. File contents are never logged or returned.
+  harness's settings, with two exceptions that both add entries to the user `mcp.json` of a detected harness:
+  Recommended setup adds a `harness-dashboard` entry (`setup_register_mcp`, `business/src/ecosystem/mcp_register.rs`),
+  and importing a shared setup adds the MCP servers you ticked (see [Shared setups](#shared-setups)). Both use one
+  merge (`merge_servers`, `business/src/ecosystem/mcp_merge.rs`). The webview sends only a harness id (Recommended
+  setup) or a plan id and item ids (import); the file is `<agent dir>/mcp.json` from the harness's own paths. For the
+  dashboard, both the harness and the dashboard must be installed; the app merges `{"command": "harness-dashboard",
+  "args": ["mcp"]}` into `mcpServers` and writes nothing when an entry for the dashboard already exists (in that file or
+  one of the harness's other MCP files, even switched off; it never enables one). Both keep every other key and server
+  and never overwrite an existing name. The merge refuses, and changes nothing, on invalid JSON, a root or
+  `mcpServers` that is not an object, a symlink, anything but a regular file, a file over 2 MiB, or a file that changed
+  while it was read. The write is atomic (temporary sibling, flushed, renamed) and keeps the file's permissions; a new
+  file is created with `0600`. File contents are never logged or returned.
 - **Shell commands from the composer.** `agent_bash` fails with `invalidInput` unless the UI passes `confirmed: true`
   after asking the user; the agent runs the command, not the app.
 - **Git.** `GitCli` (`business/src/git/cli.rs`) runs `git -C <project>` with `--no-pager --literal-pathspecs
@@ -230,9 +241,90 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
 - **Dashboard.** `harness-dashboard mcp` runs in the home directory, without `CLAUDE_CODE_SESSION_ID`, and stops after 30 s without
   a query.
 
+## Shared setups
+
+Share setup (Settings) exports the extensions and MCP servers of your harnesses as a `hud1:` string or a `.json` file
+and imports one made elsewhere. Format reference: [share-setup.md](share-setup.md). Code: `business/src/sync/`.
+
+**What an export contains.** References: marketplace sources, plugin ids, package sources, MCP commands, arguments and
+URLs, and the *names* of environment variables and headers. Never their values, and never `auth`/`oauth`, `cwd` or other
+MCP fields: those are structural, because the exporter copies only an allowlist of fields. Host names stay, since they
+are part of sources and URLs (an internal git host or MCP URL is visible to whoever gets the file). Secrets and machine
+paths inside free-form arguments and URLs are caught by heuristics (see below), which can miss an exotic form: read the
+export list before sharing. Rust rebuilds the bundle from the harnesses' own user files (through `SafeReader`;
+credential files are never opened) on every preview and export, and the webview sends back only item ids.
+
+**What an export leaves out** (listed by name and reason, never by value): MCP servers whose command, arguments or URL
+the redactor would change (`secrets.rs` builds on `Redactor` and `redact_text`), that carry a secret flag (`-p`/`-P` with
+a non-numeric value, `--password`, `--token`, `--key`, `--pat`, `user:password` after `-u`/`--user`/`--auth`, ...), a
+machine path (an absolute, home or drive path after `=` or `@`, or a system or user directory after `:`, `,`, `;` or
+`scheme:///`) or a `${VAR}`/`$NAME`
+reference the server does not declare, the dashboard's own `harness-dashboard` entry (Recommended setup installs it),
+sources with credentials, local or unknown packages, local marketplaces, `file:`/`link:` plugin specs, project-scope
+items and anything over the limits. Export runs the same validators as import, so an exported file imports again without
+invalid items.
+
+**An import is untrusted input.** A pasted string or picked file is decoded defensively (`codec.rs`): pasted text at
+most 128 KiB, compressed payload 96 KiB, decompressed JSON 256 KiB read through a capped reader (zip-bomb guard), at
+most 16 sections, 200 items per kind and 500 in total, serde_json's recursion limit kept. Every field of every item is
+then validated in Rust (`validate.rs`, `validate_source.rs`, `validate_mcp.rs`, `secrets.rs`):
+
+- Display safety: control characters, bidirectional controls and every Unicode format, line-separator and
+  paragraph-separator character (Cf, Zl, Zp), and invisible fillers or variation selectors are rejected.
+- Sources and ids: the `cli_target` charset, no leading `-` (also none right after `npm:`, `git:`, `@` or a ref, and no
+  host starting with `-`), no `..`, no local path, no credentials, no secret-looking value. Marketplace sources are a
+  GitHub `owner/repo` or an `https://` URL; PI sources are `npm:`, `git:` or `https://`, and a bare `ssh://` or
+  `http://` source is refused. An `npm:` spec is a registry name with an optional version, range or tag,
+  `github:owner/repo`, or an `https://`, `git+https://` or `git+ssh://` URL on a host name (a `git:` source takes
+  `https://` only for a URL). Specs that name a path (starting with `.`, `/`, `~`, `\` or a drive letter), a tarball or
+  archive (`.tgz`, `.tar`, `.tar.gz`, `.zip`), `file:`, `link:`, `git+file:`, `http:`, `git+http:` or `git:` are
+  refused. Every URL or git host must be a plain host name.
+- MCP: the server name pattern (`harness-dashboard` is reserved); the command must be a bare program name, not a path
+  and not a shell interpreter; URLs are `http(s)` without user info; arguments and URLs may not reference environment
+  variables unless the item declares the name in `envKeys` (URLs may hold none at all), because the harness expands
+  `${VAR}` and `$NAME` on your machine and could send the value to the setup's author; secret flags in arguments are
+  refused. Machine paths in arguments and URLs are left out on export and, as free-form text, not checked on import:
+  read them in the review.
+- `version` fields must be semver-like (an item with a bad one is invalid); `app` and `createdAt` (`YYYY-MM-DD`, month
+  01 to 12, day 01 to 31) are dropped when they are not.
+
+An invalid item is marked and never applied; one bad item does not stop the others. Unknown harnesses, kinds and fields
+are ignored and only counted. Secret and machine-path detection in free-form arguments are heuristics, not proofs: the
+review lists the exact command line or `mcp.json` entry of every item so you can read what would run.
+
+**What an import can do.** Add only, in the user scope: `omp plugin marketplace add`, `omp plugin install --scope user`,
+`pi install` (no `--local`), and an atomic merge of MCP entries into the harness's user `mcp.json`. It never uninstalls,
+upgrades, downgrades, overwrites or touches project scope, preferences or harness settings. Commands are built in Rust
+from validated fields and go through `cli_target` and the harness's own `cli_action`; the webview sends only a plan id,
+item ids and `confirmed`. The command (`sync_import_apply`) fails with `invalidInput`, running and writing nothing,
+without `confirmed: true`, a valid plan id, and a selection of selectable items of that plan. The plan lives in memory
+until an apply for it starts or a new review replaces it. An attempt that is unconfirmed, made while another import is
+running, or made with another plan id leaves the plan in place; once the plan id matches it is consumed, whether the
+apply then succeeds, fails or refuses the selection. One apply runs at a time. If the harness binary lookup fails, the
+whole import fails with that error and nothing runs; a harness that is not installed only skips its CLI items.
+
+**MCP servers.** A stdio server is arbitrary code that the harness will start. In the review it carries a red notice and
+is not ticked by default, and the app never starts it. An http or sse server runs no program, but it lets a remote
+service offer tools to your agent; it is ticked by default like other items, so check its URL. The entry written holds
+only `command`/`args` or `type`/`url`; a server that declares env or header keys is written with `"enabled": false`, so
+nothing runs until you add the values and enable it. The file is the harness's user `mcp.json` from its own paths,
+never a path from the bundle. The merge is gated by the plan's installed state: a harness that was not installed at
+review time has no file, so its servers are skipped.
+
+**Files and network.** Written: the user `mcp.json` merge above, and an exported file, which only a native save dialog
+can name. Read: a setup file, which only a native open dialog can name, through `SafeReader` (256 KiB). The app opens no
+network connection for sharing; the harness CLIs fetch what the plugin, marketplace and package commands name, as in
+your terminal. Logs record counts and outcomes only, never sources, commands or contents. The result screen shows each
+CLI's redacted summary line.
+
+**Unsigned.** Bundles carry no signature or author. The `hud1:` string's zlib checksum (Adler-32) catches corruption,
+not tampering. Import a setup only from someone you trust and read the review as you would a script (see
+[Limits](#limits)). Installing a marketplace, plugin or package runs the harness CLI, whose npm or git installs may run
+install scripts; the review shows each command.
+
 ## Tauri ACL, CSP and webview
 
-- **Capability** (`src-tauri/capabilities/main.json`, window `main`): 51 `allow-<command>` permissions, one per app
+- **Capability** (`src-tauri/capabilities/main.json`, window `main`): 56 `allow-<command>` permissions, one per app
   command, generated from `COMMANDS` in `src-tauri/build.rs`. There is no `core:*` permission and no plugin
   permission. The dialog, opener, window-state, log, single-instance and updater plugins are driven from Rust only, so
   their JavaScript APIs (and the log plugin's `log` command) are unreachable. `withGlobalTauri` is `false`. Channel
@@ -277,7 +369,8 @@ Details of keys and releases: [release-and-updater-keys.md](release-and-updater-
 | `prefs.json` | The OS app-config directory for the identifier `com.mspiechowicz.harness-useful-desktop` (Tauri `app_config_dir`) | `AppPrefs` only (below). Written atomically (temp file, `sync_all`, rename); directory `0700`, file `0600` on Unix. A corrupt file is renamed to `prefs.json.corrupt-<unix-seconds>` and defaults load. |
 | Window size and position | App state kept by `tauri-plugin-window-state` | Geometry only. |
 | UI choices | Webview `localStorage` | Rail expanded (`harness.railExpanded`), command-palette recents (`harness.paletteRecents`), diff layout. |
-| `mcp.json` of a harness | `<agent dir>/mcp.json` (for example `~/.omp/agent/mcp.json`), the harness's own file | Written only by Recommended setup, after you choose it: one `harness-dashboard` server merged in (see [Process spawning](#process-spawning)). Not app data; nothing else in it is touched. |
+| `mcp.json` of a harness | `<agent dir>/mcp.json` (for example `~/.omp/agent/mcp.json`), the harness's own file | Written only after you choose it: by Recommended setup (one `harness-dashboard` server) or by importing a shared setup (the MCP servers you ticked), merged in (see [Process spawning](#process-spawning)). Not app data; nothing else in it is touched. |
+| Exported setup | A path you choose in the native save dialog (suggested `harness-setup-<date>.json`) | The share file of [Shared setups](#shared-setups): references and key names, no env or header values. Written atomically, only on Save. Not app data; the app never reads it back unless you import it. |
 | Log files | The OS log directory | See [Logging](#logging). Rotated at 1 MiB, 3 files kept. |
 
 `AppPrefs` (`business/src/model/prefs.rs`) has nineteen fields and never holds secrets or chat content:
@@ -321,5 +414,12 @@ command is not granted). Process errors name only the program's file name (`Exec
   `MSpiechowicz/harness-useful-dashboard` with your privileges, as if you ran the install command in your terminal. The
   app confirms first and lists what it changes, but does not pin or verify the script. To avoid it, skip the step and
   install the dashboard yourself.
-- **Heuristics.** The entropy rule and key-name rules can hide harmless values and can miss unusual secrets.
+- **Shared setups are unsigned.** A `hud1:` string or file has no author or signature; the checksum only detects
+  corruption. An imported marketplace, plugin or package is installed by the harness CLI, which runs with your
+  privileges and may execute code from it, and an imported stdio MCP server is a program the harness will run. The app
+  validates what it can, shows the exact steps and asks first, but cannot judge whether the code behind a source is
+  safe. Import only setups you trust.
+- **Heuristics.** The entropy rule and key-name rules can hide harmless values and can miss unusual secrets. The same
+  holds for Share setup: secret flags and machine paths in free-form MCP arguments and URLs are detected by patterns,
+  so an exotic form can be missed on export, and host names are always part of what is shared.
 - **Unsigned installers** on macOS and Windows show an OS warning on first install.

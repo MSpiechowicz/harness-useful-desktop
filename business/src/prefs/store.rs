@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::error::{BusinessError, Result};
-use crate::fs_atomic::{temp_sibling, write_synced};
+use crate::fs_atomic::replace_atomically;
 use crate::model::{AppPrefs, BinaryOverride, ChatDefaults, DEFAULT_LANGUAGE, LANGUAGES};
 use crate::security::SafeReader;
 
@@ -107,15 +107,9 @@ impl PrefsStore {
 
         self.ensure_dir()?;
 
-        let temp = temp_sibling(&self.path());
-        let written = write_synced(&temp, &json)
-            .and_then(|()| fs::rename(&temp, self.path()).map_err(|error| io_error("replacing prefs file", error)));
+        replace_atomically(&self.path(), &json, "replacing prefs file")?;
 
-        if written.is_err() {
-            fs::remove_file(&temp).ok();
-        }
-
-        written.map(|()| prefs)
+        Ok(prefs)
     }
 
     fn ensure_dir(&self) -> Result<()> {

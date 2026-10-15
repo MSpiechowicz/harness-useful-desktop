@@ -21,8 +21,9 @@ their protocol; neither is implemented, and that engine work is not covered here
 7. [Sessions](#7-sessions)
 8. [CLI actions](#8-cli-actions)
 9. [Recommended setup](#9-recommended-setup)
-10. [Tests](#10-tests)
-11. [UI touch points](#11-ui-touch-points)
+10. [Share setup](#10-share-setup)
+11. [Tests](#11-tests)
+12. [UI touch points](#12-ui-touch-points)
 
 ## 1. HarnessId
 
@@ -128,7 +129,7 @@ All file reads go through `SafeReader` (`security::deny`), never `std::fs` direc
 deny-listed files (databases, logs, keys, credential stores, blob caches), follows symlinks hop by hop, accepts
 only regular files, and caps the size (`DEFAULT_MAX_BYTES` = 2 MiB). If your CLI keeps credentials in a file whose
 name or extension is not on the list, add it to `DENIED_NAMES`, `DENIED_EXTENSIONS`, `DENIED_PREFIXES` or
-`DENIED_DIRS` in `business/src/security/deny.rs` and extend the canary fixture (see [Tests](#10-tests)).
+`DENIED_DIRS` in `business/src/security/deny.rs` and extend the canary fixture (see [Tests](#11-tests)).
 
 Config values must pass through `Redactor` before they leave the business layer. The `pi_family` helpers already
 do this: `read_document` reads through `SafeReader`, `section`/`section_from` redact the parsed value into a
@@ -306,7 +307,43 @@ no new command or permission is needed. Add the harness to the setup copy as wel
 `onboarding.setup.*` in `ui/src/lib/i18n/locales/*/onboarding.ts` (all five languages), and the mock in
 `ui/src/lib/ipc/mock/setup-handlers.ts` keeps a per-harness MCP file and skills offer (`Record<HarnessId, ...>`).
 
-## 10. Tests
+## 10. Share setup
+
+**Share setup** (Settings) exports a harness's extensions and MCP servers as a `hud1:` string or file and imports them
+on another machine. A harness takes part by declaring what it can share; the default shares nothing, so a new harness
+opts in kind by kind. Format and behaviour: [share-setup.md](share-setup.md).
+
+```rust
+fn share_support(&self) -> ShareSupport {
+    ShareSupport { marketplaces: false, plugins: false, packages: true, mcp_servers: true }
+}
+```
+
+`ShareSupport` (`business/src/harness/mod.rs`) has one flag per `SyncItemKind`. OMP declares marketplaces, plugins and
+MCP servers; PI declares packages and MCP servers.
+
+- **`mcp_servers`** needs `McpTarget::UserMcpJson` in `companion_setup` ([Recommended setup](#9-recommended-setup)): the
+  export reads, and the import merges into, the file `mcp_target_paths` returns for the harness. Only user scope is
+  shared. With `McpTarget::Unsupported` the harness's servers are blocked as not supported.
+- **`marketplaces`, `plugins`, `packages`** are CLI installs, and the import runs them through `cli_action`
+  ([CLI actions](#8-cli-actions)). Every kind you declare must be supported there: `MarketplaceAdd { source }`
+  for marketplaces, `PluginInstall { target, scope: User }` for plugins, `PackageInstall { source }` for packages
+  (PI also receives no `--local`). The import builds only these actions, never remove, upgrade or project scope. A step
+  the adapter refuses makes the item `blocked`, never offered.
+- **Reading what is installed.** The MCP reader is generic. The other kinds read the harness's own registry files:
+  `collect_kind` in `business/src/sync/collect.rs` (export) and `Machine::read` in `business/src/sync/plan_presence.rs`
+  (statuses `alreadyPresent`, `differentVersion`, `conflict`) currently understand OMP's marketplace and plugin
+  registries and PI's `packages` setting. A harness that stores these elsewhere needs a reader there too (through
+  `SafeReader`, returning only references, never credentials); one that uses the same files reuses the readers.
+- **Validation is shared.** Sources and ids are checked by `business/src/sync/validate.rs` and `validate_source.rs`
+  (MCP fields by `validate_mcp.rs`), which allow `npm:` (registry names, `github:owner/repo`, `https:`/`git+https:`),
+  `git:` and `https://` package sources, GitHub `owner/repo` or `https://` marketplace sources, and `name@marketplace`
+  or npm plugin ids. A harness whose sources look different must extend those validators deliberately, since they are the
+  import's security boundary.
+
+The bundle's harness key is the `HarnessId`, so a new harness appears in exports and imports without format changes.
+
+## 11. Tests
 
 Add tests next to the existing ones in `business/tests/`. Follow the same pattern for the new harness.
 
@@ -322,6 +359,7 @@ Add tests next to the existing ones in `business/tests/`. Follow the same patter
 | CLI actions | `cli_actions.rs` | Argument construction, validation errors, dry run, failure line. |
 | Chat engine | `agent_session.rs`, `agent_manager.rs`, `agent_dialogs.rs`, `agent_failures.rs` | The real session engine against `fake_agent`. |
 | Recommended setup | `setup_status.rs`, `setup_mcp_register.rs` | `setup_status`: skills and MCP state of your harness on an empty machine, with the skills installed and with the MCP entry present (build the fixture files in a temp home). `setup_mcp_register.rs`: the `mcp.json` merge for your `also_read` files. The installer itself is harness-independent (`setup_installer.rs`). |
+| Share setup | `sync_export.rs`, `sync_import.rs`, `sync_import_apply.rs` (helpers in `business/tests/sync_support/`) | Export: what your fixture home yields and what is excluded, with no secret literal in the code or file. Import: statuses on an empty machine and with items present, the exact CLI steps (recording `ProcessRunner`, zero runs for hostile values), idempotent second apply, MCP merge keeps other keys and never overwrites. `sync_codec.rs` and `sync_validate.rs` are harness-independent. |
 | Fixtures | `mock_fixtures.rs` | Add the harness's views and catalog to the exported mock fixtures. |
 
 **Fake agent.** `business/src/bin/fake_agent.rs` plays a JSONL scenario: `{"emit": {...}}` writes a frame,
@@ -336,7 +374,7 @@ Add tests next to the existing ones in `business/tests/`. Follow the same patter
 Run `cargo test -p harness_business`. `cargo test -p harness_business export_` regenerates the bindings and mock
 fixtures; commit the result, because CI fails on a difference.
 
-## 11. UI touch points
+## 12. UI touch points
 
 The UI renders any harness from data, with these exceptions:
 
@@ -348,6 +386,9 @@ The UI renders any harness from data, with these exceptions:
 - **Mock.** `ui/src/lib/ipc/mock/fixtures.ts` builds `Record<HarnessId, ...>` entries for config, extensions,
   commands, session info and session lists. Add the exported fixtures there. `harness_list.json` and
   `project_recent.json` are synthetic (`business/tests/mock_fixtures.rs`); add the new harness summary.
+- **Share setup.** Nothing to change: the export and import rows are data-driven from the plan the backend returns, and
+  the harness name and badge come from the same sources as everywhere else. The sync mock
+  (`ui/src/lib/ipc/mock/sync-handlers.ts`) has scenarios you can extend if you want your harness in them.
 - **Setup step.** The mock's per-harness maps in `ui/src/lib/ipc/mock/setup-handlers.ts` (MCP file, skills offer) and
   the `onboarding.setup.*` copy; see [Recommended setup](#9-recommended-setup).
 - **Copy.** Strings that name the supported harnesses (`shortDescription` and `longDescription` in

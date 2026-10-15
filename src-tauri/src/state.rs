@@ -13,6 +13,7 @@ use harness_business::model::{HarnessId, HarnessSummary};
 use harness_business::pi_family::sessions::SessionCache;
 use harness_business::prefs::PrefsStore;
 use harness_business::process::{TokioRunner, TokioSpawner};
+use harness_business::sync::StoredPlan;
 use tauri::async_runtime::{self, RwLock};
 use tauri::{AppHandle, Manager, Runtime};
 
@@ -51,6 +52,10 @@ pub struct AppState {
     pub releases: CompanionReleases,
     /// Held while the setup step's dashboard installer runs, so only one runs at a time.
     pub dashboard_install: async_runtime::Mutex<()>,
+    /// The latest "Share setup" import review, kept until it is applied or replaced by a newer one.
+    pub sync_plan: Mutex<Option<StoredPlan>>,
+    /// Held while a "Share setup" import is applied, so only one runs at a time.
+    pub sync_apply: async_runtime::Mutex<()>,
 }
 
 impl AppState {
@@ -82,6 +87,8 @@ impl AppState {
             updates: Updates::new(None),
             releases: CompanionReleases::default(),
             dashboard_install: async_runtime::Mutex::new(()),
+            sync_plan: Mutex::new(None),
+            sync_apply: async_runtime::Mutex::new(()),
         }
     }
 }

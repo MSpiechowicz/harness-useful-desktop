@@ -14,7 +14,8 @@
 //!    ([`pi_family`], including saved sessions on disk); running agent chat sessions over that
 //!    protocol ([`agent`]); the project repository through the git CLI ([`git`]); diff review
 //!    prompts ([`review`]); the companion tools and the dashboard's data ([`ecosystem`]); the
-//!    in-app updater's key check and progress reporting ([`update`]).
+//!    in-app updater's key check and progress reporting ([`update`]); sharing a setup between
+//!    machines ([`sync`]).
 //!
 //! Rules every module follows: no shell is ever spawned, every file read goes through
 //! [`security::SafeReader`], every path is derived from an injected [`env::Env`], and nothing
@@ -26,7 +27,7 @@ pub mod dropped;
 pub mod ecosystem;
 pub mod env;
 pub mod error;
-mod fs_atomic;
+pub mod fs_atomic;
 pub mod git;
 pub mod harness;
 pub mod harnesses;
@@ -37,6 +38,7 @@ pub mod process;
 pub mod project;
 pub mod review;
 pub mod security;
+pub mod sync;
 pub mod update;
 
 #[cfg(any(test, feature = "test-support"))]

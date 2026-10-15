@@ -55,7 +55,8 @@ Later calls (`agent_send`, `agent_ui_respond`, `agent_bash`, `agent_stop`) addre
   exit waits for them for at most `EXIT_BUDGET` (`src-tauri/src/lifecycle.rs`). At most `MAX_SESSIONS` (8) run at
   once.
 
-`update_install` uses the same mechanism for download progress (`on_progress: Channel<UpdateProgress>`).
+`update_install` uses the same mechanism for download progress (`on_progress: Channel<UpdateProgress>`), and
+`sync_import_apply` for the progress of a shared-setup import (`on_progress: Channel<SyncProgress>`).
 
 ## Business modules
 
@@ -67,7 +68,8 @@ Later calls (`agent_send`, `agent_ui_respond`, `agent_bash`, `agent_stop`) addre
 | `agent/` | `AgentManager` (sessions by key), `AgentSession` (writer, reader, stderr and exit tasks), `EventSink`, `DeltaCoalescer`. |
 | `git/` | `GitCli` (hardened git runner), status, branches, diff parsing, untracked files. |
 | `review/` | `compose_review`: diff comments into one deterministic Markdown prompt; the UI sends it with `agent_send`. |
-| `ecosystem/` | Companion tools: catalog (copyable install steps, never run), detection, a minimal MCP stdio client, and the pooled `harness-dashboard mcp` connection behind the dashboard widgets. |
+| `ecosystem/` | Companion tools: catalog (copyable install steps, never run), detection, a minimal MCP stdio client, the pooled `harness-dashboard mcp` connection behind the dashboard widgets, Recommended setup (`setup`, `installer`, `mcp_register`) and the atomic `mcp.json` merge it shares with Share setup (`mcp_merge`). |
+| `sync/` | Share setup: export a harness's marketplaces, plugins, packages and MCP servers as a `hud1:` string or JSON file and import them after a review. `schema` (format v1, limits, per-item parsing), `codec` (zlib + base64url, size caps), `validate` and `secrets` (field checks, redaction), `collect` (export, read from the harnesses' files), `plan` (import review against this machine), `apply` (runs the harness CLIs and the MCP merge, idempotent, no rollback). Harnesses opt in per item kind through `Harness::share_support`. Format: [share-setup.md](share-setup.md). |
 | `prefs/`, `project/` | `prefs.json` store (atomic, self-healing), server-managed fields, the active and recent project list. |
 | `security/` | Deny-list and `SafeReader`, redaction, `canonical_within`, `validate_project_dir`, `is_safe_arg`. See [security-privacy.md](security-privacy.md). |
 | `process/` | `ProcessRunner` (run to completion) and `ProcessSpawner` (long-lived child) behind traits; binary resolution without a shell. |
@@ -79,6 +81,12 @@ Later calls (`agent_send`, `agent_ui_respond`, `agent_bash`, `agent_stop`) addre
 Shell modules in `src-tauri/src/`: `commands/` (one file per area), `state.rs` (`AppState`), `access.rs` (link
 allowlist, reveal roots), `agents.rs`, `agent_sink.rs`, `dialogs.rs` (native pickers), `updates.rs`, `window.rs`
 (navigation and pop-up guards), `lifecycle.rs`, `logging.rs`, `error.rs`.
+
+Share setup in the UI lives in `ui/src/features/sync/`: the Settings section (`SyncSection`), the export and import
+dialogs, the review list and the result view, with their state in `sync-export-state` and `sync-import-state`. The
+webview never holds a bundle to apply: it sends `sync_import_apply` a plan id and item ids, and Rust keeps the plan
+(`sync_plan` in `AppState`, one at a time, and an async mutex so only one apply runs). Native dialogs (`dialogs.rs`)
+open the save and open file pickers.
 
 Rules every business module follows: no shell is spawned, every file read goes through `SafeReader`, every path is
 derived from an injected `Env`, and nothing secret reaches the webview unredacted.

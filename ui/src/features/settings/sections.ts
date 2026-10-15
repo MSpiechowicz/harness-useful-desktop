@@ -3,6 +3,7 @@ import Info from '@lucide/svelte/icons/info';
 import FolderClock from '@lucide/svelte/icons/folder-clock';
 import Palette from '@lucide/svelte/icons/palette';
 import Rocket from '@lucide/svelte/icons/rocket';
+import Share2 from '@lucide/svelte/icons/share-2';
 import ShieldCheck from '@lucide/svelte/icons/shield-check';
 import Terminal from '@lucide/svelte/icons/terminal';
 
@@ -40,6 +41,16 @@ export const SETTINGS_SECTIONS: readonly { id: SettingsSectionId; label: string;
     icon: Terminal,
     get keywords() {
       return t('settings.keywords.harnesses');
+    },
+  },
+  {
+    id: 'sync',
+    get label() {
+      return t('settings.section.sync');
+    },
+    icon: Share2,
+    get keywords() {
+      return t('settings.keywords.sync');
     },
   },
   {

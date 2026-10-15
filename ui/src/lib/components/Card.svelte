@@ -21,7 +21,7 @@
 <svelte:element
   this={as}
   class={cx(
-    'rounded-lg border border-line bg-surface-1',
+    'rounded-lg border-card border-line bg-surface-1',
     SHADOWS[elevation],
     padded && 'p-5',
     interactive &&

@@ -1,54 +1,24 @@
 //! Registering the dashboard's MCP server in a user MCP file: creating, merging, recognising an
 //! existing entry, and refusing files it cannot change safely.
 
-use std::path::{Path, PathBuf};
+mod mcp_support;
 
 use harness_business::ecosystem::{mcp_state, register_dashboard_mcp};
-use harness_business::env::Env;
 use harness_business::model::{McpRefusal, McpState};
+use mcp_support::{Home, keys, read};
 use pretty_assertions::assert_eq;
 use serde_json::{Value, json};
-use tempfile::TempDir;
 
-struct Home {
-    dir: TempDir,
-    env: Env,
-}
+#[cfg(unix)]
+use mcp_support::mode;
 
 impl Home {
-    fn new() -> Self {
-        let dir = tempfile::tempdir().unwrap();
-        let env = Env::for_tests(dir.path());
-        Self { dir, env }
-    }
-
-    fn agent(&self, name: &str) -> PathBuf {
-        self.dir.path().join(".omp/agent").join(name)
-    }
-
-    fn write(&self, name: &str, text: &str) -> PathBuf {
-        let path = self.agent(name);
-        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
-        std::fs::write(&path, text).unwrap();
-        path
-    }
-
     fn register(&self) -> McpState {
         register_dashboard_mcp(&self.env, &self.agent("mcp.json"), &[self.agent(".mcp.json")])
     }
 
     fn state(&self) -> McpState {
         mcp_state(&self.env, &self.agent("mcp.json"), &[self.agent(".mcp.json")])
-    }
-
-    /// Every file name in the agent directory, sorted.
-    fn files(&self) -> Vec<String> {
-        let mut names: Vec<String> = std::fs::read_dir(self.agent(""))
-            .unwrap()
-            .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
-            .collect();
-        names.sort();
-        names
     }
 }
 
@@ -72,14 +42,6 @@ fn dashboard_entry() -> Value {
     json!({ "command": "harness-dashboard", "args": ["mcp"] })
 }
 
-fn read(path: &Path) -> Value {
-    serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap()
-}
-
-fn keys(value: &Value) -> Vec<String> {
-    value.as_object().unwrap().keys().cloned().collect()
-}
-
 #[test]
 fn a_missing_file_is_created_with_only_the_dashboard_server() {
     let home = Home::new();
@@ -101,38 +63,13 @@ fn a_missing_file_is_created_with_only_the_dashboard_server() {
     assert_eq!(home.files(), vec!["mcp.json"]);
 
     #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let mode = std::fs::metadata(home.agent("mcp.json")).unwrap().permissions().mode();
-        assert_eq!(mode & 0o777, 0o600);
-    }
+    assert_eq!(mode(&home.agent("mcp.json")), 0o600);
 }
 
 #[test]
 fn other_servers_secrets_and_keys_are_kept_in_order() {
     let home = Home::new();
-    let original = json!({
-        "$schema": "https://example.com/mcp.schema.json",
-        "mcpServers": {
-            "github": {
-                "command": "github-mcp",
-                "env": { "GITHUB_TOKEN": "CANARY-mcp-token-7f3a9c" }
-            },
-            "search": {
-                "url": "https://search.example.com/mcp",
-                "headers": { "Authorization": "Bearer abc.def.ghi" }
-            }
-        },
-        "disabledServers": [],
-        "zLast": { "nested": [1, 2.5, "three"] }
-    });
-    let path = home.write("mcp.json", &serde_json::to_string(&original).unwrap());
-
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o640)).unwrap();
-    }
+    let (original, path) = home.write_with_secrets(json!([]));
 
     assert_eq!(
         home.state(),
@@ -156,11 +93,7 @@ fn other_servers_secrets_and_keys_are_kept_in_order() {
     assert_eq!(home.files(), vec!["mcp.json"]);
 
     #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let mode = std::fs::metadata(&path).unwrap().permissions().mode();
-        assert_eq!(mode & 0o777, 0o640, "the file keeps its permissions");
-    }
+    assert_eq!(mode(&path), 0o640, "the file keeps its permissions");
 }
 
 #[test]
@@ -240,6 +173,18 @@ fn a_blank_file_counts_as_an_empty_object() {
 }
 
 #[test]
+fn a_file_without_servers_gets_them_after_its_other_keys() {
+    let home = Home::new();
+    home.write("mcp.json", r#"{"b":1,"a":{"x":true}}"#);
+
+    assert_eq!(home.register(), configured(FILE, "harness-dashboard"));
+
+    let merged = read(&home.agent("mcp.json"));
+    assert_eq!(keys(&merged), vec!["b", "a", "mcpServers"]);
+    assert_eq!(merged["mcpServers"], json!({ "harness-dashboard": dashboard_entry() }));
+}
+
+#[test]
 fn files_that_cannot_be_changed_safely_are_refused_without_writing() {
     let cases = [
         (
@@ -312,11 +257,7 @@ fn a_failed_write_is_refused_as_such_and_changes_nothing() {
 #[test]
 fn a_symlinked_file_is_refused_and_its_target_untouched() {
     let home = Home::new();
-    let real = home.dir.path().join("dotfiles/mcp.json");
-    std::fs::create_dir_all(real.parent().unwrap()).unwrap();
-    std::fs::write(&real, "{}").unwrap();
-    std::fs::create_dir_all(home.agent("")).unwrap();
-    std::os::unix::fs::symlink(&real, home.agent("mcp.json")).unwrap();
+    let real = home.symlink_mcp_file();
 
     assert_eq!(home.register(), refused(McpRefusal::Symlink));
     assert_eq!(std::fs::read_to_string(&real).unwrap(), "{}");

@@ -37,6 +37,10 @@ privacy. Made with the app's demo data. [Download the full-quality 4K video](htt
   after you confirm each part, installs the Harness Dashboard with its official installer, installs the
   [Harness Skills](https://github.com/MSpiechowicz/harness-useful-skills) (OMP as a plugin, PI as a package) and
   registers the dashboard as an MCP server in each detected harness's user `mcp.json`.
+- **Share setup.** In Settings, export your marketplaces, plugins, packages and MCP servers as a `hud1:` string or a
+  `.json` file (references and key names; env and header values are never shared), and import one on another machine. An import always shows a review of
+  the exact commands and files, adds only what you tick after you confirm, and never removes or overwrites anything.
+  Format: [docs/share-setup.md](docs/share-setup.md).
 - **Command palette and shortcuts.** Keyboard-first navigation (`Ctrl/Cmd+K`, `Ctrl/Cmd+1..7`), plus a shortcuts
   overlay.
 - **Themes.** Light, dark or follow the system, with a motion setting (full, reduced, off).
@@ -178,7 +182,7 @@ business/      Rust crate harness_business: harness adapters, agent sessions, gi
 src-tauri/     Thin Tauri shell: IPC commands, app state, capabilities (ACL), CSP, window and updater wiring.
 ui/            Svelte 5 app: features, stores, IPC client, mock transport, generated bindings and fixtures.
 scripts/       Guards (file size, forbidden patterns, IPC contract) and the release version script.
-docs/          Architecture, adding a harness, security and privacy, releases and updater keys.
+docs/          Architecture, adding a harness, security and privacy, the Share setup format, releases and updater keys.
 .github/       CI and release workflows.
 ```
 

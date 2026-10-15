@@ -167,17 +167,9 @@
     <ol class="grid grid-cols-[repeat(4,minmax(0,1fr))_auto]">
       {#each LOOP as step, index (step.title)}
         <li class="relative flex flex-col items-start gap-2 pr-6">
-          <span
-            class="absolute top-4 right-2 left-[40px] h-px bg-line-strong"
-            aria-hidden="true"
-          ></span>
-          <!-- The node is SVG, so its ring is always anti-aliased. -->
-          <span class="relative grid size-8 place-items-center text-xs font-semibold text-accent-text tabular">
-            <svg class="absolute -inset-1 size-10 overflow-visible" viewBox="0 0 40 40" aria-hidden="true">
-              <circle cx="20" cy="20" r="15.5" fill="var(--color-accent)" fill-opacity="0.1" stroke="var(--color-accent)" stroke-opacity="0.6" stroke-width="1" />
-            </svg>
-            <span class="relative">{index + 1}</span>
-          </span>
+          <span class="absolute top-[15px] right-2 left-[44px] h-0.5 rounded-full bg-accent/45" aria-hidden="true"></span>
+          <!-- Solid accent nodes on a visible line, like the Share setup steps. -->
+          <span class="relative grid size-8 place-items-center rounded-full bg-accent-fill text-xs font-semibold text-on-accent tabular">{index + 1}</span>
           <p class="mt-1 flex items-center gap-2 text-sm font-medium text-fg"><step.icon class="text-fg-3" size={14} aria-hidden="true" />{step.title}</p>
           <p class="text-xs text-fg-3">{step.body}</p>
           {#if step.keys}<Kbd keys={step.keys} />{/if}
@@ -187,8 +179,9 @@
       <!-- The loop closes: a dashed repeat ring, built like a step so its title sits level with the others. -->
       <li class="flex flex-col items-start gap-2" aria-label={t('onboarding.project.loop.repeatAria')}>
         <span class="relative grid size-8 place-items-center text-accent-text" aria-hidden="true">
-          <svg class="absolute -inset-1 size-10" viewBox="0 0 40 40">
-            <circle cx="20" cy="20" r="15.5" fill="var(--color-accent)" fill-opacity="0.1" stroke="var(--color-accent)" stroke-opacity="0.6" stroke-width="1" stroke-dasharray="3 3" />
+          <!-- The dashes divide the circle exactly (circumference 94.25 = 20 x 4.712), so every gap is the same. -->
+          <svg class="absolute inset-0 size-8" viewBox="0 0 32 32">
+            <circle cx="16" cy="16" r="15" fill="var(--color-accent)" fill-opacity="0.12" stroke="var(--color-accent)" stroke-width="2" stroke-dasharray="4.712 4.712" />
           </svg>
           <Repeat class="relative" size={14} />
         </span>

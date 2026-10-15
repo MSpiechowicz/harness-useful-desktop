@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-sync-export-save"
+description = "Enables the sync_export_save command without any pre-configured scope."
+commands.allow = ["sync_export_save"]
+
+[[permission]]
+identifier = "deny-sync-export-save"
+description = "Denies the sync_export_save command without any pre-configured scope."
+commands.deny = ["sync_export_save"]

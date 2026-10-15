@@ -15,6 +15,7 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.section.projects': 'Projets',
   'settings.section.updates': 'Mises à jour',
   'settings.section.privacy': 'Confidentialité et sécurité',
+  'settings.section.sync': 'Partager la configuration',
   'settings.section.about': 'À propos',
 
   'settings.keywords.appearance': 'thème animations mouvement sombre clair animation langue',
@@ -23,6 +24,7 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.keywords.projects': 'récents dossiers',
   'settings.keywords.updates': 'version mise à jour release installer rechercher nouvelle',
   'settings.keywords.privacy': 'données télémétrie diagnostic effacer confidentialité',
+  'settings.keywords.sync': 'exporter importer partager sauvegarde copier code fichier extensions plugins paquets marketplaces mcp serveurs machine',
   'settings.keywords.about': 'version build à propos',
 
   'settings.theme.title': 'Thème',

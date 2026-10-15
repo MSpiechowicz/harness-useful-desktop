@@ -13,6 +13,12 @@ pub struct NativeText {
     pub quit: &'static str,
     /// Title of the folder dialog that opens a project.
     pub open_project_folder: &'static str,
+    /// Title of the file dialog that picks a setup file to import ("Share setup").
+    pub open_setup_file: &'static str,
+    /// Title of the save dialog that writes an exported setup file.
+    pub save_setup_file: &'static str,
+    /// Label of the setup file type in those dialogs.
+    pub setup_files: &'static str,
     /// Title of the file dialog that picks a harness executable; `{binary}` is the binary name.
     choose_executable: &'static str,
 }
@@ -29,6 +35,9 @@ const EN: NativeText = NativeText {
     hide_window: "Hide window",
     quit: "Quit Harness Desktop",
     open_project_folder: "Open a project folder",
+    open_setup_file: "Open a setup file",
+    save_setup_file: "Save the setup",
+    setup_files: "Setup files",
     choose_executable: "Choose the `{binary}` executable",
 };
 
@@ -37,6 +46,9 @@ const DE: NativeText = NativeText {
     hide_window: "Fenster ausblenden",
     quit: "Harness Desktop beenden",
     open_project_folder: "Projektordner öffnen",
+    open_setup_file: "Setup-Datei öffnen",
+    save_setup_file: "Setup speichern",
+    setup_files: "Setup-Dateien",
     choose_executable: "Programmdatei `{binary}` auswählen",
 };
 
@@ -45,6 +57,9 @@ const ES: NativeText = NativeText {
     hide_window: "Ocultar ventana",
     quit: "Salir de Harness Desktop",
     open_project_folder: "Abrir una carpeta de proyecto",
+    open_setup_file: "Abrir un archivo de configuración",
+    save_setup_file: "Guardar la configuración",
+    setup_files: "Archivos de configuración",
     choose_executable: "Elige el ejecutable `{binary}`",
 };
 
@@ -53,6 +68,9 @@ const FR: NativeText = NativeText {
     hide_window: "Masquer la fenêtre",
     quit: "Quitter Harness Desktop",
     open_project_folder: "Ouvrir un dossier de projet",
+    open_setup_file: "Ouvrir un fichier de configuration",
+    save_setup_file: "Enregistrer la configuration",
+    setup_files: "Fichiers de configuration",
     choose_executable: "Choisir l’exécutable `{binary}`",
 };
 
@@ -61,6 +79,9 @@ const PL: NativeText = NativeText {
     hide_window: "Ukryj okno",
     quit: "Zakończ Harness Desktop",
     open_project_folder: "Otwórz folder projektu",
+    open_setup_file: "Otwórz plik konfiguracji",
+    save_setup_file: "Zapisz konfigurację",
+    setup_files: "Pliki konfiguracji",
     choose_executable: "Wybierz plik wykonywalny `{binary}`",
 };
 
@@ -86,7 +107,15 @@ mod tests {
         for lang in LANGUAGES {
             let text = native_text(lang);
 
-            for entry in [text.show_window, text.hide_window, text.quit, text.open_project_folder] {
+            for entry in [
+                text.show_window,
+                text.hide_window,
+                text.quit,
+                text.open_project_folder,
+                text.open_setup_file,
+                text.save_setup_file,
+                text.setup_files,
+            ] {
                 assert!(!entry.trim().is_empty(), "{lang} has an empty entry");
             }
 

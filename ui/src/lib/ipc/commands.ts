@@ -37,6 +37,12 @@ import type { SessionMessagesPage } from './bindings/SessionMessagesPage';
 import type { SessionRef } from './bindings/SessionRef';
 import type { SessionSummary } from './bindings/SessionSummary';
 import type { SessionTree } from './bindings/SessionTree';
+import type { SyncExported } from './bindings/SyncExported';
+import type { SyncExportPreview } from './bindings/SyncExportPreview';
+import type { SyncImportPlan } from './bindings/SyncImportPlan';
+import type { SyncImportResult } from './bindings/SyncImportResult';
+import type { SyncInput } from './bindings/SyncInput';
+import type { SyncProgress } from './bindings/SyncProgress';
 import type { UiResponse } from './bindings/UiResponse';
 import type { UpdateInfo } from './bindings/UpdateInfo';
 import type { UpdateProgress } from './bindings/UpdateProgress';
@@ -102,6 +108,13 @@ export const commands = {
   setup_status: cmd<undefined, RecommendedSetup>(),
   setup_install_dashboard: cmd<{ confirmed: boolean; onLog: EventSink<InstallLogLine> }, DashboardInstallResult>(),
   setup_register_mcp: cmd<{ harness: HarnessId }, McpState>(),
+  sync_export_preview: cmd<undefined, SyncExportPreview>(),
+  sync_export: cmd<{ selected: string[] }, SyncExported>(),
+  /** Opens the native save dialog; null when the user cancelled it, else the path written. */
+  sync_export_save: cmd<{ selected: string[] }, string | null>(),
+  /** A file input opens the native picker; null when the user cancelled it. */
+  sync_import_preview: cmd<{ input: SyncInput }, SyncImportPlan | null>(),
+  sync_import_apply: cmd<{ planId: string; selected: string[]; confirmed: boolean; onProgress: EventSink<SyncProgress> }, SyncImportResult>(),
   update_check: cmd<undefined, UpdateInfo | null>(),
   update_install: cmd<{ onProgress: EventSink<UpdateProgress> }, null>(),
   app_relaunch: cmd<undefined, null>(),

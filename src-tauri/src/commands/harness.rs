@@ -153,6 +153,14 @@ pub(super) async fn detect(state: &AppState, harness: HarnessId) -> CommandResul
 /// The detected binary of `harness` (detecting it when the cache has no entry yet); `notFound`
 /// when it is not installed.
 pub(super) async fn installed_binary(state: &AppState, harness: HarnessId) -> CommandResult<ResolvedBinary> {
+    detected_binary(state, harness)
+        .await?
+        .ok_or_else(|| BusinessError::NotFound(format!("{harness:?} is not installed")).into())
+}
+
+/// The detected binary of `harness` (detecting it when the cache has no entry yet), `None` when it
+/// is not installed; an error only when detecting failed.
+pub(super) async fn detected_binary(state: &AppState, harness: HarnessId) -> CommandResult<Option<ResolvedBinary>> {
     let cached = state.detections.read().await.get(&harness).cloned();
 
     let summary = match cached {
@@ -163,11 +171,11 @@ pub(super) async fn installed_binary(state: &AppState, harness: HarnessId) -> Co
     let detection = summary.detection;
 
     match detection.binary_path {
-        Some(path) if detection.installed => Ok(ResolvedBinary {
+        Some(path) if detection.installed => Ok(Some(ResolvedBinary {
             path: PathBuf::from(path),
             is_batch_script: detection.is_batch_script,
-        }),
-        _ => Err(BusinessError::NotFound(format!("{harness:?} is not installed")).into()),
+        })),
+        _ => Ok(None),
     }
 }
 
@@ -201,14 +209,7 @@ mod tests {
     use harness_business::model::IpcErrorCode;
 
     use super::*;
-    use crate::test_support::TempDir;
-
-    fn state_at(dir: &TempDir) -> AppState {
-        let home = dir.path().join("home");
-        std::fs::create_dir_all(&home).expect("create home");
-
-        AppState::new(dir.path().join("config"), Env::for_tests(home))
-    }
+    use crate::test_support::{TempDir, home_state};
 
     fn project_dir(dir: &TempDir, name: &str) -> PathBuf {
         let path = dir.path().join("home").join(name);
@@ -227,7 +228,7 @@ mod tests {
     #[test]
     fn config_view_accepts_no_project_and_known_projects() {
         let dir = TempDir::new("view-known");
-        let state = state_at(&dir);
+        let state = home_state(&dir);
         let recent = project_dir(&dir, "recent");
         let active = project_dir(&dir, "active");
         state.prefs.with(|store| {
@@ -244,7 +245,7 @@ mod tests {
     #[test]
     fn config_view_refuses_unknown_projects() {
         let dir = TempDir::new("view-unknown");
-        let state = state_at(&dir);
+        let state = home_state(&dir);
         let stranger = project_dir(&dir, "stranger");
 
         let error = view(&state, Some(&stranger)).expect_err("unknown project");

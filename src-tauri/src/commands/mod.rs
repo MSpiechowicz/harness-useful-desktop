@@ -13,6 +13,7 @@ pub mod review;
 pub mod sessions;
 pub mod setup;
 pub mod sound;
+pub mod sync;
 pub mod system;
 pub mod updates;
 

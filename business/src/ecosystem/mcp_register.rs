@@ -5,36 +5,23 @@
 //!   `harness-dashboard` (any directory, `.exe` or not) with the arguments `["mcp"]`, in the target
 //!   file or one of the `also_read` files (first file wins). It is disabled when the target file's
 //!   `disabledServers` names it, or it sets `"enabled": false` and `enabledServers` does not name it.
-//! - Register: merges `{"command": "harness-dashboard", "args": ["mcp"]}` into `mcpServers`, keeping
-//!   every other key, server and value in order, or creates the file (mode `0600`) holding only
-//!   that. A blank file counts as `{}`. Nothing is written when the server is found.
-//! - Refused, nothing written: invalid JSON, a root or `mcpServers` that is not an object, a symlink,
-//!   anything but a regular file, more than 2 MiB, or a file that cannot be read.
-//! - The write is atomic (temporary sibling, flushed, renamed over the file) and keeps the file's
-//!   permissions. A file that changed meanwhile is read again once, then refused; a write that
-//!   fails (or a second change) is refused as `WriteFailed`, the file left as it was.
+//! - Register: merges `{"command": "harness-dashboard", "args": ["mcp"]}` into `mcpServers` under
+//!   [`merge_servers`](super::mcp_merge::merge_servers)'s rules: other keys, servers and values
+//!   kept in order, a missing file created (mode `0600`), a blank file counted as `{}`, the same
+//!   refusals, an atomic write keeping permissions, one re-read when the file changed meanwhile.
+//!   Nothing is written when the server is found.
 //!
 //! File contents are never logged or returned; states name the file by its home-relative path.
 
-use std::fs::{self, Metadata, Permissions};
 use std::path::{Path, PathBuf};
-use std::time::SystemTime;
 
 use serde_json::{Map, Value, json};
 
 use super::catalog::{DASHBOARD_BINARY, DASHBOARD_MCP_SERVER};
+use super::mcp_merge::{MergeOutcome, SERVERS, Target, load, merge_servers_unless};
 use crate::env::Env;
-use crate::error::BusinessError;
-use crate::fs_atomic::{temp_sibling, write_synced};
 use crate::model::{McpRefusal, McpState};
 use crate::pi_family::{string_list, tilde};
-use crate::security::SafeReader;
-
-/// Largest MCP file read or changed.
-const MAX_MCP_BYTES: u64 = SafeReader::DEFAULT_MAX_BYTES;
-
-/// The key holding the servers.
-const SERVERS: &str = "mcpServers";
 
 /// What [`mcp_state`] reports for `path`, read-only (see the module docs).
 pub fn mcp_state(env: &Env, path: &Path, also_read: &[PathBuf]) -> McpState {
@@ -47,106 +34,22 @@ pub fn mcp_state(env: &Env, path: &Path, also_read: &[PathBuf]) -> McpState {
 /// Registers the dashboard's server in `path` unless it is already there or the file is refused
 /// (see the module docs), and returns the resulting state.
 pub fn register_dashboard_mcp(env: &Env, path: &Path, also_read: &[PathBuf]) -> McpState {
-    for _attempt in 0..2 {
-        let target = match load(path) {
-            Ok(target) => target,
-            Err(reason) => return refused(env, path, reason),
-        };
+    let entry = [(
+        DASHBOARD_MCP_SERVER.to_owned(),
+        json!({ "command": DASHBOARD_BINARY, "args": ["mcp"] }),
+    )];
 
-        if let Some(state) = found(env, path, &target, also_read) {
-            return state;
-        }
+    // Every read of the file is checked for the server first, so an entry that appeared meanwhile
+    // (under any name) is reported rather than doubled.
+    let merged = merge_servers_unless(path, &entry, |target| found(env, path, target, also_read));
 
-        match write(path, target) {
-            Ok(()) => {
-                return McpState::Configured {
-                    file: tilde(env, path),
-                    name: DASHBOARD_MCP_SERVER.to_owned(),
-                };
-            }
-            Err(WriteError::Changed) => {}
-            Err(WriteError::Failed) => return refused(env, path, McpRefusal::WriteFailed),
-        }
-    }
-
-    // Changed again after the second read.
-    refused(env, path, McpRefusal::WriteFailed)
-}
-
-/// The target file as read.
-enum Target {
-    Absent,
-    Present {
-        document: Map<String, Value>,
-        stamp: Stamp,
-        permissions: Permissions,
-    },
-}
-
-/// What tells that a file changed since it was read.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct Stamp {
-    is_file: bool,
-    len: u64,
-    modified: Option<SystemTime>,
-}
-
-impl Stamp {
-    fn of(metadata: &Metadata) -> Self {
-        Self {
-            is_file: metadata.file_type().is_file(),
-            len: metadata.len(),
-            modified: metadata.modified().ok(),
-        }
-    }
-}
-
-fn load(path: &Path) -> Result<Target, McpRefusal> {
-    let metadata = match fs::symlink_metadata(path) {
-        Ok(metadata) => metadata,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Target::Absent),
-        Err(_) => return Err(McpRefusal::Unreadable),
-    };
-
-    if metadata.file_type().is_symlink() {
-        return Err(McpRefusal::Symlink);
-    }
-
-    if !metadata.is_file() {
-        return Err(McpRefusal::NotRegularFile);
-    }
-
-    if metadata.len() > MAX_MCP_BYTES {
-        return Err(McpRefusal::TooLarge);
-    }
-
-    let text = match SafeReader::read_to_string(path, MAX_MCP_BYTES) {
-        Ok(text) => text,
-        // The checks above passed, so this is invalid UTF-8 (or a file swapped meanwhile).
-        Err(BusinessError::InvalidInput(_)) => return Err(McpRefusal::Unparsable),
-        Err(_) => return Err(McpRefusal::Unreadable),
-    };
-
-    Ok(Target::Present {
-        document: parse(&text)?,
-        stamp: Stamp::of(&metadata),
-        permissions: metadata.permissions(),
-    })
-}
-
-fn parse(text: &str) -> Result<Map<String, Value>, McpRefusal> {
-    if text.trim().is_empty() {
-        return Ok(Map::new());
-    }
-
-    let value: Value = serde_json::from_str(text).map_err(|_| McpRefusal::Unparsable)?;
-    let Value::Object(document) = value else {
-        return Err(McpRefusal::NotAnObject);
-    };
-
-    match document.get(SERVERS) {
-        None | Some(Value::Object(_)) => Ok(document),
-        Some(_) => Err(McpRefusal::ServersNotAnObject),
+    match merged {
+        Err(state) => state,
+        Ok(MergeOutcome::Refused(reason)) => refused(env, path, reason),
+        Ok(MergeOutcome::Merged(_)) => McpState::Configured {
+            file: tilde(env, path),
+            name: DASHBOARD_MCP_SERVER.to_owned(),
+        },
     }
 }
 
@@ -215,75 +118,5 @@ fn refused(env: &Env, path: &Path, reason: McpRefusal) -> McpState {
     McpState::Refused {
         file: tilde(env, path),
         reason,
-    }
-}
-
-/// Why a write did not happen.
-enum WriteError {
-    /// The file changed after it was read.
-    Changed,
-    /// Creating, writing or renaming failed.
-    Failed,
-}
-
-/// Writes `target` plus the dashboard's server atomically over `path`.
-fn write(path: &Path, target: Target) -> Result<(), WriteError> {
-    let (mut document, original) = match target {
-        Target::Absent => (Map::new(), None),
-        Target::Present {
-            document,
-            stamp,
-            permissions,
-        } => (document, Some((stamp, permissions))),
-    };
-
-    let servers = document.entry(SERVERS).or_insert_with(|| Value::Object(Map::new()));
-    let Value::Object(servers) = servers else {
-        return Err(WriteError::Failed);
-    };
-    servers.insert(
-        DASHBOARD_MCP_SERVER.to_owned(),
-        json!({ "command": DASHBOARD_BINARY, "args": ["mcp"] }),
-    );
-
-    let mut bytes = serde_json::to_vec_pretty(&Value::Object(document)).map_err(|_| WriteError::Failed)?;
-    bytes.push(b'\n');
-
-    if original.is_none()
-        && let Some(parent) = path.parent()
-    {
-        fs::create_dir_all(parent).map_err(|_| WriteError::Failed)?;
-    }
-
-    let temp = temp_sibling(path);
-    let written = replace(path, &temp, &bytes, original.as_ref());
-
-    if written.is_err() {
-        fs::remove_file(&temp).ok();
-    }
-
-    written
-}
-
-fn replace(path: &Path, temp: &Path, bytes: &[u8], original: Option<&(Stamp, Permissions)>) -> Result<(), WriteError> {
-    write_synced(temp, bytes).map_err(|_| WriteError::Failed)?;
-
-    if let Some((_, permissions)) = original {
-        fs::set_permissions(temp, permissions.clone()).map_err(|_| WriteError::Failed)?;
-    }
-
-    if !unchanged(path, original.map(|(stamp, _)| stamp)) {
-        return Err(WriteError::Changed);
-    }
-
-    fs::rename(temp, path).map_err(|_| WriteError::Failed)
-}
-
-/// True when `path` still matches what was read (`None`: it still does not exist).
-fn unchanged(path: &Path, stamp: Option<&Stamp>) -> bool {
-    match (fs::symlink_metadata(path), stamp) {
-        (Err(error), None) => error.kind() == std::io::ErrorKind::NotFound,
-        (Ok(metadata), Some(stamp)) => Stamp::of(&metadata) == *stamp,
-        _ => false,
     }
 }

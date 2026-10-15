@@ -20,7 +20,7 @@
   ];
 </script>
 
-<section aria-label={t('settings.about.label')} class="flex flex-col gap-4 rounded-lg border border-line bg-surface-1 p-5 shadow-raised">
+<section aria-label={t('settings.about.label')} class="flex flex-col gap-4 rounded-lg border-card border-line bg-surface-1 p-5 shadow-raised">
   <!-- The badge sits on the title line, like the controls of a settings row. -->
   <div class="flex items-start gap-5">
     <Logo size={44} class="self-center" />
@@ -35,7 +35,7 @@
       {/if}
     </div>
 
-    <Badge tone="success" class="mt-1 px-3 py-1"><ShieldCheck size={14} aria-hidden="true" />{t('settings.about.localOnly')}</Badge>
+    <Badge tone="success" size="lg" class="mt-1"><ShieldCheck size={14} aria-hidden="true" />{t('settings.about.localOnly')}</Badge>
   </div>
 
   <ul class="flex flex-wrap gap-2 border-t border-line pt-4" aria-label={t('settings.about.links')}>
