@@ -1,3 +1,16 @@
+# [0.14.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.13.0...v0.14.0) (2026-10-15)
+
+
+### Bug Fixes
+
+* **chat:** centre the status pill icon in its 16px cell ([b49b017](https://github.com/MSpiechowicz/harness-useful-desktop/commit/b49b0178570719e63c4f11f55406e249f5a85547))
+* **extensions:** auto-update refreshes each marketplace by name so one broken catalog no longer blocks the rest ([585013d](https://github.com/MSpiechowicz/harness-useful-desktop/commit/585013d5bbc30fc6ad047717d5ea1a0a4a0aacbc))
+
+
+### Features
+
+* **settings:** move the search field into the header bar ([7d8a6c3](https://github.com/MSpiechowicz/harness-useful-desktop/commit/7d8a6c3b31cf41185a09556391da6bfb3e24b4f8))
+
 # [0.13.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.12.0...v0.13.0) (2026-10-15)
 
 
