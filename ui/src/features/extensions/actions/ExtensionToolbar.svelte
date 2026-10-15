@@ -1,6 +1,7 @@
 <script lang="ts">
   import ArrowUpFromLine from '@lucide/svelte/icons/arrow-up-from-line';
   import Plus from '@lucide/svelte/icons/plus';
+  import FolderSearch from '@lucide/svelte/icons/folder-search';
   import RefreshCw from '@lucide/svelte/icons/refresh-cw';
 
   import Button from '$lib/components/Button.svelte';
@@ -11,6 +12,7 @@
   import Popover from '$lib/components/Popover.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
   import type { ExtensionAction } from '$lib/ipc/bindings/ExtensionAction';
+  import { revealPath } from '$lib/ipc/actions';
   import { ecosystem } from '$lib/stores/ecosystem.svelte';
   import { harness } from '$lib/stores/harness.svelte';
   import { extensionsView } from '$lib/stores/views.svelte';
@@ -63,6 +65,13 @@
     entry('title.updateAllPackages', { icon: ArrowUpFromLine, needs: 'packages', action: { type: 'packageUpdate', source: null } }),
   ];
 
+  interface Props {
+    /** The file or folder of the selected item, offered as "Reveal in file manager" in the "⋯" menu; none for an item with no place on disk. */
+    reveal?: string | null;
+  }
+
+  let { reveal = null }: Props = $props();
+
   let composing = $state<ComposeKind | null>(null);
 
   const capabilities = $derived(harness.active?.capabilities);
@@ -107,10 +116,22 @@
   </Popover>
 {/if}
 
-{#if bulk.length > 0}
+{#if bulk.length > 0 || reveal}
   <MoreMenu label={t('extensions.menu.label')} panelClass="w-60">
     {#snippet children({ close })}
       {@render entries(bulk, close)}
+
+      {#if reveal}
+        <MenuItem
+          icon={FolderSearch}
+          onclick={() => {
+            close();
+            void revealPath(reveal);
+          }}
+        >
+          {t('extensions.reveal')}
+        </MenuItem>
+      {/if}
     {/snippet}
   </MoreMenu>
 {/if}

@@ -17,9 +17,11 @@
     entries: StatusEntry[];
     /** Pending review comments per path. */
     commentCounts: ReadonlyMap<string, number>;
+    /** Called after a click chooses a file, e.g. to put a drawer away. */
+    onpick?: () => void;
   }
 
-  let { entries, commentCounts }: Props = $props();
+  let { entries, commentCounts, onpick }: Props = $props();
 
   const TONE_CLASSES: Record<StatusTone, string> = {
     success: 'bg-success-wash text-success',
@@ -120,7 +122,10 @@
                   'flex w-full items-center gap-2.5 rounded-md border min-h-[36px] px-2.5 py-1 text-left transition-colors duration-[var(--dur-fast)] focus-visible:outline-offset-[-1px]',
                   selected ? 'border-accent/30 bg-accent-wash' : 'border-transparent hover:bg-hover active:bg-press',
                 )}
-                onclick={() => git.select(entry.path, group.section)}
+                onclick={() => {
+                  git.select(entry.path, group.section);
+                  onpick?.();
+                }}
                 onkeydown={(event) => onKeydown(event, row)}
               >
                 <span class={cx('grid size-5 shrink-0 place-items-center rounded-sm font-mono text-[11px] font-semibold', TONE_CLASSES[statusTone(status)])} title={statusName(status)}>

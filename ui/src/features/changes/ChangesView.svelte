@@ -8,6 +8,9 @@
   import X from '@lucide/svelte/icons/x';
   import { untrack } from 'svelte';
 
+  import DrawerToggle from '$lib/components/DrawerToggle.svelte';
+  import { PaneDrawer } from '$lib/components/pane-drawer.svelte';
+
   import Button from '$lib/components/Button.svelte';
   import SearchField from '$lib/components/SearchField.svelte';
   import SegmentedControl from '$lib/components/SegmentedControl.svelte';
@@ -41,9 +44,11 @@
   /** How often the open view re-reads git while it is visible. */
   const REFRESH_MS = 4000;
 
+
   const active = $derived(project.active);
   const costArgs = $derived(git.status?.branch && active ? { branch: git.status.branch, project: active.path } : null);
   let discarding = $state<StatusEntry | null>(null);
+  const drawer = new PaneDrawer();
   const selected = $derived(git.entries.find((entry) => entry.path === git.selected));
 
   // Switching to this view (or project) re-reads git, so edits the agent just made are visible.
@@ -101,6 +106,7 @@
 
     return t('changes.empty.clean');
   });
+
 </script>
 
 <div class="flex size-full min-h-0 flex-col">
@@ -113,6 +119,7 @@
         <div class="w-[340px] max-[900px]:w-[220px]">
           <SearchField bind:value={() => git.search, (query) => git.setSearch(query)} label={t('changes.search.label')} placeholder={t('changes.search.placeholder')} shortcut="mod+f" onkeydown={onSearchKey} />
         </div>
+        <DrawerToggle {drawer} label={t('changes.drawer.label')} count={git.status.entries.length} />
         <SegmentedControl options={modes} value={diffMode.value} label={t('changes.header.layout')} onchange={(mode) => diffMode.set(mode)} />
         <ChangesMenu project={active.name} file={selected} ondiscardfile={(entry) => (discarding = entry)} />
       {/if}
@@ -161,49 +168,47 @@
           </EmptyState>
         </div>
       {:else}
-      <div class="flex size-full min-h-0 flex-col">
-        <div class="min-h-0 flex-1">
-          <ListDetail label={t('changes.resize')} size={320}>
-            {#snippet list()}
-              {#if git.filter}
-                <div class="flex shrink-0 border-b border-line px-3 py-2">
-                  <span class="inline-flex h-control min-w-0 items-center gap-1 rounded-full bg-accent-wash pr-1.5 pl-3 text-xs font-medium text-accent-text" data-testid="touched-filter">
-                    <span class="truncate">{t('changes.header.touched', { label: git.filter.label, files: count(git.filter.paths.length, 'file') })}</span>
-                    <button type="button" aria-label={t('changes.showAll')} class="grid size-7 shrink-0 place-items-center rounded-full hover:bg-hover" onclick={() => git.clearFilter()}>
-                      <X size={ICON.sm} aria-hidden="true" />
-                    </button>
-                  </span>
-                </div>
-              {/if}
-              <div class="relative min-h-0 flex-1 overflow-y-auto"><FileList entries={git.entries} {commentCounts} /></div>
-              {#if costArgs}
-                <div class="flex h-10 shrink-0 items-center px-2 empty:hidden">
-                  <CostChip kind="branch" args={costArgs} align="start" side="top" quiet />
-                </div>
-              {/if}
-            {/snippet}
-            {#snippet detail()}
-              {#if selected}
-                {#key selected.path}
-                  <DiffPanel entry={selected} project={active.path} />
-                {/key}
-              {:else}
-                <div class="grid size-full place-items-center">
-                  <EmptyState icon={SearchX} title={emptyMessage}>
-                    {#snippet action()}
-                      {#if git.filter}<Button onclick={() => git.clearFilter()}>{t('changes.showAll')}</Button>{/if}
-                    {/snippet}
-                  </EmptyState>
-                </div>
-              {/if}
-            {/snippet}
-          </ListDetail>
-        </div>
-
+      <div class="min-h-0 size-full">
+        <ListDetail label={t('changes.resize')} size={320} {drawer} drawerLabel={t('changes.drawer.label')}>
+          {#snippet list()}
+            {#if git.filter}
+              <div class="flex shrink-0 border-b border-line px-3 py-2">
+                <span class="inline-flex h-control min-w-0 items-center gap-1 rounded-full bg-accent-wash pr-1.5 pl-3 text-xs font-medium text-accent-text" data-testid="touched-filter">
+                  <span class="truncate">{t('changes.header.touched', { label: git.filter.label, files: count(git.filter.paths.length, 'file') })}</span>
+                  <button type="button" aria-label={t('changes.showAll')} class="grid size-7 shrink-0 place-items-center rounded-full hover:bg-hover" onclick={() => git.clearFilter()}>
+                    <X size={ICON.sm} aria-hidden="true" />
+                  </button>
+                </span>
+              </div>
+            {/if}
+            <div class="relative min-h-0 flex-1 overflow-y-auto"><FileList entries={git.entries} {commentCounts} onpick={() => drawer.close()} /></div>
+            {#if costArgs}
+              <div class="flex h-10 shrink-0 items-center px-2 empty:hidden">
+                <CostChip kind="branch" args={costArgs} align="start" side="top" quiet />
+              </div>
+            {/if}
+          {/snippet}
+          {#snippet detail()}
+            {#if selected}
+              {#key selected.path}
+                <DiffPanel entry={selected} project={active.path} />
+              {/key}
+            {:else}
+              <div class="grid size-full place-items-center">
+                <EmptyState icon={SearchX} title={emptyMessage}>
+                  {#snippet action()}
+                    {#if git.filter}<Button onclick={() => git.clearFilter()}>{t('changes.showAll')}</Button>{/if}
+                  {/snippet}
+                </EmptyState>
+              </div>
+            {/if}
+          {/snippet}
+        </ListDetail>
       </div>
       {/if}
     {/if}
   </div>
 </div>
+
 
 <DiscardFileDialog bind:file={discarding} />

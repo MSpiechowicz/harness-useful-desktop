@@ -4,6 +4,8 @@ import type { AreaMessages } from '../types';
 export const config: AreaMessages<typeof enConfig> = {
   'config.title': 'Konfiguracja',
   'config.resize': 'Zmień rozmiar listy plików',
+  'config.drawer.label': 'Pliki',
+  'config.list.noMatch': 'Żaden plik nie pasuje do wyszukiwania.',
   'config.empty': 'Nie znaleziono plików konfiguracji dla tego harnessa.',
 
   'config.layer.user': 'Użytkownik',

@@ -31,15 +31,15 @@
   const location = $derived(facts.filter((fact) => fact.location));
 </script>
 
-<!-- The Configuration detail: title and content on the left, the item's facts in a column of cards on the right (below the content when narrow). -->
-<article class="flex min-h-full flex-col @[760px]:h-full @[760px]:flex-row" aria-labelledby="extension-title">
-  <div class="flex min-w-0 flex-1 flex-col @[760px]:min-h-0">
+<!-- The Configuration detail: title and content on the left, the item's facts in a column of cards on the right; the column stays beside the content at every width. -->
+<article class="flex h-full flex-row" aria-labelledby="extension-title">
+  <div class="flex min-h-0 min-w-0 flex-1 flex-col">
     <header class="shrink-0 border-b border-line px-5 pt-4 pb-3">
       <h2 id="extension-title" class="truncate text-lg leading-6 font-semibold text-fg" title={title}>{title}</h2>
       <p class="mt-0.5 truncate text-xs text-fg-3" title={subtitle}>{subtitle}</p>
     </header>
 
-    <div class="flex min-h-0 flex-1 flex-col gap-4 px-5 pt-4 pb-6 @[760px]:overflow-y-auto">
+    <div class="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 pt-4 pb-6">
       {#if description}
         <Card as="section" padded={false} class="p-3.5">
           <h3 class="mb-2.5 text-xs font-medium tracking-wider text-fg-3 uppercase">{t('extensions.detail.description')}</h3>
@@ -54,10 +54,7 @@
     </div>
   </div>
 
-  <aside
-    aria-label={t('extensions.detail.aside')}
-    class="flex shrink-0 flex-col gap-3 border-t border-line p-4 @[760px]:w-[280px] @[760px]:overflow-y-auto @[760px]:border-t-0 @[760px]:border-l"
-  >
+  <aside aria-label={t('extensions.detail.aside')} class="flex w-[280px] shrink-0 flex-col gap-3 overflow-y-auto border-l border-line p-4">
     {#if stats.length > 0}
       <Card as="section" padded={false} class="p-3.5">
         <h3 class="mb-2.5 text-xs font-medium tracking-wider text-fg-3 uppercase">{t('extensions.overview.title')}</h3>

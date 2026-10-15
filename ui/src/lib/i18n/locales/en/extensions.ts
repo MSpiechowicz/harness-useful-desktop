@@ -15,6 +15,7 @@ export const extensions = {
   'extensions.count.item.one': '{count} extension',
   'extensions.count.item.other': '{count} extensions',
   'extensions.menu.label': 'More actions',
+  'extensions.drawer.label': 'Extensions',
   'extensions.reveal': 'Reveal in file manager',
   'extensions.overview.title': 'Overview',
   'extensions.overview.upToDate': 'Up to date',

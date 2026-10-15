@@ -4,6 +4,7 @@ export const changes = {
   'changes.tryAgain': 'Try again',
   'changes.showAll': 'Show all changes',
   'changes.resize': 'Resize file list',
+  'changes.drawer.label': 'Files',
 
   'changes.empty.noProject.title': 'Open a project to see its changes',
   'changes.empty.noProject.body': 'Changes shows the git diff of one project folder.',

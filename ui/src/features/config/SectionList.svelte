@@ -14,9 +14,11 @@
     sections: ConfigSection[];
     selectedId: string;
     onselect: (id: string) => void;
+    /** While a search runs every layer stays open, so no match hides behind a fold. */
+    searching?: boolean;
   }
 
-  let { sections, selectedId, onselect }: Props = $props();
+  let { sections, selectedId, onselect, searching = false }: Props = $props();
 
   const groups = $derived(groupSections(sections));
 </script>
@@ -24,7 +26,7 @@
 <!-- The Sessions list: a heading per layer that folds, then one line per file. The file name is in the row's tooltip. -->
 <nav aria-label={t('config.list.label')} class="flex min-h-0 flex-1 flex-col overflow-y-auto pt-1 pb-3">
   {#each groups as group (group.layer)}
-    {@const open = !folded.has(group.layer)}
+    {@const open = searching || !folded.has(group.layer)}
 
     <section aria-label={t('config.list.layer', { layer: group.title })}>
       <div class="px-3 pt-[14px] pb-[6px]">
@@ -79,4 +81,7 @@
       {/each}
     </section>
   {/each}
+  {#if searching && groups.length === 0}
+    <p class="px-4 py-6 text-center text-sm text-fg-3" role="status">{t('config.list.noMatch')}</p>
+  {/if}
 </nav>

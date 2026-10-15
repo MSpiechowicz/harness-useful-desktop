@@ -130,16 +130,42 @@ describe('ConfigViewer', () => {
 
     await fireEvent.click(within(files).getByText('Project settings').closest('button')!);
     expect(await screen.findByText('No file here yet')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Reveal in file manager' })).toBeDisabled();
     expect(screen.queryByRole('searchbox')).toBeNull();
     expect(screen.queryByRole('radiogroup', { name: 'View' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
+    await fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    expect(screen.getByRole('menuitem', { name: 'Reveal in file manager' })).toBeDisabled();
+    expect(screen.queryByRole('menuitem', { name: 'Copy path' })).toBeNull();
+    await fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
 
     await fireEvent.click(within(files).getByText('Broken settings').closest('button')!);
     expect(await screen.findByRole('alert')).toHaveTextContent('This file could not be read');
     expect(screen.getByRole('alert')).toHaveTextContent('Invalid JSON at line 4');
-    expect(screen.getByRole('button', { name: 'Reveal in file manager' })).toBeEnabled();
+    await fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    expect(screen.getByRole('menuitem', { name: 'Reveal in file manager' })).toBeEnabled();
     expect(screen.queryByRole('searchbox')).toBeNull();
+  });
+
+  it('filters the file list by the search, by title, file name or content', async () => {
+    render(ConfigViewer);
+    await details();
+    load([
+      { id: 'user.settings', title: 'Settings', description: null, source: source('user', true), entries: [text('theme')], error: null },
+      { id: 'user.mcp', title: 'MCP servers', description: null, source: source('user', true), entries: [text('server')], error: null },
+    ]);
+
+    const files = await screen.findByRole('navigation', { name: 'Configuration files' });
+    expect(within(files).getAllByRole('button', { name: /Settings|MCP servers/ })).toHaveLength(2);
+
+    await fireEvent.input(await screen.findByRole('searchbox', { name: 'Search keys and values' }), { target: { value: 'sett' } });
+    expect(within(files).getByText('Settings')).toBeInTheDocument();
+    expect(within(files).queryByText('MCP servers')).toBeNull();
+
+    await fireEvent.input(screen.getByRole('searchbox', { name: 'Search keys and values' }), { target: { value: 'server' } });
+    expect(within(files).getByText('MCP servers')).toBeInTheDocument();
+    expect(within(files).queryByText('Settings')).toBeNull();
+
+    await fireEvent.input(screen.getByRole('searchbox', { name: 'Search keys and values' }), { target: { value: 'zzz' } });
+    expect(within(files).getByText('No file matches your search.')).toBeInTheDocument();
   });
 
   it('searches the selected file from the top bar and counts the matches', async () => {
@@ -359,8 +385,8 @@ describe('ConfigViewer top bar', () => {
 
   it('clears the search when another file is picked from the list', async () => {
     const box = await open('structured');
-    await fireEvent.input(box, { target: { value: 'theme' } });
-    expect(viewState.configQuery).toBe('theme');
+    await fireEvent.input(box, { target: { value: 'e' } });
+    expect(viewState.configQuery).toBe('e');
 
     const files = await screen.findByRole('navigation', { name: 'Configuration files' });
     await fireEvent.click(within(files).getByText('Other file').closest('button')!);
@@ -430,7 +456,7 @@ describe('in Polish', () => {
       viewState.configQuery = 'key';
 
       expect(await screen.findByText(text)).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Pokaż w menedżerze plików' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Więcej akcji' })).toBeInTheDocument();
     }
 
     await i18n.load('en');

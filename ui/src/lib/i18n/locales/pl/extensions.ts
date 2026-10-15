@@ -20,6 +20,7 @@ export const extensions: AreaMessages<typeof enExtensions> = {
   'extensions.count.item.many': '{count} rozszerzeń',
   'extensions.count.item.other': '{count} rozszerzenia',
   'extensions.menu.label': 'Więcej działań',
+  'extensions.drawer.label': 'Rozszerzenia',
   'extensions.reveal': 'Pokaż w menedżerze plików',
   'extensions.overview.title': 'Przegląd',
   'extensions.overview.upToDate': 'Aktualne',

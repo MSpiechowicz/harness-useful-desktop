@@ -71,11 +71,14 @@ describe('ExtensionsViewer', () => {
     expect(screen.getByRole('heading', { level: 2, name: first.name })).toBeInTheDocument();
   });
 
-  it('offers Reveal for an item that has a file and installs through one menu', async () => {
+  it('offers Reveal for an item that has a file inside the one more-actions menu, next to Install', async () => {
     await useHarness('omp');
 
     expect(screen.getByRole('button', { name: 'Install' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'More actions' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Reveal in file manager' })).toBeNull();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    expect(await screen.findByRole('menuitem', { name: 'Reveal in file manager' })).toBeEnabled();
   });
 });
 

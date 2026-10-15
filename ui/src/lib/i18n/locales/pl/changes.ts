@@ -7,6 +7,7 @@ export const changes: AreaMessages<typeof enChanges> = {
   'changes.tryAgain': 'Spróbuj ponownie',
   'changes.showAll': 'Pokaż wszystkie zmiany',
   'changes.resize': 'Zmień szerokość listy plików',
+  'changes.drawer.label': 'Pliki',
 
   'changes.empty.noProject.title': 'Otwórz projekt, aby zobaczyć jego zmiany',
   'changes.empty.noProject.body': 'Zmiany pokazują diff git jednego folderu projektu.',

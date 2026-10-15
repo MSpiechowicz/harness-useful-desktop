@@ -1,6 +1,8 @@
 export const config = {
   'config.title': 'Configuration',
   'config.resize': 'Resize file list',
+  'config.drawer.label': 'Files',
+  'config.list.noMatch': 'No file matches your search.',
   'config.empty': 'No configuration files were found for this harness.',
 
   'config.layer.user': 'User',

@@ -4,6 +4,8 @@ import type { AreaMessages } from '../types';
 export const config: AreaMessages<typeof enConfig> = {
   'config.title': 'Configuration',
   'config.resize': 'Redimensionner la liste des fichiers',
+  'config.drawer.label': 'Fichiers',
+  'config.list.noMatch': 'Aucun fichier ne correspond à la recherche.',
   'config.empty': 'Aucun fichier de configuration trouvé pour ce harness.',
 
   'config.layer.user': 'Utilisateur',

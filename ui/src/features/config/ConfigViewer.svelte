@@ -1,14 +1,13 @@
 <script lang="ts">
   import { autoRefresh } from '$lib/utils/auto-refresh';
   import Code from '@lucide/svelte/icons/code';
-  import FolderSearch from '@lucide/svelte/icons/folder-search';
   import LayoutGrid from '@lucide/svelte/icons/layout-grid';
   import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
 
-  import Button from '$lib/components/Button.svelte';
   import { countMatches } from '$lib/components/config-tree';
-  import { ICON } from '$lib/components/icon';
+  import DrawerToggle from '$lib/components/DrawerToggle.svelte';
   import ListDetail from '$lib/components/ListDetail.svelte';
+  import { PaneDrawer } from '$lib/components/pane-drawer.svelte';
   import NoticeBanner from '$lib/components/NoticeBanner.svelte';
   import SearchField from '$lib/components/SearchField.svelte';
   import SegmentedControl from '$lib/components/SegmentedControl.svelte';
@@ -29,7 +28,7 @@
   import { splitProfileNotice } from './profiles';
   import SectionDetail from './SectionDetail.svelte';
   import SectionList from './SectionList.svelte';
-  import { groupSections } from './sections';
+  import { filterSections, groupSections } from './sections';
 
   /** The chosen section, falling back to the first one shown when nothing (or something stale) is chosen. */
   function pick(view: ConfigView) {
@@ -41,6 +40,7 @@
   function choose(id: string): void {
     viewState.configSection = id;
     viewState.configQuery = '';
+    drawer.close();
   }
 
   // Config files change on disk under an open view (the agent edits them), so it re-reads quietly.
@@ -97,6 +97,17 @@
 
     toasts.push({ title: t('components.copy.copied'), tone: 'success' });
   }
+
+  const drawer = new PaneDrawer();
+
+  // A search that leaves the chosen file out of the list moves the detail to the first file that is still in it.
+  $effect(() => {
+    const first = groupSections(filterSections(view?.sections ?? [], viewState.configQuery))[0]?.sections[0];
+
+    if (section && first && !filterSections([section], viewState.configQuery).length) {
+      viewState.configSection = first.id;
+    }
+  });
 </script>
 
 <div class="flex size-full min-h-0 flex-col">
@@ -114,17 +125,23 @@
               onkeydown={onSearchKey}
             />
           </div>
+        {/if}
+
+        <DrawerToggle {drawer} label={t('config.drawer.label')} count={files} />
+
+        {#if readable}
           <SegmentedControl options={modes} value={configMode.value} label={t('config.mode.label')} onchange={(mode) => configMode.set(mode)} />
         {/if}
 
-        <Button disabled={!section.source.exists} onclick={() => void revealPath(section.source.path)}>
-          {#snippet leading()}<FolderSearch size={ICON.sm} aria-hidden="true" />{/snippet}
-          {t('config.detail.reveal')}
-        </Button>
-
-        {#if readable}
-          <ConfigMenu label={t('config.menu.label')} anyOpen={openCount > 0} ontoggleall={() => pane?.setAll(openCount === 0)} oncopypath={() => void copyPath(section.source.path)} />
-        {/if}
+        <ConfigMenu
+          label={t('config.menu.label')}
+          {readable}
+          exists={section.source.exists}
+          anyOpen={openCount > 0}
+          ontoggleall={() => pane?.setAll(openCount === 0)}
+          oncopypath={() => void copyPath(section.source.path)}
+          onreveal={() => void revealPath(section.source.path)}
+        />
       {/if}
     {/snippet}
   </ViewHeader>
@@ -141,9 +158,9 @@
 
         <div class="min-h-0 flex-1">
           {#if section}
-            <ListDetail label={t('config.resize')} scrollKey="config:detail" size={288}>
+            <ListDetail label={t('config.resize')} scrollKey="config:detail" size={288} {drawer} drawerLabel={t('config.drawer.label')}>
               {#snippet list()}
-                <SectionList sections={view.sections} selectedId={section.id} onselect={choose} />
+                <SectionList sections={filterSections(view.sections, viewState.configQuery)} selectedId={section.id} searching={viewState.configQuery.trim() !== ''} onselect={choose} />
               {/snippet}
               {#snippet detail()}
                 {#key section.id}

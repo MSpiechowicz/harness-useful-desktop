@@ -2,6 +2,7 @@ import { t } from '$lib/i18n/i18n.svelte';
 import type { ConfigFormat } from '$lib/ipc/bindings/ConfigFormat';
 import type { ConfigLayer } from '$lib/ipc/bindings/ConfigLayer';
 import type { ConfigSection } from '$lib/ipc/bindings/ConfigSection';
+import { countMatches } from '$lib/components/config-tree';
 
 /** Getters, so a title follows the language on screen. */
 export const LAYER_TITLES: Record<ConfigLayer, string> = {
@@ -53,4 +54,17 @@ export function groupSections(sections: ConfigSection[]): SectionGroup[] {
 /** The file name of a path, for either path separator. */
 export function baseName(path: string): string {
   return path.split(/[\\/]/).filter(Boolean).pop() ?? path;
+}
+
+/** The sections a search leaves in the list: those whose title, file name or description match, or whose content has a matching key or value. */
+export function filterSections(sections: ConfigSection[], query: string): ConfigSection[] {
+  const needle = query.trim().toLowerCase();
+  if (needle === '') {
+    return sections;
+  }
+
+  return sections.filter(
+    (section) =>
+      [section.title, section.description ?? '', baseName(section.source.path)].some((text) => text.toLowerCase().includes(needle)) || countMatches(section.entries, needle) > 0,
+  );
 }

@@ -1,18 +1,16 @@
 <script lang="ts">
   import { autoRefresh } from '$lib/utils/auto-refresh';
   import Blocks from '@lucide/svelte/icons/blocks';
-  import FolderSearch from '@lucide/svelte/icons/folder-search';
   import PackageOpen from '@lucide/svelte/icons/package-open';
 
-  import Button from '$lib/components/Button.svelte';
+  import DrawerToggle from '$lib/components/DrawerToggle.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
-  import { ICON } from '$lib/components/icon';
   import ListDetail from '$lib/components/ListDetail.svelte';
+  import { PaneDrawer } from '$lib/components/pane-drawer.svelte';
   import NoticeBanner from '$lib/components/NoticeBanner.svelte';
   import SearchField from '$lib/components/SearchField.svelte';
   import ViewHeader from '$lib/components/ViewHeader.svelte';
   import { t, tn } from '$lib/i18n/i18n.svelte';
-  import { revealPath } from '$lib/ipc/actions';
   import { ecosystem } from '$lib/stores/ecosystem.svelte';
   import { harness } from '$lib/stores/harness.svelte';
   import { viewState } from '$lib/stores/view-state.svelte';
@@ -44,10 +42,12 @@
   const selected = $derived(pickItem(groups, viewState.extensionsTab, viewState.extensionsItem));
   const total = $derived(everything.reduce((sum, group) => sum + group.total, 0));
   const target = $derived(selected ? revealTarget(selected) : null);
+  const drawer = new PaneDrawer();
 
   function choose(entry: ExtItem): void {
     viewState.extensionsTab = entry.tab;
     viewState.extensionsItem = entry.id;
+    drawer.close();
   }
 
   function onSearchKey(event: KeyboardEvent): void {
@@ -72,16 +72,11 @@
             onkeydown={onSearchKey}
           />
         </div>
+
+        <DrawerToggle {drawer} label={t('extensions.drawer.label')} count={total} />
       {/if}
 
-      {#if target}
-        <Button onclick={() => void revealPath(target)}>
-          {#snippet leading()}<FolderSearch size={ICON.sm} aria-hidden="true" />{/snippet}
-          {t('extensions.reveal')}
-        </Button>
-      {/if}
-
-      <ExtensionToolbar />
+      <ExtensionToolbar reveal={target} />
     {/snippet}
   </ViewHeader>
 
@@ -100,7 +95,7 @@
             <EmptyState icon={PackageOpen} title={t('extensions.empty.title')} body={t('extensions.empty.body')} />
           </div>
         {:else}
-          <ListDetail label={t('extensions.resize')} scrollKey="extensions:detail" size={288}>
+          <ListDetail label={t('extensions.resize')} scrollKey="extensions:detail" size={288} {drawer} drawerLabel={t('extensions.drawer.label')}>
             {#snippet list()}
               {#if groups.length === 0}
                 <p class="px-4 py-6 text-center text-sm text-fg-3" role="status">{t('extensions.search.noMatch', { query })}</p>
