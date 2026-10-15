@@ -5,13 +5,6 @@
 
 * **ui:** VirtualList leaves follow mode only on a scroll up the person asked for, with follow-mode tests ([93a114c](https://github.com/MSpiechowicz/harness-useful-desktop/commit/93a114cda98e57051e6424108a561bfeed585c66))
 
-## [0.8.1](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.8.0...v0.8.1) (2026-10-15)
-
-
-### Bug Fixes
-
-* **ui:** VirtualList leaves follow mode only on a scroll up the person asked for, with follow-mode tests ([93a114c](https://github.com/MSpiechowicz/harness-useful-desktop/commit/93a114cda98e57051e6424108a561bfeed585c66))
-
 # [0.8.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.7.0...v0.8.0) (2026-10-15)
 
 
