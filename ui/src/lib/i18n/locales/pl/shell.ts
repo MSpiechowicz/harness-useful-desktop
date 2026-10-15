@@ -93,6 +93,7 @@ export const shell: AreaMessages<typeof enShell> = {
   'shell.shortcut.composer.slashAccept': 'Zatwierdź zaznaczone polecenie',
   'shell.shortcut.composer.slashDismiss': 'Zamknij menu poleceń',
   'shell.shortcut.composer.latest': 'Przejdź do najnowszej wiadomości',
+  'shell.shortcut.composer.takeBack': 'Przenieś ostatnią wiadomość z kolejki z powrotem do pola tekstowego',
   'shell.shortcut.review.move': 'Przechodź między zmienionymi plikami',
   'shell.shortcut.review.save': 'Zapisz komentarz do linii',
   'shell.shortcut.review.cancel': 'Anuluj komentarz do linii',

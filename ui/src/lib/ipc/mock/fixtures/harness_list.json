@@ -22,7 +22,8 @@
       "projectTrust": false,
       "slashCommandsViaPrompt": true,
       "sessionTree": true,
-      "moveSession": true
+      "moveSession": true,
+      "removeQueued": true
     },
     "detection": {
       "installed": true,
@@ -59,7 +60,8 @@
       "projectTrust": true,
       "slashCommandsViaPrompt": false,
       "sessionTree": true,
-      "moveSession": false
+      "moveSession": false,
+      "removeQueued": false
     },
     "detection": {
       "installed": false,

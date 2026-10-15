@@ -92,6 +92,11 @@ pub fn decode_common(frame: &Value, state: &mut DecodeState) -> Vec<Inbound> {
         "queue_update" => one(AgentEvent::QueueUpdate {
             steering: strings(frame, "steering"),
             follow_up: strings(frame, "followUp"),
+            live_steered: frame
+                .get("liveSteered")
+                .and_then(Value::as_u64)
+                .and_then(|count| u32::try_from(count).ok())
+                .unwrap_or(0),
         }),
         "compaction_start" | "auto_compaction_start" => one(AgentEvent::Compaction {
             phase: "start".to_owned(),

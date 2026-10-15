@@ -78,6 +78,13 @@ pub enum AgentAction {
         #[serde(default)]
         images: Vec<ImageAttachment>,
     },
+    /// Withdraw one message still waiting in the steering or follow-up queue (OMP).
+    RemoveQueued {
+        /// The queued text exactly as the last `queueUpdate` listed it.
+        message: String,
+        /// The queue it waits in.
+        queue: StreamingBehavior,
+    },
     /// Stop the running turn.
     Abort,
     /// Start a fresh session in the same process.
@@ -149,6 +156,7 @@ impl AgentAction {
                 check_text("message", message)?;
                 check_images(images)
             }
+            Self::RemoveQueued { message, .. } => check_text("message", message),
             Self::Compact {
                 instructions: Some(instructions),
             } => check_text("instructions", instructions),
@@ -274,5 +282,10 @@ pub enum AgentReply {
     Commands {
         /// The merged slash-command catalog.
         commands: Vec<CommandSpec>,
+    },
+    /// Answer to `removeQueued`.
+    QueueRemoval {
+        /// False when the message had already left the queue.
+        removed: bool,
     },
 }

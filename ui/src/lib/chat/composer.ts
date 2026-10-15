@@ -41,6 +41,33 @@ export function escapeStep(armedAt: number | null, now: number): 'arm' | 'stop' 
   return armedAt !== null && now - armedAt <= STOP_WINDOW_MS ? 'stop' : 'arm';
 }
 
+/** The composer shortcut that takes the latest waiting message back into the draft. */
+export const TAKE_BACK = 'alt+arrowup';
+
+/** A message waiting for the agent, as the queue above the composer lists it. */
+export interface QueuedRow {
+  message: string;
+  queue: BusyMode;
+  /** False for steering the agent already took into its running response. */
+  withdrawable: boolean;
+}
+
+/** The queue in the order the agent takes it: steering first, then follow-ups. */
+export function queuedRows(queue: { steering: string[]; followUp: string[]; liveSteered: number }): QueuedRow[] {
+  return [
+    ...queue.steering.map((message, index) => ({ message, queue: 'steer' as const, withdrawable: index >= queue.liveSteered })),
+    ...queue.followUp.map((message) => ({ message, queue: 'followUp' as const, withdrawable: true })),
+  ];
+}
+
+/** What the take-back shortcut withdraws, like OMP's dequeue key: the newest steering, else the newest follow-up. */
+export function latestWithdrawable(rows: QueuedRow[]): QueuedRow | null {
+  const open = rows.filter((row) => row.withdrawable);
+  const steering = open.filter((row) => row.queue === 'steer');
+
+  return steering.at(-1) ?? open.at(-1) ?? null;
+}
+
 /** The action that delivers `message` and its images in this mode. */
 export function messageAction(message: string, mode: SendMode, images: ImageAttachment[] = []): AgentAction {
   switch (mode) {

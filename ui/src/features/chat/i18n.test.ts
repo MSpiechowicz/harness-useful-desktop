@@ -65,7 +65,7 @@ describe('chat in Polish', () => {
 
   it('words the agent status, with its queue, in Polish', async () => {
     await i18n.load('pl');
-    const chat = { ...initialChatState('k'), phase: 'idle' as const, queue: { steering: ['a', 'b'], followUp: ['c'] } };
+    const chat = { ...initialChatState('k'), phase: 'idle' as const, queue: { steering: ['a', 'b'], followUp: ['c'], liveSteered: 0 } };
 
     expect(chatStatus(chat).label).toBe('Bezczynny · 3 w kolejce');
   });

@@ -359,7 +359,7 @@ fn agent_events_are_enveloped_and_tagged_with_camel_case_fields() {
         envelope(json!({
             "type": "promptResult", "requestId": null, "status": "error", "error": "429", "retryable": true
         })),
-        envelope(json!({ "type": "queueUpdate", "steering": ["a"], "followUp": [] })),
+        envelope(json!({ "type": "queueUpdate", "steering": ["a"], "followUp": [], "liveSteered": 0 })),
         envelope(json!({ "type": "uiCancel", "requestId": "ui-1" })),
         envelope(json!({ "type": "frameError", "originalType": null, "error": "bad json" })),
         envelope(json!({ "type": "exited", "code": null, "signal": 9 })),

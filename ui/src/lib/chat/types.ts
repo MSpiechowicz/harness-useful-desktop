@@ -150,7 +150,8 @@ export interface ChatState {
   subagents: Record<string, Subagent>;
   /** Agent UI requests waiting for an answer, oldest first. */
   openRequests: UiRequest[];
-  queue: { steering: string[]; followUp: string[] };
+  /** `liveSteered`: leading steering entries already handed to the running response; they cannot be withdrawn. */
+  queue: { steering: string[]; followUp: string[]; liveSteered: number };
   statuses: Record<string, string>;
   widgets: Record<string, Widget>;
   title: string | null;

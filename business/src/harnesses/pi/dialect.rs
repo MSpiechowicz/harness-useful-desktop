@@ -36,6 +36,9 @@ impl RpcDialect for PiDialect {
             AgentAction::Clone => Ok(bare("clone", id)),
             AgentAction::RefreshCommands => Ok(bare("get_commands", id)),
             AgentAction::GetHistory { .. } => Ok(self.history_request(None, id)),
+            AgentAction::RemoveQueued { .. } => Err(BusinessError::Unsupported(
+                "PI cannot withdraw a queued message".to_owned(),
+            )),
             _ => encode_shared(HarnessId::Pi, action, id, context)?
                 .ok_or_else(|| BusinessError::Internal("action without a PI command".to_owned())),
         }

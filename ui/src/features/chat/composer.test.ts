@@ -1,7 +1,11 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 
+import type { AgentAction } from '$lib/ipc/bindings/AgentAction';
+import type { AgentEvent } from '$lib/ipc/bindings/AgentEvent';
 import type { AgentSessionInfo } from '$lib/ipc/bindings/AgentSessionInfo';
+import type { CommandName } from '$lib/ipc/commands';
+import { harness } from '$lib/stores/harness.svelte';
 
 import { chatSession, startedSession, STREAMING } from '../../../tests/chat-helpers';
 import BashConfirmDialog from './BashConfirmDialog.svelte';
@@ -137,6 +141,61 @@ describe('Composer keys', () => {
     backend.session.flush();
 
     await waitFor(() => expect(backend.session.draft).toBe('/review src/lib.rs'));
+  });
+});
+
+describe('the queue above the composer', () => {
+  beforeAll(async () => {
+    vi.stubEnv('VITE_TRANSPORT', 'mock');
+    await harness.load();
+  });
+
+  const QUEUE: AgentEvent = { type: 'queueUpdate', steering: ['already taken', 'use the parser'], followUp: ['then the tests'], liveSteered: 1 };
+
+  /** A streaming OMP chat with a queue, whose agent withdraws every message it is asked to. */
+  function mountQueued() {
+    const backend = chatSession([...STREAMING, QUEUE]);
+    const removals: AgentAction[] = [];
+    const invoke = backend.transport.invoke;
+    backend.transport.invoke = ((name: CommandName, args: { action?: AgentAction }) => {
+      if (name === 'agent_send' && args.action?.type === 'removeQueued') {
+        removals.push(args.action);
+
+        return Promise.resolve({ type: 'queueRemoval', removed: true });
+      }
+
+      return invoke(name, args as never);
+    }) as typeof invoke;
+    render(Composer, { session: backend.session });
+
+    return { session: backend.session, removals, box: screen.getByRole('combobox', { name: 'Message' }) as HTMLTextAreaElement };
+  }
+
+  it('removes one waiting message with its X, and offers none for steering the agent already took', async () => {
+    const { removals } = mountQueued();
+
+    const buttons = screen.getAllByRole('button', { name: 'Remove from queue' });
+    expect(buttons).toHaveLength(2);
+
+    await fireEvent.click(buttons[1]);
+    await waitFor(() => expect(removals).toEqual([{ type: 'removeQueued', message: 'then the tests', queue: 'followUp' }]));
+  });
+
+  it('takes the newest steering back into the draft on Alt+Up, after what is already typed', async () => {
+    const { box, removals, session } = mountQueued();
+
+    await type(box, 'first');
+    await fireEvent.keyDown(box, { key: 'ArrowUp', altKey: true });
+
+    await waitFor(() => expect(session.draft).toBe('first\n\nuse the parser'));
+    expect(removals).toEqual([{ type: 'removeQueued', message: 'use the parser', queue: 'steer' }]);
+  });
+
+  it('lists the queue without remove buttons when the harness cannot withdraw a message', async () => {
+    render(Composer, { session: chatSession([...STREAMING, QUEUE], { harness: 'pi' }).session });
+
+    expect(screen.getByText('then the tests')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Remove from queue' })).toBeNull();
   });
 });
 

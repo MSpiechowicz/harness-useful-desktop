@@ -144,7 +144,7 @@ export function applyEvent(state: ChatState, event: AgentEvent): ChatState {
       return promptResult(state, event);
 
     case 'queueUpdate':
-      return { ...state, queue: { steering: event.steering, followUp: event.followUp } };
+      return { ...state, queue: { steering: event.steering, followUp: event.followUp, liveSteered: event.liveSteered } };
 
     case 'compaction':
       return banner(state, 'compaction', event.phase === 'start' ? 'start' : 'end', compactionText(event), event.error !== null);
@@ -223,7 +223,7 @@ export function clearTranscript(state: ChatState): ChatState {
     items: [],
     toolCalls: {},
     openRequests: [],
-    queue: { steering: [], followUp: [] },
+    queue: { steering: [], followUp: [], liveSteered: 0 },
     promptError: null,
     lastUserText: null,
     historyCursor: null,

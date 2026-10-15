@@ -146,7 +146,11 @@ steering: Array<string>,
 /**
  * Pending follow-up messages.
  */
-followUp: Array<string>, } | { "type": "compaction", 
+followUp: Array<string>, 
+/**
+ * How many leading `steering` entries already went into the streaming response; they cannot be withdrawn.
+ */
+liveSteered: number, } | { "type": "compaction", 
 /**
  * `start` or `end`.
  */

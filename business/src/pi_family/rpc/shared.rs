@@ -77,7 +77,7 @@ pub fn encode_shared(
         A::GetSessionStats => frame("get_session_stats", Vec::new()),
         A::ExportHtml => frame("export_html", Vec::new()),
         A::GetLastAssistantText => frame("get_last_assistant_text", Vec::new()),
-        A::Clone | A::RefreshCommands | A::GetHistory { .. } => None,
+        A::Clone | A::RefreshCommands | A::GetHistory { .. } | A::RemoveQueued { .. } => None,
     };
 
     Ok(encoded)
@@ -136,6 +136,9 @@ pub fn parse_reply(action: &AgentAction, data: Option<&Value>, catalog: &dyn Com
         },
         A::RefreshCommands => AgentReply::Commands {
             commands: catalog.merged(&items(data, "commands")),
+        },
+        A::RemoveQueued { .. } => AgentReply::QueueRemoval {
+            removed: data.get("removed").and_then(Value::as_bool).unwrap_or(false),
         },
         _ => AgentReply::Ack,
     };

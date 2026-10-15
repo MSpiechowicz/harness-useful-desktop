@@ -146,6 +146,8 @@ pub enum AgentEvent {
         steering: Vec<String>,
         /// Pending follow-up messages.
         follow_up: Vec<String>,
+        /// How many leading `steering` entries already went into the streaming response; they cannot be withdrawn.
+        live_steered: u32,
     },
     /// Context compaction progress.
     Compaction {

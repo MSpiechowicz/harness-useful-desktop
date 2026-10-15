@@ -4,16 +4,17 @@
   import Terminal from '@lucide/svelte/icons/terminal';
   import { onDestroy, onMount, untrack } from 'svelte';
 
-  import Badge from '$lib/components/Badge.svelte';
   import Button from '$lib/components/Button.svelte';
   import { cx } from '$lib/utils/cx';
   import { autofocus } from '$lib/a11y/autofocus';
   import { MAX_FILES, MAX_IMAGES, isLargePaste } from '$lib/chat/attachments';
-  import { bashCommand, escapeStep, isBashDraft, sendIntent, STOP_WINDOW_MS, type BusyMode, type SendMode } from '$lib/chat/composer';
+  import { bashCommand, escapeStep, isBashDraft, latestWithdrawable, queuedRows, sendIntent, STOP_WINDOW_MS, TAKE_BACK, type BusyMode, type QueuedRow, type SendMode } from '$lib/chat/composer';
   import type { ChatSession } from '$lib/chat/session.svelte';
   import { acceptCommand, filterCommands, resolveSlash, slashQuery } from '$lib/chat/slash';
   import type { CommandSpec } from '$lib/ipc/bindings/CommandSpec';
+  import { harness } from '$lib/stores/harness.svelte';
   import { uid } from '$lib/utils/ids';
+  import { matchesShortcut } from '$lib/utils/shortcuts';
   import { t } from '$lib/i18n/i18n.svelte';
 
   import AttachmentStrip from './AttachmentStrip.svelte';
@@ -21,6 +22,7 @@
   import ComposerMode from './ComposerMode.svelte';
   import HarnessPicker from './HarnessPicker.svelte';
   import ModelPicker from './ModelPicker.svelte';
+  import QueuedMessages from './QueuedMessages.svelte';
   import { runSlash } from './slash-run';
   import SlashMenu from './SlashMenu.svelte';
   import ThinkingPicker from './ThinkingPicker.svelte';
@@ -68,7 +70,8 @@
   const stopArmed = $derived(stopArmedAt !== null);
   /** While the agent works and nothing is typed, the round button stops it. */
   const stopping = $derived(session.streaming && !canSend);
-  const queued = $derived(session.chat.queue.steering.length + session.chat.queue.followUp.length);
+  const queue = $derived(queuedRows(session.chat.queue));
+  const removable = $derived(Boolean(harness.get(session.info.harness)?.capabilities.removeQueued));
 
   const placeholder = $derived(bash ? t('chat.composer.placeholder.bash') : session.streaming ? t('chat.composer.placeholder.streaming') : t('chat.composer.placeholder'));
 
@@ -225,6 +228,21 @@
     }
   }
 
+  function removeQueued(row: QueuedRow): void {
+    void session.removeQueued(row.message, row.queue);
+  }
+
+  /** Withdraws the latest waiting message and puts its text back in the draft, after anything already typed. */
+  async function takeBack(): Promise<void> {
+    const row = latestWithdrawable(queue);
+    if (!row || !(await session.removeQueued(row.message, row.queue))) {
+      return;
+    }
+
+    session.draft = session.draft.trim() === '' ? row.message : `${session.draft.trimEnd()}\n\n${row.message}`;
+    textarea?.focus();
+  }
+
   function onkeydown(event: KeyboardEvent): void {
     if (menuOpen) {
       if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
@@ -239,6 +257,13 @@
         event.stopPropagation();
         dismissedFor = session.draft;
       }
+
+      return;
+    }
+
+    if (removable && queue.length > 0 && matchesShortcut(event, TAKE_BACK)) {
+      event.preventDefault();
+      void takeBack();
 
       return;
     }
@@ -262,15 +287,8 @@
     </div>
   {/if}
 
-  {#if queued > 0}
-    <ul class="mb-2 flex flex-wrap gap-1.5" aria-label={t('chat.composer.queued')}>
-      {#each session.chat.queue.steering as message, index (`s${index}`)}
-        <li><Badge tone="accent">{t('chat.composer.steering', { text: message.slice(0, 48) })}</Badge></li>
-      {/each}
-      {#each session.chat.queue.followUp as message, index (`f${index}`)}
-        <li><Badge tone="info">{t('chat.composer.next', { text: message.slice(0, 48) })}</Badge></li>
-      {/each}
-    </ul>
+  {#if queue.length > 0}
+    <QueuedMessages rows={queue} {removable} onremove={removeQueued} />
   {/if}
 
   <!-- svelte-ignore a11y_no_static_element_interactions -->

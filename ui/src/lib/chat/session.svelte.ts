@@ -272,6 +272,23 @@ export class ChatSession {
     await this.send({ type: 'abort' });
   }
 
+  /**
+   * Withdraws a message still waiting in the steering or follow-up queue; the agent's next queue update drops it from
+   * the list. False when it did not leave the queue (already handed to the agent, or refused).
+   */
+  async removeQueued(message: string, queue: 'steer' | 'followUp'): Promise<boolean> {
+    const reply = await this.send({ type: 'removeQueued', message, queue });
+    if (reply?.type !== 'queueRemoval') {
+      return false;
+    }
+
+    if (!reply.removed) {
+      this.notifications.push({ title: t('chat.toast.alreadySent') });
+    }
+
+    return reply.removed;
+  }
+
   /** Sends the last thing the user said again, after a failed turn. */
   async retry(): Promise<void> {
     const text = this.chat.lastUserText;

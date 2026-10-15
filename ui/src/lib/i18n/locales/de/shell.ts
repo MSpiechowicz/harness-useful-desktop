@@ -87,6 +87,7 @@ export const shell: AreaMessages<typeof enShell> = {
   'shell.shortcut.composer.slashAccept': 'Markierten Slash-Befehl übernehmen',
   'shell.shortcut.composer.slashDismiss': 'Slash-Menü schließen',
   'shell.shortcut.composer.latest': 'Zur neuesten Nachricht springen',
+  'shell.shortcut.composer.takeBack': 'Die letzte wartende Nachricht zurück in das Eingabefeld holen',
   'shell.shortcut.review.move': 'Zwischen geänderten Dateien wechseln',
   'shell.shortcut.review.save': 'Zeilenkommentar speichern',
   'shell.shortcut.review.cancel': 'Zeilenkommentar abbrechen',

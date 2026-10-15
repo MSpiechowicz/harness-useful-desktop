@@ -64,6 +64,7 @@ impl Harness for Omp {
             slash_commands_via_prompt: true,
             session_tree: true,
             move_session: true,
+            remove_queued: true,
             ..Capabilities::default()
         }
     }

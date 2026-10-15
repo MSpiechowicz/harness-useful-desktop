@@ -13,6 +13,7 @@ use serde_json::json;
 
 use super::catalog::OmpCatalog;
 use super::subagents::{decode_subagent, subscription_frame};
+use crate::model::StreamingBehavior;
 use crate::pi_family::rpc::prelude::*;
 
 /// Largest page OMP serves.
@@ -56,6 +57,20 @@ impl RpcDialect for OmpDialect {
             AgentAction::RefreshCommands => {
                 Ok(command_frame("get_available_commands", id, Vec::<(&str, Value)>::new()))
             }
+            AgentAction::RemoveQueued { message, queue } => Ok(command_frame(
+                "remove_queued_message",
+                id,
+                [
+                    ("message", Value::from(message.as_str())),
+                    (
+                        "queue",
+                        Value::from(match queue {
+                            StreamingBehavior::Steer => "steering",
+                            StreamingBehavior::FollowUp => "followUp",
+                        }),
+                    ),
+                ],
+            )),
             AgentAction::GetHistory { cursor, .. } => Ok(self.history_request(cursor.as_deref(), id)),
             _ => encode_shared(HarnessId::Omp, action, id, context)?
                 .ok_or_else(|| BusinessError::Internal("action without an OMP command".to_owned())),

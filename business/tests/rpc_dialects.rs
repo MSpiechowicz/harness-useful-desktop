@@ -166,6 +166,25 @@ fn dialect_specific_commands() {
     let clone = omp.encode(&AgentAction::Clone, "req-1", &context).unwrap_err();
     assert_eq!(clone.code(), IpcErrorCode::Unsupported);
 
+    let remove = |queue| AgentAction::RemoveQueued {
+        message: "wait".to_owned(),
+        queue,
+    };
+    assert_eq!(
+        omp.encode(&remove(StreamingBehavior::Steer), "req-1", &context)
+            .unwrap(),
+        json!({ "id": "req-1", "type": "remove_queued_message", "message": "wait", "queue": "steering" })
+    );
+    assert_eq!(
+        omp.encode(&remove(StreamingBehavior::FollowUp), "req-1", &context)
+            .unwrap()["queue"],
+        "followUp"
+    );
+    let unsupported = pi
+        .encode(&remove(StreamingBehavior::Steer), "req-1", &context)
+        .unwrap_err();
+    assert_eq!(unsupported.code(), IpcErrorCode::Unsupported);
+
     assert_eq!(
         omp.history_request(Some("c-1"), "req-2"),
         json!({ "id": "req-2", "type": "get_messages_page", "cursor": "c-1", "limit": 256 })
@@ -314,6 +333,15 @@ fn session_events_decode_to_contract_events() {
             AgentEvent::QueueUpdate {
                 steering: vec![text("a")],
                 follow_up: vec![],
+                live_steered: 0,
+            },
+        ),
+        (
+            json!({ "type": "queue_update", "steering": ["a", "b"], "followUp": ["c"], "liveSteered": 1 }),
+            AgentEvent::QueueUpdate {
+                steering: vec![text("a"), text("b")],
+                follow_up: vec![text("c")],
+                live_steered: 1,
             },
         ),
         (

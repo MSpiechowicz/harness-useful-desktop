@@ -188,7 +188,24 @@ export class MockAgentStream {
   /** Steering and follow-up text wait for the current turn, then run as the next prompt. */
   enqueue(kind: 'steering' | 'followUp', message: string): void {
     this.queued[kind].push(message);
-    this.emit({ type: 'queueUpdate', steering: [...this.queued.steering], followUp: [...this.queued.followUp] });
+    this.emitQueue();
+  }
+
+  /** Withdraws one waiting message, like OMP's `remove_queued_message`; false when it is no longer queued. */
+  dequeue(kind: 'steering' | 'followUp', message: string): boolean {
+    const index = this.queued[kind].indexOf(message);
+    if (index === -1) {
+      return false;
+    }
+
+    this.queued[kind].splice(index, 1);
+    this.emitQueue();
+
+    return true;
+  }
+
+  private emitQueue(): void {
+    this.emit({ type: 'queueUpdate', steering: [...this.queued.steering], followUp: [...this.queued.followUp], liveSteered: 0 });
   }
 
   respond(response: UiResponse): void {
@@ -235,7 +252,7 @@ export class MockAgentStream {
       return;
     }
 
-    this.emit({ type: 'queueUpdate', steering: [...this.queued.steering], followUp: [...this.queued.followUp] });
+    this.emitQueue();
     await this.play(next);
   }
 }

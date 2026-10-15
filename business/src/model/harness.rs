@@ -80,6 +80,8 @@ pub struct Capabilities {
     pub session_tree: bool,
     /// A running chat can move, conversation included, to another project (OMP `/move`).
     pub move_session: bool,
+    /// A message waiting in the steering or follow-up queue can be withdrawn (OMP `remove_queued_message`).
+    pub remove_queued: bool,
 }
 
 /// How the detected CLI version relates to the versions this app was tested with.

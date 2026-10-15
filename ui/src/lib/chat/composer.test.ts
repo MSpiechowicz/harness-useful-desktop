@@ -1,10 +1,28 @@
 import { describe, expect, it } from 'vitest';
 
-import { bashCommand, escapeStep, messageAction, sendIntent, STOP_WINDOW_MS } from './composer';
+import { bashCommand, escapeStep, latestWithdrawable, messageAction, queuedRows, sendIntent, STOP_WINDOW_MS } from './composer';
 
 function key(init: Partial<Parameters<typeof sendIntent>[0]> = {}) {
   return { key: 'Enter', shiftKey: false, ctrlKey: false, metaKey: false, altKey: false, ...init };
 }
+
+describe('the queue above the composer', () => {
+  it('keeps steering the agent already took out of reach, and takes back the newest steering first', () => {
+    const rows = queuedRows({ steering: ['live', 'waiting'], followUp: ['later'], liveSteered: 1 });
+
+    expect(rows.map((row) => [row.message, row.queue, row.withdrawable])).toEqual([
+      ['live', 'steer', false],
+      ['waiting', 'steer', true],
+      ['later', 'followUp', true],
+    ]);
+    expect(latestWithdrawable(rows)?.message).toBe('waiting');
+  });
+
+  it('falls back to the newest follow-up, and to nothing when only live steering is left', () => {
+    expect(latestWithdrawable(queuedRows({ steering: ['live'], followUp: ['a', 'b'], liveSteered: 1 }))?.message).toBe('b');
+    expect(latestWithdrawable(queuedRows({ steering: ['live'], followUp: [], liveSteered: 1 }))).toBeNull();
+  });
+});
 
 describe('Enter in the composer', () => {
   it('sends when the agent is idle, whatever the modifiers', () => {

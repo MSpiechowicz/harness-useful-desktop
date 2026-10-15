@@ -56,4 +56,8 @@ total: number | null, } | { "type": "commands",
 /**
  * The merged slash-command catalog.
  */
-commands: Array<CommandSpec>, };
+commands: Array<CommandSpec>, } | { "type": "queueRemoval", 
+/**
+ * False when the message had already left the queue.
+ */
+removed: boolean, };

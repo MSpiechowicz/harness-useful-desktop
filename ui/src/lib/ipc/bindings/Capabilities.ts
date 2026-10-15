@@ -59,4 +59,8 @@ sessionTree: boolean,
 /**
  * A running chat can move, conversation included, to another project (OMP `/move`).
  */
-moveSession: boolean, };
+moveSession: boolean, 
+/**
+ * A message waiting in the steering or follow-up queue can be withdrawn (OMP `remove_queued_message`).
+ */
+removeQueued: boolean, };

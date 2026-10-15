@@ -12,7 +12,7 @@ export function initialChatState(key: string): ChatState {
     toolCalls: {},
     subagents: {},
     openRequests: [],
-    queue: { steering: [], followUp: [] },
+    queue: { steering: [], followUp: [], liveSteered: 0 },
     statuses: {},
     widgets: {},
     title: null,

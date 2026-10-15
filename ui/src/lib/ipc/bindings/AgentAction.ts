@@ -34,7 +34,15 @@ message: string,
 /**
  * Images the agent should look at.
  */
-images: Array<ImageAttachment>, } | { "type": "abort" } | { "type": "newSession" } | { "type": "switchSession", 
+images: Array<ImageAttachment>, } | { "type": "removeQueued", 
+/**
+ * The queued text exactly as the last `queueUpdate` listed it.
+ */
+message: string, 
+/**
+ * The queue it waits in.
+ */
+queue: StreamingBehavior, } | { "type": "abort" } | { "type": "newSession" } | { "type": "switchSession", 
 /**
  * The session to switch to.
  */

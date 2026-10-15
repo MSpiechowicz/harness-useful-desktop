@@ -80,6 +80,9 @@ export function agentHandlers(state: MockState, pace: () => number): Pick<Handle
 
         return ACK;
 
+      case 'removeQueued':
+        return { type: 'queueRemoval', removed: stream.dequeue(action.queue === 'steer' ? 'steering' : 'followUp', action.message) };
+
       case 'abort':
         stream.abort();
 
