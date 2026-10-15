@@ -1,3 +1,10 @@
+# [0.12.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.11.0...v0.12.0) (2026-10-15)
+
+
+### Features
+
+* **settings): search sections; fix(chat:** compact status pill, undimmed locked project picker ([cd756d8](https://github.com/MSpiechowicz/harness-useful-desktop/commit/cd756d873d85e217c3577f5c7555bc174fff01b4))
+
 # [0.11.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.10.0...v0.11.0) (2026-10-15)
 
 
