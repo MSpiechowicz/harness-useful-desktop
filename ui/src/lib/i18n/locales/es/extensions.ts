@@ -189,6 +189,10 @@ export const extensions: AreaMessages<typeof enExtensions> = {
   'extensions.dialog.cancel': 'Cancelar',
 
   'extensions.toast.chatsReloaded': 'Se reiniciaron los chats abiertos para cargar el cambio',
+  'extensions.autoUpdate.installing': 'Instalando actualizaciones de extensiones',
+  'extensions.autoUpdate.done': 'Extensiones actualizadas',
+  'extensions.autoUpdate.failed': 'Falló la actualización de una extensión',
+  'extensions.autoUpdate.packagesFailed': 'Falló la actualización de un paquete',
   'extensions.outcome.confirmed': 'Confirmado: la lista actualizada muestra el cambio.',
   'extensions.outcome.missing': 'La lista actualizada aún no muestra el cambio. Algunos cambios se aplican al reiniciar el harness.',
   'extensions.outcome.unchecked': 'La lista se actualizó.',

@@ -43,6 +43,11 @@ The app contains no analytics client. Its only HTTP clients are the updater and 
   stopped right after the reply), on the chat's model, and sends it the first 500 characters of that message with a
   fixed instruction. The app opens no connection itself; the request goes through the harness exactly as your own chat
   does, and costs one very small request per chat. Without it, names come from the first message locally.
+- **Automatic extension updates** (`autoUpdateExtensions`, on by default). While on, every ten minutes the app runs the
+  active harness's own CLI (`omp plugin marketplace update`, `omp plugin upgrade`, `pi update --extensions`) through the
+  same `extension_action` command and validation as the buttons in Extensions, and shows a toast before it installs
+  anything. The app opens no connection itself; the CLI fetches from the marketplaces, npm and git sources you already
+  configured. Off: nothing runs until you press an update button.
 
 Everything else:
 
@@ -240,17 +245,17 @@ Details of keys and releases: [release-and-updater-keys.md](release-and-updater-
 | UI choices | Webview `localStorage` | Rail expanded (`harness.railExpanded`), command-palette recents (`harness.paletteRecents`), diff layout. |
 | Log files | The OS log directory | See [Logging](#logging). Rotated at 1 MiB, 3 files kept. |
 
-`AppPrefs` (`business/src/model/prefs.rs`) has eighteen fields and never holds secrets or chat content:
+`AppPrefs` (`business/src/model/prefs.rs`) has nineteen fields and never holds secrets or chat content:
 `version`, `theme`, `motion`, `language` (`en`, `de`, `es`, `fr` or `pl`; anything else loads as `en`), `introEnabled`,
 `soundEnabled`, `showThinking`, `defaultHarness`, `activeProject`, `rememberRecentProjects`, `recentProjects` (12 at
-most), `updatePolicy`, `checkCompanionUpdates`, `openAnyLink`, `onboardingCompleted`, `approvalNoticeSeen`,
+most), `updatePolicy`, `checkCompanionUpdates`, `autoUpdateExtensions`, `openAnyLink`, `onboardingCompleted`, `approvalNoticeSeen`,
 `binaryOverrides`, `chatDefaults`.
 
 **Server-managed fields** (`business/src/prefs/managed.rs`): `activeProject`, `recentProjects` and `binaryOverrides`
 decide which directories are read and which programs run. Only Rust changes them, through the native pickers and the
 project and harness commands. `prefs_set` stores the UI-managed fields only (`theme`, `motion`, `language`,
 `introEnabled`, `soundEnabled`, `showThinking`, `defaultHarness`, `rememberRecentProjects`, `updatePolicy`,
-`checkCompanionUpdates`, `openAnyLink`, `onboardingCompleted`, `approvalNoticeSeen`, `chatDefaults`) and keeps the
+`checkCompanionUpdates`, `autoUpdateExtensions`, `openAnyLink`, `onboardingCompleted`, `approvalNoticeSeen`, `chatDefaults`) and keeps the
 rest as stored. The exhaustive destructuring in `with_ui_fields` makes a new field fail to compile until it is
 classified. Turning off `rememberRecentProjects` clears the recent list.
 

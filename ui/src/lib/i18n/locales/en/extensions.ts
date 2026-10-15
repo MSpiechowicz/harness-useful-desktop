@@ -186,6 +186,10 @@ export const extensions = {
   'extensions.dialog.cancel': 'Cancel',
 
   'extensions.toast.chatsReloaded': 'Open chats were restarted to load the change',
+  'extensions.autoUpdate.installing': 'Installing extension updates',
+  'extensions.autoUpdate.done': 'Extensions updated',
+  'extensions.autoUpdate.failed': 'An extension update failed',
+  'extensions.autoUpdate.packagesFailed': 'A package update failed',
   'extensions.outcome.confirmed': 'Confirmed: the refreshed list shows the change.',
   'extensions.outcome.missing': 'The refreshed list does not show the change yet. Some changes apply after the harness restarts.',
   'extensions.outcome.unchecked': 'The list was refreshed.',

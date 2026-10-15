@@ -104,6 +104,16 @@
     {/snippet}
   </SettingRow>
 
+  <!-- The harness's own plugins, marketplaces and packages (not the app): the updater runs the harness CLI on a timer. -->
+  <SettingRow title={t('settings.updates.extensions.title')} description={t('settings.updates.extensions.description')}>
+    {#snippet control()}
+      <Switch
+        label={t('settings.updates.extensions.title')}
+        bind:checked={() => prefs.value?.autoUpdateExtensions ?? true, (autoUpdateExtensions) => void prefs.update({ autoUpdateExtensions })}
+      />
+    {/snippet}
+  </SettingRow>
+
   {#if state.kind === 'notConfigured'}
     <div class="flex items-start gap-3 py-4 text-sm text-fg-2 last:pb-0" role="status">
       <Info class="mt-0.5 shrink-0 text-fg-3" size={ICON.sm} aria-hidden="true" />

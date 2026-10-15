@@ -66,6 +66,17 @@ describe('Updates settings', () => {
     expect(screen.getByRole('radio', { name: 'Off' })).toBeChecked();
   });
 
+  it('updates extensions by default and lets the user turn that off', async () => {
+    render(UpdatesSection, { id: 'updates' });
+    const toggle = screen.getByRole('switch', { name: 'Update extensions automatically' });
+
+    expect(toggle).toBeChecked();
+
+    await fireEvent.click(toggle);
+
+    await waitFor(() => expect(prefs.value?.autoUpdateExtensions).toBe(false));
+  });
+
   it('explains a build without updates as a neutral note, not an error', () => {
     show({ kind: 'notConfigured' });
 

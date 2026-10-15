@@ -48,6 +48,7 @@ fn with_ui_changes(base: AppPrefs) -> AppPrefs {
         default_harness: Some(HarnessId::Pi),
         update_policy: UpdatePolicy::Off,
         check_companion_updates: false,
+        auto_update_extensions: false,
         open_any_link: true,
         ai_chat_names: true,
         onboarding_completed: true,
