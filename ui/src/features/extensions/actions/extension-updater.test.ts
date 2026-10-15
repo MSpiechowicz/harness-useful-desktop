@@ -20,6 +20,7 @@ const PI = {
 
 function outdated(...ids: string[]): ExtensionsView {
   return {
+    marketplaces: [{ name: 'm' }],
     plugins: ids.map((id) => ({
       id,
       name: id.split('@')[0],

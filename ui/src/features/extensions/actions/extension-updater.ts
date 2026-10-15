@@ -101,9 +101,7 @@ export class ExtensionUpdater {
 
   private async checkHarness({ info, capabilities }: HarnessSummary): Promise<void> {
     if (capabilities.marketplaces) {
-      // Catalogs only learn about new versions when they are refreshed. A failure here is not worth a message: the
-      // plugins below are judged by what the catalogs say now.
-      await this.run(info.id, { type: 'marketplaceUpdate', name: null }).catch(() => null);
+      await this.refreshMarketplaces(info.id);
     }
 
     if (capabilities.plugins) {
@@ -115,14 +113,39 @@ export class ExtensionUpdater {
     }
   }
 
+  /**
+   * Catalogs only learn about new versions when they are refreshed. Each one is refreshed by name: a bare
+   * `marketplace update` stops at the first catalog that fails (renamed, unreachable) and leaves the later ones stale,
+   * so their plugin updates would never be seen. A failure is not worth a message: the plugins are judged by what the
+   * catalogs say now.
+   */
+  private async refreshMarketplaces(harness: HarnessId): Promise<void> {
+    let names: string[];
+
+    try {
+      names = (await this.view(harness)).marketplaces.map((marketplace) => marketplace.name);
+    } catch {
+      return;
+    }
+
+    for (const name of names) {
+      if (!this.deps.enabled() || this.deps.busy()) {
+        return;
+      }
+
+      await this.run(harness, { type: 'marketplaceUpdate', name }).catch(() => null);
+    }
+  }
+
+  private view(harness: HarnessId): Promise<ExtensionsView> {
+    return this.deps.transport.invoke('extensions_view', { harness, project: null });
+  }
+
   private async upgradePlugins(harness: HarnessId): Promise<void> {
     let view: ExtensionsView;
 
     try {
-      view = await this.deps.transport.invoke('extensions_view', {
-        harness,
-        project: null,
-      });
+      view = await this.view(harness);
     } catch {
       return;
     }
