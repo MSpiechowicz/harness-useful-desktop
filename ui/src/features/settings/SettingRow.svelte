@@ -6,12 +6,14 @@
     description: string;
     /** Important details of a longer description, one short line each, shown as a list under it. */
     points?: string[];
+    /** Every text `description` can switch to; the row keeps room for the longest, so switching never shifts the layout. */
+    descriptions?: string[];
     control: Snippet;
     /** An icon or badge before the title. */
     leading?: Snippet;
   }
 
-  let { title, description, points, control, leading }: Props = $props();
+  let { title, description, points, descriptions, control, leading }: Props = $props();
 </script>
 
 <div class="flex items-start justify-between gap-6 py-4 first:pt-0 last:pb-0">
@@ -20,7 +22,16 @@
 
     <div class="flex min-w-0 flex-col gap-0.5">
       <p class="text-base font-medium text-fg">{title}</p>
-      <p class="max-w-[700px] text-sm text-fg-2">{description}</p>
+      {#if descriptions?.length}
+        <p class="grid max-w-[700px] text-sm text-fg-2">
+          {#each descriptions as text (text)}
+            <span class="invisible [grid-area:1/1]" aria-hidden="true">{text}</span>
+          {/each}
+          <span class="[grid-area:1/1]">{description}</span>
+        </p>
+      {:else}
+        <p class="max-w-[700px] text-sm text-fg-2">{description}</p>
+      {/if}
       {#if points?.length}
         <ul class="mt-1 flex max-w-[700px] flex-col gap-1 text-sm text-fg-2">
           {#each points as point (point)}
