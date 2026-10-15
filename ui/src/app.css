@@ -40,6 +40,8 @@
   --color-warning-wash: var(--warning-wash);
   --color-danger-wash: var(--danger-wash);
   --color-info-wash: var(--info-wash);
+  --color-think: var(--think);
+  --color-think-wash: var(--think-wash);
 
   --color-omp: var(--harness-omp);
   --color-pi: var(--harness-pi);

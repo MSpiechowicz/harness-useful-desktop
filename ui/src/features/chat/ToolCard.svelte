@@ -1,9 +1,7 @@
 <script lang="ts">
-  import ChevronRight from '@lucide/svelte/icons/chevron-right';
   import CircleCheck from '@lucide/svelte/icons/circle-check';
   import CircleX from '@lucide/svelte/icons/circle-x';
   import Clock from '@lucide/svelte/icons/clock';
-  import { slide } from 'svelte/transition';
 
   import Button from '$lib/components/Button.svelte';
   import CodeBlock from '$lib/components/CodeBlock.svelte';
@@ -13,12 +11,12 @@
   import { toolContext } from '$lib/chat/tool-context';
   import type { Subagent } from '$lib/ipc/bindings/Subagent';
   import type { ToolCallState } from '$lib/chat/types';
-  import { scaled } from '$lib/design/motion';
   import { git } from '$lib/stores/git.svelte';
   import { project } from '$lib/stores/project.svelte';
-  import { cx } from '$lib/utils/cx';
   import { t } from '$lib/i18n/i18n.svelte';
 
+  import ChatRow from './ChatRow.svelte';
+  import StatusPill from './StatusPill.svelte';
   import SubagentList from './SubagentList.svelte';
   import TerminalBlock from './TerminalBlock.svelte';
   import ToolResult from './ToolResult.svelte';
@@ -55,48 +53,44 @@
   }
 </script>
 
-<div class={cx('border-card chat-radius bg-surface-1 bg-clip-padding', call.status === 'error' ? 'border-danger-edge' : 'border-line')} data-tool-status={call.status}>
-  <!-- Open, the body continues right under the header, so the header's bottom corners go square: a rounded hover wash would
-       leave dark wedges against the divider. -->
-  <button
-    type="button"
-    aria-expanded={open}
-    class={cx('flex w-full items-center gap-3 chat-radius px-4 py-2.5 text-left transition-colors hover:bg-hover active:bg-press', open && 'rounded-b-none')}
-    onclick={() => (open = !open)}
-  >
-    <Icon size={16} class="shrink-0 text-fg-2" aria-hidden="true" />
+<ChatRow {open} ontoggle={() => (open = !open)} tone={call.status === 'running' ? 'run' : 'plain'} failed={call.status === 'error'} data-tool-status={call.status}>
+  {#snippet icon()}<Icon size={16} aria-hidden="true" />{/snippet}
 
-    <span class="min-w-0 flex-1 truncate text-sm">
-      <span class="font-medium text-fg">{toolTitle(call)}</span>
-      {#if summary}<span class="ml-2 font-mono text-xs text-fg-3">{summary}</span>{/if}
-    </span>
+  {#snippet title()}
+    <span class="font-medium text-fg">{toolTitle(call)}</span>
+    {#if summary}<span class="ml-2 font-mono text-xs text-fg-3">{summary}</span>{/if}
+  {/snippet}
 
-    <span class="inline-flex shrink-0 items-center gap-1.5 text-xs text-fg-3">
-      {#if call.status === 'running'}
-        <Spinner size={16} class="text-accent-text" />
-      {:else if call.status === 'ok'}
-        <CircleCheck size={16} class="text-success" aria-hidden="true" />
-      {:else if call.status === 'error'}
-        <CircleX size={16} class="text-danger" aria-hidden="true" />
-      {:else}
-        <Clock size={16} aria-hidden="true" />
-      {/if}
-      <span>{label}</span>
-    </span>
+  {#snippet status()}
+    <StatusPill tone={call.status === 'running' ? 'run' : call.status === 'ok' ? 'ok' : call.status === 'error' ? 'error' : 'idle'} {label}>
+      {#snippet icon()}
+        {#if call.status === 'running'}
+          <Spinner size={16} />
+        {:else if call.status === 'ok'}
+          <CircleCheck size={16} aria-hidden="true" />
+        {:else if call.status === 'error'}
+          <CircleX size={16} aria-hidden="true" />
+        {:else}
+          <Clock size={16} aria-hidden="true" />
+        {/if}
+      {/snippet}
+    </StatusPill>
+  {/snippet}
 
-    <ChevronRight size={16} aria-hidden="true" class={cx('shrink-0 text-fg-3 transition-transform duration-[var(--dur-fast)]', open && 'rotate-90')} />
-  </button>
+  {#snippet peek()}
+    {#if call.status === 'running' && call.partial && !open}
+      <p class="truncate px-4 pb-2.5 font-mono text-xs text-fg-3">{call.partial.trimEnd().split('\n').at(-1)}</p>
+    {/if}
+  {/snippet}
 
-  {#if call.status === 'running' && call.partial && !open}
-    <p class="truncate px-4 pb-2.5 font-mono text-xs text-fg-3">{call.partial.trimEnd().split('\n').at(-1)}</p>
-  {/if}
+  {#snippet extra()}
+    {#if spawned.length > 0}
+      <SubagentList subagents={spawned} />
+    {/if}
+  {/snippet}
 
-  {#if spawned.length > 0}
-    <SubagentList subagents={spawned} />
-  {/if}
-
-  {#if open}
-    <div transition:slide={{ duration: scaled(180) }} class="flex flex-col gap-4 overflow-hidden border-t border-line px-4 pt-4 pb-4">
+  {#snippet body()}
+    <div class="flex flex-col gap-4 px-4 pt-4 pb-4">
       {#if command !== null}
         <TerminalBlock text="" {command} />
       {:else if argsJson !== ''}
@@ -114,5 +108,5 @@
         </div>
       {/if}
     </div>
-  {/if}
-</div>
+  {/snippet}
+</ChatRow>

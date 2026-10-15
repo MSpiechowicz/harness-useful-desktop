@@ -57,6 +57,8 @@
   --warning-wash: rgb(242 184 75 / 0.12);
   --danger-wash: rgb(248 113 113 / 0.12);
   --info-wash: rgb(94 168 255 / 0.12);
+  --think: #b79cff;
+  --think-wash: rgb(183 156 255 / 0.12);
 
   /* Per-harness accents. */
   --harness-omp: oklch(0.88 0.14 65);
@@ -125,6 +127,8 @@
   --warning-wash: rgb(217 119 6 / 0.12);
   --danger-wash: rgb(220 38 38 / 0.08);
   --info-wash: rgb(37 99 235 / 0.08);
+  --think: #6d3fd1;
+  --think-wash: rgb(109 63 209 / 0.09);
 
   --harness-omp: oklch(0.48 0.12 55);
   --harness-pi: oklch(0.44 0.09 180);
