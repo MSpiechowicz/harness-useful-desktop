@@ -1,3 +1,17 @@
+# [0.7.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.6.0...v0.7.0) (2026-10-15)
+
+
+### Bug Fixes
+
+* **ci:** format the discard code, read test files with LF endings for Windows, share the git test setup ([984ca17](https://github.com/MSpiechowicz/harness-useful-desktop/commit/984ca170df9e1d7cd2204d5b179341727b091172))
+* **ui:** ListDetail renders its split once, clearing the duplication guard ([b07f7ad](https://github.com/MSpiechowicz/harness-useful-desktop/commit/b07f7ade452dc34e0d2b55a9b5b3a51c05ec830c))
+
+
+### Features
+
+* **changes:** discard one file or every change from the More actions menu, show only the file name in the diff header ([38b4251](https://github.com/MSpiechowicz/harness-useful-desktop/commit/38b4251f44bb82079e4f661b7d6f08f20fa1f640))
+* **ui:** list pane becomes a drawer on narrow windows in Sessions, Changes, Config and Extensions ([006fa9c](https://github.com/MSpiechowicz/harness-useful-desktop/commit/006fa9c0115d0ad2a1fe2c7ae408a7551eb78806))
+
 # [0.6.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.5.0...v0.6.0) (2026-10-14)
 
 
