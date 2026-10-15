@@ -9,6 +9,7 @@ import { prefs } from '$lib/stores/prefs.svelte';
 
 import { samplePrefs } from '../../../tests/helpers';
 import { freshBackend } from '../../../tests/ecosystem-backend';
+import { onboarding } from '../onboarding/onboarding-state.svelte';
 import { actionCommands } from '../shell/palette/actions';
 import EcosystemView from './EcosystemView.svelte';
 
@@ -169,7 +170,7 @@ describe('Ecosystem view', () => {
     const heading = await screen.findByRole('heading', { name: 'See what your agents cost' });
     const card = heading.closest('section') as HTMLElement;
 
-    expect(await within(card).findByText(/curl -fsSL https:\/\/raw\.githubusercontent\.com/)).toBeInTheDocument();
+    expect(await within(card).findByText(/curl --proto '=https' --tlsv1\.2 -fsSL https:\/\/raw\.githubusercontent\.com/)).toBeInTheDocument();
     expect(screen.queryByRole('radio', { name: '7 days' })).toBeNull();
   });
 
@@ -182,6 +183,16 @@ describe('Ecosystem view', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
 
     await waitFor(() => expect(calls('dashboard_availability')).toHaveLength(2));
+  });
+
+  it('opens the recommended setup at its step from the header', async () => {
+    await show();
+
+    await fireEvent.click(await screen.findByRole('button', { name: 'Run recommended setup' }));
+
+    expect(onboarding.step).toBe('setup');
+    expect(onboarding.rerun).toBe(true);
+    onboarding.dismiss();
   });
 
   it('shows an error with a retry when the companions cannot be read', async () => {

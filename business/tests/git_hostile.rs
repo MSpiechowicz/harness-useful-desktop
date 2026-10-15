@@ -21,7 +21,7 @@ fn trap(home: &GitHome, name: &str) -> (PathBuf, PathBuf) {
     fs::write(
         &script,
         format!(
-            "#!/bin/sh\ntouch '{}'\ncat \"$1\" 2>/dev/null\nexit 0\n",
+            "#!/bin/sh\ntouch '{}'\ncat \"$1\" 2>/dev/null\nexit 0\n", // guard-allow: installer-shell
             marker.display()
         ),
     )

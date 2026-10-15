@@ -21,11 +21,16 @@ use crate::state::AppState;
 /// later calls return the cache, which `harness_detect` refreshes.
 #[tauri::command]
 pub async fn harness_list(state: State<'_, AppState>) -> CommandResult<Vec<HarnessSummary>> {
-    if let Some(cached) = cached_summaries(&state).await {
+    summaries(&state).await
+}
+
+/// The cached summaries in registry order, detecting every harness first when one has none.
+pub(super) async fn summaries(state: &AppState) -> CommandResult<Vec<HarnessSummary>> {
+    if let Some(cached) = cached_summaries(state).await {
         return Ok(cached);
     }
 
-    let overrides = stored_overrides(&state).await?;
+    let overrides = stored_overrides(state).await?;
     let summaries = state.registry.summaries(&state.env, &state.runner, &overrides).await;
 
     let mut cache = state.detections.write().await;
@@ -114,7 +119,7 @@ pub(super) fn find(state: &AppState, harness: HarnessId) -> CommandResult<&dyn H
     find_in(&state.registry, harness)
 }
 
-fn find_in(registry: &HarnessRegistry, harness: HarnessId) -> CommandResult<&dyn Harness> {
+pub(super) fn find_in(registry: &HarnessRegistry, harness: HarnessId) -> CommandResult<&dyn Harness> {
     registry
         .get(harness)
         .ok_or_else(|| BusinessError::NotFound(format!("harness {harness:?}")).into())

@@ -43,7 +43,7 @@
       "name": "Pi",
       "shortName": "PI",
       "binaryName": "pi",
-      "description": "Minimal, extensible terminal coding agent.",
+      "description": "Minimal, extensible terminal coding agent. It grows through packages from npm or git, not plugins.",
       "homepage": "https://github.com/earendil-works/pi"
     },
     "capabilities": {

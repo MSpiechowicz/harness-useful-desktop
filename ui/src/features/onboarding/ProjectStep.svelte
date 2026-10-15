@@ -10,6 +10,7 @@
   import MessageSquare from '@lucide/svelte/icons/message-square';
   import Repeat from '@lucide/svelte/icons/repeat';
 
+  import Badge from '$lib/components/Badge.svelte';
   import Button from '$lib/components/Button.svelte';
   import type { IconComponent } from '$lib/components/icon';
   import Kbd from '$lib/components/Kbd.svelte';
@@ -86,7 +87,7 @@
   -->
   <section
     class={cx(
-      'flex flex-col rounded-[16px] border p-[22px]',
+      'flex flex-col rounded-[16px] border-card p-[22px]',
       current
         ? 'edge-accent bg-surface-1 shadow-float'
         : 'border-dashed border-line-strong',
@@ -104,14 +105,15 @@
           <p class="truncate font-mono text-xs text-fg-3" title={current.path}>{current.path}</p>
           <div class="mt-1 flex flex-wrap items-center gap-2">
             {#if current.isGitRepo}
-              <span class="inline-flex h-6 items-center gap-1.5 rounded-full border border-line-strong bg-surface-1 px-2.5 text-xs text-fg-2"><GitBranch size={14} aria-hidden="true" />{t('onboarding.project.gitRepo')}</span>
+              <Badge size="lg"><GitBranch size={14} aria-hidden="true" />{t('onboarding.project.gitRepo')}</Badge>
             {:else}
-              <span class="inline-flex h-6 items-center rounded-full border border-line-strong bg-surface-1 px-2.5 text-xs text-fg-3">{t('onboarding.project.noGit')}</span>
+              <Badge size="lg">{t('onboarding.project.noGit')}</Badge>
             {/if}
-            <span class="inline-flex h-6 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium text-success"><span class="size-1.5 rounded-full bg-success"></span>{t('onboarding.project.selected')}</span>
+            <Badge size="lg" tone="accent">{t('onboarding.project.selected')}</Badge>
           </div>
         </div>
-        <Button onclick={() => void project.pick()}>{t('onboarding.project.change')}</Button>
+        <!-- Level with the title line (the 36px button centred on its 27px line), not with the middle of the block. -->
+        <Button class="-mt-[5px] self-start" onclick={() => void project.pick()}>{t('onboarding.project.change')}</Button>
       </div>
     {:else}
       <div class="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-[18px]">
@@ -127,7 +129,7 @@
               {#each reopen as recent (recent.path)}
                 <button
                   type="button"
-                  class="inline-flex h-6 max-w-48 items-center gap-1.5 rounded-full border border-line-strong bg-surface-1 px-2.5 text-xs text-fg-2 transition-colors hover:border-accent/50 hover:text-fg"
+                  class="inline-flex h-7 max-w-48 items-center gap-2 rounded-full border-card border-line-strong bg-surface-1 px-3 text-sm text-fg-2 transition-colors hover:border-accent/50 hover:text-fg"
                   title={recent.path}
                   onclick={() => void project.open(recent.path)}
                 >
@@ -137,14 +139,14 @@
             </div>
           {/if}
         </div>
-        <Button variant="primary" onclick={() => void project.pick()}>{t('onboarding.project.openFolder')}</Button>
+        <Button class="-mt-[5px] self-start" variant="primary" onclick={() => void project.pick()}>{t('onboarding.project.openFolder')}</Button>
       </div>
     {/if}
 
     <!-- Four equal cells with thin dividers, so the spacing reads the same whatever the text length. -->
     <ul class="mt-[22px] grid grid-cols-4 divide-x divide-line border-t border-line pt-[18px]" aria-label={t('onboarding.project.tiles')}>
       {#each tiles as tile (tile.title)}
-        <li class={cx('flex items-start gap-3 px-4 first:pl-0 last:pr-0', (tile.off || !current) && 'opacity-55')}>
+        <li class={cx('flex items-center gap-3 px-4 first:pl-0 last:pr-0', (tile.off || !current) && 'opacity-55')}>
           <span class={cx('grid size-8 shrink-0 place-items-center rounded-md', tile.off ? 'bg-surface-2' : 'bg-accent-wash')}>
             <tile.icon class={tile.off ? 'text-fg-3' : 'text-accent-text'} size={16} aria-hidden="true" />
           </span>
@@ -158,7 +160,7 @@
   </section>
 
   <!-- How the app works, in three steps: the loop that happens in the folder chosen above. -->
-  <section class="flex flex-col gap-3 [@media(max-height:720px)]:hidden" aria-labelledby="how-it-works">
+  <section class="mt-4 flex flex-col gap-3 [@media(max-height:720px)]:hidden" aria-labelledby="how-it-works">
     <h3 id="how-it-works" class="text-sm font-medium tracking-wider text-fg-3 uppercase">{t('onboarding.project.how')}</h3>
     <!-- A timeline: three nodes on one track, left-aligned like the rest of the step. -->
     <!-- Four equal step columns and a narrow repeat column; each step draws its own track to the next ring. -->

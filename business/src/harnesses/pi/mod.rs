@@ -20,6 +20,7 @@ pub use config::pi_config_view;
 pub use dialect::PiDialect;
 pub use extensions::pi_extensions_view;
 pub use launch::pi_launch_spec;
+pub(crate) use packages::user_has_package;
 pub use sessions::{pi_session_folder, pi_sessions_dir};
 
 use crate::harness::prelude::*;
@@ -61,7 +62,9 @@ impl Harness for Pi {
             name: "Pi".to_owned(),
             short_name: "PI".to_owned(),
             binary_name: self.binary_name().to_owned(),
-            description: "Minimal, extensible terminal coding agent.".to_owned(),
+            description:
+                "Minimal, extensible terminal coding agent. It grows through packages from npm or git, not plugins."
+                    .to_owned(),
             homepage: "https://github.com/earendil-works/pi".to_owned(),
         }
     }
@@ -120,6 +123,15 @@ impl Harness for Pi {
         InstallHint {
             command: "curl -fsSL https://pi.dev/install.sh | sh".to_owned(),
             docs_url: "https://github.com/earendil-works/pi".to_owned(),
+        }
+    }
+
+    fn companion_setup(&self) -> CompanionSetup {
+        CompanionSetup {
+            skills: SkillsStrategy::Package {
+                source: crate::ecosystem::catalog::PI_SKILLS_SOURCE,
+            },
+            mcp: McpTarget::UserMcpJson { also_read: &[] },
         }
     }
 }

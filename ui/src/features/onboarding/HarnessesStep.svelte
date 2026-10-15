@@ -3,6 +3,7 @@
 
   import Button from '$lib/components/Button.svelte';
   import Skeleton from '$lib/components/Skeleton.svelte';
+  import StatusDot from '$lib/components/StatusDot.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
   import { harness } from '$lib/stores/harness.svelte';
   import { cx } from '$lib/utils/cx';
@@ -45,23 +46,24 @@
       {t('onboarding.harnesses.error', { message: harness.error?.message })}
     </p>
   {:else}
-    <!-- What the scan found, with the way to scan again right next to it. -->
-    <div class="-mb-1 flex items-center justify-between gap-3">
-      <p class="text-sm text-fg-3">
+    <!-- What the scan found, in a strip as wide as the cards below it, with the way to scan again at its end. -->
+    <div class="-mb-1.5 flex items-center justify-between gap-3 rounded-lg border border-line bg-glass px-4 py-2">
+      <p class="flex min-w-0 items-center gap-2.5 text-sm text-fg-2" role="status">
+        <StatusDot tone={installed.length === 0 ? 'warning' : installed.length === harness.summaries.length ? 'success' : 'accent'} />
         {#if installed.length === 0}
           {t('onboarding.harnesses.none')}
         {:else}
           {t('onboarding.harnesses.found', { found: installed.length, total: harness.summaries.length })}
         {/if}
       </p>
-      <Button variant="ghost" size="sm" loading={harness.scanning} onclick={() => void harness.rescan()}>
+      <Button loading={harness.scanning} onclick={() => void harness.rescan()}>
         {#snippet leading()}<RotateCw size={16} aria-hidden="true" />{/snippet}
         {t('onboarding.harnesses.rescan')}
       </Button>
     </div>
 
     <!-- Arrow keys are a convenience on top of the radio buttons, which are individually focusable. -->
-    <div role="radiogroup" aria-label={t('onboarding.harnesses.group')} tabindex="-1" class="grid grid-cols-2 items-start gap-4 outline-none" onkeydown={onKeydown}>
+    <div role="radiogroup" aria-label={t('onboarding.harnesses.group')} tabindex="-1" class="grid grid-cols-2 gap-x-4 outline-none" onkeydown={onKeydown}>
       {#each harness.summaries as summary (summary.info.id)}
         <HarnessCard {summary} selected={onboarding.driver === summary.info.id} onselect={() => onboarding.choose(summary.info.id)} />
       {/each}

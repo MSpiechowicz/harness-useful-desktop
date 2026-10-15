@@ -1,8 +1,9 @@
 //! The companion tools of the ecosystem: names, descriptions, links and copyable install steps.
 //!
 //! Install steps follow each tool's README (the dashboard's `install.sh` / `install.ps1`, the
-//! OMP marketplace installs of the skills and the sidebar). They are shown for copying and are
-//! never run by the app.
+//! OMP marketplace installs of the skills and the sidebar). They are shown for copying; the one
+//! exception is the "Recommended setup" step, which runs the dashboard's installer (see
+//! [`super::installer`]) after the user confirms it.
 
 use crate::env::OsKind;
 use crate::model::{EcosystemId, EcosystemItem, InstallStep};
@@ -19,10 +20,28 @@ pub const SKILLS_PLUGIN: &str = "harness-useful-skills";
 /// The npm package / plugin name of the sidebar.
 pub const SIDEBAR_PLUGIN: &str = "harness-useful-sidebar";
 
-const DASHBOARD_INSTALL_SH: &str =
-    "curl -fsSL https://raw.githubusercontent.com/MSpiechowicz/harness-useful-dashboard/main/install.sh | sh";
+/// The name the setup step gives the dashboard's server in a harness's `mcpServers`.
+pub const DASHBOARD_MCP_SERVER: &str = "harness-dashboard";
 
-const DASHBOARD_INSTALL_PS1: &str = "powershell -ExecutionPolicy Bypass -c \"irm https://raw.githubusercontent.com/MSpiechowicz/harness-useful-dashboard/main/install.ps1 | iex\"";
+/// The skills' OMP marketplace source (`omp plugin marketplace add …`).
+pub const SKILLS_MARKETPLACE: &str = "MSpiechowicz/harness-useful-skills";
+
+/// The skills' OMP plugin target (`omp plugin install …`).
+pub const SKILLS_TARGET: &str = "harness-useful-skills@harness-useful-skills";
+
+/// The skills as a PI package source (`pi install …`).
+pub const PI_SKILLS_SOURCE: &str = "git:github.com/MSpiechowicz/harness-useful-skills";
+
+/// The dashboard's Unix installer, as a copyable shell command (also the script the setup step
+/// runs on Linux and macOS). `curl` is held to HTTPS and TLS 1.2 or newer, redirects included.
+pub const DASHBOARD_INSTALL_SH: &str = "curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/MSpiechowicz/harness-useful-dashboard/main/install.sh | sh";
+
+/// The PowerShell script of the dashboard's Windows installer (what the setup step runs there).
+pub const DASHBOARD_INSTALL_PS1_SCRIPT: &str =
+    "irm https://raw.githubusercontent.com/MSpiechowicz/harness-useful-dashboard/main/install.ps1 | iex";
+
+/// The dashboard's Windows installer, as a copyable command.
+pub const DASHBOARD_INSTALL_PS1: &str = "powershell -ExecutionPolicy Bypass -c \"irm https://raw.githubusercontent.com/MSpiechowicz/harness-useful-dashboard/main/install.ps1 | iex\"";
 
 /// True when `id` runs on `os` (the sidebar needs tmux or a native pane: Linux and macOS only).
 pub fn supported_on(id: EcosystemId, os: OsKind) -> bool {

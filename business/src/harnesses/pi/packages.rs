@@ -11,8 +11,9 @@ use serde_json::Value;
 
 use super::layers::{Layer, resolve};
 use crate::env::Env;
+use crate::harness::HarnessPaths;
 use crate::model::PackageInfo;
-use crate::pi_family::package_manifest;
+use crate::pi_family::{package_manifest, read_json};
 use crate::security::{RedactionContext, Redactor};
 
 /// Resource kinds a package can provide.
@@ -25,6 +26,25 @@ pub fn packages(env: &Env, layers: &[Layer]) -> Vec<PackageInfo> {
         .rev()
         .flat_map(|layer| layer_packages(env, layer))
         .collect()
+}
+
+/// True when a package source in the user settings (`<agent dir>/settings.json`) contains
+/// `needle` (e.g. a repository name). The sources are only compared, never returned.
+pub(crate) fn user_has_package(paths: &HarnessPaths, needle: &str) -> bool {
+    let settings = read_json(&paths.agent_dir.join("settings.json"));
+    let Some(items) = settings.get("packages").and_then(Value::as_array) else {
+        return false;
+    };
+
+    items.iter().any(|item| {
+        let source = match item {
+            Value::String(raw) => Some(raw.as_str()),
+            Value::Object(fields) => fields.get("source").and_then(Value::as_str),
+            _ => None,
+        };
+
+        source.is_some_and(|source| source.contains(needle))
+    })
 }
 
 fn layer_packages(env: &Env, layer: &Layer) -> Vec<PackageInfo> {

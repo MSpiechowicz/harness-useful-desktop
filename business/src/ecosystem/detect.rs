@@ -60,7 +60,12 @@ async fn detect_dashboard(env: &Env, runner: &dyn ProcessRunner, item: &mut Ecos
     }
 }
 
-async fn dashboard_version(env: &Env, runner: &dyn ProcessRunner, binary: &ResolvedBinary) -> Option<String> {
+/// `harness-dashboard version` of `binary` (bare semver), within [`VERSION_TIMEOUT`].
+pub(crate) async fn dashboard_version(
+    env: &Env,
+    runner: &dyn ProcessRunner,
+    binary: &ResolvedBinary,
+) -> Option<String> {
     let spec = ExecSpec::new(&binary.path)
         .args(["version"])
         .search_dirs(launcher_search_dirs(env, &binary.path))

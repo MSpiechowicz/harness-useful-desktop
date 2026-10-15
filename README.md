@@ -33,6 +33,10 @@ privacy. Made with the app's demo data. [Download the full-quality 4K video](htt
   actions run through the harness's own CLI and a dry-run preview where the CLI offers one.
 - **Ecosystem tab and dashboard widgets.** Detects the companion tools and shows cost and token widgets from the local
   [Harness Dashboard](https://github.com/MSpiechowicz/harness-useful-dashboard) when it is installed.
+- **Recommended setup.** An optional onboarding step (also **Run recommended setup** on the Ecosystem screen) that,
+  after you confirm each part, installs the Harness Dashboard with its official installer, installs the
+  [Harness Skills](https://github.com/MSpiechowicz/harness-useful-skills) (OMP as a plugin, PI as a package) and
+  registers the dashboard as an MCP server in each detected harness's user `mcp.json`.
 - **Command palette and shortcuts.** Keyboard-first navigation (`Ctrl/Cmd+K`, `Ctrl/Cmd+1..7`), plus a shortcuts
   overlay.
 - **Themes.** Light, dark or follow the system, with a motion setting (full, reduced, off).
@@ -45,7 +49,7 @@ privacy. Made with the app's demo data. [Download the full-quality 4K video](htt
 | --- | --- |
 | [Oh My Pi](https://omp.sh) (`omp`) | Supported. Verified against 18.6.1. |
 | [Pi](https://github.com/earendil-works/pi) (`pi`) | Supported. Follows the PI documentation (v1.1.0); detected versions show as untested until a release is verified live. |
-| Other harness CLIs | Planned. Adding one is an implementation of the `Harness` trait; see [docs/adding-a-harness.md](docs/adding-a-harness.md). |
+| Other harness CLIs | Planned. Adding one is an implementation of the `Harness` trait; see [docs/adding-a-harness.md](docs/adding-a-harness.md). Every new harness must also join Recommended setup (skills install and dashboard MCP). |
 
 The app finds the CLI on `PATH` and in the usual install directories (bun, cargo, npm global, `~/.local/bin`, Homebrew), or you can
 choose the executable yourself. It does not install harnesses.
@@ -128,7 +132,7 @@ then optionally delete `%APPDATA%\com.mspiechowicz.harness-useful-desktop` and
 
 Everything runs on your machine. No telemetry, no accounts, no stored tokens. Credential stores, databases, logs and
 private keys are never read, secrets in configuration are masked, and the only network requests the app makes itself are
-the signed update check and a lookup of the companions' latest release numbers on GitHub; both can be turned off. The app stores only preferences, window geometry, a few UI choices and a local log file. Details and the exact rules:
+the signed update check and a lookup of the companions' latest release numbers on GitHub; both can be turned off. The one thing the app runs besides your harness CLI is the Harness Dashboard installer of Recommended setup, and only after you confirm it. The app stores only preferences, window geometry, a few UI choices and a local log file. Details and the exact rules:
 [docs/security-privacy.md](docs/security-privacy.md).
 
 ## Development

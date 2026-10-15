@@ -13,7 +13,7 @@ use harness_business::model::{HarnessId, HarnessSummary};
 use harness_business::pi_family::sessions::SessionCache;
 use harness_business::prefs::PrefsStore;
 use harness_business::process::{TokioRunner, TokioSpawner};
-use tauri::async_runtime::RwLock;
+use tauri::async_runtime::{self, RwLock};
 use tauri::{AppHandle, Manager, Runtime};
 
 use crate::agents::Agents;
@@ -49,6 +49,8 @@ pub struct AppState {
     pub updates: Updates,
     /// The cached latest GitHub releases of the companion tools (`ecosystem_releases`).
     pub releases: CompanionReleases,
+    /// Held while the setup step's dashboard installer runs, so only one runs at a time.
+    pub dashboard_install: async_runtime::Mutex<()>,
 }
 
 impl AppState {
@@ -79,6 +81,7 @@ impl AppState {
             drops: DropSink::default(),
             updates: Updates::new(None),
             releases: CompanionReleases::default(),
+            dashboard_install: async_runtime::Mutex::new(()),
         }
     }
 }

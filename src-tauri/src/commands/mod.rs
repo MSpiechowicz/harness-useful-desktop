@@ -11,6 +11,7 @@ pub mod plugins;
 pub mod projects;
 pub mod review;
 pub mod sessions;
+pub mod setup;
 pub mod sound;
 pub mod system;
 pub mod updates;

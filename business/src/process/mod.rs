@@ -312,7 +312,8 @@ fn spawn_command(mut command: Command, spec: &ExecSpec) -> Result<Child> {
     })
 }
 
-/// Kills the child and, on Unix, its whole process group. A no-op once the child was reaped.
+/// Kills the child and, on Unix, its whole process group. A no-op once the child was reaped (see
+/// [`ChildHandle::kill_process_group`] for what is left after that).
 fn kill_tree(child: &mut Child) -> Result<()> {
     // `id()` is `None` once tokio reaped the child; the pid (and its group id) may then be reused.
     let Some(pid) = child.id() else {

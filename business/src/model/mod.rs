@@ -26,6 +26,7 @@ mod prefs;
 mod project;
 mod review;
 mod session;
+mod setup;
 mod subagent;
 mod ui_request;
 mod update;
@@ -75,6 +76,10 @@ pub use session::{
     MAX_FIRST_PROMPT_CHARS, MAX_NODE_PREVIEW_CHARS, MAX_SESSION_PAGE, MAX_TREE_NODES, ModelTurns, SessionFolder,
     SessionMessagesPage, SessionNode, SessionNodeKind, SessionSummary, SessionTitleSource, SessionTree,
     TranscriptStats,
+};
+pub use setup::{
+    DashboardInstallResult, DashboardSetup, HarnessSetup, InstallLogLine, InstallStream, McpRefusal, McpState,
+    RecommendedSetup, SkillsSetup,
 };
 pub use subagent::{Subagent, SubagentStatus, SubagentTool};
 pub use ui_request::{UiOutcome, UiRequest, UiRequestKind, UiResponse};

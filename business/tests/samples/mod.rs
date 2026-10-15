@@ -141,7 +141,7 @@ async fn ui_requests() -> Vec<AgentEnvelope> {
     answer(
         &run,
         "ui-3",
-        value("#!/bin/sh\ncargo fmt --all --check\ncargo clippy\n"),
+        value("#!/bin/sh\ncargo fmt --all --check\ncargo clippy\n"), // guard-allow: installer-shell
     )
     .await;
     pending.await.expect("prompt task").expect("prompt handled");

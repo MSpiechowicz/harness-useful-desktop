@@ -9,6 +9,8 @@ import { hostHandlers } from './host-handlers';
 import { projectHandlers } from './project-handlers';
 import { releaseHandlers } from './release-handlers';
 import { sessionHandlers } from './session-handlers';
+import { setupHandlers, setupScenarioFromLocation } from './setup-handlers';
+import { rosterFor, rosterSummaries } from './setup-roster';
 import { MockState } from './state';
 import type { Handlers, Scenario } from './types';
 import { updateHandlers } from './update-handlers';
@@ -35,12 +37,35 @@ export function defaultScenario(): Scenario {
     ...gitHandlers(state),
   };
 
+  const actions = extensionActionHandlers(state, base.extensions_view);
+
+  // The preview's `?setup=many` pretends the app knows more harnesses than it does, so the setup step can be seen with them.
+  const harnesses = async () => {
+    const list = await base.harness_list(undefined);
+    const roster = rosterFor(setupScenarioFromLocation());
+
+    return roster && list[0] ? rosterSummaries(roster, list[0]) : list;
+  };
+  const setup = setupHandlers(harnesses);
+
   const handlers: Handlers = {
     ...base,
+    harness_list: harnesses,
     ...ecosystemHandlers(),
     ...releaseHandlers(state),
     ...updateHandlers(agentPace),
-    ...extensionActionHandlers(state, base.extensions_view),
+    ...actions,
+    ...setup.handlers,
+    // A completed action may be one of the setup step's, which the next `setup_status` then reports as done.
+    extension_action: async (args) => {
+      const result = await actions.extension_action(args);
+
+      if (!args.dryRun && result.ok) {
+        setup.actionApplied(args.harness, args.action);
+      }
+
+      return result;
+    },
   };
 
   return { name: 'default', handlers };

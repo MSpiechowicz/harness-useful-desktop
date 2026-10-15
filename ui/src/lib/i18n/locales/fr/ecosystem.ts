@@ -20,6 +20,7 @@ export const ecosystem: AreaMessages<typeof enEcosystem> = {
     'Harness Useful est une petite famille de compagnons open source pour vos agents de code. Le **dashboard** mesure ce qu’ils coûtent, les **skills** rendent leur travail reproductible et la **barre latérale** garde leurs sessions sous les yeux. Harness Desktop fonctionne seul et en montre davantage avec chaque compagnon ajouté.',
   'ecosystem.hero.failed': 'Impossible de lire les compagnons installés.',
   'ecosystem.hero.looking': 'Recherche des compagnons…',
+  'ecosystem.setup.run': 'Lancer la configuration recommandée',
 
   'ecosystem.orbit.description': '{summary} : {items}',
   'ecosystem.orbit.installed': '{name} installé',

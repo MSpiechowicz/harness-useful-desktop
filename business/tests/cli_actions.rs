@@ -269,8 +269,9 @@ mod runs {
             std::fs::write(bin.join("stdout"), stdout).expect("write stdout");
             std::fs::write(bin.join("stderr"), stderr).expect("write stderr");
 
+            let shebang = "#!/bin/sh"; // guard-allow: installer-shell
             let script = format!(
-                "#!/bin/sh\nd=$(dirname \"$0\")\nprintf '%s\\n' \"$@\" > \"$d/argv\"\npwd -P > \"$d/cwd\"\n\
+                "{shebang}\nd=$(dirname \"$0\")\nprintf '%s\\n' \"$@\" > \"$d/argv\"\npwd -P > \"$d/cwd\"\n\
                  printf '%s' \"$NO_COLOR\" > \"$d/no_color\"\ncat \"$d/stdout\"\ncat \"$d/stderr\" >&2\nexit {code}\n"
             );
             let path = bin.join(name);

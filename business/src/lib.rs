@@ -26,6 +26,7 @@ pub mod dropped;
 pub mod ecosystem;
 pub mod env;
 pub mod error;
+mod fs_atomic;
 pub mod git;
 pub mod harness;
 pub mod harnesses;

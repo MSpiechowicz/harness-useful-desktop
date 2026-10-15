@@ -17,6 +17,7 @@ export const ecosystem = {
     'Harness Useful is a small family of open-source companions for your coding agents. The **dashboard** measures what they cost, the **skills** make their work repeatable, and the **sidebar** keeps their sessions in view. Harness Desktop works on its own and shows more with each one you add.',
   'ecosystem.hero.failed': 'The installed companions could not be read.',
   'ecosystem.hero.looking': 'Looking for companions…',
+  'ecosystem.setup.run': 'Run recommended setup',
 
   'ecosystem.orbit.description': '{summary}: {items}',
   'ecosystem.orbit.installed': '{name} installed',

@@ -11,9 +11,26 @@
 
   import { WIDTH } from './layout';
   import { onboarding } from './onboarding-state.svelte';
+  import { setup } from './setup-state.svelte';
   import StepHeader from './StepHeader.svelte';
 
   const driver = $derived(onboarding.driver ? harness.get(onboarding.driver) : undefined);
+
+  /** What the setup step left in place, as the machine reports it; null when that step did not read anything. */
+  const companions = $derived.by(() => {
+    const data = setup.data;
+    if (!data) {
+      return null;
+    }
+
+    const parts = [
+      data.dashboard.installed ? t('onboarding.done.companions.dashboard') : null,
+      data.harnesses.some((entry) => entry.skills.type === 'installed') ? t('onboarding.done.companions.skills') : null,
+      data.harnesses.some((entry) => entry.mcp.type === 'configured') ? t('onboarding.done.companions.mcp') : null,
+    ];
+
+    return parts.filter((part) => part !== null).join(', ');
+  });
 
   /** The first things worth knowing once the app opens. */
   const TIPS = $derived<{ keys: string; title: string; body: string }[]>([
@@ -27,8 +44,8 @@
 <div class={cx('mx-auto flex w-full flex-col gap-8 [@media(max-height:720px)]:gap-4', WIDTH.wide)}>
   <StepHeader eyebrow={t('onboarding.done.eyebrow')} title={t('onboarding.done.title')} body={t('onboarding.done.body')} />
 
-  <div class="grid grid-cols-2 items-start gap-4">
-    <section class="flex flex-col gap-4 rounded-lg border border-line bg-glass p-5" aria-labelledby="setup-summary">
+  <div class="grid grid-cols-2 items-stretch gap-4">
+    <section class="flex flex-col gap-4 rounded-lg border-card border-line bg-glass p-5" aria-labelledby="setup-summary">
       <h3 id="setup-summary" class="text-sm font-medium tracking-wider text-fg-3 uppercase">{t('onboarding.done.setup')}</h3>
       <dl class="grid grid-cols-[max-content_1fr] items-center gap-x-6 gap-y-4">
         <dt class="text-sm text-fg-3">{t('onboarding.done.driver')}</dt>
@@ -51,11 +68,18 @@
             <span class="text-fg-2">{t('onboarding.done.noProject')}</span>
           {/if}
         </dd>
+
+        {#if companions !== null}
+          <dt class="text-sm text-fg-3">{t('onboarding.done.companions')}</dt>
+          <dd class="text-base text-fg">
+            {#if companions}{companions}{:else}<span class="text-fg-2">{t('onboarding.done.companions.none')}</span>{/if}
+          </dd>
+        {/if}
       </dl>
-      <p class="inline-flex items-center gap-2 border-t border-line pt-3 text-sm text-fg-2"><Check class="text-success" size={16} aria-hidden="true" />{t('onboarding.done.private')}</p>
+      <p class="mt-auto inline-flex items-center gap-2 border-t border-line pt-3 text-sm text-fg-2"><Check class="text-success" size={16} aria-hidden="true" />{t('onboarding.done.private')}</p>
     </section>
 
-    <section class="flex flex-col gap-3 rounded-lg border border-line bg-glass p-5" aria-labelledby="first-steps">
+    <section class="flex flex-col gap-3 rounded-lg border-card border-line bg-glass p-5" aria-labelledby="first-steps">
       <h3 id="first-steps" class="text-sm font-medium tracking-wider text-fg-3 uppercase">{t('onboarding.done.where')}</h3>
       <ul class="flex flex-col gap-3">
         {#each TIPS as tip (tip.keys)}

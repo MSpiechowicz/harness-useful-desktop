@@ -226,7 +226,7 @@ async fn probe_failures_are_reported_without_hiding_the_binary() {
 async fn a_real_fake_omp_on_path_is_detected() {
     let home = TempDir::new().unwrap();
     let (env, bin) = env_with_bin(&home);
-    fake_binary(&bin, "omp", "#!/bin/sh\necho omp/18.6.1\n");
+    fake_binary(&bin, "omp", "#!/bin/sh\necho omp/18.6.1\n"); // guard-allow: installer-shell
     fs::create_dir_all(home.path().join(".omp")).unwrap();
 
     let detection = Omp.detect(&env, &TokioRunner, None).await;
@@ -243,7 +243,7 @@ async fn a_real_fake_omp_on_path_is_detected() {
 async fn a_launcher_script_finds_its_interpreter_outside_the_inherited_path() {
     let home = TempDir::new().unwrap();
     let bun_bin = home.path().join(".bun/bin");
-    fake_binary(&bun_bin, "harness-test-bun", "#!/bin/sh\necho omp/18.6.1\n");
+    fake_binary(&bun_bin, "harness-test-bun", "#!/bin/sh\necho omp/18.6.1\n"); // guard-allow: installer-shell
     fake_binary(&bun_bin, "omp", "#!/usr/bin/env harness-test-bun\n");
     let env = Env::for_tests(home.path()).with_var("PATH", "/usr/bin:/bin");
 
@@ -258,7 +258,7 @@ async fn a_launcher_script_finds_its_interpreter_outside_the_inherited_path() {
 async fn the_registry_detects_every_harness_and_honours_overrides() {
     let home = TempDir::new().unwrap();
     let (env, _) = env_with_bin(&home);
-    let custom = fake_binary(&home.path().join("custom"), "pi", "#!/bin/sh\necho 1.1.0\n");
+    let custom = fake_binary(&home.path().join("custom"), "pi", "#!/bin/sh\necho 1.1.0\n"); // guard-allow: installer-shell
     let overrides = [BinaryOverride {
         harness: HarnessId::Pi,
         path: custom.to_string_lossy().into_owned(),

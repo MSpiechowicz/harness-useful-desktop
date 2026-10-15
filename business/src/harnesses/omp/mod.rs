@@ -116,6 +116,15 @@ impl Harness for Omp {
         }
     }
 
+    fn companion_setup(&self) -> CompanionSetup {
+        CompanionSetup {
+            skills: SkillsStrategy::OmpMarketplace,
+            mcp: McpTarget::UserMcpJson {
+                also_read: &[".mcp.json"],
+            },
+        }
+    }
+
     fn supported_versions(&self) -> &'static [&'static str] {
         &["18."]
     }

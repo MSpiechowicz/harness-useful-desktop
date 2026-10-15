@@ -48,6 +48,23 @@ fn helper_process() {
             stdout.flush().unwrap();
             std::thread::sleep(Duration::from_secs(60));
         }
+        "orphan" => {
+            // Like a daemon: detached from the pipes, left running when this helper exits.
+            #[expect(
+                clippy::zombie_processes,
+                reason = "the helper exits and leaves it behind on purpose"
+            )]
+            let child = std::process::Command::new(std::env::current_exe().unwrap())
+                .args(helper_args())
+                .env(HELPER_ENV, "sleep")
+                .stdin(std::process::Stdio::null())
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .spawn()
+                .unwrap();
+            writeln!(stdout, "\nGRANDCHILD={}", child.id()).unwrap();
+            stdout.flush().unwrap();
+        }
         other => panic!("unknown helper mode {other}"),
     }
 }
@@ -213,6 +230,30 @@ async fn dropping_a_spawned_child_kills_its_process_group() {
 
     drop(process.child);
     assert_process_gone(pid.unwrap());
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn killing_the_group_after_exit_ends_what_the_child_left_running() {
+    use nix::sys::signal::kill;
+    use nix::unistd::Pid;
+
+    let mut process = TokioSpawner.spawn(&helper("orphan")).unwrap();
+    drop(process.stdin);
+
+    let mut stdout = String::new();
+    process.stdout.read_to_string(&mut stdout).await.unwrap();
+    let exit = process.child.wait().await.unwrap();
+    let pid = find_grandchild_pid(&stdout).expect("the helper reports its grandchild");
+
+    assert_eq!(exit.code, Some(0));
+    assert!(
+        kill(Pid::from_raw(pid), None).is_ok(),
+        "the grandchild outlives its parent"
+    );
+
+    process.child.kill_process_group();
+    assert_process_gone(pid);
 }
 
 #[tokio::test]

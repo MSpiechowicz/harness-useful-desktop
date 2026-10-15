@@ -129,11 +129,11 @@ async fn omp_extension_command_dialogs_complete_before_a_handled_prompt() {
         request.kind,
         UiRequestKind::Editor {
             title: "Edit the hook script".to_owned(),
-            prefill: Some("#!/bin/sh\ncargo fmt --all --check\n".to_owned()),
+            prefill: Some("#!/bin/sh\ncargo fmt --all --check\n".to_owned()), // guard-allow: installer-shell
         }
     );
     run.manager
-        .respond(run.key(), answer("ui-3", value("#!/bin/sh\n")))
+        .respond(run.key(), answer("ui-3", value("#!/bin/sh\n"))) // guard-allow: installer-shell
         .await
         .unwrap();
 

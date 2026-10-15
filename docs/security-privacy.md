@@ -9,8 +9,12 @@ not guaranteed, it says so under [Limits](#limits).
 - The app itself makes two kinds of network request, both to GitHub and both possible to turn off: the update check and
   download (only when the build carries an updater key), and the companion release lookup. See [Network](#network).
 - The app never reads credential stores, databases, logs or private keys, even through a symlink.
+- The only thing the app writes into a harness's configuration is one `harness-dashboard` entry in its user `mcp.json`,
+  and only when you choose it in Recommended setup. See [Process spawning](#process-spawning).
 - Secrets in configuration and in the app's own CLI output are masked before they reach the screen.
-- No shell is ever spawned. Every process has an absolute program path and an explicit argument list.
+- No shell is spawned, with one exception: the Harness Dashboard installer of Recommended setup, a fixed command that
+  runs only after you confirm it (see [Process spawning](#process-spawning)). Every process has an absolute program
+  path and an explicit argument list.
 - The webview has no filesystem, shell, dialog, opener or updater API. It can call only the app's own commands.
 
 ## Threat model
@@ -30,12 +34,14 @@ your terminal (see [Limits](#limits)).
 
 ## Network
 
-The app contains no analytics client. Its only HTTP clients are the updater and the companion release lookup. Enumerated:
+The app contains no analytics client. Its only HTTP clients are the updater and the companion release lookup; the one
+other download, the dashboard installer, is made by the installer command itself, and only after consent. Enumerated:
 
 | Request | When | Details |
 | --- | --- | --- |
 | Update check and download | Only if `plugins.updater.pubkey` in `src-tauri/tauri.conf.json` holds a valid public key (`configured_pubkey`, `business/src/update.rs`), and the user or the update policy asks | One URL: `UPDATE_ENDPOINT`, the GitHub release `latest.json`. The client is `https_only(true)` with 15 s connect and 30 s read timeouts (`src-tauri/src/commands/updates.rs`). The code sends nothing beyond the updater's standard headers. |
 | Companion release lookup | When the Ecosystem view loads or is refreshed, at most once per companion every 6 hours while the app runs (the cache is in memory, so a restart asks again; failed lookups, including rate limits, retry after 5 minutes), and only while **Check companions for updates** (`checkCompanionUpdates` in prefs, on by default) is on. A prefs file that exists but cannot be read counts as off. | Three fixed URLs, `https://api.github.com/repos/MSpiechowicz/harness-useful-{dashboard,skills,sidebar}/releases/latest`, HTTPS only, with timeouts and a capped response. Only `tag_name` is read. The request carries a `User-Agent` (`harness-desktop/<version>`) and an `Accept` header and nothing else: no token, no cookies, no referer, no installed versions or other local data. While at least one companion is installed, all three are requested, so the request set does not reveal which ones (with none installed, nothing is requested); GitHub sees the IP address, the app version and when Ecosystem was opened. The comparison with the installed version happens on this machine (`ecosystem_releases`). Redirects are followed only to `https://api.github.com` on port 443. System proxy settings apply, as for the updater. A failed lookup only means no update badge. |
+| Dashboard installer download | Only when the user confirms **Install the dashboard** in Recommended setup (onboarding, or **Run recommended setup** in Ecosystem) | The app opens no connection itself. The installer command it runs (a `curl` of `install.sh` piped to `sh` on Linux and macOS, `irm` of `install.ps1` piped to `iex` on Windows) fetches the script from `https://raw.githubusercontent.com/MSpiechowicz/harness-useful-dashboard/main/` and then whatever that script downloads, the dashboard release. GitHub sees the IP address and the request. See [Process spawning](#process-spawning). |
 | Opening a link | Only when the user clicks one | `open_external` hands an allowlisted `https` URL (any `https` URL with **Open any web link** on) to the OS browser. The app itself does not fetch it. |
 
 - **AI chat names** (`aiChatNames`, off by default). When on, after the first message of a new chat the app starts one
@@ -62,8 +68,12 @@ Everything else:
   `mcp` as the only argument, never passes `--db`, and never reads its database or `auth-token`. Whatever that
   program does on its own is outside this app.
 - Harness CLIs make their own provider requests. Extension actions (`omp plugin install`, `pi install`) run the CLI,
-  which may download packages. The UI asks first and previews with the CLI's dry-run flag where one exists.
-- The Ecosystem tab shows install commands for copying. The app never runs them (`business/src/ecosystem/catalog.rs`).
+  which may download packages. The UI asks first and previews with the CLI's dry-run flag where one exists. Recommended
+  setup installs the Harness Skills for OMP the same way (`omp plugin marketplace add`, then `omp plugin install` at
+  user scope, through `extension_action`, after you confirm). For PI it only shows `pi install
+  git:github.com/MSpiechowicz/harness-useful-skills` for copying; the app never runs it.
+- The Ecosystem tab shows install commands for copying (`business/src/ecosystem/catalog.rs`). The app never runs them,
+  except the Harness Dashboard installer of Recommended setup (see [Process spawning](#process-spawning)).
 
 ## Files the app never reads
 
@@ -166,7 +176,23 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
 
 - **No shell.** `build_command` (`business/src/process/mod.rs`) requires an absolute program path and passes the
   argument list verbatim. `scripts/check-forbidden.ts` rejects `Command::new("sh" | "bash" | "cmd" | ...)` with no
-  opt-out.
+  opt-out. The single exception is the dashboard installer below.
+- **Dashboard installer (the one shell).** Recommended setup can run the official Harness Dashboard installer
+  (`setup_install_dashboard`, `business/src/ecosystem/installer.rs`). It is the only place the app runs an install
+  command and names a shell. The command is a Rust constant per OS (`DASHBOARD_INSTALL_SH` and
+  `DASHBOARD_INSTALL_PS1_SCRIPT` in `business/src/ecosystem/catalog.rs`): `/bin/sh -c` on Linux and macOS, Windows
+  PowerShell from `<SystemRoot>\System32\WindowsPowerShell\v1.0` with `-NoProfile` on Windows. The webview sends only
+  `confirmed`; no command line, path or URL. The command fails with `invalidInput` unless `confirmed` is true (the UI
+  asks first and lists what the installer changes), and only one install runs at a time. The child runs in the home
+  directory with `NO_COLOR=1`, inherits the app's environment, has its stdin closed, lives in its own process group
+  and is killed with it after 10 minutes. Its output reaches the UI line by line with escapes stripped and secrets
+  redacted (`redact_text`; 2 KiB per line, 256 KiB in all); the log keeps only counts and the exit code. Success needs
+  exit code 0 and a `harness-dashboard` that reports a version afterwards, because a piped download can exit 0 after
+  failing. The script comes from the `main` branch of the dashboard's repository; the app does not pin or verify it
+  (see [Limits](#limits)). The guard keeps the exception narrow: rule `installer-shell` in
+  `scripts/check-forbidden.ts` rejects `/bin/sh` and `powershell.exe` in any Rust file except
+  `business/src/ecosystem/installer.rs` and `business/tests/`, with no opt-out; inside those files every line that
+  names one must carry `guard-allow: installer-shell`.
 - **Binary resolution.** `resolve_binary` uses absolute `PATH` entries only, then the standard install directories. A
   relative or empty `PATH` entry is ignored, so a project cannot plant a binary. A user-chosen override must be an
   absolute existing file whose name is exactly the harness binary name, and is set only through the native file
@@ -179,7 +205,15 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
 - **Flags never passed.** `--auto-approve`, `--no-ui`, login and credential RPCs (`get_login_providers`),
   `set_ask_dialog`. `--approve` goes to PI only for the user's explicit "trust this project once" choice, for that launch.
   The OMP `--approval-mode` flag is sent only when the user picks a per-session mode. The app does not edit either
-  harness's settings.
+  harness's settings, with one exception: Recommended setup can add a `harness-dashboard` entry to the user `mcp.json`
+  of a detected harness (`setup_register_mcp`, `business/src/ecosystem/mcp_register.rs`). The webview sends only a
+  harness id; the file is `<agent dir>/mcp.json` from the harness's own paths, and both the harness and the dashboard
+  must be installed. The app merges `{"command": "harness-dashboard", "args": ["mcp"]}` into `mcpServers` and keeps
+  every other key and server. It writes nothing when an entry for the dashboard already exists (in that file or one of
+  the harness's other MCP files, even switched off; it never enables one). It refuses, and changes nothing, on invalid
+  JSON, a root or `mcpServers` that is not an object, a symlink, anything but a regular file, a file over 2 MiB, or a
+  file that changed while it was read. The write is atomic (temporary sibling, flushed, renamed) and keeps the file's
+  permissions; a new file is created with `0600`. File contents are never logged or returned.
 - **Shell commands from the composer.** `agent_bash` fails with `invalidInput` unless the UI passes `confirmed: true`
   after asking the user; the agent runs the command, not the app.
 - **Git.** `GitCli` (`business/src/git/cli.rs`) runs `git -C <project>` with `--no-pager --literal-pathspecs
@@ -198,7 +232,7 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
 
 ## Tauri ACL, CSP and webview
 
-- **Capability** (`src-tauri/capabilities/main.json`, window `main`): 38 `allow-<command>` permissions, one per app
+- **Capability** (`src-tauri/capabilities/main.json`, window `main`): 51 `allow-<command>` permissions, one per app
   command, generated from `COMMANDS` in `src-tauri/build.rs`. There is no `core:*` permission and no plugin
   permission. The dialog, opener, window-state, log, single-instance and updater plugins are driven from Rust only, so
   their JavaScript APIs (and the log plugin's `log` command) are unreachable. `withGlobalTauri` is `false`. Channel
@@ -243,6 +277,7 @@ Details of keys and releases: [release-and-updater-keys.md](release-and-updater-
 | `prefs.json` | The OS app-config directory for the identifier `com.mspiechowicz.harness-useful-desktop` (Tauri `app_config_dir`) | `AppPrefs` only (below). Written atomically (temp file, `sync_all`, rename); directory `0700`, file `0600` on Unix. A corrupt file is renamed to `prefs.json.corrupt-<unix-seconds>` and defaults load. |
 | Window size and position | App state kept by `tauri-plugin-window-state` | Geometry only. |
 | UI choices | Webview `localStorage` | Rail expanded (`harness.railExpanded`), command-palette recents (`harness.paletteRecents`), diff layout. |
+| `mcp.json` of a harness | `<agent dir>/mcp.json` (for example `~/.omp/agent/mcp.json`), the harness's own file | Written only by Recommended setup, after you choose it: one `harness-dashboard` server merged in (see [Process spawning](#process-spawning)). Not app data; nothing else in it is touched. |
 | Log files | The OS log directory | See [Logging](#logging). Rotated at 1 MiB, 3 files kept. |
 
 `AppPrefs` (`business/src/model/prefs.rs`) has nineteen fields and never holds secrets or chat content:
@@ -282,5 +317,9 @@ command is not granted). Process errors name only the program's file name (`Exec
   or `diff` re-reads a changed file, as in a terminal (`business/src/git/mod.rs`). Open only repositories you trust.
 - **Windows.** Only the direct child of a spawned process is killed (no job object yet), so grandchildren may outlive
   it.
+- **The dashboard installer is remote code.** Once you confirm, it runs a script fetched from the `main` branch of
+  `MSpiechowicz/harness-useful-dashboard` with your privileges, as if you ran the install command in your terminal. The
+  app confirms first and lists what it changes, but does not pin or verify the script. To avoid it, skip the step and
+  install the dashboard yourself.
 - **Heuristics.** The entropy rule and key-name rules can hide harmless values and can miss unusual secrets.
 - **Unsigned installers** on macOS and Windows show an OS warning on first install.

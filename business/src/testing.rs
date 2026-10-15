@@ -41,7 +41,28 @@ impl FakePeer {
         self.exit.send(info).ok();
     }
 
-    /// True once the app called `start_kill`.
+    /// Ends the fake process with `info` like [`FakePeer::exit`], keeping a probe that tells
+    /// whether the app killed it or its process group afterwards.
+    pub fn exit_watched(self, info: ExitInfo) -> KillProbe {
+        self.exit.send(info).ok();
+
+        KillProbe { killed: self.killed }
+    }
+
+    /// True once the app called `start_kill` or `kill_process_group`.
+    pub fn is_killed(&self) -> bool {
+        *self.killed.borrow()
+    }
+}
+
+/// Tells whether the app killed an exited [`FakePeer`] or its process group.
+#[derive(Debug)]
+pub struct KillProbe {
+    killed: watch::Receiver<bool>,
+}
+
+impl KillProbe {
+    /// True once the app called `start_kill` or `kill_process_group`.
     pub fn is_killed(&self) -> bool {
         *self.killed.borrow()
     }
@@ -149,5 +170,9 @@ impl ChildHandle for FakeChild {
     fn start_kill(&mut self) -> Result<()> {
         self.kill.send_replace(true);
         Ok(())
+    }
+
+    fn kill_process_group(&mut self) {
+        self.kill.send_replace(true);
     }
 }

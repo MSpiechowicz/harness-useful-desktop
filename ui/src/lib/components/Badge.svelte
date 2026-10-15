@@ -11,11 +11,13 @@
     /** Harness badges take their color from the per-harness accent tokens and ignore `tone`. */
     harness?: HarnessId;
     dot?: boolean;
+    /** `lg` is for a card's own status row, where the default reads too small beside body text. */
+    size?: 'md' | 'lg';
     class?: string;
     children: Snippet;
   }
 
-  let { tone = 'neutral', harness, dot = false, class: className, children }: Props = $props();
+  let { tone = 'neutral', harness, dot = false, size = 'md', class: className, children }: Props = $props();
 
   const TONES: Record<Tone, string> = {
     neutral: 'bg-surface-3 text-fg-2',
@@ -30,12 +32,18 @@
     pi: 'bg-pi-wash text-pi',
   };
 
+  const SIZES = {
+    md: 'gap-1.5 px-2 py-0.5 text-xs leading-4',
+    lg: 'h-7 gap-2 px-3 text-sm leading-5',
+  } as const;
+
   const colors = $derived(harness ? HARNESSES[harness] : TONES[tone]);
 </script>
 
 <span
   class={cx(
-    'inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs leading-4 font-medium tracking-wide whitespace-nowrap',
+    'inline-flex items-center rounded-full font-medium tracking-wide whitespace-nowrap',
+    SIZES[size],
     colors,
     className,
   )}

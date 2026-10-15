@@ -22,6 +22,23 @@ interface Rule {
 const SOURCE = ['.rs', '.ts', '.svelte', '.js'] as const;
 const UI_ONLY = ['ui/**'] as const;
 const TEST_FILES = ['**/*.test.ts', 'ui/tests/**'] as const;
+// The only Rust files that may name a shell interpreter (each such line needs `guard-allow: installer-shell`).
+const INSTALLER_FILES = ['business/src/ecosystem/installer.rs', 'business/tests/**'] as const;
+// A shell interpreter as a whole path segment, any case: after a path separator, `.exe` optional
+// (`"/usr/bin/bash"`, `#!/bin/sh`, `\System32\cmd.exe`), or as a quoted `.exe` file name
+// (`"PowerShell.exe"`, `'pwsh.exe'`). A bare quoted name such as `"bash"` is not matched: it is also
+// an RPC tool name and a Markdown fence language (spawning one is caught by `shell-spawn`).
+const SHELL_NAME = String.raw`(?:sh|bash|zsh|dash|fish|cmd|pwsh|powershell)`;
+const SEGMENT_END = String.raw`(?![\w.-])`;
+const SHELL_PROGRAM = new RegExp(
+  String.raw`[/\\]${SHELL_NAME}(?:\.exe)?${SEGMENT_END}|["']${SHELL_NAME}\.exe${SEGMENT_END}`,
+  'i',
+);
+// `Command::new` with a quoted (or raw) shell, bare or as the last segment of a path.
+const SHELL_COMMAND = new RegExp(
+  String.raw`Command::new\(\s*r?#*"(?:[^"]*[/\\])?${SHELL_NAME}(?:\.exe)?"`,
+  'i',
+);
 
 const RULES: readonly Rule[] = [
   {
@@ -69,9 +86,25 @@ const RULES: readonly Rule[] = [
   {
     id: 'shell-spawn',
     reason: 'never spawn a shell; use a fixed binary with explicit argv',
-    pattern: /Command::new\(\s*"(?:sh|bash|zsh|dash|fish|cmd|cmd\.exe|powershell|powershell\.exe|pwsh)"/,
+    pattern: SHELL_COMMAND,
     extensions: ['.rs'],
     optOut: false,
+  },
+  {
+    id: 'installer-shell',
+    reason: 'a shell interpreter may only be named by the dashboard installer (business/src/ecosystem/installer.rs)',
+    pattern: SHELL_PROGRAM,
+    extensions: ['.rs'],
+    skip: INSTALLER_FILES,
+    optOut: false,
+  },
+  {
+    id: 'installer-shell',
+    reason: 'every line of the dashboard installer that names a shell interpreter must be marked',
+    pattern: SHELL_PROGRAM,
+    extensions: ['.rs'],
+    only: INSTALLER_FILES,
+    optOut: true,
   },
   {
     id: 'html-injection',

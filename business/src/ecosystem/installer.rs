@@ -1,0 +1,370 @@
+//! Runs the Harness Dashboard's official installer for the "Recommended setup" step, the only
+//! place the app runs an install command (and the only place allowed to name a shell, enforced by
+//! the `installer-shell` guard rule).
+//!
+//! - Command: fixed per OS ([`dashboard_installer`]); nothing from the webview reaches it.
+//! - Process: its own process group, stdin closed at once, killed with its group on drop or after
+//!   [`INSTALL_TIMEOUT`]. On Unix, whatever is left of the group is killed once the installer
+//!   exited and its output was drained (Windows: background processes it started may outlive it).
+//! - Output: streamed line by line to a sink with terminal escapes stripped and secrets redacted;
+//!   a line keeps at most [`MAX_LOG_LINE_BYTES`], the whole log at most [`MAX_LOG_LINES`] lines
+//!   and [`MAX_LOG_BYTES`] (each line counting its terminator).
+//! - Success: exit code 0 **and** `harness-dashboard` resolving with a version afterwards, since
+//!   `curl … | sh` exits with 0 when the download failed.
+
+use std::path::PathBuf;
+use std::time::Duration;
+
+use tokio::io::{AsyncRead, AsyncReadExt};
+use tokio::time::{Instant, sleep_until, timeout};
+
+use super::catalog::{DASHBOARD_BINARY, DASHBOARD_INSTALL_PS1, DASHBOARD_INSTALL_PS1_SCRIPT, DASHBOARD_INSTALL_SH};
+use super::dashboard::resolve_dashboard;
+use super::detect::dashboard_version;
+use crate::env::{Env, OsKind};
+use crate::error::Result;
+use crate::harness::clean;
+use crate::model::{DashboardInstallResult, InstallLogLine, InstallStream};
+use crate::process::{ChildHandle, ExecSpec, ExitInfo, ProcessRunner, ProcessSpawner, TokioRunner};
+
+/// Time limit of one installer run.
+pub const INSTALL_TIMEOUT: Duration = Duration::from_secs(10 * 60);
+
+/// Longest log line passed to the sink, in bytes (longer lines are cut).
+pub const MAX_LOG_LINE_BYTES: usize = 2 * 1024;
+
+/// Most log bytes passed to the sink in one run, one per line terminator included (later lines
+/// are dropped).
+pub const MAX_LOG_BYTES: usize = 256 * 1024;
+
+/// Most lines passed to the sink in one run (later lines are dropped).
+pub const MAX_LOG_LINES: usize = 5_000;
+
+/// Raw bytes kept of one line before cleaning (room for escapes the cleaning removes).
+const MAX_RAW_LINE_BYTES: usize = 2 * MAX_LOG_LINE_BYTES;
+
+/// How long the output is still read after the installer exited (a background child may hold
+/// the pipes open).
+const DRAIN_GRACE: Duration = Duration::from_secs(2);
+
+/// How long a killed installer is waited for.
+const KILL_GRACE: Duration = Duration::from_secs(5);
+
+/// Read buffer size.
+const CHUNK: usize = 8 * 1024;
+
+/// The program and arguments that run the dashboard's installer.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct InstallerSpec {
+    /// Absolute path of the interpreter.
+    pub program: PathBuf,
+    /// Its arguments.
+    pub args: Vec<String>,
+    /// The copyable equivalent, for display.
+    pub command: &'static str,
+}
+
+/// The installer for `env`'s OS: the system `sh` running the `install.sh` pipe on Linux and macOS;
+/// on Windows, Windows PowerShell from `<SystemRoot>\System32\WindowsPowerShell\v1.0`
+/// (`SystemRoot` defaults to `C:\Windows`) running `irm <install.ps1> | iex` without the user's
+/// profile.
+pub fn dashboard_installer(env: &Env) -> InstallerSpec {
+    match env.os {
+        OsKind::Linux | OsKind::MacOs => InstallerSpec {
+            program: PathBuf::from("/bin/sh"), // guard-allow: installer-shell
+            args: vec!["-c".to_owned(), DASHBOARD_INSTALL_SH.to_owned()],
+            command: DASHBOARD_INSTALL_SH,
+        },
+        OsKind::Windows => {
+            let system_root = env.var("SystemRoot").unwrap_or(r"C:\Windows");
+            let program = PathBuf::from(system_root)
+                .join("System32")
+                .join("WindowsPowerShell")
+                .join("v1.0")
+                .join("powershell.exe"); // guard-allow: installer-shell
+            let args = [
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-Command",
+                DASHBOARD_INSTALL_PS1_SCRIPT,
+            ];
+
+            InstallerSpec {
+                program,
+                args: args.map(str::to_owned).to_vec(),
+                command: DASHBOARD_INSTALL_PS1,
+            }
+        }
+    }
+}
+
+/// Runs the installer (see the module docs), passing each output line to `sink`. Errors only when
+/// the installer could not start; a failed install is a result with `ok: false`.
+pub async fn run_dashboard_installer(
+    env: &Env,
+    spawner: &dyn ProcessSpawner,
+    sink: impl FnMut(InstallLogLine),
+) -> Result<DashboardInstallResult> {
+    run_dashboard_installer_with(env, spawner, &TokioRunner, INSTALL_TIMEOUT, sink).await
+}
+
+/// [`run_dashboard_installer`] with the runner of the version probe and the time limit given.
+pub async fn run_dashboard_installer_with(
+    env: &Env,
+    spawner: &dyn ProcessSpawner,
+    runner: &dyn ProcessRunner,
+    time_limit: Duration,
+    sink: impl FnMut(InstallLogLine),
+) -> Result<DashboardInstallResult> {
+    let installer = dashboard_installer(env);
+    let spec = ExecSpec::new(&installer.program)
+        .args(installer.args.iter().cloned())
+        .cwd(&env.home)
+        .env("NO_COLOR", "1");
+
+    let process = spawner.spawn(&spec)?;
+    // Closed at once: an installer that asks a question reads end of input instead of hanging.
+    drop(process.stdin);
+
+    let mut log = Log::new(sink);
+    let run = drive(process.stdout, process.stderr, process.child, time_limit, &mut log).await;
+
+    let binary = resolve_dashboard(env);
+    let version = match &binary {
+        Some(binary) if !run.timed_out => dashboard_version(env, runner, binary).await,
+        _ => None,
+    };
+    let exit_code = run.exit.and_then(|exit| exit.code);
+    let ok = exit_code == Some(0) && !run.timed_out && version.is_some();
+
+    let found = Found {
+        binary: binary.is_some(),
+        version: version.as_deref(),
+    };
+    let summary = summary(&run, time_limit, exit_code, &found, log.last_stderr.as_deref());
+
+    Ok(DashboardInstallResult {
+        ok,
+        summary: Some(summary),
+        exit_code,
+        timed_out: run.timed_out,
+        truncated: log.truncated,
+        version,
+        command: installer.command.to_owned(),
+    })
+}
+
+/// How the installer process ended.
+struct Run {
+    /// Its exit, when it ended by itself.
+    exit: Option<ExitInfo>,
+    timed_out: bool,
+}
+
+/// Reads both streams into `log` until the installer exited and its pipes closed (or
+/// [`DRAIN_GRACE`] passed), killing its process group after `time_limit`.
+async fn drive<F: FnMut(InstallLogLine)>(
+    mut stdout: Box<dyn AsyncRead + Send + Unpin>,
+    mut stderr: Box<dyn AsyncRead + Send + Unpin>,
+    mut child: Box<dyn ChildHandle>,
+    time_limit: Duration,
+    log: &mut Log<F>,
+) -> Run {
+    let mut deadline = Instant::now() + time_limit;
+    let mut out = Splitter::new(InstallStream::Stdout);
+    let mut err = Splitter::new(InstallStream::Stderr);
+    let mut out_chunk = vec![0_u8; CHUNK];
+    let mut err_chunk = vec![0_u8; CHUNK];
+    let (mut out_open, mut err_open) = (true, true);
+    let mut exit: Option<ExitInfo> = None;
+
+    while out_open || err_open || exit.is_none() {
+        tokio::select! {
+            read = stdout.read(&mut out_chunk), if out_open => match read {
+                Ok(read) if read > 0 => out.push(&out_chunk[..read], log),
+                _ => out_open = false,
+            },
+            read = stderr.read(&mut err_chunk), if err_open => match read {
+                Ok(read) if read > 0 => err.push(&err_chunk[..read], log),
+                _ => err_open = false,
+            },
+            waited = child.wait(), if exit.is_none() => {
+                exit = Some(waited.unwrap_or_default());
+                deadline = deadline.min(Instant::now() + DRAIN_GRACE);
+            },
+            () = sleep_until(deadline) => break,
+        }
+    }
+
+    out.finish(log);
+    err.finish(log);
+
+    if exit.is_some() {
+        // Background processes the installer left behind (holding the pipes or not) end with it.
+        child.kill_process_group();
+
+        return Run { exit, timed_out: false };
+    }
+
+    child.start_kill().ok();
+    timeout(KILL_GRACE, child.wait()).await.ok();
+
+    Run {
+        exit: None,
+        timed_out: true,
+    }
+}
+
+/// What the dashboard detection found after the run.
+struct Found<'a> {
+    binary: bool,
+    version: Option<&'a str>,
+}
+
+/// The one-line outcome shown with the result.
+fn summary(
+    run: &Run,
+    time_limit: Duration,
+    exit_code: Option<i32>,
+    found: &Found<'_>,
+    last_stderr: Option<&str>,
+) -> String {
+    if run.timed_out {
+        let limit = match time_limit.as_secs() / 60 {
+            0 => format!("{} seconds", time_limit.as_secs()),
+            minutes => format!("{minutes} minutes"),
+        };
+
+        return format!("The installer was stopped after {limit} without finishing.");
+    }
+
+    if exit_code != Some(0) {
+        if let Some(line) = last_stderr {
+            return line.to_owned();
+        }
+
+        return match exit_code {
+            Some(code) => format!("The installer exited with code {code}."),
+            None => "The installer was ended by a signal.".to_owned(),
+        };
+    }
+
+    match (found.binary, found.version) {
+        (true, Some(version)) => format!("Installed {DASHBOARD_BINARY} {version}."),
+        (true, None) => format!("The installer finished, but `{DASHBOARD_BINARY} version` did not report a version."),
+        (false, _) => format!(
+            "The installer finished, but {DASHBOARD_BINARY} was not found afterwards; the download may have failed."
+        ),
+    }
+}
+
+/// The sink plus the log budget.
+struct Log<F> {
+    sink: F,
+    /// Bytes passed on, a terminator counted per line (so empty lines use the budget too).
+    used: usize,
+    /// Lines passed on.
+    lines: usize,
+    truncated: bool,
+    last_stderr: Option<String>,
+}
+
+impl<F: FnMut(InstallLogLine)> Log<F> {
+    fn new(sink: F) -> Self {
+        Self {
+            sink,
+            used: 0,
+            lines: 0,
+            truncated: false,
+            last_stderr: None,
+        }
+    }
+
+    /// Cleans one raw line (`clipped` when bytes of it were already dropped) and passes it on
+    /// while the budget lasts.
+    fn emit(&mut self, stream: InstallStream, raw: &[u8], clipped: bool) {
+        let text = String::from_utf8_lossy(raw);
+        let mut line = clean(text.trim_end_matches('\r'));
+
+        if clipped || line.len() > MAX_LOG_LINE_BYTES {
+            line = clip(&line, MAX_LOG_LINE_BYTES);
+            self.truncated = true;
+        }
+
+        let cost = line.len() + 1;
+        if self.lines >= MAX_LOG_LINES || self.used + cost > MAX_LOG_BYTES {
+            self.truncated = true;
+            return;
+        }
+
+        self.used += cost;
+        self.lines += 1;
+
+        if stream == InstallStream::Stderr && !line.trim().is_empty() {
+            self.last_stderr = Some(clip(line.trim(), 300));
+        }
+
+        (self.sink)(InstallLogLine { stream, line });
+    }
+}
+
+/// Splits one stream into lines, keeping at most [`MAX_RAW_LINE_BYTES`] of each.
+struct Splitter {
+    stream: InstallStream,
+    pending: Vec<u8>,
+    clipped: bool,
+}
+
+impl Splitter {
+    fn new(stream: InstallStream) -> Self {
+        Self {
+            stream,
+            pending: Vec::new(),
+            clipped: false,
+        }
+    }
+
+    fn push<F: FnMut(InstallLogLine)>(&mut self, mut bytes: &[u8], log: &mut Log<F>) {
+        while let Some(end) = bytes.iter().position(|byte| *byte == b'\n') {
+            self.keep(&bytes[..end]);
+            log.emit(self.stream, &self.pending, self.clipped);
+            self.pending.clear();
+            self.clipped = false;
+            bytes = &bytes[end + 1..];
+        }
+
+        self.keep(bytes);
+    }
+
+    /// Emits an unterminated last line.
+    fn finish<F: FnMut(InstallLogLine)>(&mut self, log: &mut Log<F>) {
+        if !self.pending.is_empty() || self.clipped {
+            log.emit(self.stream, &self.pending, self.clipped);
+            self.pending.clear();
+            self.clipped = false;
+        }
+    }
+
+    fn keep(&mut self, bytes: &[u8]) {
+        let room = MAX_RAW_LINE_BYTES.saturating_sub(self.pending.len());
+        let kept = bytes.len().min(room);
+
+        self.pending.extend_from_slice(&bytes[..kept]);
+        self.clipped |= kept < bytes.len();
+    }
+}
+
+/// `text` cut to at most `max` bytes on a character boundary.
+fn clip(text: &str, max: usize) -> String {
+    if text.len() <= max {
+        return text.to_owned();
+    }
+
+    let mut end = max;
+    while !text.is_char_boundary(end) {
+        end -= 1;
+    }
+
+    text[..end].to_owned()
+}

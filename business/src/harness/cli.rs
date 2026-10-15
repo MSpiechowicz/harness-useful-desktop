@@ -271,7 +271,7 @@ fn cli_result(harness: &dyn Harness, argv: Vec<String>, command: Vec<String>, ou
 }
 
 /// `text` without terminal escapes, then redacted.
-fn clean(text: &str) -> String {
+pub(crate) fn clean(text: &str) -> String {
     redact_text(&ANSI.replace_all(text, ""))
 }
 

@@ -21,8 +21,11 @@
   import { STEP_WIDTH, WIDTH } from './layout';
   import { onboarding } from './onboarding-state.svelte';
   import ProjectStep from './ProjectStep.svelte';
+  import { setup } from './setup-state.svelte';
+  import SetupStep from './SetupStep.svelte';
   import { stepIn, stepOut } from './step-transition';
   import StepProgress from './StepProgress.svelte';
+  import StepScroller from './StepScroller.svelte';
   import WelcomeStep from './WelcomeStep.svelte';
 
   let finishing = $state(false);
@@ -45,6 +48,8 @@
         return project.active ? t('onboarding.action.continue') : t('onboarding.action.skip');
       case 'approval':
         return t('onboarding.action.gotIt');
+      case 'setup':
+        return setup.settled ? t('onboarding.action.continue') : t('onboarding.action.skip');
       case 'done':
         return t('onboarding.action.open');
     }
@@ -76,7 +81,7 @@
 
     {#if onboarding.rerun}
       <div class="absolute top-4 right-4 z-10" in:fade|global={enterFade()}>
-        <IconButton icon={X} label={t('onboarding.close')} side="bottom" onclick={() => onboarding.dismiss()} />
+        <IconButton icon={X} label={t('onboarding.close')} side="bottom" disabled={onboarding.busy} onclick={() => onboarding.dismiss()} />
       </div>
     {/if}
 
@@ -87,11 +92,10 @@
       Only that middle area scrolls on short windows.
     -->
     <div class="relative flex h-full items-center" in:fade|global={enterFade()}>
-      <div class="mx-auto flex h-full max-h-[52rem] w-full max-w-[60rem] flex-col gap-7 px-6 py-10 [@media(max-height:720px)]:gap-5 [@media(max-height:720px)]:py-6">
+      <div class="mx-auto flex h-full max-h-[60rem] w-full max-w-[60rem] flex-col gap-7 px-6 py-10 [@media(max-height:720px)]:gap-5 [@media(max-height:720px)]:py-6">
         <StepProgress />
 
-        <!-- Stacked grid cell: the outgoing and incoming steps overlap while they slide. -->
-        <div class="step-area -m-6 grid min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-6 *:col-start-1 *:row-start-1">
+        <StepScroller resetKey={onboarding.step}>
           {#key onboarding.step}
             <div
               class={cx(
@@ -111,23 +115,25 @@
                 <ProjectStep />
               {:else if onboarding.step === 'approval'}
                 <ApprovalStep />
+              {:else if onboarding.step === 'setup'}
+                <SetupStep />
               {:else}
                 <DoneStep />
               {/if}
             </div>
           {/key}
-        </div>
+        </StepScroller>
 
         <footer class={cx('flex w-full shrink-0 items-center', onboarding.index === 0 ? 'justify-center' : 'justify-between')}>
           {#if onboarding.index > 0}
             <!-- Back and Continue are the wizard's two navigation buttons: same size and width, Back the quieter one. -->
-            <Button variant="secondary" size="lg" class="min-w-36" onclick={() => onboarding.back()}>
+            <Button variant="secondary" size="lg" class="min-w-36" disabled={onboarding.busy} onclick={() => onboarding.back()}>
               {#snippet leading()}<ArrowLeft size={18} aria-hidden="true" />{/snippet}
               {t('onboarding.back')}
             </Button>
           {/if}
 
-          <Button variant="primary" size="lg" class="min-w-36" loading={finishing} onclick={() => void advance()}>
+          <Button variant="primary" size="lg" class="min-w-36" loading={finishing} disabled={onboarding.busy} onclick={() => void advance()}>
             {primaryLabel}
             {#snippet trailing()}<ArrowRight size={18} aria-hidden="true" />{/snippet}
           </Button>
@@ -143,7 +149,8 @@
    * short way in from the side the user is heading towards (--dir). Whole blocks only, never their insides, so nothing
    * inside a card appears late. The motion tokens zero the travel and the stagger for reduced motion, the duration for off.
    */
-  .step-build > :global(*) > :global(*) {
+  .step-build > :global(*) > :global(*),
+  .step-build > :global(*) > :global([data-build-group]) > :global(*) {
     animation: step-piece var(--dur-enter) var(--ease-out-expo) both;
     animation-delay: calc((140ms + var(--n, 0) * 70ms) * var(--stagger));
   }
@@ -152,21 +159,13 @@
   .step-build > :global(*) > :global(:nth-child(3)) { --n: 2; }
   .step-build > :global(*) > :global(:nth-child(n + 4)) { --n: 3; }
 
+  /* A step may group blocks that share a column (`data-build-group`): the group stays still and its blocks build in turn, each with its own `--n`. */
+  .step-build > :global(*) > :global([data-build-group]) { animation: none; }
+
   @keyframes step-piece {
     from {
       opacity: 0;
       transform: translateX(calc(var(--dir, 1) * var(--shift) * 3));
     }
-  }
-
-  /* No scrollbar line beside the step: when a step is taller than the frame, its bottom edge fades instead. */
-  .step-area {
-    scrollbar-width: none;
-    -webkit-mask-image: linear-gradient(to bottom, black calc(100% - 28px), transparent);
-    mask-image: linear-gradient(to bottom, black calc(100% - 28px), transparent);
-  }
-
-  .step-area::-webkit-scrollbar {
-    display: none;
   }
 </style>

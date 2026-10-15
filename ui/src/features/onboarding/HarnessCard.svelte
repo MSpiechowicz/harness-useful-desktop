@@ -6,7 +6,6 @@
   import Button from '$lib/components/Button.svelte';
   import CopyButton from '$lib/components/CopyButton.svelte';
   import HarnessBadge from '$lib/components/HarnessBadge.svelte';
-  import StatusDot from '$lib/components/StatusDot.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
   import type { HarnessSummary } from '$lib/ipc/bindings/HarnessSummary';
   import type { VersionSupport } from '$lib/ipc/bindings/VersionSupport';
@@ -24,7 +23,7 @@
   let { summary, selected, onselect }: Props = $props();
 
   const SUPPORT = $derived<Record<VersionSupport, { label: string; tone: 'success' | 'warning' | 'neutral'; note: string | null }>>({
-    supported: { label: t('onboarding.card.supported'), tone: 'success', note: null },
+    supported: { label: t('onboarding.card.supported'), tone: 'success', note: t('onboarding.card.supported.note') },
     untested: { label: t('onboarding.card.untested'), tone: 'warning', note: t('onboarding.card.untested.note') },
     unknown: { label: t('onboarding.card.unknownVersion'), tone: 'neutral', note: t('onboarding.card.unknownVersion.note') },
   });
@@ -34,10 +33,15 @@
   const label = $derived(summary.info.name);
 </script>
 
+<!--
+  Six fixed rows, in this order, whatever the state: header, description, status, note, binary (or actions) and config.
+  The card is a subgrid of the step's grid, so a row is as tall as the tallest of its siblings and the rows of
+  neighbouring cards mirror each other line by line, whatever their wording.
+-->
 <article
   aria-label={label}
   class={cx(
-    'flex flex-col gap-4 rounded-lg border bg-glass p-5 shadow-float transition-colors duration-[var(--dur-base)] [@media(max-height:720px)]:gap-3 [@media(max-height:720px)]:p-4',
+    'row-span-6 grid grid-rows-subgrid gap-y-5 rounded-lg border-card bg-glass p-6 shadow-float transition-colors duration-[var(--dur-base)] [@media(max-height:720px)]:gap-y-3 [@media(max-height:720px)]:p-4',
     selected ? 'edge-accent shadow-glow' : 'border-line',
   )}
 >
@@ -55,7 +59,7 @@
       aria-label={t('onboarding.card.use', { name: label })}
       onclick={() => detection.installed && onselect()}
       class={cx(
-        'flex h-8 shrink-0 items-center gap-2 rounded-full border px-3 whitespace-nowrap text-sm font-medium transition-colors duration-[var(--dur-fast)]',
+        'flex h-8 shrink-0 items-center gap-2 rounded-full border-card px-3 whitespace-nowrap text-sm font-medium transition-colors duration-[var(--dur-fast)]',
         selected ? 'edge-accent bg-accent-wash text-fg' : 'border-line-strong text-fg-2',
         detection.installed ? 'hover:bg-hover active:bg-press' : 'cursor-not-allowed opacity-50',
       )}
@@ -71,44 +75,47 @@
 
   <p class="text-sm text-fg-2">{summary.info.description}</p>
 
-  {#if detection.installed}
-    <div class="flex flex-wrap items-center gap-2">
-      <Badge tone="success"><StatusDot tone="success" />{t('onboarding.card.installed')}</Badge>
+  <div class="flex flex-wrap content-start items-center gap-2">
+    {#if detection.installed}
+      <Badge size="lg" tone="success">{t('onboarding.card.installed')}</Badge>
       {#if detection.version}
-        <Badge class="tabular">v{detection.version}</Badge>
+        <Badge size="lg" class="tabular">v{detection.version}</Badge>
       {/if}
-      <Badge tone={support.tone}>{support.label}</Badge>
-    </div>
-
-    {#if support.note}
-      <p class="text-sm text-fg-2">{support.note}</p>
+      <Badge size="lg" tone={support.tone}>{support.label}</Badge>
+    {:else}
+      <Badge size="lg" tone="warning">{t('onboarding.card.notFound')}</Badge>
     {/if}
+  </div>
 
-    <dl class="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1.5 text-sm">
-      <dt class="text-fg-3">{t('onboarding.card.binary')}</dt>
-      <dd class="min-w-0 truncate font-mono text-fg-2" title={detection.binaryPath ?? undefined}>{detection.binaryPath}</dd>
-    </dl>
-  {:else}
-    <div class="flex flex-wrap items-center gap-2">
-      <Badge tone="warning"><StatusDot tone="warning" />{t('onboarding.card.notFound')}</Badge>
-    </div>
-
-    {#if detection.installHint}
-      <div class="flex flex-col gap-2">
+  <!-- What to know or do about this install: the version note, or how to get the harness. -->
+  <div class="flex flex-col gap-2">
+    {#if detection.installed}
+      {#if support.note}
+        <p class="text-sm text-fg-2">{support.note}</p>
+      {/if}
+    {:else}
+      {#if detection.installHint}
         <p class="text-sm text-fg-2">{t('onboarding.card.installWith')}</p>
         <div class="flex items-center gap-2 rounded-md border border-line bg-surface-1 py-1 pr-1 pl-3">
           <code class="min-w-0 flex-1 py-1.5 font-mono text-sm break-all text-fg">{detection.installHint.command}</code>
           <CopyButton text={detection.installHint.command} label={t('onboarding.card.copyInstall')} />
         </div>
-      </div>
-    {/if}
+      {/if}
 
-    {#if detection.error}
-      <p class="text-sm text-fg-3">{detection.error}</p>
+      {#if detection.error}
+        <p class="text-sm text-fg-3">{detection.error}</p>
+      {/if}
     {/if}
+  </div>
 
+  {#if detection.installed}
+    <dl class="grid grid-cols-[max-content_1fr] items-center gap-x-4 text-sm">
+      <dt class="text-fg-3">{t('onboarding.card.binary')}</dt>
+      <dd class="min-w-0 truncate font-mono text-fg-2" title={detection.binaryPath ?? undefined}>{detection.binaryPath}</dd>
+    </dl>
+  {:else}
     <!-- An even row of equal-width actions, not a ragged wrap. -->
-    <div class={cx('grid gap-2', detection.installHint ? 'grid-cols-2' : 'grid-cols-1')}>
+    <div class={cx('grid items-center gap-2', detection.installHint ? 'grid-cols-2' : 'grid-cols-1')}>
       {#if detection.installHint}
         {@const docsUrl = detection.installHint.docsUrl}
         <Button size="sm" class="w-full" onclick={() => void openExternal(docsUrl)}>
@@ -123,11 +130,11 @@
     </div>
   {/if}
 
-  <dl class="grid grid-cols-[max-content_1fr] items-center gap-x-4 gap-y-1.5 border-t border-line pt-3 text-sm">
+  <dl class="grid grid-cols-[max-content_1fr] items-center gap-x-4 border-t border-line pt-3 text-sm">
     <dt class="text-fg-3">{t('onboarding.card.config')}</dt>
     <dd class="flex min-w-0 items-center gap-2">
       <span class="min-w-0 truncate font-mono text-fg-2" title={detection.configDir ?? undefined}>{detection.configDir ?? t('onboarding.card.unknown')}</span>
-      <Badge tone={detection.configDirExists ? 'success' : 'neutral'}>{detection.configDirExists ? t('onboarding.card.found') : t('onboarding.card.notCreated')}</Badge>
+      <Badge size="lg" tone={detection.configDirExists ? 'success' : 'neutral'}>{detection.configDirExists ? t('onboarding.card.found') : t('onboarding.card.notCreated')}</Badge>
     </dd>
   </dl>
 </article>

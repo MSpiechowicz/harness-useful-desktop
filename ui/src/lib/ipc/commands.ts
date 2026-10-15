@@ -14,6 +14,7 @@ import type { ConfigView } from './bindings/ConfigView';
 import type { AttachedFile } from './bindings/AttachedFile';
 import type { DropEvent } from './bindings/DropEvent';
 import type { DashboardAvailability } from './bindings/DashboardAvailability';
+import type { DashboardInstallResult } from './bindings/DashboardInstallResult';
 import type { DashboardQuery } from './bindings/DashboardQuery';
 import type { DashboardResult } from './bindings/DashboardResult';
 import type { DiffRequest } from './bindings/DiffRequest';
@@ -26,6 +27,9 @@ import type { FileDiff } from './bindings/FileDiff';
 import type { GitStatus } from './bindings/GitStatus';
 import type { HarnessId } from './bindings/HarnessId';
 import type { HarnessSummary } from './bindings/HarnessSummary';
+import type { InstallLogLine } from './bindings/InstallLogLine';
+import type { McpState } from './bindings/McpState';
+import type { RecommendedSetup } from './bindings/RecommendedSetup';
 import type { ProjectInfo } from './bindings/ProjectInfo';
 import type { ReviewRequest } from './bindings/ReviewRequest';
 import type { SessionFolder } from './bindings/SessionFolder';
@@ -95,6 +99,9 @@ export const commands = {
   dashboard_availability: cmd<undefined, DashboardAvailability>(),
   dashboard_query: cmd<{ query: DashboardQuery }, DashboardResult>(),
   extension_action: cmd<{ harness: HarnessId; action: ExtensionAction; dryRun: boolean; project: string | null }, CliResult>(),
+  setup_status: cmd<undefined, RecommendedSetup>(),
+  setup_install_dashboard: cmd<{ confirmed: boolean; onLog: EventSink<InstallLogLine> }, DashboardInstallResult>(),
+  setup_register_mcp: cmd<{ harness: HarnessId }, McpState>(),
   update_check: cmd<undefined, UpdateInfo | null>(),
   update_install: cmd<{ onProgress: EventSink<UpdateProgress> }, null>(),
   app_relaunch: cmd<undefined, null>(),

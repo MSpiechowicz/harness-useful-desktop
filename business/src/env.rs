@@ -14,6 +14,8 @@ pub const CAPTURED_VARS: &[&str] = &[
     "APPDATA",
     "LOCALAPPDATA",
     "USERPROFILE",
+    // The Windows directory, where the dashboard installer finds Windows PowerShell.
+    "SystemRoot",
     "XDG_CONFIG_HOME",
     "XDG_DATA_HOME",
     "PI_CONFIG_DIR",

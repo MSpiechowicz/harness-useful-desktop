@@ -28,6 +28,7 @@ mod launch;
 mod registry;
 
 pub use catalog::{CommandCatalog, SharedCommand, gui, merge_commands, parse_live_commands, rpc, spec, unsupported};
+pub(crate) use cli::clean;
 pub use cli::{
     CLI_ACTION_TIMEOUT, CliInvocation, CliRun, MAX_CLI_TARGET_CHARS, TargetKind, cli_target, optional_cli_target,
     run_cli_action,
@@ -42,7 +43,9 @@ pub mod prelude {
 
     pub use std::path::PathBuf;
 
-    pub use super::{CliInvocation, CommandCatalog, Harness, HarnessPaths, LaunchRequest};
+    pub use super::{
+        CliInvocation, CommandCatalog, CompanionSetup, Harness, HarnessPaths, LaunchRequest, McpTarget, SkillsStrategy,
+    };
     pub use crate::env::Env;
     pub use crate::error::Result;
     pub use crate::model::{
@@ -80,6 +83,52 @@ pub struct HarnessPaths {
     pub profile: Option<String>,
     /// The project-local configuration directory (`<project>/.omp`, `<project>/.pi`).
     pub project_dir: Option<PathBuf>,
+}
+
+/// How the "Recommended setup" step provides the companion tools for a harness.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompanionSetup {
+    /// How the Harness Skills are installed.
+    pub skills: SkillsStrategy,
+    /// Where the `harness-dashboard` MCP server is registered.
+    pub mcp: McpTarget,
+}
+
+/// How the Harness Skills get into a harness.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SkillsStrategy {
+    /// The skills' OMP marketplace: add it, then install the plugin for the user.
+    OmpMarketplace,
+    /// A package of the harness's own package manager (PI's `pi install`): the app installs it for the user.
+    Package {
+        /// The package source, as the harness CLI takes it (for example `git:github.com/owner/repo`).
+        source: &'static str,
+    },
+    /// A command the user runs themselves.
+    Manual {
+        /// The command to copy.
+        command: &'static str,
+        /// A remark shown next to it.
+        note: &'static str,
+    },
+    /// The skills do not exist for this harness.
+    Unsupported {
+        /// Why, for display.
+        reason: &'static str,
+    },
+}
+
+/// Where a harness reads user MCP servers from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum McpTarget {
+    /// `<agent dir>/mcp.json` with an `mcpServers` object (written by the setup step), plus other
+    /// files in the agent directory that define servers too (only read, to find an existing entry).
+    UserMcpJson {
+        /// File names in the agent directory that are also read.
+        also_read: &'static [&'static str],
+    },
+    /// The harness has no user MCP file the app can register a server in.
+    Unsupported,
 }
 
 /// A coding-agent CLI adapter. See the module docs for how to add one.
@@ -201,6 +250,10 @@ pub trait Harness: Send + Sync {
 
     /// Copyable install instructions shown when the CLI is missing.
     fn install_hint(&self) -> InstallHint;
+
+    /// How the "Recommended setup" step installs the skills and registers the dashboard's MCP
+    /// server for this harness.
+    fn companion_setup(&self) -> CompanionSetup;
 
     /// Arguments that make the CLI print its version and exit.
     fn version_args(&self) -> &'static [&'static str] {

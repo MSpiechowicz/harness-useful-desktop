@@ -20,8 +20,9 @@ their protocol; neither is implemented, and that engine work is not covered here
 6. [RPC launch and dialect](#6-rpc-launch-and-dialect)
 7. [Sessions](#7-sessions)
 8. [CLI actions](#8-cli-actions)
-9. [Tests](#9-tests)
-10. [UI touch points](#10-ui-touch-points)
+9. [Recommended setup](#9-recommended-setup)
+10. [Tests](#10-tests)
+11. [UI touch points](#11-ui-touch-points)
 
 ## 1. HarnessId
 
@@ -78,6 +79,7 @@ differs.
 | `dialect()` | yes | | The `&'static dyn RpcDialect`. |
 | `sessions_dir(env, project)` | yes | | Folder holding the saved sessions of a project. |
 | `install_hint()` | yes | | Copyable install command and docs URL, shown when the CLI is missing (never run). |
+| `companion_setup()` | yes | | `CompanionSetup`: how Harness Skills are installed and where the dashboard MCP server is registered. See [Recommended setup](#9-recommended-setup). |
 | `binary_name()` | no | `self.id().binary_name()` | Executable name looked up on `PATH`. |
 | `version_args()` | no | `["--version"]` | Arguments that print the version. |
 | `parse_version(output)` | no | first `x.y.z` (`first_semver`) | Extracts the version. |
@@ -126,7 +128,7 @@ All file reads go through `SafeReader` (`security::deny`), never `std::fs` direc
 deny-listed files (databases, logs, keys, credential stores, blob caches), follows symlinks hop by hop, accepts
 only regular files, and caps the size (`DEFAULT_MAX_BYTES` = 2 MiB). If your CLI keeps credentials in a file whose
 name or extension is not on the list, add it to `DENIED_NAMES`, `DENIED_EXTENSIONS`, `DENIED_PREFIXES` or
-`DENIED_DIRS` in `business/src/security/deny.rs` and extend the canary fixture (see [Tests](#9-tests)).
+`DENIED_DIRS` in `business/src/security/deny.rs` and extend the canary fixture (see [Tests](#10-tests)).
 
 Config values must pass through `Redactor` before they leave the business layer. The `pi_family` helpers already
 do this: `read_document` reads through `SafeReader`, `section`/`section_from` redact the parsed value into a
@@ -257,7 +259,54 @@ does). Return `BusinessError::Unsupported` for actions the CLI does not have; th
 capped output, strips ANSI escapes and redacts both streams. See `business/src/harnesses/omp/cli.rs` and
 `business/src/harnesses/pi/cli.rs`.
 
-## 9. Tests
+## 9. Recommended setup
+
+**Every newly supported harness must be added to the Recommended setup step** of onboarding (also reachable from
+**Run recommended setup** on the Ecosystem screen). The step installs the Harness Skills and registers the Harness
+Dashboard MCP server for each detected harness. `Harness::companion_setup` is a required method, so the compiler
+enforces the first half; the rest is yours to check.
+
+Implement it in the adapter (`business/src/harness/mod.rs` defines the types):
+
+```rust
+fn companion_setup(&self) -> CompanionSetup {
+    CompanionSetup {
+        skills: SkillsStrategy::Package { source: "git:github.com/owner/repo" },
+        mcp: McpTarget::UserMcpJson { also_read: &[] },
+    }
+}
+```
+
+`SkillsStrategy`:
+
+- `OmpMarketplace`: the CLI has OMP's plugin marketplace. The app runs `marketplace add` and `plugin install` (user
+  scope) through `extension_action`, so `cli_action` must support both ([CLI actions](#8-cli-actions)). Only a harness
+  with that exact plugin system qualifies.
+- `Package { source }`: the CLI has its own package manager (PI's `pi install <source>`). The app installs the source
+  for the user through `extension_action` (`PackageInstall`), so `cli_action` must support it. The step reports the
+  skills as installed when the harness's user settings list the package (`user_has_package`, in
+  `business/src/ecosystem/setup.rs`); extend that if your CLI records packages elsewhere.
+- `Manual { command, note }`: the user copies a command; the app never runs it. Use it when you have not verified an
+  install command against the CLI yet, and say so in `note` (PI does). The step reports the skills as installed
+  when the harness's user settings list the package (`user_has_package`, in `business/src/ecosystem/setup.rs`);
+  extend that if your CLI records packages elsewhere.
+- `Unsupported { reason }`: the skills do not exist for this harness.
+
+`McpTarget`:
+
+- `UserMcpJson { also_read }`: `<agent_dir>/mcp.json`, where `agent_dir` comes from `paths(env, None)`. The app merges
+  `{"command": "harness-dashboard", "args": ["mcp"]}` into its `mcpServers` object (`business/src/ecosystem/mcp_register.rs`).
+  Choose it only after confirming that the CLI reads `mcpServers` from that user file. List other files of the agent
+  directory that can also define servers in `also_read` (OMP adds `.mcp.json`); they are only read, to find an
+  existing entry.
+- `Unsupported`: the CLI has no user MCP file the app can write. The step then shows "No MCP file to edit" for it.
+
+The webview sends only a harness id; the file path comes from `paths` and the installer command is fixed in Rust, so
+no new command or permission is needed. Add the harness to the setup copy as well: the strings are under
+`onboarding.setup.*` in `ui/src/lib/i18n/locales/*/onboarding.ts` (all five languages), and the mock in
+`ui/src/lib/ipc/mock/setup-handlers.ts` keeps a per-harness MCP file and skills offer (`Record<HarnessId, ...>`).
+
+## 10. Tests
 
 Add tests next to the existing ones in `business/tests/`. Follow the same pattern for the new harness.
 
@@ -272,6 +321,7 @@ Add tests next to the existing ones in `business/tests/`. Follow the same patter
 | Sessions | `sessions_store.rs` | Listing, tree and transcript over fixture sessions in `business/tests/fixtures/sessions/acme/`. |
 | CLI actions | `cli_actions.rs` | Argument construction, validation errors, dry run, failure line. |
 | Chat engine | `agent_session.rs`, `agent_manager.rs`, `agent_dialogs.rs`, `agent_failures.rs` | The real session engine against `fake_agent`. |
+| Recommended setup | `setup_status.rs`, `setup_mcp_register.rs` | `setup_status`: skills and MCP state of your harness on an empty machine, with the skills installed and with the MCP entry present (build the fixture files in a temp home). `setup_mcp_register.rs`: the `mcp.json` merge for your `also_read` files. The installer itself is harness-independent (`setup_installer.rs`). |
 | Fixtures | `mock_fixtures.rs` | Add the harness's views and catalog to the exported mock fixtures. |
 
 **Fake agent.** `business/src/bin/fake_agent.rs` plays a JSONL scenario: `{"emit": {...}}` writes a frame,
@@ -286,7 +336,7 @@ Add tests next to the existing ones in `business/tests/`. Follow the same patter
 Run `cargo test -p harness_business`. `cargo test -p harness_business export_` regenerates the bindings and mock
 fixtures; commit the result, because CI fails on a difference.
 
-## 10. UI touch points
+## 11. UI touch points
 
 The UI renders any harness from data, with these exceptions:
 
@@ -298,6 +348,8 @@ The UI renders any harness from data, with these exceptions:
 - **Mock.** `ui/src/lib/ipc/mock/fixtures.ts` builds `Record<HarnessId, ...>` entries for config, extensions,
   commands, session info and session lists. Add the exported fixtures there. `harness_list.json` and
   `project_recent.json` are synthetic (`business/tests/mock_fixtures.rs`); add the new harness summary.
+- **Setup step.** The mock's per-harness maps in `ui/src/lib/ipc/mock/setup-handlers.ts` (MCP file, skills offer) and
+  the `onboarding.setup.*` copy; see [Recommended setup](#9-recommended-setup).
 - **Copy.** Strings that name the supported harnesses (`shortDescription` and `longDescription` in
   `src-tauri/tauri.conf.json`, the README, the views' empty-state text in `ui/src/features/shell/views.ts`) are
   written by hand.

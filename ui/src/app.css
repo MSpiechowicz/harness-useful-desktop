@@ -75,11 +75,6 @@
 }
 
 @layer base {
-  /* Onboarding keeps the control height it was designed with (h-9 at the 14px root); the rest of the app uses 36px. */
-  [aria-labelledby='onboarding-title'] {
-    --control-h: 2.25rem;
-  }
-
   /* Text fields keep the size the layout gives them; no drag handle in the corner. */
   textarea {
     resize: none;
@@ -266,6 +261,19 @@
   &:active {
     transform: scale(0.97);
   }
+}
+
+/* Lengths the onboarding step area fades its edges by; registered so the fade can ease in and out as the area scrolls. */
+@property --fade-top {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --fade-bottom {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
 }
 
 /* The arrow of a waiting update bobs, as in the Harness dashboard; still for whoever asked for less motion. */

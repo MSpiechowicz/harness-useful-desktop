@@ -2,12 +2,12 @@
 //!
 //! The file holds only the fields of [`AppPrefs`] — never secrets or chat content.
 
-use std::fs::{self, OpenOptions};
-use std::io::Write;
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::error::{BusinessError, Result};
+use crate::fs_atomic::{temp_sibling, write_synced};
 use crate::model::{AppPrefs, BinaryOverride, ChatDefaults, DEFAULT_LANGUAGE, LANGUAGES};
 use crate::security::SafeReader;
 
@@ -107,9 +107,7 @@ impl PrefsStore {
 
         self.ensure_dir()?;
 
-        let temp = self
-            .dir
-            .join(format!(".{PREFS_FILE}.tmp-{}-{}", std::process::id(), unix_nanos()));
+        let temp = temp_sibling(&self.path());
         let written = write_synced(&temp, &json)
             .and_then(|()| fs::rename(&temp, self.path()).map_err(|error| io_error("replacing prefs file", error)));
 
@@ -263,22 +261,6 @@ fn is_absolute(path: &str) -> bool {
     !path.is_empty() && Path::new(path).is_absolute()
 }
 
-fn write_synced(path: &Path, bytes: &[u8]) -> Result<()> {
-    let mut options = OpenOptions::new();
-    options.write(true).create_new(true);
-
-    #[cfg(unix)]
-    std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
-
-    let mut file = options
-        .open(path)
-        .map_err(|error| io_error("creating temporary prefs file", error))?;
-
-    file.write_all(bytes)
-        .and_then(|()| file.sync_all())
-        .map_err(|error| io_error("writing prefs file", error))
-}
-
 fn io_error(context: &str, error: std::io::Error) -> BusinessError {
     BusinessError::from_io(context, error)
 }
@@ -287,10 +269,4 @@ fn unix_seconds() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(0, |elapsed| elapsed.as_secs())
-}
-
-fn unix_nanos() -> u128 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |elapsed| elapsed.as_nanos())
 }

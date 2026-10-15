@@ -18,7 +18,7 @@
       "installSteps": [
         {
           "label": "Install the binary",
-          "command": "curl -fsSL https://raw.githubusercontent.com/MSpiechowicz/harness-useful-dashboard/main/install.sh | sh"
+          "command": "curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/MSpiechowicz/harness-useful-dashboard/main/install.sh | sh"
         }
       ],
       "notes": [

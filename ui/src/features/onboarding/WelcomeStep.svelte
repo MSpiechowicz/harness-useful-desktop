@@ -34,7 +34,7 @@
   <ul class="grid w-full grid-cols-1 gap-4 text-left sm:grid-cols-3">
     {#each POINTS as point (point.title)}
       <li
-        class="flex flex-col gap-3 rounded-lg border border-line bg-glass p-5 transition-colors duration-[var(--dur-base)] hover:border-line-strong"
+        class="flex flex-col gap-3 rounded-lg border-card border-line bg-glass p-5 transition-[border-color,box-shadow] duration-[var(--dur-base)] hover:edge-accent hover:ring-1 hover:ring-accent/30"
       >
         <span class="grid size-10 place-items-center rounded-md bg-accent-wash">
           <point.icon class="text-accent-text" size={20} strokeWidth={1.8} aria-hidden="true" />

@@ -50,6 +50,9 @@ describe('Onboarding', () => {
     await next('Pick a project to work in');
     await click('Skip for now');
 
+    await next('Get more from your agents');
+    await click('Skip for now');
+
     await next('You’re ready to go');
     expect(screen.queryByRole('heading', { name: /without asking/ })).toBeNull();
 
@@ -74,6 +77,9 @@ describe('Onboarding', () => {
     await next('OMP can run tools without asking');
     expect(screen.getByText(/never changes it behind your back/)).toBeInTheDocument();
     await click('Got it');
+
+    await next('Get more from your agents');
+    await click('Skip for now');
 
     await next('You’re ready to go');
     await click('Open Harness Desktop');

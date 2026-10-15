@@ -4,7 +4,7 @@ import { prefs, type PrefsStore } from '$lib/stores/prefs.svelte';
 
 import { intro } from '../intro/intro-state.svelte';
 
-export type OnboardingStep = 'welcome' | 'harnesses' | 'project' | 'approval' | 'done';
+export type OnboardingStep = 'welcome' | 'harnesses' | 'project' | 'approval' | 'setup' | 'done';
 
 /**
  * The first-run flow. It appears as the intro hands over, so the lockup is followed by the setup
@@ -19,6 +19,11 @@ export class OnboardingController {
   rerun = $state(false);
   /** +1 moving forward, -1 moving back; drives the step transition. */
   direction = $state<1 | -1>(1);
+  /** A step is changing the machine (the setup step's run): the flow cannot be left until it ends. */
+  busy = $state(false);
+
+  /** The steps shown in this run, so a notice is only marked as seen when it was on screen (a re-run may start past it). */
+  private shown = new Set<OnboardingStep>(['welcome']);
 
   constructor(
     private readonly preferences: Pick<PrefsStore, 'value' | 'update'>,
@@ -54,7 +59,9 @@ export class OnboardingController {
   }
 
   get steps(): OnboardingStep[] {
-    return this.needsApprovalNotice ? ['welcome', 'harnesses', 'project', 'approval', 'done'] : ['welcome', 'harnesses', 'project', 'done'];
+    return this.needsApprovalNotice
+      ? ['welcome', 'harnesses', 'project', 'approval', 'setup', 'done']
+      : ['welcome', 'harnesses', 'project', 'setup', 'done'];
   }
 
   get index(): number {
@@ -78,11 +85,16 @@ export class OnboardingController {
     this.choice = null;
     this.direction = 1;
     this.step = from;
+    this.shown = new Set([from]);
     this.rerun = true;
   }
 
-  /** Closes a re-run without changing anything. */
+  /** Closes a re-run without changing anything; ignored while a step is busy. */
   dismiss(): void {
+    if (this.busy) {
+      return;
+    }
+
     this.rerun = false;
     this.step = 'welcome';
   }
@@ -92,7 +104,7 @@ export class OnboardingController {
     await this.preferences.update({
       onboardingCompleted: true,
       defaultHarness: this.driver,
-      approvalNoticeSeen: this.preferences.value?.approvalNoticeSeen || this.steps.includes('approval'),
+      approvalNoticeSeen: this.preferences.value?.approvalNoticeSeen || this.shown.has('approval'),
     });
 
     if (this.preferences.value?.onboardingCompleted) {
@@ -101,10 +113,15 @@ export class OnboardingController {
   }
 
   private move(delta: 1 | -1): void {
+    if (this.busy) {
+      return;
+    }
+
     const target = this.steps[this.index + delta];
     if (target) {
       this.direction = delta;
       this.step = target;
+      this.shown.add(target);
     }
   }
 }

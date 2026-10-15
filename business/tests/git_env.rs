@@ -55,7 +55,7 @@ fn hostile() -> Hostile {
     let monitor = home.home.join("fsmonitor.sh");
     fs::write(
         &monitor,
-        format!("#!/bin/sh\ntouch '{}'\nexit 0\n", monitor_marker.display()),
+        format!("#!/bin/sh\ntouch '{}'\nexit 0\n", monitor_marker.display()), // guard-allow: installer-shell
     )
     .unwrap();
     fs::set_permissions(&monitor, fs::Permissions::from_mode(0o755)).unwrap();

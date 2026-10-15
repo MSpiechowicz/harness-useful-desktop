@@ -2,6 +2,7 @@
   import ShieldAlert from '@lucide/svelte/icons/shield-alert';
 
   import { MODE_ORDER, MODES } from '../chat/approval-modes';
+  import Badge from '$lib/components/Badge.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
   import { cx } from '$lib/utils/cx';
 
@@ -35,7 +36,7 @@
       <li class={cx('flex flex-col gap-2 rounded-lg border bg-glass p-5', TONE[info.tone])}>
         <div class="flex items-center justify-between gap-2">
           <p class="text-base font-medium text-fg first-letter:uppercase">{info.label}</p>
-          {#if mode === 'yolo'}<span class="rounded-full bg-warning/15 px-2 py-0.5 text-xs font-medium text-warning">{t('onboarding.approval.default')}</span>{/if}
+          {#if mode === 'yolo'}<Badge tone="warning" size="lg">{t('onboarding.approval.default')}</Badge>{/if}
         </div>
         <code class="font-mono text-xs text-fg-3">--approval-mode {DETAILS[mode].cli}</code>
         <p class="text-sm text-fg-2">{DETAILS[mode].when}</p>

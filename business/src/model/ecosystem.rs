@@ -1,7 +1,8 @@
 //! The Harness Useful ecosystem: the companion tools shown on the Ecosystem tab (`ecosystem_status`).
 //!
-//! The app only detects these tools and shows how to install them; install steps are copyable text
-//! and are never executed by the app.
+//! The Ecosystem tab only detects these tools and shows how to install them; its install steps are
+//! copyable text and are never executed. The one exception is the "Recommended setup" step (see
+//! [`super::setup`]), which runs the dashboard's installer once the user confirms it.
 
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
@@ -26,7 +27,8 @@ pub enum EcosystemId {
 pub struct InstallStep {
     /// What the step does (e.g. `"Add the marketplace"`).
     pub label: String,
-    /// The shell command to copy; shown only, never run by the app.
+    /// The shell command to copy; shown only, never run by the app (the setup step runs its own
+    /// fixed dashboard installer, not this text).
     pub command: String,
 }
 

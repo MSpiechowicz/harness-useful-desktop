@@ -108,7 +108,7 @@ fn turning_off_recent_projects_through_the_ui_clears_them() {
 
 fn fake_binary(dir: &Path, name: &str) -> PathBuf {
     let path = dir.join(name);
-    fs::write(&path, "#!/bin/sh\n").unwrap();
+    fs::write(&path, "#!/bin/sh\n").unwrap(); // guard-allow: installer-shell
     path
 }
 

@@ -5,6 +5,8 @@ use std::process::Stdio;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::process::Child;
 
+#[cfg(unix)]
+use super::kill_group;
 use super::{BoxFuture, ExecSpec, ExitInfo, build_command, kill_tree, spawn_command};
 use crate::error::{BusinessError, Result};
 
@@ -19,6 +21,13 @@ pub trait ChildHandle: Send {
     /// Starts killing the child (and its process group on Unix) without waiting.
     /// Succeeds when the child already exited.
     fn start_kill(&mut self) -> Result<()>;
+
+    /// Kills whatever is left of the child's process group, also after the child was reaped
+    /// (background processes it left behind). Unix only; a no-op elsewhere and by default.
+    ///
+    /// The group id stays reserved while any member lives, so this reaches only the child's group;
+    /// once every member is gone the id is free and could in theory be taken by a new group.
+    fn kill_process_group(&mut self) {}
 }
 
 /// The stdio streams and control handle of a spawned child.
@@ -64,11 +73,14 @@ impl ProcessSpawner for TokioSpawner {
             return Err(BusinessError::Internal("child pipes missing".to_owned()));
         };
 
+        // The child leads its own process group, so the group id is its pid.
+        let group = child.id();
+
         Ok(SpawnedProcess {
             stdin: Box::new(stdin),
             stdout: Box::new(stdout),
             stderr: Box::new(stderr),
-            child: Box::new(TokioChild { child }),
+            child: Box::new(TokioChild { child, group }),
         })
     }
 }
@@ -76,6 +88,8 @@ impl ProcessSpawner for TokioSpawner {
 /// A `tokio::process::Child` that kills its process group when dropped unreaped.
 struct TokioChild {
     child: Child,
+    /// The child's process group id, kept for [`ChildHandle::kill_process_group`] after reaping.
+    group: Option<u32>,
 }
 
 impl ChildHandle for TokioChild {
@@ -97,6 +111,17 @@ impl ChildHandle for TokioChild {
 
     fn start_kill(&mut self) -> Result<()> {
         kill_tree(&mut self.child)
+    }
+
+    fn kill_process_group(&mut self) {
+        #[cfg(unix)]
+        if let Some(group) = self.group {
+            kill_group(group);
+        }
+
+        // Windows: no job object yet, so what the child left behind is not reached.
+        #[cfg(not(unix))]
+        let _ = self.group;
     }
 }
 

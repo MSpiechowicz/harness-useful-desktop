@@ -2,10 +2,12 @@
   import { autoRefresh } from '$lib/utils/auto-refresh';
   import CircleAlert from '@lucide/svelte/icons/circle-alert';
   import Orbit from '@lucide/svelte/icons/orbit';
+  import Wand from '@lucide/svelte/icons/wand-sparkles';
   import { onMount } from 'svelte';
 
   import { scrollMemory } from '$lib/a11y/scroll-memory';
   import Button from '$lib/components/Button.svelte';
+  import { ICON } from '$lib/components/icon';
   import EmptyState from '$lib/components/EmptyState.svelte';
   import Skeleton from '$lib/components/Skeleton.svelte';
   import ViewHeader from '$lib/components/ViewHeader.svelte';
@@ -13,6 +15,7 @@
   import { dashboard } from '$lib/stores/dashboard.svelte';
   import { ecosystem } from '$lib/stores/ecosystem.svelte';
 
+  import { onboarding } from '../onboarding/onboarding-state.svelte';
   import DashboardSection from './dashboard/DashboardSection.svelte';
   import EcosystemCard from './EcosystemCard.svelte';
   import EcosystemHero from './EcosystemHero.svelte';
@@ -46,6 +49,12 @@
 
 <div class="@container flex size-full min-h-0 flex-col">
   <ViewHeader title={t('ecosystem.title')} icon={Orbit} {context}>
+    {#snippet actions()}
+      <Button onclick={() => onboarding.restart('setup')}>
+        {#snippet leading()}<Wand size={ICON.sm} aria-hidden="true" />{/snippet}
+        {t('ecosystem.setup.run')}
+      </Button>
+    {/snippet}
   </ViewHeader>
 
   <div use:scrollMemory={'ecosystem'} class="min-h-0 flex-1 overflow-y-auto">
