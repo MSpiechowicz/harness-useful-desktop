@@ -22,6 +22,7 @@ export function defaultPrefs(): AppPrefs {
     introEnabled: true,
     soundEnabled: false,
     showThinking: true,
+    showMessageUsage: true,
     defaultHarness: null,
     activeProject: null,
     rememberRecentProjects: true,

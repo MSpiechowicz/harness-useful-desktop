@@ -241,6 +241,25 @@ describe('transcript', () => {
     }
   });
 
+  it('hides the model, tokens and cost under replies when the Cost toggle turns them off', async () => {
+    prefs.value = samplePrefs();
+    try {
+      const { session } = chatSession(replayed('basic'));
+      render(ChatPane, { session });
+      render(ChatControls, { session });
+
+      expect((await screen.findAllByText(/ tokens/)).length).toBeGreaterThan(0);
+
+      prefs.value = samplePrefs({ showMessageUsage: false });
+
+      await waitFor(() => expect(screen.queryAllByText(/ tokens/)).toHaveLength(0));
+      expect(screen.getByRole('button', { name: 'Show model, tokens and cost under replies' })).toHaveAttribute('aria-pressed', 'false');
+      expect(screen.queryByRole('button', { name: /Thought process/ })).not.toBeNull();
+    } finally {
+      prefs.value = null;
+    }
+  });
+
   it('says the agent is working while nothing visible has arrived yet', async () => {
     const user = { id: null, role: 'user', blocks: [{ type: 'text', text: 'can you resume?' }], model: null, provider: null, stopReason: null, errorMessage: null, usage: null, costUsd: null, timestamp: 1, toolCallId: null, toolName: null, isError: null } satisfies ChatMessage;
     const { session } = chatSession([

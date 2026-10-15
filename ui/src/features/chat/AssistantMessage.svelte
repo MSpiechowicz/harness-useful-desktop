@@ -24,8 +24,9 @@
 
   const lastIndex = $derived(item.blocks.length - 1);
   const empty = $derived(item.blocks.length === 0);
-  /** The thought process can be hidden from the chat header or Settings. */
+  /** The thought process and the cost line can be hidden from the chat header or Settings. */
   const showThinking = $derived(prefs.value?.showThinking ?? true);
+  const showUsage = $derived(prefs.value?.showMessageUsage ?? true);
 </script>
 
 <article class="flex flex-col gap-3" aria-label={t('chat.assistant.label')} aria-busy={item.streaming}>
@@ -60,7 +61,7 @@
     </p>
   {/if}
 
-  {#if item.meta && !item.streaming}
+  {#if item.meta && !item.streaming && showUsage}
     <MessageMeta meta={item.meta} />
   {/if}
 </article>

@@ -27,6 +27,7 @@ fn default_prefs_serialize_with_camel_case_fields() {
             "introEnabled": true,
             "soundEnabled": false,
             "showThinking": true,
+            "showMessageUsage": true,
             "chatDefaults": [],
             "defaultHarness": null,
             "activeProject": null,

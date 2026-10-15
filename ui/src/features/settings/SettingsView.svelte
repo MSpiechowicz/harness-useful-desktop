@@ -171,6 +171,12 @@
               {/snippet}
             </SettingRow>
 
+            <SettingRow title={t('settings.usage.title')} description={t('settings.usage.description')}>
+              {#snippet control()}
+                <Switch label={t('settings.usage.title')} bind:checked={() => prefs.value?.showMessageUsage ?? true, (showMessageUsage) => void prefs.update({ showMessageUsage })} />
+              {/snippet}
+            </SettingRow>
+
             <SettingRow title={t('settings.aiNames.title')} description={t('settings.aiNames.description')} points={[t('settings.aiNames.cost'), t('settings.aiNames.sent'), t('settings.aiNames.off')]}>
               {#snippet control()}
                 <Switch label={t('settings.aiNames.title')} bind:checked={() => prefs.value?.aiChatNames ?? false, (aiChatNames) => void prefs.update({ aiChatNames })} />

@@ -33,6 +33,8 @@ export const settings: AreaMessages<typeof enSettings> = {
 
   'settings.thinking.title': 'Denkprozess anzeigen',
   'settings.thinking.description': 'Die Überlegungen des Agenten, unter jeder Antwort eingeklappt. Lässt sich auch im Chat-Kopf umschalten.',
+  'settings.usage.title': 'Kosten unter Antworten anzeigen',
+  'settings.usage.description': 'Modell, Tokenanzahl und Kosten am Ende jeder Antwort. Lässt sich auch im Chat-Kopf umschalten.',
   'settings.aiNames.title': 'Chats mit KI benennen',
   'settings.aiNames.description': 'Ein kurzer Name und eine Beschreibung für jeden Chat, geschrieben vom Agenten des Chats direkt nach Ihrer ersten Nachricht.',
   'settings.aiNames.cost': 'Kostet eine sehr kleine Anfrage pro Chat, mit dem Modell des Chats.',

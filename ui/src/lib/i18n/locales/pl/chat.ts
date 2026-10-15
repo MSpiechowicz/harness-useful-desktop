@@ -264,6 +264,11 @@ export const chat: AreaMessages<typeof enChat> = {
   'chat.thinking.hide': 'Ukryj tok rozumowania w czatach',
   'chat.thinking.show': 'Pokaż tok rozumowania w czatach',
 
+  'chat.usage.toggle': 'Koszt',
+  'chat.usage.toggleAria': 'Pokaż model, tokeny i koszt pod odpowiedziami',
+  'chat.usage.hide': 'Ukryj model, tokeny i koszt pod odpowiedziami',
+  'chat.usage.show': 'Pokaż model, tokeny i koszt pod odpowiedziami',
+
   'chat.tool.status.pending': 'Oczekuje',
   'chat.tool.status.running': 'W toku',
   'chat.tool.status.ok': 'Gotowe',

@@ -103,6 +103,8 @@ pub struct AppPrefs {
     pub sound_enabled: bool,
     /// Whether chats and transcripts show the agent's thought process.
     pub show_thinking: bool,
+    /// Whether each reply ends with its model, token count and cost.
+    pub show_message_usage: bool,
     /// The harness opened by default ("daily driver").
     pub default_harness: Option<HarnessId>,
     /// Absolute path of the active project directory.
@@ -147,6 +149,7 @@ impl Default for AppPrefs {
             intro_enabled: true,
             sound_enabled: false,
             show_thinking: true,
+            show_message_usage: true,
             default_harness: None,
             active_project: None,
             remember_recent_projects: true,

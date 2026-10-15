@@ -33,6 +33,8 @@ export const settings: AreaMessages<typeof enSettings> = {
 
   'settings.thinking.title': 'Afficher le raisonnement',
   'settings.thinking.description': 'Le raisonnement de l’agent, replié sous chaque réponse. Peut aussi être activé depuis l’en-tête du chat.',
+  'settings.usage.title': 'Afficher le coût sous les réponses',
+  'settings.usage.description': 'Le modèle, le nombre de jetons et le coût à la fin de chaque réponse. Peut aussi être activé depuis l’en-tête du chat.',
   'settings.aiNames.title': 'Nommer les chats avec l’IA',
   'settings.aiNames.description': 'Un nom et une description courts pour chaque chat, écrits par l’agent du chat juste après votre premier message.',
   'settings.aiNames.cost': 'Coûte une très petite requête par chat, sur le modèle du chat.',

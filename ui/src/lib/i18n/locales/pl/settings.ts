@@ -33,6 +33,8 @@ export const settings: AreaMessages<typeof enSettings> = {
 
   'settings.thinking.title': 'Pokazuj tok rozumowania',
   'settings.thinking.description': 'Rozumowanie agenta, zwinięte pod każdą odpowiedzią. Można je też przełączyć w nagłówku czatu.',
+  'settings.usage.title': 'Pokazuj koszt pod odpowiedziami',
+  'settings.usage.description': 'Model, liczba tokenów i koszt na końcu każdej odpowiedzi. Można je też przełączyć w nagłówku czatu.',
   'settings.aiNames.title': 'Nazywaj czaty za pomocą AI',
   'settings.aiNames.description': 'Krótka nazwa i opis każdego czatu, napisane przez agenta czatu zaraz po pierwszej wiadomości.',
   'settings.aiNames.cost': 'Kosztuje jedno bardzo małe zapytanie na czat, na modelu czatu.',

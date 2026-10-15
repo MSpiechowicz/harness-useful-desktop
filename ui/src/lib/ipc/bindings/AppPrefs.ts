@@ -43,6 +43,10 @@ soundEnabled: boolean,
  */
 showThinking: boolean, 
 /**
+ * Whether each reply ends with its model, token count and cost.
+ */
+showMessageUsage: boolean, 
+/**
  * The harness opened by default ("daily driver").
  */
 defaultHarness: HarnessId | null, 

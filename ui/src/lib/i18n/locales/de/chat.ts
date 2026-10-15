@@ -254,6 +254,11 @@ export const chat: AreaMessages<typeof enChat> = {
   'chat.thinking.hide': 'Denkprozess in Chats ausblenden',
   'chat.thinking.show': 'Denkprozess in Chats anzeigen',
 
+  'chat.usage.toggle': 'Kosten',
+  'chat.usage.toggleAria': 'Modell, Tokens und Kosten unter Antworten anzeigen',
+  'chat.usage.hide': 'Modell, Tokens und Kosten unter Antworten ausblenden',
+  'chat.usage.show': 'Modell, Tokens und Kosten unter Antworten anzeigen',
+
   'chat.tool.status.pending': 'Wartet',
   'chat.tool.status.running': 'Läuft',
   'chat.tool.status.ok': 'Fertig',

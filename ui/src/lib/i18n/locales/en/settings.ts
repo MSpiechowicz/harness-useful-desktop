@@ -31,6 +31,8 @@ export const settings = {
 
   'settings.thinking.title': 'Show thought process',
   'settings.thinking.description': "The agent's reasoning, folded under each reply. Also toggled from the chat header.",
+  'settings.usage.title': 'Show cost under replies',
+  'settings.usage.description': 'The model, token count and cost at the end of each reply. Also toggled from the chat header.',
   'settings.aiNames.title': 'Name chats with AI',
   'settings.aiNames.description': "A short name and description for each chat, written by the chat's own agent right after your first message.",
   'settings.aiNames.cost': "Costs one very small request per chat, on the chat's own model.",

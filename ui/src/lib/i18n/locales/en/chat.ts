@@ -251,6 +251,11 @@ export const chat = {
   'chat.thinking.hide': 'Hide the thought process in chats',
   'chat.thinking.show': 'Show the thought process in chats',
 
+  'chat.usage.toggle': 'Cost',
+  'chat.usage.toggleAria': 'Show model, tokens and cost under replies',
+  'chat.usage.hide': 'Hide the model, tokens and cost under replies',
+  'chat.usage.show': 'Show the model, tokens and cost under replies',
+
   'chat.tool.status.pending': 'Waiting',
   'chat.tool.status.running': 'Running',
   'chat.tool.status.ok': 'Done',
