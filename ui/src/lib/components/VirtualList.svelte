@@ -17,7 +17,7 @@
     key?: (item: T, index: number) => string | number;
     /** Follow the end while content grows, until the user scrolls up. */
     stick?: boolean;
-    /** True while the view sits at the end (within a few pixels). */
+    /** True while the view sits at the end (within a few pixels) or follows it. */
     atBottom?: boolean;
     class?: string;
     row: Snippet<[T, number]>;
@@ -26,6 +26,12 @@
   let { items, estimate = 48, variable = false, overscan = 6, label, key, stick = false, atBottom = $bindable(true), class: className, row }: Props = $props();
 
   const BOTTOM_SLACK_PX = 24;
+  /** Within this of the end counts as reached: a person scrolling down lands exactly there. */
+  const END_PX = 2;
+  /** A wheel turn, key press or swipe up counts as the cause of a scroll up for this long. */
+  const INTENT_MS = 300;
+  /** Keys that move a scrolled view up. */
+  const UP_KEYS: Record<string, true> = { ArrowUp: true, PageUp: true, Home: true };
 
   let scroller: HTMLElement | undefined = $state();
   let scrollTop = $state(0);
@@ -33,6 +39,10 @@
   let measured = $state.raw(new Map<string, number>());
   let following = $state(true);
   let lastTop = 0;
+  /** Until when a scroll up is the person's doing (wheel, keys, swipe); a drag on the scrollbar lasts as long as it does. */
+  let intentUntil = 0;
+  let dragging = false;
+  let touchY: number | null = null;
 
   function keyOf(index: number): string {
     return String(key ? key(items[index], index) : index);
@@ -79,42 +89,146 @@
     };
   }
 
-  /** Scrolling up leaves follow mode; coming back to the end re-enters it. */
+  /** Whether a scroll up that happens now is the person's: they just asked for it, or hold the scrollbar. */
+  function wantsUp(): boolean {
+    return dragging || performance.now() < intentUntil;
+  }
+
+  function intendUp(): void {
+    intentUntil = performance.now() + INTENT_MS;
+  }
+
+  function syncBottom(): void {
+    if (scroller) {
+      const distance = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
+
+      atBottom = distance < BOTTOM_SLACK_PX || (stick && following);
+    }
+  }
+
+  /**
+   * Reaching the end re-enters follow mode. Leaving it takes a scroll up the person asked for (wheel, keys, swipe,
+   * scrollbar): a falling `scrollTop` alone is no sign, since shrinking rows, clamping and the engine's own scroll
+   * animations move it too, and treating those as the user would drop out of follow mid-stream. The request only
+   * counts once the list really moves up, so a wheel turn inside a nested scroller or a zoom changes nothing.
+   */
   function onscroll(): void {
     if (!scroller) {
       return;
     }
 
     const top = scroller.scrollTop;
-    const gap = scroller.scrollHeight - top - scroller.clientHeight;
-
-    scrollTop = top;
-    atBottom = gap < BOTTOM_SLACK_PX;
-
-    if (atBottom) {
-      following = true;
-    } else if (top < lastTop - 1) {
-      following = false;
-    }
+    const movedUp = top < lastTop - 0.5;
+    const distance = scroller.scrollHeight - top - scroller.clientHeight;
 
     lastTop = top;
+    scrollTop = top;
+
+    if (movedUp && wantsUp()) {
+      following = false;
+    } else if (distance <= END_PX) {
+      following = true;
+    }
+
+    syncBottom();
   }
 
-  // Keep the end in view as rows are added or grow, one write per frame.
+  // The requests are noted on the way past (passive, on the list or the window) and judged by `onscroll`.
   $effect(() => {
-    void [offsets[items.length], viewport, stick, following];
     const element = scroller;
-    if (!stick || !following || !element) {
+    if (!element) {
       return;
     }
 
-    const frame = requestAnimationFrame(() => (element.scrollTop = element.scrollHeight));
+    const onwheel = (event: WheelEvent): void => {
+      if (event.deltaY < 0 && !event.ctrlKey) {
+        intendUp();
+      }
+    };
+
+    const ontouchstart = (event: TouchEvent): void => {
+      touchY = event.touches[0]?.clientY ?? null;
+    };
+
+    const ontouchmove = (event: TouchEvent): void => {
+      const y = event.touches[0]?.clientY ?? null;
+      if (touchY !== null && y !== null && y > touchY) {
+        intendUp();
+      }
+
+      touchY = y;
+    };
+
+    const endTouch = (): void => {
+      touchY = null;
+    };
+
+    // A press on the list element itself (not on a row) is on its scrollbar.
+    const onpointerdown = (event: PointerEvent): void => {
+      dragging = event.target === element;
+    };
+
+    const endDrag = (): void => {
+      dragging = false;
+    };
+
+    // Keys scroll the list the person last clicked in, even when focus is on the page itself, so they are watched
+    // on the window; typing in a field is not scrolling.
+    const onkeydown = (event: KeyboardEvent): void => {
+      const target = event.target as HTMLElement;
+      const typing = target.isContentEditable || target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement;
+
+      if (!typing && (UP_KEYS[event.key] || (event.key === ' ' && event.shiftKey)) && element.offsetParent !== null) {
+        intendUp();
+      }
+    };
+
+    element.addEventListener('wheel', onwheel, { passive: true });
+    element.addEventListener('touchstart', ontouchstart, { passive: true });
+    element.addEventListener('touchmove', ontouchmove, { passive: true });
+    element.addEventListener('touchend', endTouch);
+    element.addEventListener('touchcancel', endTouch);
+    element.addEventListener('pointerdown', onpointerdown);
+    window.addEventListener('pointerup', endDrag);
+    window.addEventListener('pointercancel', endDrag);
+    window.addEventListener('keydown', onkeydown);
+
+    return () => {
+      element.removeEventListener('wheel', onwheel);
+      element.removeEventListener('touchstart', ontouchstart);
+      element.removeEventListener('touchmove', ontouchmove);
+      element.removeEventListener('touchend', endTouch);
+      element.removeEventListener('touchcancel', endTouch);
+      element.removeEventListener('pointerdown', onpointerdown);
+      window.removeEventListener('pointerup', endDrag);
+      window.removeEventListener('pointercancel', endDrag);
+      window.removeEventListener('keydown', onkeydown);
+    };
+  });
+
+  // Keep the end in view as rows are added or grow, one write per frame; `atBottom` follows the content too, not only the scrolling.
+  $effect(() => {
+    void [offsets[items.length], viewport, stick, following];
+    const element = scroller;
+    if (!element) {
+      return;
+    }
+
+    const frame = requestAnimationFrame(() => {
+      if (stick && following) {
+        element.scrollTop = element.scrollHeight;
+      }
+
+      syncBottom();
+    });
 
     return () => cancelAnimationFrame(frame);
   });
 
   export function scrollToIndex(index: number): void {
     if (scroller && index >= 0 && index < items.length) {
+      // A jump is the caller's choice of place: the view stops following the end unless it lands there.
+      following = false;
       scroller.scrollTop = offsets[index];
     }
   }
@@ -139,7 +253,14 @@
   }
 </script>
 
-<div bind:this={scroller} bind:clientHeight={viewport} {onscroll} role="list" aria-label={label} class={cx('relative overflow-y-auto', className)}>
+<div
+  bind:this={scroller}
+  bind:clientHeight={viewport}
+  {onscroll}
+  role="list"
+  aria-label={label}
+  class={cx('relative overflow-y-auto', className)}
+>
   <div class="relative w-full" style:height="{visible.total}px">
     {#each indexes as index (key ? key(items[index], index) : index)}
       <!-- `top`, not a transform: WebKitGTK composites transformed rows and blurs their text at fractional scales. -->
