@@ -81,6 +81,7 @@ export const shell: AreaMessages<typeof enShell> = {
   'shell.shortcut.shortcuts': 'Pokaż skróty klawiszowe',
   'shell.shortcut.newChat': 'Nowy czat',
   'shell.shortcut.toggleRail': 'Rozwiń lub zwiń pasek boczny',
+  'shell.shortcut.togglePane': 'Otwórz lub zamknij listę w Sesjach, Zmianach, Konfiguracji i Rozszerzeniach',
   'shell.shortcut.back': 'Wstecz',
   'shell.shortcut.forward': 'Dalej',
   'shell.shortcut.nextChat': 'Następny czat',

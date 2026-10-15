@@ -1,4 +1,5 @@
 import { t, type MessageKey } from '$lib/i18n/i18n.svelte';
+import { isMacPlatform } from '$lib/utils/shortcuts';
 
 import { VIEWS, viewShortcut } from './views';
 
@@ -58,10 +59,21 @@ export interface ShellCommands {
   /** Shows the next (`1`) or previous (`-1`) chat tab. */
   cycleChat: (step: 1 | -1) => void;
   toggleRail: () => void;
+  /** Opens or closes the list drawer of Sessions, Changes, Config or Extensions on a narrow window. */
+  togglePane: () => void;
   goTo: (index: number) => void;
 }
 
+/**
+ * Next and previous chat. Cmd+Tab belongs to the macOS app switcher and never reaches the app, so a Mac uses
+ * Cmd+Option+Arrow (plain Cmd+Arrow already moves the caret to the start or end of the composer text).
+ */
+function chatCycleCombos(mac = isMacPlatform()): { next: string; previous: string } {
+  return mac ? { next: 'mod+alt+arrowright', previous: 'mod+alt+arrowleft' } : { next: 'mod+tab', previous: 'mod+shift+tab' };
+}
+
 export function globalShortcuts(shell: ShellCommands): ShortcutAction[] {
+  const chatCycle = chatCycleCombos();
   const views: ShortcutAction[] = VIEWS.map((view, index) => ({
     id: `go-${view.id}`,
     combo: viewShortcut(view.id),
@@ -79,10 +91,11 @@ export function globalShortcuts(shell: ShellCommands): ShortcutAction[] {
     { id: 'shortcuts', combo: 'shift+?', also: ['mod+/'], get label() { return t('shell.shortcut.shortcuts'); }, area: 'Global', inInputs: 'modified', run: shell.openShortcuts },
     { id: 'new-chat', combo: 'mod+n', get label() { return t('shell.shortcut.newChat'); }, area: 'Global', inInputs: 'all', run: shell.newChat },
     { id: 'toggle-rail', combo: 'mod+b', get label() { return t('shell.shortcut.toggleRail'); }, area: 'Global', inInputs: 'all', run: shell.toggleRail },
+    { id: 'toggle-pane', combo: 'mod+shift+b', get label() { return t('shell.shortcut.togglePane'); }, area: 'Global', inInputs: 'all', run: shell.togglePane },
     { id: 'back', combo: 'alt+arrowleft', get label() { return t('shell.shortcut.back'); }, area: 'Global', inInputs: 'none', run: shell.goBack },
     { id: 'forward', combo: 'alt+arrowright', get label() { return t('shell.shortcut.forward'); }, area: 'Global', inInputs: 'none', run: shell.goForward },
-    { id: 'next-chat', combo: 'mod+tab', also: ['mod+pagedown'], get label() { return t('shell.shortcut.nextChat'); }, area: 'Global', inInputs: 'all', run: () => shell.cycleChat(1) },
-    { id: 'previous-chat', combo: 'mod+shift+tab', also: ['mod+pageup'], get label() { return t('shell.shortcut.previousChat'); }, area: 'Global', inInputs: 'all', run: () => shell.cycleChat(-1) },
+    { id: 'next-chat', combo: chatCycle.next, also: ['mod+pagedown'], get label() { return t('shell.shortcut.nextChat'); }, area: 'Global', inInputs: 'all', run: () => shell.cycleChat(1) },
+    { id: 'previous-chat', combo: chatCycle.previous, also: ['mod+pageup'], get label() { return t('shell.shortcut.previousChat'); }, area: 'Global', inInputs: 'all', run: () => shell.cycleChat(-1) },
     { id: 'jump-chat', combo: 'mod+0', get label() { return t('shell.shortcut.jumpChat'); }, area: 'Go to', inInputs: 'all', run: shell.jumpToChat },
     ...views,
   ];

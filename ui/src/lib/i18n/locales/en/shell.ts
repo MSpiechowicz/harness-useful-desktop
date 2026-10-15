@@ -72,6 +72,7 @@ export const shell = {
   'shell.shortcut.shortcuts': 'Show keyboard shortcuts',
   'shell.shortcut.newChat': 'New chat',
   'shell.shortcut.toggleRail': 'Expand or collapse the sidebar',
+  'shell.shortcut.togglePane': 'Open or close the list on Sessions, Changes, Config and Extensions',
   'shell.shortcut.back': 'Back',
   'shell.shortcut.forward': 'Forward',
   'shell.shortcut.nextChat': 'Next chat',

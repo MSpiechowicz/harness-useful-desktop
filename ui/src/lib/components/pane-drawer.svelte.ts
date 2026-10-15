@@ -6,6 +6,9 @@ export const DRAWER_BELOW_PX = 1100;
  * `ListDetail` (or a view's own container) binds `width`, `DrawerToggle` flips `open`, `ListDrawer` shows it.
  */
 export class PaneDrawer {
+  /** The drawers that are drawers right now (list pane collapsed), the newest mounted last. */
+  private static readonly collapsed: PaneDrawer[] = [];
+
   /** The width of the area the list and detail share; 0 until it is measured. */
   width = $state(0);
   open = $state(false);
@@ -17,8 +20,30 @@ export class PaneDrawer {
     $effect(() => {
       if (!this.active) {
         this.open = false;
+
+        return;
       }
+
+      PaneDrawer.collapsed.push(this);
+
+      return () => PaneDrawer.collapsed.splice(PaneDrawer.collapsed.indexOf(this), 1);
     });
+  }
+
+  /** The shortcut: opens or puts away the list drawer of the view on screen; false when no list is collapsed. */
+  static toggleCurrent(): boolean {
+    const drawer = PaneDrawer.collapsed.at(-1);
+    if (!drawer) {
+      return false;
+    }
+
+    if (drawer.open) {
+      drawer.dismiss();
+    } else {
+      drawer.open = true;
+    }
+
+    return true;
   }
 
   toggle(): void {

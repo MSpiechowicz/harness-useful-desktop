@@ -2,6 +2,7 @@
   import { untrack } from 'svelte';
 
   import CommandPalette from '$lib/components/CommandPalette.svelte';
+  import { PaneDrawer } from '$lib/components/pane-drawer.svelte';
   import { agentSessions } from '$lib/stores/agentSession.svelte';
   import { saveWorkspaceWhenReady } from '$lib/stores/workspace.svelte';
   import { harness } from '$lib/stores/harness.svelte';
@@ -48,6 +49,7 @@
       agentSessions.cycle(step);
     },
     toggleRail: () => ui.toggleRail(),
+    togglePane: () => void PaneDrawer.toggleCurrent(),
     goTo: (index) => nav.go(VIEWS[index].id),
   });
   const groups = $derived(shortcutGroups(shortcuts));

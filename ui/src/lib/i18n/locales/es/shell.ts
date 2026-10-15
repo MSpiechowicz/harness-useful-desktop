@@ -75,6 +75,7 @@ export const shell: AreaMessages<typeof enShell> = {
   'shell.shortcut.shortcuts': 'Muestra los atajos de teclado',
   'shell.shortcut.newChat': 'Nuevo chat',
   'shell.shortcut.toggleRail': 'Expande o contrae la barra lateral',
+  'shell.shortcut.togglePane': 'Abre o cierra la lista en Sesiones, Cambios, Configuración y Extensiones',
   'shell.shortcut.back': 'Atrás',
   'shell.shortcut.forward': 'Adelante',
   'shell.shortcut.nextChat': 'Chat siguiente',
