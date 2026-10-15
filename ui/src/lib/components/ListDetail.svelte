@@ -39,6 +39,13 @@
   {/if}
 {/snippet}
 
+{#snippet columns()}
+  <SplitPane {label} bind:size {min} minSecond={minDetail}>
+    {#snippet first()}{@render listPane()}{/snippet}
+    {#snippet second()}{@render detailPane()}{/snippet}
+  </SplitPane>
+{/snippet}
+
 <!-- A resizable master/detail layout; each pane scrolls on its own, and the detail pane is a container for responsive content. -->
 {#if drawer}
   <div bind:clientWidth={drawer.width} class="relative size-full min-h-0">
@@ -47,15 +54,9 @@
 
       <ListDrawer {drawer} label={drawerLabel}>{@render listPane()}</ListDrawer>
     {:else}
-      <SplitPane {label} bind:size {min} minSecond={minDetail}>
-        {#snippet first()}{@render listPane()}{/snippet}
-        {#snippet second()}{@render detailPane()}{/snippet}
-      </SplitPane>
+      {@render columns()}
     {/if}
   </div>
 {:else}
-  <SplitPane {label} bind:size {min} minSecond={minDetail}>
-    {#snippet first()}{@render listPane()}{/snippet}
-    {#snippet second()}{@render detailPane()}{/snippet}
-  </SplitPane>
+  {@render columns()}
 {/if}
