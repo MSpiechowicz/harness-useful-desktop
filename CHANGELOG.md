@@ -1,3 +1,16 @@
+# [0.10.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.9.0...v0.10.0) (2026-10-15)
+
+
+### Bug Fixes
+
+* **ui:** update policy row keeps its height across options, updates card bottom padding matches the top ([af1e679](https://github.com/MSpiechowicz/harness-useful-desktop/commit/af1e679801c59a3a4087dd5beff2853c092c02d3))
+
+
+### Features
+
+* **chat:** Cost toggle in the chat header and Settings hides the model, tokens and cost under replies ([f85f1cf](https://github.com/MSpiechowicz/harness-useful-desktop/commit/f85f1cf5fbd5fc3a13d5eefebb86f53e84b06e2c))
+* **ui:** thinking and tool calls share one row design with an icon tile and a fixed-width status pill, spinner matches the icon geometry ([53512cd](https://github.com/MSpiechowicz/harness-useful-desktop/commit/53512cdbdee04b4087d56ea54206188987aa1dac))
+
 # [0.9.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.8.1...v0.9.0) (2026-10-15)
 
 
