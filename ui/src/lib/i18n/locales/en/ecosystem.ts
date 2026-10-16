@@ -19,6 +19,10 @@ export const ecosystem = {
   'ecosystem.hero.looking': 'Looking for the Harness family…',
   'ecosystem.setup.run': 'Run recommended setup',
 
+  'ecosystem.autoUpdate.done': '{name} updated to {version}',
+  'ecosystem.autoUpdate.failed': '{name} update failed',
+  'ecosystem.autoUpdate.noReason': 'The installer did not say why.',
+
   'ecosystem.orbit.description': '{summary}: {items}',
   'ecosystem.orbit.installed': '{name} installed',
   'ecosystem.orbit.updating': '{name} installed, update available',
@@ -41,7 +45,7 @@ export const ecosystem = {
 
   'ecosystem.install.steps': 'Install steps',
   'ecosystem.install.copy': 'Copy: {label}',
-  'ecosystem.install.note': 'Copy these into a terminal yourself. Harness Desktop never runs install commands for you.',
+  'ecosystem.install.note': 'These are the commands to run them yourself in a terminal. Recommended setup runs the installers for you after you confirm, and installed members of the family can be kept up to date in Settings → Updates.',
 
   'ecosystem.dashboardInstall.title': 'See what your agents cost',
   'ecosystem.dashboardInstall.body':

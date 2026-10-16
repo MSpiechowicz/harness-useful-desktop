@@ -22,6 +22,10 @@ export const ecosystem: AreaMessages<typeof enEcosystem> = {
   'ecosystem.hero.looking': 'Suche nach der Harness-Familie…',
   'ecosystem.setup.run': 'Empfohlene Einrichtung ausführen',
 
+  'ecosystem.autoUpdate.done': '{name} auf {version} aktualisiert',
+  'ecosystem.autoUpdate.failed': 'Aktualisierung von {name} fehlgeschlagen',
+  'ecosystem.autoUpdate.noReason': 'Der Installer hat keinen Grund genannt.',
+
   'ecosystem.orbit.description': '{summary}: {items}',
   'ecosystem.orbit.installed': '{name} installiert',
   'ecosystem.orbit.updating': '{name} installiert, Update verfügbar',
@@ -44,7 +48,7 @@ export const ecosystem: AreaMessages<typeof enEcosystem> = {
 
   'ecosystem.install.steps': 'Installationsschritte',
   'ecosystem.install.copy': 'Kopieren: {label}',
-  'ecosystem.install.note': 'Kopiere diese Befehle selbst in ein Terminal. Harness Desktop führt nie Installationsbefehle für dich aus.',
+  'ecosystem.install.note': 'Mit diesen Befehlen führst du sie selbst in einem Terminal aus. Die empfohlene Einrichtung führt die Installer nach deiner Bestätigung für dich aus, und installierte Mitglieder der Familie lassen sich unter Einstellungen → Updates aktuell halten.',
 
   'ecosystem.dashboardInstall.title': 'Sieh, was deine Agenten kosten',
   'ecosystem.dashboardInstall.body':

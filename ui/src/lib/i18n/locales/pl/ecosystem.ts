@@ -24,6 +24,10 @@ export const ecosystem: AreaMessages<typeof enEcosystem> = {
   'ecosystem.hero.looking': 'Szukanie rodziny Harness…',
   'ecosystem.setup.run': 'Uruchom polecaną konfigurację',
 
+  'ecosystem.autoUpdate.done': '{name} zaktualizowany do wersji {version}',
+  'ecosystem.autoUpdate.failed': 'Aktualizacja {name} nie powiodła się',
+  'ecosystem.autoUpdate.noReason': 'Instalator nie podał powodu.',
+
   'ecosystem.orbit.description': '{summary}: {items}',
   'ecosystem.orbit.installed': '{name}: zainstalowany',
   'ecosystem.orbit.updating': '{name}: zainstalowany, dostępna aktualizacja',
@@ -48,7 +52,7 @@ export const ecosystem: AreaMessages<typeof enEcosystem> = {
 
   'ecosystem.install.steps': 'Kroki instalacji',
   'ecosystem.install.copy': 'Kopiuj: {label}',
-  'ecosystem.install.note': 'Skopiuj je do terminala samodzielnie. Harness Desktop nigdy nie uruchamia za ciebie poleceń instalacji.',
+  'ecosystem.install.note': 'To polecenia do samodzielnego uruchomienia w terminalu. Zalecana konfiguracja uruchamia instalatory za ciebie po potwierdzeniu, a zainstalowanych członków rodziny można aktualizować automatycznie w Ustawienia → Aktualizacje.',
 
   'ecosystem.dashboardInstall.title': 'Zobacz, ile kosztują twoi agenci',
   'ecosystem.dashboardInstall.body':

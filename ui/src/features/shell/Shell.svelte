@@ -5,6 +5,7 @@
   import { PaneDrawer } from '$lib/components/pane-drawer.svelte';
   import { agentSessions } from '$lib/stores/agentSession.svelte';
   import { saveWorkspaceWhenReady } from '$lib/stores/workspace.svelte';
+  import { ecosystem } from '$lib/stores/ecosystem.svelte';
   import { harness } from '$lib/stores/harness.svelte';
   import { git } from '$lib/stores/git.svelte';
   import { nav } from '$lib/stores/nav.svelte';
@@ -19,6 +20,7 @@
 
   import { intro, INTRO_LEAD_MS } from '../intro/intro-state.svelte';
   import { onboarding } from '../onboarding/onboarding-state.svelte';
+  import { familyUpdater } from '../ecosystem/family-updater';
   import { extensionUpdater } from '../extensions/actions/extension-updater';
   import RestartConfirm from '../updates/RestartConfirm.svelte';
   import { jumpToChat, newChat } from './actions';
@@ -156,6 +158,14 @@
   $effect(() => {
     if (intro.phase === 'done' && prefs.value?.autoUpdateExtensions && !onboarding.visible) {
       return extensionUpdater.start();
+    }
+  });
+
+  // Installed Harness family members keep themselves current under the same setting. Every ecosystem reading (the local
+  // one and the one with the GitHub releases folded in) is a chance to find a newer release; the updater tries each once.
+  $effect(() => {
+    if (intro.phase === 'done' && prefs.value?.autoUpdateExtensions && !onboarding.visible && ecosystem.status) {
+      void familyUpdater.check();
     }
   });
 

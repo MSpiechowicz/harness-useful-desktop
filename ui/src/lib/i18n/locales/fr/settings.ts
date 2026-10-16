@@ -136,7 +136,7 @@ export const settings: AreaMessages<typeof enSettings> = {
     'À l’ouverture d’Ecosystem, demande à GitHub les dernières versions de Harness Dashboard, Skills, Memory et Sidebar, au plus toutes les six heures tant que l’application tourne. GitHub voit votre adresse IP et la version de l’application, pas les outils de la famille Harness que vous avez.',
   'settings.updates.extensions.title': 'Mettre à jour les extensions automatiquement',
   'settings.updates.extensions.description':
-    'Toutes les dix minutes, l\'app actualise les marketplaces et installe les nouvelles versions des plugins et paquets de votre harness, avec un message à chaque fois. Désactivé : mettez à jour à la main depuis Extensions.',
+    'Toutes les dix minutes, l\'app actualise les marketplaces et installe les nouvelles versions des plugins et paquets de votre harness, avec un message à chaque fois. Elle met aussi à jour les membres installés de la famille Harness (Harness Memory et Harness Dashboard) en lançant leurs programmes d’installation officiels. Désactivé : mettez à jour à la main depuis Extensions et Écosystème.',
   'settings.updates.notConfigured': 'Cette version n’est pas configurée pour les mises à jour et ne recherchera donc pas de nouvelles versions. Tout va bien. Récupérez les nouvelles versions sur la page des versions.',
   'settings.updates.openReleases': 'Ouvrir les versions',
   'settings.updates.retry': 'Réessayer',

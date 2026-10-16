@@ -77,6 +77,12 @@ describe('Updates settings', () => {
     await waitFor(() => expect(prefs.value?.autoUpdateExtensions).toBe(false));
   });
 
+  it('says the extensions switch also covers the installed Harness family members', () => {
+    render(UpdatesSection, { id: 'updates' });
+
+    expect(screen.getByText(/Harness Memory and Harness Dashboard/)).toBeInTheDocument();
+  });
+
   it('explains a build without updates as a neutral note, not an error', () => {
     show({ kind: 'notConfigured' });
 

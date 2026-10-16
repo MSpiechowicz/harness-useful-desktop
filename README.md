@@ -163,7 +163,8 @@ code-signed) are in
 ### Updating
 
 The app checks GitHub releases and offers signed updates itself (Settings). Re-running the install command also
-upgrades.
+upgrades. With **Update extensions automatically** on (the default), the app also keeps your installed Harness Memory and
+Harness Dashboard current by running their official installers, and you can turn that off in Settings under Updates.
 
 ### Uninstalling
 
