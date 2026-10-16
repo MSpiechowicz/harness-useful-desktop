@@ -160,6 +160,8 @@ impl ProcessRunner for Versions {
 }
 
 #[tokio::test]
+// `~/.local/bin` is the installer's folder only on Linux and macOS (Windows has its own, tested apart).
+#[cfg(unix)]
 async fn the_installers_server_is_used_over_a_silent_one_on_path() {
     let home = tempfile::tempdir().unwrap();
     let bun = home.path().join(".bun/bin");
@@ -178,6 +180,8 @@ async fn the_installers_server_is_used_over_a_silent_one_on_path() {
 }
 
 #[tokio::test]
+// `~/.local/bin` is the installer's folder only on Linux and macOS (Windows has its own, tested apart).
+#[cfg(unix)]
 async fn a_server_that_reports_no_version_is_not_installed() {
     let home = tempfile::tempdir().unwrap();
     let env = Env::for_tests(home.path());
