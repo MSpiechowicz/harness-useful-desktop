@@ -1,3 +1,10 @@
+## [0.16.2](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.16.1...v0.16.2) (2026-10-16)
+
+
+### Bug Fixes
+
+* **ui:** cap config and extensions at the page width, keep the ecosystem scrollbar gutter stable ([81e33d3](https://github.com/MSpiechowicz/harness-useful-desktop/commit/81e33d32faff3864a5dcffb0e1b753d23993efc2))
+
 ## [0.16.1](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.16.0...v0.16.1) (2026-10-16)
 
 
