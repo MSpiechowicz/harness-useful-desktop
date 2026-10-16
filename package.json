@@ -10,6 +10,7 @@
   },
   "scripts": {
     "dev": "tauri dev",
+    "dev:second": "bun scripts/dev-second.ts",
     "dev:ui": "vite --config ui/vite.config.ts",
     "dev:mock": "vite --config ui/vite.config.ts --mode mock",
     "build:ui": "vite build --config ui/vite.config.ts",
