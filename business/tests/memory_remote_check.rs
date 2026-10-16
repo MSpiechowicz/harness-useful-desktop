@@ -22,15 +22,20 @@ use pretty_assertions::assert_eq;
 const PASSWORD: &str = "pa55-w0rd-secret";
 const TOKEN: &str = "tok-e2e-secret";
 
-/// Where the installer puts `harness-memory` under `home` (and the env that finds it there).
+/// Where the installer puts `harness-memory` under `home`, and the env that finds it and its
+/// config file there (Windows keeps the config under `APPDATA`).
 fn installed_at(home: &Path) -> (Env, PathBuf) {
     let env = Env::for_tests(home);
 
     if cfg!(windows) {
         let local = home.join("AppData").join("Local");
+        let roaming = home.join("AppData").join("Roaming");
         let path = local.join("Programs").join("harness-memory").join("harness-memory.exe");
+        let env = env
+            .with_var("LOCALAPPDATA", local.to_string_lossy())
+            .with_var("APPDATA", roaming.to_string_lossy());
 
-        return (env.with_var("LOCALAPPDATA", local.to_string_lossy()), path);
+        return (env, path);
     }
 
     (env, home.join(".local").join("bin").join("harness-memory"))
