@@ -1,3 +1,10 @@
+# [0.18.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.17.0...v0.18.0) (2026-10-16)
+
+
+### Features
+
+* **memory:** Memory settings with remote (team) memory ([6e56ba7](https://github.com/MSpiechowicz/harness-useful-desktop/commit/6e56ba70a0df85f3cdfed824bacbcc4aa1a8745d)), closes [#8](https://github.com/MSpiechowicz/harness-useful-desktop/issues/8)
+
 # [0.17.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.16.2...v0.17.0) (2026-10-16)
 
 
