@@ -21,7 +21,7 @@ export const settings: AreaMessages<typeof enSettings> = {
 
   'settings.keywords.appearance': 'design thema bewegung animation dunkel hell sprache',
   'settings.keywords.startup': 'intro start splash',
-  'settings.keywords.harnesses': 'programmdatei binary omp pi pfad einrichtung harness',
+  'settings.keywords.harnesses': 'programmdatei binary omp pi opencode pfad einrichtung harness',
   'settings.keywords.memory': 'gedächtnis speicher remote entfernt team datenbank postgres postgresql mongodb mongo sqlite libsql turso geteilt gemeinsam harness-memory mcp merken repository abruf notizen global neuer chat',
   'settings.keywords.projects': 'zuletzt geöffnet ordner',
   'settings.keywords.updates': 'version update aktualisierung release installieren suchen neu',
@@ -72,6 +72,10 @@ export const settings: AreaMessages<typeof enSettings> = {
 
   'settings.memory.title': 'Projektgedächtnis',
   'settings.memory.description': 'Gibt deinen Harnesses ein Gedächtnis (harness-memory) für das, was getan wurde, Probleme und Lösungen und wo was liegt, pro Repository. Gespeichert auf diesem Computer oder, wenn Remote-Speicher an ist, in der Datenbank deines Teams. Beim Ausschalten wird es aus der MCP-Konfiguration der Harnesses entfernt.',
+  'settings.memory.manual.title': 'Diese Einträge von Hand entfernen',
+  'settings.memory.manual.body': '{harness} hat Kommentare in {file}, deshalb hat die App diese Datei unverändert gelassen. Lösche den Eintrag {name} selbst daraus.',
+  'settings.memory.manual.copy': 'Eintragsnamen kopieren',
+  'settings.memory.manual.dismiss': 'Erledigt',
 
   'settings.memoryRecall.title': 'Gedächtnis zu neuen Chats hinzufügen',
   'settings.memoryRecall.description': 'Bei der ersten Nachricht eines neuen Chats werden passende Notizen aus dem Projektgedächtnis für den Agenten ergänzt. Sie werden zusammen mit der Nachricht an deinen Modellanbieter gesendet.',

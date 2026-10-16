@@ -18,8 +18,9 @@
 //! Chat sessions additionally need [`Harness::launch_spec`] (the RPC command line) and
 //! [`Harness::dialect`] (how the harness speaks the PI-family RPC protocol). Saved sessions need
 //! [`Harness::sessions_dir`]; listing, trees and transcripts default to the PI-family session
-//! format and are overridden by harnesses that store sessions differently. Extension actions
-//! (install, remove, …) need [`Harness::cli_action`], run by [`run_cli_action`].
+//! format and are overridden by harnesses that store sessions differently, or replaced by
+//! [`Harness::cli_sessions`] for a harness whose sessions are only reachable through its CLI.
+//! Extension actions (install, remove, …) need [`Harness::cli_action`], run by [`run_cli_action`].
 
 mod catalog;
 mod cli;
@@ -44,8 +45,8 @@ pub mod prelude {
     pub use std::path::PathBuf;
 
     pub use super::{
-        CliInvocation, CommandCatalog, CompanionSetup, Harness, HarnessPaths, LaunchRequest, McpTarget, ShareSupport,
-        SkillsStrategy,
+        CliInvocation, CliSessionCtx, CliSessions, CommandCatalog, CompanionSetup, Harness, HarnessPaths,
+        LaunchRequest, McpTarget, ShareSupport, SkillsStrategy,
     };
     pub use crate::env::Env;
     pub use crate::error::Result;
@@ -68,7 +69,7 @@ use crate::model::{
 };
 use crate::pi_family::rpc::RpcDialect;
 use crate::pi_family::sessions::{self, SessionCache};
-use crate::process::{BoxFuture, ExecSpec, ProcessRunner};
+use crate::process::{BlockingRunner, BoxFuture, ExecSpec, ProcessRunner, ResolvedBinary};
 
 /// Where a harness keeps its files, resolved from an [`Env`] (and the project, if any).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -128,6 +129,9 @@ pub enum McpTarget {
         /// File names in the agent directory that are also read.
         also_read: &'static [&'static str],
     },
+    /// The `mcp` object of the global OpenCode config file (`opencode.jsonc` or `opencode.json` in
+    /// the config directory), whose entries run `command` arrays.
+    OpenCodeConfig,
     /// The harness has no user MCP file the app can register a server in.
     Unsupported,
 }
@@ -165,6 +169,43 @@ impl ShareSupport {
             SyncItemKind::McpServer => self.mcp_servers,
         }
     }
+}
+
+/// What a [`CliSessions`] method needs to run the harness CLI for one project.
+#[derive(Clone, Copy)]
+pub struct CliSessionCtx<'a> {
+    /// The environment, for paths and the child's search directories.
+    pub env: &'a Env,
+    /// The canonical project directory; the CLI runs in it.
+    pub project: &'a Path,
+    /// The detected harness executable.
+    pub binary: &'a ResolvedBinary,
+    /// Runs the CLI (blocking: these methods are called from blocking tasks).
+    pub runner: &'a dyn BlockingRunner,
+}
+
+/// Saved sessions of a harness that exposes them only through its CLI (list, export, delete
+/// commands) instead of session files the app reads. Every spawn carries
+/// [`Harness::spawn_env`]. Sessions are linear: there is no tree, resume or fork.
+pub trait CliSessions: Send + Sync {
+    /// Saved sessions of the project, newest first.
+    fn list(&self, ctx: &CliSessionCtx<'_>) -> Result<Vec<SessionSummary>>;
+
+    /// One page of the transcript of `session` (the cursor format is the same as
+    /// [`sessions::session_messages`]).
+    fn messages(
+        &self,
+        ctx: &CliSessionCtx<'_>,
+        session: &SessionRef,
+        cursor: Option<&str>,
+        limit: u32,
+    ) -> Result<SessionMessagesPage>;
+
+    /// Project-relative files the edit tools of `session` may have changed.
+    fn files_touched(&self, ctx: &CliSessionCtx<'_>, session: &SessionRef) -> Result<Vec<String>>;
+
+    /// Deletes `session`.
+    fn delete(&self, ctx: &CliSessionCtx<'_>, session: &SessionRef) -> Result<()>;
 }
 
 /// A coding-agent CLI adapter. See the module docs for how to add one.
@@ -258,6 +299,18 @@ pub trait Harness: Send + Sync {
     /// Project-relative files the edit tools of a saved session may have changed.
     fn session_files_touched(&self, env: &Env, project: &Path, session: &SessionRef) -> Result<Vec<String>> {
         sessions::session_files_touched(&self.resolve_session(env, project, session)?, project)
+    }
+
+    /// The CLI-backed sessions of a harness without readable session files; when `Some`, they
+    /// replace the session file methods above. Default: `None`.
+    fn cli_sessions(&self) -> Option<&dyn CliSessions> {
+        None
+    }
+
+    /// Environment variables set on every spawn of the harness binary (version probe, CLI actions,
+    /// chat launch, CLI sessions), e.g. to switch off a self-updater. Default: none.
+    fn spawn_env(&self) -> &'static [(&'static str, &'static str)] {
+        &[]
     }
 
     /// The approval mode the user configured for `project` (harnesses with

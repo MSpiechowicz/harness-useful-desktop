@@ -26,10 +26,13 @@ import streamCrash from './fixtures/agent/stream_crash.json';
 import streamError from './fixtures/agent/stream_error.json';
 import streamUiRequests from './fixtures/agent/stream_ui_requests.json';
 import commandsOmp from './fixtures/commands_catalog.omp.json';
+import commandsOpenCode from './fixtures/commands_catalog.opencode.json';
 import commandsPi from './fixtures/commands_catalog.pi.json';
 import configOmp from './fixtures/config_view.omp.json';
+import configOpenCode from './fixtures/config_view.opencode.json';
 import configPi from './fixtures/config_view.pi.json';
 import extensionsOmp from './fixtures/extensions_view.omp.json';
+import extensionsOpenCode from './fixtures/extensions_view.opencode.json';
 import extensionsPi from './fixtures/extensions_view.pi.json';
 import gitBranches from './fixtures/git/git_branches.json';
 import gitDiff from './fixtures/git/git_diff.json';
@@ -50,9 +53,9 @@ import sessionTree from './fixtures/sessions/session_tree.omp.json';
 export const fixtures = {
   harnesses: harnessList as unknown as HarnessSummary[],
   recentProjects: projectRecent as unknown as ProjectInfo[],
-  config: { omp: configOmp, pi: configPi } as unknown as Record<HarnessId, ConfigView>,
-  extensions: { omp: extensionsOmp, pi: extensionsPi } as unknown as Record<HarnessId, ExtensionsView>,
-  commands: { omp: commandsOmp, pi: commandsPi } as unknown as Record<HarnessId, CommandSpec[]>,
+  config: { omp: configOmp, pi: configPi, opencode: configOpenCode } as unknown as Record<HarnessId, ConfigView>,
+  extensions: { omp: extensionsOmp, pi: extensionsPi, opencode: extensionsOpenCode } as unknown as Record<HarnessId, ExtensionsView>,
+  commands: { omp: commandsOmp, pi: commandsPi, opencode: commandsOpenCode } as unknown as Record<HarnessId, CommandSpec[]>,
   agent: {
     sessionInfo: { omp: sessionInfoOmp, pi: sessionInfoPi } as unknown as Record<HarnessId, AgentSessionInfo>,
     /** Recorded event streams, one per scenario; `approvalDenied` replays `approval` from the Deny on. */

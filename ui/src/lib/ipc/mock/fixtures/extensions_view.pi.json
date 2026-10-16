@@ -69,6 +69,7 @@
       "path": "/home/demo/.pi/agent/prompts/review.md"
     }
   ],
+  "agents": [],
   "mcpServers": [
     {
       "name": "context7",

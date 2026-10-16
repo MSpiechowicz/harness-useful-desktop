@@ -9,13 +9,14 @@ export const sessions: AreaMessages<typeof enSessions> = {
   'sessions.resize.list': 'Zmień szerokość listy sesji',
 
   'sessions.empty.noHarness.title': 'Zainstaluj harness, aby przeglądać sesje',
-  'sessions.empty.noHarness.body': 'Sesje są odczytywane z OMP lub PI. Uruchom konfigurację, aby wykryć ten, którego używasz.',
+  'sessions.empty.noHarness.body': 'Sesje są odczytywane z OMP, PI lub OpenCode. Uruchom konfigurację, aby wykryć ten, którego używasz.',
   'sessions.empty.noHarness.action': 'Skonfiguruj harness',
   'sessions.empty.noProject.title': 'Otwórz projekt, aby zobaczyć jego sesje',
   'sessions.empty.noProject.body': 'Sesje są zapisywane osobno dla każdego folderu projektu. Wybierz projekt, którego historię chcesz przejrzeć.',
   'sessions.empty.noProject.action': 'Otwórz projekt…',
   'sessions.empty.none.title': 'Brak sesji',
   'sessions.empty.none.body': 'Sesje uruchomione w {project} przez {harness} pojawią się tutaj, gotowe do przeczytania lub wznowienia.',
+  'sessions.empty.none.bodyReadOnly': 'Sesje uruchomione w {project} przez {harness} pojawią się tutaj, gotowe do przeczytania.',
   'sessions.empty.none.action': 'Rozpocznij czat',
 
   'sessions.list.label': 'Sesje',

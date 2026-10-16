@@ -9,14 +9,17 @@
       "homepage": "https://omp.sh"
     },
     "capabilities": {
+      "chat": true,
       "plugins": true,
       "marketplaces": true,
       "packages": false,
       "mcp": true,
       "skills": true,
       "promptTemplates": false,
+      "agents": false,
       "extensionModules": true,
       "themes": true,
+      "cliActions": true,
       "profiles": true,
       "approvalModes": true,
       "projectTrust": false,
@@ -47,14 +50,17 @@
       "homepage": "https://github.com/earendil-works/pi"
     },
     "capabilities": {
+      "chat": true,
       "plugins": false,
       "marketplaces": false,
       "packages": true,
       "mcp": true,
       "skills": true,
       "promptTemplates": true,
+      "agents": false,
       "extensionModules": true,
       "themes": true,
+      "cliActions": true,
       "profiles": false,
       "approvalModes": false,
       "projectTrust": true,
@@ -75,6 +81,47 @@
         "command": "curl -fsSL https://pi.dev/install.sh | sh",
         "docsUrl": "https://github.com/earendil-works/pi"
       },
+      "error": null
+    }
+  },
+  {
+    "info": {
+      "id": "opencode",
+      "name": "OpenCode",
+      "shortName": "OpenCode",
+      "binaryName": "opencode",
+      "description": "Open-source terminal coding agent with custom agents, commands and plugins, for any model provider.",
+      "homepage": "https://opencode.ai"
+    },
+    "capabilities": {
+      "chat": false,
+      "plugins": true,
+      "marketplaces": false,
+      "packages": false,
+      "mcp": true,
+      "skills": true,
+      "promptTemplates": true,
+      "agents": true,
+      "extensionModules": false,
+      "themes": true,
+      "cliActions": false,
+      "profiles": false,
+      "approvalModes": false,
+      "projectTrust": false,
+      "slashCommandsViaPrompt": false,
+      "sessionTree": false,
+      "moveSession": false,
+      "removeQueued": false
+    },
+    "detection": {
+      "installed": true,
+      "binaryPath": "/home/demo/.opencode/bin/opencode",
+      "isBatchScript": false,
+      "version": "1.19.3",
+      "versionSupport": "supported",
+      "configDir": "/home/demo/.config/opencode",
+      "configDirExists": true,
+      "installHint": null,
       "error": null
     }
   }

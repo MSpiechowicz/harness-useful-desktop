@@ -2,6 +2,8 @@
   import type { HarnessInfo } from '$lib/ipc/bindings/HarnessInfo';
   import { cx } from '$lib/utils/cx';
 
+  import { harnessMark } from './harness-mark';
+
   interface Props {
     info: Pick<HarnessInfo, 'id' | 'shortName'>;
     size?: 'xs' | 'sm' | 'tile' | 'bar' | 'md' | 'lg';
@@ -23,7 +25,13 @@
     lg: 'h-12 w-14 rounded-lg text-sm',
   } as const;
   // A plain wash, no outline: a translucent hairline reads as a muddy double edge on the rounded corners.
-  const COLORS: Record<string, string> = { omp: 'bg-omp-wash text-omp', pi: 'bg-pi-wash text-pi' };
+  const COLORS: Record<string, string> = {
+    omp: 'bg-omp-wash text-omp',
+    pi: 'bg-pi-wash text-pi',
+    opencode: 'bg-opencode-wash text-opencode',
+  };
+  /** The badge is sized for "OMP": a longer name ("OpenCode") is reduced to a short mark, "OC", and the full name stays in the text beside it. */
+  const mark = $derived(harnessMark(info.shortName));
   /** A harness without accent tokens of its own (yet) gets the neutral wash. */
   const NEUTRAL = 'bg-surface-3 text-fg-2';
 </script>
@@ -33,5 +41,5 @@
   aria-hidden="true"
   class={cx('inline-grid shrink-0 place-items-center font-semibold tracking-wide', SIZES[size], COLORS[info.id] ?? NEUTRAL, className)}
 >
-  {info.shortName}
+  {mark}
 </span>

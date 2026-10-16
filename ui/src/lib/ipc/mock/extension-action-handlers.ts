@@ -216,6 +216,11 @@ export function extensionActionHandlers(state: MockState, plainView: Handlers['e
 
   return {
     extension_action: async ({ harness, action, dryRun: preview, project }) => {
+      // OpenCode is read-only: the backend refuses every action for a harness without CLI actions.
+      if (harness === 'opencode') {
+        throw IpcFailure.from({ code: 'unsupported', message: 'OpenCode extensions are read-only here. Manage them in its own configuration.' });
+      }
+
       const wrongHarness = harness === 'omp' ? action.type.startsWith('package') : !action.type.startsWith('package');
       if (wrongHarness) {
         throw IpcFailure.from({ code: 'unsupported', message: `${harness === 'omp' ? 'OMP installs packages as plugins' : 'PI has no plugins or marketplaces'}; use another action.` });

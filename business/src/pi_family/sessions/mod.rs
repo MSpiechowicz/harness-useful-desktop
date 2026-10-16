@@ -19,6 +19,7 @@ mod delete;
 pub mod encode;
 mod parse;
 mod scan;
+mod stats;
 mod transcript;
 mod tree;
 
@@ -26,6 +27,7 @@ pub use delete::delete_session;
 pub use encode::{canonical_text, omp_dir_name, pi_dir_name, temp_root};
 pub use parse::epoch_millis;
 pub use scan::{MAX_SESSION_FILES, SUMMARY_BYTES, SessionCache, list_sessions};
+pub(crate) use stats::{StatsTally, page_range};
 pub use transcript::{session_files_touched, session_messages};
 pub use tree::{TreeReport, read_tree, session_tree};
 

@@ -2,8 +2,9 @@
 //! `installed_memory`, so only once it reports its version), registered in every detected harness's
 //! user MCP file at launch and after its install (`setup_install_memory`) while the
 //! `memoryEnabled` pref is on, and unregistered when the user turns it off (`memory_set_enabled`). While the server is not installed nothing is
-//! registered; the UI offers its installer. The setup step also registers it in one harness at the
-//! user's request (`setup_register_memory`, [`register_in`]).
+//! registered; the UI offers its installer. An entry in a file with comments (OpenCode's JSONC) is
+//! never rewritten: turning memory off reports it for the user to remove by hand. The setup step
+//! also registers it in one harness at the user's request (`setup_register_memory`, [`register_in`]).
 //!
 //! Each launch also retires the copy of the bundled server older builds kept
 //! (`migrate_legacy_memory`). Logs name the harness and the outcome, never a file's contents.
@@ -11,11 +12,12 @@
 use std::path::PathBuf;
 
 use harness_business::BusinessError;
+use harness_business::ecosystem::catalog::MEMORY_MCP_SERVER;
 use harness_business::ecosystem::{
-    LegacyCopy, MemoryRecord, MemoryRegistration, installed_memory, mcp_target_paths, memory_mcp_state,
-    migrate_legacy_memory, register_memory_mcp, unregister_memory_mcp,
+    Blocked, LegacyCopy, McpFile, MemoryRecord, MemoryRegistration, installed_memory, mcp_target, mcp_target_paths,
+    memory_mcp_state, migrate_legacy_memory, register_memory_mcp, unregister_memory_mcp,
 };
-use harness_business::model::{HarnessId, McpState};
+use harness_business::model::{HarnessId, ManualRemoval, McpState};
 use harness_business::pi_family::tilde;
 use tauri::{AppHandle, Manager};
 
@@ -23,8 +25,8 @@ use crate::commands::harness::summaries;
 use crate::error::{CommandError, CommandResult};
 use crate::state::AppState;
 
-/// The user MCP file of a harness and the files it also reads.
-type Target = (HarnessId, PathBuf, Vec<PathBuf>);
+/// The MCP file of a harness (with the files it also reads).
+type Target = (HarnessId, McpFile);
 
 /// What a registration did per harness; `None` when the server is not installed (nothing
 /// registered).
@@ -118,11 +120,11 @@ async fn register_server(state: &AppState, fresh: bool, server: Option<PathBuf>)
         let mut record = MemoryRecord::load(&config_dir);
         let mut outcomes = Vec::new();
 
-        for (harness, path, also_read) in targets {
-            let outcome = register_memory_mcp(&path, &also_read, &server, record.is_recorded(&env, &path));
+        for (harness, file) in targets {
+            let outcome = register_memory_mcp(&file, &server, record.is_recorded(&env, &file.path));
             tracing::info!(?harness, ?outcome, "project memory registration");
 
-            record.note(&env, harness, &path, outcome);
+            record.note(&env, harness, &file.path, outcome);
             outcomes.push((harness, outcome));
         }
 
@@ -145,7 +147,8 @@ async fn register_server(state: &AppState, fresh: bool, server: Option<PathBuf>)
 /// `command` current. Project memory is turned on first when it is off (the other harnesses are
 /// left as they are until the next launch). `invalidInput` when the server is not installed (or
 /// does not report its version); `unsupported` when the harness has no user MCP file. Returns the
-/// file's state afterwards (`refused` when it could not be changed safely).
+/// file's state afterwards (`refused` when it could not be changed safely, `manualEdit` with the
+/// entry to paste when it has comments).
 pub(crate) async fn register_in(state: &AppState, harness: HarnessId) -> CommandResult<McpState> {
     let _running = state.memory_setup.lock().await;
 
@@ -153,10 +156,10 @@ pub(crate) async fn register_in(state: &AppState, harness: HarnessId) -> Command
         return Err(BusinessError::InvalidInput("Harness Memory is not installed".to_owned()).into());
     };
 
-    let Some((path, also_read)) = state
+    let Some(file) = state
         .registry
         .get(harness)
-        .and_then(|found| mcp_target_paths(&state.env, found))
+        .and_then(|found| mcp_target(&state.env, found))
     else {
         return Err(BusinessError::Unsupported(format!("{harness:?} has no user MCP file")).into());
     };
@@ -170,20 +173,21 @@ pub(crate) async fn register_in(state: &AppState, harness: HarnessId) -> Command
 
     let registered = tauri::async_runtime::spawn_blocking(move || {
         let mut record = MemoryRecord::load(&config_dir);
-        let outcome = register_memory_mcp(&path, &also_read, &server, false);
+        let outcome = register_memory_mcp(&file, &server, false);
         tracing::info!(?harness, ?outcome, "project memory registration requested");
 
-        record.note(&env, harness, &path, outcome);
+        record.note(&env, harness, &file.path, outcome);
         if let Err(error) = record.save() {
             tracing::warn!(%error, "project memory record not saved");
         }
 
+        // A manual edit is read back too: the state carries the entry to paste.
         match outcome {
             MemoryRegistration::Refused(reason) => McpState::Refused {
-                file: tilde(&env, &path),
+                file: tilde(&env, &file.path),
                 reason,
             },
-            _ => memory_mcp_state(&env, &path, &also_read),
+            _ => memory_mcp_state(&env, &file),
         }
     })
     .await;
@@ -208,27 +212,48 @@ async fn switch_on(state: &AppState) -> CommandResult<()> {
     Ok(())
 }
 
-/// Removes the app's own entry from every detected harness's user MCP file; the record is kept. The
-/// caller holds `state.memory_setup`.
-pub(crate) async fn unregister_all(state: &AppState) {
+/// Removes the app's own entry from every detected harness's user MCP file; the record is kept.
+/// Returns the entries left in files with comments (a rewrite would lose them), for the user to
+/// remove by hand. The caller holds `state.memory_setup`.
+pub(crate) async fn unregister_all(state: &AppState) -> Vec<ManualRemoval> {
     let targets = targets(state).await;
+    let env = state.env.clone();
 
     let removed = tauri::async_runtime::spawn_blocking(move || {
-        for (harness, path, _) in targets {
-            let outcome = unregister_memory_mcp(&path);
-            tracing::info!(?harness, ?outcome, "project memory unregistration");
+        let mut manual = Vec::new();
+
+        for (harness, file) in targets {
+            let outcome = unregister_memory_mcp(&file);
+
+            if outcome == Err(Blocked::ManualEdit) {
+                tracing::warn!(
+                    ?harness,
+                    "project memory: entry left in a file with comments, for the user to remove"
+                );
+
+                manual.push(ManualRemoval {
+                    harness,
+                    file: tilde(&env, &file.path),
+                    name: MEMORY_MCP_SERVER.to_owned(),
+                });
+            } else {
+                tracing::info!(?harness, ?outcome, "project memory unregistration");
+            }
         }
+
+        manual
     })
     .await;
 
-    if let Err(error) = removed {
+    removed.unwrap_or_else(|error| {
         tracing::warn!(%error, "project memory unregistration task failed");
-    }
+        Vec::new()
+    })
 }
 
 /// Points the owned entries that run the old copy at the installed `server` and deletes the copy
-/// once nothing runs it. Checks every harness's user MCP files, detected or not. The caller holds
-/// `state.memory_setup`.
+/// once nothing runs it. Checks every harness's user `mcp.json` files, detected or not (the builds
+/// that kept the copy registered it only there). The caller holds `state.memory_setup`.
 async fn retire_legacy_copy(state: &AppState, server: Option<PathBuf>) {
     let env = state.env.clone();
     let targets: Vec<(PathBuf, Vec<PathBuf>)> = state
@@ -269,7 +294,7 @@ async fn clear_record(state: &AppState) {
     }
 }
 
-/// The user MCP files of the installed harnesses that have one.
+/// The MCP files of the installed harnesses that have one.
 async fn targets(state: &AppState) -> Vec<Target> {
     let summaries = match summaries(state).await {
         Ok(summaries) => summaries,
@@ -284,9 +309,9 @@ async fn targets(state: &AppState) -> Vec<Target> {
         .filter(|summary| summary.detection.installed)
         .filter_map(|summary| {
             let harness = state.registry.get(summary.info.id)?;
-            let (path, also_read) = mcp_target_paths(&state.env, harness)?;
+            let file = mcp_target(&state.env, harness)?;
 
-            Some((summary.info.id, path, also_read))
+            Some((summary.info.id, file))
         })
         .collect()
 }

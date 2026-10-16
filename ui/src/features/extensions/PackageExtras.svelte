@@ -15,7 +15,7 @@
 
   let { pkg }: Props = $props();
 
-  const actions = $derived(harness.active ? packageActions(harness.active.info.id, pkg, project.active?.path ?? null) : []);
+  const actions = $derived(harness.active?.capabilities.cliActions ? packageActions(harness.active.info.id, pkg, project.active?.path ?? null) : []);
 </script>
 
 {#if actions.length > 0}

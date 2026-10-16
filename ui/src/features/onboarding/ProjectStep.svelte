@@ -33,7 +33,16 @@
     git.ensure(current?.path ?? null);
   });
 
-  const driverName = $derived(onboarding.driver ? (harness.get(onboarding.driver)?.info.name ?? null) : null);
+  const driver = $derived(onboarding.driver ? harness.get(onboarding.driver) : undefined);
+
+  /** What the chat tile says: the driver is ready, or it cannot chat yet and the app says so rather than promise it. */
+  function chatLine(): string {
+    if (!driver) {
+      return t('onboarding.project.tile.chat.idle');
+    }
+
+    return driver.capabilities.chat ? t('onboarding.project.tile.chat.ready', { name: driver.info.name }) : t('onboarding.project.tile.chat.soon', { name: driver.info.name });
+  }
   const changed = $derived(git.activeProject === current?.path ? (git.status?.entries.length ?? null) : null);
   const branch = $derived(git.activeProject === current?.path ? (git.status?.branch ?? null) : null);
 
@@ -66,7 +75,7 @@
     {
       icon: MessageSquare,
       title: t('onboarding.project.tile.chat'),
-      body: driverName ? t('onboarding.project.tile.chat.ready', { name: driverName }) : t('onboarding.project.tile.chat.idle'),
+      body: chatLine(),
     },
     { icon: GitCompare, title: t('onboarding.project.tile.changes'), body: changesLine(), off: Boolean(current && !current.isGitRepo) },
     { icon: History, title: t('onboarding.project.tile.sessions'), body: t('onboarding.project.tile.sessions.body') },

@@ -4,6 +4,7 @@ import { commands, type CommandArgs, type CommandName } from '../commands';
 import { IpcFailure } from '../transport';
 import { createMockTransport } from './transport';
 import { defaultScenario } from './scenarios';
+import { manualRemovalsOf } from './setup-handlers';
 import { samplePrefs } from '../../../../tests/helpers';
 import { fixtures } from './fixtures';
 
@@ -145,6 +146,18 @@ describe('mock transport', () => {
     expect(next.stats).toBeNull();
   });
 
+  it('reads an OpenCode transcript as plain user, assistant and tool messages, with no branch summary', async () => {
+    const mock = transport();
+    const project = fixtures.recentProjects[0].path;
+    const session = { harness: 'opencode', id: 'ses_5f3a9c2d8e1bAq7Zr4Kd0Wn6Xm' } as const;
+
+    const page = await mock.invoke('session_messages', { session, project, cursor: null, limit: 50 });
+
+    expect(new Set(page.messages.map((message) => message.role))).toEqual(new Set(['user', 'assistant', 'toolResult']));
+    expect(page.total).toBe(page.messages.length);
+    expect(page.stats?.messages).toBe(page.messages.length);
+  });
+
   it('reports a folder that is not a repository as such, with no branches or diffs', async () => {
     const mock = transport();
     const plain = fixtures.recentProjects[1].path;
@@ -186,6 +199,14 @@ describe('mock transport', () => {
     await expect(mock.invoke('memory_set_enabled', { enabled: false })).resolves.toMatchObject({ memoryEnabled: false });
     await expect(mock.invoke('prefs_get', undefined)).resolves.toMatchObject({ memoryEnabled: false });
     await expect(mock.invoke('memory_set_enabled', { enabled: true })).resolves.toMatchObject({ memoryEnabled: true });
+  });
+
+  it('turns memory off with nothing to remove by hand, except in the commented OpenCode config scenarios', async () => {
+    const mock = transport();
+
+    await expect(mock.invoke('memory_set_enabled', { enabled: false })).resolves.toMatchObject({ manualRemovals: [] });
+    expect(manualRemovalsOf('manualEdit')).toEqual([{ harness: 'opencode', file: '~/.config/opencode/opencode.jsonc', name: 'harness-memory' }]);
+    expect(manualRemovalsOf('configured')).toEqual([]);
   });
 
   it('saves, tests and removes the team database without returning the URL or token', async () => {

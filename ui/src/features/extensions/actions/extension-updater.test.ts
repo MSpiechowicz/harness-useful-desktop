@@ -11,11 +11,16 @@ import { ExtensionUpdater, PACKAGE_UPDATE_INTERVAL_MS } from './extension-update
 
 const OMP = {
   info: { id: 'omp' },
-  capabilities: { plugins: true, marketplaces: true, packages: false },
+  capabilities: { plugins: true, marketplaces: true, packages: false, cliActions: true },
 } as HarnessSummary;
 const PI = {
   info: { id: 'pi' },
-  capabilities: { plugins: false, marketplaces: false, packages: true },
+  capabilities: { plugins: false, marketplaces: false, packages: true, cliActions: true },
+} as HarnessSummary;
+/** Lists plugins but runs nothing through its CLI. */
+const OPENCODE = {
+  info: { id: 'opencode' },
+  capabilities: { plugins: true, marketplaces: false, packages: false, cliActions: false },
 } as HarnessSummary;
 
 function outdated(...ids: string[]): ExtensionsView {
@@ -107,6 +112,14 @@ describe('Extension auto-update', () => {
     await updater.check();
 
     expect(log.filter((entry) => entry === 'pluginUpgrade')).toHaveLength(1);
+  });
+
+  it('leaves a harness without CLI actions alone', async () => {
+    const { updater, log } = setup({ harnesses: [OPENCODE], view: () => outdated('a@m') });
+
+    await updater.check();
+
+    expect(log).toEqual([]);
   });
 
   it('stays silent when nothing is outdated', async () => {

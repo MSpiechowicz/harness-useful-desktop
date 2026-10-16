@@ -21,7 +21,7 @@ beforeAll(async () => {
 /** The group headings on screen, without their counts. */
 const headings = () => screen.getAllByRole('button', { expanded: true }).concat(screen.queryAllByRole('button', { expanded: false })).map((button) => button.textContent?.replace(/\s*\d+$/, '').trim());
 
-async function useHarness(id: 'omp' | 'pi') {
+async function useHarness(id: 'omp' | 'pi' | 'opencode') {
   prefs.value = samplePrefs({ motion: 'off', defaultHarness: id });
   groupFolds.reset();
   render(ExtensionsViewer);
@@ -44,6 +44,16 @@ describe('ExtensionsViewer', () => {
 
     expect(headings()).toContain('Prompts');
     expect(headings()).not.toContain('Plugins');
+  });
+
+  it('offers no install or update actions for OpenCode, whose extensions are read-only', async () => {
+    prefs.value = samplePrefs({ motion: 'off', defaultHarness: 'opencode' });
+    render(ExtensionsViewer);
+    // The inventory is a list when OpenCode has extensions and the empty state when it has none.
+    await waitFor(() => expect(screen.queryByRole('navigation', { name: 'Extensions' }) ?? screen.queryByText('No extensions yet')).not.toBeNull());
+
+    expect(screen.queryByRole('button', { name: 'Install' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
   });
 
   it('folds a long group at first and a heading toggles it', async () => {
@@ -89,6 +99,10 @@ describe('items', () => {
     marketplaces: [],
     skills: [],
     promptTemplates: [],
+    agents: [
+      { name: 'build', description: 'Full tool access.', mode: 'primary', model: null, builtIn: true, hidden: false, scope: 'builtin', path: null },
+      { name: 'reviewer', description: 'Reviews a change.', mode: 'subagent', model: 'anthropic/claude-sonnet-4', builtIn: false, hidden: true, scope: 'project', path: '/work/app/.opencode/agents/reviewer.md' },
+    ],
     themes: [],
     packages: [{ source: { kind: 'secret', value: { type: 'value' } }, kind: 'git', scope: 'user', resources: ['skills'] }],
     extensionModules: [],
@@ -122,6 +136,32 @@ describe('items', () => {
     const [entry] = buildItems('packages', view);
 
     expect(entry.title).toBe('Hidden source');
+  });
+
+  it('lists agents with their mode, scope and visibility', () => {
+    const [build, reviewer] = buildItems('agents', view);
+
+    expect(build.badges.map((badge) => badge.label)).toEqual(['Primary', 'Built-in']);
+    expect(reviewer.badges.map((badge) => badge.label)).toEqual(['Subagent', 'Project', 'Hidden']);
+    expect(filterItems(buildItems('agents', view), 'sonnet')).toHaveLength(1);
+  });
+
+  it('shows an agent\'s model, visibility and file in its detail', () => {
+    const entry = buildItems('agents', view)[1];
+
+    render(ExtensionDetail, { props: { entry } });
+
+    expect(screen.getByRole('heading', { level: 2, name: 'reviewer' })).toBeInTheDocument();
+    expect(screen.getByTitle('anthropic/claude-sonnet-4')).toBeInTheDocument();
+    expect(screen.getByText('Hidden', { selector: 'dd *' })).toBeInTheDocument();
+    expect(screen.getByText('Reviews a change.')).toBeInTheDocument();
+  });
+
+  it('offers the agents tab only to a harness with the capability', () => {
+    const agents = visibleTabs({ agents: true } as never);
+
+    expect(agents.map((tab) => tab.id)).toEqual(['agents']);
+    expect(visibleTabs({ agents: false } as never)).toEqual([]);
   });
 
   it('offers only the tabs a harness has capabilities for', () => {

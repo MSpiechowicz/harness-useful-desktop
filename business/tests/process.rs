@@ -1,7 +1,6 @@
 //! Process runner and spawners against a real child: this test binary re-executes itself and
 //! runs `helper_process` in a mode chosen by `HARNESS_TEST_HELPER`.
 
-use std::io::{BufRead, Write};
 use std::time::{Duration, Instant};
 
 use harness_business::BusinessError;
@@ -9,80 +8,17 @@ use harness_business::process::{ExecSpec, ExitInfo, ProcessRunner, ProcessSpawne
 use harness_business::testing::{DuplexSpawner, KILLED};
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 
-const HELPER_ENV: &str = "HARNESS_TEST_HELPER";
-const FLOOD_BYTES: usize = 1024 * 1024;
+mod process_support;
 
-/// Not a real test: the body of the helper child. Without `HARNESS_TEST_HELPER` it does nothing.
+use process_support::helper;
+#[cfg(unix)]
+use process_support::{GROUP_KILL_TIMEOUTS, assert_process_gone, find_grandchild_pid, grandchild_was_killed};
+
+/// Not a real test: the body of the helper child, see [`process_support::helper_process`].
 #[test]
 #[ignore = "helper child process, started by the other tests"]
 fn helper_process() {
-    let Ok(mode) = std::env::var(HELPER_ENV) else {
-        return;
-    };
-    let mut stdout = std::io::stdout();
-
-    match mode.as_str() {
-        "sleep" => std::thread::sleep(Duration::from_secs(60)),
-        "flood" => {
-            stdout.write_all(&vec![b'x'; FLOOD_BYTES]).unwrap();
-            stdout.flush().unwrap();
-        }
-        "echo" => {
-            let mut line = String::new();
-            std::io::stdin().lock().read_line(&mut line).unwrap();
-            writeln!(stdout, "echo:{}", line.trim_end()).unwrap();
-        }
-        "exit3" => {
-            eprintln!("helper failing on purpose");
-            std::process::exit(3);
-        }
-        "grandchild" => {
-            #[expect(clippy::zombie_processes, reason = "the test kills this helper before it could wait")]
-            let child = std::process::Command::new(std::env::current_exe().unwrap())
-                .args(helper_args())
-                .env(HELPER_ENV, "sleep")
-                .spawn()
-                .unwrap();
-            // Leading newline: libtest prints "test helper_process ... " without one.
-            writeln!(stdout, "\nGRANDCHILD={}", child.id()).unwrap();
-            stdout.flush().unwrap();
-            std::thread::sleep(Duration::from_secs(60));
-        }
-        "orphan" => {
-            // Like a daemon: detached from the pipes, left running when this helper exits.
-            #[expect(
-                clippy::zombie_processes,
-                reason = "the helper exits and leaves it behind on purpose"
-            )]
-            let child = std::process::Command::new(std::env::current_exe().unwrap())
-                .args(helper_args())
-                .env(HELPER_ENV, "sleep")
-                .stdin(std::process::Stdio::null())
-                .stdout(std::process::Stdio::null())
-                .stderr(std::process::Stdio::null())
-                .spawn()
-                .unwrap();
-            writeln!(stdout, "\nGRANDCHILD={}", child.id()).unwrap();
-            stdout.flush().unwrap();
-        }
-        other => panic!("unknown helper mode {other}"),
-    }
-}
-
-fn helper_args() -> [&'static str; 5] {
-    [
-        "helper_process",
-        "--exact",
-        "--ignored",
-        "--nocapture",
-        "--test-threads=1",
-    ]
-}
-
-fn helper(mode: &str) -> ExecSpec {
-    ExecSpec::new(std::env::current_exe().unwrap())
-        .args(helper_args())
-        .env(HELPER_ENV, mode)
+    process_support::helper_process();
 }
 
 #[tokio::test]
@@ -136,48 +72,12 @@ async fn relative_programs_are_rejected_and_missing_ones_not_found() {
 }
 
 #[cfg(unix)]
-fn assert_process_gone(pid: i32) {
-    use nix::sys::signal::kill;
-    use nix::unistd::Pid;
-
-    let deadline = Instant::now() + Duration::from_secs(10);
-    while kill(Pid::from_raw(pid), None).is_ok() {
-        assert!(Instant::now() < deadline, "process {pid} survived");
-        std::thread::sleep(Duration::from_millis(50));
-    }
-}
-
-#[cfg(unix)]
-fn find_grandchild_pid(output: &str) -> Option<i32> {
-    output
-        .lines()
-        .find_map(|line| line.strip_prefix("GRANDCHILD="))
-        .map(|pid| pid.trim().parse().expect("numeric grandchild pid"))
-}
-
-/// Runner timeouts for the process-group test, shortest first. The helper must start its
-/// grandchild and print its pid before the timeout fires; a loaded machine can take longer than
-/// the shortest timeout for that, so a run without the pid is retried with the next one.
-#[cfg(unix)]
-const GROUP_KILL_TIMEOUTS: [Duration; 4] = [
-    Duration::from_secs(2),
-    Duration::from_secs(5),
-    Duration::from_secs(10),
-    Duration::from_secs(20),
-];
-
-#[cfg(unix)]
 #[tokio::test]
 async fn runner_timeout_kills_the_whole_process_group() {
     for timeout in GROUP_KILL_TIMEOUTS {
         let output = TokioRunner.run(&helper("grandchild").timeout(timeout)).await.unwrap();
 
-        // Every run ends by the timeout: the helper sleeps for 60 s.
-        assert!(output.timed_out, "{output:?}");
-
-        // The grandchild holds the stdout pipe; output only arrives because it was killed too.
-        if let Some(pid) = find_grandchild_pid(&output.stdout) {
-            assert_process_gone(pid);
+        if grandchild_was_killed(&output) {
             return;
         }
     }

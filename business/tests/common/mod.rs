@@ -34,6 +34,11 @@ pub fn pi_home() -> PathBuf {
     fixtures_dir().join("pi-home")
 }
 
+/// `tests/fixtures/opencode-home` (canonical).
+pub fn opencode_home() -> PathBuf {
+    fixtures_dir().join("opencode-home")
+}
+
 /// `tests/fixtures/projects/demo` (canonical), marked as a repository root.
 ///
 /// Git cannot track a `.git` entry, so the marker directory is created at run time; without it the

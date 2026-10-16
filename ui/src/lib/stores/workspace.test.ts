@@ -135,3 +135,52 @@ describe('workspace restore of a session that is gone', () => {
     expect(toasts.items).toHaveLength(0);
   });
 });
+
+describe('workspace restore of a harness without chat', () => {
+  it('leaves out the saved chats of a harness the app cannot chat with, and reopens the others', async () => {
+    vi.stubEnv('VITE_TRANSPORT', 'mock');
+    localStorage.setItem(
+      'harness:workspace',
+      JSON.stringify({
+        view: 'chat',
+        chats: [
+          { harness: 'opencode', sessionId: 'ses_gone', project: PROJECT },
+          { harness: 'omp', sessionId: 'abc-123', project: PROJECT },
+        ],
+        active: 1,
+      }),
+    );
+    vi.resetModules();
+    const { harness } = await import('./harness.svelte');
+    await harness.load();
+    const { restoreWorkspace: restore } = await import('./workspace.svelte');
+    const { store, of } = storeWithMock();
+
+    expect(await restore(store)).toBe(true);
+
+    expect(of('agent_start').map(({ request }) => request.harness)).toEqual(['omp']);
+  });
+});
+
+describe('workspace restore of a harness this build does not know', () => {
+  it('drops a saved chat naming an unknown harness and reopens the known ones', async () => {
+    localStorage.setItem(
+      'harness:workspace',
+      JSON.stringify({
+        view: 'chat',
+        chats: [
+          { harness: 'gemini', sessionId: 'ses_unknown', project: PROJECT },
+          { harness: 'omp', sessionId: 'abc-123', project: PROJECT },
+        ],
+        active: 1,
+      }),
+    );
+    vi.resetModules();
+    const { restoreWorkspace: restore } = await import('./workspace.svelte');
+    const { store, of } = storeWithMock();
+
+    expect(await restore(store)).toBe(true);
+
+    expect(of('agent_start').map(({ request }) => request.harness)).toEqual(['omp']);
+  });
+});

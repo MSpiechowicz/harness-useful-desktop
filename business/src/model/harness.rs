@@ -13,17 +13,20 @@ pub enum HarnessId {
     Omp,
     /// PI coding agent (`pi`).
     Pi,
+    /// OpenCode (`opencode`).
+    OpenCode,
 }
 
 impl HarnessId {
     /// Every supported harness, in display order.
-    pub const ALL: [HarnessId; 2] = [HarnessId::Omp, HarnessId::Pi];
+    pub const ALL: [HarnessId; 3] = [HarnessId::Omp, HarnessId::Pi, HarnessId::OpenCode];
 
     /// The default executable name of the harness CLI.
     pub fn binary_name(self) -> &'static str {
         match self {
             HarnessId::Omp => "omp",
             HarnessId::Pi => "pi",
+            HarnessId::OpenCode => "opencode",
         }
     }
 }
@@ -52,6 +55,9 @@ pub struct HarnessInfo {
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
 pub struct Capabilities {
+    /// Chat sessions the app drives (an RPC launch and dialect); without it the UI shows that chat
+    /// is coming later.
+    pub chat: bool,
     /// Installable plugins (OMP `omp plugin …`).
     pub plugins: bool,
     /// Plugin marketplaces with browsable catalogs.
@@ -64,10 +70,15 @@ pub struct Capabilities {
     pub skills: bool,
     /// Markdown prompt templates exposed as slash commands.
     pub prompt_templates: bool,
+    /// Named agents the harness can switch to or delegate to (OpenCode `agent`).
+    pub agents: bool,
     /// Code extension modules loaded by the harness.
     pub extension_modules: bool,
     /// Custom colour themes.
     pub themes: bool,
+    /// Extension actions (install, remove, enable, ...) run through the harness CLI (see
+    /// `Harness::cli_action`).
+    pub cli_actions: bool,
     /// Named configuration profiles.
     pub profiles: bool,
     /// A configurable tool approval mode (OMP `tools.approvalMode`).

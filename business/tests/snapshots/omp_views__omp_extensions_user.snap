@@ -129,6 +129,7 @@ expression: "exported(extensions(&env, None), &home, &project)"
     }
   ],
   "promptTemplates": [],
+  "agents": [],
   "mcpServers": [
     {
       "name": "github",

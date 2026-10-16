@@ -73,6 +73,7 @@ expression: "exported(extensions(&env, Some(&project)), &home, &project)"
       "path": "/home/demo/.pi/agent/prompts/review.md"
     }
   ],
+  "agents": [],
   "mcpServers": [
     {
       "name": "context7",

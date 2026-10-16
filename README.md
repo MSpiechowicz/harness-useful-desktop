@@ -23,24 +23,29 @@ privacy. Made with the app's demo data. [Download the full-quality 4K video](htt
 
 - **Chat over RPC with approvals.** Streams the agent's replies, thinking and tool calls (the harness runs in
   `--mode rpc`), answers its approval and input dialogs, picks the model and thinking level, runs slash commands, and
-  asks before any shell command you send.
+  asks before any shell command you send. OMP and PI only: chat with OpenCode is coming soon.
 - **Sessions and branches.** Lists a project's saved sessions, shows the branch tree of each, opens the transcript,
-  resumes or forks.
+  resumes or forks. OpenCode sessions are linear: the app lists them, opens the transcript and deletes them through
+  the `opencode` CLI, with no branches, resume or fork.
 - **Changes panel with review comments.** A graphical diff of the working tree (staged, unstaged, untracked). Comment
   on any line and send the comments to the agent as one prompt.
 - **Config viewer.** Settings, MCP servers and profiles in one readable place, with secrets masked.
-- **Extensions.** Plugins, marketplaces, packages, skills, MCP servers and themes, with install, enable and update
-  actions run through the harness's own CLI and a dry-run preview where the CLI offers one.
+- **Extensions.** Plugins, marketplaces, packages, skills, commands, agents, MCP servers and themes, with install,
+  enable and update actions run through the harness's own CLI and a dry-run preview where the CLI offers one. OpenCode's
+  extensions are read-only.
 - **Ecosystem tab and dashboard widgets.** Detects the companion tools and shows cost and token widgets from the local
   [Harness Dashboard](https://github.com/MSpiechowicz/harness-useful-dashboard) when it is installed.
 - **Recommended setup.** An optional onboarding step (also **Run recommended setup** on the Ecosystem screen) that,
   after you confirm each part, installs the Harness Dashboard and Harness Memory with their official installers, installs the
-  [Harness Skills](https://github.com/MSpiechowicz/harness-useful-skills) (OMP as a plugin, PI as a package) and
-  registers the dashboard as an MCP server in each detected harness's user `mcp.json`.
+  [Harness Skills](https://github.com/MSpiechowicz/harness-useful-skills) (OMP as a plugin, PI as a package, not yet
+  for OpenCode) and registers the dashboard as an MCP server in each detected harness: in its user `mcp.json` for OMP
+  and PI, in the `mcp` object of the global `opencode.json` or `opencode.jsonc` for OpenCode. An OpenCode config file
+  with comments is never rewritten, so the app shows the entry to paste instead.
 - **Project memory.** Your harnesses share a local memory of what was done, problems and fixes, and where things are,
   per repository. See [Project memory](#project-memory).
-- **Share setup.** In Settings, export your marketplaces, plugins, packages and MCP servers as a `hud1:` string or a
-  `.json` file (references and key names; env and header values are never shared), and import one on another machine. An import always shows a review of
+- **Share setup.** In Settings, export the marketplaces, plugins, packages and MCP servers of OMP and PI as a `hud1:`
+  string or a `.json` file (references and key names, env and header values are never shared), and import one on another
+  machine. OpenCode is not covered yet. An import always shows a review of
   the exact commands and files, adds only what you tick after you confirm, and never removes or overwrites anything.
   Format: [docs/share-setup.md](docs/share-setup.md).
 - **Command palette and shortcuts.** Keyboard-first navigation (`Ctrl/Cmd+K`, `Ctrl/Cmd+1..7`), plus a shortcuts
@@ -54,10 +59,11 @@ privacy. Made with the app's demo data. [Download the full-quality 4K video](htt
 | Harness | Status |
 | --- | --- |
 | [Oh My Pi](https://omp.sh) (`omp`) | Supported. Verified against 18.6.1. |
-| [Pi](https://github.com/earendil-works/pi) (`pi`) | Supported. Follows the PI documentation (v1.1.0); detected versions show as untested until a release is verified live. |
+| [Pi](https://github.com/earendil-works/pi) (`pi`) | Supported. Tested with PI 1.1. Other versions show as untested. |
+| [OpenCode](https://opencode.ai) (`opencode`) | Partly supported. Works: detection (also in `~/.opencode/bin`), the configuration (JSON with comments, secrets masked), extensions (skills, commands, agents, plugins, MCP servers, themes, read-only), sessions (list, transcript, delete) and the dashboard and memory MCP entries in Recommended setup. Versions 1.18 and 1.19 are supported, others show as untested. Chat is coming soon. No Harness Skills install and no Share setup yet. |
 | Other harness CLIs | Planned. Adding one is an implementation of the `Harness` trait; see [docs/adding-a-harness.md](docs/adding-a-harness.md). Every new harness must also join Recommended setup (skills install and dashboard MCP). |
 
-The app finds the CLI on `PATH` and in the usual install directories (bun, cargo, npm global, `~/.local/bin`, Homebrew), or you can
+The app finds the CLI on `PATH` and in the usual install directories (bun, cargo, npm global, `~/.local/bin`, `~/.opencode/bin`, Homebrew), or you can
 choose the executable yourself. It does not install harnesses.
 
 ## Project memory
@@ -72,7 +78,9 @@ same repository starts better informed. The switch is on by default; the server 
   the release checksum) only after you confirm. The server lands in `~/.local/bin/harness-memory` (Linux, macOS) or
   `%LOCALAPPDATA%\Programs\harness-memory\harness-memory.exe` (Windows). While the switch is on and the server is
   installed, the app adds a `harness-memory` entry that runs `harness-memory mcp` to the user `mcp.json` of each
-  detected harness at launch. It never overwrites another entry, and an entry you removed is not added back.
+  detected OMP and PI, and to the `mcp` object of OpenCode's global `opencode.json` or `opencode.jsonc`, at launch. It
+  never overwrites another entry, never rewrites an OpenCode file that has comments, and an entry you removed is not
+  added back.
 - **What is stored.** The notes agents write, as text, plus the repository's name and path, and a small graph of related
   files and concepts. Strings pass a secret filter first, which is a heuristic: it does not catch everything. The
   database is not encrypted, is never exported by Share setup and is never sent anywhere by the app, which does not
@@ -98,13 +106,13 @@ same repository starts better informed. The switch is on by default; the server 
   **Add memory to new chats** off in Settings to stop this.
 - **Turn it off.** Switch **Project memory** off in Settings: the app removes its entries from the harnesses and stops
   adding them (and stops adding notes to new chats). Your notes stay and come back when you switch it on again. Deleting the `harness-memory` entry from a
-  harness's `mcp.json` turns it off for that harness only.
+  harness's `mcp.json` (OpenCode: its `mcp` object) turns it off for that harness only.
 - **Coming from an app version up to 0.16.** On macOS and Windows those versions kept a copy of the server in the app's
   local data folder (`bin/harness-memory[.exe]`). Once the server is installed, the next launch points the app's own
   entries at it and deletes that copy when nothing else uses it (a symlink is never removed). Until then, notes for new
   chats are still searched with the old copy. On Linux the path is unchanged.
 - **After uninstalling the app** the entries, the server and the notes remain. To clean up, switch the setting off
-  first (or delete the `harness-memory` entries from the harnesses' `mcp.json`), then remove the server as described in
+  first (or delete the `harness-memory` entries from the harnesses' `mcp.json` and OpenCode's `mcp` object), then remove the server as described in
   the [harness-useful-memory README](https://github.com/MSpiechowicz/harness-useful-memory#uninstalling) and delete the
   `harness-memory` folder in the data folder named above.
 

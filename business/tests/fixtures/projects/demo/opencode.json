@@ -1,0 +1,12 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "anthropic/claude-opus-4-1",
+  "mcp": {
+    "linear": { "enabled": false },
+    "docs": { "type": "local", "command": ["node", "tools/docs-mcp.js"], "environment": { "DOCS_TOKEN": "CANARY-7f3a9c" } }
+  },
+  "command": {
+    "deploy": { "template": "Deploy this project to staging." }
+  },
+  "plugin": ["opencode-wakatime@1.3.0"]
+}

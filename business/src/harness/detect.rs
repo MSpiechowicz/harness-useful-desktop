@@ -128,6 +128,7 @@ async fn probe_version<H: Harness + ?Sized>(
 
     let spec = ExecSpec::new(&binary.path)
         .args(args.iter().copied())
+        .envs(harness.spawn_env().iter().copied())
         .search_dirs(launcher_search_dirs(env, &binary.path))
         .timeout(VERSION_TIMEOUT)
         .max_output_bytes(VERSION_OUTPUT_BYTES);

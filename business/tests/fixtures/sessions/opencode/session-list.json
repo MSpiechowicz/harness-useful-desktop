@@ -1,0 +1,18 @@
+[
+  {
+    "id": "ses_2b7f3c9a1ffeA1b2C3d4E5f6G7",
+    "title": "Fix the greeting",
+    "updated": 1760600090000,
+    "created": 1760600000000,
+    "projectId": "7cc257df58101a8af991e9cc10a8aa311970542f",
+    "directory": "{{PROJECT}}"
+  },
+  {
+    "id": "ses_2b7f3c9a2000Z9y8X7w6V5u4T3",
+    "title": "Explain the build",
+    "updated": 1760500050000,
+    "created": 1760500000000,
+    "projectId": "7cc257df58101a8af991e9cc10a8aa311970542f",
+    "directory": "{{PROJECT}}/sub"
+  }
+]

@@ -137,7 +137,7 @@
               {:else if onboarding.step === 'project'}
                 <ProjectStep />
               {:else if onboarding.step === 'approval'}
-                <ApprovalStep />
+                <ApprovalStep notice={onboarding.approvalNotice ?? 'omp'} />
               {:else if onboarding.step === 'family'}
                 <FamilyStep />
               {:else if onboarding.step === 'setup'}

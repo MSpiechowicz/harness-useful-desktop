@@ -1,28 +1,34 @@
-//! The installed `harness-memory` MCP server in a harness's user MCP file (`register_memory_mcp`,
+//! The installed `harness-memory` MCP server in a harness's MCP file (`register_memory_mcp`,
 //! `unregister_memory_mcp`, and `repoint_memory_mcp` for the old copy, see
 //! [`super::memory_migrate`]).
 //!
 //! - Found: like the dashboard's server (see [`super::mcp_register`]): a server named
 //!   [`MEMORY_MCP_SERVER`], or any server running `harness-memory` (any directory, `.exe` or not)
-//!   with the arguments `["mcp"]`, in the target file or one of the `also_read` files, switched off
-//!   by the target file's `disabledServers` or by `"enabled": false`.
+//!   with the single argument `mcp`, in the target file or one of the `also_read` files, switched
+//!   off by the target file's `disabledServers` or by `"enabled": false`.
 //! - Owned: an entry in the target file (never an `also_read` one) named exactly
 //!   [`MEMORY_MCP_SERVER`] that runs `harness-memory mcp`. Only owned entries are ever changed:
-//!   their `command` follows the resolved server, and turning project memory off removes them. Every other field (`enabled`, `env`, ...) and the key order are kept.
-//! - Added: `{"command": "<absolute path>", "args": ["mcp"]}`, only when nothing is found and the
-//!   app has not registered the server in that file before (a user who removed it keeps it removed).
+//!   the program they run follows the resolved server (`command`, or the first item of a `command`
+//!   array), and turning project memory off removes them. Every other field (`enabled`, `env`, ...)
+//!   and the key order are kept.
+//! - Added: the file's [`Shape::entry`] for the absolute path (`{"command": "<path>", "args":
+//!   ["mcp"]}`, or OpenCode's `{"type": "local", "command": ["<path>", "mcp"], "enabled": true}`),
+//!   only when nothing is found and the app has not registered the server in that file before (a
+//!   user who removed it keeps it removed).
 //!
-//! Writes follow [`super::mcp_merge`]'s rules: the same refusals, a new file `0600`, an atomic write
-//! keeping permissions, one re-read when the file changed meanwhile. File contents are never logged
-//! or returned, except the old and new `command` of an owned entry that is re-pointed.
+//! Writes follow [`super::mcp_merge`]'s rules: the same refusals, a JSONC file with comments never
+//! written, a new file `0600`, an atomic write keeping permissions, one re-read when the file
+//! changed meanwhile. File contents are never logged or returned, except the old and new program of
+//! an owned entry that is re-pointed.
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
-use serde_json::{Map, Value, json};
+use serde_json::{Map, Value};
 
 use super::catalog::{MEMORY_BINARY, MEMORY_MCP_SERVER};
-use super::mcp_merge::{Change, SERVERS, Target, change_file, load};
-use super::mcp_register::{FoundServer, find_server, runs_mcp};
+use super::mcp_merge::{Blocked, Change, Shape, Target, change_file, load, servers};
+use super::mcp_register::{FoundServer, add_server, find_server, runs_mcp, server_program};
+use super::setup::McpFile;
 use crate::model::McpRefusal;
 
 /// What [`register_memory_mcp`] did with a file.
@@ -38,6 +44,8 @@ pub enum MemoryRegistration {
     Disabled,
     /// Nothing is there, but the app registered it before: the user removed it, so it stays out.
     SkippedRemoved,
+    /// The file has comments (JSONC) a rewrite would lose; nothing was written.
+    ManualEdit,
     /// The file cannot be changed safely; nothing was written.
     Refused(McpRefusal),
 }
@@ -49,29 +57,29 @@ impl MemoryRegistration {
     }
 }
 
-/// Registers the memory server in `path` as `command mcp` (see the module docs). `recorded` tells
-/// that the app registered it in `path` before.
-pub fn register_memory_mcp(path: &Path, also_read: &[PathBuf], command: &Path, recorded: bool) -> MemoryRegistration {
+/// Registers the memory server in `file` as `command mcp` (see the module docs). `recorded` tells
+/// that the app registered it in that file before.
+pub fn register_memory_mcp(file: &McpFile, command: &Path, recorded: bool) -> MemoryRegistration {
     let command = command.to_string_lossy();
 
-    let changed = change_file(path, |target| {
-        let Some(server) = find_server(path, target, also_read, MEMORY_MCP_SERVER, MEMORY_BINARY) else {
-            return when_missing(target, &command, recorded);
+    let changed = change_file(&file.path, file.shape, |target| {
+        let Some(server) = find_server(file, target, MEMORY_MCP_SERVER, MEMORY_BINARY) else {
+            return when_missing(target, file.shape, &command, recorded);
         };
 
-        let previous = server.definition.get("command").and_then(Value::as_str);
-        let stale = owned(path, &server) && previous != Some(&command);
+        let previous = server_program(&server.definition);
+        let stale = owned(&file.path, &server) && previous != Some(&command);
 
         if stale {
             tracing::info!(
-                file = %path.display(),
+                file = %file.path.display(),
                 from = previous.unwrap_or_default(),
                 to = %command,
                 "project memory: the app's entry now runs another harness-memory"
             );
 
             let mut document = target.document();
-            set_command(&mut document, &command);
+            set_program(&mut document, file.shape, &command);
             return Change::Write(document, MemoryRegistration::Updated);
         }
 
@@ -82,21 +90,31 @@ pub fn register_memory_mcp(path: &Path, also_read: &[PathBuf], command: &Path, r
         }
     });
 
-    changed.unwrap_or_else(MemoryRegistration::Refused)
+    match changed {
+        Ok(registration) => registration,
+        Err(Blocked::Refused(reason)) => MemoryRegistration::Refused(reason),
+        Err(Blocked::ManualEdit) => MemoryRegistration::ManualEdit,
+    }
 }
 
-/// Removes the owned entry from `path`, leaving every other server and the
+/// Removes the owned entry from `file`, leaving every other server and the
 /// `disabledServers`/`enabledServers` lists as they are. `Ok(true)` when it was removed.
-pub fn unregister_memory_mcp(path: &Path) -> Result<bool, McpRefusal> {
-    change_file(path, |target| {
-        let found = find_server(path, target, &[], MEMORY_MCP_SERVER, MEMORY_BINARY);
+pub fn unregister_memory_mcp(file: &McpFile) -> Result<bool, Blocked> {
+    // Only the target file is changed, so the files it also reads are not looked at.
+    let target_only = McpFile {
+        also_read: Vec::new(),
+        ..file.clone()
+    };
 
-        if !found.is_some_and(|server| owned(path, &server)) {
+    change_file(&file.path, file.shape, |target| {
+        let found = find_server(&target_only, target, MEMORY_MCP_SERVER, MEMORY_BINARY);
+
+        if !found.is_some_and(|server| owned(&file.path, &server)) {
             return Change::Keep(false);
         }
 
         let mut document = target.document();
-        if let Some(Value::Object(servers)) = document.get_mut(SERVERS) {
+        if let Some(Value::Object(servers)) = document.get_mut(file.shape.root()) {
             servers.shift_remove(MEMORY_MCP_SERVER);
         }
 
@@ -104,65 +122,73 @@ pub fn unregister_memory_mcp(path: &Path) -> Result<bool, McpRefusal> {
     })
 }
 
-/// Changes the `command` of the owned entry in `path` from exactly `from` to `to`; an owned entry
-/// running anything else, and every other entry, is left alone. `Ok(true)` when it was changed; a
-/// missing file changes nothing.
+/// Changes the `command` of the owned entry in the `mcpServers` file `path` from exactly `from` to
+/// `to`; an owned entry running anything else, and every other entry, is left alone. `Ok(true)` when
+/// it was changed; a missing file changes nothing. (Only `mcpServers` files ever named the old copy.)
 pub fn repoint_memory_mcp(path: &Path, from: &Path, to: &Path) -> Result<bool, McpRefusal> {
     let from = from.to_string_lossy();
     let to = to.to_string_lossy();
+    let file = mcp_servers_file(path);
 
-    change_file(path, |target| {
-        let found = find_server(path, target, &[], MEMORY_MCP_SERVER, MEMORY_BINARY);
-        let runs_from = found.is_some_and(|server| {
-            owned(path, &server) && server.definition.get("command").and_then(Value::as_str) == Some(&from)
-        });
+    let changed = change_file(path, file.shape, |target| {
+        let found = find_server(&file, target, MEMORY_MCP_SERVER, MEMORY_BINARY);
+        let runs_from =
+            found.is_some_and(|server| owned(path, &server) && server_program(&server.definition) == Some(&from));
 
         if !runs_from {
             return Change::Keep(false);
         }
 
         let mut document = target.document();
-        set_command(&mut document, &to);
+        set_program(&mut document, file.shape, &to);
 
         Change::Write(document, true)
+    });
+
+    changed.map_err(|blocked| match blocked {
+        Blocked::Refused(reason) => reason,
+        // A `mcpServers` file is strict JSON: comments make it unparsable.
+        Blocked::ManualEdit => McpRefusal::Unparsable,
     })
 }
 
-/// Whether any server in `path` has `command` as its `command` (whatever its name and arguments;
-/// ASCII case and `/` versus `\` are ignored, so a doubtful match counts). A missing file names
-/// nothing; `Err` when the file cannot be read as an MCP file.
+/// Whether any server in the `mcpServers` file `path` has `command` as its `command` (whatever its
+/// name and arguments; ASCII case and `/` versus `\` are ignored, so a doubtful match counts). A
+/// missing file names nothing; `Err` when the file cannot be read as an MCP file.
 pub fn names_command(path: &Path, command: &Path) -> Result<bool, McpRefusal> {
     let normalize = |text: &str| text.replace('\\', "/").to_ascii_lowercase();
     let command = normalize(&command.to_string_lossy());
 
-    let document = load(path)?.document();
-    let Some(servers) = document.get(SERVERS).and_then(Value::as_object) else {
+    let shape = Shape::McpServers;
+    let document = load(path, shape)?.document();
+    let Some(servers) = servers(&document, shape) else {
         return Ok(false);
     };
 
     let named = servers
         .values()
-        .filter_map(|server| server.get("command").and_then(Value::as_str))
+        .filter_map(server_program)
         .any(|found| normalize(found) == command);
 
     Ok(named)
 }
 
-fn when_missing(target: &Target, command: &str, recorded: bool) -> Change<MemoryRegistration> {
+/// `path` as a `mcpServers` file with nothing else to read.
+fn mcp_servers_file(path: &Path) -> McpFile {
+    McpFile {
+        path: path.to_path_buf(),
+        also_read: Vec::new(),
+        shape: Shape::McpServers,
+    }
+}
+
+fn when_missing(target: &Target, shape: Shape, command: &str, recorded: bool) -> Change<MemoryRegistration> {
     if recorded {
         return Change::Keep(MemoryRegistration::SkippedRemoved);
     }
 
     let mut document = target.document();
-    let servers = document.entry(SERVERS).or_insert_with(|| Value::Object(Map::new()));
-
-    // `load` refuses any other `mcpServers`, so this is always an object.
-    if let Value::Object(servers) = servers {
-        servers.insert(
-            MEMORY_MCP_SERVER.to_owned(),
-            json!({ "command": command, "args": ["mcp"] }),
-        );
-    }
+    add_server(&mut document, shape, MEMORY_MCP_SERVER, shape.entry(command));
 
     Change::Write(document, MemoryRegistration::Added)
 }
@@ -172,15 +198,25 @@ fn owned(path: &Path, server: &FoundServer) -> bool {
     server.file == path && server.name == MEMORY_MCP_SERVER && runs_mcp(&server.definition, MEMORY_BINARY)
 }
 
-/// Sets the owned entry's `command` in place, keeping its position and its other fields.
-fn set_command(document: &mut Map<String, Value>, command: &str) {
+/// Sets the program the owned entry runs (its `command`, or the first item of its `command` array)
+/// in place, keeping its position and its other fields.
+fn set_program(document: &mut Map<String, Value>, shape: Shape, program: &str) {
     let entry = document
-        .get_mut(SERVERS)
+        .get_mut(shape.root())
         .and_then(Value::as_object_mut)
         .and_then(|servers| servers.get_mut(MEMORY_MCP_SERVER))
         .and_then(Value::as_object_mut);
 
-    if let Some(entry) = entry {
-        entry.insert("command".to_owned(), Value::String(command.to_owned()));
+    let Some(entry) = entry else {
+        return;
+    };
+
+    let program = Value::String(program.to_owned());
+
+    match entry.get_mut("command") {
+        Some(Value::Array(parts)) if !parts.is_empty() => parts[0] = program,
+        _ => {
+            entry.insert("command".to_owned(), program);
+        }
     }
 }

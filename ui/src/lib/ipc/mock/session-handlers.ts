@@ -4,6 +4,7 @@ import type { SessionRef } from '../bindings/SessionRef';
 import type { SessionSummary } from '../bindings/SessionSummary';
 import { IpcFailure } from '../transport';
 import { fixtures } from './fixtures';
+import sessionsListOpenCode from './fixtures/sessions/sessions_list.opencode.json';
 import type { MockState } from './state';
 import type { Handlers } from './types';
 
@@ -21,7 +22,9 @@ const keyOf = (session: SessionRef): string => `${session.harness}:${session.id}
 
 /** The fixture sessions of `harness` that were not deleted. */
 function listed(state: MockState, harness: SessionRef['harness']): SessionSummary[] {
-  return fixtures.sessions.list[harness].filter((summary) => !state.deletedSessions.has(keyOf(summary.ref)));
+  const all = harness === 'opencode' ? (sessionsListOpenCode as unknown as SessionSummary[]) : fixtures.sessions.list[harness];
+
+  return all.filter((summary) => !state.deletedSessions.has(keyOf(summary.ref)));
 }
 
 function requireSession(state: MockState, session: SessionRef): SessionSummary {
@@ -37,6 +40,11 @@ const HOME = '/home/demo';
 
 /** The harness's default session folder for `project` under the demo home (never configured by the project). */
 function folderOf(harness: SessionRef['harness'], project: string): SessionFolder {
+  // OpenCode keeps every project's sessions in one data folder, which the project cannot change.
+  if (harness === 'opencode') {
+    return { path: `${HOME}/.local/share/opencode`, configured: false };
+  }
+
   const path =
     harness === 'pi'
       ? `${HOME}/.pi/agent/sessions/--${project.replace(/^\//, '').replaceAll('/', '-')}--`
@@ -45,9 +53,24 @@ function folderOf(harness: SessionRef['harness'], project: string): SessionFolde
   return { path, configured: false };
 }
 
+/** What an OpenCode transcript holds: its sessions are a flat list of turns, with no tree to leave a branch summary behind. */
+const OPENCODE_ROLES: readonly string[] = ['user', 'assistant', 'toolResult'];
+
+/** The sample transcript as `harness` would read it. */
+function transcriptOf(harness: SessionRef['harness']): { messages: SessionMessagesPage['messages']; stats: SessionMessagesPage['stats'] } {
+  const { messages, stats } = fixtures.sessions.messages;
+  if (harness !== 'opencode') {
+    return { messages, stats };
+  }
+
+  const kept = messages.filter((message) => OPENCODE_ROLES.includes(message.role));
+
+  return { messages: kept, stats: stats && { ...stats, messages: kept.length } };
+}
+
 /** Index-based cursor over the active path, like the real transcript reader. */
-function pageOf(cursor: string | null, limit: number): SessionMessagesPage {
-  const { messages } = fixtures.sessions.messages;
+function pageOf(harness: SessionRef['harness'], cursor: string | null, limit: number): SessionMessagesPage {
+  const { messages, stats } = transcriptOf(harness);
   const start = cursor === null ? 0 : Number(cursor);
 
   if (!Number.isInteger(start) || start < 0 || start > messages.length || limit < 1) {
@@ -60,11 +83,11 @@ function pageOf(cursor: string | null, limit: number): SessionMessagesPage {
     messages: structuredClone(messages.slice(start, end)),
     nextCursor: end < messages.length ? String(end) : null,
     total: messages.length,
-    stats: cursor === null ? structuredClone(fixtures.sessions.messages.stats) : null,
+    stats: cursor === null ? structuredClone(stats) : null,
   };
 }
 
-/** In-memory session store: the generated OMP and PI samples, served for any project the user opened; deletes apply to every project. */
+/** In-memory session store: the generated OMP, PI and OpenCode samples, served for any project the user opened; deletes apply to every project. */
 export function sessionHandlers(state: MockState): Pick<Handlers, SessionCommands> {
   return {
     sessions_list: ({ harness, project }) => {
@@ -82,6 +105,10 @@ export function sessionHandlers(state: MockState): Pick<Handlers, SessionCommand
     session_tree: ({ session, project }) => {
       state.requireKnown(project);
       requireSession(state, session);
+      // OpenCode sessions are a plain list: no tree to branch.
+      if (session.harness === 'opencode') {
+        throw IpcFailure.from({ code: 'unsupported', message: 'OpenCode sessions have no tree.' });
+      }
 
       return { ...structuredClone(fixtures.sessions.tree), ref: session };
     },
@@ -90,7 +117,7 @@ export function sessionHandlers(state: MockState): Pick<Handlers, SessionCommand
       state.requireKnown(project);
       requireSession(state, session);
 
-      return pageOf(cursor, limit);
+      return pageOf(session.harness, cursor, limit);
     },
 
     session_files_touched: ({ session, project }) => {

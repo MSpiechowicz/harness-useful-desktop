@@ -128,6 +128,42 @@ pub struct PromptTemplateInfo {
     pub path: String,
 }
 
+/// When an agent can be used (OpenCode `mode`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub enum AgentMode {
+    /// Selectable as the main agent of a chat.
+    Primary,
+    /// Only delegated to by another agent.
+    Subagent,
+    /// Both.
+    All,
+}
+
+/// A named agent: a system prompt with its own model and permissions (OpenCode).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct AgentInfo {
+    /// Agent name.
+    pub name: String,
+    /// Short description of when to use it.
+    pub description: Option<String>,
+    /// When it can be used.
+    pub mode: AgentMode,
+    /// The model it runs on (`provider/model`), when it sets one.
+    pub model: Option<String>,
+    /// True for an agent shipped with the harness.
+    pub built_in: bool,
+    /// True when the harness hides it from agent pickers.
+    pub hidden: bool,
+    /// Where the agent is defined.
+    pub scope: ExtensionScope,
+    /// Absolute path of the file that defines it (none for built-in agents).
+    pub path: Option<String>,
+}
+
 /// How the harness talks to an MCP server.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
@@ -226,6 +262,8 @@ pub struct ExtensionsView {
     pub skills: Vec<SkillInfo>,
     /// Prompt templates.
     pub prompt_templates: Vec<PromptTemplateInfo>,
+    /// Named agents.
+    pub agents: Vec<AgentInfo>,
     /// Configured MCP servers.
     pub mcp_servers: Vec<McpServerInfo>,
     /// Available themes.

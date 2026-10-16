@@ -25,13 +25,12 @@ import { motion } from '$lib/stores/motion.svelte';
 import { nav } from '$lib/stores/nav.svelte';
 import { prefs } from '$lib/stores/prefs.svelte';
 import { project } from '$lib/stores/project.svelte';
-import { sessionList } from '$lib/stores/sessions.svelte';
 import { ui } from '$lib/stores/ui-state.svelte';
 import { viewState } from '$lib/stores/view-state.svelte';
 
 import { intro } from '../../intro/intro-state.svelte';
 import { SETTINGS_SECTIONS } from '../../settings/sections';
-import { cycleMotion, cycleTheme, jumpToChat, newChat, resumeLastSession } from '../actions';
+import { cycleMotion, cycleTheme, jumpToChat, newChat, resumableSession, resumeLastSession } from '../actions';
 import { VIEWS, viewShortcut } from '../views';
 
 const THEMES: { value: ThemePref; label: MessageKey; icon: PaletteCommand['icon'] }[] = [
@@ -68,7 +67,7 @@ export function navigationCommands(): PaletteCommand[] {
 /** Things to do: chats, harness upkeep, layout, the settings sections. */
 export function actionCommands({ openShortcuts }: PaletteHandlers): PaletteCommand[] {
   const hasChat = agentSessions.active !== null;
-  const hasSessions = (sessionList.data?.length ?? 0) > 0;
+  const hasResumable = resumableSession() !== undefined;
   const actions = t('shell.palette.group.actions');
 
   return [
@@ -79,7 +78,7 @@ export function actionCommands({ openShortcuts }: PaletteHandlers): PaletteComma
       group: actions,
       icon: History,
       keywords: t('shell.palette.resumeLast.keywords'),
-      disabled: !hasSessions || !project.active,
+      disabled: !hasResumable || !project.active,
       run: () => void resumeLastSession(),
     },
     { id: 'jump-chat', label: t('shell.palette.jumpChat'), group: actions, icon: MessageSquare, shortcut: 'mod+0', keywords: t('shell.palette.jumpChat.keywords'), disabled: !hasChat, run: jumpToChat },

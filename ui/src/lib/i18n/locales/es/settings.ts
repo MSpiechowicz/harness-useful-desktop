@@ -21,7 +21,7 @@ export const settings: AreaMessages<typeof enSettings> = {
 
   'settings.keywords.appearance': 'tema animaciones movimiento oscuro claro animación idioma',
   'settings.keywords.startup': 'intro inicio arranque presentación',
-  'settings.keywords.harnesses': 'ejecutable binario omp pi ruta configuración harness',
+  'settings.keywords.harnesses': 'ejecutable binario omp pi opencode ruta configuración harness',
   'settings.keywords.memory': 'memoria remota equipo base de datos postgres postgresql mongodb mongo sqlite libsql turso compartida harness-memory mcp recuerdo repositorio recuperar notas globales chat nuevo',
   'settings.keywords.projects': 'recientes carpetas',
   'settings.keywords.updates': 'versión actualizar actualización release instalar buscar nueva',
@@ -72,6 +72,10 @@ export const settings: AreaMessages<typeof enSettings> = {
 
   'settings.memory.title': 'Memoria del proyecto',
   'settings.memory.description': 'Da a tus harnesses una memoria (harness-memory) de lo que se hizo, los problemas y sus soluciones, y dónde está cada cosa, por repositorio. Se guarda en este equipo o, con la memoria remota activada, en la base de datos de tu equipo de trabajo. Al desactivarla, se quita de la configuración MCP de los harnesses.',
+  'settings.memory.manual.title': 'Elimina estas entradas a mano',
+  'settings.memory.manual.body': '{harness} tiene comentarios en {file}, así que la app dejó ese archivo tal como está. Borra tú mismo la entrada {name}.',
+  'settings.memory.manual.copy': 'Copiar nombre de la entrada',
+  'settings.memory.manual.dismiss': 'Hecho',
 
   'settings.memoryRecall.title': 'Añadir memoria a los chats nuevos',
   'settings.memoryRecall.description': 'En el primer mensaje de un chat nuevo se añaden para el agente las notas relevantes de la memoria del proyecto. Se envían a tu proveedor de modelos junto con el mensaje.',

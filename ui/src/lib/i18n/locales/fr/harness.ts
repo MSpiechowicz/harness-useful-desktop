@@ -7,7 +7,7 @@ export const harness: AreaMessages<typeof enHarness> = {
   'harness.boundary.notifications': 'Les notifications',
 
   'harness.gate.noneTitle': 'Aucun harness trouvé',
-  'harness.gate.noneBody': 'Harness Desktop fonctionne avec OMP et PI. Lancez la configuration pour les détecter.',
+  'harness.gate.noneBody': 'Harness Desktop fonctionne avec OMP, PI et OpenCode. Lancez la configuration pour les détecter.',
   'harness.gate.missingTitle': '{name} n’est pas installé',
   'harness.gate.setup': 'Configurer {name}',
   'harness.gate.retry': 'Réessayer',

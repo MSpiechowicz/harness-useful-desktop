@@ -14,7 +14,7 @@
   import SetupCell from './SetupCell.svelte';
   import SetupMcpNote from './SetupMcpNote.svelte';
   import { isUnsupported, mcpChip, mcpTitle, type McpKind, type SetupKey } from './setup-model';
-  import { setup } from './setup-state.svelte';
+  import { comingSoon, setup } from './setup-state.svelte';
   import { badgeOf, nameOf } from './setup-view';
 
   interface Props {
@@ -24,6 +24,8 @@
   let { entry }: Props = $props();
 
   const name = $derived(nameOf(entry.harness));
+  /** Listed, greyed out and left alone until the app can chat with it. */
+  const soon = $derived(comingSoon(entry.harness));
 
   /** One MCP column of the row: its cell and what its note would say. The dashboard's and the memory server's work alike. */
   function mcpColumn(kind: McpKind) {
@@ -33,6 +35,7 @@
 
     const note = {
       refused: entry.installed && mcp.type === 'refused' && !isUnsupported(mcp) ? mcp.reason : null,
+      manualEdit: entry.installed && mcp.type === 'manualEdit' ? { file: mcp.file, snippet: mcp.snippet } : null,
       disabled: entry.installed && mcp.type === 'disabled',
       waitsFor: waits ? t(kind === 'mcp' ? 'onboarding.setup.mcp.needsDashboard' : 'onboarding.setup.memoryMcp.needsMemory') : null,
       failure: setup.failure(key),
@@ -45,7 +48,7 @@
       // Where the harness keeps its MCP configuration: the hint of the cell, not a line of the row.
       file: entry.installed && !isUnsupported(mcp) ? mcp.file : undefined,
       note,
-      hasNote: !!(note.refused || note.disabled || note.waitsFor || note.failure),
+      hasNote: !soon && !!(note.refused || note.manualEdit || note.disabled || note.waitsFor || note.failure),
     };
   }
 
@@ -53,8 +56,8 @@
 
   const hasNotes = $derived(mcpColumns.some((column) => column.hasNote));
 
-  /** Rows that need the user: something refused, something that failed. */
-  const needsAttention = $derived(mcpColumns.some((column) => column.note.refused || column.note.failure));
+  /** Rows that need the user: something refused or left to a manual edit, something that failed. */
+  const needsAttention = $derived(mcpColumns.some((column) => column.hasNote && (column.note.refused || column.note.manualEdit || column.note.failure)));
 
   // A row starts open when it needs the user, and opens by itself when it comes to (a failure, a fresh reading of the machine);
   // closing it again sticks until the need changes.
@@ -82,7 +85,7 @@
 </script>
 
 <li class="border-t border-line">
-  <div class={cx(SETUP_MATRIX, 'py-[9px]', !entry.installed && 'opacity-60')}>
+  <div class={cx(SETUP_MATRIX, 'py-[9px]', (!entry.installed || soon) && 'opacity-60', soon && 'grayscale')}>
     <div class="flex min-w-0 items-center gap-2.5">
       <HarnessBadge info={badgeOf(entry.harness)} size="tile" />
 
@@ -93,7 +96,11 @@
     </div>
 
     {#each mcpColumns as column (column.kind)}
-      <SetupCell label={column.title} hint={column.file} chip={mcpChip(entry, column.kind, setup.shown(column.key), setup.waiting(column.key))} />
+      <SetupCell
+        label={column.title}
+        hint={soon ? undefined : column.file}
+        chip={soon ? { tone: 'neutral', label: t('onboarding.card.comingSoon') } : mcpChip(entry, column.kind, setup.shown(column.key), setup.waiting(column.key))}
+      />
     {/each}
 
     <span class="flex justify-end">
@@ -118,7 +125,7 @@
         <div class="flex flex-col gap-4 pt-0.5 pb-3.5">
           {#each mcpColumns as column (column.kind)}
             {#if column.hasNote}
-              <SetupMcpNote kind={column.kind} title={column.title} {...column.note} />
+              <SetupMcpNote kind={column.kind} harness={entry.harness} title={column.title} {...column.note} />
             {/if}
           {/each}
         </div>

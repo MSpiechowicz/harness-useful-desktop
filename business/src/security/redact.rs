@@ -11,8 +11,8 @@
 //!    Its text is hidden and it is never executed.
 //! 2. **Env reference** — exactly `$NAME` or `${NAME}`: `Secret(EnvRef { name })`. The variable
 //!    name is shown; its value is never read.
-//! 3. **Container** — anything under a key named `env` or `headers` (any depth; keys stay
-//!    visible), and anything under `auth`/`oauth` except their direct children `type`, `scope`,
+//! 3. **Container** — anything under a key named `env`, `environment` or `headers` (any depth;
+//!    keys stay visible), and anything under `auth`/`oauth` except their direct children `type`, `scope`,
 //!    `redirectUri`, `callbackPort`, `callbackPath`, `prompt`, `clientId`: `Secret(Value)`.
 //!    Numbers in these containers are hidden too.
 //! 4. **Key name** — any key on the path whose name (case-insensitive, ignoring `_`/`-`) contains

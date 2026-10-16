@@ -9,7 +9,7 @@ use harness_business::ecosystem::catalog::{DASHBOARD_INSTALL_PS1, DASHBOARD_INST
 use harness_business::ecosystem::setup_status;
 use harness_business::env::{Env, OsKind};
 use harness_business::harness::{Harness, HarnessRegistry};
-use harness_business::harnesses::{Omp, Pi};
+use harness_business::harnesses::{Omp, OpenCode, Pi};
 use harness_business::model::{
     Detection, ExtensionAction, HarnessId, HarnessSetup, HarnessSummary, InstallScope, McpState, RecommendedSetup,
     SkillsSetup, VersionSupport,
@@ -140,7 +140,7 @@ async fn an_empty_machine_is_offered_everything() {
 
     assert_eq!(
         setup.harnesses.iter().map(|entry| entry.harness).collect::<Vec<_>>(),
-        [HarnessId::Omp, HarnessId::Pi]
+        [HarnessId::Omp, HarnessId::Pi, HarnessId::OpenCode]
     );
 
     let omp = harness(&setup, HarnessId::Omp);
@@ -186,6 +186,105 @@ async fn an_empty_machine_is_offered_everything() {
             exists: false
         }
     );
+
+    let opencode = harness(&setup, HarnessId::OpenCode);
+    assert_eq!(
+        opencode.skills,
+        SkillsSetup::Unavailable {
+            reason: "Harness Skills has no OpenCode package yet.".to_owned()
+        }
+    );
+    let opencode_missing = McpState::Missing {
+        file: "~/.config/opencode/opencode.json".to_owned(),
+        exists: false,
+    };
+    assert_eq!(opencode.mcp, opencode_missing);
+    assert_eq!(opencode.memory_mcp, opencode_missing);
+}
+
+#[tokio::test]
+async fn opencodes_servers_are_read_from_its_global_config() {
+    let home = tempfile::tempdir().unwrap();
+    let path = home.path().join(".config/opencode/opencode.jsonc");
+    let entries = json!({
+        "$schema": "https://opencode.ai/config.json",
+        "mcp": {
+            "harness-dashboard": { "type": "local", "command": ["harness-dashboard", "mcp"], "enabled": true },
+            "notes": { "type": "local", "command": [home.path().join(".local/bin/harness-memory"), "mcp"], "enabled": false }
+        }
+    });
+    write(&path, &entries.to_string());
+
+    let setup = status(&Env::for_tests(home.path()), &[summary(&OpenCode, true)]).await;
+    let opencode = harness(&setup, HarnessId::OpenCode);
+
+    assert!(opencode.installed);
+    assert_eq!(
+        opencode.mcp,
+        McpState::Configured {
+            file: "~/.config/opencode/opencode.jsonc".to_owned(),
+            name: "harness-dashboard".to_owned()
+        }
+    );
+    assert_eq!(
+        opencode.memory_mcp,
+        McpState::Disabled {
+            file: "~/.config/opencode/opencode.jsonc".to_owned(),
+            name: "notes".to_owned()
+        }
+    );
+}
+
+#[tokio::test]
+async fn a_server_in_the_file_opencode_config_names_counts() {
+    let home = tempfile::tempdir().unwrap();
+    let team = home.path().join("team/opencode.json");
+    let text = json!({
+        "mcp": { "harness-dashboard": { "type": "local", "command": ["harness-dashboard", "mcp"] } }
+    })
+    .to_string();
+    write(&team, &text);
+    let env = Env::for_tests(home.path());
+
+    let named = env.clone().with_var("OPENCODE_CONFIG", team.to_string_lossy());
+    let setup = status(&named, &[summary(&OpenCode, true)]).await;
+    assert_eq!(
+        harness(&setup, HarnessId::OpenCode).mcp,
+        McpState::Configured {
+            file: "~/team/opencode.json".to_owned(),
+            name: "harness-dashboard".to_owned()
+        }
+    );
+    assert_eq!(std::fs::read_to_string(&team).unwrap(), text);
+
+    // A relative path depends on OpenCode's working directory, so it is not read.
+    let relative = env.with_var("OPENCODE_CONFIG", "team/opencode.json");
+    let setup = status(&relative, &[summary(&OpenCode, true)]).await;
+    assert!(
+        matches!(harness(&setup, HarnessId::OpenCode).mcp, McpState::Missing { .. }),
+        "{:?}",
+        harness(&setup, HarnessId::OpenCode).mcp
+    );
+}
+
+#[tokio::test]
+async fn an_opencode_config_with_comments_asks_for_a_manual_edit() {
+    let home = tempfile::tempdir().unwrap();
+    let path = home.path().join(".config/opencode/opencode.jsonc");
+    let text = "{\n  // keep this\n  \"$schema\": \"https://opencode.ai/config.json\"\n}\n";
+    write(&path, text);
+
+    let setup = status(&Env::for_tests(home.path()), &[]).await;
+    let opencode = harness(&setup, HarnessId::OpenCode);
+
+    for state in [&opencode.mcp, &opencode.memory_mcp] {
+        assert!(
+            matches!(state, McpState::ManualEdit { file, snippet }
+                if file == "~/.config/opencode/opencode.jsonc" && snippet.contains("\"type\": \"local\"")),
+            "{state:?}"
+        );
+    }
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), text, "unchanged byte for byte");
 }
 
 #[tokio::test]
@@ -194,7 +293,7 @@ async fn without_a_detection_a_harness_counts_as_missing() {
     let setup = status(&Env::for_tests(home.path()), &[]).await;
 
     assert!(setup.harnesses.iter().all(|entry| !entry.installed));
-    assert_eq!(setup.harnesses.len(), 2);
+    assert_eq!(setup.harnesses.len(), 3);
 }
 
 #[tokio::test]

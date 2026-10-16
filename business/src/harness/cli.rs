@@ -202,6 +202,7 @@ pub async fn run_cli_action(run: CliRun<'_>) -> Result<CliResult> {
         .cwd(cwd)
         .env("NO_COLOR", "1")
         .env("FORCE_COLOR", "0")
+        .envs(run.harness.spawn_env().iter().copied())
         .search_dirs(launcher_search_dirs(run.env, &run.binary.path))
         .timeout(CLI_ACTION_TIMEOUT)
         .max_output_bytes(MAX_CLI_OUTPUT_BYTES);

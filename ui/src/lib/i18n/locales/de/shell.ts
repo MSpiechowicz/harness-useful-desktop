@@ -13,7 +13,7 @@ export const shell: AreaMessages<typeof enShell> = {
   'shell.view.changes.body': 'Ein grafischer Diff deines Arbeitsverzeichnisses. Kommentiere jede Zeile und schicke sie direkt an den Agenten zurück.',
   'shell.view.config': 'Konfiguration',
   'shell.view.config.heading': 'Deine Harness-Konfiguration, gut lesbar',
-  'shell.view.config.body': 'Einstellungen, MCP-Server und Profile von OMP und PI an einem Ort, Geheimnisse sicher verborgen.',
+  'shell.view.config.body': 'Einstellungen, MCP-Server und Profile von OMP, PI und OpenCode an einem Ort, Geheimnisse sicher verborgen.',
   'shell.view.extensions': 'Erweiterungen',
   'shell.view.extensions.heading': 'Plugins, Skills und MCP',
   'shell.view.extensions.body': 'Verwalte Plugins, Marktplätze, Skills und Designs, mit Probelauf-Vorschau, bevor sich etwas ändert.',
@@ -54,10 +54,11 @@ export const shell: AreaMessages<typeof enShell> = {
 
 
   'shell.toast.noHarness.title': 'Kein Harness zum Chatten',
-  'shell.toast.noHarness.description': 'Starte die Einrichtung, um OMP oder PI zu erkennen.',
+  'shell.toast.noHarness.description': 'Starte die Einrichtung, um OMP, PI oder OpenCode zu erkennen.',
   'shell.toast.needProject.title': 'Öffne zuerst ein Projekt',
   'shell.toast.needProject.description': 'Der Agent arbeitet in genau einem Ordner.',
   'shell.toast.noSession': 'Keine gespeicherte Sitzung zum Fortsetzen',
+  'shell.toast.resumeSoon': 'Sitzungen von {harness} lassen sich noch nicht fortsetzen',
   'shell.toast.saveFailed': 'Einstellungen konnten nicht gespeichert werden',
 
   'shell.shortcuts.title': 'Tastenkürzel',

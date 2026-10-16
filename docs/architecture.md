@@ -138,8 +138,8 @@ Privacy rules: [security-privacy.md](security-privacy.md#project-memory).
 | Module | Purpose |
 | --- | --- |
 | `harness/` | The `Harness` trait, `HarnessRegistry`, default detection (`detect.rs`), RPC launch helpers (`launch.rs`), the `CommandCatalog` trait (`catalog.rs`), extension CLI actions (`cli.rs`). |
-| `harnesses/omp`, `harnesses/pi` | The two adapters: paths, config and extension views, catalogs, dialects, launch, sessions folder, CLI actions. |
-| `pi_family/` | Code shared by OMP and PI (OMP is a PI fork): `rpc` (codec, request correlation, `RpcDialect`), `events`, `normalize`, `ui_request`, `touched`, `sessions` (list, tree, transcript), `config_files`, `frontmatter`, `skills`, `mcp_config`, `resources`. |
+| `harnesses/omp`, `harnesses/pi`, `harnesses/opencode` | The adapters: paths, config and extension views, catalogs, dialects, launch, sessions folder, CLI actions. OMP and PI share the PI file and RPC formats (`pi_family/`). OpenCode has JSONC config layers, an Agents category, sessions read through its CLI (`Harness::cli_sessions`) and no chat yet (`capabilities.chat` is false, `launch_spec` is `Unsupported`). |
+| `pi_family/` | Code shared by OMP and PI (OMP is a PI fork): `rpc` (codec, request correlation, `RpcDialect`), `events`, `normalize`, `ui_request`, `touched`, `sessions` (list, tree, transcript), `config_files`, `frontmatter`, `skills`, `mcp_config`, `resources`. `jsonc` (JSON with comments) and some helpers are also used by OpenCode. |
 | `agent/` | `AgentManager` (sessions by key), `AgentSession` (writer, reader, stderr and exit tasks), `EventSink`, `DeltaCoalescer`. |
 | `git/` | `GitCli` (hardened git runner), status, branches, diff parsing, untracked files. |
 | `review/` | `compose_review`: diff comments into one deterministic Markdown prompt; the UI sends it with `agent_send`. |
@@ -147,7 +147,7 @@ Privacy rules: [security-privacy.md](security-privacy.md#project-memory).
 | `sync/` | Share setup: export a harness's marketplaces, plugins, packages and MCP servers as a `hud1:` string or JSON file and import them after a review. `schema` (format v1, limits, per-item parsing), `codec` (zlib + base64url, size caps), `validate` and `secrets` (field checks, redaction), `collect` (export, read from the harnesses' files), `plan` (import review against this machine), `apply` (runs the harness CLIs and the MCP merge, idempotent, no rollback). Harnesses opt in per item kind through `Harness::share_support`. Format: [share-setup.md](share-setup.md). |
 | `prefs/`, `project/` | `prefs.json` store (atomic, self-healing), server-managed fields, the active and recent project list. |
 | `security/` | Deny-list and `SafeReader`, redaction, `canonical_within`, `validate_project_dir`, `is_safe_arg`. See [security-privacy.md](security-privacy.md). |
-| `process/` | `ProcessRunner` (run to completion) and `ProcessSpawner` (long-lived child) behind traits; binary resolution without a shell. |
+| `process/` | `ProcessRunner` (run to completion), `BlockingRunner` (the same for blocking tasks, `StdRunner`) and `ProcessSpawner` (long-lived child) behind traits; binary resolution without a shell. |
 | `app_dirs.rs` | The app's folders outside Tauri: the per-machine data folder (where older builds kept a copy of the bundled memory server, `legacy_memory_copy`). A test checks the identifier against `tauri.conf.json`. |
 | `update.rs` | Updater rules independent of Tauri: endpoint, public-key validation, progress reporting. |
 | `model/` | The serde + ts-rs DTOs that form the IPC contract. |
@@ -213,7 +213,8 @@ Generated types:
 - **`check-file-size.ts`**: every authored code file (`.rs .ts .js .mjs .cjs .svelte .css .html .sh .ps1 .yml
   .yaml`) stays within 500 lines. Generated bindings and fixtures, lockfiles, `src-tauri/gen` and
   `src-tauri/icons` are exempt.
-- **`check-forbidden.ts`**: rejects patterns by rule id. No opt-out: `--auto-approve`, `"--no-ui"`, shell spawns
+- **`check-forbidden.ts`**: rejects patterns by rule id. No opt-out: `--auto-approve`, `"--no-ui"`, OpenCode's
+  `"--auto"`, `--yolo` and `--dangerously-skip-permissions`, an `"auth"`/`"providers"` argv followed by `"login"`, shell spawns
   (`Command::new("sh" | "bash" | ... | "pwsh")`; only the companion installers, on marked lines of
   `business/src/ecosystem/installer.rs`, may name a shell), `innerHTML`/`insertAdjacentHTML`, `eval`/`new Function`, and
   `dangerous...insecure transport` updater settings. Opt-out with `guard-allow: <id>` on the same line:

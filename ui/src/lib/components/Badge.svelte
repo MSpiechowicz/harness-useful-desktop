@@ -30,6 +30,7 @@
   const HARNESSES: Record<HarnessId, string> = {
     omp: 'bg-omp-wash text-omp',
     pi: 'bg-pi-wash text-pi',
+    opencode: 'bg-opencode-wash text-opencode',
   };
 
   const SIZES = {

@@ -208,6 +208,7 @@ impl AgentManager {
                 trust_once,
                 utility: request.utility,
             })?
+            .envs(harness.spawn_env().iter().copied())
             .search_dirs(launcher_search_dirs(deps.env, &deps.binary.path));
 
         if let Some(id) = resume {

@@ -12,9 +12,10 @@ use crate::memory_setup::{register, unregister_all};
 use crate::state::AppState;
 
 /// Turns project memory on (registers the installed server in every detected harness, also where
-/// the user removed it before) or off (removes the app's own entries). Returns the stored pref and
-/// the server's install state: while it is not installed nothing is registered, and the UI offers
-/// its installer. A failure to change an MCP file is logged; the pref is stored regardless.
+/// the user removed it before) or off (removes the app's own entries). Returns the stored pref, the
+/// server's install state (while it is not installed nothing is registered, and the UI offers its
+/// installer) and, when switched off, the entries left in files with comments for the user to
+/// remove by hand. Any other failure to change an MCP file is logged; the pref is stored regardless.
 #[tauri::command]
 pub async fn memory_set_enabled(state: State<'_, AppState>, enabled: bool) -> CommandResult<MemorySwitchResult> {
     set_enabled(&state, enabled).await
@@ -36,12 +37,13 @@ async fn set_enabled(state: &AppState, enabled: bool) -> CommandResult<MemorySwi
     })
     .await?;
 
-    if enabled {
+    let manual_removals = if enabled {
         state.memory_server.refresh();
         register(state, !was_enabled).await;
+        Vec::new()
     } else {
-        unregister_all(state).await;
-    }
+        unregister_all(state).await
+    };
 
     // The version probe only reads, so a slow `--version` does not hold up other memory setup.
     drop(running);
@@ -53,6 +55,7 @@ async fn set_enabled(state: &AppState, enabled: bool) -> CommandResult<MemorySwi
     Ok(MemorySwitchResult {
         memory_enabled: saved.memory_enabled,
         server,
+        manual_removals,
     })
 }
 
@@ -62,7 +65,7 @@ mod tests {
     use std::sync::Arc;
 
     use harness_business::ecosystem::{MEMORY_RECORD_FILE, MemoryRegistration};
-    use harness_business::model::HarnessId;
+    use harness_business::model::{HarnessId, ManualRemoval};
     use serde_json::{Value, json};
     use tauri::async_runtime::block_on;
 
@@ -78,6 +81,7 @@ mod tests {
         let state = home_state(dir);
         cache_detection(&state, HarnessId::Omp, Some(&dir.path().join("missing-omp")));
         cache_detection(&state, HarnessId::Pi, None);
+        cache_detection(&state, HarnessId::OpenCode, None);
 
         state
     }
@@ -115,6 +119,7 @@ mod tests {
         let off = block_on(set_enabled(&state, false)).expect("switched off");
         assert!(!off.memory_enabled);
         assert!(off.server.installed);
+        assert_eq!(off.manual_removals, []);
         assert_eq!(mcp_servers(&state), json!({}));
         assert!(state.config_dir.join(MEMORY_RECORD_FILE).exists(), "the record is kept");
 
@@ -125,6 +130,60 @@ mod tests {
         let on = block_on(set_enabled(&state, true)).expect("switched on");
         assert!(on.memory_enabled);
         assert_eq!(mcp_servers(&state), json!({ "harness-memory": entry }));
+    }
+
+    /// A state with only OpenCode detected as installed, its global config file holding `text`.
+    fn opencode_state(dir: &TempDir, text: &str) -> (AppState, PathBuf) {
+        let state = home_state(dir);
+        cache_detection(&state, HarnessId::Omp, None);
+        cache_detection(&state, HarnessId::Pi, None);
+        cache_detection(&state, HarnessId::OpenCode, Some(&dir.path().join("missing-opencode")));
+
+        let file = dir.path().join("home/.config/opencode/opencode.jsonc");
+        std::fs::create_dir_all(file.parent().expect("config dir")).expect("config dir");
+        std::fs::write(&file, text).expect("write opencode.jsonc");
+
+        (state, file)
+    }
+
+    /// An OpenCode config whose `harness-memory` entry is the app's own; `comment` goes above it.
+    fn opencode_config(comment: &str) -> String {
+        format!(
+            "{{\n  \"mcp\": {{\n    {comment}\n    \"harness-memory\": {{ \"type\": \"local\", \"command\": \
+             [\"/opt/bin/harness-memory\", \"mcp\"], \"enabled\": true }}\n  }}\n}}\n"
+        )
+    }
+
+    #[test]
+    fn switching_off_reports_the_entry_in_a_file_with_comments_and_leaves_the_file_alone() {
+        let dir = TempDir::new("memory-off-commented");
+        let text = opencode_config("// keep this note");
+        let (state, file) = opencode_state(&dir, &text);
+
+        let off = block_on(set_enabled(&state, false)).expect("switched off");
+
+        assert!(!off.memory_enabled);
+        assert_eq!(
+            off.manual_removals,
+            [ManualRemoval {
+                harness: HarnessId::OpenCode,
+                file: "~/.config/opencode/opencode.jsonc".to_owned(),
+                name: "harness-memory".to_owned(),
+            }]
+        );
+        assert_eq!(std::fs::read_to_string(&file).expect("read"), text, "byte for byte");
+    }
+
+    #[test]
+    fn switching_off_removes_the_entry_from_a_file_without_comments() {
+        let dir = TempDir::new("memory-off-plain");
+        let (state, file) = opencode_state(&dir, &opencode_config(""));
+
+        let off = block_on(set_enabled(&state, false)).expect("switched off");
+
+        assert_eq!(off.manual_removals, []);
+        let config: Value = serde_json::from_str(&std::fs::read_to_string(&file).expect("read")).expect("JSON");
+        assert_eq!(config["mcp"], json!({}));
     }
 
     #[test]

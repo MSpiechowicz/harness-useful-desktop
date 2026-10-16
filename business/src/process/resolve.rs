@@ -101,6 +101,8 @@ pub fn extra_search_dirs(env: &Env) -> Vec<PathBuf> {
         env.home_join(".local/bin"),
         env.home_join(".cargo/bin"),
         env.home_join(".npm-global/bin"),
+        // The OpenCode install script's target.
+        env.home_join(".opencode/bin"),
     ];
 
     match env.os {

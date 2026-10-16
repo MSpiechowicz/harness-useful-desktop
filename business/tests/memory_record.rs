@@ -4,7 +4,7 @@
 mod mcp_support;
 
 use harness_business::ecosystem::{
-    MEMORY_RECORD_FILE, MemoryRecord, MemoryRegistration, RecordedFile, register_memory_mcp,
+    MEMORY_RECORD_FILE, McpFile, MemoryRecord, MemoryRegistration, RecordedFile, Shape, register_memory_mcp,
 };
 use harness_business::model::HarnessId;
 use mcp_support::Home;
@@ -31,7 +31,12 @@ impl Home {
         let mut record = MemoryRecord::load(&self.config());
 
         let binary = self.dir.path().join(".local/bin/harness-memory");
-        let outcome = register_memory_mcp(&path, &[], &binary, record.is_recorded(&self.env, &path));
+        let file = McpFile {
+            path: path.clone(),
+            also_read: Vec::new(),
+            shape: Shape::McpServers,
+        };
+        let outcome = register_memory_mcp(&file, &binary, record.is_recorded(&self.env, &path));
 
         record.note(&self.env, HarnessId::Omp, &path, outcome);
         record.save().unwrap();

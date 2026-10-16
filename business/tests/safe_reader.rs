@@ -73,6 +73,101 @@ fn deny_list_matches_extensions_names_prefixes_and_directories() {
 }
 
 #[test]
+fn deny_list_covers_opencode_stores_without_catching_generic_project_folders() {
+    let denied = [
+        "/h/.local/share/opencode/auth.json",
+        "/h/.local/share/opencode/mcp-auth.json",
+        "/h/.local/share/opencode/opencode.db",
+        "/h/.local/share/opencode/opencode-beta.db",
+        "/h/.local/share/opencode/opencode.db-wal",
+        "/h/.local/share/opencode/opencode.db-shm",
+        "/h/.local/share/opencode/log/2026-10-16.log",
+        "/h/.local/share/opencode/storage/session/x.json",
+        "/h/.local/share/opencode/storage/part/msg_1/prt_1.json",
+        "/h/.local/share/opencode/repos/github.com/acme/app/README.md",
+        "/h/.local/share/opencode/snapshot/proj/config",
+        "/h/.local/share/opencode/tool-output/tool_abc",
+        "/h/.local/share/opencode/plans/1760600000000-brave-otter.md",
+        "/h/.local/state/opencode/prompt-history.jsonl",
+        "C:/Users/me/.local/state/opencode/Prompt-History.jsonl",
+        "/h/.cache/opencode/node_modules/opencode-plugin/package.json",
+        "C:/Users/me/.cache/opencode/node_modules/x/package.json",
+        "/h/.config/ai.opencode.desktop/opencode.settings.dat",
+        "/h/.config/ai.opencode.desktop/opencode.global.dat",
+        "/h/.config/ai.opencode.desktop/opencode.workspace.abc123.dat",
+        "/h/.config/ai.opencode.desktop/OpenCode.Workspace.ABC.DAT",
+    ];
+
+    for path in denied {
+        assert!(is_denied(Path::new(path)).is_some(), "{path} must be denied");
+    }
+
+    let allowed = [
+        "/h/.config/opencode/opencode.json",
+        "/h/.config/opencode/opencode.jsonc",
+        "/h/.config/opencode/tui.json",
+        "/h/.config/opencode/package.json",
+        "/h/proj/.opencode/agents/review.md",
+        "/h/myclone/storage/x.json",
+        "/h/myclone/repos/list.json",
+        "/h/myclone/snapshot/state.json",
+        "/h/myclone/node_modules/left-pad/package.json",
+        "/h/.config/opencode/node_modules/plugin/package.json",
+        "/h/myclone/opencode/notes/storage.json",
+        "/h/myclone/settings.dat",
+        "/h/myclone/tool-output/result.txt",
+        "/h/myclone/plans/roadmap.md",
+        "/h/proj/.opencode/plans/roadmap.md",
+        "/h/myclone/prompt-history.jsonl",
+        "/h/myclone/opencode/notes/prompt-history.jsonl",
+    ];
+
+    for path in allowed {
+        assert_eq!(is_denied(Path::new(path)), None, "{path} must be allowed");
+    }
+
+    assert_eq!(
+        is_denied(Path::new("/h/.local/share/opencode/storage/session/x.json")),
+        Some(DenyReason::Directory("storage".into()))
+    );
+    assert_eq!(
+        is_denied(Path::new("/h/.local/state/opencode/prompt-history.jsonl")),
+        Some(DenyReason::FileName("prompt-history.jsonl".into()))
+    );
+}
+
+#[test]
+fn safe_reader_refuses_the_opencode_prompt_history_and_tool_outputs() {
+    let dir = TempDir::new().unwrap();
+    let history = write(dir.path(), ".local/state/opencode/prompt-history.jsonl", "{}");
+    let tool_output = write(dir.path(), ".local/share/opencode/tool-output/tool_abc", "secret");
+    let plan = write(dir.path(), ".local/share/opencode/plans/plan.md", "# plan");
+
+    for path in [history, tool_output, plan] {
+        assert!(
+            matches!(
+                SafeReader::read_to_string(&path, 1024),
+                Err(BusinessError::Forbidden(_))
+            ),
+            "{path:?} must be refused"
+        );
+    }
+}
+
+#[test]
+fn safe_reader_refuses_opencode_transcripts_but_reads_a_project_storage_folder() {
+    let dir = TempDir::new().unwrap();
+    let transcript = write(dir.path(), ".local/share/opencode/storage/session/x.json", "{}");
+    let project = write(dir.path(), "myclone/storage/x.json", "{}");
+
+    assert!(matches!(
+        SafeReader::read_to_string(&transcript, 1024),
+        Err(BusinessError::Forbidden(_))
+    ));
+    assert_eq!(SafeReader::read_to_string(&project, 1024).unwrap(), "{}");
+}
+
+#[test]
 fn read_to_string_returns_allowed_files_and_refuses_denied_ones() {
     let dir = TempDir::new().unwrap();
     let config = write(dir.path(), "config.yml", "theme: dark\n");

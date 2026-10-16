@@ -1,6 +1,7 @@
 import { t } from '$lib/i18n/i18n.svelte';
 import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
 import type { MotionPref } from '$lib/ipc/bindings/MotionPref';
+import type { SessionSummary } from '$lib/ipc/bindings/SessionSummary';
 import type { ThemePref } from '$lib/ipc/bindings/ThemePref';
 import { agentSessions } from '$lib/stores/agentSession.svelte';
 import { harness } from '$lib/stores/harness.svelte';
@@ -35,10 +36,18 @@ export function focusComposer(): void {
   requestAnimationFrame(tryFocus);
 }
 
-/** Starts a chat for the harness and project in use; explains what is missing when it cannot. */
+/**
+ * Starts a chat for the harness that can chat (the daily driver, else the first installed one that can) and the
+ * project in use. Explains what is missing when it cannot. With only chat-less harnesses installed (OpenCode for now)
+ * the chat view says so itself, so nothing is started and no toast repeats it.
+ */
 export async function newChat(): Promise<void> {
-  const active = harness.active;
+  const active = harness.chatActive;
   nav.go('chat');
+
+  if (harness.chatComingSoon) {
+    return;
+  }
 
   if (!active?.detection.installed) {
     toasts.push({ title: t('shell.toast.noHarness.title'), description: t('shell.toast.noHarness.description'), tone: 'warning' });
@@ -81,7 +90,8 @@ export async function switchProject(path: string): Promise<void> {
   }
 
   const replaceable = current && current.info.project !== path && !current.streaming && current.chat.items.length === 0 && current.draft.trim() === '';
-  const harnessId = current?.info.harness ?? harness.active?.info.id;
+  const chatter = harness.chatActive;
+  const harnessId = current?.info.harness ?? (chatter?.detection.installed ? chatter.info.id : undefined);
   if (!harnessId) {
     await newChat();
 
@@ -105,7 +115,7 @@ export async function switchProject(path: string): Promise<void> {
  */
 export async function switchHarness(id: HarnessId): Promise<void> {
   const current = agentSessions.active;
-  if (current?.info.harness === id) {
+  if (current?.info.harness === id || !harness.canChat(id)) {
     return;
   }
 
@@ -155,13 +165,21 @@ export function insertSlashCommand(name: string): void {
   focusComposer();
 }
 
+/** The newest saved session of the project that a chat can pick up again. */
+export function resumableSession(): SessionSummary | undefined {
+  return sessionList.data?.find((summary) => harness.canChat(summary.ref.harness));
+}
+
 /** Resumes the newest saved session of the project in a chat. */
 export async function resumeLastSession(): Promise<void> {
-  const newest = sessionList.data?.[0];
+  const newest = resumableSession();
   const path = project.active?.path;
 
   if (!newest || !path) {
-    toasts.push({ title: t('shell.toast.noSession'), tone: 'info' });
+    const blocked = sessionList.data?.[0];
+    const name = blocked ? harness.get(blocked.ref.harness)?.info.name : undefined;
+
+    toasts.push(name ? { title: t('shell.toast.resumeSoon', { harness: name }), tone: 'info' } : { title: t('shell.toast.noSession'), tone: 'info' });
 
     return;
   }

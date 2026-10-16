@@ -5,7 +5,9 @@
 //! [`crate::harness::HarnessRegistry::with_defaults`].
 
 pub mod omp;
+pub mod opencode;
 pub mod pi;
 
 pub use omp::Omp;
+pub use opencode::OpenCode;
 pub use pi::Pi;

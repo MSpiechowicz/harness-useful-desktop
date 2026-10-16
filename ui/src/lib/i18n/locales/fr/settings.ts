@@ -21,7 +21,7 @@ export const settings: AreaMessages<typeof enSettings> = {
 
   'settings.keywords.appearance': 'thème animations mouvement sombre clair animation langue',
   'settings.keywords.startup': 'intro lancement démarrage',
-  'settings.keywords.harnesses': 'exécutable binaire omp pi chemin configuration harness',
+  'settings.keywords.harnesses': 'exécutable binaire omp pi opencode chemin configuration harness',
   'settings.keywords.memory': 'mémoire distante équipe base de données postgres postgresql mongodb mongo sqlite libsql turso partagée harness-memory mcp souvenir dépôt rappel notes globales nouvelle conversation',
   'settings.keywords.projects': 'récents dossiers',
   'settings.keywords.updates': 'version mise à jour release installer rechercher nouvelle',
@@ -72,6 +72,10 @@ export const settings: AreaMessages<typeof enSettings> = {
 
   'settings.memory.title': 'Mémoire du projet',
   'settings.memory.description': "Donne à vos harnesses une mémoire (harness-memory) de ce qui a été fait, des problèmes et correctifs, et de l'emplacement des choses, par dépôt. Stockée sur cet ordinateur, ou dans la base de données de votre équipe quand la mémoire distante est activée. La désactiver la retire de la configuration MCP des harnesses.",
+  'settings.memory.manual.title': 'Supprimez ces entrées à la main',
+  'settings.memory.manual.body': '{harness} contient des commentaires dans {file}, donc l’app a laissé ce fichier tel quel. Supprimez vous-même l’entrée {name}.',
+  'settings.memory.manual.copy': 'Copier le nom de l’entrée',
+  'settings.memory.manual.dismiss': 'Terminé',
 
   'settings.memoryRecall.title': 'Ajouter la mémoire aux nouvelles conversations',
   'settings.memoryRecall.description': "Au premier message d'une nouvelle conversation, les notes pertinentes de la mémoire du projet sont ajoutées pour l'agent. Elles sont envoyées à votre fournisseur de modèle avec le message.",

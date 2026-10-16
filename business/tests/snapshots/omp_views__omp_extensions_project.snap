@@ -136,6 +136,7 @@ expression: "exported(extensions(&env, Some(&project)), &home, &project)"
     }
   ],
   "promptTemplates": [],
+  "agents": [],
   "mcpServers": [
     {
       "name": "project-db",

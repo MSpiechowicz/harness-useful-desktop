@@ -1,7 +1,7 @@
 //! Slash-command catalogs: merge precedence, shared commands and per-harness mappings.
 
 use harness_business::harness::{CommandCatalog, Harness, merge_commands, rpc, spec};
-use harness_business::harnesses::{Omp, Pi};
+use harness_business::harnesses::{Omp, OpenCode, Pi};
 use harness_business::model::{AgentActionKind, CommandInvocation, CommandSource, CommandSpec, GuiTarget};
 use pretty_assertions::assert_eq;
 use serde_json::{Value, json};
@@ -138,4 +138,27 @@ fn pi_terminal_builtins_map_to_rpc_views_or_unsupported() {
         .filter(|command| command.invocation == CommandInvocation::PromptText)
         .count();
     assert_eq!(prompt_text, 0, "PI builtins are never sent as prompt text");
+}
+
+#[test]
+fn opencode_commands_are_listed_but_unsupported_until_chat_arrives() {
+    let merged = OpenCode.catalog().merged(&[]);
+    let coming_soon = CommandInvocation::Unsupported {
+        reason: "Chat with OpenCode is coming soon.".to_owned(),
+    };
+
+    for name in [
+        "init", "review", "undo", "redo", "models", "agents", "help", "new", "compact",
+    ] {
+        assert_eq!(find(&merged, name).source, CommandSource::Builtin, "/{name}");
+    }
+
+    for name in ["model", "name", "abort"] {
+        assert_eq!(find(&merged, name).source, CommandSource::Shared, "/{name}");
+    }
+
+    assert!(
+        merged.iter().all(|command| command.invocation == coming_soon),
+        "no OpenCode command runs yet"
+    );
 }

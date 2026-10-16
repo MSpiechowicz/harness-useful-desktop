@@ -19,6 +19,7 @@
   import { t, tn } from '$lib/i18n/i18n.svelte';
   import ViewHeader from '$lib/components/ViewHeader.svelte';
   import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
+  import type { HarnessSummary } from '$lib/ipc/bindings/HarnessSummary';
   import type { SessionSummary } from '$lib/ipc/bindings/SessionSummary';
   import { ipc } from '$lib/ipc/client';
   import { agentSessions } from '$lib/stores/agentSession.svelte';
@@ -79,6 +80,13 @@
     resuming = true;
     await resumeInChat(agentSessions, summary.ref, path);
     resuming = false;
+  }
+
+  /** What an empty list says: where its sessions come from, and what can be done with them (resumed, or only read). */
+  function noneBody(projectName: string, owner: HarnessSummary): string {
+    const key = owner.capabilities.chat ? 'sessions.empty.none.body' : 'sessions.empty.none.bodyReadOnly';
+
+    return t(key, { project: projectName, harness: owner.info.name });
   }
 
   function choose(summary: SessionSummary): void {
@@ -166,10 +174,13 @@
         <DrawerToggle {drawer} label={t('sessions.drawer.label')} count={groups.rows.length} />
       {/if}
       {#if selected && current}
-        <Button variant="primary" loading={resuming} onclick={() => void resume(selected, current.path)}>
-          {#snippet leading()}<Play size={ICON.sm} aria-hidden="true" />{/snippet}
-          {t('sessions.header.resume')}
-        </Button>
+        <!-- Resuming starts a chat, which a harness without chat cannot do yet: reading and deleting stay. -->
+        {#if harness.canChat(selected.ref.harness)}
+          <Button variant="primary" loading={resuming} onclick={() => void resume(selected, current.path)}>
+            {#snippet leading()}<Play size={ICON.sm} aria-hidden="true" />{/snippet}
+            {t('sessions.header.resume')}
+          </Button>
+        {/if}
         <SessionMenu label={t('sessions.header.menu')} ondelete={() => remove(selected)} />
       {/if}
     {/snippet}
@@ -200,12 +211,14 @@
       </div>
     {:else if none}
       <div class="grid size-full place-items-center">
-        <EmptyState icon={GitBranch} title={t('sessions.empty.none.title')} body={t('sessions.empty.none.body', { project: current.name, harness: active.info.name })}>
+        <EmptyState icon={GitBranch} title={t('sessions.empty.none.title')} body={noneBody(current.name, active)}>
           {#snippet action()}
-            <Button variant="primary" onclick={() => nav.go('chat')}>
-              {#snippet leading()}<MessageSquarePlus size={ICON.sm} aria-hidden="true" />{/snippet}
-              {t('sessions.empty.none.action')}
-            </Button>
+            {#if active.capabilities.chat}
+              <Button variant="primary" onclick={() => nav.go('chat')}>
+                {#snippet leading()}<MessageSquarePlus size={ICON.sm} aria-hidden="true" />{/snippet}
+                {t('sessions.empty.none.action')}
+              </Button>
+            {/if}
           {/snippet}
         </EmptyState>
       </div>
@@ -257,7 +270,7 @@
     {/key}
   {:else}
     <div class="grid size-full place-items-center">
-      <EmptyState icon={GitBranch} title={t('sessions.empty.none.title')} body={t('sessions.empty.none.body', { project: project.name, harness: harness.info.name })} />
+      <EmptyState icon={GitBranch} title={t('sessions.empty.none.title')} body={noneBody(project.name, harness)} />
     </div>
   {/if}
 {/snippet}

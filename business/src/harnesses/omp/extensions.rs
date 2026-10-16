@@ -75,6 +75,7 @@ pub fn omp_extensions_view(env: &Env, project: Option<&Path>) -> ExtensionsView 
         plugins: plugins.plugins,
         marketplaces,
         prompt_templates: Vec::new(),
+        agents: Vec::new(),
         mcp_servers: mcp_servers(&paths, project),
         themes: themes(&paths, &settings),
         packages: Vec::new(),

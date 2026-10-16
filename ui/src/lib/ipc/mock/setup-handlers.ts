@@ -5,11 +5,12 @@ import type { HarnessId } from '../bindings/HarnessId';
 import type { HarnessSetup } from '../bindings/HarnessSetup';
 import type { HarnessSummary } from '../bindings/HarnessSummary';
 import type { InstallLogLine } from '../bindings/InstallLogLine';
+import type { ManualRemoval } from '../bindings/ManualRemoval';
 import type { McpState } from '../bindings/McpState';
 import type { RecommendedSetup } from '../bindings/RecommendedSetup';
 import type { SkillsSetup } from '../bindings/SkillsSetup';
 import { IpcFailure } from '../transport';
-import { rosterFor, type RosterEntry } from './setup-roster';
+import { opencodeSnippet, rosterFor, type RosterEntry } from './setup-roster';
 import type { Handlers } from './types';
 
 type SetupCommands = 'setup_status' | 'setup_install_dashboard' | 'setup_install_memory' | 'setup_register_mcp' | 'setup_register_memory';
@@ -22,8 +23,10 @@ type SetupCommands = 'setup_status' | 'setup_install_dashboard' | 'setup_install
  * the one left to add.
  * `both` has PI installed next to OMP (its skills are a manual step), `bothRefused` adds the unreadable file to that.
  * `many` has five harnesses in every kind of state (see `setup-roster.ts`), `manyLong` a sixth with a very long name.
+ * `opencodeOnly` has OpenCode alone, with a config file that has comments, so its MCP entries are left to a manual edit.
+ * `manualEdit` has the usual harnesses and the same commented OpenCode file.
  */
-export const SETUP_SCENARIOS = ['none', 'configured', 'fail', 'refused', 'both', 'bothRefused', 'memory', 'many', 'manyLong'] as const;
+export const SETUP_SCENARIOS = ['none', 'configured', 'fail', 'refused', 'both', 'bothRefused', 'memory', 'many', 'manyLong', 'opencodeOnly', 'manualEdit'] as const;
 export type SetupScenario = (typeof SETUP_SCENARIOS)[number];
 
 /** Pause between two installer log lines; tests do not wait. */
@@ -58,7 +61,9 @@ const MEMORY_OUTPUT_FAILED: InstallLogLine[] = [
   { stream: 'stderr', line: 'error: download failed' },
 ];
 
-const MCP_FILE: Record<HarnessId, string> = { omp: '~/.omp/agent/mcp.json', pi: '~/.pi/agent/mcp.json' };
+const MCP_FILE: Record<HarnessId, string> = { omp: '~/.omp/agent/mcp.json', pi: '~/.pi/agent/mcp.json', opencode: '~/.config/opencode/opencode.json' };
+/** OpenCode's config when it has comments: the app never rewrites it. */
+const OPENCODE_COMMENTED_FILE = '~/.config/opencode/opencode.jsonc';
 const SKILLS_TARGET = 'harness-useful-skills@harness-useful-skills';
 
 const OUTPUT_OK: InstallLogLine[] = [
@@ -82,11 +87,27 @@ export function setupScenarioFromLocation(search: string = globalThis.location?.
   return SETUP_SCENARIOS.find((scenario) => scenario === name) ?? 'none';
 }
 
+/**
+ * What turning project memory off leaves for the user to remove: only a commented OpenCode config (the `manualEdit` and
+ * `opencodeOnly` scenarios) holds an entry the app will not rewrite.
+ */
+export function manualRemovalsOf(scenario: SetupScenario): ManualRemoval[] {
+  if (scenario !== 'manualEdit' && scenario !== 'opencodeOnly') {
+    return [];
+  }
+
+  return [{ harness: 'opencode', file: OPENCODE_COMMENTED_FILE, name: 'harness-memory' }];
+}
+
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function skillsOffer(harness: HarnessId): SkillsSetup {
+  if (harness === 'opencode') {
+    return { type: 'unavailable', reason: 'Harness Skills has no OpenCode package yet.' };
+  }
+
   if (harness === 'pi') {
     return { type: 'manual', command: 'pi install git:github.com/MSpiechowicz/harness-useful-skills', note: 'Installing the skills as a PI package has not been verified yet.' };
   }
@@ -187,6 +208,8 @@ export function setupHandlers(
         mcp.add(id);
         memoryMcp.add(id);
       });
+      mcp.add('opencode');
+      memoryMcp.add('opencode');
     }
 
     if (scenario() === 'memory') {
@@ -196,6 +219,7 @@ export function setupHandlers(
   }
 
   const refusesOmp = () => scenario() === 'refused' || scenario() === 'bothRefused';
+  const commentedOpencode = () => scenario() === 'manualEdit';
 
   /** The dashboard's entry (`registered` holds `mcp`) or the memory server's (`memoryMcp`) in a harness's MCP file. */
   function mcpState(harness: HarnessId, registered: Set<HarnessId> = mcp): McpState {
@@ -207,7 +231,11 @@ export function setupHandlers(
       return { type: 'refused', file: MCP_FILE[harness], reason: 'unparsable' };
     }
 
-    return { type: 'missing', file: MCP_FILE[harness], exists: harness === 'omp' };
+    if (commentedOpencode() && harness === 'opencode') {
+      return { type: 'manualEdit', file: OPENCODE_COMMENTED_FILE, snippet: opencodeSnippet(registered === mcp ? 'harness-dashboard' : 'harness-memory') };
+    }
+
+    return { type: 'missing', file: MCP_FILE[harness], exists: harness !== 'pi' };
   }
 
   /** A harness of the `many` roster: its own starting state, moved by what a run did to it. */
@@ -297,7 +325,7 @@ export function setupHandlers(
           return rosterSetup(entry).mcp;
         }
 
-        if (!refusesOmp() || harness !== 'omp') {
+        if ((!refusesOmp() || harness !== 'omp') && !(commentedOpencode() && harness === 'opencode')) {
           mcp.add(harness);
         }
 
@@ -321,7 +349,7 @@ export function setupHandlers(
           return rosterSetup(entry).memoryMcp;
         }
 
-        if (!refusesOmp() || harness !== 'omp') {
+        if ((!refusesOmp() || harness !== 'omp') && !(commentedOpencode() && harness === 'opencode')) {
           memoryMcp.add(harness);
         }
 

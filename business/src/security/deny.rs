@@ -43,8 +43,22 @@ const DENIED_NAMES: &[&str] = &[
 /// File-name prefixes (lowercase) that are never read.
 const DENIED_PREFIXES: &[&str] = &[".env.", "id_rsa", "id_ed25519"];
 
+/// File names (lowercase) with this prefix and suffix are never read: the OpenCode desktop app's
+/// state (`opencode.settings.dat`, `opencode.global.dat`, `opencode.workspace.<id>.dat`).
+const DENIED_PREFIX_SUFFIXES: &[(&str, &str)] = &[("opencode.", ".dat")];
+
 /// Directory names (lowercase) whose contents are never read.
 const DENIED_DIRS: &[&str] = &["terminal-sessions", "url-search"];
+
+/// Directory names (lowercase) whose contents are never read when their direct parent is
+/// `opencode`: transcripts, cached repositories, project snapshots, full tool outputs and session
+/// plans (`<data>/opencode/storage`, `repos`, `snapshot`, `tool-output`, `plans`). The names alone
+/// are too generic.
+const DENIED_OPENCODE_DIRS: &[&str] = &["storage", "repos", "snapshot", "tool-output", "plans"];
+
+/// File names (lowercase) never read when their direct parent is `opencode`: the prompts typed
+/// into OpenCode (`<state>/opencode/prompt-history.jsonl`).
+const DENIED_OPENCODE_FILES: &[&str] = &["prompt-history.jsonl"];
 
 /// Maximum symlink hops followed when checking link targets.
 const MAX_LINK_HOPS: usize = 40;
@@ -87,6 +101,11 @@ pub fn is_denied(path: &Path) -> Option<DenyReason> {
         return Some(reason);
     }
 
+    if DENIED_OPENCODE_FILES.contains(&file_name.as_str()) && parents.last().is_some_and(|parent| parent == "opencode")
+    {
+        return Some(DenyReason::FileName(file_name.clone()));
+    }
+
     for (index, dir) in parents.iter().enumerate() {
         if DENIED_DIRS.contains(&dir.as_str()) {
             return Some(DenyReason::Directory(dir.clone()));
@@ -96,13 +115,38 @@ pub fn is_denied(path: &Path) -> Option<DenyReason> {
         if dir == "blobs" && parents[..index].iter().any(|ancestor| ancestor == "agent") {
             return Some(DenyReason::Directory(dir.clone()));
         }
+
+        // OpenCode transcripts, cached repositories, snapshots, tool outputs and plans
+        // (`<data>/opencode/storage/`).
+        let parent = index.checked_sub(1).map(|parent| parents[parent].as_str());
+        if DENIED_OPENCODE_DIRS.contains(&dir.as_str()) && parent == Some("opencode") {
+            return Some(DenyReason::Directory(dir.clone()));
+        }
+
+        // OpenCode's plugin packages (`~/.cache/opencode/node_modules/`).
+        if dir == "node_modules" && is_opencode_cache(&parents[..index]) {
+            return Some(DenyReason::Directory(dir.clone()));
+        }
     }
 
     None
 }
 
+/// True when `ancestors` ends in `.cache/opencode` (or `cache/opencode`).
+fn is_opencode_cache(ancestors: &[String]) -> bool {
+    match ancestors {
+        [.., cache, opencode] => opencode == "opencode" && (cache == ".cache" || cache == "cache"),
+        _ => false,
+    }
+}
+
 fn denied_file_name(name: &str) -> Option<DenyReason> {
-    if DENIED_NAMES.contains(&name) || DENIED_PREFIXES.iter().any(|prefix| name.starts_with(prefix)) {
+    let prefixed = DENIED_PREFIXES.iter().any(|prefix| name.starts_with(prefix));
+    let prefixed_and_suffixed = DENIED_PREFIX_SUFFIXES
+        .iter()
+        .any(|(prefix, suffix)| name.starts_with(prefix) && name.ends_with(suffix));
+
+    if DENIED_NAMES.contains(&name) || prefixed || prefixed_and_suffixed {
         return Some(DenyReason::FileName(name.to_owned()));
     }
 

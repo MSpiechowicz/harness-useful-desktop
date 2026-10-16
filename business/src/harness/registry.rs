@@ -6,7 +6,7 @@ use std::task::Poll;
 
 use super::Harness;
 use crate::env::Env;
-use crate::harnesses::{Omp, Pi};
+use crate::harnesses::{Omp, OpenCode, Pi};
 use crate::model::{BinaryOverride, HarnessId, HarnessSummary};
 use crate::process::{BoxFuture, ProcessRunner, find_override};
 
@@ -18,7 +18,7 @@ pub struct HarnessRegistry {
 impl HarnessRegistry {
     /// The harnesses this app ships with. Adding a harness adds one line here.
     pub fn with_defaults() -> Self {
-        Self::new(vec![Box::new(Omp), Box::new(Pi)])
+        Self::new(vec![Box::new(Omp), Box::new(Pi), Box::new(OpenCode)])
     }
 
     /// A registry over `harnesses` (tests, or a future plugin mechanism).

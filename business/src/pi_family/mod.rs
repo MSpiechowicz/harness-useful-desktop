@@ -1,9 +1,10 @@
 //! Parsing shared by the PI-family harnesses (OMP is a PI fork and keeps its file formats).
 //!
 //! Adapters compose these helpers instead of copying code: configuration files into redacted
-//! sections ([`config_files`]), Markdown frontmatter ([`frontmatter`]), `SKILL.md` discovery
-//! ([`skills`]), MCP server entries ([`mcp_config`]) and shallow scans for themes and extension
-//! modules ([`resources`]). Every file read goes through [`crate::security::SafeReader`].
+//! sections ([`config_files`], JSON with comments in [`jsonc`]), Markdown frontmatter
+//! ([`frontmatter`]), `SKILL.md` discovery ([`skills`]), MCP server entries ([`mcp_config`]) and
+//! shallow scans for themes and extension modules ([`resources`]). Every file read goes through
+//! [`crate::security::SafeReader`].
 //!
 //! The agent RPC protocol lives here too: framing and the dialect trait ([`rpc`]), the shared
 //! event decoder ([`events`]), extension UI requests ([`ui_request`]), payload normalization
@@ -15,6 +16,7 @@
 pub mod config_files;
 pub mod events;
 pub mod frontmatter;
+pub mod jsonc;
 pub mod mcp_config;
 pub mod normalize;
 pub mod resources;

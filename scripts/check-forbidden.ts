@@ -16,6 +16,12 @@ interface Rule {
   only?: readonly string[];
   /** Paths matching these globs are skipped for this rule. */
   skip?: readonly string[];
+  /**
+   * `file`: the pattern (with the `g` flag) runs over the whole file, so it can match across lines
+   * (an argv array written one token per line); the violation is reported on the line it starts.
+   * Default `line`: the pattern runs on each line.
+   */
+  scope?: 'line' | 'file';
   optOut: boolean;
 }
 
@@ -40,12 +46,83 @@ const SHELL_COMMAND = new RegExp(
   'i',
 );
 
+// Argv arrays: quoted tokens separated by commas and any whitespace, line breaks included.
+const QUOTE = '["\'`]';
+const ARG = String.raw`${QUOTE}[^"'\`\n]*${QUOTE}`;
+const NEXT = String.raw`\s*,\s*`;
+// `first` followed by `last` in one array, with any tokens between them.
+function argvChain(first: string, last: string): RegExp {
+  return new RegExp(String.raw`${QUOTE}(?:${first})${QUOTE}(?:${NEXT}${ARG})*${NEXT}${QUOTE}(?:${last})${QUOTE}`, 'g');
+}
+// An array literal that starts with one of `tokens` where argv is built: a call argument
+// (`.args(["db", ..])`, `spec(ctx, &["db", ..])`), a field (`args: vec!["db"]`), a `let` binding,
+// or `.arg("db")`. Constant lists (`const X: &[&str] = &["db", ..]`) are not argv.
+function argvStart(tokens: string): RegExp {
+  return new RegExp(
+    String.raw`(?:(?:[(,:]|\blet\s+\w+\s*=)\s*&?(?:vec!)?\[|\.arg\()\s*${QUOTE}(?:${tokens})${QUOTE}`,
+    'g',
+  );
+}
+
 const RULES: readonly Rule[] = [
   {
     id: 'auto-approve',
     reason: 'never pass --auto-approve to a harness; approvals stay with the user',
     pattern: /--auto-approve/,
     extensions: SOURCE,
+    optOut: false,
+  },
+  {
+    id: 'auto-flag',
+    reason: 'never pass --auto to a harness (OpenCode auto-approves every permission); approvals stay with the user',
+    pattern: /["'`]--auto(?:["'`]|=)/,
+    extensions: SOURCE,
+    optOut: false,
+  },
+  {
+    id: 'yolo-flag',
+    reason: 'never pass --yolo to a harness; approvals stay with the user',
+    pattern: /--yolo\b/,
+    extensions: SOURCE,
+    optOut: false,
+  },
+  {
+    id: 'skip-permissions-flag',
+    reason: 'never pass --dangerously-skip-permissions to a harness; approvals stay with the user',
+    pattern: /--dangerously-skip-permissions/,
+    extensions: SOURCE,
+    optOut: false,
+  },
+  {
+    id: 'login-argv',
+    reason: 'never run a harness login command ("auth" or "providers" followed by "login"); credentials are a non-goal',
+    pattern: /["'`](?:auth|providers)["'`].*["'`]login["'`]/,
+    extensions: ['.rs', '.ts'],
+    optOut: false,
+  },
+  {
+    id: 'login-argv',
+    reason: 'never run a harness login command ("auth" or "providers" followed by "login"); credentials are a non-goal',
+    pattern: argvChain('auth|providers', 'login'),
+    extensions: ['.rs', '.ts'],
+    scope: 'file',
+    optOut: false,
+  },
+  {
+    id: 'mcp-argv',
+    reason:
+      'never run "mcp auth", "mcp logout", "mcp list" or "mcp debug" of a harness (credentials, connections to every server)',
+    pattern: argvChain('mcp', 'auth|logout|list|debug'),
+    extensions: ['.rs', '.ts'],
+    scope: 'file',
+    optOut: false,
+  },
+  {
+    id: 'private-store-argv',
+    reason: 'never run a harness "db" or "account" command (its database and account hold credentials)',
+    pattern: argvStart('db|account'),
+    extensions: ['.rs', '.ts'],
+    scope: 'file',
     optOut: false,
   },
   {
@@ -182,7 +259,8 @@ function appliesTo(rule: Rule, path: string): boolean {
   return !(rule.skip && matchesAny(path, rule.skip));
 }
 
-const violations: string[] = [];
+// A set: a line rule and a file rule with the same id may both match one line.
+const violations = new Set<string>();
 
 for (const path of listFiles()) {
   if (matchesAny(path, GLOBAL_SKIP)) {
@@ -194,27 +272,35 @@ for (const path of listFiles()) {
     continue;
   }
 
-  readText(path)
-    .split(/\r?\n/)
-    .forEach((line, index) => {
-      const allowed = allowedIds(line);
+  const text = readText(path);
+  const lines = text.split(/\r?\n/);
 
-      for (const rule of rules) {
-        if (!rule.pattern.test(line)) {
-          continue;
-        }
-        if (rule.optOut && allowed.has(rule.id)) {
-          continue;
-        }
+  const report = (rule: Rule, index: number) => {
+    if (rule.optOut && allowedIds(lines[index]).has(rule.id)) {
+      return;
+    }
 
-        const note = rule.optOut ? ` (opt out with "guard-allow: ${rule.id}")` : ' (no opt-out)';
-        violations.push(`${path}:${index + 1} [${rule.id}] ${rule.reason}${note}`);
+    const note = rule.optOut ? ` (opt out with "guard-allow: ${rule.id}")` : ' (no opt-out)';
+    violations.add(`${path}:${index + 1} [${rule.id}] ${rule.reason}${note}`);
+  };
+
+  lines.forEach((line, index) => {
+    for (const rule of rules) {
+      if (rule.scope !== 'file' && rule.pattern.test(line)) {
+        report(rule, index);
       }
-    });
+    }
+  });
+
+  for (const rule of rules.filter((rule) => rule.scope === 'file')) {
+    for (const match of text.matchAll(rule.pattern)) {
+      report(rule, text.slice(0, match.index).split('\n').length - 1);
+    }
+  }
 }
 
-if (violations.length > 0) {
-  failWith(`check-forbidden: ${violations.length} violation(s)`, violations);
+if (violations.size > 0) {
+  failWith(`check-forbidden: ${violations.size} violation(s)`, [...violations]);
 }
 
 console.log(`check-forbidden: ok (${new Set(RULES.map((rule) => rule.id)).size} rules)`);

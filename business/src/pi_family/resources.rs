@@ -1,7 +1,9 @@
-//! Shallow directory scans for themes and extension modules, plus display helpers.
+//! Directory scans for themes, extension modules, skills and Markdown definitions, plus display
+//! helpers.
 //!
 //! Scans never recurse beyond what the harness itself discovers: harness homes hold tens of
-//! thousands of files (sessions, caches), so every listing is one level deep and capped.
+//! thousands of files (sessions, caches), so every listing is capped. The few recursive scans go
+//! through [`walk_tree`], which bounds depth and total entries and steps around symlink loops.
 
 use std::path::{Path, PathBuf};
 
@@ -14,6 +16,9 @@ use crate::security::canonical_within;
 
 /// Maximum entries read from one directory.
 const MAX_DIR_ENTRIES: usize = 2000;
+
+/// Maximum entries one [`walk_tree`] reads in total, so a crafted tree cannot stall a view.
+const MAX_WALK_ENTRIES: usize = 10_000;
 
 /// One directory entry (symlinks are resolved for the type checks).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -31,12 +36,20 @@ pub struct Entry {
 /// The entries of `dir` sorted by name; empty when `dir` is missing or unreadable. Names that are
 /// not valid UTF-8 are skipped.
 pub fn list_dir(dir: &Path) -> Vec<Entry> {
+    list_dir_up_to(dir, MAX_DIR_ENTRIES).0
+}
+
+/// [`list_dir`] reading at most `limit` entries, with the number of entries read (skipped ones
+/// included, so a budget is charged for every entry the filesystem returned).
+fn list_dir_up_to(dir: &Path, limit: usize) -> (Vec<Entry>, usize) {
     let Ok(read) = std::fs::read_dir(dir) else {
-        return Vec::new();
+        return (Vec::new(), 0);
     };
 
+    let mut read_count = 0;
     let mut entries: Vec<Entry> = read
-        .take(MAX_DIR_ENTRIES)
+        .take(limit)
+        .inspect(|_| read_count += 1)
         .filter_map(|entry| entry.ok())
         .filter_map(|entry| {
             let name = entry.file_name().into_string().ok()?;
@@ -53,7 +66,57 @@ pub fn list_dir(dir: &Path) -> Vec<Entry> {
         .collect();
 
     entries.sort_by(|left, right| left.name.cmp(&right.name));
-    entries
+    (entries, read_count)
+}
+
+/// Walks `root` depth first, up to `max_depth` levels (`1` = the entries of `root` only), calling
+/// `visit` on every entry in [`list_dir`] order. `visit` returns true to descend into a directory
+/// entry.
+///
+/// Symlinked files and directories are followed, except a directory that resolves to one already
+/// open on the current path (a symlink loop such as `link -> .`), which is not entered again. The
+/// whole walk reads at most [`MAX_WALK_ENTRIES`] entries.
+pub fn walk_tree(root: &Path, max_depth: usize, visit: &mut dyn FnMut(&Entry) -> bool) {
+    let mut walk = Walk {
+        visit,
+        open: Vec::new(),
+        entries_left: MAX_WALK_ENTRIES,
+    };
+
+    walk.enter(root, max_depth);
+}
+
+/// The state of one [`walk_tree`].
+struct Walk<'a> {
+    visit: &'a mut dyn FnMut(&Entry) -> bool,
+    /// Resolved paths of the directories from the root down to the current one.
+    open: Vec<PathBuf>,
+    entries_left: usize,
+}
+
+impl Walk<'_> {
+    fn enter(&mut self, dir: &Path, depth_left: usize) {
+        if depth_left == 0 || self.entries_left == 0 {
+            return;
+        }
+
+        let resolved = std::fs::canonicalize(dir).unwrap_or_else(|_| dir.to_path_buf());
+        if self.open.contains(&resolved) {
+            return;
+        }
+
+        let (entries, read_count) = list_dir_up_to(dir, self.entries_left.min(MAX_DIR_ENTRIES));
+        self.entries_left -= read_count;
+        self.open.push(resolved);
+
+        for entry in entries {
+            if (self.visit)(&entry) && entry.is_dir {
+                self.enter(&entry.path, depth_left - 1);
+            }
+        }
+
+        self.open.pop();
+    }
 }
 
 /// `path` with the home directory shown as `~` (for human-readable origins).
@@ -194,4 +257,71 @@ fn declared_extensions(package_dir: &Path) -> Vec<PathBuf> {
 
 fn is_script(name: &str) -> bool {
     name.ends_with(".ts") || name.ends_with(".js")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[cfg(unix)]
+    #[test]
+    fn a_walk_stops_after_its_entry_budget() {
+        let temp = tempfile::TempDir::new().unwrap();
+        let files = temp.path().join("files");
+        let root = temp.path().join("root");
+        std::fs::create_dir_all(&files).unwrap();
+        std::fs::create_dir_all(&root).unwrap();
+
+        for index in 0..MAX_DIR_ENTRIES {
+            std::fs::write(files.join(format!("{index}.md")), "").unwrap();
+        }
+        // Six links to the same full directory are not a loop, so each is walked in turn.
+        for name in ["a", "b", "c", "d", "e", "f"] {
+            std::os::unix::fs::symlink(&files, root.join(name)).unwrap();
+        }
+
+        let mut visited = 0;
+        walk_tree(&root, 2, &mut |_| {
+            visited += 1;
+            true
+        });
+
+        assert_eq!(visited, MAX_WALK_ENTRIES);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn skipped_names_still_count_against_the_budget() {
+        use std::ffi::OsStr;
+        use std::os::unix::ffi::OsStrExt;
+
+        let temp = tempfile::TempDir::new().unwrap();
+        let leaf = temp.path().join("leaf");
+        let middle = temp.path().join("middle");
+        let root = temp.path().join("root");
+        for dir in [&leaf, &middle, &root] {
+            std::fs::create_dir_all(dir).unwrap();
+        }
+
+        // Names that are not UTF-8 are never visited, but reading them is not free.
+        for index in 0..MAX_DIR_ENTRIES {
+            let name = [b"\xff".as_slice(), index.to_string().as_bytes()].concat();
+            std::fs::write(leaf.join(OsStr::from_bytes(&name)), "").unwrap();
+        }
+        for index in 0..MAX_DIR_ENTRIES {
+            std::os::unix::fs::symlink(&leaf, middle.join(format!("{index}"))).unwrap();
+        }
+        for name in ["a", "b", "c", "d", "e"] {
+            std::os::unix::fs::symlink(&middle, root.join(name)).unwrap();
+        }
+
+        let mut visited = 0;
+        walk_tree(&root, 3, &mut |_| {
+            visited += 1;
+            true
+        });
+
+        // The root's links and one `middle` listing; the leaf reads then use up the budget.
+        assert_eq!(visited, 5 + MAX_DIR_ENTRIES);
+    }
 }

@@ -38,7 +38,7 @@
 
   let show = $state<Show>('all');
 
-  const id = $derived(harness.active?.info.id);
+  const id = $derived(harness.active?.capabilities.cliActions ? harness.active.info.id : undefined);
 
   // Filtering by install state only means something while the catalog has both kinds.
   const filterable = $derived(marketplace.entries.some((entry) => entry.installed) && marketplace.entries.some((entry) => !entry.installed));

@@ -1,5 +1,6 @@
 import { t } from '$lib/i18n/i18n.svelte';
 import type { AppPrefs } from '$lib/ipc/bindings/AppPrefs';
+import type { ManualRemoval } from '$lib/ipc/bindings/ManualRemoval';
 import { ipc } from '$lib/ipc/client';
 import { IpcFailure, type Transport } from '$lib/ipc/transport';
 
@@ -12,6 +13,8 @@ export class PrefsStore {
   status = $state<PrefsStatus>('idle');
   /** True while `memory_set_enabled` is in flight. */
   memoryPending = $state(false);
+  /** Entries the last "off" switch left in files with comments: the user removes them by hand, so they stay listed until dismissed. */
+  memoryManualRemovals = $state<ManualRemoval[]>([]);
   error = $state<IpcFailure | null>(null);
 
   /** Incremented per update so only the newest request may overwrite or roll back state. */
@@ -85,6 +88,8 @@ export class PrefsStore {
     try {
       const saved = await this.transport.invoke('memory_set_enabled', { enabled });
 
+      this.memoryManualRemovals = saved.manualRemovals;
+
       if (this.value) {
         this.value = { ...this.value, memoryEnabled: saved.memoryEnabled };
       }
@@ -97,6 +102,11 @@ export class PrefsStore {
     } finally {
       this.memoryPending = false;
     }
+  }
+
+  /** The user dealt with the entries listed by the last switch (or does not want the note any more). */
+  dismissMemoryManualRemovals(): void {
+    this.memoryManualRemovals = [];
   }
 
   /** Applies the patch immediately, persists it, and rolls back with a toast if the backend rejects it. */

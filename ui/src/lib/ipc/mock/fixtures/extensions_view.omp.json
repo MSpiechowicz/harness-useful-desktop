@@ -132,6 +132,7 @@
     }
   ],
   "promptTemplates": [],
+  "agents": [],
   "mcpServers": [
     {
       "name": "project-db",

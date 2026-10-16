@@ -17,10 +17,12 @@
     touched: string[];
     project: string;
     forks: number;
+    /** Whether the harness has sessions that branch; without it the Forks row would only ever say 0. */
+    showForks?: boolean;
     class?: string;
   }
 
-  let { summary, stats, touched, project, forks, class: className }: Props = $props();
+  let { summary, stats, touched, project, forks, showForks = true, class: className }: Props = $props();
 
   /** One colour per model in the split bar, in order of use. */
   const MODEL_COLORS = ['bg-accent', 'bg-success', 'bg-warning', 'bg-info', 'bg-danger'] as const;
@@ -43,7 +45,7 @@
     { label: t('sessions.details.started'), value: started },
     { label: t('sessions.details.duration'), value: duration },
     { label: t('sessions.details.size'), value: formatBytes(summary.sizeBytes) },
-    { label: t('sessions.details.forks'), value: formatCount(forks) },
+    ...(showForks ? [{ label: t('sessions.details.forks'), value: formatCount(forks) }] : []),
   ]);
 </script>
 

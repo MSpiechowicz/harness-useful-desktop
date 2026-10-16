@@ -1,0 +1,3 @@
+{
+  "agent": { "build": { "model": "anthropic/claude-sonnet-4-5", "description": "Build agent with the house model." } }
+}

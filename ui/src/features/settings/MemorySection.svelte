@@ -10,6 +10,7 @@
   import { memoryRemote } from '$lib/stores/memoryRemote.svelte';
   import { prefs } from '$lib/stores/prefs.svelte';
 
+  import ManualRemovalNote from './ManualRemovalNote.svelte';
   import RemoteMemoryPanel from './RemoteMemoryPanel.svelte';
   import SettingRow from './SettingRow.svelte';
   import SettingsSection from './SettingsSection.svelte';
@@ -87,6 +88,12 @@
       />
     {/snippet}
   </SettingRow>
+
+  {#if prefs.memoryManualRemovals.length > 0}
+    <div transition:slide={{ duration: scaled(200) }} class="overflow-hidden">
+      <ManualRemovalNote removals={prefs.memoryManualRemovals} ondismiss={() => prefs.dismissMemoryManualRemovals()} />
+    </div>
+  {/if}
 
   <SettingRow title={t('settings.memoryRecall.title')} description={t('settings.memoryRecall.description')}>
     {#snippet control()}

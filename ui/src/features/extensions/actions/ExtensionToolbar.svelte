@@ -75,8 +75,9 @@
   let composing = $state<ComposeKind | null>(null);
 
   const capabilities = $derived(harness.active?.capabilities);
-  const adds = $derived(ADD.filter((item) => capabilities?.[item.needs]));
-  const bulk = $derived(BULK.filter((item) => capabilities?.[item.needs]));
+  // Install, update and remove run through the harness CLI, so a harness the app does not drive that way offers none of them.
+  const adds = $derived(ADD.filter((item) => capabilities?.cliActions && capabilities[item.needs]));
+  const bulk = $derived(BULK.filter((item) => capabilities?.cliActions && capabilities[item.needs]));
   const busy = $derived(actionRunner.phase !== 'idle');
 
   function run(item: Entry, close: () => void): void {

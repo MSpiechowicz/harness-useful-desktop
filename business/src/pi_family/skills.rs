@@ -10,7 +10,7 @@ use serde_json::Value;
 
 use super::config_files::text_field;
 use super::frontmatter::read_frontmatter;
-use super::resources::list_dir;
+use super::resources::{origin_label, walk_tree};
 use crate::env::Env;
 use crate::model::{ExtensionScope, SkillInfo};
 
@@ -28,33 +28,37 @@ pub struct SkillRoot {
     pub origin: String,
 }
 
-/// Skills directly below `root.dir` (`<dir>/<skill>/SKILL.md`), descending up to `max_depth`
-/// levels through directories that are not skills themselves (`1` = direct children only).
-pub fn scan_skills(root: &SkillRoot, max_depth: usize) -> Vec<SkillInfo> {
-    let mut skills = Vec::new();
-    collect(root, &root.dir, max_depth, &mut skills);
+impl SkillRoot {
+    /// A root at `dir` labeled by [`origin_label`] (project-relative inside `project`).
+    pub fn labeled(env: &Env, project: Option<&Path>, dir: PathBuf, scope: ExtensionScope) -> Self {
+        let origin = origin_label(env, project, &dir);
 
-    skills.sort_by(|left, right| left.name.cmp(&right.name).then_with(|| left.path.cmp(&right.path)));
-    skills
+        Self { dir, scope, origin }
+    }
 }
 
-fn collect(root: &SkillRoot, dir: &Path, depth_left: usize, skills: &mut Vec<SkillInfo>) {
-    if depth_left == 0 {
-        return;
-    }
+/// Skills directly below `root.dir` (`<dir>/<skill>/SKILL.md`), descending up to `max_depth`
+/// levels through directories that are not skills themselves (`1` = direct children only).
+/// Symlinked skill directories count; symlink loops are not followed (see [`walk_tree`]).
+pub fn scan_skills(root: &SkillRoot, max_depth: usize) -> Vec<SkillInfo> {
+    let mut skills = Vec::new();
 
-    for entry in list_dir(dir) {
+    walk_tree(&root.dir, max_depth, &mut |entry| {
         if !entry.is_dir || entry.name.starts_with('.') {
-            continue;
+            return false;
         }
 
         let skill_file = entry.path.join(SKILL_FILE);
-        if skill_file.is_file() {
-            skills.extend(load_skill(root, &entry.name, &skill_file));
-        } else {
-            collect(root, &entry.path, depth_left - 1, skills);
+        if !skill_file.is_file() {
+            return true;
         }
-    }
+
+        skills.extend(load_skill(root, &entry.name, &skill_file));
+        false
+    });
+
+    skills.sort_by(|left, right| left.name.cmp(&right.name).then_with(|| left.path.cmp(&right.path)));
+    skills
 }
 
 /// One skill from its `SKILL.md`, or `None` when the harness would skip it.

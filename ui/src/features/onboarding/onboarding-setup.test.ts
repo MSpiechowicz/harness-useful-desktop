@@ -103,11 +103,13 @@ describe('Set up step', () => {
     expect(within(confirmation).getByText(MEMORY_COMMAND)).toBeInTheDocument();
     expect(within(confirmation).getByText('omp plugin marketplace add MSpiechowicz/harness-useful-skills')).toBeInTheDocument();
     expect(within(confirmation).getByText('omp plugin install harness-useful-skills@harness-useful-skills --scope user')).toBeInTheDocument();
-    // OMP's MCP file gets the dashboard's and the memory server's entries: listed once, with both.
+    // Each installed harness's MCP file gets the dashboard's and the memory server's entries: listed once, with both.
+    // OpenCode is coming soon, so its file is not touched.
     const files = within(confirmation).getByRole('region', { name: 'Files' });
-    expect(within(files).getAllByRole('listitem')).toHaveLength(1);
-    expect(within(files).getByText('~/.omp/agent/mcp.json')).toBeInTheDocument();
-    expect(within(files).getByText('adds 2 entries')).toBeInTheDocument();
+    const listed = within(files).getAllByRole('listitem');
+    expect(listed).toHaveLength(1);
+    expect(within(listed[0]).getByText('~/.omp/agent/mcp.json')).toBeInTheDocument();
+    expect(within(listed[0]).getByText('adds 2 entries')).toBeInTheDocument();
     // Each installer's own changes, under its own heading; the memory server also says it adds itself to the harnesses.
     const dashboardEffects = within(confirmation).getByRole('region', { name: 'The dashboard installer also' });
     expect(within(dashboardEffects).getByText(/Appends a line that puts ~\/\.local\/bin on your PATH/)).toBeInTheDocument();
@@ -146,11 +148,19 @@ describe('Set up step', () => {
     expect(at('extension_action')).toBeLessThan(at('setup_install_memory'));
     expect(at('setup_install_dashboard')).toBeLessThan(at('setup_register_mcp'));
     expect(at('setup_install_memory')).toBeLessThan(at('setup_register_memory'));
-    expect([...ran].sort()).toEqual(['extension_action', 'extension_action', 'setup_install_dashboard', 'setup_install_memory', 'setup_register_mcp', 'setup_register_memory']);
+    expect([...ran].sort()).toEqual([
+      'extension_action',
+      'extension_action',
+      'setup_install_dashboard',
+      'setup_install_memory',
+      'setup_register_mcp',
+      'setup_register_memory',
+    ]);
     expect(ran.indexOf('setup_register_mcp')).toBeLessThan(ran.indexOf('setup_register_memory'));
     expect(backend.calls('setup_install_dashboard')).toMatchObject([{ confirmed: true }]);
     expect(backend.calls('setup_install_memory')).toMatchObject([{ confirmed: true }]);
     expect(backend.calls('extension_action').map((call) => call.dryRun)).toEqual([false, false]);
+    // OpenCode is coming soon, so only OMP gets the entries.
     expect(backend.calls('setup_register_mcp')).toEqual([{ harness: 'omp' }]);
     expect(backend.calls('setup_register_memory')).toEqual([{ harness: 'omp' }]);
     // Registering the memory server turned Project memory on, and Settings knows.
@@ -229,7 +239,8 @@ describe('Set up step', () => {
     await openSetup();
 
     const matrix = await screen.findByRole('region', { name: 'MCP servers' });
-    await within(matrix).findByText('OpenCode');
+    // OpenCode is in every reading; Codex only in this scenario's, so waiting for it waits for the fresh one.
+    await within(matrix).findByText('Codex');
 
     const rows = within(matrix).getAllByRole('listitem');
     expect(rows.map((row) => within(row).getAllByText(/^(Oh My Pi|Pi|Claude Code|Codex|OpenCode)$/)[0]?.textContent)).toEqual(['Oh My Pi', 'Pi', 'Claude Code', 'Codex', 'OpenCode']);
@@ -285,7 +296,7 @@ describe('Set up step', () => {
     await harness.load();
     await openSetup();
 
-    await screen.findByText('OpenCode');
+    await screen.findByText('Codex');
 
     // Pi's agent file is refused, so each column's snippet is in view without asking.
     expect(await screen.findAllByText(/The file is not valid JSON\./)).toHaveLength(2);
@@ -295,8 +306,30 @@ describe('Set up step', () => {
     expect(screen.queryByText(/It is switched off in the file/)).toBeNull();
     await fireEvent.click(screen.getByRole('button', { name: 'Details: Codex' }));
     expect(await screen.findByText(/It is switched off in the file/)).toBeInTheDocument();
-    // Its skills have no installer, which the family card says without asking.
-    expect(within(installer('Harness Skills')).getByText('Codex: Not supported yet.')).toBeInTheDocument();
+    // A harness without Harness Skills is left out of the skills row rather than listed with a reason.
+    expect(within(installer('Harness Skills')).queryByText(/Codex/)).toBeNull();
+  });
+
+  it('shows OpenCode as coming soon and leaves its config alone', async () => {
+    window.history.replaceState(null, '', '/?setup=manualEdit');
+    await openSetup();
+
+    const matrix = await screen.findByRole('region', { name: 'MCP servers' });
+    const row = () => within(matrix).getAllByRole('listitem').find((item) => within(item).queryByText('OpenCode'))!;
+    await waitFor(() => expect(within(row()).getByRole('group', { name: 'Harness Dashboard MCP' })).toHaveTextContent('Coming soon'));
+    const opencode = row();
+    expect(within(opencode).getByRole('group', { name: 'Harness Memory MCP' })).toHaveTextContent('Coming soon');
+    // No note, snippet or file hint while it is not offered.
+    expect(within(opencode).queryByRole('button', { name: 'Copy snippet' })).toBeNull();
+    expect(within(opencode).queryByRole('button', { name: 'Details: OpenCode' })).toBeNull();
+
+    // Nothing is registered there, even when the rest of the machine is set up.
+    await fireEvent.click(await primary('Install and continue'));
+    await screen.findByRole('dialog', { name: 'Run the recommended setup?' });
+    await click('Run setup');
+    await screen.findByRole('heading', { name: 'You’re ready to go' });
+    expect(backend.calls('setup_register_mcp')).toEqual([{ harness: 'omp' }]);
+    expect(backend.calls('setup_register_memory')).not.toContainEqual({ harness: 'opencode' });
   });
 
   it('shows which harness the skills failed in, on the skills row, and keeps the rest of the run going', async () => {

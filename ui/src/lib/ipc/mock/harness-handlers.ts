@@ -45,6 +45,7 @@ function withoutProjectScope(view: ExtensionsView): ExtensionsView {
     plugins: user(view.plugins),
     skills: user(view.skills),
     promptTemplates: user(view.promptTemplates),
+    agents: user(view.agents),
     themes: user(view.themes),
     packages: user(view.packages),
     extensionModules: user(view.extensionModules),

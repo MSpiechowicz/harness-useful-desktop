@@ -55,12 +55,14 @@ impl Harness for Omp {
 
     fn capabilities(&self) -> Capabilities {
         Capabilities {
+            chat: true,
             plugins: true,
             marketplaces: true,
             mcp: true,
             skills: true,
             extension_modules: true,
             themes: true,
+            cli_actions: true,
             profiles: true,
             approval_modes: true,
             slash_commands_via_prompt: true,

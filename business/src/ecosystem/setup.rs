@@ -4,16 +4,19 @@
 //! Everything here only reads: the dashboard's and the memory server's version probes, the OMP plugin and marketplace
 //! registries, PI's user settings and the user MCP files. The MCP files of a harness are those of
 //! its user agent directory ([`Harness::paths`] without a project), so with an OMP profile active
-//! only that profile's files count.
+//! only that profile's files count. OpenCode's is its global config file ([`mcp_target`]).
 
-use std::path::{Path, PathBuf};
+use std::fs;
+use std::path::PathBuf;
 
 use super::catalog::{SKILLS_MARKETPLACE, SKILLS_PLUGIN, SKILLS_TARGET, supported_on};
 use super::installer::{Companion, installer};
+use super::mcp_merge::Shape;
 use super::mcp_register::{mcp_state, memory_mcp_state};
 use crate::env::{Env, OsKind};
 use crate::harness::{Harness, HarnessRegistry, McpTarget, SkillsStrategy};
 use crate::harnesses::omp::{installed_plugins, marketplaces};
+use crate::harnesses::opencode;
 use crate::harnesses::pi::user_has_package;
 use crate::model::{
     DashboardSetup, EcosystemId, ExtensionAction, HarnessSetup, HarnessSummary, InstallScope, McpRefusal, McpState,
@@ -58,8 +61,43 @@ pub async fn setup_status(
     }
 }
 
-/// The user MCP file the setup step writes for `harness`, and the files it also reads; `None` when
-/// the harness has none.
+/// The file a harness's companion MCP servers are registered in.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct McpFile {
+    /// The file written.
+    pub path: PathBuf,
+    /// Files that can define servers too; only read, to find an existing entry.
+    pub also_read: Vec<PathBuf>,
+    /// How the files hold their servers.
+    pub shape: Shape,
+}
+
+/// The file the setup step and project memory register servers in for `harness`; `None` when the
+/// harness has none.
+///
+/// OpenCode merges every global config file it finds. The app writes the one OpenCode itself
+/// would edit (`opencode.jsonc`, else `opencode.json`, in the config directory), creating
+/// `opencode.json` when there is neither, and only reads the others: `config.json` there,
+/// `opencode.json[c]` in `~/.opencode` and in `OPENCODE_CONFIG_DIR`, and the file `OPENCODE_CONFIG`
+/// names.
+pub fn mcp_target(env: &Env, harness: &dyn Harness) -> Option<McpFile> {
+    match harness.companion_setup().mcp {
+        McpTarget::UserMcpJson { .. } => {
+            let (path, also_read) = mcp_target_paths(env, harness)?;
+
+            Some(McpFile {
+                path,
+                also_read,
+                shape: Shape::McpServers,
+            })
+        }
+        McpTarget::OpenCodeConfig => Some(opencode_file(env)),
+        McpTarget::Unsupported => None,
+    }
+}
+
+/// The `mcp.json` of a [`McpTarget::UserMcpJson`] harness and the files it also reads; `None` for
+/// any other harness. Share setup reads and writes only these (`mcpServers`) files.
 pub fn mcp_target_paths(env: &Env, harness: &dyn Harness) -> Option<(PathBuf, Vec<PathBuf>)> {
     let McpTarget::UserMcpJson { also_read } = harness.companion_setup().mcp else {
         return None;
@@ -69,6 +107,48 @@ pub fn mcp_target_paths(env: &Env, harness: &dyn Harness) -> Option<(PathBuf, Ve
     let others = also_read.iter().map(|name| agent_dir.join(name)).collect();
 
     Some((agent_dir.join("mcp.json"), others))
+}
+
+/// OpenCode's global config file and the other user config files it reads (see [`mcp_target`]).
+fn opencode_file(env: &Env) -> McpFile {
+    let config = opencode::config_dir(env);
+    let jsonc = config.join("opencode.jsonc");
+    let json = config.join("opencode.json");
+
+    // A symlink counts as there, so it is refused rather than passed over.
+    let path = if fs::symlink_metadata(&jsonc).is_ok() {
+        jsonc
+    } else {
+        json
+    };
+
+    let extra_dirs = std::iter::once(opencode::home_config_dir(env)).chain(opencode::custom_config_dir(env));
+    let candidates = ["config.json", "opencode.json", "opencode.jsonc"]
+        .map(|name| config.join(name))
+        .into_iter()
+        .chain(extra_dirs.flat_map(|dir| [dir.join("opencode.json"), dir.join("opencode.jsonc")]))
+        .chain(env_config_file(env));
+
+    let mut also_read: Vec<PathBuf> = Vec::new();
+    for candidate in candidates {
+        if candidate != path && !also_read.contains(&candidate) {
+            also_read.push(candidate);
+        }
+    }
+
+    McpFile {
+        path,
+        also_read,
+        shape: Shape::OpenCode,
+    }
+}
+
+/// The file `OPENCODE_CONFIG` names, when absolute (a relative one depends on OpenCode's working
+/// directory). It is only ever read: the user points OpenCode at it, so the app does not write it.
+fn env_config_file(env: &Env) -> Option<PathBuf> {
+    env.var("OPENCODE_CONFIG")
+        .map(PathBuf::from)
+        .filter(|path| path.is_absolute())
 }
 
 /// The `harness-memory` binary: whether and which version is installed, and its installer.
@@ -215,11 +295,11 @@ fn omp_skills(env: &Env, harness: &dyn Harness) -> SkillsSetup {
     SkillsSetup::Install { actions }
 }
 
-/// A server's MCP state in `harness` (`state` reads it from the user MCP file and the files it also
-/// reads); a harness without a user MCP file reports a refusal with no file.
-fn harness_mcp_state(env: &Env, harness: &dyn Harness, state: fn(&Env, &Path, &[PathBuf]) -> McpState) -> McpState {
-    match mcp_target_paths(env, harness) {
-        Some((path, also_read)) => state(env, &path, &also_read),
+/// A server's MCP state in `harness` (`state` reads it from the harness's MCP file and the files it
+/// also reads); a harness without an MCP file reports a refusal with no file.
+fn harness_mcp_state(env: &Env, harness: &dyn Harness, state: fn(&Env, &McpFile) -> McpState) -> McpState {
+    match mcp_target(env, harness) {
+        Some(file) => state(env, &file),
         None => McpState::Refused {
             file: String::new(),
             reason: McpRefusal::Unreadable,

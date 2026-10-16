@@ -57,8 +57,8 @@ pub use dropped::{AttachedFile, DropEvent, DroppedImage};
 pub use ecosystem::{EcosystemId, EcosystemInstalled, EcosystemItem, EcosystemRelease, EcosystemStatus, InstallStep};
 pub use extension_action::{CliResult, ExtensionAction, InstallScope, MAX_CLI_OUTPUT_BYTES};
 pub use extensions::{
-    ExtensionModuleInfo, ExtensionScope, ExtensionsView, MarketplaceEntry, MarketplaceInfo, McpServerInfo,
-    McpTransport, PackageInfo, PluginFeature, PluginInfo, PromptTemplateInfo, SkillInfo, ThemeInfo,
+    AgentInfo, AgentMode, ExtensionModuleInfo, ExtensionScope, ExtensionsView, MarketplaceEntry, MarketplaceInfo,
+    McpServerInfo, McpTransport, PackageInfo, PluginFeature, PluginInfo, PromptTemplateInfo, SkillInfo, ThemeInfo,
 };
 pub use git::{
     Branch, CommitInfo, DiffLine, DiffLineKind, DiffRequest, DiffScope, FileDiff, GitFileStatus, GitStatus, Hunk,
@@ -81,8 +81,8 @@ pub use session::{
     TranscriptStats,
 };
 pub use setup::{
-    DashboardInstallResult, DashboardSetup, HarnessSetup, InstallLogLine, InstallStream, McpRefusal, McpState,
-    MemorySwitchResult, RecommendedSetup, SkillsSetup,
+    DashboardInstallResult, DashboardSetup, HarnessSetup, InstallLogLine, InstallStream, ManualRemoval, McpRefusal,
+    McpState, MemorySwitchResult, RecommendedSetup, SkillsSetup,
 };
 pub use subagent::{Subagent, SubagentStatus, SubagentTool};
 pub use sync::{

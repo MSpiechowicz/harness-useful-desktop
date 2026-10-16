@@ -1,14 +1,77 @@
 # OpenCode support — plan and research (resumable)
 
-Status: **researched, not started.** Proposed and awaiting a scope decision (see [Decisions](#open-decisions)).
-Research date: 2026-10-09, against OpenCode **v1.18.35** (released 2026-10-06), docs at opencode.ai/docs dated
-2026-10-08, source `github.com/anomalyco/opencode` (formerly `sst/opencode`, default branch `dev`).
+Status: **levels 1, 2 and 4 are implemented on `feat/opencode` (2026-10-16). Level 3 (chat over ACP) is open.**
+Detection, the redacted config view, extensions (including the new Agents category), sessions through the CLI and the
+Recommended setup MCP entries work. Chat is gated off ("Chat coming soon"). The decisions taken are recorded in
+[Decisions taken](#decisions-taken), what research got wrong in [Corrected facts](#corrected-facts). The rest of this
+document is the original research (2026-10-09, OpenCode **v1.18.35**, released 2026-10-06, docs at opencode.ai/docs
+dated 2026-10-08, source `github.com/anomalyco/opencode`, formerly `sst/opencode`, default branch `dev`), kept for
+level 3 and as a reference. Where it disagrees with the two sections named above, they win.
 
-OpenCode moves fast. Before resuming, re-check the version, the ACP method list and the paths below against the
-current release.
+OpenCode moves fast. Before resuming level 3, re-check the version, the ACP method list and the paths below against the
+current release. The implementation follows the 1.19.3 sources and replays recorded CLI output in its tests
+(`business/tests/fixtures/sessions/opencode/`).
+
+## Implemented
+
+| Level | State | Where |
+| --- | --- | --- |
+| 1 Detection, config, gate | Done | `business/src/harnesses/opencode/{mod,paths,config,catalog}.rs`, `pi_family/jsonc.rs`, `process/resolve.rs` (`~/.opencode/bin`), `env.rs`, `security/{deny,rules}.rs` |
+| 2 Sessions | Done | `harnesses/opencode/sessions.rs`, `process/blocking.rs`, `src-tauri/src/commands/sessions.rs` |
+| 3 Chat over ACP | **Open** | Nothing yet. `capabilities.chat` is false, `launch_spec` returns `Unsupported` |
+| 4 Extensions | Done, read-only | `harnesses/opencode/extensions*.rs`; no `opencode plugin` actions (`capabilities.cliActions` is false) |
+
+Also done: Recommended setup registers the dashboard and memory MCP servers in OpenCode's global config
+(`McpTarget::OpenCodeConfig`, JSONC-aware, a file with comments gives `McpState::ManualEdit` with a snippet to
+paste), the Agents extensions tab, the OpenCode onboarding card with an allow-by-default notice, and the chat gate in the UI.
+Not done on purpose: Harness Skills install (`SkillsStrategy::Unsupported`, no OpenCode package), Share setup
+(`ShareSupport::NONE`), reading `opencode.db` or `storage/`. The checklist for a harness like this is in
+[adding-a-harness.md](../adding-a-harness.md).
+
+## Decisions taken
+
+The six open decisions of the research, answered:
+
+1. **Scope.** Levels 1, 2 and 4 now, chat (ACP) later. The UI says "Chat coming soon" for OpenCode.
+2. **Auto-update.** Every OpenCode spawn carries `OPENCODE_DISABLE_AUTOUPDATE=1` (`Harness::spawn_env`): the version
+   probe, session list, export and delete, and any chat launch later.
+3. **Inherited `OPENCODE_PERMISSION` / `OPENCODE_CONFIG_CONTENT`.** Kept, not stripped. The app records only whether
+   they are set (`PRESENCE_VARS` in `env.rs`, never the values) and the config view says so in a notice.
+4. **Onboarding.** An allow-by-default notice for OpenCode when it is the daily driver, like the OMP approval step. The
+   app never changes OpenCode's permissions.
+5. **`~/.opencode/`.** Shown as a config layer (and read for skills, agents, commands and plugins), as OpenCode reads it.
+6. **Agents.** A new extensions category (`ExtensionsView.agents`, `AgentInfo`, `Capabilities.agents`), not config view
+   only.
+
+Further decisions: `supported_versions` is `1.18.` and `1.19.` (2.x shows as untested). The chat gate is a new
+`Capabilities.chat` flag, next to `agents` and `cliActions`. Sessions are linear (`session_tree` false: no resume or
+fork). Sessions come only from the CLI, so a new `Harness::cli_sessions` hook and a synchronous `BlockingRunner` exist.
+
+## Corrected facts
+
+Findings from building it that differ from, or add to, the research below:
+
+- **No `scout` built-in agent in 1.19.3.** The built-ins are `build` and `plan` (primary), `general` and `explore`
+  (subagents), plus the hidden `compaction`, `title` and `summary`.
+- **`opencode session list` prints nothing when there are no sessions** (not `[]`). The app treats empty output as an
+  empty list.
+- **`export` and `session delete` find a session of any project**, and `session list` covers the whole git worktree of
+  the working directory. The app keeps only sessions whose directory is the project or lies inside it, and deletes only a
+  session the project's list shows.
+- **OpenCode 1.19 stopped the terminal UI's auto-install of updates.** `OPENCODE_DISABLE_AUTOUPDATE=1` is still set on
+  every spawn.
+- **OpenCode 2 exists** (`opencode upgrade --major`), so 2.x is detected as untested, not unsupported.
+- **`--pure` on every session call** (`session list`, `export`, `session delete`): OpenCode runs them without external
+  plugins.
+- **Session ids** are checked (`ses_` prefix, characters safe as a CLI argument) before anything is spawned.
+- **Trailing commas.** OpenCode reads its config as JSONC with trailing commas allowed. Only comments stop the app from
+  rewriting a config file.
 
 ## Contents
 
+- [Implemented](#implemented)
+- [Decisions taken](#decisions-taken)
+- [Corrected facts](#corrected-facts)
 - [Proposed scope ladder](#proposed-scope-ladder)
 - [Integration points in this repo](#integration-points-in-this-repo)
 - [OpenCode facts](#opencode-facts)
@@ -155,7 +218,8 @@ Follow `docs/adding-a-harness.md`. Files and symbols:
   `/redo`, `/share`, `/help`.
 - **Agents:** `~/.config/opencode/agents/`, `.opencode/agents/`, or the `agent` key; keys `description`, `mode`
   (primary/subagent/all), `model`, `prompt`, `temperature`, `permission`, `steps`, `disable`, `hidden`, `color`.
-  Built-ins: build, plan (primary); general, explore, scout (subagents); hidden compaction, title, summary.
+  Built-ins: build, plan (primary); general, explore (subagents; research listed a `scout` too, 1.19.3 has none); hidden
+  compaction, title, summary.
 - **Skills:** `<name>/SKILL.md` under `.opencode/skills`, `~/.config/opencode/skills`, `.claude/skills`,
   `~/.claude/skills`, `.agents/skills`, `~/.agents/skills` (walking up to the worktree root).
 - **Plugins:** local `.opencode/plugins/`, `~/.config/opencode/plugins/` (.js/.ts) or npm via `plugin`; installed with
@@ -252,6 +316,8 @@ ACP facts:
 `--auto`, `--yolo` or `--dangerously-skip-permissions`.
 
 ## Open decisions
+
+All six were decided on 2026-10-16, see [Decisions taken](#decisions-taken). The original questions:
 
 1. Scope: level 1 now and the rest later (recommended), or straight through to chat.
 2. Auto-update: run OpenCode with `OPENCODE_DISABLE_AUTOUPDATE=1` (recommended).

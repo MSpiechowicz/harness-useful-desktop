@@ -38,4 +38,12 @@ file: string,
 /**
  * Why.
  */
-reason: McpRefusal, };
+reason: McpRefusal, } | { "type": "manualEdit", 
+/**
+ * The file to edit.
+ */
+file: string, 
+/**
+ * The server entry to add, as text ready to paste.
+ */
+snippet: string, };

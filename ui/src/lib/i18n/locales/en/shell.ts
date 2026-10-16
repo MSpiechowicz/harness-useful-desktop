@@ -10,7 +10,7 @@ export const shell = {
   'shell.view.changes.body': 'A graphical diff of your working tree. Comment on any line and send it straight back to the agent.',
   'shell.view.config': 'Config',
   'shell.view.config.heading': 'Your harness configuration, readable',
-  'shell.view.config.body': 'Settings, MCP servers and profiles from OMP and PI in one place, with secrets safely masked.',
+  'shell.view.config.body': 'Settings, MCP servers and profiles from OMP, PI and OpenCode in one place, with secrets safely masked.',
   'shell.view.extensions': 'Extensions',
   'shell.view.extensions.heading': 'Plugins, skills and MCP',
   'shell.view.extensions.body': 'Manage plugins, marketplaces, skills and themes, with a dry-run preview before anything changes.',
@@ -51,10 +51,11 @@ export const shell = {
 
 
   'shell.toast.noHarness.title': 'No harness to chat with',
-  'shell.toast.noHarness.description': 'Run the setup to detect OMP or PI.',
+  'shell.toast.noHarness.description': 'Run the setup to detect OMP, PI or OpenCode.',
   'shell.toast.needProject.title': 'Open a project first',
   'shell.toast.needProject.description': 'The agent works inside one folder.',
   'shell.toast.noSession': 'No saved session to resume',
+  'shell.toast.resumeSoon': 'Sessions of {harness} cannot be resumed yet',
   'shell.toast.saveFailed': 'Could not save settings',
 
   'shell.shortcuts.title': 'Keyboard shortcuts',

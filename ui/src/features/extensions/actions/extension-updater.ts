@@ -100,6 +100,11 @@ export class ExtensionUpdater {
   }
 
   private async checkHarness({ info, capabilities }: HarnessSummary): Promise<void> {
+    // Updates run through the harness CLI; a harness without CLI actions has none to run.
+    if (!capabilities.cliActions) {
+      return;
+    }
+
     if (capabilities.marketplaces) {
       await this.refreshMarketplaces(info.id);
     }

@@ -6,8 +6,9 @@ use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
 use harness_business::BusinessError;
-use harness_business::model::ConfigValue;
-use harness_business::security::{Redactor, SafeReader, is_denied, redact_text};
+use harness_business::model::{ConfigValue, SecretKind};
+use harness_business::security::{RedactionContext, Redactor, SafeReader, is_denied, redact_text};
+use serde_json::json;
 
 const CANARY: &str = "CANARY-7f3a9c";
 
@@ -120,4 +121,79 @@ fn redacting_free_text_hides_canary_secrets_in_cli_output() {
 
     assert!(!redacted.contains(CANARY), "canary leaked: {redacted}");
     assert!(redacted.contains("https://••••@git.example.com/repo.git"));
+}
+
+/// The value at `path` inside a redacted map.
+fn field<'a>(value: &'a ConfigValue, path: &[&str]) -> &'a ConfigValue {
+    path.iter().fold(value, |current, key| {
+        let ConfigValue::Map(fields) = current else {
+            panic!("expected a map at {key}");
+        };
+
+        &fields.iter().find(|field| field.key == *key).unwrap().value
+    })
+}
+
+#[test]
+fn redacting_an_opencode_config_hides_every_secret_shape() {
+    let config = json!({
+        "provider": { "acme": { "options": { "apiKey": CANARY, "baseURL": "https://api.acme.dev/v1" } } },
+        "mcp": {
+            "github": {
+                "type": "local",
+                "command": ["npx", "-y", "@modelcontextprotocol/server-github"],
+                "environment": { "GITHUB_ORG": CANARY, "RETRIES": 3 },
+            },
+            "linear": {
+                "type": "remote",
+                "url": "https://mcp.linear.app/sse",
+                "headers": { "Authorization": CANARY, "X-Org": CANARY },
+                "oauth": { "clientId": "desktop-client", "clientSecret": CANARY, "scope": "repo read:org" },
+            },
+        },
+    });
+
+    let redacted = Redactor.redact(&config);
+    let hidden = ConfigValue::Secret(SecretKind::Value);
+
+    for path in [
+        &["provider", "acme", "options", "apiKey"][..],
+        &["mcp", "github", "environment", "GITHUB_ORG"],
+        &["mcp", "github", "environment", "RETRIES"],
+        &["mcp", "linear", "headers", "Authorization"],
+        &["mcp", "linear", "headers", "X-Org"],
+        &["mcp", "linear", "oauth", "clientSecret"],
+    ] {
+        assert_eq!(field(&redacted, path), &hidden, "{path:?} must be hidden");
+    }
+
+    let exposed = serde_json::to_string(&redacted).unwrap();
+    assert!(!exposed.contains(CANARY), "canary leaked: {exposed}");
+
+    // Positive control: non-secret configuration is still visible.
+    for visible in [
+        "https://api.acme.dev/v1",
+        "@modelcontextprotocol/server-github",
+        "desktop-client",
+        "repo read:org",
+    ] {
+        assert!(exposed.contains(visible), "expected {visible} to stay visible");
+    }
+}
+
+#[test]
+fn redacting_an_opencode_value_at_its_key_path_hides_secrets() {
+    let cases = [
+        (&["mcp", "github", "environment"][..], json!({ "GITHUB_ORG": CANARY })),
+        (&["mcp", "linear", "headers"], json!({ "X-Org": CANARY })),
+        (&["mcp", "linear", "oauth"], json!({ "clientSecret": CANARY })),
+        (&["provider", "acme", "options"], json!({ "apiKey": CANARY })),
+    ];
+
+    for (path, value) in cases {
+        let redacted = Redactor.redact_at(&value, &mut RedactionContext::at(path.iter().copied()));
+        let exposed = serde_json::to_string(&redacted).unwrap();
+
+        assert!(!exposed.contains(CANARY), "canary leaked at {path:?}: {exposed}");
+    }
 }

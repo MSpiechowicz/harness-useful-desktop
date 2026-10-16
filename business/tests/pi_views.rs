@@ -194,3 +194,35 @@ fn themes_follow_the_light_dark_setting_and_modules_honour_exclusions() {
         .collect();
     assert_eq!(modules, [("legacy", false), ("multi", true), ("permission-gate", true)]);
 }
+
+#[cfg(unix)]
+#[test]
+fn skill_symlink_loops_are_skipped_and_linked_skills_kept() {
+    use std::os::unix::fs::symlink;
+
+    let temp = tempfile::TempDir::new().unwrap();
+    let home = temp.path().join("home");
+    let skills = home.join(".agents/skills");
+    let shared = temp.path().join("shared/linked");
+    write_skill(&skills.join("group/grouped"));
+    write_skill(&shared);
+    symlink(&shared, skills.join("linked")).unwrap();
+    for index in 0..50 {
+        symlink(".", skills.join(format!("loop-{index}"))).unwrap();
+        symlink("..", skills.join("group").join(format!("up-{index}"))).unwrap();
+    }
+
+    let started = std::time::Instant::now();
+    let view = extensions(&env_at(&home), None);
+    let elapsed = started.elapsed();
+    assert!(elapsed.as_secs_f32() < 2.0, "{elapsed:?}");
+
+    let mut names: Vec<&str> = view.skills.iter().map(|skill| skill.name.as_str()).collect();
+    names.sort_unstable();
+    assert_eq!(names, ["grouped", "linked"]);
+}
+
+fn write_skill(dir: &Path) {
+    std::fs::create_dir_all(dir).unwrap();
+    std::fs::write(dir.join("SKILL.md"), "---\ndescription: A skill\n---\n").unwrap();
+}

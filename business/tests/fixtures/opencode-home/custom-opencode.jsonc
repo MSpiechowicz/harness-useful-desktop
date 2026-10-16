@@ -1,0 +1,5 @@
+// The file OPENCODE_CONFIG names.
+{
+  "share": "disabled",
+  "provider": { "y": { "options": { "apiKey": "CANARY-7f3a9c" } } },
+}

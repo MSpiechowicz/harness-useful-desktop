@@ -35,6 +35,7 @@ export function revealTarget(entry: ExtItem): string | null {
     case 'plugins':
     case 'skills':
     case 'prompts':
+    case 'agents':
     case 'modules':
     case 'themes':
       return entry.data.path;

@@ -7,7 +7,7 @@ use std::sync::Mutex;
 
 use harness_business::env::{Env, OsKind};
 use harness_business::harness::{Harness, HarnessRegistry, first_semver, override_name_matches};
-use harness_business::harnesses::{Omp, Pi};
+use harness_business::harnesses::{Omp, OpenCode, Pi};
 use harness_business::model::{BinaryOverride, HarnessId, VersionSupport};
 use harness_business::process::{BoxFuture, ExecOutput, ExecSpec, ProcessRunner, TokioRunner};
 use harness_business::{BusinessError, Result};
@@ -103,7 +103,14 @@ fn omp_18_is_supported_and_everything_else_untested() {
     assert_eq!(Omp.version_support("18.0.0"), VersionSupport::Supported);
     assert_eq!(Omp.version_support("19.0.0"), VersionSupport::Untested);
     assert_eq!(Omp.version_support("1.18.0"), VersionSupport::Untested);
-    assert_eq!(Pi.version_support("1.1.0"), VersionSupport::Untested);
+}
+
+#[test]
+fn pi_1_1_is_supported_and_everything_else_untested() {
+    assert_eq!(Pi.version_support("1.1.0"), VersionSupport::Supported);
+    assert_eq!(Pi.version_support("1.1.7"), VersionSupport::Supported);
+    assert_eq!(Pi.version_support("1.2.0"), VersionSupport::Untested);
+    assert_eq!(Pi.version_support("11.1.0"), VersionSupport::Untested);
 }
 
 #[test]
@@ -269,14 +276,14 @@ async fn the_registry_detects_every_harness_and_honours_overrides() {
         .await;
 
     let ids: Vec<HarnessId> = summaries.iter().map(|summary| summary.info.id).collect();
-    assert_eq!(ids, [HarnessId::Omp, HarnessId::Pi]);
+    assert_eq!(ids, [HarnessId::Omp, HarnessId::Pi, HarnessId::OpenCode]);
     assert!(!summaries[0].detection.installed);
     assert_eq!(summaries[1].detection.version.as_deref(), Some("1.1.0"));
-    assert_eq!(summaries[1].detection.version_support, VersionSupport::Untested);
+    assert_eq!(summaries[1].detection.version_support, VersionSupport::Supported);
 }
 
 #[test]
-fn the_registry_lists_both_harnesses() {
+fn the_registry_lists_every_harness() {
     let registry = HarnessRegistry::with_defaults();
 
     let ids: Vec<HarnessId> = registry.all().map(|harness| harness.id()).collect();
@@ -289,4 +296,89 @@ fn the_registry_lists_both_harnesses() {
     }
 
     assert_eq!(registry.get(HarnessId::Omp).unwrap().info().homepage, "https://omp.sh");
+    assert_eq!(
+        registry.get(HarnessId::OpenCode).unwrap().info().homepage,
+        "https://opencode.ai"
+    );
+}
+
+#[test]
+fn opencode_1_18_and_1_19_are_supported_and_everything_else_untested() {
+    assert_eq!(OpenCode.version_support("1.18.35"), VersionSupport::Supported);
+    assert_eq!(OpenCode.version_support("1.19.3"), VersionSupport::Supported);
+    assert_eq!(OpenCode.version_support("1.17.9"), VersionSupport::Untested);
+    assert_eq!(OpenCode.version_support("2.0.0"), VersionSupport::Untested);
+    assert_eq!(OpenCode.version_support("11.18.0"), VersionSupport::Untested);
+}
+
+#[tokio::test]
+async fn opencode_prints_a_bare_version_and_is_probed_without_updating_itself() {
+    let home = TempDir::new().unwrap();
+    let (env, bin) = env_with_bin(&home);
+    let binary = fake_binary(&bin, &binary_file("opencode"), "");
+    let runner = CannedRunner::printing("1.18.35\n");
+
+    let detection = OpenCode.detect(&env, &runner, None).await;
+
+    assert!(detection.installed);
+    assert_eq!(detection.version.as_deref(), Some("1.18.35"));
+    assert_eq!(detection.version_support, VersionSupport::Supported);
+    assert_eq!(detection.error, None);
+    assert_eq!(
+        detection.config_dir,
+        Some(
+            home.path()
+                .join(".config")
+                .join("opencode")
+                .to_string_lossy()
+                .into_owned()
+        )
+    );
+
+    let seen = runner.seen.lock().unwrap();
+    assert_eq!(seen[0].program, binary);
+    assert_eq!(seen[0].args, ["--version"]);
+    assert!(
+        seen[0]
+            .env
+            .iter()
+            .any(|(name, value)| name == "OPENCODE_DISABLE_AUTOUPDATE" && value == "1"),
+        "{:?}",
+        seen[0].env
+    );
+}
+
+#[tokio::test]
+async fn opencode_is_found_where_its_install_script_puts_it() {
+    let home = TempDir::new().unwrap();
+    let (env, _) = env_with_bin(&home);
+    let binary = fake_binary(&home.path().join(".opencode").join("bin"), &binary_file("opencode"), "");
+    let runner = CannedRunner::printing("1.19.3\n");
+
+    let detection = OpenCode.detect(&env, &runner, None).await;
+
+    assert!(detection.installed);
+    assert_eq!(
+        detection.binary_path.as_deref(),
+        Some(binary.to_string_lossy().as_ref())
+    );
+    assert_eq!(detection.version_support, VersionSupport::Supported);
+}
+
+#[tokio::test]
+async fn a_missing_opencode_reports_its_install_hint() {
+    let home = TempDir::new().unwrap();
+    let (env, _) = env_with_bin(&home);
+
+    let detection = OpenCode.detect(&env, &NoRunner, None).await;
+
+    assert!(!detection.installed);
+    let hint = detection.install_hint.unwrap();
+    let command = if cfg!(windows) {
+        "npm install -g opencode-ai"
+    } else {
+        "curl -fsSL https://opencode.ai/install | bash"
+    };
+    assert_eq!(hint.command, command);
+    assert_eq!(hint.docs_url, "https://opencode.ai/docs/");
 }

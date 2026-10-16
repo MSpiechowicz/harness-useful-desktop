@@ -48,6 +48,7 @@ pub fn pi_extensions_view(env: &Env, project: Option<&Path>) -> ExtensionsView {
         marketplaces: Vec::new(),
         skills: skills(env, &paths, project, &layers),
         prompt_templates: prompt_templates(env, &paths, &layers),
+        agents: Vec::new(),
         mcp_servers: mcp_servers(&paths),
         themes: themes(env, &paths, &layers),
         packages: packages(env, &layers),
@@ -60,10 +61,7 @@ pub fn pi_extensions_view(env: &Env, project: Option<&Path>) -> ExtensionsView {
 /// repository root, user skills, `~/.agents/skills`, then paths listed in settings.
 fn skills(env: &Env, paths: &HarnessPaths, project: Option<&Path>, layers: &[Layer]) -> Vec<SkillInfo> {
     let mut roots = Vec::new();
-    let mut add = |dir: PathBuf, scope| {
-        let origin = origin_label(env, project, &dir);
-        roots.push(SkillRoot { dir, scope, origin });
-    };
+    let mut add = |dir: PathBuf, scope| roots.push(SkillRoot::labeled(env, project, dir, scope));
 
     if let (Some(project), Some(dir)) = (project, &paths.project_dir) {
         add(dir.join("skills"), ExtensionScope::Project);

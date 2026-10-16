@@ -3,4 +3,4 @@
 /**
  * File format of a configuration source.
  */
-export type ConfigFormat = "yaml" | "json" | "markdown" | "text";
+export type ConfigFormat = "yaml" | "json" | "jsonc" | "markdown" | "text";

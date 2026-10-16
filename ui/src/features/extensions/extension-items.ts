@@ -1,4 +1,6 @@
 import { t, tn } from '$lib/i18n/i18n.svelte';
+import type { AgentInfo } from '$lib/ipc/bindings/AgentInfo';
+import type { AgentMode } from '$lib/ipc/bindings/AgentMode';
 import type { Capabilities } from '$lib/ipc/bindings/Capabilities';
 import type { ExtensionScope } from '$lib/ipc/bindings/ExtensionScope';
 import type { ExtensionsView } from '$lib/ipc/bindings/ExtensionsView';
@@ -11,7 +13,7 @@ import type { SkillInfo } from '$lib/ipc/bindings/SkillInfo';
 import type { ThemeInfo } from '$lib/ipc/bindings/ThemeInfo';
 import type { ExtensionModuleInfo } from '$lib/ipc/bindings/ExtensionModuleInfo';
 
-export type ExtTab = 'plugins' | 'marketplaces' | 'skills' | 'prompts' | 'mcp' | 'themes' | 'packages' | 'modules';
+export type ExtTab = 'plugins' | 'marketplaces' | 'skills' | 'prompts' | 'agents' | 'mcp' | 'themes' | 'packages' | 'modules';
 
 export interface TabDef {
   id: ExtTab;
@@ -44,6 +46,7 @@ export const TABS: readonly TabDef[] = [
   tab('marketplaces', 'marketplaces'),
   tab('skills', 'skills'),
   tab('prompts', 'promptTemplates'),
+  tab('agents', 'agents'),
   tab('mcp', 'mcp'),
   tab('themes', 'themes'),
   tab('packages', 'packages'),
@@ -78,6 +81,7 @@ export type ExtItem =
   | (ItemBase & { tab: 'marketplaces'; data: MarketplaceInfo; /** Plugins installed from it that have an update, by name. */ updates: Record<string, PluginInfo> })
   | (ItemBase & { tab: 'skills'; data: SkillInfo })
   | (ItemBase & { tab: 'prompts'; data: PromptTemplateInfo })
+  | (ItemBase & { tab: 'agents'; data: AgentInfo })
   | (ItemBase & { tab: 'mcp'; data: McpServerInfo })
   | (ItemBase & { tab: 'themes'; data: ThemeInfo })
   | (ItemBase & { tab: 'packages'; data: PackageInfo })
@@ -93,6 +97,15 @@ function scopeBadge(scope: ExtensionScope): ExtBadge {
 
 function enabledBadge(enabled: boolean): ExtBadge {
   return enabled ? { label: t('extensions.state.enabled'), tone: 'success' } : { label: t('extensions.state.disabled'), tone: 'neutral' };
+}
+
+export function modeLabel(mode: AgentMode): string {
+  return t(`extensions.mode.${mode}`);
+}
+
+/** Built-in agents say so where a user-defined one names its scope. */
+export function agentScope(agent: AgentInfo): ExtensionScope {
+  return agent.builtIn ? 'builtin' : agent.scope;
 }
 
 function base(id: string, title: string, subtitle: string | null, badges: ExtBadge[], extra: string[] = []): ItemBase {
@@ -161,6 +174,17 @@ function promptItems(view: ExtensionsView): ExtItem[] {
   });
 }
 
+function agentItems(view: ExtensionsView): ExtItem[] {
+  return view.agents.map((agent) => {
+    const badges: ExtBadge[] = [{ label: modeLabel(agent.mode), tone: agent.mode === 'subagent' ? 'neutral' : 'accent' }, scopeBadge(agentScope(agent))];
+    if (agent.hidden) {
+      badges.push({ label: t('extensions.state.hidden'), tone: 'warning' });
+    }
+
+    return { ...base(`${agent.name}\u001f${agent.path ?? agent.scope}`, agent.name, agent.description, badges, agent.model ? [agent.model] : []), tab: 'agents', data: agent };
+  });
+}
+
 /** A server's one-line summary: its command, or its URL when that is plain text (never a hidden value). */
 function serverSummary(server: McpServerInfo): string | null {
   if (server.command) {
@@ -215,6 +239,7 @@ const BUILDERS: Record<ExtTab, (view: ExtensionsView) => ExtItem[]> = {
   marketplaces: marketplaceItems,
   skills: skillItems,
   prompts: promptItems,
+  agents: agentItems,
   mcp: mcpItems,
   themes: themeItems,
   packages: packageItems,
@@ -244,6 +269,8 @@ export function rowInfo(entry: ExtItem): RowInfo {
     case 'prompts':
     case 'themes':
       return { status: null, meta: entry.tab === 'themes' && entry.data.active ? t('extensions.badge.active') : scopeLabel(entry.data.scope), update: false };
+    case 'agents':
+      return { status: null, meta: modeLabel(entry.data.mode), update: false };
     case 'mcp':
       return { status: state(entry.data.enabled), meta: entry.data.transport, update: false };
     case 'packages':

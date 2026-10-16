@@ -1,14 +1,23 @@
 # Adding a harness
 
-A harness is one coding-agent CLI. The app supports OMP and PI today. This guide adds a new one, called `acme`
-(binary `acme`) in the examples. The UI renders from `HarnessInfo`, `Capabilities` and the views an adapter returns,
-so most of the work is Rust in `business/`.
+A harness is one coding-agent CLI. The app supports OMP, PI and OpenCode today. This guide adds a new one, called
+`acme` (binary `acme`) in the examples. The UI renders from `HarnessInfo`, `Capabilities` and the views an adapter
+returns, so most of the work is Rust in `business/`. OMP and PI are the references for a harness the app chats with
+(PI-family files and RPC). OpenCode (`business/src/harnesses/opencode/`) is the reference for a harness without chat
+whose sessions are only reachable through its CLI.
 
 **Fit check.** The chat engine drives a harness over stdio with newline-delimited JSON requests that carry an `id`,
 answered by `response` frames (`pi_family::rpc`). A CLI that can be driven that way fits, even when its frames
 differ: the `RpcDialect` decides every frame it sends and decodes. A CLI with another protocol (for example a
 one-shot streaming mode without request ids) needs engine work first. Whether Claude Code or Codex fit depends on
 their protocol; neither is implemented, and that engine work is not covered here.
+
+A CLI without a fitting protocol can still ship with `capabilities.chat` false, as OpenCode does (it speaks ACP, which
+the engine does not handle yet). Detection, the configuration and extension views, sessions and Recommended setup
+work as for any harness. `launch_spec` returns `BusinessError::Unsupported`, `dialect` returns any dialect (it is
+never reached) and the UI says "Chat coming soon" wherever a chat would start. The chat steps below
+([Commands](#5-commands) for the shared slash commands, [RPC launch and dialect](#6-rpc-launch-and-dialect)) then
+shrink to those stubs, and the catalog lists every command as unsupported (see `harnesses/opencode/catalog.rs`).
 
 ## Steps
 
@@ -31,16 +40,19 @@ their protocol; neither is implemented, and that engine work is not covered here
 generated `HarnessId.ts`.
 
 ```rust
-pub enum HarnessId { Omp, Pi }
-pub const ALL: [HarnessId; 2] = [HarnessId::Omp, HarnessId::Pi];
-pub fn binary_name(self) -> &'static str { /* "omp", "pi" */ }
+pub enum HarnessId { Omp, Pi, OpenCode }
+pub const ALL: [HarnessId; 3] = [HarnessId::Omp, HarnessId::Pi, HarnessId::OpenCode];
+pub fn binary_name(self) -> &'static str { /* "omp", "pi", "opencode" */ }
 ```
 
-Add the variant, extend `ALL` (display order) and `binary_name`. The compiler flags every other exhaustive `match`.
+Add the variant, extend `ALL` (display order) and `binary_name`. The variant serializes lowercase, so `OpenCode` is
+`"opencode"`. The compiler flags every other exhaustive `match`.
 
 ## 2. Adapter and registry
 
-Create `business/src/harnesses/acme/mod.rs` with a unit struct and `impl Harness`. Start from
+Create `business/src/harnesses/acme/mod.rs` with a unit struct and `impl Harness` (a harness with much to read splits
+it into submodules that `mod.rs` delegates to, as `harnesses/opencode/{paths,config,extensions,catalog,sessions,setup}.rs`
+do). Start from
 `use crate::harness::prelude::*;`, which brings in `Harness`, `HarnessPaths`, `LaunchRequest`, `CommandCatalog`,
 `RpcDialect`, `Env`, `ExecSpec` and the model types an adapter needs.
 
@@ -55,7 +67,7 @@ Register it in two places:
 - `HarnessRegistry::with_defaults` in `business/src/harness/registry.rs`:
 
 ```rust
-Self::new(vec![Box::new(Omp), Box::new(Pi)])   // add Box::new(Acme)
+Self::new(vec![Box::new(Omp), Box::new(Pi), Box::new(OpenCode)])   // add Box::new(Acme)
 ```
 
 The registry order is the display order. Nothing else enumerates harnesses by hand: the shell, the `open_external`
@@ -71,13 +83,13 @@ differs.
 | --- | --- | --- | --- |
 | `id()` | yes | | The `HarnessId`. |
 | `info()` | yes | | `HarnessInfo`: name, short name (`"OMP"`), binary name, description, homepage. |
-| `capabilities()` | yes | | `Capabilities` flags that decide which tabs and actions the UI shows. |
+| `capabilities()` | yes | | `Capabilities` flags that decide which tabs and actions the UI shows. See [Capabilities](#capabilities). |
 | `paths(env, project)` | yes | | `HarnessPaths`: `config_root`, `agent_dir`, `data_root`, `profile`, `project_dir`. |
 | `config_view(env, project)` | yes | | Redacted `ConfigView` (user layer, then profiles and project). |
 | `extensions_view(env, project)` | yes | | Plugins, skills, MCP servers, themes, ... as `ExtensionsView`. |
 | `catalog()` | yes | | The `CommandCatalog`. |
-| `launch_spec(request)` | yes | | The RPC command line as a shell-free `ExecSpec`. |
-| `dialect()` | yes | | The `&'static dyn RpcDialect`. |
+| `launch_spec(request)` | yes | | The RPC command line as a shell-free `ExecSpec`. `Unsupported` when `capabilities.chat` is false. |
+| `dialect()` | yes | | The `&'static dyn RpcDialect`. Never reached when `capabilities.chat` is false. |
 | `sessions_dir(env, project)` | yes | | Folder holding the saved sessions of a project. |
 | `install_hint()` | yes | | Copyable install command and docs URL, shown when the CLI is missing (never run). |
 | `companion_setup()` | yes | | `CompanionSetup`: how Harness Skills are installed and where the dashboard and project memory MCP servers are registered. See [Recommended setup](#9-recommended-setup). |
@@ -90,9 +102,11 @@ differs.
 | `summary(...)` | no | info + capabilities + detection | What `harness_list` returns. |
 | `list_sessions`, `resolve_session`, `session_tree`, `session_messages`, `session_files_touched` | no | PI-family session files | See [Sessions](#7-sessions). |
 | `delete_session` | no | PI-family session files | Deletes a session file with its companion folder and backups. |
+| `cli_sessions()` | no | `None` | `Some(&dyn CliSessions)` for a harness whose sessions are only reachable through its CLI. It replaces the session file methods above. See [Sessions](#7-sessions). |
+| `spawn_env()` | no | none | `&'static [(&str, &str)]` set on every spawn of the binary: the version probe, CLI actions, the chat launch and CLI sessions. OpenCode sets `OPENCODE_DISABLE_AUTOUPDATE=1` so no probe updates the binary. |
 | `session_folder(env, project)` | no | `sessions_dir`, not configured | Where the sessions live and whether the project's own settings chose that folder (shown when deleting). |
 | `configured_approval_mode(env, project)` | no | `None` | Only for harnesses with `capabilities.approvalModes`. |
-| `cli_action(action, project)` | no | `Unsupported` error | See [CLI actions](#8-cli-actions). |
+| `cli_action(action, project)` | no | `Unsupported` error | See [CLI actions](#8-cli-actions). Needs `capabilities.cliActions`. |
 | `cli_failure_line(stdout, stderr)` | no | `None` (exit code decides) | For CLIs that exit 0 on failure. |
 
 Signature examples:
@@ -102,7 +116,24 @@ fn paths(&self, env: &Env, project: Option<&Path>) -> HarnessPaths;
 fn launch_spec(&self, request: &LaunchRequest<'_>) -> Result<ExecSpec>;
 fn dialect(&self) -> &'static dyn RpcDialect;
 fn sessions_dir(&self, env: &Env, project: &Path) -> PathBuf;
+fn cli_sessions(&self) -> Option<&dyn CliSessions> { None }
+fn spawn_env(&self) -> &'static [(&'static str, &'static str)] { &[] }
 ```
+
+### Capabilities
+
+`Capabilities` (`business/src/model/harness.rs`) are plain flags the UI reads. They must match what the adapter
+really does. Beyond the extension kinds (`plugins`, `marketplaces`, `packages`, `mcp`, `skills`, `promptTemplates`,
+`extensionModules`, `themes`) and the PI-family features (`profiles`, `approvalModes`, `projectTrust`,
+`slashCommandsViaPrompt`, `sessionTree`, `moveSession`, `removeQueued`):
+
+| Flag | Meaning when true | When false |
+| --- | --- | --- |
+| `chat` | The app drives chat sessions (`launch_spec` and `dialect` work). OMP and PI. | The UI shows "Chat coming soon" instead of the chat, the harness picker marks the harness as coming soon, and a chat is never started with it. If no installed harness can chat, the chat view says so. OpenCode. |
+| `agents` | `extensions_view` fills `agents` (`AgentInfo`) and the Extensions view has an Agents tab. | No Agents tab. OpenCode sets it. |
+| `cliActions` | Extension changes run the harness CLI (`cli_action`). | The install, enable, update and remove bars are hidden and the view is read-only. OpenCode. |
+
+The default for every flag is false (`Capabilities` derives `Default`), so an adapter lists only what it has.
 
 ## 3. Detection
 
@@ -111,9 +142,12 @@ Implement `binary_name` (or rely on `HarnessId::binary_name`), `install_hint`, `
 
 - It resolves the binary with `resolve_binary`: the user's override (only when it is an absolute existing file whose
   name is exactly the binary name, see `override_name_matches`), then absolute `PATH` entries, then the usual install
-  directories (`~/.bun/bin`, `~/.local/bin`, `~/.cargo/bin`, `~/.npm-global/bin`, Homebrew paths on macOS, `/usr/local/bin`). A shell is never asked for `PATH`. Relative `PATH` entries are
+  directories (`~/.bun/bin`, `~/.local/bin`, `~/.cargo/bin`, `~/.npm-global/bin`, `~/.opencode/bin` (the OpenCode install
+  script's target), Homebrew paths on macOS, `/usr/local/bin`). Add yours to `extra_search_dirs` in
+  `business/src/process/resolve.rs` when the CLI's installer puts it elsewhere. A shell is never asked for `PATH`. Relative `PATH` entries are
   ignored.
-- Every spawn of the binary (version probe, CLI actions, RPC launch) appends the binary's own directory and the same
+- Every spawn of the binary (version probe, CLI actions, RPC launch, CLI sessions) sets the harness's `spawn_env`
+  and appends the binary's own directory and the same
   install directories to the child's `PATH` (`launcher_search_dirs`, `ExecSpec::search_dirs`): an app started from
   the Finder has launchd's `PATH`, and a launcher such as `#!/usr/bin/env bun` must still find its interpreter.
 - It runs `<binary> <version_args>` through a `ProcessRunner` with `VERSION_TIMEOUT` (5 s) and a 64 KiB output cap,
@@ -121,7 +155,9 @@ Implement `binary_name` (or rely on `HarnessId::binary_name`), `install_hint`, `
 - Failures become a short secret-free `Detection.error`; a missing binary yields `install_hint`.
 
 Environment variables your `paths` reads must be listed in `CAPTURED_VARS` (`business/src/env.rs`); `Env` captures
-nothing else from the process.
+nothing else from the process. A variable that may hold secrets and that you only need to know is set (OpenCode's
+`OPENCODE_PERMISSION` and `OPENCODE_CONFIG_CONTENT`) goes in `PRESENCE_VARS` instead: `Env` keeps whether it is set
+(`Env::is_set`) and never its value, so a view can say "set" without reading it.
 
 ## 4. Config and extension views
 
@@ -140,17 +176,31 @@ do this: `read_document` reads through `SafeReader`, `section`/`section_from` re
 use crate::pi_family::{SectionText, optional_section, section, source};
 ```
 
+**Formats.** `read_document(path, ConfigFormat)` parses YAML (`Yaml`), JSON with comments (`Jsonc`) and otherwise JSON. A CLI whose
+config files allow comments and trailing commas (OpenCode's `opencode.jsonc`) uses `ConfigFormat::Jsonc`, which goes
+through `pi_family::jsonc`: `parse` (empty or comment-only text is `null`), `strip` (comments and trailing commas become
+spaces, so error locations still match the file) and `has_comments` (what a rewrite as plain JSON would lose). Errors
+carry a line and column, never file content. Files that merge in layers (OpenCode's global file, `OPENCODE_CONFIG`,
+the project file, `.opencode/` directories) are described layer by layer in `harnesses/opencode/config.rs`. Show a
+reference to an environment variable (`{env:NAME}`) by name and never resolve or follow a file reference
+(`{file:path}`).
+
 If you add a new way to turn an unparsed file into output, redact there too (`Redactor.redact_at` with a
 `RedactionContext` keeps key-path rules such as `mcpServers.<name>.env`; `redact_text` masks free text). Rules are
 listed in [security-privacy.md](security-privacy.md#secret-redaction).
 
 Extensions: reuse `pi_family::scan_skills`, `parse_servers` (MCP), `themes_in_dir`, `extension_module_paths` and
-`package_manifest`; write adapter code only for what is specific (plugin registries, package layers).
+`package_manifest`; write adapter code only for what is specific (plugin registries, package layers, another MCP shape:
+OpenCode's `mcp` object holds `{"type": "local", "command": [...]}` or `{"type": "remote", "url": ...}` entries, parsed
+in `harnesses/opencode/extensions/mcp.rs`). `ExtensionsView` also has `agents` (`AgentInfo`: name, description, mode
+`primary`, `subagent` or `all`, model, built-in, hidden, scope and path); fill it and set `capabilities.agents` when the
+harness has named agents. Every command-line word and value passes redaction before it leaves the business layer.
 `Capabilities` must match what the views fill in.
 
 ## 5. Commands
 
-Implement `CommandCatalog` (`business/src/harness/catalog.rs`) and return it from `Harness::catalog`.
+A harness without chat still needs a catalog. List its commands with `unsupported(reason)` invocations, as
+`harnesses/opencode/catalog.rs` does. Otherwise implement `CommandCatalog` (`business/src/harness/catalog.rs`) and return it from `Harness::catalog`.
 
 ```rust
 pub trait CommandCatalog: Send + Sync {
@@ -175,6 +225,9 @@ A `CommandInvocation` is `PromptText` (send the slash text as a prompt), `Rpc { 
 `spec`. Set `capabilities.slash_commands_via_prompt` when slash commands run as prompt text (OMP).
 
 ## 6. RPC launch and dialect
+
+Skip this step when `capabilities.chat` is false: return `BusinessError::Unsupported` from `launch_spec` and any
+dialect from `dialect` (OpenCode returns the PI dialect, which nothing calls).
 
 **Launch.** `launch_spec` receives a `LaunchRequest`: the resolved `binary`, the canonical `project`, an optional
 `resume` session id (already checked with `is_safe_session_id`), an `approval_override` and `trust_once`. Build the
@@ -231,7 +284,34 @@ results before delegating to `decode_common`).
 
 ## 7. Sessions
 
-`sessions_dir` is required. The default `list_sessions`, `resolve_session`, `session_tree`, `session_messages` and
+Two shapes exist. A harness that keeps session files the app can read (PI family) supplies `sessions_dir` and uses or
+overrides the file methods. A harness whose sessions sit behind a CLI (and, for OpenCode, in a database that also holds
+credentials, which the app never opens) implements `CliSessions` and returns it from `cli_sessions()`. Both need
+`sessions_dir`, which for a CLI harness is only the folder shown to the user.
+
+**CLI sessions.** `CliSessions` (`business/src/harness/mod.rs`) has `list`, `messages`, `files_touched` and `delete`.
+Each receives a `CliSessionCtx { env, project, binary, runner }`: the canonical project, the detected
+`ResolvedBinary` and a `BlockingRunner` (`business/src/process/blocking.rs`). `BlockingRunner::run(&ExecSpec)` is the
+synchronous twin of `ProcessRunner`, for code that runs in a blocking task: no shell, null stdin, a time limit that
+kills the process group, a byte cap per stream, a timeout reported in `ExecOutput::timed_out`. Production uses
+`StdRunner`, tests inject a runner that replays recorded output. The shell (`with_sessions` in
+`src-tauri/src/commands/sessions.rs`) waits for the detected binary before the blocking task. Sessions are linear
+here: no tree, resume or fork (`capabilities.sessionTree` false). Remember to:
+
+- override the five file methods to return `Unsupported` (the defaults would read PI-family files),
+- check every session id (`is_safe_session_id` and the CLI's own prefix) before anything is spawned,
+- build each `ExecSpec` with the harness's `spawn_env` and `launcher_search_dirs`, and set a time limit and an output
+  cap,
+- filter by project if the CLI lists or exports sessions of other projects (OpenCode's `export` and `session delete`
+  find a session of any project, and its `session list` covers the whole git worktree, so the adapter keeps sessions whose
+  directory is the project or inside it),
+- treat empty output as "no sessions" when the CLI prints nothing for an empty list,
+- redact what you pass on, including CLI error lines.
+
+OpenCode's commands, all with `--pure` (no external plugins): `session list --pure --format json`,
+`export <id> --pure`, `session delete --pure <id>`. See `harnesses/opencode/sessions.rs`.
+
+**Session files.** `sessions_dir` is required. The default `list_sessions`, `resolve_session`, `session_tree`, `session_messages` and
 `session_files_touched` read PI-family session files (`<timestamp>_<id>.jsonl`, entries linked by `id`/`parentId`)
 through `pi_family::sessions`. A harness with the same file format only supplies the folder. Helpers:
 `pi_dir_name`, `omp_dir_name`, `canonical_text`, `configured_session_dir`. A harness with another format overrides the
@@ -241,7 +321,9 @@ entered.
 
 ## 8. CLI actions
 
-Extension changes (install, remove, enable, upgrade) run the harness CLI. Implement `cli_action(action, project)`:
+Extension changes (install, remove, enable, upgrade) run the harness CLI. A harness without such actions leaves
+`capabilities.cliActions` false (and the default `cli_action`, which returns `Unsupported`): the UI then hides the action
+bars and the extension lists are read-only. OpenCode does this: the app offers no `opencode plugin` actions yet. Otherwise implement `cli_action(action, project)`:
 map an `ExtensionAction` to a `CliInvocation { args, dry_run_flag }`. Validate every user-supplied value with
 `cli_target(TargetKind, value)` (non-empty, at most 512 characters, no leading `-`, only `A-Z a-z 0-9 @ . _ / : + =
 , -`, no URL credentials).
@@ -263,8 +345,8 @@ capped output, strips ANSI escapes and redacts both streams. See `business/src/h
 ## 9. Recommended setup
 
 **Every newly supported harness must be added to the Recommended setup step** of onboarding (also reachable from
-**Run recommended setup** on the Ecosystem screen). The step installs the Harness Skills and registers the Harness
-Dashboard and Harness Memory MCP servers for each detected harness. `Harness::companion_setup` is a required method, so the compiler
+**Run recommended setup** on the Ecosystem screen). The step installs the Harness Skills (where a package exists) and
+registers the Harness Dashboard and Harness Memory MCP servers for each detected harness. `Harness::companion_setup` is a required method, so the compiler
 enforces the first half; the rest is yours to check.
 
 Implement it in the adapter (`business/src/harness/mod.rs` defines the types):
@@ -300,22 +382,35 @@ fn companion_setup(&self) -> CompanionSetup {
   Choose it only after confirming that the CLI reads `mcpServers` from that user file. List other files of the agent
   directory that can also define servers in `also_read` (OMP adds `.mcp.json`); they are only read, to find an
   existing entry. The same file also receives the project memory server (below).
+- `OpenCodeConfig`: the `mcp` object of OpenCode's global config file. OpenCode merges every global config file it
+  finds. The app writes the one OpenCode itself would edit (`opencode.jsonc`, else `opencode.json`, in the config
+  directory), creates `opencode.json` when there is neither, and only reads the others (`config.json` there, and
+  `opencode.json[c]` in `~/.opencode` and in `OPENCODE_CONFIG_DIR`) to find an existing entry. The entry is
+  `{"type": "local", "command": ["harness-dashboard", "mcp"], "enabled": true}`, and `"enabled": false` counts as switched
+  off. The file is JSONC: a file with comments is never rewritten (a rewrite would lose them), so the setup row shows
+  the entry to paste (`McpState::ManualEdit { file, snippet }`, with a copy button) instead. Only comments block a write.
 - `Unsupported`: the CLI has no user MCP file the app can write. The step then shows "No MCP file to edit" for it, and
   the harness gets no project memory entry.
 
-**Project memory comes with `UserMcpJson`.** At every launch, with the **Project memory** setting on and the
+A third kind of file needs a new `McpTarget` variant, a `Shape` in `business/src/ecosystem/mcp_merge.rs` (the key that
+holds the servers and the entry to write) and a case in `mcp_target` (`business/src/ecosystem/setup.rs`), which returns
+the `McpFile { path, also_read, shape }` that Recommended setup and project memory write. The merge, its refusals and
+the atomic write are shared.
+
+**Project memory comes with the MCP target.** At every launch, with the **Project memory** setting on and the
 `harness-memory` server installed (Recommended setup or the Settings switch runs its installer after the user confirms;
 it is the separate [harness-useful-memory](https://github.com/MSpiechowicz/harness-useful-memory) program, not bundled),
-the app registers it in the `mcp.json` of each detected harness whose `companion_setup` uses
-`McpTarget::UserMcpJson` (`memory_setup.rs`, `register_memory_mcp`), with no prompt and no per-harness code. The entry is
-`{"command": "<resolved absolute path of harness-memory>", "args": ["mcp"]}`, written through the same file as the dashboard
-entry, so the "confirm the CLI reads `mcpServers` from that user file" check above also covers it. Nothing else to
+the app registers it in the MCP file of each detected harness whose `companion_setup` has a target other than
+`Unsupported` (`memory_setup.rs`, `register_memory_mcp`, through `mcp_target`), with no prompt and no per-harness code.
+For `UserMcpJson` the entry is `{"command": "<resolved absolute path of harness-memory>", "args": ["mcp"]}`, for
+`OpenCodeConfig` `{"type": "local", "command": ["<path>", "mcp"], "enabled": true}`. It is written through the same file
+as the dashboard entry, so the "confirm the CLI reads the servers from that file" check above also covers it. Nothing else to
 implement; verify that your CLI starts such a server, and that your `also_read` files are listed so an existing
 `harness-memory` entry in them is found and not duplicated. A removed entry is not added back, and an entry the user
-named `harness-memory` that is not the app's own is never changed. See
+named `harness-memory` that is not the app's own is never changed. A JSONC file with comments is left alone. See
 [security-privacy.md](security-privacy.md#project-memory).
 
-The webview sends only a harness id; the file path comes from `paths` and the installer command is fixed in Rust, so
+The webview sends only a harness id; the file path comes from `paths` (or `mcp_target`) and the installer command is fixed in Rust, so
 no new command or permission is needed. Add the harness to the setup copy as well: the strings are under
 `onboarding.setup.*` in `ui/src/lib/i18n/locales/*/onboarding.ts` (all five languages), and the mock in
 `ui/src/lib/ipc/mock/setup-handlers.ts` keeps a per-harness MCP file and skills offer (`Record<HarnessId, ...>`).
@@ -333,11 +428,13 @@ fn share_support(&self) -> ShareSupport {
 ```
 
 `ShareSupport` (`business/src/harness/mod.rs`) has one flag per `SyncItemKind`. OMP declares marketplaces, plugins and
-MCP servers; PI declares packages and MCP servers.
+MCP servers, PI declares packages and MCP servers, and OpenCode shares nothing yet (the default).
 
 - **`mcp_servers`** needs `McpTarget::UserMcpJson` in `companion_setup` ([Recommended setup](#9-recommended-setup)): the
-  export reads, and the import merges into, the file `mcp_target_paths` returns for the harness. Only user scope is
-  shared. With `McpTarget::Unsupported` the harness's servers are blocked as not supported.
+  export reads, and the import merges into, the file `mcp_target_paths` returns for the harness (it returns `None` for
+  any other target, so only strict-JSON `mcpServers` files are shared). Only user scope is shared. With
+  `McpTarget::Unsupported` the harness's servers are blocked as not supported. `McpTarget::OpenCodeConfig` is not
+  shared yet.
 - **`marketplaces`, `plugins`, `packages`** are CLI installs, and the import runs them through `cli_action`
   ([CLI actions](#8-cli-actions)). Every kind you declare must be supported there: `MarketplaceAdd { source }`
   for marketplaces, `PluginInstall { target, scope: User }` for plugins, `PackageInstall { source }` for packages
@@ -364,14 +461,15 @@ Add tests next to the existing ones in `business/tests/`. Follow the same patter
 | --- | --- | --- |
 | Detection | `detection.rs` | Binary lookup, override validation, version parsing and support, install hint. |
 | Paths | `harness_paths.rs`, `session_paths.rs` | `paths` and `sessions_dir` for default and overridden env. |
-| Views | `omp_views.rs`, `pi_views.rs` | Snapshot (`insta`) of `config_view` and `extensions_view` over a fixture home `business/tests/fixtures/acme-home/` and the demo project. |
+| Views | `omp_views.rs`, `pi_views.rs`, `opencode_views.rs` | Snapshot (`insta`) of `config_view` and `extensions_view` over a fixture home `business/tests/fixtures/acme-home/` and the demo project. |
 | Leaks | `canary.rs`, `adapter_canary.rs`, `safe_reader.rs` | Hide `CANARY-7f3a9c` in deny-listed files and secret values of your fixture home; no view may contain it. `adapter_canary.rs` iterates every registered harness; add your fixture home to its environments. |
 | Catalog | `catalog.rs` | Native, live and shared merge; every command's invocation. |
-| Dialect | `rpc_dialects.rs`, `rpc_commands.rs`, `rpc_normalize.rs` | Encoded frames per action, decoded recorded frames, handshake. |
+| Dialect | `rpc_dialects.rs`, `rpc_commands.rs`, `rpc_normalize.rs` | Encoded frames per action, decoded recorded frames, handshake. Not needed when `capabilities.chat` is false. |
 | Sessions | `sessions_store.rs` | Listing, tree and transcript over fixture sessions in `business/tests/fixtures/sessions/acme/`. |
+| CLI sessions | `sessions_opencode.rs`, `sessions_opencode_transcript.rs`, `blocking_runner.rs` | A replay `BlockingRunner` returns recorded CLI output (`business/tests/fixtures/sessions/opencode/`): list, empty list, transcript paging, files touched, delete, other-project filtering, invalid ids spawn nothing. `blocking_runner.rs` runs `StdRunner` against a real child process. |
 | CLI actions | `cli_actions.rs` | Argument construction, validation errors, dry run, failure line. |
 | Chat engine | `agent_session.rs`, `agent_manager.rs`, `agent_dialogs.rs`, `agent_failures.rs` | The real session engine against `fake_agent`. |
-| Recommended setup | `setup_status.rs`, `setup_mcp_register.rs` | `setup_status`: skills and MCP state of your harness on an empty machine, with the skills installed and with the MCP entry present (build the fixture files in a temp home). `setup_mcp_register.rs`: the `mcp.json` merge for your `also_read` files. The installer itself is harness-independent (`setup_installer.rs`). |
+| Recommended setup | `setup_status.rs`, `setup_mcp_register.rs` | `setup_status`: skills and MCP state of your harness on an empty machine, with the skills installed and with the MCP entry present (build the fixture files in a temp home). `setup_mcp_register.rs`: the `mcp.json` merge for your `also_read` files. `setup_mcp_register_opencode.rs`: the same for a JSONC file (a file with comments gives `ManualEdit`, nothing written). The installer itself is harness-independent (`setup_installer.rs`). |
 | Share setup | `sync_export.rs`, `sync_import.rs`, `sync_import_apply.rs` (helpers in `business/tests/sync_support/`) | Export: what your fixture home yields and what is excluded, with no secret literal in the code or file. Import: statuses on an empty machine and with items present, the exact CLI steps (recording `ProcessRunner`, zero runs for hostile values), idempotent second apply, MCP merge keeps other keys and never overwrites. `sync_codec.rs` and `sync_validate.rs` are harness-independent. |
 | Fixtures | `mock_fixtures.rs` | Add the harness's views and catalog to the exported mock fixtures. |
 
@@ -384,6 +482,9 @@ Add tests next to the existing ones in `business/tests/`. Follow the same patter
 `fake_agent.rs`. The shell's agent command tests in `src-tauri` need the binary too; see
 [architecture.md](architecture.md#testing).
 
+Tests that pin the list of harnesses (for example `model.rs`, `detection.rs`, `mock_fixtures.rs` and
+`setup_status.rs`) need the new harness too. The compiler does not find them, the failing tests do.
+
 Run `cargo test -p harness_business`. `cargo test -p harness_business export_` regenerates the bindings and mock
 fixtures; commit the result, because CI fails on a difference.
 
@@ -393,19 +494,36 @@ The UI renders any harness from data, with these exceptions:
 
 - **Bindings.** `HarnessId.ts` and the other generated types update with `export_` (never hand-edit).
 - **Badge colour.** `ui/src/lib/components/Badge.svelte` has `HARNESSES: Record<HarnessId, string>` mapping a harness
-  to the classes `bg-<id>-wash text-<id>`. The type check fails until you add the entry. Define the tokens
+  to the classes `bg-<id>-wash text-<id>`. The type check fails until you add the entry. `HarnessBadge.svelte` (the
+  initials tile) has a `COLORS` map with the same classes and no type check: a harness missing there gets a neutral
+  wash, and a short name longer than three letters shows its capitals ("OC" for OpenCode). Define the tokens
   `--harness-<id>` and `--harness-<id>-wash` for both themes in `ui/src/lib/design/tokens.css`, and the
-  `--color-<id>` and `--color-<id>-wash` aliases in `ui/src/app.css`.
+  `--color-<id>` and `--color-<id>-wash` aliases in `ui/src/app.css`. Match the colour the Harness Dashboard uses for
+  the harness (`ui/src/lib/dashboard/palette.ts`).
+- **Capability gates.** The UI reads `capabilities`, never a harness id, to decide what to show. `chat` gates every
+  place a chat starts (the chat view, the harness picker, the palette and shortcuts, review comments sent to the
+  agent, onboarding): `harness.chatActive` is the active harness when it can chat, else the first installed one that
+  can, and `harness.chatComingSoon` names the harness to put in "Chat coming soon" when none can. `cliActions` hides the
+  extension action bars and `agents` shows the Agents tab (`extension-items.ts`, `extension-groups.ts`,
+  `extension-detail.ts`). Sessions hide resume and fork when the harness cannot chat.
+- **Onboarding.** The harness cards are data-driven. The approval step shows a notice only for a daily driver that runs
+  tools without asking (`approvalNotice` in `onboarding-state.svelte.ts`: OMP "yolo", OpenCode allow-by-default
+  permissions). The app never changes the harness's permissions, so a new harness with a permissive default needs a
+  variant of that notice.
 - **Mock.** `ui/src/lib/ipc/mock/fixtures.ts` builds `Record<HarnessId, ...>` entries for config, extensions,
-  commands, session info and session lists. Add the exported fixtures there. `harness_list.json` and
+  commands, session info and session lists. Add the exported fixtures there. The handlers with per-harness branches
+  (`extension-action-handlers.ts`, `agent-handlers.ts`, `session-handlers.ts`, `setup-handlers.ts`) need the new
+  harness as well. `harness_list.json` and
   `project_recent.json` are synthetic (`business/tests/mock_fixtures.rs`); add the new harness summary.
 - **Share setup.** Nothing to change: the export and import rows are data-driven from the plan the backend returns, and
   the harness name and badge come from the same sources as everywhere else. The sync mock
   (`ui/src/lib/ipc/mock/sync-handlers.ts`) has scenarios you can extend if you want your harness in them.
 - **Setup step.** The mock's per-harness maps in `ui/src/lib/ipc/mock/setup-handlers.ts` (MCP file, skills offer) and
   the `onboarding.setup.*` copy; see [Recommended setup](#9-recommended-setup).
-- **Copy.** Strings that name the supported harnesses (`shortDescription` and `longDescription` in
-  `src-tauri/tauri.conf.json`, the README, the views' empty-state text in `ui/src/features/shell/views.ts`) are
-  written by hand.
+- **Copy.** Strings that name the supported harnesses are written by hand: `shortDescription` and `longDescription` in
+  `src-tauri/tauri.conf.json`, the README's harness table and feature list, and the i18n strings in all five locales
+  (`ui/src/lib/i18n/locales/*/`), for example `harness.gate.noneBody`, `sessions.empty.noHarness.body` and the
+  `onboarding.*` welcome, harness and done strings. `ui/src/features/shell/views.ts` only holds the generic
+  placeholder text of each view and names no harness. Never join two sentences with a semicolon in a UI string.
 
 Then run `bun run check`, `bun run test` and `bun run guard`.

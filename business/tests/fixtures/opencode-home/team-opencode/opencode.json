@@ -1,0 +1,9 @@
+{
+  "mcp": {
+    "team-search": {
+      "type": "local",
+      "command": ["team-search", "--secret", "CANARY-7f3a9c"],
+      "environment": { "SEARCH_KEY": "CANARY-7f3a9c" }
+    }
+  }
+}

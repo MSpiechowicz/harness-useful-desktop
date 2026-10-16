@@ -3,6 +3,7 @@ import { harness, type HarnessStore } from '$lib/stores/harness.svelte';
 import { prefs, type PrefsStore } from '$lib/stores/prefs.svelte';
 
 import { intro } from '../intro/intro-state.svelte';
+import { type ApprovalNotice, rememberNotices, seenNotices } from './approval-notices';
 
 export type OnboardingStep = 'welcome' | 'harnesses' | 'project' | 'approval' | 'family' | 'setup' | 'done';
 
@@ -22,8 +23,10 @@ export class OnboardingController {
   /** A step is changing the machine (the setup step's run): the flow cannot be left until it ends. */
   busy = $state(false);
 
-  /** The steps shown in this run, so a notice is only marked as seen when it was on screen (a re-run may start past it). */
-  private shown = new Set<OnboardingStep>(['welcome']);
+  /** The notices that were on screen in this run, so one is only marked as seen when shown (a re-run may start past it). */
+  private shownNotices = new Set<ApprovalNotice>();
+  /** Bumped when a notice is remembered, so what depends on `approvalNotice` follows. */
+  private remembered = $state(0);
 
   constructor(
     private readonly preferences: Pick<PrefsStore, 'value' | 'update'>,
@@ -40,7 +43,11 @@ export class OnboardingController {
     return this.rerun || !value.onboardingCompleted;
   }
 
-  /** The daily driver: the explicit pick, else the saved default, else the first installed harness. */
+  /**
+   * The daily driver: the explicit pick, else the saved default, else the first installed harness that can chat
+   * (chat is what a daily driver is for), else the first installed one. Any installed harness may be picked, one
+   * without chat included: the other views follow it.
+   */
   get driver(): HarnessId | null {
     const candidates = [this.choice, this.preferences.value?.defaultHarness ?? null];
 
@@ -50,12 +57,30 @@ export class OnboardingController {
       }
     }
 
-    return this.harnesses.installed[0]?.info.id ?? null;
+    const installed = this.harnesses.installed;
+
+    return (installed.find((summary) => summary.capabilities.chat) ?? installed[0])?.info.id ?? null;
   }
 
-  /** OMP runs tools without asking by default; say so once, when OMP is the daily driver. */
+  /**
+   * Which harness's "tools run without asking" notice to show, once: the one of the daily driver, since that is the
+   * harness the user works with. OMP and OpenCode both run tools without asking by default, so either driver gets
+   * its notice and anything else gets none. Each notice is shown once: seeing one does not hide the other.
+   */
+  get approvalNotice(): ApprovalNotice | null {
+    const driver = this.driver;
+    if (driver !== 'omp' && driver !== 'opencode') {
+      return null;
+    }
+
+    // Reading the counter makes a notice remembered by `finish` take effect here.
+    void this.remembered;
+
+    return seenNotices(this.preferences.value?.approvalNoticeSeen ?? false).has(driver) ? null : driver;
+  }
+
   get needsApprovalNotice(): boolean {
-    return this.driver === 'omp' && !this.preferences.value?.approvalNoticeSeen;
+    return this.approvalNotice !== null;
   }
 
   get steps(): OnboardingStep[] {
@@ -85,8 +110,9 @@ export class OnboardingController {
     this.choice = null;
     this.direction = 1;
     this.step = from;
-    this.shown = new Set([from]);
+    this.shownNotices = new Set();
     this.rerun = true;
+    this.noteNotice(from);
   }
 
   /** Closes a re-run without changing anything; ignored while a step is busy. */
@@ -101,11 +127,14 @@ export class OnboardingController {
 
   /** Stores the outcome. The flow stays open if saving failed (the prefs store shows the error). */
   async finish(): Promise<void> {
+    // The saved flag is the OMP notice's, from before there were two.
     await this.preferences.update({
       onboardingCompleted: true,
       defaultHarness: this.driver,
-      approvalNoticeSeen: this.preferences.value?.approvalNoticeSeen || this.shown.has('approval'),
+      approvalNoticeSeen: this.preferences.value?.approvalNoticeSeen || this.shownNotices.has('omp'),
     });
+    rememberNotices(this.shownNotices);
+    this.remembered += 1;
 
     if (this.preferences.value?.onboardingCompleted) {
       this.dismiss();
@@ -121,7 +150,16 @@ export class OnboardingController {
     if (target) {
       this.direction = delta;
       this.step = target;
-      this.shown.add(target);
+      this.noteNotice(target);
+    }
+  }
+
+  /** Records which notice the approval step shows now, when that is the step being entered. */
+  private noteNotice(step: OnboardingStep): void {
+    const notice = this.approvalNotice;
+
+    if (step === 'approval' && notice) {
+      this.shownNotices.add(notice);
     }
   }
 }

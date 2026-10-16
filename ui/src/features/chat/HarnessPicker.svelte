@@ -5,6 +5,7 @@
   import HarnessBadge from '$lib/components/HarnessBadge.svelte';
   import Popover from '$lib/components/Popover.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
+  import type { HarnessSummary } from '$lib/ipc/bindings/HarnessSummary';
   import { harness } from '$lib/stores/harness.svelte';
 
   import { switchHarness } from '../shell/actions';
@@ -17,6 +18,19 @@
   let { session }: Props = $props();
 
   const current = $derived(harness.get(session.info.harness));
+
+  /** What a row says beside its name: why it cannot be chosen, else its version. */
+  function detailOf(item: HarnessSummary): string | null {
+    if (!item.detection.installed) {
+      return t('chat.harness.notInstalled');
+    }
+
+    if (!item.capabilities.chat) {
+      return t('chat.harness.comingSoon');
+    }
+
+    return item.detection.version ? `v${item.detection.version}` : null;
+  }
 </script>
 
 {#if current}
@@ -39,11 +53,12 @@
       <div class="flex max-h-72 flex-col overflow-y-auto" role="group" aria-label={t('chat.harness.label')}>
         {#each harness.summaries as item (item.info.id)}
           {@const installed = item.detection.installed}
+          <!-- A row says why it cannot be chosen: the harness is not installed, or the app cannot chat with it yet. -->
           <MenuItem
             label={item.info.name}
-            detail={installed ? (item.detection.version ? `v${item.detection.version}` : null) : t('chat.harness.notInstalled')}
+            detail={detailOf(item)}
             selected={item.info.id === current.info.id}
-            disabled={!installed}
+            disabled={!installed || !item.capabilities.chat}
             onselect={() => {
               close();
               void switchHarness(item.info.id);

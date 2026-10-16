@@ -67,6 +67,12 @@ describe('toLines as YAML', () => {
   });
 });
 
+describe('toLines as JSONC', () => {
+  it('prints exactly like JSON, so an OpenCode file reads as the JSON it is', () => {
+    expect(toLines(FIELDS, 'jsonc')).toEqual(toLines(FIELDS, 'json'));
+  });
+});
+
 describe('toLines as JSON', () => {
   it('wraps in braces, quotes keys and strings and puts commas between siblings only', () => {
     expect(print(toLines(FIELDS, 'json'), true)).toEqual([

@@ -35,18 +35,42 @@ describe('harness picker', () => {
     }
   });
 
-  it('opens a chat with the other harness in the same project', async () => {
-    const other = harness.installed.find((item) => item.info.id !== 'omp') ?? harness.installed[0];
-    const { menu } = await openPicker();
+  it('hands the chat to the other harness in the same tab', async () => {
+    await harness.pickBinary('pi');
+    const { session, menu } = await openPicker();
+    agentSessions.sessions = [session];
+    agentSessions.activeKey = session.key;
+    const change = vi.spyOn(agentSessions, 'changeHarness').mockResolvedValue(null);
+
+    await fireEvent.click(within(menu).getByRole('menuitemradio', { name: /^Pi\b/ }));
+
+    await waitFor(() => expect(change).toHaveBeenCalledWith(session.key, 'pi'));
+    change.mockRestore();
+    agentSessions.sessions = [];
+    agentSessions.activeKey = null;
+  });
+
+  it('shows a harness without chat as coming soon and never starts a chat with it', async () => {
+    const { session, menu } = await openPicker();
+    agentSessions.sessions = [session];
+    agentSessions.activeKey = session.key;
     const create = vi.spyOn(agentSessions, 'create').mockResolvedValue(null);
+    const change = vi.spyOn(agentSessions, 'changeHarness').mockResolvedValue(null);
+    const row = within(menu).getByRole('menuitemradio', { name: /^OpenCode\b/ });
 
-    await fireEvent.click(within(menu).getByRole('menuitemradio', { name: new RegExp(`^${other.info.name}\\b`) }));
+    // It is installed, so the hint is about chat, not about installing.
+    expect(harness.get('opencode')?.detection.installed).toBe(true);
+    expect(row).toHaveAttribute('aria-disabled', 'true');
+    expect(row).toHaveTextContent('Chat coming soon');
+    expect(within(menu).getByRole('menuitemradio', { name: /^Oh My Pi\b/ })).not.toHaveTextContent('Chat coming soon');
 
-    await waitFor(() => {
-      if (other.info.id !== 'omp') {
-        expect(create).toHaveBeenCalledWith(other.info.id, '/home/demo/app');
-      }
-    });
+    await fireEvent.click(row);
+
+    expect(create).not.toHaveBeenCalled();
+    expect(change).not.toHaveBeenCalled();
     create.mockRestore();
+    change.mockRestore();
+    agentSessions.sessions = [];
+    agentSessions.activeKey = null;
   });
 });

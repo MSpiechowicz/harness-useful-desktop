@@ -6,16 +6,18 @@
 //! the next later page (`None` once the leaf is reached), and each page is oldest first. (The
 //! live chat history of M2 pages the other way.) Two streaming passes keep memory to the
 //! entry ids of the file plus one page: the first finds the path, the second normalizes only the
-//! page's entries and, for the first page, tallies the [`TranscriptStats`] of the whole path.
+//! page's entries and, for the first page, tallies the [`TranscriptStats`](crate::model::TranscriptStats) of the whole path.
 
 use std::collections::{BTreeSet, HashMap, HashSet};
+use std::ops::Range;
 use std::path::Path;
 
 use serde_json::{Value, json};
 
 use super::parse::{Entries, Entry, epoch_millis};
-use crate::error::{BusinessError, Result};
-use crate::model::{ChatMessage, MAX_SESSION_PAGE, ModelTurns, SessionMessagesPage, TranscriptStats};
+use super::stats::{StatsTally, page_range};
+use crate::error::Result;
+use crate::model::{ChatMessage, SessionMessagesPage};
 use crate::pi_family::normalize::chat_message;
 use crate::pi_family::touched::touched_paths;
 
@@ -25,23 +27,12 @@ const MAX_INDEXED_ENTRIES: usize = 500_000;
 /// One page of the active-path transcript of the session file at `path`.
 ///
 /// `cursor` is `None` for the first (oldest) page or a previous page's `nextCursor`; `limit` is clamped
-/// to `1..=`[`MAX_SESSION_PAGE`]. An unknown cursor fails with `InvalidInput`. Only the first page
+/// to `1..=`[`MAX_SESSION_PAGE`](crate::model::MAX_SESSION_PAGE). An unknown cursor fails with `InvalidInput`. Only the first page
 /// carries `stats`.
 pub fn session_messages(path: &Path, cursor: Option<&str>, limit: u32) -> Result<SessionMessagesPage> {
     let transcript = transcript_entries(path)?;
     let total = transcript.len();
-
-    let start = match cursor {
-        None => 0,
-        Some(raw) => raw
-            .parse::<usize>()
-            .ok()
-            .filter(|start| *start <= total)
-            .ok_or_else(|| BusinessError::InvalidInput("unknown transcript cursor".to_owned()))?,
-    };
-
-    let limit = limit.clamp(1, MAX_SESSION_PAGE) as usize;
-    let end = start.saturating_add(limit).min(total);
+    let Range { start, end } = page_range(cursor, limit, total)?;
     let wanted: HashMap<usize, usize> = transcript[start..end]
         .iter()
         .enumerate()
@@ -49,7 +40,7 @@ pub fn session_messages(path: &Path, cursor: Option<&str>, limit: u32) -> Result
         .collect();
 
     let mut page: Vec<Option<ChatMessage>> = vec![None; end - start];
-    let mut tally = cursor.is_none().then(Tally::default);
+    let mut tally = cursor.is_none().then(StatsTally::default);
 
     // Path ordinals ascend (parents precede children), so one index walks the path.
     let mut next_on_path = 0;
@@ -63,7 +54,7 @@ pub fn session_messages(path: &Path, cursor: Option<&str>, limit: u32) -> Result
             next_on_path += 1;
 
             if let Some(tally) = tally.as_mut() {
-                tally.note(&entry);
+                note_entry(tally, &entry);
             }
         }
     }
@@ -72,89 +63,44 @@ pub fn session_messages(path: &Path, cursor: Option<&str>, limit: u32) -> Result
         messages: page.into_iter().flatten().collect(),
         next_cursor: (end < total).then(|| end.to_string()),
         total: u32::try_from(total).unwrap_or(u32::MAX),
-        stats: tally.map(Tally::finish),
+        stats: tally.map(StatsTally::finish),
     })
 }
 
-/// Running totals of the transcript entries on the active path.
-#[derive(Default)]
-struct Tally {
-    messages: u32,
-    tool_calls: u32,
-    context_tokens: Option<u64>,
-    cost_usd: Option<f64>,
-    models: Vec<ModelTurns>,
-    started_at: Option<i64>,
-    ended_at: Option<i64>,
+/// Adds one transcript entry on the active path to `tally`.
+fn note_entry(tally: &mut StatsTally, entry: &Entry) {
+    let message = entry.message();
+    let message_time = message
+        .and_then(|message| message.get("timestamp"))
+        .and_then(Value::as_i64);
+    let time = entry.text("timestamp").and_then(epoch_millis).or(message_time);
+
+    tally.note_time(time);
+
+    match (entry.role(), message) {
+        (Some("user"), _) => tally.note_message(),
+        (Some("assistant"), Some(reply)) => {
+            tally.note_message();
+            note_reply(tally, reply);
+        }
+        _ => {}
+    }
 }
 
-impl Tally {
-    fn note(&mut self, entry: &Entry) {
-        let message = entry.message();
-        let message_time = message
-            .and_then(|message| message.get("timestamp"))
-            .and_then(Value::as_i64);
-        let time = entry.text("timestamp").and_then(epoch_millis).or(message_time);
+/// Adds one assistant `message` payload to `tally`.
+fn note_reply(tally: &mut StatsTally, reply: &Value) {
+    let blocks = reply.get("content").and_then(Value::as_array);
+    let tool_calls = blocks
+        .into_iter()
+        .flatten()
+        .filter(|block| block.get("type").and_then(Value::as_str) == Some("toolCall"))
+        .count();
 
-        self.started_at = self.started_at.or(time);
-        self.ended_at = time.or(self.ended_at);
+    let model = reply.get("model").and_then(Value::as_str);
+    let usage = reply.get("usage").unwrap_or(&Value::Null);
+    let cost = usage.pointer("/cost/total").and_then(Value::as_f64);
 
-        match (entry.role(), message) {
-            (Some("user"), _) => self.messages += 1,
-            (Some("assistant"), Some(reply)) => {
-                self.messages += 1;
-                self.note_reply(reply);
-            }
-            _ => {}
-        }
-    }
-
-    fn note_reply(&mut self, reply: &Value) {
-        let blocks = reply.get("content").and_then(Value::as_array);
-        let tool_calls = blocks
-            .into_iter()
-            .flatten()
-            .filter(|block| block.get("type").and_then(Value::as_str) == Some("toolCall"))
-            .count();
-        self.tool_calls = self
-            .tool_calls
-            .saturating_add(u32::try_from(tool_calls).unwrap_or(u32::MAX));
-
-        if let Some(model) = reply.get("model").and_then(Value::as_str) {
-            match self.models.iter_mut().find(|turns| turns.model == model) {
-                Some(turns) => turns.turns += 1,
-                None => self.models.push(ModelTurns {
-                    model: model.to_owned(),
-                    turns: 1,
-                }),
-            }
-        }
-
-        let usage = reply.get("usage").unwrap_or(&Value::Null);
-
-        if let Some(cost) = usage.pointer("/cost/total").and_then(Value::as_f64) {
-            self.cost_usd = Some(self.cost_usd.unwrap_or(0.0) + cost);
-        }
-
-        // Aborted and failed replies report no usage; the context is the last one that does.
-        if let Some(tokens) = total_tokens(usage).filter(|tokens| *tokens > 0) {
-            self.context_tokens = Some(tokens);
-        }
-    }
-
-    fn finish(mut self) -> TranscriptStats {
-        self.models.sort_by_key(|turns| std::cmp::Reverse(turns.turns));
-
-        TranscriptStats {
-            messages: self.messages,
-            tool_calls: self.tool_calls,
-            context_tokens: self.context_tokens,
-            cost_usd: self.cost_usd,
-            models: self.models,
-            started_at: self.started_at,
-            ended_at: self.ended_at,
-        }
-    }
+    tally.note_reply(tool_calls, model, cost, total_tokens(usage));
 }
 
 /// `totalTokens` of a message's usage, or the sum of its parts.

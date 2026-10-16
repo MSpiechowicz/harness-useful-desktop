@@ -50,10 +50,15 @@ function plainSafe(text: string): boolean {
   );
 }
 
+/** JSON with comments is written like JSON. */
+function isJson(format: ConfigFormat): boolean {
+  return format === 'json' || format === 'jsonc';
+}
+
 function printText(text: string, format: ConfigFormat): string {
   const clipped = clip(text);
 
-  if (format !== 'json' && clipped === text && plainSafe(text)) {
+  if (!isJson(format) && clipped === text && plainSafe(text)) {
     return text;
   }
 
@@ -84,7 +89,7 @@ function printScalar(value: ConfigValue, format: ConfigFormat): Pick<SourceLine,
 }
 
 function printKey(key: string, format: ConfigFormat): string {
-  return format === 'json' || !/^[\w.@/-][\w.@/ -]*$/.test(key) ? JSON.stringify(key) : key;
+  return isJson(format) || !/^[\w.@/-][\w.@/ -]*$/.test(key) ? JSON.stringify(key) : key;
 }
 
 interface Entry {
@@ -96,11 +101,11 @@ interface Entry {
 }
 
 /**
- * The redacted tree as the lines of a file: JSON with braces and quoted keys for `json`, YAML for every other
+ * The redacted tree as the lines of a file: JSON with braces and quoted keys for `json` and `jsonc`, YAML for every other
  * format. Secrets are lines that carry only their kind, so no value can reach the screen from here.
  */
 export function toLines(fields: ConfigField[], format: ConfigFormat): SourceLine[] {
-  const json = format === 'json';
+  const json = isJson(format);
   const lines: SourceLine[] = [];
 
   function push(line: Omit<SourceLine, 'no'>): number {

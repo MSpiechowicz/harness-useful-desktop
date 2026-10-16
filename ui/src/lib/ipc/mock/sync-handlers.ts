@@ -11,7 +11,7 @@ type SyncCommands = 'sync_export_preview' | 'sync_export' | 'sync_export_save' |
 
 /**
  * What the mock share setup starts from. The browser preview picks one with `?sync=<name>`: `typical` (the default) is
- * OMP and PI with marketplaces, plugins, packages and MCP servers in every kind of state, `empty` a machine with nothing
+ * OMP and PI (OpenCode has no share support) with marketplaces, plugins, packages and MCP servers in every kind of state, `empty` a machine with nothing
  * to share, `hostile` a bundle of refused items and an uninstalled harness, `newer` a bundle from a newer app,
  * `partial` an import where a marketplace fails and its plugins are skipped, and `cancelled` closes both pickers.
  */

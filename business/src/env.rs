@@ -3,7 +3,7 @@
 //! All path logic takes an [`Env`] instead of reading `std::env` or `dirs` directly, so tests run
 //! against fixture homes and never touch the real `~`.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 use crate::error::{BusinessError, Result};
@@ -18,6 +18,8 @@ pub const CAPTURED_VARS: &[&str] = &[
     "SystemRoot",
     "XDG_CONFIG_HOME",
     "XDG_DATA_HOME",
+    "XDG_STATE_HOME",
+    "XDG_CACHE_HOME",
     "PI_CONFIG_DIR",
     "PI_CODING_AGENT_DIR",
     "PI_CODING_AGENT_SESSION_DIR",
@@ -27,7 +29,14 @@ pub const CAPTURED_VARS: &[&str] = &[
     "TMP",
     "OMP_PROFILE",
     "PI_PROFILE",
+    "OPENCODE_CONFIG",
+    "OPENCODE_CONFIG_DIR",
+    "OPENCODE_DISABLE_PROJECT_CONFIG",
 ];
+
+/// Variables whose presence [`Env::from_process`] records without their value: they may hold
+/// secrets (inline OpenCode config and permissions), and the app only reports that they are set.
+pub const PRESENCE_VARS: &[&str] = &["OPENCODE_PERMISSION", "OPENCODE_CONFIG_CONTENT"];
 
 /// Operating-system family, used for platform-specific paths.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -60,6 +69,8 @@ pub struct Env {
     pub home: PathBuf,
     /// Captured variables (only [`CAPTURED_VARS`] in production).
     pub vars: BTreeMap<String, String>,
+    /// The [`PRESENCE_VARS`] that are set to a non-empty value; their values are never kept.
+    pub present: BTreeSet<String>,
     /// OS family.
     pub os: OsKind,
 }
@@ -74,9 +85,16 @@ impl Env {
             .filter_map(|name| std::env::var(name).ok().map(|value| ((*name).to_owned(), value)))
             .collect();
 
+        let present = PRESENCE_VARS
+            .iter()
+            .filter(|name| std::env::var_os(name).is_some_and(|value| !value.is_empty()))
+            .map(|name| (*name).to_owned())
+            .collect();
+
         Ok(Self {
             home,
             vars,
+            present,
             os: OsKind::current(),
         })
     }
@@ -86,13 +104,27 @@ impl Env {
         Self {
             home: home.into(),
             vars: BTreeMap::new(),
+            present: BTreeSet::new(),
             os: OsKind::current(),
         }
     }
 
-    /// Returns a copy with `name` set to `value`.
+    /// Returns a copy with `name` set to `value`. For a [`PRESENCE_VARS`] name only its presence is
+    /// recorded, as in production.
     pub fn with_var(mut self, name: &str, value: impl Into<String>) -> Self {
-        self.vars.insert(name.to_owned(), value.into());
+        let value = value.into();
+
+        if PRESENCE_VARS.contains(&name) {
+            if value.is_empty() {
+                self.present.remove(name);
+            } else {
+                self.present.insert(name.to_owned());
+            }
+
+            return self;
+        }
+
+        self.vars.insert(name.to_owned(), value);
         self
     }
 
@@ -108,6 +140,12 @@ impl Env {
             .get(name)
             .map(String::as_str)
             .filter(|value| !value.is_empty())
+    }
+
+    /// True when the presence-only variable `name` (see [`PRESENCE_VARS`]) is set to a non-empty
+    /// value.
+    pub fn is_set(&self, name: &str) -> bool {
+        self.present.contains(name)
     }
 
     /// Expands a leading `~` (alone, or followed by `/` or `\`) to the home directory.
@@ -126,5 +164,29 @@ impl Env {
     /// rebuilt from its components, so on Windows the result uses `\` throughout.
     pub fn home_join(&self, relative: impl AsRef<Path>) -> PathBuf {
         self.home.join(relative.as_ref().components().collect::<PathBuf>())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_presence_variable_records_only_that_it_is_set() {
+        let env = Env::for_tests("/home/u").with_var("OPENCODE_PERMISSION", r#"{"bash":"allow"}"#);
+
+        assert!(env.is_set("OPENCODE_PERMISSION"));
+        assert!(!env.is_set("OPENCODE_CONFIG_CONTENT"));
+        assert_eq!(env.var("OPENCODE_PERMISSION"), None);
+        assert!(env.vars.is_empty());
+    }
+
+    #[test]
+    fn an_empty_presence_variable_counts_as_unset() {
+        let env = Env::for_tests("/home/u")
+            .with_var("OPENCODE_CONFIG_CONTENT", "{}")
+            .with_var("OPENCODE_CONFIG_CONTENT", "");
+
+        assert!(!env.is_set("OPENCODE_CONFIG_CONTENT"));
     }
 }

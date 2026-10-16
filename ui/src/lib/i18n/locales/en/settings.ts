@@ -19,7 +19,7 @@ export const settings = {
   // Words the command palette matches a "Settings: {section}" command by.
   'settings.keywords.appearance': 'theme motion dark light animation language',
   'settings.keywords.startup': 'intro launch splash',
-  'settings.keywords.harnesses': 'binary omp pi path setup harness',
+  'settings.keywords.harnesses': 'binary omp pi opencode path setup harness',
   'settings.keywords.memory': 'memory remote team database postgres postgresql mongodb mongo sqlite libsql turso shared harness-memory mcp remember repository recall notes global new chat',
   'settings.keywords.projects': 'recent folders',
   'settings.keywords.updates': 'version upgrade release install check new',
@@ -70,6 +70,10 @@ export const settings = {
 
   'settings.memory.title': 'Project memory',
   'settings.memory.description': "Gives your harnesses a memory (harness-memory) of what was done, problems and fixes, and where things are, per repository. Stored on this computer, or in your team's database when Remote memory is on. Turning it off removes it from the harnesses' MCP config.",
+  'settings.memory.manual.title': 'Remove these entries by hand',
+  'settings.memory.manual.body': '{harness} has comments in {file}, so the app left that file as it is. Delete the {name} entry from it yourself.',
+  'settings.memory.manual.copy': 'Copy entry name',
+  'settings.memory.manual.dismiss': 'Done',
 
   'settings.memoryRecall.title': 'Add memory to new chats',
   'settings.memoryRecall.description': 'On the first message of a new chat, relevant notes from project memory are added for the agent. They are sent to your model provider along with the message.',

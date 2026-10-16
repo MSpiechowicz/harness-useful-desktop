@@ -1,7 +1,9 @@
 import type { ChatLabel } from '$lib/chat/naming';
 import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
+import { isHarnessId } from '$lib/ipc/harness-ids';
 
 import { type AgentSessionsStore, resumable } from './agentSession.svelte';
+import { harness } from './harness.svelte';
 import { nav, VIEW_IDS, type ViewId } from './nav.svelte';
 
 /**
@@ -63,7 +65,7 @@ function readWorkspace(): SavedWorkspace | null {
     const wanted = typeof record.active === 'number' ? record.chats[record.active] : undefined;
     const chats = uniqueSessions(
       record.chats
-        .filter((chat) => typeof chat?.sessionId === 'string' && typeof chat.project === 'string' && (chat.harness === 'omp' || chat.harness === 'pi'))
+        .filter((chat) => typeof chat?.sessionId === 'string' && typeof chat.project === 'string' && isHarnessId(chat.harness) && harness.canChat(chat.harness))
         .map((chat) => ({ ...chat, label: isLabel(chat.label) ? chat.label : null, userNamed: chat.userNamed === true })),
     );
 

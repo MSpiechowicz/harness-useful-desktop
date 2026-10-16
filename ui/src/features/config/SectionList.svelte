@@ -61,7 +61,7 @@
               <span
                 aria-hidden="true"
                 class={cx(
-                  'grid h-5 shrink-0 place-items-center rounded-sm px-1.5 text-[10px] leading-none font-semibold tracking-wide transition-colors duration-[var(--dur-fast)]',
+                  'grid h-5 min-w-[48px] shrink-0 place-items-center rounded-sm px-1.5 text-[10px] leading-none font-semibold tracking-wide transition-colors duration-[var(--dur-fast)]',
                   selected ? 'bg-accent/18 text-accent-text' : 'bg-surface-3 text-fg-2',
                 )}
               >{FORMAT_TILES[section.source.format]}</span>

@@ -4,7 +4,7 @@ import { formatDateTime, relativeTime } from '$lib/utils/format';
 
 import { configStats } from '../config/stats';
 import type { ExtItem } from './extension-items';
-import { scopeLabel } from './extension-items';
+import { agentScope, modeLabel, scopeLabel } from './extension-items';
 
 /** One labelled line of a detail pane. */
 export interface Fact {
@@ -105,6 +105,21 @@ export function detailBasics(entry: ExtItem): DetailBasics {
       };
     }
 
+    case 'agents': {
+      const agent = entry.data;
+
+      return {
+        description: agent.description,
+        facts: present([
+          { label: t('extensions.fact.mode'), value: modeLabel(agent.mode) },
+          optional(t('extensions.fact.model'), agent.model, { mono: true }),
+          { label: t('extensions.fact.scope'), value: scopeLabel(agentScope(agent)) },
+          { label: t('extensions.fact.visibility'), value: t(agent.hidden ? 'extensions.state.hidden' : 'extensions.state.visible') },
+          optional(t('extensions.fact.file'), agent.path, { mono: true, path: true, location: true }),
+        ]),
+      };
+    }
+
     case 'mcp': {
       const server = entry.data;
 
@@ -170,6 +185,12 @@ export function overviewStats(entry: ExtItem): Stat[] {
   switch (entry.tab) {
     case 'plugins': {
       const plugin = entry.data;
+
+      // A plugin that lists no features (OpenCode's) has no counts worth showing.
+      if (plugin.features.length === 0 && !plugin.updateAvailable) {
+        return [];
+      }
+
       const on = plugin.features.filter((feature) => feature.enabled).length;
       const update = plugin.updateAvailable ? (plugin.latestVersion ? `v${plugin.latestVersion}` : t('extensions.badge.updateAvailable')) : t('extensions.overview.upToDate');
 
@@ -208,6 +229,7 @@ export function overviewStats(entry: ExtItem): Stat[] {
 
     case 'skills':
     case 'prompts':
+    case 'agents':
     case 'themes':
     case 'packages':
     case 'modules':

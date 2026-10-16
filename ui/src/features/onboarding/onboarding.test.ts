@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
-import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { i18n } from '$lib/i18n/i18n.svelte';
 import { harness } from '$lib/stores/harness.svelte';
@@ -20,6 +20,9 @@ beforeAll(async () => {
   await Promise.all([harness.load(), project.load()]);
   intro.skip();
 });
+
+// The notices seen are remembered in the webview's storage: a test must not inherit the previous one's.
+beforeEach(() => localStorage.clear());
 
 const click = (name: string | RegExp) => fireEvent.click(screen.getByRole('button', { name }));
 
@@ -98,6 +101,84 @@ describe('Onboarding', () => {
     await waitFor(() => expect(prefs.value?.defaultHarness).toBe('omp'));
     expect(prefs.value?.approvalNoticeSeen).toBe(true);
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
+  it('lists OpenCode next to the others and says its chat is still to come', async () => {
+    onboarding.restart('harnesses');
+    render(Onboarding);
+    await next('Which agent do you use every day?');
+
+    // OpenCode is listed, greyed out, but not offered as a daily driver until the app can chat with it.
+    expect(await screen.findAllByRole('radio')).toHaveLength(2);
+    expect(screen.queryByRole('radio', { name: 'Use OpenCode as daily driver' })).not.toBeInTheDocument();
+    const card = screen.getByRole('article', { name: 'OpenCode' });
+    expect(card).toHaveTextContent('Installed');
+    expect(card).toHaveTextContent('Coming soon');
+    expect(screen.getByRole('article', { name: 'Oh My Pi' })).not.toHaveTextContent('Coming soon');
+  });
+
+  it('explains the OpenCode permission default once, when OpenCode is the daily driver', async () => {
+    // OpenCode cannot be picked on the cards any more, but a default saved earlier still makes it the driver.
+    await prefs.update({ approvalNoticeSeen: false, defaultHarness: 'opencode' });
+    onboarding.restart('harnesses');
+    render(Onboarding);
+
+    await next('Which agent do you use every day?');
+    await click('Continue');
+    await next('Pick a project to work in');
+    // The chat tile does not promise a chat the app cannot start yet.
+    expect(screen.getByText('Chat with OpenCode is coming soon.')).toBeInTheDocument();
+    await click('Skip for now');
+
+    await next('OpenCode can run tools without asking');
+    expect(screen.getByText('permission')).toBeInTheDocument();
+    expect(screen.getByText(/never changes it behind your back/)).toBeInTheDocument();
+    await click('Got it');
+
+    await next('Meet the Harness family');
+    await click('Continue');
+    await next('Get more from your agents');
+    await skipSetup();
+
+    // A daily driver without chat gets a tip that is true for it: new chats open with the harness that can chat.
+    await next('You’re ready to go');
+    expect(screen.getByText('OpenCode cannot chat yet, so new chats open with Oh My Pi.')).toBeInTheDocument();
+    await click('Open Harness Desktop');
+
+    await waitFor(() => expect(prefs.value?.defaultHarness).toBe('opencode'));
+    // The saved flag is the OMP notice's: this one is remembered on its own and OMP's is still to come.
+    expect(prefs.value?.approvalNoticeSeen).toBe(false);
+    await waitFor(() => expect(onboarding.approvalNotice).toBeNull());
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
+  it('finishes on a machine where OpenCode is the only harness, pointing to the sessions it can read', async () => {
+    await prefs.update({ approvalNoticeSeen: false, defaultHarness: null, onboardingCompleted: false });
+    harness.summaries = harness.summaries.map((summary) => ({ ...summary, detection: { ...summary.detection, installed: summary.info.id === 'opencode' } }));
+    onboarding.restart('harnesses');
+    render(Onboarding);
+
+    // With nothing picked, the only installed harness is the daily driver and its notice is next.
+    await next('Which agent do you use every day?');
+    expect(onboarding.driver).toBe('opencode');
+    await click('Continue');
+    await next('Pick a project to work in');
+    await click('Skip for now');
+    await next('OpenCode can run tools without asking');
+    await click('Got it');
+    await next('Meet the Harness family');
+    await click('Continue');
+    await next('Get more from your agents');
+    await skipSetup();
+
+    await next('You’re ready to go');
+    expect(screen.getByText('Read what you ran with OpenCode. Chat with it is coming soon.')).toBeInTheDocument();
+    await click('Open Harness Desktop');
+
+    await waitFor(() => expect(prefs.value?.onboardingCompleted).toBe(true));
+    expect(prefs.value?.defaultHarness).toBe('opencode');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await harness.load();
   });
 
   it('is only closable when it was started again', async () => {

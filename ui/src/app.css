@@ -45,8 +45,10 @@
 
   --color-omp: var(--harness-omp);
   --color-pi: var(--harness-pi);
+  --color-opencode: var(--harness-opencode);
   --color-omp-wash: var(--harness-omp-wash);
   --color-pi-wash: var(--harness-pi-wash);
+  --color-opencode-wash: var(--harness-opencode-wash);
 
   --font-sans: var(--font-ui);
   --font-mono: var(--font-code);

@@ -1,4 +1,5 @@
-//! Directory resolution (OMP `dirs.ts` rules, PI agent dir) and the shared parsing helpers.
+//! Directory resolution (OMP `dirs.ts` rules, PI agent dir, OpenCode XDG directories) and the
+//! shared parsing helpers.
 
 use std::fs;
 use std::path::PathBuf;
@@ -6,8 +7,9 @@ use std::path::PathBuf;
 use harness_business::env::{Env, OsKind};
 use harness_business::harness::Harness;
 use harness_business::harnesses::omp::{active_profile, omp_paths};
+use harness_business::harnesses::opencode::{custom_config_dir, data_dir, home_config_dir};
 use harness_business::harnesses::pi::pi_paths;
-use harness_business::harnesses::{Omp, Pi};
+use harness_business::harnesses::{Omp, OpenCode, Pi};
 use harness_business::model::ConfigFormat;
 use harness_business::pi_family::{parse_frontmatter, parse_text, project_ancestors, text_field};
 use pretty_assertions::assert_eq;
@@ -103,6 +105,54 @@ fn pi_uses_its_agent_dir_variable() {
 }
 
 #[test]
+fn opencode_defaults_to_the_xdg_fallbacks_below_home() {
+    let project = home().join("Projects/demo");
+    let paths = OpenCode.paths(&Env::for_tests(home()), Some(&project));
+
+    assert_eq!(paths.config_root, home().join(".config/opencode"));
+    assert_eq!(paths.agent_dir, paths.config_root);
+    assert_eq!(paths.data_root, home().join(".local/share/opencode"));
+    assert_eq!(paths.profile, None);
+    assert_eq!(paths.project_dir, Some(project.join(".opencode")));
+    assert_eq!(home_config_dir(&Env::for_tests(home())), home().join(".opencode"));
+}
+
+#[test]
+fn opencode_honours_absolute_xdg_directories_only() {
+    let config = home().join("xdg/config");
+    let data = home().join("xdg/data");
+    let env = Env::for_tests(home())
+        .with_var("XDG_CONFIG_HOME", config.to_string_lossy())
+        .with_var("XDG_DATA_HOME", data.to_string_lossy());
+
+    let paths = OpenCode.paths(&env, None);
+    assert_eq!(paths.config_root, config.join("opencode"));
+    assert_eq!(paths.data_root, data.join("opencode"));
+    assert_eq!(OpenCode.sessions_dir(&env, &home()), data.join("opencode"));
+
+    let relative = Env::for_tests(home())
+        .with_var("XDG_CONFIG_HOME", "xdg/config")
+        .with_var("XDG_DATA_HOME", "xdg/data");
+    assert_eq!(
+        OpenCode.paths(&relative, None).config_root,
+        home().join(".config/opencode")
+    );
+    assert_eq!(data_dir(&relative), home().join(".local/share/opencode"));
+}
+
+#[test]
+fn the_opencode_config_dir_variable_adds_a_layer_without_moving_the_root() {
+    let team = home().join("team-opencode");
+    let env = Env::for_tests(home()).with_var("OPENCODE_CONFIG_DIR", team.to_string_lossy());
+
+    assert_eq!(OpenCode.paths(&env, None).config_root, home().join(".config/opencode"));
+    assert_eq!(custom_config_dir(&env), Some(team));
+
+    let relative = Env::for_tests(home()).with_var("OPENCODE_CONFIG_DIR", "team-opencode");
+    assert_eq!(custom_config_dir(&relative), None);
+}
+
+#[test]
 fn adapters_report_their_paths_through_the_trait() {
     let env = Env::for_tests(home());
 
@@ -150,6 +200,13 @@ fn parse_errors_name_a_location_but_no_content() {
 
     let json = parse_text("{\"token\": \"abc\",}", ConfigFormat::Json).unwrap_err();
     assert_eq!(json, "Invalid JSON at line 1, column 17");
+
+    let jsonc = parse_text("{\n  // note\n  \"token\": abc\n}", ConfigFormat::Jsonc).unwrap_err();
+    assert_eq!(jsonc, "Invalid JSON at line 3, column 12");
+    assert_eq!(
+        parse_text("{ \"a\": 1, /* c */ }", ConfigFormat::Jsonc),
+        Ok(json!({ "a": 1 }))
+    );
 
     assert_eq!(parse_text("  \n", ConfigFormat::Yaml), Ok(serde_json::Value::Null));
 }

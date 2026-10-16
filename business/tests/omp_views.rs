@@ -230,3 +230,26 @@ fn parse_errors_are_reported_by_location_only() {
     assert_eq!(broken.error.as_deref(), Some("Invalid JSON at line 4, column 1"));
     assert_eq!(view.notices.last().unwrap().level, NoticeLevel::Info);
 }
+
+#[cfg(unix)]
+#[test]
+fn a_symlinked_skills_dir_with_loops_lists_each_skill_once() {
+    use std::os::unix::fs::symlink;
+
+    let temp = tempfile::TempDir::new().unwrap();
+    let home = temp.path().join("home");
+    let shared = temp.path().join("shared-skills");
+    let skill = shared.join("notes");
+    std::fs::create_dir_all(&skill).unwrap();
+    std::fs::write(skill.join("SKILL.md"), "---\ndescription: Notes\n---\n").unwrap();
+    std::fs::create_dir_all(home.join(".omp/agent")).unwrap();
+    symlink(&shared, home.join(".omp/agent/skills")).unwrap();
+    for index in 0..50 {
+        symlink(".", shared.join(format!("loop-{index}"))).unwrap();
+    }
+
+    let view = extensions(&env_at(&home), None);
+
+    let names: Vec<&str> = view.skills.iter().map(|skill| skill.name.as_str()).collect();
+    assert_eq!(names, ["notes"]);
+}

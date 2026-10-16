@@ -13,6 +13,10 @@ describe('overviewStats', () => {
     expect(overviewStats(entry('plugins', { features, updateAvailable: false, latestVersion: null }))[3].value).toBe('Up to date');
   });
 
+  it('shows no counts for a plugin that lists no features and has no update', () => {
+    expect(overviewStats(entry('plugins', { features: [], updateAvailable: false, latestVersion: null }))).toEqual([]);
+  });
+
   it('counts what a marketplace lists and how much of it is installed', () => {
     const entries = [{ installed: true }, { installed: false }, { installed: false }];
 

@@ -30,9 +30,8 @@
   const targets = $derived(skillsTargets(data.harnesses));
   const skillsDetail = $derived(targets.length > 0 ? t('onboarding.setup.skills.rowDetail', { harnesses: joinNames(targets.map((entry) => nameOf(entry.harness))) }) : t('onboarding.setup.skills.rowNone'));
 
-  /** Harnesses whose skills the app cannot install: a command to run by hand, or a reason there is none. */
+  /** Harnesses whose skills the app cannot install but the user can, with a command to run by hand. */
   const manual = $derived(data.harnesses.filter((entry) => entry.installed && entry.skills.type === 'manual'));
-  const unavailable = $derived(data.harnesses.filter((entry) => entry.installed && entry.skills.type === 'unavailable'));
   const failures = $derived(setup.skillsFailures());
 </script>
 
@@ -65,7 +64,7 @@
     {/each}
 
     <SetupFamilyRow product="skills" name={t('onboarding.setup.skills.title')} detail={skillsDetail} chip={skillsRowChip(data.harnesses, setup.skillsShown(), setup.skillsWaiting())}>
-      {#if failures.length > 0 || manual.length > 0 || unavailable.length > 0}
+      {#if failures.length > 0 || manual.length > 0}
         <div class="flex flex-col gap-2">
           {#if failures.length > 0}
             {@render failure(failures.map(({ harness, reason }) => t('onboarding.setup.skills.failedIn', { name: nameOf(harness), reason })))}
@@ -83,11 +82,6 @@
             {/if}
           {/each}
 
-          {#each unavailable as entry (entry.harness)}
-            {#if entry.skills.type === 'unavailable'}
-              <p class="text-sm text-fg-3">{nameOf(entry.harness)}: {entry.skills.reason}</p>
-            {/if}
-          {/each}
         </div>
       {/if}
     </SetupFamilyRow>

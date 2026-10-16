@@ -31,10 +31,13 @@
   const detection = $derived(summary.detection);
   const support = $derived(SUPPORT[detection.versionSupport]);
   const label = $derived(summary.info.name);
+  /** Detected and shown, but not offered yet: the app cannot chat with it. */
+  const soon = $derived(!summary.capabilities.chat);
 </script>
 
 <!--
   Six fixed rows, in this order, whatever the state: header, description, status, note, binary (or actions) and config.
+  A harness the app cannot chat with yet keeps the same rows, greyed out, with "Coming soon" in place of the choice.
   The card is a subgrid of the step's grid, so a row is as tall as the tallest of its siblings and the rows of
   neighbouring cards mirror each other line by line, whatever their wording.
 -->
@@ -43,13 +46,18 @@
   class={cx(
     'row-span-6 grid grid-rows-subgrid gap-y-5 rounded-lg border-card bg-glass p-6 shadow-float transition-colors duration-[var(--dur-base)] [@media(max-height:720px)]:gap-y-3 [@media(max-height:720px)]:p-4',
     selected ? 'edge-accent shadow-glow' : 'border-line',
+    soon && 'opacity-60 grayscale',
   )}
 >
-  <header class="flex items-start gap-3">
+  <!-- The choice drops under the name when the card is too narrow for both: every card is built from the same minimum widths, so they all wrap alike. -->
+  <header class="flex flex-wrap items-start gap-x-3 gap-y-3">
     <HarnessBadge info={summary.info} size="lg" />
 
-    <h3 class="min-w-0 flex-1 self-center text-xl text-fg">{summary.info.name}</h3>
+    <h3 class="min-w-24 flex-1 self-center text-xl text-fg">{summary.info.name}</h3>
 
+    {#if soon}
+      <Badge size="lg" class="h-8 shrink-0">{t('onboarding.card.comingSoon')}</Badge>
+    {:else}
     <!-- The radio is its own control; the actions below stay outside it. -->
     <button
       type="button"
@@ -71,6 +79,7 @@
       </svg>
       {selected ? t('onboarding.card.driver') : t('onboarding.card.useAs')}
     </button>
+    {/if}
   </header>
 
   <p class="text-sm text-fg-2">{summary.info.description}</p>
@@ -81,23 +90,22 @@
       {#if detection.version}
         <Badge size="lg" class="tabular">v{detection.version}</Badge>
       {/if}
-      <Badge size="lg" tone={support.tone}>{support.label}</Badge>
+      <!-- The badge carries the version note as a tooltip, so the card stays short. -->
+      <span class="inline-flex" title={support.note ?? undefined}>
+        <Badge size="lg" tone={support.tone}>{support.label}</Badge>
+      </span>
     {:else}
       <Badge size="lg" tone="warning">{t('onboarding.card.notFound')}</Badge>
     {/if}
   </div>
 
-  <!-- What to know or do about this install: the version note, or how to get the harness. -->
+  <!-- How to get a missing harness (empty for an installed one or one that is not offered yet). -->
   <div class="flex flex-col gap-2">
-    {#if detection.installed}
-      {#if support.note}
-        <p class="text-sm text-fg-2">{support.note}</p>
-      {/if}
-    {:else}
+    {#if !detection.installed && !soon}
       {#if detection.installHint}
         <p class="text-sm text-fg-2">{t('onboarding.card.installWith')}</p>
         <div class="flex items-center gap-2 rounded-md border border-line bg-surface-1 py-1 pr-1 pl-3">
-          <code class="min-w-0 flex-1 py-1.5 font-mono text-sm break-all text-fg">{detection.installHint.command}</code>
+          <code class="min-w-0 flex-1 py-1.5 font-mono text-sm [overflow-wrap:anywhere] text-fg">{detection.installHint.command}</code>
           <CopyButton text={detection.installHint.command} label={t('onboarding.card.copyInstall')} />
         </div>
       {/if}
@@ -108,22 +116,22 @@
     {/if}
   </div>
 
-  {#if detection.installed}
+  {#if detection.installed || soon}
     <dl class="grid grid-cols-[max-content_1fr] items-center gap-x-4 text-sm">
       <dt class="text-fg-3">{t('onboarding.card.binary')}</dt>
-      <dd class="min-w-0 truncate font-mono text-fg-2" title={detection.binaryPath ?? undefined}>{detection.binaryPath}</dd>
+      <dd class="min-w-0 truncate font-mono text-fg-2" title={detection.binaryPath ?? undefined}>{detection.binaryPath ?? t('onboarding.card.notFound')}</dd>
     </dl>
   {:else}
     <!-- An even row of equal-width actions, not a ragged wrap. -->
-    <div class={cx('grid items-center gap-2', detection.installHint ? 'grid-cols-2' : 'grid-cols-1')}>
+    <div class="flex flex-wrap items-center gap-2">
       {#if detection.installHint}
         {@const docsUrl = detection.installHint.docsUrl}
-        <Button size="sm" class="w-full" onclick={() => void openExternal(docsUrl)}>
+        <Button size="sm" class="min-w-36 flex-1" onclick={() => void openExternal(docsUrl)}>
           {#snippet leading()}<ExternalLink size={16} aria-hidden="true" />{/snippet}
           {t('onboarding.card.installDocs')}
         </Button>
       {/if}
-      <Button size="sm" class="w-full" onclick={() => void harness.pickBinary(summary.info.id)}>
+      <Button size="sm" class="min-w-36 flex-1" onclick={() => void harness.pickBinary(summary.info.id)}>
         {#snippet leading()}<FolderOpen size={16} aria-hidden="true" />{/snippet}
         {t('onboarding.card.chooseBinary')}
       </Button>

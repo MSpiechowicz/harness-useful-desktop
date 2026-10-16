@@ -6,6 +6,7 @@
   import { t } from '$lib/i18n/i18n.svelte';
   import type { SessionSummary } from '$lib/ipc/bindings/SessionSummary';
   import { agentSessions } from '$lib/stores/agentSession.svelte';
+  import { harness } from '$lib/stores/harness.svelte';
   import { forkInChat } from '$lib/stores/session-actions';
   import { sessionDetail as detail } from '$lib/stores/sessions.svelte';
 
@@ -30,6 +31,10 @@
   let width = $state(0);
   let sheetOpen = $state(false);
   let busy = $state(false);
+
+  // Forking starts a chat, and a branching tree exists only in harnesses that have one.
+  const tree = $derived(harness.get(summary.ref.harness));
+  const forkable = $derived(harness.canChat(summary.ref.harness));
 
   const folded = $derived(width > 0 && width < SHEET_BELOW_PX);
 
@@ -57,11 +62,11 @@
 
   <div class="flex min-h-0 flex-1">
     <div class="min-w-0 flex-1">
-      <Transcript {detail} {project} busy={busy || resuming} onfork={(id) => void fork(id)} />
+      <Transcript {detail} {project} busy={busy || resuming} onfork={forkable ? (id) => void fork(id) : undefined} />
     </div>
 
     {#if !folded}
-      <SessionDetails {summary} stats={detail.stats} touched={detail.touched} {project} {forks} class="w-[300px] shrink-0 border-l border-line" />
+      <SessionDetails {summary} stats={detail.stats} touched={detail.touched} {project} {forks} showForks={tree?.capabilities.sessionTree ?? true} class="w-[300px] shrink-0 border-l border-line" />
     {/if}
   </div>
 
@@ -75,7 +80,7 @@
       transition:fly={{ x: 32, duration: scaled(240) }}
       class="absolute inset-y-0 right-0 z-40 flex w-[min(21rem,92%)] flex-col border-l border-line-strong bg-surface-1 shadow-pop outline-none"
     >
-      <SessionDetails {summary} stats={detail.stats} touched={detail.touched} {project} {forks} class="min-h-0 flex-1" />
+      <SessionDetails {summary} stats={detail.stats} touched={detail.touched} {project} {forks} showForks={tree?.capabilities.sessionTree ?? true} class="min-h-0 flex-1" />
     </div>
   {/if}
 </div>

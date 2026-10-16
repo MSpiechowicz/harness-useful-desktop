@@ -401,3 +401,38 @@ describe('in Polish', () => {
     }
   });
 });
+
+describe('sessions of a harness without chat', () => {
+  async function showOpenCode(): Promise<void> {
+    await prefs.update({ defaultHarness: 'opencode' });
+    await showSessions();
+    await waitFor(() => expect(sessionButtons()[0]?.dataset.session).toMatch(/^ses_/));
+  }
+
+  afterEach(async () => {
+    await prefs.update({ defaultHarness: 'omp' });
+  });
+
+  it('reads and deletes them but cannot resume or fork them', async () => {
+    await showOpenCode();
+
+    // The transcript and the files touched are there, the way back into a chat is not.
+    expect(screen.getByRole('list', { name: 'Session transcript' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Resume in chat' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Fork from here' })).toBeNull();
+    // OpenCode sessions do not branch, so there is no count of forks to show.
+    expect(screen.queryByText('Forks')).toBeNull();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    expect(await screen.findByRole('menuitem', { name: 'Delete' })).toBeInTheDocument();
+  });
+
+  it('still resumes the sessions of a harness that has chat', async () => {
+    await prefs.update({ defaultHarness: 'omp' });
+    await showSessions();
+
+    expect(screen.getByRole('button', { name: 'Resume in chat' })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Fork from here' }).length).toBeGreaterThan(0);
+    expect(screen.getByText('Forks')).toBeInTheDocument();
+  });
+});

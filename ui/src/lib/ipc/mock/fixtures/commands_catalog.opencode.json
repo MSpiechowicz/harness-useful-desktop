@@ -1,0 +1,292 @@
+[
+  {
+    "name": "init",
+    "description": "Create or update AGENTS.md for this project",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Chat with OpenCode is coming soon."
+    }
+  },
+  {
+    "name": "review",
+    "description": "Review changes, by default the uncommitted ones",
+    "argumentHint": "[commit|branch|pr]",
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Chat with OpenCode is coming soon."
+    }
+  },
+  {
+    "name": "new",
+    "description": "Start a new session",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Chat with OpenCode is coming soon."
+    }
+  },
+  {
+    "name": "sessions",
+    "description": "Switch session",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Chat with OpenCode is coming soon."
+    }
+  },
+  {
+    "name": "rename",
+    "description": "Rename the session",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Chat with OpenCode is coming soon."
+    }
+  },
+  {
+    "name": "compact",
+    "description": "Compact the session",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Chat with OpenCode is coming soon."
+    }
+  },
+  {
+    "name": "undo",
+    "description": "Undo the previous message",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Chat with OpenCode is coming soon."
+    }
+  },
+  {
+    "name": "redo",
+    "description": "Redo the undone message",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Chat with OpenCode is coming soon."
+    }
+  },
+  {
+    "name": "fork",
+    "description": "Fork the session",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Chat with OpenCode is coming soon."
+    }
+  },
+  {
+    "name": "timeline",
+    "description": "Jump to a message",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Chat with OpenCode is coming soon."
+    }
+  },
+  {
+    "name": "copy",
+    "description": "Copy the session transcript",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Chat with OpenCode is coming soon."
+    }
+  },
+  {
+    "name": "export",
+    "description": "Export the session transcript",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Chat with OpenCode is coming soon."
+    }
+  },
+  {
+    "name": "models",
+    "description": "Switch model",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Chat with OpenCode is coming soon."
+    }
+  },
+  {
+    "name": "variants",
+    "description": "Switch model variant",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Chat with OpenCode is coming soon."
+    }
+  },
+  {
+    "name": "agents",
+    "description": "Switch agent",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Chat with OpenCode is coming soon."
+    }
+  },
+  {
+    "name": "mcps",
+    "description": "Turn MCP servers on or off",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Chat with OpenCode is coming soon."
+    }
+  },
+  {
+    "name": "skills",
+    "description": "Browse skills",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Chat with OpenCode is coming soon."
+    }
+  },
+  {
+    "name": "connect",
+    "description": "Connect a provider",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Chat with OpenCode is coming soon."
+    }
+  },
+  {
+    "name": "themes",
+    "description": "Switch theme",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Chat with OpenCode is coming soon."
+    }
+  },
+  {
+    "name": "thinking",
+    "description": "Expand or collapse thinking",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Chat with OpenCode is coming soon."
+    }
+  },
+  {
+    "name": "timestamps",
+    "description": "Show or hide timestamps",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Chat with OpenCode is coming soon."
+    }
+  },
+  {
+    "name": "editor",
+    "description": "Write the prompt in your editor",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Chat with OpenCode is coming soon."
+    }
+  },
+  {
+    "name": "diff",
+    "description": "Open the diff viewer",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Chat with OpenCode is coming soon."
+    }
+  },
+  {
+    "name": "status",
+    "description": "View status",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Chat with OpenCode is coming soon."
+    }
+  },
+  {
+    "name": "help",
+    "description": "Show help",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Chat with OpenCode is coming soon."
+    }
+  },
+  {
+    "name": "exit",
+    "description": "Exit OpenCode",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Chat with OpenCode is coming soon."
+    }
+  },
+  {
+    "name": "model",
+    "description": "Choose the model",
+    "argumentHint": null,
+    "source": "shared",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Chat with OpenCode is coming soon."
+    }
+  },
+  {
+    "name": "name",
+    "description": "Rename this session",
+    "argumentHint": "<name>",
+    "source": "shared",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Chat with OpenCode is coming soon."
+    }
+  },
+  {
+    "name": "abort",
+    "description": "Stop the running turn",
+    "argumentHint": null,
+    "source": "shared",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Chat with OpenCode is coming soon."
+    }
+  }
+]

@@ -21,7 +21,7 @@ export const settings: AreaMessages<typeof enSettings> = {
 
   'settings.keywords.appearance': 'motyw animacje ruch ciemny jasny animacja język',
   'settings.keywords.startup': 'intro start uruchamianie ekran powitalny',
-  'settings.keywords.harnesses': 'plik wykonywalny binarka omp pi ścieżka konfiguracja harness',
+  'settings.keywords.harnesses': 'plik wykonywalny binarka omp pi opencode ścieżka konfiguracja harness',
   'settings.keywords.memory': 'pamięć zdalna zespół baza danych postgres postgresql mongodb mongo sqlite libsql turso współdzielona harness-memory mcp zapamiętywanie repozytorium przywoływanie notatki globalne nowy czat',
   'settings.keywords.projects': 'ostatnie foldery',
   'settings.keywords.updates': 'wersja aktualizacja nowa wydanie instalacja sprawdź',
@@ -72,6 +72,10 @@ export const settings: AreaMessages<typeof enSettings> = {
 
   'settings.memory.title': 'Pamięć projektu',
   'settings.memory.description': 'Daje harnessom pamięć (harness-memory) tego, co zrobiono, problemów i poprawek oraz tego, gdzie co jest, osobno dla każdego repozytorium. Zapisana na tym komputerze albo, gdy pamięć zdalna jest włączona, w bazie danych twojego zespołu. Wyłączenie usuwa ją z konfiguracji MCP harnessów.',
+  'settings.memory.manual.title': 'Usuń te wpisy ręcznie',
+  'settings.memory.manual.body': '{harness} ma komentarze w {file}, więc aplikacja zostawiła ten plik bez zmian. Usuń z niego samodzielnie wpis {name}.',
+  'settings.memory.manual.copy': 'Kopiuj nazwę wpisu',
+  'settings.memory.manual.dismiss': 'Gotowe',
 
   'settings.memoryRecall.title': 'Dodawaj pamięć do nowych czatów',
   'settings.memoryRecall.description': 'Przy pierwszej wiadomości nowego czatu do agenta trafiają odpowiednie notatki z pamięci projektu. Są wysyłane do dostawcy modelu razem z wiadomością.',

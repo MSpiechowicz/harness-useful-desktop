@@ -16,6 +16,12 @@
 
   const installed = $derived(harness.installed);
 
+  /**
+   * As many cards across as fit at a readable width: three on the full frame, two when there are two harnesses (their
+   * empty third column folds away), fewer as the window narrows. The cards share its rows (see HarnessCard).
+   */
+  const CARD_GRID = 'grid grid-cols-[repeat(auto-fit,minmax(16rem,1fr))] gap-x-4 gap-y-4';
+
   // Arrow keys move the daily-driver choice between installed harnesses, like a native radio group.
   function onKeydown(event: KeyboardEvent): void {
     const current = installed.findIndex((summary) => summary.info.id === onboarding.driver);
@@ -37,7 +43,8 @@
   />
 
   {#if harness.status === 'loading' || harness.status === 'idle'}
-    <div class="grid grid-cols-2 gap-4" role="status" aria-label={t('onboarding.harnesses.looking')}>
+    <div class={CARD_GRID} role="status" aria-label={t('onboarding.harnesses.looking')}>
+      <Skeleton height="16rem" />
       <Skeleton height="16rem" />
       <Skeleton height="16rem" />
     </div>
@@ -63,7 +70,7 @@
     </div>
 
     <!-- Arrow keys are a convenience on top of the radio buttons, which are individually focusable. -->
-    <div role="radiogroup" aria-label={t('onboarding.harnesses.group')} tabindex="-1" class="grid grid-cols-2 gap-x-4 outline-none" onkeydown={onKeydown}>
+    <div role="radiogroup" aria-label={t('onboarding.harnesses.group')} tabindex="-1" class={cx(CARD_GRID, 'outline-none')} onkeydown={onKeydown}>
       {#each harness.summaries as summary (summary.info.id)}
         <HarnessCard {summary} selected={onboarding.driver === summary.info.id} onselect={() => onboarding.choose(summary.info.id)} />
       {/each}

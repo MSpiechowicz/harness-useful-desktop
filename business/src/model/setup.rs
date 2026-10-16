@@ -123,6 +123,14 @@ pub enum McpState {
         /// Why.
         reason: McpRefusal,
     },
+    /// The file has comments a rewrite would lose (JSONC), so the app leaves it alone; the user
+    /// pastes `snippet` into it themselves.
+    ManualEdit {
+        /// The file to edit.
+        file: String,
+        /// The server entry to add, as text ready to paste.
+        snippet: String,
+    },
 }
 
 /// Why an MCP file is left alone.
@@ -134,7 +142,8 @@ pub enum McpRefusal {
     Unparsable,
     /// The JSON root is not an object.
     NotAnObject,
-    /// `mcpServers` is present but not an object.
+    /// The servers key (`mcpServers`, or `mcp` in an OpenCode config file) is present but not an
+    /// object.
     ServersNotAnObject,
     /// The file is a symlink.
     Symlink,
@@ -207,4 +216,21 @@ pub struct MemorySwitchResult {
     /// The `harness-memory` binary after the switch. While it is not installed nothing is
     /// registered; the UI offers its installer (`setup_install_memory`).
     pub server: DashboardSetup,
+    /// When switched off: the app's own entries left in files it cannot rewrite (they have
+    /// comments), which the user removes by hand. Empty otherwise.
+    pub manual_removals: Vec<ManualRemoval>,
+}
+
+/// An MCP server entry the user removes by hand, because the file has comments a rewrite would
+/// lose.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct ManualRemoval {
+    /// Which harness reads the file.
+    pub harness: HarnessId,
+    /// The file, `~`-shortened for display.
+    pub file: String,
+    /// The entry's name.
+    pub name: String,
 }

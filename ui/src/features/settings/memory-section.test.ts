@@ -5,6 +5,7 @@ import type { MemoryRemote } from '$lib/ipc/bindings/MemoryRemote';
 import type { MemoryRemoteTest } from '$lib/ipc/bindings/MemoryRemoteTest';
 import { ipc } from '$lib/ipc/client';
 import type { CommandArgs, CommandName, CommandResult } from '$lib/ipc/commands';
+import { harness } from '$lib/stores/harness.svelte';
 import { memoryRemote } from '$lib/stores/memoryRemote.svelte';
 import { prefs } from '$lib/stores/prefs.svelte';
 
@@ -57,14 +58,16 @@ function fakeBackend(initial: Partial<MemoryRemote> = {}, probe: MemoryRemoteTes
   });
 }
 
-beforeAll(() => {
+beforeAll(async () => {
   vi.stubEnv('VITE_TRANSPORT', 'mock');
   Element.prototype.scrollIntoView = vi.fn();
+  await harness.load();
 });
 
 beforeEach(() => {
   prefs.value = samplePrefs({ motion: 'off' });
   memoryRemote.value = null;
+  prefs.dismissMemoryManualRemovals();
 });
 
 afterEach(() => {
@@ -114,6 +117,42 @@ describe('Memory section', () => {
     await fireEvent.input(screen.getByRole('searchbox', { name: 'Search settings' }), { target: { value: 'teammate' } });
 
     await waitFor(() => expect(within(nav).getAllByRole('button').map((button) => button.textContent?.trim())).toEqual(['Memory']));
+  });
+
+  it('warns which entry to remove by hand, with a copyable name, when turning memory off left one behind', async () => {
+    const passthrough = ipc.invoke.bind(ipc);
+    const removal = { harness: 'opencode', file: '~/.config/opencode/opencode.jsonc', name: 'harness-memory' } as const;
+    vi.spyOn(ipc, 'invoke').mockImplementation(async <K extends CommandName>(name: K, args: CommandArgs<K>) => {
+      if (name === 'memory_set_enabled') {
+        const { enabled } = args as CommandArgs<'memory_set_enabled'>;
+
+        return { memoryEnabled: enabled, manualRemovals: enabled ? [] : [removal] } as CommandResult<K>;
+      }
+
+      return passthrough(name, args);
+    });
+    render(SettingsView);
+
+    await fireEvent.click(within(memorySection()).getByRole('switch', { name: 'Project memory' }));
+
+    const note = await within(memorySection()).findByRole('alert', { name: 'Remove these entries by hand' });
+    expect(note).toHaveTextContent('OpenCode has comments in ~/.config/opencode/opencode.jsonc');
+    expect(within(note).getByText('harness-memory', { selector: 'code *, code' })).toBeInTheDocument();
+    expect(within(note).getByRole('button', { name: 'Copy entry name' })).toBeInTheDocument();
+
+    // Turning it back on has nothing left to remove: the note goes.
+    await fireEvent.click(within(memorySection()).getByRole('switch', { name: 'Project memory' }));
+    await waitFor(() => expect(screen.queryByRole('alert', { name: 'Remove these entries by hand' })).not.toBeInTheDocument());
+  });
+
+  it('shows no warning when turning memory off left nothing to remove', async () => {
+    fakeBackend();
+    render(SettingsView);
+
+    await fireEvent.click(within(memorySection()).getByRole('switch', { name: 'Project memory' }));
+
+    await waitFor(() => expect(within(memorySection()).getByRole('switch', { name: 'Project memory' })).toHaveAttribute('aria-checked', 'false'));
+    expect(screen.queryByRole('alert', { name: 'Remove these entries by hand' })).not.toBeInTheDocument();
   });
 
   it('greys out a saved remote connection while project memory is off and keeps it for when it is back on', async () => {

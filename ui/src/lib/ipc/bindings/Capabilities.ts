@@ -5,6 +5,11 @@
  */
 export type Capabilities = { 
 /**
+ * Chat sessions the app drives (an RPC launch and dialect); without it the UI shows that chat
+ * is coming later.
+ */
+chat: boolean, 
+/**
  * Installable plugins (OMP `omp plugin …`).
  */
 plugins: boolean, 
@@ -29,6 +34,10 @@ skills: boolean,
  */
 promptTemplates: boolean, 
 /**
+ * Named agents the harness can switch to or delegate to (OpenCode `agent`).
+ */
+agents: boolean, 
+/**
  * Code extension modules loaded by the harness.
  */
 extensionModules: boolean, 
@@ -36,6 +45,11 @@ extensionModules: boolean,
  * Custom colour themes.
  */
 themes: boolean, 
+/**
+ * Extension actions (install, remove, enable, ...) run through the harness CLI (see
+ * `Harness::cli_action`).
+ */
+cliActions: boolean, 
 /**
  * Named configuration profiles.
  */

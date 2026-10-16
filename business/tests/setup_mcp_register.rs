@@ -1,10 +1,11 @@
 //! Registering the dashboard's MCP server in a user MCP file: creating, merging, recognising an
 //! existing entry, and refusing files it cannot change safely; and reading the memory server's
-//! state in the same file by the same rules.
+//! state in the same file by the same rules. OpenCode's config file is in
+//! `setup_mcp_register_opencode.rs`.
 
 mod mcp_support;
 
-use harness_business::ecosystem::{mcp_state, memory_mcp_state, register_dashboard_mcp};
+use harness_business::ecosystem::{McpFile, Shape, mcp_state, memory_mcp_state, register_dashboard_mcp};
 use harness_business::model::{McpRefusal, McpState};
 use mcp_support::{Home, keys, read};
 use pretty_assertions::assert_eq;
@@ -14,16 +15,25 @@ use serde_json::{Value, json};
 use mcp_support::mode;
 
 impl Home {
+    /// OMP's `mcp.json`, which also reads `.mcp.json`.
+    fn file(&self) -> McpFile {
+        McpFile {
+            path: self.agent("mcp.json"),
+            also_read: vec![self.agent(".mcp.json")],
+            shape: Shape::McpServers,
+        }
+    }
+
     fn register(&self) -> McpState {
-        register_dashboard_mcp(&self.env, &self.agent("mcp.json"), &[self.agent(".mcp.json")])
+        register_dashboard_mcp(&self.env, &self.file())
     }
 
     fn state(&self) -> McpState {
-        mcp_state(&self.env, &self.agent("mcp.json"), &[self.agent(".mcp.json")])
+        mcp_state(&self.env, &self.file())
     }
 
     fn memory_state(&self) -> McpState {
-        memory_mcp_state(&self.env, &self.agent("mcp.json"), &[self.agent(".mcp.json")])
+        memory_mcp_state(&self.env, &self.file())
     }
 }
 

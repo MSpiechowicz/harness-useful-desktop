@@ -82,9 +82,21 @@ export function mcpTitle(kind: McpKind): string {
 /** The server name and command of each MCP entry. */
 const MCP_SERVER: Record<McpKind, string> = { mcp: 'harness-dashboard', memoryMcp: 'harness-memory' };
 
-/** The JSON a person adds to an MCP file when the app leaves it alone, one key per line so it never wraps mid-token. */
-export function mcpSnippet(kind: McpKind): string {
+/** The JSON a person adds to an MCP file when the app leaves it alone, one key per line so it never wraps mid-token. OpenCode keeps its servers under "mcp", the command as one list. */
+export function mcpSnippet(kind: McpKind, harness?: HarnessId): string {
   const server = MCP_SERVER[kind];
+
+  if (harness === 'opencode') {
+    return `{
+  "mcp": {
+    "${server}": {
+      "type": "local",
+      "command": ["${server}", "mcp"],
+      "enabled": true
+    }
+  }
+}`;
+  }
 
   return `{
   "mcpServers": {
@@ -183,17 +195,21 @@ export function mcpChip(setup: HarnessSetup, kind: McpKind, phase: ItemPhase, wa
         return { tone: 'warning', label: t('onboarding.setup.chip.disabled') };
       case 'refused':
         return isUnsupported(mcp) ? { tone: 'neutral', label: t('onboarding.setup.chip.unsupported') } : { tone: 'danger', label: t('onboarding.setup.chip.refused') };
+      case 'manualEdit':
+        return { tone: 'neutral', label: t('onboarding.setup.chip.manual') };
     }
   });
 }
 
 /** Harness Skills across every harness found: installed in all of them, in some, or in none yet. */
 export function skillsOverviewChip(harnesses: HarnessSetup[]): Chip {
-  const found = harnesses.filter((entry) => entry.installed);
+  const installed = harnesses.filter((entry) => entry.installed);
+  // A harness the skills cannot be installed in at all (no package for it) does not hold the overview back.
+  const found = installed.filter((entry) => entry.skills.type !== 'unavailable');
   const have = found.filter((entry) => entry.skills.type === 'installed').length;
 
   if (found.length === 0) {
-    return { tone: 'neutral', label: t('onboarding.setup.chip.notInstalled') };
+    return installed.length > 0 ? { tone: 'neutral', label: t('onboarding.setup.chip.unavailable') } : { tone: 'neutral', label: t('onboarding.setup.chip.notInstalled') };
   }
 
   if (have === found.length) {

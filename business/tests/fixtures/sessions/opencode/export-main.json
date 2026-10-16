@@ -1,0 +1,298 @@
+{
+  "info": {
+    "id": "ses_2b7f3c9a1ffeA1b2C3d4E5f6G7",
+    "slug": "brave-otter",
+    "projectID": "7cc257df58101a8af991e9cc10a8aa311970542f",
+    "directory": "{{PROJECT}}",
+    "path": "",
+    "title": "Fix the greeting",
+    "version": "1.19.3",
+    "cost": 0,
+    "tokens": {
+      "input": 0,
+      "output": 0,
+      "reasoning": 0,
+      "cache": {
+        "read": 0,
+        "write": 0
+      }
+    },
+    "time": {
+      "created": 1760600000000,
+      "updated": 1760600090000
+    }
+  },
+  "messages": [
+    {
+      "info": {
+        "role": "user",
+        "time": {
+          "created": 1760600000000
+        },
+        "agent": "build",
+        "model": {
+          "providerID": "anthropic",
+          "modelID": "claude-sonnet-4-5"
+        },
+        "id": "msg_a1000000001aAAAAAAAAAAAAAA",
+        "sessionID": "ses_2b7f3c9a1ffeA1b2C3d4E5f6G7"
+      },
+      "parts": [
+        {
+          "type": "text",
+          "text": "Make the greeting say hello to the world.",
+          "id": "prt_a1000000001aAAAAAAAAAAAAAA",
+          "sessionID": "ses_2b7f3c9a1ffeA1b2C3d4E5f6G7",
+          "messageID": "msg_a1000000001aAAAAAAAAAAAAAA"
+        },
+        {
+          "type": "file",
+          "mime": "text/plain",
+          "filename": "main.rs",
+          "url": "file://{{PROJECT}}/src/main.rs",
+          "source": {
+            "text": {
+              "value": "@src/main.rs",
+              "start": 0,
+              "end": 12
+            },
+            "type": "file",
+            "path": "src/main.rs"
+          },
+          "id": "prt_a1000000002aAAAAAAAAAAAAAA",
+          "sessionID": "ses_2b7f3c9a1ffeA1b2C3d4E5f6G7",
+          "messageID": "msg_a1000000001aAAAAAAAAAAAAAA"
+        }
+      ]
+    },
+    {
+      "info": {
+        "role": "assistant",
+        "time": {
+          "created": 1760600010000,
+          "completed": 1760600060000
+        },
+        "parentID": "msg_a1000000001aAAAAAAAAAAAAAA",
+        "modelID": "claude-sonnet-4-5",
+        "providerID": "anthropic",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "{{PROJECT}}",
+          "root": "{{PROJECT}}"
+        },
+        "cost": 0.0123,
+        "tokens": {
+          "input": 1200,
+          "output": 300,
+          "reasoning": 40,
+          "cache": {
+            "read": 800,
+            "write": 100
+          }
+        },
+        "finish": "tool-calls",
+        "id": "msg_a1000000002aAAAAAAAAAAAAAA",
+        "sessionID": "ses_2b7f3c9a1ffeA1b2C3d4E5f6G7"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_a1000000003aAAAAAAAAAAAAAA",
+          "sessionID": "ses_2b7f3c9a1ffeA1b2C3d4E5f6G7",
+          "messageID": "msg_a1000000002aAAAAAAAAAAAAAA"
+        },
+        {
+          "type": "reasoning",
+          "text": "The greeting lives in src/main.rs.",
+          "time": {
+            "start": 1760600011000,
+            "end": 1760600012000
+          },
+          "id": "prt_a1000000004aAAAAAAAAAAAAAA",
+          "sessionID": "ses_2b7f3c9a1ffeA1b2C3d4E5f6G7",
+          "messageID": "msg_a1000000002aAAAAAAAAAAAAAA"
+        },
+        {
+          "type": "text",
+          "text": "I will update the greeting.",
+          "id": "prt_a1000000005aAAAAAAAAAAAAAA",
+          "sessionID": "ses_2b7f3c9a1ffeA1b2C3d4E5f6G7",
+          "messageID": "msg_a1000000002aAAAAAAAAAAAAAA"
+        },
+        {
+          "type": "tool",
+          "callID": "toolu_edit_1",
+          "tool": "edit",
+          "state": {
+            "status": "completed",
+            "input": {
+              "filePath": "{{PROJECT}}/src/main.rs",
+              "oldString": "hi",
+              "newString": "hello, world"
+            },
+            "output": "Edit applied successfully. API_TOKEN=CANARY-7f3a9c-0123456789abcdef",
+            "title": "src/main.rs",
+            "metadata": {
+              "diff": "-hi\n+hello, world"
+            },
+            "time": {
+              "start": 1760600020000,
+              "end": 1760600021000
+            }
+          },
+          "id": "prt_a1000000006aAAAAAAAAAAAAAA",
+          "sessionID": "ses_2b7f3c9a1ffeA1b2C3d4E5f6G7",
+          "messageID": "msg_a1000000002aAAAAAAAAAAAAAA"
+        },
+        {
+          "type": "tool",
+          "callID": "toolu_write_1",
+          "tool": "write",
+          "state": {
+            "status": "completed",
+            "input": {
+              "filePath": "notes/todo.md",
+              "content": "- ship it"
+            },
+            "output": "Wrote file successfully.",
+            "title": "notes/todo.md",
+            "metadata": {},
+            "time": {
+              "start": 1760600030000,
+              "end": 1760600031000
+            }
+          },
+          "id": "prt_a1000000007aAAAAAAAAAAAAAA",
+          "sessionID": "ses_2b7f3c9a1ffeA1b2C3d4E5f6G7",
+          "messageID": "msg_a1000000002aAAAAAAAAAAAAAA"
+        },
+        {
+          "type": "tool",
+          "callID": "toolu_edit_2",
+          "tool": "edit",
+          "state": {
+            "status": "error",
+            "input": {
+              "filePath": "/etc/hosts",
+              "oldString": "a",
+              "newString": "b"
+            },
+            "error": "Permission denied: outside the project",
+            "time": {
+              "start": 1760600040000,
+              "end": 1760600041000
+            }
+          },
+          "id": "prt_a1000000008aAAAAAAAAAAAAAA",
+          "sessionID": "ses_2b7f3c9a1ffeA1b2C3d4E5f6G7",
+          "messageID": "msg_a1000000002aAAAAAAAAAAAAAA"
+        },
+        {
+          "type": "tool",
+          "callID": "toolu_patch_1",
+          "tool": "apply_patch",
+          "state": {
+            "status": "completed",
+            "input": {
+              "patchText": "*** Begin Patch\n*** Update File: src/lib.rs\n*** Move to: src/greet.rs\n@@\n-old\n+new\n*** Add File: ../outside.txt\n+nope\n*** End Patch"
+            },
+            "output": "Success.",
+            "title": "2 files",
+            "metadata": {},
+            "time": {
+              "start": 1760600050000,
+              "end": 1760600051000
+            }
+          },
+          "id": "prt_a1000000009aAAAAAAAAAAAAAA",
+          "sessionID": "ses_2b7f3c9a1ffeA1b2C3d4E5f6G7",
+          "messageID": "msg_a1000000002aAAAAAAAAAAAAAA"
+        },
+        {
+          "type": "step-finish",
+          "reason": "tool-calls",
+          "cost": 0.0123,
+          "tokens": {
+            "input": 1200,
+            "output": 300,
+            "reasoning": 40,
+            "cache": {
+              "read": 800,
+              "write": 100
+            }
+          },
+          "id": "prt_a1000000010aAAAAAAAAAAAAAA",
+          "sessionID": "ses_2b7f3c9a1ffeA1b2C3d4E5f6G7",
+          "messageID": "msg_a1000000002aAAAAAAAAAAAAAA"
+        }
+      ]
+    },
+    {
+      "info": {
+        "role": "user",
+        "time": {
+          "created": 1760600065000
+        },
+        "agent": "build",
+        "model": {
+          "providerID": "anthropic",
+          "modelID": "claude-sonnet-4-5"
+        },
+        "id": "msg_a1000000002zAAAAAAAAAAAAAA",
+        "sessionID": "ses_2b7f3c9a1ffeA1b2C3d4E5f6G7"
+      },
+      "parts": [
+        {
+          "type": "subtask",
+          "prompt": "Check the tests still pass",
+          "description": "Run tests",
+          "agent": "general",
+          "id": "prt_a1000000011aAAAAAAAAAAAAAA",
+          "sessionID": "ses_2b7f3c9a1ffeA1b2C3d4E5f6G7",
+          "messageID": "msg_a1000000002zAAAAAAAAAAAAAA"
+        }
+      ]
+    },
+    {
+      "info": {
+        "role": "assistant",
+        "time": {
+          "created": 1760600070000,
+          "completed": 1760600080000
+        },
+        "parentID": "msg_a1000000002zAAAAAAAAAAAAAA",
+        "modelID": "claude-sonnet-4-5",
+        "providerID": "anthropic",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "{{PROJECT}}",
+          "root": "{{PROJECT}}"
+        },
+        "cost": 0.004,
+        "tokens": {
+          "input": 2000,
+          "output": 80,
+          "reasoning": 0,
+          "cache": {
+            "read": 1500,
+            "write": 0
+          }
+        },
+        "finish": "stop",
+        "id": "msg_a1000000003aAAAAAAAAAAAAAA",
+        "sessionID": "ses_2b7f3c9a1ffeA1b2C3d4E5f6G7"
+      },
+      "parts": [
+        {
+          "type": "text",
+          "text": "Done: the greeting now says hello, world.",
+          "id": "prt_a1000000012aAAAAAAAAAAAAAA",
+          "sessionID": "ses_2b7f3c9a1ffeA1b2C3d4E5f6G7",
+          "messageID": "msg_a1000000003aAAAAAAAAAAAAAA"
+        }
+      ]
+    }
+  ]
+}

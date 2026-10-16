@@ -6,17 +6,58 @@
   import { t } from '$lib/i18n/i18n.svelte';
   import { cx } from '$lib/utils/cx';
 
+  import type { ApprovalNotice } from './approval-notices';
   import { WIDTH } from './layout';
   import StepHeader from './StepHeader.svelte';
 
+  interface Props {
+    /** Whose notice this is: both harnesses run tools without asking by default, each is configured in its own place. */
+    notice: ApprovalNotice;
+  }
+
+  let { notice }: Props = $props();
+
+  interface ModeCard {
+    id: string;
+    label: string;
+    tone: 'success' | 'info' | 'warning';
+    /** The flag or setting that selects it, as the user would type it. */
+    setting: string;
+    when: string;
+    good: string;
+    /** Marks the harness's own default. */
+    isDefault: boolean;
+  }
+
   /** How each OMP mode behaves in practice, next to its name. */
-  const DETAILS = $derived<Record<(typeof MODE_ORDER)[number], { cli: string; when: string; good: string }>>({
+  const OMP_DETAILS = $derived<Record<(typeof MODE_ORDER)[number], { cli: string; when: string; good: string }>>({
     alwaysAsk: { cli: 'always-ask', when: t('onboarding.approval.alwaysAsk.when'), good: t('onboarding.approval.alwaysAsk.good') },
     write: { cli: 'write', when: t('onboarding.approval.write.when'), good: t('onboarding.approval.write.good') },
     yolo: { cli: 'yolo', when: t('onboarding.approval.yolo.when'), good: t('onboarding.approval.yolo.good') },
   });
 
-  const TONE: Record<string, string> = {
+  const OMP_CARDS = $derived<ModeCard[]>(
+    MODE_ORDER.map((mode) => ({
+      id: mode,
+      label: MODES[mode].label,
+      tone: MODES[mode].tone,
+      setting: `--approval-mode ${OMP_DETAILS[mode].cli}`,
+      when: OMP_DETAILS[mode].when,
+      good: OMP_DETAILS[mode].good,
+      isDefault: mode === 'yolo',
+    })),
+  );
+
+  /** OpenCode decides per tool: each `permission` entry is allow, ask or deny. */
+  const OPENCODE_CARDS = $derived<ModeCard[]>([
+    { id: 'deny', label: t('onboarding.approval.oc.deny.label'), tone: 'info', setting: '"bash": "deny"', when: t('onboarding.approval.oc.deny.when'), good: t('onboarding.approval.oc.deny.good'), isDefault: false },
+    { id: 'ask', label: t('onboarding.approval.oc.ask.label'), tone: 'success', setting: '"bash": "ask"', when: t('onboarding.approval.oc.ask.when'), good: t('onboarding.approval.oc.ask.good'), isDefault: false },
+    { id: 'allow', label: t('onboarding.approval.oc.allow.label'), tone: 'warning', setting: '"bash": "allow"', when: t('onboarding.approval.oc.allow.when'), good: t('onboarding.approval.oc.allow.good'), isDefault: true },
+  ]);
+
+  const cards = $derived(notice === 'opencode' ? OPENCODE_CARDS : OMP_CARDS);
+
+  const TONE: Record<ModeCard['tone'], string> = {
     success: 'border-success/30',
     info: 'border-accent/30',
     warning: 'border-warning/40 bg-warning-wash',
@@ -24,23 +65,22 @@
 </script>
 
 <div class={cx('mx-auto flex w-full flex-col gap-8 [@media(max-height:720px)]:gap-4', WIDTH.wide)}>
-  <StepHeader
-    eyebrow={t('onboarding.approval.eyebrow')}
-    title={t('onboarding.approval.title')}
-    body={t('onboarding.approval.body')}
-  />
+  {#if notice === 'opencode'}
+    <StepHeader eyebrow={t('onboarding.approval.eyebrow')} title={t('onboarding.approval.oc.title')} body={t('onboarding.approval.oc.body')} />
+  {:else}
+    <StepHeader eyebrow={t('onboarding.approval.eyebrow')} title={t('onboarding.approval.title')} body={t('onboarding.approval.body')} />
+  {/if}
 
-  <ul class="grid grid-cols-3 gap-4" aria-label={t('onboarding.approval.modes')}>
-    {#each MODE_ORDER as mode (mode)}
-      {@const info = MODES[mode]}
-      <li class={cx('flex flex-col gap-2 rounded-lg border bg-glass p-5', TONE[info.tone])}>
+  <ul class="grid grid-cols-3 gap-4" aria-label={notice === 'opencode' ? t('onboarding.approval.oc.modes') : t('onboarding.approval.modes')}>
+    {#each cards as card (card.id)}
+      <li class={cx('flex flex-col gap-2 rounded-lg border bg-glass p-5', TONE[card.tone])}>
         <div class="flex items-center justify-between gap-2">
-          <p class="text-base font-medium text-fg first-letter:uppercase">{info.label}</p>
-          {#if mode === 'yolo'}<Badge tone="warning" size="lg">{t('onboarding.approval.default')}</Badge>{/if}
+          <p class="text-base font-medium text-fg first-letter:uppercase">{card.label}</p>
+          {#if card.isDefault}<Badge tone="warning" size="lg">{notice === 'opencode' ? t('onboarding.approval.oc.default') : t('onboarding.approval.default')}</Badge>{/if}
         </div>
-        <code class="font-mono text-xs text-fg-3">--approval-mode {DETAILS[mode].cli}</code>
-        <p class="text-sm text-fg-2">{DETAILS[mode].when}</p>
-        <p class="mt-auto border-t border-line pt-2 text-xs text-fg-3">{DETAILS[mode].good}</p>
+        <code class="font-mono text-xs text-fg-3">{card.setting}</code>
+        <p class="text-sm text-fg-2">{card.when}</p>
+        <p class="mt-auto border-t border-line pt-2 text-xs text-fg-3">{card.good}</p>
       </li>
     {/each}
   </ul>
@@ -48,9 +88,15 @@
   <div class="flex items-start gap-4 rounded-lg border border-line bg-glass p-5">
     <ShieldAlert class="mt-0.5 shrink-0 text-warning" size={20} aria-hidden="true" />
     <ul class="flex list-disc flex-col gap-2 pl-5 text-sm text-fg-2 marker:text-warning">
-      <li>{t('onboarding.approval.respects.before')}<code class="font-mono text-xs">tools.approvalMode</code>{t('onboarding.approval.respects.after')}</li>
-      <li>{t('onboarding.approval.visible')}</li>
-      <li>{t('onboarding.approval.stricter')}</li>
+      {#if notice === 'opencode'}
+        <li>{t('onboarding.approval.oc.respects.before')}<code class="font-mono text-xs">permission</code>{t('onboarding.approval.oc.respects.after')}</li>
+        <li>{t('onboarding.approval.oc.guarded')}</li>
+        <li>{t('onboarding.approval.oc.stricter')}</li>
+      {:else}
+        <li>{t('onboarding.approval.respects.before')}<code class="font-mono text-xs">tools.approvalMode</code>{t('onboarding.approval.respects.after')}</li>
+        <li>{t('onboarding.approval.visible')}</li>
+        <li>{t('onboarding.approval.stricter')}</li>
+      {/if}
     </ul>
   </div>
 </div>

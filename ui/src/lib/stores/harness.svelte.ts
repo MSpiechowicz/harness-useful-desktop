@@ -20,6 +20,19 @@ export class HarnessStore {
   /** The harness in use: the daily driver if set, else the first installed one, else the first known. */
   active: HarnessSummary | null = $derived(this.resolveActive());
 
+  /**
+   * The harness a new chat talks to: the daily driver when it can chat, else the first installed harness that can.
+   * Views follow `active`, which may be a harness without chat (OpenCode), but a chat never starts on one.
+   * Null only when the harness list holds nothing that can chat.
+   */
+  chatActive: HarnessSummary | null = $derived(this.resolveChat());
+
+  /**
+   * Set when harnesses are installed but none of them can chat yet (an OpenCode-only machine): the one to name
+   * in "chat is coming soon". Null when a chat is possible, or when nothing is installed at all.
+   */
+  chatComingSoon: HarnessSummary | null = $derived(this.resolveComingSoon());
+
   constructor(
     private readonly transport: Transport,
     private readonly preferences: Pick<PrefsStore, 'value' | 'update' | 'syncServerManaged'>,
@@ -32,6 +45,11 @@ export class HarnessStore {
 
   get(id: HarnessId): HarnessSummary | undefined {
     return this.summaries.find((summary) => summary.info.id === id);
+  }
+
+  /** Whether the app can drive a chat with this harness. A harness the list does not know is not asked about, so it counts. */
+  canChat(id: HarnessId): boolean {
+    return this.get(id)?.capabilities.chat ?? true;
   }
 
   async load(): Promise<void> {
@@ -105,6 +123,22 @@ export class HarnessStore {
     const preferred = this.summaries.find((summary) => summary.info.id === this.preferences.value?.defaultHarness);
 
     return preferred ?? this.summaries.find((summary) => summary.detection.installed) ?? this.summaries[0] ?? null;
+  }
+
+  private resolveChat(): HarnessSummary | null {
+    const chatty = this.summaries.filter((summary) => summary.capabilities.chat);
+    const preferred = chatty.find((summary) => summary.info.id === this.preferences.value?.defaultHarness);
+
+    return preferred ?? chatty.find((summary) => summary.detection.installed) ?? chatty[0] ?? null;
+  }
+
+  private resolveComingSoon(): HarnessSummary | null {
+    const installed = this.summaries.filter((summary) => summary.detection.installed);
+    if (installed.length === 0 || installed.some((summary) => summary.capabilities.chat)) {
+      return null;
+    }
+
+    return installed.find((summary) => summary.info.id === this.preferences.value?.defaultHarness) ?? installed[0];
   }
 
   private adopt(summary: HarnessSummary): void {

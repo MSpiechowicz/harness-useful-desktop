@@ -31,7 +31,7 @@
   let sending = $state(false);
 
   const chats = $derived(agentSessions.sessions.filter((session) => session.info.project === project && !session.ended));
-  const canStartNew = $derived(harness.active?.detection.installed ?? false);
+  const canStartNew = $derived(harness.chatActive?.detection.installed ?? false);
 
   /** Where the review can go: each open chat of the project, then a new session. */
   const options = $derived<{ value: string; title: string; detail: string; fresh: boolean }[]>([
@@ -69,7 +69,7 @@
 
   async function send(): Promise<void> {
     const prompt = composed?.prompt;
-    const harnessId = harness.active?.info.id;
+    const harnessId = harness.chatActive?.info.id;
     if (prompt === undefined || harnessId === undefined) {
       return;
     }

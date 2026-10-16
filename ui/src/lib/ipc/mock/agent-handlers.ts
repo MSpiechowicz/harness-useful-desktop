@@ -167,6 +167,11 @@ export function agentHandlers(state: MockState, pace: () => number): Pick<Handle
 
   return {
     agent_start: ({ request, onEvent }) => {
+      // Like the backend, which has no launch for OpenCode yet.
+      if (!fixtures.harnesses.find((summary) => summary.info.id === request.harness)?.capabilities.chat) {
+        throw IpcFailure.from({ code: 'unsupported', message: 'Chat with OpenCode is coming soon.' });
+      }
+
       state.requireKnown(request.project);
       if (sessions.size >= MAX_SESSIONS) {
         throw IpcFailure.from({ code: 'unsupported', message: `At most ${MAX_SESSIONS} agent sessions can run at once.` });

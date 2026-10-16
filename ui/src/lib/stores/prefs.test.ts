@@ -25,7 +25,7 @@ describe('PrefsStore', () => {
         prefs_get: () => samplePrefs({ theme: 'dark' }),
         memory_set_enabled: ({ enabled }: { enabled: boolean }) => {
           calls.push(enabled);
-          return samplePrefs({ theme: 'light', memoryEnabled: enabled });
+          return { memoryEnabled: enabled, manualRemovals: [] };
         },
       }),
       new ToastsStore(),
@@ -39,6 +39,28 @@ describe('PrefsStore', () => {
     expect(calls).toEqual([false]);
     expect(store.memoryPending).toBe(false);
     expect(store.value).toMatchObject({ memoryEnabled: false, theme: 'dark' });
+  });
+
+  it('keeps the entries the switch left to remove by hand until they are dismissed or memory is turned on again', async () => {
+    const removal = { harness: 'opencode', file: '~/.config/opencode/opencode.jsonc', name: 'harness-memory' };
+    const store = new PrefsStore(
+      fakeTransport({
+        prefs_get: () => samplePrefs(),
+        memory_set_enabled: ({ enabled }: { enabled: boolean }) => ({ memoryEnabled: enabled, manualRemovals: enabled ? [] : [removal] }),
+      }),
+      new ToastsStore(),
+    );
+    await store.load();
+
+    await store.setMemoryEnabled(false);
+    expect(store.memoryManualRemovals).toEqual([removal]);
+
+    store.dismissMemoryManualRemovals();
+    expect(store.memoryManualRemovals).toEqual([]);
+
+    await store.setMemoryEnabled(false);
+    await store.setMemoryEnabled(true);
+    expect(store.memoryManualRemovals).toEqual([]);
   });
 
   it('keeps project memory as it was and raises a toast when the command fails', async () => {

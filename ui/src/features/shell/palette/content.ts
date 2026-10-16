@@ -41,7 +41,7 @@ export function sessionCommands(): PaletteCommand[] {
       viewState.sessionId = summary.ref.id;
       nav.go('sessions');
     },
-    secondary: path ? { label: t('shell.palette.resumeInChat'), run: () => void resumeInChat(agentSessions, summary.ref, path) } : undefined,
+    secondary: path && harness.canChat(summary.ref.harness) ? { label: t('shell.palette.resumeInChat'), run: () => void resumeInChat(agentSessions, summary.ref, path) } : undefined,
   }));
 }
 

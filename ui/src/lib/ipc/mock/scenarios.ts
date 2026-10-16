@@ -10,7 +10,7 @@ import { memoryRemoteHandlers } from './memory-remote-handlers';
 import { projectHandlers } from './project-handlers';
 import { releaseHandlers } from './release-handlers';
 import { sessionHandlers } from './session-handlers';
-import { setupHandlers, setupScenarioFromLocation } from './setup-handlers';
+import { manualRemovalsOf, setupHandlers, setupScenarioFromLocation } from './setup-handlers';
 import { rosterFor, rosterSummaries } from './setup-roster';
 import { MockState } from './state';
 import { syncHandlers } from './sync-handlers';
@@ -46,7 +46,7 @@ export function defaultScenario(): Scenario {
     const list = await base.harness_list(undefined);
     const roster = rosterFor(setupScenarioFromLocation());
 
-    return roster && list[0] ? rosterSummaries(roster, list[0]) : list;
+    return roster && list[0] ? rosterSummaries(roster, list) : list;
   };
   const setup = setupHandlers(harnesses, setupScenarioFromLocation, () => state.setMemoryEnabled(true));
   const ecosystem = ecosystemHandlers();
@@ -73,7 +73,11 @@ export function defaultScenario(): Scenario {
     ...setup.handlers,
     ...syncHandlers(),
     // The switch reports the memory server the setup mock installs.
-    memory_set_enabled: ({ enabled }) => ({ memoryEnabled: state.setMemoryEnabled(enabled).memoryEnabled, server: setup.memoryServer() }),
+    memory_set_enabled: ({ enabled }) => ({
+      memoryEnabled: state.setMemoryEnabled(enabled).memoryEnabled,
+      server: setup.memoryServer(),
+      manualRemovals: enabled ? [] : manualRemovalsOf(setupScenarioFromLocation()),
+    }),
     // `?remote=postgres|libsql|problem` starts with a saved team database; `harness-memory check` passes for URLs containing "ok".
     ...memoryRemoteHandlers(),
     // A completed action may be one of the setup step's, which the next `setup_status` then reports as done.

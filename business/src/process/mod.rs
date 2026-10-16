@@ -1,7 +1,8 @@
 //! Shell-free process execution behind injectable traits.
 //!
 //! - [`ProcessRunner`] runs a command to completion with a timeout and an output cap
-//!   (version probes, `omp plugin …`, git).
+//!   (version probes, `omp plugin …`, git); [`BlockingRunner`] does the same for synchronous
+//!   callers.
 //! - [`ProcessSpawner`] starts a long-lived child with piped stdio (RPC agent sessions).
 //! - [`resolve`] finds harness binaries without asking a shell for `PATH`.
 //!
@@ -17,10 +18,12 @@
 
 #[cfg(unix)]
 mod appimage;
+mod blocking;
 mod resolve;
 mod runner;
 mod spawner;
 
+pub use blocking::{BlockingRunner, StdRunner};
 pub use resolve::{
     ResolvedBinary, absolute_path_dirs, extra_search_dirs, find_override, is_batch_script, is_executable_file,
     launcher_search_dirs, resolve_binary,
@@ -111,6 +114,18 @@ impl ExecSpec {
         self
     }
 
+    /// Adds environment overrides.
+    pub fn envs<I, K, V>(mut self, vars: I) -> Self
+    where
+        I: IntoIterator<Item = (K, V)>,
+        K: Into<OsString>,
+        V: Into<OsString>,
+    {
+        self.env
+            .extend(vars.into_iter().map(|(name, value)| (name.into(), value.into())));
+        self
+    }
+
     /// Drops every inherited variable whose name starts with `prefix` (see
     /// [`ExecSpec::env_remove_prefixes`]).
     pub fn env_remove_prefix(mut self, prefix: impl Into<OsString>) -> Self {
@@ -171,6 +186,16 @@ impl From<ExitStatus> for ExitInfo {
 
 /// Builds a shell-free command: absolute program, explicit argv, `kill_on_drop`, own process group.
 fn build_command(spec: &ExecSpec, stdin: Stdio) -> Result<Command> {
+    let mut command = Command::from(build_std_command(spec, stdin)?);
+    command.kill_on_drop(true);
+
+    Ok(command)
+}
+
+/// The synchronous form of [`build_command`] (without `kill_on_drop`, which `std` lacks): absolute
+/// program, explicit argv, piped stdout and stderr, the spec's environment and `PATH`, own process
+/// group on Unix.
+fn build_std_command(spec: &ExecSpec, stdin: Stdio) -> Result<std::process::Command> {
     if !spec.program.is_absolute() {
         return Err(BusinessError::InvalidInput(format!(
             "program must be an absolute path: {}",
@@ -178,7 +203,7 @@ fn build_command(spec: &ExecSpec, stdin: Stdio) -> Result<Command> {
         )));
     }
 
-    let mut command = Command::new(&spec.program);
+    let mut command = std::process::Command::new(&spec.program);
 
     // Inside an AppImage, give the child the host's environment, not the launcher's.
     #[cfg(unix)]
@@ -203,8 +228,7 @@ fn build_command(spec: &ExecSpec, stdin: Stdio) -> Result<Command> {
         .envs(spec.env.iter().map(|(name, value)| (name, value)))
         .stdin(stdin)
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .kill_on_drop(true);
+        .stderr(Stdio::piped());
 
     if let Some(cwd) = &spec.cwd {
         command.current_dir(cwd);
@@ -215,7 +239,7 @@ fn build_command(spec: &ExecSpec, stdin: Stdio) -> Result<Command> {
     }
 
     #[cfg(unix)]
-    command.process_group(0);
+    std::os::unix::process::CommandExt::process_group(&mut command, 0);
 
     Ok(command)
 }
@@ -307,10 +331,15 @@ fn appended_path(base: Option<&OsStr>, dirs: &[PathBuf]) -> Option<OsString> {
 
 /// Spawns `command`, mapping failures to a [`BusinessError`] that names only the program.
 fn spawn_command(mut command: Command, spec: &ExecSpec) -> Result<Child> {
-    command.spawn().map_err(|error| match error.kind() {
+    command.spawn().map_err(|error| spawn_error(&error, spec))
+}
+
+/// A failed spawn of `spec` as a [`BusinessError`] that names only the program.
+fn spawn_error(error: &std::io::Error, spec: &ExecSpec) -> BusinessError {
+    match error.kind() {
         std::io::ErrorKind::NotFound => BusinessError::NotFound(format!("executable {}", spec.label())),
         _ => BusinessError::Process(format!("failed to start {}: {error}", spec.label())),
-    })
+    }
 }
 
 /// Kills the child and, on Unix, its whole process group. A no-op once the child was reaped (see

@@ -82,6 +82,11 @@ fn real_sessions_smoke() {
         };
 
         for harness in HarnessRegistry::with_defaults().all() {
+            // CLI-backed sessions need the harness binary; this smoke reads session files only.
+            if harness.cli_sessions().is_some() {
+                continue;
+            }
+
             let sessions = harness.list_sessions(&env, &project, &cache).unwrap();
             let (mut nodes, mut branches, mut bad_lines, mut truncated, mut errors) = (0, 0, 0, 0, 0);
 

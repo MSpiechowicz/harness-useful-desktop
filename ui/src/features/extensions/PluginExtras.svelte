@@ -14,7 +14,8 @@
 
   let { plugin }: Props = $props();
 
-  const id = $derived(harness.active?.info.id);
+  // A harness whose CLI the app does not drive (OpenCode) has nothing to run, so there is no action bar.
+  const id = $derived(harness.active?.capabilities.cliActions ? harness.active.info.id : undefined);
 </script>
 
 {#if id}

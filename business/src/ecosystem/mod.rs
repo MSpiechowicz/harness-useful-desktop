@@ -42,7 +42,7 @@ pub use dashboard::{Dashboard, DashboardOptions, resolve_dashboard};
 pub use detect::ecosystem_status;
 pub use installer::{Companion, InstallerSpec, installer, run_installer, run_installer_with};
 pub use mcp_client::{McpClient, McpOptions, ToolOutput};
-pub use mcp_merge::{MergeOutcome, MergeResult, MergedServer, existing_server, merge_servers};
+pub use mcp_merge::{Blocked, MergeOutcome, MergeResult, MergedServer, Shape, existing_server, merge_servers};
 pub use mcp_register::{mcp_state, memory_mcp_state, register_dashboard_mcp};
 pub use memory_binary::{installed_memory, memory_version, parse_memory_version, resolve_memory};
 pub use memory_migrate::{LegacyCopy, LegacyMigration, migrate_legacy_memory};
@@ -55,4 +55,4 @@ pub use memory_remote::{
     MemoryRemoteChange, memory_config_path, memory_remote_get, memory_remote_set, memory_remote_test,
 };
 pub use releases::{CompanionReleases, release_endpoint};
-pub use setup::{mcp_target_paths, memory_server_setup, setup_status};
+pub use setup::{McpFile, mcp_target, mcp_target_paths, memory_server_setup, setup_status};

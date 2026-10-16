@@ -15,10 +15,14 @@ not guaranteed, it says so under [Limits](#limits).
   the picture is the project memory that the `harness-memory` server (a separate program from its own repository, which
   you install; your harnesses start it and, for the recall of notes in a new chat, so does the app) opens directly with
   SQLite; the desktop app never opens it itself. See [Project memory](#project-memory).
-- The only things the app writes into a harness's configuration are entries in its user `mcp.json`: the
+- The only things the app writes into a harness's configuration are MCP server entries, in the user `mcp.json` of OMP and
+  PI and in the `mcp` object of OpenCode's global config file (`opencode.json` or `opencode.jsonc`): the
   `harness-memory` entry (project memory, added automatically on launch once the server is installed, until you switch it
   off in Settings or remove the entry yourself), the `harness-dashboard` entry when you choose it in Recommended setup, and the MCP servers you
-  tick when you import a shared setup. An existing entry is never overwritten; the only change to one is the `command`
+  tick when you import a shared setup (OMP and PI only). An OpenCode config file that has comments is never rewritten
+  (the app shows the entry to paste instead). Switching project memory off does not rewrite such a file either: the app's
+  own `harness-memory` entry stays in it, and Settings names the file and the entry so you can remove it yourself. An
+  existing entry is never overwritten; the only change to one is the `command`
   of the app's own `harness-memory` entry, which is re-pointed to whichever server the app resolves (the installer's
   folder first, then `PATH`), for example when the installed server replaces the copy older builds kept or another
   `harness-memory` takes over; each such change is logged with the old and new path. See
@@ -121,9 +125,10 @@ a separate program and is not covered by these rules: it opens its own database,
 | Rule | Entries |
 | --- | --- |
 | Extensions | `db`, `db-wal`, `db-shm`, `db-journal`, `sqlite`, `sqlite3`, `log`, `pem`, `key`, `p12`, `pfx` |
-| Exact names | `auth.json`, `mcp-auth.json`, `install-id`, `auth-token`, `models-store.json`, `gpu_cache.json`, `credentials`, `credentials.json`, `.env` |
+| Exact names | `auth.json`, `mcp-auth.json`, `install-id`, `auth-token`, `models-store.json`, `gpu_cache.json`, `credentials`, `credentials.json`, `.env`; `prompt-history.jsonl` directly below an `opencode` directory |
 | Name prefixes | `.env.`, `id_rsa`, `id_ed25519` |
-| Directories | `terminal-sessions`, `url-search`; `blobs` below an `agent` directory |
+| Prefix and suffix | `opencode.` ... `.dat` (OpenCode desktop state: `opencode.settings.dat`, `opencode.global.dat`, `opencode.workspace.*.dat`) |
+| Directories | `terminal-sessions`, `url-search`; `blobs` below an `agent` directory; `storage`, `repos`, `snapshot`, `tool-output`, `plans` directly below an `opencode` directory; `node_modules` directly below `.cache/opencode` (or `cache/opencode`) |
 
 `SafeReader` also:
 
@@ -132,6 +137,9 @@ a separate program and is not covered by these rules: it opens its own database,
 2. refuses anything that is not a regular file (a FIFO or device is never opened; Unix opens use `O_NONBLOCK`), and
    checks again on the open handle;
 3. caps the size (`DEFAULT_MAX_BYTES` = 2 MiB; prefs 256 KiB) and rejects invalid UTF-8.
+
+Recursive scans of skill, agent and command folders (`pi_family::resources::walk_tree`) follow symlinks but never
+re-enter a folder already open on the current path, and each scan reads at most 10,000 entries.
 
 The deny-list also applies where git is involved. Untracked files are read by the app itself, through `SafeReader`
 and `canonical_within` (a file that resolves outside the project is not read), and denied or over-512 KiB files are
@@ -144,6 +152,18 @@ project memory database `memory.sqlite3` (the `sqlite3` extension is denied), so
 through `SafeReader` either. Its `-wal` and `-shm` side files carry the `sqlite3-wal` and `sqlite3-shm` extensions,
 which are not listed; the app has no code that opens them.
 
+OpenCode's credential stores (`auth.json`, `mcp-auth.json`), its database (`opencode.db`, `opencode-<channel>.db` and
+their `-wal`/`-shm` files) and its logs fall under the name and extension rules. The scoped directory rules keep out
+its legacy transcripts and tool output (`storage/`), cached git repositories (`repos/`), project snapshots
+(`snapshot/`), the full output of tool calls (`tool-output/`), session plans (`plans/`) and plugin packages
+(`~/.cache/opencode/node_modules/`), and the scoped name rule keeps out the prompts you typed
+(`~/.local/state/opencode/prompt-history.jsonl`). A project's own `node_modules/` stays readable, and so do its
+`storage/`, `plans/`, `snapshot/`, `repos/` and `tool-output/` unless they sit directly inside a folder named `opencode`
+(such as a project folder of that name): those rules match every folder with that name. The app never reads the file `OPENCODE_DB` names and never follows a `{file:...}`
+substitution in an OpenCode config (it shows the reference, like `{env:...}`, by name only). OpenCode sessions come
+only from `opencode session list --format json` and `opencode export <id>`, never from the database (see
+[Process spawning](#process-spawning)).
+
 The `canary` tests (`business/tests/canary.rs`, `adapter_canary.rs`) hide a marker in denied files and secret values of
 fixture homes and fail if any read or view contains it.
 
@@ -154,7 +174,7 @@ value may cross the IPC boundary. For each string leaf, the first matching rule 
 
 1. A value starting with `!` is a secret-producing command: hidden, never executed.
 2. Exactly `$NAME` or `${NAME}`: the variable name is shown, its value is never read.
-3. Anything under a key named `env` or `headers`, and under `auth` or `oauth` except `type`, `scope`, `redirectUri`,
+3. Anything under a key named `env`, `environment` (OpenCode MCP servers) or `headers`, and under `auth` or `oauth` except `type`, `scope`, `redirectUri`,
    `callbackPort`, `callbackPath`, `prompt`, `clientId`: hidden (numbers too).
 4. A key on the path containing `apikey`, `token`, `secret`, `password`, `passwd`, `credential`, `authorization`,
    `bearer`, `privatekey`, `clientsecret`, `accesskey`, `sessionkey`, `cookie`, `signature` or `credentialid` (case and
@@ -171,12 +191,15 @@ value may cross the IPC boundary. For each string leaf, the first matching rule 
 - agent stderr lines (also capped at 2 KiB per line and 20 lines per second) and process diagnostics;
 - agent error messages, extension dialog messages and `bash` command output (capped at 1 MiB);
 - `omp plugin` and `pi` action output (ANSI stripped first, 256 KiB per stream);
+- in saved OpenCode sessions, tool results and the error of a failed reply (the export carries them in full, so they
+  are redacted like process output), and the last stderr line of a failed `opencode` session command (also cut to
+  200 characters);
 - marketplace URIs, MCP client errors, and package sources (`Redactor` at their key path);
 - every string the project memory server stores: titles, bodies, tags, entity names, relation labels and the client
   name (the server's own redaction, in its repository).
 
-**Not redacted:** the chat itself. Assistant text, thinking, tool arguments and tool results, and the transcripts
-of saved sessions, are shown as the agent produced them. They are your own session data, shown only to you on this
+**Not redacted:** the chat itself. Assistant text, thinking and tool arguments, and in OMP and PI also tool results,
+in the chat and in the transcripts of saved sessions, are shown as the agent produced them. They are your own session data, shown only to you on this
 machine, and are never stored by the app or logged. The one thing kept beyond that is what an agent itself writes to
 project memory (see [Project memory](#project-memory)). `redact_text` is heuristic; do not rely on it to hide a secret
 you typed into a prompt or an agent writes into a note.
@@ -195,6 +218,10 @@ you typed into a prompt or an agent writes into a note.
   `Forbidden`, not `NotFound`, so the command cannot probe which files exist.
 - Sessions: the webview sends `SessionRef { harness, id }`. The id (at most 128 characters, checked by
   `is_safe_session_id`) is resolved by a shallow scan of the project's session folder; it can never name another file.
+  OpenCode has no session files: its id must also start with `ses_` and is only ever passed to the `opencode` CLI as
+  one argument. A listed or exported session counts only when its `directory` is the project or lies inside it
+  (`..` resolved), and `session delete` runs only for an id the project's own list shows, so neither can reach another
+  project's sessions.
 - Git diff paths must be relative: no `..`, no NUL, at most 1000 paths of 4 KiB each.
 - `Forbidden` messages never reach the UI: the shell replaces them with "access refused by a security rule"
   (`src-tauri/src/error.rs`).
@@ -249,6 +276,29 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
   `checksums.txt` themselves, and the scripts are the unpinned ones described above and in [Limits](#limits). To stop
   this, switch off **Update extensions automatically** in Settings under Updates (or **Check companions for updates**,
   which also stops the release lookup). The installs then happen only when you run them.
+- **OpenCode.** Every OpenCode child gets `OPENCODE_DISABLE_AUTOUPDATE=1`, so no probe, session listing or action
+  updates the binary behind the user's back. `OPENCODE_PERMISSION` and `OPENCODE_CONFIG_CONTENT` inherited from the
+  app's environment are passed on unchanged; the app records only whether they are set (never their values) and says
+  so in the configuration view. The session commands (`session list`, `export <id>`, `session delete <id>`,
+  `business/src/harnesses/opencode/sessions.rs`) run in the project with `--pure` (no external plugins) and
+  `OPENCODE_DISABLE_PROJECT_CONFIG=1`: starting up with the project's config would write `<project>/.opencode/.gitignore`
+  and start a background `npm install` of OpenCode's plugin package in each `.opencode/` folder of the project, and the
+  sessions it reports are the same without it. The variable also keeps out the project's `opencode.json[c]`, its
+  `.opencode/` folders, its `tui.json` and its instruction files, and `--pure` drops plugins. In a git project OpenCode
+  still runs read-only `git` commands there to identify the project and its branches (repository discovery with
+  `rev-parse`, `remote`, the root commits, `symbolic-ref`, `for-each-ref`, `config init.defaultBranch`) and writes the
+  project id it derives to `opencode` in the repository's common git folder (usually `<repo>/.git/opencode`, the main
+  repository's git folder for a linked worktree). OpenCode's normal start-up still happens in its global folders on every
+  run: it writes `opencode.jsonc` (a `$schema` line) and `.gitignore` in its config folder (`~/.config/opencode`),
+  `.gitignore` in `~/.opencode` (when it exists) and `OPENCODE_CONFIG_DIR`, tries the same package install in each of
+  them, and opens its database and logs under `~/.local/share/opencode`, which the app itself never reads.
+  At most two session commands run at once (more wait), concurrent list requests for the same project share one run,
+  and a list is reused for 5 seconds. Before a delete lists again, it waits for a list already running and then starts
+  a new one, so a session created meanwhile is found. Each command has capped output (4 MiB list, 16 MiB export) and a
+  time limit (15 s for list and delete, 30 s for export) after which its process group is killed (on Windows only the
+  direct child, see [Limits](#limits)), so every wait above is bounded by those limits. A command that exited normally
+  gets 2 seconds for any process it left holding its output, then that process group, if any member is left, is killed
+  too (on Unix only: on Windows such a process is left running).
 - **Binary resolution.** `resolve_binary` uses absolute `PATH` entries only, then the standard install directories. A
   relative or empty `PATH` entry is ignored, so a project cannot plant a binary. A user-chosen override must be an
   absolute existing file whose name is exactly the harness binary name, and is set only through the native file
@@ -258,25 +308,40 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
   `A-Z a-z 0-9 @ . _ / : + = , -`, no URL credentials. Windows `.cmd`/`.bat` shims (re-parsed by `cmd.exe`) only
   receive arguments that pass `is_safe_arg` after the leading dashes are removed. The webview sends typed actions,
   never command lines.
-- **Flags never passed.** `--auto-approve`, `--no-ui`, login and credential RPCs (`get_login_providers`),
-  `set_ask_dialog`. `--approve` goes to PI only for the user's explicit "trust this project once" choice, for that launch.
+- **Flags never passed.** `--auto-approve`, `--auto`, `--yolo`, `--dangerously-skip-permissions`, `--no-ui`, login and
+  credential RPCs (`get_login_providers`), `set_ask_dialog`. OpenCode is never run with `auth login`, `providers login`,
+  `auth logout`, `mcp auth`, `mcp logout`, `account`, `db`, `mcp list`, `mcp debug` (the last two start MCP servers) or
+  `export` without a session id. `scripts/check-forbidden.ts` rejects, with no opt-out, the four flags (`"--auto"` also
+  as `"--auto=`), an `"auth"` or `"providers"` literal followed by `"login"` on one line or later in the same argument
+  array across lines, `"mcp"` followed in an argument array by `"auth"`, `"logout"`, `"list"` or `"debug"`, and an
+  argument array or `.arg(` that starts with `"db"` or `"account"` (a call argument, a field or a `let` binding; a
+  constant list such as the deny-list is not argv). A test (`every_spawn_runs_without_plugins_project_config_or_self_update`,
+  `business/tests/sessions_opencode.rs`) pins the exact argv set the session commands use. `--approve` goes to PI only for the user's explicit "trust this project once" choice, for that launch.
   The OMP `--approval-mode` flag is sent only when the user picks a per-session mode. The app does not edit either
-  harness's settings, with exceptions that all concern entries in the user `mcp.json` of a detected harness:
+  harness's settings, with exceptions that all concern MCP server entries in the user MCP file of a detected harness (the
+  `mcp.json` of OMP and PI, the `mcp` object of OpenCode's global config file):
   Recommended setup adds a `harness-dashboard` entry (`setup_register_mcp`, `business/src/ecosystem/mcp_register.rs`),
   importing a shared setup adds the MCP servers you ticked (see [Shared setups](#shared-setups)), and project memory
   manages a `harness-memory` entry (see the next item). The first two use one merge (`merge_servers`,
-  `business/src/ecosystem/mcp_merge.rs`). The webview sends only a harness id (Recommended setup) or a plan id and item
-  ids (import); the file is `<agent dir>/mcp.json` from the harness's own paths. For the dashboard, both the harness
+  `business/src/ecosystem/mcp_merge.rs`), and import is limited to the strict-JSON `mcp.json` files. The webview sends only a harness id (Recommended setup) or a plan id and item
+  ids (import). The file is `<agent dir>/mcp.json` from the harness's own paths for OMP and PI, and for OpenCode the
+  global config file it would edit itself (`opencode.jsonc` if there is one, else `opencode.json`, in
+  `$XDG_CONFIG_HOME/opencode` or `~/.config/opencode`, created as `opencode.json` when neither exists), found by
+  `mcp_target` (`business/src/ecosystem/setup.rs`). For the dashboard, both the harness
   and the dashboard must be installed; the app merges `{"command": "harness-dashboard", "args": ["mcp"]}` into
-  `mcpServers` and writes nothing when an entry for the dashboard already exists (in that file or one of the harness's
+  `mcpServers` (OpenCode: `{"type": "local", "command": ["harness-dashboard", "mcp"], "enabled": true}` into `mcp`) and writes nothing when an entry for the dashboard already exists (in that file or one of the harness's
   other MCP files, even switched off; it never enables one). Both keep every other key and server and never overwrite
-  an existing name. The merge refuses, and changes nothing, on invalid JSON, a root or `mcpServers` that is not an
-  object, a symlink, anything but a regular file, a file over 2 MiB, or a file that changed while it was read. The
+  an existing name. The merge refuses, and changes nothing, on invalid JSON, a root or `mcpServers` (OpenCode: `mcp`) that is not an
+  object, a symlink, anything but a regular file, a file over 2 MiB, or a file that changed while it was read. An OpenCode
+  config is read as JSONC (comments and trailing commas allowed). One with comments is never written, because a
+  rewrite would lose them: the setup row shows the entry and the file instead (`McpState::ManualEdit`), and nothing is
+  written at launch. Only the other OpenCode global files it reads, `config.json` there, `opencode.json[c]` in
+  `~/.opencode` and `OPENCODE_CONFIG_DIR`, and the file `OPENCODE_CONFIG` names (absolute paths only), are looked at to find an existing entry, never written. The
   write is atomic (temporary sibling, flushed, renamed) and keeps the file's permissions; a new file is created with
   `0600`. File contents are never logged or returned.
 - **Project memory registration.** At every launch, in the background and only while `memoryEnabled` is on (the
-  default) and the server is installed, the shell (`src-tauri/src/memory_setup.rs`) registers it in the user `mcp.json`
-  of every detected harness whose adapter has one (`register_memory_mcp`, `business/src/ecosystem/memory_register.rs`);
+  default) and the server is installed, the shell (`src-tauri/src/memory_setup.rs`) registers it in the user MCP file
+  (`mcp.json`, or OpenCode's global config file) of every detected harness whose adapter has one (`register_memory_mcp`, `business/src/ecosystem/memory_register.rs`);
   the same runs after a successful install and when you switch the setting on. There is no prompt, because the entry
   only starts a local program that reads and writes the memory database; the switch in Settings turns it off
   (`memory_set_enabled`). The webview sends only `enabled` (and `confirmed` for the installer); the paths come from Rust.
@@ -288,7 +353,8 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
     must answer `harness-memory --version` with a version within 5 s (`installed_memory`), checked once per lookup,
     before it is registered, run for recall or used as the migration target; otherwise the server counts as not
     installed (logged) and no later candidate is tried. The app does not copy, replace or write the server.
-  - The entry added is `{"command": "<resolved absolute path>", "args": ["mcp"]}`, and only when none
+  - The entry added is `{"command": "<resolved absolute path>", "args": ["mcp"]}` (OpenCode: `{"type": "local",
+    "command": ["<resolved absolute path>", "mcp"], "enabled": true}`), and only when none
     exists: no server named `harness-memory` and none running `harness-memory mcp` (from any directory), in that file
     or one of the harness's other MCP files, switched on or off. A switched-off entry stays off.
   - **Removal is respected.** The files the app registered the server in are recorded (home-relative paths, never
@@ -297,18 +363,20 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
     and rebuilt from every file checked, so nothing is added that launch or later. Switching the pref on clears the record, so the entry returns
     everywhere.
   - **Per harness from Recommended setup.** The Harness Memory MCP column shows the entry's state per harness (read like
-    the dashboard's). Once you confirm a run, `setup_register_memory` adds it to that one harness's `mcp.json` (also
+    the dashboard's). Once you confirm a run, `setup_register_memory` adds it to that one harness's MCP file (also
     where you removed it before), records the file, and turns `memoryEnabled` on when it is off; the other harnesses
     follow at the next launch. The webview sends only the harness id; the harness and a version-checked server must be
     installed (`invalidInput` otherwise).
-  - **Only owned entries change.** An entry in the harness's own `mcp.json` named exactly `harness-memory` that runs
-    `harness-memory mcp` gets its `command` re-pointed to the resolved server whenever that lives elsewhere (logged at
-    info with the old and new path); every other field and server is kept. Switching the pref off removes only such entries. Other entries are never touched, and the server,
+  - **Only owned entries change.** An entry in the harness's own MCP file named exactly `harness-memory` that runs
+    `harness-memory mcp` gets its `command` (OpenCode: the first item of its `command` array) re-pointed to the resolved server whenever that lives elsewhere (logged at
+    info with the old and new path); every other field and server is kept. Switching the pref off removes only such entries. In an OpenCode config file with comments the owned entry is not
+    removed: the switch returns it (`manualRemovals`: harness, `~` path, entry name) and logs a warning, and Settings
+    asks you to delete it by hand. Until you do, OpenCode still starts the server. Other entries are never touched, and the server,
     the record and the database stay.
   - **The old copy is retired.** Builds up to 0.16 kept a copy of the bundled server at `<local data>/bin/harness-memory[.exe]`
     on macOS and Windows (`legacy_memory_copy`, `business/src/app_dirs.rs`; on Linux it was the installer's own path). Once
     the server is installed, each launch (`migrate_legacy_memory`, `business/src/ecosystem/memory_migrate.rs`) re-points the
-    app's own entries that run that copy at the installed server, in every harness's user `mcp.json`, then deletes the
+    app's own entries that run that copy at the installed server, in the user `mcp.json` of every harness that has one (OMP and PI, the only ones that ever had it), then deletes the
     copy and its folder only when it is a regular file (a symlink is refused), no folder from `<local data>` down to it is
     a symlink, it is not the installed server's own file (same device and inode on Unix, same canonical path on Windows),
     and no server in any checked MCP file runs it (a file that cannot be read counts as a use). Failures are logged and retried at the next launch. Until the server is
@@ -554,12 +622,13 @@ config file, `config.toml` in `<config>/harness-memory`, where `<config>` is `$X
   is shown after the typed and saved secrets are masked and `redact_text` ran over it.
 
 **Switching it off.** **Project memory** in Settings (`memoryEnabled`) removes the app's own `harness-memory` entries and
-stops adding them. It keeps the database, the installed server and the registration record, so switching it on again brings
+stops adding them. An entry in an OpenCode config file that has comments is the exception: the app leaves the file
+unchanged and Settings lists the file and the entry for you to delete. It keeps the database, the installed server and the registration record, so switching it on again brings
 the notes back. Deleting an entry yourself also works, and the app does not add it back while the record shows it
 registered there; switching the setting off and on re-adds it everywhere.
 
 **After uninstalling the app** the harnesses' entries, the server and the notes stay; the app removes none of them.
-To remove them, delete the `harness-memory` server from each harness's `mcp.json` (or switch the setting off first),
+To remove them, delete the `harness-memory` server from each harness's `mcp.json` or OpenCode's `mcp` object (or switch the setting off first),
 uninstall the server as its repository's README describes, and delete the `harness-memory` folder of the data directory
 (paths in the storage table above).
 
@@ -610,7 +679,7 @@ Details of keys and releases: [release-and-updater-keys.md](release-and-updater-
 | `prefs.json` | The OS app-config directory for the identifier `com.mspiechowicz.harness-useful-desktop` (Tauri `app_config_dir`) | `AppPrefs` only (below). Written atomically (temp file, `sync_all`, rename); directory `0700`, file `0600` on Unix. A corrupt file is renamed to `prefs.json.corrupt-<unix-seconds>` and defaults load. |
 | Window size and position | App state kept by `tauri-plugin-window-state` | Geometry only. |
 | UI choices | Webview `localStorage` | Rail expanded (`harness.railExpanded`), command-palette recents (`harness.paletteRecents`), diff layout. |
-| `mcp.json` of a harness | `<agent dir>/mcp.json` (for example `~/.omp/agent/mcp.json`), the harness's own file | Written by the app in three cases: the `harness-memory` entry, added automatically at launch while project memory is on and the server is installed, and removed when you switch it off; Recommended setup (one `harness-dashboard` server, after you choose it); and importing a shared setup (the MCP servers you ticked, after you confirm). Entries are merged in (see [Process spawning](#process-spawning)); the only existing entry ever changed is the app's own `harness-memory` one. Not app data; nothing else in it is touched. |
+| `mcp.json` of a harness, OpenCode's global config | `<agent dir>/mcp.json` (for example `~/.omp/agent/mcp.json`), the harness's own file, and for OpenCode `opencode.jsonc` or `opencode.json` in `~/.config/opencode` (`$XDG_CONFIG_HOME/opencode`) | Written by the app in three cases (a shared setup never reaches OpenCode, and an OpenCode file with comments is never written): the `harness-memory` entry, added automatically at launch while project memory is on and the server is installed, and removed when you switch it off; Recommended setup (one `harness-dashboard` server, after you choose it); and importing a shared setup (the MCP servers you ticked, after you confirm). Entries are merged in (see [Process spawning](#process-spawning)); the only existing entry ever changed is the app's own `harness-memory` one. Not app data; nothing else in it is touched. |
 | Project memory database | `memory.sqlite3` (plus `-wal` and `-shm` while in use) in `<data>/harness-memory` (`HARNESS_MEMORY_DIR` overrides it), where `<data>` is `$XDG_DATA_HOME` or `~/.local/share` (Linux), `~/Library/Application Support` (macOS) or `%LOCALAPPDATA%` (Windows) | Written by the `harness-memory` server, never by the app, which does not open it. Notes the agents wrote (title, body, kind, tags, entity names, relation labels, timestamps, and per note the client name and the checkout path of its latest write), and per repository its normalized remote and its path. On its first run the server copies the file older app builds kept in `<local data>/com.mspiechowicz.harness-useful-desktop/memory` (same `<data>` folders); the old file is left untouched. See [Project memory](#project-memory). On Unix a folder the server creates is `0700` and the file `0600`. Unencrypted. |
 | `harness-memory` server | `~/.local/bin/harness-memory` (Linux, macOS), `%LOCALAPPDATA%\Programs\harness-memory\harness-memory.exe` (Windows) | The server executable, written by its installer (`install.sh` / `install.ps1`) after you confirm, not by the app. Builds up to 0.16 also kept a copy at `<local data>/com.mspiechowicz.harness-useful-desktop/bin/harness-memory[.exe]` on macOS and Windows; the app deletes it at launch once the installed server is in place and nothing runs it. |
 | Harness Memory `config.toml` | `<config>/harness-memory/config.toml` (see [Team database](#team-database)) | Only when you set a team database: its URL, the libSQL token and the note routing, in plain text. Written atomically by the app (`0600` file, `0700` folder on Unix) and read by `harness-memory`; deleted when you turn the team database off. |

@@ -17,6 +17,9 @@
 
   let { harnesses }: Props = $props();
 
+  /** Harnesses without Harness Skills (OpenCode, for now) are left out rather than listed with a reason. */
+  const listed = $derived(harnesses.filter((entry) => entry.skills.type !== 'unavailable'));
+
   /** The commands the setup would run for the skills, across every harness that lacks them. */
   const changes = $derived(harnesses.reduce((count, entry) => (entry.installed && entry.skills.type === 'install' ? count + entry.skills.actions.length : count), 0));
 </script>
@@ -34,7 +37,7 @@
       <h4 class="text-xs font-medium tracking-wider text-fg-3 uppercase">{t('onboarding.setup.skills.perHarness')}</h4>
 
       <ul class="flex flex-col gap-4">
-        {#each harnesses as entry (entry.harness)}
+        {#each listed as entry (entry.harness)}
           {@const name = nameOf(entry.harness)}
           <li class={cx('flex flex-col gap-2', !entry.installed && 'opacity-60')}>
             <div class="flex items-center justify-between gap-3">
@@ -55,8 +58,6 @@
             {:else if entry.skills.type === 'manual'}
               <p>{entry.skills.note}</p>
               <SetupCommand text={entry.skills.command} copyLabel={t('onboarding.setup.copyCommand')} />
-            {:else if entry.skills.type === 'unavailable'}
-              <p>{entry.skills.reason}</p>
             {/if}
           </li>
         {/each}

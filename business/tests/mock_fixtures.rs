@@ -4,30 +4,30 @@
 //! committed files differ. Views and catalogs are real adapter output over the synthetic fixture
 //! homes (`tests/fixtures`) with the demo project open; paths are rewritten to `/home/demo/...` so
 //! the files are machine-independent. Detection depends on real binaries, so `harness_list.json`
-//! and `project_recent.json` stay synthetic. The agent chat fixtures under `agent/` are engine
-//! output: `fake_agent` scenarios run through the real session engine (`tests/samples`). The
-//! session, git and review fixtures under `sessions/`, `git/` and `review/` are real adapter, git
-//! and composer output over fixed inputs (`tests/samples/m3`; git must be installed). The
-//! ecosystem, dashboard and extension-action fixtures under `ecosystem/` are synthetic
-//! (`tests/samples/m4`): they need real binaries, a real usage database or real harness runs. The
-//! update fixtures under `updates/` hold a synthetic release and the progress reports of the real
-//! tracker (`tests/samples/m5`).
+//! and `project_recent.json` stay synthetic (`tests/mock_support`). The agent chat fixtures under
+//! `agent/` are engine output: `fake_agent` scenarios run through the real session engine
+//! (`tests/samples`). The session, git and review fixtures under `sessions/`, `git/` and `review/`
+//! are real adapter, git and composer output over fixed inputs (`tests/samples/m3`; git must be
+//! installed). The ecosystem, dashboard and extension-action fixtures under `ecosystem/` are
+//! synthetic (`tests/samples/m4`): they need real binaries, a real usage database or real harness
+//! runs. The update fixtures under `updates/` hold a synthetic release and the progress reports of
+//! the real tracker (`tests/samples/m5`).
 
 mod agent_support;
 mod common;
 mod git_support;
+mod mock_support;
 mod samples;
 mod session_support;
 
 use std::fs;
 use std::path::PathBuf;
 
-use common::{CANARY, DEMO_HOME, DEMO_PROJECT, demo_project, env_at, exported, omp_home, pi_home};
+use common::{CANARY, demo_project, env_at, exported, omp_home, opencode_home, pi_home};
 use harness_business::harness::Harness;
-use harness_business::harnesses::{Omp, Pi};
+use harness_business::harnesses::{Omp, OpenCode, Pi};
 use harness_business::model::{
-    CliResult, DashboardResult, DashboardTool, Detection, EcosystemId, EcosystemStatus, HarnessSummary, ProjectInfo,
-    UpdateInfo, UpdatePhase, UpdateProgress, VersionSupport,
+    CliResult, DashboardResult, DashboardTool, EcosystemId, EcosystemStatus, UpdateInfo, UpdatePhase, UpdateProgress,
 };
 use serde::Serialize;
 use serde_json::{Value, json};
@@ -37,11 +37,13 @@ fn fixtures() -> Vec<(&'static str, Value)> {
     let project = demo_project();
     let omp = omp_home();
     let pi = pi_home();
+    let opencode = opencode_home();
     let omp_env = env_at(&omp);
     let pi_env = env_at(&pi);
+    let opencode_env = env_at(&opencode);
 
     let mut fixtures = vec![
-        ("harness_list.json", to_json(harness_list())),
+        ("harness_list.json", to_json(mock_support::harness_list())),
         (
             "config_view.omp.json",
             exported(Omp.config_view(&omp_env, Some(&project)).unwrap(), &omp, &project),
@@ -51,6 +53,14 @@ fn fixtures() -> Vec<(&'static str, Value)> {
             exported(Pi.config_view(&pi_env, Some(&project)).unwrap(), &pi, &project),
         ),
         (
+            "config_view.opencode.json",
+            exported(
+                OpenCode.config_view(&opencode_env, Some(&project)).unwrap(),
+                &opencode,
+                &project,
+            ),
+        ),
+        (
             "extensions_view.omp.json",
             exported(Omp.extensions_view(&omp_env, Some(&project)).unwrap(), &omp, &project),
         ),
@@ -58,9 +68,21 @@ fn fixtures() -> Vec<(&'static str, Value)> {
             "extensions_view.pi.json",
             exported(Pi.extensions_view(&pi_env, Some(&project)).unwrap(), &pi, &project),
         ),
+        (
+            "extensions_view.opencode.json",
+            exported(
+                OpenCode.extensions_view(&opencode_env, Some(&project)).unwrap(),
+                &opencode,
+                &project,
+            ),
+        ),
         ("commands_catalog.omp.json", to_json(Omp.catalog().merged(&[]))),
         ("commands_catalog.pi.json", to_json(Pi.catalog().merged(&[]))),
-        ("project_recent.json", to_json(project_recent())),
+        (
+            "commands_catalog.opencode.json",
+            to_json(OpenCode.catalog().merged(&[])),
+        ),
+        ("project_recent.json", to_json(mock_support::project_recent())),
     ];
 
     fixtures.extend(samples::agent_fixtures());
@@ -72,59 +94,6 @@ fn fixtures() -> Vec<(&'static str, Value)> {
 
 fn to_json(value: impl Serialize) -> Value {
     serde_json::to_value(value).expect("DTOs always serialize")
-}
-
-/// OMP installed and supported; PI not installed (its config left behind), with an install hint.
-fn harness_list() -> Vec<HarnessSummary> {
-    let omp = HarnessSummary {
-        info: Omp.info(),
-        capabilities: Omp.capabilities(),
-        detection: Detection {
-            installed: true,
-            binary_path: Some(format!("{DEMO_HOME}/.bun/bin/omp")),
-            is_batch_script: false,
-            version: Some("18.6.1".to_owned()),
-            version_support: VersionSupport::Supported,
-            config_dir: Some(format!("{DEMO_HOME}/.omp")),
-            config_dir_exists: true,
-            install_hint: None,
-            error: None,
-        },
-    };
-
-    let pi = HarnessSummary {
-        info: Pi.info(),
-        capabilities: Pi.capabilities(),
-        detection: Detection {
-            installed: false,
-            binary_path: None,
-            is_batch_script: false,
-            version: None,
-            version_support: VersionSupport::Unknown,
-            config_dir: Some(format!("{DEMO_HOME}/.pi")),
-            config_dir_exists: true,
-            install_hint: Some(Pi.install_hint()),
-            error: None,
-        },
-    };
-
-    vec![omp, pi]
-}
-
-/// Recent projects, most recent first: the demo repo, a plain folder and one that was deleted.
-fn project_recent() -> Vec<ProjectInfo> {
-    let recent = |path: &str, exists: bool, is_git_repo: bool| ProjectInfo {
-        path: path.to_owned(),
-        name: path.rsplit('/').next().unwrap_or(path).to_owned(),
-        exists,
-        is_git_repo,
-    };
-
-    vec![
-        recent(DEMO_PROJECT, true, true),
-        recent(&format!("{DEMO_HOME}/Notes/research"), true, false),
-        recent(&format!("{DEMO_HOME}/Archive/legacy-api"), false, false),
-    ]
 }
 
 fn fixtures_dir() -> PathBuf {

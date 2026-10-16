@@ -15,6 +15,7 @@ import type { SessionRef } from '$lib/ipc/bindings/SessionRef';
 import { ipc } from '$lib/ipc/client';
 import { IpcFailure, type Transport } from '$lib/ipc/transport';
 
+import { harness } from './harness.svelte';
 import { prefs } from './prefs.svelte';
 import { toasts, type ToastsStore } from './toasts.svelte';
 
@@ -120,6 +121,16 @@ export class AgentSessionsStore {
    * `quiet` drops a failure without a toast (reopening last run's chats: one that can't come back just stays closed).
    */
   async start(request: AgentStartRequest, { activate = true, quiet = false } = {}): Promise<ChatSession | null> {
+    // The callers gate on chat support already, this keeps a missed path from launching an agent that cannot run.
+    if (!harness.canChat(request.harness)) {
+      if (!quiet) {
+        const name = harness.get(request.harness)?.info.name ?? request.harness;
+        this.notifications.push({ title: t('chat.toast.comingSoon', { harness: name }), description: t('chat.toast.comingSoonBody'), tone: 'info' });
+      }
+
+      return null;
+    }
+
     const pending: AgentEnvelope[] = [];
     let session: ChatSession | null = null;
     const onEvent = (envelope: AgentEnvelope): void => (session ? session.ingest(envelope) : void pending.push(envelope));

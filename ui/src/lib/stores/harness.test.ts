@@ -96,7 +96,58 @@ describe('HarnessStore', () => {
     await store.rescan();
 
     expect(store.scanning).toBe(false);
-    expect(store.summaries).toHaveLength(2);
+    expect(store.summaries).toHaveLength(3);
     expect(store.get('omp')).toEqual(before);
+  });
+
+  describe('chat', () => {
+    /** The harnesses as a machine shows them when only the listed ones are installed. */
+    function installOnly(store: HarnessStore, ids: string[]): void {
+      store.summaries = store.summaries.map((summary) => ({ ...summary, detection: { ...summary.detection, installed: ids.includes(summary.info.id) } }));
+    }
+
+    it('says which harnesses can chat', async () => {
+      const { store } = await setup();
+
+      expect(store.canChat('omp')).toBe(true);
+      expect(store.canChat('opencode')).toBe(false);
+    });
+
+    it('keeps the views on the daily driver but sends chats to a harness that can chat', async () => {
+      const { store } = await setup({ defaultHarness: 'opencode' });
+
+      expect(store.active?.info.id).toBe('opencode');
+      expect(store.chatActive?.info.id).toBe('omp');
+      expect(store.chatComingSoon).toBeNull();
+    });
+
+    it('chats with the daily driver when it can chat', async () => {
+      const { store } = await setup({ defaultHarness: 'pi' });
+      await store.pickBinary('pi');
+
+      expect(store.chatActive?.info.id).toBe('pi');
+    });
+
+    it('picks the first installed harness that can chat when the daily driver cannot', async () => {
+      const { store } = await setup({ defaultHarness: 'opencode' });
+      installOnly(store, ['pi', 'opencode']);
+
+      expect(store.chatActive?.info.id).toBe('pi');
+    });
+
+    it('reports chat as coming soon when the only installed harnesses cannot chat', async () => {
+      const { store } = await setup({ defaultHarness: null });
+      installOnly(store, ['opencode']);
+
+      expect(store.chatComingSoon?.info.id).toBe('opencode');
+      expect(store.chatActive?.detection.installed).toBe(false);
+    });
+
+    it('reports nothing coming soon when no harness is installed at all', async () => {
+      const { store } = await setup({ defaultHarness: null });
+      installOnly(store, []);
+
+      expect(store.chatComingSoon).toBeNull();
+    });
   });
 });

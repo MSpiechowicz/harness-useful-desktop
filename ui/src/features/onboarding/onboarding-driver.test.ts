@@ -1,0 +1,103 @@
+import { beforeEach, describe, expect, it } from 'vitest';
+
+import type { AppPrefs } from '$lib/ipc/bindings/AppPrefs';
+import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
+import type { HarnessSummary } from '$lib/ipc/bindings/HarnessSummary';
+import { fixtures } from '$lib/ipc/mock/fixtures';
+
+import { samplePrefs } from '../../../tests/helpers';
+import { OnboardingController } from './onboarding-state.svelte';
+
+/** The mock machine's harnesses with only the listed ones installed. */
+function machine(installed: HarnessId[]): HarnessSummary[] {
+  return fixtures.harnesses.map((summary) => ({ ...summary, detection: { ...summary.detection, installed: installed.includes(summary.info.id) } }));
+}
+
+// The notices seen are remembered in the webview's storage: a test must not inherit the previous one's.
+beforeEach(() => localStorage.clear());
+
+function controller(installed: HarnessId[], prefs: Partial<AppPrefs> = {}) {
+  const summaries = machine(installed);
+  const harnesses = {
+    summaries,
+    installed: summaries.filter((summary) => summary.detection.installed),
+    get: (id: HarnessId) => summaries.find((summary) => summary.info.id === id),
+  };
+
+  const preferences = {
+    value: samplePrefs({ defaultHarness: null, approvalNoticeSeen: false, ...prefs }),
+    update: async (patch: Partial<AppPrefs>) => {
+      preferences.value = { ...preferences.value, ...patch };
+    },
+  };
+
+  return new OnboardingController(preferences, harnesses, () => true);
+}
+
+describe('the daily driver', () => {
+  it('prefers a harness that can chat when nothing was picked', () => {
+    expect(controller(['opencode', 'pi']).driver).toBe('pi');
+  });
+
+  it('falls back to the harness without chat when it is the only one installed', () => {
+    expect(controller(['opencode']).driver).toBe('opencode');
+  });
+
+  it('lets the user pick a harness without chat on purpose, and honours a saved one', () => {
+    const picked = controller(['omp', 'opencode']);
+    picked.choose('opencode');
+    expect(picked.driver).toBe('opencode');
+
+    expect(controller(['omp', 'opencode'], { defaultHarness: 'opencode' }).driver).toBe('opencode');
+  });
+
+  it('is nothing when no harness is installed', () => {
+    expect(controller([]).driver).toBeNull();
+  });
+});
+
+describe('the approval notice', () => {
+  it('belongs to the daily driver: OMP, OpenCode, or none for the others', () => {
+    expect(controller(['omp', 'opencode']).approvalNotice).toBe('omp');
+    expect(controller(['opencode']).approvalNotice).toBe('opencode');
+    expect(controller(['pi', 'opencode']).approvalNotice).toBeNull();
+  });
+
+  it('adds its step to the flow only when there is a notice, and only once', () => {
+    expect(controller(['opencode']).steps).toContain('approval');
+    expect(controller(['pi']).steps).not.toContain('approval');
+    expect(controller(['omp'], { approvalNoticeSeen: true }).steps).not.toContain('approval');
+  });
+
+  it('is remembered per harness: seeing the OpenCode notice keeps the OMP one for its own driver', async () => {
+    const opencode = controller(['opencode']);
+    opencode.restart('approval');
+    await opencode.finish();
+
+    expect(opencode.approvalNotice).toBeNull();
+    // A later launch with OMP as the driver still gets its notice.
+    expect(controller(['omp']).approvalNotice).toBe('omp');
+  });
+
+  it('is remembered per harness: seeing the OMP notice keeps the OpenCode one', async () => {
+    const omp = controller(['omp']);
+    omp.restart('approval');
+    await omp.finish();
+
+    expect(controller(['opencode']).approvalNotice).toBe('opencode');
+    expect(controller(['omp']).approvalNotice).toBeNull();
+  });
+
+  it('reads the saved flag from before there were two notices as the OMP one', () => {
+    expect(controller(['omp'], { approvalNoticeSeen: true }).approvalNotice).toBeNull();
+    expect(controller(['opencode'], { approvalNoticeSeen: true }).approvalNotice).toBe('opencode');
+  });
+
+  it('is not marked as seen when the run never reached it', async () => {
+    const opencode = controller(['opencode']);
+    opencode.restart('family');
+    await opencode.finish();
+
+    expect(opencode.approvalNotice).toBe('opencode');
+  });
+});

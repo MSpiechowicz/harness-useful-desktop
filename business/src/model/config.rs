@@ -25,6 +25,8 @@ pub enum ConfigFormat {
     Yaml,
     /// JSON (`settings.json`, `mcp.json`, ...).
     Json,
+    /// JSON with comments and trailing commas (OpenCode `opencode.jsonc`).
+    Jsonc,
     /// Markdown with optional frontmatter (`SKILL.md`, prompt templates).
     Markdown,
     /// Plain text.

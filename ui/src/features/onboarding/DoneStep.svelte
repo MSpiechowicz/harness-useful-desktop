@@ -34,10 +34,28 @@
     return parts.filter((part) => part !== null).join(', ');
   });
 
+  /**
+   * The tip about starting work, true for any daily driver. A driver that can chat starts the chats. One that cannot
+   * (OpenCode for now) says so, and names the harness that takes the chats instead, or points to Sessions when there is none.
+   */
+  const startTip = $derived.by(() => {
+    const chatter = harness.chatActive;
+
+    if (!driver || driver.capabilities.chat) {
+      return { keys: 'mod+n', title: t('onboarding.done.tip.newChat.title'), body: t('onboarding.done.tip.newChat.body') };
+    }
+
+    if (chatter?.detection.installed) {
+      return { keys: 'mod+n', title: t('onboarding.done.tip.newChat.title'), body: t('onboarding.done.tip.newChat.bodyOther', { driver: driver.info.name, harness: chatter.info.name }) };
+    }
+
+    return { keys: 'mod+2', title: t('onboarding.done.tip.sessions.title'), body: t('onboarding.done.tip.sessions.body', { driver: driver.info.name }) };
+  });
+
   /** The first things worth knowing once the app opens. */
   const TIPS = $derived<{ keys: string; title: string; body: string }[]>([
     { keys: 'mod+k', title: t('onboarding.done.tip.palette.title'), body: t('onboarding.done.tip.palette.body') },
-    { keys: 'mod+n', title: t('onboarding.done.tip.newChat.title'), body: t('onboarding.done.tip.newChat.body') },
+    startTip,
     { keys: 'mod+3', title: t('onboarding.done.tip.changes.title'), body: t('onboarding.done.tip.changes.body') },
     { keys: 'shift+?', title: t('onboarding.done.tip.shortcuts.title'), body: t('onboarding.done.tip.shortcuts.body') },
   ]);

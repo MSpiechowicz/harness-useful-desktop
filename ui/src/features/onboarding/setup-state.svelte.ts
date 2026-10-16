@@ -9,6 +9,7 @@ import { prefs } from '$lib/stores/prefs.svelte';
 
 import { failureLine } from '../extensions/actions/action-model';
 import { agentSessions } from '$lib/stores/agentSession.svelte';
+import { harness } from '$lib/stores/harness.svelte';
 import { CompanionInstaller } from './companion-installer.svelte';
 import { onboarding } from './onboarding-state.svelte';
 import { commandOf, companionEffects, MCP_COMPANION, refusalText, type Companion, type ItemPhase, type McpKind, type Plan, type PlannedFile, type SetupKey } from './setup-model';
@@ -181,6 +182,11 @@ export class SetupController {
 
     if (kind === 'skills') {
       return entry.skills.type === 'install';
+    }
+
+    // A harness the app cannot chat with yet (OpenCode) is shown as coming soon and gets no MCP entries.
+    if (comingSoon(id)) {
+      return false;
     }
 
     // An MCP entry runs its companion, so that has to be installed already or be part of the run.
@@ -426,6 +432,9 @@ export class SetupController {
         this.set(key, 'done');
       } else if (state.type === 'refused' && state.file !== '') {
         this.set(key, 'failed', refusalText(state.reason));
+      } else if (state.type === 'manualEdit') {
+        // The file gained comments since it was read: the app leaves it alone and the row shows the entry to paste.
+        this.set(key, 'failed', t('onboarding.setup.failed.manualEdit'));
       } else {
         this.set(key, 'failed', t('onboarding.setup.failed.mcp'));
       }
@@ -441,3 +450,8 @@ export const setup = new SetupController(ipc, {
   companionsChanged: () => ecosystem.load(true),
   memoryChanged: () => prefs.syncServerManaged(),
 });
+
+/** The harness is listed but not offered yet: the app cannot chat with it. */
+export function comingSoon(id: HarnessId): boolean {
+  return harness.get(id)?.capabilities.chat === false;
+}

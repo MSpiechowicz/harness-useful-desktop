@@ -1,4 +1,4 @@
-//! Reading JSON/YAML configuration files into redacted [`ConfigSection`]s.
+//! Reading JSON/JSONC/YAML configuration files into redacted [`ConfigSection`]s.
 //!
 //! Every read goes through [`SafeReader`] with the default 2 MiB cap. Parse failures are reported
 //! by location only (`Invalid YAML at line 3, column 5`), never with file content.
@@ -37,7 +37,7 @@ impl Document {
     }
 }
 
-/// Reads and parses `path` as `format` (JSON unless `format` is YAML).
+/// Reads and parses `path` as `format` (JSON unless `format` is YAML or JSONC).
 pub fn read_document(path: &Path, format: ConfigFormat) -> Document {
     match SafeReader::read_to_string(path, SafeReader::DEFAULT_MAX_BYTES) {
         Ok(text) => match parse_text(&text, format) {
@@ -56,6 +56,10 @@ pub fn read_json(path: &Path) -> Document {
 
 /// Parses `text`; the error is a location-only summary.
 pub fn parse_text(text: &str, format: ConfigFormat) -> Result<Value, String> {
+    if format == ConfigFormat::Jsonc {
+        return super::jsonc::parse(text);
+    }
+
     if format != ConfigFormat::Yaml {
         return serde_json::from_str(text)
             .map_err(|error| format!("Invalid JSON at line {}, column {}", error.line(), error.column()));

@@ -17,8 +17,11 @@
 
   import ChatBar from './ChatBar.svelte';
   import ChatPane from './ChatPane.svelte';
+  import ChatSoon from './ChatSoon.svelte';
 
-  const active = $derived(harness.active);
+  // Chats go to a harness that can chat, which is not always the one the other views show.
+  const active = $derived(harness.chatActive);
+  const comingSoon = $derived(harness.chatComingSoon);
   const session = $derived(agentSessions.active);
   const ready = $derived(Boolean(active?.detection.installed && project.active));
   const target = $derived(ready && active && project.active ? `${active.info.id}\n${project.active.path}` : null);
@@ -82,7 +85,9 @@
       </div>
     {:else if agentSessions.sessions.length === 0}
       <div class="grid size-full place-items-center">
-        {#if !active?.detection.installed}
+        {#if comingSoon}
+          <ChatSoon name={comingSoon.info.name} />
+        {:else if !active?.detection.installed}
           <EmptyState icon={PackageOpen} title={t('chat.view.install.title')} body={t('chat.view.install.body')}>
             {#snippet action()}
               <Button variant="primary" onclick={openHarnessSettings}>{t('chat.view.install.action')}</Button>

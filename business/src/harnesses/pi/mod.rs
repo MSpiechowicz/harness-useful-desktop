@@ -71,12 +71,14 @@ impl Harness for Pi {
 
     fn capabilities(&self) -> Capabilities {
         Capabilities {
+            chat: true,
             packages: true,
             mcp: true,
             skills: true,
             prompt_templates: true,
             extension_modules: true,
             themes: true,
+            cli_actions: true,
             project_trust: true,
             session_tree: true,
             ..Capabilities::default()
@@ -117,6 +119,11 @@ impl Harness for Pi {
 
     fn cli_action(&self, action: &ExtensionAction, project: Option<&Path>) -> Result<CliInvocation> {
         pi_cli_action(action, project)
+    }
+
+    /// 1.1 is the release the adapter follows and was checked against live.
+    fn supported_versions(&self) -> &'static [&'static str] {
+        &["1.1."]
     }
 
     fn install_hint(&self) -> InstallHint {

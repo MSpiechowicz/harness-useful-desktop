@@ -1,5 +1,6 @@
 <script lang="ts">
   import { t } from '$lib/i18n/i18n.svelte';
+  import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
   import type { McpRefusal } from '$lib/ipc/bindings/McpRefusal';
 
   import SetupCommand from './SetupCommand.svelte';
@@ -7,10 +8,14 @@
 
   interface Props {
     kind: McpKind;
+    /** Whose file it is, which decides the shape of the entry to add by hand. */
+    harness: HarnessId;
     /** The column's title. */
     title: string;
     /** Why the app leaves the file alone, when it does. */
     refused: McpRefusal | null;
+    /** The file has comments the app would lose by rewriting it: where to add the entry, and the entry to add. */
+    manualEdit: { file: string; snippet: string } | null;
     /** The entry is in the file but switched off. */
     disabled: boolean;
     /** The entry cannot be added before its companion is installed: what to do about it. */
@@ -18,7 +23,7 @@
     failure: string | null;
   }
 
-  let { kind, title, refused, disabled, waitsFor, failure }: Props = $props();
+  let { kind, harness, title, refused, manualEdit, disabled, waitsFor, failure }: Props = $props();
 </script>
 
 <!-- What one MCP cell of a row cannot say; the dashboard's and the memory server's are built the same way. -->
@@ -27,7 +32,10 @@
 
   {#if refused}
     <p class="text-sm text-fg-2">{t('onboarding.setup.mcp.refused', { reason: refusalText(refused) })}</p>
-    <SetupCommand text={mcpSnippet(kind)} copyLabel={t('onboarding.setup.copySnippet')} />
+    <SetupCommand text={mcpSnippet(kind, harness)} copyLabel={t('onboarding.setup.copySnippet')} />
+  {:else if manualEdit}
+    <p class="text-sm text-fg-2">{t('onboarding.setup.mcp.manualEdit', { file: manualEdit.file })}</p>
+    <SetupCommand text={manualEdit.snippet} copyLabel={t('onboarding.setup.copySnippet')} />
   {:else if disabled}
     <p class="text-sm text-fg-2">{t('onboarding.setup.mcp.disabled')}</p>
   {:else if waitsFor}
