@@ -156,7 +156,7 @@
           <div class="page-gutter border-b border-line py-3"><NoticeBanner notices={profiles.rest} /></div>
         {/if}
 
-        <div class="min-h-0 flex-1">
+        <div class="mx-auto min-h-0 w-full max-w-[var(--page-wide)] flex-1">
           {#if section}
             <ListDetail label={t('config.resize')} scrollKey="config:detail" size={288} {drawer} drawerLabel={t('config.drawer.label')}>
               {#snippet list()}

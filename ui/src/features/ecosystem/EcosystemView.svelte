@@ -57,7 +57,7 @@
     {/snippet}
   </ViewHeader>
 
-  <div use:scrollMemory={'ecosystem'} class="min-h-0 flex-1 overflow-y-auto">
+  <div use:scrollMemory={'ecosystem'} class="min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable_both-edges]">
     <div class="page-wide flex flex-col gap-6 py-6">
       <EcosystemHero {items} {failed} />
 
