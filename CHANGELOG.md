@@ -1,3 +1,15 @@
+## [0.16.1](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.16.0...v0.16.1) (2026-10-16)
+
+
+### Bug Fixes
+
+* **chat:** stop clipping the harness name, centre messages against the composer, render system messages as markdown ([9f0622b](https://github.com/MSpiechowicz/harness-useful-desktop/commit/9f0622b4f5fc914e2254a0eef8fa80964ca8c24d))
+
+
+### Performance Improvements
+
+* **chat:** restore last run's chats in parallel and show them as starting tabs ([824fed2](https://github.com/MSpiechowicz/harness-useful-desktop/commit/824fed2af32fb3d02f001524834932437ef65080))
+
 # [0.16.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.15.0...v0.16.0) (2026-10-16)
 
 
