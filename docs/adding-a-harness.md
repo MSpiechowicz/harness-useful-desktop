@@ -264,7 +264,7 @@ capped output, strips ANSI escapes and redacts both streams. See `business/src/h
 
 **Every newly supported harness must be added to the Recommended setup step** of onboarding (also reachable from
 **Run recommended setup** on the Ecosystem screen). The step installs the Harness Skills and registers the Harness
-Dashboard MCP server for each detected harness. `Harness::companion_setup` is a required method, so the compiler
+Dashboard and Harness Memory MCP servers for each detected harness. `Harness::companion_setup` is a required method, so the compiler
 enforces the first half; the rest is yours to check.
 
 Implement it in the adapter (`business/src/harness/mod.rs` defines the types):
@@ -303,10 +303,12 @@ fn companion_setup(&self) -> CompanionSetup {
 - `Unsupported`: the CLI has no user MCP file the app can write. The step then shows "No MCP file to edit" for it, and
   the harness gets no project memory entry.
 
-**Project memory comes with `UserMcpJson`.** At every launch, with the **Project memory** setting on, the app registers
-its bundled `harness-memory` MCP server in the `mcp.json` of each detected harness whose `companion_setup` uses
+**Project memory comes with `UserMcpJson`.** At every launch, with the **Project memory** setting on and the
+`harness-memory` server installed (Recommended setup or the Settings switch runs its installer after the user confirms;
+it is the separate [harness-useful-memory](https://github.com/MSpiechowicz/harness-useful-memory) program, not bundled),
+the app registers it in the `mcp.json` of each detected harness whose `companion_setup` uses
 `McpTarget::UserMcpJson` (`memory_setup.rs`, `register_memory_mcp`), with no prompt and no per-harness code. The entry is
-`{"command": "<stable path of harness-memory>", "args": ["mcp"]}`, written through the same file as the dashboard
+`{"command": "<resolved absolute path of harness-memory>", "args": ["mcp"]}`, written through the same file as the dashboard
 entry, so the "confirm the CLI reads `mcpServers` from that user file" check above also covers it. Nothing else to
 implement; verify that your CLI starts such a server, and that your `also_read` files are listed so an existing
 `harness-memory` entry in them is found and not duplicated. A removed entry is not added back, and an entry the user

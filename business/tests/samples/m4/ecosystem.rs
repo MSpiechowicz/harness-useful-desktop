@@ -1,4 +1,5 @@
-//! `ecosystem/status.json`: the dashboard and the skills installed, the sidebar not yet (Linux).
+//! `ecosystem/status.json`: the dashboard, the memory server and the skills installed, the sidebar
+//! not yet (Linux).
 //! Names, links, install steps and notes come from the real catalog; only the detection is
 //! synthetic.
 
@@ -27,6 +28,7 @@ pub fn status() -> Value {
                 "1.22.1",
                 "binary ~/.local/bin/harness-dashboard",
             ),
+            installed(EcosystemId::Memory, "1.0.0", "binary ~/.local/bin/harness-memory"),
             installed(
                 EcosystemId::Skills,
                 "0.2.36",

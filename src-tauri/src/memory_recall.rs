@@ -1,4 +1,4 @@
-//! Memory recall in chats: the first message of a new chat is sent with the notes the bundled
+//! Memory recall in chats: the first message of a new chat is sent with the notes the installed
 //! `harness-memory` server finds for it in front (see
 //! [`harness_business::ecosystem::memory_recall`]).
 //!
@@ -232,26 +232,34 @@ pub fn track(state: &AppState, key: &str, project: &str, fresh: bool) {
     }
 }
 
-/// Arms chat `key` in `project` and, when the prefs allow a recall and the server is bundled,
-/// warms the server up in the background. Never waits.
+/// Arms chat `key` in `project` and, when the prefs allow a recall and the server is found, warms
+/// the server up in the background. Never waits.
 fn arm(state: &AppState, key: &str, project: &str) {
-    let warm = state.memory_server.clone().map(|server| {
-        let prefs = state.prefs.clone();
-        let recall = state.memory_recall.clone();
-        let project = PathBuf::from(project);
+    let prefs = state.prefs.clone();
+    let recall = state.memory_recall.clone();
+    let server = state.memory_server.clone();
+    let env = state.env.clone();
+    let runner = state.runner;
+    let project = PathBuf::from(project);
 
-        let warm_up = async move {
-            if !recall_allowed(prefs).await {
-                return None;
-            }
+    let warm_up = async move {
+        if !recall_allowed(prefs).await {
+            return None;
+        }
 
-            recall.warm(&server, &project).await
-        };
+        let server = server.get(&env, &runner).await?;
+        recall.warm(&server, &project).await
+    };
 
-        WarmTask::spawn(warm_up, state.recall.idle)
-    });
-
-    register(state, key, Slot { armed: true, warm });
+    let warm = WarmTask::spawn(warm_up, state.recall.idle);
+    register(
+        state,
+        key,
+        Slot {
+            armed: true,
+            warm: Some(warm),
+        },
+    );
 }
 
 /// Puts `slot` in for chat `key` while the chat runs, and forgets the chats that stopped without a
@@ -397,13 +405,13 @@ async fn recall(state: &AppState, key: &str, message: &str, warm: Option<WarmTas
         return skipped;
     }
 
-    let Some(server) = state.memory_server.as_deref() else {
-        return skipped;
-    };
-
     if !recall_allowed(state.prefs.clone()).await {
         return skipped;
     }
+
+    let Some(server) = state.memory_server.get(&state.env, &state.runner).await else {
+        return skipped;
+    };
 
     let Ok(info) = state.agents.manager().info(key) else {
         return skipped;
@@ -413,7 +421,7 @@ async fn recall(state: &AppState, key: &str, message: &str, warm: Option<WarmTas
 
     state
         .memory_recall
-        .recall(warm, server, Path::new(&info.project), message)
+        .recall(warm, &server, Path::new(&info.project), message)
         .await
 }
 

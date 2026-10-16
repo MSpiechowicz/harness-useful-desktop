@@ -5,10 +5,11 @@ import type { Handlers } from './types';
 
 /**
  * The latest GitHub release of each companion in the mock: the skills are ahead of the 0.2.36 in
- * `fixtures/ecosystem/status.json`, the dashboard matches its installed 1.22.1.
+ * `fixtures/ecosystem/status.json`, the dashboard and the memory server match their installed 1.22.1 and 1.0.0.
  */
 export const MOCK_LATEST_RELEASES: Record<EcosystemId, string> = {
   dashboard: '1.22.1',
+  memory: '1.0.0',
   skills: '0.2.40',
   sidebar: '1.0.74',
 };

@@ -22,7 +22,8 @@ mod runner;
 mod spawner;
 
 pub use resolve::{
-    ResolvedBinary, extra_search_dirs, find_override, is_batch_script, launcher_search_dirs, resolve_binary,
+    ResolvedBinary, absolute_path_dirs, extra_search_dirs, find_override, is_batch_script, is_executable_file,
+    launcher_search_dirs, resolve_binary,
 };
 pub use runner::{ExecOutput, ProcessRunner, TokioRunner};
 pub use spawner::{ChildHandle, ProcessSpawner, SpawnedProcess, TokioSpawner};

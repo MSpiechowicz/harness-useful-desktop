@@ -54,7 +54,9 @@ const sampleArgs = (sessionKey: string): { [K in CommandName]: CommandArgs<K> } 
   extension_action: { harness: 'omp', action: { type: 'pluginEnable', name: 'npm-helper' }, dryRun: true, project: null },
   setup_status: undefined,
   setup_install_dashboard: { confirmed: true, onLog: () => {} },
+  setup_install_memory: { confirmed: true, onLog: () => {} },
   setup_register_mcp: { harness: 'omp' },
+  setup_register_memory: { harness: 'omp' },
   sync_export_preview: undefined,
   sync_export: { selected: ['omp:marketplace:acme-tools'] },
   sync_export_save: { selected: ['omp:marketplace:acme-tools'] },
@@ -85,6 +87,11 @@ describe('mock transport', () => {
     // An import applies a plan that a review made first.
     if (name === 'sync_import_apply') {
       await mock.invoke('sync_import_preview', { input: { type: 'file' } });
+    }
+
+    // The memory server is registered only once it is installed.
+    if (name === 'setup_register_memory') {
+      await mock.invoke('setup_install_memory', { confirmed: true, onLog: () => {} });
     }
 
     await expect(mock.invoke(name, sampleArgs(key)[name] as never)).resolves.not.toBeInstanceOf(IpcFailure);

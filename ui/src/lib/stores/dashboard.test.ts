@@ -181,7 +181,7 @@ describe('cost chips', () => {
 });
 
 describe('ecosystem status', () => {
-  it('lists the three companions and reuses a fresh reading', async () => {
+  it('lists the four companions and reuses a fresh reading', async () => {
     let reads = 0;
     const { transport } = backend();
     const counting: Transport = {
@@ -196,7 +196,7 @@ describe('ecosystem status', () => {
     await store.load();
     await store.load();
 
-    expect(store.status?.items.map((item) => item.id)).toEqual(['dashboard', 'skills', 'sidebar']);
+    expect(store.status?.items.map((item) => item.id)).toEqual(['dashboard', 'memory', 'skills', 'sidebar']);
     expect(reads).toBe(1);
 
     await store.load(true);

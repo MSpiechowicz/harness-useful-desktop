@@ -176,6 +176,7 @@ export const extensions = {
   'extensions.dialog.nothingChanged': 'Nothing has changed yet. Confirm to run the command above.',
   'extensions.dialog.previewedWith': 'Previewed with',
   'extensions.dialog.running': 'Running… this can take a minute while packages download.',
+  'extensions.dialog.runningLocal': 'Running…',
   'extensions.dialog.couldNotRun': 'The action could not run',
   'extensions.dialog.failed': 'The action failed',
   'extensions.dialog.done': 'Done.',

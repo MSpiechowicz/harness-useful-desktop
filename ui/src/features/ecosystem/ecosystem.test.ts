@@ -28,7 +28,7 @@ async function show(switches: Parameters<typeof freshBackend>[0] = {}) {
 }
 
 describe('Ecosystem view', () => {
-  it('explains the ecosystem and lists the three companions with their state', async () => {
+  it('explains the ecosystem and lists the four companions with their state', async () => {
     await show();
 
     expect(await screen.findByRole('heading', { level: 2, name: 'Tools that make agents measurable' })).toBeInTheDocument();
@@ -41,10 +41,21 @@ describe('Ecosystem view', () => {
     await fireEvent.click(within(dashboardCard).getByRole('button', { name: 'Details' }));
     expect(within(dashboardCard).getByText('binary ~/.local/bin/harness-dashboard')).toBeInTheDocument();
 
+    // The memory server is a companion like the others: its own card, state and version.
+    const memory = screen.getByRole('article', { name: /Harness Memory/ });
+    expect(within(memory).getByText('Installed')).toBeInTheDocument();
+    expect(within(memory).getByText('v1.0.0')).toBeInTheDocument();
+    expect(within(memory).getByText('One project memory for every coding agent, kept on this machine.')).toBeInTheDocument();
+
     const sidebar = screen.getByRole('article', { name: /Harness Sidebar/ });
     expect(within(sidebar).getByText('Not installed')).toBeInTheDocument();
     // The GitHub release lookup lands just after the local reading.
-    expect(await screen.findByText('2 of 3 installed · 1 update available', { selector: 'p[role="status"]' })).toBeInTheDocument();
+    expect(await screen.findByText('3 of 4 installed · 1 update available', { selector: 'p[role="status"]' })).toBeInTheDocument();
+
+    // All four wear their own mark in the family tree.
+    const tree = screen.getByRole('img', { name: /^3 of 4 installed/ });
+    expect(tree.getAttribute('aria-label')).toMatch(/Harness Memory/);
+    expect(within(tree).getByText('Memory')).toBeInTheDocument();
   });
 
   it('flags a companion whose GitHub release is newer and opens its update steps', async () => {
@@ -185,12 +196,12 @@ describe('Ecosystem view', () => {
     await waitFor(() => expect(calls('dashboard_availability')).toHaveLength(2));
   });
 
-  it('opens the recommended setup at its step from the header', async () => {
+  it('opens the recommended setup at the Harness family step from the header', async () => {
     await show();
 
     await fireEvent.click(await screen.findByRole('button', { name: 'Run recommended setup' }));
 
-    expect(onboarding.step).toBe('setup');
+    expect(onboarding.step).toBe('family');
     expect(onboarding.rerun).toBe(true);
     onboarding.dismiss();
   });
@@ -198,7 +209,7 @@ describe('Ecosystem view', () => {
   it('shows an error with a retry when the companions cannot be read', async () => {
     await show({ ecosystem: 'failed' });
 
-    expect(await screen.findByText('Could not look for companions', { selector: 'h2' })).toBeInTheDocument();
+    expect(await screen.findByText('Could not look for the Harness family', { selector: 'h2' })).toBeInTheDocument();
     expect(ecosystem.state).toBe('error');
     expect(screen.getByRole('button', { name: 'Try again', description: '' })).toBeInTheDocument();
   });
@@ -210,7 +221,7 @@ describe('Ecosystem view in Polish', () => {
     await show();
 
     expect(await screen.findByRole('heading', { level: 2, name: 'Narzędzia, dzięki którym agentów da się zmierzyć' })).toBeInTheDocument();
-    expect(await screen.findByText('Zainstalowano 2 z 3 · 1 dostępna aktualizacja', { selector: 'p[role="status"]' })).toBeInTheDocument();
+    expect(await screen.findByText('Zainstalowano 3 z 4 · 1 dostępna aktualizacja', { selector: 'p[role="status"]' })).toBeInTheDocument();
 
     const sessions = await screen.findByRole('article', { name: 'Sesje, ostatnie 7 dni' });
     expect(sessions).toHaveTextContent('318 promptów');

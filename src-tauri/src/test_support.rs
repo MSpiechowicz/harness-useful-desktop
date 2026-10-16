@@ -57,11 +57,69 @@ pub fn home_state(dir: &TempDir) -> AppState {
     let home = dir.path().join("home");
     std::fs::create_dir_all(&home).expect("create home");
 
-    // Windows keeps the app's per-machine data (the memory server's stable copy) in %LOCALAPPDATA%.
+    // Windows keeps the app's per-machine data (the old copy of the memory server) in %LOCALAPPDATA%.
     let local = home.join("AppData").join("Local");
     let env = Env::for_tests(&home).with_var("LOCALAPPDATA", local.to_string_lossy());
 
     AppState::new(dir.path().join("config"), env)
+}
+
+/// Places an empty executable `name` (`.exe` on Windows) in `<home>/.local/bin`, where companion
+/// binaries are looked up, and returns its path.
+pub fn place_companion(home: &Path, name: &str) -> PathBuf {
+    place_executable(&home.join(".local").join("bin"), name)
+}
+
+/// Places an empty executable `name` (`.exe` on Windows) in `dir`; it prints nothing when run.
+pub fn place_executable(dir: &Path, name: &str) -> PathBuf {
+    let binary = executable_in(dir, name);
+    std::fs::write(&binary, "").expect("write binary");
+    set_mode(&binary, 0o755);
+
+    binary
+}
+
+/// Places a `harness-memory` that reports its version in `<home>/.local/bin`, where its installer
+/// puts it (see [`place_memory_server_in`]).
+pub fn place_memory_server(home: &Path) -> Option<PathBuf> {
+    place_memory_server_in(&home.join(".local").join("bin"))
+}
+
+/// Places a `harness-memory` (`.exe` on Windows) in `dir` that answers `--version` with
+/// `harness-memory 0.0.0`: a copy of `fake_agent`, see its docs. `None` (the caller skips) when
+/// `fake_agent` is not built.
+pub fn place_memory_server_in(dir: &Path) -> Option<PathBuf> {
+    let agent = fake_agent()?;
+    let binary = executable_in(dir, "harness-memory");
+    std::fs::copy(&agent, &binary).expect("copy fake_agent");
+    set_mode(&binary, 0o755);
+
+    // A process another test forks while the copy is open for writing keeps it open until its own
+    // exec, and until then running the copy fails ("text file busy").
+    wait_until("the copied harness-memory runs", || {
+        std::process::Command::new(&binary).arg("--version").output().is_ok()
+    });
+
+    Some(binary)
+}
+
+/// `<dir>/<name>` (`.exe` on Windows), with `dir` created and writable by its owner only.
+fn executable_in(dir: &Path, name: &str) -> PathBuf {
+    std::fs::create_dir_all(dir).expect("create bin");
+    set_mode(dir, 0o755);
+
+    dir.join(format!("{name}{}", std::env::consts::EXE_SUFFIX))
+}
+
+/// Sets the Unix permission bits of `path` to `mode` (whatever the umask; the memory server is
+/// only run from files and folders no other user can change). Does nothing on Windows.
+#[cfg_attr(not(unix), allow(unused_variables))]
+pub fn set_mode(path: &Path, mode: u32) {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(mode)).expect("chmod");
+    }
 }
 
 /// The user MCP file of OMP in `state`'s home.

@@ -92,7 +92,7 @@ const RULES: readonly Rule[] = [
   },
   {
     id: 'installer-shell',
-    reason: 'a shell interpreter may only be named by the dashboard installer (business/src/ecosystem/installer.rs)',
+    reason: 'a shell interpreter may only be named by the companion installers (business/src/ecosystem/installer.rs)',
     pattern: SHELL_PROGRAM,
     extensions: ['.rs'],
     skip: INSTALLER_FILES,
@@ -100,7 +100,7 @@ const RULES: readonly Rule[] = [
   },
   {
     id: 'installer-shell',
-    reason: 'every line of the dashboard installer that names a shell interpreter must be marked',
+    reason: 'every line of the companion installers that names a shell interpreter must be marked',
     pattern: SHELL_PROGRAM,
     extensions: ['.rs'],
     only: INSTALLER_FILES,

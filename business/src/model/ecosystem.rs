@@ -1,8 +1,9 @@
 //! The Harness Useful ecosystem: the companion tools shown on the Ecosystem tab (`ecosystem_status`).
 //!
 //! The Ecosystem tab only detects these tools and shows how to install them; its install steps are
-//! copyable text and are never executed. The one exception is the "Recommended setup" step (see
-//! [`super::setup`]), which runs the dashboard's installer once the user confirms it.
+//! copyable text and are never executed. The exception is the "Recommended setup" step (see
+//! [`super::setup`]), which runs the dashboard's or the memory server's installer once the user
+//! confirms it.
 
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
@@ -14,6 +15,8 @@ use ts_rs::TS;
 pub enum EcosystemId {
     /// Harness Dashboard: token usage and cost across AI coding tools (`harness-dashboard`).
     Dashboard,
+    /// Harness Memory: the project memory MCP server every harness shares (`harness-memory`).
+    Memory,
     /// Harness Skills: the `us-*` skills plugin for OMP.
     Skills,
     /// Harness Sidebar: live token charts and session history for OMP in a tmux sidebar.
@@ -28,7 +31,7 @@ pub struct InstallStep {
     /// What the step does (e.g. `"Add the marketplace"`).
     pub label: String,
     /// The shell command to copy; shown only, never run by the app (the setup step runs its own
-    /// fixed dashboard installer, not this text).
+    /// fixed installers, not this text).
     pub command: String,
 }
 
@@ -54,7 +57,7 @@ pub struct EcosystemItem {
     /// Installed version, when known.
     pub version: Option<String>,
     /// The newest version a cached OMP marketplace catalog offers (skills and sidebar only; the
-    /// dashboard binary has no local source for it).
+    /// dashboard and memory binaries have no local source for it).
     pub latest_version: Option<String>,
     /// The catalog offers a newer version than the installed one.
     pub update_available: bool,
@@ -75,7 +78,7 @@ pub struct EcosystemItem {
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
 pub struct EcosystemStatus {
-    /// One item per [`EcosystemId`], in display order (dashboard, skills, sidebar).
+    /// One item per [`EcosystemId`], in display order (dashboard, memory, skills, sidebar).
     pub items: Vec<EcosystemItem>,
 }
 

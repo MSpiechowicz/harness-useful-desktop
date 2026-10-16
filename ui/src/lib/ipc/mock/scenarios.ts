@@ -47,17 +47,32 @@ export function defaultScenario(): Scenario {
 
     return roster && list[0] ? rosterSummaries(roster, list[0]) : list;
   };
-  const setup = setupHandlers(harnesses);
+  const setup = setupHandlers(harnesses, setupScenarioFromLocation, () => state.setMemoryEnabled(true));
+  const ecosystem = ecosystemHandlers();
 
   const handlers: Handlers = {
     ...base,
     harness_list: harnesses,
-    ...ecosystemHandlers(),
+    ...ecosystem,
+    // The Ecosystem screen shows the memory server the setup step and Settings install, not the fixture's fixed one.
+    ecosystem_status: async () => {
+      const status = await ecosystem.ecosystem_status(undefined);
+      const memory = status.items.find((item) => item.id === 'memory');
+      const server = setup.memoryServer();
+
+      if (memory && !server.installed) {
+        Object.assign(memory, { installed: false, version: null, via: [] });
+      }
+
+      return status;
+    },
     ...releaseHandlers(state),
     ...updateHandlers(agentPace),
     ...actions,
     ...setup.handlers,
     ...syncHandlers(),
+    // The switch reports the memory server the setup mock installs.
+    memory_set_enabled: ({ enabled }) => ({ memoryEnabled: state.setMemoryEnabled(enabled).memoryEnabled, server: setup.memoryServer() }),
     // A completed action may be one of the setup step's, which the next `setup_status` then reports as done.
     extension_action: async (args) => {
       const result = await actions.extension_action(args);

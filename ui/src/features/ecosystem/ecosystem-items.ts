@@ -11,7 +11,7 @@ export function itemState(item: EcosystemItem): 'installed' | 'missing' | 'unsup
   return item.installed ? 'installed' : 'missing';
 }
 
-/** "2 of 3 installed" for the header and the hero. */
+/** "2 of 4 installed" for the header and the hero. */
 export function installedSummary(items: EcosystemItem[]): string {
   const supported = items.filter((item) => item.supportedOnThisOs);
   const installed = supported.filter((item) => item.installed).length;
@@ -26,4 +26,4 @@ export function updatesSummary(items: EcosystemItem[]): string | null {
   return count === 0 ? null : tn('ecosystem.count.update', count);
 }
 
-export const SHORT_NAMES: Record<EcosystemId, string> = { dashboard: 'Dashboard', skills: 'Skills', sidebar: 'Sidebar' };
+export const SHORT_NAMES: Record<EcosystemId, string> = { dashboard: 'Dashboard', memory: 'Memory', skills: 'Skills', sidebar: 'Sidebar' };

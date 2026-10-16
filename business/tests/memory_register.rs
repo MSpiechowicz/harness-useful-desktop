@@ -1,5 +1,5 @@
-//! Registering the bundled memory server in a user MCP file: adding it by absolute path, keeping a
-//! removed one out, following the stable copy's path, leaving the user's entries alone, and
+//! Registering the installed memory server in a user MCP file: adding it by absolute path, keeping
+//! a removed one out, following the resolved server's path, leaving the user's entries alone, and
 //! refusing files it cannot change safely.
 
 mod mcp_support;
@@ -16,7 +16,7 @@ use serde_json::{Value, json};
 use mcp_support::mode;
 
 impl Home {
-    /// Where the stable copy is installed in these tests.
+    /// Where the server is installed in these tests.
     fn binary(&self) -> PathBuf {
         self.dir.path().join(".local/bin/harness-memory")
     }

@@ -447,7 +447,7 @@ fn ecosystem_status_lists_each_tool_once_with_consistent_detection() {
     let status: EcosystemStatus = serde_json::from_value(fixture("ecosystem/status.json")).expect("a status");
     let ids: Vec<EcosystemId> = status.items.iter().map(|item| item.id).collect();
 
-    assert_eq!(ids, [EcosystemId::Dashboard, EcosystemId::Skills, EcosystemId::Sidebar]);
+    assert_eq!(ids, harness_business::ecosystem::ECOSYSTEM);
 
     for item in &status.items {
         assert_eq!(item.installed, !item.via.is_empty(), "{:?}", item.id);

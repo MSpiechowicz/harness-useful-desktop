@@ -4,7 +4,7 @@
 
   import HarnessBadge from '$lib/components/HarnessBadge.svelte';
   import Kbd from '$lib/components/Kbd.svelte';
-  import { t } from '$lib/i18n/i18n.svelte';
+  import { t, tn } from '$lib/i18n/i18n.svelte';
   import { harness } from '$lib/stores/harness.svelte';
   import { project } from '$lib/stores/project.svelte';
   import { cx } from '$lib/utils/cx';
@@ -25,8 +25,10 @@
 
     const parts = [
       data.dashboard.installed ? t('onboarding.done.companions.dashboard') : null,
+      data.memory.installed ? t('onboarding.done.companions.memory') : null,
       data.harnesses.some((entry) => entry.skills.type === 'installed') ? t('onboarding.done.companions.skills') : null,
       data.harnesses.some((entry) => entry.mcp.type === 'configured') ? t('onboarding.done.companions.mcp') : null,
+      data.harnesses.some((entry) => entry.memoryMcp.type === 'configured') ? t('onboarding.done.companions.memoryMcp') : null,
     ];
 
     return parts.filter((part) => part !== null).join(', ');
@@ -76,6 +78,9 @@
           </dd>
         {/if}
       </dl>
+      {#if setup.chatsRestarted > 0}
+        <p class="text-sm text-fg-2">{tn('onboarding.done.chatsRestarted', setup.chatsRestarted)}</p>
+      {/if}
       <p class="mt-auto inline-flex items-center gap-2 border-t border-line pt-3 text-sm text-fg-2"><Check class="text-success" size={16} aria-hidden="true" />{t('onboarding.done.private')}</p>
     </section>
 

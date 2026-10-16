@@ -34,7 +34,7 @@ privacy. Made with the app's demo data. [Download the full-quality 4K video](htt
 - **Ecosystem tab and dashboard widgets.** Detects the companion tools and shows cost and token widgets from the local
   [Harness Dashboard](https://github.com/MSpiechowicz/harness-useful-dashboard) when it is installed.
 - **Recommended setup.** An optional onboarding step (also **Run recommended setup** on the Ecosystem screen) that,
-  after you confirm each part, installs the Harness Dashboard with its official installer, installs the
+  after you confirm each part, installs the Harness Dashboard and Harness Memory with their official installers, installs the
   [Harness Skills](https://github.com/MSpiechowicz/harness-useful-skills) (OMP as a plugin, PI as a package) and
   registers the dashboard as an MCP server in each detected harness's user `mcp.json`.
 - **Project memory.** Your harnesses share a local memory of what was done, problems and fixes, and where things are,
@@ -62,22 +62,25 @@ choose the executable yourself. It does not install harnesses.
 
 ## Project memory
 
-The app bundles `harness-memory`, a small MCP server that gives every detected harness a shared memory. Agents search it
-at the start of a task, save what they learn (outcomes, problems and fixes, where things live, decisions) before they
-finish and keep it current, so the next session in the same repository starts better informed. It is on by default.
+[Harness Memory](https://github.com/MSpiechowicz/harness-useful-memory) (`harness-memory`) is a small MCP server that gives
+every detected harness a shared memory. Agents search it at the start of a task, save what they learn (outcomes,
+problems and fixes, where things live, decisions) before they finish and keep it current, so the next session in the
+same repository starts better informed. The switch is on by default; the server is a separate program that you install.
 
-- **How it gets there.** At launch the app copies the server to a stable path (Linux `~/.local/bin/harness-memory`;
-  macOS `~/Library/Application Support/com.mspiechowicz.harness-useful-desktop/bin/`; Windows
-  `%LOCALAPPDATA%\com.mspiechowicz.harness-useful-desktop\bin\harness-memory.exe`) and adds a `harness-memory` entry to
-  the user `mcp.json` of each detected harness. A file already named `harness-memory` in that folder is replaced by the
-  app's copy. It never overwrites another entry, and an entry you removed is not added back.
+- **How it gets there.** The app does not bundle the server. Recommended setup (also reachable from the Ecosystem
+  tab) offers to install it and runs its official installer (`install.sh`, or `install.ps1` on Windows, which verify
+  the release checksum) only after you confirm. The server lands in `~/.local/bin/harness-memory` (Linux, macOS) or
+  `%LOCALAPPDATA%\Programs\harness-memory\harness-memory.exe` (Windows). While the switch is on and the server is
+  installed, the app adds a `harness-memory` entry that runs `harness-memory mcp` to the user `mcp.json` of each
+  detected harness at launch. It never overwrites another entry, and an entry you removed is not added back.
 - **What is stored.** The notes agents write, as text, plus the repository's name and path, and a small graph of related
   files and concepts. Strings pass a secret filter first, which is a heuristic: it does not catch everything. The
-  database is not encrypted, is never exported by Share setup and is never sent anywhere by the app (what an agent reads
-  from it goes to its model provider like the rest of its context). It is
-  `memory/memory.sqlite3` in the app's local data folder: Linux `~/.local/share/com.mspiechowicz.harness-useful-desktop`
-  (or `$XDG_DATA_HOME`), macOS `~/Library/Application Support/com.mspiechowicz.harness-useful-desktop`, Windows
-  `%LOCALAPPDATA%\com.mspiechowicz.harness-useful-desktop`.
+  database is not encrypted, is never exported by Share setup and is never sent anywhere by the app, which does not
+  open it (what an agent reads from it goes to its model provider like the rest of its context). The server keeps it
+  at `harness-memory/memory.sqlite3` in your data folder: Linux `~/.local/share` (or `$XDG_DATA_HOME`), macOS
+  `~/Library/Application Support`, Windows `%LOCALAPPDATA%` (`HARNESS_MEMORY_DIR` overrides it). On its first run the
+  server copies the database that app versions up to 0.16 kept under
+  `com.mspiechowicz.harness-useful-desktop/memory` in the app's local data folder; the old file is left in place.
 - **Notes are agent-written data.** Search results, full notes and the similar notes listed after a save say where each
   note came from (checkout and harness), and agents are told to check notes against the code and never to follow
   instructions inside one. The repository key is only a name: any agent with the server can read and write any
@@ -96,9 +99,14 @@ finish and keep it current, so the next session in the same repository starts be
 - **Turn it off.** Switch **Project memory** off in Settings: the app removes its entries from the harnesses and stops
   adding them (and stops adding notes to new chats). Your notes stay and come back when you switch it on again. Deleting the `harness-memory` entry from a
   harness's `mcp.json` turns it off for that harness only.
-- **After uninstalling the app** the entries, the stable copy and the notes remain. To clean up, switch the setting off
-  first (or delete the `harness-memory` entries from the harnesses' `mcp.json`), then delete the stable copy named
-  above and the `memory` folder in the data folder.
+- **Coming from an app version up to 0.16.** On macOS and Windows those versions kept a copy of the server in the app's
+  local data folder (`bin/harness-memory[.exe]`). Once the server is installed, the next launch points the app's own
+  entries at it and deletes that copy when nothing else uses it (a symlink is never removed). Until then, notes for new
+  chats are still searched with the old copy. On Linux the path is unchanged.
+- **After uninstalling the app** the entries, the server and the notes remain. To clean up, switch the setting off
+  first (or delete the `harness-memory` entries from the harnesses' `mcp.json`), then remove the server as described in
+  the [harness-useful-memory README](https://github.com/MSpiechowicz/harness-useful-memory#uninstalling) and delete the
+  `harness-memory` folder in the data folder named above.
 
 Details and limits: [docs/security-privacy.md](docs/security-privacy.md#project-memory).
 
@@ -108,10 +116,11 @@ Harness Desktop is one of a set of local tools for coding-agent harnesses:
 
 | Project | What it is |
 | --- | --- |
-| [harness-useful-sidebar](https://github.com/MSpiechowicz/harness-useful-sidebar) | Live token charts and persistent session history for OMP in a tmux sidebar. |
+| [harness-useful-sidebar](https://github.com/MSpiechowicz/harness-useful-sidebar) | Live token charts and session history for Oh My Pi in a tmux sidebar and for Claude Code in a native pane. |
 | [harness-useful-desktop](https://github.com/MSpiechowicz/harness-useful-desktop) | This app: your coding-agent CLI in a native desktop window. |
 | [harness-useful-dashboard](https://github.com/MSpiechowicz/harness-useful-dashboard) | Token usage and cost across your AI coding tools, in one local app. Its data powers the dashboard widgets here. |
 | [harness-useful-skills](https://github.com/MSpiechowicz/harness-useful-skills) | Skills that take a natural-language request to reviewed, verified work. |
+| [harness-useful-memory](https://github.com/MSpiechowicz/harness-useful-memory) | A local MCP server that gives your coding agents one shared project memory. Installed from Recommended setup. |
 
 ## Install
 
@@ -163,9 +172,7 @@ rm ~/.local/bin/harness-desktop                                              # L
 rm ~/.local/share/applications/harness-desktop.desktop                       # Linux launcher
 rm ~/.local/share/icons/hicolor/256x256/apps/harness-desktop.png             # Linux icon
 rm -rf ~/Applications/"Harness Desktop.app"                                  # macOS
-# project memory (optional; delete the harness-memory entries from the harnesses' mcp.json first, or switch the setting off):
-rm ~/.local/bin/harness-memory                                               # Linux
-# preferences, WebView data, logs and the memory notes (optional):
+# preferences, WebView data and logs (optional):
 rm -rf ~/.config/com.mspiechowicz.harness-useful-desktop ~/.local/share/com.mspiechowicz.harness-useful-desktop  # Linux
 rm -rf ~/Library/Application\ Support/com.mspiechowicz.harness-useful-desktop \
   ~/Library/Logs/com.mspiechowicz.harness-useful-desktop \
@@ -175,15 +182,16 @@ rm -rf ~/Library/Application\ Support/com.mspiechowicz.harness-useful-desktop \
 
 On Windows, uninstall **Harness Desktop** from Settings > Apps (or run `%LOCALAPPDATA%\Harness Desktop\uninstall.exe`),
 then optionally delete `%APPDATA%\com.mspiechowicz.harness-useful-desktop` and
-`%LOCALAPPDATA%\com.mspiechowicz.harness-useful-desktop` (the latter holds the project memory and its server copy). A deb or rpm install is removed with
-`sudo apt remove harness-desktop` or `sudo dnf remove harness-desktop`.
+`%LOCALAPPDATA%\com.mspiechowicz.harness-useful-desktop` A deb or rpm install is removed with
+`sudo apt remove harness-desktop` or `sudo dnf remove harness-desktop`. Harness Memory and its notes are a separate
+install and stay; see [Project memory](#project-memory) for removing them.
 
 ## Privacy
 
 Everything runs on your machine. No telemetry, no accounts, no stored tokens. Credential stores, databases, logs and
-private keys are never read by the app (the project memory database belongs to the bundled `harness-memory` server, not
+private keys are never read by the app (the project memory database belongs to the `harness-memory` server, not
 to the window), secrets in configuration are masked, and the only network requests the app makes itself are
-the signed update check and a lookup of the companions' latest release numbers on GitHub; both can be turned off. Besides your harness CLI, the app runs the Harness Dashboard installer of Recommended setup (only after you confirm it) and, for the notes added to a new chat, the bundled `harness-memory` server (switch it off with **Add memory to new chats** in Settings). The app stores only preferences, window geometry, a few UI choices and a local log file; the notes your agents save to project memory are kept in a local database by the `harness-memory` server, and the notes added to the first message of a new chat go to your model provider with it. Details and the exact rules:
+the signed update check and a lookup of the companions' latest release numbers on GitHub; both can be turned off. Besides your harness CLI, the app runs the Harness Dashboard and Harness Memory installers (only after you confirm them; they download from GitHub) and, for the notes added to a new chat, the installed `harness-memory` server (switch it off with **Add memory to new chats** in Settings). The app stores only preferences, window geometry, a few UI choices and a local log file; the notes your agents save to project memory are kept in a local database by the `harness-memory` server, and the notes added to the first message of a new chat go to your model provider with it. Details and the exact rules:
 [docs/security-privacy.md](docs/security-privacy.md).
 
 ## Development
@@ -201,10 +209,8 @@ Commands:
 bun install                        # install JS dependencies
 bun run dev:ui                     # UI only, in a browser (http://localhost:1420)
 bun run dev:mock                   # UI with the mock transport (no Rust needed)
-bun run sidecar                    # build the harness-memory server the desktop crate bundles (dev and build run it)
 bun run dev                        # full desktop app (tauri dev)
 cargo test -p harness_business     # business-layer tests
-cargo test -p harness_memory       # project memory server tests
 bun run check                      # svelte-check / type check
 bun run test                       # UI unit tests
 bun run guard                      # file size, forbidden patterns, IPC contract
@@ -216,7 +222,7 @@ Also useful:
 ```sh
 cargo test -p harness_business export_            # regenerate TypeScript bindings and mock fixtures
 cargo build -p harness_business --bin fake_agent  # scripted agent used by the desktop-shell tests
-HARNESS_REQUIRE_FAKE_AGENT=1 cargo test -p harness_desktop  # needs `bun run sidecar` first
+HARNESS_REQUIRE_FAKE_AGENT=1 cargo test -p harness_desktop
 bun run build:ui                                  # production UI bundle
 bun run desktop-entry                             # Linux: register the dev build so Wayland shows its icon (-- --remove to undo)
 ```
@@ -228,7 +234,6 @@ Bundling (`bun run build`) needs the updater signing key; see
 
 ```text
 business/      Rust crate harness_business: harness adapters, agent sessions, git, security. No Tauri dependency.
-memory/        Rust crate harness_memory: the project memory MCP server (harness-memory), bundled as a sidecar.
 src-tauri/     Thin Tauri shell: IPC commands, app state, capabilities (ACL), CSP, window and updater wiring.
 ui/            Svelte 5 app: features, stores, IPC client, mock transport, generated bindings and fixtures.
 scripts/       Guards (file size, forbidden patterns, IPC contract) and the release version script.

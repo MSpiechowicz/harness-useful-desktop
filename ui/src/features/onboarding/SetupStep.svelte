@@ -1,64 +1,68 @@
 <script lang="ts">
-  import CircleAlert from '@lucide/svelte/icons/circle-alert';
   import { onMount } from 'svelte';
 
-  import Button from '$lib/components/Button.svelte';
-  import Skeleton from '$lib/components/Skeleton.svelte';
+  import { scaled } from '$lib/design/motion';
   import { t, tn } from '$lib/i18n/i18n.svelte';
   import { cx } from '$lib/utils/cx';
 
   import { WIDTH } from './layout';
+  import { onboarding } from './onboarding-state.svelte';
   import SetupConfirm from './SetupConfirm.svelte';
-  import SetupDashboardCard from './SetupDashboardCard.svelte';
+  import SetupInstallers from './SetupInstallers.svelte';
   import SetupMatrix from './SetupMatrix.svelte';
   import { setup } from './setup-state.svelte';
+  import SetupStatus from './SetupStatus.svelte';
   import StepHeader from './StepHeader.svelte';
 
+  // The family step before this one has read the machine already; only a flow entered here has to do it.
   onMount(() => {
-    void setup.open();
+    if (setup.load === 'idle') {
+      void setup.open();
+    }
   });
 
-  const data = $derived(setup.data);
   const selectedCount = $derived(setup.selectedKeys.length);
+
+  /** Once the confirmed run is over the step goes on by itself, unless something failed: then its rows stay for the user to read, retry or go on past. */
+  async function runAndContinue(): Promise<void> {
+    await setup.run();
+
+    if (setup.hasFailed) {
+      return;
+    }
+
+    // A moment on the finished rows, so the result is seen before the step changes.
+    await new Promise((resolve) => setTimeout(resolve, scaled(300)));
+
+    if (onboarding.step === 'setup') {
+      onboarding.next();
+    }
+  }
 </script>
 
 <div class={cx('mx-auto flex w-full flex-col gap-4 [@media(max-height:720px)]:gap-3', WIDTH.wide)}>
-  <!-- The action sits beside the title, not under the cards: this step can be taller than the frame and scrolls, and the way to run it must stay in sight. -->
   <div class="mb-1 flex items-end justify-between gap-6 [@media(max-height:720px)]:mb-0">
     <StepHeader eyebrow={t('onboarding.setup.eyebrow')} title={t('onboarding.setup.title')} body={t('onboarding.setup.body')} />
 
-    <!-- With nothing left to install the action has no use, so it is not there. -->
-    {#if data && (selectedCount > 0 || setup.running)}
-      <div class="flex shrink-0 flex-col items-end gap-2 pb-1">
-        <p class="text-sm text-fg-3" role="status">
-          {#if setup.running}
-            {t('onboarding.setup.running')}
-          {:else}
-            {tn('onboarding.setup.selected', selectedCount)}
-          {/if}
-        </p>
-        <Button variant="primary" loading={setup.running} onclick={() => setup.ask()}>{t('onboarding.setup.run')}</Button>
-      </div>
+    <!-- This step can be taller than the frame and scrolls, so the way forward is the footer's primary action, which installs what is missing; the title only says how much that is. -->
+    {#if setup.data && (selectedCount > 0 || setup.running)}
+      <p class="shrink-0 pb-1 text-sm text-fg-3" role="status">
+        {#if setup.running}
+          {t('onboarding.setup.running')}
+        {:else}
+          {tn('onboarding.setup.selected', selectedCount)}
+        {/if}
+      </p>
     {/if}
   </div>
 
-  {#if setup.load === 'error'}
-    <div class="flex items-center gap-4 rounded-lg border border-line bg-danger-wash p-4" role="alert">
-      <CircleAlert class="shrink-0 text-danger" size={18} aria-hidden="true" />
-      <p class="min-w-0 flex-1 text-sm text-fg">{t('onboarding.setup.error', { message: setup.error })}</p>
-      <Button onclick={() => void setup.open()}>{t('onboarding.setup.reload')}</Button>
-    </div>
-  {:else if !data}
-    <div role="status" aria-label={t('onboarding.setup.looking')}>
-      <Skeleton height="18rem" class="rounded-lg" />
-    </div>
-  {:else}
-    <!-- The dashboard has the most to say (command, side effects, installer output), so it comes first with the full width; the matrix of harnesses follows it. -->
-    <SetupDashboardCard dashboard={data.dashboard} />
-
-    <!-- One card for every harness, however many there are: the rows grow, the layout does not. -->
-    <SetupMatrix harnesses={data.harnesses} />
-  {/if}
+  <SetupStatus placeholder="18rem">
+    {#snippet children(data)}
+      <!-- The family's installers and skills run first, so they come first, with their output; the table of MCP servers per harness follows. One card for every harness, however many there are: the rows grow, the layout does not. -->
+      <SetupInstallers {data} />
+      <SetupMatrix harnesses={data.harnesses} />
+    {/snippet}
+  </SetupStatus>
 </div>
 
-<SetupConfirm />
+<SetupConfirm bind:open={setup.confirming} plan={setup.plan} onconfirm={() => void runAndContinue()} />

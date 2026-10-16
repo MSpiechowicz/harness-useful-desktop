@@ -11,6 +11,11 @@ export type RecommendedSetup = {
  */
 dashboard: DashboardSetup, 
 /**
+ * The Harness Memory binary (`harness-memory`), which project memory registers with the
+ * harnesses.
+ */
+memory: DashboardSetup, 
+/**
  * One entry per registered harness, in registry order.
  */
 harnesses: Array<HarnessSetup>, };

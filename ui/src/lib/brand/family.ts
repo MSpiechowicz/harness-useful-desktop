@@ -5,6 +5,7 @@
 export const FAMILY = {
   desktop: ['#38BDF8', '#818CF8'],
   dashboard: ['#F59E0B', '#F472B6'],
+  memory: ['#D946EF', '#FB923C'],
   sidebar: ['#8B5CF6', '#C084FC'],
   skills: ['#A3E635', '#22C55E'],
 } as const satisfies Record<string, readonly [string, string]>;
@@ -15,6 +16,7 @@ export type FamilyProduct = keyof typeof FAMILY;
 export const FAMILY_NAMES: Record<FamilyProduct, string> = {
   desktop: 'Harness Desktop',
   dashboard: 'Harness Dashboard',
+  memory: 'Harness Memory',
   sidebar: 'Harness Sidebar',
   skills: 'Harness Skills',
 };

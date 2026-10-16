@@ -23,6 +23,11 @@ beforeAll(async () => {
 
 const click = (name: string | RegExp) => fireEvent.click(screen.getByRole('button', { name }));
 
+/** The set-up step offers to skip once it has read the machine and found something to install. */
+async function skipSetup(): Promise<void> {
+  await fireEvent.click(await screen.findByRole('button', { name: 'Skip for now' }));
+}
+
 async function next(heading: string | RegExp): Promise<void> {
   await waitFor(() => expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument());
 }
@@ -50,8 +55,11 @@ describe('Onboarding', () => {
     await next('Pick a project to work in');
     await click('Skip for now');
 
+    await next('Meet the Harness family');
+    await click('Continue');
+
     await next('Get more from your agents');
-    await click('Skip for now');
+    await skipSetup();
 
     await next('You’re ready to go');
     expect(screen.queryByRole('heading', { name: /without asking/ })).toBeNull();
@@ -78,8 +86,11 @@ describe('Onboarding', () => {
     expect(screen.getByText(/never changes it behind your back/)).toBeInTheDocument();
     await click('Got it');
 
+    await next('Meet the Harness family');
+    await click('Continue');
+
     await next('Get more from your agents');
-    await click('Skip for now');
+    await skipSetup();
 
     await next('You’re ready to go');
     await click('Open Harness Desktop');

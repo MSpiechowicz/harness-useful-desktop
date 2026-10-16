@@ -16,11 +16,12 @@ use serde_json::{Map, Value};
 use tokio::sync::Mutex;
 
 use super::catalog::DASHBOARD_BINARY;
+use super::detect::resolve_companion;
 use super::mcp_client::{McpClient, McpOptions, ToolOutput, clean_error_text};
-use crate::env::{Env, OsKind};
+use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::model::{DashboardAvailability, DashboardQuery, DashboardResult, DashboardTool};
-use crate::process::{ExecSpec, ProcessSpawner, ResolvedBinary, launcher_search_dirs, resolve_binary};
+use crate::process::{ExecSpec, ProcessSpawner, ResolvedBinary, launcher_search_dirs};
 
 /// How the pooled client behaves.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -43,20 +44,7 @@ impl Default for DashboardOptions {
 /// The `harness-dashboard` executable: `PATH` and the usual install directories (`~/.local/bin`
 /// from `install.sh`), and on Windows `%LOCALAPPDATA%\Programs\harness-dashboard` (`install.ps1`).
 pub fn resolve_dashboard(env: &Env) -> Option<ResolvedBinary> {
-    if let Some(found) = resolve_binary(env, DASHBOARD_BINARY, None) {
-        return Some(found);
-    }
-
-    if env.os != OsKind::Windows {
-        return None;
-    }
-
-    let installed = PathBuf::from(env.var("LOCALAPPDATA")?)
-        .join("Programs")
-        .join(DASHBOARD_BINARY)
-        .join(format!("{DASHBOARD_BINARY}.exe"));
-
-    resolve_binary(env, DASHBOARD_BINARY, Some(&installed))
+    resolve_companion(env, DASHBOARD_BINARY)
 }
 
 /// The pooled dashboard connection. See the module docs.

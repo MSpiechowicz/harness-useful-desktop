@@ -126,7 +126,7 @@ export const shell: AreaMessages<typeof enShell> = {
   'shell.palette.refreshChanges': 'Änderungen aktualisieren',
   'shell.palette.refreshChanges.keywords': 'git status diff neu laden',
   'shell.palette.refreshDashboard': 'Ökosystem: Dashboard aktualisieren',
-  'shell.palette.refreshDashboard.keywords': 'nutzung kosten tokens ausgaben begleiter neu laden',
+  'shell.palette.refreshDashboard.keywords': 'nutzung kosten tokens ausgaben harness familie neu laden',
   'shell.palette.showShortcuts': 'Tastenkürzel anzeigen',
   'shell.palette.showShortcuts.keywords': 'tasten hilfe spickzettel',
   'shell.palette.collapseSidebar': 'Seitenleiste einklappen',

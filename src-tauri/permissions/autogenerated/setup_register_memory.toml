@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-setup-register-memory"
+description = "Enables the setup_register_memory command without any pre-configured scope."
+commands.allow = ["setup_register_memory"]
+
+[[permission]]
+identifier = "deny-setup-register-memory"
+description = "Denies the setup_register_memory command without any pre-configured scope."
+commands.deny = ["setup_register_memory"]

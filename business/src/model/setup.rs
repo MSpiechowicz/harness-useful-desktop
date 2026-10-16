@@ -1,7 +1,7 @@
-//! The "Recommended setup" onboarding step (`setup_status`, the dashboard installer and the MCP
-//! registration).
+//! The "Recommended setup" onboarding step (`setup_status`, the dashboard and memory installers and
+//! the MCP registration), and the "Project memory" switch (`memory_set_enabled`).
 //!
-//! Unlike the Ecosystem tab, this step runs the dashboard's official installer and edits the
+//! Unlike the Ecosystem tab, this step runs the companions' official installers and edits the
 //! harnesses' user MCP files, but only after the user confirms each action in the UI.
 
 use serde::{Deserialize, Serialize};
@@ -16,18 +16,23 @@ use super::{ExtensionAction, HarnessId};
 pub struct RecommendedSetup {
     /// The Harness Dashboard binary.
     pub dashboard: DashboardSetup,
+    /// The Harness Memory binary (`harness-memory`), which project memory registers with the
+    /// harnesses.
+    pub memory: DashboardSetup,
     /// One entry per registered harness, in registry order.
     pub harnesses: Vec<HarnessSetup>,
 }
 
-/// The dashboard binary and how it would be installed.
+/// A companion binary the setup step installs (the dashboard's or the memory server's) and how it
+/// would be installed.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
 pub struct DashboardSetup {
-    /// True when `harness-dashboard` was found.
+    /// True when the binary (`harness-dashboard` or `harness-memory`) was found; `harness-memory`
+    /// also has to report its version.
     pub installed: bool,
-    /// Its version (`harness-dashboard version`), when it reported one.
+    /// Its version (`harness-dashboard version`, `harness-memory --version`), when it reported one.
     pub version: Option<String>,
     /// False when the installer does not run on this operating system.
     pub supported_on_this_os: bool,
@@ -37,7 +42,7 @@ pub struct DashboardSetup {
     pub side_effects: Vec<String>,
 }
 
-/// The skills and the dashboard MCP entry of one harness.
+/// The skills and the dashboard's and the memory server's MCP entries of one harness.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
@@ -50,6 +55,8 @@ pub struct HarnessSetup {
     pub skills: SkillsSetup,
     /// The `harness-dashboard` server in the harness's user MCP file.
     pub mcp: McpState,
+    /// The `harness-memory` server in the harness's user MCP file (`setup_register_memory`).
+    pub memory_mcp: McpState,
 }
 
 /// Whether the Harness Skills are installed for a harness, and how to install them.
@@ -81,13 +88,14 @@ pub enum SkillsSetup {
     },
 }
 
-/// The `harness-dashboard` MCP server in a harness's user MCP file. `file` is the file's
-/// home-relative display path (e.g. `"~/.omp/agent/mcp.json"`); contents are never returned.
+/// A companion's MCP server (`harness-dashboard` or `harness-memory`) in a harness's user MCP file.
+/// `file` is the file's home-relative display path (e.g. `"~/.omp/agent/mcp.json"`); contents are
+/// never returned.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(tag = "type", rename_all = "camelCase", rename_all_fields = "camelCase")]
 #[ts(export)]
 pub enum McpState {
-    /// A server runs `harness-dashboard mcp`.
+    /// A server runs `harness-dashboard mcp` (`harness-memory mcp`).
     Configured {
         /// The file that defines it.
         file: String,
@@ -101,7 +109,7 @@ pub enum McpState {
         /// True when the file exists (registration merges into it), false when it would be created.
         exists: bool,
     },
-    /// A server runs `harness-dashboard mcp` but is switched off.
+    /// A server runs `harness-dashboard mcp` (`harness-memory mcp`) but is switched off.
     Disabled {
         /// The file that defines it.
         file: String,
@@ -142,7 +150,7 @@ pub enum McpRefusal {
     WriteFailed,
 }
 
-/// Outcome of running the dashboard installer.
+/// Outcome of running a companion installer (`setup_install_dashboard`, `setup_install_memory`).
 ///
 /// UIs must decide success from `ok`, never from `exitCode`: `curl … | sh` exits with 0 when the
 /// download failed.
@@ -150,8 +158,8 @@ pub enum McpRefusal {
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
 pub struct DashboardInstallResult {
-    /// True only when the installer exited with 0 and `harness-dashboard` now resolves and reports
-    /// a version.
+    /// True only when the installer exited with 0 and the binary (`harness-dashboard` or
+    /// `harness-memory`) now resolves and reports a version.
     pub ok: bool,
     /// A short, redacted line on the outcome.
     pub summary: Option<String>,
@@ -161,7 +169,7 @@ pub struct DashboardInstallResult {
     pub timed_out: bool,
     /// True when log lines were cut or dropped (per-line or total cap).
     pub truncated: bool,
-    /// The dashboard's version after the run, when it reported one.
+    /// The binary's version after the run, when it reported one.
     pub version: Option<String>,
     /// The installer command line, for display only.
     pub command: String,
@@ -187,4 +195,16 @@ pub struct InstallLogLine {
     pub stream: InstallStream,
     /// The line, without its terminator.
     pub line: String,
+}
+
+/// Result of the "Project memory" switch (`memory_set_enabled`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct MemorySwitchResult {
+    /// The stored `memoryEnabled` pref.
+    pub memory_enabled: bool,
+    /// The `harness-memory` binary after the switch. While it is not installed nothing is
+    /// registered; the UI offers its installer (`setup_install_memory`).
+    pub server: DashboardSetup,
 }

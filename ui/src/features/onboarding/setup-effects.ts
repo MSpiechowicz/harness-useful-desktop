@@ -1,5 +1,5 @@
 /** What a line of the dashboard installer's side effects is about, for its icon. Anything unrecognised is `other`. */
-export type EffectKind = 'stop' | 'path' | 'menu' | 'install' | 'other';
+export type EffectKind = 'stop' | 'path' | 'menu' | 'install' | 'register' | 'other';
 
 export interface Effect {
   kind: EffectKind;
@@ -21,6 +21,10 @@ function kindOf(text: string): EffectKind {
 
   if (/\b(applications? menu|launcher|desktop entry|shortcut)\b/i.test(text)) {
     return 'menu';
+  }
+
+  if (/^registers?\b/i.test(text)) {
+    return 'register';
   }
 
   if (/^(installs?|copies|writes|downloads?)\b/i.test(text)) {

@@ -4,7 +4,7 @@ import { prefs, type PrefsStore } from '$lib/stores/prefs.svelte';
 
 import { intro } from '../intro/intro-state.svelte';
 
-export type OnboardingStep = 'welcome' | 'harnesses' | 'project' | 'approval' | 'setup' | 'done';
+export type OnboardingStep = 'welcome' | 'harnesses' | 'project' | 'approval' | 'family' | 'setup' | 'done';
 
 /**
  * The first-run flow. It appears as the intro hands over, so the lockup is followed by the setup
@@ -60,8 +60,8 @@ export class OnboardingController {
 
   get steps(): OnboardingStep[] {
     return this.needsApprovalNotice
-      ? ['welcome', 'harnesses', 'project', 'approval', 'setup', 'done']
-      : ['welcome', 'harnesses', 'project', 'setup', 'done'];
+      ? ['welcome', 'harnesses', 'project', 'approval', 'family', 'setup', 'done']
+      : ['welcome', 'harnesses', 'project', 'family', 'setup', 'done'];
   }
 
   get index(): number {

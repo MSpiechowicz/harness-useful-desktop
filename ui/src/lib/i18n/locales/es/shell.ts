@@ -126,7 +126,7 @@ export const shell: AreaMessages<typeof enShell> = {
   'shell.palette.refreshChanges': 'Actualizar cambios',
   'shell.palette.refreshChanges.keywords': 'git estado diff recargar',
   'shell.palette.refreshDashboard': 'Ecosistema: actualizar dashboard',
-  'shell.palette.refreshDashboard.keywords': 'uso coste tokens gasto compañeros recargar',
+  'shell.palette.refreshDashboard.keywords': 'uso coste tokens gasto harness familia recargar',
   'shell.palette.showShortcuts': 'Mostrar atajos de teclado',
   'shell.palette.showShortcuts.keywords': 'teclas ayuda chuleta',
   'shell.palette.collapseSidebar': 'Contraer la barra lateral',

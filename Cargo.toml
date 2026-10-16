@@ -1,7 +1,7 @@
-# Workspace root: the business crate, the thin Tauri shell and the project memory server.
+# Workspace root: the business crate and the thin Tauri shell.
 [workspace]
 resolver = "3"
-members = ["business", "memory", "src-tauri"]
+members = ["business", "src-tauri"]
 
 [workspace.package]
 version = "0.16.2"
@@ -56,8 +56,6 @@ time = { version = "0.3.55", features = ["formatting"] }
 # Plays the launch sound natively: Tauri gives the Linux webview no way to allow audio before a user gesture.
 rodio = { version = "0.22.2", default-features = false, features = ["playback", "wav"] }
 dunce = "1.0.5"
-# The project memory store (`memory/`): SQLite compiled in, with FTS5, so no system library is needed.
-rusqlite = { version = "0.40.2", features = ["bundled"] }
 # Unix-only: process-group kill (`killpg`) and non-blocking open flags.
 nix = { version = "0.31.3", default-features = false, features = ["signal", "fs", "process"] }
 # Dev dependencies

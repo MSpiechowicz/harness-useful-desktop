@@ -1,4 +1,4 @@
-//! Memory recall: before a chat message is sent, Harness Desktop asks the bundled `harness-memory`
+//! Memory recall: before a chat message is sent, Harness Desktop asks the installed `harness-memory`
 //! server for notes about it and puts the hits in front of the message as a
 //! `<harness-memory-recall>` block (format and text helpers in `recall_text`, re-exported here).
 //!

@@ -40,7 +40,7 @@ installed: boolean,
 version: string | null, 
 /**
  * The newest version a cached OMP marketplace catalog offers (skills and sidebar only; the
- * dashboard binary has no local source for it).
+ * dashboard and memory binaries have no local source for it).
  */
 latestVersion: string | null, 
 /**

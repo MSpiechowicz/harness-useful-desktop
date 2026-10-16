@@ -3,4 +3,4 @@
 /**
  * A companion tool of the ecosystem.
  */
-export type EcosystemId = "dashboard" | "skills" | "sidebar";
+export type EcosystemId = "dashboard" | "memory" | "skills" | "sidebar";

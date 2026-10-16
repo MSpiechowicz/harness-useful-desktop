@@ -4,12 +4,12 @@ import type { AreaMessages } from '../types';
 export const ecosystem: AreaMessages<typeof enEcosystem> = {
   'ecosystem.title': 'Ekosystem',
   'ecosystem.retry': 'Spróbuj ponownie',
-  'ecosystem.view.looking': 'Szukanie dodatków…',
-  'ecosystem.view.failed': 'Nie udało się wyszukać dodatków',
+  'ecosystem.view.looking': 'Szukanie rodziny Harness…',
+  'ecosystem.view.failed': 'Nie udało się wyszukać rodziny Harness',
   'ecosystem.view.connected': 'dashboard połączony',
-  'ecosystem.companions.title': 'Dodatki',
+  'ecosystem.companions.title': 'Rodzina',
   'ecosystem.companions.subtitle': 'Znalezione na tym komputerze.',
-  'ecosystem.companions.looking': 'Szukanie dodatków',
+  'ecosystem.companions.looking': 'Szukanie rodziny Harness',
 
   'ecosystem.summary.installed': 'Zainstalowano {installed} z {total}',
   'ecosystem.count.update.one': '{count} dostępna aktualizacja',
@@ -19,9 +19,9 @@ export const ecosystem: AreaMessages<typeof enEcosystem> = {
 
   'ecosystem.hero.title': 'Narzędzia, dzięki którym agentów da się zmierzyć',
   'ecosystem.hero.body':
-    'Harness Useful to niewielka rodzina otwartych dodatków do twoich agentów programistycznych. **Dashboard** mierzy, ile kosztują, **skille** czynią ich pracę powtarzalną, a **pasek boczny** trzyma ich sesje w zasięgu wzroku. Harness Desktop działa samodzielnie i pokazuje więcej z każdym dodanym dodatkiem.',
-  'ecosystem.hero.failed': 'Nie udało się odczytać zainstalowanych dodatków.',
-  'ecosystem.hero.looking': 'Szukanie dodatków…',
+    'Harness Useful to niewielka rodzina otwartych narzędzi do twoich agentów programistycznych. **Dashboard** mierzy, ile kosztują, **skille** czynią ich pracę powtarzalną, **pamięć** daje im wspólną pamięć projektu, a **pasek boczny** trzyma ich sesje w zasięgu wzroku. Harness Desktop działa samodzielnie i pokazuje więcej z każdym dodanym narzędziem.',
+  'ecosystem.hero.failed': 'Nie udało się odczytać zainstalowanych członków rodziny Harness.',
+  'ecosystem.hero.looking': 'Szukanie rodziny Harness…',
   'ecosystem.setup.run': 'Uruchom polecaną konfigurację',
 
   'ecosystem.orbit.description': '{summary}: {items}',
@@ -237,6 +237,14 @@ export const ecosystem: AreaMessages<typeof enEcosystem> = {
   'ecosystem.product.dashboard.note.0': 'Dane pochodzą z lokalnego procesu `harness-dashboard mcp`; nic nie jest wysyłane przez sieć.',
   'ecosystem.product.dashboard.note.1': 'Uruchamiaj `harness-dashboard` co jakiś czas, aby jego baza danych była aktualna.',
   'ecosystem.product.dashboard.step.0.title': 'Zainstaluj plik wykonywalny',
+
+  'ecosystem.product.memory.tagline':
+    'Jedna pamięć projektu dla każdego agenta programistycznego, przechowywana na tym komputerze.',
+  'ecosystem.product.memory.description':
+    'Lokalny serwer MCP, który zapisuje notatki i ich powiązania osobno dla każdego repozytorium, tak by to, czego nauczy się jeden agent, znalazł następny. Aplikacja rejestruje go w każdym wykrytym harnessie, dopóki pamięć projektu jest włączona, i dodaje pasujące notatki do pierwszej wiadomości nowego czatu.',
+  'ecosystem.product.memory.note.0': 'Działa lokalnie jako `harness-memory mcp`; nic nie jest wysyłane przez sieć.',
+  'ecosystem.product.memory.note.1': 'Włącz lub wyłącz go dla wszystkich harnessów w Ustawieniach, w sekcji Pamięć projektu.',
+  'ecosystem.product.memory.step.0.title': 'Zainstaluj plik wykonywalny',
 
   'ecosystem.product.skills.tagline': 'Od prośby w języku naturalnym do sprawdzonej i zweryfikowanej pracy.',
   'ecosystem.product.skills.description':

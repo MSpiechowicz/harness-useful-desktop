@@ -20,7 +20,7 @@ const override = {
   identifier: `${conf.identifier}.dev${port}`,
   build: {
     devUrl,
-    beforeDevCommand: `bun run sidecar && bun run dev:ui --port ${port}`,
+    beforeDevCommand: `bun run dev:ui --port ${port}`,
   },
   app: {
     security: { devCsp: conf.app.security.devCsp.replace('ws://localhost:1420', `ws://localhost:${port}`) },

@@ -73,15 +73,25 @@ pub fn resolve_binary(env: &Env, name: &str, explicit: Option<&Path>) -> Option<
 /// `path_var` reduced to its absolute entries, re-joined with the platform separator; `None`
 /// when no absolute entry is left.
 fn absolute_path_entries(path_var: &str) -> Option<std::ffi::OsString> {
-    let absolute: Vec<PathBuf> = std::env::split_paths(path_var)
-        .filter(|entry| entry.is_absolute())
-        .collect();
+    let absolute = absolute_dirs(path_var);
 
     if absolute.is_empty() {
         return None;
     }
 
     std::env::join_paths(absolute).ok()
+}
+
+/// The absolute entries of `env`'s `PATH`, in order (see [`resolve_binary`] for why relative ones
+/// are left out).
+pub fn absolute_path_dirs(env: &Env) -> Vec<PathBuf> {
+    env.var("PATH").map(absolute_dirs).unwrap_or_default()
+}
+
+fn absolute_dirs(path_var: &str) -> Vec<PathBuf> {
+    std::env::split_paths(path_var)
+        .filter(|entry| entry.is_absolute())
+        .collect()
 }
 
 /// Install directories searched after `PATH`, in order.
@@ -147,14 +157,18 @@ fn find_in_dir(os: OsKind, dir: &Path, name: &str) -> Option<PathBuf> {
         .find(|path| is_executable_file(path))
 }
 
+/// True when `path` is a file (followed through symlinks) that may be run: on Unix, one with an
+/// execute bit.
 #[cfg(unix)]
-fn is_executable_file(path: &Path) -> bool {
+pub fn is_executable_file(path: &Path) -> bool {
     use std::os::unix::fs::PermissionsExt;
 
     std::fs::metadata(path).is_ok_and(|metadata| metadata.is_file() && metadata.permissions().mode() & 0o111 != 0)
 }
 
+/// True when `path` is a file (followed through symlinks) that may be run: on Unix, one with an
+/// execute bit.
 #[cfg(not(unix))]
-fn is_executable_file(path: &Path) -> bool {
+pub fn is_executable_file(path: &Path) -> bool {
     path.is_file()
 }

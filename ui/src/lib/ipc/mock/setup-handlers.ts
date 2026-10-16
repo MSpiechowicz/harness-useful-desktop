@@ -1,4 +1,5 @@
 import type { DashboardInstallResult } from '../bindings/DashboardInstallResult';
+import type { DashboardSetup } from '../bindings/DashboardSetup';
 import type { ExtensionAction } from '../bindings/ExtensionAction';
 import type { HarnessId } from '../bindings/HarnessId';
 import type { HarnessSetup } from '../bindings/HarnessSetup';
@@ -11,16 +12,18 @@ import { IpcFailure } from '../transport';
 import { rosterFor, type RosterEntry } from './setup-roster';
 import type { Handlers } from './types';
 
-type SetupCommands = 'setup_status' | 'setup_install_dashboard' | 'setup_register_mcp';
+type SetupCommands = 'setup_status' | 'setup_install_dashboard' | 'setup_install_memory' | 'setup_register_mcp' | 'setup_register_memory';
 
 /**
  * What the mock recommended setup starts from. The browser preview picks one with `?setup=<name>`:
  * `none` (the default) is a machine with nothing set up, `configured` has everything in place,
- * `fail` makes the dashboard installer fail, and `refused` leaves OMP's MCP file unreadable.
+ * `fail` makes the dashboard and memory installers fail, and `refused` leaves OMP's MCP file unreadable.
+ * `memory` has PI installed next to OMP and the memory server installed and registered in OMP only, so PI's memory entry is
+ * the one left to add.
  * `both` has PI installed next to OMP (its skills are a manual step), `bothRefused` adds the unreadable file to that.
  * `many` has five harnesses in every kind of state (see `setup-roster.ts`), `manyLong` a sixth with a very long name.
  */
-export const SETUP_SCENARIOS = ['none', 'configured', 'fail', 'refused', 'both', 'bothRefused', 'many', 'manyLong'] as const;
+export const SETUP_SCENARIOS = ['none', 'configured', 'fail', 'refused', 'both', 'bothRefused', 'memory', 'many', 'manyLong'] as const;
 export type SetupScenario = (typeof SETUP_SCENARIOS)[number];
 
 /** Pause between two installer log lines; tests do not wait. */
@@ -33,6 +36,26 @@ const SIDE_EFFECTS = [
   'Adds Harness Dashboard to your applications menu.',
   'Appends a line that puts ~/.local/bin on your PATH to your shell profile, if it is not on PATH yet.',
   'Stops a running dashboard server or app so the new version can start; `harness-dashboard mcp` keeps running.',
+];
+
+const MEMORY_VERSION = '1.0.0';
+const MEMORY_COMMAND = "curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/MSpiechowicz/harness-useful-memory/main/install.sh | sh";
+const MEMORY_SIDE_EFFECTS = [
+  'Installs the harness-memory command to ~/.local/bin, replacing an older one there.',
+  'Appends a line that puts ~/.local/bin on your PATH to your shell profile, if it is not on PATH yet.',
+  'Running memory servers keep working; each harness starts the new version next time.',
+];
+
+const MEMORY_OUTPUT_OK: InstallLogLine[] = [
+  { stream: 'stdout', line: '==> Downloading harness-memory-x86_64-unknown-linux-gnu (latest)' },
+  { stream: 'stdout', line: '==> Checksum verified' },
+  { stream: 'stdout', line: '==> Installed harness-memory to ~/.local/bin/harness-memory' },
+  { stream: 'stdout', line: `==> harness-memory ${MEMORY_VERSION}` },
+];
+
+const MEMORY_OUTPUT_FAILED: InstallLogLine[] = [
+  { stream: 'stdout', line: '==> Downloading harness-memory-x86_64-unknown-linux-gnu (latest)' },
+  { stream: 'stderr', line: 'error: download failed' },
 ];
 
 const MCP_FILE: Record<HarnessId, string> = { omp: '~/.omp/agent/mcp.json', pi: '~/.pi/agent/mcp.json' };
@@ -77,20 +100,75 @@ function skillsOffer(harness: HarnessId): SkillsSetup {
   };
 }
 
+/** One companion installer of the mock: what it prints and reports. */
+interface MockInstaller {
+  binary: string;
+  version: string;
+  command: string;
+  output: InstallLogLine[];
+  failedOutput: InstallLogLine[];
+  failedSummary: string;
+}
+
+const DASHBOARD_INSTALLER: MockInstaller = {
+  binary: 'harness-dashboard',
+  version: VERSION,
+  command: COMMAND,
+  output: OUTPUT_OK,
+  failedOutput: OUTPUT_FAILED,
+  failedSummary: 'The installer exited with code 22.',
+};
+
+const MEMORY_INSTALLER: MockInstaller = {
+  binary: 'harness-memory',
+  version: MEMORY_VERSION,
+  command: MEMORY_COMMAND,
+  output: MEMORY_OUTPUT_OK,
+  failedOutput: MEMORY_OUTPUT_FAILED,
+  failedSummary: 'error: download failed',
+};
+
+/** Plays `installer` line by line; it fails when `fails`. */
+async function runInstaller(installer: MockInstaller, fails: boolean, onLog: (line: InstallLogLine) => void): Promise<DashboardInstallResult> {
+  for (const line of fails ? installer.failedOutput : installer.output) {
+    await delay(LINE_MS);
+    onLog(line);
+  }
+
+  return {
+    ok: !fails,
+    summary: fails ? installer.failedSummary : `Installed ${installer.binary} ${installer.version}.`,
+    exitCode: fails ? 22 : 0,
+    timedOut: false,
+    truncated: false,
+    version: fails ? null : installer.version,
+    command: installer.command,
+  };
+}
+
 export interface SetupMock {
   handlers: Pick<Handlers, SetupCommands>;
+  /** The memory server as `setup_status` reports it (also the answer of `memory_set_enabled`). */
+  memoryServer: () => DashboardSetup;
   /** Tells the mock that an extension action went through, so the skills it installs show as installed. */
   actionApplied: (harness: HarnessId, action: ExtensionAction) => void;
 }
 
 /**
- * In-memory recommended setup. Installing the dashboard, running the skills' actions and registering the
- * MCP entry move the state the next `setup_status` reports, like the real backend's re-read.
+ * In-memory recommended setup. Installing the dashboard or the memory server, running the skills' actions and registering the
+ * MCP entries move the state the next `setup_status` reports, like the real backend's re-read. Registering the memory server
+ * turns Project memory on (`memoryOn`), as the real command does.
  */
-export function setupHandlers(harnesses: () => Promise<HarnessSummary[]> | HarnessSummary[], scenario: () => SetupScenario = setupScenarioFromLocation): SetupMock {
+export function setupHandlers(
+  harnesses: () => Promise<HarnessSummary[]> | HarnessSummary[],
+  scenario: () => SetupScenario = setupScenarioFromLocation,
+  memoryOn: () => void = () => {},
+): SetupMock {
   let dashboardInstalled = false;
+  let memoryInstalled = false;
   const skills = new Set<HarnessId>();
   const mcp = new Set<HarnessId>();
+  const memoryMcp = new Set<HarnessId>();
 
   /** The `configured` scenario starts with everything in place; read on first use so a page URL set before it counts. */
   let started = false;
@@ -103,18 +181,26 @@ export function setupHandlers(harnesses: () => Promise<HarnessSummary[]> | Harne
 
     if (scenario() === 'configured') {
       dashboardInstalled = true;
+      memoryInstalled = true;
       (['omp', 'pi'] as const).forEach((id) => {
         skills.add(id);
         mcp.add(id);
+        memoryMcp.add(id);
       });
+    }
+
+    if (scenario() === 'memory') {
+      memoryInstalled = true;
+      memoryMcp.add('omp');
     }
   }
 
   const refusesOmp = () => scenario() === 'refused' || scenario() === 'bothRefused';
 
-  function mcpState(harness: HarnessId): McpState {
-    if (mcp.has(harness)) {
-      return { type: 'configured', file: MCP_FILE[harness], name: 'harness-dashboard' };
+  /** The dashboard's entry (`registered` holds `mcp`) or the memory server's (`memoryMcp`) in a harness's MCP file. */
+  function mcpState(harness: HarnessId, registered: Set<HarnessId> = mcp): McpState {
+    if (registered.has(harness)) {
+      return { type: 'configured', file: MCP_FILE[harness], name: registered === mcp ? 'harness-dashboard' : 'harness-memory' };
     }
 
     if (refusesOmp() && harness === 'omp') {
@@ -128,12 +214,14 @@ export function setupHandlers(harnesses: () => Promise<HarnessSummary[]> | Harne
   function rosterSetup(entry: RosterEntry): HarnessSetup {
     const id = entry.id;
     const registered = mcp.has(id) && entry.mcp.type === 'missing';
+    const memoryRegistered = memoryMcp.has(id) && entry.memoryMcp.type === 'missing';
 
     return {
       harness: id,
       installed: entry.installed,
       skills: skills.has(id) ? { type: 'installed', version: '0.2.36' } : entry.skills,
       mcp: registered ? { type: 'configured', file: entry.mcp.file, name: 'harness-dashboard' } : entry.mcp,
+      memoryMcp: memoryRegistered ? { type: 'configured', file: entry.memoryMcp.file, name: 'harness-memory' } : entry.memoryMcp,
     };
   }
 
@@ -147,10 +235,28 @@ export function setupHandlers(harnesses: () => Promise<HarnessSummary[]> | Harne
 
     return {
       harness: id,
-      installed: summary.detection.installed || (id === 'pi' && (scenario() === 'both' || scenario() === 'bothRefused')),
+      installed: summary.detection.installed || (id === 'pi' && ['both', 'bothRefused', 'memory'].includes(scenario())),
       skills: skills.has(id) ? { type: 'installed', version: '0.2.36' } : skillsOffer(id),
       mcp: mcpState(id),
+      memoryMcp: mcpState(id, memoryMcp),
     };
+  }
+
+  function memoryServer(): DashboardSetup {
+    start();
+
+    return { installed: memoryInstalled, version: memoryInstalled ? MEMORY_VERSION : null, supportedOnThisOs: true, command: MEMORY_COMMAND, sideEffects: MEMORY_SIDE_EFFECTS };
+  }
+
+  /** Runs `installer` once the user confirmed it; `ok` in the result when it installed. */
+  async function install(installer: MockInstaller, confirmed: boolean, onLog: (line: InstallLogLine) => void): Promise<DashboardInstallResult> {
+    start();
+
+    if (!confirmed) {
+      throw IpcFailure.from({ code: 'forbidden', message: `The ${installer.binary} installer runs only after the user confirmed it.` });
+    }
+
+    return runInstaller(installer, scenario() === 'fail', onLog);
   }
 
   return {
@@ -160,35 +266,23 @@ export function setupHandlers(harnesses: () => Promise<HarnessSummary[]> | Harne
 
         return {
           dashboard: { installed: dashboardInstalled, version: dashboardInstalled ? VERSION : null, supportedOnThisOs: true, command: COMMAND, sideEffects: SIDE_EFFECTS },
+          memory: memoryServer(),
           harnesses: (await harnesses()).map(harnessSetup),
         };
       },
 
       setup_install_dashboard: async ({ confirmed, onLog }): Promise<DashboardInstallResult> => {
-        start();
+        const result = await install(DASHBOARD_INSTALLER, confirmed, onLog);
+        dashboardInstalled ||= result.ok;
 
-        if (!confirmed) {
-          throw IpcFailure.from({ code: 'forbidden', message: 'The dashboard installer runs only after the user confirmed it.' });
-        }
+        return result;
+      },
 
-        const fails = scenario() === 'fail';
+      setup_install_memory: async ({ confirmed, onLog }): Promise<DashboardInstallResult> => {
+        const result = await install(MEMORY_INSTALLER, confirmed, onLog);
+        memoryInstalled ||= result.ok;
 
-        for (const line of fails ? OUTPUT_FAILED : OUTPUT_OK) {
-          await delay(LINE_MS);
-          onLog(line);
-        }
-
-        dashboardInstalled ||= !fails;
-
-        return {
-          ok: !fails,
-          summary: fails ? 'The installer exited with code 22.' : `Installed harness-dashboard ${VERSION}.`,
-          exitCode: fails ? 22 : 0,
-          timedOut: false,
-          truncated: false,
-          version: fails ? null : VERSION,
-          command: COMMAND,
-        };
+        return result;
       },
 
       setup_register_mcp: async ({ harness }): Promise<McpState> => {
@@ -209,7 +303,33 @@ export function setupHandlers(harnesses: () => Promise<HarnessSummary[]> | Harne
 
         return mcpState(harness);
       },
+
+      setup_register_memory: async ({ harness }): Promise<McpState> => {
+        start();
+        await delay(LINE_MS);
+
+        if (!memoryInstalled) {
+          throw IpcFailure.from({ code: 'invalidInput', message: 'Harness Memory is not installed' });
+        }
+
+        memoryOn();
+        const entry = rosterFor(scenario())?.find((candidate) => candidate.id === harness);
+
+        if (entry) {
+          memoryMcp.add(harness);
+
+          return rosterSetup(entry).memoryMcp;
+        }
+
+        if (!refusesOmp() || harness !== 'omp') {
+          memoryMcp.add(harness);
+        }
+
+        return mcpState(harness, memoryMcp);
+      },
     },
+
+    memoryServer,
 
     actionApplied: (harness, action) => {
       if (action.type === 'pluginInstall' && action.target === SKILLS_TARGET) {

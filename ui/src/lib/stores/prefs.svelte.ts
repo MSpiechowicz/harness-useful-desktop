@@ -48,7 +48,7 @@ export class PrefsStore {
   }
 
   /**
-   * Re-reads the fields the backend owns (active project, recent projects, binary overrides)
+   * Re-reads the fields the backend owns (active project, recent projects, binary overrides, project memory)
    * without disturbing the UI-managed ones or an in-flight update.
    */
   async syncServerManaged(): Promise<void> {
@@ -61,6 +61,8 @@ export class PrefsStore {
           activeProject: fresh.activeProject,
           recentProjects: fresh.recentProjects,
           binaryOverrides: fresh.binaryOverrides,
+          // A switch in flight decides the value once it returns.
+          memoryEnabled: this.memoryPending ? this.value.memoryEnabled : fresh.memoryEnabled,
         };
       }
     } catch {

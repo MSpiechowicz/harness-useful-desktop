@@ -123,7 +123,7 @@ export const shell = {
   'shell.palette.refreshChanges': 'Refresh changes',
   'shell.palette.refreshChanges.keywords': 'git status diff reload',
   'shell.palette.refreshDashboard': 'Ecosystem: refresh dashboard',
-  'shell.palette.refreshDashboard.keywords': 'usage cost tokens spend companions reload',
+  'shell.palette.refreshDashboard.keywords': 'usage cost tokens spend harness family companions reload',
   'shell.palette.showShortcuts': 'Show keyboard shortcuts',
   'shell.palette.showShortcuts.keywords': 'keys help cheatsheet',
   'shell.palette.collapseSidebar': 'Collapse the sidebar',

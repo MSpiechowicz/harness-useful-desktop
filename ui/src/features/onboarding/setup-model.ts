@@ -9,8 +9,61 @@ import type { McpState } from '$lib/ipc/bindings/McpState';
 /** What one item of the step is doing: `idle` until a run reaches it. */
 export type ItemPhase = 'idle' | 'running' | 'done' | 'failed' | 'skipped';
 
-/** The things the step can set up: the dashboard, and per harness its skills and its MCP entry. */
-export type SetupKey = 'dashboard' | `skills:${HarnessId}` | `mcp:${HarnessId}`;
+/** The companions the step installs from their own installers. */
+export type Companion = 'dashboard' | 'memory';
+
+/** The two MCP servers the step registers per harness: the dashboard's (`mcp`) and the memory server's (`memoryMcp`). */
+export type McpKind = 'mcp' | 'memoryMcp';
+
+/** The things the step can set up: the two companions, and per harness its skills and its two MCP entries. */
+export type SetupKey = Companion | `skills:${HarnessId}` | `${McpKind}:${HarnessId}`;
+
+/** The companion each MCP entry runs, which has to be installed before the entry can be added. */
+export const MCP_COMPANION: Record<McpKind, Companion> = { mcp: 'dashboard', memoryMcp: 'memory' };
+
+/** One line of what the confirmation lists. */
+export interface PlannedCommand {
+  /** Whose command it is: a companion or a harness. */
+  owner: Companion | HarnessId;
+  command: string;
+}
+
+/** A file the run will touch, whether it is created, and how many entries it gets. */
+export interface PlannedFile {
+  file: string;
+  creates: boolean;
+  entries: number;
+}
+
+/** What one companion's installer changes besides the binary, one sentence each. */
+export interface PlannedEffects {
+  owner: Companion;
+  effects: string[];
+}
+
+/** Everything a run would do, shown before anything runs. */
+export interface Plan {
+  commands: PlannedCommand[];
+  files: PlannedFile[];
+  effects: PlannedEffects[];
+}
+
+/**
+ * What a companion's installer changes: the backend's list, and for the memory server the entry it adds to the
+ * harnesses' MCP config once installed (the backend does that after the installer, so its list does not say it).
+ */
+export function companionEffects(companion: Companion, server: DashboardSetup): string[] {
+  return companion === 'memory' ? [...server.sideEffects, t('onboarding.setup.memory.registers')] : server.sideEffects;
+}
+
+/** The install of one companion as a plan: its installer command and what it changes. */
+export function companionPlan(companion: Companion, server: DashboardSetup): Plan {
+  return {
+    commands: [{ owner: companion, command: server.command }],
+    files: [],
+    effects: [{ owner: companion, effects: companionEffects(companion, server) }],
+  };
+}
 
 export interface Chip {
   tone: 'success' | 'warning' | 'neutral' | 'danger' | 'accent';
@@ -21,15 +74,27 @@ export interface Chip {
   none?: boolean;
 }
 
+/** The column title of each MCP entry. */
+export function mcpTitle(kind: McpKind): string {
+  return kind === 'mcp' ? t('onboarding.setup.mcp.title') : t('onboarding.setup.memoryMcp.title');
+}
+
+/** The server name and command of each MCP entry. */
+const MCP_SERVER: Record<McpKind, string> = { mcp: 'harness-dashboard', memoryMcp: 'harness-memory' };
+
 /** The JSON a person adds to an MCP file when the app leaves it alone, one key per line so it never wraps mid-token. */
-export const MCP_SNIPPET = `{
+export function mcpSnippet(kind: McpKind): string {
+  const server = MCP_SERVER[kind];
+
+  return `{
   "mcpServers": {
-    "harness-dashboard": {
-      "command": "harness-dashboard",
+    "${server}": {
+      "command": "${server}",
       "args": ["mcp"]
     }
   }
 }`;
+}
 
 /** The harness CLI line an action stands for, as shown in the confirmation. */
 export function commandOf(harness: HarnessId, action: ExtensionAction): string {
@@ -72,7 +137,7 @@ function runChip(phase: ItemPhase, waiting: boolean): Chip | null {
     case 'running':
       return { tone: 'accent', label: t('onboarding.setup.chip.running'), busy: true };
     case 'done':
-      return { tone: 'success', label: t('onboarding.setup.chip.done') };
+      return { tone: 'success', label: t('onboarding.setup.chip.installed') };
     case 'failed':
       return { tone: 'danger', label: t('onboarding.setup.chip.failed') };
     case 'skipped':
@@ -104,9 +169,10 @@ export function skillsChip(setup: HarnessSetup, phase: ItemPhase, waiting: boole
   });
 }
 
-export function mcpChip(setup: HarnessSetup, phase: ItemPhase, waiting: boolean): Chip {
+/** The chip of one of the harness's MCP entries (`mcp` the dashboard's, `memoryMcp` the memory server's). */
+export function mcpChip(setup: HarnessSetup, kind: McpKind, phase: ItemPhase, waiting: boolean): Chip {
   return rowChip(setup, phase, waiting, () => {
-    const mcp = setup.mcp;
+    const mcp = setup[kind];
 
     switch (mcp.type) {
       case 'configured':
@@ -121,18 +187,44 @@ export function mcpChip(setup: HarnessSetup, phase: ItemPhase, waiting: boolean)
   });
 }
 
-/** The state of the dashboard binary, or what a run is doing to it. */
-export function dashboardChip(dashboard: DashboardSetup, phase: ItemPhase, waiting: boolean): Chip {
+/** Harness Skills across every harness found: installed in all of them, in some, or in none yet. */
+export function skillsOverviewChip(harnesses: HarnessSetup[]): Chip {
+  const found = harnesses.filter((entry) => entry.installed);
+  const have = found.filter((entry) => entry.skills.type === 'installed').length;
+
+  if (found.length === 0) {
+    return { tone: 'neutral', label: t('onboarding.setup.chip.notInstalled') };
+  }
+
+  if (have === found.length) {
+    return { tone: 'success', label: t('onboarding.setup.chip.installed') };
+  }
+
+  return have > 0 ? { tone: 'warning', label: t('onboarding.setup.chip.partial') } : { tone: 'warning', label: t('onboarding.setup.chip.missing') };
+}
+
+/** The Harness Skills row: a running or finished install in any harness first, then the state across all of them. */
+export function skillsRowChip(harnesses: HarnessSetup[], phase: ItemPhase, waiting: boolean): Chip {
+  return runChip(phase, waiting) ?? skillsOverviewChip(harnesses);
+}
+
+/** The harnesses the skills row installs in: found ones that have the skills or can be given them. A manual step or none at all leaves a harness out. */
+export function skillsTargets(harnesses: HarnessSetup[]): HarnessSetup[] {
+  return harnesses.filter((entry) => entry.installed && (entry.skills.type === 'install' || entry.skills.type === 'installed'));
+}
+
+/** The state of a companion's binary, or what a run is doing to it. */
+export function companionChip(companion: DashboardSetup, phase: ItemPhase, waiting: boolean): Chip {
   const running = runChip(phase, waiting);
   if (running) {
     return running;
   }
 
-  if (dashboard.installed) {
+  if (companion.installed) {
     return { tone: 'success', label: t('onboarding.setup.chip.installed') };
   }
 
-  if (!dashboard.supportedOnThisOs) {
+  if (!companion.supportedOnThisOs) {
     return { tone: 'neutral', label: t('onboarding.setup.chip.unavailable') };
   }
 

@@ -4,9 +4,9 @@
   "version": "../package.json",
   "identifier": "com.mspiechowicz.harness-useful-desktop",
   "build": {
-    "beforeDevCommand": "bun run sidecar && bun run dev:ui",
+    "beforeDevCommand": "bun run dev:ui",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "bun run sidecar && bun run build:ui",
+    "beforeBuildCommand": "bun run build:ui",
     "frontendDist": "../ui/dist",
     "removeUnusedCommands": true
   },
@@ -47,7 +47,6 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "externalBin": ["binaries/harness-memory"],
     "category": "DeveloperTool",
     "shortDescription": "Desktop companion for the OMP and PI coding-agent harnesses",
     "longDescription": "Harness Desktop is a native desktop app for the OMP and PI coding-agent CLIs: browse their configuration, extensions and sessions, chat with agents over RPC, and review working-tree changes, without telemetry.",

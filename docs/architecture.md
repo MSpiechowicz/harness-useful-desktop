@@ -1,14 +1,14 @@
 # Architecture
 
-Harness Desktop is a Tauri 2 app in three layers, plus a small MCP server that ships with it. All domain logic is in a
-Rust crate that does not depend on Tauri; the shell and the UI are thin.
+Harness Desktop is a Tauri 2 app in three layers. All domain logic is in a Rust crate that does not depend on Tauri; the
+shell and the UI are thin. The project memory MCP server, `harness-memory`, is a separate program in its own repository,
+[harness-useful-memory](https://github.com/MSpiechowicz/harness-useful-memory), that the app installs and registers.
 
 | Layer | Path | Role |
 | --- | --- | --- |
 | Business | `business/` (crate `harness_business`) | Harness adapters, agent sessions, git, security, prefs, updater rules. No Tauri dependency, so it is tested without a window. |
 | Shell | `src-tauri/` (crate `harness_desktop`) | `#[tauri::command]` adapters, app state, ACL capabilities, CSP, window and lifecycle. |
 | UI | `ui/` | Svelte 5 (runes) app, typed IPC client, mock transport, generated bindings and fixtures. |
-| Memory server | `memory/` (crate `harness_memory`, binary `harness-memory`) | The project memory MCP server: SQLite notes and an entity graph, started by the harnesses over stdio, and by the window only for the recall in new chats. Depends on `harness_business` (`Env`, `redact_text`, `GitCli`, `validate_project_dir`, `app_dirs`) and not on Tauri. Bundled as a Tauri sidecar. |
 
 ```mermaid
 flowchart LR
@@ -61,45 +61,58 @@ Later calls (`agent_send`, `agent_ui_respond`, `agent_bash`, `agent_stop`) addre
 
 ## Project memory
 
-`harness-memory` gives every harness a shared memory per repository plus a global scope. The window sets it up; the
-harnesses run it, and the window runs it once more for the recall of notes in a new chat (step 5).
+`harness-memory` gives every harness a shared memory per repository plus a global scope. It lives in its own repository
+([harness-useful-memory](https://github.com/MSpiechowicz/harness-useful-memory)) and is not part of this app's build or
+bundle. The window installs it after the user confirms and registers it; the harnesses run it, and the window runs it
+once more for the recall of notes in a new chat (step 5).
 
 ```mermaid
 flowchart LR
-  APP["Harness Desktop<br/>memory_setup.rs"] -- "install_memory_binary" --> BIN["stable copy<br/>harness-memory"]
+  APP["Harness Desktop<br/>memory_setup.rs"] -- "run_installer (after confirm)" --> BIN["harness-memory<br/>(install.sh / install.ps1)"]
   APP -- "register_memory_mcp" --> CFG["harness user mcp.json"]
   CFG -. "command: absolute path" .-> H["harness CLI"]
   H -- "MCP over stdio" --> BIN
   BIN --> DB[("memory.sqlite3")]
-  BIN -- "GitCli: repo identity" --> G["git"]
+  BIN -- "git: repo identity" --> G["git"]
 ```
 
-1. **Bundle.** `bun run sidecar` (`scripts/build-sidecar.ts`) builds the `memory/` crate and stages it as
-   `src-tauri/binaries/harness-memory-<triple>`, which `bundle.externalBin` in `tauri.conf.json` ships next to the app
-   executable; `beforeDevCommand` and `beforeBuildCommand` run it. `cargo build`, `clippy` and `test -p harness_desktop`
-   fail while that file is missing, so run it first (CI does).
-2. **Launch.** `memory_setup::spawn_on_launch` runs in the background while the `memoryEnabled` pref is on. It copies the
-   bundled server to a stable path (`app_dirs::memory_bin_dir`) so the harnesses' entries survive app updates, then for
-   each detected harness with a user `mcp.json` (`mcp_target_paths`) adds `{"command": "<stable path>", "args": ["mcp"]}`.
+1. **Install.** `harness-memory` is a companion like Harness Dashboard (`Companion::Memory` in
+   `business/src/ecosystem/installer.rs`). Recommended setup offers its official installer (the
+   release's `install.sh`, or `install.ps1` on Windows, which verify `checksums.txt`) and `setup_install_memory` runs it
+   only with `confirmed: true`. It installs to `~/.local/bin/harness-memory` (Linux, macOS) or
+   `%LOCALAPPDATA%\Programs\harness-memory\harness-memory.exe` (Windows). `resolve_memory` looks there first, then on
+   `PATH` and in the standard install directories (only `.exe` on Windows; on Unix nothing other users may write), and
+   `installed_memory` requires `harness-memory --version` to answer `harness-memory <version>` before the server is
+   registered, recalled or made the migration target. The
+   latest version comes from the GitHub releases lookup (`ecosystem_releases`) like the other companions.
+2. **Launch.** `memory_setup::spawn_on_launch` runs in the background. While the `memoryEnabled` pref is on and the server
+   is installed, for each detected harness with a user `mcp.json` (`mcp_target_paths`) it adds
+   `{"command": "<resolved absolute path>", "args": ["mcp"]}`; nothing is registered while the server is missing.
    An existing entry is only touched if it is the app's own (name `harness-memory`, runs `harness-memory mcp`), and then
    only its `command`. `memory-registration.json` records where it was added, so an entry the user removed is not added
-   back.
-3. **Switch.** The Settings switch calls `memory_set_enabled`: it stores the pref, then installs and registers (clearing
-   the record, so the entry returns everywhere) or removes the app's own entries. `AppState.memory_setup` serializes
-   these runs.
+   back. Each launch also runs `migrate_legacy_memory` (macOS and Windows): the app's own entries that point at the copy
+   older builds kept in `<local data>/bin` are re-pointed at the installed server, and the copy is deleted once nothing
+   else uses it (never a symlink, a copy in a symlinked folder, or the installed server's own file). Linux has nothing
+   to migrate: that copy was `~/.local/bin/harness-memory`.
+3. **Switch.** The Settings switch calls `memory_set_enabled`: it stores the pref, then registers the installed server
+   (clearing the record, so the entry returns everywhere) or removes the app's own entries, and returns whether the
+   server is installed. After a successful install `after_install` refreshes the
+   recall server and registers. Recommended setup's Harness Memory MCP column registers it in one harness at a time
+   (`setup_register_memory`, `memory_setup::register_in`), turning the pref on when it is off. `AppState.memory_setup`
+   serializes these runs.
 4. **Use.** A harness starts `harness-memory mcp`. The server resolves the repository from `project_path` or its working
    directory with git (normalized `origin`, else the path), then serves seven tools (`memory_remember`, `memory_update`,
-   `memory_search`, `memory_get`, `memory_link`, `memory_neighbors`, `memory_forget`) over newline-delimited JSON-RPC.
-   `MemoryStore` (`memory/src/store/`) is the storage contract; `SqliteStore` is its only backend (WAL, FTS5), at
-   `app_dirs::memory_dir/memory.sqlite3`. Every stored string passes `redact_text`; limits apply per call
-   (`memory/src/limits.rs`), the number of notes is not capped. The server's instructions tell agents to search first, save
-   what they learn and keep notes current: the tool descriptions say when to call (`memory_search` first, `memory_remember`
-   before finishing). The desktop app never opens the database itself.
+   `memory_search`, `memory_get`, `memory_link`, `memory_neighbors`, `memory_forget`) over newline-delimited JSON-RPC. It
+   stores notes in SQLite (WAL, FTS5) at `<data>/harness-memory/memory.sqlite3` (`$XDG_DATA_HOME` or `~/.local/share` on
+   Linux, `~/Library/Application Support` on macOS, `%LOCALAPPDATA%` on Windows; `HARNESS_MEMORY_DIR` overrides), and
+   on first run copies the database older app builds kept under `<local data>/com.mspiechowicz.harness-useful-desktop/memory`
+   (the old file stays). The store, the limits per call and the redaction are the server's own; see its repository. The
+   desktop app never opens the database itself.
 5. **Recall.** `agent_send` goes through `memory_recall::send` (`src-tauri/src/memory_recall.rs`). `agent_start` tracks
    every chat but a utility agent (`memory_recall::track`) and arms a new one (not resumed); a successful `NewSession`
    arms a tracked chat again. `RecallGate` keeps one slot per chat. While `memoryEnabled` and `memoryRecall` are on,
-   arming also warms up the bundled server (`AppState.memory_server`, `bundled_server()` next to the app executable, not
-   the stable copy) with `mcp` in the chat's project directory, in the background; a warm server unused for 60 s
+   arming also warms up the installed server (`AppState.memory_server`, from `resolve_memory` once it reports its version;
+   until it is installed on macOS and Windows, the old copy in `<local data>/bin` serves, under the same check) with `mcp` in the chat's project directory, in the background; a warm server unused for 60 s
    (`WARM_IDLE`) is stopped, and at most four (`WARM_MAX`) run at once, the oldest stopped first. The first message decides under the slot's lock: an `AgentAction::Prompt`
    without `streamingBehavior` that does not start with `/` or `!` goes to `MemoryRecall::recall`
    (`business/src/ecosystem/memory_recall.rs`); steers, follow-ups and queued prompts, and `SwitchSession`, `Fork` and
@@ -125,12 +138,12 @@ Privacy rules: [security-privacy.md](security-privacy.md#project-memory).
 | `agent/` | `AgentManager` (sessions by key), `AgentSession` (writer, reader, stderr and exit tasks), `EventSink`, `DeltaCoalescer`. |
 | `git/` | `GitCli` (hardened git runner), status, branches, diff parsing, untracked files. |
 | `review/` | `compose_review`: diff comments into one deterministic Markdown prompt; the UI sends it with `agent_send`. |
-| `ecosystem/` | Companion tools: catalog (copyable install steps, never run), detection, a minimal MCP stdio client, the pooled `harness-dashboard mcp` connection behind the dashboard widgets, Recommended setup (`setup`, `installer`, `mcp_register`) and the atomic `mcp.json` merge it shares with Share setup (`mcp_merge`, whose `change_file` read-decide-write cycle the memory registration also uses). Project memory setup: `memory_install` (the stable copy of the bundled server), `memory_register` (add, update the command of, or remove the `harness-memory` entry) and `memory_record` (`memory-registration.json`, so a removed entry stays removed). |
+| `ecosystem/` | Companion tools: catalog (copyable install steps, never run), detection, a minimal MCP stdio client, the pooled `harness-dashboard mcp` connection behind the dashboard widgets, Recommended setup (`setup`, `installer`, `mcp_register`) and the atomic `mcp.json` merge it shares with Share setup (`mcp_merge`, whose `change_file` read-decide-write cycle the memory registration also uses). Companions install through `installer` (`Companion`: the dashboard's and the memory server's official installers, run after the user confirms). Project memory setup: `memory_binary` (finding the installed server and its version), `memory_register` (add, update the command of, or remove the `harness-memory` entry), `memory_migrate` (retires the old app copy of the server) and `memory_record` (`memory-registration.json`, so a removed entry stays removed). |
 | `sync/` | Share setup: export a harness's marketplaces, plugins, packages and MCP servers as a `hud1:` string or JSON file and import them after a review. `schema` (format v1, limits, per-item parsing), `codec` (zlib + base64url, size caps), `validate` and `secrets` (field checks, redaction), `collect` (export, read from the harnesses' files), `plan` (import review against this machine), `apply` (runs the harness CLIs and the MCP merge, idempotent, no rollback). Harnesses opt in per item kind through `Harness::share_support`. Format: [share-setup.md](share-setup.md). |
 | `prefs/`, `project/` | `prefs.json` store (atomic, self-healing), server-managed fields, the active and recent project list. |
 | `security/` | Deny-list and `SafeReader`, redaction, `canonical_within`, `validate_project_dir`, `is_safe_arg`. See [security-privacy.md](security-privacy.md). |
 | `process/` | `ProcessRunner` (run to completion) and `ProcessSpawner` (long-lived child) behind traits; binary resolution without a shell. |
-| `app_dirs.rs` | The app's folders outside Tauri: the per-machine data folder, the memory database folder and the folder of the stable server copy. `harness-memory` runs without Tauri, so both processes resolve them from `Env` here; a test checks the identifier against `tauri.conf.json`. |
+| `app_dirs.rs` | The app's folders outside Tauri: the per-machine data folder (where older builds kept a copy of the bundled memory server, `legacy_memory_copy`). A test checks the identifier against `tauri.conf.json`. |
 | `update.rs` | Updater rules independent of Tauri: endpoint, public-key validation, progress reporting. |
 | `model/` | The serde + ts-rs DTOs that form the IPC contract. |
 | `env.rs` | `Env`: the injected environment. All paths derive from it, so tests run against fixture homes. |
@@ -138,7 +151,7 @@ Privacy rules: [security-privacy.md](security-privacy.md#project-memory).
 
 Shell modules in `src-tauri/src/`: `commands/` (one file per area), `state.rs` (`AppState`), `access.rs` (link
 allowlist, reveal roots), `agents.rs`, `agent_sink.rs`, `dialogs.rs` (native pickers), `updates.rs`, `memory_setup.rs`
-(project memory install and registration at launch), `window.rs` (navigation and pop-up guards), `lifecycle.rs`,
+(project memory registration and old-copy migration at launch), `window.rs` (navigation and pop-up guards), `lifecycle.rs`,
 `logging.rs`, `error.rs`.
 
 Share setup in the UI lives in `ui/src/features/sync/`: the Settings section (`SyncSection`), the export and import
@@ -147,8 +160,7 @@ webview never holds a bundle to apply: it sends `sync_import_apply` a plan id an
 (`sync_plan` in `AppState`, one at a time, and an async mutex so only one apply runs). Native dialogs (`dialogs.rs`)
 open the save and open file pickers.
 
-Rules every business module follows: no shell is spawned, every file read goes through `SafeReader` (the one exception,
-`memory_install`, compares the bundled and the installed server executables byte for byte), every path is
+Rules every business module follows: no shell is spawned, every file read goes through `SafeReader`, every path is
 derived from an injected `Env`, and nothing secret reaches the webview unredacted.
 
 ## IPC contract
@@ -183,8 +195,7 @@ Generated types:
 | --- | --- |
 | Business logic | `cargo test -p harness_business` (CI: `cargo nextest`, 3 partitions on Linux, plus macOS and Windows). Fixture homes under `business/tests/fixtures`, snapshots with `insta`. |
 | Agent sessions | `fake_agent` (`business/src/bin/fake_agent.rs`) plays a JSONL scenario (`business/tests/fixtures/streams/*.jsonl`) as an OMP, PI or MCP peer. Tests run the real session engine against it (`business/tests/agent_support`). In-memory doubles: `harness_business::testing`. |
-| Memory server | `cargo test -p harness_memory` (store, search, graph, project identity, concurrency, the MCP protocol and the built binary). CI runs it with the business tests. |
-| Shell commands | `cargo test -p harness_desktop` spawns `fake_agent`. Without the binary those tests skip; `HARNESS_REQUIRE_FAKE_AGENT=1` (set in CI) makes them fail instead. Build it first: `cargo build -p harness_business --bin fake_agent`. Any `cargo` build of `harness_desktop` also needs the memory sidecar: run `bun run sidecar` first. |
+| Shell commands | `cargo test -p harness_desktop` spawns `fake_agent`. Without the binary those tests skip; `HARNESS_REQUIRE_FAKE_AGENT=1` (set in CI) makes them fail instead. Build it first: `cargo build -p harness_business --bin fake_agent`. |
 | Leaks | Canary tests (`business/tests/canary.rs`, `adapter_canary.rs`) hide a marker string in deny-listed files and secret values and fail if any view contains it. |
 | UI | Vitest with happy-dom (`bun run test`), component tests with Testing Library. Stores and features run against the mock transport. |
 | Browser preview | `bun run dev:mock` serves the UI with the mock transport and no Rust. CI greps `ui/dist` for `__HARNESS_MOCK_TRANSPORT__` so the mock never ships in a production bundle. |
@@ -198,7 +209,8 @@ Generated types:
   .yaml`) stays within 500 lines. Generated bindings and fixtures, lockfiles, `src-tauri/gen` and
   `src-tauri/icons` are exempt.
 - **`check-forbidden.ts`**: rejects patterns by rule id. No opt-out: `--auto-approve`, `"--no-ui"`, shell spawns
-  (`Command::new("sh" | "bash" | ... | "pwsh")`), `innerHTML`/`insertAdjacentHTML`, `eval`/`new Function`, and
+  (`Command::new("sh" | "bash" | ... | "pwsh")`; only the companion installers, on marked lines of
+  `business/src/ecosystem/installer.rs`, may name a shell), `innerHTML`/`insertAdjacentHTML`, `eval`/`new Function`, and
   `dangerous...insecure transport` updater settings. Opt-out with `guard-allow: <id>` on the same line:
   `--approve` (PI "trust this project once" only), `get_login_providers`, a `"login"` literal, `set_ask_dialog`,
   `{@html}` (sanitized Markdown component only), and `fetch`/`XMLHttpRequest`/`WebSocket`/`EventSource` in

@@ -19,16 +19,16 @@
 
   let { items }: Props = $props();
 
-  // A family tree in a fixed 240 x 178 px box that the SVG maps 1:1: the app on top, the companions in a row below,
-  // joined by one trunk and a bus that meet in a T. The box is trimmed to the drawing (the outer circles touch its
+  // A family tree in a fixed 264 x 178 px box that the SVG maps 1:1: the app on top, the companions in a row below,
+  // joined by one trunk and a bus that meet in a T (four companions sit in pairs either side of the trunk). The box is trimmed to the drawing (the outer circles touch its
   // sides; the wider "Dashboard" label may hang into the gutter), so the card's padding frames it evenly. Every line
   // is horizontal or vertical, 2 px wide on whole pixels, so it renders crisp in WebKitGTK; only the elbows are rounded.
-  const WIDTH = 240;
+  const WIDTH = 264;
   const HEIGHT = 178;
-  const HUB = { x: 120, y: 28, size: 56 } as const;
+  const HUB = { x: 132, y: 28, size: 56 } as const;
   const NODE = 44;
   const ROW_Y = 132;
-  const COLUMNS = [24, 120, 216] as const;
+  const COLUMNS = [24, 96, 168, 240] as const;
   const BUS_Y = 84;
   const HALF_STROKE = 1;
   const ELBOW = 10;
@@ -36,7 +36,7 @@
   const hubBottom = HUB.y + HUB.size / 2;
   const nodeTop = ROW_Y - NODE / 2;
 
-  /** From the edge of the trunk, along the bus, down into the companion's circle; the middle one continues the trunk. */
+  /** From the edge of the trunk, along the bus, down into the companion's circle; a companion right under the app would continue the trunk. */
   function branch(x: number): string {
     if (x === HUB.x) {
       return `M ${x} ${BUS_Y + HALF_STROKE} V ${nodeTop}`;

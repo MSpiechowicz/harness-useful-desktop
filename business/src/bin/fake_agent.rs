@@ -23,6 +23,9 @@
 //!
 //! After the last step the agent waits for stdin EOF and exits 0. An `expect` that sees EOF exits
 //! 0 too; a failed `match` exits 4 with a message on stderr.
+//!
+//! Copied under the name `harness-memory`, `fake_agent --version` prints `harness-memory 0.0.0`, so
+//! the desktop tests can place an installed memory server on every OS.
 
 use std::collections::HashMap;
 use std::io::{BufRead, Write};
@@ -34,6 +37,11 @@ use serde_json::{Map, Value, json};
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
+
+    if is_memory_stand_in(&args) {
+        println!("harness-memory 0.0.0");
+        std::process::exit(0);
+    }
     let option = |name: &str| {
         args.iter()
             .position(|arg| arg == name)
@@ -69,6 +77,16 @@ fn main() {
 
     agent.wait_eof();
     std::process::exit(0);
+}
+
+/// `harness-memory --version` run on a copy of this binary named `harness-memory`.
+fn is_memory_stand_in(args: &[String]) -> bool {
+    let Ok(exe) = std::env::current_exe() else {
+        return false;
+    };
+    let named = exe.file_stem().is_some_and(|stem| stem == "harness-memory");
+
+    named && args.get(1..).is_some_and(|rest| rest == ["--version"])
 }
 
 fn fail(code: i32, message: &str) -> ! {

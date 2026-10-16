@@ -103,9 +103,9 @@ binaryOverrides: Array<BinaryOverride>,
  */
 chatDefaults: Array<ChatDefaults>, 
 /**
- * Whether the app registers its bundled `harness-memory` MCP server in every detected harness's
- * user MCP file at launch (default on). Server-managed: only `memory_set_enabled` changes it,
- * since turning it off also removes the app's entries.
+ * Whether the app registers the installed `harness-memory` MCP server (Harness Memory) in every
+ * detected harness's user MCP file at launch and after its install (default on). Server-managed:
+ * only `memory_set_enabled` changes it, since turning it off also removes the app's entries.
  */
 memoryEnabled: boolean, 
 /**

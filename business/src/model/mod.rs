@@ -80,7 +80,7 @@ pub use session::{
 };
 pub use setup::{
     DashboardInstallResult, DashboardSetup, HarnessSetup, InstallLogLine, InstallStream, McpRefusal, McpState,
-    RecommendedSetup, SkillsSetup,
+    MemorySwitchResult, RecommendedSetup, SkillsSetup,
 };
 pub use subagent::{Subagent, SubagentStatus, SubagentTool};
 pub use sync::{

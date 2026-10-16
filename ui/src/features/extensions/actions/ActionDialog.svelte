@@ -19,6 +19,9 @@
   const request = $derived(runner.request);
   const open = $derived(runner.phase !== 'idle' && request !== null);
   const name = $derived(request ? (harness.get(request.harness)?.info.name ?? request.harness) : '');
+  /** Only these fetch packages; the others just change local state and should not say they download anything. */
+  const DOWNLOADS = new Set(['marketplaceAdd', 'marketplaceUpdate', 'packageInstall', 'packageUpdate', 'pluginInstall', 'pluginUpgrade']);
+  const downloads = $derived(request !== null && DOWNLOADS.has(request.action.type));
   const projectName = $derived(project.recents.find((entry) => entry.path === request?.project)?.name ?? project.active?.name ?? null);
 
   // The exact command line. Before the run it is the one confirming will start (never the preview's flag); afterwards, the one that ran.
@@ -82,7 +85,7 @@
           {/if}
         </section>
       {:else if runner.phase === 'running'}
-        <p class="flex items-center gap-2 text-sm text-fg-2" role="status"><Spinner size={16} />{t('extensions.dialog.running')}</p>
+        <p class="flex items-center gap-2 text-sm text-fg-2" role="status"><Spinner size={16} />{downloads ? t('extensions.dialog.running') : t('extensions.dialog.runningLocal')}</p>
       {:else if runner.phase === 'done'}
         {#if runner.failure !== null || runner.error}
           {@render problem(runner.error ? t('extensions.dialog.couldNotRun') : t('extensions.dialog.failed'), runner.error ?? runner.failure ?? '')}

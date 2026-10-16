@@ -183,6 +183,7 @@ export const extensions: AreaMessages<typeof enExtensions> = {
   'extensions.dialog.nothingChanged': 'Nic jeszcze się nie zmieniło. Potwierdź, aby wykonać powyższe polecenie.',
   'extensions.dialog.previewedWith': 'Podgląd wykonano poleceniem',
   'extensions.dialog.running': 'Trwa wykonywanie… pobieranie pakietów może potrwać minutę.',
+  'extensions.dialog.runningLocal': 'Trwa wykonywanie…',
   'extensions.dialog.couldNotRun': 'Nie udało się uruchomić akcji',
   'extensions.dialog.failed': 'Akcja się nie powiodła',
   'extensions.dialog.done': 'Gotowe.',

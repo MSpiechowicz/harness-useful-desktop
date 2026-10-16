@@ -1,5 +1,6 @@
-//! The bundled `harness-memory` MCP server in a harness's user MCP file (`register_memory_mcp`,
-//! `unregister_memory_mcp`).
+//! The installed `harness-memory` MCP server in a harness's user MCP file (`register_memory_mcp`,
+//! `unregister_memory_mcp`, and `repoint_memory_mcp` for the old copy, see
+//! [`super::memory_migrate`]).
 //!
 //! - Found: like the dashboard's server (see [`super::mcp_register`]): a server named
 //!   [`MEMORY_MCP_SERVER`], or any server running `harness-memory` (any directory, `.exe` or not)
@@ -7,21 +8,20 @@
 //!   by the target file's `disabledServers` or by `"enabled": false`.
 //! - Owned: an entry in the target file (never an `also_read` one) named exactly
 //!   [`MEMORY_MCP_SERVER`] that runs `harness-memory mcp`. Only owned entries are ever changed:
-//!   their `command` follows the app's stable copy of the server, and turning project memory off
-//!   removes them. Every other field (`enabled`, `env`, ...) and the key order are kept.
+//!   their `command` follows the resolved server, and turning project memory off removes them. Every other field (`enabled`, `env`, ...) and the key order are kept.
 //! - Added: `{"command": "<absolute path>", "args": ["mcp"]}`, only when nothing is found and the
 //!   app has not registered the server in that file before (a user who removed it keeps it removed).
 //!
 //! Writes follow [`super::mcp_merge`]'s rules: the same refusals, a new file `0600`, an atomic write
 //! keeping permissions, one re-read when the file changed meanwhile. File contents are never logged
-//! or returned.
+//! or returned, except the old and new `command` of an owned entry that is re-pointed.
 
 use std::path::{Path, PathBuf};
 
 use serde_json::{Map, Value, json};
 
 use super::catalog::{MEMORY_BINARY, MEMORY_MCP_SERVER};
-use super::mcp_merge::{Change, SERVERS, Target, change_file};
+use super::mcp_merge::{Change, SERVERS, Target, change_file, load};
 use super::mcp_register::{FoundServer, find_server, runs_mcp};
 use crate::model::McpRefusal;
 
@@ -59,9 +59,17 @@ pub fn register_memory_mcp(path: &Path, also_read: &[PathBuf], command: &Path, r
             return when_missing(target, &command, recorded);
         };
 
-        let stale = owned(path, &server) && server.definition.get("command").and_then(Value::as_str) != Some(&command);
+        let previous = server.definition.get("command").and_then(Value::as_str);
+        let stale = owned(path, &server) && previous != Some(&command);
 
         if stale {
+            tracing::info!(
+                file = %path.display(),
+                from = previous.unwrap_or_default(),
+                to = %command,
+                "project memory: the app's entry now runs another harness-memory"
+            );
+
             let mut document = target.document();
             set_command(&mut document, &command);
             return Change::Write(document, MemoryRegistration::Updated);
@@ -94,6 +102,50 @@ pub fn unregister_memory_mcp(path: &Path) -> Result<bool, McpRefusal> {
 
         Change::Write(document, true)
     })
+}
+
+/// Changes the `command` of the owned entry in `path` from exactly `from` to `to`; an owned entry
+/// running anything else, and every other entry, is left alone. `Ok(true)` when it was changed; a
+/// missing file changes nothing.
+pub fn repoint_memory_mcp(path: &Path, from: &Path, to: &Path) -> Result<bool, McpRefusal> {
+    let from = from.to_string_lossy();
+    let to = to.to_string_lossy();
+
+    change_file(path, |target| {
+        let found = find_server(path, target, &[], MEMORY_MCP_SERVER, MEMORY_BINARY);
+        let runs_from = found.is_some_and(|server| {
+            owned(path, &server) && server.definition.get("command").and_then(Value::as_str) == Some(&from)
+        });
+
+        if !runs_from {
+            return Change::Keep(false);
+        }
+
+        let mut document = target.document();
+        set_command(&mut document, &to);
+
+        Change::Write(document, true)
+    })
+}
+
+/// Whether any server in `path` has `command` as its `command` (whatever its name and arguments;
+/// ASCII case and `/` versus `\` are ignored, so a doubtful match counts). A missing file names
+/// nothing; `Err` when the file cannot be read as an MCP file.
+pub fn names_command(path: &Path, command: &Path) -> Result<bool, McpRefusal> {
+    let normalize = |text: &str| text.replace('\\', "/").to_ascii_lowercase();
+    let command = normalize(&command.to_string_lossy());
+
+    let document = load(path)?.document();
+    let Some(servers) = document.get(SERVERS).and_then(Value::as_object) else {
+        return Ok(false);
+    };
+
+    let named = servers
+        .values()
+        .filter_map(|server| server.get("command").and_then(Value::as_str))
+        .any(|found| normalize(found) == command);
+
+    Ok(named)
 }
 
 fn when_missing(target: &Target, command: &str, recorded: bool) -> Change<MemoryRegistration> {

@@ -12,6 +12,7 @@ use tauri::async_runtime::block_on;
 
 use super::*;
 use crate::commands::agent;
+use crate::state::MemoryServer;
 use crate::test_support::{
     AgentSetup, ScenarioSpawner, agent_setup, collecting_channel, fake_agent, start_request, wait_until,
 };
@@ -37,7 +38,7 @@ fn chats_with(agent_scenario: &str, memory_scenario: &str, change: impl FnOnce(&
     let memory = ScenarioSpawner::mcp(&binary, memory_scenario);
 
     setup.state.memory_recall = MemoryRecall::new(memory.clone());
-    setup.state.memory_server = Some(PathBuf::from("/opt/harness/harness-memory"));
+    setup.state.memory_server = MemoryServer::fixed(PathBuf::from("/opt/harness/harness-memory"));
     change(&mut setup.state);
 
     Some(Chats { setup, memory })

@@ -170,8 +170,9 @@ is never echoed back. Besides the shapes above:
     other `://` form (`ssh://`, `git+ssh://`, `http://`) is refused.
 - **Plugin ids:** `name@marketplace` or an npm package name, never a path or URL; `marketplace`, if present, matches the
   `@marketplace` part.
-- **MCP server names:** the pattern above. `harness-dashboard` and `harness-memory` (any case) are reserved: Recommended setup installs the
-  first and the app registers the second (project memory), so neither is ever exported and an imported one is refused.
+- **MCP server names:** the pattern above. `harness-dashboard` and `harness-memory` (any case) are reserved: Recommended setup installs and
+  registers the first, and the app installs and registers the second (project memory), so neither is ever exported and an
+  imported one is refused.
 - **MCP commands:** a bare program name, never a path and never a shell interpreter (`sh`, `bash`, `zsh`, `dash`,
   `fish`, `cmd`, `pwsh`, `powershell`, with or without a directory or `.exe`). Never `harness-dashboard` or
   `harness-memory` either (any case, with or without `.exe`): together with the reserved names, an import can neither
@@ -213,7 +214,7 @@ Left out of the file and listed in the export dialog by name and reason (never b
 | MCP servers whose command, arguments or URL hold a secret, credentials or a machine path | The whole server is left out. Heuristics (see [Validation](#validation-of-every-item)), not a proof. |
 | MCP servers with an undeclared `${VAR}` / `$NAME` reference, a shell command, a non-bare command, or a `harness-dashboard` / `harness-memory` command under another name | Would hand an environment variable to the setup's author, run a shell, or shadow an app entry on the other machine. |
 | The `harness-dashboard` server (any letter case) | Recommended setup installs it. Skipped without a row in the list. |
-| The `harness-memory` server (any letter case) and the project memory database | The app registers the server itself, and the notes are local to this machine. Skipped without a row in the list; an import refuses that name. |
+| The `harness-memory` server (any letter case) and the project memory database | The app installs and registers the server itself, and the notes are local to this machine. Skipped without a row in the list; an import refuses that name. |
 | Local or unknown PI packages, local marketplaces, `file:` / `link:` plugin specs | Machine paths. |
 | Sources with credentials | Secrets. |
 | Project-scope plugins and servers | The share is user scope only. |

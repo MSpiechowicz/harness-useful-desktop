@@ -1,57 +1,37 @@
 import { t } from '$lib/i18n/i18n.svelte';
 import { ipc } from '$lib/ipc/client';
-import type { DashboardInstallResult } from '$lib/ipc/bindings/DashboardInstallResult';
 import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
 import type { HarnessSetup } from '$lib/ipc/bindings/HarnessSetup';
-import type { InstallLogLine } from '$lib/ipc/bindings/InstallLogLine';
 import type { RecommendedSetup } from '$lib/ipc/bindings/RecommendedSetup';
 import { IpcFailure, type Transport } from '$lib/ipc/transport';
 import { ecosystem } from '$lib/stores/ecosystem.svelte';
+import { prefs } from '$lib/stores/prefs.svelte';
 
 import { failureLine } from '../extensions/actions/action-model';
-import { reloadChatsAfterPluginChange } from '../extensions/actions/action-runner.svelte';
+import { agentSessions } from '$lib/stores/agentSession.svelte';
+import { CompanionInstaller } from './companion-installer.svelte';
 import { onboarding } from './onboarding-state.svelte';
-import { commandOf, refusalText, type ItemPhase, type SetupKey } from './setup-model';
+import { commandOf, companionEffects, MCP_COMPANION, refusalText, type Companion, type ItemPhase, type McpKind, type Plan, type PlannedFile, type SetupKey } from './setup-model';
 
 export type SetupLoad = 'idle' | 'loading' | 'ready' | 'error';
-
-/** The installer's output is kept to its last lines; the backend already caps what it streams. */
-const LOG_LINES = 400;
-
-/** One line of what the confirmation lists. */
-export interface PlannedCommand {
-  /** Whose command it is: the dashboard or a harness. */
-  owner: 'dashboard' | HarnessId;
-  command: string;
-}
-
-/** A file the run will touch, and whether it is created. */
-export interface PlannedFile {
-  file: string;
-  creates: boolean;
-}
-
-/** Everything a run would do for the current selection, shown before anything runs. */
-export interface Plan {
-  commands: PlannedCommand[];
-  files: PlannedFile[];
-  /** What the dashboard installer changes besides the binary. */
-  sideEffects: string[];
-}
 
 interface Hooks {
   /** Told when a run starts and ends, so the flow cannot be left meanwhile. */
   busy: (busy: boolean) => void;
-  /** After plugin changes, so open chats pick them up. */
-  chatsChanged: (harness: HarnessId) => Promise<void>;
+  /** After plugin changes, so open chats pick them up: restarts the harness's idle chats and says how many. */
+  chatsChanged: (harness: HarnessId) => Promise<number>;
   /** After a run, so the Ecosystem screen shows the new state. */
   companionsChanged: () => Promise<void>;
+  /** After the memory server was registered in a harness, which turns Project memory on, so Settings shows it. */
+  memoryChanged: () => Promise<void>;
 }
 
 /**
- * The "Recommended setup" step. Opening it only reads the machine; nothing runs until the user has seen the
- * list of commands and files and confirmed it. A run goes in a fixed order: the dashboard, then the skills of each
- * harness, then the dashboard's entry in each harness's MCP file.
+ * The recommended setup, shown on two steps: "Meet the Harness family" reads the machine and describes what each member
+ * would change, "Set up" runs it. Opening only reads; nothing runs until the user has seen the
+ * list of commands and files and confirmed it. A run goes in a fixed order: the dashboard, then the memory server,
+ * then the skills of each harness and, per harness, the dashboard's entry and then the memory server's entry in its
+ * MCP file.
  */
 export class SetupController {
   data = $state.raw<RecommendedSetup | null>(null);
@@ -60,22 +40,25 @@ export class SetupController {
   running = $state(false);
   /** The confirmation dialog is open. */
   confirming = $state(false);
+  /** Open chats restarted so they load new plugins; the Done step says so instead of a toast. */
+  chatsRestarted = $state(0);
 
   /** Items the user switched off; everything that can be set up starts on. */
   private off = $state<Record<string, boolean>>({});
   private phases = $state<Record<string, ItemPhase>>({});
   private failures = $state<Record<string, string>>({});
 
-  log = $state.raw<InstallLogLine[]>([]);
-  /** The installer's outcome of the last run, for the retry hint. */
-  installResult = $state.raw<DashboardInstallResult | null>(null);
+  /** The two installers' output and outcome, each shown on its own card. */
+  readonly installers: Record<Companion, CompanionInstaller>;
 
   private token = 0;
 
   constructor(
     private readonly transport: Transport,
     private readonly hooks: Hooks,
-  ) {}
+  ) {
+    this.installers = { dashboard: new CompanionInstaller('dashboard', transport), memory: new CompanionInstaller('memory', transport) };
+  }
 
   // ── Reading ──────────────────────────────────────────────────────────────
 
@@ -90,11 +73,12 @@ export class SetupController {
 
     this.load = 'loading';
     this.error = null;
+    this.chatsRestarted = 0;
     this.off = {};
     this.phases = {};
     this.failures = {};
-    this.log = [];
-    this.installResult = null;
+    this.installers.dashboard.reset();
+    this.installers.memory.reset();
 
     try {
       const data = await this.transport.invoke('setup_status', undefined);
@@ -140,16 +124,44 @@ export class SetupController {
     return this.failures[key] ?? null;
   }
 
-  // ── Selection ────────────────────────────────────────────────────────────
-
-  /** Whether the dashboard installer can be chosen: it is missing and runs on this system. */
-  get dashboardSelectable(): boolean {
-    return !!this.data && !this.data.dashboard.installed && this.data.dashboard.supportedOnThisOs;
+  /** The skills of every harness, which the step shows as one item: the Harness Skills row. */
+  private get skillKeys(): SetupKey[] {
+    return (this.data?.harnesses ?? []).map((entry) => `skills:${entry.harness}` as SetupKey);
   }
 
-  /** The dashboard will be installed, or already is: the precondition of every MCP entry. */
-  private get dashboardAvailable(): boolean {
-    return !!this.data && (this.data.dashboard.installed || this.isSelected('dashboard'));
+  /** The skills row's phase across harnesses: working while any is, failed once one failed, done when some finished. */
+  skillsShown(): ItemPhase {
+    const phases = this.skillKeys.map((key) => this.shown(key));
+
+    for (const phase of ['running', 'failed', 'done'] as const) {
+      if (phases.includes(phase)) {
+        return phase;
+      }
+    }
+
+    return 'idle';
+  }
+
+  skillsWaiting(): boolean {
+    return this.skillKeys.some((key) => this.waiting(key));
+  }
+
+  /** What went wrong in each harness the skills did not install in. */
+  skillsFailures(): { harness: HarnessId; reason: string }[] {
+    return (this.data?.harnesses ?? []).flatMap((entry) => {
+      const reason = this.failure(`skills:${entry.harness}`);
+
+      return reason === null ? [] : [{ harness: entry.harness, reason }];
+    });
+  }
+
+  // ── Selection ────────────────────────────────────────────────────────────
+
+  /** Whether a companion's installer can be chosen: it is missing and runs on this system. */
+  companionSelectable(companion: Companion): boolean {
+    const server = this.data?.[companion];
+
+    return !!server && !server.installed && server.supportedOnThisOs;
   }
 
   selectable(key: SetupKey): boolean {
@@ -157,11 +169,11 @@ export class SetupController {
       return false;
     }
 
-    if (key === 'dashboard') {
-      return this.dashboardSelectable;
+    if (key === 'dashboard' || key === 'memory') {
+      return this.companionSelectable(key);
     }
 
-    const [kind, id] = key.split(':') as ['skills' | 'mcp', HarnessId];
+    const [kind, id] = key.split(':') as ['skills' | McpKind, HarnessId];
     const entry = this.harness(id);
     if (!entry?.installed) {
       return false;
@@ -171,7 +183,10 @@ export class SetupController {
       return entry.skills.type === 'install';
     }
 
-    return entry.mcp.type === 'missing' && (this.data.dashboard.installed || (this.dashboardSelectable && !this.off.dashboard));
+    // An MCP entry runs its companion, so that has to be installed already or be part of the run.
+    const companion = MCP_COMPANION[kind];
+
+    return entry[kind].type === 'missing' && (this.data[companion].installed || (this.companionSelectable(companion) && !this.off[companion]));
   }
 
   isSelected(key: SetupKey): boolean {
@@ -188,12 +203,15 @@ export class SetupController {
       return [];
     }
 
-    const keys: SetupKey[] = ['dashboard'];
+    const keys: SetupKey[] = ['dashboard', 'memory'];
     for (const entry of data.harnesses) {
       keys.push(`skills:${entry.harness}`);
     }
     for (const entry of data.harnesses) {
       keys.push(`mcp:${entry.harness}`);
+    }
+    for (const entry of data.harnesses) {
+      keys.push(`memoryMcp:${entry.harness}`);
     }
 
     return keys.filter((key) => this.isSelected(key));
@@ -209,39 +227,34 @@ export class SetupController {
 
   // ── Outcome ──────────────────────────────────────────────────────────────
 
-  /** Something was set up in this visit. */
-  get anyDone(): boolean {
-    return Object.values(this.phases).includes('done');
+  /** A run left something undone: an item failed, or was skipped because what it needs failed. */
+  get hasFailed(): boolean {
+    return Object.values(this.phases).some((phase) => phase === 'failed' || phase === 'skipped');
   }
 
-  /** Every harness that is installed has everything: nothing is left that this step could do or point to. */
-  get allConfigured(): boolean {
-    const data = this.data;
-    if (!data) {
-      return false;
+  /** The step's forward action: install what is missing and go on, go on past a failed run, or just go on. */
+  get forward(): 'install' | 'anyway' | 'continue' {
+    // While a run is going the button still reads as the install it is carrying out.
+    if (this.hasFailed && !this.running) {
+      return 'anyway';
     }
 
-    const mcpDone = (entry: HarnessSetup) => entry.mcp.type === 'configured' || entry.mcp.type === 'disabled';
-
-    return data.dashboard.installed && data.harnesses.every((entry) => !entry.installed || (entry.skills.type === 'installed' && mcpDone(entry)));
-  }
-
-  /** The footer reads "Continue" rather than "Skip for now". */
-  get settled(): boolean {
-    return this.anyDone || this.allConfigured;
+    return this.selectedKeys.length > 0 ? 'install' : 'continue';
   }
 
   /** The commands and files the current selection would run and edit. */
   get plan(): Plan {
     const data = this.data;
-    const plan: Plan = { commands: [], files: [], sideEffects: [] };
+    const plan: Plan = { commands: [], files: [], effects: [] };
     if (!data) {
       return plan;
     }
 
-    if (this.isSelected('dashboard')) {
-      plan.commands.push({ owner: 'dashboard', command: data.dashboard.command });
-      plan.sideEffects = data.dashboard.sideEffects;
+    for (const companion of ['dashboard', 'memory'] as const) {
+      if (this.isSelected(companion)) {
+        plan.commands.push({ owner: companion, command: data[companion].command });
+        plan.effects.push({ owner: companion, effects: companionEffects(companion, data[companion]) });
+      }
     }
 
     for (const entry of data.harnesses) {
@@ -250,11 +263,24 @@ export class SetupController {
       }
     }
 
-    for (const entry of data.harnesses) {
-      if (this.isSelected(`mcp:${entry.harness}`) && entry.mcp.type === 'missing') {
-        plan.files.push({ file: entry.mcp.file, creates: !entry.mcp.exists });
+    // Both servers usually go into the same file, which is then listed once with both entries.
+    const files = new Map<string, PlannedFile>();
+    for (const kind of ['mcp', 'memoryMcp'] as const) {
+      for (const entry of data.harnesses) {
+        const mcp = entry[kind];
+        if (!this.isSelected(`${kind}:${entry.harness}`) || mcp.type !== 'missing') {
+          continue;
+        }
+
+        const planned = files.get(mcp.file);
+        if (planned) {
+          planned.entries += 1;
+        } else {
+          files.set(mcp.file, { file: mcp.file, creates: !mcp.exists, entries: 1 });
+        }
       }
     }
+    plan.files.push(...files.values());
 
     return plan;
   }
@@ -268,7 +294,7 @@ export class SetupController {
     }
   }
 
-  /** Runs the confirmed selection: the dashboard first, then everything else together. A failure stops only what depends on it. */
+  /** Runs the confirmed selection: the dashboard, then the memory server, then everything else together. A failure stops only what depends on it. */
   async run(): Promise<void> {
     const data = this.data;
     if (!data || this.running) {
@@ -287,20 +313,38 @@ export class SetupController {
     this.failures = {};
 
     try {
-      const dashboardOk = this.picked.has('dashboard') ? await this.installDashboard() : true;
+      // Everything that does not depend on something else runs at once. The two installers stay one after the other:
+      // on Windows both edit the user's PATH, and two writers at a time could lose one of the entries. The skills need
+      // neither installer, so they start right away. A harness's MCP entry waits only for its own server's installer,
+      // and its two entries go into the same file, so the memory server's waits for the dashboard's.
+      const dashboard = this.picked.has('dashboard') ? this.installCompanion('dashboard') : Promise.resolve(true);
+      const memory = dashboard.then(() => (this.picked.has('memory') ? this.installCompanion('memory') : true));
 
-      // The dashboard goes first (an agent entry needs it); after it nothing depends on anything else, so every
-      // harness's skills and agent entry run side by side and show their spinners together.
       await Promise.all([
+        dashboard,
+        memory,
         ...data.harnesses.filter((entry) => this.picked.has(`skills:${entry.harness}`)).map((entry) => this.installSkills(entry)),
-        ...data.harnesses.filter((entry) => this.picked.has(`mcp:${entry.harness}`)).map((entry) => this.registerMcp(entry.harness, dashboardOk)),
+        ...data.harnesses.map(async (entry) => {
+          if (this.picked.has(`mcp:${entry.harness}`)) {
+            await this.registerMcp('mcp', entry.harness, await dashboard);
+          }
+          if (this.picked.has(`memoryMcp:${entry.harness}`)) {
+            await this.registerMcp('memoryMcp', entry.harness, await memory);
+          }
+        }),
       ]);
     } finally {
+      const memoryRegistered = [...this.picked].some((key) => key.startsWith('memoryMcp:') && this.phase(key) === 'done');
       this.picked = new Set();
-      await this.refresh();
-      await this.hooks.companionsChanged().catch(() => {});
+      // The rows already show the outcome, so the flow is free at once. Re-reading the machine and letting Settings
+      // and the Ecosystem screen catch up all happen together in the background.
       this.running = false;
       this.hooks.busy(false);
+      void Promise.all([
+        this.refresh(),
+        memoryRegistered ? this.hooks.memoryChanged().catch(() => {}) : null,
+        this.hooks.companionsChanged().catch(() => {}),
+      ]);
     }
   }
 
@@ -312,31 +356,18 @@ export class SetupController {
     }
   }
 
-  private append(line: InstallLogLine): void {
-    this.log = [...this.log, line].slice(-LOG_LINES);
-  }
+  private async installCompanion(companion: Companion): Promise<boolean> {
+    this.set(companion, 'running');
 
-  private async installDashboard(): Promise<boolean> {
-    this.set('dashboard', 'running');
-    this.log = [];
-    this.installResult = null;
+    const outcome = await this.installers[companion].run();
 
-    try {
-      const result = await this.transport.invoke('setup_install_dashboard', { confirmed: true, onLog: (line) => this.append(line) });
-      this.installResult = result;
-
-      if (result.ok) {
-        this.set('dashboard', 'done');
-
-        return true;
-      }
-
-      this.set('dashboard', 'failed', result.summary ?? '');
-    } catch (error) {
-      this.set('dashboard', 'failed', IpcFailure.from(error).message);
+    if (outcome.ok) {
+      this.set(companion, 'done');
+    } else {
+      this.set(companion, 'failed', outcome.failure);
     }
 
-    return false;
+    return outcome.ok;
   }
 
   private async installSkills(entry: HarnessSetup): Promise<void> {
@@ -368,14 +399,19 @@ export class SetupController {
     } finally {
       // Open chats of this harness only learn about a new plugin when they restart.
       if (pluginChanged) {
-        await this.hooks.chatsChanged(entry.harness).catch(() => {});
+        // In the background: restarting chats must not hold up the run; the Done step shows the count when it is in.
+        void this.hooks.chatsChanged(entry.harness).then(
+          (count) => (this.chatsRestarted += count),
+          () => {},
+        );
       }
     }
   }
 
-  private async registerMcp(harness: HarnessId, dashboardOk: boolean): Promise<void> {
-    const key: SetupKey = `mcp:${harness}`;
-    if (!dashboardOk) {
+  /** Adds one MCP entry; one whose companion did not install is skipped, like the dashboard's entry always was. */
+  private async registerMcp(kind: McpKind, harness: HarnessId, companionOk: boolean): Promise<void> {
+    const key: SetupKey = `${kind}:${harness}`;
+    if (!companionOk) {
       this.set(key, 'skipped');
 
       return;
@@ -384,7 +420,7 @@ export class SetupController {
     this.set(key, 'running');
 
     try {
-      const state = await this.transport.invoke('setup_register_mcp', { harness });
+      const state = await (kind === 'mcp' ? this.transport.invoke('setup_register_mcp', { harness }) : this.transport.invoke('setup_register_memory', { harness }));
 
       if (state.type === 'configured') {
         this.set(key, 'done');
@@ -401,6 +437,7 @@ export class SetupController {
 
 export const setup = new SetupController(ipc, {
   busy: (busy) => (onboarding.busy = busy),
-  chatsChanged: reloadChatsAfterPluginChange,
+  chatsChanged: (harness) => agentSessions.reloadIdle(harness),
   companionsChanged: () => ecosystem.load(true),
+  memoryChanged: () => prefs.syncServerManaged(),
 });

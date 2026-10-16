@@ -4,7 +4,7 @@ import type { McpState } from "./McpState";
 import type { SkillsSetup } from "./SkillsSetup";
 
 /**
- * The skills and the dashboard MCP entry of one harness.
+ * The skills and the dashboard's and the memory server's MCP entries of one harness.
  */
 export type HarnessSetup = { 
 /**
@@ -22,4 +22,8 @@ skills: SkillsSetup,
 /**
  * The `harness-dashboard` server in the harness's user MCP file.
  */
-mcp: McpState, };
+mcp: McpState, 
+/**
+ * The `harness-memory` server in the harness's user MCP file (`setup_register_memory`).
+ */
+memoryMcp: McpState, };

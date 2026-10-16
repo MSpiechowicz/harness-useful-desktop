@@ -3,18 +3,23 @@
 //! - Dashboard: the `harness-dashboard` binary ([`resolve_dashboard`]) and its bare version from
 //!   `harness-dashboard version` (5 s limit). Its data directory, `usage.db` and `auth-token` are
 //!   never read.
+//! - Memory: the `harness-memory` binary ([`resolve_memory`]) and its version from
+//!   `harness-memory --version` (5 s limit). Its database is never read.
 //! - Skills and sidebar: the user's OMP plugins ([`installed_plugins`]: marketplace installs such
 //!   as `harness-useful-skills@harness-useful-skills`, and npm installs), with their versions and,
 //!   from the cached marketplace catalogs ([`mark_updates`]), whether a newer one is offered.
 
-use super::catalog::{DASHBOARD_BINARY, ECOSYSTEM, SIDEBAR_PLUGIN, SKILLS_PLUGIN, catalog_item};
+use std::path::PathBuf;
+
+use super::catalog::{DASHBOARD_BINARY, ECOSYSTEM, MEMORY_BINARY, SIDEBAR_PLUGIN, SKILLS_PLUGIN, catalog_item};
 use super::dashboard::resolve_dashboard;
-use crate::env::Env;
+use super::memory_binary::{memory_version, resolve_memory};
+use crate::env::{Env, OsKind};
 use crate::harness::{VERSION_TIMEOUT, first_semver};
 use crate::harnesses::omp::{installed_plugins, mark_updates, marketplaces, omp_paths};
 use crate::model::{EcosystemId, EcosystemItem, EcosystemStatus, PluginInfo};
 use crate::pi_family::tilde;
-use crate::process::{ExecSpec, ProcessRunner, ResolvedBinary, launcher_search_dirs};
+use crate::process::{ExecSpec, ProcessRunner, ResolvedBinary, launcher_search_dirs, resolve_binary};
 
 /// Output cap of the version probe.
 const VERSION_OUTPUT_BYTES: usize = 64 * 1024;
@@ -34,6 +39,7 @@ pub async fn ecosystem_status(env: &Env, runner: &dyn ProcessRunner) -> Ecosyste
 
         match id {
             EcosystemId::Dashboard => detect_dashboard(env, runner, &mut item).await,
+            EcosystemId::Memory => detect_memory(env, runner, &mut item).await,
             EcosystemId::Skills => detect_plugin(&plugins, SKILLS_PLUGIN, &mut item),
             EcosystemId::Sidebar => detect_plugin(&plugins, SIDEBAR_PLUGIN, &mut item),
         }
@@ -60,25 +66,67 @@ async fn detect_dashboard(env: &Env, runner: &dyn ProcessRunner, item: &mut Ecos
     }
 }
 
+async fn detect_memory(env: &Env, runner: &dyn ProcessRunner, item: &mut EcosystemItem) {
+    let Some(binary) = resolve_memory(env) else {
+        return;
+    };
+
+    item.installed = true;
+    item.via.push(format!("binary {}", tilde(env, &binary.path)));
+
+    match memory_version(env, runner, &binary).await {
+        Some(version) => item.version = Some(version),
+        None => item
+            .notes
+            .push(format!("`{MEMORY_BINARY} --version` did not report a version.")),
+    }
+}
+
+/// The executable `binary` that a companion's installer puts in place: `PATH` and the usual install
+/// directories (`~/.local/bin` from `install.sh`), and on Windows
+/// `%LOCALAPPDATA%\Programs\<binary>\<binary>.exe` (`install.ps1`).
+pub(crate) fn resolve_companion(env: &Env, binary: &str) -> Option<ResolvedBinary> {
+    if let Some(found) = resolve_binary(env, binary, None) {
+        return Some(found);
+    }
+
+    if env.os != OsKind::Windows {
+        return None;
+    }
+
+    let installed = PathBuf::from(env.var("LOCALAPPDATA")?)
+        .join("Programs")
+        .join(binary)
+        .join(format!("{binary}.exe"));
+
+    resolve_binary(env, binary, Some(&installed))
+}
+
 /// `harness-dashboard version` of `binary` (bare semver), within [`VERSION_TIMEOUT`].
 pub(crate) async fn dashboard_version(
     env: &Env,
     runner: &dyn ProcessRunner,
     binary: &ResolvedBinary,
 ) -> Option<String> {
+    first_semver(&version_output(env, runner, binary, "version").await?)
+}
+
+/// The standard output of `binary <argument>` when it succeeds within [`VERSION_TIMEOUT`].
+pub(crate) async fn version_output(
+    env: &Env,
+    runner: &dyn ProcessRunner,
+    binary: &ResolvedBinary,
+    argument: &str,
+) -> Option<String> {
     let spec = ExecSpec::new(&binary.path)
-        .args(["version"])
+        .args([argument])
         .search_dirs(launcher_search_dirs(env, &binary.path))
         .timeout(VERSION_TIMEOUT)
         .max_output_bytes(VERSION_OUTPUT_BYTES);
 
     let output = runner.run(&spec).await.ok()?;
 
-    if !output.success() {
-        return None;
-    }
-
-    first_semver(&output.stdout)
+    output.success().then_some(output.stdout)
 }
 
 /// Marks `item` installed for every OMP plugin named `name` (`name@<marketplace>` or the npm

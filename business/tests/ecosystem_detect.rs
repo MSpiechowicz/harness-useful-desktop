@@ -1,11 +1,11 @@
-//! Ecosystem detection over temporary homes: the dashboard binary and its version, the skills and
-//! the sidebar as OMP plugins, and the per-OS catalog.
+//! Ecosystem detection over temporary homes: the dashboard and memory binaries and their versions,
+//! the skills and the sidebar as OMP plugins, and the per-OS catalog.
 
 use std::path::Path;
 use std::sync::Mutex;
 
 use harness_business::Result;
-use harness_business::ecosystem::{catalog_item, ecosystem_status};
+use harness_business::ecosystem::{ECOSYSTEM, catalog_item, ecosystem_status};
 use harness_business::env::{Env, OsKind};
 use harness_business::model::{EcosystemId, EcosystemItem, EcosystemStatus};
 use harness_business::process::{BoxFuture, ExecOutput, ExecSpec, ProcessRunner};
@@ -38,10 +38,13 @@ impl ProcessRunner for ScriptedRunner {
     }
 }
 
-fn prints_version(_spec: &ExecSpec) -> ExecOutput {
+/// `harness-memory --version` and `harness-dashboard version` output.
+fn prints_version(spec: &ExecSpec) -> ExecOutput {
+    let memory = spec.args.first().is_some_and(|arg| arg == "--version");
+
     ExecOutput {
         status: Some(0),
-        stdout: "1.22.1\n".to_owned(),
+        stdout: if memory { "harness-memory 1.0.0\n" } else { "1.22.1\n" }.to_owned(),
         ..ExecOutput::default()
     }
 }
@@ -59,7 +62,12 @@ fn write(path: &Path, text: &str) {
 }
 
 fn install_dashboard(home: &Path) {
-    let binary = home.join(".local/bin/harness-dashboard");
+    install_binary(home, "harness-dashboard");
+}
+
+/// Places an executable `name` in `~/.local/bin`.
+fn install_binary(home: &Path, name: &str) {
+    let binary = home.join(".local/bin").join(name);
     write(&binary, "");
 
     #[cfg(unix)]
@@ -120,13 +128,25 @@ async fn installed_tools_report_their_version_and_where_they_were_found() {
     let status = status(&home, OsKind::Linux, &runner).await;
 
     let ids: Vec<EcosystemId> = status.items.iter().map(|item| item.id).collect();
-    assert_eq!(ids, [EcosystemId::Dashboard, EcosystemId::Skills, EcosystemId::Sidebar]);
+    assert_eq!(
+        ids,
+        [
+            EcosystemId::Dashboard,
+            EcosystemId::Memory,
+            EcosystemId::Skills,
+            EcosystemId::Sidebar
+        ]
+    );
 
     let dashboard = item(&status, EcosystemId::Dashboard);
     assert!(dashboard.installed);
     assert_eq!(dashboard.version.as_deref(), Some("1.22.1"));
     assert_eq!(dashboard.via, ["binary ~/.local/bin/harness-dashboard"]);
     assert_eq!(*runner.args.lock().unwrap(), [vec!["version".to_owned()]]);
+
+    let memory = item(&status, EcosystemId::Memory);
+    assert!(!memory.installed);
+    assert!(memory.via.is_empty());
 
     let skills = item(&status, EcosystemId::Skills);
     assert!(skills.installed);
@@ -177,6 +197,41 @@ async fn a_disabled_plugin_still_counts_and_says_so() {
 }
 
 #[tokio::test]
+async fn the_memory_server_reports_the_version_of_its_dash_dash_version() {
+    let home = tempfile::tempdir().unwrap();
+    install_binary(home.path(), "harness-memory");
+    let runner = ScriptedRunner::new(prints_version);
+
+    let status = status(&home, OsKind::Linux, &runner).await;
+
+    let memory = item(&status, EcosystemId::Memory);
+    assert!(memory.installed);
+    assert_eq!(memory.version.as_deref(), Some("1.0.0"));
+    assert_eq!(memory.via, ["binary ~/.local/bin/harness-memory"]);
+    assert_eq!(*runner.args.lock().unwrap(), [vec!["--version".to_owned()]]);
+    assert!(!item(&status, EcosystemId::Dashboard).installed);
+}
+
+#[tokio::test]
+async fn a_memory_server_without_a_version_is_installed_with_a_note() {
+    let home = tempfile::tempdir().unwrap();
+    install_binary(home.path(), "harness-memory");
+
+    let status = status(&home, OsKind::Linux, &ScriptedRunner::new(fails)).await;
+
+    let memory = item(&status, EcosystemId::Memory);
+    assert!(memory.installed);
+    assert_eq!(memory.version, None);
+    assert!(
+        memory
+            .notes
+            .last()
+            .unwrap()
+            .contains("--version` did not report a version")
+    );
+}
+
+#[tokio::test]
 async fn a_dashboard_without_a_version_is_installed_with_a_note() {
     let home = tempfile::tempdir().unwrap();
     install_dashboard(home.path());
@@ -190,7 +245,7 @@ async fn a_dashboard_without_a_version_is_installed_with_a_note() {
 }
 
 #[test]
-fn the_sidebar_is_unsupported_on_windows_and_the_dashboard_installs_with_powershell() {
+fn the_sidebar_is_unsupported_on_windows_and_the_binaries_install_with_powershell() {
     let sidebar = catalog_item(EcosystemId::Sidebar, OsKind::Windows);
     assert!(!sidebar.supported_on_this_os);
     assert!(sidebar.install_steps.is_empty());
@@ -203,7 +258,20 @@ fn the_sidebar_is_unsupported_on_windows_and_the_dashboard_installs_with_powersh
             .contains("install.sh")
     );
 
-    for id in [EcosystemId::Dashboard, EcosystemId::Skills, EcosystemId::Sidebar] {
+    let memory = catalog_item(EcosystemId::Memory, OsKind::Windows);
+    assert!(memory.supported_on_this_os);
+    assert!(
+        memory.install_steps[0]
+            .command
+            .contains("harness-useful-memory/main/install.ps1")
+    );
+    assert!(
+        catalog_item(EcosystemId::Memory, OsKind::Linux).install_steps[0]
+            .command
+            .contains("harness-useful-memory/main/install.sh")
+    );
+
+    for id in ECOSYSTEM {
         let item = catalog_item(id, OsKind::Linux);
         assert!(
             item.repo_url

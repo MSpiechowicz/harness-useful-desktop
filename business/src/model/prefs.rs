@@ -135,9 +135,9 @@ pub struct AppPrefs {
     pub binary_overrides: Vec<BinaryOverride>,
     /// The model and thinking level new chats start with (at most one entry per harness).
     pub chat_defaults: Vec<ChatDefaults>,
-    /// Whether the app registers its bundled `harness-memory` MCP server in every detected harness's
-    /// user MCP file at launch (default on). Server-managed: only `memory_set_enabled` changes it,
-    /// since turning it off also removes the app's entries.
+    /// Whether the app registers the installed `harness-memory` MCP server (Harness Memory) in every
+    /// detected harness's user MCP file at launch and after its install (default on). Server-managed:
+    /// only `memory_set_enabled` changes it, since turning it off also removes the app's entries.
     pub memory_enabled: bool,
     /// Whether a chat message is sent with the project-memory notes found for it in front, as a
     /// `<harness-memory-recall>` block (default on; files written before it existed turn it on).

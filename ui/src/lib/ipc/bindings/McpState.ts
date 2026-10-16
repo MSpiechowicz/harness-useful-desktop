@@ -2,8 +2,9 @@
 import type { McpRefusal } from "./McpRefusal";
 
 /**
- * The `harness-dashboard` MCP server in a harness's user MCP file. `file` is the file's
- * home-relative display path (e.g. `"~/.omp/agent/mcp.json"`); contents are never returned.
+ * A companion's MCP server (`harness-dashboard` or `harness-memory`) in a harness's user MCP file.
+ * `file` is the file's home-relative display path (e.g. `"~/.omp/agent/mcp.json"`); contents are
+ * never returned.
  */
 export type McpState = { "type": "configured", 
 /**

@@ -1,6 +1,7 @@
-//! The "Recommended setup" onboarding step: what is set up (`setup_status`), the dashboard's
-//! official installer (`setup_install_dashboard`) and its MCP server in a harness's user MCP file
-//! (`setup_register_mcp`).
+//! The "Recommended setup" onboarding step: what is set up (`setup_status`), the official
+//! installers of the dashboard (`setup_install_dashboard`) and of the memory server
+//! (`setup_install_memory`), and the dashboard's and the memory server's MCP servers in a harness's
+//! user MCP file (`setup_register_mcp`, `setup_register_memory`).
 //!
 //! The webview sends no command line and no path: the installer is fixed per OS and the MCP file
 //! follows from the harness id (its user agent directory, the active OMP profile's when one is
@@ -8,7 +9,7 @@
 
 use harness_business::BusinessError;
 use harness_business::ecosystem::{
-    mcp_target_paths, register_dashboard_mcp, resolve_dashboard, run_dashboard_installer, setup_status as status,
+    Companion, mcp_target_paths, register_dashboard_mcp, resolve_dashboard, run_installer, setup_status as status,
 };
 use harness_business::model::{DashboardInstallResult, HarnessId, InstallLogLine, McpState, RecommendedSetup};
 use harness_business::process::{ProcessSpawner, TokioSpawner};
@@ -19,9 +20,10 @@ use tauri::ipc::Channel;
 use super::blocking;
 use super::harness::{find, find_in, installed_binary, summaries};
 use crate::error::CommandResult;
+use crate::memory_setup::{after_install, register_in};
 use crate::state::AppState;
 
-/// The dashboard binary, and per harness its skills and the dashboard's MCP entry. Read-only;
+/// The dashboard and memory binaries, and per harness its skills and the dashboard's MCP entry. Read-only;
 /// detects the harnesses first when they have not been yet.
 #[tauri::command]
 pub async fn setup_status(state: State<'_, AppState>) -> CommandResult<RecommendedSetup> {
@@ -30,7 +32,7 @@ pub async fn setup_status(state: State<'_, AppState>) -> CommandResult<Recommend
     let runner = state.runner;
     let registry = state.registry.clone();
 
-    // Reads the plugin registries and MCP files besides probing the dashboard's version.
+    // Reads the plugin registries and MCP files besides probing the binaries' versions.
     blocking(move || Ok(block_on(status(&env, &runner, &registry, &summaries)))).await
 }
 
@@ -43,12 +45,31 @@ pub async fn setup_install_dashboard(
     confirmed: bool,
     on_log: Channel<InstallLogLine>,
 ) -> CommandResult<DashboardInstallResult> {
-    install(&state, &TokioSpawner, confirmed, &on_log).await
+    install(&state, &TokioSpawner, Companion::Dashboard, confirmed, &on_log).await
+}
+
+/// Runs the memory server's installer like [`setup_install_dashboard`] (its own lock: one memory
+/// install at a time). Once `ok`, recalls use the installed server, and while project memory is on
+/// it is registered in every detected harness (as at launch).
+#[tauri::command]
+pub async fn setup_install_memory(
+    state: State<'_, AppState>,
+    confirmed: bool,
+    on_log: Channel<InstallLogLine>,
+) -> CommandResult<DashboardInstallResult> {
+    let result = install(&state, &TokioSpawner, Companion::Memory, confirmed, &on_log).await?;
+
+    if result.ok {
+        after_install(&state).await;
+    }
+
+    Ok(result)
 }
 
 async fn install(
     state: &AppState,
     spawner: &dyn ProcessSpawner,
+    companion: Companion,
     confirmed: bool,
     on_log: &Channel<InstallLogLine>,
 ) -> CommandResult<DashboardInstallResult> {
@@ -56,14 +77,18 @@ async fn install(
         return Err(BusinessError::InvalidInput("the user has not confirmed the install".to_owned()).into());
     }
 
-    let Ok(_installing) = state.dashboard_install.try_lock() else {
-        return Err(BusinessError::InvalidInput("the dashboard is already being installed".to_owned()).into());
+    let lock = match companion {
+        Companion::Dashboard => &state.dashboard_install,
+        Companion::Memory => &state.memory_install,
+    };
+    let Ok(_installing) = lock.try_lock() else {
+        return Err(BusinessError::InvalidInput(format!("{} is already being installed", companion.binary())).into());
     };
 
-    tracing::info!("dashboard installer started");
+    tracing::info!(?companion, "installer started");
 
     let mut lines = 0_usize;
-    let result = run_dashboard_installer(&state.env, spawner, |line| {
+    let result = run_installer(&state.env, companion, spawner, |line| {
         lines += 1;
         // A closed channel only means the page went away; the install goes on.
         on_log.send(line).ok();
@@ -76,7 +101,8 @@ async fn install(
         timed_out = result.timed_out,
         truncated = result.truncated,
         lines,
-        "dashboard installer finished"
+        ?companion,
+        "installer finished"
     );
 
     Ok(result)
@@ -121,6 +147,31 @@ async fn register(state: &AppState, harness: HarnessId) -> CommandResult<McpStat
     Ok(registered)
 }
 
+/// Adds the memory server's MCP entry to the user MCP file of `harness` (also where the user removed
+/// it before) and returns the file's state (`refused`, nothing written, when the file cannot be
+/// changed safely). Turns project memory on when it is off. `notFound` when the harness is not
+/// installed; `invalidInput` when Harness Memory is not installed; `unsupported` when the harness
+/// has no user MCP file.
+#[tauri::command]
+pub async fn setup_register_memory(state: State<'_, AppState>, harness: HarnessId) -> CommandResult<McpState> {
+    register_memory(&state, harness).await
+}
+
+async fn register_memory(state: &AppState, harness: HarnessId) -> CommandResult<McpState> {
+    find(state, harness)?;
+    installed_binary(state, harness).await?;
+
+    let registered = register_in(state, harness).await?;
+
+    tracing::info!(
+        ?harness,
+        outcome = outcome(&registered),
+        "memory MCP registration finished"
+    );
+
+    Ok(registered)
+}
+
 /// The kind of `state`, for the log (without the file).
 fn outcome(state: &McpState) -> &'static str {
     match state {
@@ -140,7 +191,12 @@ mod tests {
     use harness_business::process::{ExecSpec, SpawnedProcess};
 
     use super::*;
-    use crate::test_support::{TempDir, cache_detection, collecting_channel, home_state, omp_mcp_file};
+    use harness_business::ecosystem::{MEMORY_RECORD_FILE, MemoryRecord, MemoryRegistration, RecordedFile};
+    use serde_json::json;
+
+    use crate::test_support::{
+        TempDir, cache_detection, collecting_channel, home_state, omp_mcp_file, place_companion, place_memory_server,
+    };
 
     /// Counts spawn attempts and starts nothing.
     #[derive(Default)]
@@ -164,49 +220,62 @@ mod tests {
 
     /// Places an executable `harness-dashboard` in `~/.local/bin`, where it is looked up.
     fn install_dashboard(home: &Path) {
-        let bin = home.join(".local/bin");
-        std::fs::create_dir_all(&bin).expect("create bin");
-
-        let binary = bin.join(format!("harness-dashboard{}", std::env::consts::EXE_SUFFIX));
-        std::fs::write(&binary, "").expect("write binary");
-
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            std::fs::set_permissions(&binary, std::fs::Permissions::from_mode(0o755)).expect("chmod binary");
-        }
+        place_companion(home, "harness-dashboard");
     }
 
     #[test]
     fn an_unconfirmed_install_does_not_run_the_installer() {
         let dir = TempDir::new("setup-unconfirmed");
         let state = state(&dir);
-        let spawner = RefusingSpawner::default();
-        let (channel, _lines) = collecting_channel();
 
-        let error = block_on(install(&state, &spawner, false, &channel)).expect_err("unconfirmed");
+        for companion in [Companion::Dashboard, Companion::Memory] {
+            let spawner = RefusingSpawner::default();
+            let (channel, _lines) = collecting_channel();
 
-        assert_eq!(error.code(), IpcErrorCode::InvalidInput);
-        assert_eq!(spawner.0.load(Ordering::Relaxed), 0);
+            let error = block_on(install(&state, &spawner, companion, false, &channel)).expect_err("unconfirmed");
+
+            assert_eq!(error.code(), IpcErrorCode::InvalidInput);
+            assert_eq!(spawner.0.load(Ordering::Relaxed), 0, "{companion:?}");
+        }
     }
 
     #[test]
     fn a_second_install_is_refused_while_one_runs() {
         let dir = TempDir::new("setup-concurrent");
         let state = state(&dir);
+
+        for (companion, lock) in [
+            (Companion::Dashboard, &state.dashboard_install),
+            (Companion::Memory, &state.memory_install),
+        ] {
+            let spawner = RefusingSpawner::default();
+            let (channel, _lines) = collecting_channel();
+
+            let running = lock.try_lock().expect("no install yet");
+            let error = block_on(install(&state, &spawner, companion, true, &channel)).expect_err("already installing");
+            drop(running);
+
+            assert_eq!(error.code(), IpcErrorCode::InvalidInput);
+            assert_eq!(spawner.0.load(Ordering::Relaxed), 0, "{companion:?}");
+
+            // Once the first one is done, the next install runs.
+            block_on(install(&state, &spawner, companion, true, &channel)).expect_err("the spawner refuses");
+            assert_eq!(spawner.0.load(Ordering::Relaxed), 1, "{companion:?}");
+        }
+    }
+
+    #[test]
+    fn the_dashboard_and_the_memory_server_install_independently() {
+        let dir = TempDir::new("setup-independent");
+        let state = state(&dir);
         let spawner = RefusingSpawner::default();
         let (channel, _lines) = collecting_channel();
 
-        let running = state.dashboard_install.try_lock().expect("no install yet");
-        let error = block_on(install(&state, &spawner, true, &channel)).expect_err("already installing");
-        drop(running);
+        let dashboard = state.dashboard_install.try_lock().expect("no dashboard install yet");
+        block_on(install(&state, &spawner, Companion::Memory, true, &channel)).expect_err("the spawner refuses");
+        drop(dashboard);
 
-        assert_eq!(error.code(), IpcErrorCode::InvalidInput);
-        assert_eq!(spawner.0.load(Ordering::Relaxed), 0);
-
-        // Once the first one is done, the next install runs.
-        block_on(install(&state, &spawner, true, &channel)).expect_err("the spawner refuses");
-        assert_eq!(spawner.0.load(Ordering::Relaxed), 1);
+        assert_eq!(spawner.0.load(Ordering::Relaxed), 1, "the memory installer was started");
     }
 
     #[test]
@@ -248,5 +317,122 @@ mod tests {
             document["mcpServers"]["harness-dashboard"],
             serde_json::json!({ "command": "harness-dashboard", "args": ["mcp"] })
         );
+    }
+
+    fn memory_enabled(state: &AppState) -> bool {
+        state.prefs.with(|store| store.load()).memory_enabled
+    }
+
+    fn set_memory_enabled(state: &AppState, enabled: bool) {
+        state
+            .prefs
+            .with(|store| store.update(|prefs| prefs.memory_enabled = enabled))
+            .expect("pref stored");
+    }
+
+    #[test]
+    fn memory_registration_needs_the_memory_server_installed() {
+        let dir = TempDir::new("setup-memory-missing");
+        let state = state(&dir);
+        set_memory_enabled(&state, false);
+        // A binary that does not report its version does not count either.
+        place_companion(&dir.path().join("home"), "harness-memory");
+
+        let error = block_on(register_memory(&state, HarnessId::Omp)).expect_err("not installed");
+
+        assert_eq!(error.code(), IpcErrorCode::InvalidInput);
+        assert!(!omp_mcp_file(&state).exists());
+        assert!(!memory_enabled(&state), "the pref is left alone");
+    }
+
+    #[test]
+    fn memory_registration_needs_the_harness_installed() {
+        let dir = TempDir::new("setup-memory-harness");
+        let state = state(&dir);
+        cache_detection(&state, HarnessId::Omp, None);
+        if place_memory_server(&dir.path().join("home")).is_none() {
+            return;
+        }
+
+        let error = block_on(register_memory(&state, HarnessId::Omp)).expect_err("omp not installed");
+
+        assert_eq!(error.code(), IpcErrorCode::NotFound);
+        assert!(!omp_mcp_file(&state).exists());
+    }
+
+    #[test]
+    fn memory_registration_adds_the_entry_turns_memory_on_and_records_the_file() {
+        let dir = TempDir::new("setup-memory-register");
+        let state = state(&dir);
+        let Some(server) = place_memory_server(&dir.path().join("home")) else {
+            return;
+        };
+        set_memory_enabled(&state, false);
+
+        // The app registered it here before and the user removed it: an explicit request adds it back.
+        let path = omp_mcp_file(&state);
+        std::fs::create_dir_all(path.parent().expect("agent dir")).expect("agent dir");
+        std::fs::write(&path, r#"{"mcpServers":{"other":{"command":"x"}}}"#).expect("write mcp.json");
+        let mut record = MemoryRecord::load(&state.config_dir);
+        record.note(&state.env, HarnessId::Omp, &path, MemoryRegistration::Added);
+        record.save().expect("record saved");
+
+        let registered = block_on(register_memory(&state, HarnessId::Omp)).expect("registered");
+
+        assert_eq!(
+            registered,
+            McpState::Configured {
+                file: "~/.omp/agent/mcp.json".to_owned(),
+                name: "harness-memory".to_owned()
+            }
+        );
+        let document: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&path).expect("mcp.json")).expect("valid JSON");
+        assert_eq!(
+            document["mcpServers"],
+            json!({
+                "other": { "command": "x" },
+                "harness-memory": { "command": server.to_string_lossy(), "args": ["mcp"] }
+            })
+        );
+        assert!(memory_enabled(&state), "project memory was turned on");
+        assert!(state.config_dir.join(MEMORY_RECORD_FILE).exists());
+        assert_eq!(
+            MemoryRecord::load(&state.config_dir).registered(),
+            [RecordedFile {
+                harness: HarnessId::Omp,
+                file: "~/.omp/agent/mcp.json".to_owned()
+            }]
+        );
+
+        // A second request changes nothing.
+        let before = std::fs::read(&path).expect("mcp.json");
+        assert!(matches!(
+            block_on(register_memory(&state, HarnessId::Omp)).expect("registered"),
+            McpState::Configured { .. }
+        ));
+        assert_eq!(std::fs::read(&path).expect("mcp.json"), before);
+    }
+
+    #[test]
+    fn memory_registration_into_a_file_it_cannot_change_is_refused() {
+        let dir = TempDir::new("setup-memory-refused");
+        let state = state(&dir);
+        if place_memory_server(&dir.path().join("home")).is_none() {
+            return;
+        }
+
+        let path = omp_mcp_file(&state);
+        std::fs::create_dir_all(path.parent().expect("agent dir")).expect("agent dir");
+        std::fs::write(&path, "{ not json").expect("write mcp.json");
+
+        let registered = block_on(register_memory(&state, HarnessId::Omp)).expect("answered");
+
+        assert!(
+            matches!(registered, McpState::Refused { ref file, .. } if file == "~/.omp/agent/mcp.json"),
+            "{registered:?}"
+        );
+        assert_eq!(std::fs::read_to_string(&path).expect("mcp.json"), "{ not json");
+        assert!(!state.config_dir.join(MEMORY_RECORD_FILE).exists(), "nothing recorded");
     }
 }

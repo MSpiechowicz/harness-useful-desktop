@@ -18,13 +18,14 @@ use crate::error::CommandResult;
 use crate::releases::{fetch_release, release_client};
 use crate::state::{AppState, SharedPrefs};
 
-/// The dashboard, the skills and the sidebar with their detection on this machine.
+/// The dashboard, the memory server, the skills and the sidebar with their detection on this
+/// machine.
 #[tauri::command]
 pub async fn ecosystem_status(state: State<'_, AppState>) -> CommandResult<EcosystemStatus> {
     let env = state.env.clone();
     let runner = state.runner;
 
-    // Detection reads the OMP plugin registries besides probing the dashboard's version.
+    // Detection reads the OMP plugin registries besides probing the binaries' versions.
     blocking(move || Ok(block_on(ecosystem::ecosystem_status(&env, &runner)))).await
 }
 
@@ -158,7 +159,7 @@ mod tests {
                 update_available: true,
             }]
         );
-        // All three are requested whichever are installed; only the installed one is compared.
+        // All four are requested whichever are installed; only the installed one is compared.
         let mut requested = requested.into_inner().unwrap();
         requested.sort_unstable();
         let mut all = ecosystem::ECOSYSTEM.map(ecosystem::release_endpoint).to_vec();

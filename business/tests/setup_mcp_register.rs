@@ -1,9 +1,10 @@
 //! Registering the dashboard's MCP server in a user MCP file: creating, merging, recognising an
-//! existing entry, and refusing files it cannot change safely.
+//! existing entry, and refusing files it cannot change safely; and reading the memory server's
+//! state in the same file by the same rules.
 
 mod mcp_support;
 
-use harness_business::ecosystem::{mcp_state, register_dashboard_mcp};
+use harness_business::ecosystem::{mcp_state, memory_mcp_state, register_dashboard_mcp};
 use harness_business::model::{McpRefusal, McpState};
 use mcp_support::{Home, keys, read};
 use pretty_assertions::assert_eq;
@@ -19,6 +20,10 @@ impl Home {
 
     fn state(&self) -> McpState {
         mcp_state(&self.env, &self.agent("mcp.json"), &[self.agent(".mcp.json")])
+    }
+
+    fn memory_state(&self) -> McpState {
+        memory_mcp_state(&self.env, &self.agent("mcp.json"), &[self.agent(".mcp.json")])
     }
 }
 
@@ -267,4 +272,76 @@ fn a_symlinked_file_is_refused_and_its_target_untouched() {
             .file_type()
             .is_symlink()
     );
+}
+
+#[test]
+fn the_memory_server_is_read_by_the_same_rules_and_apart_from_the_dashboard() {
+    let home = Home::new();
+    let missing = McpState::Missing {
+        file: FILE.to_owned(),
+        exists: true,
+    };
+
+    // Only the dashboard's server: the memory server is missing, and the other way round.
+    home.write(
+        "mcp.json",
+        r#"{"mcpServers":{"harness-dashboard":{"command":"harness-dashboard","args":["mcp"]}}}"#,
+    );
+    assert_eq!(home.state(), configured(FILE, "harness-dashboard"));
+    assert_eq!(home.memory_state(), missing);
+
+    home.write(
+        "mcp.json",
+        r#"{"mcpServers":{"notes":{"command":"/home/me/.local/bin/harness-memory","args":["mcp"]}}}"#,
+    );
+    assert_eq!(home.memory_state(), configured(FILE, "notes"), "any path, any name");
+    assert_eq!(home.state(), missing);
+
+    home.write(
+        "mcp.json",
+        r#"{"mcpServers":{"harness-memory":{"command":"C:\\Tools\\harness-memory.exe","args":["mcp"]}},"disabledServers":["harness-memory"]}"#,
+    );
+    assert_eq!(
+        home.memory_state(),
+        McpState::Disabled {
+            file: FILE.to_owned(),
+            name: "harness-memory".to_owned()
+        }
+    );
+
+    home.write(
+        "mcp.json",
+        r#"{"mcpServers":{"harness-memory":{"command":"harness-memory","args":["mcp"],"enabled":false}}}"#,
+    );
+    assert!(matches!(home.memory_state(), McpState::Disabled { .. }));
+
+    // Another binary's `mcp` does not count.
+    home.write(
+        "mcp.json",
+        r#"{"mcpServers":{"other":{"command":"/opt/harness-memory-old","args":["mcp"]}}}"#,
+    );
+    assert_eq!(home.memory_state(), missing);
+}
+
+#[test]
+fn the_memory_server_counts_in_an_also_read_file_and_a_bad_file_is_refused() {
+    let home = Home::new();
+    home.write(
+        ".mcp.json",
+        r#"{"mcpServers":{"mem":{"command":"/usr/local/bin/harness-memory","args":["mcp"]}}}"#,
+    );
+
+    assert_eq!(home.memory_state(), configured("~/.omp/agent/.mcp.json", "mem"));
+    assert_eq!(
+        home.state(),
+        McpState::Missing {
+            file: FILE.to_owned(),
+            exists: false
+        }
+    );
+
+    home.write("mcp.json", "{ not json");
+    assert_eq!(home.memory_state(), refused(McpRefusal::Unparsable));
+    assert_eq!(home.state(), refused(McpRefusal::Unparsable));
+    assert_eq!(std::fs::read_to_string(home.agent("mcp.json")).unwrap(), "{ not json");
 }

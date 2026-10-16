@@ -1,4 +1,4 @@
-//! Running the dashboard installer: the fixed command per OS, streamed and cleaned output, success
+//! Running the companion installers: the fixed command per companion and OS, streamed and cleaned output, success
 //! only when the binary answers afterwards, and the time limit.
 
 use std::path::{Path, PathBuf};
@@ -6,9 +6,11 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use harness_business::Result;
-use harness_business::ecosystem::catalog::{DASHBOARD_INSTALL_PS1, DASHBOARD_INSTALL_SH};
-use harness_business::ecosystem::installer::{MAX_LOG_LINE_BYTES, MAX_LOG_LINES, dashboard_installer};
-use harness_business::ecosystem::{run_dashboard_installer, run_dashboard_installer_with};
+use harness_business::ecosystem::catalog::{
+    DASHBOARD_INSTALL_PS1, DASHBOARD_INSTALL_SH, MEMORY_INSTALL_PS1, MEMORY_INSTALL_SH,
+};
+use harness_business::ecosystem::installer::{MAX_LOG_LINE_BYTES, MAX_LOG_LINES};
+use harness_business::ecosystem::{Companion, installer, run_installer, run_installer_with};
 use harness_business::env::{Env, OsKind};
 use harness_business::model::{DashboardInstallResult, InstallLogLine, InstallStream};
 use harness_business::process::{BoxFuture, ExecOutput, ExecSpec, ExitInfo, ProcessRunner};
@@ -21,27 +23,50 @@ const EXITED_0: ExitInfo = ExitInfo {
     signal: None,
 };
 
-/// Answers every probe with `harness-dashboard version` output.
-struct PrintsVersion;
+/// Answers every version probe with `stdout`, keeping the arguments of each.
+struct Prints {
+    stdout: &'static str,
+    probes: Mutex<Vec<Vec<String>>>,
+}
 
-impl ProcessRunner for PrintsVersion {
-    fn run<'a>(&'a self, _spec: &'a ExecSpec) -> BoxFuture<'a, Result<ExecOutput>> {
+impl Prints {
+    fn new(stdout: &'static str) -> Self {
+        Self {
+            stdout,
+            probes: Mutex::new(Vec::new()),
+        }
+    }
+
+    fn probes(&self) -> Vec<Vec<String>> {
+        self.probes.lock().unwrap().clone()
+    }
+}
+
+impl ProcessRunner for Prints {
+    fn run<'a>(&'a self, spec: &'a ExecSpec) -> BoxFuture<'a, Result<ExecOutput>> {
+        let args = spec.args.iter().map(|arg| arg.to_string_lossy().into_owned()).collect();
+        self.probes.lock().unwrap().push(args);
+
         Box::pin(async {
             Ok(ExecOutput {
                 status: Some(0),
-                stdout: "1.26.0\n".to_owned(),
+                stdout: self.stdout.to_owned(),
                 ..ExecOutput::default()
             })
         })
     }
 }
 
+/// `harness-dashboard version` output.
+const DASHBOARD_VERSION: &str = "1.26.0\n";
+
 fn linux(home: &Path) -> Env {
     Env::for_tests(home).with_os(OsKind::Linux)
 }
 
-fn install_binary(home: &Path) {
-    let binary = home.join(".local/bin/harness-dashboard");
+/// Places an executable `name` in `~/.local/bin`, where companions are looked up.
+fn install_binary(home: &Path, name: &str) {
+    let binary = home.join(".local/bin").join(name);
     std::fs::create_dir_all(binary.parent().unwrap()).unwrap();
     std::fs::write(&binary, "").unwrap();
 
@@ -67,6 +92,7 @@ async fn play(mut peer: FakePeer, stdout: &str, stderr: &str, exit: ExitInfo) ->
 /// Runs the installer against a scripted peer and returns the result, the lines and the spec.
 async fn run_scripted(
     env: &Env,
+    companion: Companion,
     runner: &dyn ProcessRunner,
     stdout: &'static str,
     stderr: &'static str,
@@ -77,7 +103,7 @@ async fn run_scripted(
     let sink_lines = Arc::clone(&lines);
 
     let player = tokio::spawn(async move { play(peers.recv().await.unwrap(), stdout, stderr, exit).await });
-    let result = run_dashboard_installer_with(env, &spawner, runner, Duration::from_secs(30), move |line| {
+    let result = run_installer_with(env, companion, &spawner, runner, Duration::from_secs(30), move |line| {
         sink_lines.lock().unwrap().push(line);
     })
     .await
@@ -100,7 +126,7 @@ fn the_installer_command_is_fixed_per_os() {
     let home = tempfile::tempdir().unwrap();
 
     for os in [OsKind::Linux, OsKind::MacOs] {
-        let spec = dashboard_installer(&Env::for_tests(home.path()).with_os(os));
+        let spec = installer(&Env::for_tests(home.path()).with_os(os), Companion::Dashboard);
 
         assert_eq!(spec.program, PathBuf::from("/bin/sh")); // guard-allow: installer-shell
         assert_eq!(spec.args, vec!["-c".to_owned(), DASHBOARD_INSTALL_SH.to_owned()]);
@@ -122,7 +148,7 @@ fn the_installer_command_is_fixed_per_os() {
     };
     let script = "irm https://raw.githubusercontent.com/MSpiechowicz/harness-useful-dashboard/main/install.ps1 | iex";
 
-    let default_root = dashboard_installer(&windows);
+    let default_root = installer(&windows, Companion::Dashboard);
     assert_eq!(default_root.program, powershell(r"C:\Windows"));
     assert_eq!(
         default_root.args,
@@ -130,8 +156,102 @@ fn the_installer_command_is_fixed_per_os() {
     );
     assert_eq!(default_root.command, DASHBOARD_INSTALL_PS1);
 
-    let custom_root = dashboard_installer(&windows.with_var("SystemRoot", r"D:\Win"));
+    let custom_root = installer(&windows.with_var("SystemRoot", r"D:\Win"), Companion::Dashboard);
     assert_eq!(custom_root.program, powershell(r"D:\Win"));
+}
+
+#[test]
+fn the_memory_installer_command_is_fixed_per_os() {
+    let home = tempfile::tempdir().unwrap();
+
+    for os in [OsKind::Linux, OsKind::MacOs] {
+        let spec = installer(&Env::for_tests(home.path()).with_os(os), Companion::Memory);
+
+        assert_eq!(spec.program, PathBuf::from("/bin/sh")); // guard-allow: installer-shell
+        assert_eq!(spec.args, vec!["-c".to_owned(), MEMORY_INSTALL_SH.to_owned()]);
+        assert_eq!(spec.command, MEMORY_INSTALL_SH);
+        assert!(
+            spec.args[1].starts_with(
+                "curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/MSpiechowicz/harness-useful-memory/"
+            ),
+            "the download is held to HTTPS: {}",
+            spec.args[1]
+        );
+    }
+
+    let windows = installer(&Env::for_tests(home.path()).with_os(OsKind::Windows), Companion::Memory);
+    let script = "irm https://raw.githubusercontent.com/MSpiechowicz/harness-useful-memory/main/install.ps1 | iex";
+
+    assert_eq!(
+        windows.program,
+        PathBuf::from(r"C:\Windows")
+            .join("System32")
+            .join("WindowsPowerShell")
+            .join("v1.0")
+            .join("powershell.exe") // guard-allow: installer-shell
+    );
+    assert_eq!(
+        windows.args,
+        ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script]
+    );
+    assert_eq!(windows.command, MEMORY_INSTALL_PS1);
+}
+
+#[tokio::test]
+async fn the_memory_install_is_ok_once_harness_memory_reports_its_version() {
+    let home = tempfile::tempdir().unwrap();
+    install_binary(home.path(), "harness-memory");
+    let env = linux(home.path());
+    let runner = Prints::new("harness-memory 1.0.0\n");
+
+    let (result, _, spec) = run_scripted(&env, Companion::Memory, &runner, "done\n", "", EXITED_0).await;
+
+    assert_eq!(spec.args[1], MEMORY_INSTALL_SH);
+    assert!(result.ok);
+    assert_eq!(result.version.as_deref(), Some("1.0.0"));
+    assert_eq!(result.summary.as_deref(), Some("Installed harness-memory 1.0.0."));
+    assert_eq!(result.command, MEMORY_INSTALL_SH);
+    assert_eq!(runner.probes(), vec![vec!["--version".to_owned()]]);
+}
+
+#[tokio::test]
+async fn a_memory_install_without_harness_memory_afterwards_is_not_ok() {
+    let home = tempfile::tempdir().unwrap();
+    // Another companion being there does not count.
+    install_binary(home.path(), "harness-dashboard");
+    let env = linux(home.path());
+    let runner = Prints::new("harness-memory 1.0.0\n");
+
+    let (result, _, _) = run_scripted(&env, Companion::Memory, &runner, "done\n", "", EXITED_0).await;
+
+    assert!(!result.ok);
+    assert_eq!(result.version, None);
+    let summary = result.summary.unwrap();
+    assert!(summary.contains("harness-memory was not found afterwards"), "{summary}");
+    assert!(runner.probes().is_empty());
+}
+
+#[tokio::test]
+async fn a_memory_server_that_answers_something_else_is_not_ok() {
+    let home = tempfile::tempdir().unwrap();
+    install_binary(home.path(), "harness-memory");
+    let env = linux(home.path());
+
+    let (result, _, _) = run_scripted(
+        &env,
+        Companion::Memory,
+        &Prints::new(DASHBOARD_VERSION),
+        "",
+        "",
+        EXITED_0,
+    )
+    .await;
+
+    assert!(!result.ok);
+    assert_eq!(
+        result.summary.as_deref(),
+        Some("The installer finished, but `harness-memory --version` did not report a version.")
+    );
 }
 
 #[tokio::test]
@@ -141,9 +261,17 @@ async fn an_exit_code_of_zero_without_the_binary_is_not_ok() {
     let stdout = "\u{1b}[36m==>\u{1b}[0m Downloading\r\nAuthorization: Bearer CANARY0123456789abcdefXYZ\n";
     let stderr = "curl: (6) Could not resolve host: raw.githubusercontent.com";
 
-    let (result, lines, spec) = run_scripted(&env, &PrintsVersion, stdout, stderr, EXITED_0).await;
+    let (result, lines, spec) = run_scripted(
+        &env,
+        Companion::Dashboard,
+        &Prints::new(DASHBOARD_VERSION),
+        stdout,
+        stderr,
+        EXITED_0,
+    )
+    .await;
 
-    assert_eq!(spec.program, dashboard_installer(&env).program);
+    assert_eq!(spec.program, installer(&env, Companion::Dashboard).program);
     assert_eq!(spec.cwd.as_deref(), Some(home.path()));
 
     assert!(!result.ok);
@@ -169,10 +297,18 @@ async fn an_exit_code_of_zero_without_the_binary_is_not_ok() {
 #[tokio::test]
 async fn the_install_is_ok_once_the_binary_reports_its_version() {
     let home = tempfile::tempdir().unwrap();
-    install_binary(home.path());
+    install_binary(home.path(), "harness-dashboard");
     let env = linux(home.path());
 
-    let (result, _, _) = run_scripted(&env, &PrintsVersion, "done\n", "", EXITED_0).await;
+    let (result, _, _) = run_scripted(
+        &env,
+        Companion::Dashboard,
+        &Prints::new(DASHBOARD_VERSION),
+        "done\n",
+        "",
+        EXITED_0,
+    )
+    .await;
 
     assert!(result.ok);
     assert_eq!(result.version.as_deref(), Some("1.26.0"));
@@ -182,14 +318,22 @@ async fn the_install_is_ok_once_the_binary_reports_its_version() {
 #[tokio::test]
 async fn a_failing_installer_reports_its_last_error_line() {
     let home = tempfile::tempdir().unwrap();
-    install_binary(home.path());
+    install_binary(home.path(), "harness-dashboard");
     let env = linux(home.path());
     let failed = ExitInfo {
         code: Some(1),
         signal: None,
     };
 
-    let (result, _, _) = run_scripted(&env, &PrintsVersion, "", "warn: x\nerror: no release found\n", failed).await;
+    let (result, _, _) = run_scripted(
+        &env,
+        Companion::Dashboard,
+        &Prints::new(DASHBOARD_VERSION),
+        "",
+        "warn: x\nerror: no release found\n",
+        failed,
+    )
+    .await;
 
     assert!(!result.ok, "a failed run is not ok even when an older binary answers");
     assert_eq!(result.exit_code, Some(1));
@@ -202,7 +346,15 @@ async fn long_lines_are_cut_and_flagged() {
     let env = linux(home.path());
     let long: &'static str = Box::leak(format!("{}\nshort\n", "é".repeat(5_000)).into_boxed_str());
 
-    let (result, lines, _) = run_scripted(&env, &PrintsVersion, long, "", EXITED_0).await;
+    let (result, lines, _) = run_scripted(
+        &env,
+        Companion::Dashboard,
+        &Prints::new(DASHBOARD_VERSION),
+        long,
+        "",
+        EXITED_0,
+    )
+    .await;
 
     assert!(result.truncated);
     assert_eq!(lines.len(), 2);
@@ -217,7 +369,15 @@ async fn a_flood_of_empty_lines_is_capped() {
     let env = linux(home.path());
     let flood: &'static str = Box::leak("\n".repeat(400_000).into_boxed_str());
 
-    let (result, lines, _) = run_scripted(&env, &PrintsVersion, flood, "", EXITED_0).await;
+    let (result, lines, _) = run_scripted(
+        &env,
+        Companion::Dashboard,
+        &Prints::new(DASHBOARD_VERSION),
+        flood,
+        "",
+        EXITED_0,
+    )
+    .await;
 
     assert!(result.truncated);
     assert_eq!(lines.len(), MAX_LOG_LINES);
@@ -236,9 +396,16 @@ async fn what_the_installer_left_running_is_killed_after_it_exited() {
         peer.stderr.shutdown().await.unwrap();
         peer.exit_watched(EXITED_0)
     });
-    let result = run_dashboard_installer_with(&env, &spawner, &PrintsVersion, Duration::from_secs(30), |_| {})
-        .await
-        .unwrap();
+    let result = run_installer_with(
+        &env,
+        Companion::Dashboard,
+        &spawner,
+        &Prints::new(DASHBOARD_VERSION),
+        Duration::from_secs(30),
+        |_| {},
+    )
+    .await
+    .unwrap();
     let probe = player.await.unwrap();
 
     assert_eq!(result.exit_code, Some(0));
@@ -255,9 +422,16 @@ async fn an_installer_that_runs_too_long_is_killed() {
     let env = linux(home.path());
     let (spawner, mut peers) = DuplexSpawner::new();
 
-    let result = run_dashboard_installer_with(&env, &spawner, &PrintsVersion, Duration::from_millis(100), |_| {})
-        .await
-        .unwrap();
+    let result = run_installer_with(
+        &env,
+        Companion::Dashboard,
+        &spawner,
+        &Prints::new(DASHBOARD_VERSION),
+        Duration::from_millis(100),
+        |_| {},
+    )
+    .await
+    .unwrap();
     let peer = peers.recv().await.unwrap();
 
     assert!(result.timed_out);
@@ -272,7 +446,7 @@ async fn a_spawn_failure_is_an_error() {
     let (spawner, _peers) = DuplexSpawner::new();
     spawner.fail_next_spawn("no shell");
 
-    let outcome = run_dashboard_installer(&linux(home.path()), &spawner, |_| {}).await;
+    let outcome = run_installer(&linux(home.path()), Companion::Dashboard, &spawner, |_| {}).await;
 
     assert!(outcome.is_err());
 }
@@ -284,7 +458,9 @@ fn the_run_can_be_awaited_on_a_multi_threaded_runtime() {
     let env = linux(Path::new("/nonexistent"));
     let (spawner, _peers) = DuplexSpawner::new();
     let lines = Arc::new(Mutex::new(Vec::new()));
-    let run = run_dashboard_installer(&env, &spawner, move |line| lines.lock().unwrap().push(line));
+    let run = run_installer(&env, Companion::Dashboard, &spawner, move |line| {
+        lines.lock().unwrap().push(line)
+    });
 
     assert_send(&run);
 }

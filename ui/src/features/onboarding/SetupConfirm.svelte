@@ -1,20 +1,31 @@
 <script lang="ts">
   import Button from '$lib/components/Button.svelte';
   import Dialog from '$lib/components/Dialog.svelte';
-  import { t } from '$lib/i18n/i18n.svelte';
+  import { t, tn } from '$lib/i18n/i18n.svelte';
 
-  import { setup } from './setup-state.svelte';
+  import type { Plan } from './setup-model';
 
-  const plan = $derived(setup.plan);
+  interface Props {
+    open: boolean;
+    plan: Plan;
+    /** Runs what the plan lists; the dialog closes first. */
+    onconfirm: () => void;
+    /** Default to the recommended setup's wording. */
+    title?: string;
+    body?: string;
+    confirmLabel?: string;
+  }
+
+  let { open = $bindable(false), plan, onconfirm, title = t('onboarding.setup.confirm.title'), body = t('onboarding.setup.confirm.body'), confirmLabel = t('onboarding.setup.confirm.run') }: Props = $props();
 
   function confirm(): void {
-    setup.confirming = false;
-    void setup.run();
+    open = false;
+    onconfirm();
   }
 </script>
 
 <!-- Nothing runs before this: it names every command and every file the run touches, exactly as they will be used. -->
-<Dialog bind:open={setup.confirming} size="lg" title={t('onboarding.setup.confirm.title')} description={t('onboarding.setup.confirm.body')}>
+<Dialog bind:open size="lg" {title} description={body}>
   <div class="flex flex-col gap-5">
     {#if plan.commands.length > 0}
       <section class="flex flex-col gap-2" aria-label={t('onboarding.setup.confirm.commands')}>
@@ -36,27 +47,28 @@
           {#each plan.files as item (item.file)}
             <li class="flex items-baseline gap-2 text-sm text-fg-2">
               <code class="font-mono text-xs text-fg [overflow-wrap:anywhere]">{item.file}</code>
-              <span class="text-fg-3">{item.creates ? t('onboarding.setup.confirm.creates') : t('onboarding.setup.confirm.adds')}</span>
+              <span class="text-fg-3">{item.creates ? t('onboarding.setup.confirm.creates') : tn('onboarding.setup.confirm.adds', item.entries)}</span>
             </li>
           {/each}
         </ul>
       </section>
     {/if}
 
-    {#if plan.sideEffects.length > 0}
-      <section class="flex flex-col gap-2" aria-label={t('onboarding.setup.confirm.effects')}>
-        <h3 class="text-xs font-medium tracking-wider text-fg-3 uppercase">{t('onboarding.setup.confirm.effects')}</h3>
+    {#each plan.effects as group (group.owner)}
+      {@const heading = t(group.owner === 'memory' ? 'onboarding.setup.confirm.effects.memory' : 'onboarding.setup.confirm.effects.dashboard')}
+      <section class="flex flex-col gap-2" aria-label={heading}>
+        <h3 class="text-xs font-medium tracking-wider text-fg-3 uppercase">{heading}</h3>
         <ul class="flex list-disc flex-col gap-1 pl-5 text-sm text-fg-2 marker:text-fg-3">
-          {#each plan.sideEffects as effect (effect)}
+          {#each group.effects as effect (effect)}
             <li>{effect}</li>
           {/each}
         </ul>
       </section>
-    {/if}
+    {/each}
   </div>
 
   {#snippet footer()}
-    <Button variant="ghost" onclick={() => (setup.confirming = false)}>{t('onboarding.setup.confirm.cancel')}</Button>
-    <Button variant="primary" onclick={confirm}>{t('onboarding.setup.confirm.run')}</Button>
+    <Button variant="ghost" onclick={() => (open = false)}>{t('onboarding.setup.confirm.cancel')}</Button>
+    <Button variant="primary" onclick={confirm}>{confirmLabel}</Button>
   {/snippet}
 </Dialog>

@@ -2,6 +2,7 @@
   import AppWindow from '@lucide/svelte/icons/app-window';
   import FolderDown from '@lucide/svelte/icons/folder-down';
   import Info from '@lucide/svelte/icons/info';
+  import Plug from '@lucide/svelte/icons/plug';
   import Square from '@lucide/svelte/icons/square';
   import Terminal from '@lucide/svelte/icons/terminal';
 
@@ -20,6 +21,7 @@
     install: FolderDown,
     menu: AppWindow,
     path: Terminal,
+    register: Plug,
     stop: Square,
     other: Info,
   };

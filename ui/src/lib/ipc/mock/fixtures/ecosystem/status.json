@@ -27,6 +27,32 @@
       ]
     },
     {
+      "id": "memory",
+      "name": "Harness Memory",
+      "tagline": "One project memory for every coding agent, kept on this machine.",
+      "description": "A local MCP server that keeps notes and how they relate per repository, so what one agent learns the next one finds. The app registers it with each detected harness while Project memory is on, and adds matching notes to the first message of a new chat.",
+      "repoUrl": "https://github.com/MSpiechowicz/harness-useful-memory",
+      "docsUrl": "https://github.com/MSpiechowicz/harness-useful-memory#readme",
+      "installed": true,
+      "version": "1.0.0",
+      "latestVersion": null,
+      "updateAvailable": false,
+      "via": [
+        "binary ~/.local/bin/harness-memory"
+      ],
+      "supportedOnThisOs": true,
+      "installSteps": [
+        {
+          "label": "Install the binary",
+          "command": "curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/MSpiechowicz/harness-useful-memory/main/install.sh | sh"
+        }
+      ],
+      "notes": [
+        "Runs locally as `harness-memory mcp`; nothing is sent over the network.",
+        "Turn it on or off for every harness in Settings, under Project memory."
+      ]
+    },
+    {
       "id": "skills",
       "name": "Harness Skills",
       "tagline": "From a natural-language request to reviewed, verified work.",

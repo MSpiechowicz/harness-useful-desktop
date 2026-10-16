@@ -7,24 +7,29 @@ not guaranteed, it says so under [Limits](#limits).
 
 - Local only. No telemetry, no analytics, no accounts, no sign-in, no tokens stored.
 - The app itself makes two kinds of network request, both to GitHub and both possible to turn off: the update check and
-  download (only when the build carries an updater key), and the companion release lookup. See [Network](#network).
+  download (only when the build carries an updater key), and the companion release lookup (Harness Memory's included).
+  See [Network](#network).
 - The app never reads credential stores, databases, logs or private keys, even through a symlink. The one database in
-  the picture is the project memory that the bundled `harness-memory` server (a separate program, started by your
-  harnesses and, for the recall of notes in a new chat, by the app) opens directly with SQLite; the desktop app
-  never opens it itself. See [Project memory](#project-memory).
+  the picture is the project memory that the `harness-memory` server (a separate program from its own repository, which
+  you install; your harnesses start it and, for the recall of notes in a new chat, so does the app) opens directly with
+  SQLite; the desktop app never opens it itself. See [Project memory](#project-memory).
 - The only things the app writes into a harness's configuration are entries in its user `mcp.json`: the
-  `harness-memory` entry (project memory, added automatically on launch until you switch it off in Settings or remove
-  the entry yourself), the `harness-dashboard` entry when you choose it in Recommended setup, and the MCP servers you
+  `harness-memory` entry (project memory, added automatically on launch once the server is installed, until you switch it
+  off in Settings or remove the entry yourself), the `harness-dashboard` entry when you choose it in Recommended setup, and the MCP servers you
   tick when you import a shared setup. An existing entry is never overwritten; the only change to one is the `command`
-  of the app's own `harness-memory` entry when the stable copy of the server moves. See
+  of the app's own `harness-memory` entry, which is re-pointed to whichever server the app resolves (the installer's
+  folder first, then `PATH`), for example when the installed server replaces the copy older builds kept or another
+  `harness-memory` takes over; each such change is logged with the old and new path. See
   [Process spawning](#process-spawning), [Project memory](#project-memory) and [Shared setups](#shared-setups).
 - A shared setup carries references and the names (never the values) of environment variables and headers, and nothing
   in it runs until you have read the review and confirmed. Secret and path detection in free-form text is best effort,
   and host names are part of sources and URLs. Bundles are not signed. See [Shared setups](#shared-setups).
 - Secrets in configuration and in the app's own CLI output are masked before they reach the screen.
-- No shell is spawned, with one exception: the Harness Dashboard installer of Recommended setup, a fixed command that
-  runs only after you confirm it (see [Process spawning](#process-spawning)). Every process has an absolute program
-  path and an explicit argument list.
+- No shell is spawned, with one exception: the companion installers (Harness Dashboard and Harness Memory), fixed
+  commands that run only after you confirm them (see [Process spawning](#process-spawning)). Their interpreter has an
+  absolute path (`/bin/sh`, Windows PowerShell), but the `curl` and `sh` the Linux and macOS command line names are
+  looked up on the `PATH` the app inherited, for the dashboard's installer and the memory server's alike. Every other
+  process has an absolute program path and an explicit argument list.
 - Project memory stores what your agents choose to write, on this machine only, unencrypted and outside any repository.
   Text is passed through `redact_text` first, which is a heuristic. It is never exported by Share setup and never sent
   anywhere by the app. With **Add memory to new chats** on (the default), the first message of a new chat is sent to the
@@ -53,13 +58,15 @@ your terminal (see [Limits](#limits)).
 ## Network
 
 The app contains no analytics client. Its only HTTP clients are the updater and the companion release lookup; the one
-other download, the dashboard installer, is made by the installer command itself, and only after consent. Enumerated:
+other downloads, those of the companion installers (dashboard and memory server), are made by the installer command
+itself, and only after consent. Enumerated:
 
 | Request | When | Details |
 | --- | --- | --- |
 | Update check and download | Only if `plugins.updater.pubkey` in `src-tauri/tauri.conf.json` holds a valid public key (`configured_pubkey`, `business/src/update.rs`), and the user or the update policy asks | One URL: `UPDATE_ENDPOINT`, the GitHub release `latest.json`. The client is `https_only(true)` with 15 s connect and 30 s read timeouts (`src-tauri/src/commands/updates.rs`). The code sends nothing beyond the updater's standard headers. |
-| Companion release lookup | When the Ecosystem view loads or is refreshed, at most once per companion every 6 hours while the app runs (the cache is in memory, so a restart asks again; failed lookups, including rate limits, retry after 5 minutes), and only while **Check companions for updates** (`checkCompanionUpdates` in prefs, on by default) is on. A prefs file that exists but cannot be read counts as off. | Three fixed URLs, `https://api.github.com/repos/MSpiechowicz/harness-useful-{dashboard,skills,sidebar}/releases/latest`, HTTPS only, with timeouts and a capped response. Only `tag_name` is read. The request carries a `User-Agent` (`harness-desktop/<version>`) and an `Accept` header and nothing else: no token, no cookies, no referer, no installed versions or other local data. While at least one companion is installed, all three are requested, so the request set does not reveal which ones (with none installed, nothing is requested); GitHub sees the IP address, the app version and when Ecosystem was opened. The comparison with the installed version happens on this machine (`ecosystem_releases`). Redirects are followed only to `https://api.github.com` on port 443. System proxy settings apply, as for the updater. A failed lookup only means no update badge. |
+| Companion release lookup | When the Ecosystem view loads or is refreshed, at most once per companion every 6 hours while the app runs (the cache is in memory, so a restart asks again; failed lookups, including rate limits, retry after 5 minutes), and only while **Check companions for updates** (`checkCompanionUpdates` in prefs, on by default) is on. A prefs file that exists but cannot be read counts as off. | Four fixed URLs, `https://api.github.com/repos/MSpiechowicz/harness-useful-{dashboard,memory,skills,sidebar}/releases/latest`, HTTPS only, with timeouts and a capped response. Only `tag_name` is read. The request carries a `User-Agent` (`harness-desktop/<version>`) and an `Accept` header and nothing else: no token, no cookies, no referer, no installed versions or other local data. While at least one companion is installed, all four are requested, so the request set does not reveal which ones (with none installed, nothing is requested); GitHub sees the IP address, the app version and when Ecosystem was opened. The comparison with the installed version happens on this machine (`ecosystem_releases`). Redirects are followed only to `https://api.github.com` on port 443. System proxy settings apply, as for the updater. A failed lookup only means no update badge. |
 | Dashboard installer download | Only when the user confirms **Install the dashboard** in Recommended setup (onboarding, or **Run recommended setup** in Ecosystem) | The app opens no connection itself. The installer command it runs (a `curl` of `install.sh` piped to `sh` on Linux and macOS, `irm` of `install.ps1` piped to `iex` on Windows) fetches the script from `https://raw.githubusercontent.com/MSpiechowicz/harness-useful-dashboard/main/` and then whatever that script downloads, the dashboard release. GitHub sees the IP address and the request. See [Process spawning](#process-spawning). |
+| Memory server installer download | Only when the user confirms the install of Harness Memory (Recommended setup, or the **Project memory** switch in Settings) | The same as the dashboard installer, from `https://raw.githubusercontent.com/MSpiechowicz/harness-useful-memory/main/` and then the `harness-memory` release it names; its `install.sh` and `install.ps1` verify the release's `checksums.txt`. |
 | Opening a link | Only when the user clicks one | `open_external` hands an allowlisted `https` URL (any `https` URL, or `http` to localhost, with **Open any web link** on) to the OS browser. The app itself does not fetch it. |
 
 - **AI chat names** (`aiChatNames`, off by default). When on, after the first message of a new chat the app starts one
@@ -93,19 +100,18 @@ Everything else:
 - Share setup opens no connection. Export and import read and write local files; an import's marketplace, plugin and
   package installs go through the harness CLI, which fetches from the sources in the setup you confirmed, exactly as
   `omp plugin install` or `pi install` do in your terminal.
-- Project memory opens no connection. `harness-memory` speaks MCP over stdio to the process that started it (a harness,
+- Project memory opens no connection once installed (the installer above is the only download). `harness-memory` speaks MCP over stdio to the process that started it (a harness,
   or the app for recall) and has no HTTP client; the only program it runs is `git` (see
   [Process spawning](#process-spawning)). The keywords the app searches with stay on that pipe. The notes it adds to a
   message are sent by the harness to its model provider like the rest of the message.
 - The Ecosystem tab shows install commands for copying (`business/src/ecosystem/catalog.rs`). The app never runs them,
-  except the Harness Dashboard installer of Recommended setup (see [Process spawning](#process-spawning)).
+  except the Harness Dashboard and Harness Memory installers (see [Process spawning](#process-spawning)).
 
 ## Files the app never reads
 
 `SafeReader` (`business/src/security/deny.rs`) is the only way the business layer reads files; a grep of
-`business/src` for direct file reads finds none outside it (directory listings and metadata aside), with one exception:
-`install_memory_binary` (`business/src/ecosystem/memory_install.rs`) reads the bundled and the installed
-`harness-memory` executables to compare their bytes. Names compare case-insensitively. The `harness-memory` server is
+`business/src` for direct file reads finds none outside it (directory listings and metadata aside). Names compare
+case-insensitively. The `harness-memory` server is
 a separate program and is not covered by these rules: it opens its own database, and nothing else, directly.
 
 | Rule | Entries |
@@ -163,7 +169,7 @@ value may cross the IPC boundary. For each string leaf, the first matching rule 
 - `omp plugin` and `pi` action output (ANSI stripped first, 256 KiB per stream);
 - marketplace URIs, MCP client errors, and package sources (`Redactor` at their key path);
 - every string the project memory server stores: titles, bodies, tags, entity names, relation labels and the client
-  name (`memory/src/store/clean.rs`).
+  name (the server's own redaction, in its repository).
 
 **Not redacted:** the chat itself. Assistant text, thinking, tool arguments and tool results, and the transcripts
 of saved sessions, are shown as the agent produced them. They are your own session data, shown only to you on this
@@ -210,20 +216,23 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
 
 - **No shell.** `build_command` (`business/src/process/mod.rs`) requires an absolute program path and passes the
   argument list verbatim. `scripts/check-forbidden.ts` rejects `Command::new("sh" | "bash" | "cmd" | ...)` with no
-  opt-out. The single exception is the dashboard installer below.
-- **Dashboard installer (the one shell).** Recommended setup can run the official Harness Dashboard installer
-  (`setup_install_dashboard`, `business/src/ecosystem/installer.rs`). It is the only place the app runs an install
-  command and names a shell. The command is a Rust constant per OS (`DASHBOARD_INSTALL_SH` and
-  `DASHBOARD_INSTALL_PS1_SCRIPT` in `business/src/ecosystem/catalog.rs`): `/bin/sh -c` on Linux and macOS, Windows
-  PowerShell from `<SystemRoot>\System32\WindowsPowerShell\v1.0` with `-NoProfile` on Windows. The webview sends only
-  `confirmed`; no command line, path or URL. The command fails with `invalidInput` unless `confirmed` is true (the UI
-  asks first and lists what the installer changes), and only one install runs at a time. The child runs in the home
+  opt-out. The single exception is the companion installers below.
+- **Companion installers (the one shell).** Recommended setup can run the official Harness Dashboard installer
+  (`setup_install_dashboard`) and the official Harness Memory installer (`setup_install_memory`, also offered by the
+  **Project memory** switch), both through `run_installer` in `business/src/ecosystem/installer.rs`. It is the only place
+  the app runs an install command and names a shell. Each command is a Rust constant per companion and OS
+  (`DASHBOARD_INSTALL_SH` / `DASHBOARD_INSTALL_PS1_SCRIPT` and `MEMORY_INSTALL_SH` / `MEMORY_INSTALL_PS1_SCRIPT` in
+  `business/src/ecosystem/catalog.rs`): `/bin/sh -c` on Linux and macOS, Windows PowerShell from
+  `<SystemRoot>\System32\WindowsPowerShell\v1.0` with `-NoProfile` on Windows. The webview sends only `confirmed`; no
+  command line, path or URL. The command fails with `invalidInput` unless `confirmed` is true (the UI asks first and
+  lists what the installer changes), and only one install per companion runs at a time. The child runs in the home
   directory with `NO_COLOR=1`, inherits the app's environment, has its stdin closed, lives in its own process group
   and is killed with it after 10 minutes. Its output reaches the UI line by line with escapes stripped and secrets
   redacted (`redact_text`; 2 KiB per line, 256 KiB in all); the log keeps only counts and the exit code. Success needs
-  exit code 0 and a `harness-dashboard` that reports a version afterwards, because a piped download can exit 0 after
-  failing. The script comes from the `main` branch of the dashboard's repository; the app does not pin or verify it
-  (see [Limits](#limits)). The guard keeps the exception narrow: rule `installer-shell` in
+  exit code 0 and a `harness-dashboard` (or `harness-memory`) that reports a version afterwards, because a piped
+  download can exit 0 after failing. After a successful memory install the app registers the server (see the next
+  item). The scripts come from the `main` branch of the companions' repositories; the app does not pin or verify them
+  (see [Limits](#limits)), though the Harness Memory script itself verifies the release's `checksums.txt`. The guard keeps the exception narrow: rule `installer-shell` in
   `scripts/check-forbidden.ts` rejects `/bin/sh` and `powershell.exe` in any Rust file except
   `business/src/ecosystem/installer.rs` and `business/tests/`, with no opt-out; inside those files every line that
   names one must carry `guard-allow: installer-shell`.
@@ -253,17 +262,20 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
   write is atomic (temporary sibling, flushed, renamed) and keeps the file's permissions; a new file is created with
   `0600`. File contents are never logged or returned.
 - **Project memory registration.** At every launch, in the background and only while `memoryEnabled` is on (the
-  default), the shell (`src-tauri/src/memory_setup.rs`) installs the bundled server as a stable copy and registers it
-  in the user `mcp.json` of every detected harness whose adapter has one (`register_memory_mcp`,
-  `business/src/ecosystem/memory_register.rs`). There is no prompt, because the entry only starts a local program that
-  reads and writes the memory database; the switch in Settings turns it off (`memory_set_enabled`). The webview sends
-  only `enabled`; the paths come from Rust.
-  - The stable copy is `harness-memory[.exe]` in `~/.local/bin` (Linux) or `<local data>/bin` (macOS, Windows;
-    `memory_bin_dir`, `business/src/app_dirs.rs`), so the entry's absolute path survives app updates and moves of the
-    app bundle. `install_memory_binary` replaces it only when its bytes differ: the new file is written beside it,
-    made `0755` on Unix, flushed and renamed over it. It refuses a destination that is a symlink or not a regular
-    file.
-  - The entry added is `{"command": "<absolute path of the stable copy>", "args": ["mcp"]}`, and only when none
+  default) and the server is installed, the shell (`src-tauri/src/memory_setup.rs`) registers it in the user `mcp.json`
+  of every detected harness whose adapter has one (`register_memory_mcp`, `business/src/ecosystem/memory_register.rs`);
+  the same runs after a successful install and when you switch the setting on. There is no prompt, because the entry
+  only starts a local program that reads and writes the memory database; the switch in Settings turns it off
+  (`memory_set_enabled`). The webview sends only `enabled` (and `confirmed` for the installer); the paths come from Rust.
+  - The server is found by `resolve_memory` (`business/src/ecosystem/memory_binary.rs`): first where the Harness Memory
+    installer puts it, `~/.local/bin/harness-memory` (Linux, macOS) or
+    `%LOCALAPPDATA%\Programs\harness-memory\harness-memory.exe` (Windows), then on the absolute `PATH` entries, then in
+    the standard install directories. On Windows only a `.exe` counts (no `.cmd`, `.bat` or `.com`); on Unix a file
+    writable by its group or by everyone, or in a folder everyone may write without the sticky bit, is skipped. The first one left
+    must answer `harness-memory --version` with a version within 5 s (`installed_memory`), checked once per lookup,
+    before it is registered, run for recall or used as the migration target; otherwise the server counts as not
+    installed (logged) and no later candidate is tried. The app does not copy, replace or write the server.
+  - The entry added is `{"command": "<resolved absolute path>", "args": ["mcp"]}`, and only when none
     exists: no server named `harness-memory` and none running `harness-memory mcp` (from any directory), in that file
     or one of the harness's other MCP files, switched on or off. A switched-off entry stays off.
   - **Removal is respected.** The files the app registered the server in are recorded (home-relative paths, never
@@ -271,10 +283,23 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
     was registered and the entry is gone, the app does not add it again. A record that cannot be read is moved aside
     and rebuilt from every file checked, so nothing is added that launch or later. Switching the pref on clears the record, so the entry returns
     everywhere.
+  - **Per harness from Recommended setup.** The Harness Memory MCP column shows the entry's state per harness (read like
+    the dashboard's). Once you confirm a run, `setup_register_memory` adds it to that one harness's `mcp.json` (also
+    where you removed it before), records the file, and turns `memoryEnabled` on when it is off; the other harnesses
+    follow at the next launch. The webview sends only the harness id; the harness and a version-checked server must be
+    installed (`invalidInput` otherwise).
   - **Only owned entries change.** An entry in the harness's own `mcp.json` named exactly `harness-memory` that runs
-    `harness-memory mcp` gets its `command` updated when the stable copy lives elsewhere; every other field and
-    server is kept. Switching the pref off removes only such entries. Other entries are never touched, and the stable
-    copy, the record and the database stay.
+    `harness-memory mcp` gets its `command` re-pointed to the resolved server whenever that lives elsewhere (logged at
+    info with the old and new path); every other field and server is kept. Switching the pref off removes only such entries. Other entries are never touched, and the server,
+    the record and the database stay.
+  - **The old copy is retired.** Builds up to 0.16 kept a copy of the bundled server at `<local data>/bin/harness-memory[.exe]`
+    on macOS and Windows (`legacy_memory_copy`, `business/src/app_dirs.rs`; on Linux it was the installer's own path). Once
+    the server is installed, each launch (`migrate_legacy_memory`, `business/src/ecosystem/memory_migrate.rs`) re-points the
+    app's own entries that run that copy at the installed server, in every harness's user `mcp.json`, then deletes the
+    copy and its folder only when it is a regular file (a symlink is refused), no folder from `<local data>` down to it is
+    a symlink, it is not the installed server's own file (same device and inode on Unix, same canonical path on Windows),
+    and no server in any checked MCP file runs it (a file that cannot be read counts as a use). Failures are logged and retried at the next launch. Until the server is
+    installed nothing is re-pointed, and recall keeps using the old copy.
   - The writes use the same refusals and atomic write as the merge above (`change_file`).
 - **Project memory server.** `harness-memory mcp` is started by the harness with the harness's environment and working
   directory (and by the app for recall, see the next item), and talks MCP over stdio. To tell which repository a call is about it runs `git
@@ -284,13 +309,14 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
   credentials dropped), else the repository path; a home or filesystem-root directory is no project. A work tree git
   reports that does not contain the directory (a `core.worktree` or gitfile pointing elsewhere) is ignored: the
   directory is then keyed by its own path, so it cannot claim another checkout's notes.
-- **Project memory recall.** The app itself runs the bundled `harness-memory mcp` (`bundled_server`, the copy next to
-  the app executable, not the stable copy; no shell, absolute path, argument `mcp`) to search project memory for the
+- **Project memory recall.** The app itself runs the installed `harness-memory mcp` (`resolve_memory`, or until it is
+  installed on macOS and Windows the old copy above, either only once it reported its version; a file that did not is
+  not asked again until it changes; no shell, absolute path, argument `mcp`) to search project memory for the
   first message of a new chat (`src-tauri/src/memory_recall.rs`, `business/src/ecosystem/memory_recall.rs`). It runs
   with the app's environment in the chat's project directory (the project the chat was started in, already authorized
   by `agent_start`) and is used for one call: `memory_search`, which writes no note. Like any start of the server it
   opens the database, creating or upgrading the file if needed. It starts only while `memoryEnabled` and
-  `memoryRecall` are both on and the bundled file exists; the webview sends no path or command. It is started when the
+  `memoryRecall` are both on and a server is found; the webview sends no path or command. It is started when the
   chat starts, in the background, so the first message mostly waits only for the search, and it is killed (with its
   process group) when the chat stops, switches or forks, when the first message is not eligible, when the whole
   recall takes more than 1.5 s, and after the search. A warm server unused for 60 s is killed too, and at most four
@@ -397,9 +423,11 @@ install scripts; the review shows each command.
 
 ## Project memory
 
-`harness-memory` (crate `memory/`) is an MCP server that gives every harness a shared, local memory. The app bundles it,
-keeps a stable copy and registers it (see [Process spawning](#process-spawning)); your harnesses start it as `harness-memory
-mcp` and talk to it over stdio. Seven tools: `memory_remember`, `memory_update`, `memory_search`, `memory_get`,
+`harness-memory` is an MCP server that gives every harness a shared, local memory. It is a separate program, built and
+released from [harness-useful-memory](https://github.com/MSpiechowicz/harness-useful-memory), not part of this app. The
+app installs it after you confirm and registers it (see [Process spawning](#process-spawning)); your harnesses start it
+as `harness-memory mcp` and talk to it over stdio. The rules below describe the server as this app relies on it; its
+repository is the reference for the server itself. Seven tools: `memory_remember`, `memory_update`, `memory_search`, `memory_get`,
 `memory_link`, `memory_neighbors` and `memory_forget`. The server's instructions ask agents to search at the start of a
 task and to save outcomes, problems and fixes, locations and decisions before they finish, to prefer updating a note
 over adding one, to forget outdated notes, and never to store secrets or personal data. Whether an agent follows that
@@ -407,7 +435,7 @@ is up to the agent.
 
 **Recall in new chats.** The app does not rely on that. On the first message of a new chat, while **Project memory**
 (`memoryEnabled`) and **Add memory to new chats** (`memoryRecall`, on by default, UI-managed) are on, the app runs the
-bundled server in the chat's project directory (see [Process spawning](#process-spawning)), calls `memory_search`
+installed server in the chat's project directory (see [Process spawning](#process-spawning)), calls `memory_search`
 with keywords from the message, limit 5, scope `repo` and `same_checkout: true`, and puts the hits in front of the
 message as a `<harness-memory-recall>` block (`business/src/ecosystem/memory_recall.rs`, `recall_text.rs`).
 - **Which notes.** Only notes of this repository whose latest write came from this same checkout (the server's own
@@ -435,7 +463,7 @@ message as a `<harness-memory-recall>` block (`business/src/ecosystem/memory_rec
   and writes them to its own session file, which is the harness's, not the app's. Harness terminal UIs and HTML
   exports show the block as written. The chat in the app shows it as a collapsed chip, **Project memory · N notes**,
   that expands; titles, labels and session previews leave it out; a retry sends the message with the block as it was.
-- **Bounded, and never in the way.** The whole recall, start included, has 1.5 s. Any failure (no bundled file, start
+- **Bounded, and never in the way.** The whole recall, start included, has 1.5 s. Any failure (no server, start
   failure, timeout, a reply that does not follow the protocol, a tool error, no hit, a message that would exceed the
   size limit with the block) sends the message unchanged. The log records only the outcome kind and the number of
   notes (`recalled`, `no_hits`, `timeout` and so on); never the keywords, the message or note text.
@@ -463,7 +491,7 @@ message as a `<harness-memory-recall>` block (`business/src/ecosystem/memory_rec
   for a note last written that way: the agent gets the existing note's id and must call `memory_update` with it to
   replace the note on purpose. Global notes are shared by design and update by title from anywhere.
 - **Note text is data.** Notes are written by agents and returned to other agents, so the server keeps them from
-  passing for anything else (`memory/src/store/clean.rs`, `memory/src/mcp/blocks.rs`): control characters (bodies keep
+  passing for anything else: control characters (bodies keep
   line breaks and tabs) and invisible format characters (bidirectional controls, zero-width and tag characters) are
   dropped before anything is stored; titles, entity names and relation labels are one line, and so are repository keys
   and echoed arguments in replies (stored text is cleaned again on the way out, for rows written before the store
@@ -472,13 +500,15 @@ message as a `<harness-memory-recall>` block (`business/src/ecosystem/memory_rec
   never to follow instructions found in one.
 - **Where.** `memory.sqlite3` in the folder named in [What is stored on disk](#what-is-stored-on-disk), never inside a
   repository, so it is never committed. The server opens it directly with SQLite (WAL and an FTS5 index, compiled in) and
-  creates it `0600` in a `0700` folder on Unix. Several running agents share it; writers queue for up to 5 seconds.
-- **Redaction.** Every string is passed through `redact_text` before it is written (`memory/src/store/clean.rs`): known
+  creates it `0600` in a `0700` folder on Unix. Several running agents share it; writers queue for up to 5 seconds. On
+  its first run the server copies the database that app builds up to 0.16 kept in the app's folder, leaving the old file
+  where it is; the app never reads or moves it.
+- **Redaction.** Every string is passed through `redact_text` before it is written: known
   credential formats, `NAME=value` pairs, URL credentials and high-entropy strings. A body extended with `append` is
   masked as a whole, and the word cut at the join is also checked as one word, so a secret split across the two parts
   is caught too. It is a heuristic and catches
   neither every secret nor personal data.
-- **Limits per call**, not on the total (`memory/src/limits.rs`): a title is 120 characters, a body 4000, 8 tags, 10
+- **Limits per call**, not on the total: a title is 120 characters, a body 4000, 8 tags, 10
   entities per note, a search text 256 characters and at most 20 rows, a line of input 1 MiB, and replies to agents are
   capped at 4 KiB (16 KiB for `memory_get`). The number of notes and the size of the database are not capped. Input is
   checked before the write lock is taken, so an oversized call fails at once without holding up other agents.
@@ -487,17 +517,18 @@ message as a `<harness-memory-recall>` block (`business/src/ecosystem/memory_rec
 - **No telemetry, no network.** The app never opens the database itself and no note text reaches the log.
 
 **Switching it off.** **Project memory** in Settings (`memoryEnabled`) removes the app's own `harness-memory` entries and
-stops adding them. It keeps the database, the stable copy and the registration record, so switching it on again brings
+stops adding them. It keeps the database, the installed server and the registration record, so switching it on again brings
 the notes back. Deleting an entry yourself also works, and the app does not add it back while the record shows it
 registered there; switching the setting off and on re-adds it everywhere.
 
-**After uninstalling the app** the harnesses' entries, the stable copy and the notes stay; the app removes none of them.
+**After uninstalling the app** the harnesses' entries, the server and the notes stay; the app removes none of them.
 To remove them, delete the `harness-memory` server from each harness's `mcp.json` (or switch the setting off first),
-the stable copy and the `memory` folder of the app's data directory (paths in the storage table above).
+uninstall the server as its repository's README describes, and delete the `harness-memory` folder of the data directory
+(paths in the storage table above).
 
 ## Tauri ACL, CSP and webview
 
-- **Capability** (`src-tauri/capabilities/main.json`, window `main`): 57 `allow-<command>` permissions, one per app
+- **Capability** (`src-tauri/capabilities/main.json`, window `main`): 58 `allow-<command>` permissions, one per app
   command, generated from `COMMANDS` in `src-tauri/build.rs`. There is no `core:*` permission and no plugin
   permission. The dialog, opener, window-state, log, single-instance and updater plugins are driven from Rust only, so
   their JavaScript APIs (and the log plugin's `log` command) are unreachable. `withGlobalTauri` is `false`. Channel
@@ -542,9 +573,9 @@ Details of keys and releases: [release-and-updater-keys.md](release-and-updater-
 | `prefs.json` | The OS app-config directory for the identifier `com.mspiechowicz.harness-useful-desktop` (Tauri `app_config_dir`) | `AppPrefs` only (below). Written atomically (temp file, `sync_all`, rename); directory `0700`, file `0600` on Unix. A corrupt file is renamed to `prefs.json.corrupt-<unix-seconds>` and defaults load. |
 | Window size and position | App state kept by `tauri-plugin-window-state` | Geometry only. |
 | UI choices | Webview `localStorage` | Rail expanded (`harness.railExpanded`), command-palette recents (`harness.paletteRecents`), diff layout. |
-| `mcp.json` of a harness | `<agent dir>/mcp.json` (for example `~/.omp/agent/mcp.json`), the harness's own file | Written by the app in three cases: the `harness-memory` entry, added automatically at launch while project memory is on and removed when you switch it off; Recommended setup (one `harness-dashboard` server, after you choose it); and importing a shared setup (the MCP servers you ticked, after you confirm). Entries are merged in (see [Process spawning](#process-spawning)); the only existing entry ever changed is the app's own `harness-memory` one. Not app data; nothing else in it is touched. |
-| Project memory database | `memory.sqlite3` (plus `-wal` and `-shm` while in use) in `<local data>/memory`, where `<local data>` is `$XDG_DATA_HOME` or `~/.local/share` (Linux), `~/Library/Application Support` (macOS) or `%LOCALAPPDATA%` (Windows), followed by `com.mspiechowicz.harness-useful-desktop` (`memory_dir`, `business/src/app_dirs.rs`) | Written by the `harness-memory` server, never by the app. Notes the agents wrote (title, body, kind, tags, entity names, relation labels, timestamps, and per note the client name and the checkout path of its latest write), and per repository its normalized remote and its path. See [Project memory](#project-memory). On Unix a folder the server creates is `0700` and the file `0600`. Unencrypted. |
-| Stable copy of `harness-memory` | `~/.local/bin/harness-memory` (Linux), `<local data>/bin/harness-memory` (macOS), `%LOCALAPPDATA%\com.mspiechowicz.harness-useful-desktop\bin\harness-memory.exe` (Windows) | The server executable, copied from the app's bundle at launch while project memory is on. Mode `0755` on Unix. |
+| `mcp.json` of a harness | `<agent dir>/mcp.json` (for example `~/.omp/agent/mcp.json`), the harness's own file | Written by the app in three cases: the `harness-memory` entry, added automatically at launch while project memory is on and the server is installed, and removed when you switch it off; Recommended setup (one `harness-dashboard` server, after you choose it); and importing a shared setup (the MCP servers you ticked, after you confirm). Entries are merged in (see [Process spawning](#process-spawning)); the only existing entry ever changed is the app's own `harness-memory` one. Not app data; nothing else in it is touched. |
+| Project memory database | `memory.sqlite3` (plus `-wal` and `-shm` while in use) in `<data>/harness-memory` (`HARNESS_MEMORY_DIR` overrides it), where `<data>` is `$XDG_DATA_HOME` or `~/.local/share` (Linux), `~/Library/Application Support` (macOS) or `%LOCALAPPDATA%` (Windows) | Written by the `harness-memory` server, never by the app, which does not open it. Notes the agents wrote (title, body, kind, tags, entity names, relation labels, timestamps, and per note the client name and the checkout path of its latest write), and per repository its normalized remote and its path. On its first run the server copies the file older app builds kept in `<local data>/com.mspiechowicz.harness-useful-desktop/memory` (same `<data>` folders); the old file is left untouched. See [Project memory](#project-memory). On Unix a folder the server creates is `0700` and the file `0600`. Unencrypted. |
+| `harness-memory` server | `~/.local/bin/harness-memory` (Linux, macOS), `%LOCALAPPDATA%\Programs\harness-memory\harness-memory.exe` (Windows) | The server executable, written by its installer (`install.sh` / `install.ps1`) after you confirm, not by the app. Builds up to 0.16 also kept a copy at `<local data>/com.mspiechowicz.harness-useful-desktop/bin/harness-memory[.exe]` on macOS and Windows; the app deletes it at launch once the installed server is in place and nothing runs it. |
 | `memory-registration.json` | The OS app-config directory, beside `prefs.json` | `{"version": 1, "registered": [{"harness", "file"}]}`: the home-relative `mcp.json` paths the server was registered in, so a removed entry is not added back. No file contents. Read with a 64 KiB cap, written atomically; an unusable file is renamed to `memory-registration.json.corrupt-<unix-seconds>`. |
 | Exported setup | A path you choose in the native save dialog (suggested `harness-setup-<date>.json`) | The share file of [Shared setups](#shared-setups): references and key names, no env or header values. Written atomically, only on Save. Not app data; the app never reads it back unless you import it. |
 | Log files | The OS log directory | See [Logging](#logging). Rotated at 1 MiB, 3 files kept. |
@@ -590,10 +621,11 @@ command is not granted). Process errors name only the program's file name (`Exec
   or `diff` re-reads a changed file, as in a terminal (`business/src/git/mod.rs`). Open only repositories you trust.
 - **Windows.** Only the direct child of a spawned process is killed (no job object yet), so grandchildren may outlive
   it.
-- **The dashboard installer is remote code.** Once you confirm, it runs a script fetched from the `main` branch of
-  `MSpiechowicz/harness-useful-dashboard` with your privileges, as if you ran the install command in your terminal. The
-  app confirms first and lists what it changes, but does not pin or verify the script. To avoid it, skip the step and
-  install the dashboard yourself.
+- **The companion installers are remote code.** Once you confirm, one runs a script fetched from the `main` branch of
+  `MSpiechowicz/harness-useful-dashboard` or `MSpiechowicz/harness-useful-memory` with your privileges, as if you ran the
+  install command in your terminal. The app confirms first and lists what it changes, but does not pin or verify the
+  script (the memory script verifies its release download against `checksums.txt`, which comes from the same
+  repository). To avoid it, skip the step and install the tool yourself.
 - **Shared setups are unsigned.** A `hud1:` string or file has no author or signature; the checksum only detects
   corruption. An imported marketplace, plugin or package is installed by the harness CLI, which runs with your
   privileges and may execute code from it, and an imported stdio MCP server is a program the harness will run. The app
@@ -612,4 +644,9 @@ command is not granted). Process errors name only the program's file name (`Exec
 - **Heuristics.** The entropy rule and key-name rules can hide harmless values and can miss unusual secrets. The same
   holds for Share setup: secret flags and machine paths in free-form MCP arguments and URLs are detected by patterns,
   so an exotic form can be missed on export, and host names are always part of what is shared.
+- **The memory server is found, not pinned.** The app runs whichever `harness-memory` it resolves, the installer's
+  folder first and then `PATH` and the standard install directories, and trusts it once it reports a version; it does
+  not verify a signature or checksum of the binary. Anything running as you can replace that file. On Unix a group- or
+  world-writable file and a world-writable folder are skipped; a group-writable folder is accepted, because a `umask`
+  of `002` (user-private groups) makes `~/.local/bin` 0775, so a group shared with other users is not detected.
 - **Unsigned installers** on macOS and Windows show an OS warning on first install.

@@ -10,6 +10,6 @@ export type InstallStep = {
 label: string, 
 /**
  * The shell command to copy; shown only, never run by the app (the setup step runs its own
- * fixed dashboard installer, not this text).
+ * fixed installers, not this text).
  */
 command: string, };

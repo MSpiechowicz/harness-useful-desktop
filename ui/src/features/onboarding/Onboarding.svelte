@@ -17,6 +17,7 @@
   import { intro, INTRO_LEAD_MS } from '../intro/intro-state.svelte';
   import ApprovalStep from './ApprovalStep.svelte';
   import DoneStep from './DoneStep.svelte';
+  import FamilyStep from './FamilyStep.svelte';
   import HarnessesStep from './HarnessesStep.svelte';
   import { STEP_WIDTH, WIDTH } from './layout';
   import { onboarding } from './onboarding-state.svelte';
@@ -30,12 +31,25 @@
 
   let finishing = $state(false);
 
+  /** Skipping the install is its own, quieter action, offered while there is something to install. */
+  /** The setup step cannot tell what is missing until the machine has been read, so its action waits for that. */
+  const readingSetup = $derived(onboarding.step === 'setup' && (setup.load === 'idle' || setup.load === 'loading'));
+
+  const canSkipSetup = $derived(onboarding.step === 'setup' && setup.forward === 'install');
+
   /** Opening straight out of the intro, the setup waits for the lockup to leave; opened later, it appears at once. */
   function enterFade(): { delay: number; duration: number } {
     const afterLockup = intro.phase === 'handoff' && motion.level === 'full';
 
     return { delay: afterLockup ? INTRO_LEAD_MS : 0, duration: scaled(300) };
   }
+
+  /** The setup step's primary label: it installs what is missing before going on. */
+  const SETUP_FORWARD = {
+    install: () => t('onboarding.action.installAndContinue'),
+    anyway: () => t('onboarding.action.continueAnyway'),
+    continue: () => t('onboarding.action.continue'),
+  };
 
   /** Label of the primary action per step. */
   const primaryLabel = $derived.by(() => {
@@ -48,14 +62,23 @@
         return project.active ? t('onboarding.action.continue') : t('onboarding.action.skip');
       case 'approval':
         return t('onboarding.action.gotIt');
+      case 'family':
+        return t('onboarding.action.continue');
       case 'setup':
-        return setup.settled ? t('onboarding.action.continue') : t('onboarding.action.skip');
+        return SETUP_FORWARD[setup.forward]();
       case 'done':
         return t('onboarding.action.open');
     }
   });
 
   async function advance(): Promise<void> {
+    // Installing is what going on means here; the confirmation comes first and the step moves on by itself once the run is over.
+    if (onboarding.step === 'setup' && setup.forward === 'install') {
+      setup.ask();
+
+      return;
+    }
+
     if (onboarding.step !== 'done') {
       onboarding.next();
 
@@ -115,6 +138,8 @@
                 <ProjectStep />
               {:else if onboarding.step === 'approval'}
                 <ApprovalStep />
+              {:else if onboarding.step === 'family'}
+                <FamilyStep />
               {:else if onboarding.step === 'setup'}
                 <SetupStep />
               {:else}
@@ -126,17 +151,23 @@
 
         <footer class={cx('flex w-full shrink-0 items-center', onboarding.index === 0 ? 'justify-center' : 'justify-between')}>
           {#if onboarding.index > 0}
-            <!-- Back and Continue are the wizard's two navigation buttons: same size and width, Back the quieter one. -->
+            <!-- Back and the primary action are the wizard's navigation buttons: same size and width, Back the quieter one. -->
             <Button variant="secondary" size="lg" class="min-w-36" disabled={onboarding.busy} onclick={() => onboarding.back()}>
               {#snippet leading()}<ArrowLeft size={18} aria-hidden="true" />{/snippet}
               {t('onboarding.back')}
             </Button>
           {/if}
 
-          <Button variant="primary" size="lg" class="min-w-36" loading={finishing} disabled={onboarding.busy} onclick={() => void advance()}>
-            {primaryLabel}
-            {#snippet trailing()}<ArrowRight size={18} aria-hidden="true" />{/snippet}
-          </Button>
+          <div class="flex items-center gap-3">
+            {#if canSkipSetup}
+              <Button variant="ghost" size="lg" class="min-w-36 hover:bg-surface-3" disabled={onboarding.busy} onclick={() => onboarding.next()}>{t('onboarding.action.skip')}</Button>
+            {/if}
+
+            <Button variant="primary" size="lg" class="min-w-36" loading={finishing || (onboarding.step === 'setup' && setup.running)} disabled={onboarding.busy || readingSetup} onclick={() => void advance()}>
+              {primaryLabel}
+              {#snippet trailing()}<ArrowRight size={18} aria-hidden="true" />{/snippet}
+            </Button>
+          </div>
         </footer>
       </div>
     </div>

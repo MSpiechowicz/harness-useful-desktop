@@ -179,6 +179,7 @@ export const extensions: AreaMessages<typeof enExtensions> = {
   'extensions.dialog.nothingChanged': 'Aún no ha cambiado nada. Confirma para ejecutar el comando de arriba.',
   'extensions.dialog.previewedWith': 'Vista previa con',
   'extensions.dialog.running': 'Ejecutando… puede tardar un minuto mientras se descargan los paquetes.',
+  'extensions.dialog.runningLocal': 'Ejecutando…',
   'extensions.dialog.couldNotRun': 'No se pudo ejecutar la acción',
   'extensions.dialog.failed': 'La acción falló',
   'extensions.dialog.done': 'Listo.',

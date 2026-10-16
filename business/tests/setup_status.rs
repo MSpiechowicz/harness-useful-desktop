@@ -1,5 +1,6 @@
 //! What the "Recommended setup" step offers per machine: the dashboard installer, the skills per
-//! harness (installed, marketplace actions, manual command) and the dashboard's MCP state.
+//! harness (installed, marketplace actions, manual command) and the dashboard's and the memory
+//! server's MCP states.
 
 use std::path::Path;
 
@@ -163,6 +164,14 @@ async fn an_empty_machine_is_offered_everything() {
         }
     );
 
+    assert_eq!(
+        omp.memory_mcp,
+        McpState::Missing {
+            file: "~/.omp/agent/mcp.json".to_owned(),
+            exists: false
+        }
+    );
+
     let pi = harness(&setup, HarnessId::Pi);
     assert!(!pi.installed, "a harness that was not detected is reported as missing");
     assert!(matches!(
@@ -255,6 +264,43 @@ async fn the_mcp_state_reads_the_active_omp_profile_only() {
         harness(&work, HarnessId::Omp).mcp,
         McpState::Missing {
             file: "~/.omp/profiles/work/agent/mcp.json".to_owned(),
+            exists: false
+        }
+    );
+}
+
+#[tokio::test]
+async fn the_memory_servers_entry_is_reported_next_to_the_dashboards() {
+    let home = tempfile::tempdir().unwrap();
+    let entries = json!({
+        "mcpServers": {
+            "harness-dashboard": { "command": "harness-dashboard", "args": ["mcp"], "enabled": false },
+            "harness-memory": { "command": home.path().join(".local/bin/harness-memory"), "args": ["mcp"] }
+        }
+    });
+    write(&home.path().join(".omp/agent/mcp.json"), &entries.to_string());
+
+    let setup = status(&Env::for_tests(home.path()), &[]).await;
+    let omp = harness(&setup, HarnessId::Omp);
+
+    assert_eq!(
+        omp.mcp,
+        McpState::Disabled {
+            file: "~/.omp/agent/mcp.json".to_owned(),
+            name: "harness-dashboard".to_owned()
+        }
+    );
+    assert_eq!(
+        omp.memory_mcp,
+        McpState::Configured {
+            file: "~/.omp/agent/mcp.json".to_owned(),
+            name: "harness-memory".to_owned()
+        }
+    );
+    assert_eq!(
+        harness(&setup, HarnessId::Pi).memory_mcp,
+        McpState::Missing {
+            file: "~/.pi/agent/mcp.json".to_owned(),
             exists: false
         }
     );

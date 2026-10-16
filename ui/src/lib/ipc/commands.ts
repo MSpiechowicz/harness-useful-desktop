@@ -29,6 +29,7 @@ import type { HarnessId } from './bindings/HarnessId';
 import type { HarnessSummary } from './bindings/HarnessSummary';
 import type { InstallLogLine } from './bindings/InstallLogLine';
 import type { McpState } from './bindings/McpState';
+import type { MemorySwitchResult } from './bindings/MemorySwitchResult';
 import type { RecommendedSetup } from './bindings/RecommendedSetup';
 import type { ProjectInfo } from './bindings/ProjectInfo';
 import type { ReviewRequest } from './bindings/ReviewRequest';
@@ -66,8 +67,11 @@ export const commands = {
   app_info: cmd<undefined, AppInfo>(),
   prefs_get: cmd<undefined, AppPrefs>(),
   prefs_set: cmd<{ prefs: AppPrefs }, AppPrefs>(),
-  /** The "Project memory" switch: stores `memoryEnabled` and registers or removes the harness-memory MCP entry. */
-  memory_set_enabled: cmd<{ enabled: boolean }, AppPrefs>(),
+  /**
+   * The "Project memory" switch: stores `memoryEnabled` and registers or removes the harness-memory MCP entry.
+   * `server.installed` false means nothing was registered; offer `setup_install_memory`.
+   */
+  memory_set_enabled: cmd<{ enabled: boolean }, MemorySwitchResult>(),
   open_external: cmd<{ url: string }, null>(),
   reveal_path: cmd<{ path: string }, null>(),
   harness_list: cmd<undefined, HarnessSummary[]>(),
@@ -109,7 +113,11 @@ export const commands = {
   extension_action: cmd<{ harness: HarnessId; action: ExtensionAction; dryRun: boolean; project: string | null }, CliResult>(),
   setup_status: cmd<undefined, RecommendedSetup>(),
   setup_install_dashboard: cmd<{ confirmed: boolean; onLog: EventSink<InstallLogLine> }, DashboardInstallResult>(),
+  /** Runs the Harness Memory installer; once `ok`, registers the server while project memory is on. */
+  setup_install_memory: cmd<{ confirmed: boolean; onLog: EventSink<InstallLogLine> }, DashboardInstallResult>(),
   setup_register_mcp: cmd<{ harness: HarnessId }, McpState>(),
+  /** Registers the installed Harness Memory server in one harness (turning Project memory on); `invalidInput` while it is not installed. */
+  setup_register_memory: cmd<{ harness: HarnessId }, McpState>(),
   sync_export_preview: cmd<undefined, SyncExportPreview>(),
   sync_export: cmd<{ selected: string[] }, SyncExported>(),
   /** Opens the native save dialog; null when the user cancelled it, else the path written. */

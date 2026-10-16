@@ -1,16 +1,17 @@
-//! Runs the Harness Dashboard's official installer for the "Recommended setup" step, the only
-//! place the app runs an install command (and the only place allowed to name a shell, enforced by
-//! the `installer-shell` guard rule).
+//! Runs the official installer of a [`Companion`] (Harness Dashboard, Harness Memory) for the
+//! "Recommended setup" step and the "Project memory" install, the only place the app runs an
+//! install command (and the only place allowed to name a shell, enforced by the `installer-shell`
+//! guard rule).
 //!
-//! - Command: fixed per OS ([`dashboard_installer`]); nothing from the webview reaches it.
+//! - Command: fixed per companion and OS ([`installer`]); nothing from the webview reaches it.
 //! - Process: its own process group, stdin closed at once, killed with its group on drop or after
 //!   [`INSTALL_TIMEOUT`]. On Unix, whatever is left of the group is killed once the installer
 //!   exited and its output was drained (Windows: background processes it started may outlive it).
 //! - Output: streamed line by line to a sink with terminal escapes stripped and secrets redacted;
 //!   a line keeps at most [`MAX_LOG_LINE_BYTES`], the whole log at most [`MAX_LOG_LINES`] lines
 //!   and [`MAX_LOG_BYTES`] (each line counting its terminator).
-//! - Success: exit code 0 **and** `harness-dashboard` resolving with a version afterwards, since
-//!   `curl … | sh` exits with 0 when the download failed.
+//! - Success: exit code 0 **and** the companion's binary resolving with a version afterwards,
+//!   since `curl … | sh` exits with 0 when the download failed.
 
 use std::path::PathBuf;
 use std::time::Duration;
@@ -18,14 +19,18 @@ use std::time::Duration;
 use tokio::io::{AsyncRead, AsyncReadExt};
 use tokio::time::{Instant, sleep_until, timeout};
 
-use super::catalog::{DASHBOARD_BINARY, DASHBOARD_INSTALL_PS1, DASHBOARD_INSTALL_PS1_SCRIPT, DASHBOARD_INSTALL_SH};
+use super::catalog::{
+    DASHBOARD_BINARY, DASHBOARD_INSTALL_PS1, DASHBOARD_INSTALL_PS1_SCRIPT, DASHBOARD_INSTALL_SH, MEMORY_BINARY,
+    MEMORY_INSTALL_PS1, MEMORY_INSTALL_PS1_SCRIPT, MEMORY_INSTALL_SH,
+};
 use super::dashboard::resolve_dashboard;
 use super::detect::dashboard_version;
+use super::memory_binary::{memory_version, resolve_memory};
 use crate::env::{Env, OsKind};
 use crate::error::Result;
 use crate::harness::clean;
 use crate::model::{DashboardInstallResult, InstallLogLine, InstallStream};
-use crate::process::{ChildHandle, ExecSpec, ExitInfo, ProcessRunner, ProcessSpawner, TokioRunner};
+use crate::process::{ChildHandle, ExecSpec, ExitInfo, ProcessRunner, ProcessSpawner, ResolvedBinary, TokioRunner};
 
 /// Time limit of one installer run.
 pub const INSTALL_TIMEOUT: Duration = Duration::from_secs(10 * 60);
@@ -53,7 +58,62 @@ const KILL_GRACE: Duration = Duration::from_secs(5);
 /// Read buffer size.
 const CHUNK: usize = 8 * 1024;
 
-/// The program and arguments that run the dashboard's installer.
+/// A companion whose official installer the app runs once the user confirms it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Companion {
+    /// Harness Dashboard (`harness-dashboard`).
+    Dashboard,
+    /// Harness Memory (`harness-memory`).
+    Memory,
+}
+
+impl Companion {
+    /// Its executable's name.
+    pub const fn binary(self) -> &'static str {
+        match self {
+            Self::Dashboard => DASHBOARD_BINARY,
+            Self::Memory => MEMORY_BINARY,
+        }
+    }
+
+    /// Its executable, where its installer puts it or anywhere on `PATH`.
+    pub fn resolve(self, env: &Env) -> Option<ResolvedBinary> {
+        match self {
+            Self::Dashboard => resolve_dashboard(env),
+            Self::Memory => resolve_memory(env),
+        }
+    }
+
+    /// The version `binary` reports, within the version probe's time limit.
+    pub async fn version(self, env: &Env, runner: &dyn ProcessRunner, binary: &ResolvedBinary) -> Option<String> {
+        match self {
+            Self::Dashboard => dashboard_version(env, runner, binary).await,
+            Self::Memory => memory_version(env, runner, binary).await,
+        }
+    }
+
+    /// The command line of the version probe, for the summary.
+    const fn version_command(self) -> &'static str {
+        match self {
+            Self::Dashboard => "harness-dashboard version",
+            Self::Memory => "harness-memory --version",
+        }
+    }
+
+    /// The Unix installer, the Windows installer's PowerShell script and its copyable command.
+    const fn scripts(self) -> (&'static str, &'static str, &'static str) {
+        match self {
+            Self::Dashboard => (
+                DASHBOARD_INSTALL_SH,
+                DASHBOARD_INSTALL_PS1_SCRIPT,
+                DASHBOARD_INSTALL_PS1,
+            ),
+            Self::Memory => (MEMORY_INSTALL_SH, MEMORY_INSTALL_PS1_SCRIPT, MEMORY_INSTALL_PS1),
+        }
+    }
+}
+
+/// The program and arguments that run a companion's installer.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InstallerSpec {
     /// Absolute path of the interpreter.
@@ -64,16 +124,18 @@ pub struct InstallerSpec {
     pub command: &'static str,
 }
 
-/// The installer for `env`'s OS: the system `sh` running the `install.sh` pipe on Linux and macOS;
-/// on Windows, Windows PowerShell from `<SystemRoot>\System32\WindowsPowerShell\v1.0`
-/// (`SystemRoot` defaults to `C:\Windows`) running `irm <install.ps1> | iex` without the user's
-/// profile.
-pub fn dashboard_installer(env: &Env) -> InstallerSpec {
+/// The installer of `companion` for `env`'s OS: the system `sh` running the `install.sh` pipe on
+/// Linux and macOS; on Windows, Windows PowerShell from
+/// `<SystemRoot>\System32\WindowsPowerShell\v1.0` (`SystemRoot` defaults to `C:\Windows`) running
+/// `irm <install.ps1> | iex` without the user's profile.
+pub fn installer(env: &Env, companion: Companion) -> InstallerSpec {
+    let (install_sh, install_ps1_script, install_ps1) = companion.scripts();
+
     match env.os {
         OsKind::Linux | OsKind::MacOs => InstallerSpec {
             program: PathBuf::from("/bin/sh"), // guard-allow: installer-shell
-            args: vec!["-c".to_owned(), DASHBOARD_INSTALL_SH.to_owned()],
-            command: DASHBOARD_INSTALL_SH,
+            args: vec!["-c".to_owned(), install_sh.to_owned()],
+            command: install_sh,
         },
         OsKind::Windows => {
             let system_root = env.var("SystemRoot").unwrap_or(r"C:\Windows");
@@ -87,37 +149,39 @@ pub fn dashboard_installer(env: &Env) -> InstallerSpec {
                 "-ExecutionPolicy",
                 "Bypass",
                 "-Command",
-                DASHBOARD_INSTALL_PS1_SCRIPT,
+                install_ps1_script,
             ];
 
             InstallerSpec {
                 program,
                 args: args.map(str::to_owned).to_vec(),
-                command: DASHBOARD_INSTALL_PS1,
+                command: install_ps1,
             }
         }
     }
 }
 
-/// Runs the installer (see the module docs), passing each output line to `sink`. Errors only when
-/// the installer could not start; a failed install is a result with `ok: false`.
-pub async fn run_dashboard_installer(
+/// Runs the installer of `companion` (see the module docs), passing each output line to `sink`.
+/// Errors only when the installer could not start; a failed install is a result with `ok: false`.
+pub async fn run_installer(
     env: &Env,
+    companion: Companion,
     spawner: &dyn ProcessSpawner,
     sink: impl FnMut(InstallLogLine),
 ) -> Result<DashboardInstallResult> {
-    run_dashboard_installer_with(env, spawner, &TokioRunner, INSTALL_TIMEOUT, sink).await
+    run_installer_with(env, companion, spawner, &TokioRunner, INSTALL_TIMEOUT, sink).await
 }
 
-/// [`run_dashboard_installer`] with the runner of the version probe and the time limit given.
-pub async fn run_dashboard_installer_with(
+/// [`run_installer`] with the runner of the version probe and the time limit given.
+pub async fn run_installer_with(
     env: &Env,
+    companion: Companion,
     spawner: &dyn ProcessSpawner,
     runner: &dyn ProcessRunner,
     time_limit: Duration,
     sink: impl FnMut(InstallLogLine),
 ) -> Result<DashboardInstallResult> {
-    let installer = dashboard_installer(env);
+    let installer = installer(env, companion);
     let spec = ExecSpec::new(&installer.program)
         .args(installer.args.iter().cloned())
         .cwd(&env.home)
@@ -130,15 +194,16 @@ pub async fn run_dashboard_installer_with(
     let mut log = Log::new(sink);
     let run = drive(process.stdout, process.stderr, process.child, time_limit, &mut log).await;
 
-    let binary = resolve_dashboard(env);
+    let binary = companion.resolve(env);
     let version = match &binary {
-        Some(binary) if !run.timed_out => dashboard_version(env, runner, binary).await,
+        Some(binary) if !run.timed_out => companion.version(env, runner, binary).await,
         _ => None,
     };
     let exit_code = run.exit.and_then(|exit| exit.code);
     let ok = exit_code == Some(0) && !run.timed_out && version.is_some();
 
     let found = Found {
+        companion,
         binary: binary.is_some(),
         version: version.as_deref(),
     };
@@ -216,8 +281,9 @@ async fn drive<F: FnMut(InstallLogLine)>(
     }
 }
 
-/// What the dashboard detection found after the run.
+/// What the companion's detection found after the run.
 struct Found<'a> {
+    companion: Companion,
     binary: bool,
     version: Option<&'a str>,
 }
@@ -250,12 +316,17 @@ fn summary(
         };
     }
 
+    let binary = found.companion.binary();
+
     match (found.binary, found.version) {
-        (true, Some(version)) => format!("Installed {DASHBOARD_BINARY} {version}."),
-        (true, None) => format!("The installer finished, but `{DASHBOARD_BINARY} version` did not report a version."),
-        (false, _) => format!(
-            "The installer finished, but {DASHBOARD_BINARY} was not found afterwards; the download may have failed."
+        (true, Some(version)) => format!("Installed {binary} {version}."),
+        (true, None) => format!(
+            "The installer finished, but `{}` did not report a version.",
+            found.companion.version_command()
         ),
+        (false, _) => {
+            format!("The installer finished, but {binary} was not found afterwards; the download may have failed.")
+        }
     }
 }
 

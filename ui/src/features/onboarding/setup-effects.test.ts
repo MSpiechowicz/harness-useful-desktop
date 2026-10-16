@@ -14,6 +14,10 @@ describe('describeEffect', () => {
     expect(SIDE_EFFECTS.map((text) => describeEffect(text).kind)).toEqual(['install', 'menu', 'path', 'stop']);
   });
 
+  it('recognises the entry the memory server adds to the harnesses', () => {
+    expect(describeEffect('Registers `harness-memory mcp` as an MCP server in each detected harness, while Project memory is on in Settings.').kind).toBe('register');
+  });
+
   it('keeps a sentence it does not know whole, under a neutral kind', () => {
     expect(describeEffect('Does something nobody planned for.')).toEqual({ kind: 'other', title: 'Does something nobody planned for.', detail: '' });
   });

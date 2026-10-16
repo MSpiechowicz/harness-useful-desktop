@@ -85,9 +85,9 @@ export const settings = {
   'settings.updates.policy.startupAsk.hint': 'Looks for a new version when the app starts and asks before installing it.',
   'settings.updates.policy.autoInstall.hint': 'Looks when the app starts and installs a new version. You choose when to restart.',
   'settings.updates.policy.off.hint': 'Never looks by itself. Use Check now when you want to.',
-  'settings.updates.companions.title': 'Check companions for updates',
+  'settings.updates.companions.title': 'Check the Harness family for updates',
   'settings.updates.companions.description':
-    'When you open Ecosystem, ask GitHub for the latest Harness Dashboard, Skills and Sidebar releases, at most every six hours while the app runs. GitHub sees your IP address and the app version, not which companions you have.',
+    'When you open Ecosystem, ask GitHub for the latest Harness Dashboard, Skills, Memory and Sidebar releases, at most every six hours while the app runs. GitHub sees your IP address and the app version, not which Harness family tools you have.',
   'settings.updates.extensions.title': 'Update extensions automatically',
   'settings.updates.extensions.description':
     'Every ten minutes the app refreshes the marketplaces and installs new versions of your harness\'s plugins and packages, with a message when it does. Off: update by hand from Extensions.',
@@ -119,7 +119,7 @@ export const settings = {
     'Secret-looking configuration values appear hidden: API keys and tokens, MCP server env and headers, auth and OAuth fields, !command values (never run) and credentials inside URLs. Environment references like $NAME show the name only. Agent error output and shell output are redacted before they reach the screen.',
   'settings.privacy.network.title': 'Network',
   'settings.privacy.network.text':
-    'The app itself makes two kinds of request, both to GitHub, and both can be turned off. The update check fetches the release file latest.json; it happens only when this build has an update key and follows your update setting. The companion check asks GitHub for the latest release number of Harness Dashboard, Skills and Sidebar when you open Ecosystem, at most every six hours while the app runs (a failed check retries after a few minutes). It always asks about all three, so it does not reveal which ones you have; GitHub sees only your IP address and the app version. Links open in your browser only when you click them, and only for project and harness sites unless you allow every https link below. The Harness Dashboard widgets use a local process over stdio, with no network. Harness CLIs talk to their providers as in your terminal, and extension actions run the CLI, which may download packages, only after you confirm.',
+    'The app itself makes two kinds of request, both to GitHub, and both can be turned off. The update check fetches the release file latest.json; it happens only when this build has an update key and follows your update setting. The Harness family check asks GitHub for the latest release number of Harness Dashboard, Skills, Memory and Sidebar when you open Ecosystem, at most every six hours while the app runs (a failed check retries after a few minutes). It always asks about all four, so it does not reveal which ones you have; GitHub sees only your IP address and the app version. Links open in your browser only when you click them, and only for project and harness sites unless you allow every https link below. The Harness Dashboard widgets use a local process over stdio, with no network. Harness CLIs talk to their providers as in your terminal, and extension actions run the CLI, which may download packages, only after you confirm.',
   'settings.privacy.telemetry.title': 'No telemetry',
   'settings.privacy.telemetry.text': 'No analytics, no tracking, no accounts, no sign-in.',
   'settings.privacy.agents.title': 'Agents',

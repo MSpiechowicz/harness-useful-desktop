@@ -1,18 +1,16 @@
-//! What the "Recommended setup" step offers (`setup_status`): the dashboard binary, and per
-//! harness the Harness Skills and the dashboard's MCP server.
+//! What the "Recommended setup" step offers (`setup_status`): the dashboard and memory binaries,
+//! and per harness the Harness Skills and the dashboard's and the memory server's MCP servers.
 //!
-//! Everything here only reads: the dashboard's `version` probe, the OMP plugin and marketplace
+//! Everything here only reads: the dashboard's and the memory server's version probes, the OMP plugin and marketplace
 //! registries, PI's user settings and the user MCP files. The MCP files of a harness are those of
 //! its user agent directory ([`Harness::paths`] without a project), so with an OMP profile active
 //! only that profile's files count.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use super::catalog::{SKILLS_MARKETPLACE, SKILLS_PLUGIN, SKILLS_TARGET, supported_on};
-use super::dashboard::resolve_dashboard;
-use super::detect::dashboard_version;
-use super::installer::dashboard_installer;
-use super::mcp_register::mcp_state;
+use super::installer::{Companion, installer};
+use super::mcp_register::{mcp_state, memory_mcp_state};
 use crate::env::{Env, OsKind};
 use crate::harness::{Harness, HarnessRegistry, McpTarget, SkillsStrategy};
 use crate::harnesses::omp::{installed_plugins, marketplaces};
@@ -32,7 +30,8 @@ pub async fn setup_status(
     registry: &HarnessRegistry,
     summaries: &[HarnessSummary],
 ) -> RecommendedSetup {
-    let dashboard = dashboard_setup(env, runner).await;
+    let dashboard = binary_setup(env, runner, Companion::Dashboard).await;
+    let memory = memory_server_setup(env, runner).await;
 
     let harnesses = registry
         .all()
@@ -46,12 +45,17 @@ pub async fn setup_status(
                 harness: harness.id(),
                 installed,
                 skills: skills_setup(env, harness),
-                mcp: harness_mcp_state(env, harness),
+                mcp: harness_mcp_state(env, harness, mcp_state),
+                memory_mcp: harness_mcp_state(env, harness, memory_mcp_state),
             }
         })
         .collect();
 
-    RecommendedSetup { dashboard, harnesses }
+    RecommendedSetup {
+        dashboard,
+        memory,
+        harnesses,
+    }
 }
 
 /// The user MCP file the setup step writes for `harness`, and the files it also reads; `None` when
@@ -67,24 +71,56 @@ pub fn mcp_target_paths(env: &Env, harness: &dyn Harness) -> Option<(PathBuf, Ve
     Some((agent_dir.join("mcp.json"), others))
 }
 
-async fn dashboard_setup(env: &Env, runner: &dyn ProcessRunner) -> DashboardSetup {
-    let binary = resolve_dashboard(env);
+/// The `harness-memory` binary: whether and which version is installed, and its installer.
+pub async fn memory_server_setup(env: &Env, runner: &dyn ProcessRunner) -> DashboardSetup {
+    binary_setup(env, runner, Companion::Memory).await
+}
+
+async fn binary_setup(env: &Env, runner: &dyn ProcessRunner, companion: Companion) -> DashboardSetup {
+    let binary = companion.resolve(env);
     let version = match &binary {
-        Some(binary) => dashboard_version(env, runner, binary).await,
+        Some(binary) => companion.version(env, runner, binary).await,
         None => None,
     };
 
+    let (id, side_effects) = match companion {
+        Companion::Dashboard => (EcosystemId::Dashboard, dashboard_side_effects(env.os)),
+        Companion::Memory => (EcosystemId::Memory, memory_side_effects(env.os)),
+    };
+
+    // A memory server without a version is never registered or run, so the installer is offered.
+    let installed = match companion {
+        Companion::Dashboard => binary.is_some(),
+        Companion::Memory => version.is_some(),
+    };
+
     DashboardSetup {
-        installed: binary.is_some(),
+        installed,
         version,
-        supported_on_this_os: supported_on(EcosystemId::Dashboard, env.os),
-        command: dashboard_installer(env).command.to_owned(),
-        side_effects: side_effects(env.os).iter().map(|line| (*line).to_owned()).collect(),
+        supported_on_this_os: supported_on(id, env.os),
+        command: installer(env, companion).command.to_owned(),
+        side_effects: side_effects.iter().map(|line| (*line).to_owned()).collect(),
     }
 }
 
-/// What the installer of `os` changes, per its script (`install.sh`, `install.ps1`).
-fn side_effects(os: OsKind) -> &'static [&'static str] {
+/// What the memory server's installer of `os` changes, per its script (`install.sh`,
+/// `install.ps1`).
+fn memory_side_effects(os: OsKind) -> &'static [&'static str] {
+    match os {
+        OsKind::Linux | OsKind::MacOs => &[
+            "Installs the harness-memory command to ~/.local/bin, replacing an older one there.",
+            "Appends a line that puts ~/.local/bin on your PATH to your shell profile, if it is not on PATH yet.",
+            "Running memory servers keep working; each harness starts the new version next time.",
+        ],
+        OsKind::Windows => &[
+            r"Puts the harness-memory command in %LOCALAPPDATA%\Programs\harness-memory and adds that folder to your user PATH.",
+            "Running memory servers keep working; each harness starts the new version next time.",
+        ],
+    }
+}
+
+/// What the dashboard's installer of `os` changes, per its script (`install.sh`, `install.ps1`).
+fn dashboard_side_effects(os: OsKind) -> &'static [&'static str] {
     match os {
         OsKind::Linux => &[
             "Installs the Harness Dashboard app to ~/.local/lib/harness-dashboard and the harness-dashboard command to ~/.local/bin.",
@@ -179,10 +215,11 @@ fn omp_skills(env: &Env, harness: &dyn Harness) -> SkillsSetup {
     SkillsSetup::Install { actions }
 }
 
-/// The MCP state of `harness`; a harness without a user MCP file reports a refusal with no file.
-fn harness_mcp_state(env: &Env, harness: &dyn Harness) -> McpState {
+/// A server's MCP state in `harness` (`state` reads it from the user MCP file and the files it also
+/// reads); a harness without a user MCP file reports a refusal with no file.
+fn harness_mcp_state(env: &Env, harness: &dyn Harness, state: fn(&Env, &Path, &[PathBuf]) -> McpState) -> McpState {
     match mcp_target_paths(env, harness) {
-        Some((path, also_read)) => mcp_state(env, &path, &also_read),
+        Some((path, also_read)) => state(env, &path, &also_read),
         None => McpState::Refused {
             file: String::new(),
             reason: McpRefusal::Unreadable,

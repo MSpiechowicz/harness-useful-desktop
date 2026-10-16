@@ -1,12 +1,12 @@
 export const ecosystem = {
   'ecosystem.title': 'Ecosystem',
   'ecosystem.retry': 'Try again',
-  'ecosystem.view.looking': 'Looking for companions…',
-  'ecosystem.view.failed': 'Could not look for companions',
+  'ecosystem.view.looking': 'Looking for the Harness family…',
+  'ecosystem.view.failed': 'Could not look for the Harness family',
   'ecosystem.view.connected': 'dashboard connected',
-  'ecosystem.companions.title': 'Companions',
+  'ecosystem.companions.title': 'Family',
   'ecosystem.companions.subtitle': 'Found on this machine.',
-  'ecosystem.companions.looking': 'Looking for companions',
+  'ecosystem.companions.looking': 'Looking for the Harness family',
 
   'ecosystem.summary.installed': '{installed} of {total} installed',
   'ecosystem.count.update.one': '{count} update available',
@@ -14,9 +14,9 @@ export const ecosystem = {
 
   'ecosystem.hero.title': 'Tools that make agents measurable',
   'ecosystem.hero.body':
-    'Harness Useful is a small family of open-source companions for your coding agents. The **dashboard** measures what they cost, the **skills** make their work repeatable, and the **sidebar** keeps their sessions in view. Harness Desktop works on its own and shows more with each one you add.',
-  'ecosystem.hero.failed': 'The installed companions could not be read.',
-  'ecosystem.hero.looking': 'Looking for companions…',
+    'Harness Useful is a small family of open-source tools for your coding agents. The **dashboard** measures what they cost, the **skills** make their work repeatable, the **memory** gives every agent one shared project memory, and the **sidebar** keeps their sessions in view. Harness Desktop works on its own and shows more with each one you add.',
+  'ecosystem.hero.failed': 'The installed Harness family members could not be read.',
+  'ecosystem.hero.looking': 'Looking for the Harness family…',
   'ecosystem.setup.run': 'Run recommended setup',
 
   'ecosystem.orbit.description': '{summary}: {items}',
@@ -214,6 +214,13 @@ export const ecosystem = {
   'ecosystem.product.dashboard.note.0': 'Data comes from the local process `harness-dashboard mcp`; nothing is sent over the network.',
   'ecosystem.product.dashboard.note.1': 'Run `harness-dashboard` now and then so its database stays current.',
   'ecosystem.product.dashboard.step.0.title': 'Install the binary',
+
+  'ecosystem.product.memory.tagline': 'One project memory for every coding agent, kept on this machine.',
+  'ecosystem.product.memory.description':
+    'A local MCP server that keeps notes and how they relate per repository, so what one agent learns the next one finds. The app registers it with each detected harness while Project memory is on, and adds matching notes to the first message of a new chat.',
+  'ecosystem.product.memory.note.0': 'Runs locally as `harness-memory mcp`; nothing is sent over the network.',
+  'ecosystem.product.memory.note.1': 'Turn it on or off for every harness in Settings, under Project memory.',
+  'ecosystem.product.memory.step.0.title': 'Install the binary',
 
   'ecosystem.product.skills.tagline': 'From a natural-language request to reviewed, verified work.',
   'ecosystem.product.skills.description':

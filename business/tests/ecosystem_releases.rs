@@ -13,11 +13,12 @@ use pretty_assertions::assert_eq;
 use serde_json::json;
 
 const DASHBOARD_URL: &str = "https://api.github.com/repos/MSpiechowicz/harness-useful-dashboard/releases/latest";
+const MEMORY_URL: &str = "https://api.github.com/repos/MSpiechowicz/harness-useful-memory/releases/latest";
 const SKILLS_URL: &str = "https://api.github.com/repos/MSpiechowicz/harness-useful-skills/releases/latest";
 const SIDEBAR_URL: &str = "https://api.github.com/repos/MSpiechowicz/harness-useful-sidebar/releases/latest";
 
-/// Every lookup round asks for all three, whichever are installed (sorted like `requested`).
-const ALL_URLS: [&str; 3] = [DASHBOARD_URL, SIDEBAR_URL, SKILLS_URL];
+/// Every lookup round asks for all four, whichever are installed (sorted like `requested`).
+const ALL_URLS: [&str; 4] = [DASHBOARD_URL, MEMORY_URL, SIDEBAR_URL, SKILLS_URL];
 
 fn installed(id: EcosystemId, version: &str) -> EcosystemInstalled {
     EcosystemInstalled {
@@ -63,6 +64,7 @@ impl FakeGitHub {
 #[test]
 fn each_companion_has_its_fixed_github_release_url() {
     assert_eq!(release_endpoint(EcosystemId::Dashboard), DASHBOARD_URL);
+    assert_eq!(release_endpoint(EcosystemId::Memory), MEMORY_URL);
     assert_eq!(release_endpoint(EcosystemId::Skills), SKILLS_URL);
     assert_eq!(release_endpoint(EcosystemId::Sidebar), SIDEBAR_URL);
 
@@ -181,6 +183,7 @@ async fn installed_companions_are_compared_with_their_latest_release() {
     let github = FakeGitHub::new(vec![
         (SKILLS_URL, Some(body("v0.2.40"))),
         (DASHBOARD_URL, Some(body("v1.22.1"))),
+        (MEMORY_URL, Some(body("v1.0.0"))),
     ]);
     let releases = CompanionReleases::default();
 
@@ -189,6 +192,8 @@ async fn installed_companions_are_compared_with_their_latest_release() {
             &[
                 installed(EcosystemId::Skills, "0.2.36"),
                 installed(EcosystemId::Dashboard, "1.22.1"),
+                // The copy bundled with app builds up to 0.16 reported the app's version.
+                installed(EcosystemId::Memory, "0.16.0"),
             ],
             |url| github.fetch(url),
         )
@@ -206,6 +211,11 @@ async fn installed_companions_are_compared_with_their_latest_release() {
                 id: EcosystemId::Dashboard,
                 latest_version: "1.22.1".to_owned(),
                 update_available: false,
+            },
+            EcosystemRelease {
+                id: EcosystemId::Memory,
+                latest_version: "1.0.0".to_owned(),
+                update_available: true,
             },
         ]
     );

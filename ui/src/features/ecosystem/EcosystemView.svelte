@@ -50,7 +50,7 @@
 <div class="@container flex size-full min-h-0 flex-col">
   <ViewHeader title={t('ecosystem.title')} icon={Orbit} {context}>
     {#snippet actions()}
-      <Button onclick={() => onboarding.restart('setup')}>
+      <Button onclick={() => onboarding.restart('family')}>
         {#snippet leading()}<Wand size={ICON.sm} aria-hidden="true" />{/snippet}
         {t('ecosystem.setup.run')}
       </Button>
@@ -71,7 +71,7 @@
           </div>
 
           {#if items}
-            <div class="grid gap-4 @3xl:grid-cols-3 @6xl:grid-cols-1">
+            <div class="grid gap-4 @3xl:grid-cols-2 @6xl:grid-cols-1">
               {#each items as item, index (item.id)}
                 <EcosystemCard {item} {index} />
               {/each}
@@ -85,8 +85,8 @@
               </EmptyState>
             </div>
           {:else}
-            <div class="grid gap-4 @3xl:grid-cols-3 @6xl:grid-cols-1" role="status" aria-label={t('ecosystem.companions.looking')}>
-              {#each [0, 1, 2] as placeholder (placeholder)}
+            <div class="grid gap-4 @3xl:grid-cols-2 @6xl:grid-cols-1" role="status" aria-label={t('ecosystem.companions.looking')}>
+              {#each [0, 1, 2, 3] as placeholder (placeholder)}
                 <Skeleton height="14rem" class="rounded-lg" />
               {/each}
             </div>

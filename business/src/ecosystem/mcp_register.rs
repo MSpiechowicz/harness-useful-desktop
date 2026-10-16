@@ -1,10 +1,12 @@
 //! The `harness-dashboard` MCP server in a harness's user MCP file (`mcp_state`,
-//! `register_dashboard_mcp`).
+//! `register_dashboard_mcp`), and the state of the `harness-memory` one (`memory_mcp_state`; it is
+//! registered by [`super::memory_register`]).
 //!
 //! - Found: a server named [`DASHBOARD_MCP_SERVER`], or any server whose `command` is
 //!   `harness-dashboard` (any directory, `.exe` or not) with the arguments `["mcp"]`, in the target
 //!   file or one of the `also_read` files (first file wins). It is disabled when the target file's
 //!   `disabledServers` names it, or it sets `"enabled": false` and `enabledServers` does not name it.
+//!   The memory server is found the same way, by [`MEMORY_MCP_SERVER`] and `harness-memory`.
 //! - Register: merges `{"command": "harness-dashboard", "args": ["mcp"]}` into `mcpServers` under
 //!   [`merge_servers`](super::mcp_merge::merge_servers)'s rules: other keys, servers and values
 //!   kept in order, a missing file created (mode `0600`), a blank file counted as `{}`, the same
@@ -17,16 +19,42 @@ use std::path::{Path, PathBuf};
 
 use serde_json::{Map, Value, json};
 
-use super::catalog::{DASHBOARD_BINARY, DASHBOARD_MCP_SERVER};
+use super::catalog::{DASHBOARD_BINARY, DASHBOARD_MCP_SERVER, MEMORY_BINARY, MEMORY_MCP_SERVER};
 use super::mcp_merge::{MergeOutcome, SERVERS, Target, load, merge_servers_unless};
 use crate::env::Env;
 use crate::model::{McpRefusal, McpState};
 use crate::pi_family::{string_list, tilde};
 
-/// What [`mcp_state`] reports for `path`, read-only (see the module docs).
+/// The dashboard's server in `path`, read-only (see the module docs).
 pub fn mcp_state(env: &Env, path: &Path, also_read: &[PathBuf]) -> McpState {
+    server_state(env, path, also_read, DASHBOARD)
+}
+
+/// The memory server in `path`, read-only (see the module docs).
+pub fn memory_mcp_state(env: &Env, path: &Path, also_read: &[PathBuf]) -> McpState {
+    server_state(env, path, also_read, MEMORY)
+}
+
+/// A companion's MCP server: the entry name the app writes, and the binary it runs.
+#[derive(Clone, Copy)]
+struct Server {
+    name: &'static str,
+    binary: &'static str,
+}
+
+const DASHBOARD: Server = Server {
+    name: DASHBOARD_MCP_SERVER,
+    binary: DASHBOARD_BINARY,
+};
+
+const MEMORY: Server = Server {
+    name: MEMORY_MCP_SERVER,
+    binary: MEMORY_BINARY,
+};
+
+fn server_state(env: &Env, path: &Path, also_read: &[PathBuf], server: Server) -> McpState {
     match load(path) {
-        Ok(target) => found(env, path, &target, also_read).unwrap_or_else(|| missing(env, path, &target)),
+        Ok(target) => found(env, path, &target, also_read, server).unwrap_or_else(|| missing(env, path, &target)),
         Err(reason) => refused(env, path, reason),
     }
 }
@@ -41,7 +69,7 @@ pub fn register_dashboard_mcp(env: &Env, path: &Path, also_read: &[PathBuf]) -> 
 
     // Every read of the file is checked for the server first, so an entry that appeared meanwhile
     // (under any name) is reported rather than doubled.
-    let merged = merge_servers_unless(path, &entry, |target| found(env, path, target, also_read));
+    let merged = merge_servers_unless(path, &entry, |target| found(env, path, target, also_read, DASHBOARD));
 
     match merged {
         Err(state) => state,
@@ -53,9 +81,9 @@ pub fn register_dashboard_mcp(env: &Env, path: &Path, also_read: &[PathBuf]) -> 
     }
 }
 
-/// The dashboard's server in the target or an `also_read` file, as `Configured` or `Disabled`.
-fn found(env: &Env, path: &Path, target: &Target, also_read: &[PathBuf]) -> Option<McpState> {
-    let server = find_server(path, target, also_read, DASHBOARD_MCP_SERVER, DASHBOARD_BINARY)?;
+/// `server` in the target or an `also_read` file, as `Configured` or `Disabled`.
+fn found(env: &Env, path: &Path, target: &Target, also_read: &[PathBuf], server: Server) -> Option<McpState> {
+    let server = find_server(path, target, also_read, server.name, server.binary)?;
     let file = tilde(env, &server.file);
 
     if server.disabled {

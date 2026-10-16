@@ -12,8 +12,8 @@
 
   import { SETUP_MATRIX } from './layout';
   import SetupCell from './SetupCell.svelte';
-  import SetupCommand from './SetupCommand.svelte';
-  import { isUnsupported, MCP_SNIPPET, mcpChip, refusalText, skillsChip, type SetupKey } from './setup-model';
+  import SetupMcpNote from './SetupMcpNote.svelte';
+  import { isUnsupported, mcpChip, mcpTitle, type McpKind, type SetupKey } from './setup-model';
   import { setup } from './setup-state.svelte';
   import { badgeOf, nameOf } from './setup-view';
 
@@ -24,24 +24,37 @@
   let { entry }: Props = $props();
 
   const name = $derived(nameOf(entry.harness));
-  const skillsKey = $derived(`skills:${entry.harness}` as SetupKey);
-  const mcpKey = $derived(`mcp:${entry.harness}` as SetupKey);
-  const skillsFailure = $derived(setup.failure(skillsKey));
-  const mcpFailure = $derived(setup.failure(mcpKey));
 
-  // What does not fit in a cell: only an installed harness has any of it.
-  const manual = $derived(entry.installed && entry.skills.type === 'manual' ? entry.skills : null);
-  const unavailable = $derived(entry.installed && entry.skills.type === 'unavailable' ? entry.skills : null);
-  const refused = $derived(entry.installed && entry.mcp.type === 'refused' && !isUnsupported(entry.mcp) ? entry.mcp : null);
-  const disabled = $derived(entry.installed && entry.mcp.type === 'disabled');
-  const waitsForDashboard = $derived(entry.installed && entry.mcp.type === 'missing' && !setup.selectable(mcpKey));
+  /** One MCP column of the row: its cell and what its note would say. The dashboard's and the memory server's work alike. */
+  function mcpColumn(kind: McpKind) {
+    const mcp = entry[kind];
+    const key: SetupKey = `${kind}:${entry.harness}`;
+    const waits = entry.installed && mcp.type === 'missing' && !setup.selectable(key);
 
-  const hasSkillsNote = $derived(!!(manual || unavailable || skillsFailure));
-  const hasMcpNote = $derived(!!(refused || disabled || waitsForDashboard || mcpFailure));
-  const hasNotes = $derived(hasSkillsNote || hasMcpNote);
+    const note = {
+      refused: entry.installed && mcp.type === 'refused' && !isUnsupported(mcp) ? mcp.reason : null,
+      disabled: entry.installed && mcp.type === 'disabled',
+      waitsFor: waits ? t(kind === 'mcp' ? 'onboarding.setup.mcp.needsDashboard' : 'onboarding.setup.memoryMcp.needsMemory') : null,
+      failure: setup.failure(key),
+    };
 
-  /** Rows that need the user: something to run by hand, something refused, something that failed. */
-  const needsAttention = $derived(!!(manual || refused || skillsFailure || mcpFailure));
+    return {
+      kind,
+      key,
+      title: mcpTitle(kind),
+      // Where the harness keeps its MCP configuration: the hint of the cell, not a line of the row.
+      file: entry.installed && !isUnsupported(mcp) ? mcp.file : undefined,
+      note,
+      hasNote: !!(note.refused || note.disabled || note.waitsFor || note.failure),
+    };
+  }
+
+  const mcpColumns = $derived([mcpColumn('mcp'), mcpColumn('memoryMcp')]);
+
+  const hasNotes = $derived(mcpColumns.some((column) => column.hasNote));
+
+  /** Rows that need the user: something refused, something that failed. */
+  const needsAttention = $derived(mcpColumns.some((column) => column.note.refused || column.note.failure));
 
   // A row starts open when it needs the user, and opens by itself when it comes to (a failure, a fresh reading of the machine);
   // closing it again sticks until the need changes.
@@ -66,9 +79,6 @@
 
     return version ? `v${version}` : '';
   });
-
-  /** Where the harness keeps its MCP configuration: the hint of the MCP cell, not a line of the row. */
-  const configFile = $derived(entry.installed && !isUnsupported(entry.mcp) ? entry.mcp.file : undefined);
 </script>
 
 <li class="border-t border-line">
@@ -82,16 +92,9 @@
       </div>
     </div>
 
-    <SetupCell
-      label={t('onboarding.setup.skills.title')}
-      chip={skillsChip(entry, setup.shown(skillsKey), setup.waiting(skillsKey))}
-    />
-
-    <SetupCell
-      label={t('onboarding.setup.mcp.title')}
-      hint={configFile}
-      chip={mcpChip(entry, setup.shown(mcpKey), setup.waiting(mcpKey))}
-    />
+    {#each mcpColumns as column (column.kind)}
+      <SetupCell label={column.title} hint={column.file} chip={mcpChip(entry, column.kind, setup.shown(column.key), setup.waiting(column.key))} />
+    {/each}
 
     <span class="flex justify-end">
       {#if hasNotes}
@@ -113,41 +116,11 @@
     {#if hasNotes && open}
       <div transition:slide={{ duration: scaled(200) }} class="overflow-hidden">
         <div class="flex flex-col gap-4 pt-0.5 pb-3.5">
-          {#if hasSkillsNote}
-            <section class="flex flex-col gap-2" aria-label={t('onboarding.setup.skills.title')}>
-              <h4 class="text-xs font-medium tracking-wider text-fg-3 uppercase">{t('onboarding.setup.skills.title')}</h4>
-
-              {#if unavailable}
-                <p class="text-sm text-fg-2">{unavailable.reason}</p>
-              {:else if manual}
-                <p class="text-sm text-fg-2">{manual.note}</p>
-                <SetupCommand text={manual.command} copyLabel={t('onboarding.setup.copyCommand')} />
-              {/if}
-
-              {#if skillsFailure}
-                <p class="text-sm text-danger" role="alert">{t('onboarding.setup.skills.failed', { reason: skillsFailure })}</p>
-              {/if}
-            </section>
-          {/if}
-
-          {#if hasMcpNote}
-            <section class="flex flex-col gap-2" aria-label={t('onboarding.setup.mcp.title')}>
-              <h4 class="text-xs font-medium tracking-wider text-fg-3 uppercase">{t('onboarding.setup.mcp.title')}</h4>
-
-              {#if refused}
-                <p class="text-sm text-fg-2">{t('onboarding.setup.mcp.refused', { reason: refusalText(refused.reason) })}</p>
-                <SetupCommand text={MCP_SNIPPET} copyLabel={t('onboarding.setup.copySnippet')} />
-              {:else if disabled}
-                <p class="text-sm text-fg-2">{t('onboarding.setup.mcp.disabled')}</p>
-              {:else if waitsForDashboard}
-                <p class="text-sm text-fg-2">{t('onboarding.setup.mcp.needsDashboard')}</p>
-              {/if}
-
-              {#if mcpFailure}
-                <p class="text-sm text-danger" role="alert">{t('onboarding.setup.mcp.failed', { reason: mcpFailure })}</p>
-              {/if}
-            </section>
-          {/if}
+          {#each mcpColumns as column (column.kind)}
+            {#if column.hasNote}
+              <SetupMcpNote kind={column.kind} title={column.title} {...column.note} />
+            {/if}
+          {/each}
         </div>
       </div>
     {/if}

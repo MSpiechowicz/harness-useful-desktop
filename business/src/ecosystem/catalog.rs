@@ -1,15 +1,20 @@
 //! The companion tools of the ecosystem: names, descriptions, links and copyable install steps.
 //!
-//! Install steps follow each tool's README (the dashboard's `install.sh` / `install.ps1`, the
-//! OMP marketplace installs of the skills and the sidebar). They are shown for copying; the one
-//! exception is the "Recommended setup" step, which runs the dashboard's installer (see
-//! [`super::installer`]) after the user confirms it.
+//! Install steps follow each tool's README (the dashboard's and the memory server's `install.sh` /
+//! `install.ps1`, the OMP marketplace installs of the skills and the sidebar). They are shown for
+//! copying; the exception is the "Recommended setup" step, which runs the dashboard's or the
+//! memory server's installer (see [`super::installer`]) after the user confirms it.
 
 use crate::env::OsKind;
 use crate::model::{EcosystemId, EcosystemItem, InstallStep};
 
 /// Every tool, in display order.
-pub const ECOSYSTEM: [EcosystemId; 3] = [EcosystemId::Dashboard, EcosystemId::Skills, EcosystemId::Sidebar];
+pub const ECOSYSTEM: [EcosystemId; 4] = [
+    EcosystemId::Dashboard,
+    EcosystemId::Memory,
+    EcosystemId::Skills,
+    EcosystemId::Sidebar,
+];
 
 /// The dashboard's executable name.
 pub const DASHBOARD_BINARY: &str = "harness-dashboard";
@@ -23,7 +28,7 @@ pub const SIDEBAR_PLUGIN: &str = "harness-useful-sidebar";
 /// The name the setup step gives the dashboard's server in a harness's `mcpServers`.
 pub const DASHBOARD_MCP_SERVER: &str = "harness-dashboard";
 
-/// The project memory server's executable name (bundled with the app, see `memory/`).
+/// The project memory server's executable name (Harness Memory, installed like the dashboard).
 pub const MEMORY_BINARY: &str = "harness-memory";
 
 /// The name the app gives the memory server in a harness's `mcpServers`.
@@ -49,6 +54,17 @@ pub const DASHBOARD_INSTALL_PS1_SCRIPT: &str =
 /// The dashboard's Windows installer, as a copyable command.
 pub const DASHBOARD_INSTALL_PS1: &str = "powershell -ExecutionPolicy Bypass -c \"irm https://raw.githubusercontent.com/MSpiechowicz/harness-useful-dashboard/main/install.ps1 | iex\"";
 
+/// The memory server's Unix installer, as a copyable shell command (also the script the setup
+/// step runs on Linux and macOS). `curl` is held to HTTPS and TLS 1.2 or newer, redirects included.
+pub const MEMORY_INSTALL_SH: &str = "curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/MSpiechowicz/harness-useful-memory/main/install.sh | sh";
+
+/// The PowerShell script of the memory server's Windows installer (what the setup step runs there).
+pub const MEMORY_INSTALL_PS1_SCRIPT: &str =
+    "irm https://raw.githubusercontent.com/MSpiechowicz/harness-useful-memory/main/install.ps1 | iex";
+
+/// The memory server's Windows installer, as a copyable command.
+pub const MEMORY_INSTALL_PS1: &str = "powershell -ExecutionPolicy Bypass -c \"irm https://raw.githubusercontent.com/MSpiechowicz/harness-useful-memory/main/install.ps1 | iex\"";
+
 /// True when `id` runs on `os` (the sidebar needs tmux or a native pane: Linux and macOS only).
 pub fn supported_on(id: EcosystemId, os: OsKind) -> bool {
     id != EcosystemId::Sidebar || os != OsKind::Windows
@@ -60,6 +76,7 @@ pub fn catalog_item(id: EcosystemId, os: OsKind) -> EcosystemItem {
     let supported = supported_on(id, os);
     let mut item = match id {
         EcosystemId::Dashboard => dashboard(os),
+        EcosystemId::Memory => memory(os),
         EcosystemId::Skills => skills(),
         EcosystemId::Sidebar => sidebar(),
     };
@@ -88,6 +105,27 @@ fn dashboard(os: OsKind) -> EcosystemItem {
         &[
             "Data comes from the local process `harness-dashboard mcp`; nothing is sent over the network.",
             "Run `harness-dashboard` now and then so its database stays current.",
+        ],
+    )
+}
+
+fn memory(os: OsKind) -> EcosystemItem {
+    let install = match os {
+        OsKind::Windows => MEMORY_INSTALL_PS1,
+        OsKind::Linux | OsKind::MacOs => MEMORY_INSTALL_SH,
+    };
+
+    item(
+        EcosystemId::Memory,
+        "Harness Memory",
+        "One project memory for every coding agent, kept on this machine.",
+        "A local MCP server that keeps notes and how they relate per repository, so what one agent learns the \
+         next one finds. The app registers it with each detected harness while Project memory is on, and adds \
+         matching notes to the first message of a new chat.",
+        vec![step("Install the binary", install)],
+        &[
+            "Runs locally as `harness-memory mcp`; nothing is sent over the network.",
+            "Turn it on or off for every harness in Settings, under Project memory.",
         ],
     )
 }
@@ -170,6 +208,7 @@ fn item(
 fn repo_url(id: EcosystemId) -> String {
     let name = match id {
         EcosystemId::Dashboard => "harness-useful-dashboard",
+        EcosystemId::Memory => "harness-useful-memory",
         EcosystemId::Skills => SKILLS_PLUGIN,
         EcosystemId::Sidebar => SIDEBAR_PLUGIN,
     };
