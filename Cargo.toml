@@ -36,6 +36,8 @@ base64 = "0.22"
 minisign-verify = "0.2"
 # Compresses "Share setup" bundles (`hud1:` strings); already in the lockfile through Tauri.
 flate2 = "1.1"
+# Reads Harness Memory's `config.toml` (team database settings); already in the lockfile through Tauri.
+toml = { version = "1.1.8", default-features = false, features = ["parse", "serde", "std"] }
 # Desktop shell (Tauri 2 only; Tauri 3 alpha is not used).
 tauri = "2.12.2"
 tauri-build = "2.7.1"
@@ -56,8 +58,9 @@ time = { version = "0.3.55", features = ["formatting"] }
 # Plays the launch sound natively: Tauri gives the Linux webview no way to allow audio before a user gesture.
 rodio = { version = "0.22.2", default-features = false, features = ["playback", "wav"] }
 dunce = "1.0.5"
-# Unix-only: process-group kill (`killpg`) and non-blocking open flags.
-nix = { version = "0.31.3", default-features = false, features = ["signal", "fs", "process"] }
+# Unix-only: process-group kill (`killpg`), non-blocking open flags and the effective user id
+# (who must own Harness Memory's config file).
+nix = { version = "0.31.3", default-features = false, features = ["signal", "fs", "process", "user"] }
 # Dev dependencies
 tempfile = "3.27.0"
 insta = { version = "1.49.0", features = ["json"] }

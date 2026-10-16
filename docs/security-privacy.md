@@ -5,7 +5,9 @@ not guaranteed, it says so under [Limits](#limits).
 
 ## Guarantees in short
 
-- Local only. No telemetry, no analytics, no accounts, no sign-in, no tokens stored.
+- Local only. No telemetry, no analytics, no accounts, no sign-in. The one credential the app ever writes is the team
+  database URL and token you enter for Harness Memory, into that server's own config file; it is never shown again or
+  logged. See [Team database](#team-database).
 - The app itself makes two kinds of network request, both to GitHub and both possible to turn off: the update check and
   download (only when the build carries an updater key), and the companion release lookup (Harness Memory's included).
   See [Network](#network).
@@ -103,7 +105,9 @@ Everything else:
 - Project memory opens no connection once installed (the installer above is the only download). `harness-memory` speaks MCP over stdio to the process that started it (a harness,
   or the app for recall) and has no HTTP client; the only program it runs is `git` (see
   [Process spawning](#process-spawning)). The keywords the app searches with stay on that pipe. The notes it adds to a
-  message are sent by the harness to its model provider like the rest of the message.
+  message are sent by the harness to its model provider like the rest of the message. The exception is a team database
+  you set in Settings: then `harness-memory` itself connects to it (PostgreSQL, libSQL or MongoDB at the URL you gave).
+  The app still opens no connection; **Test** runs `harness-memory check`, which does. See [Team database](#team-database).
 - The Ecosystem tab shows install commands for copying (`business/src/ecosystem/catalog.rs`). The app never runs them,
   except the Harness Dashboard and Harness Memory installers (see [Process spawning](#process-spawning)).
 
@@ -516,6 +520,30 @@ message as a `<harness-memory-recall>` block (`business/src/ecosystem/memory_rec
   refuses that server name.
 - **No telemetry, no network.** The app never opens the database itself and no note text reaches the log.
 
+### Team database
+
+Harness Memory can keep its notes in a shared database instead of the local file. Settings writes the server's own
+config file, `config.toml` in `<config>/harness-memory`, where `<config>` is `$XDG_CONFIG_HOME` (if absolute) or
+`~/.config` (Linux), `~/Library/Application Support` (macOS) or `%APPDATA%` (Windows)
+(`business/src/ecosystem/memory_remote/`).
+
+- **What it holds.** `database_url`, `database_token` (libSQL only) and where repository and global notes go
+  (`repository_notes`, `global_notes`: `remote` or `local`). Nothing else: the server refuses unknown keys, so a file with
+  other keys, one that is not valid TOML or cannot be read is reported and never overwritten or removed. Turning the
+  team database off deletes the file.
+- **Secrets stay out of the webview and the log.** `memory_remote_get` returns the URL as `scheme://user@host:port/path`
+  (no password, query or fragment) and only whether a token is saved. The URL and token the webview sends are
+  validated (scheme of the chosen kind, at most 4 KiB, no control characters; a libSQL URL carries no user, password,
+  query or fragment, and `http://` only to this machine), and no error message or log line quotes them.
+- **Writing.** Atomic replace (temporary `0600` file, `sync_all`, rename); the folder is created `0700` on Unix. A
+  symbolic link at the file or its folder is refused. TOML strings are escaped, so quotes, backslashes and any Unicode in
+  a password round-trip. Settings also reports what the server checks: a file other users can change or that another
+  user owns (the server refuses it), or one other users can read.
+- **Testing.** `memory_remote_test` runs the installed `harness-memory check` (20 s limit, stdin closed, output capped)
+  with the typed URL and token in `HARNESS_MEMORY_DATABASE_URL` and `HARNESS_MEMORY_DATABASE_TOKEN`, never on the
+  command line; the app's own values of those variables and of `HARNESS_MEMORY_CONFIG` are not passed on. Its first line
+  is shown after the typed and saved secrets are masked and `redact_text` ran over it.
+
 **Switching it off.** **Project memory** in Settings (`memoryEnabled`) removes the app's own `harness-memory` entries and
 stops adding them. It keeps the database, the installed server and the registration record, so switching it on again brings
 the notes back. Deleting an entry yourself also works, and the app does not add it back while the record shows it
@@ -576,6 +604,7 @@ Details of keys and releases: [release-and-updater-keys.md](release-and-updater-
 | `mcp.json` of a harness | `<agent dir>/mcp.json` (for example `~/.omp/agent/mcp.json`), the harness's own file | Written by the app in three cases: the `harness-memory` entry, added automatically at launch while project memory is on and the server is installed, and removed when you switch it off; Recommended setup (one `harness-dashboard` server, after you choose it); and importing a shared setup (the MCP servers you ticked, after you confirm). Entries are merged in (see [Process spawning](#process-spawning)); the only existing entry ever changed is the app's own `harness-memory` one. Not app data; nothing else in it is touched. |
 | Project memory database | `memory.sqlite3` (plus `-wal` and `-shm` while in use) in `<data>/harness-memory` (`HARNESS_MEMORY_DIR` overrides it), where `<data>` is `$XDG_DATA_HOME` or `~/.local/share` (Linux), `~/Library/Application Support` (macOS) or `%LOCALAPPDATA%` (Windows) | Written by the `harness-memory` server, never by the app, which does not open it. Notes the agents wrote (title, body, kind, tags, entity names, relation labels, timestamps, and per note the client name and the checkout path of its latest write), and per repository its normalized remote and its path. On its first run the server copies the file older app builds kept in `<local data>/com.mspiechowicz.harness-useful-desktop/memory` (same `<data>` folders); the old file is left untouched. See [Project memory](#project-memory). On Unix a folder the server creates is `0700` and the file `0600`. Unencrypted. |
 | `harness-memory` server | `~/.local/bin/harness-memory` (Linux, macOS), `%LOCALAPPDATA%\Programs\harness-memory\harness-memory.exe` (Windows) | The server executable, written by its installer (`install.sh` / `install.ps1`) after you confirm, not by the app. Builds up to 0.16 also kept a copy at `<local data>/com.mspiechowicz.harness-useful-desktop/bin/harness-memory[.exe]` on macOS and Windows; the app deletes it at launch once the installed server is in place and nothing runs it. |
+| Harness Memory `config.toml` | `<config>/harness-memory/config.toml` (see [Team database](#team-database)) | Only when you set a team database: its URL, the libSQL token and the note routing, in plain text. Written atomically by the app (`0600` file, `0700` folder on Unix) and read by `harness-memory`; deleted when you turn the team database off. |
 | `memory-registration.json` | The OS app-config directory, beside `prefs.json` | `{"version": 1, "registered": [{"harness", "file"}]}`: the home-relative `mcp.json` paths the server was registered in, so a removed entry is not added back. No file contents. Read with a 64 KiB cap, written atomically; an unusable file is renamed to `memory-registration.json.corrupt-<unix-seconds>`. |
 | Exported setup | A path you choose in the native save dialog (suggested `harness-setup-<date>.json`) | The share file of [Shared setups](#shared-setups): references and key names, no env or header values. Written atomically, only on Save. Not app data; the app never reads it back unless you import it. |
 | Log files | The OS log directory | See [Logging](#logging). Rotated at 1 MiB, 3 files kept. |
@@ -597,7 +626,8 @@ Rust changes them: through the native pickers and the project and harness comman
 rest as stored. The exhaustive destructuring in `with_ui_fields` makes a new field fail to compile until it is
 classified. Turning off `rememberRecentProjects` clears the recent list.
 
-The app stores no tokens, no chat content, no prompts and no file contents. Saved sessions belong to the harness
+The app stores no tokens (apart from the team database credentials you enter, kept in Harness Memory's own config
+file), no chat content, no prompts and no file contents. Saved sessions belong to the harness
 (its own session folder); the app reads them and never copies them. The exception is project memory below: notes your
 agents write are stored by the `harness-memory` server, not by the app.
 

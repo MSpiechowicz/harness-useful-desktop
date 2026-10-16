@@ -89,3 +89,12 @@ fn rewrite_text(text: String, replacements: &[(String, &str)]) -> String {
 pub fn json_text(value: impl Serialize) -> String {
     serde_json::to_string(&value).expect("DTOs always serialize")
 }
+
+/// Sets the Unix permission bits of `path`; nothing to do on other systems.
+pub fn set_mode(path: &Path, mode: u32) {
+    #[cfg(unix)]
+    std::fs::set_permissions(path, std::os::unix::fs::PermissionsExt::from_mode(mode)).expect("set the mode");
+
+    #[cfg(not(unix))]
+    let _ = (path, mode);
+}

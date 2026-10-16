@@ -13,6 +13,9 @@ const sampleArgs = (sessionKey: string): { [K in CommandName]: CommandArgs<K> } 
   prefs_get: undefined,
   prefs_set: { prefs: samplePrefs() },
   memory_set_enabled: { enabled: false },
+  memory_remote_get: undefined,
+  memory_remote_set: { enabled: true, kind: 'postgres', url: 'postgres://memory:pw@db.ok.example.com/harness_memory', token: null, repositoryNotes: 'remote', globalNotes: 'local' },
+  memory_remote_test: { kind: 'libsql', url: 'libsql://team-ok.turso.io', token: 'tok' },
   open_external: { url: 'https://github.com/MSpiechowicz/harness-useful-desktop' },
   reveal_path: { path: '/home/demo/.omp/agent/config.yml' },
   harness_list: undefined,
@@ -183,6 +186,27 @@ describe('mock transport', () => {
     await expect(mock.invoke('memory_set_enabled', { enabled: false })).resolves.toMatchObject({ memoryEnabled: false });
     await expect(mock.invoke('prefs_get', undefined)).resolves.toMatchObject({ memoryEnabled: false });
     await expect(mock.invoke('memory_set_enabled', { enabled: true })).resolves.toMatchObject({ memoryEnabled: true });
+  });
+
+  it('saves, tests and removes the team database without returning the URL or token', async () => {
+    const mock = transport();
+    await expect(mock.invoke('memory_remote_get', undefined)).resolves.toMatchObject({ enabled: false, kind: null, problem: null });
+
+    const saved = await mock.invoke('memory_remote_set', { enabled: true, kind: 'libsql', url: 'libsql://team-ok.turso.io', token: 'tok-secret', repositoryNotes: 'local', globalNotes: 'remote' });
+    expect(saved).toMatchObject({ enabled: true, kind: 'libsql', urlRedacted: 'libsql://team-ok.turso.io', hasToken: true, repositoryNotes: 'local' });
+    expect(JSON.stringify(saved)).not.toContain('tok-secret');
+
+    await expect(mock.invoke('memory_remote_test', { kind: 'libsql', url: null, token: null })).resolves.toMatchObject({ ok: true });
+    await expect(mock.invoke('memory_remote_test', { kind: 'postgres', url: 'postgres://u:pw@db.example.com/x', token: null })).resolves.toEqual({
+      ok: false,
+      message: 'error: cannot connect to postgres://u@db.example.com/x: connection refused',
+    });
+
+    const pw = { enabled: true, kind: 'postgres', url: null, token: null, repositoryNotes: 'remote', globalNotes: 'remote' } as const;
+    await expect(mock.invoke('memory_remote_set', pw)).rejects.toMatchObject({ code: 'invalidInput' });
+    await expect(mock.invoke('memory_remote_set', { ...pw, kind: 'libsql', url: 'libsql://u:pw@t.turso.io' })).rejects.toMatchObject({ code: 'invalidInput' });
+
+    await expect(mock.invoke('memory_remote_set', { ...pw, enabled: false, kind: null })).resolves.toMatchObject({ enabled: false, hasToken: false });
   });
 
   it('clears the recent projects when remembering is turned off', async () => {

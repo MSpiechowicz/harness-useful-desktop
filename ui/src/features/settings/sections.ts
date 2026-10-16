@@ -1,3 +1,4 @@
+import Brain from '@lucide/svelte/icons/brain';
 import Download from '@lucide/svelte/icons/download';
 import Info from '@lucide/svelte/icons/info';
 import FolderClock from '@lucide/svelte/icons/folder-clock';
@@ -41,6 +42,16 @@ export const SETTINGS_SECTIONS: readonly { id: SettingsSectionId; label: string;
     icon: Terminal,
     get keywords() {
       return t('settings.keywords.harnesses');
+    },
+  },
+  {
+    id: 'memory',
+    get label() {
+      return t('settings.section.memory');
+    },
+    icon: Brain,
+    get keywords() {
+      return t('settings.keywords.memory');
     },
   },
   {

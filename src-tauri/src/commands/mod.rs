@@ -8,6 +8,7 @@ pub mod ecosystem;
 pub mod git;
 pub mod harness;
 pub mod memory;
+pub mod memory_remote;
 pub mod plugins;
 pub mod projects;
 pub mod review;

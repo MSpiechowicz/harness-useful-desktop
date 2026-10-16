@@ -29,6 +29,10 @@ import type { HarnessId } from './bindings/HarnessId';
 import type { HarnessSummary } from './bindings/HarnessSummary';
 import type { InstallLogLine } from './bindings/InstallLogLine';
 import type { McpState } from './bindings/McpState';
+import type { MemoryNotesTarget } from './bindings/MemoryNotesTarget';
+import type { MemoryRemote } from './bindings/MemoryRemote';
+import type { MemoryRemoteKind } from './bindings/MemoryRemoteKind';
+import type { MemoryRemoteTest } from './bindings/MemoryRemoteTest';
 import type { MemorySwitchResult } from './bindings/MemorySwitchResult';
 import type { RecommendedSetup } from './bindings/RecommendedSetup';
 import type { ProjectInfo } from './bindings/ProjectInfo';
@@ -72,6 +76,18 @@ export const commands = {
    * `server.installed` false means nothing was registered; offer `setup_install_memory`.
    */
   memory_set_enabled: cmd<{ enabled: boolean }, MemorySwitchResult>(),
+  /** The team database in Harness Memory's config.toml: the URL redacted, the token as `hasToken`, and any `problem` with the file. */
+  memory_remote_get: cmd<undefined, MemoryRemote>(),
+  /**
+   * Saves the team database (`enabled`) or removes it (the file is deleted). A null `url`/`token` keeps the saved one, `token: ''` clears it;
+   * the token is stored for libSQL only. `invalidInput` for a URL or token Harness Memory would refuse, or a file the app must not overwrite.
+   */
+  memory_remote_set: cmd<
+    { enabled: boolean; kind: MemoryRemoteKind | null; url: string | null; token: string | null; repositoryNotes: MemoryNotesTarget; globalNotes: MemoryNotesTarget },
+    MemoryRemote
+  >(),
+  /** Runs `harness-memory check` (20 s) with the given URL/token, or the saved ones where null. Never rejects for a failed check: see `ok`. */
+  memory_remote_test: cmd<{ kind: MemoryRemoteKind; url: string | null; token: string | null }, MemoryRemoteTest>(),
   open_external: cmd<{ url: string }, null>(),
   reveal_path: cmd<{ path: string }, null>(),
   harness_list: cmd<undefined, HarnessSummary[]>(),

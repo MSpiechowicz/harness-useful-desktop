@@ -25,7 +25,11 @@
 //! 0 too; a failed `match` exits 4 with a message on stderr.
 //!
 //! Copied under the name `harness-memory`, `fake_agent --version` prints `harness-memory 0.0.0`, so
-//! the desktop tests can place an installed memory server on every OS.
+//! the desktop tests can place an installed memory server on every OS. `harness-memory check`
+//! (nothing else on the command line) answers from `HARNESS_MEMORY_DATABASE_URL` and
+//! `HARNESS_MEMORY_DATABASE_TOKEN` only: unset URL, exit 1; a URL containing `fail`, exit 1 with
+//! the URL and token echoed on stderr (as a careless server would); else
+//! `ok: Fake at <scheme> (schema 1) token <set|unset|blank>` and exit 0.
 
 use std::collections::HashMap;
 use std::io::{BufRead, Write};
@@ -38,10 +42,15 @@ use serde_json::{Map, Value, json};
 fn main() {
     let args: Vec<String> = std::env::args().collect();
 
-    if is_memory_stand_in(&args) {
+    if is_memory_stand_in(&args, "--version") {
         println!("harness-memory 0.0.0");
         std::process::exit(0);
     }
+
+    if is_memory_stand_in(&args, "check") {
+        memory_check();
+    }
+
     let option = |name: &str| {
         args.iter()
             .position(|arg| arg == name)
@@ -79,14 +88,40 @@ fn main() {
     std::process::exit(0);
 }
 
-/// `harness-memory --version` run on a copy of this binary named `harness-memory`.
-fn is_memory_stand_in(args: &[String]) -> bool {
+/// `harness-memory <argument>` (and nothing else) run on a copy of this binary named
+/// `harness-memory`.
+fn is_memory_stand_in(args: &[String], argument: &str) -> bool {
     let Ok(exe) = std::env::current_exe() else {
         return false;
     };
     let named = exe.file_stem().is_some_and(|stem| stem == "harness-memory");
 
-    named && args.get(1..).is_some_and(|rest| rest == ["--version"])
+    named && args.get(1..).is_some_and(|rest| rest == [argument])
+}
+
+/// `harness-memory check`, answered from the environment (see the module docs).
+fn memory_check() -> ! {
+    let url = std::env::var("HARNESS_MEMORY_DATABASE_URL").unwrap_or_default();
+    let token = std::env::var("HARNESS_MEMORY_DATABASE_TOKEN").ok();
+
+    if url.is_empty() {
+        fail(1, "no team database is configured");
+    }
+
+    if url.contains("fail") {
+        eprintln!("error: cannot reach {url} with token {}", token.unwrap_or_default());
+        std::process::exit(1);
+    }
+
+    let scheme = url.split("://").next().unwrap_or_default();
+    let token = match token.as_deref() {
+        None | Some("") => "unset",
+        Some(token) if token.trim().is_empty() => "blank",
+        Some(_) => "set",
+    };
+
+    println!("ok: Fake at {scheme} (schema 1) token {token}");
+    std::process::exit(0);
 }
 
 fn fail(code: i32, message: &str) -> ! {

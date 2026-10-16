@@ -30,6 +30,7 @@
   import SyncSection from '../sync/SyncSection.svelte';
   import AboutCard from './AboutCard.svelte';
   import HarnessSettings from './HarnessSettings.svelte';
+  import MemorySection from './MemorySection.svelte';
   import PrivacySection from './PrivacySection.svelte';
   import SettingRow from './SettingRow.svelte';
   import { activeSection, SETTINGS_SECTIONS, type SectionBox } from './sections';
@@ -270,27 +271,9 @@
                 </Button>
               {/snippet}
             </SettingRow>
-
-            <SettingRow title={t('settings.memory.title')} description={t('settings.memory.description')}>
-              {#snippet control()}
-                <Switch
-                  label={t('settings.memory.title')}
-                  disabled={prefs.memoryPending}
-                  bind:checked={() => prefs.value?.memoryEnabled ?? true, (memoryEnabled) => void prefs.setMemoryEnabled(memoryEnabled)}
-                />
-              {/snippet}
-            </SettingRow>
-
-            <SettingRow title={t('settings.memoryRecall.title')} description={t('settings.memoryRecall.description')}>
-              {#snippet control()}
-                <Switch
-                  label={t('settings.memoryRecall.title')}
-                  disabled={prefs.value?.memoryEnabled === false}
-                  bind:checked={() => prefs.value?.memoryRecall ?? true, (memoryRecall) => void prefs.update({ memoryRecall })}
-                />
-              {/snippet}
-            </SettingRow>
           </SettingsSection>
+
+          <MemorySection id="memory" />
 
           <SyncSection id="sync" />
 

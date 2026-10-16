@@ -6,6 +6,7 @@ import { extensionActionHandlers } from './extension-action-handlers';
 import { gitHandlers } from './git-handlers';
 import { harnessHandlers } from './harness-handlers';
 import { hostHandlers } from './host-handlers';
+import { memoryRemoteHandlers } from './memory-remote-handlers';
 import { projectHandlers } from './project-handlers';
 import { releaseHandlers } from './release-handlers';
 import { sessionHandlers } from './session-handlers';
@@ -73,6 +74,8 @@ export function defaultScenario(): Scenario {
     ...syncHandlers(),
     // The switch reports the memory server the setup mock installs.
     memory_set_enabled: ({ enabled }) => ({ memoryEnabled: state.setMemoryEnabled(enabled).memoryEnabled, server: setup.memoryServer() }),
+    // `?remote=postgres|libsql|problem` starts with a saved team database; `harness-memory check` passes for URLs containing "ok".
+    ...memoryRemoteHandlers(),
     // A completed action may be one of the setup step's, which the next `setup_status` then reports as done.
     extension_action: async (args) => {
       const result = await actions.extension_action(args);

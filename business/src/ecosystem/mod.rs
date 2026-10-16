@@ -13,6 +13,8 @@
 //! - [`memory_register`]: that server in a harness's user MCP file, [`memory_record`]: the files
 //!   the app registered it in, and [`memory_migrate`]: the old copy of the bundled server retired.
 //! - [`mcp_client`]: a minimal MCP stdio client.
+//! - [`memory_remote`]: the shared team database in Harness Memory's own config file, and
+//!   `harness-memory check` against it.
 //! - [`memory_recall`]: the notes `harness-memory` finds for a chat message, put in front of it.
 //! - [`releases`]: the latest GitHub release of each installed tool (`ecosystem_releases`).
 //! - [`dashboard`]: the pooled `harness-dashboard mcp` connection (`dashboard_query`,
@@ -30,6 +32,7 @@ pub mod memory_migrate;
 pub mod memory_recall;
 pub mod memory_record;
 pub mod memory_register;
+pub mod memory_remote;
 mod recall_text;
 pub mod releases;
 pub mod setup;
@@ -47,6 +50,9 @@ pub use memory_recall::{MemoryRecall, RecallOutcome, RecallReason, WarmRecall};
 pub use memory_record::{MEMORY_RECORD_FILE, MemoryRecord, RecordedFile};
 pub use memory_register::{
     MemoryRegistration, names_command, register_memory_mcp, repoint_memory_mcp, unregister_memory_mcp,
+};
+pub use memory_remote::{
+    MemoryRemoteChange, memory_config_path, memory_remote_get, memory_remote_set, memory_remote_test,
 };
 pub use releases::{CompanionReleases, release_endpoint};
 pub use setup::{mcp_target_paths, memory_server_setup, setup_status};

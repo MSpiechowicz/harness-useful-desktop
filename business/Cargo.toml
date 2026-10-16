@@ -27,6 +27,7 @@ ts-rs.workspace = true
 which.workspace = true
 dirs.workspace = true
 serde_norway.workspace = true
+toml.workspace = true
 uuid.workspace = true
 
 # Scripted OMP/PI peer for the agent-session integration tests (`CARGO_BIN_EXE_fake_agent`).

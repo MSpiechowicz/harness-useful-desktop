@@ -22,6 +22,7 @@ mod extensions;
 mod git;
 mod harness;
 mod ipc_error;
+mod memory_remote;
 mod prefs;
 mod project;
 mod review;
@@ -65,6 +66,7 @@ pub use git::{
 };
 pub use harness::{Capabilities, Detection, HarnessId, HarnessInfo, HarnessSummary, InstallHint, VersionSupport};
 pub use ipc_error::{IpcError, IpcErrorCode};
+pub use memory_remote::{MemoryNotesTarget, MemoryRemote, MemoryRemoteKind, MemoryRemoteTest};
 pub use prefs::{
     AppPrefs, BinaryOverride, ChatDefaults, DEFAULT_LANGUAGE, LANGUAGES, MotionPref, ThemePref, UpdatePolicy,
 };
