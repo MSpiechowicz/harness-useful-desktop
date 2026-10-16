@@ -42,6 +42,8 @@ fn resolved(env: &Env) -> Option<PathBuf> {
 }
 
 #[test]
+// `~/.local/bin` is the installer's folder only on Linux and macOS (Windows has its own, tested apart).
+#[cfg(unix)]
 fn the_installers_folder_comes_before_path_and_path_before_the_install_directories() {
     let home = tempfile::tempdir().unwrap();
     let env = Env::for_tests(home.path()).with_var("PATH", home.path().join("tools").to_string_lossy());

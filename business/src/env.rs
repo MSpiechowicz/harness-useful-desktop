@@ -122,8 +122,9 @@ impl Env {
         }
     }
 
-    /// `home.join(relative)`, for readability at call sites.
+    /// `home.join(relative)`, for readability at call sites. `relative` may use `/` on every OS; it is
+    /// rebuilt from its components, so on Windows the result uses `\` throughout.
     pub fn home_join(&self, relative: impl AsRef<Path>) -> PathBuf {
-        self.home.join(relative)
+        self.home.join(relative.as_ref().components().collect::<PathBuf>())
     }
 }

@@ -349,6 +349,8 @@ mod tests {
     }
 
     #[test]
+    // `~/.local/bin` is the installer's folder only on Linux and macOS (Windows has its own, tested apart).
+    #[cfg(unix)]
     fn recall_uses_the_old_app_copy_until_the_server_is_installed() {
         let home = TempDir::new("memory-server-legacy");
         let env = Env::for_tests(home.path()).with_os(OsKind::MacOs);
@@ -366,6 +368,8 @@ mod tests {
     }
 
     #[test]
+    // `~/.local/bin` is the installer's folder only on Linux and macOS (Windows has its own, tested apart).
+    #[cfg(unix)]
     fn recall_runs_the_installers_server_over_one_on_path_that_reports_no_version() {
         let home = TempDir::new("memory-server-shadowed");
         let bun = home.path().join(".bun").join("bin");

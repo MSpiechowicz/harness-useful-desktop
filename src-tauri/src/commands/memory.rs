@@ -214,6 +214,8 @@ mod tests {
     }
 
     #[test]
+    // `~/.local/bin` is the installer's folder only on Linux and macOS (Windows has its own, tested apart).
+    #[cfg(unix)]
     fn the_installers_server_is_registered_and_recalled_over_a_silent_one_on_path() {
         let dir = TempDir::new("memory-shadowed");
         let mut state = state(&dir);
