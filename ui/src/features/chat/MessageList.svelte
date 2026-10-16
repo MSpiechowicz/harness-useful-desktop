@@ -122,7 +122,7 @@
     estimate={ESTIMATED_ROW_PX}
     label={t('chat.list.label')}
     key={(item) => item.key}
-    class="size-full"
+    class="size-full [scrollbar-gutter:stable_both-edges]"
   >
     {#snippet row(item, index)}
       <div class={cx('chat-col py-2', index === 0 && 'pt-4', index === session.chat.items.length - 1 && 'pb-4')} in:rise|global={{ y: 8, duration: entrance(item) }}>

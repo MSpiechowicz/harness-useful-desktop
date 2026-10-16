@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Markdown from '$lib/components/Markdown.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
   import type { MessageItem } from '$lib/chat/types';
 
@@ -35,5 +36,9 @@
 
 <article class="chat-radius border border-line bg-surface-1/50 px-3.5 py-2.5 text-sm text-fg-2">
   <p class="mb-1 text-xs font-medium tracking-wide text-fg-3 uppercase">{label(item.role)}</p>
-  <p class="break-words whitespace-pre-wrap">{text}</p>
+  {#if item.role === 'bash'}
+    <p class="break-words whitespace-pre-wrap">{text}</p>
+  {:else}
+    <Markdown source={text} />
+  {/if}
 </article>
