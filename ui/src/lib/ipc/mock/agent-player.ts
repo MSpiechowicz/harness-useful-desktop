@@ -78,14 +78,14 @@ function retagMessage(message: Extract<AgentEvent, { type: 'messageEnd' }>['mess
 }
 
 /** The recorded events of a scenario for one prompt, without the session-start events. */
-export function promptEvents(name: StreamName, prompt: string, prefix: string): AgentEvent[] {
+export function promptEvents(name: StreamName, prompt: string, prefix: string, shown = prompt): AgentEvent[] {
   const recorded = fixtures.agent.streams[name];
   const first = recorded.findIndex((envelope) => !START_EVENTS.has(envelope.event.type));
 
   return recorded
     .slice(first === -1 ? recorded.length : first)
     .map((envelope) => retag(structuredClone(envelope.event), prefix))
-    .map((event) => (event.type === 'messageEnd' && event.message.role === 'user' ? withPromptText(event, prompt) : event));
+    .map((event) => (event.type === 'messageEnd' && event.message.role === 'user' ? withPromptText(event, shown) : event));
 }
 
 function withPromptText(event: Extract<AgentEvent, { type: 'messageEnd' }>, prompt: string): AgentEvent {
@@ -143,16 +143,16 @@ export class MockAgentStream {
     this.sink({ sessionKey: this.key, seq: this.seq, event });
   }
 
-  /** Replays the scenario for `prompt`; a new prompt while one is playing is the caller's job to queue. */
-  async play(prompt: string): Promise<void> {
+  /** Replays the scenario for `prompt`, echoing `shown` as the user message; a new prompt while one is playing is the caller's job to queue. */
+  async play(prompt: string, shown = prompt): Promise<void> {
     this.run += 1;
     const run = this.run;
     this.playing = true;
 
     const name = pickStream(prompt);
     const prefix = `p${run}-`;
-    let events = name === 'subagents' ? subagentDemo(prompt).map((event) => retag(event, prefix)) : promptEvents(name, prompt, prefix);
-    const denied = name === 'approval' ? promptEvents('approvalDenied', prompt, prefix) : null;
+    let events = name === 'subagents' ? subagentDemo(prompt).map((event) => retag(event, prefix)) : promptEvents(name, prompt, prefix, shown);
+    const denied = name === 'approval' ? promptEvents('approvalDenied', prompt, prefix, shown) : null;
 
     for (let index = 0; index < events.length; index += 1) {
       await sleep(delayFor(events[index]) * this.pace());

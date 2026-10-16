@@ -12,6 +12,7 @@ const sampleArgs = (sessionKey: string): { [K in CommandName]: CommandArgs<K> } 
   app_info: undefined,
   prefs_get: undefined,
   prefs_set: { prefs: samplePrefs() },
+  memory_set_enabled: { enabled: false },
   open_external: { url: 'https://github.com/MSpiechowicz/harness-useful-desktop' },
   reveal_path: { path: '/home/demo/.omp/agent/config.yml' },
   harness_list: undefined,
@@ -159,13 +160,22 @@ describe('mock transport', () => {
     const prefs = await mock.invoke('prefs_get', undefined);
 
     const saved = await mock.invoke('prefs_set', {
-      prefs: { ...prefs, theme: 'dark', activeProject: '/etc', recentProjects: ['/etc'], binaryOverrides: [{ harness: 'omp', path: '/bin/sh' }] },
+      prefs: { ...prefs, theme: 'dark', activeProject: '/etc', recentProjects: ['/etc'], binaryOverrides: [{ harness: 'omp', path: '/bin/sh' }], memoryEnabled: false },
     });
 
     expect(saved.theme).toBe('dark');
+    expect(saved.memoryEnabled).toBe(true);
     expect(saved.activeProject).toBeNull();
     expect(saved.recentProjects).not.toContain('/etc');
     expect(saved.binaryOverrides).toEqual([]);
+  });
+
+  it('turns project memory off and on through its own command', async () => {
+    const mock = transport();
+
+    await expect(mock.invoke('memory_set_enabled', { enabled: false })).resolves.toMatchObject({ memoryEnabled: false });
+    await expect(mock.invoke('prefs_get', undefined)).resolves.toMatchObject({ memoryEnabled: false });
+    await expect(mock.invoke('memory_set_enabled', { enabled: true })).resolves.toMatchObject({ memoryEnabled: true });
   });
 
   it('clears the recent projects when remembering is turned off', async () => {

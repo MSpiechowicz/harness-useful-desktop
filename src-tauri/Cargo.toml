@@ -37,6 +37,8 @@ rodio.workspace = true
 reqwest.workspace = true
 rustls.workspace = true
 time.workspace = true
+# The idle timer of warm memory servers (`memory_recall`); the runtime tauri already runs on.
+tokio.workspace = true
 # `log` feature: tracing events from the business crate reach tauri-plugin-log (no subscriber is installed).
 tracing = { workspace = true, features = ["log"] }
 

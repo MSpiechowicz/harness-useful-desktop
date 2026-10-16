@@ -294,6 +294,11 @@ export const chat: AreaMessages<typeof enChat> = {
   'chat.user.images': 'Angehängte Bilder',
   'chat.user.files': 'Angehängte Dateien',
   'chat.user.image': 'Angehängtes Bild {n}',
+  'chat.user.recallTitle': 'Projektgedächtnis',
+  'chat.user.recallCount.one': '{count} Notiz',
+  'chat.user.recallCount.other': '{count} Notizen',
+  'chat.user.recallCaption': 'Notizen aus dem Projektgedächtnis, für den Agenten zu dieser Nachricht hinzugefügt.',
+  'chat.user.recallNotes': 'Notizen aus dem Projektgedächtnis',
 
   'chat.retry.start': 'Wiederholung läuft',
   'chat.retry.end': 'Wiederholung',

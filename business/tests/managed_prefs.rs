@@ -51,6 +51,7 @@ fn with_ui_changes(base: AppPrefs) -> AppPrefs {
         auto_update_extensions: false,
         open_any_link: true,
         ai_chat_names: true,
+        memory_recall: false,
         onboarding_completed: true,
         approval_notice_seen: true,
         ..base
@@ -86,6 +87,23 @@ fn save_ui_cannot_clear_server_managed_fields() {
     assert_eq!(saved.active_project, stored.active_project);
     assert_eq!(saved.recent_projects, stored.recent_projects);
     assert_eq!(saved.binary_overrides, stored.binary_overrides);
+}
+
+#[test]
+fn save_ui_cannot_switch_project_memory() {
+    let dir = TempDir::new().unwrap();
+    let store = PrefsStore::new(dir.path().to_path_buf());
+
+    let saved = store
+        .save_ui(&AppPrefs {
+            memory_enabled: false,
+            ..AppPrefs::default()
+        })
+        .unwrap();
+    assert!(saved.memory_enabled);
+
+    store.update(|prefs| prefs.memory_enabled = false).unwrap();
+    assert!(!store.save_ui(&AppPrefs::default()).unwrap().memory_enabled);
 }
 
 #[test]

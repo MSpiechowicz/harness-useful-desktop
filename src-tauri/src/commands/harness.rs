@@ -25,7 +25,7 @@ pub async fn harness_list(state: State<'_, AppState>) -> CommandResult<Vec<Harne
 }
 
 /// The cached summaries in registry order, detecting every harness first when one has none.
-pub(super) async fn summaries(state: &AppState) -> CommandResult<Vec<HarnessSummary>> {
+pub(crate) async fn summaries(state: &AppState) -> CommandResult<Vec<HarnessSummary>> {
     if let Some(cached) = cached_summaries(state).await {
         return Ok(cached);
     }

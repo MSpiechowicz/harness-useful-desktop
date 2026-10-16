@@ -20,7 +20,7 @@ export const settings: AreaMessages<typeof enSettings> = {
 
   'settings.keywords.appearance': 'thème animations mouvement sombre clair animation langue',
   'settings.keywords.startup': 'intro lancement démarrage',
-  'settings.keywords.harnesses': 'exécutable binaire omp pi chemin configuration',
+  'settings.keywords.harnesses': 'exécutable binaire omp pi chemin configuration mémoire souvenir harness-memory mcp dépôt rappel notes nouvelle conversation',
   'settings.keywords.projects': 'récents dossiers',
   'settings.keywords.updates': 'version mise à jour release installer rechercher nouvelle',
   'settings.keywords.privacy': 'données télémétrie diagnostic effacer confidentialité',
@@ -67,6 +67,12 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.setup.title': 'Configuration initiale',
   'settings.setup.description': 'Détecter à nouveau vos harnesses, choisir votre harness du quotidien et un projet.',
   'settings.setup.run': 'Relancer la configuration initiale',
+
+  'settings.memory.title': 'Mémoire du projet',
+  'settings.memory.description': "Donne à vos harnesses une mémoire locale (harness-memory) de ce qui a été fait, des problèmes et correctifs, et de l'emplacement des choses, par dépôt. Stockée uniquement sur cet ordinateur. La désactiver la retire de la configuration MCP des harnesses.",
+
+  'settings.memoryRecall.title': 'Ajouter la mémoire aux nouvelles conversations',
+  'settings.memoryRecall.description': "Au premier message d'une nouvelle conversation, les notes pertinentes de la mémoire du projet sont ajoutées pour l'agent. Elles sont envoyées à votre fournisseur de modèle avec le message.",
 
   'settings.recents.title': 'Mémoriser les projets récents',
   'settings.recents.description': 'Conserver la liste des dossiers que vous avez ouverts. La désactiver efface la liste.',
@@ -130,7 +136,7 @@ export const settings: AreaMessages<typeof enSettings> = {
 
   'settings.privacy.openLink.title': 'Ouvrir n’importe quel lien web',
   'settings.privacy.openLink.description':
-    'Les liens des chats, comme une pull request ouverte par l’agent, s’ouvrent dans votre navigateur. Désactivé : seuls les sites de projets et de harnesses s’ouvrent. Toujours en https uniquement.',
+    'Les liens des chats, comme une pull request ouverte par l’agent, s’ouvrent dans votre navigateur. Désactivé : seuls les sites de projets et de harnesses s’ouvrent. https uniquement, plus http vers cet ordinateur (localhost).',
   'settings.privacy.recents.title': 'Projets récents',
   'settings.privacy.recents.description': 'Oublier tous les dossiers mémorisés. Si votre projet ouvert figure dans la liste, il est aussi fermé.',
   'settings.privacy.recents.clear': 'Effacer les projets récents',

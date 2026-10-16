@@ -101,7 +101,7 @@ pub fn rfc3339(time: SystemTime) -> String {
 }
 
 /// Days since 1970-01-01 to a proleptic Gregorian date (Howard Hinnant's algorithm).
-fn civil_from_days(days: i64) -> (i64, u32, u32) {
+pub fn civil_from_days(days: i64) -> (i64, u32, u32) {
     let shifted = days + 719_468;
     let era = shifted.div_euclid(146_097);
     let day_of_era = shifted.rem_euclid(146_097);

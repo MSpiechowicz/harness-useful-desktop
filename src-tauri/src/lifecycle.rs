@@ -1,6 +1,6 @@
 //! App lifecycle hooks that end agent sessions: a page (re)load of the main webview stops every
-//! session (their channels died with the old page), and app exit stops them before the process
-//! ends.
+//! session (their channels died with the old page) and forgets their memory recalls (stopping
+//! their warm servers), and app exit stops them and their warm servers before the process ends.
 //!
 //! A reload takes the sessions out of the manager at once and stops their agents in the
 //! background. Their session ids stay held until each agent exited, so the reloaded page resuming
@@ -33,6 +33,7 @@ pub fn on_page_load<R: Runtime>(webview: &Webview<R>, payload: &PageLoadPayload<
 
     if let Some(state) = webview.try_state::<AppState>() {
         state.agents.stop_all_in_background();
+        state.recall.clear();
     }
 }
 
@@ -60,8 +61,8 @@ pub fn on_run_event<R: Runtime>(app: &AppHandle<R>, event: RunEvent) {
     }
 }
 
-/// Stops every session on a helper thread (bounded by [`EXIT_BUDGET`]), then exits with `code`.
-/// Later calls do nothing while the first shutdown runs.
+/// Stops the warm memory servers at once and every session on a helper thread (bounded by
+/// [`EXIT_BUDGET`]), then exits with `code`. Later calls do nothing while the first shutdown runs.
 fn begin_shutdown<R: Runtime>(app: &AppHandle<R>, code: i32) {
     let Some(state) = app.try_state::<AppState>() else {
         return;
@@ -70,6 +71,8 @@ fn begin_shutdown<R: Runtime>(app: &AppHandle<R>, code: i32) {
     if !state.agents.begin_shutdown() {
         return;
     }
+
+    state.recall.clear();
 
     let agents = state.agents.clone();
     let handle = app.clone();

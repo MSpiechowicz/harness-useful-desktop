@@ -1,4 +1,6 @@
 //! A temporary home with an OMP agent directory, for the tests that write a user MCP file.
+//! Each test binary uses only some of these helpers.
+#![allow(dead_code)]
 
 use std::path::{Path, PathBuf};
 

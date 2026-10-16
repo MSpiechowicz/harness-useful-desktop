@@ -20,7 +20,7 @@ export const settings: AreaMessages<typeof enSettings> = {
 
   'settings.keywords.appearance': 'motyw animacje ruch ciemny jasny animacja język',
   'settings.keywords.startup': 'intro start uruchamianie ekran powitalny',
-  'settings.keywords.harnesses': 'plik wykonywalny binarka omp pi ścieżka konfiguracja',
+  'settings.keywords.harnesses': 'plik wykonywalny binarka omp pi ścieżka konfiguracja pamięć zapamiętywanie harness-memory mcp repozytorium przywoływanie notatki nowy czat',
   'settings.keywords.projects': 'ostatnie foldery',
   'settings.keywords.updates': 'wersja aktualizacja nowa wydanie instalacja sprawdź',
   'settings.keywords.privacy': 'dane telemetria diagnostyka wyczyść prywatność',
@@ -67,6 +67,12 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.setup.title': 'Konfiguracja początkowa',
   'settings.setup.description': 'Wykryj harnessy jeszcze raz, wybierz codzienny harness i projekt.',
   'settings.setup.run': 'Uruchom konfigurację ponownie',
+
+  'settings.memory.title': 'Pamięć projektu',
+  'settings.memory.description': 'Daje harnessom lokalną pamięć (harness-memory) tego, co zrobiono, problemów i poprawek oraz tego, gdzie co jest, osobno dla każdego repozytorium. Zapisana tylko na tym komputerze. Wyłączenie usuwa ją z konfiguracji MCP harnessów.',
+
+  'settings.memoryRecall.title': 'Dodawaj pamięć do nowych czatów',
+  'settings.memoryRecall.description': 'Przy pierwszej wiadomości nowego czatu do agenta trafiają odpowiednie notatki z pamięci projektu. Są wysyłane do dostawcy modelu razem z wiadomością.',
 
   'settings.recents.title': 'Zapamiętuj ostatnie projekty',
   'settings.recents.description': 'Przechowuj listę otwieranych folderów. Wyłączenie czyści listę.',
@@ -130,7 +136,7 @@ export const settings: AreaMessages<typeof enSettings> = {
 
   'settings.privacy.openLink.title': 'Otwieraj każdy link internetowy',
   'settings.privacy.openLink.description':
-    'Linki w czatach, np. do pull requestu otwartego przez agenta, otwierają się w przeglądarce. Wyłączone: otwierają się tylko strony projektów i harnessów. Zawsze tylko https.',
+    'Linki w czatach, np. do pull requestu otwartego przez agenta, otwierają się w przeglądarce. Wyłączone: otwierają się tylko strony projektów i harnessów. Tylko https oraz http do tego komputera (localhost).',
   'settings.privacy.recents.title': 'Ostatnie projekty',
   'settings.privacy.recents.description': 'Zapomnij każdy zapamiętany folder. Jeśli otwarty projekt jest na liście, zostanie też zamknięty.',
   'settings.privacy.recents.clear': 'Wyczyść ostatnie projekty',

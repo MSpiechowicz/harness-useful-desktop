@@ -80,7 +80,7 @@ differs.
 | `dialect()` | yes | | The `&'static dyn RpcDialect`. |
 | `sessions_dir(env, project)` | yes | | Folder holding the saved sessions of a project. |
 | `install_hint()` | yes | | Copyable install command and docs URL, shown when the CLI is missing (never run). |
-| `companion_setup()` | yes | | `CompanionSetup`: how Harness Skills are installed and where the dashboard MCP server is registered. See [Recommended setup](#9-recommended-setup). |
+| `companion_setup()` | yes | | `CompanionSetup`: how Harness Skills are installed and where the dashboard and project memory MCP servers are registered. See [Recommended setup](#9-recommended-setup). |
 | `binary_name()` | no | `self.id().binary_name()` | Executable name looked up on `PATH`. |
 | `version_args()` | no | `["--version"]` | Arguments that print the version. |
 | `parse_version(output)` | no | first `x.y.z` (`first_semver`) | Extracts the version. |
@@ -299,8 +299,19 @@ fn companion_setup(&self) -> CompanionSetup {
   `{"command": "harness-dashboard", "args": ["mcp"]}` into its `mcpServers` object (`business/src/ecosystem/mcp_register.rs`).
   Choose it only after confirming that the CLI reads `mcpServers` from that user file. List other files of the agent
   directory that can also define servers in `also_read` (OMP adds `.mcp.json`); they are only read, to find an
-  existing entry.
-- `Unsupported`: the CLI has no user MCP file the app can write. The step then shows "No MCP file to edit" for it.
+  existing entry. The same file also receives the project memory server (below).
+- `Unsupported`: the CLI has no user MCP file the app can write. The step then shows "No MCP file to edit" for it, and
+  the harness gets no project memory entry.
+
+**Project memory comes with `UserMcpJson`.** At every launch, with the **Project memory** setting on, the app registers
+its bundled `harness-memory` MCP server in the `mcp.json` of each detected harness whose `companion_setup` uses
+`McpTarget::UserMcpJson` (`memory_setup.rs`, `register_memory_mcp`), with no prompt and no per-harness code. The entry is
+`{"command": "<stable path of harness-memory>", "args": ["mcp"]}`, written through the same file as the dashboard
+entry, so the "confirm the CLI reads `mcpServers` from that user file" check above also covers it. Nothing else to
+implement; verify that your CLI starts such a server, and that your `also_read` files are listed so an existing
+`harness-memory` entry in them is found and not duplicated. A removed entry is not added back, and an entry the user
+named `harness-memory` that is not the app's own is never changed. See
+[security-privacy.md](security-privacy.md#project-memory).
 
 The webview sends only a harness id; the file path comes from `paths` and the installer command is fixed in Rust, so
 no new command or permission is needed. Add the harness to the setup copy as well: the strings are under

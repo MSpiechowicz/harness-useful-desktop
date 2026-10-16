@@ -306,6 +306,13 @@ export const chat: AreaMessages<typeof enChat> = {
   'chat.user.images': 'Dołączone obrazy',
   'chat.user.files': 'Dołączone pliki',
   'chat.user.image': 'Dołączony obraz {n}',
+  'chat.user.recallTitle': 'Pamięć projektu',
+  'chat.user.recallCount.one': '{count} notatka',
+  'chat.user.recallCount.few': '{count} notatki',
+  'chat.user.recallCount.many': '{count} notatek',
+  'chat.user.recallCount.other': '{count} notatki',
+  'chat.user.recallCaption': 'Notatki z pamięci projektu, dodane do tej wiadomości dla agenta.',
+  'chat.user.recallNotes': 'Notatki z pamięci projektu',
 
   'chat.retry.start': 'Ponawianie',
   'chat.retry.end': 'Ponowienie',

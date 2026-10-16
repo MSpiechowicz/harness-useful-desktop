@@ -15,6 +15,7 @@ use std::path::Path;
 
 use serde_json::Value;
 
+use crate::ecosystem::memory_recall::strip_recall;
 use crate::error::Result;
 use crate::security::SafeReader;
 
@@ -215,9 +216,10 @@ impl Iterator for Entries {
 }
 
 /// The text of message content (a string or text blocks), whitespace collapsed, cut to
-/// `max_chars` characters (an ellipsis marks the cut); `None` when empty.
+/// `max_chars` characters (an ellipsis marks the cut); `None` when empty. A memory recall block in
+/// front of the first text is left out, so the preview shows what the user wrote.
 pub fn preview_text(content: Option<&Value>, max_chars: usize) -> Option<String> {
-    let pieces: Vec<&str> = match content? {
+    let mut pieces: Vec<&str> = match content? {
         Value::String(raw) => vec![raw.as_str()],
         Value::Array(blocks) => blocks
             .iter()
@@ -226,6 +228,10 @@ pub fn preview_text(content: Option<&Value>, max_chars: usize) -> Option<String>
             .collect(),
         _ => Vec::new(),
     };
+
+    if let Some(first) = pieces.first_mut() {
+        *first = strip_recall(first);
+    }
 
     // Words beyond the limit are not needed; the bound keeps huge prompts cheap.
     let words: Vec<&str> = pieces

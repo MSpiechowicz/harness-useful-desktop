@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 
-use harness_business::ecosystem::{CompanionReleases, Dashboard, DashboardOptions};
+use harness_business::ecosystem::{CompanionReleases, Dashboard, DashboardOptions, MemoryRecall};
 use harness_business::env::Env;
 use harness_business::harness::HarnessRegistry;
 use harness_business::model::{HarnessId, HarnessSummary};
@@ -19,6 +19,8 @@ use tauri::{AppHandle, Manager, Runtime};
 
 use crate::agents::Agents;
 use crate::drops::DropSink;
+use crate::memory_recall::RecallGate;
+use crate::memory_setup::bundled_server;
 use crate::updates::Updates;
 
 /// State shared by all IPC commands.
@@ -56,6 +58,16 @@ pub struct AppState {
     pub sync_plan: Mutex<Option<StoredPlan>>,
     /// Held while a "Share setup" import is applied, so only one runs at a time.
     pub sync_apply: async_runtime::Mutex<()>,
+    /// The OS app-config directory (prefs, the memory registration record).
+    pub config_dir: PathBuf,
+    /// Held while the memory server is installed, registered or unregistered, so one runs at a time.
+    pub memory_setup: async_runtime::Mutex<()>,
+    /// Asks `harness-memory` for the notes about a chat's first message.
+    pub memory_recall: MemoryRecall,
+    /// The chats whose next message gets a recall, with their warmed-up servers.
+    pub recall: Arc<RecallGate>,
+    /// The bundled `harness-memory` executable recalls run; `None` when it is missing (no recall).
+    pub memory_server: Option<PathBuf>,
 }
 
 impl AppState {
@@ -66,11 +78,13 @@ impl AppState {
         Ok(Self {
             updates: Updates::from_config(app.config()),
             attachments_dir: app.path().app_cache_dir()?.join("attachments"),
+            memory_server: bundled_server().filter(|server| server.is_file()),
             ..Self::new(config_dir, Env::from_process()?)
         })
     }
 
-    /// State over the prefs in `prefs_dir` and `env`, with the default harnesses and updates off.
+    /// State over the prefs (and the other config files) in `prefs_dir` and `env`, with the default
+    /// harnesses, updates off and no memory server.
     pub fn new(prefs_dir: PathBuf, env: Env) -> Self {
         Self {
             prefs: SharedPrefs::new(PrefsStore::new(prefs_dir.clone())),
@@ -89,6 +103,11 @@ impl AppState {
             dashboard_install: async_runtime::Mutex::new(()),
             sync_plan: Mutex::new(None),
             sync_apply: async_runtime::Mutex::new(()),
+            config_dir: prefs_dir,
+            memory_setup: async_runtime::Mutex::new(()),
+            memory_recall: MemoryRecall::new(Arc::new(TokioSpawner)),
+            recall: Arc::new(RecallGate::default()),
+            memory_server: None,
         }
     }
 }

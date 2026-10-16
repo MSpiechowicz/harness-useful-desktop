@@ -17,6 +17,7 @@ import { ComposerAttachments, type Attached } from './composer-attachments.svelt
 import { finishBash, startBash } from './bash';
 import { messageAction, type SendMode } from './composer';
 import { labelFromPrompt, type ChatLabel } from './naming';
+import { splitRecall } from './memory-recall';
 import { prependHistory } from './messages';
 import { applyEvent, dropRequest, reduceEnvelope } from './reducer';
 import { mergeCatalog } from './slash';
@@ -82,7 +83,13 @@ export class ChatSession {
 
     const first = this.chat.items.find((item) => item.kind === 'message' && item.role === 'user');
 
-    return first?.kind === 'message' ? splitFileNote(first.blocks.flatMap((block) => (block.type === 'text' ? [block.text] : [])).join('\n')).text : '';
+    if (first?.kind !== 'message') {
+      return '';
+    }
+
+    const sent = first.blocks.flatMap((block) => (block.type === 'text' ? [block.text] : [])).join('\n');
+
+    return splitFileNote(splitRecall(sent).text).text;
   });
   /** The card text: the helper's when it answered, else the opening words of the first message. */
   label = $derived(this.aiLabel ?? labelFromPrompt(this.firstPrompt));
@@ -289,7 +296,10 @@ export class ChatSession {
     return reply.removed;
   }
 
-  /** Sends the last thing the user said again, after a failed turn. */
+  /**
+   * Sends the last thing the user said again, after a failed turn. A memory block added to it is sent again as it
+   * was (the agent keeps that context); the shell never adds a second one, because the text starts with the marker.
+   */
   async retry(): Promise<void> {
     const text = this.chat.lastUserText;
     if (text === null) {

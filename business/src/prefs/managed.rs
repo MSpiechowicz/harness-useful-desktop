@@ -3,7 +3,8 @@
 //! The webview edits only display and workflow choices (theme, motion, onboarding flags, ...).
 //! The active project, the recent projects and the binary overrides decide which directories the
 //! app reads and which executables it runs, so only Rust changes them: through the native pickers
-//! and the dedicated project/harness commands, never through `prefs_set`.
+//! and the dedicated project/harness commands, never through `prefs_set`. Project memory
+//! (`memory_enabled`) writes to the harnesses' MCP files when switched, so it has its own command too.
 
 use std::path::Path;
 
@@ -79,10 +80,12 @@ pub fn with_ui_fields(stored: AppPrefs, ui: &AppPrefs) -> AppPrefs {
         onboarding_completed,
         approval_notice_seen,
         chat_defaults,
+        memory_recall,
         // Server-managed: kept from `stored`.
         active_project: _,
         recent_projects: _,
         binary_overrides: _,
+        memory_enabled: _,
     } = ui.clone();
 
     AppPrefs {
@@ -103,6 +106,7 @@ pub fn with_ui_fields(stored: AppPrefs, ui: &AppPrefs) -> AppPrefs {
         onboarding_completed,
         approval_notice_seen,
         chat_defaults,
+        memory_recall,
         ..stored
     }
 }

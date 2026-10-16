@@ -1,0 +1,2 @@
+# Built by `bun run sidecar` (scripts/build-sidecar.ts); Tauri bundles it next to the app executable.
+harness-memory-*

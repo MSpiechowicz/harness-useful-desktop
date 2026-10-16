@@ -6,6 +6,7 @@ import type { SessionState } from '../bindings/SessionState';
 import { IpcFailure } from '../transport';
 import { MockAgentStream } from './agent-player';
 import { fixtures } from './fixtures';
+import { withSampleRecall } from './memory-recall-sample';
 import type { MockState } from './state';
 import type { Handlers } from './types';
 
@@ -19,6 +20,8 @@ interface MockSession {
   info: AgentSessionInfo;
   stream: MockAgentStream;
   state: SessionState;
+  /** Whether the first message went out yet; only that one gets project-memory notes. */
+  prompted: boolean;
 }
 
 const ACK: AgentReply = { type: 'ack' };
@@ -59,13 +62,22 @@ export function agentHandlers(state: MockState, pace: () => number): Pick<Handle
     return found;
   }
 
+  /** What the user message shows: the first message of a chat carries sample memory notes while the preference is on. */
+  function shownPrompt(target: MockSession, message: string): string {
+    const first = !target.prompted;
+    target.prompted = true;
+    const { memoryEnabled, memoryRecall } = state.snapshot();
+
+    return first && memoryEnabled && memoryRecall && !message.startsWith('/') ? withSampleRecall(message) : message;
+  }
+
   function send(target: MockSession, action: AgentAction): AgentReply {
     const { stream } = target;
 
     switch (action.type) {
       case 'prompt':
         if (!stream.streaming) {
-          void stream.play(action.message);
+          void stream.play(action.message, shownPrompt(target, action.message));
         } else if (action.streamingBehavior) {
           stream.enqueue(action.streamingBehavior === 'steer' ? 'steering' : 'followUp', action.message);
         } else {
@@ -163,7 +175,7 @@ export function agentHandlers(state: MockState, pace: () => number): Pick<Handle
       const info = infoFor(request);
       const stream = new MockAgentStream(info.key, onEvent, pace);
       const current = structuredClone(fixtures.agent.state.state);
-      sessions.set(info.key, { info, stream, state: current });
+      sessions.set(info.key, { info, stream, state: current, prompted: false });
 
       // Like the real backend, the first events arrive right after the command returns.
       setTimeout(() => {

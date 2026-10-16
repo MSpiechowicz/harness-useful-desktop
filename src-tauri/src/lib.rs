@@ -10,6 +10,8 @@ mod drops;
 mod error;
 mod lifecycle;
 mod logging;
+mod memory_recall;
+mod memory_setup;
 mod native_text;
 mod releases;
 pub mod state;
@@ -42,6 +44,7 @@ pub fn run() -> ExitCode {
         .setup(|app| {
             app.manage(AppState::from_app(app.handle())?);
             window::create_main_window(app)?;
+            memory_setup::spawn_on_launch(app.handle());
             tray::create_tray(app);
             // Opens the audio device now, so the intro's sound starts without delay.
             commands::sound::warm_up();
@@ -55,6 +58,7 @@ pub fn run() -> ExitCode {
             commands::app::app_info,
             commands::app::prefs_get,
             commands::app::prefs_set,
+            commands::memory::memory_set_enabled,
             commands::harness::harness_list,
             commands::harness::harness_detect,
             commands::harness::harness_pick_binary,

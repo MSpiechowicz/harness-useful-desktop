@@ -18,6 +18,49 @@ function deferred<T>() {
 }
 
 describe('PrefsStore', () => {
+  it('sets project memory through its own command and takes only that field from the answer', async () => {
+    const calls: boolean[] = [];
+    const store = new PrefsStore(
+      fakeTransport({
+        prefs_get: () => samplePrefs({ theme: 'dark' }),
+        memory_set_enabled: ({ enabled }: { enabled: boolean }) => {
+          calls.push(enabled);
+          return samplePrefs({ theme: 'light', memoryEnabled: enabled });
+        },
+      }),
+      new ToastsStore(),
+    );
+    await store.load();
+
+    const pending = store.setMemoryEnabled(false);
+    expect(store.memoryPending).toBe(true);
+    await pending;
+
+    expect(calls).toEqual([false]);
+    expect(store.memoryPending).toBe(false);
+    expect(store.value).toMatchObject({ memoryEnabled: false, theme: 'dark' });
+  });
+
+  it('keeps project memory as it was and raises a toast when the command fails', async () => {
+    const toasts = new ToastsStore();
+    const store = new PrefsStore(
+      fakeTransport({
+        prefs_get: () => samplePrefs({ memoryEnabled: true }),
+        memory_set_enabled: () => {
+          throw { code: 'io', message: 'config is read-only' };
+        },
+      }),
+      toasts,
+    );
+    await store.load();
+
+    await store.setMemoryEnabled(false);
+
+    expect(store.value?.memoryEnabled).toBe(true);
+    expect(store.memoryPending).toBe(false);
+    expect(toasts.items[0]).toMatchObject({ tone: 'danger', description: 'config is read-only' });
+  });
+
   it('loads preferences from the backend', async () => {
     const store = new PrefsStore(fakeTransport({ prefs_get: () => samplePrefs({ theme: 'dark' }) }), new ToastsStore());
 

@@ -66,6 +66,8 @@ export const commands = {
   app_info: cmd<undefined, AppInfo>(),
   prefs_get: cmd<undefined, AppPrefs>(),
   prefs_set: cmd<{ prefs: AppPrefs }, AppPrefs>(),
+  /** The "Project memory" switch: stores `memoryEnabled` and registers or removes the harness-memory MCP entry. */
+  memory_set_enabled: cmd<{ enabled: boolean }, AppPrefs>(),
   open_external: cmd<{ url: string }, null>(),
   reveal_path: cmd<{ path: string }, null>(),
   harness_list: cmd<undefined, HarnessSummary[]>(),

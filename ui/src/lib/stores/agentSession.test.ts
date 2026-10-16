@@ -188,7 +188,9 @@ describe('talking to the agent', () => {
     await session?.retry();
 
     const prompts = of('agent_send').flatMap((call) => (call.action.type === 'prompt' ? [call.action.message] : []));
-    expect(prompts).toEqual(['an error please', 'an error please']);
+    // The retry resends the message as the agent got it, memory block included (the mock adds one to first prompts).
+    expect(prompts[0]).toBe('an error please');
+    expect(prompts[1]).toMatch(/^<harness-memory-recall>\n[\s\S]*\n<\/harness-memory-recall>\n\nan error please$/);
     expect(session?.chat.promptError).toBeNull();
   });
 

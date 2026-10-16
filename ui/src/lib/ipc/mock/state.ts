@@ -37,18 +37,21 @@ export function defaultPrefs(): AppPrefs {
     approvalNoticeSeen: false,
     binaryOverrides: [],
     chatDefaults: [],
+    memoryEnabled: true,
+    memoryRecall: true,
   };
 }
 
 /**
  * The mock backend's server-managed state. Mirrors the contract: the webview may only change
- * UI-managed preferences, while the active project, recent projects and binary overrides
- * move through their own commands.
+ * UI-managed preferences, while the active project, recent projects, binary overrides and
+ * project memory move through their own commands.
  */
 export class MockState {
   prefs: AppPrefs = defaultPrefs();
 
   overrides: BinaryOverride[] = [];
+  memoryEnabled = true;
   recents: ProjectInfo[] = structuredClone(fixtures.recentProjects);
   active: ProjectInfo | null = null;
 
@@ -70,7 +73,15 @@ export class MockState {
       activeProject: this.active?.path ?? null,
       recentProjects: this.recents.map((project) => project.path),
       binaryOverrides: structuredClone(this.overrides),
+      memoryEnabled: this.memoryEnabled,
     };
+  }
+
+  /** The "Project memory" switch: the only way to change `memoryEnabled`. */
+  setMemoryEnabled(enabled: boolean): AppPrefs {
+    this.memoryEnabled = enabled;
+
+    return this.snapshot();
   }
 
   /** Stores the UI-managed fields only; turning "remember recents" off clears them. */

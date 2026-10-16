@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/sve
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { scrollMemory } from '$lib/a11y/scroll-memory';
+import { ipc } from '$lib/ipc/client';
 import { prefs } from '$lib/stores/prefs.svelte';
 import { viewState } from '$lib/stores/view-state.svelte';
 
@@ -60,6 +61,49 @@ describe('SettingsView', () => {
     await fireEvent.input(screen.getByRole('searchbox', { name: 'Search settings' }), { target: { value: 'zzzz no such' } });
 
     await waitFor(() => expect(screen.getByText('No setting matches that search.')).toBeInTheDocument());
+  });
+
+  it('toggles project memory through its own command and shows the returned value', async () => {
+    const invoke = vi.spyOn(ipc, 'invoke');
+    render(SettingsView);
+    const memory = screen.getByRole('switch', { name: 'Project memory' });
+    expect(memory).toHaveAttribute('aria-checked', 'true');
+
+    await fireEvent.click(memory);
+
+    expect(invoke).toHaveBeenCalledWith('memory_set_enabled', { enabled: false });
+    await waitFor(() => expect(screen.getByRole('switch', { name: 'Project memory' })).toHaveAttribute('aria-checked', 'false'));
+    expect(prefs.value?.memoryEnabled).toBe(false);
+    expect(screen.getByRole('switch', { name: 'Project memory' })).toBeEnabled();
+    expect(invoke).not.toHaveBeenCalledWith('prefs_set', expect.anything());
+
+    await fireEvent.click(screen.getByRole('switch', { name: 'Project memory' }));
+
+    expect(invoke).toHaveBeenLastCalledWith('memory_set_enabled', { enabled: true });
+    await waitFor(() => expect(prefs.value?.memoryEnabled).toBe(true));
+    invoke.mockRestore();
+  });
+
+  it('saves "Add memory to new chats" as a plain preference and disables it while project memory is off', async () => {
+    const invoke = vi.spyOn(ipc, 'invoke');
+    render(SettingsView);
+    const recall = screen.getByRole('switch', { name: 'Add memory to new chats' });
+    expect(recall).toHaveAttribute('aria-checked', 'true');
+    expect(recall).toBeEnabled();
+
+    await fireEvent.click(recall);
+
+    expect(invoke).toHaveBeenCalledWith('prefs_set', { prefs: expect.objectContaining({ memoryRecall: false }) });
+    await waitFor(() => expect(prefs.value?.memoryRecall).toBe(false));
+    expect(screen.getByRole('switch', { name: 'Add memory to new chats' })).toHaveAttribute('aria-checked', 'false');
+
+    await fireEvent.click(screen.getByRole('switch', { name: 'Project memory' }));
+
+    await waitFor(() => expect(screen.getByRole('switch', { name: 'Add memory to new chats' })).toBeDisabled());
+
+    await fireEvent.click(screen.getByRole('switch', { name: 'Project memory' }));
+    await waitFor(() => expect(screen.getByRole('switch', { name: 'Add memory to new chats' })).toBeEnabled());
+    invoke.mockRestore();
   });
 
   it('scrolls to the section the command palette asked for', async () => {

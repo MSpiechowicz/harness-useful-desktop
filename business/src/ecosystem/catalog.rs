@@ -23,6 +23,12 @@ pub const SIDEBAR_PLUGIN: &str = "harness-useful-sidebar";
 /// The name the setup step gives the dashboard's server in a harness's `mcpServers`.
 pub const DASHBOARD_MCP_SERVER: &str = "harness-dashboard";
 
+/// The project memory server's executable name (bundled with the app, see `memory/`).
+pub const MEMORY_BINARY: &str = "harness-memory";
+
+/// The name the app gives the memory server in a harness's `mcpServers`.
+pub const MEMORY_MCP_SERVER: &str = "harness-memory";
+
 /// The skills' OMP marketplace source (`omp plugin marketplace add …`).
 pub const SKILLS_MARKETPLACE: &str = "MSpiechowicz/harness-useful-skills";
 

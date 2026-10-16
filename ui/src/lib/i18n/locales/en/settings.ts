@@ -18,7 +18,7 @@ export const settings = {
   // Words the command palette matches a "Settings: {section}" command by.
   'settings.keywords.appearance': 'theme motion dark light animation language',
   'settings.keywords.startup': 'intro launch splash',
-  'settings.keywords.harnesses': 'binary omp pi path setup',
+  'settings.keywords.harnesses': 'binary omp pi path setup memory harness-memory mcp remember repository recall notes new chat',
   'settings.keywords.projects': 'recent folders',
   'settings.keywords.updates': 'version upgrade release install check new',
   'settings.keywords.privacy': 'data telemetry diagnostics clear',
@@ -65,6 +65,12 @@ export const settings = {
   'settings.setup.title': 'Setup',
   'settings.setup.description': 'Detect your harnesses again, choose your daily driver and a project.',
   'settings.setup.run': 'Run onboarding again',
+
+  'settings.memory.title': 'Project memory',
+  'settings.memory.description': "Gives your harnesses a local memory (harness-memory) of what was done, problems and fixes, and where things are, per repository. Stored on this computer only. Turning it off removes it from the harnesses' MCP config.",
+
+  'settings.memoryRecall.title': 'Add memory to new chats',
+  'settings.memoryRecall.description': 'On the first message of a new chat, relevant notes from project memory are added for the agent. They are sent to your model provider along with the message.',
 
   'settings.recents.title': 'Remember recent projects',
   'settings.recents.description': 'Keep a list of the folders you opened. Turning this off clears the list.',
@@ -128,7 +134,7 @@ export const settings = {
 
   'settings.privacy.openLink.title': 'Open any web link',
   'settings.privacy.openLink.description':
-    'Links in chats, such as a pull request the agent opened, open in your browser. Off: only project and harness sites open. Always https only.',
+    'Links in chats, such as a pull request the agent opened, open in your browser. Off: only project and harness sites open. https only, plus http to this computer (localhost).',
   'settings.privacy.recents.title': 'Recent projects',
   'settings.privacy.recents.description': 'Forget every remembered folder. If your open project is on the list, it is closed too.',
   'settings.privacy.recents.clear': 'Clear recent projects',

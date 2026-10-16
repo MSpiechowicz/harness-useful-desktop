@@ -15,7 +15,7 @@ use super::schema::{
 };
 use super::secrets::{args_exportable, exportable};
 use super::validate::{Check, compile, has_credentials, is_local_path, name, text};
-use crate::ecosystem::catalog::DASHBOARD_MCP_SERVER;
+use crate::ecosystem::catalog::{DASHBOARD_BINARY, DASHBOARD_MCP_SERVER, MEMORY_BINARY, MEMORY_MCP_SERVER};
 use crate::model::SyncInvalidReason;
 
 /// Stdio MCP commands: a bare program name.
@@ -33,13 +33,13 @@ static ENV_REFERENCE: LazyLock<Regex> =
 /// Programs an MCP command may never be (compared without directory, case and `.exe`).
 const SHELLS: &[&str] = &["sh", "bash", "zsh", "dash", "fish", "cmd", "pwsh", "powershell"];
 
-/// An MCP server name (see [`name`]), except the dashboard's own entry ([`DASHBOARD_MCP_SERVER`],
-/// in any case): Recommended setup writes that one and reports the dashboard configured when it
-/// finds it.
+/// An MCP server name (see [`name`]), except the dashboard's own entry ([`DASHBOARD_MCP_SERVER`])
+/// and the app's memory server ([`MEMORY_MCP_SERVER`]), in any case: Recommended setup and the app
+/// write those and recognise them by name.
 pub fn mcp_name(value: &str) -> Check {
     name(value)?;
 
-    if value.eq_ignore_ascii_case(DASHBOARD_MCP_SERVER) {
+    if value.eq_ignore_ascii_case(DASHBOARD_MCP_SERVER) || value.eq_ignore_ascii_case(MEMORY_MCP_SERVER) {
         return Err(SyncInvalidReason::BadName);
     }
 
@@ -49,19 +49,32 @@ pub fn mcp_name(value: &str) -> Check {
 /// True when `command` is a shell interpreter (`sh`, `bash`, `zsh`, `dash`, `fish`, `cmd`, `pwsh`,
 /// `powershell`), with or without a directory, `.exe` or upper case.
 pub fn is_shell(command: &str) -> bool {
+    SHELLS.contains(&program(command).as_str())
+}
+
+/// True when `command` runs one of the app's own servers ([`DASHBOARD_BINARY`], [`MEMORY_BINARY`]),
+/// with or without a directory, `.exe` or upper case: an entry under another name would shadow the
+/// app's entry in the harness.
+fn is_app_server(command: &str) -> bool {
+    let program = program(command);
+    program == DASHBOARD_BINARY || program == MEMORY_BINARY
+}
+
+/// The lowercase program name of `command`, without directory and `.exe`.
+fn program(command: &str) -> String {
     let base = command
         .rsplit(['/', '\\'])
         .next()
         .unwrap_or(command)
         .to_ascii_lowercase();
-    let base = base.strip_suffix(".exe").unwrap_or(&base);
 
-    SHELLS.contains(&base)
+    base.strip_suffix(".exe").map(str::to_owned).unwrap_or(base)
 }
 
 /// A stdio MCP command: 1–256 characters, a bare program name looked up on `PATH`
 /// (`^[A-Za-z0-9][A-Za-z0-9._+-]*$`: no directory, no flag, no scheme, no env reference), never a
-/// shell interpreter, nothing secret.
+/// shell interpreter, never one of the app's own servers (`harness-dashboard`, `harness-memory`:
+/// `unsafeValue`), nothing secret.
 pub fn mcp_command(command: &str) -> Check {
     if command.is_empty() {
         return Err(SyncInvalidReason::MissingField);
@@ -75,6 +88,10 @@ pub fn mcp_command(command: &str) -> Check {
 
     if is_local_path(command) {
         return Err(SyncInvalidReason::LocalPath);
+    }
+
+    if is_app_server(command) {
+        return Err(SyncInvalidReason::UnsafeValue);
     }
 
     if !PROGRAM.is_match(command) {

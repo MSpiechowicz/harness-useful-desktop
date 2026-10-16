@@ -23,6 +23,7 @@ use super::harness::{find, installed_binary};
 use crate::agent_sink::{ChannelSink, OnClosed};
 use crate::agents::Agents;
 use crate::error::CommandResult;
+use crate::memory_recall::{self, RecallGate};
 use crate::state::AppState;
 
 /// Starts a session of `request.harness` in `request.project`; its events go to `on_event` from
@@ -36,10 +37,11 @@ pub async fn agent_start(
     start(&state, request, on_event).await
 }
 
-/// Runs `action` in session `key`.
+/// Runs `action` in session `key`; the first message of a new chat may get project-memory notes in
+/// front (see `memory_recall`).
 #[tauri::command]
 pub async fn agent_send(state: State<'_, AppState>, key: String, action: AgentAction) -> CommandResult<AgentReply> {
-    Ok(state.agents.manager().send(&key, action).await?)
+    Ok(memory_recall::send(&state, &key, action).await?)
 }
 
 /// Answers an open dialog of session `key`.
@@ -79,7 +81,7 @@ pub async fn agent_move_project(
 /// Stops session `key` (close stdin → 3 s → kill); unknown keys are ignored.
 #[tauri::command]
 pub async fn agent_stop(state: State<'_, AppState>, key: String) -> CommandResult<()> {
-    Ok(state.agents.manager().stop(&key).await?)
+    stop(&state, &key).await
 }
 
 /// The running sessions, oldest first.
@@ -88,7 +90,7 @@ pub async fn agent_list(state: State<'_, AppState>) -> CommandResult<Vec<AgentSe
     Ok(state.agents.manager().list())
 }
 
-async fn start(
+pub(crate) async fn start(
     state: &AppState,
     mut request: AgentStartRequest,
     channel: Channel<AgentEnvelope>,
@@ -102,8 +104,14 @@ async fn start(
     let harness = find(state, request.harness)?;
     request.project = authorized_project(state, request.project).await?;
     let binary = installed_binary(state, request.harness).await?;
+    let fresh = request.resume.is_none();
+    let utility = request.utility;
 
-    let sink = Arc::new(ChannelSink::new(channel, request.harness, stop_when_closed(agents)));
+    let sink = Arc::new(ChannelSink::new(
+        channel,
+        request.harness,
+        stop_when_closed(agents, &state.recall),
+    ));
     let deps = AgentDeps {
         harness,
         env: &state.env,
@@ -128,7 +136,24 @@ async fn start(
 
     tracing::info!(session = %info.key, harness = ?info.harness, "agent session started");
 
+    if !utility {
+        memory_recall::track(state, &info.key, &info.project, fresh);
+    }
+
     Ok(info)
+}
+
+/// Stops session `key` and forgets its pending recall (after the session left the manager, so a
+/// recall armed meanwhile cannot outlive it).
+pub(crate) async fn stop(state: &AppState, key: &str) -> CommandResult<()> {
+    let stopping = state.agents.manager().begin_stop(key);
+    state.recall.forget(key);
+
+    if let Some(stopping) = stopping {
+        stopping.finish().await;
+    }
+
+    Ok(())
 }
 
 async fn bash(state: &AppState, key: &str, command: &str, confirmed: bool) -> CommandResult<BashOutput> {
@@ -158,12 +183,18 @@ async fn authorized_project(state: &AppState, project: String) -> CommandResult<
 
 /// Stops the session in the background once its channel closes. Holds the agents weakly: the
 /// sink lives inside a session the agents own.
-fn stop_when_closed(agents: &Arc<Agents>) -> OnClosed {
+fn stop_when_closed(agents: &Arc<Agents>, recall: &Arc<RecallGate>) -> OnClosed {
     let agents = Arc::downgrade(agents);
+    let recall = Arc::downgrade(recall);
 
+    // The session leaves the manager before its recall is forgotten (see `memory_recall`).
     Box::new(move |key| {
         if let Some(agents) = agents.upgrade() {
             agents.stop_in_background(key.to_owned());
+        }
+
+        if let Some(recall) = recall.upgrade() {
+            recall.forget(key);
         }
     })
 }
@@ -173,67 +204,15 @@ mod tests {
     use std::path::Path;
     use std::sync::Mutex;
     use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-    use std::time::{Duration, Instant};
 
-    use harness_business::agent::{AgentManager, SessionOptions};
-    use harness_business::env::Env;
     use harness_business::model::{HarnessId, IpcErrorCode};
     use serde_json::Value;
     use tauri::async_runtime::block_on;
 
     use super::*;
-    use crate::test_support::{ScenarioSpawner, TempDir, cache_detection, collecting_channel, fake_agent};
-
-    /// How long a test waits for the fake agent.
-    const WAIT: Duration = Duration::from_secs(10);
-
-    struct Setup {
-        state: AppState,
-        spawner: Arc<ScenarioSpawner>,
-        project: PathBuf,
-        _dir: TempDir,
-    }
-
-    /// An app state with an opened project, OMP detected at `binary` and sessions that play the
-    /// `scenario` stream.
-    fn setup(binary: &Path, scenario: &str) -> Setup {
-        let dir = TempDir::new("agent");
-        let home = dir.path().join("home");
-        let project = home.join("demo");
-        std::fs::create_dir_all(project.join("src")).expect("create project");
-
-        let mut state = AppState::new(dir.path().join("config"), Env::for_tests(&home));
-        state.prefs.with(|store| {
-            Projects::new(store, &state.env).open(&project).expect("open project");
-        });
-
-        let spawner = ScenarioSpawner::new(binary, scenario);
-        let options = SessionOptions {
-            coalesce_window: Duration::ZERO,
-            ..SessionOptions::default()
-        };
-        state.agents = Arc::new(Agents::with(AgentManager::with_options(options), spawner.clone()));
-
-        cache_detection(&state, HarnessId::Omp, Some(binary));
-
-        Setup {
-            state,
-            spawner,
-            project,
-            _dir: dir,
-        }
-    }
-
-    fn request(project: &Path) -> AgentStartRequest {
-        AgentStartRequest {
-            harness: HarnessId::Omp,
-            project: project.to_string_lossy().into_owned(),
-            resume: None,
-            approval_override: None,
-            trust_once: false,
-            utility: false,
-        }
-    }
+    use crate::test_support::{
+        agent_setup as setup, cache_detection, collecting_channel, fake_agent, start_request as request, wait_until,
+    };
 
     /// A channel that delivers while `open` is set and fails like a destroyed webview after.
     fn closable_channel(open: bool) -> (Channel<AgentEnvelope>, Arc<AtomicBool>, Arc<AtomicUsize>) {
@@ -260,16 +239,6 @@ mod tests {
             .iter()
             .map(|message| message["event"]["type"].as_str().unwrap_or_default().to_owned())
             .collect()
-    }
-
-    /// Polls `condition` (the session runs on the async runtime's worker threads).
-    fn wait_until(what: &str, condition: impl Fn() -> bool) {
-        let deadline = Instant::now() + WAIT;
-
-        while !condition() {
-            assert!(Instant::now() < deadline, "timed out waiting for {what}");
-            std::thread::sleep(Duration::from_millis(20));
-        }
     }
 
     #[test]

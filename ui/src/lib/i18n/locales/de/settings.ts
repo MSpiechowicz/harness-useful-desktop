@@ -20,7 +20,7 @@ export const settings: AreaMessages<typeof enSettings> = {
 
   'settings.keywords.appearance': 'design thema bewegung animation dunkel hell sprache',
   'settings.keywords.startup': 'intro start splash',
-  'settings.keywords.harnesses': 'programmdatei binary omp pi pfad einrichtung',
+  'settings.keywords.harnesses': 'programmdatei binary omp pi pfad einrichtung gedächtnis speicher harness-memory mcp merken repository abruf notizen neuer chat',
   'settings.keywords.projects': 'zuletzt geöffnet ordner',
   'settings.keywords.updates': 'version update aktualisierung release installieren suchen neu',
   'settings.keywords.privacy': 'daten telemetrie diagnose löschen datenschutz',
@@ -67,6 +67,12 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.setup.title': 'Einrichtung',
   'settings.setup.description': 'Erkenne deine Harnesses erneut, wähle dein Standard-Harness und ein Projekt.',
   'settings.setup.run': 'Einrichtung erneut starten',
+
+  'settings.memory.title': 'Projektgedächtnis',
+  'settings.memory.description': 'Gibt deinen Harnesses ein lokales Gedächtnis (harness-memory) für das, was getan wurde, Probleme und Lösungen und wo was liegt, pro Repository. Nur auf diesem Computer gespeichert. Beim Ausschalten wird es aus der MCP-Konfiguration der Harnesses entfernt.',
+
+  'settings.memoryRecall.title': 'Gedächtnis zu neuen Chats hinzufügen',
+  'settings.memoryRecall.description': 'Bei der ersten Nachricht eines neuen Chats werden passende Notizen aus dem Projektgedächtnis für den Agenten ergänzt. Sie werden zusammen mit der Nachricht an deinen Modellanbieter gesendet.',
 
   'settings.recents.title': 'Zuletzt geöffnete Projekte merken',
   'settings.recents.description': 'Behalte eine Liste der Ordner, die du geöffnet hast. Beim Ausschalten wird die Liste geleert.',
@@ -130,7 +136,7 @@ export const settings: AreaMessages<typeof enSettings> = {
 
   'settings.privacy.openLink.title': 'Jeden Web-Link öffnen',
   'settings.privacy.openLink.description':
-    'Links in Chats, etwa ein Pull Request, den der Agent geöffnet hat, öffnen sich in deinem Browser. Aus: Nur Projekt- und Harness-Seiten werden geöffnet. Immer nur https.',
+    'Links in Chats, etwa ein Pull Request, den der Agent geöffnet hat, öffnen sich in deinem Browser. Aus: Nur Projekt- und Harness-Seiten werden geöffnet. Nur https, dazu http zu diesem Computer (localhost).',
   'settings.privacy.recents.title': 'Zuletzt geöffnete Projekte',
   'settings.privacy.recents.description': 'Vergiss jeden gemerkten Ordner. Steht dein geöffnetes Projekt auf der Liste, wird es ebenfalls geschlossen.',
   'settings.privacy.recents.clear': 'Zuletzt geöffnete Projekte löschen',

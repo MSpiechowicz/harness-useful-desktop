@@ -2,17 +2,20 @@
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, PoisonError};
+use std::time::{Duration, Instant};
 
+use harness_business::agent::{AgentManager, SessionOptions};
 use harness_business::ecosystem::mcp_target_paths;
 use harness_business::env::Env;
-use harness_business::model::{Detection, HarnessId, HarnessSummary, VersionSupport};
+use harness_business::model::{AgentStartRequest, Detection, HarnessId, HarnessSummary, VersionSupport};
 use harness_business::process::{ExecSpec, ProcessSpawner, SpawnedProcess, TokioSpawner};
 use harness_business::project::Projects;
 use serde_json::Value;
 use tauri::async_runtime::block_on;
 use tauri::ipc::{Channel, InvokeResponseBody};
 
+use crate::agents::Agents;
 use crate::state::AppState;
 
 /// A uniquely named directory under the OS temp dir, removed on drop. Its path is canonical, so
@@ -85,10 +88,7 @@ pub fn collecting_channel<T>() -> (Channel<T>, Arc<Mutex<Vec<Value>>>) {
     let channel = Channel::new(move |body| {
         if let InvokeResponseBody::Json(json) = body {
             let message = serde_json::from_str(&json).expect("channel messages are JSON");
-            messages
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner)
-                .push(message);
+            messages.lock().unwrap_or_else(PoisonError::into_inner).push(message);
         }
         Ok(())
     });
@@ -148,29 +148,48 @@ fn built_fake_agent() -> Option<PathBuf> {
     path.is_file().then_some(path)
 }
 
-/// Runs `fake_agent --dialect omp --scenario <scenario>` in the requested directory.
+/// Runs `fake_agent --dialect <omp|mcp> --scenario <scenario>` in the requested directory, keeping
+/// the pids it started.
 pub struct ScenarioSpawner {
     binary: PathBuf,
+    dialect: &'static str,
     scenario: PathBuf,
     spawned: AtomicUsize,
+    pids: Mutex<Vec<u32>>,
 }
 
 impl ScenarioSpawner {
-    /// Plays `scenario`, a stream under `business/tests/fixtures/streams`, with the fake agent
-    /// at `binary`.
+    /// Plays `scenario`, a stream under `business/tests/fixtures/streams`, as an OMP agent with the
+    /// fake agent at `binary`.
     pub fn new(binary: &Path, scenario: &str) -> Arc<Self> {
+        Self::with_dialect(binary, "omp", scenario)
+    }
+
+    /// Plays `scenario` as an MCP server (a scripted `harness-memory`).
+    pub fn mcp(binary: &Path, scenario: &str) -> Arc<Self> {
+        Self::with_dialect(binary, "mcp", scenario)
+    }
+
+    fn with_dialect(binary: &Path, dialect: &'static str, scenario: &str) -> Arc<Self> {
         Arc::new(Self {
             binary: binary.to_path_buf(),
+            dialect,
             scenario: Path::new(env!("CARGO_MANIFEST_DIR"))
                 .join("../business/tests/fixtures/streams")
                 .join(scenario),
             spawned: AtomicUsize::new(0),
+            pids: Mutex::new(Vec::new()),
         })
     }
 
-    /// How many agents were spawned.
+    /// How many processes were spawned.
     pub fn spawned(&self) -> usize {
         self.spawned.load(Ordering::Relaxed)
+    }
+
+    /// The pids of the spawned processes, oldest first.
+    pub fn pids(&self) -> Vec<u32> {
+        self.pids.lock().unwrap_or_else(PoisonError::into_inner).clone()
     }
 }
 
@@ -179,9 +198,78 @@ impl ProcessSpawner for ScenarioSpawner {
         self.spawned.fetch_add(1, Ordering::Relaxed);
 
         let scenario = self.scenario.to_string_lossy().into_owned();
-        let mut fake = ExecSpec::new(&self.binary).args(["--dialect", "omp", "--scenario", scenario.as_str()]);
+        let mut fake = ExecSpec::new(&self.binary).args(["--dialect", self.dialect, "--scenario", scenario.as_str()]);
         fake.cwd = spec.cwd.clone();
 
-        TokioSpawner.spawn(&fake)
+        let process = TokioSpawner.spawn(&fake)?;
+
+        if let Some(pid) = process.child.id() {
+            self.pids.lock().unwrap_or_else(PoisonError::into_inner).push(pid);
+        }
+
+        Ok(process)
+    }
+}
+
+/// How long a test waits for the fake agent.
+pub const WAIT: Duration = Duration::from_secs(10);
+
+/// Polls `condition` (sessions run on the async runtime's worker threads).
+pub fn wait_until(what: &str, condition: impl Fn() -> bool) {
+    let deadline = Instant::now() + WAIT;
+
+    while !condition() {
+        assert!(Instant::now() < deadline, "timed out waiting for {what}");
+        std::thread::sleep(Duration::from_millis(20));
+    }
+}
+
+/// App state with agent sessions that play a scenario stream.
+pub struct AgentSetup {
+    pub state: AppState,
+    pub spawner: Arc<ScenarioSpawner>,
+    pub project: PathBuf,
+    _dir: TempDir,
+}
+
+/// An app state with an opened project, OMP detected at `binary` and sessions that play the
+/// `scenario` stream.
+pub fn agent_setup(binary: &Path, scenario: &str) -> AgentSetup {
+    let dir = TempDir::new("agent");
+    let home = dir.path().join("home");
+    let project = home.join("demo");
+    std::fs::create_dir_all(project.join("src")).expect("create project");
+
+    let mut state = AppState::new(dir.path().join("config"), Env::for_tests(&home));
+    state.prefs.with(|store| {
+        Projects::new(store, &state.env).open(&project).expect("open project");
+    });
+
+    let spawner = ScenarioSpawner::new(binary, scenario);
+    let options = SessionOptions {
+        coalesce_window: Duration::ZERO,
+        ..SessionOptions::default()
+    };
+    state.agents = Arc::new(Agents::with(AgentManager::with_options(options), spawner.clone()));
+
+    cache_detection(&state, HarnessId::Omp, Some(binary));
+
+    AgentSetup {
+        state,
+        spawner,
+        project,
+        _dir: dir,
+    }
+}
+
+/// A request for a new OMP chat in `project`.
+pub fn start_request(project: &Path) -> AgentStartRequest {
+    AgentStartRequest {
+        harness: HarnessId::Omp,
+        project: project.to_string_lossy().into_owned(),
+        resume: None,
+        approval_override: None,
+        trust_once: false,
+        utility: false,
     }
 }

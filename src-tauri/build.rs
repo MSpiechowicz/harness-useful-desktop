@@ -13,6 +13,7 @@ const COMMANDS: &[&str] = &[
     "attachment_save",
     "prefs_get",
     "prefs_set",
+    "memory_set_enabled",
     "harness_list",
     "harness_detect",
     "harness_pick_binary",

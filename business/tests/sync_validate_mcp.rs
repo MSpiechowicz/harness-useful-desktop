@@ -1,5 +1,6 @@
 //! MCP validators of "Share setup": env references the importer's harness would expand, secret
-//! flags and `user:password` values in arguments, and the name the dashboard's own entry uses.
+//! flags and `user:password` values in arguments, and the names the dashboard's and the app's memory
+//! entries use.
 
 #[path = "sync_support/servers.rs"]
 mod servers;
@@ -128,4 +129,39 @@ fn the_dashboard_entry_name_is_reserved() {
         Err(SyncInvalidReason::BadName)
     );
     assert_eq!(validate::mcp_name("harness-dashboard-2"), Ok(()));
+}
+
+#[test]
+fn the_memory_entry_name_is_reserved() {
+    assert_eq!(validate::mcp_name("harness-memory"), Err(SyncInvalidReason::BadName));
+    assert_eq!(validate::mcp_name("HARNESS-MEMORY"), Err(SyncInvalidReason::BadName));
+    assert_eq!(
+        validate::mcp_server(&stdio("harness-memory", "harness-memory", &["mcp"])),
+        Err(SyncInvalidReason::BadName)
+    );
+    assert_eq!(validate::mcp_name("harness-memory-notes"), Ok(()));
+}
+
+#[test]
+fn a_server_running_an_app_server_under_another_name_is_refused() {
+    for command in [
+        "harness-memory",
+        "HARNESS-DASHBOARD.exe",
+        "Harness-Memory.EXE",
+        "harness-dashboard",
+    ] {
+        assert_eq!(
+            validate::mcp_server(&stdio("notes", command, &["mcp"])),
+            Err(SyncInvalidReason::UnsafeValue),
+            "{command}"
+        );
+    }
+
+    // With a directory the command is refused as a path before its name is looked at.
+    assert_eq!(
+        validate::mcp_command("/opt/bin/harness-memory"),
+        Err(SyncInvalidReason::LocalPath)
+    );
+    assert_eq!(validate::mcp_command("harness-memory-tools"), Ok(()));
+    assert_eq!(validate::mcp_command("harness-dashboard2"), Ok(()));
 }

@@ -20,7 +20,7 @@ export const settings: AreaMessages<typeof enSettings> = {
 
   'settings.keywords.appearance': 'tema animaciones movimiento oscuro claro animación idioma',
   'settings.keywords.startup': 'intro inicio arranque presentación',
-  'settings.keywords.harnesses': 'ejecutable binario omp pi ruta configuración',
+  'settings.keywords.harnesses': 'ejecutable binario omp pi ruta configuración memoria recuerdo harness-memory mcp repositorio recuperar notas chat nuevo',
   'settings.keywords.projects': 'recientes carpetas',
   'settings.keywords.updates': 'versión actualizar actualización release instalar buscar nueva',
   'settings.keywords.privacy': 'datos telemetría diagnóstico borrar privacidad',
@@ -67,6 +67,12 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.setup.title': 'Configuración inicial',
   'settings.setup.description': 'Vuelve a detectar tus harnesses, elige el que usas a diario y un proyecto.',
   'settings.setup.run': 'Repetir la configuración inicial',
+
+  'settings.memory.title': 'Memoria del proyecto',
+  'settings.memory.description': 'Da a tus harnesses una memoria local (harness-memory) de lo que se hizo, los problemas y sus soluciones, y dónde está cada cosa, por repositorio. Solo se guarda en este equipo. Al desactivarla, se quita de la configuración MCP de los harnesses.',
+
+  'settings.memoryRecall.title': 'Añadir memoria a los chats nuevos',
+  'settings.memoryRecall.description': 'En el primer mensaje de un chat nuevo se añaden para el agente las notas relevantes de la memoria del proyecto. Se envían a tu proveedor de modelos junto con el mensaje.',
 
   'settings.recents.title': 'Recordar proyectos recientes',
   'settings.recents.description': 'Guarda una lista de las carpetas que abriste. Al desactivarlo, se borra la lista.',
@@ -130,7 +136,7 @@ export const settings: AreaMessages<typeof enSettings> = {
 
   'settings.privacy.openLink.title': 'Abrir cualquier enlace web',
   'settings.privacy.openLink.description':
-    'Los enlaces de los chats, como un pull request que abrió el agente, se abren en tu navegador. Desactivado: solo se abren sitios de proyectos y harnesses. Siempre solo https.',
+    'Los enlaces de los chats, como un pull request que abrió el agente, se abren en tu navegador. Desactivado: solo se abren sitios de proyectos y harnesses. Solo https, más http a este equipo (localhost).',
   'settings.privacy.recents.title': 'Proyectos recientes',
   'settings.privacy.recents.description': 'Olvida todas las carpetas recordadas. Si tu proyecto abierto está en la lista, también se cierra.',
   'settings.privacy.recents.clear': 'Borrar proyectos recientes',

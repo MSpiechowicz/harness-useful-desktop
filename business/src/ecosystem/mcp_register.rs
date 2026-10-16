@@ -55,11 +55,42 @@ pub fn register_dashboard_mcp(env: &Env, path: &Path, also_read: &[PathBuf]) -> 
 
 /// The dashboard's server in the target or an `also_read` file, as `Configured` or `Disabled`.
 fn found(env: &Env, path: &Path, target: &Target, also_read: &[PathBuf]) -> Option<McpState> {
-    let empty = Map::new();
-    let target_document = match target {
-        Target::Present { document, .. } => document,
-        Target::Absent => &empty,
-    };
+    let server = find_server(path, target, also_read, DASHBOARD_MCP_SERVER, DASHBOARD_BINARY)?;
+    let file = tilde(env, &server.file);
+
+    if server.disabled {
+        Some(McpState::Disabled {
+            file,
+            name: server.name,
+        })
+    } else {
+        Some(McpState::Configured {
+            file,
+            name: server.name,
+        })
+    }
+}
+
+/// A server entry found by [`find_server`].
+pub(crate) struct FoundServer {
+    /// The file holding it.
+    pub file: PathBuf,
+    pub name: String,
+    pub definition: Value,
+    /// Whether the target file switches it off (see the module docs).
+    pub disabled: bool,
+}
+
+/// The server named `name`, else the first one running `<binary> mcp`, in the target file or one
+/// of the `also_read` files (the first file holding one wins).
+pub(crate) fn find_server(
+    path: &Path,
+    target: &Target,
+    also_read: &[PathBuf],
+    name: &str,
+    binary: &str,
+) -> Option<FoundServer> {
+    let target_document = target.document();
 
     let disabled = string_list(target_document.get("disabledServers"));
     let forced_on = string_list(target_document.get("enabledServers"));
@@ -72,29 +103,30 @@ fn found(env: &Env, path: &Path, target: &Target, also_read: &[PathBuf]) -> Opti
 
     documents.find_map(|(file, document)| {
         let servers = document.get(SERVERS).and_then(Value::as_object)?;
-        let (name, server) = dashboard_entry(servers)?;
+        let (found_name, server) = server_entry(servers, name, binary)?;
 
-        let switched_off = server.get("enabled") == Some(&Value::Bool(false)) && !forced_on.contains(name);
-        let file = tilde(env, file);
-        let name = name.clone();
+        let switched_off = server.get("enabled") == Some(&Value::Bool(false)) && !forced_on.contains(found_name);
 
-        if disabled.contains(&name) || switched_off {
-            Some(McpState::Disabled { file, name })
-        } else {
-            Some(McpState::Configured { file, name })
-        }
+        Some(FoundServer {
+            file: file.to_path_buf(),
+            name: found_name.clone(),
+            definition: server.clone(),
+            disabled: disabled.contains(found_name) || switched_off,
+        })
     })
 }
 
-/// The entry named [`DASHBOARD_MCP_SERVER`], else the first one running `harness-dashboard mcp`.
-fn dashboard_entry(servers: &Map<String, Value>) -> Option<(&String, &Value)> {
+/// The entry named `name`, else the first one running `<binary> mcp`.
+fn server_entry<'a>(servers: &'a Map<String, Value>, name: &str, binary: &str) -> Option<(&'a String, &'a Value)> {
     servers
         .iter()
-        .find(|(name, _)| name.as_str() == DASHBOARD_MCP_SERVER)
-        .or_else(|| servers.iter().find(|(_, server)| runs_dashboard(server)))
+        .find(|(entry_name, _)| entry_name.as_str() == name)
+        .or_else(|| servers.iter().find(|(_, server)| runs_mcp(server, binary)))
 }
 
-fn runs_dashboard(server: &Value) -> bool {
+/// True when `server` runs `binary` (any directory, `.exe` or not, any case) with the arguments
+/// `["mcp"]`.
+pub(crate) fn runs_mcp(server: &Value, binary: &str) -> bool {
     let Some(command) = server.get("command").and_then(Value::as_str) else {
         return false;
     };
@@ -104,7 +136,7 @@ fn runs_dashboard(server: &Value) -> bool {
     let stem = lower.strip_suffix(".exe").unwrap_or(&lower);
     let args = server.get("args").and_then(Value::as_array);
 
-    stem == DASHBOARD_BINARY && args.is_some_and(|args| args.len() == 1 && args[0] == "mcp")
+    stem == binary && args.is_some_and(|args| args.len() == 1 && args[0] == "mcp")
 }
 
 fn missing(env: &Env, path: &Path, target: &Target) -> McpState {

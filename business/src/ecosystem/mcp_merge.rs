@@ -1,5 +1,6 @@
-//! Adding server entries to a harness's user MCP file (`merge_servers`) and reading one entry back
-//! for an in-process comparison (`existing_server`).
+//! Adding server entries to a harness's user MCP file (`merge_servers`), reading one entry back
+//! for an in-process comparison (`existing_server`), and the read-decide-write cycle both the
+//! merge and the memory server's registration use (`change_file`).
 //!
 //! - Merge: inserts each entry into `mcpServers`, as given (an `"enabled": false` included), after
 //!   the servers already there, keeping every other key, server and value in order. A missing file
@@ -96,41 +97,63 @@ pub(crate) fn merge_servers_unless<T>(
     entries: &[(String, Value)],
     mut stop: impl FnMut(&Target) -> Option<T>,
 ) -> Result<MergeOutcome, T> {
-    for _attempt in 0..2 {
-        let target = match load(path) {
-            Ok(target) => target,
-            Err(reason) => return Ok(MergeOutcome::Refused(reason)),
-        };
-
-        if let Some(stopped) = stop(&target) {
-            return Err(stopped);
+    let changed = change_file(path, |target| {
+        if let Some(stopped) = stop(target) {
+            return Change::Keep(Err(stopped));
         }
 
-        let (mut document, original) = match target {
-            Target::Absent => (Map::new(), None),
-            Target::Present {
-                document,
-                stamp,
-                permissions,
-            } => (document, Some((stamp, permissions))),
-        };
-
+        let mut document = target.document();
         let results = insert(&mut document, entries);
         let added = results.iter().any(|server| server.result == MergeResult::Added);
 
-        if !added {
-            return Ok(MergeOutcome::Merged(results));
+        if added {
+            Change::Write(document, Ok(results))
+        } else {
+            Change::Keep(Ok(results))
         }
+    });
+
+    match changed {
+        Err(reason) => Ok(MergeOutcome::Refused(reason)),
+        Ok(Err(stopped)) => Err(stopped),
+        Ok(Ok(results)) => Ok(MergeOutcome::Merged(results)),
+    }
+}
+
+/// What a [`change_file`] decision does with the file it was shown.
+pub(crate) enum Change<R> {
+    /// Leaves the file as it is and returns the value.
+    Keep(R),
+    /// Writes the document over the file and returns the value once written.
+    Write(Map<String, Value>, R),
+}
+
+/// Reads `path` and lets `decide` keep it or replace its document, under the module's rules: the
+/// same refusals (returned as `Err`, nothing written), an atomic write keeping the permissions (a
+/// new file is `0600`), and one more read and decision when the file changed meanwhile.
+pub(crate) fn change_file<R>(path: &Path, mut decide: impl FnMut(&Target) -> Change<R>) -> Result<R, McpRefusal> {
+    for _attempt in 0..2 {
+        let target = load(path)?;
+
+        let (document, value) = match decide(&target) {
+            Change::Keep(value) => return Ok(value),
+            Change::Write(document, value) => (document, value),
+        };
+
+        let original = match target {
+            Target::Absent => None,
+            Target::Present { stamp, permissions, .. } => Some((stamp, permissions)),
+        };
 
         match write(path, document, original.as_ref()) {
-            Ok(()) => return Ok(MergeOutcome::Merged(results)),
+            Ok(()) => return Ok(value),
             Err(WriteError::Changed) => {}
-            Err(WriteError::Failed) => return Ok(MergeOutcome::Refused(McpRefusal::WriteFailed)),
+            Err(WriteError::Failed) => return Err(McpRefusal::WriteFailed),
         }
     }
 
     // Changed again after the second read.
-    Ok(MergeOutcome::Refused(McpRefusal::WriteFailed))
+    Err(McpRefusal::WriteFailed)
 }
 
 /// Inserts the entries whose names are free and reports each one.
@@ -170,6 +193,16 @@ pub(crate) enum Target {
         stamp: Stamp,
         permissions: Permissions,
     },
+}
+
+impl Target {
+    /// A copy of the document read (empty for a missing file).
+    pub(crate) fn document(&self) -> Map<String, Value> {
+        match self {
+            Target::Absent => Map::new(),
+            Target::Present { document, .. } => document.clone(),
+        }
+    }
 }
 
 /// What tells that a file changed since it was read.

@@ -10,6 +10,8 @@ export type PrefsStatus = 'idle' | 'loading' | 'ready' | 'error';
 export class PrefsStore {
   value = $state<AppPrefs | null>(null);
   status = $state<PrefsStatus>('idle');
+  /** True while `memory_set_enabled` is in flight. */
+  memoryPending = $state(false);
   error = $state<IpcFailure | null>(null);
 
   /** Incremented per update so only the newest request may overwrite or roll back state. */
@@ -63,6 +65,35 @@ export class PrefsStore {
       }
     } catch {
       // Cosmetic data (e.g. whether "Reset binary" shows); the next full load repairs it.
+    }
+  }
+
+  /**
+   * The "Project memory" switch. `memoryEnabled` is server-managed, so it goes through its own command, never
+   * `prefs_set`; only that field is taken from the answer so an in-flight optimistic update is not disturbed.
+   * The value changes once the backend confirms; a failure leaves it as it was and raises a toast.
+   */
+  async setMemoryEnabled(enabled: boolean): Promise<void> {
+    if (this.memoryPending || !this.value) {
+      return;
+    }
+
+    this.memoryPending = true;
+
+    try {
+      const saved = await this.transport.invoke('memory_set_enabled', { enabled });
+
+      if (this.value) {
+        this.value = { ...this.value, memoryEnabled: saved.memoryEnabled };
+      }
+    } catch (error) {
+      this.notifications.push({
+        title: t('shell.toast.saveFailed'),
+        description: IpcFailure.from(error).message,
+        tone: 'danger',
+      });
+    } finally {
+      this.memoryPending = false;
     }
   }
 

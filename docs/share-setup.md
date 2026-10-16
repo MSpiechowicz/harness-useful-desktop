@@ -128,7 +128,7 @@ marketplaces, plugins, MCP servers; PI: packages, MCP servers).
 | | `version` | string, optional | Informational. |
 | `packages` | `source` | string | `npm:…`, `git:…` or `https://…`, with any pin it had (see [Validation](#validation-of-every-item)). |
 | | `version` | string, optional | Informational. |
-| `mcpServers` | `name` | string | `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`, never `harness-dashboard` (reserved). |
+| `mcpServers` | `name` | string | `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`, never `harness-dashboard` or `harness-memory` (reserved). |
 | | `transport` | `stdio`, `http`, `sse` | How the harness talks to it. |
 | | `command` | string | Stdio only: a bare program name (`^[A-Za-z0-9][A-Za-z0-9._+-]*$`: no directory, no flag, not a shell). |
 | | `args` | string array | Stdio only. |
@@ -170,10 +170,12 @@ is never echoed back. Besides the shapes above:
     other `://` form (`ssh://`, `git+ssh://`, `http://`) is refused.
 - **Plugin ids:** `name@marketplace` or an npm package name, never a path or URL; `marketplace`, if present, matches the
   `@marketplace` part.
-- **MCP server names:** the pattern above. `harness-dashboard` (any case) is reserved: Recommended setup installs it, so
-  it is never exported and an imported one is refused.
+- **MCP server names:** the pattern above. `harness-dashboard` and `harness-memory` (any case) are reserved: Recommended setup installs the
+  first and the app registers the second (project memory), so neither is ever exported and an imported one is refused.
 - **MCP commands:** a bare program name, never a path and never a shell interpreter (`sh`, `bash`, `zsh`, `dash`,
-  `fish`, `cmd`, `pwsh`, `powershell`, with or without a directory or `.exe`).
+  `fish`, `cmd`, `pwsh`, `powershell`, with or without a directory or `.exe`). Never `harness-dashboard` or
+  `harness-memory` either (any case, with or without `.exe`): together with the reserved names, an import can neither
+  add the app's two entries nor shadow them with a server of another name that runs the same program.
 - **Environment references.** A harness expands `$NAME` and `${NAME}` from its own environment, so a reference in a
   received setup could hand a variable of this machine to the setup's author. A URL may hold none. An argument may only
   reference a name the same item lists in `envKeys`, as a plain `$NAME` or `${NAME}` (and then the server is written
@@ -209,8 +211,9 @@ Left out of the file and listed in the export dialog by name and reason (never b
 | Values of `env`, `headers`, `auth`, `oauth` | Secrets. Only key names travel. This is structural: the values are never copied into a setup. |
 | MCP `cwd` and any field outside the allowlist (`type`, `command`, `args`, `url`, key names) | Paths and settings of this machine. |
 | MCP servers whose command, arguments or URL hold a secret, credentials or a machine path | The whole server is left out. Heuristics (see [Validation](#validation-of-every-item)), not a proof. |
-| MCP servers with an undeclared `${VAR}` / `$NAME` reference, a shell command, a non-bare command | Would hand an environment variable to the setup's author, or run a shell. |
+| MCP servers with an undeclared `${VAR}` / `$NAME` reference, a shell command, a non-bare command, or a `harness-dashboard` / `harness-memory` command under another name | Would hand an environment variable to the setup's author, run a shell, or shadow an app entry on the other machine. |
 | The `harness-dashboard` server (any letter case) | Recommended setup installs it. Skipped without a row in the list. |
+| The `harness-memory` server (any letter case) and the project memory database | The app registers the server itself, and the notes are local to this machine. Skipped without a row in the list; an import refuses that name. |
 | Local or unknown PI packages, local marketplaces, `file:` / `link:` plugin specs | Machine paths. |
 | Sources with credentials | Secrets. |
 | Project-scope plugins and servers | The share is user scope only. |

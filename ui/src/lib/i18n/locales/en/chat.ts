@@ -291,6 +291,11 @@ export const chat = {
   'chat.user.images': 'Attached images',
   'chat.user.files': 'Attached files',
   'chat.user.image': 'Attached image {n}',
+  'chat.user.recallTitle': 'Project memory',
+  'chat.user.recallCount.one': '{count} note',
+  'chat.user.recallCount.other': '{count} notes',
+  'chat.user.recallCaption': 'Notes from project memory, added to this message for the agent.',
+  'chat.user.recallNotes': 'Project memory notes',
 
   'chat.retry.start': 'Retrying',
   'chat.retry.end': 'Retry',

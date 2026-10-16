@@ -319,3 +319,19 @@ fn load_checked_tells_a_missing_file_from_an_unusable_one() {
     store.save(&AppPrefs::default()).unwrap();
     assert_eq!(store.load_checked().1, PrefsOrigin::Stored);
 }
+
+#[test]
+fn project_memory_is_on_for_a_file_written_before_it_existed() {
+    let dir = TempDir::new().unwrap();
+    fs::write(
+        dir.path().join(PREFS_FILE),
+        r#"{ "version": 1, "onboardingCompleted": true }"#,
+    )
+    .unwrap();
+
+    let loaded = PrefsStore::new(dir.path().to_path_buf()).load();
+
+    assert!(loaded.memory_enabled);
+    assert!(loaded.memory_recall);
+    assert!(loaded.onboarding_completed);
+}

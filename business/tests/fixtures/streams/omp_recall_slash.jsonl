@@ -1,0 +1,4 @@
+// Memory recall: a slash command first (sent as written), then a prompt that must arrive unchanged too.
+{"include":"omp_startup.jsonl"}
+{"expect": "prompt", "match": {"message": "/review"}, "reply": {"success": true}}
+{"expect": "prompt", "match": {"message": "Where is the uploader code?"}, "reply": {"success": true}}

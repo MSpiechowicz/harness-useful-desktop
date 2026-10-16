@@ -7,6 +7,7 @@ pub mod drops;
 pub mod ecosystem;
 pub mod git;
 pub mod harness;
+pub mod memory;
 pub mod plugins;
 pub mod projects;
 pub mod review;
