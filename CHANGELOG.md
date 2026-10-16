@@ -5,6 +5,13 @@
 
 * **ecosystem:** keep installed Harness family members up to date automatically ([f48d30c](https://github.com/MSpiechowicz/harness-useful-desktop/commit/f48d30c797e00879d4659506397f174ce60fc304))
 
+# [0.19.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.18.0...v0.19.0) (2026-10-16)
+
+
+### Features
+
+* **ecosystem:** keep installed Harness family members up to date automatically ([f48d30c](https://github.com/MSpiechowicz/harness-useful-desktop/commit/f48d30c797e00879d4659506397f174ce60fc304))
+
 # [0.18.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.17.0...v0.18.0) (2026-10-16)
 
 
