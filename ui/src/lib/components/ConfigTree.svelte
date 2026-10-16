@@ -136,9 +136,10 @@
           </span>
         {/if}
 
-        <span class="shrink-0 text-fg-2">{row.key}</span>
+        <!-- Key and value share one baseline, so a smaller summary ("2 keys") sits on the key's text line. -->
+        <span class="shrink-0 self-baseline text-fg-2">{row.key}</span>
 
-        <span class="flex min-w-0 flex-1 items-baseline">
+        <span class="flex min-w-0 flex-1 items-baseline self-baseline">
           <ConfigValueView value={row.value} expanded={row.longText && row.expanded} class="min-w-0" />
         </span>
       </div>

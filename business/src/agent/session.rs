@@ -21,7 +21,7 @@ use super::sink::{EventSink, spawn_emitter};
 use super::startup::{StartAbort, with_stderr};
 use crate::error::{BusinessError, Result};
 use crate::model::{AgentAction, AgentEvent, AgentReply, BashOutput, MAX_ACTION_TEXT_BYTES, SessionState, UiResponse};
-use crate::pi_family::normalize::{chat_message, model_option, string};
+use crate::pi_family::normalize::{chat_message, hidden_message, model_option, string};
 use crate::pi_family::rpc::pending::DEFAULT_TIMEOUT;
 use crate::pi_family::rpc::shared::{items, parse_bash, parse_reply, slice_history};
 use crate::pi_family::rpc::{
@@ -359,7 +359,9 @@ impl AgentSession {
             }
         }
 
-        slice_history(raw.iter().map(chat_message).collect(), cursor, limit)
+        let shown = raw.iter().filter(|message| !hidden_message(message)).map(chat_message);
+
+        slice_history(shown.collect(), cursor, limit)
     }
 
     /// Answers an open dialog; fails for ids that are not open (answered, cancelled or unknown).

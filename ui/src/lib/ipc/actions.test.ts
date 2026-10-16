@@ -36,7 +36,7 @@ describe('openExternal', () => {
 
     await openExternal('http://example.com');
 
-    expect(toasts.items.at(-1)).toMatchObject({ description: 'Only https links without a user name or password open.', action: undefined });
+    expect(toasts.items.at(-1)).toMatchObject({ description: 'Only https links, or http links to this computer (localhost), without a user name or password open.', action: undefined });
   });
 
   it('reports other failures as they are', async () => {

@@ -5,8 +5,8 @@ use std::path::Path;
 use harness_business::harness::Harness;
 use harness_business::harnesses::{Omp, Pi};
 use harness_business::model::{
-    AgentAction, AgentEvent, HarnessId, ImageAttachment, IpcErrorCode, PromptStatus, SessionRef, StreamingBehavior,
-    UiOutcome, UiRequestKind, UiResponse,
+    AgentAction, AgentEvent, HarnessId, ImageAttachment, IpcErrorCode, MessageRole, PromptStatus, SessionRef,
+    StreamingBehavior, UiOutcome, UiRequestKind, UiResponse,
 };
 use harness_business::pi_family::rpc::{DecodeState, EncodeContext, Handshake, Inbound, RpcDialect};
 use pretty_assertions::assert_eq;
@@ -462,4 +462,30 @@ fn pi_prompts_wait_for_agent_settled_unless_handled() {
     // Nothing is left to report on the next settle.
     let again = pi.decode(json!({ "type": "agent_settled", "aborted": false }), &mut state);
     assert_eq!(again.len(), 1);
+}
+
+#[test]
+fn custom_messages_the_harness_hides_are_dropped_and_shown_ones_kept() {
+    let hidden = json!({ "role": "custom", "customType": "eval-state-context", "content": "<system-reminder>…</system-reminder>", "display": false });
+    let shown = json!({ "role": "custom", "customType": "note", "content": "visible", "display": true });
+
+    for dialect in [Omp.dialect(), Pi.dialect()] {
+        let mut state = DecodeState::new("/nonexistent");
+
+        for kind in ["message_start", "message_end"] {
+            let frame = json!({ "type": kind, "message": hidden });
+            assert!(dialect.decode(frame, &mut state).is_empty(), "{kind}");
+        }
+
+        let start = dialect.decode(json!({ "type": "message_start", "message": shown }), &mut state);
+        let end = dialect.decode(json!({ "type": "message_end", "message": shown }), &mut state);
+        assert!(matches!(
+            event(start),
+            AgentEvent::MessageStart {
+                role: MessageRole::Custom,
+                ..
+            }
+        ));
+        assert!(matches!(event(end), AgentEvent::MessageEnd { .. }));
+    }
 }

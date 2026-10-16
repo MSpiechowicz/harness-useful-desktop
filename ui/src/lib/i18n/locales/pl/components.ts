@@ -139,7 +139,7 @@ export const components: AreaMessages<typeof enComponents> = {
 
   'components.action.revealFailed': 'Nie udało się pokazać pliku',
   'components.action.linkRefused': 'Link nie został otwarty',
-  'components.action.httpsOnly': 'Otwierają się tylko linki https bez nazwy użytkownika i hasła.',
+  'components.action.httpsOnly': 'Otwierają się tylko linki https lub http do tego komputera (localhost), bez nazwy użytkownika i hasła.',
   'components.action.sitesOnly':
     'Ustawienia bezpieczeństwa pozwalają tylko na strony projektów i harnessów. Możesz to zmienić w: Ustawienia → Prywatność i bezpieczeństwo → Otwieraj każdy link internetowy.',
   'components.action.openSettings': 'Otwórz Ustawienia',

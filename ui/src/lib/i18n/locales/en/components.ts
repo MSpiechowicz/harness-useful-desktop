@@ -129,7 +129,7 @@ export const components = {
 
   'components.action.revealFailed': 'Could not reveal the file',
   'components.action.linkRefused': 'Link not opened',
-  'components.action.httpsOnly': 'Only https links without a user name or password open.',
+  'components.action.httpsOnly': 'Only https links, or http links to this computer (localhost), without a user name or password open.',
   'components.action.sitesOnly': 'Security settings allow only project and harness sites. You can change this in Settings → Privacy & security → Open any web link.',
   'components.action.openSettings': 'Open Settings',
   'components.action.linkFailed': 'Could not open the link',

@@ -1,6 +1,7 @@
 //! Access rules for the commands that hand something to the OS: links opened in the browser and
 //! paths revealed in the file manager. Both refuse with a generic `Forbidden`.
 
+use std::net::IpAddr;
 use std::path::{Component, Path, PathBuf};
 
 use harness_business::BusinessError;
@@ -58,6 +59,38 @@ pub fn secure_link(raw: &str) -> CommandResult<Url> {
     }
 
     Ok(url)
+}
+
+/// Like [`secure_link`], plus plain `http` to this computer (`localhost`, `127.0.0.0/8`, `[::1]`),
+/// such as a preview server an agent started. For when the user has chosen to open every web link.
+pub fn any_link(raw: &str) -> CommandResult<Url> {
+    if let Ok(url) = secure_link(raw) {
+        return Ok(url);
+    }
+
+    let url = Url::parse(raw).map_err(|_| refused())?;
+
+    let has_credentials = !url.username().is_empty() || url.password().is_some();
+    if url.scheme() != "http" || has_credentials || !is_loopback(&url) {
+        return Err(refused());
+    }
+
+    Ok(url)
+}
+
+/// `localhost` or a loopback address. `Url` keeps IPv6 hosts in brackets and lowercases domains.
+fn is_loopback(url: &Url) -> bool {
+    let Some(host) = url.host_str() else {
+        return false;
+    };
+
+    if host == "localhost" {
+        return true;
+    }
+
+    let address = host.trim_start_matches('[').trim_end_matches(']');
+
+    address.parse::<IpAddr>().is_ok_and(|address| address.is_loopback())
 }
 
 fn starts_with_prefix(url: &Url, prefix: &Url) -> bool {
@@ -193,6 +226,36 @@ mod tests {
             "",
         ] {
             let error = secure_link(raw).expect_err(raw);
+            assert_eq!(error.code(), IpcErrorCode::Forbidden, "{raw}");
+        }
+    }
+
+    #[test]
+    fn any_link_also_opens_plain_http_to_this_computer_only() {
+        for raw in [
+            "https://github.com/someone/repo",
+            "http://127.0.0.1:8234/gallery.html",
+            "http://localhost:3000/",
+            "http://LOCALHOST/",
+            "http://127.1.2.3/",
+            "http://[::1]:8080/x",
+        ] {
+            any_link(raw).expect(raw);
+        }
+
+        for raw in [
+            "http://github.com/someone/",
+            "http://localhost.evil.com/",
+            "http://evil.com/?localhost",
+            "http://192.168.1.10:8000/",
+            "http://user:pass@127.0.0.1:8234/",
+            "http://user@localhost/",
+            "ftp://127.0.0.1/",
+            "javascript:alert(1)",
+            "file:///etc/passwd",
+            "",
+        ] {
+            let error = any_link(raw).expect_err(raw);
             assert_eq!(error.code(), IpcErrorCode::Forbidden, "{raw}");
         }
     }

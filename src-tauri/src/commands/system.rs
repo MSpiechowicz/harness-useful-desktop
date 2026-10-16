@@ -10,7 +10,7 @@ use tauri::State;
 
 use super::blocking;
 use super::projects::active_project;
-use crate::access::{allowed_link, link_allowlist, reveal_target, secure_link};
+use crate::access::{allowed_link, any_link, link_allowlist, reveal_target};
 use crate::error::CommandResult;
 use crate::state::{AppState, SharedPrefs};
 
@@ -31,12 +31,12 @@ pub async fn reveal_path(state: State<'_, AppState>, path: String) -> CommandRes
     .await
 }
 
-/// Opens an `https` link in the default browser: an allowlisted one, or any one when the user
-/// turned on `openAnyLink`; anything else is `forbidden`.
+/// Opens an `https` link in the default browser: an allowlisted one, or, when the user turned on
+/// `openAnyLink`, any one plus plain `http` to this computer; anything else is `forbidden`.
 #[tauri::command]
 pub async fn open_external(state: State<'_, AppState>, url: String) -> CommandResult<()> {
     let url = if any_link_on(&state.prefs).await {
-        secure_link(&url)?
+        any_link(&url)?
     } else {
         allowed_link(&link_allowlist(&state.registry), &url)?
     };

@@ -188,6 +188,12 @@ pub fn message_role(value: &Value) -> MessageRole {
     }
 }
 
+/// A message the harness keeps out of its own chat view: a `custom` message with `display: false`,
+/// such as OMP's eval-state reminder, which only the model reads.
+pub fn hidden_message(value: &Value) -> bool {
+    message_role(value) == MessageRole::Custom && value.get("display").and_then(Value::as_bool) == Some(false)
+}
+
 /// One content block.
 pub fn chat_block(value: &Value) -> ChatBlock {
     let kind = value.get("type").and_then(Value::as_str).unwrap_or_default();

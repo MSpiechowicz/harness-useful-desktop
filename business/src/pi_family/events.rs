@@ -170,6 +170,11 @@ fn message_event(frame: &Value, kind: &str, state: &mut DecodeState) -> Vec<Inbo
     let given = frame.get("messageId").and_then(Value::as_str);
     let message = frame.get("message").cloned().unwrap_or(Value::Null);
 
+    // Kept out of the harness's own chat view; both its start and end frames carry the message.
+    if super::normalize::hidden_message(&message) {
+        return Vec::new();
+    }
+
     let event = match kind {
         "message_start" => AgentEvent::MessageStart {
             message_id: state.open_message(given),
