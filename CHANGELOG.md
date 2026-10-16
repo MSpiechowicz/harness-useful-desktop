@@ -1,3 +1,16 @@
+# [0.16.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.15.0...v0.16.0) (2026-10-16)
+
+
+### Bug Fixes
+
+* **chat:** open localhost links, hide model-only harness messages, align config tree summaries ([2aa94f6](https://github.com/MSpiechowicz/harness-useful-desktop/commit/2aa94f6757ce1c8e5c9789cd2048ccf00c951de5))
+* **memory:** make the memory tests and path display portable to macOS and Windows ([745f6bc](https://github.com/MSpiechowicz/harness-useful-desktop/commit/745f6bc84477ea53bc192578a21059105867e2cb))
+
+
+### Features
+
+* **memory:** project memory for every harness through a bundled harness-memory MCP server ([56806ce](https://github.com/MSpiechowicz/harness-useful-desktop/commit/56806ce71c9de612b6ee58c6c891547959bffefc))
+
 # [0.15.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.14.0...v0.15.0) (2026-10-15)
 
 
