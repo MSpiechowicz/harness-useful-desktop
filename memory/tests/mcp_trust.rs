@@ -7,7 +7,7 @@ mod common;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use common::mcp::{call, env, git, is_error, repo_with_remote, run, server, text};
+use common::mcp::{SEP, call, canonical, env, git, is_error, quoted, repo_with_remote, run, server, text};
 use harness_memory::Server;
 use harness_memory::project::ProjectResolver;
 use pretty_assertions::assert_eq;
@@ -20,10 +20,6 @@ const ORIGIN: &str = "https://github.com/acme/widget.git";
 fn initialize(client: &str) -> Value {
     json!({ "jsonrpc": "2.0", "id": 0, "method": "initialize",
             "params": { "protocolVersion": "2025-06-18", "clientInfo": { "name": client } } })
-}
-
-fn canonical(path: &Path) -> String {
-    std::fs::canonicalize(path).expect("canonical").display().to_string()
 }
 
 /// `initialize` as `pi`, a `Cache dir` note saved through `project_path`, and `memory_get` of it.
@@ -104,7 +100,7 @@ fn a_checkout_claiming_the_same_origin_cannot_overwrite_a_note_by_title() {
 
     let found = text(&replies[2]);
     let header = "#1 [decision, repo, ";
-    let provenance = format!(", from \"{}\" via \"claude-code\"] Deploy steps", canonical(&real));
+    let provenance = format!(", from {} via \"claude-code\"] Deploy steps", quoted(&canonical(&real)));
     assert!(found.starts_with(&format!("{FRAME}\n{header}")), "{found}");
     assert!(found.contains(&provenance), "{found}");
     assert!(found.contains("  Run make deploy"), "{found}");
@@ -126,7 +122,9 @@ fn a_write_that_names_another_repository_is_labelled() {
     let shown = text(&replies[2]);
     assert!(shown.starts_with(FRAME), "{shown}");
     assert!(
-        shown.contains(r#", from "~/work/other" via "pi", override] Cache dir"#),
+        shown.contains(&format!(
+            r#", from "~{SEP}work{SEP}other" via "pi", override] Cache dir"#
+        )),
         "{shown}"
     );
 
@@ -165,7 +163,10 @@ fn a_write_that_names_another_repository_is_labelled() {
 
     let replies = run(&mut in_target, &[call(2, "memory_search", json!({ "query": "cache" }))]);
     let found = text(&replies[0]);
-    assert!(found.contains(r#", from "~/widget"] Cache dir"#), "{found}");
+    assert!(
+        found.contains(&format!(r#", from "~{SEP}widget"] Cache dir"#)),
+        "{found}"
+    );
     assert!(found.contains("  Lives in .cache and target/"), "{found}");
 }
 
@@ -403,7 +404,7 @@ fn a_folder_whose_git_names_another_work_tree_is_keyed_by_its_own_path() {
     );
 
     for claimant in work_tree_claimants(&home, &victim) {
-        let own_key = format!("path:{}", canonical(&claimant));
+        let own_key = format!("path:{}", canonical(&claimant).display());
         assert_eq!(
             canonical(&reported_work_tree(&claimant)),
             canonical(&victim),
@@ -413,7 +414,7 @@ fn a_folder_whose_git_names_another_work_tree_is_keyed_by_its_own_path() {
         let mut resolver = ProjectResolver::new(env(&home), Some(claimant.clone()));
         let project = resolver.resolve(None).expect("resolves").expect("a project");
         assert_eq!(project.key, own_key);
-        assert_eq!(project.root, PathBuf::from(canonical(&claimant)));
+        assert_eq!(project.root, canonical(&claimant));
         assert_eq!(project.remote, None);
 
         // The same title lands in the folder's own key instead of being refused as the victim's.

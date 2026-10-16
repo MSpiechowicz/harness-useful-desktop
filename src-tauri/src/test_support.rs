@@ -57,7 +57,11 @@ pub fn home_state(dir: &TempDir) -> AppState {
     let home = dir.path().join("home");
     std::fs::create_dir_all(&home).expect("create home");
 
-    AppState::new(dir.path().join("config"), Env::for_tests(home))
+    // Windows keeps the app's per-machine data (the memory server's stable copy) in %LOCALAPPDATA%.
+    let local = home.join("AppData").join("Local");
+    let env = Env::for_tests(&home).with_var("LOCALAPPDATA", local.to_string_lossy());
+
+    AppState::new(dir.path().join("config"), env)
 }
 
 /// The user MCP file of OMP in `state`'s home.

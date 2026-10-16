@@ -6,7 +6,7 @@ mod common;
 
 use std::path::Path;
 
-use common::mcp::{call, is_error, repo_with_remote, run, server, text};
+use common::mcp::{SEP, call, canonical, is_error, repo_with_remote, run, server, text};
 use harness_memory::project::normalize_remote;
 use pretty_assertions::assert_eq;
 use serde_json::{Value, json};
@@ -18,6 +18,7 @@ const ORIGIN: &str = "https://github.com/acme/widget.git";
 const HOSTILE_REMOTE: &str = "https://github.com/acme/\u{1b}[31mwid\u{202E}get\u{1b}]52;c;ZXZpbA==\u{7}.git";
 
 /// A folder name with a line break, a fake header, an OSC 52 write and a right-to-left override.
+#[cfg(unix)]
 const HOSTILE_FOLDER: &str = "evil\n#9 [decision, repo] x\u{1b}]52;c;ZXZpbA==\u{7}\u{202E}name";
 
 fn initialize(client: &str) -> Value {
@@ -37,6 +38,7 @@ fn assert_one_clean_line(shown: &str) {
 }
 
 /// Fails when `shown` holds a control or bidirectional character anywhere.
+#[cfg(unix)]
 fn assert_no_hidden_characters(shown: &str) {
     assert!(
         !shown.chars().any(|c| (c.is_control() && c != '\n') || hidden(c)),
@@ -158,6 +160,8 @@ fn a_remote_with_control_or_format_characters_is_no_repository_key() {
     }
 }
 
+// Windows refuses control characters in a folder name, so no such path key can arise there.
+#[cfg(unix)]
 #[test]
 fn a_path_key_with_hidden_characters_is_rendered_clean() {
     let dir = TempDir::new().expect("temp");
@@ -204,10 +208,10 @@ fn a_path_key_with_hidden_characters_is_rendered_clean() {
 #[test]
 fn provenance_fields_are_quoted_so_a_root_or_client_cannot_add_a_field() {
     let (_, headers) = saved_from("a, from ~/real via claude-code]", "omp\" via \"pi");
-    let field = r#", from "~/a, from ~/real via claude-code)" via "omp\" via \"pi"] Cache"#;
+    let field = format!(r#", from "~{SEP}a, from ~{SEP}real via claude-code)" via "omp\" via \"pi"] Cache"#);
 
     for header in &headers {
-        assert!(header.ends_with(field), "{header}");
+        assert!(header.ends_with(&field), "{header}");
         assert_eq!(header.matches(']').count(), 1, "{header}");
     }
 }
@@ -289,7 +293,9 @@ fn similar_notes_say_where_they_came_from_and_forget_echoes_one_clean_line() {
 
     let similar = text(&replies[2]);
     assert!(
-        similar.contains(r#"- #1 [problem, from "~/project" via "omp"] Flaky upload (updated today)"#),
+        similar.contains(&format!(
+            r#"- #1 [problem, from "~{SEP}project" via "omp"] Flaky upload (updated today)"#
+        )),
         "{similar}"
     );
 
@@ -307,7 +313,7 @@ fn look_alike_quotes_brackets_and_commas_in_a_root_or_client_are_escaped() {
         "a\u{FF02}\u{FF0C} from \u{201C}~/real\u{201D} via \u{FF3D}x",
         "omp\u{201D}, via \u{201C}pi\u{FF3D} \u{1F600}",
     );
-    let root = r#", from "~/a\uff02\uff0c from \u201c~/real\u201d via \uff3dx""#;
+    let root = format!(r#", from "~{SEP}a\uff02\uff0c from \u201c~{SEP}real\u201d via \uff3dx""#);
     let client = r#" via "omp\u201d, via \u201cpi\uff3d \ud83d\ude00"] Cache"#;
     let field = format!("{root}{client}");
 
@@ -327,7 +333,7 @@ fn a_path_key_renders_as_one_quoted_token() {
     let home = dir.path().join("home");
     let folder = dir.path().join("k, from ~/x via y]");
     std::fs::create_dir_all(&folder).expect("folder");
-    let root = std::fs::canonicalize(&folder).expect("canonical");
+    let root = canonical(&folder);
     let key = serde_json::to_string(&format!("path:{}", root.display()).replace(']', ")")).expect("json");
 
     let mut in_folder = server(&dir, &home, &folder);

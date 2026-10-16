@@ -1667,6 +1667,7 @@ dependencies = [
 name = "harness_memory"
 version = "0.15.0"
 dependencies = [
+ "dunce",
  "harness_business",
  "insta",
  "pretty_assertions",

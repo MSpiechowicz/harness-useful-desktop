@@ -11,6 +11,20 @@ use harness_memory::{Server, serve};
 use serde_json::{Value, json};
 use tempfile::TempDir;
 
+/// The path separator as a quoted reply field shows it under `~`: `/` on Unix, a JSON-escaped `\`
+/// on Windows.
+pub const SEP: &str = if cfg!(windows) { r"\\" } else { "/" };
+
+/// `path` canonicalized the way the server keys and shows folders (no `\\?\` prefix on Windows).
+pub fn canonical(path: &Path) -> PathBuf {
+    dunce::canonicalize(path).expect("canonical")
+}
+
+/// `path` as a quoted reply field shows it: a JSON string, so Windows backslashes are doubled.
+pub fn quoted(path: &Path) -> String {
+    serde_json::to_string(&path.display().to_string()).expect("json")
+}
+
 /// An environment with `home` as the home folder and the real `PATH` (for git).
 pub fn env(home: &Path) -> Env {
     Env::for_tests(home).with_var("PATH", std::env::var("PATH").unwrap_or_default())

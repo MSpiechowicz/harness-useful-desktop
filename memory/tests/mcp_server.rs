@@ -3,7 +3,7 @@
 
 mod common;
 
-use common::mcp::{call, is_error, run, run_raw, server, text};
+use common::mcp::{call, canonical, is_error, quoted, run, run_raw, server, text};
 use harness_memory::Server;
 use harness_memory::limits::LINE_MAX;
 use pretty_assertions::assert_eq;
@@ -251,11 +251,8 @@ fn remember_update_search_link_neighbors_and_forget_round_trip() {
 
     let remembered = text(&replies[2]);
     assert!(remembered.contains("similar notes"), "{remembered}");
-    let project = std::fs::canonicalize(dir.path().join("project")).expect("canonical");
-    let similar = format!(
-        "- #1 [problem, from \"{}\"] Flaky upload (updated today)",
-        project.display()
-    );
+    let project = canonical(&dir.path().join("project"));
+    let similar = format!("- #1 [problem, from {}] Flaky upload (updated today)", quoted(&project));
     assert!(remembered.contains(&similar), "{remembered}");
 
     assert!(text(&replies[3]).contains("revision 3"));

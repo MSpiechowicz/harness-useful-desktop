@@ -10,7 +10,7 @@
 //! folder name).
 
 use std::fmt::Write as _;
-use std::path::Path;
+use std::path::{MAIN_SEPARATOR, Path};
 
 use super::reply::{age, date};
 use crate::store::{Hit, Note, Provenance, Saved, Scope, clean};
@@ -144,13 +144,20 @@ fn push_provenance(header: &mut String, provenance: &Provenance, home: &Path) {
     }
 }
 
-/// `root` as `~/…` under the home folder, else in full.
+/// `root` as `~/…` under the home folder (`~\…` on Windows: the OS separator throughout), else in
+/// full.
 fn shown_path(root: &Path, home: &Path) -> String {
-    match root.strip_prefix(home) {
-        Ok(rest) if rest.as_os_str().is_empty() => "~".to_owned(),
-        Ok(rest) => format!("~/{}", rest.display()),
-        Err(_) => root.display().to_string(),
+    let Ok(rest) = root.strip_prefix(home) else {
+        return root.display().to_string();
+    };
+
+    let mut shown = String::from("~");
+    for part in rest.components() {
+        shown.push(MAIN_SEPARATOR);
+        shown.push_str(&part.as_os_str().to_string_lossy());
     }
+
+    shown
 }
 
 /// `text` on one line without square brackets, so it cannot close a header's bracket.

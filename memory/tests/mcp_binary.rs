@@ -5,8 +5,9 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use harness_business::app_dirs::APP_IDENTIFIER;
+use harness_business::app_dirs::memory_dir;
 use harness_business::ecosystem::{McpClient, McpOptions};
+use harness_business::env::{Env, OsKind};
 use harness_business::process::{ExecSpec, TokioSpawner};
 use pretty_assertions::assert_eq;
 use serde_json::{Map, Value, json};
@@ -96,7 +97,11 @@ async fn notes_persist_across_processes_in_the_app_data_folder() {
     assert!(found.contains("Uploader location"), "{found}");
     first.shutdown().await;
 
-    let database = machine.data.join(APP_IDENTIFIER).join("memory").join("memory.sqlite3");
+    // Where this OS keeps it: `$XDG_DATA_HOME` on Linux, `~/Library/Application Support` on macOS.
+    let env = Env::for_tests(&machine.home)
+        .with_var("XDG_DATA_HOME", machine.data.to_string_lossy())
+        .with_os(OsKind::current());
+    let database = memory_dir(&env).expect("memory dir").join("memory.sqlite3");
     assert!(database.is_file(), "{}", database.display());
     assert!(!machine.repo.join("memory.sqlite3").exists());
 

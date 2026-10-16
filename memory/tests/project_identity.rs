@@ -3,16 +3,12 @@
 
 mod common;
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
-use common::mcp::{env, git, repo_with_remote};
+use common::mcp::{canonical, env, git, repo_with_remote};
 use harness_memory::project::{ProjectResolver, normalize_remote};
 use pretty_assertions::assert_eq;
 use tempfile::TempDir;
-
-fn canonical(path: &Path) -> PathBuf {
-    std::fs::canonicalize(path).expect("canonical")
-}
 
 #[test]
 fn https_with_credentials_and_scp_remotes_share_one_key() {
