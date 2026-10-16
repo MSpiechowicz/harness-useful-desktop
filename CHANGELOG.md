@@ -1,3 +1,15 @@
+# [0.17.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.16.2...v0.17.0) (2026-10-16)
+
+
+### Bug Fixes
+
+* **memory:** build home paths from components so Windows paths use one separator ([3267d18](https://github.com/MSpiechowicz/harness-useful-desktop/commit/3267d188f1d3036c634d6a016c69c0c20b2e3235))
+
+
+### Features
+
+* **memory:** install Harness Memory as a family member instead of bundling it ([089c470](https://github.com/MSpiechowicz/harness-useful-desktop/commit/089c470eef3379b622d274a4c55947b5f551fbdd)), closes [#8](https://github.com/MSpiechowicz/harness-useful-desktop/issues/8)
+
 ## [0.16.2](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.16.1...v0.16.2) (2026-10-16)
 
 
