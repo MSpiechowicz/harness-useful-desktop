@@ -19,6 +19,8 @@ export const harness = {
   'harness.gate.extensions.loading': 'Loading extensions',
   'harness.gate.extensions.refreshing': 'Refreshing extensions',
 
+  'harness.switcher.label': 'Switch harness',
+
   'harness.toast.scan': 'Could not scan for harnesses',
   'harness.toast.pickBinary': 'Could not use that file',
   'harness.toast.clearBinary': 'Could not reset the binary',

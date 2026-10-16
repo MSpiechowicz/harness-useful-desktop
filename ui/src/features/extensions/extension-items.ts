@@ -41,16 +41,21 @@ function tab(id: ExtTab, capability: keyof Capabilities): TabDef {
 }
 
 /** All kinds in display order; a harness shows the ones its capabilities enable. */
+/**
+ * The order of the inventory. What a harness installs comes first (OMP's plugins, PI's packages fill the same role), the
+ * kinds most harnesses share follow in one order, and OMP-only catalogs close it, so switching harness keeps Skills,
+ * MCP servers and Themes in the same place.
+ */
 export const TABS: readonly TabDef[] = [
   tab('plugins', 'plugins'),
-  tab('marketplaces', 'marketplaces'),
+  tab('packages', 'packages'),
   tab('skills', 'skills'),
   tab('prompts', 'promptTemplates'),
   tab('agents', 'agents'),
   tab('mcp', 'mcp'),
   tab('themes', 'themes'),
-  tab('packages', 'packages'),
   tab('modules', 'extensionModules'),
+  tab('marketplaces', 'marketplaces'),
 ];
 
 export function visibleTabs(capabilities: Capabilities): TabDef[] {
@@ -219,10 +224,10 @@ function themeItems(view: ExtensionsView): ExtItem[] {
 
 function packageItems(view: ExtensionsView): ExtItem[] {
   return view.packages.map((pkg, index) => {
-    const title = pkg.source.kind === 'text' ? pkg.source.value : t('extensions.badge.hiddenSource');
+    const title = pkg.name || (pkg.source.kind === 'text' ? pkg.source.value : t('extensions.badge.hiddenSource'));
     const badges: ExtBadge[] = [{ label: pkg.kind, tone: 'neutral' }, scopeBadge(pkg.scope)];
 
-    return { ...base(`${index}\u001f${title}`, title, pkg.resources.join(', ') || null, badges), tab: 'packages', data: pkg };
+    return { ...base(`${index}\u001f${title}`, title, null, badges), tab: 'packages', data: pkg };
   });
 }
 
@@ -274,7 +279,7 @@ export function rowInfo(entry: ExtItem): RowInfo {
     case 'mcp':
       return { status: state(entry.data.enabled), meta: entry.data.transport, update: false };
     case 'packages':
-      return { status: null, meta: entry.data.kind, update: false };
+      return { status: state(entry.data.installed), meta: entry.data.kind, update: false };
     case 'modules':
       return { status: state(entry.data.enabled), meta: scopeLabel(entry.data.scope), update: false };
   }
@@ -284,4 +289,16 @@ export function filterItems(items: ExtItem[], query: string): ExtItem[] {
   const needle = query.trim().toLowerCase();
 
   return needle === '' ? items : items.filter((entry) => entry.search.includes(needle));
+}
+
+/** The list row of the PI package that provides a skill, when the view has exactly one that fits. Scope tells apart a user and a project package of the same name. */
+export function packageOf(view: ExtensionsView, skill: SkillInfo): ExtItem | undefined {
+  if (!skill.package) {
+    return undefined;
+  }
+
+  const matches = buildItems('packages', view).filter((entry) => entry.tab === 'packages' && entry.data.name === skill.package && entry.data.scope === skill.scope);
+
+  // Two packages with one name (acme/tools and evil/tools) leave the skill's owner unknown: offering either one's Uninstall could remove the wrong package.
+  return matches.length === 1 ? matches[0] : undefined;
 }

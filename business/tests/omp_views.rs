@@ -253,3 +253,146 @@ fn a_symlinked_skills_dir_with_loops_lists_each_skill_once() {
     let names: Vec<&str> = view.skills.iter().map(|skill| skill.name.as_str()).collect();
     assert_eq!(names, ["notes"]);
 }
+
+#[cfg(unix)]
+#[test]
+fn settings_listed_module_paths_are_deduplicated_then_capped_per_file() {
+    let temp = tempfile::TempDir::new().unwrap();
+    let home = temp.path().join("home");
+    let modules = home.join("modules");
+    let agent = home.join(".omp/agent");
+    let project = temp.path().join("project");
+    std::fs::create_dir_all(&modules).unwrap();
+    std::fs::create_dir_all(&agent).unwrap();
+    std::fs::create_dir_all(project.join(".git")).unwrap();
+    std::os::unix::fs::symlink(&modules, home.join("linked")).unwrap();
+
+    // 100 distinct files, each listed four ways: absolute, with `~` (the same path once expanded),
+    // through a linked directory and relative to the project.
+    let mut listed = Vec::new();
+    for index in 0..100 {
+        let name = format!("m{index:03}.ts");
+        let file = modules.join(&name);
+        std::fs::write(&file, "").unwrap();
+        listed.push(file.to_string_lossy().into_owned());
+        listed.push(format!("~/modules/{name}"));
+        listed.push(format!("~/linked/{name}"));
+        listed.push(format!("../home/modules/{name}"));
+    }
+    let yaml: String = listed.iter().map(|path| format!("  - {path}\n")).collect();
+    std::fs::write(agent.join("config.yml"), format!("extensions:\n{yaml}")).unwrap();
+    let legacy = serde_json::json!({ "extensions": listed.iter().rev().collect::<Vec<_>>() });
+    std::fs::write(agent.join("settings.json"), legacy.to_string()).unwrap();
+
+    let view = extensions(&env_at(&home), Some(&project));
+
+    let names: Vec<&str> = view
+        .extension_modules
+        .iter()
+        .map(|module| module.name.as_str())
+        .collect();
+    // Each file has three distinct spellings, so a file's first 64 entries name 22 files: the
+    // legacy file m099 down to m078, the YAML file m000 to m021. Aliases count once.
+    let expected: Vec<String> = (78..100)
+        .rev()
+        .chain(0..22)
+        .map(|index| format!("m{index:03}"))
+        .collect();
+    assert_eq!(names, expected);
+    assert!(has_truncation_notice(&view, USER_TRUNCATED));
+}
+
+const PROJECT_TRUNCATED: &str = "Some extensions were not listed because this project lists more than the app reads. \
+                                 Check its settings before trusting it.";
+const USER_TRUNCATED: &str = "Some extensions were not listed because your setup lists more than the app reads.";
+
+fn has_truncation_notice(view: &ExtensionsView, message: &str) -> bool {
+    view.notices.iter().any(|notice| notice.message == message)
+}
+
+#[test]
+fn a_project_listing_too_much_cannot_hide_the_users_modules() {
+    let temp = tempfile::TempDir::new().unwrap();
+    let home = temp.path().join("home");
+    let agent = home.join(".omp/agent");
+    let project = temp.path().join("project");
+    std::fs::create_dir_all(project.join(".git")).unwrap();
+
+    write_file(&project.join(".omp/extensions/evil.ts"), "");
+    write_file(&agent.join("extensions/user-mod.ts"), "");
+    write_file(&home.join("mods/listed-user.ts"), "");
+    write_file(&agent.join("config.yml"), "extensions:\n  - ~/mods\n");
+
+    // 21 directories of 2000 files are more than one layer's 40 000 scan steps.
+    let listed: Vec<String> = (0..21)
+        .map(|index| {
+            let dir = temp.path().join(format!("big/d{index:02}"));
+            std::fs::create_dir_all(&dir).unwrap();
+            for file in 0..2000 {
+                std::fs::write(dir.join(format!("f{file:04}")), "").unwrap();
+            }
+
+            dir.to_string_lossy().into_owned()
+        })
+        .collect();
+    let legacy = serde_json::json!({ "extensions": listed });
+    write_file(&project.join(".omp/settings.json"), &legacy.to_string());
+
+    let started = std::time::Instant::now();
+    let view = extensions(&env_at(&home), Some(&project));
+    let elapsed = started.elapsed();
+    assert!(elapsed.as_secs_f32() < 5.0, "{elapsed:?}");
+
+    let names: Vec<&str> = view
+        .extension_modules
+        .iter()
+        .map(|module| module.name.as_str())
+        .collect();
+    assert_eq!(names, ["evil", "user-mod", "listed-user"]);
+    assert!(has_truncation_notice(&view, PROJECT_TRUNCATED));
+    assert!(!has_truncation_notice(&view, USER_TRUNCATED));
+}
+
+fn write_file(path: &Path, content: &str) {
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    std::fs::write(path, content).unwrap();
+}
+
+/// A `SKILL.md` without a `name` whose frontmatter holds `keys` extra keys of 12 bytes each.
+fn padded_skill(dir: &Path, keys: usize) {
+    let padding: String = (0..keys).map(|key| format!("key{key:05}: v\n")).collect();
+    write_file(
+        &dir.join("SKILL.md"),
+        &format!("---\ndescription: A skill\n{padding}---\n"),
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn links_to_one_skill_read_it_once_and_huge_frontmatter_is_skipped() {
+    use std::os::unix::fs::symlink;
+
+    let temp = tempfile::TempDir::new().unwrap();
+    let home = temp.path().join("home");
+    let skills = home.join(".omp/agent/skills");
+    let shared = temp.path().join("shared");
+    let huge = temp.path().join("huge");
+    std::fs::create_dir_all(&skills).unwrap();
+
+    // Just under the 64 KiB frontmatter cap, and well over it (but under the 256 KiB file cap).
+    padded_skill(&shared, 4800);
+    padded_skill(&huge, 19_000);
+    for index in 0..1000 {
+        symlink(&shared, skills.join(format!("a{index:04}"))).unwrap();
+        symlink(&huge, skills.join(format!("b{index:04}"))).unwrap();
+    }
+
+    let started = std::time::Instant::now();
+    let view = extensions(&env_at(&home), None);
+    let elapsed = started.elapsed();
+    assert!(elapsed.as_secs_f32() < 2.0, "{elapsed:?}");
+
+    // Named after the first link: the others resolve to the same directory.
+    let names: Vec<&str> = view.skills.iter().map(|skill| skill.name.as_str()).collect();
+    assert_eq!(names, ["a0000"]);
+}

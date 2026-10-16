@@ -4,9 +4,8 @@
   import FolderSearch from '@lucide/svelte/icons/folder-search';
   import RefreshCw from '@lucide/svelte/icons/refresh-cw';
 
-  import Button from '$lib/components/Button.svelte';
   import DropdownButton from '$lib/components/DropdownButton.svelte';
-  import { ICON, type IconComponent } from '$lib/components/icon';
+  import type { IconComponent } from '$lib/components/icon';
   import MenuItem from '$lib/components/MenuItem.svelte';
   import MoreMenu from '$lib/components/MoreMenu.svelte';
   import Popover from '$lib/components/Popover.svelte';
@@ -98,12 +97,7 @@
   }
 </script>
 
-{#if adds.length === 1}
-  <Button variant="primary" disabled={busy} onclick={() => (composing = adds[0].compose ?? null)}>
-    {#snippet leading()}<Plus size={ICON.sm} aria-hidden="true" />{/snippet}
-    {adds[0].label}
-  </Button>
-{:else if adds.length > 1}
+{#if adds.length > 0}
   <Popover label={t('extensions.install.button')} kind="menu" align="end" class="w-52 min-w-0!">
     {#snippet trigger({ props })}
       <DropdownButton {...props} variant="primary" icon={Plus} disabled={busy}>{t('extensions.install.button')}</DropdownButton>

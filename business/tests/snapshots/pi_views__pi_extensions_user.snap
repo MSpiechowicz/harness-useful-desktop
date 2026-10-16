@@ -12,21 +12,32 @@ expression: "exported(extensions(&env, None), &home, &project)"
       "description": "Review a diff for correctness and style.",
       "scope": "user",
       "origin": "~/.pi/agent/skills",
-      "path": "/home/demo/.pi/agent/skills/code-review/SKILL.md"
+      "path": "/home/demo/.pi/agent/skills/code-review/SKILL.md",
+      "package": null
     },
     {
       "name": "nested-skill",
       "description": "Found by the recursive scan inside a grouping directory.",
       "scope": "user",
       "origin": "~/.pi/agent/skills",
-      "path": "/home/demo/.pi/agent/skills/group/nested-skill/SKILL.md"
+      "path": "/home/demo/.pi/agent/skills/group/nested-skill/SKILL.md",
+      "package": null
     },
     {
       "name": "plain-writing",
       "description": "Rewrite text in plain, concise English.",
       "scope": "user",
       "origin": "~/.agents/skills",
-      "path": "/home/demo/.agents/skills/plain-writing/SKILL.md"
+      "path": "/home/demo/.agents/skills/plain-writing/SKILL.md",
+      "package": null
+    },
+    {
+      "name": "release-notes",
+      "description": "Draft release notes from merged changes.",
+      "scope": "user",
+      "origin": "package pi-private",
+      "path": "/home/demo/.pi/agent/git/git.example.com/demo/pi-private/skills/release-notes/SKILL.md",
+      "package": "pi-private"
     }
   ],
   "promptTemplates": [
@@ -43,6 +54,13 @@ expression: "exported(extensions(&env, None), &home, &project)"
       "argumentHint": "[focus]",
       "scope": "user",
       "path": "/home/demo/.pi/agent/prompts/review.md"
+    },
+    {
+      "name": "standup",
+      "description": "Summarize yesterday's work for the standup.",
+      "argumentHint": null,
+      "scope": "user",
+      "path": "/home/demo/.pi/agent/git/github.com/demo/pi-prompts/prompts/standup.md"
     }
   ],
   "agents": [],
@@ -189,6 +207,12 @@ expression: "exported(extensions(&env, None), &home, &project)"
       "scope": "user",
       "path": "/home/demo/.pi/agent/themes/nightfall.json",
       "active": true
+    },
+    {
+      "name": "review-contrast",
+      "scope": "user",
+      "path": "/home/demo/.pi/agent/npm/node_modules/@demo/pi-review-kit/resources/themes/review-contrast.json",
+      "active": false
     }
   ],
   "packages": [
@@ -198,8 +222,12 @@ expression: "exported(extensions(&env, None), &home, &project)"
         "value": "npm:@demo/pi-review-kit@1.0.0"
       },
       "kind": "npm",
+      "name": "@demo/pi-review-kit",
       "scope": "user",
-      "resources": []
+      "installed": true,
+      "resources": [
+        "themes"
+      ]
     },
     {
       "source": {
@@ -207,17 +235,27 @@ expression: "exported(extensions(&env, None), &home, &project)"
         "value": "git:github.com/demo/pi-prompts@v1"
       },
       "kind": "git",
+      "name": "pi-prompts",
       "scope": "user",
-      "resources": []
+      "installed": true,
+      "resources": [
+        "prompts"
+      ]
     },
     {
       "source": {
-        "kind": "text",
-        "value": "https://••••@git.example.com/demo/pi-private.git"
+        "kind": "secret",
+        "value": {
+          "type": "value"
+        }
       },
       "kind": "git",
+      "name": "pi-private",
       "scope": "user",
-      "resources": []
+      "installed": true,
+      "resources": [
+        "skills"
+      ]
     }
   ],
   "extensionModules": [

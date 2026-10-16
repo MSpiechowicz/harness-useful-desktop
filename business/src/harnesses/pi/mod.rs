@@ -13,6 +13,7 @@ mod launch;
 mod layers;
 mod packages;
 mod sessions;
+mod sources;
 
 pub use catalog::PiCatalog;
 pub use cli::pi_cli_action;

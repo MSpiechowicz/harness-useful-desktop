@@ -157,6 +157,14 @@ describe('items', () => {
     expect(screen.getByText('Reviews a change.')).toBeInTheDocument();
   });
 
+  it('keeps the shared kinds in one place for OMP and PI: what the harness installs first, OMP catalogs last', () => {
+    const omp = visibleTabs({ plugins: true, marketplaces: true, skills: true, mcp: true, themes: true } as never).map((tab) => tab.id);
+    const pi = visibleTabs({ packages: true, skills: true, mcp: true, themes: true } as never).map((tab) => tab.id);
+
+    expect(omp).toEqual(['plugins', 'skills', 'mcp', 'themes', 'marketplaces']);
+    expect(pi).toEqual(['packages', 'skills', 'mcp', 'themes']);
+  });
+
   it('offers the agents tab only to a harness with the capability', () => {
     const agents = visibleTabs({ agents: true } as never);
 

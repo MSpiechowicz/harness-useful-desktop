@@ -24,4 +24,9 @@ origin: string,
 /**
  * Absolute path of the `SKILL.md` file.
  */
-path: string, };
+path: string, 
+/**
+ * Display name of the PI package providing the skill ([`PackageInfo::name`]); `None` for
+ * skills that do not come from a package.
+ */
+package: string | null, };

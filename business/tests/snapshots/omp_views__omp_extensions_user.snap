@@ -111,21 +111,24 @@ expression: "exported(extensions(&env, None), &home, &project)"
       "description": "Demonstrates a user-level OMP skill.",
       "scope": "user",
       "origin": "~/.omp/agent/skills",
-      "path": "/home/demo/.omp/agent/skills/demo-skill/SKILL.md"
+      "path": "/home/demo/.omp/agent/skills/demo-skill/SKILL.md",
+      "package": null
     },
     {
       "name": "plugin-skill",
       "description": "A skill shipped by the demo plugin.",
       "scope": "plugin",
       "origin": "plugin demo-plugin",
-      "path": "/home/demo/.omp/plugins/cache/plugins/demo-plugin/skills/plugin-skill/SKILL.md"
+      "path": "/home/demo/.omp/plugins/cache/plugins/demo-plugin/skills/plugin-skill/SKILL.md",
+      "package": null
     },
     {
       "name": "auto-notes",
       "description": "Auto-learned notes skill (managed by OMP).",
       "scope": "user",
       "origin": "~/.omp/agent/managed-skills",
-      "path": "/home/demo/.omp/agent/managed-skills/auto-notes/SKILL.md"
+      "path": "/home/demo/.omp/agent/managed-skills/auto-notes/SKILL.md",
+      "package": null
     }
   ],
   "promptTemplates": [],

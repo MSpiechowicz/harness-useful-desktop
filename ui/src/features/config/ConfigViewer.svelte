@@ -22,6 +22,7 @@
   import { configView } from '$lib/stores/views.svelte';
 
   import HarnessGate from '../harness/HarnessGate.svelte';
+  import HarnessSwitcher from '../harness/HarnessSwitcher.svelte';
   import { count, scopeLabel } from '../shell/scope';
   import ConfigMenu from './ConfigMenu.svelte';
   import { configMode, type ConfigMode } from './config-mode.svelte';
@@ -46,7 +47,10 @@
   // Config files change on disk under an open view (the agent edits them), so it re-reads quietly.
   $effect(() => autoRefresh(() => void configView.refresh({ quiet: true }), 5000));
 
-  const view = $derived(configView.data?.harness === harness.active?.info.id ? configView.data : undefined);
+  // While a switch loads, the header keeps the previous harness's view so it does not jump; the body shows a spinner (HarnessGate).
+  const view = $derived(configView.data ?? undefined);
+  // Mid-switch the header is frozen on the old view and takes no input: a search typed now would be lost, a reveal would open the old file.
+  const switching = $derived(view !== undefined && view.harness !== harness.active?.info.id);
   const files = $derived(view?.sections.length);
   const section = $derived(view ? pick(view) : undefined);
 
@@ -113,36 +117,41 @@
 <div class="flex size-full min-h-0 flex-col">
   <ViewHeader title={t('config.title')} icon={SlidersHorizontal} context={scopeLabel(files === undefined ? null : count(files, 'file'))}>
     {#snippet actions()}
-      {#if section}
-        {#if readable}
-          <div class="w-[340px] max-[900px]:w-[220px]">
-            <SearchField
-              bind:value={viewState.configQuery}
-              label={t('config.search.label')}
-              placeholder={t('config.search.placeholder')}
-              shortcut="mod+f"
-              status={matches > 0 ? tn('config.search.matches', matches) : undefined}
-              onkeydown={onSearchKey}
-            />
-          </div>
-        {/if}
-
-        <DrawerToggle {drawer} label={t('config.drawer.label')} count={files} />
-
-        {#if readable}
-          <SegmentedControl options={modes} value={configMode.value} label={t('config.mode.label')} onchange={(mode) => configMode.set(mode)} />
-        {/if}
-
-        <ConfigMenu
-          label={t('config.menu.label')}
-          {readable}
-          exists={section.source.exists}
-          anyOpen={openCount > 0}
-          ontoggleall={() => pane?.setAll(openCount === 0)}
-          oncopypath={() => void copyPath(section.source.path)}
-          onreveal={() => void revealPath(section.source.path)}
-        />
+      {#if section && readable}
+        <div class="w-[340px] max-[900px]:w-[220px]" inert={switching}>
+          <SearchField
+            bind:value={viewState.configQuery}
+            label={t('config.search.label')}
+            placeholder={t('config.search.placeholder')}
+            shortcut="mod+f"
+            status={matches > 0 ? tn('config.search.matches', matches) : undefined}
+            onkeydown={onSearchKey}
+          />
+        </div>
       {/if}
+
+      <!-- Shown whatever the harness has: a harness with no config still has to be switchable away from. -->
+      <HarnessSwitcher />
+
+      <div class="contents" inert={switching}>
+        {#if section}
+          <DrawerToggle {drawer} label={t('config.drawer.label')} count={files} />
+
+          {#if readable}
+            <SegmentedControl options={modes} value={configMode.value} label={t('config.mode.label')} onchange={(mode) => configMode.set(mode)} />
+          {/if}
+
+          <ConfigMenu
+            label={t('config.menu.label')}
+            {readable}
+            exists={section.source.exists}
+            anyOpen={openCount > 0}
+            ontoggleall={() => pane?.setAll(openCount === 0)}
+            oncopypath={() => void copyPath(section.source.path)}
+            onreveal={() => void revealPath(section.source.path)}
+          />
+        {/if}
+      </div>
     {/snippet}
   </ViewHeader>
 

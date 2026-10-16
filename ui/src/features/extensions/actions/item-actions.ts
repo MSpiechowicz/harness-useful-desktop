@@ -112,7 +112,7 @@ export function packageActions(harness: HarnessId, pkg: PackageInfo, project: st
       request: actionRequest(harness, { type: 'packageUpdate', source }, scope, project),
     },
     {
-      label: t('extensions.verb.remove'),
+      label: t('extensions.verb.uninstall'),
       title: t('extensions.action.removePackage.title'),
       description: t('extensions.action.removePackage.description'),
       icon: Trash2,

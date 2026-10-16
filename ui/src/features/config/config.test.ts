@@ -69,38 +69,15 @@ describe('ConfigViewer', () => {
 
     await fireEvent.click(heading);
 
-    // The file the detail shows keeps its row, so the highlight never disappears.
+    // A folded layer hides every row, the selected one too. The detail stays on that file.
     expect(heading).toHaveAttribute('aria-expanded', 'false');
-    const left = within(user).getAllByRole('button').slice(1);
-    expect(left).toHaveLength(1);
-    expect(left[0]).toHaveTextContent('Alpha');
-    expect(left[0]).toHaveAttribute('aria-current', 'true');
+    expect(within(user).getAllByRole('button')).toHaveLength(1);
+    expect(screen.getByRole('heading', { name: 'Alpha' })).toBeInTheDocument();
 
     await fireEvent.click(heading);
 
     expect(heading).toHaveAttribute('aria-expanded', 'true');
     expect(within(user).getAllByRole('button')).toHaveLength(4);
-  });
-
-  it('keeps the selected file in a folded layer as the selection moves', async () => {
-    render(ConfigViewer);
-    await details();
-    load([
-      { id: 'user.a', title: 'Alpha', description: null, source: source('user', true), entries: [text('theme')], error: null },
-      { id: 'user.b', title: 'Beta', description: null, source: source('user', true), entries: [text('theme')], error: null },
-    ]);
-    const files = await screen.findByRole('navigation', { name: 'Configuration files' });
-    const user = within(files).getByRole('region', { name: 'User layer' });
-
-    await fireEvent.click(within(user).getByText('Beta').closest('button')!);
-    await fireEvent.click(within(user).getByRole('button', { name: /User/ }));
-
-    const left = within(user).getAllByRole('button').slice(1);
-    expect(left).toHaveLength(1);
-    expect(left[0]).toHaveTextContent('Beta');
-    expect(left[0]).toHaveAttribute('aria-current', 'true');
-
-    await fireEvent.click(within(user).getByRole('button', { name: /User/ }));
   });
 
   it('reloads when the project changes', async () => {

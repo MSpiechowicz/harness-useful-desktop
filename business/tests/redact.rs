@@ -267,3 +267,34 @@ fn redact_text_leaves_plain_text_untouched() {
 
     assert_eq!(redact_text(input), input);
 }
+
+#[test]
+fn package_sources_show_a_mixed_case_owner_but_hide_credentials() {
+    let secret = ConfigValue::Secret(SecretKind::Value);
+    let redact = |source: &str| Redactor.redact_package_source(source);
+
+    assert_eq!(
+        redact("git:github.com/MSpiechowicz/harness-useful-skills"),
+        text("git:github.com/MSpiechowicz/harness-useful-skills")
+    );
+    assert_eq!(
+        redact("git:github.com/MSpiechowicz/harness-useful-skills@v1.2.0"),
+        text("git:github.com/MSpiechowicz/harness-useful-skills@v1.2.0")
+    );
+    assert_eq!(redact("https://user:hunter2@github.com/acme/tools"), secret);
+    assert_eq!(redact("https://user:p@ss@github.com/acme/tools"), secret);
+    assert_eq!(
+        redact("git:git@github.com:acme/tools"),
+        text("git:git@github.com:acme/tools")
+    );
+    assert_eq!(redact("git:git:pw@github.com:acme/tools"), secret);
+    assert_eq!(redact("git:user:hunter2@github.com/acme/tools"), secret);
+    assert_eq!(
+        redact("git:github.com/acme/ghp_aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789"),
+        secret
+    );
+    assert_eq!(
+        redact("git:github.com/acme/aZ3kQ9mP2xL7vR4tW8nB6jH1dF5sG0yC2eU7iO3p"),
+        secret
+    );
+}

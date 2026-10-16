@@ -52,21 +52,24 @@ expression: "exported(extensions(&env, None), &home, &project)"
       "description": "Demonstrates an OpenCode skill.",
       "scope": "user",
       "origin": "~/.config/opencode/skills",
-      "path": "/home/demo/.config/opencode/skills/demo/SKILL.md"
+      "path": "/home/demo/.config/opencode/skills/demo/SKILL.md",
+      "package": null
     },
     {
       "name": "plain-writing",
       "description": "Write in plain language.",
       "scope": "user",
       "origin": "~/.agents/skills",
-      "path": "/home/demo/.agents/skills/plain-writing/SKILL.md"
+      "path": "/home/demo/.agents/skills/plain-writing/SKILL.md",
+      "package": null
     },
     {
       "name": "claude-notes",
       "description": "A Claude Code skill OpenCode also loads.",
       "scope": "user",
       "origin": "~/.claude/skills",
-      "path": "/home/demo/.claude/skills/claude-notes/SKILL.md"
+      "path": "/home/demo/.claude/skills/claude-notes/SKILL.md",
+      "package": null
     }
   ],
   "promptTemplates": [

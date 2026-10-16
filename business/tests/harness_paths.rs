@@ -190,6 +190,17 @@ fn frontmatter_is_parsed_from_the_leading_block_only() {
     assert_eq!(parse_frontmatter("no frontmatter\n---\nname: x\n---\n"), None);
     assert_eq!(parse_frontmatter("---\nname: x\n"), None, "unclosed block");
     assert_eq!(parse_frontmatter("---\n- a list\n---\n"), None, "not a mapping");
+
+    let block = |keys: usize| -> String { (0..keys).map(|key| format!("key{key:05}: v\n")).collect() };
+    assert!(
+        parse_frontmatter(&format!("---\n{}---\n", block(5400))).is_some(),
+        "64 800 bytes"
+    );
+    assert_eq!(
+        parse_frontmatter(&format!("---\n{}---\n", block(5500))),
+        None,
+        "66 000 bytes"
+    );
 }
 
 #[test]

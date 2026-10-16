@@ -42,11 +42,10 @@
         </button>
       </div>
 
-      <!-- A folded layer still shows the file the detail is on, so the highlighted row never disappears. -->
       {#each group.sections as section (section.id)}
         {@const selected = section.id === selectedId}
 
-        {#if open || selected}
+        {#if open}
           <div class="h-[40px] px-3 py-[2px]">
             <button
               type="button"

@@ -22,6 +22,8 @@ export const harness: AreaMessages<typeof enHarness> = {
   'harness.gate.extensions.loading': 'Erweiterungen werden geladen',
   'harness.gate.extensions.refreshing': 'Erweiterungen werden aktualisiert',
 
+  'harness.switcher.label': 'Harness wechseln',
+
   'harness.toast.scan': 'Die Suche nach Harnesses ist fehlgeschlagen',
   'harness.toast.pickBinary': 'Diese Datei lässt sich nicht verwenden',
   'harness.toast.clearBinary': 'Das Programm konnte nicht zurückgesetzt werden',

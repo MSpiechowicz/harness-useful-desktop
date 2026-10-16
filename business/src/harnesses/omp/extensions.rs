@@ -1,4 +1,8 @@
 //! OMP extensions view: plugins, marketplaces, skills, MCP servers, extension modules and themes.
+//!
+//! Scans are bounded. The conventional extension directories each get their own budget, and the
+//! paths a project's settings list are charged to a budget of the project's own, so they cannot
+//! hide the user's modules. A view cut short by any cap says so in a notice.
 
 use std::path::{Path, PathBuf};
 
@@ -15,8 +19,9 @@ use crate::model::{
     ExtensionModuleInfo, ExtensionScope, ExtensionsView, HarnessId, McpServerInfo, SkillInfo, ThemeInfo,
 };
 use crate::pi_family::{
-    Document, ParsedServer, SkillRoot, builtin_themes, dedupe_skills, extension_module, extension_module_paths,
-    origin_label, parse_servers, project_ancestors, read_json, scan_skills, string_list, themes_in_dir,
+    Document, MAX_DECLARED_ENTRIES, MAX_WALK_ENTRIES, ParsedServer, PerLayer, ScanBudget, SkillRoot, Truncation,
+    WalkBudget, builtin_themes, dedupe_skills, distinct_targets, extension_module, extension_module_paths,
+    origin_label, parse_servers, project_ancestors, read_json, scan_skills_budgeted, string_list, themes_in_dir,
 };
 
 /// OMP scans `<dir>/<skill>/SKILL.md` one level deep.
@@ -28,16 +33,17 @@ const DEFAULT_LIGHT_THEME: &str = "light";
 /// Prefix of extension-module ids in the `disabledExtensions` setting.
 const MODULE_ID_PREFIX: &str = "extension-module:";
 
-/// User and project settings documents, project first (it overrides the user layer).
+/// User and project settings documents with their scope, project first (it overrides the user
+/// layer).
 struct Settings {
-    layers: Vec<Document>,
+    layers: Vec<(ExtensionScope, Document)>,
 }
 
 impl Settings {
     fn load(paths: &HarnessPaths) -> Self {
         let mut layers = Vec::new();
-        layers.extend(project_settings(paths).map(|(_, document)| document));
-        layers.push(user_settings(paths).1);
+        layers.extend(project_settings(paths).map(|(_, document)| (ExtensionScope::Project, document)));
+        layers.push((ExtensionScope::User, user_settings(paths).1));
 
         Self { layers }
     }
@@ -46,14 +52,14 @@ impl Settings {
     fn value(&self, path: &[&str]) -> Option<&Value> {
         self.layers
             .iter()
-            .find_map(|layer| path.iter().try_fold(layer.value()?, |value, key| value.get(*key)))
+            .find_map(|(_, layer)| path.iter().try_fold(layer.value()?, |value, key| value.get(*key)))
     }
 
     /// Every layer's string list at `key`, combined.
     fn lists(&self, key: &str) -> Vec<String> {
         self.layers
             .iter()
-            .flat_map(|layer| string_list(layer.get(key)))
+            .flat_map(|(_, layer)| string_list(layer.get(key)))
             .collect()
     }
 }
@@ -66,12 +72,17 @@ pub fn omp_extensions_view(env: &Env, project: Option<&Path>) -> ExtensionsView 
     let (marketplaces, marketplace_notices) = marketplaces(env, &paths, &plugins.plugins);
     mark_updates(&mut plugins.plugins, &marketplaces);
 
+    let mut truncation = Truncation::default();
+    let extension_modules = extension_modules(env, &paths, project, &settings, &mut truncation);
+    let skills = skills(env, &paths, project, &plugins.enabled_roots, &mut truncation);
+
     let mut notices = plugins.notices;
     notices.extend(marketplace_notices);
+    notices.extend(truncation.notices());
 
     ExtensionsView {
         harness: HarnessId::Omp,
-        skills: skills(env, &paths, project, &plugins.enabled_roots),
+        skills,
         plugins: plugins.plugins,
         marketplaces,
         prompt_templates: Vec::new(),
@@ -79,18 +90,20 @@ pub fn omp_extensions_view(env: &Env, project: Option<&Path>) -> ExtensionsView 
         mcp_servers: mcp_servers(&paths, project),
         themes: themes(&paths, &settings),
         packages: Vec::new(),
-        extension_modules: extension_modules(env, &paths, project, &settings),
+        extension_modules,
         notices,
     }
 }
 
 /// Precedence (first name wins): project `.omp/skills` from the project up to the repository
 /// root, user skills, skills bundled with enabled plugins, then auto-learned managed skills.
+/// Walks cut short are recorded in `truncation`.
 fn skills(
     env: &Env,
     paths: &HarnessPaths,
     project: Option<&Path>,
     plugin_roots: &[(String, PathBuf)],
+    truncation: &mut Truncation,
 ) -> Vec<SkillInfo> {
     let mut roots = Vec::new();
 
@@ -127,7 +140,13 @@ fn skills(
         origin_label(env, None, &managed_dir),
     ));
 
-    let found = roots.iter().flat_map(|root| scan_skills(root, SKILL_DEPTH)).collect();
+    let mut found = Vec::new();
+    for root in &roots {
+        let mut walk = WalkBudget::new(MAX_WALK_ENTRIES);
+        found.extend(scan_skills_budgeted(root, SKILL_DEPTH, None, &mut walk));
+        truncation.note(root.scope, walk.truncated());
+    }
+
     dedupe_skills(found)
 }
 
@@ -203,11 +222,15 @@ fn themes(paths: &HarnessPaths, settings: &Settings) -> Vec<ThemeInfo> {
 /// Modules in `<agent>/extensions` and `<project>/.omp/extensions`, plus paths listed in the
 /// `extensions` setting (YAML settings and legacy `settings.json`). A module is off when
 /// `disabledExtensions` lists `extension-module:<name>`.
+///
+/// Each conventional directory is scanned within a [`ScanBudget`] of its own, and the listed
+/// paths within their settings layer's, so a project cannot starve the user's modules.
 fn extension_modules(
     env: &Env,
     paths: &HarnessPaths,
     project: Option<&Path>,
     settings: &Settings,
+    truncation: &mut Truncation,
 ) -> Vec<ExtensionModuleInfo> {
     let disabled: Vec<String> = settings
         .lists("disabledExtensions")
@@ -222,31 +245,33 @@ fn extension_modules(
     config_dirs.push((paths.agent_dir.clone(), ExtensionScope::User));
 
     let mut found: Vec<(PathBuf, ExtensionScope)> = Vec::new();
+    let mut budgets = PerLayer::new(ScanBudget::per_view());
 
     for (dir, scope) in &config_dirs {
-        found.extend(
-            extension_module_paths(&dir.join("extensions"))
-                .into_iter()
-                .map(|path| (path, *scope)),
-        );
+        let mut own = ScanBudget::per_view();
+        let modules = extension_module_paths(&dir.join("extensions"), &mut own);
+        truncation.note(*scope, own.truncated());
+        found.extend(modules.into_iter().map(|path| (path, *scope)));
 
+        let budget = budgets.get(*scope);
         let legacy = read_json(&dir.join("settings.json"));
-        for listed in string_list(legacy.get("extensions")) {
+        for path in listed_paths(env, project, legacy.get("extensions"), budget) {
+            found.extend(listed_modules(&path, budget).into_iter().map(|path| (path, *scope)));
+        }
+    }
+
+    for (scope, layer) in &settings.layers {
+        let budget = budgets.get(*scope);
+        for path in listed_paths(env, project, layer.get("extensions"), budget) {
             found.extend(
-                listed_modules(env, project, &listed)
+                listed_modules(&path, budget)
                     .into_iter()
-                    .map(|path| (path, *scope)),
+                    .map(|path| (path, ExtensionScope::User)),
             );
         }
     }
 
-    for listed in settings.lists("extensions") {
-        found.extend(
-            listed_modules(env, project, &listed)
-                .into_iter()
-                .map(|path| (path, ExtensionScope::User)),
-        );
-    }
+    truncation.note_scans(&budgets);
 
     let mut modules: Vec<ExtensionModuleInfo> = Vec::new();
     for (path, scope) in found {
@@ -262,18 +287,37 @@ fn extension_modules(
     modules
 }
 
-/// A settings-listed module path: `~` expanded, relative paths resolved against the project.
-fn listed_modules(env: &Env, project: Option<&Path>, listed: &str) -> Vec<PathBuf> {
-    let expanded = env.expand_home(listed);
-    let path = match (expanded.is_absolute(), project) {
-        (true, _) => expanded,
-        (false, Some(project)) => project.join(expanded),
-        (false, None) => return Vec::new(),
-    };
+/// The distinct module paths one settings file lists, at most [`MAX_DECLARED_ENTRIES`] of them;
+/// aliases of one target (`../hub`, `../hub/../hub`, links) count once.
+fn listed_paths(env: &Env, project: Option<&Path>, listed: Option<&Value>, budget: &mut ScanBudget) -> Vec<PathBuf> {
+    let resolved = string_list(listed)
+        .into_iter()
+        .filter_map(|listed| listed_path(env, project, &listed));
 
+    distinct_targets(resolved, MAX_DECLARED_ENTRIES, budget)
+}
+
+/// A settings-listed module path: `~` expanded, relative paths resolved against the project (none
+/// without a project).
+fn listed_path(env: &Env, project: Option<&Path>, listed: &str) -> Option<PathBuf> {
+    let expanded = env.expand_home(listed);
+
+    match (expanded.is_absolute(), project) {
+        (true, _) => Some(expanded),
+        (false, Some(project)) => Some(project.join(expanded)),
+        (false, None) => None,
+    }
+}
+
+/// The modules at a listed path: the modules of a directory, or the file itself.
+fn listed_modules(path: &Path, budget: &mut ScanBudget) -> Vec<PathBuf> {
     if path.is_dir() {
-        return extension_module_paths(&path);
+        return extension_module_paths(path, budget);
     }
 
-    if path.is_file() { vec![path] } else { Vec::new() }
+    if path.is_file() {
+        vec![path.to_path_buf()]
+    } else {
+        Vec::new()
+    }
 }

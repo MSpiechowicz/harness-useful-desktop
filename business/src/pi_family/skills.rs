@@ -4,15 +4,17 @@
 //! without a `description` are skipped, `enabled: false` hides a skill, the name falls back to
 //! the directory name and names containing path separators are rejected.
 
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 use serde_json::Value;
 
 use super::config_files::text_field;
 use super::frontmatter::read_frontmatter;
-use super::resources::{origin_label, walk_tree};
+use super::resources::{MAX_WALK_ENTRIES, WalkBudget, origin_label, walk_tree_budgeted};
 use crate::env::Env;
 use crate::model::{ExtensionScope, SkillInfo};
+use crate::security::canonical_within;
 
 /// File name of a skill definition.
 pub const SKILL_FILE: &str = "SKILL.md";
@@ -39,12 +41,33 @@ impl SkillRoot {
 
 /// Skills directly below `root.dir` (`<dir>/<skill>/SKILL.md`), descending up to `max_depth`
 /// levels through directories that are not skills themselves (`1` = direct children only).
-/// Symlinked skill directories count; symlink loops are not followed (see [`walk_tree`]).
+/// Symlinked skill directories count; symlink loops are not followed (see [`walk_tree`](super::resources::walk_tree)).
 pub fn scan_skills(root: &SkillRoot, max_depth: usize) -> Vec<SkillInfo> {
-    let mut skills = Vec::new();
+    scan(root, max_depth, None, &mut WalkBudget::new(MAX_WALK_ENTRIES))
+}
 
-    walk_tree(&root.dir, max_depth, &mut |entry| {
-        if !entry.is_dir || entry.name.starts_with('.') {
+/// [`scan_skills`] charging the walk to `budget` (shared by many roots) and, with a `boundary` (a
+/// package directory), confined to it: directories and `SKILL.md` files that resolve outside it,
+/// through `..` or symlinks, are neither entered nor read.
+///
+/// Skill directories resolving to one directory (links to one skill) are read once, the first in
+/// walk order.
+pub fn scan_skills_budgeted(
+    root: &SkillRoot,
+    max_depth: usize,
+    boundary: Option<&Path>,
+    budget: &mut WalkBudget,
+) -> Vec<SkillInfo> {
+    scan(root, max_depth, boundary, budget)
+}
+
+fn scan(root: &SkillRoot, max_depth: usize, boundary: Option<&Path>, budget: &mut WalkBudget) -> Vec<SkillInfo> {
+    let outside = |path: &Path| boundary.is_some_and(|boundary| canonical_within(boundary, path).is_err());
+    let mut skills = Vec::new();
+    let mut read_dirs = HashSet::new();
+
+    walk_tree_budgeted(&root.dir, max_depth, budget, &mut |entry| {
+        if !entry.is_dir || entry.name.starts_with('.') || outside(&entry.path) {
             return false;
         }
 
@@ -53,7 +76,13 @@ pub fn scan_skills(root: &SkillRoot, max_depth: usize) -> Vec<SkillInfo> {
             return true;
         }
 
-        skills.extend(load_skill(root, &entry.name, &skill_file));
+        let resolved = dunce::canonicalize(&entry.path).unwrap_or_else(|_| entry.path.clone());
+        let first_read = read_dirs.insert(resolved);
+
+        if first_read && !outside(&skill_file) {
+            skills.extend(load_skill(root, &entry.name, &skill_file));
+        }
+
         false
     });
 
@@ -82,20 +111,18 @@ pub fn load_skill(root: &SkillRoot, dir_name: &str, skill_file: &Path) -> Option
         scope: root.scope,
         origin: root.origin.clone(),
         path: skill_file.to_string_lossy().into_owned(),
+        package: None,
     })
 }
 
 /// Keeps the first skill of each name (callers pass roots in precedence order).
 pub fn dedupe_skills(skills: Vec<SkillInfo>) -> Vec<SkillInfo> {
-    let mut kept: Vec<SkillInfo> = Vec::new();
+    let mut seen = HashSet::new();
 
-    for skill in skills {
-        if !kept.iter().any(|existing| existing.name == skill.name) {
-            kept.push(skill);
-        }
-    }
-
-    kept
+    skills
+        .into_iter()
+        .filter(|skill| seen.insert(skill.name.clone()))
+        .collect()
 }
 
 /// `project` and its ancestors, closest first, as both harnesses walk them for project-local
@@ -117,4 +144,42 @@ pub fn project_ancestors(env: &Env, project: &Path) -> Vec<PathBuf> {
     }
 
     dirs
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn skill(name: &str, origin: &str) -> SkillInfo {
+        SkillInfo {
+            name: name.to_owned(),
+            description: String::new(),
+            scope: ExtensionScope::User,
+            origin: origin.to_owned(),
+            path: String::new(),
+            package: None,
+        }
+    }
+
+    #[test]
+    fn the_first_skill_of_each_name_wins_in_order() {
+        let skills = vec![
+            skill("b", "first"),
+            skill("a", "first"),
+            skill("b", "second"),
+            skill("a", "second"),
+            skill("c", "first"),
+        ];
+
+        let kept: Vec<(String, String)> = dedupe_skills(skills)
+            .into_iter()
+            .map(|skill| (skill.name, skill.origin))
+            .collect();
+
+        let expected: Vec<(String, String)> = [("b", "first"), ("a", "first"), ("c", "first")]
+            .iter()
+            .map(|(name, origin)| ((*name).to_owned(), (*origin).to_owned()))
+            .collect();
+        assert_eq!(kept, expected);
+    }
 }

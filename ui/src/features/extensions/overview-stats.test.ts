@@ -50,3 +50,30 @@ describe('a marketplace whose plugin is outdated', () => {
     expect(item.tab === 'marketplaces' && Object.keys(item.updates)).toEqual(['tool']);
   });
 });
+
+describe('a package row', () => {
+  it('has the status dot on when the package is installed and off when settings only list it', async () => {
+    const { buildItems, rowInfo } = await import('./extension-items');
+    const pkg = (name: string, installed: boolean) => ({ name, installed, source: { kind: 'text', value: `git:github.com/demo/${name}` }, kind: 'git', scope: 'user', resources: [] });
+    const view = { packages: [pkg('here', true), pkg('gone', false)] } as never;
+
+    const [here, gone] = buildItems('packages', view);
+
+    expect(here.title).toBe('here');
+    expect(rowInfo(here).status).toBe('on');
+    expect(rowInfo(gone).status).toBe('off');
+  });
+});
+
+describe('the package of a skill', () => {
+  it('is found by name and scope, and left unknown when two packages share the name', async () => {
+    const { packageOf } = await import('./extension-items');
+    const pkg = (owner: string, scope: string) => ({ name: 'tools', installed: true, source: { kind: 'text', value: `git:github.com/${owner}/tools` }, kind: 'git', scope, resources: ['skills'] });
+    const skill = { name: 'lint', description: '', scope: 'user', origin: 'package tools', path: '/x/SKILL.md', package: 'tools' } as never;
+
+    const one = packageOf({ packages: [pkg('acme', 'user'), pkg('acme', 'project')] } as never, skill);
+    expect(one?.tab === 'packages' && one.data.scope).toBe('user');
+
+    expect(packageOf({ packages: [pkg('acme', 'user'), pkg('evil', 'user')] } as never, skill)).toBeUndefined();
+  });
+});

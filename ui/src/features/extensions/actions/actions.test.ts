@@ -179,13 +179,13 @@ describe('extension actions', () => {
   it('removes a PI package with a "no preview" notice and refreshes the list', async () => {
     const { calls } = await open('pi', /Packages/, /pi-review-kit/);
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Uninstall' }));
 
     const confirm = await dialog();
     expect(await within(confirm).findByText('pi remove npm:@demo/pi-review-kit@1.0.0')).toBeInTheDocument();
     expect(within(confirm).getByText('No preview available — the command will run as shown.')).toBeInTheDocument();
 
-    await confirmWith('Remove');
+    await confirmWith('Uninstall');
     await within(await dialog()).findByText('Confirmed: the refreshed list shows the change.');
 
     expect(calls('extension_action').map((call) => call.dryRun)).toEqual([true, false]);

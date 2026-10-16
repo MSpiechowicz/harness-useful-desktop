@@ -4,9 +4,13 @@
   import TriangleAlert from '@lucide/svelte/icons/triangle-alert';
   import type { Snippet } from 'svelte';
 
+  import { fade } from 'svelte/transition';
+
   import Button from '$lib/components/Button.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
   import Skeleton from '$lib/components/Skeleton.svelte';
+  import Spinner from '$lib/components/Spinner.svelte';
+  import { DURATION, scaled } from '$lib/design/motion';
   import { t } from '$lib/i18n/i18n.svelte';
   import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
   import { harness } from '$lib/stores/harness.svelte';
@@ -26,6 +30,8 @@
 
   const active = $derived(harness.active);
   const data = $derived(loader.data && loader.data.harness === active?.info.id ? loader.data : null);
+  // Another harness's view is still loaded: the user just switched. Its content is not shown, and the header keeps it until the new one is in.
+  const switching = $derived(loader.data !== null && data === null);
 
   // Reload whenever the harness or the project changes; a no-op when the pair is already loaded.
   $effect(() => {
@@ -66,6 +72,13 @@
     {/if}
 
     {@render children(data)}
+  </div>
+{:else if switching}
+  <!-- A switch is usually quick: the spinner fades in only when it is not, so a fast one does not blink. -->
+  <div class="grid size-full place-items-center">
+    <div in:fade={{ duration: scaled(DURATION.base), delay: 150 }}>
+      <Spinner size={20} label={t(`harness.gate.${area}.loading`)} class="text-fg-3" />
+    </div>
   </div>
 {:else}
   {@render loading()}

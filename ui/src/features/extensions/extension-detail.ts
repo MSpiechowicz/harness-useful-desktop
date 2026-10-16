@@ -148,10 +148,17 @@ export function detailBasics(entry: ExtItem): DetailBasics {
 
       return {
         description: null,
-        facts: [
+        facts: present([
           { label: t('extensions.fact.kind'), value: pkg.kind },
           { label: t('extensions.fact.scope'), value: scopeLabel(pkg.scope) },
-        ],
+          optional(t('extensions.package.provides'), pkg.resources.join(', ') || null),
+          {
+            label: t('extensions.package.source'),
+            value: pkg.source.kind === 'text' ? pkg.source.value : t('extensions.badge.hiddenSource'),
+            mono: pkg.source.kind === 'text',
+            location: true,
+          },
+        ]),
       };
     }
 

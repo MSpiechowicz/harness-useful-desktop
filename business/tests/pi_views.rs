@@ -141,6 +141,7 @@ fn skills_templates_and_packages_come_from_every_pi_location() {
             ("nested-skill", ExtensionScope::User),
             ("plain-writing", ExtensionScope::User),
             ("local-skill", ExtensionScope::Project),
+            ("release-notes", ExtensionScope::User),
         ]
     );
 
@@ -154,22 +155,35 @@ fn skills_templates_and_packages_come_from_every_pi_location() {
         [
             ("fix", Some("<test name>")),
             ("changelog", None),
-            ("review", Some("[focus]"))
+            ("review", Some("[focus]")),
+            ("standup", None)
         ]
     );
 
-    let packages: Vec<(&str, ExtensionScope, Vec<String>)> = view
+    let packages: Vec<(&str, &str, ExtensionScope, Vec<String>)> = view
         .packages
         .iter()
-        .map(|package| (package.kind.as_str(), package.scope, package.resources.clone()))
+        .map(|package| {
+            (
+                package.kind.as_str(),
+                package.name.as_str(),
+                package.scope,
+                package.resources.clone(),
+            )
+        })
         .collect();
     assert_eq!(
         packages,
         [
-            ("npm", ExtensionScope::User, vec![]),
-            ("git", ExtensionScope::User, vec![]),
-            ("git", ExtensionScope::User, vec![]),
-            ("local", ExtensionScope::Project, vec!["skills".to_owned()]),
+            (
+                "npm",
+                "@demo/pi-review-kit",
+                ExtensionScope::User,
+                vec!["themes".to_owned()]
+            ),
+            ("git", "pi-prompts", ExtensionScope::User, vec!["prompts".to_owned()]),
+            ("git", "pi-private", ExtensionScope::User, vec!["skills".to_owned()]),
+            ("local", "pi-local", ExtensionScope::Project, vec!["skills".to_owned()]),
         ]
     );
 }
@@ -220,6 +234,144 @@ fn skill_symlink_loops_are_skipped_and_linked_skills_kept() {
     let mut names: Vec<&str> = view.skills.iter().map(|skill| skill.name.as_str()).collect();
     names.sort_unstable();
     assert_eq!(names, ["grouped", "linked"]);
+}
+
+#[cfg(unix)]
+#[test]
+fn listed_aliases_of_a_linked_hub_are_scanned_once() {
+    use std::os::unix::fs::symlink;
+
+    let temp = tempfile::TempDir::new().unwrap();
+    let home = temp.path().join("home");
+    let agent = home.join(".pi/agent");
+    let target = temp.path().join("target");
+    let hub = temp.path().join("hub");
+    std::fs::create_dir_all(&agent).unwrap();
+    std::fs::create_dir_all(&target).unwrap();
+    std::fs::create_dir_all(&hub).unwrap();
+
+    let padding = "x".repeat(100 * 1024);
+    let manifest = format!(r#"{{"pi":{{"extensions":["./main.ts"]}},"pad":"{padding}"}}"#);
+    std::fs::write(target.join("package.json"), manifest).unwrap();
+    std::fs::write(target.join("main.ts"), "").unwrap();
+    std::fs::write(hub.join("note.md"), "---\ndescription: A note.\n---\n").unwrap();
+    std::fs::write(hub.join("hub-theme.json"), "{}").unwrap();
+    for index in 0..1998 {
+        symlink(&target, hub.join(format!("e{index:04}"))).unwrap();
+    }
+
+    // `hub`, `hub/../hub`, `hub/../hub/../hub`, ... are 64 distinct entries for one directory.
+    let aliases: Vec<String> = (0..64)
+        .map(|depth| format!("{}{}", hub.display(), "/../hub".repeat(depth)))
+        .collect();
+    let settings = serde_json::json!({ "extensions": aliases, "prompts": aliases, "themes": aliases });
+    std::fs::write(agent.join("settings.json"), settings.to_string()).unwrap();
+
+    let started = std::time::Instant::now();
+    let view = extensions(&env_at(&home), None);
+    let elapsed = started.elapsed();
+    assert!(elapsed.as_secs_f32() < 2.0, "{elapsed:?}");
+
+    let modules: Vec<&str> = view
+        .extension_modules
+        .iter()
+        .map(|module| module.name.as_str())
+        .collect();
+    assert_eq!(modules, ["main"]);
+
+    // Every alias lists the hub's note and theme again, so one of each needs the aliases deduped.
+    let prompts: Vec<&str> = view
+        .prompt_templates
+        .iter()
+        .map(|prompt| prompt.name.as_str())
+        .collect();
+    assert_eq!(prompts, ["note"]);
+    let custom_themes: Vec<&str> = view
+        .themes
+        .iter()
+        .filter(|theme| theme.scope != ExtensionScope::Builtin)
+        .map(|theme| theme.name.as_str())
+        .collect();
+    assert_eq!(custom_themes, ["hub-theme"]);
+}
+
+/// `count` directories under `root`, each holding `per_dir` empty files named `p0000<suffix>`, ...
+fn big_dirs(root: &Path, count: usize, per_dir: usize, suffix: &str) -> Vec<String> {
+    (0..count)
+        .map(|index| {
+            let dir = root.join(format!("d{index:02}"));
+            std::fs::create_dir_all(&dir).unwrap();
+            for file in 0..per_dir {
+                std::fs::write(dir.join(format!("p{file:04}{suffix}")), "").unwrap();
+            }
+
+            dir.to_string_lossy().into_owned()
+        })
+        .collect()
+}
+
+#[test]
+fn a_project_listing_too_much_cannot_hide_modules_or_user_resources() {
+    let temp = tempfile::TempDir::new().unwrap();
+    let home = temp.path().join("home");
+    let agent = home.join(".pi/agent");
+    let project = temp.path().join("project");
+    std::fs::create_dir_all(project.join(".git")).unwrap();
+
+    write_file(&project.join(".pi/extensions/evil.ts"), "");
+    write_file(&agent.join("extensions/user-mod.ts"), "");
+    write_file(&home.join("mods/listed-user.ts"), "");
+    write_file(&agent.join("prompts/user-prompt.md"), "");
+    let user_settings = serde_json::json!({ "extensions": ["~/mods"] });
+    write_file(&agent.join("settings.json"), &user_settings.to_string());
+
+    // 21 x 2000 entries are more than one layer's 40 000 scan steps.
+    let listed = big_dirs(&temp.path().join("big"), 21, 2000, ".md");
+    let project_settings = serde_json::json!({ "extensions": listed, "prompts": listed });
+    write_file(&project.join(".pi/settings.json"), &project_settings.to_string());
+
+    let started = std::time::Instant::now();
+    let view = extensions(&env_at(&home), Some(&project));
+    let elapsed = started.elapsed();
+    assert!(elapsed.as_secs_f32() < 5.0, "{elapsed:?}");
+
+    let modules: Vec<(&str, ExtensionScope)> = view
+        .extension_modules
+        .iter()
+        .map(|module| (module.name.as_str(), module.scope))
+        .collect();
+    assert_eq!(
+        modules,
+        [
+            ("evil", ExtensionScope::Project),
+            ("user-mod", ExtensionScope::User),
+            ("listed-user", ExtensionScope::User),
+        ]
+    );
+    assert!(
+        view.prompt_templates
+            .iter()
+            .any(|prompt| prompt.name == "user-prompt" && prompt.scope == ExtensionScope::User)
+    );
+
+    let truncated: Vec<&str> = view
+        .notices
+        .iter()
+        .map(|notice| notice.message.as_str())
+        .filter(|message| message.starts_with("Some extensions"))
+        .collect();
+    assert_eq!(
+        truncated,
+        [
+            "Some extensions were not listed because this project lists more than the app reads. Check its \
+          settings before trusting it."
+        ]
+    );
+}
+
+fn write_file(path: &Path, content: &str) {
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    std::fs::write(path, content).unwrap();
 }
 
 fn write_skill(dir: &Path) {

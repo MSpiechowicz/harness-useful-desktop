@@ -17,6 +17,7 @@
   import { extensionsView } from '$lib/stores/views.svelte';
 
   import HarnessGate from '../harness/HarnessGate.svelte';
+  import HarnessSwitcher from '../harness/HarnessSwitcher.svelte';
   import { scopeLabel } from '../shell/scope';
   import ActionDialog from './actions/ActionDialog.svelte';
   import ExtensionToolbar from './actions/ExtensionToolbar.svelte';
@@ -34,14 +35,18 @@
   );
 
   // The catalogs OMP keeps are only as new as their last refresh; the companions' GitHub releases add the updates they miss.
-  const view = $derived(extensionsView.data && extensionsView.data.harness === harness.active?.info.id ? withCompanionUpdates(extensionsView.data, ecosystem.status) : undefined);
+  // While a switch loads, the header keeps the previous harness's view so it does not jump; the body shows a spinner (HarnessGate).
+  const view = $derived(extensionsView.data ? withCompanionUpdates(extensionsView.data, ecosystem.status) : undefined);
+  // Mid-switch the header is frozen: it reads only the old view, with that harness's own kinds, and takes no input.
+  const switching = $derived(view !== undefined && view.harness !== harness.active?.info.id);
+  const capabilities = $derived(view ? harness.get(view.harness)?.capabilities : undefined);
   const query = $derived(viewState.extensionsQuery.trim());
   // The groups before the search say whether there is anything at all; the ones after say what matches.
-  const everything = $derived(view && harness.active ? buildGroups(view, harness.active.capabilities, '') : []);
-  const groups = $derived(view && harness.active ? buildGroups(view, harness.active.capabilities, viewState.extensionsQuery) : []);
+  const everything = $derived(view && capabilities ? buildGroups(view, capabilities, '') : []);
+  const groups = $derived(view && capabilities ? buildGroups(view, capabilities, viewState.extensionsQuery) : []);
   const selected = $derived(pickItem(groups, viewState.extensionsTab, viewState.extensionsItem));
   const total = $derived(everything.reduce((sum, group) => sum + group.total, 0));
-  const target = $derived(selected ? revealTarget(selected) : null);
+  const target = $derived(selected && !switching ? revealTarget(selected) : null);
   const drawer = new PaneDrawer();
 
   function choose(entry: ExtItem): void {
@@ -63,7 +68,7 @@
   <ViewHeader title={t('extensions.title')} icon={Blocks} context={scopeLabel(view ? tn('extensions.count.item', total) : null)}>
     {#snippet actions()}
       {#if total > 0}
-        <div class="w-[340px] max-[900px]:w-[220px]">
+        <div class="w-[340px] max-[900px]:w-[220px]" inert={switching}>
           <SearchField
             bind:value={viewState.extensionsQuery}
             label={t('extensions.search.label')}
@@ -72,11 +77,18 @@
             onkeydown={onSearchKey}
           />
         </div>
-
-        <DrawerToggle {drawer} label={t('extensions.drawer.label')} count={total} />
       {/if}
 
-      <ExtensionToolbar reveal={target} />
+      <!-- Shown whatever the harness has: a harness with no extensions still has to be switchable away from. -->
+      <HarnessSwitcher />
+
+      <div class="contents" inert={switching}>
+        {#if total > 0}
+          <DrawerToggle {drawer} label={t('extensions.drawer.label')} count={total} />
+        {/if}
+
+        <ExtensionToolbar reveal={target} />
+      </div>
     {/snippet}
   </ViewHeader>
 

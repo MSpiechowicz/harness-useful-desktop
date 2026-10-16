@@ -90,7 +90,7 @@ const COPY: Record<ExtensionAction['type'], Copy> = {
     },
   },
   packageInstall: { verb: verb('install'), title: sourced('installPackage') },
-  packageRemove: { verb: verb('remove'), destructive: true, title: sourced('removePackage') },
+  packageRemove: { verb: verb('uninstall'), destructive: true, title: sourced('removePackage') },
   packageUpdate: {
     verb: verb('update'),
     title: (action) => {

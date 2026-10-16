@@ -40,11 +40,10 @@
         </button>
       </div>
 
-      <!-- A folded group still shows the item the detail is on, so the highlighted row never disappears. -->
       {#each group.items as entry (entry.id)}
         {@const current = entry === selected}
 
-        {#if open || current}
+        {#if open}
           {@const info = rowInfo(entry)}
 
           <div class="h-[40px] px-3 py-[2px]">

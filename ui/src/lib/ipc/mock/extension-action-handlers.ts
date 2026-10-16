@@ -134,6 +134,15 @@ function basename(source: string): string {
   return source.replace(/\.git$/, '').split(/[/:]/).filter(Boolean).at(-1) ?? source;
 }
 
+/** The display name the backend derives for a package: the npm name or the git repository name, without pin. */
+function packageName(source: string): string {
+  if (source.startsWith('npm:')) {
+    return source.slice(4).replace(/(.)@.*$/, '$1');
+  }
+
+  return basename(source.replace(/@[^/:]*$/, ''));
+}
+
 /** Applies one successful action to a copy of the view, so the lists change like the real CLI's. */
 export function applyAction(view: ExtensionsView, { action, project }: Pick<Applied, 'action' | 'project'>): ExtensionsView {
   const next = structuredClone(view);
@@ -192,7 +201,7 @@ export function applyAction(view: ExtensionsView, { action, project }: Pick<Appl
       break;
 
     case 'packageInstall':
-      next.packages.push({ source: { kind: 'text', value: action.source }, kind: action.source.startsWith('npm:') ? 'npm' : 'git', scope: project ? 'project' : 'user', resources: [] });
+      next.packages.push({ source: { kind: 'text', value: action.source }, kind: action.source.startsWith('npm:') ? 'npm' : 'git', name: packageName(action.source), scope: project ? 'project' : 'user', installed: true, resources: [] });
       break;
 
     case 'packageRemove':

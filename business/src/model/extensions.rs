@@ -109,6 +109,9 @@ pub struct SkillInfo {
     pub origin: String,
     /// Absolute path of the `SKILL.md` file.
     pub path: String,
+    /// Display name of the PI package providing the skill ([`PackageInfo::name`]); `None` for
+    /// skills that do not come from a package.
+    pub package: Option<String>,
 }
 
 /// A Markdown prompt template exposed as a slash command (PI).
@@ -226,8 +229,14 @@ pub struct PackageInfo {
     pub source: ConfigValue,
     /// Source kind: `"npm"`, `"git"`, `"local"` or `"unknown"`.
     pub kind: String,
+    /// Display name: the npm package name (without `npm:` and version), the git repository name
+    /// (without `.git` and pin) or the local directory name.
+    pub name: String,
     /// Where the package is configured.
     pub scope: ExtensionScope,
+    /// True when the package's directory exists on disk (an installed git or npm package, or a
+    /// local path that is there); false for one only listed in settings.
+    pub installed: bool,
     /// Resource kinds the package provides (e.g. `"extensions"`, `"skills"`).
     pub resources: Vec<String>,
 }

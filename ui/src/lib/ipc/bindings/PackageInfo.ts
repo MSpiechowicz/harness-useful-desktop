@@ -15,9 +15,19 @@ source: ConfigValue,
  */
 kind: string, 
 /**
+ * Display name: the npm package name (without `npm:` and version), the git repository name
+ * (without `.git` and pin) or the local directory name.
+ */
+name: string, 
+/**
  * Where the package is configured.
  */
 scope: ExtensionScope, 
+/**
+ * True when the package's directory exists on disk (an installed git or npm package, or a
+ * local path that is there); false for one only listed in settings.
+ */
+installed: boolean, 
 /**
  * Resource kinds the package provides (e.g. `"extensions"`, `"skills"`).
  */

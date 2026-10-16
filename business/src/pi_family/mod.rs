@@ -33,7 +33,10 @@ pub use config_files::{
 pub use frontmatter::{parse_frontmatter, read_frontmatter};
 pub use mcp_config::{ParsedServer, parse_servers};
 pub use resources::{
-    builtin_themes, extension_module, extension_module_paths, extension_name, list_dir, origin_label, package_manifest,
-    themes_in_dir, tilde,
+    MAX_DECLARED_ENTRIES, MAX_WALK_ENTRIES, PerLayer, ScanBudget, Truncation, WalkBudget, builtin_themes,
+    canonical_inside, distinct, distinct_targets, distinct_within, extension_module, extension_module_paths,
+    extension_name, list_dir, origin_label, package_manifest, themes_in_dir, themes_in_dir_budgeted, tilde,
 };
-pub use skills::{SKILL_FILE, SkillRoot, dedupe_skills, load_skill, project_ancestors, scan_skills};
+pub use skills::{
+    SKILL_FILE, SkillRoot, dedupe_skills, load_skill, project_ancestors, scan_skills, scan_skills_budgeted,
+};

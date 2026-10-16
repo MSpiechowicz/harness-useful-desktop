@@ -22,6 +22,8 @@ export const harness: AreaMessages<typeof enHarness> = {
   'harness.gate.extensions.loading': 'Ładowanie rozszerzeń',
   'harness.gate.extensions.refreshing': 'Odświeżanie rozszerzeń',
 
+  'harness.switcher.label': 'Przełącz harness',
+
   'harness.toast.scan': 'Nie udało się wyszukać harnessów',
   'harness.toast.pickBinary': 'Nie można użyć tego pliku',
   'harness.toast.clearBinary': 'Nie udało się zresetować pliku wykonywalnego',

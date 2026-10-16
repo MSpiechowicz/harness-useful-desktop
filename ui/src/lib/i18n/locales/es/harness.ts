@@ -22,6 +22,8 @@ export const harness: AreaMessages<typeof enHarness> = {
   'harness.gate.extensions.loading': 'Cargando las extensiones',
   'harness.gate.extensions.refreshing': 'Actualizando las extensiones',
 
+  'harness.switcher.label': 'Cambiar de harness',
+
   'harness.toast.scan': 'No se pudo buscar harnesses',
   'harness.toast.pickBinary': 'No se puede usar ese archivo',
   'harness.toast.clearBinary': 'No se pudo restablecer el ejecutable',

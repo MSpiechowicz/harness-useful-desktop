@@ -141,6 +141,48 @@ impl Redactor {
 
         redacted
     }
+
+    /// A git package source (`git:github.com/<owner>/<repo>@<ref>`). The entropy rule judges each
+    /// segment on its own, so a mixed-case owner name does not hide the whole source. Commands,
+    /// env references, credential formats and userinfo (any but the plain `git@` of an SSH
+    /// source, the same rule the CLI actions apply) still make it a secret.
+    pub fn redact_package_source(&self, text: &str) -> ConfigValue {
+        let userinfo = has_userinfo(text);
+        let random_segment = text.split(['/', ':', '@', '#']).any(is_high_entropy);
+
+        if userinfo || random_segment || contains_token(text) {
+            return redact_string(text, Scope::SecretContainer);
+        }
+
+        redact_string_segmented(text)
+    }
+}
+
+/// True when the source's authority carries userinfo other than SSH's plain `git@`. A whole
+/// authority counts, up to its first `/`, so a password with an `@` in it is never half shown.
+fn has_userinfo(source: &str) -> bool {
+    let authority = |rest: &str| rest.split('/').next().unwrap_or_default().to_owned();
+
+    if let Some((_, rest)) = source.split_once("://") {
+        return authority(rest).contains('@');
+    }
+
+    let rest = source.strip_prefix("git:").unwrap_or(source);
+
+    authority(rest).rsplit_once('@').is_some_and(|(user, _)| user != "git")
+}
+
+/// Rules 1, 2 and 7 only: the caller has already applied the token and entropy checks.
+fn redact_string_segmented(text: &str) -> ConfigValue {
+    if text.starts_with('!') {
+        return ConfigValue::Secret(SecretKind::Command);
+    }
+
+    if let Some(name) = env_ref_name(text) {
+        return ConfigValue::Secret(SecretKind::EnvRef { name: name.to_owned() });
+    }
+
+    ConfigValue::Text(mask_urls(text))
 }
 
 fn redact_number(text: String, scope: Scope) -> ConfigValue {
