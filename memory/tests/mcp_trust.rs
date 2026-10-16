@@ -439,7 +439,8 @@ fn a_folder_whose_git_names_another_work_tree_is_keyed_by_its_own_path() {
         for reply in &replies[1..] {
             assert!(!is_error(reply), "{}", text(reply));
             assert!(
-                text(reply).contains(&format!(r#"(repo "{own_key}", "#)),
+                // The key is shown JSON-quoted, so Windows backslashes appear doubled.
+                text(reply).contains(&format!("(repo {}, ", serde_json::to_string(&own_key).expect("json"))),
                 "{}",
                 text(reply)
             );
