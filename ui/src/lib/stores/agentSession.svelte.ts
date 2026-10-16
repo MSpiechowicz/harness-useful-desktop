@@ -31,6 +31,15 @@ export interface StartingChat {
   project: string;
 }
 
+/** A chat of the last run to reopen: its conversation, and the name it had. */
+export interface RestoredChat {
+  harness: HarnessId;
+  project: string;
+  sessionId: string;
+  label: ChatSession['aiLabel'];
+  userNamed: boolean;
+}
+
 /** Every open chat session (the tabs) and which one is showing. */
 export class AgentSessionsStore {
   sessions = $state.raw<ChatSession[]>([]);
@@ -194,6 +203,56 @@ export class AgentSessionsStore {
     }
 
     return session;
+  }
+
+  /**
+   * Reopens last run's chats together: each shows as a starting tab at once and turns into its session when its agent
+   * is ready, so the chat that was showing appears as soon as it alone is up, not after every agent. Tabs keep their
+   * saved order whatever order the agents finish in. Returns how many came back.
+   */
+  async restore(chats: RestoredChat[], wanted: number): Promise<number> {
+    const slots = chats.map((chat): StartingChat => {
+      this.startingCount += 1;
+      const slot = { key: `starting-${this.startingCount}`, harness: chat.harness, project: chat.project };
+      this.numbers.set(slot.key, this.nextNumber());
+
+      return slot;
+    });
+    if (slots.length === 0) {
+      return 0;
+    }
+
+    this.starting = [...this.starting, ...slots];
+    this.activeKey = (slots[wanted] ?? slots[0]).key;
+    const back: number[] = [];
+
+    const sessions = await Promise.all(
+      chats.map(async (chat, index) => {
+        const slot = slots[index];
+        const session = await this.start(
+          { harness: chat.harness, project: chat.project, resume: { harness: chat.harness, id: chat.sessionId }, approvalOverride: null, trustOnce: false, utility: false },
+          { activate: false, quiet: true },
+        );
+        this.starting = this.starting.filter((other) => other.key !== slot.key);
+        this.handOverNumber(slot.key, session?.key ?? null);
+
+        if (session) {
+          session.aiLabel = chat.label;
+          session.userNamed = chat.userNamed;
+          back.push(index);
+          this.moveTo(session.key, back.filter((other) => other < index).length);
+          void session.loadHistory();
+        }
+
+        if (this.activeKey === slot.key) {
+          this.activeKey = session?.key ?? this.sessions.at(0)?.key ?? this.starting.at(0)?.key ?? null;
+        }
+
+        return session;
+      }),
+    );
+
+    return sessions.filter(Boolean).length;
   }
 
   /** Closes a tab and stops its agent. */

@@ -108,29 +108,9 @@ export function restoreWorkspace(agents: AgentSessionsStore): Promise<boolean> {
       nav.go(saved.view);
     }
 
-    let activeKey: string | null = null;
-    let restored = 0;
-    for (const [index, chat] of saved.chats.slice(0, MAX_RESTORED).entries()) {
-      const session = await agents.start(
-        { harness: chat.harness, project: chat.project, resume: { harness: chat.harness, id: chat.sessionId }, approvalOverride: null, trustOnce: false, utility: false },
-        { activate: false, quiet: true },
-      );
-      if (session) {
-        restored += 1;
-        session.aiLabel = chat.label ?? null;
-        session.userNamed = chat.userNamed ?? false;
-        void session.loadHistory();
-        if (index === saved.active || activeKey === null) {
-          activeKey = session.key;
-        }
-      }
-    }
+    const chats = saved.chats.slice(0, MAX_RESTORED).map((chat) => ({ harness: chat.harness, project: chat.project, sessionId: chat.sessionId, label: chat.label ?? null, userNamed: chat.userNamed ?? false }));
 
-    if (activeKey) {
-      agents.select(activeKey);
-    }
-
-    return restored > 0;
+    return (await agents.restore(chats, saved.active)) > 0;
   })().finally(() => {
     restoreSettled = true;
   });
