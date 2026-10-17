@@ -91,12 +91,17 @@
           {#if scope}
             {@const Icon = SCOPE_ICONS[scope]}
             <Icon size={14} aria-hidden="true" class="shrink-0" />
-            <span class="shrink-0">{t(SCOPE_LABELS[scope])}</span>
-            {#if scope === 'project' && projectName}<span class="min-w-0 truncate font-mono text-xs tracking-normal normal-case">{projectName}</span>{/if}
-            <span class="tabular ml-1.5 shrink-0 text-xs tracking-wide normal-case">{t('hooks.list.groupCount', { count: group.total, max: MAX_PER_SCOPE })}</span>
+            <!-- Label, project name and count share one baseline, whatever their font. -->
+            <span class="flex min-w-0 items-baseline gap-1.5">
+              <span class="shrink-0">{t(SCOPE_LABELS[scope])}</span>
+              {#if scope === 'project' && projectName}<span class="min-w-0 truncate font-mono text-xs tracking-normal normal-case">{projectName}</span>{/if}
+              <span class="tabular ml-1.5 shrink-0 text-xs tracking-wide normal-case">{t('hooks.list.groupCount', { count: group.total, max: MAX_PER_SCOPE })}</span>
+            </span>
           {:else}
-            <span class="truncate">{t('hooks.group.invalid')}</span>
-            <span class="tabular ml-1.5 shrink-0 text-xs tracking-wide normal-case">{group.total}</span>
+            <span class="flex min-w-0 items-baseline gap-1.5">
+              <span class="truncate">{t('hooks.group.invalid')}</span>
+              <span class="tabular ml-1.5 shrink-0 text-xs tracking-wide normal-case">{group.total}</span>
+            </span>
           {/if}
         </span>
 
