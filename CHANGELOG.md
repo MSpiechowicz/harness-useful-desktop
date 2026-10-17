@@ -1,3 +1,11 @@
+## [0.22.1](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.22.0...v0.22.1) (2026-10-17)
+
+
+### Bug Fixes
+
+* **hooks:** harden what agents can put into hook commands and names ([fd986f3](https://github.com/MSpiechowicz/harness-useful-desktop/commit/fd986f34b8e203f3579bfc1d8870e592d7b254dd))
+* **hooks:** line up the scope, project and count in the group headers ([8248aaf](https://github.com/MSpiechowicz/harness-useful-desktop/commit/8248aaff7c90f80cf873cb3ac661c56c24a900ae))
+
 # [0.22.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.21.0...v0.22.0) (2026-10-17)
 
 
