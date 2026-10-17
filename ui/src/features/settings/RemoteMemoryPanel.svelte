@@ -1,5 +1,9 @@
 <script lang="ts">
+  import { slide } from 'svelte/transition';
+
+  import { scaled } from '$lib/design/motion';
   import SegmentedControl from '$lib/components/SegmentedControl.svelte';
+  import Switch from '$lib/components/Switch.svelte';
   import type { StripOption } from '$lib/components/strip';
   import Button from '$lib/components/Button.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
@@ -30,6 +34,10 @@
   let repositoryNotes = $state<MemoryNotesTarget>(remote.repositoryNotes);
   // svelte-ignore state_referenced_locally
   let globalNotes = $state<MemoryNotesTarget>(remote.globalNotes);
+  // svelte-ignore state_referenced_locally
+  let scripts = $state<MemoryNotesTarget>(remote.scripts);
+  // svelte-ignore state_referenced_locally
+  let trustTeamScripts = $state(remote.trustTeamScripts);
   let url = $state('');
   let token = $state('');
   let touched = $state(false);
@@ -54,6 +62,9 @@
     },
   ];
 
+  /** An older Harness Memory has no scripts to route: the row stays, greyed out, and says what to do. */
+  const SCRIPT_TARGETS = $derived(TARGETS.map((option) => ({ ...option, disabled: !remote.scriptsSupported })));
+
   const typedUrl = $derived(url.trim());
   const typedToken = $derived(token.trim());
   const sameKind = $derived(remote.kind === kind);
@@ -61,7 +72,7 @@
   /** A typed URL has to fit the database; without one, the saved URL stands in if it is for this database. */
   const urlUsable = $derived(typedUrl !== '' ? !urlInvalid : sameKind && remote.urlRedacted !== null);
   const changed = $derived(
-    !remote.enabled || !sameKind || typedUrl !== '' || typedToken !== '' || repositoryNotes !== remote.repositoryNotes || globalNotes !== remote.globalNotes,
+    !remote.enabled || !sameKind || typedUrl !== '' || typedToken !== '' || repositoryNotes !== remote.repositoryNotes || globalNotes !== remote.globalNotes || scripts !== remote.scripts || trustTeamScripts !== remote.trustTeamScripts,
   );
   const canSave = $derived(busy === null && urlUsable && changed);
   const canTest = $derived(busy === null && urlUsable);
@@ -71,11 +82,25 @@
     status = null;
   }
 
+  /** Trusting every script is a choice about one database: a new address or kind starts over, and the user turns it on again for the new one. */
+  function databaseChanged(): void {
+    trustTeamScripts = false;
+  }
+
+  function typeUrl(next: string): void {
+    if (next !== url) {
+      databaseChanged();
+    }
+
+    url = next;
+  }
+
   function chooseKind(next: MemoryRemoteKind): void {
     if (next === kind) {
       return;
     }
 
+    databaseChanged();
     kind = next;
     url = '';
     token = '';
@@ -123,6 +148,9 @@
         token: tokenToSend(),
         repositoryNotes,
         globalNotes,
+        scripts,
+        // The switch only shows while scripts live in the team database, so a hidden one never stays on.
+        trustTeamScripts: scripts === 'remote' && trustTeamScripts,
       });
 
       // The secrets leave the form as soon as they are stored.
@@ -153,7 +181,7 @@
     <div class="flex flex-col gap-1.5">
       <p class="text-base font-medium text-fg">{t('settings.memoryRemote.url.label')}</p>
       <SecretField
-        bind:value={url}
+        bind:value={() => url, typeUrl}
         label={t('settings.memoryRemote.url.label')}
         placeholder={showSavedUrl ? t('settings.memoryRemote.url.keep') : t(URL_PLACEHOLDERS[kind])}
         showLabel={t('settings.memoryRemote.url.show')}
@@ -194,6 +222,35 @@
       <SegmentedControl label={t('settings.memoryRemote.globalNotes.title')} options={TARGETS} bind:value={() => globalNotes, (next) => ((globalNotes = next), edited())} />
     {/snippet}
   </SettingRow>
+
+  <SettingRow
+    title={t('settings.memoryRemote.scripts.title')}
+    description={remote.scriptsSupported ? t('settings.memoryRemote.scripts.description') : t('settings.memoryRemote.scripts.unsupported')}
+    descriptions={[t('settings.memoryRemote.scripts.description'), t('settings.memoryRemote.scripts.unsupported')]}
+  >
+    {#snippet control()}
+      <SegmentedControl label={t('settings.memoryRemote.scripts.title')} options={SCRIPT_TARGETS} bind:value={() => scripts, (next) => ((scripts = next), edited())} />
+    {/snippet}
+  </SettingRow>
+
+  <!-- Only scripts kept in the team database come from other people, so the question only exists while they are. -->
+  {#if scripts === 'remote'}
+    <div transition:slide={{ duration: scaled(200) }} class="overflow-hidden">
+      <SettingRow
+        title={t('settings.memoryRemote.trustTeam.title')}
+        description={remote.trustTeamScriptsSupported ? t('settings.memoryRemote.trustTeam.description') : t('settings.memoryRemote.trustTeam.unsupported')}
+        descriptions={[t('settings.memoryRemote.trustTeam.description'), t('settings.memoryRemote.trustTeam.unsupported')]}
+      >
+        {#snippet control()}
+          <Switch
+            label={t('settings.memoryRemote.trustTeam.title')}
+            disabled={!remote.trustTeamScriptsSupported}
+            bind:checked={() => trustTeamScripts, (next) => ((trustTeamScripts = next), edited())}
+          />
+        {/snippet}
+      </SettingRow>
+    </div>
+  {/if}
 
   <div class="flex flex-col gap-3 py-4">
     <div class="flex flex-wrap items-center gap-2">

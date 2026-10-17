@@ -1,3 +1,4 @@
+import type { EcosystemId } from '$lib/ipc/bindings/EcosystemId';
 import type { EcosystemRelease } from '$lib/ipc/bindings/EcosystemRelease';
 import type { EcosystemStatus } from '$lib/ipc/bindings/EcosystemStatus';
 import { ipc } from '$lib/ipc/client';
@@ -68,9 +69,12 @@ export class EcosystemStore {
   status = $state.raw<EcosystemStatus | null>(null);
   state = $state<SlotStatus>('idle');
   error = $state<string | null>(null);
+  /** Whether the latest release lookup of the current reading is still running. */
+  releasesPending = $state(false);
 
   private loadedAt = 0;
   private token = 0;
+  private lookup: Promise<void> = Promise.resolve();
 
   constructor(
     private readonly transport: Transport,
@@ -84,6 +88,21 @@ export class EcosystemStore {
     this.error = null;
     this.state = 'idle';
     this.loadedAt = 0;
+    this.releasesPending = false;
+    this.lookup = Promise.resolve();
+  }
+
+  /** Like `load`, but ends only once the release lookup of that reading did too, so `updateAvailable` is as current as it gets. */
+  async loadWithReleases(force = false): Promise<void> {
+    await this.load(force);
+    await this.lookup;
+  }
+
+  /** Whether the ecosystem reading says the installed `id` has a newer release. False when it is not installed or nothing is known. */
+  hasUpdate(id: EcosystemId): boolean {
+    const item = this.status?.items.find((candidate) => candidate.id === id);
+
+    return item?.installed === true && item.updateAvailable;
   }
 
   /** Reads the detection result unless a fresh one is held; `force` always reads. */
@@ -95,6 +114,7 @@ export class EcosystemStore {
     this.token += 1;
     const mine = this.token;
     this.state = 'loading';
+    this.releasesPending = false;
 
     try {
       const status = await this.transport.invoke('ecosystem_status', undefined);
@@ -104,7 +124,7 @@ export class EcosystemStore {
         this.error = null;
         this.state = 'ready';
         this.loadedAt = this.now();
-        void this.lookUpReleases(status, mine);
+        this.lookup = this.lookUpReleases(status, mine);
       }
     } catch (error) {
       if (mine === this.token) {
@@ -126,6 +146,8 @@ export class EcosystemStore {
       return;
     }
 
+    this.releasesPending = true;
+
     try {
       const releases = await this.transport.invoke('ecosystem_releases', { installed });
 
@@ -134,6 +156,10 @@ export class EcosystemStore {
       }
     } catch {
       // No badge is the whole fallback.
+    } finally {
+      if (mine === this.token) {
+        this.releasesPending = false;
+      }
     }
   }
 }

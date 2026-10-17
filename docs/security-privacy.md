@@ -395,7 +395,7 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
   not asked again until it changes; no shell, absolute path, argument `mcp`) to search project memory for the
   first message of a new chat (`src-tauri/src/memory_recall.rs`, `business/src/ecosystem/memory_recall.rs`). It runs
   with the app's environment in the chat's project directory (the project the chat was started in, already authorized
-  by `agent_start`) and is used for one call: `memory_search`, which writes no note. Like any start of the server it
+  by `agent_start`) and is used for one call: `memory_search`, which writes no note and runs no script (the saved scripts it lists are put in the message as framed agent-written data, never run by the app). Like any start of the server it
   opens the database, creating or upgrading the file if needed. It starts only while `memoryEnabled` and
   `memoryRecall` are both on and a server is found; the webview sends no path or command. It is started when the
   chat starts, in the background, so the first message mostly waits only for the search, and it is killed (with its
@@ -418,6 +418,30 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
   cap.
 - **Dashboard.** `harness-dashboard mcp` runs in the home directory, without `CLAUDE_CODE_SESSION_ID`, and stops after 30 s without
   a query.
+- **Memory scripts.** The Memory view's commands run the installed `harness-memory mcp` (`resolve_memory`, absolute
+  path, no shell, argument `mcp`) in the home directory on one pooled client that stops after 30 s without a call
+  (`business/src/ecosystem/memory_scripts.rs`). It calls only `tools/list`, `script_get` and `script_delete` (the
+  last after the user confirms); it never calls `script_run` or `script_save`, so the app runs no script. The list
+  runs `harness-memory scripts list --json --offset N --limit N [--query Q] [--group G] --sort S --order O [--project
+  <root>]` (`business/src/ecosystem/memory_cli.rs`): absolute path, no shell, each value its own argument (the
+  search at most 256 characters, a page at most 200), home directory, stdin closed, 15 s limit, 1 MiB of output kept
+  per stream. A `project` must be the active or a recent project (`forbidden` otherwise); its canonical root is sent as
+  `project_path` or `--project`. Tool error text and the server's error line are redacted and clipped before they
+  reach the webview. Like any start of the server it opens the memory store; the app never reads it.
+- **Memory notes.** The Memory view's notes run `harness-memory notes list --json …` (the options of the scripts
+  list, with `--kind` instead of `--group`), `notes get <id> --json` and `notes delete <id>` (after the user
+  confirms), each with `--project <root>` for an active or recent project, the same way and limits
+  (`business/src/ecosystem/memory_notes.rs`). Deleting every note or script (after the user confirms) runs `notes
+  delete --all --yes --json` or `scripts delete --all --yes --json` the same way, with a 60 s limit; the server deletes
+  exactly what its list shows for that project, and a script that waited for approval stays remembered, so saving its
+  code again trusts nothing. Ids are numbers. Notes come back as the server stores them; only the
+  error line is redacted.
+- **Script approval.** **Trust** in the Memory view runs `harness-memory trust <id>=<sha256>… [--project <root>]`
+  (`business/src/ecosystem/memory_trust.rs`): absolute path, no shell, numeric ids each with the SHA-256 of the
+  version the user reviewed (64 lowercase hex, at most 500 scripts), the project's canonical root (active or recent
+  project only), in the home directory, stdin closed, 20 s limit and 1 s per script (120 s at most), 16 KiB of output
+  kept, and only its error line (the last `harness-memory:` line) returned, redacted and clipped. The server approves a script only while its current version has that hash; one
+  changed since the review comes back as `conflict`, and the page loads it again and asks. See [Script approval](#script-approval).
 
 ## Shared setups
 
@@ -604,8 +628,16 @@ config file, `config.toml` in `<config>/harness-memory`, where `<config>` is `$X
 `~/.config` (Linux), `~/Library/Application Support` (macOS) or `%APPDATA%` (Windows)
 (`business/src/ecosystem/memory_remote/`).
 
-- **What it holds.** `database_url`, `database_token` (libSQL only) and where repository and global notes go
-  (`repository_notes`, `global_notes`: `remote` or `local`). Nothing else: the server refuses unknown keys, so a file with
+- **What it holds.** `database_url`, `database_token` (libSQL only), where repository and global notes go
+  (`repository_notes`, `global_notes`: `remote` or `local`), `scripts = "local"` when scripts stay on this computer, and
+  `trust_team_scripts = true` when every script from the team database may run without asking. `scripts` is written
+  only while the installed server lists `script_list`, `trust_team_scripts` only while its `script_run` takes no `sha`
+  (it asks the user before running a script) and scripts go to the team database (keeping scripts local drops it, so
+  switching back later does not trust team scripts unasked); an older server refuses them. Unset means remote and
+  false. While the server cannot be asked (not found, the probe failed, or its `script_run` is missing or lists no
+  arguments) both keys are kept as saved, so a passing failure neither
+  sends local scripts to the team database nor changes which scripts run without asking. Nothing else: the server
+  refuses unknown keys, so a file with
   other keys, one that is not valid TOML or cannot be read is reported and never overwritten or removed. Turning the
   team database off deletes the file.
 - **Secrets stay out of the webview and the log.** `memory_remote_get` returns the URL as `scheme://user@host:port/path`
@@ -621,6 +653,35 @@ config file, `config.toml` in `<config>/harness-memory`, where `<config>` is `$X
   command line; the app's own values of those variables and of `HARNESS_MEMORY_CONFIG` are not passed on. Its first line
   is shown after the typed and saved secrets are masked and `redact_text` ran over it.
 
+### Script approval
+
+Agents run scripts inside Harness Memory, with the user's environment. An agent can never approve one: the server runs
+a script only when it was saved on this machine, the user approved its current version (in the app or with
+`harness-memory trust`), or `trust_team_scripts = true` and it comes from the team database. With that switch on,
+anyone who can write to the team database can run code on this computer. Otherwise the server asks the user through
+files in its data folder (`HARNESS_MEMORY_DIR` when absolute, else `harness-memory` in the platform data folder), which
+it creates `0700` (`business/src/ecosystem/memory_requests.rs`, `src-tauri/src/memory_requests.rs`):
+
+- **Heartbeat.** While the app runs and Harness Memory is installed, it touches `desktop.alive` there every 5 s
+  (created `0600`, never through a symbolic link, never creating the folder) and removes it on a clean exit. The server
+  asks only while the file is younger than 15 s; otherwise it refuses at once and tells the agent to ask the user.
+- **Requests.** The app reads `requests/<id>.json` every 500 ms: only names of 32 lowercase hex characters, regular
+  files of at most 512 KiB, at most 60 s old, request version 1, at most 32 shown at once. It reads nothing from a
+  requests folder other users can change or that another user owns (Unix). A file that does not parse is ignored and
+  not read again. Requests reach only the page that called `memory_script_requests_listen`; the app logs no field of
+  them.
+- **Notification.** A new request that arrives while the main window is not in front shows one OS notification
+  (`tauri-plugin-notification`, sent from Rust) with only the script name, never its code or arguments, and a name
+  outside the server's documented form is left out. Clicking it brings the main window to the front.
+- **Answers.** `memory_script_decide` writes `allow` or `deny` to `requests/<id>.decision` in one rename (temporary
+  `0600` file, then rename), only for a request the app has shown to the page and not answered yet (any other id is
+  `notFound`, so a second answer cannot replace the first), and while the request file still exists. The server runs
+  the body it holds, not anything the page sends, and removes both files once it has an answer or after 45 s. An
+  answer left without its request for more than 60 s (a server that stopped before cleaning up) is removed by the app.
+  Each request carries the app's own time of arrival (`receivedAt`) next to the server's `createdAt`, so the page
+  counts the 45 s from the earlier of the two and a clock that runs ahead on either side cannot stretch the prompt. Anyone who can write
+  to the data folder can approve a request: the folder's privacy is the boundary.
+
 **Switching it off.** **Project memory** in Settings (`memoryEnabled`) removes the app's own `harness-memory` entries and
 stops adding them. An entry in an OpenCode config file that has comments is the exception: the app leaves the file
 unchanged and Settings lists the file and the entry for you to delete. It keeps the database, the installed server and the registration record, so switching it on again brings
@@ -634,10 +695,13 @@ uninstall the server as its repository's README describes, and delete the `harne
 
 ## Tauri ACL, CSP and webview
 
-- **Capability** (`src-tauri/capabilities/main.json`, window `main`): 58 `allow-<command>` permissions, one per app
-  command, generated from `COMMANDS` in `src-tauri/build.rs`. There is no `core:*` permission and no plugin
-  permission. The dialog, opener, window-state, log, single-instance and updater plugins are driven from Rust only, so
-  their JavaScript APIs (and the log plugin's `log` command) are unreachable. `withGlobalTauri` is `false`. Channel
+- **Capability** (`src-tauri/capabilities/main.json`, window `main`): 68 `allow-<command>` permissions, one per app
+  command, generated from `COMMANDS` in `src-tauri/build.rs`. There is no `core:*` permission and one plugin
+  permission: `notification:allow-is-permission-granted`, a read-only query (always granted on desktop) that the
+  notification plugin's own init script sends on every page load, which would otherwise log a denied call. The dialog,
+  opener, window-state, log, single-instance, updater and notification plugins are driven from Rust only, so their
+  JavaScript APIs (and the log plugin's `log` command, and the notification plugin's `notify`, `request_permission` and
+  the rest) are unreachable. `withGlobalTauri` is `false`. Channel
   delivery for streaming is not ACL-gated and needs no grant.
 - **CSP** (`app.security.csp`): `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'
   data: blob:; font-src 'self' data:; connect-src ipc: http://ipc.localhost; worker-src 'self' blob:; object-src 'none';
@@ -681,6 +745,7 @@ Details of keys and releases: [release-and-updater-keys.md](release-and-updater-
 | UI choices | Webview `localStorage` | Rail expanded (`harness.railExpanded`), command-palette recents (`harness.paletteRecents`), diff layout. |
 | `mcp.json` of a harness, OpenCode's global config | `<agent dir>/mcp.json` (for example `~/.omp/agent/mcp.json`), the harness's own file, and for OpenCode `opencode.jsonc` or `opencode.json` in `~/.config/opencode` (`$XDG_CONFIG_HOME/opencode`) | Written by the app in three cases (a shared setup never reaches OpenCode, and an OpenCode file with comments is never written): the `harness-memory` entry, added automatically at launch while project memory is on and the server is installed, and removed when you switch it off; Recommended setup (one `harness-dashboard` server, after you choose it); and importing a shared setup (the MCP servers you ticked, after you confirm). Entries are merged in (see [Process spawning](#process-spawning)); the only existing entry ever changed is the app's own `harness-memory` one. Not app data; nothing else in it is touched. |
 | Project memory database | `memory.sqlite3` (plus `-wal` and `-shm` while in use) in `<data>/harness-memory` (`HARNESS_MEMORY_DIR` overrides it), where `<data>` is `$XDG_DATA_HOME` or `~/.local/share` (Linux), `~/Library/Application Support` (macOS) or `%LOCALAPPDATA%` (Windows) | Written by the `harness-memory` server, never by the app, which does not open it. Notes the agents wrote (title, body, kind, tags, entity names, relation labels, timestamps, and per note the client name and the checkout path of its latest write), and per repository its normalized remote and its path. On its first run the server copies the file older app builds kept in `<local data>/com.mspiechowicz.harness-useful-desktop/memory` (same `<data>` folders); the old file is left untouched. See [Project memory](#project-memory). On Unix a folder the server creates is `0700` and the file `0600`. Unencrypted. |
+| Script approval files | `desktop.alive` and `requests/<id>.json`, `requests/<id>.decision` in the same folder as the project memory database | `desktop.alive` (empty) is touched by the app every 5 s while it runs and removed at exit. Run requests (the script's summary and body, its previous approved version, the arguments, the agent's client name) are written by the server and read by the app; the app writes only the one-word answer. The server removes a request and its answer within 45 s. See [Script approval](#script-approval). `0600` files in a `0700` folder on Unix. |
 | `harness-memory` server | `~/.local/bin/harness-memory` (Linux, macOS), `%LOCALAPPDATA%\Programs\harness-memory\harness-memory.exe` (Windows) | The server executable, written by its installer (`install.sh` / `install.ps1`) after you confirm, not by the app. Builds up to 0.16 also kept a copy at `<local data>/com.mspiechowicz.harness-useful-desktop/bin/harness-memory[.exe]` on macOS and Windows; the app deletes it at launch once the installed server is in place and nothing runs it. |
 | Harness Memory `config.toml` | `<config>/harness-memory/config.toml` (see [Team database](#team-database)) | Only when you set a team database: its URL, the libSQL token and the note routing, in plain text. Written atomically by the app (`0600` file, `0700` folder on Unix) and read by `harness-memory`; deleted when you turn the team database off. |
 | `memory-registration.json` | The OS app-config directory, beside `prefs.json` | `{"version": 1, "registered": [{"harness", "file"}]}`: the home-relative `mcp.json` paths the server was registered in, so a removed entry is not added back. No file contents. Read with a 64 KiB cap, written atomically; an unusable file is renamed to `memory-registration.json.corrupt-<unix-seconds>`. |

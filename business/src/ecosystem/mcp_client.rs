@@ -57,6 +57,29 @@ impl Default for McpOptions {
     }
 }
 
+/// One tool of a `tools/list` answer.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct McpTool {
+    /// Its name.
+    pub name: String,
+    /// The property names of its `inputSchema`, as listed; `None` when it lists no `properties`
+    /// object.
+    pub arguments: Option<Vec<String>>,
+}
+
+impl McpTool {
+    /// The tool in one `tools` entry; `None` without a name.
+    fn from_listed(tool: &Value) -> Option<Self> {
+        let name = tool.get("name").and_then(Value::as_str)?.to_owned();
+        let arguments = tool
+            .pointer("/inputSchema/properties")
+            .and_then(Value::as_object)
+            .map(|properties| properties.keys().cloned().collect());
+
+        Some(Self { name, arguments })
+    }
+}
+
 /// The text and structured parts of a `tools/call` result.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ToolOutput {
@@ -126,21 +149,20 @@ impl McpClient {
 
     /// The names of the server's tools (`tools/list`, first page).
     pub async fn list_tools(&mut self) -> Result<Vec<String>> {
+        Ok(self.tools().await?.into_iter().map(|tool| tool.name).collect())
+    }
+
+    /// The server's tools with the arguments they take (`tools/list`, first page).
+    pub async fn tools(&mut self) -> Result<Vec<McpTool>> {
         let result = self.request("tools/list", json!({})).await?;
 
-        let names = result
+        let tools = result
             .get("tools")
             .and_then(Value::as_array)
-            .map(|tools| {
-                tools
-                    .iter()
-                    .filter_map(|tool| tool.get("name").and_then(Value::as_str))
-                    .map(str::to_owned)
-                    .collect()
-            })
+            .map(|tools| tools.iter().filter_map(McpTool::from_listed).collect())
             .unwrap_or_default();
 
-        Ok(names)
+        Ok(tools)
     }
 
     /// Calls tool `name` with `arguments` (`tools/call`).

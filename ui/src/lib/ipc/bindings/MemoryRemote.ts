@@ -32,6 +32,26 @@ repositoryNotes: MemoryNotesTarget,
  */
 globalNotes: MemoryNotesTarget, 
 /**
+ * Where scripts go (`scripts`; `remote` when unset).
+ */
+scripts: MemoryNotesTarget, 
+/**
+ * True when the installed Harness Memory keeps scripts (its tools include `script_list`), so
+ * the `scripts` key may be saved. Older servers refuse a file with that key.
+ */
+scriptsSupported: boolean, 
+/**
+ * True when `trust_team_scripts = true`: every script read from the team database runs without
+ * asking.
+ */
+trustTeamScripts: boolean, 
+/**
+ * True when the installed Harness Memory asks the user before running a script it has not
+ * approved (its `script_run` takes no `sha`), so the `trust_team_scripts` key may be saved.
+ * Older servers refuse a file with that key.
+ */
+trustTeamScriptsSupported: boolean, 
+/**
  * The config file, home-relative for display (`~/.config/harness-memory/config.toml`).
  */
 configPath: string, 

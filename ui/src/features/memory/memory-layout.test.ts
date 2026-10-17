@@ -1,0 +1,169 @@
+import { fireEvent, screen, waitFor, within } from '@testing-library/svelte';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import { fakeMemory, noteRow, registerMemoryHooks, rowButton, showMemory, showNotes } from './memory-test-support';
+
+registerMemoryHooks();
+
+/** The Memory view is laid out by its own width, which happy-dom does not measure: give every element this one. */
+function widthOf(pixels: number): void {
+  Object.defineProperty(HTMLElement.prototype, 'clientWidth', { configurable: true, get: () => pixels });
+}
+
+afterEach(() => {
+  Reflect.deleteProperty(HTMLElement.prototype, 'clientWidth');
+  vi.restoreAllMocks();
+});
+
+const WIDE = 1600;
+const NARROW = 1000;
+
+describe('a narrow view', () => {
+  it('keeps the chips above the table and slides the panel in over the view, with no empty detail beside it', async () => {
+    widthOf(NARROW);
+    fakeMemory();
+    await showMemory();
+
+    expect(screen.getByRole('radio', { name: /^All 5/ })).toBeInTheDocument();
+    expect(screen.queryByText('Select a script to see its code')).toBeNull();
+    expect(screen.queryByRole('region')).toBeNull();
+
+    await fireEvent.click(rowButton('open-prs') as HTMLElement);
+
+    expect(await screen.findByRole('region', { name: 'open-prs' })).toBeInTheDocument();
+  });
+
+  it('says how much there is once, beside the chips', async () => {
+    widthOf(NARROW);
+    fakeMemory();
+    await showMemory();
+
+    expect(screen.getAllByText('5 scripts')).toHaveLength(1);
+
+    await fireEvent.input(screen.getByRole('searchbox', { name: 'Search scripts' }), { target: { value: 'pull requests' } });
+
+    expect(await screen.findByText('1 script')).toBeInTheDocument();
+    expect(screen.queryByText('5 scripts')).toBeNull();
+  });
+
+  it('counts the notes in the same place', async () => {
+    widthOf(NARROW);
+    fakeMemory();
+    await showNotes();
+
+    expect(screen.getAllByText('70 notes')).toHaveLength(1);
+  });
+});
+
+describe('a wide view', () => {
+  it('lays out the groups as a column, the table, and a detail column that asks for a choice until there is one', async () => {
+    widthOf(WIDE);
+    fakeMemory();
+    await showMemory();
+
+    // The groups are still one radio group with the same names, now a column.
+    const groups = screen.getByRole('radiogroup', { name: 'Filter scripts' });
+    expect(within(groups).getByRole('radio', { name: /^All 5/ })).toHaveAttribute('aria-checked', 'true');
+    expect(within(groups).getByRole('radio', { name: /^Needs review 2/ })).toBeInTheDocument();
+    expect(screen.getByText('Select a script to see its code')).toBeInTheDocument();
+    expect(screen.getAllByText('5 scripts')).toHaveLength(1);
+  });
+
+  it('narrows the table from the column and says "note" for the notes', async () => {
+    widthOf(WIDE);
+    fakeMemory();
+    await showMemory();
+
+    await fireEvent.click(screen.getByRole('radio', { name: /^Global/ }));
+
+    await waitFor(() => expect(rowButton('open-prs')).toBeNull());
+    expect(rowButton('disk-hogs')).not.toBeNull();
+  });
+
+  it('shows the note to read in the detail column in place of the request to choose one', async () => {
+    widthOf(WIDE);
+    fakeMemory();
+    await showNotes();
+
+    expect(screen.getByText('Select a note to read it')).toBeInTheDocument();
+    expect(screen.getAllByText('70 notes')).toHaveLength(1);
+
+    await fireEvent.click(noteRow(3) as HTMLElement);
+
+    expect(await screen.findByRole('region', { name: 'Notes are read through the Memory CLI, never its database' })).toBeInTheDocument();
+    expect(screen.queryByText('Select a note to read it')).toBeNull();
+  });
+
+  it('swaps the detail when another row is chosen and goes back to the request when it is closed, with the focus on the row', async () => {
+    widthOf(WIDE);
+    fakeMemory();
+    await showMemory();
+
+    await fireEvent.click(rowButton('open-prs') as HTMLElement);
+    expect(await screen.findByRole('region', { name: 'open-prs' })).toBeInTheDocument();
+
+    await fireEvent.click(rowButton('ci-status') as HTMLElement);
+    expect(await screen.findByRole('region', { name: 'ci-status' })).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'open-prs' })).toBeNull();
+
+    await fireEvent.click(within(screen.getByRole('region', { name: 'ci-status' })).getByRole('button', { name: 'Close' }));
+
+    expect(await screen.findByText('Select a script to see its code')).toBeInTheDocument();
+    expect(document.activeElement).toBe(rowButton('ci-status'));
+  });
+
+  it('browses with the arrow keys and closes on Escape', async () => {
+    widthOf(WIDE);
+    fakeMemory();
+    await showMemory();
+    const first = rowButton('open-prs') as HTMLElement;
+    first.focus();
+
+    await fireEvent.keyDown(first, { key: 'Enter' });
+    await screen.findByRole('region', { name: 'open-prs' });
+    await fireEvent.keyDown(first, { key: 'ArrowDown' });
+
+    expect(await screen.findByRole('region', { name: 'ci-status' })).toBeInTheDocument();
+    expect(document.activeElement).toBe(rowButton('ci-status'));
+
+    await fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'Escape' });
+
+    expect(await screen.findByText('Select a script to see its code')).toBeInTheDocument();
+    expect(document.activeElement).toBe(rowButton('ci-status'));
+  });
+});
+
+describe('the rows', () => {
+  it('end with a chevron that tells they open something', async () => {
+    fakeMemory();
+    await showMemory();
+
+    const cells = (rowButton('open-prs') as HTMLElement).querySelectorAll('td');
+    const last = cells[cells.length - 1];
+
+    expect(last).toHaveAttribute('aria-hidden', 'true');
+    expect(last.querySelector('svg')).not.toBeNull();
+  });
+});
+
+describe('moving between rows', () => {
+  // `scrollIntoView` scrolls every clipping ancestor up to the page, which slides the whole shell with its top bar.
+  it('never scrolls anything outside the table', async () => {
+    const scrolled = vi.fn();
+    Element.prototype.scrollIntoView = scrolled;
+    fakeMemory();
+    await showMemory();
+    const first = rowButton('open-prs') as HTMLElement;
+    first.focus();
+
+    await fireEvent.keyDown(first, { key: 'Enter' });
+    await screen.findByRole('region', { name: 'open-prs' });
+    await fireEvent.keyDown(first, { key: 'ArrowDown' });
+    await fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'End' });
+    await fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('region')).toBeNull());
+
+    expect(document.activeElement).toBe(rowButton('disk-hogs'));
+    expect(scrolled).not.toHaveBeenCalled();
+  });
+});

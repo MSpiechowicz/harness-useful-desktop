@@ -22,6 +22,9 @@ pub enum IpcErrorCode {
     Timeout,
     /// A harness spoke an unexpected protocol.
     Protocol,
+    /// The thing changed since the user last saw it (a script edited after it was reviewed): the
+    /// UI reloads it and asks again.
+    Conflict,
     /// A bug or an unexpected internal state.
     Internal,
 }

@@ -52,6 +52,18 @@ pub struct MemoryRemote {
     pub repository_notes: MemoryNotesTarget,
     /// Where global notes go (`global_notes`; `remote` when unset).
     pub global_notes: MemoryNotesTarget,
+    /// Where scripts go (`scripts`; `remote` when unset).
+    pub scripts: MemoryNotesTarget,
+    /// True when the installed Harness Memory keeps scripts (its tools include `script_list`), so
+    /// the `scripts` key may be saved. Older servers refuse a file with that key.
+    pub scripts_supported: bool,
+    /// True when `trust_team_scripts = true`: every script read from the team database runs without
+    /// asking.
+    pub trust_team_scripts: bool,
+    /// True when the installed Harness Memory asks the user before running a script it has not
+    /// approved (its `script_run` takes no `sha`), so the `trust_team_scripts` key may be saved.
+    /// Older servers refuse a file with that key.
+    pub trust_team_scripts_supported: bool,
     /// The config file, home-relative for display (`~/.config/harness-memory/config.toml`).
     pub config_path: String,
     /// What is wrong with the file, if anything: unreadable, not valid TOML, keys the server does

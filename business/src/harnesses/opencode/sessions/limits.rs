@@ -154,6 +154,7 @@ fn shared<T>(result: &Result<Arc<T>>) -> Result<Arc<T>> {
         BusinessError::Process(message) => BusinessError::Process(message.clone()),
         BusinessError::Timeout(message) => BusinessError::Timeout(message.clone()),
         BusinessError::Protocol(message) => BusinessError::Protocol(message.clone()),
+        BusinessError::Conflict(message) => BusinessError::Conflict(message.clone()),
         BusinessError::Internal(message) => BusinessError::Internal(message.clone()),
     })
 }

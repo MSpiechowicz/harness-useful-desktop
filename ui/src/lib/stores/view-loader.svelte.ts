@@ -3,26 +3,27 @@ import { IpcFailure } from '$lib/ipc/transport';
 
 export type ViewStatus = 'idle' | 'loading' | 'ready' | 'error';
 
-type Fetcher<T> = (harness: HarnessId, project: string | null) => Promise<T>;
+type Fetcher<T, K extends string> = (key: K, project: string | null) => Promise<T>;
 
 /**
- * Loads one harness view (config, extensions) for a (harness, project) pair.
+ * Loads one view (config, extensions) for a (key, project) pair. The key is the harness unless a view says otherwise
+ * (the memory scripts have no harness, and the detail of one script is keyed by its id).
  * `sync` is idempotent: it only fetches when the pair differs from the one already loaded,
  * and a slow response for a stale pair never overwrites a newer one.
  */
-export class ViewLoader<T> {
+export class ViewLoader<T, K extends string = HarnessId> {
   data = $state.raw<T | null>(null);
   status = $state<ViewStatus>('idle');
   error = $state<IpcFailure | null>(null);
 
   private key: string | null = null;
-  private target: { harness: HarnessId; project: string | null } | null = null;
+  private target: { harness: K; project: string | null } | null = null;
   private generation = 0;
 
-  constructor(private readonly fetcher: Fetcher<T>) {}
+  constructor(private readonly fetcher: Fetcher<T, K>) {}
 
   /** Makes the loaded view match the given pair; `null` harness clears it. */
-  sync(harness: HarnessId | null, project: string | null): void {
+  sync(harness: K | null, project: string | null): void {
     if (harness === null) {
       this.reset();
 
@@ -48,7 +49,7 @@ export class ViewLoader<T> {
   }
 
   /** Like `sync`, but a pair already loaded is quietly re-read, so a view shows what changed while it was closed. */
-  revalidate(harness: HarnessId | null, project: string | null): void {
+  revalidate(harness: K | null, project: string | null): void {
     const loaded = harness !== null && this.key === `${harness}\u0000${project ?? ''}`;
 
     if (loaded) {

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-memory-scripts-list"
+description = "Enables the memory_scripts_list command without any pre-configured scope."
+commands.allow = ["memory_scripts_list"]
+
+[[permission]]
+identifier = "deny-memory-scripts-list"
+description = "Denies the memory_scripts_list command without any pre-configured scope."
+commands.deny = ["memory_scripts_list"]

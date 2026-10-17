@@ -14,6 +14,9 @@ export interface MemoryRemoteSave {
   token: string | null;
   repositoryNotes: MemoryNotesTarget;
   globalNotes: MemoryNotesTarget;
+  scripts: MemoryNotesTarget;
+  /** Run every script the team database holds without asking. */
+  trustTeamScripts: boolean;
 }
 
 export interface MemoryRemoteProbe {

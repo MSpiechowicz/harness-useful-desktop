@@ -303,6 +303,10 @@ export const chat = {
   'chat.user.recallCount.other': '{count} notes',
   'chat.user.recallCaption': 'Notes from project memory, added to this message for the agent.',
   'chat.user.recallNotes': 'Project memory notes',
+  'chat.user.recallScriptCount.one': '{count} script',
+  'chat.user.recallScriptCount.other': '{count} scripts',
+  'chat.user.recallScriptsCaption': 'Saved scripts of this project, added to this message so the agent can run them.',
+  'chat.user.recallScripts': 'Saved scripts',
 
   'chat.retry.start': 'Retrying',
   'chat.retry.end': 'Retry',

@@ -58,7 +58,7 @@
               )}
             >
               {#if info.status}
-                <StatusDot tone={info.status === 'on' ? 'success' : 'neutral'} />
+                <StatusDot tone={info.status === 'on' ? 'success' : 'neutral'} beforeText />
               {/if}
 
               <span class="min-w-0 flex-1 truncate text-sm text-fg">{entry.title}</span>

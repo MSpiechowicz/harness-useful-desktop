@@ -51,6 +51,10 @@ pub enum BusinessError {
     #[error("protocol error: {0}")]
     Protocol(String),
 
+    /// The thing changed since the user last saw it; reload and ask again.
+    #[error("conflict: {0}")]
+    Conflict(String),
+
     /// A bug or unexpected state.
     #[error("internal error: {0}")]
     Internal(String),
@@ -79,6 +83,7 @@ impl BusinessError {
             Self::Process(_) => IpcErrorCode::Process,
             Self::Timeout(_) => IpcErrorCode::Timeout,
             Self::Protocol(_) => IpcErrorCode::Protocol,
+            Self::Conflict(_) => IpcErrorCode::Conflict,
             Self::Internal(_) => IpcErrorCode::Internal,
         }
     }

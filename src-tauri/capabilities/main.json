@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main",
-  "description": "Main window. Grants only the app's own IPC commands. No core:* permission is granted: the UI calls nothing but invoke() of app commands, and Channel delivery (__TAURI_CHANNEL__ fetch) is not ACL-gated. No plugin permission is granted: dialog/opener/window-state/log/updater are driven from Rust only, so their JS APIs stay unreachable from the webview.",
+  "description": "Main window. Grants only the app's own IPC commands. No core:* permission is granted: the UI calls nothing but invoke() of app commands, and Channel delivery (__TAURI_CHANNEL__ fetch) is not ACL-gated. No plugin permission is granted but one: dialog/opener/window-state/log/updater/notification are driven from Rust only, so their JS APIs stay unreachable from the webview. The exception is notification:allow-is-permission-granted, a read-only query the notification plugin's own init script sends on every page load (granted always on desktop); without it each load logs a denied invoke. notify, request_permission and every other notification command stay denied.",
   "windows": ["main"],
   "permissions": [
     "allow-app-info",
@@ -13,6 +13,17 @@
     "allow-memory-remote-get",
     "allow-memory-remote-set",
     "allow-memory-remote-test",
+    "allow-memory-scripts-list",
+    "allow-memory-script-get",
+    "allow-memory-script-delete",
+    "allow-memory-scripts-delete-all",
+    "allow-memory-scripts-trust",
+    "allow-memory-script-requests-listen",
+    "allow-memory-script-decide",
+    "allow-memory-notes-list",
+    "allow-memory-note-get",
+    "allow-memory-note-delete",
+    "allow-memory-notes-delete-all",
     "allow-harness-list",
     "allow-harness-detect",
     "allow-harness-pick-binary",
@@ -65,6 +76,7 @@
     "allow-update-check",
     "allow-update-install",
     "allow-app-relaunch",
-    "allow-launch-sound"
+    "allow-launch-sound",
+    "notification:allow-is-permission-granted"
   ]
 }

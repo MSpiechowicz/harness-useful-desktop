@@ -138,4 +138,12 @@ export const components: AreaMessages<typeof enComponents> = {
   'components.action.linkFailed': 'No se pudo abrir el enlace',
 
   'components.ipc.unavailable': 'El runtime de escritorio no está disponible. Inicia la app con `bun run dev`, o con `bun run dev:mock` para una vista previa en el navegador.',
+
+  'components.pagination.label': 'Páginas',
+  'components.pagination.range': '{from}–{to} de {total}',
+  'components.pagination.previous': 'Anterior',
+  'components.pagination.next': 'Siguiente',
+  'components.pagination.page': 'Página {page}',
+  'components.panel.close': 'Cerrar',
+  'components.table.resize': 'Cambiar el ancho de la columna {column}',
 };

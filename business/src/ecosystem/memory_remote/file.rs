@@ -11,7 +11,7 @@ use std::path::Path;
 use toml::{Table, Value};
 
 use crate::error::{BusinessError, Result};
-use crate::fs_atomic::replace_atomically;
+use crate::fs_atomic::{refuse_link, replace_atomically};
 use crate::model::MemoryNotesTarget;
 use crate::security::SafeReader;
 
@@ -19,12 +19,21 @@ use crate::security::SafeReader;
 const MAX_CONFIG_BYTES: u64 = 64 * 1024;
 
 /// The keys Harness Memory reads from the file.
-pub(super) const KNOWN_KEYS: [&str; 4] = [URL_KEY, TOKEN_KEY, REPOSITORY_KEY, GLOBAL_KEY];
+pub(super) const KNOWN_KEYS: [&str; 6] = [
+    URL_KEY,
+    TOKEN_KEY,
+    REPOSITORY_KEY,
+    GLOBAL_KEY,
+    SCRIPTS_KEY,
+    TRUST_TEAM_KEY,
+];
 
 const URL_KEY: &str = "database_url";
 const TOKEN_KEY: &str = "database_token";
 const REPOSITORY_KEY: &str = "repository_notes";
 const GLOBAL_KEY: &str = "global_notes";
+const SCRIPTS_KEY: &str = "scripts";
+const TRUST_TEAM_KEY: &str = "trust_team_scripts";
 
 /// How many unknown key names a problem lists.
 const LISTED_KEYS: usize = 5;
@@ -40,6 +49,10 @@ pub(super) struct ConfigFile {
     pub repository_notes: MemoryNotesTarget,
     /// `global_notes` (`remote` when unset or not understood).
     pub global_notes: MemoryNotesTarget,
+    /// `scripts`, when it is set to `remote` or `local` (unset means remote).
+    pub scripts: Option<MemoryNotesTarget>,
+    /// `trust_team_scripts`, when it is a boolean (unset means false).
+    pub trust_team_scripts: Option<bool>,
     /// Why the app must not replace or remove the file, if it must not.
     pub blocked: Option<String>,
     /// The first thing wrong with the file (the `blocked` reason first).
@@ -140,6 +153,8 @@ fn parse_config(text: &str) -> ConfigFile {
     config.token = string_value(&table, TOKEN_KEY, &mut config).filter(|token| !token.trim().is_empty());
     config.repository_notes = target_value(&table, REPOSITORY_KEY, &mut config);
     config.global_notes = target_value(&table, GLOBAL_KEY, &mut config);
+    config.scripts = set_target(&table, SCRIPTS_KEY, &mut config);
+    config.trust_team_scripts = bool_value(&table, TRUST_TEAM_KEY, &mut config);
 
     config
 }
@@ -172,25 +187,47 @@ fn string_value(table: &Table, key: &str, config: &mut ConfigFile) -> Option<Str
     }
 }
 
-fn target_value(table: &Table, key: &str, config: &mut ConfigFile) -> MemoryNotesTarget {
-    match table.get(key).map(|value| value.as_str()) {
-        None => MemoryNotesTarget::Remote,
-        Some(Some("remote")) => MemoryNotesTarget::Remote,
-        Some(Some("local")) => MemoryNotesTarget::Local,
-        Some(_) => {
-            config.note(format!("{key} must be \"remote\" or \"local\""));
-            MemoryNotesTarget::Remote
+fn bool_value(table: &Table, key: &str, config: &mut ConfigFile) -> Option<bool> {
+    match table.get(key)? {
+        Value::Boolean(value) => Some(*value),
+        _ => {
+            config.note(format!("{key} must be true or false"));
+            None
         }
     }
 }
 
-/// The file's text: the URL, the token when there is one, and both routing keys.
-pub(super) fn render(
-    url: &str,
-    token: Option<&str>,
-    repository_notes: MemoryNotesTarget,
-    global_notes: MemoryNotesTarget,
-) -> String {
+/// The routing `key` (`remote` when unset or not understood).
+fn target_value(table: &Table, key: &str, config: &mut ConfigFile) -> MemoryNotesTarget {
+    set_target(table, key, config).unwrap_or_default()
+}
+
+/// The routing `key` when it is set to `remote` or `local`; another value is noted.
+fn set_target(table: &Table, key: &str, config: &mut ConfigFile) -> Option<MemoryNotesTarget> {
+    match table.get(key)?.as_str() {
+        Some("remote") => Some(MemoryNotesTarget::Remote),
+        Some("local") => Some(MemoryNotesTarget::Local),
+        _ => {
+            config.note(format!("{key} must be \"remote\" or \"local\""));
+            None
+        }
+    }
+}
+
+/// Where each kind of record goes, as [`render`] writes it.
+#[derive(Debug, Clone, Copy)]
+pub(super) struct Routing {
+    pub repository_notes: MemoryNotesTarget,
+    pub global_notes: MemoryNotesTarget,
+    /// The `scripts` key, `None` for none (an older server refuses a file with the key).
+    pub scripts: Option<MemoryNotesTarget>,
+    /// The `trust_team_scripts` key, `None` for none (an older server refuses it too).
+    pub trust_team_scripts: Option<bool>,
+}
+
+/// The file's text: the URL, the token when there is one, both note routing keys, and the
+/// `scripts` and `trust_team_scripts` keys when there are.
+pub(super) fn render(url: &str, token: Option<&str>, routing: Routing) -> String {
     let mut text = String::from(
         "# Harness Memory team database, saved by Harness Desktop. It holds the database credentials:\n\
          # keep it private (chmod 600).\n",
@@ -209,8 +246,16 @@ pub(super) fn render(
         line(TOKEN_KEY, token);
     }
 
-    line(REPOSITORY_KEY, target_name(repository_notes));
-    line(GLOBAL_KEY, target_name(global_notes));
+    line(REPOSITORY_KEY, target_name(routing.repository_notes));
+    line(GLOBAL_KEY, target_name(routing.global_notes));
+
+    if let Some(scripts) = routing.scripts {
+        line(SCRIPTS_KEY, target_name(scripts));
+    }
+
+    if let Some(trust) = routing.trust_team_scripts {
+        text.push_str(&format!("{TRUST_TEAM_KEY} = {trust}\n"));
+    }
 
     text
 }
@@ -300,19 +345,6 @@ fn ensure_replaceable(path: &Path) -> Result<()> {
         )),
         _ => Ok(()),
     }
-}
-
-fn refuse_link(path: &Path) -> Result<()> {
-    let is_link = std::fs::symlink_metadata(path).is_ok_and(|metadata| metadata.file_type().is_symlink());
-
-    if is_link {
-        return Err(BusinessError::InvalidInput(format!(
-            "{} is a symbolic link; the app does not write through it",
-            path.file_name().map(|name| name.to_string_lossy()).unwrap_or_default()
-        )));
-    }
-
-    Ok(())
 }
 
 /// What Harness Memory would say about the file's permissions (Unix; `None` elsewhere).

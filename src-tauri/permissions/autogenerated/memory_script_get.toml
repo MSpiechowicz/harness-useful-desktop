@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-memory-script-get"
+description = "Enables the memory_script_get command without any pre-configured scope."
+commands.allow = ["memory_script_get"]
+
+[[permission]]
+identifier = "deny-memory-script-get"
+description = "Denies the memory_script_get command without any pre-configured scope."
+commands.deny = ["memory_script_get"]

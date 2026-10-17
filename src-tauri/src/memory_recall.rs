@@ -1,5 +1,5 @@
-//! Memory recall in chats: the first message of a new chat is sent with the notes the installed
-//! `harness-memory` server finds for it in front (see
+//! Memory recall in chats: the first message of a new chat is sent with the notes and saved scripts
+//! the installed `harness-memory` server finds for it in front (see
 //! [`harness_business::ecosystem::memory_recall`]).
 //!
 //! - Every chat but a utility agent is tracked. A chat is armed when it starts fresh (not resumed)
@@ -16,7 +16,7 @@
 //!   held until the recalled message is sent, so a later message cannot overtake it and other
 //!   chats never wait.
 //! - A recall never fails the send: on any problem the message goes out as written. Logs carry the
-//!   outcome and the note count only.
+//!   outcome and the note and script counts only.
 
 use std::collections::{HashMap, HashSet};
 use std::future::Future;
@@ -381,12 +381,16 @@ async fn recalled(state: &AppState, key: &str, action: AgentAction, warm: Option
     };
 
     let message = match recall(state, key, &message, warm).await {
-        RecallOutcome::Recalled { message, notes } => {
-            tracing::debug!(outcome = "recalled", notes, "memory recall");
+        RecallOutcome::Recalled {
+            message,
+            notes,
+            scripts,
+        } => {
+            tracing::debug!(outcome = "recalled", notes, scripts, "memory recall");
             message
         }
         RecallOutcome::Unchanged(reason) => {
-            tracing::debug!(outcome = reason.as_str(), notes = 0, "memory recall");
+            tracing::debug!(outcome = reason.as_str(), notes = 0, scripts = 0, "memory recall");
             message
         }
     };

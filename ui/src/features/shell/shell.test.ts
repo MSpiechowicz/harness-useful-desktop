@@ -74,7 +74,7 @@ describe('keyboard shortcuts overlay', () => {
     const goTo = groups.find((group) => group.area === 'Go to');
 
     expect(goTo?.rows.map((row) => row.label)).toEqual(expect.arrayContaining(VIEWS.map((view) => view.label)));
-    expect(goTo?.rows.find((row) => row.label === 'Settings')?.combos).toEqual(['mod+7', 'mod+,']);
+    expect(goTo?.rows.find((row) => row.label === 'Settings')?.combos).toEqual(['mod+8', 'mod+,']);
   });
 });
 

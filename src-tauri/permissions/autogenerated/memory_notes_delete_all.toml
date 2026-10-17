@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-memory-notes-delete-all"
+description = "Enables the memory_notes_delete_all command without any pre-configured scope."
+commands.allow = ["memory_notes_delete_all"]
+
+[[permission]]
+identifier = "deny-memory-notes-delete-all"
+description = "Denies the memory_notes_delete_all command without any pre-configured scope."
+commands.deny = ["memory_notes_delete_all"]

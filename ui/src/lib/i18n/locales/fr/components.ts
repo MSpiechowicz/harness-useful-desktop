@@ -138,4 +138,12 @@ export const components: AreaMessages<typeof enComponents> = {
   'components.action.linkFailed': 'Impossible d’ouvrir le lien',
 
   'components.ipc.unavailable': 'Le runtime de bureau n’est pas disponible. Lancer l’application avec `bun run dev`, ou avec `bun run dev:mock` pour un aperçu dans le navigateur.',
+
+  'components.pagination.label': 'Pages',
+  'components.pagination.range': '{from}–{to} sur {total}',
+  'components.pagination.previous': 'Précédent',
+  'components.pagination.next': 'Suivant',
+  'components.pagination.page': 'Page {page}',
+  'components.panel.close': 'Fermer',
+  'components.table.resize': 'Redimensionner la colonne {column}',
 };

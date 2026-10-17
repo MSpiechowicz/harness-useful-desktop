@@ -7,8 +7,10 @@ import { gitHandlers } from './git-handlers';
 import { harnessHandlers } from './harness-handlers';
 import { hostHandlers } from './host-handlers';
 import { memoryRemoteHandlers } from './memory-remote-handlers';
+import { memoryNotesHandlers } from './memory-notes-handlers';
+import { availabilityOf, memoryScriptsHandlers, scenarioAfterInstall, scriptScenarioFromLocation } from './memory-scripts-handlers';
 import { projectHandlers } from './project-handlers';
-import { releaseHandlers } from './release-handlers';
+import { MOCK_LATEST_RELEASES, releaseHandlers } from './release-handlers';
 import { sessionHandlers } from './session-handlers';
 import { manualRemovalsOf, setupHandlers, setupScenarioFromLocation } from './setup-handlers';
 import { rosterFor, rosterSummaries } from './setup-roster';
@@ -50,6 +52,7 @@ export function defaultScenario(): Scenario {
   };
   const setup = setupHandlers(harnesses, setupScenarioFromLocation, () => state.setMemoryEnabled(true));
   const ecosystem = ecosystemHandlers();
+  let memoryInstalled = false;
 
   const handlers: Handlers = {
     ...base,
@@ -65,9 +68,19 @@ export function defaultScenario(): Scenario {
         Object.assign(memory, { installed: false, version: null, via: [] });
       }
 
+      // The outdated Memory previews have Harness Memory installed: an old release (updated to 1.1.0 from the Memory view) or a source build, which reports a pre-release version no release is ever newer than.
+      const preview = scriptScenarioFromLocation();
+
+      if (memory && preview === 'outdatedNoRelease') {
+        Object.assign(memory, { installed: true, version: '1.0.1-dev' });
+      } else if (memory && preview === 'outdated') {
+        Object.assign(memory, { installed: true, version: memoryInstalled ? '1.1.0' : '1.0.0' });
+      }
+
       return status;
     },
-    ...releaseHandlers(state),
+    // The outdated Memory preview has a newer release to update to, until it was updated.
+    ...releaseHandlers(state, () => (scriptScenarioFromLocation() === 'outdated' && !memoryInstalled ? { ...MOCK_LATEST_RELEASES, memory: '1.1.0' } : MOCK_LATEST_RELEASES)),
     ...updateHandlers(agentPace),
     ...actions,
     ...setup.handlers,
@@ -80,6 +93,17 @@ export function defaultScenario(): Scenario {
     }),
     // `?remote=postgres|libsql|problem` starts with a saved team database; `harness-memory check` passes for URLs containing "ok".
     ...memoryRemoteHandlers(),
+    // `?scripts=empty|notInstalled|outdated|outdatedNoRelease|failed` changes what the Memory view finds, `?scripts=ok` (the default) lists three samples.
+    ...memoryScriptsHandlers(() => (memoryInstalled ? scenarioAfterInstall(scriptScenarioFromLocation()) : scriptScenarioFromLocation())),
+    // The notes follow the same server as the scripts. `?notes=empty` keeps none.
+    ...memoryNotesHandlers(() => availabilityOf(memoryInstalled ? scenarioAfterInstall(scriptScenarioFromLocation()) : scriptScenarioFromLocation())),
+    // Installing or updating Harness Memory from the Memory view fixes its `notInstalled` and `outdated` previews.
+    setup_install_memory: async (args) => {
+      const result = await setup.handlers.setup_install_memory(args);
+      memoryInstalled ||= result.ok;
+
+      return result;
+    },
     // A completed action may be one of the setup step's, which the next `setup_status` then reports as done.
     extension_action: async (args) => {
       const result = await actions.extension_action(args);

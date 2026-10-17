@@ -40,7 +40,7 @@ function isNewer(candidate: string, current: string): boolean {
 }
 
 /** `ecosystem_releases` like the real backend: nothing while `checkCompanionUpdates` is off, one release per installed companion. */
-export function releaseHandlers(state: MockState): Pick<Handlers, 'ecosystem_releases'> {
+export function releaseHandlers(state: MockState, latest: () => Record<EcosystemId, string> = () => MOCK_LATEST_RELEASES): Pick<Handlers, 'ecosystem_releases'> {
   return {
     ecosystem_releases: ({ installed }) => {
       if (!state.prefs.checkCompanionUpdates) {
@@ -53,7 +53,7 @@ export function releaseHandlers(state: MockState): Pick<Handlers, 'ecosystem_rel
         const current = version.trim();
 
         if (current !== '' && !releases.some((release) => release.id === id)) {
-          const latestVersion = MOCK_LATEST_RELEASES[id];
+          const latestVersion = latest()[id];
           releases.push({ id, latestVersion, updateAvailable: isNewer(latestVersion, current) });
         }
       }

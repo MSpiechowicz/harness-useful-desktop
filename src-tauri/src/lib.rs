@@ -11,8 +11,10 @@ mod error;
 mod lifecycle;
 mod logging;
 mod memory_recall;
+mod memory_requests;
 mod memory_setup;
 mod native_text;
+mod notifications;
 mod releases;
 pub mod state;
 #[cfg(test)]
@@ -41,10 +43,14 @@ pub fn run() -> ExitCode {
         .plugin(logging::plugin())
         // Driven from the update commands only; its own JS commands are not granted to the webview.
         .plugin(tauri_plugin_updater::Builder::new().build())
+        // Driven from the script request thread only (see `notifications`); no JS command is granted.
+        .plugin(notifications::plugin())
         .setup(|app| {
             app.manage(AppState::from_app(app.handle())?);
             window::create_main_window(app)?;
             memory_setup::spawn_on_launch(app.handle());
+            notifications::focus_on_click(app.handle());
+            memory_requests::spawn(app.handle());
             tray::create_tray(app);
             // Opens the audio device now, so the intro's sound starts without delay.
             commands::sound::warm_up();
@@ -62,6 +68,17 @@ pub fn run() -> ExitCode {
             commands::memory_remote::memory_remote_get,
             commands::memory_remote::memory_remote_set,
             commands::memory_remote::memory_remote_test,
+            commands::memory_scripts::memory_scripts_list,
+            commands::memory_scripts::memory_script_get,
+            commands::memory_scripts::memory_script_delete,
+            commands::memory_scripts::memory_scripts_delete_all,
+            commands::memory_scripts::memory_scripts_trust,
+            commands::memory_requests::memory_script_requests_listen,
+            commands::memory_requests::memory_script_decide,
+            commands::memory_notes::memory_notes_list,
+            commands::memory_notes::memory_note_get,
+            commands::memory_notes::memory_note_delete,
+            commands::memory_notes::memory_notes_delete_all,
             commands::harness::harness_list,
             commands::harness::harness_detect,
             commands::harness::harness_pick_binary,

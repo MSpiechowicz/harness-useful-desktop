@@ -135,4 +135,12 @@ export const components = {
   'components.action.linkFailed': 'Could not open the link',
 
   'components.ipc.unavailable': 'The desktop runtime is not available. Start the app with `bun run dev`, or `bun run dev:mock` for a browser preview.',
+
+  'components.pagination.label': 'Pages',
+  'components.pagination.range': '{from}–{to} of {total}',
+  'components.pagination.previous': 'Previous',
+  'components.pagination.next': 'Next',
+  'components.pagination.page': 'Page {page}',
+  'components.panel.close': 'Close',
+  'components.table.resize': 'Resize the {column} column',
 } satisfies Record<string, string>;

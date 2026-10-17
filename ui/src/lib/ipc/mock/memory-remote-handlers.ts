@@ -3,6 +3,7 @@ import type { MemoryRemote } from '../bindings/MemoryRemote';
 import type { MemoryRemoteKind } from '../bindings/MemoryRemoteKind';
 import type { CommandArgs } from '../commands';
 import { IpcFailure } from '../transport';
+import { scriptsSupported } from './memory-scripts-handlers';
 import type { Handlers } from './types';
 
 /** Starting states of the team database settings, picked with `?remote=` in the preview. */
@@ -34,12 +35,14 @@ interface Saved {
   token: string | null;
   repositoryNotes: MemoryNotesTarget;
   globalNotes: MemoryNotesTarget;
+  scripts: MemoryNotesTarget;
+  trustTeamScripts: boolean;
   /** Why the file must not be overwritten (keys Harness Memory does not know). */
   blocked: string | null;
 }
 
 function initial(scenario: RemoteScenario): Saved {
-  const base: Saved = { url: null, token: null, repositoryNotes: 'remote', globalNotes: 'remote', blocked: null };
+  const base: Saved = { url: null, token: null, repositoryNotes: 'remote', globalNotes: 'remote', scripts: 'remote', trustTeamScripts: false, blocked: null };
 
   switch (scenario) {
     case 'postgres':
@@ -112,6 +115,10 @@ export function memoryRemoteHandlers(scenario: () => RemoteScenario = remoteScen
       hasToken: file.token !== null,
       repositoryNotes: file.repositoryNotes,
       globalNotes: file.globalNotes,
+      scripts: file.scripts,
+      scriptsSupported: scriptsSupported(),
+      trustTeamScripts: file.trustTeamScripts,
+      trustTeamScriptsSupported: scriptsSupported(),
       configPath: CONFIG_PATH,
       problem: file.blocked,
     };
@@ -125,7 +132,7 @@ export function memoryRemoteHandlers(scenario: () => RemoteScenario = remoteScen
     }
 
     if (!args.enabled) {
-      saved = { ...file, url: null, token: null, repositoryNotes: 'remote', globalNotes: 'remote' };
+      saved = { ...file, url: null, token: null, repositoryNotes: 'remote', globalNotes: 'remote', scripts: 'remote', trustTeamScripts: false };
       return view();
     }
 
@@ -141,7 +148,7 @@ export function memoryRemoteHandlers(scenario: () => RemoteScenario = remoteScen
     }
 
     const token = args.kind !== 'libsql' ? null : args.token === null ? file.token : args.token.trim() || null;
-    saved = { url, token, repositoryNotes: args.repositoryNotes, globalNotes: args.globalNotes, blocked: null };
+    saved = { url, token, repositoryNotes: args.repositoryNotes, globalNotes: args.globalNotes, scripts: scriptsSupported() ? args.scripts : 'remote', trustTeamScripts: scriptsSupported() ? args.trustTeamScripts : false, blocked: null };
 
     return view();
   }

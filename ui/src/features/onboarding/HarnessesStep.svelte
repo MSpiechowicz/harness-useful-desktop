@@ -56,7 +56,7 @@
     <!-- What the scan found, in a strip as wide as the cards below it, with the way to scan again at its end. -->
     <div class="-mb-1.5 flex items-center justify-between gap-3 rounded-lg border border-line bg-glass px-4 py-2">
       <p class="flex min-w-0 items-center gap-2.5 text-sm text-fg-2" role="status">
-        <StatusDot tone={installed.length === 0 ? 'warning' : installed.length === harness.summaries.length ? 'success' : 'accent'} />
+        <StatusDot tone={installed.length === 0 ? 'warning' : installed.length === harness.summaries.length ? 'success' : 'accent'} beforeText />
         {#if installed.length === 0}
           {t('onboarding.harnesses.none')}
         {:else}

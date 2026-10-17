@@ -2,6 +2,14 @@
 //! server for notes about it and puts the hits in front of the message as a
 //! `<harness-memory-recall>` block (format and text helpers in `recall_text`, re-exported here).
 //!
+//! - Scripts: the same `memory_search` reply also lists this repository's saved scripts that match
+//!   (a `<saved-scripts>` block, and `scripts` in `structuredContent`), and they go into the block
+//!   after the notes (`recall_scripts` reads them). One call serves both, so scripts add no round
+//!   trip and no time beyond [`MemoryRecall::timeout`]. A separate `script_list` call was not used:
+//!   it only filters on one substring of the name or description, which a keyword query rarely is,
+//!   and it would cost a second request. A reply without scripts, or one the parser cannot read,
+//!   recalls the notes alone, and scripts without a note are recalled alone.
+//!
 //! - Speed: [`MemoryRecall::warm`] starts the server and completes the MCP handshake ahead of time
 //!   (for example while the user types), so [`MemoryRecall::recall`] only pays for one
 //!   `memory_search` call. Without a warm handle it connects first.
@@ -27,9 +35,11 @@ use crate::error::BusinessError;
 use crate::model::MAX_ACTION_TEXT_BYTES;
 use crate::process::{ExecSpec, ProcessSpawner};
 
+pub use super::recall_scripts::{RECALL_SCRIPTS_MAX, RecallScript, recall_scripts, scripts_of};
 pub use super::recall_text::{
-    MARKER_REMOVED, RECALL_BUDGET, RECALL_CLOSE, RECALL_OPEN, STOPWORDS, recall_block, recall_eligible,
-    recall_note_count, recall_query, strip_recall, with_recall,
+    MARKER_REMOVED, NOTES_BUDGET, RECALL_BUDGET, RECALL_CLOSE, RECALL_OPEN, SCRIPTS_BUDGET, STOPWORDS, recall_block,
+    recall_block_with, recall_eligible, recall_note_count, recall_query, recall_script_count, strip_recall,
+    with_recall,
 };
 
 /// Default limit of a whole recall.
@@ -48,7 +58,7 @@ pub enum RecallReason {
     Skipped,
     /// No search keyword in the message.
     NoKeywords,
-    /// No matching note.
+    /// No matching note or script.
     NoHits,
     /// The server did not answer within the limit.
     Timeout,
@@ -81,8 +91,13 @@ impl RecallReason {
 /// What [`MemoryRecall::recall`] did with a message.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RecallOutcome {
-    /// The message with a recall block in front of it, and the number of notes in the block.
-    Recalled { message: String, notes: usize },
+    /// The message with a recall block in front of it, and the number of notes and scripts in the
+    /// block.
+    Recalled {
+        message: String,
+        notes: usize,
+        scripts: usize,
+    },
     /// The message stays as the user wrote it.
     Unchanged(RecallReason),
 }
@@ -198,7 +213,10 @@ impl MemoryRecall {
             Err(error) => return RecallOutcome::Unchanged(reason_of(&error)),
         };
 
-        let Some(block) = recall_block(output.text.as_deref().unwrap_or_default()) else {
+        let text = output.text.as_deref().unwrap_or_default();
+        let scripts = scripts_of(output.structured.as_ref(), text);
+
+        let Some(block) = recall_block_with(text, &scripts) else {
             return RecallOutcome::Unchanged(RecallReason::NoHits);
         };
 
@@ -211,6 +229,7 @@ impl MemoryRecall {
         RecallOutcome::Recalled {
             message: recalled,
             notes: recall_note_count(&block),
+            scripts: recall_script_count(&block),
         }
     }
 

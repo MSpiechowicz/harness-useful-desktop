@@ -46,6 +46,8 @@ tauri-plugin-window-state = "2.5.0"
 tauri-plugin-dialog = "2.8.1"
 tauri-plugin-opener = "2.7.0"
 tauri-plugin-log = "2.10.0"
+# OS notifications for script run requests, sent from Rust only (no JS API granted to the webview).
+tauri-plugin-notification = "2.7.0"
 # Signed in-app updates over TLS. `zip` (Tauri v1 update bundles) is not needed: the bundler
 # writes v2 updater artifacts (`bundle.createUpdaterArtifacts: true`).
 tauri-plugin-updater = { version = "2.13.2", default-features = false, features = ["rustls-tls", "system-proxy"] }

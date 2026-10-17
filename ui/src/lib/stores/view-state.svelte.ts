@@ -1,4 +1,12 @@
+import type { Sort } from '$lib/components/table';
+import type { NoteKind } from '$lib/ipc/bindings/NoteKind';
+import type { ScriptGroup } from '$lib/ipc/bindings/ScriptGroup';
+
 import type { ViewId } from './nav.svelte';
+
+/** The two lists the Memory view switches between. */
+export type MemorySection = 'notes' | 'scripts';
+
 
 /** The settings sections the palette and the section nav can jump to. */
 export type SettingsSectionId = 'appearance' | 'startup' | 'harnesses' | 'memory' | 'projects' | 'updates' | 'privacy' | 'sync' | 'about';
@@ -21,6 +29,23 @@ export class ViewState {
   /** What the Sessions search field in the top bar holds. */
   sessionsQuery = $state('');
 
+  /** Which list of the Memory view is on screen. It stays when the project changes, like the language or the theme. */
+  memorySection = $state<MemorySection>('notes');
+
+  /** The note whose panel is open, what the search field holds, the kind chip, the sort and the page (from 0) of the notes table. */
+  noteId = $state<number | null>(null);
+  notesQuery = $state('');
+  notesKind = $state<NoteKind | null>(null);
+  notesSort = $state<Sort>({ key: 'updated', desc: true });
+  notesPage = $state(0);
+
+  /** The same for the scripts table, with the chip that narrows it to the ones to review or by where they apply. */
+  scriptId = $state<number | null>(null);
+  scriptsQuery = $state('');
+  scriptsGroup = $state<ScriptGroup | null>(null);
+  scriptsSort = $state<Sort>({ key: 'updated', desc: true });
+  scriptsPage = $state(0);
+
   /** A settings section waiting to be scrolled to; the settings view clears it once it has. */
   settingsTarget = $state<SettingsSectionId | null>(null);
 
@@ -39,6 +64,7 @@ export class ViewState {
     this.reset('config');
     this.reset('extensions');
     this.reset('sessions');
+    this.reset('memory');
     this.settingsTarget = null;
     this.scrolls.clear();
   }
@@ -55,6 +81,17 @@ export class ViewState {
     } else if (view === 'sessions') {
       this.sessionId = null;
       this.sessionsQuery = '';
+    } else if (view === 'memory') {
+      this.noteId = null;
+      this.notesQuery = '';
+      this.notesKind = null;
+      this.notesSort = { key: 'updated', desc: true };
+      this.notesPage = 0;
+      this.scriptId = null;
+      this.scriptsQuery = '';
+      this.scriptsGroup = null;
+      this.scriptsSort = { key: 'updated', desc: true };
+      this.scriptsPage = 0;
     }
   }
 }

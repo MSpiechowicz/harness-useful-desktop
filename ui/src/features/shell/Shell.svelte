@@ -14,12 +14,14 @@
   import { ui } from '$lib/stores/ui-state.svelte';
   import { palette } from '$lib/stores/palette.svelte';
   import { prefs } from '$lib/stores/prefs.svelte';
+  import { scriptRequests } from '$lib/stores/scriptRequests.svelte';
   import { updates } from '$lib/stores/updates.svelte';
   import { configView, extensionsView } from '$lib/stores/views.svelte';
   import { matchesShortcut } from '$lib/utils/shortcuts';
 
   import { intro, INTRO_LEAD_MS } from '../intro/intro-state.svelte';
   import { onboarding } from '../onboarding/onboarding-state.svelte';
+  import ScriptRequestDialog from '../memory/ScriptRequestDialog.svelte';
   import { familyUpdater } from '../ecosystem/family-updater';
   import { extensionUpdater } from '../extensions/actions/extension-updater';
   import RestartConfirm from '../updates/RestartConfirm.svelte';
@@ -169,6 +171,9 @@
     }
   });
 
+  // An agent that wants to run a script this computer has not approved asks wherever the user is, so the shell listens from the start.
+  $effect(() => scriptRequests.start());
+
   // The palette searches sessions, configuration and extensions; make sure they are loaded when it opens.
   $effect(() => {
     if (!palette.open) {
@@ -225,10 +230,10 @@
 <!-- Back from a terminal or an editor: a commit or edit made there shows up in the Changes count. -->
 <svelte:window onkeydown={onKeydown} onfocus={() => git.refreshSoon()} />
 
-<div class="relative z-10 flex h-full" data-intro={intro.phase} style:--intro-lead="{INTRO_LEAD_MS}ms" inert={onboarding.visible}>
+<div class="relative z-10 flex h-full overflow-clip" data-intro={intro.phase} style:--intro-lead="{INTRO_LEAD_MS}ms" inert={onboarding.visible}>
   <Rail onshortcuts={() => (shortcutsOpen = true)} />
 
-  <div class="relative flex min-w-0 flex-1 flex-col">
+  <div class="relative flex min-w-0 flex-1 flex-col overflow-clip">
     <TopBar />
 
     <main class="intro-enter intro-scale flex min-h-0 flex-1 flex-col" style:--intro-delay="100ms">
@@ -239,5 +244,6 @@
 </div>
 
 <RestartConfirm />
+<ScriptRequestDialog />
 <CommandPalette bind:open={palette.open} {commands} />
 <ShortcutsOverlay open={shortcutsOpen} {groups} onclose={() => (shortcutsOpen = false)} />

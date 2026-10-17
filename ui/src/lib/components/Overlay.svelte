@@ -17,6 +17,8 @@
     describedby?: string;
     /** Whether Escape and scrim clicks close the overlay. */
     dismissible?: boolean;
+    /** Selector of the element that takes the focus first; defaults to the first control that is not a close button. */
+    initialFocus?: string;
     onclose: () => void;
     class?: string;
     children: Snippet;
@@ -29,6 +31,7 @@
     labelledby,
     describedby,
     dismissible = true,
+    initialFocus,
     onclose,
     class: className,
     children,
@@ -59,7 +62,7 @@
         aria-label={label}
         aria-labelledby={labelledby}
         aria-describedby={describedby}
-        use:focusTrap={{ onEscape: dismissible ? onclose : undefined }}
+        use:focusTrap={{ onEscape: dismissible ? onclose : undefined, initialFocus }}
         in:pop={{ duration: 360 }}
         out:pop={{ duration: 160, spring: false }}
         class={cx('pointer-events-auto max-h-full max-w-full outline-none', className)}

@@ -25,6 +25,10 @@ function fakeBackend(initial: Partial<MemoryRemote> = {}, probe: MemoryRemoteTes
     problem: null,
     repositoryNotes: 'remote',
     globalNotes: 'remote',
+    scripts: 'remote',
+    scriptsSupported: true,
+    trustTeamScripts: false,
+    trustTeamScriptsSupported: true,
     ...initial,
   };
   const passthrough = ipc.invoke.bind(ipc);
@@ -45,6 +49,8 @@ function fakeBackend(initial: Partial<MemoryRemote> = {}, probe: MemoryRemoteTes
         hasToken: next.token === null ? state.hasToken : next.token !== '',
         repositoryNotes: next.repositoryNotes,
         globalNotes: next.globalNotes,
+        scripts: next.scripts,
+        trustTeamScripts: next.trustTeamScripts,
       };
 
       return state as CommandResult<K>;
@@ -249,7 +255,7 @@ describe('Memory section', () => {
 
     await waitFor(() => expect(screen.getByText('Saved: redacted://db.team.example:5432/mem?sslmode=require')).toBeInTheDocument());
     expect(calls(invoke, 'memory_remote_set')).toEqual([
-      { enabled: true, kind: 'postgres', url: POSTGRES_URL, token: null, repositoryNotes: 'remote', globalNotes: 'remote' },
+      { enabled: true, kind: 'postgres', url: POSTGRES_URL, token: null, repositoryNotes: 'remote', globalNotes: 'remote', scripts: 'remote', trustTeamScripts: false },
     ]);
     expect(screen.getByText('Saved. Remote memory is on.')).toBeInTheDocument();
 
@@ -311,8 +317,120 @@ describe('Memory section', () => {
 
     await waitFor(() => expect(calls(invoke, 'memory_remote_set')).toHaveLength(1));
     expect(calls(invoke, 'memory_remote_set')).toEqual([
-      { enabled: true, kind: 'postgres', url: null, token: null, repositoryNotes: 'local', globalNotes: 'remote' },
+      { enabled: true, kind: 'postgres', url: null, token: null, repositoryNotes: 'local', globalNotes: 'remote', scripts: 'remote', trustTeamScripts: false },
     ]);
+  });
+
+  it('keeps scripts on the team database or moves them to this computer, and saves the choice with the rest', async () => {
+    const invoke = fakeBackend({ enabled: true, kind: 'postgres', urlRedacted: 'postgres://db/mem' });
+    render(SettingsView);
+
+    const scripts = await screen.findByRole('radiogroup', { name: 'Scripts' });
+    expect(within(scripts).getByRole('radio', { name: 'Team database' })).toBeChecked();
+    expect(within(scripts).getByRole('radio', { name: 'This computer' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+
+    await fireEvent.click(within(scripts).getByRole('radio', { name: 'This computer' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(calls(invoke, 'memory_remote_set')).toHaveLength(1));
+    expect(calls(invoke, 'memory_remote_set')).toEqual([
+      { enabled: true, kind: 'postgres', url: null, token: null, repositoryNotes: 'remote', globalNotes: 'remote', scripts: 'local', trustTeamScripts: false },
+    ]);
+  });
+
+  it('greys the scripts row out and says what to do while the installed Harness Memory keeps no scripts', async () => {
+    fakeBackend({ enabled: true, kind: 'postgres', urlRedacted: 'postgres://db/mem', scriptsSupported: false });
+    render(SettingsView);
+
+    const scripts = await screen.findByRole('radiogroup', { name: 'Scripts' });
+
+    expect(within(scripts).getByRole('radio', { name: 'Team database' })).toBeDisabled();
+    expect(within(scripts).getByRole('radio', { name: 'This computer' })).toBeDisabled();
+    // The row keeps room for both texts, so the sizing copies are hidden from readers and only one reads aloud.
+    expect(screen.getAllByText('Update Harness Memory to choose where scripts are kept.').filter((text) => !text.hasAttribute('aria-hidden'))).toHaveLength(1);
+    // The notes rows next to it stay usable.
+    expect(within(screen.getByRole('radiogroup', { name: 'Global notes' })).getByRole('radio', { name: 'This computer' })).toBeEnabled();
+  });
+
+  it('keeps trusting every team script off until it is switched on, warns what that allows, and saves the choice', async () => {
+    const invoke = fakeBackend({ enabled: true, kind: 'postgres', urlRedacted: 'postgres://db/mem' });
+    render(SettingsView);
+
+    const trust = await screen.findByRole('switch', { name: 'Trust every script from the team database' });
+    expect(trust).toHaveAttribute('aria-checked', 'false');
+    expect(trust).toBeEnabled();
+    expect(screen.getAllByText(/Anyone who can write to the team database can then run code on this computer\./).filter((text) => !text.hasAttribute('aria-hidden'))).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+
+    await fireEvent.click(trust);
+    expect(trust).toHaveAttribute('aria-checked', 'true');
+    await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(calls(invoke, 'memory_remote_set')).toHaveLength(1));
+    expect(calls(invoke, 'memory_remote_set')).toEqual([
+      { enabled: true, kind: 'postgres', url: null, token: null, repositoryNotes: 'remote', globalNotes: 'remote', scripts: 'remote', trustTeamScripts: true },
+    ]);
+    await waitFor(() => expect(screen.getByRole('switch', { name: 'Trust every script from the team database' })).toHaveAttribute('aria-checked', 'true'));
+  });
+
+  it('turns trusting team scripts off when the database address or kind changes, and saves it on only if the user turns it on again for the new one', async () => {
+    const invoke = fakeBackend({ enabled: true, kind: 'postgres', urlRedacted: 'postgres://db/mem', trustTeamScripts: true });
+    render(SettingsView);
+
+    const trust = await screen.findByRole('switch', { name: 'Trust every script from the team database' });
+    expect(trust).toHaveAttribute('aria-checked', 'true');
+
+    await fireEvent.input(screen.getByLabelText('Connection URL'), { target: { value: 'postgres://other.example/mem' } });
+    expect(trust).toHaveAttribute('aria-checked', 'false');
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(calls(invoke, 'memory_remote_set')).toHaveLength(1));
+    expect(calls(invoke, 'memory_remote_set')[0]).toMatchObject({ url: 'postgres://other.example/mem', trustTeamScripts: false });
+
+    await fireEvent.input(screen.getByLabelText('Connection URL'), { target: { value: 'postgres://third.example/mem' } });
+    await fireEvent.click(trust);
+    expect(trust).toHaveAttribute('aria-checked', 'true');
+    await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(calls(invoke, 'memory_remote_set')).toHaveLength(2));
+    expect(calls(invoke, 'memory_remote_set')[1]).toMatchObject({ url: 'postgres://third.example/mem', trustTeamScripts: true });
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Database: PostgreSQL' }));
+    await fireEvent.click(screen.getByRole('menuitemradio', { name: 'Remote SQLite (libSQL, Turso)' }));
+    expect(trust).toHaveAttribute('aria-checked', 'false');
+  });
+
+  it('shows the trust switch only while scripts stay in the team database', async () => {
+    fakeBackend({ enabled: true, kind: 'postgres', urlRedacted: 'postgres://db/mem' });
+    render(SettingsView);
+
+    await screen.findByRole('switch', { name: 'Trust every script from the team database' });
+    await fireEvent.click(within(screen.getByRole('radiogroup', { name: 'Scripts' })).getByRole('radio', { name: 'This computer' }));
+
+    await waitFor(() => expect(screen.queryByRole('switch', { name: 'Trust every script from the team database' })).toBeNull());
+  });
+
+  it('saves trusting team scripts as off when scripts are moved to this computer, even if it was on before', async () => {
+    const invoke = fakeBackend({ enabled: true, kind: 'postgres', urlRedacted: 'postgres://db/mem', trustTeamScripts: true });
+    render(SettingsView);
+
+    await screen.findByRole('switch', { name: 'Trust every script from the team database' });
+    await fireEvent.click(within(screen.getByRole('radiogroup', { name: 'Scripts' })).getByRole('radio', { name: 'This computer' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(calls(invoke, 'memory_remote_set')).toHaveLength(1));
+    expect(calls(invoke, 'memory_remote_set')).toEqual([
+      { enabled: true, kind: 'postgres', url: null, token: null, repositoryNotes: 'remote', globalNotes: 'remote', scripts: 'local', trustTeamScripts: false },
+    ]);
+  });
+
+  it('greys the trust switch out with a hint while the installed Harness Memory cannot honor it', async () => {
+    fakeBackend({ enabled: true, kind: 'postgres', urlRedacted: 'postgres://db/mem', trustTeamScriptsSupported: false });
+    render(SettingsView);
+
+    expect(await screen.findByRole('switch', { name: 'Trust every script from the team database' })).toBeDisabled();
+    expect(screen.getAllByText('Update Harness Memory to trust team scripts.').filter((text) => !text.hasAttribute('aria-hidden'))).toHaveLength(1);
   });
 
   it('shows a failed test in the danger tone with the backend message, and a problem with the saved connection', async () => {
@@ -360,7 +478,7 @@ describe('Memory section', () => {
 
     await waitFor(() => expect(remote).toHaveAttribute('aria-checked', 'false'));
     expect(calls(invoke, 'memory_remote_set')).toEqual([
-      { enabled: false, kind: 'postgres', url: null, token: null, repositoryNotes: 'local', globalNotes: 'remote' },
+      { enabled: false, kind: 'postgres', url: null, token: null, repositoryNotes: 'local', globalNotes: 'remote', scripts: 'remote', trustTeamScripts: false },
     ]);
     await waitFor(() => expect(screen.queryByLabelText('Connection URL')).not.toBeInTheDocument());
     expect(screen.queryByText('Turn off remote memory?')).not.toBeInTheDocument();

@@ -118,18 +118,66 @@ flowchart LR
    (`business/src/ecosystem/memory_recall.rs`); steers, follow-ups and queued prompts, and `SwitchSession`, `Fork` and
    `Clone`, only disarm; a first message the agent refuses arms the chat again. `recall_query` builds the keywords
    (`recall_text.rs`), `memory_search` runs with limit 5, scope `repo` and `same_checkout: true` (only notes last
-   written from this checkout without `project_path`) inside a 1.5 s limit, and `recall_block` prepends a
-   `<harness-memory-recall>` block of at most 1536 bytes. Any failure sends the message as written; the log carries
-   only the outcome kind and the note count. Stopping a chat (or its channel closing) forgets the slot and kills the
+   written from this checkout without `project_path`) inside a 1.5 s limit, and `recall_block_with` prepends a
+   `<harness-memory-recall>` block of at most 2304 bytes: the notes (at most 1536) and, after them, the saved scripts
+   the same reply lists (`<saved-scripts>` block or `structuredContent.scripts`, read by `recall_scripts.rs`, at most
+   five and 768 bytes) under their own framing line. Scripts cost no second call. A reply whose scripts cannot be read
+   recalls the notes alone. Any failure sends the message as written; the log carries
+   only the outcome kind and the note and script counts. Stopping a chat (or its channel closing) forgets the slot and kills the
    warm server; a page reload forgets every slot (`lifecycle::on_page_load`). In the webview `splitRecall`
    (`ui/src/lib/chat/memory-recall.ts`) turns the block into a collapsed chip in `UserMessage.svelte`, and titles, labels
    and session previews strip it (`strip_recall`, `preview_text`, `firstPrompt`). The Settings row **Add memory to new
    chats** sets the UI-managed `memoryRecall` pref.
 6. **Team database.** Settings can point the server at a shared PostgreSQL, libSQL or MongoDB database instead of the
    local file. `memory_remote_get` / `memory_remote_set` read and write the server's own
-   `<config>/harness-memory/config.toml` (`database_url`, `database_token`, `repository_notes`, `global_notes`) through
+   `<config>/harness-memory/config.toml` (`database_url`, `database_token`, `repository_notes`, `global_notes`,
+   `scripts = "local"` only while the installed server keeps scripts, and `trust_team_scripts = true` only while it asks
+   before running a script and scripts go to the team database; both kept as saved while the server cannot be asked) through
    `business/src/ecosystem/memory_remote/`, returning the URL redacted and the token as a flag; `memory_remote_test` runs
    `harness-memory check` with the typed values in its environment. The app never connects to the database.
+7. **Scripts.** Agents save deterministic scripts in the memory store and run them inside the server. The Memory view
+   lists, shows and deletes them through `memory_scripts_list`, `memory_script_get` and `memory_script_delete`
+   (`business/src/ecosystem/memory_scripts.rs`). A page of the list (offset, 1 to 200 entries, a search of at most 256
+   characters, one group of `needsReview`, `repo` or `global`, sorted by `updated`, `name`, `language`, `scope`,
+   `place`, `runs` or `lastRun`) comes from `harness-memory
+   scripts list --json --offset N --limit N [--query Q] [--group G] --sort S --order O [--project <root>]` with the
+   total and the count of each group (`memory_cli.rs`: home directory, stdin closed, 15 s, 1 MiB of output kept, the
+   server's last `harness-memory:` line redacted on failure, a usage error read as `outdated`). One pooled
+   `harness-memory mcp` in the home directory (`McpPool`, the client the dashboard uses too, stopped after 30 s without
+   a call) answers `script_get` and `script_delete` with the authorized project root as `project_path`. A `tools/list`
+   probe, cached per binary and modification time, tells whether the server keeps scripts (`script_list` offered):
+   `notInstalled` without a binary, `outdated` without the tool, and the paged list also needs a server that asks before
+   running a script. A cache miss first stops the pooled server and probes on a fresh one,
+   so a binary upgraded in place is not answered for by its old process. The same probe tells whether the server asks
+   the user before running a script (its `script_run` takes no `sha`), which makes `trust_team_scripts` a key it knows;
+   a `script_run` that is missing or lists no arguments leaves both keys as saved (`ScriptsSupport::Unknown`).
+   A summary without `approval` (an older server) gets `approved` or `needed` from `trusted`. The app never opens the
+   database and never runs a script.
+8. **Script approval.** An agent can never approve a script: the server runs one only when it was saved on this
+   machine, the user approved its current version, or `trust_team_scripts = true` and it comes from the team database.
+   Otherwise it asks through files in its data folder (`HARNESS_MEMORY_DIR` when absolute, else the platform data
+   folder + `harness-memory`, resolved like the server by `memory_requests::memory_data_dir`). While Harness Memory is
+   installed and that folder exists, a thread (`src-tauri/src/memory_requests.rs`) touches `desktop.alive` every 5 s
+   (removed at exit; the server asks only while it is younger than 15 s) and reads `requests/*.json` every 500 ms
+   (`RequestWatcher`: id = 32 lowercase hex, at most 512 KiB, at most 60 s old, version 1). New requests and vanished
+   ones reach the page over the channel of `memory_script_requests_listen` (`ScriptRequestEvent`: `request`, `gone`;
+   a new listener gets every waiting request again; each carries `receivedAt`, the app's clock at arrival).
+   `memory_script_decide` writes `requests/<id>.decision` (`allow`/`deny`, temp file + rename, `0600`) for a request
+   the watcher has shown and not answered yet, while the request file exists; the server waits 45 s, then removes
+   both, and the watcher removes an answer left alone for more than 60 s. `memory_scripts_trust` runs
+   `harness-memory trust <id>=<sha256>… [--project <root>]` (`memory_trust.rs`, 20 s and 1 s per script (120 s at most), home directory, output capped
+   and redacted) for the Memory view's **Trust** buttons; a script changed since the user reviewed it is `conflict`.
+9. **Notes.** The Memory view lists, shows and deletes the agents' notes through `memory_notes_list`,
+   `memory_note_get` and `memory_note_delete` (`business/src/ecosystem/memory_notes.rs`), each one run of
+   `harness-memory notes` as `memory_cli.rs` runs the server's commands (15 s): `notes list --json --offset N --limit N
+   [--query Q] [--kind K] --sort updated|title|kind|scope|place --order asc|desc [--project <root>]` (the project's
+   repository notes and the global ones, the total and the count of each kind under the search), `notes get <id> --json` (the body and at
+   most 50 links, both ways) and `notes delete <id>`. `memory_notes_delete_all` and `memory_scripts_delete_all` run
+   `notes delete --all --yes --json [--project <root>]` and `scripts delete --all --yes --json [--project <root>]`
+   (60 s): every entry the list shows without filters, answered as `MemoryDeleteAll` (`deleted`, and `team`, how many
+   were in the team database). A note the server cannot see from the project is `notFound`. They
+   need the server generation the scripts probe calls `Approvals`: an older one, or one that answers a usage error, is
+   `outdated`. The app never opens the database.
 
 Privacy rules: [security-privacy.md](security-privacy.md#project-memory).
 
@@ -143,7 +191,7 @@ Privacy rules: [security-privacy.md](security-privacy.md#project-memory).
 | `agent/` | `AgentManager` (sessions by key), `AgentSession` (writer, reader, stderr and exit tasks), `EventSink`, `DeltaCoalescer`. |
 | `git/` | `GitCli` (hardened git runner), status, branches, diff parsing, untracked files. |
 | `review/` | `compose_review`: diff comments into one deterministic Markdown prompt; the UI sends it with `agent_send`. |
-| `ecosystem/` | Companion tools: catalog (copyable install steps, never run), detection, a minimal MCP stdio client, the pooled `harness-dashboard mcp` connection behind the dashboard widgets, Recommended setup (`setup`, `installer`, `mcp_register`) and the atomic `mcp.json` merge it shares with Share setup (`mcp_merge`, whose `change_file` read-decide-write cycle the memory registration also uses). Companions install through `installer` (`Companion`: the dashboard's and the memory server's official installers, run after the user confirms). Project memory setup: `memory_binary` (finding the installed server and its version), `memory_register` (add, update the command of, or remove the `harness-memory` entry), `memory_migrate` (retires the old app copy of the server) and `memory_record` (`memory-registration.json`, so a removed entry stays removed); `memory_remote` (the team database in the server's `config.toml`, and `harness-memory check`). |
+| `ecosystem/` | Companion tools: catalog (copyable install steps, never run), detection, a minimal MCP stdio client and the pool that keeps one running (`mcp_pool`), the pooled `harness-dashboard mcp` connection behind the dashboard widgets, Recommended setup (`setup`, `installer`, `mcp_register`) and the atomic `mcp.json` merge it shares with Share setup (`mcp_merge`, whose `change_file` read-decide-write cycle the memory registration also uses). Companions install through `installer` (`Companion`: the dashboard's and the memory server's official installers, run after the user confirms). Project memory setup: `memory_binary` (finding the installed server and its version), `memory_register` (add, update the command of, or remove the `harness-memory` entry), `memory_migrate` (retires the old app copy of the server) and `memory_record` (`memory-registration.json`, so a removed entry stays removed); `memory_remote` (the team database in the server's `config.toml`, and `harness-memory check`); `memory_cli` (one run of a `harness-memory` command for the user, and the page of a list); `memory_notes` (the agents' notes through `harness-memory notes`); `memory_scripts` (the agents' scripts, a page listed with `harness-memory scripts list` and one read through the pooled `harness-memory mcp`); `memory_requests` (the server's data folder, the `desktop.alive` heartbeat, run requests and their answers); `memory_trust` (`harness-memory trust`). |
 | `sync/` | Share setup: export a harness's marketplaces, plugins, packages and MCP servers as a `hud1:` string or JSON file and import them after a review. `schema` (format v1, limits, per-item parsing), `codec` (zlib + base64url, size caps), `validate` and `secrets` (field checks, redaction), `collect` (export, read from the harnesses' files), `plan` (import review against this machine), `apply` (runs the harness CLIs and the MCP merge, idempotent, no rollback). Harnesses opt in per item kind through `Harness::share_support`. Format: [share-setup.md](share-setup.md). |
 | `prefs/`, `project/` | `prefs.json` store (atomic, self-healing), server-managed fields, the active and recent project list. |
 | `security/` | Deny-list and `SafeReader`, redaction, `canonical_within`, `validate_project_dir`, `is_safe_arg`. See [security-privacy.md](security-privacy.md). |

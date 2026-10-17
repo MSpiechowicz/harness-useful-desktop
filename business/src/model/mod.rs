@@ -22,7 +22,10 @@ mod extensions;
 mod git;
 mod harness;
 mod ipc_error;
+mod memory_notes;
 mod memory_remote;
+mod memory_requests;
+mod memory_scripts;
 mod prefs;
 mod project;
 mod review;
@@ -66,7 +69,18 @@ pub use git::{
 };
 pub use harness::{Capabilities, Detection, HarnessId, HarnessInfo, HarnessSummary, InstallHint, VersionSupport};
 pub use ipc_error::{IpcError, IpcErrorCode};
+pub use memory_notes::{
+    MemoryNotesPage, NoteContent, NoteDetail, NoteKind, NoteKindCount, NoteLink, NoteLinkDirection, NoteSort,
+    NoteSummary, SortOrder,
+};
 pub use memory_remote::{MemoryNotesTarget, MemoryRemote, MemoryRemoteKind, MemoryRemoteTest};
+pub use memory_requests::{
+    ScriptPreviousOrigin, ScriptPreviousVersion, ScriptRequestEvent, ScriptRunRequest, ScriptStdin,
+};
+pub use memory_scripts::{
+    MemoryDeleteAll, MemoryScriptsAvailability, MemoryScriptsPage, ScriptApproval, ScriptAuthor, ScriptDetail,
+    ScriptGroup, ScriptGroupCounts, ScriptPlace, ScriptScope, ScriptSort, ScriptSummary, ScriptTrustItem,
+};
 pub use prefs::{
     AppPrefs, BinaryOverride, ChatDefaults, DEFAULT_LANGUAGE, LANGUAGES, MotionPref, ThemePref, UpdatePolicy,
 };

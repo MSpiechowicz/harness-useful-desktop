@@ -146,4 +146,12 @@ export const components: AreaMessages<typeof enComponents> = {
   'components.action.linkFailed': 'Nie udało się otworzyć linku',
 
   'components.ipc.unavailable': 'Środowisko uruchomieniowe pulpitu jest niedostępne. Uruchom aplikację przez `bun run dev` albo `bun run dev:mock`, aby zobaczyć podgląd w przeglądarce.',
+
+  'components.pagination.label': 'Strony',
+  'components.pagination.range': '{from}–{to} z {total}',
+  'components.pagination.previous': 'Poprzednia',
+  'components.pagination.next': 'Następna',
+  'components.pagination.page': 'Strona {page}',
+  'components.panel.close': 'Zamknij',
+  'components.table.resize': 'Zmień szerokość kolumny {column}',
 };

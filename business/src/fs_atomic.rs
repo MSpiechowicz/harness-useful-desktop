@@ -62,3 +62,18 @@ pub(crate) fn unix_nanos() -> u128 {
         .duration_since(UNIX_EPOCH)
         .map_or(0, |elapsed| elapsed.as_nanos())
 }
+
+/// Refuses (`invalidInput`) a symbolic link at `path`, so nothing is written through one; a
+/// missing path is fine.
+pub(crate) fn refuse_link(path: &Path) -> Result<()> {
+    let is_link = std::fs::symlink_metadata(path).is_ok_and(|metadata| metadata.file_type().is_symlink());
+
+    if is_link {
+        return Err(BusinessError::InvalidInput(format!(
+            "{} is a symbolic link; the app does not write through it",
+            path.file_name().map(|name| name.to_string_lossy()).unwrap_or_default()
+        )));
+    }
+
+    Ok(())
+}

@@ -5,57 +5,22 @@
 //! The copy runs in one test so no other test of this binary forks while it is open for writing.
 
 mod common;
+mod memory_cli_support;
 
 use std::ffi::OsString;
-use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::path::Path;
 
 use common::set_mode;
-use harness_business::Result;
 use harness_business::ecosystem::memory_remote::CHECK_TIMEOUT;
 use harness_business::ecosystem::memory_remote_test;
 use harness_business::env::Env;
 use harness_business::model::{MemoryRemoteKind, MemoryRemoteTest};
-use harness_business::process::{BoxFuture, ExecOutput, ExecSpec, ProcessRunner, TokioRunner};
+use harness_business::process::{ExecOutput, ProcessRunner, TokioRunner};
+use memory_cli_support::{install, installed_at, stub};
 use pretty_assertions::assert_eq;
 
 const PASSWORD: &str = "pa55-w0rd-secret";
 const TOKEN: &str = "tok-e2e-secret";
-
-/// Where the installer puts `harness-memory` under `home`, and the env that finds it and its
-/// config file there (Windows keeps the config under `APPDATA`).
-fn installed_at(home: &Path) -> (Env, PathBuf) {
-    let env = Env::for_tests(home);
-
-    if cfg!(windows) {
-        let local = home.join("AppData").join("Local");
-        let roaming = home.join("AppData").join("Roaming");
-        let path = local.join("Programs").join("harness-memory").join("harness-memory.exe");
-        let env = env
-            .with_var("LOCALAPPDATA", local.to_string_lossy())
-            .with_var("APPDATA", roaming.to_string_lossy());
-
-        return (env, path);
-    }
-
-    (env, home.join(".local").join("bin").join("harness-memory"))
-}
-
-/// Places `source` as the installed server.
-fn install(path: &Path, source: Option<&Path>) {
-    let dir = path.parent().unwrap();
-    std::fs::create_dir_all(dir).unwrap();
-    set_mode(dir, 0o755);
-
-    match source {
-        Some(source) => {
-            std::fs::copy(source, path).unwrap();
-        }
-        None => std::fs::write(path, "").unwrap(),
-    }
-
-    set_mode(path, 0o755);
-}
 
 fn save_config(env: &Env, text: &str) {
     let path = harness_business::ecosystem::memory_config_path(env).unwrap();
@@ -187,36 +152,6 @@ fn the_installed_server_checks_the_typed_or_the_saved_database() {
     assert_hidden(&invalid);
 }
 
-/// Answers `--version` as Harness Memory, and `check` with `answer`; keeps the `check` spec.
-struct Stub {
-    answer: ExecOutput,
-    checks: Mutex<Vec<ExecSpec>>,
-}
-
-impl ProcessRunner for Stub {
-    fn run<'a>(&'a self, spec: &'a ExecSpec) -> BoxFuture<'a, Result<ExecOutput>> {
-        let output = if spec.args == [OsString::from("--version")] {
-            ExecOutput {
-                status: Some(0),
-                stdout: "harness-memory 1.2.0\n".to_owned(),
-                ..ExecOutput::default()
-            }
-        } else {
-            self.checks.lock().unwrap().push(spec.clone());
-            self.answer.clone()
-        };
-
-        Box::pin(async move { Ok(output) })
-    }
-}
-
-fn stub(answer: ExecOutput) -> Stub {
-    Stub {
-        answer,
-        checks: Mutex::new(Vec::new()),
-    }
-}
-
 #[test]
 fn the_secrets_go_through_the_environment_with_a_20_second_limit() {
     let home = tempfile::tempdir().unwrap();
@@ -240,7 +175,7 @@ fn the_secrets_go_through_the_environment_with_a_20_second_limit() {
         "the app's own redaction masks URL user info too"
     );
 
-    let checks = runner.checks.lock().unwrap();
+    let checks = runner.runs.lock().unwrap();
     let spec = &checks[0];
     assert_eq!(spec.args, [OsString::from("check")]);
     assert_eq!(spec.timeout, CHECK_TIMEOUT);

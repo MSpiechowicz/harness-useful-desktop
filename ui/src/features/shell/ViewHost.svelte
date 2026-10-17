@@ -10,6 +10,7 @@
   import ConfigViewer from '../config/ConfigViewer.svelte';
   import EcosystemView from '../ecosystem/EcosystemView.svelte';
   import ExtensionsViewer from '../extensions/ExtensionsViewer.svelte';
+  import MemoryView from '../memory/MemoryView.svelte';
   import SettingsView from '../settings/SettingsView.svelte';
 
   import PlaceholderView from './PlaceholderView.svelte';
@@ -60,6 +61,8 @@
           <ExtensionsViewer />
         {:else if nav.current === 'ecosystem'}
           <EcosystemView />
+        {:else if nav.current === 'memory'}
+          <MemoryView />
         {:else}
           <PlaceholderView view={meta} />
         {/if}

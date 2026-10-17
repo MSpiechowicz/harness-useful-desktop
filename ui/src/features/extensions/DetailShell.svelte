@@ -1,13 +1,11 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
 
-  import Card from '$lib/components/Card.svelte';
+  import FactsCard from '$lib/components/FactsCard.svelte';
+  import SectionCard from '$lib/components/SectionCard.svelte';
   import StatGrid from '$lib/components/StatGrid.svelte';
-  import StatusDot from '$lib/components/StatusDot.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
-  import { cx } from '$lib/utils/cx';
 
-  import { shortPath } from '../config/path';
   import type { Fact, Stat } from './extension-detail';
 
   interface Props {
@@ -24,9 +22,6 @@
 
   let { title, subtitle, description, facts, stats = [], children }: Props = $props();
 
-  /** How many characters at the end of a long value stay visible when its middle is cut. */
-  const TAIL = 12;
-
   const details = $derived(facts.filter((fact) => !fact.location));
   const location = $derived(facts.filter((fact) => fact.location));
 </script>
@@ -41,14 +36,13 @@
 
     <div class="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 pt-4 pb-6">
       {#if description}
-        <Card as="section" padded={false} class="p-3.5">
-          <h3 class="mb-2.5 text-xs font-medium tracking-wider text-fg-3 uppercase">{t('extensions.detail.description')}</h3>
+        <SectionCard heading={t('extensions.detail.description')}>
           <p class="text-sm leading-relaxed break-words text-fg-2">{description}</p>
-        </Card>
+        </SectionCard>
       {/if}
 
       <!-- Identifiers and paths are long, so they get the width of the content, not of the narrow column. -->
-      {@render facts_card(t('extensions.detail.location'), location, false)}
+      <FactsCard heading={t('extensions.detail.location')} rows={location} />
 
       {@render children?.()}
     </div>
@@ -56,38 +50,11 @@
 
   <aside aria-label={t('extensions.detail.aside')} class="flex w-[280px] shrink-0 flex-col gap-3 overflow-y-auto border-l border-line p-4">
     {#if stats.length > 0}
-      <Card as="section" padded={false} class="p-3.5">
-        <h3 class="mb-2.5 text-xs font-medium tracking-wider text-fg-3 uppercase">{t('extensions.overview.title')}</h3>
+      <SectionCard heading={t('extensions.overview.title')}>
         <StatGrid stats={stats} />
-      </Card>
+      </SectionCard>
     {/if}
 
-    {@render facts_card(t('extensions.detail.details'), details, false)}
+    <FactsCard heading={t('extensions.detail.details')} rows={details} />
   </aside>
 </article>
-
-{#snippet facts_card(heading: string, rows: Fact[], shorten: boolean)}
-  {#if rows.length > 0}
-    <Card as="section" padded={false} class="p-3.5">
-      <h3 class="mb-2.5 text-xs font-medium tracking-wider text-fg-3 uppercase">{heading}</h3>
-      <dl class="flex flex-col">
-        {#each rows as fact (fact.label)}
-          {@const text = shorten && fact.path ? shortPath(fact.value) : fact.value}
-          <!-- Every row is the label on the left and the value on the right, on one line. A long value is shortened in the
-               middle, so both its start and its end (the version, the file name) stay readable; the tooltip has all of it. -->
-          <div class="flex justify-between gap-3 py-1 text-sm">
-            <dt class="shrink-0 text-fg-2">{fact.label}</dt>
-            <dd class={cx('flex min-w-0 items-center justify-end gap-1.5 text-right', fact.on ? 'text-success' : 'text-fg')} title={fact.title ?? fact.value}>
-              {#if fact.on}<StatusDot tone="success" />{/if}
-              {#if fact.mono && text.length > TAIL}
-                <span class="flex min-w-0 font-mono text-xs leading-5"><span class="truncate">{text.slice(0, -TAIL)}</span><span class="shrink-0">{text.slice(-TAIL)}</span></span>
-              {:else}
-                <span class={cx('truncate', fact.mono && 'font-mono text-xs leading-5')}>{text}</span>
-              {/if}
-            </dd>
-          </div>
-        {/each}
-      </dl>
-    </Card>
-  {/if}
-{/snippet}

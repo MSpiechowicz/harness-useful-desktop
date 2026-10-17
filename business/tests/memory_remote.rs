@@ -8,7 +8,9 @@ use std::path::{Path, PathBuf};
 
 use common::set_mode;
 use harness_business::BusinessError;
-use harness_business::ecosystem::{MemoryRemoteChange, memory_config_path, memory_remote_get, memory_remote_set};
+use harness_business::ecosystem::{
+    MemoryRemoteChange, ScriptsSupport, memory_config_path, memory_remote_get, memory_remote_set,
+};
 use harness_business::env::{Env, OsKind};
 use harness_business::model::{MemoryNotesTarget, MemoryRemote, MemoryRemoteKind};
 use pretty_assertions::assert_eq;
@@ -33,6 +35,8 @@ fn change(kind: MemoryRemoteKind, url: Option<&str>, token: Option<&str>) -> Mem
         token: token.map(str::to_owned),
         repository_notes: MemoryNotesTarget::Remote,
         global_notes: MemoryNotesTarget::Remote,
+        scripts: MemoryNotesTarget::Remote,
+        trust_team_scripts: false,
     }
 }
 
@@ -44,7 +48,19 @@ fn off() -> MemoryRemoteChange {
         token: None,
         repository_notes: MemoryNotesTarget::Remote,
         global_notes: MemoryNotesTarget::Remote,
+        scripts: MemoryNotesTarget::Remote,
+        trust_team_scripts: false,
     }
+}
+
+/// The settings as an app sees them whose memory server predates scripts.
+fn get(env: &Env) -> MemoryRemote {
+    memory_remote_get(env, ScriptsSupport::Unsupported)
+}
+
+/// Saves `change` for a memory server that predates scripts.
+fn set(env: &Env, change: MemoryRemoteChange) -> Result<MemoryRemote, BusinessError> {
+    memory_remote_set(env, change, ScriptsSupport::Unsupported)
 }
 
 fn write(path: &Path, text: &str) {
@@ -97,7 +113,7 @@ fn without_a_file_team_memory_is_off() {
     let (_dir, env, _) = home();
 
     assert_eq!(
-        memory_remote_get(&env),
+        get(&env),
         MemoryRemote {
             enabled: false,
             kind: None,
@@ -105,6 +121,10 @@ fn without_a_file_team_memory_is_off() {
             has_token: false,
             repository_notes: MemoryNotesTarget::Remote,
             global_notes: MemoryNotesTarget::Remote,
+            scripts: MemoryNotesTarget::Remote,
+            scripts_supported: false,
+            trust_team_scripts: false,
+            trust_team_scripts_supported: false,
             config_path: "~/.config/harness-memory/config.toml".to_owned(),
             problem: None,
         }
@@ -116,11 +136,11 @@ fn windows_without_appdata_reports_the_unknown_folder() {
     let dir = tempfile::tempdir().unwrap();
     let env = Env::for_tests(dir.path()).with_os(OsKind::Windows);
 
-    let remote = memory_remote_get(&env);
+    let remote = get(&env);
     assert!(!remote.enabled);
     assert!(remote.problem.unwrap().contains("APPDATA"));
     assert!(matches!(
-        memory_remote_set(&env, change(MemoryRemoteKind::Postgres, Some("postgres://h/db"), None)),
+        set(&env, change(MemoryRemoteKind::Postgres, Some("postgres://h/db"), None)),
         Err(BusinessError::Unsupported(_))
     ));
 }
@@ -136,7 +156,7 @@ fn a_saved_url_is_shown_without_password_query_or_token() {
         ),
     );
 
-    let remote = memory_remote_get(&env);
+    let remote = get(&env);
 
     assert!(remote.enabled);
     assert_eq!(remote.kind, Some(MemoryRemoteKind::Postgres));
@@ -169,7 +189,7 @@ fn every_scheme_names_its_kind() {
 
     for (url, kind) in cases {
         write(&path, &format!("database_url = \"{url}\"\n"));
-        let remote = memory_remote_get(&env);
+        let remote = get(&env);
 
         assert_eq!(remote.kind, kind, "{url}");
         assert_eq!(remote.problem.is_some(), kind.is_none(), "{url}");
@@ -181,7 +201,7 @@ fn saving_keeping_clearing_and_removing() {
     let (_dir, env, path) = home();
     let url = "libsql://team-memory.turso.io";
 
-    let remote = memory_remote_set(&env, change(MemoryRemoteKind::Libsql, Some(url), Some(TOKEN))).unwrap();
+    let remote = set(&env, change(MemoryRemoteKind::Libsql, Some(url), Some(TOKEN))).unwrap();
     assert!(remote.enabled && remote.has_token);
     assert_eq!(remote.url_redacted.as_deref(), Some(url));
     assert_eq!(saved(&path)["database_token"].as_str(), Some(TOKEN));
@@ -189,7 +209,7 @@ fn saving_keeping_clearing_and_removing() {
     // Null URL and token keep the saved ones; the routing is written every time.
     let mut keep = change(MemoryRemoteKind::Libsql, None, None);
     keep.global_notes = MemoryNotesTarget::Local;
-    let remote = memory_remote_set(&env, keep).unwrap();
+    let remote = set(&env, keep).unwrap();
     assert!(remote.has_token);
     assert_eq!(remote.global_notes, MemoryNotesTarget::Local);
     let file = saved(&path);
@@ -198,26 +218,26 @@ fn saving_keeping_clearing_and_removing() {
     assert_eq!(file["global_notes"].as_str(), Some("local"));
 
     // An empty token clears it.
-    let remote = memory_remote_set(&env, change(MemoryRemoteKind::Libsql, None, Some(""))).unwrap();
+    let remote = set(&env, change(MemoryRemoteKind::Libsql, None, Some(""))).unwrap();
     assert!(!remote.has_token);
     assert!(!saved(&path).contains_key("database_token"));
 
     // Off removes the file.
-    let remote = memory_remote_set(&env, off()).unwrap();
+    let remote = set(&env, off()).unwrap();
     assert!(!remote.enabled);
     assert!(!path.exists());
-    assert!(memory_remote_set(&env, off()).is_ok(), "off without a file is fine");
+    assert!(set(&env, off()).is_ok(), "off without a file is fine");
 }
 
 #[test]
 fn a_kept_url_must_exist_and_match_the_kind() {
     let (_dir, env, path) = home();
 
-    let message = invalid_input(memory_remote_set(&env, change(MemoryRemoteKind::Postgres, None, None)));
+    let message = invalid_input(set(&env, change(MemoryRemoteKind::Postgres, None, None)));
     assert!(message.contains("enter the database URL"), "{message}");
 
-    memory_remote_set(&env, change(MemoryRemoteKind::Postgres, Some("postgres://h/db"), None)).unwrap();
-    let message = invalid_input(memory_remote_set(&env, change(MemoryRemoteKind::Mongodb, None, None)));
+    set(&env, change(MemoryRemoteKind::Postgres, Some("postgres://h/db"), None)).unwrap();
+    let message = invalid_input(set(&env, change(MemoryRemoteKind::Mongodb, None, None)));
     assert!(message.contains("not a MongoDB URL"), "{message}");
     assert_eq!(saved(&path)["database_url"].as_str(), Some("postgres://h/db"));
 }
@@ -225,13 +245,13 @@ fn a_kept_url_must_exist_and_match_the_kind() {
 #[test]
 fn postgres_and_mongodb_save_no_token() {
     let (_dir, env, path) = home();
-    memory_remote_set(
+    set(
         &env,
         change(MemoryRemoteKind::Libsql, Some("libsql://t.turso.io"), Some(TOKEN)),
     )
     .unwrap();
 
-    let remote = memory_remote_set(
+    let remote = set(
         &env,
         change(MemoryRemoteKind::Postgres, Some("postgres://u@h/db"), Some(TOKEN)),
     )
@@ -296,7 +316,7 @@ fn urls_and_tokens_are_validated_without_echoing_them() {
     ];
 
     for (kind, url, expected) in cases {
-        let message = invalid_input(memory_remote_set(&env, change(kind, Some(&url), None)));
+        let message = invalid_input(set(&env, change(kind, Some(&url), None)));
 
         assert!(message.contains(expected), "{url:?}: {message}");
         assert!(!message.contains(PASSWORD), "{message}");
@@ -307,7 +327,7 @@ fn urls_and_tokens_are_validated_without_echoing_them() {
         (long_token.as_str(), "longer than 4 KiB"),
         ("a\nb", "control characters"),
     ] {
-        let message = invalid_input(memory_remote_set(
+        let message = invalid_input(set(
             &env,
             change(MemoryRemoteKind::Libsql, Some("libsql://t.turso.io"), Some(token)),
         ));
@@ -322,7 +342,7 @@ fn urls_and_tokens_are_validated_without_echoing_them() {
         "http://[::1]:8080",
         "LIBSQL://t.turso.io",
     ] {
-        let remote = memory_remote_set(&env, change(MemoryRemoteKind::Libsql, Some(url), None)).unwrap();
+        let remote = set(&env, change(MemoryRemoteKind::Libsql, Some(url), None)).unwrap();
         assert_eq!(saved(&path)["database_url"].as_str(), Some(url.trim()));
         assert_eq!(remote.kind, Some(MemoryRemoteKind::Libsql));
     }
@@ -335,10 +355,10 @@ fn escaping_round_trips_quotes_backslashes_and_unicode() {
     let url = format!("postgres://team:{password}@db.example.com/memory");
     let token = r#"t"o\k€n"#;
 
-    memory_remote_set(&env, change(MemoryRemoteKind::Postgres, Some(&url), None)).unwrap();
+    set(&env, change(MemoryRemoteKind::Postgres, Some(&url), None)).unwrap();
     assert_eq!(saved(&path)["database_url"].as_str(), Some(url.as_str()));
 
-    memory_remote_set(
+    set(
         &env,
         change(MemoryRemoteKind::Libsql, Some("libsql://ł.turso.io"), Some(token)),
     )
@@ -354,15 +374,15 @@ fn other_keys_are_reported_and_the_file_is_left_alone() {
     let text = "database_url = \"postgres://h/db\"\ndatabse_token = \"x\"\n[extra]\nkey = 1\n";
     write(&path, text);
 
-    let problem = memory_remote_get(&env).problem.unwrap();
+    let problem = get(&env).problem.unwrap();
     assert!(
         problem.contains("databse_token") && problem.contains("extra"),
         "{problem}"
     );
 
-    let message = invalid_input(memory_remote_set(&env, change(MemoryRemoteKind::Postgres, None, None)));
+    let message = invalid_input(set(&env, change(MemoryRemoteKind::Postgres, None, None)));
     assert!(message.contains("does not know"), "{message}");
-    invalid_input(memory_remote_set(&env, off()));
+    invalid_input(set(&env, off()));
     assert_eq!(std::fs::read_to_string(&path).unwrap(), text);
 }
 
@@ -372,11 +392,11 @@ fn a_file_that_is_not_toml_is_reported_without_its_content_and_left_alone() {
     let text = format!("database_url = \"postgres://u:{PASSWORD}@h/db\n");
     write(&path, &text);
 
-    let problem = memory_remote_get(&env).problem.unwrap();
+    let problem = get(&env).problem.unwrap();
     assert!(problem.contains("not valid TOML (line 1)"), "{problem}");
     assert!(!problem.contains(PASSWORD));
 
-    invalid_input(memory_remote_set(
+    invalid_input(set(
         &env,
         change(MemoryRemoteKind::Postgres, Some("postgres://h/db"), None),
     ));
@@ -388,16 +408,16 @@ fn wrong_values_are_reported_and_replaced_on_save() {
     let (_dir, env, path) = home();
     write(&path, "database_url = \"postgres://h/db\"\nglobal_notes = \"team\"\n");
 
-    let remote = memory_remote_get(&env);
+    let remote = get(&env);
     assert_eq!(remote.global_notes, MemoryNotesTarget::Remote);
     assert!(remote.problem.unwrap().contains("global_notes must be"));
 
     write(&path, "database_url = 5\n");
-    let remote = memory_remote_get(&env);
+    let remote = get(&env);
     assert!(!remote.enabled);
     assert!(remote.problem.unwrap().contains("database_url must be a string"));
 
-    let remote = memory_remote_set(&env, change(MemoryRemoteKind::Postgres, Some("postgres://h/db"), None)).unwrap();
+    let remote = set(&env, change(MemoryRemoteKind::Postgres, Some("postgres://h/db"), None)).unwrap();
     assert_eq!(remote.problem, None);
 }
 
@@ -417,7 +437,7 @@ mod unix {
     fn the_file_is_private_and_its_folder_too() {
         let (dir, env, path) = home();
 
-        memory_remote_set(&env, change(MemoryRemoteKind::Postgres, Some("postgres://h/db"), None)).unwrap();
+        set(&env, change(MemoryRemoteKind::Postgres, Some("postgres://h/db"), None)).unwrap();
 
         assert_eq!(mode(&path), 0o600);
         assert_eq!(mode(path.parent().unwrap()), 0o700);
@@ -432,14 +452,14 @@ mod unix {
         write(&path, "database_url = \"postgres://h/db\"\n");
 
         set_mode(&path, 0o644);
-        assert!(memory_remote_get(&env).problem.unwrap().contains("can read"));
+        assert!(get(&env).problem.unwrap().contains("can read"));
 
         set_mode(&path, 0o666);
-        assert!(memory_remote_get(&env).problem.unwrap().contains("can change"));
+        assert!(get(&env).problem.unwrap().contains("can change"));
 
-        memory_remote_set(&env, change(MemoryRemoteKind::Postgres, None, None)).unwrap();
+        set(&env, change(MemoryRemoteKind::Postgres, None, None)).unwrap();
         assert_eq!(mode(&path), 0o600);
-        assert_eq!(memory_remote_get(&env).problem, None);
+        assert_eq!(get(&env).problem, None);
     }
 
     #[test]
@@ -450,16 +470,16 @@ mod unix {
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
         symlink(&elsewhere, &path).unwrap();
 
-        let remote = memory_remote_get(&env);
+        let remote = get(&env);
         assert!(remote.enabled, "the linked file is still read");
         assert!(remote.problem.unwrap().contains("symbolic link"));
 
-        let message = invalid_input(memory_remote_set(
+        let message = invalid_input(set(
             &env,
             change(MemoryRemoteKind::Postgres, Some("postgres://other/db"), None),
         ));
         assert!(message.contains("symbolic link"), "{message}");
-        invalid_input(memory_remote_set(&env, off()));
+        invalid_input(set(&env, off()));
         assert!(std::fs::read_to_string(&elsewhere).unwrap().contains("postgres://h/db"));
 
         // A linked folder.
@@ -469,7 +489,7 @@ mod unix {
         std::fs::create_dir_all(&real).unwrap();
         symlink(&real, path.parent().unwrap()).unwrap();
 
-        let error = memory_remote_set(&env, change(MemoryRemoteKind::Postgres, Some("postgres://h/db"), None));
+        let error = set(&env, change(MemoryRemoteKind::Postgres, Some("postgres://h/db"), None));
         assert!(invalid_input(error).contains("symbolic link"));
         assert!(!real.join("config.toml").exists());
     }

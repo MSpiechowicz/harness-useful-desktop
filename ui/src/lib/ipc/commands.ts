@@ -29,14 +29,25 @@ import type { HarnessId } from './bindings/HarnessId';
 import type { HarnessSummary } from './bindings/HarnessSummary';
 import type { InstallLogLine } from './bindings/InstallLogLine';
 import type { McpState } from './bindings/McpState';
+import type { MemoryDeleteAll } from './bindings/MemoryDeleteAll';
 import type { MemoryNotesTarget } from './bindings/MemoryNotesTarget';
 import type { MemoryRemote } from './bindings/MemoryRemote';
 import type { MemoryRemoteKind } from './bindings/MemoryRemoteKind';
 import type { MemoryRemoteTest } from './bindings/MemoryRemoteTest';
+import type { MemoryNotesPage } from './bindings/MemoryNotesPage';
+import type { MemoryScriptsPage } from './bindings/MemoryScriptsPage';
 import type { MemorySwitchResult } from './bindings/MemorySwitchResult';
 import type { RecommendedSetup } from './bindings/RecommendedSetup';
 import type { ProjectInfo } from './bindings/ProjectInfo';
 import type { ReviewRequest } from './bindings/ReviewRequest';
+import type { NoteDetail } from './bindings/NoteDetail';
+import type { NoteKind } from './bindings/NoteKind';
+import type { NoteSort } from './bindings/NoteSort';
+import type { ScriptDetail } from './bindings/ScriptDetail';
+import type { ScriptGroup } from './bindings/ScriptGroup';
+import type { ScriptSort } from './bindings/ScriptSort';
+import type { SortOrder } from './bindings/SortOrder';
+import type { ScriptRequestEvent } from './bindings/ScriptRequestEvent';
 import type { SessionFolder } from './bindings/SessionFolder';
 import type { SessionMessagesPage } from './bindings/SessionMessagesPage';
 import type { SessionRef } from './bindings/SessionRef';
@@ -83,11 +94,116 @@ export const commands = {
    * the token is stored for libSQL only. `invalidInput` for a URL or token Harness Memory would refuse, or a file the app must not overwrite.
    */
   memory_remote_set: cmd<
-    { enabled: boolean; kind: MemoryRemoteKind | null; url: string | null; token: string | null; repositoryNotes: MemoryNotesTarget; globalNotes: MemoryNotesTarget },
+    {
+      enabled: boolean;
+      kind: MemoryRemoteKind | null;
+      url: string | null;
+      token: string | null;
+      repositoryNotes: MemoryNotesTarget;
+      globalNotes: MemoryNotesTarget;
+      /** Saved as `scripts = "local"` only when `local` and the result's `scriptsSupported`, never written otherwise. */
+      scripts: MemoryNotesTarget;
+      /**
+       * Saved as `trust_team_scripts = true` only when true and the result's `trustTeamScriptsSupported`, never written when false.
+       * While the server cannot be asked the saved key is kept as it is.
+       */
+      trustTeamScripts: boolean;
+    },
     MemoryRemote
   >(),
   /** Runs `harness-memory check` (20 s) with the given URL/token, or the saved ones where null. Never rejects for a failed check: see `ok`. */
   memory_remote_test: cmd<{ kind: MemoryRemoteKind; url: string | null; token: string | null }, MemoryRemoteTest>(),
+  /**
+   * One page of the project's scripts and the global ones (`harness-memory scripts list --json`, 15 s). Never rejects for a
+   * missing or old server: see `availability` (`scripts` is empty, `total` and `groups` are 0 unless `available`).
+   * `project` is the project root, null for global only. `offset` defaults to 0, `limit` to 50 (1 to 200), `query`
+   * (at most 256 characters, blank for none) matches name or description, `group` keeps one group (`groups` counts every
+   * group under the query either way), `sort` (`updated`, `name`, `language`, `scope` with global first, `place`, `runs`,
+   * `lastRun` with never-run scripts last either way) defaults to `updated`, `order` to `desc` for `updated` and `asc`
+   * otherwise; ties go by id. A server that does not know the sort answers `outdated`.
+   * Rejects with `invalidInput` for a bad limit or a long query, `forbidden` for a project that is not open or recent.
+   */
+  memory_scripts_list: cmd<
+    {
+      project: string | null;
+      offset: number;
+      limit?: number;
+      query?: string;
+      group?: ScriptGroup;
+      sort?: ScriptSort;
+      order?: SortOrder;
+    },
+    MemoryScriptsPage
+  >(),
+  /** One script with its body (`script_get`). `notFound` when it is gone or the server is not installed. */
+  memory_script_get: cmd<{ id: number; project: string | null }, ScriptDetail>(),
+  /** Deletes one script (`script_delete`). `notFound` when it is gone or the server is not installed. */
+  memory_script_delete: cmd<{ id: number; project: string | null }, null>(),
+  /**
+   * Deletes every script `memory_scripts_list` shows for `project` without filters, every group and page
+   * (`harness-memory scripts delete --all --yes`, 60 s): `deleted` counts them, `team` those that were in the team database
+   * (null when the server does not say). Rejects with `unsupported` when the server predates it, `notFound` when Harness
+   * Memory is not installed, `process` with the server's (redacted) message when it fails, `forbidden` for a project that
+   * is not open or recent.
+   */
+  memory_scripts_delete_all: cmd<{ project?: string | null }, MemoryDeleteAll>(),
+  /**
+   * Approves the reviewed versions of scripts with `harness-memory trust <id>=<sha256>… [--project <root>]` (20 s and 1 s per script, 120 s at most): each item
+   * is a script id and the `sha256` the user saw (64 lowercase hex), at most 500. Rejects with `conflict` when a script
+   * changed since it was reviewed (reload it and ask again, the others are still approved), `invalidInput` for no items or
+   * a bad id or hash, `process` with the server's (redacted) message when it fails, `notFound` when Harness Memory is not installed.
+   */
+  memory_scripts_trust: cmd<{ items: { id: number; sha256: string }[]; project: string | null }, null>(),
+  /**
+   * Sends the run requests of agents (a script this machine has not approved) to `onRequest`, replacing the previous listener.
+   * Every request still waiting is sent again at once. `gone` follows when the server got an answer or stopped waiting (45 s).
+   */
+  memory_script_requests_listen: cmd<{ onRequest: EventSink<ScriptRequestEvent> }, null>(),
+  /**
+   * Answers one run request (`allow` runs the script once and approves this version). `notFound` when the request is gone
+   * or was never reported to `memory_script_requests_listen`, or already answered.
+   */
+  memory_script_decide: cmd<{ requestId: string; allow: boolean }, null>(),
+  /**
+   * One page of the project's repository notes and the global ones (`harness-memory notes list --json`, 15 s). Never
+   * rejects for a missing or old server: see `availability` (`notes` is empty, `total` 0 and `kinds` empty unless
+   * `available`). `project` is the project root, null for global only. `offset` defaults to 0, `limit` to 50 (1 to 200),
+   * `query` (at most 256 characters, blank for none) is the server's search, `kind` keeps one kind (`kinds` counts every
+   * kind under the query either way), `sort` (`updated`, `title`, `kind` by name, `scope` with global first, `place` with
+   * this computer first) defaults to `updated`, `order` to `desc` for `updated` and `asc` otherwise; ties go by id. A
+   * server that does not know the sort answers `outdated`.
+   * Rejects with `invalidInput` for a bad limit or a long query, `forbidden` for a project that is not open or recent.
+   */
+  memory_notes_list: cmd<
+    {
+      project: string | null;
+      offset: number;
+      limit?: number;
+      query?: string;
+      kind?: NoteKind;
+      sort?: NoteSort;
+      order?: SortOrder;
+    },
+    MemoryNotesPage
+  >(),
+  /**
+   * One note with its body and its links (at most 50) (`harness-memory notes get`, 15 s). `notFound` when it is gone or
+   * Harness Memory is not installed, `unsupported` when the server predates the notes view, `process` with the server's
+   * (redacted) message when it fails.
+   */
+  memory_note_get: cmd<{ id: number; project: string | null }, NoteDetail>(),
+  /**
+   * Deletes one note (`harness-memory notes delete`, 15 s). `notFound` when it is gone or Harness Memory is not installed,
+   * `unsupported` when the server predates the notes view, `process` with the server's (redacted) message when it fails.
+   */
+  memory_note_delete: cmd<{ id: number; project: string | null }, null>(),
+  /**
+   * Deletes every note `memory_notes_list` shows for `project` without filters, every page (`harness-memory notes delete
+   * --all --yes`, 60 s): `deleted` counts them, `team` those that were in the team database (null when the server does not
+   * say). Rejects with `unsupported` when the server predates it, `notFound` when Harness Memory is not installed,
+   * `process` with the server's (redacted) message when it fails, `forbidden` for a project that is not open or recent.
+   */
+  memory_notes_delete_all: cmd<{ project?: string | null }, MemoryDeleteAll>(),
   open_external: cmd<{ url: string }, null>(),
   reveal_path: cmd<{ path: string }, null>(),
   harness_list: cmd<undefined, HarnessSummary[]>(),

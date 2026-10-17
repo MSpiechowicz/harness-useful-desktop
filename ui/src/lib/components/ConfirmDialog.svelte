@@ -13,6 +13,7 @@
 
 <script lang="ts">
   import { t } from '$lib/i18n/i18n.svelte';
+  import { IpcFailure } from '$lib/ipc/transport';
 
   import Button from './Button.svelte';
   import Dialog from './Dialog.svelte';
@@ -27,15 +28,46 @@
     /** The destructive action's verb: "Stop chat". */
     confirmLabel: string;
     cancelLabel?: string;
-    onconfirm: () => void;
+    /**
+     * Runs the action. One that returns a promise keeps the dialog open while it runs, with the buttons waiting, and
+     * closes it once it is done. If it throws, the dialog stays and says why, so the user can try again or leave.
+     */
+    onconfirm: () => unknown;
   }
 
   let { open = $bindable(false), title, description, subject, confirmLabel, cancelLabel, onconfirm }: Props = $props();
 
-  function confirm(): void {
-    open = false;
-    onconfirm();
+  let busy = $state(false);
+  let failure = $state<string | null>(null);
+
+  async function confirm(): Promise<void> {
+    const pending = onconfirm();
+
+    if (!(pending instanceof Promise)) {
+      open = false;
+
+      return;
+    }
+
+    busy = true;
+    failure = null;
+
+    try {
+      await pending;
+      open = false;
+    } catch (error) {
+      failure = IpcFailure.from(error).message;
+    } finally {
+      busy = false;
+    }
   }
+
+  // A dialog that opens again starts clean.
+  $effect(() => {
+    if (open) {
+      failure = null;
+    }
+  });
 </script>
 
 <!-- Destructive actions are confirmed in the danger tone; the safe choice comes first and holds the focus. -->
@@ -45,7 +77,7 @@
     <div class="min-w-0">
       <p class="line-clamp-2 font-medium break-words text-fg">{item.name}</p>
       {#if item.details}<p class="tabular truncate text-xs text-fg-3">{item.details}</p>{/if}
-      {#if item.note}<p class="mt-1 text-xs break-all text-warning">{item.note}</p>{/if}
+      {#if item.note}<p class="mt-1 text-xs [overflow-wrap:anywhere] text-pretty text-warning">{item.note}</p>{/if}
     </div>
   </div>
 {/snippet}
@@ -54,9 +86,13 @@
   {#if subject}{@render row(subject)}{/if}
 {/snippet}
 
-<Dialog bind:open {title} {description} subject={subject ? named : undefined}>
+{#snippet reason()}
+  <p class="text-sm text-danger" role="alert">{failure}</p>
+{/snippet}
+
+<Dialog bind:open {title} {description} subject={subject ? named : undefined} dismissible={!busy} children={failure === null ? undefined : reason}>
   {#snippet footer()}
-    <Button variant="ghost" onclick={() => (open = false)}>{cancelLabel ?? t('components.confirm.keep')}</Button>
-    <Button variant="danger" onclick={confirm}>{confirmLabel}</Button>
+    <Button variant="ghost" disabled={busy} onclick={() => (open = false)}>{cancelLabel ?? t('components.confirm.keep')}</Button>
+    <Button variant="danger" loading={busy} onclick={() => void confirm()}>{confirmLabel}</Button>
   {/snippet}
 </Dialog>

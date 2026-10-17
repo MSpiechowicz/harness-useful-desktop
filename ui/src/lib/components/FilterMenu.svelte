@@ -6,28 +6,31 @@
   import { cx } from '$lib/utils/cx';
 
   import Button from './Button.svelte';
-  import { ICON } from './icon';
+  import { ICON, type IconComponent } from './icon';
   import Popover from './Popover.svelte';
 
   interface Props {
     /** Accessible name of the menu, e.g. "Show". */
     label: string;
     /** The predefined filters; the first one is the unfiltered "All". */
-    options: { value: V; label: string }[];
+    options: { value: V; label: string; icon?: IconComponent }[];
     value: V;
     onchange: (value: V) => void;
+    /** Which edge of the button the menu lines up with; `end` for a button at the right of a header, `start` at the left. */
+    align?: 'start' | 'end';
   }
 
-  let { label, options, value, onchange }: Props = $props();
+  let { label, options, value, onchange, align = 'end' }: Props = $props();
 
   const current = $derived(options.find((option) => option.value === value) ?? options[0]);
+  const TriggerIcon = $derived(current.icon ?? ListFilter);
 </script>
 
 <!-- A filter picks from a few ready-made choices; typing is for search. -->
-<Popover {label} kind="menu" align="end" class="w-48 min-w-0!">
+<Popover {label} kind="menu" {align} class="w-48 min-w-0!">
   {#snippet trigger({ props })}
     <Button {...props} aria-label={`${label}: ${current.label}`}>
-      {#snippet leading()}<ListFilter size={ICON.sm} aria-hidden="true" />{/snippet}
+      {#snippet leading()}<TriggerIcon size={ICON.sm} aria-hidden="true" />{/snippet}
       {current.label}
       {#snippet trailing()}<ChevronDown size={ICON.sm} aria-hidden="true" />{/snippet}
     </Button>
@@ -50,7 +53,10 @@
             onchange(option.value);
           }}
         >
-          {option.label}
+          <span class="flex min-w-0 items-center gap-2.5">
+            {#if option.icon}<option.icon size={ICON.sm} class="shrink-0 text-fg-3" aria-hidden="true" />{/if}
+            <span class="truncate">{option.label}</span>
+          </span>
           {#if option.value === value}<Check size={ICON.sm} class="text-accent-text" aria-hidden="true" />{/if}
         </button>
       {/each}

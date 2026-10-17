@@ -24,12 +24,17 @@
 //! After the last step the agent waits for stdin EOF and exits 0. An `expect` that sees EOF exits
 //! 0 too; a failed `match` exits 4 with a message on stderr.
 //!
-//! Copied under the name `harness-memory`, `fake_agent --version` prints `harness-memory 0.0.0`, so
-//! the desktop tests can place an installed memory server on every OS. `harness-memory check`
+//! Copied under the name `harness-memory`, `fake_agent --version` prints `harness-memory 0.0.0`
+//! (`FAKE_MEMORY_VERSION` replaces the version), so the desktop tests can place an installed memory
+//! server on every OS. `harness-memory mcp` (or `fake_agent --dialect memory`) serves scripts, see
+//! [`memory`]. `harness-memory check`
 //! (nothing else on the command line) answers from `HARNESS_MEMORY_DATABASE_URL` and
 //! `HARNESS_MEMORY_DATABASE_TOKEN` only: unset URL, exit 1; a URL containing `fail`, exit 1 with
 //! the URL and token echoed on stderr (as a careless server would); else
-//! `ok: Fake at <scheme> (schema 1) token <set|unset|blank>` and exit 0.
+//! `ok: Fake at <scheme> (schema 1) token <set|unset|blank>` and exit 0. `harness-memory trust
+//! <id>=<sha256>… [--project <path>]` approves the stand-in's scripts, see [`memory::trust`].
+//! `harness-memory notes list|get|delete` and `harness-memory scripts list` answer from fixtures,
+//! see [`memory_cli`].
 
 use std::collections::HashMap;
 use std::io::{BufRead, Write};
@@ -39,16 +44,35 @@ use std::time::Duration;
 
 use serde_json::{Map, Value, json};
 
+#[path = "fake_agent/memory.rs"]
+mod memory;
+#[path = "fake_agent/memory_cli.rs"]
+mod memory_cli;
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
 
     if is_memory_stand_in(&args, "--version") {
-        println!("harness-memory 0.0.0");
+        println!("harness-memory {}", memory::version());
         std::process::exit(0);
     }
 
     if is_memory_stand_in(&args, "check") {
         memory_check();
+    }
+
+    if is_memory_named() {
+        match args.get(1).map(String::as_str) {
+            Some("trust") => memory::trust(&args[2..]),
+            Some("notes") => memory_cli::notes(&args[2..]),
+            Some("scripts") => memory_cli::scripts(&args[2..]),
+            _ => {}
+        }
+    }
+
+    let memory_dialect = args.get(1..).is_some_and(|rest| rest == ["--dialect", "memory"]);
+    if memory_dialect || is_memory_stand_in(&args, "mcp") {
+        memory::serve();
     }
 
     let option = |name: &str| {
@@ -91,12 +115,15 @@ fn main() {
 /// `harness-memory <argument>` (and nothing else) run on a copy of this binary named
 /// `harness-memory`.
 fn is_memory_stand_in(args: &[String], argument: &str) -> bool {
-    let Ok(exe) = std::env::current_exe() else {
-        return false;
-    };
-    let named = exe.file_stem().is_some_and(|stem| stem == "harness-memory");
+    is_memory_named() && args.get(1..).is_some_and(|rest| rest == [argument])
+}
 
-    named && args.get(1..).is_some_and(|rest| rest == [argument])
+/// Whether this binary runs as a copy named `harness-memory`, or with `FAKE_AGENT_NAME=harness-memory`
+/// (tests that run it in place of an installed server without copying it).
+fn is_memory_named() -> bool {
+    let named = std::env::var("FAKE_AGENT_NAME").is_ok_and(|name| name == "harness-memory");
+
+    named || std::env::current_exe().is_ok_and(|exe| exe.file_stem().is_some_and(|stem| stem == "harness-memory"))
 }
 
 /// `harness-memory check`, answered from the environment (see the module docs).

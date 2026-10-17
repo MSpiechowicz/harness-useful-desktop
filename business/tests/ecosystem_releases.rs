@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 use harness_business::ecosystem::ECOSYSTEM;
 use harness_business::ecosystem::releases::{
     CompanionReleases, FAILURE_TTL, Lookup, MAX_RELEASE_BYTES, RELEASE_HOST, RELEASE_TTL, ReleaseCache, is_fresh,
-    is_newer_release, parse_release, release_endpoint, release_version,
+    is_newer_release, parse_release, release_endpoint, release_of, release_version,
 };
 use harness_business::model::{EcosystemId, EcosystemInstalled, EcosystemRelease};
 use pretty_assertions::assert_eq;
@@ -144,6 +144,25 @@ fn only_a_higher_plain_numeric_release_counts_as_newer() {
     assert!(!is_newer_release("1..0", "0.1"));
     assert!(!is_newer_release("+2.0.0", "1.0.0"));
     assert!(!is_newer_release("", "1.0.0"));
+}
+
+/// A source build reports `X.Y.Z-dev`, and it can be ahead of the latest release. The family updater installs only when
+/// the release says `update_available`, so a pre-release version must never be reported as outdated.
+#[test]
+fn a_release_is_never_newer_than_a_source_build() {
+    assert!(!is_newer_release("1.1.0", "1.0.1-dev"));
+    assert!(!is_newer_release("1.1.0", "1.2.0-dev.1"));
+    assert!(!is_newer_release("1.1.0", "1.1.0-dev"));
+    assert!(!is_newer_release("2.0.0", "1.0.1-dev"));
+
+    for installed in ["1.0.1-dev", "1.2.0-dev.1"] {
+        let memory = EcosystemInstalled {
+            id: EcosystemId::Memory,
+            version: installed.to_owned(),
+        };
+
+        assert!(!release_of(&memory, "1.1.0").update_available, "{installed}");
+    }
 }
 
 #[test]

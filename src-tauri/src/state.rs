@@ -9,7 +9,8 @@ use std::time::SystemTime;
 
 use harness_business::app_dirs::legacy_memory_copy;
 use harness_business::ecosystem::{
-    CompanionReleases, Dashboard, DashboardOptions, MemoryRecall, memory_version, resolve_memory,
+    CompanionReleases, Dashboard, DashboardOptions, MemoryRecall, MemoryScripts, PoolOptions, memory_version,
+    resolve_memory,
 };
 use harness_business::env::Env;
 use harness_business::harness::HarnessRegistry;
@@ -24,6 +25,7 @@ use tauri::{AppHandle, Manager, Runtime};
 use crate::agents::Agents;
 use crate::drops::DropSink;
 use crate::memory_recall::RecallGate;
+use crate::memory_requests::ScriptRequests;
 use crate::updates::Updates;
 
 /// State shared by all IPC commands.
@@ -47,6 +49,11 @@ pub struct AppState {
     pub sessions: Arc<SessionCache>,
     /// The pooled `harness-dashboard mcp` connection (stops after 30 s without a query).
     pub dashboard: Arc<Dashboard>,
+    /// The pooled `harness-memory mcp` connection for the Memory view's scripts (stops after 30 s
+    /// without a call), and whether the installed server keeps scripts.
+    pub memory_scripts: Arc<MemoryScripts>,
+    /// The script run requests of Harness Memory and the heartbeat that lets the server ask.
+    pub script_requests: Arc<ScriptRequests>,
     /// Where saved attachments live (the app's cache; the agent opens them by path).
     pub attachments_dir: PathBuf,
     /// Where native drag and drop events go.
@@ -101,6 +108,8 @@ impl AppState {
             agents: Arc::new(Agents::new()),
             sessions: Arc::new(SessionCache::default()),
             dashboard: Arc::new(Dashboard::new(Arc::new(TokioSpawner), DashboardOptions::default())),
+            memory_scripts: Arc::new(MemoryScripts::new(Arc::new(TokioSpawner), PoolOptions::default())),
+            script_requests: Arc::new(ScriptRequests::default()),
             attachments_dir: prefs_dir.join("attachments"),
             drops: DropSink::default(),
             updates: Updates::new(None),

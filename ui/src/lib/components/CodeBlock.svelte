@@ -66,8 +66,9 @@
 </script>
 
 <figure class={cx('chat-radius overflow-hidden border border-line bg-canvas', className)}>
-  <figcaption class="flex h-8 items-center justify-between border-b border-line pr-1 pl-3.5 text-xs text-fg-3">
-    <span class="font-mono">{lang || 'text'}</span>
+  <!-- pr-[9px] + the copy icon's 5px inset inside its 28px button = the label's 14px on the left. -->
+  <figcaption class="flex h-8 items-center justify-between border-b border-line bg-surface-2 pr-[9px] pl-3.5 text-xs text-fg-2">
+    <span class="font-mono font-medium">{lang || 'text'}</span>
     <CopyButton text={code} label={t('components.copy.code')} />
   </figcaption>
 

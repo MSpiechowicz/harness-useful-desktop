@@ -69,7 +69,7 @@
     offFailure = null;
 
     try {
-      await memoryRemote.save({ enabled: false, kind: remote.kind, url: null, token: null, repositoryNotes: remote.repositoryNotes, globalNotes: remote.globalNotes });
+      await memoryRemote.save({ enabled: false, kind: remote.kind, url: null, token: null, repositoryNotes: remote.repositoryNotes, globalNotes: remote.globalNotes, scripts: remote.scripts, trustTeamScripts: remote.scripts === 'remote' && remote.trustTeamScripts });
     } catch (error) {
       offFailure = IpcFailure.from(error).message;
     } finally {

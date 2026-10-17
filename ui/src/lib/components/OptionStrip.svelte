@@ -123,7 +123,7 @@
       onclick={() => select(option)}
       onkeydown={(event) => onKeydown(event, index)}
       class={cx(
-        'relative z-10 inline-flex items-center gap-2 px-3.5 text-sm font-medium transition-colors duration-[var(--dur-fast)] disabled:cursor-not-allowed disabled:opacity-50',
+        'relative z-10 inline-flex items-center gap-2 px-3.5 text-sm font-medium whitespace-nowrap transition-colors duration-[var(--dur-fast)] disabled:cursor-not-allowed disabled:opacity-50',
         // Underline tabs sit in a strip that clips anything outside them, so their focus ring is drawn inside the tab,
         // far enough in to leave a clear gap above the selected tab's underline instead of touching it.
         appearance === 'pill' ? 'h-full rounded-sm' : 'h-control rounded-md focus-visible:outline-offset-[-6px]',

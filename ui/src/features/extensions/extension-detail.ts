@@ -1,3 +1,4 @@
+import type { FactRow } from '$lib/components/facts';
 import { t } from '$lib/i18n/i18n.svelte';
 import { formatCount } from '$lib/utils/format';
 import { formatDateTime, relativeTime } from '$lib/utils/format';
@@ -7,18 +8,11 @@ import type { ExtItem } from './extension-items';
 import { agentScope, modeLabel, scopeLabel } from './extension-items';
 
 /** One labelled line of a detail pane. */
-export interface Fact {
-  label: string;
-  value: string;
-  mono?: boolean;
+export interface Fact extends FactRow {
   /** An absolute path: shown shortened, in the Location card. */
   path?: boolean;
   /** Where the fact lives: the Location card holds identifiers and paths, the Details card everything else. */
   location?: boolean;
-  /** The full text for the tooltip when the value shown is a shortened form of it. */
-  title?: string;
-  /** A switched-on state, drawn with a green dot. */
-  on?: boolean;
 }
 
 export interface DetailBasics {

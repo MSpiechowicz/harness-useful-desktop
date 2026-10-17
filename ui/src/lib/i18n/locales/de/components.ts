@@ -138,4 +138,12 @@ export const components: AreaMessages<typeof enComponents> = {
   'components.action.linkFailed': 'Link konnte nicht geöffnet werden',
 
   'components.ipc.unavailable': 'Die Desktop-Laufzeit ist nicht verfügbar. Starte die App mit `bun run dev`, oder mit `bun run dev:mock` für eine Browser-Vorschau.',
+
+  'components.pagination.label': 'Seiten',
+  'components.pagination.range': '{from}–{to} von {total}',
+  'components.pagination.previous': 'Zurück',
+  'components.pagination.next': 'Weiter',
+  'components.pagination.page': 'Seite {page}',
+  'components.panel.close': 'Schließen',
+  'components.table.resize': 'Breite der Spalte {column} ändern',
 };

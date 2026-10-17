@@ -13,6 +13,7 @@ import { updates } from './updates';
 import { harness } from './harness';
 import { components } from './components';
 import { sync } from './sync';
+import { memory } from './memory';
 
 export const fr: Dict = {
   ...common,
@@ -29,4 +30,5 @@ export const fr: Dict = {
   ...harness,
   ...components,
   ...sync,
+  ...memory,
 };

@@ -306,6 +306,10 @@ export const chat: AreaMessages<typeof enChat> = {
   'chat.user.recallCount.other': '{count} Notizen',
   'chat.user.recallCaption': 'Notizen aus dem Projektgedächtnis, für den Agenten zu dieser Nachricht hinzugefügt.',
   'chat.user.recallNotes': 'Notizen aus dem Projektgedächtnis',
+  'chat.user.recallScriptCount.one': '{count} Skript',
+  'chat.user.recallScriptCount.other': '{count} Skripte',
+  'chat.user.recallScriptsCaption': 'Gespeicherte Skripte dieses Projekts, zu dieser Nachricht hinzugefügt, damit der Agent sie ausführen kann.',
+  'chat.user.recallScripts': 'Gespeicherte Skripte',
 
   'chat.retry.start': 'Wiederholung läuft',
   'chat.retry.end': 'Wiederholung',

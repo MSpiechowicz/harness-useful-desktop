@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import { commands, type CommandArgs, type CommandName } from '../commands';
 import { IpcFailure } from '../transport';
@@ -7,6 +7,7 @@ import { defaultScenario } from './scenarios';
 import { manualRemovalsOf } from './setup-handlers';
 import { samplePrefs } from '../../../../tests/helpers';
 import { fixtures } from './fixtures';
+import { sampleScripts } from './memory-scripts-fixtures';
 
 /** One valid call per command; typed so adding a command to the map forces an entry here. */
 const sampleArgs = (sessionKey: string): { [K in CommandName]: CommandArgs<K> } => ({
@@ -15,8 +16,19 @@ const sampleArgs = (sessionKey: string): { [K in CommandName]: CommandArgs<K> } 
   prefs_set: { prefs: samplePrefs() },
   memory_set_enabled: { enabled: false },
   memory_remote_get: undefined,
-  memory_remote_set: { enabled: true, kind: 'postgres', url: 'postgres://memory:pw@db.ok.example.com/harness_memory', token: null, repositoryNotes: 'remote', globalNotes: 'local' },
+  memory_remote_set: { enabled: true, kind: 'postgres', url: 'postgres://memory:pw@db.ok.example.com/harness_memory', token: null, repositoryNotes: 'remote', globalNotes: 'local', scripts: 'remote', trustTeamScripts: false },
   memory_remote_test: { kind: 'libsql', url: 'libsql://team-ok.turso.io', token: 'tok' },
+  memory_scripts_list: { project: '/home/demo/project', offset: 0 },
+  memory_script_get: { id: 12, project: '/home/demo/project' },
+  memory_script_delete: { id: 12, project: '/home/demo/project' },
+  memory_scripts_delete_all: { project: '/home/demo/project' },
+  memory_notes_list: { project: '/home/demo/project', offset: 0 },
+  memory_note_get: { id: 3, project: '/home/demo/project' },
+  memory_note_delete: { id: 3, project: '/home/demo/project' },
+  memory_notes_delete_all: { project: null },
+  memory_scripts_trust: { items: [{ id: 21, sha256: sampleScripts().find((script) => script.id === 21)?.sha256 ?? '' }], project: '/home/demo/project' },
+  memory_script_requests_listen: { onRequest: () => {} },
+  memory_script_decide: { requestId: 'a'.repeat(32), allow: false },
   open_external: { url: 'https://github.com/MSpiechowicz/harness-useful-desktop' },
   reveal_path: { path: '/home/demo/.omp/agent/config.yml' },
   harness_list: undefined,
@@ -98,7 +110,57 @@ describe('mock transport', () => {
       await mock.invoke('setup_install_memory', { confirmed: true, onLog: () => {} });
     }
 
+    // An answer to a request nobody asked is refused, as the backend refuses one for a request that is over.
+    if (name === 'memory_script_decide') {
+      await expect(mock.invoke(name, sampleArgs(key)[name])).rejects.toMatchObject({ code: 'notFound' });
+
+      return;
+    }
+
     await expect(mock.invoke(name, sampleArgs(key)[name] as never)).resolves.not.toBeInstanceOf(IpcFailure);
+  });
+
+  describe('the outdated Memory preview', () => {
+    afterEach(() => globalThis.history.replaceState(null, '', '/'));
+
+    it('lists scripts once Harness Memory was updated', async () => {
+      globalThis.history.replaceState(null, '', '/?scripts=outdated');
+      const mock = transport();
+
+      expect((await mock.invoke('memory_scripts_list', { project: null, offset: 0 })).availability).toEqual({ kind: 'outdated' });
+
+      await mock.invoke('setup_install_memory', { confirmed: true, onLog: () => {} });
+
+      expect((await mock.invoke('memory_scripts_list', { project: null, offset: 0 })).availability).toEqual({ kind: 'available' });
+    });
+
+    /** The Memory release the Ecosystem page would compare with what is installed. */
+    async function memoryRelease(mock: ReturnType<typeof transport>) {
+      const status = await mock.invoke('ecosystem_status', undefined);
+      const memory = status.items.find((item) => item.id === 'memory');
+      const releases = await mock.invoke('ecosystem_releases', { installed: [{ id: 'memory', version: memory?.version ?? '1.0.0' }] });
+
+      return { version: memory?.version, release: releases.find((release) => release.id === 'memory') };
+    }
+
+    it('has a newer Harness Memory release to update to, until it was updated', async () => {
+      globalThis.history.replaceState(null, '', '/?scripts=outdated');
+      const mock = transport();
+
+      expect((await memoryRelease(mock)).release).toMatchObject({ latestVersion: '1.1.0', updateAvailable: true });
+
+      await mock.invoke('setup_install_memory', { confirmed: true, onLog: () => {} });
+
+      expect((await memoryRelease(mock)).release).toMatchObject({ updateAvailable: false });
+    });
+
+    it('is a source build with no newer release in the outdatedNoRelease preview', async () => {
+      globalThis.history.replaceState(null, '', '/?scripts=outdatedNoRelease');
+      const mock = transport();
+
+      expect((await mock.invoke('memory_scripts_list', { project: null, offset: 0 })).availability).toEqual({ kind: 'outdated' });
+      expect(await memoryRelease(mock)).toMatchObject({ version: '1.0.1-dev', release: { updateAvailable: false } });
+    });
   });
 
   it('refuses a project that is neither active nor recent', async () => {
@@ -213,8 +275,8 @@ describe('mock transport', () => {
     const mock = transport();
     await expect(mock.invoke('memory_remote_get', undefined)).resolves.toMatchObject({ enabled: false, kind: null, problem: null });
 
-    const saved = await mock.invoke('memory_remote_set', { enabled: true, kind: 'libsql', url: 'libsql://team-ok.turso.io', token: 'tok-secret', repositoryNotes: 'local', globalNotes: 'remote' });
-    expect(saved).toMatchObject({ enabled: true, kind: 'libsql', urlRedacted: 'libsql://team-ok.turso.io', hasToken: true, repositoryNotes: 'local' });
+    const saved = await mock.invoke('memory_remote_set', { enabled: true, kind: 'libsql', url: 'libsql://team-ok.turso.io', token: 'tok-secret', repositoryNotes: 'local', globalNotes: 'remote', scripts: 'local', trustTeamScripts: false });
+    expect(saved).toMatchObject({ enabled: true, kind: 'libsql', urlRedacted: 'libsql://team-ok.turso.io', hasToken: true, repositoryNotes: 'local', scripts: 'local', scriptsSupported: true });
     expect(JSON.stringify(saved)).not.toContain('tok-secret');
 
     await expect(mock.invoke('memory_remote_test', { kind: 'libsql', url: null, token: null })).resolves.toMatchObject({ ok: true });
@@ -223,7 +285,7 @@ describe('mock transport', () => {
       message: 'error: cannot connect to postgres://u@db.example.com/x: connection refused',
     });
 
-    const pw = { enabled: true, kind: 'postgres', url: null, token: null, repositoryNotes: 'remote', globalNotes: 'remote' } as const;
+    const pw = { enabled: true, kind: 'postgres', url: null, token: null, repositoryNotes: 'remote', globalNotes: 'remote', scripts: 'remote', trustTeamScripts: false } as const;
     await expect(mock.invoke('memory_remote_set', pw)).rejects.toMatchObject({ code: 'invalidInput' });
     await expect(mock.invoke('memory_remote_set', { ...pw, kind: 'libsql', url: 'libsql://u:pw@t.turso.io' })).rejects.toMatchObject({ code: 'invalidInput' });
 

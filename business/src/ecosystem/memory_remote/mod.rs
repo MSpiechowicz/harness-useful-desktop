@@ -3,7 +3,8 @@
 //!
 //! - [`memory_remote_get`]: what the file holds, with the URL redacted and the token reduced to
 //!   whether one is saved.
-//! - [`memory_remote_set`]: saves or removes the URL, the token and the note routing.
+//! - [`memory_remote_set`]: saves or removes the URL, the token, the note and script routing and
+//!   `trust_team_scripts`.
 //! - [`memory_remote_test`]: runs `harness-memory check` against the saved or the given database.
 //!
 //! The app itself never connects to the database. The URL and the token are secrets: they are
@@ -18,7 +19,7 @@ use std::path::PathBuf;
 pub use check::{CHECK_TIMEOUT, memory_remote_test};
 pub use url::{MAX_SECRET_BYTES, kind_of, redact_url, validate_token, validate_url};
 
-use self::file::{ConfigFile, read_config, remove_config, render, write_config};
+use self::file::{ConfigFile, Routing, read_config, remove_config, render, write_config};
 use self::url::kind_name;
 use crate::env::{Env, OsKind};
 use crate::error::{BusinessError, Result};
@@ -47,6 +48,43 @@ pub struct MemoryRemoteChange {
     pub repository_notes: MemoryNotesTarget,
     /// Where global notes go.
     pub global_notes: MemoryNotesTarget,
+    /// Where scripts go. `Local` is saved only while the installed server supports scripts.
+    pub scripts: MemoryNotesTarget,
+    /// Run every script from the team database without asking. Saved (as `true`) only while the
+    /// installed server asks before running a script ([`ScriptsSupport::Approvals`]) and scripts go
+    /// to the team database.
+    pub trust_team_scripts: bool,
+}
+
+/// Whether the installed server keeps scripts and asks the user before running one, which decides
+/// what happens to the `scripts` and `trust_team_scripts` keys of the config file on a save (see
+/// [`MemoryScripts::support`](super::MemoryScripts::support)).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ScriptsSupport {
+    /// It asks the user before running a script it has not approved (its `script_run` takes no
+    /// `sha`): both keys are written when wanted.
+    Approvals,
+    /// It offers `script_list` but predates approvals: `scripts = "local"` is written when
+    /// scripts stay local, `trust_team_scripts` is dropped (the server refuses it).
+    Supported,
+    /// It predates scripts and refuses both keys: they are dropped.
+    Unsupported,
+    /// The server could not be asked (not found, or the probe failed): both saved keys are kept as
+    /// they are, so a passing failure neither sends local scripts to the team database nor
+    /// changes which scripts run without asking.
+    Unknown,
+}
+
+impl ScriptsSupport {
+    /// Whether the `scripts` key may be written.
+    pub fn keeps_scripts(self) -> bool {
+        matches!(self, Self::Approvals | Self::Supported)
+    }
+
+    /// Whether the `trust_team_scripts` key may be written.
+    pub fn asks_before_running(self) -> bool {
+        self == Self::Approvals
+    }
 }
 
 /// Harness Memory's config file: under `$XDG_CONFIG_HOME` (or `~/.config`) on Linux,
@@ -65,18 +103,21 @@ pub fn memory_config_path(env: &Env) -> Option<PathBuf> {
 }
 
 /// The team database settings in the config file. Reads the file only (see [`file`]).
-pub fn memory_remote_get(env: &Env) -> MemoryRemote {
+/// `scriptsSupported` and `trustTeamScriptsSupported` follow `support` (see
+/// [`ScriptsSupport::keeps_scripts`] and [`ScriptsSupport::asks_before_running`]); the saved
+/// values are reported either way.
+pub fn memory_remote_get(env: &Env, support: ScriptsSupport) -> MemoryRemote {
     let Some(path) = memory_config_path(env) else {
         return MemoryRemote {
             problem: Some("APPDATA is not set, so the config folder is unknown".to_owned()),
-            ..remote_from(&ConfigFile::default(), WINDOWS_PATH_HINT.to_owned())
+            ..remote_from(&ConfigFile::default(), WINDOWS_PATH_HINT.to_owned(), support)
         };
     };
 
-    remote_from(&read_config(&path), tilde(env, &path))
+    remote_from(&read_config(&path), tilde(env, &path), support)
 }
 
-fn remote_from(config: &ConfigFile, config_path: String) -> MemoryRemote {
+fn remote_from(config: &ConfigFile, config_path: String, support: ScriptsSupport) -> MemoryRemote {
     let url = config.url.as_deref().filter(|url| !url.trim().is_empty());
 
     MemoryRemote {
@@ -86,6 +127,10 @@ fn remote_from(config: &ConfigFile, config_path: String) -> MemoryRemote {
         has_token: config.token.is_some(),
         repository_notes: config.repository_notes,
         global_notes: config.global_notes,
+        scripts: config.scripts.unwrap_or_default(),
+        scripts_supported: support.keeps_scripts(),
+        trust_team_scripts: config.trust_team_scripts == Some(true),
+        trust_team_scripts_supported: support.asks_before_running(),
         config_path,
         problem: config
             .problem
@@ -101,8 +146,9 @@ fn unsupported_scheme() -> String {
 /// Applies `change` to the config file and returns the settings saved. Refuses (`InvalidInput`) a
 /// file the app could not read or parse, one with keys Harness Memory does not know, and a
 /// symbolic link; the URL and the token are validated as in [`validate_url`] and
-/// [`validate_token`]. Turning the team database off removes the file.
-pub fn memory_remote_set(env: &Env, change: MemoryRemoteChange) -> Result<MemoryRemote> {
+/// [`validate_token`]. Turning the team database off removes the file. The `scripts` and
+/// `trust_team_scripts` keys follow `support` (see [`ScriptsSupport`]).
+pub fn memory_remote_set(env: &Env, change: MemoryRemoteChange, support: ScriptsSupport) -> Result<MemoryRemote> {
     let path = memory_config_path(env)
         .ok_or_else(|| BusinessError::Unsupported("APPDATA is not set, so the config folder is unknown".to_owned()))?;
     let saved = read_config(&path);
@@ -118,7 +164,7 @@ pub fn memory_remote_set(env: &Env, change: MemoryRemoteChange) -> Result<Memory
         remove_config(&path)?;
         tracing::info!("team memory database removed from the Harness Memory config");
 
-        return Ok(memory_remote_get(env));
+        return Ok(memory_remote_get(env, support));
     }
 
     let kind = change
@@ -136,14 +182,56 @@ pub fn memory_remote_set(env: &Env, change: MemoryRemoteChange) -> Result<Memory
         _ => None,
     };
 
-    let text = render(&url, token.as_deref(), change.repository_notes, change.global_notes);
+    let routing = Routing {
+        repository_notes: change.repository_notes,
+        global_notes: change.global_notes,
+        scripts: scripts_key(change.scripts, saved.scripts, support),
+        trust_team_scripts: trust_key(
+            change.trust_team_scripts,
+            change.scripts,
+            saved.trust_team_scripts,
+            support,
+        ),
+    };
+
+    let text = render(&url, token.as_deref(), routing);
     write_config(&path, &text)?;
     tracing::info!(
         kind = kind_name(kind),
         "team memory database saved to the Harness Memory config"
     );
 
-    Ok(memory_remote_get(env))
+    Ok(memory_remote_get(env, support))
+}
+
+/// The `scripts` value to write (`None` for no key): `local` when scripts stay local on a server
+/// that keeps them (unset means remote), nothing for a server that predates them, and the saved
+/// value, untouched, when the server could not be asked.
+fn scripts_key(
+    wanted: MemoryNotesTarget,
+    saved: Option<MemoryNotesTarget>,
+    support: ScriptsSupport,
+) -> Option<MemoryNotesTarget> {
+    match support {
+        ScriptsSupport::Approvals | ScriptsSupport::Supported => {
+            (wanted == MemoryNotesTarget::Local).then_some(MemoryNotesTarget::Local)
+        }
+        ScriptsSupport::Unsupported => None,
+        ScriptsSupport::Unknown => saved,
+    }
+}
+
+/// The `trust_team_scripts` value to write (`None` for no key): `true` when wanted on a server that
+/// asks before running a script while scripts go to the team database (unset means false; with
+/// scripts kept local there are no team scripts to trust, so a later switch back to the team does
+/// not trust them unasked), nothing for an older one, and the saved value, untouched, when the
+/// server could not be asked.
+fn trust_key(wanted: bool, scripts: MemoryNotesTarget, saved: Option<bool>, support: ScriptsSupport) -> Option<bool> {
+    match support {
+        ScriptsSupport::Approvals => (wanted && scripts == MemoryNotesTarget::Remote).then_some(true),
+        ScriptsSupport::Supported | ScriptsSupport::Unsupported => None,
+        ScriptsSupport::Unknown => saved,
+    }
 }
 
 /// The saved URL, re-validated, when it is one of `kind`.

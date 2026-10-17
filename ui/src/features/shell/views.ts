@@ -1,4 +1,5 @@
 import Blocks from '@lucide/svelte/icons/blocks';
+import Brain from '@lucide/svelte/icons/brain';
 import GitBranch from '@lucide/svelte/icons/git-branch';
 import GitCompare from '@lucide/svelte/icons/git-compare';
 import MessageSquare from '@lucide/svelte/icons/message-square';
@@ -102,6 +103,19 @@ export const VIEWS: readonly ViewMeta[] = [
     },
     get body() {
       return t('shell.view.ecosystem.body');
+    },
+  },
+  {
+    id: 'memory',
+    get label() {
+      return t('shell.view.memory');
+    },
+    icon: Brain,
+    get heading() {
+      return t('shell.view.memory.heading');
+    },
+    get body() {
+      return t('shell.view.memory.body');
     },
   },
   {

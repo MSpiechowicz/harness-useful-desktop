@@ -19,13 +19,15 @@
     description?: string;
     size?: Size;
     dismissible?: boolean;
+    /** Selector of the control that takes the focus first, e.g. the safe choice of a confirmation. */
+    initialFocus?: string;
     onclose?: () => void;
     footer?: Snippet;
     /** The body; a confirmation has none, only its title, description and buttons. */
     children?: Snippet;
   }
 
-  let { open = $bindable(false), title, subject, description, size = 'md', dismissible = true, onclose, footer, children }: Props = $props();
+  let { open = $bindable(false), title, subject, description, size = 'md', dismissible = true, initialFocus, onclose, footer, children }: Props = $props();
 
   const SIZES: Record<Size, string> = { sm: 'w-[24rem]', md: 'w-[32rem]', lg: 'w-[44rem]', xl: 'w-[min(62rem,calc(100vw-2rem))]' };
 
@@ -38,7 +40,7 @@
   }
 </script>
 
-<Overlay {open} labelledby={titleId} describedby={description ? descriptionId : undefined} {dismissible} onclose={close}>
+<Overlay {open} labelledby={titleId} describedby={description ? descriptionId : undefined} {dismissible} {initialFocus} onclose={close}>
   <div class={cx('flex max-h-[85vh] flex-col rounded-xl border border-line-strong bg-glass shadow-pop backdrop-blur-xl', SIZES[size])}>
     <!-- The close button is centred on the title line; its negative margins keep the 36px control from making the line
          taller or pushing the glyph in from the edge. The title's letters start 16px below the top edge (9px of

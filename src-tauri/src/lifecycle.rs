@@ -8,7 +8,8 @@
 //!
 //! Exit is held back (`prevent_exit`) while a separate thread waits for
 //! [`Agents::stop_all`](crate::agents::Agents::stop_all), at most [`EXIT_BUDGET`]; the event loop
-//! keeps running meanwhile. Then the app exits for real.
+//! keeps running meanwhile. Then the app exits for real. Shutdown (and `RunEvent::Exit`) also ends
+//! the memory heartbeat and removes its file ([`ScriptRequests::stop`](crate::memory_requests::ScriptRequests::stop)).
 
 use std::sync::mpsc;
 use std::time::Duration;
@@ -57,6 +58,11 @@ pub fn on_run_event<R: Runtime>(app: &AppHandle<R>, event: RunEvent) {
             event: WindowEvent::Destroyed,
             ..
         } if label == MAIN_WINDOW => begin_shutdown(app, 0),
+        RunEvent::Exit => {
+            if let Some(state) = app.try_state::<AppState>() {
+                state.script_requests.stop();
+            }
+        }
         _ => {}
     }
 }
@@ -73,6 +79,8 @@ fn begin_shutdown<R: Runtime>(app: &AppHandle<R>, code: i32) {
     }
 
     state.recall.clear();
+    // No agent can ask to run a script any more: the server stops waiting for this app.
+    state.script_requests.stop();
 
     let agents = state.agents.clone();
     let handle = app.clone();

@@ -32,6 +32,8 @@ pub const CAPTURED_VARS: &[&str] = &[
     "OPENCODE_CONFIG",
     "OPENCODE_CONFIG_DIR",
     "OPENCODE_DISABLE_PROJECT_CONFIG",
+    // Harness Memory's data folder, where the app meets the server for script run requests.
+    "HARNESS_MEMORY_DIR",
 ];
 
 /// Variables whose presence [`Env::from_process`] records without their value: they may hold

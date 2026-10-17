@@ -11,10 +11,15 @@
      * dot itself never moves. Off unless motion is full.
      */
     live?: boolean;
+    /**
+     * The dot stands before a word. The middle of a line box lies a little above the middle of lowercase letters, which
+     * is what the eye measures, so the dot is set 1px lower to sit on it. Left off for a dot with no text beside it.
+     */
+    beforeText?: boolean;
     class?: string;
   }
 
-  let { tone, live = false, class: className }: Props = $props();
+  let { tone, live = false, beforeText = false, class: className }: Props = $props();
 
   const TONES: Record<Tone, string> = {
     success: 'bg-success',
@@ -25,7 +30,7 @@
   };
 </script>
 
-<span class={cx('relative inline-flex size-[8px] shrink-0', className)} aria-hidden="true">
+<span class={cx('relative inline-flex size-[8px] shrink-0', beforeText && 'top-px', className)} aria-hidden="true">
   {#if live && motion.level === 'full'}
     <span class={cx('absolute inline-flex size-full animate-ping rounded-full opacity-60', TONES[tone])}></span>
   {/if}

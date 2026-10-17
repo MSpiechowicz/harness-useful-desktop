@@ -1,4 +1,5 @@
-//! Text the Rust side shows outside the webview (tray menu, native dialog titles), in each UI
+//! Text the Rust side shows outside the webview (tray menu, native dialog titles, OS
+//! notifications), in each UI
 //! language of `harness_business::model::LANGUAGES`. An unknown language code falls back to
 //! English. The product name stays untranslated.
 
@@ -19,6 +20,10 @@ pub struct NativeText {
     pub save_setup_file: &'static str,
     /// Label of the setup file type in those dialogs.
     pub setup_files: &'static str,
+    /// Title of the OS notification for a script run request.
+    pub script_request_title: &'static str,
+    /// Body of that notification, after the script name.
+    pub script_request_review: &'static str,
     /// Title of the file dialog that picks a harness executable; `{binary}` is the binary name.
     choose_executable: &'static str,
 }
@@ -38,6 +43,8 @@ const EN: NativeText = NativeText {
     open_setup_file: "Open a setup file",
     save_setup_file: "Save the setup",
     setup_files: "Setup files",
+    script_request_title: "An agent wants to run a script",
+    script_request_review: "Review it in Harness Desktop",
     choose_executable: "Choose the `{binary}` executable",
 };
 
@@ -49,6 +56,8 @@ const DE: NativeText = NativeText {
     open_setup_file: "Setup-Datei öffnen",
     save_setup_file: "Setup speichern",
     setup_files: "Setup-Dateien",
+    script_request_title: "Ein Agent möchte ein Skript ausführen",
+    script_request_review: "In Harness Desktop prüfen",
     choose_executable: "Programmdatei `{binary}` auswählen",
 };
 
@@ -60,6 +69,8 @@ const ES: NativeText = NativeText {
     open_setup_file: "Abrir un archivo de configuración",
     save_setup_file: "Guardar la configuración",
     setup_files: "Archivos de configuración",
+    script_request_title: "Un agente quiere ejecutar un script",
+    script_request_review: "Revísalo en Harness Desktop",
     choose_executable: "Elige el ejecutable `{binary}`",
 };
 
@@ -71,6 +82,8 @@ const FR: NativeText = NativeText {
     open_setup_file: "Ouvrir un fichier de configuration",
     save_setup_file: "Enregistrer la configuration",
     setup_files: "Fichiers de configuration",
+    script_request_title: "Un agent veut exécuter un script",
+    script_request_review: "À vérifier dans Harness Desktop",
     choose_executable: "Choisir l’exécutable `{binary}`",
 };
 
@@ -82,6 +95,8 @@ const PL: NativeText = NativeText {
     open_setup_file: "Otwórz plik konfiguracji",
     save_setup_file: "Zapisz konfigurację",
     setup_files: "Pliki konfiguracji",
+    script_request_title: "Agent chce uruchomić skrypt",
+    script_request_review: "Sprawdź go w Harness Desktop",
     choose_executable: "Wybierz plik wykonywalny `{binary}`",
 };
 
@@ -115,6 +130,8 @@ mod tests {
                 text.open_setup_file,
                 text.save_setup_file,
                 text.setup_files,
+                text.script_request_title,
+                text.script_request_review,
             ] {
                 assert!(!entry.trim().is_empty(), "{lang} has an empty entry");
             }
@@ -157,6 +174,7 @@ mod tests {
 
             assert!(text.show_window.contains("Harness Desktop"), "{lang}");
             assert!(text.quit.contains("Harness Desktop"), "{lang}");
+            assert!(text.script_request_review.contains("Harness Desktop"), "{lang}");
         }
     }
 }

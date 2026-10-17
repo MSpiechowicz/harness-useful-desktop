@@ -126,7 +126,7 @@ fn coalesce<T>(turn: &Mutex<()>, pending: &AtomicBool, read: impl Fn() -> T, mut
 }
 
 /// The saved UI language. Locks the prefs only while reading them.
-fn saved_language<R: Runtime>(app: &AppHandle<R>) -> String {
+pub(crate) fn saved_language<R: Runtime>(app: &AppHandle<R>) -> String {
     app.state::<AppState>().prefs.with(|store| store.load()).language
 }
 
