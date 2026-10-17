@@ -9,7 +9,7 @@ use std::path::Path;
 
 use serde_json::{Map, Value};
 
-use super::unicode::is_format_char;
+use super::unicode::is_hidden_char;
 use crate::model::{Hook, HookAction, HookAuthor, HookEvent, HookRequirement, HookScope, HookSeed};
 
 /// A larger file is invalid and is not parsed.
@@ -145,7 +145,8 @@ fn parse_map(stem: &str, map: &Map<String, Value>) -> Result<Hook, String> {
     })
 }
 
-/// 1 to [`MAX_NAME_CHARS`] characters, not blank, no control or format characters.
+/// 1 to [`MAX_NAME_CHARS`] characters, not blank, no control or invisible characters
+/// ([`is_hidden_char`]).
 pub(crate) fn check_name(name: &str) -> Result<(), String> {
     let chars = name.chars().count();
 
@@ -161,21 +162,21 @@ pub(crate) fn check_name(name: &str) -> Result<(), String> {
         return Err("name contains a control character".to_owned());
     }
 
-    if name.chars().any(is_format_char) {
-        return Err("name contains an invisible formatting character".to_owned());
+    if name.chars().any(is_hidden_char) {
+        return Err("name contains an invisible character".to_owned());
     }
 
     Ok(())
 }
 
-/// At most [`MAX_DESCRIPTION_CHARS`] characters, no format characters.
+/// At most [`MAX_DESCRIPTION_CHARS`] characters, no invisible characters ([`is_hidden_char`]).
 fn check_description(description: &str) -> Result<(), String> {
     if description.chars().count() > MAX_DESCRIPTION_CHARS {
         return Err(format!("description is longer than {MAX_DESCRIPTION_CHARS} characters"));
     }
 
-    if description.chars().any(is_format_char) {
-        return Err("description contains an invisible formatting character".to_owned());
+    if description.chars().any(is_hidden_char) {
+        return Err("description contains an invisible character".to_owned());
     }
 
     Ok(())

@@ -4,7 +4,7 @@ use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 use super::compose::ResolvedPart;
 use super::plan::{Firing, MAX_TOUCHED_BYTES, PlannedPart};
-use crate::model::AgentAction;
+use crate::model::{AgentAction, AgentReply};
 
 /// Most paths a chat remembers for `sessionEnd` ([`TouchedLog`]).
 pub(crate) const MAX_CHAT_TOUCHED: usize = 256;
@@ -65,7 +65,8 @@ pub(crate) struct Waiting {
 
 /// The paths a chat's runs changed, for `sessionEnd`: oldest first, each once, at most
 /// [`MAX_CHAT_TOUCHED`] paths and, joined by newlines, [`MAX_TOUCHED_BYTES`]. A path changed again
-/// moves to the end, and the oldest go first when a limit is reached.
+/// moves to the end, and the oldest go first when a limit is reached. A path longer than
+/// [`MAX_TOUCHED_BYTES`] on its own is never kept, so it cannot push the others out.
 #[derive(Debug, Default)]
 pub(crate) struct TouchedLog {
     paths: VecDeque<String>,
@@ -75,6 +76,10 @@ pub(crate) struct TouchedLog {
 
 impl TouchedLog {
     pub(crate) fn add(&mut self, path: &str) {
+        if path.len() > MAX_TOUCHED_BYTES {
+            return;
+        }
+
         if let Some(index) = self.paths.iter().position(|known| known == path)
             && let Some(known) = self.paths.remove(index)
         {
@@ -173,6 +178,18 @@ pub(crate) fn is_eligible(action: &AgentAction) -> bool {
             streaming_behavior: None,
             ..
         } => !(message.starts_with('/') || message.starts_with('!')),
+        _ => false,
+    }
+}
+
+/// True when `reply` (to a prompt) says the harness handled the prompt itself, without a run (OMP
+/// `agentInvoked: false`, PI `disposition: "handled"`): it reports a `Handled` result for it.
+pub(crate) fn handled_without_run(reply: &AgentReply) -> bool {
+    match reply {
+        AgentReply::Prompt {
+            agent_invoked,
+            disposition,
+        } => *agent_invoked == Some(false) || disposition.as_deref() == Some("handled"),
         _ => false,
     }
 }

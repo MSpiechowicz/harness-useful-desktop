@@ -20,7 +20,8 @@
 //!   sends never counts as a user message, so its own run fires nothing, and a user message sent
 //!   before it goes out cancels it. A user message the harness handled without a run (a
 //!   `PromptResult` with `Handled`, e.g. a `/command`) no longer counts for the run it was sent
-//!   into.
+//!   into. The `Handled` result of a follow-up the harness handled
+//!   ([`HookSession::follow_up_replied`]) takes nothing from the user's messages.
 //! - Runs follow the event stream, not the order the shell gets to the events: right before a
 //!   user message goes out the shell reports how many `Settled` events the stream delivered
 //!   ([`HookSession::settles_seen`]), so a message sent after a settle the engine has not handled
@@ -35,8 +36,8 @@ use std::path::PathBuf;
 
 use super::compose::ResolvedPart;
 use super::plan::{ToolEnv, matches_tool, planned_part, sort_parts};
-use super::run::{RunState, SettleClock, TouchedLog, Waiting, commands_only, is_eligible};
-use crate::model::{AgentAction, AgentEvent, HookAction, HookEvent, PromptStatus};
+use super::run::{RunState, SettleClock, TouchedLog, Waiting, commands_only, handled_without_run, is_eligible};
+use crate::model::{AgentAction, AgentEvent, AgentReply, HookAction, HookEvent, PromptStatus};
 
 pub use super::plan::{
     ChatContext, CommandRequest, EventOutcome, Firing, FollowUpPlan, HookSet, PlannedPart, SendPlan,
@@ -67,6 +68,8 @@ pub struct HookSession {
     chat_touched: TouchedLog,
     ended: bool,
     clock: SettleClock,
+    /// Follow-ups the harness handled without a run whose `Handled` result is still to come.
+    hook_handled: u32,
 }
 
 impl HookSession {
@@ -85,6 +88,7 @@ impl HookSession {
             chat_touched: TouchedLog::default(),
             ended: false,
             clock: SettleClock::default(),
+            hook_handled: 0,
         }
     }
 
@@ -207,6 +211,8 @@ impl HookSession {
                 match status {
                     PromptStatus::Error => self.current.failed = true,
                     PromptStatus::Aborted => self.current.aborted = true,
+                    // The engine's own follow-up never counted, so its result takes nothing.
+                    PromptStatus::Handled if self.hook_handled > 0 => self.hook_handled -= 1,
                     // A message the harness handled itself started no run: it does not count.
                     PromptStatus::Handled => {
                         self.current.user_messages = self.current.user_messages.saturating_sub(1);
@@ -262,6 +268,15 @@ impl HookSession {
         }
 
         false
+    }
+
+    /// Call with the agent's reply to the follow-up just sent (from [`SendOrigin::Hook`]), before
+    /// the next event. When the harness handled it without a run, the next `Handled` result is the
+    /// follow-up's: it leaves the user messages of the run alone.
+    pub fn follow_up_replied(&mut self, reply: &AgentReply) {
+        if handled_without_run(reply) {
+            self.hook_handled += 1;
+        }
     }
 
     /// The chat is stopped: the `sessionEnd` commands to run, once per chat (`Exited` after a

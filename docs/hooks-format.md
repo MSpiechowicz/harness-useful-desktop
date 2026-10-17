@@ -4,7 +4,7 @@ The contract for hook files in Harness Desktop (Rust). One program reads and wri
 
 A hook is a small JSON file. The app window reads the files, shows them in the Hooks view and runs them. The MCP server only reads and writes files on behalf of an agent, it never runs a hook.
 
-Key words: MUST, MUST NOT, MAY as in RFC 2119. Lengths count Unicode code points, sizes count bytes. Format characters are Unicode general category `Cf` (bidirectional controls, zero-width characters, the soft hyphen, tags): invisible or reordering, so what the user reviews could differ from what a file holds.
+Key words: MUST, MUST NOT, MAY as in RFC 2119. Lengths count Unicode code points, sizes count bytes. Invisible characters are Unicode general category `Cf` (bidirectional controls, zero-width characters, the soft hyphen, tags), the line and paragraph separators (`Zl`, `Zp`: U+2028, U+2029), the combining grapheme joiner (U+034F), the Hangul fillers (U+115F, U+1160, U+3164, U+FFA0), the Khmer inherent vowels (U+17B4, U+17B5), the Mongolian variation selectors (U+180B to U+180F), the blank Braille pattern (U+2800) and the variation selectors (U+FE00 to U+FE0F, U+E0100 to U+E01EF), the same set Share setup and Harness Memory reject: invisible, breaking or reordering, so what the user reviews could differ from what a file holds.
 
 ## Folders
 
@@ -40,8 +40,8 @@ Top-level fields. Required means the key MUST be present and valid. Readers igno
 | --- | --- | --- | --- |
 | `version` | number | yes | exactly `1` |
 | `id` | string | yes | 32 lowercase hex, equals file name stem |
-| `name` | string | yes | 1 to 80 characters, not blank, no control characters, no format characters |
-| `description` | string or null | no | at most 500 characters, no format characters |
+| `name` | string | yes | 1 to 80 characters, not blank, no control characters, no invisible characters |
+| `description` | string or null | no | at most 500 characters, no invisible characters |
 | `scope` | string | yes | `"global"` or `"project"` |
 | `project` | string or null | for `"project"` | absolute canonical project root (see Project identity). Must be `null` or absent when `scope` is `"global"` |
 | `event` | string | yes | `sessionStart`, `promptSubmit`, `toolEnd`, `turnEnd`, `sessionEnd` |
@@ -103,7 +103,7 @@ Context for `sessionStart` and `promptSubmit` is put before the user text:
 USER TEXT
 ```
 
-One `<hook>` element per contributing hook, in hook order, inside one wrapper. A follow-up prompt is the elements joined with a blank line:
+One `<hook>` element per contributing hook, in hook order, inside one wrapper. A follow-up prompt is the elements joined with a blank line, so it always starts with `<` and a harness never runs it as a `/` command or `!` shell line, whatever the hook's text starts with:
 
 ```
 <harness-hook-followup name="NAME">TEXT</harness-hook-followup>
@@ -126,7 +126,9 @@ Environment (always set, empty when not applicable):
 | `HARNESS_HOOK_SESSION` | desktop session id |
 | `HARNESS_HOOK_TOOL` | tool name, `toolEnd` only. Empty unless it is 1 to 200 characters of `[A-Za-z0-9_.:-]` |
 | `HARNESS_HOOK_TOOL_ERROR` | `1` or `0`, `toolEnd` only |
-| `HARNESS_HOOK_TOUCHED` | newline-separated paths the tool call (`toolEnd`), the run (`turnEnd`) or the chat (`sessionEnd`, the latest 256) changed, at most 16 KiB. A path with a control character (a newline included), one of `& \| < > ^ % ! " ( )`, a character Windows may map to ASCII ("best fit": U+FF00 to U+FFEF, U+00A5, U+20A9) or a leading `-` is left out |
+| `HARNESS_HOOK_TOUCHED` | newline-separated paths the tool call (`toolEnd`), the run (`turnEnd`) or the chat (`sessionEnd`, the latest 256) changed, at most 16 KiB. A path with a control character (a newline included), one of `& \| < > ^ % ! " ( )`, a character Windows may turn into one of them, `/` or `\` when it converts the environment to a legacy code page ("best fit", see below), or a leading `-` or character best fit may turn into `-` (U+00AD, U+02D7, U+2010 to U+2015, U+2043, U+207B, U+208B, U+2212, U+2500, U+FE58, U+FE63, U+FF0D) is left out, and so is a path longer than 16 KiB on its own |
+
+The best-fit characters refused anywhere in a path, on every platform: U+FE10 to U+FE1F, U+FE30 to U+FE6F, U+FF00 to U+FFEF (vertical, compatibility, small, fullwidth and halfwidth forms), and `"` U+02BA, U+02DD, U+02EE, U+030B, U+030E, U+05F4, U+201F, U+2033, U+2036, U+3003, U+301D to U+301F; `|` U+00A6, U+01C0, U+05C0, U+2016, U+2223, U+2225, U+23D0, U+2502, U+2758; `<` `>` U+00AB, U+00BB, U+02C2, U+02C3, U+2039, U+203A, U+2190, U+2192, U+2329, U+232A, U+276E, U+276F, U+27E8, U+27E9, U+3008, U+3009; `^` U+02C4, U+02C6, U+0302, U+2038, U+2191, U+2303; `%` `!` U+066A, U+2052, U+00A1, U+01C3, U+203C; `(` `)` U+207D, U+207E, U+208D, U+208E, U+2768 to U+276B, U+2E28, U+2E29; `/` `\` U+00A5, U+20A9, U+2044, U+2215, U+2216, U+2571, U+2572, U+27CB, U+27CD, U+29F5, U+29F8, U+29F9. The list follows Microsoft's best-fit tables (`bestfit*.txt`, among them code pages 1252, 932 and 936) as far as they could be checked, widened with look-alikes of the same characters. It is not exhaustive for every code page.
 
 The agent reports the tool name and the touched paths, and may have named the project folder, so `HARNESS_HOOK_TOOL`, `HARNESS_HOOK_TOUCHED` and `HARNESS_HOOK_PROJECT` are untrusted input even after the filtering above (a path may hold spaces, quotes, `$` or `;`). A command MUST NOT paste them into its own command line unquoted. On Linux and macOS quote them and end the options first, for example `git diff -- "$HARNESS_HOOK_TOUCHED"` or `printf '%s\n' "$HARNESS_HOOK_TOUCHED" | while IFS= read -r path; do …; done`. On Windows `cmd.exe` expands `%HARNESS_HOOK_TOUCHED%` before it parses the line, so read the variables inside a script (PowerShell `$env:HARNESS_HOOK_TOUCHED`) rather than on the command line.
 

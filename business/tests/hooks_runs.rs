@@ -5,8 +5,8 @@
 mod hook_support;
 
 mod hooks_runs {
-    use harness_business::hooks::{EventOutcome, Firing, SendOrigin};
-    use harness_business::model::{AgentEvent, HookEvent, PromptStatus};
+    use harness_business::hooks::{EventOutcome, Firing, HookSet, SendOrigin};
+    use harness_business::model::{AgentEvent, AgentReply, HookEvent, PromptStatus};
     use pretty_assertions::assert_eq;
 
     use super::hook_support::{
@@ -221,6 +221,9 @@ mod hooks_runs {
             "/work/\u{FF02}quoted",
             "/work/\u{00A5}yen",
             "/work/\u{20A9}won",
+            "/work/\u{02BA}app",
+            "/work/\u{3008}app\u{3009}",
+            "\u{2212}work",
         ] {
             session.move_to(project.into(), Some(project.to_owned()));
             let firing = tool_commands(session.on_event(&hooks, &tool_end("edit", false, &[])));
@@ -241,5 +244,122 @@ mod hooks_runs {
             Some("/work/my app")
         );
         assert_eq!(env_value(&firing, "HARNESS_HOOK_TOUCHED").as_deref(), Some("src/a.rs"));
+    }
+
+    #[test]
+    fn a_path_windows_could_turn_into_a_special_character_is_left_out() {
+        let hooks = set(vec![command(1, HookEvent::ToolEnd)]);
+        let mut session = chat(false, false);
+        user_send(&mut session, &hooks, &prompt("Fix it"));
+
+        // Each becomes `" | < > ^ & % ! ( ) / \` in some Windows code page ("best fit").
+        let look_alikes = [
+            "src/\u{02BA}q.rs",
+            "src/\u{030E}q.rs",
+            "src/\u{02DD}q.rs",
+            "src/\u{2223}p.rs",
+            "src/\u{01C0}p.rs",
+            "src/\u{2329}a.rs",
+            "src/\u{3008}a.rs",
+            "src/\u{2039}a.rs",
+            "src/\u{232A}a.rs",
+            "src/\u{3009}a.rs",
+            "src/\u{203A}a.rs",
+            "src/\u{0302}c.rs",
+            "src/\u{02C4}c.rs",
+            "src/\u{02C6}c.rs",
+            "src/\u{2303}c.rs",
+            "src/\u{FE60}c.rs",
+            "src/\u{066A}c.rs",
+            "src/\u{01C3}c.rs",
+            "src/\u{207D}c\u{207E}.rs",
+            "src\u{2215}s.rs",
+            "src\u{2044}s.rs",
+            "src\u{2216}s.rs",
+            "src\u{29F5}s.rs",
+            "\u{2212}rf",
+            "\u{2010}rf",
+            "\u{2011}rf",
+            "\u{2012}rf",
+            "\u{2013}rf",
+            "\u{00AD}rf",
+        ];
+        let kept = [
+            "src/a.rs",
+            "notes/draft\u{2013}v2.md",
+            "src/za\u{017C}\u{00F3}\u{0142}\u{0107}.rs",
+            "docs/\u{65E5}\u{672C}.md",
+        ];
+
+        let touched: Vec<&str> = look_alikes.iter().chain(kept.iter()).copied().collect();
+        let firing = tool_commands(session.on_event(&hooks, &tool_end("edit", false, &touched)));
+
+        assert_eq!(env_value(&firing, "HARNESS_HOOK_TOUCHED"), Some(kept.join("\n")));
+    }
+
+    #[test]
+    fn a_path_longer_than_the_limit_leaves_the_other_paths_in_place() {
+        let hooks = set(vec![command(1, HookEvent::ToolEnd), command(2, HookEvent::SessionEnd)]);
+        let mut session = chat(false, false);
+        user_send(&mut session, &hooks, &prompt("Fix it"));
+
+        let huge = format!("src/{}.rs", "x".repeat(16 * 1024));
+        session.on_event(&hooks, &tool_end("edit", false, &["src/a.rs", "src/b.rs"]));
+
+        // A tool call reporting it still passes its other paths on.
+        let firing = tool_commands(session.on_event(&hooks, &tool_end("edit", false, &[huge.as_str(), "src/c.rs"])));
+        assert_eq!(env_value(&firing, "HARNESS_HOOK_TOUCHED").as_deref(), Some("src/c.rs"));
+
+        session.on_event(&hooks, &tool_end("edit", false, &["src/d.rs"]));
+
+        let firing = session.on_stop(&hooks).expect("sessionEnd commands");
+        assert_eq!(
+            env_value(&firing, "HARNESS_HOOK_TOUCHED").as_deref(),
+            Some("src/a.rs\nsrc/b.rs\nsrc/c.rs\nsrc/d.rs")
+        );
+    }
+
+    /// A user run earns a follow-up, the follow-up goes out and the agent replies `reply`; then
+    /// the user sends `message` before the engine sees a `Handled` result, and the run settles
+    /// after a successful tool call. Returns what that settle asks for.
+    fn after_follow_up_reply(reply: &AgentReply, message: &str) -> EventOutcome {
+        let hooks = set(vec![follow_up(1, HookEvent::TurnEnd)]);
+        let mut session = chat(false, false);
+        let plan = follow_up_plan(user_run(&mut session, &hooks));
+        assert!(session.take_follow_up(plan.ticket));
+
+        session.on_send(&HookSet::empty(), &prompt("<harness-hook-followup>"), SendOrigin::Hook);
+        session.follow_up_replied(reply);
+
+        user_send(&mut session, &hooks, &prompt(message));
+        session.on_event(&hooks, &handled());
+        session.on_event(&hooks, &tool_end("read", false, &[]));
+        session.on_event(&hooks, &settled())
+    }
+
+    #[test]
+    fn a_follow_up_the_harness_handled_takes_no_user_message_from_the_run() {
+        // OMP (`agentInvoked: false`) and PI (`disposition: "handled"`) handled the follow-up
+        // without a run: the `Handled` result is the follow-up's, the run stays the user's.
+        for reply in [
+            AgentReply::Prompt {
+                agent_invoked: Some(false),
+                disposition: None,
+            },
+            AgentReply::Prompt {
+                agent_invoked: None,
+                disposition: Some("handled".to_owned()),
+            },
+        ] {
+            let outcome = after_follow_up_reply(&reply, "Fix it");
+            assert!(matches!(outcome, EventOutcome::FollowUp(_)), "{reply:?}");
+        }
+
+        // A follow-up that started a run leaves the `Handled` result to the user's `/command`.
+        let started = AgentReply::Prompt {
+            agent_invoked: Some(true),
+            disposition: None,
+        };
+        assert_eq!(after_follow_up_reply(&started, "/model fast"), EventOutcome::Nothing);
     }
 }

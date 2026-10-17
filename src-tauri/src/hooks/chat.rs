@@ -423,8 +423,13 @@ impl ChatTask {
         };
         session.on_send(&HookSet::empty(), &action, SendOrigin::Hook);
 
+        // Still under the lock and before this task reads the next event, so a `Handled` result
+        // for the follow-up is never taken for a user message's.
         match self.agents.manager().send(self.chat.key(), action).await {
-            Ok(_) => tracing::info!(session = %self.chat.key(), parts = parts.len(), "hook follow-up sent"),
+            Ok(reply) => {
+                session.follow_up_replied(&reply);
+                tracing::info!(session = %self.chat.key(), parts = parts.len(), "hook follow-up sent");
+            }
             Err(error) => tracing::warn!(session = %self.chat.key(), code = ?error.code(), "hook follow-up not sent"),
         }
     }

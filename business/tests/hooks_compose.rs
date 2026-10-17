@@ -45,6 +45,27 @@ mod hooks_compose {
     }
 
     #[test]
+    fn a_follow_up_never_starts_as_a_command() {
+        // A harness runs a prompt starting with `/` or `!` as a command; the element comes first.
+        for text in ["/clear", "!rm -rf .", "\n/compact"] {
+            let parts = [part(1, "/reset", text), part(2, "!sh", text)];
+            let prompt = compose_follow_up(&parts).unwrap();
+
+            assert!(prompt.starts_with("<harness-hook-followup name=\""), "{prompt:?}");
+        }
+
+        // When the first text does not fit, the next element still comes first.
+        let parts = [
+            part(1, "Big", &"x".repeat(MAX_COMPOSED_BYTES)),
+            part(2, "Next", "/clear"),
+        ];
+        assert_eq!(
+            compose_follow_up(&parts).as_deref(),
+            Some("<harness-hook-followup name=\"Next\">/clear</harness-hook-followup>")
+        );
+    }
+
+    #[test]
     fn names_and_markers_in_texts_are_escaped() {
         let block = compose_context(&[part(
             1,

@@ -27,6 +27,36 @@ const FORMAT_CHARS: &[(u32, u32)] = &[
     (0xE0020, 0xE007F),
 ];
 
+/// Invisible characters outside `Cf` that Harness Memory rejects as well: the line and paragraph
+/// separators (`Zl`, `Zp`), the combining grapheme joiner, the Hangul fillers (U+115F, U+1160,
+/// U+3164, U+FFA0), the Khmer inherent vowels, the Mongolian variation selectors (U+180B to
+/// U+180F, U+180E is `Cf`), the blank Braille pattern and the variation selectors (U+FE00 to
+/// U+FE0F, U+E0100 to U+E01EF). A name or description holding one shows a break or nothing where
+/// the file holds something.
+const INVISIBLE_CHARS: &[(u32, u32)] = &[
+    (0x034F, 0x034F),
+    (0x115F, 0x1160),
+    (0x17B4, 0x17B5),
+    (0x180B, 0x180F),
+    (0x2028, 0x2029),
+    (0x2800, 0x2800),
+    (0x3164, 0x3164),
+    (0xFE00, 0xFE0F),
+    (0xFFA0, 0xFFA0),
+    (0xE0100, 0xE01EF),
+];
+
+/// True for a character a name or description may not hold: a format character
+/// ([`is_format_char`]) or another invisible one ([`INVISIBLE_CHARS`]).
+pub(crate) fn is_hidden_char(character: char) -> bool {
+    let code = u32::from(character);
+
+    is_format_char(character)
+        || INVISIBLE_CHARS
+            .iter()
+            .any(|(first, last)| (*first..=*last).contains(&code))
+}
+
 /// True for a Unicode format character (see [`FORMAT_CHARS`]).
 pub(crate) fn is_format_char(character: char) -> bool {
     let code = u32::from(character);

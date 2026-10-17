@@ -747,9 +747,13 @@ follow-up prompt after the agent settles, or run a shell command. Agents can wri
     `HARNESS_HOOK_TOOL`, `HARNESS_HOOK_TOUCHED` and `HARNESS_HOOK_PROJECT` are untrusted input: `HARNESS_HOOK_TOOL` is
     empty unless it is 1 to 200 characters of `[A-Za-z0-9_.:-]`, `HARNESS_HOOK_TOUCHED` leaves out paths with a control
     character (a newline included), a `cmd.exe` special character (`& | < > ^ % ! " ( )`), a character Windows may turn
-    into ASCII when it converts the environment to a legacy code page ("best fit": U+FF00 to U+FFEF, U+00A5, U+20A9) or
-    a leading `-`, and `HARNESS_HOOK_PROJECT` is empty when the project root breaks the same rule. For `sessionEnd` the
-    chat keeps the latest 256 changed paths, within 16 KiB. A command must still quote them
+    into one of them, `/` or `\` when it converts the environment to a legacy code page ("best fit": a fixed list after
+    Microsoft's best-fit tables and look-alikes, the fullwidth, small and compatibility forms among them, see
+    [hooks-format.md](hooks-format.md#commands)) or a leading `-` (or a dash or minus sign best fit may turn into one),
+    and `HARNESS_HOOK_PROJECT` is empty when the project root breaks the same rule. The list is checked on every platform
+    and is not exhaustive for every code page. Windows does not double-check with a `WideCharToMultiByte` round trip:
+    the app forbids `unsafe` code. A path longer than 16 KiB on its own is left out. For `sessionEnd` the chat keeps the
+    latest 256 changed paths, within 16 KiB. A command must still quote them
     (`"$HARNESS_HOOK_TOUCHED"`, after `--` on Unix) and, on Windows, read them inside a script, since `cmd.exe` expands
     `%VAR%` before it parses the line. The MCP tool descriptions tell agents the same.
   - **Output.** Stdout is capped at 16 KiB, passed through `redact_text` and used (as context on `sessionStart` and

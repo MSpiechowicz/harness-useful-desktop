@@ -171,6 +171,54 @@ mod hooks_format {
     }
 
     #[test]
+    fn names_and_descriptions_reject_separators_fillers_and_variation_selectors() {
+        let bytes = std::fs::read(fixtures().join("valid-addcontext-session-start.json")).unwrap();
+        let id = id_of(&bytes).unwrap();
+        let with = |field: &str, value: &str| {
+            let mut file: Value = serde_json::from_slice(&bytes).unwrap();
+            file[field] = Value::from(value);
+            parse_hook_file(&id, &serde_json::to_vec(&file).unwrap())
+        };
+
+        for character in [
+            '\u{2028}',
+            '\u{2029}',
+            '\u{034F}',
+            '\u{115F}',
+            '\u{1160}',
+            '\u{17B4}',
+            '\u{17B5}',
+            '\u{180B}',
+            '\u{180D}',
+            '\u{180F}',
+            '\u{2800}',
+            '\u{3164}',
+            '\u{FE00}',
+            '\u{FE0F}',
+            '\u{FFA0}',
+            '\u{E0100}',
+            '\u{E01EF}',
+        ] {
+            let value = format!("Safe{character}rules");
+
+            assert!(
+                with("name", &value).is_err(),
+                "name with U+{:04X}",
+                u32::from(character)
+            );
+            assert!(
+                with("description", &value).is_err(),
+                "description with U+{:04X}",
+                u32::from(character)
+            );
+        }
+
+        let visible = "Zasady za\u{017C}\u{00F3}\u{0142}\u{0107} \u{65E5}\u{672C} \u{D55C}\u{AD6D}\u{C5B4} \u{1F44D}";
+        assert!(with("name", visible).is_ok());
+        assert!(with("description", visible).is_ok());
+    }
+
+    #[test]
     fn an_id_that_differs_from_the_file_name_is_invalid() {
         let bytes = std::fs::read(fixtures().join("valid-addcontext-session-start.json")).unwrap();
 
