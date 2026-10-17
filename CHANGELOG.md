@@ -1,3 +1,16 @@
+# [0.20.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.19.0...v0.20.0) (2026-10-17)
+
+
+### Bug Fixes
+
+* **ci:** pass the duplication guard and the macOS and Windows test runs ([c5e62b1](https://github.com/MSpiechowicz/harness-useful-desktop/commit/c5e62b1399539b30e113f74b5b6e187ae619a0c0))
+
+
+### Features
+
+* **extensions:** switch harness in Config and Extensions, and manage PI packages ([732143e](https://github.com/MSpiechowicz/harness-useful-desktop/commit/732143e3e66bf40802098b8a0f175f18e554fcc4))
+* **opencode:** detect OpenCode and show its config, extensions and sessions ([7dab4c2](https://github.com/MSpiechowicz/harness-useful-desktop/commit/7dab4c299b42949400dba002a119db27e7ac7c94)), closes [#19](https://github.com/MSpiechowicz/harness-useful-desktop/issues/19)
+
 # [0.19.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.18.0...v0.19.0) (2026-10-16)
 
 
