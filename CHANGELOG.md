@@ -1,3 +1,15 @@
+# [0.21.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.20.0...v0.21.0) (2026-10-17)
+
+
+### Bug Fixes
+
+* **ci:** accept the new zbus unmaintained advisories in the dependency audit ([0a4d0be](https://github.com/MSpiechowicz/harness-useful-desktop/commit/0a4d0be6cad72ac5c263fa0aec928645bd49498a))
+
+
+### Features
+
+* **memory:** Memory view with notes and scripts, and script approvals ([2ae6509](https://github.com/MSpiechowicz/harness-useful-desktop/commit/2ae6509c1db9a5a3f7b91d1ecfafa5a046df8774))
+
 # [0.20.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.19.0...v0.20.0) (2026-10-17)
 
 
