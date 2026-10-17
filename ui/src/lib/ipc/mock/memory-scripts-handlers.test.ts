@@ -15,7 +15,7 @@ describe('mock scripts', () => {
     expect(without.scripts.map((script) => script.name)).toEqual(['disk-hogs']);
     expect(within.scripts.map((script) => script.name).sort()).toEqual(['ci-status', 'deploy-check', 'disk-hogs', 'lint-changed', 'open-prs']);
     expect(within.total).toBe(5);
-    expect(within.groups).toEqual({ needsReview: 2, repo: 4, global: 1 });
+    expect(within.groups).toEqual({ needsReview: 2, repo: 3, global: 0 });
     expect(JSON.stringify(within)).not.toContain('"body"');
     expect(handlers.memory_script_get({ id: 12, project: '/work/app' })).toMatchObject({ name: 'open-prs', body: expect.stringContaining('gh pr list') });
   });
@@ -77,7 +77,7 @@ describe('mock scripts', () => {
 
     const group = handlers.memory_scripts_list({ project: '/work/app', offset: 0, group: 'needsReview' });
     expect(group.scripts.map((script) => script.name).sort()).toEqual(['deploy-check', 'disk-hogs']);
-    expect(group.groups).toEqual({ needsReview: 2, repo: 4, global: 1 });
+    expect(group.groups).toEqual({ needsReview: 2, repo: 3, global: 0 });
   });
 
   it('sorts by every column like the server, a script never run last either way, and pages in that order', () => {

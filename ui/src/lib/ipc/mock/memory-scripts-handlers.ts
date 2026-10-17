@@ -51,6 +51,11 @@ const DEFAULT_LIMIT = 50;
 
 const GROUPS = {
   needsReview: (script: ScriptSummary) => script.approval === 'needed',
+  repo: (script: ScriptSummary) => script.scope === 'repo' && script.approval !== 'needed',
+  global: (script: ScriptSummary) => script.scope === 'global' && script.approval !== 'needed',
+} as const;
+
+const SCOPES = {
   repo: (script: ScriptSummary) => script.scope === 'repo',
   global: (script: ScriptSummary) => script.scope === 'global',
 } as const;
@@ -80,7 +85,7 @@ function neverRunLast(sort: ScriptSort, a: ScriptSummary, b: ScriptSummary): num
 
 /**
  * One page of scripts as the server answers: filtered by the query (name or description), the scope, the review and the group, sorted and cut.
- * The groups are counted under the query, the scopes under the query and the review, the review under the query and the scope. A group asked for
+ * The groups (disjoint: a script that needs review is in no scope group) are counted under the query, the scopes under the query and the review, the review under the query and the scope. A group asked for
  * together with a scope or review is refused. `combined: false` is an older server: it drops the scope and the review and counts neither.
  */
 export function pageOfScripts(
@@ -107,7 +112,7 @@ export function pageOfScripts(
       repo: answering.filter(GROUPS.repo).length,
       global: answering.filter(GROUPS.global).length,
     },
-    scopes: combined ? { repo: inReview.filter(GROUPS.repo).length, global: inReview.filter(GROUPS.global).length } : null,
+    scopes: combined ? { repo: inReview.filter(SCOPES.repo).length, global: inReview.filter(SCOPES.global).length } : null,
     review: combined ? { needed: inScope.filter(REVIEWS.needed).length, trusted: inScope.filter(REVIEWS.trusted).length } : null,
     combinedFilters: combined,
     scripts: [...chosen].sort((a, b) => neverRunLast(sort, a, b) || direction * (compare(a, b) || a.id - b.id)).slice(offset, offset + limit),

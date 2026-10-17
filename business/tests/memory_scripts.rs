@@ -85,12 +85,13 @@ async fn a_current_server_lists_a_page_of_project_and_global_scripts() {
     let ids: Vec<i64> = page.scripts.iter().map(|script| script.id).collect();
     assert_eq!(ids, [12, 7], "the entry of an unknown scope is skipped");
     assert_eq!(page.total, 3, "the server's count");
+    // The groups are disjoint: the global script needs review, so it is in no scope group.
     assert_eq!(
         page.groups,
         ScriptGroupCounts {
             needs_review: 1,
             repo: 1,
-            global: 1
+            global: 0
         }
     );
 

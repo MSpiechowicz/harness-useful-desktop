@@ -1,16 +1,36 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
+
   import { t } from '$lib/i18n/i18n.svelte';
+  import { ecosystem } from '$lib/stores/ecosystem.svelte';
   import { noteList } from '$lib/stores/memoryNotes.svelte';
   import { scriptList } from '$lib/stores/memoryScripts.svelte';
 
   import MemoryInstall from './MemoryInstall.svelte';
 
-  // A Harness Memory that cannot combine filters still works: a quiet line at the end of the filter row says what an update adds, and does it.
+  // A Harness Memory that cannot combine filters still works: a quiet line at the end of the filter row says what an update adds, and does it,
+  // but only while a newer release is known (the Ecosystem reading, kept current by the app, held for 30 seconds here). Otherwise there is nothing to update to and nothing is shown.
+  onMount(() => {
+    void ecosystem.load();
+  });
+
+  // The question of the update re-reads the releases, and that read must not take the button (and its open question) away meanwhile: the hint goes only once a finished reading knows no newer release.
+  let offered = $state(false);
+
+  $effect(() => {
+    if (ecosystem.hasUpdate('memory')) {
+      offered = true;
+    } else if (ecosystem.state !== 'loading' && !ecosystem.releasesPending) {
+      offered = false;
+    }
+  });
+
   async function reread(): Promise<void> {
     await Promise.all([noteList.refresh({ quiet: true }), scriptList.refresh({ quiet: true })]);
   }
 </script>
 
-<p class="min-w-0 truncate text-sm text-fg-3 max-[1100px]:hidden">{t('memory.filter.updateHint')}</p>
-
-<MemoryInstall update inline onfinished={reread} />
+{#if offered}
+  <p class="min-w-0 truncate text-sm text-fg-3 max-[1100px]:hidden">{t('memory.filter.updateHint')}</p>
+  <MemoryInstall update inline onfinished={reread} />
+{/if}

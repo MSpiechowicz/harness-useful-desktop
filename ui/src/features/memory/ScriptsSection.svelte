@@ -51,8 +51,8 @@
   const total = $derived(page?.total ?? 0);
   const groups = $derived(page?.groups ?? { needsReview: 0, repo: 0, global: 0 });
   const reviews = $derived(page?.review ?? null);
-  // Every script applies to one scope, so the two scope groups together are all of them.
-  const everything = $derived(groups.repo + groups.global);
+  // The groups are disjoint (a script that needs review is in neither scope group), so together they are all of the scripts.
+  const everything = $derived(groups.needsReview + groups.repo + groups.global);
   // An older Harness Memory cannot combine the scope with the status: it gets one "Show" filter of its groups, and a hint that an update adds the scope.
   const combined = $derived(page?.combinedFilters ?? true);
   const searching = $derived(viewState.scriptsQuery.trim() !== '');

@@ -3,9 +3,12 @@ import { describe, expect, it } from 'vitest';
 
 import type { DashboardInstallResult } from '$lib/ipc/bindings/DashboardInstallResult';
 import { sampleNotes } from '$lib/ipc/mock/memory-notes-fixtures';
+import { sampleScripts } from '$lib/ipc/mock/memory-scripts-fixtures';
+import { IpcFailure } from '$lib/ipc/transport';
+import { ecosystem } from '$lib/stores/ecosystem.svelte';
 import { viewState } from '$lib/stores/view-state.svelte';
 
-import { calls, fakeMemory, filterChoices, noteRow, pickFilter, registerMemoryHooks, rowButton, showMemory, showNotes } from './memory-test-support';
+import { calls, fakeMemory, filterChoices, NO_NEWER_RELEASE, noteRow, pickFilter, registerMemoryHooks, rowButton, showMemory, showNotes } from './memory-test-support';
 
 registerMemoryHooks();
 
@@ -223,8 +226,8 @@ describe('an older Harness Memory', () => {
 
     expect(await screen.findByRole('button', { name: 'Kind: All' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^Scope: / })).toBeNull();
-    expect(screen.getByText(HINT)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Update Harness Memory' })).toBeInTheDocument();
+    expect(await screen.findByText(HINT)).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Update Harness Memory' })).toBeInTheDocument();
 
     await waitFor(() => expect(sent(calls(invoke, 'memory_notes_list').at(-1), 'scope')).toBeUndefined());
 
@@ -241,8 +244,8 @@ describe('an older Harness Memory', () => {
 
     expect(await screen.findByRole('button', { name: 'Show: All' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^(Scope|Status): / })).toBeNull();
-    expect(screen.getByText(HINT)).toBeInTheDocument();
-    expect(await filterChoices('Show: All', 'Show')).toEqual(['All 5', 'Needs review 2', 'This repository 4', 'Global 1']);
+    expect(await screen.findByText(HINT)).toBeInTheDocument();
+    expect(await filterChoices('Show: All', 'Show')).toEqual(['All 5', 'Needs review 2', 'This repository 3', 'Global 0']);
 
     await pickFilter('Show: All', /^This repository/);
 
@@ -256,6 +259,45 @@ describe('an older Harness Memory', () => {
 
     await waitFor(() => expect(rowButton('disk-hogs')).not.toBeNull());
     expect(viewState.scriptsGroup).toBeNull();
+  });
+
+  it('counts the groups of the Show filter apart: a script that needs review is in no scope group', async () => {
+    const [repoNeedsReview, globalNeedsReview] = [sampleScripts().find((script) => script.name === 'deploy-check')!, sampleScripts().find((script) => script.name === 'disk-hogs')!];
+    const globalTrusted = { ...globalNeedsReview, trusted: true, approval: 'approved' as const };
+    fakeMemory({ kind: 'available' }, [repoNeedsReview, globalTrusted], undefined, undefined, false);
+    await showMemory();
+
+    expect(await filterChoices('Show: All', 'Show')).toEqual(['All 2', 'Needs review 1', 'This repository 0', 'Global 1']);
+  });
+
+  it('shows no hint and no update button when no newer Harness Memory release is known', async () => {
+    fakeMemory({ kind: 'available' }, undefined, NO_NEWER_RELEASE, undefined, false);
+    await showMemory();
+
+    expect(await screen.findByRole('button', { name: 'Show: All' })).toBeInTheDocument();
+    await waitFor(() => expect(ecosystem.state).toBe('ready'));
+    await waitFor(() => expect(ecosystem.releasesPending).toBe(false));
+    expect(screen.queryByText(HINT)).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Update Harness Memory' })).toBeNull();
+  });
+
+  it('shows no hint and no update button when the release lookup failed', async () => {
+    const invoke = fakeMemory({ kind: 'available' }, undefined, undefined, undefined, false);
+    const rest = invoke.getMockImplementation()!;
+    invoke.mockImplementation(async (name, args) => {
+      if (name === 'ecosystem_releases') {
+        throw new IpcFailure({ code: 'internal', message: 'offline' });
+      }
+
+      return rest(name, args);
+    });
+    await showMemory();
+
+    expect(await screen.findByRole('button', { name: 'Show: All' })).toBeInTheDocument();
+    await waitFor(() => expect(ecosystem.state).toBe('ready'));
+    await waitFor(() => expect(ecosystem.releasesPending).toBe(false));
+    expect(screen.queryByText(HINT)).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Update Harness Memory' })).toBeNull();
   });
 
   it('adds the Scope filter once Harness Memory is updated from the hint, after asking first', async () => {

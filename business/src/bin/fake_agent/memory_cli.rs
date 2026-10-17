@@ -270,11 +270,11 @@ fn compare(a: &Value, b: &Value) -> Ordering {
     }
 }
 
-/// Whether `entry` is of note kind or script group `filter`.
+/// Whether `entry` is of note kind or script group `filter`. Script groups are disjoint: `repo` and `global` hold only trusted scripts.
 fn in_group(entry: &Value, filter: &str) -> bool {
     match filter {
         "needsReview" => entry["trusted"] == false,
-        "repo" | "global" => entry["scope"] == filter,
+        "repo" | "global" => entry["trusted"] != false && entry["scope"] == filter,
         kind => entry["kind"] == kind,
     }
 }

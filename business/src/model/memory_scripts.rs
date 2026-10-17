@@ -198,8 +198,8 @@ pub enum ScriptSort {
     LastRun,
 }
 
-/// How many scripts of each group match the query (a script that needs review also counts in
-/// its scope's group).
+/// How many scripts of each group match the query. The groups are disjoint: a script that needs
+/// review counts only in `needs_review`, `repo` and `global` count the trusted ones.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
