@@ -1,3 +1,16 @@
+# [0.22.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.21.0...v0.22.0) (2026-10-17)
+
+
+### Bug Fixes
+
+* **ci:** pass the Windows and macOS test runs ([1302d40](https://github.com/MSpiechowicz/harness-useful-desktop/commit/1302d4022f179c242e6f2362e2e3debf2917ebbe))
+* **memory:** count script groups apart and offer the update only when there is one ([920b4d0](https://github.com/MSpiechowicz/harness-useful-desktop/commit/920b4d0c159b2b547866db2f62f60abaee5a1e0c))
+
+
+### Features
+
+* **hooks:** run hooks in desktop chats and let agents manage them ([e489a11](https://github.com/MSpiechowicz/harness-useful-desktop/commit/e489a1161fbb3c5457bd2cf372bdebca2e00755e)), closes [#16](https://github.com/MSpiechowicz/harness-useful-desktop/issues/16)
+
 # [0.21.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.20.0...v0.21.0) (2026-10-17)
 
 
