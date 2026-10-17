@@ -20,6 +20,11 @@ export function noteScenarioFromLocation(search: string = globalThis.location?.s
   return NOTE_SCENARIOS.find((scenario) => scenario === name) ?? 'ok';
 }
 
+/** Browser-preview switch `?filters=old`: a Harness Memory that cannot combine filters (no `scope`, no scope counts), which the view then answers with the one kind filter and a hint to update. */
+export function combinesFilters(search: string = globalThis.location?.search ?? ''): boolean {
+  return new URLSearchParams(search).get('filters') !== 'old';
+}
+
 /** The notes of Harness Memory kept in memory: `memory_notes_list/note_get/note_delete/notes_delete_all` like the real backend, without a server. */
 export interface NoteHandlers {
   memory_notes_list: (args: CommandArgs<'memory_notes_list'>) => MemoryNotesPage;
@@ -49,21 +54,32 @@ const NOTE_ORDERS: Record<NoteSort, NoteOrder> = {
   place: (a, b) => a.place.localeCompare(b.place),
 };
 
-/** One page of notes as the server answers: filtered by the query and the kind, counted per kind under the query, sorted and cut. */
-export function pageOfNotes(visible: NoteContent[], { offset, limit = DEFAULT_LIMIT, query = '', kind, sort = 'updated', order }: CommandArgs<'memory_notes_list'>): Omit<MemoryNotesPage, 'availability'> {
+/**
+ * One page of notes as the server answers: filtered by the query, the scope and the kind, sorted and cut. The kinds are counted under the
+ * query and the scope, the scopes under the query and the kind. `combined: false` is an older server: it drops the scope and counts no scopes.
+ */
+export function pageOfNotes(
+  visible: NoteContent[],
+  { offset, limit = DEFAULT_LIMIT, query = '', kind, scope, sort = 'updated', order }: CommandArgs<'memory_notes_list'>,
+  combined = true,
+): Omit<MemoryNotesPage, 'availability'> {
   const answering = visible.filter((found) => matches(found, query));
   const direction = (order ?? (sort === 'updated' ? 'desc' : 'asc')) === 'desc' ? -1 : 1;
   const compare = NOTE_ORDERS[sort];
-  const chosen = answering.filter((found) => kind === undefined || found.kind === kind);
+  const inKind = answering.filter((found) => kind === undefined || found.kind === kind);
+  const inScope = answering.filter((found) => !combined || scope === undefined || found.scope === scope);
+  const chosen = inKind.filter((found) => inScope.includes(found));
 
   return {
     total: chosen.length,
-    kinds: KIND_ORDER.map((each) => ({ kind: each, count: answering.filter((found) => found.kind === each).length })),
+    kinds: KIND_ORDER.map((each) => ({ kind: each, count: inScope.filter((found) => found.kind === each).length })),
+    scopes: combined ? { repo: inKind.filter((found) => found.scope === 'repo').length, global: inKind.filter((found) => found.scope === 'global').length } : null,
+    combinedFilters: combined,
     notes: [...chosen].sort((a, b) => direction * (compare(a, b) || a.id - b.id)).slice(offset, offset + limit).map(noteSummaryOf),
   };
 }
 
-export function memoryNotesHandlers(availability: () => MemoryScriptsAvailability, scenario: () => NoteScenario = noteScenarioFromLocation): NoteHandlers {
+export function memoryNotesHandlers(availability: () => MemoryScriptsAvailability, scenario: () => NoteScenario = noteScenarioFromLocation, combined: () => boolean = combinesFilters): NoteHandlers {
   let notes: NoteContent[] | null = null;
   const current = (): NoteContent[] => (notes ??= scenario() === 'ok' ? sampleNotes() : []);
 
@@ -83,10 +99,10 @@ export function memoryNotesHandlers(availability: () => MemoryScriptsAvailabilit
     memory_notes_list: (args) => {
       const state = availability();
       if (state.kind !== 'available') {
-        return { availability: state, total: 0, kinds: [], notes: [] };
+        return { availability: state, total: 0, kinds: [], scopes: null, combinedFilters: combined(), notes: [] };
       }
 
-      return { availability: state, ...pageOfNotes(visible(args.project), args) };
+      return { availability: state, ...pageOfNotes(visible(args.project), args, combined()) };
     },
     memory_note_get: ({ id, project }) => detailOf(find(id, project), visible(project)),
     memory_note_delete: ({ id, project }) => {

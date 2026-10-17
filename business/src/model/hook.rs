@@ -1,0 +1,344 @@
+//! Hooks: small JSON files that add context to a prompt, send a follow-up or run a command when
+//! something happens in a desktop chat (`hooks_list`, `hook_save`, `hook_delete`, `hook_approve`,
+//! `hooks_family`).
+//!
+//! The file format is the contract in `docs/hooks-format.md`; [`crate::hooks`] reads, validates,
+//! writes and runs the files. The app window and its MCP server (`harness-desktop mcp`, used by
+//! agents) share them. These are the shapes the webview sees.
+
+use serde::{Deserialize, Serialize};
+use ts_rs::TS;
+
+/// When a hook fires.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub enum HookEvent {
+    /// The first eligible prompt of a new desktop chat.
+    SessionStart,
+    /// Every eligible prompt.
+    PromptSubmit,
+    /// A tool call ended (and the matcher, if any, names it).
+    ToolEnd,
+    /// The agent settled after a user run.
+    TurnEnd,
+    /// The chat exited or was stopped (commands only).
+    SessionEnd,
+}
+
+impl HookEvent {
+    /// The name in the file (`sessionStart`, …).
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::SessionStart => "sessionStart",
+            Self::PromptSubmit => "promptSubmit",
+            Self::ToolEnd => "toolEnd",
+            Self::TurnEnd => "turnEnd",
+            Self::SessionEnd => "sessionEnd",
+        }
+    }
+
+    /// The event named `name` in a file.
+    pub fn parse(name: &str) -> Option<Self> {
+        [
+            Self::SessionStart,
+            Self::PromptSubmit,
+            Self::ToolEnd,
+            Self::TurnEnd,
+            Self::SessionEnd,
+        ]
+        .into_iter()
+        .find(|event| event.as_str() == name)
+    }
+}
+
+/// Where a hook applies.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub enum HookScope {
+    /// Every desktop chat.
+    Global,
+    /// Chats whose project root is the hook's `project`.
+    Project,
+}
+
+/// What a hook does.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(tag = "type", rename_all = "camelCase", rename_all_fields = "camelCase")]
+#[ts(export)]
+pub enum HookAction {
+    /// Puts `text` in front of the prompt (`sessionStart`, `promptSubmit`).
+    AddContext {
+        /// 1 to 4096 characters.
+        text: String,
+    },
+    /// Sends `text` after the agent settles (`toolEnd`, `turnEnd`).
+    FollowUp {
+        /// 1 to 4096 characters.
+        text: String,
+    },
+    /// Runs `command` in a shell; its stdout is used like the text of the matching action.
+    Command {
+        /// 1 to 2048 characters.
+        command: String,
+        /// 1 to 30 seconds; `None` means 10.
+        timeout_secs: Option<u32>,
+    },
+}
+
+/// Who wrote a hook file.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub enum HookAuthor {
+    /// The user, in the Harness Desktop window (including the Harness family hooks).
+    Desktop,
+    /// An agent, through the Harness Desktop MCP server (`harness-desktop mcp`).
+    Agent,
+}
+
+/// Something a hook needs before it runs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub enum HookRequirement {
+    /// Harness Memory is installed and its memory setting is on.
+    #[serde(rename = "harness-memory")]
+    HarnessMemory,
+    /// Harness Dashboard is installed.
+    #[serde(rename = "harness-dashboard")]
+    HarnessDashboard,
+}
+
+impl HookRequirement {
+    /// The name in the file.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::HarnessMemory => "harness-memory",
+            Self::HarnessDashboard => "harness-dashboard",
+        }
+    }
+
+    /// The requirement named `name`.
+    pub fn parse(name: &str) -> Option<Self> {
+        [Self::HarnessMemory, Self::HarnessDashboard]
+            .into_iter()
+            .find(|requirement| requirement.as_str() == name)
+    }
+}
+
+/// Which Harness family hook a hook is (the catalog in [`crate::hooks::family`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, TS)]
+#[serde(rename_all = "kebab-case")]
+#[ts(export)]
+pub enum HookSeed {
+    /// Harness Memory: "Search Harness Memory first" (`sessionStart`).
+    MemorySearch,
+    /// Harness Memory: "Save what you learned" (`turnEnd`).
+    MemorySave,
+    /// Harness Dashboard: "Check limits before long work" (`sessionStart`).
+    DashboardLimits,
+}
+
+impl HookSeed {
+    /// Every family hook, in catalog order.
+    pub const ALL: [Self; 3] = [Self::MemorySearch, Self::MemorySave, Self::DashboardLimits];
+
+    /// The name in the file and in `hooks-state.json`.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::MemorySearch => "memory-search",
+            Self::MemorySave => "memory-save",
+            Self::DashboardLimits => "dashboard-limits",
+        }
+    }
+
+    /// The seed named `name`.
+    pub fn parse(name: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|seed| seed.as_str() == name)
+    }
+}
+
+/// How a Harness family hook in the folder compares with the catalog.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub enum HookFamilyStatus {
+    /// A valid file with this seed matches the catalog's name, event and action.
+    Installed,
+    /// A valid file with this seed differs from the catalog (an older text, or the user's edit).
+    Outdated,
+    /// No valid file has this seed.
+    Missing,
+    /// The family member it is for is not installed.
+    NeedsMember,
+}
+
+/// One Harness family hook and its state (`hooks_family`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct HookFamilyEntry {
+    /// Which family hook.
+    pub seed: HookSeed,
+    /// The family member it is for (also its requirement).
+    pub member: HookRequirement,
+    /// Its catalog name.
+    pub name: String,
+    /// When it fires.
+    pub event: HookEvent,
+    /// How the folder compares with the catalog.
+    pub status: HookFamilyStatus,
+    /// The file with this seed, when there is one.
+    pub hook_id: Option<String>,
+}
+
+/// A valid hook file.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct Hook {
+    /// 32 lowercase hex characters, the file name stem.
+    pub id: String,
+    /// 1 to 80 characters.
+    pub name: String,
+    /// At most 500 characters.
+    pub description: Option<String>,
+    /// Global or one project.
+    pub scope: HookScope,
+    /// The canonical project root of a project hook.
+    pub project: Option<String>,
+    /// When it fires.
+    pub event: HookEvent,
+    /// `toolEnd` only: tool names joined by `|` (ASCII case-insensitive); `None` means every tool.
+    pub matcher: Option<String>,
+    /// What it does.
+    pub action: HookAction,
+    /// Off hooks never run.
+    pub enabled: bool,
+    /// What it needs before it runs.
+    pub requires: Vec<HookRequirement>,
+    /// Set on the seeded defaults.
+    pub seed: Option<HookSeed>,
+    /// RFC 3339 UTC.
+    pub created_at: String,
+    /// Who created the file (decides who may remove it).
+    pub created_by: HookAuthor,
+    /// RFC 3339 UTC.
+    pub updated_at: String,
+    /// The last writer.
+    pub updated_by: HookAuthor,
+}
+
+/// Whether a hook runs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub enum HookStatus {
+    /// Valid, enabled, approved and its requirements are met: it runs.
+    Active,
+    /// Valid and approved, but turned off.
+    Off,
+    /// Valid, but this exact file was never approved (an agent wrote or changed it).
+    Pending,
+    /// Valid, enabled and approved, but waiting for a requirement (Harness Memory).
+    Paused,
+    /// The file breaks the format (see `HookView.problem`); it never runs.
+    Invalid,
+}
+
+/// How the approvals relate to a hook file.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub enum HookApproval {
+    /// The current bytes are approved.
+    Approved,
+    /// An earlier version was approved; the file changed since.
+    Changed,
+    /// Never approved.
+    Never,
+}
+
+/// One hook file as the Hooks view lists it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct HookView {
+    /// The file name stem.
+    pub id: String,
+    /// The parsed hook; `None` when the file is invalid.
+    pub hook: Option<Hook>,
+    /// A readable name even for an invalid file (its `name` when that is a string, else `None`).
+    pub name: Option<String>,
+    /// Whether it runs.
+    pub status: HookStatus,
+    /// Lowercase SHA-256 of the file bytes; pass it back to approve, edit or delete this version.
+    pub sha256: String,
+    /// Why the file is invalid.
+    pub problem: Option<String>,
+    /// Whether this or an earlier version was approved.
+    pub approval: HookApproval,
+    /// The approved earlier version, for a diff: set when `approval` is `changed` and the app kept
+    /// a copy of that version.
+    pub approved: Option<Hook>,
+}
+
+/// The hooks folder as the Hooks view shows it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct HookListing {
+    /// Every `<id>.json` file: valid ones in run order (global first, then `createdAt`, then
+    /// `id`), invalid ones after them by id.
+    pub hooks: Vec<HookView>,
+    /// Why the folder is not read (for example writable by other users); `hooks` is then empty.
+    pub folder_problem: Option<String>,
+}
+
+/// What `hooks_delete_all` removed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct HooksDeleted {
+    /// How many hook files were deleted.
+    pub deleted: u32,
+}
+
+/// What the Hooks view sends to create or edit a hook (`hook_save`). The desktop keeps the
+/// file's `createdAt`, `createdBy`, `seed`, `requires` and unknown fields on an edit.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct HookDraft {
+    /// The hook to edit; `None` creates one.
+    pub id: Option<String>,
+    /// For an edit: `HookView.sha256` of the version the user edited. A file changed since is a
+    /// conflict.
+    pub expected_sha256: Option<String>,
+    /// 1 to 80 characters.
+    pub name: String,
+    /// At most 500 characters; empty means none.
+    pub description: Option<String>,
+    /// Global or one project.
+    pub scope: HookScope,
+    /// For a project hook: a folder of the project (its project root is stored).
+    pub project: Option<String>,
+    /// When it fires.
+    pub event: HookEvent,
+    /// `toolEnd` only; empty means every tool.
+    pub matcher: Option<String>,
+    /// What it does.
+    pub action: HookAction,
+    /// Whether it runs.
+    pub enabled: bool,
+}
+
+/// What `hooks_listen` sends.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+#[ts(export)]
+pub enum HooksEvent {
+    /// The hooks folder or the approvals changed: read the list again.
+    Changed,
+}

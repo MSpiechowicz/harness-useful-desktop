@@ -68,10 +68,16 @@
 
     return page?.availability.kind === 'available' ? page.groups.repo + page.groups.global : null;
   });
-  const searching = $derived((section === 'notes' ? viewState.notesQuery : viewState.scriptsQuery).trim() !== '');
+  const narrowed = $derived.by(() => {
+    if (section === 'notes') {
+      return viewState.notesQuery.trim() !== '' || viewState.notesScope !== null || viewState.notesKind !== null;
+    }
 
-  // A search that leaves nothing still has something behind it to delete, so only an empty list with no search is disabled.
-  const disabled = $derived(listed === null || (listed === 0 && !searching));
+    return viewState.scriptsQuery.trim() !== '' || viewState.scriptsScope !== null || viewState.scriptsStatus !== null || viewState.scriptsGroup !== null;
+  });
+
+  // A search or a filter that leaves nothing still has something behind it to delete, so only an empty list that is not narrowed is disabled.
+  const disabled = $derived(listed === null || (listed === 0 && !narrowed));
 
   // What the open question is about, kept after it closes so it fades out showing the same words.
   let target = $state<{ section: MemorySection; scope: DeleteScope }>({ section: 'notes', scope: { total: 0, team: 0, exact: true } });

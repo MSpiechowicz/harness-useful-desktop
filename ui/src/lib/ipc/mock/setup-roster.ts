@@ -19,6 +19,8 @@ export interface RosterEntry {
   mcp: McpState;
   /** The memory server's MCP state before anything is set up. */
   memoryMcp: McpState;
+  /** The app's own MCP server (hooks for agents) before anything is set up. */
+  desktopMcp: McpState;
 }
 
 const asId = (id: string): HarnessId => id as HarnessId;
@@ -42,6 +44,7 @@ const FIVE: RosterEntry[] = [
     skills: SKILLS_ACTIONS,
     mcp: { type: 'missing', file: '~/.omp/agent/mcp.json', exists: true },
     memoryMcp: { type: 'missing', file: '~/.omp/agent/mcp.json', exists: true },
+    desktopMcp: { type: 'missing', file: '~/.omp/agent/mcp.json', exists: true },
   },
   {
     id: asId('pi'),
@@ -51,6 +54,7 @@ const FIVE: RosterEntry[] = [
     skills: { type: 'install', actions: [{ type: 'packageInstall', source: 'git:github.com/MSpiechowicz/harness-useful-skills' }] },
     mcp: { type: 'refused', file: '~/.pi/agent/mcp.json', reason: 'unparsable' },
     memoryMcp: { type: 'refused', file: '~/.pi/agent/mcp.json', reason: 'unparsable' },
+    desktopMcp: { type: 'refused', file: '~/.pi/agent/mcp.json', reason: 'unparsable' },
   },
   {
     id: asId('claude'),
@@ -60,6 +64,7 @@ const FIVE: RosterEntry[] = [
     skills: { type: 'installed', version: '0.2.36' },
     mcp: { type: 'configured', file: '~/.claude.json', name: 'harness-dashboard' },
     memoryMcp: { type: 'configured', file: '~/.claude.json', name: 'harness-memory' },
+    desktopMcp: { type: 'configured', file: '~/.claude.json', name: 'harness-desktop' },
   },
   {
     id: asId('codex'),
@@ -69,6 +74,7 @@ const FIVE: RosterEntry[] = [
     skills: { type: 'unavailable', reason: 'Not supported yet.' },
     mcp: { type: 'disabled', file: '~/.codex/config.toml', name: 'harness-dashboard' },
     memoryMcp: { type: 'missing', file: '~/.codex/config.toml', exists: true },
+    desktopMcp: { type: 'missing', file: '~/.codex/config.toml', exists: true },
   },
   {
     id: asId('opencode'),
@@ -78,6 +84,7 @@ const FIVE: RosterEntry[] = [
     skills: OPENCODE_SKILLS,
     mcp: { type: 'missing', file: '~/.config/opencode/opencode.json', exists: false },
     memoryMcp: { type: 'missing', file: '~/.config/opencode/opencode.json', exists: false },
+    desktopMcp: { type: 'missing', file: '~/.config/opencode/opencode.json', exists: false },
   },
 ];
 
@@ -107,6 +114,7 @@ const OPENCODE_ONLY: RosterEntry[] = [
     skills: SKILLS_ACTIONS,
     mcp: { type: 'missing', file: '~/.omp/agent/mcp.json', exists: false },
     memoryMcp: { type: 'missing', file: '~/.omp/agent/mcp.json', exists: false },
+    desktopMcp: { type: 'missing', file: '~/.omp/agent/mcp.json', exists: false },
   },
   {
     id: asId('pi'),
@@ -116,6 +124,7 @@ const OPENCODE_ONLY: RosterEntry[] = [
     skills: SKILLS_ACTIONS,
     mcp: { type: 'missing', file: '~/.pi/agent/mcp.json', exists: false },
     memoryMcp: { type: 'missing', file: '~/.pi/agent/mcp.json', exists: false },
+    desktopMcp: { type: 'missing', file: '~/.pi/agent/mcp.json', exists: false },
   },
   {
     id: asId('opencode'),
@@ -125,6 +134,7 @@ const OPENCODE_ONLY: RosterEntry[] = [
     skills: OPENCODE_SKILLS,
     mcp: { type: 'manualEdit', file: OPENCODE_FILE, snippet: opencodeSnippet('harness-dashboard') },
     memoryMcp: { type: 'manualEdit', file: OPENCODE_FILE, snippet: opencodeSnippet('harness-memory') },
+    desktopMcp: { type: 'manualEdit', file: OPENCODE_FILE, snippet: opencodeSnippet('harness-desktop') },
   },
 ];
 
@@ -136,6 +146,7 @@ const LONG: RosterEntry = {
   skills: { type: 'installed', version: null },
   mcp: { type: 'refused', file: '', reason: 'unparsable' },
   memoryMcp: { type: 'refused', file: '', reason: 'unparsable' },
+  desktopMcp: { type: 'refused', file: '', reason: 'unparsable' },
 };
 
 /** The roster of a scenario, or null when the scenario uses the real harnesses. */

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-hooks-delete-all"
+description = "Enables the hooks_delete_all command without any pre-configured scope."
+commands.allow = ["hooks_delete_all"]
+
+[[permission]]
+identifier = "deny-hooks-delete-all"
+description = "Denies the hooks_delete_all command without any pre-configured scope."
+commands.deny = ["hooks_delete_all"]

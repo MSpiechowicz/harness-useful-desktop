@@ -23,6 +23,9 @@ export const shell: AreaMessages<typeof enShell> = {
   'shell.view.memory': 'Memoria',
   'shell.view.memory.heading': 'Lo que recuerdan tus agentes',
   'shell.view.memory.body': 'Lee y elimina los scripts que tus agentes guardaron para acciones repetidas.',
+  'shell.view.hooks': 'Hooks',
+  'shell.view.hooks.heading': 'Lo que ocurre alrededor de tus chats',
+  'shell.view.hooks.body': 'Añade contexto, envía seguimientos o ejecuta comandos en momentos concretos de un chat con un agente.',
   'shell.view.settings': 'Ajustes',
   'shell.view.settings.heading': 'Ajustes',
   'shell.view.settings.body': 'Tema, animaciones y comportamiento al iniciar.',
@@ -54,6 +57,8 @@ export const shell: AreaMessages<typeof enShell> = {
   'shell.count.file.other': '{count} archivos',
   'shell.count.changedFile.one': '{count} archivo modificado',
   'shell.count.changedFile.other': '{count} archivos modificados',
+  'shell.count.hooksToApprove.one': '{count} hook por aprobar',
+  'shell.count.hooksToApprove.other': '{count} hooks por aprobar',
 
 
   'shell.toast.noHarness.title': 'No hay harness con el que chatear',

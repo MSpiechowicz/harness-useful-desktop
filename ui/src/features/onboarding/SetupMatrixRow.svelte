@@ -14,6 +14,7 @@
   import SetupCell from './SetupCell.svelte';
   import SetupMcpNote from './SetupMcpNote.svelte';
   import { isUnsupported, mcpChip, mcpTitle, type McpKind, type SetupKey } from './setup-model';
+  import type { MessageKey } from '$lib/i18n/locales/en';
   import { comingSoon, setup } from './setup-state.svelte';
   import { badgeOf, nameOf } from './setup-view';
 
@@ -27,7 +28,10 @@
   /** Listed, greyed out and left alone until the app can chat with it. */
   const soon = $derived(comingSoon(entry.harness));
 
-  /** One MCP column of the row: its cell and what its note would say. The dashboard's and the memory server's work alike. */
+  /** What a missing entry says while the server it runs is not installed; the app's own entry runs the app and never waits. */
+  const NEEDS: Record<McpKind, MessageKey | null> = { mcp: 'onboarding.setup.mcp.needsDashboard', memoryMcp: 'onboarding.setup.memoryMcp.needsMemory', desktopMcp: null };
+
+  /** One MCP column of the row: its cell and what its note would say. The dashboard's, the memory server's and the app's own work alike. */
   function mcpColumn(kind: McpKind) {
     const mcp = entry[kind];
     const key: SetupKey = `${kind}:${entry.harness}`;
@@ -37,7 +41,7 @@
       refused: entry.installed && mcp.type === 'refused' && !isUnsupported(mcp) ? mcp.reason : null,
       manualEdit: entry.installed && mcp.type === 'manualEdit' ? { file: mcp.file, snippet: mcp.snippet } : null,
       disabled: entry.installed && mcp.type === 'disabled',
-      waitsFor: waits ? t(kind === 'mcp' ? 'onboarding.setup.mcp.needsDashboard' : 'onboarding.setup.memoryMcp.needsMemory') : null,
+      waitsFor: waits && NEEDS[kind] ? t(NEEDS[kind]) : null,
       failure: setup.failure(key),
     };
 
@@ -52,7 +56,7 @@
     };
   }
 
-  const mcpColumns = $derived([mcpColumn('mcp'), mcpColumn('memoryMcp')]);
+  const mcpColumns = $derived([mcpColumn('mcp'), mcpColumn('memoryMcp'), mcpColumn('desktopMcp')]);
 
   const hasNotes = $derived(mcpColumns.some((column) => column.hasNote));
 

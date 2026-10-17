@@ -1,6 +1,6 @@
 //! What the "Recommended setup" step offers per machine: the dashboard installer, the skills per
-//! harness (installed, marketplace actions, manual command) and the dashboard's and the memory
-//! server's MCP states.
+//! harness (installed, marketplace actions, manual command) and the MCP states of the dashboard,
+//! the memory server and the app's own server.
 
 use std::path::Path;
 
@@ -171,6 +171,13 @@ async fn an_empty_machine_is_offered_everything() {
             exists: false
         }
     );
+    assert_eq!(
+        omp.desktop_mcp,
+        McpState::Missing {
+            file: "~/.omp/agent/mcp.json".to_owned(),
+            exists: false
+        }
+    );
 
     let pi = harness(&setup, HarnessId::Pi);
     assert!(!pi.installed, "a harness that was not detected is reported as missing");
@@ -200,6 +207,7 @@ async fn an_empty_machine_is_offered_everything() {
     };
     assert_eq!(opencode.mcp, opencode_missing);
     assert_eq!(opencode.memory_mcp, opencode_missing);
+    assert_eq!(opencode.desktop_mcp, opencode_missing);
 }
 
 #[tokio::test]
@@ -369,12 +377,13 @@ async fn the_mcp_state_reads_the_active_omp_profile_only() {
 }
 
 #[tokio::test]
-async fn the_memory_servers_entry_is_reported_next_to_the_dashboards() {
+async fn the_memory_and_desktop_servers_are_reported_next_to_the_dashboards() {
     let home = tempfile::tempdir().unwrap();
     let entries = json!({
         "mcpServers": {
             "harness-dashboard": { "command": "harness-dashboard", "args": ["mcp"], "enabled": false },
-            "harness-memory": { "command": home.path().join(".local/bin/harness-memory"), "args": ["mcp"] }
+            "harness-memory": { "command": home.path().join(".local/bin/harness-memory"), "args": ["mcp"] },
+            "harness-desktop": { "command": "/opt/harness-desktop/harness-desktop", "args": ["mcp"] }
         }
     });
     write(&home.path().join(".omp/agent/mcp.json"), &entries.to_string());
@@ -394,6 +403,13 @@ async fn the_memory_servers_entry_is_reported_next_to_the_dashboards() {
         McpState::Configured {
             file: "~/.omp/agent/mcp.json".to_owned(),
             name: "harness-memory".to_owned()
+        }
+    );
+    assert_eq!(
+        omp.desktop_mcp,
+        McpState::Configured {
+            file: "~/.omp/agent/mcp.json".to_owned(),
+            name: "harness-desktop".to_owned()
         }
     );
     assert_eq!(

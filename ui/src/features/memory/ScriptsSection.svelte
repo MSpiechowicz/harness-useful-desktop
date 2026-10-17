@@ -5,11 +5,14 @@
 
   import Badge from '$lib/components/Badge.svelte';
   import Button from '$lib/components/Button.svelte';
+  import FilterMenu from '$lib/components/FilterMenu.svelte';
   import { ICON } from '$lib/components/icon';
   import type { Column } from '$lib/components/table';
   import { t, tn } from '$lib/i18n/i18n.svelte';
   import type { ScriptDetail } from '$lib/ipc/bindings/ScriptDetail';
   import type { ScriptGroup } from '$lib/ipc/bindings/ScriptGroup';
+  import type { ScriptReview } from '$lib/ipc/bindings/ScriptReview';
+  import type { ScriptScope } from '$lib/ipc/bindings/ScriptScope';
   import type { ScriptSummary } from '$lib/ipc/bindings/ScriptSummary';
   import { deleteScript, type ReviewedScript, SCRIPTS_PAGE_SIZE, scriptDetail, scriptList, trustScripts } from '$lib/stores/memoryScripts.svelte';
   import { project } from '$lib/stores/project.svelte';
@@ -19,13 +22,16 @@
 
   import SessionConfirm, { type ConfirmRequest } from '../sessions/SessionConfirm.svelte';
   import ApprovalBadge from './ApprovalBadge.svelte';
+  import MemoryFilterHint from './MemoryFilterHint.svelte';
+  import MemoryScopeFilter from './MemoryScopeFilter.svelte';
   import MemorySearch from './MemorySearch.svelte';
   import MemoryTable from './MemoryTable.svelte';
   import ScriptPanel from './ScriptPanel.svelte';
   import { languageLabel, needsReview, PLACE_LABELS, scopeText } from './script-format';
   import { scriptColumns } from './script-table';
 
-  type GroupChip = ScriptGroup | 'all';
+  type GroupChoice = ScriptGroup | 'all';
+  type StatusChoice = ScriptReview | 'all';
 
   interface Shown {
     script: ScriptSummary | null;
@@ -44,31 +50,54 @@
   const rows = $derived(page?.scripts ?? []);
   const total = $derived(page?.total ?? 0);
   const groups = $derived(page?.groups ?? { needsReview: 0, repo: 0, global: 0 });
+  const reviews = $derived(page?.review ?? null);
   // Every script applies to one scope, so the two scope groups together are all of them.
   const everything = $derived(groups.repo + groups.global);
+  // An older Harness Memory cannot combine the scope with the status: it gets one "Show" filter of its groups, and a hint that an update adds the scope.
+  const combined = $derived(page?.combinedFilters ?? true);
   const searching = $derived(viewState.scriptsQuery.trim() !== '');
+  const filtered = $derived(combined ? viewState.scriptsScope !== null || viewState.scriptsStatus !== null : viewState.scriptsGroup !== null);
   // Nothing saved yet: one page with the explanation, not an empty table beside a message.
-  const none = $derived(page !== null && availability === null && everything === 0 && !searching && viewState.scriptsGroup === null);
+  const none = $derived(page !== null && availability === null && total === 0 && !searching && !filtered);
   // Trusting several at once is for the scripts on screen: the ones of the page the user is looking at.
   const toTrust = $derived(rows.filter(needsReview));
 
-  const chips = $derived([
-    { value: 'all' as GroupChip, label: t('memory.scripts.chips.all'), count: everything },
-    { value: 'needsReview' as GroupChip, label: t('memory.scripts.review.filter'), count: groups.needsReview },
-    { value: 'repo' as GroupChip, label: t('memory.scripts.chips.repo'), count: groups.repo },
-    { value: 'global' as GroupChip, label: t('memory.scripts.row.global'), count: groups.global },
+  const statusOptions = $derived([
+    { value: 'all' as StatusChoice, label: t('memory.filter.all'), count: reviews ? reviews.needed + reviews.trusted : undefined },
+    { value: 'needed' as StatusChoice, label: t('memory.scripts.review.filter'), count: reviews?.needed },
+    { value: 'trusted' as StatusChoice, label: t('memory.filter.trusted'), count: reviews?.trusted },
   ]);
 
-  // A search that finds nothing says so. So does a group with no script: it stays chosen, and the table names it.
+  const groupOptions = $derived([
+    { value: 'all' as GroupChoice, label: t('memory.filter.all'), count: everything },
+    { value: 'needsReview' as GroupChoice, label: t('memory.scripts.review.filter'), count: groups.needsReview },
+    { value: 'repo' as GroupChoice, label: t('memory.scripts.chips.repo'), count: groups.repo },
+    { value: 'global' as GroupChoice, label: t('memory.scripts.row.global'), count: groups.global },
+  ]);
+
+  // A search that finds nothing says so. So do filters that leave nothing: they stay chosen, with the way to clear them in the row above.
   const noMatch = $derived.by(() => {
     if (page === null || rows.length > 0 || total > 0) {
       return null;
     }
 
-    const group = chips.find((chip) => chip.value === (viewState.scriptsGroup ?? 'all'));
-
-    return searching || !group || group.value === 'all' ? t('memory.scripts.list.noMatch') : t('memory.scripts.list.noGroup', { filter: group.label });
+    return !searching && filtered ? t('memory.scripts.list.noFilter') : t('memory.scripts.list.noMatch');
   });
+
+  function chooseScope(scope: ScriptScope | null): void {
+    viewState.scriptsScope = scope;
+    viewState.scriptsPage = 0;
+  }
+
+  function chooseStatus(status: ScriptReview | null): void {
+    viewState.scriptsStatus = status;
+    viewState.scriptsPage = 0;
+  }
+
+  function chooseGroup(group: ScriptGroup | null): void {
+    viewState.scriptsGroup = group;
+    viewState.scriptsPage = 0;
+  }
 
   // The open script. Its row is on this page only sometimes (a page turned), so the read of it also gives the facts.
   // The body belongs to it only: a read that is still on its way for the previous one never shows.
@@ -189,6 +218,38 @@
   }
 </script>
 
+{#snippet filters()}
+  {#if combined}
+    <MemoryScopeFilter value={viewState.scriptsScope} counts={page?.scopes ?? null} onchange={chooseScope} />
+
+    <FilterMenu
+      label={t('memory.filter.status')}
+      prefix={t('memory.filter.status')}
+      options={statusOptions}
+      value={viewState.scriptsStatus ?? 'all'}
+      onchange={(next) => chooseStatus(next === 'all' ? null : next)}
+      onclear={() => chooseStatus(null)}
+      clearLabel={t('memory.filter.clearStatus')}
+      align="start"
+    />
+  {:else}
+    <FilterMenu
+      label={t('memory.filter.show')}
+      prefix={t('memory.filter.show')}
+      options={groupOptions}
+      value={viewState.scriptsGroup ?? 'all'}
+      onchange={(next) => chooseGroup(next === 'all' ? null : next)}
+      onclear={() => chooseGroup(null)}
+      clearLabel={t('memory.filter.clearShow')}
+      align="start"
+    />
+  {/if}
+{/snippet}
+
+{#snippet hint()}
+  <MemoryFilterHint />
+{/snippet}
+
 {#if page && !availability && !none}
   <MemorySearch bind:value={viewState.scriptsQuery} label={t('memory.scripts.list.search')} placeholder={t('memory.scripts.list.searchPlaceholder')}>
     {#snippet before()}
@@ -213,17 +274,9 @@
   failedTitle={t('memory.scripts.empty.failed.title')}
   loadingLabel={t('memory.scripts.loading')}
   {noMatch}
-  chips={{
-    label: t('memory.scripts.chips.label'),
-    idBase: 'memory-scripts-group',
-    options: chips,
-    value: viewState.scriptsGroup ?? 'all',
-    onchange: (next) => {
-      viewState.scriptsGroup = next === 'all' ? null : next;
-      viewState.scriptsPage = 0;
-    },
-  }}
-  count={tn('memory.scripts.count', everything)}
+  count={tn('memory.scripts.count', total)}
+  {filters}
+  hint={combined ? undefined : hint}
   detailEmpty={t('memory.scripts.detail.empty')}
   tableLabel={t('memory.scripts.list.label')}
   tableId="memory-scripts"

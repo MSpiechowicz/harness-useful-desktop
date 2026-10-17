@@ -17,6 +17,7 @@
   import { cx } from '$lib/utils/cx';
 
   import ChatTree from '../chat/ChatTree.svelte';
+  import { hooks } from '../hooks/hooks-data.svelte';
 
   import { railBadge } from './rail-badges';
   import RailFooter from './RailFooter.svelte';
@@ -162,7 +163,7 @@
           shortcut={viewShortcut(view.id)}
           active={view.id === nav.current}
           {expanded}
-          badge={railBadge(view.id, chat, git.status)}
+          badge={railBadge(view.id, chat, git.status, hooks.pending)}
           bind:button={buttons[index]}
           onselect={() => nav.go(view.id)}
         />

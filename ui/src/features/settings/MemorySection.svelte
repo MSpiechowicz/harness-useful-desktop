@@ -95,16 +95,6 @@
     </div>
   {/if}
 
-  <SettingRow title={t('settings.memoryRecall.title')} description={t('settings.memoryRecall.description')}>
-    {#snippet control()}
-      <Switch
-        label={t('settings.memoryRecall.title')}
-        disabled={prefs.value?.memoryEnabled === false}
-        bind:checked={() => prefs.value?.memoryRecall ?? true, (memoryRecall) => void prefs.update({ memoryRecall })}
-      />
-    {/snippet}
-  </SettingRow>
-
   <SettingRow title={t('settings.memoryRemote.title')} description={t('settings.memoryRemote.description')}>
     {#snippet control()}
       <Switch label={t('settings.memoryRemote.title')} disabled={remote === null || turningOff || !memoryOn} bind:checked={() => wanted, toggle} />

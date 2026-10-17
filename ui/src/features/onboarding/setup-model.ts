@@ -12,14 +12,14 @@ export type ItemPhase = 'idle' | 'running' | 'done' | 'failed' | 'skipped';
 /** The companions the step installs from their own installers. */
 export type Companion = 'dashboard' | 'memory';
 
-/** The two MCP servers the step registers per harness: the dashboard's (`mcp`) and the memory server's (`memoryMcp`). */
-export type McpKind = 'mcp' | 'memoryMcp';
+/** The three MCP servers the step registers per harness: the dashboard's (`mcp`), the memory server's (`memoryMcp`) and the app's own, which lets agents manage hooks (`desktopMcp`). */
+export type McpKind = 'mcp' | 'memoryMcp' | 'desktopMcp';
 
 /** The things the step can set up: the two companions, and per harness its skills and its two MCP entries. */
 export type SetupKey = Companion | `skills:${HarnessId}` | `${McpKind}:${HarnessId}`;
 
-/** The companion each MCP entry runs, which has to be installed before the entry can be added. */
-export const MCP_COMPANION: Record<McpKind, Companion> = { mcp: 'dashboard', memoryMcp: 'memory' };
+/** The companion each MCP entry runs, which has to be installed before the entry can be added. The app's own entry runs the app itself, so it waits for nothing. */
+export const MCP_COMPANION: Record<McpKind, Companion | null> = { mcp: 'dashboard', memoryMcp: 'memory', desktopMcp: null };
 
 /** One line of what the confirmation lists. */
 export interface PlannedCommand {
@@ -74,13 +74,15 @@ export interface Chip {
   none?: boolean;
 }
 
+const MCP_TITLES: Record<McpKind, MessageKey> = { mcp: 'onboarding.setup.mcp.title', memoryMcp: 'onboarding.setup.memoryMcp.title', desktopMcp: 'onboarding.setup.desktopMcp.title' };
+
 /** The column title of each MCP entry. */
 export function mcpTitle(kind: McpKind): string {
-  return kind === 'mcp' ? t('onboarding.setup.mcp.title') : t('onboarding.setup.memoryMcp.title');
+  return t(MCP_TITLES[kind]);
 }
 
 /** The server name and command of each MCP entry. */
-const MCP_SERVER: Record<McpKind, string> = { mcp: 'harness-dashboard', memoryMcp: 'harness-memory' };
+const MCP_SERVER: Record<McpKind, string> = { mcp: 'harness-dashboard', memoryMcp: 'harness-memory', desktopMcp: 'harness-desktop' };
 
 /** The JSON a person adds to an MCP file when the app leaves it alone, one key per line so it never wraps mid-token. OpenCode keeps its servers under "mcp", the command as one list. */
 export function mcpSnippet(kind: McpKind, harness?: HarnessId): string {
@@ -181,7 +183,7 @@ export function skillsChip(setup: HarnessSetup, phase: ItemPhase, waiting: boole
   });
 }
 
-/** The chip of one of the harness's MCP entries (`mcp` the dashboard's, `memoryMcp` the memory server's). */
+/** The chip of one of the harness's MCP entries (`mcp` the dashboard's, `memoryMcp` the memory server's, `desktopMcp` the app's own). */
 export function mcpChip(setup: HarnessSetup, kind: McpKind, phase: ItemPhase, waiting: boolean): Chip {
   return rowChip(setup, phase, waiting, () => {
     const mcp = setup[kind];

@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { fakeMemory, noteRow, registerMemoryHooks, rowButton, showMemory, showNotes } from './memory-test-support';
+import { fakeMemory, noteRow, pickFilter, registerMemoryHooks, rowButton, showMemory, showNotes } from './memory-test-support';
 
 registerMemoryHooks();
 
@@ -19,12 +19,13 @@ const WIDE = 1600;
 const NARROW = 1000;
 
 describe('a narrow view', () => {
-  it('keeps the chips above the table and slides the panel in over the view, with no empty detail beside it', async () => {
+  it('keeps the filters above the table and slides the panel in over the view, with no empty detail beside it', async () => {
     widthOf(NARROW);
     fakeMemory();
     await showMemory();
 
-    expect(screen.getByRole('radio', { name: /^All 5/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Scope: All' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Status: All' })).toBeInTheDocument();
     expect(screen.queryByText('Select a script to see its code')).toBeNull();
     expect(screen.queryByRole('region')).toBeNull();
 
@@ -33,7 +34,7 @@ describe('a narrow view', () => {
     expect(await screen.findByRole('region', { name: 'open-prs' })).toBeInTheDocument();
   });
 
-  it('says how much there is once, beside the chips', async () => {
+  it('says how much there is once, in the row of the filters', async () => {
     widthOf(NARROW);
     fakeMemory();
     await showMemory();
@@ -56,25 +57,25 @@ describe('a narrow view', () => {
 });
 
 describe('a wide view', () => {
-  it('lays out the groups as a column, the table, and a detail column that asks for a choice until there is one', async () => {
+  it('lays out the table and a detail column that asks for a choice until there is one, with the same filters above the table', async () => {
     widthOf(WIDE);
     fakeMemory();
     await showMemory();
 
-    // The groups are still one radio group with the same names, now a column.
-    const groups = screen.getByRole('radiogroup', { name: 'Filter scripts' });
-    expect(within(groups).getByRole('radio', { name: /^All 5/ })).toHaveAttribute('aria-checked', 'true');
-    expect(within(groups).getByRole('radio', { name: /^Needs review 2/ })).toBeInTheDocument();
+    // No column of choices beside the table: the filters are the same two menus in the row above it.
+    expect(screen.queryByRole('radiogroup')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Scope: All' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Status: All' })).toBeInTheDocument();
     expect(screen.getByText('Select a script to see its code')).toBeInTheDocument();
     expect(screen.getAllByText('5 scripts')).toHaveLength(1);
   });
 
-  it('narrows the table from the column and says "note" for the notes', async () => {
+  it('narrows the table from the menu of the filter', async () => {
     widthOf(WIDE);
     fakeMemory();
     await showMemory();
 
-    await fireEvent.click(screen.getByRole('radio', { name: /^Global/ }));
+    await pickFilter('Scope: All', /^Global/);
 
     await waitFor(() => expect(rowButton('open-prs')).toBeNull());
     expect(rowButton('disk-hogs')).not.toBeNull();

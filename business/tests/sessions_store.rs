@@ -14,7 +14,9 @@ use harness_business::model::{
 };
 use harness_business::pi_family::sessions::{SessionCache, read_tree};
 use pretty_assertions::assert_eq;
-use session_support::{OMP_FORK, OMP_MAIN, OMP_RELEASE, PI_NAMED, PI_UNTITLED, SessionHome, session, set_mtime};
+use session_support::{
+    OMP_FORK, OMP_MAIN, OMP_RELEASE, PI_NAMED, PI_UNTITLED, SessionHome, assert_pi_previews_skip, session, set_mtime,
+};
 
 /// The fixture copy of [`OMP_MAIN`] (see `sessions_copies.rs`).
 const OMP_COPY: &str = "0199c2b0-4e1a-7d2b-9c3d-2f5e8a7b6c41";
@@ -256,10 +258,6 @@ fn omp_tree_marks_branches_labels_and_the_active_path() {
 
 #[test]
 fn previews_show_the_users_text_without_the_memory_recall_block() {
-    let home = pi_home();
-    let reference = session(HarnessId::Pi, PI_UNTITLED);
-    let path = Pi.resolve_session(&home.env, &home.project, &reference).unwrap();
-
     // The first user message as sent with recalled notes in front (JSON-escaped).
     let recalled = concat!(
         r#"<harness-memory-recall>\nHarness Desktop searched project memory for this message.\n"#,
@@ -267,21 +265,8 @@ fn previews_show_the_users_text_without_the_memory_recall_block() {
         r#"#3 [decision, repo, 2026-10-01, via \"omp\"] Crate edition {Cargo.toml}\n"#,
         r#"  The workspace sets edition 2024\n</harness-memory-recall>\n\nWhich edition"#,
     );
-    let original = fs::read_to_string(&path).unwrap();
-    fs::write(&path, original.replace("Which edition", recalled)).unwrap();
 
-    let list = Pi
-        .list_sessions(&home.env, &home.project, &SessionCache::default())
-        .unwrap();
-    let untitled = list.iter().find(|summary| summary.session.id == PI_UNTITLED).unwrap();
-    assert_eq!(
-        untitled.first_prompt.as_deref(),
-        Some("Which edition does the crate use?")
-    );
-
-    let tree = read_tree(&path, &reference).unwrap().tree;
-    let question = tree.nodes.iter().find(|node| node.id == "q01").unwrap();
-    assert_eq!(question.preview.as_deref(), Some("Which edition does the crate use?"));
+    assert_pi_previews_skip(recalled);
 }
 
 #[test]

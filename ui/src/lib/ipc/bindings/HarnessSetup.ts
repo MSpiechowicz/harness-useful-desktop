@@ -4,7 +4,8 @@ import type { McpState } from "./McpState";
 import type { SkillsSetup } from "./SkillsSetup";
 
 /**
- * The skills and the dashboard's and the memory server's MCP entries of one harness.
+ * The skills and the dashboard's, the memory server's and the app's own MCP entries of one
+ * harness.
  */
 export type HarnessSetup = { 
 /**
@@ -26,4 +27,9 @@ mcp: McpState,
 /**
  * The `harness-memory` server in the harness's user MCP file (`setup_register_memory`).
  */
-memoryMcp: McpState, };
+memoryMcp: McpState, 
+/**
+ * The app's own `harness-desktop mcp` server (hooks for agents) in the harness's user MCP file
+ * (`setup_register_desktop_mcp`).
+ */
+desktopMcp: McpState, };

@@ -21,6 +21,7 @@ mod extension_action;
 mod extensions;
 mod git;
 mod harness;
+mod hook;
 mod ipc_error;
 mod memory_notes;
 mod memory_remote;
@@ -68,6 +69,10 @@ pub use git::{
     MAX_BRANCHES, MAX_FILE_DIFF_BYTES, MAX_TOTAL_DIFF_BYTES, MAX_UNTRACKED_FILE_BYTES, StatusEntry,
 };
 pub use harness::{Capabilities, Detection, HarnessId, HarnessInfo, HarnessSummary, InstallHint, VersionSupport};
+pub use hook::{
+    Hook, HookAction, HookApproval, HookAuthor, HookDraft, HookEvent, HookFamilyEntry, HookFamilyStatus, HookListing,
+    HookRequirement, HookScope, HookSeed, HookStatus, HookView, HooksDeleted, HooksEvent,
+};
 pub use ipc_error::{IpcError, IpcErrorCode};
 pub use memory_notes::{
     MemoryNotesPage, NoteContent, NoteDetail, NoteKind, NoteKindCount, NoteLink, NoteLinkDirection, NoteSort,
@@ -78,8 +83,9 @@ pub use memory_requests::{
     ScriptPreviousOrigin, ScriptPreviousVersion, ScriptRequestEvent, ScriptRunRequest, ScriptStdin,
 };
 pub use memory_scripts::{
-    MemoryDeleteAll, MemoryScriptsAvailability, MemoryScriptsPage, ScriptApproval, ScriptAuthor, ScriptDetail,
-    ScriptGroup, ScriptGroupCounts, ScriptPlace, ScriptScope, ScriptSort, ScriptSummary, ScriptTrustItem,
+    MemoryDeleteAll, MemoryScopeCounts, MemoryScriptsAvailability, MemoryScriptsPage, ScriptApproval, ScriptAuthor,
+    ScriptDetail, ScriptGroup, ScriptGroupCounts, ScriptPlace, ScriptReview, ScriptReviewCounts, ScriptScope,
+    ScriptSort, ScriptSummary, ScriptTrustItem,
 };
 pub use prefs::{
     AppPrefs, BinaryOverride, ChatDefaults, DEFAULT_LANGUAGE, LANGUAGES, MotionPref, ThemePref, UpdatePolicy,

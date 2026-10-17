@@ -14,10 +14,13 @@
 //! - [`session_messages`]: the paged active-path transcript for `session_messages`.
 //! - [`session_files_touched`]: edited files for `session_files_touched`.
 //! - [`delete_session`]: removes a session with its companion directory for `session_delete`.
+//! - [`recall_block`]: the memory recall block older app versions put in front of a message, left
+//!   out of previews.
 
 mod delete;
 pub mod encode;
 mod parse;
+pub mod recall_block;
 mod scan;
 mod stats;
 mod transcript;

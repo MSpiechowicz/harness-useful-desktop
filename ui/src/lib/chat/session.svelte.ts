@@ -17,6 +17,7 @@ import { ComposerAttachments, type Attached } from './composer-attachments.svelt
 import { finishBash, startBash } from './bash';
 import { messageAction, type SendMode } from './composer';
 import { labelFromPrompt, type ChatLabel } from './naming';
+import { splitHooks } from './hook-context';
 import { splitRecall } from './memory-recall';
 import { prependHistory } from './messages';
 import { applyEvent, dropRequest, reduceEnvelope } from './reducer';
@@ -89,7 +90,7 @@ export class ChatSession {
 
     const sent = first.blocks.flatMap((block) => (block.type === 'text' ? [block.text] : [])).join('\n');
 
-    return splitFileNote(splitRecall(sent).text).text;
+    return splitFileNote(splitHooks(splitRecall(sent).text).text).text;
   });
   /** The card text: the helper's when it answered, else the opening words of the first message. */
   label = $derived(this.aiLabel ?? labelFromPrompt(this.firstPrompt));

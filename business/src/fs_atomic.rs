@@ -24,6 +24,30 @@ pub fn replace_atomically(target: &Path, bytes: &[u8], context: &str) -> Result<
     written
 }
 
+/// [`replace_atomically`], with `still_current` checked right before the rename (after the new
+/// bytes are on disk): when it fails, nothing is renamed, the temporary file is removed and its
+/// error is returned. It narrows the window in which a read-check-write loses a change made
+/// meanwhile, but does not close it: a change between the check and the rename is replaced (no
+/// compare-and-swap across processes), so callers must fail closed on their own.
+pub(crate) fn replace_atomically_if(
+    target: &Path,
+    bytes: &[u8],
+    context: &str,
+    still_current: impl FnOnce() -> Result<()>,
+) -> Result<()> {
+    let temp = temp_sibling(target);
+
+    let written = write_synced(&temp, bytes)
+        .and_then(|()| still_current())
+        .and_then(|()| fs::rename(&temp, target).map_err(|error| BusinessError::from_io(context, error)));
+
+    if written.is_err() {
+        fs::remove_file(&temp).ok();
+    }
+
+    written
+}
+
 /// A fresh temporary path next to `target` (`.<name>.tmp-<pid>-<nanos>`), so the final rename
 /// stays on one filesystem.
 pub(crate) fn temp_sibling(target: &Path) -> PathBuf {
@@ -54,6 +78,20 @@ pub(crate) fn write_synced(path: &Path, bytes: &[u8]) -> Result<()> {
     file.write_all(bytes)
         .and_then(|()| file.sync_all())
         .map_err(|error| BusinessError::from_io("writing a temporary file", error))
+}
+
+/// Creates `dir` and its missing parents (`0700` on Unix); an existing folder is fine. `context`
+/// names the creation in the error.
+pub(crate) fn create_private_dir(dir: &Path, context: &str) -> Result<()> {
+    let mut builder = fs::DirBuilder::new();
+    builder.recursive(true);
+
+    #[cfg(unix)]
+    std::os::unix::fs::DirBuilderExt::mode(&mut builder, 0o700);
+
+    builder
+        .create(dir)
+        .map_err(|error| BusinessError::from_io(context, error))
 }
 
 /// Nanoseconds since the Unix epoch (0 when the clock is before it).

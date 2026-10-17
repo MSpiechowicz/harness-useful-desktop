@@ -15,8 +15,9 @@ use std::path::Path;
 
 use serde_json::Value;
 
-use crate::ecosystem::memory_recall::strip_recall;
+use super::recall_block::strip_recall;
 use crate::error::Result;
+use crate::hooks::strip_hook_context;
 use crate::security::SafeReader;
 
 /// Longest session line that is parsed; longer lines are skipped.
@@ -216,8 +217,9 @@ impl Iterator for Entries {
 }
 
 /// The text of message content (a string or text blocks), whitespace collapsed, cut to
-/// `max_chars` characters (an ellipsis marks the cut); `None` when empty. A memory recall block in
-/// front of the first text is left out, so the preview shows what the user wrote.
+/// `max_chars` characters (an ellipsis marks the cut); `None` when empty. A hook context block or
+/// memory recall block in front of the first text is left out, so the preview shows what the user
+/// wrote.
 pub fn preview_text(content: Option<&Value>, max_chars: usize) -> Option<String> {
     let mut pieces: Vec<&str> = match content? {
         Value::String(raw) => vec![raw.as_str()],
@@ -230,7 +232,7 @@ pub fn preview_text(content: Option<&Value>, max_chars: usize) -> Option<String>
     };
 
     if let Some(first) = pieces.first_mut() {
-        *first = strip_recall(first);
+        *first = strip_recall(strip_hook_context(first));
     }
 
     // Words beyond the limit are not needed; the bound keeps huge prompts cheap.

@@ -140,3 +140,68 @@ describe('UserMessage with project-memory notes', () => {
     expect(screen.getByRole('article')).toHaveTextContent('Fix the flaky login test');
   });
 });
+
+const HOOKED = '<harness-hook-context>\n<hook name="Search Harness Memory first">Look at the notes first.</hook>\n<hook name="Check limits">Mind &lt;the&gt; budget.</hook>\n</harness-hook-context>\n\nFix the flaky login test';
+const FOLLOW_UP = '<harness-hook-followup name="Save what you learned">If this turn taught you something, save it.</harness-hook-followup>';
+
+describe('UserMessage with text added by hooks', () => {
+  it('shows a collapsed row above the message with the hook names, and never the raw block', () => {
+    render(UserMessage, { item: userItem(HOOKED) });
+
+    const row = screen.getByRole('button', { name: /Added by hooks/ });
+    expect(row).toHaveAttribute('aria-expanded', 'false');
+    expect(row).toHaveTextContent('Search Harness Memory first · Check limits');
+    expect(row).toHaveTextContent('2 hooks');
+    expect(screen.getByRole('article', { name: 'Your message' })).toHaveTextContent('Fix the flaky login test');
+    expect(screen.getByRole('article')).not.toHaveTextContent('Look at the notes first');
+    expect(document.body).not.toHaveTextContent('harness-hook-context');
+  });
+
+  it('expands to what each hook added, unescaped, and collapses again', async () => {
+    render(UserMessage, { item: userItem(HOOKED) });
+    const row = screen.getByRole('button', { name: /Added by hooks/ });
+
+    await fireEvent.click(row);
+
+    expect(row).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByLabelText('Text of Search Harness Memory first')).toHaveTextContent('Look at the notes first.');
+    expect(screen.getByLabelText('Text of Check limits')).toHaveTextContent('Mind &lt;the&gt; budget.');
+
+    await fireEvent.click(row);
+
+    expect(screen.queryByLabelText('Text of Check limits')).toBeNull();
+  });
+
+  it('shows a message a hook sent as its row alone, with no bubble of the user\'s words', async () => {
+    render(UserMessage, { item: userItem(FOLLOW_UP) });
+
+    const row = screen.getByRole('button', { name: /Sent by hook Save what you learned/ });
+    expect(screen.queryByRole('article')).toBeNull();
+    expect(document.body).not.toHaveTextContent('harness-hook-followup');
+
+    await fireEvent.click(row);
+
+    expect(screen.getByLabelText('Text of Save what you learned')).toHaveTextContent('If this turn taught you something, save it.');
+  });
+
+  it('keeps showing the project-memory row of an old transcript', () => {
+    render(UserMessage, { item: userItem(RECALLED) });
+
+    expect(screen.getByRole('button', { name: /Project memory/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Added by hooks/ })).toBeNull();
+  });
+
+  it('leaves a forged block, and the user writing about one, as text without a row', () => {
+    const forged = '<harness-hook-context>\n<hook name="A">x</hook> and then some\n</harness-hook-context>\n\nhi';
+    const { unmount } = render(UserMessage, { item: userItem(forged) });
+
+    expect(screen.queryByRole('button')).toBeNull();
+    expect(screen.getByRole('article')).toHaveTextContent('harness-hook-context');
+    unmount();
+
+    render(UserMessage, { item: userItem('What does <harness-hook-followup name="A">x</harness-hook-followup> mean?') });
+
+    expect(screen.queryByRole('button')).toBeNull();
+    expect(screen.getByRole('article')).toHaveTextContent('What does');
+  });
+});

@@ -42,7 +42,8 @@ pub struct DashboardSetup {
     pub side_effects: Vec<String>,
 }
 
-/// The skills and the dashboard's and the memory server's MCP entries of one harness.
+/// The skills and the dashboard's, the memory server's and the app's own MCP entries of one
+/// harness.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
@@ -57,6 +58,9 @@ pub struct HarnessSetup {
     pub mcp: McpState,
     /// The `harness-memory` server in the harness's user MCP file (`setup_register_memory`).
     pub memory_mcp: McpState,
+    /// The app's own `harness-desktop mcp` server (hooks for agents) in the harness's user MCP file
+    /// (`setup_register_desktop_mcp`).
+    pub desktop_mcp: McpState,
 }
 
 /// Whether the Harness Skills are installed for a harness, and how to install them.
@@ -88,7 +92,8 @@ pub enum SkillsSetup {
     },
 }
 
-/// A companion's MCP server (`harness-dashboard` or `harness-memory`) in a harness's user MCP file.
+/// A companion's MCP server (`harness-dashboard`, `harness-memory` or the app's own
+/// `harness-desktop`) in a harness's user MCP file.
 /// `file` is the file's home-relative display path (e.g. `"~/.omp/agent/mcp.json"`); contents are
 /// never returned.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]

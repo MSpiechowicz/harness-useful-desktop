@@ -244,48 +244,30 @@ fn built_fake_agent() -> Option<PathBuf> {
     path.is_file().then_some(path)
 }
 
-/// Runs `fake_agent --dialect <omp|mcp> --scenario <scenario>` in the requested directory, keeping
-/// the pids it started.
+/// Runs `fake_agent --dialect omp --scenario <scenario>` in the requested directory, counting the
+/// processes it started.
 pub struct ScenarioSpawner {
     binary: PathBuf,
-    dialect: &'static str,
     scenario: PathBuf,
     spawned: AtomicUsize,
-    pids: Mutex<Vec<u32>>,
 }
 
 impl ScenarioSpawner {
     /// Plays `scenario`, a stream under `business/tests/fixtures/streams`, as an OMP agent with the
     /// fake agent at `binary`.
     pub fn new(binary: &Path, scenario: &str) -> Arc<Self> {
-        Self::with_dialect(binary, "omp", scenario)
-    }
-
-    /// Plays `scenario` as an MCP server (a scripted `harness-memory`).
-    pub fn mcp(binary: &Path, scenario: &str) -> Arc<Self> {
-        Self::with_dialect(binary, "mcp", scenario)
-    }
-
-    fn with_dialect(binary: &Path, dialect: &'static str, scenario: &str) -> Arc<Self> {
         Arc::new(Self {
             binary: binary.to_path_buf(),
-            dialect,
             scenario: Path::new(env!("CARGO_MANIFEST_DIR"))
                 .join("../business/tests/fixtures/streams")
                 .join(scenario),
             spawned: AtomicUsize::new(0),
-            pids: Mutex::new(Vec::new()),
         })
     }
 
     /// How many processes were spawned.
     pub fn spawned(&self) -> usize {
         self.spawned.load(Ordering::Relaxed)
-    }
-
-    /// The pids of the spawned processes, oldest first.
-    pub fn pids(&self) -> Vec<u32> {
-        self.pids.lock().unwrap_or_else(PoisonError::into_inner).clone()
     }
 }
 
@@ -294,16 +276,10 @@ impl ProcessSpawner for ScenarioSpawner {
         self.spawned.fetch_add(1, Ordering::Relaxed);
 
         let scenario = self.scenario.to_string_lossy().into_owned();
-        let mut fake = ExecSpec::new(&self.binary).args(["--dialect", self.dialect, "--scenario", scenario.as_str()]);
+        let mut fake = ExecSpec::new(&self.binary).args(["--dialect", "omp", "--scenario", scenario.as_str()]);
         fake.cwd = spec.cwd.clone();
 
-        let process = TokioSpawner.spawn(&fake)?;
-
-        if let Some(pid) = process.child.id() {
-            self.pids.lock().unwrap_or_else(PoisonError::into_inner).push(pid);
-        }
-
-        Ok(process)
+        TokioSpawner.spawn(&fake)
     }
 }
 

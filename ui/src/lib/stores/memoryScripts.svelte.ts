@@ -2,6 +2,8 @@ import { t, tn } from '$lib/i18n/i18n.svelte';
 import type { MemoryScriptsPage } from '$lib/ipc/bindings/MemoryScriptsPage';
 import type { ScriptDetail } from '$lib/ipc/bindings/ScriptDetail';
 import type { ScriptGroup } from '$lib/ipc/bindings/ScriptGroup';
+import type { ScriptReview } from '$lib/ipc/bindings/ScriptReview';
+import type { ScriptScope } from '$lib/ipc/bindings/ScriptScope';
 import type { ScriptSort } from '$lib/ipc/bindings/ScriptSort';
 import type { SortOrder } from '$lib/ipc/bindings/SortOrder';
 import { ipc } from '$lib/ipc/client';
@@ -14,9 +16,14 @@ import { ViewLoader } from './view-loader.svelte';
 /** How many scripts one page of the table holds. */
 export const SCRIPTS_PAGE_SIZE = 50;
 
-/** What the table asks the server for: one page of the scripts that answer the search and the group, in this order. */
+/**
+ * What the table asks the server for: one page of the scripts that answer the search and the filters, in this order.
+ * A server that combines filters is asked for `scope` and `review`, an older one for the one `group`: never both.
+ */
 export interface ScriptsRequest {
   query: string;
+  scope: ScriptScope | null;
+  review: ScriptReview | null;
   group: ScriptGroup | null;
   sort: ScriptSort;
   order: SortOrder;
@@ -28,9 +35,9 @@ export function scriptsKey(request: ScriptsRequest): string {
   return JSON.stringify(request);
 }
 
-/** One page of the scripts agents saved in Harness Memory that this project sees (its own and the global ones), with the size of every group. */
+/** One page of the scripts agents saved in Harness Memory that this project sees (its own and the global ones), with the size of every group, scope and approval. */
 export const scriptList = new ViewLoader<MemoryScriptsPage, string>((key, project) => {
-  const { query, group, sort, order, page } = JSON.parse(key) as ScriptsRequest;
+  const { query, scope, review, group, sort, order, page } = JSON.parse(key) as ScriptsRequest;
   const search = query.trim();
 
   return ipc.invoke('memory_scripts_list', {
@@ -38,6 +45,8 @@ export const scriptList = new ViewLoader<MemoryScriptsPage, string>((key, projec
     offset: page * SCRIPTS_PAGE_SIZE,
     limit: SCRIPTS_PAGE_SIZE,
     query: search === '' ? undefined : search,
+    scope: scope ?? undefined,
+    review: review ?? undefined,
     group: group ?? undefined,
     sort,
     order,

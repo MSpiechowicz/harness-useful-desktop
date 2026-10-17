@@ -2,11 +2,13 @@
   import NotebookText from '@lucide/svelte/icons/notebook-text';
   import { untrack } from 'svelte';
 
+  import FilterMenu from '$lib/components/FilterMenu.svelte';
   import type { Column } from '$lib/components/table';
   import { t, tn } from '$lib/i18n/i18n.svelte';
   import type { NoteDetail } from '$lib/ipc/bindings/NoteDetail';
   import type { NoteKind } from '$lib/ipc/bindings/NoteKind';
   import type { NoteSummary } from '$lib/ipc/bindings/NoteSummary';
+  import type { ScriptScope } from '$lib/ipc/bindings/ScriptScope';
   import { deleteNote, noteDetail, noteList, NOTES_PAGE_SIZE } from '$lib/stores/memoryNotes.svelte';
   import { project } from '$lib/stores/project.svelte';
   import { viewState } from '$lib/stores/view-state.svelte';
@@ -14,14 +16,16 @@
   import { clampPage, pageCount } from '$lib/utils/pagination';
 
   import SessionConfirm from '../sessions/SessionConfirm.svelte';
+  import MemoryFilterHint from './MemoryFilterHint.svelte';
+  import MemoryScopeFilter from './MemoryScopeFilter.svelte';
   import MemorySearch from './MemorySearch.svelte';
   import MemoryTable from './MemoryTable.svelte';
   import NoteKindBadge from './NoteKindBadge.svelte';
   import NotePanel from './NotePanel.svelte';
-  import { KIND_GROUP_LABELS, KIND_LABELS, kindCount, NOTE_KINDS, noteColumns, noteScopeText, totalCount } from './note-format';
+  import { KIND_LABELS, NOTE_KINDS, noteColumns, noteScopeText, totalCount } from './note-format';
   import { PLACE_LABELS, spelledOut } from './script-format';
 
-  type KindChip = NoteKind | 'all';
+  type KindChoice = NoteKind | 'all';
 
   interface Shown {
     note: NoteSummary | null;
@@ -36,25 +40,36 @@
   const rows = $derived(page?.notes ?? []);
   const total = $derived(page?.total ?? 0);
   const kinds = $derived(page?.kinds ?? []);
+  // An older Harness Memory cannot combine the scope with the kind: it gets the kind only, and a hint that an update adds the scope.
+  const combined = $derived(page?.combinedFilters ?? true);
   const searching = $derived(viewState.notesQuery.trim() !== '');
-  // Nothing at all is kept: no notes of any kind, and no search or kind that would explain it.
-  const none = $derived(page !== null && availability === null && totalCount(kinds) === 0 && !searching && viewState.notesKind === null);
+  const filtered = $derived(viewState.notesKind !== null || (combined && viewState.notesScope !== null));
+  // Nothing at all is kept: no notes of any kind, and no search or filter that would explain it.
+  const none = $derived(page !== null && availability === null && total === 0 && !searching && !filtered);
 
-  const chips = $derived([
-    { value: 'all' as KindChip, label: t('memory.notes.chips.all'), count: totalCount(kinds) },
-    ...NOTE_KINDS.map((kind) => ({ value: kind as KindChip, label: t(KIND_GROUP_LABELS[kind]), count: kindCount(kinds, kind) })),
+  const kindOptions = $derived([
+    { value: 'all' as KindChoice, label: t('memory.filter.all'), count: totalCount(kinds) },
+    ...NOTE_KINDS.map((kind) => ({ value: kind as KindChoice, label: t(KIND_LABELS[kind]), count: kinds.find((entry) => entry.kind === kind)?.count ?? 0 })),
   ]);
 
-  // A search that finds nothing says so. So does a kind with no note: it stays chosen, and the table names it.
+  // A search that finds nothing says so. So do filters that leave nothing: they stay chosen, with the way to clear them in the row above.
   const noMatch = $derived.by(() => {
     if (page === null || rows.length > 0 || total > 0) {
       return null;
     }
 
-    const kind = chips.find((chip) => chip.value === (viewState.notesKind ?? 'all'));
-
-    return searching || !kind || kind.value === 'all' ? t('memory.notes.noMatch') : t('memory.notes.noGroup', { filter: kind.label });
+    return !searching && filtered ? t('memory.notes.noFilter') : t('memory.notes.noMatch');
   });
+
+  function chooseScope(scope: ScriptScope | null): void {
+    viewState.notesScope = scope;
+    viewState.notesPage = 0;
+  }
+
+  function chooseKind(kind: NoteKind | null): void {
+    viewState.notesKind = kind;
+    viewState.notesPage = 0;
+  }
 
   // The note whose panel is open. Its row is on this page only sometimes (a linked note, a page turned), so the read of it also gives the facts.
   const openId = $derived(viewState.noteId);
@@ -127,6 +142,27 @@
   }
 </script>
 
+{#snippet filters()}
+  {#if combined}
+    <MemoryScopeFilter value={viewState.notesScope} counts={page?.scopes ?? null} onchange={chooseScope} />
+  {/if}
+
+  <FilterMenu
+    label={t('memory.filter.kind')}
+    prefix={t('memory.filter.kind')}
+    options={kindOptions}
+    value={viewState.notesKind ?? 'all'}
+    onchange={(next) => chooseKind(next === 'all' ? null : next)}
+    onclear={() => chooseKind(null)}
+    clearLabel={t('memory.filter.clearKind')}
+    align="start"
+  />
+{/snippet}
+
+{#snippet hint()}
+  <MemoryFilterHint />
+{/snippet}
+
 {#if page && !availability && !none}
   <MemorySearch bind:value={viewState.notesQuery} label={t('memory.notes.search.label')} placeholder={t('memory.notes.search.placeholder')} />
 {/if}
@@ -142,17 +178,9 @@
   failedTitle={t('memory.notes.empty.failed.title')}
   loadingLabel={t('memory.notes.loading')}
   {noMatch}
-  chips={{
-    label: t('memory.notes.chips.label'),
-    idBase: 'memory-notes-kind',
-    options: chips,
-    value: viewState.notesKind ?? 'all',
-    onchange: (kind) => {
-      viewState.notesKind = kind === 'all' ? null : kind;
-      viewState.notesPage = 0;
-    },
-  }}
-  count={tn('memory.notes.count', totalCount(kinds))}
+  count={tn('memory.notes.count', total)}
+  {filters}
+  hint={combined ? undefined : hint}
   detailEmpty={t('memory.notes.detail.empty')}
   tableLabel={t('memory.notes.table.label')}
   tableId="memory-notes"

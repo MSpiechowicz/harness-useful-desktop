@@ -1,5 +1,6 @@
 //! What the "Recommended setup" step offers (`setup_status`): the dashboard and memory binaries,
-//! and per harness the Harness Skills and the dashboard's and the memory server's MCP servers.
+//! and per harness the Harness Skills and the dashboard's, the memory server's and the app's own
+//! (`harness-desktop mcp`) MCP servers.
 //!
 //! Everything here only reads: the dashboard's and the memory server's version probes, the OMP plugin and marketplace
 //! registries, PI's user settings and the user MCP files. The MCP files of a harness are those of
@@ -10,6 +11,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use super::catalog::{SKILLS_MARKETPLACE, SKILLS_PLUGIN, SKILLS_TARGET, supported_on};
+use super::desktop_register::{current_app_command, desktop_mcp_state};
 use super::installer::{Companion, installer};
 use super::mcp_merge::Shape;
 use super::mcp_register::{mcp_state, memory_mcp_state};
@@ -50,6 +52,7 @@ pub async fn setup_status(
                 skills: skills_setup(env, harness),
                 mcp: harness_mcp_state(env, harness, mcp_state),
                 memory_mcp: harness_mcp_state(env, harness, memory_mcp_state),
+                desktop_mcp: harness_mcp_state(env, harness, app_mcp_state),
             }
         })
         .collect();
@@ -293,6 +296,11 @@ fn omp_skills(env: &Env, harness: &dyn Harness) -> SkillsSetup {
     });
 
     SkillsSetup::Install { actions }
+}
+
+/// The app's own server in `file`; a manual edit names this app's program.
+fn app_mcp_state(env: &Env, file: &McpFile) -> McpState {
+    desktop_mcp_state(env, file, current_app_command().as_deref())
 }
 
 /// A server's MCP state in `harness` (`state` reads it from the harness's MCP file and the files it

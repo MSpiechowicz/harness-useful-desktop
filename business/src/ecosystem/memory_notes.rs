@@ -4,9 +4,12 @@
 //! Each call runs one `harness-memory notes` command as [`memory_cli`](super::memory_cli) runs the
 //! server's commands, within [`LIST_TIMEOUT`]:
 //!
-//! - `notes list --json --offset N --limit N [--query Q] [--kind K] --sort
-//!   updated|title|kind|scope|place --order O [--project P]` answers `{"notes": [...], "total": N, "kinds": [{"kind", "count"}]}`: the
-//!   repository notes of the project and the global ones;
+//! - `notes list --json --offset N --limit N [--query Q] [--kind K] [--scope repo|global] --sort
+//!   updated|title|kind|scope|place --order O [--project P]` answers `{"notes": [...], "total": N,
+//!   "kinds": [{"kind", "count"}], "scopes": {"repo", "global"}}`: the repository notes of the
+//!   project and the global ones. A server that predates combined filters answers without
+//!   `scopes` and refuses `--scope` (a usage error): the list is then asked once more without it
+//!   (see [`run_list`]);
 //! - `notes get <id> --json [--project P]` answers `{"note": {... "body"}, "links": [...]}`;
 //! - `notes delete <id> [--project P]` prints `deleted note <id> <title>`;
 //! - `notes delete --all --yes --json [--project P]` deletes every note the list shows without
@@ -27,15 +30,15 @@ use serde::de::DeserializeOwned;
 use serde_json::Value;
 
 use super::memory_cli::{
-    CliCall, LIST_OUTPUT_BYTES, LIST_TIMEOUT, ListWindow, count_of, delete_all, list_availability, project_args,
-    run_json, run_text,
+    CliCall, LIST_OUTPUT_BYTES, LIST_TIMEOUT, ListAnswer, ListWindow, count_of, delete_all, list_availability,
+    project_args, run_json, run_list, run_text, scope_counts, scope_name,
 };
 use super::memory_scripts::{MemoryScripts, unavailable_error};
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::model::{
     MemoryDeleteAll, MemoryNotesPage, MemoryScriptsAvailability, NoteDetail, NoteKind, NoteKindCount, NoteSort,
-    NoteSummary,
+    NoteSummary, ScriptScope,
 };
 use crate::process::ProcessRunner;
 
@@ -49,6 +52,8 @@ pub struct NotesQuery {
     pub window: ListWindow,
     /// One kind only, or all.
     pub kind: Option<NoteKind>,
+    /// One scope only, or both (dropped by a server that does not combine filters).
+    pub scope: Option<ScriptScope>,
     /// `updated` unless given.
     pub sort: Option<NoteSort>,
 }
@@ -67,6 +72,8 @@ pub async fn list_notes(
         availability,
         total: 0,
         kinds: Vec::new(),
+        scopes: None,
+        combined_filters: false,
         notes: Vec::new(),
     };
 
@@ -75,7 +82,6 @@ pub async fn list_notes(
         Err(availability) => return unavailable(availability),
     };
 
-    let kind = query.kind.map(kind_name);
     let sort = match query.sort {
         Some(NoteSort::Title) => "title",
         Some(NoteSort::Kind) => "kind",
@@ -84,10 +90,17 @@ pub async fn list_notes(
         Some(NoteSort::Updated) | None => "updated",
     };
 
-    let args = notes_args(query.window.list_args(kind.map(|kind| ("--kind", kind)), sort, project));
+    let kind: Vec<(&str, &str)> = query.kind.map(|kind| ("--kind", kind_name(kind))).into_iter().collect();
+    let mut filters = kind.clone();
+    filters.extend(query.scope.map(|scope| ("--scope", scope_name(scope))));
 
-    match run_json(env, runner, &server, call("notes list", args)).await {
-        Ok(data) => notes_page(&data),
+    let args = notes_args(query.window.list_args(&filters, sort, project));
+    let fallback = query
+        .scope
+        .map(|_| notes_args(query.window.list_args(&kind, sort, project)));
+
+    match run_list(env, runner, &server, "notes list", args, fallback).await {
+        Ok(answer) => notes_page(answer),
         Err(error) => unavailable(list_availability(error)),
     }
 }
@@ -215,13 +228,16 @@ fn kind_name(kind: NoteKind) -> &'static str {
 
 /// The page in a `notes list --json` answer. A server that does not say `total` has the notes it
 /// sent.
-fn notes_page(data: &Value) -> MemoryNotesPage {
+fn notes_page(answer: ListAnswer) -> MemoryNotesPage {
+    let data = &answer.data;
     let notes: Vec<NoteSummary> = entries(data, "notes");
 
     MemoryNotesPage {
         availability: MemoryScriptsAvailability::Available,
         total: count_of(data.get("total")).unwrap_or(u32::try_from(notes.len()).unwrap_or(u32::MAX)),
         kinds: entries::<NoteKindCount>(data, "kinds"),
+        scopes: scope_counts(data),
+        combined_filters: answer.combined_filters,
         notes,
     }
 }

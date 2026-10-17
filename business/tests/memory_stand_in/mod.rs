@@ -26,6 +26,9 @@ pub const NO_RUN: Vars = &[("FAKE_MEMORY_TOOLS", "no-run")];
 pub const BARE_RUN: Vars = &[("FAKE_MEMORY_TOOLS", "bare-run")];
 /// A server whose `notes` and `scripts list` take no pages (a usage error).
 pub const UNPAGED: Vars = &[("FAKE_MEMORY_CLI", "unpaged")];
+/// A server whose lists predate combined filters: `--scope` and `--review` are usage errors, and
+/// lists answer without `scopes` and `review`.
+pub const SINGLE: Vars = &[("FAKE_MEMORY_CLI", "single")];
 
 /// Runs the stand-in (with `vars` set) for every spawn and run, and records the requested specs:
 /// a spawn runs `fake_agent <args>` (the MCP server), a run `fake_agent <the spec's arguments>`

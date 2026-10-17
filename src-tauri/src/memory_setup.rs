@@ -14,7 +14,7 @@ use std::path::PathBuf;
 use harness_business::BusinessError;
 use harness_business::ecosystem::catalog::MEMORY_MCP_SERVER;
 use harness_business::ecosystem::{
-    Blocked, LegacyCopy, McpFile, MemoryRecord, MemoryRegistration, installed_memory, mcp_target, mcp_target_paths,
+    Blocked, McpFile, MemoryRecord, MemoryRegistration, installed_memory, mcp_target, mcp_target_paths,
     memory_mcp_state, migrate_legacy_memory, register_memory_mcp, unregister_memory_mcp,
 };
 use harness_business::model::{HarnessId, ManualRemoval, McpState};
@@ -51,10 +51,9 @@ pub(crate) async fn on_launch(state: &AppState) -> Registered {
     apply_pref(state).await
 }
 
-/// After the server's installer succeeded: recalls use the new server, and [`apply_pref`] runs.
+/// After the server's installer succeeded: [`apply_pref`] runs.
 pub(crate) async fn after_install(state: &AppState) -> Registered {
     let _running = state.memory_setup.lock().await;
-    state.memory_server.refresh();
 
     apply_pref(state).await
 }
@@ -195,7 +194,7 @@ pub(crate) async fn register_in(state: &AppState, harness: HarnessId) -> Command
     registered.map_err(|error| CommandError::internal(format!("project memory registration task failed: {error}")))
 }
 
-/// Stores the `memoryEnabled` pref as on; recalls look the server up again.
+/// Stores the `memoryEnabled` pref as on.
 async fn switch_on(state: &AppState) -> CommandResult<()> {
     let prefs = state.prefs.clone();
 
@@ -206,7 +205,6 @@ async fn switch_on(state: &AppState) -> CommandResult<()> {
     .map_err(|error| CommandError::internal(format!("storing the project memory pref failed: {error}")))?;
 
     saved?;
-    state.memory_server.refresh();
     tracing::info!("project memory turned on to register the server in a harness");
 
     Ok(())
@@ -272,11 +270,6 @@ async fn retire_legacy_copy(state: &AppState, server: Option<PathBuf>) {
                 copy = ?migration.copy,
                 "project memory: old server copy checked"
             );
-
-            // Recall may still point at the copy that is gone now.
-            if migration.copy == LegacyCopy::Removed {
-                state.memory_server.refresh();
-            }
         }
         Err(error) => tracing::warn!(%error, "project memory migration task failed"),
     }

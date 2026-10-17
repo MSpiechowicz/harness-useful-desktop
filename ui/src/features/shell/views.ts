@@ -6,6 +6,7 @@ import MessageSquare from '@lucide/svelte/icons/message-square';
 import Orbit from '@lucide/svelte/icons/orbit';
 import Settings from '@lucide/svelte/icons/settings';
 import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
+import Webhook from '@lucide/svelte/icons/webhook';
 
 import { t } from '$lib/i18n/i18n.svelte';
 import type { IconComponent } from '$lib/components/icon';
@@ -116,6 +117,19 @@ export const VIEWS: readonly ViewMeta[] = [
     },
     get body() {
       return t('shell.view.memory.body');
+    },
+  },
+  {
+    id: 'hooks',
+    get label() {
+      return t('shell.view.hooks');
+    },
+    icon: Webhook,
+    get heading() {
+      return t('shell.view.hooks.heading');
+    },
+    get body() {
+      return t('shell.view.hooks.body');
     },
   },
   {

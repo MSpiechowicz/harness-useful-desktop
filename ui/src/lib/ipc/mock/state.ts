@@ -38,7 +38,6 @@ export function defaultPrefs(): AppPrefs {
     binaryOverrides: [],
     chatDefaults: [],
     memoryEnabled: true,
-    memoryRecall: true,
   };
 }
 

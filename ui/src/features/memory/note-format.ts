@@ -7,19 +7,8 @@ import type { NoteSummary } from '$lib/ipc/bindings/NoteSummary';
 
 import { authorFacts, PLACE_LABELS } from './script-format';
 
-/** The kinds in the order the chips show them: what was decided and fixed first, loose notes last. */
+/** The kinds in the order the Kind filter lists them: what was decided and fixed first, loose notes last. */
 export const NOTE_KINDS: readonly NoteKind[] = ['decision', 'fix', 'problem', 'outcome', 'optimisation', 'location', 'note'];
-
-/** The plural name of a kind, on a chip: "Decisions". */
-export const KIND_GROUP_LABELS = {
-  decision: 'memory.notes.group.decision',
-  fix: 'memory.notes.group.fix',
-  problem: 'memory.notes.group.problem',
-  outcome: 'memory.notes.group.outcome',
-  optimisation: 'memory.notes.group.optimisation',
-  location: 'memory.notes.group.location',
-  note: 'memory.notes.group.note',
-} as const satisfies Record<NoteKind, MessageKey>;
 
 /** The name of one kind, in a row or under a title: "Decision". */
 export const KIND_LABELS = {
@@ -43,12 +32,7 @@ export function noteColumns(): Column[] {
   ];
 }
 
-/** How many notes there are of one kind under the current search; kinds the server did not count have none. */
-export function kindCount(kinds: readonly NoteKindCount[], kind: NoteKind): number {
-  return kinds.find((entry) => entry.kind === kind)?.count ?? 0;
-}
-
-/** All notes under the current search: the kinds partition them. */
+/** All notes under the current search and scope: the kinds partition them. */
 export function totalCount(kinds: readonly NoteKindCount[]): number {
   return kinds.reduce((sum, entry) => sum + entry.count, 0);
 }

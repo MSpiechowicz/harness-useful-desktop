@@ -143,6 +143,40 @@ pub enum ScriptGroup {
     Global,
 }
 
+/// Which scripts `memory_scripts_list` keeps by approval (with a server that combines filters).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub enum ScriptReview {
+    /// The ones that need the user's approval (`approval: "needed"`).
+    Needed,
+    /// Every other one (`local`, `approved` or `team`).
+    Trusted,
+}
+
+/// How many notes or scripts of each scope match the other filters (`memory_notes_list`: the
+/// query and kind, `memory_scripts_list`: the query and review).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct MemoryScopeCounts {
+    /// The project's repository entries.
+    pub repo: u32,
+    /// The global ones.
+    pub global: u32,
+}
+
+/// How many scripts need the user's approval and how many do not, under the query and scope.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct ScriptReviewCounts {
+    /// Those that need the user's approval.
+    pub needed: u32,
+    /// Every other one.
+    pub trusted: u32,
+}
+
 /// How `memory_scripts_list` sorts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
@@ -185,10 +219,20 @@ pub struct ScriptGroupCounts {
 pub struct MemoryScriptsPage {
     /// Whether the list could be read.
     pub availability: MemoryScriptsAvailability,
-    /// How many scripts match the query and group (all pages).
+    /// How many scripts match the query and every filter asked for (all pages).
     pub total: u32,
     /// The scripts of each group under the query, whatever group was asked for.
     pub groups: ScriptGroupCounts,
+    /// The scripts of each scope under the query and review; `None` from a server that does not
+    /// combine filters.
+    pub scopes: Option<MemoryScopeCounts>,
+    /// The scripts that need approval and the others under the query and scope; `None` from a
+    /// server that does not combine filters.
+    pub review: Option<ScriptReviewCounts>,
+    /// Whether the server combines `scope` and `review` (and answered their counts): false from
+    /// an older one, whose list then follows the query and group only (a `scope` or `review`
+    /// asked for was dropped).
+    pub combined_filters: bool,
     /// This page, as the server sorts it.
     pub scripts: Vec<ScriptSummary>,
 }

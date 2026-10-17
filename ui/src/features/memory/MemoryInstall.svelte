@@ -24,9 +24,11 @@
     update: boolean;
     /** Reads the scripts again after an install, which finds out whether Harness Memory keeps them now. */
     onfinished: () => Promise<void>;
+    /** One quiet button for an update that adds a feature to a view that works already (the progress and the failure stay in that button), instead of the actions of a view that cannot work at all. */
+    inline?: boolean;
   }
 
-  let { update, onfinished }: Props = $props();
+  let { update, onfinished, inline = false }: Props = $props();
 
   type Phase = 'idle' | 'reading' | 'running' | 'failed';
 
@@ -86,8 +88,8 @@
 
     await onfinished();
 
-    // Still here after the list was read again: it is still unavailable, and the view shows nothing else about it.
-    fail(t('memory.install.stillUnavailable'));
+    // Still here after the list was read again: it is still unavailable (or, inline, still without the feature), and the view shows nothing else about it.
+    fail(t(inline ? 'memory.install.stillOld' : 'memory.install.stillUnavailable'));
   }
 
   function fail(reason: string): void {
@@ -96,7 +98,16 @@
   }
 </script>
 
-{#if phase === 'running' || phase === 'failed'}
+{#if inline}
+  {#if phase === 'failed'}
+    <p class="min-w-0 truncate text-sm text-danger" role="alert" title={failure}>{failure}</p>
+  {/if}
+
+  <Button variant="ghost" aria-label={label} loading={phase === 'reading' || phase === 'running'} onclick={() => void ask()}>
+    {#snippet leading()}<RefreshCw size={16} aria-hidden="true" />{/snippet}
+    {phase === 'running' ? progress : t('memory.filter.update')}
+  </Button>
+{:else if phase === 'running' || phase === 'failed'}
   <div in:rise={{ y: 8, duration: 280 }} class="flex w-full max-w-md flex-col gap-3 text-left">
     {#if phase === 'running'}
       <p class="flex items-center gap-2 text-sm text-fg-2" role="status">

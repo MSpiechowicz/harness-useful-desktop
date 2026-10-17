@@ -23,6 +23,7 @@
   import { onboarding } from '../onboarding/onboarding-state.svelte';
   import ScriptRequestDialog from '../memory/ScriptRequestDialog.svelte';
   import { familyUpdater } from '../ecosystem/family-updater';
+  import { hooks } from '../hooks/hooks-data.svelte';
   import { extensionUpdater } from '../extensions/actions/extension-updater';
   import RestartConfirm from '../updates/RestartConfirm.svelte';
   import { jumpToChat, newChat } from './actions';
@@ -173,6 +174,14 @@
 
   // An agent that wants to run a script this computer has not approved asks wherever the user is, so the shell listens from the start.
   $effect(() => scriptRequests.start());
+
+  // Hooks an agent wrote wait for the user's approval, and the rail counts them wherever the user is, so the shell listens from the start.
+  $effect(() => hooks.start());
+  $effect(() => {
+    const where = project.active?.path ?? null;
+
+    untrack(() => hooks.follow(where));
+  });
 
   // The palette searches sessions, configuration and extensions; make sure they are loaded when it opens.
   $effect(() => {

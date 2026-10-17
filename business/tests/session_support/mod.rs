@@ -12,8 +12,9 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use harness_business::env::Env;
 use harness_business::harness::Harness;
+use harness_business::harnesses::Pi;
 use harness_business::model::{HarnessId, SessionRef};
-use harness_business::pi_family::sessions::epoch_millis;
+use harness_business::pi_family::sessions::{SessionCache, epoch_millis, read_tree};
 use tempfile::TempDir;
 
 /// The main OMP session (two branch points, edits, a label, hidden entries).
@@ -99,6 +100,31 @@ pub fn session(harness: HarnessId, id: &str) -> SessionRef {
         harness,
         id: id.to_owned(),
     }
+}
+
+/// Replaces `Which edition`, the start of the first user message of the untitled PI fixture, with
+/// `sent` (written as is, so JSON-escape it) and checks that the session list's first prompt and
+/// the tree preview still show only the user's own text.
+pub fn assert_pi_previews_skip(sent: &str) {
+    let home = SessionHome::with_fixtures(&[(&Pi, "pi")]);
+    let reference = session(HarnessId::Pi, PI_UNTITLED);
+    let path = Pi.resolve_session(&home.env, &home.project, &reference).unwrap();
+
+    let original = fs::read_to_string(&path).unwrap();
+    fs::write(&path, original.replace("Which edition", sent)).unwrap();
+
+    let list = Pi
+        .list_sessions(&home.env, &home.project, &SessionCache::default())
+        .unwrap();
+    let untitled = list.iter().find(|summary| summary.session.id == PI_UNTITLED).unwrap();
+    assert_eq!(
+        untitled.first_prompt.as_deref(),
+        Some("Which edition does the crate use?")
+    );
+
+    let tree = read_tree(&path, &reference).unwrap().tree;
+    let question = tree.nodes.iter().find(|node| node.id == "q01").unwrap();
+    assert_eq!(question.preview.as_deref(), Some("Which edition does the crate use?"));
 }
 
 /// Sets the modification time of `path` (RFC 3339).

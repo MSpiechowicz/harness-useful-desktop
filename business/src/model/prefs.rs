@@ -139,10 +139,6 @@ pub struct AppPrefs {
     /// detected harness's user MCP file at launch and after its install (default on). Server-managed:
     /// only `memory_set_enabled` changes it, since turning it off also removes the app's entries.
     pub memory_enabled: bool,
-    /// Whether a chat message is sent with the project-memory notes found for it in front, as a
-    /// `<harness-memory-recall>` block (default on; files written before it existed turn it on).
-    /// Only applies while `memory_enabled` is on. UI-managed.
-    pub memory_recall: bool,
 }
 
 impl AppPrefs {
@@ -175,7 +171,6 @@ impl Default for AppPrefs {
             binary_overrides: Vec::new(),
             chat_defaults: Vec::new(),
             memory_enabled: true,
-            memory_recall: true,
         }
     }
 }

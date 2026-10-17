@@ -1,10 +1,11 @@
 //! `harness-memory notes …` and `harness-memory scripts list|delete …` stand-ins, answered from fixed
 //! fixtures (nothing is kept between runs, so a deleted note comes back).
 //!
-//! - `notes list --json --offset N --limit N [--query Q] [--kind K] --sort
-//!   updated|title|kind|scope|place --order asc|desc [--project P]` prints `{"notes", "total", "kinds"}`: the global notes, plus the
-//!   repository ones with `--project`, one of them of a kind the app does not know (`idea`).
-//!   `--query` matches titles (any case); `kinds` counts every kind under the query.
+//! - `notes list --json --offset N --limit N [--query Q] [--kind K] [--scope repo|global] --sort
+//!   updated|title|kind|scope|place --order asc|desc [--project P]` prints `{"notes", "total", "kinds",
+//!   "scopes"}`: the global notes, plus the repository ones with `--project`, one of them of a kind
+//!   the app does not know (`idea`). `--query` matches titles (any case); `kinds` counts every kind
+//!   under the query and scope, `scopes` both scopes under the query and kind.
 //! - `notes get <id> --json [--project P]` prints `{"note", "links"}`; `notes delete <id>
 //!   [--project P]` prints `deleted note <id> <title>`. A note not visible from the arguments exits
 //!   1 with `harness-memory: note <id> not found`; id [`FAILING_ID`] exits 1 with a URL with a
@@ -13,11 +14,15 @@
 //!   [--project P]` print `{"deleted", "team"}`: how many fixtures are visible from the arguments,
 //!   and how many of those are kept in the team database (`place` `team`).
 //! - `scripts list --json` takes the same paging options, with `--group needsReview|repo|global`
-//!   instead of `--kind` and `--sort updated|name|language|scope|place|runs|lastRun` (a script
-//!   never run last either way); it prints `{"scripts", "total", "groups"}` from the stand-in's
-//!   scripts (see [`crate::memory`]).
+//!   instead of `--kind`, or `--scope repo|global` and `--review needed|trusted` (not with
+//!   `--group`), and `--sort updated|name|language|scope|place|runs|lastRun` (a script never run
+//!   last either way); it prints `{"scripts", "total", "groups", "scopes", "review"}` from the
+//!   stand-in's scripts (see [`crate::memory`]): `groups` under the query, `scopes` under the query
+//!   and review, `review` under the query and scope.
 //! - An option this stand-in does not know, a missing value, or `FAKE_MEMORY_CLI=unpaged` (a
 //!   server whose commands take no pages) exits 2 with a usage line, as the real server does.
+//!   `FAKE_MEMORY_CLI=single` is a server that predates combined filters: `--scope` and `--review`
+//!   are usage errors, and lists answer without `scopes` and `review`.
 
 use std::cmp::Ordering;
 
@@ -37,6 +42,10 @@ struct Options {
     limit: Option<usize>,
     query: Option<String>,
     filter: Option<String>,
+    scope: Option<String>,
+    review: Option<String>,
+    /// Whether this server combines filters (not `FAKE_MEMORY_CLI=single`).
+    combines: bool,
     sort: Option<String>,
     order: Option<String>,
     project: bool,
@@ -48,7 +57,7 @@ pub fn notes(args: &[String]) -> ! {
     match args.first().map(String::as_str) {
         Some("list") => {
             let options = parse(&args[1..], "--kind", false);
-            list("notes", without_bodies(note_fixtures()), &options, &kind_counts)
+            list("notes", without_bodies(note_fixtures()), &options)
         }
         Some("delete") if args.get(1).is_some_and(|arg| arg == "--all") => delete_all(&args[1..], note_fixtures()),
         Some(command @ ("get" | "delete")) => {
@@ -68,12 +77,12 @@ pub fn scripts(args: &[String]) -> ! {
     }
 
     let options = parse(&args[1..], "--group", false);
-    list(
-        "scripts",
-        without_bodies(crate::memory::fixtures()),
-        &options,
-        &group_counts,
-    )
+
+    if options.filter.is_some() && (options.scope.is_some() || options.review.is_some()) {
+        usage();
+    }
+
+    list("scripts", without_bodies(crate::memory::fixtures()), &options)
 }
 
 /// `delete --all --yes --json [--project P]` on `entries` (see the module docs); exits 0.
@@ -125,11 +134,16 @@ fn usage() -> ! {
 /// The options in `args`; `filter` is the command's own option (`--kind`), `with_id` takes a
 /// leading id.
 fn parse(args: &[String], filter: &str, with_id: bool) -> Options {
-    if std::env::var("FAKE_MEMORY_CLI").is_ok_and(|mode| mode == "unpaged") {
+    let mode = std::env::var("FAKE_MEMORY_CLI").unwrap_or_default();
+
+    if mode == "unpaged" {
         usage();
     }
 
-    let mut options = Options::default();
+    let mut options = Options {
+        combines: mode != "single",
+        ..Options::default()
+    };
     let mut rest = args.iter();
 
     if with_id {
@@ -151,6 +165,8 @@ fn parse(args: &[String], filter: &str, with_id: bool) -> Options {
             "--sort" => options.sort = Some(value()),
             "--order" => options.order = Some(value()),
             "--project" => options.project = !value().is_empty(),
+            "--scope" if options.combines => options.scope = Some(value()),
+            "--review" if options.combines && filter == "--group" => options.review = Some(value()),
             other if !filter.is_empty() && other == filter => options.filter = Some(value()),
             _ => usage(),
         }
@@ -159,8 +175,8 @@ fn parse(args: &[String], filter: &str, with_id: bool) -> Options {
     options
 }
 
-/// Prints one page of `entries` as `{field, total, <counts>}` and exits 0.
-fn list(field: &str, entries: Vec<Value>, options: &Options, counts: &dyn Fn(&[Value]) -> (&'static str, Value)) -> ! {
+/// Prints one page of `entries` as `{field, total, <counts>}` and exits 0 (see the module docs).
+fn list(field: &str, entries: Vec<Value>, options: &Options) -> ! {
     if !options.json || options.limit.is_none() {
         usage();
     }
@@ -177,11 +193,34 @@ fn list(field: &str, entries: Vec<Value>, options: &Options, counts: &dyn Fn(&[V
         })
         .collect();
 
-    let (counts_field, counted) = counts(&matching);
+    let notes = field == "notes";
+    let keeps_filter = |entry: &Value| options.filter.as_ref().is_none_or(|filter| in_group(entry, filter));
+    let keeps_scope = |entry: &Value| {
+        options
+            .scope
+            .as_ref()
+            .is_none_or(|scope| entry["scope"] == scope.as_str())
+    };
+    let keeps_review = |entry: &Value| options.review.as_ref().is_none_or(|review| review_of(entry) == review);
 
-    if let Some(filter) = &options.filter {
-        matching.retain(|entry| in_group(entry, filter));
-    }
+    let counts = if notes {
+        let in_scope: Vec<Value> = matching.iter().filter(|entry| keeps_scope(entry)).cloned().collect();
+        let of_kind: Vec<&Value> = matching.iter().filter(|entry| keeps_filter(entry)).collect();
+
+        json!({ "kinds": kind_counts(&in_scope), "scopes": scope_counts(&of_kind) })
+    } else {
+        let reviewed: Vec<&Value> = matching.iter().filter(|entry| keeps_review(entry)).collect();
+        let in_scope: Vec<&Value> = matching.iter().filter(|entry| keeps_scope(entry)).collect();
+        let review = |name: &str| in_scope.iter().filter(|entry| review_of(entry) == name).count();
+
+        json!({
+            "groups": group_counts(&matching),
+            "scopes": scope_counts(&reviewed),
+            "review": { "needed": review("needed"), "trusted": review("trusted") },
+        })
+    };
+
+    matching.retain(|entry| keeps_filter(entry) && keeps_scope(entry) && keeps_review(entry));
 
     let key = match options.sort.as_deref() {
         Some("updated") => "updatedAt",
@@ -209,7 +248,17 @@ fn list(field: &str, entries: Vec<Value>, options: &Options, counts: &dyn Fn(&[V
         .take(options.limit.unwrap_or_default())
         .collect();
 
-    println!("{}", json!({ field: page, "total": total, counts_field: counted }));
+    let mut answer = json!({ field: page, "total": total });
+
+    for (name, count) in counts.as_object().into_iter().flatten() {
+        let combined_only = name == "scopes" || name == "review";
+
+        if options.combines || !combined_only {
+            answer[name] = count.clone();
+        }
+    }
+
+    println!("{answer}");
     std::process::exit(0);
 }
 
@@ -230,7 +279,18 @@ fn in_group(entry: &Value, filter: &str) -> bool {
     }
 }
 
-fn kind_counts(notes: &[Value]) -> (&'static str, Value) {
+/// `needed` for a script that needs approval, else `trusted`.
+fn review_of(entry: &Value) -> &'static str {
+    if entry["trusted"] == false { "needed" } else { "trusted" }
+}
+
+fn scope_counts(entries: &[&Value]) -> Value {
+    let count = |scope: &str| entries.iter().filter(|entry| entry["scope"] == scope).count();
+
+    json!({ "repo": count("repo"), "global": count("global") })
+}
+
+fn kind_counts(notes: &[Value]) -> Value {
     let mut kinds: Vec<Value> = Vec::new();
 
     for note in notes {
@@ -240,16 +300,13 @@ fn kind_counts(notes: &[Value]) -> (&'static str, Value) {
         }
     }
 
-    ("kinds", json!(kinds))
+    json!(kinds)
 }
 
-fn group_counts(scripts: &[Value]) -> (&'static str, Value) {
+fn group_counts(scripts: &[Value]) -> Value {
     let count = |group: &str| scripts.iter().filter(|script| in_group(script, group)).count();
 
-    (
-        "groups",
-        json!({ "needsReview": count("needsReview"), "repo": count("repo"), "global": count("global") }),
-    )
+    json!({ "needsReview": count("needsReview"), "repo": count("repo"), "global": count("global") })
 }
 
 /// `notes get` and `notes delete` (see the module docs).

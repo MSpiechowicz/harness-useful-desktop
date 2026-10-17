@@ -5,6 +5,8 @@ import { ecosystemHandlers } from './ecosystem-handlers';
 import { extensionActionHandlers } from './extension-action-handlers';
 import { gitHandlers } from './git-handlers';
 import { harnessHandlers } from './harness-handlers';
+import { hooksHandlers } from './hooks-handlers';
+import { hookScenarioFromLocation, MockHooks } from './hooks-state';
 import { hostHandlers } from './host-handlers';
 import { memoryRemoteHandlers } from './memory-remote-handlers';
 import { memoryNotesHandlers } from './memory-notes-handlers';
@@ -31,12 +33,14 @@ function agentPace(): number {
 /** In-memory backend: everything persists for the lifetime of the page only. */
 export function defaultScenario(): Scenario {
   const state = new MockState();
+  // `?hooks=empty|outdated|noDashboard|invalid|problem|failing` changes what the Hooks view finds, `?hooks=ok` (the default) lists the family hooks and two more.
+  const hooks = new MockHooks(hookScenarioFromLocation, () => state.memoryEnabled);
 
   const base = {
     ...hostHandlers(state),
     ...harnessHandlers(state),
     ...projectHandlers(state),
-    ...agentHandlers(state, agentPace),
+    ...agentHandlers(state, agentPace, (project) => hooks.sessionContext(project)),
     ...sessionHandlers(state),
     ...gitHandlers(state),
   };
@@ -85,6 +89,7 @@ export function defaultScenario(): Scenario {
     ...actions,
     ...setup.handlers,
     ...syncHandlers(),
+    ...hooksHandlers(hooks),
     // The switch reports the memory server the setup mock installs.
     memory_set_enabled: ({ enabled }) => ({
       memoryEnabled: state.setMemoryEnabled(enabled).memoryEnabled,
@@ -101,6 +106,20 @@ export function defaultScenario(): Scenario {
     setup_install_memory: async (args) => {
       const result = await setup.handlers.setup_install_memory(args);
       memoryInstalled ||= result.ok;
+
+      // A fresh install brings back the family hooks that were missing.
+      if (result.ok) {
+        hooks.memberInstalled('harness-memory');
+      }
+
+      return result;
+    },
+    setup_install_dashboard: async (args) => {
+      const result = await setup.handlers.setup_install_dashboard(args);
+
+      if (result.ok) {
+        hooks.memberInstalled('harness-dashboard');
+      }
 
       return result;
     },

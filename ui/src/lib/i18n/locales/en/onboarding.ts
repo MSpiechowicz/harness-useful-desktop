@@ -195,6 +195,9 @@ export const onboarding = {
   'onboarding.setup.memoryMcp.note':
     'Only the harness-memory entry is added, running the installed server; adding it turns Project memory on in Settings. A file the app cannot edit safely is left alone.',
   'onboarding.setup.memoryMcp.needsMemory': 'Needs Harness Memory. Include its install above, or install it yourself first.',
+  'onboarding.setup.desktopMcp.title': 'Harness Desktop MCP',
+  'onboarding.setup.desktopMcp.body': 'Lets your agents add and change hooks, by registering Harness Desktop as an MCP server.',
+  'onboarding.setup.desktopMcp.note': 'Only the harness-desktop entry is added, which runs this app in server mode. Hooks an agent writes wait for your approval in the Hooks view. A file the app cannot edit safely is left alone.',
   'onboarding.setup.failed.mcp': 'The entry was not added.',
   'onboarding.setup.failed.manualEdit': 'The file has comments, so the entry was not added. Add it yourself.',
   'onboarding.setup.refused.unparsable': 'The file is not valid JSON.',
@@ -252,6 +255,7 @@ export const onboarding = {
   'onboarding.done.companions.skills': 'Skills',
   'onboarding.done.companions.mcp': 'Dashboard MCP',
   'onboarding.done.companions.memoryMcp': 'Memory MCP',
+  'onboarding.done.companions.desktopMcp': 'Desktop MCP',
   'onboarding.done.private': 'Nothing leaves this device.',
   'onboarding.done.where': 'Where to find things',
   'onboarding.done.tip.palette.title': 'Command palette',

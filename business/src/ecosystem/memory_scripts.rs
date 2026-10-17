@@ -22,7 +22,6 @@
 //! A summary without `approval` (an older server) gets one from `trusted`: `approved` or
 //! `needed`; so does one with a value this app does not know.
 
-use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::SystemTime;
@@ -34,23 +33,17 @@ use super::catalog::MEMORY_BINARY;
 use super::mcp_client::{ToolOutput, clean_error_text};
 use super::mcp_pool::{McpPool, PoolOptions};
 use super::memory_binary::resolve_memory;
-use super::memory_cli::{
-    CliCall, LIST_OUTPUT_BYTES, LIST_TIMEOUT, ListWindow, count_of, delete_all, list_availability, run_json,
-};
+use super::memory_cli::delete_all;
 use super::memory_remote::ScriptsSupport;
+pub use super::memory_scripts_list::ScriptsQuery;
+use super::memory_scripts_list::{list_page, unavailable_page};
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
-use crate::model::{
-    MemoryDeleteAll, MemoryScriptsAvailability, MemoryScriptsPage, ScriptDetail, ScriptGroup, ScriptGroupCounts,
-    ScriptSort, ScriptSummary,
-};
+use crate::model::{MemoryDeleteAll, MemoryScriptsAvailability, MemoryScriptsPage, ScriptDetail};
 use crate::process::{ExecSpec, ProcessRunner, ProcessSpawner};
 
 /// The tool whose presence marks a server that keeps scripts.
 pub const SCRIPT_LIST_TOOL: &str = "script_list";
-
-/// The command that lists scripts, in messages.
-const SCRIPTS_LIST_COMMAND: &str = "scripts list";
 
 const SCRIPT_GET_TOOL: &str = "script_get";
 const SCRIPT_RUN_TOOL: &str = "script_run";
@@ -66,17 +59,6 @@ const SCRIPT_DELETE_TOOL: &str = "script_delete";
 pub struct MemoryScripts {
     pool: McpPool,
     probe: Mutex<Option<Probe>>,
-}
-
-/// Which scripts [`MemoryScripts::list`] reads.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ScriptsQuery {
-    /// The page and the search.
-    pub window: ListWindow,
-    /// One group only, or all.
-    pub group: Option<ScriptGroup>,
-    /// `updated` unless given.
-    pub sort: Option<ScriptSort>,
 }
 
 /// A successful `tools/list` of one binary, as it was when probed.
@@ -128,7 +110,8 @@ impl MemoryScripts {
     /// Sorted with `--sort name|language|scope|place|runs|lastRun|updated` (`updated` unless
     /// asked). Never fails: what went wrong is the page's availability, with no scripts. A server
     /// that keeps scripts but does not ask before running one, has no paged list, or does not know
-    /// the sort, is `outdated`.
+    /// the sort, is `outdated`; one that does not combine filters lists without `scope` and
+    /// `review` (see the module docs).
     pub async fn list(
         &self,
         env: &Env,
@@ -136,50 +119,9 @@ impl MemoryScripts {
         project: Option<&Path>,
         query: &ScriptsQuery,
     ) -> MemoryScriptsPage {
-        let unavailable = |availability| MemoryScriptsPage {
-            availability,
-            total: 0,
-            groups: ScriptGroupCounts::default(),
-            scripts: Vec::new(),
-        };
-
-        let server = match self.cli_server(env).await {
-            Ok(server) => server,
-            Err(availability) => return unavailable(availability),
-        };
-
-        let group = query.group.map(|group| match group {
-            ScriptGroup::NeedsReview => "needsReview",
-            ScriptGroup::Repo => "repo",
-            ScriptGroup::Global => "global",
-        });
-        let sort = match query.sort {
-            Some(ScriptSort::Name) => "name",
-            Some(ScriptSort::Language) => "language",
-            Some(ScriptSort::Scope) => "scope",
-            Some(ScriptSort::Place) => "place",
-            Some(ScriptSort::Runs) => "runs",
-            Some(ScriptSort::LastRun) => "lastRun",
-            Some(ScriptSort::Updated) | None => "updated",
-        };
-
-        let call = CliCall {
-            name: SCRIPTS_LIST_COMMAND,
-            args: [OsString::from("scripts")]
-                .into_iter()
-                .chain(
-                    query
-                        .window
-                        .list_args(group.map(|group| ("--group", group)), sort, project),
-                )
-                .collect(),
-            timeout: LIST_TIMEOUT,
-            output_bytes: LIST_OUTPUT_BYTES,
-        };
-
-        match run_json(env, runner, &server, call).await {
-            Ok(data) => scripts_page(&data),
-            Err(error) => unavailable(list_availability(error)),
+        match self.cli_server(env).await {
+            Ok(server) => list_page(env, runner, &server, project, query).await,
+            Err(availability) => unavailable_page(availability),
         }
     }
 
@@ -387,41 +329,6 @@ fn tool_error_text(output: &ToolOutput) -> String {
         .text
         .as_deref()
         .map_or_else(|| "Harness Memory reported an error.".to_owned(), clean_error_text)
-}
-
-/// The page in a `scripts list --json` answer; an entry this app cannot read is skipped (logged).
-/// A server that does not say `total` has the scripts it sent.
-fn scripts_page(data: &Value) -> MemoryScriptsPage {
-    let entries = data
-        .get("scripts")
-        .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default();
-
-    let scripts: Vec<ScriptSummary> = entries
-        .into_iter()
-        .filter_map(|entry| match parse::<ScriptSummary>(entry, SCRIPTS_LIST_COMMAND) {
-            Ok(summary) => Some(summary),
-            Err(_) => {
-                tracing::warn!("memory scripts: an unreadable scripts list entry was skipped");
-                None
-            }
-        })
-        .collect();
-
-    let groups = data.get("groups");
-    let group = |name: &str| count_of(groups.and_then(|groups| groups.get(name))).unwrap_or(0);
-
-    MemoryScriptsPage {
-        availability: MemoryScriptsAvailability::Available,
-        total: count_of(data.get("total")).unwrap_or(u32::try_from(scripts.len()).unwrap_or(u32::MAX)),
-        groups: ScriptGroupCounts {
-            needs_review: group("needsReview"),
-            repo: group("repo"),
-            global: group("global"),
-        },
-        scripts,
-    }
 }
 
 /// `value` as a script DTO, with `approval` filled in (see the module docs). The parser's message

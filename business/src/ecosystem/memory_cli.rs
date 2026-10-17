@@ -19,7 +19,7 @@ use serde_json::Value;
 use super::catalog::MEMORY_BINARY;
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
-use crate::model::{MemoryDeleteAll, MemoryScriptsAvailability, SortOrder};
+use crate::model::{MemoryDeleteAll, MemoryScopeCounts, MemoryScriptsAvailability, ScriptScope, SortOrder};
 use crate::process::{ExecSpec, ProcessRunner, launcher_search_dirs};
 use crate::security::redact_text;
 
@@ -94,9 +94,9 @@ impl ListWindow {
         })
     }
 
-    /// `list --json --offset N --limit N [--query Q] <filter> --sort S --order O
-    /// [--project P]`: `filter` is the command's own option and value (`--kind fix`), if any.
-    pub(crate) fn list_args(&self, filter: Option<(&str, &str)>, sort: &str, project: Option<&Path>) -> Vec<OsString> {
+    /// `list --json --offset N --limit N [--query Q] <filters> --sort S --order O
+    /// [--project P]`: `filters` are the command's own options and values (`--kind fix`).
+    pub(crate) fn list_args(&self, filters: &[(&str, &str)], sort: &str, project: Option<&Path>) -> Vec<OsString> {
         let order = match self.order {
             Some(SortOrder::Asc) => "asc",
             Some(SortOrder::Desc) => "desc",
@@ -114,7 +114,7 @@ impl ListWindow {
             args.push(query.into());
         }
 
-        if let Some((option, value)) = filter {
+        for (option, value) in filters {
             args.push(option.into());
             args.push(value.into());
         }
@@ -270,6 +270,57 @@ pub(crate) async fn run_json(env: &Env, runner: &dyn ProcessRunner, server: &Pat
         .map_err(|_| BusinessError::Protocol(format!("harness-memory {name} answered output this app cannot read")))
 }
 
+/// A list command's JSON answer, and whether the server combines filters.
+pub(crate) struct ListAnswer {
+    /// The answer.
+    pub data: Value,
+    /// True when the server took the filters only a server that combines them knows, or answered
+    /// without them as such a server does (with `scopes`).
+    pub combined_filters: bool,
+}
+
+/// Runs list command `name` with `args`. `fallback` is the same command without the filters only
+/// a server that combines them knows (`--scope`, `--review`), when `args` has any: a usage error
+/// then means an older server, which is asked once more with `fallback` and answers without
+/// combined filters. Fails as [`run_json`].
+pub(crate) async fn run_list(
+    env: &Env,
+    runner: &dyn ProcessRunner,
+    server: &Path,
+    name: &str,
+    args: Vec<OsString>,
+    fallback: Option<Vec<OsString>>,
+) -> Result<ListAnswer> {
+    let call = |args| CliCall {
+        name,
+        args,
+        timeout: LIST_TIMEOUT,
+        output_bytes: LIST_OUTPUT_BYTES,
+    };
+
+    match (run_json(env, runner, server, call(args)).await, fallback) {
+        (Err(BusinessError::Unsupported(_)), Some(fallback)) => {
+            tracing::info!(
+                command = name,
+                "harness-memory predates combined filters; listing without them"
+            );
+
+            let data = run_json(env, runner, server, call(fallback)).await?;
+
+            Ok(ListAnswer {
+                data,
+                combined_filters: false,
+            })
+        }
+        (answer, _) => {
+            let data = answer?;
+            let combined_filters = data.get("scopes").is_some_and(Value::is_object);
+
+            Ok(ListAnswer { data, combined_filters })
+        }
+    }
+}
+
 /// What a failed list says on its page: a server that predates the command is `outdated`, a
 /// missing one `notInstalled`, anything else `failed` with its message.
 pub(crate) fn list_availability(error: BusinessError) -> MemoryScriptsAvailability {
@@ -290,6 +341,24 @@ pub(crate) fn count_of(value: Option<&Value>) -> Option<u32> {
     value
         .and_then(Value::as_u64)
         .map(|count| u32::try_from(count).unwrap_or(u32::MAX))
+}
+
+/// The `scopes` counts of a list answer; `None` when the server does not send them.
+pub(crate) fn scope_counts(data: &Value) -> Option<MemoryScopeCounts> {
+    let scopes = data.get("scopes").filter(|scopes| scopes.is_object())?;
+
+    Some(MemoryScopeCounts {
+        repo: count_of(scopes.get("repo")).unwrap_or(0),
+        global: count_of(scopes.get("global")).unwrap_or(0),
+    })
+}
+
+/// The server's name of `scope`.
+pub(crate) fn scope_name(scope: ScriptScope) -> &'static str {
+    match scope {
+        ScriptScope::Repo => "repo",
+        ScriptScope::Global => "global",
+    }
 }
 
 /// Deletes every entry `harness-memory <command> list` shows for `project` without filters, with

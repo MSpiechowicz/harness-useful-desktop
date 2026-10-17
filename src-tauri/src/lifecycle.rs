@@ -1,23 +1,25 @@
 //! App lifecycle hooks that end agent sessions: a page (re)load of the main webview stops every
-//! session (their channels died with the old page) and forgets their memory recalls (stopping
-//! their warm servers), and app exit stops them and their warm servers before the process ends.
+//! session (their channels died with the old page) and forgets their hook state, and app exit
+//! stops them before the process ends.
 //!
 //! A reload takes the sessions out of the manager at once and stops their agents in the
 //! background. Their session ids stay held until each agent exited, so the reloaded page resuming
 //! its chats waits for the old agents instead of running a second agent on the same session.
 //!
 //! Exit is held back (`prevent_exit`) while a separate thread waits for
-//! [`Agents::stop_all`](crate::agents::Agents::stop_all), at most [`EXIT_BUDGET`]; the event loop
+//! [`Agents::stop_all`](crate::agents::Agents::stop_all) and then for the chats' `sessionEnd`
+//! hook commands (at most [`SESSION_END_BUDGET`]), all within [`EXIT_BUDGET`]; the event loop
 //! keeps running meanwhile. Then the app exits for real. Shutdown (and `RunEvent::Exit`) also ends
 //! the memory heartbeat and removes its file ([`ScriptRequests::stop`](crate::memory_requests::ScriptRequests::stop)).
 
 use std::sync::mpsc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use harness_business::agent::STOP_GRACE;
 use tauri::webview::{PageLoadEvent, PageLoadPayload};
 use tauri::{AppHandle, Manager, RunEvent, Runtime, Webview, WindowEvent};
 
+use crate::hooks::SESSION_END_BUDGET;
 use crate::state::AppState;
 use crate::window::MAIN_WINDOW;
 
@@ -34,7 +36,7 @@ pub fn on_page_load<R: Runtime>(webview: &Webview<R>, payload: &PageLoadPayload<
 
     if let Some(state) = webview.try_state::<AppState>() {
         state.agents.stop_all_in_background();
-        state.recall.clear();
+        state.hooks.clear();
     }
 }
 
@@ -67,8 +69,8 @@ pub fn on_run_event<R: Runtime>(app: &AppHandle<R>, event: RunEvent) {
     }
 }
 
-/// Stops the warm memory servers at once and every session on a helper thread (bounded by
-/// [`EXIT_BUDGET`]), then exits with `code`. Later calls do nothing while the first shutdown runs.
+/// Stops every session on a helper thread (bounded by [`EXIT_BUDGET`]), then exits with `code`.
+/// Later calls do nothing while the first shutdown runs.
 fn begin_shutdown<R: Runtime>(app: &AppHandle<R>, code: i32) {
     let Some(state) = app.try_state::<AppState>() else {
         return;
@@ -78,12 +80,13 @@ fn begin_shutdown<R: Runtime>(app: &AppHandle<R>, code: i32) {
         return;
     }
 
-    state.recall.clear();
     // No agent can ask to run a script any more: the server stops waiting for this app.
     state.script_requests.stop();
 
     let agents = state.agents.clone();
+    let hooks = state.hooks.clone();
     let handle = app.clone();
+    let deadline = Instant::now() + EXIT_BUDGET;
 
     let waiter = std::thread::Builder::new()
         .name("agent-shutdown".to_owned())
@@ -93,6 +96,11 @@ fn begin_shutdown<R: Runtime>(app: &AppHandle<R>, code: i32) {
 
             tauri::async_runtime::spawn(async move {
                 stopping.stop_all().await;
+
+                // The exits reach the chats' hook tasks, which run their sessionEnd commands.
+                let left = deadline.saturating_duration_since(Instant::now());
+                hooks.finish_chats(left.min(SESSION_END_BUDGET)).await;
+
                 done.send(()).ok();
             });
 

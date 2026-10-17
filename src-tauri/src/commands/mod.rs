@@ -3,10 +3,12 @@
 
 pub mod agent;
 pub mod app;
+pub mod desktop_mcp;
 pub mod drops;
 pub mod ecosystem;
 pub mod git;
 pub mod harness;
+pub mod hooks;
 pub mod memory;
 pub mod memory_notes;
 pub mod memory_remote;

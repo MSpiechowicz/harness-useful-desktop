@@ -27,6 +27,13 @@ import type { FileDiff } from './bindings/FileDiff';
 import type { GitStatus } from './bindings/GitStatus';
 import type { HarnessId } from './bindings/HarnessId';
 import type { HarnessSummary } from './bindings/HarnessSummary';
+import type { HookDraft } from './bindings/HookDraft';
+import type { HookFamilyEntry } from './bindings/HookFamilyEntry';
+import type { HookListing } from './bindings/HookListing';
+import type { HooksDeleted } from './bindings/HooksDeleted';
+import type { HooksEvent } from './bindings/HooksEvent';
+import type { HookSeed } from './bindings/HookSeed';
+import type { HookView } from './bindings/HookView';
 import type { InstallLogLine } from './bindings/InstallLogLine';
 import type { McpState } from './bindings/McpState';
 import type { MemoryDeleteAll } from './bindings/MemoryDeleteAll';
@@ -45,6 +52,8 @@ import type { NoteKind } from './bindings/NoteKind';
 import type { NoteSort } from './bindings/NoteSort';
 import type { ScriptDetail } from './bindings/ScriptDetail';
 import type { ScriptGroup } from './bindings/ScriptGroup';
+import type { ScriptReview } from './bindings/ScriptReview';
+import type { ScriptScope } from './bindings/ScriptScope';
 import type { ScriptSort } from './bindings/ScriptSort';
 import type { SortOrder } from './bindings/SortOrder';
 import type { ScriptRequestEvent } from './bindings/ScriptRequestEvent';
@@ -129,6 +138,10 @@ export const commands = {
       offset: number;
       limit?: number;
       query?: string;
+      /** The scripts of one scope, and by approval: with a server that combines them. Never sent with `group` (`invalidInput`). */
+      scope?: ScriptScope;
+      review?: ScriptReview;
+      /** The one group of an older server, which cannot combine filters. Never sent with `scope` or `review`. */
       group?: ScriptGroup;
       sort?: ScriptSort;
       order?: SortOrder;
@@ -181,6 +194,8 @@ export const commands = {
       limit?: number;
       query?: string;
       kind?: NoteKind;
+      /** The notes of one scope; an older server drops it (the page then says `combinedFilters: false`). */
+      scope?: ScriptScope;
       sort?: NoteSort;
       order?: SortOrder;
     },
@@ -250,6 +265,8 @@ export const commands = {
   setup_register_mcp: cmd<{ harness: HarnessId }, McpState>(),
   /** Registers the installed Harness Memory server in one harness (turning Project memory on); `invalidInput` while it is not installed. */
   setup_register_memory: cmd<{ harness: HarnessId }, McpState>(),
+  /** Registers the app's own `harness-desktop mcp` server (hooks for agents) in one harness's user MCP file. Needs no installer: the app is the server. */
+  setup_register_desktop_mcp: cmd<{ harness: HarnessId }, McpState>(),
   sync_export_preview: cmd<undefined, SyncExportPreview>(),
   sync_export: cmd<{ selected: string[] }, SyncExported>(),
   /** Opens the native save dialog; null when the user cancelled it, else the path written. */
@@ -257,6 +274,37 @@ export const commands = {
   /** A file input opens the native picker; null when the user cancelled it. */
   sync_import_preview: cmd<{ input: SyncInput }, SyncImportPlan | null>(),
   sync_import_apply: cmd<{ planId: string; selected: string[]; confirmed: boolean; onProgress: EventSink<SyncProgress> }, SyncImportResult>(),
+  /**
+   * The hooks of the Hooks view: every hook file of the global folder and of the project at `project` (null for global only), valid
+   * or not, with the status each has. Never rejects for a bad file, see `HookView.problem`. `folderProblem` says why the folder is not read.
+   */
+  hooks_list: cmd<{ project: string | null }, HookListing>(),
+  /**
+   * Creates a hook (`draft.id` null) or edits one (`draft.expectedSha256` is the version the user edited) and approves the written
+   * version, so it runs at once. Rejects with `conflict` when the file changed since, `invalidInput` when the draft breaks the format
+   * (or the scope already holds 64 hooks), `notFound` for an edit of a hook that is gone.
+   */
+  hook_save: cmd<{ draft: HookDraft }, HookView>(),
+  /** Deletes a hook file and its approval. `conflict` when the file changed since `sha256`, `notFound` when it is gone. */
+  hook_delete: cmd<{ id: string; sha256: string }, null>(),
+  /** Approves exactly the version with this `sha256` (an agent wrote it). `conflict` when the file changed since. */
+  hook_approve: cmd<{ id: string; sha256: string }, HookView>(),
+  /**
+   * Rejects a pending version: a hook with an earlier approved version goes back to it (answers that hook), a hook never approved is
+   * deleted (answers null). `conflict` when the file changed since `sha256`.
+   */
+  hook_reject: cmd<{ id: string; sha256: string }, HookView | null>(),
+  /** The Harness family catalog against the hook files: which family hooks are installed, outdated, missing or wait for their member. */
+  hooks_family: cmd<undefined, HookFamilyEntry[]>(),
+  /** Adds the missing and updates the outdated family hooks named in `seeds` (approved, as the desktop wrote them), then lists the hooks (global ones: ask `hooks_list` again for a project). */
+  hooks_family_apply: cmd<{ seeds: HookSeed[] }, HookListing>(),
+  /**
+   * Deletes every hook of the global scope and of `project` (the global ones only without it), with their approvals, and answers how many
+   * went. The Harness family hooks can be added back afterwards.
+   */
+  hooks_delete_all: cmd<{ project?: string | null }, HooksDeleted>(),
+  /** Sends `changed` to `onEvent` whenever the hooks folder or the approvals change, replacing the previous listener. */
+  hooks_listen: cmd<{ onEvent: EventSink<HooksEvent> }, null>(),
   update_check: cmd<undefined, UpdateInfo | null>(),
   update_install: cmd<{ onProgress: EventSink<UpdateProgress> }, null>(),
   app_relaunch: cmd<undefined, null>(),

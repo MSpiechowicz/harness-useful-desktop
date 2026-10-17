@@ -75,8 +75,6 @@ export const settings = {
   'settings.memory.manual.copy': 'Copy entry name',
   'settings.memory.manual.dismiss': 'Done',
 
-  'settings.memoryRecall.title': 'Add memory to new chats',
-  'settings.memoryRecall.description': 'On the first message of a new chat, relevant notes from project memory are added for the agent. They are sent to your model provider along with the message.',
 
   'settings.memoryRemote.title': 'Remote memory',
   'settings.memoryRemote.description': "Share project memory with your team through one database. Every teammate's harnesses read and write it. Your local memory is not used while this is on.",

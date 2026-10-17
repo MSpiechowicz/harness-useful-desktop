@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { MemoryScriptsAvailability } from '../bindings/MemoryScriptsAvailability';
 import { IpcFailure } from '../transport';
-import { memoryNotesHandlers, noteScenarioFromLocation } from './memory-notes-handlers';
+import { combinesFilters, memoryNotesHandlers, noteScenarioFromLocation } from './memory-notes-handlers';
 
 const AVAILABLE = () => ({ kind: 'available' }) as const;
 
@@ -45,6 +45,43 @@ describe('mock notes', () => {
     const byTitle = list({ sort: 'title', limit: 3 });
     expect(byTitle.notes.map((note) => note.title)).toEqual([...byTitle.notes.map((note) => note.title)].sort((a, b) => a.localeCompare(b)));
     expect(list({ offset: 50, limit: 50 }).notes.length).toBe(list({}).total - 50);
+  });
+
+  it('combines the scope with the kind: kinds are counted under the scope, scopes under the kind, and the total follows both', () => {
+    const handlers = memoryNotesHandlers(AVAILABLE, () => 'ok');
+    const list = (args: Partial<Parameters<typeof handlers.memory_notes_list>[0]>) => handlers.memory_notes_list({ project: '/work/app', offset: 0, ...args });
+    const kindCount = (page: ReturnType<typeof list>, kind: string) => page.kinds.find((entry) => entry.kind === kind)?.count;
+
+    const everything = list({});
+    expect(everything).toMatchObject({ combinedFilters: true, total: 70, scopes: { repo: 55, global: 15 } });
+
+    const global = list({ scope: 'global' });
+    expect(global.total).toBe(15);
+    expect(global.notes.every((note) => note.scope === 'global')).toBe(true);
+    expect(global.kinds.reduce((sum, entry) => sum + entry.count, 0)).toBe(15);
+    expect(global.scopes).toEqual({ repo: 55, global: 15 });
+
+    const decisions = list({ kind: 'decision' });
+    expect(decisions.scopes).toEqual({ repo: 8, global: 3 });
+    expect(kindCount(decisions, 'fix')).toBe(10);
+
+    const both = list({ scope: 'repo', kind: 'decision' });
+    expect(both.total).toBe(8);
+    expect(both.notes.every((note) => note.scope === 'repo' && note.kind === 'decision')).toBe(true);
+    expect(both.scopes).toEqual({ repo: 8, global: 3 });
+    expect(kindCount(both, 'decision')).toBe(8);
+    expect(kindCount(both, 'fix')).toBe(8);
+  });
+
+  it('answers like an older server on request: the scope is dropped and nothing is counted by scope', () => {
+    const handlers = memoryNotesHandlers(AVAILABLE, () => 'ok', () => false);
+
+    const page = handlers.memory_notes_list({ project: '/work/app', offset: 0, scope: 'global', kind: 'decision' });
+
+    expect(page).toMatchObject({ combinedFilters: false, scopes: null, total: 11 });
+    expect(page.kinds.find((entry) => entry.kind === 'fix')?.count).toBe(10);
+    expect(combinesFilters('?filters=old')).toBe(false);
+    expect(combinesFilters('?notes=empty')).toBe(true);
   });
 
   it('sorts by kind, scope and place, ties by id, and turns each round with the order', () => {

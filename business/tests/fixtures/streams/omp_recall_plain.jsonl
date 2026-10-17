@@ -1,4 +1,0 @@
-// Memory recall: two prompts that must arrive exactly as written.
-{"include":"omp_startup.jsonl"}
-{"expect": "prompt", "match": {"message": "Where is the uploader code?"}, "reply": {"success": true}}
-{"expect": "prompt", "match": {"message": "Where is the uploader code?"}, "reply": {"success": true}}

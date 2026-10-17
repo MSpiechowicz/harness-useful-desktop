@@ -10,6 +10,6 @@ export type NoteKindCount = {
  */
 kind: NoteKind, 
 /**
- * Its notes under the current query (every kind, whatever `kind` was asked for).
+ * Its notes under the current query and scope (every kind, whatever `kind` was asked for).
  */
 count: number, };

@@ -13,6 +13,7 @@ import { harness } from './harness';
 import { components } from './components';
 import { sync } from './sync';
 import { memory } from './memory';
+import { hooks } from './hooks';
 
 export const en = {
   ...common,
@@ -30,6 +31,7 @@ export const en = {
   ...components,
   ...sync,
   ...memory,
+  ...hooks,
 } satisfies Record<string, string>;
 
 /** Every message key of the app; the other languages must have exactly these. */

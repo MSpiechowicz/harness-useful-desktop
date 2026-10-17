@@ -3,10 +3,12 @@
 Harness Desktop is a Tauri 2 app in three layers. All domain logic is in a Rust crate that does not depend on Tauri; the
 shell and the UI are thin. The project memory MCP server, `harness-memory`, is a separate program in its own repository,
 [harness-useful-memory](https://github.com/MSpiechowicz/harness-useful-memory), that the app installs and registers.
+The same executable has a second mode, `harness-desktop mcp`, a small MCP server through which agents manage the app's
+[hooks](#hooks).
 
 | Layer | Path | Role |
 | --- | --- | --- |
-| Business | `business/` (crate `harness_business`) | Harness adapters, agent sessions, git, security, prefs, updater rules. No Tauri dependency, so it is tested without a window. |
+| Business | `business/` (crate `harness_business`) | Harness adapters, agent sessions, hooks, git, security, prefs, updater rules. No Tauri dependency, so it is tested without a window. |
 | Shell | `src-tauri/` (crate `harness_desktop`) | `#[tauri::command]` adapters, app state, ACL capabilities, CSP, window and lifecycle. |
 | UI | `ui/` | Svelte 5 (runes) app, typed IPC client, mock transport, generated bindings and fixtures. |
 
@@ -51,7 +53,8 @@ Later calls (`agent_send`, `agent_ui_respond`, `agent_bash`, `agent_stop`) addre
   thinking deltas of the same block that arrive within `COALESCE_WINDOW` (16 ms, `agent/coalesce.rs`), so the UI
   renders about once per frame.
 - The shell's `ChannelSink` (`src-tauri/src/agent_sink.rs`) implements `EventSink` over the channel. When a send
-  fails, the webview is gone and the session is stopped.
+  fails, the webview is gone and the session is stopped. Every chat but a utility agent gets a `HookSink`
+  (`src-tauri/src/hooks/chat.rs`) around it, and `agent_send` goes through `hooks::chat::send` (see [Hooks](#hooks)).
 - Stop: close stdin, wait `STOP_GRACE` (3 s), then kill the process group. A page reload stops every session; app
   exit waits for them for at most `EXIT_BUDGET` (`src-tauri/src/lifecycle.rs`). At most `MAX_SESSIONS` (8) run at
   once.
@@ -63,8 +66,7 @@ Later calls (`agent_send`, `agent_ui_respond`, `agent_bash`, `agent_stop`) addre
 
 `harness-memory` gives every harness a shared memory per repository plus a global scope. It lives in its own repository
 ([harness-useful-memory](https://github.com/MSpiechowicz/harness-useful-memory)) and is not part of this app's build or
-bundle. The window installs it after the user confirms and registers it; the harnesses run it, and the window runs it
-once more for the recall of notes in a new chat (step 5).
+bundle. The window installs it after the user confirms and registers it; the harnesses run it.
 
 ```mermaid
 flowchart LR
@@ -83,7 +85,7 @@ flowchart LR
    `%LOCALAPPDATA%\Programs\harness-memory\harness-memory.exe` (Windows). `resolve_memory` looks there first, then on
    `PATH` and in the standard install directories (only `.exe` on Windows; on Unix nothing other users may write), and
    `installed_memory` requires `harness-memory --version` to answer `harness-memory <version>` before the server is
-   registered, recalled or made the migration target. The
+   registered or made the migration target. The
    latest version comes from the GitHub releases lookup (`ecosystem_releases`) like the other companions.
 2. **Launch.** `memory_setup::spawn_on_launch` runs in the background. While the `memoryEnabled` pref is on and the server
    is installed, for each detected harness with a user `mcp.json` (`mcp_target_paths`) it adds
@@ -96,8 +98,9 @@ flowchart LR
    to migrate: that copy was `~/.local/bin/harness-memory`.
 3. **Switch.** The Settings switch calls `memory_set_enabled`: it stores the pref, then registers the installed server
    (clearing the record, so the entry returns everywhere) or removes the app's own entries, and returns whether the
-   server is installed. After a successful install `after_install` refreshes the
-   recall server and registers. Recommended setup's Harness Memory MCP column registers it in one harness at a time
+   server is installed. After a successful install `after_install` registers. Switching it on or off also makes the
+   hooks look up the family members again, and switching it on seeds Harness Memory's hooks (see [Hooks](#hooks)).
+   Recommended setup's Harness Memory MCP column registers it in one harness at a time
    (`setup_register_memory`, `memory_setup::register_in`), turning the pref on when it is off. `AppState.memory_setup`
    serializes these runs.
 4. **Use.** A harness starts `harness-memory mcp`. The server resolves the repository from `project_path` or its working
@@ -108,41 +111,25 @@ flowchart LR
    on first run copies the database older app builds kept under `<local data>/com.mspiechowicz.harness-useful-desktop/memory`
    (the old file stays). The store, the limits per call and the redaction are the server's own; see its repository. The
    desktop app never opens the database itself.
-5. **Recall.** `agent_send` goes through `memory_recall::send` (`src-tauri/src/memory_recall.rs`). `agent_start` tracks
-   every chat but a utility agent (`memory_recall::track`) and arms a new one (not resumed); a successful `NewSession`
-   arms a tracked chat again. `RecallGate` keeps one slot per chat. While `memoryEnabled` and `memoryRecall` are on,
-   arming also warms up the installed server (`AppState.memory_server`, from `resolve_memory` once it reports its version;
-   until it is installed on macOS and Windows, the old copy in `<local data>/bin` serves, under the same check) with `mcp` in the chat's project directory, in the background; a warm server unused for 60 s
-   (`WARM_IDLE`) is stopped, and at most four (`WARM_MAX`) run at once, the oldest stopped first. The first message decides under the slot's lock: an `AgentAction::Prompt`
-   without `streamingBehavior` that does not start with `/` or `!` goes to `MemoryRecall::recall`
-   (`business/src/ecosystem/memory_recall.rs`); steers, follow-ups and queued prompts, and `SwitchSession`, `Fork` and
-   `Clone`, only disarm; a first message the agent refuses arms the chat again. `recall_query` builds the keywords
-   (`recall_text.rs`), `memory_search` runs with limit 5, scope `repo` and `same_checkout: true` (only notes last
-   written from this checkout without `project_path`) inside a 1.5 s limit, and `recall_block_with` prepends a
-   `<harness-memory-recall>` block of at most 2304 bytes: the notes (at most 1536) and, after them, the saved scripts
-   the same reply lists (`<saved-scripts>` block or `structuredContent.scripts`, read by `recall_scripts.rs`, at most
-   five and 768 bytes) under their own framing line. Scripts cost no second call. A reply whose scripts cannot be read
-   recalls the notes alone. Any failure sends the message as written; the log carries
-   only the outcome kind and the note and script counts. Stopping a chat (or its channel closing) forgets the slot and kills the
-   warm server; a page reload forgets every slot (`lifecycle::on_page_load`). In the webview `splitRecall`
-   (`ui/src/lib/chat/memory-recall.ts`) turns the block into a collapsed chip in `UserMessage.svelte`, and titles, labels
-   and session previews strip it (`strip_recall`, `preview_text`, `firstPrompt`). The Settings row **Add memory to new
-   chats** sets the UI-managed `memoryRecall` pref.
-6. **Team database.** Settings can point the server at a shared PostgreSQL, libSQL or MongoDB database instead of the
+5. **Team database.** Settings can point the server at a shared PostgreSQL, libSQL or MongoDB database instead of the
    local file. `memory_remote_get` / `memory_remote_set` read and write the server's own
    `<config>/harness-memory/config.toml` (`database_url`, `database_token`, `repository_notes`, `global_notes`,
    `scripts = "local"` only while the installed server keeps scripts, and `trust_team_scripts = true` only while it asks
    before running a script and scripts go to the team database; both kept as saved while the server cannot be asked) through
    `business/src/ecosystem/memory_remote/`, returning the URL redacted and the token as a flag; `memory_remote_test` runs
    `harness-memory check` with the typed values in its environment. The app never connects to the database.
-7. **Scripts.** Agents save deterministic scripts in the memory store and run them inside the server. The Memory view
+6. **Scripts.** Agents save deterministic scripts in the memory store and run them inside the server. The Memory view
    lists, shows and deletes them through `memory_scripts_list`, `memory_script_get` and `memory_script_delete`
    (`business/src/ecosystem/memory_scripts.rs`). A page of the list (offset, 1 to 200 entries, a search of at most 256
-   characters, one group of `needsReview`, `repo` or `global`, sorted by `updated`, `name`, `language`, `scope`,
-   `place`, `runs` or `lastRun`) comes from `harness-memory
-   scripts list --json --offset N --limit N [--query Q] [--group G] --sort S --order O [--project <root>]` with the
-   total and the count of each group (`memory_cli.rs`: home directory, stdin closed, 15 s, 1 MiB of output kept, the
-   server's last `harness-memory:` line redacted on failure, a usage error read as `outdated`). One pooled
+   characters, one group of `needsReview`, `repo` or `global`, or else a scope `repo`/`global` combined with a review
+   `needed`/`trusted` (a group with either is `invalidInput`), sorted by `updated`, `name`, `language`, `scope`,
+   `place`, `runs` or `lastRun`) comes from `harness-memory scripts list --json --offset N --limit N [--query Q]
+   [--group G | --scope S --review R] --sort S --order O [--project <root>]` with the total and the count of each
+   group, scope (under the query and review) and review (under the query and scope) (`memory_cli.rs`: home directory,
+   stdin closed, 15 s, 1 MiB of output kept, the server's last `harness-memory:` line redacted on failure, a usage
+   error read as `outdated`). A server that predates combined filters answers no scope or review counts and refuses
+   `--scope` and `--review` with a usage error: the list is asked once more without them, and the page says
+   `combinedFilters: false` (as it does whenever the answer lacks `scopes`) so the view offers one filter at a time. One pooled
    `harness-memory mcp` in the home directory (`McpPool`, the client the dashboard uses too, stopped after 30 s without
    a call) answers `script_get` and `script_delete` with the authorized project root as `project_path`. A `tools/list`
    probe, cached per binary and modification time, tells whether the server keeps scripts (`script_list` offered):
@@ -153,7 +140,7 @@ flowchart LR
    a `script_run` that is missing or lists no arguments leaves both keys as saved (`ScriptsSupport::Unknown`).
    A summary without `approval` (an older server) gets `approved` or `needed` from `trusted`. The app never opens the
    database and never runs a script.
-8. **Script approval.** An agent can never approve a script: the server runs one only when it was saved on this
+7. **Script approval.** An agent can never approve a script: the server runs one only when it was saved on this
    machine, the user approved its current version, or `trust_team_scripts = true` and it comes from the team database.
    Otherwise it asks through files in its data folder (`HARNESS_MEMORY_DIR` when absolute, else the platform data
    folder + `harness-memory`, resolved like the server by `memory_requests::memory_data_dir`). While Harness Memory is
@@ -167,11 +154,13 @@ flowchart LR
    both, and the watcher removes an answer left alone for more than 60 s. `memory_scripts_trust` runs
    `harness-memory trust <id>=<sha256>… [--project <root>]` (`memory_trust.rs`, 20 s and 1 s per script (120 s at most), home directory, output capped
    and redacted) for the Memory view's **Trust** buttons; a script changed since the user reviewed it is `conflict`.
-9. **Notes.** The Memory view lists, shows and deletes the agents' notes through `memory_notes_list`,
+8. **Notes.** The Memory view lists, shows and deletes the agents' notes through `memory_notes_list`,
    `memory_note_get` and `memory_note_delete` (`business/src/ecosystem/memory_notes.rs`), each one run of
    `harness-memory notes` as `memory_cli.rs` runs the server's commands (15 s): `notes list --json --offset N --limit N
-   [--query Q] [--kind K] --sort updated|title|kind|scope|place --order asc|desc [--project <root>]` (the project's
-   repository notes and the global ones, the total and the count of each kind under the search), `notes get <id> --json` (the body and at
+   [--query Q] [--kind K] [--scope repo|global] --sort updated|title|kind|scope|place --order asc|desc
+   [--project <root>]` (the project's repository notes and the global ones, the total, the count of each kind under
+   the search and scope, and of each scope under the search and kind; a server that predates combined filters is
+   asked once more without `--scope` and the page says `combinedFilters: false`), `notes get <id> --json` (the body and at
    most 50 links, both ways) and `notes delete <id>`. `memory_notes_delete_all` and `memory_scripts_delete_all` run
    `notes delete --all --yes --json [--project <root>]` and `scripts delete --all --yes --json [--project <root>]`
    (60 s): every entry the list shows without filters, answered as `MemoryDeleteAll` (`deleted`, and `team`, how many
@@ -179,7 +168,169 @@ flowchart LR
    need the server generation the scripts probe calls `Approvals`: an older one, or one that answers a usage error, is
    `outdated`. The app never opens the database.
 
+Older app versions put a `<harness-memory-recall>` block of found notes in front of the first message of a new chat;
+the app no longer adds it. Transcripts that hold one still show it as a collapsed chip (`splitRecall`,
+`ui/src/lib/chat/memory-recall.ts`, used by `UserMessage.svelte`), and titles, labels and session previews leave it out
+(`strip_recall` in `business/src/pi_family/sessions/recall_block.rs`, called by `preview_text`; `firstPrompt` in the
+webview).
+
 Privacy rules: [security-privacy.md](security-privacy.md#project-memory).
+
+## Hooks
+
+A hook is a small JSON file that adds context to a prompt, sends a follow-up or runs a shell command when something
+happens in a desktop chat. The app window reads the files, shows them in the Hooks view (`ui/src/features/hooks/`) and
+runs them. The same executable started as `harness-desktop mcp` lets agents list, add, change and remove hooks, and
+never runs one. The file contract (fields, limits, events, prompt text, commands, approvals) is
+[hooks-format.md](hooks-format.md). Code: `business/src/hooks/` (logic, no Tauri), `business/src/hooks_mcp/` (the MCP
+mode), `src-tauri/src/hooks.rs` and `hooks/` (runtime, per-chat tasks, watcher), `src-tauri/src/commands/hooks.rs`.
+
+```mermaid
+flowchart LR
+  UI["Hooks view"] -- "hook_save, hook_approve, ..." --> RT["HookRuntime<br/>(src-tauri/src/hooks.rs)"]
+  RT -- "write + approve" --> F[("hooks/ID.json")]
+  RT -- "approvals, copies, seeds" --> C[("app config folder")]
+  AG["agent (harness)"] -- "MCP over stdio" --> MCP["harness-desktop mcp"]
+  MCP -- "write as agent: pending" --> F
+  MCP -. "read only" .-> C
+  W["watcher (1 s)"] -. "changed" .-> RT
+  RT -- "context, follow-up, command" --> CH["agent chat<br/>HookSink + chat task"]
+```
+
+1. **Files.** The hooks root is `HARNESS_HOOKS_DIR` when absolute, else the platform data folder + `harness-hooks`
+   (`hooks_root`, mirroring `memory_data_dir`); the files are `<root>/hooks/<id>.json` (`0600`, folder `0700`, id =
+   32 lowercase hex). The app's config folder (`config_dir` in `business/src/app_dirs.rs`, the one Tauri's
+   `app_config_dir` names, found without Tauri because the MCP mode starts no runtime) holds `hook-approvals.json`,
+   `hook-approved/<id>.json`, `hooks-state.json` and `desktop-mcp-registration.json`. `HookStore`
+   (`hooks/store.rs`) is the only reader and writer of the hook files in both modes: it lists only regular files named
+   exactly `<id>.json` (links and leftovers ignored), ignores the whole folder while group or others can write to it
+   (Unix), reads at most 16 KiB + 1 byte of a file (an oversized file is invalid), parses with `parse_hook_file`
+   (`format.rs`), and writes by temp file + rename after parsing the bytes it is about to write with the same rules.
+   Status (`view.rs`): `pending` until the SHA-256 of the raw bytes equals the approval, then `off`, `paused` (a
+   `requires` is not met) or `active`; unreadable, malformed and over-limit files are `invalid` with a reason (at most
+   64 hooks per scope, approved ones first, then oldest by `createdAt` then `id`).
+2. **Engine.** `HookSession` (`hooks/engine.rs`) is a pure synchronous state machine per chat, with no IO. The shell
+   passes it the current `HookSet` (`HookSet::for_chat`: the `active` hooks that are global or of the chat's project root,
+   in run order) with every action (`on_send`) and event (`on_event`) and carries out what it returns.
+   - `sessionStart`: armed for a chat that starts fresh (`agent_start` without `resume`, not a utility agent); fires
+     on the first eligible prompt (`AgentAction::Prompt` without `streamingBehavior` that does not start with `/` or
+     `!`). `NewSession` arms it again, `SwitchSession`, `Fork` and `Clone` disarm it; a prompt refused before it reached
+     the agent (`send_failed`) leaves it armed. `promptSubmit` fires on every eligible prompt.
+   - `toolEnd`: on a matching `ToolEnd` of a run a user message started. A `followUp` hook contributes once per run, a
+     command hook runs on every match and its latest output counts.
+   - `turnEnd`: on `Settled` of a user run, not on each model turn. Its commands always run (`EventOutcome::TurnCommands`
+     when the run earns no follow-up, their output discarded). The loop rule: a follow-up goes out only when a user message
+     was delivered since the last settle (any delivered `Prompt`, `Steer` or `FollowUp` from the user), at least one
+     `ToolEnd` had `is_error` false, the run was not aborted (`Settled.aborted` or an aborted `PromptResult`) and no
+     `PromptResult` was an error. The `turnEnd` parts and the run's collected `toolEnd` parts become one prompt, so a user
+     run gets at most one hook follow-up. A settled run waits for `toolEnd` commands still running. A prompt the engine
+     sent (`SendOrigin::Hook`) never counts as a user message, and a user message sent before the follow-up goes out
+     cancels it (`take_follow_up` ticket).
+   - Runs follow the event stream: the shell tells the engine how many `Settled` events the stream delivered
+     (`settles_seen`, counted by `HookSink` before they are queued), so a user message sent after a settle the engine
+     has not handled yet (the chat task is still running a slow command) belongs to the next run and cancels the
+     settled run's follow-up.
+   - `sessionEnd`: once per chat, when the agent emits `Exited`; commands only, their output is discarded.
+   - A utility agent (titles, reviews) fires nothing.
+3. **HookSink and the chat task.** `agent_start` wraps the chat's `ChannelSink` in a `HookSink`
+   (`src-tauri/src/hooks/chat.rs`). It forwards every envelope to the webview first, then passes the events the engine
+   reads (`ToolEnd` with its result replaced by `null`, `PromptResult`, `Settled`, `Exited`) over an unbounded channel
+   to the chat's task (`ChatTask::run`), which handles them in order until `Exited` and runs `toolEnd` commands without
+   the chat lock. `HookRuntime::chat(key)` finds the `ChatHooks` of a chat (its `HookSession` behind a tokio mutex, the
+   chat lock). `agent_send` goes through `hooks::chat::send`: for a tracked chat's `Prompt`, `Steer` or `FollowUp` it
+   takes the lock, asks the engine for context, runs the `sessionStart` and `promptSubmit` commands, puts the context in
+   front of the prompt (`compose_prompt`; the last elements are dropped while the result would pass
+   `MAX_ACTION_TEXT_BYTES`, and a `sessionStart` context left out entirely arms it again) and sends, and only then lets go, so a later message or a hook follow-up never overtakes
+   it. Session-changing actions are sent first and then told to the engine. The follow-up is composed
+   (`compose_follow_up`), then sent as a `Prompt` under the lock if `take_follow_up` still holds. A chat is tracked
+   from `agent_start` until it stops, its channel closes (`stop_when_closed`), its agent exits or the page reloads
+   (`lifecycle::on_page_load` clears the map); `sessionEnd` still fires from `Exited`. The chat's project root is
+   `project_identity` of its folder, computed at start and again after `agent_move_project` (`hooks::chat::moved`).
+   `HookRuntime` keeps each chat task's handle: app exit waits for them after stopping the agents, at most
+   `SESSION_END_BUDGET` (3 s) within `EXIT_BUDGET`, then aborts the rest (dropping a running command kills its shell).
+4. **Command execution.** `hooks/command.rs` is, with the companion installers, the one place the app runs a shell:
+   `/bin/sh -c <command>` on Linux and macOS, `<SystemRoot>\System32\cmd.exe /D /S /C "<command>"` on Windows (the
+   command goes in as `ExecSpec::raw_arg`, unquoted by the runner). Working directory: the project root for a project
+   hook, the chat's folder for a global one. Stdin is closed (`ProcessRunner`), the app's environment is inherited and
+   `HARNESS_HOOK_EVENT`, `_PROJECT`, `_SESSION`, `_TOOL`, `_TOOL_ERROR` and `_TOUCHED` (at most 16 KiB,
+   `MAX_TOUCHED_BYTES`) are added; no tool result or argument is passed. A command has its own `timeoutSecs` (default 10,
+   at most 30), the commands of one firing run one after another within `FIRING_BUDGET` (30 s, `run_firing`; the
+   `sessionStart` and `promptSubmit` firings of one send each get their own), and the process group is killed on a timeout.
+   Stdout is capped at 16 KiB (`max_output_bytes`), trimmed, passed through `redact_text`, and used only when the exit
+   code is 0 and something is left; stderr is dropped. A command that gives no output (spawn failure, non-zero exit,
+   timeout, skipped for the budget) puts one `Notice` (`NoticeLevel::Warning`) in the chat with the hook's name and the
+   cause (`failure_notice`), never the command or its output. Logs carry hook ids, event names and counts.
+5. **Approvals.** Only the window approves (`hooks/approvals.rs`, `store.rs`). `hook_save` (the window's writes,
+   `HookAuthor::Desktop`) writes the file, stores `sha256(bytes)` in `hook-approvals.json` and keeps the approved bytes
+   in `hook-approved/<id>.json` (`0600` in a `0700` folder), so it runs at once. A write by the MCP mode
+   (`HookAuthor::Agent`) never touches the config folder, so it is `pending` until `hook_approve` stores the hash of the
+   exact bytes the user saw (`conflict` when the file changed since). `HookApproval` is `approved`, `changed` (an entry
+   with another hash; the view carries the approved copy for the diff) or `never`. `hook_reject` restores the copy of a
+   `changed` hook (approved again at once) and deletes a never-approved one. Deleting a hook in the window removes its
+   approval and copy; an agent's removal leaves them, and `prune_approvals` drops the approvals and copies of ids with no
+   file while the folder is a readable folder.
+6. **Runtime and watcher.** `HookRuntime` (`src-tauri/src/hooks.rs`, `AppState.hooks`) holds the optional `HookStore`
+   (none on Windows without `LOCALAPPDATA`: `unsupported`), the list read once (`views`, dropped by `invalidate` and when
+   the capabilities differ), the tracked chats, the `hooks_listen` channel and one write lock held by every write of the
+   app (commands, seeding, pruning), so approvals are never lost to two writers. Capabilities are cached for
+   `MEMBERS_TTL` (30 s) and looked up again after an install or the memory switch (`refresh_members`):
+   `harness-memory` is met while `installed_memory` finds the server and `memoryEnabled` is on, `harness-dashboard`
+   while `resolve_dashboard` finds the dashboard. `hooks/watch.rs` runs a `hooks-watch` thread that every 1 s lists
+   the hook folder and the approvals file (names, modification times and sizes only; names that start with `.` or do not
+   end in `.json` are skipped). The first look only prunes. A change prunes, invalidates the cache and sends
+   `HooksEvent::Changed` to the Hooks view, which loads the list again.
+7. **Harness family hooks.** `hooks/family.rs` holds the catalog (`FAMILY`): `memory-search` (`sessionStart`
+   `addContext`) and `memory-save` (`turnEnd` `followUp`) for Harness Memory, `dashboard-limits` (`sessionStart`
+   `addContext`) for Harness Dashboard, each global, `requires` its member and written by the window (approved), marked
+   by `seed`. Launch seeding (`hooks::spawn_on_launch`, and `seed_available` again when the memory switch is turned on)
+   creates the hooks of every available member once (Harness Memory: installed and its switch on) and records the seed
+   in `hooks-state.json`; a recorded seed is never created at launch
+   again, and a seed hook already in the folder is recorded, not duplicated. `family_status` gives each entry
+   `needsMember` (member not installed, Harness Memory whatever its setting), else `missing` (no valid file with the seed),
+   `outdated` (name, event or action differ from the catalog, the user's own edit included) or `installed`.
+   `hooks_family_apply` adds missing hooks and brings outdated ones to the catalog (`apply_family`: the id,
+   `createdAt`, `createdBy`, scope and `enabled` stay). After the app installed a member (`setup_install_dashboard`,
+   `setup_install_memory`, `after_member_install`), `restore_member` adds its missing hooks again, deleted ones
+   included, and overwrites none. Uninstalling a member deletes nothing, its hooks show `paused`.
+8. **IPC.** `hooks_list` (global hooks and those of `project`, which must be the active or a recent project, else
+   `forbidden`; invalid files always), `hook_save` (create or edit from a `HookDraft`; a project draft names an
+   authorized project folder or the root the edited file already holds; `conflict` when `expectedSha256` differs),
+   `hook_delete`, `hook_approve`, `hook_reject`, `hooks_family`, `hooks_family_apply` and `hooks_listen`
+   (`Channel<HooksEvent>`), all in `src-tauri/src/commands/hooks.rs`, plus `setup_register_desktop_mcp`
+   (`commands/desktop_mcp.rs`).
+9. **MCP mode.** `src-tauri/src/main.rs` checks the first argument before anything else: `mcp` runs `run_stdio`
+   (`business/src/hooks_mcp/`) with no window, no Tauri runtime and no single-instance check, until stdin closes; in a
+   Windows release build (GUI subsystem) it uses the pipes its parent passes. Protocol: newline-delimited JSON-RPC 2.0
+   (`protocol.rs`), lines up to `MAX_FRAME_BYTES` (4 MiB, a longer one is answered and skipped), protocol versions
+   `2025-11-25`, `2025-06-18`, `2025-03-26`, `2024-11-05`, `serverInfo.name` `harness-desktop`; `-32700`, `-32600`,
+   `-32601` and `-32602` for bad JSON, a batch or malformed request, an unknown method and an unknown tool; refusals and
+   validation failures are tool results with `isError: true`; nothing a client sends reaches stderr. Tools
+   (`tools.rs`, `calls.rs`): `hook_list` (`project`, `scope` `global`, `project` or `all`), `hook_get`, `hook_add`,
+   `hook_update` (the `sha256` read last plus only the fields to change) and `hook_remove`. Annotations: `hook_list` and
+   `hook_get` `readOnlyHint` and `idempotentHint`; `hook_add` and `hook_update` neither read-only, destructive nor
+   idempotent; `hook_remove` `destructiveHint`; all `openWorldHint: false`, each with a title. Agent rules, enforced by
+   `HookStore` and not by the tools: a new hook has `createdBy: "agent"`, every write sets `updatedBy: "agent"`, so it is
+   pending, an edit or removal needs the current `sha256` (`conflict` otherwise), and `hook_remove` refuses a hook whose
+   `createdBy` is not `agent`. `project` defaults to the server's working folder, turned into a project root by
+   `project_identity`; a missing or non-folder path is refused. The server reads the approvals to report `approved` or
+   `pending`, and checks `requires` against the capabilities found once at start (`resolve_memory` with the `memoryEnabled`
+   pref read from `prefs.json`, default on; `resolve_dashboard`). Its instructions tell the agent that a hook it adds or
+   changes waits for the user.
+10. **Registration.** The app registers the server in the user MCP file of each detected harness under the name
+    `harness-desktop` (`business/src/ecosystem/desktop_register.rs`; `{"command": "<absolute path>", "args": ["mcp"]}`,
+    OpenCode's shape for its config) with the merge rules of the other entries (`change_file`). The program is the
+    AppImage file while the app runs from one (absolute `APPIMAGE`), else the current executable
+    (`current_app_command`). At each launch (`src-tauri/src/desktop_mcp.rs`, release builds only: a debug build's
+    executable lives in `target/`) the entry is added where nothing runs `harness-desktop mcp`, and an entry the app owns
+    (named `harness-desktop`, only argument `mcp`, program the app, the one it wrote last or any `harness-desktop[.exe]`)
+    has its `command` re-pointed to the current program, every other field kept. `desktop-mcp-registration.json`
+    (`desktop_record.rs`: `{"version": 1, "registered": [{"harness", "file", "command"}]}`, 64 KiB cap, no file
+    contents) records the files, so an entry the user removed is not added back; an unusable record is renamed
+    `.corrupt-<unix-seconds>` and rebuilt, and nothing is added that launch. The Recommended setup column
+    (`HarnessSetup.desktopMcp`, read by `setup_status`) shows the state, and `setup_register_desktop_mcp` adds the entry
+    for one harness on request, also where it was removed and in a debug build; the webview sends only the harness id.
+
+Privacy rules: [security-privacy.md](security-privacy.md#hooks).
 
 ## Business modules
 
@@ -187,16 +338,18 @@ Privacy rules: [security-privacy.md](security-privacy.md#project-memory).
 | --- | --- |
 | `harness/` | The `Harness` trait, `HarnessRegistry`, default detection (`detect.rs`), RPC launch helpers (`launch.rs`), the `CommandCatalog` trait (`catalog.rs`), extension CLI actions (`cli.rs`). |
 | `harnesses/omp`, `harnesses/pi`, `harnesses/opencode` | The adapters: paths, config and extension views, catalogs, dialects, launch, sessions folder, CLI actions. OMP and PI share the PI file and RPC formats (`pi_family/`). OpenCode has JSONC config layers, an Agents category, sessions read through its CLI (`Harness::cli_sessions`) and no chat yet (`capabilities.chat` is false, `launch_spec` is `Unsupported`). |
-| `pi_family/` | Code shared by OMP and PI (OMP is a PI fork): `rpc` (codec, request correlation, `RpcDialect`), `events`, `normalize`, `ui_request`, `touched`, `sessions` (list, tree, transcript), `config_files`, `frontmatter`, `skills`, `mcp_config`, `resources`. `jsonc` (JSON with comments) and some helpers are also used by OpenCode. |
+| `pi_family/` | Code shared by OMP and PI (OMP is a PI fork): `rpc` (codec, request correlation, `RpcDialect`), `events`, `normalize`, `ui_request`, `touched`, `sessions` (list, tree, transcript, and `recall_block`, which hides the memory recall block older versions added from previews), `config_files`, `frontmatter`, `skills`, `mcp_config`, `resources`. `jsonc` (JSON with comments) and some helpers are also used by OpenCode. |
 | `agent/` | `AgentManager` (sessions by key), `AgentSession` (writer, reader, stderr and exit tasks), `EventSink`, `DeltaCoalescer`. |
 | `git/` | `GitCli` (hardened git runner), status, branches, diff parsing, untracked files. |
 | `review/` | `compose_review`: diff comments into one deterministic Markdown prompt; the UI sends it with `agent_send`. |
-| `ecosystem/` | Companion tools: catalog (copyable install steps, never run), detection, a minimal MCP stdio client and the pool that keeps one running (`mcp_pool`), the pooled `harness-dashboard mcp` connection behind the dashboard widgets, Recommended setup (`setup`, `installer`, `mcp_register`) and the atomic `mcp.json` merge it shares with Share setup (`mcp_merge`, whose `change_file` read-decide-write cycle the memory registration also uses). Companions install through `installer` (`Companion`: the dashboard's and the memory server's official installers, run after the user confirms). Project memory setup: `memory_binary` (finding the installed server and its version), `memory_register` (add, update the command of, or remove the `harness-memory` entry), `memory_migrate` (retires the old app copy of the server) and `memory_record` (`memory-registration.json`, so a removed entry stays removed); `memory_remote` (the team database in the server's `config.toml`, and `harness-memory check`); `memory_cli` (one run of a `harness-memory` command for the user, and the page of a list); `memory_notes` (the agents' notes through `harness-memory notes`); `memory_scripts` (the agents' scripts, a page listed with `harness-memory scripts list` and one read through the pooled `harness-memory mcp`); `memory_requests` (the server's data folder, the `desktop.alive` heartbeat, run requests and their answers); `memory_trust` (`harness-memory trust`). |
+| `ecosystem/` | Companion tools: catalog (copyable install steps, never run), detection, a minimal MCP stdio client and the pool that keeps one running (`mcp_pool`), the pooled `harness-dashboard mcp` connection behind the dashboard widgets, Recommended setup (`setup`, `installer`, `mcp_register`) and the atomic `mcp.json` merge it shares with Share setup (`mcp_merge`, whose `change_file` read-decide-write cycle the memory registration also uses). Companions install through `installer` (`Companion`: the dashboard's and the memory server's official installers, run after the user confirms). Project memory setup: `memory_binary` (finding the installed server and its version), `memory_register` (add, update the command of, or remove the `harness-memory` entry), `memory_migrate` (retires the old app copy of the server) and `memory_record` (`memory-registration.json`, so a removed entry stays removed); `memory_remote` (the team database in the server's `config.toml`, and `harness-memory check`); `memory_cli` (one run of a `harness-memory` command for the user, and the page of a list); `memory_notes` (the agents' notes through `harness-memory notes`); `memory_scripts` (the agents' scripts, a page listed with `harness-memory scripts list` and one read through the pooled `harness-memory mcp`); `memory_requests` (the server's data folder, the `desktop.alive` heartbeat, run requests and their answers); `memory_trust` (`harness-memory trust`). The app's own MCP entry: `desktop_register` (add, repoint or read the `harness-desktop` entry that runs `harness-desktop mcp`) and `desktop_record` (`desktop-mcp-registration.json`, so a removed entry stays removed). |
 | `sync/` | Share setup: export a harness's marketplaces, plugins, packages and MCP servers as a `hud1:` string or JSON file and import them after a review. `schema` (format v1, limits, per-item parsing), `codec` (zlib + base64url, size caps), `validate` and `secrets` (field checks, redaction), `collect` (export, read from the harnesses' files), `plan` (import review against this machine), `apply` (runs the harness CLIs and the MCP merge, idempotent, no rollback). Harnesses opt in per item kind through `Harness::share_support`. Format: [share-setup.md](share-setup.md). |
 | `prefs/`, `project/` | `prefs.json` store (atomic, self-healing), server-managed fields, the active and recent project list. |
 | `security/` | Deny-list and `SafeReader`, redaction, `canonical_within`, `validate_project_dir`, `is_safe_arg`. See [security-privacy.md](security-privacy.md). |
 | `process/` | `ProcessRunner` (run to completion), `BlockingRunner` (the same for blocking tasks, `StdRunner`) and `ProcessSpawner` (long-lived child) behind traits; binary resolution without a shell. |
-| `app_dirs.rs` | The app's folders outside Tauri: the per-machine data folder (where older builds kept a copy of the bundled memory server, `legacy_memory_copy`). A test checks the identifier against `tauri.conf.json`. |
+| `hooks/` | Hooks (see [Hooks](#hooks)): `format` (file validation), `store` (the folder: list, save, delete, approve, reject, prune), `approvals` (`hook-approvals.json`, approved copies), `view` (status of each file), `draft` (a `HookDraft` into a hook file), `plan` (`HookSet`, the firings the engine hands the shell), `engine` (`HookSession`, the per-chat state machine), `compose` (context block, follow-up prompt, `strip_hook_context`), `command` (the shell runs of command hooks), `family` (Harness family hooks and their seed record). |
+| `hooks_mcp/` | `harness-desktop mcp`: the JSON-RPC protocol (`protocol`), the five tools and their annotations (`tools`), the calls over `HookStore` as an agent (`calls`). |
+| `app_dirs.rs` | The app's folders outside Tauri: the config folder (`config_dir`, which the MCP mode needs because it starts no Tauri runtime) and the per-machine data folder (where older builds kept a copy of the bundled memory server, `legacy_memory_copy`). A test checks the identifier against `tauri.conf.json`. |
 | `update.rs` | Updater rules independent of Tauri: endpoint, public-key validation, progress reporting. |
 | `model/` | The serde + ts-rs DTOs that form the IPC contract. |
 | `env.rs` | `Env`: the injected environment. All paths derive from it, so tests run against fixture homes. |
@@ -205,7 +358,8 @@ Privacy rules: [security-privacy.md](security-privacy.md#project-memory).
 Shell modules in `src-tauri/src/`: `commands/` (one file per area), `state.rs` (`AppState`), `access.rs` (link
 allowlist, reveal roots), `agents.rs`, `agent_sink.rs`, `dialogs.rs` (native pickers), `updates.rs`, `memory_setup.rs`
 (project memory registration and old-copy migration at launch), `window.rs` (navigation and pop-up guards), `lifecycle.rs`,
-`logging.rs`, `error.rs`.
+`logging.rs`, `error.rs`, `hooks.rs` and `hooks/` (the runtime, per-chat hook tasks and the folder watcher), `desktop_mcp.rs`
+(registering `harness-desktop mcp` in the harnesses at launch).
 
 Share setup in the UI lives in `ui/src/features/sync/`: the Settings section (`SyncSection`), the export and import
 dialogs, the review list and the result view, with their state in `sync-export-state` and `sync-import-state`. The
@@ -213,8 +367,9 @@ webview never holds a bundle to apply: it sends `sync_import_apply` a plan id an
 (`sync_plan` in `AppState`, one at a time, and an async mutex so only one apply runs). Native dialogs (`dialogs.rs`)
 open the save and open file pickers.
 
-Rules every business module follows: no shell is spawned, every file read goes through `SafeReader`, every path is
-derived from an injected `Env`, and nothing secret reaches the webview unredacted.
+Rules every business module follows: no shell is spawned (the exceptions are the companion installers and the command
+hooks of `hooks/command.rs`, which run only text the user wrote or approved), every file read goes through `SafeReader`,
+every path is derived from an injected `Env`, and nothing secret reaches the webview unredacted.
 
 ## IPC contract
 
@@ -263,8 +418,8 @@ Generated types:
   `src-tauri/icons` are exempt.
 - **`check-forbidden.ts`**: rejects patterns by rule id. No opt-out: `--auto-approve`, `"--no-ui"`, OpenCode's
   `"--auto"`, `--yolo` and `--dangerously-skip-permissions`, an `"auth"`/`"providers"` argv followed by `"login"`, shell spawns
-  (`Command::new("sh" | "bash" | ... | "pwsh")`; only the companion installers, on marked lines of
-  `business/src/ecosystem/installer.rs`, may name a shell), `innerHTML`/`insertAdjacentHTML`, `eval`/`new Function`, and
+  (`Command::new("sh" | "bash" | ... | "pwsh")`; only the companion installers and the command hook runner, on marked
+  lines of `business/src/ecosystem/installer.rs` and `business/src/hooks/command.rs`, may name a shell), `innerHTML`/`insertAdjacentHTML`, `eval`/`new Function`, and
   `dangerous...insecure transport` updater settings. Opt-out with `guard-allow: <id>` on the same line:
   `--approve` (PI "trust this project once" only), `get_login_providers`, a `"login"` literal, `set_ask_dialog`,
   `{@html}` (sanitized Markdown component only), and `fetch`/`XMLHttpRequest`/`WebSocket`/`EventSource` in

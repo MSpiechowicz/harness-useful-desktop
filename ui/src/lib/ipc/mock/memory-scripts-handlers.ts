@@ -7,6 +7,7 @@ import type { ScriptSummary } from '../bindings/ScriptSummary';
 import type { CommandArgs } from '../commands';
 import { IpcFailure } from '../transport';
 import { deletedAll, requireServer } from './memory-delete-all';
+import { combinesFilters } from './memory-notes-handlers';
 import { sampleScripts, summaryOf } from './memory-scripts-fixtures';
 import { sampleRunRequests } from './script-request-fixtures';
 
@@ -54,6 +55,11 @@ const GROUPS = {
   global: (script: ScriptSummary) => script.scope === 'global',
 } as const;
 
+const REVIEWS = {
+  needed: (script: ScriptSummary) => script.approval === 'needed',
+  trusted: (script: ScriptSummary) => script.approval !== 'needed',
+} as const;
+
 type ScriptOrder = (a: ScriptSummary, b: ScriptSummary) => number;
 
 /** How each sort orders two scripts, ascending (`scope`: global first); ties go by id. `lastRun` leaves the never run ones to {@link neverRunLast}. */
@@ -72,13 +78,27 @@ function neverRunLast(sort: ScriptSort, a: ScriptSummary, b: ScriptSummary): num
   return sort === 'lastRun' ? Number(a.lastRunAt === null) - Number(b.lastRunAt === null) : 0;
 }
 
-/** One page of scripts as the server answers: filtered by the query (name or description) and the group, counted per group, sorted and cut. */
-export function pageOfScripts(visible: ScriptSummary[], { offset, limit = DEFAULT_LIMIT, query = '', group, sort = 'updated', order }: CommandArgs<'memory_scripts_list'>): Omit<MemoryScriptsPage, 'availability'> {
+/**
+ * One page of scripts as the server answers: filtered by the query (name or description), the scope, the review and the group, sorted and cut.
+ * The groups are counted under the query, the scopes under the query and the review, the review under the query and the scope. A group asked for
+ * together with a scope or review is refused. `combined: false` is an older server: it drops the scope and the review and counts neither.
+ */
+export function pageOfScripts(
+  visible: ScriptSummary[],
+  { offset, limit = DEFAULT_LIMIT, query = '', scope, review, group, sort = 'updated', order }: CommandArgs<'memory_scripts_list'>,
+  combined = true,
+): Omit<MemoryScriptsPage, 'availability'> {
+  if (combined && group !== undefined && (scope !== undefined || review !== undefined)) {
+    throw IpcFailure.from({ code: 'invalidInput', message: 'group cannot be combined with scope or review' });
+  }
+
   const needle = query.trim().toLowerCase();
   const answering = visible.filter((script) => needle === '' || script.name.toLowerCase().includes(needle) || script.description.toLowerCase().includes(needle));
   const direction = (order ?? (sort === 'updated' ? 'desc' : 'asc')) === 'desc' ? -1 : 1;
   const compare = SCRIPT_ORDERS[sort];
-  const chosen = answering.filter((script) => group === undefined || GROUPS[group](script));
+  const inScope = answering.filter((script) => !combined || scope === undefined || script.scope === scope);
+  const inReview = answering.filter((script) => !combined || review === undefined || REVIEWS[review](script));
+  const chosen = answering.filter((script) => inScope.includes(script) && inReview.includes(script) && (group === undefined || GROUPS[group](script)));
 
   return {
     total: chosen.length,
@@ -87,6 +107,9 @@ export function pageOfScripts(visible: ScriptSummary[], { offset, limit = DEFAUL
       repo: answering.filter(GROUPS.repo).length,
       global: answering.filter(GROUPS.global).length,
     },
+    scopes: combined ? { repo: inReview.filter(GROUPS.repo).length, global: inReview.filter(GROUPS.global).length } : null,
+    review: combined ? { needed: inScope.filter(REVIEWS.needed).length, trusted: inScope.filter(REVIEWS.trusted).length } : null,
+    combinedFilters: combined,
     scripts: [...chosen].sort((a, b) => neverRunLast(sort, a, b) || direction * (compare(a, b) || a.id - b.id)).slice(offset, offset + limit),
   };
 }
@@ -107,7 +130,7 @@ const APPROVAL_WINDOW_MS = 45_000;
 /** The requests appear this long after the app starts listening, so the preview shows the prompt arriving over a view. */
 const REQUEST_DELAY_MS = import.meta.env.MODE === 'test' ? 0 : 1200;
 
-export function memoryScriptsHandlers(scenario: () => ScriptScenario = scriptScenarioFromLocation): ScriptHandlers {
+export function memoryScriptsHandlers(scenario: () => ScriptScenario = scriptScenarioFromLocation, combined: () => boolean = combinesFilters): ScriptHandlers {
   let scripts: ScriptDetail[] | null = null;
   const current = (): ScriptDetail[] => (scripts ??= scenario() === 'ok' || scenario() === 'request' ? sampleScripts() : []);
 
@@ -156,10 +179,10 @@ export function memoryScriptsHandlers(scenario: () => ScriptScenario = scriptSce
     memory_scripts_list: (args) => {
       const availability = availabilityOf(scenario());
       if (availability.kind !== 'available') {
-        return { availability, total: 0, groups: { needsReview: 0, repo: 0, global: 0 }, scripts: [] };
+        return { availability, total: 0, groups: { needsReview: 0, repo: 0, global: 0 }, scopes: null, review: null, combinedFilters: combined(), scripts: [] };
       }
 
-      return { availability, ...pageOfScripts(visible(args.project).map(summaryOf), args) };
+      return { availability, ...pageOfScripts(visible(args.project).map(summaryOf), args, combined()) };
     },
     memory_script_get: ({ id, project }) => find(id, project),
     memory_script_delete: ({ id, project }) => {

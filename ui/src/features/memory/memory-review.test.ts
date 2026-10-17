@@ -8,14 +8,14 @@ import { IpcFailure } from '$lib/ipc/transport';
 import { trustScripts } from '$lib/stores/memoryScripts.svelte';
 import { toasts } from '$lib/stores/toasts.svelte';
 
-import { calls, fakeMemory, PROJECT, registerMemoryHooks, rowButton, showMemory } from './memory-test-support';
+import { calls, fakeMemory, filterChoices, pickFilter, PROJECT, registerMemoryHooks, rowButton, showMemory } from './memory-test-support';
 
 registerMemoryHooks();
 
 const shaOf = (name: string) => sampleScripts().find((script) => script.name === name)?.sha256 ?? '';
 const itemOf = (name: string) => ({ id: sampleScripts().find((script) => script.name === name)?.id, sha256: shaOf(name) });
 const rowOf = (name: string) => within(rowButton(name) as HTMLElement);
-const chip = () => screen.getByRole('radio', { name: /^Needs review/ });
+const review = () => pickFilter('Status: All', /^Needs review/);
 const panelOf = (name: string) => screen.findByRole('region', { name });
 
 describe('approval in the list', () => {
@@ -50,21 +50,21 @@ describe('approval in the list', () => {
 
 describe('needs review filter', () => {
   it('counts the scripts that need review and lists only those while it is on', async () => {
-    fakeMemory();
+    const invoke = fakeMemory();
     await showMemory();
 
-    expect(chip()).toHaveTextContent('Needs review 2');
-    expect(chip()).toHaveAttribute('aria-checked', 'false');
+    expect(await filterChoices('Status: All', 'Status')).toEqual(['All 5', 'Needs review 2', 'Trusted 3']);
 
-    await fireEvent.click(chip());
+    await review();
 
-    expect(chip()).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('button', { name: 'Status: Needs review' })).toBeInTheDocument();
+    await waitFor(() => expect(calls(invoke, 'memory_scripts_list').at(-1)).toMatchObject({ review: 'needed', offset: 0 }));
     await waitFor(() => expect(rowButton('open-prs')).toBeNull());
     expect(rowButton('disk-hogs')).not.toBeNull();
     expect(rowButton('deploy-check')).not.toBeNull();
     expect(rowButton('lint-changed')).toBeNull();
 
-    await fireEvent.click(screen.getByRole('radio', { name: /^All 5/ }));
+    await pickFilter('Status: Needs review', /^All/);
 
     await waitFor(() => expect(rowButton('open-prs')).not.toBeNull());
   });
@@ -72,7 +72,7 @@ describe('needs review filter', () => {
   it('combines with the search', async () => {
     fakeMemory();
     await showMemory();
-    await fireEvent.click(chip());
+    await review();
 
     await fireEvent.input(screen.getByRole('searchbox', { name: 'Search scripts' }), { target: { value: 'deploy' } });
 
@@ -84,24 +84,23 @@ describe('needs review filter', () => {
     fakeMemory({ kind: 'available' }, sampleScripts().map((script) => ({ ...script, trusted: true, approval: 'approved' })));
     await showMemory();
 
-    expect(chip()).toHaveTextContent('Needs review 0');
+    expect(await filterChoices('Status: All', 'Status')).toEqual(['All 5', 'Needs review 0', 'Trusted 5']);
     expect(screen.queryByRole('button', { name: 'Trust all shown' })).toBeNull();
   });
 
-  it('keeps the group chosen once its last script is trusted, and the table names it', async () => {
+  it('keeps the status chosen once its last script is trusted, and the table names it', async () => {
     fakeMemory();
     await showMemory();
-    await fireEvent.click(chip());
+    await review();
 
     await fireEvent.click(screen.getByRole('button', { name: 'Trust all shown' }));
     await fireEvent.click(await screen.findByRole('button', { name: 'Trust 2 scripts' }));
 
-    await waitFor(() => expect(chip()).toHaveTextContent('Needs review 0'));
-    expect(chip()).toHaveAttribute('aria-checked', 'true');
-    expect(await screen.findByText('No scripts match “Needs review”.')).toBeInTheDocument();
+    expect(await screen.findByText('No scripts match these filters.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Status: Needs review' })).toBeInTheDocument();
     expect(screen.queryByRole('grid')).toBeNull();
 
-    await fireEvent.click(screen.getByRole('radio', { name: /^All/ }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Clear the Status filter' }));
 
     await waitFor(() => expect(rowButton('open-prs')).not.toBeNull());
     expect(rowButton('disk-hogs')).not.toBeNull();

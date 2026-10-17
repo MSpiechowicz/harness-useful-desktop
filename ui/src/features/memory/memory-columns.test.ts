@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { sampleNotes } from '$lib/ipc/mock/memory-notes-fixtures';
 
-import { fakeMemory, registerMemoryHooks, showNotes } from './memory-test-support';
+import { fakeMemory, pickFilter, registerMemoryHooks, showNotes } from './memory-test-support';
 
 registerMemoryHooks();
 
@@ -121,42 +121,35 @@ describe('resizing a column', () => {
 });
 
 describe('a filter with nothing in it', () => {
-  const WIDE = 1600;
-
-  it('stays chosen for the notes, names itself in the empty table, and gives way to All kinds on a click', async () => {
-    Object.defineProperty(HTMLElement.prototype, 'clientWidth', { configurable: true, get: () => WIDE });
+  it('stays chosen for the notes, names itself in the empty table, and gives way to All on a click', async () => {
     fakeMemory({ kind: 'available' }, undefined, undefined, sampleNotes().filter((note) => note.kind !== 'location'));
     await showNotes();
-    const kinds = screen.getByRole('radiogroup', { name: 'Filter notes by kind' });
 
-    await fireEvent.click(within(kinds).getByRole('radio', { name: /^Locations 0/ }));
+    await pickFilter('Kind: All', /^Location 0/);
 
-    expect(await screen.findByText('No notes match “Locations”.')).toBeInTheDocument();
-    expect(within(kinds).getByRole('radio', { name: /^Locations 0/ })).toHaveAttribute('aria-checked', 'true');
-    expect(within(kinds).getByRole('radio', { name: /^All kinds/ })).toHaveAttribute('aria-checked', 'false');
+    expect(await screen.findByText('No notes match these filters.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Kind: Location' })).toBeInTheDocument();
+    expect(screen.queryByRole('grid')).toBeNull();
 
-    await fireEvent.click(within(kinds).getByRole('radio', { name: /^All kinds/ }));
+    await pickFilter('Kind: Location', /^All/);
 
     expect(await screen.findByRole('grid', { name: 'Notes' })).toBeInTheDocument();
   });
 
-  it('has the focus on the option that is chosen, never on another', async () => {
-    Object.defineProperty(HTMLElement.prototype, 'clientWidth', { configurable: true, get: () => WIDE });
+  it('has the focus back on its button once a choice was made', async () => {
     fakeMemory();
     await showNotes();
-    const kinds = screen.getByRole('radiogroup', { name: 'Filter notes by kind' });
 
-    await fireEvent.click(within(kinds).getByRole('radio', { name: /^Fixes/ }));
+    await pickFilter('Kind: All', /^Fix/);
 
-    await waitFor(() => expect(within(kinds).getByRole('radio', { name: /^Fixes/ })).toHaveAttribute('aria-checked', 'true'));
-    expect(document.activeElement).toBe(within(kinds).getByRole('radio', { name: /^Fixes/ }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Kind: Fix' })).toBeInTheDocument());
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Kind: Fix' }));
   });
 
   it('keeps a search that finds nothing on its own message, even with a kind chosen', async () => {
-    Object.defineProperty(HTMLElement.prototype, 'clientWidth', { configurable: true, get: () => WIDE });
     fakeMemory();
     await showNotes();
-    await fireEvent.click(screen.getByRole('radio', { name: /^Fixes/ }));
+    await pickFilter('Kind: All', /^Fix/);
     await fireEvent.input(screen.getByRole('searchbox', { name: 'Search notes' }), { target: { value: 'zzz' } });
 
     expect(await screen.findByText('No note matches that search.')).toBeInTheDocument();

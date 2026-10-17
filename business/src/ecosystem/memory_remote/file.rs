@@ -11,7 +11,7 @@ use std::path::Path;
 use toml::{Table, Value};
 
 use crate::error::{BusinessError, Result};
-use crate::fs_atomic::{refuse_link, replace_atomically};
+use crate::fs_atomic::{create_private_dir, refuse_link, replace_atomically};
 use crate::model::MemoryNotesTarget;
 use crate::security::SafeReader;
 
@@ -324,15 +324,7 @@ fn ensure_dir(dir: &Path) -> Result<()> {
         return Ok(());
     }
 
-    let mut builder = std::fs::DirBuilder::new();
-    builder.recursive(true);
-
-    #[cfg(unix)]
-    std::os::unix::fs::DirBuilderExt::mode(&mut builder, 0o700);
-
-    builder
-        .create(dir)
-        .map_err(|error| BusinessError::from_io("creating the Harness Memory config folder", error))
+    create_private_dir(dir, "creating the Harness Memory config folder")
 }
 
 /// Refuses a symbolic link or anything but a regular file at `path`; a missing file is fine.

@@ -60,8 +60,13 @@ export function useMemoryData(): void {
   const noteQuery = settled(() => viewState.notesQuery);
   const scriptQuery = settled(() => viewState.scriptsQuery);
 
+  // A server is asked for what it answers: the scope next to the kind only while it combines filters (it says so with every page).
+  const combinedNotes = $derived(noteList.data?.combinedFilters ?? true);
+  const combinedScripts = $derived(scriptList.data?.combinedFilters ?? true);
+
   const notes = $derived<NotesRequest>({
     query: noteQuery.value,
+    scope: combinedNotes ? viewState.notesScope : null,
     kind: viewState.notesKind,
     sort: sortOf(NOTE_SORTS, viewState.notesSort.key),
     order: viewState.notesSort.desc ? 'desc' : 'asc',
@@ -70,7 +75,9 @@ export function useMemoryData(): void {
 
   const scripts = $derived<ScriptsRequest>({
     query: scriptQuery.value,
-    group: viewState.scriptsGroup,
+    scope: combinedScripts ? viewState.scriptsScope : null,
+    review: combinedScripts ? viewState.scriptsStatus : null,
+    group: combinedScripts ? null : viewState.scriptsGroup,
     sort: sortOf(SCRIPT_SORTS, viewState.scriptsSort.key),
     order: viewState.scriptsSort.desc ? 'desc' : 'asc',
     page: viewState.scriptsPage,

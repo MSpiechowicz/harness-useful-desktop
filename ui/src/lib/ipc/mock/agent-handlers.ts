@@ -6,7 +6,6 @@ import type { SessionState } from '../bindings/SessionState';
 import { IpcFailure } from '../transport';
 import { MockAgentStream } from './agent-player';
 import { fixtures } from './fixtures';
-import { withSampleRecall } from './memory-recall-sample';
 import type { MockState } from './state';
 import type { Handlers } from './types';
 
@@ -20,7 +19,7 @@ interface MockSession {
   info: AgentSessionInfo;
   stream: MockAgentStream;
   state: SessionState;
-  /** Whether the first message went out yet; only that one gets project-memory notes. */
+  /** Whether the first message went out yet; only that one gets the session-start hook context. */
   prompted: boolean;
 }
 
@@ -50,7 +49,7 @@ function lastAssistantText(): string {
 }
 
 /** In-memory agent backend: one `MockAgentStream` per started session. */
-export function agentHandlers(state: MockState, pace: () => number): Pick<Handlers, AgentCommands> {
+export function agentHandlers(state: MockState, pace: () => number, sessionContext: (project: string | null) => string): Pick<Handlers, AgentCommands> {
   const sessions = new Map<string, MockSession>();
 
   function session(key: string): MockSession {
@@ -62,13 +61,13 @@ export function agentHandlers(state: MockState, pace: () => number): Pick<Handle
     return found;
   }
 
-  /** What the user message shows: the first message of a chat carries sample memory notes while the preference is on. */
+  /** What the user message shows: the first eligible message of a chat carries the context of the active session-start hooks, as the desktop puts it in front of the prompt. */
   function shownPrompt(target: MockSession, message: string): string {
     const first = !target.prompted;
     target.prompted = true;
-    const { memoryEnabled, memoryRecall } = state.snapshot();
+    const eligible = first && !message.startsWith('/') && !message.startsWith('!');
 
-    return first && memoryEnabled && memoryRecall && !message.startsWith('/') ? withSampleRecall(message) : message;
+    return eligible ? `${sessionContext(target.info.project)}${message}` : message;
   }
 
   function send(target: MockSession, action: AgentAction): AgentReply {

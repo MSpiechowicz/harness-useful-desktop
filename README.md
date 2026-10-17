@@ -40,15 +40,18 @@ privacy. Made with the app's demo data. [Download the full-quality 4K video](htt
   [Harness Skills](https://github.com/MSpiechowicz/harness-useful-skills) (OMP as a plugin, PI as a package, not yet
   for OpenCode) and registers the dashboard as an MCP server in each detected harness: in its user `mcp.json` for OMP
   and PI, in the `mcp` object of the global `opencode.json` or `opencode.jsonc` for OpenCode. An OpenCode config file
-  with comments is never rewritten, so the app shows the entry to paste instead.
+  with comments is never rewritten, so the app shows the entry to paste instead. The same step can register the app's own
+  `harness-desktop` MCP server (for hooks) in each harness.
 - **Project memory.** Your harnesses share a local memory of what was done, problems and fixes, and where things are,
   per repository. See [Project memory](#project-memory).
+- **Hooks.** Small rules that add context to a prompt, send a follow-up after the agent finishes or run a command when
+  something happens in a chat, with ready-made ones for Harness Memory and the dashboard. See [Hooks](#hooks).
 - **Share setup.** In Settings, export the marketplaces, plugins, packages and MCP servers of OMP and PI as a `hud1:`
   string or a `.json` file (references and key names, env and header values are never shared), and import one on another
   machine. OpenCode is not covered yet. An import always shows a review of
   the exact commands and files, adds only what you tick after you confirm, and never removes or overwrites anything.
   Format: [docs/share-setup.md](docs/share-setup.md).
-- **Command palette and shortcuts.** Keyboard-first navigation (`Ctrl/Cmd+K`, `Ctrl/Cmd+1..7`), plus a shortcuts
+- **Command palette and shortcuts.** Keyboard-first navigation (`Ctrl/Cmd+K`, `Ctrl/Cmd+1..9`), plus a shortcuts
   overlay.
 - **Themes.** Light, dark or follow the system, with a motion setting (full, reduced, off).
 - **Auto-update.** Signed updates from GitHub releases, checked against a key built into the app. Builds without an
@@ -94,29 +97,57 @@ same repository starts better informed. The switch is on by default; the server 
   instructions inside one. The repository key is only a name: any agent with the server can read and write any
   repository's notes, so a same-title note from another checkout, or from an agent that names another repository by
   path, is reported instead of replaced.
-- **Notes in new chats.** On the first message of a new chat, the app searches project memory with keywords from the
-  message and puts up to five matching notes (at most 1.5 KiB, marked as data, not instructions) in front of it. Only
-  this repository's notes written from this same folder are added: global notes, notes from another checkout of the
-  repository and notes an agent saved by naming the repository's path are never added on their own (agents can still
-  search them). The chat
-  shows them as a collapsed chip, **Project memory · N notes**, that you can expand. Resumed chats, commands (`/…`),
-  shell lines (`!…`) and later messages are left alone, and if the search finds nothing or takes more than 1.5 seconds the
-  message goes out as you wrote it. The keywords stay on your machine; the notes are sent to your model provider with the
-  message and saved by the harness in its session file, and harness terminal UIs show them as plain text. Switch
-  **Add memory to new chats** off in Settings to stop this.
 - **Turn it off.** Switch **Project memory** off in Settings: the app removes its entries from the harnesses and stops
-  adding them (and stops adding notes to new chats). Your notes stay and come back when you switch it on again. Deleting the `harness-memory` entry from a
+  adding them. Your notes stay and come back when you switch it on again. Deleting the `harness-memory` entry from a
   harness's `mcp.json` (OpenCode: its `mcp` object) turns it off for that harness only.
 - **Coming from an app version up to 0.16.** On macOS and Windows those versions kept a copy of the server in the app's
   local data folder (`bin/harness-memory[.exe]`). Once the server is installed, the next launch points the app's own
-  entries at it and deletes that copy when nothing else uses it (a symlink is never removed). Until then, notes for new
-  chats are still searched with the old copy. On Linux the path is unchanged.
+  entries at it and deletes that copy when nothing else uses it (a symlink is never removed). On Linux the path is
+  unchanged.
 - **After uninstalling the app** the entries, the server and the notes remain. To clean up, switch the setting off
   first (or delete the `harness-memory` entries from the harnesses' `mcp.json` and OpenCode's `mcp` object), then remove the server as described in
   the [harness-useful-memory README](https://github.com/MSpiechowicz/harness-useful-memory#uninstalling) and delete the
   `harness-memory` folder in the data folder named above.
 
 Details and limits: [docs/security-privacy.md](docs/security-privacy.md#project-memory).
+
+## Hooks
+
+Hooks are small rules the app applies in your chats with OMP and PI (not in OpenCode, which has no chat yet). Open the
+Hooks view (after Memory in the rail) to add, edit, switch off and delete them. A hook fires on one event:
+
+- **Session start**: the first message of a new chat. **Every message**: each message you send.
+- **Tool end**: after a tool call, optionally only for named tools. **Turn end**: when the agent finished your request.
+- **Session end**: when the chat closes.
+
+A hook can add a text in front of your message, send a follow-up message after the agent finished (at most one per request,
+and only after a request in which a tool call succeeded), or run a shell command whose output is used the same way. The
+chat shows what a hook added as a card, and a message a hook sent as sent by the hook.
+
+- **Approval.** A hook you create or edit in the app runs at once. A hook an agent adds or changes is pending in the view
+  and never runs until you approve that exact version, with its text or command and what changed in front of you. An
+  agent can remove only hooks it created.
+- **Commands run a shell.** A command hook runs through `/bin/sh -c` (Linux, macOS) or `cmd.exe` (Windows) with your
+  privileges, in the project folder, with a 10 second default limit (at most 30 seconds). It gets the event, project,
+  session, tool name and changed paths as `HARNESS_HOOK_*` variables, never a tool's result. Its output (16 KiB at most,
+  secrets masked as far as the filter can) is added to the prompt or sent as the follow-up, and a failure shows a short
+  notice in the chat without the command or output.
+- **Harness family hooks.** Hooks that ask agents to use the other Harness tools: search Harness Memory first and save
+  what they learned, and check limits with the dashboard before long work. The app creates them once when the tool is
+  available and adds them again after it installs the tool. **More actions → Harness family hooks** in the Hooks view adds
+  or updates them. A hook you delete is not created again at launch.
+- **Agents manage hooks over MCP.** The app registers itself as the `harness-desktop` MCP server (`harness-desktop mcp`,
+  tools `hook_list`, `hook_get`, `hook_add`, `hook_update`, `hook_remove`) in the user `mcp.json` of each detected harness
+  at launch (release builds), like Harness Memory: it never overwrites another entry, follows the app when it moves, and an
+  entry you removed is not added back. Recommended setup shows the state per harness and adds it on request.
+- **Where they are stored.** One JSON file per hook in `harness-hooks/hooks` in your data folder (Linux `~/.local/share`
+  or `$XDG_DATA_HOME`, macOS `~/Library/Application Support`, Windows `%LOCALAPPDATA%`; `HARNESS_HOOKS_DIR` overrides it),
+  in plain text. Your approvals are kept in the app's config folder. What a hook adds to a prompt goes to your model
+  provider with it and is saved by the harness in its session file. Format: [docs/hooks-format.md](docs/hooks-format.md).
+- **After uninstalling the app** the hook files and the `harness-desktop` entries remain. Remove the entries from the
+  harnesses' `mcp.json` (OpenCode: its `mcp` object) and delete the `harness-hooks` folder.
+
+Details and limits: [docs/security-privacy.md](docs/security-privacy.md#hooks).
 
 ## Harness Useful family
 
@@ -200,7 +231,7 @@ install and stay; see [Project memory](#project-memory) for removing them.
 Everything runs on your machine. No telemetry, no accounts, no stored tokens. Credential stores, databases, logs and
 private keys are never read by the app (the project memory database belongs to the `harness-memory` server, not
 to the window), secrets in configuration are masked, and the only network requests the app makes itself are
-the signed update check and a lookup of the companions' latest release numbers on GitHub; both can be turned off. Besides your harness CLI, the app runs the Harness Dashboard and Harness Memory installers (only after you confirm them; they download from GitHub) and, for the notes added to a new chat, the installed `harness-memory` server (switch it off with **Add memory to new chats** in Settings). The app stores only preferences, window geometry, a few UI choices and a local log file; the notes your agents save to project memory are kept in a local database by the `harness-memory` server, and the notes added to the first message of a new chat go to your model provider with it. Details and the exact rules:
+the signed update check and a lookup of the companions' latest release numbers on GitHub; both can be turned off. Besides your harness CLI, the app runs the Harness Dashboard and Harness Memory installers (only after you confirm them; they download from GitHub) and the shell commands of the hooks you wrote or approved. The app stores only preferences, window geometry, a few UI choices, your hook approvals and a local log file; the hook files are kept in your data folder, and the notes your agents save to project memory are kept in a local database by the `harness-memory` server. What a hook adds to a prompt goes to your model provider with it. Details and the exact rules:
 [docs/security-privacy.md](docs/security-privacy.md).
 
 ## Development

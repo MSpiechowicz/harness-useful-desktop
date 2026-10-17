@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/svelte';
+import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { afterEach, beforeAll, beforeEach, vi } from 'vitest';
 
 import type { EcosystemStatus } from '$lib/ipc/bindings/EcosystemStatus';
@@ -14,15 +14,13 @@ import { pageOfNotes } from '$lib/ipc/mock/memory-notes-handlers';
 import { pageOfScripts } from '$lib/ipc/mock/memory-scripts-handlers';
 import { IpcFailure } from '$lib/ipc/transport';
 import { ecosystem } from '$lib/stores/ecosystem.svelte';
-import { harness } from '$lib/stores/harness.svelte';
 import { noteDetail, noteList } from '$lib/stores/memoryNotes.svelte';
 import { scriptDetail, scriptList } from '$lib/stores/memoryScripts.svelte';
 import { nav } from '$lib/stores/nav.svelte';
-import { prefs } from '$lib/stores/prefs.svelte';
-import { project } from '$lib/stores/project.svelte';
 import { toasts } from '$lib/stores/toasts.svelte';
 import { viewState } from '$lib/stores/view-state.svelte';
 
+import { startMockApp } from '../../../tests/mock-app';
 import MemoryView from './MemoryView.svelte';
 
 export const PROJECT = fixtures.recentProjects[0].path;
@@ -35,11 +33,15 @@ export const NEWER_RELEASE: MemoryRelease = { latestVersion: '1.1.0', updateAvai
 /** The installed build is a source build, or already the latest release: nothing newer exists. */
 export const NO_NEWER_RELEASE: MemoryRelease = { latestVersion: '1.1.0', updateAvailable: false };
 
-/** A Harness Memory that keeps its scripts in this array and answers the three commands like the real one. A function as `availability` is asked at every read, so a test can change what the probe finds. */
-export function fakeMemory(availability: MemoryScriptsAvailability | (() => MemoryScriptsAvailability) = { kind: 'available' }, initial = sampleScripts(), release: MemoryRelease = NEWER_RELEASE, initialNotes = sampleNotes()) {
+/**
+ * A Harness Memory that keeps its scripts in this array and answers the three commands like the real one. A function as `availability` is asked at every read, so a test can change what the probe finds.
+ * `combined: false` is an older one, which cannot combine the scope with the kind or the status (a function is asked at every read, so a test can update it).
+ */
+export function fakeMemory(availability: MemoryScriptsAvailability | (() => MemoryScriptsAvailability) = { kind: 'available' }, initial = sampleScripts(), release: MemoryRelease = NEWER_RELEASE, initialNotes = sampleNotes(), combined: boolean | (() => boolean) = true) {
   let scripts = initial;
   let notes = initialNotes;
   const probe = () => (typeof availability === 'function' ? availability() : availability);
+  const combines = () => (typeof combined === 'function' ? combined() : combined);
   const passthrough = ipc.invoke.bind(ipc);
 
   return vi.spyOn(ipc, 'invoke').mockImplementation(async <K extends CommandName>(name: K, args: CommandArgs<K>) => {
@@ -47,7 +49,7 @@ export function fakeMemory(availability: MemoryScriptsAvailability | (() => Memo
       const asked = args as CommandArgs<'memory_scripts_list'>;
       const visible = scripts.filter((script) => script.scope === 'global' || asked.project !== null);
       const found = probe();
-      const page = found.kind === 'available' ? pageOfScripts(visible.map(summaryOf), asked) : { total: 0, groups: { needsReview: 0, repo: 0, global: 0 }, scripts: [] };
+      const page = found.kind === 'available' ? pageOfScripts(visible.map(summaryOf), asked, combines()) : { total: 0, groups: { needsReview: 0, repo: 0, global: 0 }, scopes: null, review: null, combinedFilters: combines(), scripts: [] };
 
       return { availability: found, ...page } as CommandResult<K>;
     }
@@ -55,7 +57,7 @@ export function fakeMemory(availability: MemoryScriptsAvailability | (() => Memo
     if (name === 'memory_notes_list') {
       const asked = args as CommandArgs<'memory_notes_list'>;
       const found = probe();
-      const page = found.kind === 'available' ? pageOfNotes(notes.filter((note) => note.scope === 'global' || asked.project !== null), asked) : { total: 0, kinds: [], notes: [] };
+      const page = found.kind === 'available' ? pageOfNotes(notes.filter((note) => note.scope === 'global' || asked.project !== null), asked, combines()) : { total: 0, kinds: [], scopes: null, combinedFilters: combines(), notes: [] };
 
       return { availability: found, ...page } as CommandResult<K>;
     }
@@ -146,14 +148,10 @@ export const rowButton = (name: string) => document.querySelector<HTMLElement>(`
 /** Registers what every test of the Memory view needs: a mock backend with the project open, and a clean view before and after each test. */
 export function registerMemoryHooks(): void {
   beforeAll(async () => {
-    vi.stubEnv('VITE_TRANSPORT', 'mock');
     // happy-dom lays nothing out: give every element a 640px viewport so the virtual list renders a window of rows.
     Object.defineProperty(HTMLElement.prototype, 'clientHeight', { configurable: true, get: () => 640 });
 
-    await prefs.load();
-    await prefs.update({ motion: 'off' });
-    await Promise.all([harness.load(), project.load()]);
-    await project.open(PROJECT);
+    await startMockApp(PROJECT);
   });
 
   beforeEach(() => {
@@ -188,4 +186,22 @@ export async function showMemory(): Promise<void> {
   nav.go('memory');
   render(MemoryView);
   await screen.findByRole('grid', { name: 'Scripts' });
+}
+
+/** Opens a filter menu by its button and picks one of its choices. */
+export async function pickFilter(button: string, choice: RegExp): Promise<void> {
+  await fireEvent.click(screen.getByRole('button', { name: button }));
+  await fireEvent.click(await screen.findByRole('menuitemradio', { name: choice }));
+}
+
+/** What a filter menu offers, each choice with its count as the user reads it; the menu is closed again. */
+export async function filterChoices(button: string, menu: string): Promise<string[]> {
+  await fireEvent.click(screen.getByRole('button', { name: button }));
+
+  const open = await screen.findByRole('menu', { name: menu });
+  const choices = within(open).getAllByRole('menuitemradio').map((item) => item.textContent?.trim() ?? '');
+
+  await fireEvent.keyDown(open, { key: 'Escape' });
+
+  return choices;
 }

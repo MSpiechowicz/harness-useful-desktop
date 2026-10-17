@@ -60,6 +60,10 @@ pub struct ExecSpec {
     pub program: PathBuf,
     /// Arguments, passed verbatim (no shell, no globbing).
     pub args: Vec<OsString>,
+    /// One more argument after `args`. On Windows it is passed without any quoting
+    /// (`CommandExt::raw_arg`), which `cmd.exe /S /C "<command>"` needs; elsewhere it is a normal
+    /// argument.
+    pub raw_arg: Option<OsString>,
     /// Working directory; inherits the parent's when `None`.
     pub cwd: Option<PathBuf>,
     /// Extra environment variables layered over the inherited environment.
@@ -83,6 +87,7 @@ impl ExecSpec {
         Self {
             program: program.into(),
             args: Vec::new(),
+            raw_arg: None,
             cwd: None,
             env: Vec::new(),
             env_remove_prefixes: Vec::new(),
@@ -99,6 +104,12 @@ impl ExecSpec {
         S: Into<OsString>,
     {
         self.args.extend(args.into_iter().map(Into::into));
+        self
+    }
+
+    /// Sets the argument after `args` (see [`ExecSpec::raw_arg`]).
+    pub fn raw_arg(mut self, arg: impl Into<OsString>) -> Self {
+        self.raw_arg = Some(arg.into());
         self
     }
 
@@ -229,6 +240,13 @@ fn build_std_command(spec: &ExecSpec, stdin: Stdio) -> Result<std::process::Comm
         .stdin(stdin)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
+
+    if let Some(raw) = &spec.raw_arg {
+        #[cfg(windows)]
+        std::os::windows::process::CommandExt::raw_arg(&mut command, raw);
+        #[cfg(not(windows))]
+        command.arg(raw);
+    }
 
     if let Some(cwd) = &spec.cwd {
         command.current_dir(cwd);

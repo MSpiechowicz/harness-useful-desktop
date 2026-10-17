@@ -13,7 +13,7 @@ import { IpcFailure } from '../transport';
 import { opencodeSnippet, rosterFor, type RosterEntry } from './setup-roster';
 import type { Handlers } from './types';
 
-type SetupCommands = 'setup_status' | 'setup_install_dashboard' | 'setup_install_memory' | 'setup_register_mcp' | 'setup_register_memory';
+type SetupCommands = 'setup_status' | 'setup_install_dashboard' | 'setup_install_memory' | 'setup_register_mcp' | 'setup_register_memory' | 'setup_register_desktop_mcp';
 
 /**
  * What the mock recommended setup starts from. The browser preview picks one with `?setup=<name>`:
@@ -190,6 +190,7 @@ export function setupHandlers(
   const skills = new Set<HarnessId>();
   const mcp = new Set<HarnessId>();
   const memoryMcp = new Set<HarnessId>();
+  const desktopMcp = new Set<HarnessId>();
 
   /** The `configured` scenario starts with everything in place; read on first use so a page URL set before it counts. */
   let started = false;
@@ -207,9 +208,11 @@ export function setupHandlers(
         skills.add(id);
         mcp.add(id);
         memoryMcp.add(id);
+        desktopMcp.add(id);
       });
       mcp.add('opencode');
       memoryMcp.add('opencode');
+      desktopMcp.add('opencode');
     }
 
     if (scenario() === 'memory') {
@@ -221,10 +224,13 @@ export function setupHandlers(
   const refusesOmp = () => scenario() === 'refused' || scenario() === 'bothRefused';
   const commentedOpencode = () => scenario() === 'manualEdit';
 
-  /** The dashboard's entry (`registered` holds `mcp`) or the memory server's (`memoryMcp`) in a harness's MCP file. */
+  /** The name an MCP entry has in the file, by the set that holds the harnesses it is registered in. */
+  const entryName = (registered: Set<HarnessId>) => (registered === mcp ? 'harness-dashboard' : registered === memoryMcp ? 'harness-memory' : 'harness-desktop');
+
+  /** The dashboard's entry (`registered` holds `mcp`), the memory server's (`memoryMcp`) or the app's own (`desktopMcp`) in a harness's MCP file. */
   function mcpState(harness: HarnessId, registered: Set<HarnessId> = mcp): McpState {
     if (registered.has(harness)) {
-      return { type: 'configured', file: MCP_FILE[harness], name: registered === mcp ? 'harness-dashboard' : 'harness-memory' };
+      return { type: 'configured', file: MCP_FILE[harness], name: entryName(registered) };
     }
 
     if (refusesOmp() && harness === 'omp') {
@@ -232,7 +238,7 @@ export function setupHandlers(
     }
 
     if (commentedOpencode() && harness === 'opencode') {
-      return { type: 'manualEdit', file: OPENCODE_COMMENTED_FILE, snippet: opencodeSnippet(registered === mcp ? 'harness-dashboard' : 'harness-memory') };
+      return { type: 'manualEdit', file: OPENCODE_COMMENTED_FILE, snippet: opencodeSnippet(entryName(registered)) };
     }
 
     return { type: 'missing', file: MCP_FILE[harness], exists: harness !== 'pi' };
@@ -243,6 +249,7 @@ export function setupHandlers(
     const id = entry.id;
     const registered = mcp.has(id) && entry.mcp.type === 'missing';
     const memoryRegistered = memoryMcp.has(id) && entry.memoryMcp.type === 'missing';
+    const desktopRegistered = desktopMcp.has(id) && entry.desktopMcp.type === 'missing';
 
     return {
       harness: id,
@@ -250,6 +257,7 @@ export function setupHandlers(
       skills: skills.has(id) ? { type: 'installed', version: '0.2.36' } : entry.skills,
       mcp: registered ? { type: 'configured', file: entry.mcp.file, name: 'harness-dashboard' } : entry.mcp,
       memoryMcp: memoryRegistered ? { type: 'configured', file: entry.memoryMcp.file, name: 'harness-memory' } : entry.memoryMcp,
+      desktopMcp: desktopRegistered ? { type: 'configured', file: entry.desktopMcp.file, name: 'harness-desktop' } : entry.desktopMcp,
     };
   }
 
@@ -267,6 +275,7 @@ export function setupHandlers(
       skills: skills.has(id) ? { type: 'installed', version: '0.2.36' } : skillsOffer(id),
       mcp: mcpState(id),
       memoryMcp: mcpState(id, memoryMcp),
+      desktopMcp: mcpState(id, desktopMcp),
     };
   }
 
@@ -354,6 +363,26 @@ export function setupHandlers(
         }
 
         return mcpState(harness, memoryMcp);
+      },
+
+      // The app is the server, so nothing has to be installed first.
+      setup_register_desktop_mcp: async ({ harness }): Promise<McpState> => {
+        start();
+        await delay(LINE_MS);
+
+        const entry = rosterFor(scenario())?.find((candidate) => candidate.id === harness);
+
+        if (entry) {
+          desktopMcp.add(harness);
+
+          return rosterSetup(entry).desktopMcp;
+        }
+
+        if ((!refusesOmp() || harness !== 'omp') && !(commentedOpencode() && harness === 'opencode')) {
+          desktopMcp.add(harness);
+        }
+
+        return mcpState(harness, desktopMcp);
       },
     },
 

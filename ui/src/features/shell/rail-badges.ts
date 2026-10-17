@@ -15,10 +15,10 @@ export interface RailBadge {
 }
 
 /**
- * What the rail says about a view without opening it: changed files, and a chat waiting on the user (an approval or a
+ * What the rail says about a view without opening it: changed files, hooks waiting for approval, and a chat waiting on the user (an approval or a
  * question). A working agent needs no badge: the animated logo and the rail status already say so.
  */
-export function railBadge(view: ViewId, chat: ChatState | null, git: GitStatus | null): RailBadge | null {
+export function railBadge(view: ViewId, chat: ChatState | null, git: GitStatus | null, pendingHooks = 0): RailBadge | null {
   if (view === 'chat' && chat) {
     const status = chatStatus(chat);
 
@@ -31,6 +31,10 @@ export function railBadge(view: ViewId, chat: ChatState | null, git: GitStatus |
     const count = git.entries.length;
 
     return { text: count > 99 ? '99+' : String(count), label: tn('shell.count.changedFile', count), tone: 'warning', busy: false };
+  }
+
+  if (view === 'hooks' && pendingHooks > 0) {
+    return { text: pendingHooks > 99 ? '99+' : String(pendingHooks), label: tn('shell.count.hooksToApprove', pendingHooks), tone: 'warning', busy: false };
   }
 
   return null;

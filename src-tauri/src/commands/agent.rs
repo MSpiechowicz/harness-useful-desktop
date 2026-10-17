@@ -10,7 +10,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use harness_business::BusinessError;
-use harness_business::agent::AgentDeps;
+use harness_business::agent::{AgentDeps, EventSink};
 use harness_business::model::{
     AgentAction, AgentEnvelope, AgentReply, AgentSessionInfo, AgentStartRequest, BashOutput, UiResponse,
 };
@@ -23,7 +23,8 @@ use super::harness::{find, installed_binary};
 use crate::agent_sink::{ChannelSink, OnClosed};
 use crate::agents::Agents;
 use crate::error::CommandResult;
-use crate::memory_recall::{self, RecallGate};
+use crate::hooks::HookRuntime;
+use crate::hooks::chat::{self as chat_hooks, HookSink};
 use crate::state::AppState;
 
 /// Starts a session of `request.harness` in `request.project`; its events go to `on_event` from
@@ -37,11 +38,11 @@ pub async fn agent_start(
     start(&state, request, on_event).await
 }
 
-/// Runs `action` in session `key`; the first message of a new chat may get project-memory notes in
-/// front (see `memory_recall`).
+/// Runs `action` in session `key`; a chat's prompts get the context of its hooks (see
+/// `crate::hooks`).
 #[tauri::command]
 pub async fn agent_send(state: State<'_, AppState>, key: String, action: AgentAction) -> CommandResult<AgentReply> {
-    Ok(memory_recall::send(&state, &key, action).await?)
+    Ok(chat_hooks::send(&state, &key, action).await?)
 }
 
 /// Answers an open dialog of session `key`.
@@ -63,7 +64,8 @@ pub async fn agent_bash(
 }
 
 /// Moves chat `key`, conversation included, to `project` (the active project or a recent one) and
-/// returns its updated info. Only harnesses that can move a session support it (OMP `/move`).
+/// returns its updated info. Only harnesses that can move a session support it (OMP `/move`). The
+/// chat's hooks follow it to the new project.
 #[tauri::command]
 pub async fn agent_move_project(
     state: State<'_, AppState>,
@@ -75,7 +77,10 @@ pub async fn agent_move_project(
     let project = PathBuf::from(authorized_project(&state, project).await?);
     let sessions_dir = harness.sessions_dir(&state.env, &project);
 
-    Ok(manager.move_project(&key, project, sessions_dir).await?)
+    let info = manager.move_project(&key, project.clone(), sessions_dir).await?;
+    chat_hooks::moved(&state, &key, project).await;
+
+    Ok(info)
 }
 
 /// Stops session `key` (close stdin → 3 s → kill); unknown keys are ignored.
@@ -105,13 +110,21 @@ pub(crate) async fn start(
     request.project = authorized_project(state, request.project).await?;
     let binary = installed_binary(state, request.harness).await?;
     let fresh = request.resume.is_none();
-    let utility = request.utility;
 
     let sink = Arc::new(ChannelSink::new(
         channel,
         request.harness,
-        stop_when_closed(agents, &state.recall),
+        stop_when_closed(agents, &state.hooks),
     ));
+
+    // Utility agents (titles, reviews) never run hooks.
+    let (events, hook_events): (Arc<dyn EventSink>, _) = if request.utility {
+        (sink.clone(), None)
+    } else {
+        let (hook_sink, hook_events) = HookSink::new(sink.clone());
+        (Arc::new(hook_sink), Some(hook_events))
+    };
+
     let deps = AgentDeps {
         harness,
         env: &state.env,
@@ -119,7 +132,7 @@ pub(crate) async fn start(
         binary,
     };
 
-    let info = match agents.manager().start(request, deps, sink.clone()).await {
+    let info = match agents.manager().start(request, deps, events).await {
         Ok(info) => info,
         Err(error) => {
             tracing::warn!(harness = ?harness.id(), code = ?error.code(), "an agent session failed to start");
@@ -136,18 +149,18 @@ pub(crate) async fn start(
 
     tracing::info!(session = %info.key, harness = ?info.harness, "agent session started");
 
-    if !utility {
-        memory_recall::track(state, &info.key, &info.project, fresh);
+    if let Some(hook_events) = hook_events {
+        chat_hooks::track(state, &info, fresh, hook_events).await;
     }
 
     Ok(info)
 }
 
-/// Stops session `key` and forgets its pending recall (after the session left the manager, so a
-/// recall armed meanwhile cannot outlive it).
+/// Stops session `key` and forgets its hooks (after the session left the manager, so a chat
+/// tracked meanwhile cannot outlive it; `sessionEnd` still fires from its exit).
 pub(crate) async fn stop(state: &AppState, key: &str) -> CommandResult<()> {
     let stopping = state.agents.manager().begin_stop(key);
-    state.recall.forget(key);
+    state.hooks.forget(key);
 
     if let Some(stopping) = stopping {
         stopping.finish().await;
@@ -181,20 +194,20 @@ async fn authorized_project(state: &AppState, project: String) -> CommandResult<
     Ok(path.to_string_lossy().into_owned())
 }
 
-/// Stops the session in the background once its channel closes. Holds the agents weakly: the
-/// sink lives inside a session the agents own.
-fn stop_when_closed(agents: &Arc<Agents>, recall: &Arc<RecallGate>) -> OnClosed {
+/// Stops the session in the background once its channel closes, and forgets its hooks. Holds the
+/// agents and the hooks weakly: the sink lives inside a session the agents own.
+fn stop_when_closed(agents: &Arc<Agents>, hooks: &Arc<HookRuntime>) -> OnClosed {
     let agents = Arc::downgrade(agents);
-    let recall = Arc::downgrade(recall);
+    let hooks = Arc::downgrade(hooks);
 
-    // The session leaves the manager before its recall is forgotten (see `memory_recall`).
+    // The session leaves the manager before its hooks are forgotten (see `hooks::chat::track`).
     Box::new(move |key| {
         if let Some(agents) = agents.upgrade() {
             agents.stop_in_background(key.to_owned());
         }
 
-        if let Some(recall) = recall.upgrade() {
-            recall.forget(key);
+        if let Some(hooks) = hooks.upgrade() {
+            hooks.forget(key);
         }
     })
 }

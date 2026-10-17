@@ -28,8 +28,9 @@ interface Rule {
 const SOURCE = ['.rs', '.ts', '.svelte', '.js'] as const;
 const UI_ONLY = ['ui/**'] as const;
 const TEST_FILES = ['**/*.test.ts', 'ui/tests/**'] as const;
-// The only Rust files that may name a shell interpreter (each such line needs `guard-allow: installer-shell`).
-const INSTALLER_FILES = ['business/src/ecosystem/installer.rs', 'business/tests/**'] as const;
+// The only Rust files that may name a shell interpreter (each such line needs `guard-allow: installer-shell`):
+// the companion installers and the command hook runner, which runs the command text the user wrote or approved.
+const INSTALLER_FILES = ['business/src/ecosystem/installer.rs', 'business/src/hooks/command.rs', 'business/tests/**'] as const;
 // A shell interpreter as a whole path segment, any case: after a path separator, `.exe` optional
 // (`"/usr/bin/bash"`, `#!/bin/sh`, `\System32\cmd.exe`), or as a quoted `.exe` file name
 // (`"PowerShell.exe"`, `'pwsh.exe'`). A bare quoted name such as `"bash"` is not matched: it is also
@@ -169,7 +170,8 @@ const RULES: readonly Rule[] = [
   },
   {
     id: 'installer-shell',
-    reason: 'a shell interpreter may only be named by the companion installers (business/src/ecosystem/installer.rs)',
+    reason:
+      'a shell interpreter may only be named by the companion installers (business/src/ecosystem/installer.rs) and the command hook runner (business/src/hooks/command.rs)',
     pattern: SHELL_PROGRAM,
     extensions: ['.rs'],
     skip: INSTALLER_FILES,
@@ -177,7 +179,7 @@ const RULES: readonly Rule[] = [
   },
   {
     id: 'installer-shell',
-    reason: 'every line of the companion installers that names a shell interpreter must be marked',
+    reason: 'every line of the companion installers or the command hook runner that names a shell interpreter must be marked',
     pattern: SHELL_PROGRAM,
     extensions: ['.rs'],
     only: INSTALLER_FILES,

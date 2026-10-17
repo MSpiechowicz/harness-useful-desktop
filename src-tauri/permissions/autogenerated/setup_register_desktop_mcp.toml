@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-setup-register-desktop-mcp"
+description = "Enables the setup_register_desktop_mcp command without any pre-configured scope."
+commands.allow = ["setup_register_desktop_mcp"]
+
+[[permission]]
+identifier = "deny-setup-register-desktop-mcp"
+description = "Denies the setup_register_desktop_mcp command without any pre-configured scope."
+commands.deny = ["setup_register_desktop_mcp"]

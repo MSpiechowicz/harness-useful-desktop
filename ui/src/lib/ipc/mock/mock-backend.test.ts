@@ -73,11 +73,21 @@ const sampleArgs = (sessionKey: string): { [K in CommandName]: CommandArgs<K> } 
   setup_install_memory: { confirmed: true, onLog: () => {} },
   setup_register_mcp: { harness: 'omp' },
   setup_register_memory: { harness: 'omp' },
+  setup_register_desktop_mcp: { harness: 'omp' },
   sync_export_preview: undefined,
   sync_export: { selected: ['omp:marketplace:acme-tools'] },
   sync_export_save: { selected: ['omp:marketplace:acme-tools'] },
   sync_import_preview: { input: { type: 'text', text: 'hud1:abc' } },
   sync_import_apply: { planId: 'plan-1', selected: ['omp:marketplace:harness-useful-skills'], confirmed: true, onProgress: () => {} },
+  hooks_list: { project: fixtures.recentProjects[0].path },
+  hook_save: { draft: { id: null, expectedSha256: null, name: 'Check types', description: null, scope: 'global', project: null, event: 'turnEnd', matcher: null, action: { type: 'followUp', text: 'Run the type checker.' }, enabled: true } },
+  hook_delete: { id: '0'.repeat(32), sha256: '' },
+  hook_approve: { id: '0'.repeat(32), sha256: '' },
+  hook_reject: { id: '0'.repeat(32), sha256: '' },
+  hooks_family: undefined,
+  hooks_family_apply: { seeds: ['dashboard-limits'] },
+  hooks_delete_all: {},
+  hooks_listen: { onEvent: () => {} },
   update_check: undefined,
   update_install: { onProgress: () => {} },
   app_relaunch: undefined,
@@ -108,6 +118,16 @@ describe('mock transport', () => {
     // The memory server is registered only once it is installed.
     if (name === 'setup_register_memory') {
       await mock.invoke('setup_install_memory', { confirmed: true, onLog: () => {} });
+    }
+
+    // A change to a hook names the version it was read at: the pending sample hook is read first.
+    if (name === 'hook_delete' || name === 'hook_approve' || name === 'hook_reject') {
+      const { hooks } = await mock.invoke('hooks_list', { project: fixtures.recentProjects[0].path });
+      const waiting = hooks.find((hook) => hook.status === 'pending');
+
+      await expect(mock.invoke(name, { id: waiting?.id ?? '', sha256: waiting?.sha256 ?? '' })).resolves.not.toBeInstanceOf(IpcFailure);
+
+      return;
     }
 
     // An answer to a request nobody asked is refused, as the backend refuses one for a request that is over.

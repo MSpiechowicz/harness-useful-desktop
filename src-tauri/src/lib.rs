@@ -5,12 +5,13 @@ mod access;
 mod agent_sink;
 mod agents;
 mod commands;
+mod desktop_mcp;
 mod dialogs;
 mod drops;
 mod error;
+mod hooks;
 mod lifecycle;
 mod logging;
-mod memory_recall;
 mod memory_requests;
 mod memory_setup;
 mod native_text;
@@ -49,6 +50,8 @@ pub fn run() -> ExitCode {
             app.manage(AppState::from_app(app.handle())?);
             window::create_main_window(app)?;
             memory_setup::spawn_on_launch(app.handle());
+            desktop_mcp::spawn_on_launch(app.handle());
+            hooks::spawn_on_launch(app.handle());
             notifications::focus_on_click(app.handle());
             memory_requests::spawn(app.handle());
             tray::create_tray(app);
@@ -123,6 +126,16 @@ pub fn run() -> ExitCode {
             commands::setup::setup_install_memory,
             commands::setup::setup_register_mcp,
             commands::setup::setup_register_memory,
+            commands::desktop_mcp::setup_register_desktop_mcp,
+            commands::hooks::hooks_list,
+            commands::hooks::hook_save,
+            commands::hooks::hook_delete,
+            commands::hooks::hooks_delete_all,
+            commands::hooks::hook_approve,
+            commands::hooks::hook_reject,
+            commands::hooks::hooks_family,
+            commands::hooks::hooks_family_apply,
+            commands::hooks::hooks_listen,
             commands::sync::sync_export_preview,
             commands::sync::sync_export,
             commands::sync::sync_export_save,

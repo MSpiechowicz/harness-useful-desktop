@@ -20,6 +20,7 @@ use tauri::ipc::Channel;
 use super::blocking;
 use super::harness::{find, find_in, installed_binary, summaries};
 use crate::error::CommandResult;
+use crate::hooks::after_member_install;
 use crate::memory_setup::{after_install, register_in};
 use crate::state::AppState;
 
@@ -49,8 +50,8 @@ pub async fn setup_install_dashboard(
 }
 
 /// Runs the memory server's installer like [`setup_install_dashboard`] (its own lock: one memory
-/// install at a time). Once `ok`, recalls use the installed server, and while project memory is on
-/// it is registered in every detected harness (as at launch).
+/// install at a time). Once `ok`, while project memory is on, the installed server is registered
+/// in every detected harness (as at launch).
 #[tauri::command]
 pub async fn setup_install_memory(
     state: State<'_, AppState>,
@@ -104,6 +105,11 @@ async fn install(
         ?companion,
         "installer finished"
     );
+
+    // Its Harness family hooks come back, also ones the user deleted before.
+    if result.ok {
+        after_member_install(&state.hooks, companion).await;
+    }
 
     Ok(result)
 }

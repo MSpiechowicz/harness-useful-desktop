@@ -1,22 +1,22 @@
-<script lang="ts" generics="T extends { id: number }, V extends string">
+<script lang="ts" generics="T extends { id: number }">
   import { type Snippet, tick } from 'svelte';
 
   import Button from '$lib/components/Button.svelte';
   import DataTable from '$lib/components/DataTable.svelte';
+  import DetailEmpty from '$lib/components/DetailEmpty.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
-  import { ICON, type IconComponent } from '$lib/components/icon';
-  import OptionList from '$lib/components/OptionList.svelte';
-  import OptionStrip from '$lib/components/OptionStrip.svelte';
+  import type { IconComponent } from '$lib/components/icon';
+  import FilterRow from '$lib/components/FilterRow.svelte';
   import Pagination from '$lib/components/Pagination.svelte';
   import { SIDE_PANEL_WIDTH } from '$lib/components/side-panel';
   import Skeleton from '$lib/components/Skeleton.svelte';
-  import type { StripOption } from '$lib/components/strip';
   import type { Column, Sort } from '$lib/components/table';
   import { rise } from '$lib/design/motion';
   import { t } from '$lib/i18n/i18n.svelte';
   import type { MemoryScriptsAvailability } from '$lib/ipc/bindings/MemoryScriptsAvailability';
   import type { IpcFailure } from '$lib/ipc/transport';
   import type { ViewStatus } from '$lib/stores/view-loader.svelte';
+  import { escapeCloses } from '$lib/utils/escape-closes';
 
   import MemoryUnavailable from './MemoryUnavailable.svelte';
 
@@ -36,10 +36,12 @@
     loadingLabel: string;
     /** What a search with no results says; null while there are rows to show. */
     noMatch: string | null;
-    /** The kinds, groups or scopes, each with its count: chips above the table, or a column beside it in a wide view. */
-    chips: { label: string; idBase: string; options: StripOption<V>[]; value: V; onchange: (value: V) => void };
-    /** How much there is in the list ("3 scripts"), said once: beside the chips, or on top of the column. */
+    /** How much there is in the list ("3 scripts"), said once, in the row of the filters above the table. */
     count: string;
+    /** The filter menus of that row. */
+    filters: Snippet;
+    /** Something quiet at the far end of that row, e.g. the hint to update Harness Memory. */
+    hint?: Snippet;
     /** What the empty detail column of a wide view says until a row is chosen. */
     detailEmpty: string;
     tableLabel: string;
@@ -75,8 +77,9 @@
     failedTitle,
     loadingLabel,
     noMatch,
-    chips,
     count,
+    filters,
+    hint,
     detailEmpty,
     tableLabel,
     tableId,
@@ -94,11 +97,8 @@
     panel,
   }: Props = $props();
 
-  /** The width of the view from which it has room for three columns: the kinds or groups, the table, and the detail, which is always there. */
+  /** The width of the view from which it has room for two columns: the table, and the detail, which is always there. */
   const WIDE_FROM_PX = 1360;
-
-  /** The column of the kinds or groups: the one choice with a long label, "Needs review", and its count, fit in it. */
-  const SIDEBAR_WIDTH = '15rem';
 
   let width = $state(0);
   let grid: { focusRow: (key: string | number) => void } | undefined = $state();
@@ -118,11 +118,7 @@
   }
 
   function onKeydown(event: KeyboardEvent): void {
-    if (event.key === 'Escape' && openId !== null && !event.defaultPrevented) {
-      event.preventDefault();
-      event.stopPropagation();
-      void close();
-    }
+    escapeCloses(event, openId !== null, () => void close());
   }
 </script>
 
@@ -152,27 +148,9 @@
   {:else}
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="absolute inset-0 flex overflow-clip" onkeydown={onKeydown}>
-      {#if wide}
-        <div class="flex shrink-0 flex-col border-r border-line" style:width={SIDEBAR_WIDTH}>
-          <p class="tabular flex h-9 shrink-0 items-center border-b border-line px-5 text-[11px] leading-[16px] font-medium tracking-wide text-fg-3 uppercase">{count}</p>
-
-          <div class="min-h-0 flex-1 overflow-y-auto p-3">
-            <OptionList options={chips.options} value={chips.value} label={chips.label} idBase={chips.idBase} onchange={chips.onchange} />
-          </div>
-        </div>
-      {/if}
-
       <!-- Below the wide layout the panel slides over the table: the filters and the table keep their width. -->
       <div class="flex min-h-0 min-w-0 flex-1 flex-col">
-        {#if !wide}
-          <div class="flex h-14 shrink-0 items-center gap-4 border-b border-line px-4">
-            <p class="tabular shrink-0 text-sm font-medium text-fg-2">{count}</p>
-
-            <div class="min-w-0 flex-1 overflow-x-auto">
-              <OptionStrip options={chips.options} value={chips.value} kind="radio" appearance="pill" label={chips.label} idBase={chips.idBase} onchange={chips.onchange} class="shrink-0" />
-            </div>
-          </div>
-        {/if}
+        <FilterRow {count} trailing={hint}>{@render filters()}</FilterRow>
 
         {#if noMatch}
           <p class="min-h-0 flex-1 px-4 py-10 text-center text-sm text-fg-3" role="status">{noMatch}</p>
@@ -201,12 +179,7 @@
         <!-- The detail has its own column, always there: what is chosen swaps in with a short fade, with nothing sliding. -->
         <div class="relative flex shrink-0 flex-col border-l border-line-strong bg-surface-1" style:width={SIDE_PANEL_WIDTH}>
           {#if openId === null}
-            <div in:rise={{ y: 6, duration: 240 }} class="grid min-h-0 flex-1 place-items-center p-8">
-              <div class="flex max-w-60 flex-col items-center gap-3 text-center">
-                <EmptyIcon size={ICON.lg} strokeWidth={1.6} class="text-fg-3" aria-hidden="true" />
-                <p class="text-sm text-fg-3">{detailEmpty}</p>
-              </div>
-            </div>
+            <DetailEmpty icon={EmptyIcon} message={detailEmpty} />
           {:else}
             {#key openId}
               <div in:rise={{ y: 6, duration: 240 }} class="flex min-h-0 flex-1 flex-col">

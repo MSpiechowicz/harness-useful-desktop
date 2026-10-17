@@ -4,7 +4,7 @@ import type { AgentAction } from '../bindings/AgentAction';
 import type { AgentEnvelope } from '../bindings/AgentEnvelope';
 import type { AgentEvent } from '../bindings/AgentEvent';
 import type { AgentStartRequest } from '../bindings/AgentStartRequest';
-import { splitRecall } from '$lib/chat/memory-recall';
+import { splitHookContext } from '$lib/chat/hook-context';
 
 import { fixtures } from './fixtures';
 import { defaultScenario } from './scenarios';
@@ -39,13 +39,13 @@ describe('mock agent', () => {
 
     const user = events.map((envelope) => envelope.event).find((event) => event.type === 'messageEnd' && event.message.role === 'user');
     const block = user?.type === 'messageEnd' ? user.message.blocks[0] : null;
-    const shown = block?.type === 'text' ? splitRecall(block.text) : null;
+    const shown = block?.type === 'text' ? splitHookContext(block.text) : null;
     expect(shown?.text).toBe('hello there');
-    expect(shown?.recall?.count).toBe(2);
+    expect(shown?.hooks.map((hook) => hook.name)).toEqual(['Search Harness Memory first']);
     expect(types()).toContain('toolEnd');
   });
 
-  it('adds sample memory notes to the first message only, and not when the preference is off', async () => {
+  it('adds the session-start hook context to the first message only, and not to a slash command', async () => {
     const userTexts = (events: AgentEnvelope[]) =>
       events.flatMap(({ event }) => (event.type === 'messageEnd' && event.message.role === 'user' ? event.message.blocks.flatMap((block) => (block.type === 'text' ? [block.text] : [])) : []));
 
@@ -55,15 +55,13 @@ describe('mock agent', () => {
     await transport.invoke('agent_send', { key: info.key, action: prompt('second') });
     await expect.poll(() => types().filter((type) => type === 'settled').length).toBe(2);
 
-    expect(userTexts(events).map((text) => splitRecall(text).recall !== null)).toEqual([true, false]);
+    expect(userTexts(events).map((text) => splitHookContext(text).hooks.length > 0)).toEqual([true, false]);
 
-    const off = await start();
-    const prefs = await off.transport.invoke('prefs_get', undefined);
-    await off.transport.invoke('prefs_set', { prefs: { ...prefs, memoryRecall: false } });
-    await off.transport.invoke('agent_send', { key: off.info.key, action: prompt('plain') });
-    await expect.poll(() => off.types().at(-1)).toBe('settled');
+    const slash = await start();
+    await slash.transport.invoke('agent_send', { key: slash.info.key, action: prompt('/help') });
+    await expect.poll(() => slash.types().at(-1)).toBe('settled');
 
-    expect(userTexts(off.events)).toEqual(['plain']);
+    expect(userTexts(slash.events)).toEqual(['/help']);
   });
 
   it('picks a scenario from keywords in the prompt', async () => {

@@ -1,0 +1,4 @@
+// Hooks: a pending hook adds nothing, the same hook once approved adds its context.
+{"include":"omp_startup.jsonl"}
+{"expect":"prompt","match":{"message":"Hello"},"reply":{"success":true}}
+{"expect":"prompt","match":{"message":"<harness-hook-context>\n<hook name=\"Agent rule\">Use tabs.</hook>\n</harness-hook-context>\n\nAgain"},"reply":{"success":true}}

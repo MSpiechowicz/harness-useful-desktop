@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-hook-approve"
+description = "Enables the hook_approve command without any pre-configured scope."
+commands.allow = ["hook_approve"]
+
+[[permission]]
+identifier = "deny-hook-approve"
+description = "Denies the hook_approve command without any pre-configured scope."
+commands.deny = ["hook_approve"]

@@ -24,4 +24,4 @@ export const SETUP_COLUMNS = 'grid grid-cols-[var(--control-h)_minmax(0,1fr)_aut
  * column of equal width per MCP server (a state chip), and the column of the row's own disclosure. Rows of any number
  * of harnesses line up because they all use this. Each server's column is wide enough for its title on one line.
  */
-export const SETUP_MATRIX = 'grid grid-cols-[minmax(0,1fr)_repeat(2,220px)_var(--control-h)] items-center gap-x-2.5';
+export const SETUP_MATRIX = 'grid grid-cols-[minmax(0,1fr)_repeat(3,190px)_var(--control-h)] items-center gap-x-2.5';

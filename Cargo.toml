@@ -38,6 +38,8 @@ minisign-verify = "0.2"
 flate2 = "1.1"
 # Reads Harness Memory's `config.toml` (team database settings); already in the lockfile through Tauri.
 toml = { version = "1.1.8", default-features = false, features = ["parse", "serde", "std"] }
+# SHA-256 of hook files (approvals); already in the lockfile through Tauri.
+sha2 = "0.10.9"
 # Desktop shell (Tauri 2 only; Tauri 3 alpha is not used).
 tauri = "2.12.2"
 tauri-build = "2.7.1"

@@ -332,6 +332,26 @@ fn project_memory_is_on_for_a_file_written_before_it_existed() {
     let loaded = PrefsStore::new(dir.path().to_path_buf()).load();
 
     assert!(loaded.memory_enabled);
-    assert!(loaded.memory_recall);
     assert!(loaded.onboarding_completed);
+}
+
+#[test]
+fn a_file_with_the_retired_memory_recall_switch_still_loads_and_drops_it_on_save() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join(PREFS_FILE);
+    fs::write(
+        &path,
+        r#"{ "version": 1, "onboardingCompleted": true, "memoryEnabled": false, "memoryRecall": false }"#,
+    )
+    .unwrap();
+
+    let store = PrefsStore::new(dir.path().to_path_buf());
+    let (loaded, origin) = store.load_checked();
+
+    assert_eq!(origin, PrefsOrigin::Stored);
+    assert!(loaded.onboarding_completed);
+    assert!(!loaded.memory_enabled);
+
+    store.save(&loaded).unwrap();
+    assert!(!fs::read_to_string(&path).unwrap().contains("memoryRecall"));
 }

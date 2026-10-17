@@ -205,6 +205,9 @@ export const onboarding: AreaMessages<typeof enOnboarding> = {
   'onboarding.setup.memoryMcp.note':
     'Dodawany jest tylko wpis harness-memory, uruchamiający zainstalowany serwer; jego dodanie włącza „Pamięć projektu” w Ustawieniach. Plik, którego aplikacja nie może bezpiecznie edytować, jest pomijany.',
   'onboarding.setup.memoryMcp.needsMemory': 'Wymaga Harness Memory. Zaznacz jego instalację powyżej albo zainstaluj go wcześniej samodzielnie.',
+  'onboarding.setup.desktopMcp.title': 'Harness Desktop MCP',
+  'onboarding.setup.desktopMcp.body': 'Pozwala agentom dodawać i zmieniać hooki, rejestrując Harness Desktop jako serwer MCP.',
+  'onboarding.setup.desktopMcp.note': 'Dodawany jest tylko wpis harness-desktop, który uruchamia tę aplikację w trybie serwera. Hooki zapisane przez agenta czekają na Twoje zatwierdzenie w widoku Hooki. Plik, którego aplikacja nie może bezpiecznie edytować, zostaje nietknięty.',
   'onboarding.setup.failed.mcp': 'Wpis nie został dodany.',
   'onboarding.setup.failed.manualEdit': 'Plik zawiera komentarze, więc wpis nie został dodany. Dodaj go samodzielnie.',
   'onboarding.setup.refused.unparsable': 'Plik nie jest poprawnym JSON-em.',
@@ -268,6 +271,7 @@ export const onboarding: AreaMessages<typeof enOnboarding> = {
   'onboarding.done.companions.skills': 'Skille',
   'onboarding.done.companions.mcp': 'Dashboard MCP',
   'onboarding.done.companions.memoryMcp': 'Memory MCP',
+  'onboarding.done.companions.desktopMcp': 'Desktop MCP',
   'onboarding.done.private': 'Nic nie opuszcza tego urządzenia.',
   'onboarding.done.where': 'Gdzie co znaleźć',
   'onboarding.done.tip.palette.title': 'Paleta poleceń',

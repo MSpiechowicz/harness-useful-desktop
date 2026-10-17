@@ -33,20 +33,6 @@ describe('scripts table', () => {
     expect(within(rowButton('ci-status') as HTMLElement).getByText('This computer')).toBeInTheDocument();
   });
 
-  it('groups the scripts in chips with their counts and narrows the table to one', async () => {
-    fakeMemory();
-    await showMemory();
-
-    expect(screen.getByRole('radio', { name: /^All 5/ })).toHaveAttribute('aria-checked', 'true');
-    expect(screen.getByRole('radio', { name: /^This repository 4/ })).toBeInTheDocument();
-    expect(screen.getByRole('radio', { name: /^Global 1/ })).toBeInTheDocument();
-
-    await fireEvent.click(screen.getByRole('radio', { name: /^Global/ }));
-
-    await waitFor(() => expect(rowButton('open-prs')).toBeNull());
-    expect(rowButton('disk-hogs')).not.toBeNull();
-  });
-
   it('narrows the table by the search and says so when nothing matches', async () => {
     fakeMemory();
     await showMemory();
@@ -55,8 +41,8 @@ describe('scripts table', () => {
     await fireEvent.input(search, { target: { value: 'pull requests' } });
     await waitFor(() => expect(rowButton('ci-status')).toBeNull());
     expect(rowButton('open-prs')).not.toBeNull();
-    // The chips count what the search leaves.
-    expect(screen.getByRole('radio', { name: /^All 1/ })).toBeInTheDocument();
+    // The count follows what the search leaves.
+    expect(screen.getByText('1 script')).toBeInTheDocument();
 
     await fireEvent.input(search, { target: { value: 'zzz' } });
     expect(await screen.findByText('No script matches that search.')).toBeInTheDocument();

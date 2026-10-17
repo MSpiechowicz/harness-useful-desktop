@@ -51,7 +51,6 @@ fn with_ui_changes(base: AppPrefs) -> AppPrefs {
         auto_update_extensions: false,
         open_any_link: true,
         ai_chat_names: true,
-        memory_recall: false,
         onboarding_completed: true,
         approval_notice_seen: true,
         ..base

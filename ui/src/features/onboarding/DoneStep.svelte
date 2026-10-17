@@ -29,6 +29,7 @@
       data.harnesses.some((entry) => entry.skills.type === 'installed') ? t('onboarding.done.companions.skills') : null,
       data.harnesses.some((entry) => entry.mcp.type === 'configured') ? t('onboarding.done.companions.mcp') : null,
       data.harnesses.some((entry) => entry.memoryMcp.type === 'configured') ? t('onboarding.done.companions.memoryMcp') : null,
+      data.harnesses.some((entry) => entry.desktopMcp.type === 'configured') ? t('onboarding.done.companions.desktopMcp') : null,
     ];
 
     return parts.filter((part) => part !== null).join(', ');

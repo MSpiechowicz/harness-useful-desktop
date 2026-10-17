@@ -107,12 +107,10 @@ describe('Memory section', () => {
 
     const memory = memorySection();
     expect(within(memory).getByRole('switch', { name: 'Project memory' })).toBeInTheDocument();
-    expect(within(memory).getByRole('switch', { name: 'Add memory to new chats' })).toBeInTheDocument();
     expect(within(memory).getByRole('switch', { name: 'Remote memory' })).toBeInTheDocument();
 
     const harnesses = screen.getByRole('region', { name: 'Harnesses' });
     expect(within(harnesses).queryByRole('switch', { name: 'Project memory' })).not.toBeInTheDocument();
-    expect(within(harnesses).queryByRole('switch', { name: 'Add memory to new chats' })).not.toBeInTheDocument();
   });
 
   it('finds the section by its search words', async () => {

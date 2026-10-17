@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-hook-reject"
+description = "Enables the hook_reject command without any pre-configured scope."
+commands.allow = ["hook_reject"]
+
+[[permission]]
+identifier = "deny-hook-reject"
+description = "Denies the hook_reject command without any pre-configured scope."
+commands.deny = ["hook_reject"]

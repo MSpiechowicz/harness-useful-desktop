@@ -32,6 +32,8 @@ pub mod fs_atomic;
 pub mod git;
 pub mod harness;
 pub mod harnesses;
+pub mod hooks;
+pub mod hooks_mcp;
 pub mod model;
 pub mod pi_family;
 pub mod prefs;

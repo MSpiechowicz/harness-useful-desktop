@@ -1,0 +1,24 @@
+# General category Cf (format characters), Unicode 16.0.0, as first..last ranges.
+# Generated with Python's unicodedata (unidata_version 16.0.0):
+#   [c for c in range(0x110000) if unicodedata.category(chr(c)) == 'Cf']
+00AD..00AD
+0600..0605
+061C..061C
+06DD..06DD
+070F..070F
+0890..0891
+08E2..08E2
+180E..180E
+200B..200F
+202A..202E
+2060..2064
+2066..206F
+FEFF..FEFF
+FFF9..FFFB
+110BD..110BD
+110CD..110CD
+13430..1343F
+1BCA0..1BCA3
+1D173..1D17A
+E0001..E0001
+E0020..E007F

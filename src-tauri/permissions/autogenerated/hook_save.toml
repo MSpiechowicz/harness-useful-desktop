@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-hook-save"
+description = "Enables the hook_save command without any pre-configured scope."
+commands.allow = ["hook_save"]
+
+[[permission]]
+identifier = "deny-hook-save"
+description = "Denies the hook_save command without any pre-configured scope."
+commands.deny = ["hook_save"]

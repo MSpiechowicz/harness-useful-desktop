@@ -34,6 +34,8 @@ pub const CAPTURED_VARS: &[&str] = &[
     "OPENCODE_DISABLE_PROJECT_CONFIG",
     // Harness Memory's data folder, where the app meets the server for script run requests.
     "HARNESS_MEMORY_DIR",
+    // The hooks folder, shared by the app window and its `harness-desktop mcp` mode.
+    "HARNESS_HOOKS_DIR",
 ];
 
 /// Variables whose presence [`Env::from_process`] records without their value: they may hold

@@ -26,6 +26,7 @@
 
     <SetupColumnHead product="dashboard" title={t('onboarding.setup.mcp.title')} />
     <SetupColumnHead product="memory" title={t('onboarding.setup.memoryMcp.title')} />
+    <SetupColumnHead product="desktop" title={t('onboarding.setup.desktopMcp.title')} />
     <span></span>
   </div>
 
@@ -36,7 +37,7 @@
   </ul>
 
   <SetupDetails>
-    <div class="grid grid-cols-2 gap-6">
+    <div class="grid grid-cols-3 gap-6">
       <section class="flex flex-col gap-2" aria-label={t('onboarding.setup.mcp.title')}>
         <h4 class="flex items-center gap-2 text-sm font-medium text-fg"><Logo variant="mark" product="dashboard" size={13} />{t('onboarding.setup.mcp.title')}</h4>
         <p>{t('onboarding.setup.mcp.body')}</p>
@@ -47,6 +48,12 @@
         <h4 class="flex items-center gap-2 text-sm font-medium text-fg"><Logo variant="mark" product="memory" size={13} />{t('onboarding.setup.memoryMcp.title')}</h4>
         <p>{t('onboarding.setup.memoryMcp.body')}</p>
         <p class="text-fg-3">{t('onboarding.setup.memoryMcp.note')}</p>
+      </section>
+
+      <section class="flex flex-col gap-2" aria-label={t('onboarding.setup.desktopMcp.title')}>
+        <h4 class="flex items-center gap-2 text-sm font-medium text-fg"><Logo variant="mark" product="desktop" size={13} />{t('onboarding.setup.desktopMcp.title')}</h4>
+        <p>{t('onboarding.setup.desktopMcp.body')}</p>
+        <p class="text-fg-3">{t('onboarding.setup.desktopMcp.note')}</p>
       </section>
     </div>
   </SetupDetails>

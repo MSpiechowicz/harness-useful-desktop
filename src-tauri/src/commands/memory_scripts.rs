@@ -12,7 +12,8 @@ use std::path::PathBuf;
 
 use harness_business::ecosystem::{ListWindow, ScriptsQuery, trust_scripts};
 use harness_business::model::{
-    MemoryDeleteAll, MemoryScriptsPage, ScriptDetail, ScriptGroup, ScriptSort, ScriptTrustItem, SortOrder,
+    MemoryDeleteAll, MemoryScriptsPage, ScriptDetail, ScriptGroup, ScriptReview, ScriptScope, ScriptSort,
+    ScriptTrustItem, SortOrder,
 };
 use tauri::State;
 
@@ -21,9 +22,11 @@ use crate::error::CommandResult;
 use crate::state::AppState;
 
 /// One page of the project's scripts and the global ones (`harness-memory scripts list --json`).
-/// Never fails for a missing or old server: see the page's `availability` (`scripts` is empty
-/// unless `available`). `invalidInput` for a limit of 0 or above 200, or a query above 256
-/// characters, `forbidden` for a project that is not open or recent.
+/// One `group`, or one `scope` and one `review` combined. Never fails for a missing or old server:
+/// see the page's `availability` (`scripts` is empty unless `available`); a server that does not
+/// combine filters drops `scope` and `review` and answers `combinedFilters: false`.
+/// `invalidInput` for a limit of 0 or above 200, a query above 256 characters, or a `group` with
+/// a `scope` or `review`, `forbidden` for a project that is not open or recent.
 #[tauri::command]
 #[expect(
     clippy::too_many_arguments,
@@ -36,14 +39,13 @@ pub async fn memory_scripts_list(
     limit: Option<u32>,
     query: Option<String>,
     group: Option<ScriptGroup>,
+    scope: Option<ScriptScope>,
+    review: Option<ScriptReview>,
     sort: Option<ScriptSort>,
     order: Option<SortOrder>,
 ) -> CommandResult<MemoryScriptsPage> {
-    let query = ScriptsQuery {
-        window: ListWindow::new(offset, limit, query, order)?,
-        group,
-        sort,
-    };
+    let window = ListWindow::new(offset, limit, query, order)?;
+    let query = ScriptsQuery::new(window, group, scope, review, sort)?;
 
     list(&state, project, &query).await
 }
@@ -139,11 +141,9 @@ mod tests {
     use crate::test_support::{ProjectHome, path_arg, place_memory_server};
 
     fn by_name() -> ScriptsQuery {
-        ScriptsQuery {
-            window: ListWindow::new(None, None, None, None).expect("the first page"),
-            group: None,
-            sort: Some(ScriptSort::Name),
-        }
+        let window = ListWindow::new(None, None, None, None).expect("the first page");
+
+        ScriptsQuery::new(window, None, None, None, Some(ScriptSort::Name)).expect("no filters")
     }
 
     #[test]

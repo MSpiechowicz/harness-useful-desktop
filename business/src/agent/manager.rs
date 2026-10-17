@@ -37,7 +37,9 @@ use super::slots::{
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::harness::{Harness, LaunchRequest};
-use crate::model::{AgentAction, AgentReply, AgentSessionInfo, AgentStartRequest, BashOutput, UiResponse};
+use crate::model::{
+    AgentAction, AgentEvent, AgentReply, AgentSessionInfo, AgentStartRequest, BashOutput, NoticeLevel, UiResponse,
+};
 use crate::pi_family::sessions::is_safe_session_id;
 use crate::process::{ProcessSpawner, ResolvedBinary, launcher_search_dirs};
 use crate::security::validate_project_dir;
@@ -373,6 +375,14 @@ impl AgentManager {
     /// user's explicit confirmation.
     pub async fn bash(&self, key: &str, command: &str) -> Result<BashOutput> {
         self.session(key)?.bash(command).await
+    }
+
+    /// Shows `message` in the stream of session `key` as a notice from the app (for example a
+    /// hook that failed). `message` must hold no secret and no command output.
+    pub fn notice(&self, key: &str, level: NoticeLevel, message: String) -> Result<()> {
+        self.session(key)?.emit(AgentEvent::Notice { level, message });
+
+        Ok(())
     }
 
     /// The info of session `key`.

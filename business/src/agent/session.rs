@@ -406,6 +406,11 @@ impl AgentSession {
         Ok(parse_bash(response.data.as_ref()))
     }
 
+    /// Puts `event` into the session's stream, after the events already in it.
+    pub fn emit(&self, event: AgentEvent) {
+        self.shared.emit(event);
+    }
+
     /// Stops the agent (see the module docs) and waits until `exited` was delivered.
     pub async fn stop(&self) {
         self.shared.writer.try_send(WriterMsg::Close).ok();

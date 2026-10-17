@@ -6,15 +6,19 @@
 //! `--project`. Null asks for the global notes only.
 
 use harness_business::ecosystem::{ListWindow, NotesQuery, delete_all_notes, delete_note, get_note, list_notes};
-use harness_business::model::{MemoryDeleteAll, MemoryNotesPage, NoteDetail, NoteKind, NoteSort, SortOrder};
+use harness_business::model::{
+    MemoryDeleteAll, MemoryNotesPage, NoteDetail, NoteKind, NoteSort, ScriptScope, SortOrder,
+};
 use tauri::State;
 
 use super::memory_scripts::project_root;
 use crate::error::CommandResult;
 use crate::state::AppState;
 
-/// One page of the project's repository notes and the global ones. Never fails for a missing or
-/// old server: see the page's `availability` (`notes` is empty unless `available`).
+/// One page of the project's repository notes and the global ones, of one `kind` and one `scope`
+/// when asked. Never fails for a missing or old server: see the page's `availability` (`notes` is
+/// empty unless `available`); a server that does not combine filters drops `scope` and answers
+/// `combinedFilters: false`.
 /// `invalidInput` for a limit of 0 or above 200, or a query above 256 characters, `forbidden` for
 /// a project that is not open or recent.
 #[tauri::command]
@@ -29,12 +33,14 @@ pub async fn memory_notes_list(
     limit: Option<u32>,
     query: Option<String>,
     kind: Option<NoteKind>,
+    scope: Option<ScriptScope>,
     sort: Option<NoteSort>,
     order: Option<SortOrder>,
 ) -> CommandResult<MemoryNotesPage> {
     let query = NotesQuery {
         window: ListWindow::new(offset, limit, query, order)?,
         kind,
+        scope,
         sort,
     };
 
@@ -114,6 +120,7 @@ mod tests {
         NotesQuery {
             window: ListWindow::new(None, None, None, None).expect("the first page"),
             kind: None,
+            scope: None,
             sort: None,
         }
     }

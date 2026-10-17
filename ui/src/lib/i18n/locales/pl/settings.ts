@@ -77,8 +77,6 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.memory.manual.copy': 'Kopiuj nazwę wpisu',
   'settings.memory.manual.dismiss': 'Gotowe',
 
-  'settings.memoryRecall.title': 'Dodawaj pamięć do nowych czatów',
-  'settings.memoryRecall.description': 'Przy pierwszej wiadomości nowego czatu do agenta trafiają odpowiednie notatki z pamięci projektu. Są wysyłane do dostawcy modelu razem z wiadomością.',
 
   'settings.memoryRemote.title': 'Pamięć zdalna',
   'settings.memoryRemote.description': 'Współdziel pamięć projektu z zespołem przez jedną bazę danych. Harnessy wszystkich członków zespołu czytają z niej i do niej zapisują. Twoja pamięć lokalna nie jest używana, dopóki to jest włączone.',

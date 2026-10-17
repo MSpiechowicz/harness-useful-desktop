@@ -22,6 +22,7 @@ fn first_page() -> NotesQuery {
     NotesQuery {
         window: ListWindow::new(None, None, None, None).unwrap(),
         kind: None,
+        scope: None,
         sort: None,
     }
 }
@@ -112,6 +113,7 @@ async fn search_kind_order_and_page_narrow_the_list() {
     let fixes = NotesQuery {
         window: ListWindow::new(None, Some(10), Some(" Watcher ".to_owned()), None).unwrap(),
         kind: Some(NoteKind::Fix),
+        scope: None,
         sort: None,
     };
     let page = list(&setup, Some(&project), &fixes).await;
@@ -140,6 +142,7 @@ async fn search_kind_order_and_page_narrow_the_list() {
     let by_title = NotesQuery {
         window: ListWindow::new(Some(1), Some(2), Some("   ".to_owned()), None).unwrap(),
         kind: None,
+        scope: None,
         sort: Some(NoteSort::Title),
     };
     let page = list(&setup, None, &by_title).await;
@@ -158,6 +161,7 @@ async fn search_kind_order_and_page_narrow_the_list() {
     let newest_last = NotesQuery {
         window: ListWindow::new(None, None, None, Some(SortOrder::Asc)).unwrap(),
         kind: None,
+        scope: None,
         sort: Some(NoteSort::Updated),
     };
     assert_eq!(ids(&list(&setup, None, &newest_last).await), [7, 6, 4, 1]);
@@ -173,6 +177,7 @@ async fn every_sort_goes_to_the_server_by_its_name() {
     let sorted = |sort| NotesQuery {
         window: ListWindow::new(None, None, None, None).unwrap(),
         kind: None,
+        scope: None,
         sort: Some(sort),
     };
 

@@ -8,6 +8,7 @@ use tauri::async_runtime::block_on;
 
 use super::blocking;
 use crate::error::CommandResult;
+use crate::hooks::seed_available;
 use crate::memory_setup::{register, unregister_all};
 use crate::state::AppState;
 
@@ -38,7 +39,6 @@ async fn set_enabled(state: &AppState, enabled: bool) -> CommandResult<MemorySwi
     .await?;
 
     let manual_removals = if enabled {
-        state.memory_server.refresh();
         register(state, !was_enabled).await;
         Vec::new()
     } else {
@@ -47,6 +47,13 @@ async fn set_enabled(state: &AppState, enabled: bool) -> CommandResult<MemorySwi
 
     // The version probe only reads, so a slow `--version` does not hold up other memory setup.
     drop(running);
+
+    // Hooks that need Harness Memory run or pause from now on; switched on, its family hooks are
+    // seeded when they never were.
+    state.hooks.refresh_members();
+    if enabled {
+        seed_available(&state.hooks).await;
+    }
 
     let env = state.env.clone();
     let runner = state.runner;
@@ -71,7 +78,6 @@ mod tests {
 
     use super::*;
     use crate::memory_setup::{after_install, on_launch};
-    use crate::state::MemoryServer;
     use crate::test_support::{
         TempDir, cache_detection, home_state, omp_mcp_file, place_companion, place_executable, place_memory_server,
     };
@@ -236,16 +242,14 @@ mod tests {
     }
 
     #[test]
-    fn an_install_registers_the_server_and_recalls_use_it_without_a_restart() {
+    fn an_install_registers_the_server_without_a_restart() {
         let dir = TempDir::new("memory-installed");
-        let mut state = state(&dir);
-        state.memory_server = MemoryServer::lookup();
+        let state = state(&dir);
 
         assert_eq!(block_on(on_launch(&state)), None);
-        assert_eq!(block_on(state.memory_server.get(&state.env, &state.runner)), None);
         assert!(!omp_mcp_file(&state).exists());
 
-        let Some((server, entry)) = install(&dir) else {
+        let Some((_, entry)) = install(&dir) else {
             return;
         };
         let registered = block_on(after_install(&state)).expect("the server is installed");
@@ -253,10 +257,6 @@ mod tests {
         assert_eq!(registered.len(), 1);
         assert_eq!(registered[0].0, HarnessId::Omp);
         assert_eq!(mcp_servers(&state), json!({ "harness-memory": entry }));
-        assert_eq!(
-            block_on(state.memory_server.get(&state.env, &state.runner)),
-            Some(server)
-        );
     }
 
     #[test]
@@ -275,14 +275,13 @@ mod tests {
     #[test]
     // `~/.local/bin` is the installer's folder only on Linux and macOS (Windows has its own, tested apart).
     #[cfg(unix)]
-    fn the_installers_server_is_registered_and_recalled_over_a_silent_one_on_path() {
+    fn the_installers_server_is_registered_over_a_silent_one_on_path() {
         let dir = TempDir::new("memory-shadowed");
         let mut state = state(&dir);
         let bun = dir.path().join("home").join(".bun").join("bin");
         place_executable(&bun, "harness-memory");
         state.env = Arc::new(state.env.as_ref().clone().with_var("PATH", bun.to_string_lossy()));
-        state.memory_server = MemoryServer::lookup();
-        let Some((server, entry)) = install(&dir) else {
+        let Some((_, entry)) = install(&dir) else {
             return;
         };
 
@@ -290,17 +289,12 @@ mod tests {
 
         assert_eq!(registered, [(HarnessId::Omp, MemoryRegistration::Added)]);
         assert_eq!(mcp_servers(&state), json!({ "harness-memory": entry }));
-        assert_eq!(
-            block_on(state.memory_server.get(&state.env, &state.runner)),
-            Some(server)
-        );
     }
 
     #[test]
     fn a_server_that_reports_no_version_is_not_installed() {
         let dir = TempDir::new("memory-silent");
-        let mut state = state(&dir);
-        state.memory_server = MemoryServer::lookup();
+        let state = state(&dir);
         place_companion(&dir.path().join("home"), "harness-memory");
 
         assert_eq!(block_on(on_launch(&state)), None, "nothing registered");
@@ -316,6 +310,5 @@ mod tests {
 
         let on = block_on(set_enabled(&state, true)).expect("switched on");
         assert!(!on.server.installed, "the installer is offered");
-        assert_eq!(block_on(state.memory_server.get(&state.env, &state.runner)), None);
     }
 }

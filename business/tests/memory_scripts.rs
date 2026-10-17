@@ -21,6 +21,8 @@ fn query(group: Option<ScriptGroup>, sort: Option<ScriptSort>) -> ScriptsQuery {
     ScriptsQuery {
         window: ListWindow::new(None, None, None, None).unwrap(),
         group,
+        scope: None,
+        review: None,
         sort,
     }
 }
@@ -148,6 +150,8 @@ async fn the_page_window_group_and_order_go_to_the_server() {
     let needs_review = ScriptsQuery {
         window: ListWindow::new(Some(0), Some(10), Some("  release ".to_owned()), Some(SortOrder::Desc)).unwrap(),
         group: Some(ScriptGroup::NeedsReview),
+        scope: None,
+        review: None,
         sort: None,
     };
     let page = setup
@@ -182,6 +186,8 @@ async fn the_page_window_group_and_order_go_to_the_server() {
     let second = ScriptsQuery {
         window: ListWindow::new(Some(1), Some(1), None, None).unwrap(),
         group: None,
+        scope: None,
+        review: None,
         sort: Some(ScriptSort::Name),
     };
     let page = setup
@@ -224,6 +230,8 @@ async fn every_sort_goes_to_the_server_by_its_name() {
     let most_runs = ScriptsQuery {
         window: ListWindow::new(None, None, None, Some(SortOrder::Desc)).unwrap(),
         group: None,
+        scope: None,
+        review: None,
         sort: Some(ScriptSort::Runs),
     };
     let page = setup

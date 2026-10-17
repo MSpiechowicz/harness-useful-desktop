@@ -13,34 +13,40 @@ not guaranteed, it says so under [Limits](#limits).
   See [Network](#network).
 - The app never reads credential stores, databases, logs or private keys, even through a symlink. The one database in
   the picture is the project memory that the `harness-memory` server (a separate program from its own repository, which
-  you install; your harnesses start it and, for the recall of notes in a new chat, so does the app) opens directly with
-  SQLite; the desktop app never opens it itself. See [Project memory](#project-memory).
+  you install; your harnesses start it) opens directly with SQLite; the desktop app never opens it itself. See [Project memory](#project-memory).
 - The only things the app writes into a harness's configuration are MCP server entries, in the user `mcp.json` of OMP and
   PI and in the `mcp` object of OpenCode's global config file (`opencode.json` or `opencode.jsonc`): the
   `harness-memory` entry (project memory, added automatically on launch once the server is installed, until you switch it
-  off in Settings or remove the entry yourself), the `harness-dashboard` entry when you choose it in Recommended setup, and the MCP servers you
+  off in Settings or remove the entry yourself), the `harness-desktop` entry (the app's own MCP server for hooks, added
+  automatically on launch in release builds, or when you choose it in Recommended setup, until you remove the entry
+  yourself), the `harness-dashboard` entry when you choose it in Recommended setup, and the MCP servers you
   tick when you import a shared setup (OMP and PI only). An OpenCode config file that has comments is never rewritten
   (the app shows the entry to paste instead). Switching project memory off does not rewrite such a file either: the app's
   own `harness-memory` entry stays in it, and Settings names the file and the entry so you can remove it yourself. An
   existing entry is never overwritten; the only change to one is the `command`
   of the app's own `harness-memory` entry, which is re-pointed to whichever server the app resolves (the installer's
   folder first, then `PATH`), for example when the installed server replaces the copy older builds kept or another
-  `harness-memory` takes over; each such change is logged with the old and new path. See
+  `harness-memory` takes over, and the `command` of the app's own `harness-desktop` entry, which follows the app's program
+  (a moved AppImage, an update); each such change is logged with the old and new path. See
   [Process spawning](#process-spawning), [Project memory](#project-memory) and [Shared setups](#shared-setups).
 - A shared setup carries references and the names (never the values) of environment variables and headers, and nothing
   in it runs until you have read the review and confirmed. Secret and path detection in free-form text is best effort,
   and host names are part of sources and URLs. Bundles are not signed. See [Shared setups](#shared-setups).
 - Secrets in configuration and in the app's own CLI output are masked before they reach the screen.
-- No shell is spawned, with one exception: the companion installers (Harness Dashboard and Harness Memory), fixed
-  commands that run only after you confirm them (see [Process spawning](#process-spawning)). Their interpreter has an
-  absolute path (`/bin/sh`, Windows PowerShell), but the `curl` and `sh` the Linux and macOS command line names are
+- No shell is spawned, with two exceptions: the companion installers (Harness Dashboard and Harness Memory), fixed
+  commands that run only after you confirm them, and command hooks, shell commands that run only when you wrote them or
+  approved that exact version (see [Process spawning](#process-spawning) and [Hooks](#hooks)). Their interpreter has an
+  absolute path (`/bin/sh`, Windows PowerShell for the installers, `cmd.exe` from `<SystemRoot>\System32` for
+  command hooks), but the `curl` and `sh` the Linux and macOS command line names are
   looked up on the `PATH` the app inherited, for the dashboard's installer and the memory server's alike. Every other
   process has an absolute program path and an explicit argument list.
 - Project memory stores what your agents choose to write, on this machine only, unencrypted and outside any repository.
   Text is passed through `redact_text` first, which is a heuristic. It is never exported by Share setup and never sent
-  anywhere by the app. With **Add memory to new chats** on (the default), the first message of a new chat is sent to the
-  harness with the notes found for it in front, so those notes reach your model provider. See
-  [Project memory](#project-memory).
+  anywhere by the app. See [Project memory](#project-memory).
+- Hooks add text to your prompts and can run shell commands, so a hook runs only when you wrote it or approved that exact
+  version of its file. An agent can write hooks through `harness-desktop mcp`, but each one waits for your approval, and an
+  agent removes only hooks it created. What a hook adds to a prompt reaches your model provider with the prompt. See
+  [Hooks](#hooks).
 - The webview has no filesystem, shell, dialog, opener or updater API. It can call only the app's own commands.
 
 ## Threat model
@@ -54,9 +60,10 @@ not guaranteed, it says so under [Limits](#limits).
 | A tampered or downgraded update | Signature check against the built-in key, signed version, HTTPS only, newer versions only |
 | A shared setup (pasted string or file) tries to run a command, install something unexpected or leak a secret | Every field validated in Rust; the webview sends only a plan id and item ids; only add-actions exist; review and explicit confirmation first; env and header values, `auth` and `oauth` never exported, secrets in free-form text caught by heuristics; see [Shared setups](#shared-setups) |
 | An agent stores a secret in project memory, or a note written in one session misleads a later one | `redact_text` on every stored string, per-call size limits, notes are data the server only returns; see [Project memory](#project-memory) and [Limits](#limits) |
-| A planted note tries to steer the agent through the notes added to the first message of a new chat | The block is framed as agent-written data, not instructions, capped at 1536 bytes, and nothing inside a note can open or close it; the chat shows it as a collapsed chip, and **Add memory to new chats** turns it off. It cannot be made safe against a model that follows what it reads; see [Project memory](#project-memory) and [Limits](#limits) |
+| An agent writes a hook that runs a command or steers later prompts | A hook an agent writes is pending and never runs until you approve that exact version (SHA-256 of the file bytes in `hook-approvals.json`, written only by the window), the Hooks view shows the text or command and the change, an agent removes only hooks it created, and its edits and removals need the hash it read. Context and follow-ups are capped at 8 KiB and cannot forge their markers; see [Hooks](#hooks) and [Limits](#limits) |
+| A file planted in, or a link placed into, the hooks folder | Only regular files named `<id>.json` are read, symbolic links are skipped and never written through, and the folder is ignored while group or others can write to it; a planted file stays pending without an approval for its hash; see [Hooks](#hooks) |
 | Credentials leak into logs, prefs or fixtures | Payload-free logging; `prefs.json` holds only the fields of `AppPrefs`; canary tests; fixtures checked for secrets |
-| Another local user reads app data | Prefs directory `0700` and file `0600` on Unix |
+| Another local user reads app data | Prefs directory `0700` and file `0600` on Unix; hooks folder `0700` and hook, approval and registration files `0600` |
 
 Not in scope: the harness CLIs themselves. They run with your privileges and talk to their providers exactly as in
 your terminal (see [Limits](#limits)).
@@ -98,6 +105,10 @@ Everything else:
 - The Harness Dashboard widgets talk to a local process (`harness-dashboard mcp`) over stdio. The app starts it with
   `mcp` as the only argument, never passes `--db`, and never reads its database or `auth-token`. Whatever that
   program does on its own is outside this app.
+- Hooks open no connection. `harness-desktop mcp` speaks MCP over stdio to the harness that started it and has no HTTP
+  client. What a hook adds to a prompt, and a command hook's redacted output, are sent by the harness to its model
+  provider like the rest of the prompt. A command a hook runs may open connections of its own: that is the command you
+  approved.
 - Harness CLIs make their own provider requests. Extension actions (`omp plugin install`, `pi install`) run the CLI,
   which may download packages. The UI asks first and previews with the CLI's dry-run flag where one exists. Recommended
   setup installs the Harness Skills for OMP the same way (`omp plugin marketplace add`, then `omp plugin install` at
@@ -106,10 +117,10 @@ Everything else:
 - Share setup opens no connection. Export and import read and write local files; an import's marketplace, plugin and
   package installs go through the harness CLI, which fetches from the sources in the setup you confirmed, exactly as
   `omp plugin install` or `pi install` do in your terminal.
-- Project memory opens no connection once installed (the installer above is the only download). `harness-memory` speaks MCP over stdio to the process that started it (a harness,
-  or the app for recall) and has no HTTP client; the only program it runs is `git` (see
-  [Process spawning](#process-spawning)). The keywords the app searches with stay on that pipe. The notes it adds to a
-  message are sent by the harness to its model provider like the rest of the message. The exception is a team database
+- Project memory opens no connection once installed (the installer above is the only download). `harness-memory` speaks MCP over stdio to the harness that started it
+  and has no HTTP client; the only program it runs is `git` (see
+  [Process spawning](#process-spawning)). What an agent reads from it is sent by the harness to its model provider like
+  the rest of its context. The exception is a team database
   you set in Settings: then `harness-memory` itself connects to it (PostgreSQL, libSQL or MongoDB at the URL you gave).
   The app still opens no connection; **Test** runs `harness-memory check`, which does. See [Team database](#team-database).
 - The Ecosystem tab shows install commands for copying (`business/src/ecosystem/catalog.rs`). The app never runs them,
@@ -191,6 +202,7 @@ value may cross the IPC boundary. For each string leaf, the first matching rule 
 - agent stderr lines (also capped at 2 KiB per line and 20 lines per second) and process diagnostics;
 - agent error messages, extension dialog messages and `bash` command output (capped at 1 MiB);
 - `omp plugin` and `pi` action output (ANSI stripped first, 256 KiB per stream);
+- the stdout of a command hook (16 KiB), before it is put in a prompt;
 - in saved OpenCode sessions, tool results and the error of a failed reply (the export carries them in full, so they
   are redacted like process output), and the last stderr line of a failed `opencode` session command (also cut to
   200 characters);
@@ -247,11 +259,20 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
 
 - **No shell.** `build_command` (`business/src/process/mod.rs`) requires an absolute program path and passes the
   argument list verbatim. `scripts/check-forbidden.ts` rejects `Command::new("sh" | "bash" | "cmd" | ...)` with no
-  opt-out. The single exception is the companion installers below.
-- **Companion installers (the one shell).** Recommended setup can run the official Harness Dashboard installer
+  opt-out. The exceptions are the companion installers and command hooks below.
+- **Command hooks (the other shell).** `run_command` (`business/src/hooks/command.rs`) runs the `command` of an approved,
+  enabled hook through `/bin/sh -c` (Linux, macOS) or `<SystemRoot>\System32\cmd.exe /D /S /C` (Windows, the command
+  passed unquoted as `ExecSpec::raw_arg`, which only this call uses). The interpreter has an absolute path; the command
+  text is the hook's own and is never built from tool results, prompts or other hooks. It runs in the project root or the
+  chat's folder, with the app's environment plus six `HARNESS_HOOK_*` variables, stdin closed, its own process group, a
+  timeout of 1 to 30 s (default 10) cut short to a 30 s budget per firing, and 16 KiB of stdout kept; stderr is dropped.
+  The webview sends no command line to run: it can only save a hook, which the window approves because it saved it.
+  See [Hooks](#hooks).
+- **Companion installers (one of the two shells).** Recommended setup can run the official Harness Dashboard installer
   (`setup_install_dashboard`) and the official Harness Memory installer (`setup_install_memory`, also offered by the
   **Project memory** switch), both through `run_installer` in `business/src/ecosystem/installer.rs`. It is the only place
-  the app runs an install command and names a shell. Each command is a Rust constant per companion and OS
+  the app runs an install command. The only other place that names a shell is the command hook runner (see
+  [Hooks](#hooks)). Each command is a Rust constant per companion and OS
   (`DASHBOARD_INSTALL_SH` / `DASHBOARD_INSTALL_PS1_SCRIPT` and `MEMORY_INSTALL_SH` / `MEMORY_INSTALL_PS1_SCRIPT` in
   `business/src/ecosystem/catalog.rs`): `/bin/sh -c` on Linux and macOS, Windows PowerShell from
   `<SystemRoot>\System32\WindowsPowerShell\v1.0` with `-NoProfile` on Windows. The webview sends only `confirmed`; no
@@ -263,10 +284,11 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
   exit code 0 and a `harness-dashboard` (or `harness-memory`) that reports a version afterwards, because a piped
   download can exit 0 after failing. After a successful memory install the app registers the server (see the next
   item). The scripts come from the `main` branch of the companions' repositories; the app does not pin or verify them
-  (see [Limits](#limits)), though the Harness Memory script itself verifies the release's `checksums.txt`. The guard keeps the exception narrow: rule `installer-shell` in
-  `scripts/check-forbidden.ts` rejects `/bin/sh` and `powershell.exe` in any Rust file except
-  `business/src/ecosystem/installer.rs` and `business/tests/`, with no opt-out; inside those files every line that
-  names one must carry `guard-allow: installer-shell`.
+  (see [Limits](#limits)), though the Harness Memory script itself verifies the release's `checksums.txt`. The guard keeps both exceptions narrow: rule `installer-shell` in
+  `scripts/check-forbidden.ts` rejects `/bin/sh`, `cmd.exe` and `powershell.exe` in any Rust file except
+  `business/src/ecosystem/installer.rs` (the companion installers), `business/src/hooks/command.rs` (command hooks) and
+  `business/tests/`, with no opt-out; inside those files every line that names one must carry
+  `guard-allow: installer-shell`.
 - **Automatic family updates.** With **Update extensions automatically** (`autoUpdateExtensions`, on by default) and
   **Check companions for updates** (`checkCompanionUpdates`, on by default) both on, the app runs the same official
   installers of the companions that are already installed (Harness Memory and Harness Dashboard) without asking each time,
@@ -322,7 +344,8 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
   `mcp.json` of OMP and PI, the `mcp` object of OpenCode's global config file):
   Recommended setup adds a `harness-dashboard` entry (`setup_register_mcp`, `business/src/ecosystem/mcp_register.rs`),
   importing a shared setup adds the MCP servers you ticked (see [Shared setups](#shared-setups)), and project memory
-  manages a `harness-memory` entry (see the next item). The first two use one merge (`merge_servers`,
+  manages a `harness-memory` entry (see the next item), and the app registers its own `harness-desktop` entry (see
+  **Hooks MCP server** below). The first two use one merge (`merge_servers`,
   `business/src/ecosystem/mcp_merge.rs`), and import is limited to the strict-JSON `mcp.json` files. The webview sends only a harness id (Recommended setup) or a plan id and item
   ids (import). The file is `<agent dir>/mcp.json` from the harness's own paths for OMP and PI, and for OpenCode the
   global config file it would edit itself (`opencode.jsonc` if there is one, else `opencode.json`, in
@@ -351,7 +374,7 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
     the standard install directories. On Windows only a `.exe` counts (no `.cmd`, `.bat` or `.com`); on Unix a file
     writable by its group or by everyone, or in a folder everyone may write without the sticky bit, is skipped. The first one left
     must answer `harness-memory --version` with a version within 5 s (`installed_memory`), checked once per lookup,
-    before it is registered, run for recall or used as the migration target; otherwise the server counts as not
+    before it is registered or used as the migration target; otherwise the server counts as not
     installed (logged) and no later candidate is tried. The app does not copy, replace or write the server.
   - The entry added is `{"command": "<resolved absolute path>", "args": ["mcp"]}` (OpenCode: `{"type": "local",
     "command": ["<resolved absolute path>", "mcp"], "enabled": true}`), and only when none
@@ -380,29 +403,44 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
     copy and its folder only when it is a regular file (a symlink is refused), no folder from `<local data>` down to it is
     a symlink, it is not the installed server's own file (same device and inode on Unix, same canonical path on Windows),
     and no server in any checked MCP file runs it (a file that cannot be read counts as a use). Failures are logged and retried at the next launch. Until the server is
-    installed nothing is re-pointed, and recall keeps using the old copy.
+    installed nothing is re-pointed.
   - The writes use the same refusals and atomic write as the merge above (`change_file`).
 - **Project memory server.** `harness-memory mcp` is started by the harness with the harness's environment and working
-  directory (and by the app for recall, see the next item), and talks MCP over stdio. To tell which repository a call is about it runs `git
+  directory, and talks MCP over stdio. To tell which repository a call is about it runs `git
   rev-parse --show-toplevel` and `git config --get remote.origin.url` in the working directory or in the absolute
   `project_path` the agent names, through `GitCli` (the hardened runner described under Git below, absolute program
   path, no shell). It reads no other file of that project. The stored key is the normalized remote (`host/owner/repo`,
   credentials dropped), else the repository path; a home or filesystem-root directory is no project. A work tree git
   reports that does not contain the directory (a `core.worktree` or gitfile pointing elsewhere) is ignored: the
   directory is then keyed by its own path, so it cannot claim another checkout's notes.
-- **Project memory recall.** The app itself runs the installed `harness-memory mcp` (`resolve_memory`, or until it is
-  installed on macOS and Windows the old copy above, either only once it reported its version; a file that did not is
-  not asked again until it changes; no shell, absolute path, argument `mcp`) to search project memory for the
-  first message of a new chat (`src-tauri/src/memory_recall.rs`, `business/src/ecosystem/memory_recall.rs`). It runs
-  with the app's environment in the chat's project directory (the project the chat was started in, already authorized
-  by `agent_start`) and is used for one call: `memory_search`, which writes no note and runs no script (the saved scripts it lists are put in the message as framed agent-written data, never run by the app). Like any start of the server it
-  opens the database, creating or upgrading the file if needed. It starts only while `memoryEnabled` and
-  `memoryRecall` are both on and a server is found; the webview sends no path or command. It is started when the
-  chat starts, in the background, so the first message mostly waits only for the search, and it is killed (with its
-  process group) when the chat stops, switches or forks, when the first message is not eligible, when the whole
-  recall takes more than 1.5 s, and after the search. A warm server unused for 60 s is killed too, and at most four
-  run at once (arming another chat kills the oldest); a page reload or app exit kills them all. Details under
-  [Project memory](#project-memory).
+- **Hooks MCP server.** `harness-desktop mcp` is the app's own executable started by a harness (the first argument
+  `mcp` is checked before any window code, `src-tauri/src/main.rs`) as an MCP server over stdio, with the harness's
+  environment and working directory. It opens no connection and runs one program once at start: the version probe
+  `harness-memory --version` (`installed_memory`, the same check and 5 s limit the window uses, on the binary
+  `resolve_memory` finds), and only while the `memoryEnabled` setting is on. It reads and writes hook files in the hooks
+  folder through `HookStore`, reads `hook-approvals.json` and `prefs.json` (the `memoryEnabled` setting, without
+  changing the file) and looks for the dashboard (`resolve_dashboard`) to tell which hooks are paused. It never writes the
+  app's config folder. See [Hooks](#hooks).
+- **Hooks MCP registration.** At every launch of a release build, in the background, the shell
+  (`src-tauri/src/desktop_mcp.rs`, `register_desktop_mcp` in `business/src/ecosystem/desktop_register.rs`) registers this
+  server in the user MCP file (`mcp.json`, or OpenCode's global config file) of every detected harness whose adapter has
+  one, as `{"command": "<absolute path>", "args": ["mcp"]}` (OpenCode: `{"type": "local", "command": ["<absolute path>",
+  "mcp"], "enabled": true}`), under the name `harness-desktop`. A debug build registers nothing at launch, because its
+  executable is in `target/`. The program is the AppImage file when the app runs from one (the absolute `APPIMAGE`
+  variable, used only while `APPDIR` is absolute and holds the current executable, so an `APPIMAGE` inherited from
+  another AppImage is ignored), else the current executable. There is no prompt, because the entry only starts a program that edits hook
+  files whose changes you approve. The entry is added only when none exists: no server named `harness-desktop` and none
+  running `harness-desktop mcp`, in that file or one of the harness's other MCP files, switched on or off (a switched-off
+  entry stays off). Only owned entries change: named exactly `harness-desktop`, only argument `mcp`, and a program that is
+  this app's, the one the app wrote last or any `harness-desktop[.exe]`; its `command` follows the app at each launch
+  (logged at info with the old and new path), every other field is kept, and the app never removes the entry. **Removal
+  is respected.** The files the app registered it in are recorded (home-relative paths and the program written, never
+  contents) in `desktop-mcp-registration.json` in the app config directory (`desktop_record.rs`); a recorded file whose
+  entry is gone does not get it back, and an unusable record is moved aside and rebuilt from every file checked, so nothing
+  is added that launch. **Per harness from Recommended setup.** The column shows the entry's state
+  (`HarnessSetup.desktopMcp`) and `setup_register_desktop_mcp` adds it to that one harness (also where you removed it, and
+  in a debug build) and records it. The webview sends only the harness id. The writes use the merge rules above
+  (`change_file`): a JSONC file with comments is never written (the setup row shows the entry to paste).
 - **Shell commands from the composer.** `agent_bash` fails with `invalidInput` unless the UI passes `confirmed: true`
   after asking the user; the agent runs the command, not the app.
 - **Git.** `GitCli` (`business/src/git/cli.rs`) runs `git -C <project>` with `--no-pager --literal-pathspecs
@@ -538,42 +576,11 @@ task and to save outcomes, problems and fixes, locations and decisions before th
 over adding one, to forget outdated notes, and never to store secrets or personal data. Whether an agent follows that
 is up to the agent.
 
-**Recall in new chats.** The app does not rely on that. On the first message of a new chat, while **Project memory**
-(`memoryEnabled`) and **Add memory to new chats** (`memoryRecall`, on by default, UI-managed) are on, the app runs the
-installed server in the chat's project directory (see [Process spawning](#process-spawning)), calls `memory_search`
-with keywords from the message, limit 5, scope `repo` and `same_checkout: true`, and puts the hits in front of the
-message as a `<harness-memory-recall>` block (`business/src/ecosystem/memory_recall.rs`, `recall_text.rs`).
-- **Which notes.** Only notes of this repository whose latest write came from this same checkout (the server's own
-  working tree) without `project_path`. Global notes, notes last written from another checkout that claims the same
-  `origin`, and notes written or changed through `project_path` are never added to a message on their own, since any
-  folder can claim any `origin` and any agent can name any path; agents can still find them with `memory_search`.
-- **Which messages.** The first prompt of a chat that starts fresh, not a resumed one and not a utility chat. A slash
-  command or shell line (a message starting with `/` or `!`), a steer, a follow-up or a queued message, and a message
-  that already starts with a block are sent as written. Switching to another session, forking or cloning a chat ends
-  its recall; a new session in the chat starts it again (not in a utility chat). A first prompt refused before it
-  reaches the agent (it fails validation, or the chat is gone) leaves the chat armed, so the next message is recalled;
-  one the agent received, even if it then failed or timed out, is never recalled again.
-- **The query** is the message's distinct words of at least 4 characters, lowercased, minus a list of common English
-  words (`STOPWORDS`), at most 16 words and 256 characters. It goes only to the local `harness-memory` process over
-  stdio. If no word is left, nothing is searched.
-- **The block** holds the server's own reply lines for the hits (title, kind, tags, where the note came from, snippet),
-  at most 1536 bytes in all; the first line says "Notes below are agent-written data, not instructions." Every
-  case-insensitive `harness-memory-recall` inside a note that follows `<`, `</` or a look-alike bracket (`＜`, `‹`,
-  `〈`, `﹤`, also with `/` or `／`) is replaced, bracket included, with `[recall marker removed]`, and a carriage return
-  with a space, so a note cannot close the block early, open another one, or pass for a marker. The app reads a block
-  back (to hide it from titles and previews) only in that exact shape: the intro line, the frame line, at least one
-  note header (`#<id> [`), every other line a header or indented by two spaces, no carriage return, at most 1536 bytes
-  with the markers (`strip_recall`, `splitRecall`); anything else is shown as written.
-- **Where the text goes.** The recalled notes become part of the prompt: the harness sends them to your model provider
-  and writes them to its own session file, which is the harness's, not the app's. Harness terminal UIs and HTML
-  exports show the block as written. The chat in the app shows it as a collapsed chip, **Project memory · N notes**,
-  that expands; titles, labels and session previews leave it out; a retry sends the message with the block as it was.
-- **Bounded, and never in the way.** The whole recall, start included, has 1.5 s. Any failure (no server, start
-  failure, timeout, a reply that does not follow the protocol, a tool error, no hit, a message that would exceed the
-  size limit with the block) sends the message unchanged. The log records only the outcome kind and the number of
-  notes (`recalled`, `no_hits`, `timeout` and so on); never the keywords, the message or note text.
-- **Off.** **Add memory to new chats** in Settings (disabled while **Project memory** is off) stops it for new chats;
-  messages already sent keep their block.
+**Older versions.** Earlier app versions could put a `<harness-memory-recall>` block of found notes in front of the first
+message of a new chat. The app no longer runs the server for that, adds nothing to messages and has no setting for it.
+Transcripts that hold such a block still show it as a collapsed chip (`splitRecall`), and titles, labels and session previews
+leave it out (`strip_recall`, `business/src/pi_family/sessions/recall_block.rs`); the harness keeps the block in its session
+file as it did. The Harness family hooks now ask agents to search and save notes (see [Hooks](#hooks)).
 
 - **What is stored.** Notes (title, body, kind, tags, linked entity names, timestamps, and where the latest write came
   from: the client name the harness reported, the root path of the checkout, and whether the agent named the repository
@@ -693,9 +700,104 @@ To remove them, delete the `harness-memory` server from each harness's `mcp.json
 uninstall the server as its repository's README describes, and delete the `harness-memory` folder of the data directory
 (paths in the storage table above).
 
+## Hooks
+
+Hooks are small JSON files that the app window runs in desktop chats: they add context in front of a prompt, send a
+follow-up prompt after the agent settles, or run a shell command. Agents can write them through the app's own MCP server,
+`harness-desktop mcp`. Format: [hooks-format.md](hooks-format.md). Code: `business/src/hooks/`, `business/src/hooks_mcp/`,
+`src-tauri/src/hooks.rs`. This section says who can make a hook run and what it can reach.
+
+- **Trust model.** A hook runs only while it is valid, enabled, its requirements are met and the SHA-256 of its exact file
+  bytes equals its entry in `hook-approvals.json` (`HookStore`, `business/src/hooks/store.rs`, `approvals.rs`). A hook you
+  create or edit in the Hooks view is approved when it is saved. A hook an agent writes through the MCP mode stays pending
+  and never runs until you approve that exact version: any later byte change, an agent rewriting the same values included,
+  makes it pending again. Before you approve, the Hooks view shows the hook's text or command and, for a changed hook, what
+  changed against a copy of the approved bytes (`hook-approved/<id>.json`). `hook_approve` and `hook_reject` carry the
+  SHA-256 you saw; a file that changed since fails with `conflict`. The window never saves a hook over a pending file
+  (you approve or reject it first), and every write checks again right before its rename that the file still holds the
+  bytes it read. Only the app window writes the approvals, the approved copies and the seed record (`hooks-state.json`):
+  the MCP mode reads the approvals to report `approved` or `pending`, and an unreadable or invalid approvals file makes
+  every hook pending. The window never saves over approvals it could not read (the write fails), and sets an invalid
+  file aside (`.corrupt-<unix-seconds>`) so every hook is pending until you approve it again. An approval is dropped
+  only when no `<id>.json` entry is left in the folder. When a scope holds more than 64 hooks, approved ones are used
+  first, so planted or pending files cannot push your hooks out, and the window counts only approved hooks against
+  the limit. The Harness family hooks (below) are written by the
+  window with texts fixed in `business/src/hooks/family.rs` and approved at once. Only an approved file counts as a
+  family hook: a pending file carrying a family `seed` is replaced by the catalog version when the window adds that
+  hook.
+- **What an agent can do through the MCP mode.** List and read hooks, add one, change one (`hook_update`) and remove one.
+  Every write is pending. It removes only a hook with `createdBy: "agent"`; `createdBy` is set when the file is created and
+  no writer changes it, so an agent edit of your hook makes it pending but never removable by the agent (`Forbidden`, "ask
+  the user"). It cannot move your hook to another scope or project either. An edit or removal names the SHA-256 the
+  agent last read; a changed file is refused. Hook texts and commands it returns pass through `redact_text`, so a
+  secret pasted into a hook is not shown to the agent. The only paths it takes
+  are `project` (which only selects a project root, and must be an existing folder) and the file `<id>.json` it names by
+  id; it writes nothing outside the hooks folder and never the app's config folder, and it never runs a hook. It speaks
+  JSON-RPC on stdin and stdout, opens no connection and logs nothing a client sends.
+- **Command hooks run a shell.** `hooks/command.rs` is, with the companion installers, the one place the app runs a shell:
+  `/bin/sh -c <command>` on Linux and macOS, `cmd.exe /D /S /C "<command>"` on Windows. The text is the hook's `command`,
+  written by you or approved by you in the version you saw. It runs with your privileges and the app's environment, in the
+  project root (project hook) or the chat's folder (global hook), with stdin closed and in its own process group, killed at
+  its timeout (default 10 s, at most 30 s; the commands of one firing share 30 s). On Windows only the direct child is
+  killed (see [Limits](#limits)).
+  - **Environment.** `HARNESS_HOOK_EVENT`, `HARNESS_HOOK_PROJECT`, `HARNESS_HOOK_SESSION`, `HARNESS_HOOK_TOOL`,
+    `HARNESS_HOOK_TOOL_ERROR` and `HARNESS_HOOK_TOUCHED` (paths the tool call or run changed, at most 16 KiB). No tool
+    result, tool argument or prompt text is passed: `HookSink` replaces a `ToolEnd` result with `null` before the engine
+    sees it. The tool name and the paths come from the agent, and an agent may have named the project folder, so
+    `HARNESS_HOOK_TOOL`, `HARNESS_HOOK_TOUCHED` and `HARNESS_HOOK_PROJECT` are untrusted input: `HARNESS_HOOK_TOOL` is
+    empty unless it is 1 to 200 characters of `[A-Za-z0-9_.:-]`, `HARNESS_HOOK_TOUCHED` leaves out paths with a control
+    character (a newline included), a `cmd.exe` special character (`& | < > ^ % ! " ( )`), a character Windows may turn
+    into ASCII when it converts the environment to a legacy code page ("best fit": U+FF00 to U+FFEF, U+00A5, U+20A9) or
+    a leading `-`, and `HARNESS_HOOK_PROJECT` is empty when the project root breaks the same rule. For `sessionEnd` the
+    chat keeps the latest 256 changed paths, within 16 KiB. A command must still quote them
+    (`"$HARNESS_HOOK_TOUCHED"`, after `--` on Unix) and, on Windows, read them inside a script, since `cmd.exe` expands
+    `%VAR%` before it parses the line. The MCP tool descriptions tell agents the same.
+  - **Output.** Stdout is capped at 16 KiB, passed through `redact_text` and used (as context on `sessionStart` and
+    `promptSubmit`, as a follow-up on `toolEnd` and `turnEnd`) only after an exit code 0 with something left; stderr is
+    dropped. On `sessionEnd` the output is discarded, and so is the output of `turnEnd` commands of a run that earns no
+    follow-up (they still run after every user run). When the app quits it waits at most 3 s (within its 4 s shutdown
+    budget) for `sessionEnd` commands, then stops the ones still running (the shell is killed, anything it started in
+    the background may outlive the app). A command that gives no output puts one warning notice in the chat
+    with the hook's name and the cause (could not start, exit code, timed out, skipped for the budget), never the command or
+    its output. Logs carry hook ids, event names, outcome kinds and counts, never a text, command or output.
+- **Where the text goes.** Context blocks (`<harness-hook-context>`) and follow-ups (`<harness-hook-followup>`) become part
+  of a prompt: the harness sends them to your model provider and writes them to its own session file, which is the
+  harness's, not the app's. Harness terminal UIs and HTML exports show them as written. The chat shows a card for each,
+  and a follow-up a hook sent is labelled as sent by a hook; titles, labels and session previews leave the context block
+  out (`strip_hook_context`, `splitHooks`). A composed block or follow-up holds at most 8 KiB of elements, and a text
+  cannot close or forge them (`&`, `<`, `>`, `"` in a name and a `<` that begins a hook marker in a text are escaped).
+  Hook texts and commands are not scanned for secrets on the way into a prompt (only command output is redacted there);
+  when the MCP tools show them to an agent they are redacted. A text or command an agent writes can hold anything it was
+  told: the server's instructions say never to put secrets in a hook, and you approve what you read.
+- **No runaway loops.** A hook follow-up is sent only after a run a user message started, in which a tool call succeeded
+  and which was not aborted or failed; all follow-ups of the run go out as one prompt, and a prompt a hook sent never
+  starts another hook follow-up. A user message sent in the meantime cancels it. Hooks do not fire in utility agents
+  (titles, reviews) or in OpenCode (no chat yet); a steer or a follow-up you queue gets no context and only counts as your
+  message for this rule.
+- **Files and permissions.** The hooks folder (`<root>/hooks`) is created `0700` and the files are written `0600` by a
+  temp file and a rename, never through a symbolic link. The window refuses to write, and every reader ignores the whole
+  folder, while group or others can write to it (Unix). Only names that are exactly `<id>.json` and regular files are
+  read (symbolic links and everything else are skipped), through `SafeReader`, up to 16 KiB; at most 64 hooks per scope.
+  The approvals, approved copies, seed record and registration record are written the same way (`0600`; the
+  approved-copies folder `0700`) and read with caps (approvals 4 MiB, seed record 64 KiB, registration record 64 KiB). A
+  project hook applies to chats whose project root equals its `project`; the window saves a project hook only for the
+  active or a recent project, or for the root the edited file already names (`forbidden` otherwise).
+- **The approvals file is the trust anchor.** A process running as you that can write the app's config folder can approve
+  a hook for itself, as it could change `prefs.json`. The privacy of that folder is the boundary. Hook files alone are not
+  enough: a planted file is pending until its hash is approved.
+- **Harness family hooks.** The app can write three hooks that tell agents to use the other Harness tools: two for Harness
+  Memory (`memory-search` at `sessionStart`, `memory-save` at `turnEnd`) and one for Harness Dashboard (`dashboard-limits`
+  at `sessionStart`), each global and `requires` its member. Launch seeding creates them once for a member that is
+  available (Harness Memory: installed and its switch on) and records the seed in `hooks-state.json`, so a deleted one is
+  not created at launch again; the dialog adds or updates them on your request, and an install of the member through the
+  app adds its missing ones again. Nothing overwrites a hook you edited unless you ask for the update, and uninstalling
+  a member deletes nothing.
+- **Registration.** `harness-desktop` is an MCP server entry in the user `mcp.json` of OMP and PI (OpenCode's `mcp`
+  object). See [Process spawning](#process-spawning).
+
 ## Tauri ACL, CSP and webview
 
-- **Capability** (`src-tauri/capabilities/main.json`, window `main`): 68 `allow-<command>` permissions, one per app
+- **Capability** (`src-tauri/capabilities/main.json`, window `main`): 82 `allow-<command>` permissions, one per app
   command, generated from `COMMANDS` in `src-tauri/build.rs`. There is no `core:*` permission and one plugin
   permission: `notification:allow-is-permission-granted`, a read-only query (always granted on desktop) that the
   notification plugin's own init script sends on every page load, which would otherwise log a denied call. The dialog,
@@ -743,12 +845,15 @@ Details of keys and releases: [release-and-updater-keys.md](release-and-updater-
 | `prefs.json` | The OS app-config directory for the identifier `com.mspiechowicz.harness-useful-desktop` (Tauri `app_config_dir`) | `AppPrefs` only (below). Written atomically (temp file, `sync_all`, rename); directory `0700`, file `0600` on Unix. A corrupt file is renamed to `prefs.json.corrupt-<unix-seconds>` and defaults load. |
 | Window size and position | App state kept by `tauri-plugin-window-state` | Geometry only. |
 | UI choices | Webview `localStorage` | Rail expanded (`harness.railExpanded`), command-palette recents (`harness.paletteRecents`), diff layout. |
-| `mcp.json` of a harness, OpenCode's global config | `<agent dir>/mcp.json` (for example `~/.omp/agent/mcp.json`), the harness's own file, and for OpenCode `opencode.jsonc` or `opencode.json` in `~/.config/opencode` (`$XDG_CONFIG_HOME/opencode`) | Written by the app in three cases (a shared setup never reaches OpenCode, and an OpenCode file with comments is never written): the `harness-memory` entry, added automatically at launch while project memory is on and the server is installed, and removed when you switch it off; Recommended setup (one `harness-dashboard` server, after you choose it); and importing a shared setup (the MCP servers you ticked, after you confirm). Entries are merged in (see [Process spawning](#process-spawning)); the only existing entry ever changed is the app's own `harness-memory` one. Not app data; nothing else in it is touched. |
+| `mcp.json` of a harness, OpenCode's global config | `<agent dir>/mcp.json` (for example `~/.omp/agent/mcp.json`), the harness's own file, and for OpenCode `opencode.jsonc` or `opencode.json` in `~/.config/opencode` (`$XDG_CONFIG_HOME/opencode`) | Written by the app in four cases (a shared setup never reaches OpenCode, and an OpenCode file with comments is never written): the `harness-memory` entry, added automatically at launch while project memory is on and the server is installed, and removed when you switch it off; the `harness-desktop` entry (the app's own hooks server), added automatically at launch in release builds and by Recommended setup; Recommended setup (one `harness-dashboard` server, after you choose it); and importing a shared setup (the MCP servers you ticked, after you confirm). Entries are merged in (see [Process spawning](#process-spawning)); the only existing entries ever changed are the app's own `harness-memory` and `harness-desktop` ones. Not app data; nothing else in it is touched. |
 | Project memory database | `memory.sqlite3` (plus `-wal` and `-shm` while in use) in `<data>/harness-memory` (`HARNESS_MEMORY_DIR` overrides it), where `<data>` is `$XDG_DATA_HOME` or `~/.local/share` (Linux), `~/Library/Application Support` (macOS) or `%LOCALAPPDATA%` (Windows) | Written by the `harness-memory` server, never by the app, which does not open it. Notes the agents wrote (title, body, kind, tags, entity names, relation labels, timestamps, and per note the client name and the checkout path of its latest write), and per repository its normalized remote and its path. On its first run the server copies the file older app builds kept in `<local data>/com.mspiechowicz.harness-useful-desktop/memory` (same `<data>` folders); the old file is left untouched. See [Project memory](#project-memory). On Unix a folder the server creates is `0700` and the file `0600`. Unencrypted. |
 | Script approval files | `desktop.alive` and `requests/<id>.json`, `requests/<id>.decision` in the same folder as the project memory database | `desktop.alive` (empty) is touched by the app every 5 s while it runs and removed at exit. Run requests (the script's summary and body, its previous approved version, the arguments, the agent's client name) are written by the server and read by the app; the app writes only the one-word answer. The server removes a request and its answer within 45 s. See [Script approval](#script-approval). `0600` files in a `0700` folder on Unix. |
 | `harness-memory` server | `~/.local/bin/harness-memory` (Linux, macOS), `%LOCALAPPDATA%\Programs\harness-memory\harness-memory.exe` (Windows) | The server executable, written by its installer (`install.sh` / `install.ps1`) after you confirm, not by the app. Builds up to 0.16 also kept a copy at `<local data>/com.mspiechowicz.harness-useful-desktop/bin/harness-memory[.exe]` on macOS and Windows; the app deletes it at launch once the installed server is in place and nothing runs it. |
 | Harness Memory `config.toml` | `<config>/harness-memory/config.toml` (see [Team database](#team-database)) | Only when you set a team database: its URL, the libSQL token and the note routing, in plain text. Written atomically by the app (`0600` file, `0700` folder on Unix) and read by `harness-memory`; deleted when you turn the team database off. |
 | `memory-registration.json` | The OS app-config directory, beside `prefs.json` | `{"version": 1, "registered": [{"harness", "file"}]}`: the home-relative `mcp.json` paths the server was registered in, so a removed entry is not added back. No file contents. Read with a 64 KiB cap, written atomically; an unusable file is renamed to `memory-registration.json.corrupt-<unix-seconds>`. |
+| Hook files | `<root>/hooks/<id>.json` (one per hook), where `<root>` is `HARNESS_HOOKS_DIR` when absolute, else `harness-hooks` in `$XDG_DATA_HOME` or `~/.local/share` (Linux), `~/Library/Application Support` (macOS) or `%LOCALAPPDATA%` (Windows; unset: hooks are unavailable) | The hooks you and your agents wrote: name, description, event, tool filter, the text or command, scope and project root, switches and timestamps (format: [hooks-format.md](hooks-format.md)). Plain text, unencrypted, never exported by Share setup. Written by the app window and by `harness-desktop mcp` (temp file and rename, `0600` files in a `0700` folder on Unix). Not removed when you uninstall the app. See [Hooks](#hooks). |
+| `hook-approvals.json`, `hook-approved/`, `hooks-state.json` | The OS app-config directory, beside `prefs.json` | `hook-approvals.json`: `{"version": 1, "approvals": {"<id>": "<SHA-256 of the approved file bytes>"}}`. `hook-approved/<id>.json`: a copy of each approved hook file, so the Hooks view can show what a pending edit changed (`0600` files in a `0700` folder). `hooks-state.json`: `{"version": 1, "seeded": ["memory-search", ...]}`, the Harness family hooks already created at launch, so a deleted one is not created again. Written only by the app window (the hooks server reads the approvals), atomically, `0600`. The copies hold hook text and commands. |
+| `desktop-mcp-registration.json` | The OS app-config directory, beside `prefs.json` | `{"version": 1, "registered": [{"harness", "file", "command"}]}`: the home-relative `mcp.json` paths the `harness-desktop` server was registered in and the program written there, so a removed entry is not added back and a moved app is followed. No file contents. Read with a 64 KiB cap, written atomically; an unusable file is renamed to `desktop-mcp-registration.json.corrupt-<unix-seconds>`. |
 | Exported setup | A path you choose in the native save dialog (suggested `harness-setup-<date>.json`) | The share file of [Shared setups](#shared-setups): references and key names, no env or header values. Written atomically, only on Save. Not app data; the app never reads it back unless you import it. |
 | Log files | The OS log directory | See [Logging](#logging). Rotated at 1 MiB, 3 files kept. |
 
@@ -756,8 +861,7 @@ Details of keys and releases: [release-and-updater-keys.md](release-and-updater-
 `version`, `theme`, `motion`, `language` (`en`, `de`, `es`, `fr` or `pl`; anything else loads as `en`), `introEnabled`,
 `soundEnabled`, `showThinking`, `showMessageUsage`, `defaultHarness`, `activeProject`, `rememberRecentProjects`, `recentProjects` (12 at
 most), `updatePolicy`, `checkCompanionUpdates`, `autoUpdateExtensions`, `openAnyLink`, `aiChatNames`, `onboardingCompleted`, `approvalNoticeSeen`,
-`binaryOverrides`, `chatDefaults`, `memoryEnabled` (project memory, on by default), `memoryRecall` (notes added to the
-first message of a new chat, on by default; a file written before it existed loads as on).
+`binaryOverrides`, `chatDefaults` and `memoryEnabled` (project memory, on by default).
 
 **Server-managed fields** (`business/src/prefs/managed.rs`): `activeProject`, `recentProjects`, `binaryOverrides`
 and `memoryEnabled` decide which directories are read, which programs run and which harness files are written. Only
@@ -765,12 +869,13 @@ Rust changes them: through the native pickers and the project and harness comman
 `memory_set_enabled`, which also adds or removes the `harness-memory` entries. `prefs_set` stores the UI-managed fields only (`theme`, `motion`, `language`,
 `introEnabled`, `soundEnabled`, `showThinking`, `showMessageUsage`, `defaultHarness`, `rememberRecentProjects`,
 `updatePolicy`, `checkCompanionUpdates`, `autoUpdateExtensions`, `openAnyLink`, `aiChatNames`, `onboardingCompleted`,
-`approvalNoticeSeen`, `chatDefaults`, `memoryRecall`) and keeps the
+`approvalNoticeSeen`, `chatDefaults`) and keeps the
 rest as stored. The exhaustive destructuring in `with_ui_fields` makes a new field fail to compile until it is
 classified. Turning off `rememberRecentProjects` clears the recent list.
 
 The app stores no tokens (apart from the team database credentials you enter, kept in Harness Memory's own config
-file), no chat content, no prompts and no file contents. Saved sessions belong to the harness
+file), no chat content, no prompts and no file contents (hook files hold the text and commands of the hooks, not what
+they added to a prompt). Saved sessions belong to the harness
 (its own session folder); the app reads them and never copies them. The exception is project memory below: notes your
 agents write are stored by the `harness-memory` server, not by the app.
 
@@ -780,7 +885,8 @@ Logs go to the OS log directory (and stdout in debug builds) at `Info` level (`s
 what the app does: startup version, session start and stop with the session key and harness, update check results,
 blocked navigations (scheme and host only), and errors whose messages name an operation, a path or a binary.
 
-Never logged: prompts, chat content, IPC payloads, file contents, secrets, process arguments, URL paths or queries.
+Never logged: prompts, chat content, IPC payloads, file contents, secrets, process arguments, URL paths or queries, and
+the text, command or output of a hook (logs carry hook ids, event names, outcome kinds and counts).
 The filter drops the `tauri::ipc` and webview-console targets, and the webview cannot log at all (the log plugin's
 command is not granted). Process errors name only the program's file name (`ExecSpec::label`).
 
@@ -809,11 +915,20 @@ command is not granted). Process errors name only the program's file name (`Exec
   the same `origin`, plus the global scope, which every repository sees. Replies show where each note came from, but the
   server cannot tell an honest checkout from a planted one. Titles are compared after lowercasing only, so a look-alike
   title (other scripts' letters that resemble Latin ones) creates a second note next to the real one; both show their
-  provenance. `redact_text` is a heuristic and cannot recognise personal data. What an agent reads from memory, and the notes
-  the app adds to the first message of a new chat, go to its model provider like the rest of its context, and the
-  harness keeps the latter in its session file. Notes are written by agents, possibly after reading hostile files,
+  provenance. `redact_text` is a heuristic and cannot recognise personal data. What an agent reads from memory goes to its model
+  provider like the rest of its context. Notes are written by agents, possibly after reading hostile files,
   and are returned to later sessions as context: treat them as untrusted input, and use `memory_forget` or delete the
   database to drop one. Nothing limits how many notes accumulate.
+- **Hooks are your code.** A command hook runs with your privileges and the app's environment, in your project or chat
+  folder, whenever its event fires, and does whatever its text says. The app cannot judge a command: it runs only what you
+  wrote or approved in the exact version you saw, and a changed file is pending again. Read what an agent proposes before
+  you approve it, and note that approving a hook trusts its author for every later run. A command's own network or file
+  access is outside the app. `redact_text` on its output is a heuristic, and hook texts and commands are not scanned for
+  secrets. What a hook adds to a prompt goes to your model provider and stays in the harness's session file. Anything that
+  can write the app's config folder as you can approve a hook (see [Hooks](#hooks)). A follow-up hook costs one more
+  model request per user run that earns one. On Windows a timed-out command kills only its direct child (see Windows
+  above). A project hook matches the project root by its exact path, so a project that moves loses its project hooks until
+  they are saved again.
 - **Heuristics.** The entropy rule and key-name rules can hide harmless values and can miss unusual secrets. The same
   holds for Share setup: secret flags and machine paths in free-form MCP arguments and URLs are detected by patterns,
   so an exotic form can be missed on export, and host names are always part of what is shared.

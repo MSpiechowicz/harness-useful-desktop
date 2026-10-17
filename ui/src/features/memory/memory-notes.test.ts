@@ -9,7 +9,7 @@ import { nav } from '$lib/stores/nav.svelte';
 import { toasts } from '$lib/stores/toasts.svelte';
 import { viewState } from '$lib/stores/view-state.svelte';
 
-import { calls, fakeMemory, noteRow, PROJECT, registerMemoryHooks, showNotes } from './memory-test-support';
+import { calls, fakeMemory, noteRow, PROJECT, pickFilter, registerMemoryHooks, showNotes } from './memory-test-support';
 import MemoryView from './MemoryView.svelte';
 
 registerMemoryHooks();
@@ -43,23 +43,17 @@ describe('notes table', () => {
     expect(within(noteRow(4) as HTMLElement).getByText('Fix⟨U+202E⟩ gnirts')).toBeInTheDocument();
   });
 
-  it('counts every kind in a chip and asks the server for one kind when its chip is chosen', async () => {
+  it('asks the server for one kind when it is chosen, and keeps the counts of the others', async () => {
     const invoke = fakeMemory();
     await showNotes();
 
-    expect(screen.getByRole('radio', { name: /^All kinds 70/ })).toHaveAttribute('aria-checked', 'true');
-    const decisions = screen.getByRole('radio', { name: /^Decisions/ });
-    for (const name of ['Fixes', 'Problems', 'Outcomes', 'Optimisations', 'Locations', 'Notes']) {
-      expect(screen.getByRole('radio', { name: new RegExp(`^${name}`) })).toBeInTheDocument();
-    }
-
-    await fireEvent.click(decisions);
+    await pickFilter('Kind: All', /^Decision/);
 
     await waitFor(() => expect(calls(invoke, 'memory_notes_list').at(-1)).toMatchObject({ kind: 'decision', offset: 0 }));
     await waitFor(() => expect(noteRow(4)).toBeNull());
     expect(noteRow(3)).not.toBeNull();
-    // The other chips keep their counts: the kinds are counted under the search, not under the chosen kind.
-    expect(screen.getByRole('radio', { name: /^All kinds 70/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Kind: Decision' })).toBeInTheDocument();
+    expect(screen.getByText('11 notes')).toBeInTheDocument();
   });
 
   it('turns the pages and says where the user is', async () => {
@@ -89,7 +83,7 @@ describe('notes table', () => {
     await waitFor(() => expect(calls(invoke, 'memory_notes_list').at(-1)).toMatchObject({ query: 'dmabuf', offset: 0 }));
     await waitFor(() => expect(noteRow(3)).toBeNull());
     expect(noteRow(4)).not.toBeNull();
-    expect(screen.getByRole('radio', { name: /^All kinds 1/ })).toBeInTheDocument();
+    expect(screen.getByText('1 note')).toBeInTheDocument();
 
     await fireEvent.input(screen.getByRole('searchbox', { name: 'Search notes' }), { target: { value: 'zzz-nothing' } });
 

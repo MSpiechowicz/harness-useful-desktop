@@ -20,6 +20,9 @@ export const shell = {
   'shell.view.memory': 'Memory',
   'shell.view.memory.heading': 'What your agents remember',
   'shell.view.memory.body': 'Read and delete the scripts your agents saved for repeated actions.',
+  'shell.view.hooks': 'Hooks',
+  'shell.view.hooks.heading': 'What happens around your chats',
+  'shell.view.hooks.body': 'Add context, send follow-ups or run commands at set moments of an agent chat.',
   'shell.view.settings': 'Settings',
   'shell.view.settings.heading': 'Settings',
   'shell.view.settings.body': 'Theme, motion and startup behavior.',
@@ -51,6 +54,8 @@ export const shell = {
   'shell.count.file.other': '{count} files',
   'shell.count.changedFile.one': '{count} changed file',
   'shell.count.changedFile.other': '{count} changed files',
+  'shell.count.hooksToApprove.one': '{count} hook to approve',
+  'shell.count.hooksToApprove.other': '{count} hooks to approve',
 
 
   'shell.toast.noHarness.title': 'No harness to chat with',

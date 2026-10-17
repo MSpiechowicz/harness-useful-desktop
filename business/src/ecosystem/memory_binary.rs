@@ -1,6 +1,6 @@
 //! The `harness-memory` server (Harness Memory) on this machine: where it is ([`resolve_memory`]),
 //! the version it reports ([`memory_version`]), and both together ([`installed_memory`]), which is
-//! what the harnesses' MCP entries name and recalls run.
+//! what the harnesses' MCP entries name.
 //!
 //! The app does not ship the server: the setup step and the "Project memory" switch run its
 //! installer (see [`super::installer`]). Since the resolved path is written into every harness's

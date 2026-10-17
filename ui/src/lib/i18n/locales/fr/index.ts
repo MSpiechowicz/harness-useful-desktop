@@ -14,6 +14,7 @@ import { harness } from './harness';
 import { components } from './components';
 import { sync } from './sync';
 import { memory } from './memory';
+import { hooks } from './hooks';
 
 export const fr: Dict = {
   ...common,
@@ -31,4 +32,5 @@ export const fr: Dict = {
   ...components,
   ...sync,
   ...memory,
+  ...hooks,
 };

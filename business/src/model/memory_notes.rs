@@ -7,7 +7,7 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use super::memory_scripts::{MemoryScriptsAvailability, ScriptAuthor, ScriptPlace, ScriptScope};
+use super::memory_scripts::{MemoryScopeCounts, MemoryScriptsAvailability, ScriptAuthor, ScriptPlace, ScriptScope};
 
 /// What a note records.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
@@ -155,7 +155,7 @@ pub struct NoteDetail {
 pub struct NoteKindCount {
     /// The kind.
     pub kind: NoteKind,
-    /// Its notes under the current query (every kind, whatever `kind` was asked for).
+    /// Its notes under the current query and scope (every kind, whatever `kind` was asked for).
     pub count: u32,
 }
 
@@ -166,10 +166,17 @@ pub struct NoteKindCount {
 pub struct MemoryNotesPage {
     /// Whether the notes could be read.
     pub availability: MemoryScriptsAvailability,
-    /// How many notes match the query and kind (all pages).
+    /// How many notes match the query, kind and scope (all pages).
     pub total: u32,
-    /// The notes of each kind under the query, whatever kind was asked for.
+    /// The notes of each kind under the query and scope, whatever kind was asked for.
     pub kinds: Vec<NoteKindCount>,
+    /// The notes of each scope under the query and kind; `None` from a server that does not
+    /// combine filters.
+    pub scopes: Option<MemoryScopeCounts>,
+    /// Whether the server combines `scope` with `kind` (and answered the scope counts): false
+    /// from an older one, whose list then follows the query and kind only (a `scope` asked for
+    /// was dropped).
+    pub combined_filters: bool,
     /// This page, as the server sorts it.
     pub notes: Vec<NoteSummary>,
 }

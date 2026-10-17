@@ -77,8 +77,6 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.memory.manual.copy': 'Copier le nom de l’entrée',
   'settings.memory.manual.dismiss': 'Terminé',
 
-  'settings.memoryRecall.title': 'Ajouter la mémoire aux nouvelles conversations',
-  'settings.memoryRecall.description': "Au premier message d'une nouvelle conversation, les notes pertinentes de la mémoire du projet sont ajoutées pour l'agent. Elles sont envoyées à votre fournisseur de modèle avec le message.",
 
   'settings.memoryRemote.title': 'Mémoire distante',
   'settings.memoryRemote.description': "Partagez la mémoire du projet avec votre équipe via une seule base de données. Les harnesses de chaque coéquipier y lisent et y écrivent. Votre mémoire locale n'est pas utilisée tant que ceci est activé.",

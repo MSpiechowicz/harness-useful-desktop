@@ -107,10 +107,4 @@ chatDefaults: Array<ChatDefaults>,
  * detected harness's user MCP file at launch and after its install (default on). Server-managed:
  * only `memory_set_enabled` changes it, since turning it off also removes the app's entries.
  */
-memoryEnabled: boolean, 
-/**
- * Whether a chat message is sent with the project-memory notes found for it in front, as a
- * `<harness-memory-recall>` block (default on; files written before it existed turn it on).
- * Only applies while `memory_enabled` is on. UI-managed.
- */
-memoryRecall: boolean, };
+memoryEnabled: boolean, };

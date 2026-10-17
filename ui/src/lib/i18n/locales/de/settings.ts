@@ -77,8 +77,6 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.memory.manual.copy': 'Eintragsnamen kopieren',
   'settings.memory.manual.dismiss': 'Erledigt',
 
-  'settings.memoryRecall.title': 'Gedächtnis zu neuen Chats hinzufügen',
-  'settings.memoryRecall.description': 'Bei der ersten Nachricht eines neuen Chats werden passende Notizen aus dem Projektgedächtnis für den Agenten ergänzt. Sie werden zusammen mit der Nachricht an deinen Modellanbieter gesendet.',
 
   'settings.memoryRemote.title': 'Remote-Gedächtnis',
   'settings.memoryRemote.description': 'Teile das Projektgedächtnis mit deinem Team über eine Datenbank. Die Harnesses aller Teammitglieder lesen und schreiben darin. Dein lokales Gedächtnis wird nicht verwendet, solange dies aktiv ist.',

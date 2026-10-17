@@ -28,7 +28,8 @@ use serde_json::Value;
 
 use super::memory_scripts::parse;
 use crate::agent::rfc3339;
-use crate::env::{Env, OsKind};
+use crate::app_dirs::shared_data_dir;
+use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::fs_atomic::{refuse_link, replace_atomically};
 use crate::model::{ScriptPreviousVersion, ScriptRequestEvent, ScriptRunRequest, ScriptStdin};
@@ -71,23 +72,7 @@ const APP_FOLDER: &str = "harness-memory";
 /// (absolute only) on Windows, followed by `harness-memory`. `None` on Windows while
 /// `LOCALAPPDATA` is unset.
 pub fn memory_data_dir(env: &Env) -> Option<PathBuf> {
-    let rooted = |name: &str| env.var(name).map(PathBuf::from).filter(|dir| dir.has_root());
-
-    if let Some(dir) = env
-        .var(DIR_VAR)
-        .map(|dir| env.expand_home(dir))
-        .filter(|dir| dir.has_root())
-    {
-        return Some(dir);
-    }
-
-    let base = match env.os {
-        OsKind::Linux => rooted("XDG_DATA_HOME").unwrap_or_else(|| env.home_join(".local/share")),
-        OsKind::MacOs => env.home_join("Library/Application Support"),
-        OsKind::Windows => rooted("LOCALAPPDATA")?,
-    };
-
-    Some(base.join(APP_FOLDER))
+    shared_data_dir(env, DIR_VAR, APP_FOLDER)
 }
 
 /// Touches `<data_dir>/desktop.alive` (created `0600` when missing). `false`, with nothing written,

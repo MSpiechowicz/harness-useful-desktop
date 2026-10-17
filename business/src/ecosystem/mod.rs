@@ -12,11 +12,12 @@
 //! - [`memory_binary`]: the installed `harness-memory` server and its version.
 //! - [`memory_register`]: that server in a harness's user MCP file, [`memory_record`]: the files
 //!   the app registered it in, and [`memory_migrate`]: the old copy of the bundled server retired.
+//! - [`desktop_register`]: the app's own MCP server (`harness-desktop mcp`, hooks for agents) in a
+//!   harness's user MCP file, and [`desktop_record`]: the files the app registered it in.
 //! - [`mcp_client`]: a minimal MCP stdio client, and [`mcp_pool`]: one such client kept running
 //!   between requests.
 //! - [`memory_remote`]: the shared team database in Harness Memory's own config file, and
 //!   `harness-memory check` against it.
-//! - [`memory_recall`]: the notes `harness-memory` finds for a chat message, put in front of it.
 //! - [`releases`]: the latest GitHub release of each installed tool (`ecosystem_releases`).
 //! - [`dashboard`]: the pooled `harness-dashboard mcp` connection (`dashboard_query`,
 //!   `dashboard_availability`).
@@ -32,6 +33,8 @@
 
 pub mod catalog;
 pub mod dashboard;
+pub mod desktop_record;
+pub mod desktop_register;
 pub mod detect;
 pub mod installer;
 pub mod mcp_client;
@@ -42,20 +45,22 @@ pub mod memory_binary;
 pub mod memory_cli;
 pub mod memory_migrate;
 pub mod memory_notes;
-pub mod memory_recall;
 pub mod memory_record;
 pub mod memory_register;
 pub mod memory_remote;
 pub mod memory_requests;
 pub mod memory_scripts;
+mod memory_scripts_list;
 pub mod memory_trust;
-mod recall_scripts;
-mod recall_text;
 pub mod releases;
 pub mod setup;
 
 pub use catalog::{ECOSYSTEM, catalog_item, supported_on};
 pub use dashboard::{Dashboard, DashboardOptions, resolve_dashboard};
+pub use desktop_record::{DESKTOP_RECORD_FILE, DesktopRecord, DesktopRecordEntry};
+pub use desktop_register::{
+    DESKTOP_MCP_SERVER, DesktopRegistration, app_command, current_app_command, desktop_mcp_state, register_desktop_mcp,
+};
 pub use detect::ecosystem_status;
 pub use installer::{Companion, InstallerSpec, installer, run_installer, run_installer_with};
 pub use mcp_client::{McpClient, McpOptions, McpTool, ToolOutput};
@@ -66,7 +71,6 @@ pub use memory_binary::{installed_memory, memory_version, parse_memory_version, 
 pub use memory_cli::ListWindow;
 pub use memory_migrate::{LegacyCopy, LegacyMigration, migrate_legacy_memory};
 pub use memory_notes::{NotesQuery, delete_all_notes, delete_note, get_note, list_notes};
-pub use memory_recall::{MemoryRecall, RecallOutcome, RecallReason, WarmRecall};
 pub use memory_record::{MEMORY_RECORD_FILE, MemoryRecord, RecordedFile};
 pub use memory_register::{
     MemoryRegistration, names_command, register_memory_mcp, repoint_memory_mcp, unregister_memory_mcp,

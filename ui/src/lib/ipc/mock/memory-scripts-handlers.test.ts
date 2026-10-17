@@ -37,6 +37,49 @@ describe('mock scripts', () => {
     expect(searched.groups).toEqual({ needsReview: 0, repo: 1, global: 0 });
   });
 
+  it('combines the scope with the review: scopes are counted under the review, the review under the scope, and the total follows both', () => {
+    const handlers = memoryScriptsHandlers(() => 'ok');
+    const list = (args: Partial<Parameters<typeof handlers.memory_scripts_list>[0]>) => handlers.memory_scripts_list({ project: '/work/app', offset: 0, ...args });
+    const names = (page: ReturnType<typeof list>) => page.scripts.map((script) => script.name).sort();
+
+    expect(list({})).toMatchObject({ combinedFilters: true, total: 5, scopes: { repo: 4, global: 1 }, review: { needed: 2, trusted: 3 } });
+
+    const global = list({ scope: 'global' });
+    expect(names(global)).toEqual(['disk-hogs']);
+    expect(global.review).toEqual({ needed: 1, trusted: 0 });
+    expect(global.scopes).toEqual({ repo: 4, global: 1 });
+
+    const trusted = list({ review: 'trusted' });
+    expect(names(trusted)).toEqual(['ci-status', 'lint-changed', 'open-prs']);
+    expect(trusted.scopes).toEqual({ repo: 3, global: 0 });
+    expect(trusted.review).toEqual({ needed: 2, trusted: 3 });
+
+    const both = list({ scope: 'repo', review: 'needed' });
+    expect(names(both)).toEqual(['deploy-check']);
+    expect(both.total).toBe(1);
+    expect(both.scopes).toEqual({ repo: 1, global: 1 });
+    expect(both.review).toEqual({ needed: 1, trusted: 3 });
+  });
+
+  it('refuses a group asked for together with a scope or a review, like the server', () => {
+    const handlers = memoryScriptsHandlers(() => 'ok');
+
+    for (const extra of [{ scope: 'repo' }, { review: 'needed' }] as const) {
+      expect(() => handlers.memory_scripts_list({ project: '/work/app', offset: 0, group: 'repo', ...extra })).toThrow('group cannot be combined');
+    }
+  });
+
+  it('answers like an older server on request: the scope and review are dropped, the group still keeps, and nothing is counted by them', () => {
+    const handlers = memoryScriptsHandlers(() => 'ok', () => false);
+
+    const page = handlers.memory_scripts_list({ project: '/work/app', offset: 0, scope: 'global', review: 'trusted' });
+    expect(page).toMatchObject({ combinedFilters: false, scopes: null, review: null, total: 5 });
+
+    const group = handlers.memory_scripts_list({ project: '/work/app', offset: 0, group: 'needsReview' });
+    expect(group.scripts.map((script) => script.name).sort()).toEqual(['deploy-check', 'disk-hogs']);
+    expect(group.groups).toEqual({ needsReview: 2, repo: 4, global: 1 });
+  });
+
   it('sorts by every column like the server, a script never run last either way, and pages in that order', () => {
     const handlers = memoryScriptsHandlers(() => 'ok');
     const sorted = (sort: Parameters<typeof handlers.memory_scripts_list>[0]['sort'], order: 'asc' | 'desc', offset = 0, limit = 50) =>

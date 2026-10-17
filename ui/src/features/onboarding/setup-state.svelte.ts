@@ -2,6 +2,7 @@ import { t } from '$lib/i18n/i18n.svelte';
 import { ipc } from '$lib/ipc/client';
 import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
 import type { HarnessSetup } from '$lib/ipc/bindings/HarnessSetup';
+import type { McpState } from '$lib/ipc/bindings/McpState';
 import type { RecommendedSetup } from '$lib/ipc/bindings/RecommendedSetup';
 import { IpcFailure, type Transport } from '$lib/ipc/transport';
 import { ecosystem } from '$lib/stores/ecosystem.svelte';
@@ -189,10 +190,10 @@ export class SetupController {
       return false;
     }
 
-    // An MCP entry runs its companion, so that has to be installed already or be part of the run.
+    // An MCP entry runs its companion, so that has to be installed already or be part of the run. The app's own entry runs the app.
     const companion = MCP_COMPANION[kind];
 
-    return entry[kind].type === 'missing' && (this.data[companion].installed || (this.companionSelectable(companion) && !this.off[companion]));
+    return entry[kind].type === 'missing' && (companion === null || this.data[companion].installed || (this.companionSelectable(companion) && !this.off[companion]));
   }
 
   isSelected(key: SetupKey): boolean {
@@ -218,6 +219,9 @@ export class SetupController {
     }
     for (const entry of data.harnesses) {
       keys.push(`memoryMcp:${entry.harness}`);
+    }
+    for (const entry of data.harnesses) {
+      keys.push(`desktopMcp:${entry.harness}`);
     }
 
     return keys.filter((key) => this.isSelected(key));
@@ -271,7 +275,7 @@ export class SetupController {
 
     // Both servers usually go into the same file, which is then listed once with both entries.
     const files = new Map<string, PlannedFile>();
-    for (const kind of ['mcp', 'memoryMcp'] as const) {
+    for (const kind of ['mcp', 'memoryMcp', 'desktopMcp'] as const) {
       for (const entry of data.harnesses) {
         const mcp = entry[kind];
         if (!this.isSelected(`${kind}:${entry.harness}`) || mcp.type !== 'missing') {
@@ -336,6 +340,10 @@ export class SetupController {
           }
           if (this.picked.has(`memoryMcp:${entry.harness}`)) {
             await this.registerMcp('memoryMcp', entry.harness, await memory);
+          }
+          // The three entries go into the same file one after the other. The app's own needs no installer.
+          if (this.picked.has(`desktopMcp:${entry.harness}`)) {
+            await this.registerMcp('desktopMcp', entry.harness, true);
           }
         }),
       ]);
@@ -414,6 +422,17 @@ export class SetupController {
     }
   }
 
+  private register(kind: McpKind, harness: HarnessId): Promise<McpState> {
+    switch (kind) {
+      case 'mcp':
+        return this.transport.invoke('setup_register_mcp', { harness });
+      case 'memoryMcp':
+        return this.transport.invoke('setup_register_memory', { harness });
+      case 'desktopMcp':
+        return this.transport.invoke('setup_register_desktop_mcp', { harness });
+    }
+  }
+
   /** Adds one MCP entry; one whose companion did not install is skipped, like the dashboard's entry always was. */
   private async registerMcp(kind: McpKind, harness: HarnessId, companionOk: boolean): Promise<void> {
     const key: SetupKey = `${kind}:${harness}`;
@@ -426,7 +445,7 @@ export class SetupController {
     this.set(key, 'running');
 
     try {
-      const state = await (kind === 'mcp' ? this.transport.invoke('setup_register_mcp', { harness }) : this.transport.invoke('setup_register_memory', { harness }));
+      const state = await this.register(kind, harness);
 
       if (state.type === 'configured') {
         this.set(key, 'done');

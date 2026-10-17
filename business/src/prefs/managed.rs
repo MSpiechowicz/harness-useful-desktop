@@ -80,7 +80,6 @@ pub fn with_ui_fields(stored: AppPrefs, ui: &AppPrefs) -> AppPrefs {
         onboarding_completed,
         approval_notice_seen,
         chat_defaults,
-        memory_recall,
         // Server-managed: kept from `stored`.
         active_project: _,
         recent_projects: _,
@@ -106,7 +105,6 @@ pub fn with_ui_fields(stored: AppPrefs, ui: &AppPrefs) -> AppPrefs {
         onboarding_completed,
         approval_notice_seen,
         chat_defaults,
-        memory_recall,
         ..stored
     }
 }

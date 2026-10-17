@@ -84,28 +84,6 @@ describe('SettingsView', () => {
     invoke.mockRestore();
   });
 
-  it('saves "Add memory to new chats" as a plain preference and disables it while project memory is off', async () => {
-    const invoke = vi.spyOn(ipc, 'invoke');
-    render(SettingsView);
-    const recall = screen.getByRole('switch', { name: 'Add memory to new chats' });
-    expect(recall).toHaveAttribute('aria-checked', 'true');
-    expect(recall).toBeEnabled();
-
-    await fireEvent.click(recall);
-
-    expect(invoke).toHaveBeenCalledWith('prefs_set', { prefs: expect.objectContaining({ memoryRecall: false }) });
-    await waitFor(() => expect(prefs.value?.memoryRecall).toBe(false));
-    expect(screen.getByRole('switch', { name: 'Add memory to new chats' })).toHaveAttribute('aria-checked', 'false');
-
-    await fireEvent.click(screen.getByRole('switch', { name: 'Project memory' }));
-
-    await waitFor(() => expect(screen.getByRole('switch', { name: 'Add memory to new chats' })).toBeDisabled());
-
-    await fireEvent.click(screen.getByRole('switch', { name: 'Project memory' }));
-    await waitFor(() => expect(screen.getByRole('switch', { name: 'Add memory to new chats' })).toBeEnabled());
-    invoke.mockRestore();
-  });
-
   it('scrolls to the section the command palette asked for', async () => {
     viewState.settingsTarget = 'projects';
 
