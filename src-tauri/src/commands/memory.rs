@@ -69,9 +69,8 @@ async fn set_enabled(state: &AppState, enabled: bool) -> CommandResult<MemorySwi
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
-    use std::sync::Arc;
 
-    use harness_business::ecosystem::{MEMORY_RECORD_FILE, MemoryRegistration};
+    use harness_business::ecosystem::MEMORY_RECORD_FILE;
     use harness_business::model::{HarnessId, ManualRemoval};
     use serde_json::{Value, json};
     use tauri::async_runtime::block_on;
@@ -79,7 +78,7 @@ mod tests {
     use super::*;
     use crate::memory_setup::{after_install, on_launch};
     use crate::test_support::{
-        TempDir, cache_detection, home_state, omp_mcp_file, place_companion, place_executable, place_memory_server,
+        TempDir, cache_detection, home_state, omp_mcp_file, place_companion, place_memory_server,
     };
 
     /// A state with only OMP detected as installed.
@@ -276,6 +275,12 @@ mod tests {
     // `~/.local/bin` is the installer's folder only on Linux and macOS (Windows has its own, tested apart).
     #[cfg(unix)]
     fn the_installers_server_is_registered_over_a_silent_one_on_path() {
+        use std::sync::Arc;
+
+        use harness_business::ecosystem::MemoryRegistration;
+
+        use crate::test_support::place_executable;
+
         let dir = TempDir::new("memory-shadowed");
         let mut state = state(&dir);
         let bun = dir.path().join("home").join(".bun").join("bin");

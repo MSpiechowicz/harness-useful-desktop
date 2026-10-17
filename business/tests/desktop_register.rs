@@ -243,7 +243,10 @@ fn a_file_with_comments_is_never_written_and_the_state_has_the_entry_to_paste() 
     };
     assert_eq!(shown, "~/.config/opencode/opencode.jsonc");
     assert!(snippet.starts_with("\"harness-desktop\": {"));
-    assert!(snippet.contains(&app.command()));
+
+    // The snippet is JSON: a Windows path has its backslashes escaped in it.
+    let pasted: Value = serde_json::from_str(&format!("{{{snippet}}}")).expect("the snippet is a JSON member");
+    assert_eq!(pasted["harness-desktop"]["command"], json!([app.command(), "mcp"]));
 }
 
 #[test]

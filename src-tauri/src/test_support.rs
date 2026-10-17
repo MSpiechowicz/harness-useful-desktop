@@ -57,11 +57,15 @@ pub fn home_state(dir: &TempDir) -> AppState {
     let home = dir.path().join("home");
     std::fs::create_dir_all(&home).expect("create home");
 
-    // Windows keeps the app's per-machine data (the old copy of the memory server) in %LOCALAPPDATA%.
-    let local = home.join("AppData").join("Local");
-    let env = Env::for_tests(&home).with_var("LOCALAPPDATA", local.to_string_lossy());
+    AppState::new(dir.path().join("config"), home_env(&home))
+}
 
-    AppState::new(dir.path().join("config"), env)
+/// The environment of a user whose home is `home`. Windows keeps the app's per-machine data (the
+/// hooks, the old copy of the memory server) in `%LOCALAPPDATA%`, here `<home>/AppData/Local`.
+pub fn home_env(home: &Path) -> Env {
+    let local = home.join("AppData").join("Local");
+
+    Env::for_tests(home).with_var("LOCALAPPDATA", local.to_string_lossy())
 }
 
 /// Places an empty executable `name` (`.exe` on Windows) in `<home>/.local/bin`, where companion
@@ -157,7 +161,7 @@ impl ProjectHome {
         let dir = TempDir::new(name);
         let home = dir.path().join("home");
         let project = home.join("demo");
-        let state = state_with_project(&dir, Env::for_tests(&home), &project);
+        let state = state_with_project(&dir, home_env(&home), &project);
         let stranger = home.join("stranger");
         std::fs::create_dir_all(&stranger).expect("create stranger");
 
@@ -312,7 +316,7 @@ pub fn agent_setup(binary: &Path, scenario: &str) -> AgentSetup {
     let project = home.join("demo");
     std::fs::create_dir_all(project.join("src")).expect("create project");
 
-    let mut state = AppState::new(dir.path().join("config"), Env::for_tests(&home));
+    let mut state = AppState::new(dir.path().join("config"), home_env(&home));
     state.prefs.with(|store| {
         Projects::new(store, &state.env).open(&project).expect("open project");
     });

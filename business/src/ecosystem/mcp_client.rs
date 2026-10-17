@@ -201,8 +201,14 @@ impl McpClient {
 
         self.next_id += 1;
         let id = self.next_id;
-        self.send(&json!({ "jsonrpc": "2.0", "id": id, "method": method, "params": params }))
-            .await?;
+
+        // A server that exited fails the write or the read, whichever comes first: one error either way.
+        if !self
+            .write(&json!({ "jsonrpc": "2.0", "id": id, "method": method, "params": params }))
+            .await
+        {
+            return Err(exited_before_answering(method));
+        }
 
         let waited = tokio::time::timeout(self.options.request_timeout, self.answer(id, method)).await;
 
@@ -220,8 +226,14 @@ impl McpClient {
 
     /// Sends notification `method` (no answer is expected).
     pub async fn notify(&mut self, method: &str, params: Value) -> Result<()> {
-        self.send(&json!({ "jsonrpc": "2.0", "method": method, "params": params }))
+        if !self
+            .write(&json!({ "jsonrpc": "2.0", "method": method, "params": params }))
             .await
+        {
+            return Err(BusinessError::Process("the MCP server is no longer running".to_owned()));
+        }
+
+        Ok(())
     }
 
     /// Closes stdin, waits up to 2 s for the server to exit, then kills its process group.
@@ -257,9 +269,12 @@ impl McpClient {
         self.notify("notifications/initialized", json!({})).await
     }
 
-    async fn send(&mut self, message: &Value) -> Result<()> {
+    /// Writes `message` to the server. False when it cannot take it (it exited, or its input is
+    /// closed), which retires the client.
+    async fn write(&mut self, message: &Value) -> bool {
         let Some(stdin) = self.stdin.as_mut() else {
-            return Err(BusinessError::Process("the MCP server's input is closed".to_owned()));
+            self.usable = false;
+            return false;
         };
 
         let written = async {
@@ -269,10 +284,10 @@ impl McpClient {
 
         if written.await.is_err() {
             self.usable = false;
-            return Err(BusinessError::Process("the MCP server is no longer running".to_owned()));
+            return false;
         }
 
-        Ok(())
+        true
     }
 
     /// Reads until the answer to request `id` arrives.
@@ -280,9 +295,7 @@ impl McpClient {
         loop {
             let Some(frame) = self.reader.next_frame().await else {
                 self.usable = false;
-                return Err(BusinessError::Process(format!(
-                    "the MCP server exited before answering {method}"
-                )));
+                return Err(exited_before_answering(method));
             };
 
             let message = match frame {
@@ -307,6 +320,11 @@ impl McpClient {
             return Ok(message.get("result").cloned().unwrap_or(Value::Null));
         }
     }
+}
+
+/// The server exited before it answered request `method`.
+fn exited_before_answering(method: &str) -> BusinessError {
+    BusinessError::Process(format!("the MCP server exited before answering {method}"))
 }
 
 /// A JSON-RPC error as a [`BusinessError::Protocol`] with the server's (redacted, clipped) message.

@@ -155,6 +155,35 @@ async fn a_rejected_handshake_fails_to_connect() {
     assert!(error.to_string().contains("initialize failed (-32602)"), "{error}");
 }
 
+/// Hands out one server process that has already exited, so the handshake's write fails before
+/// any read.
+struct ExitedServer(Mutex<Option<SpawnedProcess>>);
+
+impl ProcessSpawner for ExitedServer {
+    fn spawn(&self, _spec: &ExecSpec) -> harness_business::Result<SpawnedProcess> {
+        Ok(self.0.lock().unwrap().take().expect("spawned once"))
+    }
+}
+
+#[tokio::test]
+async fn a_server_that_exited_before_the_handshake_is_reported_as_such() {
+    // `fake_agent` without a dialect exits at once with its usage.
+    let spec = ExecSpec::new(env!("CARGO_BIN_EXE_fake_agent"));
+    let mut process = TokioSpawner.spawn(&spec).expect("fake_agent starts");
+    process.child.wait().await.expect("fake_agent exits");
+    let spawner = ExitedServer(Mutex::new(Some(process)));
+
+    let error = McpClient::connect(&spawner, &spec, quick())
+        .await
+        .expect_err("nothing answers");
+
+    assert!(matches!(error, BusinessError::Process(_)), "{error:?}");
+    assert!(
+        error.to_string().contains("exited before answering initialize"),
+        "{error}"
+    );
+}
+
 /// Starts `fake_agent` with a scenario for every spawn and records the requested specs.
 struct ServerSpawner {
     scenario: &'static str,
