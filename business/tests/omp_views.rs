@@ -4,7 +4,7 @@ mod common;
 
 use std::path::Path;
 
-use common::{demo_project, env_at, exported, omp_home};
+use common::{big_dirs, demo_project, env_at, exported, omp_home, within, write_file};
 use harness_business::env::Env;
 use harness_business::harness::Harness;
 use harness_business::harnesses::Omp;
@@ -324,24 +324,11 @@ fn a_project_listing_too_much_cannot_hide_the_users_modules() {
     write_file(&agent.join("config.yml"), "extensions:\n  - ~/mods\n");
 
     // 21 directories of 2000 files are more than one layer's 40 000 scan steps.
-    let listed: Vec<String> = (0..21)
-        .map(|index| {
-            let dir = temp.path().join(format!("big/d{index:02}"));
-            std::fs::create_dir_all(&dir).unwrap();
-            for file in 0..2000 {
-                std::fs::write(dir.join(format!("f{file:04}")), "").unwrap();
-            }
-
-            dir.to_string_lossy().into_owned()
-        })
-        .collect();
+    let listed = big_dirs(&temp.path().join("big"), 21, 2000, "");
     let legacy = serde_json::json!({ "extensions": listed });
     write_file(&project.join(".omp/settings.json"), &legacy.to_string());
 
-    let started = std::time::Instant::now();
-    let view = extensions(&env_at(&home), Some(&project));
-    let elapsed = started.elapsed();
-    assert!(elapsed.as_secs_f32() < 5.0, "{elapsed:?}");
+    let view = within(5.0, || extensions(&env_at(&home), Some(&project)));
 
     let names: Vec<&str> = view
         .extension_modules
@@ -351,11 +338,6 @@ fn a_project_listing_too_much_cannot_hide_the_users_modules() {
     assert_eq!(names, ["evil", "user-mod", "listed-user"]);
     assert!(has_truncation_notice(&view, PROJECT_TRUNCATED));
     assert!(!has_truncation_notice(&view, USER_TRUNCATED));
-}
-
-fn write_file(path: &Path, content: &str) {
-    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
-    std::fs::write(path, content).unwrap();
 }
 
 /// A `SKILL.md` without a `name` whose frontmatter holds `keys` extra keys of 12 bytes each.
@@ -387,10 +369,7 @@ fn links_to_one_skill_read_it_once_and_huge_frontmatter_is_skipped() {
         symlink(&huge, skills.join(format!("b{index:04}"))).unwrap();
     }
 
-    let started = std::time::Instant::now();
-    let view = extensions(&env_at(&home), None);
-    let elapsed = started.elapsed();
-    assert!(elapsed.as_secs_f32() < 2.0, "{elapsed:?}");
+    let view = within(2.0, || extensions(&env_at(&home), None));
 
     // Named after the first link: the others resolve to the same directory.
     let names: Vec<&str> = view.skills.iter().map(|skill| skill.name.as_str()).collect();

@@ -5,7 +5,7 @@ mod common;
 
 use std::path::{Path, PathBuf};
 
-use common::env_at;
+use common::{env_at, write_file};
 use harness_business::harness::Harness;
 use harness_business::harnesses::Pi;
 use harness_business::model::{ExtensionScope, ExtensionsView, PackageInfo, SkillInfo};
@@ -42,11 +42,11 @@ impl Fixture {
     }
 
     fn user_settings(&self, settings: serde_json::Value) {
-        write(&self.agent_dir().join("settings.json"), &settings.to_string());
+        write_file(&self.agent_dir().join("settings.json"), &settings.to_string());
     }
 
     fn project_settings(&self, settings: serde_json::Value) {
-        write(&self.project.join(".pi/settings.json"), &settings.to_string());
+        write_file(&self.project.join(".pi/settings.json"), &settings.to_string());
     }
 
     /// The checkout PI clones the harness-useful-skills repository into: no `pi` manifest (only an
@@ -55,15 +55,23 @@ impl Fixture {
         let dir = self
             .agent_dir()
             .join("git/github.com/MSpiechowicz/harness-useful-skills");
-        write(
+        write_file(
             &dir.join("package.json"),
             r#"{ "name": "harness-useful-skills", "omp": { "extensions": ["./extension.js"] } }"#,
         );
-        write(&dir.join("extension.js"), "export default function () {}");
+        write_file(&dir.join("extension.js"), "export default function () {}");
         write_skill(&dir.join("skills/us-implement"), "us-implement");
         write_skill(&dir.join("skills/us-grill-me"), "us-grill-me");
 
         dir
+    }
+
+    /// The user view with harness-useful-skills installed and `packages` as the user's list.
+    fn skills_repo_view(&self, packages: serde_json::Value) -> ExtensionsView {
+        self.user_settings(serde_json::json!({ "packages": packages }));
+        self.install_skills_repo();
+
+        self.view(false)
     }
 
     fn view(&self, project: bool) -> ExtensionsView {
@@ -73,16 +81,15 @@ impl Fixture {
     }
 }
 
-fn write(path: &Path, content: &str) {
-    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
-    std::fs::write(path, content).unwrap();
-}
-
 fn write_skill(dir: &Path, name: &str) {
-    write(
+    write_file(
         &dir.join("SKILL.md"),
         &format!("---\nname: {name}\ndescription: The {name} skill.\n---\n"),
     );
+}
+
+fn package_names(view: &ExtensionsView) -> Vec<&str> {
+    view.packages.iter().map(|package| package.name.as_str()).collect()
 }
 
 fn package<'a>(view: &'a ExtensionsView, name: &str) -> &'a PackageInfo {
@@ -133,7 +140,8 @@ fn a_user_git_package_lists_its_skills_from_the_clone() {
         ]
     );
     let first = dir.join("skills/us-grill-me/SKILL.md");
-    assert_eq!(view.skills[0].path, first.to_string_lossy());
+    // Compared as paths: on Windows the expected path mixes `/` and `\`.
+    assert_eq!(Path::new(&view.skills[0].path), first);
 
     // The `omp` manifest is not PI's: its extension is not a PI module.
     assert!(view.extension_modules.is_empty());
@@ -178,13 +186,13 @@ fn project_git_and_npm_packages_install_under_the_project_pi_dir() {
         "review",
     );
     let kit = fixture.project.join(".pi/npm/node_modules/@team/pi-kit");
-    write(
+    write_file(
         &kit.join("package.json"),
         r#"{ "name": "@team/pi-kit", "pi": { "skills": ["./resources/skills"], "prompts": ["./prompts/*.md"] } }"#,
     );
     write_skill(&kit.join("resources/skills/kit-skill"), "kit-skill");
     write_skill(&kit.join("skills/undeclared"), "undeclared");
-    write(&kit.join("prompts/triage.md"), "---\ndescription: Triage.\n---\n");
+    write_file(&kit.join("prompts/triage.md"), "---\ndescription: Triage.\n---\n");
 
     let view = fixture.view(true);
 
@@ -209,10 +217,7 @@ fn project_git_and_npm_packages_install_under_the_project_pi_dir() {
 #[test]
 fn an_empty_skills_filter_hides_the_package_skills() {
     let fixture = Fixture::new();
-    fixture.user_settings(serde_json::json!({ "packages": [{ "source": SKILLS_REPO, "skills": [] }] }));
-    fixture.install_skills_repo();
-
-    let view = fixture.view(false);
+    let view = fixture.skills_repo_view(serde_json::json!([{ "source": SKILLS_REPO, "skills": [] }]));
 
     assert!(package(&view, "harness-useful-skills").resources.is_empty());
     assert!(view.skills.is_empty());
@@ -261,7 +266,7 @@ fn nothing_outside_the_package_directory_is_read() {
     symlink(outside.join("bundle"), whole_dir.join("skills")).unwrap();
 
     let manifest = fixture.agent_dir().join("git/github.com/acme/manifest");
-    write(
+    write_file(
         &manifest.join("package.json"),
         r#"{ "pi": { "skills": ["../../../../../outside", "/etc"] } }"#,
     );
@@ -325,7 +330,7 @@ fn package_names_never_carry_query_strings_or_tokens() {
 
     let view = fixture.view(false);
 
-    let names: Vec<&str> = view.packages.iter().map(|package| package.name.as_str()).collect();
+    let names = package_names(&view);
     assert_eq!(names, ["tools", "tools", "tools", "tools"]);
 
     let labels = view
@@ -354,10 +359,7 @@ fn a_name_that_looks_like_a_secret_is_replaced_by_the_kind() {
         ]
     }));
 
-    let view = fixture.view(false);
-
-    let names: Vec<&str> = view.packages.iter().map(|package| package.name.as_str()).collect();
-    assert_eq!(names, ["git", "local", "local"]);
+    assert_eq!(package_names(&fixture.view(false)), ["git", "local", "local"]);
 }
 
 #[test]
@@ -366,9 +368,9 @@ fn repeated_package_and_manifest_entries_stay_bounded() {
     let package = fixture.project.join(".pi/p");
     // Repeats only, and small enough (about 170 KiB) to be read.
     let manifest = serde_json::json!({ "pi": { "skills": vec!["s"; 15_000], "prompts": vec!["./prompts/"; 8_000] } });
-    write(&package.join("package.json"), &manifest.to_string());
+    write_file(&package.join("package.json"), &manifest.to_string());
     write_skill(&package.join("s"), "only");
-    write(&package.join("prompts/note.md"), "---\ndescription: A note.\n---\n");
+    write_file(&package.join("prompts/note.md"), "---\ndescription: A note.\n---\n");
 
     let mut entries = vec![serde_json::json!("./p"); 200_000];
     entries.push(serde_json::json!("./p/"));
@@ -399,7 +401,7 @@ fn a_manifest_over_256_kib_is_not_read() {
     let package = fixture.project.join(".pi/big");
     let padding = "x".repeat(256 * 1024);
     let manifest = serde_json::json!({ "pi": { "skills": ["./custom"] }, "pad": padding });
-    write(&package.join("package.json"), &manifest.to_string());
+    write_file(&package.join("package.json"), &manifest.to_string());
     write_skill(&package.join("custom/declared"), "declared");
     write_skill(&package.join("skills/conventional"), "conventional");
     fixture.project_settings(serde_json::json!({ "packages": ["./big"] }));
@@ -415,10 +417,7 @@ fn a_manifest_over_256_kib_is_not_read() {
 fn a_padded_source_is_the_same_package_as_the_plain_one() {
     let fixture = Fixture::new();
     let padded = format!("  {SKILLS_REPO} ");
-    fixture.user_settings(serde_json::json!({ "packages": [padded, SKILLS_REPO] }));
-    fixture.install_skills_repo();
-
-    let view = fixture.view(false);
+    let view = fixture.skills_repo_view(serde_json::json!([padded, SKILLS_REPO]));
 
     assert_eq!(view.packages.len(), 1);
     let installed = package(&view, "harness-useful-skills");
@@ -436,9 +435,9 @@ fn project_packages_cannot_crowd_out_the_users_package_modules() {
         let dir = fixture.project.join(format!(".pi/p{package}"));
         let modules: Vec<String> = (0..64).map(|module| format!("./m{module:02}.ts")).collect();
         for module in &modules {
-            write(&dir.join(module), "");
+            write_file(&dir.join(module), "");
         }
-        write(
+        write_file(
             &dir.join("package.json"),
             &serde_json::json!({ "pi": { "extensions": modules } }).to_string(),
         );
@@ -447,8 +446,8 @@ fn project_packages_cannot_crowd_out_the_users_package_modules() {
     fixture.project_settings(serde_json::json!({ "packages": sources }));
 
     let mine = fixture.agent_dir().join("mine");
-    write(&mine.join("mine.ts"), "");
-    write(
+    write_file(&mine.join("mine.ts"), "");
+    write_file(
         &mine.join("package.json"),
         r#"{ "pi": { "extensions": ["./mine.ts"] } }"#,
     );

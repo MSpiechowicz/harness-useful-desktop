@@ -22,6 +22,7 @@ use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::model::{CliResult, ExtensionAction, MAX_CLI_OUTPUT_BYTES};
 use crate::process::{ExecOutput, ExecSpec, ProcessRunner, ResolvedBinary, launcher_search_dirs};
+use crate::security::paths::has_credentials;
 use crate::security::{is_safe_arg, redact_text};
 
 /// Time limit of one CLI action (installs may download packages).
@@ -133,26 +134,6 @@ pub fn cli_target(kind: TargetKind, value: &str) -> Result<String> {
 /// [`cli_target`] for an optional target.
 pub fn optional_cli_target(kind: TargetKind, value: Option<&str>) -> Result<Option<String>> {
     value.map(|value| cli_target(kind, value)).transpose()
-}
-
-/// True when `source` names a user before its host: `scheme://user[:password]@host` or
-/// `git:user@host` (except the conventional SSH user `git@`). npm specs (`npm:@scope/name@1.0`)
-/// have no host part and are never flagged.
-fn has_credentials(source: &str) -> bool {
-    let authority = |rest: &str| rest.split('/').next().unwrap_or_default().to_owned();
-
-    if let Some((_, rest)) = source.split_once("://") {
-        return authority(rest).contains('@');
-    }
-
-    if let Some(rest) = source.strip_prefix("git:") {
-        return match authority(rest).rsplit_once('@') {
-            Some((user, _)) => user != "git",
-            None => false,
-        };
-    }
-
-    false
 }
 
 /// One extension action to run.

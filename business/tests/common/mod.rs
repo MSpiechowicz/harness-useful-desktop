@@ -103,3 +103,35 @@ pub fn set_mode(path: &Path, mode: u32) {
     #[cfg(not(unix))]
     let _ = (path, mode);
 }
+
+/// Writes `content` to `path`, creating its parent directories.
+pub fn write_file(path: &Path, content: &str) {
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    std::fs::write(path, content).unwrap();
+}
+
+/// `count` directories under `root`, each holding `per_dir` empty files ending in `suffix`; their
+/// paths, for a settings list that is more than a scan budget allows.
+pub fn big_dirs(root: &Path, count: usize, per_dir: usize, suffix: &str) -> Vec<String> {
+    (0..count)
+        .map(|index| {
+            let dir = root.join(format!("d{index:02}"));
+            std::fs::create_dir_all(&dir).unwrap();
+            for file in 0..per_dir {
+                std::fs::write(dir.join(format!("p{file:04}{suffix}")), "").unwrap();
+            }
+
+            dir.to_string_lossy().into_owned()
+        })
+        .collect()
+}
+
+/// Runs `work` and fails when it takes `limit_secs` seconds or more: a crafted tree must not stall a view.
+pub fn within<T>(limit_secs: f32, work: impl FnOnce() -> T) -> T {
+    let started = std::time::Instant::now();
+    let result = work();
+    let elapsed = started.elapsed();
+    assert!(elapsed.as_secs_f32() < limit_secs, "{elapsed:?}");
+
+    result
+}

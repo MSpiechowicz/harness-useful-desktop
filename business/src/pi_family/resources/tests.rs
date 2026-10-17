@@ -240,7 +240,8 @@ fn a_walk_stops_after_its_entry_budget() {
     assert_eq!(visited, MAX_WALK_ENTRIES);
 }
 
-#[cfg(unix)]
+// macOS (APFS) refuses file names that are not UTF-8, so this setup cannot be built there.
+#[cfg(all(unix, not(target_os = "macos")))]
 #[test]
 fn skipped_names_still_count_against_the_budget() {
     use std::ffi::OsStr;

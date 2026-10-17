@@ -27,7 +27,7 @@ use crate::model::{
 use crate::pi_family::{
     MAX_DECLARED_ENTRIES, MAX_WALK_ENTRIES, PerLayer, SKILL_FILE, ScanBudget, SkillRoot, Truncation, WalkBudget,
     builtin_themes, canonical_inside, dedupe_skills, distinct_targets, distinct_within, extension_module,
-    extension_module_paths, load_skill, origin_label, parse_servers, project_ancestors, read_json,
+    extension_module_paths, load_skill, origin_label, parse_servers, project_ancestors, read_json, scan_roots,
     scan_skills_budgeted, source, text_field, themes_in_dir_budgeted,
 };
 
@@ -106,12 +106,7 @@ fn skills(
     add(paths.agent_dir.join("skills"), ExtensionScope::User);
     add(env.home_join(".agents/skills"), ExtensionScope::User);
 
-    let mut found: Vec<SkillInfo> = Vec::new();
-    for root in &roots {
-        let mut walk = WalkBudget::new(MAX_WALK_ENTRIES);
-        found.extend(scan_skills_budgeted(root, SKILL_DEPTH, None, &mut walk));
-        truncation.note(root.scope, walk.truncated());
-    }
+    let mut found = scan_roots(&roots, SKILL_DEPTH, truncation);
 
     let mut budgets = PerLayer::new(WalkBudget::new(LISTED_SKILL_ENTRIES));
 

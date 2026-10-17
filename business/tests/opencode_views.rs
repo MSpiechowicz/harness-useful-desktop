@@ -136,8 +136,8 @@ fn an_empty_home_lists_where_the_global_settings_would_go() {
 
     assert_eq!(view.sections.len(), 1);
     assert_eq!(
-        view.sections[0].source.path,
-        temp.path().join(".config/opencode/opencode.json").to_string_lossy()
+        Path::new(&view.sections[0].source.path), // as paths: Windows mixes `/` and `\`
+        temp.path().join(".config/opencode/opencode.json")
     );
     assert!(!view.sections[0].source.exists);
 }

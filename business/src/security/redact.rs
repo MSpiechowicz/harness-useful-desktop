@@ -32,6 +32,7 @@
 
 use serde_json::Value;
 
+use super::paths::has_credentials;
 use super::rules::{
     AUTH_CONTAINERS, AUTH_PUBLIC_KEYS, SECRET_CONTAINERS, contains_token, env_ref_name, is_high_entropy, is_secret_key,
     mask_tokens, mask_urls, normalize_key,
@@ -147,42 +148,10 @@ impl Redactor {
     /// env references, credential formats and userinfo (any but the plain `git@` of an SSH
     /// source, the same rule the CLI actions apply) still make it a secret.
     pub fn redact_package_source(&self, text: &str) -> ConfigValue {
-        let userinfo = has_userinfo(text);
         let random_segment = text.split(['/', ':', '@', '#']).any(is_high_entropy);
 
-        if userinfo || random_segment || contains_token(text) {
-            return redact_string(text, Scope::SecretContainer);
-        }
-
-        redact_string_segmented(text)
+        classify(text, has_credentials(text) || random_segment || contains_token(text))
     }
-}
-
-/// True when the source's authority carries userinfo other than SSH's plain `git@`. A whole
-/// authority counts, up to its first `/`, so a password with an `@` in it is never half shown.
-fn has_userinfo(source: &str) -> bool {
-    let authority = |rest: &str| rest.split('/').next().unwrap_or_default().to_owned();
-
-    if let Some((_, rest)) = source.split_once("://") {
-        return authority(rest).contains('@');
-    }
-
-    let rest = source.strip_prefix("git:").unwrap_or(source);
-
-    authority(rest).rsplit_once('@').is_some_and(|(user, _)| user != "git")
-}
-
-/// Rules 1, 2 and 7 only: the caller has already applied the token and entropy checks.
-fn redact_string_segmented(text: &str) -> ConfigValue {
-    if text.starts_with('!') {
-        return ConfigValue::Secret(SecretKind::Command);
-    }
-
-    if let Some(name) = env_ref_name(text) {
-        return ConfigValue::Secret(SecretKind::EnvRef { name: name.to_owned() });
-    }
-
-    ConfigValue::Text(mask_urls(text))
 }
 
 fn redact_number(text: String, scope: Scope) -> ConfigValue {
@@ -194,6 +163,14 @@ fn redact_number(text: String, scope: Scope) -> ConfigValue {
 }
 
 fn redact_string(text: &str, scope: Scope) -> ConfigValue {
+    let secret = scope != Scope::Visible || contains_token(text) || is_high_entropy(text);
+
+    classify(text, secret)
+}
+
+/// Rules 1 and 2 first (a command, an env reference), then `secret` decides between a hidden value
+/// and the text with its URL secrets masked (rule 7).
+fn classify(text: &str, secret: bool) -> ConfigValue {
     if text.starts_with('!') {
         return ConfigValue::Secret(SecretKind::Command);
     }
@@ -202,7 +179,7 @@ fn redact_string(text: &str, scope: Scope) -> ConfigValue {
         return ConfigValue::Secret(SecretKind::EnvRef { name: name.to_owned() });
     }
 
-    if scope != Scope::Visible || contains_token(text) || is_high_entropy(text) {
+    if secret {
         return ConfigValue::Secret(SecretKind::Value);
     }
 

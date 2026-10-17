@@ -19,9 +19,9 @@ use crate::model::{
     ExtensionModuleInfo, ExtensionScope, ExtensionsView, HarnessId, McpServerInfo, SkillInfo, ThemeInfo,
 };
 use crate::pi_family::{
-    Document, MAX_DECLARED_ENTRIES, MAX_WALK_ENTRIES, ParsedServer, PerLayer, ScanBudget, SkillRoot, Truncation,
-    WalkBudget, builtin_themes, dedupe_skills, distinct_targets, extension_module, extension_module_paths,
-    origin_label, parse_servers, project_ancestors, read_json, scan_skills_budgeted, string_list, themes_in_dir,
+    Document, MAX_DECLARED_ENTRIES, ParsedServer, PerLayer, ScanBudget, SkillRoot, Truncation, builtin_themes,
+    dedupe_skills, distinct_targets, extension_module, extension_module_paths, origin_label, parse_servers,
+    project_ancestors, read_json, scan_roots, string_list, themes_in_dir,
 };
 
 /// OMP scans `<dir>/<skill>/SKILL.md` one level deep.
@@ -140,14 +140,7 @@ fn skills(
         origin_label(env, None, &managed_dir),
     ));
 
-    let mut found = Vec::new();
-    for root in &roots {
-        let mut walk = WalkBudget::new(MAX_WALK_ENTRIES);
-        found.extend(scan_skills_budgeted(root, SKILL_DEPTH, None, &mut walk));
-        truncation.note(root.scope, walk.truncated());
-    }
-
-    dedupe_skills(found)
+    dedupe_skills(scan_roots(&roots, SKILL_DEPTH, truncation))
 }
 
 fn root(dir: &Path, scope: ExtensionScope, origin: String) -> SkillRoot {

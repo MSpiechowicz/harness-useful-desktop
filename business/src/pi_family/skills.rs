@@ -11,7 +11,7 @@ use serde_json::Value;
 
 use super::config_files::text_field;
 use super::frontmatter::read_frontmatter;
-use super::resources::{MAX_WALK_ENTRIES, WalkBudget, origin_label, walk_tree_budgeted};
+use super::resources::{MAX_WALK_ENTRIES, Truncation, WalkBudget, origin_label, walk_tree_budgeted};
 use crate::env::Env;
 use crate::model::{ExtensionScope, SkillInfo};
 use crate::security::canonical_within;
@@ -44,6 +44,20 @@ impl SkillRoot {
 /// Symlinked skill directories count; symlink loops are not followed (see [`walk_tree`](super::resources::walk_tree)).
 pub fn scan_skills(root: &SkillRoot, max_depth: usize) -> Vec<SkillInfo> {
     scan(root, max_depth, None, &mut WalkBudget::new(MAX_WALK_ENTRIES))
+}
+
+/// Each of `roots` scanned with a walk budget of its own (so one cannot use up another's), any
+/// root cut short noted in `truncation` under its scope.
+pub fn scan_roots(roots: &[SkillRoot], max_depth: usize, truncation: &mut Truncation) -> Vec<SkillInfo> {
+    let mut found = Vec::new();
+
+    for root in roots {
+        let mut walk = WalkBudget::new(MAX_WALK_ENTRIES);
+        found.extend(scan_skills_budgeted(root, max_depth, None, &mut walk));
+        truncation.note(root.scope, walk.truncated());
+    }
+
+    found
 }
 
 /// [`scan_skills`] charging the walk to `budget` (shared by many roots) and, with a `boundary` (a

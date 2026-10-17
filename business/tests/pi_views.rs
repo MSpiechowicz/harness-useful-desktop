@@ -4,7 +4,7 @@ mod common;
 
 use std::path::Path;
 
-use common::{demo_project, env_at, exported, pi_home};
+use common::{big_dirs, demo_project, env_at, exported, pi_home, within, write_file};
 use harness_business::env::Env;
 use harness_business::harness::Harness;
 use harness_business::harnesses::Pi;
@@ -226,10 +226,7 @@ fn skill_symlink_loops_are_skipped_and_linked_skills_kept() {
         symlink("..", skills.join("group").join(format!("up-{index}"))).unwrap();
     }
 
-    let started = std::time::Instant::now();
-    let view = extensions(&env_at(&home), None);
-    let elapsed = started.elapsed();
-    assert!(elapsed.as_secs_f32() < 2.0, "{elapsed:?}");
+    let view = within(2.0, || extensions(&env_at(&home), None));
 
     let mut names: Vec<&str> = view.skills.iter().map(|skill| skill.name.as_str()).collect();
     names.sort_unstable();
@@ -267,10 +264,7 @@ fn listed_aliases_of_a_linked_hub_are_scanned_once() {
     let settings = serde_json::json!({ "extensions": aliases, "prompts": aliases, "themes": aliases });
     std::fs::write(agent.join("settings.json"), settings.to_string()).unwrap();
 
-    let started = std::time::Instant::now();
-    let view = extensions(&env_at(&home), None);
-    let elapsed = started.elapsed();
-    assert!(elapsed.as_secs_f32() < 2.0, "{elapsed:?}");
+    let view = within(2.0, || extensions(&env_at(&home), None));
 
     let modules: Vec<&str> = view
         .extension_modules
@@ -296,20 +290,6 @@ fn listed_aliases_of_a_linked_hub_are_scanned_once() {
 }
 
 /// `count` directories under `root`, each holding `per_dir` empty files named `p0000<suffix>`, ...
-fn big_dirs(root: &Path, count: usize, per_dir: usize, suffix: &str) -> Vec<String> {
-    (0..count)
-        .map(|index| {
-            let dir = root.join(format!("d{index:02}"));
-            std::fs::create_dir_all(&dir).unwrap();
-            for file in 0..per_dir {
-                std::fs::write(dir.join(format!("p{file:04}{suffix}")), "").unwrap();
-            }
-
-            dir.to_string_lossy().into_owned()
-        })
-        .collect()
-}
-
 #[test]
 fn a_project_listing_too_much_cannot_hide_modules_or_user_resources() {
     let temp = tempfile::TempDir::new().unwrap();
@@ -330,10 +310,7 @@ fn a_project_listing_too_much_cannot_hide_modules_or_user_resources() {
     let project_settings = serde_json::json!({ "extensions": listed, "prompts": listed });
     write_file(&project.join(".pi/settings.json"), &project_settings.to_string());
 
-    let started = std::time::Instant::now();
-    let view = extensions(&env_at(&home), Some(&project));
-    let elapsed = started.elapsed();
-    assert!(elapsed.as_secs_f32() < 5.0, "{elapsed:?}");
+    let view = within(5.0, || extensions(&env_at(&home), Some(&project)));
 
     let modules: Vec<(&str, ExtensionScope)> = view
         .extension_modules
@@ -367,11 +344,6 @@ fn a_project_listing_too_much_cannot_hide_modules_or_user_resources() {
           settings before trusting it."
         ]
     );
-}
-
-fn write_file(path: &Path, content: &str) {
-    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
-    std::fs::write(path, content).unwrap();
 }
 
 fn write_skill(dir: &Path) {

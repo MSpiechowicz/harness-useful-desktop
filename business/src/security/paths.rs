@@ -72,3 +72,23 @@ pub fn is_safe_arg(arg: &str) -> bool {
 fn canonicalize(path: &Path) -> Result<PathBuf> {
     dunce::canonicalize(path).map_err(|error| BusinessError::from_io(format!("resolving {}", path.display()), error))
 }
+
+/// True when `source` names a user before its host: `scheme://user[:password]@host` or
+/// `git:user@host` (except the conventional SSH user `git@`). npm specs (`npm:@scope/name@1.0`)
+/// have no host part and are never flagged.
+pub(crate) fn has_credentials(source: &str) -> bool {
+    let authority = |rest: &str| rest.split('/').next().unwrap_or_default().to_owned();
+
+    if let Some((_, rest)) = source.split_once("://") {
+        return authority(rest).contains('@');
+    }
+
+    if let Some(rest) = source.strip_prefix("git:") {
+        return match authority(rest).rsplit_once('@') {
+            Some((user, _)) => user != "git",
+            None => false,
+        };
+    }
+
+    false
+}
