@@ -37,6 +37,8 @@ fn change(kind: MemoryRemoteKind, url: Option<&str>, token: Option<&str>) -> Mem
         global_notes: MemoryNotesTarget::Remote,
         scripts: MemoryNotesTarget::Remote,
         trust_team_scripts: false,
+        share_hooks: None,
+        trust_team_hooks: None,
     }
 }
 
@@ -45,11 +47,7 @@ fn off() -> MemoryRemoteChange {
         enabled: false,
         kind: None,
         url: None,
-        token: None,
-        repository_notes: MemoryNotesTarget::Remote,
-        global_notes: MemoryNotesTarget::Remote,
-        scripts: MemoryNotesTarget::Remote,
-        trust_team_scripts: false,
+        ..change(MemoryRemoteKind::Postgres, None, None)
     }
 }
 
@@ -125,6 +123,9 @@ fn without_a_file_team_memory_is_off() {
             scripts_supported: false,
             trust_team_scripts: false,
             trust_team_scripts_supported: false,
+            hooks_supported: false,
+            share_hooks: false,
+            trust_team_hooks: false,
             config_path: "~/.config/harness-memory/config.toml".to_owned(),
             problem: None,
         }

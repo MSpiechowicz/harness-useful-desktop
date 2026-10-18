@@ -116,6 +116,7 @@ pub async fn trust_scripts(
         args,
         timeout: trust_timeout(items.len()),
         output_bytes: TRUST_OUTPUT_BYTES,
+        stdin: None,
     };
 
     match run_memory_cli(env, runner, &server.path, call).await? {

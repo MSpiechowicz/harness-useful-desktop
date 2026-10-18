@@ -12,6 +12,10 @@ use serde_json::{Map, Value};
 use super::unicode::is_hidden_char;
 use crate::model::{Hook, HookAction, HookAuthor, HookEvent, HookRequirement, HookScope, HookSeed};
 
+mod write;
+
+pub(crate) use write::hook_bytes;
+
 /// A larger file is invalid and is not parsed.
 pub const MAX_HOOK_FILE_BYTES: usize = 16 * 1024;
 
@@ -47,8 +51,31 @@ pub fn is_hook_id(text: &str) -> bool {
             .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
+/// Longest repository key of a team hook's `project`, in bytes.
+pub const MAX_REPO_KEY_BYTES: usize = 512;
+
+/// What a project hook's `project` holds.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ProjectForm {
+    /// A hook file: the absolute project root.
+    Root,
+    /// A team hook's body: the repository key (`git:host/owner/repo`).
+    RepoKey,
+}
+
 /// The hook in `bytes`, the content of `<stem>.json`, or why the file is invalid.
 pub fn parse_hook_file(stem: &str, bytes: &[u8]) -> Result<Hook, String> {
+    parse_bytes(stem, bytes, ProjectForm::Root)
+}
+
+/// The hook in a team hook's body (see "Team hooks" in the format doc): a hook file whose
+/// `project` is a `git:` repository key instead of a project root. Other team rules (no `seed`)
+/// are the caller's.
+pub(crate) fn parse_team_file(stem: &str, bytes: &[u8]) -> Result<Hook, String> {
+    parse_bytes(stem, bytes, ProjectForm::RepoKey)
+}
+
+fn parse_bytes(stem: &str, bytes: &[u8], form: ProjectForm) -> Result<Hook, String> {
     if bytes.len() > MAX_HOOK_FILE_BYTES {
         return Err("the file is larger than 16 KiB".to_owned());
     }
@@ -60,7 +87,7 @@ pub fn parse_hook_file(stem: &str, bytes: &[u8]) -> Result<Hook, String> {
         return Err("the file is not a JSON object".to_owned());
     };
 
-    parse_map(stem, &map)
+    parse_map(stem, &map, form)
 }
 
 /// The `name` of an invalid file, when it is a string (for the list).
@@ -71,7 +98,7 @@ pub(crate) fn loose_name(bytes: &[u8]) -> Option<String> {
     Some(name.chars().take(MAX_NAME_CHARS).collect())
 }
 
-fn parse_map(stem: &str, map: &Map<String, Value>) -> Result<Hook, String> {
+fn parse_map(stem: &str, map: &Map<String, Value>, form: ProjectForm) -> Result<Hook, String> {
     match map.get("version") {
         None => return Err("version is missing".to_owned()),
         Some(version) if version.as_u64() != Some(VERSION) => return Err("version must be 1".to_owned()),
@@ -95,7 +122,7 @@ fn parse_map(stem: &str, map: &Map<String, Value>) -> Result<Hook, String> {
         check_description(description)?;
     }
 
-    let (scope, project) = parse_scope(map)?;
+    let (scope, project) = parse_scope(map, form)?;
 
     let event = required_str(map, "event")?;
     let event = HookEvent::parse(event).ok_or_else(|| format!("unknown event {event:?}"))?;
@@ -182,7 +209,7 @@ fn check_description(description: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn parse_scope(map: &Map<String, Value>) -> Result<(HookScope, Option<String>), String> {
+fn parse_scope(map: &Map<String, Value>, form: ProjectForm) -> Result<(HookScope, Option<String>), String> {
     let scope = required_str(map, "scope")?;
     let project = optional_str(map, "project")?;
 
@@ -190,13 +217,39 @@ fn parse_scope(map: &Map<String, Value>) -> Result<(HookScope, Option<String>), 
         ("global", None) => Ok((HookScope::Global, None)),
         ("global", Some(_)) => Err("a global hook has no project".to_owned()),
         ("project", None) => Err("a project hook needs a project".to_owned()),
-        ("project", Some(project)) if !Path::new(project).has_root() => {
-            Err("project must be an absolute path".to_owned())
+        ("project", Some(project)) => {
+            check_project(project, form)?;
+            Ok((HookScope::Project, Some(project.to_owned())))
         }
-        ("project", Some(project)) => Ok((HookScope::Project, Some(project.to_owned()))),
         (other, _) => Err(format!("unknown scope {other:?}")),
     }
 }
+
+/// A project root is absolute; a repository key starts with `git:`, is at most
+/// [`MAX_REPO_KEY_BYTES`] long and has no spaces, control or invisible characters.
+fn check_project(project: &str, form: ProjectForm) -> Result<(), String> {
+    match form {
+        ProjectForm::Root if !Path::new(project).has_root() => Err("project must be an absolute path".to_owned()),
+        ProjectForm::Root => Ok(()),
+        ProjectForm::RepoKey => {
+            let plain = project.len() <= MAX_REPO_KEY_BYTES
+                && project.len() > REPO_PREFIX.len()
+                && project.starts_with(REPO_PREFIX)
+                && !project
+                    .chars()
+                    .any(|character| character.is_whitespace() || character.is_control() || is_hidden_char(character));
+
+            if plain {
+                Ok(())
+            } else {
+                Err("project must be a git: repository key".to_owned())
+            }
+        }
+    }
+}
+
+/// What a shared project hook's repository key starts with.
+const REPO_PREFIX: &str = "git:";
 
 /// `name *( "|" name )`, `name = 1*[A-Za-z0-9_.:-]`, at most [`MAX_MATCHER_CHARS`], `toolEnd` only.
 pub(crate) fn check_matcher(event: HookEvent, matcher: &str) -> Result<(), String> {
@@ -410,77 +463,4 @@ pub(crate) fn timestamp_key(text: &str) -> Option<[u32; 7]> {
     let valid = (1..=12).contains(&month) && (1..=31).contains(&day) && hour < 24 && minute < 60 && second < 61;
 
     valid.then_some([year, month, day, hour, minute, second, nanos])
-}
-
-/// The bytes of `hook` as a file: `base` (the object being rewritten, empty for a new file) with
-/// every known field set, unknown fields kept in place, two-space JSON and a trailing newline.
-pub(crate) fn hook_bytes(hook: &Hook, mut base: Map<String, Value>) -> Vec<u8> {
-    let author = |author: HookAuthor| match author {
-        HookAuthor::Desktop => "desktop",
-        HookAuthor::Agent => "agent",
-    };
-    let scope = match hook.scope {
-        HookScope::Global => "global",
-        HookScope::Project => "project",
-    };
-
-    base.insert("version".to_owned(), Value::from(VERSION));
-    base.insert("id".to_owned(), Value::from(hook.id.as_str()));
-    base.insert("name".to_owned(), Value::from(hook.name.as_str()));
-    base.insert("description".to_owned(), Value::from(hook.description.clone()));
-    base.insert("scope".to_owned(), Value::from(scope));
-    base.insert("project".to_owned(), Value::from(hook.project.clone()));
-    base.insert("event".to_owned(), Value::from(hook.event.as_str()));
-    base.insert("matcher".to_owned(), Value::from(hook.matcher.clone()));
-    base.insert("action".to_owned(), action_value(&hook.action));
-    base.insert("enabled".to_owned(), Value::from(hook.enabled));
-    base.insert("createdAt".to_owned(), Value::from(hook.created_at.as_str()));
-    base.insert("createdBy".to_owned(), Value::from(author(hook.created_by)));
-    base.insert("updatedAt".to_owned(), Value::from(hook.updated_at.as_str()));
-    base.insert("updatedBy".to_owned(), Value::from(author(hook.updated_by)));
-
-    if hook.requires.is_empty() {
-        base.remove("requires");
-    } else {
-        let requires = hook
-            .requires
-            .iter()
-            .map(|requirement| Value::from(requirement.as_str()))
-            .collect();
-        base.insert("requires".to_owned(), Value::Array(requires));
-    }
-
-    match hook.seed {
-        Some(seed) => base.insert("seed".to_owned(), Value::from(seed.as_str())),
-        None => base.remove("seed"),
-    };
-
-    let mut bytes = serde_json::to_vec_pretty(&Value::Object(base)).unwrap_or_default();
-    bytes.push(b'\n');
-    bytes
-}
-
-fn action_value(action: &HookAction) -> Value {
-    let mut map = Map::new();
-
-    match action {
-        HookAction::AddContext { text } => {
-            map.insert("type".to_owned(), Value::from("addContext"));
-            map.insert("text".to_owned(), Value::from(text.as_str()));
-        }
-        HookAction::FollowUp { text } => {
-            map.insert("type".to_owned(), Value::from("followUp"));
-            map.insert("text".to_owned(), Value::from(text.as_str()));
-        }
-        HookAction::Command { command, timeout_secs } => {
-            map.insert("type".to_owned(), Value::from("command"));
-            map.insert("command".to_owned(), Value::from(command.as_str()));
-
-            if let Some(secs) = timeout_secs {
-                map.insert("timeoutSecs".to_owned(), Value::from(*secs));
-            }
-        }
-    }
-
-    Value::Object(map)
 }

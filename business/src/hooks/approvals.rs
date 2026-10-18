@@ -195,7 +195,12 @@ pub(crate) fn save_snapshot(config_dir: &Path, id: &str, bytes: &[u8]) {
 
 /// The ids of the approved copies kept in `config_dir`.
 pub(crate) fn snapshot_ids(config_dir: &Path) -> Vec<String> {
-    let Ok(entries) = std::fs::read_dir(config_dir.join(SNAPSHOT_FOLDER)) else {
+    json_ids(&config_dir.join(SNAPSHOT_FOLDER))
+}
+
+/// The id of every `<id>.json` entry in `dir`, whatever its type (none when it cannot be listed).
+pub(crate) fn json_ids(dir: &Path) -> Vec<String> {
+    let Ok(entries) = std::fs::read_dir(dir) else {
         return Vec::new();
     };
 

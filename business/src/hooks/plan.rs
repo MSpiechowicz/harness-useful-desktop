@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use super::compose::ResolvedPart;
 use super::format::DEFAULT_TIMEOUT_SECS;
-use super::view::order_key;
+use super::view::{RunOrder, order_key, team_order_key};
 use crate::model::{Hook, HookAction, HookEvent, HookScope, HookStatus, HookView};
 
 /// Largest `HARNESS_HOOK_TOUCHED` value, in bytes; later paths are left out.
@@ -30,11 +30,19 @@ pub struct ChatContext {
     pub utility: bool,
 }
 
-/// The hooks that run in one chat: active (valid, enabled, approved, requirements met), global
-/// or of the chat's project, in run order.
+/// The hooks that run in one chat: active (valid, enabled, approved or trusted, requirements
+/// met), global or of the chat's project, in run order: the local hooks (global, then project),
+/// then the team hooks (global, then project).
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct HookSet {
-    hooks: Vec<Hook>,
+    hooks: Vec<SetHook>,
+}
+
+/// One hook of a [`HookSet`] and where it runs.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct SetHook {
+    pub hook: Hook,
+    pub order: RunOrder,
 }
 
 impl HookSet {
@@ -43,20 +51,48 @@ impl HookSet {
         Self::default()
     }
 
-    /// The active hooks of `views` that apply to a chat in `project` (`None`: global hooks only).
+    /// The active hooks of `views` (local files) that apply to a chat in `project` (`None`: global
+    /// hooks only).
     pub fn for_chat(views: &[HookView], project: Option<&str>) -> Self {
-        let mut hooks: Vec<Hook> = views
-            .iter()
-            .filter(|view| view.status == HookStatus::Active)
-            .filter_map(|view| view.hook.clone())
+        let hooks = active(views)
             .filter(|hook| match hook.scope {
                 HookScope::Global => true,
                 HookScope::Project => project.is_some() && hook.project.as_deref() == project,
             })
+            .map(|hook| SetHook {
+                order: order_key(hook),
+                hook: hook.clone(),
+            })
             .collect();
 
-        hooks.sort_by_key(order_key);
-        Self { hooks }
+        let mut set = Self { hooks };
+        set.sort();
+        set
+    }
+
+    /// Adds the active team hooks of `team` that apply to a chat in `project`, whose repository
+    /// key is `key`: the global ones, and the project ones of that repository, which run in
+    /// `project` like its own project hooks. Team hooks run after every local one.
+    pub fn with_team(mut self, team: &[HookView], project: Option<&str>, key: Option<&str>) -> Self {
+        let team = active(team).filter_map(|hook| match (hook.scope, project, key) {
+            (HookScope::Global, _, _) => Some(hook.clone()),
+            (HookScope::Project, Some(root), Some(key)) if hook.project.as_deref() == Some(key) => Some(Hook {
+                project: Some(root.to_owned()),
+                ..hook.clone()
+            }),
+            (HookScope::Project, _, _) => None,
+        });
+
+        self.hooks.extend(team.map(|hook| SetHook {
+            order: team_order_key(&hook),
+            hook,
+        }));
+        self.sort();
+        self
+    }
+
+    fn sort(&mut self) {
+        self.hooks.sort_by(|left, right| left.order.cmp(&right.order));
     }
 
     /// True when no hook applies.
@@ -65,9 +101,17 @@ impl HookSet {
     }
 
     /// The hooks of `event`, in run order.
-    pub(crate) fn of_event(&self, event: HookEvent) -> impl Iterator<Item = &Hook> {
-        self.hooks.iter().filter(move |hook| hook.event == event)
+    pub(crate) fn of_event(&self, event: HookEvent) -> impl Iterator<Item = &SetHook> {
+        self.hooks.iter().filter(move |entry| entry.hook.event == event)
     }
+}
+
+/// The hooks of the active views.
+fn active(views: &[HookView]) -> impl Iterator<Item = &Hook> {
+    views
+        .iter()
+        .filter(|view| view.status == HookStatus::Active)
+        .filter_map(|view| view.hook.as_ref())
 }
 
 /// True when `matcher` (absent: every tool) names `tool`, ASCII case-insensitively.
@@ -95,7 +139,7 @@ pub struct CommandRequest {
     pub cwd: PathBuf,
     /// The `HARNESS_HOOK_*` variables.
     pub env: Vec<(String, String)>,
-    pub(crate) order: (u8, [u32; 7], String),
+    pub(crate) order: RunOrder,
 }
 
 /// One step of a firing, in run order.
@@ -116,7 +160,7 @@ impl PlannedPart {
         }
     }
 
-    fn order(&self) -> &(u8, [u32; 7], String) {
+    fn order(&self) -> &RunOrder {
         match self {
             Self::Text(part) => &part.order,
             Self::Command(request) => &request.order,
@@ -222,10 +266,11 @@ pub enum EventOutcome {
     SessionEnd(Firing),
 }
 
-/// The part `hook` contributes to a firing of `event`: its text, or its command to run in `chat`
+/// The part `entry` contributes to a firing of `event`: its text, or its command to run in `chat`
 /// with `env` (tool name, tool error, touched paths).
-pub(crate) fn planned_part(hook: &Hook, chat: &ChatContext, event: HookEvent, tool: ToolEnv<'_>) -> PlannedPart {
-    let order = order_key(hook);
+pub(crate) fn planned_part(entry: &SetHook, chat: &ChatContext, event: HookEvent, tool: ToolEnv<'_>) -> PlannedPart {
+    let hook = &entry.hook;
+    let order = entry.order.clone();
 
     match &hook.action {
         HookAction::AddContext { text } | HookAction::FollowUp { text } => PlannedPart::Text(ResolvedPart {

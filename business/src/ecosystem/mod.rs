@@ -30,6 +30,8 @@
 //!   the server's run requests for scripts this machine has not approved, the heartbeat that
 //!   lets it ask, and the answers, and [`memory_trust`]: `harness-memory trust`
 //!   (`memory_scripts_trust`).
+//! - [`memory_hooks`]: the team hooks Harness Memory keeps (`harness-memory hooks …`), and whether
+//!   the installed server has them.
 
 pub mod catalog;
 pub mod dashboard;
@@ -43,6 +45,7 @@ pub mod mcp_pool;
 pub mod mcp_register;
 pub mod memory_binary;
 pub mod memory_cli;
+pub mod memory_hooks;
 pub mod memory_migrate;
 pub mod memory_notes;
 pub mod memory_record;
@@ -69,6 +72,7 @@ pub use mcp_pool::{McpPool, PoolOptions};
 pub use mcp_register::{mcp_state, memory_mcp_state, register_dashboard_mcp};
 pub use memory_binary::{installed_memory, memory_version, parse_memory_version, resolve_memory};
 pub use memory_cli::ListWindow;
+pub use memory_hooks::{HooksConfig, HooksSupport, MemoryHooks};
 pub use memory_migrate::{LegacyCopy, LegacyMigration, migrate_legacy_memory};
 pub use memory_notes::{NotesQuery, delete_all_notes, delete_note, get_note, list_notes};
 pub use memory_record::{MEMORY_RECORD_FILE, MemoryRecord, RecordedFile};
@@ -76,7 +80,8 @@ pub use memory_register::{
     MemoryRegistration, names_command, register_memory_mcp, repoint_memory_mcp, unregister_memory_mcp,
 };
 pub use memory_remote::{
-    MemoryRemoteChange, ScriptsSupport, memory_config_path, memory_remote_get, memory_remote_set, memory_remote_test,
+    MemoryRemoteChange, MemorySupport, ScriptsSupport, memory_config_path, memory_remote_get, memory_remote_set,
+    memory_remote_test,
 };
 pub use memory_requests::{RequestWatcher, memory_data_dir, remove_alive, touch_alive};
 pub use memory_scripts::{MemoryScripts, SCRIPT_LIST_TOOL, ScriptsQuery};

@@ -1,12 +1,14 @@
 //! The Hooks view: list the hook files with their status (`hooks_list`), create, edit, delete,
 //! approve and reject them, the Harness family hooks (`hooks_family`, `hooks_family_apply`), and
-//! the changes of the folder (`hooks_listen`). See `crate::hooks`.
+//! the changes of the folder (`hooks_listen`). The team hooks shared through Harness Memory are in
+//! [`team`]. See `crate::hooks`.
 //!
 //! Every write is the app window's: what it saves is approved at once. A project is the active or
 //! a recent one (`forbidden` otherwise); its hooks are stored under its project root.
 
 use std::time::SystemTime;
 
+use harness_business::hooks::team::{TeamFolder, app_listing, approve_team_hook, team_view};
 use harness_business::hooks::{apply_family, family_status, project_identity};
 use harness_business::model::{
     HookAuthor, HookDraft, HookFamilyEntry, HookListing, HookScope, HookSeed, HookView, HooksDeleted, HooksEvent,
@@ -20,8 +22,9 @@ use crate::error::CommandResult;
 use crate::state::AppState;
 
 /// The global hook files, and those of the project at `project` (the active or a recent one;
-/// `None`: global only), with the status each has. A hook over its scope's limit is listed with
-/// its scope; a file that is not a valid hook is always listed.
+/// `None`: global only), with the status each has, then (while hooks are shared) the team hooks of
+/// that chat. A hook over its scope's limit is listed with its scope; a file that is not a valid
+/// hook is always listed.
 #[tauri::command]
 pub async fn hooks_list(state: State<'_, AppState>, project: Option<String>) -> CommandResult<HookListing> {
     list(&state, project).await
@@ -48,7 +51,8 @@ pub async fn hooks_delete_all(state: State<'_, AppState>, project: Option<String
     delete_all(&state, project).await
 }
 
-/// Approves the version `sha256` of hook `id`. `conflict` when the file changed.
+/// Approves the version `sha256` of hook `id`, a local file or (without one) a team hook.
+/// `conflict` when it changed.
 #[tauri::command]
 pub async fn hook_approve(state: State<'_, AppState>, id: String, sha256: String) -> CommandResult<HookView> {
     approve(&state, id, sha256).await
@@ -92,20 +96,36 @@ pub(crate) async fn list(state: &AppState, project: Option<String>) -> CommandRe
     listing(state, root).await
 }
 
-/// The listing with the global hooks and those of `root` (a project root).
-async fn listing(state: &AppState, root: Option<String>) -> CommandResult<HookListing> {
+/// The listing with the global hooks and those of `root` (a project root), local then team.
+pub(crate) async fn listing(state: &AppState, root: Option<String>) -> CommandResult<HookListing> {
     let capabilities = state.hooks.capabilities().await;
+
+    if let Some(root) = &root {
+        state.hooks.note_root(root);
+    }
+
+    let team = state.hooks.team_settings();
+    let verified = root.as_deref().is_some_and(|root| state.hooks.root_verified(root));
 
     let listing = state
         .hooks
-        .read(move |store| Ok(store.list_for(capabilities, root.as_deref())))
+        .read(move |store| {
+            Ok(app_listing(
+                store,
+                &TeamFolder::of(store),
+                capabilities,
+                root.as_deref(),
+                team.as_ref(),
+                verified,
+            ))
+        })
         .await?;
 
     Ok(listing)
 }
 
 /// The project root of `project`, the active or a recent project.
-async fn project_root(state: &AppState, project: String) -> CommandResult<String> {
+pub(crate) async fn project_root(state: &AppState, project: String) -> CommandResult<String> {
     let dir = authorized_dir(state, project).await?;
 
     blocking(move || {
@@ -198,12 +218,23 @@ pub(crate) async fn delete_all(state: &AppState, project: Option<String>) -> Com
 
 pub(crate) async fn approve(state: &AppState, id: String, sha256: String) -> CommandResult<HookView> {
     let capabilities = state.hooks.capabilities().await;
+    let team = state.hooks.team_settings();
 
     let approved = state
         .hooks
-        .write(move |store| {
-            store.approve(&id, &sha256)?;
-            store.get(&id, capabilities)
+        .write(move |store| match store.approve(&id, &sha256) {
+            Ok(()) => store.get(&id, capabilities),
+            // No local file: a team hook, while hooks are shared.
+            Err(BusinessError::NotFound(missing)) => {
+                let Some(team) = team else {
+                    return Err(BusinessError::NotFound(missing));
+                };
+
+                let folder = TeamFolder::of(store);
+                approve_team_hook(store, &folder, &id, &sha256)?;
+                team_view(store, &folder, capabilities, team.trust, &id)
+            }
+            Err(error) => Err(error),
         })
         .await?;
 
@@ -253,5 +284,6 @@ async fn family_apply(state: &AppState, seeds: Vec<HookSeed>) -> CommandResult<H
     listing(state, None).await
 }
 
+pub mod team;
 #[cfg(test)]
 mod tests;

@@ -113,11 +113,17 @@ flowchart LR
    desktop app never opens the database itself.
 5. **Team database.** Settings can point the server at a shared PostgreSQL, libSQL or MongoDB database instead of the
    local file. `memory_remote_get` / `memory_remote_set` read and write the server's own
-   `<config>/harness-memory/config.toml` (`database_url`, `database_token`, `repository_notes`, `global_notes`,
+   `<config>/harness-memory/config.toml`, or the file `HARNESS_MEMORY_CONFIG` names as for the server (`database_url`, `database_token`, `repository_notes`, `global_notes`,
    `scripts = "local"` only while the installed server keeps scripts, and `trust_team_scripts = true` only while it asks
-   before running a script and scripts go to the team database; both kept as saved while the server cannot be asked) through
+   before running a script and scripts go to the team database; both kept as saved while the server cannot be asked,
+   and `hooks = "remote"` / `trust_team_hooks = true`, see Hooks, team hooks) through
    `business/src/ecosystem/memory_remote/`, returning the URL redacted and the token as a flag; `memory_remote_test` runs
-   `harness-memory check` with the typed values in its environment. The app never connects to the database.
+   `harness-memory check` with the typed values in its environment. The app never connects to the database. The hooks
+   keys are written only while `harness-memory hooks config --json` answers (`HooksSupport::Supported`,
+   `business/src/ecosystem/memory_hooks.rs`), dropped for a server that answers it with a usage error (exit 2:
+   `Unsupported`, it would refuse the file), and kept as saved while the server cannot be asked; trust only while hooks
+   are shared. A save re-probes at once (`team_reprobe`), so sharing turned off removes the team copies before
+   `memory_remote_set` returns.
 6. **Scripts.** Agents save deterministic scripts in the memory store and run them inside the server. The Memory view
    lists, shows and deletes them through `memory_scripts_list`, `memory_script_get` and `memory_script_delete`
    (`business/src/ecosystem/memory_scripts.rs`). A page of the list (offset, 1 to 200 entries, a search of at most 256
@@ -181,9 +187,11 @@ Privacy rules: [security-privacy.md](security-privacy.md#project-memory).
 A hook is a small JSON file that adds context to a prompt, sends a follow-up or runs a shell command when something
 happens in a desktop chat. The app window reads the files, shows them in the Hooks view (`ui/src/features/hooks/`) and
 runs them. The same executable started as `harness-desktop mcp` lets agents list, add, change and remove hooks, and
-never runs one. The file contract (fields, limits, events, prompt text, commands, approvals) is
-[hooks-format.md](hooks-format.md). Code: `business/src/hooks/` (logic, no Tauri), `business/src/hooks_mcp/` (the MCP
-mode), `src-tauri/src/hooks.rs` and `hooks/` (runtime, per-chat tasks, watcher), `src-tauri/src/commands/hooks.rs`.
+never runs one. A team can share hooks through Harness Memory's team database (item 11). The file contract (fields,
+limits, events, prompt text, commands, approvals, team hooks) is [hooks-format.md](hooks-format.md). Code:
+`business/src/hooks/` (logic, no Tauri; `team/` for team hooks), `business/src/hooks_mcp/` (the MCP mode),
+`src-tauri/src/hooks.rs` and `hooks/` (runtime, per-chat tasks, watcher, team refresh), `src-tauri/src/commands/hooks.rs`
+and `commands/hooks/team.rs`.
 
 ```mermaid
 flowchart LR
@@ -195,6 +203,9 @@ flowchart LR
   MCP -. "read only" .-> C
   W["watcher (1 s)"] -. "changed" .-> RT
   RT -- "context, follow-up, command" --> CH["agent chat<br/>HookSink + chat task"]
+  RT -- "hooks list/put/delete (60 s, on request)" --> HM["harness-memory CLI"]
+  HM -- "team database" --> TDB[("hooks table")]
+  RT -- "copies" --> T[("team/ID.json")]
 ```
 
 1. **Files.** The hooks root is `HARNESS_HOOKS_DIR` when absolute, else the platform data folder + `harness-hooks`
@@ -329,6 +340,34 @@ flowchart LR
     `.corrupt-<unix-seconds>` and rebuilt, and nothing is added that launch. The Recommended setup column
     (`HarnessSetup.desktopMcp`, read by `setup_status`) shows the state, and `setup_register_desktop_mcp` adds the entry
     for one harness on request, also where it was removed and in a debug build; the webview sends only the harness id.
+11. **Team hooks.** The desktop never connects to the team database: `business/src/ecosystem/memory_hooks.rs` runs
+    `harness-memory hooks config|list|put|delete --json` through `memory_cli` (home directory, 15 s, 2 MiB of output,
+    a body on stdin for `put`, a failure's `{"error", "message"}` mapped to `conflict`, `notFound`, `invalidInput`,
+    `forbidden` or `unsupported`). `MemoryHooks` probes `hooks config` once per binary and config file stamp (the
+    file `memory_config_path` finds, `HARNESS_MEMORY_CONFIG` included; a failed probe is not cached). `src-tauri/src/hooks/team.rs` keeps the team state (`TeamHooks`: trust, the last problem,
+    when refreshed) and runs a refresh loop: at launch, every `TEAM_REFRESH` (60 s), on `hooks_team_refresh`, after a
+    share, a removal or a settings save, and soon after a chat starts in a new project root. A refresh probes; while
+    hooks are shared it lists the global scope and the 32 most recent project roots (`fetch_team`; 16 rows a page by
+    `nextOffset`, or by the page size for an older answer, at most 16 pages, else the round is incomplete) and
+    writes `<root>/team/<id>.json` envelopes and `projects.json` (`apply_round`, under the write lock). Copies no list
+    returned are removed per scope: global ones when the global list read every page, those of key `R` when a root
+    with key `R` listed every page, and those of a key no root in `projects.json` has. A root that is not a folder is
+    skipped and kept in `projects.json` (its copies and approvals survive until it is back), the filesystem root, the
+    home folder and roots the server refuses are dropped. A removed copy takes its approval and approved copy with it
+    unless a local file has the id. A root's mapping counts (`root_verified`) only after a round of this session
+    listed it; a chat or the Hooks view in an unverified root wakes a round. Sharing off, an older server or no
+    Harness Memory deletes `<root>/team/` and drops the state, so team hooks stop at once. A server that cannot be
+    asked keeps the copies but drops trust (team hooks wait for approval). Only the window reads the folder: `HookStore::list` (the MCP mode) and "Delete all hooks"
+    never do. `team_views` (`hooks/team/views.rs`) gives each copy its status (invalid, `duplicate` when a local file
+    has the id, `pending` without trust until the body's exact bytes are approved in `hook-approvals.json`, `off` by the
+    body or `teamDisabled` in `hooks-state.json`, `paused`, `active`) and `app_listing` appends the team hooks of the
+    chat's repository (`projects.json` maps the root to its `git:` key) after the local ones, with `shareBlock` on the
+    local ones. `HookSet::with_team` adds the active team hooks after the local ones (team global, then team project,
+    run in the chat's root). IPC (`commands/hooks/team.rs`): `hooks_share` (an approved, valid, non-family hook; a
+    project hook's `project` rewritten to its repository key from `hooks list --project`; insert, or update with
+    `--expect-sha` of the cached team copy; records `sharedFrom`), `hooks_team_remove`, `hooks_team_refresh`,
+    `hooks_team_copy` (a local approved hook with the same id, only from a trusted or approved team hook) and `hooks_team_enable` (`teamDisabled`); `hook_approve`
+    approves a team hook when no local file has the id.
 
 Privacy rules: [security-privacy.md](security-privacy.md#hooks).
 

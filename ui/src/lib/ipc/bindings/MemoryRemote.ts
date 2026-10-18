@@ -52,6 +52,21 @@ trustTeamScripts: boolean,
  */
 trustTeamScriptsSupported: boolean, 
 /**
+ * True when the installed Harness Memory keeps team hooks (`harness-memory hooks config`
+ * answers), so the `hooks` and `trust_team_hooks` keys may be saved. Older servers refuse a
+ * file with those keys.
+ */
+hooksSupported: boolean, 
+/**
+ * True when `hooks = "remote"`: hooks the user shares go to the team database, and this
+ * machine runs the team's hooks.
+ */
+shareHooks: boolean, 
+/**
+ * True when `trust_team_hooks = true`: team hooks run without local approval.
+ */
+trustTeamHooks: boolean, 
+/**
  * The config file, home-relative for display (`~/.config/harness-memory/config.toml`).
  */
 configPath: string, 

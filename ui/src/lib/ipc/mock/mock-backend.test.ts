@@ -88,6 +88,11 @@ const sampleArgs = (sessionKey: string): { [K in CommandName]: CommandArgs<K> } 
   hooks_family_apply: { seeds: ['dashboard-limits'] },
   hooks_delete_all: {},
   hooks_listen: { onEvent: () => {} },
+  hooks_share: { id: '0'.repeat(32), sha256: '' },
+  hooks_team_remove: { id: '0'.repeat(32), sha256: '' },
+  hooks_team_refresh: { project: fixtures.recentProjects[0].path },
+  hooks_team_copy: { id: '0'.repeat(32), sha256: '', project: fixtures.recentProjects[0].path },
+  hooks_team_enable: { id: '0'.repeat(32), enabled: false },
   update_check: undefined,
   update_install: { onProgress: () => {} },
   app_relaunch: undefined,
@@ -104,8 +109,40 @@ function transport() {
   return createMockTransport(defaultScenario(), 0);
 }
 
+/** The commands that need a team to work on: the `?hooks=team` preview has hooks to share and team hooks to remove, copy and switch. */
+const TEAM_COMMANDS = ['hooks_share', 'hooks_team_remove', 'hooks_team_refresh', 'hooks_team_copy', 'hooks_team_enable'] as const;
+
+async function teamCommandResolves(name: (typeof TEAM_COMMANDS)[number]): Promise<void> {
+  globalThis.history.replaceState(null, '', '/?hooks=team');
+
+  try {
+    const mock = transport();
+    const project = fixtures.recentProjects[0].path;
+    const { hooks } = await mock.invoke('hooks_list', { project });
+    const local = hooks.find((hook) => hook.origin === 'local' && hook.shareBlock === null);
+    const team = hooks.find((hook) => hook.origin === 'team' && hook.status !== 'duplicate');
+    const args = {
+      hooks_share: { id: local?.id ?? '', sha256: local?.sha256 ?? '' },
+      hooks_team_remove: { id: team?.id ?? '', sha256: team?.sha256 ?? '' },
+      hooks_team_refresh: { project },
+      hooks_team_copy: { id: team?.id ?? '', sha256: team?.sha256 ?? '', project },
+      hooks_team_enable: { id: team?.id ?? '', enabled: false },
+    }[name];
+
+    await expect(mock.invoke(name, args as never)).resolves.not.toBeInstanceOf(IpcFailure);
+  } finally {
+    globalThis.history.replaceState(null, '', '/');
+  }
+}
+
 describe('mock transport', () => {
   it.each(Object.keys(commands) as CommandName[])('implements %s', async (name) => {
+    if ((TEAM_COMMANDS as readonly string[]).includes(name)) {
+      await teamCommandResolves(name as (typeof TEAM_COMMANDS)[number]);
+
+      return;
+    }
+
     const mock = transport();
     const { key } = await mock.invoke('agent_start', { request: START_REQUEST, onEvent: () => {} });
     await mock.invoke('update_check', undefined);

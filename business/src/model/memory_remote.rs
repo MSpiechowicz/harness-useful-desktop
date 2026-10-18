@@ -1,6 +1,6 @@
 //! The shared team database of Harness Memory (`memory_remote_get`, `memory_remote_set`,
-//! `memory_remote_test`): the `database_url`, `database_token` and note routing in the server's
-//! own `config.toml`.
+//! `memory_remote_test`): the `database_url`, `database_token`, note, script and hook routing in
+//! the server's own `config.toml`.
 //!
 //! The URL and the token are secrets. They travel from the webview to the app only; the app returns
 //! a redacted URL (`scheme://user@host:port/path`) and whether a token is saved, never either value.
@@ -64,6 +64,15 @@ pub struct MemoryRemote {
     /// approved (its `script_run` takes no `sha`), so the `trust_team_scripts` key may be saved.
     /// Older servers refuse a file with that key.
     pub trust_team_scripts_supported: bool,
+    /// True when the installed Harness Memory keeps team hooks (`harness-memory hooks config`
+    /// answers), so the `hooks` and `trust_team_hooks` keys may be saved. Older servers refuse a
+    /// file with those keys.
+    pub hooks_supported: bool,
+    /// True when `hooks = "remote"`: hooks the user shares go to the team database, and this
+    /// machine runs the team's hooks.
+    pub share_hooks: bool,
+    /// True when `trust_team_hooks = true`: team hooks run without local approval.
+    pub trust_team_hooks: bool,
     /// The config file, home-relative for display (`~/.config/harness-memory/config.toml`).
     pub config_path: String,
     /// What is wrong with the file, if anything: unreadable, not valid TOML, keys the server does

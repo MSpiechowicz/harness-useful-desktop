@@ -3,7 +3,7 @@
 use std::process::Stdio;
 use std::time::Duration;
 
-use tokio::io::{AsyncRead, AsyncReadExt};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt};
 use tokio::time::{Instant, timeout_at};
 
 use super::{BoxFuture, ExecSpec, build_command, kill_tree, spawn_command};
@@ -46,7 +46,7 @@ pub trait ProcessRunner: Send + Sync {
 
 /// [`ProcessRunner`] backed by `tokio::process`.
 ///
-/// stdin is null, each output stream is capped (excess is drained and discarded so the child
+/// stdin is null unless the spec gives bytes for it (written, then closed), each output stream is capped (excess is drained and discarded so the child
 /// never blocks on a full pipe), and a timeout kills the child and its process group.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct TokioRunner;
@@ -58,11 +58,25 @@ impl ProcessRunner for TokioRunner {
 }
 
 async fn run_to_completion(spec: &ExecSpec) -> Result<ExecOutput> {
-    let command = build_command(spec, Stdio::null())?;
+    let stdin = match spec.stdin {
+        Some(_) => Stdio::piped(),
+        None => Stdio::null(),
+    };
+    let command = build_command(spec, stdin)?;
     let mut child = spawn_command(command, spec)?;
 
     let (Some(stdout), Some(stderr)) = (child.stdout.take(), child.stderr.take()) else {
         return Err(BusinessError::Internal("child pipes missing".to_owned()));
+    };
+
+    // Written while the output is read, so a child that answers before it read everything never
+    // blocks on a full pipe; a child that exits early just ends the write.
+    let input = child.stdin.take();
+    let feed = async {
+        if let (Some(mut pipe), Some(bytes)) = (input, spec.stdin.as_deref()) {
+            pipe.write_all(bytes).await.ok();
+            pipe.shutdown().await.ok();
+        }
     };
 
     let deadline = Instant::now() + spec.timeout;
@@ -78,11 +92,11 @@ async fn run_to_completion(spec: &ExecSpec) -> Result<ExecOutput> {
         }
     };
 
-    let all = async { tokio::join!(read_capped(stdout, cap), read_capped(stderr, cap), waiter) };
+    let all = async { tokio::join!(read_capped(stdout, cap), read_capped(stderr, cap), waiter, feed) };
 
     // The pipes normally close when the process group dies; a descendant that escaped the group
     // could keep them open, so collecting is bounded too.
-    let Ok((out, err, waited)) = timeout_at(deadline + DRAIN_GRACE, all).await else {
+    let Ok((out, err, waited, ())) = timeout_at(deadline + DRAIN_GRACE, all).await else {
         return Ok(ExecOutput {
             timed_out: true,
             ..ExecOutput::default()

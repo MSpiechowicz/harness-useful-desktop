@@ -7,6 +7,8 @@
 //!   stops, its channel closes or the page reloads. Each send goes through it under the chat's
 //!   own lock, and its events reach it from a [`chat::HookSink`] around the webview channel.
 //! - [`watch`]: a thread that looks at the folder and the approvals every second.
+//! - [`team`]: the team hooks shared through Harness Memory: whether hooks are shared, the
+//!   refresh of their copies, and the copies the chats run after the local hooks.
 //! - Capabilities: `harness-memory` is met while Harness Memory is installed and the
 //!   `memoryEnabled` pref is on, `harness-dashboard` while Harness Dashboard is installed. Looked
 //!   up at most every [`MEMBERS_TTL`], and again after an install or the memory switch.
@@ -22,6 +24,9 @@
 //! Logs carry hook ids and counts, never a hook's text, command or output.
 
 pub mod chat;
+pub mod team;
+#[cfg(test)]
+mod team_tests;
 #[cfg(test)]
 mod tests;
 pub mod watch;
@@ -32,6 +37,7 @@ use std::time::{Duration, Instant, SystemTime};
 
 use harness_business::ecosystem::{Companion, installed_memory, resolve_dashboard};
 use harness_business::env::Env;
+use harness_business::hooks::team::{TeamFolder, TeamViews, team_views};
 use harness_business::hooks::{HookCapabilities, HookSet, HookStore, restore_member, seed_defaults};
 use harness_business::model::{HookRequirement, HookView, HooksEvent};
 use harness_business::process::TokioRunner;
@@ -41,6 +47,7 @@ use tauri::ipc::Channel;
 use tauri::{AppHandle, Manager};
 
 use self::chat::ChatHooks;
+use self::team::TeamRuntime;
 use self::watch::Fingerprint;
 use crate::state::{AppState, SharedPrefs};
 
@@ -64,14 +71,25 @@ pub struct HookRuntime {
     watched: Mutex<Option<Fingerprint>>,
     /// The chats' hook tasks; each ends after its agent exited (and its `sessionEnd` ran).
     tasks: Mutex<Vec<JoinHandle<()>>>,
+    /// The team hooks (see [`team`]).
+    team: TeamRuntime,
 }
 
 #[derive(Default)]
 struct Cache {
     members: Option<(Instant, Members)>,
-    views: Option<(HookCapabilities, Arc<Vec<HookView>>)>,
+    views: Option<(HookCapabilities, Arc<RunViews>)>,
     /// Bumped by every invalidation, so a read that started before one does not store its result.
     generation: u64,
+}
+
+/// What the chats' hooks are picked from.
+#[derive(Default)]
+struct RunViews {
+    /// Every local hook file.
+    local: Vec<HookView>,
+    /// Every team hook, while hooks are shared.
+    team: TeamViews,
 }
 
 /// The family members on this machine.
@@ -114,6 +132,7 @@ impl HookRuntime {
             writes: Arc::default(),
             watched: Mutex::default(),
             tasks: Mutex::default(),
+            team: TeamRuntime::default(),
         }
     }
 
@@ -143,7 +162,8 @@ impl HookRuntime {
         cache.generation += 1;
     }
 
-    /// Reads the hooks again on their next firing (the folder or the approvals changed).
+    /// Reads the hooks again on their next firing (the folder, the approvals or the team hooks
+    /// changed).
     pub fn invalidate(&self) {
         let mut cache = self.lock_cache();
         cache.views = None;
@@ -188,8 +208,8 @@ impl HookRuntime {
         members
     }
 
-    /// Every hook file with its status, read once until something changes.
-    async fn views(&self) -> Arc<Vec<HookView>> {
+    /// Every hook file and team hook with its status, read once until something changes.
+    async fn views(&self) -> Arc<RunViews> {
         let capabilities = self.capabilities().await;
 
         let generation = {
@@ -204,11 +224,22 @@ impl HookRuntime {
             cache.generation
         };
 
+        // Read after the generation: a trust change invalidates, so a read with the old trust is
+        // not stored.
+        let trust = self.team_settings().map(|settings| settings.trust);
+
         let Some(store) = self.store.clone() else {
             return Arc::default();
         };
 
-        let listed = tauri::async_runtime::spawn_blocking(move || store.list(capabilities).hooks).await;
+        let listed = tauri::async_runtime::spawn_blocking(move || RunViews {
+            local: store.list(capabilities).hooks,
+            team: match trust {
+                Some(trust) => team_views(&store, &TeamFolder::of(&store), capabilities, trust),
+                None => TeamViews::default(),
+            },
+        })
+        .await;
         let views = Arc::new(listed.unwrap_or_default());
 
         let mut cache = self.lock_cache();
@@ -219,13 +250,25 @@ impl HookRuntime {
         views
     }
 
-    /// The active hooks of a chat in `project` (its project root; `None`: global hooks only).
+    /// The active hooks of a chat in `project` (its project root; `None`: global hooks only): its
+    /// local hooks, then the team hooks of its repository.
     pub async fn hook_set(&self, project: Option<&str>) -> HookSet {
         if self.store.is_none() {
             return HookSet::empty();
         }
 
-        HookSet::for_chat(&self.views().await, project)
+        if let Some(root) = project {
+            self.note_root(root);
+        }
+
+        let views = self.views().await;
+
+        // A root's repository key counts once a round of this session confirmed it.
+        let key = project
+            .filter(|root| self.root_verified(root))
+            .and_then(|root| views.team.key_of(Some(root)));
+
+        HookSet::for_chat(&views.local, project).with_team(&views.team.views, project, key)
     }
 
     /// Runs `task` on the store off the async runtime (file IO) and without the write lock.
@@ -363,10 +406,11 @@ impl HookRuntime {
 }
 
 /// Seeds the Harness family hooks of the available members in the background, and starts the
-/// watcher; the window does not wait for either.
+/// watcher and the team hooks refresh; the window does not wait for any of them.
 pub fn spawn_on_launch(app: &AppHandle) {
     let state = app.state::<AppState>();
     watch::spawn(state.hooks.clone());
+    team::spawn(state.hooks.clone());
 
     let app = app.clone();
     drop(tauri::async_runtime::spawn(async move {

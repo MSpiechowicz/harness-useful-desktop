@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { Hook } from '$lib/ipc/bindings/Hook';
 import type { HookView } from '$lib/ipc/bindings/HookView';
+import { LOCAL_ORIGIN } from '$lib/ipc/mock/hooks-team-state';
 
 import HookReview from './HookReview.svelte';
 
@@ -25,7 +26,7 @@ const APPROVED: Hook = {
 };
 
 function review(waiting: Hook): void {
-  const view: HookView = { id: waiting.id, hook: waiting, name: waiting.name, status: 'pending', sha256: 'c'.repeat(64), problem: null, approval: 'changed', approved: APPROVED };
+  const view: HookView = { id: waiting.id, hook: waiting, name: waiting.name, status: 'pending', sha256: 'c'.repeat(64), problem: null, approval: 'changed', approved: APPROVED, ...LOCAL_ORIGIN, shareBlock: null };
 
   render(HookReview, { view, busy: false, onapprove: () => {}, onreject: () => {} });
 }

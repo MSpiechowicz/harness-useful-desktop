@@ -1,7 +1,5 @@
 <script lang="ts">
   import Pause from '@lucide/svelte/icons/pause';
-  import Pencil from '@lucide/svelte/icons/pencil';
-  import Trash2 from '@lucide/svelte/icons/trash-2';
 
   import Button from '$lib/components/Button.svelte';
   import FactsCard from '$lib/components/FactsCard.svelte';
@@ -25,6 +23,8 @@
   import FamilyInstall from './FamilyInstall.svelte';
   import { hookFacts } from './hook-facts';
   import { actionText, EVENT_LABELS, EVENT_WHEN, hookTitle, MEMBER_LABELS, SCOPE_LABELS, waitingFor } from './hook-format';
+  import { switchLock, teamSwitchedOn } from './hook-team';
+  import HookActions from './HookActions.svelte';
   import HookReview from './HookReview.svelte';
 
   interface Props {
@@ -34,15 +34,23 @@
     view: HookView | null;
     /** A change to this hook is being written. */
     busy: boolean;
+    /** Hooks are shared with the team: a local hook can be shared. */
+    sharing: boolean;
+    /** The local original of a team hook is still there, so its team copy can be updated from it. */
+    canUpdate: boolean;
     ontoggle: (enabled: boolean) => void;
     onapprove: () => void;
     onreject: () => void;
     onedit: () => void;
     ondelete: () => void;
+    onshare: () => void;
+    onupdate: () => void;
+    onremove: () => void;
+    oncopy: () => void;
     onclose: () => void;
   }
 
-  let { open, inline, view, busy, ontoggle, onapprove, onreject, onedit, ondelete, onclose }: Props = $props();
+  let { open, inline, view, busy, sharing, canUpdate, ontoggle, onapprove, onreject, onedit, ondelete, onshare, onupdate, onremove, oncopy, onclose }: Props = $props();
 
   const hook = $derived(view?.hook ?? null);
   const info = NOTICE_LOOKS.info;
@@ -54,13 +62,29 @@
     pending: 'hooks.panel.status.pending',
     paused: 'hooks.panel.status.paused',
     invalid: 'hooks.panel.status.invalid',
+    duplicate: 'hooks.panel.status.duplicate',
   };
 
   const TEXT_HEADINGS = { addContext: 'hooks.field.context', followUp: 'hooks.field.message', command: 'hooks.field.command' } as const;
 
   const waiting = $derived(hook && view?.status === 'paused' ? waitingFor(hook, prefs.value?.memoryEnabled !== false) : null);
-  // Why the switch and Edit are off: both would write the file, and a write approves what it writes.
-  const lockReason = $derived(view?.status === 'pending' ? t('hooks.locked.pending') : view?.hook === null ? t('hooks.locked.invalid') : null);
+  const team = $derived(view?.origin === 'team');
+  // Why the switch and Edit are off: both would write the file, and a write approves what it writes. A team hook has no Edit.
+  const lockReason = $derived.by(() => {
+    const key = view ? switchLock(view) : null;
+
+    return key === null ? null : t(key);
+  });
+  // The status line of a team hook that runs or not by this computer's choice says whose choice the switch is.
+  const statusText = $derived.by(() => {
+    if (!view || !hook) {
+      return '';
+    }
+
+    const text = t(STATUS_TEXT[view.status], { when: t(EVENT_WHEN[hook.event]) });
+
+    return team && (view.status === 'active' || view.status === 'off') ? `${text} ${t('hooks.panel.team.onlyHere')}` : text;
+  });
 
   function openSettings(): void {
     viewState.settingsTarget = 'memory';
@@ -72,22 +96,22 @@
   {open}
   {inline}
   title={view ? hookTitle(view) : ''}
-  subtitle={hook ? `${t(EVENT_LABELS[hook.event])} · ${t(SCOPE_LABELS[hook.scope])}` : (view?.id ?? '')}
+  subtitle={hook ? `${t(EVENT_LABELS[hook.event])} · ${t(SCOPE_LABELS[hook.scope])}${team ? ` · ${t('hooks.source.team')}` : ''}` : (view?.id ?? '')}
   {onclose}
 >
   {#if view}
     <SectionCard flat heading={t('hooks.panel.status')}>
       {#if hook}
         <div class="-my-4">
-          <SettingRow title={t('hooks.panel.enabled')} description={t(STATUS_TEXT[view.status], { when: t(EVENT_WHEN[hook.event]) })}>
+          <SettingRow title={view.status === 'duplicate' ? t('hooks.status.duplicate') : t('hooks.panel.enabled')} description={statusText}>
             {#snippet control()}
               <Tooltip text={lockReason ?? ''} side="bottom" disabled={lockReason === null}>
                 {#snippet children({ describedby })}
                   <span aria-describedby={describedby} class="inline-flex">
                     <Switch
-                      label={t('hooks.panel.enabledLabel', { name: hookTitle(view) })}
+                      label={t(team ? 'hooks.panel.team.enabledLabel' : 'hooks.panel.enabledLabel', { name: hookTitle(view) })}
                       disabled={lockReason !== null || busy}
-                      bind:checked={() => view.status !== 'pending' && hook.enabled, (next) => ontoggle(next)}
+                      bind:checked={() => (team ? teamSwitchedOn(view) : view.status !== 'pending' && hook.enabled), (next) => ontoggle(next)}
                     />
                   </span>
                 {/snippet}
@@ -127,7 +151,7 @@
 
     {#if view.status === 'pending'}
       <SectionCard flat heading={t('hooks.panel.review')}>
-        <HookReview {view} {busy} {onapprove} {onreject} />
+        <HookReview {view} {busy} {onapprove} onreject={team ? undefined : onreject} />
       </SectionCard>
     {/if}
 
@@ -138,7 +162,7 @@
         </SectionCard>
       {/if}
 
-      <FactsCard flat heading={t('hooks.panel.details')} rows={hookFacts(hook, view.approval)} />
+      <FactsCard flat heading={t('hooks.panel.details')} rows={hookFacts(hook, view.approval, team ? view : null)} />
 
       <SectionCard flat heading={t(TEXT_HEADINGS[hook.action.type])}>
         {#if hook.action.type === 'command'}
@@ -150,21 +174,7 @@
     {/if}
 
     <SectionCard flat heading={t('hooks.panel.actions')}>
-      <div class="flex flex-wrap items-center gap-2">
-        <!-- A save approves the bytes it writes, so a hook that waits for approval cannot be edited: the user approves or rejects it first. -->
-        <Tooltip text={lockReason ?? ''} disabled={lockReason === null}>
-          {#snippet children({ describedby })}
-            <Button disabled={lockReason !== null} aria-describedby={describedby} onclick={onedit}>
-              {#snippet leading()}<Pencil size={ICON.sm} aria-hidden="true" />{/snippet}
-              {t('hooks.panel.edit')}
-            </Button>
-          {/snippet}
-        </Tooltip>
-        <Button variant="dangerQuiet" onclick={ondelete}>
-          {#snippet leading()}<Trash2 size={ICON.sm} aria-hidden="true" />{/snippet}
-          {t('hooks.panel.delete')}
-        </Button>
-      </div>
+      <HookActions {view} {lockReason} {sharing} {canUpdate} {busy} {onedit} {ondelete} {onshare} {onupdate} {onremove} {oncopy} />
     </SectionCard>
   {/if}
 </SidePanel>

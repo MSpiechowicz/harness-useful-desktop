@@ -325,7 +325,9 @@ impl HookSession {
         };
         let mut commands = Vec::new();
 
-        for hook in hooks.of_event(HookEvent::ToolEnd) {
+        for entry in hooks.of_event(HookEvent::ToolEnd) {
+            let hook = &entry.hook;
+
             if !matches_tool(hook.matcher.as_deref(), name) {
                 continue;
             }
@@ -335,13 +337,13 @@ impl HookSession {
                     let seen = self.current.tool_texts.iter().any(|part| part.hook_id == hook.id);
 
                     if let (false, PlannedPart::Text(part)) =
-                        (seen, planned_part(hook, &self.chat, HookEvent::ToolEnd, tool))
+                        (seen, planned_part(entry, &self.chat, HookEvent::ToolEnd, tool))
                     {
                         self.current.tool_texts.push(part);
                     }
                 }
                 HookAction::Command { .. } => {
-                    commands.push(planned_part(hook, &self.chat, HookEvent::ToolEnd, tool));
+                    commands.push(planned_part(entry, &self.chat, HookEvent::ToolEnd, tool));
                 }
                 HookAction::AddContext { .. } => {}
             }
@@ -451,7 +453,7 @@ impl HookSession {
     fn firing(&mut self, hooks: &HookSet, event: HookEvent, tool: ToolEnv<'_>) -> Firing {
         let parts = hooks
             .of_event(event)
-            .map(|hook| planned_part(hook, &self.chat, event, tool))
+            .map(|entry| planned_part(entry, &self.chat, event, tool))
             .collect();
 
         Firing {

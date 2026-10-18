@@ -16,6 +16,10 @@
 //! - [`command`]: runs the command hooks of one firing (sequential, a shared 30 s budget).
 //! - [`compose`]: the `<harness-hook-context>` block and the follow-up prompt, and
 //!   [`strip_hook_context`] for titles and previews.
+//! - [`team`]: the team hooks shared through Harness Memory, kept as copies in `<root>/team` that
+//!   only the app window reads (never [`HookStore::list`] or the MCP server).
+//! - `hooks-state.json`: the seed record, the team hooks turned off on this machine and what was
+//!   shared from which local version.
 //!
 //! Command hooks are the one place the app runs a shell (`sh -c`, `cmd.exe /D /S /C`): the
 //! user wrote or approved that exact command text.
@@ -31,7 +35,9 @@ mod folder;
 pub mod format;
 mod plan;
 mod run;
+mod state;
 pub mod store;
+pub mod team;
 mod unicode;
 mod view;
 
@@ -73,7 +79,7 @@ pub const HOOKS_FOLDER: &str = "hooks";
 /// The approvals file in the app's config folder.
 pub const APPROVALS_FILE: &str = "hook-approvals.json";
 
-/// The seed record in the app's config folder.
+/// The seed record and the team hooks' local state in the app's config folder.
 pub const STATE_FILE: &str = "hooks-state.json";
 
 /// The hooks root: [`DIR_VAR`] when it is absolute (after `~` expansion), else the platform data

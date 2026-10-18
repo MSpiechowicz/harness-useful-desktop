@@ -62,6 +62,7 @@ not guaranteed, it says so under [Limits](#limits).
 | An agent stores a secret in project memory, or a note written in one session misleads a later one | `redact_text` on every stored string, per-call size limits, notes are data the server only returns; see [Project memory](#project-memory) and [Limits](#limits) |
 | An agent writes a hook that runs a command or steers later prompts | A hook an agent writes is pending and never runs until you approve that exact version (SHA-256 of the file bytes in `hook-approvals.json`, written only by the window), the Hooks view shows the text or command and the change, an agent removes only hooks it created, and its edits and removals need the hash it read. Context and follow-ups are capped at 8 KiB and cannot forge their markers; see [Hooks](#hooks) and [Limits](#limits) |
 | A file planted in, or a link placed into, the hooks folder | Only regular files named `<id>.json` are read, symbolic links are skipped and never written through, and the folder is ignored while group or others can write to it; a planted file stays pending without an approval for its hash; see [Hooks](#hooks) |
+| A teammate (or anyone who can write the team database) shares a hook that runs a command here | Team hooks run only while "Share hooks with the team" is on, and only with "Trust team hooks" on or after you approved their exact bytes on this machine; a local hook with the same id wins; turning sharing off deletes the copies at once. Agents cannot share or see team hooks; see [Hooks](#hooks) |
 | Credentials leak into logs, prefs or fixtures | Payload-free logging; `prefs.json` holds only the fields of `AppPrefs`; canary tests; fixtures checked for secrets |
 | Another local user reads app data | Prefs directory `0700` and file `0600` on Unix; hooks folder `0700` and hook, approval and registration files `0600` |
 
@@ -497,6 +498,15 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
   project only), in the home directory, stdin closed, 20 s limit and 1 s per script (120 s at most), 16 KiB of output
   kept, and only its error line (the last `harness-memory:` line) returned, redacted and clipped. The server approves a script only while its current version has that hash; one
   changed since the review comes back as `conflict`, and the page loads it again and asks. See [Script approval](#script-approval).
+- **Team hooks.** `harness-memory hooks config --json` (the support probe, 10 s), `hooks list --json --offset N --limit N
+  [--project <root>]`, `hooks put --json [--project <root>] [--expect-sha <sha256>]` with the hook file on stdin (at most
+  16 KiB, after the user chose "Share with team" or "Update team copy") and `hooks delete <id> [--expect-sha <sha256>]
+  --json` (after the user confirms "Remove from team") (`business/src/ecosystem/memory_hooks.rs`): absolute path, no
+  shell, each value its own argument, ids and hashes checked as 32 and 64 lowercase hex first, home directory, 15 s
+  limit, 2 MiB of output kept per stream (a list asks for 16 rows a page, which fits even when every byte is escaped,
+  and reads at most 16 pages; a longer list or a page cut short removes no copy). A `--project` is the canonical root of a project hook the user saved, the
+  active or a recent project, or one a chat runs in. A failure's message is redacted and clipped before it reaches the
+  webview; logs carry the command name, ids and the error code only. See [Hooks](#hooks).
 
 ## Shared setups
 
@@ -649,7 +659,8 @@ file as it did. The Harness family hooks now ask agents to search and save notes
 
 Harness Memory can keep its notes in a shared database instead of the local file. Settings writes the server's own
 config file, `config.toml` in `<config>/harness-memory`, where `<config>` is `$XDG_CONFIG_HOME` (if absolute) or
-`~/.config` (Linux), `~/Library/Application Support` (macOS) or `%APPDATA%` (Windows)
+`~/.config` (Linux), `~/Library/Application Support` (macOS) or `%APPDATA%` (Windows), or the file
+`HARNESS_MEMORY_CONFIG` names (absolute, a leading `~` expanded; a relative value is refused, as the server refuses it)
 (`business/src/ecosystem/memory_remote/`).
 
 - **What it holds.** `database_url`, `database_token` (libSQL only), where repository and global notes go
@@ -660,7 +671,10 @@ config file, `config.toml` in `<config>/harness-memory`, where `<config>` is `$X
   switching back later does not trust team scripts unasked); an older server refuses them. Unset means remote and
   false. While the server cannot be asked (not found, the probe failed, or its `script_run` is missing or lists no
   arguments) both keys are kept as saved, so a passing failure neither
-  sends local scripts to the team database nor changes which scripts run without asking. Nothing else: the server
+  sends local scripts to the team database nor changes which scripts run without asking. `hooks = "remote"` (share hooks
+  with the team) and `trust_team_hooks = true` (run team hooks without local approval, written only while hooks are
+  shared) follow the same rules: written only while `harness-memory hooks config --json` answers, dropped for a server
+  that predates team hooks, kept as saved while the server cannot be asked (see [Hooks](#hooks), team hooks). Nothing else: the server
   refuses unknown keys, so a file with
   other keys, one that is not valid TOML or cannot be read is reported and never overwritten or removed. Turning the
   team database off deletes the file.
@@ -736,7 +750,7 @@ follow-up prompt after the agent settles, or run a shell command. Agents can wri
   the MCP mode reads the approvals to report `approved` or `pending`, and an unreadable or invalid approvals file makes
   every hook pending. The window never saves over approvals it could not read (the write fails), and sets an invalid
   file aside (`.corrupt-<unix-seconds>`) so every hook is pending until you approve it again. An approval is dropped
-  only when no `<id>.json` entry is left in the folder. When a scope holds more than 64 hooks, approved ones are used
+  only when no `<id>.json` entry is left in the folder or among the team copies. When a scope holds more than 64 hooks, approved ones are used
   first, so planted or pending files cannot push your hooks out, and the window counts only approved hooks against
   the limit. The Harness family hooks (below) are written by the
   window with texts fixed in `business/src/hooks/family.rs` and approved at once. Only an approved file counts as a
@@ -815,6 +829,42 @@ follow-up prompt after the agent settles, or run a shell command. Agents can wri
   a member deletes nothing.
 - **Registration.** `harness-desktop` is an MCP server entry in the user `mcp.json` of OMP and PI (OpenCode's `mcp`
   object). See [Process spawning](#process-spawning).
+- **Team hooks are remote code.** With a team database set and "Share hooks with the team" on, teammates' hooks reach
+  this machine through Harness Memory (`harness-memory hooks list`, run by the app; the app opens no connection of its
+  own) and are kept as copies in `<root>/team/` (`0700`, files `0600`, written by a temp file and a rename, never
+  through a symbolic link, the folder ignored while other users can change it). A team hook runs only while sharing is
+  on, and only with "Trust team hooks" on or after you approved its exact body bytes on this machine (the same
+  `hook-approvals.json`, with a copy for the diff of a later version). With "Trust team hooks" on, anyone who can write
+  the team's hooks in that database can run commands on this computer, as hooks do: as you, with the app's
+  environment, in your project root or chat folder. Turning sharing off, an older Harness Memory or uninstalling it
+  deletes the copies at once, so team hooks stop. A local hook with the same id always wins (the team copy never runs),
+  and turning a team hook off is a local override (`teamDisabled` in `hooks-state.json`) never sent to the team. While
+  Harness Memory cannot be asked, the copies stay but trust is dropped: team hooks wait for approval until it answers
+  again. When a team copy leaves this machine (removed from the team, no longer listed, sharing turned off) its approval
+  and approved copy go with it, unless a local hook has the same id, so the same bytes published again wait for
+  approval. "Copy to my hooks" copies only a team hook that may already run here (trusted, or approved on this machine),
+  and the copy is a local hook approved at once. With "Trust team hooks" on, that is a lasting local approval of bytes
+  you may never have read: it stays after you turn trust off or leave the team.
+- **A team project hook follows the repository, not a folder.** A local project hook is bound to one project root path.
+  A team project hook applies to every folder whose `origin` remote resolves to its repository key
+  (`git:host/owner/repo`): every clone, worktree or checkout of that repository on this machine, and one approval of its
+  bytes covers all of them. Any folder can claim any `origin`: a downloaded archive with a crafted `.git/config` maps to
+  your team's repository, and an approved (or trusted) team project hook then runs there, with that folder as its
+  working directory. A root's mapping is used only after a refresh of this session asked Harness Memory for it (a new
+  or remounted folder waits for one, which the chat or the Hooks view starts), and the filesystem root and the home
+  folder are never projects.
+- **Who can put a hook on the team.** There is no MCP tool that shares a hook, in this app or in Harness Memory, and
+  agents never see team hooks through the app (`harness-desktop mcp` and `HookStore::list` never read the team folder).
+  That does not stop anyone: any process running as you, an agent with a shell included, can run `harness-memory hooks
+  put` itself, and so can every teammate, their agents and anything else that can write to the team database. Trusting
+  team hooks means trusting all of them. Leave "Trust team hooks" off unless that holds: each team hook then stays
+  pending until you have read and approved its exact bytes on this machine.
+- **What leaves the machine when you share.** The app shares only when you choose "Share with team" or "Update team
+  copy" in the Hooks view. A shared hook's file goes to the team database as written, except that a project hook's `project` (a
+  local path) is replaced by the repository key (`git:host/owner/repo`, from the `origin` remote); a project in a
+  repository without one is not shared. Harness family hooks, pending and invalid hooks are not shared. The hook's text
+  or command is not scanned for secrets before it is shared: what you share, your team can read. Harness Memory adds an
+  author label (your user name by default). Logs carry hook ids and counts, never a body.
 
 ## Tauri ACL, CSP and webview
 
@@ -873,7 +923,8 @@ Details of keys and releases: [release-and-updater-keys.md](release-and-updater-
 | Harness Memory `config.toml` | `<config>/harness-memory/config.toml` (see [Team database](#team-database)) | Only when you set a team database: its URL, the libSQL token and the note routing, in plain text. Written atomically by the app (`0600` file, `0700` folder on Unix) and read by `harness-memory`; deleted when you turn the team database off. |
 | `memory-registration.json` | The OS app-config directory, beside `prefs.json` | `{"version": 1, "registered": [{"harness", "file"}]}`: the home-relative `mcp.json` paths the server was registered in, so a removed entry is not added back. No file contents. Read with a 64 KiB cap, written atomically; an unusable file is renamed to `memory-registration.json.corrupt-<unix-seconds>`. |
 | Hook files | `<root>/hooks/<id>.json` (one per hook), where `<root>` is `HARNESS_HOOKS_DIR` when absolute, else `harness-hooks` in `$XDG_DATA_HOME` or `~/.local/share` (Linux), `~/Library/Application Support` (macOS) or `%LOCALAPPDATA%` (Windows; unset: hooks are unavailable) | The hooks you and your agents wrote: name, description, event, tool filter, the text or command, scope and project root, switches and timestamps (format: [hooks-format.md](hooks-format.md)). Plain text, unencrypted, never exported by Share setup. Written by the app window and by `harness-desktop mcp` (temp file and rename, `0600` files in a `0700` folder on Unix). Not removed when you uninstall the app. See [Hooks](#hooks). |
-| `hook-approvals.json`, `hook-approved/`, `hooks-state.json` | The OS app-config directory, beside `prefs.json` | `hook-approvals.json`: `{"version": 1, "approvals": {"<id>": "<SHA-256 of the approved file bytes>"}}`. `hook-approved/<id>.json`: a copy of each approved hook file, so the Hooks view can show what a pending edit changed (`0600` files in a `0700` folder). `hooks-state.json`: `{"version": 1, "seeded": ["memory-search", ...]}`, the Harness family hooks already created at launch, so a deleted one is not created again. Written only by the app window (the hooks server reads the approvals), atomically, `0600`. The copies hold hook text and commands. |
+| Team hook copies | `<root>/team/<id>.json` and `<root>/team/projects.json`, beside the hook files | Only while hooks are shared with the team: each team hook as Harness Memory listed it (id, repository key, SHA-256, the sharer's label, timestamps and the hook file, its text or command included), and the repository key of each project root a list was asked for. Written only by the app window (temp file and rename, `0600` files in a `0700` folder on Unix), deleted when sharing is turned off. Never read by `harness-desktop mcp`. |
+| `hook-approvals.json`, `hook-approved/`, `hooks-state.json` | The OS app-config directory, beside `prefs.json` | `hook-approvals.json`: `{"version": 1, "approvals": {"<id>": "<SHA-256 of the approved file bytes>"}}`. `hook-approved/<id>.json`: a copy of each approved hook file, so the Hooks view can show what a pending edit changed (`0600` files in a `0700` folder). `hooks-state.json`: `{"version": 1, "seeded": ["memory-search", ...], "teamDisabled": [...], "sharedFrom": {...}}`, the Harness family hooks already created at launch (so a deleted one is not created again), the team hooks turned off on this machine and the hash of each local hook when you shared it. Written only by the app window (the hooks server reads the approvals), atomically, `0600`. The copies hold hook text and commands. |
 | `desktop-mcp-registration.json` | The OS app-config directory, beside `prefs.json` | `{"version": 1, "registered": [{"harness", "file", "command"}]}`: the home-relative `mcp.json` paths the `harness-desktop` server was registered in and the program written there, so a removed entry is not added back and a moved app is followed. No file contents. Read with a 64 KiB cap, written atomically; an unusable file is renamed to `desktop-mcp-registration.json.corrupt-<unix-seconds>`. |
 | Exported setup | A path you choose in the native save dialog (suggested `harness-setup-<date>.json`) | The share file of [Shared setups](#shared-setups): references and key names, no env or header values. Written atomically, only on Save. Not app data; the app never reads it back unless you import it. |
 | Log files | The OS log directory | See [Logging](#logging). Rotated at 1 MiB, 3 files kept. |

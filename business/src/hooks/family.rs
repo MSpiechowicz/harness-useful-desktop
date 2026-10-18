@@ -15,22 +15,16 @@
 //!   has not reviewed, or a file someone else wrote) is replaced by the catalog version when the
 //!   app adds that seed, approved like every app write.
 
-use std::path::Path;
 use std::time::SystemTime;
 
-use serde::{Deserialize, Serialize};
-
-use super::STATE_FILE;
-use super::approvals::{is_regular_file, set_aside};
+use super::state::{load_state, save_state};
 use super::store::{HookCapabilities, HookStore};
 use crate::agent::rfc3339;
-use crate::error::{BusinessError, Result};
-use crate::fs_atomic::{refuse_link, replace_atomically};
+use crate::error::Result;
 use crate::model::{
     Hook, HookAction, HookApproval, HookAuthor, HookEvent, HookFamilyEntry, HookFamilyStatus, HookListing,
     HookRequirement, HookScope, HookSeed, HookView,
 };
-use crate::security::SafeReader;
 
 /// The `memory-search` context.
 pub const SEED_MEMORY_SEARCH_TEXT: &str = "Before you start, search Harness Memory for notes about this task \
@@ -286,79 +280,4 @@ pub fn restore_member(store: &HookStore, member: HookRequirement, now: SystemTim
     }
 
     apply_family(store, &missing, HookCapabilities::default(), now)
-}
-
-/// Largest seed record read.
-const MAX_STATE_BYTES: u64 = 64 * 1024;
-
-/// `hooks-state.json`: the seeds launch seeding created (or found) once.
-#[derive(Debug, Default, Serialize, Deserialize)]
-struct StateFile {
-    version: u32,
-    seeded: Vec<String>,
-}
-
-impl StateFile {
-    fn has(&self, seed: HookSeed) -> bool {
-        self.seeded.iter().any(|name| name == seed.as_str())
-    }
-
-    fn record(&mut self, seed: HookSeed) {
-        if !self.has(seed) {
-            self.seeded.push(seed.as_str().to_owned());
-        }
-    }
-}
-
-/// The seed record, for a writer that saves it again. Empty when missing; an error when it
-/// cannot be read (it must not be saved over). An invalid record is set aside
-/// (`.corrupt-<unix-seconds>`) and rebuilt with every catalog seed listed (saved at once), so a
-/// hook the user deleted is not created again at launch (like the desktop MCP record).
-fn load_state(config_dir: &Path) -> Result<StateFile> {
-    let path = config_dir.join(STATE_FILE);
-    let empty = StateFile {
-        version: 1,
-        seeded: Vec::new(),
-    };
-
-    let text = match SafeReader::read_to_string(&path, MAX_STATE_BYTES) {
-        Ok(text) => Some(text),
-        Err(BusinessError::NotFound(_)) => return Ok(empty),
-        Err(BusinessError::InvalidInput(_)) if is_regular_file(&path) => None,
-        Err(error) => return Err(error),
-    };
-
-    let state = text
-        .and_then(|text| serde_json::from_str::<StateFile>(&text).ok())
-        .filter(|state| state.version == 1);
-
-    if let Some(state) = state {
-        return Ok(state);
-    }
-
-    tracing::warn!("the hook seed record is invalid; set aside and rebuilt");
-    set_aside(&path)?;
-
-    let mut rebuilt = empty;
-    for entry in &FAMILY {
-        rebuilt.record(entry.seed);
-    }
-
-    // Saved at once: a missing record would let the next launch seed deleted hooks again.
-    save_state(config_dir, &rebuilt)?;
-    Ok(rebuilt)
-}
-
-fn save_state(config_dir: &Path, state: &StateFile) -> Result<()> {
-    std::fs::create_dir_all(config_dir)
-        .map_err(|error| BusinessError::from_io("creating the app config folder", error))?;
-
-    let path = config_dir.join(STATE_FILE);
-    refuse_link(&path)?;
-
-    let mut bytes = serde_json::to_vec_pretty(state)
-        .map_err(|error| BusinessError::Internal(format!("encoding the hook seed record: {error}")))?;
-    bytes.push(b'\n');
-
-    replace_atomically(&path, &bytes, "saving the hook seed record")
 }

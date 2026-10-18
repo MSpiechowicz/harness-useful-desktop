@@ -3,14 +3,16 @@
 
 use super::approvals::{Approvals, remove_snapshot, snapshot_ids};
 use super::store::{HookCapabilities, HookStore};
+use super::team::TeamFolder;
 use crate::error::{BusinessError, Result};
 
 impl HookStore {
-    /// Drops the approvals and approved copies of hooks that have no `<id>.json` entry at all (an
-    /// agent removed it, or it was deleted outside the app; app window only). An entry that is
-    /// there but is not a regular file or cannot be read keeps its approval. Does nothing while
-    /// the hooks folder is missing or not fully read, so a folder that is away for a moment keeps
-    /// its approvals. Returns how many hooks lost their approval.
+    /// Drops the approvals and approved copies of hooks that have no `<id>.json` entry at all,
+    /// neither in the hooks folder nor among the team copies (an agent removed it, it was deleted
+    /// outside the app, or it left the team; app window only). An entry that is there but is not a
+    /// regular file or cannot be read keeps its approval. Does nothing while the hooks folder is
+    /// missing or not fully read, so a folder that is away for a moment keeps its approvals.
+    /// Returns how many hooks lost their approval.
     pub fn prune_approvals(&self) -> Result<usize> {
         let is_folder = std::fs::metadata(self.hooks_dir()).is_ok_and(|metadata| metadata.is_dir());
 
@@ -21,7 +23,8 @@ impl HookStore {
         let Some(entries) = self.entry_ids() else {
             return Ok(0);
         };
-        let present = |id: &str| entries.contains(id);
+        let team = TeamFolder::of(self).ids();
+        let present = |id: &str| entries.contains(id) || team.contains(id);
 
         let mut approvals = Approvals::load_for_update(self.config_dir())?;
         let gone: Vec<String> = approvals.ids().filter(|id| !present(id)).map(str::to_owned).collect();
@@ -44,7 +47,7 @@ impl HookStore {
     }
 
     /// Deletes every hook file the Hooks view lists for a chat in `project` (a project root;
-    /// `None`: global only, see [`HookStore::list_for`]): the global hooks, that project's (pending
+    /// `None`: global only, see [`HookStore::list_for`]; team hooks are never touched): the global hooks, that project's (pending
     /// and over-the-limit ones included), and every file that is not a valid hook, with their
     /// approvals and approved copies. Another project's hooks stay, even over its limit. The seed record is kept, so a Harness
     /// family hook deleted this way is not created again at launch. Approvals that cannot be read

@@ -3,4 +3,4 @@
 /**
  * Whether a hook runs.
  */
-export type HookStatus = "active" | "off" | "pending" | "paused" | "invalid";
+export type HookStatus = "active" | "off" | "pending" | "paused" | "invalid" | "duplicate";

@@ -17,6 +17,10 @@ export interface MemoryRemoteSave {
   scripts: MemoryNotesTarget;
   /** Run every script the team database holds without asking. */
   trustTeamScripts: boolean;
+  /** Share hooks through the team database. Left out keeps the saved choice (a server that cannot keep team hooks has none to change). */
+  shareHooks?: boolean;
+  /** Run team hooks without local approval. Only saved on while hooks are shared. */
+  trustTeamHooks?: boolean;
 }
 
 export interface MemoryRemoteProbe {

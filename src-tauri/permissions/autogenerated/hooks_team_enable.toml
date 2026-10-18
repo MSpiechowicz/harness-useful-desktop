@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-hooks-team-enable"
+description = "Enables the hooks_team_enable command without any pre-configured scope."
+commands.allow = ["hooks_team_enable"]
+
+[[permission]]
+identifier = "deny-hooks-team-enable"
+description = "Denies the hooks_team_enable command without any pre-configured scope."
+commands.deny = ["hooks_team_enable"]

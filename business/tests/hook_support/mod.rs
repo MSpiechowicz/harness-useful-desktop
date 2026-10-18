@@ -8,7 +8,8 @@ use harness_business::hooks::{
     ChatContext, EventOutcome, Firing, FollowUpPlan, HookSession, HookSet, PlannedPart, SendOrigin, SendPlan,
 };
 use harness_business::model::{
-    AgentAction, AgentEvent, Hook, HookAction, HookApproval, HookAuthor, HookEvent, HookScope, HookStatus, HookView,
+    AgentAction, AgentEvent, Hook, HookAction, HookApproval, HookAuthor, HookEvent, HookOrigin, HookScope, HookStatus,
+    HookView,
 };
 use serde_json::Value;
 
@@ -81,6 +82,13 @@ pub fn with_status(hook: Hook, status: HookStatus) -> HookView {
         approval: HookApproval::Approved,
         approved: None,
         hook: Some(hook),
+        origin: HookOrigin::Local,
+        team_author: None,
+        team_updated_at: None,
+        team_repo: None,
+        team_changed: false,
+        share_block: None,
+        team_disabled: false,
     }
 }
 

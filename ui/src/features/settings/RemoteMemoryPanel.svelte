@@ -38,13 +38,21 @@
   let scripts = $state<MemoryNotesTarget>(remote.scripts);
   // svelte-ignore state_referenced_locally
   let trustTeamScripts = $state(remote.trustTeamScripts);
+  // svelte-ignore state_referenced_locally
+  let shareHooks = $state(remote.shareHooks);
+  // svelte-ignore state_referenced_locally
+  let trustTeamHooks = $state(remote.trustTeamHooks);
   let url = $state('');
   let token = $state('');
   let touched = $state(false);
   let busy = $state<'test' | 'save' | null>(null);
   let status = $state<{ ok: boolean; text: string } | null>(null);
 
+  /** The sub-headings of the panel look like the section headings of Settings, one step smaller in the card. */
+  const HEADING = 'pt-4 text-sm font-medium tracking-wider text-fg-3 uppercase';
+
   const base = uid('memory-remote');
+  const headings = { connection: `${base}-connection`, keptIn: `${base}-kept-in`, trust: `${base}-trust` };
   const urlHint = `${base}-url`;
 
   const TARGETS: StripOption<MemoryNotesTarget>[] = [
@@ -65,6 +73,10 @@
   /** An older Harness Memory has no scripts to route: the row stays, greyed out, and says what to do. */
   const SCRIPT_TARGETS = $derived(TARGETS.map((option) => ({ ...option, disabled: !remote.scriptsSupported })));
 
+  /** Each trust question exists only while its item is kept in the team database. */
+  const trustScripts = $derived(scripts === 'remote');
+  const trustHooks = $derived(remote.hooksSupported && shareHooks);
+
   const typedUrl = $derived(url.trim());
   const typedToken = $derived(token.trim());
   const sameKind = $derived(remote.kind === kind);
@@ -72,7 +84,7 @@
   /** A typed URL has to fit the database; without one, the saved URL stands in if it is for this database. */
   const urlUsable = $derived(typedUrl !== '' ? !urlInvalid : sameKind && remote.urlRedacted !== null);
   const changed = $derived(
-    !remote.enabled || !sameKind || typedUrl !== '' || typedToken !== '' || repositoryNotes !== remote.repositoryNotes || globalNotes !== remote.globalNotes || scripts !== remote.scripts || trustTeamScripts !== remote.trustTeamScripts,
+    !remote.enabled || !sameKind || typedUrl !== '' || typedToken !== '' || repositoryNotes !== remote.repositoryNotes || globalNotes !== remote.globalNotes || scripts !== remote.scripts || trustTeamScripts !== remote.trustTeamScripts || shareHooks !== remote.shareHooks || trustTeamHooks !== remote.trustTeamHooks,
   );
   const canSave = $derived(busy === null && urlUsable && changed);
   const canTest = $derived(busy === null && urlUsable);
@@ -82,9 +94,18 @@
     status = null;
   }
 
-  /** Trusting every script is a choice about one database: a new address or kind starts over, and the user turns it on again for the new one. */
+  /** Trusting every script, sharing hooks and trusting them are choices about one database: a new address or kind starts over, and the user turns them on again for the new one. */
   function databaseChanged(): void {
     trustTeamScripts = false;
+    shareHooks = false;
+    trustTeamHooks = false;
+  }
+
+  /** Trust goes with sharing: hooks that are not shared have nothing to trust, and sharing again asks for the trust again. */
+  function chooseShareHooks(next: boolean): void {
+    shareHooks = next;
+    trustTeamHooks = next && trustTeamHooks;
+    edited();
   }
 
   function typeUrl(next: string): void {
@@ -151,6 +172,8 @@
         scripts,
         // The switch only shows while scripts live in the team database, so a hidden one never stays on.
         trustTeamScripts: scripts === 'remote' && trustTeamScripts,
+        // An older Harness Memory refuses a file with the hook keys, so they are not sent for it. The trust switch only shows while hooks are shared.
+        ...(remote.hooksSupported ? { shareHooks, trustTeamHooks: shareHooks && trustTeamHooks } : {}),
       });
 
       // The secrets leave the form as soon as they are stored.
@@ -167,89 +190,125 @@
 </script>
 
 <div class="divide-y divide-line">
-  <SettingRow
-    title={t('settings.memoryRemote.database.title')}
-    description={t('settings.memoryRemote.database.description')}
-    points={[t('settings.memoryRemote.restart'), t('settings.memoryRemote.stored', { path: remote.configPath })]}
-  >
-    {#snippet control()}
-      <DatabasePicker value={kind} onchange={chooseKind} />
-    {/snippet}
-  </SettingRow>
+  <section aria-labelledby={headings.connection}>
+    <h3 id={headings.connection} class={HEADING}>{t('settings.memoryRemote.section.connection')}</h3>
+    <div class="divide-y divide-line">
+        <SettingRow
+          title={t('settings.memoryRemote.database.title')}
+          description={t('settings.memoryRemote.database.description')}
+          points={[t('settings.memoryRemote.restart'), t('settings.memoryRemote.stored', { path: remote.configPath })]}
+        >
+          {#snippet control()}
+            <DatabasePicker value={kind} onchange={chooseKind} />
+          {/snippet}
+        </SettingRow>
 
-  <div class="flex flex-col gap-4 py-4">
-    <div class="flex flex-col gap-1.5">
-      <p class="text-base font-medium text-fg">{t('settings.memoryRemote.url.label')}</p>
-      <SecretField
-        bind:value={() => url, typeUrl}
-        label={t('settings.memoryRemote.url.label')}
-        placeholder={showSavedUrl ? t('settings.memoryRemote.url.keep') : t(URL_PLACEHOLDERS[kind])}
-        showLabel={t('settings.memoryRemote.url.show')}
-        hideLabel={t('settings.memoryRemote.url.hide')}
-        invalid={urlInvalid && touched}
-        describedby={urlHint}
-        onblur={() => (touched ||= typedUrl !== '')}
-      />
-      {#if urlInvalid && touched}
-        <p id={urlHint} class="text-xs text-danger" role="alert">{t(URL_PROBLEMS[kind])}</p>
-      {:else if showSavedUrl}
-        <p id={urlHint} class="text-xs text-fg-3">{t('settings.memoryRemote.url.saved', { url: remote.urlRedacted ?? '' })}</p>
-      {/if}
+        <div class="flex flex-col gap-4 py-4">
+          <div class="flex flex-col gap-1.5">
+            <p class="text-base font-medium text-fg">{t('settings.memoryRemote.url.label')}</p>
+            <SecretField
+              bind:value={() => url, typeUrl}
+              label={t('settings.memoryRemote.url.label')}
+              placeholder={showSavedUrl ? t('settings.memoryRemote.url.keep') : t(URL_PLACEHOLDERS[kind])}
+              showLabel={t('settings.memoryRemote.url.show')}
+              hideLabel={t('settings.memoryRemote.url.hide')}
+              invalid={urlInvalid && touched}
+              describedby={urlHint}
+              onblur={() => (touched ||= typedUrl !== '')}
+            />
+            {#if urlInvalid && touched}
+              <p id={urlHint} class="text-xs text-danger" role="alert">{t(URL_PROBLEMS[kind])}</p>
+            {:else if showSavedUrl}
+              <p id={urlHint} class="text-xs text-fg-3">{t('settings.memoryRemote.url.saved', { url: remote.urlRedacted ?? '' })}</p>
+            {/if}
+          </div>
+
+          {#if takesToken(kind)}
+            <div class="flex flex-col gap-1.5">
+              <p class="text-base font-medium text-fg">{t('settings.memoryRemote.token.label')}</p>
+              <SecretField
+                bind:value={token}
+                label={t('settings.memoryRemote.token.label')}
+                placeholder={sameKind && remote.hasToken ? t('settings.memoryRemote.token.keep') : t('settings.memoryRemote.token.placeholder')}
+                showLabel={t('settings.memoryRemote.token.show')}
+                hideLabel={t('settings.memoryRemote.token.hide')}
+              />
+            </div>
+          {/if}
+        </div>
     </div>
+  </section>
 
-    {#if takesToken(kind)}
-      <div class="flex flex-col gap-1.5">
-        <p class="text-base font-medium text-fg">{t('settings.memoryRemote.token.label')}</p>
-        <SecretField
-          bind:value={token}
-          label={t('settings.memoryRemote.token.label')}
-          placeholder={sameKind && remote.hasToken ? t('settings.memoryRemote.token.keep') : t('settings.memoryRemote.token.placeholder')}
-          showLabel={t('settings.memoryRemote.token.show')}
-          hideLabel={t('settings.memoryRemote.token.hide')}
-        />
-      </div>
-    {/if}
-  </div>
-
-  <SettingRow title={t('settings.memoryRemote.repositoryNotes.title')} description={t('settings.memoryRemote.repositoryNotes.description')}>
-    {#snippet control()}
-      <SegmentedControl label={t('settings.memoryRemote.repositoryNotes.title')} options={TARGETS} bind:value={() => repositoryNotes, (next) => ((repositoryNotes = next), edited())} />
-    {/snippet}
-  </SettingRow>
-
-  <SettingRow title={t('settings.memoryRemote.globalNotes.title')} description={t('settings.memoryRemote.globalNotes.description')}>
-    {#snippet control()}
-      <SegmentedControl label={t('settings.memoryRemote.globalNotes.title')} options={TARGETS} bind:value={() => globalNotes, (next) => ((globalNotes = next), edited())} />
-    {/snippet}
-  </SettingRow>
-
-  <SettingRow
-    title={t('settings.memoryRemote.scripts.title')}
-    description={remote.scriptsSupported ? t('settings.memoryRemote.scripts.description') : t('settings.memoryRemote.scripts.unsupported')}
-    descriptions={[t('settings.memoryRemote.scripts.description'), t('settings.memoryRemote.scripts.unsupported')]}
-  >
-    {#snippet control()}
-      <SegmentedControl label={t('settings.memoryRemote.scripts.title')} options={SCRIPT_TARGETS} bind:value={() => scripts, (next) => ((scripts = next), edited())} />
-    {/snippet}
-  </SettingRow>
-
-  <!-- Only scripts kept in the team database come from other people, so the question only exists while they are. -->
-  {#if scripts === 'remote'}
-    <div transition:slide={{ duration: scaled(200) }} class="overflow-hidden">
-      <SettingRow
-        title={t('settings.memoryRemote.trustTeam.title')}
-        description={remote.trustTeamScriptsSupported ? t('settings.memoryRemote.trustTeam.description') : t('settings.memoryRemote.trustTeam.unsupported')}
-        descriptions={[t('settings.memoryRemote.trustTeam.description'), t('settings.memoryRemote.trustTeam.unsupported')]}
-      >
+  <section aria-labelledby={headings.keptIn}>
+    <h3 id={headings.keptIn} class={HEADING}>{t('settings.memoryRemote.section.keptIn')}</h3>
+    <div class="divide-y divide-line">
+      <SettingRow title={t('settings.memoryRemote.repositoryNotes.title')} description={t('settings.memoryRemote.repositoryNotes.description')}>
         {#snippet control()}
-          <Switch
-            label={t('settings.memoryRemote.trustTeam.title')}
-            disabled={!remote.trustTeamScriptsSupported}
-            bind:checked={() => trustTeamScripts, (next) => ((trustTeamScripts = next), edited())}
-          />
+          <SegmentedControl label={t('settings.memoryRemote.repositoryNotes.title')} options={TARGETS} bind:value={() => repositoryNotes, (next) => ((repositoryNotes = next), edited())} />
         {/snippet}
       </SettingRow>
+
+      <SettingRow title={t('settings.memoryRemote.globalNotes.title')} description={t('settings.memoryRemote.globalNotes.description')}>
+        {#snippet control()}
+          <SegmentedControl label={t('settings.memoryRemote.globalNotes.title')} options={TARGETS} bind:value={() => globalNotes, (next) => ((globalNotes = next), edited())} />
+        {/snippet}
+      </SettingRow>
+
+      <SettingRow
+        title={t('settings.memoryRemote.scripts.title')}
+        description={remote.scriptsSupported ? t('settings.memoryRemote.scripts.description') : t('settings.memoryRemote.scripts.unsupported')}
+        descriptions={[t('settings.memoryRemote.scripts.description'), t('settings.memoryRemote.scripts.unsupported')]}
+      >
+        {#snippet control()}
+          <SegmentedControl label={t('settings.memoryRemote.scripts.title')} options={SCRIPT_TARGETS} bind:value={() => scripts, (next) => ((scripts = next), edited())} />
+        {/snippet}
+      </SettingRow>
+
+      <!-- Hooks the team shares come from other people and run on this computer, so the row exists only for a server that keeps them. Team database means shared. -->
+      {#if remote.hooksSupported}
+        <SettingRow title={t('settings.memoryRemote.hooks.title')} description={t('settings.memoryRemote.hooks.description')}>
+          {#snippet control()}
+            <SegmentedControl label={t('settings.memoryRemote.hooks.title')} options={TARGETS} bind:value={() => (shareHooks ? 'remote' : 'local'), (next) => chooseShareHooks(next === 'remote')} />
+          {/snippet}
+        </SettingRow>
+      {/if}
     </div>
+  </section>
+
+  <!-- Only what is kept in the team database comes from other people, so the question only exists while it is. -->
+  {#if trustScripts || trustHooks}
+    <section transition:slide={{ duration: scaled(200) }} aria-labelledby={headings.trust} class="overflow-hidden">
+      <h3 id={headings.trust} class={HEADING}>{t('settings.memoryRemote.section.trust')}</h3>
+      <div class="divide-y divide-line">
+        {#if trustScripts}
+          <div transition:slide={{ duration: scaled(200) }} class="overflow-hidden">
+            <SettingRow
+              title={t('settings.memoryRemote.trustTeam.title')}
+              description={remote.trustTeamScriptsSupported ? t('settings.memoryRemote.trustTeam.description') : t('settings.memoryRemote.trustTeam.unsupported')}
+              descriptions={[t('settings.memoryRemote.trustTeam.description'), t('settings.memoryRemote.trustTeam.unsupported')]}
+            >
+              {#snippet control()}
+                <Switch
+                  label={t('settings.memoryRemote.trustTeam.title')}
+                  disabled={!remote.trustTeamScriptsSupported}
+                  bind:checked={() => trustTeamScripts, (next) => ((trustTeamScripts = next), edited())}
+                />
+              {/snippet}
+            </SettingRow>
+          </div>
+        {/if}
+
+        {#if trustHooks}
+          <div transition:slide={{ duration: scaled(200) }} class="overflow-hidden">
+            <SettingRow title={t('settings.memoryRemote.trustHooks.title')} description={t('settings.memoryRemote.trustHooks.description')}>
+              {#snippet control()}
+                <Switch label={t('settings.memoryRemote.trustHooks.title')} bind:checked={() => trustTeamHooks, (next) => ((trustTeamHooks = next), edited())} />
+              {/snippet}
+            </SettingRow>
+          </div>
+        {/if}
+      </div>
+    </section>
   {/if}
 
   <div class="flex flex-col gap-3 py-4">

@@ -7,17 +7,35 @@ import type { HookRequirement } from '../bindings/HookRequirement';
 import type { HookSeed } from '../bindings/HookSeed';
 import type { HookStatus } from '../bindings/HookStatus';
 import type { HookView } from '../bindings/HookView';
+import type { ShareBlock } from '../bindings/ShareBlock';
 import { IpcFailure } from '../transport';
-import { CATALOG, type CatalogEntry, familyHook, hookId, HOOKS_PROJECT, lintApproved, lintChanged, OLD_SAVE_TEXT, testsReminder } from './hooks-fixtures';
+import { CATALOG, type CatalogEntry, fakeSha, familyHook, hookId, HOOKS_PROJECT, lintApproved, lintChanged, OLD_SAVE_TEXT, testsReminder } from './hooks-fixtures';
+import { LOCAL_ORIGIN, MockTeam, sharedSamples, type TeamMode } from './hooks-team-state';
 
 /** Browser-preview switch `?hooks=`: what the Hooks view finds. Anything else shows the sample hooks. */
-export const HOOK_SCENARIOS = ['ok', 'empty', 'outdated', 'noDashboard', 'invalid', 'problem', 'failing'] as const;
+export const HOOK_SCENARIOS = ['ok', 'empty', 'outdated', 'noDashboard', 'invalid', 'problem', 'failing', 'team', 'teamTrusted', 'teamNoOrigin', 'teamProblem'] as const;
 export type HookScenario = (typeof HOOK_SCENARIOS)[number];
 
 export function hookScenarioFromLocation(search: string = globalThis.location?.search ?? ''): HookScenario {
   const name = new URLSearchParams(search).get('hooks');
 
   return HOOK_SCENARIOS.find((scenario) => scenario === name) ?? 'ok';
+}
+
+/** Which team the `?hooks=team…` previews have: hooks are shared in these, and not in the others. */
+function teamModeOf(scenario: HookScenario): TeamMode | null {
+  switch (scenario) {
+    case 'team':
+      return { trust: false, shareable: true, problem: null };
+    case 'teamTrusted':
+      return { trust: true, shareable: true, problem: null };
+    case 'teamNoOrigin':
+      return { trust: false, shareable: false, problem: null };
+    case 'teamProblem':
+      return { trust: false, shareable: true, problem: 'The team database did not answer in time.' };
+    default:
+      return null;
+  }
 }
 
 /** Where a hook file stands in the approvals. */
@@ -29,20 +47,6 @@ interface Stored {
   changed: boolean;
 }
 
-/** A stand-in for the SHA-256 of a hook file: 64 hex characters that change with every byte of the hook. */
-export function fakeSha(hook: Hook): string {
-  const text = JSON.stringify(hook);
-  let hash = 0x811c9dc5;
-
-  return Array.from({ length: 8 }, (_, round) => {
-    for (let index = 0; index < text.length; index += 1) {
-      hash = Math.imul(hash ^ (text.charCodeAt(index) + round), 0x01000193) >>> 0;
-    }
-
-    return hash.toString(16).padStart(8, '0');
-  }).join('');
-}
-
 const MAX_PER_SCOPE = 64;
 
 /** The hooks folder, the approvals and the family catalog of the mock backend, kept in memory. */
@@ -51,12 +55,14 @@ export class MockHooks {
   private invalid = new Map<string, string>();
   private listener: (() => void) | null = null;
   private installed: Record<HookRequirement, boolean> = { 'harness-memory': true, 'harness-dashboard': true };
+  private readonly team: MockTeam;
 
   constructor(
     private readonly scenario: () => HookScenario,
     /** Whether the memory setting is on, which the memory family hooks wait for. */
     private readonly memoryOn: () => boolean,
   ) {
+    this.team = new MockTeam(teamModeOf(scenario()));
     this.seed(scenario());
   }
 
@@ -71,7 +77,16 @@ export class MockHooks {
     this.put(familyHook(search));
     this.put(familyHook(save, scenario === 'outdated' ? OLD_SAVE_TEXT : save.text));
     this.files.set(lint.id, { hook: lintChanged(lint), approved: lint, changed: true });
-    this.put(testsReminder());
+    const reminder = this.put(testsReminder()).hook;
+
+    // A team preview has hooks the user shared before: one changed since, one as it went, and one not shared yet.
+    if (this.team.on) {
+      const { shared, sharedNow, unshared } = sharedSamples();
+
+      this.put(sharedNow);
+      this.put(unshared);
+      this.team.sharedBefore(shared, reminder);
+    }
 
     if (scenario === 'noDashboard') {
       this.installed['harness-dashboard'] = false;
@@ -126,6 +141,29 @@ export class MockHooks {
     return requirement === 'harness-memory' ? this.installed[requirement] && this.memoryOn() : this.installed[requirement];
   }
 
+  /** Why a hook cannot be shared with the team, in the order the backend checks. Nothing while hooks are not shared. */
+  private shareBlock(stored: Stored): ShareBlock | null {
+    const { hook } = stored;
+
+    if (!this.team.on) {
+      return null;
+    }
+
+    if (hook.seed !== null) {
+      return 'seed';
+    }
+
+    if (this.statusOf(stored) === 'pending') {
+      return 'pending';
+    }
+
+    if (hook.scope === 'project' && !this.team.mode?.shareable) {
+      return 'noOrigin';
+    }
+
+    return this.team.has(hook.id) ? 'onTeam' : null;
+  }
+
   private view(stored: Stored): HookView {
     const approval: HookApproval = stored.approved === null ? 'never' : stored.changed ? 'changed' : 'approved';
 
@@ -138,13 +176,15 @@ export class MockHooks {
       problem: null,
       approval,
       approved: stored.changed ? stored.approved : null,
+      ...LOCAL_ORIGIN,
+      shareBlock: this.shareBlock(stored),
     };
   }
 
   /** Global hooks first, then by creation, as the real folder runs them; files that break the format come last. */
   list(project: string | null): HookListing {
     if (this.scenario() === 'problem') {
-      return { hooks: [], folderProblem: 'The folder can be changed by other users on this computer.' };
+      return { hooks: [], folderProblem: 'The folder can be changed by other users on this computer.', team: null };
     }
 
     if (this.scenario() === 'failing') {
@@ -154,9 +194,9 @@ export class MockHooks {
     const visible = [...this.files.values()].filter(({ hook }) => hook.scope === 'global' || (project !== null && hook.project === project));
     const order = (hook: Hook) => `${hook.scope === 'global' ? 0 : 1}${hook.createdAt}${hook.id}`;
     const hooks = visible.sort((a, b) => order(a.hook).localeCompare(order(b.hook))).map((stored) => this.view(stored));
-    const broken = [...this.invalid].map(([id, problem]): HookView => ({ id, hook: null, name: 'Format on save', status: 'invalid', sha256: fakeSha({ id } as Hook), problem, approval: 'never', approved: null }));
+    const broken = [...this.invalid].map(([id, problem]): HookView => ({ id, hook: null, name: 'Format on save', status: 'invalid', sha256: fakeSha({ id } as Hook), problem, approval: 'never', approved: null, ...LOCAL_ORIGIN, shareBlock: this.team.on ? 'invalid' : null }));
 
-    return { hooks: [...hooks, ...broken], folderProblem: null };
+    return { hooks: [...hooks, ...broken, ...this.team.views(this.files, project)], folderProblem: null, team: this.team.info() };
   }
 
   /** Creates or edits a hook the way the desktop does: the written version is approved at once. */
@@ -228,7 +268,18 @@ export class MockHooks {
     return { deleted: gone.length + broken };
   }
 
+  /** Approves a local hook, or a team hook while "Trust team hooks" is off. */
   approve(id: string, sha256: string): HookView {
+    if (!this.files.has(id)) {
+      const team = this.team.approve(id, sha256, this.files);
+
+      if (team) {
+        this.notify();
+
+        return team;
+      }
+    }
+
     const stored = this.require(id, sha256);
 
     stored.approved = stored.hook;
@@ -254,6 +305,47 @@ export class MockHooks {
     this.notify();
 
     return this.view(stored);
+  }
+
+  /** Shares the local hook at this version with the team, or updates the team copy of it. */
+  share(id: string, sha256: string): HookView {
+    const view = this.team.share(this.require(id, sha256).hook, this.files);
+
+    this.notify();
+
+    return view;
+  }
+
+  teamRemove(id: string, sha256: string): null {
+    this.team.remove(id, sha256);
+    this.notify();
+
+    return null;
+  }
+
+  /** Reads the team database again (here: stamps the time), then lists what `hooks_list` lists. */
+  teamRefresh(project: string | null): HookListing {
+    this.team.refresh();
+
+    return this.list(project);
+  }
+
+  /** Turns the team hook into a local, approved one with the same id. */
+  teamCopy(id: string, sha256: string, project: string | null): HookView {
+    const hook = this.team.copyOf(id, sha256, project, this.files);
+
+    this.put(hook);
+    this.notify();
+
+    return this.view(this.files.get(id) as Stored);
+  }
+
+  teamEnable(id: string, enabled: boolean): HookView {
+    const view = this.team.enable(id, enabled, this.files);
+
+    this.notify();
+
+    return view;
   }
 
   private entryStatus(entry: CatalogEntry): HookFamilyEntry['status'] {

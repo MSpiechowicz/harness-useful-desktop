@@ -77,7 +77,8 @@ impl HookStore {
     }
 
     /// Every hook file with its status (see [`HookListing`]). A missing folder lists nothing.
-    /// Reads the app config folder, never writes it.
+    /// Reads the app config folder, never writes it, and never the team copies (see
+    /// [`super::team::app_listing`] for the app window's listing with them).
     pub fn list(&self, capabilities: HookCapabilities) -> HookListing {
         self.listing(capabilities, |_| true)
     }
@@ -104,11 +105,13 @@ impl HookStore {
                 HookListing {
                     hooks,
                     folder_problem: None,
+                    team: None,
                 }
             }
             Err(problem) => HookListing {
                 hooks: Vec::new(),
                 folder_problem: Some(problem),
+                team: None,
             },
         }
     }
@@ -293,11 +296,17 @@ impl HookStore {
 
     /// Writes a new hook file and approves it (the Harness family hooks). Returns its hash.
     pub(crate) fn create_approved(&self, hook: &Hook) -> Result<String> {
+        self.create_approved_from(hook, Map::new())
+    }
+
+    /// Writes a new hook file over `base` (the object it is made from, whose unknown fields it
+    /// keeps) and approves it: a team hook the user copies to the local folder. Returns its hash.
+    pub(crate) fn create_approved_from(&self, hook: &Hook, base: Map<String, Value>) -> Result<String> {
         self.ensure_dirs()?;
 
         let files = self.read_files().map_err(BusinessError::Forbidden)?;
 
-        self.write_approved(&files, hook, Map::new(), None)
+        self.write_approved(&files, hook, base, None)
     }
 
     /// Replaces the file of `hook.id`, while it still hashes to `expected_sha256`, with `hook`
@@ -342,7 +351,7 @@ impl HookStore {
 
     /// Approves `bytes` for `id` in `approvals` (loaded for the update), saves them and keeps a
     /// copy of the bytes. Returns the saved approvals.
-    fn record_approval(&self, mut approvals: Approvals, id: &str, bytes: &[u8]) -> Result<Approvals> {
+    pub(crate) fn record_approval(&self, mut approvals: Approvals, id: &str, bytes: &[u8]) -> Result<Approvals> {
         approvals.insert(id, &sha256_hex(bytes));
         approvals.save(&self.config_dir)?;
 
@@ -351,7 +360,7 @@ impl HookStore {
     }
 
     /// The approvals as a reader sees them: none when the file cannot be read (logged).
-    fn read_approvals(&self) -> Approvals {
+    pub(crate) fn read_approvals(&self) -> Approvals {
         Approvals::read(&self.config_dir).unwrap_or_else(|error| {
             tracing::warn!(code = ?error.code(), "the hook approvals cannot be read, every hook is pending");
             Approvals::default()

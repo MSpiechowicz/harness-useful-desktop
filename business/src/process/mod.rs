@@ -79,6 +79,9 @@ pub struct ExecSpec {
     /// macOS Finder (and some Linux launchers) lack the login shell's `PATH`, so a launcher script
     /// such as `#!/usr/bin/env bun` could not find its interpreter without them.
     pub search_dirs: Vec<PathBuf>,
+    /// Bytes [`ProcessRunner::run`] writes to the child's stdin before closing it; `None` gives the
+    /// child a closed stdin (ignored by spawners).
+    pub stdin: Option<Vec<u8>>,
 }
 
 impl ExecSpec {
@@ -94,6 +97,7 @@ impl ExecSpec {
             search_dirs: Vec::new(),
             timeout: DEFAULT_TIMEOUT,
             max_output_bytes: DEFAULT_MAX_OUTPUT_BYTES,
+            stdin: None,
         }
     }
 
@@ -159,6 +163,12 @@ impl ExecSpec {
     /// Sets the per-stream output cap.
     pub fn max_output_bytes(mut self, max: usize) -> Self {
         self.max_output_bytes = max;
+        self
+    }
+
+    /// Sets the bytes written to the child's stdin (see [`ExecSpec::stdin`]).
+    pub fn stdin(mut self, bytes: impl Into<Vec<u8>>) -> Self {
+        self.stdin = Some(bytes.into());
         self
     }
 

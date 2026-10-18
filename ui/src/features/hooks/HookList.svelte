@@ -1,7 +1,10 @@
 <script lang="ts">
   import ChevronRight from '@lucide/svelte/icons/chevron-right';
+  import CircleAlert from '@lucide/svelte/icons/circle-alert';
   import Plus from '@lucide/svelte/icons/plus';
+  import UsersRound from '@lucide/svelte/icons/users-round';
 
+  import Badge from '$lib/components/Badge.svelte';
   import { ICON } from '$lib/components/icon';
   import IconButton from '$lib/components/IconButton.svelte';
   import Switch from '$lib/components/Switch.svelte';
@@ -11,7 +14,8 @@
   import type { HookView } from '$lib/ipc/bindings/HookView';
   import { cx } from '$lib/utils/cx';
 
-  import { ACTION_LABELS, EVENT_ICONS, EVENT_LABELS, hookTitle, type HookGroup, MAX_PER_SCOPE, SCOPE_ICONS, SCOPE_LABELS } from './hook-format';
+  import { ACTION_LABELS, EVENT_ICONS, EVENT_LABELS, hookTitle, type HookGroup, MAX_PER_SCOPE, SCOPE_ICONS, SCOPE_LABELS, viewKey } from './hook-format';
+  import { switchLock, teamSwitchedOn } from './hook-team';
   import HookStatusBadge from './HookStatusBadge.svelte';
 
   interface Props {
@@ -20,7 +24,11 @@
     openId: string | null;
     /** The name of the open project, which the project group is titled with. */
     projectName: string | null;
-    /** Hooks a change is being written for: their switch waits. */
+    /** Why the latest refresh of the team hooks failed, said under the Team heading; null when it did not. */
+    teamProblem?: string | null;
+    /** Team hooks run without local approval (effective trust, whatever the Settings show): said as a badge in the Team heading. */
+    teamTrusted?: boolean;
+    /** Hooks a change is being written for (by `viewKey`): their switch waits. */
     busy: ReadonlySet<string>;
     onopen: (id: string) => void;
     /** Moves the open panel along when the arrow keys move the focus. */
@@ -29,20 +37,28 @@
     onadd: (scope: HookScope) => void;
   }
 
-  let { groups, openId, projectName, busy, onopen, onmove, ontoggle, onadd }: Props = $props();
+  let { groups, openId, projectName, teamProblem = null, teamTrusted = false, busy, onopen, onmove, ontoggle, onadd }: Props = $props();
 
   let body: HTMLElement | undefined = $state();
 
-  const first = $derived(groups.flatMap((group) => group.views)[0]?.id ?? null);
-  const stop = $derived(groups.some((group) => group.views.some((view) => view.id === openId)) ? openId : first);
+  const first = $derived(groups.flatMap((group) => group.views).map(viewKey)[0] ?? null);
+  const stop = $derived(groups.some((group) => group.views.some((view) => viewKey(view) === openId)) ? openId : first);
 
   /** Why a row's switch is off, or null when it works: a hook that waits for approval or cannot run is never turned on by a click, as that would approve what the user has not seen. */
   function lockReason(view: HookView): string | null {
-    if (view.status === 'pending') {
-      return t('hooks.locked.pending');
-    }
+    const key = switchLock(view);
 
-    return view.hook === null ? t('hooks.locked.invalid') : null;
+    return key === null ? null : t(key);
+  }
+
+  /** Whether the row's label offers to turn it off: a team hook as this computer has it, a local one as its file says. */
+  function isOn(view: HookView): boolean {
+    return view.origin === 'team' ? teamSwitchedOn(view) : (view.hook?.enabled ?? false);
+  }
+
+  /** The switch position of a row: a local hook as its file says, a team hook as this computer has it. */
+  function switchedOn(view: HookView): boolean {
+    return view.origin === 'team' ? teamSwitchedOn(view) : view.status !== 'pending' && view.status !== 'invalid' && (view.hook?.enabled ?? false);
   }
 
   function rows(): HTMLElement[] {
@@ -82,7 +98,7 @@
 </script>
 
 {#snippet heading(group: HookGroup)}
-  {@const scope = group.id === 'invalid' ? null : group.id}
+  {@const scope = group.id === 'invalid' || group.id === 'team' ? null : group.id}
 
   <tr>
     <th colspan="6" scope="colgroup" class="h-11 border-b border-line/60 bg-surface-2/55 py-0 pr-2 pl-3 text-left text-[11px] leading-[16px] font-medium tracking-wider text-fg-3 uppercase">
@@ -98,10 +114,12 @@
               <span class="tabular ml-1.5 shrink-0 text-xs tracking-wide normal-case">{t('hooks.list.groupCount', { count: group.total, max: MAX_PER_SCOPE })}</span>
             </span>
           {:else}
+            {#if group.id === 'team'}<UsersRound size={14} aria-hidden="true" class="shrink-0" />{/if}
             <span class="flex min-w-0 items-baseline gap-1.5">
-              <span class="truncate">{t('hooks.group.invalid')}</span>
+              <span class="truncate">{t(group.id === 'team' ? 'hooks.group.team' : 'hooks.group.invalid')}</span>
               <span class="tabular ml-1.5 shrink-0 text-xs tracking-wide normal-case">{group.total}</span>
             </span>
+            {#if group.id === 'team' && teamTrusted}<Badge tone="info" class="ml-1 shrink-0 normal-case">{t('hooks.list.teamTrusted')}</Badge>{/if}
           {/if}
         </span>
 
@@ -146,14 +164,23 @@
       {#each groups as group (group.id)}
         {@render heading(group)}
 
-        {#each group.views as view, index (view.id)}
+        {#if group.id === 'team' && teamProblem}
+          <tr>
+            <td colspan="6" class="border-b border-line/60 px-3 py-2.5 text-sm text-fg-2">
+              <p class="flex items-start gap-2" role="status"><CircleAlert size={ICON.sm} aria-hidden="true" class="mt-0.5 shrink-0 text-warning" /><span class="min-w-0 break-words">{t('hooks.list.teamProblem', { reason: teamProblem })}</span></p>
+            </td>
+          </tr>
+        {/if}
+
+        {#each group.views as view, index (viewKey(view))}
           {@const hook = view.hook}
-          {@const current = view.id === openId}
+          {@const key = viewKey(view)}
+          {@const current = key === openId}
           {@const WhenIcon = hook ? EVENT_ICONS[hook.event] : null}
 
           <tr
-            data-row={view.id}
-            tabindex={view.id === stop ? 0 : -1}
+            data-row={key}
+            tabindex={key === stop ? 0 : -1}
             aria-selected={current}
             style:height="44px"
             style:--i={index}
@@ -161,8 +188,8 @@
               'group/row cursor-pointer outline-offset-[-2px] transition-colors duration-[var(--dur-fast)] focus-visible:outline-2',
               current ? 'bg-accent-wash' : 'hover:bg-hover active:bg-press',
             )}
-            onclick={() => onopen(view.id)}
-            onkeydown={(event) => onKeydown(event, view.id)}
+            onclick={() => onopen(key)}
+            onkeydown={(event) => onKeydown(event, key)}
           >
             <td role="gridcell" class="border-b border-line/60 px-3">
               <div class={cx('truncate font-medium', view.status === 'off' ? 'text-fg-2' : 'text-fg')} title={hookTitle(view)}>{hookTitle(view)}</div>
@@ -194,9 +221,9 @@
                   {#snippet children({ describedby })}
                     <span aria-describedby={describedby} class="inline-flex">
                       <Switch
-                        label={t(hook?.enabled ? 'hooks.switch.off' : 'hooks.switch.on', { name: hookTitle(view) })}
-                        disabled={lockReason(view) !== null || busy.has(view.id)}
-                        bind:checked={() => view.status !== 'pending' && view.status !== 'invalid' && (hook?.enabled ?? false), (next) => ontoggle(view, next)}
+                        label={t(isOn(view) ? 'hooks.switch.off' : 'hooks.switch.on', { name: hookTitle(view) })}
+                        disabled={lockReason(view) !== null || busy.has(key)}
+                        bind:checked={() => switchedOn(view), (next) => ontoggle(view, next)}
                       />
                     </span>
                   {/snippet}
@@ -213,7 +240,11 @@
         {#if group.views.length === 0}
           <tr>
             <td colspan="6" class="h-11 border-b border-line/60 px-3 text-sm text-fg-3">
-              {group.id === 'project' && !projectName ? t('hooks.list.noProject') : t('hooks.list.groupEmpty')}
+              {#if group.id === 'project' && !projectName}
+                {t('hooks.list.noProject')}
+              {:else}
+                {t(group.id === 'team' ? 'hooks.list.teamEmpty' : 'hooks.list.groupEmpty')}
+              {/if}
             </td>
           </tr>
         {/if}

@@ -117,6 +117,10 @@ export const commands = {
        * While the server cannot be asked the saved key is kept as it is.
        */
       trustTeamScripts: boolean;
+      /** Saved as `hooks = "remote"` only when true and the result's `hooksSupported`; null keeps the saved choice. */
+      shareHooks?: boolean | null;
+      /** Saved as `trust_team_hooks = true` only when true, hooks are shared and `hooksSupported`; null keeps the saved choice. */
+      trustTeamHooks?: boolean | null;
     },
     MemoryRemote
   >(),
@@ -277,6 +281,7 @@ export const commands = {
   /**
    * The hooks of the Hooks view: every hook file of the global folder and of the project at `project` (null for global only), valid
    * or not, with the status each has. Never rejects for a bad file, see `HookView.problem`. `folderProblem` says why the folder is not read.
+   * While hooks are shared with the team (`team` not null) the team hooks of that chat follow the local ones (`origin: team`).
    */
   hooks_list: cmd<{ project: string | null }, HookListing>(),
   /**
@@ -287,7 +292,10 @@ export const commands = {
   hook_save: cmd<{ draft: HookDraft }, HookView>(),
   /** Deletes a hook file and its approval. `conflict` when the file changed since `sha256`, `notFound` when it is gone. */
   hook_delete: cmd<{ id: string; sha256: string }, null>(),
-  /** Approves exactly the version with this `sha256` (an agent wrote it). `conflict` when the file changed since. */
+  /**
+   * Approves exactly the version with this `sha256` (an agent wrote it, or a team hook while "Trust team hooks" is off; answers the
+   * team view then). `conflict` when the file or the team copy changed since.
+   */
   hook_approve: cmd<{ id: string; sha256: string }, HookView>(),
   /**
    * Rejects a pending version: a hook with an earlier approved version goes back to it (answers that hook), a hook never approved is
@@ -303,8 +311,26 @@ export const commands = {
    * went. The Harness family hooks can be added back afterwards.
    */
   hooks_delete_all: cmd<{ project?: string | null }, HooksDeleted>(),
-  /** Sends `changed` to `onEvent` whenever the hooks folder or the approvals change, replacing the previous listener. */
+  /** Sends `changed` to `onEvent` whenever the hooks folder, the approvals or the team hooks change, replacing the previous listener. */
   hooks_listen: cmd<{ onEvent: EventSink<HooksEvent> }, null>(),
+  /**
+   * Shares the local hook `id` at version `sha256` with the team (a project hook under its `git:` repository key), or updates the team
+   * copy when the team has it already ("Update team copy"). Answers the team view. `conflict` when the local file or the team copy
+   * changed, `forbidden` for a Harness family hook or a repository without an origin remote, `invalidInput` for a pending or invalid
+   * hook, `unsupported` while hooks are not shared.
+   */
+  hooks_share: cmd<{ id: string; sha256: string }, HookView>(),
+  /** Removes team hook `id` from the team (`sha256`: the team view's), on every machine after its next refresh. `conflict` when it changed. */
+  hooks_team_remove: cmd<{ id: string; sha256: string }, null>(),
+  /** Refreshes the team hooks now (network, up to a few seconds), then answers what `hooks_list` answers for `project`. */
+  hooks_team_refresh: cmd<{ project?: string | null }, HookListing>(),
+  /**
+   * Copies team hook `id` (version `sha256`) to the local hooks as an approved, editable hook with the same id, which then runs instead
+   * of the team copy. A project hook needs `project` (a folder of that repository). `invalidInput` when a local hook has the id.
+   */
+  hooks_team_copy: cmd<{ id: string; sha256: string; project?: string | null }, HookView>(),
+  /** Turns team hook `id` on or off on this machine only (never written to the team). Answers the team view. */
+  hooks_team_enable: cmd<{ id: string; enabled: boolean }, HookView>(),
   update_check: cmd<undefined, UpdateInfo | null>(),
   update_install: cmd<{ onProgress: EventSink<UpdateProgress> }, null>(),
   app_relaunch: cmd<undefined, null>(),

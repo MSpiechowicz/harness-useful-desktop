@@ -29,6 +29,7 @@ function fakeBackend(initial: Partial<MemoryRemote> = {}, probe: MemoryRemoteTes
     scriptsSupported: true,
     trustTeamScripts: false,
     trustTeamScriptsSupported: true,
+    hooksSupported: false, shareHooks: false, trustTeamHooks: false,
     ...initial,
   };
   const passthrough = ipc.invoke.bind(ipc);
@@ -355,7 +356,7 @@ describe('Memory section', () => {
     const invoke = fakeBackend({ enabled: true, kind: 'postgres', urlRedacted: 'postgres://db/mem' });
     render(SettingsView);
 
-    const trust = await screen.findByRole('switch', { name: 'Trust every script from the team database' });
+    const trust = await screen.findByRole('switch', { name: 'Run team scripts without asking' });
     expect(trust).toHaveAttribute('aria-checked', 'false');
     expect(trust).toBeEnabled();
     expect(screen.getAllByText(/Anyone who can write to the team database can then run code on this computer\./).filter((text) => !text.hasAttribute('aria-hidden'))).toHaveLength(1);
@@ -369,14 +370,14 @@ describe('Memory section', () => {
     expect(calls(invoke, 'memory_remote_set')).toEqual([
       { enabled: true, kind: 'postgres', url: null, token: null, repositoryNotes: 'remote', globalNotes: 'remote', scripts: 'remote', trustTeamScripts: true },
     ]);
-    await waitFor(() => expect(screen.getByRole('switch', { name: 'Trust every script from the team database' })).toHaveAttribute('aria-checked', 'true'));
+    await waitFor(() => expect(screen.getByRole('switch', { name: 'Run team scripts without asking' })).toHaveAttribute('aria-checked', 'true'));
   });
 
   it('turns trusting team scripts off when the database address or kind changes, and saves it on only if the user turns it on again for the new one', async () => {
     const invoke = fakeBackend({ enabled: true, kind: 'postgres', urlRedacted: 'postgres://db/mem', trustTeamScripts: true });
     render(SettingsView);
 
-    const trust = await screen.findByRole('switch', { name: 'Trust every script from the team database' });
+    const trust = await screen.findByRole('switch', { name: 'Run team scripts without asking' });
     expect(trust).toHaveAttribute('aria-checked', 'true');
 
     await fireEvent.input(screen.getByLabelText('Connection URL'), { target: { value: 'postgres://other.example/mem' } });
@@ -403,17 +404,17 @@ describe('Memory section', () => {
     fakeBackend({ enabled: true, kind: 'postgres', urlRedacted: 'postgres://db/mem' });
     render(SettingsView);
 
-    await screen.findByRole('switch', { name: 'Trust every script from the team database' });
+    await screen.findByRole('switch', { name: 'Run team scripts without asking' });
     await fireEvent.click(within(screen.getByRole('radiogroup', { name: 'Scripts' })).getByRole('radio', { name: 'This computer' }));
 
-    await waitFor(() => expect(screen.queryByRole('switch', { name: 'Trust every script from the team database' })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole('switch', { name: 'Run team scripts without asking' })).toBeNull());
   });
 
   it('saves trusting team scripts as off when scripts are moved to this computer, even if it was on before', async () => {
     const invoke = fakeBackend({ enabled: true, kind: 'postgres', urlRedacted: 'postgres://db/mem', trustTeamScripts: true });
     render(SettingsView);
 
-    await screen.findByRole('switch', { name: 'Trust every script from the team database' });
+    await screen.findByRole('switch', { name: 'Run team scripts without asking' });
     await fireEvent.click(within(screen.getByRole('radiogroup', { name: 'Scripts' })).getByRole('radio', { name: 'This computer' }));
     await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
@@ -427,7 +428,7 @@ describe('Memory section', () => {
     fakeBackend({ enabled: true, kind: 'postgres', urlRedacted: 'postgres://db/mem', trustTeamScriptsSupported: false });
     render(SettingsView);
 
-    expect(await screen.findByRole('switch', { name: 'Trust every script from the team database' })).toBeDisabled();
+    expect(await screen.findByRole('switch', { name: 'Run team scripts without asking' })).toBeDisabled();
     expect(screen.getAllByText('Update Harness Memory to trust team scripts.').filter((text) => !text.hasAttribute('aria-hidden'))).toHaveLength(1);
   });
 

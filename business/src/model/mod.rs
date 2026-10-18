@@ -71,7 +71,8 @@ pub use git::{
 pub use harness::{Capabilities, Detection, HarnessId, HarnessInfo, HarnessSummary, InstallHint, VersionSupport};
 pub use hook::{
     Hook, HookAction, HookApproval, HookAuthor, HookDraft, HookEvent, HookFamilyEntry, HookFamilyStatus, HookListing,
-    HookRequirement, HookScope, HookSeed, HookStatus, HookView, HooksDeleted, HooksEvent,
+    HookOrigin, HookRequirement, HookScope, HookSeed, HookStatus, HookView, HooksDeleted, HooksEvent, ShareBlock,
+    TeamHooks,
 };
 pub use ipc_error::{IpcError, IpcErrorCode};
 pub use memory_notes::{

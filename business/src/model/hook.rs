@@ -1,6 +1,7 @@
 //! Hooks: small JSON files that add context to a prompt, send a follow-up or run a command when
 //! something happens in a desktop chat (`hooks_list`, `hook_save`, `hook_delete`, `hook_approve`,
-//! `hooks_family`).
+//! `hooks_family`), and the team hooks shared through Harness Memory (`hooks_share`,
+//! `hooks_team_remove`, `hooks_team_refresh`, `hooks_team_copy`, `hooks_team_enable`).
 //!
 //! The file format is the contract in `docs/hooks-format.md`; [`crate::hooks`] reads, validates,
 //! writes and runs the files. The app window and its MCP server (`harness-desktop mcp`, used by
@@ -239,12 +240,44 @@ pub enum HookStatus {
     Active,
     /// Valid and approved, but turned off.
     Off,
-    /// Valid, but this exact file was never approved (an agent wrote or changed it).
+    /// Valid, but this exact file was never approved (an agent wrote or changed it), or a team
+    /// hook whose exact bytes are not approved while "Trust team hooks" is off.
     Pending,
     /// Valid, enabled and approved, but waiting for a requirement (Harness Memory).
     Paused,
     /// The file breaks the format (see `HookView.problem`); it never runs.
     Invalid,
+    /// A team hook whose id a local hook also has: the local one wins, this one never runs.
+    Duplicate,
+}
+
+/// Where a listed hook comes from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub enum HookOrigin {
+    /// A file in this machine's hooks folder.
+    #[default]
+    Local,
+    /// A copy of a hook shared through the Harness Memory team database.
+    Team,
+}
+
+/// Why a local hook cannot be shared with the team.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub enum ShareBlock {
+    /// A Harness family hook: every machine seeds its own.
+    Seed,
+    /// Waiting for review: approve or reject it first.
+    Pending,
+    /// The file breaks the format.
+    Invalid,
+    /// A project hook in a repository without an `origin` remote (a `path:` identity).
+    NoOrigin,
+    /// The team already has a hook with this id: update the team copy instead.
+    OnTeam,
 }
 
 /// How the approvals relate to a hook file.
@@ -260,7 +293,7 @@ pub enum HookApproval {
     Never,
 }
 
-/// One hook file as the Hooks view lists it.
+/// One hook file, or one team hook (`origin: team`), as the Hooks view lists it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
@@ -282,18 +315,52 @@ pub struct HookView {
     /// The approved earlier version, for a diff: set when `approval` is `changed` and the app kept
     /// a copy of that version.
     pub approved: Option<Hook>,
+    /// A local file or a team hook.
+    pub origin: HookOrigin,
+    /// Team hooks: who shared it (a free-text label, the sharer's user name by default).
+    pub team_author: Option<String>,
+    /// Team hooks: when the team copy last changed (RFC 3339 UTC).
+    pub team_updated_at: Option<String>,
+    /// Team hooks: the repository key (`git:host/owner/repo`) of a project hook, `None` for a global
+    /// one.
+    pub team_repo: Option<String>,
+    /// Team hooks: the local hook with the same id changed since it was shared ("Update team
+    /// copy").
+    pub team_changed: bool,
+    /// Local hooks: why "Share with team" is not possible, `None` when it is. Always `None` on a
+    /// team hook.
+    pub share_block: Option<ShareBlock>,
+    /// Team hooks: turned off on this machine only (never written to the team).
+    pub team_disabled: bool,
 }
 
-/// The hooks folder as the Hooks view shows it.
+/// The team hooks as this machine sees them, while sharing is on.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct TeamHooks {
+    /// "Trust team hooks" is on: team hooks run without local approval.
+    pub trust: bool,
+    /// Why the latest refresh failed (the copies of the one before are used), `None` after a good
+    /// one.
+    pub problem: Option<String>,
+    /// When the copies were last refreshed (RFC 3339 UTC), `None` before the first refresh.
+    pub refreshed_at: Option<String>,
+}
+
+/// The hooks folder (and the team hooks) as the Hooks view shows it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
 pub struct HookListing {
     /// Every `<id>.json` file: valid ones in run order (global first, then `createdAt`, then
-    /// `id`), invalid ones after them by id.
+    /// `id`), invalid ones after them by id. Then the team hooks the same way (`origin: team`).
     pub hooks: Vec<HookView>,
     /// Why the folder is not read (for example writable by other users); `hooks` is then empty.
     pub folder_problem: Option<String>,
+    /// The team hooks' state; `None` while sharing is off, the installed Harness Memory has no
+    /// team hooks, or it is not installed. Team hooks are listed after the local ones.
+    pub team: Option<TeamHooks>,
 }
 
 /// What `hooks_delete_all` removed.
@@ -339,6 +406,6 @@ pub struct HookDraft {
 #[serde(tag = "kind", rename_all = "camelCase")]
 #[ts(export)]
 pub enum HooksEvent {
-    /// The hooks folder or the approvals changed: read the list again.
+    /// The hooks folder, the approvals or the team hooks changed: read the list again.
     Changed,
 }

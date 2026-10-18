@@ -1,10 +1,11 @@
 //! One run of a `harness-memory` command for the user (`trust`, `notes`, `scripts list`,
-//! `scripts delete --all`), shared by [`memory_trust`](super::memory_trust),
-//! [`memory_notes`](super::memory_notes) and the scripts list of
-//! [`memory_scripts`](super::memory_scripts), the page of a list ([`ListWindow`]), and deleting
-//! every note or script ([`delete_all`]).
+//! `scripts delete --all`, `hooks`), shared by [`memory_trust`](super::memory_trust),
+//! [`memory_notes`](super::memory_notes), the scripts list of
+//! [`memory_scripts`](super::memory_scripts) and [`memory_hooks`](super::memory_hooks), the page
+//! of a list ([`ListWindow`]), and deleting every note or script ([`delete_all`]).
 //!
-//! The server runs in the home directory with closed stdin, `NO_COLOR=1`, a time limit and capped
+//! The server runs in the home directory with closed stdin (`hooks put` gets the hook on it),
+//! `NO_COLOR=1`, a time limit and capped
 //! output. When it fails, the line that says why is the last one it prefixes with
 //! `harness-memory:` (it prints that one last, after any warning), else the last line that is not
 //! empty, stderr before stdout; it comes back through [`redact_text`], at most 500 characters. A
@@ -153,6 +154,8 @@ pub(crate) struct CliCall<'a> {
     pub timeout: Duration,
     /// The output kept of each stream.
     pub output_bytes: usize,
+    /// What the command reads on stdin (`hooks put`); `None` for a closed stdin.
+    pub stdin: Option<Vec<u8>>,
 }
 
 /// How a command that ran in time ended.
@@ -166,6 +169,8 @@ pub(crate) enum CliAnswer {
         status: Option<i32>,
         /// What to show.
         message: String,
+        /// Its stdout as printed (commands that answer a failure as JSON). Never log it.
+        stdout: String,
     },
 }
 
@@ -177,13 +182,17 @@ pub(crate) async fn run_memory_cli(
     server: &Path,
     call: CliCall<'_>,
 ) -> Result<CliAnswer> {
-    let spec = ExecSpec::new(server)
+    let mut spec = ExecSpec::new(server)
         .args(call.args)
         .cwd(&env.home)
         .env("NO_COLOR", "1")
         .search_dirs(launcher_search_dirs(env, server))
         .timeout(call.timeout)
         .max_output_bytes(call.output_bytes);
+
+    if let Some(stdin) = call.stdin {
+        spec = spec.stdin(stdin);
+    }
 
     let output = runner.run(&spec).await.map_err(|error| {
         tracing::warn!(%error, command = call.name, "harness-memory could not be started");
@@ -214,6 +223,7 @@ pub(crate) async fn run_memory_cli(
     Ok(CliAnswer::Failed {
         status: output.status,
         message,
+        stdout: output.stdout,
     })
 }
 
@@ -228,7 +238,7 @@ fn decisive_line(text: &str) -> Option<&str> {
 }
 
 /// `line` through [`redact_text`], at most [`MAX_MESSAGE_CHARS`] long.
-fn clean(line: &str) -> String {
+pub(crate) fn clean(line: &str) -> String {
     let redacted = redact_text(line);
 
     match redacted.char_indices().nth(MAX_MESSAGE_CHARS) {
@@ -296,6 +306,7 @@ pub(crate) async fn run_list(
         args,
         timeout: LIST_TIMEOUT,
         output_bytes: LIST_OUTPUT_BYTES,
+        stdin: None,
     };
 
     match (run_json(env, runner, server, call(args)).await, fallback) {
@@ -384,6 +395,7 @@ pub(crate) async fn delete_all(
         args,
         timeout: DELETE_ALL_TIMEOUT,
         output_bytes: LIST_OUTPUT_BYTES,
+        stdin: None,
     };
 
     let data = run_json(env, runner, server, call).await?;

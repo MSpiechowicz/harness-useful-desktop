@@ -4,31 +4,14 @@
 //! asked. `trust_team_scripts` follows the same rules, written only as `true` and only for a
 //! server that asks before running a script, while scripts go to the team database.
 
+mod memory_remote_support;
+
 use harness_business::ecosystem::{MemoryRemoteChange, ScriptsSupport, memory_remote_get, memory_remote_set};
-use harness_business::env::{Env, OsKind};
 use harness_business::model::{MemoryNotesTarget, MemoryRemoteKind};
+use memory_remote_support::{Home, URL};
 use pretty_assertions::assert_eq;
-use tempfile::TempDir;
-
-const URL: &str = "postgres://team@db.example.com/memory";
-
-struct Home {
-    _dir: TempDir,
-    env: Env,
-}
 
 impl Home {
-    fn new() -> Self {
-        let dir = tempfile::tempdir().unwrap();
-        let env = Env::for_tests(dir.path()).with_os(OsKind::Linux);
-
-        Self { _dir: dir, env }
-    }
-
-    fn config(&self) -> std::path::PathBuf {
-        self.env.home.join(".config/harness-memory/config.toml")
-    }
-
     /// The file's text after saving the team database with scripts routed to `scripts`.
     fn save(&self, scripts: MemoryNotesTarget, support: ScriptsSupport) -> String {
         self.save_routing(MemoryNotesTarget::Local, scripts, support)
@@ -70,6 +53,8 @@ impl Home {
             global_notes: MemoryNotesTarget::Remote,
             scripts,
             trust_team_scripts,
+            share_hooks: None,
+            trust_team_hooks: None,
         };
 
         memory_remote_set(&self.env, change, support).expect("saved");

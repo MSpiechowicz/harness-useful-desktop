@@ -183,6 +183,7 @@ fn call(name: &str, args: Vec<OsString>) -> CliCall<'_> {
         args,
         timeout: LIST_TIMEOUT,
         output_bytes: LIST_OUTPUT_BYTES,
+        stdin: None,
     }
 }
 

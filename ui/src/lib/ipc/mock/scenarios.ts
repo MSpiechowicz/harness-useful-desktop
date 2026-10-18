@@ -34,6 +34,7 @@ function agentPace(): number {
 export function defaultScenario(): Scenario {
   const state = new MockState();
   // `?hooks=empty|outdated|noDashboard|invalid|problem|failing` changes what the Hooks view finds, `?hooks=ok` (the default) lists the family hooks and two more.
+  // `?hooks=team|teamTrusted|teamNoOrigin|teamProblem` shares hooks with a team: approval needed, trusted, a repository without origin, a refresh that failed.
   const hooks = new MockHooks(hookScenarioFromLocation, () => state.memoryEnabled);
 
   const base = {

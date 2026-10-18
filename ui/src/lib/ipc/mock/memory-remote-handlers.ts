@@ -37,12 +37,14 @@ interface Saved {
   globalNotes: MemoryNotesTarget;
   scripts: MemoryNotesTarget;
   trustTeamScripts: boolean;
+  shareHooks: boolean;
+  trustTeamHooks: boolean;
   /** Why the file must not be overwritten (keys Harness Memory does not know). */
   blocked: string | null;
 }
 
 function initial(scenario: RemoteScenario): Saved {
-  const base: Saved = { url: null, token: null, repositoryNotes: 'remote', globalNotes: 'remote', scripts: 'remote', trustTeamScripts: false, blocked: null };
+  const base: Saved = { url: null, token: null, repositoryNotes: 'remote', globalNotes: 'remote', scripts: 'remote', trustTeamScripts: false, shareHooks: false, trustTeamHooks: false, blocked: null };
 
   switch (scenario) {
     case 'postgres':
@@ -119,6 +121,10 @@ export function memoryRemoteHandlers(scenario: () => RemoteScenario = remoteScen
       scriptsSupported: scriptsSupported(),
       trustTeamScripts: file.trustTeamScripts,
       trustTeamScriptsSupported: scriptsSupported(),
+      // Harness Memory keeps team hooks in the same releases that keep scripts, in the previews.
+      hooksSupported: scriptsSupported(),
+      shareHooks: file.shareHooks,
+      trustTeamHooks: file.trustTeamHooks,
       configPath: CONFIG_PATH,
       problem: file.blocked,
     };
@@ -132,7 +138,7 @@ export function memoryRemoteHandlers(scenario: () => RemoteScenario = remoteScen
     }
 
     if (!args.enabled) {
-      saved = { ...file, url: null, token: null, repositoryNotes: 'remote', globalNotes: 'remote', scripts: 'remote', trustTeamScripts: false };
+      saved = { ...file, url: null, token: null, repositoryNotes: 'remote', globalNotes: 'remote', scripts: 'remote', trustTeamScripts: false, shareHooks: false, trustTeamHooks: false };
       return view();
     }
 
@@ -148,7 +154,10 @@ export function memoryRemoteHandlers(scenario: () => RemoteScenario = remoteScen
     }
 
     const token = args.kind !== 'libsql' ? null : args.token === null ? file.token : args.token.trim() || null;
-    saved = { url, token, repositoryNotes: args.repositoryNotes, globalNotes: args.globalNotes, scripts: scriptsSupported() ? args.scripts : 'remote', trustTeamScripts: scriptsSupported() ? args.trustTeamScripts : false, blocked: null };
+    // Team hooks are written only while the server keeps them, and the trust only while they are shared. A null keeps the saved choice.
+    const shareHooks = scriptsSupported() ? (args.shareHooks ?? file.shareHooks) : file.shareHooks;
+    const trustTeamHooks = shareHooks && (scriptsSupported() ? (args.trustTeamHooks ?? file.trustTeamHooks) : file.trustTeamHooks);
+    saved = { url, token, repositoryNotes: args.repositoryNotes, globalNotes: args.globalNotes, scripts: scriptsSupported() ? args.scripts : 'remote', trustTeamScripts: scriptsSupported() ? args.trustTeamScripts : false, shareHooks, trustTeamHooks, blocked: null };
 
     return view();
   }

@@ -3,6 +3,9 @@
 //! variables and the working directory are set, and fixed texts pass through in run order.
 
 #[cfg(unix)]
+mod hook_support;
+
+#[cfg(unix)]
 mod hooks_command {
     use std::path::Path;
     use std::time::{Duration, Instant};
@@ -14,10 +17,12 @@ mod hooks_command {
         run_firings, with_hook_context,
     };
     use harness_business::model::{
-        AgentAction, Hook, HookAction, HookApproval, HookAuthor, HookEvent, HookScope, HookStatus, HookView,
+        AgentAction, Hook, HookAction, HookAuthor, HookEvent, HookScope, HookStatus, HookView,
     };
     use harness_business::process::TokioRunner;
     use pretty_assertions::assert_eq;
+
+    use super::hook_support::with_status;
 
     fn hook(number: u8, action: HookAction) -> Hook {
         Hook {
@@ -53,16 +58,7 @@ mod hooks_command {
     fn send_plan(folder: &Path, hooks: Vec<Hook>) -> SendPlan {
         let views: Vec<HookView> = hooks
             .into_iter()
-            .map(|hook| HookView {
-                id: hook.id.clone(),
-                name: Some(hook.name.clone()),
-                status: HookStatus::Active,
-                sha256: "0".repeat(64),
-                problem: None,
-                approval: HookApproval::Approved,
-                approved: None,
-                hook: Some(hook),
-            })
+            .map(|hook| with_status(hook, HookStatus::Active))
             .collect();
 
         let mut session = HookSession::new(ChatContext {

@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use super::approvals::Approvals;
 use super::format::{loose_name, parse_hook_file, timestamp_key};
-use crate::model::{Hook, HookApproval, HookRequirement, HookScope, HookStatus, HookView};
+use crate::model::{Hook, HookApproval, HookOrigin, HookRequirement, HookScope, HookStatus, HookView};
 
 /// Most hooks used per scope (global, and each project separately).
 pub const MAX_HOOKS_PER_SCOPE: usize = 64;
@@ -75,11 +75,23 @@ impl FileOwner {
     }
 }
 
-/// Run order: global before project, then `createdAt`, then `id`.
-pub(crate) fn order_key(hook: &Hook) -> (u8, [u32; 7], String) {
+/// Where a hook runs: by origin and scope, then `createdAt`, then `id`.
+pub(crate) type RunOrder = (u8, [u32; 7], String);
+
+/// Run order of a local hook: global before project, then `createdAt`, then `id`.
+pub(crate) fn order_key(hook: &Hook) -> RunOrder {
+    ranked(hook, 0)
+}
+
+/// Run order of a team hook: after every local hook, team global before team project.
+pub(crate) fn team_order_key(hook: &Hook) -> RunOrder {
+    ranked(hook, 2)
+}
+
+fn ranked(hook: &Hook, base: u8) -> RunOrder {
     let rank = match hook.scope {
-        HookScope::Global => 0,
-        HookScope::Project => 1,
+        HookScope::Global => base,
+        HookScope::Project => base + 1,
     };
 
     (
@@ -151,6 +163,7 @@ pub(crate) fn views(
             hook: None,
             id: file.id,
             sha256: file.sha256,
+            ..local_defaults()
         };
 
         (view, owner)
@@ -178,17 +191,43 @@ pub(crate) fn view_of(
         approved: earlier_version(approval, &hook.id, approved),
         approval,
         hook: Some(hook),
+        ..local_defaults()
     }
 }
 
-fn earlier_version(approval: HookApproval, id: &str, approved: &dyn Fn(&str) -> Option<Hook>) -> Option<Hook> {
+/// The fields of a local file's view that only team hooks (or the app window's listing) fill.
+pub(crate) fn local_defaults() -> HookView {
+    HookView {
+        id: String::new(),
+        hook: None,
+        name: None,
+        status: HookStatus::Invalid,
+        sha256: String::new(),
+        problem: None,
+        approval: HookApproval::Never,
+        approved: None,
+        origin: HookOrigin::Local,
+        team_author: None,
+        team_updated_at: None,
+        team_repo: None,
+        team_changed: false,
+        share_block: None,
+        team_disabled: false,
+    }
+}
+
+pub(crate) fn earlier_version(
+    approval: HookApproval,
+    id: &str,
+    approved: &dyn Fn(&str) -> Option<Hook>,
+) -> Option<Hook> {
     match approval {
         HookApproval::Changed => approved(id),
         HookApproval::Approved | HookApproval::Never => None,
     }
 }
 
-fn approval_of(approvals: &Approvals, id: &str, sha256: &str) -> HookApproval {
+pub(crate) fn approval_of(approvals: &Approvals, id: &str, sha256: &str) -> HookApproval {
     match approvals.get(id) {
         Some(approved) if approved == sha256 => HookApproval::Approved,
         Some(_) => HookApproval::Changed,

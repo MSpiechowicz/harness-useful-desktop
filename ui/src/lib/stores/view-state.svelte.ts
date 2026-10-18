@@ -20,6 +20,9 @@ export type HookWhen = 'all' | HookEvent;
 /** What the "Status" filter of the Hooks view narrows the list to: all hooks, or the ones in one status. */
 export type HookStatusFilter = 'all' | HookStatus;
 
+/** What the "Source" filter of the Hooks view narrows the list to: all hooks, the ones of this computer, or the team's. */
+export type HookSource = 'all' | 'mine' | 'team';
+
 /** The settings sections the palette and the section nav can jump to. */
 export type SettingsSectionId = 'appearance' | 'startup' | 'harnesses' | 'memory' | 'projects' | 'updates' | 'privacy' | 'sync' | 'about';
 
@@ -61,11 +64,12 @@ export class ViewState {
   scriptsSort = $state<Sort>({ key: 'updated', desc: true });
   scriptsPage = $state(0);
 
-  /** The hook whose panel is open, what the Hooks search holds, and the two filters (an event, a status; 'all' for none). */
+  /** The hook whose panel is open (its row key), what the Hooks search holds, and the three filters (an event, a status, a source; 'all' for none). */
   hookId = $state<string | null>(null);
   hooksQuery = $state('');
   hooksWhen = $state<HookWhen>('all');
   hooksStatus = $state<HookStatusFilter>('all');
+  hooksSource = $state<HookSource>('all');
 
   /** A settings section waiting to be scrolled to; the settings view clears it once it has. */
   settingsTarget = $state<SettingsSectionId | null>(null);
@@ -118,6 +122,7 @@ export class ViewState {
       this.hooksQuery = '';
       this.hooksWhen = 'all';
       this.hooksStatus = 'all';
+      this.hooksSource = 'all';
     } else if (view === 'memory') {
       this.noteId = null;
       this.notesQuery = '';

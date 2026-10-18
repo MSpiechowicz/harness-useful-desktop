@@ -21,7 +21,8 @@
     /** The approve or reject is being written. */
     busy: boolean;
     onapprove: () => void;
-    onreject: () => void;
+    /** Left out for a team hook, which the user can only approve or leave: the team's copy is not theirs to undo. */
+    onreject?: () => void;
   }
 
   let { view, busy, onapprove, onreject }: Props = $props();
@@ -32,7 +33,14 @@
   // A hook that was never approved is new to the user; one with an approved version has been changed since.
   const added = $derived(view.approval === 'never');
   const byAgent = $derived(hook?.updatedBy === 'agent');
-  const title = $derived(t(added ? (byAgent ? 'hooks.review.added' : 'hooks.review.addedOutside') : byAgent ? 'hooks.review.changed' : 'hooks.review.changedOutside'));
+  const author = $derived(spelledOut(view.teamAuthor ?? t('hooks.review.team.someone')));
+  const title = $derived.by(() => {
+    if (view.origin === 'team') {
+      return t(added ? 'hooks.review.team.added' : 'hooks.review.team.changed', { author });
+    }
+
+    return t(added ? (byAgent ? 'hooks.review.added' : 'hooks.review.addedOutside') : byAgent ? 'hooks.review.changed' : 'hooks.review.changedOutside');
+  });
 
   const LABELS: Record<Exclude<ChangedField, 'text'>, MessageKey> = {
     name: 'hooks.field.name',
@@ -114,6 +122,8 @@
       {#snippet leading()}<ShieldCheck size={ICON.sm} aria-hidden="true" />{/snippet}
       {t('hooks.review.approve')}
     </Button>
-    <Button variant="dangerQuiet" disabled={busy} onclick={onreject}>{t(added ? 'hooks.review.rejectRemove' : 'hooks.review.rejectUndo')}</Button>
+    {#if onreject}
+      <Button variant="dangerQuiet" disabled={busy} onclick={onreject}>{t(added ? 'hooks.review.rejectRemove' : 'hooks.review.rejectUndo')}</Button>
+    {/if}
   </div>
 </div>

@@ -19,7 +19,7 @@ import type { HookScope } from '$lib/ipc/bindings/HookScope';
 import type { HookStatus } from '$lib/ipc/bindings/HookStatus';
 import type { HookRequirement } from '$lib/ipc/bindings/HookRequirement';
 import type { HookView } from '$lib/ipc/bindings/HookView';
-import type { HookStatusFilter, HookWhen } from '$lib/stores/view-state.svelte';
+import type { HookSource, HookStatusFilter, HookWhen } from '$lib/stores/view-state.svelte';
 
 import { spelledOut } from '../memory/script-format';
 import type { Companion } from '../onboarding/setup-model';
@@ -97,12 +97,18 @@ export const STATUS_LABELS: Record<HookStatus, MessageKey> = {
   pending: 'hooks.status.pending',
   paused: 'hooks.status.paused',
   invalid: 'hooks.status.invalid',
+  duplicate: 'hooks.status.duplicate',
 };
 
-export const STATUS_TONES = { active: 'success', off: 'neutral', pending: 'warning', paused: 'info', invalid: 'danger' } as const satisfies Record<HookStatus, string>;
+export const STATUS_TONES = { active: 'success', off: 'neutral', pending: 'warning', paused: 'info', invalid: 'danger', duplicate: 'neutral' } as const satisfies Record<HookStatus, string>;
 
 /** The statuses in the order the Status filter lists them. */
-export const STATUSES: readonly HookStatus[] = ['active', 'pending', 'off', 'paused', 'invalid'];
+export const STATUSES: readonly HookStatus[] = ['active', 'pending', 'off', 'paused', 'invalid', 'duplicate'];
+
+/** The key a hook is listed, opened and worked on by: a team hook can share its id with a local one, so the team's carries a prefix. */
+export function viewKey(view: HookView): string {
+  return view.origin === 'team' ? `team:${view.id}` : view.id;
+}
 
 /** The name as the file has it: an invalid file may have none, then its id stands in. */
 function rawTitle(view: HookView): string {
@@ -132,6 +138,10 @@ export function inStatus(view: HookView, status: HookStatusFilter): boolean {
   return status === 'all' || view.status === status;
 }
 
+export function inSource(view: HookView, source: HookSource): boolean {
+  return source === 'all' || (source === 'team') === (view.origin === 'team');
+}
+
 /** Whether a hook answers the search: its name, description, text or command, and tool filter. */
 export function matchesQuery(view: HookView, query: string): boolean {
   const needle = query.trim().toLowerCase();
@@ -150,26 +160,29 @@ export function matchesQuery(view: HookView, query: string): boolean {
 export interface FilterCounts {
   when: Record<HookWhen, number>;
   status: Record<HookStatusFilter, number>;
+  source: Record<HookSource, number>;
 }
 
 export function filterCounts(views: HookView[]): FilterCounts {
   const when = { all: views.length, sessionStart: 0, promptSubmit: 0, toolEnd: 0, turnEnd: 0, sessionEnd: 0 };
-  const status = { all: views.length, active: 0, pending: 0, off: 0, paused: 0, invalid: 0 };
+  const status = { all: views.length, active: 0, pending: 0, off: 0, paused: 0, invalid: 0, duplicate: 0 };
+  const source = { all: views.length, mine: 0, team: 0 };
 
   for (const view of views) {
     status[view.status] += 1;
+    source[view.origin === 'team' ? 'team' : 'mine'] += 1;
 
     if (view.hook) {
       when[view.hook.event] += 1;
     }
   }
 
-  return { when, status };
+  return { when, status, source };
 }
 
-/** One block of the list: the global hooks, the project's, or the files that are not hooks (invalid). */
+/** One block of the list: the global hooks, the project's, the files that are not hooks (invalid), or the team's. */
 export interface HookGroup {
-  id: HookScope | 'invalid';
+  id: HookScope | 'invalid' | 'team';
   views: HookView[];
   /** How many hooks the scope holds in all, whatever the search or the filter shows. */
   total: number;
@@ -177,17 +190,24 @@ export interface HookGroup {
 
 /**
  * The hooks that answer the search and the filter, in their groups. A group the search or filter leaves empty is left out,
- * while the unfiltered list always shows both scopes, so an empty scope can say so and offer a first hook.
+ * while the unfiltered list always shows both scopes, so an empty scope can say so and offer a first hook. The team's group
+ * comes last and shows (empty) only while hooks are shared with the team (`teamOn`).
  */
-export function groupHooks(all: HookView[], shown: HookView[], narrowed: boolean): HookGroup[] {
-  const scopeOf = (view: HookView): HookGroup['id'] => view.hook?.scope ?? 'invalid';
-  const groups = (['global', 'project', 'invalid'] as const).map((id) => ({
+export function groupHooks(all: HookView[], shown: HookView[], narrowed: boolean, teamOn = false): HookGroup[] {
+  const scopeOf = (view: HookView): HookGroup['id'] => (view.origin === 'team' ? 'team' : (view.hook?.scope ?? 'invalid'));
+  const groups = (['global', 'project', 'invalid', 'team'] as const).map((id) => ({
     id,
     views: shown.filter((view) => scopeOf(view) === id),
     total: all.filter((view) => scopeOf(view) === id).length,
   }));
 
-  return groups.filter((group) => (group.id === 'invalid' ? group.views.length > 0 : !narrowed || group.views.length > 0));
+  return groups.filter((group) => {
+    if (group.views.length > 0) {
+      return true;
+    }
+
+    return group.id === 'invalid' || narrowed ? false : group.id !== 'team' || teamOn;
+  });
 }
 
 /** The tool names of a `toolEnd` filter, one chip each. */

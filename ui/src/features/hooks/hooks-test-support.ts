@@ -65,6 +65,28 @@ export function rowOf(name: string): HTMLElement {
   return cell.closest<HTMLElement>('[data-row]') as HTMLElement;
 }
 
+/** The row of a team hook, by its name: a team hook can share its name with a local one, so the row is found by its key. */
+export function teamRowOf(name: string): HTMLElement {
+  const row = [...document.querySelectorAll<HTMLElement>('[data-row^="team:"]')].find((candidate) => candidate.textContent?.includes(name));
+
+  if (!row) {
+    throw new Error(`no team hook is listed as ${name}`);
+  }
+
+  return row;
+}
+
+/** The row of a local hook, by its name, even when a team hook has the same one. */
+export function localRowOf(name: string): HTMLElement {
+  const row = [...document.querySelectorAll<HTMLElement>('[data-row]:not([data-row^="team:"])')].find((candidate) => candidate.textContent?.includes(name));
+
+  if (!row) {
+    throw new Error(`no local hook is listed as ${name}`);
+  }
+
+  return row;
+}
+
 /** Registers what every test of the Hooks view needs: the mock backend with the project open, and a clean view before and after each test. */
 export function registerHooksHooks(): void {
   beforeAll(() => startMockApp(PROJECT));

@@ -4,6 +4,7 @@
   import Plus from '@lucide/svelte/icons/plus';
   import Trash2 from '@lucide/svelte/icons/trash-2';
   import Users from '@lucide/svelte/icons/users';
+  import UsersRound from '@lucide/svelte/icons/users-round';
   import Webhook from '@lucide/svelte/icons/webhook';
   import { tick, untrack } from 'svelte';
 
@@ -27,7 +28,7 @@
   import { HOOKS_POLL_MS } from '$lib/stores/live';
   import { project } from '$lib/stores/project.svelte';
   import { toasts } from '$lib/stores/toasts.svelte';
-  import { type HookStatusFilter, type HookWhen, viewState } from '$lib/stores/view-state.svelte';
+  import { type HookSource, type HookStatusFilter, type HookWhen, viewState } from '$lib/stores/view-state.svelte';
   import { autoRefresh } from '$lib/utils/auto-refresh';
   import { escapeCloses } from '$lib/utils/escape-closes';
 
@@ -35,8 +36,9 @@
   import DesktopMcpHint from './DesktopMcpHint.svelte';
   import DeleteAllDialog from './DeleteAllDialog.svelte';
   import FamilyDialog from './FamilyDialog.svelte';
-  import { EVENT_LABELS, EVENT_WHEN, EVENTS, filterCounts, folderName, groupHooks, hookTitle, inStatus, inWhen, matchesQuery, STATUS_LABELS, STATUSES, type WaitingFor, waitingFor } from './hook-format';
+  import { EVENT_LABELS, EVENT_WHEN, EVENTS, filterCounts, folderName, groupHooks, hookTitle, inSource, inStatus, inWhen, matchesQuery, STATUS_LABELS, STATUSES, type WaitingFor, viewKey, waitingFor } from './hook-format';
   import { type EditorTarget } from './hook-form';
+  import { originalOf } from './hook-team';
   import HookEditor from './HookEditor.svelte';
   import HookList from './HookList.svelte';
   import HookPanel from './HookPanel.svelte';
@@ -64,10 +66,13 @@
   const query = $derived(viewState.hooksQuery);
   const when = $derived(viewState.hooksWhen);
   const status = $derived(viewState.hooksStatus);
-  const filtered = $derived(when !== 'all' || status !== 'all');
+  // The team's state: null while hooks are not shared, and then there is no Source filter, so a kept choice of it counts for nothing.
+  const team = $derived(hooks.listing?.team ?? null);
+  const source = $derived(team ? viewState.hooksSource : 'all');
+  const filtered = $derived(when !== 'all' || status !== 'all' || source !== 'all');
   const narrowed = $derived(filtered || query.trim() !== '');
-  const shown = $derived(views.filter((view) => inWhen(view, when) && inStatus(view, status) && matchesQuery(view, query)));
-  const groups = $derived(groupHooks(views, shown, narrowed));
+  const shown = $derived(views.filter((view) => inWhen(view, when) && inStatus(view, status) && inSource(view, source) && matchesQuery(view, query)));
+  const groups = $derived(groupHooks(views, shown, narrowed, team !== null));
   const openId = $derived(viewState.hookId);
 
   const whenOptions = $derived([
@@ -75,9 +80,16 @@
     ...EVENTS.map((event) => ({ value: event as HookWhen, label: t(EVENT_LABELS[event]), count: counts.when[event] })),
   ]);
 
+  // Overridden is a state of team hooks only: it is listed while some hook is in it.
   const statusOptions = $derived([
     { value: 'all' as HookStatusFilter, label: t('hooks.filter.all'), count: counts.status.all },
-    ...STATUSES.map((value) => ({ value: value as HookStatusFilter, label: t(STATUS_LABELS[value]), count: counts.status[value] })),
+    ...STATUSES.filter((value) => value !== 'duplicate' || counts.status.duplicate > 0 || status === 'duplicate').map((value) => ({ value: value as HookStatusFilter, label: t(STATUS_LABELS[value]), count: counts.status[value] })),
+  ]);
+
+  const sourceOptions = $derived([
+    { value: 'all' as HookSource, label: t('hooks.filter.all'), count: counts.source.all },
+    { value: 'mine' as HookSource, label: t('hooks.filter.source.mine'), count: counts.source.mine },
+    { value: 'team' as HookSource, label: t('hooks.filter.source.team'), count: counts.source.team },
   ]);
 
   // A search that finds nothing says so, and so do filters that leave nothing: they stay chosen, with the way to clear them in the row above.
@@ -120,11 +132,15 @@
     }
   });
 
-  // Opening the view, or switching project, reads again; a list already read is refreshed quietly.
+  // Opening the view, or switching project, reads again; a list already read is refreshed quietly. The team hooks are asked for
+  // once the list is up, so the view never waits for the network.
   $effect(() => {
     const where = path;
 
-    untrack(() => hooks.follow(where));
+    untrack(() => {
+      hooks.follow(where);
+      void hooks.refreshTeam(where);
+    });
   });
 
   // A list that failed to load is read again on the retry schedule, a little later each time, instead of at the poll's pace.
@@ -197,8 +213,31 @@
       confirmLabel: t('hooks.delete.confirm'),
     });
 
-    if (confirmed && (await hooks.remove(view)) && viewState.hookId === view.id) {
+    if (confirmed && (await hooks.remove(view)) && viewState.hookId === viewKey(view)) {
       viewState.hookId = null;
+    }
+  }
+
+  /** Takes a team hook off the team after a confirm, as it goes for every teammate. */
+  async function removeFromTeam(view: HookView): Promise<void> {
+    const confirmed = await ask({
+      title: t('hooks.team.remove.title'),
+      description: t('hooks.team.remove.body'),
+      subject: { icon: Users, name: hookTitle(view), details: view.teamAuthor ? t('hooks.field.sharedBy') + ' ' + view.teamAuthor : undefined },
+      confirmLabel: t('hooks.team.remove.confirm'),
+    });
+
+    if (confirmed && (await hooks.removeTeam(view)) && viewState.hookId === viewKey(view)) {
+      viewState.hookId = null;
+    }
+  }
+
+  /** Copies a team hook to the user's own, and opens the copy. */
+  async function copyToMine(view: HookView): Promise<void> {
+    const copy = await hooks.copyTeam(view, path);
+
+    if (copy) {
+      viewState.hookId = viewKey(copy);
     }
   }
 </script>
@@ -317,6 +356,20 @@
               clearLabel={t('hooks.filter.clearStatus')}
               align="start"
             />
+            <!-- Mine and Team only mean something while hooks are shared. -->
+            {#if team}
+              <FilterMenu
+                label={t('hooks.filter.source')}
+                prefix={t('hooks.filter.source')}
+                icon={UsersRound}
+                options={sourceOptions}
+                value={source}
+                onchange={(next) => (viewState.hooksSource = next)}
+                onclear={() => (viewState.hooksSource = 'all')}
+                clearLabel={t('hooks.filter.clearSource')}
+                align="start"
+              />
+            {/if}
           </FilterRow>
 
           {#if noMatch}
@@ -327,6 +380,8 @@
               {groups}
               {openId}
               projectName={project.active ? folderName(project.active.path) : null}
+              teamProblem={team?.problem ?? null}
+              teamTrusted={team?.trust ?? false}
               busy={hooks.busy}
               onopen={(id) => (viewState.hookId = id)}
               onmove={(id) => openId !== null && (viewState.hookId = id)}
@@ -341,12 +396,18 @@
             open={openId !== null}
             {inline}
             view={shownView}
-            busy={shownView !== null && hooks.busy.has(shownView.id)}
+            busy={shownView !== null && hooks.busy.has(viewKey(shownView))}
+            sharing={team !== null}
+            canUpdate={shownView !== null && originalOf(views, shownView) !== null}
             ontoggle={(enabled) => shownView && void hooks.toggle(shownView, enabled)}
             onapprove={() => shownView && void hooks.approve(shownView)}
             onreject={() => shownView && void hooks.reject(shownView)}
             onedit={() => shownView && edit(shownView)}
             ondelete={() => shownView && void remove(shownView)}
+            onshare={() => shownView && void hooks.share(shownView)}
+            onupdate={() => shownView && void hooks.updateTeam(shownView)}
+            onremove={() => shownView && void removeFromTeam(shownView)}
+            oncopy={() => shownView && void copyToMine(shownView)}
             onclose={() => void close()}
           />
         {/snippet}

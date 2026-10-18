@@ -18,7 +18,7 @@ Hooks root (`<root>`): `HARNESS_HOOKS_DIR` when set to an absolute path (a leadi
 
 Linux example: `~/.local/share/harness-hooks`. This mirrors `memory_data_dir` in `business/src/ecosystem/memory_requests.rs` with `harness-hooks` instead of `harness-memory`.
 
-Hook files live in `<root>/hooks/`. Either app creates `<root>` and `<root>/hooks` when missing, mode `0700` on Unix.
+Hook files live in `<root>/hooks/`. Either app creates `<root>` and `<root>/hooks` when missing, mode `0700` on Unix. `<root>/team/` holds the app window's copies of team hooks (see Team hooks): no other writer touches it, and the MCP server never reads it.
 
 File rules:
 
@@ -161,13 +161,13 @@ Content:
 - The desktop saves a hook file and its approval together, so hooks created or edited in the desktop run at once. The user approving a pending hook stores the hash of the current bytes. Deleting a hook removes its approval.
 - The MCP server (same program, same `<app_config_dir>`, no override) reads the file read-only to report a hook as approved (hash equals the entry) or pending (no entry or a different hash). A missing, unreadable or invalid file means every hook is pending. The MCP server MUST NOT write it.
 - The app window never saves over an approvals file it could not read: the write fails before anything changes. An invalid file (not JSON, over 4 MiB, not UTF-8, another version) is renamed `hook-approvals.json.corrupt-<unix-seconds>` by the next write, and every hook is pending until approved again. The seed record is handled the same way, except that a rebuilt record lists every seed, so launch seeding creates nothing the user deleted.
-- The app window drops the approval of an id only when `<root>/hooks` has no entry named `<id>.json` at all. An entry that is there but cannot be read, or is not a regular file, keeps its approval.
+- The app window drops the approval of an id only when neither `<root>/hooks` nor `<root>/team` has an entry named `<id>.json`. An entry that is there but cannot be read, or is not a regular file, keeps its approval.
 - The app window saves a hook only over a file whose current bytes are approved: a pending file is approved or rejected first. Each write checks again, right before its rename, that the file still holds the bytes it read, and fails with a conflict otherwise.
 - Fixture `approvals/valid-approvals.json` holds real hashes of the fixtures beside it, plus one stale hash.
 
 Approved copies `<app_config_dir>/hook-approved/<id>.json`: the exact bytes of the approved version (mode `0600`, written with the approval, removed when the app deletes the hook), so the Hooks view can show what a pending edit changed. Written only by the app window.
 
-Seed record `<app_config_dir>/hooks-state.json`: `{ "version": 1, "seeded": ["memory-search", "memory-save", "dashboard-limits"] }`, the seeds launch seeding created (or found) once. Written only by the app window.
+Hooks state `<app_config_dir>/hooks-state.json`: `{ "version": 1, "seeded": ["memory-search", "memory-save", "dashboard-limits"], "teamDisabled": ["<id>"], "sharedFrom": { "<id>": "<sha256>" } }`. `seeded`: the seeds launch seeding created (or found) once. `teamDisabled` and `sharedFrom` (both optional, see Team hooks): the team hooks turned off on this machine, and the SHA-256 each local hook had when the user shared it. Written only by the app window. An invalid file is set aside and rebuilt with every seed listed and no team entries.
 
 ## Harness family hooks
 
@@ -194,6 +194,42 @@ When the app writes them:
 - Uninstalling a member deletes nothing: its hooks wait for it.
 
 Status of a catalog entry: `installed` (an approved valid file with the seed matches the catalog), `outdated` (it differs), `missing` (no approved valid file with the seed), `needsMember` (the member is not installed).
+
+## Team hooks
+
+A team that points Harness Memory at a team database (PostgreSQL, libSQL or MongoDB) can share hooks. The desktop never connects to that database: it runs `harness-memory hooks …` commands, and Harness Memory stores the hooks in its `hooks` table while its config says `hooks = "remote"`. Only the user shares from the app, in the Hooks view: neither `harness-desktop mcp` nor Harness Memory has an MCP tool that publishes a hook, and agents never see team hooks through the app. That is not a boundary: any process running as the user, an agent with a shell included, can run `harness-memory hooks put` directly, and so can anyone with write access to the team database. Trusting team hooks means trusting everyone and everything that can write to that database. Leave "Trust team hooks" off unless that holds, and approve each team hook after reading it.
+
+Body. The team database stores a hook file (version 1, at most 16 KiB) with two more rules:
+
+- `seed` absent or `null`: Harness family hooks are never shared, every machine seeds its own.
+- A project hook's `project` is the repository key `git:host/owner/repo` (Harness Memory's identity of the project root, from its `origin` remote), never a local path. A project in a repository without an `origin` remote (a `path:` identity) cannot be shared. A global hook's `project` is `null` and its row has no repository.
+
+Sharing a local hook (approved, valid, not a family hook) sends its exact bytes, with only `project` replaced by the repository key for a project hook. The team copy keeps the local hook's `id`. The SHA-256 of the stored body is the hash a machine approves.
+
+Copies. `<root>/team/` (mode `0700`) holds one envelope per team hook, `<id>.json` (mode `0600`, written by a temp file and a rename), as Harness Memory listed it:
+
+```json
+{ "version": 1, "id": "<id>", "repo": "git:github.com/o/r", "sha256": "<sha256 of body>", "author": "ana", "createdAt": "2026-10-01T10:00:00Z", "updatedAt": "2026-10-02T08:30:00Z", "body": "<the hook file>" }
+```
+
+`<root>/team/projects.json` maps each project root a list was asked for to its identity: `{ "<project root>": { "key": "git:…" | "path:…", "shareable": true } }`. A chat in that root gets the team hooks whose `repo` is that key, run in the root like its own project hooks. So a team project hook applies in every folder whose `origin` resolves to the key (every clone or worktree of the repository), and one approval covers all of them.
+
+Refresh. While sharing is on, the app window lists the team hooks (`hooks list --json`, all pages: it follows `nextOffset`, the offset to ask for next with skipped rows counted, and an older answer without it advances by the page size; a list longer than the pages the app reads, or a page it cannot read, makes the round incomplete) for the global scope and for each project root in use (the 32 most recent), at launch, every 60 seconds, when the Hooks view asks, and after the user shares or removes one. It writes what was listed and removes copies no list returned, scope by scope: global copies when the global list read every page, copies of repository key `R` when the list of some root with key `R` read every page. A failing list keeps the copies of its own scope only. A root that is no longer a folder (an unmounted drive) is skipped and stays in `projects.json`, so its repository's copies and their approvals stay until it is back. Copies of a repository key no root in `projects.json` has any more are removed. The filesystem root and the home folder are never asked for, and a root Harness Memory refuses as a project is forgotten. A root's mapping in `projects.json` is used (its team project hooks shown and run) only after a round of this session listed it. A copy that leaves the folder takes its approval and approved copy with it, unless a local hook has the same id. Chats never wait for a refresh: they use the copies on disk. Sharing turned off, a Harness Memory without team hooks, or no Harness Memory deletes `<root>/team/` at once, so team hooks stop.
+
+Origin and status. The Hooks view lists team hooks after the local ones, with `origin: "team"`, the sharer (`author`) and when the team copy changed. A team hook is, in this order:
+
+- Invalid: the envelope cannot be read, its `sha256` is not the hash of `body`, the body breaks the rules above, or its `repo` does not match the body's `project`.
+- Duplicate: `<root>/hooks/` has a file with the same id. The local hook wins and the team copy never runs (on the sharer's machine the team copy of a shared hook is always a duplicate).
+- Pending: "Trust team hooks" (`trust_team_hooks = true` in Harness Memory's config) is off and the exact body bytes are not approved. Approval uses `hook-approvals.json` and `hook-approved/` as for local hooks, so a changed team hook shows what changed since the version this machine approved.
+- Off: the body says `enabled: false`, or the user turned it off on this machine (`teamDisabled` in `hooks-state.json`, never written to the team).
+- Paused: a requirement is not met.
+- Active: it runs.
+
+Trust rule. A team hook runs only while sharing is on, and only with "Trust team hooks" on or after the user approved its exact bytes on this machine.
+
+Run order. Local global hooks, local project hooks, then team global hooks, then team project hooks, each group by `createdAt` then `id`.
+
+Update and copy. After a share, `sharedFrom[id]` holds the hash of the local file shared; when the local file changes, the team copy offers "Update team copy", which stores the new body over the team copy it names (`--expect-sha`). "Copy to my hooks" (only for a team hook that may run: trusted or approved, never a pending one) writes the team hook as a local, approved hook with the same id (a project hook gets the local project root as `project`), which then wins over the team copy. "Delete all hooks" never touches team hooks.
 
 ## Agent rules (MCP server `harness-desktop mcp`)
 

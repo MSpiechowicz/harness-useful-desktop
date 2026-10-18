@@ -1,0 +1,3 @@
+// Hooks: a trusted team hook runs after the local ones (its command output is the context).
+{"include":"omp_startup.jsonl"}
+{"expect":"prompt","match":{"message":"<harness-hook-context>\n<hook name=\"Local rule\">Be brief.</hook>\n<hook name=\"Team check\">team=promptSubmit</hook>\n</harness-hook-context>\n\nHello"},"reply":{"success":true}}
