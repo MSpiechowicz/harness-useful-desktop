@@ -318,7 +318,7 @@ fn the_probe_cache_follows_the_config_file_harness_memory_config_names() {
     assert!(wait(probe.support(&env, &config("remote", true))).sharing().is_some());
 
     // The default file changes: the answer stays cached.
-    let default = memory_config_path(&Env::for_tests(&env.home)).unwrap();
+    let default = memory_config_path(&installed_at(&env.home).0).unwrap();
     std::fs::create_dir_all(default.parent().unwrap()).unwrap();
     std::fs::write(&default, "x").unwrap();
     let unasked = config("local", false);

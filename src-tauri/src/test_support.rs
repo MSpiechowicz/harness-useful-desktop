@@ -61,11 +61,15 @@ pub fn home_state(dir: &TempDir) -> AppState {
 }
 
 /// The environment of a user whose home is `home`. Windows keeps the app's per-machine data (the
-/// hooks, the old copy of the memory server) in `%LOCALAPPDATA%`, here `<home>/AppData/Local`.
+/// hooks, the old copy of the memory server) in `%LOCALAPPDATA%`, here `<home>/AppData/Local`, and
+/// Harness Memory's config file in `%APPDATA%`, here `<home>/AppData/Roaming`.
 pub fn home_env(home: &Path) -> Env {
     let local = home.join("AppData").join("Local");
+    let roaming = home.join("AppData").join("Roaming");
 
-    Env::for_tests(home).with_var("LOCALAPPDATA", local.to_string_lossy())
+    Env::for_tests(home)
+        .with_var("LOCALAPPDATA", local.to_string_lossy())
+        .with_var("APPDATA", roaming.to_string_lossy())
 }
 
 /// Places an empty executable `name` (`.exe` on Windows) in `<home>/.local/bin`, where companion
