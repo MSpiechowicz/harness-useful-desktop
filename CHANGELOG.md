@@ -1,3 +1,11 @@
+## [0.23.1](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.23.0...v0.23.1) (2026-10-18)
+
+
+### Bug Fixes
+
+* **linux:** children of a relaunched AppImage no longer load the old image's libraries ([047d9c5](https://github.com/MSpiechowicz/harness-useful-desktop/commit/047d9c5568171cff945912c5f15d13fe076d5935))
+* **ui:** equal space above and below the top bar controls ([3f6303c](https://github.com/MSpiechowicz/harness-useful-desktop/commit/3f6303c05f010db73865c509c1036d066d351835))
+
 # [0.23.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.22.1...v0.23.0) (2026-10-18)
 
 
