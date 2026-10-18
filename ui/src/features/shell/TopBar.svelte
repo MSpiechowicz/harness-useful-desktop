@@ -9,8 +9,9 @@
      inert and stays until the incoming one is ready (it has had a moment to fill in), then the incoming one takes its
      place in one step. The two look alike, so it seems not to have changed, and it does not blink off while the
      incoming view is still loading. Only one shows at a time: of several leaving ones the oldest (the one on screen),
-     so a quick A to B to C never shows B's, which never was. -->
-<header class="intro-enter intro-top flex h-[52px] shrink-0 items-center border-b border-line bg-surface-1/70 px-4" style:--intro-delay="60ms">
+     so a quick A to B to C never shows B's, which never was.
+     53 px with the 1 px bottom line inside it leaves 52 px, so a 36 px control has 8 px above and below. -->
+<header class="intro-enter intro-top flex h-[53px] shrink-0 items-center border-b border-line bg-surface-1/70 px-4" style:--intro-delay="60ms">
   <div id={HEADER_TITLE_SLOT} class="grid h-full min-w-min flex-1 grid-cols-[minmax(0,1fr)] items-center *:col-start-1 *:row-start-1"></div>
   <div id={HEADER_CONTROLS_SLOT} class="grid h-full min-w-0 shrink grid-cols-[minmax(0,1fr)] items-center justify-items-end pl-3 *:col-start-1 *:row-start-1"></div>
   <div id={HEADER_FIXED_SLOT} class="fixed-slot flex h-full shrink-0 items-center"></div>
