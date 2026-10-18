@@ -1603,7 +1603,7 @@ dependencies = [
 
 [[package]]
 name = "harness_business"
-version = "0.24.0"
+version = "0.25.0"
 dependencies = [
  "base64 0.22.1",
  "dirs",
@@ -1631,7 +1631,7 @@ dependencies = [
 
 [[package]]
 name = "harness_desktop"
-version = "0.24.0"
+version = "0.25.0"
 dependencies = [
  "dunce",
  "harness_business",

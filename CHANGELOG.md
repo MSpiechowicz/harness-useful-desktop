@@ -1,3 +1,10 @@
+# [0.25.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.24.0...v0.25.0) (2026-10-18)
+
+
+### Features
+
+* **hooks:** name Harness Memory's renamed note tools ([675fe25](https://github.com/MSpiechowicz/harness-useful-desktop/commit/675fe258b26fde334fb9dbc37bb04227fe27b470))
+
 # [0.24.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.23.1...v0.24.0) (2026-10-18)
 
 
