@@ -1,3 +1,16 @@
+# [0.24.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.23.1...v0.24.0) (2026-10-18)
+
+
+### Bug Fixes
+
+* **test:** give the Windows test environment an APPDATA folder ([4e67ef2](https://github.com/MSpiechowicz/harness-useful-desktop/commit/4e67ef2953bc124abc51def4f1a4910e6d2cab95))
+* **test:** let the slow prompt-submit hook test pass on a slow runner ([41a1c54](https://github.com/MSpiechowicz/harness-useful-desktop/commit/41a1c54b774071999a67a6666ca9b08cb365b1a1))
+
+
+### Features
+
+* **hooks:** share hooks with the team through the Harness Memory team database ([8e30cf0](https://github.com/MSpiechowicz/harness-useful-desktop/commit/8e30cf0cf526d1bc8168d421d336ae78c7a87771)), closes [#26](https://github.com/MSpiechowicz/harness-useful-desktop/issues/26)
+
 ## [0.23.1](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.23.0...v0.23.1) (2026-10-18)
 
 
