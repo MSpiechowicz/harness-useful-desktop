@@ -6,6 +6,12 @@
 //! environment they load the image's libraries, or a Python home that is not theirs, and fail. The
 //! launcher keeps no copy of the original values, but it only prepends to the inherited path lists,
 //! so dropping every entry inside the image restores them.
+//!
+//! An AppImage started from another one (the updater relaunching the new version from the old
+//! one, or one Harness app opening another) inherits that one's entries behind its own: they point
+//! into a mount that may already be gone, or hold older libraries (`node` then fails on the
+//! image's `libffi`). So entries inside any AppImage mount beside ours (`.mount_*` in the same
+//! folder, where the runtime mounts every image) are dropped too.
 
 use std::ffi::{OsStr, OsString};
 use std::os::unix::ffi::{OsStrExt, OsStringExt};
@@ -35,6 +41,7 @@ pub(crate) fn host_env(vars: impl IntoIterator<Item = (OsString, OsString)>) -> 
     if !appdir.is_absolute() {
         return Vec::new();
     }
+    let mounts = appdir.parent();
 
     vars.iter()
         .filter_map(|(name, value)| {
@@ -43,7 +50,7 @@ pub(crate) fn host_env(vars: impl IntoIterator<Item = (OsString, OsString)>) -> 
             }
 
             let entries: Vec<&[u8]> = value.as_bytes().split(|byte| *byte == b':').collect();
-            let inside = |entry: &&[u8]| Path::new(OsStr::from_bytes(entry)).starts_with(appdir);
+            let inside = |entry: &&[u8]| in_image(Path::new(OsStr::from_bytes(entry)), appdir, mounts);
             if !entries.iter().any(inside) {
                 return None;
             }
@@ -57,6 +64,22 @@ pub(crate) fn host_env(vars: impl IntoIterator<Item = (OsString, OsString)>) -> 
             Some((name.clone(), restored))
         })
         .collect()
+}
+
+/// True when `entry` is inside `appdir`, or inside another AppImage mount in `mounts` (the folder
+/// that holds `appdir`): a `.mount_*` folder there.
+fn in_image(entry: &Path, appdir: &Path, mounts: Option<&Path>) -> bool {
+    if entry.starts_with(appdir) {
+        return true;
+    }
+
+    let Some(rest) = mounts.and_then(|mounts| entry.strip_prefix(mounts).ok()) else {
+        return false;
+    };
+
+    rest.components()
+        .next()
+        .is_some_and(|first| first.as_os_str().as_bytes().starts_with(b".mount_"))
 }
 
 #[cfg(test)]
@@ -139,6 +162,28 @@ mod tests {
                 removed("GTK_THEME"),
             ]
         );
+    }
+
+    #[test]
+    fn strips_the_mounts_of_the_appimage_that_started_this_one() {
+        // The updater relaunched this image from the old one: the old mount's entries follow ours.
+        let old = "/tmp/.mount_harnesOld";
+        let libs = format!("{APPDIR}/usr/lib/:{old}/usr/lib/:{old}/lib64/:/opt/cuda/lib64");
+        let path = format!("{APPDIR}/usr/bin/:{old}/usr/bin/:/usr/bin");
+
+        assert_eq!(
+            launched(&[("LD_LIBRARY_PATH", &libs), ("PATH", &path), ("OWD", old)]),
+            [
+                set("LD_LIBRARY_PATH", "/opt/cuda/lib64"),
+                set("PATH", "/usr/bin"),
+                removed("OWD"),
+            ]
+        );
+    }
+
+    #[test]
+    fn keeps_other_folders_beside_the_mount() {
+        assert!(launched(&[("LD_LIBRARY_PATH", "/tmp/mylibs:/tmp/.cache/lib")]).is_empty());
     }
 
     #[test]
