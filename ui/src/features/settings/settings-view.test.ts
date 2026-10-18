@@ -115,4 +115,40 @@ describe('scrollMemory', () => {
     await waitFor(() => expect(again.node.scrollTop).toBe(240));
     again.destroy();
   });
+
+  it('swaps to the position saved for the new key when the key changes', async () => {
+    const node = document.createElement('div');
+    document.body.append(node);
+    const action = scrollMemory(node, 'test:item:a');
+
+    node.scrollTop = 300;
+    await fireEvent.scroll(node);
+
+    action?.update?.('test:item:b');
+    await waitFor(() => expect(node.scrollTop).toBe(0));
+    node.scrollTop = 120;
+    await fireEvent.scroll(node);
+
+    action?.update?.('test:item:a');
+    await waitFor(() => expect(node.scrollTop).toBe(300));
+
+    action?.update?.('test:item:b');
+    await waitFor(() => expect(node.scrollTop).toBe(120));
+
+    action?.update?.('test:item:never-seen');
+    await waitFor(() => expect(node.scrollTop).toBe(0));
+
+    action?.destroy?.();
+    node.remove();
+  });
+
+  it('keeps only the most recently written positions', () => {
+    viewState.rememberScroll('test:cap:first', 10);
+    for (let i = 0; i < 300; i += 1) {
+      viewState.rememberScroll(`test:cap:${i}`, i + 1);
+    }
+
+    expect(viewState.scrollOf('test:cap:first')).toBe(0);
+    expect(viewState.scrollOf('test:cap:299')).toBe(300);
+  });
 });

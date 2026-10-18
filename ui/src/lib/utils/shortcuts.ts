@@ -24,6 +24,25 @@ function parseCombo(combo: string): ParsedCombo {
   return { key, mod: modifiers.has('mod'), alt: modifiers.has('alt'), shift: modifiers.has('shift') };
 }
 
+const BRACKET_CODES: Record<string, string> = { '[': 'BracketLeft', ']': 'BracketRight' };
+
+/** Keys that print as one plain ASCII character: what the user typed is what `key` says, so `code` has nothing to add. */
+const PRINTABLE_ASCII = /^[\x20-\x7e]$/;
+
+/**
+ * A bracket combo also matches the physical bracket key, for layouts where it types a letter instead: German ü, say.
+ * It does so only when `key` is not a plain ASCII character, since that character may be a shortcut of its own: the
+ * physical `[` key of a Dvorak keyboard types `/` (Ctrl+/ is the shortcuts overlay), and the German `]` key types `+`
+ * (Ctrl++ is zoom in).
+ */
+function matchesBracketKey(event: KeyboardEvent, key: string): boolean {
+  if (BRACKET_CODES[key] !== event.code) {
+    return false;
+  }
+
+  return !PRINTABLE_ASCII.test(event.key);
+}
+
 export function matchesShortcut(event: KeyboardEvent, combo: string, mac = isMacPlatform()): boolean {
   const wanted = parseCombo(combo);
   const modPressed = mac ? event.metaKey : event.ctrlKey;
@@ -36,7 +55,7 @@ export function matchesShortcut(event: KeyboardEvent, combo: string, mac = isMac
     return false;
   }
 
-  return event.key.toLowerCase() === wanted.key;
+  return event.key.toLowerCase() === wanted.key || matchesBracketKey(event, wanted.key);
 }
 
 const SYMBOLS_MAC: Record<string, string> = { mod: '⌘', alt: '⌥', shift: '⇧' };

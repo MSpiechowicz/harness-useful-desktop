@@ -57,7 +57,6 @@ export const ecosystem: AreaMessages<typeof enEcosystem> = {
   'ecosystem.dashboardInstall.title': 'Zobacz, ile kosztują twoi agenci',
   'ecosystem.dashboardInstall.body':
     'Zainstaluj Harness Dashboard, a ta strona wypełni się kosztami, tokenami, limitami planu, budżetami i nieudanymi wywołaniami narzędzi, odczytanymi z lokalnego procesu na tym komputerze. Nic nie jest wysyłane przez sieć.',
-  'ecosystem.dashboardInstall.check': 'Sprawdź ponownie',
   'ecosystem.dashboardInstall.docs': 'Czytaj dokumentację',
 
   'ecosystem.section.checking': 'Sprawdzanie dashboardu',

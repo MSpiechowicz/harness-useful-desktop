@@ -1,5 +1,4 @@
 import ArrowUpFromLine from '@lucide/svelte/icons/arrow-up-from-line';
-import RefreshCw from '@lucide/svelte/icons/refresh-cw';
 import Power from '@lucide/svelte/icons/power';
 import PowerOff from '@lucide/svelte/icons/power-off';
 import Trash2 from '@lucide/svelte/icons/trash-2';
@@ -73,16 +72,9 @@ export function pluginActions(harness: HarnessId, plugin: PluginInfo, project: s
   return actions;
 }
 
-/** Re-read the catalog of a marketplace (what it offers; nothing is installed), or remove it. */
+/** Remove a marketplace. Its catalog needs no action: the app re-reads every catalog by itself. */
 export function marketplaceActions(harness: HarnessId, marketplace: MarketplaceInfo): BarAction[] {
   return [
-    {
-      label: t('extensions.verb.refresh'),
-      title: t('extensions.action.updateCatalog.title'),
-      description: t('extensions.action.updateCatalog.description'),
-      icon: RefreshCw,
-      request: actionRequest(harness, { type: 'marketplaceUpdate', name: marketplace.name }, 'user', null),
-    },
     {
       label: t('extensions.verb.remove'),
       title: t('extensions.verb.removeMarketplace'),

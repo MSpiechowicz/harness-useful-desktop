@@ -19,10 +19,12 @@
   import { SIDE_PANEL_WIDTH } from '$lib/components/side-panel';
   import Skeleton from '$lib/components/Skeleton.svelte';
     import ViewHeader from '$lib/components/ViewHeader.svelte';
+  import { WIDE_FROM_PX } from '$lib/design/layout';
   import { rise } from '$lib/design/motion';
   import { t, tn } from '$lib/i18n/i18n.svelte';
   import type { HookScope } from '$lib/ipc/bindings/HookScope';
   import type { HookView } from '$lib/ipc/bindings/HookView';
+  import { HOOKS_POLL_MS } from '$lib/stores/live';
   import { project } from '$lib/stores/project.svelte';
   import { toasts } from '$lib/stores/toasts.svelte';
   import { type HookStatusFilter, type HookWhen, viewState } from '$lib/stores/view-state.svelte';
@@ -41,12 +43,6 @@
   import { hooks } from './hooks-data.svelte';
   import PausedNotice from './PausedNotice.svelte';
   import { prefs } from '$lib/stores/prefs.svelte';
-
-  /** The width of the view from which it has room for two columns: the list, and the detail, which is always there. Below it the detail slides over the list. */
-  const WIDE_FROM_PX = 1360;
-
-  /** A backstop for the change event of the hooks folder: an open view looks again now and then. */
-  const REFRESH_MS = 15_000;
 
   let width = $state(0);
   let confirmer: SessionConfirm | undefined = $state();
@@ -131,7 +127,8 @@
     untrack(() => hooks.follow(where));
   });
 
-  $effect(() => autoRefresh(() => void hooks.refresh(), REFRESH_MS));
+  // A list that failed to load is read again on the retry schedule, a little later each time, instead of at the poll's pace.
+  $effect(() => autoRefresh(() => hooks.refresh(), HOOKS_POLL_MS, { failing: hooks.list.status === 'error' }));
 
   // A hook an agent (or the user, elsewhere) deleted while its panel was open is no longer there to show.
   $effect(() => {
@@ -210,7 +207,7 @@
   <ViewHeader title={t('hooks.title')} icon={Webhook} {context}>
     {#snippet actions()}
       {#if views.length > 0}
-        <div class="w-[340px] max-[900px]:w-[220px]">
+        <div class="search-width">
           <SearchField bind:value={viewState.hooksQuery} label={t('hooks.search.label')} placeholder={t('hooks.search.placeholder')} shortcut="mod+f" onkeydown={clearSearchOnEscape} />
         </div>
       {/if}
@@ -219,7 +216,9 @@
         {#snippet leading()}<Plus size={ICON.sm} aria-hidden="true" />{/snippet}
         {t('hooks.new')}
       </Button>
+    {/snippet}
 
+    {#snippet fixed()}
       <MoreMenu label={t('hooks.menu.label')} panelClass="w-60">
         {#snippet children({ close })}
           <MenuItem
@@ -354,7 +353,7 @@
 
         {#if wide}
           <!-- The detail has its own column, always there: what is chosen swaps in with a short fade, with nothing sliding. -->
-          <div class="relative flex shrink-0 flex-col border-l border-line-strong bg-surface-1" style:width={SIDE_PANEL_WIDTH}>
+          <div class="relative flex shrink-0 flex-col border-l border-panel-edge bg-surface-1" style:width={SIDE_PANEL_WIDTH}>
             {#if openId === null}
               <DetailEmpty icon={Webhook} message={t('hooks.detail.empty')} />
             {:else}

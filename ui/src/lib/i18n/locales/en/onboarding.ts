@@ -31,7 +31,6 @@ export const onboarding = {
   'onboarding.harnesses.error': 'Could not scan for harnesses: {message}',
   'onboarding.harnesses.none': 'No harness found yet. You can continue and install one later.',
   'onboarding.harnesses.found': 'Found {found} of {total} on this machine.',
-  'onboarding.harnesses.rescan': 'Re-scan',
   'onboarding.harnesses.group': 'Daily driver',
 
   'onboarding.card.use': 'Use {name} as daily driver',
@@ -243,7 +242,7 @@ export const onboarding = {
   'onboarding.done.body': 'Here is what we’ll start with. Everything can be changed later from the top bar or Settings.',
   'onboarding.done.setup': 'Your setup',
   'onboarding.done.driver': 'Daily driver',
-  'onboarding.done.noDriver': 'None yet. Install OMP, PI or OpenCode, then re-scan from Settings.',
+  'onboarding.done.noDriver': 'None yet. Install OMP, PI or OpenCode and the app finds it by itself.',
   'onboarding.done.project': 'Project',
   'onboarding.done.noProject': 'No project open',
   'onboarding.done.companions': 'Harness family',

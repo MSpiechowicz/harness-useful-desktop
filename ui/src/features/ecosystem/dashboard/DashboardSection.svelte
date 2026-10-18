@@ -8,6 +8,8 @@
   import { t } from '$lib/i18n/i18n.svelte';
   import { dashboard } from '$lib/stores/dashboard.svelte';
   import { ecosystem } from '$lib/stores/ecosystem.svelte';
+  import { DASHBOARD_INSTALL_POLL_MS } from '$lib/stores/live';
+  import { autoRefresh } from '$lib/utils/auto-refresh';
 
   import DashboardInstallCard from './DashboardInstallCard.svelte';
   import DashboardPanel from './DashboardPanel.svelte';
@@ -18,6 +20,10 @@
   const item = $derived(ecosystem.status?.items.find((candidate) => candidate.id === 'dashboard'));
 
   async function recheck(): Promise<void> {
+    if (checking) {
+      return;
+    }
+
     checking = true;
 
     try {
@@ -26,6 +32,10 @@
       checking = false;
     }
   }
+
+  // The install steps are followed in a terminal: once the dashboard is there, the card gives way to the panel without
+  // anyone asking. Only the dashboard is probed, quietly: the companions list keeps its own freshness window.
+  $effect(() => (availability?.type === 'notInstalled' ? autoRefresh(() => dashboard.openPanel(true), DASHBOARD_INSTALL_POLL_MS) : undefined));
 
   onMount(() => {
     void dashboard.openPanel();
@@ -42,7 +52,7 @@
     <Skeleton height="14rem" class="rounded-lg" />
   </div>
 {:else if availability.type === 'notInstalled'}
-  <DashboardInstallCard {item} {checking} onrecheck={() => void recheck()} />
+  <DashboardInstallCard {item} />
 {:else if availability.type === 'failed'}
   <div class="rounded-lg border border-line bg-surface-1 shadow-raised">
     <EmptyState icon={CircleAlert} title={t('ecosystem.section.failed')} body={availability.message}>

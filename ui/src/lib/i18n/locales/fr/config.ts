@@ -24,7 +24,6 @@ export const config: AreaMessages<typeof enConfig> = {
   'config.detail.missingBody': 'Le harness n’a aucun réglage à cet emplacement. Les réglages de ce niveau apparaîtront dès que le fichier existera.',
   'config.detail.treeLabel': 'Réglages de {title}',
   'config.detail.secrets': 'Les secrets sont masqués ici et ne quittent jamais le backend.',
-  'config.detail.aside': 'Détails du fichier',
 
   'config.search.label': 'Rechercher dans les clés et les valeurs',
   'config.search.placeholder': 'Rechercher dans les réglages',

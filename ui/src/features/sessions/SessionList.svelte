@@ -135,7 +135,7 @@
 
 <div class="flex min-h-0 flex-1 flex-col pt-1 pb-3">
   {#if cleanable.length > 0}
-    <div class="mx-3 mb-2 flex items-center gap-2.5 rounded-lg border border-accent/25 bg-accent-wash py-2 pr-2 pl-3 text-sm text-fg-2">
+    <div class="mx-[var(--panel-row-inset)] mb-2 flex items-center gap-2.5 rounded-lg border border-accent/25 bg-accent-wash panel-row py-2 text-sm text-fg-2">
       <Layers size={ICON.sm} class="shrink-0 text-accent-text" aria-hidden="true" />
       <span class="min-w-0 flex-1">{tn('sessions.cleanup.banner', cleanable.length)}</span>
       <Button onclick={() => oncleanup(cleanable)}>{t('sessions.cleanup.action')}</Button>
@@ -149,12 +149,12 @@
       <VirtualList items={entries} estimate={ROW_PX} variable overscan={8} label={t('sessions.list.label')} key={(entry) => (entry.kind === 'heading' ? `heading:${entry.id}` : entry.summary.ref.id)} class="size-full">
         {#snippet row(entry)}
           {#if entry.kind === 'heading'}
-            <div class="px-3 pt-[14px] pb-[6px]" style:height="{HEADING_PX}px">
+            <div class="panel-inset pt-[14px] pb-[6px]" style:height="{HEADING_PX}px">
               <button
                 type="button"
                 aria-expanded={entry.open}
                 disabled={searching}
-                class="group/heading flex h-[28px] w-full items-center gap-[10px] rounded-sm px-[12px] text-left text-[11px] leading-[16px] font-medium tracking-wide text-fg-3 uppercase transition-colors duration-[var(--dur-fast)] hover:bg-hover hover:text-fg-2 focus-visible:outline-2 focus-visible:outline-offset-[-2px] disabled:hover:bg-transparent disabled:hover:text-fg-3"
+                class="group/heading flex h-[28px] w-full items-center gap-[10px] rounded-sm panel-heading text-left text-[11px] leading-[16px] font-medium tracking-wide text-fg-3 uppercase transition-colors duration-[var(--dur-fast)] hover:bg-hover hover:text-fg-2 focus-visible:outline-2 focus-visible:outline-offset-[-2px] disabled:hover:bg-transparent disabled:hover:text-fg-3"
                 onclick={() => folded.toggle(entry.id)}
               >
                 <span class="grid size-[16px] shrink-0 place-items-center"><ChevronRight size={14} aria-hidden="true" class={cx('transition-transform duration-[var(--dur-fast)]', entry.open && 'rotate-90')} /></span>

@@ -28,7 +28,7 @@
     aria-label={label}
     use:focusTrap={{ onEscape: () => drawer.dismiss(), initialFocus }}
     transition:fly={{ x: -32, duration: scaled(240) }}
-    class="absolute inset-y-0 left-0 z-40 flex w-[min(24rem,92%)] flex-col overflow-hidden border-r border-line-strong bg-surface-1 shadow-pop outline-none"
+    class="absolute inset-y-0 left-0 z-40 flex w-[min(var(--side-panel),92%)] flex-col overflow-hidden border-r border-panel-edge bg-surface-1 shadow-pop outline-none"
   >
     {@render children()}
   </div>

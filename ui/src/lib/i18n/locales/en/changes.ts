@@ -16,7 +16,6 @@ export const changes = {
   'changes.empty.clean': 'The working tree is clean.',
   'changes.empty.clean.title': 'Nothing to review',
   'changes.empty.clean.body': 'Everything is committed. New edits show up here the moment they happen.',
-  'changes.refresh': 'Refresh changes',
   'changes.empty.unstaged': 'No unstaged changes.',
   'changes.empty.staged': 'No staged changes.',
   'changes.empty.untracked': 'No untracked changes.',

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { fixtures } from '$lib/ipc/mock/fixtures';
@@ -37,7 +37,7 @@ async function open(id: 'omp' | 'pi', tab: RegExp, item: RegExp) {
 const dialog = () => screen.findByRole('dialog');
 
 /** The facts card beside the detail: its Status row says whether the item is on. */
-const facts = () => screen.getByRole('complementary', { name: 'Extension details' });
+const facts = () => screen.getByRole('region', { name: 'Details' });
 
 /** Picks an entry of the top bar's Install menu. */
 async function chooseInstall(name: string): Promise<void> {
@@ -53,6 +53,18 @@ async function confirmWith(name: string): Promise<void> {
 }
 
 describe('extension actions', () => {
+  it('dismisses a waiting confirmation when the view goes away, so coming back does not find it', async () => {
+    await open('omp', /Plugins/, /npm-helper/);
+    await fireEvent.click(screen.getByRole('button', { name: 'Enable' }));
+    await dialog();
+    await waitFor(() => expect(actionRunner.phase).toBe('ready'));
+
+    cleanup();
+
+    expect(actionRunner.phase).toBe('idle');
+    expect(actionRunner.request).toBeNull();
+  });
+
   it('previews first, runs only after the confirmation, then shows the refreshed list', async () => {
     const { calls } = await open('omp', /Plugins/, /npm-helper/);
     expect(facts()).toHaveTextContent('Disabled');
@@ -70,7 +82,7 @@ describe('extension actions', () => {
     await within(await dialog()).findByText('Confirmed: the refreshed list shows the change.');
     expect(calls('extension_action').map((call) => call.dryRun)).toEqual([true, false]);
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    await fireEvent.click(within(await dialog()).getByRole('button', { name: 'Close' }));
 
     await waitFor(() => expect(facts()).toHaveTextContent('Enabled'));
     expect(screen.getByRole('button', { name: 'Disable' })).toBeInTheDocument();
@@ -129,6 +141,17 @@ describe('extension actions', () => {
     expect(await within(result).findByText('The action failed')).toBeInTheDocument();
     expect(within(result).getAllByText(/✘ Failed to disable escaping-plugin@demo/).length).toBeGreaterThan(0);
     expect(within(result).getByRole('button', { name: 'Output log' })).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('has no way to refresh a catalog by hand: not on a marketplace and not in the more-actions menu', async () => {
+    await open('omp', /Marketplaces/, /^demo/);
+
+    expect(screen.getByRole('button', { name: 'Remove' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /refresh/i })).toBeNull();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    expect(await screen.findByRole('menuitem', { name: 'Update all plugins' })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: /refresh|catalog/i })).toBeNull();
   });
 
   it('installs from a marketplace entry in the chosen scope, and offers project scope only with a project', async () => {
@@ -190,7 +213,7 @@ describe('extension actions', () => {
 
     expect(calls('extension_action').map((call) => call.dryRun)).toEqual([true, false]);
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    await fireEvent.click(within(await dialog()).getByRole('button', { name: 'Close' }));
     await waitFor(() => expect(screen.queryByRole('button', { name: /pi-review-kit/ })).toBeNull());
   });
 

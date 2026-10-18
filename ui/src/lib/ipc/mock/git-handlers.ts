@@ -10,6 +10,8 @@ import type { Handlers } from './types';
 type GitCommands = 'git_status' | 'git_branches' | 'git_diff' | 'git_file_lines' | 'git_discard_all' | 'git_discard_files' | 'review_compose';
 
 const MAX_COMMENTS = 100;
+/** The fixture file a `?drift` preview commits "in a terminal" once its time comes. */
+const COMMITTED_BY_DRIFT = 'docs/guide.md';
 const NOT_A_REPO: GitStatus = { isRepo: false, branch: null, head: null, upstream: null, ahead: 0, behind: 0, entries: [] };
 
 const SCOPES: Record<DiffScope, (diff: FileDiff) => boolean> = {
@@ -62,7 +64,9 @@ export function gitHandlers(state: MockState): Pick<Handlers, GitCommands> {
         return { ...status, entries: [] };
       }
 
-      return { ...status, entries: status.entries.filter((entry) => !state.discardedFiles.has(`${project}\0${entry.path}`)) };
+      const gone = (entry: { path: string }): boolean => state.discardedFiles.has(`${project}\0${entry.path}`) || (state.drifted() && entry.path === COMMITTED_BY_DRIFT);
+
+      return { ...status, entries: status.entries.filter((entry) => !gone(entry)) };
     },
 
     git_branches: ({ project }) => {

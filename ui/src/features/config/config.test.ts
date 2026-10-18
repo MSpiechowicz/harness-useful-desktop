@@ -30,7 +30,7 @@ function load(sections: ConfigSection[], notices: Notice[] = []): void {
   configView.data = { harness: 'omp', notices, sections };
 }
 
-const details = () => screen.findByRole('complementary', { name: 'File details' });
+const details = () => screen.findByRole('region', { name: 'Details' });
 
 describe('ConfigViewer', () => {
   afterEach(() => {
@@ -422,7 +422,7 @@ describe('in Polish', () => {
     await i18n.load('pl');
     prefs.value = samplePrefs({ motion: 'off', defaultHarness: 'omp' });
     render(ConfigViewer);
-    await screen.findByRole('complementary', { name: 'Szczegóły pliku' });
+    await screen.findByRole('region', { name: 'Szczegóły' });
 
     for (const [count, text] of [
       [1, '1 dopasowanie'],

@@ -36,6 +36,7 @@ fn default_prefs_serialize_with_camel_case_fields() {
             "updatePolicy": "startupAsk",
             "checkCompanionUpdates": true,
             "autoUpdateExtensions": true,
+            "autoRefreshCatalogs": true,
             "openAnyLink": false,
             "aiChatNames": false,
             "onboardingCompleted": false,
@@ -64,6 +65,8 @@ fn partial_prefs_fill_defaults_and_ignore_unknown_fields() {
     assert!(prefs.check_companion_updates);
     // Files written before extension auto-update existed turn it on.
     assert!(prefs.auto_update_extensions);
+    // The serde default is on. `PrefsStore` carries `autoUpdateExtensions` over for files without it.
+    assert!(prefs.auto_refresh_catalogs);
     // Any web link stays closed until the user opts in.
     assert!(!prefs.open_any_link);
     assert!(!prefs.ai_chat_names);

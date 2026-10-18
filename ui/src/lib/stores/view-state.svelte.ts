@@ -8,6 +8,9 @@ import type { ScriptScope } from '$lib/ipc/bindings/ScriptScope';
 
 import type { ViewId } from './nav.svelte';
 
+/** How many scroll positions are remembered before the least recently written one is dropped. */
+const MAX_SCROLLS = 200;
+
 /** The two lists the Memory view switches between. */
 export type MemorySection = 'notes' | 'scripts';
 
@@ -67,6 +70,7 @@ export class ViewState {
   /** A settings section waiting to be scrolled to; the settings view clears it once it has. */
   settingsTarget = $state<SettingsSectionId | null>(null);
 
+  /** Scroll positions by key, least recently written first; capped because keys are per item. */
   private scrolls = new Map<string, number>();
 
   scrollOf(key: string): number {
@@ -74,7 +78,16 @@ export class ViewState {
   }
 
   rememberScroll(key: string, top: number): void {
+    this.scrolls.delete(key);
     this.scrolls.set(key, top);
+
+    if (this.scrolls.size > MAX_SCROLLS) {
+      const oldest = this.scrolls.keys().next();
+
+      if (!oldest.done) {
+        this.scrolls.delete(oldest.value);
+      }
+    }
   }
 
   /** Forgets all remembered state: a fresh start. */

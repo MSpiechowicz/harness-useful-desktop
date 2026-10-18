@@ -29,7 +29,7 @@
       <p class="text-sm text-fg-3">{t('ecosystem.panel.subtitle')}</p>
     </div>
 
-    <!-- Refreshing lives in the view header, which reloads the companions and the dashboard together. -->
+    <!-- The view reloads the companions and the dashboard by itself while it is open (see EcosystemView). -->
     <SegmentedControl label={t('ecosystem.panel.range')} options={OPTIONS} bind:value={() => dashboard.range, (range) => void dashboard.setRange(range)} />
   </header>
 

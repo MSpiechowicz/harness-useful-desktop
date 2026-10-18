@@ -144,7 +144,10 @@ export const settings: AreaMessages<typeof enSettings> = {
     'Wenn du Ecosystem öffnest, fragt die App GitHub nach den neuesten Releases von Harness Dashboard, Skills, Memory und Sidebar, höchstens alle sechs Stunden, solange die App läuft. GitHub sieht deine IP-Adresse und die App-Version, aber nicht, welche Tools der Harness-Familie du hast.',
   'settings.updates.extensions.title': 'Erweiterungen automatisch aktualisieren',
   'settings.updates.extensions.description':
-    'Alle zehn Minuten aktualisiert die App die Marktplätze und installiert neue Versionen der Plugins und Pakete deines Harness, mit einer Meldung dazu. Sie aktualisiert auch die installierten Mitglieder der Harness-Familie (Harness Memory und Harness Dashboard), indem sie deren offizielle Installer ausführt. Aus: Aktualisiere selbst unter Erweiterungen und Ökosystem.',
+    'Alle zehn Minuten installiert die App neue Versionen der Plugins und Pakete deines Harness, mit einer Meldung dazu. Sie aktualisiert auch die installierten Mitglieder der Harness-Familie (Harness Memory und Harness Dashboard), indem sie deren offizielle Installer ausführt, und liest vorher die Kataloge neu ein, die sie dafür braucht. Aus: Aktualisiere selbst unter Erweiterungen und Ökosystem.',
+  'settings.updates.catalogs.title': 'Kataloge automatisch aktualisieren',
+  'settings.updates.catalogs.description':
+    'Die App liest die Marktplatz-Kataloge deiner Harnesses etwa dreißig Sekunden nach dem Start neu ein, danach alle dreißig Minuten. Aus: Die Kataloge bleiben, wie sie sind, und die App stellt von sich aus keine Katalog-Anfragen, es sei denn, das Installieren von Updates ist an, das sie im selben Rhythmus liest.',
   'settings.updates.notConfigured': 'Dieser Build ist nicht für Updates eingerichtet und sucht deshalb nicht nach neuen Versionen. Es ist alles in Ordnung. Neue Versionen findest du auf der Releases-Seite.',
   'settings.updates.openReleases': 'Releases öffnen',
   'settings.updates.retry': 'Erneut versuchen',

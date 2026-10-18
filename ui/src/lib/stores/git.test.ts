@@ -98,6 +98,45 @@ describe('changes', () => {
     await waitFor(() => expect(of('git_diff').at(-1)?.request.paths).toEqual([renamed?.path, renamed?.origPath]));
   });
 
+  it('keeps a failed first read on screen while it retries in the background, and recovers when git answers', async () => {
+    const backend = recordingTransport();
+    let failing = true;
+    const flaky: Transport = {
+      invoke: (name, args) =>
+        name === 'git_status' && failing ? Promise.reject(IpcFailure.from({ code: 'internal', message: 'git timed out' })) : backend.transport.invoke(name, args),
+    };
+    const store = new GitStore(flaky);
+
+    store.activate(PROJECT);
+    await waitFor(() => expect(store.loadStatus).toBe('error'));
+
+    const seen: string[] = [];
+    await store.refresh({ quiet: true });
+    seen.push(store.loadStatus);
+
+    failing = false;
+    const retry = store.refresh({ quiet: true });
+    seen.push(store.loadStatus);
+    await retry;
+    seen.push(store.loadStatus);
+
+    expect(seen).toEqual(['error', 'error', 'ready']);
+    expect(store.error).toBeNull();
+    expect(store.entries).toHaveLength(ENTRIES.length);
+  });
+
+  it('can re-read only the status, leaving the diffs alone, and keeps what is shown when nothing changed', async () => {
+    const { store, of } = open();
+    await loaded(store);
+    const shown = store.status;
+    const diffReads = of('git_diff').length;
+
+    await store.refresh({ quiet: true, statusOnly: true });
+
+    expect(of('git_diff')).toHaveLength(diffReads);
+    expect(store.status).toBe(shown);
+  });
+
   it('reports a folder that is not a repository without an error', async () => {
     const backend = recordingTransport();
     const store = new GitStore(backend.transport);
@@ -172,7 +211,7 @@ describe('changes', () => {
     }
   });
 
-  it('keeps what is shown when a background re-read fails, and leaves a user refresh spinning', async () => {
+  it('keeps what is shown when a background re-read fails', async () => {
     const backend = recordingTransport();
     let fail = false;
     const flaky: Transport = {
@@ -182,15 +221,74 @@ describe('changes', () => {
     store.activate(PROJECT);
     await loaded(store);
 
-    void store.refresh();
     fail = true;
-    const quiet = store.refresh({ quiet: true });
-    expect(store.refreshing).toBe(true);
-    await quiet;
+    await store.refresh({ quiet: true });
 
     expect(store.loadStatus).toBe('ready');
     expect(store.error).toBeNull();
     expect(store.status?.entries).toHaveLength(ENTRIES.length);
     expect(store.diffFor(ENTRIES[0].path)?.status).toBe('ready');
+  });
+
+  it('leaves a refresh the user asked for spinning until it ends, whatever a background tick does meanwhile', async () => {
+    const { store } = open();
+    await loaded(store);
+
+    const asked = store.refresh();
+    expect(store.refreshing).toBe(true);
+    await store.refresh({ quiet: true });
+    await asked;
+
+    expect(store.refreshing).toBe(false);
+    expect(store.loadStatus).toBe('ready');
+  });
+
+  it('does not start another git read for a quiet refresh while the previous one is still running', async () => {
+    const backend = recordingTransport();
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const slow: Transport = {
+      invoke: (name, args) => (name === 'git_status' ? gate.then(() => backend.transport.invoke(name, args)) : backend.transport.invoke(name, args)),
+    };
+    const store = new GitStore(slow);
+    store.activate(PROJECT);
+
+    const ticks = [store.refresh({ quiet: true }), store.refresh({ quiet: true, statusOnly: true }), store.refresh({ quiet: true })];
+    expect(backend.of('git_status')).toHaveLength(0);
+    release();
+    await Promise.all(ticks);
+
+    expect(backend.of('git_status')).toHaveLength(1);
+    expect(store.loadStatus).toBe('ready');
+
+    await store.refresh({ quiet: true });
+    expect(backend.of('git_status')).toHaveLength(2);
+  });
+
+  it('does not ask git for the diffs again while the previous diff request is still running', async () => {
+    const backend = recordingTransport();
+    let diffRequests = 0;
+    const slow: Transport = {
+      invoke: (name, args) => {
+        if (name !== 'git_diff') {
+          return backend.transport.invoke(name, args);
+        }
+
+        diffRequests += 1;
+
+        return new Promise(() => {});
+      },
+    };
+    const store = new GitStore(slow);
+    store.activate(PROJECT);
+    await waitFor(() => expect(store.loadStatus).toBe('ready'));
+    await waitFor(() => expect(store.diffFor(ENTRIES[0].path)?.status).toBe('loading'));
+
+    await store.refresh({ quiet: true });
+    await store.refresh({ quiet: true });
+    await store.refresh({ quiet: true });
+
+    expect(backend.of('git_status')).toHaveLength(4);
+    expect(diffRequests).toBe(1);
   });
 });

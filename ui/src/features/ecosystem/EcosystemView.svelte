@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { autoRefresh } from '$lib/utils/auto-refresh';
   import CircleAlert from '@lucide/svelte/icons/circle-alert';
   import Orbit from '@lucide/svelte/icons/orbit';
   import Wand from '@lucide/svelte/icons/wand-sparkles';
@@ -14,6 +13,8 @@
   import { t } from '$lib/i18n/i18n.svelte';
   import { dashboard } from '$lib/stores/dashboard.svelte';
   import { ecosystem } from '$lib/stores/ecosystem.svelte';
+  import { ECOSYSTEM_POLL_MS } from '$lib/stores/live';
+  import { autoRefresh } from '$lib/utils/auto-refresh';
 
   import { onboarding } from '../onboarding/onboarding-state.svelte';
   import DashboardSection from './dashboard/DashboardSection.svelte';
@@ -39,12 +40,9 @@
   });
 
   // Both stores keep their own freshness windows, so asking every half minute only costs a request when one has lapsed.
-  $effect(() =>
-    autoRefresh(() => {
-      void ecosystem.load();
-      void dashboard.openPanel();
-    }, 30_000),
-  );
+  // Quiet, so a failure on screen stays put (no flash of the loading state) while it is read again. When the first
+  // reading failed, the retry schedule (a little later each time) replaces the pace.
+  $effect(() => autoRefresh(() => Promise.all([ecosystem.load(false, { quiet: true }), dashboard.openPanel()]), ECOSYSTEM_POLL_MS, { failing: failed }));
 </script>
 
 <div class="@container flex size-full min-h-0 flex-col">

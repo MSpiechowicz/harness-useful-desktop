@@ -1,8 +1,10 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { i18n } from '$lib/i18n/i18n.svelte';
+import { ipc } from '$lib/ipc/client';
 import { harness } from '$lib/stores/harness.svelte';
+import { HARNESS_SETUP_POLL_MS } from '$lib/stores/live';
 import { prefs } from '$lib/stores/prefs.svelte';
 import { project } from '$lib/stores/project.svelte';
 
@@ -73,6 +75,32 @@ describe('Onboarding', () => {
     expect(prefs.value?.defaultHarness).toBe('pi');
     expect(prefs.value?.approvalNoticeSeen).toBe(false);
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
+  describe('finding a harness without being asked', () => {
+    afterEach(async () => {
+      vi.useRealTimers();
+      await ipc.invoke('harness_clear_binary', { harness: 'pi' });
+      await harness.load();
+    });
+
+    it('shows a harness installed in a terminal while the step is open, and has no Re-scan button', async () => {
+      await ipc.invoke('harness_clear_binary', { harness: 'pi' });
+      await harness.load();
+      vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+      onboarding.restart('harnesses');
+      render(Onboarding);
+
+      await next('Which agent do you use every day?');
+      expect(await screen.findByRole('article', { name: 'Pi' })).toHaveTextContent('Not found');
+      expect(screen.queryByRole('button', { name: /re-scan/i })).toBeNull();
+
+      // Installed behind the app's back, as a terminal would do.
+      await ipc.invoke('harness_pick_binary', { harness: 'pi' });
+      await vi.advanceTimersByTimeAsync(HARNESS_SETUP_POLL_MS);
+
+      await waitFor(() => expect(screen.getByRole('article', { name: 'Pi' })).toHaveTextContent('Untested version'));
+    });
   });
 
   it('explains the OMP approval default once, when OMP is the daily driver', async () => {
@@ -214,7 +242,8 @@ describe('Onboarding', () => {
     await click('Zaczynamy');
 
     await next('Którego agenta używasz na co dzień?');
-    expect(await screen.findByRole('button', { name: 'Szukaj ponownie' })).toBeInTheDocument();
+    expect(await screen.findByRole('radiogroup', { name: 'Codzienny harness' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Szukaj ponownie' })).toBeNull();
     expect(screen.getByRole('radiogroup', { name: 'Codzienny harness' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Wstecz' })).toBeInTheDocument();
   });

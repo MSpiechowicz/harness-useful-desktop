@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { autoRefresh } from '$lib/utils/auto-refresh';
   import FolderOpen from '@lucide/svelte/icons/folder-open';
   import GitBranch from '@lucide/svelte/icons/git-branch';
   import Layers from '@lucide/svelte/icons/layers';
@@ -8,14 +7,13 @@
   import Play from '@lucide/svelte/icons/play';
   import { untrack } from 'svelte';
 
-  import DrawerToggle from '$lib/components/DrawerToggle.svelte';
-  import ListDrawer from '$lib/components/ListDrawer.svelte';
-  import { PaneDrawer } from '$lib/components/pane-drawer.svelte';
   import Button from '$lib/components/Button.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
   import { ICON } from '$lib/components/icon';
   import Skeleton from '$lib/components/Skeleton.svelte';
-  import SplitPane from '$lib/components/SplitPane.svelte';
+  import WorkspaceLayout from '$lib/components/WorkspaceLayout.svelte';
+  import WorkspaceToggles from '$lib/components/WorkspaceToggles.svelte';
+  import { WorkspaceState } from '$lib/components/workspace.svelte';
   import { t, tn } from '$lib/i18n/i18n.svelte';
   import ViewHeader from '$lib/components/ViewHeader.svelte';
   import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
@@ -27,9 +25,11 @@
   import { harness } from '$lib/stores/harness.svelte';
   import { project } from '$lib/stores/project.svelte';
   import { cleanUpCopies, deleteSession, resumeInChat } from '$lib/stores/session-actions';
+  import { SESSIONS_POLL_MS } from '$lib/stores/live';
   import { sessionDetail, sessionList } from '$lib/stores/sessions.svelte';
   import SearchField from '$lib/components/SearchField.svelte';
   import { viewState } from '$lib/stores/view-state.svelte';
+  import { autoRefresh } from '$lib/utils/auto-refresh';
   import { formatBytes, relativeTime } from '$lib/utils/format';
 
   import { onboarding } from '../onboarding/onboarding-state.svelte';
@@ -38,12 +38,12 @@
   import { forkCount, groupSessions } from './session-groups';
   import SessionMenu from './SessionMenu.svelte';
   import SessionConfirm, { type ConfirmRequest } from './SessionConfirm.svelte';
+  import SessionDetails from './SessionDetails.svelte';
+  import SessionHeader from './SessionHeader.svelte';
   import SessionList from './SessionList.svelte';
   import SessionPane from './SessionPane.svelte';
 
-
-  const drawer = new PaneDrawer();
-  let listSize = $state(320);
+  const workspace = new WorkspaceState('sessions', { details: true });
   let confirmer: SessionConfirm | undefined = $state();
 
   const active = $derived(harness.active);
@@ -51,8 +51,15 @@
   const sessions = $derived(sessionList.data ?? []);
   const groups = $derived(groupSessions(sessions));
 
-  // The chosen session, or the newest one that is not a folded empty copy until the user chooses.
-  const selected = $derived(sessions.find((summary) => summary.ref.id === viewState.sessionId) ?? groups.rows[0] ?? null);
+  // The chosen session, or the newest one that is not a folded empty copy until the user chooses. Once shown, a session
+  // stays shown: one that turns up later (started in a terminal) is listed but does not take the transcript away.
+  let shownId = $state<string | null>(null);
+  const selected = $derived(
+    sessions.find((summary) => summary.ref.id === viewState.sessionId) ?? sessions.find((summary) => summary.ref.id === shownId) ?? groups.rows[0] ?? null,
+  );
+  $effect(() => {
+    shownId = selected?.ref.id ?? null;
+  });
   // Nothing saved for this project: one page with the way forward, not an empty list beside a message.
   const none = $derived(sessionList.status !== 'error' && sessionList.data != null && sessions.length === 0);
 
@@ -74,6 +81,14 @@
     untrack(() => sessionDetail.open(ref, path));
   });
 
+  // Sessions started or written elsewhere (a terminal, an agent) show up on their own, and so does the end of the open one.
+  // A list or a transcript that failed to load is read again on the retry schedule, a little later each time.
+  $effect(() =>
+    autoRefresh(() => Promise.all([sessionList.refresh({ quiet: true }), sessionDetail.follow()]), SESSIONS_POLL_MS, {
+      failing: sessionList.status === 'error' || sessionDetail.transcriptStatus === 'error',
+    }),
+  );
+
   let resuming = $state(false);
 
   async function resume(summary: SessionSummary, path: string): Promise<void> {
@@ -91,7 +106,7 @@
 
   function choose(summary: SessionSummary): void {
     viewState.sessionId = summary.ref.id;
-    drawer.close();
+    workspace.drawer.close();
   }
 
   function ask(request: ConfirmRequest): Promise<boolean> {
@@ -166,21 +181,22 @@
   <ViewHeader title={t('sessions.title')} icon={GitBranch} context={scopeLabel(current && sessionList.data ? count(groups.rows.length, 'session') : null)}>
     {#snippet actions()}
       {#if current && sessionList.data && !none}
-        <div class="w-[340px] max-[900px]:w-[220px]">
+        <div class="search-width">
           <SearchField bind:value={viewState.sessionsQuery} label={t('sessions.list.search')} placeholder={t('sessions.list.searchPlaceholder')} shortcut="mod+f" />
         </div>
       {/if}
-      {#if current && !none}
-        <DrawerToggle {drawer} label={t('sessions.drawer.label')} count={groups.rows.length} />
+      <!-- Resuming starts a chat, which a harness without chat cannot do yet: reading and deleting stay. -->
+      {#if selected && current && harness.canChat(selected.ref.harness)}
+        <Button variant="primary" loading={resuming} onclick={() => void resume(selected, current.path)}>
+          {#snippet leading()}<Play size={ICON.sm} aria-hidden="true" />{/snippet}
+          {t('sessions.header.resume')}
+        </Button>
       {/if}
+    {/snippet}
+
+    {#snippet fixed()}
+      <WorkspaceToggles {workspace} listLabel={t('sessions.drawer.label')} />
       {#if selected && current}
-        <!-- Resuming starts a chat, which a harness without chat cannot do yet: reading and deleting stay. -->
-        {#if harness.canChat(selected.ref.harness)}
-          <Button variant="primary" loading={resuming} onclick={() => void resume(selected, current.path)}>
-            {#snippet leading()}<Play size={ICON.sm} aria-hidden="true" />{/snippet}
-            {t('sessions.header.resume')}
-          </Button>
-        {/if}
         <SessionMenu label={t('sessions.header.menu')} ondelete={() => remove(selected)} />
       {/if}
     {/snippet}
@@ -223,23 +239,21 @@
         </EmptyState>
       </div>
     {:else}
-      <div bind:clientWidth={drawer.width} class="relative size-full min-h-0">
-        {#if drawer.active}
-          {@render detail(current, active)}
-
-          <ListDrawer {drawer} label={t('sessions.drawer.label')}>{@render listColumn()}</ListDrawer>
-        {:else}
-          <SplitPane label={t('sessions.resize.list')} bind:size={listSize} min={240} minSecond={480}>
-            {#snippet first()}
-              {@render listColumn()}
-            {/snippet}
-
-            {#snippet second()}
-              {@render detail(current, active)}
-            {/snippet}
-          </SplitPane>
-        {/if}
-      </div>
+      <WorkspaceLayout
+        {workspace}
+        listLabel={t('sessions.drawer.label')}
+        resizeLabel={t('sessions.resize.list')}
+        scroll="own"
+        detailsSubtitle={selected ? sessionTitle(selected) : undefined}
+        detailsEmpty={selected ? undefined : { icon: GitBranch, message: t('sessions.details.empty') }}
+      >
+        {#snippet list()}{@render listColumn()}{/snippet}
+        {#snippet header()}
+          {#if selected}<SessionHeader summary={selected} />{/if}
+        {/snippet}
+        {#snippet main()}{@render detail(current, active)}{/snippet}
+        {#snippet details()}{@render sessionFacts()}{/snippet}
+      </WorkspaceLayout>
     {/if}
   </div>
 </div>
@@ -266,12 +280,25 @@
 {#snippet detail(project: NonNullable<typeof current>, harness: NonNullable<typeof active>)}
   {#if selected}
     {#key selected.ref.id}
-      <SessionPane summary={selected} project={project.path} forks={forkCount(sessions, selected.ref.id)} {resuming} />
+      <SessionPane summary={selected} project={project.path} {resuming} />
     {/key}
   {:else}
-    <div class="grid size-full place-items-center">
+    <div class="grid min-h-0 flex-1 place-items-center">
       <EmptyState icon={GitBranch} title={t('sessions.empty.none.title')} body={noneBody(project.name, harness)} />
     </div>
+  {/if}
+{/snippet}
+
+{#snippet sessionFacts()}
+  {#if selected && current}
+    <SessionDetails
+      summary={selected}
+      stats={sessionDetail.stats}
+      touched={sessionDetail.touched}
+      project={current.path}
+      forks={forkCount(sessions, selected.ref.id)}
+      showForks={harness.get(selected.ref.harness)?.capabilities.sessionTree ?? true}
+    />
   {/if}
 {/snippet}
 

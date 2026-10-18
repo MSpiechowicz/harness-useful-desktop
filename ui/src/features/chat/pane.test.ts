@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { restart } = vi.hoisted(() => ({ restart: vi.fn() }));
 vi.mock('$lib/stores/agentSession.svelte', async (original) => ({
@@ -11,6 +11,7 @@ import type { AgentEvent } from '$lib/ipc/bindings/AgentEvent';
 import type { ChatMessage } from '$lib/ipc/bindings/ChatMessage';
 import { fixtures } from '$lib/ipc/mock/fixtures';
 import { harness } from '$lib/stores/harness.svelte';
+import { MODELS_POLL_MS } from '$lib/stores/live';
 import { nav } from '$lib/stores/nav.svelte';
 import { prefs } from '$lib/stores/prefs.svelte';
 
@@ -343,8 +344,49 @@ describe('a harness with no model to use', () => {
     render(ChatPane, { session });
 
     expect(await screen.findByRole('heading', { name: /has no model to use/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Check again' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /check again|refresh/i })).toBeNull();
     expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
     expect(screen.queryByRole('button', { name: /Choose model|Models/i })).toBeNull();
+  });
+
+  describe('once a provider is connected elsewhere', () => {
+    afterEach(() => vi.useRealTimers());
+
+    /** A chat with no model whose harness starts listing one only when `connect` is called. */
+    function waitingChat() {
+      const { session } = chatSession([{ type: 'ready', protocolVersion: 1 }]);
+      const listed = { models: [] as typeof fixtures.agent.models.models };
+      vi.spyOn(session, 'send').mockImplementation(async () => ({ type: 'models', models: listed.models }) as never);
+      session.models = [];
+
+      return { session, connect: () => (listed.models = fixtures.agent.models.models) };
+    }
+
+    it('picks the model up on its own, without the message flickering away meanwhile', async () => {
+      vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+      const { session, connect } = waitingChat();
+      render(ChatPane, { session });
+      expect(await screen.findByRole('heading', { name: /has no model to use/ })).toBeInTheDocument();
+
+      await vi.advanceTimersByTimeAsync(MODELS_POLL_MS);
+      expect(screen.getByRole('heading', { name: /has no model to use/ })).toBeInTheDocument();
+
+      connect();
+      await vi.advanceTimersByTimeAsync(MODELS_POLL_MS);
+
+      expect(screen.queryByRole('heading', { name: /has no model to use/ })).toBeNull();
+      expect(session.noModels).toBe(false);
+    });
+
+    it('asks again at once on coming back to the window', async () => {
+      const { session, connect } = waitingChat();
+      render(ChatPane, { session });
+      expect(await screen.findByRole('heading', { name: /has no model to use/ })).toBeInTheDocument();
+
+      connect();
+      window.dispatchEvent(new Event('focus'));
+
+      await waitFor(() => expect(screen.queryByRole('heading', { name: /has no model to use/ })).toBeNull());
+    });
   });
 });

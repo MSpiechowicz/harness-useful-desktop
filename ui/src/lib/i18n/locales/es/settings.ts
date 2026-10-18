@@ -144,7 +144,10 @@ export const settings: AreaMessages<typeof enSettings> = {
     'Al abrir Ecosystem, pide a GitHub las últimas versiones de Harness Dashboard, Skills, Memory y Sidebar, como máximo cada seis horas mientras la app está en marcha. GitHub ve tu dirección IP y la versión de la app, no qué herramientas de la familia Harness tienes.',
   'settings.updates.extensions.title': 'Actualizar las extensiones automáticamente',
   'settings.updates.extensions.description':
-    'Cada diez minutos la app actualiza los marketplaces e instala las versiones nuevas de los plugins y paquetes de tu harness, con un aviso cuando lo hace. También actualiza los miembros instalados de la familia Harness (Harness Memory y Harness Dashboard) ejecutando sus instaladores oficiales. Desactivado: actualiza a mano desde Extensiones y Ecosistema.',
+    'Cada diez minutos la app instala las versiones nuevas de los plugins y paquetes de tu harness, con un aviso cuando lo hace. También actualiza los miembros instalados de la familia Harness (Harness Memory y Harness Dashboard) ejecutando sus instaladores oficiales, y antes actualiza los catálogos que necesita. Desactivado: actualiza a mano desde Extensiones y Ecosistema.',
+  'settings.updates.catalogs.title': 'Actualizar los catálogos automáticamente',
+  'settings.updates.catalogs.description':
+    'La app vuelve a leer los catálogos de los marketplaces de tus harnesses unos treinta segundos después de arrancar y luego cada treinta minutos. Desactivado: los catálogos se quedan como están y la app no hace peticiones de catálogos por su cuenta, salvo que la instalación de actualizaciones esté activada, que los lee al mismo ritmo.',
   'settings.updates.notConfigured': 'Esta compilación no está preparada para actualizaciones, así que no buscará versiones nuevas. No pasa nada. Descarga las versiones nuevas desde la página de versiones.',
   'settings.updates.openReleases': 'Abrir versiones',
   'settings.updates.retry': 'Reintentar',

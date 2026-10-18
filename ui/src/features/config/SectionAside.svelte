@@ -1,12 +1,11 @@
 <script lang="ts">
   import ShieldCheck from '@lucide/svelte/icons/shield-check';
 
-  import Card from '$lib/components/Card.svelte';
+  import SectionCard from '$lib/components/SectionCard.svelte';
   import StatGrid from '$lib/components/StatGrid.svelte';
   import { ICON } from '$lib/components/icon';
   import { t } from '$lib/i18n/i18n.svelte';
   import type { ConfigSection } from '$lib/ipc/bindings/ConfigSection';
-  import { cx } from '$lib/utils/cx';
   import { formatCount } from '$lib/utils/format';
 
   import ProfilesCard from './ProfilesCard.svelte';
@@ -17,10 +16,9 @@
   interface Props {
     section: ConfigSection;
     profiles: { names: string[]; hint: string | null };
-    class?: string;
   }
 
-  let { section, profiles, class: className }: Props = $props();
+  let { section, profiles }: Props = $props();
 
   const NONE = '—';
 
@@ -42,40 +40,33 @@
   ]);
 </script>
 
-<aside aria-label={t('config.detail.aside')} class={cx('flex flex-col gap-3 p-4', className)}>
-  <Card as="section" padded={false} class="p-3.5">
-    {@render title(t('config.overview.title'))}
-    <StatGrid stats={overview} />
-  </Card>
+<!-- The body of the details panel, which supplies the heading, the padding and the scrolling. -->
+<SectionCard flat heading={t('config.overview.title')}>
+  <StatGrid stats={overview} />
+</SectionCard>
 
-  <Card as="section" padded={false} class="p-3.5">
-    {@render title(t('config.file.title'))}
-    <dl class="flex flex-col">
-      {#each file as row (row.label)}
-        <div class="flex justify-between gap-3 py-1 text-sm">
-          <dt class="text-fg-2">{row.label}</dt>
-          <dd class="min-w-0 truncate text-right text-fg" title={row.value}>{row.value}</dd>
-        </div>
-      {/each}
-
-      <!-- Same type as the rows above, with the path shortened (~ and the last folders); the tooltip has all of it. Copying is in the top bar's menu. -->
+<SectionCard flat heading={t('config.file.title')}>
+  <dl class="flex flex-col">
+    {#each file as row (row.label)}
       <div class="flex justify-between gap-3 py-1 text-sm">
-        <dt class="shrink-0 text-fg-2">{t('config.file.path')}</dt>
-        <dd class="min-w-0 truncate text-right text-fg" title={section.source.path}>{shortPath(section.source.path)}</dd>
+        <dt class="text-fg-2">{row.label}</dt>
+        <dd class="min-w-0 truncate text-right text-fg" title={row.value}>{row.value}</dd>
       </div>
-    </dl>
+    {/each}
 
-    <p class="mt-2 flex items-start gap-2 text-xs text-fg-3">
-      <ShieldCheck size={ICON.sm} class="mt-px shrink-0 text-success" aria-hidden="true" />
-      {t('config.detail.secrets')}
-    </p>
-  </Card>
+    <!-- Same type as the rows above, with the path shortened (~ and the last folders); the tooltip has all of it. Copying is in the top bar's menu. -->
+    <div class="flex justify-between gap-3 py-1 text-sm">
+      <dt class="shrink-0 text-fg-2">{t('config.file.path')}</dt>
+      <dd class="min-w-0 truncate text-right text-fg" title={section.source.path}>{shortPath(section.source.path)}</dd>
+    </div>
+  </dl>
 
-  {#if profiles.names.length > 0}
-    <ProfilesCard names={profiles.names} hint={profiles.hint} />
-  {/if}
-</aside>
+  <p class="mt-2 flex items-start gap-2 text-xs text-fg-3">
+    <ShieldCheck size={ICON.sm} class="mt-px shrink-0 text-success" aria-hidden="true" />
+    {t('config.detail.secrets')}
+  </p>
+</SectionCard>
 
-{#snippet title(text: string)}
-  <h3 class="mb-2.5 text-xs font-medium tracking-wider text-fg-3 uppercase">{text}</h3>
-{/snippet}
+{#if profiles.names.length > 0}
+  <ProfilesCard names={profiles.names} hint={profiles.hint} />
+{/if}

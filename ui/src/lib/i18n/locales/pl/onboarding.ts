@@ -34,7 +34,6 @@ export const onboarding: AreaMessages<typeof enOnboarding> = {
   'onboarding.harnesses.error': 'Nie udało się wyszukać harnessów: {message}',
   'onboarding.harnesses.none': 'Nie znaleziono jeszcze żadnego harnessa. Możesz kontynuować i zainstalować go później.',
   'onboarding.harnesses.found': 'Znaleziono {found} z {total} na tym komputerze.',
-  'onboarding.harnesses.rescan': 'Szukaj ponownie',
   'onboarding.harnesses.group': 'Codzienny harness',
 
   'onboarding.card.use': 'Używaj {name} jako codziennego harnessa',
@@ -257,7 +256,7 @@ export const onboarding: AreaMessages<typeof enOnboarding> = {
   'onboarding.done.body': 'Od tego zaczynamy. Wszystko zmienisz później na górnym pasku lub w Ustawieniach.',
   'onboarding.done.setup': 'Twoja konfiguracja',
   'onboarding.done.driver': 'Codzienny harness',
-  'onboarding.done.noDriver': 'Jeszcze brak. Zainstaluj OMP, PI lub OpenCode, a potem wyszukaj ponownie w Ustawieniach.',
+  'onboarding.done.noDriver': 'Jeszcze brak. Zainstaluj OMP, PI lub OpenCode, a aplikacja sama go znajdzie.',
   'onboarding.done.project': 'Projekt',
   'onboarding.done.noProject': 'Brak otwartego projektu',
   'onboarding.done.companions': 'Rodzina Harness',

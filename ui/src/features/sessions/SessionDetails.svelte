@@ -1,5 +1,5 @@
 <script lang="ts">
-  import Card from '$lib/components/Card.svelte';
+  import SectionCard from '$lib/components/SectionCard.svelte';
   import StatGrid from '$lib/components/StatGrid.svelte';
   import { t, tn } from '$lib/i18n/i18n.svelte';
   import type { SessionSummary } from '$lib/ipc/bindings/SessionSummary';
@@ -19,10 +19,9 @@
     forks: number;
     /** Whether the harness has sessions that branch; without it the Forks row would only ever say 0. */
     showForks?: boolean;
-    class?: string;
   }
 
-  let { summary, stats, touched, project, forks, showForks = true, class: className }: Props = $props();
+  let { summary, stats, touched, project, forks, showForks = true }: Props = $props();
 
   /** One colour per model in the split bar, in order of use. */
   const MODEL_COLORS = ['bg-accent', 'bg-success', 'bg-warning', 'bg-info', 'bg-danger'] as const;
@@ -38,6 +37,8 @@
     { label: t('sessions.details.cost'), value: stats?.costUsd != null ? formatCost(stats.costUsd) : NONE },
   ]);
 
+  const filesHeading = $derived(touched.length > 0 ? `${t('sessions.touched.label')} · ${formatCount(touched.length)}` : t('sessions.touched.label'));
+
   const started = $derived(stats?.startedAt != null ? formatDateTime(stats.startedAt) : NONE);
   const duration = $derived(stats?.startedAt != null && stats.endedAt != null ? formatDuration(stats.endedAt - stats.startedAt) : NONE);
 
@@ -49,56 +50,43 @@
   ]);
 </script>
 
-<!-- The same four cards in the same order whatever has loaded; what is missing reads as a dash. -->
-<aside aria-label={t('sessions.details.label')} class={cx('flex flex-col gap-3 overflow-y-auto p-4', className)}>
-  <Card as="section" padded={false} class="p-3.5">
-    {@render title(t('sessions.details.overview'))}
-    <StatGrid stats={overview} />
-  </Card>
+<!-- The same four sections in the same order whatever has loaded, in the body of the view's details panel. What is missing reads as a dash. -->
+<SectionCard flat heading={t('sessions.details.overview')}>
+  <StatGrid stats={overview} />
+</SectionCard>
 
-  <Card as="section" padded={false} class="p-3.5">
-    {@render title(t('sessions.details.models'))}
-    {#if turns === 0}
-      <p class="text-sm text-fg-3">{NONE}</p>
-    {:else}
-      <div class="mt-1.5 mb-2 flex h-1.5 overflow-hidden rounded-full bg-surface-3" aria-hidden="true">
-        {#each models as model, index (model.model)}
-          <span class={MODEL_COLORS[index % MODEL_COLORS.length]} style:width="{(model.turns / turns) * 100}%"></span>
-        {/each}
-      </div>
-      <ul class="flex flex-col gap-1 text-xs text-fg-2">
-        {#each models as model, index (model.model)}
-          <li class="flex items-center gap-2">
-            <span class={cx('size-2 shrink-0 rounded-full', MODEL_COLORS[index % MODEL_COLORS.length])} aria-hidden="true"></span>
-            <span class="min-w-0 truncate" title={model.model}>{model.model}</span>
-            <span class="tabular ml-auto shrink-0 text-fg-3">{tn('sessions.details.turns', model.turns)}</span>
-          </li>
-        {/each}
-      </ul>
-    {/if}
-  </Card>
-
-  <Card as="section" padded={false} class="p-3.5">
-    {@render title(t('sessions.details.session'))}
-    <dl class="flex flex-col">
-      {#each session as row (row.label)}
-        <div class="flex justify-between gap-3 py-1 text-sm">
-          <dt class="text-fg-2">{row.label}</dt>
-          <dd class="tabular text-right text-fg">{row.value}</dd>
-        </div>
+<SectionCard flat heading={t('sessions.details.models')}>
+  {#if turns === 0}
+    <p class="text-sm text-fg-3">{NONE}</p>
+  {:else}
+    <div class="mt-1.5 mb-2 flex h-1.5 overflow-hidden rounded-full bg-surface-3" aria-hidden="true">
+      {#each models as model, index (model.model)}
+        <span class={MODEL_COLORS[index % MODEL_COLORS.length]} style:width="{(model.turns / turns) * 100}%"></span>
       {/each}
-    </dl>
-  </Card>
+    </div>
+    <ul class="flex flex-col gap-1 text-xs text-fg-2">
+      {#each models as model, index (model.model)}
+        <li class="flex items-center gap-2">
+          <span class={cx('size-2 shrink-0 rounded-full', MODEL_COLORS[index % MODEL_COLORS.length])} aria-hidden="true"></span>
+          <span class="min-w-0 truncate" title={model.model}>{model.model}</span>
+          <span class="tabular ml-auto shrink-0 text-fg-3">{tn('sessions.details.turns', model.turns)}</span>
+        </li>
+      {/each}
+    </ul>
+  {/if}
+</SectionCard>
 
-  <Card as="section" padded={false} class="p-3.5">
-    {@render title(t('sessions.touched.label'), touched.length > 0 ? formatCount(touched.length) : null)}
-    <TouchedFiles {project} paths={touched} />
-  </Card>
-</aside>
+<SectionCard flat heading={t('sessions.details.session')}>
+  <dl class="flex flex-col">
+    {#each session as row (row.label)}
+      <div class="flex justify-between gap-3 py-1 text-sm">
+        <dt class="text-fg-2">{row.label}</dt>
+        <dd class="tabular text-right text-fg">{row.value}</dd>
+      </div>
+    {/each}
+  </dl>
+</SectionCard>
 
-{#snippet title(text: string, count: string | null = null)}
-  <h3 class="mb-2.5 flex items-center gap-1.5 text-xs font-medium tracking-wider text-fg-3 uppercase">
-    {text}
-    {#if count}<span class="tabular tracking-normal">· {count}</span>{/if}
-  </h3>
-{/snippet}
+<SectionCard flat heading={filesHeading}>
+  <TouchedFiles {project} paths={touched} />
+</SectionCard>

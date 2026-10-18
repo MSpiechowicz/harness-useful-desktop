@@ -2,7 +2,7 @@
   import { cx } from '$lib/utils/cx';
   import { rovingIndex } from '$lib/utils/roving';
 
-  import type { StripOption } from './strip';
+  import { PILL_FRAME, PILL_RAISED, type StripOption } from './strip';
 
   interface Props {
     options: StripOption<T>[];
@@ -81,7 +81,7 @@
 
   const INDICATOR: Record<'underline' | 'pill', string> = {
     underline: 'bottom-0 h-0.5 rounded-full bg-accent-fill',
-    pill: 'inset-y-0.5 rounded-sm border border-line-strong bg-surface-4 shadow-raised',
+    pill: `inset-y-[var(--segment-pad)] ${PILL_RAISED}`,
   };
 </script>
 
@@ -91,8 +91,7 @@
   aria-label={label}
   class={cx(
     'relative inline-flex items-center',
-    // The pill strip is as tall as a button, so they line up.
-    appearance === 'pill' ? 'h-control rounded-md border border-line bg-surface-2 p-0.5' : 'gap-1 border-b border-line',
+    appearance === 'pill' ? PILL_FRAME : 'gap-1 border-b border-line',
     className,
   )}
 >

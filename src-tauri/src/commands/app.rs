@@ -16,7 +16,9 @@ pub async fn app_info(app: AppHandle) -> AppInfo {
     AppInfo::current(package.name.clone(), package.version.to_string())
 }
 
-/// The stored preferences (defaults when none are stored or the file is corrupt).
+/// The stored preferences: defaults when none are stored, and defaults with the background network
+/// switches (`autoUpdateExtensions`, `autoRefreshCatalogs`) off when the file is corrupt or
+/// unreadable, so the extension updater stays idle (see `PrefsStore::load_checked`).
 #[tauri::command]
 pub async fn prefs_get(state: State<'_, AppState>) -> CommandResult<AppPrefs> {
     let prefs = state.prefs.clone();

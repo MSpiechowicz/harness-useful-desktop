@@ -44,3 +44,19 @@ export function fakeTransport(handlers: Partial<Record<CommandName, Handler>>): 
     },
   };
 }
+
+/** happy-dom has its own `clientWidth`: remember it, so a test can put it back instead of deleting it for the next one. */
+const MEASURED_WIDTH = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientWidth');
+
+/** Views laid out by their own width are not measured by happy-dom: give every element this width. Undo with `restoreClientWidth`. */
+export function stubClientWidth(pixels: number): void {
+  Object.defineProperty(HTMLElement.prototype, 'clientWidth', { configurable: true, get: () => pixels });
+}
+
+export function restoreClientWidth(): void {
+  if (MEASURED_WIDTH) {
+    Object.defineProperty(HTMLElement.prototype, 'clientWidth', MEASURED_WIDTH);
+  } else {
+    Reflect.deleteProperty(HTMLElement.prototype, 'clientWidth');
+  }
+}

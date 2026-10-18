@@ -14,6 +14,9 @@
 
   /* The one height of every control: buttons, icon buttons, fields, pickers, strips and the tiles in a view's top bar. */
   --control-h: 36px;
+  /* A segmented group (Structured / Source, the layout switch): the padding between its frame and the segments, and the gap between two segments. */
+  --segment-pad: 2px;
+  --segment-gap: 4px;
 
   /* Canvas and layered surfaces (each step is one elevation higher). */
   --canvas: #0f0f11;
@@ -27,6 +30,9 @@
   /* Hairlines and inner highlights. */
   --border: rgb(255 255 255 / 0.08);
   --border-strong: rgb(255 255 255 / 0.14);
+  /* The one line between panes (side panel edges, splitter, pane header bottoms): the soft hairline as an opaque colour, so it
+     is the same on the canvas and on a panel surface. */
+  --panel-edge: color-mix(in srgb, white 8%, var(--canvas));
   --highlight: rgb(255 255 255 / 0.04);
   --hover-wash: rgb(255 255 255 / 0.05);
   --press-wash: rgb(255 255 255 / 0.08);
@@ -106,6 +112,7 @@
 
   --border: rgb(24 24 27 / 0.1);
   --border-strong: rgb(24 24 27 / 0.18);
+  --panel-edge: color-mix(in srgb, rgb(24 24 27) 10%, var(--canvas));
   --highlight: rgb(255 255 255 / 0.9);
   --hover-wash: rgb(24 24 27 / 0.04);
   --press-wash: rgb(24 24 27 / 0.08);
@@ -176,6 +183,29 @@
   --page-narrow: 720px;
   --page-reading: 920px;
   --page-wide: 1280px;
+  /* The one width of a side panel: the list column, the details column, the slide-over and the list drawer. */
+  --side-panel: 448px;
+  /* The search field of a view header: full, and compact below the list-drawer breakpoint (DRAWER_BELOW_PX in layout.ts). */
+  --search-field: 340px;
+  --search-field-compact: 220px;
+  /* The least the search field shrinks to when the header around it is crowded. */
+  --search-field-min: 120px;
+  /* The least a view title keeps in the top bar: the search field and the actions give way before the title does. */
+  --view-title-min: 96px;
+  /* The height of the header band of a pane (a title and one line under it), border included: the bands of the list, the centre and the details meet on one line. */
+  --pane-header-h: 64px;
+  /* The space between the title and the line under it in a pane header (the text boxes are trimmed to their glyphs, see `pane-text`). */
+  --pane-header-gap: 6px;
+  /* Side panels (the list, the details, the drawer): the first text column of every panel starts this far from its edge, so the left and
+     the right panel line up. A row that is a highlighted box sits `--panel-row-inset` in from the edge, and its own padding makes up the rest. */
+  --panel-pad-x: 20px;
+  --panel-row-inset: 8px;
+  /* The room around an 18px glyph in a 36px icon button: a close button this much closer to the edge puts the glyph on the pad. */
+  --panel-close-inset: 9px;
+  /* The least a pane header keeps for its title (a file name, say) when the controls beside it crowd it: they shrink first. */
+  --pane-title-min: 240px;
+  /* The line height of a notice banner that sits between the top bar and a workspace view: a whole pixel, so the view below starts on one. */
+  --notice-line: 18px;
   --gutter: 24px;
   --chat-measure: 880px;
   --chat-col: calc(var(--chat-measure) + 2 * var(--gutter));

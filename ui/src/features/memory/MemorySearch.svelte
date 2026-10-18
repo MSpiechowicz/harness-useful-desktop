@@ -27,7 +27,7 @@
 <HeaderActions>
   {@render before?.()}
 
-  <div class="w-[340px] max-[900px]:w-[220px]">
+  <div class="search-width">
     <SearchField bind:value {label} {placeholder} shortcut="mod+f" onkeydown={onKeydown} />
   </div>
 </HeaderActions>

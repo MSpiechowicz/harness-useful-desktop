@@ -24,7 +24,6 @@ export const harness: AreaMessages<typeof enHarness> = {
 
   'harness.switcher.label': 'Changer de harness',
 
-  'harness.toast.scan': 'Impossible de rechercher les harnesses',
   'harness.toast.pickBinary': 'Impossible d’utiliser ce fichier',
   'harness.toast.clearBinary': 'Impossible de réinitialiser l’exécutable',
   'harness.toast.recents': 'Impossible de lire les projets récents',

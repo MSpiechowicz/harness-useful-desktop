@@ -120,7 +120,6 @@ export const components = {
   'components.project.missing': 'Missing',
   'components.project.open': 'Open',
 
-  'components.refresh': 'Refresh',
   'components.filter.placeholder': 'Filter…',
   'components.filter.clear': 'Clear filter',
 
@@ -142,5 +141,7 @@ export const components = {
   'components.pagination.next': 'Next',
   'components.pagination.page': 'Page {page}',
   'components.panel.close': 'Close',
+  'components.workspace.details': 'Details',
+  'components.workspace.layout': 'Layout',
   'components.table.resize': 'Resize the {column} column',
 } satisfies Record<string, string>;

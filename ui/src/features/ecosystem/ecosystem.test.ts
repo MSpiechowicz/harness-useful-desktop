@@ -2,9 +2,10 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/sve
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { i18n } from '$lib/i18n/i18n.svelte';
+import { ipc } from '$lib/ipc/client';
 import { dashboard } from '$lib/stores/dashboard.svelte';
 import { ecosystem } from '$lib/stores/ecosystem.svelte';
-import { nav } from '$lib/stores/nav.svelte';
+import { DASHBOARD_INSTALL_POLL_MS, RETRY_BACKOFF_MS } from '$lib/stores/live';
 import { prefs } from '$lib/stores/prefs.svelte';
 
 import { samplePrefs } from '../../../tests/helpers';
@@ -18,7 +19,10 @@ beforeAll(() => {
   prefs.value = samplePrefs({ motion: 'off' });
 });
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+});
 
 async function show(switches: Parameters<typeof freshBackend>[0] = {}) {
   const backend = freshBackend(switches);
@@ -185,6 +189,38 @@ describe('Ecosystem view', () => {
     expect(screen.queryByRole('radio', { name: '7 days' })).toBeNull();
   });
 
+  it('has no button to check again, and shows the panel by itself once the dashboard is installed', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+    await show({ dashboard: 'missing' });
+    expect(await screen.findByRole('heading', { name: 'See what your agents cost' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Check again' })).toBeNull();
+
+    // The user runs the install steps in a terminal.
+    const asked = vi.mocked(ipc.invoke).getMockImplementation() as typeof ipc.invoke;
+    let installed = false;
+    vi.mocked(ipc.invoke).mockImplementation(((name: string, args: unknown) =>
+      name === 'dashboard_availability' && installed ? Promise.resolve({ type: 'available' }) : asked(name as never, args as never)) as typeof ipc.invoke);
+    installed = true;
+    await vi.advanceTimersByTimeAsync(DASHBOARD_INSTALL_POLL_MS);
+
+    expect(await screen.findByRole('radio', { name: '7 days' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'See what your agents cost' })).toBeNull();
+  });
+
+  it('looks only at the dashboard while it waits for the install, leaving the companions to their own freshness window', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+    const { calls } = await show({ dashboard: 'missing' });
+    expect(await screen.findByRole('heading', { name: 'See what your agents cost' })).toBeInTheDocument();
+    const companions = calls('ecosystem_status').length;
+    const probes = calls('dashboard_availability').length;
+
+    await vi.advanceTimersByTimeAsync(DASHBOARD_INSTALL_POLL_MS * 3);
+
+    expect(calls('dashboard_availability').length).toBeGreaterThan(probes);
+    expect(calls('ecosystem_status')).toHaveLength(companions);
+    expect(ecosystem.state).toBe('ready');
+  });
+
   it('explains a dashboard that failed and retries on request', async () => {
     const { calls } = await show({ dashboard: 'failed' });
 
@@ -215,6 +251,35 @@ describe('Ecosystem view', () => {
   });
 });
 
+describe('Ecosystem view that cannot read the companions', () => {
+  it('reads again by itself on the retry schedule without leaving the error page for the loading state', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    const { calls, spy } = await show({ ecosystem: 'failed' });
+    await vi.advanceTimersByTimeAsync(100);
+    expect(screen.getByText('Could not look for the Harness family', { selector: 'h2' })).toBeInTheDocument();
+
+    const stateWhenAsked: string[] = [];
+    const real = spy.getMockImplementation() as typeof ipc.invoke;
+    spy.mockImplementation(((name: string, args: unknown) => {
+      if (name === 'ecosystem_status') {
+        stateWhenAsked.push(ecosystem.state);
+      }
+
+      return real(name as never, args as never);
+    }) as typeof ipc.invoke);
+    const before = calls('ecosystem_status').length;
+
+    // Past the half minute at which the view would poll on its own: still only the retry schedule, still never "loading".
+    for (const wait of RETRY_BACKOFF_MS) {
+      await vi.advanceTimersByTimeAsync(wait + 100);
+    }
+
+    expect(calls('ecosystem_status').length).toBe(before + RETRY_BACKOFF_MS.length);
+    expect(stateWhenAsked).toEqual(RETRY_BACKOFF_MS.map(() => 'error'));
+    expect(screen.getByText('Could not look for the Harness family', { selector: 'h2' })).toBeInTheDocument();
+  });
+});
+
 describe('Ecosystem view in Polish', () => {
   it('reads in Polish with the plural form each count needs', async () => {
     await i18n.load('pl');
@@ -231,16 +296,9 @@ describe('Ecosystem view in Polish', () => {
 });
 
 describe('palette', () => {
-  it('refreshes the dashboard and shows the ecosystem', async () => {
-    const { calls } = freshBackend();
-    const command = actionCommands({ openShortcuts: () => {} }).find((entry) => entry.label === 'Ecosystem: refresh dashboard');
+  it('offers no manual refresh or re-scan: the data keeps itself current', () => {
+    const labels = actionCommands({ openShortcuts: () => {} }).map((entry) => entry.label);
 
-    command?.run();
-
-    expect(nav.current).toBe('ecosystem');
-    await waitFor(() => expect(calls('dashboard_query').length).toBeGreaterThan(0));
-    expect(calls('ecosystem_status')).toHaveLength(1);
-
-    nav.go('chat');
+    expect(labels.filter((label) => /refresh|re-scan/i.test(label))).toEqual([]);
   });
 });

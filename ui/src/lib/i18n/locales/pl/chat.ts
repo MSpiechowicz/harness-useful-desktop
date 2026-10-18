@@ -76,8 +76,8 @@ export const chat: AreaMessages<typeof enChat> = {
   'chat.view.restoring': 'Przywracanie czatów…',
   'chat.view.startingProject': 'Folder projektu: {project}',
   'chat.noModels.title': '{harness} nie ma modelu do użycia',
-  'chat.noModels.body': 'Nie połączono żadnego dostawcy modeli, na przykład OpenAI, Anthropic lub Google. Połącz jednego w konfiguracji {harness}, a potem sprawdź ponownie.',
-  'chat.noModels.action': 'Sprawdź ponownie',
+  'chat.noModels.body':
+    'Nie połączono żadnego dostawcy modeli, na przykład OpenAI, Anthropic lub Google. Połącz jednego w konfiguracji {harness}, a ten czat sam go wykryje.',
   'chat.harness.busy.title': 'Poczekaj na odpowiedź',
   'chat.harness.busy.description': 'Poczekaj, aż czat skończy (albo go zatrzymaj), zanim zmienisz harness.',
   'chat.harness.label': 'Harness',

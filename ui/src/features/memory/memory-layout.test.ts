@@ -1,17 +1,13 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { restoreClientWidth, stubClientWidth } from '../../../tests/helpers';
 import { fakeMemory, noteRow, pickFilter, registerMemoryHooks, rowButton, showMemory, showNotes } from './memory-test-support';
 
 registerMemoryHooks();
 
-/** The Memory view is laid out by its own width, which happy-dom does not measure: give every element this one. */
-function widthOf(pixels: number): void {
-  Object.defineProperty(HTMLElement.prototype, 'clientWidth', { configurable: true, get: () => pixels });
-}
-
 afterEach(() => {
-  Reflect.deleteProperty(HTMLElement.prototype, 'clientWidth');
+  restoreClientWidth();
   vi.restoreAllMocks();
 });
 
@@ -20,7 +16,7 @@ const NARROW = 1000;
 
 describe('a narrow view', () => {
   it('keeps the filters above the table and slides the panel in over the view, with no empty detail beside it', async () => {
-    widthOf(NARROW);
+    stubClientWidth(NARROW);
     fakeMemory();
     await showMemory();
 
@@ -35,7 +31,7 @@ describe('a narrow view', () => {
   });
 
   it('says how much there is once, in the row of the filters', async () => {
-    widthOf(NARROW);
+    stubClientWidth(NARROW);
     fakeMemory();
     await showMemory();
 
@@ -48,7 +44,7 @@ describe('a narrow view', () => {
   });
 
   it('counts the notes in the same place', async () => {
-    widthOf(NARROW);
+    stubClientWidth(NARROW);
     fakeMemory();
     await showNotes();
 
@@ -58,7 +54,7 @@ describe('a narrow view', () => {
 
 describe('a wide view', () => {
   it('lays out the table and a detail column that asks for a choice until there is one, with the same filters above the table', async () => {
-    widthOf(WIDE);
+    stubClientWidth(WIDE);
     fakeMemory();
     await showMemory();
 
@@ -71,7 +67,7 @@ describe('a wide view', () => {
   });
 
   it('narrows the table from the menu of the filter', async () => {
-    widthOf(WIDE);
+    stubClientWidth(WIDE);
     fakeMemory();
     await showMemory();
 
@@ -82,7 +78,7 @@ describe('a wide view', () => {
   });
 
   it('shows the note to read in the detail column in place of the request to choose one', async () => {
-    widthOf(WIDE);
+    stubClientWidth(WIDE);
     fakeMemory();
     await showNotes();
 
@@ -96,7 +92,7 @@ describe('a wide view', () => {
   });
 
   it('swaps the detail when another row is chosen and goes back to the request when it is closed, with the focus on the row', async () => {
-    widthOf(WIDE);
+    stubClientWidth(WIDE);
     fakeMemory();
     await showMemory();
 
@@ -114,7 +110,7 @@ describe('a wide view', () => {
   });
 
   it('browses with the arrow keys and closes on Escape', async () => {
-    widthOf(WIDE);
+    stubClientWidth(WIDE);
     fakeMemory();
     await showMemory();
     const first = rowButton('open-prs') as HTMLElement;

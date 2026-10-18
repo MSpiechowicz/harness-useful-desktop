@@ -49,7 +49,6 @@ export const sessions: AreaMessages<typeof enSessions> = {
   'sessions.header.emptyCopy': 'Leere Kopie',
   'sessions.header.resume': 'Im Chat fortsetzen',
   'sessions.header.menu': 'Weitere Aktionen',
-  'sessions.header.details': 'Details',
 
   'sessions.touched.label': 'Geänderte Dateien',
   'sessions.touched.source': 'dieser Sitzung',
@@ -58,7 +57,7 @@ export const sessions: AreaMessages<typeof enSessions> = {
   'sessions.touched.view': 'Änderungen ansehen',
   'sessions.touched.none': 'Keine Dateien geändert.',
 
-  'sessions.details.label': 'Sitzungsdetails',
+  'sessions.details.empty': 'Wähle eine Sitzung, um Summen, Modelle und Dateien zu sehen.',
   'sessions.details.overview': 'Übersicht',
   'sessions.details.messages': 'Nachrichten',
   'sessions.details.toolCalls': 'Tool-Aufrufe',

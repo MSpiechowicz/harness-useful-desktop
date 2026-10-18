@@ -1,10 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { fakeTransport, samplePrefs } from '../../../tests/helpers';
 import { createMockTransport } from '../ipc/mock/transport';
 import { defaultScenario } from '../ipc/mock/scenarios';
 
 import { HarnessStore } from './harness.svelte';
+import type { CommandName } from '../ipc/commands';
+import type { Transport } from '../ipc/transport';
 import { PrefsStore } from './prefs.svelte';
 import { ToastsStore } from './toasts.svelte';
 
@@ -89,15 +91,142 @@ describe('HarnessStore', () => {
     expect(toasts.items[0]).toMatchObject({ tone: 'danger', description: 'That file is not the omp executable.' });
   });
 
-  it('re-detects every harness on rescan', async () => {
-    const { store } = await setup();
-    const before = store.get('omp');
+  describe('detection in the background', () => {
+    afterEach(() => vi.useRealTimers());
 
-    await store.rescan();
+    /** The mock machine, where PI turns up (or detection breaks) once the test says so. */
+    async function machine() {
+      const mock = createMockTransport(defaultScenario(), 0);
+      const state = { piInstalled: false, failing: false };
+      const transport: Transport = {
+        async invoke(name: CommandName, args: never) {
+          if (name === 'harness_detect' && state.failing) {
+            throw new Error('scan failed');
+          }
 
-    expect(store.scanning).toBe(false);
-    expect(store.summaries).toHaveLength(3);
-    expect(store.get('omp')).toEqual(before);
+          const reply = (await mock.invoke(name, args)) as never as { info?: { id: string }; detection?: object };
+          const turnsUp = name === 'harness_detect' && reply.info?.id === 'pi' && state.piInstalled;
+
+          return (turnsUp ? { ...reply, detection: { ...reply.detection, installed: true } } : reply) as never;
+        },
+      };
+      const toasts = new ToastsStore();
+      const prefs = new PrefsStore(transport, toasts);
+      await prefs.load();
+      const store = new HarnessStore(transport, prefs, toasts);
+      await store.load();
+
+      return { store, state, toasts };
+    }
+
+    it('finds a harness installed since the last look, without a spinner or a message', async () => {
+      const { store, state, toasts } = await machine();
+      expect(store.get('pi')?.detection.installed).toBe(false);
+
+      state.piInstalled = true;
+      await store.rescan();
+
+      expect(store.get('pi')?.detection.installed).toBe(true);
+      expect(store.summaries).toHaveLength(3);
+      expect(toasts.items).toEqual([]);
+    });
+
+    it('keeps a binary the user picked while a scan was running, instead of the older answer of that scan', async () => {
+      const mock = createMockTransport(defaultScenario(), 0);
+      let hold = false;
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => (release = resolve));
+      const transport: Transport = {
+        async invoke(name: CommandName, args: never) {
+          const reply = await mock.invoke(name, args);
+
+          if (name === 'harness_detect' && hold) {
+            await gate;
+          }
+
+          return reply as never;
+        },
+      };
+      const toasts = new ToastsStore();
+      const store = new HarnessStore(transport, new PrefsStore(transport, toasts), toasts);
+      await store.load();
+      expect(store.get('pi')?.detection.installed).toBe(false);
+
+      hold = true;
+      const scanning = store.rescan();
+      await store.pickBinary('pi');
+      expect(store.get('pi')?.detection.installed).toBe(true);
+
+      release();
+      await scanning;
+
+      expect(store.get('pi')?.detection.installed).toBe(true);
+    });
+
+    it('does not start another scan while one is running', async () => {
+      const mock = createMockTransport(defaultScenario(), 0);
+      let detects = 0;
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => (release = resolve));
+      const transport: Transport = {
+        async invoke(name: CommandName, args: never) {
+          if (name === 'harness_detect') {
+            detects += 1;
+            await gate;
+          }
+
+          return mock.invoke(name, args);
+        },
+      };
+      const toasts = new ToastsStore();
+      const store = new HarnessStore(transport, new PrefsStore(transport, toasts), toasts);
+      await store.load();
+
+      const scans = [store.rescan(), store.rescan(), store.rescan()];
+      release();
+      await Promise.all(scans);
+
+      expect(detects).toBe(store.summaries.length);
+    });
+
+    it('keeps what is shown, and says nothing, when a scan fails', async () => {
+      const { store, state, toasts } = await machine();
+      const before = store.summaries;
+
+      state.failing = true;
+      await store.rescan();
+
+      expect(store.summaries).toBe(before);
+      expect(toasts.items).toEqual([]);
+    });
+
+    it('does not replace the list when nothing changed', async () => {
+      const { store } = await machine();
+      const before = store.summaries;
+
+      await store.rescan();
+
+      expect(store.summaries).toBe(before);
+    });
+
+    it('looks again on coming back to the window, but at most once in the given gap', async () => {
+      // Only the clock: the mock transport answers on a timer of its own.
+      vi.useFakeTimers({ toFake: ['Date'] });
+      const { store, state } = await machine();
+
+      state.piInstalled = true;
+      await store.rescanIfStale(10_000);
+      expect(store.get('pi')?.detection.installed).toBe(false);
+
+      vi.advanceTimersByTime(10_000);
+      await store.rescanIfStale(10_000);
+      expect(store.get('pi')?.detection.installed).toBe(true);
+
+      state.piInstalled = false;
+      vi.advanceTimersByTime(9_000);
+      await store.rescanIfStale(10_000);
+      expect(store.get('pi')?.detection.installed).toBe(true);
+    });
   });
 
   describe('chat', () => {

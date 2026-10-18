@@ -7,6 +7,7 @@ import type { HarnessSummary } from '$lib/ipc/bindings/HarnessSummary';
 import { ipc } from '$lib/ipc/client';
 import { IpcFailure, type Transport } from '$lib/ipc/transport';
 import { harness } from '$lib/stores/harness.svelte';
+import { CATALOG_REFRESH_MS, EXTENSION_UPDATE_FIRST_DELAY_MS, EXTENSION_UPDATE_INTERVAL_MS, PACKAGE_UPDATE_INTERVAL_MS } from '$lib/stores/live';
 import { prefs } from '$lib/stores/prefs.svelte';
 import { toasts, type ToastsStore } from '$lib/stores/toasts.svelte';
 import { extensionsView } from '$lib/stores/views.svelte';
@@ -14,21 +15,16 @@ import { extensionsView } from '$lib/stores/views.svelte';
 import { failureLine } from './action-model';
 import { actionRunner, reloadChatsAfterPluginChange } from './action-runner.svelte';
 
-/** How often the installed harnesses are looked at. */
-export const EXTENSION_UPDATE_INTERVAL_MS = 10 * 60_000;
-/** The first look, a little after start so it never competes with the app opening. */
-export const EXTENSION_UPDATE_FIRST_DELAY_MS = 30_000;
-/** PI cannot say whether a package has an update, so asking costs a network round trip per package; do it less often. */
-export const PACKAGE_UPDATE_INTERVAL_MS = 60 * 60_000;
-
 const NAMES_SHOWN = 3;
 
 interface Dependencies {
   transport: Transport;
   /** The harnesses detected on this machine. */
   installed: () => HarnessSummary[];
-  /** Whether the setting is on; read at every look so switching it off takes effect at once. */
+  /** Whether installing plugin and package updates is on; read at every look so switching it off takes effect at once. */
   enabled: () => boolean;
+  /** Whether the catalogs are refreshed on their own schedule; read at every look. Off means no catalog request unless installing updates is on, which needs them. */
+  refreshCatalogs: () => boolean;
   /** Whether the user is in the middle of an extension action of their own; the two must not run the CLI together. */
   busy: () => boolean;
   /** Called after plugins changed, so open chats of the harness pick the change up. */
@@ -39,8 +35,13 @@ interface Dependencies {
 
 /**
  * Keeps the plugins, marketplace catalogs and packages of every installed harness current without the user doing
- * anything. Each look refreshes the catalogs, installs the plugin upgrades they reveal (announcing the batch in a
- * toast first) and updates packages. Goes through the same `extension_action` command as the Extensions buttons.
+ * anything. Goes through the same `extension_action` command as the Extensions buttons.
+ *
+ * Two settings drive it. Refreshing the catalogs (`refreshCatalogs`) re-reads them and is the only thing that setting
+ * does. Installing updates (`enabled`) installs the plugin upgrades the catalogs reveal (announcing the batch in a
+ * toast first) and updates packages. Since the catalogs are what reveal upgrades, installing also reads them, even with
+ * the refresh setting off. Whichever of the two asks, the catalogs are read at most once per `CATALOG_REFRESH_MS`.
+ * With both off nothing is requested at all.
  *
  * A batch is tried once, whatever the outcome, and not again until what is outdated changes, so a plugin that stays
  * outdated does not produce a toast every ten minutes.
@@ -49,6 +50,7 @@ export class ExtensionUpdater {
   /** Plugin batches (harness plus ids and versions) already tried, and the package failures already announced. */
   private readonly attempted = new Set<string>();
   private lastPackageRun = new Map<HarnessId, number>();
+  private lastCatalogRun = new Map<HarnessId, number>();
   private checking = false;
 
   constructor(private readonly deps: Dependencies) {}
@@ -80,7 +82,7 @@ export class ExtensionUpdater {
 
   /** One look at every installed harness. Never throws; a look that finds the user busy does nothing. */
   async check(): Promise<void> {
-    if (this.checking || !this.deps.enabled() || this.deps.busy()) {
+    if (this.checking || this.deps.busy()) {
       return;
     }
 
@@ -88,7 +90,7 @@ export class ExtensionUpdater {
 
     try {
       for (const summary of this.deps.installed()) {
-        if (!this.deps.enabled() || this.deps.busy()) {
+        if (this.deps.busy()) {
           break;
         }
 
@@ -105,8 +107,16 @@ export class ExtensionUpdater {
       return;
     }
 
-    if (capabilities.marketplaces) {
+    // The plugins are judged by the catalogs, so installing updates needs them too. Either way they are read on one
+    // schedule, never more often than `CATALOG_REFRESH_MS`.
+    const refresh = this.catalogsWanted() && this.catalogsDue(info.id);
+
+    if (capabilities.marketplaces && refresh) {
       await this.refreshMarketplaces(info.id);
+    }
+
+    if (!this.deps.enabled()) {
+      return;
     }
 
     if (capabilities.plugins) {
@@ -125,6 +135,8 @@ export class ExtensionUpdater {
    * catalogs say now.
    */
   private async refreshMarketplaces(harness: HarnessId): Promise<void> {
+    this.lastCatalogRun.set(harness, this.now());
+
     let names: string[];
 
     try {
@@ -134,12 +146,27 @@ export class ExtensionUpdater {
     }
 
     for (const name of names) {
-      if (!this.deps.enabled() || this.deps.busy()) {
+      // Both settings are read again for every catalog, so switching them off in the middle of a pass stops it at once.
+      if (this.deps.busy() || !this.catalogsWanted()) {
         return;
       }
 
       await this.run(harness, { type: 'marketplaceUpdate', name }).catch(() => null);
     }
+  }
+
+  private catalogsWanted(): boolean {
+    return this.deps.enabled() || this.deps.refreshCatalogs();
+  }
+
+  private catalogsDue(harness: HarnessId): boolean {
+    const last = this.lastCatalogRun.get(harness);
+
+    return last === undefined || this.now() - last >= CATALOG_REFRESH_MS;
+  }
+
+  private now(): number {
+    return (this.deps.now ?? Date.now)();
   }
 
   private view(harness: HarnessId): Promise<ExtensionsView> {
@@ -199,7 +226,7 @@ export class ExtensionUpdater {
 
   private async updatePackages(harness: HarnessId): Promise<void> {
     const last = this.lastPackageRun.get(harness);
-    const now = (this.deps.now ?? Date.now)();
+    const now = this.now();
 
     if (last !== undefined && now - last < PACKAGE_UPDATE_INTERVAL_MS) {
       return;
@@ -244,6 +271,7 @@ export const extensionUpdater = new ExtensionUpdater({
   transport: ipc,
   installed: () => harness.installed,
   enabled: () => prefs.value?.autoUpdateExtensions ?? false,
+  refreshCatalogs: () => prefs.value?.autoRefreshCatalogs ?? false,
   busy: () => actionRunner.phase !== 'idle',
   upgraded: async (id) => {
     await extensionsView.refresh({ quiet: true });

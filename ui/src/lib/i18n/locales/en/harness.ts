@@ -21,7 +21,6 @@ export const harness = {
 
   'harness.switcher.label': 'Switch harness',
 
-  'harness.toast.scan': 'Could not scan for harnesses',
   'harness.toast.pickBinary': 'Could not use that file',
   'harness.toast.clearBinary': 'Could not reset the binary',
   'harness.toast.recents': 'Could not read recent projects',

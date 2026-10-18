@@ -50,7 +50,6 @@ export const ecosystem = {
   'ecosystem.dashboardInstall.title': 'See what your agents cost',
   'ecosystem.dashboardInstall.body':
     'Install the Harness Dashboard and this page fills with your cost, tokens, plan limits, budgets and failed tool calls, read from a local process on this machine. Nothing is sent over the network.',
-  'ecosystem.dashboardInstall.check': 'Check again',
   'ecosystem.dashboardInstall.docs': 'Read the docs',
 
   'ecosystem.section.checking': 'Checking the dashboard',

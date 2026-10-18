@@ -90,6 +90,67 @@ describe('session detail', () => {
     expect(detail.transcriptStatus).toBe('ready');
   });
 
+  it('does not read the newest page again while the previous look is still running', async () => {
+    const backend = recordingTransport();
+    let hold = false;
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const slow: Transport = {
+      invoke: (name, args) => (hold && name === 'session_messages' ? gate.then(() => backend.transport.invoke(name, args)) : backend.transport.invoke(name, args)),
+    };
+    const detail = new SessionDetail(slow, 5);
+    detail.open(REF, PROJECT);
+    await waitFor(() => expect(detail.transcriptStatus).toBe('ready'));
+    const before = backend.of('session_messages').length;
+
+    hold = true;
+    const looks = [detail.follow(), detail.follow(), detail.follow()];
+    release();
+    await Promise.all(looks);
+
+    expect(backend.of('session_messages')).toHaveLength(before + 1);
+  });
+
+  it('looks again at a newly opened session even if the look at the previous one never got an answer', async () => {
+    const backend = recordingTransport();
+    let hang = false;
+    const stuck: Transport = {
+      invoke: (name, args) => (hang && name === 'session_messages' ? new Promise(() => {}) : backend.transport.invoke(name, args)),
+    };
+    const detail = new SessionDetail(stuck, 5);
+    detail.open(REF, PROJECT);
+    await waitFor(() => expect(detail.transcriptStatus).toBe('ready'));
+
+    hang = true;
+    void detail.follow();
+    hang = false;
+    const other = fixtures.sessions.list.omp[2].ref;
+    detail.open(other, PROJECT);
+    await waitFor(() => expect(detail.transcriptStatus).toBe('ready'));
+    const reads = backend.of('session_messages').length;
+
+    await detail.follow();
+
+    expect(backend.of('session_messages')).toHaveLength(reads + 1);
+  });
+
+  it('reads a transcript that failed to load again when followed, and shows it once it works', async () => {
+    const backend = recordingTransport();
+    let fail = true;
+    const flaky: Transport = {
+      invoke: (name, args) => (fail && name === 'session_messages' ? Promise.reject(IpcFailure.from({ code: 'io', message: 'busy' })) : backend.transport.invoke(name, args)),
+    };
+    const detail = new SessionDetail(flaky, 5);
+    detail.open(REF, PROJECT);
+    await waitFor(() => expect(detail.transcriptStatus).toBe('error'));
+
+    fail = false;
+    await detail.follow();
+
+    expect(detail.transcriptStatus).toBe('ready');
+    expect(detail.messages.length).toBeGreaterThan(0);
+  });
+
   it('refreshes the totals when following a session whose newest page is the first', async () => {
     const totals = { messages: 4, toolCalls: 1, contextTokens: null, costUsd: null, models: [], startedAt: null, endedAt: null };
     let reply = totals;

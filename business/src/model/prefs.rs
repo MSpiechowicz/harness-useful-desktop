@@ -121,6 +121,10 @@ pub struct AppPrefs {
     /// Whether the app keeps the active harness's plugins, marketplace catalogs and packages up to date by
     /// itself, announcing each batch in a toast. Independent of `update_policy`, which is about the app.
     pub auto_update_extensions: bool,
+    /// Refresh the extension catalogs (marketplace lists) in the background. Installs are governed by
+    /// `auto_update_extensions`. A stored file without this field takes the value of
+    /// `auto_update_extensions` (see `PrefsStore::load_checked`).
+    pub auto_refresh_catalogs: bool,
     /// Whether any `https` link (a pull request the agent opened, docs it cites) opens in the browser.
     /// Off: only project and harness sites do.
     pub open_any_link: bool,
@@ -164,6 +168,7 @@ impl Default for AppPrefs {
             update_policy: UpdatePolicy::StartupAsk,
             check_companion_updates: true,
             auto_update_extensions: true,
+            auto_refresh_catalogs: true,
             open_any_link: false,
             ai_chat_names: false,
             onboarding_completed: false,

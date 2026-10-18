@@ -6,6 +6,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use serde::Deserialize;
+use serde::de::IgnoredAny;
+
 use crate::error::{BusinessError, Result};
 use crate::fs_atomic::replace_atomically;
 use crate::model::{AppPrefs, BinaryOverride, ChatDefaults, DEFAULT_LANGUAGE, LANGUAGES};
@@ -60,38 +63,40 @@ impl PrefsStore {
     ///
     /// A file moved aside as corrupt (by this or an earlier load) counts as unusable until the
     /// next save writes a new `prefs.json`, so a choice the user made is never taken as "unset".
+    /// Unusable prefs fail closed: the background network switches load off (`unusable_defaults`).
     pub fn load_checked(&self) -> (AppPrefs, PrefsOrigin) {
         let path = self.path();
 
         let text = match SafeReader::read_to_string(&path, MAX_PREFS_BYTES) {
             Ok(text) => text,
             Err(BusinessError::NotFound(_)) => {
-                let origin = if self.has_quarantined() {
-                    PrefsOrigin::Unusable
-                } else {
-                    PrefsOrigin::Missing
-                };
+                if self.has_quarantined() {
+                    return (unusable_defaults(), PrefsOrigin::Unusable);
+                }
 
-                return (AppPrefs::default(), origin);
+                return (AppPrefs::default(), PrefsOrigin::Missing);
             }
             Err(BusinessError::InvalidInput(reason)) => {
                 tracing::warn!(%reason, "unreadable prefs file");
                 self.quarantine(&path);
-                return (AppPrefs::default(), PrefsOrigin::Unusable);
+                return (unusable_defaults(), PrefsOrigin::Unusable);
             }
             Err(error) => {
                 tracing::warn!(%error, "cannot read prefs; using defaults");
-                return (AppPrefs::default(), PrefsOrigin::Unusable);
+                return (unusable_defaults(), PrefsOrigin::Unusable);
             }
         };
 
         match serde_json::from_str::<AppPrefs>(&text) {
-            Ok(prefs) => (normalize(prefs), PrefsOrigin::Stored),
+            Ok(prefs) => (
+                normalize(carry_catalog_refresh_choice(prefs, &text)),
+                PrefsOrigin::Stored,
+            ),
             Err(error) => {
                 // serde_json errors carry a position, not file contents.
                 tracing::warn!(%error, "corrupt prefs file");
                 self.quarantine(&path);
-                (AppPrefs::default(), PrefsOrigin::Unusable)
+                (unusable_defaults(), PrefsOrigin::Unusable)
             }
         }
     }
@@ -146,6 +151,40 @@ impl PrefsStore {
             tracing::warn!(%error, "cannot move corrupt prefs aside");
         }
     }
+}
+
+/// Defaults standing in for an unusable prefs file, with the background network switches
+/// (`autoUpdateExtensions`, `autoRefreshCatalogs`) off: the file may hold the user's "off", so
+/// the app fails closed, like the companion release lookup does. Nothing is written here. The
+/// Settings view shows both switches off, so a later save (from the UI or from a server-managed
+/// change through [`PrefsStore::update`]) stores them off unless the user turns them back on.
+fn unusable_defaults() -> AppPrefs {
+    AppPrefs {
+        auto_update_extensions: false,
+        auto_refresh_catalogs: false,
+        ..AppPrefs::default()
+    }
+}
+
+/// The one key [`carry_catalog_refresh_choice`] looks for.
+#[derive(Deserialize)]
+struct CatalogRefreshKey {
+    #[serde(rename = "autoRefreshCatalogs")]
+    auto_refresh_catalogs: Option<IgnoredAny>,
+}
+
+/// `prefs` read from `text`, with `autoRefreshCatalogs` taken from `autoUpdateExtensions` when
+/// the file predates it: whoever turned automatic updates off gets no background catalog traffic
+/// after upgrading either. A file that has the key keeps its value. Fresh installs (no file) get
+/// the default, on.
+fn carry_catalog_refresh_choice(mut prefs: AppPrefs, text: &str) -> AppPrefs {
+    let has_key = serde_json::from_str::<CatalogRefreshKey>(text).is_ok_and(|key| key.auto_refresh_catalogs.is_some());
+
+    if !has_key {
+        prefs.auto_refresh_catalogs = prefs.auto_update_extensions;
+    }
+
+    prefs
 }
 
 /// Applies the storage invariants:

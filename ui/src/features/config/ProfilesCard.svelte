@@ -1,7 +1,7 @@
 <script lang="ts">
   import ChevronDown from '@lucide/svelte/icons/chevron-down';
 
-  import Card from '$lib/components/Card.svelte';
+  import SectionCard from '$lib/components/SectionCard.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
   import { harness } from '$lib/stores/harness.svelte';
   import { cx } from '$lib/utils/cx';
@@ -27,9 +27,7 @@
 </script>
 
 <!-- One plain line per profile, no count or bullets (the rows and "Show all" already say how many); the way to use one sits under a hairline. -->
-<Card as="section" padded={false} class="p-3.5">
-  <h3 class="mb-2 text-xs font-medium tracking-wider text-fg-3 uppercase">{t('config.profiles.title')}</h3>
-
+<SectionCard flat heading={t('config.profiles.title')}>
   <ul class="flex flex-col">
     {#each shown as name (name)}
       <li class="flex h-7 items-center text-sm text-fg-2" title={name}>
@@ -55,4 +53,4 @@
       {sentence[0]}{#if sentence.length > 1}<code class="rounded-sm bg-surface-3 px-1 py-px font-mono text-[11.5px] text-fg-2">{FLAG}</code>{sentence[1]}{/if}
     </p>
   {/if}
-</Card>
+</SectionCard>

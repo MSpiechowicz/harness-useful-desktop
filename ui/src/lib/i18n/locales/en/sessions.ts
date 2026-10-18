@@ -46,7 +46,6 @@ export const sessions = {
   'sessions.header.emptyCopy': 'Empty copy',
   'sessions.header.resume': 'Resume in chat',
   'sessions.header.menu': 'More actions',
-  'sessions.header.details': 'Details',
 
   'sessions.touched.label': 'Files touched',
   'sessions.touched.source': 'this session',
@@ -55,7 +54,7 @@ export const sessions = {
   'sessions.touched.view': 'View changes',
   'sessions.touched.none': 'No files touched.',
 
-  'sessions.details.label': 'Session details',
+  'sessions.details.empty': 'Choose a session to see its totals, models and files.',
   'sessions.details.overview': 'Overview',
   'sessions.details.messages': 'messages',
   'sessions.details.toolCalls': 'tool calls',

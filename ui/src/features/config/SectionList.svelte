@@ -29,11 +29,11 @@
     {@const open = searching || !folded.has(group.layer)}
 
     <section aria-label={t('config.list.layer', { layer: group.title })}>
-      <div class="px-3 pt-[14px] pb-[6px]">
+      <div class="panel-inset pt-[14px] pb-[6px]">
         <button
           type="button"
           aria-expanded={open}
-          class="group/heading flex h-[28px] w-full items-center gap-[10px] rounded-sm px-[12px] text-left text-[11px] leading-[16px] font-medium tracking-wide text-fg-3 uppercase transition-colors duration-[var(--dur-fast)] hover:bg-hover hover:text-fg-2 focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
+          class="group/heading flex h-[28px] w-full items-center gap-[10px] rounded-sm panel-heading text-left text-[11px] leading-[16px] font-medium tracking-wide text-fg-3 uppercase transition-colors duration-[var(--dur-fast)] hover:bg-hover hover:text-fg-2 focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
           onclick={() => folded.toggle(group.layer)}
         >
           <span class="grid size-[16px] shrink-0 place-items-center"><ChevronRight size={14} aria-hidden="true" class={cx('transition-transform duration-[var(--dur-fast)]', open && 'rotate-90')} /></span>
@@ -46,14 +46,14 @@
         {@const selected = section.id === selectedId}
 
         {#if open}
-          <div class="h-[40px] px-3 py-[2px]">
+          <div class="h-[40px] panel-inset py-[2px]">
             <button
               type="button"
               title={baseName(section.source.path)}
               aria-current={selected ? 'true' : undefined}
               onclick={() => onselect(section.id)}
               class={cx(
-                'flex size-full items-center gap-2.5 rounded-md border pr-2 pl-2.5 text-left transition-colors duration-[var(--dur-fast)]',
+                'flex size-full items-center gap-2.5 rounded-md border panel-row text-left transition-colors duration-[var(--dur-fast)]',
                 selected ? 'border-accent/30 bg-accent-wash' : 'border-transparent hover:bg-hover active:bg-press',
               )}
             >

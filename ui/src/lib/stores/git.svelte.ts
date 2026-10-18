@@ -7,6 +7,7 @@ import type { GitStatus } from '$lib/ipc/bindings/GitStatus';
 import type { StatusEntry } from '$lib/ipc/bindings/StatusEntry';
 import { ipc } from '$lib/ipc/client';
 import { IpcFailure, type Transport } from '$lib/ipc/transport';
+import { Flight } from '$lib/utils/flight';
 
 import { nav } from './nav.svelte';
 
@@ -86,6 +87,9 @@ export class GitStore {
   private generation = 0;
   private diffGeneration = 0;
   private soonTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly flight = new Flight();
+  /** The diff request a refresh started, so a poll never asks git for the diffs again while it is still running. */
+  private readonly diffFlight = new Flight();
 
   constructor(private readonly transport: Transport) {}
 
@@ -125,17 +129,29 @@ export class GitStore {
       clearTimeout(this.soonTimer);
     }
 
+    // The edits that triggered this may be newer than a read already running, so it replaces that one instead of waiting for it.
     this.soonTimer = setTimeout(() => {
       this.soonTimer = null;
-      void this.refresh({ quiet: true });
+      void this.flight.start(() => this.read({ quiet: true }));
     }, SOON_MS);
   }
 
   /**
    * Re-reads status and branches, then the diffs of the files in view. A `quiet` refresh happens in the background:
-   * no spinner, and the diffs on screen stay until their new versions arrive.
+   * no spinner, and the diffs on screen stay until their new versions arrive. With `statusOnly` the diffs are left
+   * alone: the rail only needs the count while Changes is closed, and opening Changes reads everything again.
+   * A quiet refresh never starts while a read is still running (it waits for that one), so a slow repository is
+   * never asked twice at once by the poll.
    */
-  async refresh({ quiet = false } = {}): Promise<void> {
+  refresh(options: { quiet?: boolean; statusOnly?: boolean } = {}): Promise<void> {
+    if (options.quiet) {
+      return this.flight.startUnlessRunning(() => this.read(options));
+    }
+
+    return this.flight.start(() => this.read(options));
+  }
+
+  private async read({ quiet = false, statusOnly = false }: { quiet?: boolean; statusOnly?: boolean }): Promise<void> {
     const project = this.project;
     if (project === null) {
       return;
@@ -146,7 +162,8 @@ export class GitStore {
     if (!quiet) {
       this.refreshing = true;
     }
-    if (this.status === null) {
+    // A background retry of a failed first read leaves the error on screen instead of flashing the loading state.
+    if (this.status === null && !(quiet && this.loadStatus === 'error')) {
       this.loadStatus = 'loading';
     }
 
@@ -156,11 +173,21 @@ export class GitStore {
         return;
       }
 
-      this.status = status;
-      this.branches = branches;
+      // A background read that found the same thing keeps what is shown, so nothing is drawn again for it.
+      if (!quiet || JSON.stringify(status) !== JSON.stringify(this.status)) {
+        this.status = status;
+      }
+
+      if (!quiet || JSON.stringify(branches) !== JSON.stringify(this.branches)) {
+        this.branches = branches;
+      }
+
       this.error = null;
       this.loadStatus = 'ready';
-      this.reload(quiet);
+
+      if (!statusOnly) {
+        this.reload(quiet);
+      }
     } catch (error) {
       // A background re-read that fails keeps the state on screen; the next one tries again.
       if (mine === this.generation && !(quiet && this.status !== null)) {
@@ -292,11 +319,18 @@ export class GitStore {
     }
   }
 
-  /** The diffs of the files in view are stale: forget them (or, `quiet`, keep showing them), keep a valid selection, fetch again. */
+  /**
+   * The diffs of the files in view are stale: forget them (or, `quiet`, keep showing them), keep a valid selection, fetch
+   * again. A quiet reload that finds the previous fetch still running leaves it be: the next poll asks again.
+   */
   private reload(quiet = false): void {
-    this.diffGeneration += 1;
-    const visible = new Set(this.scopeEntries.map((entry) => entry.path));
-    this.diffs = quiet ? Object.fromEntries(Object.entries(this.diffs).filter(([path, diff]) => visible.has(path) && diff.status === 'ready')) : {};
+    const waiting = quiet && this.diffFlight.running !== null;
+
+    if (!waiting) {
+      this.diffGeneration += 1;
+      const visible = new Set(this.scopeEntries.map((entry) => entry.path));
+      this.diffs = quiet ? Object.fromEntries(Object.entries(this.diffs).filter(([path, diff]) => visible.has(path) && diff.status === 'ready')) : {};
+    }
 
     const current = this.selected === null ? undefined : this.entries.find((entry) => entry.path === this.selected);
     if (!current) {
@@ -305,10 +339,16 @@ export class GitStore {
       this.choose(current.path);
     }
 
+    if (waiting) {
+      return;
+    }
+
     if (this.scopeEntries.length > 0 && this.scopeEntries.length <= BULK_LIMIT) {
-      void this.fetchDiffs(this.scopeEntries.map((entry) => entry.path), quiet);
+      const paths = this.scopeEntries.map((entry) => entry.path);
+      void this.diffFlight.start(() => this.fetchDiffs(paths, quiet));
     } else if (this.selected !== null) {
-      void this.fetchDiffs([this.selected], quiet);
+      const paths = [this.selected];
+      void this.diffFlight.start(() => this.fetchDiffs(paths, quiet));
     }
   }
 
@@ -374,6 +414,8 @@ export class GitStore {
       this.soonTimer = null;
     }
     this.generation += 1;
+    this.flight.clear();
+    this.diffFlight.clear();
     this.diffGeneration += 1;
     this.status = null;
     this.branches = [];

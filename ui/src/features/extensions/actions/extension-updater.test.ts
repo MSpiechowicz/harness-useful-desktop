@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { CliResult } from '$lib/ipc/bindings/CliResult';
 import type { ExtensionAction } from '$lib/ipc/bindings/ExtensionAction';
@@ -7,7 +7,13 @@ import type { HarnessSummary } from '$lib/ipc/bindings/HarnessSummary';
 import type { ToastInput } from '$lib/stores/toasts.svelte';
 
 import { fakeTransport } from '../../../../tests/helpers';
-import { ExtensionUpdater, PACKAGE_UPDATE_INTERVAL_MS } from './extension-updater';
+import { CATALOG_REFRESH_MS, EXTENSION_UPDATE_FIRST_DELAY_MS, EXTENSION_UPDATE_INTERVAL_MS, PACKAGE_UPDATE_INTERVAL_MS } from '$lib/stores/live';
+
+import { ipc } from '$lib/ipc/client';
+import { harness } from '$lib/stores/harness.svelte';
+import { prefs } from '$lib/stores/prefs.svelte';
+
+import { ExtensionUpdater, extensionUpdater } from './extension-updater';
 
 const OMP = {
   info: { id: 'omp' },
@@ -57,6 +63,7 @@ function setup(
     view?: () => ExtensionsView;
     run?: (action: ExtensionAction) => CliResult;
     enabled?: () => boolean;
+    refreshCatalogs?: () => boolean;
     busy?: () => boolean;
     now?: () => number;
   } = {},
@@ -76,6 +83,7 @@ function setup(
     transport,
     installed: () => options.harnesses ?? [OMP],
     enabled: options.enabled ?? (() => true),
+    refreshCatalogs: options.refreshCatalogs ?? (() => true),
     busy: options.busy ?? (() => false),
     upgraded,
     notifications: {
@@ -157,15 +165,127 @@ describe('Extension auto-update', () => {
     expect(log.filter((entry) => entry === 'pluginUpgrade')).toHaveLength(2);
   });
 
-  it('does nothing while switched off or while the user runs an action of their own', async () => {
-    const off = setup({ enabled: () => false, view: () => outdated('a@m') });
-    const busy = setup({ busy: () => true, view: () => outdated('a@m') });
+  it('does nothing while the user runs an action of their own', async () => {
+    const { updater, log } = setup({ busy: () => true, view: () => outdated('a@m') });
 
-    await off.updater.check();
-    await busy.updater.check();
+    await updater.check();
 
-    expect(off.log).toEqual([]);
-    expect(busy.log).toEqual([]);
+    expect(log).toEqual([]);
+  });
+
+  it('refreshes the catalogs on their schedule and installs nothing while only the catalog setting is on', async () => {
+    let clock = 0;
+    const { updater, log, toasts } = setup({ enabled: () => false, view: () => outdated('a@m'), now: () => clock });
+
+    await updater.check();
+    expect(log).toEqual(['marketplaceUpdate']);
+
+    clock += CATALOG_REFRESH_MS - 1;
+    await updater.check();
+    expect(log).toEqual(['marketplaceUpdate']);
+
+    clock += 1;
+    await updater.check();
+    expect(log).toEqual(['marketplaceUpdate', 'marketplaceUpdate']);
+    expect(toasts).toEqual([]);
+  });
+
+  it('refreshes the catalogs once before installing, and not on its own schedule, while only installs are on', async () => {
+    const { updater, log } = setup({ refreshCatalogs: () => false, view: () => outdated('a@m') });
+
+    await updater.check();
+
+    expect(log).toEqual(['marketplaceUpdate', 'toast:Installing extension updates', 'pluginUpgrade', 'toast:Extensions updated']);
+  });
+
+  it.each([
+    { name: 'both are on', enabled: true, refreshCatalogs: true },
+    { name: 'only installing updates is on', enabled: true, refreshCatalogs: false },
+    { name: 'only refreshing catalogs is on', enabled: false, refreshCatalogs: true },
+  ])('reads the catalogs at most once every half hour however often it looks, while $name', async ({ enabled, refreshCatalogs }) => {
+    let clock = 0;
+    const { updater, log } = setup({ enabled: () => enabled, refreshCatalogs: () => refreshCatalogs, view: () => outdated(), now: () => clock });
+    const refreshes = () => log.filter((type) => type === 'marketplaceUpdate').length;
+
+    for (; clock < CATALOG_REFRESH_MS; clock += EXTENSION_UPDATE_INTERVAL_MS) {
+      await updater.check();
+    }
+    expect(refreshes()).toBe(1);
+
+    await updater.check();
+    expect(refreshes()).toBe(2);
+  });
+
+  it('stops asking catalogs to refresh once both settings are switched off in the middle of a pass', async () => {
+    let on = true;
+    const { updater, log } = setup({
+      view: () => ({ marketplaces: [{ name: 'a' }, { name: 'b' }, { name: 'c' }], plugins: [] }) as unknown as ExtensionsView,
+      run: () => {
+        on = false;
+
+        return cli();
+      },
+      enabled: () => on,
+      refreshCatalogs: () => on,
+    });
+
+    await updater.check();
+
+    expect(log).toEqual(['marketplaceUpdate']);
+  });
+
+  it('makes no request at all, even for PI packages, while both are off', async () => {
+    let clock = 0;
+    const { updater, log } = setup({ harnesses: [OMP, PI], enabled: () => false, refreshCatalogs: () => false, view: () => outdated('a@m'), now: () => clock });
+
+    await updater.check();
+    clock += CATALOG_REFRESH_MS * 2;
+    await updater.check();
+
+    expect(log).toEqual([]);
+  });
+
+  describe('the schedule', () => {
+    afterEach(() => vi.useRealTimers());
+
+    it('refreshes the catalogs soon after start and then every half hour, with installs off', async () => {
+      vi.useFakeTimers();
+      const { updater, log } = setup({ enabled: () => false });
+      const stop = updater.start();
+
+      await vi.advanceTimersByTimeAsync(EXTENSION_UPDATE_FIRST_DELAY_MS);
+      expect(log).toEqual(['marketplaceUpdate']);
+
+      // The looks in between find the catalogs fresh.
+      await vi.advanceTimersByTimeAsync(CATALOG_REFRESH_MS - EXTENSION_UPDATE_INTERVAL_MS);
+      expect(log).toEqual(['marketplaceUpdate']);
+
+      await vi.advanceTimersByTimeAsync(EXTENSION_UPDATE_INTERVAL_MS);
+      expect(log).toEqual(['marketplaceUpdate', 'marketplaceUpdate']);
+
+      stop();
+      await vi.advanceTimersByTimeAsync(CATALOG_REFRESH_MS);
+      expect(log).toHaveLength(2);
+    });
+
+    it('requests nothing over time while both settings are off', async () => {
+      vi.useFakeTimers();
+      const { updater, log } = setup({ enabled: () => false, refreshCatalogs: () => false });
+      const stop = updater.start();
+
+      await vi.advanceTimersByTimeAsync(CATALOG_REFRESH_MS * 2);
+
+      expect(log).toEqual([]);
+      stop();
+    });
+  });
+
+  it('leaves the packages of a PI machine alone while installs are off', async () => {
+    const { updater, log } = setup({ harnesses: [PI], enabled: () => false });
+
+    await updater.check();
+
+    expect(log).toEqual([]);
   });
 
   it('updates PI packages at most once an hour and only announces a failure', async () => {
@@ -197,5 +317,23 @@ describe('Extension auto-update', () => {
         tone: 'warning',
       },
     ]);
+  });
+});
+
+describe('before the preferences are known', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    prefs.value = null;
+    harness.summaries = [];
+  });
+
+  it('asks nothing of any harness, for neither switch is known to be on', async () => {
+    prefs.value = null;
+    harness.summaries = [{ ...OMP, detection: { installed: true } } as HarnessSummary];
+    const invoke = vi.spyOn(ipc, 'invoke');
+
+    await extensionUpdater.check();
+
+    expect(invoke).not.toHaveBeenCalled();
   });
 });

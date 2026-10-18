@@ -28,6 +28,9 @@
     {#snippet actions()}
       <div id={MEMORY_HEADER_ACTIONS} class="contents"></div>
       <FilterMenu label={t('memory.section.label')} options={sections} value={viewState.memorySection} onchange={(next) => (viewState.memorySection = next)} />
+    {/snippet}
+
+    {#snippet fixed()}
       <DeleteAllMenu section={viewState.memorySection} />
     {/snippet}
   </ViewHeader>

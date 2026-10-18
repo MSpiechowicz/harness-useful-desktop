@@ -24,7 +24,6 @@ export const harness: AreaMessages<typeof enHarness> = {
 
   'harness.switcher.label': 'Przełącz harness',
 
-  'harness.toast.scan': 'Nie udało się wyszukać harnessów',
   'harness.toast.pickBinary': 'Nie można użyć tego pliku',
   'harness.toast.clearBinary': 'Nie udało się zresetować pliku wykonywalnego',
   'harness.toast.recents': 'Nie udało się odczytać ostatnich projektów',

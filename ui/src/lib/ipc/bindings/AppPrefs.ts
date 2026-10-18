@@ -77,6 +77,12 @@ checkCompanionUpdates: boolean,
  */
 autoUpdateExtensions: boolean, 
 /**
+ * Refresh the extension catalogs (marketplace lists) in the background. Installs are governed by
+ * `auto_update_extensions`. A stored file without this field takes the value of
+ * `auto_update_extensions` (see `PrefsStore::load_checked`).
+ */
+autoRefreshCatalogs: boolean, 
+/**
  * Whether any `https` link (a pull request the agent opened, docs it cites) opens in the browser.
  * Off: only project and harness sites do.
  */

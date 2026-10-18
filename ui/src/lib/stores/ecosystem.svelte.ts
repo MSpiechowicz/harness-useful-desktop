@@ -3,8 +3,10 @@ import type { EcosystemRelease } from '$lib/ipc/bindings/EcosystemRelease';
 import type { EcosystemStatus } from '$lib/ipc/bindings/EcosystemStatus';
 import { ipc } from '$lib/ipc/client';
 import { IpcFailure, type Transport } from '$lib/ipc/transport';
+import { Flight } from '$lib/utils/flight';
 
 import type { SlotStatus } from './dashboard.svelte';
+import { COMPANION_CHECK_MS } from './live';
 
 /** A status read this recent is shown as is when the view is opened again. */
 const FRESH_MS = 30_000;
@@ -72,9 +74,12 @@ export class EcosystemStore {
   /** Whether the latest release lookup of the current reading is still running. */
   releasesPending = $state(false);
 
+  /** The detection result as read, before the releases were folded in: what a quiet read compares its answer with. */
+  private detected: EcosystemStatus | null = null;
   private loadedAt = 0;
   private token = 0;
   private lookup: Promise<void> = Promise.resolve();
+  private readonly flight = new Flight();
 
   constructor(
     private readonly transport: Transport,
@@ -85,11 +90,13 @@ export class EcosystemStore {
   reset(): void {
     this.token += 1;
     this.status = null;
+    this.detected = null;
     this.error = null;
     this.state = 'idle';
     this.loadedAt = 0;
     this.releasesPending = false;
     this.lookup = Promise.resolve();
+    this.flight.clear();
   }
 
   /** Like `load`, but ends only once the release lookup of that reading did too, so `updateAvailable` is as current as it gets. */
@@ -105,54 +112,105 @@ export class EcosystemStore {
     return item?.installed === true && item.updateAvailable;
   }
 
-  /** Reads the detection result unless a fresh one is held; `force` always reads. */
-  async load(force = false): Promise<void> {
+  /**
+   * Reads the detection result unless a fresh one is held; `force` always reads. A `quiet` read shows no loading state,
+   * so a failure on screen stays until it succeeds, and a failure while there is a reading to show keeps that reading.
+   * Only a forced, not quiet read (the user asked) interrupts a read that is running: any other waits for it.
+   */
+  load(force = false, { quiet = false } = {}): Promise<void> {
     if (!force && this.status && this.now() - this.loadedAt < FRESH_MS) {
-      return;
+      return Promise.resolve();
     }
 
+    if (quiet || !force) {
+      return this.flight.startUnlessRunning(() => this.read(quiet));
+    }
+
+    return this.flight.start(() => this.read(quiet));
+  }
+
+  private async read(quiet: boolean): Promise<void> {
     this.token += 1;
     const mine = this.token;
-    this.state = 'loading';
-    this.releasesPending = false;
+    if (!quiet) {
+      this.state = 'loading';
+      this.releasesPending = false;
+    }
 
     try {
       const status = await this.transport.invoke('ecosystem_status', undefined);
 
       if (mine === this.token) {
-        this.status = status;
+        const detected = this.apply(status, quiet);
+
         this.error = null;
         this.state = 'ready';
         this.loadedAt = this.now();
-        this.lookup = this.lookUpReleases(status, mine);
+        this.lookup = this.lookUpReleases(detected, mine, quiet);
       }
     } catch (error) {
-      if (mine === this.token) {
-        this.status = null;
-        this.error = IpcFailure.from(error).message;
-        this.state = 'error';
+      if (mine !== this.token) {
+        return;
       }
+
+      // The lookup of a reading this one replaced will not report back.
+      this.releasesPending = false;
+
+      if (quiet && this.status !== null) {
+        // The reading on screen stays, and a read of the user's that was given up on no longer holds the loading state.
+        if (this.state === 'loading') {
+          this.state = 'ready';
+        }
+
+        return;
+      }
+
+      this.status = null;
+      this.detected = null;
+      this.error = IpcFailure.from(error).message;
+      this.state = 'error';
     }
+  }
+
+  /** A quiet read that found what it found before keeps the reading on screen, release information included, so the update badge never blinks. */
+  private apply(status: EcosystemStatus, quiet: boolean): EcosystemStatus {
+    if (quiet && this.status !== null && this.detected !== null && JSON.stringify(status) === JSON.stringify(this.detected)) {
+      return this.detected;
+    }
+
+    this.detected = status;
+    this.status = status;
+
+    return status;
   }
 
   /**
    * Asks the backend for the companions' latest GitHub releases once the local reading is shown. The backend skips
    * the lookup when the setting is off and caches it; any failure only means no update badge, so it is never shown.
    */
-  private async lookUpReleases(status: EcosystemStatus, mine: number): Promise<void> {
+  private async lookUpReleases(status: EcosystemStatus, mine: number, quiet: boolean): Promise<void> {
     const installed = status.items.filter((item) => item.installed && item.version).map((item) => ({ id: item.id, version: item.version as string }));
 
     if (installed.length === 0) {
+      this.releasesPending = false;
+
       return;
     }
 
-    this.releasesPending = true;
+    // A background look is silent: the lookup indicator is for the one the user is waiting on.
+    if (!quiet) {
+      this.releasesPending = true;
+    }
 
     try {
       const releases = await this.transport.invoke('ecosystem_releases', { installed });
 
-      if (mine === this.token && this.status === status) {
-        this.status = withReleases(status, releases);
+      if (mine === this.token && this.detected === status) {
+        const merged = withReleases(status, releases);
+
+        if (JSON.stringify(merged) !== JSON.stringify(this.status)) {
+          this.status = merged;
+        }
       }
     } catch {
       // No badge is the whole fallback.
@@ -166,9 +224,6 @@ export class EcosystemStore {
 
 export const ecosystem = new EcosystemStore(ipc);
 
-/** How often the app looks for a newer companion release while it is open; the backend still asks GitHub at most every six hours. */
-const COMPANION_CHECK_MS = 30 * 60_000;
-
 /**
  * The job that keeps update information current without any view open: reads the companions once now, then every half
  * hour while the window is visible. Returns the function that stops it.
@@ -178,7 +233,7 @@ export function watchCompanions(store: EcosystemStore = ecosystem, ms: number = 
 
   const timer = setInterval(() => {
     if (!document.hidden) {
-      void store.load(true);
+      void store.load(true, { quiet: true });
     }
   }, ms);
 

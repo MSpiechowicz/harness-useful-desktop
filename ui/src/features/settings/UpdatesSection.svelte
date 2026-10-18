@@ -104,12 +104,25 @@
     {/snippet}
   </SettingRow>
 
-  <!-- The harness's own plugins, marketplaces and packages (not the app): the updater runs the harness CLI on a timer. -->
+  <!-- The marketplace catalogs of the harnesses (not the app): re-read on a timer. Separate from installing updates. -->
+  <SettingRow title={t('settings.updates.catalogs.title')} description={t('settings.updates.catalogs.description')}>
+    {#snippet control()}
+      <!-- Until the preferences arrive the choice is not known: the switch is off and cannot be flipped, never shown on. -->
+      <Switch
+        label={t('settings.updates.catalogs.title')}
+        disabled={prefs.value === null}
+        bind:checked={() => prefs.value?.autoRefreshCatalogs ?? false, (autoRefreshCatalogs) => void prefs.update({ autoRefreshCatalogs })}
+      />
+    {/snippet}
+  </SettingRow>
+
+  <!-- Installing the harness's plugin and package updates (not the app) and the Harness family: the updater runs the CLIs on a timer. -->
   <SettingRow title={t('settings.updates.extensions.title')} description={t('settings.updates.extensions.description')}>
     {#snippet control()}
       <Switch
         label={t('settings.updates.extensions.title')}
-        bind:checked={() => prefs.value?.autoUpdateExtensions ?? true, (autoUpdateExtensions) => void prefs.update({ autoUpdateExtensions })}
+        disabled={prefs.value === null}
+        bind:checked={() => prefs.value?.autoUpdateExtensions ?? false, (autoUpdateExtensions) => void prefs.update({ autoUpdateExtensions })}
       />
     {/snippet}
   </SettingRow>

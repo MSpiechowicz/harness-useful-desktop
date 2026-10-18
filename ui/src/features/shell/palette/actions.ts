@@ -1,12 +1,9 @@
-import ChartNoAxesColumn from '@lucide/svelte/icons/chart-no-axes-column';
 import Keyboard from '@lucide/svelte/icons/keyboard';
 import MessageSquarePlus from '@lucide/svelte/icons/message-square-plus';
 import Monitor from '@lucide/svelte/icons/monitor';
 import Moon from '@lucide/svelte/icons/moon';
 import PanelLeft from '@lucide/svelte/icons/panel-left';
 import Play from '@lucide/svelte/icons/play';
-import RotateCw from '@lucide/svelte/icons/rotate-cw';
-import ScanSearch from '@lucide/svelte/icons/scan-search';
 import Sun from '@lucide/svelte/icons/sun';
 import Zap from '@lucide/svelte/icons/zap';
 import History from '@lucide/svelte/icons/history';
@@ -17,10 +14,6 @@ import { t, type MessageKey } from '$lib/i18n/i18n.svelte';
 import type { MotionPref } from '$lib/ipc/bindings/MotionPref';
 import type { ThemePref } from '$lib/ipc/bindings/ThemePref';
 import { agentSessions } from '$lib/stores/agentSession.svelte';
-import { dashboard } from '$lib/stores/dashboard.svelte';
-import { ecosystem } from '$lib/stores/ecosystem.svelte';
-import { git } from '$lib/stores/git.svelte';
-import { harness } from '$lib/stores/harness.svelte';
 import { motion } from '$lib/stores/motion.svelte';
 import { nav } from '$lib/stores/nav.svelte';
 import { prefs } from '$lib/stores/prefs.svelte';
@@ -64,7 +57,7 @@ export function navigationCommands(): PaletteCommand[] {
   }));
 }
 
-/** Things to do: chats, harness upkeep, layout, the settings sections. */
+/** Things to do: chats, layout, the settings sections. */
 export function actionCommands({ openShortcuts }: PaletteHandlers): PaletteCommand[] {
   const hasChat = agentSessions.active !== null;
   const hasResumable = resumableSession() !== undefined;
@@ -82,31 +75,6 @@ export function actionCommands({ openShortcuts }: PaletteHandlers): PaletteComma
       run: () => void resumeLastSession(),
     },
     { id: 'jump-chat', label: t('shell.palette.jumpChat'), group: actions, icon: MessageSquare, shortcut: 'mod+0', keywords: t('shell.palette.jumpChat.keywords'), disabled: !hasChat, run: jumpToChat },
-    { id: 'rescan-harnesses', label: t('shell.palette.rescan'), group: actions, icon: ScanSearch, keywords: t('shell.palette.rescan.keywords'), disabled: harness.scanning, run: () => void harness.rescan() },
-    {
-      id: 'refresh-changes',
-      label: t('shell.palette.refreshChanges'),
-      group: actions,
-      icon: RotateCw,
-      keywords: t('shell.palette.refreshChanges.keywords'),
-      disabled: !project.active,
-      run: () => {
-        void git.refresh();
-        nav.go('changes');
-      },
-    },
-    {
-      id: 'refresh-dashboard',
-      label: t('shell.palette.refreshDashboard'),
-      group: actions,
-      icon: ChartNoAxesColumn,
-      keywords: t('shell.palette.refreshDashboard.keywords'),
-      run: () => {
-        void ecosystem.load(true);
-        void dashboard.openPanel(true);
-        nav.go('ecosystem');
-      },
-    },
     { id: 'show-shortcuts', label: t('shell.palette.showShortcuts'), group: actions, icon: Keyboard, shortcut: 'shift+?', keywords: t('shell.palette.showShortcuts.keywords'), run: openShortcuts },
     {
       id: 'toggle-sidebar',

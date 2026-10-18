@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { detailBasics, overviewStats } from './extension-detail';
-  import { TABS, type ExtItem } from './extension-items';
+  import { detailBasics } from './extension-detail';
+  import type { ExtItem } from './extension-items';
   import DetailShell from './DetailShell.svelte';
   import MarketplaceExtras from './MarketplaceExtras.svelte';
   import McpExtras from './McpExtras.svelte';
@@ -15,12 +15,9 @@
   let { entry }: Props = $props();
 
   const basics = $derived(detailBasics(entry));
-  const kind = $derived(TABS.find((def) => def.id === entry.tab)?.singular ?? '');
-  // What the description card already says is not said again under the title.
-  const subtitle = $derived(entry.subtitle && entry.subtitle !== basics.description ? `${kind} · ${entry.subtitle}` : kind);
 </script>
 
-<DetailShell title={entry.title} {subtitle} description={basics.description} facts={basics.facts} stats={overviewStats(entry)}>
+<DetailShell description={basics.description} facts={basics.facts}>
   {#if entry.tab === 'plugins'}
     <PluginExtras plugin={entry.data} />
   {:else if entry.tab === 'marketplaces'}

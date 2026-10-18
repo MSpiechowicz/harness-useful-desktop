@@ -6,6 +6,7 @@ import type { SessionSummary } from '$lib/ipc/bindings/SessionSummary';
 import type { TranscriptStats } from '$lib/ipc/bindings/TranscriptStats';
 import { ipc } from '$lib/ipc/client';
 import { IpcFailure, type Transport } from '$lib/ipc/transport';
+import { Flight } from '$lib/utils/flight';
 
 import { ViewLoader, type ViewStatus } from './view-loader.svelte';
 
@@ -15,6 +16,10 @@ export const sessionList = new ViewLoader<SessionSummary[]>((harness, project) =
 const TRANSCRIPT_PAGE = 100;
 /** How long a session switch keeps the previous session on screen before showing the loading state. */
 const STALE_MS = 250;
+
+function same(a: unknown, b: unknown): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
 
 interface SessionTarget {
   ref: SessionRef;
@@ -43,6 +48,7 @@ export class SessionDetail {
   private tail: { cursor: string | null; offset: number } = { cursor: null, offset: 0 };
   /** Whether the first page of the session being opened has arrived. */
   private settled = false;
+  private readonly flight = new Flight();
 
   constructor(
     private readonly transport: Transport,
@@ -61,6 +67,7 @@ export class SessionDetail {
     }
 
     this.generation += 1;
+    this.flight.clear();
     const generation = this.generation;
     const hadSession = this.target !== null;
     this.target = ref && project ? { ref, project } : null;
@@ -123,19 +130,31 @@ export class SessionDetail {
   }
 
   /** Re-reads the selected session from disk. */
-  reload(): void {
-    if (this.target) {
-      this.generation += 1;
-      this.loadingMore = false;
-      void this.load(this.target, this.generation);
+  reload(): Promise<void> {
+    if (!this.target) {
+      return Promise.resolve();
     }
+
+    this.generation += 1;
+    this.loadingMore = false;
+
+    return this.load(this.target, this.generation);
   }
 
   /**
    * Catches up with a session that is still being written, in the background: the newest loaded page is read again
-   * (older pages stay as they are), with the touched files. A failure keeps what is shown.
+   * (older pages stay as they are), with the touched files. A failure keeps what is shown. A transcript that failed to
+   * load is read again from the start instead. A look never starts while the previous one is still running.
    */
-  async follow(): Promise<void> {
+  follow(): Promise<void> {
+    if (this.transcriptStatus === 'error') {
+      return this.flight.startUnlessRunning(() => this.reload());
+    }
+
+    return this.flight.startUnlessRunning(() => this.catchUp());
+  }
+
+  private async catchUp(): Promise<void> {
     const target = this.target;
     if (!target || this.transcriptStatus !== 'ready' || this.loadingMore) {
       return;
@@ -154,13 +173,20 @@ export class SessionDetail {
         return;
       }
 
-      this.messages = [...this.messages.slice(0, tail.offset), ...page.messages];
-      this.nextCursor = page.nextCursor;
-      this.total = page.total;
-      this.touched = touched;
+      // A session nobody is writing reads the same every time; keeping what is shown means the transcript is not redrawn
+      // (and its scroll position and selection are not disturbed) on every look.
+      if (!same(page.messages, this.messages.slice(tail.offset)) || page.total !== this.total || page.nextCursor !== this.nextCursor) {
+        this.messages = [...this.messages.slice(0, tail.offset), ...page.messages];
+        this.nextCursor = page.nextCursor;
+        this.total = page.total;
+      }
+
+      if (!same(touched, this.touched)) {
+        this.touched = touched;
+      }
 
       // Only the first page carries the totals.
-      if (tail.cursor === null) {
+      if (tail.cursor === null && !same(page.stats, this.stats)) {
         this.stats = page.stats;
       }
     } catch {

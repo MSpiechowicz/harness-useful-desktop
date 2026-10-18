@@ -77,6 +77,38 @@ describe('Updates settings', () => {
     await waitFor(() => expect(prefs.value?.autoUpdateExtensions).toBe(false));
   });
 
+  it('refreshes catalogs by default, as a switch of its own that the user can turn off', async () => {
+    render(UpdatesSection, { id: 'updates' });
+    const toggle = screen.getByRole('switch', { name: 'Refresh catalogs automatically' });
+
+    expect(toggle).toBeChecked();
+    expect(screen.getByRole('switch', { name: 'Update extensions automatically' })).toBeChecked();
+
+    await fireEvent.click(toggle);
+
+    await waitFor(() => expect(prefs.value?.autoRefreshCatalogs).toBe(false));
+    expect(prefs.value?.autoUpdateExtensions).toBe(true);
+    expect(screen.getByRole('switch', { name: 'Update extensions automatically' })).toBeChecked();
+  });
+
+  it('shows both automatic switches off and unavailable until the preferences have arrived', () => {
+    prefs.value = null;
+    render(UpdatesSection, { id: 'updates' });
+
+    for (const name of ['Update extensions automatically', 'Refresh catalogs automatically']) {
+      const toggle = screen.getByRole('switch', { name });
+
+      expect(toggle).not.toBeChecked();
+      expect(toggle).toBeDisabled();
+    }
+  });
+
+  it('promises the catalog schedule the app keeps: about thirty seconds after start, then every thirty minutes', () => {
+    render(UpdatesSection, { id: 'updates' });
+
+    expect(screen.getByText(/about thirty seconds after it starts, then every thirty minutes/)).toBeInTheDocument();
+  });
+
   it('says the extensions switch also covers the installed Harness family members', () => {
     render(UpdatesSection, { id: 'updates' });
 

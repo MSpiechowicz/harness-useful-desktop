@@ -8,9 +8,6 @@
   import X from '@lucide/svelte/icons/x';
   import { untrack } from 'svelte';
 
-  import DrawerToggle from '$lib/components/DrawerToggle.svelte';
-  import { PaneDrawer } from '$lib/components/pane-drawer.svelte';
-
   import Button from '$lib/components/Button.svelte';
   import SearchField from '$lib/components/SearchField.svelte';
   import SegmentedControl from '$lib/components/SegmentedControl.svelte';
@@ -20,13 +17,13 @@
   import Columns2 from '@lucide/svelte/icons/columns-2';
   import Rows2 from '@lucide/svelte/icons/rows-2';
   import { ICON } from '$lib/components/icon';
-  import ListDetail from '$lib/components/ListDetail.svelte';
-  import RefreshButton from '$lib/components/RefreshButton.svelte';
   import Skeleton from '$lib/components/Skeleton.svelte';
   import ViewHeader from '$lib/components/ViewHeader.svelte';
+  import WorkspaceLayout from '$lib/components/WorkspaceLayout.svelte';
+  import WorkspaceToggles from '$lib/components/WorkspaceToggles.svelte';
+  import { WorkspaceState } from '$lib/components/workspace.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
   import { git } from '$lib/stores/git.svelte';
-  import { autoRefresh } from '$lib/utils/auto-refresh';
   import { project } from '$lib/stores/project.svelte';
   import { review } from '$lib/stores/review.svelte';
 
@@ -40,15 +37,10 @@
   import FileList from './FileList.svelte';
   import ReviewButton from './ReviewButton.svelte';
 
-
-  /** How often the open view re-reads git while it is visible. */
-  const REFRESH_MS = 4000;
-
-
   const active = $derived(project.active);
   const costArgs = $derived(git.status?.branch && active ? { branch: git.status.branch, project: active.path } : null);
   let discarding = $state<StatusEntry | null>(null);
-  const drawer = new PaneDrawer();
+  const workspace = new WorkspaceState('changes', { details: false });
   const selected = $derived(git.entries.find((entry) => entry.path === git.selected));
 
   // Switching to this view (or project) re-reads git, so edits the agent just made are visible.
@@ -74,8 +66,8 @@
     { value: 'split', label: t('changes.header.split'), icon: Columns2 },
   ]);
 
-  // The view keeps itself current: edits made by hand or by an agent show up without asking.
-  $effect(() => (active ? autoRefresh(() => void git.refresh({ quiet: true }), REFRESH_MS) : undefined));
+  // The shell re-reads git in the background (see Shell.svelte), so edits made by hand or by an agent show up without
+  // asking, and a read that failed is retried there, a little later each time.
 
   function onSearchKey(event: KeyboardEvent): void {
     if (event.key === 'Enter') {
@@ -112,15 +104,18 @@
 <div class="flex size-full min-h-0 flex-col">
   <ViewHeader title={t('changes.title')} icon={GitCompare} context={scopeLabel(git.status?.isRepo ? count(git.status.entries.length, 'changed file') : null)}>
     {#snippet actions()}
-      {#if clean}
-        <RefreshButton label={t('changes.refresh')} busy={git.loadStatus === 'loading'} onclick={() => void git.refresh()} />
-      {:else if active && git.status?.isRepo}
+      {#if active && git.status?.isRepo && !clean}
         <ReviewButton project={active.path} />
-        <div class="w-[340px] max-[900px]:w-[220px]">
+        <div class="search-width">
           <SearchField bind:value={() => git.search, (query) => git.setSearch(query)} label={t('changes.search.label')} placeholder={t('changes.search.placeholder')} shortcut="mod+f" onkeydown={onSearchKey} />
         </div>
-        <DrawerToggle {drawer} label={t('changes.drawer.label')} count={git.status.entries.length} />
         <SegmentedControl options={modes} value={diffMode.value} label={t('changes.header.layout')} onchange={(mode) => diffMode.set(mode)} />
+      {/if}
+    {/snippet}
+
+    {#snippet fixed()}
+      {#if active && git.status?.isRepo && !clean}
+        <WorkspaceToggles {workspace} listLabel={t('changes.drawer.label')} />
         <ChangesMenu project={active.name} file={selected} ondiscardfile={(entry) => (discarding = entry)} />
       {/if}
     {/snippet}
@@ -169,10 +164,10 @@
         </div>
       {:else}
       <div class="min-h-0 size-full">
-        <ListDetail label={t('changes.resize')} size={320} {drawer} drawerLabel={t('changes.drawer.label')}>
+        <WorkspaceLayout {workspace} listLabel={t('changes.drawer.label')} resizeLabel={t('changes.resize')} scroll="own">
           {#snippet list()}
             {#if git.filter}
-              <div class="flex shrink-0 border-b border-line px-3 py-2">
+              <div class="pane-header flex items-center border-b border-panel-edge panel-inset">
                 <span class="inline-flex h-control min-w-0 items-center gap-1 rounded-full bg-accent-wash pr-1.5 pl-3 text-xs font-medium text-accent-text" data-testid="touched-filter">
                   <span class="truncate">{t('changes.header.touched', { label: git.filter.label, files: count(git.filter.paths.length, 'file') })}</span>
                   <button type="button" aria-label={t('changes.showAll')} class="grid size-7 shrink-0 place-items-center rounded-full hover:bg-hover" onclick={() => git.clearFilter()}>
@@ -181,14 +176,14 @@
                 </span>
               </div>
             {/if}
-            <div class="relative min-h-0 flex-1 overflow-y-auto"><FileList entries={git.entries} {commentCounts} onpick={() => drawer.close()} /></div>
+            <div class="relative min-h-0 flex-1 overflow-y-auto"><FileList entries={git.entries} {commentCounts} onpick={() => workspace.drawer.close()} /></div>
             {#if costArgs}
               <div class="flex h-10 shrink-0 items-center px-2 empty:hidden">
                 <CostChip kind="branch" args={costArgs} align="start" side="top" quiet />
               </div>
             {/if}
           {/snippet}
-          {#snippet detail()}
+          {#snippet main()}
             {#if selected}
               {#key selected.path}
                 <DiffPanel entry={selected} project={active.path} />
@@ -203,7 +198,7 @@
               </div>
             {/if}
           {/snippet}
-        </ListDetail>
+        </WorkspaceLayout>
       </div>
       {/if}
     {/if}

@@ -42,13 +42,13 @@
      sits above the button and lets clicks through to it. Copies hang on a tree line that starts under their session's
      title and turns into each copy. The row with an open menu sits above its neighbours, or the next row would cover
      the menu. -->
-<div class={cx('relative px-3 py-[2px]', copy && 'pl-[40px]', expanded && 'pb-[calc(0.125rem+var(--tree-gap))]', menuOpen && 'z-10')} style:height="{height}px">
+<div class={cx('relative panel-inset py-[2px]', copy && 'pl-[40px]', expanded && 'pb-[calc(0.125rem+var(--tree-gap))]', menuOpen && 'z-10')} style:height="{height}px">
   <!-- Each segment is drawn once: the lines are translucent, and an overlap would show as a brighter dot. The elbow
        points at the copy's title (its middle is 20px into the 40px row). -->
-  {#if expanded}<span aria-hidden="true" class="absolute bottom-0 left-[22px] h-[calc(0.125rem+var(--tree-gap))] w-px bg-line-strong"></span>{/if}
+  {#if expanded}<span aria-hidden="true" class="absolute bottom-0 left-[20px] h-[calc(0.125rem+var(--tree-gap))] w-px bg-line-strong"></span>{/if}
   {#if copy}
-    <span aria-hidden="true" class={cx('absolute top-0 left-[22px] w-px bg-line-strong', last ? 'h-[20px]' : 'bottom-0')}></span>
-    <span aria-hidden="true" class="absolute top-[19px] left-[23px] h-px w-[17px] bg-line-strong"></span>
+    <span aria-hidden="true" class={cx('absolute top-0 left-[20px] w-px bg-line-strong', last ? 'h-[20px]' : 'bottom-0')}></span>
+    <span aria-hidden="true" class="absolute top-[19px] left-[21px] h-px w-[19px] bg-line-strong"></span>
   {/if}
 
   <div class={cx('group/row relative size-full rounded-md border transition-colors duration-[var(--dur-fast)]', selected ? 'border-accent/30 bg-accent-wash' : 'border-transparent hover:bg-hover')}>
@@ -61,7 +61,7 @@
       onclick={onselect}
     ></button>
 
-    <div class="pointer-events-none relative flex size-full items-center gap-2.5 pr-2 pl-2.5">
+    <div class="pointer-events-none relative flex size-full items-center gap-2.5 panel-row">
       {#if info}<HarnessBadge {info} size="xs" />{/if}
       <span class="min-w-0 flex-1 truncate text-sm text-fg" aria-hidden="true">{title}</span>
       {#if summary.parentSession && !summary.emptyCopy}<GitFork size={14} class="shrink-0 text-fg-3" aria-label={t('sessions.list.forked')} />{/if}

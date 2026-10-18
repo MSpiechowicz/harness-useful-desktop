@@ -21,7 +21,6 @@ export const config = {
   'config.detail.missingBody': 'The harness has no settings at this path. Settings from this layer will appear once the file exists.',
   'config.detail.treeLabel': '{title} settings',
   'config.detail.secrets': 'Secrets are masked here and never leave the backend.',
-  'config.detail.aside': 'File details',
 
   'config.search.label': 'Search keys and values',
   'config.search.placeholder': 'Search settings',

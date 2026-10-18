@@ -20,13 +20,17 @@
   const open = $derived(runner.phase !== 'idle' && request !== null);
   const name = $derived(request ? (harness.get(request.harness)?.info.name ?? request.harness) : '');
   /** Only these fetch packages; the others just change local state and should not say they download anything. */
-  const DOWNLOADS = new Set(['marketplaceAdd', 'marketplaceUpdate', 'packageInstall', 'packageUpdate', 'pluginInstall', 'pluginUpgrade']);
+  const DOWNLOADS = new Set(['marketplaceAdd', 'packageInstall', 'packageUpdate', 'pluginInstall', 'pluginUpgrade']);
   const downloads = $derived(request !== null && DOWNLOADS.has(request.action.type));
   const projectName = $derived(project.recents.find((entry) => entry.path === request?.project)?.name ?? project.active?.name ?? null);
 
   // The exact command line. Before the run it is the one confirming will start (never the preview's flag); afterwards, the one that ran.
   const ran = $derived(runner.result !== null);
   const command = $derived(((ran ? runner.result?.argv : runner.preview?.command) ?? []).join(' '));
+
+  // The dialog belongs to the Extensions view: leaving the view dismisses it, so coming back never finds an old preview
+  // still waiting for a confirm. A run in progress keeps going (`close` leaves it alone) and shows its outcome on return.
+  $effect(() => () => runner.close());
 
   let logOpen = $state(false);
   $effect(() => {

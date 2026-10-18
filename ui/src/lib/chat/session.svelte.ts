@@ -10,6 +10,7 @@ import type { SessionStats } from '$lib/ipc/bindings/SessionStats';
 import type { UiOutcome } from '$lib/ipc/bindings/UiOutcome';
 import { IpcFailure, type Transport } from '$lib/ipc/transport';
 import type { ToastsStore } from '$lib/stores/toasts.svelte';
+import { Flight } from '$lib/utils/flight';
 
 import { pendingApproval, pendingDialog, type ApprovalPrompt } from './approval';
 import { splitFileNote, toImages, withFileNote } from './attachments';
@@ -98,6 +99,8 @@ export class ChatSession {
   onFirstPrompt: ((session: ChatSession) => void) | null = null;
 
   private incoming: AgentEnvelope[] = [];
+  private readonly rechecking = new Flight();
+  private recheckCount = 0;
   private flushScheduled = false;
   /** Thumbnails of sent messages not yet matched to their transcript item, oldest first. */
   private unmatchedImages: string[][] = [];
@@ -204,15 +207,17 @@ export class ChatSession {
     this.chat = update(this.chat);
   }
 
-  /** Sends an action; failures become a toast and `null`. */
-  async send(action: AgentAction): Promise<AgentReply | null> {
+  /** Sends an action; failures become a toast and `null`. A `quiet` send (a background look) fails silently, also with `null`. */
+  async send(action: AgentAction, { quiet = false } = {}): Promise<AgentReply | null> {
     try {
       const reply = await this.transport.invoke('agent_send', { key: this.key, action });
       this.absorb(reply);
 
       return reply;
     } catch (error) {
-      this.notifications.push({ title: t('chat.toast.notAccepted'), description: IpcFailure.from(error).message, tone: 'danger' });
+      if (!quiet) {
+        this.notifications.push({ title: t('chat.toast.notAccepted'), description: IpcFailure.from(error).message, tone: 'danger' });
+      }
 
       return null;
     }
@@ -340,10 +345,22 @@ export class ChatSession {
     return this.models !== null && this.models.length === 0;
   }
 
-  /** Asks again, after the user connected a provider. */
-  async recheckModels(): Promise<void> {
-    this.models = null;
-    await this.loadModels();
+  /**
+   * Asks again, after the user connected a provider. The old answer stays until the new one arrives, so nothing
+   * flickers. It runs in the background on a timer, so it is silent when it fails and never starts while the previous
+   * ask is still unanswered.
+   */
+  recheckModels(): Promise<void> {
+    return this.rechecking.startUnlessRunning(async () => {
+      this.recheckCount += 1;
+      const mine = this.recheckCount;
+      const reply = await this.send({ type: 'getAvailableModels' }, { quiet: true });
+
+      // An ask that was given up on may answer late: it must not replace what a newer ask found.
+      if (reply?.type === 'models' && mine === this.recheckCount) {
+        this.models = reply.models;
+      }
+    });
   }
 
   async loadModels(): Promise<void> {

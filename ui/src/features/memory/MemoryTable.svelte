@@ -11,6 +11,7 @@
   import { SIDE_PANEL_WIDTH } from '$lib/components/side-panel';
   import Skeleton from '$lib/components/Skeleton.svelte';
   import type { Column, Sort } from '$lib/components/table';
+  import { WIDE_FROM_PX } from '$lib/design/layout';
   import { rise } from '$lib/design/motion';
   import { t } from '$lib/i18n/i18n.svelte';
   import type { MemoryScriptsAvailability } from '$lib/ipc/bindings/MemoryScriptsAvailability';
@@ -97,9 +98,6 @@
     panel,
   }: Props = $props();
 
-  /** The width of the view from which it has room for two columns: the table, and the detail, which is always there. */
-  const WIDE_FROM_PX = 1360;
-
   let width = $state(0);
   let grid: { focusRow: (key: string | number) => void } | undefined = $state();
 
@@ -177,7 +175,7 @@
 
       {#if wide}
         <!-- The detail has its own column, always there: what is chosen swaps in with a short fade, with nothing sliding. -->
-        <div class="relative flex shrink-0 flex-col border-l border-line-strong bg-surface-1" style:width={SIDE_PANEL_WIDTH}>
+        <div class="relative flex shrink-0 flex-col border-l border-panel-edge bg-surface-1" style:width={SIDE_PANEL_WIDTH}>
           {#if openId === null}
             <DetailEmpty icon={EmptyIcon} message={detailEmpty} />
           {:else}

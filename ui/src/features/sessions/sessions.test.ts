@@ -49,7 +49,6 @@ afterEach(async () => {
   nav.go('chat');
   toasts.items = [];
   vi.restoreAllMocks();
-  Reflect.deleteProperty(HTMLElement.prototype, 'clientWidth');
 });
 
 async function showSessions(): Promise<void> {
@@ -199,11 +198,11 @@ describe('session actions', () => {
 });
 
 describe('session details', () => {
-  it('shows the totals, the models and the facts of the session in four cards', async () => {
+  it('shows the totals, the models and the facts of the session in four sections of the details panel', async () => {
     await showSessions();
     await fireEvent.click(sessionButton(ROOT.ref.id));
 
-    const details = await screen.findByRole('complementary', { name: 'Session details' });
+    const details = await screen.findByRole('region', { name: 'Details' });
     await waitFor(() => expect(within(details).getByText(String(STATS?.messages))).toBeInTheDocument());
     await waitFor(() => expect(within(details).getByRole('button', { name: fixtures.sessions.filesTouched[0] })).toBeInTheDocument());
 
@@ -220,22 +219,6 @@ describe('session details', () => {
     expect(within(details).getByText(formatDateTime(STATS?.startedAt ?? 0))).toBeInTheDocument();
     expect(within(details).getByText('19 min')).toBeInTheDocument();
     expect(within(details).getByText('Forks').nextElementSibling).toHaveTextContent('1');
-  });
-
-  it('moves into a sheet behind a Details button when the pane is narrow', async () => {
-    Object.defineProperty(HTMLElement.prototype, 'clientWidth', { configurable: true, get: () => 820 });
-    await showSessions();
-
-    expect(screen.queryByRole('complementary', { name: 'Session details' })).toBeNull();
-
-    await fireEvent.click(screen.getByRole('button', { name: 'Details' }));
-
-    const sheet = await screen.findByRole('dialog', { name: 'Session details' });
-    expect(within(sheet).getByText('Overview')).toBeInTheDocument();
-
-    await fireEvent.keyDown(sheet, { key: 'Escape' });
-
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Session details' })).toBeNull());
   });
 });
 
@@ -381,7 +364,7 @@ describe('in Polish', () => {
     expect((await screen.findAllByRole('button', { name: 'Rozgałęź stąd' })).length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: 'Wznów w czacie' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Więcej działań' })).toBeInTheDocument();
-    expect(await screen.findByRole('complementary', { name: 'Szczegóły sesji' })).toBeInTheDocument();
+    expect(await screen.findByRole('region', { name: 'Szczegóły' })).toBeInTheDocument();
   });
 
   it('counts copies with the Polish plural forms', async () => {

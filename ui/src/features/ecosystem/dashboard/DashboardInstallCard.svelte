@@ -1,7 +1,6 @@
 <script lang="ts">
   import ChartNoAxesColumn from '@lucide/svelte/icons/chart-no-axes-column';
   import ExternalLink from '@lucide/svelte/icons/external-link';
-  import RotateCw from '@lucide/svelte/icons/rotate-cw';
 
   import Button from '$lib/components/Button.svelte';
   import { ICON } from '$lib/components/icon';
@@ -13,11 +12,9 @@
 
   interface Props {
     item: EcosystemItem | undefined;
-    checking: boolean;
-    onrecheck: () => void;
   }
 
-  let { item, checking, onrecheck }: Props = $props();
+  let { item }: Props = $props();
 </script>
 
 <section aria-labelledby="dashboard-install-title" class="flex flex-col gap-5 rounded-lg border border-line bg-surface-1 p-6 shadow-raised">
@@ -35,16 +32,12 @@
     <InstallSteps steps={item.installSteps} product={item.id} />
   {/if}
 
-  <div class="flex flex-wrap items-center gap-2">
-    <Button variant="primary" loading={checking} onclick={onrecheck}>
-      {#snippet leading()}<RotateCw size={ICON.sm} aria-hidden="true" />{/snippet}
-      {t('ecosystem.dashboardInstall.check')}
-    </Button>
-    {#if item}
+  {#if item}
+    <div class="flex flex-wrap items-center gap-2">
       <Button variant="ghost" onclick={() => void openExternal(item.docsUrl)}>
         {#snippet trailing()}<ExternalLink size={ICON.sm} aria-hidden="true" />{/snippet}
         {t('ecosystem.dashboardInstall.docs')}
       </Button>
-    {/if}
-  </div>
+    </div>
+  {/if}
 </section>

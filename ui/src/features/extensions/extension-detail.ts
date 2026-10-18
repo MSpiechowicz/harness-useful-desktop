@@ -5,7 +5,7 @@ import { formatDateTime, relativeTime } from '$lib/utils/format';
 
 import { configStats } from '../config/stats';
 import type { ExtItem } from './extension-items';
-import { agentScope, modeLabel, scopeLabel } from './extension-items';
+import { agentScope, modeLabel, scopeLabel, TABS } from './extension-items';
 
 /** One labelled line of a detail pane. */
 export interface Fact extends FactRow {
@@ -37,6 +37,14 @@ function when(label: string, iso: string | null): Fact | null {
   const date = iso ? formatDateTime(iso) : '';
 
   return iso ? (date ? { label, value: relativeTime(iso), title: date } : { label, value: iso }) : null;
+}
+
+/** The line under an item's title: its kind, then what it is, unless the description card already says that. */
+export function detailSubtitle(entry: ExtItem): string {
+  const kind = TABS.find((def) => def.id === entry.tab)?.singular ?? '';
+  const description = detailBasics(entry).description;
+
+  return entry.subtitle && entry.subtitle !== description ? `${kind} · ${entry.subtitle}` : kind;
 }
 
 /** The description and key facts of an item, independent of how they are rendered. */

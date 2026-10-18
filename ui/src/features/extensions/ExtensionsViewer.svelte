@@ -1,37 +1,42 @@
 <script lang="ts">
-  import { autoRefresh } from '$lib/utils/auto-refresh';
   import Blocks from '@lucide/svelte/icons/blocks';
   import PackageOpen from '@lucide/svelte/icons/package-open';
 
-  import DrawerToggle from '$lib/components/DrawerToggle.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
-  import ListDetail from '$lib/components/ListDetail.svelte';
-  import { PaneDrawer } from '$lib/components/pane-drawer.svelte';
   import NoticeBanner from '$lib/components/NoticeBanner.svelte';
+  import PaneHeader from '$lib/components/PaneHeader.svelte';
   import SearchField from '$lib/components/SearchField.svelte';
   import ViewHeader from '$lib/components/ViewHeader.svelte';
+  import WorkspaceLayout from '$lib/components/WorkspaceLayout.svelte';
+  import WorkspaceToggles from '$lib/components/WorkspaceToggles.svelte';
+  import { WorkspaceState } from '$lib/components/workspace.svelte';
   import { t, tn } from '$lib/i18n/i18n.svelte';
   import { ecosystem } from '$lib/stores/ecosystem.svelte';
   import { harness } from '$lib/stores/harness.svelte';
+  import { EXTENSIONS_POLL_MS } from '$lib/stores/live';
   import { viewState } from '$lib/stores/view-state.svelte';
   import { extensionsView } from '$lib/stores/views.svelte';
+  import { autoRefresh } from '$lib/utils/auto-refresh';
 
   import HarnessGate from '../harness/HarnessGate.svelte';
   import HarnessSwitcher from '../harness/HarnessSwitcher.svelte';
   import { scopeLabel } from '../shell/scope';
   import ActionDialog from './actions/ActionDialog.svelte';
+  import ExtensionMenu from './actions/ExtensionMenu.svelte';
   import ExtensionToolbar from './actions/ExtensionToolbar.svelte';
   import { withCompanionUpdates } from './companion-updates';
+  import ExtensionAside from './ExtensionAside.svelte';
   import ExtensionDetail from './ExtensionDetail.svelte';
   import ExtensionList from './ExtensionList.svelte';
+  import { detailSubtitle } from './extension-detail';
   import { buildGroups, pickItem, revealTarget } from './extension-groups';
   import type { ExtItem } from './extension-items';
 
+  // A read that failed is retried on the retry schedule, a little later each time, instead of at the poll's pace.
   $effect(() =>
-    autoRefresh(() => {
-      void extensionsView.refresh({ quiet: true });
-      void ecosystem.load();
-    }, 5000),
+    autoRefresh(() => Promise.all([extensionsView.refresh({ quiet: true }), ecosystem.load(false, { quiet: true })]), EXTENSIONS_POLL_MS, {
+      failing: extensionsView.status === 'error',
+    }),
   );
 
   // The catalogs OMP keeps are only as new as their last refresh; the companions' GitHub releases add the updates they miss.
@@ -47,12 +52,12 @@
   const selected = $derived(pickItem(groups, viewState.extensionsTab, viewState.extensionsItem));
   const total = $derived(everything.reduce((sum, group) => sum + group.total, 0));
   const target = $derived(selected && !switching ? revealTarget(selected) : null);
-  const drawer = new PaneDrawer();
+  const workspace = new WorkspaceState('extensions', { details: true });
 
   function choose(entry: ExtItem): void {
     viewState.extensionsTab = entry.tab;
     viewState.extensionsItem = entry.id;
-    drawer.close();
+    workspace.drawer.close();
   }
 
   function onSearchKey(event: KeyboardEvent): void {
@@ -68,7 +73,7 @@
   <ViewHeader title={t('extensions.title')} icon={Blocks} context={scopeLabel(view ? tn('extensions.count.item', total) : null)}>
     {#snippet actions()}
       {#if total > 0}
-        <div class="w-[340px] max-[900px]:w-[220px]" inert={switching}>
+        <div class="search-width" inert={switching}>
           <SearchField
             bind:value={viewState.extensionsQuery}
             label={t('extensions.search.label')}
@@ -83,11 +88,14 @@
       <HarnessSwitcher />
 
       <div class="contents" inert={switching}>
-        {#if total > 0}
-          <DrawerToggle {drawer} label={t('extensions.drawer.label')} count={total} />
-        {/if}
+        <ExtensionToolbar />
+      </div>
+    {/snippet}
 
-        <ExtensionToolbar reveal={target} />
+    {#snippet fixed()}
+      <div class="contents" inert={switching}>
+        <WorkspaceToggles {workspace} listLabel={t('extensions.drawer.label')} />
+        <ExtensionMenu reveal={target} />
       </div>
     {/snippet}
   </ViewHeader>
@@ -98,33 +106,53 @@
     <HarnessGate loader={extensionsView} area="extensions">
       {#snippet children(data)}
         {#if data.notices.length > 0}
-          <div class="page-gutter border-b border-line py-3"><NoticeBanner notices={data.notices} /></div>
+          <div class="notice-band border-b border-line py-3"><NoticeBanner notices={data.notices} /></div>
         {/if}
 
-        <div class="mx-auto min-h-0 w-full max-w-[var(--page-wide)] flex-1">
-        {#if total === 0}
-          <div class="grid size-full place-items-center">
-            <EmptyState icon={PackageOpen} title={t('extensions.empty.title')} body={t('extensions.empty.body')} />
-          </div>
-        {:else}
-          <ListDetail label={t('extensions.resize')} scrollKey="extensions:detail" size={288} {drawer} drawerLabel={t('extensions.drawer.label')}>
-            {#snippet list()}
-              {#if groups.length === 0}
-                <p class="px-4 py-6 text-center text-sm text-fg-3" role="status">{t('extensions.search.noMatch', { query })}</p>
-              {:else}
-                <ExtensionList {groups} {selected} searching={query !== ''} onselect={choose} />
-              {/if}
-            {/snippet}
+        <div class="min-h-0 flex-1">
+          {#if total === 0}
+            <div class="grid size-full place-items-center">
+              <EmptyState icon={PackageOpen} title={t('extensions.empty.title')} body={t('extensions.empty.body')} />
+            </div>
+          {:else}
+            {#snippet kindLine()}{selected ? detailSubtitle(selected) : ''}{/snippet}
 
-            {#snippet detail()}
-              {#if selected}
-                {#key `${selected.tab}:${selected.id}`}
-                  <ExtensionDetail entry={selected} />
-                {/key}
-              {/if}
-            {/snippet}
-          </ListDetail>
-        {/if}
+            <WorkspaceLayout
+              {workspace}
+              listLabel={t('extensions.drawer.label')}
+              resizeLabel={t('extensions.resize')}
+              scroll="page"
+              scrollKey={selected ? `extensions:detail:${selected.tab}:${selected.id}` : 'extensions:detail'}
+              detailsSubtitle={selected?.title}
+              detailsEmpty={selected ? undefined : { icon: Blocks, message: t('extensions.detail.empty') }}
+            >
+              {#snippet list()}
+                {#if groups.length === 0}
+                  <p class="px-4 py-6 text-center text-sm text-fg-3" role="status">{t('extensions.search.noMatch', { query })}</p>
+                {:else}
+                  <ExtensionList {groups} {selected} searching={query !== ''} onselect={choose} />
+                {/if}
+              {/snippet}
+
+              {#snippet header()}
+                {#if selected}<PaneHeader title={selected.title} titleId="extension-title" subtitle={kindLine} />{/if}
+              {/snippet}
+
+              {#snippet main()}
+                {#if selected}
+                  {#key `${selected.tab}:${selected.id}`}
+                    <ExtensionDetail entry={selected} />
+                  {/key}
+                {/if}
+              {/snippet}
+
+              {#snippet details()}
+                {#if selected}
+                  <ExtensionAside entry={selected} />
+                {/if}
+              {/snippet}
+            </WorkspaceLayout>
+          {/if}
         </div>
       {/snippet}
     </HarnessGate>

@@ -142,7 +142,10 @@ export const settings = {
     'When you open Ecosystem, ask GitHub for the latest Harness Dashboard, Skills, Memory and Sidebar releases, at most every six hours while the app runs. GitHub sees your IP address and the app version, not which Harness family tools you have.',
   'settings.updates.extensions.title': 'Update extensions automatically',
   'settings.updates.extensions.description':
-    'Every ten minutes the app refreshes the marketplaces and installs new versions of your harness\'s plugins and packages, with a message when it does. It also updates the Harness family members you installed (Harness Memory and Harness Dashboard) by running their official installers. Off: update by hand from Extensions and Ecosystem.',
+    'The app installs new plugin and package versions for your harnesses every ten minutes, with a message when it does. It also updates the Harness family members you installed (Harness Memory and Harness Dashboard) by running their official installers, and refreshes the catalogs it needs first. Off: update by hand from Extensions and Ecosystem.',
+  'settings.updates.catalogs.title': 'Refresh catalogs automatically',
+  'settings.updates.catalogs.description':
+    'The app re-reads the marketplace catalogs of your harnesses about thirty seconds after it starts, then every thirty minutes. Off: the catalogs stay as they are and the app makes no catalog requests of its own, unless installing updates is on, which reads them on the same schedule.',
   'settings.updates.notConfigured': 'This build is not set up for updates, so it will not look for new versions. Nothing is wrong. Get new versions from the releases page.',
   'settings.updates.openReleases': 'Open releases',
   'settings.updates.retry': 'Try again',

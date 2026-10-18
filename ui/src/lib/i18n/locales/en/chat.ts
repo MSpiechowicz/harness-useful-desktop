@@ -73,8 +73,8 @@ export const chat = {
   'chat.view.restoring': 'Reopening your chats…',
   'chat.view.startingProject': 'Project folder: {project}',
   'chat.noModels.title': '{harness} has no model to use',
-  'chat.noModels.body': "No model provider is connected, for example OpenAI, Anthropic or Google. Connect one in {harness}'s own setup, then check again.",
-  'chat.noModels.action': 'Check again',
+  'chat.noModels.body':
+    'No model provider is connected, for example OpenAI, Anthropic or Google. Connect one in {harness}\'s own setup and this chat picks it up by itself.',
   'chat.harness.busy.title': 'Wait for the answer',
   'chat.harness.busy.description': 'Let the chat finish (or stop it) before switching harness.',
   'chat.harness.label': 'Harness',

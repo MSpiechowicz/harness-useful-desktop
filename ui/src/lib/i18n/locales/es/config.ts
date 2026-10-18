@@ -24,7 +24,6 @@ export const config: AreaMessages<typeof enConfig> = {
   'config.detail.missingBody': 'El harness no tiene ajustes en esta ruta. Los ajustes de esta capa aparecerán cuando exista el archivo.',
   'config.detail.treeLabel': 'Ajustes de {title}',
   'config.detail.secrets': 'Los secretos se ocultan aquí y nunca salen del backend.',
-  'config.detail.aside': 'Detalles del archivo',
 
   'config.search.label': 'Buscar claves y valores',
   'config.search.placeholder': 'Buscar ajustes',

@@ -24,7 +24,6 @@ export const config: AreaMessages<typeof enConfig> = {
   'config.detail.missingBody': 'Harness nie ma ustawień pod tą ścieżką. Ustawienia tej warstwy pojawią się, gdy plik zacznie istnieć.',
   'config.detail.treeLabel': 'Ustawienia: {title}',
   'config.detail.secrets': 'Sekrety są tu ukryte i nigdy nie opuszczają backendu.',
-  'config.detail.aside': 'Szczegóły pliku',
 
   'config.search.label': 'Szukaj w kluczach i wartościach',
   'config.search.placeholder': 'Szukaj w ustawieniach',

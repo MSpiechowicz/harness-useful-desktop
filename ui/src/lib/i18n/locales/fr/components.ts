@@ -122,7 +122,6 @@ export const components: AreaMessages<typeof enComponents> = {
   'components.project.missing': 'Introuvable',
   'components.project.open': 'Ouvert',
 
-  'components.refresh': 'Actualiser',
   'components.filter.placeholder': 'Filtrer…',
   'components.filter.clear': 'Effacer le filtre',
 
@@ -145,5 +144,7 @@ export const components: AreaMessages<typeof enComponents> = {
   'components.pagination.next': 'Suivant',
   'components.pagination.page': 'Page {page}',
   'components.panel.close': 'Fermer',
+  'components.workspace.details': 'Détails',
+  'components.workspace.layout': 'Disposition',
   'components.table.resize': 'Redimensionner la colonne {column}',
 };

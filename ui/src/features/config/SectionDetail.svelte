@@ -5,9 +5,9 @@
   import { ICON } from '$lib/components/icon';
   import { t } from '$lib/i18n/i18n.svelte';
   import type { ConfigSection } from '$lib/ipc/bindings/ConfigSection';
+  import { cx } from '$lib/utils/cx';
 
   import type { ConfigMode } from './config-mode.svelte';
-  import SectionAside from './SectionAside.svelte';
   import SourceView from './SourceView.svelte';
   import StructuredView from './StructuredView.svelte';
 
@@ -19,9 +19,11 @@
     profiles?: { names: string[]; hint: string | null };
     /** Out: how many foldable rows of the content are open, so the top bar's menu can collapse or expand them. */
     openCount?: number;
+    /** The content takes the height of the centre and scrolls itself (the source) instead of flowing in the page. */
+    fill?: boolean;
   }
 
-  let { section, query = '', mode, profiles = { names: [], hint: null }, openCount = $bindable(0) }: Props = $props();
+  let { section, query = '', mode, profiles = { names: [], hint: null }, openCount = $bindable(0), fill = false }: Props = $props();
 
   let structured: StructuredView | undefined = $state();
   let source: SourceView | undefined = $state();
@@ -41,40 +43,30 @@
   }
 </script>
 
-<!-- Title and content on the left, the file's facts in a column of cards on the right; the column stays beside the content at every width. -->
-<article class="flex h-full flex-row" aria-labelledby="section-title">
-  <div class="flex min-h-0 min-w-0 flex-1 flex-col">
-    <header class="shrink-0 border-b border-line px-5 pt-4 pb-3">
-      <h2 id="section-title" class="truncate text-lg leading-6 font-semibold text-fg">{section.title}</h2>
-      <p class="mt-0.5 truncate text-xs text-fg-3" title={section.source.path}>
-        {#if section.description}{section.description} · {/if}<code class="font-mono">{section.source.path}</code>
-      </p>
-    </header>
-
-    <div class="min-h-0 flex-1 overflow-y-auto px-5 pt-3 pb-6">
-      {#if section.error}
-        <div class="mt-3 flex items-start gap-3 rounded-md border border-line bg-danger-wash p-4 text-sm text-fg" role="alert">
-          <CircleAlert class="mt-0.5 shrink-0 text-danger" size={ICON.sm} aria-hidden="true" />
-          <div class="flex flex-col gap-1">
-            <p class="font-medium">{t('config.detail.readError')}</p>
-            <p class="text-fg-2">{section.error}</p>
-          </div>
+<!-- The file's content. The title is the header of the view (`WorkspaceLayout` puts it above this). In the page the content flows and
+     the page scrolls. With `fill` the content scrolls itself, and the article keeps the gutter and rhythm the page would have given it. -->
+<article class={cx('flex flex-col', fill && 'page-gutter size-full min-h-0 py-6')} aria-labelledby="section-title">
+  <div class={cx(fill && 'min-h-0 flex-1')}>
+    {#if section.error}
+      <div class="mt-3 flex items-start gap-3 rounded-md border border-line bg-danger-wash p-4 text-sm text-fg" role="alert">
+        <CircleAlert class="mt-0.5 shrink-0 text-danger" size={ICON.sm} aria-hidden="true" />
+        <div class="flex flex-col gap-1">
+          <p class="font-medium">{t('config.detail.readError')}</p>
+          <p class="text-fg-2">{section.error}</p>
         </div>
-      {:else if !section.source.exists}
-        <div class="mt-3 flex items-start gap-3 rounded-md border border-line bg-surface-1 p-4 text-sm" role="status">
-          <FileQuestion class="mt-0.5 shrink-0 text-fg-3" size={ICON.sm} aria-hidden="true" />
-          <div class="flex flex-col gap-1">
-            <p class="font-medium text-fg">{t('config.detail.missingTitle')}</p>
-            <p class="text-fg-2">{t('config.detail.missingBody')}</p>
-          </div>
+      </div>
+    {:else if !section.source.exists}
+      <div class="mt-3 flex items-start gap-3 rounded-md border border-line bg-surface-1 p-4 text-sm" role="status">
+        <FileQuestion class="mt-0.5 shrink-0 text-fg-3" size={ICON.sm} aria-hidden="true" />
+        <div class="flex flex-col gap-1">
+          <p class="font-medium text-fg">{t('config.detail.missingTitle')}</p>
+          <p class="text-fg-2">{t('config.detail.missingBody')}</p>
         </div>
-      {:else if mode === 'source'}
-        <SourceView bind:this={source} bind:openCount fields={section.entries} {query} format={section.source.format} label={t('config.detail.treeLabel', { title: section.title })} />
-      {:else}
-        <StructuredView bind:this={structured} bind:openCount fields={section.entries} {query} format={section.source.format} label={t('config.detail.treeLabel', { title: section.title })} />
-      {/if}
-    </div>
+      </div>
+    {:else if mode === 'source'}
+      <SourceView bind:this={source} bind:openCount fields={section.entries} {query} format={section.source.format} label={t('config.detail.treeLabel', { title: section.title })} />
+    {:else}
+      <StructuredView bind:this={structured} bind:openCount fields={section.entries} {query} format={section.source.format} label={t('config.detail.treeLabel', { title: section.title })} />
+    {/if}
   </div>
-
-  <SectionAside {section} {profiles} class="w-[280px] shrink-0 overflow-y-auto border-l border-line" />
 </article>

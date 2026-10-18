@@ -53,7 +53,7 @@ describe('Changes view', () => {
     expect(screen.getByText(git.status!.branch!)).toBeInTheDocument();
     expect(screen.queryByTestId('file-list')).toBeNull();
     expect(screen.queryByRole('searchbox')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Refresh changes' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /refresh/i })).toBeNull();
   });
 
   it('lists the changed files under Unstaged, Staged and Untracked headings', async () => {

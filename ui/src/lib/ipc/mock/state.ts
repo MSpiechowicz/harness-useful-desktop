@@ -13,6 +13,9 @@ const PICKABLE_FOLDERS: ProjectInfo[] = [
 
 const MAX_RECENT = 12;
 
+/** How long after start a preview opened with `?drift` changes by itself. */
+export const DRIFT_AFTER_MS = 25_000;
+
 /** The preferences of a first launch: what the mock backend starts from and what tests build their samples on. */
 export function defaultPrefs(): AppPrefs {
   return {
@@ -30,6 +33,7 @@ export function defaultPrefs(): AppPrefs {
     updatePolicy: 'startupAsk',
     checkCompanionUpdates: true,
     autoUpdateExtensions: true,
+    autoRefreshCatalogs: true,
     openAnyLink: false,
     aiChatNames: false,
     language: 'en',
@@ -64,6 +68,17 @@ export class MockState {
   discardedFiles = new Set<string>();
 
   private pickable: ProjectInfo[] = structuredClone(PICKABLE_FOLDERS);
+  private readonly bornAt = Date.now();
+
+  /**
+   * Dev preview only: open the app with `?drift` (`bun run dev:mock`, then add it to the address) and, after
+   * `DRIFT_AFTER_MS`, the project changes as if somebody worked in a terminal: a changed file is committed (the
+   * count in the rail drops) and a new session appears. It shows the views keeping themselves current. Never true
+   * in tests or in a build without the mock.
+   */
+  drifted(): boolean {
+    return import.meta.env.MODE === 'mock' && new URLSearchParams(window.location.search).has('drift') && Date.now() - this.bornAt >= DRIFT_AFTER_MS;
+  }
 
   /** Preferences as the real backend returns them: stored UI fields plus the server-managed ones. */
   snapshot(): AppPrefs {

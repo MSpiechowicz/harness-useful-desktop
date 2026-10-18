@@ -1,5 +1,6 @@
 import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
 import { IpcFailure } from '$lib/ipc/transport';
+import { untilStale } from '$lib/utils/flight';
 
 export type ViewStatus = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -19,6 +20,9 @@ export class ViewLoader<T, K extends string = HarnessId> {
   private key: string | null = null;
   private target: { harness: K; project: string | null } | null = null;
   private generation = 0;
+  /** The read that is showing the loading state (a first load, a switch, Try again), until it ends. */
+  private loading: Promise<void> | null = null;
+  private loadingGeneration = 0;
 
   constructor(private readonly fetcher: Fetcher<T, K>) {}
 
@@ -42,7 +46,9 @@ export class ViewLoader<T, K extends string = HarnessId> {
 
   /**
    * Re-fetches the current pair; resolves once the new data (or the error) is in place. A `quiet` refresh runs in the
-   * background: no loading state, and a failure keeps what is shown.
+   * background: no loading state, a failure keeps what is shown, and data identical to what is shown is not replaced.
+   * It never replaces a read that is showing the loading state: it reads once that one has ended, so a first load is
+   * not stranded on its loading state by a background read that failed.
    */
   refresh({ quiet = false } = {}): Promise<void> {
     return this.target ? this.run(quiet) : Promise.resolve();
@@ -61,6 +67,7 @@ export class ViewLoader<T, K extends string = HarnessId> {
 
   private reset(): void {
     this.generation += 1;
+    this.loading = null;
     this.key = null;
     this.target = null;
     this.data = null;
@@ -68,7 +75,36 @@ export class ViewLoader<T, K extends string = HarnessId> {
     this.status = 'idle';
   }
 
-  private async run(quiet = false): Promise<void> {
+  private run(quiet = false): Promise<void> {
+    if (!this.target) {
+      return Promise.resolve();
+    }
+
+    // A background read waits for the read that is loading, instead of replacing it: its failure would leave the loading state on for good.
+    if (quiet) {
+      return this.loading ? this.readWhenLoaded(this.loading) : this.read(true);
+    }
+
+    this.loading = this.read(false);
+
+    return this.loading;
+  }
+
+  /** Reads once the loading read has ended, or has not answered for too long (then it is given up on). */
+  private async readWhenLoaded(loading: Promise<void>): Promise<void> {
+    await untilStale(loading);
+
+    // A newer load took over while this one waited: its answer is the one to show, and a read now would discard it.
+    if (this.loading !== null && this.loading !== loading) {
+      return;
+    }
+
+    this.loading = null;
+
+    return this.read(true);
+  }
+
+  private async read(quiet: boolean): Promise<void> {
     const target = this.target;
     if (!target) {
       return;
@@ -78,21 +114,31 @@ export class ViewLoader<T, K extends string = HarnessId> {
     const mine = this.generation;
     if (!quiet) {
       this.status = 'loading';
+      this.loadingGeneration = mine;
     }
 
     try {
       const data = await this.fetcher(target.harness, target.project);
 
       if (mine === this.generation) {
-        this.data = data;
+        // A background read that found the same thing keeps the data on screen, so nothing re-renders and no scroll or selection moves.
+        if (!quiet || JSON.stringify(data) !== JSON.stringify(this.data)) {
+          this.data = data;
+        }
+
         this.error = null;
         this.status = 'ready';
       }
     } catch (error) {
-      if (mine === this.generation && !quiet) {
+      // A background read that fails keeps what is shown, but with nothing shown the failure is the page.
+      if (mine === this.generation && (!quiet || this.data === null)) {
         this.data = null;
         this.error = IpcFailure.from(error);
         this.status = 'error';
+      }
+    } finally {
+      if (!quiet && this.loadingGeneration === mine) {
+        this.loading = null;
       }
     }
   }

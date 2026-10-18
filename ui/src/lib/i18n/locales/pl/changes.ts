@@ -19,7 +19,6 @@ export const changes: AreaMessages<typeof enChanges> = {
   'changes.empty.clean': 'Katalog roboczy jest czysty.',
   'changes.empty.clean.title': 'Nic do przejrzenia',
   'changes.empty.clean.body': 'Wszystko jest zatwierdzone. Nowe zmiany pojawią się tutaj od razu.',
-  'changes.refresh': 'Odśwież zmiany',
   'changes.empty.unstaged': 'Brak niezindeksowanych zmian.',
   'changes.empty.staged': 'Brak zindeksowanych zmian.',
   'changes.empty.untracked': 'Brak nieśledzonych zmian.',

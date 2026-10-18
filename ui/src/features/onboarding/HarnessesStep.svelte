@@ -1,11 +1,10 @@
 <script lang="ts">
-  import RotateCw from '@lucide/svelte/icons/rotate-cw';
-
-  import Button from '$lib/components/Button.svelte';
   import Skeleton from '$lib/components/Skeleton.svelte';
   import StatusDot from '$lib/components/StatusDot.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
   import { harness } from '$lib/stores/harness.svelte';
+  import { HARNESS_SETUP_POLL_MS } from '$lib/stores/live';
+  import { autoRefresh } from '$lib/utils/auto-refresh';
   import { cx } from '$lib/utils/cx';
   import { rovingIndex } from '$lib/utils/roving';
 
@@ -21,6 +20,9 @@
    * empty third column folds away), fewer as the window narrows. The cards share its rows (see HarnessCard).
    */
   const CARD_GRID = 'grid grid-cols-[repeat(auto-fit,minmax(16rem,1fr))] gap-x-4 gap-y-4';
+
+  // A harness installed in a terminal while this step is open turns up on its own.
+  $effect(() => autoRefresh(() => void harness.rescan(), HARNESS_SETUP_POLL_MS));
 
   // Arrow keys move the daily-driver choice between installed harnesses, like a native radio group.
   function onKeydown(event: KeyboardEvent): void {
@@ -53,8 +55,8 @@
       {t('onboarding.harnesses.error', { message: harness.error?.message })}
     </p>
   {:else}
-    <!-- What the scan found, in a strip as wide as the cards below it, with the way to scan again at its end. -->
-    <div class="-mb-1.5 flex items-center justify-between gap-3 rounded-lg border border-line bg-glass px-4 py-2">
+    <!-- What the scan found, in a strip as wide as the cards below it. -->
+    <div class="-mb-1.5 flex items-center gap-3 rounded-lg border border-line bg-glass px-4 py-2">
       <p class="flex min-w-0 items-center gap-2.5 text-sm text-fg-2" role="status">
         <StatusDot tone={installed.length === 0 ? 'warning' : installed.length === harness.summaries.length ? 'success' : 'accent'} beforeText />
         {#if installed.length === 0}
@@ -63,10 +65,6 @@
           {t('onboarding.harnesses.found', { found: installed.length, total: harness.summaries.length })}
         {/if}
       </p>
-      <Button loading={harness.scanning} onclick={() => void harness.rescan()}>
-        {#snippet leading()}<RotateCw size={16} aria-hidden="true" />{/snippet}
-        {t('onboarding.harnesses.rescan')}
-      </Button>
     </div>
 
     <!-- Arrow keys are a convenience on top of the radio buttons, which are individually focusable. -->

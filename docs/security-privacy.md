@@ -80,6 +80,7 @@ itself, and only after consent. Enumerated:
 | Companion release lookup | When the Ecosystem view loads or is refreshed, at most once per companion every 6 hours while the app runs (the cache is in memory, so a restart asks again; failed lookups, including rate limits, retry after 5 minutes), and only while **Check companions for updates** (`checkCompanionUpdates` in prefs, on by default) is on. A prefs file that exists but cannot be read counts as off. | Four fixed URLs, `https://api.github.com/repos/MSpiechowicz/harness-useful-{dashboard,memory,skills,sidebar}/releases/latest`, HTTPS only, with timeouts and a capped response. Only `tag_name` is read. The request carries a `User-Agent` (`harness-desktop/<version>`) and an `Accept` header and nothing else: no token, no cookies, no referer, no installed versions or other local data. While at least one companion is installed, all four are requested, so the request set does not reveal which ones (with none installed, nothing is requested); GitHub sees the IP address, the app version and when Ecosystem was opened. The comparison with the installed version happens on this machine (`ecosystem_releases`). Redirects are followed only to `https://api.github.com` on port 443. System proxy settings apply, as for the updater. A failed lookup only means no update badge. |
 | Dashboard installer download | Only when the user confirms **Install the dashboard** in Recommended setup (onboarding, or **Run recommended setup** in Ecosystem), or, for an already installed dashboard with a newer release, without asking each time while **Update extensions automatically** (`autoUpdateExtensions`, on by default) and **Check companions for updates** are on | The app opens no connection itself. The installer command it runs (a `curl` of `install.sh` piped to `sh` on Linux and macOS, `irm` of `install.ps1` piped to `iex` on Windows) fetches the script from `https://raw.githubusercontent.com/MSpiechowicz/harness-useful-dashboard/main/` and then whatever that script downloads, the dashboard release. GitHub sees the IP address and the request. See [Process spawning](#process-spawning). |
 | Memory server installer download | Only when the user confirms the install of Harness Memory (Recommended setup, or the **Project memory** switch in Settings), or, for an already installed server with a newer release, without asking each time under the same two switches as the dashboard | The same as the dashboard installer, from `https://raw.githubusercontent.com/MSpiechowicz/harness-useful-memory/main/` and then the `harness-memory` release it names; its `install.sh` and `install.ps1` verify the release's `checksums.txt`. |
+| Extension catalog refresh | While **Refresh catalogs automatically** (`autoRefreshCatalogs`, on by default) is on: the first look 30 s after start, then every 30 minutes. With **Update extensions automatically** on, the catalogs are refreshed on the same schedule even with this switch off, never more often than every 30 minutes (see below). | The app opens no connection itself. For each OMP catalog it runs `omp plugin marketplace update <name>`, and OMP clones or fetches that catalog's repository from the git or `https` URL it was added with: hosts you chose when adding the catalog (GitHub for the Harness Skills). The host sees the IP address and the request. |
 | Opening a link | Only when the user clicks one | `open_external` hands an allowlisted `https` URL (any `https` URL, or `http` to localhost, with **Open any web link** on) to the OS browser. The app itself does not fetch it. |
 
 - **AI chat names** (`aiChatNames`, off by default). When on, after the first message of a new chat the app starts one
@@ -87,11 +88,27 @@ itself, and only after consent. Enumerated:
   stopped right after the reply), on the chat's model, and sends it the first 500 characters of that message with a
   fixed instruction. The app opens no connection itself; the request goes through the harness exactly as your own chat
   does, and costs one very small request per chat. Without it, names come from the first message locally.
-- **Automatic extension updates** (`autoUpdateExtensions`, on by default). While on, every ten minutes the app runs the
-  active harness's own CLI (`omp plugin marketplace update`, `omp plugin upgrade`, `pi update --extensions`) through the
-  same `extension_action` command and validation as the buttons in Extensions, and shows a toast before it installs
-  anything. The app opens no connection itself; the CLI fetches from the marketplaces, npm and git sources you already
-  configured. Off: nothing runs until you press an update button.
+- **Refresh catalogs automatically** (`autoRefreshCatalogs`, on by default). While on, the app refreshes the extension
+  catalogs (the OMP marketplace lists) of every installed harness that has them, 30 s after start and then every 30
+  minutes, one catalog at a time (`omp plugin marketplace update <name>`), so Extensions shows current versions. OMP
+  clones or fetches each catalog repository from its git or `https` URL. The refresh installs nothing. Off: no catalog
+  request runs on this schedule.
+- **Update extensions automatically** (`autoUpdateExtensions`, on by default). While on, the app looks at every
+  installed harness 30 s after start and then every ten minutes. It reads the catalogs first, whatever the refresh
+  switch says, since the catalogs are what reveal upgrades, but in every combination of the two switches a catalog is
+  refreshed at most every 30 minutes, the first time about 30 s after start. It then installs the plugin upgrades
+  they reveal (`omp plugin upgrade`, after a toast that names them) and, at most once an hour, updates packages
+  (`pi update --extensions`). Everything runs through the same `extension_action` command and validation as the buttons
+  in Extensions. The app opens no connection itself; the CLI fetches from the marketplaces, npm and git sources you
+  already configured.
+- With both switches off, nothing runs until you press an update button.
+- A prefs file from before `autoRefreshCatalogs` existed takes its value from `autoUpdateExtensions`, so turning
+  automatic updates off also keeps background catalog traffic off after upgrading. A fresh install (no prefs file)
+  starts with both on.
+- A prefs file that exists but cannot be used (corrupt, unreadable, or moved aside as corrupt) turns both switches off
+  until you turn them on again. `prefs_get` reports them off without writing anything, so the extension updater and
+  the dashboard and memory server updates stay idle, and a later save, of any setting or by the app, stores them off
+  (`unusable_defaults`, `business/src/prefs/store.rs`).
 
 Everything else:
 
@@ -861,10 +878,10 @@ Details of keys and releases: [release-and-updater-keys.md](release-and-updater-
 | Exported setup | A path you choose in the native save dialog (suggested `harness-setup-<date>.json`) | The share file of [Shared setups](#shared-setups): references and key names, no env or header values. Written atomically, only on Save. Not app data; the app never reads it back unless you import it. |
 | Log files | The OS log directory | See [Logging](#logging). Rotated at 1 MiB, 3 files kept. |
 
-`AppPrefs` (`business/src/model/prefs.rs`) has twenty-two fields and never holds secrets or chat content:
+`AppPrefs` (`business/src/model/prefs.rs`) has twenty-three fields and never holds secrets or chat content:
 `version`, `theme`, `motion`, `language` (`en`, `de`, `es`, `fr` or `pl`; anything else loads as `en`), `introEnabled`,
 `soundEnabled`, `showThinking`, `showMessageUsage`, `defaultHarness`, `activeProject`, `rememberRecentProjects`, `recentProjects` (12 at
-most), `updatePolicy`, `checkCompanionUpdates`, `autoUpdateExtensions`, `openAnyLink`, `aiChatNames`, `onboardingCompleted`, `approvalNoticeSeen`,
+most), `updatePolicy`, `checkCompanionUpdates`, `autoUpdateExtensions`, `autoRefreshCatalogs`, `openAnyLink`, `aiChatNames`, `onboardingCompleted`, `approvalNoticeSeen`,
 `binaryOverrides`, `chatDefaults` and `memoryEnabled` (project memory, on by default).
 
 **Server-managed fields** (`business/src/prefs/managed.rs`): `activeProject`, `recentProjects`, `binaryOverrides`
@@ -872,8 +889,8 @@ and `memoryEnabled` decide which directories are read, which programs run and wh
 Rust changes them: through the native pickers and the project and harness commands, and `memoryEnabled` through
 `memory_set_enabled`, which also adds or removes the `harness-memory` entries. `prefs_set` stores the UI-managed fields only (`theme`, `motion`, `language`,
 `introEnabled`, `soundEnabled`, `showThinking`, `showMessageUsage`, `defaultHarness`, `rememberRecentProjects`,
-`updatePolicy`, `checkCompanionUpdates`, `autoUpdateExtensions`, `openAnyLink`, `aiChatNames`, `onboardingCompleted`,
-`approvalNoticeSeen`, `chatDefaults`) and keeps the
+`updatePolicy`, `checkCompanionUpdates`, `autoUpdateExtensions`, `autoRefreshCatalogs`, `openAnyLink`, `aiChatNames`,
+`onboardingCompleted`, `approvalNoticeSeen`, `chatDefaults`) and keeps the
 rest as stored. The exhaustive destructuring in `with_ui_fields` makes a new field fail to compile until it is
 classified. Turning off `rememberRecentProjects` clears the recent list.
 

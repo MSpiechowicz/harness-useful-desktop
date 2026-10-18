@@ -24,7 +24,6 @@ export const config: AreaMessages<typeof enConfig> = {
   'config.detail.missingBody': 'Das Harness hat unter diesem Pfad keine Einstellungen. Einstellungen dieser Ebene erscheinen, sobald die Datei existiert.',
   'config.detail.treeLabel': 'Einstellungen von {title}',
   'config.detail.secrets': 'Geheimnisse werden hier maskiert und verlassen nie das Backend.',
-  'config.detail.aside': 'Dateidetails',
 
   'config.search.label': 'Schlüssel und Werte durchsuchen',
   'config.search.placeholder': 'Einstellungen durchsuchen',

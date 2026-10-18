@@ -17,6 +17,7 @@
 
   --color-line: var(--border);
   --color-line-strong: var(--border-strong);
+  --color-panel-edge: var(--panel-edge);
   --color-hover: var(--hover-wash);
   --color-press: var(--press-wash);
 
@@ -189,8 +190,96 @@
   padding-inline: var(--gutter);
 }
 
+/* The header band of a pane: the same height in every pane of a view, so the lines under them are one line. */
+@utility pane-header {
+  box-sizing: border-box;
+  height: var(--pane-header-h);
+  flex-shrink: 0;
+}
+
+/*
+ * The strip of notices above a workspace view. The root font is 14px, so the banner's own 1.25rem line is 17.5px and
+ * the view under it would start on a half pixel, which blurs every 1px line in it. Here the line is a whole pixel.
+ */
+@utility notice-band {
+  padding-inline: var(--gutter);
+
+  & [role='status'],
+  & [role='alert'] {
+    line-height: var(--notice-line);
+  }
+}
+
+/* A pane header's title and the line under it: one column, the gap from a token. */
+@utility pane-titles {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pane-header-gap);
+  min-width: 0;
+}
+
+/*
+ * A line of text in a pane header, trimmed to its glyphs so the band centres what is seen, not the line box with its
+ * leading: `pane-text` from the cap height down to the baseline (the title, whose descenders hang free), `pane-subtext` down to
+ * the descender line (the last line of the band, whose descenders count as ink next to the border). The padding gives back
+ * room for descenders and accents, which a truncating line would clip at the trimmed edge, and the equal negative margin takes
+ * that room out of the layout.
+ */
+@utility pane-text {
+  text-box: trim-both cap alphabetic;
+  padding-block: 0.3em;
+  margin-block: -0.3em;
+}
+
+@utility pane-subtext {
+  text-box: trim-both cap text;
+  padding-block: 0.3em;
+  margin-block: -0.3em;
+}
+
+/* Side panel padding, from the tokens: the text starts `--panel-pad-x` from the panel edge whatever the row looks like. */
+@utility panel-pad {
+  padding-inline: var(--panel-pad-x);
+}
+
+/* The wrapper of highlighted rows and headings: the highlight sits this far in from the panel edge. */
+@utility panel-inset {
+  padding-inline: var(--panel-row-inset);
+}
+
+/* Inside such a wrapper, a heading (no border) or a row with a 1px border: padding that brings its text to `--panel-pad-x`. */
+@utility panel-heading {
+  padding-inline: calc(var(--panel-pad-x) - var(--panel-row-inset));
+}
+
+@utility panel-row {
+  padding-inline: calc(var(--panel-pad-x) - var(--panel-row-inset) - 1px);
+}
+
+/* The header of a side panel: the title on the pad, and a close button on the right whose glyph is on the pad too. */
+@utility panel-header-inset {
+  padding-left: var(--panel-pad-x);
+  padding-right: calc(var(--panel-pad-x) - var(--panel-close-inset));
+}
+
 @utility page-gutter {
   padding-inline: var(--gutter);
+}
+
+/*
+ * The width of the search field in a view header, the same in every view. It goes compact below the window width where
+ * the list of a workspace view moves into a drawer (DRAWER_BELOW_PX in lib/design/layout.ts, 1100), because that is where
+ * the header also gains the list and details toggles. It is the window, not the view, that the header has to fit.
+ * It may shrink below this width, so a crowded header takes room from the search before it takes it from the title.
+ */
+@utility search-width {
+  width: var(--search-field);
+  min-width: var(--search-field-min);
+  flex-shrink: 1;
+
+  @media (max-width: 1099.98px) {
+    width: var(--search-field-compact);
+  }
 }
 
 /* The chat measure: messages and the composer share one column. */

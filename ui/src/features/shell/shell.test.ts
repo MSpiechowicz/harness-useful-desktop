@@ -1,6 +1,8 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { WorkspaceState } from '$lib/components/workspace.svelte';
+import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 import { harness } from '$lib/stores/harness.svelte';
 import { nav } from '$lib/stores/nav.svelte';
 import { prefs } from '$lib/stores/prefs.svelte';
@@ -41,7 +43,7 @@ describe('keyboard shortcuts overlay', () => {
 
     const overlay = await screen.findByRole('dialog', { name: 'Keyboard shortcuts' });
     const groups = within(overlay).getByTestId('shortcut-groups');
-    const registered = globalShortcuts({ togglePalette() {}, openShortcuts() {}, goBack() {}, goForward() {}, newChat() {}, jumpToChat() {}, cycleChat() {}, toggleRail() {}, togglePane() {}, goTo() {} });
+    const registered = globalShortcuts({ togglePalette() {}, openShortcuts() {}, goBack() {}, goForward() {}, newChat() {}, jumpToChat() {}, cycleChat() {}, toggleRail() {}, toggleList() {}, toggleDetails() {}, goTo() {} });
 
     for (const shortcut of registered) {
       expect(within(groups).getByText(shortcut.label)).toBeInTheDocument();
@@ -70,11 +72,116 @@ describe('keyboard shortcuts overlay', () => {
   });
 
   it('groups the shell shortcuts under their areas', () => {
-    const groups = shortcutGroups(globalShortcuts({ togglePalette() {}, openShortcuts() {}, goBack() {}, goForward() {}, newChat() {}, jumpToChat() {}, cycleChat() {}, toggleRail() {}, togglePane() {}, goTo() {} }));
+    const groups = shortcutGroups(globalShortcuts({ togglePalette() {}, openShortcuts() {}, goBack() {}, goForward() {}, newChat() {}, jumpToChat() {}, cycleChat() {}, toggleRail() {}, toggleList() {}, toggleDetails() {}, goTo() {} }));
     const goTo = groups.find((group) => group.area === 'Go to');
 
     expect(goTo?.rows.map((row) => row.label)).toEqual(expect.arrayContaining(VIEWS.map((view) => view.label)));
     expect(goTo?.rows.find((row) => row.label === 'Settings')?.combos).toEqual(['mod+9', 'mod+,']);
+  });
+});
+
+describe('the list and details shortcuts', () => {
+  const noop = { togglePalette() {}, openShortcuts() {}, goBack() {}, goForward() {}, newChat() {}, jumpToChat() {}, cycleChat() {}, toggleRail() {}, goTo() {} };
+
+  it('puts the list on Ctrl+[ (Ctrl+Shift+B still works) and the details on Ctrl+]', () => {
+    const registered = globalShortcuts({ ...noop, toggleList() {}, toggleDetails() {} });
+
+    expect(registered.find((shortcut) => shortcut.id === 'toggle-list')).toMatchObject({ combo: 'mod+[', also: ['mod+shift+b'] });
+    expect(registered.find((shortcut) => shortcut.id === 'toggle-details')).toMatchObject({ combo: 'mod+]' });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    document.querySelectorAll('[data-test-extra]').forEach((node) => node.remove());
+  });
+
+  /** A text field outside the shell, focused, that the test's keys are sent from. */
+  function focusedField(): HTMLTextAreaElement {
+    const field = document.createElement('textarea');
+    field.dataset.testExtra = '';
+    document.body.append(field);
+    field.focus();
+
+    return field;
+  }
+
+  it('reaches the view on screen from the keyboard, from a text field too', async () => {
+    const list = vi.spyOn(WorkspaceState, 'toggleCurrentList').mockReturnValue(true);
+    const details = vi.spyOn(WorkspaceState, 'toggleCurrentDetails').mockReturnValue(true);
+    render(Shell);
+    const field = focusedField();
+
+    await fireEvent.keyDown(field, { key: '[', ctrlKey: true });
+    await fireEvent.keyDown(field, { key: 'B', ctrlKey: true, shiftKey: true });
+    await fireEvent.keyDown(field, { key: ']', ctrlKey: true });
+    await fireEvent.keyDown(field, { key: '+', code: 'BracketRight', ctrlKey: true });
+
+    expect(list).toHaveBeenCalledTimes(2);
+    expect(details).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves the panels alone, and focus where it is, while a modal dialog is open', async () => {
+    const list = vi.spyOn(WorkspaceState, 'toggleCurrentList').mockReturnValue(true);
+    const details = vi.spyOn(WorkspaceState, 'toggleCurrentDetails').mockReturnValue(true);
+    render(Shell);
+    const dialog = document.createElement('div');
+    dialog.dataset.testExtra = '';
+    dialog.setAttribute('role', 'dialog');
+    dialog.setAttribute('aria-modal', 'true');
+    const inside = document.createElement('textarea');
+    dialog.append(inside);
+    document.body.append(dialog);
+    inside.focus();
+
+    for (const init of [{ key: '[' }, { key: ']' }, { key: 'B', shiftKey: true }]) {
+      await fireEvent.keyDown(inside, { ...init, ctrlKey: true });
+    }
+
+    expect(list).not.toHaveBeenCalled();
+    expect(details).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(inside);
+  });
+
+  it('gives the keys back as soon as a dialog starts closing', async () => {
+    const list = vi.spyOn(WorkspaceState, 'toggleCurrentList').mockReturnValue(true);
+    render(Shell);
+    // A dialog fading out: Svelte makes it inert for the length of its outro.
+    const closing = document.createElement('div');
+    closing.dataset.testExtra = '';
+    closing.setAttribute('inert', '');
+    const dialog = document.createElement('div');
+    dialog.setAttribute('role', 'dialog');
+    dialog.setAttribute('aria-modal', 'true');
+    closing.append(dialog);
+    document.body.append(closing);
+
+    await fireEvent.keyDown(window, { key: '[', ctrlKey: true });
+
+    expect(list).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('keyboard shortcuts behind a confirmation', () => {
+  it('leaves the views, history, chats and the rail alone while a confirmation dialog is open, and gives them back once it closes', async () => {
+    render(Shell);
+    render(ConfirmDialog, { open: true, title: 'Throw away?', description: 'This cannot be undone.', confirmLabel: 'Throw away', onconfirm: () => {} });
+    const dialog = await screen.findByRole('dialog', { name: 'Throw away?' });
+    const before = nav.current;
+    const railBefore = ui.railExpanded;
+
+    await fireEvent.keyDown(dialog, { key: '2', ctrlKey: true });
+    await fireEvent.keyDown(dialog, { key: 'ArrowLeft', altKey: true });
+    await fireEvent.keyDown(dialog, { key: 'ArrowRight', altKey: true });
+    await fireEvent.keyDown(dialog, { key: 'b', ctrlKey: true });
+
+    expect(nav.current).toBe(before);
+    expect(ui.railExpanded).toBe(railBefore);
+
+    await fireEvent.keyDown(dialog, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Throw away?' })).toBeNull());
+    await fireEvent.keyDown(document.body, { key: 'b', ctrlKey: true });
+
+    expect(ui.railExpanded).toBe(!railBefore);
   });
 });
 
@@ -108,6 +215,12 @@ describe('rail', () => {
 });
 
 describe('view headers', () => {
+  // The host loads these pages with a dynamic import. The first import of each is a cold transform that can take longer
+  // than a query waits when many test files run at once, so the pages are loaded here and the host finds them ready.
+  beforeAll(async () => {
+    await Promise.all([import('../chat/ChatView.svelte'), import('../sessions/SessionsView.svelte'), import('../changes/ChangesView.svelte')]);
+  }, 30_000);
+
   it.each(VIEWS.map((view) => view.label))('%s starts with the shared view header and its one h1', async (label) => {
     nav.go(VIEWS.find((view) => view.label === label)!.id);
     render(ViewHost);

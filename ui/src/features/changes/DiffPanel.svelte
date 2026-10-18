@@ -7,6 +7,7 @@
   import Button from '$lib/components/Button.svelte';
   import IconButton from '$lib/components/IconButton.svelte';
   import DiffView from '$lib/components/DiffView.svelte';
+  import PaneHeader from '$lib/components/PaneHeader.svelte';
   import Skeleton from '$lib/components/Skeleton.svelte';
   import type { RangeTarget } from '$lib/git/comment-range';
   import { statusName, statusTone } from '$lib/git/entries';
@@ -43,30 +44,32 @@
   }
 </script>
 
-<div class="flex size-full min-h-0 flex-col">
-  <header class="flex h-[52px] shrink-0 items-center gap-3 border-b border-line px-4">
-    <!-- Only the file name: the full path is the tooltip and the accessible name. -->
-    <h3 class="min-w-0 shrink truncate font-mono text-sm text-fg" title={entry.path} aria-label={entry.path}>{name}</h3>
-    {#if shown}
-      <span class="flex shrink-0"><Badge tone={statusTone(shown.status)}>{statusName(shown.status)}</Badge></span>
-      {#if !shown.isBinary}
-        <span class="tabular shrink-0 text-xs whitespace-nowrap"><span class="text-success">+{shown.additions}</span> <span class="text-danger">−{shown.deletions}</span></span>
-      {/if}
+{#snippet meta()}
+  {#if shown}
+    <span class="flex shrink-0"><Badge tone={statusTone(shown.status)}>{statusName(shown.status)}</Badge></span>
+    {#if !shown.isBinary}
+      <span class="tabular shrink-0 text-xs whitespace-nowrap"><span class="text-success">+{shown.additions}</span> <span class="text-danger">−{shown.deletions}</span></span>
     {/if}
-    {#if shown?.oldPath}
-      <span class="min-w-0 truncate text-xs text-fg-3">{t('changes.diff.renamedFrom', { path: shown.oldPath })}</span>
-    {/if}
+  {/if}
+  {#if shown?.oldPath}
+    <span class="min-w-0 truncate text-xs text-fg-3">{t('changes.diff.renamedFrom', { path: shown.oldPath })}</span>
+  {/if}
+{/snippet}
 
-    {#if git.matchTotal > 0}
-      <div class="ml-auto flex shrink-0 items-center gap-1" role="group" aria-label={t('changes.search.matches')}>
-        <span class="tabular px-1 text-xs text-fg-2" aria-live="polite">{t('changes.search.position', { current: git.cursor + 1, total: git.matchTotal })}</span>
-        <IconButton icon={ChevronUp} label={t('changes.search.previous')} onclick={() => git.stepMatch(-1)} />
-        <IconButton icon={ChevronDown} label={t('changes.search.next')} onclick={() => git.stepMatch(1)} />
-      </div>
-    {:else if review.commentsFor(project).length === 0}
-      <p class="ml-auto hidden min-w-0 truncate text-xs text-fg-3 @2xl:block">{t('changes.diff.hint')}</p>
-    {/if}
-  </header>
+{#snippet actions()}
+  {#if git.matchTotal > 0}
+    <div class="flex shrink-0 items-center gap-1" role="group" aria-label={t('changes.search.matches')}>
+      <span class="tabular px-1 text-xs text-fg-2" aria-live="polite">{t('changes.search.position', { current: git.cursor + 1, total: git.matchTotal })}</span>
+      <IconButton icon={ChevronUp} label={t('changes.search.previous')} onclick={() => git.stepMatch(-1)} />
+      <IconButton icon={ChevronDown} label={t('changes.search.next')} onclick={() => git.stepMatch(1)} />
+    </div>
+  {:else if review.commentsFor(project).length === 0}
+    <p class="hidden min-w-0 truncate text-xs text-fg-3 @2xl:block">{t('changes.diff.hint')}</p>
+  {/if}
+{/snippet}
+
+<div class="flex size-full min-h-0 flex-col">
+  <PaneHeader title={name} label={entry.path} mono {meta} {actions} />
 
   <div class="flex min-h-0 flex-1 flex-col">
     {#if !loaded || loaded.status === 'loading'}

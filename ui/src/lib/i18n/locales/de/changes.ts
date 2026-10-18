@@ -19,7 +19,6 @@ export const changes: AreaMessages<typeof enChanges> = {
   'changes.empty.clean': 'Das Arbeitsverzeichnis ist sauber.',
   'changes.empty.clean.title': 'Nichts zu prüfen',
   'changes.empty.clean.body': 'Alles ist committet. Neue Änderungen erscheinen hier sofort.',
-  'changes.refresh': 'Änderungen aktualisieren',
   'changes.empty.unstaged': 'Keine nicht vorgemerkten Änderungen.',
   'changes.empty.staged': 'Keine vorgemerkten Änderungen.',
   'changes.empty.untracked': 'Keine unversionierten Änderungen.',

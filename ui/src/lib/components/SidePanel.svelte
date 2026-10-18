@@ -1,14 +1,11 @@
 <script lang="ts">
-  import X from '@lucide/svelte/icons/x';
   import type { Snippet } from 'svelte';
   import { expoOut } from 'svelte/easing';
   import { fly } from 'svelte/transition';
 
   import { scaled, travel } from '$lib/design/motion';
-  import { t } from '$lib/i18n/i18n.svelte';
-  import { cx } from '$lib/utils/cx';
 
-  import IconButton from './IconButton.svelte';
+  import PaneHeader from './PaneHeader.svelte';
   import { SIDE_PANEL_WIDTH } from './side-panel';
 
   interface Props {
@@ -29,18 +26,12 @@
   const SLIDE_PX = 560;
 </script>
 
+{#snippet subtitleLine()}{subtitle}{/snippet}
+
 {#snippet body()}
-  <header class="flex shrink-0 items-start gap-2 border-b border-line py-3 pr-2 pl-5">
-    <div class="min-w-0 flex-1">
-      <h2 class={cx('truncate text-lg leading-6 font-semibold text-fg', mono && 'font-mono text-base')} {title}>{title}</h2>
-      {#if subtitle}<p class="mt-0.5 truncate text-xs text-fg-3" title={subtitle}>{subtitle}</p>{/if}
-    </div>
+  <PaneHeader {title} {mono} inset="panel" subtitle={subtitle ? subtitleLine : undefined} subtitleHint={subtitle} {onclose} />
 
-    <!-- The title line is 21px (1.5rem of a 14px root) and the button 36px: the pull of 8px above and below puts the glyph on the middle of the title line, whatever lies under it. -->
-    <IconButton icon={X} label={t('components.panel.close')} class="-my-2 shrink-0" onclick={onclose} />
-  </header>
-
-  <div class="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 pt-4 pb-6">
+  <div class="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto panel-pad pt-4 pb-6">
     {@render children()}
   </div>
 {/snippet}
@@ -60,7 +51,7 @@
     in:fly={{ x: travel(SLIDE_PX), opacity: 0.2, duration: scaled(340), easing: expoOut }}
     out:fly={{ x: travel(SLIDE_PX), opacity: 0.2, duration: scaled(220), easing: expoOut }}
     style:width="min({SIDE_PANEL_WIDTH}, 100%)"
-    class="absolute inset-y-0 right-0 z-20 flex flex-col overflow-hidden border-l border-line-strong bg-surface-1 shadow-pop"
+    class="absolute inset-y-0 right-0 z-20 flex flex-col overflow-hidden border-l border-panel-edge bg-surface-1 shadow-pop"
   >
     {@render body()}
   </section>

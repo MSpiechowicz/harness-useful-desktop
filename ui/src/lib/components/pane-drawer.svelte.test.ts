@@ -1,7 +1,9 @@
 import { flushSync } from 'svelte';
 import { describe, expect, it } from 'vitest';
 
-import { DRAWER_BELOW_PX, PaneDrawer } from './pane-drawer.svelte';
+import { DRAWER_BELOW_PX } from '$lib/design/layout';
+
+import { PaneDrawer } from './pane-drawer.svelte';
 
 /** A drawer made inside an effect root, as a view creates it while it initialises. */
 function mount(width: number) {
@@ -15,33 +17,30 @@ function mount(width: number) {
   return { drawer, stop };
 }
 
-describe('the list pane shortcut', () => {
-  it('opens and closes the drawer of the view on screen, and does nothing while the list is a column', () => {
-    const wide = mount(DRAWER_BELOW_PX + 200);
-    expect(PaneDrawer.toggleCurrent()).toBe(false);
-    expect(wide.drawer.open).toBe(false);
+describe('the list drawer', () => {
+  it('is a drawer only once the width is measured and below the breakpoint', () => {
+    const unmeasured = mount(0);
+    const wide = mount(DRAWER_BELOW_PX);
+    const narrow = mount(DRAWER_BELOW_PX - 1);
 
-    const narrow = mount(DRAWER_BELOW_PX - 200);
-    expect(PaneDrawer.toggleCurrent()).toBe(true);
-    expect(narrow.drawer.open).toBe(true);
-    expect(PaneDrawer.toggleCurrent()).toBe(true);
-    expect(narrow.drawer.open).toBe(false);
+    expect(unmeasured.drawer.active).toBe(false);
+    expect(wide.drawer.active).toBe(false);
+    expect(narrow.drawer.active).toBe(true);
 
-    narrow.stop();
+    unmeasured.stop();
     wide.stop();
-    flushSync();
-    expect(PaneDrawer.toggleCurrent()).toBe(false);
+    narrow.stop();
   });
 
-  it('goes to the newest view when an older one has not been unmounted yet', () => {
-    const older = mount(800);
-    const newer = mount(800);
+  it('puts itself away when the window grows wide enough for a column', () => {
+    const view = mount(DRAWER_BELOW_PX - 200);
+    view.drawer.toggle();
+    expect(view.drawer.open).toBe(true);
 
-    PaneDrawer.toggleCurrent();
+    view.drawer.width = DRAWER_BELOW_PX + 200;
+    flushSync();
 
-    expect(newer.drawer.open).toBe(true);
-    expect(older.drawer.open).toBe(false);
-    older.stop();
-    newer.stop();
+    expect(view.drawer.open).toBe(false);
+    view.stop();
   });
 });

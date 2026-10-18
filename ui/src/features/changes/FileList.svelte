@@ -84,7 +84,7 @@
   }
 </script>
 
-<div role="group" aria-label={t('changes.files.label')} class="flex flex-col gap-[14px] p-3" data-testid="file-list">
+<div role="group" aria-label={t('changes.files.label')} class="flex flex-col gap-[14px] panel-inset py-3" data-testid="file-list">
   {#each groups as group (group.section)}
     {@const open = isOpen(group.section)}
     <section class="flex flex-col gap-[6px]">
@@ -92,7 +92,7 @@
         type="button"
         aria-expanded={open}
         disabled={searching}
-        class="group/heading flex h-[28px] w-full items-center gap-[10px] rounded-sm px-[12px] text-left text-[11px] leading-[16px] font-medium tracking-wide text-fg-3 uppercase transition-colors duration-[var(--dur-fast)] hover:bg-hover hover:text-fg-2 focus-visible:outline-2 focus-visible:outline-offset-[-2px] disabled:hover:bg-transparent disabled:hover:text-fg-3"
+        class="group/heading flex h-[28px] w-full items-center gap-[10px] rounded-sm panel-heading text-left text-[11px] leading-[16px] font-medium tracking-wide text-fg-3 uppercase transition-colors duration-[var(--dur-fast)] hover:bg-hover hover:text-fg-2 focus-visible:outline-2 focus-visible:outline-offset-[-2px] disabled:hover:bg-transparent disabled:hover:text-fg-3"
         onclick={() => folded.toggle(group.section)}
       >
         <span class="grid size-[16px] shrink-0 place-items-center"><ChevronRight size={14} aria-hidden="true" class={cx('transition-transform duration-[var(--dur-fast)]', open && 'rotate-90')} /></span>
@@ -119,7 +119,7 @@
                 title={entry.path}
                 class={cx(
                   // As in the Extensions list: the focus ring lies on the row's own border, so the scrolling list cannot clip it.
-                  'flex w-full items-center gap-2.5 rounded-md border min-h-[36px] px-2.5 py-1 text-left transition-colors duration-[var(--dur-fast)] focus-visible:outline-offset-[-1px]',
+                  'flex w-full items-center gap-2.5 rounded-md border min-h-[36px] panel-row py-1 text-left transition-colors duration-[var(--dur-fast)] focus-visible:outline-offset-[-1px]',
                   selected ? 'border-accent/30 bg-accent-wash' : 'border-transparent hover:bg-hover active:bg-press',
                 )}
                 onclick={() => {

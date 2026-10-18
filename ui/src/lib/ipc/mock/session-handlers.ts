@@ -24,7 +24,22 @@ const keyOf = (session: SessionRef): string => `${session.harness}:${session.id}
 function listed(state: MockState, harness: SessionRef['harness']): SessionSummary[] {
   const all = harness === 'opencode' ? (sessionsListOpenCode as unknown as SessionSummary[]) : fixtures.sessions.list[harness];
 
-  return all.filter((summary) => !state.deletedSessions.has(keyOf(summary.ref)));
+  const kept = all.filter((summary) => !state.deletedSessions.has(keyOf(summary.ref)));
+
+  return state.drifted() && kept[0] ? [startedInTerminal(kept[0]), ...kept] : kept;
+}
+
+/** The session a `?drift` preview shows up with once its time comes: a copy of the first one, as if started in a terminal. */
+function startedInTerminal(template: SessionSummary): SessionSummary {
+  return {
+    ...structuredClone(template),
+    ref: { ...template.ref, id: 'drifted-0000-terminal' },
+    title: null,
+    firstPrompt: 'Started in a terminal a moment ago',
+    parentSession: null,
+    updatedAt: new Date().toISOString(),
+    createdAt: new Date().toISOString(),
+  };
 }
 
 function requireSession(state: MockState, session: SessionRef): SessionSummary {

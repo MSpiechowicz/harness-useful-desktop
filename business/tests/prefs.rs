@@ -23,6 +23,26 @@ fn file_names(dir: &std::path::Path) -> Vec<String> {
     names
 }
 
+/// Defaults with the background network switches off: what an unusable prefs file loads as.
+fn unusable_defaults() -> AppPrefs {
+    AppPrefs {
+        auto_update_extensions: false,
+        auto_refresh_catalogs: false,
+        ..AppPrefs::default()
+    }
+}
+
+/// Loads a `prefs.json` holding `json` (an older file, so possibly without `autoRefreshCatalogs`).
+fn load_file(json: &str) -> AppPrefs {
+    let dir = TempDir::new().unwrap();
+    fs::write(dir.path().join(PREFS_FILE), json).unwrap();
+
+    let (loaded, origin) = PrefsStore::new(dir.path().to_path_buf()).load_checked();
+    assert_eq!(origin, PrefsOrigin::Stored);
+
+    loaded
+}
+
 #[test]
 fn missing_file_loads_defaults() {
     let dir = TempDir::new().unwrap();
@@ -37,7 +57,7 @@ fn corrupt_file_is_moved_aside_and_defaults_are_returned() {
     fs::write(dir.path().join(PREFS_FILE), "{ not json").unwrap();
     let store = PrefsStore::new(dir.path().to_path_buf());
 
-    assert_eq!(store.load(), AppPrefs::default());
+    assert_eq!(store.load(), unusable_defaults());
 
     let names = file_names(dir.path());
     assert_eq!(names.len(), 1, "{names:?}");
@@ -311,7 +331,7 @@ fn load_checked_tells_a_missing_file_from_an_unusable_one() {
     assert_eq!(store.load_checked(), (saved, PrefsOrigin::Stored));
 
     fs::write(dir.path().join(PREFS_FILE), r#"{"version":1,"theme":"bogus"}"#).unwrap();
-    assert_eq!(store.load_checked(), (AppPrefs::default(), PrefsOrigin::Unusable));
+    assert_eq!(store.load_checked(), (unusable_defaults(), PrefsOrigin::Unusable));
 
     // The corrupt file was moved aside; later loads still do not take it for "never stored".
     assert_eq!(store.load_checked().1, PrefsOrigin::Unusable);
@@ -354,4 +374,100 @@ fn a_file_with_the_retired_memory_recall_switch_still_loads_and_drops_it_on_save
 
     store.save(&loaded).unwrap();
     assert!(!fs::read_to_string(&path).unwrap().contains("memoryRecall"));
+}
+
+#[test]
+fn a_fresh_install_refreshes_catalogs_and_updates_extensions() {
+    let dir = TempDir::new().unwrap();
+    let (loaded, origin) = PrefsStore::new(dir.path().to_path_buf()).load_checked();
+
+    assert_eq!(origin, PrefsOrigin::Missing);
+    assert!(loaded.auto_update_extensions);
+    assert!(loaded.auto_refresh_catalogs);
+}
+
+#[test]
+fn a_file_from_before_catalog_refresh_keeps_it_on_with_automatic_updates_on() {
+    let loaded = load_file(r#"{ "version": 1, "onboardingCompleted": true, "autoUpdateExtensions": true }"#);
+
+    assert!(loaded.auto_update_extensions);
+    assert!(loaded.auto_refresh_catalogs);
+}
+
+#[test]
+fn a_file_from_before_catalog_refresh_keeps_it_off_with_automatic_updates_off() {
+    let loaded = load_file(r#"{ "version": 1, "onboardingCompleted": true, "autoUpdateExtensions": false }"#);
+
+    assert!(!loaded.auto_update_extensions);
+    assert!(!loaded.auto_refresh_catalogs);
+}
+
+#[test]
+fn a_stored_catalog_refresh_choice_is_kept_whatever_automatic_updates_say() {
+    let on = load_file(r#"{ "version": 1, "autoUpdateExtensions": false, "autoRefreshCatalogs": true }"#);
+    let off = load_file(r#"{ "version": 1, "autoUpdateExtensions": true, "autoRefreshCatalogs": false }"#);
+
+    assert!(!on.auto_update_extensions);
+    assert!(on.auto_refresh_catalogs);
+    assert!(off.auto_update_extensions);
+    assert!(!off.auto_refresh_catalogs);
+}
+
+#[test]
+fn the_carried_over_choice_is_written_on_the_next_save() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join(PREFS_FILE);
+    fs::write(&path, r#"{ "version": 1, "autoUpdateExtensions": false }"#).unwrap();
+    let store = PrefsStore::new(dir.path().to_path_buf());
+
+    store.save_ui(&store.load()).unwrap();
+
+    let stored: serde_json::Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+    assert_eq!(stored["autoRefreshCatalogs"], false);
+}
+
+#[test]
+fn unusable_prefs_turn_the_background_network_switches_off() {
+    for text in ["{ not json", r#"{"version":1,"theme":"bogus"}"#] {
+        let dir = TempDir::new().unwrap();
+        fs::write(dir.path().join(PREFS_FILE), text).unwrap();
+        let store = PrefsStore::new(dir.path().to_path_buf());
+
+        let (loaded, origin) = store.load_checked();
+        assert_eq!(origin, PrefsOrigin::Unusable);
+        assert!(!loaded.auto_update_extensions, "{text}");
+        assert!(!loaded.auto_refresh_catalogs, "{text}");
+
+        // Still off on the next load (the file was moved aside), and nothing was written.
+        assert_eq!(store.load(), unusable_defaults());
+        assert!(!dir.path().join(PREFS_FILE).exists());
+    }
+}
+
+#[test]
+fn a_save_after_unusable_prefs_does_not_turn_the_background_switches_back_on() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join(PREFS_FILE);
+    fs::write(&path, "{ not json").unwrap();
+    let store = PrefsStore::new(dir.path().to_path_buf());
+
+    // The user changes an unrelated setting on what the app showed them.
+    let shown = store.load();
+    store
+        .save_ui(&AppPrefs {
+            theme: ThemePref::Dark,
+            ..shown
+        })
+        .unwrap();
+
+    // A server-managed change (opening a project) saves too.
+    store
+        .update(|prefs| prefs.active_project = Some(abs("project")))
+        .unwrap();
+
+    let (loaded, origin) = store.load_checked();
+    assert_eq!(origin, PrefsOrigin::Stored);
+    assert_eq!(loaded.theme, ThemePref::Dark);
+    assert!(!loaded.auto_update_extensions);
+    assert!(!loaded.auto_refresh_catalogs);
 }

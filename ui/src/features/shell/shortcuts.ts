@@ -59,8 +59,10 @@ export interface ShellCommands {
   /** Shows the next (`1`) or previous (`-1`) chat tab. */
   cycleChat: (step: 1 | -1) => void;
   toggleRail: () => void;
-  /** Opens or closes the list drawer of Sessions, Changes, Config or Extensions on a narrow window. */
-  togglePane: () => void;
+  /** Shows or hides the list of Sessions, Changes, Config or Extensions: the column on a wide window, the drawer on a narrow one. */
+  toggleList: () => void;
+  /** Shows or hides the details of Sessions, Config or Extensions: the column on a wide window, the slide-over on a narrow one. */
+  toggleDetails: () => void;
   goTo: (index: number) => void;
 }
 
@@ -91,7 +93,8 @@ export function globalShortcuts(shell: ShellCommands): ShortcutAction[] {
     { id: 'shortcuts', combo: 'shift+?', also: ['mod+/'], get label() { return t('shell.shortcut.shortcuts'); }, area: 'Global', inInputs: 'modified', run: shell.openShortcuts },
     { id: 'new-chat', combo: 'mod+n', get label() { return t('shell.shortcut.newChat'); }, area: 'Global', inInputs: 'all', run: shell.newChat },
     { id: 'toggle-rail', combo: 'mod+b', get label() { return t('shell.shortcut.toggleRail'); }, area: 'Global', inInputs: 'all', run: shell.toggleRail },
-    { id: 'toggle-pane', combo: 'mod+shift+b', get label() { return t('shell.shortcut.togglePane'); }, area: 'Global', inInputs: 'all', run: shell.togglePane },
+    { id: 'toggle-list', combo: 'mod+[', also: ['mod+shift+b'], get label() { return t('shell.shortcut.toggleList'); }, area: 'Global', inInputs: 'all', run: shell.toggleList },
+    { id: 'toggle-details', combo: 'mod+]', get label() { return t('shell.shortcut.toggleDetails'); }, area: 'Global', inInputs: 'all', run: shell.toggleDetails },
     { id: 'back', combo: 'alt+arrowleft', get label() { return t('shell.shortcut.back'); }, area: 'Global', inInputs: 'none', run: shell.goBack },
     { id: 'forward', combo: 'alt+arrowright', get label() { return t('shell.shortcut.forward'); }, area: 'Global', inInputs: 'none', run: shell.goForward },
     { id: 'next-chat', combo: chatCycle.next, also: ['mod+pagedown'], get label() { return t('shell.shortcut.nextChat'); }, area: 'Global', inInputs: 'all', run: () => shell.cycleChat(1) },

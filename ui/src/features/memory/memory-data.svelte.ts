@@ -2,6 +2,7 @@ import { untrack } from 'svelte';
 
 import type { NoteSort } from '$lib/ipc/bindings/NoteSort';
 import type { ScriptSort } from '$lib/ipc/bindings/ScriptSort';
+import { MEMORY_NOTES_POLL_MS, MEMORY_SCRIPTS_POLL_MS } from '$lib/stores/live';
 import { noteDetail, noteList, type NotesRequest, notesKey } from '$lib/stores/memoryNotes.svelte';
 import { scriptList, type ScriptsRequest, scriptsKey } from '$lib/stores/memoryScripts.svelte';
 import { project } from '$lib/stores/project.svelte';
@@ -18,12 +19,6 @@ const SCRIPT_SORTS: readonly ScriptSort[] = ['updated', 'name', 'language', 'sco
 function sortOf<T extends string>(allowed: readonly T[], key: string): T {
   return allowed.find((sort) => sort === key) ?? allowed[0];
 }
-
-/** How often an open view looks for scripts the agents saved or ran meanwhile (short, so the table feels live). */
-const SCRIPTS_REFRESH_MS = 5_000;
-
-/** Notes change less often. */
-const NOTES_REFRESH_MS = 15_000;
 
 /** How long a search waits for the next key before it asks the server, so typing a word is one read. */
 const SEARCH_DELAY_MS = 250;
@@ -100,13 +95,13 @@ export function useMemoryData(): void {
   });
 
   $effect(() => {
+    // A list that failed to load is read again on the retry schedule, a little later each time, instead of at the poll's pace.
     if (viewState.memorySection === 'scripts') {
-      return autoRefresh(() => void scriptList.refresh({ quiet: true }), SCRIPTS_REFRESH_MS);
+      return autoRefresh(() => scriptList.refresh({ quiet: true }), MEMORY_SCRIPTS_POLL_MS, { failing: scriptList.status === 'error' });
     }
 
-    return autoRefresh(() => {
-      void noteList.refresh({ quiet: true });
-      void noteDetail.refresh({ quiet: true });
-    }, NOTES_REFRESH_MS);
+    return autoRefresh(() => Promise.all([noteList.refresh({ quiet: true }), noteDetail.refresh({ quiet: true })]), MEMORY_NOTES_POLL_MS, {
+      failing: noteList.status === 'error',
+    });
   });
 }

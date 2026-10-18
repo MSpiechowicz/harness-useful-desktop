@@ -1,25 +1,27 @@
 <script lang="ts">
-  import { autoRefresh } from '$lib/utils/auto-refresh';
   import Code from '@lucide/svelte/icons/code';
   import LayoutGrid from '@lucide/svelte/icons/layout-grid';
   import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
 
   import { countMatches } from '$lib/components/config-tree';
-  import DrawerToggle from '$lib/components/DrawerToggle.svelte';
-  import ListDetail from '$lib/components/ListDetail.svelte';
-  import { PaneDrawer } from '$lib/components/pane-drawer.svelte';
   import NoticeBanner from '$lib/components/NoticeBanner.svelte';
+  import PaneHeader from '$lib/components/PaneHeader.svelte';
   import SearchField from '$lib/components/SearchField.svelte';
   import SegmentedControl from '$lib/components/SegmentedControl.svelte';
   import type { StripOption } from '$lib/components/strip';
   import ViewHeader from '$lib/components/ViewHeader.svelte';
+  import WorkspaceLayout from '$lib/components/WorkspaceLayout.svelte';
+  import WorkspaceToggles from '$lib/components/WorkspaceToggles.svelte';
+  import { WorkspaceState } from '$lib/components/workspace.svelte';
   import { t, tn } from '$lib/i18n/i18n.svelte';
   import type { ConfigView } from '$lib/ipc/bindings/ConfigView';
   import { revealPath } from '$lib/ipc/actions';
   import { harness } from '$lib/stores/harness.svelte';
   import { toasts } from '$lib/stores/toasts.svelte';
+  import { CONFIG_POLL_MS } from '$lib/stores/live';
   import { viewState } from '$lib/stores/view-state.svelte';
   import { configView } from '$lib/stores/views.svelte';
+  import { autoRefresh } from '$lib/utils/auto-refresh';
 
   import HarnessGate from '../harness/HarnessGate.svelte';
   import HarnessSwitcher from '../harness/HarnessSwitcher.svelte';
@@ -27,6 +29,7 @@
   import ConfigMenu from './ConfigMenu.svelte';
   import { configMode, type ConfigMode } from './config-mode.svelte';
   import { splitProfileNotice } from './profiles';
+  import SectionAside from './SectionAside.svelte';
   import SectionDetail from './SectionDetail.svelte';
   import SectionList from './SectionList.svelte';
   import { filterSections, groupSections } from './sections';
@@ -41,11 +44,14 @@
   function choose(id: string): void {
     viewState.configSection = id;
     viewState.configQuery = '';
-    drawer.close();
+    workspace.drawer.close();
   }
 
-  // Config files change on disk under an open view (the agent edits them), so it re-reads quietly.
-  $effect(() => autoRefresh(() => void configView.refresh({ quiet: true }), 5000));
+  const workspace = new WorkspaceState('config', { details: true });
+
+  // Config files change on disk under an open view (the agent edits them), so it re-reads quietly. A read that failed is
+  // retried on the retry schedule, a little later each time, instead of at the poll's pace.
+  $effect(() => autoRefresh(() => configView.refresh({ quiet: true }), CONFIG_POLL_MS, { failing: configView.status === 'error' }));
 
   // While a switch loads, the header keeps the previous harness's view so it does not jump; the body shows a spinner (HarnessGate).
   const view = $derived(configView.data ?? undefined);
@@ -102,8 +108,6 @@
     toasts.push({ title: t('components.copy.copied'), tone: 'success' });
   }
 
-  const drawer = new PaneDrawer();
-
   // A search that leaves the chosen file out of the list moves the detail to the first file that is still in it.
   $effect(() => {
     const first = groupSections(filterSections(view?.sections ?? [], viewState.configQuery))[0]?.sections[0];
@@ -118,7 +122,7 @@
   <ViewHeader title={t('config.title')} icon={SlidersHorizontal} context={scopeLabel(files === undefined ? null : count(files, 'file'))}>
     {#snippet actions()}
       {#if section && readable}
-        <div class="w-[340px] max-[900px]:w-[220px]" inert={switching}>
+        <div class="search-width" inert={switching}>
           <SearchField
             bind:value={viewState.configQuery}
             label={t('config.search.label')}
@@ -133,13 +137,17 @@
       <!-- Shown whatever the harness has: a harness with no config still has to be switchable away from. -->
       <HarnessSwitcher />
 
-      <div class="contents" inert={switching}>
-        {#if section}
-          <DrawerToggle {drawer} label={t('config.drawer.label')} count={files} />
+      {#if section && readable}
+        <div class="contents" inert={switching}>
+          <SegmentedControl options={modes} value={configMode.value} label={t('config.mode.label')} onchange={(mode) => configMode.set(mode)} />
+        </div>
+      {/if}
+    {/snippet}
 
-          {#if readable}
-            <SegmentedControl options={modes} value={configMode.value} label={t('config.mode.label')} onchange={(mode) => configMode.set(mode)} />
-          {/if}
+    {#snippet fixed()}
+      {#if section}
+        <div class="contents" inert={switching}>
+          <WorkspaceToggles {workspace} listLabel={t('config.drawer.label')} />
 
           <ConfigMenu
             label={t('config.menu.label')}
@@ -150,8 +158,8 @@
             oncopypath={() => void copyPath(section.source.path)}
             onreveal={() => void revealPath(section.source.path)}
           />
-        {/if}
-      </div>
+        </div>
+      {/if}
     {/snippet}
   </ViewHeader>
 
@@ -162,25 +170,48 @@
         {@const profiles = splitProfileNotice(view.notices)}
 
         {#if profiles.rest.length > 0}
-          <div class="page-gutter border-b border-line py-3"><NoticeBanner notices={profiles.rest} /></div>
+          <div class="notice-band border-b border-line py-3"><NoticeBanner notices={profiles.rest} /></div>
         {/if}
 
-        <div class="mx-auto min-h-0 w-full max-w-[var(--page-wide)] flex-1">
-          {#if section}
-            <ListDetail label={t('config.resize')} scrollKey="config:detail" size={288} {drawer} drawerLabel={t('config.drawer.label')}>
+        <!-- The source scrolls itself (long files are virtual lists that need a box of a given height), so it takes the whole centre. Everything else is one page. -->
+        {#if section}
+          {@const fillCentre = configMode.value === 'source' && section.source.exists && !section.error}
+
+          {#snippet fileLine()}
+            {#if section.description}{section.description} · {/if}<code class="font-mono">{section.source.path}</code>
+          {/snippet}
+
+          <div class="min-h-0 w-full flex-1">
+            <WorkspaceLayout
+              {workspace}
+              listLabel={t('config.drawer.label')}
+              resizeLabel={t('config.resize')}
+              scroll={fillCentre ? 'own' : 'page'}
+              scrollKey={`config:detail:${section.id}`}
+              detailsSubtitle={section.title}
+            >
               {#snippet list()}
                 <SectionList sections={filterSections(view.sections, viewState.configQuery)} selectedId={section.id} searching={viewState.configQuery.trim() !== ''} onselect={choose} />
               {/snippet}
-              {#snippet detail()}
+
+              {#snippet header()}
+                <PaneHeader title={section.title} titleId="section-title" subtitle={fileLine} subtitleHint={section.source.path} />
+              {/snippet}
+
+              {#snippet main()}
                 {#key section.id}
-                  <SectionDetail bind:this={pane} bind:openCount {section} query={viewState.configQuery} mode={configMode.value} {profiles} />
+                  <SectionDetail bind:this={pane} bind:openCount {section} query={viewState.configQuery} mode={configMode.value} {profiles} fill={fillCentre} />
                 {/key}
               {/snippet}
-            </ListDetail>
-          {:else}
-            <p class="p-8 text-center text-base text-fg-2" role="status">{t('config.empty')}</p>
-          {/if}
-        </div>
+
+              {#snippet details()}
+                <SectionAside {section} {profiles} />
+              {/snippet}
+            </WorkspaceLayout>
+          </div>
+        {:else}
+          <p class="p-8 text-center text-base text-fg-2" role="status">{t('config.empty')}</p>
+        {/if}
       {/snippet}
     </HarnessGate>
   </div>

@@ -21,6 +21,12 @@ export interface BarAction {
   request: ActionRequest;
 }
 
+/**
+ * What the user can ask for through a confirmation. A marketplace catalog is never refreshed by hand: the updater
+ * re-reads every catalog by itself (see `extension-updater.ts`), so that action has no dialog.
+ */
+export type UserAction = Exclude<ExtensionAction, { type: 'marketplaceUpdate' }>;
+
 /** What the install dialog asks for. */
 export type ComposeKind = 'plugin' | 'marketplace' | 'package';
 
@@ -43,23 +49,23 @@ export interface ActionRequest {
 interface Copy {
   verb: () => string;
   destructive?: boolean;
-  title: (action: ExtensionAction) => string;
+  title: (action: UserAction) => string;
 }
 
-const verb = (key: 'install' | 'uninstall' | 'enable' | 'disable' | 'update' | 'refresh' | 'remove' | 'addMarketplace' | 'removeMarketplace') => () =>
+const verb = (key: 'install' | 'uninstall' | 'enable' | 'disable' | 'update' | 'remove' | 'addMarketplace' | 'removeMarketplace') => () =>
   t(`extensions.verb.${key}`);
 
-const name = (action: ExtensionAction): string | null => ('name' in action && action.name ? action.name : null);
-const source = (action: ExtensionAction): string | null => ('source' in action && action.source ? action.source : null);
+const name = (action: UserAction): string | null => ('name' in action && action.name ? action.name : null);
+const source = (action: UserAction): string | null => ('source' in action && action.source ? action.source : null);
 
 /** A title of the form "Uninstall {subject}", where the subject is the action's name, or "everything" without one. */
-const named = (key: 'uninstall' | 'enable' | 'disable') => (action: ExtensionAction) =>
+const named = (key: 'uninstall' | 'enable' | 'disable') => (action: UserAction) =>
   t(`extensions.title.${key}`, { subject: name(action) ?? t('extensions.subject.everything') });
 
-const sourced = (key: 'installPackage' | 'removePackage') => (action: ExtensionAction) =>
+const sourced = (key: 'installPackage' | 'removePackage') => (action: UserAction) =>
   t(`extensions.title.${key}`, { subject: source(action) ?? t('extensions.subject.everyPackage') });
 
-const COPY: Record<ExtensionAction['type'], Copy> = {
+const COPY: Record<UserAction['type'], Copy> = {
   pluginInstall: { verb: verb('install'), title: (action) => t('extensions.title.install', { subject: 'target' in action ? action.target : '' }) },
   pluginUninstall: { verb: verb('uninstall'), destructive: true, title: named('uninstall') },
   pluginEnable: { verb: verb('enable'), title: named('enable') },
@@ -81,14 +87,6 @@ const COPY: Record<ExtensionAction['type'], Copy> = {
     destructive: true,
     title: (action) => t('extensions.title.removeMarketplace', { subject: name(action) ?? t('extensions.subject.everything') }),
   },
-  marketplaceUpdate: {
-    verb: verb('refresh'),
-    title: (action) => {
-      const subject = name(action);
-
-      return subject ? t('extensions.title.updateMarketplace', { subject }) : t('extensions.title.updateAllMarketplaces');
-    },
-  },
   packageInstall: { verb: verb('install'), title: sourced('installPackage') },
   packageRemove: { verb: verb('uninstall'), destructive: true, title: sourced('removePackage') },
   packageUpdate: {
@@ -105,7 +103,7 @@ const COPY: Record<ExtensionAction['type'], Copy> = {
  * Builds the request for one mutation; user scope never carries a project folder. The dialog's title and verb are
  * read when shown, so an open dialog follows a language switch.
  */
-export function actionRequest(harness: HarnessId, action: ExtensionAction, scope: InstallScope, projectPath: string | null): ActionRequest {
+export function actionRequest(harness: HarnessId, action: UserAction, scope: InstallScope, projectPath: string | null): ActionRequest {
   const copy = COPY[action.type];
   const project = scope === 'project' ? projectPath : null;
 

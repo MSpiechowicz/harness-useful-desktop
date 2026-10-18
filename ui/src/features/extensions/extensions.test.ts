@@ -8,6 +8,7 @@ import { prefs } from '$lib/stores/prefs.svelte';
 import { extensionsView } from '$lib/stores/views.svelte';
 
 import { samplePrefs } from '../../../tests/helpers';
+import ExtensionAside from './ExtensionAside.svelte';
 import ExtensionDetail from './ExtensionDetail.svelte';
 import { buildItems, filterItems, visibleTabs } from './extension-items';
 import { groupFolds } from './group-folds.svelte';
@@ -149,9 +150,10 @@ describe('items', () => {
   it('shows an agent\'s model, visibility and file in its detail', () => {
     const entry = buildItems('agents', view)[1];
 
+    // The item is the centre of the view, its facts the body of the details panel beside it.
     render(ExtensionDetail, { props: { entry } });
+    render(ExtensionAside, { props: { entry } });
 
-    expect(screen.getByRole('heading', { level: 2, name: 'reviewer' })).toBeInTheDocument();
     expect(screen.getByTitle('anthropic/claude-sonnet-4')).toBeInTheDocument();
     expect(screen.getByText('Hidden', { selector: 'dd *' })).toBeInTheDocument();
     expect(screen.getByText('Reviews a change.')).toBeInTheDocument();

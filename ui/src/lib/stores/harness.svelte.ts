@@ -14,8 +14,6 @@ export class HarnessStore {
   summaries = $state<HarnessSummary[]>([]);
   status = $state<HarnessStatus>('idle');
   error = $state<IpcFailure | null>(null);
-  /** True while a re-scan is running. */
-  scanning = $state(false);
 
   /** The harness in use: the daily driver if set, else the first installed one, else the first known. */
   active: HarnessSummary | null = $derived(this.resolveActive());
@@ -32,6 +30,12 @@ export class HarnessStore {
    * in "chat is coming soon". Null when a chat is possible, or when nothing is installed at all.
    */
   chatComingSoon: HarnessSummary | null = $derived(this.resolveComingSoon());
+
+  private scan: Promise<void> | null = null;
+  private scannedAt = 0;
+  /** Counts the summaries adopted from a pick or a clear, and remembers when each harness last got one. */
+  private adoptions = 0;
+  private adoptedAt = new Map<HarnessId, number>();
 
   constructor(
     private readonly transport: Transport,
@@ -57,6 +61,7 @@ export class HarnessStore {
 
     try {
       this.summaries = await this.transport.invoke('harness_list', undefined);
+      this.scannedAt = Date.now();
       this.status = 'ready';
       this.error = null;
     } catch (error) {
@@ -65,17 +70,27 @@ export class HarnessStore {
     }
   }
 
-  /** Re-runs detection for every harness (the user installed one, or fixed their PATH). */
+  /**
+   * Re-runs detection for every harness (the user installed one, or fixed their PATH). It runs in the background: no
+   * spinner, no message when it fails, and the list is only replaced when something changed.
+   */
   async rescan(): Promise<void> {
-    this.scanning = true;
+    if (this.scan !== null) {
+      return this.scan;
+    }
 
-    try {
-      const fresh = await Promise.all(this.summaries.map((summary) => this.transport.invoke('harness_detect', { harness: summary.info.id })));
-      this.summaries = fresh;
-    } catch (error) {
-      this.fail('harness.toast.scan', error);
-    } finally {
-      this.scanning = false;
+    this.scan = this.detect().finally(() => {
+      this.scan = null;
+      this.scannedAt = Date.now();
+    });
+
+    return this.scan;
+  }
+
+  /** Like `rescan`, unless detection ran within `gapMs` already: coming back to the window over and over costs one scan. */
+  async rescanIfStale(gapMs: number): Promise<void> {
+    if (this.status === 'ready' && Date.now() - this.scannedAt >= gapMs) {
+      await this.rescan();
     }
   }
 
@@ -141,7 +156,28 @@ export class HarnessStore {
     return installed.find((summary) => summary.info.id === this.preferences.value?.defaultHarness) ?? installed[0];
   }
 
+  private async detect(): Promise<void> {
+    try {
+      const started = this.adoptions;
+      const detected = await Promise.all(this.summaries.map((summary) => this.transport.invoke('harness_detect', { harness: summary.info.id })));
+      // A binary picked or cleared while the scan ran is newer than what the scan saw: that harness keeps its summary.
+      const fresh = detected.map((summary) => (this.adoptedSince(summary.info.id, started) ? (this.get(summary.info.id) ?? summary) : summary));
+
+      if (JSON.stringify(fresh) !== JSON.stringify(this.summaries)) {
+        this.summaries = fresh;
+      }
+    } catch {
+      // The next look tries again, and what is shown stays.
+    }
+  }
+
+  private adoptedSince(id: HarnessId, adoptions: number): boolean {
+    return (this.adoptedAt.get(id) ?? 0) > adoptions;
+  }
+
   private adopt(summary: HarnessSummary): void {
+    this.adoptions += 1;
+    this.adoptedAt.set(summary.info.id, this.adoptions);
     this.summaries = this.summaries.map((existing) => (existing.info.id === summary.info.id ? summary : existing));
   }
 

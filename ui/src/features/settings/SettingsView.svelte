@@ -166,7 +166,7 @@
 <div class="@container flex size-full min-h-0 flex-col">
   <ViewHeader title={t('settings.title')} icon={Settings} context={t('settings.context')}>
     {#snippet actions()}
-      <div class="w-[340px] max-[900px]:w-[220px]">
+      <div class="search-width">
         <SearchField bind:value={query} label={t('settings.search.label')} placeholder={t('settings.search.placeholder')} shortcut="mod+f" />
       </div>
     {/snippet}

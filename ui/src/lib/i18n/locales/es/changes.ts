@@ -19,7 +19,6 @@ export const changes: AreaMessages<typeof enChanges> = {
   'changes.empty.clean': 'El árbol de trabajo está limpio.',
   'changes.empty.clean.title': 'Nada que revisar',
   'changes.empty.clean.body': 'Todo está confirmado. Los cambios nuevos aparecen aquí al instante.',
-  'changes.refresh': 'Actualizar cambios',
   'changes.empty.unstaged': 'No hay cambios sin preparar.',
   'changes.empty.staged': 'No hay cambios preparados.',
   'changes.empty.untracked': 'No hay cambios sin seguimiento.',

@@ -1,10 +1,16 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import { FLIGHT_STALE_MS } from '$lib/stores/live';
 
 import type { AgentEvent } from '$lib/ipc/bindings/AgentEvent';
 
 import type { ChatMessage } from '$lib/ipc/bindings/ChatMessage';
 
-import { chatSession, STREAMING } from '../../../tests/chat-helpers';
+import { ToastsStore } from '$lib/stores/toasts.svelte';
+
+import { chatSession, sampleInfo, STREAMING } from '../../../tests/chat-helpers';
+import { fakeTransport } from '../../../tests/helpers';
+import { ChatSession } from './session.svelte';
 
 function toolEnd(id: string, name: string): AgentEvent {
   return { type: 'toolEnd', toolCallId: id, name, isError: false, result: 'ok', touchedPaths: [] };
@@ -42,5 +48,74 @@ describe('chat session', () => {
 
     expect(session.firstPrompt).toBe('Fix the flaky login test');
     expect(session.label).toEqual(expect.objectContaining({ name: 'Fix the flaky login test' }));
+  });
+});
+
+describe('looking for models in the background', () => {
+  afterEach(() => vi.useRealTimers());
+
+  it('stays silent when the harness does not answer, however often it is asked', async () => {
+    const notifications = new ToastsStore();
+    const transport = fakeTransport({
+      agent_send: () => {
+        throw { code: 'internal', message: 'agent is busy' };
+      },
+    });
+    const session = new ChatSession(sampleInfo(), transport, notifications);
+
+    await session.recheckModels();
+    await session.recheckModels();
+
+    expect(notifications.items).toHaveLength(0);
+    expect(session.models).toBeNull();
+  });
+
+  it('asks again only once the previous question has been answered', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    let asked = 0;
+    const transport = fakeTransport({
+      agent_send: async () => {
+        asked += 1;
+        await gate;
+
+        return { type: 'models', models: [] };
+      },
+    });
+    const session = new ChatSession(sampleInfo(), transport, new ToastsStore());
+
+    const looks = [session.recheckModels(), session.recheckModels(), session.recheckModels()];
+    release();
+    await Promise.all(looks);
+    await session.recheckModels();
+
+    expect(asked).toBe(2);
+    expect(session.models).toEqual([]);
+  });
+
+  it('gives up on an ask that never answers and ignores its late answer once a newer ask has found models', async () => {
+    vi.useFakeTimers();
+    let asked = 0;
+    let late!: () => void;
+    const transport = fakeTransport({
+      agent_send: () => {
+        asked += 1;
+
+        return asked === 1
+          ? new Promise((resolve) => (late = () => resolve({ type: 'models', models: [] })))
+          : { type: 'models', models: [{ provider: 'anthropic', id: 'm', name: 'M' }] };
+      },
+    });
+    const session = new ChatSession(sampleInfo(), transport, new ToastsStore());
+
+    void session.recheckModels();
+    await vi.advanceTimersByTimeAsync(FLIGHT_STALE_MS);
+    await session.recheckModels();
+    expect(session.models).toHaveLength(1);
+
+    late();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(session.models).toHaveLength(1);
   });
 });

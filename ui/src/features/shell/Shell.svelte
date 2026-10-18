@@ -2,13 +2,14 @@
   import { untrack } from 'svelte';
 
   import CommandPalette from '$lib/components/CommandPalette.svelte';
-  import { PaneDrawer } from '$lib/components/pane-drawer.svelte';
+  import { WorkspaceState } from '$lib/components/workspace.svelte';
   import { agentSessions } from '$lib/stores/agentSession.svelte';
   import { saveWorkspaceWhenReady } from '$lib/stores/workspace.svelte';
   import { ecosystem } from '$lib/stores/ecosystem.svelte';
   import { harness } from '$lib/stores/harness.svelte';
   import { git } from '$lib/stores/git.svelte';
   import { nav } from '$lib/stores/nav.svelte';
+  import { GIT_POLL_MS, HARNESS_FOCUS_GAP_MS } from '$lib/stores/live';
   import { project } from '$lib/stores/project.svelte';
   import { sessionDetail, sessionList } from '$lib/stores/sessions.svelte';
   import { ui } from '$lib/stores/ui-state.svelte';
@@ -17,6 +18,7 @@
   import { scriptRequests } from '$lib/stores/scriptRequests.svelte';
   import { updates } from '$lib/stores/updates.svelte';
   import { configView, extensionsView } from '$lib/stores/views.svelte';
+  import { autoRefresh } from '$lib/utils/auto-refresh';
   import { matchesShortcut } from '$lib/utils/shortcuts';
 
   import { intro, INTRO_LEAD_MS } from '../intro/intro-state.svelte';
@@ -55,7 +57,8 @@
       agentSessions.cycle(step);
     },
     toggleRail: () => ui.toggleRail(),
-    togglePane: () => void PaneDrawer.toggleCurrent(),
+    toggleList: () => void WorkspaceState.toggleCurrentList(),
+    toggleDetails: () => void WorkspaceState.toggleCurrentDetails(),
     goTo: (index) => nav.go(VIEWS[index].id),
   });
   const groups = $derived(shortcutGroups(shortcuts));
@@ -92,6 +95,14 @@
   $effect(() => {
     git.ensure(project.active?.path ?? null);
   });
+
+  // And they stay current there too: edits made by hand or by another program change the count within a few seconds,
+  // while the window is visible. Back in the window (a commit or edit made in a terminal or an editor) it reads at once.
+  // This is the one poll, so the Changes view does not run a second. Without Changes open it only reads the status:
+  // the diffs are not needed for a count. While git cannot be read it follows the retry schedule instead of its pace.
+  $effect(() =>
+    project.active ? autoRefresh(() => git.refresh({ quiet: true, statusOnly: nav.current !== 'changes' }), GIT_POLL_MS, { failing: git.loadStatus === 'error' }) : undefined,
+  );
 
   // An agent working in the open project edits files and writes its session as it goes: the Changes count and the
   // sessions list follow in the background instead of waiting for their views to be opened again.
@@ -157,9 +168,10 @@
     }
   });
 
-  // Extensions keep themselves current while the setting is on; the schedule stops the moment it is switched off.
+  // Extensions keep themselves current: the marketplace catalogs always, and (while the setting is on) the plugins and
+  // packages they reveal. The schedule runs from the start; the setting is read at every look.
   $effect(() => {
-    if (intro.phase === 'done' && prefs.value?.autoUpdateExtensions && !onboarding.visible) {
+    if (intro.phase === 'done' && !onboarding.visible) {
       return extensionUpdater.start();
     }
   });
@@ -214,6 +226,14 @@
     return shortcut.inInputs === 'modified' && combo.startsWith('mod+');
   }
 
+  /** The overlays toggle themselves, and are dialogs too, so a modal dialog does not hold them back. */
+  const OVERLAY_SHORTCUTS = new Set(['palette', 'shortcuts']);
+
+  /** Whether a modal dialog is open and not on its way out. */
+  function modalOpen(): boolean {
+    return [...document.querySelectorAll('[role="dialog"][aria-modal="true"]')].some((dialog) => !dialog.closest('[inert]'));
+  }
+
   function onKeydown(event: KeyboardEvent): void {
     // Setup is modal: the shell behind it takes no shortcuts.
     if (onboarding.visible) {
@@ -231,13 +251,20 @@
       return;
     }
 
+    // A modal dialog (an approval, a confirmation) owns the keyboard: the shell behind it neither switches view, nor moves
+    // through history or chats, nor toggles its panels or takes focus. Escape stays with the dialog. A dialog that is
+    // closing (inert while it fades out) no longer counts, so a key pressed right after closing it is not lost.
+    if (!OVERLAY_SHORTCUTS.has(shortcut.id) && modalOpen()) {
+      return;
+    }
+
     event.preventDefault();
     shortcut.run();
   }
 </script>
 
-<!-- Back from a terminal or an editor: a commit or edit made there shows up in the Changes count. -->
-<svelte:window onkeydown={onKeydown} onfocus={() => git.refreshSoon()} />
+<!-- Back from an installer or a terminal: a harness installed there is found without anyone asking. -->
+<svelte:window onkeydown={onKeydown} onfocus={() => void harness.rescanIfStale(HARNESS_FOCUS_GAP_MS)} />
 
 <div class="relative z-10 flex h-full overflow-clip" data-intro={intro.phase} style:--intro-lead="{INTRO_LEAD_MS}ms" inert={onboarding.visible}>
   <Rail onshortcuts={() => (shortcutsOpen = true)} />

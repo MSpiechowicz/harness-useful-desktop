@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { sampleNotes } from '$lib/ipc/mock/memory-notes-fixtures';
 
+import { restoreClientWidth } from '../../../tests/helpers';
 import { fakeMemory, pickFilter, registerMemoryHooks, showNotes } from './memory-test-support';
 
 registerMemoryHooks();
@@ -21,7 +22,7 @@ beforeEach(() => {
 afterEach(() => {
   Reflect.deleteProperty(HTMLElement.prototype, 'offsetWidth');
   Reflect.deleteProperty(HTMLElement.prototype, 'setPointerCapture');
-  Reflect.deleteProperty(HTMLElement.prototype, 'clientWidth');
+  restoreClientWidth();
   localStorage.clear();
   document.documentElement.removeAttribute('style');
 });
