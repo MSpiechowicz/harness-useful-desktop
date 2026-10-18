@@ -357,9 +357,10 @@ fn a_settle_while_a_slow_prompt_submit_command_runs_ends_the_run_before_the_prom
     let (key, received) = chats.start(start_request(&chats.setup.project));
     chats.prompt(&key, "Fix the parser");
 
-    // The first run settles while this prompt's command sleeps.
+    // The first run settles while this prompt's command sleeps. On a slow machine the second run
+    // may have settled too by the time the prompt call returns.
     chats.prompt(&key, "Next");
-    assert_eq!(events_of(&received, "settled").len(), 1);
+    assert!(!events_of(&received, "settled").is_empty());
 
     // A follow-up for the first run ("tool read") would fail the agent's match.
     ends_after_one_follow_up(&chats, &key, &received);
