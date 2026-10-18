@@ -1,3 +1,10 @@
+# [0.23.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.22.1...v0.23.0) (2026-10-18)
+
+
+### Features
+
+* **ui:** one workspace layout, live data without refresh buttons, a steady top bar ([029cecc](https://github.com/MSpiechowicz/harness-useful-desktop/commit/029cecc359a11901d594c184e3cdd19748e27454))
+
 ## [0.22.1](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.22.0...v0.22.1) (2026-10-17)
 
 
