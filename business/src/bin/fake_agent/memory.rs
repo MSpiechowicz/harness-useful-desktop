@@ -26,7 +26,7 @@ use std::io::{BufRead, Write};
 
 use serde_json::{Map, Value, json};
 
-const NOTE_TOOLS: [&str; 3] = ["memory_save", "memory_search", "memory_delete"];
+const NOTE_TOOLS: [&str; 3] = ["note_save", "note_search", "note_delete"];
 const SCRIPT_TOOLS: [&str; 5] = [
     "script_save",
     "script_list",

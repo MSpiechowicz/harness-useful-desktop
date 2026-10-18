@@ -32,7 +32,7 @@ export const CATALOG: readonly CatalogEntry[] = [
     name: 'Search Harness Memory first',
     event: 'sessionStart',
     type: 'addContext',
-    text: 'Before you start, search Harness Memory for notes about this task (memory_search) and check the saved scripts (script_list). Reuse what fits.',
+    text: 'Before you start, search Harness Memory for notes about this task (note_search) and check the saved scripts (script_list). Reuse what fits.',
   },
   {
     seed: 'memory-save',
@@ -40,7 +40,7 @@ export const CATALOG: readonly CatalogEntry[] = [
     name: 'Save what you learned',
     event: 'turnEnd',
     type: 'followUp',
-    text: 'If this turn taught you something worth keeping, save it to Harness Memory (memory_remember or memory_update). Save any command sequence you would run again as a script (script_save). Reply briefly, or say nothing needs saving.',
+    text: 'If this turn taught you something worth keeping, save it to Harness Memory (note_save or note_update). Save any command sequence you would run again as a script (script_save). Reply briefly, or say nothing needs saving.',
   },
   {
     seed: 'dashboard-limits',

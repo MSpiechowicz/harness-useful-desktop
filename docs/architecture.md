@@ -104,8 +104,8 @@ flowchart LR
    (`setup_register_memory`, `memory_setup::register_in`), turning the pref on when it is off. `AppState.memory_setup`
    serializes these runs.
 4. **Use.** A harness starts `harness-memory mcp`. The server resolves the repository from `project_path` or its working
-   directory with git (normalized `origin`, else the path), then serves seven tools (`memory_remember`, `memory_update`,
-   `memory_search`, `memory_get`, `memory_link`, `memory_neighbors`, `memory_forget`) over newline-delimited JSON-RPC. It
+   directory with git (normalized `origin`, else the path), then serves eight note and entity tools (`note_save`, `note_update`,
+   `note_search`, `note_get`, `note_delete`, `entity_link`, `entity_neighbors`, `entity_delete`) over newline-delimited JSON-RPC. It
    stores notes in SQLite (WAL, FTS5) at `<data>/harness-memory/memory.sqlite3` (`$XDG_DATA_HOME` or `~/.local/share` on
    Linux, `~/Library/Application Support` on macOS, `%LOCALAPPDATA%` on Windows; `HARNESS_MEMORY_DIR` overrides), and
    on first run copies the database older app builds kept under `<local data>/com.mspiechowicz.harness-useful-desktop/memory`

@@ -597,8 +597,8 @@ install scripts; the review shows each command.
 released from [harness-useful-memory](https://github.com/MSpiechowicz/harness-useful-memory), not part of this app. The
 app installs it after you confirm and registers it (see [Process spawning](#process-spawning)); your harnesses start it
 as `harness-memory mcp` and talk to it over stdio. The rules below describe the server as this app relies on it; its
-repository is the reference for the server itself. Seven tools: `memory_remember`, `memory_update`, `memory_search`, `memory_get`,
-`memory_link`, `memory_neighbors` and `memory_forget`. The server's instructions ask agents to search at the start of a
+repository is the reference for the server itself. Eight note and entity tools: `note_save`, `note_update`, `note_search`,
+`note_get`, `note_delete`, `entity_link`, `entity_neighbors` and `entity_delete`. The server's instructions ask agents to search at the start of a
 task and to save outcomes, problems and fixes, locations and decisions before they finish, to prefer updating a note
 over adding one, to forget outdated notes, and never to store secrets or personal data. Whether an agent follows that
 is up to the agent.
@@ -619,15 +619,15 @@ file as it did. The Harness family hooks now ask agents to search and save notes
   which may not be the one that wrote them.
 - **The repository key is an identifier, not an access boundary.** Any folder can claim any `origin`, and any agent that
   can start the server can read and write every scope (by naming a `project_path` or a checkout with the same remote).
-  So every note in `memory_search` and `memory_get` replies, and every similar note listed after `memory_remember`,
+  So every note in `note_search` and `note_get` replies, and every similar note listed after `note_save`,
   names where its latest write came from (`from "~/work/widget" via "claude-code"`: the checkout the writing server ran
   in, never the one `project_path` named; marked `override` when the write came through a `project_path` that differs
   from that checkout, with no `from` when the server ran outside any; `via unknown` when the writer reported neither).
   The path, the client name and the repository key in a reply are JSON strings without square brackets and with every
   non-ASCII character escaped as `\uXXXX`, so a folder or client name cannot add a field or end the header, not even
-  with look-alike quotes, commas or brackets. A same-title `memory_remember` from another checkout, or through a
+  with look-alike quotes, commas or brackets. A same-title `note_save` from another checkout, or through a
   `project_path` that differs from the server's own checkout, does not replace a repository note, and neither does one
-  for a note last written that way: the agent gets the existing note's id and must call `memory_update` with it to
+  for a note last written that way: the agent gets the existing note's id and must call `note_update` with it to
   replace the note on purpose. Global notes are shared by design and update by title from anywhere.
 - **Note text is data.** Notes are written by agents and returned to other agents, so the server keeps them from
   passing for anything else: control characters (bodies keep
@@ -649,7 +649,7 @@ file as it did. The Harness family hooks now ask agents to search and save notes
   neither every secret nor personal data.
 - **Limits per call**, not on the total: a title is 120 characters, a body 4000, 8 tags, 10
   entities per note, a search text 256 characters and at most 20 rows, a line of input 1 MiB, and replies to agents are
-  capped at 4 KiB (16 KiB for `memory_get`). The number of notes and the size of the database are not capped. Input is
+  capped at 4 KiB (16 KiB for `note_get`). The number of notes and the size of the database are not capped. Input is
   checked before the write lock is taken, so an oversized call fails at once without holding up other agents.
 - **Never exported.** Share setup neither includes the `harness-memory` entry nor reads the database, and an import
   refuses that server name.
@@ -989,7 +989,7 @@ command is not granted). Process errors name only the program's file name (`Exec
   title (other scripts' letters that resemble Latin ones) creates a second note next to the real one; both show their
   provenance. `redact_text` is a heuristic and cannot recognise personal data. What an agent reads from memory goes to its model
   provider like the rest of its context. Notes are written by agents, possibly after reading hostile files,
-  and are returned to later sessions as context: treat them as untrusted input, and use `memory_forget` or delete the
+  and are returned to later sessions as context: treat them as untrusted input, and use `note_delete` or delete the
   database to drop one. Nothing limits how many notes accumulate.
 - **Hooks are your code.** A command hook runs with your privileges and the app's environment, in your project or chat
   folder, whenever its event fires, and does whatever its text says. The app cannot judge a command: it runs only what you

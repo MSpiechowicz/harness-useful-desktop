@@ -28,11 +28,11 @@ use crate::model::{
 
 /// The `memory-search` context.
 pub const SEED_MEMORY_SEARCH_TEXT: &str = "Before you start, search Harness Memory for notes about this task \
-     (memory_search) and check the saved scripts (script_list). Reuse what fits.";
+     (note_search) and check the saved scripts (script_list). Reuse what fits.";
 
 /// The `memory-save` follow-up.
 pub const SEED_MEMORY_SAVE_TEXT: &str = "If this turn taught you something worth keeping, save it to Harness \
-     Memory (memory_remember or memory_update). Save any command sequence you would run again as a script \
+     Memory (note_save or note_update). Save any command sequence you would run again as a script \
      (script_save). Reply briefly, or say nothing needs saving.";
 
 /// The `dashboard-limits` context.
