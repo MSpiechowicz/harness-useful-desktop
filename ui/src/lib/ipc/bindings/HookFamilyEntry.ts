@@ -31,4 +31,9 @@ status: HookFamilyStatus,
 /**
  * The file with this seed, when there is one.
  */
-hookId: string | null, };
+hookId: string | null, 
+/**
+ * An `outdated` file that still holds an earlier catalog version word for word (not an edit of
+ * the user's), so it may be updated without asking.
+ */
+stale: boolean, };

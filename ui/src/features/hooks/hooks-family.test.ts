@@ -1,11 +1,14 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { prefs } from '$lib/stores/prefs.svelte';
 import { toasts } from '$lib/stores/toasts.svelte';
 
 import { onboarding } from '../onboarding/onboarding-state.svelte';
 
 import { hooks } from './hooks-data.svelte';
+import { samplePrefs } from '../../../tests/helpers';
+
 import { calls, fakeHooks, registerHooksHooks, rowOf, showHooks } from './hooks-test-support';
 
 registerHooksHooks();
@@ -90,6 +93,25 @@ describe('Harness family hooks', () => {
     await fireEvent.click(within(row).getByRole('button', { name: 'Update' }));
 
     await waitFor(() => expect(within(rowIn(dialog, 'Save what you learned')).getByText('Installed')).toBeInTheDocument());
+  });
+
+  it('updates a family hook still on an earlier catalog version by itself while automatic updates are on, and says so', async () => {
+    const { invoke } = fakeHooks('outdated');
+    prefs.value = samplePrefs({ autoUpdateExtensions: true });
+
+    await hooks.updateStaleFamily();
+
+    expect(calls(invoke, 'hooks_family_apply')).toEqual([{ seeds: ['memory-save'] }]);
+    expect(toasts.items.map((toast) => [toast.title, toast.description])).toContainEqual(['1 family hook updated', 'Automatic updates brought it to the latest Harness family version.']);
+  });
+
+  it('leaves an outdated family hook for the dialog while automatic updates are off', async () => {
+    const { invoke } = fakeHooks('outdated');
+    prefs.value = samplePrefs({ autoUpdateExtensions: false });
+
+    await hooks.updateStaleFamily();
+
+    expect(calls(invoke, 'hooks_family_apply')).toEqual([]);
   });
 
   it('adds every missing family hook with one button, from an empty folder', async () => {

@@ -188,7 +188,8 @@ Exact texts:
 When the app writes them:
 
 - Launch seeding: at launch (and after a member is enabled), the hooks of each available member are created once and listed in `hooks-state.json`. A listed seed is never created at launch again, even after the user deletes it. A file with that seed already in the folder is listed, not duplicated.
-- Harness family hooks dialog: the user adds a missing hook or updates an outdated one (an approved valid file with that seed whose name, event or action differs from the catalog, including the user's own edit). An update keeps the id, `createdAt`, `createdBy`, scope and `enabled`. Nothing is updated without that request.
+- Harness family hooks dialog: the user adds a missing hook or updates an outdated one (an approved valid file with that seed whose name, event or action differs from the catalog, including the user's own edit). An update keeps the id, `createdAt`, `createdBy`, scope and `enabled`.
+- Automatic updates (Settings, Updates, "automatic extension updates" on): at launch the app updates every outdated family hook that is stale, one whose name and event match the catalog and whose text is word for word an earlier catalog version of that seed, and tells the user in a toast. A hook the user edited is never stale and is updated only from the dialog.
 - Only an approved file counts as a seed's hook. When the app adds a seed that has only a pending file (an edit the user has not reviewed, or a file someone else wrote), it rewrites that file with the catalog version and approves it, keeping the id, `createdAt`, `createdBy`, scope and `enabled`.
 - After a member is installed through the app, its missing hooks are added again, even ones deleted before. Existing ones are never overwritten.
 - Uninstalling a member deletes nothing: its hooks wait for it.

@@ -355,7 +355,15 @@ export class MockHooks {
       event: entry.event,
       status: this.entryStatus(entry),
       hookId: [...this.files.values()].find(({ hook }) => hook.seed === entry.seed)?.hook.id ?? null,
+      stale: this.isStale(entry),
     }));
+  }
+
+  /** An outdated family hook that still holds the earlier catalog text, word for word. */
+  private isStale(entry: CatalogEntry): boolean {
+    const found = [...this.files.values()].find(({ hook }) => hook.seed === entry.seed);
+
+    return this.entryStatus(entry) === 'outdated' && found?.hook.action.type !== 'command' && found?.hook.action.text === OLD_SAVE_TEXT;
   }
 
   /** Adds the missing and updates the outdated family hooks asked for, approved. */

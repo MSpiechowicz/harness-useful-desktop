@@ -11,6 +11,7 @@ import { ipc } from '$lib/ipc/client';
 import { IpcFailure } from '$lib/ipc/transport';
 import { desktopMcp, type DesktopMcpState } from '$lib/stores/desktop-mcp.svelte';
 import { DocBusy } from '$lib/stores/doc-busy.svelte';
+import { prefs } from '$lib/stores/prefs.svelte';
 import { project } from '$lib/stores/project.svelte';
 import { toasts } from '$lib/stores/toasts.svelte';
 import { ViewLoader } from '$lib/stores/view-loader.svelte';
@@ -30,6 +31,7 @@ export class HooksStore {
   readonly list = new ViewLoader<HookListing, string>((_key, path) => ipc.invoke('hooks_list', { project: path }));
 
   /** The Harness family catalog against the hook files; null until the dialog asked. */
+  private updatingFamily = false;
   family = $state.raw<HookFamilyEntry[] | null>(null);
   familyError = $state<string | null>(null);
 
@@ -91,9 +93,37 @@ export class HooksStore {
       })
       .catch(() => {});
 
+    void this.updateStaleFamily();
+
     return () => {
       listening = false;
     };
+  }
+
+  /**
+   * With automatic updates on, brings the Harness family hooks that still hold an earlier catalog version up to date and
+   * says so. A family hook the user edited is never touched here: the Harness family hooks dialog offers it.
+   */
+  async updateStaleFamily(): Promise<void> {
+    if (!(prefs.value?.autoUpdateExtensions ?? false) || this.updatingFamily) {
+      return;
+    }
+
+    this.updatingFamily = true;
+
+    try {
+      const stale = (await ipc.invoke('hooks_family', undefined)).filter((row) => row.stale).map((row) => row.seed);
+
+      if (stale.length > 0) {
+        await ipc.invoke('hooks_family_apply', { seeds: stale });
+        await this.refresh();
+        toasts.push({ title: tn('hooks.toast.familyUpdated', stale.length), description: t('hooks.toast.familyUpdated.description'), tone: 'success' });
+      }
+    } catch {
+      // Left for the dialog, which still offers the update.
+    } finally {
+      this.updatingFamily = false;
+    }
   }
 
   /** Reads the list again in the background, and the family catalog when the dialog has shown it. */

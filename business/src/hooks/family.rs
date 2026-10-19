@@ -54,6 +54,9 @@ pub struct FamilyHook {
     pub event: HookEvent,
     /// The text it adds (`sessionStart`: context) or sends (`turnEnd`: a follow-up).
     pub text: &'static str,
+    /// The texts of its earlier catalog versions. A file still holding one of them word for word
+    /// is stale, not edited, and automatic updates may replace it.
+    pub earlier: &'static [&'static str],
 }
 
 impl FamilyHook {
@@ -70,6 +73,16 @@ impl FamilyHook {
     /// True when `hook` matches this version (name, event and action).
     fn matches(&self, hook: &Hook) -> bool {
         hook.name == self.name && hook.event == self.event && hook.action == self.action()
+    }
+
+    /// True when `hook` is an earlier catalog version of this entry, word for word.
+    fn is_earlier(&self, hook: &Hook) -> bool {
+        let text = match &hook.action {
+            HookAction::AddContext { text } | HookAction::FollowUp { text } => text.as_str(),
+            HookAction::Command { .. } => return false,
+        };
+
+        hook.name == self.name && hook.event == self.event && self.earlier.contains(&text)
     }
 
     /// A new file of this entry, created now with a fresh id.
@@ -110,6 +123,10 @@ pub const FAMILY: [FamilyHook; 3] = [
         description: "Seeded default. Asks the agent to look up notes and scripts before it starts.",
         event: HookEvent::SessionStart,
         text: SEED_MEMORY_SEARCH_TEXT,
+        earlier: &[
+            "Before you start, search Harness Memory for notes about this task (memory_search) and check \
+                    the saved scripts (script_list). Reuse what fits.",
+        ],
     },
     FamilyHook {
         seed: HookSeed::MemorySave,
@@ -118,6 +135,11 @@ pub const FAMILY: [FamilyHook; 3] = [
         description: "Seeded default. Asks the agent to keep lessons and repeatable commands after a turn.",
         event: HookEvent::TurnEnd,
         text: SEED_MEMORY_SAVE_TEXT,
+        earlier: &[
+            "If this turn taught you something worth keeping, save it to Harness Memory (memory_remember \
+                    or memory_update). Save any command sequence you would run again as a script (script_save). \
+                    Reply briefly, or say nothing needs saving.",
+        ],
     },
     FamilyHook {
         seed: HookSeed::DashboardLimits,
@@ -126,6 +148,7 @@ pub const FAMILY: [FamilyHook; 3] = [
         description: "Seeded default. Asks the agent to check plan limits and budgets before a long task.",
         event: HookEvent::SessionStart,
         text: SEED_DASHBOARD_LIMITS_TEXT,
+        earlier: &[],
     },
 ];
 
@@ -171,6 +194,7 @@ pub fn family_status(listing: &HookListing, installed: HookCapabilities) -> Vec<
                 event: entry.event,
                 status,
                 hook_id: hook.map(|hook| hook.id.clone()),
+                stale: status == HookFamilyStatus::Outdated && hook.is_some_and(|hook| entry.is_earlier(hook)),
             }
         })
         .collect()

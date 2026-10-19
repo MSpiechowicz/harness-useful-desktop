@@ -72,11 +72,11 @@
           {#snippet control()}
             <div class="flex items-center justify-end gap-2.5">
               {#if row.status === 'installed'}
-                <Badge tone="success" dot>{t('hooks.family.status.installed')}</Badge>
+                <Badge tone="success" dot size="lg">{t('hooks.family.status.installed')}</Badge>
               {:else if row.status === 'needsMember'}
                 <FamilyInstall {member} />
               {:else}
-                {#if row.status === 'outdated'}<Badge tone="warning">{t('hooks.family.status.outdated')}</Badge>{/if}
+                {#if row.status === 'outdated'}<Badge tone="warning" size="lg">{t('hooks.family.status.outdated')}</Badge>{/if}
                 <Button loading={working.includes(row.seed)} disabled={working.length > 0} onclick={() => void apply([row.seed])}>
                   {#snippet leading()}
                     {#if row.status === 'outdated'}<RefreshCw size={ICON.sm} aria-hidden="true" />{:else}<Plus size={ICON.sm} aria-hidden="true" />{/if}

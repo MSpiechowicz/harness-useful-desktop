@@ -71,6 +71,10 @@ mod hooks_family {
     }
 
     fn edit(store: &HookStore, seed: HookSeed, author: HookAuthor) -> HookView {
+        edit_text(store, seed, author, "Something else.")
+    }
+
+    fn edit_text(store: &HookStore, seed: HookSeed, author: HookAuthor, text: &str) -> HookView {
         let view = seeded(store, seed).unwrap();
         let hook = view.hook.clone().unwrap();
         let draft = HookDraft {
@@ -83,12 +87,8 @@ mod hooks_family {
             event: hook.event,
             matcher: hook.matcher,
             action: match hook.action {
-                HookAction::FollowUp { .. } => HookAction::FollowUp {
-                    text: "Something else.".to_owned(),
-                },
-                _ => HookAction::AddContext {
-                    text: "Something else.".to_owned(),
-                },
+                HookAction::FollowUp { .. } => HookAction::FollowUp { text: text.to_owned() },
+                _ => HookAction::AddContext { text: text.to_owned() },
             },
             enabled: hook.enabled,
         };
@@ -163,6 +163,27 @@ mod hooks_family {
             seeded(&store, HookSeed::MemorySearch).map(|view| view.id)
         );
         assert_eq!(entries[2].hook_id, None);
+    }
+
+    #[test]
+    fn only_an_earlier_catalog_version_word_for_word_is_stale() {
+        let (_temp, store) = store();
+        seed_defaults(&store, MEMORY, at(0)).unwrap();
+        let earlier = family_hook(HookSeed::MemorySearch).earlier[0];
+        edit_text(&store, HookSeed::MemorySearch, HookAuthor::Desktop, earlier);
+        user_edit(&store, HookSeed::MemorySave);
+
+        let entries = family_status(&store.list(MEMORY), MEMORY);
+
+        assert_eq!(
+            (entries[0].status, entries[0].stale),
+            (HookFamilyStatus::Outdated, true)
+        );
+        assert_eq!(
+            (entries[1].status, entries[1].stale),
+            (HookFamilyStatus::Outdated, false)
+        );
+        assert!(!entries[2].stale);
     }
 
     #[test]
