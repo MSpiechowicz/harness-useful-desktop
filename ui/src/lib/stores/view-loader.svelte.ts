@@ -24,7 +24,15 @@ export class ViewLoader<T, K extends string = HarnessId> {
   private loading: Promise<void> | null = null;
   private loadingGeneration = 0;
 
-  constructor(private readonly fetcher: Fetcher<T, K>) {}
+  /**
+   * `goneIsFinal` is for a view of one thing that can be deleted (a note, a script): a background read that finds it gone
+   * ends the view in `notFound` like a first read would, instead of keeping the last copy on screen. As a function it decides which
+   * `notFound` means the thing is gone, so a missing server (a reinstall in progress) keeps the last copy like any other failure.
+   */
+  constructor(
+    private readonly fetcher: Fetcher<T, K>,
+    private readonly options: { goneIsFinal?: boolean | ((failure: IpcFailure) => boolean) } = {},
+  ) {}
 
   /** Makes the loaded view match the given pair; `null` harness clears it. */
   sync(harness: K | null, project: string | null): void {
@@ -133,10 +141,14 @@ export class ViewLoader<T, K extends string = HarnessId> {
         this.status = 'ready';
       }
     } catch (error) {
+      const failure = IpcFailure.from(error);
+      const final = this.options.goneIsFinal;
+      const gone = failure.code === 'notFound' && (final === true || (typeof final === 'function' && final(failure)));
+
       // A background read that fails keeps what is shown, but with nothing shown the failure is the page.
-      if (mine === this.generation && (!quiet || this.data === null)) {
+      if (mine === this.generation && (!quiet || this.data === null || gone)) {
         this.data = null;
-        this.error = IpcFailure.from(error);
+        this.error = failure;
         this.status = 'error';
       }
     } finally {

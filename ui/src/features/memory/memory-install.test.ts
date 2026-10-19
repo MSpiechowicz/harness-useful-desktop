@@ -8,7 +8,7 @@ import { IpcFailure } from '$lib/ipc/transport';
 import { nav } from '$lib/stores/nav.svelte';
 
 import { calls, fakeMemory, type MemoryRelease, NO_NEWER_RELEASE, registerMemoryHooks } from './memory-test-support';
-import MemoryView from './MemoryView.svelte';
+import ScriptsView from './ScriptsView.svelte';
 
 registerMemoryHooks();
 
@@ -69,8 +69,8 @@ function installable(before: MemoryScriptsAvailability, outcomes: (DashboardInst
 const installs = (invoke: ReturnType<typeof fakeMemory>) => calls(invoke, 'setup_install_memory') as { confirmed: boolean }[];
 
 function open(): void {
-  nav.go('memory');
-  render(MemoryView);
+  nav.go('scripts');
+  render(ScriptsView);
 }
 
 /** Clicks the page's button, then the same action in the question that follows. */
@@ -81,7 +81,7 @@ async function confirm(name: string): Promise<void> {
   await fireEvent.click(within(dialog).getByRole('button', { name }));
 }
 
-describe('updating Harness Memory from the Memory view', () => {
+describe('updating Harness Memory from the Notes and Scripts views', () => {
   it('asks first, then runs the installer with the user confirmation, shows its output and lists the scripts', async () => {
     const { invoke, release } = installable({ kind: 'outdated' }, [result(true)], { hold: true });
     open();

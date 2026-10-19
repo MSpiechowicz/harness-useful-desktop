@@ -1,7 +1,8 @@
 //! The Memory view's scripts (`memory_scripts_list`, `memory_script_get`,
 //! `memory_script_delete`, `memory_scripts_delete_all`), listed a page at a time with
 //! `harness-memory scripts list --json`, read and deleted through the installed
-//! `harness-memory mcp` (`script_get`, `script_delete`), all deleted with
+//! `harness-memory mcp` (`script_get`, `script_delete`), created and edited there
+//! (`memory_script_save`: `script_save`, after `script_get` by name unless replacing), all deleted with
 //! `harness-memory scripts delete --all`, and approved with `harness-memory trust`
 //! (`memory_scripts_trust`, each script with the hash of the version the user reviewed). The app never opens the memory database.
 //!
@@ -12,8 +13,8 @@ use std::path::PathBuf;
 
 use harness_business::ecosystem::{ListWindow, ScriptsQuery, trust_scripts};
 use harness_business::model::{
-    MemoryDeleteAll, MemoryScriptsPage, ScriptDetail, ScriptGroup, ScriptReview, ScriptScope, ScriptSort,
-    ScriptTrustItem, SortOrder,
+    MemoryDeleteAll, MemoryScriptsPage, ScriptDetail, ScriptDraft, ScriptGroup, ScriptReview, ScriptSaved, ScriptScope,
+    ScriptSort, ScriptTrustItem, SortOrder,
 };
 use tauri::State;
 
@@ -72,6 +73,45 @@ pub async fn memory_script_delete(state: State<'_, AppState>, id: i64, project: 
 
     tracing::info!(id, "memory script deleted");
     Ok(())
+}
+
+/// Creates a script, or with `replace` replaces the one of that name in that scope (an edit, or a
+/// confirmed replace). An edit also passes `base`, the `sha256` of the version the editor opened:
+/// `conflict` (nothing saved) when that script was deleted or changed since. Saved here, so
+/// trusted on this machine: when the server answers `needed` (the code of a script waiting for
+/// approval, or a copy of one) the saved version is approved (`harness-memory trust`) only when
+/// the user put the code in and the stored script is the draft. An edit counts when it changed
+/// the code it opened (line endings and trailing whitespace aside), so an edit of the
+/// description, timeout or language alone stays `needed`; a confirmed replace counts unless it
+/// keeps the code of the untrusted script it replaces; a new name always counts. `exists`
+/// (nothing saved) with that script's id when one has the name and `replace` is false.
+/// `invalidInput` for a draft over a limit or a repository script without a project,
+/// `notFound` when the server is not installed, `unsupported` when it predates saving from the
+/// app, `forbidden` for a project that is not open or recent.
+#[tauri::command]
+pub async fn memory_script_save(
+    state: State<'_, AppState>,
+    project: Option<String>,
+    draft: ScriptDraft,
+    replace: bool,
+    base: Option<String>,
+) -> CommandResult<ScriptSaved> {
+    save(&state, project, &draft, replace, base.as_deref()).await
+}
+
+async fn save(
+    state: &AppState,
+    project: Option<String>,
+    draft: &ScriptDraft,
+    replace: bool,
+    base: Option<&str>,
+) -> CommandResult<ScriptSaved> {
+    let project = project_root(state, project).await?;
+
+    Ok(state
+        .memory_scripts
+        .save(&state.env, &state.runner, project.as_deref(), draft, replace, base)
+        .await?)
 }
 
 /// Deletes every script the list shows for the project without filters (the UI confirms first):
@@ -134,11 +174,24 @@ pub(super) async fn project_root(state: &AppState, project: Option<String>) -> C
 
 #[cfg(test)]
 mod tests {
-    use harness_business::model::{IpcErrorCode, MemoryScriptsAvailability};
+    use harness_business::model::{
+        IpcErrorCode, MemoryScriptsAvailability, ScriptApproval, ScriptLanguage, ScriptSaveOutcome,
+    };
     use tauri::async_runtime::block_on;
 
     use super::*;
     use crate::test_support::{ProjectHome, path_arg, place_memory_server};
+
+    fn draft(name: &str, scope: ScriptScope) -> ScriptDraft {
+        ScriptDraft {
+            name: name.to_owned(),
+            description: "Written in the app".to_owned(),
+            language: ScriptLanguage::Bash,
+            body: "echo app\n".to_owned(),
+            timeout_secs: 30,
+            scope,
+        }
+    }
 
     fn by_name() -> ScriptsQuery {
         let window = ListWindow::new(None, None, None, None).expect("the first page");
@@ -154,6 +207,16 @@ mod tests {
         assert_eq!(error.code(), IpcErrorCode::Forbidden);
 
         let error = block_on(delete_all(&setup.state, path_arg(&setup.stranger))).expect_err("unknown project");
+        assert_eq!(error.code(), IpcErrorCode::Forbidden);
+
+        let error = block_on(save(
+            &setup.state,
+            path_arg(&setup.stranger),
+            &draft("open-prs", ScriptScope::Repo),
+            false,
+            None,
+        ))
+        .expect_err("unknown project");
         assert_eq!(error.code(), IpcErrorCode::Forbidden);
     }
 
@@ -205,6 +268,96 @@ mod tests {
                 team: Some(0)
             }
         );
+
+        block_on(state.memory_scripts.shutdown());
+    }
+
+    #[test]
+    fn the_installed_server_saves_a_script_and_replaces_one_only_when_asked() {
+        let setup = ProjectHome::new("scripts-save");
+        let (state, project) = (&setup.state, &setup.project);
+
+        let error = block_on(save(
+            state,
+            path_arg(project),
+            &draft("app-script", ScriptScope::Repo),
+            false,
+            None,
+        ))
+        .expect_err("not installed");
+        assert_eq!(error.code(), IpcErrorCode::NotFound);
+
+        if place_memory_server(&setup.home).is_none() {
+            return;
+        }
+
+        let created = block_on(save(
+            state,
+            path_arg(project),
+            &draft("app-script", ScriptScope::Repo),
+            false,
+            None,
+        ))
+        .expect("created");
+        assert_eq!(created.outcome, ScriptSaveOutcome::Created);
+        let script = created.script.expect("the saved script");
+        assert_eq!((script.id, script.approval), (created.id, ScriptApproval::Local));
+
+        let exists = block_on(save(
+            state,
+            path_arg(project),
+            &draft("open-prs", ScriptScope::Repo),
+            false,
+            None,
+        ))
+        .expect("refused");
+        assert_eq!(
+            (exists.outcome, exists.id, exists.script),
+            (ScriptSaveOutcome::Exists, 12, None)
+        );
+
+        let global = block_on(save(
+            state,
+            path_arg(project),
+            &draft("open-prs", ScriptScope::Global),
+            false,
+            None,
+        ))
+        .expect("another scope");
+        assert_eq!(
+            global.outcome,
+            ScriptSaveOutcome::Created,
+            "the name is taken in the repository only"
+        );
+
+        let replaced = block_on(save(
+            state,
+            path_arg(project),
+            &draft("open-prs", ScriptScope::Repo),
+            true,
+            None,
+        ))
+        .expect("replaced");
+        assert_eq!((replaced.outcome, replaced.id), (ScriptSaveOutcome::Replaced, 12));
+        assert_eq!(replaced.script.expect("the saved script").timeout_secs, 30);
+
+        let waiting = block_on(save(
+            state,
+            path_arg(project),
+            &draft("release-notes", ScriptScope::Global),
+            true,
+            None,
+        ))
+        .expect("replaced");
+        assert_eq!(
+            (waiting.id, waiting.script.expect("the saved script").approval),
+            (7, ScriptApproval::Local),
+            "other code over a script waiting for approval is the user's, and the server trusts it as saved here"
+        );
+
+        let error = block_on(save(state, None, &draft("app-script", ScriptScope::Repo), false, None))
+            .expect_err("a repository script needs a project");
+        assert_eq!(error.code(), IpcErrorCode::InvalidInput);
 
         block_on(state.memory_scripts.shutdown());
     }

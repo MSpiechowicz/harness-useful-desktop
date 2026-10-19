@@ -41,7 +41,7 @@
      delete are always there, at the height of the badge beside them. -->
 <ul class="flex flex-col gap-2" aria-label={t('components.diff.comments')}>
   {#each comments as comment (comment.id)}
-    <li class="max-w-[640px]">
+    <li class="max-w-(--comment-card)">
       {#if editing === comment.id}
         <DiffViewComposer
           heading={commentHeading(comment)}
@@ -55,7 +55,7 @@
           oncancel={() => (editing = null)}
         />
       {:else}
-        <div class="group/comment flex flex-col gap-2 rounded-lg border border-line-strong bg-surface-1 p-3 shadow-raised">
+        <div class="group/comment flex flex-col gap-2 rounded-lg border border-line-strong bg-surface-1 p-4 shadow-raised">
           <div class="flex items-center gap-2">
             <Badge tone="accent" class="h-control rounded-md! px-2.5 text-sm!">{commentHeading(comment)}</Badge>
             <span class="ml-auto flex items-center gap-2">
@@ -63,7 +63,7 @@
               <IconButton icon={Trash2} label={t('components.diff.delete')} iconSize={16} class="bg-danger-wash! text-danger! hover:bg-danger/25!" onclick={() => ask(comment)} />
             </span>
           </div>
-          <p class="px-0.5 text-base break-words whitespace-pre-wrap text-fg">{comment.body}</p>
+          <p class="px-1 text-base leading-relaxed break-words whitespace-pre-wrap text-fg">{comment.body}</p>
         </div>
       {/if}
     </li>

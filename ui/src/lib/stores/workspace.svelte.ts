@@ -83,6 +83,15 @@ function uniqueSessions(chats: SavedWorkspace['chats']): SavedWorkspace['chats']
   return chats.filter((chat, index) => chats.findIndex((other) => sameSession(other, chat)) === index);
 }
 
+/** The view a record names. The Memory view was split into Notes and Scripts, and a record from before that opens Notes. */
+function savedView(view: string): ViewId {
+  if (view === 'memory') {
+    return 'notes';
+  }
+
+  return VIEW_IDS.find((id) => id === view) ?? 'chat';
+}
+
 function readWorkspace(): SavedWorkspace | null {
   try {
     const record = JSON.parse(localStorage.getItem(KEY) ?? 'null') as SavedWorkspace | null;
@@ -99,7 +108,7 @@ function readWorkspace(): SavedWorkspace | null {
     );
 
     return {
-      view: VIEW_IDS.includes(record.view) ? record.view : 'chat',
+      view: savedView(record.view),
       chats,
       // The index counted the chats as saved; find the same session among those kept.
       active: wanted ? chats.findIndex((chat) => sameSession(chat, wanted)) : -1,

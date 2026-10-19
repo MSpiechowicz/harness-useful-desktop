@@ -1,5 +1,6 @@
 //! The deterministic scripts agents keep in Harness Memory (`memory_scripts_list`,
-//! `memory_script_get`, `memory_script_delete`, `memory_scripts_delete_all`).
+//! `memory_script_get`, `memory_script_delete`, `memory_scripts_delete_all`), and the pooled
+//! connection that saves notes and scripts ([`MemoryScripts::call_tool`]).
 //!
 //! [`MemoryScripts`] lists one page of them with `harness-memory scripts list --json` (see
 //! [`memory_cli`](super::memory_cli)), and reads and deletes one through the installed server
@@ -54,6 +55,9 @@ const AGENT_APPROVAL_ARGUMENT: &str = "sha";
 /// The `approval` values this app knows.
 const APPROVALS: [&str; 4] = ["local", "approved", "team", "needed"];
 const SCRIPT_DELETE_TOOL: &str = "script_delete";
+
+/// What a server too old for [`MemoryScripts::call_tool`] lacks, in messages.
+const SAVING: &str = "saving notes and scripts from the app";
 
 /// The pooled `harness-memory mcp` connection for scripts. See the module docs.
 pub struct MemoryScripts {
@@ -183,6 +187,21 @@ impl MemoryScripts {
         delete_all(env, runner, &server, "scripts", project).await
     }
 
+    /// Calls `tool` with `arguments` on the pooled server, when it is the generation the notes
+    /// view needs (see [`Self::cli_server`]): `notFound` when it is not installed,
+    /// `unsupported` when it is older, `process` when it does not start. A tool error comes back
+    /// as the output (`is_error`), for the caller to read.
+    pub(crate) async fn call_tool(&self, env: &Env, tool: &str, arguments: Map<String, Value>) -> Result<ToolOutput> {
+        let unavailable = |availability| unavailable_error(availability, SAVING);
+        let (spec, probe) = self.probed(env).await.map_err(unavailable)?;
+
+        if probe.asks_first != Some(true) {
+            return Err(unavailable(MemoryScriptsAvailability::Outdated));
+        }
+
+        self.pool.call_tool(&spec, tool, arguments).await
+    }
+
     /// Stops the server now (app shutdown, tests).
     pub async fn shutdown(&self) {
         self.pool.shutdown().await;
@@ -295,7 +314,7 @@ fn server_spec(env: &Env, binary: &Path) -> ExecSpec {
 }
 
 /// `arguments` with `project_path` when there is a project.
-fn with_project(mut arguments: Map<String, Value>, project: Option<&Path>) -> Map<String, Value> {
+pub(crate) fn with_project(mut arguments: Map<String, Value>, project: Option<&Path>) -> Map<String, Value> {
     if let Some(project) = project {
         arguments.insert("project_path".to_owned(), json!(project.to_string_lossy()));
     }
@@ -366,4 +385,17 @@ pub(crate) fn fill_approval(value: &mut Value) {
 
 fn missing_field(tool: &str, field: &str) -> BusinessError {
     BusinessError::Protocol(format!("{tool} answered without `{field}`"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_missing_server_reads_as_the_ui_expects() {
+        // The Notes and Scripts views keep an open panel through this one `notFound` (`memoryItemGone` in the UI stores).
+        let error = unavailable_error(MemoryScriptsAvailability::NotInstalled, "scripts");
+
+        assert_eq!(error.to_string(), "not found: executable harness-memory");
+    }
 }

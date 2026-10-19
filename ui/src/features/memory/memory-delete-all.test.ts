@@ -10,7 +10,7 @@ import { toasts } from '$lib/stores/toasts.svelte';
 import { viewState } from '$lib/stores/view-state.svelte';
 
 import { calls, fakeMemory, PROJECT, registerMemoryHooks, rowButton, showMemory, showNotes } from './memory-test-support';
-import MemoryView from './MemoryView.svelte';
+import ScriptsView from './ScriptsView.svelte';
 
 registerMemoryHooks();
 
@@ -19,11 +19,10 @@ async function chooseDeleteAll(label: string): Promise<void> {
   await fireEvent.click(await screen.findByRole('menuitem', { name: label }));
 }
 
-/** Opens the Memory view on scripts where there is no table to show, only the words that say why, and waits for them. */
+/** Opens the Scripts view where there is no table to show, only the words that say why, and waits for them. */
 async function showWithoutTable(words: string): Promise<void> {
-  viewState.memorySection = 'scripts';
-  nav.go('memory');
-  render(MemoryView);
+  nav.go('scripts');
+  render(ScriptsView);
   await screen.findByText(words);
 }
 

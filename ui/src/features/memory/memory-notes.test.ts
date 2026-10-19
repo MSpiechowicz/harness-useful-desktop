@@ -10,7 +10,8 @@ import { toasts } from '$lib/stores/toasts.svelte';
 import { viewState } from '$lib/stores/view-state.svelte';
 
 import { calls, fakeMemory, noteRow, PROJECT, pickFilter, registerMemoryHooks, showNotes } from './memory-test-support';
-import MemoryView from './MemoryView.svelte';
+import NotesView from './NotesView.svelte';
+import ScriptsView from './ScriptsView.svelte';
 
 registerMemoryHooks();
 
@@ -272,55 +273,58 @@ describe('deleting a note', () => {
   });
 });
 
-describe('the section menu', () => {
-  const menu = () => screen.getByRole('button', { name: /^Memory section/ });
-
-  it('names the two lists without counts, switches between them and remembers the choice', async () => {
+describe('the Notes and Scripts views', () => {
+  it('are two views, each with its own title and no switch between lists', async () => {
     fakeMemory();
-    await showNotes();
+    nav.go('notes');
+    const notes = render(NotesView);
+    await screen.findByRole('grid', { name: 'Notes' });
 
-    expect(menu()).toHaveTextContent(/^Notes$/);
-    await fireEvent.click(menu());
-    expect(await screen.findByRole('menuitemradio', { name: 'Scripts' })).toBeInTheDocument();
-    expect(screen.getByRole('menuitemradio', { name: 'Notes' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Notes' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Memory section/ })).toBeNull();
+    expect(screen.queryByRole('grid', { name: 'Scripts' })).toBeNull();
+    notes.unmount();
 
-    await fireEvent.click(screen.getByRole('menuitemradio', { name: 'Scripts' }));
-
-    expect(await screen.findByRole('grid', { name: 'Scripts' })).toBeInTheDocument();
-    expect(screen.queryByRole('grid', { name: 'Notes' })).toBeNull();
-    expect(menu()).toHaveTextContent(/^Scripts$/);
-    expect(viewState.memorySection).toBe('scripts');
-  });
-
-  it('comes back to the section it was left on', async () => {
-    fakeMemory();
-    viewState.memorySection = 'scripts';
-    nav.go('memory');
-    const { unmount } = render(MemoryView);
+    nav.go('scripts');
+    render(ScriptsView);
     await screen.findByRole('grid', { name: 'Scripts' });
-    unmount();
 
-    render(MemoryView);
-
-    expect(await screen.findByRole('grid', { name: 'Scripts' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Scripts' })).toBeInTheDocument();
+    expect(screen.queryByRole('grid', { name: 'Notes' })).toBeNull();
   });
 
-  it('opens on the notes by default', async () => {
+  it('keep their search in their own header while the other view is still fading out', async () => {
     fakeMemory();
-    nav.go('memory');
-    viewState.memorySection = 'notes';
-    render(MemoryView);
+    nav.go('scripts');
+    const leaving = render(ScriptsView);
+    await screen.findByRole('grid', { name: 'Scripts' });
 
-    expect(await screen.findByRole('grid', { name: 'Notes' })).toBeInTheDocument();
+    nav.go('notes');
+    render(NotesView);
+    await screen.findByRole('grid', { name: 'Notes' });
+    leaving.unmount();
+
+    expect(screen.getByRole('searchbox', { name: 'Search notes' })).toBeInTheDocument();
+  });
+
+  it('keep the search of each list when the view is left and opened again', async () => {
+    fakeMemory();
+    const first = render(NotesView);
+    await screen.findByRole('grid', { name: 'Notes' });
+    viewState.notesQuery = 'wayland';
+    first.unmount();
+
+    render(NotesView);
+
+    expect(await screen.findByRole('searchbox', { name: 'Search notes' })).toHaveValue('wayland');
   });
 });
 
 describe('when there is nothing to list', () => {
   it('says that agents have not written notes yet', async () => {
     fakeMemory({ kind: 'available' }, undefined, undefined, []);
-    viewState.memorySection = 'notes';
-    nav.go('memory');
-    render(MemoryView);
+    nav.go('notes');
+    render(NotesView);
 
     expect(await screen.findByText('No notes yet')).toBeInTheDocument();
     expect(screen.getByText(/Agents haven't written notes for this project yet/)).toBeInTheDocument();
@@ -329,18 +333,16 @@ describe('when there is nothing to list', () => {
 
   it('offers to update when this Harness Memory is too old for the notes', async () => {
     fakeMemory({ kind: 'outdated' });
-    viewState.memorySection = 'notes';
-    nav.go('memory');
-    render(MemoryView);
+    nav.go('notes');
+    render(NotesView);
 
     expect(await screen.findByText('Your memory needs an update')).toBeInTheDocument();
   });
 
   it('shows what went wrong and tries again on request', async () => {
     const invoke = fakeMemory({ kind: 'failed', message: 'it exited with code 1' });
-    viewState.memorySection = 'notes';
-    nav.go('memory');
-    render(MemoryView);
+    nav.go('notes');
+    render(NotesView);
 
     expect(await screen.findByText('Harness Memory did not answer. it exited with code 1')).toBeInTheDocument();
     await fireEvent.click(screen.getByRole('button', { name: 'Try again' }));

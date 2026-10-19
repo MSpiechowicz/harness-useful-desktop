@@ -53,6 +53,7 @@ export const changes = {
   'changes.search.hitsIn.other': '{count} matching lines',
 
   'changes.files.label': 'Changed files',
+  'changes.files.menu': 'Actions for {name}',
   'changes.files.pending.one': '{count} pending comment',
   'changes.files.pending.other': '{count} pending comments',
   'changes.files.commentWord.one': 'comment',

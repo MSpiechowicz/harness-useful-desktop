@@ -32,11 +32,13 @@
     /** Trusts the version on screen, so agents may run it. Absent until the code is loaded and is the version the list reports. */
     ontrust: (() => void) | undefined;
     trusting: boolean;
+    /** Opens the editor on the script. Absent until the code was read, because the editor needs it. */
+    onedit: (() => void) | undefined;
     ondelete: () => void;
     onclose: () => void;
   }
 
-  let { open, inline, script, detail, status, error, onretry, ontrust, trusting, ondelete, onclose }: Props = $props();
+  let { open, inline, script, detail, status, error, onretry, ontrust, trusting, onedit, ondelete, onclose }: Props = $props();
 
   const look = NOTICE_LOOKS.warning;
   // The body read from the server is what an agent would run, so its hash wins over the list's once loaded.
@@ -56,7 +58,7 @@
     </SectionCard>
 
     <!-- Trust pins the body that is on screen: it needs the code read and the same version the list reports. -->
-    <PanelActions deleteLabel={t('memory.panel.delete')} {ondelete}>
+    <PanelActions editLabel={t('memory.editor.edit')} {onedit} deleteLabel={t('memory.panel.delete')} {ondelete}>
       {#if needsReview(script)}
         <div class={cx('flex w-full flex-col items-start gap-3 rounded-md p-3', look.box)} role="status">
           <div class="flex min-w-0 items-start gap-3">

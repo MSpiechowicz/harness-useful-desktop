@@ -11,6 +11,7 @@ use std::time::{Duration, SystemTime};
 
 use harness_business::ecosystem::{McpOptions, MemoryScripts, PoolOptions};
 use harness_business::env::Env;
+use harness_business::model::{ScriptDraft, ScriptLanguage, ScriptScope};
 use harness_business::process::{
     BoxFuture, ExecOutput, ExecSpec, ProcessRunner, ProcessSpawner, SpawnedProcess, TokioRunner, TokioSpawner,
 };
@@ -177,5 +178,17 @@ impl Setup {
     /// Windows has no `/` root, so the project is a folder in the temp home.
     pub fn project(&self) -> PathBuf {
         self.env.home.join("projects/demo")
+    }
+}
+
+/// A repository script as the app's editor saves it.
+pub fn script(name: &str) -> ScriptDraft {
+    ScriptDraft {
+        name: name.to_owned(),
+        description: "Written in the app".to_owned(),
+        language: ScriptLanguage::Sh,
+        body: "echo app\n".to_owned(),
+        timeout_secs: 45,
+        scope: ScriptScope::Repo,
     }
 }

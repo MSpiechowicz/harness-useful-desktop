@@ -176,7 +176,7 @@
                 </span>
               </div>
             {/if}
-            <div class="relative min-h-0 flex-1 overflow-y-auto"><FileList entries={git.entries} {commentCounts} onpick={() => workspace.drawer.close()} /></div>
+            <div class="relative min-h-0 flex-1 overflow-y-auto"><FileList entries={git.entries} {commentCounts} onpick={() => workspace.drawer.close()} ondiscard={(entry) => (discarding = entry)} /></div>
             {#if costArgs}
               <div class="flex h-10 shrink-0 items-center px-2 empty:hidden">
                 <CostChip kind="branch" args={costArgs} align="start" side="top" quiet />

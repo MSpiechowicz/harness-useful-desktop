@@ -29,6 +29,28 @@ describe('workspace restore', () => {
   });
 });
 
+describe('workspace restore of the view the Memory view became', () => {
+  /** The view a fresh launch shows after restoring a record saved on `view`. A launch restores once, so the stores are loaded afresh. */
+  async function relaunchOn(view: string): Promise<string> {
+    localStorage.setItem('harness:workspace', JSON.stringify({ view, chats: [{ harness: 'omp', sessionId: 'abc-123', project: PROJECT }], active: 0 }));
+    vi.resetModules();
+    const { restoreWorkspace: restore } = await import('./workspace.svelte');
+    const { nav: relaunched } = await import('./nav.svelte');
+
+    await restore(storeWithMock().store);
+
+    return relaunched.current;
+  }
+
+  it('opens Notes for a record saved while the Memory view was on screen', async () => {
+    expect(await relaunchOn('memory')).toBe('notes');
+  });
+
+  it('opens the chat for a view that does not exist any more', async () => {
+    expect(await relaunchOn('gone')).toBe('chat');
+  });
+});
+
 describe('workspace restore of a saved duplicate', () => {
   async function relaunch() {
     vi.resetModules();

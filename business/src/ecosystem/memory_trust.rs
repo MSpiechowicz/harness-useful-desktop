@@ -7,18 +7,20 @@
 //! load the script again and ask). The server keeps approvals in its local file and decides which
 //! scripts the ids name (those visible from the project, or the global ones without one). It runs
 //! as [`memory_cli`](super::memory_cli) runs the server's commands, with a [`trust_timeout`] limit;
-//! its error line comes back redacted.
+//! its error line comes back redacted. [`script_sha256`] is that hash for a version the app has.
 
 use std::ffi::OsString;
 use std::path::Path;
 use std::time::Duration;
+
+use sha2::{Digest, Sha256};
 
 use super::catalog::MEMORY_BINARY;
 use super::memory_cli::{CliAnswer, CliCall, run_memory_cli};
 use crate::ecosystem::memory_binary::installed_memory;
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
-use crate::model::ScriptTrustItem;
+use crate::model::{ScriptLanguage, ScriptTrustItem};
 use crate::process::ProcessRunner;
 
 /// How long `harness-memory trust` may take before it counts the scripts (20 s).
@@ -90,6 +92,30 @@ pub fn trust_args(items: &[ScriptTrustItem], project: Option<&Path>) -> Result<V
     Ok(args)
 }
 
+/// What Harness Memory's script hash starts with (its `SHA_TAG`).
+const SCRIPT_SHA_TAG: &str = "harness-memory-script-v1";
+
+/// The hash that names a script version for trust, as Harness Memory's `script_sha256`: the
+/// lowercase hex SHA-256 of `harness-memory-script-v1 NUL <language> NUL <body>`.
+pub fn script_sha256(language: ScriptLanguage, body: &str) -> String {
+    let language = match language {
+        ScriptLanguage::Sh => "sh",
+        ScriptLanguage::Bash => "bash",
+        ScriptLanguage::Python => "python",
+        ScriptLanguage::Node => "node",
+        ScriptLanguage::Bun => "bun",
+    };
+
+    let mut hash = Sha256::new();
+    hash.update(SCRIPT_SHA_TAG.as_bytes());
+    hash.update([0]);
+    hash.update(language.as_bytes());
+    hash.update([0]);
+    hash.update(body.as_bytes());
+
+    format!("{:x}", hash.finalize())
+}
+
 /// Whether `text` is a SHA-256 as the server writes it: 64 lowercase hex characters.
 fn is_sha256(text: &str) -> bool {
     text.len() == 64 && text.bytes().all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
@@ -129,5 +155,24 @@ pub async fn trust_scripts(
             Err(BusinessError::Conflict(message))
         }
         CliAnswer::Failed { message, .. } => Err(BusinessError::Process(message)),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_trust_hash_is_the_servers() {
+        // Harness Memory's own vector: printf 'harness-memory-script-v1\0bash\0abc' | sha256sum
+        assert_eq!(
+            script_sha256(ScriptLanguage::Bash, "abc"),
+            "b9b56e4b9f812e7f72cdd0dca3526f2e0d7e71ed4825bd5464eefb817dc89c1e"
+        );
+        assert_ne!(
+            script_sha256(ScriptLanguage::Sh, "abc"),
+            script_sha256(ScriptLanguage::Bash, "abc")
+        );
+        assert!(is_sha256(&script_sha256(ScriptLanguage::Python, "print(1)\n")));
     }
 }

@@ -190,6 +190,8 @@
   --search-field-compact: 220px;
   /* The least the search field shrinks to when the header around it is crowded. */
   --search-field-min: 120px;
+  /* The card a diff comment is written in: room for a paragraph, still a readable line. */
+  --comment-card: 760px;
   /* The least a view title keeps in the top bar: the search field and the actions give way before the title does. */
   --view-title-min: 96px;
   /* The height of the header band of a pane (a title and one line under it), border included: the bands of the list, the centre and the details meet on one line. */

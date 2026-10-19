@@ -296,7 +296,7 @@ export const routines: AreaMessages<typeof enRoutines> = {
   'routines.editor.script.scope': 'Skript aus',
   'routines.editor.script.choose': 'Gespeichertes Skript wählen',
   'routines.editor.script.hint': 'Ein in Harness Memory gespeichertes Skript. Es läuft ohne Argumente.',
-  'routines.editor.script.review': 'Diesem Skript wird noch nicht vertraut. Die Ausführung wartet, bis du ihm in der Memory-Ansicht vertraust.',
+  'routines.editor.script.review': 'Diesem Skript wird noch nicht vertraut. Die Ausführung wartet, bis du ihm in der Ansicht Skripte vertraust.',
   'routines.editor.script.needsReview': 'Muss geprüft werden',
   'routines.editor.script.missing': 'In Harness Memory nicht gefunden',
   'routines.editor.script.none': 'Harness Memory listet hier kein Skript. Tippe den Namen eines Skripts ein.',

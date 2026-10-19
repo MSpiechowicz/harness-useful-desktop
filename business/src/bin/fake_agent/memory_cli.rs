@@ -23,6 +23,8 @@
 //!   server whose commands take no pages) exits 2 with a usage line, as the real server does.
 //!   `FAKE_MEMORY_CLI=single` is a server that predates combined filters: `--scope` and `--review`
 //!   are usage errors, and lists answer without `scopes` and `review`.
+//! - `FAKE_MEMORY_NOTES` adds a global note for each of its lines (that title), from id 100 on, to
+//!   the notes of these commands and of the MCP stand-in.
 
 use std::cmp::Ordering;
 
@@ -366,7 +368,8 @@ fn link(notes: &[Value], other: i64, relation: &str, direction: &str) -> Option<
     }))
 }
 
-fn note_fixtures() -> Vec<Value> {
+/// The stand-in's notes, with their bodies.
+pub fn note_fixtures() -> Vec<Value> {
     let note = |id: i64, kind: &str, title: &str, scope: &str, place: &str, updated: &str| {
         json!({
             "id": id,
@@ -386,7 +389,7 @@ fn note_fixtures() -> Vec<Value> {
         })
     };
 
-    vec![
+    let mut notes = vec![
         note(
             1,
             "decision",
@@ -451,5 +454,13 @@ fn note_fixtures() -> Vec<Value> {
             "local",
             "2026-10-02T10:00:00Z",
         ),
-    ]
+    ];
+
+    let added = std::env::var("FAKE_MEMORY_NOTES").unwrap_or_default();
+
+    for (id, title) in (100..).zip(added.lines()) {
+        notes.push(note(id, "note", title, "global", "local", "2026-09-01T10:00:00Z"));
+    }
+
+    notes
 }

@@ -167,7 +167,7 @@ function runMessage(status: RunStatus): string | null {
     case 'stopped':
       return 'Stopped by you.';
     case 'needsAttention':
-      return 'Trust the script in the Memory view, then run it again.';
+      return 'Trust the script in the Scripts view, then run it again.';
     default:
       return null;
   }

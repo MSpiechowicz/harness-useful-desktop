@@ -16,6 +16,8 @@ import { sync } from './sync';
 import { memory } from './memory';
 import { hooks } from './hooks';
 import { routines } from './routines';
+import { memoryEditor } from './memory-editor';
+import { memoryImport } from './memory-import';
 
 export const de: Dict = {
   ...common,
@@ -35,4 +37,6 @@ export const de: Dict = {
   ...memory,
   ...hooks,
   ...routines,
+  ...memoryEditor,
+  ...memoryImport,
 };

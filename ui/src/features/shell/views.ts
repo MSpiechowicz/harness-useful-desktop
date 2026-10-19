@@ -1,9 +1,10 @@
 import Blocks from '@lucide/svelte/icons/blocks';
-import Brain from '@lucide/svelte/icons/brain';
 import CalendarClock from '@lucide/svelte/icons/calendar-clock';
+import FileCode from '@lucide/svelte/icons/file-code';
 import GitBranch from '@lucide/svelte/icons/git-branch';
 import GitCompare from '@lucide/svelte/icons/git-compare';
 import MessageSquare from '@lucide/svelte/icons/message-square';
+import NotebookText from '@lucide/svelte/icons/notebook-text';
 import Orbit from '@lucide/svelte/icons/orbit';
 import Settings from '@lucide/svelte/icons/settings';
 import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
@@ -108,16 +109,29 @@ export const VIEWS: readonly ViewMeta[] = [
     },
   },
   {
-    id: 'memory',
+    id: 'notes',
     get label() {
-      return t('shell.view.memory');
+      return t('shell.view.notes');
     },
-    icon: Brain,
+    icon: NotebookText,
     get heading() {
-      return t('shell.view.memory.heading');
+      return t('shell.view.notes.heading');
     },
     get body() {
-      return t('shell.view.memory.body');
+      return t('shell.view.notes.body');
+    },
+  },
+  {
+    id: 'scripts',
+    get label() {
+      return t('shell.view.scripts');
+    },
+    icon: FileCode,
+    get heading() {
+      return t('shell.view.scripts.heading');
+    },
+    get body() {
+      return t('shell.view.scripts.body');
     },
   },
   {
@@ -171,17 +185,21 @@ export function viewMeta(id: ViewId): ViewMeta {
 /** The most views that have a Ctrl/Cmd digit: 1 to 9. */
 const DIGIT_SHORTCUTS = 9;
 
-/** Settings keeps only this one: a tenth view has no digit left, and the preferences are where `,` has always been. */
+/** Settings keeps only this one: the views past the ninth have no digit, and the preferences are where `,` has always been. */
 export const SETTINGS_SHORTCUT = 'mod+,';
 
-/** Ctrl/Cmd digit shortcut for a view, e.g. `mod+3`; null for a view past the ninth, which has no digit. */
+/** The combo that opens a view: Settings has Ctrl/Cmd+comma, the first nine views their digit (`mod+3`), and one past the ninth none. */
 export function viewShortcut(id: ViewId): string | null {
+  if (id === 'settings') {
+    return SETTINGS_SHORTCUT;
+  }
+
   const index = VIEWS.findIndex((view) => view.id === id);
 
   return index < DIGIT_SHORTCUTS ? `mod+${index + 1}` : null;
 }
 
-/** The shortcut the rail and the palette show for a view: its digit, or Ctrl/Cmd+comma for Settings. */
-export function viewHint(id: ViewId): string {
-  return viewShortcut(id) ?? SETTINGS_SHORTCUT;
+/** The shortcut the rail and the palette show for a view; null when it has none, and then nothing is shown. */
+export function viewHint(id: ViewId): string | null {
+  return viewShortcut(id);
 }

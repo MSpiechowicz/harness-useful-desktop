@@ -47,24 +47,24 @@
 
 <!-- A card no wider than a comfortable line, not a bar across the whole diff. The selected lines are already highlighted above
      it, so it only names them; the footer says how to send and cancel. -->
-<div class="@container flex max-w-[640px] flex-col rounded-lg border border-line-strong bg-surface-1 shadow-raised">
-  <div class="px-3 pt-3">
+<div class="@container flex max-w-(--comment-card) flex-col rounded-lg border border-line-strong bg-surface-1 shadow-raised">
+  <div class="px-4 pt-4">
     <label for={fieldId} class="inline-flex"><Badge tone="accent" class="h-control rounded-md! px-2.5 text-sm!">{heading}</Badge></label>
   </div>
 
-  <div class="px-3 py-2.5">
+  <div class="px-4 py-3">
     <textarea
       id={fieldId}
       bind:value={body}
       use:autofocus
       {onkeydown}
-      rows="3"
+      rows="6"
       placeholder={t('components.diff.placeholder')}
-      class="w-full resize-none rounded-md border border-line bg-surface-2 px-3 py-2 text-base text-fg outline-none placeholder:text-fg-3 focus:border-focus"
+      class="w-full resize-none rounded-md border border-line bg-surface-2 px-4 py-3 text-base leading-relaxed text-fg outline-none placeholder:text-fg-3 focus:border-focus"
     ></textarea>
   </div>
 
-  <div class="flex items-center gap-2 border-t border-line px-3 py-2.5">
+  <div class="flex items-center gap-2 border-t border-line px-4 py-3">
     {#if tooLong}
       <span class="text-xs text-danger" role="alert">{t('components.diff.tooLong', { size: maxBytes / 1024 })}</span>
     {:else}

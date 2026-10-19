@@ -267,7 +267,7 @@
                 <p>{t('settings.memoryRemote.documentdb.help')}</p>
               </div>
             {/if}
-            <!-- An older Harness Memory is updated right here, with the installer the Memory view uses, in the look every notice shares. -->
+            <!-- An older Harness Memory is updated right here, with the installer the Notes and Scripts views use, in the look every notice shares. -->
             {#if kindUnsupported}
               {@const look = NOTICE_LOOKS.warning}
               <div

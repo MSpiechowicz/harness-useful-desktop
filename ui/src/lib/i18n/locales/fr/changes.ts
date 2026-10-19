@@ -56,6 +56,7 @@ export const changes: AreaMessages<typeof enChanges> = {
   'changes.search.hitsIn.other': '{count} lignes correspondantes',
 
   'changes.files.label': 'Fichiers modifiés',
+  'changes.files.menu': 'Actions pour {name}',
   'changes.files.pending.one': '{count} commentaire en attente',
   'changes.files.pending.other': '{count} commentaires en attente',
   'changes.files.commentWord.one': 'commentaire',

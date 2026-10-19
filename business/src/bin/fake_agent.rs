@@ -51,6 +51,8 @@ mod memory;
 mod memory_cli;
 #[path = "fake_agent/memory_hooks.rs"]
 mod memory_hooks;
+#[path = "fake_agent/memory_notes.rs"]
+mod memory_notes;
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();

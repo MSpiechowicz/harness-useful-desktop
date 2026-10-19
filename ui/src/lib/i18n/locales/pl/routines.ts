@@ -314,7 +314,7 @@ export const routines: AreaMessages<typeof enRoutines> = {
   'routines.editor.script.scope': 'Skrypt z',
   'routines.editor.script.choose': 'Wybierz zapisany skrypt',
   'routines.editor.script.hint': 'Skrypt zapisany w Harness Memory. Uruchamia się bez argumentów.',
-  'routines.editor.script.review': 'Temu skryptowi jeszcze nie zaufano. Uruchomienie czeka, aż zaufasz mu w widoku Memory.',
+  'routines.editor.script.review': 'Temu skryptowi jeszcze nie zaufano. Uruchomienie czeka, aż zaufasz mu w widoku Skrypty.',
   'routines.editor.script.needsReview': 'Wymaga przeglądu',
   'routines.editor.script.missing': 'Nie znaleziono w Harness Memory',
   'routines.editor.script.none': 'Harness Memory nie wymienia tu żadnego skryptu. Wpisz nazwę jednego z nich.',

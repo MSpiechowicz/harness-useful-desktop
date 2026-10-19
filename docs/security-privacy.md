@@ -475,25 +475,46 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
   cap.
 - **Dashboard.** `harness-dashboard mcp` runs in the home directory, without `CLAUDE_CODE_SESSION_ID`, and stops after 30 s without
   a query.
-- **Memory scripts.** The Memory view's commands run the installed `harness-memory mcp` (`resolve_memory`, absolute
+- **Memory scripts.** The Scripts view's commands run the installed `harness-memory mcp` (`resolve_memory`, absolute
   path, no shell, argument `mcp`) in the home directory on one pooled client that stops after 30 s without a call
-  (`business/src/ecosystem/memory_scripts.rs`). It calls only `tools/list`, `script_get` and `script_delete` (the
-  last after the user confirms); it never calls `script_run` or `script_save`, so the app runs no script. The list
-  runs `harness-memory scripts list --json --offset N --limit N [--query Q] [--group G] --sort S --order O [--project
-  <root>]` (`business/src/ecosystem/memory_cli.rs`): absolute path, no shell, each value its own argument (the
-  search at most 256 characters, a page at most 200), home directory, stdin closed, 15 s limit, 1 MiB of output kept
-  per stream. A `project` must be the active or a recent project (`forbidden` otherwise); its canonical root is sent as
-  `project_path` or `--project`. Tool error text and the server's error line are redacted and clipped before they
-  reach the webview. Like any start of the server it opens the memory store; the app never reads it.
-- **Memory notes.** The Memory view's notes run `harness-memory notes list --json …` (the options of the scripts
+  (`business/src/ecosystem/memory_scripts.rs`). It calls only `tools/list`, `script_get`, `script_delete` (after the
+  user confirms) and `script_save` (`memory_script_save`, when the user saves the script editor,
+  `business/src/ecosystem/memory_scripts_save.rs`); it never calls `script_run`, so the app runs no script. A save
+  first reads the script of that name and scope (`script_get {name, scope}`): an edit whose opened version (`base`)
+  is gone or changed is `conflict`, and without `replace` a script found there is `exists`; either way nothing is
+  saved. The draft is checked against the server's limits first (name
+  `^[a-z0-9][a-z0-9_-]{0,63}$`, description 1 to 500 characters, body at most 64 KiB, timeout 1 to 600 s) and neither
+  the description nor the body is logged. The trust rule for a saved script is in [Script approval](#script-approval).
+  The list runs `harness-memory scripts list --json --offset N --limit N [--query Q] [--group G] --sort S --order O
+  [--project <root>]` (`business/src/ecosystem/memory_cli.rs`): absolute path, no shell, each value its own argument
+  (the search at most 256 characters, a page at most 200), home directory, stdin closed, 15 s limit, 1 MiB of output
+  kept per stream. A `project` must be the active or a recent project (`forbidden` otherwise); its canonical root is
+  sent as `project_path` or `--project`. Tool error text and the server's error line are redacted and clipped before
+  they reach the webview. Like any start of the server it opens the memory store; the app never reads it.
+- **Memory notes.** The Notes view's notes run `harness-memory notes list --json …` (the options of the scripts
   list, with `--kind` instead of `--group`), `notes get <id> --json` and `notes delete <id>` (after the user
   confirms), each with `--project <root>` for an active or recent project, the same way and limits
   (`business/src/ecosystem/memory_notes.rs`). Deleting every note or script (after the user confirms) runs `notes
   delete --all --yes --json` or `scripts delete --all --yes --json` the same way, with a 60 s limit; the server deletes
   exactly what its list shows for that project, and a script that waited for approval stays remembered, so saving its
   code again trusts nothing. Ids are numbers. Notes come back as the server stores them; only the
-  error line is redacted.
-- **Script approval.** **Trust** in the Memory view runs `harness-memory trust <id>=<sha256>… [--project <root>]`
+  error line is redacted. Saving the note editor (`memory_note_save`, `business/src/ecosystem/memory_notes_save.rs`)
+  calls `note_save` or, for an edit, `note_update {id, …}` on the pooled `harness-memory mcp` client, after checking
+  the server's limits (title one line of 1 to 120 characters, body 1 to 4000, at most 8 tags of `[a-z0-9_-]`); the
+  title and body are never logged. A same-title note is never overwritten without the user: the server refuses a
+  same-title repository note (`exists`), and a new global note is first looked up as the server compares titles
+  (`note_search`, each candidate read again with `notes get <id> --json`, and every global note listed with `notes list
+  --scope global` 200 at a time when the search cannot tell), so a title it already has is `exists` too.
+- **Notes import.** `memory_notes_import_preview` reads one CSV or JSON file that only a native open dialog can name
+  (`.csv`, `.tsv`, `.json`), through `SafeReader`, read one byte past 2 MiB so a larger file is refused as too large
+  (`src-tauri/src/commands/memory_notes_import.rs`). It parses at most 500 notes and checks each against the limits
+  of the note editor; a tag is split only on commas, semicolons, pipes and whitespace, never cut into pieces, and at
+  most 9 tags of a row are read (`business/src/ecosystem/memory_notes_import.rs`). Rust keeps the reviewed rows under
+  a fresh plan id with the project it was reviewed for (one review at a time, replaced by every new one); the webview
+  gets a shortened preview and sends back only row indexes, never rows. `memory_notes_import_apply` uses the plan
+  once and only for that project, saves the rows as `memory_note_save` saves a note, and runs one import at a time
+  (another one is `invalidInput`). Logs carry counts only, never titles, bodies or the file's path.
+- **Script approval.** **Trust** in the Scripts view runs `harness-memory trust <id>=<sha256>… [--project <root>]`
   (`business/src/ecosystem/memory_trust.rs`): absolute path, no shell, numeric ids each with the SHA-256 of the
   version the user reviewed (64 lowercase hex, at most 500 scripts), the project's canonical root (active or recent
   project only), in the home directory, stdin closed, 20 s limit and 1 s per script (120 s at most), 16 KiB of output
@@ -720,6 +741,21 @@ it creates `0700` (`business/src/ecosystem/memory_requests.rs`, `src-tauri/src/m
   Each request carries the app's own time of arrival (`receivedAt`) next to the server's `createdAt`, so the page
   counts the 45 s from the earlier of the two and a clock that runs ahead on either side cannot stretch the prompt. Anyone who can write
   to the data folder can approve a request: the folder's privacy is the boundary.
+
+**Scripts saved in the app.** A script the user saves in the Scripts view is trusted on this machine as a script saved
+here. The server keeps the code of a script waiting for approval (or of a copy of one) untrusted when it is saved again,
+so the app approves the saved version with `harness-memory trust <id>=<sha256>` only when the user put that code in and
+the stored script is the draft (its hash, name, scope and repository). An edit names the version the editor opened (its
+`sha256`): when the script was deleted or changed since (an agent saved other code under the name), nothing is saved
+and the save is refused (`conflict`), so the user's save never trusts code they did not see. An edit is trusted only
+when the code changed compared with the version opened, compared with line endings as LF, no trailing spaces or tabs on
+a line and no trailing blank lines: an edit of the description, timeout, language, line endings or trailing whitespace
+alone leaves an agent's code waiting for review (`needed`), and so does a save the server stored differently. Such a
+body is saved with the bytes the untrusted script had, since the server keeps only a byte-for-byte copy of waiting code
+untrusted and the editor's textarea rewrites line endings as soon as it is typed in. A new
+script of a name that is taken is refused (`exists`) unless the user chooses to replace it, and that replace stays
+`needed` when it keeps the code (compared the same way) of the untrusted script it replaces. A new script the user
+enters is trusted even if it copies code waiting for approval elsewhere: that is the user's choice.
 
 **Switching it off.** **Project memory** in Settings (`memoryEnabled`) removes the app's own `harness-memory` entries and
 stops adding them. An entry in an OpenCode config file that has comments is the exception: the app leaves the file

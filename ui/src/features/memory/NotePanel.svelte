@@ -1,9 +1,5 @@
 <script lang="ts">
-  import ArrowDownLeft from '@lucide/svelte/icons/arrow-down-left';
-  import ArrowUpRight from '@lucide/svelte/icons/arrow-up-right';
-
   import FactsCard from '$lib/components/FactsCard.svelte';
-  import { ICON } from '$lib/components/icon';
   import SectionCard from '$lib/components/SectionCard.svelte';
   import SidePanel from '$lib/components/SidePanel.svelte';
   import Skeleton from '$lib/components/Skeleton.svelte';
@@ -14,7 +10,7 @@
 
   import BodyState from './BodyState.svelte';
   import HiddenText from './HiddenText.svelte';
-  import NoteKindBadge from './NoteKindBadge.svelte';
+  import NoteLinks from './NoteLinks.svelte';
   import { KIND_LABELS, noteFacts, noteScopeText } from './note-format';
   import PanelActions from './PanelActions.svelte';
   import { revealHidden, spelledOut } from './script-format';
@@ -32,11 +28,13 @@
     onretry: () => void;
     /** A linked note was chosen. */
     onopennote: (id: number) => void;
+    /** Opens the editor on the note. Absent until the note was read, because the editor needs its content. */
+    onedit: (() => void) | undefined;
     ondelete: () => void;
     onclose: () => void;
   }
 
-  let { open, inline, note, detail, status, error, onretry, onopennote, ondelete, onclose }: Props = $props();
+  let { open, inline, note, detail, status, error, onretry, onopennote, onedit, ondelete, onclose }: Props = $props();
 
   const subtitle = $derived(note ? `${t(KIND_LABELS[note.kind])} · ${noteScopeText(note)}` : '');
   const hidden = $derived(detail ? revealHidden(detail.note.body).count : 0);
@@ -83,32 +81,12 @@
     <SectionCard flat heading={t('memory.notes.detail.links')}>
       {#if !detail}
         <Skeleton height="1.25rem" />
-      {:else if detail.links.length === 0}
-        <p class="text-sm text-fg-3">{t('memory.notes.detail.noLinks')}</p>
       {:else}
-        <ul class="-mx-1.5 flex flex-col">
-          {#each detail.links as link (`${link.id}:${link.direction}:${link.relation}`)}
-            {@const Direction = link.direction === 'out' ? ArrowUpRight : ArrowDownLeft}
-
-            <li>
-              <button
-                type="button"
-                title={t(link.direction === 'out' ? 'memory.notes.link.out' : 'memory.notes.link.in')}
-                class="flex h-10 w-full items-center gap-2.5 rounded-md px-1.5 text-left transition-colors duration-[var(--dur-fast)] hover:bg-hover active:bg-press"
-                onclick={() => onopennote(link.id)}
-              >
-                <Direction size={ICON.sm} class="shrink-0 text-fg-3" aria-hidden="true" />
-                <span class="min-w-0 flex-1 truncate text-sm text-fg">{spelledOut(link.title)}</span>
-                <span class="shrink-0 text-xs text-fg-3">{link.relation.replaceAll('_', ' ')}</span>
-                <NoteKindBadge kind={link.kind} />
-              </button>
-            </li>
-          {/each}
-        </ul>
+        <NoteLinks links={detail.links} onopen={onopennote} />
       {/if}
     </SectionCard>
 
-    <PanelActions deleteLabel={t('memory.panel.delete')} {ondelete} />
+    <PanelActions editLabel={t('memory.editor.edit')} {onedit} deleteLabel={t('memory.panel.delete')} {ondelete} />
 
     <FactsCard flat heading={t('memory.panel.details')} rows={noteFacts(note)} />
   {/if}

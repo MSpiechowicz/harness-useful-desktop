@@ -1,5 +1,4 @@
 export const memory = {
-  'memory.title': 'Memory',
   'memory.tryAgain': 'Try again',
   'memory.unavailable.notInstalled.title': 'Harness Memory is not installed',
   'memory.unavailable.notInstalled.body': 'Install it to use this view.',
@@ -115,9 +114,6 @@ export const memory = {
   'memory.detail.scope': 'Scope',
   'memory.detail.place': 'Kept in',
   'memory.detail.author': 'Written by',
-  'memory.section.label': 'Memory section',
-  'memory.section.notes': 'Notes',
-  'memory.section.scripts': 'Scripts',
   'memory.panel.actions': 'Actions',
   'memory.panel.delete': 'Delete',
   'memory.panel.details': 'Details',

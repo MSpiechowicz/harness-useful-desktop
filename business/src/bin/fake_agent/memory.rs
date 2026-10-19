@@ -18,6 +18,16 @@
 //!   take `name` (an unknown one gets the real server's `no script named …` text). `script_run`
 //!   of an untrusted script is refused like the real server's (`untrusted: true`), a trusted one
 //!   "runs": stdout `ran <first word of its body>`, exit code 0.
+//! - `script_save` replaces the script of that name in that scope or adds one (see [`save`]); a
+//!   `name` with `scope: "repo"` or `"global"` finds a script of that scope only. Replacing an
+//!   untrusted script with the same body (byte for byte) keeps it `approval: "needed"`, with the
+//!   real server's trust hash; `FAKE_MEMORY_SEEN_UNAPPROVED` does so for any body (the server's
+//!   "its code waited for approval on this machine before").
+//!   `FAKE_MEMORY_SAVED_REPO` stands for a server that stored the script elsewhere: the saved
+//!   script has that repository.
+//! - `FAKE_MEMORY_TRUSTED_SHA` stands for the approvals file holding that hash: `script_get` of a
+//!   script with it answers `approval: "approved"`, and `trust` takes any id given with it.
+//! - `note_save` and `note_update` answer as the real server does, see [`crate::memory_notes`].
 //! - `FAKE_MEMORY_VERSION` replaces the `0.0.0` of `--version` and `serverInfo`.
 //! - `harness-memory trust <id>=<sha256>… [--project <path>]` ([`trust`]) prints `trusted <id>`
 //!   for each fixture id given with its `sha256` and exits 0; a fixture id with another hash exits 1
@@ -28,8 +38,9 @@
 use std::io::{BufRead, Write};
 
 use serde_json::{Map, Value, json};
+use sha2::{Digest, Sha256};
 
-const NOTE_TOOLS: [&str; 3] = ["note_save", "note_search", "note_delete"];
+const NOTE_TOOLS: [&str; 4] = ["note_save", "note_update", "note_search", "note_delete"];
 const SCRIPT_TOOLS: [&str; 5] = [
     "script_save",
     "script_list",
@@ -41,6 +52,23 @@ const SCRIPT_TOOLS: [&str; 5] = [
 /// The id whose `script_get` and `script_delete` fail as a broken team database would.
 const FAILING_ID: i64 = 500;
 
+/// The hash `FAKE_MEMORY_TRUSTED_SHA` approves, if set.
+fn trusted_sha() -> Option<String> {
+    std::env::var("FAKE_MEMORY_TRUSTED_SHA").ok()
+}
+
+/// The real server's trust hash of a version: SHA-256 of `harness-memory-script-v1 NUL
+/// <language> NUL <body>`.
+fn trust_sha256(language: &str, body: &str) -> String {
+    let mut hash = Sha256::new();
+    hash.update(b"harness-memory-script-v1\0");
+    hash.update(language.as_bytes());
+    hash.update([0]);
+    hash.update(body.as_bytes());
+
+    format!("{:x}", hash.finalize())
+}
+
 /// The version the stand-in reports.
 pub fn version() -> String {
     std::env::var("FAKE_MEMORY_VERSION").unwrap_or_else(|_| "0.0.0".to_owned())
@@ -50,6 +78,7 @@ pub fn version() -> String {
 pub fn serve() -> ! {
     let legacy = std::env::var("FAKE_MEMORY_TOOLS").is_ok_and(|tools| tools == "legacy");
     let mut scripts = fixtures();
+    let mut notes = crate::memory_cli::note_fixtures();
 
     for line in std::io::stdin().lock().lines() {
         let Ok(line) = line else {
@@ -75,7 +104,7 @@ pub fn serve() -> ! {
                 "serverInfo": { "name": "harness-memory", "version": version() },
             })),
             "tools/list" => Ok(tools(legacy)),
-            "tools/call" => call(&mut scripts, legacy, params),
+            "tools/call" => call(&mut scripts, &mut notes, legacy, params),
             _ => Err((-32601, "Method not found".to_owned())),
         };
 
@@ -126,6 +155,7 @@ fn tools(legacy: bool) -> Value {
 /// `harness-memory trust <id>=<sha256>… [--project <path>]` (see the module docs).
 pub fn trust(args: &[String]) -> ! {
     let scripts = fixtures();
+    let approved = trusted_sha();
     let sha_of = |id: i64| {
         scripts
             .iter()
@@ -154,6 +184,7 @@ pub fn trust(args: &[String]) -> ! {
                 "error: the team database cannot be reached (postgres://team:hunter2@db.example.com/memory)",
                 1,
             ),
+            (Some(id), _) if approved.as_deref() == Some(sha) => ids.push(id),
             (Some(id), Some(current)) if current == sha => ids.push(id),
             (Some(id), Some(_)) => exit_with(&format!("harness-memory: script {id} changed since you reviewed it"), 1),
             _ => exit_with(&format!("error: script {id} not found"), 1),
@@ -176,9 +207,18 @@ fn exit_with(message: &str, code: i32) -> ! {
     std::process::exit(code);
 }
 
-fn call(scripts: &mut Vec<Value>, legacy: bool, params: &Value) -> Result<Value, (i64, String)> {
+fn call(
+    scripts: &mut Vec<Value>,
+    notes: &mut Vec<Value>,
+    legacy: bool,
+    params: &Value,
+) -> Result<Value, (i64, String)> {
     let name = params["name"].as_str().unwrap_or_default();
     let arguments = &params["arguments"];
+
+    if let Some(answer) = crate::memory_notes::call(notes, name, arguments) {
+        return Ok(answer);
+    }
 
     if legacy || !SCRIPT_TOOLS.contains(&name) {
         return Err((-32602, format!("Unknown tool: {name}")));
@@ -190,8 +230,20 @@ fn call(scripts: &mut Vec<Value>, legacy: bool, params: &Value) -> Result<Value,
         ));
     }
 
+    if name == "script_save" {
+        return Ok(save(scripts, arguments));
+    }
+
+    // A scope of `repo` or `global` keeps that scope only, as the real server's view does.
+    let in_scope = |script: &Value| match arguments["scope"].as_str() {
+        Some(scope @ ("repo" | "global")) => script["scope"] == scope,
+        _ => true,
+    };
+
     let position = match arguments["name"].as_str() {
-        Some(wanted) => scripts.iter().position(|script| script["name"] == wanted),
+        Some(wanted) => scripts
+            .iter()
+            .position(|script| script["name"] == wanted && in_scope(script)),
         None => arguments["id"]
             .as_i64()
             .and_then(|id| scripts.iter().position(|script| script["id"] == id)),
@@ -199,7 +251,7 @@ fn call(scripts: &mut Vec<Value>, legacy: bool, params: &Value) -> Result<Value,
 
     match (name, position) {
         ("script_list", _) => Ok(list(scripts, arguments)),
-        ("script_get", Some(index)) => Ok(structured(json!({ "script": scripts[index] }))),
+        ("script_get", Some(index)) => Ok(structured(json!({ "script": with_approval(&scripts[index]) }))),
         ("script_run", Some(index)) => Ok(run(&scripts[index])),
         ("script_delete", Some(index)) => {
             let removed = scripts.remove(index);
@@ -239,6 +291,87 @@ fn run(script: &Value) -> Value {
     }))
 }
 
+/// `script`, approved when its hash is `FAKE_MEMORY_TRUSTED_SHA`.
+fn with_approval(script: &Value) -> Value {
+    let mut script = script.clone();
+
+    if trusted_sha().is_some_and(|sha| script["sha256"] == sha.as_str()) {
+        script["trusted"] = json!(true);
+        script["approval"] = json!("approved");
+    }
+
+    script
+}
+
+/// `script_save`: replaces the script of that name in that scope, or adds one, saved here (so
+/// trusted, `approval: "local"`); answers `{script, created}` as the real server does. A body
+/// `fail` is refused as a body the server will not keep. The code of an untrusted script it
+/// replaces stays untrusted (`approval: "needed"`, the real trust hash), as the real server's does.
+fn save(scripts: &mut Vec<Value>, arguments: &Value) -> Value {
+    let scope = arguments["scope"].as_str().unwrap_or("repo");
+    let name = arguments["name"].as_str().unwrap_or_default();
+
+    if arguments["body"] == "fail" {
+        return tool_error("the script body has a hidden character".to_owned());
+    }
+
+    let position = scripts
+        .iter()
+        .position(|script| script["name"] == name && script["scope"] == scope);
+    let id = position.map_or_else(
+        || {
+            scripts
+                .iter()
+                .filter_map(|script| script["id"].as_i64())
+                .max()
+                .unwrap_or(0)
+                + 1
+        },
+        |index| scripts[index]["id"].as_i64().unwrap_or_default(),
+    );
+
+    let repo = if scope == "repo" {
+        json!("github.com/o/r")
+    } else {
+        Value::Null
+    };
+    let body = arguments["body"].as_str().unwrap_or_default();
+    let mut script = fixture(id, name, scope, repo, body, Some("local"));
+    script["description"] = arguments["description"].clone();
+    script["language"] = arguments["language"].clone();
+    script["timeoutSecs"] = arguments["timeout_secs"].clone();
+    script["runCount"] = json!(0);
+
+    // Like the server: only a byte-for-byte copy of code waiting for approval stays untrusted, or
+    // any code when `FAKE_MEMORY_SEEN_UNAPPROVED` says its code waited for approval here before.
+    let seen = std::env::var_os("FAKE_MEMORY_SEEN_UNAPPROVED").is_some();
+
+    if position.is_some_and(|index| scripts[index]["trusted"] == false && (seen || scripts[index]["body"] == body)) {
+        let language = arguments["language"].as_str().unwrap_or_default();
+        script["sha256"] = json!(trust_sha256(language, body));
+        script["trusted"] = json!(false);
+        script["approval"] = json!("needed");
+    }
+
+    if let Ok(repo) = std::env::var("FAKE_MEMORY_SAVED_REPO") {
+        script["repo"] = json!(repo);
+    }
+
+    match position {
+        Some(index) => scripts[index] = script.clone(),
+        None => scripts.push(script.clone()),
+    }
+
+    let mut summary = script;
+    summary.as_object_mut().map(|fields| fields.remove("body"));
+    let text = format!("saved script {id} {name}");
+
+    json!({
+        "content": [{ "type": "text", "text": text }],
+        "structuredContent": { "script": summary, "created": position.is_none() },
+    })
+}
+
 fn tool_error(text: String) -> Value {
     json!({ "content": [{ "type": "text", "text": text }], "isError": true })
 }
@@ -268,33 +401,8 @@ fn structured(data: Value) -> Value {
 
 /// The stand-in's scripts, with their bodies.
 pub fn fixtures() -> Vec<Value> {
-    let script = |id: i64, name: &str, scope: &str, repo: Value, body: &str, approval: Option<&str>| {
-        let mut fields = Map::new();
-        fields.insert("id".to_owned(), json!(id));
-        fields.insert("name".to_owned(), json!(name));
-        fields.insert("description".to_owned(), json!(format!("{name} fixture")));
-        fields.insert("language".to_owned(), json!("bash"));
-        fields.insert("scope".to_owned(), json!(scope));
-        fields.insert("repo".to_owned(), repo);
-        fields.insert("sha256".to_owned(), json!(format!("{id:064x}")));
-        fields.insert("timeoutSecs".to_owned(), json!(60));
-        fields.insert("place".to_owned(), json!("local"));
-        fields.insert("author".to_owned(), json!({ "source": "claude-code", "root": null }));
-        fields.insert("createdAt".to_owned(), json!("2026-10-01T08:00:00Z"));
-        fields.insert("updatedAt".to_owned(), json!("2026-10-02T09:30:00Z"));
-        fields.insert("runCount".to_owned(), json!(id % 5));
-        fields.insert("lastRunAt".to_owned(), Value::Null);
-        fields.insert("lastExitCode".to_owned(), Value::Null);
-        fields.insert("trusted".to_owned(), json!(approval.is_some()));
-        if let Some(approval) = approval {
-            fields.insert("approval".to_owned(), json!(approval));
-        }
-        fields.insert("body".to_owned(), json!(body));
-        Value::Object(fields)
-    };
-
     vec![
-        script(
+        fixture(
             12,
             "open-prs",
             "repo",
@@ -302,7 +410,7 @@ pub fn fixtures() -> Vec<Value> {
             "gh pr list --state open\n",
             Some("local"),
         ),
-        script(
+        fixture(
             7,
             "release-notes",
             "global",
@@ -310,6 +418,32 @@ pub fn fixtures() -> Vec<Value> {
             "git log --oneline -20\n",
             None,
         ),
-        script(99, "odd-scope", "workspace", Value::Null, "true\n", Some("team")),
+        fixture(99, "odd-scope", "workspace", Value::Null, "true\n", Some("team")),
     ]
+}
+
+/// One script as the server answers it, with its body.
+fn fixture(id: i64, name: &str, scope: &str, repo: Value, body: &str, approval: Option<&str>) -> Value {
+    let mut fields = Map::new();
+    fields.insert("id".to_owned(), json!(id));
+    fields.insert("name".to_owned(), json!(name));
+    fields.insert("description".to_owned(), json!(format!("{name} fixture")));
+    fields.insert("language".to_owned(), json!("bash"));
+    fields.insert("scope".to_owned(), json!(scope));
+    fields.insert("repo".to_owned(), repo);
+    fields.insert("sha256".to_owned(), json!(format!("{id:064x}")));
+    fields.insert("timeoutSecs".to_owned(), json!(60));
+    fields.insert("place".to_owned(), json!("local"));
+    fields.insert("author".to_owned(), json!({ "source": "claude-code", "root": null }));
+    fields.insert("createdAt".to_owned(), json!("2026-10-01T08:00:00Z"));
+    fields.insert("updatedAt".to_owned(), json!("2026-10-02T09:30:00Z"));
+    fields.insert("runCount".to_owned(), json!(id % 5));
+    fields.insert("lastRunAt".to_owned(), Value::Null);
+    fields.insert("lastExitCode".to_owned(), Value::Null);
+    fields.insert("trusted".to_owned(), json!(approval.is_some()));
+    if let Some(approval) = approval {
+        fields.insert("approval".to_owned(), json!(approval));
+    }
+    fields.insert("body".to_owned(), json!(body));
+    Value::Object(fields)
 }

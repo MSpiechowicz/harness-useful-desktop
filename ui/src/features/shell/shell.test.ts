@@ -57,21 +57,40 @@ describe('keyboard shortcuts overlay', () => {
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Keyboard shortcuts' })).toBeNull());
   });
 
-  it('goes to Routines with Ctrl+9, and Settings keeps only Ctrl+comma', async () => {
+  it('goes to Notes, Scripts and Hooks with Ctrl+7, 8 and 9, and Settings keeps only Ctrl+comma', async () => {
     render(Shell);
 
+    await fireEvent.keyDown(document.body, { key: '7', ctrlKey: true });
+    expect(nav.current).toBe('notes');
+
     await fireEvent.keyDown(document.body, { key: '8', ctrlKey: true });
-    expect(nav.current).toBe('hooks');
+    expect(nav.current).toBe('scripts');
 
     await fireEvent.keyDown(document.body, { key: '9', ctrlKey: true });
-    expect(nav.current).toBe('routines');
+    expect(nav.current).toBe('hooks');
 
     await fireEvent.keyDown(document.body, { key: ',', ctrlKey: true });
     expect(nav.current).toBe('settings');
 
-    expect(viewShortcut('routines')).toBe('mod+9');
-    expect(viewShortcut('settings')).toBeNull();
+    expect(viewShortcut('hooks')).toBe('mod+9');
+    expect(viewShortcut('settings')).toBe('mod+,');
     expect(viewHint('settings')).toBe('mod+,');
+  });
+
+  it('gives Routines no combo, in the shortcuts, the overlay or the rail', async () => {
+    const noop = { togglePalette() {}, openShortcuts() {}, goBack() {}, goForward() {}, newChat() {}, jumpToChat() {}, cycleChat() {}, toggleRail() {}, toggleList() {}, toggleDetails() {}, goTo() {} };
+    const registered = globalShortcuts(noop);
+
+    expect(viewShortcut('routines')).toBeNull();
+    expect(viewHint('routines')).toBeNull();
+    expect(registered.some((shortcut) => shortcut.id === 'go-routines')).toBe(false);
+    expect(registered.filter((shortcut) => shortcut.combo === 'mod+,').map((shortcut) => shortcut.id)).toEqual(['go-settings']);
+    expect(shortcutGroups(registered).flatMap((group) => group.rows).some((row) => row.label === 'Routines')).toBe(false);
+
+    render(Rail);
+    await fireEvent.click(within(screen.getByRole('navigation', { name: 'Primary' })).getByRole('button', { name: 'Routines' }));
+
+    expect(nav.current).toBe('routines');
   });
 
   it('does not steal a typed ? but still opens with Ctrl+/ from a text field', async () => {
@@ -92,9 +111,11 @@ describe('keyboard shortcuts overlay', () => {
     const groups = shortcutGroups(globalShortcuts({ togglePalette() {}, openShortcuts() {}, goBack() {}, goForward() {}, newChat() {}, jumpToChat() {}, cycleChat() {}, toggleRail() {}, toggleList() {}, toggleDetails() {}, goTo() {} }));
     const goTo = groups.find((group) => group.area === 'Go to');
 
-    expect(goTo?.rows.map((row) => row.label)).toEqual(expect.arrayContaining(VIEWS.map((view) => view.label)));
-    expect(goTo?.rows.find((row) => row.label === 'Routines')?.combos).toEqual(['mod+9']);
-    // A tenth view has no digit left: Settings keeps only the comma.
+    // Every view with a combo is listed, and Routines, which has none, is not.
+    expect(goTo?.rows.map((row) => row.label)).toEqual(expect.arrayContaining(VIEWS.filter((view) => view.id !== 'routines').map((view) => view.label)));
+    expect(goTo?.rows.map((row) => row.label)).not.toContain('Routines');
+    expect(goTo?.rows.find((row) => row.label === 'Hooks')?.combos).toEqual(['mod+9']);
+    // Past the ninth view there is no digit left: Settings keeps only the comma.
     expect(goTo?.rows.find((row) => row.label === 'Settings')?.combos).toEqual(['mod+,']);
   });
 });

@@ -10,7 +10,7 @@ import { nav } from '$lib/stores/nav.svelte';
 import { toasts } from '$lib/stores/toasts.svelte';
 
 import { calls, fakeMemory, PROJECT, registerMemoryHooks, rowButton, showMemory } from './memory-test-support';
-import MemoryView from './MemoryView.svelte';
+import ScriptsView from './ScriptsView.svelte';
 
 registerMemoryHooks();
 
@@ -296,8 +296,8 @@ describe('deleting a script', () => {
 describe('when there is nothing to list', () => {
   it('offers the Ecosystem page when Harness Memory is not installed', async () => {
     fakeMemory({ kind: 'notInstalled' });
-    nav.go('memory');
-    render(MemoryView);
+    nav.go('scripts');
+    render(ScriptsView);
 
     expect(await screen.findByText('Harness Memory is not installed')).toBeInTheDocument();
     await fireEvent.click(screen.getByRole('button', { name: 'Open Ecosystem' }));
@@ -307,8 +307,8 @@ describe('when there is nothing to list', () => {
 
   it('asks for an update when this Harness Memory is too old for the view', async () => {
     fakeMemory({ kind: 'outdated' });
-    nav.go('memory');
-    render(MemoryView);
+    nav.go('scripts');
+    render(ScriptsView);
 
     expect(await screen.findByText('Your memory needs an update')).toBeInTheDocument();
     expect(screen.getByText('A newer version of Harness Memory is needed for this view.')).toBeInTheDocument();
@@ -317,8 +317,8 @@ describe('when there is nothing to list', () => {
 
   it('shows what went wrong and tries again on request', async () => {
     const invoke = fakeMemory({ kind: 'failed', message: 'it exited with code 1' });
-    nav.go('memory');
-    render(MemoryView);
+    nav.go('scripts');
+    render(ScriptsView);
 
     expect(await screen.findByText('Harness Memory did not answer. it exited with code 1')).toBeInTheDocument();
     await fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
@@ -328,8 +328,8 @@ describe('when there is nothing to list', () => {
 
   it('explains that agents create scripts for repeated actions when none are saved yet', async () => {
     fakeMemory({ kind: 'available' }, []);
-    nav.go('memory');
-    render(MemoryView);
+    nav.go('scripts');
+    render(ScriptsView);
 
     expect(await screen.findByText('No scripts yet')).toBeInTheDocument();
     expect(screen.getByText(/Agents save a script when they repeat the same action/)).toBeInTheDocument();

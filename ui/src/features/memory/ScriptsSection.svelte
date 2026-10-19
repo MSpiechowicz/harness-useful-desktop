@@ -5,6 +5,7 @@
 
   import Badge from '$lib/components/Badge.svelte';
   import Button from '$lib/components/Button.svelte';
+  import DocNewButton from '$lib/components/docs/DocNewButton.svelte';
   import FilterMenu from '$lib/components/FilterMenu.svelte';
   import { ICON } from '$lib/components/icon';
   import type { Column } from '$lib/components/table';
@@ -12,20 +13,24 @@
   import type { ScriptDetail } from '$lib/ipc/bindings/ScriptDetail';
   import type { ScriptGroup } from '$lib/ipc/bindings/ScriptGroup';
   import type { ScriptReview } from '$lib/ipc/bindings/ScriptReview';
+  import type { ScriptSaved } from '$lib/ipc/bindings/ScriptSaved';
   import type { ScriptScope } from '$lib/ipc/bindings/ScriptScope';
   import type { ScriptSummary } from '$lib/ipc/bindings/ScriptSummary';
   import { deleteScript, type ReviewedScript, SCRIPTS_PAGE_SIZE, scriptDetail, scriptList, trustScripts } from '$lib/stores/memoryScripts.svelte';
   import { project } from '$lib/stores/project.svelte';
+  import { toasts } from '$lib/stores/toasts.svelte';
   import { viewState } from '$lib/stores/view-state.svelte';
   import { formatDateTime, relativeTime } from '$lib/utils/format';
   import { clampPage, pageCount } from '$lib/utils/pagination';
 
   import SessionConfirm, { type ConfirmRequest } from '../sessions/SessionConfirm.svelte';
   import ApprovalBadge from './ApprovalBadge.svelte';
+  import { scriptEditor } from './editor-state.svelte';
   import MemoryFilterHint from './MemoryFilterHint.svelte';
   import MemoryScopeFilter from './MemoryScopeFilter.svelte';
   import MemorySearch from './MemorySearch.svelte';
   import MemoryTable from './MemoryTable.svelte';
+  import ScriptEditor from './ScriptEditor.svelte';
   import ScriptPanel from './ScriptPanel.svelte';
   import { languageLabel, needsReview, PLACE_LABELS, scopeText } from './script-format';
   import { scriptColumns } from './script-table';
@@ -131,19 +136,6 @@
     }
   });
 
-  // A script an agent rewrote keeps its id: the body on screen is read again once the list reports a new version.
-  // Each version is asked for once, so a server that answers with another one cannot start a loop.
-  let reread = '';
-
-  $effect(() => {
-    const version = rows.find((row) => row.id === openId)?.sha256;
-
-    if (version && body && body.sha256 !== version && version !== reread) {
-      reread = version;
-      untrack(() => void scriptDetail.refresh({ quiet: true }));
-    }
-  });
-
   // A new search starts at the first page.
   let searched = viewState.scriptsQuery;
 
@@ -162,6 +154,41 @@
       viewState.scriptsPage = clampPage(viewState.scriptsPage, total, SCRIPTS_PAGE_SIZE);
     }
   });
+
+  // "New script" from the command palette opens the editor once the list is up, if there is a Harness Memory to save to.
+  // Where there is none (missing, too old, not answering) the request is dropped, so the editor never opens later when it comes back.
+  $effect(() => {
+    if (!scriptEditor.wantsNew) {
+      return;
+    }
+
+    if (scriptList.status === 'error' || availability !== null) {
+      scriptEditor.wantsNew = false;
+    } else if (page !== null) {
+      scriptEditor.wantsNew = false;
+      scriptEditor.create();
+    }
+  });
+
+  function edit(): void {
+    if (body) {
+      scriptEditor.edit(body);
+    }
+  }
+
+  function saved(result: ScriptSaved, name: string, codeChanged: boolean): void {
+    // Code written here is trusted by the app. A script that still wants approval after its code was changed is the rare case, said as a failure to trust.
+    // One saved without a change to its code was never made the user's own: it keeps waiting, and that is not a failure.
+    if (result.script !== null && needsReview(result.script) && !codeChanged) {
+      toasts.push({ title: t('memory.editor.script.toast.waiting.title'), description: `${name}. ${t('memory.editor.script.toast.waiting.body')}`, tone: 'info' });
+    } else if (result.script !== null && needsReview(result.script)) {
+      toasts.push({ title: t('memory.editor.script.toast.notTrusted.title'), description: `${name}. ${t('memory.editor.script.toast.notTrusted.body')}`, tone: 'warning' });
+    } else {
+      toasts.push({ title: t(result.outcome === 'created' ? 'memory.editor.script.toast.created' : 'memory.editor.script.toast.saved'), description: name, tone: 'success' });
+    }
+
+    viewState.scriptId = result.id;
+  }
 
   function ask(request: ConfirmRequest): Promise<boolean> {
     return confirmer?.ask(request) ?? Promise.resolve(false);
@@ -250,6 +277,10 @@
   <MemoryFilterHint />
 {/snippet}
 
+{#snippet emptyAction()}
+  <DocNewButton label={t('memory.editor.add.script')} onclick={() => scriptEditor.create()} />
+{/snippet}
+
 {#if page && !availability && !none}
   <MemorySearch bind:value={viewState.scriptsQuery} label={t('memory.scripts.list.search')} placeholder={t('memory.scripts.list.searchPlaceholder')}>
     {#snippet before()}
@@ -271,6 +302,7 @@
   emptyIcon={FileCode}
   emptyTitle={t('memory.scripts.empty.none.title')}
   emptyBody={t('memory.scripts.empty.none.body')}
+  {emptyAction}
   failedTitle={t('memory.scripts.empty.failed.title')}
   loadingLabel={t('memory.scripts.loading')}
   {noMatch}
@@ -330,10 +362,12 @@
       onretry={() => void scriptDetail.refresh()}
       ontrust={reviewed ? () => void trust([reviewed]) : undefined}
       {trusting}
+      onedit={body ? edit : undefined}
       ondelete={() => shown.script && remove(shown.script)}
       onclose={close}
     />
   {/snippet}
 </MemoryTable>
 
+<ScriptEditor bind:open={scriptEditor.open} script={scriptEditor.target} onsaved={saved} onopen={(id) => (viewState.scriptId = id)} />
 <SessionConfirm bind:this={confirmer} />

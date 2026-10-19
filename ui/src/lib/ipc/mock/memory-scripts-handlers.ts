@@ -2,16 +2,18 @@ import type { MemoryDeleteAll } from '../bindings/MemoryDeleteAll';
 import type { MemoryScriptsAvailability } from '../bindings/MemoryScriptsAvailability';
 import type { MemoryScriptsPage } from '../bindings/MemoryScriptsPage';
 import type { ScriptDetail } from '../bindings/ScriptDetail';
+import type { ScriptSaved } from '../bindings/ScriptSaved';
 import type { ScriptSort } from '../bindings/ScriptSort';
 import type { ScriptSummary } from '../bindings/ScriptSummary';
 import type { CommandArgs } from '../commands';
 import { IpcFailure } from '../transport';
+import { fakeSha } from './fake-sha';
 import { deletedAll, requireServer } from './memory-delete-all';
 import { combinesFilters } from './memory-notes-handlers';
 import { sampleScripts, summaryOf } from './memory-scripts-fixtures';
 import { sampleRunRequests } from './script-request-fixtures';
 
-/** Browser-preview switch `?scripts=`: what the Memory view finds. Anything else shows the sample scripts. `outdated` has a newer Harness Memory release to update to, `outdatedNoRelease` is a source build (`1.0.1-dev`) with none. `request` also has two agents ask to run a script a moment after the app starts listening. */
+/** Browser-preview switch `?scripts=`: what the Scripts view finds. Anything else shows the sample scripts. `outdated` has a newer Harness Memory release to update to, `outdatedNoRelease` is a source build (`1.0.1-dev`) with none. `request` also has two agents ask to run a script a moment after the app starts listening. */
 export const SCRIPT_SCENARIOS = ['ok', 'request', 'empty', 'notInstalled', 'outdated', 'outdatedNoRelease', 'failed'] as const;
 export type ScriptScenario = (typeof SCRIPT_SCENARIOS)[number];
 
@@ -29,6 +31,17 @@ export function scriptsSupported(scenario: ScriptScenario = scriptScenarioFromLo
 /** The scenario once Harness Memory was installed or updated: a missing or old one is fine now, the others stay as they are. */
 export function scenarioAfterInstall(scenario: ScriptScenario): ScriptScenario {
   return scenario === 'notInstalled' || scenario === 'outdated' ? 'ok' : scenario;
+}
+
+/** The code as the backend compares it: line endings as LF, no trailing spaces or tabs on a line, no trailing blank lines. */
+function normalisedCode(body: string): string {
+  // Split on LF only, as the backend does: a multiline `$` would also end a line at U+2028 and U+2029.
+  return body
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map((line) => line.replace(/[ \t]+$/, ''))
+    .join('\n')
+    .replace(/\n+$/, '');
 }
 
 export function availabilityOf(scenario: ScriptScenario): MemoryScriptsAvailability {
@@ -119,7 +132,7 @@ export function pageOfScripts(
   };
 }
 
-/** The scripts of Harness Memory kept in memory: `memory_scripts_list/script_get/script_delete/scripts_delete_all` like the real backend, without a server. */
+/** The scripts of Harness Memory kept in memory: `memory_scripts_list/script_get/script_delete/scripts_delete_all/script_save` like the real backend, without a server. */
 export interface ScriptHandlers {
   memory_scripts_list: (args: CommandArgs<'memory_scripts_list'>) => MemoryScriptsPage;
   memory_script_get: (args: CommandArgs<'memory_script_get'>) => ScriptDetail;
@@ -128,7 +141,11 @@ export interface ScriptHandlers {
   memory_script_requests_listen: (args: CommandArgs<'memory_script_requests_listen'>) => null;
   memory_script_decide: (args: CommandArgs<'memory_script_decide'>) => null;
   memory_scripts_trust: (args: CommandArgs<'memory_scripts_trust'>) => null;
+  memory_script_save: (args: CommandArgs<'memory_script_save'>) => ScriptSaved;
 }
+
+/** The repository key of new repository scripts when no script has one yet. */
+const MOCK_REPO = 'github.com/useful/harness-desktop';
 
 /** How long the Memory server waits for an answer. */
 const APPROVAL_WINDOW_MS = 45_000;
@@ -217,6 +234,54 @@ export function memoryScriptsHandlers(scenario: () => ScriptScenario = scriptSce
       }
 
       return null;
+    },
+    // Like the real backend: an edit (`base`) of a script deleted or changed since it opened is a `conflict`, nothing saved. A name taken in
+    // that scope is `exists` unless replacing, and a script saved here is trusted. A script waiting for approval stays so after an edit that
+    // left its code as it opened (a description, timeout, language, line-ending or trailing-whitespace edit alone) or a replace with its code.
+    memory_script_save: ({ project, draft, replace, base }) => {
+      requireServer(availabilityOf(scenario()));
+
+      if (draft.scope === 'repo' && project === null) {
+        throw IpcFailure.from({ code: 'invalidInput', message: 'a repository script needs a project' });
+      }
+
+      const name = draft.name.trim();
+      const existing = visible(project).find((candidate) => candidate.name === name && candidate.scope === draft.scope);
+      if (base !== undefined && existing?.sha256 !== base) {
+        throw IpcFailure.from({ code: 'conflict', message: 'the script changed since you opened it' });
+      }
+
+      if (existing && !replace) {
+        return { outcome: 'exists', id: existing.id, script: null };
+      }
+
+      const now = new Date().toISOString();
+      const waiting = existing?.approval === 'needed';
+      const agentsCode = existing?.approval === 'needed' && normalisedCode(existing.body) === normalisedCode(draft.body);
+      const saved: ScriptDetail = {
+        id: existing?.id ?? Math.max(0, ...current().map((candidate) => candidate.id)) + 1,
+        name,
+        description: draft.description.trim(),
+        language: draft.language,
+        scope: draft.scope,
+        repo: draft.scope === 'repo' ? (current().find((candidate) => candidate.repo !== null)?.repo ?? MOCK_REPO) : null,
+        sha256: fakeSha([draft.language, draft.body]),
+        timeoutSecs: draft.timeoutSecs,
+        place: 'local',
+        author: { source: 'harness-desktop', root: draft.scope === 'repo' ? project : null },
+        createdAt: existing?.createdAt ?? now,
+        updatedAt: now,
+        runCount: existing?.runCount ?? 0,
+        lastRunAt: existing?.lastRunAt ?? null,
+        lastExitCode: existing?.lastExitCode ?? null,
+        trusted: !agentsCode,
+        approval: agentsCode ? 'needed' : waiting ? 'approved' : 'local',
+        body: draft.body,
+      };
+
+      scripts = existing ? current().map((candidate) => (candidate === existing ? saved : candidate)) : [...current(), saved];
+
+      return { outcome: existing ? 'replaced' : 'created', id: saved.id, script: summaryOf(saved) };
     },
     // Like the real server: a script that changed since it was reviewed is refused, and the others are approved anyway.
     memory_scripts_trust: ({ items, project }) => {

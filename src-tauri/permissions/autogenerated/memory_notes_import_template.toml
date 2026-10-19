@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-memory-notes-import-template"
+description = "Enables the memory_notes_import_template command without any pre-configured scope."
+commands.allow = ["memory_notes_import_template"]
+
+[[permission]]
+identifier = "deny-memory-notes-import-template"
+description = "Denies the memory_notes_import_template command without any pre-configured scope."
+commands.deny = ["memory_notes_import_template"]

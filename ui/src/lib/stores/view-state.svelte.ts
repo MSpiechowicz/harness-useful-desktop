@@ -14,9 +14,6 @@ import type { ViewId } from './nav.svelte';
 /** How many scroll positions are remembered before the least recently written one is dropped. */
 const MAX_SCROLLS = 200;
 
-/** The two lists the Memory view switches between. */
-export type MemorySection = 'notes' | 'scripts';
-
 /** What the "When" filter of the Hooks view narrows the list to: all hooks, or the ones of one event. */
 export type HookWhen = 'all' | HookEvent;
 
@@ -65,9 +62,6 @@ export class ViewState {
   sessionsFolder = $state<'project' | 'routines'>('project');
   /** What the Sessions search field in the top bar holds. */
   sessionsQuery = $state('');
-
-  /** Which list of the Memory view is on screen. It stays when the project changes, like the language or the theme. */
-  memorySection = $state<MemorySection>('notes');
 
   /** The note whose panel is open, what the search field holds, the scope and kind filters (null for all), the sort and the page (from 0) of the notes table. */
   noteId = $state<number | null>(null);
@@ -139,7 +133,8 @@ export class ViewState {
     this.reset('config');
     this.reset('extensions');
     this.reset('sessions');
-    this.reset('memory');
+    this.reset('notes');
+    this.reset('scripts');
     this.reset('hooks');
     this.reset('routines');
     this.settingsTarget = null;
@@ -179,13 +174,14 @@ export class ViewState {
       this.runsRoutine = null;
       this.runsStatus = 'all';
       this.runsPage = 0;
-    } else if (view === 'memory') {
+    } else if (view === 'notes') {
       this.noteId = null;
       this.notesQuery = '';
       this.notesScope = null;
       this.notesKind = null;
       this.notesSort = { key: 'updated', desc: true };
       this.notesPage = 0;
+    } else if (view === 'scripts') {
       this.scriptId = null;
       this.scriptsQuery = '';
       this.scriptsScope = null;

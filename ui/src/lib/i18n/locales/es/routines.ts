@@ -296,7 +296,7 @@ export const routines: AreaMessages<typeof enRoutines> = {
   'routines.editor.script.scope': 'Script de',
   'routines.editor.script.choose': 'Elige un script guardado',
   'routines.editor.script.hint': 'Un script guardado en Harness Memory. Se ejecuta sin argumentos.',
-  'routines.editor.script.review': 'Aún no se confía en este script. La ejecución espera hasta que confíes en él en la vista Memory.',
+  'routines.editor.script.review': 'Aún no se confía en este script. La ejecución espera hasta que confíes en él en la vista Scripts.',
   'routines.editor.script.needsReview': 'Requiere revisión',
   'routines.editor.script.missing': 'No se encuentra en Harness Memory',
   'routines.editor.script.none': 'Harness Memory no lista ningún script aquí. Escribe el nombre de uno.',

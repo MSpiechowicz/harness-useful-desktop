@@ -11,14 +11,24 @@ const EXTRA_FORM = /\.(zero|two|few|many)$/;
 // Every area file of every language, by path: ./locales/<lang>/<area>.ts
 const modules = import.meta.glob('./locales/*/*.ts', { eager: true }) as Modules;
 
+/** The prefix the keys of an area file carry: `memory-editor.ts` holds the `memory.editor.*` keys. */
+function prefixOf(area: string): string {
+  return area.replaceAll('-', '.');
+}
+
+/** The name an area file exports: `memory-editor.ts` exports `memoryEditor`. */
+function exportOf(area: string): string {
+  return area.replace(/-([a-z])/g, (_, letter: string) => letter.toUpperCase());
+}
+
 function areasOf(lang: string): Record<string, Area> {
   const areas: Record<string, Area> = {};
 
   for (const [path, module] of Object.entries(modules)) {
-    const match = /^\.\/locales\/([a-z]+)\/([a-z]+)\.ts$/.exec(path);
+    const match = /^\.\/locales\/([a-z]+)\/([a-z-]+)\.ts$/.exec(path);
 
     if (match && match[1] === lang && match[2] !== 'index') {
-      areas[match[2]] = module[match[2]];
+      areas[match[2]] = module[exportOf(match[2])];
     }
   }
 
@@ -41,17 +51,17 @@ const pluralBases = Object.keys(en)
   .map((key) => key.slice(0, -'.other'.length));
 
 describe('English catalog', () => {
-  it('has the seventeen areas, each key under its own area and no key twice', () => {
+  it('has the nineteen areas, each key under its own area and no key twice', () => {
     const areas = areasOf('en');
 
     expect(Object.keys(areas).sort()).toEqual(
-      ['changes', 'chat', 'common', 'components', 'config', 'ecosystem', 'extensions', 'harness', 'hooks', 'memory', 'onboarding', 'routines', 'sessions', 'settings', 'shell', 'sync', 'updates'],
+      ['changes', 'chat', 'common', 'components', 'config', 'ecosystem', 'extensions', 'harness', 'hooks', 'memory', 'memory-editor', 'memory-import', 'onboarding', 'routines', 'sessions', 'settings', 'shell', 'sync', 'updates'],
     );
 
     let total = 0;
     for (const [area, messages] of Object.entries(areas)) {
       for (const key of Object.keys(messages)) {
-        expect(key.startsWith(`${area}.`), key).toBe(true);
+        expect(key.startsWith(`${prefixOf(area)}.`), key).toBe(true);
       }
       total += Object.keys(messages).length;
     }
@@ -83,7 +93,7 @@ describe.each(LANGUAGES)('%s catalog', (lang) => {
   it('keeps every key under its area', () => {
     for (const [area, group] of Object.entries(areas)) {
       for (const key of Object.keys(group)) {
-        expect(key.startsWith(`${area}.`), key).toBe(true);
+        expect(key.startsWith(`${prefixOf(area)}.`), key).toBe(true);
       }
     }
   });

@@ -27,7 +27,7 @@
     body: string;
   }
 
-  // Not tied to any one section of the Memory view: a missing or old Harness Memory is fixed right here, with the same installer the setup runs.
+  // Not tied to Notes or Scripts: a missing or old Harness Memory is fixed right here, with the same installer the setup runs.
   const page = $derived.by((): Page => {
     switch (availability.kind) {
       case 'notInstalled':

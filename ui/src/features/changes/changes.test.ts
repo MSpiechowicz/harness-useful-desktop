@@ -312,6 +312,30 @@ describe('discarding one file', () => {
     await fireEvent.click(within(await open()).getByRole('button', { name: 'Discard file' }));
     await waitFor(() => expect(discards()).toEqual([{ project: path, paths: [file] }]));
   });
+
+  it('asks about the file whose row menu was used, without choosing that row', async () => {
+    const path = fixtures.recentProjects[0].path;
+    const original = ipc.invoke.bind(ipc);
+    const invoke = vi.spyOn(ipc, 'invoke').mockImplementation((name, args) => (name === 'git_discard_files' ? Promise.resolve(null as never) : original(name, args as never)));
+    const discards = () => invoke.mock.calls.filter(([name]) => name === 'git_discard_files').map(([, args]) => args);
+    await showChanges();
+
+    const chosen = files().getByRole('option', { selected: true });
+    const other = files().getAllByRole('option').find((option) => option !== chosen && option.title !== chosen.title)!;
+    const name = other.title.split('/').pop();
+    const selectedBefore = git.selected;
+
+    await fireEvent.click(files().getAllByRole('button', { name: `Actions for ${name}` })[0]);
+    await fireEvent.click(await screen.findByRole('menuitem', { name: 'Discard this file…' }));
+
+    const asked = await screen.findByRole('dialog', { name: 'Discard this file?' });
+    expect(asked).toHaveTextContent(other.title);
+    expect(git.selected).toBe(selectedBefore);
+    expect(files().getByRole('option', { selected: true })).toBe(chosen);
+
+    await fireEvent.click(within(asked).getByRole('button', { name: 'Discard file' }));
+    await waitFor(() => expect(discards()).toEqual([{ project: path, paths: [other.title] }]));
+  });
 });
 
 describe('in Polish', () => {

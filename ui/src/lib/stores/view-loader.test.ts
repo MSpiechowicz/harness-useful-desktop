@@ -4,6 +4,9 @@ import { FLIGHT_STALE_MS } from './live';
 
 import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
 
+import { IpcFailure } from '$lib/ipc/transport';
+
+import { memoryItemGone } from './memoryScripts.svelte';
 import { ViewLoader } from './view-loader.svelte';
 
 function deferred<T>() {
@@ -145,6 +148,58 @@ describe('ViewLoader', () => {
     loader.sync(null, null);
 
     expect(loader.status).toBe('idle');
+    expect(loader.data).toBeNull();
+  });
+
+  it('ends a view of one deletable thing when a quiet refresh finds it gone, and keeps any other failure off the screen', async () => {
+    let failure: IpcFailure | null = null;
+    const loader = new ViewLoader<string>(
+      async () => {
+        if (failure) {
+          throw failure;
+        }
+
+        return 'note';
+      },
+      { goneIsFinal: true },
+    );
+    loader.sync('omp', null);
+    await settle();
+
+    failure = IpcFailure.from({ code: 'internal', message: 'disk busy' });
+    await loader.refresh({ quiet: true });
+    expect(loader.data).toBe('note');
+
+    failure = IpcFailure.from({ code: 'notFound', message: 'gone' });
+    await loader.refresh({ quiet: true });
+
+    expect(loader.status).toBe('error');
+    expect(loader.error?.code).toBe('notFound');
+    expect(loader.data).toBeNull();
+  });
+
+  it('keeps the last copy of a note or script while Harness Memory itself is missing, and ends it once the item is gone', async () => {
+    let failure: IpcFailure | null = null;
+    const loader = new ViewLoader<string>(
+      async () => {
+        if (failure) {
+          throw failure;
+        }
+
+        return 'script';
+      },
+      { goneIsFinal: memoryItemGone },
+    );
+    loader.sync('omp', null);
+    await settle();
+
+    failure = IpcFailure.from({ code: 'notFound', message: 'not found: executable harness-memory' });
+    await loader.refresh({ quiet: true });
+    expect(loader.data).toBe('script');
+
+    failure = IpcFailure.from({ code: 'notFound', message: 'not found: script 7' });
+    await loader.refresh({ quiet: true });
+    expect(loader.error?.code).toBe('notFound');
     expect(loader.data).toBeNull();
   });
 

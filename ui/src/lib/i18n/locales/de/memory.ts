@@ -2,7 +2,6 @@ import type { memory as enMemory } from '../en/memory';
 import type { AreaMessages } from '../types';
 
 export const memory: AreaMessages<typeof enMemory> = {
-  'memory.title': 'Gedächtnis',
   'memory.tryAgain': 'Erneut versuchen',
   'memory.unavailable.notInstalled.title': 'Harness Memory ist nicht installiert',
   'memory.unavailable.notInstalled.body': 'Installiere es, um diese Ansicht zu nutzen.',
@@ -118,9 +117,6 @@ export const memory: AreaMessages<typeof enMemory> = {
   'memory.detail.scope': 'Geltungsbereich',
   'memory.detail.place': 'Gespeichert in',
   'memory.detail.author': 'Geschrieben von',
-  'memory.section.label': 'Bereich des Gedächtnisses',
-  'memory.section.notes': 'Notizen',
-  'memory.section.scripts': 'Skripte',
   'memory.panel.actions': 'Aktionen',
   'memory.panel.delete': 'Löschen',
   'memory.panel.details': 'Details',

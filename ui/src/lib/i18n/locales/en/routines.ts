@@ -293,7 +293,7 @@ export const routines = {
   'routines.editor.script.scope': 'Script from',
   'routines.editor.script.choose': 'Choose a saved script',
   'routines.editor.script.hint': 'A script saved in Harness Memory. It runs without arguments.',
-  'routines.editor.script.review': 'This script is not trusted yet. The run waits until you trust it in the Memory view.',
+  'routines.editor.script.review': 'This script is not trusted yet. The run waits until you trust it in the Scripts view.',
   'routines.editor.script.needsReview': 'Needs review',
   'routines.editor.script.missing': 'Not found in Harness Memory',
   'routines.editor.script.none': 'Harness Memory lists no script here. Type the name of one.',

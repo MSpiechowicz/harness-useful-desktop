@@ -1,6 +1,8 @@
 import CalendarPlus from '@lucide/svelte/icons/calendar-plus';
+import FilePlus from '@lucide/svelte/icons/file-plus';
 import Keyboard from '@lucide/svelte/icons/keyboard';
 import MessageSquarePlus from '@lucide/svelte/icons/message-square-plus';
+import NotebookPen from '@lucide/svelte/icons/notebook-pen';
 import Monitor from '@lucide/svelte/icons/monitor';
 import Moon from '@lucide/svelte/icons/moon';
 import PanelLeft from '@lucide/svelte/icons/panel-left';
@@ -23,6 +25,7 @@ import { ui } from '$lib/stores/ui-state.svelte';
 import { viewState } from '$lib/stores/view-state.svelte';
 
 import { intro } from '../../intro/intro-state.svelte';
+import { noteEditor, scriptEditor } from '../../memory/editor-state.svelte';
 import { routines } from '../../routines/routines-data.svelte';
 import { SETTINGS_SECTIONS } from '../../settings/sections';
 import { cycleMotion, cycleTheme, jumpToChat, newChat, resumableSession, resumeLastSession } from '../actions';
@@ -52,7 +55,7 @@ export function navigationCommands(): PaletteCommand[] {
     group: t('shell.palette.group.navigate'),
     kind: 'nav',
     icon: view.icon,
-    shortcut: viewHint(view.id),
+    shortcut: viewHint(view.id) ?? undefined,
     keywords: view.body,
     disabled: view.id === nav.current,
     run: () => nav.go(view.id),
@@ -86,6 +89,28 @@ export function actionCommands({ openShortcuts }: PaletteHandlers): PaletteComma
       run: () => {
         routines.wantsNew = true;
         nav.go('routines');
+      },
+    },
+    {
+      id: 'new-note',
+      label: t('memory.editor.palette.newNote'),
+      group: actions,
+      icon: NotebookPen,
+      keywords: t('memory.editor.palette.newNote.keywords'),
+      run: () => {
+        noteEditor.wantsNew = true;
+        nav.go('notes');
+      },
+    },
+    {
+      id: 'new-script',
+      label: t('memory.editor.palette.newScript'),
+      group: actions,
+      icon: FilePlus,
+      keywords: t('memory.editor.palette.newScript.keywords'),
+      run: () => {
+        scriptEditor.wantsNew = true;
+        nav.go('scripts');
       },
     },
     { id: 'show-shortcuts', label: t('shell.palette.showShortcuts'), group: actions, icon: Keyboard, shortcut: 'shift+?', keywords: t('shell.palette.showShortcuts.keywords'), run: openShortcuts },

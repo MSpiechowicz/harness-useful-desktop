@@ -3,7 +3,10 @@ import { ipc } from '$lib/ipc/client';
 import { noteList } from '$lib/stores/memoryNotes.svelte';
 import { scriptList } from '$lib/stores/memoryScripts.svelte';
 import { toasts } from '$lib/stores/toasts.svelte';
-import { type MemorySection, viewState } from '$lib/stores/view-state.svelte';
+import { viewState } from '$lib/stores/view-state.svelte';
+
+/** The two lists "delete all" acts on: the Notes view and the Scripts view each have one. */
+export type MemorySection = 'notes' | 'scripts';
 
 /** The most entries one list call returns, and so the most whose place can be told before the question is asked. */
 const PROBE_LIMIT = 200;

@@ -59,11 +59,19 @@ import type { RoutineView } from './bindings/RoutineView';
 import type { RoutineWhen } from './bindings/RoutineWhen';
 import type { SchedulePreview } from './bindings/SchedulePreview';
 import type { NoteDetail } from './bindings/NoteDetail';
+import type { NoteDraft } from './bindings/NoteDraft';
 import type { NoteKind } from './bindings/NoteKind';
+import type { NoteSaved } from './bindings/NoteSaved';
 import type { NoteSort } from './bindings/NoteSort';
+import type { NotesImportFormat } from './bindings/NotesImportFormat';
+import type { NotesImportPreview } from './bindings/NotesImportPreview';
+import type { NotesImportProgress } from './bindings/NotesImportProgress';
+import type { NotesImportResult } from './bindings/NotesImportResult';
 import type { ScriptDetail } from './bindings/ScriptDetail';
+import type { ScriptDraft } from './bindings/ScriptDraft';
 import type { ScriptGroup } from './bindings/ScriptGroup';
 import type { ScriptReview } from './bindings/ScriptReview';
+import type { ScriptSaved } from './bindings/ScriptSaved';
 import type { ScriptScope } from './bindings/ScriptScope';
 import type { ScriptSort } from './bindings/ScriptSort';
 import type { SortOrder } from './bindings/SortOrder';
@@ -173,6 +181,18 @@ export const commands = {
   /** Deletes one script (`script_delete`). `notFound` when it is gone or the server is not installed. */
   memory_script_delete: cmd<{ id: number; project: string | null }, null>(),
   /**
+   * Creates a script (`script_save` over `harness-memory mcp`, 15 s), or with `replace` replaces the one of that name in that scope
+   * (an edit, or a confirmed replace). An edit also sends `base`, the `sha256` of the version the editor opened: when that script was
+   * deleted or changed since, nothing is saved and it rejects with `conflict`. Saved on this machine, so trusted unless `script.approval`
+   * says otherwise: code waiting for approval stays so after an edit that left the code as it opened (line endings and trailing
+   * whitespace aside) or a replace that keeps the code of the untrusted script it replaces. Without `replace`, a
+   * script of that name in that scope is `exists` with its `id` and no `script`, and nothing is saved. Rejects with `invalidInput`
+   * for a draft over a limit or a repository script without a project, `notFound` when Harness Memory is not installed,
+   * `unsupported` when it predates saving from the app, `process` with the server's (redacted) message when it refuses,
+   * `forbidden` for a project that is not open or recent.
+   */
+  memory_script_save: cmd<{ project: string | null; draft: ScriptDraft; replace: boolean; base?: string }, ScriptSaved>(),
+  /**
    * Deletes every script `memory_scripts_list` shows for `project` without filters, every group and page
    * (`harness-memory scripts delete --all --yes`, 60 s): `deleted` counts them, `team` those that were in the team database
    * (null when the server does not say). Rejects with `unsupported` when the server predates it, `notFound` when Harness
@@ -233,12 +253,49 @@ export const commands = {
    */
   memory_note_delete: cmd<{ id: number; project: string | null }, null>(),
   /**
+   * Creates a note (`note_save` over `harness-memory mcp`, 15 s), or with `replaceId` rewrites that note (`note_update`: an edit,
+   * or replacing the note that has the title, whose scope stays). A same-title global note is rewritten (`updated`). A note of the
+   * project's repository with the title, or another note of the edited note's scope, is `exists` with that note's id, and nothing
+   * is saved. `id` is null when the server's answer does not say. Rejects with `invalidInput` for a draft over a limit or a new
+   * repository note without a project, `notFound` when the note to replace is gone or Harness Memory is not installed,
+   * `unsupported` when the server predates saving from the app, `process` with the server's (redacted) message when it refuses,
+   * `forbidden` for a project that is not open or recent.
+   */
+  memory_note_save: cmd<{ project: string | null; draft: NoteDraft; replaceId?: number }, NoteSaved>(),
+  /**
    * Deletes every note `memory_notes_list` shows for `project` without filters, every page (`harness-memory notes delete
    * --all --yes`, 60 s): `deleted` counts them, `team` those that were in the team database (null when the server does not
    * say). Rejects with `unsupported` when the server predates it, `notFound` when Harness Memory is not installed,
    * `process` with the server's (redacted) message when it fails, `forbidden` for a project that is not open or recent.
    */
   memory_notes_delete_all: cmd<{ project?: string | null }, MemoryDeleteAll>(),
+  /**
+   * Opens the native file picker for a CSV or JSON file of notes and reviews it for `project` (null for global notes only). Null when
+   * the user cancelled the picker. `plan`: at most 500 notes (`truncated` past that) of a file of at most 2 MiB, each row with what is
+   * wrong with it in `problems` (codes, worded by the UI) and `duplicateOf` pointing a later row at the first with its title. Rust keeps
+   * the rows under `planId`. `refused`: the file cannot be read as notes, `reason` says why (`line` for `invalidCsv` when known). Either
+   * way any earlier review is dropped. Rejects with `forbidden` for a project that is not open or recent or a file on the deny-list,
+   * `io` when the file cannot be read.
+   */
+  memory_notes_import_preview: cmd<{ project: string | null }, NotesImportPreview | null>(),
+  /**
+   * Imports the reviewed rows `rows` (indexes) of `planId` in the file's order (`note_save`), each with its own scope or `defaultScope`,
+   * and sends `onProgress` after each. A note of the row's scope with its title skips the row (`exists`), or with `replace` is
+   * rewritten (`replaced`). `updated` counts notes the server rewrote by itself (as `memory_note_save` answers). Rejects with `invalidInput` (nothing saved, the review
+   * stays) when `planId` is not the current review or `project` is not the one it was made for. Otherwise the review is used up, also
+   * when the call then rejects with `invalidInput` for its rows (none, or one with problems), `notFound` when Harness Memory is not
+   * installed or `unsupported` when it predates saving from the app (rows saved before stay saved). `forbidden` for a project that is
+   * not open or recent.
+   */
+  memory_notes_import_apply: cmd<
+    { planId: string; rows: number[]; defaultScope: ScriptScope; replace: boolean; project: string | null; onProgress: EventSink<NotesImportProgress> },
+    NotesImportResult
+  >(),
+  /**
+   * Opens the native save dialog for an example file of notes in `format` (`notes-example.csv` or `.json`) and writes it where the user
+   * chose. The path it was saved to, null when the user cancelled the dialog. Rejects with `io` when the file cannot be written.
+   */
+  memory_notes_import_template: cmd<{ format: NotesImportFormat }, string | null>(),
   open_external: cmd<{ url: string }, null>(),
   reveal_path: cmd<{ path: string }, null>(),
   harness_list: cmd<undefined, HarnessSummary[]>(),

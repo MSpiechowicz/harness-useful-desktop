@@ -1,25 +1,34 @@
 <script lang="ts">
+  import FileUp from '@lucide/svelte/icons/file-up';
   import NotebookText from '@lucide/svelte/icons/notebook-text';
   import { untrack } from 'svelte';
 
+  import Button from '$lib/components/Button.svelte';
+  import DocNewButton from '$lib/components/docs/DocNewButton.svelte';
   import FilterMenu from '$lib/components/FilterMenu.svelte';
+  import { ICON } from '$lib/components/icon';
   import type { Column } from '$lib/components/table';
   import { t, tn } from '$lib/i18n/i18n.svelte';
   import type { NoteDetail } from '$lib/ipc/bindings/NoteDetail';
   import type { NoteKind } from '$lib/ipc/bindings/NoteKind';
+  import type { NoteSaved } from '$lib/ipc/bindings/NoteSaved';
   import type { NoteSummary } from '$lib/ipc/bindings/NoteSummary';
   import type { ScriptScope } from '$lib/ipc/bindings/ScriptScope';
   import { deleteNote, noteDetail, noteList, NOTES_PAGE_SIZE } from '$lib/stores/memoryNotes.svelte';
   import { project } from '$lib/stores/project.svelte';
+  import { toasts } from '$lib/stores/toasts.svelte';
   import { viewState } from '$lib/stores/view-state.svelte';
   import { formatDateTime, relativeTime } from '$lib/utils/format';
   import { clampPage, pageCount } from '$lib/utils/pagination';
 
   import SessionConfirm from '../sessions/SessionConfirm.svelte';
+  import { noteEditor } from './editor-state.svelte';
   import MemoryFilterHint from './MemoryFilterHint.svelte';
   import MemoryScopeFilter from './MemoryScopeFilter.svelte';
   import MemorySearch from './MemorySearch.svelte';
   import MemoryTable from './MemoryTable.svelte';
+  import { notesImport } from './notes-import-state.svelte';
+  import NoteEditor from './NoteEditor.svelte';
   import NoteKindBadge from './NoteKindBadge.svelte';
   import NotePanel from './NotePanel.svelte';
   import { KIND_LABELS, NOTE_KINDS, noteColumns, noteScopeText, totalCount } from './note-format';
@@ -119,6 +128,36 @@
     }
   });
 
+  // "New note" from the command palette opens the editor once the list is up, if there is a Harness Memory to save to.
+  // Where there is none (missing, too old, not answering) the request is dropped, so the editor never opens later when it comes back.
+  $effect(() => {
+    if (!noteEditor.wantsNew) {
+      return;
+    }
+
+    if (noteList.status === 'error' || availability !== null) {
+      noteEditor.wantsNew = false;
+    } else if (page !== null) {
+      noteEditor.wantsNew = false;
+      noteEditor.create();
+    }
+  });
+
+  function edit(): void {
+    if (detail) {
+      noteEditor.edit(detail.note);
+    }
+  }
+
+  function saved(result: NoteSaved, title: string): void {
+    toasts.push({ title: t(result.outcome === 'created' ? 'memory.editor.note.toast.created' : 'memory.editor.note.toast.updated'), description: spelledOut(title), tone: 'success' });
+
+    // A server that does not say which note it wrote leaves the list as read; the panel stays as it was.
+    if (result.id !== null) {
+      viewState.noteId = result.id;
+    }
+  }
+
   function remove(): void {
     const note = shown.note;
 
@@ -163,6 +202,17 @@
   <MemoryFilterHint />
 {/snippet}
 
+{#snippet emptyAction()}
+  <div class="flex flex-wrap items-center justify-center gap-2">
+    <DocNewButton label={t('memory.editor.add.note')} onclick={() => noteEditor.create()} />
+
+    <Button disabled={notesImport.picking} onclick={() => notesImport.begin()}>
+      {#snippet leading()}<FileUp size={ICON.sm} aria-hidden="true" />{/snippet}
+      {t('memory.import.empty')}
+    </Button>
+  </div>
+{/snippet}
+
 {#if page && !availability && !none}
   <MemorySearch bind:value={viewState.notesQuery} label={t('memory.notes.search.label')} placeholder={t('memory.notes.search.placeholder')} />
 {/if}
@@ -175,6 +225,7 @@
   emptyIcon={NotebookText}
   emptyTitle={t('memory.notes.empty.none.title')}
   emptyBody={t('memory.notes.empty.none.body')}
+  {emptyAction}
   failedTitle={t('memory.notes.empty.failed.title')}
   loadingLabel={t('memory.notes.loading')}
   {noMatch}
@@ -222,10 +273,12 @@
       error={noteDetail.error?.message ?? null}
       onretry={() => void noteDetail.refresh()}
       onopennote={(id) => (viewState.noteId = id)}
+      onedit={detail ? edit : undefined}
       ondelete={remove}
       onclose={close}
     />
   {/snippet}
 </MemoryTable>
 
+<NoteEditor bind:open={noteEditor.open} note={noteEditor.target} links={detail && detail.note.id === noteEditor.target?.id ? detail.links : []} onsaved={saved} onopen={(id) => (viewState.noteId = id)} />
 <SessionConfirm bind:this={confirmer} />

@@ -8,7 +8,8 @@
 
   interface Props {
     view: ViewMeta;
-    shortcut: string;
+    /** What opens the view from the keyboard; null for a view without a combo. */
+    shortcut: string | null;
     active: boolean;
     /** Show the label next to the icon. */
     expanded: boolean;
@@ -24,7 +25,7 @@
   const description = $derived(badge ? `${view.label}, ${badge.label}` : view.label);
 </script>
 
-<Tooltip text={view.label} {shortcut} side="right" disabled={expanded} class="flex w-full">
+<Tooltip text={view.label} shortcut={shortcut ?? undefined} side="right" disabled={expanded} class="flex w-full">
   {#snippet children({ describedby })}
     <button
       bind:this={button}

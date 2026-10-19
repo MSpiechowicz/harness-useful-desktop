@@ -23,10 +23,15 @@
 //!   `dashboard_availability`).
 //! - [`memory_cli`]: one run of a `harness-memory` command for the user, and the page of a list.
 //! - [`memory_notes`]: the agents' notes through `harness-memory notes` (`memory_notes_list`,
-//!   `memory_note_get`, `memory_note_delete`, `memory_notes_delete_all`).
+//!   `memory_note_get`, `memory_note_delete`, `memory_notes_delete_all`), [`memory_notes_save`]:
+//!   one created or edited through `harness-memory mcp` (`memory_note_save`), and
+//!   [`memory_notes_import`]: notes imported from a CSV or JSON file after a review
+//!   (`memory_notes_import_preview`, `memory_notes_import_apply`), with an example file to fill in
+//!   (`memory_notes_import_template`).
 //! - [`memory_scripts`]: the agents' scripts, listed with `harness-memory scripts list` and read
 //!   through the pooled `harness-memory mcp` connection (`memory_scripts_list`,
-//!   `memory_script_get`, `memory_script_delete`, `memory_scripts_delete_all`), [`memory_requests`]:
+//!   `memory_script_get`, `memory_script_delete`, `memory_scripts_delete_all`),
+//!   [`memory_scripts_save`]: one created or edited there (`memory_script_save`), [`memory_requests`]:
 //!   the server's run requests for scripts this machine has not approved, the heartbeat that
 //!   lets it ask, and the answers, and [`memory_trust`]: `harness-memory trust`
 //!   (`memory_scripts_trust`).
@@ -52,6 +57,9 @@ pub mod memory_hooks;
 pub mod memory_kinds;
 pub mod memory_migrate;
 pub mod memory_notes;
+pub mod memory_notes_import;
+pub mod memory_notes_save;
+mod memory_notes_titles;
 pub mod memory_record;
 pub mod memory_register;
 pub mod memory_remote;
@@ -59,6 +67,7 @@ pub mod memory_requests;
 pub mod memory_scripts;
 mod memory_scripts_list;
 pub mod memory_scripts_run;
+pub mod memory_scripts_save;
 pub mod memory_team_docs;
 pub mod memory_trust;
 pub mod releases;
@@ -82,6 +91,11 @@ pub use memory_hooks::{HooksConfig, HooksSupport, MemoryHooks};
 pub use memory_kinds::{KindsSupport, MemoryKinds};
 pub use memory_migrate::{LegacyCopy, LegacyMigration, migrate_legacy_memory};
 pub use memory_notes::{NotesQuery, delete_all_notes, delete_note, get_note, list_notes};
+pub use memory_notes_import::{
+    FileRefusal, MAX_IMPORT_BYTES, MAX_IMPORT_ROWS, NotesImportRead, NotesImportRequest, StoredNotesImport,
+    apply_notes_import, import_template, read_notes_file,
+};
+pub use memory_notes_save::save_note;
 pub use memory_record::{MEMORY_RECORD_FILE, MemoryRecord, RecordedFile};
 pub use memory_register::{
     MemoryRegistration, names_command, register_memory_mcp, repoint_memory_mcp, unregister_memory_mcp,
@@ -93,6 +107,6 @@ pub use memory_remote::{
 pub use memory_requests::{RequestWatcher, memory_data_dir, remove_alive, touch_alive};
 pub use memory_scripts::{MemoryScripts, SCRIPT_LIST_TOOL, ScriptsQuery};
 pub use memory_team_docs::{MemoryTeamDocs, TeamDocsConfig, TeamDocsSupport};
-pub use memory_trust::trust_scripts;
+pub use memory_trust::{script_sha256, trust_scripts};
 pub use releases::{CompanionReleases, release_endpoint};
 pub use setup::{McpFile, mcp_target, mcp_target_paths, memory_server_setup, setup_status};

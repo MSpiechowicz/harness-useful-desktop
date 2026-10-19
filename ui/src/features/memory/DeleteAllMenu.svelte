@@ -2,6 +2,7 @@
   import FileCode from '@lucide/svelte/icons/file-code';
   import NotebookText from '@lucide/svelte/icons/notebook-text';
   import Trash2 from '@lucide/svelte/icons/trash-2';
+  import type { Snippet } from 'svelte';
 
   import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
   import type { IconComponent } from '$lib/components/icon';
@@ -13,14 +14,16 @@
   import { noteList } from '$lib/stores/memoryNotes.svelte';
   import { scriptList } from '$lib/stores/memoryScripts.svelte';
   import { project } from '$lib/stores/project.svelte';
-  import { type MemorySection, viewState } from '$lib/stores/view-state.svelte';
+  import { viewState } from '$lib/stores/view-state.svelte';
 
-  import { deleteAll, type DeleteScope, readScope, teamLine } from './delete-all';
+  import { deleteAll, type DeleteScope, type MemorySection, readScope, teamLine } from './delete-all';
   import { totalCount } from './note-format';
 
   interface Props {
     /** The list on screen: the menu acts on it. */
     section: MemorySection;
+    /** More items above "delete all", e.g. Notes' import. They get the menu's `close`. */
+    extra?: Snippet<[{ close: () => void }]>;
   }
 
   interface Text {
@@ -33,7 +36,7 @@
     count: PluralBase;
   }
 
-  let { section }: Props = $props();
+  let { section, extra }: Props = $props();
 
   const TEXT: Record<MemorySection, Text> = {
     notes: {
@@ -119,6 +122,7 @@
 
 <MoreMenu label={t('memory.menu.label')} panelClass="w-56">
   {#snippet children({ close })}
+    {@render extra?.({ close })}
     <MenuItem tone="danger" icon={Trash2} {disabled} onclick={() => void ask(close)}>{t(TEXT[section].action)}</MenuItem>
   {/snippet}
 </MoreMenu>

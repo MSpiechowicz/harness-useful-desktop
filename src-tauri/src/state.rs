@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex, PoisonError};
 
 use harness_business::app_dirs::local_data_dir;
 use harness_business::ecosystem::{
-    CompanionReleases, Dashboard, DashboardOptions, MemoryKinds, MemoryScripts, PoolOptions,
+    CompanionReleases, Dashboard, DashboardOptions, MemoryKinds, MemoryScripts, PoolOptions, StoredNotesImport,
 };
 use harness_business::env::Env;
 use harness_business::harness::HarnessRegistry;
@@ -74,6 +74,11 @@ pub struct AppState {
     pub sync_plan: Mutex<Option<StoredPlan>>,
     /// Held while a "Share setup" import is applied, so only one runs at a time.
     pub sync_apply: async_runtime::Mutex<()>,
+    /// The latest review of a notes file to import, kept until it is imported or replaced by a
+    /// newer one.
+    pub notes_import: Mutex<Option<StoredNotesImport>>,
+    /// Held while a notes import is applied, so only one runs at a time.
+    pub notes_import_apply: async_runtime::Mutex<()>,
     /// The OS app-config directory (prefs, the memory registration record).
     pub config_dir: PathBuf,
     /// Held while the memory server is installed, registered or unregistered, so one runs at a time.
@@ -133,6 +138,8 @@ impl AppState {
             memory_install: async_runtime::Mutex::new(()),
             sync_plan: Mutex::new(None),
             sync_apply: async_runtime::Mutex::new(()),
+            notes_import: Mutex::new(None),
+            notes_import_apply: async_runtime::Mutex::new(()),
             config_dir: prefs_dir,
             memory_setup: async_runtime::Mutex::new(()),
             desktop_mcp_setup: async_runtime::Mutex::new(()),

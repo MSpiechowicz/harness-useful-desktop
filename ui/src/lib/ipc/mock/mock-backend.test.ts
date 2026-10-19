@@ -8,6 +8,7 @@ import { manualRemovalsOf } from './setup-handlers';
 import { samplePrefs } from '../../../../tests/helpers';
 import { fixtures } from './fixtures';
 import { sampleScripts } from './memory-scripts-fixtures';
+import type { ScriptLanguage } from '../bindings/ScriptLanguage';
 
 /** One valid call per command; typed so adding a command to the map forces an entry here. */
 const sampleArgs = (sessionKey: string): { [K in CommandName]: CommandArgs<K> } => ({
@@ -21,11 +22,21 @@ const sampleArgs = (sessionKey: string): { [K in CommandName]: CommandArgs<K> } 
   memory_scripts_list: { project: '/home/demo/project', offset: 0 },
   memory_script_get: { id: 12, project: '/home/demo/project' },
   memory_script_delete: { id: 12, project: '/home/demo/project' },
+  memory_script_save: {
+    project: '/home/demo/project',
+    draft: { name: 'open-prs', description: 'Edited in the app', language: 'bash', body: 'echo app\n', timeoutSecs: 60, scope: 'repo' },
+    replace: true,
+    base: sampleScripts().find((script) => script.id === 12)?.sha256 ?? '',
+  },
   memory_scripts_delete_all: { project: '/home/demo/project' },
   memory_notes_list: { project: '/home/demo/project', offset: 0 },
   memory_note_get: { id: 3, project: '/home/demo/project' },
   memory_note_delete: { id: 3, project: '/home/demo/project' },
+  memory_note_save: { project: '/home/demo/project', draft: { title: 'A note from the app', body: 'Written in the app.', kind: 'decision', tags: [], entities: [], scope: 'repo' } },
   memory_notes_delete_all: { project: null },
+  memory_notes_import_preview: { project: '/home/demo/project' },
+  memory_notes_import_template: { format: 'json' },
+  memory_notes_import_apply: { planId: 'notes-import-1', rows: [0, 2], defaultScope: 'repo', replace: false, project: '/home/demo/project', onProgress: () => {} },
   memory_scripts_trust: { items: [{ id: 21, sha256: sampleScripts().find((script) => script.id === 21)?.sha256 ?? '' }], project: '/home/demo/project' },
   memory_script_requests_listen: { onRequest: () => {} },
   memory_script_decide: { requestId: 'a'.repeat(32), allow: false },
@@ -224,6 +235,10 @@ describe('mock transport', () => {
     // An import applies a plan that a review made first.
     if (name === 'sync_import_apply') {
       await mock.invoke('sync_import_preview', { input: { type: 'file' } });
+    }
+
+    if (name === 'memory_notes_import_apply') {
+      await mock.invoke('memory_notes_import_preview', { project: '/home/demo/project' });
     }
 
     // The memory server is registered only once it is installed.
@@ -428,6 +443,49 @@ describe('mock transport', () => {
     await expect(mock.invoke('memory_remote_set', { ...pw, kind: 'libsql', url: 'libsql://u:pw@t.turso.io' })).rejects.toMatchObject({ code: 'invalidInput' });
 
     await expect(mock.invoke('memory_remote_set', { ...pw, enabled: false, kind: null })).resolves.toMatchObject({ enabled: false, hasToken: false });
+  });
+
+  it('keeps a waiting script waiting when an edit leaves its code as the agent wrote it', async () => {
+    const mock = transport();
+    const project = '/home/demo/project';
+    const waiting = await mock.invoke('memory_script_get', { id: 21, project });
+    const draft = { name: waiting.name, description: 'Edited in the app', language: 'bash', body: waiting.body, timeoutSecs: 90, scope: waiting.scope } as const;
+
+    const kept = await mock.invoke('memory_script_save', { project, draft, replace: true, base: waiting.sha256 });
+    expect(kept.script).toMatchObject({ id: 21, approval: 'needed', trusted: false });
+
+    const crlf = { ...draft, body: `${waiting.body.replaceAll('\n', '  \r\n')}\n` };
+    const endings = await mock.invoke('memory_script_save', { project, draft: crlf, replace: true, base: kept.script?.sha256 });
+    expect(endings.script).toMatchObject({ id: 21, approval: 'needed', trusted: false });
+
+    await expect(mock.invoke('memory_script_save', { project, draft, replace: true, base: waiting.sha256 })).rejects.toMatchObject({ code: 'conflict' });
+
+    const changed = await mock.invoke('memory_script_save', { project, draft: { ...draft, body: `${waiting.body}echo done\n` }, replace: true, base: endings.script?.sha256 });
+    expect(changed.script).toMatchObject({ id: 21, approval: 'approved', trusted: true });
+  });
+
+  it('refuses an edit of a script deleted since the editor opened it', async () => {
+    const mock = transport();
+    const project = '/home/demo/project';
+    const opened = await mock.invoke('memory_script_get', { id: 21, project });
+    const draft = { name: opened.name, description: opened.description, language: opened.language as ScriptLanguage, body: `${opened.body}echo done\n`, timeoutSecs: opened.timeoutSecs, scope: opened.scope };
+
+    await mock.invoke('memory_script_delete', { id: 21, project });
+
+    await expect(mock.invoke('memory_script_save', { project, draft, replace: true, base: opened.sha256 })).rejects.toMatchObject({ code: 'conflict' });
+    await expect(mock.invoke('memory_script_get', { id: 21, project })).rejects.toMatchObject({ code: 'notFound' });
+  });
+
+  it('applies one notes import at a time', async () => {
+    const mock = transport();
+    const project = '/home/demo/project';
+    const preview = await mock.invoke('memory_notes_import_preview', { project });
+    const planId = preview?.kind === 'plan' ? preview.plan.planId : '';
+    const args = { planId, rows: [0], defaultScope: 'repo' as const, replace: false, project, onProgress: () => {} };
+
+    const running = mock.invoke('memory_notes_import_apply', args);
+    await expect(mock.invoke('memory_notes_import_apply', args)).rejects.toMatchObject({ code: 'invalidInput', message: 'an import is already running' });
+    await expect(running).resolves.toMatchObject({ created: 1 });
   });
 
   it('clears the recent projects when remembering is turned off', async () => {

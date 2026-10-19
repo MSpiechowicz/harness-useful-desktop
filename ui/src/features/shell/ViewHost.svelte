@@ -11,7 +11,8 @@
   import EcosystemView from '../ecosystem/EcosystemView.svelte';
   import ExtensionsViewer from '../extensions/ExtensionsViewer.svelte';
   import HooksView from '../hooks/HooksView.svelte';
-  import MemoryView from '../memory/MemoryView.svelte';
+  import NotesView from '../memory/NotesView.svelte';
+  import ScriptsView from '../memory/ScriptsView.svelte';
   import RoutinesView from '../routines/RoutinesView.svelte';
   import SettingsView from '../settings/SettingsView.svelte';
 
@@ -63,8 +64,10 @@
           <ExtensionsViewer />
         {:else if nav.current === 'ecosystem'}
           <EcosystemView />
-        {:else if nav.current === 'memory'}
-          <MemoryView />
+        {:else if nav.current === 'notes'}
+          <NotesView />
+        {:else if nav.current === 'scripts'}
+          <ScriptsView />
         {:else if nav.current === 'hooks'}
           <HooksView />
         {:else if nav.current === 'routines'}

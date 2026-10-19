@@ -1,8 +1,10 @@
 import { t, tn } from '$lib/i18n/i18n.svelte';
 import type { MemoryScriptsPage } from '$lib/ipc/bindings/MemoryScriptsPage';
 import type { ScriptDetail } from '$lib/ipc/bindings/ScriptDetail';
+import type { ScriptDraft } from '$lib/ipc/bindings/ScriptDraft';
 import type { ScriptGroup } from '$lib/ipc/bindings/ScriptGroup';
 import type { ScriptReview } from '$lib/ipc/bindings/ScriptReview';
+import type { ScriptSaved } from '$lib/ipc/bindings/ScriptSaved';
 import type { ScriptScope } from '$lib/ipc/bindings/ScriptScope';
 import type { ScriptSort } from '$lib/ipc/bindings/ScriptSort';
 import type { SortOrder } from '$lib/ipc/bindings/SortOrder';
@@ -54,7 +56,15 @@ export const scriptList = new ViewLoader<MemoryScriptsPage, string>((key, projec
 });
 
 /** The script on screen, body included. The list carries no bodies, so this is read when one is chosen. */
-export const scriptDetail = new ViewLoader<ScriptDetail, string>((id, project) => ipc.invoke('memory_script_get', { id: Number(id), project }));
+/**
+ * Whether a `notFound` from Harness Memory means the note or script is gone. A missing `harness-memory` executable answers
+ * `notFound` too (`unavailable_error` in business/src/ecosystem/memory_scripts.rs), and an update replaces it for a moment.
+ */
+export function memoryItemGone(failure: IpcFailure): boolean {
+  return failure.message !== 'not found: executable harness-memory';
+}
+
+export const scriptDetail = new ViewLoader<ScriptDetail, string>((id, project) => ipc.invoke('memory_script_get', { id: Number(id), project }), { goneIsFinal: memoryItemGone });
 
 /** Deletes a script once the user confirms, then re-reads the list so the row is gone (or back, if the call failed). */
 export async function deleteScript(id: number, project: string | null, confirm: () => Promise<boolean>): Promise<boolean> {
@@ -147,4 +157,60 @@ function changedSince(asked: ReviewedScript[]): ReviewedScript[] {
   const now = new Map((scriptList.data?.scripts ?? []).map((script) => [script.id, script.sha256]));
 
   return asked.filter((script) => now.has(script.id) && now.get(script.id) !== script.sha256);
+}
+
+/** What a save of an edit found: the script changed or was deleted since the editor opened it, so nothing was written. */
+export const SCRIPT_CHANGED = 'changed';
+
+/**
+ * Writes a script, then re-reads the list and the open script so what is on screen is what was saved. A script saved here is trusted on this computer.
+ * Without `replace` a name that is taken is `exists` and nothing is written, with it the script of that name is overwritten (an edit, or a confirmed replace).
+ * An edit names the version it opened as `base`: if the script is another one by now, nothing is written and the answer is `SCRIPT_CHANGED`, for the editor to say.
+ * Any other failure is said in a toast, and answers null.
+ */
+export async function saveScript(project: string | null, draft: ScriptDraft, replace: boolean, base?: string): Promise<ScriptSaved | typeof SCRIPT_CHANGED | null> {
+  let saved: ScriptSaved;
+
+  try {
+    saved = await ipc.invoke('memory_script_save', base === undefined ? { project, draft, replace } : { project, draft, replace, base });
+  } catch (error) {
+    const cause = IpcFailure.from(error);
+
+    if (base !== undefined && cause.code === 'conflict') {
+      return SCRIPT_CHANGED;
+    }
+
+    toasts.push({ title: t('memory.editor.script.toast.failed'), description: cause.message, tone: 'danger' });
+
+    return null;
+  }
+
+  if (saved.outcome !== 'exists') {
+    await Promise.all([scriptList.refresh({ quiet: true }), scriptDetail.refresh({ quiet: true })]);
+  }
+
+  return saved;
+}
+
+/** The script as it is now, read again for an editor that found it changed: `gone` when it no longer exists, null (said in a toast) when it could not be read. */
+export async function rereadScript(id: number, project: string | null): Promise<ScriptDetail | 'gone' | null> {
+  try {
+    const script = await ipc.invoke('memory_script_get', { id, project });
+
+    await Promise.all([scriptList.refresh({ quiet: true }), scriptDetail.refresh({ quiet: true })]);
+
+    return script;
+  } catch (error) {
+    const cause = IpcFailure.from(error);
+
+    if (cause.code === 'notFound') {
+      await scriptList.refresh({ quiet: true });
+
+      return 'gone';
+    }
+
+    toasts.push({ title: t('memory.editor.script.reload.failed'), description: cause.message, tone: 'danger' });
+
+    return null;
+  }
 }

@@ -12,7 +12,8 @@ describe('the rail badge of the Hooks view', () => {
 
   it('caps the count and does not mark any other view', () => {
     expect(railBadge('hooks', null, null, 120)?.text).toBe('99+');
-    expect(railBadge('memory', null, null, 3)).toBeNull();
+    expect(railBadge('notes', null, null, 3)).toBeNull();
+    expect(railBadge('scripts', null, null, 3)).toBeNull();
   });
 });
 

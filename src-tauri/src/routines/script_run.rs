@@ -1,7 +1,7 @@
 //! Script routines (see "Script runs" in `docs/routines-format.md`): a saved Harness Memory script
 //! run by name over its own `harness-memory mcp` connection
 //! ([`MemoryScripts::run_for_routine`]). A script this machine must approve first is not run: the
-//! run needs attention ("Trust it in the Memory view"). A missing script or Harness Memory is
+//! run needs attention ("Trust it in the Scripts view"). A missing script or Harness Memory is
 //! `failed`; otherwise the script's exit decides, as for a command. A stop cancels the script
 //! gracefully: Harness Memory kills it with its process group before its server is shut down.
 
@@ -15,7 +15,7 @@ use harness_business::model::ScriptScope;
 use super::job::{RunJob, RunOutcome, StopReason, StopSignal};
 
 /// The message of a script run that needs the user's approval of the script.
-pub const TRUST_MESSAGE: &str = "Trust it in the Memory view";
+pub const TRUST_MESSAGE: &str = "Trust it in the Scripts view";
 
 /// Runs script `name` in `scope` for `job` (in its project when it has one), until `stop` fires.
 pub async fn run(

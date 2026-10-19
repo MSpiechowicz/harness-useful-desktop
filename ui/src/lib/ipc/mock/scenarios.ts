@@ -81,7 +81,7 @@ export function defaultScenario(): Scenario {
         Object.assign(memory, { installed: false, version: null, via: [] });
       }
 
-      // The outdated Memory previews have Harness Memory installed: an old release (updated to 1.1.0 from the Memory view) or a source build, which reports a pre-release version no release is ever newer than.
+      // The outdated Memory previews have Harness Memory installed: an old release (updated to 1.1.0 from the Notes or Scripts view) or a source build, which reports a pre-release version no release is ever newer than.
       const preview = scriptScenarioFromLocation();
 
       if (memory && preview === 'outdatedNoRelease') {
@@ -108,11 +108,11 @@ export function defaultScenario(): Scenario {
     }),
     // `?remote=postgres|libsql|problem` starts with a saved team database; `harness-memory check` passes for URLs containing "ok".
     ...memoryRemoteHandlers(),
-    // `?scripts=empty|notInstalled|outdated|outdatedNoRelease|failed` changes what the Memory view finds, `?scripts=ok` (the default) lists three samples.
+    // `?scripts=empty|notInstalled|outdated|outdatedNoRelease|failed` changes what the Scripts view finds, `?scripts=ok` (the default) lists three samples.
     ...memoryScriptsHandlers(() => (memoryInstalled ? scenarioAfterInstall(scriptScenarioFromLocation()) : scriptScenarioFromLocation())),
     // The notes follow the same server as the scripts. `?notes=empty` keeps none.
     ...memoryNotesHandlers(() => availabilityOf(memoryInstalled ? scenarioAfterInstall(scriptScenarioFromLocation()) : scriptScenarioFromLocation())),
-    // Installing or updating Harness Memory from the Memory view fixes its `notInstalled` and `outdated` previews.
+    // Installing or updating Harness Memory from the Notes or Scripts view fixes its `notInstalled` and `outdated` previews.
     setup_install_memory: async (args) => {
       const result = await setup.handlers.setup_install_memory(args);
       memoryInstalled ||= result.ok;

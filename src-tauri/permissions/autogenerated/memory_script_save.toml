@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-memory-script-save"
+description = "Enables the memory_script_save command without any pre-configured scope."
+commands.allow = ["memory_script_save"]
+
+[[permission]]
+identifier = "deny-memory-script-save"
+description = "Denies the memory_script_save command without any pre-configured scope."
+commands.deny = ["memory_script_save"]

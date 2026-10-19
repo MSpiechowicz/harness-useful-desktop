@@ -124,9 +124,16 @@ flowchart LR
    `Unsupported`, it would refuse the file), and kept as saved while the server cannot be asked; trust only while hooks
    are shared. A save re-probes at once (`team_reprobe`), so sharing turned off removes the team copies before
    `memory_remote_set` returns.
-6. **Scripts.** Agents save deterministic scripts in the memory store and run them inside the server. The Memory view
+6. **Scripts.** Agents save deterministic scripts in the memory store and run them inside the server. The Scripts view
    lists, shows and deletes them through `memory_scripts_list`, `memory_script_get` and `memory_script_delete`
-   (`business/src/ecosystem/memory_scripts.rs`). A page of the list (offset, 1 to 200 entries, a search of at most 256
+   (`business/src/ecosystem/memory_scripts.rs`), and creates or edits one through `memory_script_save`
+   (`memory_scripts_save.rs`: `script_get {name, scope}`, then `script_save` on the pooled server; a taken name is
+   `exists` unless the user replaces it, and an edit whose opened version, `base`, is gone or changed is `conflict`;
+   nothing is saved then). A saved script the server answers `needed` for (the code of a script waiting for approval)
+   is approved with `harness-memory trust` only when the user put the code in and the stored script is the draft: an
+   edit that changed the code it opened (line endings and trailing whitespace aside), a replace that does not keep the
+   code of the untrusted script it replaces, or a new name. An edit of the description, timeout or language alone stays
+   `needed`. A page of the list (offset, 1 to 200 entries, a search of at most 256
    characters, one group of `needsReview`, `repo` or `global`, or else a scope `repo`/`global` combined with a review
    `needed`/`trusted` (a group with either is `invalidInput`), sorted by `updated`, `name`, `language`, `scope`,
    `place`, `runs` or `lastRun`) comes from `harness-memory scripts list --json --offset N --limit N [--query Q]
@@ -159,8 +166,8 @@ flowchart LR
    the watcher has shown and not answered yet, while the request file exists; the server waits 45 s, then removes
    both, and the watcher removes an answer left alone for more than 60 s. `memory_scripts_trust` runs
    `harness-memory trust <id>=<sha256>… [--project <root>]` (`memory_trust.rs`, 20 s and 1 s per script (120 s at most), home directory, output capped
-   and redacted) for the Memory view's **Trust** buttons; a script changed since the user reviewed it is `conflict`.
-8. **Notes.** The Memory view lists, shows and deletes the agents' notes through `memory_notes_list`,
+   and redacted) for the Scripts view's **Trust** buttons; a script changed since the user reviewed it is `conflict`.
+8. **Notes.** The Notes view lists, shows and deletes the agents' notes through `memory_notes_list`,
    `memory_note_get` and `memory_note_delete` (`business/src/ecosystem/memory_notes.rs`), each one run of
    `harness-memory notes` as `memory_cli.rs` runs the server's commands (15 s): `notes list --json --offset N --limit N
    [--query Q] [--kind K] [--scope repo|global] --sort updated|title|kind|scope|place --order asc|desc
@@ -172,7 +179,17 @@ flowchart LR
    (60 s): every entry the list shows without filters, answered as `MemoryDeleteAll` (`deleted`, and `team`, how many
    were in the team database). A note the server cannot see from the project is `notFound`. They
    need the server generation the scripts probe calls `Approvals`: an older one, or one that answers a usage error, is
-   `outdated`. The app never opens the database.
+   `outdated`. The app never opens the database. `memory_note_save` creates a note (`note_save`) or edits one by id
+   (`note_update`, its scope kept) on the pooled `harness-memory mcp` (`memory_notes_save.rs`); a title another note
+   of its scope has is `exists` with that note's id. The server rewrites a same-title global note instead of refusing
+   it, so a new global note is looked up first (`memory_notes_titles.rs`): `note_search` with the title as the server
+   compares titles, each candidate read with `notes get <id> --json`, and every global note listed 200 at a time when
+   the search cannot tell (no letter or digit to search for, or a full page of hits).
+   `memory_notes_import_preview` reads a CSV or JSON file from a native open dialog through `SafeReader` (2 MiB, 500
+   notes, `memory_notes_import.rs` and `memory_notes_import/parse.rs`) and answers the review (each row's problems as
+   codes, and the earlier row with the same title); Rust keeps the rows under a single-use plan id with the project
+   (`AppState::notes_import`), and `memory_notes_import_apply` (one at a time) saves the selected row indexes as
+   `memory_note_save` does, streaming each row's end over a channel.
 
 Older app versions put a `<harness-memory-recall>` block of found notes in front of the first message of a new chat;
 the app no longer adds it. Transcripts that hold one still show it as a collapsed chip (`splitRecall`,

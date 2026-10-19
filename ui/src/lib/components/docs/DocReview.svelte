@@ -9,6 +9,7 @@
   import { type DocReviewHandlers, type ReviewChange } from './doc-diff';
   import { ICON } from '../icon';
   import { NOTICE_LOOKS } from '../notice';
+  import NoticeHead from '../NoticeHead.svelte';
 
   interface Props extends DocReviewHandlers {
     /** What happened to the document: "An agent added this hook". */
@@ -33,13 +34,7 @@
 
 <!-- Nothing an agent wrote runs before this: the user reads exactly what is new, and approves that version or sends it away. -->
 <div class={cx('flex flex-col gap-3 rounded-md p-3', look.box)} role="status">
-  <div class="flex min-w-0 items-start gap-3">
-    <span class="flex h-5 shrink-0 items-center"><look.icon class={look.color} size={ICON.sm} aria-hidden="true" /></span>
-    <div class="flex min-w-0 flex-col gap-0.5">
-      <p class="text-sm font-medium text-fg">{title}</p>
-      <p class="text-sm text-fg-2">{body}</p>
-    </div>
-  </div>
+  <NoticeHead level="warning" {title} {body} />
 
   <div class="flex flex-col gap-3 rounded-md border border-line bg-surface-1 p-3">
     {#each changes as change (change.key)}

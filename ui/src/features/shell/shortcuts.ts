@@ -1,7 +1,7 @@
 import { t, type MessageKey } from '$lib/i18n/i18n.svelte';
 import { isMacPlatform } from '$lib/utils/shortcuts';
 
-import { SETTINGS_SHORTCUT, VIEWS, viewShortcut } from './views';
+import { VIEWS, viewShortcut } from './views';
 
 export type ShortcutArea = 'Global' | 'Go to' | 'Chat composer' | 'Review & diff' | 'Sessions & lists' | 'Command palette';
 
@@ -76,16 +76,27 @@ function chatCycleCombos(mac = isMacPlatform()): { next: string; previous: strin
 
 export function globalShortcuts(shell: ShellCommands): ShortcutAction[] {
   const chatCycle = chatCycleCombos();
-  const views: ShortcutAction[] = VIEWS.map((view, index) => ({
-    id: `go-${view.id}`,
-    combo: viewShortcut(view.id) ?? SETTINGS_SHORTCUT,
-    get label() {
-      return view.label;
-    },
-    area: 'Go to',
-    inInputs: 'all',
-    run: () => shell.goTo(index),
-  }));
+  // A view without a combo (Routines has no digit left, and the comma is Settings') is reached from the rail and the palette only.
+  const views = VIEWS.flatMap<ShortcutAction>((view, index) => {
+    const combo = viewShortcut(view.id);
+
+    if (combo === null) {
+      return [];
+    }
+
+    return [
+      {
+        id: `go-${view.id}`,
+        combo,
+        get label() {
+          return view.label;
+        },
+        area: 'Go to',
+        inInputs: 'all',
+        run: () => shell.goTo(index),
+      },
+    ];
+  });
 
   return [
     { id: 'palette', combo: 'mod+k', get label() { return t('shell.shortcut.palette'); }, area: 'Global', inInputs: 'all', run: shell.togglePalette },

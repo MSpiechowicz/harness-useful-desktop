@@ -31,6 +31,8 @@ regex = "1.13"
 tracing = "0.1.44"
 uuid = { version = "1.27", features = ["v4"] }
 similar = "3.2.0"
+# Reads the CSV files of a notes import (RFC 4180 quoting, multi-line fields). MIT OR Unlicense.
+csv = "1.4.0"
 # Updater public-key validation (the same decoders tauri-plugin-updater verifies signatures with).
 base64 = "0.22"
 minisign-verify = "0.2"

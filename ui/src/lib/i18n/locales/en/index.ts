@@ -15,6 +15,8 @@ import { sync } from './sync';
 import { memory } from './memory';
 import { hooks } from './hooks';
 import { routines } from './routines';
+import { memoryEditor } from './memory-editor';
+import { memoryImport } from './memory-import';
 
 export const en = {
   ...common,
@@ -34,6 +36,8 @@ export const en = {
   ...memory,
   ...hooks,
   ...routines,
+  ...memoryEditor,
+  ...memoryImport,
 } satisfies Record<string, string>;
 
 /** Every message key of the app; the other languages must have exactly these. */

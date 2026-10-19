@@ -1,6 +1,9 @@
 <script lang="ts">
   import ChevronRight from '@lucide/svelte/icons/chevron-right';
+  import FileX from '@lucide/svelte/icons/file-x';
 
+  import MenuItem from '$lib/components/MenuItem.svelte';
+  import MoreMenu from '$lib/components/MoreMenu.svelte';
   import { entrySections, SCOPE_LABELS, SECTIONS, statusLetter, statusName, statusTone, type Section, type StatusTone } from '$lib/git/entries';
   import { normalizeQuery } from '$lib/git/search';
   import { t, tn } from '$lib/i18n/i18n.svelte';
@@ -19,9 +22,11 @@
     commentCounts: ReadonlyMap<string, number>;
     /** Called after a click chooses a file, e.g. to put a drawer away. */
     onpick?: () => void;
+    /** Asks to discard a file's changes (the confirmation lives with the view). */
+    ondiscard: (entry: StatusEntry) => void;
   }
 
-  let { entries, commentCounts, onpick }: Props = $props();
+  let { entries, commentCounts, onpick, ondiscard }: Props = $props();
 
   const TONE_CLASSES: Record<StatusTone, string> = {
     success: 'bg-success-wash text-success',
@@ -49,6 +54,9 @@
   const reachable = $derived(groups.filter((group) => isOpen(group.section)).flatMap((group) => group.rows));
 
   let buttons: Record<string, HTMLElement | undefined> = $state({});
+
+  /** The row whose menu is open: it sits above its neighbours and keeps its button visible. */
+  let menuFor = $state<string | null>(null);
 
   const keyOf = (row: Row): string => `${row.section}:${row.entry.path}`;
   const isSelected = (row: Row): boolean => row.entry.path === git.selected && row.section === git.section;
@@ -109,7 +117,9 @@
             {@const parts = splitPath(entry.path)}
             {@const counts = stats(entry.path, group.section)}
             {@const comments = commentCounts.get(entry.path) ?? 0}
-            <li role="presentation">
+            {@const key = keyOf(row)}
+            <!-- The button that chooses the row and the menu are siblings, as in the Sessions list: a button cannot hold a button. -->
+            <li role="presentation" class={cx('group/row relative', menuFor === key && 'z-10')}>
               <button
                 bind:this={buttons[keyOf(row)]}
                 type="button"
@@ -153,7 +163,30 @@
                     <span class="text-danger">−{counts.deletions}</span>
                   </span>
                 {/if}
-            </button>
+
+                <!-- Room for the menu button, so the counts stay in view beside it. -->
+                <span class="w-[var(--control-h)] shrink-0" aria-hidden="true"></span>
+              </button>
+
+              <div
+                class={cx(
+                  'absolute top-1/2 right-1 -translate-y-1/2 opacity-0 transition-opacity duration-[var(--dur-fast)] focus-within:opacity-100 group-hover/row:opacity-100',
+                  (selected || menuFor === key) && 'opacity-100',
+                )}
+              >
+                <MoreMenu label={t('changes.files.menu', { name: parts.name })} bind:open={() => menuFor === key, (open) => (menuFor = open ? key : menuFor === key ? null : menuFor)} panelClass="w-56">
+                  {#snippet children({ close })}
+                    <MenuItem
+                      tone="danger"
+                      icon={FileX}
+                      onclick={() => {
+                        close();
+                        ondiscard(entry);
+                      }}>{t('changes.discardFile.action')}</MenuItem
+                    >
+                  {/snippet}
+                </MoreMenu>
+              </div>
           </li>
           {/each}
         </ul>

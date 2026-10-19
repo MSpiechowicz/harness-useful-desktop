@@ -4,6 +4,11 @@ import { afterEach, beforeAll, beforeEach, vi } from 'vitest';
 import type { EcosystemStatus } from '$lib/ipc/bindings/EcosystemStatus';
 import type { EcosystemRelease } from '$lib/ipc/bindings/EcosystemRelease';
 import type { MemoryScriptsAvailability } from '$lib/ipc/bindings/MemoryScriptsAvailability';
+import type { NoteContent } from '$lib/ipc/bindings/NoteContent';
+import type { NoteSaved } from '$lib/ipc/bindings/NoteSaved';
+import type { NotesImportPreview } from '$lib/ipc/bindings/NotesImportPreview';
+import type { NotesImportResult } from '$lib/ipc/bindings/NotesImportResult';
+import type { NotesImportRow } from '$lib/ipc/bindings/NotesImportRow';
 import type { ScriptDetail } from '$lib/ipc/bindings/ScriptDetail';
 import { ipc } from '$lib/ipc/client';
 import type { CommandArgs, CommandName, CommandResult } from '$lib/ipc/commands';
@@ -21,7 +26,9 @@ import { toasts } from '$lib/stores/toasts.svelte';
 import { viewState } from '$lib/stores/view-state.svelte';
 
 import { startMockApp } from '../../../tests/mock-app';
-import MemoryView from './MemoryView.svelte';
+import { noteEditor, scriptEditor } from './editor-state.svelte';
+import NotesView from './NotesView.svelte';
+import ScriptsView from './ScriptsView.svelte';
 
 export const PROJECT = fixtures.recentProjects[0].path;
 
@@ -33,16 +40,131 @@ export const NEWER_RELEASE: MemoryRelease = { latestVersion: '1.1.0', updateAvai
 /** The installed build is a source build, or already the latest release: nothing newer exists. */
 export const NO_NEWER_RELEASE: MemoryRelease = { latestVersion: '1.1.0', updateAvailable: false };
 
+/** Whether two titles are the same to the server: any case, the outer spaces dropped. */
+const sameTitle = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+
+/** The repository the fake keeps repository notes and scripts of. */
+const REPO = 'github.com/useful/harness-desktop';
+
+/** The file the picker of a fake Memory hands over: its review, or null for a picker that was closed. `hold` keeps the import of the first row from finishing until it resolves. */
+export interface ImportFile {
+  preview: NotesImportPreview | null;
+  hold?: Promise<void>;
+}
+
+export const importRow = (index: number, title: string, rest: Partial<NotesImportRow> = {}): NotesImportRow => ({
+  index,
+  title,
+  kind: 'note',
+  tags: [],
+  scope: null,
+  bodyPreview: `About ${title}`,
+  problems: [],
+  duplicateOf: null,
+  ...rest,
+});
+
+/** The title of the sample file's row that a repository note of the fake Memory already has. */
+export const IMPORT_TAKEN_TITLE = 'Notes are read through the Memory CLI, never its database';
+
+/** A review of a file with a new note, one with the title of a repository note, one with a problem, a repeat of the first row and a global note. */
+export const SAMPLE_IMPORT: NotesImportPreview = {
+  kind: 'plan',
+  plan: {
+    planId: 'plan-1',
+    fileName: 'team-notes.csv',
+    format: 'csv',
+    truncated: false,
+    rows: [
+      importRow(0, 'Retry a flaky test once', { kind: 'decision', tags: ['ci'] }),
+      importRow(1, IMPORT_TAKEN_TITLE),
+      importRow(2, '', { problems: [{ code: 'missing', field: 'title' }] }),
+      importRow(3, 'Retry a flaky test once', { duplicateOf: 0 }),
+      importRow(4, 'Prefer the release profile for benchmarks', { scope: 'global' }),
+    ],
+  },
+};
+
 /**
  * A Harness Memory that keeps its scripts in this array and answers the three commands like the real one. A function as `availability` is asked at every read, so a test can change what the probe finds.
  * `combined: false` is an older one, which cannot combine the scope with the kind or the status (a function is asked at every read, so a test can update it).
  */
-export function fakeMemory(availability: MemoryScriptsAvailability | (() => MemoryScriptsAvailability) = { kind: 'available' }, initial = sampleScripts(), release: MemoryRelease = NEWER_RELEASE, initialNotes = sampleNotes(), combined: boolean | (() => boolean) = true) {
+export function fakeMemory(availability: MemoryScriptsAvailability | (() => MemoryScriptsAvailability) = { kind: 'available' }, initial = sampleScripts(), release: MemoryRelease = NEWER_RELEASE, initialNotes = sampleNotes(), combined: boolean | (() => boolean) = true, importFile: ImportFile = { preview: SAMPLE_IMPORT }) {
   let scripts = initial;
   let notes = initialNotes;
   const probe = () => (typeof availability === 'function' ? availability() : availability);
   const combines = () => (typeof combined === 'function' ? combined() : combined);
   const passthrough = ipc.invoke.bind(ipc);
+
+  /** Like the real server: a title taken in the scope is refused (`exists`), a save by id rewrites that note and keeps its scope. */
+  const saveNote = ({ draft, replaceId }: CommandArgs<'memory_note_save'>): NoteSaved => {
+    const now = new Date().toISOString();
+    const rewrite = (found: NoteContent): NoteContent => ({ ...found, title: draft.title, body: draft.body, kind: draft.kind, tags: draft.tags, revision: found.revision + 1, updatedAt: now });
+
+    if (replaceId !== undefined) {
+      const found = notes.find((note) => note.id === replaceId);
+      if (!found) {
+        throw IpcFailure.from({ code: 'notFound', message: 'gone' });
+      }
+
+      const other = notes.find((note) => note.id !== found.id && note.scope === found.scope && sameTitle(note.title, draft.title));
+      if (other) {
+        return { outcome: 'exists', id: other.id };
+      }
+
+      notes = notes.map((note) => (note.id === found.id ? rewrite(note) : note));
+
+      return { outcome: 'updated', id: found.id };
+    }
+
+    const same = notes.find((note) => note.scope === draft.scope && sameTitle(note.title, draft.title));
+    if (same) {
+      return { outcome: 'exists', id: same.id };
+    }
+
+    const id = Math.max(...notes.map((note) => note.id)) + 1;
+    const created = rewrite({ ...notes[0], id, scope: draft.scope, repo: draft.scope === 'repo' ? REPO : null, place: 'local', entities: draft.entities, createdAt: now, revision: 0, hits: 0 });
+    notes = [...notes, created];
+
+    return { outcome: 'created', id };
+  };
+
+  /**
+   * The import of the rows ticked in the review, each saved like a note of the editor. A repository title that is taken skips the row, or replaces the note when asked to. A global
+   * title that is taken is rewritten, as the server does. The review holds up the first row until `hold` resolves.
+   */
+  const importNotes = async ({ planId, rows, defaultScope, replace, project, onProgress }: CommandArgs<'memory_notes_import_apply'>): Promise<NotesImportResult> => {
+    const plan = importFile.preview?.kind === 'plan' ? importFile.preview.plan : null;
+    if (!plan || plan.planId !== planId) {
+      throw IpcFailure.from({ code: 'invalidInput', message: 'this review has expired, so review the file again' });
+    }
+
+    const result: NotesImportResult = { created: 0, updated: 0, replaced: 0, exists: [], failed: [] };
+
+    for (const [position, index] of rows.entries()) {
+      const row = plan.rows.find((candidate) => candidate.index === index) as NotesImportRow;
+      const draft = { title: row.title, body: row.bodyPreview, kind: row.kind, tags: row.tags, entities: [], scope: row.scope ?? defaultScope };
+      const saved = saveNote({ project, draft });
+      const taken = saved.outcome === 'exists' ? notes.find((note) => note.id === saved.id) : undefined;
+
+      if (taken && (replace || taken.scope === 'global')) {
+        saveNote({ project, draft, replaceId: taken.id });
+        result[taken.scope === 'global' ? 'updated' : 'replaced'] += 1;
+      } else if (taken) {
+        result.exists.push({ index, id: taken.id });
+      } else if (saved.outcome === 'created') {
+        result.created += 1;
+      }
+
+      onProgress({ index, done: position + 1, total: rows.length });
+
+      if (position === 0) {
+        await importFile.hold;
+      }
+    }
+
+    return result;
+  };
 
   return vi.spyOn(ipc, 'invoke').mockImplementation(async <K extends CommandName>(name: K, args: CommandArgs<K>) => {
     if (name === 'memory_scripts_list') {
@@ -68,7 +190,20 @@ export function fakeMemory(availability: MemoryScriptsAvailability | (() => Memo
         throw IpcFailure.from({ code: 'notFound', message: 'gone' });
       }
 
-      return detailOf(found, notes) as CommandResult<K>;
+      // A copy, as the real server's answer is: a test that edits its note must not edit what the view already holds.
+      return structuredClone(detailOf(found, notes)) as CommandResult<K>;
+    }
+
+    if (name === 'memory_note_save') {
+      return saveNote(args as CommandArgs<'memory_note_save'>) as CommandResult<K>;
+    }
+
+    if (name === 'memory_notes_import_preview') {
+      return importFile.preview as CommandResult<K>;
+    }
+
+    if (name === 'memory_notes_import_apply') {
+      return (await importNotes(args as CommandArgs<'memory_notes_import_apply'>)) as CommandResult<K>;
     }
 
     if (name === 'memory_note_delete') {
@@ -98,13 +233,41 @@ export function fakeMemory(availability: MemoryScriptsAvailability | (() => Memo
         throw IpcFailure.from({ code: 'notFound', message: 'gone' });
       }
 
-      return found as CommandResult<K>;
+      return structuredClone(found) as CommandResult<K>;
     }
 
     if (name === 'memory_script_delete') {
       scripts = scripts.filter((script) => script.id !== (args as CommandArgs<'memory_script_delete'>).id);
 
       return null as CommandResult<K>;
+    }
+
+    // Like the real server: a name taken in the scope is refused (`exists`) unless replacing, and a script saved here is trusted.
+    if (name === 'memory_script_save') {
+      const { draft, replace } = args as CommandArgs<'memory_script_save'>;
+      const same = scripts.find((script) => script.name === draft.name && script.scope === draft.scope);
+      if (same && !replace) {
+        return { outcome: 'exists', id: same.id, script: null } as CommandResult<K>;
+      }
+
+      const now = new Date().toISOString();
+      const id = same?.id ?? Math.max(...scripts.map((script) => script.id)) + 1;
+      const written: ScriptDetail = {
+        ...(same ?? scripts[0]),
+        ...draft,
+        id,
+        repo: draft.scope === 'repo' ? REPO : null,
+        sha256: `${id}`.padStart(64, 'a'),
+        place: 'local',
+        trusted: true,
+        approval: 'local',
+        updatedAt: now,
+        createdAt: same?.createdAt ?? now,
+        runCount: same?.runCount ?? 0,
+      };
+      scripts = same ? scripts.map((script) => (script === same ? written : script)) : [...scripts, written];
+
+      return { outcome: same ? 'replaced' : 'created', id, script: summaryOf(written) } as CommandResult<K>;
     }
 
     if (name === 'memory_scripts_trust') {
@@ -145,7 +308,7 @@ export function calls(invoke: ReturnType<typeof fakeMemory>, name: string): unkn
 /** The table row of a script, by name. */
 export const rowButton = (name: string) => document.querySelector<HTMLElement>(`[data-row="${sampleScripts().find((script) => script.name === name)?.id}"]`);
 
-/** Registers what every test of the Memory view needs: a mock backend with the project open, and a clean view before and after each test. */
+/** Registers what every test of the Notes and Scripts views needs: a mock backend with the project open, and a clean view before and after each test. */
 export function registerMemoryHooks(): void {
   beforeAll(async () => {
     // happy-dom lays nothing out: give every element a 640px viewport so the virtual list renders a window of rows.
@@ -155,12 +318,14 @@ export function registerMemoryHooks(): void {
   });
 
   beforeEach(() => {
-    viewState.reset('memory');
-    viewState.memorySection = 'scripts';
+    viewState.reset('notes');
+    viewState.reset('scripts');
     noteList.sync(null, null);
     noteDetail.sync(null, null);
     scriptList.sync(null, null);
     scriptDetail.sync(null, null);
+    noteEditor.reset();
+    scriptEditor.reset();
     ecosystem.reset();
   });
 
@@ -174,17 +339,17 @@ export function registerMemoryHooks(): void {
 /** The table row of a note, by id. */
 export const noteRow = (id: number) => document.querySelector<HTMLElement>(`[data-row="${id}"]`);
 
-/** Shows the Notes list, which is the one a fresh Memory view opens on. */
+/** Opens the Notes view and waits for its list. */
 export async function showNotes(): Promise<void> {
-  viewState.memorySection = 'notes';
-  nav.go('memory');
-  render(MemoryView);
+  nav.go('notes');
+  render(NotesView);
   await screen.findByRole('grid', { name: 'Notes' });
 }
 
+/** Opens the Scripts view and waits for its list. */
 export async function showMemory(): Promise<void> {
-  nav.go('memory');
-  render(MemoryView);
+  nav.go('scripts');
+  render(ScriptsView);
   await screen.findByRole('grid', { name: 'Scripts' });
 }
 

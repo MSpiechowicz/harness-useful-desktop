@@ -10,7 +10,8 @@ describe('the command palette and Routines', () => {
     const go = navigationCommands().find((command) => command.id === 'go-routines');
     const create = actionCommands({ openShortcuts() {} }).find((command) => command.id === 'new-routine');
 
-    expect(go).toMatchObject({ label: 'Go to Routines', shortcut: 'mod+9' });
+    expect(go).toMatchObject({ label: 'Go to Routines' });
+    expect(go?.shortcut).toBeUndefined();
     expect(create).toMatchObject({ label: 'New routine' });
 
     create?.run();

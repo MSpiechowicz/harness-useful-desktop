@@ -23,9 +23,11 @@ mod git;
 mod harness;
 mod hook;
 mod ipc_error;
+mod memory_import;
 mod memory_notes;
 mod memory_remote;
 mod memory_requests;
+mod memory_save;
 mod memory_scripts;
 mod prefs;
 mod project;
@@ -77,6 +79,11 @@ pub use hook::{
     TeamHooks,
 };
 pub use ipc_error::{IpcError, IpcErrorCode};
+pub use memory_import::{
+    NotesImportExisting, NotesImportFailure, NotesImportField, NotesImportFileProblem, NotesImportFormat,
+    NotesImportPlan, NotesImportPreview, NotesImportProblem, NotesImportProblemCode, NotesImportProgress,
+    NotesImportResult, NotesImportRow,
+};
 pub use memory_notes::{
     MemoryNotesPage, NoteContent, NoteDetail, NoteKind, NoteKindCount, NoteLink, NoteLinkDirection, NoteSort,
     NoteSummary, SortOrder,
@@ -84,6 +91,9 @@ pub use memory_notes::{
 pub use memory_remote::{MemoryNotesTarget, MemoryRemote, MemoryRemoteKind, MemoryRemoteTest};
 pub use memory_requests::{
     ScriptPreviousOrigin, ScriptPreviousVersion, ScriptRequestEvent, ScriptRunRequest, ScriptStdin,
+};
+pub use memory_save::{
+    NoteDraft, NoteSaveOutcome, NoteSaved, ScriptDraft, ScriptLanguage, ScriptSaveOutcome, ScriptSaved,
 };
 pub use memory_scripts::{
     MemoryDeleteAll, MemoryScopeCounts, MemoryScriptsAvailability, MemoryScriptsPage, ScriptApproval, ScriptAuthor,

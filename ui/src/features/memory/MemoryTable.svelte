@@ -31,6 +31,8 @@
     emptyIcon: IconComponent;
     emptyTitle: string;
     emptyBody: string;
+    /** What the empty list offers to do, e.g. add the first item. */
+    emptyAction?: Snippet;
     failedTitle: string;
     loadingLabel: string;
     /** What a search with no results says; null while there are rows to show. */
@@ -73,6 +75,7 @@
     emptyIcon: EmptyIcon,
     emptyTitle,
     emptyBody,
+    emptyAction,
     failedTitle,
     loadingLabel,
     noMatch,
@@ -128,7 +131,7 @@
     <MemoryUnavailable {availability} onretry={() => void loader.refresh()} onrefresh={() => loader.refresh({ quiet: true })} />
   {:else if none}
     <div class="grid size-full place-items-center">
-      <EmptyState icon={EmptyIcon} title={emptyTitle} body={emptyBody} />
+      <EmptyState icon={EmptyIcon} title={emptyTitle} body={emptyBody} action={emptyAction} />
     </div>
   {:else}
     <DocSplit openId={openId === null ? null : String(openId)} emptyIcon={EmptyIcon} emptyMessage={detailEmpty} onclose={() => void close()} panel={column}>

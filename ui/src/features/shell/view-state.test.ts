@@ -101,3 +101,24 @@ describe('palette content', () => {
     expect(first.secondary?.label).toBe('Resume in chat');
   });
 });
+
+describe('forgetting the Notes and Scripts views', () => {
+  it('clears the state of the one that is reset and keeps the other', () => {
+    viewState.notesQuery = 'wayland';
+    viewState.noteId = 4;
+    viewState.scriptsQuery = 'prs';
+    viewState.scriptId = 2;
+
+    viewState.reset('notes');
+
+    expect(viewState.notesQuery).toBe('');
+    expect(viewState.noteId).toBeNull();
+    expect(viewState.scriptsQuery).toBe('prs');
+    expect(viewState.scriptId).toBe(2);
+
+    viewState.reset('scripts');
+
+    expect(viewState.scriptsQuery).toBe('');
+    expect(viewState.scriptId).toBeNull();
+  });
+});
