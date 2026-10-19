@@ -60,6 +60,8 @@ mod memory_push;
 mod memory_scripts_hidden;
 #[path = "fake_agent/opencode.rs"]
 mod opencode;
+#[path = "fake_agent/opencode_config.rs"]
+mod opencode_config;
 #[path = "fake_agent/opencode_http.rs"]
 mod opencode_http;
 

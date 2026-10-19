@@ -252,17 +252,29 @@ impl Drop for AgentProcess {
 /// Runs the startup `steps` within the deadline of `options`, unless `abort` resolves first.
 pub(crate) async fn run_startup<T>(
     options: &SessionOptions,
-    abort: StartAbort<'_>,
+    mut abort: StartAbort<'_>,
     steps: impl Future<Output = Result<T>>,
 ) -> Result<T> {
-    let deadline = options.startup_deadline;
-    let steps = tokio::time::timeout(deadline, steps);
+    let until = Instant::now() + options.startup_deadline;
+
+    run_startup_until(options, until, &mut abort, steps).await
+}
+
+/// Runs the startup `steps` until `until` (a startup in several steps shares the deadline of
+/// `options`), unless `abort` resolves first.
+pub(crate) async fn run_startup_until<T>(
+    options: &SessionOptions,
+    until: Instant,
+    abort: &mut StartAbort<'_>,
+    steps: impl Future<Output = Result<T>>,
+) -> Result<T> {
+    let steps = tokio::time::timeout_at(until, steps);
 
     tokio::select! {
         result = steps => result.unwrap_or_else(|_| {
             Err(BusinessError::Timeout(format!(
                 "the agent did not finish starting within {} s",
-                deadline.as_secs_f64()
+                options.startup_deadline.as_secs_f64()
             )))
         }),
         () = abort => Err(BusinessError::Process("the session was stopped while it started".to_owned())),

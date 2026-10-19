@@ -26,8 +26,8 @@ names). The generic ACP engine moved to #27 (Gemini CLI and other ACP-only agent
 1. **One `opencode serve` per chat.** Fits the existing lifecycle (`Exited`, kill on drop, restart with an override,
    `MAX_SESSIONS`), keeps "always allow" scoped to the chat, a crash ends one chat. Cost: one Bun process (≈200–400 MB)
    and a 1–3 s cold start per chat.
-2. **Subagents in Always ask / Write ask first** (`task` rule `ask`), because a `task` child session inherits only the
-   parent's `deny` and `external_directory` rules (`agent/subagent-permissions.ts:14-26`).
+2. **Subagents in Always ask / Write ask first** (`task` rule `ask`). Since review round 2 every agent, subagents
+   included, also gets the mode's rules through the server's configuration (below), so a subagent's tools ask too.
 3. **Question tool on** (OpenCode's own default under `serve`, `tool/registry.ts:207`), answered through the existing
    dialogs. Unattended routines stall on it like on any ask.
 4. **"Always allow" is not saved by the app.** It lives as long as the chat's server, like OMP's.
@@ -99,10 +99,12 @@ Paths under `packages/opencode/src` of the OpenCode source.
   allowlist, `wire.rs`, `mapper/`, `modes.rs`, `export_html.rs`) and `business/src/agent/opencode/{mod,startup,
   prompts,dialogs,ops}.rs`. The converter in `harnesses/opencode/sessions/transcript.rs` becomes a shared module
   (history, stats, last reply, export, touched paths).
-- **Startup:** spawn → parse the listening line within `STARTUP_TIMEOUT` → `GET /global/health` → subscribe SSE →
-  `POST /session` or (resume) `GET /session/{id}` with the directory check → load `/agent`, `/config/providers`,
-  `/command` → model / agent / variant from the last user message → PATCH rules for the approval mode → emit `Ready`,
-  `State`, `CommandsUpdated`, all within `STARTUP_DEADLINE`. Events filtered to the chat's session plus its child
+- **Startup:** (approval mode only: a probe `opencode serve` → `GET /agent` → stop, then the mode as
+  `OPENCODE_CONFIG_CONTENT`) → spawn → parse the listening line within `STARTUP_TIMEOUT` → `GET /global/health` →
+  subscribe SSE → `POST /session` or (resume) `GET /session/{id}` with the directory check → load `/agent` (checked
+  against the probe's), `/config/providers`, `/command` → model / agent / variant from the last user message → a helper
+  chat's deny-all PATCH → emit `Ready`, `State`, `CommandsUpdated`, the probe included all within one
+  `STARTUP_DEADLINE`. Events filtered to the chat's session plus its child
   sessions (asks from children must reach the UI).
 - **Sessions view:** stays on the CLI. Enabling chat turns on Resume in chat and Fork there. `session_tree` stays false.
 
@@ -113,7 +115,7 @@ Paths under `packages/opencode/src` of the OpenCode source.
 | Text, thinking | `message.part.updated` + `message.part.delta` | `MessageStart`, `TextDelta`, `ThinkingDelta`, `MessageEnd` on `time.completed` |
 | Tool cards | tool part state | `ToolStart` / `ToolUpdate` / `ToolEnd{name: tool id, is_error, touched_paths}` |
 | Approvals | `permission.asked` → reply route; `permission.replied` | `UiRequest::Select` "Allow once" / "Always allow" / "Reject"; `UiCancel` |
-| Approval modes | session rules (below) | `approval_modes: true`, badge source "OpenCode settings" |
+| Approval modes | server configuration (below) | `approval_modes: true`, badge source "OpenCode settings" |
 | Model, thinking | `/config/providers` (`limit.context`, `variants`), `variant` per prompt | `ModelOption`, levels = variant keys |
 | Agent picker | `GET /agent` (primary, not hidden), `agent` per prompt | new `SetAgent`, `GetAvailableAgents`, `SessionState.agent`, `agent_picker` |
 | Slash commands | `GET /command`; `/name args` → `/session/{id}/command` | `parse_live` by `source` |
@@ -133,16 +135,22 @@ Paths under `packages/opencode/src` of the OpenCode source.
 | Questions | `question.asked` → Select (plus "Type your own answer…" unless `custom: false`) or Input; dismiss → reject | — |
 | Move project | not possible | `move_session: false` |
 
-**Approval modes** (`modes.rs`, recomputed per agent, PATCHed before a prompt when agent or mode changed, only while
-idle): session rules = a leading catch-all + the agent's own rules transformed, so `findLast` keeps denies and order,
-and the last list a session holds decides alone. Always ask `[*:*:ask]` + allow→ask (except `question`, `todowrite`,
-`plan_*`). Write `[*:*:ask]` + allow→ask except a read-only allowlist (`read glob grep list lsp skill todowrite
-question plan_*`), the agent's `external_directory` rules kept. Yolo `[*:*:allow]` + ask→allow, agent denies kept (plan
-stays read-only), an ask inside an earlier deny stays an ask. No override: no session rules, the user's config applies.
-Because PATCH appends and the rules persist in OpenCode's database, the chat releases a mode when it leaves a session
-(stop, new, fork, clone, lost stream) by appending the agent's own rules (the neutral list), neutralises a resumed
-session that holds rules without an override, and never re-sends a list the session already ends with
-(review round 1, H1).
+**Approval modes** (`modes.rs`, `mode_config.rs`, engine `probe.rs`): per agent, a leading catch-all + the agent's own
+rules transformed, so `findLast` keeps denies and order and the list decides alone. Always ask `[*:*:ask]` +
+allow→ask (except `question`, `todowrite`, `plan_enter`, `plan_exit`). Write `[*:*:ask]` + allow→ask except a
+read-only allowlist (`read glob grep list lsp skill todowrite question plan_enter plan_exit`), the agent's
+`external_directory` rules kept. Yolo `[*:*:allow]` + ask→allow, agent denies kept (plan stays read-only), an ask
+inside an earlier deny stays an ask. No override: nothing set, the user's config applies.
+
+Delivery (review round 2): PATCHed session rules are appended and stored in OpenCode's database for good, so the mode
+is never set on a session. The chat starts `opencode serve` once without the mode, reads `GET /agent`, stops it, and
+starts its server with every agent's mode rules as `agent.<name>.permission` in `OPENCODE_CONFIG_CONTENT` (read last,
+`config/config.ts`, appended after each agent's rules, `agent/agent.ts`). Keys end in ` *` (OpenCode's wildcard reads
+`read *` as exactly `read` for space-free names), so the user's own agent permissions never share a key with ours and
+keep their place before them. An inherited `OPENCODE_CONFIG_CONTENT` is merged (ours wins), unparsable content refuses
+the mode. After the start every agent must end with the mode's rules (only OpenCode's tool-output `allow` after
+them), otherwise the chat is refused. Agent switches, new chats, forks and clones set nothing. Only a helper chat's
+throwaway session gets a PATCH (deny all), and it is deleted at stop.
 
 ## Hooks and routines
 

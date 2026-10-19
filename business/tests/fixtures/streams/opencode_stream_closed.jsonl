@@ -1,0 +1,5 @@
+// The event stream ends while the server keeps running, after a title marker.
+{"include":"opencode_startup.jsonl"}
+{"sse":{"type":"session.updated","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","info":{"id":"ses_eaa561636ffezINnnn1ghd5370","directory":"$directory","title":"Marker","time":{"created":1,"updated":2}}}}}
+{"sseClose":true}
+{"hang":true}

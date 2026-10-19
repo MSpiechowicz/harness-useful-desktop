@@ -7,7 +7,7 @@
 //! **Watchdog:** OpenCode sends a heartbeat every 10 s. When the stream stays silent for
 //! [`SessionOptions::event_silence`](crate::agent::SessionOptions::event_silence) (35 s), or ends
 //! while the server still runs, the chat can no longer follow it: an error notice says so, the
-//! open dialogs close, the chat leaves its session (`approvals.rs`) and the server is ended, so
+//! open dialogs close, a helper chat's session is deleted and the server is ended, so
 //! `exited` closes the chat as for any other exit.
 
 use std::sync::Arc;
@@ -78,7 +78,7 @@ async fn lost(chat: &Chat, watch: &Watch) {
     let cancelled = chat.lock().mapper.cancel_asks();
     cancelled.into_iter().for_each(|event| chat.shared.emit(event));
 
-    chat.leave_session().await;
+    chat.delete_helper_session().await;
     watch.terminator.terminate().await;
 }
 

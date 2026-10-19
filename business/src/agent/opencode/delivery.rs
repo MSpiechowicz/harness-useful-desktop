@@ -77,13 +77,10 @@ pub(super) fn send(chat: &Arc<Chat>, live: &mut Live, message: Outgoing) {
 
     tokio::spawn(async move {
         // A command OpenCode answered with an error was taken: the prompt-taken call runs first.
-        let sent = match chat.rules_for_turn(&session).await {
-            Ok(()) => request.post_http(&chat, &session).await.map_err(|error| {
-                let answered = matches!(error, HttpError::Status { .. });
-                (BusinessError::from(error), answered && request.is_command())
-            }),
-            Err(error) => Err((error, false)),
-        };
+        let sent = request.post_http(&chat, &session).await.map_err(|error| {
+            let answered = matches!(error, HttpError::Status { .. });
+            (BusinessError::from(error), answered && request.is_command())
+        });
         let mut live = chat.lock();
 
         match sent {

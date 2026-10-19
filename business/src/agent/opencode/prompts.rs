@@ -119,10 +119,7 @@ impl OpenCodeSession {
             (Request::next_turn(&mut live, &message), live.session.clone())
         };
 
-        let sent = match chat.rules_for_turn(&session).await {
-            Ok(()) => request.post(chat, &session).await,
-            Err(error) => Err(error),
-        };
+        let sent = request.post(chat, &session).await;
         let mut live = chat.lock();
 
         if let Err(error) = sent {

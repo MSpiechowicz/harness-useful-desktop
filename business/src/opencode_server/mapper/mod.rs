@@ -16,6 +16,7 @@
 mod asks;
 mod message;
 mod messages;
+mod question;
 mod quiet;
 mod touched;
 mod turns;
@@ -155,6 +156,11 @@ impl Mapper {
         }
 
         events(out).collect()
+    }
+
+    /// Whether the chat's server applies an approval mode to every agent (shown on `task` asks).
+    pub fn set_mode_applied(&mut self, applied: bool) {
+        self.asks.set_mode_applied(applied);
     }
 
     /// The answer to dialog `response.id`; the engine sends it (or shows the next question).

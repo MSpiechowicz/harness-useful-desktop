@@ -95,8 +95,8 @@ pub async fn start_as(
     start_launch(name, resume, approval, utility, options, &[]).await
 }
 
-/// Starts scenario `name` (not a helper chat) with `env` in the server's environment (the fake's
-/// `FAKE_OPENCODE_STORE`, say).
+/// Starts scenario `name` (not a helper chat) with `env` in the server's launch environment (an
+/// inherited `OPENCODE_CONFIG_CONTENT`, say).
 pub async fn start_env(
     name: &str,
     resume: Option<&str>,

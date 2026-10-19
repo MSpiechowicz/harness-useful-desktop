@@ -1,12 +1,10 @@
 // Resuming a session of this project (recorded GET /session/{id}, its directory replaced): no new
-// session is created, and the title, agent and model come from the session. The session holds
-// permission rules and the chat has no approval override: the build agent's own rules are appended
-// (the neutral list), so the user's settings decide.
+// session is created, and the title, agent and model come from the session. The session's stored
+// permission rules are left alone.
 {"allow":"GET /global/health","reply":{"body":{"healthy":true,"version":"1.19.3"}}}
 {"allow":"GET /agent","reply":{"recording":"../opencode/server/agent-list.json"}}
 {"allow":"GET /config/providers","reply":{"recording":"../opencode/server/config-providers.json"}}
 {"allow":"GET /command","reply":{"recording":"../opencode/server/command-list.json"}}
 {"allow":"GET /config","reply":{"body":{"share":"disabled"}}}
 {"expect":"GET /session/ses_eaa561636ffezINnnn1ghd5370","reply":{"body":{"id":"ses_eaa561636ffezINnnn1ghd5370","slug":"silent-moon","projectID":"0c8d2a560942650d801f05588b0f2da5c16aa197","directory":"$directory","path":"","summary":{"additions":0,"deletions":0,"files":0},"cost":0,"tokens":{"input":305,"output":54,"reasoning":0,"cache":{"read":0,"write":0}},"title":"Renamed chat","agent":"build","model":{"id":"m1","providerID":"mock","variant":"default"},"version":"1.19.3","time":{"created":1792438561225,"updated":1792438567804},"permission":[{"permission":"*","pattern":"*","action":"allow"},{"permission":"bash","pattern":"*","action":"ask"},{"permission":"edit","pattern":"*","action":"ask"}]}}}
-{"expect":"PATCH /session/ses_eaa561636ffezINnnn1ghd5370","match":{"/permission/0":{"permission":"*","pattern":"*","action":"allow"},"/permission/14":{"permission":"external_directory","pattern":"/work/data/opencode/tool-output/*","action":"allow"},"/permission/15":"$absent"},"reply":{"recording":"../opencode/server/session-patch-permission.json"}}
 {"hang":true}

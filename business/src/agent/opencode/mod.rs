@@ -12,15 +12,17 @@
 //!   catalogs (`settings.rs`), answers to approvals and questions (`dialogs.rs`), session
 //!   actions (`ops.rs`), `!command`s and compaction (`runs.rs`), and statistics, the context
 //!   meter, the last reply and the HTML export (`reports.rs`).
-//! - **Approval modes and helper chats** (`approvals.rs`): session permission rules.
-//! - **Stop:** open dialogs close, a helper chat's session is deleted (an approval mode's rules
-//!   are released), then the server stops.
+//! - **Approval modes** (`approvals.rs`, `probe.rs`): configuration of the chat's own server,
+//!   read from a first start without the mode. **Helper chats:** session rules that deny
+//!   everything.
+//! - **Stop:** open dialogs close, a helper chat's session is deleted, then the server stops.
 
 mod approvals;
 mod delivery;
 mod dialogs;
 mod history;
 mod ops;
+mod probe;
 mod prompts;
 mod reports;
 mod runs;
@@ -28,13 +30,12 @@ mod settings;
 mod startup;
 mod stream;
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
-use serde_json::Value;
 use tokio::task::AbortHandle;
 
-use self::approvals::{LaunchRules, SessionRules};
+use self::approvals::LaunchRules;
 
 use super::io::Shared;
 use super::process::AgentProcess;
@@ -70,7 +71,7 @@ struct Chat {
     /// Where HTML exports go (`SessionOptions::export_dir`).
     export_dir: Option<PathBuf>,
     catalog: Catalog,
-    /// The session rules the launch asked for (`approvals.rs`).
+    /// The approval mode and helper-chat flag of the launch (`approvals.rs`).
     rules: LaunchRules,
     live: Mutex<Live>,
 }
@@ -79,8 +80,6 @@ struct Chat {
 struct Catalog {
     models: Vec<ProviderModel>,
     agents: Vec<AgentOption>,
-    /// The `GET /agent` list, for each agent's permission rules.
-    agent_rules: Value,
 }
 
 /// The chat's changing state.
@@ -100,8 +99,6 @@ struct Live {
     turn: TurnSettings,
     /// Names of the server's commands (`GET /command`).
     commands: Vec<String>,
-    /// The permission rules the session ends with, when the chat set (or found) any.
-    rules: Option<SessionRules>,
     /// What the chat knows about the context's size.
     context: Context,
 }
@@ -190,6 +187,20 @@ impl Chat {
         self.live.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
+    /// A fresh mapper for `session`.
+    fn mapper(&self, session: &SessionId) -> Mapper {
+        new_mapper(session, &self.project, &self.root, self.rules)
+    }
+}
+
+/// A mapper for `session` that knows whether the server applies an approval mode.
+fn new_mapper(session: &SessionId, project: &Path, root: &Path, rules: LaunchRules) -> Mapper {
+    let mut mapper = Mapper::new(session.as_str(), project, root);
+    mapper.set_mode_applied(rules.mode().is_some());
+    mapper
+}
+
+impl Chat {
     /// The session state from `live`.
     fn state(&self, live: &Live) -> SessionState {
         let quiet = live.mapper.quiet_kind();
@@ -293,7 +304,7 @@ impl OpenCodeSession {
         let cancelled = self.chat.lock().mapper.cancel_asks();
         cancelled.into_iter().for_each(|event| self.chat.shared.emit(event));
 
-        self.chat.leave_session().await;
+        self.chat.delete_helper_session().await;
         self.process.stop().await;
     }
 }

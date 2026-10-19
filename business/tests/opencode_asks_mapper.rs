@@ -191,6 +191,11 @@ fn a_subagent_asks_with_its_own_directory_and_other_sessions_are_ignored() {
         (id.as_str(), title.as_str()),
         ("per_1", "Allow bash for a subagent: echo recorded?")
     );
+    assert_eq!(
+        request(&out[0]).tool_call_id,
+        None,
+        "the subagent's call is not in the chat"
+    );
     assert_eq!(mapper.subagent_directory(CHILD), Some("/work/project/sub"));
     assert_eq!(mapper.subagent_directory(SESSION), None);
 
@@ -333,19 +338,27 @@ fn a_long_command_is_named_in_full() {
 }
 
 #[test]
-fn a_task_ask_says_the_subagent_runs_its_own_tools() {
-    let mut mapper = mapper();
+fn a_task_ask_says_how_the_subagent_runs_its_own_tools() {
     let task = json!({ "type": "permission.asked", "properties": { "id": "per_1", "sessionID": SESSION,
         "permission": "task", "patterns": ["explore"], "metadata": { "description": "Map the crate", "subagent_type": "explore" },
         "always": ["*"], "tool": { "messageID": "msg_1", "callID": "call_task" } } });
 
-    let out = events(feed(&mut mapper, &[task]));
-
+    let mut plain = mapper();
+    let out = events(feed(&mut plain, std::slice::from_ref(&task)));
     let (_, title, _, details) = select(&out[0]);
     assert_eq!(title, "Allow task: Map the crate?");
     assert_eq!(
         details[0].as_deref(),
         Some("The subagent then runs its own tools under OpenCode's permission settings.")
+    );
+
+    let mut moded = mapper();
+    moded.set_mode_applied(true);
+    let out = events(feed(&mut moded, &[task]));
+    let (.., details) = select(&out[0]);
+    assert_eq!(
+        details[0].as_deref(),
+        Some("The subagent's own tools then follow this chat's approval mode.")
     );
 }
 

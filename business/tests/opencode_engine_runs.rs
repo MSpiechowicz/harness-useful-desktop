@@ -236,6 +236,11 @@ async fn rename_stats_last_reply_and_an_escaped_export_outside_the_project() {
 #[tokio::test]
 async fn replies_never_show_the_server_password() {
     let exports = tempfile::tempdir().expect("export folder");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(exports.path(), std::fs::Permissions::from_mode(0o755)).expect("open the folder");
+    }
     let options = SessionOptions {
         export_dir: Some(exports.path().to_path_buf()),
         ..agent_support::options()
@@ -258,6 +263,16 @@ async fn replies_never_show_the_server_password() {
         Ok(AgentReply::Exported { path }) => std::path::PathBuf::from(path),
         other => panic!("export: {other:?}"),
     };
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let folder = std::fs::metadata(exports.path())
+            .expect("metadata")
+            .permissions()
+            .mode();
+        assert_eq!(folder & 0o777, 0o700, "an existing exports folder is narrowed");
+    }
+
     let html = std::fs::read_to_string(&path).expect("the export");
     assert!(!html.contains(&password), "the export holds the password");
 

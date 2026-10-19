@@ -1,16 +1,18 @@
-//! Startup of an [`OpenCodeSession`]: spawn with a random server password → the listening line
-//! (within [`STARTUP_TIMEOUT`](crate::agent::STARTUP_TIMEOUT)) → `GET /global/health` → the event
-//! stream, opened before any call that changes something → `POST /session` or, to resume,
+//! Startup of an [`OpenCodeSession`]: with an approval mode, first the probe server for the
+//! mode's configuration (`probe.rs`) → spawn with a random server password (and the mode's
+//! `OPENCODE_CONFIG_CONTENT`) → the listening line (within
+//! [`STARTUP_TIMEOUT`](crate::agent::STARTUP_TIMEOUT)) → `GET /global/health` → the event stream,
+//! opened before any call that changes something → `POST /session` or, to resume,
 //! `GET /session/{id}` (refused unless the session's directory is the project or inside it) →
-//! `GET /agent`, `/config/providers`, `/command` and `/config` (read only: its default model is the
-//! one a new session shows) → the session's permission rules for an approval mode or a helper chat,
-//! or the neutral ones for a resumed session that holds rules without an override (`approvals.rs`,
-//! not sent when its stored rules end with them already) → `ready`, `state` and `commandsUpdated`,
-//! then the events that arrived meanwhile. A helper chat never resumes a session.
+//! `GET /agent` (with a mode: checked against the probe's, see
+//! [`check_applied`]), `/config/providers`, `/command` and `/config` (read only: its default model
+//! is the one a new session shows) → a helper chat's deny-all rules (`approvals.rs`) → `ready`,
+//! `state` and `commandsUpdated`, then the events that arrived meanwhile. A helper chat never
+//! resumes a session.
 //!
-//! The whole startup runs within the shared deadline and abort race ([`run_startup`]); a failed
-//! one kills the server and emits nothing. Server output before the listening line and after it is
-//! passed on like stderr.
+//! The whole startup, the probe included, runs within one deadline and abort race
+//! ([`run_startup_until`]); a failed one kills the server and emits nothing. Server output before
+//! the listening line and after it is passed on like stderr.
 
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
@@ -20,23 +22,25 @@ use std::time::Duration;
 use serde_json::{Value, json};
 use tokio::sync::oneshot;
 
-use super::approvals::{LaunchRules, SessionRules, patch_rules};
-use super::{Catalog, Chat, Context, Live, OpenCodeSession, TurnSettings, stream};
-use crate::agent::SessionOptions;
+use super::approvals::{LaunchRules, deny_helper_tools};
+use super::probe::{ModeLaunch, Probe, mode_launch, with_content};
+use super::{Catalog, Chat, Context, Live, OpenCodeSession, TurnSettings, new_mapper, stream};
 use crate::agent::engine::SessionLaunch;
 use crate::agent::io::Shared;
-use crate::agent::process::{AgentProcess, LineForwarder, MAX_STDERR_LINE, ProcessTraits, Stdout, run_startup};
+use crate::agent::process::{AgentProcess, LineForwarder, MAX_STDERR_LINE, ProcessTraits, Stdout, run_startup_until};
+use crate::agent::{EventSink, SessionOptions};
 use crate::error::{BusinessError, Result};
 use crate::harness::CommandCatalog;
 use crate::harnesses::opencode::OpenCodeCatalog;
 use crate::model::AgentEvent;
 use crate::opencode_server::mapper::project_dir;
-use crate::opencode_server::modes::ends_with;
+use crate::opencode_server::mode_config::check_applied;
 use crate::opencode_server::wire::{
     ModelRef, SessionInfo, config_model, listening_addr, primary_agents, provider_models, session_info,
 };
-use crate::opencode_server::{EventStream, Mapper, OpenCodeClient, Route, ServerPassword, SessionId};
+use crate::opencode_server::{EventStream, OpenCodeClient, Route, ServerPassword, SessionId};
 use crate::pi_family::rpc::LineSplitter;
+use crate::process::{ExecSpec, ProcessSpawner};
 
 /// The agent every OpenCode install has, used when `/agent` lists none.
 const FALLBACK_AGENT: &str = "build";
@@ -55,8 +59,6 @@ struct Booted {
     default_model: Option<ModelRef>,
     /// The chat's agent.
     agent: String,
-    /// The permission rules the session ends with, when the chat set (or found) any.
-    rules: Option<SessionRules>,
     /// The session was resumed (it may hold messages).
     resumed: bool,
 }
@@ -75,33 +77,46 @@ impl OpenCodeSession {
             utility: launch.utility,
         };
 
-        let password = ServerPassword::random();
+        let options = launch.options;
+        let mut abort = launch.abort;
+        let until = tokio::time::Instant::now() + options.startup_deadline;
         let mut spec = launch.spec.clone();
-        spec.env
-            .push(("OPENCODE_SERVER_PASSWORD".into(), password.expose_secret().into()));
-        spec.env.push(("OPENCODE_SERVER_USERNAME".into(), "opencode".into()));
 
-        let traits = ProcessTraits {
-            terminate_on_stop: true,
-            secret: Some(password.expose_secret().to_owned()),
+        let moded = match rules.mode() {
+            Some(mode) => {
+                let probe = Probe {
+                    spawner: launch.spawner,
+                    spec: &spec,
+                    key: &launch.key,
+                    project: &launch.project,
+                    options,
+                };
+                let moded = run_startup_until(options, until, &mut abort, mode_launch(probe, mode)).await?;
+                with_content(&mut spec, &moded.content);
+                Some(moded)
+            }
+            None => None,
         };
-        let (listening_tx, listening_rx) = oneshot::channel();
 
-        let process = AgentProcess::spawn(
-            launch.spawner,
-            &spec,
-            launch.key,
-            launch.sink,
-            launch.options,
-            traits,
-            move |stdout, shared| read_stdout(stdout, shared, listening_tx),
-        )?;
+        let Spawned {
+            process,
+            password,
+            listening,
+        } = spawn_server(launch.spawner, &spec, launch.key, launch.sink, options)?;
 
-        let limit = launch.options.startup_timeout;
-        let steps = boot(listening_rx, password, &launch.project, launch.resume, rules, limit);
+        let limit = options.startup_timeout;
+        let steps = boot(
+            listening,
+            password,
+            &launch.project,
+            launch.resume,
+            rules,
+            moded.as_ref(),
+            limit,
+        );
 
-        match run_startup(launch.options, launch.abort, steps).await {
-            Ok(booted) => Ok(Self::open(process, &launch.project, rules, launch.options, booted)),
+        match run_startup_until(options, until, &mut abort, steps).await {
+            Ok(booted) => Ok(Self::open(process, &launch.project, rules, options, booted)),
             Err(error) => Err(process.fail_start(error).await),
         }
     }
@@ -119,7 +134,7 @@ impl OpenCodeSession {
 
         let commands = OpenCodeCatalog.merged(&booted.commands);
         let live = Live {
-            mapper: Mapper::new(booted.session.as_str(), project, &booted.directory),
+            mapper: new_mapper(&booted.session, project, &booted.directory, rules),
             session: booted.session,
             title: info.title,
             model: info.model.or(booted.default_model),
@@ -128,7 +143,6 @@ impl OpenCodeSession {
             agent: booted.agent,
             turn: TurnSettings::default(),
             commands: command_names(&booted.commands),
-            rules: booted.rules,
             // A resumed session's newest reply is read when the state is first asked for.
             context: Context {
                 mark: None,
@@ -173,21 +187,10 @@ async fn boot(
     project: &Path,
     resume: Option<&str>,
     rules: LaunchRules,
+    moded: Option<&ModeLaunch>,
     limit: Duration,
 ) -> Result<Booted> {
-    let addr = tokio::time::timeout(limit, listening)
-        .await
-        .map_err(|_| {
-            BusinessError::Timeout(format!(
-                "OpenCode did not report its server address within {} s",
-                limit.as_secs_f64()
-            ))
-        })?
-        .map_err(|_| BusinessError::Process("the agent exited during startup".to_owned()))?;
-
-    let client = OpenCodeClient::new(addr, password)?;
-    client.send(Route::Health, None).await?.error_for_status()?;
-
+    let client = listening_client(listening, password, limit).await?;
     let events = client.events().await?;
 
     let project_text = project
@@ -207,6 +210,15 @@ async fn boot(
 
     let scope = info.directory.as_str();
     let agents = get_json(&client, Route::Agents { directory: scope }).await?;
+
+    if let Some(moded) = moded {
+        check_applied(&moded.agents, &agents, &moded.config).map_err(|why| {
+            BusinessError::Unsupported(format!(
+                "OpenCode changed {why} after the approval mode (a managed setting, a legacy `mode` entry or another project configuration). Start the chat without an approval mode"
+            ))
+        })?;
+    }
+
     let providers = get_json(&client, Route::ConfigProviders { directory: scope }).await?;
     let commands = get_json(&client, Route::Commands { directory: scope }).await?;
     let config = get_json(&client, Route::Config { directory: scope }).await?;
@@ -214,11 +226,12 @@ async fn boot(
     let catalog = Catalog {
         models: provider_models(&providers),
         agents: primary_agents(&agents),
-        agent_rules: agents,
     };
     let agent = chat_agent(info.agent.as_deref(), &catalog);
 
-    let rules = startup_rules(&client, &session, &info, rules, &catalog, &agent).await?;
+    if rules.utility {
+        deny_helper_tools(&client, &session).await?;
+    }
 
     Ok(Booted {
         client,
@@ -228,35 +241,49 @@ async fn boot(
         directory,
         commands: commands.as_array().cloned().unwrap_or_default(),
         default_model: config_model(&config),
-        rules,
         agent,
         catalog,
         resumed: resume.is_some(),
     })
 }
 
-/// The rules the session is to end with (`approvals.rs`), set unless its stored rules end with
-/// them already.
-async fn startup_rules(
-    client: &OpenCodeClient,
-    session: &SessionId,
-    info: &SessionInfo,
-    rules: LaunchRules,
-    catalog: &Catalog,
-    agent: &str,
-) -> Result<Option<SessionRules>> {
-    let stored = info.permission.as_deref();
-    let holds = stored.is_none_or(|stored| !stored.is_empty());
+/// A spawned `opencode serve`, its random password and where its address arrives.
+pub(super) struct Spawned {
+    pub process: AgentProcess,
+    pub password: ServerPassword,
+    pub listening: oneshot::Receiver<SocketAddr>,
+}
 
-    let Some(wanted) = rules.wanted(&catalog.agent_rules, agent, holds) else {
-        return Ok(None);
+/// Spawns `spec` as session `key` with a random server password (masked in its output and
+/// events), its events going to `sink`; it is stopped with SIGTERM, as it ignores stdin EOF.
+pub(super) fn spawn_server(
+    spawner: &dyn ProcessSpawner,
+    spec: &ExecSpec,
+    key: String,
+    sink: Arc<dyn EventSink>,
+    options: &SessionOptions,
+) -> Result<Spawned> {
+    let password = ServerPassword::random();
+    let mut spec = spec.clone();
+    spec.env
+        .push(("OPENCODE_SERVER_PASSWORD".into(), password.expose_secret().into()));
+    spec.env.push(("OPENCODE_SERVER_USERNAME".into(), "opencode".into()));
+
+    let traits = ProcessTraits {
+        terminate_on_stop: true,
+        secret: Some(password.expose_secret().to_owned()),
     };
+    let (listening_tx, listening) = oneshot::channel();
 
-    if !stored.is_some_and(|stored| ends_with(stored, &wanted.list)) {
-        patch_rules(client, session, &wanted.list, None).await?;
-    }
+    let process = AgentProcess::spawn(spawner, &spec, key, sink, options, traits, move |stdout, shared| {
+        read_stdout(stdout, shared, listening_tx)
+    })?;
 
-    Ok(Some(wanted))
+    Ok(Spawned {
+        process,
+        password,
+        listening,
+    })
 }
 
 /// The agent the session last used when the chat can switch to it, else the default one.
@@ -296,6 +323,28 @@ pub(super) fn read_session(body: &Value) -> Result<SessionInfo> {
     session_info(body).ok_or_else(|| BusinessError::Protocol("OpenCode sent a session without an id".to_owned()))
 }
 
+/// Waits for the server's address on `listening` (within `limit`), then checks its health.
+pub(super) async fn listening_client(
+    listening: oneshot::Receiver<SocketAddr>,
+    password: ServerPassword,
+    limit: Duration,
+) -> Result<OpenCodeClient> {
+    let addr = tokio::time::timeout(limit, listening)
+        .await
+        .map_err(|_| {
+            BusinessError::Timeout(format!(
+                "OpenCode did not report its server address within {} s",
+                limit.as_secs_f64()
+            ))
+        })?
+        .map_err(|_| BusinessError::Process("the agent exited during startup".to_owned()))?;
+
+    let client = OpenCodeClient::new(addr, password)?;
+    client.send(Route::Health, None).await?.error_for_status()?;
+
+    Ok(client)
+}
+
 /// The JSON body of a `GET` that must succeed.
 pub(super) async fn get_json(client: &OpenCodeClient, route: Route<'_>) -> Result<Value> {
     Ok(client.send(route, None).await?.error_for_status()?.json()?)
@@ -311,7 +360,7 @@ pub(super) fn command_names(commands: &[Value]) -> Vec<String> {
 }
 
 /// Reads stdout: the listening line goes to startup, every other line is passed on like stderr.
-async fn read_stdout(stdout: Stdout, shared: Arc<Shared>, listening: oneshot::Sender<SocketAddr>) {
+pub(super) async fn read_stdout(stdout: Stdout, shared: Arc<Shared>, listening: oneshot::Sender<SocketAddr>) {
     let mut lines = LineSplitter::new(stdout, MAX_STDERR_LINE);
     let mut forwarder = LineForwarder::default();
     let mut listening = Some(listening);

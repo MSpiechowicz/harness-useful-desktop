@@ -1,20 +1,18 @@
-//! Approval modes as OpenCode session permission rules (`modes`), against the recorded `build` and
-//! `plan` agents (`fixtures/opencode/server/agent-list.json`): the rules are decided the way
-//! OpenCode decides them, the last matching rule of the agent's rules and then the session's.
+//! Approval modes as OpenCode permission rules (`modes`), against the recorded `build` and `plan`
+//! agents (`fixtures/opencode/server/agent-list.json`): the rules are decided the way OpenCode
+//! decides them, the last matching rule of the agent's own rules followed by the mode's.
 
 mod opencode_mapper_support;
 
 use harness_business::model::ApprovalMode;
-use harness_business::opencode_server::modes::{
-    Rule, agent_rules, deny_all, ends_with, evaluate, matches, neutral, session_rules,
-};
+use harness_business::opencode_server::modes::{Rule, agent_rules, deny_all, evaluate, matches, mode_rules};
 use opencode_mapper_support::recorded_body;
 use pretty_assertions::assert_eq;
 
 /// What OpenCode decides for `permission` on `pattern` (`permission/index.ts` `evaluate`): the
-/// last matching rule of the agent's rules, then the session's; `ask` when none matches.
-fn decide(agent: &[Rule], session: &[Rule], permission: &str, pattern: &str) -> String {
-    let rules: Vec<Rule> = agent.iter().chain(session).cloned().collect();
+/// last matching rule of the agent's rules, then the mode's; `ask` when none matches.
+fn decide(agent: &[Rule], mode: &[Rule], permission: &str, pattern: &str) -> String {
+    let rules: Vec<Rule> = agent.iter().chain(mode).cloned().collect();
 
     evaluate(&rules, permission, pattern).map_or_else(|| "ask".to_owned(), |rule| rule.action.clone())
 }
@@ -27,7 +25,7 @@ fn recorded(agent: &str) -> Vec<Rule> {
 fn decisions(agent: &str, mode: Option<ApprovalMode>, calls: &[(&str, &str)]) -> Vec<String> {
     let rules = agent_rules(&recorded_body("agent-list.json"), agent);
     assert!(!rules.is_empty(), "the recorded {agent} agent has rules");
-    let session = session_rules(mode, &rules).unwrap_or_default();
+    let session = mode_rules(mode, &rules).unwrap_or_default();
 
     calls
         .iter()
@@ -54,7 +52,7 @@ fn expect(actions: [&str; 10]) -> Vec<String> {
 
 #[test]
 fn without_an_override_the_agents_own_rules_apply() {
-    assert_eq!(session_rules(None, &[Rule::new("*", "*", "allow")]), None);
+    assert_eq!(mode_rules(None, &[Rule::new("*", "*", "allow")]), None);
 
     assert_eq!(
         decisions("build", None, &CALLS),
@@ -118,13 +116,16 @@ fn write_asks_for_everything_but_reading() {
         ("glob", "**/*.rs"),
         ("grep", "fn main"),
         ("external_directory", "/work/tmp/opencode/x"),
+        ("plan_deploy", "*"),
+        ("plan_enter", "*"),
     ];
     assert_eq!(
         decisions("build", mode, &tools),
         [
-            "ask", "ask", "ask", "ask", "ask", "ask", "ask", "ask", "allow", "allow", "allow", "allow"
+            "ask", "ask", "ask", "ask", "ask", "ask", "ask", "ask", "allow", "allow", "allow", "allow", "ask", "allow"
         ],
-        "MCP, plugin and web tools ask, reads and the agent's allowed folders outside do not"
+        "MCP (a server named plan too), plugin and web tools ask, reads, plan switches and the agent's \
+         allowed folders outside do not"
     );
 }
 
@@ -146,7 +147,7 @@ fn yolo_allows_everything_but_keeps_the_agents_denies() {
         "the plan agent stays read-only"
     );
 
-    let session = session_rules(mode, &[]).expect("rules");
+    let session = mode_rules(mode, &[]).expect("rules");
     assert_eq!(session, [Rule::new("*", "*", "allow")]);
 }
 
@@ -158,7 +159,7 @@ fn yolo_keeps_asking_where_the_agent_denies_and_the_user_asks() {
     let mut build = recorded("build");
     build.push(user_asks_for_edits);
 
-    let yolo = |agent: &[Rule]| session_rules(Some(ApprovalMode::Yolo), agent).expect("rules");
+    let yolo = |agent: &[Rule]| mode_rules(Some(ApprovalMode::Yolo), agent).expect("rules");
     assert_eq!(
         decide(&plan, &yolo(&plan), "edit", "src/main.rs"),
         "ask",
@@ -171,69 +172,6 @@ fn yolo_keeps_asking_where_the_agent_denies_and_the_user_asks() {
     let session = yolo(&asks_everything);
     assert_eq!(decide(&asks_everything, &session, "edit", "src/main.rs"), "ask");
     assert_eq!(decide(&asks_everything, &session, "bash", "ls"), "allow");
-}
-
-/// Mode lists a session may hold from earlier chats.
-fn earlier_lists(agent: &[Rule]) -> Vec<Vec<Rule>> {
-    let modes = [ApprovalMode::AlwaysAsk, ApprovalMode::Write, ApprovalMode::Yolo];
-    let mut lists: Vec<Vec<Rule>> = modes
-        .into_iter()
-        .map(|mode| session_rules(Some(mode), agent).expect("rules"))
-        .collect();
-    lists.push(deny_all());
-    lists
-}
-
-#[test]
-fn the_last_list_decides_whatever_the_session_holds_before_it() {
-    for agent in ["build", "plan"] {
-        let rules = recorded(agent);
-        let mut lists = earlier_lists(&rules);
-        lists.push(neutral(&rules));
-
-        for list in &lists {
-            for earlier in earlier_lists(&rules) {
-                let stored: Vec<Rule> = earlier.iter().chain(list).cloned().collect();
-                assert!(ends_with(&stored, list));
-
-                for (permission, pattern) in CALLS {
-                    assert_eq!(
-                        decide(&rules, &stored, permission, pattern),
-                        decide(&rules, list, permission, pattern),
-                        "{agent} {permission} {pattern}"
-                    );
-                }
-            }
-        }
-    }
-}
-
-#[test]
-fn the_neutral_list_decides_as_the_agents_own_rules() {
-    for agent in ["build", "plan"] {
-        let rules = recorded(agent);
-        let yolo = session_rules(Some(ApprovalMode::Yolo), &rules).expect("rules");
-        let stored: Vec<Rule> = yolo.iter().chain(&neutral(&rules)).cloned().collect();
-
-        for (permission, pattern) in CALLS {
-            assert_eq!(
-                decide(&rules, &stored, permission, pattern),
-                decide(&rules, &[], permission, pattern),
-                "{agent} {permission} {pattern}"
-            );
-        }
-    }
-
-    let without_catch_all = [Rule::new("bash", "*", "allow")];
-    assert_eq!(
-        neutral(&without_catch_all),
-        [Rule::new("*", "*", "ask"), Rule::new("bash", "*", "allow")],
-        "OpenCode asks when no rule matches"
-    );
-    assert!(
-        !ends_with(&without_catch_all, &without_catch_all),
-        "a list without a catch-all decides nothing alone"
-    );
 }
 
 #[test]

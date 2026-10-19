@@ -5,8 +5,9 @@
 //! user config with `server.mdns: true` cannot make it listen on every interface. The chat engine
 //! reads the port from the listening line and sets the server's username and a random password
 //! itself, so the ones the app inherited are never passed on, nor a workspace id that would route
-//! the server elsewhere. A resumed session, the approval mode and a helper chat's rules are set
-//! over HTTP after startup, never on the command line.
+//! the server elsewhere. A resumed session and a helper chat's rules are set over HTTP after
+//! startup, never on the command line. An approval mode goes into the server's
+//! `OPENCODE_CONFIG_CONTENT` (the chat engine's `probe.rs`).
 
 use crate::error::Result;
 use crate::harness::{LaunchRequest, rpc_exec_spec};

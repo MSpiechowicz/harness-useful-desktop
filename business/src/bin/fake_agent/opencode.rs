@@ -43,8 +43,9 @@
 //! values, replies and events becomes that field of the last expected request with a JSON object
 //! body (for a `match`, the one before), for ids the app chose.
 //!
-//! Sessions' permission rules can be kept across runs like OpenCode keeps them
-//! (`FAKE_OPENCODE_STORE`, see [`super::opencode_http`]).
+//! `OPENCODE_CONFIG_CONTENT` (an approval mode) changes the agents of `GET /agent` like OpenCode
+//! does (see [`super::opencode_config`]). The probe start of a chat with a mode runs the same
+//! scenario: the leading allow rules answer it before a SIGTERM ends it.
 //!
 //! End of the scenario: after a failure the fake exits 4 at once. Otherwise it keeps serving the
 //! allow rules until stdin closes, then exits 0. The real server ignores stdin EOF and needs

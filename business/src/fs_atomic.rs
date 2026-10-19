@@ -94,6 +94,26 @@ pub(crate) fn create_private_dir(dir: &Path, context: &str) -> Result<()> {
         .map_err(|error| BusinessError::from_io(context, error))
 }
 
+/// Creates `dir` like [`create_private_dir`] and, on Unix, narrows a folder that already exists to
+/// `0700` (a symlink is left as it is).
+pub(crate) fn ensure_private_dir(dir: &Path, context: &str) -> Result<()> {
+    create_private_dir(dir, context)?;
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+
+        let metadata = fs::symlink_metadata(dir).map_err(|error| BusinessError::from_io(context, error))?;
+
+        if metadata.is_dir() && metadata.permissions().mode() & 0o777 != 0o700 {
+            fs::set_permissions(dir, fs::Permissions::from_mode(0o700))
+                .map_err(|error| BusinessError::from_io(context, error))?;
+        }
+    }
+
+    Ok(())
+}
+
 /// Nanoseconds since the Unix epoch (0 when the clock is before it).
 pub(crate) fn unix_nanos() -> u128 {
     SystemTime::now()

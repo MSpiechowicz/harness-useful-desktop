@@ -20,6 +20,7 @@ use std::path::{Path, PathBuf};
 use serde_json::Value;
 
 use super::message::text;
+use super::question::{Question, question, typed};
 use crate::error::{BusinessError, Result};
 use crate::model::{AgentEvent, UiOutcome, UiPurpose, UiRequest, UiRequestKind, UiResponse};
 use crate::security::redact_text;
@@ -30,11 +31,12 @@ pub const PERMISSION_OPTIONS: [&str; 3] = ["Allow once", "Always allow", "Reject
 /// What OpenCode is told for each of [`PERMISSION_OPTIONS`].
 const PERMISSION_REPLIES: [&str; 3] = ["once", "always", "reject"];
 
-/// The option of a single-choice question that asks for a typed answer instead.
-const OWN_ANSWER: &str = "Type your own answer…";
-
-/// What `Allow once` means for a `task` ask: the subagent's own asks follow OpenCode's rules.
+/// What `Allow once` means for a `task` ask without an approval mode: the subagent's own tools
+/// follow OpenCode's rules.
 const TASK_DETAIL: &str = "The subagent then runs its own tools under OpenCode's permission settings.";
+
+/// What `Allow once` means for a `task` ask with an approval mode, which every agent follows.
+const TASK_DETAIL_MODE: &str = "The subagent's own tools then follow this chat's approval mode.";
 
 /// What answering a dialog means for OpenCode.
 #[derive(Debug, Clone, PartialEq)]
@@ -83,6 +85,8 @@ pub enum ReplyKind {
 pub(super) struct Asks {
     directory: PathBuf,
     open: Vec<Ask>,
+    /// The chat's server applies an approval mode to every agent.
+    mode_applied: bool,
 }
 
 struct Ask {
@@ -101,16 +105,9 @@ struct QuestionAsk {
     id: String,
     questions: Vec<Question>,
     answers: Vec<Vec<String>>,
-    /// The current question was answered with [`OWN_ANSWER`]: its typed answer comes next.
+    /// The current question was answered with the typed-answer option: its typed answer comes
+    /// next.
     typing: bool,
-}
-
-struct Question {
-    text: String,
-    options: Vec<(String, Option<String>)>,
-    multiple: bool,
-    /// A typed answer is allowed (OpenCode's default).
-    custom: bool,
 }
 
 impl Asks {
@@ -118,7 +115,13 @@ impl Asks {
         Self {
             directory,
             open: Vec::new(),
+            mode_applied: false,
         }
+    }
+
+    /// Whether the chat's server applies an approval mode to every agent (the `task` detail).
+    pub(super) fn set_mode_applied(&mut self, applied: bool) {
+        self.mode_applied = applied;
     }
 
     /// A `permission.asked` of `session`; `subagent` when a subagent session asks.
@@ -141,7 +144,12 @@ impl Asks {
             [only] if only == "*" => Some(format!("Allows every {permission} call until this chat ends")),
             patterns => Some(format!("Also allows {} until this chat ends", patterns.join(", "))),
         };
-        let once_detail = (permission == "task").then(|| TASK_DETAIL.to_owned());
+        let task_detail = if self.mode_applied {
+            TASK_DETAIL_MODE
+        } else {
+            TASK_DETAIL
+        };
+        let once_detail = (permission == "task").then(|| task_detail.to_owned());
 
         let kind = UiRequestKind::Select {
             title,
@@ -149,7 +157,11 @@ impl Asks {
             details: vec![once_detail, always_detail.map(|detail| redact_text(&detail)), None],
             timeout_ms: None,
         };
-        let tool_call_id = properties.get("tool").and_then(|tool| text(tool, "callID"));
+        // A subagent's tool calls are not in the chat's transcript: no card to bind to.
+        let tool_call_id = properties
+            .get("tool")
+            .and_then(|tool| text(tool, "callID"))
+            .filter(|_| !subagent);
 
         out.push(AgentEvent::UiRequest {
             request: UiRequest {
@@ -365,89 +377,6 @@ impl QuestionAsk {
     }
 }
 
-impl Question {
-    fn labels(&self) -> Vec<&str> {
-        self.options.iter().map(|(label, _)| label.as_str()).collect()
-    }
-
-    /// One choice from a few options is a `select`, anything else an `input`.
-    fn is_select(&self) -> bool {
-        !self.multiple && !self.options.is_empty()
-    }
-
-    /// A single choice that also takes a typed answer, offered as [`OWN_ANSWER`].
-    fn offers_own_answer(&self) -> bool {
-        self.is_select() && self.custom
-    }
-
-    /// True when `value` is the [`OWN_ANSWER`] option rather than an option of the question.
-    fn is_own_answer(&self, value: &str) -> bool {
-        self.offers_own_answer() && value == OWN_ANSWER && !self.labels().contains(&value)
-    }
-
-    fn kind(&self, title: String) -> UiRequestKind {
-        if self.is_select() {
-            let mut options: Vec<String> = self.labels().into_iter().map(str::to_owned).collect();
-            let mut details: Vec<Option<String>> = self.options.iter().map(|(_, detail)| detail.clone()).collect();
-
-            if self.offers_own_answer() {
-                options.push(OWN_ANSWER.to_owned());
-                details.push(None);
-            }
-
-            return UiRequestKind::Select {
-                title,
-                options,
-                details,
-                timeout_ms: None,
-            };
-        }
-
-        if self.options.is_empty() {
-            return UiRequestKind::Input {
-                title,
-                placeholder: None,
-                timeout_ms: None,
-            };
-        }
-
-        let labels = self.labels().join(", ");
-
-        UiRequestKind::Input {
-            title: format!("{title} (any of {labels}, separated by commas)"),
-            placeholder: Some(labels),
-            timeout_ms: None,
-        }
-    }
-
-    /// The labels answered with `value`.
-    fn answer(&self, value: &str) -> Result<Vec<String>> {
-        if self.is_select() {
-            let label = self
-                .labels()
-                .into_iter()
-                .find(|label| *label == value)
-                .ok_or_else(|| BusinessError::InvalidInput(format!("{value} is not one of the options")))?;
-
-            return Ok(vec![label.to_owned()]);
-        }
-
-        if self.options.is_empty() {
-            return Ok(typed(value));
-        }
-
-        let chosen = value.split(',').map(str::trim).filter(|part| !part.is_empty());
-        let labels = self.labels();
-
-        Ok(chosen
-            .map(|part| {
-                let known = labels.iter().find(|label| label.eq_ignore_ascii_case(part));
-                known.map_or_else(|| part.to_owned(), |label| (*label).to_owned())
-            })
-            .collect())
-    }
-}
-
 /// What OpenCode is told for a permission dialog's answer; a dismissed one rejects.
 fn permission_reply(outcome: &UiOutcome) -> Result<&'static str> {
     match outcome {
@@ -459,30 +388,6 @@ fn permission_reply(outcome: &UiOutcome) -> Result<&'static str> {
         UiOutcome::Confirmed { confirmed: true } => Ok("once"),
         _ => Ok("reject"),
     }
-}
-
-fn question(value: &Value) -> Question {
-    let options = value
-        .get("options")
-        .and_then(Value::as_array)
-        .into_iter()
-        .flatten()
-        .filter_map(|option| Some((text(option, "label")?, text(option, "description"))))
-        .collect();
-
-    Question {
-        text: redact_text(&text(value, "question").unwrap_or_default()),
-        options,
-        multiple: value.get("multiple").and_then(Value::as_bool).unwrap_or(false),
-        custom: value.get("custom").and_then(Value::as_bool).unwrap_or(true),
-    }
-}
-
-/// A typed answer: its trimmed text, or no answer when it is blank.
-fn typed(value: &str) -> Vec<String> {
-    let answer = value.trim();
-
-    (!answer.is_empty()).then(|| answer.to_owned()).into_iter().collect()
 }
 
 fn strings(value: &Value, key: &str) -> Vec<String> {

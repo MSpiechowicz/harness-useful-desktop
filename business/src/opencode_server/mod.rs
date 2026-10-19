@@ -8,13 +8,15 @@
 //! - [`wire`]: the server's JSON read field by field, and the prompt body.
 //! - [`mapper`]: the server's events as chat events ([`Mapper`]), and the OpenCode message
 //!   conversion the CLI transcript shares.
-//! - [`modes`]: per-chat approval modes as session permission rules.
+//! - [`modes`]: per-chat approval modes as permission rules, and [`mode_config`]: those rules as
+//!   the configuration of the chat's own server.
 //! - [`stats`]: session statistics, context usage and the last reply from the messages.
 //! - [`export_html`]: a chat transcript as a self-contained HTML page.
 
 pub mod export_html;
 pub mod http;
 pub mod mapper;
+pub mod mode_config;
 pub mod modes;
 pub mod routes;
 pub mod stats;

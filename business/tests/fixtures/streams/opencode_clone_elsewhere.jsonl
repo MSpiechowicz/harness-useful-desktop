@@ -1,0 +1,7 @@
+// A clone OpenCode reports in another directory: refused, and the session it names is left alone (no
+// delete). The rename that follows is the next request. Last, a title marker.
+{"include":"opencode_startup.jsonl"}
+{"expect":"POST /session/ses_eaa561636ffezINnnn1ghd5370/fork","reply":{"body":{"id":"ses_0new0chat0000000000000001","slug":"happy-sailor","projectID":"0c8d2a560942650d801f05588b0f2da5c16aa197","directory":"/elsewhere","path":"","title":"Copy","version":"1.19.3","time":{"created":1792438567705,"updated":1792438567705}}}}
+{"expect":"PATCH /session/ses_eaa561636ffezINnnn1ghd5370","match":{"title":"Named"},"reply":{"body":{"id":"ses_eaa561636ffezINnnn1ghd5370","slug":"happy-sailor","projectID":"0c8d2a560942650d801f05588b0f2da5c16aa197","directory":"$directory","path":"","title":"Named","version":"1.19.3","time":{"created":1792438567705,"updated":1792438567705}}}}
+{"sse":{"type":"session.updated","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","info":{"id":"ses_eaa561636ffezINnnn1ghd5370","directory":"$directory","title":"Marker","time":{"created":1,"updated":2}}}}}
+{"hang":true}

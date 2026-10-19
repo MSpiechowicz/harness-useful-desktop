@@ -237,3 +237,22 @@ async fn a_resumed_session_reads_its_newest_reply_for_the_context_meter_once() {
 
     chat.session().stop().await;
 }
+
+#[tokio::test]
+async fn a_copy_in_another_directory_is_refused_and_left_alone() {
+    let chat = start("opencode_clone_elsewhere.jsonl").await;
+    let session = chat.session();
+
+    assert_eq!(code(session.send(AgentAction::Clone).await), IpcErrorCode::Protocol);
+    let rename = AgentAction::SetSessionName {
+        name: "Named".to_owned(),
+    };
+    session
+        .send(rename)
+        .await
+        .expect("the rename is the next request, no delete before it");
+
+    until_marker(&chat).await;
+    assert!(session.is_running(), "every request matched the scenario");
+    session.stop().await;
+}

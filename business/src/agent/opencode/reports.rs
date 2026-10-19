@@ -7,7 +7,8 @@
 //!   messages are read once, when the state is first asked for (a fork or clone reads its copies
 //!   when the chat moves to it).
 //! - **Export:** every message, rendered escaped and redacted (the server password masked), written
-//!   (`0600`, replaced in one rename, in a `0700` folder it creates) as `opencode-<session id>.html` in [`SessionOptions::export_dir`], by default the
+//!   (`0600`, replaced in one rename) as `opencode-<session id>.html` in
+//!   [`SessionOptions::export_dir`] (`0700`, also when it already exists), by default the
 //!   `exports` folder in the app's data folder, never the project: OMP and PI write theirs into
 //!   the working directory, which would put the transcript in the repository.
 //!
@@ -23,7 +24,7 @@ use crate::agent::rfc3339;
 use crate::app_dirs::exports_dir;
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
-use crate::fs_atomic::{create_private_dir, replace_atomically};
+use crate::fs_atomic::{ensure_private_dir, replace_atomically};
 use crate::model::{AgentReply, ChatMessage};
 use crate::opencode_server::export_html::{ExportPage, render};
 use crate::opencode_server::mapper::record_messages;
@@ -110,7 +111,7 @@ impl OpenCodeSession {
         let html = chat.shared.mask(&render(&page, &messages), false);
 
         let dir = export_dir(chat.export_dir.as_ref())?;
-        create_private_dir(&dir, "create the export folder")?;
+        ensure_private_dir(&dir, "create the export folder")?;
 
         let path = dir.join(format!("opencode-{session}.html"));
         replace_atomically(&path, html.as_bytes(), "write the HTML export")?;

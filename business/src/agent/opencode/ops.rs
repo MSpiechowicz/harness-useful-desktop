@@ -8,12 +8,12 @@
 //!   [`Mapper`] (no turn, queue or subagents of the old one; follow-ups still held are dropped;
 //!   a fork's or clone's copied messages are read first and never shown again), the new title,
 //!   the same agent, model and thinking level, and a fresh `state` (the manager rebinds the chat's
-//!   session id). OpenCode copies no permission rules into the new session, so the chat's
-//!   approval rules are set on it first (`Chat::rules_for_new`), and the session left behind gets
-//!   its approval rules released (`Chat::release_rules`).
+//!   session id). An approval mode needs nothing: it is the server's configuration, for every
+//!   session.
 //! - A prompt that arrives while the new session is being prepared wins: the move is refused
 //!   like one asked for while the agent works, and the new session is deleted (best effort), as
-//!   is one the chat could not move to for another reason.
+//!   is one the chat could not move to for another reason. A session OpenCode reports in another
+//!   directory is refused and left alone: the chat cannot tell it is the one it asked for.
 //! - A fork names an OpenCode message id (`msg_…`, the entry ids of the history and the Sessions
 //!   view) of a message the user wrote; OpenCode itself would clone the whole session for an id it
 //!   does not know.
@@ -26,7 +26,7 @@ use std::path::Path;
 
 use serde_json::{Value, json};
 
-use super::approvals::{SessionRules, delete_session};
+use super::approvals::delete_session;
 use super::history::all_messages;
 use super::startup::read_session;
 use super::{Context, OpenCodeSession, TurnSettings};
@@ -34,7 +34,7 @@ use crate::error::{BusinessError, Result};
 use crate::model::{AgentAction, AgentEvent, AgentReply};
 use crate::opencode_server::stats::last_context;
 use crate::opencode_server::wire::SessionInfo;
-use crate::opencode_server::{Mapper, MessageId, Route, SessionId};
+use crate::opencode_server::{MessageId, Route, SessionId};
 
 impl OpenCodeSession {
     /// Runs a session action.
@@ -163,58 +163,28 @@ impl OpenCodeSession {
         let session = SessionId::parse(&info.id)
             .map_err(|_| BusinessError::Protocol("OpenCode sent an invalid session id".to_owned()))?;
 
-        let prepared = self.prepare(&session, &info, copied).await;
-        let moved = prepared.and_then(|(rules, records)| self.commit(session.clone(), info, rules, &records, action));
-
-        match moved {
-            Ok((left, rules)) => {
-                chat.release_rules(&left, rules).await;
-                Ok(())
-            }
-            Err(error) => {
-                delete_session(&chat.client, &session).await;
-                Err(error)
-            }
-        }
-    }
-
-    /// Readies new session `session` before the chat moves to it: the directory check, the chat's
-    /// rules (OpenCode copies none, so no prompt reaches it without them) and a fork's or clone's
-    /// copied messages.
-    async fn prepare(
-        &self,
-        session: &SessionId,
-        info: &SessionInfo,
-        copied: bool,
-    ) -> Result<(Option<SessionRules>, Vec<Value>)> {
-        let chat = &self.chat;
-
         if info.directory != chat.directory {
             return Err(BusinessError::Protocol(
                 "OpenCode put the new session in another directory".to_owned(),
             ));
         }
 
-        let rules = chat.rules_for_new(session).await?;
-
         let records = if copied {
-            all_messages(chat, session).await?
+            all_messages(chat, &session).await
         } else {
-            Vec::new()
+            Ok(Vec::new())
         };
+        let moved = records.and_then(|records| self.commit(session.clone(), info, &records, action));
 
-        Ok((rules, records))
+        if moved.is_err() {
+            delete_session(&chat.client, &session).await;
+        }
+
+        moved
     }
 
-    /// Moves the chat to `session` unless it works by now; the session left and its rules.
-    fn commit(
-        &self,
-        session: SessionId,
-        info: SessionInfo,
-        rules: Option<SessionRules>,
-        records: &[Value],
-        action: &str,
-    ) -> Result<(SessionId, Option<SessionRules>)> {
+    /// Moves the chat to `session` unless it works by now.
+    fn commit(&self, session: SessionId, info: SessionInfo, records: &[Value], action: &str) -> Result<()> {
         let chat = &self.chat;
         let mut live = chat.lock();
 
@@ -224,10 +194,9 @@ impl OpenCodeSession {
 
         let held = live.mapper.has_follow_ups();
 
-        live.mapper = Mapper::new(session.as_str(), &chat.project, &chat.root);
+        live.mapper = chat.mapper(&session);
         live.mapper.seen(records);
-        let left = std::mem::replace(&mut live.session, session);
-        let left_rules = std::mem::replace(&mut live.rules, rules);
+        live.session = session;
         live.title = info.title;
         live.turn = TurnSettings::default();
         live.context = Context {
@@ -252,7 +221,7 @@ impl OpenCodeSession {
             state: chat.state(&live),
         });
 
-        Ok((left, left_rules))
+        Ok(())
     }
 
     /// `PATCH /session/{id} {title}`; a changed title is a fresh `state`.

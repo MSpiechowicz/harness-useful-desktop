@@ -6,9 +6,9 @@ mod opencode_engine_support;
 
 use agent_support::options;
 use harness_business::BusinessError;
-use harness_business::model::{AgentAction, AgentEvent, ApprovalMode, UiOutcome, UiPurpose, UiRequestKind};
+use harness_business::model::{AgentAction, AgentEvent, UiOutcome, UiPurpose, UiRequestKind};
 use opencode_engine_support::{
-    Chat, SESSION, answer, choose, dialog, kind, prompt, start, start_as, start_mode, text_prompt, until_marker,
+    Chat, SESSION, answer, choose, dialog, kind, prompt, start, start_as, start_mode, until_marker,
 };
 use pretty_assertions::assert_eq;
 
@@ -149,42 +149,6 @@ async fn an_abort_closes_the_open_ask_with_the_turn() {
 }
 
 #[tokio::test]
-async fn each_approval_mode_sets_the_build_agents_rules_before_ready() {
-    for (scenario, mode) in [
-        ("opencode_mode_always_ask.jsonl", ApprovalMode::AlwaysAsk),
-        ("opencode_mode_write.jsonl", ApprovalMode::Write),
-        ("opencode_mode_yolo.jsonl", ApprovalMode::Yolo),
-    ] {
-        let chat = start_mode(scenario, Some(mode), false).await;
-        assert!(chat.session.is_ok(), "{scenario}: {:?}", chat.session.as_ref().err());
-
-        // The scenario's marker follows the rules it expects.
-        until_marker(&chat).await;
-        chat.session().stop().await;
-    }
-}
-
-#[tokio::test]
-async fn switching_agents_sets_the_new_agents_rules_before_the_next_prompt() {
-    let chat = start_mode("opencode_mode_switch.jsonl", Some(ApprovalMode::Write), false).await;
-    let session = chat.session();
-
-    session
-        .send(AgentAction::SetAgent {
-            agent: "plan".to_owned(),
-        })
-        .await
-        .expect("agent set");
-    session
-        .send(text_prompt("Make a plan"))
-        .await
-        .expect("rules set, then the prompt");
-
-    assert!(session.is_running(), "both PATCHes and the prompt matched the scenario");
-    session.stop().await;
-}
-
-#[tokio::test]
 async fn a_helper_chat_denies_every_tool_and_deletes_its_session_at_stop() {
     let chat = start_mode("opencode_utility.jsonl", None, true).await;
     until_marker(&chat).await;
@@ -253,29 +217,4 @@ async fn an_answer_that_did_not_reach_opencode_shows_the_dialog_again() {
     assert!(chat.session().is_running(), "every reply matched the scenario");
 
     chat.session().stop().await;
-}
-
-#[tokio::test]
-async fn a_failed_move_leaves_the_chats_rules_unchanged() {
-    let chat = start_mode("opencode_switch_failed_rules.jsonl", Some(ApprovalMode::Write), false).await;
-    let session = chat.session();
-
-    session
-        .send(AgentAction::SetAgent {
-            agent: "plan".to_owned(),
-        })
-        .await
-        .expect("agent set");
-    session
-        .send(AgentAction::Clone)
-        .await
-        .expect_err("reading the copy fails");
-
-    prompt(&chat, "Make a plan").await;
-    assert!(
-        session.is_running(),
-        "the plan agent's rules reached the chat's own session first"
-    );
-
-    session.stop().await;
 }

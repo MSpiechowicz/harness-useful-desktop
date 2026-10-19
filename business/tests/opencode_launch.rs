@@ -146,19 +146,22 @@ async fn resume_binds_the_session_without_naming_it_on_the_command_line() {
 }
 
 #[tokio::test]
-async fn an_approval_override_sets_the_session_rules_at_startup() {
+async fn an_approval_override_configures_the_chats_server() {
     let run = start("opencode_mode_write.jsonl", |request| {
         request.approval_override = Some(ApprovalMode::Write);
         request.trust_once = true;
     })
     .await;
 
-    // The scenario sends the marker only after the PATCH with the write rules.
     marker(&run).await;
     assert_eq!(run.info.approval_override, Some(ApprovalMode::Write));
     assert_eq!(run.info.configured_approval_mode, None, "OpenCode's own settings apply");
     assert!(!run.info.trusted_once, "OpenCode has no project trust");
-    assert_eq!(args(&spawned(&run)), SERVE);
+
+    let spawns = run.spawner.requested();
+    assert_eq!(spawns.len(), 2, "the probe, then the chat's server");
+    assert!(spawns.iter().all(|spec| args(spec) == SERVE));
+    assert!(env(&spawns[1], "OPENCODE_CONFIG_CONTENT").is_some());
 
     run.manager.stop(run.key()).await.unwrap();
 }
