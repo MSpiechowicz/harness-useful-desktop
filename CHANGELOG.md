@@ -1,3 +1,19 @@
+# [0.26.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.25.0...v0.26.0) (2026-10-19)
+
+
+### Bug Fixes
+
+* **chat:** a late agent event no longer fails without a frame loop ([6098c2f](https://github.com/MSpiechowicz/harness-useful-desktop/commit/6098c2f1ff2c5d9ab4b3550a44fe8b98363851d6))
+* **ci:** pass the Windows and macOS routine and fixture tests ([d3395d6](https://github.com/MSpiechowicz/harness-useful-desktop/commit/d3395d6032ee09aedfd5812e7d37979b93bd9114))
+* **hooks:** agents only read, edit and remove hooks of their own project ([8f4145f](https://github.com/MSpiechowicz/harness-useful-desktop/commit/8f4145fb06f703e7bf9dc0727486c52f826659e0))
+* **process:** stopping a command on Windows ends what it started too ([99d6b64](https://github.com/MSpiechowicz/harness-useful-desktop/commit/99d6b64fcae1499a6293a40c2718dcd721c46100))
+
+
+### Features
+
+* **hooks:** keep Harness family hooks current with automatic updates ([71c2825](https://github.com/MSpiechowicz/harness-useful-desktop/commit/71c2825aeaf0575adbb2aec4a0be7a6417c35498))
+* **routines:** run tasks on a schedule and share them with the team ([5290178](https://github.com/MSpiechowicz/harness-useful-desktop/commit/52901789edf2691bf23568e399d9e735400aeccf)), closes [#14](https://github.com/MSpiechowicz/harness-useful-desktop/issues/14)
+
 # [0.25.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.24.0...v0.25.0) (2026-10-18)
 
 
