@@ -129,7 +129,8 @@ export class ChatSession {
 
     if (!this.flushScheduled) {
       this.flushScheduled = true;
-      requestAnimationFrame(() => this.flush());
+      // Without a frame loop (a page being torn down) the timer alone flushes.
+      globalThis.requestAnimationFrame?.(() => this.flush());
       setTimeout(() => this.flush(), FLUSH_FALLBACK_MS);
     }
   }
