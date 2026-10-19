@@ -22,7 +22,8 @@ serde = { version = "1.0.229", features = ["derive"] }
 # `preserve_order`: config viewer shows keys in source order (Value maps keep insertion order).
 serde_json = { version = "1.0.151", features = ["preserve_order"] }
 thiserror = "2.0.21"
-tokio = { version = "1.53", features = ["process", "io-util", "sync", "time", "macros", "rt-multi-thread"] }
+# `net`: the loopback HTTP client of `opencode serve` (`business::opencode_server`).
+tokio = { version = "1.53", features = ["process", "io-util", "net", "sync", "time", "macros", "rt-multi-thread"] }
 which = "8.0.6"
 dirs = "7.0.0"
 ts-rs = { version = "12.0.1", features = ["serde-json-impl"] }

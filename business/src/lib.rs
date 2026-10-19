@@ -35,6 +35,7 @@ pub mod harnesses;
 pub mod hooks;
 pub mod hooks_mcp;
 pub mod model;
+pub mod opencode_server;
 pub mod pi_family;
 pub mod prefs;
 pub mod process;

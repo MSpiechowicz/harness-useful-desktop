@@ -160,7 +160,7 @@ rules, the user's config applies.
 | 1 | Record real `opencode serve` responses (scratch HOME, `unshare -rn`) → `business/tests/fixtures/opencode/server/` | main | `test(opencode): record opencode serve responses` | done |
 | 2 | Shared process plumbing (`agent/process.rs`), no behaviour change | backend | `refactor(agent): share the process lifecycle between chat engines` | done |
 | 3 | Engine seam, OpenCode still "coming soon" | backend | `refactor(agent): engine seam for non-RPC chat protocols` | done |
-| 4 | Loopback HTTP + SSE client, closed route allowlist | backend | `feat(opencode): loopback HTTP and SSE client` | todo |
+| 4 | Loopback HTTP + SSE client, closed route allowlist | backend | `feat(opencode): loopback HTTP and SSE client` | done |
 | 5 | Fake OpenCode server (`fake_agent --dialect opencode`) + scenarios | backend | `test(opencode): scripted fake opencode server` | todo |
 | 6 | Contract: `agent_picker`, `chat_preview`, `SessionState.agent`, `SetAgent`, `GetAvailableAgents`, bindings | backend | `feat(model): agent picker and preview capability in the chat contract` | done |
 | 7 | Engine core: lifecycle, SSE mapper, prompts, steer, queue, idle race, abort, state, history | backend | `feat(opencode): native chat engine over opencode serve` | todo |
