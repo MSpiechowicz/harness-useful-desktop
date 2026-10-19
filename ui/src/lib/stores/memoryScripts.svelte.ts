@@ -1,4 +1,5 @@
 import { t, tn } from '$lib/i18n/i18n.svelte';
+import type { MessageKey } from '$lib/i18n/locales/en';
 import type { MemoryScriptsPage } from '$lib/ipc/bindings/MemoryScriptsPage';
 import type { ScriptDetail } from '$lib/ipc/bindings/ScriptDetail';
 import type { ScriptDraft } from '$lib/ipc/bindings/ScriptDraft';
@@ -30,6 +31,8 @@ export interface ScriptsRequest {
   sort: ScriptSort;
   order: SortOrder;
   page: number;
+  /** Only the remote scripts hidden on this computer. */
+  hidden: boolean;
 }
 
 /** The request as the loader's key: the loader fetches again whenever any of it changes, and drops answers to older ones. */
@@ -39,7 +42,7 @@ export function scriptsKey(request: ScriptsRequest): string {
 
 /** One page of the scripts agents saved in Harness Memory that this project sees (its own and the global ones), with the size of every group, scope and approval. */
 export const scriptList = new ViewLoader<MemoryScriptsPage, string>((key, project) => {
-  const { query, scope, review, group, sort, order, page } = JSON.parse(key) as ScriptsRequest;
+  const { query, scope, review, group, sort, order, page, hidden } = JSON.parse(key) as ScriptsRequest;
   const search = query.trim();
 
   return ipc.invoke('memory_scripts_list', {
@@ -52,10 +55,10 @@ export const scriptList = new ViewLoader<MemoryScriptsPage, string>((key, projec
     group: group ?? undefined,
     sort,
     order,
+    hidden: hidden || undefined,
   });
 });
 
-/** The script on screen, body included. The list carries no bodies, so this is read when one is chosen. */
 /**
  * Whether a `notFound` from Harness Memory means the note or script is gone. A missing `harness-memory` executable answers
  * `notFound` too (`unavailable_error` in business/src/ecosystem/memory_scripts.rs), and an update replaces it for a moment.
@@ -69,7 +72,83 @@ export function saveFailureText(failure: IpcFailure): string {
   return failure.code === 'unsupported' ? t('memory.editor.outdated') : failure.message;
 }
 
-export const scriptDetail = new ViewLoader<ScriptDetail, string>((id, project) => ipc.invoke('memory_script_get', { id: Number(id), project }), { goneIsFinal: memoryItemGone });
+/** The key the open script is read under: a hidden script is only found when asked for as hidden. */
+export function scriptDetailKey(id: number, hidden: boolean): string {
+  return hidden ? `${id}:hidden` : String(id);
+}
+
+/** The script on screen, body included. The list carries no bodies, so this is read when one is chosen. */
+export const scriptDetail = new ViewLoader<ScriptDetail, string>(
+  (key, project) => {
+    const [id, hidden] = key.split(':');
+
+    return ipc.invoke('memory_script_get', { id: Number(id), project, hidden: hidden === undefined ? undefined : true });
+  },
+  { goneIsFinal: memoryItemGone },
+);
+
+/** One hide or unhide of a remote note or script, for {@link hideEntry}: what to call, what to say when it fails, and how to leave the row. */
+export interface HideRequest {
+  id: number;
+  /** The name the toast shows. */
+  title: string;
+  /** True hides the entry on this computer, false shows it again. */
+  hidden: boolean;
+  send: () => Promise<unknown>;
+  failed: MessageKey;
+  unhideFailed: MessageKey;
+  /** Closes the panel when it shows this entry: the row leaves the list on screen. */
+  leave: () => void;
+  refresh: () => Promise<unknown>;
+  /** Shows the entry again: the toast's way back from a hide. */
+  undo: () => void;
+}
+
+/**
+ * Hides a remote note or script on this computer, or shows it again. The remote database never changes. Says so in a toast, with the way back for
+ * a hide, and re-reads the list so the row is gone from it (or back). A failure is said in a toast, and answers false.
+ */
+export async function hideEntry({ title, hidden, send, failed, unhideFailed, leave, refresh, undo }: HideRequest): Promise<boolean> {
+  try {
+    await send();
+  } catch (error) {
+    toasts.push({ title: t(hidden ? failed : unhideFailed), description: saveFailureText(IpcFailure.from(error)), tone: 'danger' });
+    await refresh();
+
+    return false;
+  }
+
+  leave();
+
+  toasts.push({
+    title: t(hidden ? 'memory.hidden.toast.hidden' : 'memory.hidden.toast.unhidden'),
+    description: title,
+    tone: 'success',
+    action: hidden ? { label: t('memory.hidden.toast.undo'), run: undo } : undefined,
+  });
+  await refresh();
+
+  return true;
+}
+
+/** Hides a remote script on this computer, or shows it again (`hidden: false`). See {@link hideEntry}. */
+export function hideScript(id: number, name: string, project: string | null, hidden: boolean): Promise<boolean> {
+  return hideEntry({
+    id,
+    title: name,
+    hidden,
+    send: () => ipc.invoke('memory_script_hide', { id, project, hidden }),
+    failed: 'memory.hidden.scripts.toast.failed',
+    unhideFailed: 'memory.hidden.scripts.toast.unhideFailed',
+    leave: () => {
+      if (viewState.scriptId === id) {
+        viewState.scriptId = null;
+      }
+    },
+    refresh: () => scriptList.refresh(),
+    undo: () => void hideScript(id, name, project, false),
+  });
+}
 
 /** Deletes a script once the user confirms, then re-reads the list so the row is gone (or back, if the call failed). */
 export async function deleteScript(id: number, project: string | null, confirm: () => Promise<boolean>): Promise<boolean> {

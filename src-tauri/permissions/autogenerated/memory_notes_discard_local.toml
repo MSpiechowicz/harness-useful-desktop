@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-memory-notes-discard-local"
+description = "Enables the memory_notes_discard_local command without any pre-configured scope."
+commands.allow = ["memory_notes_discard_local"]
+
+[[permission]]
+identifier = "deny-memory-notes-discard-local"
+description = "Denies the memory_notes_discard_local command without any pre-configured scope."
+commands.deny = ["memory_notes_discard_local"]

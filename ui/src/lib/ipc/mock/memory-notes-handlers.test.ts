@@ -133,14 +133,14 @@ describe('mock notes', () => {
     expect(global.total).toBeGreaterThan(0);
     expect(repository).toBeGreaterThan(50);
 
-    expect(handlers.memory_notes_delete_all({ project: null })).toEqual({ deleted: global.total, team: global.notes.filter((note) => note.place === 'team').length });
+    expect(handlers.memory_notes_delete_all({ project: null })).toEqual({ deleted: global.total, team: global.notes.filter((note) => note.place === 'team').length, kept: 0 });
     expect(all(null).total).toBe(0);
     expect(all('/work/app').total).toBe(repository);
 
     const left = all('/work/app').notes;
-    expect(handlers.memory_notes_delete_all({ project: '/work/app' })).toEqual({ deleted: repository, team: left.filter((note) => note.place === 'team').length });
+    expect(handlers.memory_notes_delete_all({ project: '/work/app' })).toEqual({ deleted: repository, team: left.filter((note) => note.place === 'team').length, kept: 0 });
     expect(all('/work/app')).toMatchObject({ total: 0, notes: [] });
-    expect(handlers.memory_notes_delete_all({ project: '/work/app' })).toEqual({ deleted: 0, team: 0 });
+    expect(handlers.memory_notes_delete_all({ project: '/work/app' })).toEqual({ deleted: 0, team: 0, kept: 0 });
   });
 
   it('refuses to delete them all while the server is missing or too old, and deletes nothing', () => {
@@ -163,5 +163,70 @@ describe('mock notes', () => {
     expect(empty).toMatchObject({ total: 0, notes: [] });
     expect(noteScenarioFromLocation('?notes=empty')).toBe('empty');
     expect(noteScenarioFromLocation('?notes=nope')).toBe('ok');
+  });
+});
+
+describe('mock notes on the team side', () => {
+  it('hides a team note on this computer and lists it only as hidden', () => {
+    const handlers = memoryNotesHandlers(AVAILABLE, () => 'ok');
+    const first = handlers.memory_notes_list({ project: '/work/app', offset: 0, limit: 200 });
+
+    expect(first.hiddenCount).toBe(0);
+
+    handlers.memory_note_hide({ id: 3, project: '/work/app', hidden: true });
+
+    const after = handlers.memory_notes_list({ project: '/work/app', offset: 0, limit: 200 });
+    expect(after.total).toBe(first.total - 1);
+    expect(after.hiddenCount).toBe(1);
+    expect(handlers.memory_notes_list({ project: '/work/app', offset: 0, hidden: true }).notes.map((note) => note.id)).toEqual([3]);
+    expect(codeOf(() => handlers.memory_note_get({ id: 3, project: '/work/app' }))).toBe('notFound');
+    expect(handlers.memory_note_get({ id: 3, project: '/work/app', hidden: true }).note.hidden).toBe(true);
+
+    handlers.memory_note_hide({ id: 3, project: '/work/app', hidden: false });
+
+    expect(handlers.memory_notes_list({ project: '/work/app', offset: 0, limit: 200 }).total).toBe(first.total);
+  });
+
+  it('refuses to hide a note saved on this computer', () => {
+    const handlers = memoryNotesHandlers(AVAILABLE, () => 'ok');
+
+    expect(codeOf(() => handlers.memory_note_hide({ id: 4, project: '/work/app', hidden: true }))).toBe('process');
+  });
+
+  it('keeps the read-only team notes when everything is deleted, and counts them', () => {
+    const handlers = memoryNotesHandlers(AVAILABLE, () => 'readonly');
+    const team = handlers.memory_notes_list({ project: null, offset: 0, limit: 200 }).notes.filter((note) => note.place === 'team').length;
+
+    expect(handlers.memory_notes_delete_all({ project: null })).toMatchObject({ team: 0, kept: team });
+    expect(handlers.memory_notes_list({ project: null, offset: 0 }).total).toBe(team);
+  });
+
+  it('copies by the review, overwrites only the conflicts picked and keeps the rest on this computer', () => {
+    const handlers = memoryNotesHandlers(AVAILABLE, () => 'ok');
+    const local = handlers.memory_notes_list({ project: '/work/app', offset: 0 }).localCounts;
+    const preview = handlers.memory_notes_copy_preview({ kind: 'notes' });
+
+    expect(preview.total).toBe((local?.repo ?? 0) + (local?.global ?? 0));
+    expect(preview.counts.conflicts).toBeGreaterThan(1);
+
+    const conflicts = handlers.memory_notes_copy_rows({ kind: 'notes', previewId: preview.previewId, filter: 'conflicts', offset: 0, limit: 200 });
+    expect(conflicts.total).toBe(preview.counts.conflicts);
+    expect(conflicts.rows.every((row) => row.conflict)).toBe(true);
+
+    expect(codeOf(() => handlers.memory_notes_copy_apply({ kind: 'notes', previewId: preview.previewId, overwrite: [-1] }))).toBe('invalidInput');
+
+    const result = handlers.memory_notes_copy_apply({ kind: 'notes', previewId: preview.previewId, overwrite: [conflicts.rows[0].localId] });
+    expect(result).toMatchObject({ counts: { overwritten: 1 }, failed: [] });
+    expect(result.kept).toBe(preview.counts.conflicts - 1 + preview.counts.teamNewer);
+    expect(codeOf(() => handlers.memory_notes_copy_apply({ kind: 'notes', previewId: preview.previewId, overwrite: 'none' }))).toBe('invalidInput');
+  });
+
+  it('deletes what stayed on this computer', () => {
+    const handlers = memoryNotesHandlers(AVAILABLE, () => 'ok');
+    const local = handlers.memory_notes_list({ project: '/work/app', offset: 0 }).localCounts;
+
+    expect(handlers.memory_notes_discard_local({ ids: 'all' })).toBe((local?.repo ?? 0) + (local?.global ?? 0));
+    expect(handlers.memory_notes_list({ project: '/work/app', offset: 0 }).localCounts).toEqual({ repo: 0, global: 0 });
+    expect(codeOf(() => handlers.memory_notes_discard_local({ ids: 'none' }))).toBe('invalidInput');
   });
 });

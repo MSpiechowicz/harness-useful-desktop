@@ -112,7 +112,7 @@ pub(crate) async fn remove(state: &AppState, id: String, sha256: String) -> Comm
         .await?;
 
     if row.sha256 != sha256 {
-        return Err(BusinessError::Conflict("the team hook changed since it was shown".to_owned()).into());
+        return Err(BusinessError::Conflict("the remote hook changed since it was shown".to_owned()).into());
     }
 
     let deleted = delete_team_hook(&state.env, &state.runner, &server, &id, Some(&sha256)).await?;

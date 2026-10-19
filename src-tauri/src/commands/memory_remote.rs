@@ -4,7 +4,8 @@
 //! and a `script_run` without `sha`), probed once per binary; whether `hooks` and
 //! `trust_team_hooks` may be saved from `harness-memory hooks config`, whether `routines` and
 //! `trust_team_routines` from `harness-memory routines config`, whether Amazon DocumentDB may be
-//! saved and tested from `harness-memory kinds`. A save applies the team hooks and
+//! saved and tested from `harness-memory kinds`, whether a note scope or the scripts may be routed
+//! `remoteLocal` from `harness-memory features`. A save applies the team hooks and
 //! team routines settings at once: sharing turned off removes the team copies before it returns.
 //!
 //! The URL and the token the webview sends are secrets: they are validated, written to that file or
@@ -12,7 +13,7 @@
 //! itself does not connect to the database.
 
 use harness_business::ecosystem::{KindsSupport, MemoryRemoteChange, MemorySupport};
-use harness_business::model::{MemoryNotesTarget, MemoryRemote, MemoryRemoteKind, MemoryRemoteTest};
+use harness_business::model::{MemoryNotesRouting, MemoryRemote, MemoryRemoteKind, MemoryRemoteTest};
 use tauri::State;
 use tauri::async_runtime::block_on;
 
@@ -35,21 +36,22 @@ pub(crate) async fn get(state: &AppState) -> CommandResult<MemoryRemote> {
 }
 
 /// What the installed server supports: scripts (its tools), team hooks (`hooks config`), team
-/// routines (`routines config`) and database kinds (`kinds`).
+/// routines (`routines config`), database kinds (`kinds`) and features (`features`).
 async fn support(state: &AppState) -> MemorySupport {
     MemorySupport {
         scripts: state.memory_scripts.support(&state.env).await,
         hooks: state.hooks.team_support().await,
         routines: state.routines.team().support(&state.env).await,
         kinds: state.memory_kinds.support(&state.env, &state.runner).await,
+        features: state.memory_features.support(&state.env, &state.runner).await,
     }
 }
 
 /// Saves the team database (`enabled`), or removes it from the config file. A null `url` or `token`
 /// keeps the saved one, an empty `token` removes it. `invalidInput` for a URL or token Harness Memory
 /// would refuse, and for a file the app must not overwrite (see `problem` in the result of
-/// [`memory_remote_get`]). `scripts` is saved only as `scripts = "local"`, and only while the
-/// installed server keeps scripts. `trust_team_scripts` is saved only as `true`, and only while the
+/// [`memory_remote_get`]). `scripts` is saved only as `scripts = "local"` or `"remote+local"`, and
+/// only while the installed server keeps scripts. `trust_team_scripts` is saved only as `true`, and only while the
 /// installed server asks before running a script. `shareHooks` (`hooks = "remote"`) and
 /// `trustTeamHooks` (only while hooks are shared) are saved only while the installed server keeps
 /// team hooks; null keeps the saved choice. `shareRoutines` (`routines = "remote"`) and
@@ -58,6 +60,10 @@ async fn support(state: &AppState) -> MemorySupport {
 /// `documentdb` is saved as `database_kind = "documentdb"` and refused (`unsupported`) unless the
 /// installed server lists it in `harness-memory kinds`. `mongodb` at a host the server would take
 /// for Amazon DocumentDB is saved as `database_kind = "mongodb"` while the server lists it.
+/// `repositoryNotes` or `globalNotes` `remoteLocal` is refused (`unsupported`) unless the installed
+/// server lists `notes-remote-local`, `notes-hide` and `push-json` in `harness-memory features`,
+/// `scripts` `remoteLocal` unless it lists `scripts-remote-local`, `scripts-hide` and
+/// `scripts-push-json`.
 #[tauri::command]
 #[expect(
     clippy::too_many_arguments,
@@ -69,9 +75,9 @@ pub async fn memory_remote_set(
     kind: Option<MemoryRemoteKind>,
     url: Option<String>,
     token: Option<String>,
-    repository_notes: MemoryNotesTarget,
-    global_notes: MemoryNotesTarget,
-    scripts: MemoryNotesTarget,
+    repository_notes: MemoryNotesRouting,
+    global_notes: MemoryNotesRouting,
+    scripts: MemoryNotesRouting,
     trust_team_scripts: bool,
     share_hooks: Option<bool>,
     trust_team_hooks: Option<bool>,

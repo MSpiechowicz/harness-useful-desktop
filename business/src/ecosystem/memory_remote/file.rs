@@ -10,10 +10,11 @@ use std::path::Path;
 
 use toml::{Table, Value};
 
+use super::routing::{Routing, notes_name, notes_value, set_routing, set_target, target_name};
 use super::url::{DOCUMENTDB_KIND, MONGODB_KIND};
 use crate::error::{BusinessError, Result};
 use crate::fs_atomic::{create_private_dir, refuse_link, replace_atomically};
-use crate::model::MemoryNotesTarget;
+use crate::model::{MemoryNotesRouting, MemoryNotesTarget};
 use crate::security::SafeReader;
 
 /// The largest config file read (64 KiB; the file holds a handful of short keys).
@@ -60,11 +61,11 @@ pub(super) struct ConfigFile {
     /// `database_token`, when it is a non-empty string.
     pub token: Option<String>,
     /// `repository_notes` (`remote` when unset or not understood).
-    pub repository_notes: MemoryNotesTarget,
+    pub repository_notes: MemoryNotesRouting,
     /// `global_notes` (`remote` when unset or not understood).
-    pub global_notes: MemoryNotesTarget,
-    /// `scripts`, when it is set to `remote` or `local` (unset means remote).
-    pub scripts: Option<MemoryNotesTarget>,
+    pub global_notes: MemoryNotesRouting,
+    /// `scripts`, when it is set to `remote`, `local` or `remote+local` (unset means remote).
+    pub scripts: Option<MemoryNotesRouting>,
     /// `trust_team_scripts`, when it is a boolean (unset means false).
     pub trust_team_scripts: Option<bool>,
     /// `hooks`, when it is set to `remote` or `local` (unset means local: hooks are not shared).
@@ -95,7 +96,7 @@ impl ConfigFile {
         }
     }
 
-    fn note(&mut self, problem: impl Into<String>) {
+    pub(super) fn note(&mut self, problem: impl Into<String>) {
         self.problem.get_or_insert_with(|| problem.into());
     }
 }
@@ -188,9 +189,9 @@ fn parse_config(text: &str) -> ConfigFile {
     config.url = string_value(&table, URL_KEY, &mut config);
     config.database_kind = kind_value(&table, &mut config);
     config.token = string_value(&table, TOKEN_KEY, &mut config).filter(|token| !token.trim().is_empty());
-    config.repository_notes = target_value(&table, REPOSITORY_KEY, &mut config);
-    config.global_notes = target_value(&table, GLOBAL_KEY, &mut config);
-    config.scripts = set_target(&table, SCRIPTS_KEY, &mut config);
+    config.repository_notes = notes_value(&table, REPOSITORY_KEY, &mut config);
+    config.global_notes = notes_value(&table, GLOBAL_KEY, &mut config);
+    config.scripts = set_routing(&table, SCRIPTS_KEY, &mut config);
     config.trust_team_scripts = bool_value(&table, TRUST_TEAM_KEY, &mut config);
     config.hooks = set_target(&table, HOOKS_KEY, &mut config);
     config.trust_team_hooks = bool_value(&table, TRUST_HOOKS_KEY, &mut config);
@@ -254,42 +255,6 @@ fn bool_value(table: &Table, key: &str, config: &mut ConfigFile) -> Option<bool>
     }
 }
 
-/// The routing `key` (`remote` when unset or not understood).
-fn target_value(table: &Table, key: &str, config: &mut ConfigFile) -> MemoryNotesTarget {
-    set_target(table, key, config).unwrap_or_default()
-}
-
-/// The routing `key` when it is set to `remote` or `local`; another value is noted.
-fn set_target(table: &Table, key: &str, config: &mut ConfigFile) -> Option<MemoryNotesTarget> {
-    match table.get(key)?.as_str() {
-        Some("remote") => Some(MemoryNotesTarget::Remote),
-        Some("local") => Some(MemoryNotesTarget::Local),
-        _ => {
-            config.note(format!("{key} must be \"remote\" or \"local\""));
-            None
-        }
-    }
-}
-
-/// Where each kind of record goes, as [`render`] writes it.
-#[derive(Debug, Clone, Copy)]
-pub(super) struct Routing {
-    pub repository_notes: MemoryNotesTarget,
-    pub global_notes: MemoryNotesTarget,
-    /// The `scripts` key, `None` for none (an older server refuses a file with the key).
-    pub scripts: Option<MemoryNotesTarget>,
-    /// The `trust_team_scripts` key, `None` for none (an older server refuses it too).
-    pub trust_team_scripts: Option<bool>,
-    /// The `hooks` key, `None` for none (a server without team hooks refuses it).
-    pub hooks: Option<MemoryNotesTarget>,
-    /// The `trust_team_hooks` key, `None` for none (refused by the same servers).
-    pub trust_team_hooks: Option<bool>,
-    /// The `routines` key, `None` for none (a server without team routines refuses it).
-    pub routines: Option<MemoryNotesTarget>,
-    /// The `trust_team_routines` key, `None` for none (refused by the same servers).
-    pub trust_team_routines: Option<bool>,
-}
-
 /// The file's text: the URL, `database_kind` and the token when there are, both note routing
 /// keys, and the `scripts`, `trust_team_scripts`, `hooks`, `trust_team_hooks`, `routines` and
 /// `trust_team_routines` keys when there are.
@@ -316,11 +281,11 @@ pub(super) fn render(url: &str, database_kind: Option<&str>, token: Option<&str>
         line(TOKEN_KEY, token);
     }
 
-    line(REPOSITORY_KEY, target_name(routing.repository_notes));
-    line(GLOBAL_KEY, target_name(routing.global_notes));
+    line(REPOSITORY_KEY, notes_name(routing.repository_notes));
+    line(GLOBAL_KEY, notes_name(routing.global_notes));
 
     if let Some(scripts) = routing.scripts {
-        line(SCRIPTS_KEY, target_name(scripts));
+        line(SCRIPTS_KEY, notes_name(scripts));
     }
 
     if let Some(trust) = routing.trust_team_scripts {
@@ -348,13 +313,6 @@ pub(super) fn render(url: &str, database_kind: Option<&str>, token: Option<&str>
     }
 
     text
-}
-
-fn target_name(target: MemoryNotesTarget) -> &'static str {
-    match target {
-        MemoryNotesTarget::Remote => "remote",
-        MemoryNotesTarget::Local => "local",
-    }
 }
 
 /// `value` as a TOML basic string: quotes and backslashes escaped, control characters as

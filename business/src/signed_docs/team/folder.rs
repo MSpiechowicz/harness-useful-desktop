@@ -128,7 +128,7 @@ impl<K: DocKind> TeamFolder<K> {
         }
 
         if !owned_by_current_user(&metadata) {
-            let row = Err("the team copy belongs to another user".to_owned());
+            let row = Err("the remote copy belongs to another user".to_owned());
             return Some(TeamFile { id: id.to_owned(), row });
         }
 
@@ -136,7 +136,7 @@ impl<K: DocKind> TeamFolder<K> {
         let max_envelope_bytes = 8 * K::MAX_FILE_BYTES as u64;
 
         let row = SafeReader::read_to_string(&path, max_envelope_bytes)
-            .map_err(|_| "the team copy could not be read".to_owned())
+            .map_err(|_| "the remote copy could not be read".to_owned())
             .and_then(|text| parse_envelope(id, &text));
 
         Some(TeamFile { id: id.to_owned(), row })
@@ -146,7 +146,7 @@ impl<K: DocKind> TeamFolder<K> {
     pub fn row(&self, id: &str) -> Result<TeamRow> {
         self.read_one(id)
             .and_then(|file| file.row.ok())
-            .ok_or_else(|| BusinessError::NotFound(format!("the team {}", K::NOUN)))
+            .ok_or_else(|| BusinessError::NotFound(format!("the remote {}", K::NOUN)))
     }
 
     /// The row of team document `id` while its body is version `sha256` (the one the user was
@@ -156,7 +156,7 @@ impl<K: DocKind> TeamFolder<K> {
 
         if row.sha256 != sha256 || sha256_hex(row.body.as_bytes()) != sha256 {
             return Err(BusinessError::Conflict(format!(
-                "the team {} changed since it was shown",
+                "the remote {} changed since it was shown",
                 K::NOUN
             )));
         }
@@ -169,7 +169,7 @@ impl<K: DocKind> TeamFolder<K> {
     pub fn write_row(&self, row: &TeamRow) -> Result<bool> {
         if !is_doc_id(&row.id) || !is_sha256(&row.sha256) {
             return Err(BusinessError::Protocol(format!(
-                "harness-memory answered a team {} without a valid id or hash",
+                "harness-memory answered a remote {} without a valid id or hash",
                 K::NOUN
             )));
         }
@@ -183,7 +183,11 @@ impl<K: DocKind> TeamFolder<K> {
             return Ok(false);
         }
 
-        replace_atomically(&path, &envelope_bytes::<K>(row)?, &format!("saving a team {}", K::NOUN))?;
+        replace_atomically(
+            &path,
+            &envelope_bytes::<K>(row)?,
+            &format!("saving a remote {}", K::NOUN),
+        )?;
         Ok(true)
     }
 
@@ -196,7 +200,7 @@ impl<K: DocKind> TeamFolder<K> {
         match std::fs::remove_file(self.file_path(id)) {
             Ok(()) => Ok(true),
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
-            Err(error) => Err(BusinessError::from_io(format!("removing a team {}", K::NOUN), error)),
+            Err(error) => Err(BusinessError::from_io(format!("removing a remote {}", K::NOUN), error)),
         }
     }
 
@@ -224,9 +228,9 @@ impl<K: DocKind> TeamFolder<K> {
             return Ok(());
         }
 
-        let bytes = pretty_json(projects, &format!("team {}", K::PLURAL))?;
+        let bytes = pretty_json(projects, &format!("remote {}", K::PLURAL))?;
 
-        replace_atomically(&path, &bytes, "saving the team projects")
+        replace_atomically(&path, &bytes, "saving the remote projects")
     }
 
     /// Writes what one refresh round listed (see [`TeamFetch`]), scope by scope:
@@ -285,12 +289,12 @@ impl<K: DocKind> TeamFolder<K> {
     /// Deletes the folder with every copy (sharing is off, or the server has no team documents of
     /// this kind). True when there was one.
     pub fn clear(&self) -> Result<bool> {
-        let removing = || format!("removing the team {} folder", K::PLURAL);
+        let removing = || format!("removing the remote {} folder", K::PLURAL);
 
         match std::fs::symlink_metadata(&self.dir) {
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
             Err(error) => Err(BusinessError::from_io(
-                format!("reading the team {} folder", K::PLURAL),
+                format!("reading the remote {} folder", K::PLURAL),
                 error,
             )),
             // A link is removed, never followed.
@@ -307,11 +311,11 @@ impl<K: DocKind> TeamFolder<K> {
     /// users can change it.
     fn ensure_dir(&self) -> Result<()> {
         refuse_link(&self.dir)?;
-        create_private_dir(&self.dir, &format!("creating the team {} folder", K::PLURAL))?;
+        create_private_dir(&self.dir, &format!("creating the remote {} folder", K::PLURAL))?;
 
         if !self.readable() {
             return Err(BusinessError::Forbidden(format!(
-                "other users can change the team {} folder",
+                "other users can change the remote {} folder",
                 K::PLURAL
             )));
         }

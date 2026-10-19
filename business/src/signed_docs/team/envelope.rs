@@ -27,14 +27,14 @@ struct Envelope {
 
 /// The row in the envelope `text` of file `id`, or why it cannot be used.
 pub(crate) fn parse_envelope(id: &str, text: &str) -> std::result::Result<TeamRow, String> {
-    let envelope: Envelope = serde_json::from_str(text).map_err(|_| "the team copy is not readable".to_owned())?;
+    let envelope: Envelope = serde_json::from_str(text).map_err(|_| "the remote copy is not readable".to_owned())?;
 
     if envelope.version != ENVELOPE_VERSION {
-        return Err("the team copy has another version".to_owned());
+        return Err("the remote copy has another version".to_owned());
     }
 
     if envelope.row.id != id {
-        return Err("the team copy's id does not match its file name".to_owned());
+        return Err("the remote copy's id does not match its file name".to_owned());
     }
 
     Ok(envelope.row)
@@ -47,7 +47,7 @@ pub(crate) fn envelope_bytes<K: DocKind>(row: &TeamRow) -> Result<Vec<u8>> {
         row: row.clone(),
     };
 
-    pretty_json(&envelope, &format!("team {}", K::PLURAL))
+    pretty_json(&envelope, &format!("remote {}", K::PLURAL))
 }
 
 /// The document in `row`, whose body hashes to `sha256` (the caller's hash of it): it must be the
@@ -55,7 +55,7 @@ pub(crate) fn envelope_bytes<K: DocKind>(row: &TeamRow) -> Result<Vec<u8>> {
 /// repository.
 pub fn checked_doc<K: DocKind>(row: &TeamRow, sha256: &str) -> std::result::Result<K::Doc, String> {
     if row.sha256 != sha256 {
-        return Err("the team copy does not match its hash".to_owned());
+        return Err("the remote copy does not match its hash".to_owned());
     }
 
     let doc = K::parse_team(&row.id, row.body.as_bytes())?;
@@ -75,7 +75,7 @@ pub fn check_repo(row: &TeamRow, scope: HookScope, project: Option<&str>) -> std
     if matches {
         Ok(())
     } else {
-        Err("the team copy's repository does not match its project".to_owned())
+        Err("the remote copy's repository does not match its project".to_owned())
     }
 }
 

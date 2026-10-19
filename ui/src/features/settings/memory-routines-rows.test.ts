@@ -11,15 +11,15 @@ import { prefs } from '$lib/stores/prefs.svelte';
 import { samplePrefs } from '../../../tests/helpers';
 import SettingsView from './SettingsView.svelte';
 
-const TRUST = 'Run team routines without asking';
-const TRUST_HOOKS = 'Run team hooks without asking';
+const TRUST = 'Run remote routines without asking';
+const TRUST_HOOKS = 'Run remote hooks without asking';
 
-/** Picks where an item is kept in the segmented row of that name: "Team database" or "This computer". */
-async function keep(item: string, choice: 'Team database' | 'This computer'): Promise<void> {
+/** Picks where an item is kept in the segmented row of that name: "Remote + this computer" shares it, "This computer" does not. */
+async function keep(item: string, choice: 'Remote + this computer' | 'This computer'): Promise<void> {
   await fireEvent.click(within(await screen.findByRole('radiogroup', { name: item })).getByRole('radio', { name: choice }));
 }
 
-/** A backend that keeps the team database settings in memory and answers the way the real one does, routine keys included. */
+/** A backend that keeps the remote database settings in memory and answers the way the real one does, routine keys included. */
 function fakeBackend(initial: Partial<MemoryRemote> = {}) {
   let state: MemoryRemote = {
     enabled: true,
@@ -41,6 +41,8 @@ function fakeBackend(initial: Partial<MemoryRemote> = {}) {
     shareRoutines: false,
     trustTeamRoutines: false,
     documentdbSupported: true,
+    teamAndLocalSupported: true,
+    scriptsTeamAndLocalSupported: true,
     ...initial,
   };
   const passthrough = ipc.invoke.bind(ipc);
@@ -81,8 +83,8 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('The routines row of the team database settings', () => {
-  it('sits in Kept in after the hooks, with the same two choices', async () => {
+describe('The routines row of the remote database settings', () => {
+  it('sits in Kept in after the hooks, with the same three choices', async () => {
     fakeBackend();
     render(SettingsView);
 
@@ -90,10 +92,10 @@ describe('The routines row of the team database settings', () => {
     const rows = screen.getAllByRole('radiogroup').map((group) => group.getAttribute('aria-label'));
 
     expect(rows.filter((row) => ['Repository notes', 'Global notes', 'Scripts', 'Hooks', 'Routines'].includes(row ?? ''))).toEqual(['Repository notes', 'Global notes', 'Scripts', 'Hooks', 'Routines']);
-    expect(within(screen.getByRole('radiogroup', { name: 'Routines' })).getAllByRole('radio').map((radio) => radio.textContent?.trim())).toEqual(['Team database', 'This computer']);
+    expect(within(screen.getByRole('radiogroup', { name: 'Routines' })).getAllByRole('radio').map((radio) => radio.textContent?.trim())).toEqual(['Remote', 'This computer', 'Remote + this computer']);
   });
 
-  it('is hidden while the installed Harness Memory has no team routines, and nothing about routines is saved', async () => {
+  it('is hidden while the installed Harness Memory has no remote routines, and nothing about routines is saved', async () => {
     const invoke = fakeBackend({ routinesSupported: false });
     render(SettingsView);
 
@@ -101,7 +103,7 @@ describe('The routines row of the team database settings', () => {
     expect(screen.queryByRole('radiogroup', { name: 'Routines' })).not.toBeInTheDocument();
     expect(screen.queryByRole('switch', { name: TRUST })).not.toBeInTheDocument();
 
-    await keep('Hooks', 'Team database');
+    await keep('Hooks', 'Remote + this computer');
     await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(saves(invoke)).toHaveLength(1));
@@ -120,23 +122,23 @@ describe('The routines row of the team database settings', () => {
     expect(screen.queryByRole('switch', { name: TRUST })).not.toBeInTheDocument();
   });
 
-  it('asks whether to run team routines without asking once they are on the Team database, off, with a plain warning', async () => {
+  it('asks whether to run remote routines without asking once they are on the Remote database, off, with a plain warning', async () => {
     fakeBackend();
     render(SettingsView);
 
-    await keep('Routines', 'Team database');
+    await keep('Routines', 'Remote + this computer');
     const trust = await screen.findByRole('switch', { name: TRUST });
 
     expect(trust).toHaveAttribute('aria-checked', 'false');
-    expect(screen.getByText(/Routines from the team database run without asking you first\. Anyone who can write to the team database can then run code on this computer\./)).toBeInTheDocument();
+    expect(screen.getByText(/Routines from the remote database run without asking you first\. Anyone who can write to the remote database can then run code on this computer\./)).toBeInTheDocument();
     expect(screen.queryByRole('switch', { name: TRUST_HOOKS })).not.toBeInTheDocument();
   });
 
-  it('saves both choices, and keeps the trust only while routines are on the Team database', async () => {
+  it('saves both choices, and keeps the trust only while routines are on the Remote database', async () => {
     const invoke = fakeBackend();
     render(SettingsView);
 
-    await keep('Routines', 'Team database');
+    await keep('Routines', 'Remote + this computer');
     await fireEvent.click(await screen.findByRole('switch', { name: TRUST }));
     await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
@@ -152,7 +154,7 @@ describe('The routines row of the team database settings', () => {
     expect(saves(invoke)[1]).toMatchObject({ shareRoutines: false, trustTeamRoutines: false });
 
     // Sharing again asks for the trust again.
-    await keep('Routines', 'Team database');
+    await keep('Routines', 'Remote + this computer');
     expect(await screen.findByRole('switch', { name: TRUST })).toHaveAttribute('aria-checked', 'false');
   });
 
@@ -161,7 +163,7 @@ describe('The routines row of the team database settings', () => {
     render(SettingsView);
 
     const group = await screen.findByRole('radiogroup', { name: 'Routines' });
-    expect(within(group).getByRole('radio', { name: 'Team database' })).toHaveAttribute('aria-checked', 'true');
+    expect(within(group).getByRole('radio', { name: 'Remote + this computer' })).toHaveAttribute('aria-checked', 'true');
     expect(await screen.findByRole('switch', { name: TRUST })).toHaveAttribute('aria-checked', 'true');
 
     await fireEvent.input(screen.getByLabelText('Connection URL'), { target: { value: 'postgres://other.example/mem' } });

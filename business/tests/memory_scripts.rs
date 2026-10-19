@@ -24,6 +24,7 @@ fn query(group: Option<ScriptGroup>, sort: Option<ScriptSort>) -> ScriptsQuery {
         scope: None,
         review: None,
         sort,
+        hidden: false,
     }
 }
 
@@ -154,6 +155,7 @@ async fn the_page_window_group_and_order_go_to_the_server() {
         scope: None,
         review: None,
         sort: None,
+        hidden: false,
     };
     let page = setup
         .scripts
@@ -190,6 +192,7 @@ async fn the_page_window_group_and_order_go_to_the_server() {
         scope: None,
         review: None,
         sort: Some(ScriptSort::Name),
+        hidden: false,
     };
     let page = setup
         .scripts
@@ -234,6 +237,7 @@ async fn every_sort_goes_to_the_server_by_its_name() {
         scope: None,
         review: None,
         sort: Some(ScriptSort::Runs),
+        hidden: false,
     };
     let page = setup
         .scripts
@@ -262,7 +266,8 @@ async fn deleting_them_all_sends_the_confirmation_and_reads_the_counts() {
         deleted,
         MemoryDeleteAll {
             deleted: 3,
-            team: Some(0)
+            team: Some(0),
+            kept: None,
         }
     );
     assert_eq!(

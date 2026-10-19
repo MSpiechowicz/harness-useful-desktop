@@ -1,5 +1,7 @@
 //! `harness-memory notes …` and `harness-memory scripts list|delete …` stand-ins, answered from fixed
-//! fixtures (nothing is kept between runs, so a deleted note comes back).
+//! fixtures (nothing is kept between runs, so a deleted note comes back). `scripts get|hide|unhide|
+//! discard-local`, `scripts list --hidden` and the team fields of scripts are
+//! [`crate::memory_scripts_hidden`]'s.
 //!
 //! - `notes list --json --offset N --limit N [--query Q] [--kind K] [--scope repo|global] --sort
 //!   updated|title|kind|scope|place --order asc|desc [--project P]` prints `{"notes", "total", "kinds",
@@ -12,7 +14,8 @@
 //!   password on stderr.
 //! - `notes delete --all --yes --json [--project P]` and `scripts delete --all --yes --json
 //!   [--project P]` print `{"deleted", "team"}`: how many fixtures are visible from the arguments,
-//!   and how many of those are kept in the team database (`place` `team`).
+//!   and how many of those are kept in the team database (`place` `team`); read-only team notes
+//!   and scripts stay (`"kept"`, when there are any).
 //! - `scripts list --json` takes the same paging options, with `--group needsReview|repo|global`
 //!   instead of `--kind`, or `--scope repo|global` and `--review needed|trusted` (not with
 //!   `--group`), and `--sort updated|name|language|scope|place|runs|lastRun` (a script never run
@@ -23,6 +26,8 @@
 //!   server whose commands take no pages) exits 2 with a usage line, as the real server does.
 //!   `FAKE_MEMORY_CLI=single` is a server that predates combined filters: `--scope` and `--review`
 //!   are usage errors, and lists answer without `scopes` and `review`.
+//! - `notes list|get --hidden`, `notes hide|unhide|discard-local` and the team-and-local fields
+//!   of the notes are [`crate::memory_push`]'s.
 //! - `FAKE_MEMORY_NOTES` adds a global note for each of its lines (that title), from id 100 on, to
 //!   the notes of these commands and of the MCP stand-in.
 
@@ -52,6 +57,7 @@ struct Options {
     order: Option<String>,
     project: bool,
     id: Option<i64>,
+    hidden: bool,
 }
 
 /// `harness-memory notes <args>`.
@@ -59,8 +65,10 @@ pub fn notes(args: &[String]) -> ! {
     match args.first().map(String::as_str) {
         Some("list") => {
             let options = parse(&args[1..], "--kind", false);
-            list("notes", without_bodies(note_fixtures()), &options)
+            list("notes", without_bodies(visible_notes(&options)), &options)
         }
+        Some(command @ ("hide" | "unhide")) => crate::memory_push::hide(command, &args[1..], &note_fixtures()),
+        Some("discard-local") => crate::memory_push::discard_local(&args[1..]),
         Some("delete") if args.get(1).is_some_and(|arg| arg == "--all") => delete_all(&args[1..], note_fixtures()),
         Some(command @ ("get" | "delete")) => {
             let options = parse(&args[1..], "", true);
@@ -75,7 +83,8 @@ pub fn scripts(args: &[String]) -> ! {
     match args.first().map(String::as_str) {
         Some("list") => {}
         Some("delete") => delete_all(&args[1..], crate::memory::fixtures()),
-        _ => usage(),
+        Some(command) => crate::memory_scripts_hidden::command(command, &args[1..]),
+        None => usage(),
     }
 
     let options = parse(&args[1..], "--group", false);
@@ -84,7 +93,13 @@ pub fn scripts(args: &[String]) -> ! {
         usage();
     }
 
-    list("scripts", without_bodies(crate::memory::fixtures()), &options)
+    let scripts = if options.hidden {
+        crate::memory_scripts_hidden::hidden_scripts()
+    } else {
+        crate::memory::fixtures()
+    };
+
+    list("scripts", without_bodies(scripts), &options)
 }
 
 /// `delete --all --yes --json [--project P]` on `entries` (see the module docs); exits 0.
@@ -112,8 +127,14 @@ fn delete_all(args: &[String], entries: Vec<Value>) -> ! {
         .filter(|entry| project || entry["scope"] != "repo")
         .collect();
     let team = visible.iter().filter(|entry| entry["place"] == "team").count();
+    let kept = crate::memory_push::kept(&visible) + crate::memory_scripts_hidden::read_only_count(&visible);
+    let mut answer = json!({ "deleted": visible.len() - kept, "team": team - kept });
 
-    println!("{}", json!({ "deleted": visible.len(), "team": team }));
+    if kept > 0 {
+        answer["kept"] = json!(kept);
+    }
+
+    println!("{answer}");
     std::process::exit(0);
 }
 
@@ -153,8 +174,9 @@ fn parse(args: &[String], filter: &str, with_id: bool) -> Options {
     }
 
     while let Some(arg) = rest.next() {
-        if arg == "--json" {
-            options.json = true;
+        if arg == "--json" || arg == "--hidden" {
+            options.json |= arg == "--json";
+            options.hidden |= arg == "--hidden";
             continue;
         }
 
@@ -252,6 +274,12 @@ fn list(field: &str, entries: Vec<Value>, options: &Options) -> ! {
 
     let mut answer = json!({ field: page, "total": total });
 
+    if notes {
+        crate::memory_push::list_extras(&mut answer);
+    } else {
+        crate::memory_scripts_hidden::list_extras(&mut answer);
+    }
+
     for (name, count) in counts.as_object().into_iter().flatten() {
         let combined_only = name == "scopes" || name == "review";
 
@@ -323,7 +351,7 @@ fn one_note(command: &str, options: &Options) -> ! {
         std::process::exit(1);
     }
 
-    let notes = note_fixtures();
+    let notes = visible_notes(options);
     let visible = |note: &&Value| note["id"] == id && (options.project || note["scope"] != "repo");
 
     let Some(note) = notes.iter().find(visible) else {
@@ -353,6 +381,18 @@ fn one_note(command: &str, options: &Options) -> ! {
     std::process::exit(0);
 }
 
+/// The notes `--hidden` asks for: the hidden team note, or the others (see [`crate::memory_push`]).
+fn visible_notes(options: &Options) -> Vec<Value> {
+    if options.hidden {
+        return crate::memory_push::hidden_fixtures();
+    }
+
+    note_fixtures()
+        .into_iter()
+        .map(|note| crate::memory_push::routed(note, false))
+        .collect()
+}
+
 /// The links between fixtures: from, to, relation.
 const LINKS: [(i64, i64, &str); 3] = [(2, 3, "fixes"), (5, 2, "follows"), (6, 1, "explains")];
 
@@ -367,6 +407,18 @@ fn link(notes: &[Value], other: i64, relation: &str, direction: &str) -> Option<
         "direction": direction,
     }))
 }
+
+/// The stand-in's notes: id, kind, title, scope, place and update time.
+const NOTES: [&str; 8] = [
+    "1|decision|Use rustls everywhere|global|team|2026-10-09T10:00:00Z",
+    "2|fix|Retry the watcher on rename|repo|team|2026-10-08T10:00:00Z",
+    "3|problem|Watcher misses renames|repo|local|2026-10-07T10:00:00Z",
+    "4|outcome|Release 0.19 shipped|global|team|2026-10-06T10:00:00Z",
+    "5|optimisation|Cache the tools probe|repo|local|2026-10-05T10:00:00Z",
+    "6|location|Memory config lives in the config dir|global|local|2026-10-04T10:00:00Z",
+    "7|note|Prefer bun over npm|global|local|2026-10-03T10:00:00Z",
+    "8|idea|A kind from a newer server|global|local|2026-10-02T10:00:00Z",
+];
 
 /// The stand-in's notes, with their bodies.
 pub fn note_fixtures() -> Vec<Value> {
@@ -389,72 +441,14 @@ pub fn note_fixtures() -> Vec<Value> {
         })
     };
 
-    let mut notes = vec![
-        note(
-            1,
-            "decision",
-            "Use rustls everywhere",
-            "global",
-            "team",
-            "2026-10-09T10:00:00Z",
-        ),
-        note(
-            2,
-            "fix",
-            "Retry the watcher on rename",
-            "repo",
-            "team",
-            "2026-10-08T10:00:00Z",
-        ),
-        note(
-            3,
-            "problem",
-            "Watcher misses renames",
-            "repo",
-            "local",
-            "2026-10-07T10:00:00Z",
-        ),
-        note(
-            4,
-            "outcome",
-            "Release 0.19 shipped",
-            "global",
-            "team",
-            "2026-10-06T10:00:00Z",
-        ),
-        note(
-            5,
-            "optimisation",
-            "Cache the tools probe",
-            "repo",
-            "local",
-            "2026-10-05T10:00:00Z",
-        ),
-        note(
-            6,
-            "location",
-            "Memory config lives in the config dir",
-            "global",
-            "local",
-            "2026-10-04T10:00:00Z",
-        ),
-        note(
-            7,
-            "note",
-            "Prefer bun over npm",
-            "global",
-            "local",
-            "2026-10-03T10:00:00Z",
-        ),
-        note(
-            8,
-            "idea",
-            "A kind from a newer server",
-            "global",
-            "local",
-            "2026-10-02T10:00:00Z",
-        ),
-    ];
+    let mut notes: Vec<Value> = NOTES
+        .iter()
+        .map(|row| {
+            let fields: Vec<&str> = row.split('|').collect();
+            let id = fields[0].parse().unwrap_or_default();
+            note(id, fields[1], fields[2], fields[3], fields[4], fields[5])
+        })
+        .collect();
 
     let added = std::env::var("FAKE_MEMORY_NOTES").unwrap_or_default();
 

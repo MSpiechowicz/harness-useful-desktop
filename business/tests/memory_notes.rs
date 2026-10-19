@@ -24,6 +24,7 @@ fn first_page() -> NotesQuery {
         kind: None,
         scope: None,
         sort: None,
+        hidden: false,
     }
 }
 
@@ -115,6 +116,7 @@ async fn search_kind_order_and_page_narrow_the_list() {
         kind: Some(NoteKind::Fix),
         scope: None,
         sort: None,
+        hidden: false,
     };
     let page = list(&setup, Some(&project), &fixes).await;
     assert_eq!(ids(&page), [2]);
@@ -144,6 +146,7 @@ async fn search_kind_order_and_page_narrow_the_list() {
         kind: None,
         scope: None,
         sort: Some(NoteSort::Title),
+        hidden: false,
     };
     let page = list(&setup, None, &by_title).await;
     assert_eq!(
@@ -163,6 +166,7 @@ async fn search_kind_order_and_page_narrow_the_list() {
         kind: None,
         scope: None,
         sort: Some(NoteSort::Updated),
+        hidden: false,
     };
     assert_eq!(ids(&list(&setup, None, &newest_last).await), [7, 6, 4, 1]);
 
@@ -179,6 +183,7 @@ async fn every_sort_goes_to_the_server_by_its_name() {
         kind: None,
         scope: None,
         sort: Some(sort),
+        hidden: false,
     };
 
     let cases = [
@@ -212,7 +217,8 @@ async fn deleting_them_all_sends_the_confirmation_and_reads_the_counts() {
         deleted,
         MemoryDeleteAll {
             deleted: 8,
-            team: Some(3)
+            team: Some(3),
+            kept: None,
         }
     );
     assert_eq!(
@@ -267,7 +273,7 @@ async fn a_note_comes_with_its_body_and_the_links_both_ways() {
     let setup = Setup::installed(CURRENT, &[]);
     let project = setup.project();
 
-    let detail = get_note(&setup.env, &setup.scripts, setup.runner(), 2, Some(&project))
+    let detail = get_note(&setup.env, &setup.scripts, setup.runner(), 2, Some(&project), false)
         .await
         .expect("note 2");
     assert_eq!(detail.note.summary.title, "Retry the watcher on rename");
@@ -309,7 +315,7 @@ async fn a_note_comes_with_its_body_and_the_links_both_ways() {
 async fn a_note_the_server_cannot_see_is_not_found() {
     let setup = Setup::installed(CURRENT, &[]);
 
-    let repository_note = get_note(&setup.env, &setup.scripts, setup.runner(), 3, None).await;
+    let repository_note = get_note(&setup.env, &setup.scripts, setup.runner(), 3, None, false).await;
     assert!(
         matches!(&repository_note, Err(BusinessError::NotFound(message)) if message == "note 3"),
         "{repository_note:?}"
@@ -335,7 +341,7 @@ async fn delete_runs_on_the_project_and_failures_come_back_redacted() {
     );
 
     for result in [
-        get_note(&setup.env, &setup.scripts, setup.runner(), 500, None)
+        get_note(&setup.env, &setup.scripts, setup.runner(), 500, None, false)
             .await
             .map(|_| ()),
         delete_note(&setup.env, &setup.scripts, setup.runner(), 500, None).await,
@@ -363,7 +369,7 @@ async fn older_servers_are_outdated() {
         assert_eq!(page.availability, MemoryScriptsAvailability::Outdated, "{vars:?}");
         assert!(page.notes.is_empty() && page.kinds.is_empty() && page.total == 0);
 
-        let get = get_note(&setup.env, &setup.scripts, setup.runner(), 7, None).await;
+        let get = get_note(&setup.env, &setup.scripts, setup.runner(), 7, None, false).await;
         assert!(matches!(get, Err(BusinessError::Unsupported(_))), "{vars:?}: {get:?}");
 
         setup.scripts.shutdown().await;

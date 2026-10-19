@@ -8,13 +8,22 @@
 //! and review (`review`, under the query and scope). A server that predates combined filters
 //! answers neither and refuses `--scope` and `--review`: the list is then asked once more without
 //! them (see [`run_list`]).
+//!
+//! Each script says where it is kept (`place`), whether it is a read-only team script (`readOnly`,
+//! scripts routed `remote+local`) and whether it is hidden on this machine (`hidden`); with a team
+//! database the page also counts the hidden team scripts (`hiddenCount`) and the scripts of the
+//! local file (`localCounts`, every repository). `--hidden` lists the team scripts hidden on this
+//! machine instead, with the same filters and pages.
 
 use std::ffi::OsString;
 use std::path::Path;
 
 use serde_json::Value;
 
-use super::memory_cli::{ListAnswer, ListWindow, count_of, list_availability, run_list, scope_counts, scope_name};
+use super::memory_cli::{
+    ListAnswer, ListWindow, count_of, counts_by_scope, list_availability, run_list, scope_counts, scope_name,
+};
+use super::memory_hidden::HIDDEN_FLAG;
 use super::memory_scripts::parse;
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
@@ -41,11 +50,13 @@ pub struct ScriptsQuery {
     pub review: Option<ScriptReview>,
     /// `updated` unless given.
     pub sort: Option<ScriptSort>,
+    /// List the team scripts hidden on this machine instead of the visible ones.
+    pub hidden: bool,
 }
 
 impl ScriptsQuery {
-    /// The query; `invalidInput` for a `group` with a `scope` or `review` (the server refuses
-    /// that).
+    /// The query of the visible scripts; `invalidInput` for a `group` with a `scope` or `review`
+    /// (the server refuses that).
     pub fn new(
         window: ListWindow,
         group: Option<ScriptGroup>,
@@ -65,6 +76,7 @@ impl ScriptsQuery {
             scope,
             review,
             sort,
+            hidden: false,
         })
     }
 }
@@ -98,10 +110,12 @@ pub(super) async fn list_page(
     filters.extend(query.scope.map(|scope| ("--scope", scope_name(scope))));
     filters.extend(query.review.map(|review| ("--review", review_name(review))));
 
+    let hidden = query.hidden.then(|| OsString::from(HIDDEN_FLAG));
     let args = |filters: &[(&str, &str)]| -> Vec<OsString> {
         [OsString::from("scripts")]
             .into_iter()
             .chain(query.window.list_args(filters, sort, project))
+            .chain(hidden.clone())
             .collect()
     };
     let fallback = (filters.len() > group.len()).then(|| args(&group));
@@ -139,6 +153,8 @@ pub(super) fn unavailable_page(availability: MemoryScriptsAvailability) -> Memor
         review: None,
         combined_filters: false,
         scripts: Vec::new(),
+        hidden_count: None,
+        local_counts: None,
     }
 }
 
@@ -187,5 +203,7 @@ fn scripts_page(answer: ListAnswer) -> MemoryScriptsPage {
         review,
         combined_filters: answer.combined_filters,
         scripts,
+        hidden_count: count_of(data.get("hiddenCount")),
+        local_counts: counts_by_scope(data, "localCounts"),
     }
 }

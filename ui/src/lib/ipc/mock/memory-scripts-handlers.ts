@@ -10,11 +10,12 @@ import { IpcFailure } from '../transport';
 import { fakeSha } from './fake-sha';
 import { deletedAll, requireServer } from './memory-delete-all';
 import { combinesFilters } from './memory-notes-handlers';
+import { type CopyStores, type TeamScriptsHandlers, teamScriptsHandlers } from './memory-notes-team-handlers';
 import { sampleScripts, summaryOf } from './memory-scripts-fixtures';
 import { sampleRunRequests } from './script-request-fixtures';
 
-/** Browser-preview switch `?scripts=`: what the Scripts view finds. Anything else shows the sample scripts. `outdated` has a newer Harness Memory release to update to, `outdatedNoRelease` is a source build (`1.0.1-dev`) with none. `request` also has two agents ask to run a script a moment after the app starts listening. */
-export const SCRIPT_SCENARIOS = ['ok', 'request', 'empty', 'notInstalled', 'outdated', 'outdatedNoRelease', 'failed'] as const;
+/** Browser-preview switch `?scripts=`: what the Scripts view finds. Anything else shows the sample scripts. `outdated` has a newer Harness Memory release to update to, `outdatedNoRelease` is a source build (`1.0.1-dev`) with none. `request` also has two agents ask to run a script a moment after the app starts listening, `readonly` makes the remote scripts read-only (a scope that saves on this computer). */
+export const SCRIPT_SCENARIOS = ['ok', 'request', 'readonly', 'empty', 'notInstalled', 'outdated', 'outdatedNoRelease', 'failed'] as const;
 export type ScriptScenario = (typeof SCRIPT_SCENARIOS)[number];
 
 export function scriptScenarioFromLocation(search: string = globalThis.location?.search ?? ''): ScriptScenario {
@@ -55,6 +56,7 @@ export function availabilityOf(scenario: ScriptScenario): MemoryScriptsAvailabil
       return { kind: 'failed', message: 'harness-memory mcp exited before it answered (exit code 1)' };
     case 'ok':
     case 'request':
+    case 'readonly':
     case 'empty':
       return { kind: 'available' };
   }
@@ -100,18 +102,21 @@ function neverRunLast(sort: ScriptSort, a: ScriptSummary, b: ScriptSummary): num
  * One page of scripts as the server answers: filtered by the query (name or description), the scope, the review and the group, sorted and cut.
  * The groups (disjoint: a script that needs review is in no scope group) are counted under the query, the scopes under the query and the review, the review under the query and the scope. A group asked for
  * together with a scope or review is refused. `combined: false` is an older server: it drops the scope and the review and counts neither.
+ * A hidden script is listed only when `hidden` asks for them. `everything` is every script of the store, which the count of scripts on this computer takes in.
  */
 export function pageOfScripts(
   visible: ScriptSummary[],
-  { offset, limit = DEFAULT_LIMIT, query = '', scope, review, group, sort = 'updated', order }: CommandArgs<'memory_scripts_list'>,
+  { offset, limit = DEFAULT_LIMIT, query = '', scope, review, group, sort = 'updated', order, hidden }: CommandArgs<'memory_scripts_list'>,
   combined = true,
+  everything: ScriptSummary[] = visible,
 ): Omit<MemoryScriptsPage, 'availability'> {
   if (combined && group !== undefined && (scope !== undefined || review !== undefined)) {
     throw IpcFailure.from({ code: 'invalidInput', message: 'group cannot be combined with scope or review' });
   }
 
   const needle = query.trim().toLowerCase();
-  const answering = visible.filter((script) => needle === '' || script.name.toLowerCase().includes(needle) || script.description.toLowerCase().includes(needle));
+  const answering = visible.filter((script) => script.hidden === (hidden ?? false) && (needle === '' || script.name.toLowerCase().includes(needle) || script.description.toLowerCase().includes(needle)));
+  const onThisComputer = everything.filter((script) => script.place === 'local');
   const direction = (order ?? (sort === 'updated' ? 'desc' : 'asc')) === 'desc' ? -1 : 1;
   const compare = SCRIPT_ORDERS[sort];
   const inScope = answering.filter((script) => !combined || scope === undefined || script.scope === scope);
@@ -129,11 +134,13 @@ export function pageOfScripts(
     review: combined ? { needed: inScope.filter(REVIEWS.needed).length, trusted: inScope.filter(REVIEWS.trusted).length } : null,
     combinedFilters: combined,
     scripts: [...chosen].sort((a, b) => neverRunLast(sort, a, b) || direction * (compare(a, b) || a.id - b.id)).slice(offset, offset + limit),
+    hiddenCount: visible.filter((script) => script.hidden).length,
+    localCounts: { repo: onThisComputer.filter(SCOPES.repo).length, global: onThisComputer.filter(SCOPES.global).length },
   };
 }
 
 /** The scripts of Harness Memory kept in memory: `memory_scripts_list/script_get/script_delete/scripts_delete_all/script_save` like the real backend, without a server. */
-export interface ScriptHandlers {
+export interface ScriptHandlers extends TeamScriptsHandlers {
   memory_scripts_list: (args: CommandArgs<'memory_scripts_list'>) => MemoryScriptsPage;
   memory_script_get: (args: CommandArgs<'memory_script_get'>) => ScriptDetail;
   memory_script_delete: (args: CommandArgs<'memory_script_delete'>) => null;
@@ -152,15 +159,25 @@ const APPROVAL_WINDOW_MS = 45_000;
 /** The requests appear this long after the app starts listening, so the preview shows the prompt arriving over a view. */
 const REQUEST_DELAY_MS = import.meta.env.MODE === 'test' ? 0 : 1200;
 
-export function memoryScriptsHandlers(scenario: () => ScriptScenario = scriptScenarioFromLocation, combined: () => boolean = combinesFilters): ScriptHandlers {
+/** `copyStores` is shared with the notes handlers, which serve the copy commands of both kinds. */
+/** The sample scripts of a scenario; in `readonly` the remote ones cannot be changed from this computer. */
+function withReadOnly(scenario: ScriptScenario): ScriptDetail[] {
+  if (scenario !== 'ok' && scenario !== 'request' && scenario !== 'readonly') {
+    return [];
+  }
+
+  return sampleScripts().map((script) => ({ ...script, readOnly: scenario === 'readonly' && script.place === 'team' }));
+}
+
+export function memoryScriptsHandlers(scenario: () => ScriptScenario = scriptScenarioFromLocation, combined: () => boolean = combinesFilters, copyStores: CopyStores = {}): ScriptHandlers {
   let scripts: ScriptDetail[] | null = null;
-  const current = (): ScriptDetail[] => (scripts ??= scenario() === 'ok' || scenario() === 'request' ? sampleScripts() : []);
+  const current = (): ScriptDetail[] => (scripts ??= withReadOnly(scenario()));
 
   /** A project sees its repository's scripts and the global ones, no project only the global ones. */
   const visible = (project: string | null): ScriptDetail[] => current().filter((script) => script.scope === 'global' || project !== null);
 
-  const find = (id: number, project: string | null): ScriptDetail => {
-    const script = visible(project).find((candidate) => candidate.id === id);
+  const find = (id: number, project: string | null, hidden = false): ScriptDetail => {
+    const script = visible(project).find((candidate) => candidate.id === id && candidate.hidden === hidden);
     if (!script) {
       throw IpcFailure.from({ code: 'notFound', message: `script ${id} was not found` });
     }
@@ -177,6 +194,7 @@ export function memoryScriptsHandlers(scenario: () => ScriptScenario = scriptSce
   };
 
   return {
+    ...teamScriptsHandlers({ read: current, write: (next) => (scripts = next), availability: () => availabilityOf(scenario()) }, copyStores),
     // The `request` scenario has two agents ask a moment after the app starts listening, and give up after the server's window.
     memory_script_requests_listen: ({ onRequest }) => {
       if (scenario() !== 'request') {
@@ -201,12 +219,12 @@ export function memoryScriptsHandlers(scenario: () => ScriptScenario = scriptSce
     memory_scripts_list: (args) => {
       const availability = availabilityOf(scenario());
       if (availability.kind !== 'available') {
-        return { availability, total: 0, groups: { needsReview: 0, repo: 0, global: 0 }, scopes: null, review: null, combinedFilters: combined(), scripts: [] };
+        return { availability, total: 0, groups: { needsReview: 0, repo: 0, global: 0 }, scopes: null, review: null, combinedFilters: combined(), scripts: [], hiddenCount: null, localCounts: null };
       }
 
-      return { availability, ...pageOfScripts(visible(args.project).map(summaryOf), args, combined()) };
+      return { availability, ...pageOfScripts(visible(args.project).map(summaryOf), args, combined(), current().map(summaryOf)) };
     },
-    memory_script_get: ({ id, project }) => find(id, project),
+    memory_script_get: ({ id, project, hidden }) => find(id, project, hidden),
     memory_script_delete: ({ id, project }) => {
       const script = find(id, project);
       scripts = current().filter((candidate) => candidate !== script);
@@ -216,10 +234,12 @@ export function memoryScriptsHandlers(scenario: () => ScriptScenario = scriptSce
     memory_scripts_delete_all: ({ project = null }) => {
       requireServer(availabilityOf(scenario()));
 
-      const gone = visible(project);
+      // A remote script that is read-only here stays.
+      const all = visible(project);
+      const gone = all.filter((candidate) => !candidate.readOnly);
       scripts = current().filter((candidate) => !gone.includes(candidate));
 
-      return deletedAll(gone);
+      return deletedAll(gone, all.length - gone.length);
     },
     memory_script_decide: ({ requestId, allow }) => {
       if (!pending.delete(requestId)) {
@@ -246,7 +266,7 @@ export function memoryScriptsHandlers(scenario: () => ScriptScenario = scriptSce
       }
 
       const name = draft.name.trim();
-      const existing = visible(project).find((candidate) => candidate.name === name && candidate.scope === draft.scope);
+      const existing = visible(project).find((candidate) => candidate.name === name && candidate.scope === draft.scope && !candidate.readOnly);
       if (base !== undefined && existing?.sha256 !== base) {
         throw IpcFailure.from({ code: 'conflict', message: 'the script changed since you opened it' });
       }
@@ -276,6 +296,8 @@ export function memoryScriptsHandlers(scenario: () => ScriptScenario = scriptSce
         lastExitCode: existing?.lastExitCode ?? null,
         trusted: !agentsCode,
         approval: agentsCode ? 'needed' : waiting ? 'approved' : 'local',
+        readOnly: false,
+        hidden: false,
         body: draft.body,
       };
 

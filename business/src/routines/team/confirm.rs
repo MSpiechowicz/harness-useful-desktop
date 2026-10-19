@@ -28,11 +28,11 @@ pub async fn confirm_team_copy(
 
     match get_team_doc::<RoutineKind>(env, runner, server, &view.id).await {
         Ok(row) if row.sha256 == view.sha256 && sha256_hex(row.body.as_bytes()) == view.sha256 => Ok(()),
-        Ok(_) => Err("The team routine changed in the team database since it was copied here"),
-        Err(BusinessError::NotFound(_)) => Err("The team routine is no longer in the team database"),
+        Ok(_) => Err("The remote routine changed in the remote database since it was copied here"),
+        Err(BusinessError::NotFound(_)) => Err("The remote routine is no longer in the remote database"),
         Err(error) => {
             tracing::warn!(code = ?error.code(), "team routine not confirmed");
-            Err("Harness Memory could not confirm the team routine")
+            Err("Harness Memory could not confirm the remote routine")
         }
     }
 }

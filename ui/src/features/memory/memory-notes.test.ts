@@ -32,7 +32,7 @@ describe('notes table', () => {
     expect(decision.getByText('Notes are read through the Memory CLI, never its database')).toBeInTheDocument();
     expect(decision.getByText('Decision')).toBeInTheDocument();
     expect(decision.getByText('github.com/useful/harness-desktop')).toBeInTheDocument();
-    expect(decision.getByText('Team')).toBeInTheDocument();
+    expect(decision.getByText('Remote')).toBeInTheDocument();
     expect(within(noteRow(9) as HTMLElement).getByText('Global')).toBeInTheDocument();
   });
 
@@ -232,7 +232,7 @@ describe('deleting a note', () => {
     await askToDelete(3, 'Notes are read through the Memory CLI, never its database');
 
     expect(await screen.findByText('Delete this note?')).toBeInTheDocument();
-    expect(screen.getByText('This note is kept in the team database. Deleting it removes it for everyone.')).toBeInTheDocument();
+    expect(screen.getByText('This note is kept in the remote database. Deleting it removes it for everyone.')).toBeInTheDocument();
     expect(calls(invoke, 'memory_note_delete')).toHaveLength(0);
 
     await fireEvent.click(await screen.findByRole('button', { name: 'Delete note' }));
@@ -250,7 +250,7 @@ describe('deleting a note', () => {
 
     await askToDelete(4, 'Tauri window stayed blank after a hot reload on Wayland');
     expect(await screen.findByText('Delete this note?')).toBeInTheDocument();
-    expect(screen.queryByText(/kept in the team database/)).toBeNull();
+    expect(screen.queryByText(/kept in the remote database/)).toBeNull();
 
     await fireEvent.click(screen.getByRole('button', { name: 'Keep it' }));
 

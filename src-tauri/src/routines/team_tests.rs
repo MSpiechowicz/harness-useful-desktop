@@ -6,7 +6,7 @@ use std::path::PathBuf;
 
 use harness_business::ecosystem::{MemoryRemoteChange, memory_config_path};
 use harness_business::model::{
-    HookAuthor, HookOrigin, IpcErrorCode, MemoryNotesTarget, MemoryRemoteKind, RoutineDraft, RoutineFilter,
+    HookAuthor, HookOrigin, IpcErrorCode, MemoryNotesRouting, MemoryRemoteKind, RoutineDraft, RoutineFilter,
     RoutineStatus, RoutineView, RoutineWhen, RunStatus,
 };
 use harness_business::routines::sha256_hex;
@@ -445,9 +445,9 @@ fn database(share: Option<bool>, trust: Option<bool>) -> MemoryRemoteChange {
         kind: Some(MemoryRemoteKind::Postgres),
         url: Some("postgres://team@db.example.com/memory".to_owned()),
         token: None,
-        repository_notes: MemoryNotesTarget::Remote,
-        global_notes: MemoryNotesTarget::Remote,
-        scripts: MemoryNotesTarget::Remote,
+        repository_notes: MemoryNotesRouting::Remote,
+        global_notes: MemoryNotesRouting::Remote,
+        scripts: MemoryNotesRouting::Remote,
         trust_team_scripts: false,
         share_hooks: None,
         trust_team_hooks: None,

@@ -34,7 +34,8 @@
 //! `ok: Fake at <scheme> (schema 1) token <set|unset|blank>` and exit 0. `harness-memory trust
 //! <id>=<sha256>… [--project <path>]` approves the stand-in's scripts, see [`memory::trust`].
 //! `harness-memory notes list|get|delete` and `harness-memory scripts list` answer from fixtures,
-//! see [`memory_cli`]. `harness-memory hooks|routines config|list|put|delete` answer from files
+//! see [`memory_cli`] (team scripts and hiding them: [`memory_scripts_hidden`]); `harness-memory features`, `push`, `scripts push` and hiding notes, see [`memory_push`].
+//! `harness-memory hooks|routines config|list|put|delete` answer from files
 //! next to the copy, see [`memory_hooks`].
 
 use std::collections::HashMap;
@@ -53,6 +54,10 @@ mod memory_cli;
 mod memory_hooks;
 #[path = "fake_agent/memory_notes.rs"]
 mod memory_notes;
+#[path = "fake_agent/memory_push.rs"]
+mod memory_push;
+#[path = "fake_agent/memory_scripts_hidden.rs"]
+mod memory_scripts_hidden;
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
@@ -70,7 +75,10 @@ fn main() {
         match args.get(1).map(String::as_str) {
             Some("trust") => memory::trust(&args[2..]),
             Some("notes") => memory_cli::notes(&args[2..]),
+            Some("scripts") if args.get(2).is_some_and(|arg| arg == "push") => memory_push::push_scripts(&args[3..]),
             Some("scripts") => memory_cli::scripts(&args[2..]),
+            Some("features") => memory_push::features(),
+            Some("push") => memory_push::push(&args[2..]),
             Some(plural @ ("hooks" | "routines")) => memory_hooks::docs(plural, &args[2..]),
             _ => {}
         }

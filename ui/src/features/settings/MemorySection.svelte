@@ -9,9 +9,11 @@
   import { IpcFailure } from '$lib/ipc/transport';
   import { memoryRemote } from '$lib/stores/memoryRemote.svelte';
   import { prefs } from '$lib/stores/prefs.svelte';
+  import { viewState } from '$lib/stores/view-state.svelte';
 
   import ManualRemovalNote from './ManualRemovalNote.svelte';
   import RemoteMemoryPanel from './RemoteMemoryPanel.svelte';
+  import { readsRemote } from './routing-change';
   import SettingRow from './SettingRow.svelte';
   import SettingsSection from './SettingsSection.svelte';
 
@@ -69,7 +71,11 @@
     offFailure = null;
 
     try {
-      await memoryRemote.save({ enabled: false, kind: remote.kind, url: null, token: null, repositoryNotes: remote.repositoryNotes, globalNotes: remote.globalNotes, scripts: remote.scripts, trustTeamScripts: remote.scripts === 'remote' && remote.trustTeamScripts });
+      await memoryRemote.save({ enabled: false, kind: remote.kind, url: null, token: null, repositoryNotes: remote.repositoryNotes, globalNotes: remote.globalNotes, scripts: remote.scripts, trustTeamScripts: readsRemote(remote.scripts) && remote.trustTeamScripts });
+
+      // Without the remote database the notes and scripts are the local ones: the open one's id means something else.
+      viewState.noteId = null;
+      viewState.scriptId = null;
     } catch (error) {
       offFailure = IpcFailure.from(error).message;
     } finally {

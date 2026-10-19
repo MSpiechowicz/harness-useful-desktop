@@ -75,7 +75,7 @@ pub fn team_view(
         .views
         .into_iter()
         .find(|view| view.id == id)
-        .ok_or_else(|| BusinessError::NotFound("the team hook".to_owned()))
+        .ok_or_else(|| BusinessError::NotFound("the remote hook".to_owned()))
 }
 
 /// The app window's listing for a chat in `project` (a project root; `None`: global only): the

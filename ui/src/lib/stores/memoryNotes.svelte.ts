@@ -10,7 +10,7 @@ import type { SortOrder } from '$lib/ipc/bindings/SortOrder';
 import { ipc } from '$lib/ipc/client';
 import { IpcFailure } from '$lib/ipc/transport';
 
-import { memoryItemGone, saveFailureText } from './memoryScripts.svelte';
+import { hideEntry, memoryItemGone, saveFailureText } from './memoryScripts.svelte';
 import { toasts } from './toasts.svelte';
 import { viewState } from './view-state.svelte';
 import { ViewLoader } from './view-loader.svelte';
@@ -26,6 +26,8 @@ export interface NotesRequest {
   sort: NoteSort;
   order: SortOrder;
   page: number;
+  /** Only the team notes hidden on this computer. */
+  hidden: boolean;
 }
 
 /** The request as the loader's key: the loader fetches again whenever any of it changes, and drops answers to older ones. */
@@ -35,7 +37,7 @@ export function notesKey(request: NotesRequest): string {
 
 /** One page of the notes this project sees (its repository's and the global ones), with the count of every kind and scope. */
 export const noteList = new ViewLoader<MemoryNotesPage, string>((key, project) => {
-  const { query, scope, kind, sort, order, page } = JSON.parse(key) as NotesRequest;
+  const { query, scope, kind, sort, order, page, hidden } = JSON.parse(key) as NotesRequest;
   const search = query.trim();
 
   return ipc.invoke('memory_notes_list', {
@@ -47,11 +49,43 @@ export const noteList = new ViewLoader<MemoryNotesPage, string>((key, project) =
     kind: kind ?? undefined,
     sort,
     order,
+    hidden: hidden || undefined,
   });
 });
 
+/** The key the open note is read under: a hidden note is only found when asked for as hidden. */
+export function noteDetailKey(id: number, hidden: boolean): string {
+  return hidden ? `${id}:hidden` : String(id);
+}
+
 /** The note on screen, body and links included. The list carries no bodies, so this is read when one is chosen. */
-export const noteDetail = new ViewLoader<NoteDetail, string>((id, project) => ipc.invoke('memory_note_get', { id: Number(id), project }), { goneIsFinal: memoryItemGone });
+export const noteDetail = new ViewLoader<NoteDetail, string>(
+  (key, project) => {
+    const [id, hidden] = key.split(':');
+
+    return ipc.invoke('memory_note_get', { id: Number(id), project, hidden: hidden === undefined ? undefined : true });
+  },
+  { goneIsFinal: memoryItemGone },
+);
+
+/** Hides a remote note on this computer, or shows it again (`hidden: false`). See `hideEntry`. */
+export function hideNote(id: number, title: string, project: string | null, hidden: boolean): Promise<boolean> {
+  return hideEntry({
+    id,
+    title,
+    hidden,
+    send: () => ipc.invoke('memory_note_hide', { id, project, hidden }),
+    failed: 'memory.hidden.toast.failed',
+    unhideFailed: 'memory.hidden.toast.unhideFailed',
+    leave: () => {
+      if (viewState.noteId === id) {
+        viewState.noteId = null;
+      }
+    },
+    refresh: () => noteList.refresh(),
+    undo: () => void hideNote(id, title, project, false),
+  });
+}
 
 /** Deletes a note once the user confirms, then re-reads the page so the row is gone (or back, if the call failed). */
 export async function deleteNote(id: number, project: string | null, confirm: () => Promise<boolean>): Promise<boolean> {

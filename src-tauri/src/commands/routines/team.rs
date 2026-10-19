@@ -27,7 +27,7 @@ use crate::error::CommandResult;
 use crate::state::AppState;
 
 /// Why a team routine is refused when its view on screen is not the current version.
-const CHANGED: &str = "the team routine changed since it was shown";
+const CHANGED: &str = "the remote routine changed since it was shown";
 
 /// Shares the local routine `id` at version `sha256` with the team (a project routine under its
 /// repository key), or updates the team copy when the team already has it ("Update team copy").

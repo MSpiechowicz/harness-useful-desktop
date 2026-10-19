@@ -9,11 +9,15 @@
   import { provideHeaderActions } from './HeaderActions.svelte';
   import { useNotesData } from './memory-data.svelte';
   import MemoryHeader from './MemoryHeader.svelte';
+  import NotesCopyBanner from './NotesCopyBanner.svelte';
+  import NotesCopyDialog from './NotesCopyDialog.svelte';
   import { notesImport } from './notes-import-state.svelte';
   import NotesImportDialog from './NotesImportDialog.svelte';
   import NotesSection from './NotesSection.svelte';
 
   useNotesData();
+
+  let copying = $state(false);
 
   const headerActions = provideHeaderActions('notes-header-actions');
   // There is nothing to save to while Harness Memory is missing, too old or not answering.
@@ -35,7 +39,10 @@
 <div class="flex size-full min-h-0 flex-col overflow-clip">
   <MemoryHeader view="notes" slot={headerActions} addLabel={t('memory.editor.add.note')} {available} onadd={() => noteEditor.create()} extra={importItem} />
 
+  <NotesCopyBanner oncopy={() => (copying = true)} />
+
   <NotesSection />
 </div>
 
 <NotesImportDialog />
+<NotesCopyDialog open={copying} onclose={() => (copying = false)} />

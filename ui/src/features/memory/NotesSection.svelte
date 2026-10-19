@@ -14,7 +14,7 @@
   import type { NoteSaved } from '$lib/ipc/bindings/NoteSaved';
   import type { NoteSummary } from '$lib/ipc/bindings/NoteSummary';
   import type { ScriptScope } from '$lib/ipc/bindings/ScriptScope';
-  import { deleteNote, noteDetail, noteList, NOTES_PAGE_SIZE } from '$lib/stores/memoryNotes.svelte';
+  import { deleteNote, hideNote, noteDetail, noteDetailKey, noteList, NOTES_PAGE_SIZE } from '$lib/stores/memoryNotes.svelte';
   import { project } from '$lib/stores/project.svelte';
   import { toasts } from '$lib/stores/toasts.svelte';
   import { viewState } from '$lib/stores/view-state.svelte';
@@ -23,11 +23,13 @@
 
   import SessionConfirm from '../sessions/SessionConfirm.svelte';
   import { noteEditor } from './editor-state.svelte';
+  import HiddenFilter from './HiddenFilter.svelte';
   import MemoryFilterHint from './MemoryFilterHint.svelte';
   import MemoryScopeFilter from './MemoryScopeFilter.svelte';
   import MemorySearch from './MemorySearch.svelte';
   import MemoryTable from './MemoryTable.svelte';
   import { notesImport } from './notes-import-state.svelte';
+  import { notesTeam } from './notes-team.svelte';
   import NoteEditor from './NoteEditor.svelte';
   import NoteKindBadge from './NoteKindBadge.svelte';
   import NotePanel from './NotePanel.svelte';
@@ -52,7 +54,9 @@
   // An older Harness Memory cannot combine the scope with the kind: it gets the kind only, and a hint that an update adds the scope.
   const combined = $derived(page?.combinedFilters ?? true);
   const searching = $derived(viewState.notesQuery.trim() !== '');
-  const filtered = $derived(viewState.notesKind !== null || (combined && viewState.notesScope !== null));
+  const filtered = $derived(viewState.notesKind !== null || (combined && viewState.notesScope !== null) || notesTeam.showHidden);
+  // Team notes hidden on this computer: a switch to them shows once there are any, and stays while they are shown.
+  const hiddenCount = $derived(page?.hiddenCount ?? 0);
   // Nothing at all is kept: no notes of any kind, and no search or filter that would explain it.
   const none = $derived(page !== null && availability === null && total === 0 && !searching && !filtered);
 
@@ -73,6 +77,12 @@
   function chooseScope(scope: ScriptScope | null): void {
     viewState.notesScope = scope;
     viewState.notesPage = 0;
+  }
+
+  function showHidden(on: boolean): void {
+    notesTeam.showHidden = on;
+    viewState.notesPage = 0;
+    viewState.noteId = null;
   }
 
   function chooseKind(kind: NoteKind | null): void {
@@ -99,7 +109,9 @@
     const id = openId;
     const where = path;
 
-    untrack(() => noteDetail.sync(id === null ? null : String(id), where));
+    const asHidden = notesTeam.showHidden;
+
+    untrack(() => noteDetail.sync(id === null ? null : noteDetailKey(id, asHidden), where));
   });
 
   // A note that was deleted (here or by an agent) while its link or panel was open is no longer there to show.
@@ -158,6 +170,14 @@
     }
   }
 
+  function hide(): void {
+    const note = shown.note;
+
+    if (note) {
+      void hideNote(note.id, spelledOut(note.title), path, !note.hidden);
+    }
+  }
+
   function remove(): void {
     const note = shown.note;
 
@@ -184,6 +204,10 @@
 {#snippet filters()}
   {#if combined}
     <MemoryScopeFilter value={viewState.notesScope} counts={page?.scopes ?? null} onchange={chooseScope} />
+  {/if}
+
+  {#if hiddenCount > 0 || notesTeam.showHidden}
+    <HiddenFilter count={hiddenCount} on={notesTeam.showHidden} onchange={showHidden} />
   {/if}
 
   <FilterMenu
@@ -275,6 +299,7 @@
       onopennote={(id) => (viewState.noteId = id)}
       onedit={detail ? edit : undefined}
       ondelete={remove}
+      onhide={hide}
       onclose={close}
     />
   {/snippet}

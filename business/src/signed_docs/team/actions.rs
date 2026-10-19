@@ -186,7 +186,7 @@ pub(crate) fn local_copy<K: DocKind>(
         HookScope::Global => bytes.to_vec(),
         HookScope::Project => {
             let root = root.ok_or_else(|| {
-                BusinessError::InvalidInput(format!("open the project to copy one of its team {}", K::PLURAL))
+                BusinessError::InvalidInput(format!("open the project to copy one of its remote {}", K::PLURAL))
             })?;
 
             with_project::<K>(bytes, root)?
@@ -225,7 +225,7 @@ pub fn copy_team_doc<K: DocKind, S: TeamState>(
 
     if !may_copy()? {
         return Err(BusinessError::InvalidInput(format!(
-            "approve the team {} before you copy it",
+            "approve the remote {} before you copy it",
             K::NOUN
         )));
     }

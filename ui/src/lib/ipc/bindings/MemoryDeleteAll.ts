@@ -12,4 +12,9 @@ deleted: number,
 /**
  * How many of them were in the team database; `None` when the server does not say.
  */
-team: number | null, };
+team: number | null, 
+/**
+ * How many team notes were left in place in scopes routed `remote+local` (they can only be
+ * hidden there); `None` when the server does not say.
+ */
+kept: number | null, };

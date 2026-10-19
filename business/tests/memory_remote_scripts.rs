@@ -1,5 +1,6 @@
 //! The `scripts` routing key of Harness Memory's `config.toml`: read like the note routing, and
-//! written only as `scripts = "local"` while the installed server keeps scripts (an older server
+//! written only as `scripts = "local"` (or `"remote+local"`, see
+//! `memory_remote_scripts_routing.rs`) while the installed server keeps scripts (an older server
 //! refuses a file with a key it does not know), and left as saved while the server cannot be
 //! asked. `trust_team_scripts` follows the same rules, written only as `true` and only for a
 //! server that asks before running a script, while scripts go to the team database.
@@ -7,21 +8,21 @@
 mod memory_remote_support;
 
 use harness_business::ecosystem::{MemoryRemoteChange, ScriptsSupport, memory_remote_get, memory_remote_set};
-use harness_business::model::MemoryNotesTarget;
+use harness_business::model::MemoryNotesRouting;
 use memory_remote_support::{Home, postgres_change};
 use pretty_assertions::assert_eq;
 
 impl Home {
     /// The file's text after saving the team database with scripts routed to `scripts`.
-    fn save(&self, scripts: MemoryNotesTarget, support: ScriptsSupport) -> String {
-        self.save_routing(MemoryNotesTarget::Local, scripts, support)
+    fn save(&self, scripts: MemoryNotesRouting, support: ScriptsSupport) -> String {
+        self.save_routing(MemoryNotesRouting::Local, scripts, support)
     }
 
     /// The file's text after saving with repository notes routed to `repository_notes` too.
     fn save_routing(
         &self,
-        repository_notes: MemoryNotesTarget,
-        scripts: MemoryNotesTarget,
+        repository_notes: MemoryNotesRouting,
+        scripts: MemoryNotesRouting,
         support: ScriptsSupport,
     ) -> String {
         self.save_all(repository_notes, scripts, false, support)
@@ -30,8 +31,8 @@ impl Home {
     /// The file's text after saving with `trust_team_scripts` too.
     fn save_trust(&self, trust_team_scripts: bool, support: ScriptsSupport) -> String {
         self.save_all(
-            MemoryNotesTarget::Remote,
-            MemoryNotesTarget::Remote,
+            MemoryNotesRouting::Remote,
+            MemoryNotesRouting::Remote,
             trust_team_scripts,
             support,
         )
@@ -39,8 +40,8 @@ impl Home {
 
     fn save_all(
         &self,
-        repository_notes: MemoryNotesTarget,
-        scripts: MemoryNotesTarget,
+        repository_notes: MemoryNotesRouting,
+        scripts: MemoryNotesRouting,
         trust_team_scripts: bool,
         support: ScriptsSupport,
     ) -> String {
@@ -70,21 +71,21 @@ fn trust_lines(text: &str) -> Vec<&str> {
 fn local_scripts_round_trip_while_the_server_supports_them() {
     let home = Home::new();
 
-    let text = home.save(MemoryNotesTarget::Local, ScriptsSupport::Supported);
+    let text = home.save(MemoryNotesRouting::Local, ScriptsSupport::Supported);
     assert_eq!(scripts_lines(&text), ["scripts = \"local\""]);
 
     let remote = memory_remote_get(&home.env, ScriptsSupport::Supported);
-    assert_eq!(remote.scripts, MemoryNotesTarget::Local);
+    assert_eq!(remote.scripts, MemoryNotesRouting::Local);
     assert!(remote.scripts_supported);
-    assert_eq!(remote.repository_notes, MemoryNotesTarget::Local);
+    assert_eq!(remote.repository_notes, MemoryNotesRouting::Local);
     assert_eq!(remote.problem, None, "scripts is a known key");
 
     // Back to the team database: unset means remote, so the key goes away.
-    let text = home.save(MemoryNotesTarget::Remote, ScriptsSupport::Supported);
+    let text = home.save(MemoryNotesRouting::Remote, ScriptsSupport::Supported);
     assert_eq!(scripts_lines(&text), Vec::<&str>::new());
     assert_eq!(
         memory_remote_get(&home.env, ScriptsSupport::Supported).scripts,
-        MemoryNotesTarget::Remote
+        MemoryNotesRouting::Remote
     );
 }
 
@@ -92,45 +93,45 @@ fn local_scripts_round_trip_while_the_server_supports_them() {
 fn the_key_is_never_written_for_a_server_without_scripts() {
     let home = Home::new();
 
-    let text = home.save(MemoryNotesTarget::Local, ScriptsSupport::Unsupported);
+    let text = home.save(MemoryNotesRouting::Local, ScriptsSupport::Unsupported);
     assert_eq!(scripts_lines(&text), Vec::<&str>::new());
 
     let remote = memory_remote_get(&home.env, ScriptsSupport::Unsupported);
-    assert_eq!(remote.scripts, MemoryNotesTarget::Remote);
+    assert_eq!(remote.scripts, MemoryNotesRouting::Remote);
     assert!(!remote.scripts_supported);
 
     // A saved `scripts = "local"` is dropped on the next save once the server no longer has it.
-    home.save(MemoryNotesTarget::Local, ScriptsSupport::Supported);
-    let text = home.save(MemoryNotesTarget::Local, ScriptsSupport::Unsupported);
+    home.save(MemoryNotesRouting::Local, ScriptsSupport::Supported);
+    let text = home.save(MemoryNotesRouting::Local, ScriptsSupport::Unsupported);
     assert_eq!(scripts_lines(&text), Vec::<&str>::new());
 }
 
 #[test]
 fn a_scripts_value_of_the_wrong_kind_is_reported_and_read_as_remote() {
     let home = Home::new();
-    home.save(MemoryNotesTarget::Remote, ScriptsSupport::Supported);
+    home.save(MemoryNotesRouting::Remote, ScriptsSupport::Supported);
 
     let path = home.config();
     let text = std::fs::read_to_string(&path).unwrap() + "scripts = 5\n";
     std::fs::write(&path, text).unwrap();
 
     let remote = memory_remote_get(&home.env, ScriptsSupport::Supported);
-    assert_eq!(remote.scripts, MemoryNotesTarget::Remote);
+    assert_eq!(remote.scripts, MemoryNotesRouting::Remote);
     assert_eq!(
         remote.problem.as_deref(),
-        Some("scripts must be \"remote\" or \"local\"")
+        Some("scripts must be \"remote\", \"local\" or \"remote+local\"")
     );
 }
 
 #[test]
 fn a_server_that_cannot_be_asked_leaves_the_scripts_key_as_saved() {
     let home = Home::new();
-    home.save(MemoryNotesTarget::Local, ScriptsSupport::Supported);
+    home.save(MemoryNotesRouting::Local, ScriptsSupport::Supported);
 
     // The probe failed: another change is saved, and the stored routing survives it.
     let text = home.save_routing(
-        MemoryNotesTarget::Remote,
-        MemoryNotesTarget::Remote,
+        MemoryNotesRouting::Remote,
+        MemoryNotesRouting::Remote,
         ScriptsSupport::Unknown,
     );
     assert_eq!(scripts_lines(&text), ["scripts = \"local\""]);
@@ -138,19 +139,19 @@ fn a_server_that_cannot_be_asked_leaves_the_scripts_key_as_saved() {
     let remote = memory_remote_get(&home.env, ScriptsSupport::Unknown);
     assert_eq!(
         remote.repository_notes,
-        MemoryNotesTarget::Remote,
+        MemoryNotesRouting::Remote,
         "the other change is saved"
     );
     assert_eq!(
         remote.scripts,
-        MemoryNotesTarget::Local,
+        MemoryNotesRouting::Local,
         "the stored value is still shown"
     );
     assert!(!remote.scripts_supported);
 
     // Nor is the key added to a file without it.
-    home.save(MemoryNotesTarget::Remote, ScriptsSupport::Supported);
-    let text = home.save(MemoryNotesTarget::Local, ScriptsSupport::Unknown);
+    home.save(MemoryNotesRouting::Remote, ScriptsSupport::Supported);
+    let text = home.save(MemoryNotesRouting::Local, ScriptsSupport::Unknown);
     assert_eq!(scripts_lines(&text), Vec::<&str>::new());
 }
 
@@ -173,7 +174,7 @@ fn a_server_that_asks_first_round_trips_trust_team_scripts() {
     assert!(!memory_remote_get(&home.env, ScriptsSupport::Approvals).trust_team_scripts);
 
     // The scripts key is written for such a server as well.
-    let text = home.save(MemoryNotesTarget::Local, ScriptsSupport::Approvals);
+    let text = home.save(MemoryNotesRouting::Local, ScriptsSupport::Approvals);
     assert_eq!(scripts_lines(&text), ["scripts = \"local\""]);
 }
 
@@ -185,8 +186,8 @@ fn trust_team_scripts_is_dropped_while_scripts_stay_local() {
     // Keeping scripts local leaves no team scripts to trust: the key goes, so switching back to
     // the team later does not trust them unasked.
     let text = home.save_all(
-        MemoryNotesTarget::Remote,
-        MemoryNotesTarget::Local,
+        MemoryNotesRouting::Remote,
+        MemoryNotesRouting::Local,
         true,
         ScriptsSupport::Approvals,
     );
@@ -197,8 +198,8 @@ fn trust_team_scripts_is_dropped_while_scripts_stay_local() {
     // While the server cannot be asked the saved key stays, whatever the routing.
     home.save_trust(true, ScriptsSupport::Approvals);
     let text = home.save_all(
-        MemoryNotesTarget::Remote,
-        MemoryNotesTarget::Local,
+        MemoryNotesRouting::Remote,
+        MemoryNotesRouting::Local,
         true,
         ScriptsSupport::Unknown,
     );

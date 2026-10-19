@@ -11,6 +11,7 @@ pub mod harness;
 pub mod hooks;
 pub mod memory;
 pub mod memory_notes;
+pub mod memory_notes_copy;
 pub mod memory_notes_import;
 pub mod memory_notes_template;
 pub mod memory_remote;

@@ -3,6 +3,7 @@
   import { rovingIndex } from '$lib/utils/roving';
 
   import { PILL_FRAME, PILL_RAISED, type StripOption } from './strip';
+  import Tooltip from './Tooltip.svelte';
 
   interface Props {
     options: StripOption<T>[];
@@ -14,10 +15,12 @@
     /** Prefix for the generated tab/panel ids that tie tabs to their panel. */
     idBase: string;
     onchange?: (value: T) => void;
+    /** Gives every segment the width of the widest one (a pill group that lines up with others like it). */
+    equal?: boolean;
     class?: string;
   }
 
-  let { options, value = $bindable(), kind, appearance, label, idBase, onchange, class: className }: Props = $props();
+  let { options, value = $bindable(), kind, appearance, label, idBase, onchange, equal = false, class: className }: Props = $props();
 
   let container: HTMLElement | undefined = $state();
   let buttons: (HTMLButtonElement | undefined)[] = $state([]);
@@ -27,13 +30,16 @@
 
   const activeIndex = $derived(options.findIndex((option) => option.value === value));
 
+  // A button that explains why it is disabled sits in a wrapper, which is then the offset parent: its own offset joins the button's.
   function measure(): void {
     const element = buttons[activeIndex];
     if (!element) {
       return;
     }
 
-    box = { x: element.offsetLeft, width: element.offsetWidth };
+    const wrapper = element.offsetParent instanceof HTMLElement && element.offsetParent !== container ? element.offsetParent : null;
+
+    box = { x: element.offsetLeft + (wrapper?.offsetLeft ?? 0), width: element.offsetWidth };
     measured = true;
   }
 
@@ -90,7 +96,8 @@
   role={kind === 'tabs' ? 'tablist' : 'radiogroup'}
   aria-label={label}
   class={cx(
-    'relative inline-flex items-center',
+    'relative items-center',
+    equal ? 'inline-grid auto-cols-fr grid-flow-col' : 'inline-flex',
     appearance === 'pill' ? PILL_FRAME : 'gap-1 border-b border-line',
     className,
   )}
@@ -108,35 +115,53 @@
   ></span>
 
   {#each options as option, index (option.value)}
-    {@const selected = option.value === value}
-    <button
-      bind:this={buttons[index]}
-      type="button"
-      id="{idBase}-tab-{option.value}"
-      role={kind === 'tabs' ? 'tab' : 'radio'}
-      aria-selected={kind === 'tabs' ? selected : undefined}
-      aria-checked={kind === 'radio' ? selected : undefined}
-      aria-controls={kind === 'tabs' ? `${idBase}-panel` : undefined}
-      tabindex={selected ? 0 : -1}
-      disabled={option.disabled}
-      onclick={() => select(option)}
-      onkeydown={(event) => onKeydown(event, index)}
-      class={cx(
-        'relative z-10 inline-flex items-center gap-2 px-3.5 text-sm font-medium whitespace-nowrap transition-colors duration-[var(--dur-fast)] disabled:cursor-not-allowed disabled:opacity-50',
-        // Underline tabs sit in a strip that clips anything outside them, so their focus ring is drawn inside the tab,
-        // far enough in to leave a clear gap above the selected tab's underline instead of touching it.
-        appearance === 'pill' ? 'h-full rounded-sm' : 'h-control rounded-md focus-visible:outline-offset-[-6px]',
-        selected ? 'text-fg' : 'text-fg-2 hover:text-fg',
-      )}
-    >
-      {#if option.icon}
-        {@const Icon = option.icon}
-        <Icon size={16} strokeWidth={1.8} aria-hidden="true" />
-      {/if}
-      {option.label}
-      {#if option.count !== undefined}
-        <span class="tabular inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-surface-3 px-1.5 text-xs leading-none text-fg-2">{option.count}</span>
-      {/if}
-    </button>
+    {#if option.disabled && option.reason}
+      <!-- A disabled button gets no pointer events of its own, so the wrapper carries the tooltip that says why. -->
+      <Tooltip side="bottom" class="flex h-full">
+        {#snippet rich()}
+          <span class="text-fg-2">{option.reason}</span>
+        {/snippet}
+        {#snippet children({ describedby })}
+          {@render segment(option, index, describedby)}
+        {/snippet}
+      </Tooltip>
+    {:else}
+      {@render segment(option, index)}
+    {/if}
   {/each}
 </div>
+
+{#snippet segment(option: StripOption<T>, index: number, describedby?: string)}
+  {@const selected = option.value === value}
+  <button
+    bind:this={buttons[index]}
+    type="button"
+    id="{idBase}-tab-{option.value}"
+    role={kind === 'tabs' ? 'tab' : 'radio'}
+    aria-selected={kind === 'tabs' ? selected : undefined}
+    aria-checked={kind === 'radio' ? selected : undefined}
+    aria-controls={kind === 'tabs' ? `${idBase}-panel` : undefined}
+    aria-describedby={describedby}
+    tabindex={selected ? 0 : -1}
+    disabled={option.disabled}
+    onclick={() => select(option)}
+    onkeydown={(event) => onKeydown(event, index)}
+    class={cx(
+      'relative z-10 inline-flex items-center gap-2 px-3.5 text-sm font-medium whitespace-nowrap transition-colors duration-[var(--dur-fast)] disabled:cursor-not-allowed disabled:opacity-50',
+      equal && 'w-full justify-center',
+      // Underline tabs sit in a strip that clips anything outside them, so their focus ring is drawn inside the tab,
+      // far enough in to leave a clear gap above the selected tab's underline instead of touching it.
+      appearance === 'pill' ? 'h-full rounded-sm' : 'h-control rounded-md focus-visible:outline-offset-[-6px]',
+      selected ? 'text-fg' : 'text-fg-2 hover:text-fg',
+    )}
+  >
+    {#if option.icon}
+      {@const Icon = option.icon}
+      <Icon size={16} strokeWidth={1.8} aria-hidden="true" />
+    {/if}
+    {option.label}
+    {#if option.count !== undefined}
+      <span class="tabular inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-surface-3 px-1.5 text-xs leading-none text-fg-2">{option.count}</span>
+    {/if}
+  </button>
+{/snippet}

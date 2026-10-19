@@ -356,7 +356,13 @@ pub(crate) fn count_of(value: Option<&Value>) -> Option<u32> {
 
 /// The `scopes` counts of a list answer; `None` when the server does not send them.
 pub(crate) fn scope_counts(data: &Value) -> Option<MemoryScopeCounts> {
-    let scopes = data.get("scopes").filter(|scopes| scopes.is_object())?;
+    counts_by_scope(data, "scopes")
+}
+
+/// The counts of each scope in object `field` of a list answer (`{"repo": N, "global": N}`);
+/// `None` when the server does not send it.
+pub(crate) fn counts_by_scope(data: &Value, field: &str) -> Option<MemoryScopeCounts> {
+    let scopes = data.get(field).filter(|scopes| scopes.is_object())?;
 
     Some(MemoryScopeCounts {
         repo: count_of(scopes.get("repo")).unwrap_or(0),
@@ -374,7 +380,8 @@ pub(crate) fn scope_name(scope: ScriptScope) -> &'static str {
 
 /// Deletes every entry `harness-memory <command> list` shows for `project` without filters, with
 /// `<command> delete --all --yes --json [--project <root>]` (`command` is `notes` or `scripts`),
-/// which answers `{"deleted": N, "team": M}`. `unsupported` when the server predates it,
+/// which answers `{"deleted": N, "team": M}` (notes in a scope routed `remote+local` add
+/// `"kept": K`, the team notes left in place). `unsupported` when the server predates it,
 /// `process` with its line when it fails, `protocol` when it answers without `deleted`.
 pub(crate) async fn delete_all(
     env: &Env,
@@ -409,8 +416,9 @@ pub(crate) async fn delete_all(
     let outcome = MemoryDeleteAll {
         deleted,
         team: count_of(data.get("team")),
+        kept: count_of(data.get("kept")),
     };
 
-    tracing::info!(command, deleted, team = ?outcome.team, "memory entries deleted");
+    tracing::info!(command, deleted, team = ?outcome.team, kept = ?outcome.kept, "memory entries deleted");
     Ok(outcome)
 }

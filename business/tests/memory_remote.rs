@@ -13,7 +13,7 @@ use harness_business::ecosystem::{
     MemoryRemoteChange, ScriptsSupport, memory_config_path, memory_remote_get, memory_remote_set,
 };
 use harness_business::env::{Env, OsKind};
-use harness_business::model::{MemoryNotesTarget, MemoryRemote, MemoryRemoteKind};
+use harness_business::model::{MemoryNotesRouting, MemoryRemote, MemoryRemoteKind};
 use memory_remote_support::postgres_change;
 use pretty_assertions::assert_eq;
 
@@ -113,9 +113,9 @@ fn without_a_file_team_memory_is_off() {
             kind: None,
             url_redacted: None,
             has_token: false,
-            repository_notes: MemoryNotesTarget::Remote,
-            global_notes: MemoryNotesTarget::Remote,
-            scripts: MemoryNotesTarget::Remote,
+            repository_notes: MemoryNotesRouting::Remote,
+            global_notes: MemoryNotesRouting::Remote,
+            scripts: MemoryNotesRouting::Remote,
             scripts_supported: false,
             trust_team_scripts: false,
             trust_team_scripts_supported: false,
@@ -126,6 +126,8 @@ fn without_a_file_team_memory_is_off() {
             share_routines: false,
             trust_team_routines: false,
             documentdb_supported: false,
+            team_and_local_supported: false,
+            scripts_team_and_local_supported: false,
             config_path: "~/.config/harness-memory/config.toml".to_owned(),
             problem: None,
         }
@@ -166,8 +168,8 @@ fn a_saved_url_is_shown_without_password_query_or_token() {
         Some("postgresql://team@db.example.com:5432/memory")
     );
     assert!(remote.has_token);
-    assert_eq!(remote.repository_notes, MemoryNotesTarget::Local);
-    assert_eq!(remote.global_notes, MemoryNotesTarget::Remote);
+    assert_eq!(remote.repository_notes, MemoryNotesRouting::Local);
+    assert_eq!(remote.global_notes, MemoryNotesRouting::Remote);
     assert_eq!(remote.problem, None);
 
     let wire = serde_json::to_string(&remote).unwrap();
@@ -209,10 +211,10 @@ fn saving_keeping_clearing_and_removing() {
 
     // Null URL and token keep the saved ones; the routing is written every time.
     let mut keep = change(MemoryRemoteKind::Libsql, None, None);
-    keep.global_notes = MemoryNotesTarget::Local;
+    keep.global_notes = MemoryNotesRouting::Local;
     let remote = set(&env, keep).unwrap();
     assert!(remote.has_token);
-    assert_eq!(remote.global_notes, MemoryNotesTarget::Local);
+    assert_eq!(remote.global_notes, MemoryNotesRouting::Local);
     let file = saved(&path);
     assert_eq!(file["database_url"].as_str(), Some(url));
     assert_eq!(file["repository_notes"].as_str(), Some("remote"));
@@ -410,7 +412,7 @@ fn wrong_values_are_reported_and_replaced_on_save() {
     write(&path, "database_url = \"postgres://h/db\"\nglobal_notes = \"team\"\n");
 
     let remote = get(&env);
-    assert_eq!(remote.global_notes, MemoryNotesTarget::Remote);
+    assert_eq!(remote.global_notes, MemoryNotesRouting::Remote);
     assert!(remote.problem.unwrap().contains("global_notes must be"));
 
     write(&path, "database_url = 5\n");

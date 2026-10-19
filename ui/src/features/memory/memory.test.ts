@@ -24,7 +24,7 @@ describe('scripts table', () => {
     const open = within(rowButton('open-prs') as HTMLElement);
     expect(open.getByText('Bash')).toBeInTheDocument();
     expect(open.getByText('github.com/useful/harness-desktop')).toBeInTheDocument();
-    expect(open.getByText('Team')).toBeInTheDocument();
+    expect(open.getByText('Remote')).toBeInTheDocument();
     expect(open.getByText('14')).toBeInTheDocument();
 
     const global = within(rowButton('disk-hogs') as HTMLElement);
@@ -252,7 +252,7 @@ describe('deleting a script', () => {
     await askToDelete('open-prs');
 
     expect(await screen.findByText('Delete this script?')).toBeInTheDocument();
-    expect(screen.getByText('This script is kept in the team database. Deleting it removes it for everyone.')).toBeInTheDocument();
+    expect(screen.getByText('This script is kept in the remote database. Deleting it removes it for everyone.')).toBeInTheDocument();
     expect(calls(invoke, 'memory_script_delete')).toHaveLength(0);
 
     await fireEvent.click(await screen.findByRole('button', { name: 'Delete script' }));
@@ -270,7 +270,7 @@ describe('deleting a script', () => {
 
     await askToDelete('ci-status');
     expect(await screen.findByText('Delete this script?')).toBeInTheDocument();
-    expect(screen.queryByText(/kept in the team database/)).toBeNull();
+    expect(screen.queryByText(/kept in the remote database/)).toBeNull();
 
     await fireEvent.click(screen.getByRole('button', { name: 'Keep it' }));
 

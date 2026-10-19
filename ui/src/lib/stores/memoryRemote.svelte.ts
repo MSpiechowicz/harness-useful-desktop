@@ -1,4 +1,5 @@
-import type { MemoryNotesTarget } from '$lib/ipc/bindings/MemoryNotesTarget';
+import type { MemoryNotesRouting } from '$lib/ipc/bindings/MemoryNotesRouting';
+import type { MemoryScopeCounts } from '$lib/ipc/bindings/MemoryScopeCounts';
 import type { MemoryRemote } from '$lib/ipc/bindings/MemoryRemote';
 import type { MemoryRemoteKind } from '$lib/ipc/bindings/MemoryRemoteKind';
 import type { MemoryRemoteTest } from '$lib/ipc/bindings/MemoryRemoteTest';
@@ -12,9 +13,11 @@ export interface MemoryRemoteSave {
   url: string | null;
   /** Null keeps the saved token; an empty string clears it. */
   token: string | null;
-  repositoryNotes: MemoryNotesTarget;
-  globalNotes: MemoryNotesTarget;
-  scripts: MemoryNotesTarget;
+  /** Notes may also be read from the team database and saved on this computer (`remoteLocal`). */
+  repositoryNotes: MemoryNotesRouting;
+  globalNotes: MemoryNotesRouting;
+  /** Scripts follow the notes: they may also be read from the team database and saved on this computer (`remoteLocal`). */
+  scripts: MemoryNotesRouting;
   /** Run every script the team database holds without asking. */
   trustTeamScripts: boolean;
   /** Share hooks through the team database. Left out keeps the saved choice (a server that cannot keep team hooks has none to change). */
@@ -22,6 +25,9 @@ export interface MemoryRemoteSave {
   /** Run team hooks without local approval. Only saved on while hooks are shared. */
   trustTeamHooks?: boolean;
 }
+
+/** How many notes the file on this computer holds per scope, across all repositories. */
+export type LocalCounts = MemoryScopeCounts;
 
 export interface MemoryRemoteProbe {
   kind: MemoryRemoteKind;
@@ -57,6 +63,34 @@ export class MemoryRemoteStore {
     this.loadFailed = false;
 
     return saved;
+  }
+
+  /**
+   * The notes saved on this computer, per scope. They ride on any page of the notes list, so the cheapest read is a page of one note.
+   * Null when the server does not count them (an older one, or no team database) or the list cannot be read.
+   */
+  async localCounts(): Promise<LocalCounts | null> {
+    try {
+      const page = await this.transport.invoke('memory_notes_list', { project: null, offset: 0, limit: 1 });
+
+      return page.localCounts ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * How many scripts the file on this computer holds, every scope and repository together, read the same way as the notes (a page of one script).
+   * Null when the server does not count them (an older one, or no team database) or the list cannot be read.
+   */
+  async scriptLocalCounts(): Promise<number | null> {
+    try {
+      const page = await this.transport.invoke('memory_scripts_list', { project: null, offset: 0, limit: 1 });
+
+      return page.localCounts ? page.localCounts.repo + page.localCounts.global : null;
+    } catch {
+      return null;
+    }
   }
 
   test(args: MemoryRemoteProbe): Promise<MemoryRemoteTest> {

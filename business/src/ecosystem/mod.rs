@@ -34,12 +34,17 @@
 //!   [`memory_scripts_save`]: one created or edited there (`memory_script_save`), [`memory_requests`]:
 //!   the server's run requests for scripts this machine has not approved, the heartbeat that
 //!   lets it ask, and the answers, and [`memory_trust`]: `harness-memory trust`
-//!   (`memory_scripts_trust`).
+//!   (`memory_scripts_trust`). [`memory_hidden`]: a team note or script hidden on this machine
+//!   (`memory_note_hide`, `memory_script_hide`) and local copies discarded
+//!   (`memory_notes_discard_local`, `memory_scripts_discard_local`).
 //! - [`memory_team_docs`]: team documents of a signed document kind Harness Memory keeps
 //!   (`harness-memory <plural> …`), and whether the installed server has them; [`memory_hooks`]:
 //!   the same for hooks (`harness-memory hooks …`).
 //! - [`memory_kinds`]: which team databases the installed server can use (`harness-memory
-//!   kinds`).
+//!   kinds`), [`memory_features`]: what else it can do (`harness-memory features`), both probed
+//!   through [`memory_line_probe`].
+//! - [`memory_notes_copy`]: copying the notes or scripts saved on this computer to the team database
+//!   (`harness-memory push --json`, `scripts push --json`), its answer read by `memory_copy_answer`.
 
 pub mod catalog;
 pub mod dashboard;
@@ -53,10 +58,15 @@ pub mod mcp_pool;
 pub mod mcp_register;
 pub mod memory_binary;
 pub mod memory_cli;
+mod memory_copy_answer;
+pub mod memory_features;
+pub mod memory_hidden;
 pub mod memory_hooks;
 pub mod memory_kinds;
+mod memory_line_probe;
 pub mod memory_migrate;
 pub mod memory_notes;
+pub mod memory_notes_copy;
 pub mod memory_notes_import;
 pub mod memory_notes_save;
 mod memory_notes_titles;
@@ -87,10 +97,15 @@ pub use mcp_pool::{McpPool, PoolOptions};
 pub use mcp_register::{mcp_state, memory_mcp_state, register_dashboard_mcp};
 pub use memory_binary::{installed_memory, memory_version, parse_memory_version, resolve_memory};
 pub use memory_cli::ListWindow;
+pub use memory_features::{FeaturesSupport, MemoryFeatures};
+pub use memory_hidden::{MAX_LOCAL_IDS, discard_local, hide_entry};
 pub use memory_hooks::{HooksConfig, HooksSupport, MemoryHooks};
 pub use memory_kinds::{KindsSupport, MemoryKinds};
 pub use memory_migrate::{LegacyCopy, LegacyMigration, migrate_legacy_memory};
 pub use memory_notes::{NotesQuery, delete_all_notes, delete_note, get_note, list_notes};
+pub use memory_notes_copy::{
+    APPLY_TIMEOUT, NotesCopyCache, PREVIEW_TIMEOUT, PUSH_OUTPUT_BYTES, apply_notes_copy, preview_notes_copy,
+};
 pub use memory_notes_import::{
     FileRefusal, MAX_IMPORT_BYTES, MAX_IMPORT_ROWS, NotesImportRead, NotesImportRequest, StoredNotesImport,
     apply_notes_import, import_template, read_notes_file,

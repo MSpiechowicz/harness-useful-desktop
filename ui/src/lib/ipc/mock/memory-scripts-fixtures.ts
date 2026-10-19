@@ -43,6 +43,8 @@ export function sampleScripts(): ScriptDetail[] {
       lastExitCode: 0,
       trusted: true,
       approval: 'approved',
+      readOnly: false,
+      hidden: false,
       body: ['#!/usr/bin/env bash', 'set -euo pipefail', '', '# Open pull requests, newest first, one line each.', 'gh pr list --state open --json number,title,reviewDecision \\', "  --template '{{range .}}#{{.number}} {{.title}} [{{.reviewDecision}}]{{\"\\n\"}}{{end}}'", ''].join('\n'),
     },
     {
@@ -63,6 +65,8 @@ export function sampleScripts(): ScriptDetail[] {
       lastExitCode: 1,
       trusted: true,
       approval: 'local',
+      readOnly: false,
+      hidden: false,
       body: ['import json', 'import subprocess', 'import sys', '', 'runs = json.loads(', '    subprocess.check_output(["gh", "run", "list", "--limit", "5", "--json", "name,conclusion"])', ')', 'for run in runs:', '    print(run["name"], run["conclusion"] or "running")', 'sys.exit(1 if any(run["conclusion"] == "failure" for run in runs) else 0)', ''].join('\n'),
     },
     {
@@ -83,6 +87,8 @@ export function sampleScripts(): ScriptDetail[] {
       lastExitCode: null,
       trusted: false,
       approval: 'needed',
+      readOnly: false,
+      hidden: false,
       body: ['du -sk ./* 2>/dev/null | sort -rn | head -n 10', ''].join('\n'),
     },
     {
@@ -103,6 +109,8 @@ export function sampleScripts(): ScriptDetail[] {
       lastExitCode: 0,
       trusted: false,
       approval: 'needed',
+      readOnly: false,
+      hidden: false,
       body: DEPLOY_CHECK_BODY,
     },
     {
@@ -123,6 +131,8 @@ export function sampleScripts(): ScriptDetail[] {
       lastExitCode: 0,
       trusted: true,
       approval: 'team',
+      readOnly: false,
+      hidden: false,
       body: ["const { execFileSync } = require('node:child_process');", '', "const files = execFileSync('git', ['diff', '--name-only', 'origin/main']).toString().split('\\n').filter(Boolean);", "execFileSync('bunx', ['eslint', ...files], { stdio: 'inherit' });", ''].join('\n'),
     },
   ];

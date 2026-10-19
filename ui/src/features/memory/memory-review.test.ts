@@ -24,10 +24,10 @@ describe('approval in the list', () => {
     await showMemory();
 
     expect(rowOf('open-prs').getByText('Approved')).toBeInTheDocument();
-    expect(rowOf('lint-changed').getByText('Team trusted')).toBeInTheDocument();
+    expect(rowOf('lint-changed').getByText('Remote trusted')).toBeInTheDocument();
     expect(rowOf('disk-hogs').getByText('Needs review')).toBeInTheDocument();
     expect(rowOf('deploy-check').getByText('Needs review')).toBeInTheDocument();
-    expect(rowOf('ci-status').queryByText(/Approved|Team trusted|Needs review|Written here/)).toBeNull();
+    expect(rowOf('ci-status').queryByText(/Approved|Remote trusted|Needs review|Written here/)).toBeNull();
   });
 
   it('tells a screen reader which rows need review', async () => {
@@ -44,7 +44,7 @@ describe('approval in the list', () => {
     await fireEvent.click(rowButton('lint-changed') as HTMLElement);
 
     const panel = await panelOf('lint-changed');
-    await waitFor(() => expect(within(panel).getAllByText('Team trusted')).toHaveLength(1));
+    await waitFor(() => expect(within(panel).getAllByText('Remote trusted')).toHaveLength(1));
   });
 });
 

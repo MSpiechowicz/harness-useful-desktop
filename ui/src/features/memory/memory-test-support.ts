@@ -3,6 +3,7 @@ import { afterEach, beforeAll, beforeEach, vi } from 'vitest';
 
 import type { EcosystemStatus } from '$lib/ipc/bindings/EcosystemStatus';
 import type { EcosystemRelease } from '$lib/ipc/bindings/EcosystemRelease';
+import type { MemoryRemote } from '$lib/ipc/bindings/MemoryRemote';
 import type { MemoryScriptsAvailability } from '$lib/ipc/bindings/MemoryScriptsAvailability';
 import type { NoteContent } from '$lib/ipc/bindings/NoteContent';
 import type { NoteSaved } from '$lib/ipc/bindings/NoteSaved';
@@ -16,17 +17,20 @@ import { fixtures } from '$lib/ipc/mock/fixtures';
 import { sampleScripts, summaryOf } from '$lib/ipc/mock/memory-scripts-fixtures';
 import { detailOf, sampleNotes } from '$lib/ipc/mock/memory-notes-fixtures';
 import { pageOfNotes } from '$lib/ipc/mock/memory-notes-handlers';
+import { type CopyStores, teamNotesHandlers, teamScriptsHandlers } from '$lib/ipc/mock/memory-notes-team-handlers';
 import { pageOfScripts } from '$lib/ipc/mock/memory-scripts-handlers';
 import { IpcFailure } from '$lib/ipc/transport';
 import { ecosystem } from '$lib/stores/ecosystem.svelte';
 import { noteDetail, noteList } from '$lib/stores/memoryNotes.svelte';
 import { scriptDetail, scriptList } from '$lib/stores/memoryScripts.svelte';
 import { nav } from '$lib/stores/nav.svelte';
+import { memoryRemote } from '$lib/stores/memoryRemote.svelte';
 import { toasts } from '$lib/stores/toasts.svelte';
 import { viewState } from '$lib/stores/view-state.svelte';
 
 import { startMockApp } from '../../../tests/mock-app';
 import { noteEditor, scriptEditor } from './editor-state.svelte';
+import { notesTeam, scriptsTeam } from './notes-team.svelte';
 import NotesView from './NotesView.svelte';
 import ScriptsView from './ScriptsView.svelte';
 
@@ -94,6 +98,11 @@ export function fakeMemory(availability: MemoryScriptsAvailability | (() => Memo
   let notes = initialNotes;
   const probe = () => (typeof availability === 'function' ? availability() : availability);
   const combines = () => (typeof combined === 'function' ? combined() : combined);
+  // A second fake in one test replaces the first: what it does not answer goes to the mock backend, not back to the first fake.
+  if (vi.isMockFunction(ipc.invoke)) {
+    (ipc.invoke as unknown as { mockRestore: () => void }).mockRestore();
+  }
+
   const passthrough = ipc.invoke.bind(ipc);
 
   /** Like the real server: a title taken in the scope is refused (`exists`), a save by id rewrites that note and keeps its scope. */
@@ -166,12 +175,27 @@ export function fakeMemory(availability: MemoryScriptsAvailability | (() => Memo
     return result;
   };
 
+  // Hiding, copying to the remote database and deleting what stays on this computer, for the notes and the scripts.
+  const stores: CopyStores = {};
+  const team = {
+    ...teamNotesHandlers({ read: () => notes, write: (next) => (notes = next), availability: probe }, stores),
+    ...teamScriptsHandlers({ read: () => scripts, write: (next) => (scripts = next), availability: probe }, stores),
+  };
+  const teamCommand = (name: string): name is keyof typeof team => name in team;
+
   return vi.spyOn(ipc, 'invoke').mockImplementation(async <K extends CommandName>(name: K, args: CommandArgs<K>) => {
+    if (teamCommand(name)) {
+      return (team[name] as (args: CommandArgs<K>) => CommandResult<K>)(args);
+    }
+
     if (name === 'memory_scripts_list') {
       const asked = args as CommandArgs<'memory_scripts_list'>;
       const visible = scripts.filter((script) => script.scope === 'global' || asked.project !== null);
       const found = probe();
-      const page = found.kind === 'available' ? pageOfScripts(visible.map(summaryOf), asked, combines()) : { total: 0, groups: { needsReview: 0, repo: 0, global: 0 }, scopes: null, review: null, combinedFilters: combines(), scripts: [] };
+      const page =
+        found.kind === 'available'
+          ? pageOfScripts(visible.map(summaryOf), asked, combines(), scripts.map(summaryOf))
+          : { total: 0, groups: { needsReview: 0, repo: 0, global: 0 }, scopes: null, review: null, combinedFilters: combines(), scripts: [], hiddenCount: null, localCounts: null };
 
       return { availability: found, ...page } as CommandResult<K>;
     }
@@ -179,13 +203,14 @@ export function fakeMemory(availability: MemoryScriptsAvailability | (() => Memo
     if (name === 'memory_notes_list') {
       const asked = args as CommandArgs<'memory_notes_list'>;
       const found = probe();
-      const page = found.kind === 'available' ? pageOfNotes(notes.filter((note) => note.scope === 'global' || asked.project !== null), asked, combines()) : { total: 0, kinds: [], scopes: null, combinedFilters: combines(), notes: [] };
+      const page = found.kind === 'available' ? pageOfNotes(notes.filter((note) => note.scope === 'global' || asked.project !== null), asked, combines(), notes) : { total: 0, kinds: [], scopes: null, combinedFilters: combines(), notes: [], hiddenCount: null, localCounts: null };
 
       return { availability: found, ...page } as CommandResult<K>;
     }
 
     if (name === 'memory_note_get') {
-      const found = notes.find((note) => note.id === (args as CommandArgs<'memory_note_get'>).id);
+      const { id, hidden = false } = args as CommandArgs<'memory_note_get'>;
+      const found = notes.find((note) => note.id === id && note.hidden === hidden);
       if (!found) {
         throw IpcFailure.from({ code: 'notFound', message: 'gone' });
       }
@@ -214,21 +239,26 @@ export function fakeMemory(availability: MemoryScriptsAvailability | (() => Memo
 
     // Deleting everything takes what the project sees: its repository's and the global ones.
     if (name === 'memory_notes_delete_all') {
-      const gone = notes.filter((note) => note.scope === 'global' || (args as CommandArgs<'memory_notes_delete_all'>).project !== undefined);
+      // A team note that is read-only here stays.
+      const seen = notes.filter((note) => note.scope === 'global' || (args as CommandArgs<'memory_notes_delete_all'>).project !== undefined);
+      const gone = seen.filter((note) => !note.readOnly);
       notes = notes.filter((note) => !gone.includes(note));
 
-      return { deleted: gone.length, team: gone.filter((note) => note.place === 'team').length } as CommandResult<K>;
+      return { deleted: gone.length, team: gone.filter((note) => note.place === 'team').length, kept: seen.length - gone.length } as CommandResult<K>;
     }
 
     if (name === 'memory_scripts_delete_all') {
-      const gone = scripts.filter((script) => script.scope === 'global' || (args as CommandArgs<'memory_scripts_delete_all'>).project !== undefined);
+      // A remote script that is read-only here stays.
+      const seen = scripts.filter((script) => script.scope === 'global' || (args as CommandArgs<'memory_scripts_delete_all'>).project !== undefined);
+      const gone = seen.filter((script) => !script.readOnly);
       scripts = scripts.filter((script) => !gone.includes(script));
 
-      return { deleted: gone.length, team: gone.filter((script) => script.place === 'team').length } as CommandResult<K>;
+      return { deleted: gone.length, team: gone.filter((script) => script.place === 'team').length, kept: seen.length - gone.length } as CommandResult<K>;
     }
 
     if (name === 'memory_script_get') {
-      const found = scripts.find((script) => script.id === (args as CommandArgs<'memory_script_get'>).id);
+      const { id, hidden = false } = args as CommandArgs<'memory_script_get'>;
+      const found = scripts.find((script) => script.id === id && script.hidden === hidden);
       if (!found) {
         throw IpcFailure.from({ code: 'notFound', message: 'gone' });
       }
@@ -261,6 +291,8 @@ export function fakeMemory(availability: MemoryScriptsAvailability | (() => Memo
         place: 'local',
         trusted: true,
         approval: 'local',
+        readOnly: false,
+        hidden: false,
         updatedAt: now,
         createdAt: same?.createdAt ?? now,
         runCount: same?.runCount ?? 0,
@@ -301,6 +333,19 @@ export function fakeMemory(availability: MemoryScriptsAvailability | (() => Memo
   });
 }
 
+/** Settings that have a team database with the given routing of the notes, in place of the mock backend's none. */
+export function withTeamDatabase(invoke: ReturnType<typeof fakeMemory>, routing: Pick<MemoryRemote, 'repositoryNotes' | 'globalNotes'> & Partial<Pick<MemoryRemote, 'scripts'>>): void {
+  const real = invoke.getMockImplementation() as typeof ipc.invoke;
+
+  invoke.mockImplementation((async (name: CommandName, args: never) => {
+    if (name !== 'memory_remote_get') {
+      return real(name as never, args);
+    }
+
+    return { ...(await real('memory_remote_get', undefined)), enabled: true, kind: 'postgres', urlRedacted: 'postgres://team@db.example.com/memory', ...routing };
+  }) as typeof ipc.invoke);
+}
+
 export function calls(invoke: ReturnType<typeof fakeMemory>, name: string): unknown[] {
   return invoke.mock.calls.filter(([command]) => command === name).map(([, args]) => args);
 }
@@ -326,6 +371,11 @@ export function registerMemoryHooks(): void {
     scriptDetail.sync(null, null);
     noteEditor.reset();
     scriptEditor.reset();
+    notesTeam.reset();
+    notesTeam.dismissedAt = 0;
+    scriptsTeam.reset();
+    scriptsTeam.dismissedAt = 0;
+    memoryRemote.value = null;
     ecosystem.reset();
   });
 

@@ -87,7 +87,7 @@ pub async fn fetch_team<K: DocKind>(
                 if !list.complete {
                     fetch.complete = false;
                     fetch.problem.get_or_insert(BusinessError::Protocol(format!(
-                        "harness-memory listed more team {} than this app reads",
+                        "harness-memory listed more remote {} than this app reads",
                         K::PLURAL
                     )));
                 }

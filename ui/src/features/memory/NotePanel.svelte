@@ -31,10 +31,18 @@
     /** Opens the editor on the note. Absent until the note was read, because the editor needs its content. */
     onedit: (() => void) | undefined;
     ondelete: () => void;
+    /** Hides the team note on this computer, or shows it again when it is hidden. */
+    onhide: () => void;
     onclose: () => void;
   }
 
-  let { open, inline, note, detail, status, error, onretry, onopennote, onedit, ondelete, onclose }: Props = $props();
+  let { open, inline, note, detail, status, error, onretry, onopennote, onedit, ondelete, onhide, onclose }: Props = $props();
+
+  // A hidden note is a team note that only Unhide acts on. A team note of a scope that saves here is read-only: it can only be hidden. A team note
+  // of a scope on the team database can be edited and deleted, and hidden as well. A note of this computer cannot be hidden.
+  const isHidden = $derived(note?.hidden ?? false);
+  const readOnly = $derived(isHidden || (note?.readOnly ?? false));
+  const canHide = $derived(isHidden || note?.place === 'team');
 
   const subtitle = $derived(note ? `${t(KIND_LABELS[note.kind])} · ${noteScopeText(note)}` : '');
   const hidden = $derived(detail ? revealHidden(detail.note.body).count : 0);
@@ -86,7 +94,11 @@
       {/if}
     </SectionCard>
 
-    <PanelActions editLabel={t('memory.editor.edit')} {onedit} deleteLabel={t('memory.panel.delete')} {ondelete} />
+    <PanelActions editLabel={t('memory.editor.edit')} {onedit} deleteLabel={t('memory.panel.delete')} {ondelete} {readOnly} onhide={canHide ? onhide : undefined} hidden={isHidden}>
+      {#if readOnly}
+        <p class="text-sm text-fg-3">{t(isHidden ? 'memory.hidden.help.hidden' : 'memory.hidden.help.readOnly')}</p>
+      {/if}
+    </PanelActions>
 
     <FactsCard flat heading={t('memory.panel.details')} rows={noteFacts(note)} />
   {/if}

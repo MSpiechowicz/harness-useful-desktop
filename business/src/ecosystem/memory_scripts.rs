@@ -9,7 +9,9 @@
 //! the project root as `project_path` when there is one. The app never opens the memory database:
 //! the server reads the local file or the team database as its own config says. Deleting every
 //! script runs `harness-memory scripts delete --all` (see
-//! [`memory_cli::delete_all`](super::memory_cli::delete_all)).
+//! [`memory_cli::delete_all`](super::memory_cli::delete_all)). A team script hidden on this
+//! machine is invisible to `script_get`: it is read with `harness-memory scripts get <id> --json
+//! --hidden [--project P]` instead, which answers `{"script": {... "body"}}`.
 //!
 //! Whether the server keeps scripts at all is probed once per binary (`tools/list` must offer
 //! `script_list`) and cached until the binary at that path changes; a failed probe is not cached.
@@ -34,13 +36,14 @@ use super::catalog::MEMORY_BINARY;
 use super::mcp_client::{ToolOutput, clean_error_text};
 use super::mcp_pool::{McpPool, PoolOptions};
 use super::memory_binary::resolve_memory;
-use super::memory_cli::delete_all;
+use super::memory_cli::{delete_all, run_json};
+use super::memory_hidden::{HIDDEN_FLAG, by_id, call, entry_server, not_found};
 use super::memory_remote::ScriptsSupport;
 pub use super::memory_scripts_list::ScriptsQuery;
 use super::memory_scripts_list::{list_page, unavailable_page};
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
-use crate::model::{MemoryDeleteAll, MemoryScriptsAvailability, MemoryScriptsPage, ScriptDetail};
+use crate::model::{MemoryCopyKind, MemoryDeleteAll, MemoryScriptsAvailability, MemoryScriptsPage, ScriptDetail};
 use crate::process::{ExecSpec, ProcessRunner, ProcessSpawner};
 
 /// The tool whose presence marks a server that keeps scripts.
@@ -155,6 +158,35 @@ impl MemoryScripts {
             .ok_or_else(|| missing_field(SCRIPT_GET_TOOL, "script"))?;
 
         parse(script, SCRIPT_GET_TOOL)
+    }
+
+    /// Team script `id` hidden on this machine, with its body (`harness-memory scripts get <id>
+    /// --json --hidden`). `notFound` when it is gone, not hidden, or the server is not installed,
+    /// `unsupported` when the server predates hiding scripts, `process` with its (redacted) line
+    /// when it fails.
+    pub async fn get_hidden(
+        &self,
+        env: &Env,
+        runner: &dyn ProcessRunner,
+        id: i64,
+        project: Option<&Path>,
+    ) -> Result<ScriptDetail> {
+        const COMMAND: &str = "scripts get";
+        let kind = MemoryCopyKind::Scripts;
+
+        let server = entry_server(env, self, kind).await?;
+        let args = by_id(kind, "get", id, &["--json", HIDDEN_FLAG], project);
+
+        let data = run_json(env, runner, &server, call(COMMAND, args))
+            .await
+            .map_err(|error| not_found(kind, error, id))?;
+
+        let script = data
+            .get("script")
+            .cloned()
+            .ok_or_else(|| missing_field(COMMAND, "script"))?;
+
+        parse(script, COMMAND)
     }
 
     /// Deletes script `id`. `notFound` when it is gone or the server is not installed,

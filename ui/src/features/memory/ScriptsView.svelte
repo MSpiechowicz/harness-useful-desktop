@@ -6,9 +6,13 @@
   import { provideHeaderActions } from './HeaderActions.svelte';
   import { useScriptsData } from './memory-data.svelte';
   import MemoryHeader from './MemoryHeader.svelte';
+  import NotesCopyBanner from './NotesCopyBanner.svelte';
+  import NotesCopyDialog from './NotesCopyDialog.svelte';
   import ScriptsSection from './ScriptsSection.svelte';
 
   useScriptsData();
+
+  let copying = $state(false);
 
   const headerActions = provideHeaderActions('scripts-header-actions');
   // There is nothing to save to while Harness Memory is missing, too old or not answering.
@@ -18,5 +22,9 @@
 <div class="flex size-full min-h-0 flex-col overflow-clip">
   <MemoryHeader view="scripts" slot={headerActions} addLabel={t('memory.editor.add.script')} {available} onadd={() => scriptEditor.create()} />
 
+  <NotesCopyBanner kind="scripts" oncopy={() => (copying = true)} />
+
   <ScriptsSection />
 </div>
+
+<NotesCopyDialog kind="scripts" open={copying} onclose={() => (copying = false)} />

@@ -5,6 +5,8 @@ export interface StripOption<V extends string = string> {
   label: string;
   icon?: IconComponent;
   disabled?: boolean;
+  /** Why a disabled option cannot be chosen: shown as a tooltip on hover and focus, which a disabled button cannot show by itself. */
+  reason?: string;
   /** Small count pill after the label. */
   count?: number;
 }

@@ -25,6 +25,7 @@ mod hook;
 mod ipc_error;
 mod memory_import;
 mod memory_notes;
+mod memory_notes_copy;
 mod memory_remote;
 mod memory_requests;
 mod memory_save;
@@ -88,7 +89,11 @@ pub use memory_notes::{
     MemoryNotesPage, NoteContent, NoteDetail, NoteKind, NoteKindCount, NoteLink, NoteLinkDirection, NoteSort,
     NoteSummary, SortOrder,
 };
-pub use memory_remote::{MemoryNotesTarget, MemoryRemote, MemoryRemoteKind, MemoryRemoteTest};
+pub use memory_notes_copy::{
+    LocalNoteIds, MemoryCopyKind, NoteIdsWord, NotesCopyAction, NotesCopyCounts, NotesCopyFailure, NotesCopyFilter,
+    NotesCopyPreview, NotesCopyResult, NotesCopyRow, NotesCopyRows,
+};
+pub use memory_remote::{MemoryNotesRouting, MemoryNotesTarget, MemoryRemote, MemoryRemoteKind, MemoryRemoteTest};
 pub use memory_requests::{
     ScriptPreviousOrigin, ScriptPreviousVersion, ScriptRequestEvent, ScriptRunRequest, ScriptStdin,
 };

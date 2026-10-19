@@ -34,4 +34,14 @@ combinedFilters: boolean,
 /**
  * This page, as the server sorts it.
  */
-notes: Array<NoteSummary>, };
+notes: Array<NoteSummary>, 
+/**
+ * How many team notes in the view are hidden on this machine; `None` without a team
+ * database or from a server that does not say.
+ */
+hiddenCount: number | null, 
+/**
+ * How many notes of each scope the local file on this machine holds, every repository
+ * counted; `None` without a team database or from a server that does not say.
+ */
+localCounts: MemoryScopeCounts | null, };

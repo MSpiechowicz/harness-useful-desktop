@@ -5,12 +5,17 @@
 //! server's commands, within [`LIST_TIMEOUT`]:
 //!
 //! - `notes list --json --offset N --limit N [--query Q] [--kind K] [--scope repo|global] --sort
-//!   updated|title|kind|scope|place --order O [--project P]` answers `{"notes": [...], "total": N,
-//!   "kinds": [{"kind", "count"}], "scopes": {"repo", "global"}}`: the repository notes of the
-//!   project and the global ones. A server that predates combined filters answers without
-//!   `scopes` and refuses `--scope` (a usage error): the list is then asked once more without it
-//!   (see [`run_list`]);
-//! - `notes get <id> --json [--project P]` answers `{"note": {... "body"}, "links": [...]}`;
+//!   updated|title|kind|scope|place --order O [--project P] [--hidden]` answers `{"notes": [...],
+//!   "total": N, "kinds": [{"kind", "count"}], "scopes": {"repo", "global"}}`: the repository notes
+//!   of the project and the global ones, each with `readOnly` and `hidden`, and with a team
+//!   database `hiddenCount` and `localCounts` (`{"repo", "global"}`, every repository). `--hidden`
+//!   lists the team notes hidden on this machine instead. A server that predates combined filters
+//!   answers without `scopes` and refuses `--scope` (a usage error): the list is then asked once
+//!   more without it (see [`run_list`]);
+//! - `notes get <id> --json [--project P] [--hidden]` answers `{"note": {... "body"}, "links":
+//!   [...]}`; a hidden note only with `--hidden`;
+//! - `notes hide|unhide` and `notes discard-local` are [`memory_hidden`](super::memory_hidden)'s,
+//!   shared with scripts;
 //! - `notes delete <id> [--project P]` prints `deleted note <id> <title>`;
 //! - `notes delete --all --yes --json [--project P]` deletes every note the list shows without
 //!   filters and answers `{"deleted": N, "team": M}` (see [`memory_cli::delete_all`](super::memory_cli::delete_all)).
@@ -30,20 +35,22 @@ use serde::de::DeserializeOwned;
 use serde_json::Value;
 
 use super::memory_cli::{
-    CliCall, LIST_OUTPUT_BYTES, LIST_TIMEOUT, ListAnswer, ListWindow, count_of, delete_all, list_availability,
-    project_args, run_json, run_list, run_text, scope_counts, scope_name,
+    ListAnswer, ListWindow, count_of, counts_by_scope, delete_all, list_availability, run_json, run_list, run_text,
+    scope_counts, scope_name,
 };
-use super::memory_scripts::{MemoryScripts, unavailable_error};
+pub(super) use super::memory_hidden::ids_on_stdin;
+use super::memory_hidden::{HIDDEN_FLAG, by_id, call, entry_server, kind_args, not_found};
+use super::memory_scripts::MemoryScripts;
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::model::{
-    MemoryDeleteAll, MemoryNotesPage, MemoryScriptsAvailability, NoteDetail, NoteKind, NoteKindCount, NoteSort,
-    NoteSummary, ScriptScope,
+    MemoryCopyKind, MemoryDeleteAll, MemoryNotesPage, MemoryScriptsAvailability, NoteDetail, NoteKind, NoteKindCount,
+    NoteSort, NoteSummary, ScriptScope,
 };
 use crate::process::ProcessRunner;
 
-/// What an outdated server lacks, in messages.
-const NOTES_VIEW: &str = "the notes view";
+/// What the notes calls run: `harness-memory notes`.
+const NOTES: MemoryCopyKind = MemoryCopyKind::Notes;
 
 /// Which notes [`list_notes`] reads.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -56,6 +63,8 @@ pub struct NotesQuery {
     pub scope: Option<ScriptScope>,
     /// `updated` unless given.
     pub sort: Option<NoteSort>,
+    /// List the team notes hidden on this machine instead of the visible ones.
+    pub hidden: bool,
 }
 
 /// One page of the repository notes of `project` (a project root; `None` for the global ones
@@ -75,6 +84,8 @@ pub async fn list_notes(
         scopes: None,
         combined_filters: false,
         notes: Vec::new(),
+        hidden_count: None,
+        local_counts: None,
     };
 
     let server = match probe.cli_server(env).await {
@@ -94,10 +105,15 @@ pub async fn list_notes(
     let mut filters = kind.clone();
     filters.extend(query.scope.map(|scope| ("--scope", scope_name(scope))));
 
-    let args = notes_args(query.window.list_args(&filters, sort, project));
-    let fallback = query
-        .scope
-        .map(|_| notes_args(query.window.list_args(&kind, sort, project)));
+    let hidden = query.hidden.then(|| OsString::from(HIDDEN_FLAG));
+    let listed = |filters: &[(&str, &str)]| {
+        let mut args = kind_args(NOTES, query.window.list_args(filters, sort, project));
+        args.extend(hidden.clone());
+        args
+    };
+
+    let args = listed(&filters);
+    let fallback = query.scope.map(|_| listed(&kind));
 
     match run_list(env, runner, &server, "notes list", args, fallback).await {
         Ok(answer) => notes_page(answer),
@@ -105,22 +121,24 @@ pub async fn list_notes(
     }
 }
 
-/// Note `id` with its body and links. `notFound` when the server cannot see it from `project` or
-/// is not installed, `unsupported` when it predates the notes view, `process` with its (redacted)
-/// line when it fails.
+/// Note `id` with its body and links; with `hidden` a team note hidden on this machine (only).
+/// `notFound` when the server cannot see it from `project` or is not installed, `unsupported` when
+/// it predates the notes view (or `hidden`), `process` with its (redacted) line when it fails.
 pub async fn get_note(
     env: &Env,
     probe: &MemoryScripts,
     runner: &dyn ProcessRunner,
     id: i64,
     project: Option<&Path>,
+    hidden: bool,
 ) -> Result<NoteDetail> {
     let server = server(env, probe).await?;
-    let args = by_id("get", id, Some("--json"), project);
+    let flags: &[&str] = if hidden { &["--json", HIDDEN_FLAG] } else { &["--json"] };
+    let args = by_id(NOTES, "get", id, flags, project);
 
     let data = run_json(env, runner, &server, call("notes get", args))
         .await
-        .map_err(|error| not_found(error, id))?;
+        .map_err(|error| not_found(NOTES, error, id))?;
 
     let note = data
         .get("note")
@@ -144,11 +162,11 @@ pub async fn delete_note(
     project: Option<&Path>,
 ) -> Result<()> {
     let server = server(env, probe).await?;
-    let args = by_id("delete", id, None, project);
+    let args = by_id(NOTES, "delete", id, &[], project);
 
     run_text(env, runner, &server, call("notes delete", args))
         .await
-        .map_err(|error| not_found(error, id))?;
+        .map_err(|error| not_found(NOTES, error, id))?;
 
     tracing::info!(id, "memory note deleted");
     Ok(())
@@ -170,48 +188,8 @@ pub async fn delete_all_notes(
 }
 
 /// The installed server when it has the notes view, else the error that says why not.
-async fn server(env: &Env, probe: &MemoryScripts) -> Result<PathBuf> {
-    probe
-        .cli_server(env)
-        .await
-        .map_err(|availability| unavailable_error(availability, NOTES_VIEW))
-}
-
-fn call(name: &str, args: Vec<OsString>) -> CliCall<'_> {
-    CliCall {
-        name,
-        args,
-        timeout: LIST_TIMEOUT,
-        output_bytes: LIST_OUTPUT_BYTES,
-        stdin: None,
-    }
-}
-
-/// `notes` and then `rest`.
-fn notes_args(rest: Vec<OsString>) -> Vec<OsString> {
-    let mut args = vec![OsString::from("notes")];
-    args.extend(rest);
-
-    args
-}
-
-/// `notes <command> <id> [<flag>] [--project <root>]`.
-fn by_id(command: &str, id: i64, flag: Option<&str>, project: Option<&Path>) -> Vec<OsString> {
-    let mut rest: Vec<OsString> = vec![command.into(), id.to_string().into()];
-    rest.extend(flag.map(OsString::from));
-    rest.extend(project_args(project));
-
-    notes_args(rest)
-}
-
-/// `error` as `notFound` when it is the server's line for a note it cannot see.
-fn not_found(error: BusinessError, id: i64) -> BusinessError {
-    match error {
-        BusinessError::Process(message) if message == format!("harness-memory: note {id} not found") => {
-            BusinessError::NotFound(format!("note {id}"))
-        }
-        other => other,
-    }
+pub(super) async fn server(env: &Env, probe: &MemoryScripts) -> Result<PathBuf> {
+    entry_server(env, probe, NOTES).await
 }
 
 /// The server's name of `kind`.
@@ -240,6 +218,8 @@ fn notes_page(answer: ListAnswer) -> MemoryNotesPage {
         scopes: scope_counts(data),
         combined_filters: answer.combined_filters,
         notes,
+        hidden_count: count_of(data.get("hiddenCount")),
+        local_counts: counts_by_scope(data, "localCounts"),
     }
 }
 

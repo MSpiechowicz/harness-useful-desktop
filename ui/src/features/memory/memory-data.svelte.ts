@@ -11,6 +11,7 @@ import { autoRefresh } from '$lib/utils/auto-refresh';
 
 import { noteEditor, scriptEditor } from './editor-state.svelte';
 import { notesImport } from './notes-import-state.svelte';
+import { notesTeam, scriptsTeam } from './notes-team.svelte';
 
 /** The columns the server sorts the notes by: all of them, and a column is named by its key. */
 const NOTE_SORTS: readonly NoteSort[] = ['updated', 'title', 'kind', 'scope', 'place'];
@@ -67,6 +68,7 @@ export function useNotesData(): void {
     sort: sortOf(NOTE_SORTS, viewState.notesSort.key),
     order: viewState.notesSort.desc ? 'desc' : 'asc',
     page: viewState.notesPage,
+    hidden: notesTeam.showHidden,
   });
 
   // The editor and the import review belong to the project on screen and to this view: neither outlives a switch of project or leaving the view.
@@ -86,6 +88,16 @@ export function useNotesData(): void {
 
     // The store reads its own state while loading; only the request and the project may re-run this.
     untrack(() => noteList.revalidate(key, where));
+  });
+
+  // The last hidden note shown again leaves a filter with nothing to show.
+  $effect(() => {
+    const page = noteList.data;
+
+    if (notesTeam.showHidden && page && page.availability.kind === 'available' && page.hiddenCount === 0 && noteList.holds(notesKey(request), path)) {
+      notesTeam.showHidden = false;
+      viewState.notesPage = 0;
+    }
   });
 
   $effect(() => {
@@ -111,6 +123,7 @@ export function useScriptsData(): void {
     sort: sortOf(SCRIPT_SORTS, viewState.scriptsSort.key),
     order: viewState.scriptsSort.desc ? 'desc' : 'asc',
     page: viewState.scriptsPage,
+    hidden: scriptsTeam.showHidden,
   });
 
   // The editor belongs to the project on screen and to this view: it does not outlive a switch of project or leaving the view.
@@ -125,6 +138,16 @@ export function useScriptsData(): void {
     const where = path;
 
     untrack(() => scriptList.revalidate(key, where));
+  });
+
+  // The last hidden script shown again leaves a filter with nothing to show.
+  $effect(() => {
+    const page = scriptList.data;
+
+    if (scriptsTeam.showHidden && page && page.availability.kind === 'available' && page.hiddenCount === 0 && scriptList.holds(scriptsKey(request), path)) {
+      scriptsTeam.showHidden = false;
+      viewState.scriptsPage = 0;
+    }
   });
 
   // The open script is read again with every look at the list, so what an agent changed in it shows whether or not its row is on this page.

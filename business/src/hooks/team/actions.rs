@@ -52,7 +52,7 @@ pub fn approve_team_hook(store: &HookStore, folder: &TeamFolder, id: &str, sha25
 /// `NotFound` without a copy.
 pub fn set_team_enabled(store: &HookStore, folder: &TeamFolder, id: &str, enabled: bool) -> Result<()> {
     if folder.read_one(id).is_none() {
-        return Err(BusinessError::NotFound("the team hook".to_owned()));
+        return Err(BusinessError::NotFound("the remote hook".to_owned()));
     }
 
     let mut state = load_state(store.config_dir())?;

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-memory-notes-copy-preview"
+description = "Enables the memory_notes_copy_preview command without any pre-configured scope."
+commands.allow = ["memory_notes_copy_preview"]
+
+[[permission]]
+identifier = "deny-memory-notes-copy-preview"
+description = "Denies the memory_notes_copy_preview command without any pre-configured scope."
+commands.deny = ["memory_notes_copy_preview"]

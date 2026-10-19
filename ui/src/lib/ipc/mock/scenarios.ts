@@ -10,6 +10,7 @@ import { hookScenarioFromLocation, MockHooks } from './hooks-state';
 import { hostHandlers } from './host-handlers';
 import { memoryRemoteHandlers } from './memory-remote-handlers';
 import { memoryNotesHandlers } from './memory-notes-handlers';
+import type { CopyStores } from './memory-notes-team-handlers';
 import { availabilityOf, memoryScriptsHandlers, scenarioAfterInstall, scriptScenarioFromLocation } from './memory-scripts-handlers';
 import { projectHandlers } from './project-handlers';
 import { routineHandlers } from './routine-handlers';
@@ -66,6 +67,7 @@ export function defaultScenario(): Scenario {
   const setup = setupHandlers(harnesses, setupScenarioFromLocation, () => state.setMemoryEnabled(true));
   const ecosystem = ecosystemHandlers();
   let memoryInstalled = false;
+  const copyStores: CopyStores = {};
 
   const handlers: Handlers = {
     ...base,
@@ -109,9 +111,9 @@ export function defaultScenario(): Scenario {
     // `?remote=postgres|libsql|problem` starts with a saved team database; `harness-memory check` passes for URLs containing "ok".
     ...memoryRemoteHandlers(),
     // `?scripts=empty|notInstalled|outdated|outdatedNoRelease|failed` changes what the Scripts view finds, `?scripts=ok` (the default) lists three samples.
-    ...memoryScriptsHandlers(() => (memoryInstalled ? scenarioAfterInstall(scriptScenarioFromLocation()) : scriptScenarioFromLocation())),
-    // The notes follow the same server as the scripts. `?notes=empty` keeps none.
-    ...memoryNotesHandlers(() => availabilityOf(memoryInstalled ? scenarioAfterInstall(scriptScenarioFromLocation()) : scriptScenarioFromLocation())),
+    ...memoryScriptsHandlers(() => (memoryInstalled ? scenarioAfterInstall(scriptScenarioFromLocation()) : scriptScenarioFromLocation()), undefined, copyStores),
+    // The notes follow the same server as the scripts. `?notes=empty` keeps none. The copy commands serve both, so they share the stores.
+    ...memoryNotesHandlers(() => availabilityOf(memoryInstalled ? scenarioAfterInstall(scriptScenarioFromLocation()) : scriptScenarioFromLocation()), undefined, undefined, undefined, copyStores),
     // Installing or updating Harness Memory from the Notes or Scripts view fixes its `notInstalled` and `outdated` previews.
     setup_install_memory: async (args) => {
       const result = await setup.handlers.setup_install_memory(args);

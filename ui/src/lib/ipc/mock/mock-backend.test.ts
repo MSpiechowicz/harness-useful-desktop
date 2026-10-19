@@ -9,6 +9,7 @@ import { samplePrefs } from '../../../../tests/helpers';
 import { fixtures } from './fixtures';
 import { sampleScripts } from './memory-scripts-fixtures';
 import type { ScriptLanguage } from '../bindings/ScriptLanguage';
+import { MEMORY_NOTE_ARGS } from './mock-backend-note-args';
 
 /** One valid call per command; typed so adding a command to the map forces an entry here. */
 const sampleArgs = (sessionKey: string): { [K in CommandName]: CommandArgs<K> } => ({
@@ -22,6 +23,8 @@ const sampleArgs = (sessionKey: string): { [K in CommandName]: CommandArgs<K> } 
   memory_scripts_list: { project: '/home/demo/project', offset: 0 },
   memory_script_get: { id: 12, project: '/home/demo/project' },
   memory_script_delete: { id: 12, project: '/home/demo/project' },
+  memory_script_hide: { id: 12, project: '/home/demo/project', hidden: true },
+  memory_scripts_discard_local: { ids: 'all' },
   memory_script_save: {
     project: '/home/demo/project',
     draft: { name: 'open-prs', description: 'Edited in the app', language: 'bash', body: 'echo app\n', timeoutSecs: 60, scope: 'repo' },
@@ -29,14 +32,7 @@ const sampleArgs = (sessionKey: string): { [K in CommandName]: CommandArgs<K> } 
     base: sampleScripts().find((script) => script.id === 12)?.sha256 ?? '',
   },
   memory_scripts_delete_all: { project: '/home/demo/project' },
-  memory_notes_list: { project: '/home/demo/project', offset: 0 },
-  memory_note_get: { id: 3, project: '/home/demo/project' },
-  memory_note_delete: { id: 3, project: '/home/demo/project' },
-  memory_note_save: { project: '/home/demo/project', draft: { title: 'A note from the app', body: 'Written in the app.', kind: 'decision', tags: [], entities: [], scope: 'repo' } },
-  memory_notes_delete_all: { project: null },
-  memory_notes_import_preview: { project: '/home/demo/project' },
-  memory_notes_import_template: { format: 'json' },
-  memory_notes_import_apply: { planId: 'notes-import-1', rows: [0, 2], defaultScope: 'repo', replace: false, project: '/home/demo/project', onProgress: () => {} },
+  ...MEMORY_NOTE_ARGS,
   memory_scripts_trust: { items: [{ id: 21, sha256: sampleScripts().find((script) => script.id === 21)?.sha256 ?? '' }], project: '/home/demo/project' },
   memory_script_requests_listen: { onRequest: () => {} },
   memory_script_decide: { requestId: 'a'.repeat(32), allow: false },
@@ -239,6 +235,11 @@ describe('mock transport', () => {
 
     if (name === 'memory_notes_import_apply') {
       await mock.invoke('memory_notes_import_preview', { project: '/home/demo/project' });
+    }
+
+    // A page of a copy review, and the copy itself, belong to a comparison made first.
+    if (name === 'memory_notes_copy_rows' || name === 'memory_notes_copy_apply') {
+      await mock.invoke('memory_notes_copy_preview', { kind: 'notes' });
     }
 
     // The memory server is registered only once it is installed.

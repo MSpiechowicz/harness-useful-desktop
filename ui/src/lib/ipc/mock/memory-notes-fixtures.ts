@@ -50,6 +50,8 @@ function note(seed: Seed): NoteContent {
     updatedAt: ago(seed.age),
     revision: seed.revision ?? 1,
     hits: seed.hits ?? 0,
+    readOnly: false,
+    hidden: false,
   };
 }
 

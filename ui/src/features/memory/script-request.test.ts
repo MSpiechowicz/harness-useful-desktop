@@ -78,7 +78,7 @@ describe('script run request dialog', () => {
     expect(within(dialog).getByText(/claude-code asks to run this script on your computer\. Running it also approves this version\./)).toBeInTheDocument();
 
     const facts = Array.from(dialog.querySelectorAll('dl > div')).map((fact) => fact.textContent?.replace(/\s+/g, ' ').trim());
-    expect(facts).toEqual(['Asked by (as it says) claude-code', 'Written by (as it says) claude-code · /home/mia/work/harness-desktop', 'Kept in Team']);
+    expect(facts).toEqual(['Asked by (as it says) claude-code', 'Written by (as it says) claude-code · /home/mia/work/harness-desktop', 'Kept in Remote']);
     expect(within(dialog).getByText('--env staging')).toBeInTheDocument();
   });
 

@@ -106,7 +106,7 @@ describe('routineFacts', () => {
     expect(routineFacts(trusting, 'approved', view()).find((row) => row.label === 'Project trust')).toMatchObject({ tone: 'warning' });
   });
 
-  it('credits a routine to an agent while its version waits, and says for a team routine who shared it', () => {
+  it('credits a routine to an agent while its version waits, and says for a remote routine who shared it', () => {
     const waiting = { ...BASE, createdBy: 'desktop' as const, updatedBy: 'agent' as const };
 
     expect(routineFacts(waiting, 'changed', view()).find((row) => row.label === 'Source')).toMatchObject({ value: 'An agent' });
@@ -117,6 +117,6 @@ describe('routineFacts', () => {
     expect(labels(team)).toContain('Shared by');
     expect(team.find((row) => row.label === 'Repository')).toMatchObject({ value: 'github.com/acme/app' });
     expect(team.find((row) => row.label === 'Runs in')).toMatchObject({ value: '/work/app' });
-    expect(team.find((row) => row.label === 'Source')).toMatchObject({ value: 'Team' });
+    expect(team.find((row) => row.label === 'Source')).toMatchObject({ value: 'Remote' });
   });
 });

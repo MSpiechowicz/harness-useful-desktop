@@ -13,9 +13,10 @@ import type { CommandArgs } from '../commands';
 import { IpcFailure } from '../transport';
 import { deletedAll, requireServer } from './memory-delete-all';
 import { detailOf, noteSummaryOf, sampleNotes } from './memory-notes-fixtures';
+import { type CopyStores, type TeamNotesHandlers, teamNotesHandlers } from './memory-notes-team-handlers';
 
-/** Browser-preview switch `?notes=`: `empty` keeps no notes at all. Anything else shows the sample notes. */
-export const NOTE_SCENARIOS = ['ok', 'empty'] as const;
+/** Browser-preview switch `?notes=`: `empty` keeps no notes at all, `readonly` makes the team notes read-only (a scope that saves on this computer), `blocked` hides a team note that has the title of a note on this computer, so a copy cannot take that one. Anything else shows the sample notes. */
+export const NOTE_SCENARIOS = ['ok', 'empty', 'readonly', 'blocked'] as const;
 export type NoteScenario = (typeof NOTE_SCENARIOS)[number];
 
 export function noteScenarioFromLocation(search: string = globalThis.location?.search ?? ''): NoteScenario {
@@ -30,7 +31,7 @@ export function combinesFilters(search: string = globalThis.location?.search ?? 
 }
 
 /** The notes of Harness Memory kept in memory: `memory_notes_list/note_get/note_delete/notes_delete_all/note_save` like the real backend, without a server. */
-export interface NoteHandlers {
+export interface NoteHandlers extends TeamNotesHandlers {
   memory_notes_list: (args: CommandArgs<'memory_notes_list'>) => MemoryNotesPage;
   memory_note_get: (args: CommandArgs<'memory_note_get'>) => NoteDetail;
   memory_note_delete: (args: CommandArgs<'memory_note_delete'>) => null;
@@ -145,13 +146,16 @@ const NOTE_ORDERS: Record<NoteSort, NoteOrder> = {
 /**
  * One page of notes as the server answers: filtered by the query, the scope and the kind, sorted and cut. The kinds are counted under the
  * query and the scope, the scopes under the query and the kind. `combined: false` is an older server: it drops the scope and counts no scopes.
+ * A hidden note is listed only when `hidden` asks for them. `everything` is every note of the store, which the count of notes on this computer takes in.
  */
 export function pageOfNotes(
   visible: NoteContent[],
-  { offset, limit = DEFAULT_LIMIT, query = '', kind, scope, sort = 'updated', order }: CommandArgs<'memory_notes_list'>,
+  { offset, limit = DEFAULT_LIMIT, query = '', kind, scope, sort = 'updated', order, hidden = false }: CommandArgs<'memory_notes_list'>,
   combined = true,
+  everything: NoteContent[] = visible,
 ): Omit<MemoryNotesPage, 'availability'> {
-  const answering = visible.filter((found) => matches(found, query));
+  const answering = visible.filter((found) => matches(found, query) && found.hidden === hidden);
+  const onThisComputer = everything.filter((found) => found.place === 'local');
   const direction = (order ?? (sort === 'updated' ? 'desc' : 'asc')) === 'desc' ? -1 : 1;
   const compare = NOTE_ORDERS[sort];
   const inKind = answering.filter((found) => kind === undefined || found.kind === kind);
@@ -164,7 +168,16 @@ export function pageOfNotes(
     scopes: combined ? { repo: inKind.filter((found) => found.scope === 'repo').length, global: inKind.filter((found) => found.scope === 'global').length } : null,
     combinedFilters: combined,
     notes: [...chosen].sort((a, b) => direction * (compare(a, b) || a.id - b.id)).slice(offset, offset + limit).map(noteSummaryOf),
+    hiddenCount: visible.filter((found) => found.hidden).length,
+    localCounts: { repo: onThisComputer.filter((found) => found.scope === 'repo').length, global: onThisComputer.filter((found) => found.scope === 'global').length },
   };
+}
+
+/** With `blocked`, a team note hidden on this computer takes the title of the first note saved on it, so copying that one collides with it. */
+function withBlocked(notes: NoteContent[], blocked: boolean): NoteContent[] {
+  const local = notes.find((found) => found.place === 'local');
+
+  return blocked && local ? [...notes, { ...local, id: Math.max(...notes.map((found) => found.id)) + 1, place: 'team', hidden: true }] : notes;
 }
 
 export function memoryNotesHandlers(
@@ -172,15 +185,17 @@ export function memoryNotesHandlers(
   scenario: () => NoteScenario = noteScenarioFromLocation,
   combined: () => boolean = combinesFilters,
   importScenario: () => NotesImportScenario = notesImportScenarioFromLocation,
+  copyStores: CopyStores = {},
 ): NoteHandlers {
   let notes: NoteContent[] | null = null;
-  const current = (): NoteContent[] => (notes ??= scenario() === 'ok' ? sampleNotes() : []);
+  const current = (): NoteContent[] =>
+    (notes ??= scenario() === 'empty' ? [] : withBlocked(sampleNotes(), scenario() === 'blocked').map((found) => ({ ...found, readOnly: scenario() === 'readonly' && found.place === 'team' })));
 
   /** A project sees its repository's notes and the global ones, no project only the global ones. */
   const visible = (project: string | null): NoteContent[] => current().filter((found) => found.scope === 'global' || project !== null);
 
-  const find = (id: number, project: string | null): NoteContent => {
-    const found = visible(project).find((candidate) => candidate.id === id);
+  const find = (id: number, project: string | null, hidden = false): NoteContent => {
+    const found = visible(project).find((candidate) => candidate.id === id && candidate.hidden === hidden);
     if (!found) {
       throw IpcFailure.from({ code: 'notFound', message: `note ${id} was not found` });
     }
@@ -197,12 +212,12 @@ export function memoryNotesHandlers(
     memory_notes_list: (args: CommandArgs<'memory_notes_list'>): MemoryNotesPage => {
       const state = availability();
       if (state.kind !== 'available') {
-        return { availability: state, total: 0, kinds: [], scopes: null, combinedFilters: combined(), notes: [] };
+        return { availability: state, total: 0, kinds: [], scopes: null, combinedFilters: combined(), notes: [], hiddenCount: null, localCounts: null };
       }
 
-      return { availability: state, ...pageOfNotes(visible(args.project), args, combined()) };
+      return { availability: state, ...pageOfNotes(visible(args.project), args, combined(), current()) };
     },
-    memory_note_get: ({ id, project }: CommandArgs<'memory_note_get'>): NoteDetail => detailOf(find(id, project), visible(project)),
+    memory_note_get: ({ id, project, hidden }: CommandArgs<'memory_note_get'>): NoteDetail => detailOf(find(id, project, hidden), visible(project)),
     memory_note_delete: ({ id, project }: CommandArgs<'memory_note_delete'>): null => {
       const found = find(id, project);
       notes = current().filter((candidate) => candidate !== found);
@@ -212,10 +227,12 @@ export function memoryNotesHandlers(
     memory_notes_delete_all: ({ project = null }: CommandArgs<'memory_notes_delete_all'>): MemoryDeleteAll => {
       requireServer(availability());
 
-      const gone = visible(project);
+      // A team note that is read-only here stays.
+      const all = visible(project);
+      const gone = all.filter((candidate) => !candidate.readOnly);
       notes = current().filter((candidate) => !gone.includes(candidate));
 
-      return deletedAll(gone);
+      return deletedAll(gone, all.length - gone.length);
     },
     // Like the real backend: an edit (or a replace) goes by id and keeps the scope, and a new note whose title a note of its scope
     // has is refused (`exists`): the server refuses a repository one, the app looks a global one up first.
@@ -260,6 +277,8 @@ export function memoryNotesHandlers(
         updatedAt: now,
         revision: 0,
         hits: 0,
+        readOnly: false,
+        hidden: false,
       };
 
       rewrite(created, draft);
@@ -271,6 +290,7 @@ export function memoryNotesHandlers(
 
   return {
     ...saving,
+    ...teamNotesHandlers({ read: current, write: (next) => (notes = next), availability }, copyStores),
     // Like the real backend: one review at a time, kept with its project, used up by its import, dropped by a refused file.
     memory_notes_import_preview: async ({ project }) => {
       const picked = importScenario();

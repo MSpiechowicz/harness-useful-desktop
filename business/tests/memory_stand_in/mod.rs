@@ -71,6 +71,7 @@ impl ProcessRunner for StandIn {
             .timeout(spec.timeout)
             .max_output_bytes(spec.max_output_bytes);
         fake.cwd = spec.cwd.clone();
+        fake.stdin = spec.stdin.clone();
 
         Box::pin(async move { TokioRunner.run(&fake).await })
     }
@@ -156,6 +157,15 @@ impl Setup {
         self.requested()
             .into_iter()
             .filter(|spec| spec.args != ["mcp"])
+            .collect()
+    }
+
+    /// The arguments of command run `run` (counted as [`Self::runs`]), as text.
+    pub fn run_args(&self, run: usize) -> Vec<String> {
+        self.runs()[run]
+            .args
+            .iter()
+            .map(|arg| arg.to_string_lossy().into_owned())
             .collect()
     }
 

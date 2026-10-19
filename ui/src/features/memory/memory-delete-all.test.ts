@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { ipc } from '$lib/ipc/client';
 import type { CommandName } from '$lib/ipc/commands';
 import { sampleNotes } from '$lib/ipc/mock/memory-notes-fixtures';
+import { sampleScripts } from '$lib/ipc/mock/memory-scripts-fixtures';
 import { IpcFailure } from '$lib/ipc/transport';
 import { nav } from '$lib/stores/nav.svelte';
 import { toasts } from '$lib/stores/toasts.svelte';
@@ -45,7 +46,7 @@ describe('deleting all scripts', () => {
     await chooseDeleteAll('Delete all scripts…');
 
     expect(await screen.findByText('Delete all 5 scripts?')).toBeInTheDocument();
-    expect(screen.getByText('4 of them are in the team database, so your teammates lose them too.')).toBeInTheDocument();
+    expect(screen.getByText('4 of them are in the remote database, so your teammates lose them too.')).toBeInTheDocument();
     expect(calls(invoke, 'memory_scripts_delete_all')).toHaveLength(0);
 
     await fireEvent.click(screen.getByRole('button', { name: 'Delete all scripts' }));
@@ -54,7 +55,38 @@ describe('deleting all scripts', () => {
     expect(calls(invoke, 'memory_scripts_delete_all')).toEqual([{ project: PROJECT }]);
     expect(viewState.scriptId).toBeNull();
     expect(screen.queryByRole('dialog')).toBeNull();
-    expect(toasts.items.at(-1)).toMatchObject({ title: '5 scripts deleted', description: '4 of them were in the team database.', tone: 'success' });
+    expect(toasts.items.at(-1)).toMatchObject({ title: '5 scripts deleted', description: '4 of them were in the remote database.', tone: 'success' });
+  });
+
+  it('leaves the read-only remote scripts out, says they stay and can be hidden, and tells how many stayed', async () => {
+    const scripts = sampleScripts().map((script) => ({ ...script, readOnly: script.place === 'team' }));
+    const stay = scripts.filter((script) => script.readOnly).length;
+    const invoke = fakeMemory({ kind: 'available' }, scripts);
+    await showMemory();
+
+    await chooseDeleteAll('Delete all scripts…');
+
+    expect(scripts.length - stay).toBe(1);
+    expect(await screen.findByText('Delete 1 script?')).toBeInTheDocument();
+    expect(screen.getByText(`${stay} remote scripts stay, you can hide them.`)).toBeInTheDocument();
+    expect(screen.queryByText(/your teammates lose/)).toBeNull();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Delete all scripts' }));
+
+    await waitFor(() => expect(calls(invoke, 'memory_scripts_delete_all')).toEqual([{ project: PROJECT }]));
+    await waitFor(() => expect(toasts.items.at(-1)).toMatchObject({ title: '1 script deleted', description: `${stay} remote scripts stay, you can hide them.` }));
+  });
+
+  it('says so instead of asking when only read-only remote scripts are left', async () => {
+    const scripts = sampleScripts().map((script) => ({ ...script, place: 'team' as const, readOnly: true }));
+    const invoke = fakeMemory({ kind: 'available' }, scripts);
+    await showMemory();
+
+    await chooseDeleteAll('Delete all scripts…');
+
+    await waitFor(() => expect(toasts.items.at(-1)).toMatchObject({ title: `Nothing to delete here. The ${scripts.length} remote scripts stay, you can hide them.`, tone: 'info' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(calls(invoke, 'memory_scripts_delete_all')).toHaveLength(0);
   });
 
   it('names the whole list even while a search narrows the table', async () => {
@@ -122,7 +154,7 @@ describe('deleting all notes', () => {
     await chooseDeleteAll('Delete all notes…');
 
     expect(await screen.findByText(`Delete all ${all.length} notes?`)).toBeInTheDocument();
-    expect(screen.getByText(`${team} of them are in the team database, so your teammates lose them too.`)).toBeInTheDocument();
+    expect(screen.getByText(`${team} of them are in the remote database, so your teammates lose them too.`)).toBeInTheDocument();
 
     await fireEvent.click(screen.getByRole('button', { name: 'Delete all notes' }));
 
@@ -139,7 +171,7 @@ describe('deleting all notes', () => {
     await chooseDeleteAll('Delete all notes…');
 
     expect(await screen.findByText('Delete all 260 notes?')).toBeInTheDocument();
-    expect(screen.getByText('Some of them may be in the team database, so your teammates lose them too.')).toBeInTheDocument();
+    expect(screen.getByText('Some of them may be in the remote database, so your teammates lose them too.')).toBeInTheDocument();
   });
 
   it('leaves the team out when every note is on this computer', async () => {
@@ -150,6 +182,36 @@ describe('deleting all notes', () => {
     await chooseDeleteAll('Delete all notes…');
 
     expect(await screen.findByText(`Delete all ${local.length} notes?`)).toBeInTheDocument();
-    expect(screen.queryByText(/team database/)).toBeNull();
+    expect(screen.queryByText(/remote database/)).toBeNull();
+  });
+
+  it('leaves the read-only remote notes out, says they stay and can be hidden, and tells how many stayed', async () => {
+    const notes = sampleNotes().map((note) => ({ ...note, readOnly: note.place === 'team' }));
+    const stay = notes.filter((note) => note.readOnly).length;
+    const invoke = fakeMemory({ kind: 'available' }, undefined, undefined, notes);
+    await showNotes();
+
+    await chooseDeleteAll('Delete all notes…');
+
+    expect(await screen.findByText(`Delete all ${notes.length - stay} notes?`)).toBeInTheDocument();
+    expect(screen.getByText(`${stay} remote notes stay, you can hide them.`)).toBeInTheDocument();
+    expect(screen.queryByText(/your teammates lose/)).toBeNull();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Delete all notes' }));
+
+    await waitFor(() => expect(calls(invoke, 'memory_notes_delete_all')).toEqual([{ project: PROJECT }]));
+    await waitFor(() => expect(toasts.items.at(-1)).toMatchObject({ title: `${notes.length - stay} notes deleted`, description: `${stay} remote notes stay, you can hide them.` }));
+  });
+
+  it('says so instead of asking when only read-only remote notes are left', async () => {
+    const notes = sampleNotes().map((note) => ({ ...note, place: 'team' as const, readOnly: true }));
+    const invoke = fakeMemory({ kind: 'available' }, undefined, undefined, notes);
+    await showNotes();
+
+    await chooseDeleteAll('Delete all notes…');
+
+    await waitFor(() => expect(toasts.items.at(-1)).toMatchObject({ title: `Nothing to delete here. The ${notes.length} remote notes stay, you can hide them.`, tone: 'info' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(calls(invoke, 'memory_notes_delete_all')).toHaveLength(0);
   });
 });

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-memory-notes-copy-apply"
+description = "Enables the memory_notes_copy_apply command without any pre-configured scope."
+commands.allow = ["memory_notes_copy_apply"]
+
+[[permission]]
+identifier = "deny-memory-notes-copy-apply"
+description = "Denies the memory_notes_copy_apply command without any pre-configured scope."
+commands.deny = ["memory_notes_copy_apply"]

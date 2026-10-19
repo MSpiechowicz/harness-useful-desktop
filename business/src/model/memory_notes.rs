@@ -94,6 +94,14 @@ pub struct NoteSummary {
     pub revision: u32,
     /// How often an agent recalled it.
     pub hits: u32,
+    /// True for a team note in a scope routed `remote+local`: it cannot be changed or deleted
+    /// from this machine, only hidden here. False from a server that does not say.
+    #[serde(default)]
+    pub read_only: bool,
+    /// True for a team note hidden on this machine (listed only when hidden notes are asked for).
+    /// False from a server that does not say.
+    #[serde(default)]
+    pub hidden: bool,
 }
 
 /// One note with its body.
@@ -179,4 +187,10 @@ pub struct MemoryNotesPage {
     pub combined_filters: bool,
     /// This page, as the server sorts it.
     pub notes: Vec<NoteSummary>,
+    /// How many team notes in the view are hidden on this machine; `None` without a team
+    /// database or from a server that does not say.
+    pub hidden_count: Option<u32>,
+    /// How many notes of each scope the local file on this machine holds, every repository
+    /// counted; `None` without a team database or from a server that does not say.
+    pub local_counts: Option<MemoryScopeCounts>,
 }

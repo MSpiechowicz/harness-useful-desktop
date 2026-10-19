@@ -76,7 +76,7 @@ pub fn team_view(store: &RoutineStore, folder: &TeamFolder, trust: bool, id: &st
         .views
         .into_iter()
         .find(|view| view.id == id)
-        .ok_or_else(|| BusinessError::NotFound("the team routine".to_owned()))
+        .ok_or_else(|| BusinessError::NotFound("the remote routine".to_owned()))
 }
 
 /// The app window's listing for `project` (a project root; `None`: global only): the local

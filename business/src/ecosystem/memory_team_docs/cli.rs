@@ -126,7 +126,7 @@ pub async fn list_team_docs<K: DocKind>(
     if !list.complete {
         tracing::warn!(
             pages = MAX_PAGES,
-            "harness-memory listed more team {} pages than this app reads",
+            "harness-memory listed more remote {} pages than this app reads",
             K::NOUN
         );
     }

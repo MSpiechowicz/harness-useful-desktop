@@ -4,7 +4,8 @@
 // TS side:   top-level keys of `export const commands = { ... }` in `ui/src/lib/ipc/commands.ts`.
 //
 // Expected TS format: the map starts at a line beginning `export const commands` and ends at the
-// first following line that starts with `}` in column 0. Each entry starts a line with exactly two
+// first following line that starts with `}` in column 0. A `  ...name,` line spreads the map of another
+// file (see SPREAD_FILES), which starts at `export const name = {`. Each entry starts a line with exactly two
 // spaces of indentation followed by the snake_case command name and a colon, e.g.
 //   `  project_pick: cmd<ProjectPickArgs, ProjectPickResult>(),`
 //   `  agent_stop: {`
@@ -21,6 +22,8 @@ import { join } from 'node:path';
 import { failWith, listFiles, readText, repoRoot } from './git-files';
 
 const COMMANDS_TS = 'ui/src/lib/ipc/commands.ts';
+// Object spread into the map (`...memoryCommands,`): its file holds more entries in the same format.
+const SPREAD_FILES: Record<string, string> = { memoryCommands: 'ui/src/lib/ipc/commands-memory.ts' };
 const BUILD_RS = 'src-tauri/build.rs';
 const CAPABILITY = 'src-tauri/capabilities/main.json';
 
@@ -44,23 +47,27 @@ function rustCommandNames(): Set<string> {
   return names;
 }
 
-function tsCommandNames(): Set<string> {
+/** The entry names of the map that starts at the line matching `start`, up to the first `}` in column 0. */
+function mapNames(path: string, start: RegExp): Set<string> {
   const names = new Set<string>();
-  if (!existsSync(join(repoRoot, COMMANDS_TS))) {
-    return names;
+  const lines = readText(path).split(/\r?\n/);
+  const first = lines.findIndex((line) => start.test(line));
+  if (first === -1) {
+    failWith('check-ipc-contract: cannot find the command map', [`${path} must contain a line matching ${start}`]);
   }
 
-  const lines = readText(COMMANDS_TS).split(/\r?\n/);
-  const start = lines.findIndex((line) => /^export const commands\b/.test(line));
-  if (start === -1) {
-    failWith('check-ipc-contract: cannot find the command map', [
-      `${COMMANDS_TS} must contain a line starting with "export const commands"`,
-    ]);
-  }
-
-  for (const line of lines.slice(start + 1)) {
+  for (const line of lines.slice(first + 1)) {
     if (line.startsWith('}')) {
       break;
+    }
+
+    const spread = /^ {2}\.\.\.(\w+),/.exec(line);
+    const spreadPath = spread ? SPREAD_FILES[spread[1]] : undefined;
+    if (spread && !spreadPath) {
+      failWith('check-ipc-contract: unknown spread in the command map', [`${spread[1]} is not listed in SPREAD_FILES`]);
+    }
+    if (spread && spreadPath) {
+      mapNames(spreadPath, new RegExp(`^export const ${spread[1]}\\b`)).forEach((name) => names.add(name));
     }
 
     const match = /^ {2}([a-z][a-z0-9_]*)\s*:/.exec(line);
@@ -70,6 +77,14 @@ function tsCommandNames(): Set<string> {
   }
 
   return names;
+}
+
+function tsCommandNames(): Set<string> {
+  if (!existsSync(join(repoRoot, COMMANDS_TS))) {
+    return new Set();
+  }
+
+  return mapNames(COMMANDS_TS, /^export const commands\b/);
 }
 
 /** The names in `const COMMANDS: &[&str] = &[ ... ];` of the build script. */

@@ -29,7 +29,7 @@ describe('The Team group', () => {
     const grid = screen.getByRole('grid', { name: 'Hooks' });
     const headings = within(grid).getAllByRole('columnheader').filter((cell) => cell.getAttribute('scope') === 'colgroup');
 
-    expect(headings.map((cell) => cell.textContent?.replace(/\s+/g, ' ').trim())).toEqual(['Global 4 of 64', 'This project demo 2 of 64', 'Team 5']);
+    expect(headings.map((cell) => cell.textContent?.replace(/\s+/g, ' ').trim())).toEqual(['Global 4 of 64', 'This project demo 2 of 64', 'Remote 5']);
     expect(within(teamRowOf(COMMITS)).getByText('Active')).toBeInTheDocument();
     expect(within(teamRowOf(TYPES)).getByText('Pending approval')).toBeInTheDocument();
     expect(within(teamRowOf('Remind about tests')).getByText('Overridden')).toBeInTheDocument();
@@ -39,7 +39,7 @@ describe('The Team group', () => {
     const { invoke } = fakeHooks('ok');
     await showHooks();
 
-    expect(screen.queryByText('Team', { selector: 'th span' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Remote', { selector: 'th span' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^Source:/ })).not.toBeInTheDocument();
     expect(calls(invoke, 'hooks_team_refresh')).toEqual([{ project: PROJECT }]);
   });
@@ -59,18 +59,18 @@ describe('The Team group', () => {
     const buttons = screen.getAllByRole('button', { name: /^(When|Status|Source):/ }).map((button) => button.getAttribute('aria-label'));
     expect(buttons).toEqual(['When: All', 'Status: All', 'Source: All']);
 
-    await pick('Source: All', /^Team/);
-    expect(screen.getByRole('button', { name: 'Source: Team' })).toBeInTheDocument();
+    await pick('Source: All', /^Remote/);
+    expect(screen.getByRole('button', { name: 'Source: Remote' })).toBeInTheDocument();
     expect(screen.queryByText('Search Harness Memory first')).not.toBeInTheDocument();
     expect(teamRowOf(COMMITS)).toBeInTheDocument();
 
-    await pick('Source: Team', /^Mine/);
+    await pick('Source: Remote', /^Mine/);
     expect(screen.getByText('Search Harness Memory first')).toBeInTheDocument();
     expect(document.querySelector('[data-row^="team:"]')).toBeNull();
-    expect(screen.queryByText('Team', { selector: 'th span' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Remote', { selector: 'th span' })).not.toBeInTheDocument();
   });
 
-  it('lists Overridden as a status only while a team hook is in it', async () => {
+  it('lists Overridden as a status only while a remote hook is in it', async () => {
     fakeHooks('team');
     await showHooks();
 
@@ -83,13 +83,13 @@ describe('The Team group', () => {
     fakeHooks('teamProblem');
     await showHooks();
 
-    expect(await screen.findByText(/Could not refresh the team hooks, so these are the last ones read\. The team database did not answer in time\./)).toBeInTheDocument();
+    expect(await screen.findByText(/Could not refresh the remote hooks, so these are the last ones read\. The remote database did not answer in time\./)).toBeInTheDocument();
     expect(teamRowOf(COMMITS)).toBeInTheDocument();
   });
 });
 
 describe('The trust of the team', () => {
-  it('is said in the Team group while team hooks run without asking, and not otherwise', async () => {
+  it('is said in the Team group while remote hooks run without asking, and not otherwise', async () => {
     fakeHooks('teamTrusted');
     await showHooks();
 
@@ -151,7 +151,7 @@ describe('Sharing a local hook', () => {
   });
 });
 
-describe('A team hook', () => {
+describe('A remote hook', () => {
   it('shows who shared it and when, and can neither be edited nor deleted', async () => {
     fakeHooks('team');
     await showHooks();
@@ -161,8 +161,8 @@ describe('A team hook', () => {
 
     expect(within(details).getByText('Shared by')).toBeInTheDocument();
     expect(within(details).getByText('Anna Kowalska')).toBeInTheDocument();
-    expect(within(details).getByText('Updated on the team')).toBeInTheDocument();
-    expect(within(details).getByText('Team', { selector: 'dd, span, p, div' })).toBeInTheDocument();
+    expect(within(details).getByText('Updated on remote')).toBeInTheDocument();
+    expect(within(details).getByText('Remote', { selector: 'dd, span, p, div' })).toBeInTheDocument();
     expect(within(panel).queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
     expect(within(panel).queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument();
   });
@@ -204,33 +204,33 @@ describe('A team hook', () => {
     await showHooks();
     const team = hooks.views.find((view) => view.origin === 'team' && view.name === COMMITS) as NonNullable<(typeof hooks.views)[number]>;
 
-    await fireEvent.click(within(await open(teamRowOf(COMMITS), COMMITS)).getByRole('button', { name: 'Remove from team' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Remove this hook from the team?' });
+    await fireEvent.click(within(await open(teamRowOf(COMMITS), COMMITS)).getByRole('button', { name: 'Remove from remote' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Remove this hook from remote?' });
     expect(calls(invoke, 'hooks_team_remove')).toEqual([]);
 
     await fireEvent.click(within(dialog).getByRole('button', { name: 'Keep it' }));
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Remove this hook from the team?' })).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Remove this hook from remote?' })).not.toBeInTheDocument());
     expect(calls(invoke, 'hooks_team_remove')).toEqual([]);
 
-    await fireEvent.click(within(screen.getByRole('region', { name: COMMITS })).getByRole('button', { name: 'Remove from team' }));
-    await fireEvent.click(within(await screen.findByRole('dialog', { name: 'Remove this hook from the team?' })).getByRole('button', { name: 'Remove from team' }));
+    await fireEvent.click(within(screen.getByRole('region', { name: COMMITS })).getByRole('button', { name: 'Remove from remote' }));
+    await fireEvent.click(within(await screen.findByRole('dialog', { name: 'Remove this hook from remote?' })).getByRole('button', { name: 'Remove from remote' }));
 
     await waitFor(() => expect(document.querySelector('[data-row^="team:"]')?.textContent).not.toContain(COMMITS));
     expect(calls(invoke, 'hooks_team_remove')).toEqual([{ id: team.id, sha256: team.sha256 }]);
-    await waitFor(() => expect(toasts.items.map((toast) => toast.title)).toContain(`${COMMITS} removed from the team.`));
+    await waitFor(() => expect(toasts.items.map((toast) => toast.title)).toContain(`${COMMITS} removed from remote.`));
   });
 
-  it('offers to update its team copy from the original when the original changed since it was shared', async () => {
+  it('offers to update its remote copy from the original when the original changed since it was shared', async () => {
     const { invoke } = fakeHooks('team');
     await showHooks();
     const original = hooks.views.find((view) => view.origin === 'local' && view.name === SMALL) as NonNullable<(typeof hooks.views)[number]>;
 
     const panel = await open(teamRowOf(SMALL), SMALL);
-    await fireEvent.click(within(panel).getByRole('button', { name: 'Update team copy' }));
+    await fireEvent.click(within(panel).getByRole('button', { name: 'Update remote copy' }));
 
-    await waitFor(() => expect(within(screen.getByRole('region', { name: SMALL })).queryByRole('button', { name: 'Update team copy' })).not.toBeInTheDocument());
+    await waitFor(() => expect(within(screen.getByRole('region', { name: SMALL })).queryByRole('button', { name: 'Update remote copy' })).not.toBeInTheDocument());
     expect(calls(invoke, 'hooks_share')).toEqual([{ id: original.id, sha256: original.sha256 }]);
-    await waitFor(() => expect(toasts.items.map((toast) => toast.title)).toContain(`Team copy of ${SMALL} updated.`));
+    await waitFor(() => expect(toasts.items.map((toast) => toast.title)).toContain(`Remote copy of ${SMALL} updated.`));
   });
 
   it('has no update while the original is as it was shared', async () => {
@@ -239,7 +239,7 @@ describe('A team hook', () => {
 
     const panel = await open(teamRowOf('Remind about tests'), 'Remind about tests');
 
-    expect(within(panel).queryByRole('button', { name: 'Update team copy' })).not.toBeInTheDocument();
+    expect(within(panel).queryByRole('button', { name: 'Update remote copy' })).not.toBeInTheDocument();
     expect(within(panel).getByRole('button', { name: 'Copy to my hooks' })).toBeInTheDocument();
   });
 
@@ -255,7 +255,7 @@ describe('A team hook', () => {
 
     expect(within(status).getByText('Overridden')).toBeInTheDocument();
     expect(within(status).queryByText('On')).not.toBeInTheDocument();
-    expect(within(status).getByText('You have a hook with the same id, so yours runs instead of this team copy.')).toBeInTheDocument();
+    expect(within(status).getByText('You have a hook with the same id, so yours runs instead of this remote copy.')).toBeInTheDocument();
     expect(within(panel).getByRole('button', { name: 'Copy to my hooks' })).toBeDisabled();
   });
 
@@ -271,7 +271,7 @@ describe('A team hook', () => {
   });
 });
 
-describe('A team hook that waits for approval', () => {
+describe('A remote hook that waits for approval', () => {
   it('is never offered for copying, and the backend refuses it too', async () => {
     const { invoke, state } = fakeHooks('team');
     await showHooks();
@@ -295,7 +295,7 @@ describe('A team hook that waits for approval', () => {
     const panel = await open(teamRowOf(TYPES), TYPES);
     const review = within(panel).getByRole('status', { name: '' });
 
-    expect(within(review).getByText('Marek Nowak changed this team hook')).toBeInTheDocument();
+    expect(within(review).getByText('Marek Nowak changed this remote hook')).toBeInTheDocument();
     expect(within(review).getByRole('group', { name: 'Changes to Tool filter' })).toHaveTextContent('edit|write');
     expect(within(review).getByRole('figure', { name: 'Changes to Command' })).toHaveTextContent('bun run check && bun run lint');
     expect(within(review).getByRole('button', { name: 'Approve' })).toBeEnabled();

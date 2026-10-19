@@ -80,4 +80,14 @@ trusted: boolean,
  * Why it is trusted, or `needed`. A server that does not say is read from `trusted`
  * (`approved` or `needed`).
  */
-approval: "local" | "approved" | "team" | "needed", };
+approval: "local" | "approved" | "team" | "needed", 
+/**
+ * True for a team script while scripts are routed `remote+local`: it cannot be changed or
+ * deleted from this machine, only hidden here. False from a server that does not say.
+ */
+readOnly: boolean, 
+/**
+ * True for a team script hidden on this machine (listed only when hidden scripts are asked
+ * for). False from a server that does not say.
+ */
+hidden: boolean, };

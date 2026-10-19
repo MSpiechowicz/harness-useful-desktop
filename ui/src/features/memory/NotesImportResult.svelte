@@ -1,15 +1,12 @@
 <script lang="ts">
   import Button from '$lib/components/Button.svelte';
-  import { NOTICE_LOOKS } from '$lib/components/notice';
-  import { ICON } from '$lib/components/icon';
   import { t } from '$lib/i18n/i18n.svelte';
   import { viewState } from '$lib/stores/view-state.svelte';
 
+  import FailureBox from './FailureBox.svelte';
   import { titleOfRow } from './notes-import';
   import { notesImport as flow } from './notes-import-state.svelte';
   import { spelledOut } from './script-format';
-
-  const failed = NOTICE_LOOKS.error;
 
   const result = $derived(flow.result);
   const stats = $derived(
@@ -52,10 +49,7 @@
 {:else}
   <div class="flex flex-col gap-5">
     {#if flow.failure}
-      <div class="flex items-start gap-3 rounded-md p-3 {failed.box}" role="alert">
-        <span class="flex h-5 shrink-0 items-center"><failed.icon class={failed.color} size={ICON.sm} aria-hidden="true" /></span>
-        <span class="min-w-0 text-sm text-fg [overflow-wrap:anywhere]">{flow.failure}</span>
-      </div>
+      <FailureBox message={flow.failure} />
     {/if}
 
     {#if result}

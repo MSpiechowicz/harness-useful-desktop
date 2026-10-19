@@ -2,6 +2,8 @@
 //! `note_update` on the notes of [`crate::memory_cli::note_fixtures`], kept in memory for the life
 //! of the process, answering text only as the real server does.
 //!
+//! - A read-only team note (see [`crate::memory_push::routed`]) has no title: a save beside it is
+//!   `created`, as the real server saves it on this computer.
 //! - `note_save` with `scope: "repo"` needs `project_path` (as the app always sends it): a title a
 //!   repository note already has (any case) is refused as the real server refuses a write that
 //!   names the repository (`note <id> already has this title and …`), so note 3
@@ -167,7 +169,8 @@ fn same_title(notes: &[Value], scope: &str, title: &str, except: Option<i64>) ->
     let wanted = title.trim().to_lowercase();
 
     notes.iter().position(|note| {
-        note["scope"] == scope
+        !crate::memory_push::read_only(note)
+            && note["scope"] == scope
             && note["title"]
                 .as_str()
                 .is_some_and(|other| other.trim().to_lowercase() == wanted)

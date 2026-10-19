@@ -65,4 +65,14 @@ revision: number,
 /**
  * How often an agent recalled it.
  */
-hits: number, };
+hits: number, 
+/**
+ * True for a team note in a scope routed `remote+local`: it cannot be changed or deleted
+ * from this machine, only hidden here. False from a server that does not say.
+ */
+readOnly: boolean, 
+/**
+ * True for a team note hidden on this machine (listed only when hidden notes are asked for).
+ * False from a server that does not say.
+ */
+hidden: boolean, };

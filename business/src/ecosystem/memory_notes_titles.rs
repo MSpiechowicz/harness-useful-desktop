@@ -9,7 +9,8 @@
 //!    provenance>] <title>`, then ` {<entities>}` when there are any). Each one shown with the
 //!    title, with or without such a suffix, is a candidate only: a title can end in `{…}` itself.
 //! 2. A candidate is read with `harness-memory notes get <id> --json` (see [`get_note`]), and it
-//!    is the note when its stored title compares equal and it is global.
+//!    is the note when its stored title compares equal, it is global and not read-only (a team
+//!    note while global notes are routed `remote+local`: a new note is saved beside it).
 //! 3. The search is not relied on when it cannot find the note: a title without a letter or digit
 //!    (nothing to search for), or a search that listed the most it lists (or said it left notes
 //!    out), as the note may rank lower. Then every global note is listed, 200 at a time sorted by
@@ -173,7 +174,7 @@ async fn confirmed(
     id: i64,
     wanted: &str,
 ) -> Result<bool> {
-    match get_note(env, probe, runner, id, None).await {
+    match get_note(env, probe, runner, id, None, false).await {
         Ok(detail) => Ok(is_titled(&detail.note.summary, wanted)),
         Err(BusinessError::NotFound(_)) => Ok(false),
         Err(error) => Err(error),
@@ -204,7 +205,7 @@ async fn global_titles(env: &Env, probe: &MemoryScripts, runner: &dyn ProcessRun
     let mut titles = HashMap::new();
 
     each_global_page(env, probe, runner, |notes| {
-        for note in notes.iter().filter(|note| note.scope == ScriptScope::Global) {
+        for note in notes.iter().filter(|note| counts_for_titles(note)) {
             titles.entry(title_key(&note.title)).or_insert(note.id);
         }
 
@@ -232,6 +233,7 @@ async fn each_global_page(
             kind: None,
             scope: Some(ScriptScope::Global),
             sort: Some(NoteSort::Title),
+            hidden: false,
         };
         let listed = list_notes(env, probe, runner, None, &query).await;
 
@@ -253,7 +255,14 @@ async fn each_global_page(
 }
 
 fn is_titled(note: &NoteSummary, wanted: &str) -> bool {
-    note.scope == ScriptScope::Global && title_key(&note.title) == wanted
+    counts_for_titles(note) && title_key(&note.title) == wanted
+}
+
+/// Whether a same-title `note` keeps a new global note from being saved: a global note the server
+/// would rewrite. A read-only team note (global notes routed `remote+local`) does not count: the
+/// new note is saved on this machine beside it.
+fn counts_for_titles(note: &NoteSummary) -> bool {
+    note.scope == ScriptScope::Global && !note.read_only
 }
 
 /// A note's header line in a `note_search` answer.

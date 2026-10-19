@@ -6,7 +6,8 @@
 //! `script_save` replaces the script of the same name in the scope without asking, so
 //! `script_get {name, scope}` comes first: unless the caller asks to replace it, a script found
 //! there is [`ScriptSaveOutcome::Exists`] and nothing is saved; the server's `no script named …`
-//! lets the save go on. An edit names the version the editor opened (`base`, its
+//! lets the save go on, and so does a read-only team script (scripts routed `remote+local`: the
+//! save adds a script of that name on this machine, which agents find first). An edit names the version the editor opened (`base`, its
 //! [`script_sha256`]): when the script found there is gone or has another hash, the save is
 //! refused (`conflict`) and nothing is saved. `script_save {scope, name, description, language,
 //! body, timeout_secs}` answers `{script, created}` as structured content: the script saved here
@@ -175,7 +176,8 @@ impl MemoryScripts {
         }
     }
 
-    /// The script named in `fields` in their scope, with its body, or `None` when there is none.
+    /// The script named in `fields` in their scope, with its body, or `None` when there is none
+    /// or it is a read-only team script (see the module docs).
     async fn existing(
         &self,
         env: &Env,
@@ -190,7 +192,9 @@ impl MemoryScripts {
             .call_tool(env, SCRIPT_GET_TOOL, with_project(arguments, project))
             .await?;
 
-        found(&output)
+        let existing = found(&output)?;
+
+        Ok(existing.filter(|script| !script.summary.read_only))
     }
 }
 

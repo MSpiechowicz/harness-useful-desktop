@@ -1,16 +1,18 @@
 //! The Notes view's notes (`memory_notes_list`, `memory_note_get`, `memory_note_delete`,
-//! `memory_notes_delete_all`), through the installed `harness-memory notes list|get|delete` (15 s
-//! each, 60 s to delete them all), and one created or edited through `harness-memory mcp`
+//! `memory_notes_delete_all`, `memory_note_hide`, `memory_notes_discard_local`), through the
+//! installed `harness-memory notes list|get|delete|hide|unhide|discard-local` (15 s each, 60 s to
+//! delete them all or discard local ones), and one created or edited through `harness-memory mcp`
 //! (`memory_note_save`: `note_save` or `note_update`). The app never opens the memory database.
 //!
 //! A `project` must be the active or a recent project; its canonical root goes to the server as
 //! `--project`. Null asks for the global notes only.
 
 use harness_business::ecosystem::{
-    ListWindow, NotesQuery, delete_all_notes, delete_note, get_note, list_notes, save_note,
+    ListWindow, NotesQuery, delete_all_notes, delete_note, discard_local, get_note, hide_entry, list_notes, save_note,
 };
 use harness_business::model::{
-    MemoryDeleteAll, MemoryNotesPage, NoteDetail, NoteDraft, NoteKind, NoteSaved, NoteSort, ScriptScope, SortOrder,
+    LocalNoteIds, MemoryCopyKind, MemoryDeleteAll, MemoryNotesPage, NoteDetail, NoteDraft, NoteKind, NoteSaved,
+    NoteSort, ScriptScope, SortOrder,
 };
 use tauri::State;
 
@@ -21,7 +23,7 @@ use crate::state::AppState;
 /// One page of the project's repository notes and the global ones, of one `kind` and one `scope`
 /// when asked. Never fails for a missing or old server: see the page's `availability` (`notes` is
 /// empty unless `available`); a server that does not combine filters drops `scope` and answers
-/// `combinedFilters: false`.
+/// `combinedFilters: false`. `hidden` lists the team notes hidden on this machine instead.
 /// `invalidInput` for a limit of 0 or above 200, or a query above 256 characters, `forbidden` for
 /// a project that is not open or recent.
 #[tauri::command]
@@ -39,26 +41,71 @@ pub async fn memory_notes_list(
     scope: Option<ScriptScope>,
     sort: Option<NoteSort>,
     order: Option<SortOrder>,
+    hidden: Option<bool>,
 ) -> CommandResult<MemoryNotesPage> {
     let query = NotesQuery {
         window: ListWindow::new(offset, limit, query, order)?,
         kind,
         scope,
         sort,
+        hidden: hidden.unwrap_or(false),
     };
 
     list(&state, project, &query).await
 }
 
-/// One note with its body and links. `notFound` when it is gone or the server is not installed,
-/// `unsupported` when the server predates the notes view.
+/// One note with its body and links; with `hidden` a team note hidden on this machine. `notFound`
+/// when it is gone (or hidden, without `hidden`) or the server is not installed, `unsupported` when
+/// the server predates the notes view.
 #[tauri::command]
 pub async fn memory_note_get(
     state: State<'_, AppState>,
     id: i64,
     project: Option<String>,
+    hidden: Option<bool>,
 ) -> CommandResult<NoteDetail> {
-    get(&state, id, project).await
+    get(&state, id, project, hidden.unwrap_or(false)).await
+}
+
+/// Hides a team note on this machine (`hidden`), or shows it again; the team database is not
+/// changed. `notFound` when it is gone or the server is not installed, `unsupported` when the
+/// server predates hiding, `process` with the server's line when it refuses (a note saved on this
+/// machine, no team database), `forbidden` for a project that is not open or recent.
+#[tauri::command]
+pub async fn memory_note_hide(
+    state: State<'_, AppState>,
+    id: i64,
+    project: Option<String>,
+    hidden: bool,
+) -> CommandResult<()> {
+    let project = project_root(&state, project).await?;
+
+    Ok(hide_entry(
+        &state.env,
+        &state.memory_scripts,
+        &state.runner,
+        MemoryCopyKind::Notes,
+        id,
+        project.as_deref(),
+        hidden,
+    )
+    .await?)
+}
+
+/// Deletes notes from this machine's file in the note scopes routed to the team database, where
+/// the server no longer reads them (the UI confirms first): `"all"` or those local ids, of `scope`
+/// only when given. How many were deleted. `invalidInput` for `"none"` or no ids, `notFound` when
+/// the server is not installed, `unsupported` when it predates discarding, `process` with the
+/// server's line when it refuses (a scope not routed to the team database).
+#[tauri::command]
+pub async fn memory_notes_discard_local(
+    state: State<'_, AppState>,
+    ids: LocalNoteIds,
+    scope: Option<ScriptScope>,
+) -> CommandResult<u32> {
+    let notes = MemoryCopyKind::Notes;
+
+    Ok(discard_local(&state.env, &state.memory_scripts, &state.runner, notes, &ids, scope).await?)
 }
 
 /// Deletes one note (the UI confirms first). `notFound` when it is gone or the server is not
@@ -128,10 +175,18 @@ async fn list(state: &AppState, project: Option<String>, query: &NotesQuery) -> 
     .await)
 }
 
-async fn get(state: &AppState, id: i64, project: Option<String>) -> CommandResult<NoteDetail> {
+async fn get(state: &AppState, id: i64, project: Option<String>, hidden: bool) -> CommandResult<NoteDetail> {
     let project = project_root(state, project).await?;
 
-    Ok(get_note(&state.env, &state.memory_scripts, &state.runner, id, project.as_deref()).await?)
+    Ok(get_note(
+        &state.env,
+        &state.memory_scripts,
+        &state.runner,
+        id,
+        project.as_deref(),
+        hidden,
+    )
+    .await?)
 }
 
 async fn delete(state: &AppState, id: i64, project: Option<String>) -> CommandResult<()> {
@@ -160,6 +215,7 @@ mod tests {
             kind: None,
             scope: None,
             sort: None,
+            hidden: false,
         }
     }
 
@@ -185,7 +241,7 @@ mod tests {
 
         let codes = [
             block_on(list(state, path_arg(stranger), &first_page())).map(|_| ()),
-            block_on(get(state, 3, path_arg(stranger))).map(|_| ()),
+            block_on(get(state, 3, path_arg(stranger), false)).map(|_| ()),
             block_on(delete(state, 3, path_arg(stranger))),
             block_on(delete_all(state, path_arg(stranger))).map(|_| ()),
             block_on(save(
@@ -209,7 +265,7 @@ mod tests {
         let page = block_on(list(state, None, &first_page())).expect("listed");
         assert_eq!(page.availability, MemoryScriptsAvailability::NotInstalled);
 
-        let error = block_on(get(state, 3, None)).expect_err("not installed");
+        let error = block_on(get(state, 3, None, false)).expect_err("not installed");
         assert_eq!(error.code(), IpcErrorCode::NotFound);
 
         if place_memory_server(&setup.home).is_none() {
@@ -221,10 +277,10 @@ mod tests {
         assert_eq!(page.total, 8, "the fixtures, one of a kind the app skips");
         assert_eq!(page.notes.len(), 7);
 
-        let detail = block_on(get(state, 3, path_arg(project))).expect("repository note");
+        let detail = block_on(get(state, 3, path_arg(project), false)).expect("repository note");
         assert_eq!(detail.note.summary.title, "Watcher misses renames");
 
-        let error = block_on(get(state, 3, None)).expect_err("a repository note without its project");
+        let error = block_on(get(state, 3, None, false)).expect_err("a repository note without its project");
         assert_eq!(error.code(), IpcErrorCode::NotFound);
 
         block_on(delete(state, 3, path_arg(project))).expect("deleted");
@@ -234,7 +290,8 @@ mod tests {
             deleted,
             MemoryDeleteAll {
                 deleted: 8,
-                team: Some(3)
+                team: Some(3),
+                kept: None,
             }
         );
 

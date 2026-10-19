@@ -15,7 +15,7 @@ export function teamModeOf(scenario: string): TeamMode | null {
     case 'teamNoOrigin':
       return { trust: false, shareable: false, problem: null };
     case 'teamProblem':
-      return { trust: false, shareable: true, problem: 'The team database did not answer in time.' };
+      return { trust: false, shareable: true, problem: 'The remote database did not answer in time.' };
     default:
       return null;
   }

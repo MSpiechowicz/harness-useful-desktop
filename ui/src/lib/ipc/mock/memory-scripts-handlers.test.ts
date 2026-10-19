@@ -108,11 +108,11 @@ describe('mock scripts', () => {
     const handlers = memoryScriptsHandlers(() => 'ok');
     const total = (project: string | null) => handlers.memory_scripts_list({ project, offset: 0 }).total;
 
-    expect(handlers.memory_scripts_delete_all({ project: null })).toEqual({ deleted: 1, team: 1 });
+    expect(handlers.memory_scripts_delete_all({ project: null })).toEqual({ deleted: 1, team: 1, kept: 0 });
     expect(total(null)).toBe(0);
     expect(total('/work/app')).toBe(4);
 
-    expect(handlers.memory_scripts_delete_all({ project: '/work/app' })).toEqual({ deleted: 4, team: 3 });
+    expect(handlers.memory_scripts_delete_all({ project: '/work/app' })).toEqual({ deleted: 4, team: 3, kept: 0 });
     expect(total('/work/app')).toBe(0);
     expect(() => handlers.memory_script_get({ id: 12, project: '/work/app' })).toThrow('script 12 was not found');
   });

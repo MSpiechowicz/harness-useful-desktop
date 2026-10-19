@@ -63,7 +63,7 @@ describe('Share with team', () => {
     ['pending', 'Approve this hook first. Only hooks you approved can be shared.'],
     ['invalid', 'This file does not follow the hook format, so it cannot be shared.'],
     ['noOrigin', 'This repository has no origin remote, so its hooks cannot be shared.'],
-    ['onTeam', 'Already on the team. Use Update team copy on the team hook.'],
+    ['onTeam', 'Already on remote. Use Update remote copy on the remote hook.'],
   ])('is off for %s, with the reason as its tooltip', async (block, reason) => {
     const { onshare } = show(local(block));
     const button = screen.getByRole('button', { name: 'Share with team' });
@@ -78,7 +78,7 @@ describe('Share with team', () => {
   });
 });
 
-describe('The actions of a team hook', () => {
+describe('The actions of a remote hook', () => {
   it('copy, update and remove it, and never edit or delete it', async () => {
     const { oncopy, onupdate, onremove } = show(team({ teamChanged: true }));
 
@@ -87,16 +87,16 @@ describe('The actions of a team hook', () => {
     expect(screen.queryByRole('button', { name: 'Share with team' })).not.toBeInTheDocument();
 
     await fireEvent.click(screen.getByRole('button', { name: 'Copy to my hooks' }));
-    await fireEvent.click(screen.getByRole('button', { name: 'Update team copy' }));
-    await fireEvent.click(screen.getByRole('button', { name: 'Remove from team' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Update remote copy' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Remove from remote' }));
 
     expect([oncopy, onupdate, onremove].map((handler) => handler.mock.calls.length)).toEqual([1, 1, 1]);
   });
 
   it.each<[HookView['status'], string]>([
-    ['pending', 'Approve it first. A team hook you have not approved cannot be copied.'],
+    ['pending', 'Approve it first. A remote hook you have not approved cannot be copied.'],
     ['duplicate', 'You already have a hook with this id.'],
-    ['invalid', 'This team hook does not follow the hook format, so it cannot be copied.'],
+    ['invalid', 'This remote hook does not follow the hook format, so it cannot be copied.'],
   ])('cannot be copied while %s, with the reason as a tooltip', async (status, reason) => {
     const { oncopy } = show(team({ status }));
     const copy = screen.getByRole('button', { name: 'Copy to my hooks' });
@@ -113,12 +113,12 @@ describe('The actions of a team hook', () => {
   it('offer the update only when the original changed since it was shared, and is still there', () => {
     show(team({ teamChanged: false }));
 
-    expect(screen.queryByRole('button', { name: 'Update team copy' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Update remote copy' })).not.toBeInTheDocument();
   });
 
   it('leave the update out when the original is gone', () => {
     show(team({ teamChanged: true }), { canUpdate: false });
 
-    expect(screen.queryByRole('button', { name: 'Update team copy' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Update remote copy' })).not.toBeInTheDocument();
   });
 });

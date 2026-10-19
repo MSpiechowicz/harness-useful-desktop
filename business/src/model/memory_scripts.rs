@@ -116,6 +116,14 @@ pub struct ScriptSummary {
     /// (`approved` or `needed`).
     #[ts(inline)]
     pub approval: ScriptApproval,
+    /// True for a team script while scripts are routed `remote+local`: it cannot be changed or
+    /// deleted from this machine, only hidden here. False from a server that does not say.
+    #[serde(default)]
+    pub read_only: bool,
+    /// True for a team script hidden on this machine (listed only when hidden scripts are asked
+    /// for). False from a server that does not say.
+    #[serde(default)]
+    pub hidden: bool,
 }
 
 /// One script with its body (`script_get`).
@@ -235,6 +243,12 @@ pub struct MemoryScriptsPage {
     pub combined_filters: bool,
     /// This page, as the server sorts it.
     pub scripts: Vec<ScriptSummary>,
+    /// How many team scripts in the view are hidden on this machine; `None` without a team
+    /// database or from a server that does not say.
+    pub hidden_count: Option<u32>,
+    /// How many scripts of each scope the local file on this machine holds, every repository
+    /// counted; `None` without a team database or from a server that does not say.
+    pub local_counts: Option<MemoryScopeCounts>,
 }
 
 /// The answer of `memory_notes_delete_all` and `memory_scripts_delete_all`: how many notes or
@@ -247,6 +261,9 @@ pub struct MemoryDeleteAll {
     pub deleted: u32,
     /// How many of them were in the team database; `None` when the server does not say.
     pub team: Option<u32>,
+    /// How many team notes were left in place in scopes routed `remote+local` (they can only be
+    /// hidden there); `None` when the server does not say.
+    pub kept: Option<u32>,
 }
 
 /// One script the user approves (`memory_scripts_trust`): its id and the SHA-256 of the version

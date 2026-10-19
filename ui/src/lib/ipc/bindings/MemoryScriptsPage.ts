@@ -40,4 +40,14 @@ combinedFilters: boolean,
 /**
  * This page, as the server sorts it.
  */
-scripts: Array<ScriptSummary>, };
+scripts: Array<ScriptSummary>, 
+/**
+ * How many team scripts in the view are hidden on this machine; `None` without a team
+ * database or from a server that does not say.
+ */
+hiddenCount: number | null, 
+/**
+ * How many scripts of each scope the local file on this machine holds, every repository
+ * counted; `None` without a team database or from a server that does not say.
+ */
+localCounts: MemoryScopeCounts | null, };

@@ -1,4 +1,4 @@
-import type { MemoryNotesTarget } from '../bindings/MemoryNotesTarget';
+import type { MemoryNotesRouting } from '../bindings/MemoryNotesRouting';
 import type { MemoryRemote } from '../bindings/MemoryRemote';
 import type { MemoryRemoteKind } from '../bindings/MemoryRemoteKind';
 import type { CommandArgs } from '../commands';
@@ -34,9 +34,9 @@ const SCHEMES: Record<MemoryRemoteKind, string[]> = {
 interface Saved {
   url: string | null;
   token: string | null;
-  repositoryNotes: MemoryNotesTarget;
-  globalNotes: MemoryNotesTarget;
-  scripts: MemoryNotesTarget;
+  repositoryNotes: MemoryNotesRouting;
+  globalNotes: MemoryNotesRouting;
+  scripts: MemoryNotesRouting;
   trustTeamScripts: boolean;
   shareHooks: boolean;
   trustTeamHooks: boolean;
@@ -144,6 +144,9 @@ export function memoryRemoteHandlers(scenario: () => RemoteScenario = remoteScen
       trustTeamRoutines: file.trustTeamRoutines,
       // The mock stands in for a current Harness Memory.
       documentdbSupported: true,
+      // Likewise for saving notes on this computer next to the team database, hiding team notes and copying.
+      teamAndLocalSupported: true,
+      scriptsTeamAndLocalSupported: true,
       configPath: CONFIG_PATH,
       problem: file.blocked,
     };
@@ -162,7 +165,7 @@ export function memoryRemoteHandlers(scenario: () => RemoteScenario = remoteScen
     }
 
     if (!args.kind) {
-      throw invalid('pick the kind of team database');
+      throw invalid('pick the kind of remote database');
     }
 
     let url = file.url;

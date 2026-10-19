@@ -9,7 +9,8 @@
 //!   approvals cannot be told); with `FAKE_MEMORY_TOOLS=legacy` only the note tools (a server that
 //!   predates scripts), and calling a script tool is a JSON-RPC error.
 //! - Script 12 is `approval: "local"`; script 7 is not trusted and has no `approval` (as an older
-//!   server answers).
+//!   server answers). With a team database (`HARNESS_MEMORY_SCRIPTS` set) team scripts follow, see
+//!   [`crate::memory_scripts_hidden`]; `script_save` never replaces a read-only one.
 //! - `script_list` needs `scope: "all"`; it answers the global scripts, plus the repository one
 //!   when `project_path` is set, plus one entry of an unknown scope.
 //! - `script_get` and `script_delete` take `id`; an unknown id is an `isError` result with the
@@ -317,7 +318,7 @@ fn save(scripts: &mut Vec<Value>, arguments: &Value) -> Value {
 
     let position = scripts
         .iter()
-        .position(|script| script["name"] == name && script["scope"] == scope);
+        .position(|script| script["name"] == name && script["scope"] == scope && script["readOnly"] != true);
     let id = position.map_or_else(
         || {
             scripts
@@ -399,9 +400,9 @@ fn structured(data: Value) -> Value {
     json!({ "content": [{ "type": "text", "text": "agent-written data" }], "structuredContent": data })
 }
 
-/// The stand-in's scripts, with their bodies.
+/// The stand-in's scripts, with their bodies: those of this computer, then the team's.
 pub fn fixtures() -> Vec<Value> {
-    vec![
+    let mut scripts = vec![
         fixture(
             12,
             "open-prs",
@@ -419,11 +420,14 @@ pub fn fixtures() -> Vec<Value> {
             None,
         ),
         fixture(99, "odd-scope", "workspace", Value::Null, "true\n", Some("team")),
-    ]
+    ];
+
+    scripts.extend(crate::memory_scripts_hidden::team_scripts());
+    scripts
 }
 
 /// One script as the server answers it, with its body.
-fn fixture(id: i64, name: &str, scope: &str, repo: Value, body: &str, approval: Option<&str>) -> Value {
+pub fn fixture(id: i64, name: &str, scope: &str, repo: Value, body: &str, approval: Option<&str>) -> Value {
     let mut fields = Map::new();
     fields.insert("id".to_owned(), json!(id));
     fields.insert("name".to_owned(), json!(name));

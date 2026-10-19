@@ -8,7 +8,8 @@ use std::sync::{Arc, Mutex, PoisonError};
 
 use harness_business::app_dirs::local_data_dir;
 use harness_business::ecosystem::{
-    CompanionReleases, Dashboard, DashboardOptions, MemoryKinds, MemoryScripts, PoolOptions, StoredNotesImport,
+    CompanionReleases, Dashboard, DashboardOptions, MemoryFeatures, MemoryKinds, MemoryScripts, NotesCopyCache,
+    PoolOptions, StoredNotesImport,
 };
 use harness_business::env::Env;
 use harness_business::harness::HarnessRegistry;
@@ -56,6 +57,9 @@ pub struct AppState {
     /// Which team databases the installed Harness Memory can use (`harness-memory kinds`, probed
     /// once per binary).
     pub memory_kinds: MemoryKinds,
+    /// What else the installed Harness Memory can do (`harness-memory features`, probed once per
+    /// binary).
+    pub memory_features: MemoryFeatures,
     /// The script run requests of Harness Memory and the heartbeat that lets the server ask.
     pub script_requests: Arc<ScriptRequests>,
     /// Where saved attachments live (the app's cache; the agent opens them by path).
@@ -79,6 +83,9 @@ pub struct AppState {
     pub notes_import: Mutex<Option<StoredNotesImport>>,
     /// Held while a notes import is applied, so only one runs at a time.
     pub notes_import_apply: async_runtime::Mutex<()>,
+    /// The latest review of copying this computer's notes, and the latest of copying its scripts,
+    /// to the team database, each kept until it is copied or replaced by a newer one of its kind.
+    pub notes_copy: NotesCopyCache,
     /// The OS app-config directory (prefs, the memory registration record).
     pub config_dir: PathBuf,
     /// Held while the memory server is installed, registered or unregistered, so one runs at a time.
@@ -129,6 +136,7 @@ impl AppState {
             dashboard: Arc::new(Dashboard::new(Arc::new(TokioSpawner), DashboardOptions::default())),
             memory_scripts,
             memory_kinds: MemoryKinds::new(),
+            memory_features: MemoryFeatures::new(),
             script_requests: Arc::new(ScriptRequests::default()),
             attachments_dir: prefs_dir.join("attachments"),
             drops: DropSink::default(),
@@ -140,6 +148,7 @@ impl AppState {
             sync_apply: async_runtime::Mutex::new(()),
             notes_import: Mutex::new(None),
             notes_import_apply: async_runtime::Mutex::new(()),
+            notes_copy: NotesCopyCache::new(),
             config_dir: prefs_dir,
             memory_setup: async_runtime::Mutex::new(()),
             desktop_mcp_setup: async_runtime::Mutex::new(()),

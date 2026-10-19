@@ -1,7 +1,10 @@
 //! The Memory view's scripts (`memory_scripts_list`, `memory_script_get`,
-//! `memory_script_delete`, `memory_scripts_delete_all`), listed a page at a time with
+//! `memory_script_delete`, `memory_scripts_delete_all`, `memory_script_hide`,
+//! `memory_scripts_discard_local`), listed a page at a time with
 //! `harness-memory scripts list --json`, read and deleted through the installed
-//! `harness-memory mcp` (`script_get`, `script_delete`), created and edited there
+//! `harness-memory mcp` (`script_get`, `script_delete`; a hidden one read with `harness-memory
+//! scripts get --hidden`), hidden on this machine with `harness-memory scripts hide|unhide`, local
+//! copies discarded with `harness-memory scripts discard-local`, created and edited there
 //! (`memory_script_save`: `script_save`, after `script_get` by name unless replacing), all deleted with
 //! `harness-memory scripts delete --all`, and approved with `harness-memory trust`
 //! (`memory_scripts_trust`, each script with the hash of the version the user reviewed). The app never opens the memory database.
@@ -11,10 +14,10 @@
 
 use std::path::PathBuf;
 
-use harness_business::ecosystem::{ListWindow, ScriptsQuery, trust_scripts};
+use harness_business::ecosystem::{ListWindow, ScriptsQuery, discard_local, hide_entry, trust_scripts};
 use harness_business::model::{
-    MemoryDeleteAll, MemoryScriptsPage, ScriptDetail, ScriptDraft, ScriptGroup, ScriptReview, ScriptSaved, ScriptScope,
-    ScriptSort, ScriptTrustItem, SortOrder,
+    LocalNoteIds, MemoryCopyKind, MemoryDeleteAll, MemoryScriptsPage, ScriptDetail, ScriptDraft, ScriptGroup,
+    ScriptReview, ScriptSaved, ScriptScope, ScriptSort, ScriptTrustItem, SortOrder,
 };
 use tauri::State;
 
@@ -25,8 +28,8 @@ use crate::state::AppState;
 /// One page of the project's scripts and the global ones (`harness-memory scripts list --json`).
 /// One `group`, or one `scope` and one `review` combined. Never fails for a missing or old server:
 /// see the page's `availability` (`scripts` is empty unless `available`); a server that does not
-/// combine filters drops `scope` and `review` and answers `combinedFilters: false`.
-/// `invalidInput` for a limit of 0 or above 200, a query above 256 characters, or a `group` with
+/// combine filters drops `scope` and `review` and answers `combinedFilters: false`. `hidden`
+/// lists the team scripts hidden on this machine instead. `invalidInput` for a limit of 0 or above 200, a query above 256 characters, or a `group` with
 /// a `scope` or `review`, `forbidden` for a project that is not open or recent.
 #[tauri::command]
 #[expect(
@@ -44,24 +47,83 @@ pub async fn memory_scripts_list(
     review: Option<ScriptReview>,
     sort: Option<ScriptSort>,
     order: Option<SortOrder>,
+    hidden: Option<bool>,
 ) -> CommandResult<MemoryScriptsPage> {
     let window = ListWindow::new(offset, limit, query, order)?;
-    let query = ScriptsQuery::new(window, group, scope, review, sort)?;
+    let query = ScriptsQuery {
+        hidden: hidden.unwrap_or(false),
+        ..ScriptsQuery::new(window, group, scope, review, sort)?
+    };
 
     list(&state, project, &query).await
 }
 
-/// One script with its body. `notFound` when it is gone or the server is not installed,
-/// `unsupported` when the server predates scripts.
+/// One script with its body; with `hidden` a team script hidden on this machine (only, read with
+/// `harness-memory scripts get --hidden`). `notFound` when it is gone (or hidden, without
+/// `hidden`) or the server is not installed, `unsupported` when the server predates scripts (or
+/// hiding them).
 #[tauri::command]
 pub async fn memory_script_get(
     state: State<'_, AppState>,
     id: i64,
     project: Option<String>,
+    hidden: Option<bool>,
 ) -> CommandResult<ScriptDetail> {
     let project = project_root(&state, project).await?;
+    let (env, scripts) = (&state.env, &state.memory_scripts);
 
-    Ok(state.memory_scripts.get(&state.env, id, project.as_deref()).await?)
+    if hidden.unwrap_or(false) {
+        return Ok(scripts.get_hidden(env, &state.runner, id, project.as_deref()).await?);
+    }
+
+    Ok(scripts.get(env, id, project.as_deref()).await?)
+}
+
+/// Hides a team script on this machine (`hidden`), or shows it again; the team database is not
+/// changed. `notFound` when it is gone or the server is not installed, `unsupported` when the
+/// server predates hiding scripts, `process` with the server's line when it refuses (a script
+/// saved on this machine, no team database), `forbidden` for a project that is not open or recent.
+#[tauri::command]
+pub async fn memory_script_hide(
+    state: State<'_, AppState>,
+    id: i64,
+    project: Option<String>,
+    hidden: bool,
+) -> CommandResult<()> {
+    hide(&state, id, project, hidden).await
+}
+
+async fn hide(state: &AppState, id: i64, project: Option<String>, hidden: bool) -> CommandResult<()> {
+    let project = project_root(state, project).await?;
+    let scripts = MemoryCopyKind::Scripts;
+
+    Ok(hide_entry(
+        &state.env,
+        &state.memory_scripts,
+        &state.runner,
+        scripts,
+        id,
+        project.as_deref(),
+        hidden,
+    )
+    .await?)
+}
+
+/// Deletes scripts from this machine's file while scripts are routed to the team database alone,
+/// where the server no longer reads them (the UI confirms first): `"all"` or those local ids, of
+/// `scope` only when given. How many were deleted. `invalidInput` for `"none"` or no ids,
+/// `notFound` when the server is not installed, `unsupported` when it predates discarding scripts,
+/// `process` with the server's line when it refuses (scripts not routed to the team database
+/// alone).
+#[tauri::command]
+pub async fn memory_scripts_discard_local(
+    state: State<'_, AppState>,
+    ids: LocalNoteIds,
+    scope: Option<ScriptScope>,
+) -> CommandResult<u32> {
+    let scripts = MemoryCopyKind::Scripts;
+
+    Ok(discard_local(&state.env, &state.memory_scripts, &state.runner, scripts, &ids, scope).await?)
 }
 
 /// Deletes one script (the UI confirms first). `notFound` when it is gone or the server is not
@@ -209,6 +271,9 @@ mod tests {
         let error = block_on(delete_all(&setup.state, path_arg(&setup.stranger))).expect_err("unknown project");
         assert_eq!(error.code(), IpcErrorCode::Forbidden);
 
+        let error = block_on(hide(&setup.state, 30, path_arg(&setup.stranger), true)).expect_err("unknown project");
+        assert_eq!(error.code(), IpcErrorCode::Forbidden);
+
         let error = block_on(save(
             &setup.state,
             path_arg(&setup.stranger),
@@ -265,7 +330,8 @@ mod tests {
             deleted,
             MemoryDeleteAll {
                 deleted: 3,
-                team: Some(0)
+                team: Some(0),
+                kept: None,
             }
         );
 

@@ -175,7 +175,7 @@ export class MockTeam {
     }
 
     if (fakeSha(row.hook) !== sha256) {
-      throw IpcFailure.from({ code: 'conflict', message: 'the team copy changed since it was read' });
+      throw IpcFailure.from({ code: 'conflict', message: 'the remote copy changed since it was read' });
     }
 
     return row;

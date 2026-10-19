@@ -27,7 +27,8 @@ pub enum MemoryRemoteKind {
     Documentdb,
 }
 
-/// Where the server keeps one scope of notes while a team database is set.
+/// Where the server keeps hooks or routines while a team database is set (notes and scripts take
+/// [`MemoryNotesRouting`]).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
@@ -37,6 +38,22 @@ pub enum MemoryNotesTarget {
     Remote,
     /// In the local SQLite file on this machine only.
     Local,
+}
+
+/// Where the server keeps one scope of notes (`repository_notes`, `global_notes`) or the scripts
+/// (`scripts`) while a team database is set. Hooks and routines take [`MemoryNotesTarget`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub enum MemoryNotesRouting {
+    /// In the team database, shared with everyone using it (the default).
+    #[default]
+    Remote,
+    /// In the local SQLite file on this machine only.
+    Local,
+    /// Read from the team database and this machine, new notes or scripts saved on this machine
+    /// (`remote+local`). Team notes or scripts are read-only there.
+    RemoteLocal,
 }
 
 /// The team database settings as saved in Harness Memory's `config.toml`.
@@ -55,11 +72,11 @@ pub struct MemoryRemote {
     /// True when the file holds a non-empty `database_token`.
     pub has_token: bool,
     /// Where repository notes go (`repository_notes`; `remote` when unset).
-    pub repository_notes: MemoryNotesTarget,
+    pub repository_notes: MemoryNotesRouting,
     /// Where global notes go (`global_notes`; `remote` when unset).
-    pub global_notes: MemoryNotesTarget,
+    pub global_notes: MemoryNotesRouting,
     /// Where scripts go (`scripts`; `remote` when unset).
-    pub scripts: MemoryNotesTarget,
+    pub scripts: MemoryNotesRouting,
     /// True when the installed Harness Memory keeps scripts (its tools include `script_list`), so
     /// the `scripts` key may be saved. Older servers refuse a file with that key.
     pub scripts_supported: bool,
@@ -93,6 +110,14 @@ pub struct MemoryRemote {
     /// (`harness-memory kinds` lists `documentdb`), so `kind` may be `documentdb` and the
     /// `database_kind` key may be saved. Older servers refuse a file with that key.
     pub documentdb_supported: bool,
+    /// True when the installed Harness Memory lists `notes-remote-local`, `notes-hide` and
+    /// `push-json` in `harness-memory features`, so a note scope may be saved as `remoteLocal`,
+    /// team notes hidden on this machine and local notes copied to the team database.
+    pub team_and_local_supported: bool,
+    /// True when the installed Harness Memory lists `scripts-remote-local`, `scripts-hide` and
+    /// `scripts-push-json` in `harness-memory features`, so scripts may be saved as `remoteLocal`,
+    /// team scripts hidden on this machine and local scripts copied to the team database.
+    pub scripts_team_and_local_supported: bool,
     /// The config file, home-relative for display (`~/.config/harness-memory/config.toml`).
     pub config_path: String,
     /// What is wrong with the file, if anything: unreadable, not valid TOML, keys the server does

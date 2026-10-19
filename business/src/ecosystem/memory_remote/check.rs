@@ -17,8 +17,9 @@
 use std::time::Duration;
 
 use super::file::{ConfigFile, read_config};
+use super::gates::documentdb_unavailable;
+use super::memory_config_path;
 use super::url::{a_kind, kind_key, saved_kind, scrub, secrets_of, validate_token, validate_url};
-use super::{documentdb_unavailable, memory_config_path};
 use crate::ecosystem::memory_binary::installed_memory;
 use crate::ecosystem::memory_kinds::KindsSupport;
 use crate::env::Env;

@@ -138,7 +138,7 @@ impl<K: DocKind> MemoryTeamDocs<K> {
                 K::PLURAL
             ))),
             Ok((_, Answer::Unsupported)) => Err(BusinessError::Unsupported(format!(
-                "this {MEMORY_BINARY} predates team {}. Update Harness Memory.",
+                "this {MEMORY_BINARY} predates remote {}. Update Harness Memory.",
                 K::PLURAL
             ))),
             Err(TeamDocsSupport::NotInstalled) => Err(BusinessError::NotFound(format!("executable {MEMORY_BINARY}"))),

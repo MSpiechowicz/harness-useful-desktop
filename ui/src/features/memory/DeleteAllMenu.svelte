@@ -14,9 +14,10 @@
   import { noteList } from '$lib/stores/memoryNotes.svelte';
   import { scriptList } from '$lib/stores/memoryScripts.svelte';
   import { project } from '$lib/stores/project.svelte';
+  import { toasts } from '$lib/stores/toasts.svelte';
   import { viewState } from '$lib/stores/view-state.svelte';
 
-  import { deleteAll, type DeleteScope, type MemorySection, readScope, teamLine } from './delete-all';
+  import { deleteAll, type DeleteScope, type MemorySection, readScope, STAY_TEXT, teamLine } from './delete-all';
   import { totalCount } from './note-format';
 
   interface Props {
@@ -83,7 +84,7 @@
   const disabled = $derived(listed === null || (listed === 0 && !narrowed));
 
   // What the open question is about, kept after it closes so it fades out showing the same words.
-  let target = $state<{ section: MemorySection; scope: DeleteScope }>({ section: 'notes', scope: { total: 0, team: 0, exact: true } });
+  let target = $state<{ section: MemorySection; scope: DeleteScope }>({ section: 'notes', scope: { total: 0, team: 0, stay: 0, exact: true } });
   let open = $state(false);
   let asking = false;
 
@@ -100,11 +101,14 @@
     asking = true;
 
     try {
-      const scope = (await readScope(section, path)) ?? { total: listed ?? 0, team: 0, exact: false };
+      const scope = (await readScope(section, path)) ?? { total: listed ?? 0, team: 0, stay: 0, exact: false };
 
       if (scope.total > 0) {
         target = { section, scope };
         open = true;
+      } else if (scope.stay > 0) {
+        // Only remote entries that cannot be deleted here are left: say so instead of asking about nothing.
+        toasts.push({ title: tn(STAY_TEXT[section].onlyTeam, scope.stay), tone: 'info' });
       }
     } finally {
       asking = false;
@@ -131,7 +135,7 @@
   bind:open
   title={tn(text.title, target.scope.total)}
   description={t(text.body)}
-  subject={{ icon: text.icon, name: tn(text.count, target.scope.total), note: teamLine(target.scope) }}
+  subject={{ icon: text.icon, name: tn(text.count, target.scope.total), note: teamLine(target.section, target.scope) }}
   confirmLabel={t(text.confirm)}
   cancelLabel={t('memory.deleteAll.cancel')}
   onconfirm={remove}

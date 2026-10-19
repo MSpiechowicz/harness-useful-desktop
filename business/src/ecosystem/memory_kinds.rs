@@ -3,26 +3,12 @@
 //! not know the command and exits non-zero: it uses PostgreSQL, libSQL and MongoDB only, and
 //! refuses a config file with the `database_kind` key.
 //!
-//! [`MemoryKinds::support`] asks once per binary: the answer is cached until the binary at that
-//! path changes (its modification time, length, or on Unix its device and inode). A usage error (exit 2, or a line naming an unknown command) is cached as an older
-//! server, any other failure answers [`KindsSupport::Unsupported`] without being cached, and a
-//! server that does not start or answer in time is [`KindsSupport::Unknown`] (not cached either).
+//! [`MemoryKinds::support`] asks once per binary through a [`LineProbe`] (cached per binary, an
+//! older server cached as one without DocumentDB, a failed probe not cached).
 
-use std::ffi::OsString;
-use std::path::{Path, PathBuf};
-use std::sync::{Mutex, PoisonError};
-use std::time::{Duration, SystemTime};
-
-use super::memory_binary::resolve_memory;
-use super::memory_cli::{CliAnswer, CliCall, USAGE_EXIT, run_memory_cli};
+use super::memory_line_probe::{LineAnswer, LineProbe};
 use crate::env::Env;
 use crate::process::ProcessRunner;
-
-/// How long `kinds` may take.
-pub const KINDS_TIMEOUT: Duration = Duration::from_secs(10);
-
-/// The output kept of the probe (the answer is a few short lines).
-const KINDS_OUTPUT_BYTES: usize = 16 * 1024;
 
 /// The line `kinds` prints for Amazon DocumentDB.
 const DOCUMENTDB: &str = "documentdb";
@@ -52,54 +38,17 @@ impl KindsSupport {
 }
 
 /// The probe of the installed server's database kinds. See the module docs.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct MemoryKinds {
-    probe: Mutex<Option<Probe>>,
+    probe: LineProbe,
 }
 
-/// A cached answer of one binary, as it was when probed.
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct Probe {
-    path: PathBuf,
-    stamp: Stamp,
-    answer: KindsSupport,
-}
-
-/// What tells one binary at a path from another: a replaced file gets a new inode (Unix) even when
-/// its time and length match the old one's.
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct Stamp {
-    modified: SystemTime,
-    len: u64,
-    #[cfg(unix)]
-    dev: u64,
-    #[cfg(unix)]
-    ino: u64,
-}
-
-impl Stamp {
-    /// The stamp of the file at `path`; `None` when it cannot be read.
-    fn of(path: &Path) -> Option<Self> {
-        #[cfg(unix)]
-        use std::os::unix::fs::MetadataExt;
-
-        let metadata = std::fs::metadata(path).ok()?;
-
-        Some(Self {
-            modified: metadata.modified().ok()?,
-            len: metadata.len(),
-            #[cfg(unix)]
-            dev: metadata.dev(),
-            #[cfg(unix)]
-            ino: metadata.ino(),
-        })
+impl Default for MemoryKinds {
+    fn default() -> Self {
+        Self {
+            probe: LineProbe::new("kinds"),
+        }
     }
-}
-
-/// What one run of `kinds` says, and whether it may be cached.
-struct Answer {
-    support: KindsSupport,
-    cache: bool,
 }
 
 impl MemoryKinds {
@@ -110,106 +59,13 @@ impl MemoryKinds {
 
     /// Whether the installed server can use Amazon DocumentDB (see the module docs).
     pub async fn support(&self, env: &Env, runner: &dyn ProcessRunner) -> KindsSupport {
-        let Some(binary) = resolve_memory(env) else {
-            return KindsSupport::NotInstalled;
-        };
-
-        let stamp = Stamp::of(&binary.path);
-
-        if let Some(stamp) = &stamp
-            && let Some(answer) = self.cached(&binary.path, stamp)
-        {
-            return answer;
-        }
-
-        let answer = ask(env, runner, &binary.path).await;
-
-        if answer.cache
-            && let Some(stamp) = stamp
-        {
-            self.remember(Probe {
-                path: binary.path,
-                stamp,
-                answer: answer.support,
-            });
-        }
-
-        answer.support
-    }
-
-    fn cached(&self, path: &Path, stamp: &Stamp) -> Option<KindsSupport> {
-        let probe = self.probe.lock().unwrap_or_else(PoisonError::into_inner);
-
-        probe
-            .as_ref()
-            .filter(|probe| probe.path == path && probe.stamp == *stamp)
-            .map(|probe| probe.answer)
-    }
-
-    fn remember(&self, probe: Probe) {
-        *self.probe.lock().unwrap_or_else(PoisonError::into_inner) = Some(probe);
-    }
-}
-
-/// `kinds` on `server`.
-async fn ask(env: &Env, runner: &dyn ProcessRunner, server: &Path) -> Answer {
-    let call = CliCall {
-        name: "kinds",
-        args: vec![OsString::from("kinds")],
-        timeout: KINDS_TIMEOUT,
-        output_bytes: KINDS_OUTPUT_BYTES,
-        stdin: None,
-    };
-
-    match run_memory_cli(env, runner, server, call).await {
-        Ok(CliAnswer::Done(stdout)) => {
-            let documentdb = stdout.lines().any(|line| line.trim().eq_ignore_ascii_case(DOCUMENTDB));
-
-            Answer {
-                support: KindsSupport::Listed { documentdb },
-                cache: true,
-            }
-        }
-        Ok(CliAnswer::Failed {
-            status: Some(code),
-            message,
-            ..
-        }) => {
-            let older = code == USAGE_EXIT || names_unknown_command(&message);
-
-            if !older {
-                tracing::warn!(code, "harness-memory kinds failed");
-            }
-
-            Answer {
-                support: KindsSupport::Unsupported,
-                cache: older,
-            }
-        }
-        Ok(CliAnswer::Failed { status: None, .. }) => {
-            tracing::warn!("harness-memory kinds was stopped");
-            unknown()
-        }
-        Err(error) => {
-            tracing::warn!(code = ?error.code(), "harness-memory kinds did not run");
-            unknown()
+        match self.probe.ask(env, runner).await {
+            answer @ LineAnswer::Listed(_) => KindsSupport::Listed {
+                documentdb: answer.lists(DOCUMENTDB),
+            },
+            LineAnswer::Unsupported => KindsSupport::Unsupported,
+            LineAnswer::NotInstalled => KindsSupport::NotInstalled,
+            LineAnswer::Unknown => KindsSupport::Unknown,
         }
     }
-}
-
-fn unknown() -> Answer {
-    Answer {
-        support: KindsSupport::Unknown,
-        cache: false,
-    }
-}
-
-/// True when the server's line says it does not know the command (a server whose usage errors do
-/// not exit 2).
-fn names_unknown_command(message: &str) -> bool {
-    let message = message.to_lowercase();
-
-    ["unrecognized subcommand", "unknown subcommand", "unknown command"]
-        .iter()
-        .any(|marker| message.contains(marker))
 }

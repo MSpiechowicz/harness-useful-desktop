@@ -34,15 +34,25 @@
     trusting: boolean;
     /** Opens the editor on the script. Absent until the code was read, because the editor needs it. */
     onedit: (() => void) | undefined;
+    /** Hides the remote script on this computer, or shows it again when it is hidden. */
+    onhide: () => void;
     ondelete: () => void;
     onclose: () => void;
   }
 
-  let { open, inline, script, detail, status, error, onretry, ontrust, trusting, onedit, ondelete, onclose }: Props = $props();
+  let { open, inline, script, detail, status, error, onretry, ontrust, trusting, onedit, onhide, ondelete, onclose }: Props = $props();
 
   const look = NOTICE_LOOKS.warning;
   // The body read from the server is what an agent would run, so its hash wins over the list's once loaded.
   const facts = $derived(script ? scriptFacts(script, detail?.sha256 ?? script.sha256) : []);
+
+  // A hidden script is a remote script that only Unhide acts on. A remote script of a routing that saves here is read-only: it can only be hidden.
+  // A remote script of a routing on the remote database can be edited and deleted, and hidden as well. A script of this computer cannot be hidden.
+  const isHidden = $derived(script?.hidden ?? false);
+  const readOnly = $derived(isHidden || (script?.readOnly ?? false));
+  const canHide = $derived(isHidden || script?.place === 'team');
+  // Agents do not see a hidden script, so approving it would be pointless.
+  const reviewable = $derived(script !== null && !isHidden && needsReview(script));
 </script>
 
 <SidePanel {open} {inline} title={script?.name ?? ''} subtitle={script ? `${languageLabel(script.language)} · ${scopeText(script)}` : ''} mono {onclose}>
@@ -58,8 +68,12 @@
     </SectionCard>
 
     <!-- Trust pins the body that is on screen: it needs the code read and the same version the list reports. -->
-    <PanelActions editLabel={t('memory.editor.edit')} {onedit} deleteLabel={t('memory.panel.delete')} {ondelete}>
-      {#if needsReview(script)}
+    <PanelActions editLabel={t('memory.editor.edit')} {onedit} deleteLabel={t('memory.panel.delete')} {ondelete} {readOnly} onhide={canHide ? onhide : undefined} hidden={isHidden}>
+      {#if readOnly}
+        <p class="text-sm text-fg-3">{t(isHidden ? 'memory.hidden.scripts.help.hidden' : 'memory.hidden.scripts.help.readOnly')}</p>
+      {/if}
+
+      {#if reviewable}
         <div class={cx('flex w-full flex-col items-start gap-3 rounded-md p-3', look.box)} role="status">
           <div class="flex min-w-0 items-start gap-3">
             <span class="flex h-5 shrink-0 items-center"><look.icon class={look.color} size={ICON.sm} aria-hidden="true" /></span>

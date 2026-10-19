@@ -17,7 +17,7 @@ use super::progress::RunProgress;
 pub const STOPPED_MESSAGE: &str = "Stopped in Harness Desktop";
 
 /// The message of a team run stopped because its routine may no longer run here.
-pub const WITHDRAWN_MESSAGE: &str = "The team routine is off or no longer allowed here";
+pub const WITHDRAWN_MESSAGE: &str = "The remote routine is off or no longer allowed here";
 
 /// The message of an agent run while agent routines cannot run.
 pub const AGENTS_UNAVAILABLE: &str = "Agent routines are not available in this version";

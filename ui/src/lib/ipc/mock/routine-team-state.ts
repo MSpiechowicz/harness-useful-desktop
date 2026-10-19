@@ -126,7 +126,7 @@ export class MockRoutineTeam {
     }
 
     if (fakeSha(row.routine) !== sha256) {
-      throw IpcFailure.from({ code: 'conflict', message: 'the team routine changed since it was read' });
+      throw IpcFailure.from({ code: 'conflict', message: 'the remote routine changed since it was read' });
     }
 
     return row;

@@ -14,6 +14,8 @@
 
 mod check;
 mod file;
+mod gates;
+mod routing;
 mod url;
 
 use std::path::PathBuf;
@@ -21,14 +23,17 @@ use std::path::PathBuf;
 pub use check::{CHECK_TIMEOUT, memory_remote_test};
 pub use url::{MAX_SECRET_BYTES, is_documentdb_url, kind_of, redact_url, saved_kind, validate_token, validate_url};
 
-use self::file::{ConfigFile, Routing, read_config, remove_config, render, write_config};
+use self::file::{ConfigFile, read_config, remove_config, render, write_config};
+use self::gates::{documentdb_unavailable, scripts_team_and_local_unavailable, team_and_local_unavailable};
+use self::routing::Routing;
 use self::url::{a_kind, kind_key, kind_name, scheme_fits};
+use super::memory_features::FeaturesSupport;
 use super::memory_hooks::HooksSupport;
 use super::memory_kinds::KindsSupport;
 use super::memory_team_docs::TeamDocsSupport;
 use crate::env::{Env, OsKind};
 use crate::error::{BusinessError, Result};
-use crate::model::{MemoryNotesTarget, MemoryRemote, MemoryRemoteKind};
+use crate::model::{MemoryNotesRouting, MemoryNotesTarget, MemoryRemote, MemoryRemoteKind};
 use crate::pi_family::tilde;
 
 /// The config file inside the config folder.
@@ -54,15 +59,18 @@ pub struct MemoryRemoteChange {
     /// The libSQL token; `None` keeps the saved one, an empty string removes it. Not saved for
     /// PostgreSQL and MongoDB, which take their credentials in the URL.
     pub token: Option<String>,
-    /// Where repository notes go.
-    pub repository_notes: MemoryNotesTarget,
-    /// Where global notes go.
-    pub global_notes: MemoryNotesTarget,
-    /// Where scripts go. `Local` is saved only while the installed server supports scripts.
-    pub scripts: MemoryNotesTarget,
+    /// Where repository notes go. `RemoteLocal` is refused (`Unsupported`) unless the installed
+    /// server can route notes that way ([`FeaturesSupport::team_and_local`]).
+    pub repository_notes: MemoryNotesRouting,
+    /// Where global notes go, as `repository_notes`.
+    pub global_notes: MemoryNotesRouting,
+    /// Where scripts go. `Local` is saved only while the installed server supports scripts,
+    /// `RemoteLocal` is refused (`Unsupported`) unless the installed server can route scripts that
+    /// way ([`FeaturesSupport::scripts_team_and_local`]).
+    pub scripts: MemoryNotesRouting,
     /// Run every script from the team database without asking. Saved (as `true`) only while the
-    /// installed server asks before running a script ([`ScriptsSupport::Approvals`]) and scripts go
-    /// to the team database.
+    /// installed server asks before running a script ([`ScriptsSupport::Approvals`]) and scripts are
+    /// read from the team database (`Remote` or `RemoteLocal`).
     pub trust_team_scripts: bool,
     /// Share hooks with the team (`hooks = "remote"`); `None` keeps the saved value. Saved only
     /// while the installed server keeps team hooks ([`HooksSupport::Supported`]).
@@ -80,9 +88,11 @@ pub struct MemoryRemoteChange {
 
 /// What the installed server supports, which decides the keys a save may write: the script keys
 /// ([`ScriptsSupport`]), the team hooks keys and the team routines keys ([`TeamDocsSupport`] of
-/// each kind), and `database_kind` ([`KindsSupport`]). From a [`ScriptsSupport`] alone, both kinds
-/// of team documents are [`TeamDocsSupport::Unknown`] (their saved keys are kept) and the database
-/// kinds [`KindsSupport::Unknown`] (Amazon DocumentDB is not saved).
+/// each kind), `database_kind` ([`KindsSupport`]) and `remote+local` note routing
+/// ([`FeaturesSupport`]). From a [`ScriptsSupport`] alone, both kinds of team documents are
+/// [`TeamDocsSupport::Unknown`] (their saved keys are kept), the database kinds
+/// [`KindsSupport::Unknown`] (Amazon DocumentDB is not saved) and the features
+/// [`FeaturesSupport::Unknown`] (`remote+local` is not saved).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MemorySupport {
     /// Scripts and their approvals.
@@ -93,6 +103,8 @@ pub struct MemorySupport {
     pub routines: TeamDocsSupport,
     /// The team databases it can use (`harness-memory kinds`).
     pub kinds: KindsSupport,
+    /// What else it can do (`harness-memory features`).
+    pub features: FeaturesSupport,
 }
 
 impl From<ScriptsSupport> for MemorySupport {
@@ -102,6 +114,7 @@ impl From<ScriptsSupport> for MemorySupport {
             hooks: HooksSupport::Unknown,
             routines: TeamDocsSupport::Unknown,
             kinds: KindsSupport::Unknown,
+            features: FeaturesSupport::Unknown,
         }
     }
 }
@@ -167,7 +180,9 @@ pub fn memory_config_path(env: &Env) -> Option<PathBuf> {
 /// `scriptsSupported` and `trustTeamScriptsSupported` follow `support` (see
 /// [`ScriptsSupport::keeps_scripts`] and [`ScriptsSupport::asks_before_running`]), `hooksSupported`
 /// and `routinesSupported` [`TeamDocsSupport::keeps_docs`] of each kind, `documentdbSupported`
-/// [`KindsSupport::documentdb`]; the saved values are reported either way. `kind` is the saved URL's
+/// [`KindsSupport::documentdb`], `teamAndLocalSupported` [`FeaturesSupport::team_and_local`],
+/// `scriptsTeamAndLocalSupported` [`FeaturesSupport::scripts_team_and_local`]; the saved values
+/// are reported either way. `kind` is the saved URL's
 /// as the server picks it ([`saved_kind`]).
 pub fn memory_remote_get(env: &Env, support: impl Into<MemorySupport>) -> MemoryRemote {
     let support = support.into();
@@ -218,6 +233,8 @@ fn remote_from(config: &ConfigFile, config_path: String, support: MemorySupport)
         share_routines: config.routines == Some(MemoryNotesTarget::Remote),
         trust_team_routines: config.trust_team_routines == Some(true),
         documentdb_supported: support.kinds.documentdb(),
+        team_and_local_supported: support.features.team_and_local(),
+        scripts_team_and_local_supported: support.features.scripts_team_and_local(),
         config_path,
         problem: config
             .problem
@@ -238,7 +255,9 @@ fn unsupported_scheme() -> String {
 /// `trust_team_hooks` keys `support.hooks`, the `routines` and `trust_team_routines` keys
 /// `support.routines` (see [`share_key`] and [`trust_share_key`]). Amazon DocumentDB is refused
 /// (`Unsupported`) unless `support.kinds` lists it, and `database_kind` is written as described at
-/// [`MemoryRemoteChange::kind`].
+/// [`MemoryRemoteChange::kind`]. A note scope routed `remote+local` is refused (`Unsupported`)
+/// unless `support.features` can route notes that way, and scripts routed `remote+local` unless it
+/// can route scripts that way.
 pub fn memory_remote_set(
     env: &Env,
     change: MemoryRemoteChange,
@@ -264,7 +283,19 @@ pub fn memory_remote_set(
 
     let kind = change
         .kind
-        .ok_or_else(|| BusinessError::InvalidInput("pick the kind of team database".to_owned()))?;
+        .ok_or_else(|| BusinessError::InvalidInput("pick the kind of remote database".to_owned()))?;
+
+    let team_and_local = [change.repository_notes, change.global_notes].contains(&MemoryNotesRouting::RemoteLocal);
+
+    if team_and_local && let Some(reason) = team_and_local_unavailable(support.features) {
+        return Err(BusinessError::Unsupported(reason));
+    }
+
+    if change.scripts == MemoryNotesRouting::RemoteLocal
+        && let Some(reason) = scripts_team_and_local_unavailable(support.features)
+    {
+        return Err(BusinessError::Unsupported(reason));
+    }
 
     if kind == MemoryRemoteKind::Documentdb
         && let Some(reason) = documentdb_unavailable(support.kinds)
@@ -329,17 +360,17 @@ pub fn memory_remote_set(
     Ok(memory_remote_get(env, support))
 }
 
-/// The `scripts` value to write (`None` for no key): `local` when scripts stay local on a server
-/// that keeps them (unset means remote), nothing for a server that predates them, and the saved
-/// value, untouched, when the server could not be asked.
+/// The `scripts` value to write (`None` for no key): `local` or `remote+local` when wanted on a
+/// server that keeps scripts (unset means remote), nothing for a server that predates them, and
+/// the saved value, untouched, when the server could not be asked.
 fn scripts_key(
-    wanted: MemoryNotesTarget,
-    saved: Option<MemoryNotesTarget>,
+    wanted: MemoryNotesRouting,
+    saved: Option<MemoryNotesRouting>,
     support: ScriptsSupport,
-) -> Option<MemoryNotesTarget> {
+) -> Option<MemoryNotesRouting> {
     match support {
         ScriptsSupport::Approvals | ScriptsSupport::Supported => {
-            (wanted == MemoryNotesTarget::Local).then_some(MemoryNotesTarget::Local)
+            (wanted != MemoryNotesRouting::Remote).then_some(wanted)
         }
         ScriptsSupport::Unsupported => None,
         ScriptsSupport::Unknown => saved,
@@ -347,13 +378,13 @@ fn scripts_key(
 }
 
 /// The `trust_team_scripts` value to write (`None` for no key): `true` when wanted on a server that
-/// asks before running a script while scripts go to the team database (unset means false; with
-/// scripts kept local there are no team scripts to trust, so a later switch back to the team does
-/// not trust them unasked), nothing for an older one, and the saved value, untouched, when the
-/// server could not be asked.
-fn trust_key(wanted: bool, scripts: MemoryNotesTarget, saved: Option<bool>, support: ScriptsSupport) -> Option<bool> {
+/// asks before running a script while scripts are read from the team database (`remote` or
+/// `remote+local`; unset means false; with scripts kept local there are no team scripts to trust,
+/// so a later switch back to the team does not trust them unasked), nothing for an older one, and
+/// the saved value, untouched, when the server could not be asked.
+fn trust_key(wanted: bool, scripts: MemoryNotesRouting, saved: Option<bool>, support: ScriptsSupport) -> Option<bool> {
     match support {
-        ScriptsSupport::Approvals => (wanted && scripts == MemoryNotesTarget::Remote).then_some(true),
+        ScriptsSupport::Approvals => (wanted && scripts != MemoryNotesRouting::Local).then_some(true),
         ScriptsSupport::Supported | ScriptsSupport::Unsupported => None,
         ScriptsSupport::Unknown => saved,
     }
@@ -418,18 +449,4 @@ fn kept_url(saved: Option<&str>, kind: MemoryRemoteKind) -> Result<String> {
         }
         other => other,
     })
-}
-
-/// Why Amazon DocumentDB cannot be used with the installed server, if it cannot.
-pub(super) fn documentdb_unavailable(kinds: KindsSupport) -> Option<String> {
-    let reason = match kinds {
-        KindsSupport::Listed { documentdb: true } => return None,
-        KindsSupport::Listed { documentdb: false } | KindsSupport::Unsupported => {
-            "Update Harness Memory to use Amazon DocumentDB"
-        }
-        KindsSupport::NotInstalled => "Install Harness Memory to use Amazon DocumentDB",
-        KindsSupport::Unknown => "Harness Memory could not say whether it can use Amazon DocumentDB. Try again.",
-    };
-
-    Some(reason.to_owned())
 }
