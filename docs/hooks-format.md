@@ -241,6 +241,7 @@ Update and copy. After a share, `sharedFrom[id]` holds the hash of the local fil
 - The MCP server shows a hook's `text` and `command` to the agent with secrets masked (the same redaction as command output). The file keeps what was written.
 - Edits and removals carry the lowercase SHA-256 of the file bytes the agent last read (as `hook_get` returned it). The server refuses when the current bytes hash differently.
 - The MCP server keeps `createdAt`, `createdBy`, `seed`, `requires` and unknown fields on edits and validates everything above before writing.
+- `hook_get`, `hook_update` and `hook_remove` see only the global hooks and those of the project the server works in (its working folder): for another project's hook they answer "no hook has this id".
 
 ## Validity summary
 

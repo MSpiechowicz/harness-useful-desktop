@@ -1,7 +1,9 @@
 //! `tools/call`: argument parsing, the hook drafts written on behalf of the agent, and the JSON
 //! replies. Every write goes through [`HookStore`] as [`HookAuthor::Agent`], which keeps the
 //! agent rules: pending until approved, the sha256 precondition, removal only of hooks an agent
-//! created, and no write to the app's config folder.
+//! created, and no write to the app's config folder. `hook_get`, `hook_update` and `hook_remove`
+//! see only the global hooks and those of the server's own project: another project's hook has no
+//! id here.
 
 use std::time::SystemTime;
 
@@ -14,7 +16,7 @@ use super::common::{
 };
 use super::routine_calls;
 use crate::hooks::{HookKind, HookStore};
-use crate::model::{HookAction, HookAuthor, HookDraft, HookEvent, HookScope};
+use crate::model::{HookAction, HookAuthor, HookDraft, HookEvent, HookScope, HookView};
 
 /// Sent with every hook shown: hooks an agent writes wait for the user.
 const NOTE: &str = "Hooks run in Harness Desktop chats. A hook an agent added or changed is pending: it runs \
@@ -27,7 +29,10 @@ pub(super) fn call(server: &Server, name: &str, arguments: Value) -> Option<Repl
         "hook_get" => parse(arguments).and_then(|args| get(server, args)),
         "hook_add" => parse(arguments).and_then(|args| add(server, args)),
         "hook_update" => parse(arguments).and_then(|args| update(server, args)),
-        "hook_remove" => parse(arguments).and_then(|args: RemoveArgs| remove(server.store.as_ref(), args)),
+        "hook_remove" => parse(arguments).and_then(|args: RemoveArgs| {
+            shown(server, &args.id)?;
+            remove(server.store.as_ref(), args)
+        }),
         _ => return routine_calls::call(server, name, arguments),
     };
 
@@ -116,11 +121,18 @@ fn list(server: &Server, args: ListArgs) -> Reply {
 }
 
 fn get(server: &Server, args: GetArgs) -> Reply {
-    let view = store(server)?
-        .get(&args.id, server.capabilities)
-        .map_err(refusal::<HookKind>)?;
+    let view = shown(server, &args.id)?;
 
     Ok(json!({ "hook": view_json(&view), "note": NOTE }))
+}
+
+/// Hook `id` when `hook_list` would show it to the agent (see [`Server::shown`]).
+fn shown(server: &Server, id: &str) -> Result<HookView, String> {
+    let view = store(server)?
+        .get(id, server.capabilities)
+        .map_err(refusal::<HookKind>)?;
+
+    server.shown::<HookKind, _>(view)
 }
 
 fn add(server: &Server, args: AddArgs) -> Reply {
@@ -156,7 +168,7 @@ fn update(server: &Server, args: UpdateArgs) -> Reply {
         return Err("name at least one field to change".to_owned());
     }
 
-    let view = store.get(&args.id, server.capabilities).map_err(refusal::<HookKind>)?;
+    let view = shown(server, &args.id)?;
     let current = editable::<HookKind, _>(&view, &args.sha256, view.hook.clone())?;
 
     let scope = args.scope.unwrap_or(current.scope);

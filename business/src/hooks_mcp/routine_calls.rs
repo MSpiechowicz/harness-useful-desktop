@@ -15,14 +15,12 @@ use super::Server;
 use super::common::{
     DocView, GetArgs, ListArgs, RemoveArgs, Reply, editable, list_reply, parse, refusal, remove, store_of, view_json,
 };
-use crate::error::BusinessError;
 use crate::model::{
     ApprovalMode, HarnessId, HookAuthor, HookScope, RoutineAction, RoutineDraft, RoutineModel, RoutineView,
     RoutineWhen, RoutineWhenKind, ScriptScope,
 };
 use crate::routines::format::{check_action, check_when};
 use crate::routines::{RoutineKind, RoutineStore};
-use crate::signed_docs::scope::FileOwner;
 
 /// Sent with every routine shown: routines an agent writes wait for the user.
 const NOTE: &str = "Routines run on their schedule while Harness Desktop runs. A routine an agent added or \
@@ -164,24 +162,11 @@ fn get(server: &Server, args: GetArgs) -> Reply {
     Ok(json!({ "routine": view_json(&view), "note": NOTE }))
 }
 
-/// Routine `id` when `routine_list` would show it to the agent. Another project's routine is not
-/// there for the agent: reading, editing and removing it all answer "no routine has this id".
+/// Routine `id` when `routine_list` would show it to the agent (see [`Server::shown`]).
 fn shown(server: &Server, id: &str) -> Result<RoutineView, String> {
     let view = store(server)?.get(id).map_err(refusal::<RoutineKind>)?;
 
-    let own = server.own_project();
-    let visible = view
-        .routine
-        .as_ref()
-        .is_none_or(|routine| FileOwner::of(routine).shown_in(own.as_deref()));
-
-    if !visible {
-        return Err(refusal::<RoutineKind>(BusinessError::NotFound(
-            "the routine".to_owned(),
-        )));
-    }
-
-    Ok(view)
+    server.shown::<RoutineKind, _>(view)
 }
 
 fn add(server: &Server, fields: Fields) -> Reply {

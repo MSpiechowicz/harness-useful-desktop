@@ -81,7 +81,7 @@ pub(crate) enum FileOwner {
 }
 
 impl FileOwner {
-    pub(crate) fn of<D: ScopedDoc>(doc: &D) -> Self {
+    pub(crate) fn of<D: ScopedDoc + ?Sized>(doc: &D) -> Self {
         match (doc.doc_scope(), doc.doc_project()) {
             (HookScope::Global, _) => Self::Global,
             (HookScope::Project, Some(project)) => Self::Project(project.to_owned()),

@@ -12,7 +12,7 @@ use super::Server;
 use crate::error::BusinessError;
 use crate::model::{HookApproval, HookAuthor, HookScope, HookView, RoutineView};
 use crate::security::redact_text;
-use crate::signed_docs::scope::ScopedDoc;
+use crate::signed_docs::scope::{FileOwner, ScopedDoc};
 use crate::signed_docs::{DocKind, DocStore, project_identity};
 
 /// A tool result: the reply object (as text and as `structuredContent`), or a refusal.
@@ -257,6 +257,20 @@ impl Server {
     /// when it is unknown or not a folder.
     pub(super) fn own_project(&self) -> Option<String> {
         self.project_root(None).ok()
+    }
+
+    /// `view` (a document of kind `K`) when a list of the server's own project would show it.
+    /// Another project's document is not there for the agent: reading, editing and removing it
+    /// all answer "no <noun> has this id".
+    pub(super) fn shown<K: DocKind, V: DocView>(&self, view: V) -> Result<V, String> {
+        let own = self.own_project();
+        let visible = view.doc().is_none_or(|doc| FileOwner::of(doc).shown_in(own.as_deref()));
+
+        if !visible {
+            return Err(refusal::<K>(BusinessError::NotFound(format!("the {}", K::NOUN))));
+        }
+
+        Ok(view)
     }
 
     /// The project a document of `scope` stores after an agent's write, `None` for a global one.
