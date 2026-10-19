@@ -1,7 +1,7 @@
-//! Scripted OMP/PI RPC peer for the agent-session integration tests, and scripted MCP server for
-//! the MCP client tests.
+//! Scripted OMP/PI RPC peer for the agent-session integration tests, scripted MCP server for the
+//! MCP client tests, and scripted `opencode serve` for the OpenCode chat tests ([`opencode`]).
 //!
-//! `fake_agent --dialect omp|pi|mcp --scenario <file.jsonl>` plays a scenario: one JSON step per
+//! `fake_agent --dialect omp|pi|mcp|opencode --scenario <file.jsonl>` plays a scenario: one JSON step per
 //! line (blank lines and `//` comments are skipped). With `--dialect omp` the OMP `ready` frame is
 //! sent first. With `--dialect mcp` messages are JSON-RPC 2.0: an `expect` names a `method`
 //! instead of a `type`, and replies are `{"jsonrpc":"2.0","id":…, ...reply}` (so `reply` holds
@@ -22,7 +22,7 @@
 //!   `{"include": "other.jsonl"}` (relative to the scenario).
 //!
 //! After the last step the agent waits for stdin EOF and exits 0. An `expect` that sees EOF exits
-//! 0 too; a failed `match` exits 4 with a message on stderr.
+//! 0 too; a failed `match` exits 4 with a message on stderr. Any other `--dialect` exits 2.
 //!
 //! Copied under the name `harness-memory`, `fake_agent --version` prints `harness-memory 0.0.0`
 //! (`FAKE_MEMORY_VERSION` replaces the version), so the desktop tests can place an installed memory
@@ -58,6 +58,10 @@ mod memory_notes;
 mod memory_push;
 #[path = "fake_agent/memory_scripts_hidden.rs"]
 mod memory_scripts_hidden;
+#[path = "fake_agent/opencode.rs"]
+mod opencode;
+#[path = "fake_agent/opencode_http.rs"]
+mod opencode_http;
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
@@ -97,10 +101,22 @@ fn main() {
     };
 
     let (Some(dialect), Some(scenario)) = (option("--dialect"), option("--scenario")) else {
-        fail(2, "usage: fake_agent --dialect omp|pi|mcp --scenario <file.jsonl>");
+        fail(
+            2,
+            "usage: fake_agent --dialect omp|pi|mcp|opencode --scenario <file.jsonl>",
+        );
     };
 
+    if !["omp", "pi", "mcp", "opencode"].contains(&dialect.as_str()) {
+        fail(2, &format!("unknown dialect: {dialect}"));
+    }
+
     let steps = load(Path::new(&scenario));
+
+    if dialect == "opencode" {
+        opencode::serve(&steps, Path::new(&scenario));
+    }
+
     let mut agent = Agent {
         stdin: spawn_stdin_reader(),
         unclaimed: Vec::new(),
@@ -236,6 +252,10 @@ impl Agent {
     }
 
     fn run(&mut self, step: &Value) {
+        if run_output_step(step) {
+            return;
+        }
+
         let field = |name: &str| step.get(name);
 
         if let Some(frame) = field("emit") {
@@ -251,18 +271,6 @@ impl Agent {
             let id = self.ids.get(name).cloned().unwrap_or(Value::Null);
             let command = field("command").and_then(Value::as_str).unwrap_or(name);
             self.reply(id, command, field("reply"));
-        } else if let Some(ms) = field("sleep").and_then(Value::as_u64) {
-            std::thread::sleep(Duration::from_millis(ms));
-        } else if let Some(line) = field("stderr").and_then(Value::as_str) {
-            eprintln!("{line}");
-        } else if let Some(repeat) = field("stderrRepeat") {
-            let line = repeat.get("line").and_then(Value::as_str).unwrap_or("line");
-            let count = repeat.get("count").and_then(Value::as_u64).unwrap_or(1);
-            let mut stderr = std::io::stderr().lock();
-
-            for index in 0..count {
-                writeln!(stderr, "{line} {index}").ok();
-            }
         } else if let Some(code) = field("exit").and_then(Value::as_i64) {
             std::process::exit(i32::try_from(code).unwrap_or(1));
         } else if field("hang").is_some() {
@@ -361,18 +369,44 @@ impl Agent {
 
     /// Replaces `"$name"` strings with captured ids.
     fn substitute(&self, value: &Value) -> Value {
-        match value {
-            Value::String(text) => match text.strip_prefix('$').and_then(|name| self.ids.get(name)) {
-                Some(id) => id.clone(),
-                None => value.clone(),
-            },
-            Value::Array(items) => Value::Array(items.iter().map(|item| self.substitute(item)).collect()),
-            Value::Object(map) => Value::Object(
-                map.iter()
-                    .map(|(key, item)| (key.clone(), self.substitute(item)))
-                    .collect(),
-            ),
-            other => other.clone(),
+        substitute(value, &|name| self.ids.get(name).cloned())
+    }
+}
+
+/// Runs a `sleep`, `stderr` or `stderrRepeat` step (the same in every dialect); false for any
+/// other step.
+fn run_output_step(step: &Value) -> bool {
+    let field = |name: &str| step.get(name);
+
+    if let Some(ms) = field("sleep").and_then(Value::as_u64) {
+        std::thread::sleep(Duration::from_millis(ms));
+    } else if let Some(line) = field("stderr").and_then(Value::as_str) {
+        eprintln!("{line}");
+    } else if let Some(repeat) = field("stderrRepeat") {
+        let line = repeat.get("line").and_then(Value::as_str).unwrap_or("line");
+        let count = repeat.get("count").and_then(Value::as_u64).unwrap_or(1);
+        let mut stderr = std::io::stderr().lock();
+
+        for index in 0..count {
+            writeln!(stderr, "{line} {index}").ok();
         }
+    } else {
+        return false;
+    }
+
+    true
+}
+
+/// Replaces every string `"$name"` in `value` for which `lookup(name)` has a value.
+fn substitute(value: &Value, lookup: &dyn Fn(&str) -> Option<Value>) -> Value {
+    match value {
+        Value::String(text) => text.strip_prefix('$').and_then(lookup).unwrap_or_else(|| value.clone()),
+        Value::Array(items) => Value::Array(items.iter().map(|item| substitute(item, lookup)).collect()),
+        Value::Object(map) => Value::Object(
+            map.iter()
+                .map(|(key, item)| (key.clone(), substitute(item, lookup)))
+                .collect(),
+        ),
+        other => other.clone(),
     }
 }

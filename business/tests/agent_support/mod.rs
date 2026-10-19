@@ -1,7 +1,8 @@
 //! Runs the real agent engine against `fake_agent` scenarios (`tests/fixtures/streams`).
 //!
 //! [`ScenarioSpawner`] records the command line the engine asked for and starts `fake_agent`
-//! with the scenario instead, in the same working directory, and counts the agents it saw exit.
+//! with the scenario instead, in the same working directory and with the same extra environment
+//! (`OPENCODE_SERVER_PASSWORD` for `--dialect opencode`), and counts the agents it saw exit.
 //! Each test crate uses a different
 //! subset, hence the `dead_code` allowance.
 #![allow(dead_code)]
@@ -70,6 +71,7 @@ impl ProcessSpawner for ScenarioSpawner {
             self.scenario.to_string_lossy().into_owned(),
         ]);
         fake.cwd = spec.cwd.clone();
+        fake.env = spec.env.clone();
 
         let mut process = TokioSpawner.spawn(&fake)?;
         process.child = Box::new(CountedChild {
