@@ -22,17 +22,112 @@ pub fn kind_of(url: &str) -> Option<MemoryRemoteKind> {
     }
 }
 
+/// The host suffixes of Amazon DocumentDB clusters (any case, a trailing dot ignored), as the
+/// server detects them.
+const DOCUMENTDB_HOSTS: [&str; 4] = [
+    ".docdb.amazonaws.com",
+    ".docdb-elastic.amazonaws.com",
+    ".docdb.amazonaws.com.cn",
+    ".docdb-elastic.amazonaws.com.cn",
+];
+
+/// The `database_kind` value of Amazon DocumentDB (any case).
+pub(super) const DOCUMENTDB_KIND: &str = "documentdb";
+
+/// The `database_kind` value of MongoDB (any case).
+pub(super) const MONGODB_KIND: &str = "mongodb";
+
+/// The kind of a saved `url` whose `database_kind` key is `database_kind`, as the server picks it:
+/// [`kind_of`] the scheme, and for a `mongodb://` or `mongodb+srv://` URL Amazon DocumentDB when
+/// the key says `documentdb`, MongoDB when it says `mongodb`, else DocumentDB when a host is a
+/// DocumentDB cluster's ([`is_documentdb_url`]). Any other key value counts as unset.
+pub fn saved_kind(url: &str, database_kind: Option<&str>) -> Option<MemoryRemoteKind> {
+    let kind = kind_of(url)?;
+
+    if kind != MemoryRemoteKind::Mongodb {
+        return Some(kind);
+    }
+
+    let named = database_kind.map(str::trim);
+
+    if named.is_some_and(|name| name.eq_ignore_ascii_case(DOCUMENTDB_KIND)) {
+        return Some(MemoryRemoteKind::Documentdb);
+    }
+
+    if named.is_some_and(|name| name.eq_ignore_ascii_case(MONGODB_KIND)) {
+        return Some(MemoryRemoteKind::Mongodb);
+    }
+
+    if is_documentdb_url(url) {
+        Some(MemoryRemoteKind::Documentdb)
+    } else {
+        Some(MemoryRemoteKind::Mongodb)
+    }
+}
+
+/// The `database_kind` value that keeps a `url` of `kind` that kind: `documentdb` for Amazon
+/// DocumentDB, `mongodb` for MongoDB at a host the server would otherwise take for a DocumentDB
+/// cluster's ([`is_documentdb_url`]), else none (the scheme decides).
+pub(super) fn kind_key(kind: MemoryRemoteKind, url: &str) -> Option<&'static str> {
+    match kind {
+        MemoryRemoteKind::Documentdb => Some(DOCUMENTDB_KIND),
+        MemoryRemoteKind::Mongodb if is_documentdb_url(url) => Some(MONGODB_KIND),
+        _ => None,
+    }
+}
+
+/// True when a host of `url` (`scheme://[user@]host[:port][,host…]/…`) ends in one of
+/// [`DOCUMENTDB_HOSTS`].
+pub fn is_documentdb_url(url: &str) -> bool {
+    let Some((_, rest)) = url.trim().split_once("://") else {
+        return false;
+    };
+
+    // The user info ends at the last `@` before the query; the hosts end at the path.
+    let head = rest.split(['?', '#']).next().unwrap_or_default();
+    let after = head.rfind('@').map_or(head, |at| &head[at + 1..]);
+    let hosts = after.split('/').next().unwrap_or_default();
+
+    hosts.split(',').any(|host| {
+        let name = host.trim().split(':').next().unwrap_or_default();
+        let name = name.trim_end_matches('.').to_ascii_lowercase();
+
+        DOCUMENTDB_HOSTS.iter().any(|suffix| name.ends_with(suffix))
+    })
+}
+
+/// True when `url`'s scheme is one a URL of `kind` may start with (MongoDB and Amazon DocumentDB
+/// share theirs).
+pub(super) fn scheme_fits(url: &str, kind: MemoryRemoteKind) -> bool {
+    let scheme_kind = match kind {
+        MemoryRemoteKind::Documentdb => MemoryRemoteKind::Mongodb,
+        other => other,
+    };
+
+    kind_of(url) == Some(scheme_kind)
+}
+
 /// The name of `kind` in messages.
 pub(super) fn kind_name(kind: MemoryRemoteKind) -> &'static str {
     match kind {
         MemoryRemoteKind::Postgres => "PostgreSQL",
         MemoryRemoteKind::Libsql => "libSQL",
         MemoryRemoteKind::Mongodb => "MongoDB",
+        MemoryRemoteKind::Documentdb => "Amazon DocumentDB",
+    }
+}
+
+/// `kind`'s name with its article (`a PostgreSQL`, `an Amazon DocumentDB`).
+pub(super) fn a_kind(kind: MemoryRemoteKind) -> String {
+    match kind {
+        MemoryRemoteKind::Documentdb => format!("an {}", kind_name(kind)),
+        _ => format!("a {}", kind_name(kind)),
     }
 }
 
 /// `raw` trimmed, when it is a URL Harness Memory accepts for `kind`: at most
-/// [`MAX_SECRET_BYTES`], no control characters (line breaks included), a scheme of `kind`; for
+/// [`MAX_SECRET_BYTES`], no control characters (line breaks included), a scheme of `kind` (Amazon
+/// DocumentDB takes MongoDB's); for
 /// libSQL also no user, password, query or fragment, and `http://` only for this machine.
 pub fn validate_url(raw: &str, kind: MemoryRemoteKind) -> Result<String> {
     let url = raw.trim();
@@ -51,10 +146,10 @@ pub fn validate_url(raw: &str, kind: MemoryRemoteKind) -> Result<String> {
         ));
     }
 
-    if kind_of(url) != Some(kind) {
+    if !scheme_fits(url, kind) {
         return Err(invalid(&format!(
-            "a {} URL must start with {}",
-            kind_name(kind),
+            "{} URL must start with {}",
+            a_kind(kind),
             schemes(kind)
         )));
     }
@@ -71,7 +166,7 @@ fn schemes(kind: MemoryRemoteKind) -> &'static str {
     match kind {
         MemoryRemoteKind::Postgres => "postgres:// or postgresql://",
         MemoryRemoteKind::Libsql => "libsql://, https:// or http:// (this machine only)",
-        MemoryRemoteKind::Mongodb => "mongodb:// or mongodb+srv://",
+        MemoryRemoteKind::Mongodb | MemoryRemoteKind::Documentdb => "mongodb:// or mongodb+srv://",
     }
 }
 

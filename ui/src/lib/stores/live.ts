@@ -43,6 +43,9 @@ export const HARNESS_SETUP_POLL_MS = 3_000;
 /** Back in the window: harness detection runs again unless it ran this recently. */
 export const HARNESS_FOCUS_GAP_MS = 10_000;
 
+/** The remote memory form that says Harness Memory is too old for Amazon DocumentDB: the user may be updating it in the Ecosystem view and the form unlocks by itself. */
+export const MEMORY_REMOTE_SUPPORT_POLL_MS = 10_000;
+
 /** A chat whose harness listed no model keeps asking, for the user may be signing in elsewhere. */
 export const MODELS_POLL_MS = 5_000;
 

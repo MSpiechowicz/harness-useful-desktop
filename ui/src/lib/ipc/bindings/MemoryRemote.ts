@@ -11,8 +11,9 @@ export type MemoryRemote = {
  */
 enabled: boolean, 
 /**
- * The kind the saved URL's scheme names; `None` without a URL or for a scheme the server does
- * not support.
+ * The kind of the saved URL: its scheme, and for a `mongodb://` URL the `database_kind` key
+ * or, without it, the host (see [`MemoryRemoteKind::Documentdb`]); `None` without a URL or for
+ * a scheme the server does not support.
  */
 kind: MemoryRemoteKind | null, 
 /**
@@ -82,6 +83,12 @@ shareRoutines: boolean,
  * approval, commands and agent routines that run tools without asking included.
  */
 trustTeamRoutines: boolean, 
+/**
+ * True when the installed Harness Memory can use Amazon DocumentDB as the team database
+ * (`harness-memory kinds` lists `documentdb`), so `kind` may be `documentdb` and the
+ * `database_kind` key may be saved. Older servers refuse a file with that key.
+ */
+documentdbSupported: boolean, 
 /**
  * The config file, home-relative for display (`~/.config/harness-memory/config.toml`).
  */

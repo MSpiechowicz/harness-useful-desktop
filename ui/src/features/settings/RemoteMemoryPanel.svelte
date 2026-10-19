@@ -6,18 +6,24 @@
   import Switch from '$lib/components/Switch.svelte';
   import type { StripOption } from '$lib/components/strip';
   import Button from '$lib/components/Button.svelte';
+  import { ICON } from '$lib/components/icon';
+  import { NOTICE_LOOKS } from '$lib/components/notice';
   import { t } from '$lib/i18n/i18n.svelte';
   import type { MemoryNotesTarget } from '$lib/ipc/bindings/MemoryNotesTarget';
   import type { MemoryRemote } from '$lib/ipc/bindings/MemoryRemote';
   import type { MemoryRemoteKind } from '$lib/ipc/bindings/MemoryRemoteKind';
   import { IpcFailure } from '$lib/ipc/transport';
+  import { MEMORY_REMOTE_SUPPORT_POLL_MS } from '$lib/stores/live';
   import { memoryRemote } from '$lib/stores/memoryRemote.svelte';
+  import { autoRefresh } from '$lib/utils/auto-refresh';
   import { cx } from '$lib/utils/cx';
   import { uid } from '$lib/utils/ids';
 
+  import MemoryInstall from '../memory/MemoryInstall.svelte';
+
   import DatabasePicker from './DatabasePicker.svelte';
   import KeptInRow from './KeptInRow.svelte';
-  import { takesToken, URL_PLACEHOLDERS, URL_PROBLEMS, urlMatchesKind } from './memory-remote';
+  import { savedUrlFits, takesToken, URL_PLACEHOLDERS, URL_PROBLEMS, urlMatchesKind } from './memory-remote';
   import SecretField from './SecretField.svelte';
   import SettingRow from './SettingRow.svelte';
   import TrustRow from './TrustRow.svelte';
@@ -60,6 +66,7 @@
   const base = uid('memory-remote');
   const headings = { connection: `${base}-connection`, keptIn: `${base}-kept-in`, trust: `${base}-trust` };
   const urlHint = `${base}-url`;
+  const noteHint = `${base}-note`;
 
   const TARGETS: StripOption<MemoryNotesTarget>[] = [
     {
@@ -89,13 +96,27 @@
   const sameKind = $derived(remote.kind === kind);
   const urlInvalid = $derived(typedUrl !== '' && !urlMatchesKind(kind, typedUrl));
   /** A typed URL has to fit the database; without one, the saved URL stands in if it is for this database. */
-  const urlUsable = $derived(typedUrl !== '' ? !urlInvalid : sameKind && remote.urlRedacted !== null);
+  const savedUrlStands = $derived(savedUrlFits(kind, remote.urlRedacted));
+  const urlUsable = $derived(typedUrl !== '' ? !urlInvalid : savedUrlStands);
   const changed = $derived(
     !remote.enabled || !sameKind || typedUrl !== '' || typedToken !== '' || repositoryNotes !== remote.repositoryNotes || globalNotes !== remote.globalNotes || scripts !== remote.scripts || trustTeamScripts !== remote.trustTeamScripts || shareHooks !== remote.shareHooks || trustTeamHooks !== remote.trustTeamHooks || shareRoutines !== remote.shareRoutines || trustTeamRoutines !== remote.trustTeamRoutines,
   );
-  const canSave = $derived(busy === null && urlUsable && changed);
-  const canTest = $derived(busy === null && urlUsable);
-  const showSavedUrl = $derived(sameKind && remote.urlRedacted !== null);
+  /** An older Harness Memory does not know Amazon DocumentDB: the choice stays listed but cannot be tested or saved. */
+  const kindUnsupported = $derived(kind === 'documentdb' && !remote.documentdbSupported);
+
+  // While that warning shows, Harness Memory may be getting updated elsewhere: look again right away and then every few seconds. The form keeps its own draft, so only what the backend reports changes.
+  $effect(() => {
+    if (!kindUnsupported) {
+      return undefined;
+    }
+
+    void memoryRemote.load();
+
+    return autoRefresh(() => memoryRemote.load(), MEMORY_REMOTE_SUPPORT_POLL_MS);
+  });
+  const canSave = $derived(busy === null && urlUsable && changed && !kindUnsupported);
+  const canTest = $derived(busy === null && urlUsable && !kindUnsupported);
+  const showSavedUrl = $derived(savedUrlStands);
 
   function edited(): void {
     status = null;
@@ -231,13 +252,33 @@
               showLabel={t('settings.memoryRemote.url.show')}
               hideLabel={t('settings.memoryRemote.url.hide')}
               invalid={urlInvalid && touched}
-              describedby={urlHint}
+              describedby={`${urlHint} ${noteHint}`}
               onblur={() => (touched ||= typedUrl !== '')}
             />
             {#if urlInvalid && touched}
               <p id={urlHint} class="text-xs text-danger" role="alert">{t(URL_PROBLEMS[kind])}</p>
             {:else if showSavedUrl}
               <p id={urlHint} class="text-xs text-fg-3">{t('settings.memoryRemote.url.saved', { url: remote.urlRedacted ?? '' })}</p>
+            {/if}
+            <!-- Amazon DocumentDB only answers from inside the cluster's network, so the VPN is the first thing to check when a test fails. -->
+            {#if kind === 'documentdb'}
+              <div id={noteHint} transition:slide={{ duration: scaled(200) }} class="flex flex-col gap-1 overflow-hidden text-xs text-fg-3">
+                <p>{t('settings.memoryRemote.documentdb.vpn')}</p>
+                <p>{t('settings.memoryRemote.documentdb.help')}</p>
+              </div>
+            {/if}
+            <!-- An older Harness Memory is updated right here, with the installer the Memory view uses, in the look every notice shares. -->
+            {#if kindUnsupported}
+              {@const look = NOTICE_LOOKS.warning}
+              <div
+                transition:slide={{ duration: scaled(200) }}
+                class={cx('mt-2.5 flex items-center gap-3 rounded-md border border-line px-4 py-2.5 text-sm leading-5 text-fg', look.box)}
+                role="status"
+              >
+                <look.icon class={cx('shrink-0', look.color)} size={ICON.sm} aria-hidden="true" />
+                <span class="min-w-0 flex-1">{t('memory.unavailable.outdated.title')}</span>
+                <MemoryInstall update inline onfinished={() => memoryRemote.load()} />
+              </div>
             {/if}
           </div>
 

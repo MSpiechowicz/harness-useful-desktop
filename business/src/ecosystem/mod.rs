@@ -33,6 +33,8 @@
 //! - [`memory_team_docs`]: team documents of a signed document kind Harness Memory keeps
 //!   (`harness-memory <plural> …`), and whether the installed server has them; [`memory_hooks`]:
 //!   the same for hooks (`harness-memory hooks …`).
+//! - [`memory_kinds`]: which team databases the installed server can use (`harness-memory
+//!   kinds`).
 
 pub mod catalog;
 pub mod dashboard;
@@ -47,6 +49,7 @@ pub mod mcp_register;
 pub mod memory_binary;
 pub mod memory_cli;
 pub mod memory_hooks;
+pub mod memory_kinds;
 pub mod memory_migrate;
 pub mod memory_notes;
 pub mod memory_record;
@@ -76,6 +79,7 @@ pub use mcp_register::{mcp_state, memory_mcp_state, register_dashboard_mcp};
 pub use memory_binary::{installed_memory, memory_version, parse_memory_version, resolve_memory};
 pub use memory_cli::ListWindow;
 pub use memory_hooks::{HooksConfig, HooksSupport, MemoryHooks};
+pub use memory_kinds::{KindsSupport, MemoryKinds};
 pub use memory_migrate::{LegacyCopy, LegacyMigration, migrate_legacy_memory};
 pub use memory_notes::{NotesQuery, delete_all_notes, delete_note, get_note, list_notes};
 pub use memory_record::{MEMORY_RECORD_FILE, MemoryRecord, RecordedFile};

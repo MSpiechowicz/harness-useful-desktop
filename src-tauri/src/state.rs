@@ -7,7 +7,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 
 use harness_business::app_dirs::local_data_dir;
-use harness_business::ecosystem::{CompanionReleases, Dashboard, DashboardOptions, MemoryScripts, PoolOptions};
+use harness_business::ecosystem::{
+    CompanionReleases, Dashboard, DashboardOptions, MemoryKinds, MemoryScripts, PoolOptions,
+};
 use harness_business::env::Env;
 use harness_business::harness::HarnessRegistry;
 use harness_business::hooks::HookStore;
@@ -51,6 +53,9 @@ pub struct AppState {
     /// The pooled `harness-memory mcp` connection for the Memory view's scripts (stops after 30 s
     /// without a call), and whether the installed server keeps scripts.
     pub memory_scripts: Arc<MemoryScripts>,
+    /// Which team databases the installed Harness Memory can use (`harness-memory kinds`, probed
+    /// once per binary).
+    pub memory_kinds: MemoryKinds,
     /// The script run requests of Harness Memory and the heartbeat that lets the server ask.
     pub script_requests: Arc<ScriptRequests>,
     /// Where saved attachments live (the app's cache; the agent opens them by path).
@@ -118,6 +123,7 @@ impl AppState {
             sessions: Arc::new(SessionCache::default()),
             dashboard: Arc::new(Dashboard::new(Arc::new(TokioSpawner), DashboardOptions::default())),
             memory_scripts,
+            memory_kinds: MemoryKinds::new(),
             script_requests: Arc::new(ScriptRequests::default()),
             attachments_dir: prefs_dir.join("attachments"),
             drops: DropSink::default(),

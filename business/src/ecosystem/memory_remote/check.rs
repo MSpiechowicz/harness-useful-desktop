@@ -3,15 +3,24 @@
 //! The server reads the URL and the token from `HARNESS_MEMORY_DATABASE_URL` and
 //! `HARNESS_MEMORY_DATABASE_TOKEN` before its config file, so a URL or token typed in the UI is
 //! tested through the environment (never the command line); without one the saved value is
-//! used. The app's own inherited values of those variables, and `HARNESS_MEMORY_CONFIG`, are not
-//! passed on, so the test sees the same file the settings show.
+//! used. The app's own inherited values of those variables, `HARNESS_MEMORY_DATABASE_KIND` and
+//! `HARNESS_MEMORY_CONFIG`, are not passed on, so the test sees the same file the settings show.
+//!
+//! The server takes the kind of a URL from the environment from `HARNESS_MEMORY_DATABASE_KIND` only
+//! (unset picks Amazon DocumentDB by the host), so an Amazon DocumentDB URL is tested with
+//! `HARNESS_MEMORY_DATABASE_KIND=documentdb`, a MongoDB one at a DocumentDB-looking host with
+//! `mongodb`, and any other without it. The saved URL is tested with the saved `database_kind`, so
+//! it must be of the kind asked for, except that a saved MongoDB URL is tested as Amazon DocumentDB
+//! (and back) through the environment, unless the server would refuse the file (then it is left to
+//! the file, and so needs retyping).
 
 use std::time::Duration;
 
 use super::file::{ConfigFile, read_config};
-use super::memory_config_path;
-use super::url::{kind_name, kind_of, scrub, secrets_of, validate_token, validate_url};
+use super::url::{a_kind, kind_key, saved_kind, scrub, secrets_of, validate_token, validate_url};
+use super::{documentdb_unavailable, memory_config_path};
 use crate::ecosystem::memory_binary::installed_memory;
+use crate::ecosystem::memory_kinds::KindsSupport;
 use crate::env::Env;
 use crate::error::BusinessError;
 use crate::model::{MemoryRemoteKind, MemoryRemoteTest};
@@ -29,18 +38,27 @@ const MAX_MESSAGE_CHARS: usize = 500;
 
 const URL_VAR: &str = "HARNESS_MEMORY_DATABASE_URL";
 const TOKEN_VAR: &str = "HARNESS_MEMORY_DATABASE_TOKEN";
+const KIND_VAR: &str = "HARNESS_MEMORY_DATABASE_KIND";
 
 /// Runs `harness-memory check` against a database of `kind`: `url` and `token` when given (an empty
 /// `token` tests without one), else the saved ones. `ok` is the server's exit status; `message` its
 /// first line (standard output on success, standard error on failure) with the typed and the saved
-/// secrets masked and passed through [`redact_text`], or why it could not run.
+/// secrets masked and passed through [`redact_text`], or why it could not run. Amazon DocumentDB is
+/// not tested unless `kinds` lists it (`kinds` is not read for other kinds).
 pub async fn memory_remote_test(
     env: &Env,
     runner: &dyn ProcessRunner,
     kind: MemoryRemoteKind,
+    kinds: KindsSupport,
     url: Option<String>,
     token: Option<String>,
 ) -> MemoryRemoteTest {
+    if kind == MemoryRemoteKind::Documentdb
+        && let Some(reason) = documentdb_unavailable(kinds)
+    {
+        return failed(reason);
+    }
+
     let url = match url.as_deref().map(|raw| validate_url(raw, kind)).transpose() {
         Ok(url) => url,
         Err(error) => return failed(reason(error)),
@@ -49,6 +67,11 @@ pub async fn memory_remote_test(
     let saved = memory_config_path(env)
         .map(|path| read_config(&path))
         .unwrap_or_default();
+
+    // MongoDB and Amazon DocumentDB share the URL schemes: a saved URL of the other of the two is
+    // tested as the kind asked for (through the environment), so switching needs no retyping. Not
+    // from a file the server refuses: that would test settings it will not use.
+    let url = url.or_else(|| switched_url(&saved, kind));
 
     if url.is_none()
         && let Some(problem) = saved_url_problem(&saved, kind)
@@ -73,6 +96,7 @@ pub async fn memory_remote_test(
         .args(["check"])
         .env_remove_prefix(URL_VAR)
         .env_remove_prefix(TOKEN_VAR)
+        .env_remove_prefix(KIND_VAR)
         .env_remove_prefix("HARNESS_MEMORY_CONFIG")
         .search_dirs(launcher_search_dirs(env, &server.path))
         .timeout(CHECK_TIMEOUT)
@@ -80,6 +104,10 @@ pub async fn memory_remote_test(
 
     if let Some(url) = &url {
         spec = spec.env(URL_VAR, url);
+
+        if let Some(name) = kind_key(kind, url) {
+            spec = spec.env(KIND_VAR, name);
+        }
     }
 
     // The server treats an empty variable as unset (and would read the saved token), but trims a
@@ -123,13 +151,29 @@ pub async fn memory_remote_test(
     MemoryRemoteTest { ok, message }
 }
 
+/// The saved URL, validated for `kind`, when it is a MongoDB one saved as the other of MongoDB and
+/// Amazon DocumentDB in a file Harness Memory would use.
+fn switched_url(saved: &ConfigFile, kind: MemoryRemoteKind) -> Option<String> {
+    if saved.refused {
+        return None;
+    }
+
+    let url = saved.url.as_deref()?;
+
+    if saved_kind(url, saved.database_kind.as_deref()) == Some(kind) {
+        return None;
+    }
+
+    validate_url(url, kind).ok()
+}
+
 /// Why the saved URL cannot be tested as `kind`, if it cannot.
 fn saved_url_problem(saved: &ConfigFile, kind: MemoryRemoteKind) -> Option<String> {
     match saved.url.as_deref().filter(|url| !url.trim().is_empty()) {
         None => Some("no database URL is saved; enter one to test it".to_owned()),
-        Some(url) if kind_of(url) != Some(kind) => Some(format!(
-            "the saved URL is not a {} URL; enter one to test it",
-            kind_name(kind)
+        Some(url) if saved_kind(url, saved.database_kind.as_deref()) != Some(kind) => Some(format!(
+            "the saved URL is not {} URL, so enter one to test it",
+            a_kind(kind)
         )),
         Some(_) => None,
     }

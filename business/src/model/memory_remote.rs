@@ -8,7 +8,8 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-/// The kind of team database, picked by the URL scheme.
+/// The kind of team database, picked by the URL scheme (and, for a `mongodb://` URL, by the
+/// `database_kind` key or the host).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
@@ -20,6 +21,10 @@ pub enum MemoryRemoteKind {
     Libsql,
     /// MongoDB: `mongodb://` or `mongodb+srv://`.
     Mongodb,
+    /// Amazon DocumentDB: `mongodb://` or `mongodb+srv://`, saved with `database_kind =
+    /// "documentdb"`. A saved URL without that key is DocumentDB when a host ends in
+    /// `.docdb.amazonaws.com` or `.docdb-elastic.amazonaws.com` (or their `.com.cn` forms).
+    Documentdb,
 }
 
 /// Where the server keeps one scope of notes while a team database is set.
@@ -41,8 +46,9 @@ pub enum MemoryNotesTarget {
 pub struct MemoryRemote {
     /// True when the file holds a `database_url`.
     pub enabled: bool,
-    /// The kind the saved URL's scheme names; `None` without a URL or for a scheme the server does
-    /// not support.
+    /// The kind of the saved URL: its scheme, and for a `mongodb://` URL the `database_kind` key
+    /// or, without it, the host (see [`MemoryRemoteKind::Documentdb`]); `None` without a URL or for
+    /// a scheme the server does not support.
     pub kind: Option<MemoryRemoteKind>,
     /// The saved URL without its password, query and fragment (`scheme://user@host:port/path`).
     pub url_redacted: Option<String>,
@@ -83,6 +89,10 @@ pub struct MemoryRemote {
     /// True when `trust_team_routines = true`: every team routine turned on here runs without local
     /// approval, commands and agent routines that run tools without asking included.
     pub trust_team_routines: bool,
+    /// True when the installed Harness Memory can use Amazon DocumentDB as the team database
+    /// (`harness-memory kinds` lists `documentdb`), so `kind` may be `documentdb` and the
+    /// `database_kind` key may be saved. Older servers refuse a file with that key.
+    pub documentdb_supported: bool,
     /// The config file, home-relative for display (`~/.config/harness-memory/config.toml`).
     pub config_path: String,
     /// What is wrong with the file, if anything: unreadable, not valid TOML, keys the server does

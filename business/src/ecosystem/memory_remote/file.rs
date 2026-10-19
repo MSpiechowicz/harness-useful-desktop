@@ -10,6 +10,7 @@ use std::path::Path;
 
 use toml::{Table, Value};
 
+use super::url::{DOCUMENTDB_KIND, MONGODB_KIND};
 use crate::error::{BusinessError, Result};
 use crate::fs_atomic::{create_private_dir, refuse_link, replace_atomically};
 use crate::model::MemoryNotesTarget;
@@ -19,8 +20,9 @@ use crate::security::SafeReader;
 const MAX_CONFIG_BYTES: u64 = 64 * 1024;
 
 /// The keys Harness Memory reads from the file.
-pub(super) const KNOWN_KEYS: [&str; 10] = [
+pub(super) const KNOWN_KEYS: [&str; 11] = [
     URL_KEY,
+    KIND_KEY,
     TOKEN_KEY,
     REPOSITORY_KEY,
     GLOBAL_KEY,
@@ -33,6 +35,7 @@ pub(super) const KNOWN_KEYS: [&str; 10] = [
 ];
 
 const URL_KEY: &str = "database_url";
+const KIND_KEY: &str = "database_kind";
 const TOKEN_KEY: &str = "database_token";
 const REPOSITORY_KEY: &str = "repository_notes";
 const GLOBAL_KEY: &str = "global_notes";
@@ -51,6 +54,9 @@ const LISTED_KEYS: usize = 5;
 pub(super) struct ConfigFile {
     /// `database_url`, when it is a string.
     pub url: Option<String>,
+    /// `database_kind`, when it is a string (`mongodb` or `documentdb`, any case; another value is
+    /// noted). Unset lets the server pick by the host.
+    pub database_kind: Option<String>,
     /// `database_token`, when it is a non-empty string.
     pub token: Option<String>,
     /// `repository_notes` (`remote` when unset or not understood).
@@ -71,6 +77,10 @@ pub(super) struct ConfigFile {
     pub trust_team_routines: Option<bool>,
     /// Why the app must not replace or remove the file, if it must not.
     pub blocked: Option<String>,
+    /// True when Harness Memory would not use the file as it is: a `blocked` one, or one other users
+    /// may change or that another user owns. Its values must not be passed to the server some other
+    /// way.
+    pub refused: bool,
     /// The first thing wrong with the file (the `blocked` reason first).
     pub problem: Option<String>,
 }
@@ -80,6 +90,7 @@ impl ConfigFile {
         Self {
             problem: Some(reason.clone()),
             blocked: Some(reason),
+            refused: true,
             ..Self::default()
         }
     }
@@ -110,14 +121,24 @@ pub(super) fn read_config(path: &Path) -> ConfigFile {
     if link {
         let reason = "the file is a symbolic link; the app does not change it".to_owned();
         config.blocked.get_or_insert_with(|| reason.clone());
+        config.refused = true;
         config.note(reason);
     }
 
     if let Some(problem) = permission_problem(path) {
-        config.note(problem);
+        config.refused |= problem.refused;
+        config.note(problem.message);
     }
 
     config
+}
+
+/// What is wrong with the file's permissions.
+#[cfg_attr(not(unix), expect(dead_code, reason = "permissions are checked on Unix only"))]
+struct PermissionProblem {
+    message: String,
+    /// Harness Memory refuses the file (not just a warning).
+    refused: bool,
 }
 
 /// Why the file could not be read, without its content.
@@ -166,6 +187,7 @@ fn parse_config(text: &str) -> ConfigFile {
     let mut config = ConfigFile::default();
 
     config.url = string_value(&table, URL_KEY, &mut config);
+    config.database_kind = kind_value(&table, &mut config);
     config.token = string_value(&table, TOKEN_KEY, &mut config).filter(|token| !token.trim().is_empty());
     config.repository_notes = target_value(&table, REPOSITORY_KEY, &mut config);
     config.global_notes = target_value(&table, GLOBAL_KEY, &mut config);
@@ -205,6 +227,22 @@ fn string_value(table: &Table, key: &str, config: &mut ConfigFile) -> Option<Str
             None
         }
     }
+}
+
+/// `database_kind` as written; a value other than `mongodb` or `documentdb` (any case) is noted.
+fn kind_value(table: &Table, config: &mut ConfigFile) -> Option<String> {
+    let kind = string_value(table, KIND_KEY, config)?;
+    let known = [MONGODB_KIND, DOCUMENTDB_KIND]
+        .iter()
+        .any(|name| kind.trim().eq_ignore_ascii_case(name));
+
+    if !known {
+        config.note(format!(
+            "{KIND_KEY} must be \"{MONGODB_KIND}\" or \"{DOCUMENTDB_KIND}\""
+        ));
+    }
+
+    Some(kind)
 }
 
 fn bool_value(table: &Table, key: &str, config: &mut ConfigFile) -> Option<bool> {
@@ -253,10 +291,10 @@ pub(super) struct Routing {
     pub trust_team_routines: Option<bool>,
 }
 
-/// The file's text: the URL, the token when there is one, both note routing keys, and the
-/// `scripts`, `trust_team_scripts`, `hooks`, `trust_team_hooks`, `routines` and
+/// The file's text: the URL, `database_kind` and the token when there are, both note routing
+/// keys, and the `scripts`, `trust_team_scripts`, `hooks`, `trust_team_hooks`, `routines` and
 /// `trust_team_routines` keys when there are.
-pub(super) fn render(url: &str, token: Option<&str>, routing: Routing) -> String {
+pub(super) fn render(url: &str, database_kind: Option<&str>, token: Option<&str>, routing: Routing) -> String {
     let mut text = String::from(
         "# Harness Memory team database, saved by Harness Desktop. It holds the database credentials:\n\
          # keep it private (chmod 600).\n",
@@ -270,6 +308,10 @@ pub(super) fn render(url: &str, token: Option<&str>, routing: Routing) -> String
     };
 
     line(URL_KEY, url);
+
+    if let Some(kind) = database_kind {
+        line(KIND_KEY, kind);
+    }
 
     if let Some(token) = token {
         line(TOKEN_KEY, token);
@@ -390,32 +432,37 @@ fn ensure_replaceable(path: &Path) -> Result<()> {
 
 /// What Harness Memory would say about the file's permissions (Unix; `None` elsewhere).
 #[cfg(unix)]
-fn permission_problem(path: &Path) -> Option<String> {
+fn permission_problem(path: &Path) -> Option<PermissionProblem> {
     use std::os::unix::fs::{MetadataExt, PermissionsExt};
 
     let metadata = std::fs::metadata(path).ok()?;
     let mode = metadata.permissions().mode();
 
     if mode & 0o022 != 0 {
-        return Some(
-            "other users can change the file, so Harness Memory refuses it; save here or run chmod 600 on it"
+        return Some(PermissionProblem {
+            message: "other users can change the file, so Harness Memory refuses it; save here or run chmod 600 on it"
                 .to_owned(),
-        );
+            refused: true,
+        });
     }
 
     if metadata.uid() != nix::unistd::geteuid().as_raw() {
-        return Some(
-            "the file belongs to another user, so Harness Memory refuses it; save here to replace it".to_owned(),
-        );
+        return Some(PermissionProblem {
+            message: "the file belongs to another user, so Harness Memory refuses it; save here to replace it"
+                .to_owned(),
+            refused: true,
+        });
     }
 
-    (mode & 0o044 != 0).then(|| {
-        "other users can read the file, which holds the database credentials; save here or run chmod 600 on it"
-            .to_owned()
+    (mode & 0o044 != 0).then(|| PermissionProblem {
+        message:
+            "other users can read the file, which holds the database credentials; save here or run chmod 600 on it"
+                .to_owned(),
+        refused: false,
     })
 }
 
 #[cfg(not(unix))]
-fn permission_problem(_path: &Path) -> Option<String> {
+fn permission_problem(_path: &Path) -> Option<PermissionProblem> {
     None
 }

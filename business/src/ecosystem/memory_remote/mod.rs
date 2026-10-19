@@ -3,7 +3,8 @@
 //!
 //! - [`memory_remote_get`]: what the file holds, with the URL redacted and the token reduced to
 //!   whether one is saved.
-//! - [`memory_remote_set`]: saves or removes the URL, the token, the note and script routing,
+//! - [`memory_remote_set`]: saves or removes the URL, `database_kind` (Amazon DocumentDB, and
+//!   MongoDB at a DocumentDB-looking host), the token, the note and script routing,
 //!   `trust_team_scripts`, the team hooks keys (`hooks = "remote"`, `trust_team_hooks`) and the
 //!   team routines keys (`routines = "remote"`, `trust_team_routines`).
 //! - [`memory_remote_test`]: runs `harness-memory check` against the saved or the given database.
@@ -18,11 +19,12 @@ mod url;
 use std::path::PathBuf;
 
 pub use check::{CHECK_TIMEOUT, memory_remote_test};
-pub use url::{MAX_SECRET_BYTES, kind_of, redact_url, validate_token, validate_url};
+pub use url::{MAX_SECRET_BYTES, is_documentdb_url, kind_of, redact_url, saved_kind, validate_token, validate_url};
 
 use self::file::{ConfigFile, Routing, read_config, remove_config, render, write_config};
-use self::url::kind_name;
+use self::url::{a_kind, kind_key, kind_name, scheme_fits};
 use super::memory_hooks::HooksSupport;
+use super::memory_kinds::KindsSupport;
 use super::memory_team_docs::TeamDocsSupport;
 use crate::env::{Env, OsKind};
 use crate::error::{BusinessError, Result};
@@ -40,9 +42,14 @@ const WINDOWS_PATH_HINT: &str = "%APPDATA%\\harness-memory\\config.toml";
 pub struct MemoryRemoteChange {
     /// False removes the team database settings (the file, since it holds nothing else).
     pub enabled: bool,
-    /// The kind of database; required when `enabled`.
+    /// The kind of database; required when `enabled`. Amazon DocumentDB is saved as
+    /// `database_kind = "documentdb"` and only while the installed server can use it
+    /// ([`KindsSupport::documentdb`]). MongoDB at a host the server would take for DocumentDB
+    /// ([`is_documentdb_url`]) is saved as `database_kind = "mongodb"` while the server can use
+    /// DocumentDB (an older one refuses the key); any other kind removes the key.
     pub kind: Option<MemoryRemoteKind>,
-    /// The URL; `None` keeps the saved one (only when its scheme is of `kind`).
+    /// The URL; `None` keeps the saved one (only when its scheme is of `kind`, so a saved MongoDB
+    /// URL may be kept for Amazon DocumentDB and the other way round).
     pub url: Option<String>,
     /// The libSQL token; `None` keeps the saved one, an empty string removes it. Not saved for
     /// PostgreSQL and MongoDB, which take their credentials in the URL.
@@ -73,8 +80,9 @@ pub struct MemoryRemoteChange {
 
 /// What the installed server supports, which decides the keys a save may write: the script keys
 /// ([`ScriptsSupport`]), the team hooks keys and the team routines keys ([`TeamDocsSupport`] of
-/// each kind). From a [`ScriptsSupport`] alone, both kinds are [`TeamDocsSupport::Unknown`]
-/// (their saved keys are kept).
+/// each kind), and `database_kind` ([`KindsSupport`]). From a [`ScriptsSupport`] alone, both kinds
+/// of team documents are [`TeamDocsSupport::Unknown`] (their saved keys are kept) and the database
+/// kinds [`KindsSupport::Unknown`] (Amazon DocumentDB is not saved).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MemorySupport {
     /// Scripts and their approvals.
@@ -83,6 +91,8 @@ pub struct MemorySupport {
     pub hooks: HooksSupport,
     /// Team routines (`harness-memory routines config`).
     pub routines: TeamDocsSupport,
+    /// The team databases it can use (`harness-memory kinds`).
+    pub kinds: KindsSupport,
 }
 
 impl From<ScriptsSupport> for MemorySupport {
@@ -91,6 +101,7 @@ impl From<ScriptsSupport> for MemorySupport {
             scripts,
             hooks: HooksSupport::Unknown,
             routines: TeamDocsSupport::Unknown,
+            kinds: KindsSupport::Unknown,
         }
     }
 }
@@ -155,8 +166,9 @@ pub fn memory_config_path(env: &Env) -> Option<PathBuf> {
 /// The team database settings in the config file. Reads the file only (see [`file`]).
 /// `scriptsSupported` and `trustTeamScriptsSupported` follow `support` (see
 /// [`ScriptsSupport::keeps_scripts`] and [`ScriptsSupport::asks_before_running`]), `hooksSupported`
-/// and `routinesSupported` [`TeamDocsSupport::keeps_docs`] of each kind; the saved values are
-/// reported either way.
+/// and `routinesSupported` [`TeamDocsSupport::keeps_docs`] of each kind, `documentdbSupported`
+/// [`KindsSupport::documentdb`]; the saved values are reported either way. `kind` is the saved URL's
+/// as the server picks it ([`saved_kind`]).
 pub fn memory_remote_get(env: &Env, support: impl Into<MemorySupport>) -> MemoryRemote {
     let support = support.into();
 
@@ -186,10 +198,11 @@ fn unknown_path(env: &Env) -> String {
 
 fn remote_from(config: &ConfigFile, config_path: String, support: MemorySupport) -> MemoryRemote {
     let url = config.url.as_deref().filter(|url| !url.trim().is_empty());
+    let kind = url.and_then(|url| saved_kind(url, config.database_kind.as_deref()));
 
     MemoryRemote {
         enabled: url.is_some(),
-        kind: url.and_then(kind_of),
+        kind,
         url_redacted: url.map(redact_url),
         has_token: config.token.is_some(),
         repository_notes: config.repository_notes,
@@ -204,11 +217,12 @@ fn remote_from(config: &ConfigFile, config_path: String, support: MemorySupport)
         routines_supported: support.routines.keeps_docs(),
         share_routines: config.routines == Some(MemoryNotesTarget::Remote),
         trust_team_routines: config.trust_team_routines == Some(true),
+        documentdb_supported: support.kinds.documentdb(),
         config_path,
         problem: config
             .problem
             .clone()
-            .or_else(|| url.filter(|url| kind_of(url).is_none()).map(|_| unsupported_scheme())),
+            .or_else(|| url.filter(|_| kind.is_none()).map(|_| unsupported_scheme())),
     }
 }
 
@@ -222,7 +236,9 @@ fn unsupported_scheme() -> String {
 /// [`validate_token`]. Turning the team database off removes the file. The `scripts` and
 /// `trust_team_scripts` keys follow `support.scripts` (see [`ScriptsSupport`]), the `hooks` and
 /// `trust_team_hooks` keys `support.hooks`, the `routines` and `trust_team_routines` keys
-/// `support.routines` (see [`share_key`] and [`trust_share_key`]).
+/// `support.routines` (see [`share_key`] and [`trust_share_key`]). Amazon DocumentDB is refused
+/// (`Unsupported`) unless `support.kinds` lists it, and `database_kind` is written as described at
+/// [`MemoryRemoteChange::kind`].
 pub fn memory_remote_set(
     env: &Env,
     change: MemoryRemoteChange,
@@ -249,6 +265,12 @@ pub fn memory_remote_set(
     let kind = change
         .kind
         .ok_or_else(|| BusinessError::InvalidInput("pick the kind of team database".to_owned()))?;
+
+    if kind == MemoryRemoteKind::Documentdb
+        && let Some(reason) = documentdb_unavailable(support.kinds)
+    {
+        return Err(BusinessError::Unsupported(reason));
+    }
 
     let url = match change.url.as_deref() {
         Some(raw) => validate_url(raw, kind)?,
@@ -285,7 +307,19 @@ pub fn memory_remote_set(
         ),
     };
 
-    let text = render(&url, token.as_deref(), routing);
+    // Only a server that lists DocumentDB knows the key (an older one refuses it, and does not
+    // take a MongoDB URL for DocumentDB by its host either). Without an answer, MongoDB at a
+    // DocumentDB host is not saved: a current server would take it for DocumentDB.
+    let database_kind = kind_key(kind, &url);
+
+    if database_kind.is_some() && support.kinds == KindsSupport::Unknown {
+        return Err(BusinessError::Unsupported(
+            documentdb_unavailable(support.kinds).unwrap_or_default(),
+        ));
+    }
+
+    let database_kind = database_kind.filter(|_| support.kinds.documentdb());
+    let text = render(&url, database_kind, token.as_deref(), routing);
     write_config(&path, &text)?;
     tracing::info!(
         kind = kind_name(kind),
@@ -371,10 +405,10 @@ fn kept_url(saved: Option<&str>, kind: MemoryRemoteKind) -> Result<String> {
         return Err(BusinessError::InvalidInput("enter the database URL".to_owned()));
     };
 
-    if kind_of(saved) != Some(kind) {
+    if !scheme_fits(saved, kind) {
         return Err(BusinessError::InvalidInput(format!(
-            "the saved URL is not a {} URL; enter the new one",
-            kind_name(kind)
+            "the saved URL is not {} URL, so enter the new one",
+            a_kind(kind)
         )));
     }
 
@@ -384,4 +418,18 @@ fn kept_url(saved: Option<&str>, kind: MemoryRemoteKind) -> Result<String> {
         }
         other => other,
     })
+}
+
+/// Why Amazon DocumentDB cannot be used with the installed server, if it cannot.
+pub(super) fn documentdb_unavailable(kinds: KindsSupport) -> Option<String> {
+    let reason = match kinds {
+        KindsSupport::Listed { documentdb: true } => return None,
+        KindsSupport::Listed { documentdb: false } | KindsSupport::Unsupported => {
+            "Update Harness Memory to use Amazon DocumentDB"
+        }
+        KindsSupport::NotInstalled => "Install Harness Memory to use Amazon DocumentDB",
+        KindsSupport::Unknown => "Harness Memory could not say whether it can use Amazon DocumentDB. Try again.",
+    };
+
+    Some(reason.to_owned())
 }

@@ -12,7 +12,7 @@ use std::path::Path;
 
 use common::set_mode;
 use harness_business::ecosystem::memory_remote::CHECK_TIMEOUT;
-use harness_business::ecosystem::memory_remote_test;
+use harness_business::ecosystem::{KindsSupport, memory_remote_test};
 use harness_business::env::Env;
 use harness_business::model::{MemoryRemoteKind, MemoryRemoteTest};
 use harness_business::process::{ExecOutput, ProcessRunner, TokioRunner};
@@ -29,6 +29,9 @@ fn save_config(env: &Env, text: &str) {
     set_mode(&path, 0o600);
 }
 
+/// A server that can use Amazon DocumentDB.
+const WITH_DOCUMENTDB: KindsSupport = KindsSupport::Listed { documentdb: true };
+
 fn test(
     env: &Env,
     runner: &dyn ProcessRunner,
@@ -36,7 +39,25 @@ fn test(
     url: Option<&str>,
     token: Option<&str>,
 ) -> MemoryRemoteTest {
-    let future = memory_remote_test(env, runner, kind, url.map(str::to_owned), token.map(str::to_owned));
+    test_with(env, runner, kind, WITH_DOCUMENTDB, url, token)
+}
+
+fn test_with(
+    env: &Env,
+    runner: &dyn ProcessRunner,
+    kind: MemoryRemoteKind,
+    kinds: KindsSupport,
+    url: Option<&str>,
+    token: Option<&str>,
+) -> MemoryRemoteTest {
+    let future = memory_remote_test(
+        env,
+        runner,
+        kind,
+        kinds,
+        url.map(str::to_owned),
+        token.map(str::to_owned),
+    );
 
     tokio::runtime::Runtime::new().unwrap().block_on(future)
 }
@@ -188,6 +209,7 @@ fn the_secrets_go_through_the_environment_with_a_20_second_limit() {
     for removed in [
         "HARNESS_MEMORY_DATABASE_URL",
         "HARNESS_MEMORY_DATABASE_TOKEN",
+        "HARNESS_MEMORY_DATABASE_KIND",
         "HARNESS_MEMORY_CONFIG",
     ] {
         assert!(spec.env_remove_prefixes.contains(&OsString::from(removed)), "{removed}");
@@ -244,4 +266,190 @@ fn a_silent_failure_or_a_timeout_is_explained() {
             message: "Harness Memory did not answer within 20 seconds".to_owned()
         }
     );
+}
+
+/// An Amazon DocumentDB cluster's URL as the AWS console shows it.
+fn documentdb_url() -> String {
+    format!(
+        "mongodb://team:{PASSWORD}@memory.cluster-c1.eu-west-1.docdb.amazonaws.com:27017/?tls=true&tlsCAFile=global-bundle.pem&replicaSet=rs0&retryWrites=false"
+    )
+}
+
+fn answered_ok() -> ExecOutput {
+    ExecOutput {
+        status: Some(0),
+        stdout: "ok: DocumentDB\n".to_owned(),
+        ..ExecOutput::default()
+    }
+}
+
+fn kind_var(spec: &harness_business::process::ExecSpec) -> Option<OsString> {
+    spec.env
+        .iter()
+        .find(|(name, _)| name == "HARNESS_MEMORY_DATABASE_KIND")
+        .map(|(_, value)| value.clone())
+}
+
+#[test]
+fn a_typed_documentdb_host_is_tested_as_the_kind_asked_for() {
+    let home = tempfile::tempdir().unwrap();
+    let (env, server) = installed_at(home.path());
+    install(&server, None);
+    let url = documentdb_url();
+    let runner = stub(answered_ok());
+
+    let documentdb = test(&env, &runner, MemoryRemoteKind::Documentdb, Some(&url), None);
+    assert!(documentdb.ok, "{}", documentdb.message);
+
+    let mongodb = test(&env, &runner, MemoryRemoteKind::Mongodb, Some(&url), None);
+    assert!(mongodb.ok, "{}", mongodb.message);
+
+    let atlas = "mongodb+srv://team@cluster0.example.mongodb.net/memory";
+    assert!(test(&env, &runner, MemoryRemoteKind::Mongodb, Some(atlas), None).ok);
+
+    let checks = runner.runs.lock().unwrap();
+    assert_eq!(
+        checks[0].env,
+        [
+            (OsString::from("HARNESS_MEMORY_DATABASE_URL"), OsString::from(&url)),
+            (
+                OsString::from("HARNESS_MEMORY_DATABASE_KIND"),
+                OsString::from("documentdb")
+            ),
+        ]
+    );
+    assert_eq!(
+        kind_var(&checks[1]),
+        Some(OsString::from("mongodb")),
+        "MongoDB names the kind, so the server does not take the host for DocumentDB"
+    );
+    assert_eq!(kind_var(&checks[2]), None, "another host needs no kind");
+
+    for spec in checks.iter() {
+        assert!(
+            spec.env_remove_prefixes
+                .contains(&OsString::from("HARNESS_MEMORY_DATABASE_KIND")),
+            "the app's own value is never passed on"
+        );
+    }
+}
+
+#[test]
+fn a_saved_mongodb_url_is_tested_as_the_kind_asked_for() {
+    let home = tempfile::tempdir().unwrap();
+    let (env, server) = installed_at(home.path());
+    install(&server, None);
+    let runner = stub(answered_ok());
+    let check = |kind| test(&env, &runner, kind, None, None);
+    let docdb = "mongodb://u@db.cluster-1.us-east-1.docdb.amazonaws.com:27017/m";
+
+    // No `database_kind`: a DocumentDB host is DocumentDB, read by the server from the file.
+    save_config(&env, &format!("database_url = \"{docdb}\"\n"));
+    assert!(check(MemoryRemoteKind::Documentdb).ok);
+
+    // Asked as MongoDB, the saved URL goes through the environment as MongoDB (no retyping).
+    assert!(check(MemoryRemoteKind::Mongodb).ok);
+
+    // `database_kind = "mongodb"`, asked as DocumentDB: the URL and the kind go through the
+    // environment.
+    save_config(
+        &env,
+        &format!("database_url = \"{docdb}\"\ndatabase_kind = \"mongodb\"\n"),
+    );
+    assert!(check(MemoryRemoteKind::Documentdb).ok);
+    assert!(check(MemoryRemoteKind::Mongodb).ok);
+
+    // `database_kind = "documentdb"` (any case) asked as DocumentDB is read from the file.
+    save_config(
+        &env,
+        "database_url = \"mongodb://db.example.com/m\"\ndatabase_kind = \"DocumentDB\"\n",
+    );
+    assert!(check(MemoryRemoteKind::Documentdb).ok);
+
+    // Another scheme is still refused.
+    save_config(&env, "database_url = \"postgres://u@db.example.com/m\"\n");
+    assert_eq!(
+        check(MemoryRemoteKind::Documentdb).message,
+        "the saved URL is not an Amazon DocumentDB URL, so enter one to test it"
+    );
+    assert_eq!(
+        check(MemoryRemoteKind::Mongodb).message,
+        "the saved URL is not a MongoDB URL, so enter one to test it"
+    );
+
+    let checks = runner.runs.lock().unwrap();
+    let env_of = |index: usize| {
+        let spec = &checks[index];
+        let value = |name: &str| {
+            spec.env
+                .iter()
+                .find(|(key, _)| key == name)
+                .map(|(_, value)| value.clone())
+        };
+        (
+            value("HARNESS_MEMORY_DATABASE_URL").is_some(),
+            value("HARNESS_MEMORY_DATABASE_KIND"),
+        )
+    };
+    assert_eq!(checks.len(), 5, "the postgres URL never ran");
+    assert_eq!(env_of(0), (false, None), "saved kind matches: the file is read");
+    assert_eq!(
+        env_of(1),
+        (true, Some(OsString::from("mongodb"))),
+        "switched to MongoDB: named, so the DocumentDB host does not decide"
+    );
+    assert_eq!(env_of(2), (true, Some(OsString::from("documentdb"))));
+    assert_eq!(env_of(3), (false, None));
+    assert_eq!(env_of(4), (false, None));
+}
+
+#[test]
+fn documentdb_is_not_tested_with_a_server_that_cannot_use_it() {
+    let home = tempfile::tempdir().unwrap();
+    let (env, server) = installed_at(home.path());
+    install(&server, None);
+    let runner = stub(answered_ok());
+    let url = documentdb_url();
+
+    let cases = [
+        (
+            KindsSupport::Listed { documentdb: false },
+            "Update Harness Memory to use Amazon DocumentDB",
+        ),
+        (
+            KindsSupport::Unsupported,
+            "Update Harness Memory to use Amazon DocumentDB",
+        ),
+        (
+            KindsSupport::NotInstalled,
+            "Install Harness Memory to use Amazon DocumentDB",
+        ),
+        (
+            KindsSupport::Unknown,
+            "Harness Memory could not say whether it can use Amazon DocumentDB. Try again.",
+        ),
+    ];
+
+    for (kinds, message) in cases {
+        let result = test_with(&env, &runner, MemoryRemoteKind::Documentdb, kinds, Some(&url), None);
+        assert_eq!(
+            result,
+            MemoryRemoteTest {
+                ok: false,
+                message: message.to_owned()
+            }
+        );
+    }
+
+    assert!(runner.runs.lock().unwrap().is_empty(), "the server is never run");
+
+    let mongodb = test_with(
+        &env,
+        &runner,
+        MemoryRemoteKind::Mongodb,
+        KindsSupport::Unsupported,
+        Some(&url),
+        None,
+    );
+    assert!(mongodb.ok, "MongoDB needs no DocumentDB support");
 }

@@ -21,12 +21,13 @@ const CONFIG_PATH = '~/.config/harness-memory/config.toml';
 /** How long a mock `harness-memory check` takes; tests do not wait. */
 const CHECK_MS = import.meta.env.MODE === 'test' ? 0 : 900;
 
-const KIND_NAMES: Record<MemoryRemoteKind, string> = { postgres: 'PostgreSQL', libsql: 'libSQL', mongodb: 'MongoDB' };
+const KIND_NAMES: Record<MemoryRemoteKind, string> = { postgres: 'PostgreSQL', libsql: 'libSQL', mongodb: 'MongoDB', documentdb: 'Amazon DocumentDB' };
 
 const SCHEMES: Record<MemoryRemoteKind, string[]> = {
   postgres: ['postgres', 'postgresql'],
   libsql: ['libsql', 'https', 'http'],
   mongodb: ['mongodb', 'mongodb+srv'],
+  documentdb: ['mongodb', 'mongodb+srv'],
 };
 
 /** What the mock "file" holds; the raw URL and token never leave this module. */
@@ -60,10 +61,20 @@ function initial(scenario: RemoteScenario): Saved {
   }
 }
 
-function kindOf(url: string): MemoryRemoteKind | null {
+/** Whether the URL's scheme is one the database accepts. MongoDB and DocumentDB share theirs. */
+function schemeFits(url: string, kind: MemoryRemoteKind): boolean {
   const scheme = url.split('://')[0]?.toLowerCase() ?? '';
 
-  return (Object.keys(SCHEMES) as MemoryRemoteKind[]).find((kind) => url.includes('://') && SCHEMES[kind].includes(scheme)) ?? null;
+  return url.includes('://') && SCHEMES[kind].includes(scheme);
+}
+
+/** The kind a saved URL stands for: a mongodb URL on an AWS DocumentDB host is DocumentDB. */
+function kindOf(url: string): MemoryRemoteKind | null {
+  if (schemeFits(url, 'documentdb') && url.toLowerCase().includes('.docdb.amazonaws.com')) {
+    return 'documentdb';
+  }
+
+  return (Object.keys(SCHEMES) as MemoryRemoteKind[]).find((kind) => kind !== 'documentdb' && schemeFits(url, kind)) ?? null;
 }
 
 /** `scheme://user@host:port/path`: no password, query or fragment. */
@@ -92,7 +103,7 @@ function validUrl(raw: string, kind: MemoryRemoteKind): string {
     throw invalid('the database URL is longer than 4 KiB or contains control characters');
   }
 
-  if (kindOf(url) !== kind) {
+  if (!schemeFits(url, kind)) {
     throw invalid(`a ${KIND_NAMES[kind]} URL must start with ${SCHEMES[kind].map((scheme) => `${scheme}://`).join(', ')}`);
   }
 
@@ -131,6 +142,8 @@ export function memoryRemoteHandlers(scenario: () => RemoteScenario = remoteScen
       routinesSupported: scriptsSupported(),
       shareRoutines: file.shareRoutines,
       trustTeamRoutines: file.trustTeamRoutines,
+      // The mock stands in for a current Harness Memory.
+      documentdbSupported: true,
       configPath: CONFIG_PATH,
       problem: file.blocked,
     };
@@ -155,7 +168,7 @@ export function memoryRemoteHandlers(scenario: () => RemoteScenario = remoteScen
     let url = file.url;
     if (args.url !== null) {
       url = validUrl(args.url, args.kind);
-    } else if (!url || kindOf(url) !== args.kind) {
+    } else if (!url || !schemeFits(url, args.kind)) {
       throw invalid(url ? `the saved URL is not a ${KIND_NAMES[args.kind]} URL; enter the new one` : 'enter the database URL');
     }
 
@@ -184,7 +197,7 @@ export function memoryRemoteHandlers(scenario: () => RemoteScenario = remoteScen
       return { ok: false, message: 'no database URL is saved; enter one to test it' };
     }
 
-    if (kindOf(url) !== args.kind) {
+    if (!schemeFits(url, args.kind)) {
       return { ok: false, message: `the saved URL is not a ${KIND_NAMES[args.kind]} URL; enter one to test it` };
     }
 

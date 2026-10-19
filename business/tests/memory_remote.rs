@@ -125,6 +125,7 @@ fn without_a_file_team_memory_is_off() {
             routines_supported: false,
             share_routines: false,
             trust_team_routines: false,
+            documentdb_supported: false,
             config_path: "~/.config/harness-memory/config.toml".to_owned(),
             problem: None,
         }

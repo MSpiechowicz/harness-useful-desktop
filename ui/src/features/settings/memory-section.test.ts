@@ -30,6 +30,7 @@ function fakeBackend(initial: Partial<MemoryRemote> = {}, probe: MemoryRemoteTes
     trustTeamScripts: false,
     trustTeamScriptsSupported: true,
     hooksSupported: false, shareHooks: false, trustTeamHooks: false, routinesSupported: false, shareRoutines: false, trustTeamRoutines: false,
+    documentdbSupported: true,
     ...initial,
   };
   const passthrough = ipc.invoke.bind(ipc);
@@ -46,7 +47,7 @@ function fakeBackend(initial: Partial<MemoryRemote> = {}, probe: MemoryRemoteTes
         ...state,
         enabled: next.enabled,
         kind: next.kind,
-        urlRedacted: next.url === null ? state.urlRedacted : 'redacted://' + next.url.split('@').pop(),
+        urlRedacted: next.url === null ? state.urlRedacted : next.url.replace(/\/\/.*@/, '//'),
         hasToken: next.token === null ? state.hasToken : next.token !== '',
         repositoryNotes: next.repositoryNotes,
         globalNotes: next.globalNotes,
@@ -252,7 +253,7 @@ describe('Memory section', () => {
     await fireEvent.input(await screen.findByLabelText('Connection URL'), { target: { value: POSTGRES_URL } });
     await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
-    await waitFor(() => expect(screen.getByText('Saved: redacted://db.team.example:5432/mem?sslmode=require')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Saved: postgres://db.team.example:5432/mem?sslmode=require')).toBeInTheDocument());
     expect(calls(invoke, 'memory_remote_set')).toEqual([
       { enabled: true, kind: 'postgres', url: POSTGRES_URL, token: null, repositoryNotes: 'remote', globalNotes: 'remote', scripts: 'remote', trustTeamScripts: false },
     ]);
