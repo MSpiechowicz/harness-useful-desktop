@@ -1,0 +1,7 @@
+// The reply of a routine run (included after its prompt was taken): one assistant message, then the run settles.
+{"emit":{"type":"agent_start"}}
+{"emit":{"type":"message_start","messageId":"msg-r1","message":{"role":"assistant"}}}
+{"emit":{"type":"message_end","messageId":"msg-r1","message":{"role":"assistant","content":[{"type":"text","text":"Checked the build: all green."}],"provider":"anthropic","model":"claude-sonnet-4-5","stopReason":"stop","timestamp":1791540005000}}}
+{"emit":{"type":"agent_end","messages":[]}}
+{"emit":{"type":"prompt_result","id":"$p","agentInvoked":true,"status":"completed","sessionSettled":false}}
+{"emit":{"type":"session_settled"}}

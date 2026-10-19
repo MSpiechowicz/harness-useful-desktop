@@ -1,8 +1,8 @@
 //! One run of a `harness-memory` command for the user (`trust`, `notes`, `scripts list`,
 //! `scripts delete --all`, `hooks`), shared by [`memory_trust`](super::memory_trust),
 //! [`memory_notes`](super::memory_notes), the scripts list of
-//! [`memory_scripts`](super::memory_scripts) and [`memory_hooks`](super::memory_hooks), the page
-//! of a list ([`ListWindow`]), and deleting every note or script ([`delete_all`]).
+//! [`memory_scripts`](super::memory_scripts) and [`memory_team_docs`](super::memory_team_docs),
+//! the page of a list ([`ListWindow`]), and deleting every note or script ([`delete_all`]).
 //!
 //! The server runs in the home directory with closed stdin (`hooks put` gets the hook on it),
 //! `NO_COLOR=1`, a time limit and capped

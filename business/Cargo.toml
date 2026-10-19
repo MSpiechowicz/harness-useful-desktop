@@ -16,6 +16,7 @@ test-support = []
 base64.workspace = true
 dunce.workspace = true
 flate2.workspace = true
+jiff.workspace = true
 minisign-verify.workspace = true
 regex.workspace = true
 serde.workspace = true

@@ -2,17 +2,15 @@
 //! hook gets it as `createdBy` too, and an edit keeps `createdAt`, `createdBy`, `seed` and
 //! `requires` of the file it rewrites.
 
-use std::path::Path;
 use std::time::SystemTime;
 
 use serde_json::{Map, Value};
 
-use super::format::timestamp_key;
-use super::project_identity;
-use super::view::{MAX_HOOKS_PER_SCOPE, scope_key};
+use super::HookKind;
 use crate::agent::rfc3339;
-use crate::error::{BusinessError, Result};
+use crate::error::Result;
 use crate::model::{Hook, HookAuthor, HookDraft, HookRequirement, HookScope, HookSeed};
+use crate::signed_docs::scope::{draft_project, kept_origin};
 
 /// The hook `draft` describes, written by `author` at `now`. `base` is the JSON object of the file
 /// it rewrites (empty for a new hook) and `previous` that file parsed, when it is valid.
@@ -29,7 +27,10 @@ pub(crate) fn draft_hook(
 
     let project = match draft.scope {
         HookScope::Global => None,
-        HookScope::Project => Some(draft_project(draft, previous)?),
+        HookScope::Project => Some(draft_project::<HookKind>(
+            draft.project.as_deref(),
+            previous.and_then(|hook| hook.project.as_deref()),
+        )?),
     };
 
     let description = draft
@@ -63,40 +64,6 @@ pub(crate) fn draft_hook(
     })
 }
 
-/// Refuses `hook` when its scope already holds [`MAX_HOOKS_PER_SCOPE`] other valid hooks
-/// (`others`: every valid hook in the folder).
-pub(crate) fn check_room<'a>(others: impl Iterator<Item = &'a Hook>, hook: &Hook) -> Result<()> {
-    let count = others
-        .filter(|other| other.id != hook.id && scope_key(other) == scope_key(hook))
-        .count();
-
-    if count >= MAX_HOOKS_PER_SCOPE {
-        return Err(BusinessError::InvalidInput(format!(
-            "a scope holds at most {MAX_HOOKS_PER_SCOPE} hooks"
-        )));
-    }
-
-    Ok(())
-}
-
-/// The project root a project draft stores: the previous one when the draft keeps it, else the
-/// project identity of the folder it names (which must exist and be a folder).
-fn draft_project(draft: &HookDraft, previous: Option<&Hook>) -> Result<String> {
-    let Some(folder) = draft.project.as_deref().filter(|folder| !folder.is_empty()) else {
-        return Err(BusinessError::InvalidInput("a project hook needs a project".to_owned()));
-    };
-
-    if previous.and_then(|hook| hook.project.as_deref()) == Some(folder) {
-        return Ok(folder.to_owned());
-    }
-
-    let root = project_identity(Path::new(folder))?;
-
-    root.into_os_string()
-        .into_string()
-        .map_err(|_| BusinessError::InvalidInput("the project path is not valid UTF-8".to_owned()))
-}
-
 /// The fields an edit keeps from the file it rewrites (each one only when it is valid).
 struct Kept {
     created_at: Option<String>,
@@ -107,18 +74,18 @@ struct Kept {
 
 impl Kept {
     fn from_file(base: &Map<String, Value>, previous: Option<&Hook>) -> Self {
+        let (created_at, created_by) = kept_origin(base, previous);
+
         if let Some(previous) = previous {
             return Self {
-                created_at: Some(previous.created_at.clone()),
-                created_by: Some(previous.created_by),
+                created_at,
+                created_by,
                 seed: previous.seed,
                 requires: previous.requires.clone(),
             };
         }
 
         // An invalid file being fixed: keep what can still be read.
-        let text = |key: &str| base.get(key).and_then(Value::as_str);
-
         let mut requires: Vec<HookRequirement> = Vec::new();
 
         for requirement in base
@@ -134,15 +101,9 @@ impl Kept {
         }
 
         Self {
-            created_at: text("createdAt")
-                .filter(|time| timestamp_key(time).is_some())
-                .map(str::to_owned),
-            created_by: match text("createdBy") {
-                Some("agent") => Some(HookAuthor::Agent),
-                Some("desktop") => Some(HookAuthor::Desktop),
-                _ => None,
-            },
-            seed: text("seed").and_then(HookSeed::parse),
+            created_at,
+            created_by,
+            seed: base.get("seed").and_then(Value::as_str).and_then(HookSeed::parse),
             requires,
         }
     }

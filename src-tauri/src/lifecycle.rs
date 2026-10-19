@@ -1,6 +1,7 @@
 //! App lifecycle hooks that end agent sessions: a page (re)load of the main webview stops every
-//! session (their channels died with the old page) and forgets their hook state, and app exit
-//! stops them before the process ends.
+//! session (their channels died with the old page) and forgets their hook state, except the chats
+//! of routine runs going on (their windows are detached), and app exit stops them before the
+//! process ends.
 //!
 //! A reload takes the sessions out of the manager at once and stops their agents in the
 //! background. Their session ids stay held until each agent exited, so the reloaded page resuming
@@ -10,7 +11,12 @@
 //! [`Agents::stop_all`](crate::agents::Agents::stop_all) and then for the chats' `sessionEnd`
 //! hook commands (at most [`SESSION_END_BUDGET`]), all within [`EXIT_BUDGET`]; the event loop
 //! keeps running meanwhile. Then the app exits for real. Shutdown (and `RunEvent::Exit`) also ends
-//! the memory heartbeat and removes its file ([`ScriptRequests::stop`](crate::memory_requests::ScriptRequests::stop)).
+//! the memory heartbeat and removes its file ([`ScriptRequests::stop`](crate::memory_requests::ScriptRequests::stop)),
+//! and stops the live routine runs ([`RoutineRuntime::shutdown`](crate::routines::RoutineRuntime::shutdown)).
+//!
+//! Closing the main window quits, unless "Keep running in the tray when the window is closed" is
+//! on and the tray icon exists: the window is hidden instead and routines keep running
+//! ([`crate::window::hide_instead_of_closing`]).
 
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
@@ -35,9 +41,18 @@ pub fn on_page_load<R: Runtime>(webview: &Webview<R>, payload: &PageLoadPayload<
     }
 
     if let Some(state) = webview.try_state::<AppState>() {
-        state.agents.stop_all_in_background();
-        state.hooks.clear();
+        page_reloaded(&state);
     }
+}
+
+/// The page reloaded: every chat stops but those of routine runs going on, which no page owns
+/// (only their windows leave).
+pub fn page_reloaded(state: &AppState) {
+    let routine_chats = state.routines.relays().running_keys();
+    state.routines.relays().detach_all();
+
+    state.agents.stop_all_in_background_except(&routine_chats);
+    state.hooks.clear_except(&routine_chats);
 }
 
 /// `App::run` callback.
@@ -54,6 +69,15 @@ pub fn on_run_event<R: Runtime>(app: &AppHandle<R>, event: RunEvent) {
 
             api.prevent_exit();
             begin_shutdown(app, code.unwrap_or(0));
+        }
+        RunEvent::WindowEvent {
+            label,
+            event: WindowEvent::CloseRequested { api, .. },
+            ..
+        } if label == MAIN_WINDOW => {
+            if crate::window::hide_instead_of_closing(app) {
+                api.prevent_close();
+            }
         }
         RunEvent::WindowEvent {
             label,
@@ -85,12 +109,16 @@ fn begin_shutdown<R: Runtime>(app: &AppHandle<R>, code: i32) {
 
     let agents = state.agents.clone();
     let hooks = state.hooks.clone();
+    let routines = state.routines.clone();
     let handle = app.clone();
     let deadline = Instant::now() + EXIT_BUDGET;
 
     let waiter = std::thread::Builder::new()
         .name("agent-shutdown".to_owned())
         .spawn(move || {
+            // Live routine runs end as "stopped" ("Harness Desktop closed during the run").
+            routines.shutdown();
+
             let (done, stopped) = mpsc::channel();
             let stopping = agents.clone();
 

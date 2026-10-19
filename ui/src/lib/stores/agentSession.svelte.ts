@@ -4,42 +4,23 @@ import { SvelteMap } from 'svelte/reactivity';
 
 import { t } from '$lib/i18n/i18n.svelte';
 import { requestAiLabel } from '$lib/chat/ai-name';
-import { generatedName, generatedNameCount } from '$lib/chat/naming';
+import { generatedName } from '$lib/chat/naming';
 import { ChatSession } from '$lib/chat/session.svelte';
-import type { AgentEnvelope } from '$lib/ipc/bindings/AgentEnvelope';
 import type { AgentStartRequest } from '$lib/ipc/bindings/AgentStartRequest';
-import type { ApprovalMode } from '$lib/ipc/bindings/ApprovalMode';
 import type { CommandSpec } from '$lib/ipc/bindings/CommandSpec';
 import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
 import type { SessionRef } from '$lib/ipc/bindings/SessionRef';
+import type { SessionRoutineTag } from '$lib/ipc/bindings/SessionRoutineTag';
 import { ipc } from '$lib/ipc/client';
 import { IpcFailure, type Transport } from '$lib/ipc/transport';
 
+import { buffered, nextNumber, type RestartOptions, type RestoredChat, type StartingChat } from './agent-tabs';
 import { harness } from './harness.svelte';
 import { prefs } from './prefs.svelte';
+import { openRunWindow } from './routine-window';
 import { toasts, type ToastsStore } from './toasts.svelte';
 
-/** Options a restart can change; everything else carries over from the session being replaced. */
-export interface RestartOptions {
-  approvalOverride?: ApprovalMode | null;
-  trustOnce?: boolean;
-}
-
-/** A chat whose agent is still starting: shown as a tab at once, replaced by the session when the agent is ready. */
-export interface StartingChat {
-  key: string;
-  harness: HarnessId;
-  project: string;
-}
-
-/** A chat of the last run to reopen: its conversation, and the name it had. */
-export interface RestoredChat {
-  harness: HarnessId;
-  project: string;
-  sessionId: string;
-  label: ChatSession['aiLabel'];
-  userNamed: boolean;
-}
+export type { RestartOptions, RestoredChat, StartingChat } from './agent-tabs';
 
 /** Every open chat session (the tabs) and which one is showing. */
 export class AgentSessionsStore {
@@ -52,6 +33,8 @@ export class AgentSessionsStore {
   activeStarting: StartingChat | null = $derived(this.starting.find((chat) => chat.key === this.activeKey) ?? null);
 
   private startingCount = 0;
+  /** The routine runs being attached to, by run id, so that a second ask waits for the same tab. */
+  private attaching = new Map<string, Promise<ChatSession | null>>();
   /** Each open chat's number, the "3" of "Chat 3" (a random free one), kept while the agent has not named it. */
   private numbers = new SvelteMap<string, number>();
 
@@ -86,25 +69,6 @@ export class AgentSessionsStore {
     return this.get(key)?.label?.description ?? '';
   }
 
-  /**
-   * A placeholder name for a new chat: a random one of the names no open chat has, so a fresh chat is not always the
-   * first of the list. Once every name is taken, the lowest free number (a name with "2", "3"...) follows.
-   */
-  private nextNumber(): number {
-    const used = new Set(this.numbers.values());
-    const free = Array.from({ length: generatedNameCount() }, (_, index) => index + 1).filter((number) => !used.has(number));
-    if (free.length > 0) {
-      return free[Math.floor(Math.random() * free.length)];
-    }
-
-    let next = 1;
-    while (used.has(next)) {
-      next += 1;
-    }
-
-    return next;
-  }
-
   private catalogs = new Map<HarnessId, Promise<CommandSpec[]>>();
 
   constructor(
@@ -117,7 +81,7 @@ export class AgentSessionsStore {
   }
 
   /**
-   * Starts an agent. Events can arrive before the command returns, so they wait in `pending` until the session exists.
+   * Starts an agent. Events can arrive before the command returns, so they wait until the session exists.
    * `quiet` drops a failure without a toast (reopening last run's chats: one that can't come back just stays closed).
    */
   async start(request: AgentStartRequest, { activate = true, quiet = false } = {}): Promise<ChatSession | null> {
@@ -131,12 +95,11 @@ export class AgentSessionsStore {
       return null;
     }
 
-    const pending: AgentEnvelope[] = [];
-    let session: ChatSession | null = null;
-    const onEvent = (envelope: AgentEnvelope): void => (session ? session.ingest(envelope) : void pending.push(envelope));
+    const feed = buffered();
+    let session: ChatSession;
 
     try {
-      const info = await this.transport.invoke('agent_start', { request, onEvent });
+      const info = await this.transport.invoke('agent_start', { request, onEvent: feed.onEvent });
       session = new ChatSession(info, this.transport, this.notifications);
     } catch (error) {
       if (!quiet) {
@@ -146,22 +109,57 @@ export class AgentSessionsStore {
       return null;
     }
 
-    for (const envelope of pending) {
-      session.ingest(envelope);
-    }
+    feed.bind(session);
 
     if (!request.utility && !request.resume) {
       session.onFirstPrompt = (named) => void this.nameWithAi(named);
     }
 
+    this.show(session, activate);
+
+    return session;
+  }
+
+  /** Adds a session to the tabs, with a number for its placeholder name, and shows it when asked. */
+  private show(session: ChatSession, activate: boolean): void {
     this.sessions = [...this.sessions, session];
     if (!this.numbers.has(session.key)) {
-      this.numbers.set(session.key, this.nextNumber());
+      this.numbers.set(session.key, nextNumber(this.numbers.values()));
     }
     if (activate) {
       this.activeKey = session.key;
     }
     void this.loadCatalog(session);
+  }
+
+  /**
+   * Opens the live window of a routine run as a chat tab: the backend replays the run's conversation and then sends
+   * what happens next, and the tab answers its questions and approvals like any chat. A run that is open already
+   * is shown instead (the backend lets one window look at a run). Closing the tab stops the agent, as for any chat.
+   * `quiet` drops a failure without a toast (the run has ended, its session can be read instead).
+   */
+  async attachRoutine(routine: SessionRoutineTag, { activate = true, quiet = false } = {}): Promise<ChatSession | null> {
+    // A run that is being attached to (a toast action and a notification click at once) is waited for, not attached twice.
+    let attaching = this.attaching.get(routine.runId);
+    if (!attaching && !this.sessions.some((session) => session.routine?.runId === routine.runId)) {
+      attaching = this.attachNew(routine, quiet).finally(() => this.attaching.delete(routine.runId));
+      this.attaching.set(routine.runId, attaching);
+    }
+
+    const session = (await attaching) ?? this.sessions.find((open) => open.routine?.runId === routine.runId) ?? null;
+    if (session && activate) {
+      this.activeKey = session.key;
+    }
+
+    return session;
+  }
+
+  private async attachNew(routine: SessionRoutineTag, quiet: boolean): Promise<ChatSession | null> {
+    const session = await openRunWindow(this.transport, this.notifications, routine, quiet);
+
+    if (session) {
+      this.show(session, false);
+    }
 
     return session;
   }
@@ -197,7 +195,7 @@ export class AgentSessionsStore {
   async create(harness: HarnessId, project: string): Promise<ChatSession | null> {
     this.startingCount += 1;
     const placeholder: StartingChat = { key: `starting-${this.startingCount}`, harness, project };
-    this.numbers.set(placeholder.key, this.nextNumber());
+    this.numbers.set(placeholder.key, nextNumber(this.numbers.values()));
     this.starting = [...this.starting, placeholder];
     this.activeKey = placeholder.key;
 
@@ -225,7 +223,7 @@ export class AgentSessionsStore {
     const slots = chats.map((chat): StartingChat => {
       this.startingCount += 1;
       const slot = { key: `starting-${this.startingCount}`, harness: chat.harness, project: chat.project };
-      this.numbers.set(slot.key, this.nextNumber());
+      this.numbers.set(slot.key, nextNumber(this.numbers.values()));
 
       return slot;
     });
@@ -240,10 +238,7 @@ export class AgentSessionsStore {
     const sessions = await Promise.all(
       chats.map(async (chat, index) => {
         const slot = slots[index];
-        const session = await this.start(
-          { harness: chat.harness, project: chat.project, resume: { harness: chat.harness, id: chat.sessionId }, approvalOverride: null, trustOnce: false, utility: false },
-          { activate: false, quiet: true },
-        );
+        const session = await this.reopen(chat);
         this.starting = this.starting.filter((other) => other.key !== slot.key);
         this.handOverNumber(slot.key, session?.key ?? null);
 
@@ -252,7 +247,10 @@ export class AgentSessionsStore {
           session.userNamed = chat.userNamed;
           back.push(index);
           this.moveTo(session.key, back.filter((other) => other < index).length);
-          void session.loadHistory();
+          // A run's window is replayed by the backend, a resumed chat reads its conversation.
+          if (!session.routine) {
+            void session.loadHistory();
+          }
         }
 
         if (this.activeKey === slot.key) {
@@ -264,6 +262,24 @@ export class AgentSessionsStore {
     );
 
     return sessions.filter(Boolean).length;
+  }
+
+  /**
+   * Brings one chat of the last run back: the window of a routine run that is still going on, else the saved
+   * conversation (a run that ended meanwhile leaves its session to read).
+   */
+  private async reopen(chat: RestoredChat): Promise<ChatSession | null> {
+    if (chat.routine) {
+      const attached = await this.attachRoutine(chat.routine, { activate: false, quiet: true });
+      if (attached || chat.sessionId === '') {
+        return attached;
+      }
+    }
+
+    return this.start(
+      { harness: chat.harness, project: chat.project, resume: { harness: chat.harness, id: chat.sessionId }, approvalOverride: null, trustOnce: false, utility: false },
+      { activate: false, quiet: true },
+    );
   }
 
   /** Closes a tab and stops its agent. */

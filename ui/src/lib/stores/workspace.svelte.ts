@@ -1,5 +1,6 @@
 import type { ChatLabel } from '$lib/chat/naming';
 import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
+import type { SessionRoutineTag } from '$lib/ipc/bindings/SessionRoutineTag';
 import { isHarnessId } from '$lib/ipc/harness-ids';
 
 import { type AgentSessionsStore, resumable } from './agentSession.svelte';
@@ -12,7 +13,17 @@ import { nav, VIEW_IDS, type ViewId } from './nav.svelte';
  */
 interface SavedWorkspace {
   view: ViewId;
-  chats: { harness: HarnessId; sessionId: string; project: string; /** The helper's name and description, and whether the user renamed the chat since. */ label?: ChatLabel | null; userNamed?: boolean }[];
+  chats: {
+    harness: HarnessId;
+    /** Empty for the window of a routine run that has no saved conversation yet. */
+    sessionId: string;
+    project: string;
+    /** The helper's name and description, and whether the user renamed the chat since. */
+    label?: ChatLabel | null;
+    userNamed?: boolean;
+    /** The run the chat is the live window of, to look at it again after a reload. */
+    routine?: SessionRoutineTag | null;
+  }[];
   /** Index into `chats` of the chat that was showing, or -1. */
   active: number;
 }
@@ -25,11 +36,18 @@ export function saveWorkspace(agents: AgentSessionsStore): void {
   const open = agents.sessions.flatMap((session) => {
     const ref = session.ended ? null : resumable(session);
 
-    return ref ? [{ session, ref }] : [];
+    return ref || (session.routine && !session.ended) ? [{ session, ref }] : [];
   });
   const record: SavedWorkspace = {
     view: nav.current,
-    chats: open.map(({ session, ref }) => ({ harness: ref.harness, sessionId: ref.id, project: session.info.project, label: session.aiLabel, userNamed: session.userNamed })),
+    chats: open.map(({ session, ref }) => ({
+      harness: session.info.harness,
+      sessionId: ref?.id ?? '',
+      project: session.info.project,
+      label: session.aiLabel,
+      userNamed: session.userNamed,
+      routine: session.routine,
+    })),
     active: open.findIndex(({ session }) => session.key === agents.activeKey),
   };
 
@@ -47,7 +65,17 @@ function isLabel(value: unknown): value is ChatLabel {
 }
 
 function sameSession(a: SavedWorkspace['chats'][number], b: SavedWorkspace['chats'][number]): boolean {
+  if (a.sessionId === '' || b.sessionId === '') {
+    return a.routine?.runId !== undefined && a.routine.runId === b.routine?.runId;
+  }
+
   return a.harness === b.harness && a.sessionId === b.sessionId;
+}
+
+function isRoutine(value: unknown): value is SessionRoutineTag {
+  const tag = value as SessionRoutineTag | null;
+
+  return typeof tag?.runId === 'string' && typeof tag.routineId === 'string' && typeof tag.name === 'string';
 }
 
 /** Keeps the first chat of each session: two agents must never run (and append to) one session. */
@@ -66,7 +94,8 @@ function readWorkspace(): SavedWorkspace | null {
     const chats = uniqueSessions(
       record.chats
         .filter((chat) => typeof chat?.sessionId === 'string' && typeof chat.project === 'string' && isHarnessId(chat.harness) && harness.canChat(chat.harness))
-        .map((chat) => ({ ...chat, label: isLabel(chat.label) ? chat.label : null, userNamed: chat.userNamed === true })),
+        .map((chat) => ({ ...chat, label: isLabel(chat.label) ? chat.label : null, userNamed: chat.userNamed === true, routine: isRoutine(chat.routine) ? chat.routine : null }))
+        .filter((chat) => chat.sessionId !== '' || chat.routine !== null),
     );
 
     return {
@@ -110,7 +139,7 @@ export function restoreWorkspace(agents: AgentSessionsStore): Promise<boolean> {
       nav.go(saved.view);
     }
 
-    const chats = saved.chats.slice(0, MAX_RESTORED).map((chat) => ({ harness: chat.harness, project: chat.project, sessionId: chat.sessionId, label: chat.label ?? null, userNamed: chat.userNamed ?? false }));
+    const chats = saved.chats.slice(0, MAX_RESTORED).map((chat) => ({ harness: chat.harness, project: chat.project, sessionId: chat.sessionId, label: chat.label ?? null, userNamed: chat.userNamed ?? false, routine: chat.routine ?? null }));
 
     return (await agents.restore(chats, saved.active)) > 0;
   })().finally(() => {

@@ -1,14 +1,18 @@
 //! Test helpers for the shell's unit tests.
 
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, UNIX_EPOCH};
 
 use harness_business::agent::{AgentManager, SessionOptions};
 use harness_business::ecosystem::mcp_target_paths;
 use harness_business::env::Env;
-use harness_business::model::{AgentStartRequest, Detection, HarnessId, HarnessSummary, VersionSupport};
+use harness_business::hooks::HookCapabilities;
+use harness_business::model::{
+    AgentStartRequest, Detection, HarnessId, HarnessSummary, HookAction, HookAuthor, HookDraft, HookEvent, HookScope,
+    HookView, VersionSupport,
+};
 use harness_business::process::{ExecSpec, ProcessSpawner, SpawnedProcess, TokioSpawner};
 use harness_business::project::Projects;
 use serde_json::Value;
@@ -186,10 +190,23 @@ pub fn path_arg(path: &Path) -> Option<String> {
 
 /// A channel that keeps every message it receives, parsed as JSON.
 pub fn collecting_channel<T>() -> (Channel<T>, Arc<Mutex<Vec<Value>>>) {
+    let (channel, _, received) = closable_channel(true);
+
+    (channel, received)
+}
+
+/// A channel that keeps every message (parsed as JSON) while `open` is set, and fails like a
+/// destroyed webview after.
+pub fn closable_channel<T>(open: bool) -> (Channel<T>, Arc<AtomicBool>, Arc<Mutex<Vec<Value>>>) {
     let received = Arc::new(Mutex::new(Vec::new()));
-    let messages = received.clone();
+    let open = Arc::new(AtomicBool::new(open));
+    let (messages, is_open) = (received.clone(), open.clone());
 
     let channel = Channel::new(move |body| {
+        if !is_open.load(Ordering::Acquire) {
+            return Err(tauri::Error::WebviewNotFound);
+        }
+
         if let InvokeResponseBody::Json(json) = body {
             let message = serde_json::from_str(&json).expect("channel messages are JSON");
             messages.lock().unwrap_or_else(PoisonError::into_inner).push(message);
@@ -197,7 +214,29 @@ pub fn collecting_channel<T>() -> (Channel<T>, Arc<Mutex<Vec<Value>>>) {
         Ok(())
     });
 
-    (channel, received)
+    (channel, open, received)
+}
+
+/// The event types of the envelopes in `messages`, in order.
+pub fn event_types(messages: &Mutex<Vec<Value>>) -> Vec<String> {
+    let messages = messages.lock().unwrap_or_else(PoisonError::into_inner);
+
+    messages
+        .iter()
+        .map(|message| message["event"]["type"].as_str().unwrap_or_default().to_owned())
+        .collect()
+}
+
+/// Asserts that the envelopes in `messages` are all of session `key`, in increasing `seq` order.
+pub fn assert_envelopes_in_order(messages: &Mutex<Vec<Value>>, key: &str) {
+    let messages = messages.lock().unwrap_or_else(PoisonError::into_inner);
+    let seqs: Vec<u64> = messages
+        .iter()
+        .map(|message| message["seq"].as_u64().expect("a seq"))
+        .collect();
+
+    assert!(seqs.windows(2).all(|pair| pair[0] < pair[1]), "{seqs:?}");
+    assert!(messages.iter().all(|message| message["sessionKey"] == key));
 }
 
 /// Caches a detection of `harness`: installed at `binary`, or not installed.
@@ -340,6 +379,39 @@ pub fn agent_setup(binary: &Path, scenario: &str) -> AgentSetup {
         project,
         _dir: dir,
     }
+}
+
+/// Writes a global hook as `author` (the desktop's is approved, an agent's pending), created
+/// `secs` after a fixed time so the run order is known.
+pub fn save_global_hook(
+    state: &AppState,
+    name: &str,
+    event: HookEvent,
+    action: HookAction,
+    author: HookAuthor,
+    secs: u64,
+) -> HookView {
+    let draft = HookDraft {
+        id: None,
+        expected_sha256: None,
+        name: name.to_owned(),
+        description: None,
+        scope: HookScope::Global,
+        project: None,
+        event,
+        matcher: None,
+        action,
+        enabled: true,
+    };
+    let created = UNIX_EPOCH + Duration::from_secs(1_791_000_000 + secs);
+
+    let store = state.hooks.store().expect("a hooks folder");
+    let saved = store
+        .save(&draft, author, HookCapabilities::default(), created)
+        .expect("hook saved");
+    state.hooks.invalidate();
+
+    saved
 }
 
 /// A request for a new OMP chat in `project`.

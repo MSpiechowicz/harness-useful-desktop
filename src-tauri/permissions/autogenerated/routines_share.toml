@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-routines-share"
+description = "Enables the routines_share command without any pre-configured scope."
+commands.allow = ["routines_share"]
+
+[[permission]]
+identifier = "deny-routines-share"
+description = "Denies the routines_share command without any pre-configured scope."
+commands.deny = ["routines_share"]

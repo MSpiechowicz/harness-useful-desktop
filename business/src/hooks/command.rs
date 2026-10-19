@@ -8,7 +8,11 @@
 //! - Stdout is capped at [`MAX_OUTPUT_BYTES`], redacted for secrets and trimmed; stderr is
 //!   dropped. A non-zero exit, a timeout (the process group is killed) or a spawn failure gives no
 //!   output. Neither the command nor its output is logged.
+//!
+//! This is the only module that names a shell (`scripts/check-forbidden.ts`): anything else that
+//! runs a command text the user wrote or approved builds it with [`shell_exec_spec`].
 
+use std::path::Path;
 use std::time::{Duration, Instant};
 
 use super::compose::ResolvedPart;
@@ -161,11 +165,33 @@ pub async fn run_command(
 
 /// The shell invocation of `request`.
 pub fn command_spec(env: &Env, request: &CommandRequest, timeout: Duration) -> ExecSpec {
-    shell_spec(env, &request.command)
-        .cwd(&request.cwd)
-        .envs(request.env.iter().map(|(name, value)| (name.clone(), value.clone())))
+    shell_exec_spec(
+        env,
+        &request.command,
+        &request.cwd,
+        &request.env,
+        timeout,
+        MAX_OUTPUT_BYTES,
+    )
+}
+
+/// The shell invocation of the command text `command` (`sh -c` on Linux and macOS,
+/// `cmd.exe /D /S /C` on Windows): run in `cwd` with `vars` added to its environment and stdin
+/// closed, killed after `timeout`, each output stream capped at `max_output_bytes`. Only for a
+/// command the user wrote or approved.
+pub fn shell_exec_spec(
+    env: &Env,
+    command: &str,
+    cwd: &Path,
+    vars: &[(String, String)],
+    timeout: Duration,
+    max_output_bytes: usize,
+) -> ExecSpec {
+    shell_spec(env, command)
+        .cwd(cwd)
+        .envs(vars.iter().map(|(name, value)| (name.clone(), value.clone())))
         .timeout(timeout)
-        .max_output_bytes(MAX_OUTPUT_BYTES)
+        .max_output_bytes(max_output_bytes)
 }
 
 #[cfg(not(windows))]

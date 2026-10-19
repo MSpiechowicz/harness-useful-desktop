@@ -250,6 +250,12 @@
               {/snippet}
             </SettingRow>
 
+            <SettingRow title={t('settings.tray.title')} description={t('settings.tray.description')}>
+              {#snippet control()}
+                <Switch label={t('settings.tray.title')} bind:checked={() => prefs.value?.keepRunningInTray ?? false, (keepRunningInTray) => void prefs.update({ keepRunningInTray })} />
+              {/snippet}
+            </SettingRow>
+
             <SettingRow title={t('settings.replay.title')} description={motion.level === 'off' ? t('settings.replay.motionOff') : t('settings.replay.ready')}>
               {#snippet control()}
                 <Button disabled={motion.level === 'off'} onclick={() => intro.play(motion.level)}>

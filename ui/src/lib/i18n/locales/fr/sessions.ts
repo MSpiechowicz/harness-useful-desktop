@@ -58,6 +58,8 @@ export const sessions: AreaMessages<typeof enSessions> = {
   'sessions.touched.none': 'Aucun fichier modifié.',
 
   'sessions.details.empty': 'Choisissez une session pour voir ses totaux, ses modèles et ses fichiers.',
+  'sessions.missing.title': 'Cette session est introuvable',
+  'sessions.missing.body': 'Elle a peut-être été supprimée ou appartient à un autre harness ou projet. Choisissez-en une dans la liste.',
   'sessions.details.overview': 'Aperçu',
   'sessions.details.messages': 'messages',
   'sessions.details.toolCalls': 'appels d’outils',
@@ -104,4 +106,7 @@ export const sessions: AreaMessages<typeof enSessions> = {
   'sessions.transcript.progress.other': '{shown} sur {count} messages',
   'sessions.transcript.loadMore': 'Charger plus de messages',
 
+  'sessions.folder.label': 'Dossier',
+  'sessions.folder.project': 'Ce projet',
+  'sessions.folder.routines': 'Routines globales',
 };

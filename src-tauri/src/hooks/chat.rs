@@ -19,17 +19,19 @@
 //! - A chat moved to another project ([`moved`]) runs the hooks of its new project from then on.
 //! - A command hook that gives no output (non-zero exit, timeout, could not start, no budget left)
 //!   puts a short notice in the chat, without the command or its output.
+//! - [`ChatHooks::is_idle`] tells a routine run whether the hooks still have work: an event the
+//!   task has not handled, or a follow-up whose run has not settled.
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 
 use harness_business::agent::EventSink;
 use harness_business::env::Env;
 use harness_business::hooks::{
     ChatContext, CommandFailure, CommandFailureKind, EventOutcome, Firing, FollowUpPlan, HookSession, HookSet,
-    ResolvedPart, SendOrigin, SendPlan, compose_follow_up, compose_prompt, project_identity, run_firing, run_firings,
+    ResolvedPart, SendOrigin, SendPlan, compose_follow_up, compose_prompt, handled_without_run, project_identity,
+    run_firing, run_firings,
 };
 use harness_business::model::{AgentAction, AgentEnvelope, AgentEvent, AgentReply, AgentSessionInfo, NoticeLevel};
 use harness_business::process::TokioRunner;
@@ -37,39 +39,41 @@ use harness_business::{BusinessError, Result};
 use serde_json::Value;
 use tokio::sync::mpsc;
 
+use self::counts::Counts;
 use super::HookRuntime;
-use crate::agent_sink::ChannelSink;
 use crate::agents::Agents;
 use crate::state::AppState;
 
-/// Forwards a chat's events to the webview first, then hands the ones the hooks react to (tool
-/// ends, prompt results, settles, the exit) to the chat's hook task without waiting. Counts the
-/// settles before the webview sees them.
+mod counts;
+
+/// Forwards a chat's events to its sink (the webview, or a routine run's relay) first, then hands
+/// the ones the hooks react to (tool ends, prompt results, settles, the exit) to the chat's hook
+/// task without waiting. Counts the settles before the sink sees them.
 pub struct HookSink {
-    inner: Arc<ChannelSink>,
+    inner: Arc<dyn EventSink>,
     events: mpsc::UnboundedSender<AgentEvent>,
-    settles: Arc<AtomicU64>,
+    counts: Arc<Counts>,
 }
 
-/// The events a [`HookSink`] passed on, and its count of settles, for [`track`].
+/// The events a [`HookSink`] passed on, and its counts, for [`track`].
 pub struct HookEvents {
     received: mpsc::UnboundedReceiver<AgentEvent>,
-    settles: Arc<AtomicU64>,
+    counts: Arc<Counts>,
 }
 
 impl HookSink {
     /// A sink around `inner`, and the events it passes on.
-    pub fn new(inner: Arc<ChannelSink>) -> (Self, HookEvents) {
+    pub fn new(inner: Arc<dyn EventSink>) -> (Self, HookEvents) {
         let (events, received) = mpsc::unbounded_channel();
-        let settles = Arc::new(AtomicU64::new(0));
+        let counts = Arc::new(Counts::default());
 
         let sink = Self {
             inner,
             events,
-            settles: settles.clone(),
+            counts: counts.clone(),
         };
 
-        (sink, HookEvents { received, settles })
+        (sink, HookEvents { received, counts })
     }
 }
 
@@ -78,15 +82,16 @@ impl EventSink for HookSink {
         let relevant = hook_relevant(&envelope.event);
 
         // Counted before anyone can react to it, so a message sent after it starts the next run.
-        if matches!(envelope.event, AgentEvent::Settled { .. }) {
-            self.settles.fetch_add(1, Ordering::AcqRel);
-        }
+        let settled = matches!(envelope.event, AgentEvent::Settled { .. });
+        self.counts.arrived(settled, relevant.is_some());
 
         self.inner.emit(envelope);
 
-        if let Some(event) = relevant {
-            // A closed receiver means the chat is not tracked: nothing to do.
-            self.events.send(event).ok();
+        // A closed receiver means the chat is not tracked: nothing will handle it.
+        if let Some(event) = relevant
+            && self.events.send(event).is_err()
+        {
+            self.counts.handled();
         }
     }
 }
@@ -116,16 +121,16 @@ fn hook_relevant(event: &AgentEvent) -> Option<AgentEvent> {
 pub struct ChatHooks {
     key: String,
     project: Mutex<Option<String>>,
-    settles: Arc<AtomicU64>,
+    counts: Arc<Counts>,
     session: tokio::sync::Mutex<HookSession>,
 }
 
 impl ChatHooks {
-    fn new(chat: ChatContext, settles: Arc<AtomicU64>) -> Self {
+    fn new(chat: ChatContext, counts: Arc<Counts>) -> Self {
         Self {
             key: chat.session_id.clone(),
             project: Mutex::new(chat.project.clone()),
-            settles,
+            counts,
             session: tokio::sync::Mutex::new(HookSession::new(chat)),
         }
     }
@@ -142,7 +147,14 @@ impl ChatHooks {
 
     /// The settles the chat's sink has seen.
     fn settles_seen(&self) -> u64 {
-        self.settles.load(Ordering::Acquire)
+        self.counts.settles()
+    }
+
+    /// True while the hooks have nothing left to do: the task handled every event the sink passed
+    /// on, and the run of the last follow-up settled. A settle seen before this is true may still
+    /// earn a follow-up, so a routine run waits for both.
+    pub fn is_idle(&self) -> bool {
+        self.counts.is_idle()
     }
 }
 
@@ -160,7 +172,7 @@ pub async fn track(state: &AppState, info: &AgentSessionInfo, fresh: bool, event
             fresh,
             utility: false,
         },
-        events.settles.clone(),
+        events.counts.clone(),
     ));
 
     if !register(state, &chat) {
@@ -366,6 +378,7 @@ impl ChatTask {
             let outcome = self.chat.session.lock().await.on_event(&hooks, &event);
 
             self.carry_out(outcome).await;
+            self.chat.counts.handled();
 
             if matches!(event, AgentEvent::Exited { .. }) {
                 self.runtime.forget_exited(&self.chat);
@@ -425,8 +438,14 @@ impl ChatTask {
 
         // Still under the lock and before this task reads the next event, so a `Handled` result
         // for the follow-up is never taken for a user message's.
+        let settles = self.chat.settles_seen();
+
         match self.agents.manager().send(self.chat.key(), action).await {
             Ok(reply) => {
+                if !handled_without_run(&reply) {
+                    self.chat.counts.follow_up_sent(settles);
+                }
+
                 session.follow_up_replied(&reply);
                 tracing::info!(session = %self.chat.key(), parts = parts.len(), "hook follow-up sent");
             }

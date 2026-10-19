@@ -2,8 +2,10 @@
   import { slide } from 'svelte/transition';
 
   import { autofocus } from '$lib/a11y/autofocus';
-  import Button from '$lib/components/Button.svelte';
   import Dialog from '$lib/components/Dialog.svelte';
+  import DocFormTail from '$lib/components/docs/DocFormTail.svelte';
+  import DocEditorFooter from '$lib/components/docs/DocEditorFooter.svelte';
+  import { scopeIsFull } from '$lib/components/docs/doc-groups';
   import SegmentedControl from '$lib/components/SegmentedControl.svelte';
   import type { StripOption } from '$lib/components/strip';
   import { scaled } from '$lib/design/motion';
@@ -16,7 +18,7 @@
   import { uid } from '$lib/utils/ids';
 
   import EventSelect from './EventSelect.svelte';
-  import { ACTION_ICONS, ACTION_LABELS, EVENT_WHEN, length, MAX_PER_SCOPE, SCOPE_ICONS, SCOPE_LABELS } from './hook-format';
+  import { ACTION_ICONS, ACTION_LABELS, EVENT_WHEN, length, SCOPE_ICONS, SCOPE_LABELS } from './hook-format';
   import { blankForm, DEFAULT_TIMEOUT_SECS, draftOf, type EditorTarget, type FieldKey, formOf, type HookForm, LIMITS, type Problem, problemsOf, validActions, withEvent } from './hook-form';
   import { hooks } from './hooks-data.svelte';
 
@@ -57,12 +59,7 @@
   });
 
   // Whether the scope the hook would be in already holds the most it can: a hook that stays in its scope is not counted twice.
-  const scopeFull = $derived.by(() => {
-    const inScope = hooks.views.filter((view) => view.hook?.scope === form.scope).length;
-    const stays = hook?.scope === form.scope;
-
-    return !stays && inScope >= MAX_PER_SCOPE;
-  });
+  const scopeFull = $derived(scopeIsFull(hooks.views.filter((view) => view.hook?.scope === form.scope).length, hook?.scope === form.scope));
 
   const problems = $derived(problemsOf(form, { projectOpen: projectPath !== null, scopeFull }));
   const shown = $derived(problems.filter((problem) => !problem.required || touched[problem.field]));
@@ -257,14 +254,10 @@
       {@render error('scope')}
     </div>
 
-    {#if failure}<p class="text-sm text-danger" role="alert">{failure}</p>{/if}
-
-    <!-- Enter in a field saves through this hidden button. -->
-    <button type="submit" class="hidden" tabindex="-1" aria-hidden="true">{t('hooks.editor.save')}</button>
+    <DocFormTail {failure} saveLabel={t('hooks.editor.save')} />
   </form>
 
   {#snippet footer()}
-    <Button variant="ghost" onclick={() => (open = false)}>{t('hooks.editor.cancel')}</Button>
-    <Button variant="primary" loading={saving} disabled={problems.length > 0} onclick={() => void submit()}>{t(editing ? 'hooks.editor.save' : 'hooks.editor.add')}</Button>
+    <DocEditorFooter cancelLabel={t('hooks.editor.cancel')} saveLabel={t(editing ? 'hooks.editor.save' : 'hooks.editor.add')} {saving} blocked={problems.length > 0} oncancel={() => (open = false)} onsave={() => void submit()} />
   {/snippet}
 </Dialog>

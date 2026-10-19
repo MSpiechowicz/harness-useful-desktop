@@ -29,7 +29,7 @@ function fakeBackend(initial: Partial<MemoryRemote> = {}, probe: MemoryRemoteTes
     scriptsSupported: true,
     trustTeamScripts: false,
     trustTeamScriptsSupported: true,
-    hooksSupported: false, shareHooks: false, trustTeamHooks: false,
+    hooksSupported: false, shareHooks: false, trustTeamHooks: false, routinesSupported: false, shareRoutines: false, trustTeamRoutines: false,
     ...initial,
   };
   const passthrough = ipc.invoke.bind(ipc);

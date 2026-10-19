@@ -182,6 +182,11 @@ mod hooks_mcp {
                 ("hook_add".to_owned(), json!(false), json!(false)),
                 ("hook_update".to_owned(), json!(false), json!(false)),
                 ("hook_remove".to_owned(), json!(false), json!(true)),
+                ("routine_list".to_owned(), json!(true), json!(false)),
+                ("routine_get".to_owned(), json!(true), json!(false)),
+                ("routine_add".to_owned(), json!(false), json!(false)),
+                ("routine_update".to_owned(), json!(false), json!(false)),
+                ("routine_remove".to_owned(), json!(false), json!(true)),
             ]
         );
 

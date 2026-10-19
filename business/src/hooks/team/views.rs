@@ -8,21 +8,17 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use super::body::parse_team_hook;
-use super::folder::{TeamFile, TeamFolder};
-use super::{ProjectKey, TeamRow};
+use super::{ProjectKey, TeamFolder};
 use crate::error::{BusinessError, Result};
-use crate::hooks::approvals::{Approvals, approved_bytes};
-use crate::hooks::folder::read_file;
-use crate::hooks::format::{MAX_NAME_CHARS, loose_name};
-use crate::hooks::sha256_hex;
+use crate::hooks::HookKind;
 use crate::hooks::state::{HooksState, read_state};
 use crate::hooks::store::{HookCapabilities, HookStore};
-use crate::hooks::unicode::is_hidden_char;
-use crate::hooks::view::{approval_of, earlier_version, local_defaults, team_order_key};
+use crate::hooks::view::local_defaults;
 use crate::model::{
     Hook, HookApproval, HookListing, HookOrigin, HookScope, HookStatus, HookView, ShareBlock, TeamHooks,
 };
+use crate::signed_docs::listing::share_block;
+use crate::signed_docs::team::entries::{TeamEntry, team_entries};
 
 /// Every team hook with its status, and the repository key of each known project root.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -50,44 +46,16 @@ impl TeamViews {
     }
 }
 
-/// What every team view is checked against.
-struct Context<'a> {
-    store: &'a HookStore,
-    local_ids: BTreeSet<String>,
-    approvals: Approvals,
-    state: HooksState,
-    capabilities: HookCapabilities,
-    trust: bool,
-}
-
 /// Every team hook in `folder` with its status: approvals and local overrides from `store`'s
 /// config folder, duplicates from its hooks folder. `trust`: "Trust team hooks" is on.
 pub fn team_views(store: &HookStore, folder: &TeamFolder, capabilities: HookCapabilities, trust: bool) -> TeamViews {
-    let context = Context {
-        store,
-        local_ids: store.entry_ids().unwrap_or_default(),
-        approvals: store.read_approvals(),
-        state: read_state(store.config_dir()),
-        capabilities,
-        trust,
-    };
+    let state = read_state(store.config_dir());
+    let approvals = store.read_approvals();
 
-    let mut valid = Vec::new();
-    let mut invalid = Vec::new();
-
-    for file in folder.read() {
-        let view = context.view_of(file);
-
-        match view.hook.as_ref().map(team_order_key) {
-            Some(order) => valid.push((order, view)),
-            None => invalid.push(view),
-        }
-    }
-
-    valid.sort_by(|left, right| left.0.cmp(&right.0));
-
-    let mut views: Vec<HookView> = valid.into_iter().map(|(_, view)| view).collect();
-    views.extend(invalid);
+    let views = team_entries(store, folder, &state, &approvals)
+        .into_iter()
+        .map(|entry| view_of(entry, &state, capabilities, trust))
+        .collect();
 
     TeamViews {
         views,
@@ -127,7 +95,7 @@ pub fn app_listing(
 
     let Some(settings) = team else {
         for view in &mut listing.hooks {
-            view.share_block = share_block(view, &BTreeMap::new(), &BTreeSet::new());
+            view.share_block = local_share_block(view, &BTreeMap::new(), &BTreeSet::new());
         }
 
         return listing;
@@ -137,7 +105,7 @@ pub fn app_listing(
     let team_ids: BTreeSet<String> = team_views.views.iter().map(|view| view.id.clone()).collect();
 
     for view in &mut listing.hooks {
-        view.share_block = share_block(view, &team_views.projects, &team_ids);
+        view.share_block = local_share_block(view, &team_views.projects, &team_ids);
     }
 
     let key = team_views.key_of(project.filter(|_| verified));
@@ -150,159 +118,78 @@ pub fn app_listing(
 /// Why the local hook of `view` cannot be shared: invalid, a Harness family hook, waiting for
 /// review, a project without an `origin` remote (by `projects`), or already on the team
 /// (`team_ids`).
-fn share_block(
+fn local_share_block(
     view: &HookView,
     projects: &BTreeMap<String, ProjectKey>,
     team_ids: &BTreeSet<String>,
 ) -> Option<ShareBlock> {
-    let Some(hook) = &view.hook else {
-        return Some(ShareBlock::Invalid);
+    let pending = view.status == HookStatus::Pending;
+
+    share_block::<HookKind>(view.hook.as_ref(), pending, projects, team_ids)
+}
+
+/// The view of one team copy.
+fn view_of(entry: TeamEntry<HookKind>, state: &HooksState, capabilities: HookCapabilities, trust: bool) -> HookView {
+    let team_disabled = entry.row.is_some() && state.team_disabled(&entry.id);
+
+    let mut view = HookView {
+        id: entry.id,
+        name: entry.name,
+        sha256: entry.sha256,
+        approval: entry.approval,
+        approved: entry.approved,
+        origin: HookOrigin::Team,
+        team_author: entry.author,
+        team_updated_at: entry.row.as_ref().map(|row| row.updated_at.clone()),
+        team_repo: entry.row.and_then(|row| row.repo),
+        team_changed: entry.local_changed,
+        team_disabled,
+        ..local_defaults()
     };
 
-    if view.status == HookStatus::Invalid {
-        return Some(ShareBlock::Invalid);
+    match entry.doc {
+        Ok(hook) => {
+            view.name = Some(hook.name.clone());
+            view.status = status_of(
+                &hook,
+                entry.duplicate,
+                entry.approval,
+                team_disabled,
+                capabilities,
+                trust,
+            );
+            view.hook = Some(hook);
+        }
+        Err(problem) => view.problem = Some(problem),
     }
 
-    if hook.seed.is_some() {
-        return Some(ShareBlock::Seed);
-    }
-
-    if view.status == HookStatus::Pending {
-        return Some(ShareBlock::Pending);
-    }
-
-    let no_origin = hook.scope == HookScope::Project
-        && hook
-            .project
-            .as_ref()
-            .and_then(|root| projects.get(root))
-            .is_some_and(|key| !key.can_share());
-
-    if no_origin {
-        return Some(ShareBlock::NoOrigin);
-    }
-
-    team_ids.contains(&view.id).then_some(ShareBlock::OnTeam)
+    view
 }
 
-impl Context<'_> {
-    fn view_of(&self, file: TeamFile) -> HookView {
-        let row = match file.row {
-            Ok(row) => row,
-            Err(problem) => {
-                return HookView {
-                    id: file.id,
-                    problem: Some(problem),
-                    origin: HookOrigin::Team,
-                    ..local_defaults()
-                };
-            }
-        };
-
-        let bytes = row.body.as_bytes();
-        let sha256 = sha256_hex(bytes);
-        let approval = approval_of(&self.approvals, &row.id, &sha256);
-
-        let mut view = HookView {
-            id: row.id.clone(),
-            name: loose_name(bytes),
-            sha256: sha256.clone(),
-            approval,
-            origin: HookOrigin::Team,
-            team_author: Some(label(&row.author)),
-            team_updated_at: Some(row.updated_at.clone()),
-            team_repo: row.repo.clone(),
-            team_changed: self.local_changed(&row.id),
-            team_disabled: self.state.team_disabled(&row.id),
-            ..local_defaults()
-        };
-
-        match checked(&row, &sha256) {
-            Ok(hook) => {
-                view.name = Some(hook.name.clone());
-                view.status = self.status_of(&hook, approval, view.team_disabled);
-                view.hook = Some(hook);
-
-                // A duplicate's approval is the local hook's: there is no team version to compare.
-                if view.status != HookStatus::Duplicate {
-                    view.approved = earlier_version(approval, &row.id, &|id| self.approved_copy(id));
-                }
-            }
-            Err(problem) => view.problem = Some(problem),
-        }
-
-        view
+/// Invalid aside, a team hook is a duplicate, pending, off, waiting for a requirement or active.
+fn status_of(
+    hook: &Hook,
+    duplicate: bool,
+    approval: HookApproval,
+    disabled: bool,
+    capabilities: HookCapabilities,
+    trust: bool,
+) -> HookStatus {
+    if duplicate {
+        return HookStatus::Duplicate;
     }
 
-    fn status_of(&self, hook: &Hook, approval: HookApproval, disabled: bool) -> HookStatus {
-        if self.local_ids.contains(&hook.id) {
-            return HookStatus::Duplicate;
-        }
-
-        if !self.trust && approval != HookApproval::Approved {
-            return HookStatus::Pending;
-        }
-
-        if !hook.enabled || disabled {
-            return HookStatus::Off;
-        }
-
-        if !hook
-            .requires
-            .iter()
-            .all(|requirement| self.capabilities.meets(*requirement))
-        {
-            return HookStatus::Paused;
-        }
-
-        HookStatus::Active
+    if !trust && approval != HookApproval::Approved {
+        return HookStatus::Pending;
     }
 
-    /// True when the local hook `id` changed since the user shared it.
-    fn local_changed(&self, id: &str) -> bool {
-        let Some(shared) = self.state.shared_from(id) else {
-            return false;
-        };
-
-        read_file(&self.store.file_path(id), id).is_some_and(|file| file.sha256 != shared)
+    if !hook.enabled || disabled {
+        return HookStatus::Off;
     }
 
-    /// The approved earlier version of team hook `id` (its kept copy), for the diff.
-    fn approved_copy(&self, id: &str) -> Option<Hook> {
-        let bytes = approved_bytes(self.store.config_dir(), id, self.approvals.get(id)?)?;
-
-        parse_team_hook(id, &bytes).ok()
-    }
-}
-
-/// The hook in `row`, when its body hashes to its `sha256`, follows the team rules and matches its
-/// repository.
-fn checked(row: &TeamRow, sha256: &str) -> std::result::Result<Hook, String> {
-    if row.sha256 != sha256 {
-        return Err("the team copy does not match its hash".to_owned());
+    if !hook.requires.iter().all(|requirement| capabilities.meets(*requirement)) {
+        return HookStatus::Paused;
     }
 
-    let hook = parse_team_hook(&row.id, row.body.as_bytes())?;
-
-    let matches = match hook.scope {
-        HookScope::Global => row.repo.is_none(),
-        HookScope::Project => row.repo.is_some() && row.repo == hook.project,
-    };
-
-    if !matches {
-        return Err("the team copy's repository does not match its project".to_owned());
-    }
-
-    Ok(hook)
-}
-
-/// `author` without control or invisible characters, at most [`MAX_NAME_CHARS`] long.
-fn label(author: &str) -> String {
-    author
-        .chars()
-        .filter(|character| !character.is_control() && !is_hidden_char(*character))
-        .take(MAX_NAME_CHARS)
-        .collect::<String>()
-        .trim()
-        .to_owned()
+    HookStatus::Active
 }

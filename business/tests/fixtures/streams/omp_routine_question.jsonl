@@ -1,0 +1,7 @@
+// A routine run whose agent asks for a tool approval nobody gives: the app cancels it.
+{"include":"omp_startup.jsonl"}
+{"expect":"prompt","as":"p","reply":{"success":true}}
+{"emit":{"type":"agent_start"}}
+{"emit":{"type":"extension_ui_request","id":"approve-1","method":"select","title":"Allow bash: cargo test?","options":["Approve","Deny"]}}
+{"expect":"extension_ui_response","match":{"id":"approve-1","cancelled":true}}
+{"emit":{"type":"notice","level":"info","message":"the approval was cancelled"}}

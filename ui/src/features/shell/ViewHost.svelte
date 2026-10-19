@@ -12,6 +12,7 @@
   import ExtensionsViewer from '../extensions/ExtensionsViewer.svelte';
   import HooksView from '../hooks/HooksView.svelte';
   import MemoryView from '../memory/MemoryView.svelte';
+  import RoutinesView from '../routines/RoutinesView.svelte';
   import SettingsView from '../settings/SettingsView.svelte';
 
   import PlaceholderView from './PlaceholderView.svelte';
@@ -66,6 +67,8 @@
           <MemoryView />
         {:else if nav.current === 'hooks'}
           <HooksView />
+        {:else if nav.current === 'routines'}
+          <RoutinesView />
         {:else}
           <PlaceholderView view={meta} />
         {/if}

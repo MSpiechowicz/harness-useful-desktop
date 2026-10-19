@@ -1,0 +1,4 @@
+// A routine run whose agent starts working and never settles.
+{"include":"omp_startup.jsonl"}
+{"expect":"prompt","as":"p","reply":{"success":true}}
+{"emit":{"type":"agent_start"}}

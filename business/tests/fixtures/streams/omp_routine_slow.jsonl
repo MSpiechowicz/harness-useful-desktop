@@ -1,0 +1,5 @@
+// A routine run that takes a moment before it answers (a window can attach meanwhile).
+{"include":"omp_startup.jsonl"}
+{"expect":"prompt","as":"p","reply":{"success":true}}
+{"sleep":800}
+{"include":"omp_routine_reply.jsonl"}

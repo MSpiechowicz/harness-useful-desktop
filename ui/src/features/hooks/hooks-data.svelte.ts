@@ -9,6 +9,8 @@ import type { HookSeed } from '$lib/ipc/bindings/HookSeed';
 import type { HookView } from '$lib/ipc/bindings/HookView';
 import { ipc } from '$lib/ipc/client';
 import { IpcFailure } from '$lib/ipc/transport';
+import { desktopMcp, type DesktopMcpState } from '$lib/stores/desktop-mcp.svelte';
+import { DocBusy } from '$lib/stores/doc-busy.svelte';
 import { project } from '$lib/stores/project.svelte';
 import { toasts } from '$lib/stores/toasts.svelte';
 import { ViewLoader } from '$lib/stores/view-loader.svelte';
@@ -18,11 +20,6 @@ import { originalOf } from './hook-team';
 
 /** The hooks list has one reading per project, so the loader's key is a constant. */
 const KEY = 'hooks';
-
-/** What a read-then-wait failure says when it is a conflict: someone (an agent) rewrote the file since the user looked. */
-function isConflict(error: unknown): boolean {
-  return IpcFailure.from(error).code === 'conflict';
-}
 
 /**
  * The hooks of the active project (and the global ones), read once for the whole app so the rail can count the ones
@@ -37,10 +34,16 @@ export class HooksStore {
   familyError = $state<string | null>(null);
 
   /** Whether any harness has the app's own MCP server, through which agents write hooks: unknown until the machine was read. */
-  desktopMcp = $state<'unknown' | 'registered' | 'missing'>('unknown');
+  get desktopMcp(): DesktopMcpState {
+    return desktopMcp.state;
+  }
+
+  private readonly work = new DocBusy();
 
   /** The keys (`viewKey`) of hooks a switch or a button is working on, so a second click waits. */
-  busy = $state<ReadonlySet<string>>(new Set());
+  get busy(): ReadonlySet<string> {
+    return this.work.keys;
+  }
 
   get listing(): HookListing | null {
     return this.list.data;
@@ -145,7 +148,7 @@ export class HooksStore {
     const done = await this.run(viewKey(view), 'hooks.toast.approveFailed', () => ipc.invoke('hook_approve', { id: view.id, sha256: view.sha256 }));
 
     if (done && view.hook) {
-      toasts.push({ title: t('hooks.toast.approved', { name: hookTitle(view), when: t(EVENT_WHEN[view.hook.event]) }), tone: 'success' });
+      toasts.push({ title: t('hooks.toast.approved', { name: hookTitle(view) }), description: t('hooks.toast.runs', { when: t(EVENT_WHEN[view.hook.event]) }), tone: 'success' });
     }
 
     return done;
@@ -249,18 +252,6 @@ export class HooksStore {
     }
   }
 
-  /** Reads whether a harness has the app's MCP server registered. A machine that cannot be read says nothing, rather than nagging. */
-  async readDesktopMcp(): Promise<void> {
-    try {
-      const setup = await ipc.invoke('setup_status', undefined);
-      const installed = setup.harnesses.filter((entry) => entry.installed);
-
-      this.desktopMcp = installed.length === 0 || installed.some((entry) => entry.desktopMcp.type === 'configured') ? 'registered' : 'missing';
-    } catch {
-      this.desktopMcp = 'unknown';
-    }
-  }
-
   /** Adds the missing and updates the outdated family hooks named; returns whether it worked. */
   async applyFamily(seeds: HookSeed[]): Promise<boolean> {
     try {
@@ -278,26 +269,9 @@ export class HooksStore {
     return true;
   }
 
-  /** Runs one change on a hook: marks it busy, then reads the list again whatever happened. A failure is a toast, a conflict one that says the file changed. */
-  private async run(key: string, failed: MessageKey, change: () => Promise<unknown>): Promise<boolean> {
-    this.busy = new Set([...this.busy, key]);
-
-    try {
-      await change();
-
-      return true;
-    } catch (error) {
-      if (isConflict(error)) {
-        toasts.push({ title: t('hooks.toast.conflict'), description: t('hooks.toast.conflictHint'), tone: 'warning' });
-      } else {
-        toasts.push({ title: t(failed), description: IpcFailure.from(error).message, tone: 'danger' });
-      }
-
-      return false;
-    } finally {
-      await this.refresh();
-      this.busy = new Set([...this.busy].filter((other) => other !== key));
-    }
+  /** Runs one change on a hook: marks it busy, then reads the list again whatever happened. */
+  private run(key: string, failed: MessageKey, change: () => Promise<unknown>): Promise<boolean> {
+    return this.work.run(key, change, { failed, conflict: 'hooks.toast.conflict', conflictHint: 'hooks.toast.conflictHint', refresh: () => this.refresh() });
   }
 
   /** Forgets everything read, for tests and a fresh start. */
@@ -305,8 +279,8 @@ export class HooksStore {
     this.list.sync(null, null);
     this.family = null;
     this.familyError = null;
-    this.desktopMcp = 'unknown';
-    this.busy = new Set();
+    desktopMcp.reset();
+    this.work.reset();
   }
 }
 

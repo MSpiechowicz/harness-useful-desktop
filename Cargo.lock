@@ -1611,6 +1611,7 @@ dependencies = [
  "flate2",
  "harness_business",
  "insta",
+ "jiff",
  "minisign-verify",
  "nix",
  "pretty_assertions",
@@ -1635,6 +1636,7 @@ version = "0.25.0"
 dependencies = [
  "dunce",
  "harness_business",
+ "jiff",
  "reqwest",
  "rodio",
  "rustls",

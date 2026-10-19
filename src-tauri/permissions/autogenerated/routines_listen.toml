@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-routines-listen"
+description = "Enables the routines_listen command without any pre-configured scope."
+commands.allow = ["routines_listen"]
+
+[[permission]]
+identifier = "deny-routines-listen"
+description = "Denies the routines_listen command without any pre-configured scope."
+commands.deny = ["routines_listen"]

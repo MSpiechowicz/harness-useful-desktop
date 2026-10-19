@@ -15,6 +15,7 @@ import { components } from './components';
 import { sync } from './sync';
 import { memory } from './memory';
 import { hooks } from './hooks';
+import { routines } from './routines';
 
 export const pl: Dict = {
   ...common,
@@ -33,4 +34,5 @@ export const pl: Dict = {
   ...sync,
   ...memory,
   ...hooks,
+  ...routines,
 };

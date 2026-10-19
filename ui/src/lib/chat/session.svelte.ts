@@ -6,6 +6,7 @@ import type { AgentReply } from '$lib/ipc/bindings/AgentReply';
 import type { AgentSessionInfo } from '$lib/ipc/bindings/AgentSessionInfo';
 import type { CommandSpec } from '$lib/ipc/bindings/CommandSpec';
 import type { ModelOption } from '$lib/ipc/bindings/ModelOption';
+import type { SessionRoutineTag } from '$lib/ipc/bindings/SessionRoutineTag';
 import type { SessionStats } from '$lib/ipc/bindings/SessionStats';
 import type { UiOutcome } from '$lib/ipc/bindings/UiOutcome';
 import { IpcFailure, type Transport } from '$lib/ipc/transport';
@@ -73,6 +74,8 @@ export class ChatSession {
   name = $derived(this.chat.session?.sessionName ?? this.chat.title ?? null);
   /** A name the user typed; it beats every generated one. */
   userNamed = $state(false);
+  /** The routine run this chat is the live window of (it shows the "Routine" chip); null for an ordinary chat. */
+  routine = $state.raw<SessionRoutineTag | null>(null);
   /** The harness this chat is being handed to: its tab shows that harness and a spinner until the new agent is ready. */
   switchingTo = $state<HarnessId | null>(null);
   /** The name and description a helper agent gave the chat (the "AI chat names" setting); null until it answers. */

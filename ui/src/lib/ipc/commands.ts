@@ -47,6 +47,17 @@ import type { MemorySwitchResult } from './bindings/MemorySwitchResult';
 import type { RecommendedSetup } from './bindings/RecommendedSetup';
 import type { ProjectInfo } from './bindings/ProjectInfo';
 import type { ReviewRequest } from './bindings/ReviewRequest';
+import type { RoutineDraft } from './bindings/RoutineDraft';
+import type { RoutineFilter } from './bindings/RoutineFilter';
+import type { RoutineListing } from './bindings/RoutineListing';
+import type { RoutineRun } from './bindings/RoutineRun';
+import type { RoutineRunsPage } from './bindings/RoutineRunsPage';
+import type { RoutineRunsQuery } from './bindings/RoutineRunsQuery';
+import type { RoutinesDeleted } from './bindings/RoutinesDeleted';
+import type { RoutinesEvent } from './bindings/RoutinesEvent';
+import type { RoutineView } from './bindings/RoutineView';
+import type { RoutineWhen } from './bindings/RoutineWhen';
+import type { SchedulePreview } from './bindings/SchedulePreview';
 import type { NoteDetail } from './bindings/NoteDetail';
 import type { NoteKind } from './bindings/NoteKind';
 import type { NoteSort } from './bindings/NoteSort';
@@ -68,6 +79,7 @@ import type { SyncImportPlan } from './bindings/SyncImportPlan';
 import type { SyncImportResult } from './bindings/SyncImportResult';
 import type { SyncInput } from './bindings/SyncInput';
 import type { SyncProgress } from './bindings/SyncProgress';
+import type { TeamRoutinesRemoved } from './bindings/TeamRoutinesRemoved';
 import type { UiResponse } from './bindings/UiResponse';
 import type { UpdateInfo } from './bindings/UpdateInfo';
 import type { UpdateProgress } from './bindings/UpdateProgress';
@@ -121,6 +133,10 @@ export const commands = {
       shareHooks?: boolean | null;
       /** Saved as `trust_team_hooks = true` only when true, hooks are shared and `hooksSupported`; null keeps the saved choice. */
       trustTeamHooks?: boolean | null;
+      /** Saved as `routines = "remote"` only when true and the result's `routinesSupported`; null keeps the saved choice. */
+      shareRoutines?: boolean | null;
+      /** Saved as `trust_team_routines = true` only when true, routines are shared and `routinesSupported`; null keeps the saved choice. */
+      trustTeamRoutines?: boolean | null;
     },
     MemoryRemote
   >(),
@@ -331,6 +347,82 @@ export const commands = {
   hooks_team_copy: cmd<{ id: string; sha256: string; project?: string | null }, HookView>(),
   /** Turns team hook `id` on or off on this machine only (never written to the team). Answers the team view. */
   hooks_team_enable: cmd<{ id: string; enabled: boolean }, HookView>(),
+  /**
+   * The routines of the Routines view: every routine file of the global folder and of the project at `project` (null for global only),
+   * valid ones first, each with its status (`running` while a run goes on) and `nextRun`. `filter` keeps only the matching routines (null
+   * or absent keeps all), `counts` are those of every listed routine. `forbidden` for a project that is not open or recent.
+   */
+  routines_list: cmd<{ project: string | null; filter?: RoutineFilter | null }, RoutineListing>(),
+  /** One routine file as `routines_list` shows it. `notFound` when it is gone. */
+  routine_get: cmd<{ id: string }, RoutineView>(),
+  /**
+   * Creates a routine (`draft.id` null) or edits one (`draft.expectedSha256` is the version the user edited) and approves the written
+   * version, so it runs on its schedule at once. `invalidInput` for a draft that breaks the format, a pending file (approve or reject it
+   * first) or a 65th routine in a scope, `conflict` when the file changed, `notFound` for an edit of a routine that is gone.
+   */
+  routine_save: cmd<{ draft: RoutineDraft }, RoutineView>(),
+  /** Deletes a routine file, its approval, run history and schedule, after stopping its run. `conflict` when it changed since `sha256`. */
+  routine_delete: cmd<{ id: string; sha256: string }, null>(),
+  /**
+   * Deletes every routine of the global scope and of `project` (the global ones only without it), pending and invalid ones included,
+   * with their runs. Team routines stay.
+   */
+  routines_delete_all: cmd<{ project?: string | null }, RoutinesDeleted>(),
+  /** Approves exactly the version with this `sha256` (an agent wrote or changed it). `conflict` when the file changed. */
+  routine_approve: cmd<{ id: string; sha256: string }, RoutineView>(),
+  /**
+   * Rejects a pending version: a routine with an earlier approved version goes back to it (answers that routine), one never approved is
+   * deleted (null). `conflict` when the file changed.
+   */
+  routine_reject: cmd<{ id: string; sha256: string }, RoutineView | null>(),
+  /**
+   * Sends `changed` when the routines folder or the approvals change, `runStarted` / `runFinished` for every run, and `needsYou` when a
+   * run waits for an answer, replacing the previous listener. The OS notification of a run is left out while the window is in front: toast
+   * from these events then.
+   */
+  routines_listen: cmd<{ onEvent: EventSink<RoutinesEvent> }, null>(),
+  /**
+   * "Run now" for a valid, approved routine (on or off). Answers the run when it started, null when it waits for a free place (at most 2
+   * agent and 4 command or script runs at once). `conflict` while it runs or waits, `invalidInput` for a pending or invalid routine.
+   */
+  routine_run_now: cmd<{ id: string }, RoutineRun | null>(),
+  /** Stops a live run, which ends as `stopped`. `notFound` when it is not running. */
+  routine_run_stop: cmd<{ runId: string }, null>(),
+  /** One page of runs, newest first, of one routine or all, optionally with one status (`limit` 1 to 200). `needsYou` is live. */
+  routine_runs: cmd<{ query: RoutineRunsQuery }, RoutineRunsPage>(),
+  /** The next runs of a schedule in this machine's time zone while it is edited, or why it is not valid. */
+  routine_schedule_preview: cmd<{ when: RoutineWhen }, SchedulePreview>(),
+  /**
+   * Shows the chat of a live agent run (or of an ended one a window still shows): `onEvent` gets the events so far in `seq` order (the
+   * 3 startup events, then the newest, at most 20 000), then the live ones. Answers the chat like `agent_start`. Answer its questions
+   * with `agent_ui_respond`, close it with `agent_stop`. When the channel closes the agent keeps running. `notFound` when the run has no
+   * chat.
+   */
+  routine_run_attach: cmd<{ runId: string; onEvent: EventSink<AgentEnvelope> }, AgentSessionInfo>(),
+  /** The folder global routines run in and keep their sessions in ("Global routines" in Sessions), null while it does not exist. */
+  routines_workspace: cmd<undefined, string | null>(),
+  /**
+   * Shares the local routine `id` at version `sha256` with the team, or updates the team copy from it ("Update team copy"). Answers
+   * the team view. `conflict` when the local file or the team copy changed, `forbidden` for a repository without an `origin` remote,
+   * `invalidInput` for a pending or invalid routine, `unsupported` while routines are not shared.
+   */
+  routines_share: cmd<{ id: string; sha256: string }, RoutineView>(),
+  /** Removes team routine `id` from the team (`sha256`: the team view's), on every machine after its next refresh. `conflict` when it changed. */
+  routines_team_remove: cmd<{ id: string; sha256: string }, null>(),
+  /** Removes every team routine Harness Memory records as this user's ("Remove all my team routines"). Answers how many and which. */
+  routines_team_remove_mine: cmd<undefined, TeamRoutinesRemoved>(),
+  /** Refreshes the team routines now (network, up to a few seconds), then answers what `routines_list` answers for `project` without a filter. */
+  routines_team_refresh: cmd<{ project?: string | null }, RoutineListing>(),
+  /**
+   * Copies team routine `id` to the local routines as an approved routine with the same id, which then wins. Only a trusted or approved
+   * team routine is copied. A project routine needs `project` (an open or recent project of that repository).
+   */
+  routines_team_copy: cmd<{ id: string; sha256: string; project?: string | null }, RoutineView>(),
+  /**
+   * Turns team routine `id` on or off on this machine only. A project routine is turned on for the folder `project` (an open or recent
+   * project), which must be a copy of the routine's repository. Turning on is not approval. Answers the team view.
+   */
+  routines_team_enable: cmd<{ id: string; enabled: boolean; project?: string | null }, RoutineView>(),
   update_check: cmd<undefined, UpdateInfo | null>(),
   update_install: cmd<{ onProgress: EventSink<UpdateProgress> }, null>(),
   app_relaunch: cmd<undefined, null>(),

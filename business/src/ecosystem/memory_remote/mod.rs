@@ -4,7 +4,8 @@
 //! - [`memory_remote_get`]: what the file holds, with the URL redacted and the token reduced to
 //!   whether one is saved.
 //! - [`memory_remote_set`]: saves or removes the URL, the token, the note and script routing,
-//!   `trust_team_scripts`, and the team hooks keys (`hooks = "remote"`, `trust_team_hooks`).
+//!   `trust_team_scripts`, the team hooks keys (`hooks = "remote"`, `trust_team_hooks`) and the
+//!   team routines keys (`routines = "remote"`, `trust_team_routines`).
 //! - [`memory_remote_test`]: runs `harness-memory check` against the saved or the given database.
 //!
 //! The app itself never connects to the database. The URL and the token are secrets: they are
@@ -22,6 +23,7 @@ pub use url::{MAX_SECRET_BYTES, kind_of, redact_url, validate_token, validate_ur
 use self::file::{ConfigFile, Routing, read_config, remove_config, render, write_config};
 use self::url::kind_name;
 use super::memory_hooks::HooksSupport;
+use super::memory_team_docs::TeamDocsSupport;
 use crate::env::{Env, OsKind};
 use crate::error::{BusinessError, Result};
 use crate::model::{MemoryNotesTarget, MemoryRemote, MemoryRemoteKind};
@@ -61,17 +63,26 @@ pub struct MemoryRemoteChange {
     /// Run team hooks without local approval (`trust_team_hooks = true`); `None` keeps the saved
     /// value. Saved only while the server keeps team hooks and they are shared.
     pub trust_team_hooks: Option<bool>,
+    /// Share routines with the team (`routines = "remote"`); `None` keeps the saved value. Saved
+    /// only while the installed server keeps team routines (`MemorySupport::routines`).
+    pub share_routines: Option<bool>,
+    /// Run team routines without asking (`trust_team_routines = true`); `None` keeps the saved
+    /// value. Saved only while the server keeps team routines and they are shared.
+    pub trust_team_routines: Option<bool>,
 }
 
 /// What the installed server supports, which decides the keys a save may write: the script keys
-/// ([`ScriptsSupport`]) and the team hooks keys ([`HooksSupport`]). From a [`ScriptsSupport`]
-/// alone, the hooks are [`HooksSupport::Unknown`] (their saved keys are kept).
+/// ([`ScriptsSupport`]), the team hooks keys and the team routines keys ([`TeamDocsSupport`] of
+/// each kind). From a [`ScriptsSupport`] alone, both kinds are [`TeamDocsSupport::Unknown`]
+/// (their saved keys are kept).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MemorySupport {
     /// Scripts and their approvals.
     pub scripts: ScriptsSupport,
-    /// Team hooks.
+    /// Team hooks (`harness-memory hooks config`).
     pub hooks: HooksSupport,
+    /// Team routines (`harness-memory routines config`).
+    pub routines: TeamDocsSupport,
 }
 
 impl From<ScriptsSupport> for MemorySupport {
@@ -79,6 +90,7 @@ impl From<ScriptsSupport> for MemorySupport {
         Self {
             scripts,
             hooks: HooksSupport::Unknown,
+            routines: TeamDocsSupport::Unknown,
         }
     }
 }
@@ -143,7 +155,8 @@ pub fn memory_config_path(env: &Env) -> Option<PathBuf> {
 /// The team database settings in the config file. Reads the file only (see [`file`]).
 /// `scriptsSupported` and `trustTeamScriptsSupported` follow `support` (see
 /// [`ScriptsSupport::keeps_scripts`] and [`ScriptsSupport::asks_before_running`]), `hooksSupported`
-/// [`HooksSupport::keeps_hooks`]; the saved values are reported either way.
+/// and `routinesSupported` [`TeamDocsSupport::keeps_docs`] of each kind; the saved values are
+/// reported either way.
 pub fn memory_remote_get(env: &Env, support: impl Into<MemorySupport>) -> MemoryRemote {
     let support = support.into();
 
@@ -188,6 +201,9 @@ fn remote_from(config: &ConfigFile, config_path: String, support: MemorySupport)
         hooks_supported: support.hooks.keeps_hooks(),
         share_hooks: config.hooks == Some(MemoryNotesTarget::Remote),
         trust_team_hooks: config.trust_team_hooks == Some(true),
+        routines_supported: support.routines.keeps_docs(),
+        share_routines: config.routines == Some(MemoryNotesTarget::Remote),
+        trust_team_routines: config.trust_team_routines == Some(true),
         config_path,
         problem: config
             .problem
@@ -205,7 +221,8 @@ fn unsupported_scheme() -> String {
 /// symbolic link; the URL and the token are validated as in [`validate_url`] and
 /// [`validate_token`]. Turning the team database off removes the file. The `scripts` and
 /// `trust_team_scripts` keys follow `support.scripts` (see [`ScriptsSupport`]), the `hooks` and
-/// `trust_team_hooks` keys `support.hooks` (see [`hooks_key`]).
+/// `trust_team_hooks` keys `support.hooks`, the `routines` and `trust_team_routines` keys
+/// `support.routines` (see [`share_key`] and [`trust_share_key`]).
 pub fn memory_remote_set(
     env: &Env,
     change: MemoryRemoteChange,
@@ -244,7 +261,8 @@ pub fn memory_remote_set(
         _ => None,
     };
 
-    let hooks = hooks_key(change.share_hooks, saved.hooks, support.hooks);
+    let hooks = share_key(change.share_hooks, saved.hooks, support.hooks);
+    let routines = share_key(change.share_routines, saved.routines, support.routines);
 
     let routing = Routing {
         repository_notes: change.repository_notes,
@@ -257,7 +275,14 @@ pub fn memory_remote_set(
             support.scripts,
         ),
         hooks,
-        trust_team_hooks: trust_hooks_key(change.trust_team_hooks, hooks, saved.trust_team_hooks, support.hooks),
+        trust_team_hooks: trust_share_key(change.trust_team_hooks, hooks, saved.trust_team_hooks, support.hooks),
+        routines,
+        trust_team_routines: trust_share_key(
+            change.trust_team_routines,
+            routines,
+            saved.trust_team_routines,
+            support.routines,
+        ),
     };
 
     let text = render(&url, token.as_deref(), routing);
@@ -300,42 +325,43 @@ fn trust_key(wanted: bool, scripts: MemoryNotesTarget, saved: Option<bool>, supp
     }
 }
 
-/// The `hooks` value to write (`None` for no key): `remote` while hooks are shared on a server
-/// that keeps team hooks (unset means local), nothing for a server that predates them (it refuses
-/// the key), and the saved value, untouched, when the server could not be asked. `wanted` `None`
-/// keeps the saved choice.
-fn hooks_key(
+/// The sharing key of a kind of team documents to write (`hooks`, `routines`; `None` for no key):
+/// `remote` while the kind is shared on a server that keeps its team documents (unset means local),
+/// nothing for a server that predates them (it refuses the key), and the saved value, untouched,
+/// when the server could not be asked. `wanted` `None` keeps the saved choice.
+fn share_key(
     wanted: Option<bool>,
     saved: Option<MemoryNotesTarget>,
-    support: HooksSupport,
+    support: TeamDocsSupport,
 ) -> Option<MemoryNotesTarget> {
     match support {
-        HooksSupport::Supported(_) => {
+        TeamDocsSupport::Supported(_) => {
             let share = wanted.unwrap_or(saved == Some(MemoryNotesTarget::Remote));
             share.then_some(MemoryNotesTarget::Remote)
         }
-        HooksSupport::Unsupported => None,
-        HooksSupport::NotInstalled | HooksSupport::Unknown => saved,
+        TeamDocsSupport::Unsupported => None,
+        TeamDocsSupport::NotInstalled | TeamDocsSupport::Unknown => saved,
     }
 }
 
-/// The `trust_team_hooks` value to write (`None` for no key): `true` when wanted on a server that
-/// keeps team hooks while they are shared (`hooks`; unset means false, and without sharing there
-/// are no team hooks to trust), nothing for an older server, and the saved value, untouched, when
-/// the server could not be asked. `wanted` `None` keeps the saved choice.
-fn trust_hooks_key(
+/// The trust key of a kind of team documents to write (`trust_team_hooks`, `trust_team_routines`;
+/// `None` for no key): `true` when wanted on a server that keeps the kind's team documents while
+/// they are shared (`shared`; unset means false, and without sharing there are no team documents
+/// to trust), nothing for an older server, and the saved value, untouched, when the server could
+/// not be asked. `wanted` `None` keeps the saved choice.
+fn trust_share_key(
     wanted: Option<bool>,
-    hooks: Option<MemoryNotesTarget>,
+    shared: Option<MemoryNotesTarget>,
     saved: Option<bool>,
-    support: HooksSupport,
+    support: TeamDocsSupport,
 ) -> Option<bool> {
     match support {
-        HooksSupport::Supported(_) => {
+        TeamDocsSupport::Supported(_) => {
             let trust = wanted.unwrap_or(saved == Some(true));
-            (trust && hooks == Some(MemoryNotesTarget::Remote)).then_some(true)
+            (trust && shared == Some(MemoryNotesTarget::Remote)).then_some(true)
         }
-        HooksSupport::Unsupported => None,
-        HooksSupport::NotInstalled | HooksSupport::Unknown => saved,
+        TeamDocsSupport::Unsupported => None,
+        TeamDocsSupport::NotInstalled | TeamDocsSupport::Unknown => saved,
     }
 }
 

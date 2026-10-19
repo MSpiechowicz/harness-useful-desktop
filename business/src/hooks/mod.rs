@@ -3,6 +3,9 @@
 //! contract. The app window runs hooks; its MCP server (`harness-desktop mcp`) writes hook files
 //! for agents through the same [`HookStore`] but never runs them.
 //!
+//! Hooks are one kind of signed document ([`HookKind`]): the folder, the approvals and the team
+//! copies are [`crate::signed_docs`]'s, this module adds what a hook is and does.
+//!
 //! - [`store`]: the folder ([`hooks_root`]), reading and validating the files ([`format`]),
 //!   listing them with their status ([`HookCapabilities`]), and writes and deletes by the app
 //!   window or an agent.
@@ -38,10 +41,11 @@ mod run;
 mod state;
 pub mod store;
 pub mod team;
-mod unicode;
 mod view;
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
+
+use serde_json::{Map, Value};
 
 pub use approvals::Approvals;
 pub use command::{CommandFailure, CommandFailureKind, FIRING_BUDGET, FiringResult, run_firing, run_firings};
@@ -59,13 +63,14 @@ pub use family::{
 };
 pub use format::{MAX_HOOK_FILE_BYTES, is_hook_id, parse_hook_file};
 pub use plan::MAX_TOUCHED_BYTES;
+pub use run::handled_without_run;
 pub use store::{HookCapabilities, HookStore, MAX_HOOKS_PER_SCOPE};
 
-use sha2::{Digest, Sha256};
+pub use crate::signed_docs::{project_identity, sha256_hex};
 
-use crate::app_dirs::shared_data_dir;
 use crate::env::Env;
-use crate::error::{BusinessError, Result};
+use crate::model::Hook;
+use crate::signed_docs::{DocKind, doc_root};
 
 /// `HARNESS_HOOKS_DIR`: overrides the hooks root (absolute, a leading `~` expanded).
 pub const DIR_VAR: &str = "HARNESS_HOOKS_DIR";
@@ -82,39 +87,46 @@ pub const APPROVALS_FILE: &str = "hook-approvals.json";
 /// The seed record and the team hooks' local state in the app's config folder.
 pub const STATE_FILE: &str = "hooks-state.json";
 
+/// Hooks as a kind of signed document (see [`crate::signed_docs`]).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct HookKind;
+
+impl DocKind for HookKind {
+    const NOUN: &'static str = "hook";
+    const PLURAL: &'static str = HOOKS_FOLDER;
+    const ROOT_VAR: &'static str = DIR_VAR;
+    const APP_FOLDER: &'static str = APP_FOLDER;
+    const MAX_FILE_BYTES: usize = MAX_HOOK_FILE_BYTES;
+    const MAX_PER_SCOPE: usize = MAX_HOOKS_PER_SCOPE;
+    const APPROVALS_FILE: &'static str = APPROVALS_FILE;
+    const SNAPSHOT_FOLDER: &'static str = approvals::SNAPSHOT_FOLDER;
+    const STATE_FILE: &'static str = STATE_FILE;
+    const TRUST_KEY: &'static str = "trustTeamHooks";
+
+    type Doc = Hook;
+
+    fn parse(id: &str, bytes: &[u8]) -> Result<Hook, String> {
+        parse_hook_file(id, bytes)
+    }
+
+    fn parse_team(id: &str, bytes: &[u8]) -> Result<Hook, String> {
+        team::parse_team_hook(id, bytes)
+    }
+
+    fn to_bytes(hook: &Hook, base: Map<String, Value>) -> Vec<u8> {
+        format::hook_bytes(hook, base)
+    }
+
+    fn not_shared(hook: &Hook) -> Option<String> {
+        hook.seed
+            .map(|_| "Harness family hooks are not shared, every machine adds its own".to_owned())
+    }
+}
+
 /// The hooks root: [`DIR_VAR`] when it is absolute (after `~` expansion), else the platform data
 /// folder followed by [`APP_FOLDER`] (`$XDG_DATA_HOME` or `~/.local/share`,
 /// `~/Library/Application Support`, `%LOCALAPPDATA%`). `None` on Windows without `LOCALAPPDATA`:
-/// hooks are then unavailable. Resolved like `memory_data_dir` ([`shared_data_dir`]).
+/// hooks are then unavailable. Resolved like `memory_data_dir` ([`doc_root`]).
 pub fn hooks_root(env: &Env) -> Option<PathBuf> {
-    shared_data_dir(env, DIR_VAR, APP_FOLDER)
-}
-
-/// The project root of `folder` (see "Project identity" in the format doc): its real path
-/// (symbolic links resolved, no `\\?\` prefix on Windows), then the nearest ancestor-or-self that
-/// contains `.git` (a folder or a file), else the folder itself. `NotFound` for a missing path,
-/// `InvalidInput` for one that is not a folder.
-pub fn project_identity(folder: &Path) -> Result<PathBuf> {
-    let real = dunce::canonicalize(folder)
-        .map_err(|error| BusinessError::from_io(format!("resolving {}", folder.display()), error))?;
-
-    if !real.is_dir() {
-        return Err(BusinessError::InvalidInput(format!(
-            "{} is not a folder",
-            folder.display()
-        )));
-    }
-
-    let root = real
-        .ancestors()
-        .find(|dir| std::fs::metadata(dir.join(".git")).is_ok_and(|metadata| metadata.is_dir() || metadata.is_file()))
-        .unwrap_or(&real)
-        .to_path_buf();
-
-    Ok(root)
-}
-
-/// Lowercase hex SHA-256 of `bytes` (a hook file's approval hash).
-pub fn sha256_hex(bytes: &[u8]) -> String {
-    format!("{:x}", Sha256::digest(bytes))
+    doc_root::<HookKind>(env)
 }

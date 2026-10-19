@@ -38,6 +38,8 @@ pub const CAPTURED_VARS: &[&str] = &[
     "HARNESS_MEMORY_CONFIG",
     // The hooks folder, shared by the app window and its `harness-desktop mcp` mode.
     "HARNESS_HOOKS_DIR",
+    // The routines folder, shared the same way.
+    "HARNESS_ROUTINES_DIR",
 ];
 
 /// Variables whose presence [`Env::from_process`] records without their value: they may hold

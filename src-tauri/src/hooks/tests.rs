@@ -1,6 +1,7 @@
 //! Hooks in chats against scripted agents (`omp_hooks_*.jsonl`, whose `prompt` steps match the
 //! exact text the agent receives; a mismatch makes the agent exit, failing the send).
 
+use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, UNIX_EPOCH};
 
@@ -15,7 +16,9 @@ use tauri::async_runtime::block_on;
 use super::chat;
 use crate::commands::{agent, hooks as hook_commands};
 use crate::state::AppState;
-use crate::test_support::{AgentSetup, agent_setup, collecting_channel, fake_agent, start_request, wait_until};
+use crate::test_support::{
+    AgentSetup, agent_setup, collecting_channel, fake_agent, save_global_hook, start_request, wait_until,
+};
 
 /// A chat app state whose agents play one scenario.
 struct Chats {
@@ -39,27 +42,7 @@ impl Chats {
     /// Writes a global hook as `author` (the desktop's is approved, an agent's pending), created
     /// `secs` after a fixed time so the run order is known.
     fn hook(&self, name: &str, event: HookEvent, action: HookAction, author: HookAuthor, secs: u64) -> HookView {
-        let draft = HookDraft {
-            id: None,
-            expected_sha256: None,
-            name: name.to_owned(),
-            description: None,
-            scope: HookScope::Global,
-            project: None,
-            event,
-            matcher: None,
-            action,
-            enabled: true,
-        };
-        let created = UNIX_EPOCH + Duration::from_secs(1_791_000_000 + secs);
-
-        let store = self.state().hooks.store().expect("a hooks folder");
-        let saved = store
-            .save(&draft, author, HookCapabilities::default(), created)
-            .expect("hook saved");
-        self.state().hooks.invalidate();
-
-        saved
+        save_global_hook(self.state(), name, event, action, author, secs)
     }
 
     fn start(&self, request: AgentStartRequest) -> (String, Arc<Mutex<Vec<Value>>>) {
@@ -293,10 +276,12 @@ fn a_stopped_chat_is_forgotten() {
     block_on(agent::stop(chats.state(), &key)).expect("stopped");
     assert!(chats.state().hooks.chat(&key).is_none());
 
-    // A page reload forgets every chat.
+    // A page reload forgets every chat but the kept ones (routine runs).
     let (other, _) = chats.start(start_request(&chats.setup.project));
-    chats.state().hooks.clear();
+    let (kept, _) = chats.start(start_request(&chats.setup.project));
+    chats.state().hooks.clear_except(&HashSet::from([kept.clone()]));
     assert!(chats.state().hooks.chat(&other).is_none());
+    assert!(chats.state().hooks.chat(&kept).is_some());
 }
 
 #[cfg(unix)]

@@ -250,7 +250,7 @@ describe('Reviewing a hook an agent wrote', () => {
     await fireEvent.click(within(await screen.findByRole('region', { name: LINT })).getByRole('button', { name: 'Approve' }));
 
     await waitFor(() => expect(within(rowOf(LINT)).getByText('Active')).toBeInTheDocument());
-    await waitFor(() => expect(toasts.items.map((toast) => toast.title)).toContain('Run lint after edits approved. It runs after the agent uses a tool.'));
+    await waitFor(() => expect(toasts.items.map((toast) => [toast.title, toast.description])).toContainEqual(['Run lint after edits approved', 'It runs after the agent uses a tool.']));
     expect(calls(invoke, 'hook_approve')).toEqual([{ id: expect.stringMatching(/^[0-9a-f]{32}$/), sha256: expect.stringMatching(/^[0-9a-f]{64}$/) }]);
     expect(hooks.pending).toBe(0);
     expect(within(screen.getByRole('region', { name: LINT })).queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument();

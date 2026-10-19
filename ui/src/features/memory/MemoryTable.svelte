@@ -1,23 +1,21 @@
 <script lang="ts" generics="T extends { id: number }">
-  import { type Snippet, tick } from 'svelte';
+  import type { Snippet } from 'svelte';
 
   import Button from '$lib/components/Button.svelte';
   import DataTable from '$lib/components/DataTable.svelte';
-  import DetailEmpty from '$lib/components/DetailEmpty.svelte';
+  import DocSplit from '$lib/components/docs/DocSplit.svelte';
+  import DocStage from '$lib/components/docs/DocStage.svelte';
+  import { closePanel } from '$lib/components/docs/doc-view';
   import EmptyState from '$lib/components/EmptyState.svelte';
   import type { IconComponent } from '$lib/components/icon';
   import FilterRow from '$lib/components/FilterRow.svelte';
   import Pagination from '$lib/components/Pagination.svelte';
-  import { SIDE_PANEL_WIDTH } from '$lib/components/side-panel';
   import Skeleton from '$lib/components/Skeleton.svelte';
   import type { Column, Sort } from '$lib/components/table';
-  import { WIDE_FROM_PX } from '$lib/design/layout';
-  import { rise } from '$lib/design/motion';
   import { t } from '$lib/i18n/i18n.svelte';
   import type { MemoryScriptsAvailability } from '$lib/ipc/bindings/MemoryScriptsAvailability';
   import type { IpcFailure } from '$lib/ipc/transport';
   import type { ViewStatus } from '$lib/stores/view-loader.svelte';
-  import { escapeCloses } from '$lib/utils/escape-closes';
 
   import MemoryUnavailable from './MemoryUnavailable.svelte';
 
@@ -98,31 +96,20 @@
     panel,
   }: Props = $props();
 
-  let width = $state(0);
   let grid: { focusRow: (key: string | number) => void } | undefined = $state();
 
-  const wide = $derived(width >= WIDE_FROM_PX);
 
   /** Closes the panel and hands the focus back to the row it was opened from. */
-  async function close(): Promise<void> {
-    const id = openId;
-
-    onopen(null);
-
-    if (id !== null) {
-      await tick();
-      grid?.focusRow(id);
-    }
-  }
-
-  function onKeydown(event: KeyboardEvent): void {
-    escapeCloses(event, openId !== null, () => void close());
+  function close(): Promise<void> {
+    return closePanel(openId === null ? null : String(openId), () => onopen(null), (id) => grid?.focusRow(id));
   }
 </script>
 
-<!-- Everything that is bigger than the view is clipped here, not just hidden: a clipped box cannot be scrolled at all, so
-     nothing in the view (a focused row, a panel on its way in) can push the shell around it up or down. -->
-<div bind:clientWidth={width} class="relative min-h-0 flex-1 overflow-clip">
+{#snippet column(inline: boolean)}
+  {@render panel({ close: () => void close(), inline })}
+{/snippet}
+
+<DocStage>
   {#if loader.status === 'error'}
     <div class="grid size-full place-items-center">
       <EmptyState icon={EmptyIcon} title={failedTitle} body={loader.error?.message}>
@@ -144,10 +131,8 @@
       <EmptyState icon={EmptyIcon} title={emptyTitle} body={emptyBody} />
     </div>
   {:else}
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="absolute inset-0 flex overflow-clip" onkeydown={onKeydown}>
-      <!-- Below the wide layout the panel slides over the table: the filters and the table keep their width. -->
-      <div class="flex min-h-0 min-w-0 flex-1 flex-col">
+    <DocSplit openId={openId === null ? null : String(openId)} emptyIcon={EmptyIcon} emptyMessage={detailEmpty} onclose={() => void close()} panel={column}>
+      {#snippet body()}
         <FilterRow {count} trailing={hint}>{@render filters()}</FilterRow>
 
         {#if noMatch}
@@ -171,24 +156,7 @@
 
           <Pagination {page} {pageSize} {total} {onpage} />
         {/if}
-      </div>
-
-      {#if wide}
-        <!-- The detail has its own column, always there: what is chosen swaps in with a short fade, with nothing sliding. -->
-        <div class="relative flex shrink-0 flex-col border-l border-panel-edge bg-surface-1" style:width={SIDE_PANEL_WIDTH}>
-          {#if openId === null}
-            <DetailEmpty icon={EmptyIcon} message={detailEmpty} />
-          {:else}
-            {#key openId}
-              <div in:rise={{ y: 6, duration: 240 }} class="flex min-h-0 flex-1 flex-col">
-                {@render panel({ close: () => void close(), inline: true })}
-              </div>
-            {/key}
-          {/if}
-        </div>
-      {:else}
-        {@render panel({ close: () => void close(), inline: false })}
-      {/if}
-    </div>
+      {/snippet}
+    </DocSplit>
   {/if}
-</div>
+</DocStage>

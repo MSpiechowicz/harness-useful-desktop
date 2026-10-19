@@ -55,6 +55,8 @@ export const sessions = {
   'sessions.touched.none': 'No files touched.',
 
   'sessions.details.empty': 'Choose a session to see its totals, models and files.',
+  'sessions.missing.title': 'This session was not found',
+  'sessions.missing.body': 'It may have been deleted, or it belongs to another harness or project. Choose one from the list.',
   'sessions.details.overview': 'Overview',
   'sessions.details.messages': 'messages',
   'sessions.details.toolCalls': 'tool calls',
@@ -101,4 +103,7 @@ export const sessions = {
   'sessions.transcript.progress.other': '{shown} of {count} messages',
   'sessions.transcript.loadMore': 'Load more messages',
 
+  'sessions.folder.label': 'Folder',
+  'sessions.folder.project': 'This project',
+  'sessions.folder.routines': 'Global routines',
 } satisfies Record<string, string>;

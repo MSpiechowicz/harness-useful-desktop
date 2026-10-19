@@ -67,6 +67,22 @@ shareHooks: boolean,
  */
 trustTeamHooks: boolean, 
 /**
+ * True when the installed Harness Memory keeps team routines (`harness-memory routines config`
+ * answers), so the `routines` and `trust_team_routines` keys may be saved. Older servers refuse
+ * a file with those keys.
+ */
+routinesSupported: boolean, 
+/**
+ * True when `routines = "remote"`: routines the user shares go to the team database, and this
+ * machine lists the team's routines (each runs only once turned on here).
+ */
+shareRoutines: boolean, 
+/**
+ * True when `trust_team_routines = true`: every team routine turned on here runs without local
+ * approval, commands and agent routines that run tools without asking included.
+ */
+trustTeamRoutines: boolean, 
+/**
  * The config file, home-relative for display (`~/.config/harness-memory/config.toml`).
  */
 configPath: string, 

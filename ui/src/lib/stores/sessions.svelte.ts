@@ -1,6 +1,7 @@
 import { initialChatState } from '$lib/chat/state';
 import { prependHistory } from '$lib/chat/messages';
 import type { ChatMessage } from '$lib/ipc/bindings/ChatMessage';
+import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
 import type { SessionRef } from '$lib/ipc/bindings/SessionRef';
 import type { SessionSummary } from '$lib/ipc/bindings/SessionSummary';
 import type { TranscriptStats } from '$lib/ipc/bindings/TranscriptStats';
@@ -10,8 +11,15 @@ import { Flight } from '$lib/utils/flight';
 
 import { ViewLoader, type ViewStatus } from './view-loader.svelte';
 
+function readSessions(harness: HarnessId, project: string | null): Promise<SessionSummary[]> {
+  return project === null ? Promise.resolve([]) : ipc.invoke('sessions_list', { harness, project });
+}
+
 /** The saved sessions of the active harness and project, newest first. */
-export const sessionList = new ViewLoader<SessionSummary[]>((harness, project) => (project === null ? Promise.resolve([]) : ipc.invoke('sessions_list', { harness, project })));
+export const sessionList = new ViewLoader<SessionSummary[]>(readSessions);
+
+/** The sessions the global routines left in their own folder: whether there are any decides if Sessions offers that folder. */
+export const routineSessionList = new ViewLoader<SessionSummary[]>(readSessions);
 
 const TRANSCRIPT_PAGE = 100;
 /** How long a session switch keeps the previous session on screen before showing the loading state. */

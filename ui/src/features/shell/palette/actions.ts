@@ -1,3 +1,4 @@
+import CalendarPlus from '@lucide/svelte/icons/calendar-plus';
 import Keyboard from '@lucide/svelte/icons/keyboard';
 import MessageSquarePlus from '@lucide/svelte/icons/message-square-plus';
 import Monitor from '@lucide/svelte/icons/monitor';
@@ -22,9 +23,10 @@ import { ui } from '$lib/stores/ui-state.svelte';
 import { viewState } from '$lib/stores/view-state.svelte';
 
 import { intro } from '../../intro/intro-state.svelte';
+import { routines } from '../../routines/routines-data.svelte';
 import { SETTINGS_SECTIONS } from '../../settings/sections';
 import { cycleMotion, cycleTheme, jumpToChat, newChat, resumableSession, resumeLastSession } from '../actions';
-import { VIEWS, viewShortcut } from '../views';
+import { VIEWS, viewHint } from '../views';
 
 const THEMES: { value: ThemePref; label: MessageKey; icon: PaletteCommand['icon'] }[] = [
   { value: 'system', label: 'shell.palette.themeSystem', icon: Monitor },
@@ -50,7 +52,7 @@ export function navigationCommands(): PaletteCommand[] {
     group: t('shell.palette.group.navigate'),
     kind: 'nav',
     icon: view.icon,
-    shortcut: viewShortcut(view.id),
+    shortcut: viewHint(view.id),
     keywords: view.body,
     disabled: view.id === nav.current,
     run: () => nav.go(view.id),
@@ -75,6 +77,17 @@ export function actionCommands({ openShortcuts }: PaletteHandlers): PaletteComma
       run: () => void resumeLastSession(),
     },
     { id: 'jump-chat', label: t('shell.palette.jumpChat'), group: actions, icon: MessageSquare, shortcut: 'mod+0', keywords: t('shell.palette.jumpChat.keywords'), disabled: !hasChat, run: jumpToChat },
+    {
+      id: 'new-routine',
+      label: t('shell.palette.newRoutine'),
+      group: actions,
+      icon: CalendarPlus,
+      keywords: t('shell.palette.newRoutine.keywords'),
+      run: () => {
+        routines.wantsNew = true;
+        nav.go('routines');
+      },
+    },
     { id: 'show-shortcuts', label: t('shell.palette.showShortcuts'), group: actions, icon: Keyboard, shortcut: 'shift+?', keywords: t('shell.palette.showShortcuts.keywords'), run: openShortcuts },
     {
       id: 'toggle-sidebar',

@@ -7,6 +7,7 @@ mod agents;
 mod commands;
 mod desktop_mcp;
 mod dialogs;
+mod doc_watch;
 mod drops;
 mod error;
 mod hooks;
@@ -17,7 +18,9 @@ mod memory_setup;
 mod native_text;
 mod notifications;
 mod releases;
+mod routines;
 pub mod state;
+mod team_sync;
 #[cfg(test)]
 mod test_support;
 mod tray;
@@ -52,6 +55,8 @@ pub fn run() -> ExitCode {
             memory_setup::spawn_on_launch(app.handle());
             desktop_mcp::spawn_on_launch(app.handle());
             hooks::spawn_on_launch(app.handle());
+            routines::agent_run::install(app.handle());
+            routines::spawn_on_launch(app.handle());
             notifications::focus_on_click(app.handle());
             memory_requests::spawn(app.handle());
             tray::create_tray(app);
@@ -141,6 +146,26 @@ pub fn run() -> ExitCode {
             commands::hooks::team::hooks_team_refresh,
             commands::hooks::team::hooks_team_copy,
             commands::hooks::team::hooks_team_enable,
+            commands::routines::routines_list,
+            commands::routines::routine_get,
+            commands::routines::routine_save,
+            commands::routines::routine_delete,
+            commands::routines::routines_delete_all,
+            commands::routines::routine_approve,
+            commands::routines::routine_reject,
+            commands::routines::routines_listen,
+            commands::routines::runs::routine_run_now,
+            commands::routines::runs::routine_run_stop,
+            commands::routines::runs::routine_runs,
+            commands::routines::runs::routine_schedule_preview,
+            commands::routines::chat::routine_run_attach,
+            commands::routines::chat::routines_workspace,
+            commands::routines::team::routines_share,
+            commands::routines::team::routines_team_remove,
+            commands::routines::team::routines_team_remove_mine,
+            commands::routines::team::routines_team_refresh,
+            commands::routines::team::routines_team_copy,
+            commands::routines::team::routines_team_enable,
             commands::sync::sync_export_preview,
             commands::sync::sync_export,
             commands::sync::sync_export_save,

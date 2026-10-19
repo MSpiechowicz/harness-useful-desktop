@@ -3,15 +3,18 @@
 
 use serde_json::{Value, json};
 
+use super::routine_tools;
 use crate::hooks::MAX_HOOKS_PER_SCOPE;
 use crate::hooks::format::{
     MAX_COMMAND_CHARS, MAX_DESCRIPTION_CHARS, MAX_MATCHER_CHARS, MAX_NAME_CHARS, MAX_TEXT_CHARS, MAX_TIMEOUT_SECS,
 };
 
-/// Sent in the `initialize` result; tells the agent what hooks are and how to manage them.
+/// Sent in the `initialize` result; tells the agent what hooks and routines are and how to manage
+/// them.
 pub const INSTRUCTIONS: &str = "\
-Hooks of Harness Desktop: small rules that add context to a prompt, send a follow-up or run a command \
-when something happens in a Harness Desktop chat.
+Hooks and routines of Harness Desktop.
+Hooks are small rules that add context to a prompt, send a follow-up or run a command when something \
+happens in a Harness Desktop chat.
 - A hook you add or change is pending: it runs only after the user approves that exact version in \
 Harness Desktop's Hooks view. Tell the user when you added or changed one.
 - Keep hooks few and specific. Call hook_list first and change an existing hook (hook_update) rather \
@@ -20,7 +23,16 @@ than adding a near duplicate.
 rule that fits every project.
 - Edits and removals need the sha256 from your latest hook_list or hook_get. You may remove only hooks \
 an agent created. Ask the user to remove any other.
-- Never put secrets in a hook.";
+Routines run a task on a schedule while Harness Desktop runs: an agent chat with a prompt, a shell \
+command or a saved Harness Memory script.
+- When the user repeats a task on a schedule, you may offer to create a routine. Ask first and add it \
+only after they agree.
+- A routine you add or change stays pending until the user approves it in Harness Desktop's Routines \
+view. Tell the user when you added or changed one.
+- Call routine_list first and change an existing routine (routine_update) rather than adding a near \
+duplicate. Edits and removals need the sha256 from your latest routine_list or routine_get, and you may \
+remove only routines an agent created.
+- Never put secrets in a hook or a routine.";
 
 /// How a command hook reads the event: the variables hold values an agent reported.
 const COMMAND_ENV: &str = "It gets HARNESS_HOOK_EVENT, HARNESS_HOOK_PROJECT, HARNESS_HOOK_SESSION, \
@@ -28,9 +40,12 @@ HARNESS_HOOK_TOOL, HARNESS_HOOK_TOOL_ERROR and HARNESS_HOOK_TOUCHED (newline-sep
 untrusted input: quote them (\"$HARNESS_HOOK_TOUCHED\") and put -- before them as arguments on Linux and \
 macOS, and on Windows read them inside a script instead of on the cmd.exe command line";
 
-/// Every tool, as `tools/list` returns them.
+/// Every tool, as `tools/list` returns them: the hook tools, then the routine tools.
 pub fn definitions() -> Value {
-    json!({ "tools": [list(), get(), add(), update(), remove()] })
+    let mut tools = vec![list(), get(), add(), update(), remove()];
+    tools.extend(routine_tools::definitions());
+
+    json!({ "tools": tools })
 }
 
 fn list() -> Value {
@@ -42,12 +57,7 @@ fn list() -> Value {
          add a duplicate.",
         json!({
             "project": project("The project to list (default: the server's working folder)"),
-            "scope": {
-                "type": "string",
-                "enum": ["global", "project", "all"],
-                "default": "all",
-                "description": "global: hooks of every project; project: this project's; all: both",
-            },
+            "scope": list_scope("hooks"),
         }),
         &[],
     );
@@ -59,7 +69,7 @@ fn get() -> Value {
     let definition = tool(
         "hook_get",
         "Read one hook by id, with the sha256 that hook_update and hook_remove need.",
-        json!({ "id": id() }),
+        json!({ "id": id("Hook id") }),
         &["id"],
     );
 
@@ -104,8 +114,8 @@ fn update() -> Value {
          change. The hook is pending again until the user approves the new version. An empty description \
          or matcher clears it. Changing the action type needs its text or command.",
         json!({
-            "id": id(),
-            "sha256": sha256(),
+            "id": id("Hook id"),
+            "sha256": sha256("hook"),
             "name": text(&format!("New name (1-{MAX_NAME_CHARS} characters)")),
             "event": event(),
             "action": action(),
@@ -129,7 +139,7 @@ fn remove() -> Value {
         "hook_remove",
         "Remove a hook an agent created, by id and the sha256 you last read. The user removes every other \
          hook in Harness Desktop: ask them instead.",
-        json!({ "id": id(), "sha256": sha256() }),
+        json!({ "id": id("Hook id"), "sha256": sha256("hook") }),
         &["id", "sha256"],
     );
 
@@ -137,34 +147,35 @@ fn remove() -> Value {
 }
 
 /// The MCP tool annotations of one tool.
-struct Hints {
+pub(super) struct Hints {
     read_only: bool,
     destructive: bool,
     idempotent: bool,
 }
 
 impl Hints {
-    const READ: Self = Self {
+    pub(super) const READ: Self = Self {
         read_only: true,
         destructive: false,
         idempotent: true,
     };
 
-    const WRITE: Self = Self {
+    pub(super) const WRITE: Self = Self {
         read_only: false,
         destructive: false,
         idempotent: false,
     };
 
-    const REMOVE: Self = Self {
+    pub(super) const REMOVE: Self = Self {
         read_only: false,
         destructive: true,
         idempotent: false,
     };
 }
 
-/// `definition` with its title and annotations. No tool reaches outside the hooks folder.
-fn annotated(mut definition: Value, title: &str, hints: Hints) -> Value {
+/// `definition` with its title and annotations. No tool reaches outside the hooks and routines
+/// folders.
+pub(super) fn annotated(mut definition: Value, title: &str, hints: Hints) -> Value {
     definition["annotations"] = json!({
         "title": title,
         "readOnlyHint": hints.read_only,
@@ -175,7 +186,7 @@ fn annotated(mut definition: Value, title: &str, hints: Hints) -> Value {
     definition
 }
 
-fn tool(name: &str, description: &str, properties: Value, required: &[&str]) -> Value {
+pub(super) fn tool(name: &str, description: &str, properties: Value, required: &[&str]) -> Value {
     json!({
         "name": name,
         "description": description,
@@ -188,19 +199,30 @@ fn tool(name: &str, description: &str, properties: Value, required: &[&str]) -> 
     })
 }
 
-fn text(description: &str) -> Value {
+pub(super) fn text(description: &str) -> Value {
     json!({ "type": "string", "description": description })
 }
 
-fn id() -> Value {
-    json!({ "type": "string", "pattern": "^[0-9a-f]{32}$", "description": "Hook id" })
+pub(super) fn id(description: &str) -> Value {
+    json!({ "type": "string", "pattern": "^[0-9a-f]{32}$", "description": description })
 }
 
-fn sha256() -> Value {
+/// The `sha256` argument of an edit or a removal of a `noun`.
+pub(super) fn sha256(noun: &str) -> Value {
     json!({
         "type": "string",
         "pattern": "^[0-9a-f]{64}$",
-        "description": "The hook's sha256 as hook_list or hook_get returned it",
+        "description": format!("The {noun}'s sha256 as {noun}_list or {noun}_get returned it"),
+    })
+}
+
+/// The `scope` argument of a list tool of `plural`.
+pub(super) fn list_scope(plural: &str) -> Value {
+    json!({
+        "type": "string",
+        "enum": ["global", "project", "all"],
+        "default": "all",
+        "description": format!("global: {plural} of every project; project: this project's; all: both"),
     })
 }
 
@@ -245,6 +267,6 @@ fn scope() -> Value {
     })
 }
 
-fn project(description: &str) -> Value {
+pub(super) fn project(description: &str) -> Value {
     json!({ "type": "string", "description": format!("{description}. An absolute folder path, the repository root is used") })
 }

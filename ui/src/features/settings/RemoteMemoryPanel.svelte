@@ -16,9 +16,11 @@
   import { uid } from '$lib/utils/ids';
 
   import DatabasePicker from './DatabasePicker.svelte';
+  import KeptInRow from './KeptInRow.svelte';
   import { takesToken, URL_PLACEHOLDERS, URL_PROBLEMS, urlMatchesKind } from './memory-remote';
   import SecretField from './SecretField.svelte';
   import SettingRow from './SettingRow.svelte';
+  import TrustRow from './TrustRow.svelte';
 
   interface Props {
     /** What the backend has saved; the form starts from it and keeps its own draft while it is open. */
@@ -42,6 +44,10 @@
   let shareHooks = $state(remote.shareHooks);
   // svelte-ignore state_referenced_locally
   let trustTeamHooks = $state(remote.trustTeamHooks);
+  // svelte-ignore state_referenced_locally
+  let shareRoutines = $state(remote.shareRoutines);
+  // svelte-ignore state_referenced_locally
+  let trustTeamRoutines = $state(remote.trustTeamRoutines);
   let url = $state('');
   let token = $state('');
   let touched = $state(false);
@@ -76,6 +82,7 @@
   /** Each trust question exists only while its item is kept in the team database. */
   const trustScripts = $derived(scripts === 'remote');
   const trustHooks = $derived(remote.hooksSupported && shareHooks);
+  const trustRoutines = $derived(remote.routinesSupported && shareRoutines);
 
   const typedUrl = $derived(url.trim());
   const typedToken = $derived(token.trim());
@@ -84,7 +91,7 @@
   /** A typed URL has to fit the database; without one, the saved URL stands in if it is for this database. */
   const urlUsable = $derived(typedUrl !== '' ? !urlInvalid : sameKind && remote.urlRedacted !== null);
   const changed = $derived(
-    !remote.enabled || !sameKind || typedUrl !== '' || typedToken !== '' || repositoryNotes !== remote.repositoryNotes || globalNotes !== remote.globalNotes || scripts !== remote.scripts || trustTeamScripts !== remote.trustTeamScripts || shareHooks !== remote.shareHooks || trustTeamHooks !== remote.trustTeamHooks,
+    !remote.enabled || !sameKind || typedUrl !== '' || typedToken !== '' || repositoryNotes !== remote.repositoryNotes || globalNotes !== remote.globalNotes || scripts !== remote.scripts || trustTeamScripts !== remote.trustTeamScripts || shareHooks !== remote.shareHooks || trustTeamHooks !== remote.trustTeamHooks || shareRoutines !== remote.shareRoutines || trustTeamRoutines !== remote.trustTeamRoutines,
   );
   const canSave = $derived(busy === null && urlUsable && changed);
   const canTest = $derived(busy === null && urlUsable);
@@ -99,12 +106,21 @@
     trustTeamScripts = false;
     shareHooks = false;
     trustTeamHooks = false;
+    shareRoutines = false;
+    trustTeamRoutines = false;
   }
 
   /** Trust goes with sharing: hooks that are not shared have nothing to trust, and sharing again asks for the trust again. */
   function chooseShareHooks(next: boolean): void {
     shareHooks = next;
     trustTeamHooks = next && trustTeamHooks;
+    edited();
+  }
+
+  /** The same for routines. */
+  function chooseShareRoutines(next: boolean): void {
+    shareRoutines = next;
+    trustTeamRoutines = next && trustTeamRoutines;
     edited();
   }
 
@@ -174,6 +190,8 @@
         trustTeamScripts: scripts === 'remote' && trustTeamScripts,
         // An older Harness Memory refuses a file with the hook keys, so they are not sent for it. The trust switch only shows while hooks are shared.
         ...(remote.hooksSupported ? { shareHooks, trustTeamHooks: shareHooks && trustTeamHooks } : {}),
+        // The same for routines.
+        ...(remote.routinesSupported ? { shareRoutines, trustTeamRoutines: shareRoutines && trustTeamRoutines } : {}),
       });
 
       // The secrets leave the form as soon as they are stored.
@@ -266,17 +284,17 @@
 
       <!-- Hooks the team shares come from other people and run on this computer, so the row exists only for a server that keeps them. Team database means shared. -->
       {#if remote.hooksSupported}
-        <SettingRow title={t('settings.memoryRemote.hooks.title')} description={t('settings.memoryRemote.hooks.description')}>
-          {#snippet control()}
-            <SegmentedControl label={t('settings.memoryRemote.hooks.title')} options={TARGETS} bind:value={() => (shareHooks ? 'remote' : 'local'), (next) => chooseShareHooks(next === 'remote')} />
-          {/snippet}
-        </SettingRow>
+        <KeptInRow title={t('settings.memoryRemote.hooks.title')} description={t('settings.memoryRemote.hooks.description')} options={TARGETS} shared={shareHooks} onchange={chooseShareHooks} />
+      {/if}
+
+      {#if remote.routinesSupported}
+        <KeptInRow title={t('settings.memoryRemote.routines.title')} description={t('settings.memoryRemote.routines.description')} options={TARGETS} shared={shareRoutines} onchange={chooseShareRoutines} />
       {/if}
     </div>
   </section>
 
   <!-- Only what is kept in the team database comes from other people, so the question only exists while it is. -->
-  {#if trustScripts || trustHooks}
+  {#if trustScripts || trustHooks || trustRoutines}
     <section transition:slide={{ duration: scaled(200) }} aria-labelledby={headings.trust} class="overflow-hidden">
       <h3 id={headings.trust} class={HEADING}>{t('settings.memoryRemote.section.trust')}</h3>
       <div class="divide-y divide-line">
@@ -299,13 +317,11 @@
         {/if}
 
         {#if trustHooks}
-          <div transition:slide={{ duration: scaled(200) }} class="overflow-hidden">
-            <SettingRow title={t('settings.memoryRemote.trustHooks.title')} description={t('settings.memoryRemote.trustHooks.description')}>
-              {#snippet control()}
-                <Switch label={t('settings.memoryRemote.trustHooks.title')} bind:checked={() => trustTeamHooks, (next) => ((trustTeamHooks = next), edited())} />
-              {/snippet}
-            </SettingRow>
-          </div>
+          <TrustRow title={t('settings.memoryRemote.trustHooks.title')} description={t('settings.memoryRemote.trustHooks.description')} checked={trustTeamHooks} onchange={(next) => ((trustTeamHooks = next), edited())} />
+        {/if}
+
+        {#if trustRoutines}
+          <TrustRow title={t('settings.memoryRemote.trustRoutines.title')} description={t('settings.memoryRemote.trustRoutines.description')} checked={trustTeamRoutines} onchange={(next) => ((trustTeamRoutines = next), edited())} />
         {/if}
       </div>
     </section>

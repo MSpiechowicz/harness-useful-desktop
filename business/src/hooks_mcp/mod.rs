@@ -1,11 +1,14 @@
 //! The MCP server mode of the app (`harness-desktop mcp`): agents list, read, add, change and
-//! remove hooks through it. Newline-delimited JSON-RPC 2.0 over stdio, read synchronously one
+//! remove hooks and routines through it. Newline-delimited JSON-RPC 2.0 over stdio, read synchronously one
 //! bounded line at a time; no window and no Tauri runtime.
 //!
 //! - Tools: `hook_list`, `hook_get`, `hook_add`, `hook_update`, `hook_remove` ([`tools`]). Every
 //!   write goes through [`HookStore`] as an agent, so it is pending until the user approves it in
 //!   the Hooks view, and the server never writes the app's config folder. It reads the approvals
 //!   there to report each hook as approved or pending, and never runs a hook.
+//! - Routines: `routine_list`, `routine_get`, `routine_add`, `routine_update`, `routine_remove`
+//!   ([`routine_tools`]), under the same agent rules through [`RoutineStore`]. The server never
+//!   runs, approves or shows a routine of the team, and never reads run records.
 //! - `project` defaults to the server's working folder (the harness starts it in the chat's
 //!   folder), turned into a project root like the app does (`hooks::project_identity`).
 //! - A line longer than [`MAX_FRAME_BYTES`] is answered with an error and skipped up to its
@@ -16,7 +19,10 @@
 //! - Nothing a client sends is written to stderr (the mode installs no log subscriber).
 
 mod calls;
+mod common;
 pub mod protocol;
+mod routine_calls;
+pub mod routine_tools;
 pub mod tools;
 
 use std::io::{self, BufRead, Write};
@@ -32,6 +38,7 @@ use crate::hooks::{HookCapabilities, HookStore};
 use crate::pi_family::rpc::MAX_FRAME_BYTES;
 use crate::prefs::PREFS_FILE;
 use crate::process::{ProcessRunner, TokioRunner};
+use crate::routines::RoutineStore;
 use crate::security::SafeReader;
 use protocol::{INVALID_PARAMS, INVALID_REQUEST, Line, METHOD_NOT_FOUND, PARSE_ERROR};
 
@@ -46,6 +53,8 @@ const MAX_PREFS_BYTES: u64 = 256 * 1024;
 pub struct Server {
     /// The hooks folder; `None` when this computer has none (Windows without `LOCALAPPDATA`).
     store: Option<HookStore>,
+    /// The routines folder; `None` when this computer has none, or for a server of hooks only.
+    routines: Option<RoutineStore>,
     /// The folder the harness started the server in.
     cwd: Option<PathBuf>,
     /// What the hooks' `requires` are checked against, once at start.
@@ -53,10 +62,12 @@ pub struct Server {
 }
 
 impl Server {
-    /// A server over `store`, defaulting `project` to `cwd`, with no requirement met.
+    /// A server over the hooks of `store` (and no routines), defaulting `project` to `cwd`, with
+    /// no requirement met.
     pub fn new(store: Option<HookStore>, cwd: Option<PathBuf>) -> Self {
         Self {
             store,
+            routines: None,
             cwd,
             capabilities: HookCapabilities::default(),
         }
@@ -68,10 +79,21 @@ impl Server {
         self
     }
 
-    /// The server of this machine: the hooks folder of `env` with the approvals in the app's
-    /// config folder, its requirements checked against `capabilities` ([`machine_capabilities`]).
+    /// The server with the routines of `routines` too.
+    pub fn with_routines(mut self, routines: Option<RoutineStore>) -> Self {
+        self.routines = routines;
+        self
+    }
+
+    /// The server of this machine: the hooks and routines folders of `env` with the approvals in
+    /// the app's config folder, the hooks' requirements checked against `capabilities`
+    /// ([`machine_capabilities`]).
     pub fn from_env(env: &Env, cwd: Option<PathBuf>, capabilities: HookCapabilities) -> Self {
-        Self::new(HookStore::from_env(env, config_dir(env)), cwd).with_capabilities(capabilities)
+        let config = config_dir(env);
+
+        Self::new(HookStore::from_env(env, &config), cwd)
+            .with_capabilities(capabilities)
+            .with_routines(RoutineStore::from_env(env, config))
     }
 
     /// Answers one parsed message; `None` for notifications and client answers.
@@ -130,7 +152,7 @@ impl Server {
 
 /// The `tools/call` result of `reply`: the reply object as text and as `structuredContent`, or
 /// the refusal text with `isError`.
-fn tool_result(reply: calls::Reply) -> Value {
+fn tool_result(reply: common::Reply) -> Value {
     match reply {
         Ok(value) => {
             let text = serde_json::to_string_pretty(&value).unwrap_or_default();
@@ -173,7 +195,7 @@ pub fn serve<R: BufRead, W: Write>(mut reader: R, mut writer: W, server: &mut Se
     }
 }
 
-/// `harness-desktop mcp`: serves this machine's hooks on stdin and stdout until stdin closes.
+/// `harness-desktop mcp`: serves this machine's hooks and routines on stdin and stdout until stdin closes.
 /// Fails when the environment cannot be read (no home folder) or stdio breaks.
 pub fn run_stdio() -> ExitCode {
     let Ok(env) = Env::from_process() else {

@@ -1,0 +1,6 @@
+// A routine run whose agent settles once before it takes the prompt (an idle session settles at startup): the run waits for the settle that follows its prompt.
+{"include":"omp_startup.jsonl"}
+{"emit":{"type":"session_settled"}}
+{"expect":"prompt","as":"p","reply":{"success":true}}
+{"sleep":400}
+{"include":"omp_routine_reply.jsonl"}

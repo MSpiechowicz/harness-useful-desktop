@@ -67,6 +67,11 @@ fn build<R: Runtime>(app: &App<R>) -> tauri::Result<TrayIcon<R>> {
         .build(app)
 }
 
+/// True when the tray icon was created, so a hidden window can be shown again from it.
+pub fn has_tray<R: Runtime>(app: &AppHandle<R>) -> bool {
+    app.tray_by_id(TRAY_ID).is_some()
+}
+
 /// Rebuilds the tray menu in the saved UI language. Failing is not fatal: the old labels stay.
 ///
 /// Blocking (reads the prefs file and waits for the main thread): call it off the async runtime and

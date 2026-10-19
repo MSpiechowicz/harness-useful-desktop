@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-routine-approve"
+description = "Enables the routine_approve command without any pre-configured scope."
+commands.allow = ["routine_approve"]
+
+[[permission]]
+identifier = "deny-routine-approve"
+description = "Denies the routine_approve command without any pre-configured scope."
+commands.deny = ["routine_approve"]

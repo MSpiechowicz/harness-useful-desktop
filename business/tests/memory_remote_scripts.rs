@@ -7,8 +7,8 @@
 mod memory_remote_support;
 
 use harness_business::ecosystem::{MemoryRemoteChange, ScriptsSupport, memory_remote_get, memory_remote_set};
-use harness_business::model::{MemoryNotesTarget, MemoryRemoteKind};
-use memory_remote_support::{Home, URL};
+use harness_business::model::MemoryNotesTarget;
+use memory_remote_support::{Home, postgres_change};
 use pretty_assertions::assert_eq;
 
 impl Home {
@@ -45,16 +45,10 @@ impl Home {
         support: ScriptsSupport,
     ) -> String {
         let change = MemoryRemoteChange {
-            enabled: true,
-            kind: Some(MemoryRemoteKind::Postgres),
-            url: Some(URL.to_owned()),
-            token: None,
             repository_notes,
-            global_notes: MemoryNotesTarget::Remote,
             scripts,
             trust_team_scripts,
-            share_hooks: None,
-            trust_team_hooks: None,
+            ..postgres_change()
         };
 
         memory_remote_set(&self.env, change, support).expect("saved");

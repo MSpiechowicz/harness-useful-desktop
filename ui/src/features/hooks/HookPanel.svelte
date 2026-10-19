@@ -2,13 +2,13 @@
   import Pause from '@lucide/svelte/icons/pause';
 
   import Button from '$lib/components/Button.svelte';
+  import DocSwitchCell from '$lib/components/docs/DocSwitchCell.svelte';
+  import DocInvalidNotice from '$lib/components/docs/DocInvalidNotice.svelte';
   import FactsCard from '$lib/components/FactsCard.svelte';
   import { ICON } from '$lib/components/icon';
   import { NOTICE_LOOKS } from '$lib/components/notice';
   import SectionCard from '$lib/components/SectionCard.svelte';
   import SidePanel from '$lib/components/SidePanel.svelte';
-  import Switch from '$lib/components/Switch.svelte';
-  import Tooltip from '$lib/components/Tooltip.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
   import type { MessageKey } from '$lib/i18n/locales/en';
   import type { HookView } from '$lib/ipc/bindings/HookView';
@@ -54,7 +54,6 @@
 
   const hook = $derived(view?.hook ?? null);
   const info = NOTICE_LOOKS.info;
-  const danger = NOTICE_LOOKS.error;
 
   const STATUS_TEXT: Record<string, MessageKey> = {
     active: 'hooks.panel.status.active',
@@ -105,31 +104,20 @@
         <div class="-my-4">
           <SettingRow title={view.status === 'duplicate' ? t('hooks.status.duplicate') : t('hooks.panel.enabled')} description={statusText}>
             {#snippet control()}
-              <Tooltip text={lockReason ?? ''} side="bottom" disabled={lockReason === null}>
-                {#snippet children({ describedby })}
-                  <span aria-describedby={describedby} class="inline-flex">
-                    <Switch
-                      label={t(team ? 'hooks.panel.team.enabledLabel' : 'hooks.panel.enabledLabel', { name: hookTitle(view) })}
-                      disabled={lockReason !== null || busy}
-                      bind:checked={() => (team ? teamSwitchedOn(view) : view.status !== 'pending' && hook.enabled), (next) => ontoggle(next)}
-                    />
-                  </span>
-                {/snippet}
-              </Tooltip>
+              <DocSwitchCell
+                label={t(team ? 'hooks.panel.team.enabledLabel' : 'hooks.panel.enabledLabel', { name: hookTitle(view) })}
+                checked={team ? teamSwitchedOn(view) : view.status !== 'pending' && hook.enabled}
+                {lockReason}
+                {busy}
+                onchange={ontoggle}
+              />
             {/snippet}
           </SettingRow>
         </div>
       {/if}
 
       {#if view.status === 'invalid'}
-        <div class={cx('flex items-start gap-3 rounded-md p-3', danger.box)} role="alert">
-          <span class="flex h-5 shrink-0 items-center"><danger.icon class={danger.color} size={ICON.sm} aria-hidden="true" /></span>
-          <div class="flex min-w-0 flex-col gap-0.5">
-            <p class="text-sm font-medium text-fg">{t('hooks.panel.invalid.title')}</p>
-            <p class="text-sm break-words text-fg-2">{view.problem ?? t('hooks.panel.invalid.unknown')}</p>
-            <p class="mt-1 font-mono text-xs break-all text-fg-3">{view.id}.json</p>
-          </div>
-        </div>
+        <DocInvalidNotice title={t('hooks.panel.invalid.title')} problem={view.problem ?? t('hooks.panel.invalid.unknown')} file="{view.id}.json" />
       {:else if waiting}
         <div class={cx('mt-3 flex flex-col gap-3 rounded-md p-3', info.box)} role="status">
           <div class="flex min-w-0 items-start gap-3">

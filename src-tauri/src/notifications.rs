@@ -4,7 +4,8 @@
 //! brings the main window to the front, where the request dialog waits.
 //!
 //! A notification carries only the script name, never its code. Failures are logged at debug:
-//! the in-app dialog still shows the request.
+//! the in-app dialog still shows the request. Routines show theirs through the same helpers
+//! ([`main_window_in_front`], [`show`], see `crate::routines::notify`).
 
 use tauri::plugin::TauriPlugin;
 use tauri::{AppHandle, Manager, Runtime, UserAttentionType};
@@ -18,14 +19,25 @@ pub fn plugin<R: Runtime>() -> TauriPlugin<R> {
     tauri_plugin_notification::init()
 }
 
-/// Brings the main window to the front when the user clicks a notification. Call once, after the
-/// plugin is set up; notifications shown before this report no clicks.
+/// Brings the main window to the front when the user clicks a notification, and for a "Routine
+/// needs you" one opens the chat of the run it names while that run still waits (see
+/// `crate::routines::notify`). Call once, after the plugin is set up; notifications shown before
+/// this report no clicks.
 pub fn focus_on_click<R: Runtime>(app: &AppHandle<R>) {
     let handle = app.clone();
 
     let registered = app.notification().on_action(move |performed| {
         if performed.action_id() == "tap" {
             focus_main_window(&handle);
+
+            let extra = performed
+                .notification()
+                .map(|notification| notification.extra().clone())
+                .unwrap_or_default();
+
+            if let Some(state) = handle.try_state::<crate::state::AppState>() {
+                state.routines.on_notification_click(&extra);
+            }
         }
     });
 
@@ -57,37 +69,60 @@ fn should_alert(new_requests: usize, window: Option<WindowView>) -> bool {
 /// Notifies about the requests that just arrived (their script names) unless the main window is
 /// in front. Requests sent again to a new listener are not passed here.
 pub fn alert<R: Runtime>(app: &AppHandle<R>, script_names: &[String]) {
-    let window = app.get_webview_window(MAIN_WINDOW);
-
-    let view = window.as_ref().map(|window| WindowView {
-        visible: window.is_visible().unwrap_or(false),
-        focused: window.is_focused().unwrap_or(false),
-        minimized: window.is_minimized().unwrap_or(false),
-    });
-
-    if !should_alert(script_names.len(), view) {
+    if !should_alert(script_names.len(), window_view(app)) {
         return;
     }
 
-    if let Some(window) = &window
-        && let Err(error) = window.request_user_attention(Some(UserAttentionType::Informational))
-    {
-        tracing::debug!(%error, "cannot request attention for the main window");
-    }
+    request_attention(app);
 
     let text = native_text(&crate::tray::saved_language(app));
 
     for name in script_names {
-        let shown = app
-            .notification()
-            .builder()
-            .title(text.script_request_title)
-            .body(body(name, text))
-            .show();
+        show(app, text.script_request_title, &body(name, text));
+    }
+}
 
-        if let Err(error) = shown {
-            tracing::debug!(%error, "cannot show the script request notification");
-        }
+/// True while the main window is shown, focused and not minimized: the in-app UI tells the user
+/// instead of an OS notification.
+pub fn main_window_in_front<R: Runtime>(app: &AppHandle<R>) -> bool {
+    !should_alert(1, window_view(app))
+}
+
+fn window_view<R: Runtime>(app: &AppHandle<R>) -> Option<WindowView> {
+    let window = app.get_webview_window(MAIN_WINDOW)?;
+
+    Some(WindowView {
+        visible: window.is_visible().unwrap_or(false),
+        focused: window.is_focused().unwrap_or(false),
+        minimized: window.is_minimized().unwrap_or(false),
+    })
+}
+
+/// Asks for attention to the main window (taskbar flash, dock bounce, urgency hint).
+pub fn request_attention<R: Runtime>(app: &AppHandle<R>) {
+    if let Some(window) = app.get_webview_window(MAIN_WINDOW)
+        && let Err(error) = window.request_user_attention(Some(UserAttentionType::Informational))
+    {
+        tracing::debug!(%error, "cannot request attention for the main window");
+    }
+}
+
+/// Shows one OS notification; a failure is logged at debug.
+pub fn show<R: Runtime>(app: &AppHandle<R>, title: &str, body: &str) {
+    show_with_extra(app, title, body, &[]);
+}
+
+/// Shows one OS notification that carries `extra` data, which a click reports back (see
+/// [`focus_on_click`]); a failure is logged at debug.
+pub fn show_with_extra<R: Runtime>(app: &AppHandle<R>, title: &str, body: &str, extra: &[(&str, String)]) {
+    let mut builder = app.notification().builder().title(title).body(body);
+
+    for (key, value) in extra {
+        builder = builder.extra(*key, value);
+    }
+
+    if let Err(error) = builder.show() {
+        tracing::debug!(%error, "cannot show a notification");
     }
 }
 

@@ -40,7 +40,9 @@ pub mod prefs;
 pub mod process;
 pub mod project;
 pub mod review;
+pub mod routines;
 pub mod security;
+pub mod signed_docs;
 pub mod sync;
 pub mod update;
 

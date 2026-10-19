@@ -3,10 +3,12 @@
 //!
 //! The business [`AgentManager`](harness_business::agent::AgentManager) validates the request
 //! itself; this layer adds the rules only the shell can check: the project must be the active or a
-//! recent one, the harness must be detected as installed (its resolved binary is used), and
-//! `agent_bash` needs the user's confirmation.
+//! recent one (or the routines workspace, see [`super::authorized_dir`]), the harness must be
+//! detected as installed (its resolved binary is used), and `agent_bash` needs the user's
+//! confirmation. A routine run starts its chat through [`start_with`], in the folder its runner
+//! authorized, with its own sink.
 
-use std::path::PathBuf;
+use std::path::Path;
 use std::sync::Arc;
 
 use harness_business::BusinessError;
@@ -14,13 +16,12 @@ use harness_business::agent::{AgentDeps, EventSink};
 use harness_business::model::{
     AgentAction, AgentEnvelope, AgentReply, AgentSessionInfo, AgentStartRequest, BashOutput, UiResponse,
 };
-use harness_business::project::Projects;
 use tauri::State;
 use tauri::ipc::Channel;
 
-use super::blocking;
+use super::authorized_dir;
 use super::harness::{find, installed_binary};
-use crate::agent_sink::{ChannelSink, OnClosed};
+use crate::agent_sink::{ChannelSink, ChatSink, OnClosed};
 use crate::agents::Agents;
 use crate::error::CommandResult;
 use crate::hooks::HookRuntime;
@@ -45,10 +46,10 @@ pub async fn agent_send(state: State<'_, AppState>, key: String, action: AgentAc
     Ok(chat_hooks::send(&state, &key, action).await?)
 }
 
-/// Answers an open dialog of session `key`.
+/// Answers an open dialog of session `key` (a routine run's chat hears that it was answered).
 #[tauri::command]
 pub async fn agent_ui_respond(state: State<'_, AppState>, key: String, response: UiResponse) -> CommandResult<()> {
-    Ok(state.agents.manager().respond(&key, response).await?)
+    respond(&state, &key, response).await
 }
 
 /// Runs `command` through the agent of session `key`. `confirmed` must be true: the UI asks the
@@ -74,7 +75,7 @@ pub async fn agent_move_project(
 ) -> CommandResult<AgentSessionInfo> {
     let manager = state.agents.manager();
     let harness = find(&state, manager.info(&key)?.harness)?;
-    let project = PathBuf::from(authorized_project(&state, project).await?);
+    let project = authorized_dir(&state, project).await?;
     let sessions_dir = harness.sessions_dir(&state.env, &project);
 
     let info = manager.move_project(&key, project.clone(), sessions_dir).await?;
@@ -95,9 +96,20 @@ pub async fn agent_list(state: State<'_, AppState>) -> CommandResult<Vec<AgentSe
     Ok(state.agents.manager().list())
 }
 
+/// A folder a chat may start in: the active or a recent project, or the folder of a routine run.
+pub(crate) struct AuthorizedFolder(String);
+
+impl AuthorizedFolder {
+    /// `folder`, which the routine runner authorized (the project root checked again, or the
+    /// routines workspace).
+    pub(crate) fn of_routine(folder: &Path) -> Self {
+        Self(folder.to_string_lossy().into_owned())
+    }
+}
+
 pub(crate) async fn start(
     state: &AppState,
-    mut request: AgentStartRequest,
+    request: AgentStartRequest,
     channel: Channel<AgentEnvelope>,
 ) -> CommandResult<AgentSessionInfo> {
     let agents = &state.agents;
@@ -106,16 +118,46 @@ pub(crate) async fn start(
         return Err(shutting_down().into());
     }
 
-    let harness = find(state, request.harness)?;
-    request.project = authorized_project(state, request.project).await?;
-    let binary = installed_binary(state, request.harness).await?;
-    let fresh = request.resume.is_none();
+    find(state, request.harness)?;
+
+    // A resumed session of a global routine runs again in the routine's own folder.
+    let folder = match &request.resume {
+        Some(session) => {
+            let dir = super::sessions::session_dir(state, request.project.clone(), session).await?;
+            AuthorizedFolder(dir.to_string_lossy().into_owned())
+        }
+        None => AuthorizedFolder(authorized_project(state, request.project.clone()).await?),
+    };
 
     let sink = Arc::new(ChannelSink::new(
         channel,
         request.harness,
         stop_when_closed(agents, &state.hooks),
     ));
+
+    start_with(state, request, sink, folder).await
+}
+
+/// Starts a session of `request.harness` in `folder` (the request's project is replaced) whose
+/// events go to `sink`. The project rule is the caller's: [`start`] checks it, a routine run
+/// passes the folder its runner authorized. The session is stopped again when `sink` closed while
+/// it started.
+pub(crate) async fn start_with(
+    state: &AppState,
+    mut request: AgentStartRequest,
+    sink: Arc<dyn ChatSink>,
+    folder: AuthorizedFolder,
+) -> CommandResult<AgentSessionInfo> {
+    let agents = &state.agents;
+
+    if agents.is_shutting_down() {
+        return Err(shutting_down().into());
+    }
+
+    let harness = find(state, request.harness)?;
+    request.project = folder.0;
+    let binary = installed_binary(state, request.harness).await?;
+    let fresh = request.resume.is_none();
 
     // Utility agents (titles, reviews) never run hooks.
     let (events, hook_events): (Arc<dyn EventSink>, _) = if request.utility {
@@ -169,6 +211,14 @@ pub(crate) async fn stop(state: &AppState, key: &str) -> CommandResult<()> {
     Ok(())
 }
 
+pub(crate) async fn respond(state: &AppState, key: &str, response: UiResponse) -> CommandResult<()> {
+    let id = response.id.clone();
+    state.agents.manager().respond(key, response).await?;
+    state.routines.relays().answered(key, &id);
+
+    Ok(())
+}
+
 async fn bash(state: &AppState, key: &str, command: &str, confirmed: bool) -> CommandResult<BashOutput> {
     if !confirmed {
         return Err(BusinessError::InvalidInput("the user has not confirmed the command".to_owned()).into());
@@ -181,17 +231,18 @@ fn shutting_down() -> BusinessError {
     BusinessError::Unsupported("the app is shutting down".to_owned())
 }
 
-/// The canonical directory of `project`, which must be the active project or a recent one.
+/// The canonical directory of `project`, which must be the active project, a recent one or the
+/// routines workspace.
 async fn authorized_project(state: &AppState, project: String) -> CommandResult<String> {
-    let prefs = state.prefs.clone();
-    let env = state.env.clone();
-
-    let path: Option<PathBuf> =
-        blocking(move || Ok(prefs.with(|store| Projects::new(store, &env).authorize(Some(&project)))?)).await?;
-
-    let path = path.ok_or_else(|| BusinessError::Internal("an authorized project has no path".to_owned()))?;
+    let path = authorized_dir(state, project).await?;
 
     Ok(path.to_string_lossy().into_owned())
+}
+
+/// Stops session `key` without waiting and forgets its hooks.
+pub(crate) fn stop_soon(state: &AppState, key: &str) {
+    state.agents.stop_in_background(key.to_owned());
+    state.hooks.forget(key);
 }
 
 /// Stops the session in the background once its channel closes, and forgets its hooks. Holds the
@@ -215,44 +266,16 @@ fn stop_when_closed(agents: &Arc<Agents>, hooks: &Arc<HookRuntime>) -> OnClosed 
 #[cfg(test)]
 mod tests {
     use std::path::Path;
-    use std::sync::Mutex;
-    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+    use std::sync::atomic::Ordering;
 
     use harness_business::model::{HarnessId, IpcErrorCode};
-    use serde_json::Value;
     use tauri::async_runtime::block_on;
 
     use super::*;
     use crate::test_support::{
-        agent_setup as setup, cache_detection, collecting_channel, fake_agent, start_request as request, wait_until,
+        agent_setup as setup, assert_envelopes_in_order, cache_detection, closable_channel, collecting_channel,
+        event_types, fake_agent, start_request as request, wait_until,
     };
-
-    /// A channel that delivers while `open` is set and fails like a destroyed webview after.
-    fn closable_channel(open: bool) -> (Channel<AgentEnvelope>, Arc<AtomicBool>, Arc<AtomicUsize>) {
-        let open = Arc::new(AtomicBool::new(open));
-        let delivered = Arc::new(AtomicUsize::new(0));
-        let (is_open, count) = (open.clone(), delivered.clone());
-
-        let channel = Channel::new(move |_| {
-            if !is_open.load(Ordering::Acquire) {
-                return Err(tauri::Error::WebviewNotFound);
-            }
-
-            count.fetch_add(1, Ordering::AcqRel);
-            Ok(())
-        });
-
-        (channel, open, delivered)
-    }
-
-    fn event_types(messages: &Mutex<Vec<Value>>) -> Vec<String> {
-        let messages = messages.lock().unwrap();
-
-        messages
-            .iter()
-            .map(|message| message["event"]["type"].as_str().unwrap_or_default().to_owned())
-            .collect()
-    }
 
     #[test]
     fn a_session_streams_its_events_over_the_channel_until_it_stops() {
@@ -286,17 +309,7 @@ mod tests {
         assert_eq!(types.last().map(String::as_str), Some("exited"));
         assert!(types.contains(&"textDelta".to_owned()), "{types:?}");
 
-        let messages = received.lock().unwrap();
-        let seqs: Vec<u64> = messages
-            .iter()
-            .map(|message| message["seq"].as_u64().unwrap())
-            .collect();
-        assert!(seqs.windows(2).all(|pair| pair[0] < pair[1]), "{seqs:?}");
-        assert!(
-            messages
-                .iter()
-                .all(|message| message["sessionKey"] == info.key.as_str())
-        );
+        assert_envelopes_in_order(&received, &info.key);
         assert!(agents.manager().list().is_empty());
     }
 
@@ -310,7 +323,7 @@ mod tests {
         let (channel, open, delivered) = closable_channel(true);
 
         let info = block_on(start(&setup.state, request(&setup.project), channel)).expect("session starts");
-        wait_until("the startup events", || delivered.load(Ordering::Acquire) >= 3);
+        wait_until("the startup events", || delivered.lock().unwrap().len() >= 3);
 
         open.store(false, Ordering::Release);
         let prompt = AgentAction::Prompt {

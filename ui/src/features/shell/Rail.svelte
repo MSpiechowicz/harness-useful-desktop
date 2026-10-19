@@ -18,11 +18,12 @@
 
   import ChatTree from '../chat/ChatTree.svelte';
   import { hooks } from '../hooks/hooks-data.svelte';
+  import { routines } from '../routines/routines-data.svelte';
 
   import { railBadge } from './rail-badges';
   import RailFooter from './RailFooter.svelte';
   import RailItem from './RailItem.svelte';
-  import { VIEWS, viewShortcut } from './views';
+  import { VIEWS, viewHint } from './views';
 
   interface Props {
     onshortcuts: () => void;
@@ -160,10 +161,10 @@
         <RailItem
           {view}
           reserve={view.id === 'chat' && expanded && chatCount > 0}
-          shortcut={viewShortcut(view.id)}
+          shortcut={viewHint(view.id)}
           active={view.id === nav.current}
           {expanded}
-          badge={railBadge(view.id, chat, git.status, hooks.pending)}
+          badge={railBadge(view.id, chat, git.status, hooks.pending, { pending: routines.pending, needsYou: routines.waiting.size })}
           bind:button={buttons[index]}
           onselect={() => nav.go(view.id)}
         />

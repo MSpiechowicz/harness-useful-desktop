@@ -353,6 +353,7 @@ fn summary_of(entry: &Value, project: &Path) -> Option<(i64, SessionSummary)> {
         first_prompt: None,
         parent_session: None,
         empty_copy: false,
+        routine: None,
     };
 
     Some((updated, summary))

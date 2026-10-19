@@ -20,6 +20,7 @@
 //! [`AgentManager::begin_stop_all`]; its id counts as stopping until the agent exited. A startup
 //! that never completes fails at its deadline, which releases the id as well.
 
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
@@ -30,7 +31,7 @@ use tokio::time::Instant;
 
 use super::SessionOptions;
 use super::session::{AgentSession, SessionLaunch};
-use super::sink::EventSink;
+use super::sink::{EventSink, PromptTaken};
 use super::slots::{
     BindingSink, Bound, Claimant, Entry, Holder, Reservation, SessionClaim, Slots, bind, open_elsewhere, still_stopping,
 };
@@ -385,6 +386,15 @@ impl AgentManager {
         Ok(())
     }
 
+    /// Calls `taken` in the event order of session `key` when its agent takes the next prompt:
+    /// after every event the agent sent before its answer, before any that follows (so a watcher
+    /// of the events can tell a settle from before the prompt from one after it).
+    pub fn on_prompt_taken(&self, key: &str, taken: PromptTaken) -> Result<()> {
+        self.session(key)?.on_prompt_taken(taken);
+
+        Ok(())
+    }
+
     /// The info of session `key`.
     pub fn info(&self, key: &str) -> Result<AgentSessionInfo> {
         self.entry(key, |entry| entry.info.clone())
@@ -420,15 +430,35 @@ impl AgentManager {
     /// Takes every session out of the manager; their agents stop when the result is finished.
     /// Starts in flight give up and stop their agents themselves.
     pub fn begin_stop_all(&self) -> Stopping {
+        self.begin_stop_all_except(&HashSet::new())
+    }
+
+    /// Like [`AgentManager::begin_stop_all`], but the sessions whose key is in `keep` go on
+    /// running (a page reload spares the chats of routine runs). Every start in flight gives up.
+    pub fn begin_stop_all_except(&self, keep: &HashSet<String>) -> Stopping {
         let mut slots = self.lock();
         slots.generation = slots.generation.wrapping_add(1);
         self.stopped_all.send_replace(slots.generation);
 
-        let entries: Vec<Entry> = slots.sessions.drain().map(|(_, entry)| entry).collect();
+        let stopped: Vec<String> = slots
+            .sessions
+            .keys()
+            .filter(|key| !keep.contains(*key))
+            .cloned()
+            .collect();
+        let entries: Vec<Entry> = stopped.iter().filter_map(|key| slots.sessions.remove(key)).collect();
 
         Stopping {
             sessions: entries.into_iter().map(|entry| slots.park(entry)).collect(),
         }
+    }
+
+    /// True while no further session can start ([`MAX_SESSIONS`] run or start).
+    pub fn is_full(&self) -> bool {
+        let mut slots = self.lock();
+        slots.prune();
+
+        slots.sessions.len() + slots.starting >= MAX_SESSIONS
     }
 
     /// Stops session `key` and forgets it; unknown keys are ignored.

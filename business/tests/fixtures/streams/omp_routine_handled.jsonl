@@ -1,0 +1,4 @@
+// A routine run whose prompt the harness handles itself (a `/command`): no run starts and no settle follows it, after the settle of an idle session at startup.
+{"include":"omp_startup.jsonl"}
+{"emit":{"type":"session_settled"}}
+{"expect":"prompt","as":"p","reply":{"success":true,"data":{"agentInvoked":false}}}

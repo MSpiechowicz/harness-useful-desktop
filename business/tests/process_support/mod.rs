@@ -13,6 +13,9 @@ use harness_business::process::ExecOutput;
 use harness_business::process::ExecSpec;
 
 const HELPER_ENV: &str = "HARNESS_TEST_HELPER";
+
+/// The file the `grandchild_pidfile` helper writes its grandchild's pid to.
+pub const PID_FILE_ENV: &str = "HARNESS_TEST_PID_FILE";
 const FLOOD_BYTES: usize = 1024 * 1024;
 
 /// The body of the helper child. Without `HARNESS_TEST_HELPER` it does nothing.
@@ -48,11 +51,20 @@ pub fn helper_process() {
             start_grandchild(true);
             std::thread::sleep(Duration::from_secs(60));
         }
+        // Like `sleep 60 & sleep 60` in a shell: the grandchild's pid goes to a file, so a test can
+        // find it while the run is still going.
+        "grandchild_pidfile" => {
+            let pid = start_grandchild(false);
+            let file = std::env::var(PID_FILE_ENV).unwrap();
+            std::fs::write(format!("{file}.tmp"), pid.to_string()).unwrap();
+            std::fs::rename(format!("{file}.tmp"), file).unwrap();
+            std::thread::sleep(Duration::from_secs(60));
+        }
         // Like a daemon: detached from the pipes, left running when this helper exits.
-        "orphan" => start_grandchild(false),
+        "orphan" => drop(start_grandchild(false)),
         // Like a command that starts a daemon which keeps its output pipes: exits successfully
         // while the grandchild still holds stdout and stderr.
-        "exit_leaving_grandchild" => start_grandchild(true),
+        "exit_leaving_grandchild" => drop(start_grandchild(true)),
         other => panic!("unknown helper mode {other}"),
     }
 }
@@ -61,7 +73,7 @@ pub fn helper_process() {
 /// `keeps_pipes`, and prints its pid. It is never waited for: the test kills it, or it is left
 /// behind on purpose.
 #[expect(clippy::zombie_processes, reason = "the grandchild is never waited for")]
-fn start_grandchild(keeps_pipes: bool) {
+fn start_grandchild(keeps_pipes: bool) -> u32 {
     let mut command = std::process::Command::new(std::env::current_exe().unwrap());
     command.args(helper_args()).env(HELPER_ENV, "sleep");
 
@@ -77,6 +89,8 @@ fn start_grandchild(keeps_pipes: bool) {
     let mut stdout = std::io::stdout();
     writeln!(stdout, "\nGRANDCHILD={}", child.id()).unwrap();
     stdout.flush().unwrap();
+
+    child.id()
 }
 
 fn helper_args() -> [&'static str; 5] {

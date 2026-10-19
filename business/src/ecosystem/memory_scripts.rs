@@ -45,8 +45,8 @@ use crate::process::{ExecSpec, ProcessRunner, ProcessSpawner};
 /// The tool whose presence marks a server that keeps scripts.
 pub const SCRIPT_LIST_TOOL: &str = "script_list";
 
-const SCRIPT_GET_TOOL: &str = "script_get";
-const SCRIPT_RUN_TOOL: &str = "script_run";
+pub(crate) const SCRIPT_GET_TOOL: &str = "script_get";
+pub(crate) const SCRIPT_RUN_TOOL: &str = "script_run";
 
 /// The `script_run` argument of servers that let the agent approve a script.
 const AGENT_APPROVAL_ARGUMENT: &str = "sha";
@@ -58,6 +58,8 @@ const SCRIPT_DELETE_TOOL: &str = "script_delete";
 /// The pooled `harness-memory mcp` connection for scripts. See the module docs.
 pub struct MemoryScripts {
     pool: McpPool,
+    /// Starts the separate connection of each routine script run (see [`super::memory_scripts_run`]).
+    pub(crate) spawner: Arc<dyn ProcessSpawner>,
     probe: Mutex<Option<Probe>>,
 }
 
@@ -75,7 +77,8 @@ impl MemoryScripts {
     /// A pool that starts the server through `spawner`.
     pub fn new(spawner: Arc<dyn ProcessSpawner>, options: PoolOptions) -> Self {
         Self {
-            pool: McpPool::new(spawner, options),
+            pool: McpPool::new(spawner.clone(), options),
+            spawner,
             probe: Mutex::new(None),
         }
     }
@@ -214,7 +217,7 @@ impl MemoryScripts {
     }
 
     /// The server's spec when it keeps scripts, or why it cannot be used.
-    async fn server(&self, env: &Env) -> std::result::Result<ExecSpec, MemoryScriptsAvailability> {
+    pub(crate) async fn server(&self, env: &Env) -> std::result::Result<ExecSpec, MemoryScriptsAvailability> {
         self.probed(env).await.map(|(spec, _)| spec)
     }
 
@@ -324,7 +327,7 @@ fn structured(output: ToolOutput, tool: &str) -> Result<Value> {
         .ok_or_else(|| BusinessError::Protocol(format!("{tool} answered without structured content")))
 }
 
-fn tool_error_text(output: &ToolOutput) -> String {
+pub(crate) fn tool_error_text(output: &ToolOutput) -> String {
     output
         .text
         .as_deref()
@@ -340,7 +343,7 @@ pub(crate) fn parse<T: DeserializeOwned>(mut value: Value, tool: &str) -> Result
 }
 
 /// Sets a missing or unknown `approval` from `trusted` (`approved` or `needed`).
-fn fill_approval(value: &mut Value) {
+pub(crate) fn fill_approval(value: &mut Value) {
     let Some(fields) = value.as_object_mut() else {
         return;
     };

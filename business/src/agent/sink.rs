@@ -33,7 +33,13 @@ pub(crate) enum EmitMsg {
     Open(Vec<AgentEvent>),
     /// Deliver what is buffered and stop. Held events of an unopened session are dropped.
     Close,
+    /// Run this once every event sent before it was delivered (see [`PromptTaken`]).
+    Call(PromptTaken),
 }
+
+/// Called in the session's event order at the moment the agent takes the next prompt: after every
+/// event it sent before its answer, before any that follows.
+pub type PromptTaken = Box<dyn FnOnce() + Send>;
 
 /// Starts the emitter task of session `key`.
 pub(crate) fn spawn_emitter(
@@ -102,6 +108,13 @@ async fn run_emitter(
                 for event in first.into_iter().chain(later) {
                     delivery.send(coalescer.push(event, Instant::now()));
                 }
+            }
+            Some(EmitMsg::Call(call)) => {
+                if held.is_none() {
+                    delivery.send(coalescer.flush());
+                }
+
+                call();
             }
             Some(EmitMsg::Close) | None => {
                 delivery.send(coalescer.flush());

@@ -30,8 +30,9 @@
 //!   the server's run requests for scripts this machine has not approved, the heartbeat that
 //!   lets it ask, and the answers, and [`memory_trust`]: `harness-memory trust`
 //!   (`memory_scripts_trust`).
-//! - [`memory_hooks`]: the team hooks Harness Memory keeps (`harness-memory hooks …`), and whether
-//!   the installed server has them.
+//! - [`memory_team_docs`]: team documents of a signed document kind Harness Memory keeps
+//!   (`harness-memory <plural> …`), and whether the installed server has them; [`memory_hooks`]:
+//!   the same for hooks (`harness-memory hooks …`).
 
 pub mod catalog;
 pub mod dashboard;
@@ -54,6 +55,8 @@ pub mod memory_remote;
 pub mod memory_requests;
 pub mod memory_scripts;
 mod memory_scripts_list;
+pub mod memory_scripts_run;
+pub mod memory_team_docs;
 pub mod memory_trust;
 pub mod releases;
 pub mod setup;
@@ -85,6 +88,7 @@ pub use memory_remote::{
 };
 pub use memory_requests::{RequestWatcher, memory_data_dir, remove_alive, touch_alive};
 pub use memory_scripts::{MemoryScripts, SCRIPT_LIST_TOOL, ScriptsQuery};
+pub use memory_team_docs::{MemoryTeamDocs, TeamDocsConfig, TeamDocsSupport};
 pub use memory_trust::trust_scripts;
 pub use releases::{CompanionReleases, release_endpoint};
 pub use setup::{McpFile, mcp_target, mcp_target_paths, memory_server_setup, setup_status};

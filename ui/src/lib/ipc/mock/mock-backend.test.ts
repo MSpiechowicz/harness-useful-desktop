@@ -93,6 +93,26 @@ const sampleArgs = (sessionKey: string): { [K in CommandName]: CommandArgs<K> } 
   hooks_team_refresh: { project: fixtures.recentProjects[0].path },
   hooks_team_copy: { id: '0'.repeat(32), sha256: '', project: fixtures.recentProjects[0].path },
   hooks_team_enable: { id: '0'.repeat(32), enabled: false },
+  routines_list: { project: fixtures.recentProjects[0].path },
+  routine_get: { id: '0'.repeat(32) },
+  routine_save: { draft: { id: null, expectedSha256: null, name: 'Look at the queue', description: null, scope: 'global', project: null, when: { type: 'daily', at: '09:00' }, action: { type: 'command', command: 'git status', timeoutSecs: null }, enabled: true } },
+  routine_delete: { id: '0'.repeat(32), sha256: '' },
+  routines_delete_all: {},
+  routine_approve: { id: '0'.repeat(32), sha256: '' },
+  routine_reject: { id: '0'.repeat(32), sha256: '' },
+  routines_listen: { onEvent: () => {} },
+  routine_run_now: { id: '0'.repeat(32) },
+  routine_run_stop: { runId: '0'.repeat(32) },
+  routine_runs: { query: { routineId: null, status: null, offset: 0, limit: 50 } },
+  routine_schedule_preview: { when: { type: 'weekdays', at: '09:00' } },
+  routine_run_attach: { runId: '0'.repeat(32), onEvent: () => {} },
+  routines_workspace: undefined,
+  routines_share: { id: '0'.repeat(32), sha256: '' },
+  routines_team_remove: { id: '0'.repeat(32), sha256: '' },
+  routines_team_remove_mine: undefined,
+  routines_team_refresh: { project: fixtures.recentProjects[0].path },
+  routines_team_copy: { id: '0'.repeat(32), sha256: '', project: fixtures.recentProjects[0].path },
+  routines_team_enable: { id: '0'.repeat(32), enabled: false },
   update_check: undefined,
   update_install: { onProgress: () => {} },
   app_relaunch: undefined,
@@ -135,10 +155,64 @@ async function teamCommandResolves(name: (typeof TEAM_COMMANDS)[number]): Promis
   }
 }
 
+type RoutineChange = 'routine_get' | 'routine_delete' | 'routine_approve' | 'routine_reject' | 'routine_run_now' | 'routine_run_stop' | 'routine_run_attach';
+
+/** Runs one of the commands that act on a sample routine or run on the routine or run it needs. */
+async function routineCommandResolves(mock: ReturnType<typeof transport>, name: RoutineChange): Promise<void> {
+  const { routines } = await mock.invoke('routines_list', { project: fixtures.recentProjects[0].path });
+  const pending = routines.find((routine) => routine.status === 'pending');
+  const idle = routines.find((routine) => routine.status === 'active');
+  const { runs } = await mock.invoke('routine_runs', { query: { routineId: null, status: 'running', offset: 0, limit: 5 } });
+  const args = {
+    routine_get: { id: idle?.id ?? '' },
+    routine_delete: { id: pending?.id ?? '', sha256: pending?.sha256 ?? '' },
+    routine_approve: { id: pending?.id ?? '', sha256: pending?.sha256 ?? '' },
+    routine_reject: { id: pending?.id ?? '', sha256: pending?.sha256 ?? '' },
+    routine_run_now: { id: idle?.id ?? '' },
+    routine_run_stop: { runId: runs[0]?.id ?? '' },
+    routine_run_attach: { runId: runs.find((run) => run.session)?.id ?? '', onEvent: () => {} },
+  }[name];
+
+  await expect(mock.invoke(name, args as never)).resolves.not.toBeInstanceOf(IpcFailure);
+}
+
+/** The commands that need a team to work on: the `?routines=team` preview has routines to share and team routines to remove, copy and switch. */
+const TEAM_ROUTINE_COMMANDS = ['routines_share', 'routines_team_remove', 'routines_team_remove_mine', 'routines_team_refresh', 'routines_team_copy', 'routines_team_enable'] as const;
+
+async function teamRoutineCommandResolves(name: (typeof TEAM_ROUTINE_COMMANDS)[number]): Promise<void> {
+  globalThis.history.replaceState(null, '', '/?routines=team');
+
+  try {
+    const mock = transport();
+    const project = fixtures.recentProjects[0].path;
+    const { routines } = await mock.invoke('routines_list', { project });
+    const local = routines.find((routine) => routine.origin === 'local' && routine.shareBlock === null);
+    const team = routines.find((routine) => routine.origin === 'team' && routine.status !== 'duplicate');
+    const args = {
+      routines_share: { id: local?.id ?? '', sha256: local?.sha256 ?? '' },
+      routines_team_remove: { id: team?.id ?? '', sha256: team?.sha256 ?? '' },
+      routines_team_remove_mine: undefined,
+      routines_team_refresh: { project },
+      routines_team_copy: { id: team?.id ?? '', sha256: team?.sha256 ?? '', project },
+      routines_team_enable: { id: team?.id ?? '', enabled: true, project },
+    }[name];
+
+    await expect(mock.invoke(name, args as never)).resolves.not.toBeInstanceOf(IpcFailure);
+  } finally {
+    globalThis.history.replaceState(null, '', '/');
+  }
+}
+
 describe('mock transport', () => {
   it.each(Object.keys(commands) as CommandName[])('implements %s', async (name) => {
     if ((TEAM_COMMANDS as readonly string[]).includes(name)) {
       await teamCommandResolves(name as (typeof TEAM_COMMANDS)[number]);
+
+      return;
+    }
+
+    if ((TEAM_ROUTINE_COMMANDS as readonly string[]).includes(name)) {
+      await teamRoutineCommandResolves(name as (typeof TEAM_ROUTINE_COMMANDS)[number]);
 
       return;
     }
@@ -163,6 +237,13 @@ describe('mock transport', () => {
       const waiting = hooks.find((hook) => hook.status === 'pending');
 
       await expect(mock.invoke(name, { id: waiting?.id ?? '', sha256: waiting?.sha256 ?? '' })).resolves.not.toBeInstanceOf(IpcFailure);
+
+      return;
+    }
+
+    // A change to a routine names the version it was read at: the sample routines are read first.
+    if (name === 'routine_get' || name === 'routine_delete' || name === 'routine_approve' || name === 'routine_reject' || name === 'routine_run_now' || name === 'routine_run_stop' || name === 'routine_run_attach') {
+      await routineCommandResolves(mock, name);
 
       return;
     }

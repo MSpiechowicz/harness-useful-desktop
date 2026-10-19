@@ -213,4 +213,10 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.memoryRemote.section.trust': 'Zaufanie',
   'settings.memoryRemote.hooks.title': 'Hooki',
   'settings.memoryRemote.hooks.description': 'Hooki, które udostępniasz zespołowi, i hooki zespołu.',
+  'settings.tray.title': 'Działaj w zasobniku po zamknięciu okna',
+  'settings.tray.description': 'Rutyny działają według harmonogramu, dopóki Harness Desktop pozostaje w zasobniku.',
+  'settings.memoryRemote.routines.title': 'Rutyny',
+  'settings.memoryRemote.routines.description': 'Rutyny, które udostępniasz zespołowi, i rutyny zespołu.',
+  'settings.memoryRemote.trustRoutines.title': 'Uruchamiaj rutyny zespołu bez pytania',
+  'settings.memoryRemote.trustRoutines.description': 'Rutyny z bazy danych zespołu uruchamiają się bez pytania cię o zgodę. Każdy, kto może zapisywać w bazie danych zespołu, będzie wtedy mógł uruchamiać kod na tym komputerze.',
 };

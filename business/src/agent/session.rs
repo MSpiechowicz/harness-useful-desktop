@@ -17,7 +17,7 @@ use tokio::task::JoinHandle;
 
 use super::SessionOptions;
 use super::io::{Readers, Shared, WriterMsg, read_loop, stderr_loop, wait_loop, write_loop};
-use super::sink::{EventSink, spawn_emitter};
+use super::sink::{EventSink, PromptTaken, spawn_emitter};
 use super::startup::{StartAbort, with_stderr};
 use crate::error::{BusinessError, Result};
 use crate::model::{AgentAction, AgentEvent, AgentReply, BashOutput, MAX_ACTION_TEXT_BYTES, SessionState, UiResponse};
@@ -409,6 +409,11 @@ impl AgentSession {
     /// Puts `event` into the session's stream, after the events already in it.
     pub fn emit(&self, event: AgentEvent) {
         self.shared.emit(event);
+    }
+
+    /// Calls `taken` in the session's event order when the agent takes the next prompt.
+    pub fn on_prompt_taken(&self, taken: PromptTaken) {
+        self.shared.on_prompt_taken(taken);
     }
 
     /// Stops the agent (see the module docs) and waits until `exited` was delivered.

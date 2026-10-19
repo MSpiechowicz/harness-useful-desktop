@@ -6,6 +6,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 
+use harness_business::app_dirs::local_data_dir;
 use harness_business::ecosystem::{CompanionReleases, Dashboard, DashboardOptions, MemoryScripts, PoolOptions};
 use harness_business::env::Env;
 use harness_business::harness::HarnessRegistry;
@@ -14,6 +15,7 @@ use harness_business::model::{HarnessId, HarnessSummary};
 use harness_business::pi_family::sessions::SessionCache;
 use harness_business::prefs::PrefsStore;
 use harness_business::process::{TokioRunner, TokioSpawner};
+use harness_business::routines::RoutineStore;
 use harness_business::sync::StoredPlan;
 use tauri::async_runtime::{self, RwLock};
 use tauri::{AppHandle, Manager, Runtime};
@@ -22,6 +24,7 @@ use crate::agents::Agents;
 use crate::drops::DropSink;
 use crate::hooks::HookRuntime;
 use crate::memory_requests::ScriptRequests;
+use crate::routines::RoutineRuntime;
 use crate::updates::Updates;
 
 /// State shared by all IPC commands.
@@ -74,6 +77,8 @@ pub struct AppState {
     pub desktop_mcp_setup: async_runtime::Mutex<()>,
     /// The hooks folder, its approvals and the hooks of each chat.
     pub hooks: Arc<HookRuntime>,
+    /// The routines folder, its schedule and the runs.
+    pub routines: Arc<RoutineRuntime>,
 }
 
 impl AppState {
@@ -94,6 +99,13 @@ impl AppState {
         let prefs = SharedPrefs::new(PrefsStore::new(prefs_dir.clone()));
         let env = Arc::new(env);
         let hooks = HookRuntime::new(HookStore::from_env(&env, prefs_dir.clone()), prefs.clone(), env.clone());
+        let memory_scripts = Arc::new(MemoryScripts::new(Arc::new(TokioSpawner), PoolOptions::default()));
+        let routines = RoutineRuntime::new(
+            RoutineStore::from_env(&env, prefs_dir.clone()),
+            local_data_dir(&env),
+            env.clone(),
+            memory_scripts.clone(),
+        );
 
         Self {
             prefs,
@@ -105,7 +117,7 @@ impl AppState {
             agents: Arc::new(Agents::new()),
             sessions: Arc::new(SessionCache::default()),
             dashboard: Arc::new(Dashboard::new(Arc::new(TokioSpawner), DashboardOptions::default())),
-            memory_scripts: Arc::new(MemoryScripts::new(Arc::new(TokioSpawner), PoolOptions::default())),
+            memory_scripts,
             script_requests: Arc::new(ScriptRequests::default()),
             attachments_dir: prefs_dir.join("attachments"),
             drops: DropSink::default(),
@@ -119,6 +131,7 @@ impl AppState {
             memory_setup: async_runtime::Mutex::new(()),
             desktop_mcp_setup: async_runtime::Mutex::new(()),
             hooks: Arc::new(hooks),
+            routines: Arc::new(routines),
         }
     }
 }

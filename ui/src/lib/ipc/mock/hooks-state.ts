@@ -10,7 +10,8 @@ import type { HookView } from '../bindings/HookView';
 import type { ShareBlock } from '../bindings/ShareBlock';
 import { IpcFailure } from '../transport';
 import { CATALOG, type CatalogEntry, fakeSha, familyHook, hookId, HOOKS_PROJECT, lintApproved, lintChanged, OLD_SAVE_TEXT, testsReminder } from './hooks-fixtures';
-import { LOCAL_ORIGIN, MockTeam, sharedSamples, type TeamMode } from './hooks-team-state';
+import { LOCAL_ORIGIN, MockTeam, sharedSamples } from './hooks-team-state';
+import { teamModeOf } from './team-preview';
 
 /** Browser-preview switch `?hooks=`: what the Hooks view finds. Anything else shows the sample hooks. */
 export const HOOK_SCENARIOS = ['ok', 'empty', 'outdated', 'noDashboard', 'invalid', 'problem', 'failing', 'team', 'teamTrusted', 'teamNoOrigin', 'teamProblem'] as const;
@@ -20,22 +21,6 @@ export function hookScenarioFromLocation(search: string = globalThis.location?.s
   const name = new URLSearchParams(search).get('hooks');
 
   return HOOK_SCENARIOS.find((scenario) => scenario === name) ?? 'ok';
-}
-
-/** Which team the `?hooks=team…` previews have: hooks are shared in these, and not in the others. */
-function teamModeOf(scenario: HookScenario): TeamMode | null {
-  switch (scenario) {
-    case 'team':
-      return { trust: false, shareable: true, problem: null };
-    case 'teamTrusted':
-      return { trust: true, shareable: true, problem: null };
-    case 'teamNoOrigin':
-      return { trust: false, shareable: false, problem: null };
-    case 'teamProblem':
-      return { trust: false, shareable: true, problem: 'The team database did not answer in time.' };
-    default:
-      return null;
-  }
 }
 
 /** Where a hook file stands in the approvals. */

@@ -213,4 +213,10 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.memoryRemote.section.trust': 'Vertrauen',
   'settings.memoryRemote.hooks.title': 'Hooks',
   'settings.memoryRemote.hooks.description': 'Hooks, die du mit dem Team teilst, und deren Hooks.',
+  'settings.tray.title': 'Im Tray weiterlaufen, wenn das Fenster geschlossen wird',
+  'settings.tray.description': 'Routinen laufen weiter nach ihrem Zeitplan, solange Harness Desktop im Tray bleibt.',
+  'settings.memoryRemote.routines.title': 'Routinen',
+  'settings.memoryRemote.routines.description': 'Routinen, die du mit dem Team teilst, und deren Routinen.',
+  'settings.memoryRemote.trustRoutines.title': 'Team-Routinen ohne Nachfrage ausführen',
+  'settings.memoryRemote.trustRoutines.description': 'Routinen aus der Team-Datenbank laufen, ohne dich vorher zu fragen. Wer in die Team-Datenbank schreiben kann, kann dann Code auf diesem Rechner ausführen.',
 };

@@ -15,3 +15,16 @@ describe('the rail badge of the Hooks view', () => {
     expect(railBadge('memory', null, null, 3)).toBeNull();
   });
 });
+
+describe('the rail badge of the Routines view', () => {
+  it('counts the routines to approve together with the runs that ask something', () => {
+    expect(railBadge('routines', null, null, 0, { pending: 2, needsYou: 1 })).toEqual({ text: '3', label: '2 routines to approve, 1 routine needs you', tone: 'warning', busy: true });
+    expect(railBadge('routines', null, null, 0, { pending: 1, needsYou: 0 })).toEqual({ text: '1', label: '1 routine to approve', tone: 'warning', busy: false });
+  });
+
+  it('is quiet with nothing waiting, caps the count and does not mark another view', () => {
+    expect(railBadge('routines', null, null)).toBeNull();
+    expect(railBadge('routines', null, null, 0, { pending: 150, needsYou: 0 })?.text).toBe('99+');
+    expect(railBadge('hooks', null, null, 0, { pending: 2, needsYou: 2 })).toBeNull();
+  });
+});

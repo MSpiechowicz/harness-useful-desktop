@@ -12,6 +12,8 @@ import { memoryRemoteHandlers } from './memory-remote-handlers';
 import { memoryNotesHandlers } from './memory-notes-handlers';
 import { availabilityOf, memoryScriptsHandlers, scenarioAfterInstall, scriptScenarioFromLocation } from './memory-scripts-handlers';
 import { projectHandlers } from './project-handlers';
+import { routineHandlers } from './routine-handlers';
+import { MockRoutines, routineScenarioFromLocation } from './routine-state';
 import { MOCK_LATEST_RELEASES, releaseHandlers } from './release-handlers';
 import { sessionHandlers } from './session-handlers';
 import { manualRemovalsOf, setupHandlers, setupScenarioFromLocation } from './setup-handlers';
@@ -37,12 +39,18 @@ export function defaultScenario(): Scenario {
   // `?hooks=team|teamTrusted|teamNoOrigin|teamProblem` shares hooks with a team: approval needed, trusted, a repository without origin, a refresh that failed.
   const hooks = new MockHooks(hookScenarioFromLocation, () => state.memoryEnabled);
 
+  // `?routines=empty|invalid|problem|failing` changes what the Routines view finds, `?routines=ok` (the default) lists sample routines in every status and a long run history.
+  // `?routines=team|teamTrusted|teamNoOrigin|teamProblem` shares routines with a team, as `?hooks=` does for hooks.
+  const routines = new MockRoutines(routineScenarioFromLocation);
+
+  const { attach, ...agentCommands } = agentHandlers(state, agentPace, (project) => hooks.sessionContext(project));
+
   const base = {
     ...hostHandlers(state),
     ...harnessHandlers(state),
     ...projectHandlers(state),
-    ...agentHandlers(state, agentPace, (project) => hooks.sessionContext(project)),
-    ...sessionHandlers(state),
+    ...agentCommands,
+    ...sessionHandlers(state, routines),
     ...gitHandlers(state),
   };
 
@@ -91,6 +99,7 @@ export function defaultScenario(): Scenario {
     ...setup.handlers,
     ...syncHandlers(),
     ...hooksHandlers(hooks),
+    ...routineHandlers(routines, attach),
     // The switch reports the memory server the setup mock installs.
     memory_set_enabled: ({ enabled }) => ({
       memoryEnabled: state.setMemoryEnabled(enabled).memoryEnabled,

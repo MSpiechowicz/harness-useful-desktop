@@ -29,7 +29,6 @@ impl CommandError {
     }
 
     /// The error category (what the UI branches on).
-    #[cfg(test)]
     pub fn code(&self) -> IpcErrorCode {
         self.0.code
     }

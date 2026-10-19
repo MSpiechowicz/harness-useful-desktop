@@ -5,10 +5,13 @@
 //!   app's writes, and tells the Hooks view about changes (`hooks_listen`).
 //! - [`chat`]: every chat but a utility agent gets a `HookSession` from `agent_start` until it
 //!   stops, its channel closes or the page reloads. Each send goes through it under the chat's
-//!   own lock, and its events reach it from a [`chat::HookSink`] around the webview channel.
-//! - [`watch`]: a thread that looks at the folder and the approvals every second.
+//!   own lock, and its events reach it from a [`chat::HookSink`] around the webview channel (or
+//!   the relay of a routine run, `crate::routines::relay`).
+//! - [`watch`]: a thread that looks at the folder and the approvals every second
+//!   ([`crate::doc_watch`]).
 //! - [`team`]: the team hooks shared through Harness Memory: whether hooks are shared, the
-//!   refresh of their copies, and the copies the chats run after the local hooks.
+//!   refresh of their copies ([`crate::team_sync`]), and the copies the chats run after the local
+//!   hooks.
 //! - Capabilities: `harness-memory` is met while Harness Memory is installed and the
 //!   `memoryEnabled` pref is on, `harness-dashboard` while Harness Dashboard is installed. Looked
 //!   up at most every [`MEMBERS_TTL`], and again after an install or the memory switch.
@@ -38,8 +41,8 @@ use std::time::{Duration, Instant, SystemTime};
 use harness_business::ecosystem::{Companion, installed_memory, resolve_dashboard};
 use harness_business::env::Env;
 use harness_business::hooks::team::{TeamFolder, TeamViews, team_views};
-use harness_business::hooks::{HookCapabilities, HookSet, HookStore, restore_member, seed_defaults};
-use harness_business::model::{HookRequirement, HookView, HooksEvent};
+use harness_business::hooks::{HookCapabilities, HookKind, HookSet, HookStore, restore_member, seed_defaults};
+use harness_business::model::{HookRequirement, HookView, HooksEvent, TeamHooks};
 use harness_business::process::TokioRunner;
 use harness_business::{BusinessError, Result};
 use tauri::async_runtime::JoinHandle;
@@ -47,9 +50,9 @@ use tauri::ipc::Channel;
 use tauri::{AppHandle, Manager};
 
 use self::chat::ChatHooks;
-use self::team::TeamRuntime;
-use self::watch::Fingerprint;
+use crate::doc_watch::DocWatch;
 use crate::state::{AppState, SharedPrefs};
+use crate::team_sync::TeamSync;
 
 /// How long a lookup of the installed family members is used.
 pub const MEMBERS_TTL: Duration = Duration::from_secs(30);
@@ -68,11 +71,11 @@ pub struct HookRuntime {
     /// Held by every write of the app (commands, seeding, pruning), so approvals are never lost
     /// to two writers that each load and save them.
     writes: Arc<Mutex<()>>,
-    watched: Mutex<Option<Fingerprint>>,
+    watch: DocWatch,
     /// The chats' hook tasks; each ends after its agent exited (and its `sessionEnd` ran).
     tasks: Mutex<Vec<JoinHandle<()>>>,
     /// The team hooks (see [`team`]).
-    team: TeamRuntime,
+    team: TeamSync<HookKind, TeamHooks>,
 }
 
 #[derive(Default)]
@@ -130,9 +133,9 @@ impl HookRuntime {
             cache: Mutex::default(),
             listener: Mutex::default(),
             writes: Arc::default(),
-            watched: Mutex::default(),
+            watch: DocWatch::default(),
             tasks: Mutex::default(),
-            team: TeamRuntime::default(),
+            team: TeamSync::default(),
         }
     }
 
@@ -332,9 +335,10 @@ impl HookRuntime {
         self.lock_chats().remove(key);
     }
 
-    /// Stops tracking every chat (the page reloaded, so every chat stopped).
-    pub fn clear(&self) {
-        self.lock_chats().clear();
+    /// Stops tracking every chat but those in `keep` (the page reloaded, so every other chat
+    /// stopped).
+    pub fn clear_except(&self, keep: &HashSet<String>) {
+        self.lock_chats().retain(|key, _| keep.contains(key));
     }
 
     /// Tracks `chat` unless it is no longer in `live` (it stopped while it started). Forgets the

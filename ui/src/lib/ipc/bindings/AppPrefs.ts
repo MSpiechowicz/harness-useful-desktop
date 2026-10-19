@@ -113,4 +113,9 @@ chatDefaults: Array<ChatDefaults>,
  * detected harness's user MCP file at launch and after its install (default on). Server-managed:
  * only `memory_set_enabled` changes it, since turning it off also removes the app's entries.
  */
-memoryEnabled: boolean, };
+memoryEnabled: boolean, 
+/**
+ * Whether closing the main window hides it to the tray instead of quitting, so routines keep
+ * running (default off). Without a tray icon closing always quits.
+ */
+keepRunningInTray: boolean, };

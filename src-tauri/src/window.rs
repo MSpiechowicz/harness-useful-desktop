@@ -1,8 +1,10 @@
 //! The main window, created from its `tauri.conf.json` entry (`"create": false`) so that
-//! navigation and pop-up guards are attached before any page loads.
+//! navigation and pop-up guards are attached before any page loads, and what closing it does.
 
 use tauri::webview::NewWindowResponse;
-use tauri::{App, Manager, Runtime, Url, WebviewWindow, WebviewWindowBuilder};
+use tauri::{App, AppHandle, Manager, Runtime, Url, WebviewWindow, WebviewWindowBuilder};
+
+use crate::state::AppState;
 
 /// Label of the only window.
 pub const MAIN_WINDOW: &str = "main";
@@ -75,6 +77,39 @@ pub fn focus_main_window<R: Runtime, M: Manager<R>>(manager: &M) {
     }
 }
 
+/// Called when the user closes the main window: hides it instead when it should keep running in
+/// the tray ([`hides_on_close`]). True when it was hidden, so the close must be prevented.
+pub fn hide_instead_of_closing<R: Runtime>(app: &AppHandle<R>) -> bool {
+    let keep_running = app
+        .try_state::<AppState>()
+        .is_some_and(|state| state.prefs.with(|store| store.load()).keep_running_in_tray);
+
+    if !hides_on_close(keep_running, crate::tray::has_tray(app)) {
+        return false;
+    }
+
+    let Some(window) = app.get_webview_window(MAIN_WINDOW) else {
+        return false;
+    };
+
+    match window.hide() {
+        Ok(()) => {
+            tracing::info!("main window hidden to the tray");
+            true
+        }
+        Err(error) => {
+            tracing::warn!(%error, "cannot hide the main window; closing it");
+            false
+        }
+    }
+}
+
+/// Whether closing the main window hides it: the "Keep running in the tray" pref is on and the
+/// tray icon exists (without it nothing could show the window again, so closing quits).
+pub fn hides_on_close(keep_running_in_tray: bool, has_tray: bool) -> bool {
+    keep_running_in_tray && has_tray
+}
+
 fn allow_navigation(url: &Url, dev_url: Option<&Url>) -> bool {
     let allowed = is_app_url(url, dev_url);
 
@@ -129,6 +164,14 @@ mod tests {
         assert!(is_app_url(&url("http://localhost:1420/src/main.ts"), Some(&dev)));
         assert!(!is_app_url(&url("http://localhost:1420/"), None));
         assert!(!is_app_url(&url("http://localhost:9999/"), Some(&dev)));
+    }
+
+    #[test]
+    fn closing_hides_the_window_only_with_the_pref_and_a_tray() {
+        assert!(hides_on_close(true, true));
+        assert!(!hides_on_close(true, false), "nothing could show it again");
+        assert!(!hides_on_close(false, true));
+        assert!(!hides_on_close(false, false));
     }
 
     #[test]

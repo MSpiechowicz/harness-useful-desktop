@@ -14,6 +14,7 @@ import { components } from './components';
 import { sync } from './sync';
 import { memory } from './memory';
 import { hooks } from './hooks';
+import { routines } from './routines';
 
 export const en = {
   ...common,
@@ -32,6 +33,7 @@ export const en = {
   ...sync,
   ...memory,
   ...hooks,
+  ...routines,
 } satisfies Record<string, string>;
 
 /** Every message key of the app; the other languages must have exactly these. */

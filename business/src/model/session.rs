@@ -8,7 +8,7 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use super::{ChatMessage, SessionRef};
+use super::{ChatMessage, SessionRef, SessionRoutineTag};
 
 /// Maximum number of messages in one `session_messages` page.
 pub const MAX_SESSION_PAGE: u32 = 200;
@@ -78,6 +78,11 @@ pub struct SessionSummary {
     /// `session_exit` records. OMP leaves such copies when a second process resumes a session
     /// another live process owns.
     pub empty_copy: bool,
+    /// The routine whose run started the session (tagged "Routine" in Sessions); absent for the
+    /// others.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub routine: Option<SessionRoutineTag>,
 }
 
 /// What a session entry is.

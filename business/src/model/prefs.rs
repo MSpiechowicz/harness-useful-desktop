@@ -143,6 +143,9 @@ pub struct AppPrefs {
     /// detected harness's user MCP file at launch and after its install (default on). Server-managed:
     /// only `memory_set_enabled` changes it, since turning it off also removes the app's entries.
     pub memory_enabled: bool,
+    /// Whether closing the main window hides it to the tray instead of quitting, so routines keep
+    /// running (default off). Without a tray icon closing always quits.
+    pub keep_running_in_tray: bool,
 }
 
 impl AppPrefs {
@@ -176,6 +179,7 @@ impl Default for AppPrefs {
             binary_overrides: Vec::new(),
             chat_defaults: Vec::new(),
             memory_enabled: true,
+            keep_running_in_tray: false,
         }
     }
 }

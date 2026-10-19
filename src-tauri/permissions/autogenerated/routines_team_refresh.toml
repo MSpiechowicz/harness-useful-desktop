@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-routines-team-refresh"
+description = "Enables the routines_team_refresh command without any pre-configured scope."
+commands.allow = ["routines_team_refresh"]
+
+[[permission]]
+identifier = "deny-routines-team-refresh"
+description = "Denies the routines_team_refresh command without any pre-configured scope."
+commands.deny = ["routines_team_refresh"]

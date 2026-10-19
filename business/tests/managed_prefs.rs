@@ -54,6 +54,7 @@ fn with_ui_changes(base: AppPrefs) -> AppPrefs {
         ai_chat_names: true,
         onboarding_completed: true,
         approval_notice_seen: true,
+        keep_running_in_tray: true,
         ..base
     }
 }

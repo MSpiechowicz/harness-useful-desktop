@@ -1,0 +1,7 @@
+// A routine run whose agent asks a question, gets its answer, then works a moment before it replies.
+{"include":"omp_startup.jsonl"}
+{"expect":"prompt","as":"p","reply":{"success":true}}
+{"emit":{"type":"extension_ui_request","id":"q-1","method":"confirm","title":"Deploy","message":"Deploy to staging?"}}
+{"expect":"extension_ui_response","match":{"id":"q-1","confirmed":true}}
+{"sleep":800}
+{"include":"omp_routine_reply.jsonl"}

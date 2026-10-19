@@ -1,0 +1,8 @@
+// A routine run whose prompt ends with an error after a moment (a window can attach meanwhile).
+{"include":"omp_startup.jsonl"}
+{"expect":"prompt","as":"p","reply":{"success":true}}
+{"sleep":800}
+{"emit":{"type":"agent_start"}}
+{"emit":{"type":"agent_end","messages":[]}}
+{"emit":{"type":"prompt_result","id":"$p","agentInvoked":true,"status":"error","error":{"message":"429 Too Many Requests: rate limit exceeded","provider":"anthropic","model":"claude-sonnet-4-5","httpStatus":429,"retryable":true},"sessionSettled":true}}
+{"emit":{"type":"session_settled"}}

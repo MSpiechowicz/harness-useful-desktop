@@ -4,6 +4,7 @@
 //! Everything that stops sessions outside an IPC call is tracked here so that app exit can wait
 //! for it: [`Agents::stop_all`] stops the remaining sessions and awaits the background stops.
 
+use std::collections::HashSet;
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 
@@ -84,7 +85,13 @@ impl Agents {
     /// reloaded page may resume the same session ids at once: those starts wait for the old
     /// agents to exit.
     pub fn stop_all_in_background(&self) {
-        let stopping = self.manager.begin_stop_all();
+        self.stop_all_in_background_except(&HashSet::new());
+    }
+
+    /// Like [`Agents::stop_all_in_background`], sparing the sessions whose key is in `keep` (the
+    /// chats of routine runs, which no page owns).
+    pub fn stop_all_in_background_except(&self, keep: &HashSet<String>) {
+        let stopping = self.manager.begin_stop_all_except(keep);
 
         self.track(async_runtime::spawn(stopping.finish()));
     }

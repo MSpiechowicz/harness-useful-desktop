@@ -4,6 +4,9 @@ import type { HookStatus } from '$lib/ipc/bindings/HookStatus';
 import type { NoteKind } from '$lib/ipc/bindings/NoteKind';
 import type { ScriptGroup } from '$lib/ipc/bindings/ScriptGroup';
 import type { ScriptReview } from '$lib/ipc/bindings/ScriptReview';
+import type { RoutineStatus } from '$lib/ipc/bindings/RoutineStatus';
+import type { RoutineWhenKind } from '$lib/ipc/bindings/RoutineWhenKind';
+import type { RunStatus } from '$lib/ipc/bindings/RunStatus';
 import type { ScriptScope } from '$lib/ipc/bindings/ScriptScope';
 
 import type { ViewId } from './nav.svelte';
@@ -23,6 +26,21 @@ export type HookStatusFilter = 'all' | HookStatus;
 /** What the "Source" filter of the Hooks view narrows the list to: all hooks, the ones of this computer, or the team's. */
 export type HookSource = 'all' | 'mine' | 'team';
 
+/** What the "When" filter of the Routines view narrows the list to: all routines, or the ones with one kind of schedule. */
+export type RoutineWhenFilter = 'all' | RoutineWhenKind;
+
+/** What the "Status" filter of the Routines view narrows the list to: all routines, or the ones in one status. */
+export type RoutineStatusFilter = 'all' | RoutineStatus;
+
+/** What the "Source" filter of the Routines view narrows the list to: all routines, the ones of this computer, or the team's. */
+export type RoutineSource = 'all' | 'mine' | 'team';
+
+/** What the "Status" filter of the run history narrows the runs to: all of them, or the ones that ended one way. */
+export type RunStatusFilter = 'all' | RunStatus;
+
+/** The two lists the Routines view switches between. */
+export type RoutinesSection = 'routines' | 'runs';
+
 /** The settings sections the palette and the section nav can jump to. */
 export type SettingsSectionId = 'appearance' | 'startup' | 'harnesses' | 'memory' | 'projects' | 'updates' | 'privacy' | 'sync' | 'about';
 
@@ -41,6 +59,10 @@ export class ViewState {
   extensionsQuery = $state('');
 
   sessionId = $state<string | null>(null);
+  /** `sessionId` was asked for by something else (a routine run opened its session): Sessions waits for it, and says so when it is missing, instead of showing another. */
+  sessionAsked = $state(false);
+  /** Whose sessions Sessions lists: the project's, or the ones global routines left in their own folder. */
+  sessionsFolder = $state<'project' | 'routines'>('project');
   /** What the Sessions search field in the top bar holds. */
   sessionsQuery = $state('');
 
@@ -70,6 +92,20 @@ export class ViewState {
   hooksWhen = $state<HookWhen>('all');
   hooksStatus = $state<HookStatusFilter>('all');
   hooksSource = $state<HookSource>('all');
+
+  /** Which list of the Routines view is on screen, the routine whose panel is open (its row key), what the search holds and the three filters ('all' for none). */
+  routinesSection = $state<RoutinesSection>('routines');
+  routineId = $state<string | null>(null);
+  routinesQuery = $state('');
+  routinesWhen = $state<RoutineWhenFilter>('all');
+  routinesStatus = $state<RoutineStatusFilter>('all');
+  routinesSource = $state<RoutineSource>('all');
+
+  /** The run history: the run whose panel is open, the routine it is narrowed to (null for all), the status filter and the page (from 0). */
+  runId = $state<string | null>(null);
+  runsRoutine = $state<string | null>(null);
+  runsStatus = $state<RunStatusFilter>('all');
+  runsPage = $state(0);
 
   /** A settings section waiting to be scrolled to; the settings view clears it once it has. */
   settingsTarget = $state<SettingsSectionId | null>(null);
@@ -101,6 +137,7 @@ export class ViewState {
     this.reset('sessions');
     this.reset('memory');
     this.reset('hooks');
+    this.reset('routines');
     this.settingsTarget = null;
     this.scrolls.clear();
   }
@@ -116,6 +153,8 @@ export class ViewState {
       this.extensionsQuery = '';
     } else if (view === 'sessions') {
       this.sessionId = null;
+      this.sessionAsked = false;
+      this.sessionsFolder = 'project';
       this.sessionsQuery = '';
     } else if (view === 'hooks') {
       this.hookId = null;
@@ -123,6 +162,17 @@ export class ViewState {
       this.hooksWhen = 'all';
       this.hooksStatus = 'all';
       this.hooksSource = 'all';
+    } else if (view === 'routines') {
+      this.routinesSection = 'routines';
+      this.routineId = null;
+      this.routinesQuery = '';
+      this.routinesWhen = 'all';
+      this.routinesStatus = 'all';
+      this.routinesSource = 'all';
+      this.runId = null;
+      this.runsRoutine = null;
+      this.runsStatus = 'all';
+      this.runsPage = 0;
     } else if (view === 'memory') {
       this.noteId = null;
       this.notesQuery = '';

@@ -5,6 +5,7 @@
   import { harness } from '$lib/stores/harness.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
 
+  import RoutineChip from '../routines/RoutineChip.svelte';
   import ChatControls from './ChatControls.svelte';
 
   const session = $derived(agentSessions.active);
@@ -16,11 +17,15 @@
 
 <!-- Chat's header, rendered into the shell's top bar like every view's: the harness running the open chat, its name, and
      its controls. The open chats live in the rail, under Chat; a new one starts with Ctrl+N. -->
-<ViewHeader title={heading} leading={runner ? badge : undefined}>
+<ViewHeader title={heading} leading={runner ? badge : undefined} center={session?.routine ? routine : undefined}>
   {#snippet actions()}
     {#if session}<ChatControls {session} />{/if}
   {/snippet}
 </ViewHeader>
+
+{#snippet routine()}
+  {#if session?.routine}<RoutineChip routine={session.routine} />{/if}
+{/snippet}
 
 {#snippet badge()}
   {#if runner}<HarnessBadge info={runner} size="bar" />{/if}

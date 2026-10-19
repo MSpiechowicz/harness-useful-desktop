@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-routines-team-remove-mine"
+description = "Enables the routines_team_remove_mine command without any pre-configured scope."
+commands.allow = ["routines_team_remove_mine"]
+
+[[permission]]
+identifier = "deny-routines-team-remove-mine"
+description = "Denies the routines_team_remove_mine command without any pre-configured scope."
+commands.deny = ["routines_team_remove_mine"]

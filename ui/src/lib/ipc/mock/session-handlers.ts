@@ -1,10 +1,12 @@
 import type { SessionFolder } from '../bindings/SessionFolder';
 import type { SessionMessagesPage } from '../bindings/SessionMessagesPage';
 import type { SessionRef } from '../bindings/SessionRef';
+import type { SessionRoutineTag } from '../bindings/SessionRoutineTag';
 import type { SessionSummary } from '../bindings/SessionSummary';
 import { IpcFailure } from '../transport';
 import { fixtures } from './fixtures';
 import sessionsListOpenCode from './fixtures/sessions/sessions_list.opencode.json';
+import type { MockRoutines } from './routine-state';
 import type { MockState } from './state';
 import type { Handlers } from './types';
 
@@ -102,23 +104,48 @@ function pageOf(harness: SessionRef['harness'], cursor: string | null, limit: nu
   };
 }
 
-/** In-memory session store: the generated OMP, PI and OpenCode samples, served for any project the user opened; deletes apply to every project. */
-export function sessionHandlers(state: MockState): Pick<Handlers, SessionCommands> {
+/** The sessions of a project, with the ones a routine started tagged: one still going on (it asks the user something) and a finished one. */
+function taggedInProject(sessions: SessionSummary[], tags: SessionRoutineTag[]): SessionSummary[] {
+  const places = [1, 3];
+
+  return sessions.map((summary, index) => {
+    const tag = tags[places.indexOf(index)];
+
+    return tag ? { ...summary, routine: tag } : summary;
+  });
+}
+
+/** What the routines' own folder holds: copies of the first sessions, one for each finished run of a global routine, each in the folder of its routine. */
+function inRoutinesFolder(sessions: SessionSummary[], tags: SessionRoutineTag[], folder: string): SessionSummary[] {
+  return tags.slice(0, sessions.length).map((tag, index) => ({ ...sessions[index], cwd: `${folder}/${tag.routineId}`, routine: tag }));
+}
+
+/** In-memory session store: the generated OMP, PI and OpenCode samples, served for any project the user opened (and the routines' folder); deletes apply to every project. */
+export function sessionHandlers(state: MockState, routines: Pick<MockRoutines, 'sessionTags' | 'workspace'>): Pick<Handlers, SessionCommands> {
+  /** The folders a session command is for: the known projects, and where global routines keep their sessions. */
+  function requireKnown(project: string | null): void {
+    if (project === null || project !== routines.workspace()) {
+      state.requireKnown(project);
+    }
+  }
+
   return {
     sessions_list: ({ harness, project }) => {
-      state.requireKnown(project);
+      requireKnown(project);
+      const tags = routines.sessionTags();
+      const sessions = structuredClone(listed(state, harness));
 
-      return structuredClone(listed(state, harness));
+      return project === routines.workspace() ? inRoutinesFolder(sessions, tags.global, project) : taggedInProject(sessions, tags.project);
     },
 
     sessions_folder: ({ harness, project }) => {
-      state.requireKnown(project);
+      requireKnown(project);
 
       return folderOf(harness, project);
     },
 
     session_tree: ({ session, project }) => {
-      state.requireKnown(project);
+      requireKnown(project);
       requireSession(state, session);
       // OpenCode sessions are a plain list: no tree to branch.
       if (session.harness === 'opencode') {
@@ -129,21 +156,21 @@ export function sessionHandlers(state: MockState): Pick<Handlers, SessionCommand
     },
 
     session_messages: ({ session, project, cursor, limit }) => {
-      state.requireKnown(project);
+      requireKnown(project);
       requireSession(state, session);
 
       return pageOf(session.harness, cursor, limit);
     },
 
     session_files_touched: ({ session, project }) => {
-      state.requireKnown(project);
+      requireKnown(project);
       requireSession(state, session);
 
       return [...fixtures.sessions.filesTouched];
     },
 
     session_delete: ({ session, project, emptyCopyOnly }) => {
-      state.requireKnown(project);
+      requireKnown(project);
       const found = requireSession(state, session);
 
       if (emptyCopyOnly && !found.emptyCopy) {

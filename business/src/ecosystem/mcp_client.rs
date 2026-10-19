@@ -13,6 +13,8 @@
 //!   JSON-RPC error or an unreadable line fails only the request.
 //! - stderr is drained and discarded, and payloads are never logged.
 //! - [`McpClient::shutdown`] closes stdin (the server exits at end of input), then kills.
+//!   [`McpClient::cancel`] first tells the server the request still waiting for its answer is
+//!   cancelled (`notifications/cancelled`), for a client that stopped waiting for it.
 
 use std::time::Duration;
 
@@ -98,6 +100,8 @@ pub struct McpClient {
     child: Box<dyn ChildHandle>,
     options: McpOptions,
     next_id: u64,
+    /// The request sent whose answer was not read (its wait was dropped or is going on).
+    pending: Option<u64>,
     usable: bool,
     server_name: Option<String>,
 }
@@ -124,6 +128,7 @@ impl McpClient {
             child: process.child,
             options,
             next_id: 0,
+            pending: None,
             usable: true,
             server_name: None,
         };
@@ -210,7 +215,9 @@ impl McpClient {
             return Err(exited_before_answering(method));
         }
 
+        self.pending = Some(id);
         let waited = tokio::time::timeout(self.options.request_timeout, self.answer(id, method)).await;
+        self.pending = None;
 
         match waited {
             Ok(answer) => answer,
@@ -234,6 +241,18 @@ impl McpClient {
         }
 
         Ok(())
+    }
+
+    /// Cancels the request whose answer was not read (a wait for it was dropped), then shuts the
+    /// server down ([`McpClient::shutdown`]). A server that stops the work of a cancelled request,
+    /// or of every request once its input ends, stops it before it is killed.
+    pub async fn cancel(mut self) {
+        if let Some(id) = self.pending.take() {
+            let params = json!({ "requestId": id, "reason": "the client stopped waiting" });
+            self.notify("notifications/cancelled", params).await.ok();
+        }
+
+        self.shutdown().await;
     }
 
     /// Closes stdin, waits up to 2 s for the server to exit, then kills its process group.

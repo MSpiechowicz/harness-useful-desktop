@@ -27,7 +27,7 @@ pub use coalesce::{COALESCE_WINDOW, DeltaCoalescer};
 pub use io::{MAX_STDERR_LINE, MAX_STDERR_PER_SECOND};
 pub use manager::{AgentDeps, AgentManager, MAX_SESSIONS, Stopping};
 pub use session::{AgentSession, BASH_TIMEOUT, SessionLaunch};
-pub use sink::{CollectingSink, EventSink};
+pub use sink::{CollectingSink, EventSink, PromptTaken};
 pub use slots::SessionClaim;
 pub use startup::StartAbort;
 

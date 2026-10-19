@@ -25,7 +25,7 @@ File rules:
 - Name is `<id>.json`, `<id>` is 32 lowercase hex characters (`^[0-9a-f]{32}$`). The `id` field inside MUST equal the name stem, otherwise the file is invalid.
 - Written mode `0600` on Unix. UTF-8, no BOM, JSON, two-space indent, trailing newline (readers accept any JSON formatting).
 - Written by a temp file in the same folder (mode `0600`), flushed, then renamed over the target. Temp names start with `.` and end with `.tmp` or contain `.tmp-` (the desktop uses `.<name>.tmp-<pid>-<nanos>`). Readers MUST ignore every name that is not exactly `<id>.json`, which covers temp files, leftovers and editor files.
-- Readers ignore anything that is not a regular file (symbolic links included). On Unix, readers ignore the whole folder while `<root>/hooks` is writable by group or others.
+- Readers ignore anything that is not a regular file (symbolic links included). On Unix, readers ignore the whole folder while `<root>` or `<root>/hooks` is owned by another user or writable by group or others, and a file another user owns is never parsed (it is listed as Invalid, "the file could not be read"). The app window applies the same owner and mode checks to `<root>/team` and its copies. A `<root>` the user owns that group or others can write to (an older version or a loose umask created it so) has its group and other write bits cleared by either app before it is checked (its other bits stay), and the change is logged once per folder. A `<root>` that is a symbolic link is never changed: the folder it points to is checked as it is.
 - A file larger than 16 KiB (16384 bytes, raw) is Invalid and is not parsed.
 - Writers MUST NOT follow a symbolic link at the target path.
 - Per scope at most 64 hooks (global, and each project separately). The MCP server refuses to add a hook to a scope that holds 64 valid hooks, the app window to a scope that holds 64 approved ones. When a folder holds more, approved hooks come first, each group ordered by `createdAt` then `id` ascending: the first 64 of a scope are used and the rest are Invalid ("over the limit"). So files waiting for review never push an approved hook out. A hook over the limit is still listed, and deleted by "Delete all hooks", only with its own scope (global, or its project), while a file that is not a valid hook is listed with every scope.
@@ -43,7 +43,7 @@ Top-level fields. Required means the key MUST be present and valid. Readers igno
 | `name` | string | yes | 1 to 80 characters, not blank, no control characters, no invisible characters |
 | `description` | string or null | no | at most 500 characters, no invisible characters |
 | `scope` | string | yes | `"global"` or `"project"` |
-| `project` | string or null | for `"project"` | absolute canonical project root (see Project identity). Must be `null` or absent when `scope` is `"global"` |
+| `project` | string or null | for `"project"` | absolute canonical project root (see Project identity; on Windows with its drive or share), at most 4096 bytes, no control or invisible characters. Must be `null` or absent when `scope` is `"global"` |
 | `event` | string | yes | `sessionStart`, `promptSubmit`, `toolEnd`, `turnEnd`, `sessionEnd` |
 | `matcher` | string or null | no | `toolEnd` only, see Matcher. `null` or absent means all tools |
 | `action` | object | yes | see Actions |

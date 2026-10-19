@@ -11,23 +11,19 @@
 //! A writer ([`load_state`]) never saves over a file it could not read. An invalid file is set
 //! aside (`.corrupt-<unix-seconds>`) and rebuilt with every catalog seed listed (saved at once), so
 //! a hook the user deleted is not created again at launch, and with no team entries. A reader
-//! ([`read_state`]) never writes: it sees an invalid or unreadable file as empty.
+//! ([`read_state`]) never writes: it sees an invalid or unreadable file as empty. The file handling
+//! is [`crate::signed_docs::state`]'s.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
-use super::STATE_FILE;
-use super::approvals::{is_regular_file, set_aside};
+use super::HookKind;
 use super::family::FAMILY;
-use crate::error::{BusinessError, Result};
-use crate::fs_atomic::{refuse_link, replace_atomically};
+use crate::error::Result;
 use crate::model::HookSeed;
-use crate::security::SafeReader;
-
-/// Largest state file read.
-const MAX_STATE_BYTES: u64 = 256 * 1024;
+use crate::signed_docs::state::{self, DocState, TeamState};
 
 /// See the module docs.
 #[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -41,7 +37,7 @@ pub(crate) struct HooksState {
     shared_from: BTreeMap<String, String>,
 }
 
-impl HooksState {
+impl DocState for HooksState {
     fn empty() -> Self {
         Self {
             version: 1,
@@ -49,6 +45,36 @@ impl HooksState {
         }
     }
 
+    fn version(&self) -> u32 {
+        self.version
+    }
+
+    /// Every catalog seed listed, so a hook the user deleted is not created again at launch.
+    fn rebuilt() -> Self {
+        let mut rebuilt = Self::empty();
+        for entry in &FAMILY {
+            rebuilt.record(entry.seed);
+        }
+
+        rebuilt
+    }
+}
+
+impl TeamState for HooksState {
+    fn shared(&self) -> &BTreeMap<String, String> {
+        &self.shared_from
+    }
+
+    fn shared_mut(&mut self) -> &mut BTreeMap<String, String> {
+        &mut self.shared_from
+    }
+
+    fn forget_own(&mut self, id: &str) {
+        self.team_disabled.remove(id);
+    }
+}
+
+impl HooksState {
     /// True when launch seeding created (or found) `seed` once.
     pub fn has(&self, seed: HookSeed) -> bool {
         self.seeded.iter().any(|name| name == seed.as_str())
@@ -74,85 +100,22 @@ impl HooksState {
             self.team_disabled.remove(id);
         }
     }
-
-    /// The SHA-256 the local hook `id` had when the user shared it.
-    pub fn shared_from(&self, id: &str) -> Option<&str> {
-        self.shared_from.get(id).map(String::as_str)
-    }
-
-    /// Records that local hook `id` was shared at version `sha256`.
-    pub fn set_shared_from(&mut self, id: &str, sha256: &str) {
-        self.shared_from.insert(id.to_owned(), sha256.to_owned());
-    }
-
-    /// Forgets the team entries of hook `id` (it left the team).
-    pub fn forget_team(&mut self, id: &str) {
-        self.shared_from.remove(id);
-        self.team_disabled.remove(id);
-    }
 }
 
 /// The state, read only: empty when the file is missing, invalid or cannot be read.
 pub(crate) fn read_state(config_dir: &Path) -> HooksState {
-    let text = match SafeReader::read_to_string(&config_dir.join(STATE_FILE), MAX_STATE_BYTES) {
-        Ok(text) => text,
-        Err(BusinessError::NotFound(_)) => return HooksState::empty(),
-        Err(_) => {
-            tracing::warn!("the hooks state file cannot be read");
-            return HooksState::empty();
-        }
-    };
-
-    serde_json::from_str::<HooksState>(&text)
-        .ok()
-        .filter(|state| state.version == 1)
-        .unwrap_or_else(HooksState::empty)
+    state::read_state::<HookKind, HooksState>(config_dir)
 }
 
 /// The state, for a writer that saves it again (see the module docs).
 pub(crate) fn load_state(config_dir: &Path) -> Result<HooksState> {
-    let path = config_dir.join(STATE_FILE);
-
-    let text = match SafeReader::read_to_string(&path, MAX_STATE_BYTES) {
-        Ok(text) => Some(text),
-        Err(BusinessError::NotFound(_)) => return Ok(HooksState::empty()),
-        Err(BusinessError::InvalidInput(_)) if is_regular_file(&path) => None,
-        Err(error) => return Err(error),
-    };
-
-    let state = text
-        .and_then(|text| serde_json::from_str::<HooksState>(&text).ok())
-        .filter(|state| state.version == 1);
-
-    if let Some(state) = state {
-        return Ok(state);
-    }
-
-    tracing::warn!("the hooks state file is invalid; set aside and rebuilt");
-    set_aside(&path)?;
-
-    let mut rebuilt = HooksState::empty();
-    for entry in &FAMILY {
-        rebuilt.record(entry.seed);
-    }
-
-    // Saved at once: a missing record would let the next launch seed deleted hooks again.
-    save_state(config_dir, &rebuilt)?;
-    Ok(rebuilt)
+    // Rebuilt with every seed and saved at once: a missing record would let the next launch seed
+    // deleted hooks again.
+    state::load_kind_state::<HookKind, HooksState>(config_dir)
 }
 
 /// Writes the state to `config_dir` (created when missing; `0600`, one rename, never through a
 /// symbolic link).
 pub(crate) fn save_state(config_dir: &Path, state: &HooksState) -> Result<()> {
-    std::fs::create_dir_all(config_dir)
-        .map_err(|error| BusinessError::from_io("creating the app config folder", error))?;
-
-    let path = config_dir.join(STATE_FILE);
-    refuse_link(&path)?;
-
-    let mut bytes = serde_json::to_vec_pretty(state)
-        .map_err(|error| BusinessError::Internal(format!("encoding the hooks state: {error}")))?;
-    bytes.push(b'\n');
-
-    replace_atomically(&path, &bytes, "saving the hooks state")
+    state::save_state::<HookKind, HooksState>(config_dir, state)
 }

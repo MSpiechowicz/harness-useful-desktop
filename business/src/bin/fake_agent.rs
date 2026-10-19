@@ -34,8 +34,8 @@
 //! `ok: Fake at <scheme> (schema 1) token <set|unset|blank>` and exit 0. `harness-memory trust
 //! <id>=<sha256>… [--project <path>]` approves the stand-in's scripts, see [`memory::trust`].
 //! `harness-memory notes list|get|delete` and `harness-memory scripts list` answer from fixtures,
-//! see [`memory_cli`]. `harness-memory hooks config|list` answer from files next to the copy, see
-//! [`memory_hooks`].
+//! see [`memory_cli`]. `harness-memory hooks|routines config|list|put|delete` answer from files
+//! next to the copy, see [`memory_hooks`].
 
 use std::collections::HashMap;
 use std::io::{BufRead, Write};
@@ -69,7 +69,7 @@ fn main() {
             Some("trust") => memory::trust(&args[2..]),
             Some("notes") => memory_cli::notes(&args[2..]),
             Some("scripts") => memory_cli::scripts(&args[2..]),
-            Some("hooks") => memory_hooks::hooks(&args[2..]),
+            Some(plural @ ("hooks" | "routines")) => memory_hooks::docs(plural, &args[2..]),
             _ => {}
         }
     }

@@ -30,7 +30,16 @@ function load(sections: ConfigSection[], notices: Notice[] = []): void {
   configView.data = { harness: 'omp', notices, sections };
 }
 
-const details = () => screen.findByRole('region', { name: 'Details' });
+/**
+ * The viewer is up and its read has ended. A read still in flight (the harness switched back by an earlier test) would
+ * land after the test has put its own data in, replace it and clear the search that went with it.
+ */
+async function details(name = 'Details'): Promise<HTMLElement> {
+  const region = await screen.findByRole('region', { name });
+  await waitFor(() => expect(configView.status).toBe('ready'), { timeout: 5000 });
+
+  return region;
+}
 
 describe('ConfigViewer', () => {
   afterEach(() => {
@@ -422,7 +431,7 @@ describe('in Polish', () => {
     await i18n.load('pl');
     prefs.value = samplePrefs({ motion: 'off', defaultHarness: 'omp' });
     render(ConfigViewer);
-    await screen.findByRole('region', { name: 'Szczegóły' });
+    await details('Szczegóły');
 
     for (const [count, text] of [
       [1, '1 dopasowanie'],
@@ -430,6 +439,8 @@ describe('in Polish', () => {
       [5, '5 dopasowań'],
     ] as const) {
       configView.data = { harness: 'omp', notices: [], sections: [section(count)] };
+      // The viewer follows the file first. A search typed while it still points at another file is cleared with it.
+      await waitFor(() => expect(viewState.configSection).toBe('user.settings'));
       viewState.configQuery = 'key';
 
       expect(await screen.findByText(text)).toBeInTheDocument();

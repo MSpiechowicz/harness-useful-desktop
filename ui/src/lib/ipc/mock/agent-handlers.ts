@@ -1,9 +1,10 @@
 import type { AgentAction } from '../bindings/AgentAction';
+import type { AgentEnvelope } from '../bindings/AgentEnvelope';
 import type { AgentReply } from '../bindings/AgentReply';
 import type { AgentSessionInfo } from '../bindings/AgentSessionInfo';
 import type { AgentStartRequest } from '../bindings/AgentStartRequest';
 import type { SessionState } from '../bindings/SessionState';
-import { IpcFailure } from '../transport';
+import { IpcFailure, type EventSink } from '../transport';
 import { MockAgentStream } from './agent-player';
 import { fixtures } from './fixtures';
 import type { MockState } from './state';
@@ -48,8 +49,15 @@ function lastAssistantText(): string {
   return block?.type === 'text' ? block.text : '';
 }
 
-/** In-memory agent backend: one `MockAgentStream` per started session. */
-export function agentHandlers(state: MockState, pace: () => number, sessionContext: (project: string | null) => string): Pick<Handlers, AgentCommands> {
+/** The keywords that make the mock agent replay the recorded stream with a question to the user. */
+const ASKING_PROMPT = 'Ask me in a dialog (ui)';
+
+/** In-memory agent backend: one `MockAgentStream` per started session, and `attach` for the chat of a routine run that is already going. */
+export function agentHandlers(
+  state: MockState,
+  pace: () => number,
+  sessionContext: (project: string | null) => string,
+): Pick<Handlers, AgentCommands> & { attach: (info: AgentSessionInfo, onEvent: EventSink<AgentEnvelope>, chat: { prompt: string; asks: boolean }) => AgentSessionInfo } {
   const sessions = new Map<string, MockSession>();
 
   function session(key: string): MockSession {
@@ -165,6 +173,21 @@ export function agentHandlers(state: MockState, pace: () => number, sessionConte
   }
 
   return {
+    // Like `routine_run_attach`: the run's conversation so far comes first, then what happens next.
+    attach: (info, onEvent, chat) => {
+      const stream = new MockAgentStream(info.key, onEvent, pace);
+      const current = structuredClone(fixtures.agent.state.state);
+      sessions.set(info.key, { info, stream, state: current, prompted: true });
+
+      setTimeout(() => {
+        stream.emit({ type: 'ready', protocolVersion: info.protocolVersion });
+        stream.emit({ type: 'state', state: current });
+        void stream.play(chat.asks ? ASKING_PROMPT : chat.prompt, chat.prompt);
+      }, 0);
+
+      return structuredClone(info);
+    },
+
     agent_start: ({ request, onEvent }) => {
       // Like the backend, which has no launch for OpenCode yet.
       if (!fixtures.harnesses.find((summary) => summary.info.id === request.harness)?.capabilities.chat) {

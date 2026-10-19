@@ -228,6 +228,28 @@ mod hooks_store_folder {
         assert!(matches!(refused, Err(BusinessError::Forbidden(_))), "{refused:?}");
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn a_root_of_the_user_others_can_write_to_loses_only_their_write_access() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let folder = folder();
+        let saved = folder
+            .store
+            .save(&draft("Answer style"), DESKTOP, NO_MEMORY, at(0))
+            .unwrap();
+        let mode = || std::fs::metadata(folder.store.root()).unwrap().permissions().mode() & 0o777;
+
+        for (loose, tightened) in [(0o775, 0o755), (0o777, 0o755), (0o720, 0o700)] {
+            std::fs::set_permissions(folder.store.root(), std::fs::Permissions::from_mode(loose)).unwrap();
+
+            let listed = folder.store.list(NO_MEMORY);
+            assert_eq!(listed.folder_problem, None);
+            assert_eq!(listed.hooks[0].id, saved.id);
+            assert_eq!(mode(), tightened, "{loose:o}");
+        }
+    }
+
     #[test]
     fn the_project_root_is_the_nearest_git_ancestor() {
         let temp = tempfile::tempdir().unwrap();

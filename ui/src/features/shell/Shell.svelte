@@ -26,6 +26,8 @@
   import ScriptRequestDialog from '../memory/ScriptRequestDialog.svelte';
   import { familyUpdater } from '../ecosystem/family-updater';
   import { hooks } from '../hooks/hooks-data.svelte';
+  import { openRequestedRun } from '../routines/routine-request';
+  import { routines } from '../routines/routines-data.svelte';
   import { extensionUpdater } from '../extensions/actions/extension-updater';
   import RestartConfirm from '../updates/RestartConfirm.svelte';
   import { jumpToChat, newChat } from './actions';
@@ -85,7 +87,8 @@
     const path = agentSessions.active?.info.project ?? null;
 
     untrack(() => {
-      if (path !== null && project.active?.path !== path) {
+      // The window of a global routine works in a folder of the routines' own, which is no project to open.
+      if (path !== null && !routines.inWorkspace(path) && project.active?.path !== path) {
         void project.open(path);
       }
     });
@@ -193,6 +196,24 @@
     const where = project.active?.path ?? null;
 
     untrack(() => hooks.follow(where));
+  });
+
+  // Routines an agent wrote wait for the user's approval, and a run can wait for an answer. The rail counts both wherever the user is, so the shell listens from the start.
+  $effect(() => routines.start());
+  $effect(() => {
+    const where = project.active?.path ?? null;
+
+    untrack(() => routines.follow(where));
+  });
+
+  // A click on a "needs you" notification asks to show the run: its chat opens as a tab, wherever the user is.
+  $effect(() => {
+    const runId = routines.openRequest;
+
+    if (runId !== null) {
+      routines.openRequest = null;
+      void openRequestedRun(runId);
+    }
   });
 
   // The palette searches sessions, configuration and extensions; make sure they are loaded when it opens.

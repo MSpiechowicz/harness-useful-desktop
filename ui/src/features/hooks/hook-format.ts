@@ -9,6 +9,7 @@ import Send from '@lucide/svelte/icons/send';
 import SquareTerminal from '@lucide/svelte/icons/square-terminal';
 import Wrench from '@lucide/svelte/icons/wrench';
 
+import { type DocGroup, groupDocs, MAX_PER_SCOPE } from '$lib/components/docs/doc-groups';
 import type { IconComponent } from '$lib/components/icon';
 import type { MessageKey } from '$lib/i18n/locales/en';
 import type { Hook } from '$lib/ipc/bindings/Hook';
@@ -24,8 +25,7 @@ import type { HookSource, HookStatusFilter, HookWhen } from '$lib/stores/view-st
 import { spelledOut } from '../memory/script-format';
 import type { Companion } from '../onboarding/setup-model';
 
-/** How many hooks one scope (the global ones, or one project's) can hold. */
-export const MAX_PER_SCOPE = 64;
+export { MAX_PER_SCOPE };
 
 /** The events in the order they happen in a chat. */
 export const EVENTS: readonly HookEvent[] = ['sessionStart', 'promptSubmit', 'toolEnd', 'turnEnd', 'sessionEnd'];
@@ -181,33 +181,11 @@ export function filterCounts(views: HookView[]): FilterCounts {
 }
 
 /** One block of the list: the global hooks, the project's, the files that are not hooks (invalid), or the team's. */
-export interface HookGroup {
-  id: HookScope | 'invalid' | 'team';
-  views: HookView[];
-  /** How many hooks the scope holds in all, whatever the search or the filter shows. */
-  total: number;
-}
+export type HookGroup = DocGroup<HookView>;
 
-/**
- * The hooks that answer the search and the filter, in their groups. A group the search or filter leaves empty is left out,
- * while the unfiltered list always shows both scopes, so an empty scope can say so and offer a first hook. The team's group
- * comes last and shows (empty) only while hooks are shared with the team (`teamOn`).
- */
+/** The hooks that answer the search and the filter, in their groups (see `groupDocs`). */
 export function groupHooks(all: HookView[], shown: HookView[], narrowed: boolean, teamOn = false): HookGroup[] {
-  const scopeOf = (view: HookView): HookGroup['id'] => (view.origin === 'team' ? 'team' : (view.hook?.scope ?? 'invalid'));
-  const groups = (['global', 'project', 'invalid', 'team'] as const).map((id) => ({
-    id,
-    views: shown.filter((view) => scopeOf(view) === id),
-    total: all.filter((view) => scopeOf(view) === id).length,
-  }));
-
-  return groups.filter((group) => {
-    if (group.views.length > 0) {
-      return true;
-    }
-
-    return group.id === 'invalid' || narrowed ? false : group.id !== 'team' || teamOn;
-  });
+  return groupDocs(all, shown, narrowed, teamOn, (view) => (view.origin === 'team' ? 'team' : (view.hook?.scope ?? 'invalid')));
 }
 
 /** The tool names of a `toolEnd` filter, one chip each. */

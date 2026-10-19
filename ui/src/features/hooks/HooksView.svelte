@@ -1,26 +1,27 @@
 <script lang="ts">
   import CircleAlert from '@lucide/svelte/icons/circle-alert';
   import Clock from '@lucide/svelte/icons/clock';
-  import Plus from '@lucide/svelte/icons/plus';
   import Trash2 from '@lucide/svelte/icons/trash-2';
   import Users from '@lucide/svelte/icons/users';
   import UsersRound from '@lucide/svelte/icons/users-round';
   import Webhook from '@lucide/svelte/icons/webhook';
-  import { tick, untrack } from 'svelte';
+  import { untrack } from 'svelte';
 
   import Button from '$lib/components/Button.svelte';
-  import DetailEmpty from '$lib/components/DetailEmpty.svelte';
+  import DocFilter from '$lib/components/docs/DocFilter.svelte';
+  import DocNewButton from '$lib/components/docs/DocNewButton.svelte';
+  import type { DocTableHandle } from '$lib/components/docs/doc-groups';
+  import { closePanel, emptyReason, emptySearchOnEscape } from '$lib/components/docs/doc-view';
+  import DocSplit from '$lib/components/docs/DocSplit.svelte';
+  import DocStage from '$lib/components/docs/DocStage.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
   import { ICON } from '$lib/components/icon';
-  import FilterMenu from '$lib/components/FilterMenu.svelte';
   import FilterRow from '$lib/components/FilterRow.svelte';
   import MenuItem from '$lib/components/MenuItem.svelte';
   import MoreMenu from '$lib/components/MoreMenu.svelte';
   import SearchField from '$lib/components/SearchField.svelte';
-  import { SIDE_PANEL_WIDTH } from '$lib/components/side-panel';
   import Skeleton from '$lib/components/Skeleton.svelte';
-    import ViewHeader from '$lib/components/ViewHeader.svelte';
-  import { WIDE_FROM_PX } from '$lib/design/layout';
+  import ViewHeader from '$lib/components/ViewHeader.svelte';
   import { rise } from '$lib/design/motion';
   import { t, tn } from '$lib/i18n/i18n.svelte';
   import type { HookScope } from '$lib/ipc/bindings/HookScope';
@@ -30,7 +31,6 @@
   import { toasts } from '$lib/stores/toasts.svelte';
   import { type HookSource, type HookStatusFilter, type HookWhen, viewState } from '$lib/stores/view-state.svelte';
   import { autoRefresh } from '$lib/utils/auto-refresh';
-  import { escapeCloses } from '$lib/utils/escape-closes';
 
   import SessionConfirm, { type ConfirmRequest } from '../sessions/SessionConfirm.svelte';
   import DesktopMcpHint from './DesktopMcpHint.svelte';
@@ -46,15 +46,13 @@
   import PausedNotice from './PausedNotice.svelte';
   import { prefs } from '$lib/stores/prefs.svelte';
 
-  let width = $state(0);
   let confirmer: SessionConfirm | undefined = $state();
-  let list: HookList | undefined = $state();
+  let table: DocTableHandle | undefined = $state();
   let editorOpen = $state(false);
   let editorTarget = $state<EditorTarget>({ view: null, scope: 'global' });
   let familyOpen = $state(false);
   let deleteAllOpen = $state(false);
 
-  const wide = $derived(width >= WIDE_FROM_PX);
   const path = $derived(project.active?.path ?? null);
   const loaded = $derived(hooks.listing !== null);
   const views = $derived(hooks.views);
@@ -93,13 +91,8 @@
   ]);
 
   // A search that finds nothing says so, and so do filters that leave nothing: they stay chosen, with the way to clear them in the row above.
-  const noMatch = $derived.by(() => {
-    if (!loaded || shown.length > 0) {
-      return null;
-    }
-
-    return query.trim() === '' && filtered ? t('hooks.list.noFilter') : t('hooks.list.noMatch');
-  });
+  const emptied = $derived(emptyReason(loaded, shown.length, query, filtered));
+  const noMatch = $derived(emptied === null ? null : t(emptied === 'filter' ? 'hooks.list.noFilter' : 'hooks.list.noMatch'));
 
   // The header says what waits for the user. How many hooks there are is said once, in the row of the filters.
   const context = $derived(hooks.pending > 0 && views.length > 0 ? t('hooks.context.pending', { count: hooks.pending }) : '');
@@ -158,28 +151,8 @@
   }
 
   /** Closes the panel and hands the focus back to the row it was opened from. */
-  async function close(): Promise<void> {
-    const id = openId;
-
-    viewState.hookId = null;
-
-    if (id !== null) {
-      await tick();
-      list?.focusRow(id);
-    }
-  }
-
-  function onKeydown(event: KeyboardEvent): void {
-    escapeCloses(event, openId !== null, () => void close());
-  }
-
-  /** Escape in a filled search empties it, and only then closes the panel. */
-  function clearSearchOnEscape(event: KeyboardEvent): void {
-    if (event.key === 'Escape' && viewState.hooksQuery !== '') {
-      event.preventDefault();
-      event.stopPropagation();
-      viewState.hooksQuery = '';
-    }
+  function close(): Promise<void> {
+    return closePanel(openId, () => (viewState.hookId = null), (id) => table?.focusRow(id));
   }
 
   function create(scope: HookScope): void {
@@ -196,7 +169,7 @@
     const hook = view.hook;
 
     if (created && hook) {
-      toasts.push({ title: t('hooks.toast.added', { name: hookTitle(view), when: t(EVENT_WHEN[hook.event]) }), tone: 'success' });
+      toasts.push({ title: t('hooks.toast.added', { name: hookTitle(view) }), description: t('hooks.toast.runs', { when: t(EVENT_WHEN[hook.event]) }), tone: 'success' });
     } else if (hook) {
       toasts.push({ title: t('hooks.toast.saved', { name: hookTitle(view) }), tone: 'success' });
     }
@@ -247,14 +220,11 @@
     {#snippet actions()}
       {#if views.length > 0}
         <div class="search-width">
-          <SearchField bind:value={viewState.hooksQuery} label={t('hooks.search.label')} placeholder={t('hooks.search.placeholder')} shortcut="mod+f" onkeydown={clearSearchOnEscape} />
+          <SearchField bind:value={viewState.hooksQuery} label={t('hooks.search.label')} placeholder={t('hooks.search.placeholder')} shortcut="mod+f" onkeydown={(event) => emptySearchOnEscape(event, viewState.hooksQuery, () => (viewState.hooksQuery = ''))} />
         </div>
       {/if}
 
-      <Button variant="primary" onclick={() => create('global')}>
-        {#snippet leading()}<Plus size={ICON.sm} aria-hidden="true" />{/snippet}
-        {t('hooks.new')}
-      </Button>
+      <DocNewButton label={t('hooks.new')} onclick={() => create('global')} />
     {/snippet}
 
     {#snippet fixed()}
@@ -285,9 +255,7 @@
     <PausedNotice member={notice.member} off={notice.off} count={notice.count} />
   {/each}
 
-  <!-- Everything that is bigger than the view is clipped here, not just hidden: a clipped box cannot be scrolled at all, so
-       nothing in the view (a focused row, a panel on its way in) can push the shell around it up or down. -->
-  <div bind:clientWidth={width} class="relative min-h-0 flex-1 overflow-clip">
+  <DocStage>
     {#if hooks.list.status === 'error'}
       <div class="grid size-full place-items-center">
         <EmptyState icon={CircleAlert} title={t(hooks.list.error?.code === 'unsupported' ? 'hooks.unsupported.title' : 'hooks.error.title')} body={hooks.list.error?.message}>
@@ -315,10 +283,7 @@
         <EmptyState icon={Webhook} title={t('hooks.empty.title')} body={t('hooks.empty.body')}>
           {#snippet action()}
             <div in:rise={{ y: 8, delay: 120 }} class="flex flex-wrap items-center justify-center gap-2">
-              <Button variant="primary" onclick={() => create('global')}>
-                {#snippet leading()}<Plus size={ICON.sm} aria-hidden="true" />{/snippet}
-                {t('hooks.new')}
-              </Button>
+              <DocNewButton label={t('hooks.new')} onclick={() => create('global')} />
               <Button onclick={() => (familyOpen = true)}>
                 {#snippet leading()}<Users size={ICON.sm} aria-hidden="true" />{/snippet}
                 {t('hooks.menu.family')}
@@ -330,45 +295,14 @@
         </EmptyState>
       </div>
     {:else}
-      <!-- svelte-ignore a11y_no_static_element_interactions -->
-      <div class="absolute inset-0 flex overflow-clip" onkeydown={onKeydown}>
-        <!-- Below the wide layout the panel slides over the list: the filters and the list keep their width. -->
-        <div class="flex min-h-0 min-w-0 flex-1 flex-col">
+      <DocSplit {openId} emptyIcon={Webhook} emptyMessage={t('hooks.detail.empty')} onclose={() => void close()}>
+        {#snippet body()}
           <FilterRow count={tn('hooks.count', shown.length)}>
-            <FilterMenu
-              label={t('hooks.list.column.when')}
-              prefix={t('hooks.list.column.when')}
-              icon={Clock}
-              options={whenOptions}
-              value={when}
-              onchange={(next) => (viewState.hooksWhen = next)}
-              onclear={() => (viewState.hooksWhen = 'all')}
-              clearLabel={t('hooks.filter.clearWhen')}
-              align="start"
-            />
-            <FilterMenu
-              label={t('hooks.list.column.status')}
-              prefix={t('hooks.list.column.status')}
-              options={statusOptions}
-              value={status}
-              onchange={(next) => (viewState.hooksStatus = next)}
-              onclear={() => (viewState.hooksStatus = 'all')}
-              clearLabel={t('hooks.filter.clearStatus')}
-              align="start"
-            />
+            <DocFilter label={t('hooks.list.column.when')} icon={Clock} options={whenOptions} value={when} onchange={(next) => (viewState.hooksWhen = next)} clearLabel={t('hooks.filter.clearWhen')} />
+            <DocFilter label={t('hooks.list.column.status')} options={statusOptions} value={status} onchange={(next) => (viewState.hooksStatus = next)} clearLabel={t('hooks.filter.clearStatus')} />
             <!-- Mine and Team only mean something while hooks are shared. -->
             {#if team}
-              <FilterMenu
-                label={t('hooks.filter.source')}
-                prefix={t('hooks.filter.source')}
-                icon={UsersRound}
-                options={sourceOptions}
-                value={source}
-                onchange={(next) => (viewState.hooksSource = next)}
-                onclear={() => (viewState.hooksSource = 'all')}
-                clearLabel={t('hooks.filter.clearSource')}
-                align="start"
-              />
+              <DocFilter label={t('hooks.filter.source')} icon={UsersRound} options={sourceOptions} value={source} onchange={(next) => (viewState.hooksSource = next)} clearLabel={t('hooks.filter.clearSource')} />
             {/if}
           </FilterRow>
 
@@ -376,7 +310,7 @@
             <p class="min-h-0 flex-1 px-4 py-10 text-center text-sm text-fg-3" role="status">{noMatch}</p>
           {:else}
             <HookList
-              bind:this={list}
+              bind:table
               {groups}
               {openId}
               projectName={project.active ? folderName(project.active.path) : null}
@@ -389,9 +323,9 @@
               onadd={create}
             />
           {/if}
-        </div>
+        {/snippet}
 
-        {#snippet panel(inline: boolean)}
+        {#snippet panel(inline)}
           <HookPanel
             open={openId !== null}
             {inline}
@@ -411,26 +345,9 @@
             onclose={() => void close()}
           />
         {/snippet}
-
-        {#if wide}
-          <!-- The detail has its own column, always there: what is chosen swaps in with a short fade, with nothing sliding. -->
-          <div class="relative flex shrink-0 flex-col border-l border-panel-edge bg-surface-1" style:width={SIDE_PANEL_WIDTH}>
-            {#if openId === null}
-              <DetailEmpty icon={Webhook} message={t('hooks.detail.empty')} />
-            {:else}
-              {#key openId}
-                <div in:rise={{ y: 6, duration: 240 }} class="flex min-h-0 flex-1 flex-col">
-                  {@render panel(true)}
-                </div>
-              {/key}
-            {/if}
-          </div>
-        {:else}
-          {@render panel(false)}
-        {/if}
-      </div>
+      </DocSplit>
     {/if}
-  </div>
+  </DocStage>
 </div>
 
 <HookEditor bind:open={editorOpen} target={editorTarget} onsaved={saved} />

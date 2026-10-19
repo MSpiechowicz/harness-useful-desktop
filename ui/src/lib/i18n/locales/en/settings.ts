@@ -211,4 +211,10 @@ export const settings = {
   'settings.memoryRemote.section.trust': 'Trust',
   'settings.memoryRemote.hooks.title': 'Hooks',
   'settings.memoryRemote.hooks.description': 'Hooks you share with the team, and theirs.',
+  'settings.tray.title': 'Keep running in the tray when the window is closed',
+  'settings.tray.description': 'Routines keep running on their schedule while Harness Desktop stays in the tray.',
+  'settings.memoryRemote.routines.title': 'Routines',
+  'settings.memoryRemote.routines.description': 'Routines you share with the team, and theirs.',
+  'settings.memoryRemote.trustRoutines.title': 'Run team routines without asking',
+  'settings.memoryRemote.trustRoutines.description': 'Routines from the team database run without asking you first. Anyone who can write to the team database can then run code on this computer.',
 } satisfies Record<string, string>;

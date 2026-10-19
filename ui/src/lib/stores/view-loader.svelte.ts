@@ -54,11 +54,14 @@ export class ViewLoader<T, K extends string = HarnessId> {
     return this.target ? this.run(quiet) : Promise.resolve();
   }
 
+  /** Whether the data shown (once `status` is `ready`) was read for this pair, not for an earlier one the view has left. */
+  holds(harness: K | null, project: string | null): boolean {
+    return harness !== null && this.key === `${harness}\u0000${project ?? ''}`;
+  }
+
   /** Like `sync`, but a pair already loaded is quietly re-read, so a view shows what changed while it was closed. */
   revalidate(harness: K | null, project: string | null): void {
-    const loaded = harness !== null && this.key === `${harness}\u0000${project ?? ''}`;
-
-    if (loaded) {
+    if (this.holds(harness, project)) {
       void this.refresh({ quiet: true });
     } else {
       this.sync(harness, project);

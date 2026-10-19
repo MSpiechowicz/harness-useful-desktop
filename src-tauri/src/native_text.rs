@@ -1,5 +1,5 @@
 //! Text the Rust side shows outside the webview (tray menu, native dialog titles, OS
-//! notifications), in each UI
+//! notifications of script requests and routine runs), in each UI
 //! language of `harness_business::model::LANGUAGES`. An unknown language code falls back to
 //! English. The product name stays untranslated.
 
@@ -24,6 +24,18 @@ pub struct NativeText {
     pub script_request_title: &'static str,
     /// Body of that notification, after the script name.
     pub script_request_review: &'static str,
+    /// Title of the OS notification for a routine run that waits for an answer.
+    pub routine_needs_you: &'static str,
+    /// Body of that notification, after the routine name.
+    pub routine_answer: &'static str,
+    /// Title of the OS notification for a failed routine run.
+    pub routine_failed: &'static str,
+    /// Title of the OS notification for a routine run that needs attention.
+    pub routine_attention: &'static str,
+    /// Body of the failed and needs-attention notifications, after the routine name.
+    pub routine_see_run: &'static str,
+    /// Title of the OS notification for a routine run that finished (its body is the name).
+    pub routine_finished: &'static str,
     /// Title of the file dialog that picks a harness executable; `{binary}` is the binary name.
     choose_executable: &'static str,
 }
@@ -45,6 +57,12 @@ const EN: NativeText = NativeText {
     setup_files: "Setup files",
     script_request_title: "An agent wants to run a script",
     script_request_review: "Review it in Harness Desktop",
+    routine_needs_you: "Routine needs you",
+    routine_answer: "Answer it in Harness Desktop",
+    routine_failed: "Routine failed",
+    routine_attention: "Routine needs attention",
+    routine_see_run: "See the run in Harness Desktop",
+    routine_finished: "Routine finished",
     choose_executable: "Choose the `{binary}` executable",
 };
 
@@ -58,6 +76,12 @@ const DE: NativeText = NativeText {
     setup_files: "Setup-Dateien",
     script_request_title: "Ein Agent möchte ein Skript ausführen",
     script_request_review: "In Harness Desktop prüfen",
+    routine_needs_you: "Routine braucht dich",
+    routine_answer: "Antworte in Harness Desktop",
+    routine_failed: "Routine fehlgeschlagen",
+    routine_attention: "Routine braucht Aufmerksamkeit",
+    routine_see_run: "Lauf in Harness Desktop ansehen",
+    routine_finished: "Routine abgeschlossen",
     choose_executable: "Programmdatei `{binary}` auswählen",
 };
 
@@ -71,6 +95,12 @@ const ES: NativeText = NativeText {
     setup_files: "Archivos de configuración",
     script_request_title: "Un agente quiere ejecutar un script",
     script_request_review: "Revísalo en Harness Desktop",
+    routine_needs_you: "Una rutina te necesita",
+    routine_answer: "Respóndela en Harness Desktop",
+    routine_failed: "Una rutina falló",
+    routine_attention: "Una rutina requiere atención",
+    routine_see_run: "Mira la ejecución en Harness Desktop",
+    routine_finished: "Rutina terminada",
     choose_executable: "Elige el ejecutable `{binary}`",
 };
 
@@ -84,6 +114,12 @@ const FR: NativeText = NativeText {
     setup_files: "Fichiers de configuration",
     script_request_title: "Un agent veut exécuter un script",
     script_request_review: "À vérifier dans Harness Desktop",
+    routine_needs_you: "Une routine a besoin de vous",
+    routine_answer: "Répondez dans Harness Desktop",
+    routine_failed: "Échec d’une routine",
+    routine_attention: "Une routine demande votre attention",
+    routine_see_run: "Voir l’exécution dans Harness Desktop",
+    routine_finished: "Routine terminée",
     choose_executable: "Choisir l’exécutable `{binary}`",
 };
 
@@ -97,6 +133,12 @@ const PL: NativeText = NativeText {
     setup_files: "Pliki konfiguracji",
     script_request_title: "Agent chce uruchomić skrypt",
     script_request_review: "Sprawdź go w Harness Desktop",
+    routine_needs_you: "Rutyna czeka na Ciebie",
+    routine_answer: "Odpowiedz w Harness Desktop",
+    routine_failed: "Rutyna nie powiodła się",
+    routine_attention: "Rutyna wymaga uwagi",
+    routine_see_run: "Zobacz przebieg w Harness Desktop",
+    routine_finished: "Rutyna zakończona",
     choose_executable: "Wybierz plik wykonywalny `{binary}`",
 };
 
@@ -132,7 +174,14 @@ mod tests {
                 text.setup_files,
                 text.script_request_title,
                 text.script_request_review,
+                text.routine_needs_you,
+                text.routine_answer,
+                text.routine_failed,
+                text.routine_attention,
+                text.routine_see_run,
+                text.routine_finished,
             ] {
+                assert!(!entry.contains(';'), "{lang}: {entry}");
                 assert!(!entry.trim().is_empty(), "{lang} has an empty entry");
             }
 
@@ -175,6 +224,8 @@ mod tests {
             assert!(text.show_window.contains("Harness Desktop"), "{lang}");
             assert!(text.quit.contains("Harness Desktop"), "{lang}");
             assert!(text.script_request_review.contains("Harness Desktop"), "{lang}");
+            assert!(text.routine_answer.contains("Harness Desktop"), "{lang}");
+            assert!(text.routine_see_run.contains("Harness Desktop"), "{lang}");
         }
     }
 }

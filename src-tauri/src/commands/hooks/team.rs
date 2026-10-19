@@ -10,7 +10,9 @@
 use std::path::Path;
 
 use harness_business::BusinessError;
-use harness_business::ecosystem::memory_hooks::{delete_team_hook, project_key, put_team_hook};
+use harness_business::ecosystem::memory_hooks::{delete_team_hook, project_key};
+use harness_business::ecosystem::memory_team_docs::put_shared;
+use harness_business::hooks::HookKind;
 use harness_business::hooks::team::{
     ProjectKey, TeamFolder, copy_team_hook, forget_team_hook, record_share, set_team_enabled, share_request, team_view,
 };
@@ -72,39 +74,22 @@ pub(crate) async fn share(state: &AppState, id: String, sha256: String) -> Comma
         .read(move |store| share_request(store, &TeamFolder::of(store), &id, &sha256))
         .await?;
 
-    let key = match &request.project {
-        Some(root) => {
-            // Later refreshes ask for this root too, so its team copy stays.
-            state.hooks.note_root(root);
+    // Later refreshes ask for a project hook's root too, so its team copy stays.
+    if let Some(root) = &request.project {
+        state.hooks.note_root(root);
+    }
 
-            Some(project_key(&state.env, &state.runner, &server, Path::new(root)).await?)
-        }
-        None => None,
-    };
-
-    let body = request.body(key.as_ref())?;
-    let update = request.team_sha256.is_some();
-
-    let row = put_team_hook(
-        &state.env,
-        &state.runner,
-        &server,
-        &body,
-        request.project.as_deref().map(Path::new),
-        request.team_sha256.as_deref(),
-    )
-    .await?;
-
+    let shared = put_shared::<HookKind>(&state.env, &state.runner, &server, request).await?;
     let capabilities = state.hooks.capabilities().await;
+    let update = shared.update;
 
     let view = state
         .hooks
         .write(move |store| {
             let folder = TeamFolder::of(store);
-            let project = request.project.as_deref().zip(key.as_ref());
 
-            record_share(store, &folder, &row, &request.local_sha256, project)?;
-            team_view(store, &folder, capabilities, config.trust, &row.id)
+            record_share(store, &folder, &shared.row, &shared.local_sha256, shared.project())?;
+            team_view(store, &folder, capabilities, config.trust, &shared.row.id)
         })
         .await?;
 

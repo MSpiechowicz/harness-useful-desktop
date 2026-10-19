@@ -42,7 +42,8 @@ fn default_prefs_serialize_with_camel_case_fields() {
             "onboardingCompleted": false,
             "approvalNoticeSeen": false,
             "binaryOverrides": [],
-            "memoryEnabled": true
+            "memoryEnabled": true,
+            "keepRunningInTray": false
         })
     );
 }

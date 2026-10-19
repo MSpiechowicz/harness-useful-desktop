@@ -42,6 +42,7 @@ export function defaultPrefs(): AppPrefs {
     binaryOverrides: [],
     chatDefaults: [],
     memoryEnabled: true,
+    keepRunningInTray: false,
   };
 }
 

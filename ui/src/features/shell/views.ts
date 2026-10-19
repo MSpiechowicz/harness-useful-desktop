@@ -1,5 +1,6 @@
 import Blocks from '@lucide/svelte/icons/blocks';
 import Brain from '@lucide/svelte/icons/brain';
+import CalendarClock from '@lucide/svelte/icons/calendar-clock';
 import GitBranch from '@lucide/svelte/icons/git-branch';
 import GitCompare from '@lucide/svelte/icons/git-compare';
 import MessageSquare from '@lucide/svelte/icons/message-square';
@@ -23,7 +24,7 @@ export interface ViewMeta {
   body: string;
 }
 
-/** Rail order; position + 1 is the Ctrl/Cmd digit shortcut. */
+/** Rail order; position + 1 is the Ctrl/Cmd digit shortcut for the first nine views. */
 export const VIEWS: readonly ViewMeta[] = [
   {
     id: 'chat',
@@ -133,6 +134,19 @@ export const VIEWS: readonly ViewMeta[] = [
     },
   },
   {
+    id: 'routines',
+    get label() {
+      return t('shell.view.routines');
+    },
+    icon: CalendarClock,
+    get heading() {
+      return t('shell.view.routines.heading');
+    },
+    get body() {
+      return t('shell.view.routines.body');
+    },
+  },
+  {
     id: 'settings',
     get label() {
       return t('shell.view.settings');
@@ -154,7 +168,20 @@ export function viewMeta(id: ViewId): ViewMeta {
   return VIEWS.find((view) => view.id === id) ?? VIEWS[0];
 }
 
-/** Ctrl/Cmd digit shortcut for a view, e.g. `mod+3`. */
-export function viewShortcut(id: ViewId): string {
-  return `mod+${VIEWS.findIndex((view) => view.id === id) + 1}`;
+/** The most views that have a Ctrl/Cmd digit: 1 to 9. */
+const DIGIT_SHORTCUTS = 9;
+
+/** Settings keeps only this one: a tenth view has no digit left, and the preferences are where `,` has always been. */
+export const SETTINGS_SHORTCUT = 'mod+,';
+
+/** Ctrl/Cmd digit shortcut for a view, e.g. `mod+3`; null for a view past the ninth, which has no digit. */
+export function viewShortcut(id: ViewId): string | null {
+  const index = VIEWS.findIndex((view) => view.id === id);
+
+  return index < DIGIT_SHORTCUTS ? `mod+${index + 1}` : null;
+}
+
+/** The shortcut the rail and the palette show for a view: its digit, or Ctrl/Cmd+comma for Settings. */
+export function viewHint(id: ViewId): string {
+  return viewShortcut(id) ?? SETTINGS_SHORTCUT;
 }

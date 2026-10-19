@@ -37,6 +37,9 @@ function fakeBackend(initial: Partial<MemoryRemote> = {}) {
     hooksSupported: true,
     shareHooks: false,
     trustTeamHooks: false,
+    routinesSupported: true,
+    shareRoutines: false,
+    trustTeamRoutines: false,
     ...initial,
   };
   const passthrough = ipc.invoke.bind(ipc);

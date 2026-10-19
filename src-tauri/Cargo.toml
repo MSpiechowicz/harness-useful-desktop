@@ -21,6 +21,8 @@ tauri-build.workspace = true
 
 [dependencies]
 harness_business = { path = "../business" }
+# Routine schedules: the instants `harness_business::routines` plans with.
+jiff.workspace = true
 serde.workspace = true
 # `generate_context!` embeds the `plugins` section of `tauri.conf.json` as `serde_json` values.
 serde_json.workspace = true

@@ -27,9 +27,11 @@
     clearLabel?: string;
     /** Which edge of the button the menu lines up with; `end` for a button at the right of a header, `start` at the left. */
     align?: 'start' | 'end';
+    /** A menu for long labels (folder names): wider than the usual one. */
+    wide?: boolean;
   }
 
-  let { label, options, value, onchange, prefix, icon, onclear, clearLabel, align = 'end' }: Props = $props();
+  let { label, options, value, onchange, prefix, icon, onclear, clearLabel, align = 'end', wide = false }: Props = $props();
 
   const current = $derived(options.find((option) => option.value === value) ?? options[0]);
   const TriggerIcon = $derived(icon ?? current.icon ?? ListFilter);
@@ -38,7 +40,7 @@
 </script>
 
 <!-- A filter picks from a few ready-made choices; typing is for search. -->
-<Popover {label} kind="menu" {align} class={cx('min-w-0!', counted ? 'w-60' : 'w-48')}>
+<Popover {label} kind="menu" {align} class={cx('min-w-0!', counted || wide ? 'w-60' : 'w-48')}>
   {#snippet trigger({ props, open })}
     {#if prefix}
       <!-- The button and its clear x share one frame, so the pair reads as one control: the x clears, the rest opens the menu. -->

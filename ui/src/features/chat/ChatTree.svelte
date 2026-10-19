@@ -1,4 +1,5 @@
 <script lang="ts">
+  import CalendarClock from '@lucide/svelte/icons/calendar-clock';
   import X from '@lucide/svelte/icons/x';
   import { fade, slide } from 'svelte/transition';
 
@@ -82,11 +83,12 @@
     {@const summary = harness.get(session.switchingTo ?? session.info.harness)}
     {@const helpers = activeSubagentCount(session.chat)}
     {@const tip = agentSessions.tip(session.key)}
+    {@const routine = session.routine}
     {@const title = agentSessions.title(session.key)}
     <div in:fade={{ duration: scaled(160) }} class="group/card relative pl-[14px]">
       {@render branch(index === sessions.length - 1 && agentSessions.starting.length === 0)}
       <div class={cx('relative flex h-[28px] items-center rounded-sm transition-colors', renaming === session.key || selected ? 'bg-[color-mix(in_oklab,var(--text)_11%,transparent)] text-fg' : 'text-fg-2 hover:bg-hover hover:text-fg')}>
-        <Tooltip text={tip.text} detail={[summary?.info.name, tip.detail].filter(Boolean).join('\n')} side="right" class="flex h-full min-w-0 flex-1">
+        <Tooltip text={tip.text} detail={[summary?.info.name, routine ? t('routines.chip', { name: routine.name }) : '', tip.detail].filter(Boolean).join('\n')} side="right" class="flex h-full min-w-0 flex-1">
           {#snippet children({ describedby })}
             <button
               bind:this={rows[index]}
@@ -100,6 +102,7 @@
             >
               {#if summary}<HarnessBadge info={summary.info} size="xs" /><span class="sr-only">{t('chat.tabs.harness', { name: summary.info.name })}</span>{/if}
               {#if renaming !== session.key}<span class={cx('min-w-0 truncate', selected && 'font-medium')}>{title}</span>{/if}
+              {#if routine}<CalendarClock size={12} class="shrink-0 text-accent-text" aria-hidden="true" /><span class="sr-only">{t('routines.chip', { name: routine.name })}</span>{/if}
               <!-- What the chat is doing sits in the close button's column (the rail chevron's too), and gives way to it on hover. -->
               <span class="pointer-events-none absolute top-[2px] right-[6px] flex h-[24px] items-center transition-opacity group-hover/card:opacity-0 group-has-[[data-close]:focus-within]/card:opacity-0">
                 {#if session.switchingTo}

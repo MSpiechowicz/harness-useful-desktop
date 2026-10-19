@@ -2,35 +2,26 @@
 
 use serde_json::{Map, Value};
 
-use super::VERSION;
-use crate::model::{Hook, HookAction, HookAuthor, HookScope};
+use crate::model::{Hook, HookAction};
+use crate::signed_docs::fields::{VERSION, author_name, command_action_value, scope_name};
 
 /// The bytes of `hook` as a file: `base` (the object being rewritten, empty for a new file) with
 /// every known field set, unknown fields kept in place, two-space JSON and a trailing newline.
 pub(crate) fn hook_bytes(hook: &Hook, mut base: Map<String, Value>) -> Vec<u8> {
-    let author = |author: HookAuthor| match author {
-        HookAuthor::Desktop => "desktop",
-        HookAuthor::Agent => "agent",
-    };
-    let scope = match hook.scope {
-        HookScope::Global => "global",
-        HookScope::Project => "project",
-    };
-
     base.insert("version".to_owned(), Value::from(VERSION));
     base.insert("id".to_owned(), Value::from(hook.id.as_str()));
     base.insert("name".to_owned(), Value::from(hook.name.as_str()));
     base.insert("description".to_owned(), Value::from(hook.description.clone()));
-    base.insert("scope".to_owned(), Value::from(scope));
+    base.insert("scope".to_owned(), Value::from(scope_name(hook.scope)));
     base.insert("project".to_owned(), Value::from(hook.project.clone()));
     base.insert("event".to_owned(), Value::from(hook.event.as_str()));
     base.insert("matcher".to_owned(), Value::from(hook.matcher.clone()));
     base.insert("action".to_owned(), action_value(&hook.action));
     base.insert("enabled".to_owned(), Value::from(hook.enabled));
     base.insert("createdAt".to_owned(), Value::from(hook.created_at.as_str()));
-    base.insert("createdBy".to_owned(), Value::from(author(hook.created_by)));
+    base.insert("createdBy".to_owned(), Value::from(author_name(hook.created_by)));
     base.insert("updatedAt".to_owned(), Value::from(hook.updated_at.as_str()));
-    base.insert("updatedBy".to_owned(), Value::from(author(hook.updated_by)));
+    base.insert("updatedBy".to_owned(), Value::from(author_name(hook.updated_by)));
 
     if hook.requires.is_empty() {
         base.remove("requires");
@@ -65,14 +56,7 @@ fn action_value(action: &HookAction) -> Value {
             map.insert("type".to_owned(), Value::from("followUp"));
             map.insert("text".to_owned(), Value::from(text.as_str()));
         }
-        HookAction::Command { command, timeout_secs } => {
-            map.insert("type".to_owned(), Value::from("command"));
-            map.insert("command".to_owned(), Value::from(command.as_str()));
-
-            if let Some(secs) = timeout_secs {
-                map.insert("timeoutSecs".to_owned(), Value::from(*secs));
-            }
-        }
+        HookAction::Command { command, timeout_secs } => return command_action_value(command, *timeout_secs),
     }
 
     Value::Object(map)

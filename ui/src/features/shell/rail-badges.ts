@@ -14,11 +14,17 @@ export interface RailBadge {
   busy: boolean;
 }
 
+/** What waits for the user in the Routines view: routines to approve, and runs that ask something. */
+export interface RoutineAttention {
+  pending: number;
+  needsYou: number;
+}
+
 /**
- * What the rail says about a view without opening it: changed files, hooks waiting for approval, and a chat waiting on the user (an approval or a
+ * What the rail says about a view without opening it: changed files, hooks and routines waiting for approval, a routine run that asks something, and a chat waiting on the user (an approval or a
  * question). A working agent needs no badge: the animated logo and the rail status already say so.
  */
-export function railBadge(view: ViewId, chat: ChatState | null, git: GitStatus | null, pendingHooks = 0): RailBadge | null {
+export function railBadge(view: ViewId, chat: ChatState | null, git: GitStatus | null, pendingHooks = 0, routines: RoutineAttention = { pending: 0, needsYou: 0 }): RailBadge | null {
   if (view === 'chat' && chat) {
     const status = chatStatus(chat);
 
@@ -37,5 +43,17 @@ export function railBadge(view: ViewId, chat: ChatState | null, git: GitStatus |
     return { text: pendingHooks > 99 ? '99+' : String(pendingHooks), label: tn('shell.count.hooksToApprove', pendingHooks), tone: 'warning', busy: false };
   }
 
+  if (view === 'routines' && routines.pending + routines.needsYou > 0) {
+    return routinesBadge(routines);
+  }
+
   return null;
+}
+
+/** The count of what waits in Routines. A run that asks something is urgent, so it makes the badge pulse. */
+function routinesBadge({ pending, needsYou }: RoutineAttention): RailBadge {
+  const total = pending + needsYou;
+  const parts = [pending > 0 ? tn('shell.count.routinesToApprove', pending) : '', needsYou > 0 ? tn('shell.count.routinesNeedYou', needsYou) : ''];
+
+  return { text: total > 99 ? '99+' : String(total), label: parts.filter(Boolean).join(', '), tone: 'warning', busy: needsYou > 0 };
 }

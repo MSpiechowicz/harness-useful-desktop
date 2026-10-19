@@ -320,6 +320,7 @@ fn summary_of(harness: HarnessId, file: &SessionFile, facts: Facts) -> Option<Se
         first_prompt: facts.first_prompt,
         parent_session: text("parentSession").and_then(|parent| parent_id(&parent)),
         empty_copy: false,
+        routine: None,
     })
 }
 

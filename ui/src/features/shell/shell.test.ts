@@ -14,7 +14,7 @@ import Rail from './Rail.svelte';
 import Shell from './Shell.svelte';
 import { DOCUMENTED_SHORTCUTS, globalShortcuts, SHORTCUT_AREAS, shortcutGroups } from './shortcuts';
 import ViewHost from './ViewHost.svelte';
-import { VIEWS } from './views';
+import { VIEWS, viewHint, viewShortcut } from './views';
 
 beforeAll(async () => {
   vi.stubEnv('VITE_TRANSPORT', 'mock');
@@ -57,6 +57,23 @@ describe('keyboard shortcuts overlay', () => {
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Keyboard shortcuts' })).toBeNull());
   });
 
+  it('goes to Routines with Ctrl+9, and Settings keeps only Ctrl+comma', async () => {
+    render(Shell);
+
+    await fireEvent.keyDown(document.body, { key: '8', ctrlKey: true });
+    expect(nav.current).toBe('hooks');
+
+    await fireEvent.keyDown(document.body, { key: '9', ctrlKey: true });
+    expect(nav.current).toBe('routines');
+
+    await fireEvent.keyDown(document.body, { key: ',', ctrlKey: true });
+    expect(nav.current).toBe('settings');
+
+    expect(viewShortcut('routines')).toBe('mod+9');
+    expect(viewShortcut('settings')).toBeNull();
+    expect(viewHint('settings')).toBe('mod+,');
+  });
+
   it('does not steal a typed ? but still opens with Ctrl+/ from a text field', async () => {
     render(Shell);
     const field = document.createElement('textarea');
@@ -76,7 +93,9 @@ describe('keyboard shortcuts overlay', () => {
     const goTo = groups.find((group) => group.area === 'Go to');
 
     expect(goTo?.rows.map((row) => row.label)).toEqual(expect.arrayContaining(VIEWS.map((view) => view.label)));
-    expect(goTo?.rows.find((row) => row.label === 'Settings')?.combos).toEqual(['mod+9', 'mod+,']);
+    expect(goTo?.rows.find((row) => row.label === 'Routines')?.combos).toEqual(['mod+9']);
+    // A tenth view has no digit left: Settings keeps only the comma.
+    expect(goTo?.rows.find((row) => row.label === 'Settings')?.combos).toEqual(['mod+,']);
   });
 });
 

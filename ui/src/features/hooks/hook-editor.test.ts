@@ -148,7 +148,7 @@ describe('Hook editor', () => {
     ]);
     expect(within(await screen.findByRole('region', { name: 'Lint' })).getByText('bun run lint')).toBeInTheDocument();
     expect(within(rowOf('Lint')).getByText('Active')).toBeInTheDocument();
-    expect(toasts.items.map((toast) => toast.title)).toContain('Lint added. It runs after the agent uses a tool.');
+    expect(toasts.items.map((toast) => [toast.title, toast.description])).toContainEqual(['Lint added', 'It runs after the agent uses a tool.']);
   });
 
   it('edits a hook that exists, naming the version it started from', async () => {

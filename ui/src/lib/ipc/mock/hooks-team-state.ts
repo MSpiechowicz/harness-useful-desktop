@@ -4,6 +4,7 @@ import type { HookView } from '../bindings/HookView';
 import type { TeamHooks } from '../bindings/TeamHooks';
 import { IpcFailure } from '../transport';
 import { fakeSha, HOOKS_PROJECT } from './hooks-fixtures';
+import type { TeamMode } from './team-preview';
 
 /** The repository the sample project hooks of the team belong to: only this key travels, never a folder. */
 export const TEAM_REPO = 'git:github.com/acme/harness-demo';
@@ -17,13 +18,6 @@ function ago(ms: number): string {
 
 /** The fields every local view has for the team: none of them apply. */
 export const LOCAL_ORIGIN = { origin: 'local', teamAuthor: null, teamUpdatedAt: null, teamRepo: null, teamChanged: false, teamDisabled: false } as const;
-
-/** What a team preview looks like: whether team hooks run without approval, whether the repository can be shared, and the latest refresh's problem. */
-export interface TeamMode {
-  trust: boolean;
-  shareable: boolean;
-  problem: string | null;
-}
 
 /** One hook on the team database. */
 interface Row {

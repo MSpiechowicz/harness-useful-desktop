@@ -14,7 +14,10 @@
 //!   when `project_path` is set, plus one entry of an unknown scope.
 //! - `script_get` and `script_delete` take `id`; an unknown id is an `isError` result with the
 //!   real server's text (`script <id> not found`), and id [`FAILING_ID`] is an `isError` result
-//!   of another kind whose text holds a URL with a password.
+//!   of another kind whose text holds a URL with a password. `script_get` and `script_run` also
+//!   take `name` (an unknown one gets the real server's `no script named …` text). `script_run`
+//!   of an untrusted script is refused like the real server's (`untrusted: true`), a trusted one
+//!   "runs": stdout `ran <first word of its body>`, exit code 0.
 //! - `FAKE_MEMORY_VERSION` replaces the `0.0.0` of `--version` and `serverInfo`.
 //! - `harness-memory trust <id>=<sha256>… [--project <path>]` ([`trust`]) prints `trusted <id>`
 //!   for each fixture id given with its `sha256` and exits 0; a fixture id with another hash exits 1
@@ -187,19 +190,53 @@ fn call(scripts: &mut Vec<Value>, legacy: bool, params: &Value) -> Result<Value,
         ));
     }
 
-    let position = arguments["id"]
-        .as_i64()
-        .and_then(|id| scripts.iter().position(|script| script["id"] == id));
+    let position = match arguments["name"].as_str() {
+        Some(wanted) => scripts.iter().position(|script| script["name"] == wanted),
+        None => arguments["id"]
+            .as_i64()
+            .and_then(|id| scripts.iter().position(|script| script["id"] == id)),
+    };
 
     match (name, position) {
         ("script_list", _) => Ok(list(scripts, arguments)),
         ("script_get", Some(index)) => Ok(structured(json!({ "script": scripts[index] }))),
+        ("script_run", Some(index)) => Ok(run(&scripts[index])),
         ("script_delete", Some(index)) => {
             let removed = scripts.remove(index);
             Ok(structured(json!({ "deleted": true, "id": removed["id"] })))
         }
+        (_, None) if arguments["name"].is_string() => Ok(tool_error(format!(
+            "no script named {} here or in the global scope",
+            arguments["name"].as_str().unwrap_or_default()
+        ))),
         _ => Ok(tool_error(format!("script {} not found", arguments["id"]))),
     }
+}
+
+/// `script_run` of `script`: refused as the real server refuses an untrusted script when no
+/// Harness Desktop answers, else a run that printed its body's first word and exited 0.
+fn run(script: &Value) -> Value {
+    if script["trusted"] != true {
+        let text = format!("script {} is not approved on this machine", script["name"]);
+        let refusal = json!({ "untrusted": true, "id": script["id"], "name": script["name"], "pending": false });
+
+        return json!({ "content": [{ "type": "text", "text": text }], "isError": true, "structuredContent": refusal });
+    }
+
+    let body = script["body"].as_str().unwrap_or_default();
+    let first = body.split_whitespace().next().unwrap_or_default();
+
+    structured(json!({
+        "id": script["id"],
+        "sha256": script["sha256"],
+        "exitCode": 0,
+        "timedOut": false,
+        "durationMs": 5,
+        "stdout": format!("ran {first}\n"),
+        "stderr": "",
+        "stdoutTruncated": false,
+        "stderrTruncated": false,
+    }))
 }
 
 fn tool_error(text: String) -> Value {

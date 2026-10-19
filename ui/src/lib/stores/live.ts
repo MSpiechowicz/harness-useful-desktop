@@ -25,6 +25,12 @@ export const MEMORY_NOTES_POLL_MS = 15_000;
 /** A backstop for the change event of the hooks folder. */
 export const HOOKS_POLL_MS = 15_000;
 
+/** A backstop for the change events of the routines folder, the approvals and the runs. */
+export const ROUTINES_POLL_MS = 15_000;
+
+/** The run history on screen: a run that starts or ends while it is open shows up by itself, and a run that is going on grows in duration. */
+export const ROUTINE_RUNS_POLL_MS = 5_000;
+
 /** Ecosystem and the dashboard behind it. Their stores keep their own freshness windows, so a lapse costs a request, not every tick. */
 export const ECOSYSTEM_POLL_MS = 30_000;
 

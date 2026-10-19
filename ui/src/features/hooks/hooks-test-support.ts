@@ -1,9 +1,7 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, beforeAll, beforeEach, expect, vi } from 'vitest';
 
 import type { RecommendedSetup } from '$lib/ipc/bindings/RecommendedSetup';
-import { ipc } from '$lib/ipc/client';
-import type { CommandArgs, CommandName, CommandResult } from '$lib/ipc/commands';
 import { fixtures } from '$lib/ipc/mock/fixtures';
 import { hooksHandlers } from '$lib/ipc/mock/hooks-handlers';
 import { type HookScenario, MockHooks } from '$lib/ipc/mock/hooks-state';
@@ -11,6 +9,7 @@ import { nav } from '$lib/stores/nav.svelte';
 import { toasts } from '$lib/stores/toasts.svelte';
 import { viewState } from '$lib/stores/view-state.svelte';
 
+import { calls, pick, spyOnInvoke } from '../../../tests/doc-support';
 import { startMockApp } from '../../../tests/mock-app';
 import { hooks } from './hooks-data.svelte';
 import HooksView from './HooksView.svelte';
@@ -23,24 +22,14 @@ export const PROJECT = fixtures.recentProjects[0].path;
  */
 export function fakeHooks(scenario: HookScenario = 'ok', memory = { on: true }, desktopMcpRegistered = false) {
   const state = new MockHooks(() => scenario, () => memory.on);
-  const handlers = hooksHandlers(state);
-  const passthrough = ipc.invoke.bind(ipc);
 
-  const invoke = vi.spyOn(ipc, 'invoke').mockImplementation(async <K extends CommandName>(name: K, args: CommandArgs<K>) => {
-    const handler = (handlers as Record<string, (args: unknown) => unknown>)[name];
-
-    if (handler) {
-      return (await handler(args)) as CommandResult<K>;
-    }
-
-    const result = await passthrough(name, args);
-
+  const invoke = spyOnInvoke(hooksHandlers(state), (name, result) => {
     // Every harness found has the app's own entry in its MCP file.
     if (name === 'setup_status' && desktopMcpRegistered) {
       const setup = result as RecommendedSetup;
       const desktopMcp = { type: 'configured', file: '~/.omp/agent/mcp.json', name: 'harness-desktop' } as const;
 
-      return { ...setup, harnesses: setup.harnesses.map((entry) => ({ ...entry, desktopMcp })) } as CommandResult<K>;
+      return { ...setup, harnesses: setup.harnesses.map((entry) => ({ ...entry, desktopMcp })) } as typeof result;
     }
 
     // Installing a member brings back its missing family hooks, as the backend does after the installer.
@@ -48,15 +37,13 @@ export function fakeHooks(scenario: HookScenario = 'ok', memory = { on: true }, 
       state.memberInstalled(name === 'setup_install_dashboard' ? 'harness-dashboard' : 'harness-memory');
     }
 
-    return result as CommandResult<K>;
+    return result;
   });
 
   return { state, invoke, memory };
 }
 
-export function calls(invoke: ReturnType<typeof fakeHooks>['invoke'], name: string): unknown[] {
-  return invoke.mock.calls.filter(([command]) => command === name).map(([, args]) => args);
-}
+export { calls, pick };
 
 /** The table row of a hook, by its name. */
 export function rowOf(name: string): HTMLElement {
@@ -108,10 +95,4 @@ export async function showHooks(): Promise<void> {
   nav.go('hooks');
   render(HooksView);
   await waitFor(() => expect(screen.queryByRole('status', { name: 'Loading hooks' })).not.toBeInTheDocument());
-}
-
-/** Opens a filter menu by its button and picks one of its choices. */
-export async function pick(button: string, choice: RegExp): Promise<void> {
-  await fireEvent.click(screen.getByRole('button', { name: button }));
-  await fireEvent.click(await screen.findByRole('menuitemradio', { name: choice }));
 }

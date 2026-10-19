@@ -1,7 +1,7 @@
 import { t, type MessageKey } from '$lib/i18n/i18n.svelte';
 import { isMacPlatform } from '$lib/utils/shortcuts';
 
-import { VIEWS, viewShortcut } from './views';
+import { SETTINGS_SHORTCUT, VIEWS, viewShortcut } from './views';
 
 export type ShortcutArea = 'Global' | 'Go to' | 'Chat composer' | 'Review & diff' | 'Sessions & lists' | 'Command palette';
 
@@ -78,8 +78,7 @@ export function globalShortcuts(shell: ShellCommands): ShortcutAction[] {
   const chatCycle = chatCycleCombos();
   const views: ShortcutAction[] = VIEWS.map((view, index) => ({
     id: `go-${view.id}`,
-    combo: viewShortcut(view.id),
-    also: view.id === 'settings' ? ['mod+,'] : undefined,
+    combo: viewShortcut(view.id) ?? SETTINGS_SHORTCUT,
     get label() {
       return view.label;
     },

@@ -85,6 +85,34 @@ async fn runner_timeout_kills_the_whole_process_group() {
     panic!("the helper never reported its grandchild within {GROUP_KILL_TIMEOUTS:?}");
 }
 
+/// A run whose future is dropped (a routine run stopped by the user) leaves nothing of its process
+/// group running, not only its direct child.
+#[cfg(unix)]
+#[tokio::test]
+async fn dropping_a_run_kills_its_whole_process_group() {
+    let dir = tempfile::tempdir().expect("temp dir");
+    let pid_file = dir.path().join("grandchild.pid");
+    let spec = helper("grandchild_pidfile")
+        .env(process_support::PID_FILE_ENV, &pid_file)
+        .timeout(Duration::from_secs(60));
+
+    let pid = tokio::select! {
+        output = TokioRunner.run(&spec) => panic!("the run ended first: {output:?}"),
+        pid = async {
+            loop {
+                if let Ok(text) = std::fs::read_to_string(&pid_file) {
+                    break text.trim().parse::<i32>().expect("a pid");
+                }
+
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+        } => pid,
+    };
+
+    // The run's future was dropped by `select!`.
+    assert_process_gone(pid);
+}
+
 #[tokio::test]
 async fn spawner_pipes_stdin_and_stdout() {
     let mut process = TokioSpawner.spawn(&helper("echo")).unwrap();

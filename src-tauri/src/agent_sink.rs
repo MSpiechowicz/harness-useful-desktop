@@ -1,4 +1,5 @@
 //! Delivers a session's events to the webview over the Tauri [`Channel`] passed to `agent_start`.
+//! A routine run's chat has a sink of its own (`crate::routines::relay`); both are [`ChatSink`]s.
 
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
@@ -8,6 +9,12 @@ use tauri::ipc::Channel;
 
 /// Called once with the session key when the channel stops accepting events.
 pub type OnClosed = Box<dyn Fn(&str) + Send + Sync>;
+
+/// Where a chat's events go.
+pub trait ChatSink: EventSink {
+    /// True once nobody can see the chat any more: a chat that is starting is stopped.
+    fn is_closed(&self) -> bool;
+}
 
 /// An [`EventSink`] over a webview channel.
 ///
@@ -33,9 +40,11 @@ impl ChannelSink {
             delivered: AtomicU64::new(0),
         }
     }
+}
 
+impl ChatSink for ChannelSink {
     /// True once a send failed.
-    pub fn is_closed(&self) -> bool {
+    fn is_closed(&self) -> bool {
         self.closed.load(Ordering::Acquire)
     }
 }

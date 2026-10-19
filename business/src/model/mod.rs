@@ -30,6 +30,8 @@ mod memory_scripts;
 mod prefs;
 mod project;
 mod review;
+mod routine;
+mod routine_run;
 mod session;
 mod setup;
 mod subagent;
@@ -95,6 +97,14 @@ pub use project::ProjectInfo;
 pub use review::{
     CommentSide, ComposedReview, MAX_REVIEW_COMMENTS, MAX_REVIEW_PROMPT_BYTES, MAX_REVIEW_SNIPPET_LINES,
     MAX_REVIEW_TEXT_BYTES, ReviewComment, ReviewRequest,
+};
+pub use routine::{
+    Routine, RoutineAction, RoutineCounts, RoutineDraft, RoutineFilter, RoutineListing, RoutineModel, RoutineStatus,
+    RoutineView, RoutineWhen, RoutineWhenKind, RoutinesDeleted, SchedulePreview, SessionRoutineTag, TeamRoutines,
+    TeamRoutinesRemoved,
+};
+pub use routine_run::{
+    RoutineRun, RoutineRunsPage, RoutineRunsQuery, RoutinesEvent, RunRecord, RunSession, RunStatus, RunTrigger,
 };
 pub use session::{
     MAX_FIRST_PROMPT_CHARS, MAX_NODE_PREVIEW_CHARS, MAX_SESSION_PAGE, MAX_TREE_NODES, ModelTurns, SessionFolder,

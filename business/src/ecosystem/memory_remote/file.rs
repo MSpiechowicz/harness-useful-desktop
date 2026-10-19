@@ -19,7 +19,7 @@ use crate::security::SafeReader;
 const MAX_CONFIG_BYTES: u64 = 64 * 1024;
 
 /// The keys Harness Memory reads from the file.
-pub(super) const KNOWN_KEYS: [&str; 8] = [
+pub(super) const KNOWN_KEYS: [&str; 10] = [
     URL_KEY,
     TOKEN_KEY,
     REPOSITORY_KEY,
@@ -28,6 +28,8 @@ pub(super) const KNOWN_KEYS: [&str; 8] = [
     TRUST_TEAM_KEY,
     HOOKS_KEY,
     TRUST_HOOKS_KEY,
+    ROUTINES_KEY,
+    TRUST_ROUTINES_KEY,
 ];
 
 const URL_KEY: &str = "database_url";
@@ -38,6 +40,8 @@ const SCRIPTS_KEY: &str = "scripts";
 const TRUST_TEAM_KEY: &str = "trust_team_scripts";
 const HOOKS_KEY: &str = "hooks";
 const TRUST_HOOKS_KEY: &str = "trust_team_hooks";
+const ROUTINES_KEY: &str = "routines";
+const TRUST_ROUTINES_KEY: &str = "trust_team_routines";
 
 /// How many unknown key names a problem lists.
 const LISTED_KEYS: usize = 5;
@@ -61,6 +65,10 @@ pub(super) struct ConfigFile {
     pub hooks: Option<MemoryNotesTarget>,
     /// `trust_team_hooks`, when it is a boolean (unset means false).
     pub trust_team_hooks: Option<bool>,
+    /// `routines`, when it is set to `remote` or `local` (unset means local: not shared).
+    pub routines: Option<MemoryNotesTarget>,
+    /// `trust_team_routines`, when it is a boolean (unset means false).
+    pub trust_team_routines: Option<bool>,
     /// Why the app must not replace or remove the file, if it must not.
     pub blocked: Option<String>,
     /// The first thing wrong with the file (the `blocked` reason first).
@@ -165,6 +173,8 @@ fn parse_config(text: &str) -> ConfigFile {
     config.trust_team_scripts = bool_value(&table, TRUST_TEAM_KEY, &mut config);
     config.hooks = set_target(&table, HOOKS_KEY, &mut config);
     config.trust_team_hooks = bool_value(&table, TRUST_HOOKS_KEY, &mut config);
+    config.routines = set_target(&table, ROUTINES_KEY, &mut config);
+    config.trust_team_routines = bool_value(&table, TRUST_ROUTINES_KEY, &mut config);
 
     config
 }
@@ -237,10 +247,15 @@ pub(super) struct Routing {
     pub hooks: Option<MemoryNotesTarget>,
     /// The `trust_team_hooks` key, `None` for none (refused by the same servers).
     pub trust_team_hooks: Option<bool>,
+    /// The `routines` key, `None` for none (a server without team routines refuses it).
+    pub routines: Option<MemoryNotesTarget>,
+    /// The `trust_team_routines` key, `None` for none (refused by the same servers).
+    pub trust_team_routines: Option<bool>,
 }
 
 /// The file's text: the URL, the token when there is one, both note routing keys, and the
-/// `scripts`, `trust_team_scripts`, `hooks` and `trust_team_hooks` keys when there are.
+/// `scripts`, `trust_team_scripts`, `hooks`, `trust_team_hooks`, `routines` and
+/// `trust_team_routines` keys when there are.
 pub(super) fn render(url: &str, token: Option<&str>, routing: Routing) -> String {
     let mut text = String::from(
         "# Harness Memory team database, saved by Harness Desktop. It holds the database credentials:\n\
@@ -271,12 +286,24 @@ pub(super) fn render(url: &str, token: Option<&str>, routing: Routing) -> String
         text.push_str(&format!("{TRUST_TEAM_KEY} = {trust}\n"));
     }
 
-    if let Some(hooks) = routing.hooks {
-        text.push_str(&format!("{HOOKS_KEY} = {}\n", basic_string(target_name(hooks))));
-    }
+    let shared = [
+        (HOOKS_KEY, routing.hooks, TRUST_HOOKS_KEY, routing.trust_team_hooks),
+        (
+            ROUTINES_KEY,
+            routing.routines,
+            TRUST_ROUTINES_KEY,
+            routing.trust_team_routines,
+        ),
+    ];
 
-    if let Some(trust) = routing.trust_team_hooks {
-        text.push_str(&format!("{TRUST_HOOKS_KEY} = {trust}\n"));
+    for (key, target, trust_key, trust) in shared {
+        if let Some(target) = target {
+            text.push_str(&format!("{key} = {}\n", basic_string(target_name(target))));
+        }
+
+        if let Some(trust) = trust {
+            text.push_str(&format!("{trust_key} = {trust}\n"));
+        }
     }
 
     text

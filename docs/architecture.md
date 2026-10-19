@@ -120,7 +120,7 @@ flowchart LR
    `business/src/ecosystem/memory_remote/`, returning the URL redacted and the token as a flag; `memory_remote_test` runs
    `harness-memory check` with the typed values in its environment. The app never connects to the database. The hooks
    keys are written only while `harness-memory hooks config --json` answers (`HooksSupport::Supported`,
-   `business/src/ecosystem/memory_hooks.rs`), dropped for a server that answers it with a usage error (exit 2:
+   `business/src/ecosystem/memory_hooks.rs` over `memory_team_docs.rs`), dropped for a server that answers it with a usage error (exit 2:
    `Unsupported`, it would refuse the file), and kept as saved while the server cannot be asked; trust only while hooks
    are shared. A save re-probes at once (`team_reprobe`), so sharing turned off removes the team copies before
    `memory_remote_set` returns.
@@ -271,7 +271,9 @@ flowchart LR
    code is 0 and something is left; stderr is dropped. A command that gives no output (spawn failure, non-zero exit,
    timeout, skipped for the budget) puts one `Notice` (`NoticeLevel::Warning`) in the chat with the hook's name and the
    cause (`failure_notice`), never the command or its output. Logs carry hook ids, event names and counts.
-5. **Approvals.** Only the window approves (`hooks/approvals.rs`, `store.rs`). `hook_save` (the window's writes,
+5. **Approvals.** Only the window approves (`hooks/approvals.rs`, `store.rs`, on the signed document layer
+   `business/src/signed_docs/` that keeps the folder, approvals, approved copies, state file and team copies of any
+   kind of approved JSON file, hooks being one, `HookKind`). `hook_save` (the window's writes,
    `HookAuthor::Desktop`) writes the file, stores `sha256(bytes)` in `hook-approvals.json` and keeps the approved bytes
    in `hook-approved/<id>.json` (`0600` in a `0700` folder), so it runs at once. A write by the MCP mode
    (`HookAuthor::Agent`) never touches the config folder, so it is `pending` until `hook_approve` stores the hash of the
@@ -286,7 +288,7 @@ flowchart LR
    app (commands, seeding, pruning), so approvals are never lost to two writers. Capabilities are cached for
    `MEMBERS_TTL` (30 s) and looked up again after an install or the memory switch (`refresh_members`):
    `harness-memory` is met while `installed_memory` finds the server and `memoryEnabled` is on, `harness-dashboard`
-   while `resolve_dashboard` finds the dashboard. `hooks/watch.rs` runs a `hooks-watch` thread that every 1 s lists
+   while `resolve_dashboard` finds the dashboard. `hooks/watch.rs` runs a `hooks-watch` thread (`src-tauri/src/doc_watch.rs`) that every 1 s lists
    the hook folder and the approvals file (names, modification times and sizes only; names that start with `.` or do not
    end in `.json` are skipped). The first look only prunes. A change prunes, invalidates the cache and sends
    `HooksEvent::Changed` to the Hooks view, which loads the list again.
@@ -345,7 +347,8 @@ flowchart LR
     a body on stdin for `put`, a failure's `{"error", "message"}` mapped to `conflict`, `notFound`, `invalidInput`,
     `forbidden` or `unsupported`). `MemoryHooks` probes `hooks config` once per binary and config file stamp (the
     file `memory_config_path` finds, `HARNESS_MEMORY_CONFIG` included; a failed probe is not cached). `src-tauri/src/hooks/team.rs` keeps the team state (`TeamHooks`: trust, the last problem,
-    when refreshed) and runs a refresh loop: at launch, every `TEAM_REFRESH` (60 s), on `hooks_team_refresh`, after a
+    when refreshed) and runs a refresh loop through `src-tauri/src/team_sync.rs` (`business/src/signed_docs/team/`
+    for the folder): at launch, every `TEAM_REFRESH` (60 s), on `hooks_team_refresh`, after a
     share, a removal or a settings save, and soon after a chat starts in a new project root. A refresh probes; while
     hooks are shared it lists the global scope and the 32 most recent project roots (`fetch_team`; 16 rows a page by
     `nextOffset`, or by the page size for an older answer, at most 16 pages, else the round is incomplete) and

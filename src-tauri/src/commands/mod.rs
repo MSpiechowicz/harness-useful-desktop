@@ -17,6 +17,7 @@ pub mod memory_scripts;
 pub mod plugins;
 pub mod projects;
 pub mod review;
+pub mod routines;
 pub mod sessions;
 pub mod setup;
 pub mod sound;
@@ -42,9 +43,17 @@ where
         .map_err(|error| CommandError::internal(format!("background task failed: {error}")))?
 }
 
-/// The canonical directory of `project`, which must be the active project or a recent one
+/// The canonical directory of `project`, which must be the active project, a recent one, the
+/// routines workspace or the folder of one global routine in it, where global routines run
 /// (`forbidden` otherwise, with the generic message).
 async fn authorized_dir(state: &AppState, project: String) -> CommandResult<PathBuf> {
+    let routines = state.routines.clone();
+    let asked = project.clone();
+
+    if let Some(folder) = blocking(move || Ok(routines.workspace_folder(&asked))).await? {
+        return Ok(folder);
+    }
+
     let prefs = state.prefs.clone();
     let env = state.env.clone();
 

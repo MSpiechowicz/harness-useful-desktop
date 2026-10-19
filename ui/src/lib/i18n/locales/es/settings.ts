@@ -213,4 +213,10 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.memoryRemote.section.trust': 'Confianza',
   'settings.memoryRemote.hooks.title': 'Hooks',
   'settings.memoryRemote.hooks.description': 'Los hooks que compartes con el equipo, y los suyos.',
+  'settings.tray.title': 'Seguir en ejecución en la bandeja al cerrar la ventana',
+  'settings.tray.description': 'Las rutinas siguen su horario mientras Harness Desktop permanece en la bandeja.',
+  'settings.memoryRemote.routines.title': 'Rutinas',
+  'settings.memoryRemote.routines.description': 'Las rutinas que compartes con el equipo, y las suyas.',
+  'settings.memoryRemote.trustRoutines.title': 'Ejecutar las rutinas del equipo sin preguntar',
+  'settings.memoryRemote.trustRoutines.description': 'Las rutinas de la base de datos del equipo se ejecutan sin preguntarte antes. Cualquiera que pueda escribir en la base de datos del equipo podrá ejecutar código en este equipo.',
 };

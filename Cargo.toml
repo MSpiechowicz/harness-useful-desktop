@@ -40,6 +40,9 @@ flate2 = "1.1"
 toml = { version = "1.1.8", default-features = false, features = ["parse", "serde", "std"] }
 # SHA-256 of hook files (approvals); already in the lockfile through Tauri.
 sha2 = "0.10.9"
+# Routine schedules: wall-clock times in the machine's time zone (DST gaps and folds); already in the
+# lockfile through serde_with.
+jiff = { version = "0.2.38", features = ["serde"] }
 # Desktop shell (Tauri 2 only; Tauri 3 alpha is not used).
 tauri = "2.12.2"
 tauri-build = "2.7.1"

@@ -10,6 +10,7 @@
   import { cx } from '$lib/utils/cx';
   import { compactAge } from '$lib/utils/format';
 
+  import RoutineChip from '../routines/RoutineChip.svelte';
   import { sessionTitle } from './session-format';
   import SessionMenu from './SessionMenu.svelte';
 
@@ -64,6 +65,7 @@
     <div class="pointer-events-none relative flex size-full items-center gap-2.5 panel-row">
       {#if info}<HarnessBadge {info} size="xs" />{/if}
       <span class="min-w-0 flex-1 truncate text-sm text-fg" aria-hidden="true">{title}</span>
+      {#if summary.routine}<RoutineChip routine={summary.routine} class="max-w-40 shrink-[3]" />{/if}
       {#if summary.parentSession && !summary.emptyCopy}<GitFork size={14} class="shrink-0 text-fg-3" aria-label={t('sessions.list.forked')} />{/if}
       {#if copies > 0}
         <button

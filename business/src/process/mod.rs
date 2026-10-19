@@ -75,6 +75,9 @@ pub struct ExecSpec {
     pub timeout: Duration,
     /// Per-stream (stdout, stderr) capture cap for [`ProcessRunner::run`] (ignored by spawners).
     pub max_output_bytes: usize,
+    /// Which end of a stream longer than the cap [`ProcessRunner::run`] keeps: the first bytes
+    /// (default) or the last ones (see [`ExecSpec::keep_output_tail`]).
+    pub keep_tail: bool,
     /// Directories appended to the child's `PATH` when missing from it. Apps started from the
     /// macOS Finder (and some Linux launchers) lack the login shell's `PATH`, so a launcher script
     /// such as `#!/usr/bin/env bun` could not find its interpreter without them.
@@ -97,6 +100,7 @@ impl ExecSpec {
             search_dirs: Vec::new(),
             timeout: DEFAULT_TIMEOUT,
             max_output_bytes: DEFAULT_MAX_OUTPUT_BYTES,
+            keep_tail: false,
             stdin: None,
         }
     }
@@ -163,6 +167,14 @@ impl ExecSpec {
     /// Sets the per-stream output cap.
     pub fn max_output_bytes(mut self, max: usize) -> Self {
         self.max_output_bytes = max;
+        self
+    }
+
+    /// Keeps the last `max_output_bytes` of each stream instead of the first ones. A stream cut
+    /// that way loses its first, cut-off word too (the bytes up to the first whitespace): a secret
+    /// cut in half could no longer be recognized and redacted.
+    pub fn keep_output_tail(mut self) -> Self {
+        self.keep_tail = true;
         self
     }
 

@@ -1,10 +1,15 @@
-//! The status of each hook file (see [`HookStatus`]), run order, and the per-scope limit.
-
-use std::collections::BTreeMap;
+//! The status of each hook file (see [`HookStatus`]), run order, and the per-scope limit (the
+//! scope rules of [`crate::signed_docs::scope`]).
 
 use super::approvals::Approvals;
-use super::format::{loose_name, parse_hook_file, timestamp_key};
-use crate::model::{Hook, HookApproval, HookOrigin, HookRequirement, HookScope, HookStatus, HookView};
+use super::format::loose_name;
+use crate::model::{Hook, HookApproval, HookOrigin, HookRequirement, HookStatus, HookView};
+use crate::signed_docs::listing::sort_files;
+use crate::signed_docs::scope::{ranked, scoped_doc};
+
+pub(crate) use crate::signed_docs::listing::earlier_version;
+
+pub(crate) use crate::signed_docs::scope::{FileOwner, RunOrder};
 
 /// Most hooks used per scope (global, and each project separately).
 pub const MAX_HOOKS_PER_SCOPE: usize = 64;
@@ -29,54 +34,9 @@ impl HookCapabilities {
 }
 
 /// One `<id>.json` file as read.
-#[derive(Debug, Clone)]
-pub(crate) struct HookFile {
-    pub id: String,
-    pub bytes: Vec<u8>,
-    pub sha256: String,
-    pub unreadable: bool,
-}
+pub(crate) use crate::signed_docs::DocFile as HookFile;
 
-/// The scope a hook counts against: `None` for global, the project root otherwise.
-pub(crate) fn scope_key(hook: &Hook) -> Option<&str> {
-    match hook.scope {
-        HookScope::Global => None,
-        HookScope::Project => hook.project.as_deref(),
-    }
-}
-
-/// Whose a listed file is.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum FileOwner {
-    /// A global hook, used or over the limit.
-    Global,
-    /// A hook of this project root, used or over the limit.
-    Project(String),
-    /// A file that is not a valid hook: its scope is unknown.
-    Unknown,
-}
-
-impl FileOwner {
-    fn of(hook: &Hook) -> Self {
-        match (hook.scope, &hook.project) {
-            (HookScope::Global, _) => Self::Global,
-            (HookScope::Project, Some(project)) => Self::Project(project.clone()),
-            (HookScope::Project, None) => Self::Unknown,
-        }
-    }
-
-    /// True when a list for a chat in `project` (a project root; `None`: global only) shows the
-    /// file: a global hook, a hook of that project, or a file whose scope is unknown.
-    pub(crate) fn shown_in(&self, project: Option<&str>) -> bool {
-        match self {
-            Self::Global | Self::Unknown => true,
-            Self::Project(root) => project == Some(root.as_str()),
-        }
-    }
-}
-
-/// Where a hook runs: by origin and scope, then `createdAt`, then `id`.
-pub(crate) type RunOrder = (u8, [u32; 7], String);
+scoped_doc!(Hook);
 
 /// Run order of a local hook: global before project, then `createdAt`, then `id`.
 pub(crate) fn order_key(hook: &Hook) -> RunOrder {
@@ -88,19 +48,6 @@ pub(crate) fn team_order_key(hook: &Hook) -> RunOrder {
     ranked(hook, 2)
 }
 
-fn ranked(hook: &Hook, base: u8) -> RunOrder {
-    let rank = match hook.scope {
-        HookScope::Global => base,
-        HookScope::Project => base + 1,
-    };
-
-    (
-        rank,
-        timestamp_key(&hook.created_at).unwrap_or_default(),
-        hook.id.clone(),
-    )
-}
-
 /// The list with whose each file is: valid hooks in run order, then invalid files by id.
 /// `approved` returns the kept copy of an approved earlier version (for [`HookApproval::Changed`]
 /// files).
@@ -110,49 +57,19 @@ pub(crate) fn views(
     capabilities: HookCapabilities,
     approved: &dyn Fn(&str) -> Option<Hook>,
 ) -> Vec<(HookView, FileOwner)> {
-    let mut valid: Vec<(Hook, HookFile)> = Vec::new();
-    let mut invalid: Vec<(HookFile, String, FileOwner)> = Vec::new();
+    let sorted = sort_files(files, approvals);
 
-    for file in files {
-        if file.unreadable {
-            invalid.push((file, "the file could not be read".to_owned(), FileOwner::Unknown));
-            continue;
-        }
-
-        match parse_hook_file(&file.id, &file.bytes) {
-            Ok(hook) => valid.push((hook, file)),
-            Err(problem) => invalid.push((file, problem, FileOwner::Unknown)),
-        }
-    }
-
-    // Per scope MAX_HOOKS_PER_SCOPE are used: approved ones first (so files waiting for review
-    // cannot push them out), the oldest first within each group.
-    valid.sort_by_key(|(hook, file)| (!approvals.is_approved(&file.id, &file.sha256), order_key(hook)));
-
-    let mut counts: BTreeMap<Option<String>, usize> = BTreeMap::new();
-    let mut used = Vec::new();
-
-    for (hook, file) in valid {
-        let count = counts.entry(scope_key(&hook).map(str::to_owned)).or_default();
-        *count += 1;
-
-        // An over-the-limit hook is listed as invalid, but only where its scope is.
-        if *count > MAX_HOOKS_PER_SCOPE {
-            let problem = format!("over the limit of {MAX_HOOKS_PER_SCOPE} hooks in this scope");
-            invalid.push((file, problem, FileOwner::of(&hook)));
-        } else {
+    let mut views: Vec<(HookView, FileOwner)> = sorted
+        .used
+        .into_iter()
+        .map(|(hook, file)| {
             let owner = FileOwner::of(&hook);
-            used.push((view_of(hook, file.sha256, approvals, capabilities, approved), owner));
-        }
-    }
+            (view_of(hook, file.sha256, approvals, capabilities, approved), owner)
+        })
+        .collect();
 
-    // Listed in run order.
-    used.sort_by_key(|(view, _)| view.hook.as_ref().map(order_key));
-
-    invalid.sort_by(|left, right| left.0.id.cmp(&right.0.id));
-
-    used.extend(invalid.into_iter().map(|(file, problem, owner)| {
-        let approval = approval_of(approvals, &file.id, &file.sha256);
+    views.extend(sorted.invalid.into_iter().map(|(file, problem, owner)| {
+        let approval = approvals.approval(&file.id, &file.sha256);
 
         let view = HookView {
             name: loose_name(&file.bytes),
@@ -169,7 +86,7 @@ pub(crate) fn views(
         (view, owner)
     }));
 
-    used
+    views
 }
 
 /// The view of the valid `hook` whose file hashes to `sha256`.
@@ -180,7 +97,7 @@ pub(crate) fn view_of(
     capabilities: HookCapabilities,
     approved: &dyn Fn(&str) -> Option<Hook>,
 ) -> HookView {
-    let approval = approval_of(approvals, &hook.id, &sha256);
+    let approval = approvals.approval(&hook.id, &sha256);
 
     HookView {
         id: hook.id.clone(),
@@ -213,25 +130,6 @@ pub(crate) fn local_defaults() -> HookView {
         team_changed: false,
         share_block: None,
         team_disabled: false,
-    }
-}
-
-pub(crate) fn earlier_version(
-    approval: HookApproval,
-    id: &str,
-    approved: &dyn Fn(&str) -> Option<Hook>,
-) -> Option<Hook> {
-    match approval {
-        HookApproval::Changed => approved(id),
-        HookApproval::Approved | HookApproval::Never => None,
-    }
-}
-
-pub(crate) fn approval_of(approvals: &Approvals, id: &str, sha256: &str) -> HookApproval {
-    match approvals.get(id) {
-        Some(approved) if approved == sha256 => HookApproval::Approved,
-        Some(_) => HookApproval::Changed,
-        None => HookApproval::Never,
     }
 }
 

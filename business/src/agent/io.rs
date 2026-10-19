@@ -11,7 +11,7 @@ use tokio::sync::{mpsc, oneshot, watch};
 use tokio::task::JoinHandle;
 use tokio::time::Instant;
 
-use super::sink::EmitMsg;
+use super::sink::{EmitMsg, PromptTaken};
 use crate::model::AgentEvent;
 use crate::pi_family::rpc::{
     DecodeState, Frame, FrameReader, Inbound, LineSplitter, PendingRequests, RequestKind, RpcDialect, encode_frame,
@@ -49,6 +49,8 @@ pub(crate) struct Shared {
     stderr_tail: Mutex<VecDeque<String>>,
     /// A project the session moved to, applied by the reader before it decodes the next frame.
     project_change: Mutex<Option<PathBuf>>,
+    /// Told in event order when the agent takes the next prompt.
+    prompt_taken: Mutex<Option<PromptTaken>>,
 }
 
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -69,7 +71,14 @@ impl Shared {
             dialogs: Mutex::new(HashSet::new()),
             stderr_tail: Mutex::new(VecDeque::new()),
             project_change: Mutex::new(None),
+            prompt_taken: Mutex::new(None),
         }
+    }
+
+    /// Calls `taken` in event order when the agent takes the next prompt (see [`PromptTaken`]),
+    /// replacing a call set before.
+    pub fn on_prompt_taken(&self, taken: PromptTaken) {
+        *lock(&self.prompt_taken) = Some(taken);
     }
 
     /// Makes the reader resolve paths (touched files) against `project` from the next frame on.
@@ -182,6 +191,10 @@ async fn route(
             if let Some(id) = prompt {
                 for event in shared.dialect.on_prompt_ack(id, response.data.as_ref(), state) {
                     shared.emit(event);
+                }
+
+                if let Some(taken) = lock(&shared.prompt_taken).take() {
+                    shared.events.send(EmitMsg::Call(taken)).ok();
                 }
             }
 

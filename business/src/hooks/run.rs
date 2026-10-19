@@ -184,7 +184,7 @@ pub(crate) fn is_eligible(action: &AgentAction) -> bool {
 
 /// True when `reply` (to a prompt) says the harness handled the prompt itself, without a run (OMP
 /// `agentInvoked: false`, PI `disposition: "handled"`): it reports a `Handled` result for it.
-pub(crate) fn handled_without_run(reply: &AgentReply) -> bool {
+pub fn handled_without_run(reply: &AgentReply) -> bool {
     match reply {
         AgentReply::Prompt {
             agent_invoked,
