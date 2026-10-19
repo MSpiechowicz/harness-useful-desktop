@@ -11,35 +11,46 @@
 //!
 //! Two things make that exact:
 //!
-//! - **Keys the user's configuration cannot have.** `mergeDeep` keeps the user's keys first, in
-//!   their order, with our values, so a shared key would move our rules ahead of the user's later
-//!   ones. Every key the chat writes ends in ` *`, which OpenCode's wildcard reads as "this, or
-//!   this followed by a space and more" (`ls *` matches `ls`): for a permission name, which has
-//!   no spaces, `read *` matches exactly `read`. The user's agent permissions therefore stay as
-//!   they are with ours after them, and OpenCode's checks that compare permission names as text
-//!   (a subagent session's inherited rules, the tool-output folder) see what they see without a
-//!   mode.
+//! - **Keys a configuration does not use.** `mergeDeep` keeps the user's keys first, in their
+//!   order, with our values, so a shared key would move our rules ahead of the user's later ones.
+//!   Every key the chat writes ends in ` *`, which OpenCode's wildcard reads as "this, or this
+//!   followed by a space and more" (`ls *` matches `ls`): for a permission name, which has no
+//!   spaces, `read *` matches exactly `read`. The user's agent permissions therefore stay as they
+//!   are with ours after them, and OpenCode's checks that compare permission names as text (a
+//!   subagent session's inherited rules, the tool-output folder) see what they see without a
+//!   mode. A configuration can still hold such a key: the check below then refuses the mode.
 //! - **One key per permission.** An object holds a key once, a rule list may name a permission
 //!   several times. A key with a `*` repeats as an equivalent variant (`* *`, `** *`, …) in list
 //!   order. Each plain permission name gets one entry after those, holding in order every rule of
 //!   the list that applies to it (wildcard ones too), a pattern only at its last place. For every
 //!   permission the last matching rule is then the one of the list.
 //!
-//! [`check_applied`] checks that every agent the server reports with the mode ends with the mode's
-//! rules: a configuration layer OpenCode reads after ours (managed settings, a legacy `mode`
-//! entry) refuses the mode instead of weakening it. The one rule OpenCode appends after every
-//! agent's configuration, an `allow` for its own tool-output folder under `external_directory`,
-//! keeps applying. (A user's agent permission given as a single string is replaced by ours, as
-//! `mergeDeep` replaces a string with an object: the mode decides alone either way.)
+//! [`check_applied`] checks that every agent the server reports with the mode has exactly the
+//! rules it had without it, then the mode's: anything else refuses the mode instead of weakening
+//! it. That covers a configuration layer OpenCode reads after ours (managed settings, a legacy
+//! `mode` entry), a user key like ours, an agent permission given as a single string (`mergeDeep`
+//! replaces it with our object, so the agent's rules change), and a server whose agents differ
+//! from the probe's. The one rule OpenCode appends after every agent's configuration, an `allow`
+//! for its own tool-output folder under `external_directory`, keeps applying.
+//!
+//! Also refused, before anything starts: an agent list that is empty or not a list of named
+//! agents, an agent name listed twice (a configuration that renames an agent), a pattern that is
+//! a number (JavaScript puts number-like keys first, which would reorder the rules), a pattern
+//! with a space in a permission key, a `?` pattern that repeats, and two keys that come out the
+//! same.
 
 use std::collections::HashMap;
 use std::path::Path;
 
 use serde_json::{Map, Value, json};
 
-use super::modes::{Rule, agent_rules, matches, mode_rules};
+use super::modes::{Rule, matches, mode_rules};
 use crate::model::ApprovalMode;
 use crate::pi_family::jsonc;
+
+/// Why an agent's rules are not the probe's followed by the mode's.
+const AFTER_OURS: &str = "a managed setting, a legacy `mode` entry, a key like the app's or a permission given as one \
+                          string changes";
 
 /// The suffix of every permission key the chat writes (see the module docs).
 const SUFFIX: &str = " *";
@@ -49,22 +60,56 @@ const SUFFIX: &str = " *";
 pub fn mode_config(mode: ApprovalMode, agents: &Value) -> Result<Value, String> {
     let mut configured = Map::new();
 
-    for agent in agents.as_array().into_iter().flatten() {
-        let Some(name) = agent.get("name").and_then(Value::as_str) else {
-            continue;
-        };
-
-        let rules: Vec<Rule> = agent
-            .get("permission")
-            .cloned()
-            .and_then(|rules| serde_json::from_value(rules).ok())
-            .ok_or_else(|| format!("the {name} agent's permissions cannot be read"))?;
+    for (name, rules) in listed_agents(agents)? {
         let list = mode_rules(Some(mode), &rules).unwrap_or_default();
-
         configured.insert(name.to_owned(), json!({ "permission": permission_object(&list)? }));
     }
 
     Ok(json!({ "agent": configured }))
+}
+
+/// True when a session's stored permission rules (`GET /session/{id}` `permission`) hold anything
+/// but denies: OpenCode applies them after the agent's rules, so they would override the mode.
+pub fn stored_overrides(permission: &Value) -> bool {
+    match permission {
+        Value::Null => false,
+        Value::Array(rules) => rules
+            .iter()
+            .any(|rule| rule.get("action").and_then(Value::as_str) != Some("deny")),
+        _ => true,
+    }
+}
+
+/// The agents of a `GET /agent` list with their rules; an error unless it is a non-empty list of
+/// agents with a name each, listed once, and readable rules.
+fn listed_agents(agents: &Value) -> Result<Vec<(&str, Vec<Rule>)>, String> {
+    let listed = agents
+        .as_array()
+        .filter(|listed| !listed.is_empty())
+        .ok_or_else(|| "OpenCode listed no agents".to_owned())?;
+    let mut read: Vec<(&str, Vec<Rule>)> = Vec::new();
+
+    for agent in listed {
+        let name = agent
+            .get("name")
+            .and_then(Value::as_str)
+            .ok_or_else(|| "OpenCode listed an agent without a name".to_owned())?;
+
+        if read.iter().any(|(seen, _)| *seen == name) {
+            return Err(format!(
+                "two agents are named {name} (a configuration renames an agent)"
+            ));
+        }
+
+        let rules = agent
+            .get("permission")
+            .cloned()
+            .and_then(|rules| serde_json::from_value(rules).ok())
+            .ok_or_else(|| format!("the {name} agent's permissions cannot be read"))?;
+        read.push((name, rules));
+    }
+
+    Ok(read)
 }
 
 /// A permission object whose rules decide every call as `rules` do (see the module docs).
@@ -77,7 +122,8 @@ pub fn permission_object(rules: &[Rule]) -> Result<Map<String, Value>, String> {
         let key = wildcard_key(&rule.permission, *seen)?;
         *seen += 1;
 
-        object.insert(key, json!({ rule.pattern.clone(): rule.action.clone() }));
+        let entry = json!({ checked_pattern(&rule.pattern)?: rule.action.clone() });
+        insert_new(&mut object, key, entry)?;
     }
 
     let mut names: Vec<&str> = Vec::new();
@@ -96,13 +142,38 @@ pub fn permission_object(rules: &[Rule]) -> Result<Map<String, Value>, String> {
 
         for rule in rules.iter().filter(|rule| matches(name, &rule.permission)) {
             patterns.shift_remove(&rule.pattern);
-            patterns.insert(rule.pattern.clone(), Value::String(rule.action.clone()));
+            patterns.insert(checked_pattern(&rule.pattern)?, Value::String(rule.action.clone()));
         }
 
-        object.insert(format!("{name}{SUFFIX}"), Value::Object(patterns));
+        insert_new(&mut object, format!("{name}{SUFFIX}"), Value::Object(patterns))?;
     }
 
     Ok(object)
+}
+
+/// Adds `key` to `object`; an error when it is there already (two keys came out the same).
+fn insert_new(object: &mut Map<String, Value>, key: String, value: Value) -> Result<(), String> {
+    if object.contains_key(&key) {
+        return Err(format!("two permission keys come out as \"{key}\""));
+    }
+
+    object.insert(key, value);
+    Ok(())
+}
+
+/// `pattern` as a key of a pattern object; an error for a number-like one, which JavaScript would
+/// move to the front of the object.
+fn checked_pattern(pattern: &str) -> Result<String, String> {
+    let number_like = !pattern.is_empty()
+        && pattern.bytes().all(|byte| byte.is_ascii_digit())
+        && (pattern == "0" || !pattern.starts_with('0'))
+        && pattern.parse::<u64>().is_ok_and(|number| number < u64::from(u32::MAX));
+
+    if number_like {
+        return Err(format!("the pattern \"{pattern}\" is a number"));
+    }
+
+    Ok(pattern.to_owned())
 }
 
 fn is_wildcard(permission: &str) -> bool {
@@ -210,45 +281,44 @@ pub fn inherited_config(text: Option<&str>) -> Result<Value, String> {
     }
 }
 
-/// Checks that every agent the server reports with the mode (`applied`) ends with its mode rules
-/// (`config`), followed only by the tool-output rule when it ended with one without the mode
-/// (`probed`); an error names the first agent that does not.
+/// Checks that every agent the server reports with the mode (`applied`) has exactly the rules it
+/// had without it (`probed`), then its mode rules (`config`), and only then the tool-output rule
+/// when it ended with one without the mode; an error names the first agent that does not.
 pub fn check_applied(probed: &Value, applied: &Value, config: &Value) -> Result<(), String> {
-    let names = |agents: &Value| -> Vec<String> {
-        let listed = agents.as_array().into_iter().flatten();
-        listed
-            .filter_map(|agent| agent.get("name").and_then(Value::as_str).map(str::to_owned))
-            .collect()
-    };
+    let before = listed_agents(probed)?;
+    let after = listed_agents(applied)?;
 
-    if names(probed) != names(applied) {
-        return Err("the agents between the two starts".to_owned());
+    let names = |agents: &[(&str, Vec<Rule>)]| agents.iter().map(|(name, _)| name.to_string()).collect::<Vec<_>>();
+    if names(&before) != names(&after) {
+        return Err("the agents differ between the two starts".to_owned());
     }
 
-    for name in names(probed) {
-        let before = agent_rules(probed, &name);
-        let after = agent_rules(applied, &name);
-        let ours = config_rules(&config["agent"][&name]["permission"], None);
+    for ((name, before), (_, after)) in before.iter().zip(&after) {
+        let ours = config_rules(&config["agent"][*name]["permission"], None);
 
-        if ours.is_empty() || !ends_with_ours(&before, &ours, &after) {
-            return Err(format!("the {name} agent's permissions"));
+        if ours.is_empty() || !appended(before, &ours, after) {
+            return Err(format!("{AFTER_OURS} the {name} agent's permissions"));
         }
     }
 
     Ok(())
 }
 
-/// True when `after` ends with `ours`, then OpenCode's tool-output rule when `before` ended with
-/// one.
-fn ends_with_ours(before: &[Rule], ours: &[Rule], after: &[Rule]) -> bool {
-    if after.ends_with(ours) {
+/// True when `after` is `before` with `ours` appended, before OpenCode's trailing tool-output rule
+/// when `before` ends with one.
+fn appended(before: &[Rule], ours: &[Rule], after: &[Rule]) -> bool {
+    let plain: Vec<Rule> = before.iter().chain(ours).cloned().collect();
+
+    if after == plain {
         return true;
     }
 
-    let Some(last) = before.last() else {
+    let Some((last, head)) = before.split_last() else {
         return false;
     };
-    let tool_output = last.permission == "external_directory" && last.action == "allow";
 
-    tool_output && after.last() == Some(last) && after[..after.len() - 1].ends_with(ours)
+    let tool_output = last.permission == "external_directory" && last.action == "allow";
+    let expected: Vec<Rule> = head.iter().chain(ours).chain([last]).cloned().collect();
+
+    tool_output && after == expected
 }

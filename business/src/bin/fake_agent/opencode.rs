@@ -8,7 +8,8 @@
 //! - `{"allow": "GET /global/health", "reply": {...}}` — from now on, answer every request to
 //!   this route with `reply`, any number of times, without consuming steps (idempotent GETs whose
 //!   timing the client decides). Allow rules answer before `expect`; a later rule for the same
-//!   route wins. The rules at the top of the scenario are in place before the listening line.
+//!   route wins. `"whenQuery": {"directory": "$cwd/src"}` in the reply limits a rule to requests
+//!   with those query parameters. The rules at the top of the scenario are in place before the listening line.
 //! - `{"expect": "POST /session/*/prompt_async", "match": {...}, "reply": {...}}` — the next
 //!   request no `allow` rule answered must be this route (`*` stands for one path segment, the
 //!   query is not part of the path) and carry every `match` field: keys starting with `/` are JSON
@@ -37,7 +38,8 @@
 //!   ignore stdin EOF until killed).
 //!
 //! `"$directory"` in replies and events becomes the last `?directory=` (or
-//! `x-opencode-directory`) a request carried, the working directory before any. `"$password"`
+//! `x-opencode-directory`) a request carried, the working directory before any; `"$cwd"` and
+//! `"$cwd/<path>"` the working directory (the project) and a path in it. `"$password"`
 //! (also in `stdout` and `stderr` lines) becomes `OPENCODE_SERVER_PASSWORD`, to check that the
 //! app never shows it. `"$request/messageID"` (any JSON pointer after `$request`) in `match`
 //! values, replies and events becomes that field of the last expected request with a JSON object

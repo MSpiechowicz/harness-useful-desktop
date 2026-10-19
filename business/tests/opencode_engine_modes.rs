@@ -153,6 +153,7 @@ async fn a_mode_the_server_does_not_show_refuses_the_chat() {
     let refused = chat.session.as_ref().err().expect("refused");
     assert_eq!(refused.code(), IpcErrorCode::Unsupported);
     assert!(refused.to_string().contains("approval mode"), "{refused}");
+    assert!(refused.to_string().contains("a managed setting"), "{refused}");
     chat.wait_reaped().await;
 }
 

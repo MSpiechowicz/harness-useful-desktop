@@ -76,6 +76,8 @@ pub struct SessionInfo {
     pub model: Option<ModelRef>,
     /// The model variant of the last prompt (`default` is none).
     pub variant: Option<String>,
+    /// The permission rules stored with the session, as sent (`null` without any).
+    pub permission: Value,
 }
 
 /// Reads a session; `None` without an id or a directory.
@@ -97,6 +99,7 @@ pub fn session_info(value: &Value) -> Option<SessionInfo> {
         variant: model
             .and_then(|model| string(model, "variant"))
             .filter(|variant| variant != "default"),
+        permission: value.get("permission").cloned().unwrap_or(Value::Null),
     })
 }
 

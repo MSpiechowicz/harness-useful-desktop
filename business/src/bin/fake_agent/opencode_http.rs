@@ -112,18 +112,33 @@ impl Shared {
     }
 
     /// Replaces `"$directory"` with the directory of the last routed request (the working
-    /// directory before any) and `"$password"` with the server password.
+    /// directory before any), `"$cwd"` (or `"$cwd/<path>"`) with the working directory (and that
+    /// path in it) and `"$password"` with the server password.
     pub fn substitute(&self, value: &Value) -> Value {
-        let directory = lock(&self.directory).clone().unwrap_or_else(|| {
-            std::env::current_dir()
-                .map(|dir| dir.to_string_lossy().into_owned())
-                .unwrap_or_default()
-        });
+        let cwd = std::env::current_dir()
+            .map(|dir| dir.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        let directory = lock(&self.directory).clone().unwrap_or_else(|| cwd.clone());
 
         crate::substitute(value, &|name| match name {
             "directory" => Some(json!(directory)),
-            _ => self.password_value(name),
+            "cwd" => Some(json!(cwd)),
+            _ => match name.strip_prefix("cwd/") {
+                Some(path) => Some(json!(format!("{cwd}/{path}"))),
+                None => self.password_value(name),
+            },
         })
+    }
+
+    /// True when an allow rule's reply `spec` applies to `request`: its `"whenQuery"` parameters
+    /// (substituted) are all the request's.
+    fn applies(&self, spec: &Value, request: &Request) -> bool {
+        let wanted = self.substitute(spec.get("whenQuery").unwrap_or(&Value::Null));
+        let wanted = wanted.as_object().into_iter().flatten();
+
+        wanted
+            .into_iter()
+            .all(|(name, value)| value.as_str().is_some_and(|value| request.query(name) == Some(value)))
     }
 
     /// Replaces only `"$password"`, which never changes.
@@ -287,7 +302,7 @@ fn handle(shared: &Shared, stream: TcpStream, runner: &Sender<Request>) {
     let allowed = lock(&shared.allows)
         .iter()
         .rev()
-        .find(|(pattern, _)| matches(pattern, &request.method, &request.path))
+        .find(|(pattern, reply)| matches(pattern, &request.method, &request.path) && shared.applies(reply, &request))
         .map(|(_, reply)| reply.clone());
 
     match allowed {

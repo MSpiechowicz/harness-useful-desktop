@@ -1,0 +1,5 @@
+// A server that exits with code 3 before it reports its address.
+{"allow":"GET /global/health","reply":{"body":{"healthy":true,"version":"1.19.3"}}}
+{"stderr":"cannot open the database"}
+{"exit":3}
+{"listen":true}

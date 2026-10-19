@@ -110,7 +110,7 @@ fn a_permission_ask_is_an_approval_with_three_answers() {
     assert_eq!(options, PERMISSION_OPTIONS.map(str::to_owned));
     assert_eq!(
         details,
-        [None, Some("Also allows echo * until this chat ends".to_owned()), None]
+        [None, Some("Also allows echo * until this chat ends, for every agent and even where one denies it (the plan agent too)".to_owned()), None]
     );
 
     let (_, title, _, details) = select(&out[1]);
@@ -120,7 +120,9 @@ fn a_permission_ask_is_an_approval_with_three_answers() {
     );
     assert_eq!(
         details[1].as_deref(),
-        Some("Allows every edit call until this chat ends")
+        Some(
+            "Allows every edit call until this chat ends, for every agent and even where one denies it (the plan agent too)"
+        )
     );
 
     let once = sent(&mut mapper, &value("per_1", "Allow once"));

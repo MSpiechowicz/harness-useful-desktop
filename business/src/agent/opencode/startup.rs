@@ -10,8 +10,8 @@
 //! `state` and `commandsUpdated`, then the events that arrived meanwhile. A helper chat never
 //! resumes a session.
 //!
-//! The whole startup, the probe included, runs within one deadline and abort race
-//! ([`run_startup_until`]); a failed one kills the server and emits nothing. Server output before
+//! The whole startup, the probe included, runs within one budget and abort race
+//! ([`run_startup_until`]): the startup deadline, twice that with a mode (two cold starts); a failed one kills the server and emits nothing. Server output before
 //! the listening line and after it is passed on like stderr.
 
 use std::net::SocketAddr;
@@ -23,7 +23,7 @@ use serde_json::{Value, json};
 use tokio::sync::oneshot;
 
 use super::approvals::{LaunchRules, deny_helper_tools};
-use super::probe::{ModeLaunch, Probe, mode_launch, with_content};
+use super::probe::{ModeLaunch, Probe, mode_launch, refused, with_content};
 use super::{Catalog, Chat, Context, Live, OpenCodeSession, TurnSettings, new_mapper, stream};
 use crate::agent::engine::SessionLaunch;
 use crate::agent::io::Shared;
@@ -77,9 +77,12 @@ impl OpenCodeSession {
             utility: launch.utility,
         };
 
+        // With a mode the server starts twice (the probe first): the budget holds both.
         let options = launch.options;
         let mut abort = launch.abort;
-        let until = tokio::time::Instant::now() + options.startup_deadline;
+        let starts = if rules.mode().is_some() { 2 } else { 1 };
+        let budget = options.startup_deadline * starts;
+        let until = tokio::time::Instant::now() + budget;
         let mut spec = launch.spec.clone();
 
         let moded = match rules.mode() {
@@ -89,9 +92,10 @@ impl OpenCodeSession {
                     spec: &spec,
                     key: &launch.key,
                     project: &launch.project,
+                    resume: launch.resume,
                     options,
                 };
-                let moded = run_startup_until(options, until, &mut abort, mode_launch(probe, mode)).await?;
+                let moded = run_startup_until(budget, until, &mut abort, mode_launch(probe, mode)).await?;
                 with_content(&mut spec, &moded.content);
                 Some(moded)
             }
@@ -102,7 +106,13 @@ impl OpenCodeSession {
             process,
             password,
             listening,
-        } = spawn_server(launch.spawner, &spec, launch.key, launch.sink, options)?;
+        } = spawn_server(launch.spawner, &spec, launch.key, launch.sink, options).map_err(|error| match &moded {
+            Some(_) => BusinessError::Unsupported(format!(
+                "OpenCode could not be started with the approval mode's configuration ({error}). Start the chat \
+                 without an approval mode"
+            )),
+            None => error,
+        })?;
 
         let limit = options.startup_timeout;
         let steps = boot(
@@ -115,7 +125,7 @@ impl OpenCodeSession {
             limit,
         );
 
-        match run_startup_until(options, until, &mut abort, steps).await {
+        match run_startup_until(budget, until, &mut abort, steps).await {
             Ok(booted) => Ok(Self::open(process, &launch.project, rules, options, booted)),
             Err(error) => Err(process.fail_start(error).await),
         }
@@ -212,11 +222,7 @@ async fn boot(
     let agents = get_json(&client, Route::Agents { directory: scope }).await?;
 
     if let Some(moded) = moded {
-        check_applied(&moded.agents, &agents, &moded.config).map_err(|why| {
-            BusinessError::Unsupported(format!(
-                "OpenCode changed {why} after the approval mode (a managed setting, a legacy `mode` entry or another project configuration). Start the chat without an approval mode"
-            ))
-        })?;
+        check_applied(&moded.agents, &agents, &moded.config).map_err(|why| refused(&why))?;
     }
 
     let providers = get_json(&client, Route::ConfigProviders { directory: scope }).await?;
@@ -307,7 +313,7 @@ async fn created(client: &OpenCodeClient, directory: &str) -> Result<SessionInfo
 }
 
 /// `GET /session/{id}`; `NotFound` when the server does not know it.
-async fn resumed(client: &OpenCodeClient, id: &str) -> Result<SessionInfo> {
+pub(super) async fn resumed(client: &OpenCodeClient, id: &str) -> Result<SessionInfo> {
     let session = SessionId::parse(id)?;
     let response = client.send(Route::SessionGet { session: &session }, None).await?;
 

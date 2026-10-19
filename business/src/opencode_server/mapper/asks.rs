@@ -38,6 +38,10 @@ const TASK_DETAIL: &str = "The subagent then runs its own tools under OpenCode's
 /// What `Allow once` means for a `task` ask with an approval mode, which every agent follows.
 const TASK_DETAIL_MODE: &str = "The subagent's own tools then follow this chat's approval mode.";
 
+/// What "Always allow" also means: OpenCode checks it after every rule, for every agent of the
+/// chat's server (`permission/index.ts`, the instance's approved list).
+const OVERRIDES: &str = ", for every agent and even where one denies it (the plan agent too)";
+
 /// What answering a dialog means for OpenCode.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Answer {
@@ -141,8 +145,13 @@ impl Asks {
         let always = strings(properties, "always");
         let always_detail = match always.as_slice() {
             [] => None,
-            [only] if only == "*" => Some(format!("Allows every {permission} call until this chat ends")),
-            patterns => Some(format!("Also allows {} until this chat ends", patterns.join(", "))),
+            [only] if only == "*" => Some(format!(
+                "Allows every {permission} call until this chat ends{OVERRIDES}"
+            )),
+            patterns => Some(format!(
+                "Also allows {} until this chat ends{OVERRIDES}",
+                patterns.join(", ")
+            )),
         };
         let task_detail = if self.mode_applied {
             TASK_DETAIL_MODE

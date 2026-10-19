@@ -184,9 +184,16 @@ throwaway session gets a PATCH (deny all), and it is deleted at stop.
 | 11 | Hooks and routines (memory side done: harness-useful-memory `feat/opencode-routines` 37b53d7, unpushed). Desktop: mirror its 3 routine fixtures (`valid-opencode-agent.json` renamed from `invalid-agent-harness-opencode.json`, `valid-opencode-approval-write.json`, `invalid-agent-trust-once-with-opencode.json`), fix `hooks_mcp/routine_tools.rs` approvalMode text | backend | `feat(routines): OpenCode agent routines and hooks` | done |
 | 12 | UI: agent picker, Preview badge, approval badge, routine form, onboarding, 5 locales | frontend | `feat(ui): OpenCode chat with agent picker and Preview badge` | done (406007a) |
 | 13 | Guard rules and docs | general | `docs(opencode): native chat architecture, security and formats` | done |
-| 14 | Full verification, reviews, `cargo clean`, final commit | main | — | todo |
+| 14 | Full verification, reviews, `cargo clean`, final commit | main | — | done: review passes 3/3 and the final repair round, verified, `cargo clean` run. Next: the manual check with a real provider (see Verification) |
 
 Order: 0 → 1 → 2 → 3 → (4 ∥ 5 ∥ 6) → 7 → (8 ∥ 9) → 10 → (11 ∥ 12) → 13 → 14.
+
+Final repair round (after review pass 3): the probe reads the agents of the directory the chat works in (a resumed
+session's folder), `check_applied` requires each agent's exact probe rules then the mode's, and the mode is refused for
+a resumed session with its own non-deny rules, duplicate or missing agent names, colliding or number-like keys, a
+config over the environment limit (100 KiB, 30 KiB on Windows) or a server that cannot spawn with it. A mode start gets
+twice the startup deadline for its two starts. The "Always allow" detail says it overrides denies for the rest of the
+chat. Probe failures (no address, early exit, health, stop, deadline) are reaped and tested.
 
 ## Verification
 

@@ -558,7 +558,8 @@ The chat with OpenCode runs one `opencode serve` per chat and talks to it over H
 - **No config writes, and nothing stored for an approval mode.** The app never changes OpenCode's config files or
   sets permission rules on a chat's session. An approval mode (Always ask, Write ask first, Yolo) is configuration of
   that chat's own server process: the app starts `opencode serve` once without the mode, reads every agent's effective
-  rules (`GET /agent`), stops it, and starts the chat's server with each agent's mode rules as `agent.<name>.permission`
+  rules (`GET /agent`) for the directory the chat works in (the project, or a resumed session's folder inside it,
+  which can have its own config), stops it, and starts the chat's server with each agent's mode rules as `agent.<name>.permission`
   in `OPENCODE_CONFIG_CONTENT`, which OpenCode reads after your global and project config and appends after each
   agent's own rules. The rules are computed from the agent's own, so a deny stays a deny: Always ask asks for every
   tool but questions, todos and `plan_enter`/`plan_exit`. Write ask first asks for every tool but a closed read-only
@@ -567,18 +568,30 @@ The chat with OpenCode runs one `opencode serve` per chat and talks to it over H
   asking where your config asks for something the agent denies (the plan agent with `edit: ask` still asks before an
   edit). Every agent gets its mode, subagents (`general`, `explore`) and hidden ones included, so a subagent's tools
   ask in Always ask and Write ask first too, and the plan agent stays read-only also for a command that runs with it.
-  The keys the app writes (`read *`, `* *`, …) are ones your config cannot hold, so your own agent permissions stay
-  as they are, before the mode's. An `OPENCODE_CONFIG_CONTENT` the app inherited is kept and the mode merged into it,
-  the mode winning. If it is not a JSON object, the chat refuses the mode rather than drop your settings. After the
-  start the app checks that every agent ends with the mode's rules, and refuses the chat when a layer OpenCode reads
-  later (managed settings, a legacy `mode` entry) changed them. Nothing outlives the chat's process: OpenCode's
-  database, its other apps and your later chats without a mode see only your settings. **Not covered:** OpenCode's own
-  `allow` for its tool-output folder (`external_directory`) keeps applying, plugin and custom tools never ask unless
-  the plugin asks itself (no mode can gate them), and MCP resource reads ask under `read`, which Write ask first
-  allows. With no mode picked, the server starts once as launched and your OpenCode settings apply.
-- **"Always allow"** on an approval card is kept by the server in memory for that chat, outranks the mode for the
-  rest of the chat (OpenCode checks it after every configured rule), and is never saved by the app, so it ends with
-  the chat.
+  The keys the app writes (`read *`, `* *`, …) are ones configs do not normally use, so your own agent permissions
+  stay as they are, before the mode's. An `OPENCODE_CONFIG_CONTENT` the app inherited is kept and the mode merged into
+  it, the mode winning. After the start the app checks that every agent has exactly the rules the probe reported,
+  then the mode's (only OpenCode's tool-output rule may follow), and refuses the chat otherwise. **The mode is refused,
+  with a message saying why,** when: the inherited content is not a JSON object (dropping it would drop your
+  settings); a config holds a key like the app's; an agent's permission is a single string (`"permission": "ask"`,
+  which the merge replaces); a config renames an agent so two share a name; a layer OpenCode reads later (managed
+  settings, a legacy `mode` entry) changes the agents; the agent list is empty or malformed; a permission pattern is a
+  number (JavaScript would reorder it) or a `?` pattern repeats; a resumed session lies outside the project or holds
+  permission rules of its own other than denies (left by another client or an earlier build, OpenCode applies them
+  after the mode); the config would exceed 100 KiB (30 KiB on Windows) in one environment variable; or the server
+  cannot start with it. The two starts share twice the usual startup deadline. Nothing outlives the chat's process:
+  OpenCode's database, its other apps and your later chats without a mode see only your settings. **Not covered:**
+  OpenCode's own `allow` for its tool-output folder (`external_directory`) keeps applying, plugin and custom tools
+  never ask unless the plugin asks itself (no mode can gate them), MCP resource reads ask under `read`, which Write ask
+  first allows, and a project config can allow the read-only tools Write ask first exempts. With no mode picked, the
+  server starts once as launched and your OpenCode settings apply.
+- **Trust boundary.** A mode governs the agent's tool calls, not the code OpenCode loads: a project's (or a cloned
+  repository's) `.opencode` plugins, its MCP servers and the `` !`cmd` `` snippets of its commands run as you whatever
+  the mode, and the probe start loads them too. Open untrusted repositories the way you would in OpenCode's terminal.
+- **"Always allow"** on an approval card is kept by the server in memory for that chat and is never saved by the app,
+  so it ends with the chat. For the rest of the chat it outranks every configured rule, with or without a mode:
+  OpenCode checks it last, for every agent and subagent session of the chat's server, so it also overrides denies,
+  the plan agent's read-only rules included. The card says so.
 - **Subagents.** In Always ask and Write ask first the `task` tool asks before it starts a subagent, and the
   subagent's own tools follow the mode. Without a mode a subagent runs its tools under your OpenCode settings. Asks
   OpenCode raises in a subagent session reach the chat, without a link to a tool card (the subagent's calls are not
@@ -591,8 +604,8 @@ The chat with OpenCode runs one `opencode serve` per chat and talks to it over H
   approval rejects every other open ask of that session, as OpenCode does. An answer that does not reach the server
   (no answer, or a server error) shows the dialog again, so an ask is never left without one.
 - **Exports.** The HTML export is written to the `exports` folder of the app's data folder (never the project, which
-  would put the transcript in a repository; the folder has mode `0700`, also when it existed before), as `opencode-<session id>.html`,
-  with mode `0600`, replaced in one rename. Every text in it (messages, tool input and output, errors) is redacted with
+  would put the transcript in a repository; the folder has mode `0700`, also when it existed before, unless it is a
+  symlink, which is left as it is), as `opencode-<session id>.html`, with mode `0600`, replaced in one rename. Every text in it (messages, tool input and output, errors) is redacted with
   `redact_text`, the server password is masked, and it is HTML-escaped. The page loads nothing and carries a content
   security policy that forbids scripts.
 - **Helper chats.** The AI chat name comes from a helper session whose own rules deny every tool

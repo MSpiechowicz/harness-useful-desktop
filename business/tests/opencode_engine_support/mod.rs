@@ -7,10 +7,10 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use harness_business::agent::{AgentSession, CollectingSink, SessionLaunch, SessionOptions};
+use harness_business::agent::{AgentSession, CollectingSink, SessionLaunch, SessionOptions, StartAbort};
 use harness_business::harness::ChatProtocol;
 use harness_business::model::{AgentAction, AgentEvent, AgentReply, ApprovalMode, ChatMessage, MessageRole};
-use harness_business::process::ExecSpec;
+use harness_business::process::{ExecSpec, ProcessSpawner};
 use tempfile::TempDir;
 
 use crate::agent_support::{ScenarioSpawner, WAIT, options, project, wait_event};
@@ -115,10 +115,48 @@ async fn start_launch(
     options: SessionOptions,
     env: &[(&str, &str)],
 ) -> Chat {
+    let launch = Launch {
+        name,
+        resume,
+        approval,
+        utility,
+        options,
+        env,
+    };
+
+    start_through(launch, |spawner| spawner, Box::pin(std::future::pending())).await
+}
+
+/// Everything a test chat starts with.
+pub struct Launch<'a> {
+    pub name: &'a str,
+    pub resume: Option<&'a str>,
+    pub approval: Option<ApprovalMode>,
+    pub utility: bool,
+    pub options: SessionOptions,
+    pub env: &'a [(&'a str, &'a str)],
+}
+
+/// Starts `launch` through the spawner `through` makes of the scenario spawner (which the chat
+/// keeps for inspection), given up when `abort` resolves.
+pub async fn start_through(
+    launch: Launch<'_>,
+    through: impl FnOnce(Arc<ScenarioSpawner>) -> Arc<dyn ProcessSpawner>,
+    abort: StartAbort<'_>,
+) -> Chat {
+    let Launch {
+        name,
+        resume,
+        approval,
+        utility,
+        options,
+        env,
+    } = launch;
     let dir = project();
     let project = dunce::canonicalize(dir.path()).expect("canonical project");
     let sink = CollectingSink::new();
     let spawner = ScenarioSpawner::new("opencode", name);
+    let used = through(spawner.clone());
 
     let mut spec = ExecSpec::new("opencode").args(["serve", "--hostname", "127.0.0.1", "--port", "0", "--mdns=false"]);
     spec.cwd = Some(project.clone());
@@ -128,7 +166,7 @@ async fn start_launch(
     let launch = SessionLaunch {
         key: "key-1".to_owned(),
         spec,
-        spawner: spawner.as_ref(),
+        spawner: used.as_ref(),
         protocol: ChatProtocol::OpenCodeServer,
         project: project.clone(),
         sessions_dir: project.clone(),
@@ -137,7 +175,7 @@ async fn start_launch(
         utility,
         sink: sink.clone(),
         options: &options,
-        abort: Box::pin(std::future::pending()),
+        abort,
     };
 
     let session = AgentSession::start(launch).await;

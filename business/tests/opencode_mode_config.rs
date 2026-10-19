@@ -8,7 +8,7 @@ mod opencode_mapper_support;
 
 use harness_business::model::ApprovalMode;
 use harness_business::opencode_server::mode_config::{
-    check_applied, config_rules, inherited_config, merge_deep, mode_config, permission_object,
+    check_applied, config_rules, inherited_config, merge_deep, mode_config, permission_object, stored_overrides,
 };
 use harness_business::opencode_server::modes::{Rule, agent_rules, evaluate, mode_rules};
 use opencode_mapper_support::recorded_body;
@@ -92,12 +92,20 @@ fn served(content: &Value) -> Value {
     agents_with(&Value::Object(user))
 }
 
+/// The configuration that holds the user's agent permissions `user` (`{name: permission}`).
+fn user_config(user: &Value) -> Value {
+    let agents = user.as_object().into_iter().flatten();
+    let agents: serde_json::Map<String, Value> = agents
+        .map(|(name, permission)| (name.clone(), json!({ "permission": permission })))
+        .collect();
+
+    json!({ "agent": agents })
+}
+
 /// Checks, for every agent and call, that the server started with the mode decides as the mode's
 /// rules for the agent without it, except OpenCode's own tool-output folder.
 fn assert_exact(mode: ApprovalMode, user: &Value) {
-    let user_config = json!({ "agent": user.as_object().map(|user| {
-        user.iter().map(|(name, permission)| (name.clone(), json!({ "permission": permission }))).collect::<serde_json::Map<_, _>>()
-    }) });
+    let user_config = user_config(user);
     let probed = agents_with(user);
     let config = mode_config(mode, &probed).expect("expressible");
     let content = merge_deep(&user_config, &config);
@@ -134,8 +142,8 @@ fn every_agent_decides_as_the_mode_says() {
 fn the_users_own_agent_permissions_stay_before_the_mode() {
     let users = [
         json!({ "build": { "bash": "allow", "*": "ask", "edit": { "*.md": "allow", "src/*": "deny" } } }),
-        json!({ "plan": "deny", "general": { "read": { "*.env": "allow" }, "webfetch": "deny" } }),
-        json!({ "explore": { "*": "allow", "bash": { "git *": "allow", "*": "deny" } }, "build": "ask" }),
+        json!({ "plan": { "edit": "deny" }, "general": { "read": { "*.env": "allow" }, "webfetch": "deny" } }),
+        json!({ "explore": { "*": "allow", "bash": { "git *": "allow", "*": "deny" } } }),
         json!({ "build": { "plan_*": "deny", "task": { "explore": "deny" }, "harness-memory_*": "allow" } }),
     ];
 
@@ -275,4 +283,117 @@ fn from_config_reads_strings_objects_and_home_patterns() {
         ]
     );
     assert_eq!(config_rules(&json!("deny"), None), [Rule::new("*", "*", "deny")]);
+}
+
+/// The applied agents and the check's verdict for user agent permissions `user` in `mode`.
+fn checked(mode: ApprovalMode, user: &Value) -> Result<(), String> {
+    let user_config = user_config(user);
+    let probed = agents_with(user);
+    let config = mode_config(mode, &probed)?;
+
+    check_applied(&probed, &served(&merge_deep(&user_config, &config)), &config)
+}
+
+#[test]
+fn an_agent_permission_given_as_one_string_refuses_the_mode() {
+    // `mergeDeep` replaces the string with our object: the agent's own rules would change.
+    let refused = checked(ApprovalMode::Yolo, &json!({ "plan": "deny" }));
+    assert!(refused.is_err_and(|why| why.ends_with("the plan agent's permissions")));
+}
+
+#[test]
+fn agents_that_differ_from_the_probes_refuse_the_mode() {
+    let project = agents_with(&json!({}));
+    let config = mode_config(ApprovalMode::Yolo, &project).expect("expressible");
+
+    // A server working in a folder of the project whose own configuration denies `rm`.
+    let folder = agents_with(&json!({ "build": { "bash": { "rm *": "deny" } } }));
+    assert!(check_applied(&project, &served_on(&folder, &config), &config).is_err());
+
+    let mut renamed = served(&config);
+    renamed.as_array_mut().expect("agents").swap(0, 1);
+    assert!(
+        check_applied(&project, &renamed, &config).is_err(),
+        "another agent order"
+    );
+}
+
+/// `agents` with `content`'s agent permissions applied like OpenCode.
+fn served_on(agents: &Value, content: &Value) -> Value {
+    let mut served = agents.clone();
+
+    for agent in served.as_array_mut().expect("agents") {
+        let name = agent["name"].as_str().expect("name").to_owned();
+        let mut rules: Vec<Rule> = serde_json::from_value(agent["permission"].clone()).expect("rules");
+        let last = rules.pop().expect("the tool-output rule");
+        rules.extend(config_rules(&content["agent"][&name]["permission"], None));
+        rules.push(last);
+        agent["permission"] = json!(rules);
+    }
+
+    served
+}
+
+#[test]
+fn agent_lists_the_mode_cannot_trust_are_refused() {
+    let named =
+        |name: &str| json!({ "name": name, "permission": [{ "permission": "*", "pattern": "*", "action": "allow" }] });
+
+    for agents in [
+        json!([]),
+        json!({ "build": {} }),
+        json!([{ "permission": [] }]),
+        json!([named("build"), named("build")]),
+        json!([{ "name": "build", "permission": "allow" }]),
+    ] {
+        assert!(mode_config(ApprovalMode::Write, &agents).is_err(), "{agents}");
+    }
+
+    let config = mode_config(ApprovalMode::Write, &json!([named("build")])).expect("one agent");
+    assert!(
+        check_applied(&json!([]), &json!([]), &config).is_err(),
+        "nothing probed"
+    );
+
+    let twice = json!([named("build"), named("build")]);
+    assert!(check_applied(&twice, &twice, &config).is_err(), "a name listed twice");
+}
+
+#[test]
+fn keys_that_would_collide_or_reorder_are_refused() {
+    let colliding = [
+        Rule::new("*", "*", "ask"),
+        Rule::new("*", "*", "allow"),
+        Rule::new("**", "*", "deny"),
+    ];
+    assert_eq!(
+        permission_object(&colliding),
+        Err("two permission keys come out as \"** *\"".to_owned())
+    );
+
+    let numbered = [Rule::new("*", "*", "ask"), Rule::new("bash", "1", "deny")];
+    assert!(
+        permission_object(&numbered).is_err(),
+        "JavaScript would move a number key first"
+    );
+    assert!(permission_object(&[Rule::new("bash", "01", "deny"), Rule::new("*", "*", "ask")]).is_ok());
+
+    let question = [Rule::new("rea?", "*", "ask"), Rule::new("rea?", "*", "allow")];
+    assert!(permission_object(&question).is_err(), "a ? key cannot repeat");
+}
+
+#[test]
+fn stored_session_rules_other_than_denies_override_a_mode() {
+    assert!(!stored_overrides(&Value::Null));
+    assert!(!stored_overrides(&json!([])));
+    assert!(!stored_overrides(
+        &json!([{ "permission": "bash", "pattern": "*", "action": "deny" }])
+    ));
+    assert!(stored_overrides(
+        &json!([{ "permission": "*", "pattern": "*", "action": "allow" }])
+    ));
+    assert!(stored_overrides(
+        &json!([{ "permission": "edit", "pattern": "*", "action": "ask" }])
+    ));
+    assert!(stored_overrides(&json!("odd")));
 }

@@ -255,15 +255,15 @@ pub(crate) async fn run_startup<T>(
     mut abort: StartAbort<'_>,
     steps: impl Future<Output = Result<T>>,
 ) -> Result<T> {
-    let until = Instant::now() + options.startup_deadline;
+    let budget = options.startup_deadline;
 
-    run_startup_until(options, until, &mut abort, steps).await
+    run_startup_until(budget, Instant::now() + budget, &mut abort, steps).await
 }
 
-/// Runs the startup `steps` until `until` (a startup in several steps shares the deadline of
-/// `options`), unless `abort` resolves first.
+/// Runs the startup `steps` until `until`, the end of a startup `budget` that several steps may
+/// share, unless `abort` resolves first.
 pub(crate) async fn run_startup_until<T>(
-    options: &SessionOptions,
+    budget: Duration,
     until: Instant,
     abort: &mut StartAbort<'_>,
     steps: impl Future<Output = Result<T>>,
@@ -274,7 +274,7 @@ pub(crate) async fn run_startup_until<T>(
         result = steps => result.unwrap_or_else(|_| {
             Err(BusinessError::Timeout(format!(
                 "the agent did not finish starting within {} s",
-                options.startup_deadline.as_secs_f64()
+                budget.as_secs_f64()
             )))
         }),
         () = abort => Err(BusinessError::Process("the session was stopped while it started".to_owned())),
