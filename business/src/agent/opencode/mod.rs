@@ -9,8 +9,9 @@
 //!   ([`Mapper`]) under the chat's lock, so prompt bookkeeping and event order never interleave.
 //! - **Actions:** prompts, steering, follow-ups and abort (`prompts.rs`, sent by `delivery.rs`),
 //!   history (`history.rs`), model, thinking level and agent pickers read from the startup
-//!   catalogs (`settings.rs`), answers to approvals and questions (`dialogs.rs`) and session
-//!   actions (`ops.rs`).
+//!   catalogs (`settings.rs`), answers to approvals and questions (`dialogs.rs`), session
+//!   actions (`ops.rs`), `!command`s and compaction (`runs.rs`), and statistics, the context
+//!   meter, the last reply and the HTML export (`reports.rs`).
 //! - **Approval modes and helper chats** (`approvals.rs`): session permission rules.
 //! - **Stop:** open dialogs close, a helper chat's session is deleted, then the server stops.
 
@@ -20,10 +21,13 @@ mod dialogs;
 mod history;
 mod ops;
 mod prompts;
+mod reports;
+mod runs;
 mod settings;
 mod startup;
 mod stream;
 
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use serde_json::Value;
@@ -35,7 +39,9 @@ use super::io::Shared;
 use super::process::AgentProcess;
 use super::sink::PromptTaken;
 use crate::error::Result;
-use crate::model::{AgentAction, AgentEvent, AgentOption, AgentReply, ModelOption, SessionState};
+use crate::model::{AgentAction, AgentEvent, AgentOption, AgentReply, ContextUsage, ModelOption, SessionState};
+use crate::opencode_server::mapper::QuietKind;
+use crate::opencode_server::stats::{ContextMark, usage};
 use crate::opencode_server::wire::{ModelRef, ProviderModel, Settings, slash_command};
 use crate::opencode_server::{Mapper, OpenCodeClient, SessionId};
 use crate::process::ExitInfo;
@@ -56,6 +62,12 @@ struct Chat {
     client: OpenCodeClient,
     /// The session's directory as OpenCode stores it (directory-scoped routes).
     directory: String,
+    /// The project, canonical.
+    project: PathBuf,
+    /// The session's directory, canonical (inside the project).
+    root: PathBuf,
+    /// Where HTML exports go (`SessionOptions::export_dir`).
+    export_dir: Option<PathBuf>,
     catalog: Catalog,
     /// The session rules the launch asked for (`approvals.rs`).
     rules: LaunchRules,
@@ -89,6 +101,17 @@ struct Live {
     commands: Vec<String>,
     /// The agent the session's permission rules were last set for.
     rules_agent: Option<String>,
+    /// What the chat knows about the context's size.
+    context: Context,
+}
+
+/// The context meter's source: the newest reply's tokens.
+#[derive(Debug, Default)]
+struct Context {
+    /// From the newest reply with output; `None` while unknown.
+    mark: Option<ContextMark>,
+    /// The session's messages were read for it (a new session has none).
+    loaded: bool,
 }
 
 /// The agent, model and variant of a turn.
@@ -168,18 +191,32 @@ impl Chat {
 
     /// The session state from `live`.
     fn state(&self, live: &Live) -> SessionState {
+        let quiet = live.mapper.quiet_kind();
+
         SessionState {
             session_id: live.session.to_string(),
             session_name: live.title.clone(),
             model: live.model.as_ref().map(|model| self.catalog.option(model)),
             thinking_level: self.thinking_level(live),
             agent: Some(live.agent.clone()),
-            is_streaming: live.mapper.is_working(),
-            is_compacting: false,
+            is_streaming: live.mapper.is_working() && quiet.is_none(),
+            is_compacting: quiet == Some(QuietKind::Compaction),
             message_count: 0,
             queued_count: 0,
-            context_usage: None,
+            context_usage: self.context_usage(live),
         }
+    }
+
+    /// The newest reply's tokens against its model's context window.
+    fn context_usage(&self, live: &Live) -> Option<ContextUsage> {
+        let Some(ContextMark::Tokens { tokens, model }) = &live.context.mark else {
+            return None;
+        };
+
+        let model = model.as_ref().or(live.model.as_ref())?;
+        let window = self.catalog.model(model).and_then(|known| known.option.context_window);
+
+        usage(*tokens, window)
     }
 
     fn thinking_level(&self, live: &Live) -> Option<String> {

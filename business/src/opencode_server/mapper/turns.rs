@@ -46,9 +46,15 @@ struct TurnError {
 }
 
 impl Mapper {
-    /// True while a turn runs, a prompt is on its way or a turn's end is being checked.
+    /// True while a turn or a quiet run runs, a prompt is on its way or a turn's end is being
+    /// checked.
     pub fn is_working(&self) -> bool {
-        self.turn.active || self.turn.prompts > 0 || self.checking
+        self.turn.active || self.turn.prompts > 0 || self.checking || self.quiet.is_some()
+    }
+
+    /// False while a quiet run lasts: steering then waits like a follow-up.
+    pub fn can_steer(&self) -> bool {
+        self.quiet.is_none()
     }
 
     /// A prompt is about to be sent.

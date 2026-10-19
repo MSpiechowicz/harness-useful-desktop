@@ -9,11 +9,15 @@
 //! - [`mapper`]: the server's events as chat events ([`Mapper`]), and the OpenCode message
 //!   conversion the CLI transcript shares.
 //! - [`modes`]: per-chat approval modes as session permission rules.
+//! - [`stats`]: session statistics, context usage and the last reply from the messages.
+//! - [`export_html`]: a chat transcript as a self-contained HTML page.
 
+pub mod export_html;
 pub mod http;
 pub mod mapper;
 pub mod modes;
 pub mod routes;
+pub mod stats;
 pub mod wire;
 
 pub use http::{ClientOptions, EventStream, HttpError, Method, OpenCodeClient, Response, ServerPassword, SseFault};

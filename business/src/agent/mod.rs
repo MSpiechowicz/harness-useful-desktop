@@ -29,6 +29,7 @@ mod sink;
 mod slots;
 mod startup;
 
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -69,6 +70,9 @@ pub struct SessionOptions {
     pub key: Generator,
     /// `startedAt` timestamps (RFC 3339 UTC by default).
     pub clock: Generator,
+    /// Where an engine that renders HTML exports itself (OpenCode) writes them; `None` is the
+    /// `exports` folder in the app's data folder, never the project.
+    pub export_dir: Option<PathBuf>,
 }
 
 impl Default for SessionOptions {
@@ -80,6 +84,7 @@ impl Default for SessionOptions {
             startup_deadline: STARTUP_DEADLINE,
             key: Arc::new(|| uuid::Uuid::new_v4().to_string()),
             clock: Arc::new(|| rfc3339(SystemTime::now())),
+            export_dir: None,
         }
     }
 }
@@ -91,6 +96,7 @@ impl std::fmt::Debug for SessionOptions {
             .field("stop_grace", &self.stop_grace)
             .field("startup_timeout", &self.startup_timeout)
             .field("startup_deadline", &self.startup_deadline)
+            .field("export_dir", &self.export_dir)
             .finish_non_exhaustive()
     }
 }

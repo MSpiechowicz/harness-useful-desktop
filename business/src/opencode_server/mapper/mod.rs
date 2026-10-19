@@ -11,10 +11,12 @@
 //! - **Turns, steering and the follow-up queue:** see [`turns`].
 //! - **Session info:** `session.updated` of the chat's session is passed on as
 //!   [`Mapped::Session`].
+//! - **Quiet runs** (`!command`s and compactions): see [`quiet`].
 
 mod asks;
 mod message;
 mod messages;
+mod quiet;
 mod touched;
 mod turns;
 
@@ -25,8 +27,10 @@ use serde_json::Value;
 
 use self::asks::Asks;
 pub use self::asks::{Answer, PERMISSION_OPTIONS, Reply, ReplyKind};
-pub(crate) use self::message::{part_type, record_messages};
+pub(crate) use self::message::{is_summary, part_type, record_messages, text, tool_outcome};
 use self::messages::Messages;
+use self::quiet::QuietRun;
+pub use self::quiet::{QuietKind, compaction_started};
 pub(crate) use self::touched::{part_touched, project_dir};
 use self::turns::Turn;
 use super::wire::{Envelope, Outgoing, SessionInfo, session_info};
@@ -68,6 +72,10 @@ pub struct Mapper {
     checked: HashSet<String>,
     /// The turn's end waits for the answer to [`Mapped::CheckStranded`].
     checking: bool,
+    /// The running quiet run.
+    quiet: Option<QuietRun>,
+    /// The generation of the last quiet run.
+    quiet_generation: u64,
     /// Steering sent and not yet taken by OpenCode.
     undelivered: HashSet<String>,
     /// [`Mapped::CheckStranded`] is due once [`Mapper::undelivered`] is empty.
@@ -89,6 +97,8 @@ impl Mapper {
             follow_ups: VecDeque::new(),
             checked: HashSet::new(),
             checking: false,
+            quiet: None,
+            quiet_generation: 0,
             undelivered: HashSet::new(),
             check_due: false,
         }
@@ -107,6 +117,10 @@ impl Mapper {
 
         if session != self.session {
             return self.subagent_event(envelope);
+        }
+
+        if let Some(hidden) = self.quiet_event(envelope) {
+            return hidden;
         }
 
         let mut out = Vec::new();

@@ -99,11 +99,6 @@ async fn startup_creates_a_session_and_emits_ready_state_and_commands_first() {
         session.send(AgentAction::Abort).await.expect("idle abort"),
         AgentReply::Ack
     );
-    assert_eq!(
-        code(session.send(AgentAction::NewSession).await),
-        IpcErrorCode::Unsupported
-    );
-    assert!(session.bash("ls").await.is_err());
 
     session.stop().await;
 }

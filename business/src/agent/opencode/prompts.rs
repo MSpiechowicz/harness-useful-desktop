@@ -5,7 +5,8 @@
 //!   joins the queue behind them.
 //! - **Working:** a steer goes to `prompt_async` at once, named by the app and with the turn's
 //!   settings, and stays listed until its reply appears; it cannot be withdrawn. A follow-up (or
-//!   a prompt without a streaming behaviour) is held and sent when the turn is over.
+//!   a prompt without a streaming behaviour) is held and sent when the turn is over. While a
+//!   `!command` or a compaction runs, steering is held like a follow-up.
 //! - Every message counts with the [`Mapper`](crate::opencode_server::Mapper) before it is sent,
 //!   and a failed send takes it back. The prompt-taken call runs on the `204` or when the turn
 //!   starts, whichever the chat sees first, always under the chat's lock, so it keeps its place
@@ -45,14 +46,14 @@ impl OpenCodeSession {
     /// A prompt: starts a turn when idle, otherwise steers or is held as `behavior` says (held
     /// without one).
     async fn prompt(&self, message: Outgoing, behavior: Option<StreamingBehavior>) -> Result<AgentReply> {
-        let working = self.chat.lock().mapper.is_working();
+        let (working, steerable) = self.activity();
 
         if !working {
             return self.start_turn(message).await;
         }
 
         match behavior {
-            Some(StreamingBehavior::Steer) => self.steer(message).await?,
+            Some(StreamingBehavior::Steer) if steerable => self.steer(message).await?,
             _ => self.hold(message),
         }
 
@@ -67,17 +68,25 @@ impl OpenCodeSession {
         behavior: StreamingBehavior,
     ) -> Result<AgentReply> {
         let message = Outgoing::new(text, images);
-        let working = self.chat.lock().mapper.is_working();
+        let (working, steerable) = self.activity();
 
         match (working, behavior) {
             (false, _) => {
                 self.start_turn(message).await?;
             }
-            (true, StreamingBehavior::Steer) => self.steer(message).await?,
-            (true, StreamingBehavior::FollowUp) => self.hold(message),
+            (true, StreamingBehavior::Steer) if steerable => self.steer(message).await?,
+            (true, _) => self.hold(message),
         }
 
         Ok(AgentReply::Ack)
+    }
+
+    /// Whether the chat is working, and whether steering can join what runs (not while a
+    /// `!command` or a compaction runs).
+    fn activity(&self) -> (bool, bool) {
+        let live = self.chat.lock();
+
+        (live.mapper.is_working(), live.mapper.can_steer())
     }
 
     /// Starts a turn with `message` (or with the held follow-ups, `message` behind them).

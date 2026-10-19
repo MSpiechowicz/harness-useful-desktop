@@ -12,7 +12,7 @@ use std::time::Duration;
 use tokio::sync::watch;
 use tokio::task::AbortHandle;
 
-use super::{Chat, Live, delivery};
+use super::{Chat, Live, delivery, reports};
 use crate::model::{AgentEvent, NoticeLevel};
 use crate::opencode_server::wire::{SessionInfo, envelope};
 use crate::opencode_server::{EventStream, Mapped};
@@ -62,6 +62,7 @@ fn take_event(chat: &Arc<Chat>, data: &str) {
     };
 
     let mut live = chat.lock();
+    reports::note_context(&mut live, &envelope);
     let mapped = live.mapper.map(&envelope);
 
     apply(chat, &mut live, mapped);

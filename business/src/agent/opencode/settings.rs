@@ -18,9 +18,7 @@ impl OpenCodeSession {
         let chat = &self.chat;
 
         match action {
-            AgentAction::GetState => Ok(AgentReply::State {
-                state: chat.state(&chat.lock()),
-            }),
+            AgentAction::GetState => self.current_state().await,
             AgentAction::GetAvailableModels => Ok(AgentReply::Models {
                 models: chat.catalog.models.iter().map(|model| model.option.clone()).collect(),
             }),

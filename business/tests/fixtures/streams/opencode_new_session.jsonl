@@ -1,0 +1,13 @@
+// New chat and rename: while a prompt is on its way the session actions are refused (no request);
+// once its turn settled, a new session in the project, the next prompt goes to it, an event of the
+// old session is not shown, and the new session is renamed. Last, a marker on the new session.
+{"include":"opencode_startup.jsonl"}
+{"expect":"POST /session/ses_eaa561636ffezINnnn1ghd5370/prompt_async","match":{"/parts/0/text":"Say hello"}}
+{"expect":"GET /session/ses_eaa561636ffezINnnn1ghd5370/message","match":{"query.limit":"256"},"reply":{"body":[]}}
+{"sse":{"type":"session.status","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","status":{"type":"busy"}}}}
+{"sse":{"type":"session.status","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","status":{"type":"idle"}}}}
+{"expect":"POST /session","reply":{"body":{"id":"ses_0new0chat0000000000000001","slug":"happy-sailor","projectID":"0c8d2a560942650d801f05588b0f2da5c16aa197","directory":"$directory","path":"","cost":0,"tokens":{"input":0,"output":0,"reasoning":0,"cache":{"read":0,"write":0}},"title":"New session - 2026-10-19T19:40:01.225Z","version":"1.19.3","time":{"created":1792438567705,"updated":1792438567705}}}}
+{"expect":"POST /session/ses_0new0chat0000000000000001/prompt_async","match":{"/parts/0/text":"Again","/agent":"build"}}
+{"sse":{"type":"message.updated","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","info":{"id":"msg_155a9ebc0001sN2nswbVTUYQaw","sessionID":"ses_eaa561636ffezINnnn1ghd5370","role":"assistant","parentID":"msg_155a9ebb4001ymgqU86K96DtpB","mode":"build","agent":"build","modelID":"m1","providerID":"mock","cost":0,"tokens":{"total":25,"input":20,"output":5,"reasoning":0,"cache":{"read":0,"write":0}},"time":{"created":2,"completed":3},"finish":"stop"}}}}
+{"expect":"PATCH /session/ses_0new0chat0000000000000001","match":{"title":"Named"},"reply":{"body":{"id":"ses_0new0chat0000000000000001","slug":"happy-sailor","projectID":"0c8d2a560942650d801f05588b0f2da5c16aa197","directory":"$directory","path":"","cost":0,"tokens":{"input":0,"output":0,"reasoning":0,"cache":{"read":0,"write":0}},"title":"Named","version":"1.19.3","time":{"created":1792438567705,"updated":1792438567705}}}}
+{"sse":{"type":"session.updated","properties":{"sessionID":"ses_0new0chat0000000000000001","info":{"id":"ses_0new0chat0000000000000001","directory":"$directory","title":"Marker","time":{"created":1,"updated":2}}}}}

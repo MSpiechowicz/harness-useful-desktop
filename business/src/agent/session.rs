@@ -338,12 +338,7 @@ impl RpcSession {
     /// explicit confirmation.
     pub async fn bash(&self, command: &str) -> Result<BashOutput> {
         self.process.ensure_running()?;
-
-        if command.trim().is_empty() || command.len() > MAX_ACTION_TEXT_BYTES {
-            return Err(BusinessError::InvalidInput(format!(
-                "command must be 1 to {MAX_ACTION_TEXT_BYTES} bytes"
-            )));
-        }
+        check_command(command)?;
 
         let id = self.next_id();
         let frame = self.dialect.encode_bash(command, &id);
@@ -366,4 +361,15 @@ impl RpcSession {
     pub async fn stop(&self) {
         self.process.stop().await;
     }
+}
+
+/// Checks a `!command` (any engine): not blank, at most [`MAX_ACTION_TEXT_BYTES`] bytes.
+pub(super) fn check_command(command: &str) -> Result<()> {
+    if command.trim().is_empty() || command.len() > MAX_ACTION_TEXT_BYTES {
+        return Err(BusinessError::InvalidInput(format!(
+            "command must be 1 to {MAX_ACTION_TEXT_BYTES} bytes"
+        )));
+    }
+
+    Ok(())
 }

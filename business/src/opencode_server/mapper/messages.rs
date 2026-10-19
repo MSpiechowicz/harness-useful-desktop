@@ -9,13 +9,16 @@
 //!   sent, so nothing repeats; a rewritten text waits for `messageEnd`.
 //! - Tool calls: `toolStart` once the call runs (its input is known then), `toolUpdate` for new
 //!   partial output, `toolEnd` once it completed or failed.
-//! - A message or call that ended is never reported again; late updates are ignored.
+//! - A message or call that ended is never reported again; late updates are ignored. So are the
+//!   messages a session already had when the chat moved to it ([`Mapper::seen`]): a fork's copies
+//!   are announced by events that may arrive after the move.
 
 use std::collections::{BTreeMap, HashSet};
 use std::path::PathBuf;
 
 use serde_json::Value;
 
+use super::Mapper;
 use super::message::{assistant_message, blank_message, part_type, text, tool_call_id, tool_outcome, user_message};
 use super::touched::part_touched;
 use crate::model::{AgentEvent, MessageRole};
@@ -356,6 +359,27 @@ impl Messages {
             is_error: true,
             result: tool_result(Some(&Value::String(UNFINISHED_TOOL.to_owned()))),
         });
+    }
+}
+
+impl Mapper {
+    /// The session already holds `records` (`{info, parts}`): later events about them are ignored.
+    pub fn seen(&mut self, records: &[Value]) {
+        let messages = &mut self.messages;
+
+        for record in records {
+            messages
+                .done
+                .extend(record.pointer("/info/id").and_then(Value::as_str).map(str::to_owned));
+
+            let parts = record.get("parts").and_then(Value::as_array).into_iter().flatten();
+
+            for part in parts.filter(|part| part_type(part) == "tool") {
+                if let Some(id) = text(part, "id") {
+                    messages.tools.entry(id).or_default().ended = true;
+                }
+            }
+        }
     }
 }
 

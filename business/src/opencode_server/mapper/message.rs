@@ -7,6 +7,8 @@
 //!   already there) and subtasks as `@agent prompt`.
 //! - An assistant message keeps text, reasoning and tool calls in order; each finished tool call
 //!   gets a tool-result message with its redacted output or error.
+//! - A compaction's summary (an assistant message marked `summary`) is a compaction-summary
+//!   message of its text.
 //! - Every other part (steps, snapshots, patches, retries, compaction markers) is skipped.
 
 use serde_json::{Value, json};
@@ -25,11 +27,35 @@ pub(crate) fn record_messages(record: &Value) -> Vec<ChatMessage> {
 
     match info.get("role").and_then(Value::as_str) {
         Some("user") => user_message(info, parts).into_iter().collect(),
+        Some("assistant") if is_summary(info) => summary_message(info, parts).into_iter().collect(),
         Some("assistant") => assistant_message(info, parts)
             .map(|(message, results)| std::iter::once(message).chain(results).collect())
             .unwrap_or_default(),
         _ => Vec::new(),
     }
+}
+
+/// True for the summary a compaction wrote (an assistant message OpenCode marks `summary`).
+pub(crate) fn is_summary(info: &Value) -> bool {
+    info.get("summary").and_then(Value::as_bool) == Some(true)
+}
+
+/// A compaction's summary as a compaction-summary message of its text; `None` without text.
+fn summary_message(info: &Value, parts: &[Value]) -> Option<ChatMessage> {
+    let blocks: Vec<ChatBlock> = parts
+        .iter()
+        .filter(|part| part_type(part) == "text")
+        .filter_map(text_block)
+        .collect();
+
+    if blocks.is_empty() {
+        return None;
+    }
+
+    let mut message = blank_message(info, MessageRole::CompactionSummary);
+    message.blocks = blocks;
+
+    Some(message)
 }
 
 /// The user message of `info` with `parts`; `None` when nothing in it is shown.

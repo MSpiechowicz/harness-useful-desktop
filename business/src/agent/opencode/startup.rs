@@ -20,7 +20,7 @@ use serde_json::{Value, json};
 use tokio::sync::oneshot;
 
 use super::approvals::{LaunchRules, patch_rules};
-use super::{Catalog, Chat, Live, OpenCodeSession, TurnSettings, stream};
+use super::{Catalog, Chat, Context, Live, OpenCodeSession, TurnSettings, stream};
 use crate::agent::engine::SessionLaunch;
 use crate::agent::io::Shared;
 use crate::agent::process::{AgentProcess, LineForwarder, MAX_STDERR_LINE, ProcessTraits, Stdout, run_startup};
@@ -54,6 +54,8 @@ struct Booted {
     agent: String,
     /// The agent the session's permission rules were set for.
     rules_agent: Option<String>,
+    /// The session was resumed (it may hold messages).
+    resumed: bool,
 }
 
 impl OpenCodeSession {
@@ -96,13 +98,22 @@ impl OpenCodeSession {
         let steps = boot(listening_rx, password, &launch.project, launch.resume, rules, limit);
 
         match run_startup(launch.options, launch.abort, steps).await {
-            Ok(booted) => Ok(Self::open(process, &launch.project, rules, booted)),
+            Ok(booted) => {
+                let export_dir = launch.options.export_dir.clone();
+                Ok(Self::open(process, &launch.project, rules, export_dir, booted))
+            }
             Err(error) => Err(process.fail_start(error).await),
         }
     }
 
-    /// Emits the first events and starts the event task.
-    fn open(process: AgentProcess, project: &Path, rules: LaunchRules, booted: Booted) -> Self {
+    /// Emits the first events and starts the event task; HTML exports go to `export_dir`.
+    fn open(
+        process: AgentProcess,
+        project: &Path,
+        rules: LaunchRules,
+        export_dir: Option<PathBuf>,
+        booted: Booted,
+    ) -> Self {
         let shared = process.shared().clone();
         let info = booted.info;
 
@@ -118,12 +129,20 @@ impl OpenCodeSession {
             turn: TurnSettings::default(),
             commands: command_names(&booted.commands),
             rules_agent: booted.rules_agent,
+            // A resumed session's newest reply is read when the state is first asked for.
+            context: Context {
+                mark: None,
+                loaded: !booted.resumed,
+            },
         };
 
         let chat = Arc::new(Chat {
             shared: shared.clone(),
             client: booted.client,
             directory: info.directory,
+            project: project.to_path_buf(),
+            root: booted.directory,
+            export_dir,
             catalog: booted.catalog,
             rules,
             live: Mutex::new(live),
@@ -210,6 +229,7 @@ async fn boot(
         rules_agent: rules_body.map(|_| agent.clone()),
         agent,
         catalog,
+        resumed: resume.is_some(),
     })
 }
 
@@ -245,7 +265,8 @@ async fn resumed(client: &OpenCodeClient, id: &str) -> Result<SessionInfo> {
     read_session(&response.error_for_status()?.json()?)
 }
 
-fn read_session(body: &Value) -> Result<SessionInfo> {
+/// The session in a reply that must hold one.
+pub(super) fn read_session(body: &Value) -> Result<SessionInfo> {
     session_info(body).ok_or_else(|| BusinessError::Protocol("OpenCode sent a session without an id".to_owned()))
 }
 
