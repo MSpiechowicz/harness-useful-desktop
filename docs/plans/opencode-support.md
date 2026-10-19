@@ -1,6 +1,8 @@
 # OpenCode support — plan and research (resumable)
 
-Status: **levels 1, 2 and 4 are implemented on `feat/opencode` (2026-10-16). Level 3 (chat over ACP) is open.**
+Status: **levels 1, 2 and 4 are implemented (2026-10-16). Level 3 (chat) is in progress over OpenCode's native
+server API, not ACP: see [opencode-native-chat.md](opencode-native-chat.md) (issue #22, decided 2026-10-19).** The ACP
+sections below are kept as research for the generic ACP engine (#27).
 Detection, the redacted config view, extensions (including the new Agents category), sessions through the CLI and the
 Recommended setup MCP entries work. Chat is gated off ("Chat coming soon"). The decisions taken are recorded in
 [Decisions taken](#decisions-taken), what research got wrong in [Corrected facts](#corrected-facts). The rest of this
@@ -18,7 +20,7 @@ current release. The implementation follows the 1.19.3 sources and replays recor
 | --- | --- | --- |
 | 1 Detection, config, gate | Done | `business/src/harnesses/opencode/{mod,paths,config,catalog}.rs`, `pi_family/jsonc.rs`, `process/resolve.rs` (`~/.opencode/bin`), `env.rs`, `security/{deny,rules}.rs` |
 | 2 Sessions | Done | `harnesses/opencode/sessions.rs`, `process/blocking.rs`, `src-tauri/src/commands/sessions.rs` |
-| 3 Chat over ACP | **Open** | Nothing yet. `capabilities.chat` is false, `launch_spec` returns `Unsupported` |
+| 3 Chat | **In progress** | Native server API (`opencode serve`), plan in [opencode-native-chat.md](opencode-native-chat.md) |
 | 4 Extensions | Done, read-only | `harnesses/opencode/extensions*.rs`; no `opencode plugin` actions (`capabilities.cliActions` is false) |
 
 Also done: Recommended setup registers the dashboard and memory MCP servers in OpenCode's global config
