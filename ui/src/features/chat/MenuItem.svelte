@@ -6,13 +6,15 @@
   interface Props {
     label: string;
     detail?: string | null;
+    /** A longer word on the row, shown as its tooltip. */
+    hint?: string | null;
     selected?: boolean;
     /** Shown but not choosable (a harness that is not installed). */
     disabled?: boolean;
     onselect: () => void;
   }
 
-  let { label, detail = null, selected = false, disabled = false, onselect }: Props = $props();
+  let { label, detail = null, hint = null, selected = false, disabled = false, onselect }: Props = $props();
 </script>
 
 <!-- A radio-style row of a picker; `data-menu-item` lets the popover drive arrow-key navigation. -->
@@ -21,6 +23,7 @@
   role="menuitemradio"
   aria-checked={selected}
   aria-disabled={disabled}
+  title={hint ?? undefined}
   data-menu-item
   class={cx(
     'flex w-full items-center gap-2.5 rounded-sm px-2.5 py-1.5 text-left text-sm transition-colors duration-[var(--dur-fast)] hover:bg-hover active:bg-press focus-visible:bg-hover focus-visible:-outline-offset-2',

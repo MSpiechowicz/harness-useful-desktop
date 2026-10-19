@@ -5,6 +5,7 @@ import type { HarnessSummary } from '../bindings/HarnessSummary';
 import { IpcFailure } from '../transport';
 import { fixtures } from './fixtures';
 import type { MockState } from './state';
+import { withOpenCodeChat } from './opencode-chat';
 import type { Handlers } from './types';
 
 type HarnessCommands =
@@ -55,7 +56,7 @@ function withoutProjectScope(view: ExtensionsView): ExtensionsView {
 }
 
 export function harnessHandlers(state: MockState): Pick<Handlers, HarnessCommands> {
-  const pristine = structuredClone(fixtures.harnesses);
+  const pristine = structuredClone(fixtures.harnesses.map(withOpenCodeChat));
   const summaries = structuredClone(pristine);
 
   function replace(id: HarnessId, next: HarnessSummary): HarnessSummary {

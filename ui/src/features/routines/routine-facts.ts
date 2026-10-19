@@ -11,6 +11,7 @@ import { formatDateTime } from '$lib/utils/format';
 
 import { spelledOut } from '../memory/script-format';
 
+import { abilitiesOf } from './routine-abilities';
 import { ACTION_LABELS, folderName, HARNESS_NAMES, SCOPE_LABELS, untilTime, whenText } from './routine-format';
 import { DEFAULT_MAX_MINUTES, DEFAULT_TIMEOUT_SECS } from './routine-form';
 import { repoName } from './routine-team';
@@ -35,17 +36,28 @@ function sourceOf(routine: Routine, approval: HookApproval): string {
   return t(byAgent ? 'routines.source.agent' : 'routines.source.you');
 }
 
+/** How an agent routine asks for approval, in the rows its harness has: an approval mode, a one-time trust of the project, or both. */
+function approvalFacts(action: Extract<RoutineAction, { type: 'agent' }>): FactRow[] {
+  const abilities = abilitiesOf(action.harness);
+  const rows: FactRow[] = [];
+
+  if (abilities.approvalMode) {
+    rows.push({ label: t('routines.field.approvalMode'), value: modeText(action.approvalMode), tone: action.approvalMode === 'yolo' ? 'warning' : undefined });
+  }
+
+  if (abilities.trustOnce) {
+    rows.push({ label: t('routines.field.trust'), value: t(action.trustOnce ? 'routines.value.trustOnce' : 'routines.value.askFirst'), tone: action.trustOnce ? 'warning' : undefined });
+  }
+
+  return rows;
+}
+
 /** What an agent routine does besides its prompt: the harness, the model, how it asks for approval and how long it may work. */
 function agentFacts(action: Extract<RoutineAction, { type: 'agent' }>): FactRow[] {
-  const approval: FactRow =
-    action.harness === 'pi'
-      ? { label: t('routines.field.trust'), value: t(action.trustOnce ? 'routines.value.trustOnce' : 'routines.value.askFirst'), tone: action.trustOnce ? 'warning' : undefined }
-      : { label: t('routines.field.approvalMode'), value: modeText(action.approvalMode), tone: action.approvalMode === 'yolo' ? 'warning' : undefined };
-
   return [
     { label: t('routines.field.harness'), value: HARNESS_NAMES[action.harness] },
     { label: t('routines.field.model'), value: action.model ? `${action.model.provider}/${action.model.id}` : t('routines.value.defaultModel'), mono: action.model !== null },
-    approval,
+    ...approvalFacts(action),
     { label: t('routines.field.maxMinutes'), value: t('routines.value.minutes', { count: action.maxMinutes ?? DEFAULT_MAX_MINUTES }) },
   ];
 }

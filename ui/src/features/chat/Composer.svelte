@@ -17,6 +17,7 @@
   import { matchesShortcut } from '$lib/utils/shortcuts';
   import { t } from '$lib/i18n/i18n.svelte';
 
+  import AgentPicker from './AgentPicker.svelte';
   import AttachmentStrip from './AttachmentStrip.svelte';
   import ComposerFooter from './ComposerFooter.svelte';
   import ComposerMode from './ComposerMode.svelte';
@@ -338,6 +339,7 @@
         <span class="@max-[560px]:hidden">{t('chat.composer.attach')}</span>
       </button>
       <HarnessPicker {session} />
+      <AgentPicker {session} />
       {#if !session.noModels}<ModelPicker {session} />{/if}
       <ThinkingPicker {session} />
 

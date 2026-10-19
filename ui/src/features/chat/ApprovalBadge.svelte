@@ -12,6 +12,7 @@
   import type { ChatSession } from '$lib/chat/session.svelte';
   import type { ApprovalMode } from '$lib/ipc/bindings/ApprovalMode';
   import { agentSessions } from '$lib/stores/agentSession.svelte';
+  import { harness } from '$lib/stores/harness.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
 
   import { activeMode, MODE_ORDER, MODES } from './approval-modes';
@@ -33,7 +34,9 @@
   const mode = $derived(activeMode(session.info.approvalOverride, session.info.configuredApprovalMode));
   const info = $derived(mode ? MODES[mode] : null);
   const source = $derived(session.info.approvalOverride ? t('chat.approval.source.session') : t('chat.approval.source.config'));
-  const modeName = $derived(info?.label ?? t('chat.approval.unknown'));
+  // A harness with approval modes that reports none of its own (OpenCode) follows its settings until a mode is chosen here.
+  const harnessName = $derived(harness.get(session.info.harness)?.info.name ?? '');
+  const modeName = $derived(info?.label ?? t('chat.approval.settings', { harness: harnessName }));
   const configured = $derived(session.info.configuredApprovalMode);
   const changed = $derived(choice !== session.info.approvalOverride);
 
@@ -56,7 +59,7 @@
 
 <Popover label={t('chat.approval.popover')} kind="dialog" bind:open={session.ui.approvalChooser} class="w-[22rem]">
   {#snippet trigger({ props })}
-    <Tooltip text={info ? t('chat.approval.tooltip', { explanation: info.explanation, source }) : t('chat.approval.unknownTooltip')} side="bottom">
+    <Tooltip text={info ? t('chat.approval.tooltip', { explanation: info.explanation, source }) : t('chat.approval.settingsTooltip', { harness: harnessName })} side="bottom">
       {#snippet children({ describedby })}
         <button type="button" {...props} aria-describedby={describedby} class="rounded-md" aria-label={t('chat.approval.aria', { mode: modeName })}>
           <Badge tone={info?.tone ?? 'neutral'} class="h-control rounded-md! px-2.5 text-sm!">
@@ -78,7 +81,7 @@
       <div class="flex flex-col gap-0.5" role="radiogroup" aria-label={t('chat.approval.group')}>
         <ApprovalOption
           label={t('chat.approval.useConfig')}
-          description={configured ? t('chat.approval.useConfig.known', { mode: MODES[configured].label }) : t('chat.approval.useConfig.unknown')}
+          description={configured ? t('chat.approval.useConfig.known', { mode: MODES[configured].label }) : t('chat.approval.useConfig.unknown', { harness: harnessName })}
           icon={SlidersHorizontal}
           tone="neutral"
           selected={choice === null}

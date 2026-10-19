@@ -6,7 +6,7 @@ import { harness } from '$lib/stores/harness.svelte';
 import { prefs } from '$lib/stores/prefs.svelte';
 
 import { chatSession } from '../../../tests/chat-helpers';
-import { samplePrefs } from '../../../tests/helpers';
+import { samplePrefs, withoutChat } from '../../../tests/helpers';
 import HarnessPicker from './HarnessPicker.svelte';
 
 beforeAll(async () => {
@@ -51,6 +51,7 @@ describe('harness picker', () => {
   });
 
   it('shows a harness without chat as coming soon and never starts a chat with it', async () => {
+    withoutChat(harness, 'opencode');
     const { session, menu } = await openPicker();
     agentSessions.sessions = [session];
     agentSessions.activeKey = session.key;

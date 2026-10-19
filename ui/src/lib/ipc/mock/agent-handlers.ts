@@ -7,6 +7,7 @@ import type { SessionState } from '../bindings/SessionState';
 import { IpcFailure, type EventSink } from '../transport';
 import { MockAgentStream } from './agent-player';
 import { fixtures } from './fixtures';
+import { baseSessionInfo, capabilitiesOf, OPENCODE_AGENTS, startState } from './opencode-chat';
 import type { MockState } from './state';
 import type { Handlers } from './types';
 
@@ -27,8 +28,8 @@ interface MockSession {
 const ACK: AgentReply = { type: 'ack' };
 
 function infoFor(request: AgentStartRequest): AgentSessionInfo {
-  const base = structuredClone(fixtures.agent.sessionInfo[request.harness]);
-  const supportsOverride = request.harness === 'omp';
+  const base = baseSessionInfo(request.harness);
+  const capabilities = capabilitiesOf(request.harness);
 
   return {
     ...base,
@@ -36,8 +37,8 @@ function infoFor(request: AgentStartRequest): AgentSessionInfo {
     harness: request.harness,
     project: request.project,
     startedAt: new Date().toISOString(),
-    approvalOverride: supportsOverride ? request.approvalOverride : null,
-    trustedOnce: request.harness === 'pi' && request.trustOnce,
+    approvalOverride: capabilities?.approvalModes ? request.approvalOverride : null,
+    trustedOnce: Boolean(capabilities?.projectTrust) && request.trustOnce,
   };
 }
 
@@ -67,6 +68,12 @@ export function agentHandlers(
     }
 
     return found;
+  }
+
+  function requireAgentPicker(target: MockSession): void {
+    if (!capabilitiesOf(target.info.harness)?.agentPicker) {
+      throw IpcFailure.from({ code: 'unsupported', message: 'This harness cannot switch agents.' });
+    }
   }
 
   /** What the user message shows: the first eligible message of a chat carries the context of the active session-start hooks, as the desktop puts it in front of the prompt. */
@@ -155,10 +162,26 @@ export function agentHandlers(
 
         return ACK;
 
-      // Like OMP and PI: the mock runs no harness with an agent picker.
-      case 'setAgent':
       case 'getAvailableAgents':
-        throw IpcFailure.from({ code: 'unsupported', message: 'This harness cannot switch agents.' });
+        requireAgentPicker(target);
+
+        return { type: 'agents', agents: structuredClone(OPENCODE_AGENTS) };
+
+      case 'setAgent': {
+        requireAgentPicker(target);
+        // The backend refuses it too: the running turn has read its rules already.
+        if (stream.streaming) {
+          throw IpcFailure.from({ code: 'invalidInput', message: 'The agent is working; switch agents once it is done.' });
+        }
+        if (!OPENCODE_AGENTS.some((option) => option.id === action.agent)) {
+          throw IpcFailure.from({ code: 'notFound', message: `There is no agent named ${action.agent}.` });
+        }
+
+        target.state = { ...target.state, agent: action.agent };
+        stream.emit({ type: 'agentChanged', agent: action.agent });
+
+        return ACK;
+      }
 
       case 'setSessionName':
         target.state = { ...target.state, sessionName: action.name };
@@ -194,8 +217,8 @@ export function agentHandlers(
     },
 
     agent_start: ({ request, onEvent }) => {
-      // Like the backend, which has no launch for OpenCode yet.
-      if (!fixtures.harnesses.find((summary) => summary.info.id === request.harness)?.capabilities.chat) {
+      // Like the backend, which refuses a harness it cannot chat with yet.
+      if (!capabilitiesOf(request.harness)?.chat) {
         throw IpcFailure.from({ code: 'unsupported', message: 'Chat with OpenCode is coming soon.' });
       }
 
@@ -206,7 +229,7 @@ export function agentHandlers(
 
       const info = infoFor(request);
       const stream = new MockAgentStream(info.key, onEvent, pace);
-      const current = structuredClone(fixtures.agent.state.state);
+      const current = startState(request.harness);
       sessions.set(info.key, { info, stream, state: current, prompted: false });
 
       // Like the real backend, the first events arrive right after the command returns.
@@ -244,7 +267,7 @@ export function agentHandlers(
 
     agent_move_project: ({ key, project }) => {
       const entry = session(key);
-      if (entry.info.harness !== 'omp') {
+      if (!capabilitiesOf(entry.info.harness)?.moveSession) {
         throw IpcFailure.from({ code: 'unsupported', message: 'This harness cannot move a session to another project.' });
       }
       if (entry.stream.streaming) {

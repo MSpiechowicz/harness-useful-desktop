@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { IpcFailure, type Transport } from '$lib/ipc/transport';
 
 import { PROJECT, storeWithMock } from '../../../tests/chat-helpers';
+import { withoutChat } from '../../../tests/helpers';
 import { AgentSessionsStore } from './agentSession.svelte';
 import { nav } from './nav.svelte';
 import { restoreWorkspace, saveWorkspace } from './workspace.svelte';
@@ -175,6 +176,8 @@ describe('workspace restore of a harness without chat', () => {
     vi.resetModules();
     const { harness } = await import('./harness.svelte');
     await harness.load();
+    // OpenCode stands in for a harness the app cannot chat with.
+    withoutChat(harness, 'opencode');
     const { restoreWorkspace: restore } = await import('./workspace.svelte');
     const { store, of } = storeWithMock();
 

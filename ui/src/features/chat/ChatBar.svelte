@@ -7,12 +7,14 @@
 
   import RoutineChip from '../routines/RoutineChip.svelte';
   import ChatControls from './ChatControls.svelte';
+  import PreviewBadge from './PreviewBadge.svelte';
 
   const session = $derived(agentSessions.active);
   // The open chat names the page; with the rail collapsed it is the only place its name shows.
   const heading = $derived(agentSessions.activeKey ? agentSessions.title(agentSessions.activeKey) : t('chat.title'));
   const runnerId = $derived(session?.info.harness ?? agentSessions.activeStarting?.harness ?? null);
-  const runner = $derived(runnerId ? harness.get(runnerId)?.info : undefined);
+  const runnerSummary = $derived(runnerId ? harness.get(runnerId) : undefined);
+  const runner = $derived(runnerSummary?.info);
 </script>
 
 <!-- Chat's header, rendered into the shell's top bar like every view's: the harness running the open chat, its name, and
@@ -29,4 +31,5 @@
 
 {#snippet badge()}
   {#if runner}<HarnessBadge info={runner} size="bar" />{/if}
+  {#if runner && runnerSummary?.capabilities.chatPreview}<PreviewBadge name={runner.name} />{/if}
 {/snippet}

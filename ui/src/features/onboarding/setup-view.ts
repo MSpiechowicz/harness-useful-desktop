@@ -12,7 +12,7 @@ export function badgeOf(id: HarnessId): { id: HarnessId; shortName: string } {
   return harness.get(id)?.info ?? { id, shortName: id.toUpperCase() };
 }
 
-/** Names in a sentence ("Oh My Pi and Pi"), joined the way the language does it. */
-export function joinNames(names: string[]): string {
-  return new Intl.ListFormat(i18n.locale, { style: 'long', type: 'conjunction' }).format(names);
+/** Names in a sentence ("Oh My Pi and Pi", or "Oh My Pi or Pi" for a choice), joined the way the language does it. */
+export function joinNames(names: string[], type: 'conjunction' | 'disjunction' = 'conjunction'): string {
+  return new Intl.ListFormat(i18n.locale, { style: 'long', type }).format(names);
 }

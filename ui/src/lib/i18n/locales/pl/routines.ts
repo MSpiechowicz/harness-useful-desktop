@@ -298,7 +298,7 @@ export const routines: AreaMessages<typeof enRoutines> = {
   'routines.editor.model.both': 'Wypełnij dostawcę i id modelu albo żadne z nich.',
   'routines.editor.model.long': 'Każda część ma najwyżej {max} znaków.',
   'routines.editor.trustOnce': 'Zaufaj projektowi jednorazowo',
-  'routines.editor.trustOnce.hint': 'Pozwala PI użyć lokalnych zasobów projektu w tym uruchomieniu bez pytania.',
+  'routines.editor.trustOnce.hint': 'Pozwala {harness} użyć lokalnych zasobów projektu w tym uruchomieniu bez pytania.',
   'routines.editor.unattended': 'Nikogo nie ma, by odmówić, gdy agent użyje narzędzia. Wybieraj to tylko dla pracy, której ufasz.',
   'routines.editor.maxMinutes.label': 'Zatrzymaj po (minuty)',
   'routines.editor.maxMinutes.hint': 'Uruchomienie jest zatrzymywane po tym czasie. Puste oznacza {default} minut, maksimum to {max}.',

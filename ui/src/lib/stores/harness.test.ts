@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { fakeTransport, samplePrefs } from '../../../tests/helpers';
+import { fakeTransport, samplePrefs, withoutChat } from '../../../tests/helpers';
 import { createMockTransport } from '../ipc/mock/transport';
 import { defaultScenario } from '../ipc/mock/scenarios';
 
@@ -19,6 +19,8 @@ async function setup(prefsOverride: Parameters<typeof samplePrefs>[0] = {}) {
 
   const store = new HarnessStore(transport, prefs, toasts);
   await store.load();
+  // OpenCode stands in for a harness the app cannot chat with.
+  withoutChat(store, 'opencode');
 
   return { store, prefs, toasts };
 }

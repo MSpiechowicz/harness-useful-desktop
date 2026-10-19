@@ -8,6 +8,7 @@ import { HARNESS_SETUP_POLL_MS } from '$lib/stores/live';
 import { prefs } from '$lib/stores/prefs.svelte';
 import { project } from '$lib/stores/project.svelte';
 
+import { withoutChat } from '../../../tests/helpers';
 import { intro } from '../intro/intro-state.svelte';
 import Onboarding from './Onboarding.svelte';
 import { onboarding } from './onboarding-state.svelte';
@@ -24,7 +25,12 @@ beforeAll(async () => {
 });
 
 // The notices seen are remembered in the webview's storage: a test must not inherit the previous one's.
-beforeEach(() => localStorage.clear());
+// OpenCode stands in for a harness the app cannot chat with, unless a test says it can.
+beforeEach(async () => {
+  localStorage.clear();
+  await harness.load();
+  withoutChat(harness, 'opencode');
+});
 
 const click = (name: string | RegExp) => fireEvent.click(screen.getByRole('button', { name }));
 
@@ -143,6 +149,19 @@ describe('Onboarding', () => {
     expect(card).toHaveTextContent('Installed');
     expect(card).toHaveTextContent('Coming soon');
     expect(screen.getByRole('article', { name: 'Oh My Pi' })).not.toHaveTextContent('Coming soon');
+  });
+
+  it('offers OpenCode as a daily driver without a coming-soon label when it can chat', async () => {
+    await harness.load();
+    onboarding.restart('harnesses');
+    render(Onboarding);
+
+    await next('Which agent do you use every day?');
+    const card = await screen.findByRole('article', { name: 'OpenCode' });
+
+    expect(card).toHaveTextContent('Installed');
+    expect(card).not.toHaveTextContent('Coming soon');
+    expect(screen.getByRole('radio', { name: 'Use OpenCode as daily driver' })).not.toHaveAttribute('aria-disabled', 'true');
   });
 
   it('explains the OpenCode permission default once, when OpenCode is the daily driver', async () => {

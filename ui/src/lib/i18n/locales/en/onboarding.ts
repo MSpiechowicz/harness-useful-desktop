@@ -130,7 +130,7 @@ export const onboarding = {
   'onboarding.approval.oc.respects.before': 'Harness Desktop respects the setting you configured (',
   'onboarding.approval.oc.respects.after': ' in opencode.json) and never changes it behind your back.',
   'onboarding.approval.oc.guarded': 'Tools you do not list run without asking, apart from a few that OpenCode guards by default, such as reading .env files.',
-  'onboarding.approval.oc.stricter': 'To be asked first, set a tool to “ask” in the permission setting, for example “bash”. Harness Desktop never touches that setting.',
+  'onboarding.approval.oc.stricter': 'You can pick a stricter mode for a single chat from the chat header. To be asked in every chat, set a tool to “ask” in the permission setting, for example “bash”. Harness Desktop never touches that setting.',
 
   'onboarding.family.eyebrow': 'The Harness family',
   'onboarding.family.title': 'Meet the Harness family',

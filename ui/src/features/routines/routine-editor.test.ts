@@ -151,6 +151,34 @@ describe('The New routine dialog', () => {
     harness.summaries = installed;
   });
 
+  it('authors an OpenCode routine with an approval mode and without the project trust, since OpenCode has the one and not the other', async () => {
+    const { invoke } = fakeRoutines();
+    const dialog = await openEditor();
+
+    await fireEvent.input(within(dialog).getByLabelText('Name'), { target: { value: 'On OpenCode' } });
+    await fireEvent.input(within(dialog).getByLabelText('Prompt'), { target: { value: 'Tidy up.' } });
+    await fireEvent.click(within(dialog).getByRole('radio', { name: 'OpenCode' }));
+
+    await choose(dialog, 'Approval mode', /^Write/);
+    expect(within(dialog).queryByRole('switch', { name: 'Trust the project once' })).not.toBeInTheDocument();
+
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Add routine' }));
+
+    await waitFor(() => expect(calls(invoke, 'routine_save')).toHaveLength(1));
+    expect(calls(invoke, 'routine_save')[0]).toMatchObject({ draft: { action: { harness: 'opencode', approvalMode: 'write', trustOnce: false } } });
+  });
+
+  it('offers only the harnesses that can chat', async () => {
+    fakeRoutines();
+    const listed = harness.summaries;
+    harness.summaries = listed.map((summary) => (summary.info.id === 'opencode' ? { ...summary, capabilities: { ...summary.capabilities, chat: false } } : summary));
+    const dialog = await openEditor();
+
+    expect(within(dialog).getByRole('radio', { name: 'OMP' })).toBeInTheDocument();
+    expect(within(dialog).queryByRole('radio', { name: 'OpenCode' })).not.toBeInTheDocument();
+    harness.summaries = listed;
+  });
+
   it('sends the model only when both parts are given', async () => {
     const { invoke } = fakeRoutines();
     const dialog = await openEditor();

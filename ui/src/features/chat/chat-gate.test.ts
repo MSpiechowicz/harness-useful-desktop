@@ -11,7 +11,7 @@ import { sessionList } from '$lib/stores/sessions.svelte';
 import { toasts } from '$lib/stores/toasts.svelte';
 
 import { freshBackend, type Backend } from '../../../tests/ecosystem-backend';
-import { samplePrefs } from '../../../tests/helpers';
+import { samplePrefs, withoutChat } from '../../../tests/helpers';
 import { newChat, resumeLastSession, switchProject } from '../shell/actions';
 import ChatView from './ChatView.svelte';
 
@@ -29,6 +29,8 @@ beforeEach(async () => {
   toasts.items = [];
 
   await harness.load();
+  // OpenCode stands in for a harness the app cannot chat with.
+  withoutChat(harness, 'opencode');
   await project.pick();
 });
 
@@ -38,6 +40,24 @@ afterEach(() => {
   agentSessions.activeKey = null;
   localStorage.clear();
   nav.go('chat');
+});
+
+describe('chat on a machine with no harness', () => {
+  beforeEach(() => installOnly());
+
+  it('names the harnesses it can chat with, as the harness list says', async () => {
+    render(ChatView);
+
+    expect(await screen.findByText('Chat needs Oh My Pi or Pi. Install one, then set it up in Settings.')).toBeInTheDocument();
+  });
+
+  it('names a harness as soon as its chat is on', async () => {
+    await harness.load();
+    installOnly();
+    render(ChatView);
+
+    expect(await screen.findByText('Chat needs Oh My Pi, Pi, or OpenCode. Install one, then set it up in Settings.')).toBeInTheDocument();
+  });
 });
 
 describe('chat on a machine with OpenCode only', () => {

@@ -1,6 +1,7 @@
 import { t } from '$lib/i18n/i18n.svelte';
 import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
 import type { AgentAction } from '$lib/ipc/bindings/AgentAction';
+import type { AgentOption } from '$lib/ipc/bindings/AgentOption';
 import type { AgentEnvelope } from '$lib/ipc/bindings/AgentEnvelope';
 import type { AgentReply } from '$lib/ipc/bindings/AgentReply';
 import type { AgentSessionInfo } from '$lib/ipc/bindings/AgentSessionInfo';
@@ -10,6 +11,7 @@ import type { SessionRoutineTag } from '$lib/ipc/bindings/SessionRoutineTag';
 import type { SessionStats } from '$lib/ipc/bindings/SessionStats';
 import type { UiOutcome } from '$lib/ipc/bindings/UiOutcome';
 import { IpcFailure, type Transport } from '$lib/ipc/transport';
+import { harness } from '$lib/stores/harness.svelte';
 import type { ToastsStore } from '$lib/stores/toasts.svelte';
 import { Flight } from '$lib/utils/flight';
 
@@ -34,6 +36,7 @@ const FLUSH_FALLBACK_MS = 100;
 export interface SessionUi {
   modelPicker: boolean;
   thinkingPicker: boolean;
+  agentPicker: boolean;
   stats: boolean;
   approvalChooser: boolean;
   /** A line of text the user is being asked for (compact instructions, a session name). */
@@ -58,13 +61,14 @@ export class ChatSession {
   sentImages = $state.raw<Record<string, string[]>>({});
   models = $state.raw<ModelOption[] | null>(null);
   thinkingLevels = $state.raw<string[] | null>(null);
+  agents = $state.raw<AgentOption[] | null>(null);
   stats = $state.raw<SessionStats | null>(null);
   catalog = $state.raw<CommandSpec[]>([]);
   /** Counts finished tool runs: each may have changed files, so git state and the saved session go stale. */
   toolRuns = $state(0);
   /** Counts finished turns, as a number that only changes when a turn ends. */
   settledCount = $derived(this.chat.settledCount);
-  ui = $state<SessionUi>({ modelPicker: false, thinkingPicker: false, stats: false, approvalChooser: false, ask: null, confirmBash: null });
+  ui = $state<SessionUi>({ modelPicker: false, thinkingPicker: false, agentPicker: false, stats: false, approvalChooser: false, ask: null, confirmBash: null });
 
   approval = $derived<ApprovalPrompt | null>(pendingApproval(this.chat));
   dialog = $derived(pendingDialog(this.chat));
@@ -294,6 +298,11 @@ export class ChatSession {
    * the list. False when it did not leave the queue (already handed to the agent, or refused).
    */
   async removeQueued(message: string, queue: 'steer' | 'followUp'): Promise<boolean> {
+    // A harness that cannot withdraw a message would answer with an error toast for a button the UI never shows.
+    if (!harness.get(this.info.harness)?.capabilities.removeQueued) {
+      return false;
+    }
+
     const reply = await this.send({ type: 'removeQueued', message, queue });
     if (reply?.type !== 'queueRemoval') {
       return false;
@@ -389,6 +398,17 @@ export class ChatSession {
     }
   }
 
+  async loadAgents(): Promise<void> {
+    if (this.agents !== null) {
+      return;
+    }
+
+    const reply = await this.send({ type: 'getAvailableAgents' });
+    if (reply?.type === 'agents') {
+      this.agents = reply.agents;
+    }
+  }
+
   async loadStats(): Promise<void> {
     const reply = await this.send({ type: 'getSessionStats' });
     if (reply?.type === 'stats') {
@@ -407,6 +427,18 @@ export class ChatSession {
     const reply = await this.send({ type: 'setThinkingLevel', level });
     if (reply) {
       this.apply((state) => applyEvent(state, { type: 'thinkingChanged', level }));
+    }
+  }
+
+  /** Switches the chat's agent. The harness refuses it while a turn runs, so the picker is shut then and this does nothing. */
+  async chooseAgent(agent: AgentOption): Promise<void> {
+    if (this.streaming) {
+      return;
+    }
+
+    const reply = await this.send({ type: 'setAgent', agent: agent.id });
+    if (reply) {
+      this.apply((state) => applyEvent(state, { type: 'agentChanged', agent: agent.id }));
     }
   }
 

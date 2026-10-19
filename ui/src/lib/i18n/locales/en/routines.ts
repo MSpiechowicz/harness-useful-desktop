@@ -277,7 +277,7 @@ export const routines = {
   'routines.editor.model.both': 'Fill in both the provider and the model id, or neither.',
   'routines.editor.model.long': 'Each part is at most {max} characters.',
   'routines.editor.trustOnce': 'Trust the project once',
-  'routines.editor.trustOnce.hint': 'Lets PI use the project\'s local resources for this run without asking.',
+  'routines.editor.trustOnce.hint': 'Lets {harness} use the project\'s local resources for this run without asking.',
   'routines.editor.unattended': 'Nobody is there to say no when the agent uses a tool. Choose this only for work you trust.',
   'routines.editor.maxMinutes.label': 'Stop after (minutes)',
   'routines.editor.maxMinutes.hint': 'The run is stopped after this long. Empty means {default} minutes, the most is {max}.',

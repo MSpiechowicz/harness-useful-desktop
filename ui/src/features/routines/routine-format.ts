@@ -86,9 +86,6 @@ export const SCOPE_ICONS: Record<HookScope, IconComponent> = { global: Globe, pr
 /** What a harness is called on screen. These are product names and stay the same in every language. */
 export const HARNESS_NAMES: Record<HarnessId, string> = { omp: 'OMP', pi: 'PI', opencode: 'OpenCode' };
 
-/** The harnesses a routine can start a chat with (OpenCode has no chat yet). */
-export const ROUTINE_HARNESSES: readonly HarnessId[] = ['omp', 'pi'];
-
 export const STATUS_LABELS: Record<RoutineStatus, MessageKey> = {
   active: 'routines.status.active',
   running: 'routines.status.running',

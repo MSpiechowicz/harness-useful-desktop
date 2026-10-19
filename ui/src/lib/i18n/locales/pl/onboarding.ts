@@ -137,7 +137,7 @@ export const onboarding: AreaMessages<typeof enOnboarding> = {
   'onboarding.approval.oc.respects.before': 'Harness Desktop respektuje skonfigurowane przez ciebie ustawienie (',
   'onboarding.approval.oc.respects.after': ' w opencode.json) i nigdy nie zmienia go za twoimi plecami.',
   'onboarding.approval.oc.guarded': 'Narzędzia, których nie wymienisz, działają bez pytania. Wyjątkiem jest kilka rzeczy, które OpenCode domyślnie chroni, na przykład czytanie plików .env.',
-  'onboarding.approval.oc.stricter': 'Aby najpierw zapytał, ustaw narzędzie na „ask” w ustawieniu uprawnień, na przykład „bash”. Harness Desktop nigdy nie rusza tego ustawienia.',
+  'onboarding.approval.oc.stricter': 'Możesz wybrać surowszy tryb dla jednego czatu w nagłówku czatu. Aby pytał w każdym czacie, ustaw narzędzie na „ask” w ustawieniu uprawnień, na przykład „bash”. Harness Desktop nigdy nie rusza tego ustawienia.',
 
   'onboarding.family.eyebrow': 'Rodzina Harness',
   'onboarding.family.title': 'Poznaj rodzinę Harness',

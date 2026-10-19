@@ -1,8 +1,20 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { Routine } from '$lib/ipc/bindings/Routine';
+import { fixtures } from '$lib/ipc/mock/fixtures';
+import { withOpenCodeChat } from '$lib/ipc/mock/opencode-chat';
+import { harness } from '$lib/stores/harness.svelte';
 
 import { blankForm, draftOf, formOf, hasHiddenCharacters, problemsOf, type RoutineForm, runsUnattended, toggleDraft, whenOf, withHarness, withScope } from './routine-form';
+
+// The harness list says what each harness lets a routine ask for.
+beforeEach(() => {
+  harness.summaries = fixtures.harnesses.map(withOpenCodeChat);
+});
+
+afterEach(() => {
+  harness.summaries = [];
+});
 
 const CONTEXT = { projectOpen: true, scopeFull: false };
 
@@ -76,10 +88,33 @@ describe('the draft', () => {
     expect(draftOf(complete({ scope: 'project' }), null, '/work/app').project).toBe('/work/app');
   });
 
-  it('sends a model only when both its parts are there, and an approval mode only with OMP', () => {
+  it('sends a model only when both its parts are there, and an approval mode or a trust only to the harness that has it', () => {
     expect(draftOf(complete({ provider: 'a', modelId: 'b' }), null, null).action).toMatchObject({ model: { provider: 'a', id: 'b' } });
     expect(draftOf(withHarness(complete({ approvalMode: 'yolo', trustOnce: true }), 'pi'), null, null).action).toMatchObject({ harness: 'pi', approvalMode: null, trustOnce: true });
     expect(draftOf(withHarness(complete({ harness: 'pi', trustOnce: true }), 'omp'), null, null).action).toMatchObject({ harness: 'omp', approvalMode: null, trustOnce: false });
+  });
+
+  it('sends an approval mode for every harness that has approval modes and a one-time trust only for one with project trust', () => {
+    const opencode = withHarness(complete({ approvalMode: 'write', trustOnce: true }), 'opencode');
+
+    expect(draftOf(opencode, null, null).action).toMatchObject({ harness: 'opencode', approvalMode: 'write', trustOnce: false });
+    expect(runsUnattended({ ...opencode, approvalMode: 'yolo' })).toBe(true);
+    expect(runsUnattended({ ...opencode, approvalMode: 'write' })).toBe(false);
+  });
+
+  it('follows the capabilities the harness list reports and not the name of the harness', () => {
+    harness.summaries = fixtures.harnesses.map((summary) =>
+      summary.info.id === 'omp' ? { ...summary, capabilities: { ...summary.capabilities, approvalModes: false, projectTrust: true } } : summary,
+    );
+
+    expect(draftOf(complete({ approvalMode: 'yolo', trustOnce: true }), null, null).action).toMatchObject({ harness: 'omp', approvalMode: null, trustOnce: true });
+    expect(runsUnattended(complete({ approvalMode: null, trustOnce: true }))).toBe(true);
+  });
+
+  it('keeps what a routine holds for a harness the list does not know yet, so nothing is lost on a save', () => {
+    harness.summaries = [];
+
+    expect(draftOf(complete({ approvalMode: 'write' }), null, null).action).toMatchObject({ approvalMode: 'write' });
   });
 
   it('turns a global routine\'s repository script into a global one, since it has no repository', () => {

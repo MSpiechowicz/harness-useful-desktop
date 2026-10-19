@@ -2,6 +2,7 @@ import { diffFields, type DocChange } from '$lib/components/docs/doc-diff';
 import { t } from '$lib/i18n/i18n.svelte';
 import type { Routine } from '$lib/ipc/bindings/Routine';
 
+import { abilitiesOf } from './routine-abilities';
 import { modeText } from './routine-facts';
 import { ACTION_LABELS, actionText, HARNESS_NAMES, SCOPE_LABELS, whenText } from './routine-format';
 import { DEFAULT_MAX_MINUTES, DEFAULT_TIMEOUT_SECS } from './routine-form';
@@ -34,11 +35,18 @@ function approvalValue(routine: Routine): string | null {
     return null;
   }
 
-  if (action.harness === 'pi') {
-    return t(action.trustOnce ? 'routines.value.trustOnce' : 'routines.value.askFirst');
+  const abilities = abilitiesOf(action.harness);
+  const ways: string[] = [];
+
+  if (abilities.approvalMode) {
+    ways.push(modeText(action.approvalMode));
   }
 
-  return modeText(action.approvalMode);
+  if (abilities.trustOnce) {
+    ways.push(t(action.trustOnce ? 'routines.value.trustOnce' : 'routines.value.askFirst'));
+  }
+
+  return ways.length === 0 ? null : ways.join(', ');
 }
 
 /** The values of a routine as the review shows them: written for a reader, except the parts that are text, code or a path. The empty ones are null. */

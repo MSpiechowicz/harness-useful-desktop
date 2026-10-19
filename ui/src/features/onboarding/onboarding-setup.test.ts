@@ -7,6 +7,7 @@ import { prefs } from '$lib/stores/prefs.svelte';
 import { project } from '$lib/stores/project.svelte';
 
 import { freshBackend, type Backend } from '../../../tests/ecosystem-backend';
+import { withoutChat } from '../../../tests/helpers';
 import { intro } from '../intro/intro-state.svelte';
 import Onboarding from './Onboarding.svelte';
 import { onboarding } from './onboarding-state.svelte';
@@ -24,6 +25,8 @@ beforeEach(async () => {
   // happy-dom has no real Web Animations; with motion off every Svelte transition is zero-length.
   await prefs.update({ motion: 'off' });
   await Promise.all([harness.load(), project.load()]);
+  // OpenCode stands in for a harness the app cannot chat with.
+  withoutChat(harness, 'opencode');
   intro.skip();
 });
 

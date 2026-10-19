@@ -133,7 +133,7 @@ export const onboarding: AreaMessages<typeof enOnboarding> = {
   'onboarding.approval.oc.respects.before': 'Harness Desktop respeta el ajuste que configuraste (',
   'onboarding.approval.oc.respects.after': ' en opencode.json) y nunca lo cambia a tus espaldas.',
   'onboarding.approval.oc.guarded': 'Las herramientas que no enumeras se ejecutan sin preguntar, salvo unas pocas que OpenCode protege por defecto, como leer archivos .env.',
-  'onboarding.approval.oc.stricter': 'Para que te pregunte antes, pon una herramienta en «ask» en el ajuste de permisos, por ejemplo «bash». Harness Desktop nunca toca ese ajuste.',
+  'onboarding.approval.oc.stricter': 'Puedes elegir un modo más estricto para un solo chat desde la cabecera del chat. Para que te pregunte en todos los chats, pon una herramienta en «ask» en el ajuste de permisos, por ejemplo «bash». Harness Desktop nunca toca ese ajuste.',
 
   'onboarding.family.eyebrow': 'La familia Harness',
   'onboarding.family.title': 'Conoce la familia Harness',

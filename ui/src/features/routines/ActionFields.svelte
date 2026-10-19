@@ -15,7 +15,8 @@
   import { uid } from '$lib/utils/ids';
 
   import { DEFAULT_MAX_MINUTES, DEFAULT_TIMEOUT_SECS, type FieldKey, LIMITS, length, type Problem, type RoutineForm, runsUnattended, withHarness } from './routine-form';
-  import { ACTION_ICONS, ACTION_KINDS, ACTION_LABELS, type ActionKind, HARNESS_NAMES, ROUTINE_HARNESSES } from './routine-format';
+  import { abilitiesOf, routineHarnesses } from './routine-abilities';
+  import { ACTION_ICONS, ACTION_KINDS, ACTION_LABELS, type ActionKind, HARNESS_NAMES } from './routine-format';
   import ScriptPicker from './ScriptPicker.svelte';
   import UnattendedChip from './UnattendedChip.svelte';
 
@@ -31,7 +32,7 @@
 
   const ids = { kind: uid('routine-kind'), prompt: uid('routine-prompt'), harness: uid('routine-harness'), model: uid('routine-model'), modelId: uid('routine-model-id'), mode: uid('routine-mode'), max: uid('routine-max'), command: uid('routine-command'), timeout: uid('routine-timeout') };
 
-  /** The approval modes an OMP routine can ask for; `harness` leaves the choice to the harness's own setting. */
+  /** The approval modes a routine can ask for; `harness` leaves the choice to the harness's own setting. */
   const MODES: readonly (ApprovalMode | 'harness')[] = ['harness', 'alwaysAsk', 'write', 'yolo'];
   const MODE_KEYS = {
     harness: ['routines.mode.harness', 'routines.mode.harness.hint'],
@@ -43,8 +44,9 @@
   const kinds = $derived<StripOption<ActionKind>[]>(ACTION_KINDS.map((kind) => ({ value: kind, label: t(ACTION_LABELS[kind]), icon: ACTION_ICONS[kind] })));
   // A harness that is not installed here cannot start a chat, unless the routine already names it.
   const harnessOptions = $derived<StripOption<HarnessId>[]>(
-    ROUTINE_HARNESSES.map((id) => ({ value: id, label: HARNESS_NAMES[id], disabled: id !== form.harness && harnesses.get(id)?.detection.installed === false })),
+    routineHarnesses(form.harness).map((id) => ({ value: id, label: HARNESS_NAMES[id], disabled: id !== form.harness && harnesses.get(id)?.detection.installed === false })),
   );
+  const abilities = $derived(abilitiesOf(form.harness));
   const modes = $derived(MODES.map((mode) => ({ value: mode, label: t(MODE_KEYS[mode][0]), hint: t(MODE_KEYS[mode][1]) })));
 
   const prompt = $derived(problemOf('prompt'));
@@ -97,16 +99,17 @@
   <!-- What the harness lets a run do unattended: one slot, so a switch of harness swaps it in place instead of sliding one out and another in. -->
   <div class="grid">
     {#key form.harness}
-      <div in:fade={{ duration: scaled(150), delay: scaled(60) }} out:fade={{ duration: scaled(90) }} class="[grid-area:1/1]">
-        {#if form.harness === 'omp'}
+      <div in:fade={{ duration: scaled(150), delay: scaled(60) }} out:fade={{ duration: scaled(90) }} class="flex flex-col gap-4 [grid-area:1/1]">
+        {#if abilities.approvalMode}
           <DocField label={t('routines.field.approvalMode')} labelId={ids.mode}>
             <DocSelect label={t('routines.field.approvalMode')} options={modes} value={form.approvalMode ?? 'harness'} labelledby={ids.mode} onchange={(mode) => (form.approvalMode = mode === 'harness' ? null : mode)} />
           </DocField>
-        {:else}
+        {/if}
+        {#if abilities.trustOnce}
           <div class="flex items-center justify-between gap-4">
             <div class="flex min-w-0 flex-col gap-0.5">
               <span class="text-sm text-fg-2">{t('routines.editor.trustOnce')}</span>
-              <span class="text-xs text-fg-3">{t('routines.editor.trustOnce.hint')}</span>
+              <span class="text-xs text-fg-3">{t('routines.editor.trustOnce.hint', { harness: HARNESS_NAMES[form.harness] })}</span>
             </div>
             <Switch label={t('routines.editor.trustOnce')} bind:checked={form.trustOnce} />
           </div>

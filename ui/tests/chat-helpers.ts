@@ -1,6 +1,7 @@
 import { ChatSession } from '$lib/chat/session.svelte';
 import type { AgentEvent } from '$lib/ipc/bindings/AgentEvent';
 import type { AgentSessionInfo } from '$lib/ipc/bindings/AgentSessionInfo';
+import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
 import type { CommandArgs, CommandName } from '$lib/ipc/commands';
 import { fixtures } from '$lib/ipc/mock/fixtures';
 import { defaultScenario } from '$lib/ipc/mock/scenarios';
@@ -62,7 +63,7 @@ export function storeWithMock() {
 export const STREAMING: AgentEvent[] = [{ type: 'ready', protocolVersion: 1 }, { type: 'agentStart' }];
 
 /** A session started on the mock backend, so requests that need a live agent (bash, restart) work. */
-export async function startedSession(harness: 'omp' | 'pi' = 'omp') {
+export async function startedSession(harness: HarnessId = 'omp') {
   const backend = storeWithMock();
   const session = await backend.store.create(harness, PROJECT);
   if (!session) {

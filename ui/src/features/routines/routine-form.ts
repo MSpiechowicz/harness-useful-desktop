@@ -12,6 +12,7 @@ import type { ScriptScope } from '$lib/ipc/bindings/ScriptScope';
 
 import { revealHidden } from '../memory/script-format';
 
+import { abilitiesOf } from './routine-abilities';
 import type { ActionKind } from './routine-format';
 
 /** The limits of the routine format (`docs/routines-format.md`). */
@@ -155,7 +156,9 @@ function actionFields(action: RoutineAction): Partial<RoutineForm> {
 
 /** Moves the routine to another harness. What only the other one has (an approval mode, a one-time trust) is dropped. */
 export function withHarness(form: RoutineForm, harness: HarnessId): RoutineForm {
-  return { ...form, harness, approvalMode: harness === 'omp' ? form.approvalMode : null, trustOnce: harness === 'pi' ? form.trustOnce : false };
+  const abilities = abilitiesOf(harness);
+
+  return { ...form, harness, approvalMode: abilities.approvalMode ? form.approvalMode : null, trustOnce: abilities.trustOnce ? form.trustOnce : false };
 }
 
 /** Moves the routine to another scope. A global routine has no repository to look a script up in. */
@@ -341,7 +344,13 @@ function scriptProblems(form: RoutineForm): Problem[] {
 
 /** Whether the routine would run tools without asking: the agent is set to "yolo" or trusts the project's resources. */
 export function runsUnattended(form: Pick<RoutineForm, 'kind' | 'harness' | 'approvalMode' | 'trustOnce'>): boolean {
-  return form.kind === 'agent' && (form.harness === 'omp' ? form.approvalMode === 'yolo' : form.trustOnce);
+  if (form.kind !== 'agent') {
+    return false;
+  }
+
+  const abilities = abilitiesOf(form.harness);
+
+  return (abilities.approvalMode && form.approvalMode === 'yolo') || (abilities.trustOnce && form.trustOnce);
 }
 
 function actionOf(form: RoutineForm): RoutineAction {
@@ -358,14 +367,15 @@ function actionOf(form: RoutineForm): RoutineAction {
   const provider = form.provider.trim();
   const id = form.modelId.trim();
   const maxMinutes = form.maxMinutes.trim();
+  const abilities = abilitiesOf(form.harness);
 
   return {
     type: 'agent',
     harness: form.harness,
     model: provider === '' ? null : { provider, id },
     prompt: form.prompt.trim(),
-    approvalMode: form.harness === 'omp' ? form.approvalMode : null,
-    trustOnce: form.harness === 'pi' && form.trustOnce,
+    approvalMode: abilities.approvalMode ? form.approvalMode : null,
+    trustOnce: abilities.trustOnce && form.trustOnce,
     maxMinutes: maxMinutes === '' ? null : Number(maxMinutes),
   };
 }

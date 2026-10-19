@@ -1,10 +1,18 @@
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 
 import type { Routine } from '$lib/ipc/bindings/Routine';
 import type { RoutineView } from '$lib/ipc/bindings/RoutineView';
+import { fixtures } from '$lib/ipc/mock/fixtures';
+import { withOpenCodeChat } from '$lib/ipc/mock/opencode-chat';
+import { harness } from '$lib/stores/harness.svelte';
 
 import { changesOf } from './routine-diff';
 import { routineFacts } from './routine-facts';
+
+// The harness list says which harness asks for approval how.
+beforeAll(() => {
+  harness.summaries = fixtures.harnesses.map(withOpenCodeChat);
+});
 
 const BASE: Routine = {
   id: 'a'.repeat(32),
@@ -104,6 +112,15 @@ describe('routineFacts', () => {
 
     expect(routineFacts(yolo, 'approved', view()).find((row) => row.label === 'Approval mode')).toMatchObject({ value: 'Yolo', tone: 'warning' });
     expect(routineFacts(trusting, 'approved', view()).find((row) => row.label === 'Project trust')).toMatchObject({ tone: 'warning' });
+  });
+
+  it('gives an OpenCode agent an approval mode and no project trust, as its capabilities say', () => {
+    const opencode = { ...BASE, action: { type: 'agent' as const, harness: 'opencode' as const, model: null, prompt: 'Go.', approvalMode: 'write' as const, trustOnce: false, maxMinutes: null } };
+    const rows = routineFacts(opencode, 'approved', view());
+
+    expect(rows.find((row) => row.label === 'Approval mode')).toMatchObject({ value: 'Write' });
+    expect(rows.find((row) => row.label === 'Project trust')).toBeUndefined();
+    expect(changesOf(opencode, { ...opencode, action: { ...opencode.action, approvalMode: 'yolo' } })).toEqual([{ field: 'approval', from: 'Yolo', to: 'Write' }]);
   });
 
   it('credits a routine to an agent while its version waits, and says for a remote routine who shared it', () => {

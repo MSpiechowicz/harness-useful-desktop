@@ -29,7 +29,17 @@
       return t('chat.harness.comingSoon');
     }
 
-    return item.detection.version ? `v${item.detection.version}` : null;
+    const version = item.detection.version ? `v${item.detection.version}` : null;
+
+    // A preview says so in plain words beside the version: rows of a menu carry no badges.
+    return item.capabilities.chatPreview ? [t('chat.preview.label'), version].filter(Boolean).join(' · ') : version;
+  }
+
+  /** The row's tooltip: what a preview means, for a harness whose chat is one and can be chosen. */
+  function hintOf(item: HarnessSummary): string | null {
+    const chooseable = item.detection.installed && item.capabilities.chat;
+
+    return chooseable && item.capabilities.chatPreview ? t('chat.preview.tooltip', { harness: item.info.name }) : null;
   }
 </script>
 
@@ -57,6 +67,7 @@
           <MenuItem
             label={item.info.name}
             detail={detailOf(item)}
+            hint={hintOf(item)}
             selected={item.info.id === current.info.id}
             disabled={!installed || !item.capabilities.chat}
             onselect={() => {

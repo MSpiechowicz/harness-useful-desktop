@@ -1,4 +1,6 @@
 import type { AppPrefs } from '$lib/ipc/bindings/AppPrefs';
+import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
+import type { HarnessSummary } from '$lib/ipc/bindings/HarnessSummary';
 import { defaultPrefs } from '$lib/ipc/mock/state';
 import type { CommandArgs, CommandName, CommandResult } from '$lib/ipc/commands';
 import type { Transport } from '$lib/ipc/transport';
@@ -59,4 +61,16 @@ export function restoreClientWidth(): void {
   } else {
     Reflect.deleteProperty(HTMLElement.prototype, 'clientWidth');
   }
+}
+
+/**
+ * The harness list as the backend gives it when `ids` cannot chat (yet): the stand-in for "a harness whose chat is not built",
+ * which names no real harness, so a test of the coming-soon paths holds whichever harness has chat at the time.
+ */
+export function withoutChat(store: { summaries: HarnessSummary[] }, ...ids: HarnessId[]): void {
+  store.summaries = store.summaries.map((summary) =>
+    ids.includes(summary.info.id)
+      ? { ...summary, capabilities: { ...summary.capabilities, chat: false, agentPicker: false, chatPreview: false, approvalModes: false, removeQueued: false } }
+      : summary,
+  );
 }

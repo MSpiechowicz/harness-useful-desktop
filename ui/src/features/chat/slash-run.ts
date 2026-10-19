@@ -27,6 +27,8 @@ function openGui(session: ChatSession, target: GuiTarget): void {
     session.ui.modelPicker = true;
   } else if (target === 'thinkingPicker') {
     session.ui.thinkingPicker = true;
+  } else if (target === 'agentPicker') {
+    session.ui.agentPicker = true;
   } else if (target === 'approvalMode') {
     session.ui.approvalChooser = true;
   }

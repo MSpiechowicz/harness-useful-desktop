@@ -16,6 +16,7 @@ import { SessionDetail } from '$lib/stores/sessions.svelte';
 import { toasts } from '$lib/stores/toasts.svelte';
 import { formatDateTime } from '$lib/utils/format';
 
+import { withoutChat } from '../../../tests/helpers';
 import { sessionTitle } from './session-format';
 import { groupSessions } from './session-groups';
 import SessionList from './SessionList.svelte';
@@ -394,9 +395,20 @@ describe('sessions of a harness without chat', () => {
 
   afterEach(async () => {
     await prefs.update({ defaultHarness: 'omp' });
+    await harness.load();
+  });
+
+  it('resumes and forks the sessions of OpenCode once its chat is on, without a tree of forks', async () => {
+    await showOpenCode();
+
+    expect(screen.getByRole('button', { name: 'Resume in chat' })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Fork from here' }).length).toBeGreaterThan(0);
+    // The sessions of OpenCode do not branch, so there is no count of forks to show.
+    expect(screen.queryByText('Forks')).toBeNull();
   });
 
   it('reads and deletes them but cannot resume or fork them', async () => {
+    withoutChat(harness, 'opencode');
     await showOpenCode();
 
     // The transcript and the files touched are there, the way back into a chat is not.
