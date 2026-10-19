@@ -7,8 +7,8 @@
 //!   soon as an event about something else arrives (its parts come right after it).
 //! - A part's full text reconciles what was streamed: only text past what was already sent is
 //!   sent, so nothing repeats; a rewritten text waits for `messageEnd`.
-//! - Tool calls (also of subagent sessions): `toolStart` once the call runs (its input is known
-//!   then), `toolUpdate` for new partial output, `toolEnd` once it completed or failed.
+//! - Tool calls: `toolStart` once the call runs (its input is known then), `toolUpdate` for new
+//!   partial output, `toolEnd` once it completed or failed.
 //! - A message or call that ended is never reported again; late updates are ignored.
 
 use std::collections::{BTreeMap, HashSet};
@@ -114,15 +114,10 @@ impl Messages {
         }
     }
 
-    /// A `message.part.updated`; `own` when it is of the chat's session (a subagent's only reports
-    /// its tool calls).
-    pub(super) fn part_updated(&mut self, part: &Value, own: bool, out: &mut Vec<AgentEvent>) {
+    /// A `message.part.updated` of the chat's session.
+    pub(super) fn part_updated(&mut self, part: &Value, out: &mut Vec<AgentEvent>) {
         if part_type(part) == "tool" {
             self.tool_updated(part, out);
-        }
-
-        if !own {
-            return;
         }
 
         let (Some(message_id), Some(part_id)) = (text(part, "messageID"), text(part, "id")) else {

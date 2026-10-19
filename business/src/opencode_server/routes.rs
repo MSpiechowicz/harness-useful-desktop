@@ -7,7 +7,8 @@
 //! - `directory` and `before` values are percent-encoded; only RFC 3986 unreserved bytes stay as
 //!   they are.
 //! - Left out on purpose (plan "Standing rules"): share, `/global/dispose`, `/global/upgrade`,
-//!   config writes, `/auth/*`, OAuth, `/tui/*`, `/pty/*` and `/experimental/*`.
+//!   config writes (`/config` is only read), `/auth/*`, OAuth, `/tui/*`, `/pty/*` and
+//!   `/experimental/*`.
 //!
 //! `/session/{id}/…` routes carry no `directory`: OpenCode routes them by the session's stored
 //! directory. `/permission/*` and `/question/*` are not session-scoped, so their replies carry the
@@ -15,6 +16,8 @@
 
 use std::fmt;
 use std::marker::PhantomData;
+use std::sync::{Mutex, PoisonError};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::http::Method;
 use crate::error::BusinessError;
@@ -112,6 +115,44 @@ impl<K: IdKind> Id<K> {
     }
 }
 
+impl Id<MessageKind> {
+    /// A new message id that sorts like the ones OpenCode creates (`id/id.ts` `ascending`): the
+    /// time in milliseconds times 4096 plus a per-millisecond counter as 12 hex digits, then 14
+    /// random base62 characters. OpenCode orders a session's messages by id, so a message the app
+    /// names this way takes its place in time.
+    pub fn ascending() -> Self {
+        const BASE62: &[u8] = b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+        static LAST: Mutex<(u64, u64)> = Mutex::new((0, 0));
+
+        let millis = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_or(0, |elapsed| u64::try_from(elapsed.as_millis()).unwrap_or(u64::MAX));
+
+        let counter = {
+            let mut last = LAST.lock().unwrap_or_else(PoisonError::into_inner);
+            *last = if last.0 == millis {
+                (millis, last.1 + 1)
+            } else {
+                (millis, 1)
+            };
+            last.1
+        };
+
+        let time = (millis.wrapping_mul(0x1000).wrapping_add(counter)) & 0xFFFF_FFFF_FFFF;
+        let random: String = uuid::Uuid::new_v4()
+            .as_bytes()
+            .iter()
+            .take(14)
+            .map(|byte| char::from(BASE62[usize::from(*byte) % BASE62.len()]))
+            .collect();
+
+        Self {
+            value: format!("msg_{time:012x}{random}"),
+            kind: PhantomData,
+        }
+    }
+}
+
 impl<K> fmt::Display for Id<K> {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(&self.value)
@@ -195,6 +236,13 @@ pub enum Route<'a> {
         /// The session.
         session: &'a SessionId,
     },
+    /// `DELETE /session/{id}/message/{messageID}` (refused while the session is busy).
+    MessageDelete {
+        /// The session.
+        session: &'a SessionId,
+        /// The message.
+        message: &'a MessageId,
+    },
     /// `GET /session/{id}/message?limit=&before=`; the next page's cursor is the `x-next-cursor`
     /// header.
     Messages {
@@ -207,6 +255,11 @@ pub enum Route<'a> {
     },
     /// `GET /session/status?directory=`.
     SessionStatus {
+        /// The project directory.
+        directory: &'a str,
+    },
+    /// `GET /config?directory=`, the resolved configuration (read only).
+    Config {
         /// The project directory.
         directory: &'a str,
     },
@@ -257,11 +310,12 @@ impl Route<'_> {
             | Self::SessionGet { .. }
             | Self::Messages { .. }
             | Self::SessionStatus { .. }
+            | Self::Config { .. }
             | Self::ConfigProviders { .. }
             | Self::Agents { .. }
             | Self::Commands { .. } => Method::Get,
             Self::SessionPatch { .. } => Method::Patch,
-            Self::SessionDelete { .. } => Method::Delete,
+            Self::SessionDelete { .. } | Self::MessageDelete { .. } => Method::Delete,
             _ => Method::Post,
         }
     }
@@ -287,8 +341,10 @@ impl Route<'_> {
             Self::Fork { session } => format!("/session/{session}/fork"),
             Self::Abort { session } => format!("/session/{session}/abort"),
             Self::Summarize { session } => format!("/session/{session}/summarize"),
+            Self::MessageDelete { session, message } => format!("/session/{session}/message/{message}"),
             Self::Messages { session, limit, before } => messages(session, limit, before),
             Self::SessionStatus { directory } => in_directory("/session/status", directory),
+            Self::Config { directory } => in_directory("/config", directory),
             Self::ConfigProviders { directory } => in_directory("/config/providers", directory),
             Self::Agents { directory } => in_directory("/agent", directory),
             Self::Commands { directory } => in_directory("/command", directory),

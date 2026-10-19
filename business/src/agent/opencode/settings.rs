@@ -54,6 +54,7 @@ impl OpenCodeSession {
             .is_some();
 
         live.model = Some(model);
+        live.model_chosen = true;
         chat.shared.emit(AgentEvent::ModelChanged {
             model: Some(known.option.clone()),
         });

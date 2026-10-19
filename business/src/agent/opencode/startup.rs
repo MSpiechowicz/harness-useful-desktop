@@ -2,8 +2,9 @@
 //! (within [`STARTUP_TIMEOUT`](crate::agent::STARTUP_TIMEOUT)) → `GET /global/health` → the event
 //! stream, opened before any call that changes something → `POST /session` or, to resume,
 //! `GET /session/{id}` (refused unless the session's directory is the project or inside it) →
-//! `GET /agent`, `/config/providers`, `/command` → `ready`, `state` and `commandsUpdated`, then
-//! the events that arrived meanwhile.
+//! `GET /agent`, `/config/providers`, `/command` and `/config` (read only: its default model is the
+//! one a new session shows) → `ready`, `state` and `commandsUpdated`, then the events that arrived
+//! meanwhile.
 //!
 //! The whole startup runs within the shared deadline and abort race ([`run_startup`]); a failed
 //! one kills the server and emits nothing. Server output before the listening line and after it is
@@ -17,7 +18,7 @@ use std::time::Duration;
 use serde_json::{Value, json};
 use tokio::sync::oneshot;
 
-use super::{Catalog, Chat, Live, OpenCodeSession, stream};
+use super::{Catalog, Chat, Live, OpenCodeSession, TurnSettings, stream};
 use crate::agent::engine::SessionLaunch;
 use crate::agent::io::Shared;
 use crate::agent::process::{AgentProcess, LineForwarder, MAX_STDERR_LINE, ProcessTraits, Stdout, run_startup};
@@ -26,7 +27,9 @@ use crate::harness::CommandCatalog;
 use crate::harnesses::opencode::OpenCodeCatalog;
 use crate::model::{AgentEvent, ApprovalMode};
 use crate::opencode_server::mapper::project_dir;
-use crate::opencode_server::wire::{SessionInfo, listening_addr, primary_agents, provider_models, session_info};
+use crate::opencode_server::wire::{
+    ModelRef, SessionInfo, config_model, listening_addr, primary_agents, provider_models, session_info,
+};
 use crate::opencode_server::{EventStream, Mapper, OpenCodeClient, Route, ServerPassword, SessionId};
 use crate::pi_family::rpc::LineSplitter;
 
@@ -43,6 +46,8 @@ struct Booted {
     directory: PathBuf,
     catalog: Catalog,
     commands: Vec<Value>,
+    /// The default model of the configuration.
+    default_model: Option<ModelRef>,
 }
 
 impl OpenCodeSession {
@@ -97,9 +102,11 @@ impl OpenCodeSession {
             mapper: Mapper::new(booted.session.as_str(), project, &booted.directory),
             session: booted.session,
             title: info.title,
-            model: info.model,
+            model: info.model.or(booted.default_model),
+            model_chosen: false,
             variant: info.variant,
             agent,
+            turn: TurnSettings::default(),
             commands: command_names(&booted.commands),
         };
 
@@ -178,6 +185,7 @@ async fn boot(
     let agents = get_json(&client, Route::Agents { directory: scope }).await?;
     let providers = get_json(&client, Route::ConfigProviders { directory: scope }).await?;
     let commands = get_json(&client, Route::Commands { directory: scope }).await?;
+    let config = get_json(&client, Route::Config { directory: scope }).await?;
 
     Ok(Booted {
         client,
@@ -190,6 +198,7 @@ async fn boot(
             agents: primary_agents(&agents),
         },
         commands: commands.as_array().cloned().unwrap_or_default(),
+        default_model: config_model(&config),
     })
 }
 

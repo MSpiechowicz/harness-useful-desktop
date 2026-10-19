@@ -9,8 +9,8 @@ use std::path::{Path, PathBuf};
 use serde_json::Value;
 
 use crate::error::{BusinessError, Result};
-use crate::model::{ChatBlock, ChatMessage, TranscriptStats};
-use crate::opencode_server::mapper::{assistant_message, part_touched, part_type, project_dir, user_message};
+use crate::model::{ChatBlock, ChatMessage, MessageRole, TranscriptStats};
+use crate::opencode_server::mapper::{part_touched, part_type, project_dir, record_messages};
 use crate::pi_family::sessions::StatsTally;
 
 /// A parsed export.
@@ -83,43 +83,24 @@ struct Builder<'a> {
 
 impl Builder<'_> {
     fn add(&mut self, record: &Value) {
-        let info = record.get("info").unwrap_or(&Value::Null);
-        let parts = record
-            .get("parts")
-            .and_then(Value::as_array)
-            .map_or(&[][..], Vec::as_slice);
+        let parts = record.get("parts").and_then(Value::as_array).into_iter().flatten();
 
-        match info.get("role").and_then(Value::as_str) {
-            Some("user") => self.add_user(info, parts),
-            Some("assistant") => self.add_assistant(info, parts),
-            _ => {}
-        }
-    }
-
-    fn add_user(&mut self, info: &Value, parts: &[Value]) {
-        let Some(message) = user_message(info, parts) else {
-            return;
-        };
-
-        self.tally.note_message();
-        self.tally.note_time(message.timestamp);
-        self.messages.push(message);
-    }
-
-    fn add_assistant(&mut self, info: &Value, parts: &[Value]) {
-        for part in parts.iter().filter(|part| part_type(part) == "tool") {
+        for part in parts.filter(|part| part_type(part) == "tool") {
             self.touched.extend(part_touched(self.project, &self.directory, part));
         }
 
-        let Some((message, results)) = assistant_message(info, parts) else {
-            return;
-        };
+        for message in record_messages(record) {
+            if message.role != MessageRole::ToolResult {
+                self.tally.note_message();
+                self.tally.note_time(message.timestamp);
+            }
 
-        self.tally.note_message();
-        self.tally.note_time(message.timestamp);
-        note_reply(&mut self.tally, &message);
-        self.messages.push(message);
-        self.messages.extend(results);
+            if message.role == MessageRole::Assistant {
+                note_reply(&mut self.tally, &message);
+            }
+
+            self.messages.push(message);
+        }
     }
 }
 

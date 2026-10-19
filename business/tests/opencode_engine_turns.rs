@@ -1,66 +1,13 @@
-//! OpenCode chat turns against the scripted `opencode serve`: streaming, tool calls of the chat and
-//! its subagents, errors, aborts, the prompt-taken order and the masked server password.
+//! OpenCode chat turns against the scripted `opencode serve`: streaming, tool calls (the chat's,
+//! not its subagents'), errors, aborts, the prompt-taken order and the masked server password.
 
 mod agent_support;
 mod opencode_engine_support;
 
-use std::sync::{Arc, Mutex};
-
-use harness_business::model::{
-    AgentAction, AgentEvent, AgentReply, ChatBlock, ChatMessage, MessageRole, NoticeLevel, PromptStatus,
-};
-use opencode_engine_support::{Chat, kind, start};
+use harness_business::model::{AgentEvent, ChatBlock, MessageRole, NoticeLevel, PromptStatus};
+use opencode_engine_support::{kind, message_end, prompt, start, until_marker};
 use pretty_assertions::assert_eq;
 use serde_json::{Value, json};
-
-fn say_hello() -> AgentAction {
-    AgentAction::Prompt {
-        message: "Say hello".to_owned(),
-        images: Vec::new(),
-        streaming_behavior: None,
-    }
-}
-
-/// Sends the prompt and returns how many events were delivered when the prompt-taken call ran.
-async fn prompt(chat: &Chat) -> Arc<Mutex<Option<usize>>> {
-    let taken_at = Arc::new(Mutex::new(None));
-    let (sink, record) = (chat.sink.clone(), taken_at.clone());
-    chat.session().on_prompt_taken(Box::new(move || {
-        *record.lock().unwrap() = Some(sink.events().len());
-    }));
-
-    let reply = chat.session().send(say_hello()).await.expect("prompt taken");
-    assert_eq!(
-        reply,
-        AgentReply::Prompt {
-            agent_invoked: Some(true),
-            disposition: Some("started".to_owned())
-        }
-    );
-
-    taken_at
-}
-
-/// Waits for the `Marker` title the scenarios end with; the events of the scenario after startup.
-async fn until_marker(chat: &Chat) -> Vec<AgentEvent> {
-    chat.wait(
-        "marker",
-        |event| matches!(event, AgentEvent::State { state } if state.session_name.as_deref() == Some("Marker")),
-    )
-    .await;
-
-    chat.events().split_off(3)
-}
-
-fn message_end(events: &[AgentEvent], role: MessageRole) -> Vec<ChatMessage> {
-    events
-        .iter()
-        .filter_map(|event| match event {
-            AgentEvent::MessageEnd { message, .. } if message.role == role => Some(message.clone()),
-            _ => None,
-        })
-        .collect()
-}
 
 fn tool_ends(events: &[AgentEvent]) -> Vec<(String, String, bool, Value, Vec<String>)> {
     events
@@ -91,7 +38,7 @@ fn text_result(text: &str) -> Value {
 #[tokio::test]
 async fn a_streamed_turn_starts_streams_ends_and_settles_in_order() {
     let chat = start("opencode_turn.jsonl").await;
-    let taken_at = prompt(&chat).await;
+    let taken_at = prompt(&chat, "Say hello").await;
     let events = until_marker(&chat).await;
 
     assert_eq!(
@@ -196,9 +143,9 @@ async fn a_streamed_turn_starts_streams_ends_and_settles_in_order() {
 }
 
 #[tokio::test]
-async fn tool_calls_of_the_chat_and_its_subagents_end_with_touched_paths() {
+async fn tool_calls_of_the_chat_end_with_touched_paths_and_subagents_stay_out() {
     let chat = start("opencode_tools.jsonl").await;
-    prompt(&chat).await;
+    prompt(&chat, "Say hello").await;
 
     chat.wait("settled", |event| matches!(event, AgentEvent::Settled { .. }))
         .await;
@@ -224,12 +171,8 @@ async fn tool_calls_of_the_chat_and_its_subagents_end_with_touched_paths() {
                 "call_2".to_owned(),
                 json!({"filePath": "src/new.rs", "content": "hello\n"})
             ),
-            (
-                "call_child".to_owned(),
-                json!({"filePath": "src/child.rs", "content": "x"})
-            ),
         ],
-        "one start per call, once it runs with its input"
+        "one start per call of the chat, once it runs with its input"
     );
 
     let updates: Vec<Value> = events
@@ -242,7 +185,11 @@ async fn tool_calls_of_the_chat_and_its_subagents_end_with_touched_paths() {
     assert_eq!(updates, [text_result(""), text_result("recorded\n")]);
 
     let ends = tool_ends(&events);
-    assert_eq!(ends.len(), 3, "another session's call is not this chat's: {ends:#?}");
+    assert_eq!(
+        ends.len(),
+        2,
+        "a subagent's or another session's call is not this chat's: {ends:#?}"
+    );
     assert_eq!(
         (ends[0].0.as_str(), ends[0].1.as_str(), ends[0].2),
         ("call_1", "bash", false)
@@ -257,21 +204,10 @@ async fn tool_calls_of_the_chat_and_its_subagents_end_with_touched_paths() {
             vec!["src/new.rs".to_owned()],
         )
     );
-    assert_eq!(
-        ends[2],
-        (
-            "call_child".to_owned(),
-            "write".to_owned(),
-            false,
-            text_result("Wrote file successfully."),
-            vec!["src/child.rs".to_owned()],
-        )
-    );
-
     let shown = serde_json::to_string(&events).expect("events serialize");
     assert!(
-        !shown.contains("Child text is not shown"),
-        "a subagent's messages stay in its task"
+        !shown.contains("Child text is not shown") && !shown.contains("src/child.rs"),
+        "a subagent's messages, calls and touched files stay in its task"
     );
 
     let last = events
@@ -290,7 +226,7 @@ async fn tool_calls_of_the_chat_and_its_subagents_end_with_touched_paths() {
 #[tokio::test]
 async fn the_server_password_never_reaches_the_chat() {
     let chat = start("opencode_tools.jsonl").await;
-    prompt(&chat).await;
+    prompt(&chat, "Say hello").await;
 
     chat.wait("settled", |event| matches!(event, AgentEvent::Settled { .. }))
         .await;
@@ -326,7 +262,7 @@ async fn the_server_password_never_reaches_the_chat() {
 #[tokio::test]
 async fn an_error_fails_the_prompt_and_a_repeated_error_is_not_shown_again() {
     let chat = start("opencode_error.jsonl").await;
-    prompt(&chat).await;
+    prompt(&chat, "Say hello").await;
     let events = until_marker(&chat).await;
 
     assert_eq!(
@@ -359,7 +295,7 @@ async fn an_error_fails_the_prompt_and_a_repeated_error_is_not_shown_again() {
 #[tokio::test]
 async fn an_abort_ends_the_reply_with_what_arrived_and_settles_aborted() {
     let chat = start("opencode_abort.jsonl").await;
-    prompt(&chat).await;
+    prompt(&chat, "Say hello").await;
     let events = until_marker(&chat).await;
 
     assert_eq!(

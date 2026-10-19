@@ -1,0 +1,19 @@
+// Slash commands: an unknown `/name` goes as text; `/review` (a server command) goes to the
+// blocking command route, answered only after its turn; `/init` fails with 400. Last, a marker.
+{"include":"opencode_startup.jsonl"}
+{"expect":"POST /session/ses_eaa561636ffezINnnn1ghd5370/prompt_async","match":{"/parts/0/text":"/nonexistent arg","/agent":"build"}}
+{"sse":{"type":"message.updated","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","info":{"id":"msg_155a9eeb3001SWCCbgpm0fXcQJ","role":"user","sessionID":"ses_eaa561636ffezINnnn1ghd5370","time":{"created":1},"agent":"build","model":{"providerID":"mock","modelID":"m1"}}}}}
+{"sse":{"type":"message.part.updated","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","part":{"type":"text","text":"/nonexistent arg","messageID":"msg_155a9eeb3001SWCCbgpm0fXcQJ","sessionID":"ses_eaa561636ffezINnnn1ghd5370","id":"prt_u1"}}}}
+{"sse":{"type":"session.status","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","status":{"type":"busy"}}}}
+{"sse":{"type":"session.status","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","status":{"type":"idle"}}}}
+{"expect":"POST /session/ses_eaa561636ffezINnnn1ghd5370/command","match":{"command":"review","arguments":"the parser","agent":"build","/model":"$absent","/parts":"$absent"},"hold":true,"as":"review"}
+{"sse":{"type":"message.updated","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","info":{"id":"msg_155aa0157001zEytp89Ql3qvh3","role":"user","sessionID":"ses_eaa561636ffezINnnn1ghd5370","time":{"created":1},"agent":"build","model":{"providerID":"mock","modelID":"m1"}}}}}
+{"sse":{"type":"message.part.updated","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","part":{"type":"text","text":"Review the parser","messageID":"msg_155aa0157001zEytp89Ql3qvh3","sessionID":"ses_eaa561636ffezINnnn1ghd5370","id":"prt_u3"}}}}
+{"sse":{"type":"session.status","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","status":{"type":"busy"}}}}
+{"sse":{"type":"message.updated","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","info":{"id":"msg_155aa0167001ZYp9W96oeOdAPP","parentID":"msg_155aa0157001zEytp89Ql3qvh3","role":"assistant","mode":"build","agent":"build","modelID":"m1","providerID":"mock","time":{"created":2},"sessionID":"ses_eaa561636ffezINnnn1ghd5370"}}}}
+{"sse":{"type":"message.part.updated","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","part":{"type":"text","text":"Looks fine.","messageID":"msg_155aa0167001ZYp9W96oeOdAPP","sessionID":"ses_eaa561636ffezINnnn1ghd5370","id":"prt_a3"}}}}
+{"sse":{"type":"message.updated","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","info":{"id":"msg_155aa0167001ZYp9W96oeOdAPP","parentID":"msg_155aa0157001zEytp89Ql3qvh3","role":"assistant","mode":"build","agent":"build","modelID":"m1","providerID":"mock","time":{"created":2,"completed":3},"sessionID":"ses_eaa561636ffezINnnn1ghd5370","finish":"stop"}}}}
+{"sse":{"type":"session.status","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","status":{"type":"idle"}}}}
+{"respond":"review","reply":{"body":{"info":{"id":"msg_155aa0167001ZYp9W96oeOdAPP","role":"assistant"},"parts":[]}}}
+{"expect":"POST /session/ses_eaa561636ffezINnnn1ghd5370/command","match":{"command":"init","arguments":""},"reply":{"status":400,"body":{"name":"BadRequest","data":{}}}}
+{"sse":{"type":"session.updated","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","info":{"id":"ses_eaa561636ffezINnnn1ghd5370","directory":"$directory","title":"Marker","time":{"created":1,"updated":2}}}}}

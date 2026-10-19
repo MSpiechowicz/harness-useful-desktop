@@ -7,10 +7,13 @@
 //!   (new, or the resumed one when it belongs to the project), the agents, models and commands.
 //! - **Events** (`stream.rs`): one task reads the event stream and maps it
 //!   ([`Mapper`]) under the chat's lock, so prompt bookkeeping and event order never interleave.
-//! - **Actions:** prompts (`prompts.rs`), model, thinking level and agent pickers read from the
-//!   startup catalogs (`settings.rs`), dialogs (`dialogs.rs`) and session actions (`ops.rs`).
+//! - **Actions:** prompts, steering, follow-ups and abort (`prompts.rs`, sent by `delivery.rs`),
+//!   history (`history.rs`), model, thinking level and agent pickers read from the startup
+//!   catalogs (`settings.rs`), dialogs (`dialogs.rs`) and session actions (`ops.rs`).
 
+mod delivery;
 mod dialogs;
+mod history;
 mod ops;
 mod prompts;
 mod settings;
@@ -26,7 +29,7 @@ use super::process::AgentProcess;
 use super::sink::PromptTaken;
 use crate::error::Result;
 use crate::model::{AgentAction, AgentEvent, AgentOption, AgentReply, ModelOption, SessionState};
-use crate::opencode_server::wire::{ModelRef, ProviderModel};
+use crate::opencode_server::wire::{ModelRef, ProviderModel, Settings, slash_command};
 use crate::opencode_server::{Mapper, OpenCodeClient, SessionId};
 use crate::process::ExitInfo;
 
@@ -61,13 +64,54 @@ struct Live {
     session: SessionId,
     mapper: Mapper,
     title: Option<String>,
-    /// The model of the next prompt; `None` lets OpenCode pick (the session's last one or its
-    /// default) until a `session.updated` tells which.
+    /// The model shown; `None` until OpenCode tells which it uses (`GET /config`, the resumed
+    /// session, a `session.updated`).
     model: Option<ModelRef>,
+    /// The user picked [`Live::model`]: prompts name it. Until then OpenCode picks (the session's
+    /// last model or its default).
+    model_chosen: bool,
     variant: Option<String>,
     agent: String,
+    /// What the running turn was started with; steering goes with the same.
+    turn: TurnSettings,
     /// Names of the server's commands (`GET /command`).
     commands: Vec<String>,
+}
+
+/// The agent, model and variant of a turn.
+#[derive(Debug, Clone, Default)]
+struct TurnSettings {
+    agent: String,
+    model: Option<ModelRef>,
+    variant: Option<String>,
+}
+
+impl TurnSettings {
+    fn settings(&self) -> Settings<'_> {
+        Settings {
+            agent: &self.agent,
+            model: self.model.as_ref(),
+            variant: self.variant.as_deref(),
+        }
+    }
+}
+
+impl Live {
+    /// What the next prompt goes with; remembered as the turn's settings.
+    fn next_turn(&mut self) -> &TurnSettings {
+        self.turn = TurnSettings {
+            agent: self.agent.clone(),
+            model: self.model.clone().filter(|_| self.model_chosen),
+            variant: self.variant.clone(),
+        };
+
+        &self.turn
+    }
+
+    /// True when `text` is `/name …` for one of the server's commands.
+    fn is_command(&self, text: &str) -> bool {
+        slash_command(text).is_some_and(|(name, _)| self.commands.iter().any(|known| known == name))
+    }
 }
 
 impl Catalog {

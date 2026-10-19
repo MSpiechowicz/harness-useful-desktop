@@ -95,12 +95,10 @@ async fn startup_creates_a_session_and_emits_ready_state_and_commands_first() {
     let refreshed = session.send(AgentAction::RefreshCommands).await.expect("commands");
     assert!(matches!(refreshed, AgentReply::Commands { commands } if commands.iter().any(|c| c.name == "review")));
 
-    // A live command is not sent as text yet; nothing reaches the server (it would fail the scenario).
     assert_eq!(
-        code(session.send(prompt("/customize-opencode set it up")).await),
-        IpcErrorCode::Unsupported
+        session.send(AgentAction::Abort).await.expect("idle abort"),
+        AgentReply::Ack
     );
-    assert_eq!(code(session.send(AgentAction::Abort).await), IpcErrorCode::Unsupported);
     assert_eq!(
         code(session.send(AgentAction::NewSession).await),
         IpcErrorCode::Unsupported
@@ -299,7 +297,15 @@ async fn model_thinking_level_and_agent_go_with_the_next_prompt() {
         ),
         IpcErrorCode::Unsupported
     );
-    assert_eq!(code(send(prompt("again")).await), IpcErrorCode::Unsupported);
+
+    let held = send(prompt("again")).await.expect("held for after the turn");
+    assert_eq!(
+        held,
+        AgentReply::Prompt {
+            agent_invoked: Some(true),
+            disposition: Some("queued".to_owned())
+        }
+    );
 
     let changes: Vec<String> = chat
         .events()

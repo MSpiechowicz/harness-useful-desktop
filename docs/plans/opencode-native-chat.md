@@ -163,7 +163,7 @@ rules, the user's config applies.
 | 4 | Loopback HTTP + SSE client, closed route allowlist | backend | `feat(opencode): loopback HTTP and SSE client` | done |
 | 5 | Fake OpenCode server (`fake_agent --dialect opencode`) + scenarios | backend | `test(opencode): scripted fake opencode server` | done |
 | 6 | Contract: `agent_picker`, `chat_preview`, `SessionState.agent`, `SetAgent`, `GetAvailableAgents`, bindings | backend | `feat(model): agent picker and preview capability in the chat contract` | done |
-| 7 | Engine core: lifecycle, SSE mapper, prompts, steer, queue, idle race, abort, state, history | backend | `feat(opencode): native chat engine over opencode serve` | todo |
+| 7 | Engine core: lifecycle, SSE mapper, prompts, steer, queue, idle race, abort, state, history | backend | `feat(opencode): native chat engine over opencode serve` (7a f5062c4) + `feat(opencode): steering, queue, abort, slash commands and history` (7b) | done |
 | 8 | Approvals, questions, approval modes | backend | `feat(opencode): approvals, questions and per-chat approval modes` | todo |
 | 9 | Session ops: new, fork, clone, rename, compact, export, stats, last text, shell, images | backend | `feat(opencode): session actions, export, stats and !commands` | todo |
 | 10 | Harness wiring: launch spec, `chat_protocol`, capabilities, catalog | backend | `feat(opencode): enable chat for the OpenCode harness` | todo |

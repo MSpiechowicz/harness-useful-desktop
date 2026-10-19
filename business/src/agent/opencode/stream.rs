@@ -12,7 +12,7 @@ use std::time::Duration;
 use tokio::sync::watch;
 use tokio::task::AbortHandle;
 
-use super::{Chat, Live};
+use super::{Chat, Live, delivery};
 use crate::model::{AgentEvent, NoticeLevel};
 use crate::opencode_server::wire::{SessionInfo, envelope};
 use crate::opencode_server::{EventStream, Mapped};
@@ -33,7 +33,7 @@ pub(super) fn spawn(chat: Arc<Chat>, events: EventStream, exited: watch::Receive
 async fn run(chat: Arc<Chat>, mut events: EventStream, mut exited: watch::Receiver<Option<ExitInfo>>) {
     while let Some(item) = events.next().await {
         match item {
-            Ok(data) => chat.take_event(&data),
+            Ok(data) => take_event(&chat, &data),
             Err(fault) => chat.shared.emit(AgentEvent::FrameError {
                 original_type: None,
                 error: fault.to_string(),
@@ -51,36 +51,43 @@ async fn run(chat: Arc<Chat>, mut events: EventStream, mut exited: watch::Receiv
     }
 }
 
-impl Chat {
-    /// Maps one event's `data:` and delivers the result.
-    fn take_event(&self, data: &str) {
-        let Some(envelope) = envelope(data) else {
-            self.shared.emit(AgentEvent::FrameError {
-                original_type: None,
-                error: "an OpenCode event is not a JSON event object".to_owned(),
-            });
-            return;
-        };
+/// Maps one event's `data:` and delivers the result.
+fn take_event(chat: &Arc<Chat>, data: &str) {
+    let Some(envelope) = envelope(data) else {
+        chat.shared.emit(AgentEvent::FrameError {
+            original_type: None,
+            error: "an OpenCode event is not a JSON event object".to_owned(),
+        });
+        return;
+    };
 
-        let mut live = self.lock();
+    let mut live = chat.lock();
+    let mapped = live.mapper.map(&envelope);
 
-        for mapped in live.mapper.map(&envelope) {
-            match mapped {
-                Mapped::Event(event) => self.shared.emit(event),
-                Mapped::PromptTaken => self.shared.prompt_taken_now(),
-                Mapped::Session(info) => self.session_changed(&mut live, info),
-            }
+    apply(chat, &mut live, mapped);
+}
+
+/// Carries out what the mapper decided, in order, under the chat's lock.
+pub(super) fn apply(chat: &Arc<Chat>, live: &mut Live, mapped: Vec<Mapped>) {
+    for item in mapped {
+        match item {
+            Mapped::Event(event) => chat.shared.emit(event),
+            Mapped::PromptTaken => chat.shared.prompt_taken_now(),
+            Mapped::Session(info) => chat.session_changed(live, info),
+            Mapped::Send(message) => delivery::send(chat, live, message),
+            Mapped::CheckStranded(steering) => delivery::check_stranded(chat, steering),
         }
     }
+}
 
-    /// Takes in the session's new title, and its model while the chat does not know one yet
-    /// (the chat's own choice is sent with every prompt, so it is never overridden); a change is
-    /// delivered as a fresh `state`.
+impl Chat {
+    /// Takes in the session's new title, and the model OpenCode uses while the user has not picked
+    /// one (a picked one goes with every prompt); a change is delivered as a fresh `state`.
     fn session_changed(&self, live: &mut Live, info: SessionInfo) {
         let mut changed = live.title != info.title;
         live.title = info.title;
 
-        if live.model.is_none() && info.model.is_some() {
+        if !live.model_chosen && info.model.is_some() && live.model != info.model {
             live.model = info.model;
             live.variant = info.variant;
             changed = true;

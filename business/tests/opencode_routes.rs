@@ -12,6 +12,7 @@ fn every_route_has_its_method_target_and_deadline() {
     let session = SessionId::parse(SESSION).expect("session id");
     let permission = PermissionId::parse("per_155a9eef10017ZkJ249WX4lF43").expect("permission id");
     let question = QuestionId::parse("que_155a9f268001rb9HZw2SFL0I5S").expect("question id");
+    let message = MessageId::parse("msg_155a9ebb4001ymgqU86K96DtpB").expect("message id");
     let directory = "/work/project";
     let s = SESSION;
 
@@ -127,6 +128,21 @@ fn every_route_has_its_method_target_and_deadline() {
             false,
         ),
         (
+            Route::Config { directory },
+            Method::Get,
+            "/config?directory=%2Fwork%2Fproject".to_owned(),
+            false,
+        ),
+        (
+            Route::MessageDelete {
+                session: &session,
+                message: &message,
+            },
+            Method::Delete,
+            format!("/session/{s}/message/msg_155a9ebb4001ymgqU86K96DtpB"),
+            false,
+        ),
+        (
             Route::Commands { directory },
             Method::Get,
             "/command?directory=%2Fwork%2Fproject".to_owned(),
@@ -225,4 +241,18 @@ fn query_values_are_percent_encoded() {
     };
 
     assert_eq!(route.target(), "/agent?directory=%2Ftmp%2Fa%20b%26directory%3D%2Fetc");
+}
+
+#[test]
+fn app_named_message_ids_are_valid_and_sort_by_time() {
+    let first = MessageId::ascending();
+    let second = MessageId::ascending();
+
+    assert!(MessageId::parse(first.as_str()).is_ok(), "{first}");
+    assert_eq!(first.as_str().len(), "msg_155a9ebb4001ymgqU86K96DtpB".len());
+    assert!(first.as_str()[..16] < second.as_str()[..16], "{first} then {second}");
+    assert!(
+        first.as_str() > "msg_155a9ebb4001ymgqU86K96DtpB",
+        "a new id sorts after the recorded (older) ones"
+    );
 }

@@ -1,39 +1,35 @@
 //! `opencode serve` events as the chat's [`AgentEvent`]s, and the OpenCode message conversion the
 //! CLI transcript shares. Pure: no I/O, one [`Mapper`] per chat.
 //!
-//! - **Sessions:** only events of the chat's session and of the subagent sessions started from it
-//!   (`session.created` with a known `parentID`, at any depth) count. Durable events repeat as
-//!   `sync` and server events (`server.*`) carry no session: both are ignored, as is every type the
-//!   chat does not show (catalog, plugin, file and diff events).
-//! - **Messages and tool calls:** see [`messages`]. A subagent session reports only its tool
-//!   calls: its messages belong to the `task` call that started it.
-//! - **Turns:** the chat's session going `busy` starts a turn (`agentStart`, preceded by
-//!   [`Mapped::PromptTaken`] while a prompt is on its way), going `idle` ends it: what is still
-//!   open ends, then `agentEnd`, a `promptResult` for each prompt of the turn (the first
-//!   `session.error`, or an assistant message's `error`; an abort makes it `aborted`) and
-//!   `settled`. A `session.error` outside a turn becomes an error notice, unless it repeats the
-//!   error the last turn ended with (OpenCode reports some errors twice) or reports an abort.
+//! - **Sessions:** only events of the chat's own session count. Subagent sessions started from it
+//!   (`session.created` with a known `parentID`, at any depth) are tracked for their asks; their
+//!   messages and tool calls belong to the `task` call that started them and are not shown.
+//!   Durable events repeat as `sync` and server events (`server.*`) carry no session: both are
+//!   ignored, as is every type the chat does not show (catalog, plugin, file and diff events).
+//! - **Messages and tool calls:** see [`messages`].
+//! - **Turns, steering and the follow-up queue:** see [`turns`].
 //! - **Session info:** `session.updated` of the chat's session is passed on as
 //!   [`Mapped::Session`].
 
 mod message;
 mod messages;
 mod touched;
+mod turns;
 
-use std::collections::HashSet;
+use std::collections::{HashSet, VecDeque};
 use std::path::Path;
 
 use serde_json::Value;
 
-pub(crate) use self::message::{assistant_message, part_type, user_message};
-use self::message::{error_text, is_abort};
+pub(crate) use self::message::{part_type, record_messages};
 use self::messages::Messages;
 pub(crate) use self::touched::{part_touched, project_dir};
-use super::wire::{Envelope, SessionInfo, session_info};
-use crate::model::{AgentEvent, NoticeLevel, PromptStatus};
+use self::turns::Turn;
+use super::wire::{Envelope, Outgoing, SessionInfo, session_info};
+use crate::model::AgentEvent;
 use crate::security::redact_text;
 
-/// What one event means for the chat.
+/// What one event (or one change the engine reports) means for the chat.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Mapped {
     /// An event for the chat.
@@ -42,6 +38,11 @@ pub enum Mapped {
     PromptTaken,
     /// The chat's session changed (title, agent, model).
     Session(SessionInfo),
+    /// Send this queued follow-up now (it already counts as a prompt on its way).
+    Send(Outgoing),
+    /// The turn went idle with these steering messages unanswered: check whether OpenCode left the
+    /// newest one without a reply, then answer with [`Mapper::resend_stranded`] or [`Mapper::stranded_checked`].
+    CheckStranded(Vec<Outgoing>),
 }
 
 /// Maps the events of one chat (see the module docs).
@@ -52,22 +53,18 @@ pub struct Mapper {
     turn: Turn,
     /// The error the last turn ended with, until the next turn starts.
     last_error: Option<String>,
-}
-
-/// The running turn.
-#[derive(Default)]
-struct Turn {
-    /// `agentStart` was emitted.
-    active: bool,
-    /// Prompts sent and not yet answered by a `promptResult`.
-    prompts: u32,
-    error: Option<TurnError>,
-    aborted: bool,
-}
-
-struct TurnError {
-    message: String,
-    retryable: bool,
+    /// Steering sent into the running turn, until a reply to it appears.
+    steering: Vec<Outgoing>,
+    /// Follow-ups held until the chat is idle.
+    follow_ups: VecDeque<Outgoing>,
+    /// Steering a stranded check already covered (each is sent again at most once).
+    checked: HashSet<String>,
+    /// The turn's end waits for the answer to [`Mapped::CheckStranded`].
+    checking: bool,
+    /// Steering sent and not yet taken by OpenCode.
+    undelivered: HashSet<String>,
+    /// [`Mapped::CheckStranded`] is due once [`Mapper::undelivered`] is empty.
+    check_due: bool,
 }
 
 impl Mapper {
@@ -80,27 +77,18 @@ impl Mapper {
             messages: Messages::new(project.to_path_buf(), directory.to_path_buf()),
             turn: Turn::default(),
             last_error: None,
+            steering: Vec::new(),
+            follow_ups: VecDeque::new(),
+            checked: HashSet::new(),
+            checking: false,
+            undelivered: HashSet::new(),
+            check_due: false,
         }
-    }
-
-    /// True while a turn runs or a prompt is on its way.
-    pub fn is_working(&self) -> bool {
-        self.turn.active || self.turn.prompts > 0
-    }
-
-    /// A prompt is about to be sent.
-    pub fn prompt_sent(&mut self) {
-        self.turn.prompts += 1;
-    }
-
-    /// The prompt announced by [`Mapper::prompt_sent`] was not delivered.
-    pub fn prompt_failed(&mut self) {
-        self.turn.prompts = self.turn.prompts.saturating_sub(1);
     }
 
     /// What `envelope` means for the chat, in order.
     pub fn map(&mut self, envelope: &Envelope) -> Vec<Mapped> {
-        let Some(session) = envelope.session_id().map(str::to_owned) else {
+        let Some(session) = envelope.session_id() else {
             return Vec::new();
         };
 
@@ -109,32 +97,29 @@ impl Mapper {
             return Vec::new();
         }
 
-        let own = session == self.session;
-        if !own && !self.children.contains(&session) {
+        if session != self.session {
             return Vec::new();
         }
 
         let mut out = Vec::new();
         let properties = &envelope.properties;
-
-        if own {
-            self.end_pending_user(envelope, &mut out);
-        }
+        self.end_pending_user(envelope, &mut out);
 
         match envelope.kind.as_str() {
-            "message.updated" if own => {
+            "message.updated" => {
                 let info = properties.get("info").unwrap_or(&Value::Null);
                 self.note_message_error(info);
+                self.note_reply(info, &mut out);
                 self.messages.message_updated(info, &mut out);
             }
             "message.part.updated" => {
                 let part = properties.get("part").unwrap_or(&Value::Null);
-                self.messages.part_updated(part, own, &mut out);
+                self.messages.part_updated(part, &mut out);
             }
-            "message.part.delta" if own => self.messages.part_delta(properties, &mut out),
-            "session.status" if own => return self.status(properties, out),
-            "session.error" if own => self.error(properties, &mut out),
-            "session.updated" if own => {
+            "message.part.delta" => self.messages.part_delta(properties, &mut out),
+            "session.status" => return self.status(properties, out),
+            "session.error" => self.error(properties, &mut out),
+            "session.updated" => {
                 let info = properties.get("info").and_then(session_info);
                 return events(out).chain(info.map(Mapped::Session)).collect();
             }
@@ -170,112 +155,6 @@ impl Mapper {
         if let Some(id) = self.messages.pending_user(message) {
             self.messages.end_user(&id, out);
         }
-    }
-
-    fn status(&mut self, properties: &Value, mut out: Vec<AgentEvent>) -> Vec<Mapped> {
-        let status = properties.pointer("/status/type").and_then(Value::as_str);
-        let mut mapped: Vec<Mapped> = Vec::new();
-
-        match status {
-            Some("busy") if !self.turn.active => {
-                self.turn.active = true;
-                self.last_error = None;
-
-                mapped.extend(events(std::mem::take(&mut out)));
-                if self.turn.prompts > 0 {
-                    mapped.push(Mapped::PromptTaken);
-                }
-
-                out.push(AgentEvent::AgentStart);
-            }
-            Some("idle") if self.turn.active => self.end_turn(&mut out),
-            _ => {}
-        }
-
-        mapped.extend(events(out));
-        mapped
-    }
-
-    fn end_turn(&mut self, out: &mut Vec<AgentEvent>) {
-        let turn = std::mem::take(&mut self.turn);
-        self.messages.end_all(turn.aborted, out);
-        out.push(AgentEvent::AgentEnd);
-
-        let (status, error, retryable) = match (&turn.error, turn.aborted) {
-            (_, true) => (PromptStatus::Aborted, None, false),
-            (Some(error), false) => (PromptStatus::Error, Some(error.message.clone()), error.retryable),
-            (None, false) => (PromptStatus::Completed, None, false),
-        };
-
-        for _ in 0..turn.prompts {
-            out.push(AgentEvent::PromptResult {
-                request_id: None,
-                status,
-                error: error.clone(),
-                retryable,
-            });
-        }
-
-        out.push(AgentEvent::Settled {
-            aborted: Some(turn.aborted),
-        });
-
-        self.last_error = turn.error.map(|error| error.message);
-    }
-
-    fn error(&mut self, properties: &Value, out: &mut Vec<AgentEvent>) {
-        let error = properties.get("error").unwrap_or(&Value::Null);
-
-        if is_abort(error) {
-            self.turn.aborted |= self.turn.active;
-            return;
-        }
-
-        let message = error_message(error);
-
-        if self.turn.active {
-            self.note_turn_error(message, error);
-            return;
-        }
-
-        let repeated = self.last_error.as_deref().is_some_and(|last| message.contains(last));
-
-        if repeated {
-            self.last_error = None;
-            return;
-        }
-
-        out.push(AgentEvent::Notice {
-            level: NoticeLevel::Error,
-            message,
-        });
-    }
-
-    /// A failed assistant message fails its turn.
-    fn note_message_error(&mut self, info: &Value) {
-        let Some(error) = info.get("error").filter(|_| self.turn.active) else {
-            return;
-        };
-
-        if is_abort(error) {
-            self.turn.aborted = true;
-        } else if let Some(message) = error_text(info) {
-            self.note_turn_error(first_line(&message), error);
-        }
-    }
-
-    /// Keeps the first error of the running turn.
-    fn note_turn_error(&mut self, message: String, error: &Value) {
-        if self.turn.error.is_some() {
-            return;
-        }
-
-        let retryable = error
-            .pointer("/data/isRetryable")
-            .and_then(Value::as_bool)
-            .unwrap_or(false);
-
-        self.turn.error = Some(TurnError { message, retryable });
     }
 }
 

@@ -13,8 +13,9 @@
 //!   request no `allow` rule answered must be this route (`*` stands for one path segment, the
 //!   query is not part of the path) and carry every `match` field: keys starting with `/` are JSON
 //!   pointers into the request body, `query.<name>` a decoded query parameter, `header.<name>` a
-//!   header (lower case), any other key a top-level body field. A mismatch is answered `500`,
-//!   reported on stderr and remembered: the step is consumed, and the fake exits 4 at the end.
+//!   header (lower case), any other key a top-level body field; the value `"$absent"` requires the
+//!   field to be missing. A mismatch is answered `500`, reported on stderr and remembered: the step
+//!   is consumed, and the fake exits 4 at the end.
 //! - `"hold": true` (with `"as": "name"`, default the route) keeps the request unanswered until
 //!   `{"respond": "name", "reply": {...}}`, for routes that block (`command`, `shell`, `summarize`).
 //! - A reply is `{"status", "body", "headers": {name: value}}`: without `status` 200 with a body,
@@ -36,7 +37,9 @@
 //! `"$directory"` in replies and events becomes the last `?directory=` (or
 //! `x-opencode-directory`) a request carried, the working directory before any. `"$password"`
 //! (also in `stdout` and `stderr` lines) becomes `OPENCODE_SERVER_PASSWORD`, to check that the
-//! app never shows it.
+//! app never shows it. `"$request/messageID"` (any JSON pointer after `$request`) in `match`
+//! values, replies and events becomes that field of the last expected request with a JSON object
+//! body (for a `match`, the one before), for ids the app chose.
 //!
 //! End of the scenario: after a failure the fake exits 4 at once. Otherwise it keeps serving the
 //! allow rules until stdin closes, then exits 0. The real server ignores stdin EOF and needs
@@ -79,6 +82,7 @@ pub fn serve(steps: &[Value], scenario: &Path) -> ! {
         failed: false,
         stdin_closed: watch_stdin(),
         base: scenario.parent().map(Path::to_path_buf).unwrap_or_default(),
+        last_body: Value::Null,
     };
 
     // Leading allow rules are in place before the client can know the port.
@@ -126,6 +130,8 @@ struct Server {
     stdin_closed: Arc<AtomicBool>,
     /// The scenario's directory (`recording` paths are relative to it).
     base: PathBuf,
+    /// The body of the last expected request that had a JSON object body (`$request…`).
+    last_body: Value,
 }
 
 impl Server {
@@ -145,7 +151,7 @@ impl Server {
             let Some(stream) = self.held.remove(name) else {
                 fail(2, &format!("nothing held as {name}"));
             };
-            let reply = self.resolve(field("reply"));
+            let reply = self.with_request(&self.resolve(field("reply")));
             respond(stream, &self.shared.reply(&reply));
         } else if let Some(event) = field("sse") {
             self.sse(event);
@@ -178,9 +184,15 @@ impl Server {
             fail(2, "the listener stopped");
         };
 
-        if let Some(problem) = mismatch(route, step.get("match"), &request) {
+        let expected = step.get("match").map(|expected| self.with_request(expected));
+
+        if let Some(problem) = mismatch(route, expected.as_ref(), &request) {
             self.reject(request, &format!("expected {route}: {problem}"));
             return;
+        }
+
+        if request.body.is_object() {
+            self.last_body = request.body.clone();
         }
 
         if step.get("hold").and_then(Value::as_bool) == Some(true) {
@@ -189,8 +201,17 @@ impl Server {
             return;
         }
 
-        let reply = self.resolve(step.get("reply"));
+        let reply = self.with_request(&self.resolve(step.get("reply")));
         respond(request.stream, &self.shared.reply(&reply));
+    }
+
+    /// `value` with `"$request<pointer>"` replaced from the last expected request's body.
+    fn with_request(&self, value: &Value) -> Value {
+        crate::substitute(value, &|name| {
+            name.strip_prefix("request")
+                .and_then(|pointer| self.last_body.pointer(pointer))
+                .cloned()
+        })
     }
 
     /// Answers `500`, reports `message` on stderr and remembers the failure.
@@ -209,7 +230,7 @@ impl Server {
         } else {
             json!({ "directory": "$directory", "payload": event })
         };
-        let event = self.shared.substitute(&event);
+        let event = self.shared.substitute(&self.with_request(&event));
 
         let deadline = Instant::now() + SUBSCRIBER_WAIT;
         while self.shared.subscribers() == 0 && Instant::now() < deadline {
@@ -295,6 +316,14 @@ fn mismatch(route: &str, expected: Option<&Value>, request: &Request) -> Option<
 
     for (key, value) in expected {
         let actual = field_of(request, key);
+
+        if value == "$absent" {
+            if actual.is_some() {
+                return Some(format!("{key} was {actual:?}, expected none"));
+            }
+
+            continue;
+        }
 
         if actual.as_ref() != Some(value) {
             return Some(format!("{key} was {actual:?}, expected {value}"));

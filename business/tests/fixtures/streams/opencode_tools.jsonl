@@ -1,6 +1,7 @@
 // Tool calls (shapes of opencode/server/global-event.sse): a bash call whose output is the server
-// password, a reply that streams the password, a rejected write, a subagent session's write and
-// another session's bash; then the password on stderr and stdout, and the fake waits to be stopped.
+// password, a reply that streams the password, a rejected write, a subagent session's write (not
+// shown) and another session's bash; then the password on stderr and stdout, and the fake waits to
+// be stopped.
 {"include":"opencode_startup.jsonl"}
 {"expect":"POST /session/ses_eaa561636ffezINnnn1ghd5370/prompt_async","match":{"/parts/0/type":"text","/parts/0/text":"Say hello","/agent":"build"},"reply":{"recording":"../opencode/server/prompt-async.json"}}
 {"sse":{"type":"message.updated","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","info":{"id":"msg_155a9eeb3001SWCCbgpm0fXcQJ","role":"user","sessionID":"ses_eaa561636ffezINnnn1ghd5370","time":{"created":1792438562480},"agent":"build","model":{"providerID":"mock","modelID":"m1"}}}}}

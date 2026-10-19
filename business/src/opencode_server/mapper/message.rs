@@ -14,6 +14,24 @@ use serde_json::{Value, json};
 use crate::model::{ChatBlock, ChatMessage, MessageRole, TokenUsage};
 use crate::security::redact_text;
 
+/// The chat messages of one `{info, parts}` record: a user message, or an assistant message
+/// followed by the results of its finished tool calls; none when nothing in it is shown.
+pub(crate) fn record_messages(record: &Value) -> Vec<ChatMessage> {
+    let info = record.get("info").unwrap_or(&Value::Null);
+    let parts = record
+        .get("parts")
+        .and_then(Value::as_array)
+        .map_or(&[][..], Vec::as_slice);
+
+    match info.get("role").and_then(Value::as_str) {
+        Some("user") => user_message(info, parts).into_iter().collect(),
+        Some("assistant") => assistant_message(info, parts)
+            .map(|(message, results)| std::iter::once(message).chain(results).collect())
+            .unwrap_or_default(),
+        _ => Vec::new(),
+    }
+}
+
 /// The user message of `info` with `parts`; `None` when nothing in it is shown.
 pub(crate) fn user_message(info: &Value, parts: &[Value]) -> Option<ChatMessage> {
     let blocks: Vec<ChatBlock> = parts.iter().filter_map(user_block).collect();

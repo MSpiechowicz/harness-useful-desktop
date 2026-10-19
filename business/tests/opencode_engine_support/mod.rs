@@ -4,12 +4,12 @@
 #![allow(dead_code)]
 
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use harness_business::agent::{AgentSession, CollectingSink, SessionLaunch, SessionOptions};
 use harness_business::harness::ChatProtocol;
-use harness_business::model::AgentEvent;
+use harness_business::model::{AgentAction, AgentEvent, AgentReply, ChatMessage, MessageRole};
 use harness_business::process::ExecSpec;
 use tempfile::TempDir;
 
@@ -116,4 +116,87 @@ pub fn kind(event: &AgentEvent) -> String {
         .as_str()
         .expect("type tag")
         .to_owned()
+}
+
+/// A plain prompt.
+pub fn text_prompt(message: &str) -> AgentAction {
+    AgentAction::Prompt {
+        message: message.to_owned(),
+        images: Vec::new(),
+        streaming_behavior: None,
+    }
+}
+
+/// Sends `message` as a prompt that starts a turn; how many events were delivered when the
+/// prompt-taken call ran, once it ran.
+pub async fn prompt(chat: &Chat, message: &str) -> Arc<Mutex<Option<usize>>> {
+    let taken_at = Arc::new(Mutex::new(None));
+    let (sink, record) = (chat.sink.clone(), taken_at.clone());
+    chat.session().on_prompt_taken(Box::new(move || {
+        *record.lock().unwrap() = Some(sink.events().len());
+    }));
+
+    let reply = chat.session().send(text_prompt(message)).await.expect("prompt taken");
+    assert_eq!(
+        reply,
+        AgentReply::Prompt {
+            agent_invoked: Some(true),
+            disposition: Some("started".to_owned())
+        }
+    );
+
+    taken_at
+}
+
+/// Waits for the `Marker` title the scenarios end with; the events of the scenario after startup.
+pub async fn until_marker(chat: &Chat) -> Vec<AgentEvent> {
+    chat.wait(
+        "marker",
+        |event| matches!(event, AgentEvent::State { state } if state.session_name.as_deref() == Some("Marker")),
+    )
+    .await;
+
+    chat.events().split_off(3)
+}
+
+/// The messages of `role` that ended.
+pub fn message_end(events: &[AgentEvent], role: MessageRole) -> Vec<ChatMessage> {
+    events
+        .iter()
+        .filter_map(|event| match event {
+            AgentEvent::MessageEnd { message, .. } if message.role == role => Some(message.clone()),
+            _ => None,
+        })
+        .collect()
+}
+
+/// The texts of the ended user messages.
+pub fn user_texts(events: &[AgentEvent]) -> Vec<String> {
+    message_end(events, MessageRole::User)
+        .into_iter()
+        .filter_map(|message| match message.blocks.first() {
+            Some(harness_business::model::ChatBlock::Text { text }) => Some(text.clone()),
+            _ => None,
+        })
+        .collect()
+}
+
+/// Every `queueUpdate` as `(steering, follow-ups, live steered)`.
+pub fn queue_updates(events: &[AgentEvent]) -> Vec<(Vec<String>, Vec<String>, u32)> {
+    events
+        .iter()
+        .filter_map(|event| match event {
+            AgentEvent::QueueUpdate {
+                steering,
+                follow_up,
+                live_steered,
+            } => Some((steering.clone(), follow_up.clone(), *live_steered)),
+            _ => None,
+        })
+        .collect()
+}
+
+/// How many events of type `name` there are.
+pub fn count(events: &[AgentEvent], name: &str) -> usize {
+    events.iter().filter(|event| kind(event) == name).count()
 }
