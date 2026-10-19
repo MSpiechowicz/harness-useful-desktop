@@ -1,10 +1,8 @@
 //! One running agent process spoken to over RPC.
 //!
 //! Startup: spawn, then the steps of `startup.rs`, all within a deadline. A failed startup kills
-//! the process and emits nothing.
-//!
-//! Stop: close stdin → wait up to the grace period (3 s) → kill the process group. `exited` is
-//! always the last event and is emitted exactly once, also when the agent crashes.
+//! the process and emits nothing. The process lifecycle (tasks, stop, exit) is
+//! [`AgentProcess`]'s.
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -12,13 +10,12 @@ use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
 use serde_json::Value;
-use tokio::sync::{mpsc, oneshot, watch};
-use tokio::task::JoinHandle;
+use tokio::sync::oneshot;
 
 use super::SessionOptions;
-use super::io::{Readers, Shared, WriterMsg, read_loop, stderr_loop, wait_loop, write_loop};
-use super::sink::{EventSink, PromptTaken, spawn_emitter};
-use super::startup::{StartAbort, with_stderr};
+use super::io::{Shared, WriterMsg, read_loop};
+use super::process::{AgentProcess, StartAbort};
+use super::sink::{EventSink, PromptTaken};
 use crate::error::{BusinessError, Result};
 use crate::model::{AgentAction, AgentEvent, AgentReply, BashOutput, MAX_ACTION_TEXT_BYTES, SessionState, UiResponse};
 use crate::pi_family::normalize::{chat_message, hidden_message, model_option, string};
@@ -33,17 +30,8 @@ use crate::security::redact_text;
 /// Time limit for a `bash` command.
 pub const BASH_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 
-/// How long a killed agent may take to be reaped.
-const KILL_WAIT: Duration = Duration::from_secs(5);
-
-/// How long `stop` waits for the last events to be delivered.
-const EMITTER_WAIT: Duration = Duration::from_secs(2);
-
 /// History pages read at most (256 messages each).
 const MAX_HISTORY_PAGES: usize = 64;
-
-/// Frames queued for stdin at most.
-const WRITER_QUEUE: usize = 64;
 
 /// How often a move is checked for (the agent answers the prompt before the file is in place).
 const MOVE_CHECKS: usize = 10;
@@ -75,58 +63,45 @@ pub struct SessionLaunch<'a> {
 
 /// A running agent session (see the module docs).
 pub struct AgentSession {
+    process: AgentProcess,
     pub(super) shared: Arc<Shared>,
+    pub(super) dialect: &'static dyn RpcDialect,
     /// The project's session folder; follows the session when it moves to another project.
     sessions_dir: Mutex<PathBuf>,
     next_id: AtomicU64,
-    exited: watch::Receiver<Option<ExitInfo>>,
-    kill: watch::Sender<bool>,
-    emitter: Mutex<Option<JoinHandle<()>>>,
-    stop_grace: Duration,
     pub(super) protocol_version: Option<u32>,
 }
 
 impl AgentSession {
     /// Spawns the agent and completes startup.
     pub async fn start(launch: SessionLaunch<'_>) -> Result<Self> {
-        let process = launch.spawner.spawn(&launch.spec)?;
-        let (events, emitter) = spawn_emitter(launch.key.clone(), launch.sink, launch.options.coalesce_window);
-        let (writer, frames) = mpsc::channel(WRITER_QUEUE);
-        let shared = Arc::new(Shared::new(launch.dialect, writer, events));
-
+        let dialect = launch.dialect;
         let (ready_tx, ready_rx) = oneshot::channel();
-        let (kill_tx, kill_rx) = watch::channel(false);
-        let (exit_tx, exit_rx) = watch::channel(None);
+        let decode = DecodeState::new(&launch.project);
 
-        tokio::spawn(write_loop(process.stdin, frames));
-        let readers = Readers {
-            stdout: tokio::spawn(read_loop(
-                process.stdout,
-                shared.clone(),
-                ready_tx,
-                DecodeState::new(&launch.project),
-            )),
-            stderr: tokio::spawn(stderr_loop(process.stderr, shared.clone())),
-        };
-        tokio::spawn(wait_loop(process.child, kill_rx, exit_tx, readers, shared.clone()));
+        let process = AgentProcess::spawn(
+            launch.spawner,
+            &launch.spec,
+            launch.key,
+            launch.sink,
+            launch.options,
+            move |stdout, shared| read_loop(stdout, shared, dialect, ready_tx, decode),
+        )?;
 
         let mut session = Self {
-            shared,
+            shared: process.shared().clone(),
+            process,
+            dialect,
             sessions_dir: Mutex::new(launch.sessions_dir),
             next_id: AtomicU64::new(0),
-            exited: exit_rx,
-            kill: kill_tx,
-            emitter: Mutex::new(Some(emitter)),
-            stop_grace: launch.options.stop_grace,
             protocol_version: None,
         };
 
-        match session.startup(ready_rx, launch.options, launch.abort).await {
+        let started = session.startup(ready_rx, launch.options, launch.abort).await;
+
+        match started {
             Ok(()) => Ok(session),
-            Err(error) => {
-                session.kill_now().await;
-                Err(with_stderr(error, &session.shared.stderr_tail()))
-            }
+            Err(error) => Err(session.process.fail_start(error).await),
         }
     }
 
@@ -137,12 +112,12 @@ impl AgentSession {
 
     /// How the process ended, once it has.
     pub fn exit_info(&self) -> Option<ExitInfo> {
-        *self.exited.borrow()
+        self.process.exit_info()
     }
 
     /// True until the process exited.
     pub fn is_running(&self) -> bool {
-        self.exit_info().is_none()
+        self.process.is_running()
     }
 
     fn ensure_running(&self) -> Result<()> {
@@ -206,7 +181,7 @@ impl AgentSession {
         let context = EncodeContext {
             sessions_dir: &sessions_dir,
         };
-        let frame = self.shared.dialect.encode(action, &id, &context)?;
+        let frame = self.dialect.encode(action, &id, &context)?;
 
         let kind = match action {
             AgentAction::Prompt { .. } => RequestKind::Prompt,
@@ -214,7 +189,7 @@ impl AgentSession {
         };
 
         let response = self.request(&frame, &id, kind, limit).await?;
-        let reply = parse_reply(action, response.data.as_ref(), self.shared.dialect.catalog())?;
+        let reply = parse_reply(action, response.data.as_ref(), self.dialect.catalog())?;
 
         if let AgentAction::SetModel { .. } = action
             && let Some(model) = response.data.as_ref().and_then(model_option)
@@ -274,7 +249,7 @@ impl AgentSession {
         let target = project
             .to_str()
             .ok_or_else(|| BusinessError::InvalidInput("the project path is not valid UTF-8".to_owned()))?;
-        let prompt = self.shared.dialect.move_prompt(target).ok_or_else(|| {
+        let prompt = self.dialect.move_prompt(target).ok_or_else(|| {
             BusinessError::Unsupported("this harness cannot move a session to another project".to_owned())
         })?;
 
@@ -321,7 +296,7 @@ impl AgentSession {
         let context = EncodeContext {
             sessions_dir: &sessions_dir,
         };
-        let frame = self.shared.dialect.encode(&AgentAction::GetState, &id, &context)?;
+        let frame = self.dialect.encode(&AgentAction::GetState, &id, &context)?;
         let response = self.request(&frame, &id, RequestKind::Other, DEFAULT_TIMEOUT).await?;
 
         Ok(response
@@ -341,7 +316,7 @@ impl AgentSession {
 
     /// Reads the whole history (paging when the dialect pages) and serves the requested page.
     async fn history(&self, cursor: Option<&str>, limit: u32) -> Result<AgentReply> {
-        let dialect = self.shared.dialect;
+        let dialect = self.dialect;
         let mut raw: Vec<Value> = Vec::new();
         let mut page: Option<String> = None;
 
@@ -380,7 +355,7 @@ impl AgentSession {
             return Err(BusinessError::NotFound(format!("open dialog {}", response.id)));
         }
 
-        let frame = self.shared.dialect.encode_ui_response(&response);
+        let frame = self.dialect.encode_ui_response(&response);
         self.shared
             .writer
             .send(WriterMsg::Frame(encode_frame(&frame)))
@@ -400,7 +375,7 @@ impl AgentSession {
         }
 
         let id = self.next_id();
-        let frame = self.shared.dialect.encode_bash(command, &id);
+        let frame = self.dialect.encode_bash(command, &id);
         let response = self.request(&frame, &id, RequestKind::Other, BASH_TIMEOUT).await?;
 
         Ok(parse_bash(response.data.as_ref()))
@@ -416,36 +391,8 @@ impl AgentSession {
         self.shared.on_prompt_taken(taken);
     }
 
-    /// Stops the agent (see the module docs) and waits until `exited` was delivered.
+    /// Stops the agent (see `AgentProcess::stop`) and waits until `exited` was delivered.
     pub async fn stop(&self) {
-        self.shared.writer.try_send(WriterMsg::Close).ok();
-
-        if !self.wait_exit(self.stop_grace).await {
-            self.kill_now().await;
-        }
-
-        let emitter = self.emitter.lock().unwrap_or_else(PoisonError::into_inner).take();
-        if let Some(emitter) = emitter {
-            tokio::time::timeout(EMITTER_WAIT, emitter).await.ok();
-        }
-    }
-
-    async fn kill_now(&self) {
-        self.kill.send_replace(true);
-        self.wait_exit(KILL_WAIT).await;
-    }
-
-    async fn wait_exit(&self, limit: Duration) -> bool {
-        let mut exited = self.exited.clone();
-        let done = exited.wait_for(Option::is_some);
-
-        matches!(tokio::time::timeout(limit, done).await, Ok(Ok(_)))
-    }
-}
-
-impl Drop for AgentSession {
-    fn drop(&mut self) {
-        // Safety net: a session dropped without `stop` must not leave its agent running.
-        self.kill.send_replace(true);
+        self.process.stop().await;
     }
 }

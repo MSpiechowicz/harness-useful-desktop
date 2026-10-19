@@ -3,8 +3,9 @@
 //!
 //! - [`AgentManager`] — every running session by key (at most [`MAX_SESSIONS`]); a
 //!   [`SessionClaim`] keeps agents off a session id while its files are deleted.
-//! - [`AgentSession`] — one process: writer, reader, stderr and waiter tasks, request
-//!   correlation, dialogs, startup and shutdown.
+//! - [`AgentSession`] — one RPC session: request correlation, dialogs and startup, on top of the
+//!   process lifecycle every chat engine shares (`process.rs`: spawn, writer, stderr and waiter
+//!   tasks, startup deadline, shutdown).
 //! - [`EventSink`] — where the normalized [`AgentEnvelope`](crate::model::AgentEnvelope)s go
 //!   (the desktop shell adapts it to a Tauri channel).
 //! - [`DeltaCoalescer`] — merges streaming deltas within [`COALESCE_WINDOW`].
@@ -15,6 +16,7 @@
 mod coalesce;
 mod io;
 mod manager;
+mod process;
 mod session;
 mod sink;
 mod slots;
@@ -24,12 +26,11 @@ use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 pub use coalesce::{COALESCE_WINDOW, DeltaCoalescer};
-pub use io::{MAX_STDERR_LINE, MAX_STDERR_PER_SECOND};
 pub use manager::{AgentDeps, AgentManager, MAX_SESSIONS, Stopping};
+pub use process::{MAX_STDERR_LINE, MAX_STDERR_PER_SECOND, StartAbort};
 pub use session::{AgentSession, BASH_TIMEOUT, SessionLaunch};
 pub use sink::{CollectingSink, EventSink, PromptTaken};
 pub use slots::SessionClaim;
-pub use startup::StartAbort;
 
 /// Time limit for the handshake and the first `get_state`.
 pub const STARTUP_TIMEOUT: Duration = Duration::from_secs(10);
