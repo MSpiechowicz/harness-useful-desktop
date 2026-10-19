@@ -1,3 +1,10 @@
+# [0.29.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.28.0...v0.29.0) (2026-10-19)
+
+
+### Features
+
+* **memory:** remote + this computer for notes and scripts, copy local to remote ([bc23b4a](https://github.com/MSpiechowicz/harness-useful-desktop/commit/bc23b4a0edc0d66629f2fc8b6fafa14b22f84777))
+
 # [0.28.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.27.1...v0.28.0) (2026-10-19)
 
 
