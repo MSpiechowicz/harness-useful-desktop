@@ -1,3 +1,15 @@
+# [0.27.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.26.0...v0.27.0) (2026-10-19)
+
+
+### Bug Fixes
+
+* **test:** pin the clock in the routines next-run sort test ([897a360](https://github.com/MSpiechowicz/harness-useful-desktop/commit/897a360719e454bdde2beb53185ed096a4448b43))
+
+
+### Features
+
+* **ui:** sortable columns and larger status badges in Hooks and Routines ([58d7661](https://github.com/MSpiechowicz/harness-useful-desktop/commit/58d7661d0e3506bdb871cd802b05db2d01d20819))
+
 # [0.26.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.25.0...v0.26.0) (2026-10-19)
 
 
