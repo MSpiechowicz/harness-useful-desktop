@@ -296,6 +296,7 @@ impl Mapper {
     /// Ends the turn (see the module docs); what follows the turn's events.
     fn end_turn(&mut self, out: &mut Vec<AgentEvent>) -> Vec<Mapped> {
         let turn = std::mem::take(&mut self.turn);
+        self.asks.cancel_all(out);
         self.messages.end_all(turn.aborted, out);
 
         if let Some(attempt) = turn.retrying {

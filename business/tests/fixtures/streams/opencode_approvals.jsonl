@@ -1,0 +1,30 @@
+// Permission asks (shapes of opencode/server/global-event.sse) answered from the chat: once; a
+// reject that OpenCode cascades to the other open ask; always; one answered elsewhere; a
+// subagent's ask dismissed (reject). Last, a title marker.
+{"include":"opencode_startup.jsonl"}
+{"expect":"POST /session/ses_eaa561636ffezINnnn1ghd5370/prompt_async","match":{"/parts/0/text":"Say hello"}}
+{"sse":{"type":"message.updated","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","info":{"id":"msg_155a9eeb3001SWCCbgpm0fXcQJ","role":"user","sessionID":"ses_eaa561636ffezINnnn1ghd5370","time":{"created":1},"agent":"build"}}}}
+{"sse":{"type":"message.part.updated","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","part":{"type":"text","text":"Say hello","messageID":"msg_155a9eeb3001SWCCbgpm0fXcQJ","sessionID":"ses_eaa561636ffezINnnn1ghd5370","id":"prt_u1"}}}}
+{"sse":{"type":"session.status","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","status":{"type":"busy"}}}}
+{"sse":{"type":"message.updated","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","info":{"id":"msg_155a9eeb80018zbVAUXYL6o8VQ","parentID":"msg_155a9eeb3001SWCCbgpm0fXcQJ","role":"assistant","agent":"build","modelID":"m1","providerID":"mock","time":{"created":2},"sessionID":"ses_eaa561636ffezINnnn1ghd5370"}}}}
+{"sse":{"type":"message.part.updated","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","part":{"id":"prt_b","messageID":"msg_155a9eeb80018zbVAUXYL6o8VQ","sessionID":"ses_eaa561636ffezINnnn1ghd5370","type":"tool","tool":"bash","callID":"call_1","state":{"status":"running","input":{"command":"echo recorded","description":"Echo a word"},"time":{"start":1}}}}}}
+{"sse":{"type":"permission.asked","properties":{"id":"per_1","sessionID":"ses_eaa561636ffezINnnn1ghd5370","permission":"bash","patterns":["echo recorded"],"metadata":{"command":"echo recorded"},"always":["echo *"],"tool":{"messageID":"msg_155a9eeb80018zbVAUXYL6o8VQ","callID":"call_1"}}}}
+{"expect":"POST /permission/per_1/reply","match":{"reply":"once"},"reply":{"body":true}}
+{"sse":{"type":"permission.replied","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","requestID":"per_1","reply":"once"}}}
+{"sse":{"type":"permission.asked","properties":{"id":"per_2","sessionID":"ses_eaa561636ffezINnnn1ghd5370","permission":"edit","patterns":["note.txt"],"metadata":{"filepath":"$directory"},"always":["*"],"tool":{"messageID":"msg_155a9eeb80018zbVAUXYL6o8VQ","callID":"call_2"}}}}
+{"sse":{"type":"permission.asked","properties":{"id":"per_3","sessionID":"ses_eaa561636ffezINnnn1ghd5370","permission":"bash","patterns":["ls"],"metadata":{"command":"ls"},"always":["ls *"],"tool":{"messageID":"msg_155a9eeb80018zbVAUXYL6o8VQ","callID":"call_3"}}}}
+{"expect":"POST /permission/per_2/reply","match":{"reply":"reject"},"reply":{"body":true}}
+{"sse":{"type":"permission.replied","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","requestID":"per_2","reply":"reject"}}}
+{"sse":{"type":"permission.replied","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","requestID":"per_3","reply":"reject"}}}
+{"sse":{"type":"permission.asked","properties":{"id":"per_4","sessionID":"ses_eaa561636ffezINnnn1ghd5370","permission":"webfetch","patterns":["https://example.com"],"metadata":{"url":"https://example.com"},"always":["*"],"tool":{"messageID":"msg_155a9eeb80018zbVAUXYL6o8VQ","callID":"call_4"}}}}
+{"expect":"POST /permission/per_4/reply","match":{"reply":"always"},"reply":{"body":true}}
+{"sse":{"type":"permission.replied","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","requestID":"per_4","reply":"always"}}}
+{"sse":{"type":"permission.asked","properties":{"id":"per_5","sessionID":"ses_eaa561636ffezINnnn1ghd5370","permission":"bash","patterns":["pwd"],"metadata":{"command":"pwd"},"always":["pwd *"],"tool":{"messageID":"msg_155a9eeb80018zbVAUXYL6o8VQ","callID":"call_5"}}}}
+{"sse":{"type":"permission.replied","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","requestID":"per_5","reply":"once"}}}
+{"sse":{"type":"session.created","properties":{"sessionID":"ses_eaa55fce6ffeMnl5ZAKxvDBT61","info":{"id":"ses_eaa55fce6ffeMnl5ZAKxvDBT61","parentID":"ses_eaa561636ffezINnnn1ghd5370","directory":"$directory","title":"Child session - 2026-10-19T19:36:07.700Z","time":{"created":1}}}}}
+{"sse":{"type":"permission.asked","properties":{"id":"per_6","sessionID":"ses_eaa55fce6ffeMnl5ZAKxvDBT61","permission":"bash","patterns":["make clean"],"metadata":{"command":"make clean"},"always":["make *"],"tool":{"messageID":"msg_155a9eeb80018zbVAUXYL6o8VQ","callID":"call_6"}}}}
+{"expect":"POST /permission/per_6/reply","match":{"reply":"reject"},"reply":{"body":true}}
+{"sse":{"type":"permission.replied","properties":{"sessionID":"ses_eaa55fce6ffeMnl5ZAKxvDBT61","requestID":"per_6","reply":"reject"}}}
+{"sse":{"type":"message.updated","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","info":{"id":"msg_155a9eeb80018zbVAUXYL6o8VQ","parentID":"msg_155a9eeb3001SWCCbgpm0fXcQJ","role":"assistant","agent":"build","modelID":"m1","providerID":"mock","time":{"created":2,"completed":3},"sessionID":"ses_eaa561636ffezINnnn1ghd5370","finish":"stop"}}}}
+{"sse":{"type":"session.status","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","status":{"type":"idle"}}}}
+{"sse":{"type":"session.updated","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","info":{"id":"ses_eaa561636ffezINnnn1ghd5370","directory":"$directory","title":"Marker","time":{"created":1,"updated":2}}}}}

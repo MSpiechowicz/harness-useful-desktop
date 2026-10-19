@@ -1,0 +1,6 @@
+// Approval mode write: the session's rules for the build agent are set before the chat is ready,
+// then a title marker.
+{"include":"opencode_startup.jsonl"}
+{"expect":"PATCH /session/ses_eaa561636ffezINnnn1ghd5370","match":{"/permission/0":{"permission":"edit","pattern":"*","action":"ask"},"/permission/1":{"permission":"bash","pattern":"*","action":"ask"},"/permission/2":{"permission":"task","pattern":"*","action":"ask"},"/permission/3":{"permission":"*","pattern":"*","action":"allow"}},"reply":{"recording":"../opencode/server/session-patch-permission.json"}}
+{"sse":{"type":"session.updated","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","info":{"id":"ses_eaa561636ffezINnnn1ghd5370","directory":"$directory","title":"Marker","time":{"created":1,"updated":2}}}}}
+{"hang":true}

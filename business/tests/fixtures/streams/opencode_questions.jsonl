@@ -1,0 +1,21 @@
+// Questions (the recorded que_ shape): a single choice, two questions answered together, one
+// dismissed (reject), one rejected elsewhere, a yes/no one. Last, a title marker.
+{"include":"opencode_startup.jsonl"}
+{"expect":"POST /session/ses_eaa561636ffezINnnn1ghd5370/prompt_async","match":{"/parts/0/text":"Say hello"}}
+{"sse":{"type":"message.updated","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","info":{"id":"msg_155a9eeb3001SWCCbgpm0fXcQJ","role":"user","sessionID":"ses_eaa561636ffezINnnn1ghd5370","time":{"created":1},"agent":"build"}}}}
+{"sse":{"type":"message.part.updated","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","part":{"type":"text","text":"Say hello","messageID":"msg_155a9eeb3001SWCCbgpm0fXcQJ","sessionID":"ses_eaa561636ffezINnnn1ghd5370","id":"prt_u1"}}}}
+{"sse":{"type":"session.status","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","status":{"type":"busy"}}}}
+{"sse":{"type":"message.updated","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","info":{"id":"msg_155a9eeb80018zbVAUXYL6o8VQ","parentID":"msg_155a9eeb3001SWCCbgpm0fXcQJ","role":"assistant","agent":"build","modelID":"m1","providerID":"mock","time":{"created":2},"sessionID":"ses_eaa561636ffezINnnn1ghd5370"}}}}
+{"sse":{"type":"question.asked","properties":{"id":"que_1","sessionID":"ses_eaa561636ffezINnnn1ghd5370","questions":[{"question":"Pick one","header":"Pick","options":[{"label":"Alpha","description":"first"},{"label":"Beta","description":"second"}]}],"tool":{"messageID":"msg_155a9eeb80018zbVAUXYL6o8VQ","callID":"call_q"}}}}
+{"expect":"POST /question/que_1/reply","match":{"answers":[["Beta"]]},"reply":{"body":true}}
+{"sse":{"type":"question.asked","properties":{"id":"que_2","sessionID":"ses_eaa561636ffezINnnn1ghd5370","questions":[{"question":"Which tools?","header":"Tools","multiple":true,"options":[{"label":"Alpha","description":""},{"label":"Beta","description":""}]},{"question":"Anything else?","header":"More","options":[]}],"tool":{"messageID":"msg_155a9eeb80018zbVAUXYL6o8VQ","callID":"call_q"}}}}
+{"expect":"POST /question/que_2/reply","match":{"answers":[["Alpha","Gamma"],["nothing"]]},"reply":{"body":true}}
+{"sse":{"type":"question.asked","properties":{"id":"que_3","sessionID":"ses_eaa561636ffezINnnn1ghd5370","questions":[{"question":"Pick one","header":"Pick","options":[{"label":"Alpha","description":"first"},{"label":"Beta","description":"second"}]}],"tool":{"messageID":"msg_155a9eeb80018zbVAUXYL6o8VQ","callID":"call_q"}}}}
+{"expect":"POST /question/que_3/reject","reply":{"body":true}}
+{"sse":{"type":"question.asked","properties":{"id":"que_4","sessionID":"ses_eaa561636ffezINnnn1ghd5370","questions":[{"question":"Pick one","header":"Pick","options":[{"label":"Alpha","description":"first"},{"label":"Beta","description":"second"}]}],"tool":{"messageID":"msg_155a9eeb80018zbVAUXYL6o8VQ","callID":"call_q"}}}}
+{"sse":{"type":"question.rejected","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","requestID":"que_4"}}}
+{"sse":{"type":"question.asked","properties":{"id":"que_5","sessionID":"ses_eaa561636ffezINnnn1ghd5370","questions":[{"question":"Commit the change?","header":"Commit","options":[{"label":"Yes","description":""},{"label":"No","description":"keep it staged"}]}],"tool":{"messageID":"msg_155a9eeb80018zbVAUXYL6o8VQ","callID":"call_q"}}}}
+{"expect":"POST /question/que_5/reply","match":{"answers":[["No"]]},"reply":{"body":true}}
+{"sse":{"type":"message.updated","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","info":{"id":"msg_155a9eeb80018zbVAUXYL6o8VQ","parentID":"msg_155a9eeb3001SWCCbgpm0fXcQJ","role":"assistant","agent":"build","modelID":"m1","providerID":"mock","time":{"created":2,"completed":3},"sessionID":"ses_eaa561636ffezINnnn1ghd5370","finish":"stop"}}}}
+{"sse":{"type":"session.status","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","status":{"type":"idle"}}}}
+{"sse":{"type":"session.updated","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","info":{"id":"ses_eaa561636ffezINnnn1ghd5370","directory":"$directory","title":"Marker","time":{"created":1,"updated":2}}}}}

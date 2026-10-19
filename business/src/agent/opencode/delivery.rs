@@ -70,7 +70,10 @@ pub(super) fn send(chat: &Arc<Chat>, live: &mut Live, message: Outgoing) {
     let chat = chat.clone();
 
     tokio::spawn(async move {
-        let sent = request.post(&chat, &session).await;
+        let sent = match chat.rules_for_turn(&session).await {
+            Ok(()) => request.post(&chat, &session).await,
+            Err(error) => Err(error),
+        };
         let mut live = chat.lock();
 
         match sent {

@@ -3,8 +3,9 @@
 //! stream, opened before any call that changes something → `POST /session` or, to resume,
 //! `GET /session/{id}` (refused unless the session's directory is the project or inside it) →
 //! `GET /agent`, `/config/providers`, `/command` and `/config` (read only: its default model is the
-//! one a new session shows) → `ready`, `state` and `commandsUpdated`, then the events that arrived
-//! meanwhile.
+//! one a new session shows) → the session's permission rules for an approval mode or a helper chat
+//! (`approvals.rs`) → `ready`, `state` and `commandsUpdated`, then the events that arrived
+//! meanwhile. A helper chat never resumes a session.
 //!
 //! The whole startup runs within the shared deadline and abort race ([`run_startup`]); a failed
 //! one kills the server and emits nothing. Server output before the listening line and after it is
@@ -18,6 +19,7 @@ use std::time::Duration;
 use serde_json::{Value, json};
 use tokio::sync::oneshot;
 
+use super::approvals::{LaunchRules, patch_rules};
 use super::{Catalog, Chat, Live, OpenCodeSession, TurnSettings, stream};
 use crate::agent::engine::SessionLaunch;
 use crate::agent::io::Shared;
@@ -25,7 +27,7 @@ use crate::agent::process::{AgentProcess, LineForwarder, MAX_STDERR_LINE, Proces
 use crate::error::{BusinessError, Result};
 use crate::harness::CommandCatalog;
 use crate::harnesses::opencode::OpenCodeCatalog;
-use crate::model::{AgentEvent, ApprovalMode};
+use crate::model::AgentEvent;
 use crate::opencode_server::mapper::project_dir;
 use crate::opencode_server::wire::{
     ModelRef, SessionInfo, config_model, listening_addr, primary_agents, provider_models, session_info,
@@ -48,12 +50,25 @@ struct Booted {
     commands: Vec<Value>,
     /// The default model of the configuration.
     default_model: Option<ModelRef>,
+    /// The chat's agent.
+    agent: String,
+    /// The agent the session's permission rules were set for.
+    rules_agent: Option<String>,
 }
 
 impl OpenCodeSession {
     /// Spawns `opencode serve` and completes startup (see the module docs).
     pub async fn start(launch: SessionLaunch<'_>) -> Result<Self> {
-        check_settings(launch.approval_override, launch.utility)?;
+        if launch.utility && launch.resume.is_some() {
+            return Err(BusinessError::InvalidInput(
+                "a helper chat cannot resume a session".to_owned(),
+            ));
+        }
+
+        let rules = LaunchRules {
+            approval: launch.approval_override,
+            utility: launch.utility,
+        };
 
         let password = ServerPassword::random();
         let mut spec = launch.spec.clone();
@@ -78,24 +93,18 @@ impl OpenCodeSession {
         )?;
 
         let limit = launch.options.startup_timeout;
-        let steps = boot(listening_rx, password, &launch.project, launch.resume, limit);
+        let steps = boot(listening_rx, password, &launch.project, launch.resume, rules, limit);
 
         match run_startup(launch.options, launch.abort, steps).await {
-            Ok(booted) => Ok(Self::open(process, &launch.project, booted)),
+            Ok(booted) => Ok(Self::open(process, &launch.project, rules, booted)),
             Err(error) => Err(process.fail_start(error).await),
         }
     }
 
     /// Emits the first events and starts the event task.
-    fn open(process: AgentProcess, project: &Path, booted: Booted) -> Self {
+    fn open(process: AgentProcess, project: &Path, rules: LaunchRules, booted: Booted) -> Self {
         let shared = process.shared().clone();
         let info = booted.info;
-
-        let agent = info
-            .agent
-            .filter(|agent| booted.catalog.agents.iter().any(|known| &known.id == agent))
-            .or_else(|| booted.catalog.agents.first().map(|agent| agent.id.clone()))
-            .unwrap_or_else(|| FALLBACK_AGENT.to_owned());
 
         let commands = OpenCodeCatalog.merged(&booted.commands);
         let live = Live {
@@ -105,9 +114,10 @@ impl OpenCodeSession {
             model: info.model.or(booted.default_model),
             model_chosen: false,
             variant: info.variant,
-            agent,
+            agent: booted.agent,
             turn: TurnSettings::default(),
             commands: command_names(&booted.commands),
+            rules_agent: booted.rules_agent,
         };
 
         let chat = Arc::new(Chat {
@@ -115,6 +125,7 @@ impl OpenCodeSession {
             client: booted.client,
             directory: info.directory,
             catalog: booted.catalog,
+            rules,
             live: Mutex::new(live),
         });
 
@@ -131,24 +142,13 @@ impl OpenCodeSession {
     }
 }
 
-/// Refuses the launch settings this engine cannot apply yet: an approval mode or a utility chat
-/// needs per-session permission rules, and running without them would ask less than requested.
-fn check_settings(approval_override: Option<ApprovalMode>, utility: bool) -> Result<()> {
-    if approval_override.is_none() && !utility {
-        return Ok(());
-    }
-
-    Err(BusinessError::Unsupported(
-        "approval modes and helper chats are not available for OpenCode yet".to_owned(),
-    ))
-}
-
 /// The startup steps after spawn (see the module docs).
 async fn boot(
     listening: oneshot::Receiver<SocketAddr>,
     password: ServerPassword,
     project: &Path,
     resume: Option<&str>,
+    rules: LaunchRules,
     limit: Duration,
 ) -> Result<Booted> {
     let addr = tokio::time::timeout(limit, listening)
@@ -187,19 +187,40 @@ async fn boot(
     let commands = get_json(&client, Route::Commands { directory: scope }).await?;
     let config = get_json(&client, Route::Config { directory: scope }).await?;
 
+    let catalog = Catalog {
+        models: provider_models(&providers),
+        agents: primary_agents(&agents),
+        agent_rules: agents,
+    };
+    let agent = chat_agent(info.agent.as_deref(), &catalog);
+
+    let rules_body = rules.body(&catalog.agent_rules, &agent);
+    if let Some(body) = &rules_body {
+        patch_rules(&client, &session, body).await?;
+    }
+
     Ok(Booted {
         client,
         events,
         session,
         info,
         directory,
-        catalog: Catalog {
-            models: provider_models(&providers),
-            agents: primary_agents(&agents),
-        },
         commands: commands.as_array().cloned().unwrap_or_default(),
         default_model: config_model(&config),
+        rules_agent: rules_body.map(|_| agent.clone()),
+        agent,
+        catalog,
     })
+}
+
+/// The agent the session last used when the chat can switch to it, else the default one.
+fn chat_agent(last: Option<&str>, catalog: &Catalog) -> String {
+    let known = |agent: &&str| catalog.agents.iter().any(|option| option.id == *agent);
+
+    last.filter(known)
+        .map(str::to_owned)
+        .or_else(|| catalog.agents.first().map(|agent| agent.id.clone()))
+        .unwrap_or_else(|| FALLBACK_AGENT.to_owned())
 }
 
 /// `POST /session?directory=`.

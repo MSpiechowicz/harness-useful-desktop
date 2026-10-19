@@ -2,8 +2,9 @@
 //! CLI transcript shares. Pure: no I/O, one [`Mapper`] per chat.
 //!
 //! - **Sessions:** only events of the chat's own session count. Subagent sessions started from it
-//!   (`session.created` with a known `parentID`, at any depth) are tracked for their asks; their
-//!   messages and tool calls belong to the `task` call that started them and are not shown.
+//!   (`session.created` with a known `parentID`, at any depth) are tracked for their asks
+//!   ([`asks`]); their messages and tool calls belong to the `task` call that started them and are
+//!   not shown.
 //!   Durable events repeat as `sync` and server events (`server.*`) carry no session: both are
 //!   ignored, as is every type the chat does not show (catalog, plugin, file and diff events).
 //! - **Messages and tool calls:** see [`messages`].
@@ -11,22 +12,26 @@
 //! - **Session info:** `session.updated` of the chat's session is passed on as
 //!   [`Mapped::Session`].
 
+mod asks;
 mod message;
 mod messages;
 mod touched;
 mod turns;
 
-use std::collections::{HashSet, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::Path;
 
 use serde_json::Value;
 
+use self::asks::Asks;
+pub use self::asks::{Answer, PERMISSION_OPTIONS, Reply, ReplyKind};
 pub(crate) use self::message::{part_type, record_messages};
 use self::messages::Messages;
 pub(crate) use self::touched::{part_touched, project_dir};
 use self::turns::Turn;
 use super::wire::{Envelope, Outgoing, SessionInfo, session_info};
-use crate::model::AgentEvent;
+use crate::error::Result;
+use crate::model::{AgentEvent, UiResponse};
 use crate::security::redact_text;
 
 /// What one event (or one change the engine reports) means for the chat.
@@ -48,8 +53,10 @@ pub enum Mapped {
 /// Maps the events of one chat (see the module docs).
 pub struct Mapper {
     session: String,
-    children: HashSet<String>,
+    /// Subagent sessions and their directories.
+    children: HashMap<String, String>,
     messages: Messages,
+    asks: Asks,
     turn: Turn,
     /// The error the last turn ended with, until the next turn starts.
     last_error: Option<String>,
@@ -73,8 +80,9 @@ impl Mapper {
     pub fn new(session: &str, project: &Path, directory: &Path) -> Self {
         Self {
             session: session.to_owned(),
-            children: HashSet::new(),
+            children: HashMap::new(),
             messages: Messages::new(project.to_path_buf(), directory.to_path_buf()),
+            asks: Asks::new(directory.to_path_buf()),
             turn: Turn::default(),
             last_error: None,
             steering: Vec::new(),
@@ -98,7 +106,7 @@ impl Mapper {
         }
 
         if session != self.session {
-            return Vec::new();
+            return self.subagent_event(envelope);
         }
 
         let mut out = Vec::new();
@@ -123,10 +131,59 @@ impl Mapper {
                 let info = properties.get("info").and_then(session_info);
                 return events(out).chain(info.map(Mapped::Session)).collect();
             }
-            _ => {}
+            _ => self.ask_event(envelope, false, &mut out),
         }
 
         events(out).collect()
+    }
+
+    /// The answer to dialog `response.id`; the engine sends it (or shows the next question).
+    pub fn answer(&mut self, response: &UiResponse) -> Result<Answer> {
+        self.asks.answer(response)
+    }
+
+    /// The directory of subagent session `session`; `None` for the chat's own session (or one the
+    /// chat does not know).
+    pub fn subagent_directory(&self, session: &str) -> Option<&str> {
+        self.children.get(session).map(String::as_str)
+    }
+
+    /// Closes every open dialog (the chat stops).
+    pub fn cancel_asks(&mut self) -> Vec<AgentEvent> {
+        let mut out = Vec::new();
+        self.asks.cancel_all(&mut out);
+        out
+    }
+
+    /// An event of a subagent session: only its asks reach the chat.
+    fn subagent_event(&mut self, envelope: &Envelope) -> Vec<Mapped> {
+        let known = envelope
+            .session_id()
+            .is_some_and(|session| self.children.contains_key(session));
+
+        if !known {
+            return Vec::new();
+        }
+
+        let mut out = Vec::new();
+        self.ask_event(envelope, true, &mut out);
+
+        events(out).collect()
+    }
+
+    /// Permission and question events.
+    fn ask_event(&mut self, envelope: &Envelope, subagent: bool, out: &mut Vec<AgentEvent>) {
+        let properties = &envelope.properties;
+        let request = properties.get("requestID").and_then(Value::as_str);
+
+        match (envelope.kind.as_str(), request) {
+            ("permission.asked", _) => self.asks.permission_asked(properties, subagent, out),
+            ("question.asked", _) => self.asks.question_asked(properties, out),
+            ("permission.replied" | "question.replied" | "question.rejected", Some(id)) => {
+                self.asks.answered_elsewhere(id, out);
+            }
+            _ => {}
+        }
     }
 
     /// Tracks a session started from a tracked one.
@@ -136,10 +193,10 @@ impl Mapper {
         };
 
         let parent = info.parent_id.as_deref();
-        let known = parent.is_some_and(|parent| parent == self.session || self.children.contains(parent));
+        let known = parent.is_some_and(|parent| parent == self.session || self.children.contains_key(parent));
 
         if known {
-            self.children.insert(info.id);
+            self.children.insert(info.id, info.directory);
         }
     }
 

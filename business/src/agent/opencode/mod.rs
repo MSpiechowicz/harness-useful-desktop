@@ -9,8 +9,12 @@
 //!   ([`Mapper`]) under the chat's lock, so prompt bookkeeping and event order never interleave.
 //! - **Actions:** prompts, steering, follow-ups and abort (`prompts.rs`, sent by `delivery.rs`),
 //!   history (`history.rs`), model, thinking level and agent pickers read from the startup
-//!   catalogs (`settings.rs`), dialogs (`dialogs.rs`) and session actions (`ops.rs`).
+//!   catalogs (`settings.rs`), answers to approvals and questions (`dialogs.rs`) and session
+//!   actions (`ops.rs`).
+//! - **Approval modes and helper chats** (`approvals.rs`): session permission rules.
+//! - **Stop:** open dialogs close, a helper chat's session is deleted, then the server stops.
 
+mod approvals;
 mod delivery;
 mod dialogs;
 mod history;
@@ -22,7 +26,10 @@ mod stream;
 
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
+use serde_json::Value;
 use tokio::task::AbortHandle;
+
+use self::approvals::LaunchRules;
 
 use super::io::Shared;
 use super::process::AgentProcess;
@@ -50,6 +57,8 @@ struct Chat {
     /// The session's directory as OpenCode stores it (directory-scoped routes).
     directory: String,
     catalog: Catalog,
+    /// The session rules the launch asked for (`approvals.rs`).
+    rules: LaunchRules,
     live: Mutex<Live>,
 }
 
@@ -57,6 +66,8 @@ struct Chat {
 struct Catalog {
     models: Vec<ProviderModel>,
     agents: Vec<AgentOption>,
+    /// The `GET /agent` list, for each agent's permission rules.
+    agent_rules: Value,
 }
 
 /// The chat's changing state.
@@ -76,6 +87,8 @@ struct Live {
     turn: TurnSettings,
     /// Names of the server's commands (`GET /command`).
     commands: Vec<String>,
+    /// The agent the session's permission rules were last set for.
+    rules_agent: Option<String>,
 }
 
 /// The agent, model and variant of a turn.
@@ -235,6 +248,11 @@ impl OpenCodeSession {
     /// `exited` was delivered. Never calls `/global/dispose`.
     pub async fn stop(&self) {
         self.events.abort();
+
+        let cancelled = self.chat.lock().mapper.cancel_asks();
+        cancelled.into_iter().for_each(|event| self.chat.shared.emit(event));
+
+        self.delete_helper_session().await;
         self.process.stop().await;
     }
 }

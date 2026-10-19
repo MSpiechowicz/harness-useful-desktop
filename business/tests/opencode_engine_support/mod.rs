@@ -9,7 +9,7 @@ use std::time::Duration;
 
 use harness_business::agent::{AgentSession, CollectingSink, SessionLaunch, SessionOptions};
 use harness_business::harness::ChatProtocol;
-use harness_business::model::{AgentAction, AgentEvent, AgentReply, ChatMessage, MessageRole};
+use harness_business::model::{AgentAction, AgentEvent, AgentReply, ApprovalMode, ChatMessage, MessageRole};
 use harness_business::process::ExecSpec;
 use tempfile::TempDir;
 
@@ -76,6 +76,22 @@ pub async fn start(name: &str) -> Chat {
 
 /// Starts scenario `name`, resuming `resume`, with `options`.
 pub async fn start_with(name: &str, resume: Option<&str>, options: SessionOptions) -> Chat {
+    start_as(name, resume, None, false, options).await
+}
+
+/// Starts scenario `name` with an approval override, as a helper chat when `utility`.
+pub async fn start_mode(name: &str, approval: Option<ApprovalMode>, utility: bool) -> Chat {
+    start_as(name, None, approval, utility, options()).await
+}
+
+/// Starts scenario `name` with every launch setting.
+pub async fn start_as(
+    name: &str,
+    resume: Option<&str>,
+    approval: Option<ApprovalMode>,
+    utility: bool,
+    options: SessionOptions,
+) -> Chat {
     let dir = project();
     let project = dunce::canonicalize(dir.path()).expect("canonical project");
     let sink = CollectingSink::new();
@@ -92,8 +108,8 @@ pub async fn start_with(name: &str, resume: Option<&str>, options: SessionOption
         project: project.clone(),
         sessions_dir: project.clone(),
         resume,
-        approval_override: None,
-        utility: false,
+        approval_override: approval,
+        utility,
         sink: sink.clone(),
         options: &options,
         abort: Box::pin(std::future::pending()),
@@ -199,4 +215,35 @@ pub fn queue_updates(events: &[AgentEvent]) -> Vec<(Vec<String>, Vec<String>, u3
 /// How many events of type `name` there are.
 pub fn count(events: &[AgentEvent], name: &str) -> usize {
     events.iter().filter(|event| kind(event) == name).count()
+}
+
+/// Waits for the dialog `id`; panics after [`WAIT`].
+pub async fn dialog(chat: &Chat, id: &str) -> harness_business::model::UiRequest {
+    let event = chat
+        .wait(
+            id,
+            |event| matches!(event, AgentEvent::UiRequest { request } if request.id == id),
+        )
+        .await;
+
+    match event {
+        AgentEvent::UiRequest { request } => request,
+        _ => unreachable!(),
+    }
+}
+
+/// Answers dialog `id` with `outcome`.
+pub async fn answer(chat: &Chat, id: &str, outcome: harness_business::model::UiOutcome) {
+    let response = harness_business::model::UiResponse {
+        id: id.to_owned(),
+        outcome,
+    };
+
+    chat.session().respond(response).await.expect("answered");
+}
+
+/// Answers dialog `id` with the option or text `value`.
+pub async fn choose(chat: &Chat, id: &str, value: &str) {
+    let value = value.to_owned();
+    answer(chat, id, harness_business::model::UiOutcome::Value { value }).await;
 }

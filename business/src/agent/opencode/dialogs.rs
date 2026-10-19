@@ -1,18 +1,78 @@
-//! Dialogs of an [`OpenCodeSession`]: OpenCode's permission asks and questions. The chat does not
-//! show them yet, so no dialog is ever open to answer.
+//! Dialogs of an [`OpenCodeSession`]: answers to OpenCode's permission asks and questions (see
+//! the mapper's `asks`). An answer goes to the request's route with the directory of the session
+//! that asked (`/permission/*` and `/question/*` are not session-scoped); a question with several
+//! parts shows its next part first.
 
-use super::OpenCodeSession;
+use serde_json::json;
+
+use super::{OpenCodeSession, stream};
 use crate::error::{BusinessError, Result};
-use crate::model::UiResponse;
+use crate::model::{MAX_ACTION_TEXT_BYTES, UiOutcome, UiResponse};
+use crate::opencode_server::mapper::{Answer, ReplyKind};
+use crate::opencode_server::{Mapped, PermissionId, QuestionId, Route};
 
 impl OpenCodeSession {
-    /// Answers an open dialog; none can be open yet.
+    /// Answers an open dialog; fails for ids that are not open (answered, cancelled or unknown).
     pub async fn respond(&self, response: UiResponse) -> Result<()> {
         self.process.ensure_running()?;
 
-        Err(BusinessError::Unsupported(format!(
-            "dialog {} cannot be answered: OpenCode approvals and questions are not available yet",
-            response.id
-        )))
+        if let UiOutcome::Value { value } = &response.outcome
+            && value.len() > MAX_ACTION_TEXT_BYTES
+        {
+            return Err(BusinessError::InvalidInput(format!(
+                "value exceeds {MAX_ACTION_TEXT_BYTES} bytes"
+            )));
+        }
+
+        let chat = &self.chat;
+        let (reply, directory) = {
+            let mut live = chat.lock();
+
+            let reply = match live.mapper.answer(&response)? {
+                Answer::Next(events) => {
+                    stream::apply(chat, &mut live, events.into_iter().map(Mapped::Event).collect());
+                    return Ok(());
+                }
+                Answer::Send(reply) => reply,
+            };
+
+            let directory = live
+                .mapper
+                .subagent_directory(&reply.session)
+                .unwrap_or(&chat.directory)
+                .to_owned();
+
+            (reply.kind, directory)
+        };
+
+        let sent = match &reply {
+            ReplyKind::Permission { id, reply } => {
+                let id = PermissionId::parse(id)?;
+                let route = Route::PermissionReply {
+                    id: &id,
+                    directory: &directory,
+                };
+                chat.client.send(route, Some(&json!({ "reply": reply }))).await
+            }
+            ReplyKind::Question { id, answers } => {
+                let id = QuestionId::parse(id)?;
+                let route = Route::QuestionReply {
+                    id: &id,
+                    directory: &directory,
+                };
+                chat.client.send(route, Some(&json!({ "answers": answers }))).await
+            }
+            ReplyKind::QuestionReject { id } => {
+                let id = QuestionId::parse(id)?;
+                let route = Route::QuestionReject {
+                    id: &id,
+                    directory: &directory,
+                };
+                chat.client.send(route, Some(&json!({}))).await
+            }
+        };
+
+        sent?.error_for_status()?;
+        Ok(())
     }
 }

@@ -8,9 +8,11 @@
 //! - [`wire`]: the server's JSON read field by field, and the prompt body.
 //! - [`mapper`]: the server's events as chat events ([`Mapper`]), and the OpenCode message
 //!   conversion the CLI transcript shares.
+//! - [`modes`]: per-chat approval modes as session permission rules.
 
 pub mod http;
 pub mod mapper;
+pub mod modes;
 pub mod routes;
 pub mod wire;
 

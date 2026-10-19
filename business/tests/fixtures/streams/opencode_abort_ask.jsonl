@@ -1,0 +1,14 @@
+// An abort while a permission ask is open: OpenCode drops the ask without an event, the chat
+// closes its dialog when the turn ends. Last, a title marker.
+{"include":"opencode_startup.jsonl"}
+{"expect":"POST /session/ses_eaa561636ffezINnnn1ghd5370/prompt_async","match":{"/parts/0/text":"Say hello"}}
+{"sse":{"type":"message.updated","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","info":{"id":"msg_155a9eeb3001SWCCbgpm0fXcQJ","role":"user","sessionID":"ses_eaa561636ffezINnnn1ghd5370","time":{"created":1},"agent":"build"}}}}
+{"sse":{"type":"message.part.updated","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","part":{"type":"text","text":"Say hello","messageID":"msg_155a9eeb3001SWCCbgpm0fXcQJ","sessionID":"ses_eaa561636ffezINnnn1ghd5370","id":"prt_u1"}}}}
+{"sse":{"type":"session.status","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","status":{"type":"busy"}}}}
+{"sse":{"type":"message.updated","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","info":{"id":"msg_155a9eeb80018zbVAUXYL6o8VQ","parentID":"msg_155a9eeb3001SWCCbgpm0fXcQJ","role":"assistant","agent":"build","modelID":"m1","providerID":"mock","time":{"created":2},"sessionID":"ses_eaa561636ffezINnnn1ghd5370"}}}}
+{"sse":{"type":"message.part.updated","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","part":{"id":"prt_b","messageID":"msg_155a9eeb80018zbVAUXYL6o8VQ","sessionID":"ses_eaa561636ffezINnnn1ghd5370","type":"tool","tool":"bash","callID":"call_1","state":{"status":"running","input":{"command":"echo recorded","description":"Echo a word"},"time":{"start":1}}}}}}
+{"sse":{"type":"permission.asked","properties":{"id":"per_1","sessionID":"ses_eaa561636ffezINnnn1ghd5370","permission":"bash","patterns":["echo recorded"],"metadata":{"command":"echo recorded"},"always":["echo *"],"tool":{"messageID":"msg_155a9eeb80018zbVAUXYL6o8VQ","callID":"call_1"}}}}
+{"expect":"POST /session/ses_eaa561636ffezINnnn1ghd5370/abort","reply":{"body":true}}
+{"sse":{"type":"session.error","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","error":{"name":"MessageAbortedError","data":{"message":"Aborted"}}}}}
+{"sse":{"type":"session.status","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","status":{"type":"idle"}}}}
+{"sse":{"type":"session.updated","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","info":{"id":"ses_eaa561636ffezINnnn1ghd5370","directory":"$directory","title":"Marker","time":{"created":1,"updated":2}}}}}
