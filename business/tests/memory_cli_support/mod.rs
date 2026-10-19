@@ -13,6 +13,15 @@ use harness_business::process::{BoxFuture, ExecOutput, ExecSpec, ProcessRunner};
 
 use crate::common::set_mode;
 
+/// A home with an installed `harness-memory` (never run: the stand-in answers).
+pub fn installed() -> (tempfile::TempDir, Env) {
+    let dir = tempfile::tempdir().unwrap();
+    let (env, path) = installed_at(dir.path());
+    install(&path, None);
+
+    (dir, env)
+}
+
 /// Where the installer puts `harness-memory` under `home`, and the env that finds it and its
 /// config file there (Windows keeps the config under `APPDATA`).
 pub fn installed_at(home: &Path) -> (Env, PathBuf) {

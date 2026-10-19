@@ -9,18 +9,9 @@ mod team_support;
 use harness_business::ecosystem::{KindsSupport, MemoryKinds};
 use harness_business::env::Env;
 use harness_business::process::ExecOutput;
-use memory_cli_support::{install, installed_at};
+use memory_cli_support::{install, installed, installed_at};
 use pretty_assertions::assert_eq;
 use team_support::{Cli, exits, wait};
-
-/// A home with an installed `harness-memory` (never run: the stand-in answers).
-fn installed() -> (tempfile::TempDir, Env) {
-    let dir = tempfile::tempdir().unwrap();
-    let (env, path) = installed_at(dir.path());
-    install(&path, None);
-
-    (dir, env)
-}
 
 fn kinds(stdout: &str) -> Cli {
     Cli::default().starting(&["kinds"], exits(0, stdout, ""))

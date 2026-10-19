@@ -11,19 +11,10 @@ use harness_business::ecosystem::memory_config_path;
 use harness_business::ecosystem::memory_hooks::{delete_team_hook, list_team_hooks, project_key, put_team_hook};
 use harness_business::ecosystem::{HooksConfig, HooksSupport, MemoryHooks};
 use harness_business::env::Env;
-use memory_cli_support::{install, installed_at};
+use memory_cli_support::{installed, installed_at};
 use pretty_assertions::assert_eq;
 use serde_json::json;
 use team_support::{Cli, REPO, answers, exits, id, number_after, row, row_json, server, wait, with_project};
-
-/// A home with an installed `harness-memory` (never run: the stand-in answers).
-fn installed() -> (tempfile::TempDir, Env) {
-    let dir = tempfile::tempdir().unwrap();
-    let (env, path) = installed_at(dir.path());
-    install(&path, None);
-
-    (dir, env)
-}
 
 fn config(hooks: &str, trust: bool) -> Cli {
     Cli::default().starting(

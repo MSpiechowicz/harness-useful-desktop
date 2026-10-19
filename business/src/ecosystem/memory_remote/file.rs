@@ -134,7 +134,6 @@ pub(super) fn read_config(path: &Path) -> ConfigFile {
 }
 
 /// What is wrong with the file's permissions.
-#[cfg_attr(not(unix), expect(dead_code, reason = "permissions are checked on Unix only"))]
 struct PermissionProblem {
     message: String,
     /// Harness Memory refuses the file (not just a warning).
