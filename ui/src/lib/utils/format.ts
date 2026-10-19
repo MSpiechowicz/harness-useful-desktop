@@ -16,6 +16,11 @@ export function locale(): string {
   return i18n.locale;
 }
 
+/** Names in a sentence ("Oh My Pi and Pi", or "Oh My Pi or Pi" for a choice), joined the way the language does it. */
+export function joinNames(names: string[], type: 'conjunction' | 'disjunction' = 'conjunction'): string {
+  return new Intl.ListFormat(i18n.locale, { style: 'long', type }).format(names);
+}
+
 /** One formatter per locale, made on first use. */
 export function perLocale<T>(make: (locale: string) => T): () => T {
   const made = new Map<string, T>();

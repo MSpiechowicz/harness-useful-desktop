@@ -137,5 +137,5 @@ pub use sync::{
     SyncItemKind, SyncItemOutcome, SyncItemStatus, SyncMcpPreview, SyncNote, SyncOutcome, SyncProgress, SyncSkipReason,
     SyncStep, SyncUnsupported,
 };
-pub use ui_request::{UiOutcome, UiRequest, UiRequestKind, UiResponse};
+pub use ui_request::{UiOutcome, UiPurpose, UiRequest, UiRequestKind, UiResponse};
 pub use update::{MAX_UPDATE_NOTES_BYTES, UpdateInfo, UpdatePhase, UpdateProgress};

@@ -5,8 +5,8 @@
   import Popover from '$lib/components/Popover.svelte';
   import type { ChatSession } from '$lib/chat/session.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
-  import { harness } from '$lib/stores/harness.svelte';
 
+  import { hasAgentPicker } from './agent-picker';
   import MenuItem from './MenuItem.svelte';
 
   interface Props {
@@ -17,14 +17,20 @@
 
   const current = $derived(session.chat.session?.agent ?? null);
   const name = $derived(session.agents?.find((option) => option.id === current)?.name ?? current);
-  // Only a harness with an agent picker, and a chat that has reported its agent, has one to show.
-  const supported = $derived(Boolean(harness.get(session.info.harness)?.capabilities.agentPicker) && current !== null);
+  const supported = $derived(hasAgentPicker(session));
   /** The harness reads the agent once per turn, so it refuses a switch while one runs. */
   const locked = $derived(session.streaming);
 
   // The list is short and the trigger names the agent, so it is asked for as soon as the picker shows.
   $effect(() => {
     if (supported) {
+      void session.loadAgents();
+    }
+  });
+
+  // Opening the picker asks again when that first ask failed.
+  $effect(() => {
+    if (supported && session.ui.agentPicker) {
       void session.loadAgents();
     }
   });
@@ -54,7 +60,9 @@
     {/snippet}
 
     {#snippet children({ close })}
-      {#if session.agents === null}
+      {#if session.agents === null && session.agentsFailed}
+        <p class="px-2.5 py-2 text-sm text-danger" role="alert">{t('chat.agent.failed')}</p>
+      {:else if session.agents === null}
         <p class="px-2.5 py-2 text-sm text-fg-3" role="status">{t('chat.agent.loading')}</p>
       {:else}
         {#each session.agents as option (option.id)}

@@ -23,7 +23,7 @@ pub fn decode_ui_request(frame: &Value) -> Vec<Inbound> {
 
     let method = frame.get("method").and_then(Value::as_str).unwrap_or_default();
 
-    let dialog = |kind: UiRequestKind| vec![Inbound::UiRequest(UiRequest { id: id.clone(), kind })];
+    let dialog = |kind: UiRequestKind| vec![Inbound::UiRequest(UiRequest::new(id.clone(), kind))];
     let event = |event: AgentEvent| vec![Inbound::Event(event)];
     let title = || plain_text(&string(frame, "title").unwrap_or_default());
     let timeout_ms = || unsigned(frame, "timeout");

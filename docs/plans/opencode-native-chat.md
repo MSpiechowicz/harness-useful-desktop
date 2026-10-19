@@ -130,7 +130,7 @@ Paths under `packages/opencode/src` of the OpenCode source.
 | `!command` | `/shell` (409 → "agent is working") | `BashOutput{exit_code: None}` |
 | Images | file part `data:<mime>;base64,…` | — |
 | AI naming | utility session, `*:*:deny`, deleted at stop | same `ai-name.ts` flow |
-| Questions | `question.asked` → Select or Input; dismiss → reject | — |
+| Questions | `question.asked` → Select (plus "Type your own answer…" unless `custom: false`) or Input; dismiss → reject | — |
 | Move project | not possible | `move_session: false` |
 
 **Approval modes** (`modes.rs`, recomputed per agent, PATCHed before a prompt when agent or mode changed, only while
@@ -217,7 +217,7 @@ chunked, JSON replies use `Content-Length`; `sync` duplicates on the global stre
 - Where OMP/PI write HTML exports; mirror it, otherwise the app data dir, never the project.
 - Whether PI's fork puts the message text back in the composer.
 - How `BashOutput.exit_code: None` renders.
-- Questions with Yes/No-like option labels are numbered by the backend ("1. Yes") so `approval.ts` does not render them as approval cards. A question marker in the UI contract would be cleaner (review item).
+- [x] Questions with Yes/No-like option labels were numbered by the backend ("1. Yes") so `approval.ts` did not render them as approval cards. `UiRequest.purpose` (`approval` / `question`) now marks them, the labels stay as asked, and permission asks carry `toolCallId` so the approval card shows the call that asks.
 - `/compact` no longer asks for instructions on OpenCode (`Capabilities.compactInstructions`, step 11).
 - A 4xx on `prompt_async` maps to `Protocol`, so hooks treat it as possibly delivered and do not re-arm `sessionStart` context (review item).
 - [x] Some engine error messages joined sentences with ";" (e.g. "the agent is working; …", compact refusal). Split into two sentences (step 13), including the shared move messages in `agent/session.rs` and the mock handlers.

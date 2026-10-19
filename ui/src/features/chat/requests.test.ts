@@ -146,3 +146,90 @@ describe('approval card', () => {
     await waitFor(() => expect(answers()).toEqual([{ type: 'value', value: 'Deny' }]));
   });
 });
+
+/** Starts tool calls as given, opens `request` and shows its approval card. */
+async function mountBound(calls: { id: string; name: string; args: Record<string, string> }[], request: UiRequest) {
+  const backend = await startedSession();
+  let seq = 0;
+  for (const call of calls) {
+    backend.session.ingest({ sessionKey: backend.session.key, seq: ++seq, event: { type: 'toolStart', toolCallId: call.id, name: call.name, args: call.args, intent: null } });
+  }
+  backend.session.ingest({ sessionKey: backend.session.key, seq: ++seq, event: { type: 'uiRequest', request } });
+  backend.session.flush();
+
+  render(ApprovalCard, { session: backend.session, prompt: asApproval(request)! });
+
+  return backend;
+}
+
+const permission = (id: string, title: string, toolCallId?: string): UiRequest => ({
+  id,
+  kind: { type: 'select', title, options: ['Allow once', 'Always allow', 'Reject'], details: [null, null, null], timeoutMs: null },
+  purpose: 'approval',
+  toolCallId,
+});
+
+describe('approval card bound to its tool call', () => {
+  const parallel = [
+    { id: 'call_a', name: 'bash', args: { command: 'cargo test' } },
+    { id: 'call_b', name: 'bash', args: { command: 'git push --force origin main' } },
+  ];
+
+  it('shows the command of the call that asks, not the newest one', async () => {
+    await mountBound(parallel, permission('per_1', 'Allow bash: cargo test?', 'call_a'));
+
+    expect(screen.getByText('cargo test')).toBeInTheDocument();
+    expect(screen.queryByText('git push --force origin main')).toBeNull();
+  });
+
+  it('shows each parallel ask with its own command', async () => {
+    await mountBound(parallel, permission('per_2', 'Allow bash: git push --force origin main?', 'call_b'));
+
+    expect(screen.getByText('git push --force origin main')).toBeInTheDocument();
+    expect(screen.queryByText('cargo test')).toBeNull();
+  });
+
+  it('shows no other call when the one that asks is not in the transcript', async () => {
+    await mountBound(parallel, permission('per_3', 'Allow bash for a subagent: ls -la?', 'call_sub'));
+
+    expect(screen.getByText('Allow bash for a subagent: ls -la?')).toBeInTheDocument();
+    expect(screen.queryByText('cargo test')).toBeNull();
+    expect(screen.queryByText('git push --force origin main')).toBeNull();
+  });
+
+  it('shows a 300-character command in full', async () => {
+    const command = `echo ${'x'.repeat(290)} && git push --force`;
+    await mountBound([{ id: 'call_a', name: 'bash', args: { command } }], permission('per_1', 'Allow bash?', 'call_a'));
+
+    expect(screen.getByText(command)).toBeInTheDocument();
+  });
+
+  it('shows a 300-character path in full', async () => {
+    const path = `/work/${'deep/'.repeat(58)}secret.txt`;
+    await mountBound([{ id: 'call_a', name: 'write', args: { path } }], permission('per_1', 'Allow write?', 'call_a'));
+
+    expect(screen.getByText(path)).toBeInTheDocument();
+  });
+});
+
+describe('questions', () => {
+  const question: UiRequest = {
+    id: 'que_1',
+    kind: { type: 'select', title: 'Commit the change?', options: ['Yes', 'No', 'Type your own answer…'], details: [null, null, null], timeoutMs: null },
+    purpose: 'question',
+  };
+
+  it('never reads as an approval, whatever its options say', () => {
+    expect(asApproval(question)).toBeNull();
+    expect(asApproval({ ...question, purpose: undefined })).not.toBeNull();
+  });
+
+  it('opens as a dialog with every option', async () => {
+    const backend = await startedSession();
+    backend.session.ingest({ sessionKey: backend.session.key, seq: 1, event: { type: 'uiRequest', request: question } });
+    backend.session.flush();
+
+    expect(backend.session.approval).toBeNull();
+    expect(backend.session.dialog).toEqual(question);
+  });
+});

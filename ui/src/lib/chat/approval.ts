@@ -16,11 +16,14 @@ export interface ApprovalPrompt {
   others: { option: string; detail: string | null }[];
   approveDetail: string | null;
   timeoutMs: number | null;
+  /** The tool call the agent says this approval is about; null when it does not say. */
+  toolCallId: string | null;
 }
 
+/** The approval a request asks for; null for any other dialog, and always for a question, whatever its options say. */
 export function asApproval(request: UiRequest): ApprovalPrompt | null {
   const { kind } = request;
-  if (kind.type !== 'select' || kind.options.length > MAX_OPTIONS) {
+  if (request.purpose === 'question' || kind.type !== 'select' || kind.options.length > MAX_OPTIONS) {
     return null;
   }
 
@@ -40,6 +43,7 @@ export function asApproval(request: UiRequest): ApprovalPrompt | null {
     approveDetail: detailOf(approve),
     others: kind.options.filter((option) => option !== approve && option !== deny).map((option) => ({ option, detail: detailOf(option) })),
     timeoutMs: kind.timeoutMs,
+    toolCallId: request.toolCallId ?? null,
   };
 }
 
@@ -60,8 +64,15 @@ export function pendingDialog(state: ChatState): UiRequest | null {
   return state.openRequests.find((request) => asApproval(request) === null) ?? null;
 }
 
-/** The tool call an approval is most likely about: the latest one that has not finished. */
-export function approvalSubject(state: ChatState): ToolCallState | null {
+/**
+ * The tool call an approval is about: the one the agent names, else the latest one that has not finished.
+ * A named call the transcript does not show (yet) gives null, so the card never shows another call's command.
+ */
+export function approvalSubject(state: ChatState, prompt: Pick<ApprovalPrompt, 'toolCallId'>): ToolCallState | null {
+  if (prompt.toolCallId !== null) {
+    return state.toolCalls[prompt.toolCallId] ?? null;
+  }
+
   const open = Object.values(state.toolCalls).filter((call) => call.status === 'running' || call.status === 'pending');
 
   return open[open.length - 1] ?? null;

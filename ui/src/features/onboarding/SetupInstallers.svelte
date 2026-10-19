@@ -2,6 +2,7 @@
   import Button from '$lib/components/Button.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
   import type { RecommendedSetup } from '$lib/ipc/bindings/RecommendedSetup';
+  import { joinNames } from '$lib/utils/format';
   import { uid } from '$lib/utils/ids';
 
   import SetupCommand from './SetupCommand.svelte';
@@ -9,7 +10,7 @@
   import SetupLog from './SetupLog.svelte';
   import { companionChip, skillsRowChip, skillsTargets, type Companion } from './setup-model';
   import { setup } from './setup-state.svelte';
-  import { joinNames, nameOf } from './setup-view';
+  import { nameOf } from './setup-view';
 
   interface Props {
     data: RecommendedSetup;

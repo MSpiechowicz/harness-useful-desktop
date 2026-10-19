@@ -84,6 +84,7 @@ export const chat = {
   'chat.agent.picker': 'Choose agent',
   'chat.agent.prefix': 'Agent: ',
   'chat.agent.loading': 'Loading agents…',
+  'chat.agent.failed': 'The agents could not be loaded. Open the list again to retry.',
   'chat.agent.locked': 'The agent can be switched once the current reply is done',
   'chat.preview.label': 'Preview',
   'chat.preview.tooltip': 'Chat with {harness} is new. Tell us what breaks.',

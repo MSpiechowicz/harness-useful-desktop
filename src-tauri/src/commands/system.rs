@@ -5,6 +5,7 @@
 use std::path::{Path, PathBuf};
 
 use harness_business::BusinessError;
+use harness_business::app_dirs::exports_dir;
 use harness_business::prefs::PrefsOrigin;
 use tauri::State;
 
@@ -15,8 +16,8 @@ use crate::error::CommandResult;
 use crate::state::{AppState, SharedPrefs};
 
 /// Opens the OS file manager with `path` selected. The path must exist and lie inside a harness
-/// configuration directory (config root or agent dir of any registered harness) or the active
-/// project; anything else is `forbidden`.
+/// configuration directory (config root or agent dir of any registered harness), the active
+/// project or the app's exports folder; anything else is `forbidden`.
 #[tauri::command]
 pub async fn reveal_path(state: State<'_, AppState>, path: String) -> CommandResult<()> {
     let active = active_project(&state).await?;
@@ -57,8 +58,8 @@ async fn any_link_on(prefs: &SharedPrefs) -> bool {
     matches!(loaded, Ok((prefs, PrefsOrigin::Stored)) if prefs.open_any_link)
 }
 
-/// Directories whose contents may be revealed: each harness's config root and agent dir, plus the
-/// active project.
+/// Directories whose contents may be revealed: each harness's config root and agent dir, the
+/// active project, and the app's exports folder (where chat exports are written).
 fn reveal_roots(state: &AppState, active: Option<&Path>) -> Vec<PathBuf> {
     let mut roots: Vec<PathBuf> = Vec::new();
 
@@ -69,6 +70,7 @@ fn reveal_roots(state: &AppState, active: Option<&Path>) -> Vec<PathBuf> {
     }
 
     roots.extend(active.map(Path::to_path_buf));
+    roots.extend(exports_dir(&state.env));
 
     roots
 }
@@ -103,6 +105,21 @@ mod tests {
 
             assert_eq!(block_on(any_link_on(&state.prefs)), open_any_link);
         }
+    }
+
+    #[test]
+    fn a_chat_export_can_be_revealed() {
+        let dir = TempDir::new("reveal-export");
+        let state = state(&dir);
+        let export = exports_dir(&state.env)
+            .expect("exports folder")
+            .join("opencode-ses_1.html");
+        std::fs::create_dir_all(export.parent().unwrap()).unwrap();
+        std::fs::write(&export, "<html></html>").unwrap();
+
+        let target = reveal_target(&reveal_roots(&state, None), &export).expect("an export is revealed");
+
+        assert_eq!(target, export.canonicalize().unwrap());
     }
 
     #[test]

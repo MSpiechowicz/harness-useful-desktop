@@ -55,8 +55,15 @@ export function changesFiles(kind: ToolKind): boolean {
 const PRIMARY_ARGS = ['command', 'path', 'file_path', 'pattern', 'query', 'url', 'description', 'prompt'] as const;
 const PRIMARY_MAX = 90;
 
-/** The one argument worth showing next to the title: the command, path, pattern or URL. */
+/** The one argument worth showing next to the title (the command, path, pattern or URL), shortened to fit a card line. */
 export function primaryArg(args: JsonValue | null): string | null {
+  const single = fullPrimaryArg(args);
+
+  return single !== null && single.length > PRIMARY_MAX ? `${single.slice(0, PRIMARY_MAX - 1)}…` : single;
+}
+
+/** The same argument in full on one line, for where nothing may be cut off (an approval). */
+export function fullPrimaryArg(args: JsonValue | null): string | null {
   if (!isJsonObject(args)) {
     return null;
   }
@@ -64,9 +71,7 @@ export function primaryArg(args: JsonValue | null): string | null {
   for (const name of PRIMARY_ARGS) {
     const value = args[name];
     if (typeof value === 'string' && value.trim() !== '') {
-      const single = value.replace(/\s+/g, ' ').trim();
-
-      return single.length > PRIMARY_MAX ? `${single.slice(0, PRIMARY_MAX - 1)}…` : single;
+      return value.replace(/\s+/g, ' ').trim();
     }
   }
 

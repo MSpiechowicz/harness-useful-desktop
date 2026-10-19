@@ -3,19 +3,25 @@
 
 mod opencode_mapper_support;
 
-use harness_business::model::{AgentEvent, UiOutcome, UiRequestKind, UiResponse};
+use harness_business::model::{AgentEvent, UiOutcome, UiPurpose, UiRequest, UiRequestKind, UiResponse};
 use harness_business::opencode_server::Mapper;
 use harness_business::opencode_server::mapper::{Answer, PERMISSION_OPTIONS, Reply, ReplyKind};
 use opencode_mapper_support::{SESSION, events, feed, mapper, status};
 use pretty_assertions::assert_eq;
 use serde_json::{Value, json};
 
+const OWN_ANSWER: &str = "Type your own answer…";
+
 const CHILD: &str = "ses_eaa55fce6ffeMnl5ZAKxvDBT61";
 
 fn bash_ask(id: &str, session: &str) -> Value {
+    command_ask(id, session, "echo recorded", "call_1")
+}
+
+fn command_ask(id: &str, session: &str, command: &str, call: &str) -> Value {
     json!({ "type": "permission.asked", "properties": { "id": id, "sessionID": session,
-        "permission": "bash", "patterns": ["echo recorded"], "metadata": { "command": "echo recorded" },
-        "always": ["echo *"], "tool": { "messageID": "msg_155a9eeb80018zbVAUXYL6o8VQ", "callID": "call_1" } } })
+        "permission": "bash", "patterns": [command], "metadata": { "command": command },
+        "always": ["echo *"], "tool": { "messageID": "msg_155a9eeb80018zbVAUXYL6o8VQ", "callID": call } } })
 }
 
 fn edit_ask(id: &str) -> Value {
@@ -52,6 +58,13 @@ fn sent(mapper: &mut Mapper, response: &UiResponse) -> Reply {
     match mapper.answer(response).expect("an open dialog") {
         Answer::Send(reply) => reply,
         Answer::Next(next) => panic!("expected a reply, got {next:?}"),
+    }
+}
+
+fn request(event: &AgentEvent) -> &UiRequest {
+    match event {
+        AgentEvent::UiRequest { request } => request,
+        other => panic!("not a dialog: {other:?}"),
     }
 }
 
@@ -204,15 +217,18 @@ fn a_single_choice_question_is_a_select_that_never_reads_as_an_approval() {
 
     let (id, title, options, details) = select(&out[0]);
     assert_eq!((id.as_str(), title.as_str()), ("que_1", "Pick one"));
-    assert_eq!(options, ["Alpha", "Beta"]);
-    assert_eq!(details, [Some("first".to_owned()), Some("second".to_owned())]);
+    assert_eq!(options, ["Alpha", "Beta", OWN_ANSWER]);
+    assert_eq!(details, [Some("first".to_owned()), Some("second".to_owned()), None]);
+    assert_eq!(request(&out[0]).purpose, Some(UiPurpose::Question));
 
     let (_, _, options, _) = select(&out[1]);
+    assert_eq!(options, ["Yes", "No", OWN_ANSWER], "the labels as asked");
     assert_eq!(
-        options,
-        ["1. Yes", "2. No"],
-        "numbered, so the UI does not show an approval card"
+        request(&out[1]).purpose,
+        Some(UiPurpose::Question),
+        "marked, so the UI does not show an approval card"
     );
+    assert_eq!(request(&out[1]).tool_call_id, None);
 
     let beta = sent(&mut mapper, &value("que_1", "Beta"));
     assert_eq!(
@@ -223,7 +239,7 @@ fn a_single_choice_question_is_a_select_that_never_reads_as_an_approval() {
         }
     );
 
-    let no = sent(&mut mapper, &value("que_2", "2. No"));
+    let no = sent(&mut mapper, &value("que_2", "No"));
     assert!(matches!(no.kind, ReplyKind::Question { answers, .. } if answers == [["No"]]));
 }
 
@@ -276,4 +292,112 @@ fn a_dismissed_question_is_rejected_and_one_settled_elsewhere_closes() {
 
     let closed = events(feed(&mut mapper, &[replied("question.rejected", "que_2")]));
     assert_eq!(closed, [cancel("que_2")]);
+}
+
+#[test]
+fn a_permission_ask_is_bound_to_the_tool_call_that_asks() {
+    let mut mapper = mapper();
+    let out = events(feed(
+        &mut mapper,
+        &[
+            command_ask("per_1", SESSION, "cargo test", "call_a"),
+            command_ask("per_2", SESSION, "rm -rf target", "call_b"),
+            edit_ask("per_3"),
+        ],
+    ));
+
+    let bound: Vec<_> = out
+        .iter()
+        .map(request)
+        .map(|request| (request.id.as_str(), request.purpose, request.tool_call_id.as_deref()))
+        .collect();
+    assert_eq!(
+        bound,
+        [
+            ("per_1", Some(UiPurpose::Approval), Some("call_a")),
+            ("per_2", Some(UiPurpose::Approval), Some("call_b")),
+            ("per_3", Some(UiPurpose::Approval), None),
+        ]
+    );
+}
+
+#[test]
+fn a_long_command_is_named_in_full() {
+    let mut mapper = mapper();
+    let command = format!("echo {} && echo tail-end", "x".repeat(300));
+
+    let out = events(feed(&mut mapper, &[command_ask("per_1", SESSION, &command, "call_1")]));
+
+    let (_, title, ..) = select(&out[0]);
+    assert_eq!(title, format!("Allow bash: {command}?"));
+}
+
+#[test]
+fn a_task_ask_says_the_subagent_runs_its_own_tools() {
+    let mut mapper = mapper();
+    let task = json!({ "type": "permission.asked", "properties": { "id": "per_1", "sessionID": SESSION,
+        "permission": "task", "patterns": ["explore"], "metadata": { "description": "Map the crate", "subagent_type": "explore" },
+        "always": ["*"], "tool": { "messageID": "msg_1", "callID": "call_task" } } });
+
+    let out = events(feed(&mut mapper, &[task]));
+
+    let (_, title, _, details) = select(&out[0]);
+    assert_eq!(title, "Allow task: Map the crate?");
+    assert_eq!(
+        details[0].as_deref(),
+        Some("The subagent then runs its own tools under OpenCode's permission settings.")
+    );
+}
+
+#[test]
+fn a_single_choice_question_takes_a_typed_answer() {
+    let mut mapper = mapper();
+    let questions = json!([
+        { "question": "Which branch?", "header": "Branch", "options": [
+            { "label": "main", "description": "" }, { "label": "dev", "description": "" }] },
+        { "question": "Push now?", "header": "Push", "custom": false, "options": [
+            { "label": "Yes", "description": "" }, { "label": "No", "description": "" }] },
+    ]);
+
+    feed(&mut mapper, &[question("que_1", questions)]);
+
+    let Answer::Next(own) = mapper.answer(&value("que_1", OWN_ANSWER)).expect("open") else {
+        panic!("the typed answer comes next");
+    };
+    let (id, title, placeholder) = input(&own[0]);
+    assert_eq!(
+        (id.as_str(), title.as_str(), placeholder),
+        ("que_1:1:own", "Question 1 of 2: Which branch?", None)
+    );
+    assert_eq!(request(&own[0]).purpose, Some(UiPurpose::Question));
+
+    let Answer::Next(next) = mapper.answer(&value("que_1:1:own", "  release/2.0 ")).expect("open") else {
+        panic!("the second question comes next");
+    };
+    let (id, _, options, _) = select(&next[0]);
+    assert_eq!(id, "que_1:2");
+    assert_eq!(options, ["Yes", "No"], "custom: false offers no typed answer");
+    assert!(mapper.answer(&value("que_1:2", OWN_ANSWER)).is_err());
+
+    let reply = sent(&mut mapper, &value("que_1:2", "Yes"));
+    assert_eq!(
+        reply.kind,
+        ReplyKind::Question {
+            id: "que_1".to_owned(),
+            answers: vec![vec!["release/2.0".to_owned()], vec!["Yes".to_owned()]]
+        }
+    );
+}
+
+#[test]
+fn a_dismissed_typed_answer_rejects_the_question() {
+    let mut mapper = mapper();
+    let one = json!([{ "question": "Which branch?", "header": "Branch", "options": [{ "label": "main", "description": "" }] }]);
+
+    feed(&mut mapper, &[question("que_1", one)]);
+    let next = mapper.answer(&value("que_1", OWN_ANSWER)).expect("open");
+    assert!(matches!(next, Answer::Next(_)));
+
+    let rejected = sent(&mut mapper, &cancelled("que_1:1:own"));
+    assert_eq!(rejected.kind, ReplyKind::QuestionReject { id: "que_1".to_owned() });
 }

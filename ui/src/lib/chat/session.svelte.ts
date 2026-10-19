@@ -62,6 +62,8 @@ export class ChatSession {
   models = $state.raw<ModelOption[] | null>(null);
   thinkingLevels = $state.raw<string[] | null>(null);
   agents = $state.raw<AgentOption[] | null>(null);
+  /** The last ask for the agents failed: the picker says so, and asks again when it opens. */
+  agentsFailed = $state(false);
   stats = $state.raw<SessionStats | null>(null);
   catalog = $state.raw<CommandSpec[]>([]);
   /** Counts finished tool runs: each may have changed files, so git state and the saved session go stale. */
@@ -403,9 +405,12 @@ export class ChatSession {
       return;
     }
 
+    this.agentsFailed = false;
     const reply = await this.send({ type: 'getAvailableAgents' });
     if (reply?.type === 'agents') {
       this.agents = reply.agents;
+    } else {
+      this.agentsFailed = true;
     }
   }
 

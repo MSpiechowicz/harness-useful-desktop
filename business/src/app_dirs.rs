@@ -70,6 +70,12 @@ pub fn local_data_dir(env: &Env) -> Option<PathBuf> {
     Some(base.join(APP_IDENTIFIER))
 }
 
+/// The folder the app writes the chat exports it makes itself into (OpenCode's HTML export):
+/// `exports` in [`local_data_dir`]. The desktop lets the file manager reveal files in it.
+pub fn exports_dir(env: &Env) -> Option<PathBuf> {
+    local_data_dir(env).map(|dir| dir.join("exports"))
+}
+
 /// The stable copy of the bundled `harness-memory` server that builds up to 0.16 installed on
 /// macOS and Windows: `<local data>/bin/harness-memory[.exe]`. `None` on Linux, where that copy
 /// was `~/.local/bin/harness-memory`, the path the Harness Memory installer uses now, and on

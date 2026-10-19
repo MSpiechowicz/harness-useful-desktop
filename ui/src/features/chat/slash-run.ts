@@ -7,6 +7,8 @@ import { revealPath } from '$lib/ipc/actions';
 import { nav, type ViewId } from '$lib/stores/nav.svelte';
 import { toasts } from '$lib/stores/toasts.svelte';
 
+import { hasAgentPicker } from './agent-picker';
+
 /** Desktop views that stand in for terminal-only commands; `null` opens a picker in the chat header. */
 const GUI_VIEWS: Partial<Record<GuiTarget, ViewId>> = {
   settings: 'settings',
@@ -28,10 +30,27 @@ function openGui(session: ChatSession, target: GuiTarget): void {
   } else if (target === 'thinkingPicker') {
     session.ui.thinkingPicker = true;
   } else if (target === 'agentPicker') {
-    session.ui.agentPicker = true;
+    openAgentPicker(session);
   } else if (target === 'approvalMode') {
     session.ui.approvalChooser = true;
   }
+}
+
+/** Opens the agent picker, or says why it cannot open: no agent picker in this chat, or a reply still running. */
+function openAgentPicker(session: ChatSession): void {
+  if (!hasAgentPicker(session)) {
+    toasts.push({ title: t('chat.toast.unsupported'), tone: 'info' });
+
+    return;
+  }
+
+  if (session.streaming) {
+    toasts.push({ title: t('chat.agent.locked'), tone: 'info' });
+
+    return;
+  }
+
+  session.ui.agentPicker = true;
 }
 
 async function copyLastReply(text: string | null): Promise<void> {

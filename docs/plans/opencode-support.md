@@ -20,7 +20,7 @@ current release. The implementation follows the 1.19.3 sources and replays recor
 | --- | --- | --- |
 | 1 Detection, config, gate | Done | `business/src/harnesses/opencode/{mod,paths,config,catalog}.rs`, `pi_family/jsonc.rs`, `process/resolve.rs` (`~/.opencode/bin`), `env.rs`, `security/{deny,rules}.rs` |
 | 2 Sessions | Done | `harnesses/opencode/sessions.rs`, `process/blocking.rs`, `src-tauri/src/commands/sessions.rs` |
-| 3 Chat | **In progress** | Native server API (`opencode serve`), plan in [opencode-native-chat.md](opencode-native-chat.md) |
+| 3 Chat | Done (Preview) | Native server API (`opencode serve`), see [opencode-native-chat.md](opencode-native-chat.md) |
 | 4 Extensions | Done, read-only | `harnesses/opencode/extensions*.rs`; no `opencode plugin` actions (`capabilities.cliActions` is false) |
 
 Also done: Recommended setup registers the dashboard and memory MCP servers in OpenCode's global config

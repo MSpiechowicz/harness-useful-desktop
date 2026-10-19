@@ -58,6 +58,15 @@ describe('chat on a machine with no harness', () => {
 
     expect(await screen.findByText('Chat needs Oh My Pi, Pi, or OpenCode. Install one, then set it up in Settings.')).toBeInTheDocument();
   });
+
+  it('names no harness while the harness list has none to name', async () => {
+    harness.summaries = [];
+    harness.status = 'error';
+    render(ChatView);
+
+    expect(await screen.findByRole('heading', { name: 'No harness found' })).toBeInTheDocument();
+    expect(screen.queryByText(/Chat needs/)).toBeNull();
+  });
 });
 
 describe('chat on a machine with OpenCode only', () => {

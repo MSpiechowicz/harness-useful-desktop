@@ -87,6 +87,7 @@ export const chat: AreaMessages<typeof enChat> = {
   'chat.agent.picker': 'Choisir l’agent',
   'chat.agent.prefix': 'Agent : ',
   'chat.agent.loading': 'Chargement des agents…',
+  'chat.agent.failed': 'Impossible de charger les agents. Rouvrez la liste pour réessayer.',
   'chat.agent.locked': 'L’agent pourra être changé quand la réponse en cours sera terminée',
   'chat.preview.label': 'Aperçu',
   'chat.preview.tooltip': 'Le chat avec {harness} est nouveau. Dites-nous ce qui ne marche pas.',

@@ -20,7 +20,7 @@ use super::history::all_messages;
 use super::startup::get_json;
 use super::{Live, OpenCodeSession};
 use crate::agent::rfc3339;
-use crate::app_dirs::local_data_dir;
+use crate::app_dirs::exports_dir;
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::fs_atomic::{create_private_dir, replace_atomically};
@@ -144,7 +144,5 @@ fn export_dir(configured: Option<&PathBuf>) -> Result<PathBuf> {
 
     let env = Env::from_process()?;
 
-    local_data_dir(&env)
-        .map(|dir| dir.join("exports"))
-        .ok_or_else(|| BusinessError::NotFound("the app's data folder".to_owned()))
+    exports_dir(&env).ok_or_else(|| BusinessError::NotFound("the app's data folder".to_owned()))
 }

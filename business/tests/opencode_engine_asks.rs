@@ -6,7 +6,7 @@ mod opencode_engine_support;
 
 use agent_support::options;
 use harness_business::BusinessError;
-use harness_business::model::{AgentAction, AgentEvent, ApprovalMode, UiOutcome, UiRequestKind};
+use harness_business::model::{AgentAction, AgentEvent, ApprovalMode, UiOutcome, UiPurpose, UiRequestKind};
 use opencode_engine_support::{
     Chat, SESSION, answer, choose, dialog, kind, prompt, start, start_as, start_mode, text_prompt, until_marker,
 };
@@ -100,7 +100,7 @@ async fn questions_are_selects_or_inputs_answered_together() {
     prompt(&chat, "Say hello").await;
 
     let single = dialog(&chat, "que_1").await;
-    assert_eq!(options_of(&single.kind), ["Alpha", "Beta"]);
+    assert_eq!(options_of(&single.kind), ["Alpha", "Beta", "Type your own answer…"]);
     choose(&chat, "que_1", "Beta").await;
 
     let many = dialog(&chat, "que_2").await;
@@ -115,8 +115,9 @@ async fn questions_are_selects_or_inputs_answered_together() {
     closed(&chat, "que_4").await;
 
     let yes_no = dialog(&chat, "que_5").await;
-    assert_eq!(options_of(&yes_no.kind), ["1. Yes", "2. No"]);
-    choose(&chat, "que_5", "2. No").await;
+    assert_eq!(yes_no.purpose, Some(UiPurpose::Question), "never an approval card");
+    assert_eq!(options_of(&yes_no.kind), ["Yes", "No", "Type your own answer…"]);
+    choose(&chat, "que_5", "No").await;
 
     until_marker(&chat).await;
     assert!(chat.session().is_running(), "every answer matched the scenario");

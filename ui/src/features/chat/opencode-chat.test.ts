@@ -14,6 +14,7 @@ import { fixtures } from '$lib/ipc/mock/fixtures';
 import { withOpenCodeChat } from '$lib/ipc/mock/opencode-chat';
 import { agentSessions } from '$lib/stores/agentSession.svelte';
 import { harness } from '$lib/stores/harness.svelte';
+import { toasts } from '$lib/stores/toasts.svelte';
 
 import { chatSession, startedSession } from '../../../tests/chat-helpers';
 import AgentPicker from './AgentPicker.svelte';
@@ -139,6 +140,57 @@ describe('agent picker', () => {
     render(Composer, { session: omp.session });
 
     expect(screen.queryByRole('button', { name: /^Agent: / })).toBeNull();
+  });
+
+  it('says when the agents could not be loaded, and asks again when it opens', async () => {
+    const { session } = await openCodeChat();
+    const send = session.send.bind(session);
+    let failures = 2;
+    vi.spyOn(session, 'send').mockImplementation(async (action, options) => {
+      if (action.type === 'getAvailableAgents' && failures > 0) {
+        failures -= 1;
+
+        return null;
+      }
+
+      return send(action, options);
+    });
+    render(AgentPicker, { session });
+    await waitFor(() => expect(session.agentsFailed).toBe(true));
+
+    await fireEvent.click(agentButton());
+    expect(await screen.findByRole('alert')).toHaveTextContent('The agents could not be loaded. Open the list again to retry.');
+    expect(screen.queryByText('Loading agents…')).toBeNull();
+
+    await fireEvent.click(agentButton());
+    await fireEvent.click(agentButton());
+    expect(await screen.findByRole('menuitemradio', { name: 'Build' })).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+});
+
+describe('the /agent command', () => {
+  afterEach(() => {
+    toasts.items = [];
+  });
+
+  it('says why it cannot switch while a reply runs, and opens nothing', async () => {
+    const { session } = await openCodeChat();
+    turn(session, 'agentStart');
+
+    await runSlash(session, { type: 'gui', target: 'agentPicker' });
+
+    expect(session.ui.agentPicker).toBe(false);
+    expect(toasts.items.at(-1)).toMatchObject({ title: 'The agent can be switched once the current reply is done' });
+  });
+
+  it('says it is not available in a chat without an agent picker', async () => {
+    const { session } = chatSession([{ type: 'ready', protocolVersion: 1 }, reported('build')]);
+
+    await runSlash(session, { type: 'gui', target: 'agentPicker' });
+
+    expect(session.ui.agentPicker).toBe(false);
+    expect(toasts.items.at(-1)).toMatchObject({ title: 'Not available in the desktop app' });
   });
 });
 

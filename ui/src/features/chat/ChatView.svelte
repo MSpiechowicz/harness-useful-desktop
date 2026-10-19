@@ -14,8 +14,8 @@
   import { viewState } from '$lib/stores/view-state.svelte';
   import { restoreWorkspace } from '$lib/stores/workspace.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
+  import { joinNames } from '$lib/utils/format';
 
-  import { joinNames } from '../onboarding/setup-view';
   import ChatBar from './ChatBar.svelte';
   import ChatPane from './ChatPane.svelte';
   import ChatSoon from './ChatSoon.svelte';
@@ -25,7 +25,9 @@
   const comingSoon = $derived(harness.chatComingSoon);
   const session = $derived(agentSessions.active);
   // The harnesses the app can chat with, named from their capabilities, so one that gains chat appears here by itself.
-  const chatNames = $derived(joinNames(harness.summaries.filter((summary) => summary.capabilities.chat).map((summary) => summary.info.name), 'disjunction'));
+  // Until the list names one (it failed to load), the hint names none rather than "Chat needs ."
+  const chatHarnesses = $derived(harness.summaries.filter((summary) => summary.capabilities.chat).map((summary) => summary.info.name));
+  const installBody = $derived(chatHarnesses.length > 0 ? t('chat.view.install.body', { harnesses: joinNames(chatHarnesses, 'disjunction') }) : undefined);
   const ready = $derived(Boolean(active?.detection.installed && project.active));
   const target = $derived(ready && active && project.active ? `${active.info.id}\n${project.active.path}` : null);
   const starting = $derived(agentSessions.starting.length > 0);
@@ -91,7 +93,7 @@
         {#if comingSoon}
           <ChatSoon name={comingSoon.info.name} />
         {:else if !active?.detection.installed}
-          <EmptyState icon={PackageOpen} title={t('chat.view.install.title')} body={t('chat.view.install.body', { harnesses: chatNames })}>
+          <EmptyState icon={PackageOpen} title={t('chat.view.install.title')} body={installBody}>
             {#snippet action()}
               <Button variant="primary" onclick={openHarnessSettings}>{t('chat.view.install.action')}</Button>
             {/snippet}

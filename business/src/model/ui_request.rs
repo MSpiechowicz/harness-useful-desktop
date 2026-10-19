@@ -13,6 +13,39 @@ pub struct UiRequest {
     pub id: String,
     /// What to show.
     pub kind: UiRequestKind,
+    /// What the dialog is for, when the agent says so. Without it (OMP, PI) the UI tells an
+    /// approval by its option labels.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub purpose: Option<UiPurpose>,
+    /// The tool call an approval is about, as named in its `toolStart`, when the agent says which
+    /// (OpenCode). Without it the UI takes the newest unfinished call.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub tool_call_id: Option<String>,
+}
+
+impl UiRequest {
+    /// A dialog that says nothing about its purpose or tool call.
+    pub fn new(id: impl Into<String>, kind: UiRequestKind) -> Self {
+        Self {
+            id: id.into(),
+            kind,
+            purpose: None,
+            tool_call_id: None,
+        }
+    }
+}
+
+/// What a [`UiRequest`] is for.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub enum UiPurpose {
+    /// Whether a tool may run: shown as an approval card.
+    Approval,
+    /// A question the agent asks: always a dialog, never an approval card, whatever its options say.
+    Question,
 }
 
 /// The dialog to show for a [`UiRequest`].
