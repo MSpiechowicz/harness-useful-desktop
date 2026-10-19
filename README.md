@@ -21,12 +21,13 @@ privacy. Made with the app's demo data. [Download the full-quality 4K video](htt
 
 ## Features
 
-- **Chat over RPC with approvals.** Streams the agent's replies, thinking and tool calls (the harness runs in
-  `--mode rpc`), answers its approval and input dialogs, picks the model and thinking level, runs slash commands, and
-  asks before any shell command you send. OMP and PI only: chat with OpenCode is coming soon.
+- **Chat with approvals.** Streams the agent's replies, thinking and tool calls (OMP and PI run in `--mode rpc`,
+  OpenCode as a local `opencode serve` the app talks to on this machine), answers its approval and input dialogs, picks
+  the model and thinking level (and OpenCode's agent), runs slash commands, and asks before any shell command you
+  send. Chat with OpenCode is a preview.
 - **Sessions and branches.** Lists a project's saved sessions, shows the branch tree of each, opens the transcript,
   resumes or forks. OpenCode sessions are linear: the app lists them, opens the transcript and deletes them through
-  the `opencode` CLI, with no branches, resume or fork.
+  the `opencode` CLI, with no branch tree, and resumes or forks them in a chat.
 - **Changes panel with review comments.** A graphical diff of the working tree (staged, unstaged, untracked). Comment
   on any line and send the comments to the agent as one prompt.
 - **Config viewer.** Settings, MCP servers and profiles in one readable place, with secrets masked.
@@ -63,7 +64,7 @@ privacy. Made with the app's demo data. [Download the full-quality 4K video](htt
 | --- | --- |
 | [Oh My Pi](https://omp.sh) (`omp`) | Supported. Verified against 18.6.1. |
 | [Pi](https://github.com/earendil-works/pi) (`pi`) | Supported. Tested with PI 1.1. Other versions show as untested. |
-| [OpenCode](https://opencode.ai) (`opencode`) | Partly supported. Works: detection (also in `~/.opencode/bin`), the configuration (JSON with comments, secrets masked), extensions (skills, commands, agents, plugins, MCP servers, themes, read-only), sessions (list, transcript, delete) and the dashboard and memory MCP entries in Recommended setup. Versions 1.18 and 1.19 are supported, others show as untested. Chat is coming soon. No Harness Skills install and no Share setup yet. |
+| [OpenCode](https://opencode.ai) (`opencode`) | Partly supported. Works: detection (also in `~/.opencode/bin`), the configuration (JSON with comments, secrets masked), extensions (skills, commands, agents, plugins, MCP servers, themes, read-only), sessions (list, transcript, delete) and the dashboard and memory MCP entries in Recommended setup. Versions 1.18 and 1.19 are supported, others show as untested. Chat works as a preview (see [docs/security-privacy.md](docs/security-privacy.md#opencode-chat) for how the app runs the server). No Harness Skills install and no Share setup yet. |
 | Other harness CLIs | Planned. Adding one is an implementation of the `Harness` trait; see [docs/adding-a-harness.md](docs/adding-a-harness.md). Every new harness must also join Recommended setup (skills install and dashboard MCP). |
 
 The app finds the CLI on `PATH` and in the usual install directories (bun, cargo, npm global, `~/.local/bin`, `~/.opencode/bin`, Homebrew), or you can
@@ -113,7 +114,7 @@ Details and limits: [docs/security-privacy.md](docs/security-privacy.md#project-
 
 ## Hooks
 
-Hooks are small rules the app applies in your chats with OMP and PI (not in OpenCode, which has no chat yet). Open the
+Hooks are small rules the app applies in your chats with OMP, PI and OpenCode. Open the
 Hooks view (after Memory in the rail) to add, edit, switch off and delete them. A hook fires on one event:
 
 - **Session start**: the first message of a new chat. **Every message**: each message you send.

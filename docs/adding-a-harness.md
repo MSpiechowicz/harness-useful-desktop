@@ -3,21 +3,23 @@
 A harness is one coding-agent CLI. The app supports OMP, PI and OpenCode today. This guide adds a new one, called
 `acme` (binary `acme`) in the examples. The UI renders from `HarnessInfo`, `Capabilities` and the views an adapter
 returns, so most of the work is Rust in `business/`. OMP and PI are the references for a harness the app chats with
-(PI-family files and RPC). OpenCode (`business/src/harnesses/opencode/`) is the reference for a harness without chat
-whose sessions are only reachable through its CLI.
+(PI-family files and RPC). OpenCode (`business/src/harnesses/opencode/`) is the reference for a harness with another
+chat protocol (its own server, see [Other chat protocols](#other-chat-protocols)) and whose saved sessions are only
+reachable through its CLI.
 
 **Fit check.** The chat engine drives a harness over stdio with newline-delimited JSON requests that carry an `id`,
 answered by `response` frames (`pi_family::rpc`). A CLI that can be driven that way fits, even when its frames
 differ: the `RpcDialect` decides every frame it sends and decodes. A CLI with another protocol (for example a
-one-shot streaming mode without request ids) needs engine work first. Whether Claude Code or Codex fit depends on
-their protocol; neither is implemented, and that engine work is not covered here.
+one-shot streaming mode without request ids) needs a chat engine of its own, as OpenCode has (see
+[Other chat protocols](#other-chat-protocols)). Whether Claude Code or Codex fit depends on their protocol; neither is
+implemented, and that engine work is not covered here.
 
-A CLI without a fitting protocol can still ship with `capabilities.chat` false, as OpenCode does (it speaks ACP, which
-the engine does not handle yet). Detection, the configuration and extension views, sessions and Recommended setup
-work as for any harness. `launch_spec` returns `BusinessError::Unsupported`, `dialect` returns any dialect (it is
-never reached) and the UI says "Chat coming soon" wherever a chat would start. The chat steps below
-([Commands](#5-commands) for the shared slash commands, [RPC launch and dialect](#6-rpc-launch-and-dialect)) then
-shrink to those stubs, and the catalog lists every command as unsupported (see `harnesses/opencode/catalog.rs`).
+A CLI without a fitting protocol can still ship with `capabilities.chat` false. Detection, the configuration and
+extension views, sessions and Recommended setup work as for any harness. `launch_spec` returns
+`BusinessError::Unsupported`, `dialect` returns any dialect (it is never reached) and the UI says "Chat coming soon"
+wherever a chat would start. The chat steps below ([Commands](#5-commands) for the shared slash commands,
+[RPC launch and dialect](#6-rpc-launch-and-dialect)) then shrink to those stubs, and the catalog lists every command as
+unsupported.
 
 ## Steps
 
@@ -129,7 +131,10 @@ really does. Beyond the extension kinds (`plugins`, `marketplaces`, `packages`, 
 
 | Flag | Meaning when true | When false |
 | --- | --- | --- |
-| `chat` | The app drives chat sessions (`launch_spec` and `dialect` work). OMP and PI. | The UI shows "Chat coming soon" instead of the chat, the harness picker marks the harness as coming soon, and a chat is never started with it. If no installed harness can chat, the chat view says so. OpenCode. |
+| `chat` | The app drives chat sessions (`launch_spec` and the chat protocol work). OMP, PI and OpenCode. | The UI shows "Chat coming soon" instead of the chat, the harness picker marks the harness as coming soon, and a chat is never started with it. If no installed harness can chat, the chat view says so. |
+| `chatPreview` | Chat works but is still a preview: the UI marks it with a "Preview" badge. OpenCode. | No badge. |
+| `agentPicker` | The chat can switch between the harness's primary agents (`AgentAction::SetAgent`, `GetAvailableAgents`, `SessionState.agent`) and the composer shows an agent picker. OpenCode. | No agent picker. |
+| `compactInstructions` | `/compact` takes instructions for the summary, so picking it asks for them first. OMP and PI. | `/compact` runs at once and an action with instructions is refused as unsupported. OpenCode. |
 | `agents` | `extensions_view` fills `agents` (`AgentInfo`) and the Extensions view has an Agents tab. | No Agents tab. OpenCode sets it. |
 | `cliActions` | Extension changes run the harness CLI (`cli_action`). | The install, enable, update and remove bars are hidden and the view is read-only. OpenCode. |
 
@@ -227,7 +232,8 @@ A `CommandInvocation` is `PromptText` (send the slash text as a prompt), `Rpc { 
 ## 6. RPC launch and dialect
 
 Skip this step when `capabilities.chat` is false: return `BusinessError::Unsupported` from `launch_spec` and any
-dialect from `dialect` (OpenCode returns the PI dialect, which nothing calls).
+dialect from `dialect` (nothing calls it). A harness with a protocol other than the PI-family RPC reads
+[Other chat protocols](#other-chat-protocols) instead of the dialect part of this step.
 
 **Launch.** `launch_spec` receives a `LaunchRequest`: the resolved `binary`, the canonical `project`, an optional
 `resume` session id (already checked with `is_safe_session_id`), an `approval_override` and `trust_once`. Build the
@@ -281,6 +287,29 @@ fn encode(&self, action: &AgentAction, id: &str, context: &EncodeContext<'_>) ->
 
 Override `decode` only where the harness reports something differently (PI turns `agent_settled` into prompt
 results before delegating to `decode_common`).
+
+### Other chat protocols
+
+`Harness::chat_protocol()` tells the manager which engine drives a chat (`ChatProtocol` in `business/src/harness/mod.rs`).
+The default is `ChatProtocol::Rpc(self.dialect())`, which is OMP and PI. A harness with another protocol returns
+another variant, and `AgentSession` (`business/src/agent/engine.rs`) is an enum with one engine per protocol:
+`RpcSession` (`agent/session.rs`) and `OpenCodeSession` (`agent/opencode/`). A new engine:
+
+- adds a `ChatProtocol` variant and an `AgentSession` variant that forwards `send`, `respond`, `bash`, `emit`,
+  `on_prompt_taken`, `move_project`, `stop`, `exit_info`, `protocol_version` and `is_running`;
+- builds on `AgentProcess` (`agent/process.rs`) for the child process: spawn, the event emitter, redacted rate-limited
+  stderr, the exit watcher that always sends `Exited` last, stop and kill on drop, and the startup deadline. Do not
+  copy that code (`bun run dup` fails on it);
+- turns what the harness reports into `AgentEvent`s and `AgentAction`s into the harness's calls, so the UI needs no
+  change. OpenCode's server side (HTTP and event-stream client, a closed route allowlist, the event mapper) lives in
+  `business/src/opencode_server/` and its rules in [security-privacy.md](security-privacy.md#opencode-chat);
+- fills `launch_spec` with the command that starts the engine's process (`harnesses/opencode/launch.rs`), and reads
+  the extra `SessionLaunch` fields it needs (`resume`, `approval_override`, `utility`) after the process is up when
+  the command line cannot carry them;
+- sets the capability flags the engine supports: `chat`, `chatPreview` while it is new, `agentPicker`,
+  `approvalModes` and `compactInstructions` (see [Capabilities](#capabilities)).
+
+Test the engine with `fake_agent --dialect opencode --scenario <file.jsonl>` (see [Tests](#11-tests)).
 
 ## 7. Sessions
 
@@ -468,12 +497,14 @@ Add tests next to the existing ones in `business/tests/`. Follow the same patter
 | Sessions | `sessions_store.rs` | Listing, tree and transcript over fixture sessions in `business/tests/fixtures/sessions/acme/`. |
 | CLI sessions | `sessions_opencode.rs`, `sessions_opencode_transcript.rs`, `blocking_runner.rs` | A replay `BlockingRunner` returns recorded CLI output (`business/tests/fixtures/sessions/opencode/`): list, empty list, transcript paging, files touched, delete, other-project filtering, invalid ids spawn nothing. `blocking_runner.rs` runs `StdRunner` against a real child process. |
 | CLI actions | `cli_actions.rs` | Argument construction, validation errors, dry run, failure line. |
-| Chat engine | `agent_session.rs`, `agent_manager.rs`, `agent_dialogs.rs`, `agent_failures.rs` | The real session engine against `fake_agent`. |
+| Chat engine | `agent_session.rs`, `agent_manager.rs`, `agent_dialogs.rs`, `agent_failures.rs` | The real session engine against `fake_agent`. A non-RPC engine has its own set, for OpenCode `opencode_engine*.rs`, `opencode_launch.rs`, `opencode_http.rs` and the mapper tests, over recordings of the real server in `business/tests/fixtures/opencode/server/` and scenarios in `business/tests/fixtures/streams/opencode_*.jsonl`. |
 | Recommended setup | `setup_status.rs`, `setup_mcp_register.rs` | `setup_status`: skills and MCP state of your harness on an empty machine, with the skills installed and with the MCP entry present (build the fixture files in a temp home). `setup_mcp_register.rs`: the `mcp.json` merge for your `also_read` files. `setup_mcp_register_opencode.rs`: the same for a JSONC file (a file with comments gives `ManualEdit`, nothing written). The installer itself is harness-independent (`setup_installer.rs`). |
 | Share setup | `sync_export.rs`, `sync_import.rs`, `sync_import_apply.rs` (helpers in `business/tests/sync_support/`) | Export: what your fixture home yields and what is excluded, with no secret literal in the code or file. Import: statuses on an empty machine and with items present, the exact CLI steps (recording `ProcessRunner`, zero runs for hostile values), idempotent second apply, MCP merge keeps other keys and never overwrites. `sync_codec.rs` and `sync_validate.rs` are harness-independent. |
 | Fixtures | `mock_fixtures.rs` | Add the harness's views and catalog to the exported mock fixtures. |
 
-**Fake agent.** `business/src/bin/fake_agent.rs` plays a JSONL scenario: `{"emit": {...}}` writes a frame,
+**Fake agent.** `fake_agent --dialect opencode` is a scripted `opencode serve` (an HTTP server on `127.0.0.1` with its own
+scenario steps: `allow`, `expect`, `hold`, `sse`, `listen`). Its step format is documented at the top of
+`business/src/bin/fake_agent/opencode.rs`. For the other dialects, `business/src/bin/fake_agent.rs` plays a JSONL scenario: `{"emit": {...}}` writes a frame,
 `{"expect": "get_state", "reply": {...}}` waits for a request of that type and answers it, `{"exit": 1}`,
 `{"hang": true}`, `{"stderr": "..."}`. Add scenarios under `business/tests/fixtures/streams/` (for example
 `acme_startup.jsonl`, `acme_basic.jsonl`) and start them with `ScenarioSpawner` from

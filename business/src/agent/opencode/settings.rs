@@ -102,7 +102,7 @@ impl OpenCodeSession {
 
         if live.mapper.is_working() {
             return Err(BusinessError::Unsupported(
-                "the agent is working; switch agents once it is done".to_owned(),
+                "the agent is working. Wait until it is done, then switch agents".to_owned(),
             ));
         }
 

@@ -12,7 +12,8 @@
 //! 3. Domain modules built on the foundations: [`prefs`]; the harness abstraction ([`harness`])
 //!    with its adapters ([`harnesses`]) and the parsing and RPC protocol they share
 //!    ([`pi_family`], including saved sessions on disk); running agent chat sessions over that
-//!    protocol ([`agent`]); the project repository through the git CLI ([`git`]); diff review
+//!    protocol, or over OpenCode's local server API ([`agent`], with the loopback client, route
+//!    allowlist and event mapper in [`opencode_server`]); the project repository through the git CLI ([`git`]); diff review
 //!    prompts ([`review`]); the companion tools and the dashboard's data ([`ecosystem`]); the
 //!    in-app updater's key check and progress reporting ([`update`]); sharing a setup between
 //!    machines ([`sync`]).

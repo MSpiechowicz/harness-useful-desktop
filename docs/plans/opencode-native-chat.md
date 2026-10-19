@@ -169,7 +169,7 @@ rules, the user's config applies.
 | 10 | Harness wiring: launch spec, `chat_protocol`, capabilities, catalog | backend | `feat(opencode): enable chat for the OpenCode harness` | done |
 | 11 | Hooks and routines (memory side done: harness-useful-memory `feat/opencode-routines` 37b53d7, unpushed). Desktop: mirror its 3 routine fixtures (`valid-opencode-agent.json` renamed from `invalid-agent-harness-opencode.json`, `valid-opencode-approval-write.json`, `invalid-agent-trust-once-with-opencode.json`), fix `hooks_mcp/routine_tools.rs` approvalMode text | backend | `feat(routines): OpenCode agent routines and hooks` | done |
 | 12 | UI: agent picker, Preview badge, approval badge, routine form, onboarding, 5 locales | frontend | `feat(ui): OpenCode chat with agent picker and Preview badge` | done (406007a) |
-| 13 | Guard rules and docs | general | `docs(opencode): native chat architecture, security and formats` | todo |
+| 13 | Guard rules and docs | general | `docs(opencode): native chat architecture, security and formats` | done |
 | 14 | Full verification, reviews, `cargo clean`, final commit | main | — | todo |
 
 Order: 0 → 1 → 2 → 3 → (4 ∥ 5 ∥ 6) → 7 → (8 ∥ 9) → 10 → (11 ∥ 12) → 13 → 14.
@@ -214,6 +214,6 @@ chunked, JSON replies use `Content-Length`; `sync` duplicates on the global stre
 - Questions with Yes/No-like option labels are numbered by the backend ("1. Yes") so `approval.ts` does not render them as approval cards. A question marker in the UI contract would be cleaner (review item).
 - `/compact` no longer asks for instructions on OpenCode (`Capabilities.compactInstructions`, step 11).
 - A 4xx on `prompt_async` maps to `Protocol`, so hooks treat it as possibly delivered and do not re-arm `sessionStart` context (review item).
-- Some engine error messages join sentences with ";" (e.g. "the agent is working; …", compact refusal). They reach the UI: split them (step 13).
-- Mock `agent_start` refusal text in `ui/src/lib/ipc/mock/agent-handlers.ts` still names OpenCode as coming soon (dead now, fix in step 13).
-- `docs/adding-a-harness.md` uses OpenCode as the `chat: false` example (step 13).
+- [x] Some engine error messages joined sentences with ";" (e.g. "the agent is working; …", compact refusal). Split into two sentences (step 13), including the shared move messages in `agent/session.rs` and the mock handlers.
+- [x] Mock `agent_start` refusal text in `ui/src/lib/ipc/mock/agent-handlers.ts` named OpenCode as coming soon. It now uses the harness name (step 13).
+- [x] `docs/adding-a-harness.md` used OpenCode as the `chat: false` example. It documents non-RPC engines instead (step 13).

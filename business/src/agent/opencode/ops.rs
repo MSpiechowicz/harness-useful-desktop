@@ -72,14 +72,14 @@ impl OpenCodeSession {
         ))
     }
 
-    /// The chat's session; refused with "the agent is working; `action` once it is done" while it
-    /// works.
+    /// The chat's session; refused with "the agent is working. Wait until it is done, then `action`"
+    /// while it works.
     pub(super) fn idle_session(&self, action: &str) -> Result<SessionId> {
         let live = self.chat.lock();
 
         if live.mapper.is_working() {
             return Err(BusinessError::Unsupported(format!(
-                "the agent is working; {action} once it is done"
+                "the agent is working. Wait until it is done, then {action}"
             )));
         }
 

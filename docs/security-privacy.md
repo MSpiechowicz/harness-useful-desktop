@@ -530,6 +530,48 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
   active or a recent project, or one a chat runs in. A failure's message is redacted and clipped before it reaches the
   webview; logs carry the command name, ids and the error code only. See [Hooks](#hooks).
 
+## OpenCode chat
+
+The chat with OpenCode runs one `opencode serve` per chat and talks to it over HTTP on this machine (engine:
+`business/src/agent/opencode/`, client: `business/src/opencode_server/`). The plan and its decisions are in
+[opencode-native-chat.md](plans/opencode-native-chat.md).
+
+- **Loopback only.** The server starts with `--hostname 127.0.0.1 --port 0 --mdns=false`, always. The port is random
+  (read from the server's "listening" line), so it never takes OpenCode's usual port 4096. `--mdns=false` is passed
+  because a user config with `server.mdns: true` would otherwise make the server listen on every interface. The client
+  connects to loopback addresses only and refuses anything else.
+- **Password.** Each launch gets a random `OPENCODE_SERVER_PASSWORD` (Basic auth, user `opencode`). It lives in memory,
+  is masked in every log line, stderr line and event, and a password or server variable inherited from the app's
+  environment is removed first. **Documented limitation:** OpenCode passes its environment on to the tool shells, MCP
+  servers and plugins it starts, so a command the agent runs, or a plugin you installed, can read the password and call
+  the chat's server for as long as the chat runs. The app cannot strip it from the processes OpenCode starts. Such a
+  command already runs as you, so this adds the server's API to what it can reach.
+- **A closed set of requests.** The client can only make the requests of the `Route` enum
+  (`business/src/opencode_server/routes.rs`): health, the event stream, sessions (create, read, rename, rules, delete,
+  fork, abort, prompt, command, shell, compact, messages, status), read-only `/config`, `/config/providers`, `/agent` and
+  `/command`, and permission and question replies. Ids are checked before they are put into a path. The app never calls
+  the share routes (`/share`, `/unshare`: a chat would be published), `/global/dispose`, `/global/upgrade`, any config
+  write, `/auth/*`, OAuth or provider login, `/tui/*`, `/pty/*` or `/experimental/*`. `scripts/check-forbidden.ts` rejects
+  these paths, `--mdns` without `=false` and `--port 4096` in the engine files, with no opt-out. If your own OpenCode
+  config turns on auto-share, that is your setting and OpenCode applies it, as it would in its terminal.
+- **No config writes.** The app never changes OpenCode's own settings for a chat. The approval modes (Always ask, Write
+  ask first, Yolo) are permission rules set on that chat's session only (`PATCH /session/{id}`), computed from the
+  agent's own rules so a deny stays a deny. With no mode picked, no rules are set and your OpenCode settings apply.
+  "Always allow" on an approval card is kept by the server in memory for that chat and is never saved by the app, so it
+  ends with the chat. Subagent sessions inherit only the parent's denies, so in Always ask and Write ask first the
+  `task` tool asks before it starts a subagent.
+- **Questions and approvals** reach the same dialogs as in OMP. A dismissed question is rejected, and rejecting an
+  approval rejects every other open ask of that session, as OpenCode does.
+- **Exports.** The HTML export is written to the `exports` folder of the app's data folder (never the project, which
+  would put the transcript in a repository), as `opencode-<session id>.html`, with mode `0600`, replaced in one rename.
+  Every text in it (messages, tool input and output, errors) is redacted with `redact_text` and HTML-escaped. The page
+  loads nothing and carries a content security policy that forbids scripts.
+- **Helper chats.** The AI chat name comes from a helper session that denies every tool and is deleted when the chat
+  stops.
+- **Environment.** Every launch also sets `OPENCODE_DISABLE_AUTOUPDATE=1` (see [Process spawning](#process-spawning)).
+  Sessions, history and statistics are read from the server's own messages, and the app does not open OpenCode's
+  database.
+
 ## Shared setups
 
 Share setup (Settings) exports the extensions and MCP servers of your harnesses as a `hud1:` string or a `.json` file
@@ -844,7 +886,7 @@ follow-up prompt after the agent settles, or run a shell command. Agents can wri
 - **No runaway loops.** A hook follow-up is sent only after a run a user message started, in which a tool call succeeded
   and which was not aborted or failed; all follow-ups of the run go out as one prompt, and a prompt a hook sent never
   starts another hook follow-up. A user message sent in the meantime cancels it. Hooks do not fire in utility agents
-  (titles, reviews) or in OpenCode (no chat yet); a steer or a follow-up you queue gets no context and only counts as your
+  (titles, reviews); a steer or a follow-up you queue gets no context and only counts as your
   message for this rule.
 - **Files and permissions.** The hooks folder (`<root>/hooks`) is created `0700` and the files are written `0600` by a
   temp file and a rename, never through a symbolic link. The window refuses to write, and every reader ignores the whole

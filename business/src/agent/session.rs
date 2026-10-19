@@ -226,7 +226,7 @@ impl RpcSession {
 
         if self.state().await?.is_streaming {
             return Err(BusinessError::Unsupported(
-                "the agent is working; move the chat once it is done".to_owned(),
+                "the agent is working. Wait until it is done, then move the chat".to_owned(),
             ));
         }
 
@@ -256,7 +256,7 @@ impl RpcSession {
         }
 
         Err(BusinessError::Process(
-            "the agent did not move the session; it stays in its current project".to_owned(),
+            "the agent did not move the session. It stays in its current project".to_owned(),
         ))
     }
 

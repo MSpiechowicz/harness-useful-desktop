@@ -49,7 +49,7 @@
     ],
     "category": "DeveloperTool",
     "shortDescription": "Desktop companion for the OMP, PI and OpenCode coding-agent harnesses",
-    "longDescription": "Harness Desktop is a native desktop app for the OMP, PI and OpenCode coding-agent CLIs: browse their configuration, extensions and sessions, chat with OMP and PI agents over RPC, and review working-tree changes, without telemetry.",
+    "longDescription": "Harness Desktop is a native desktop app for the OMP, PI and OpenCode coding-agent CLIs: browse their configuration, extensions and sessions, chat with OMP, PI and OpenCode agents, and review working-tree changes, without telemetry.",
     "publisher": "Maciej Spiechowicz",
     "copyright": "Copyright (C) 2026 Maciej Spiechowicz",
     "license": "GPL-3.0-or-later",

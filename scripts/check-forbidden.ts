@@ -26,6 +26,12 @@ interface Rule {
 }
 
 const SOURCE = ['.rs', '.ts', '.svelte', '.js'] as const;
+// The OpenCode chat engine: the loopback server client, the session engine and the harness wiring.
+const OPENCODE_ENGINE = [
+  'business/src/opencode_server/**',
+  'business/src/agent/opencode/**',
+  'business/src/harnesses/opencode/**',
+] as const;
 const UI_ONLY = ['ui/**'] as const;
 const TEST_FILES = ['**/*.test.ts', 'ui/tests/**'] as const;
 // The only Rust files that may name a shell interpreter (each such line needs `guard-allow: installer-shell`):
@@ -65,7 +71,85 @@ function argvStart(tokens: string): RegExp {
   );
 }
 
+// A Rust string literal that contains `body`, on a line that is not a comment.
+function inLiteral(body: string): string {
+  return String.raw`^(?!\s*//).*?"[^"\n]*(?:${body})`;
+}
+
+// The OpenCode routes and flags the app must never use (plan docs/plans/opencode-native-chat.md, "Standing rules").
+// Route strings are scanned as literals, so a comment that explains the ban stays allowed.
+const OPENCODE_RULES: readonly Rule[] = [
+  {
+    id: 'opencode-share',
+    reason: 'never call the OpenCode share routes (a chat would be published); the engine uses a closed route allowlist',
+    pattern: new RegExp(inLiteral(String.raw`(?<!\.local|/usr|/local)/(?:un)?share\b`), 'i'),
+    extensions: ['.rs'],
+    only: OPENCODE_ENGINE,
+    optOut: false,
+  },
+  {
+    id: 'opencode-global-admin',
+    reason: 'never call /global/dispose, /global/upgrade or /global/config of the OpenCode server',
+    pattern: new RegExp(inLiteral(String.raw`/global/(?:dispose|upgrade|config)\b`), 'i'),
+    extensions: ['.rs'],
+    only: OPENCODE_ENGINE,
+    optOut: false,
+  },
+  {
+    id: 'opencode-auth',
+    reason: 'never touch OpenCode credentials: no /auth, OAuth or /provider routes (credentials are a non-goal)',
+    pattern: new RegExp(inLiteral(String.raw`/auth\b|oauth|/provider(?:/|["?]|$)`), 'i'),
+    extensions: ['.rs'],
+    only: OPENCODE_ENGINE,
+    optOut: false,
+  },
+  {
+    id: 'opencode-surface',
+    reason: 'never call the OpenCode /experimental, /tui or /pty routes',
+    pattern: new RegExp(inLiteral(String.raw`/(?:experimental|tui|pty)\b`), 'i'),
+    extensions: ['.rs'],
+    only: OPENCODE_ENGINE,
+    optOut: false,
+  },
+  {
+    id: 'opencode-config-write',
+    reason: 'never write OpenCode configuration: /config is read only (GET /config and GET /config/providers)',
+    pattern: new RegExp(inLiteral(String.raw`/config(?!/providers\b|["?\s]|$)`), 'i'),
+    extensions: ['.rs'],
+    only: OPENCODE_ENGINE,
+    optOut: false,
+  },
+  {
+    id: 'opencode-config-write',
+    reason: 'never write OpenCode configuration: a Config route must use GET',
+    // A route variant named Config…, alone or in an or-pattern, whose method is not Get.
+    pattern: /(?:Self|Route)::Config\w*\s*(?:\{[^}]*\})?(?:\s*\|\s*(?:Self|Route)::\w+\s*(?:\{[^}]*\})?)*\s*=>\s*Method::(?!Get\b)/g,
+    extensions: ['.rs'],
+    only: ['business/src/opencode_server/routes.rs'],
+    scope: 'file',
+    optOut: false,
+  },
+  {
+    id: 'opencode-mdns',
+    reason: 'OpenCode must always start with --mdns=false (a user config could otherwise announce and listen beyond loopback)',
+    pattern: /["'`]--mdns(?!=false["'`])/,
+    extensions: ['.rs'],
+    only: OPENCODE_ENGINE,
+    optOut: false,
+  },
+  {
+    id: 'opencode-port',
+    reason: 'never pin the OpenCode server to port 4096 (a fixed port is shared with the user\'s own server); use --port 0',
+    pattern: /--port(?:=|\s+)4096\b|["'`]--port["'`]\s*,\s*["'`]4096["'`]/g,
+    extensions: ['.rs'],
+    only: OPENCODE_ENGINE,
+    scope: 'file',
+    optOut: false,
+  },
+];
+
 const RULES: readonly Rule[] = [
+  ...OPENCODE_RULES,
   {
     id: 'auto-approve',
     reason: 'never pass --auto-approve to a harness; approvals stay with the user',

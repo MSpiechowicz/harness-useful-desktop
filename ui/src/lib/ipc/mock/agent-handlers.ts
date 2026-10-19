@@ -171,7 +171,7 @@ export function agentHandlers(
         requireAgentPicker(target);
         // The backend refuses it too: the running turn has read its rules already.
         if (stream.streaming) {
-          throw IpcFailure.from({ code: 'invalidInput', message: 'The agent is working; switch agents once it is done.' });
+          throw IpcFailure.from({ code: 'invalidInput', message: 'The agent is working. Wait until it is done, then switch agents.' });
         }
         if (!OPENCODE_AGENTS.some((option) => option.id === action.agent)) {
           throw IpcFailure.from({ code: 'notFound', message: `There is no agent named ${action.agent}.` });
@@ -219,7 +219,8 @@ export function agentHandlers(
     agent_start: ({ request, onEvent }) => {
       // Like the backend, which refuses a harness it cannot chat with yet.
       if (!capabilitiesOf(request.harness)?.chat) {
-        throw IpcFailure.from({ code: 'unsupported', message: 'Chat with OpenCode is coming soon.' });
+        const name = fixtures.harnesses.find((candidate) => candidate.info.id === request.harness)?.info.name ?? request.harness;
+        throw IpcFailure.from({ code: 'unsupported', message: `Chat with ${name} is coming soon.` });
       }
 
       state.requireKnown(request.project);
@@ -271,7 +272,7 @@ export function agentHandlers(
         throw IpcFailure.from({ code: 'unsupported', message: 'This harness cannot move a session to another project.' });
       }
       if (entry.stream.streaming) {
-        throw IpcFailure.from({ code: 'unsupported', message: 'The agent is working; move the chat once it is done.' });
+        throw IpcFailure.from({ code: 'unsupported', message: 'The agent is working. Wait until it is done, then move the chat.' });
       }
 
       entry.info = { ...entry.info, project };

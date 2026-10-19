@@ -1,10 +1,10 @@
 # OpenCode support — plan and research (resumable)
 
-Status: **levels 1, 2 and 4 are implemented (2026-10-16). Level 3 (chat) is in progress over OpenCode's native
-server API, not ACP: see [opencode-native-chat.md](opencode-native-chat.md) (issue #22, decided 2026-10-19).** The ACP
-sections below are kept as research for the generic ACP engine (#27).
-Detection, the redacted config view, extensions (including the new Agents category), sessions through the CLI and the
-Recommended setup MCP entries work. Chat is gated off ("Chat coming soon"). The decisions taken are recorded in
+Status: **levels 1, 2 and 4 are implemented (2026-10-16). Level 3 (chat) is implemented over OpenCode's native
+server API, not ACP (2026-10-19, issue #22, branch `feat/opencode-chat`): see [opencode-native-chat.md](opencode-native-chat.md).**
+The ACP sections below are kept as research for the generic ACP engine (#27).
+Detection, the redacted config view, extensions (including the new Agents category), sessions through the CLI, the
+Recommended setup MCP entries and the chat (marked "Preview" in the UI) work. The decisions taken are recorded in
 [Decisions taken](#decisions-taken), what research got wrong in [Corrected facts](#corrected-facts). The rest of this
 document is the original research (2026-10-09, OpenCode **v1.18.35**, released 2026-10-06, docs at opencode.ai/docs
 dated 2026-10-08, source `github.com/anomalyco/opencode`, formerly `sst/opencode`, default branch `dev`), kept for
@@ -34,7 +34,7 @@ Not done on purpose: Harness Skills install (`SkillsStrategy::Unsupported`, no O
 
 The six open decisions of the research, answered:
 
-1. **Scope.** Levels 1, 2 and 4 now, chat (ACP) later. The UI says "Chat coming soon" for OpenCode.
+1. **Scope.** Levels 1, 2 and 4 first, chat later (done in level 3 over the native server API, not ACP).
 2. **Auto-update.** Every OpenCode spawn carries `OPENCODE_DISABLE_AUTOUPDATE=1` (`Harness::spawn_env`): the version
    probe, session list, export and delete, and any chat launch later.
 3. **Inherited `OPENCODE_PERMISSION` / `OPENCODE_CONFIG_CONTENT`.** Kept, not stripped. The app records only whether
@@ -130,8 +130,10 @@ Follow `docs/adding-a-harness.md`. Files and symbols:
 - **MCP parsing:** OpenCode uses `mcp.<name> = {type:"local", command:[...], environment, enabled, timeout}` or
   `{type:"remote", url, headers, oauth:{clientId,clientSecret,scope}|false, enabled, timeout}` — not the
   `mcpServers` shape `pi_family::parse_servers` expects.
-- **Engine (level 3 only):** `business/src/agent/session.rs` (startup handshake / `get_state` probe),
-  `business/src/pi_family/rpc/{mod,pending,codec}.rs`, `business/src/bin/fake_agent.rs` (new `acp` dialect).
+- **Engine (level 3 only):** done without ACP: `business/src/agent/opencode/` (the session engine),
+  `business/src/opencode_server/` (HTTP and event-stream client, route allowlist, event mapper),
+  `business/src/agent/engine.rs` (the seam next to the RPC `agent/session.rs`) and `business/src/bin/fake_agent/opencode.rs`
+  (`--dialect opencode`). The original pointers were `agent/session.rs` and `pi_family/rpc/`, which stay the OMP and PI engine.
 - **UI:**
   - colours and badge: `ui/src/lib/components/Badge.svelte` (`HARNESSES` record), `ui/src/lib/design/tokens.css`
     (`--harness-opencode`, `--harness-opencode-wash`, both themes), `ui/src/app.css` (`--color-opencode*`);

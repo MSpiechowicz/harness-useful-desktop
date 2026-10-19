@@ -38,7 +38,7 @@ const BUSY: &str = "OpenCode is working: run the command once it is idle";
 
 /// Why compaction instructions are refused.
 const NO_INSTRUCTIONS: &str =
-    "OpenCode compacts with its own summary prompt and takes no instructions; compact without them";
+    "OpenCode compacts with its own summary prompt and takes no instructions. Compact without them";
 
 impl OpenCodeSession {
     /// Runs `command` in the session's shell (see the module docs). The caller must have the
@@ -97,7 +97,7 @@ impl OpenCodeSession {
 
             if live.mapper.is_working() || live.session != session {
                 return Err(BusinessError::Unsupported(
-                    "the agent is working; compact the chat once it is done".to_owned(),
+                    "the agent is working. Wait until it is done, then compact the chat".to_owned(),
                 ));
             }
 
