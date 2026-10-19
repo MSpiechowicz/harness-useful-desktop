@@ -3,9 +3,10 @@
 //! stream, opened before any call that changes something → `POST /session` or, to resume,
 //! `GET /session/{id}` (refused unless the session's directory is the project or inside it) →
 //! `GET /agent`, `/config/providers`, `/command` and `/config` (read only: its default model is the
-//! one a new session shows) → the session's permission rules for an approval mode or a helper chat
-//! (`approvals.rs`) → `ready`, `state` and `commandsUpdated`, then the events that arrived
-//! meanwhile. A helper chat never resumes a session.
+//! one a new session shows) → the session's permission rules for an approval mode or a helper chat,
+//! or the neutral ones for a resumed session that holds rules without an override (`approvals.rs`,
+//! not sent when its stored rules end with them already) → `ready`, `state` and `commandsUpdated`,
+//! then the events that arrived meanwhile. A helper chat never resumes a session.
 //!
 //! The whole startup runs within the shared deadline and abort race ([`run_startup`]); a failed
 //! one kills the server and emits nothing. Server output before the listening line and after it is
@@ -19,8 +20,9 @@ use std::time::Duration;
 use serde_json::{Value, json};
 use tokio::sync::oneshot;
 
-use super::approvals::{LaunchRules, patch_rules};
+use super::approvals::{LaunchRules, SessionRules, patch_rules};
 use super::{Catalog, Chat, Context, Live, OpenCodeSession, TurnSettings, stream};
+use crate::agent::SessionOptions;
 use crate::agent::engine::SessionLaunch;
 use crate::agent::io::Shared;
 use crate::agent::process::{AgentProcess, LineForwarder, MAX_STDERR_LINE, ProcessTraits, Stdout, run_startup};
@@ -29,6 +31,7 @@ use crate::harness::CommandCatalog;
 use crate::harnesses::opencode::OpenCodeCatalog;
 use crate::model::AgentEvent;
 use crate::opencode_server::mapper::project_dir;
+use crate::opencode_server::modes::ends_with;
 use crate::opencode_server::wire::{
     ModelRef, SessionInfo, config_model, listening_addr, primary_agents, provider_models, session_info,
 };
@@ -52,8 +55,8 @@ struct Booted {
     default_model: Option<ModelRef>,
     /// The chat's agent.
     agent: String,
-    /// The agent the session's permission rules were set for.
-    rules_agent: Option<String>,
+    /// The permission rules the session ends with, when the chat set (or found) any.
+    rules: Option<SessionRules>,
     /// The session was resumed (it may hold messages).
     resumed: bool,
 }
@@ -98,20 +101,17 @@ impl OpenCodeSession {
         let steps = boot(listening_rx, password, &launch.project, launch.resume, rules, limit);
 
         match run_startup(launch.options, launch.abort, steps).await {
-            Ok(booted) => {
-                let export_dir = launch.options.export_dir.clone();
-                Ok(Self::open(process, &launch.project, rules, export_dir, booted))
-            }
+            Ok(booted) => Ok(Self::open(process, &launch.project, rules, launch.options, booted)),
             Err(error) => Err(process.fail_start(error).await),
         }
     }
 
-    /// Emits the first events and starts the event task; HTML exports go to `export_dir`.
+    /// Emits the first events and starts the event task.
     fn open(
         process: AgentProcess,
         project: &Path,
         rules: LaunchRules,
-        export_dir: Option<PathBuf>,
+        options: &SessionOptions,
         booted: Booted,
     ) -> Self {
         let shared = process.shared().clone();
@@ -128,7 +128,7 @@ impl OpenCodeSession {
             agent: booted.agent,
             turn: TurnSettings::default(),
             commands: command_names(&booted.commands),
-            rules_agent: booted.rules_agent,
+            rules: booted.rules,
             // A resumed session's newest reply is read when the state is first asked for.
             context: Context {
                 mark: None,
@@ -142,7 +142,7 @@ impl OpenCodeSession {
             directory: info.directory,
             project: project.to_path_buf(),
             root: booted.directory,
-            export_dir,
+            export_dir: options.export_dir.clone(),
             catalog: booted.catalog,
             rules,
             live: Mutex::new(live),
@@ -155,7 +155,12 @@ impl OpenCodeSession {
             AgentEvent::CommandsUpdated { commands },
         ]);
 
-        let events = stream::spawn(chat.clone(), booted.events, process.exit_watch());
+        let watch = stream::Watch {
+            exited: process.exit_watch(),
+            terminator: process.terminator(),
+            silence: options.event_silence,
+        };
+        let events = stream::spawn(chat.clone(), booted.events, watch);
 
         Self { process, chat, events }
     }
@@ -213,10 +218,7 @@ async fn boot(
     };
     let agent = chat_agent(info.agent.as_deref(), &catalog);
 
-    let rules_body = rules.body(&catalog.agent_rules, &agent);
-    if let Some(body) = &rules_body {
-        patch_rules(&client, &session, body).await?;
-    }
+    let rules = startup_rules(&client, &session, &info, rules, &catalog, &agent).await?;
 
     Ok(Booted {
         client,
@@ -226,11 +228,35 @@ async fn boot(
         directory,
         commands: commands.as_array().cloned().unwrap_or_default(),
         default_model: config_model(&config),
-        rules_agent: rules_body.map(|_| agent.clone()),
+        rules,
         agent,
         catalog,
         resumed: resume.is_some(),
     })
+}
+
+/// The rules the session is to end with (`approvals.rs`), set unless its stored rules end with
+/// them already.
+async fn startup_rules(
+    client: &OpenCodeClient,
+    session: &SessionId,
+    info: &SessionInfo,
+    rules: LaunchRules,
+    catalog: &Catalog,
+    agent: &str,
+) -> Result<Option<SessionRules>> {
+    let stored = info.permission.as_deref();
+    let holds = stored.is_none_or(|stored| !stored.is_empty());
+
+    let Some(wanted) = rules.wanted(&catalog.agent_rules, agent, holds) else {
+        return Ok(None);
+    };
+
+    if !stored.is_some_and(|stored| ends_with(stored, &wanted.list)) {
+        patch_rules(client, session, &wanted.list, None).await?;
+    }
+
+    Ok(Some(wanted))
 }
 
 /// The agent the session last used when the chat can switch to it, else the default one.

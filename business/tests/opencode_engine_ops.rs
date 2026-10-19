@@ -88,6 +88,35 @@ async fn session_actions_wait_until_the_agent_is_idle() {
 }
 
 #[tokio::test]
+async fn a_prompt_while_a_new_chat_is_created_wins_and_the_new_session_is_deleted() {
+    let chat = start("opencode_new_session_race.jsonl").await;
+    let session = chat.session();
+
+    let prompt_meanwhile = async {
+        chat.wait(
+            "held",
+            |event| matches!(event, AgentEvent::State { state } if state.session_name.as_deref() == Some("Held")),
+        )
+        .await;
+        prompt(&chat, "Hurry").await;
+    };
+    let (moved, ()) = tokio::join!(session.send(AgentAction::NewSession), prompt_meanwhile);
+
+    let refused = moved.expect_err("the move is refused");
+    assert_eq!(refused.code(), IpcErrorCode::Unsupported);
+    assert!(refused.to_string().contains("the agent is working"), "{refused}");
+
+    until_marker(&chat).await;
+    assert!(
+        states(&chat).iter().all(|state| state.session_id == SESSION),
+        "the chat stays on its session"
+    );
+    assert!(chat.session().is_running(), "the new session was deleted");
+
+    session.stop().await;
+}
+
+#[tokio::test]
 async fn a_new_chat_moves_to_a_new_session_of_the_project() {
     let chat = start("opencode_new_session.jsonl").await;
     let session = chat.session();

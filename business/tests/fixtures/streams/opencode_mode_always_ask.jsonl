@@ -3,4 +3,6 @@
 {"include":"opencode_startup.jsonl"}
 {"expect":"PATCH /session/ses_eaa561636ffezINnnn1ghd5370","match":{"/permission/0":{"permission":"*","pattern":"*","action":"ask"},"/permission/1":{"permission":"*","pattern":"*","action":"ask"},"/permission/2":{"permission":"question","pattern":"*","action":"allow"}},"reply":{"recording":"../opencode/server/session-patch-permission.json"}}
 {"sse":{"type":"session.updated","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","info":{"id":"ses_eaa561636ffezINnnn1ghd5370","directory":"$directory","title":"Marker","time":{"created":1,"updated":2}}}}}
+// At stop the build agent's own rules are appended (released), so the user's settings decide.
+{"expect":"PATCH /session/ses_eaa561636ffezINnnn1ghd5370","match":{"/permission/0":{"permission":"*","pattern":"*","action":"allow"},"/permission/14":{"permission":"external_directory","pattern":"/work/data/opencode/tool-output/*","action":"allow"},"/permission/15":"$absent"},"reply":{"recording":"../opencode/server/session-patch-permission.json"}}
 {"hang":true}

@@ -205,3 +205,76 @@ async fn a_helper_chat_denies_every_tool_and_deletes_its_session_at_stop() {
     assert!(matches!(error, BusinessError::InvalidInput(_)), "{error:?}");
     assert!(resumed.spawner.requested().is_empty(), "nothing was started");
 }
+
+/// How many times dialog `id` was shown.
+fn shown(events: &[AgentEvent], id: &str) -> usize {
+    events
+        .iter()
+        .filter(|event| matches!(event, AgentEvent::UiRequest { request } if request.id == id))
+        .count()
+}
+
+#[tokio::test]
+async fn an_answer_that_did_not_reach_opencode_shows_the_dialog_again() {
+    let chat = start("opencode_reply_retry.jsonl").await;
+    prompt(&chat, "Say hello").await;
+
+    dialog(&chat, "per_1").await;
+    let failed = choose_err(&chat, "per_1").await;
+    assert!(failed.to_string().contains("HTTP 500"), "{failed}");
+
+    let deadline = tokio::time::Instant::now() + agent_support::WAIT;
+    while shown(&chat.events(), "per_1") < 2 {
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "never shown again: {:#?}",
+            chat.events()
+        );
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
+    choose(&chat, "per_1", "Allow once").await;
+
+    dialog(&chat, "que_1").await;
+    let gone = chat
+        .session()
+        .respond(harness_business::model::UiResponse {
+            id: "que_1".to_owned(),
+            outcome: UiOutcome::Value {
+                value: "Alpha".to_owned(),
+            },
+        })
+        .await
+        .expect_err("the ask is gone");
+    assert!(gone.to_string().contains("HTTP 404"), "{gone}");
+
+    let events = until_marker(&chat).await;
+    assert_eq!(shown(&events, "que_1"), 1, "a 404 leaves the dialog closed");
+    assert!(chat.session().is_running(), "every reply matched the scenario");
+
+    chat.session().stop().await;
+}
+
+#[tokio::test]
+async fn a_failed_move_leaves_the_chats_rules_unchanged() {
+    let chat = start_mode("opencode_switch_failed_rules.jsonl", Some(ApprovalMode::Write), false).await;
+    let session = chat.session();
+
+    session
+        .send(AgentAction::SetAgent {
+            agent: "plan".to_owned(),
+        })
+        .await
+        .expect("agent set");
+    session
+        .send(AgentAction::Clone)
+        .await
+        .expect_err("reading the copy fails");
+
+    prompt(&chat, "Make a plan").await;
+    assert!(
+        session.is_running(),
+        "the plan agent's rules reached the chat's own session first"
+    );
+
+    session.stop().await;
+}

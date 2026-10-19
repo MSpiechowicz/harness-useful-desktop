@@ -1,0 +1,12 @@
+// An abort after OpenCode took the prompt (204) but before its run started: the abort route at once,
+// and again when the run starts (OpenCode ignores an abort that comes before the run). The turn
+// ends aborted. Last, a title marker.
+{"include":"opencode_startup.jsonl"}
+{"expect":"POST /session/ses_eaa561636ffezINnnn1ghd5370/prompt_async","match":{"/parts/0/text":"Say hello","/agent":"build"}}
+{"expect":"POST /session/ses_eaa561636ffezINnnn1ghd5370/abort","reply":{"body":true}}
+{"sse":{"type":"session.status","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","status":{"type":"busy"}}}}
+{"expect":"POST /session/ses_eaa561636ffezINnnn1ghd5370/abort","reply":{"body":true}}
+{"sse":{"type":"session.error","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","error":{"name":"MessageAbortedError","data":{"message":"Aborted"}}}}}
+{"sse":{"type":"session.status","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","status":{"type":"idle"}}}}
+{"sse":{"type":"session.updated","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","info":{"id":"ses_eaa561636ffezINnnn1ghd5370","directory":"$directory","title":"Marker","time":{"created":1,"updated":2}}}}}
+{"hang":true}

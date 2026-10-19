@@ -9,7 +9,11 @@
 //!   a fork's or clone's copied messages are read first and never shown again), the new title,
 //!   the same agent, model and thinking level, and a fresh `state` (the manager rebinds the chat's
 //!   session id). OpenCode copies no permission rules into the new session, so the chat's
-//!   approval rules are applied to it first (`Chat::apply_rules`).
+//!   approval rules are set on it first (`Chat::rules_for_new`), and the session left behind gets
+//!   its approval rules released (`Chat::release_rules`).
+//! - A prompt that arrives while the new session is being prepared wins: the move is refused
+//!   like one asked for while the agent works, and the new session is deleted (best effort), as
+//!   is one the chat could not move to for another reason.
 //! - A fork names an OpenCode message id (`msg_…`, the entry ids of the history and the Sessions
 //!   view) of a message the user wrote; OpenCode itself would clone the whole session for an id it
 //!   does not know.
@@ -22,6 +26,7 @@ use std::path::Path;
 
 use serde_json::{Value, json};
 
+use super::approvals::{SessionRules, delete_session};
 use super::history::all_messages;
 use super::startup::read_session;
 use super::{Context, OpenCodeSession, TurnSettings};
@@ -78,9 +83,7 @@ impl OpenCodeSession {
         let live = self.chat.lock();
 
         if live.mapper.is_working() {
-            return Err(BusinessError::Unsupported(format!(
-                "the agent is working. Wait until it is done, then {action}"
-            )));
+            return Err(working(action));
         }
 
         Ok(live.session.clone())
@@ -88,7 +91,8 @@ impl OpenCodeSession {
 
     /// `POST /session?directory=`, then the chat moves to the new session.
     async fn new_session(&self) -> Result<AgentReply> {
-        self.idle_session("start a new chat")?;
+        const ACTION: &str = "start a new chat";
+        self.idle_session(ACTION)?;
 
         let chat = &self.chat;
         let route = Route::SessionCreate {
@@ -96,7 +100,7 @@ impl OpenCodeSession {
         };
         let response = chat.client.send(route, Some(&json!({}))).await?.error_for_status()?;
 
-        self.switch_to(read_session(&response.json()?)?, false).await?;
+        self.switch_to(read_session(&response.json()?)?, false, ACTION).await?;
 
         Ok(AgentReply::Ack)
     }
@@ -104,7 +108,8 @@ impl OpenCodeSession {
     /// Forks at the user's message `entry_id`: the new session holds the messages before it.
     async fn fork(&self, entry_id: &str) -> Result<AgentReply> {
         let message = MessageId::parse(entry_id)?;
-        let session = self.idle_session("fork the chat")?;
+        const ACTION: &str = "fork the chat";
+        let session = self.idle_session(ACTION)?;
         let records = all_messages(&self.chat, &session).await?;
 
         let role = records
@@ -123,18 +128,20 @@ impl OpenCodeSession {
             None => return Err(BusinessError::NotFound(format!("message {message} in this chat"))),
         }
 
-        self.forked(&session, json!({ "messageID": message.as_str() })).await
+        self.forked(&session, json!({ "messageID": message.as_str() }), ACTION)
+            .await
     }
 
     /// Duplicates the session with every message.
     async fn clone_session(&self) -> Result<AgentReply> {
-        let session = self.idle_session("clone the chat")?;
+        const ACTION: &str = "clone the chat";
+        let session = self.idle_session(ACTION)?;
 
-        self.forked(&session, json!({})).await
+        self.forked(&session, json!({}), ACTION).await
     }
 
     /// `POST /session/{id}/fork` with `body`, then the chat moves to the new session.
-    async fn forked(&self, session: &SessionId, body: Value) -> Result<AgentReply> {
+    async fn forked(&self, session: &SessionId, body: Value, action: &str) -> Result<AgentReply> {
         let response = self
             .chat
             .client
@@ -142,18 +149,45 @@ impl OpenCodeSession {
             .await?
             .error_for_status()?;
 
-        self.switch_to(read_session(&response.json()?)?, true).await?;
+        self.switch_to(read_session(&response.json()?)?, true, action).await?;
 
         Ok(AgentReply::Ack)
     }
 
-    /// Moves the chat to session `info` (see the module docs); `copied` when it starts with the
-    /// messages of a fork or clone, which are read first: the chat must not show them again when
-    /// their events arrive late, and the newest reply among them sizes the context.
-    async fn switch_to(&self, info: SessionInfo, copied: bool) -> Result<()> {
+    /// Moves the chat to session `info`, which the server just created (see the module docs);
+    /// `copied` when it starts with the messages of a fork or clone, which are read first: the
+    /// chat must not show them again when their events arrive late, and the newest reply among
+    /// them sizes the context. Refused with `action` when a prompt came meanwhile.
+    async fn switch_to(&self, info: SessionInfo, copied: bool, action: &str) -> Result<()> {
         let chat = &self.chat;
         let session = SessionId::parse(&info.id)
             .map_err(|_| BusinessError::Protocol("OpenCode sent an invalid session id".to_owned()))?;
+
+        let prepared = self.prepare(&session, &info, copied).await;
+        let moved = prepared.and_then(|(rules, records)| self.commit(session.clone(), info, rules, &records, action));
+
+        match moved {
+            Ok((left, rules)) => {
+                chat.release_rules(&left, rules).await;
+                Ok(())
+            }
+            Err(error) => {
+                delete_session(&chat.client, &session).await;
+                Err(error)
+            }
+        }
+    }
+
+    /// Readies new session `session` before the chat moves to it: the directory check, the chat's
+    /// rules (OpenCode copies none, so no prompt reaches it without them) and a fork's or clone's
+    /// copied messages.
+    async fn prepare(
+        &self,
+        session: &SessionId,
+        info: &SessionInfo,
+        copied: bool,
+    ) -> Result<(Option<SessionRules>, Vec<Value>)> {
+        let chat = &self.chat;
 
         if info.directory != chat.directory {
             return Err(BusinessError::Protocol(
@@ -161,26 +195,43 @@ impl OpenCodeSession {
             ));
         }
 
-        // OpenCode copies no permission rules into the session: the chat's go first, so no prompt
-        // reaches it without them, and a failure keeps the chat where it was.
-        self.chat.apply_rules(&session).await?;
+        let rules = chat.rules_for_new(session).await?;
 
         let records = if copied {
-            all_messages(chat, &session).await?
+            all_messages(chat, session).await?
         } else {
             Vec::new()
         };
 
+        Ok((rules, records))
+    }
+
+    /// Moves the chat to `session` unless it works by now; the session left and its rules.
+    fn commit(
+        &self,
+        session: SessionId,
+        info: SessionInfo,
+        rules: Option<SessionRules>,
+        records: &[Value],
+        action: &str,
+    ) -> Result<(SessionId, Option<SessionRules>)> {
+        let chat = &self.chat;
         let mut live = chat.lock();
+
+        if live.mapper.is_working() {
+            return Err(working(action));
+        }
+
         let held = live.mapper.has_follow_ups();
 
         live.mapper = Mapper::new(session.as_str(), &chat.project, &chat.root);
-        live.mapper.seen(&records);
-        live.session = session;
+        live.mapper.seen(records);
+        let left = std::mem::replace(&mut live.session, session);
+        let left_rules = std::mem::replace(&mut live.rules, rules);
         live.title = info.title;
         live.turn = TurnSettings::default();
         live.context = Context {
-            mark: last_context(&records),
+            mark: last_context(records),
             loaded: true,
         };
 
@@ -201,7 +252,7 @@ impl OpenCodeSession {
             state: chat.state(&live),
         });
 
-        Ok(())
+        Ok((left, left_rules))
     }
 
     /// `PATCH /session/{id} {title}`; a changed title is a fresh `state`.
@@ -229,4 +280,9 @@ impl OpenCodeSession {
 
         Ok(AgentReply::Ack)
     }
+}
+
+/// Why a session action waits: "the agent is working. Wait until it is done, then `action`".
+fn working(action: &str) -> BusinessError {
+    BusinessError::Unsupported(format!("the agent is working. Wait until it is done, then {action}"))
 }

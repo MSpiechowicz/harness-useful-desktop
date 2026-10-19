@@ -1,0 +1,15 @@
+// Answers that do not reach OpenCode: a permission reply answered 500 shows the dialog again and the
+// second answer goes through; a question reply answered 404 (the ask is gone) leaves the dialog
+// closed. Last, a title marker.
+{"include":"opencode_startup.jsonl"}
+{"expect":"POST /session/ses_eaa561636ffezINnnn1ghd5370/prompt_async","match":{"/parts/0/text":"Say hello","/agent":"build"}}
+{"sse":{"type":"session.status","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","status":{"type":"busy"}}}}
+{"sse":{"type":"permission.asked","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","id":"per_1","permission":"bash","patterns":["echo recorded"],"metadata":{"command":"echo recorded"},"always":["echo *"],"tool":{"messageID":"msg_155a9eeb80018zbVAUXYL6o8VQ","callID":"call_1"}}}}
+{"expect":"POST /permission/per_1/reply","match":{"reply":"once"},"reply":{"status":500,"body":{"name":"UnknownError","data":{}}}}
+{"expect":"POST /permission/per_1/reply","match":{"reply":"once"},"reply":{"body":true}}
+{"sse":{"type":"permission.replied","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","requestID":"per_1","reply":"once"}}}
+{"sse":{"type":"question.asked","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","id":"que_1","questions":[{"question":"Pick one","header":"Pick","options":[{"label":"Alpha","description":"first"},{"label":"Beta","description":"second"}]}],"tool":{"messageID":"msg_155a9eeb80018zbVAUXYL6o8VQ","callID":"call_q"}}}}
+{"expect":"POST /question/que_1/reply","reply":{"status":404,"body":{"name":"NotFoundError","data":{}}}}
+{"sse":{"type":"session.status","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","status":{"type":"idle"}}}}
+{"sse":{"type":"session.updated","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","info":{"id":"ses_eaa561636ffezINnnn1ghd5370","directory":"$directory","title":"Marker","time":{"created":1,"updated":2}}}}}
+{"hang":true}

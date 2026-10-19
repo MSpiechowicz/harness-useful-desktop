@@ -6,14 +6,13 @@
 //!   the event task notes as replies arrive ([`note_context`]). A resumed session's newest
 //!   messages are read once, when the state is first asked for (a fork or clone reads its copies
 //!   when the chat moves to it).
-//! - **Export:** every message, rendered escaped and redacted, written (`0600`, replaced in one
-//!   rename) as `opencode-<session id>.html` in [`SessionOptions::export_dir`], by default the
+//! - **Export:** every message, rendered escaped and redacted (the server password masked), written
+//!   (`0600`, replaced in one rename, in a `0700` folder it creates) as `opencode-<session id>.html` in [`SessionOptions::export_dir`], by default the
 //!   `exports` folder in the app's data folder, never the project: OMP and PI write theirs into
 //!   the working directory, which would put the transcript in the repository.
 //!
 //! [`SessionOptions::export_dir`]: crate::agent::SessionOptions::export_dir
 
-use std::fs;
 use std::path::PathBuf;
 use std::time::SystemTime;
 
@@ -24,7 +23,7 @@ use crate::agent::rfc3339;
 use crate::app_dirs::local_data_dir;
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
-use crate::fs_atomic::replace_atomically;
+use crate::fs_atomic::{create_private_dir, replace_atomically};
 use crate::model::{AgentReply, ChatMessage};
 use crate::opencode_server::export_html::{ExportPage, render};
 use crate::opencode_server::mapper::record_messages;
@@ -108,10 +107,10 @@ impl OpenCodeSession {
             session_id: session.as_str(),
             exported_at: &exported_at,
         };
-        let html = render(&page, &messages);
+        let html = chat.shared.mask(&render(&page, &messages), false);
 
         let dir = export_dir(chat.export_dir.as_ref())?;
-        fs::create_dir_all(&dir).map_err(|error| BusinessError::from_io("create the export folder", error))?;
+        create_private_dir(&dir, "create the export folder")?;
 
         let path = dir.join(format!("opencode-{session}.html"));
         replace_atomically(&path, html.as_bytes(), "write the HTML export")?;

@@ -92,6 +92,29 @@ pub async fn start_as(
     utility: bool,
     options: SessionOptions,
 ) -> Chat {
+    start_launch(name, resume, approval, utility, options, &[]).await
+}
+
+/// Starts scenario `name` (not a helper chat) with `env` in the server's environment (the fake's
+/// `FAKE_OPENCODE_STORE`, say).
+pub async fn start_env(
+    name: &str,
+    resume: Option<&str>,
+    approval: Option<ApprovalMode>,
+    options: SessionOptions,
+    env: &[(&str, &str)],
+) -> Chat {
+    start_launch(name, resume, approval, false, options, env).await
+}
+
+async fn start_launch(
+    name: &str,
+    resume: Option<&str>,
+    approval: Option<ApprovalMode>,
+    utility: bool,
+    options: SessionOptions,
+    env: &[(&str, &str)],
+) -> Chat {
     let dir = project();
     let project = dunce::canonicalize(dir.path()).expect("canonical project");
     let sink = CollectingSink::new();
@@ -99,6 +122,8 @@ pub async fn start_as(
 
     let mut spec = ExecSpec::new("opencode").args(["serve", "--hostname", "127.0.0.1", "--port", "0", "--mdns=false"]);
     spec.cwd = Some(project.clone());
+    spec.env
+        .extend(env.iter().map(|(name, value)| ((*name).into(), (*value).into())));
 
     let launch = SessionLaunch {
         key: "key-1".to_owned(),

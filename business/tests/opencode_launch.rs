@@ -77,7 +77,9 @@ async fn a_chat_serves_on_loopback_with_a_fresh_password_per_launch() {
     let info = serde_json::to_string(&first.info).unwrap();
     let listed = serde_json::to_string(&first.manager.list()).unwrap();
     let events = serde_json::to_string(&first.events()).unwrap();
-    for shown in [info, listed, events] {
+    let debugged = format!("{spec:?}");
+    assert!(debugged.contains("OPENCODE_SERVER_PASSWORD=<redacted>"), "{debugged}");
+    for shown in [info, listed, events, debugged] {
         assert!(!shown.contains(&secret), "the password leaked: {shown}");
     }
     assert_eq!(first.info.protocol_version, None);

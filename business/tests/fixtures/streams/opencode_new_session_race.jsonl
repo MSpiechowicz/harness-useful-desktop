@@ -1,0 +1,11 @@
+// A prompt arrives while a new chat is being created (its POST /session is held, the title "Held"
+// tells the test): the prompt goes to the current session, the move is refused and the created
+// session is deleted. Last, a title marker.
+{"include":"opencode_startup.jsonl"}
+{"expect":"POST /session","hold":true,"as":"create"}
+{"sse":{"type":"session.updated","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","info":{"id":"ses_eaa561636ffezINnnn1ghd5370","directory":"$directory","title":"Held","time":{"created":1,"updated":2}}}}}
+{"expect":"POST /session/ses_eaa561636ffezINnnn1ghd5370/prompt_async","match":{"/parts/0/text":"Hurry"}}
+{"respond":"create","reply":{"body":{"id":"ses_0new0chat0000000000000001","slug":"happy-sailor","projectID":"0c8d2a560942650d801f05588b0f2da5c16aa197","directory":"$directory","path":"","title":"New session - 2026-10-19T19:40:01.225Z","version":"1.19.3","time":{"created":1792438567705,"updated":1792438567705}}}}
+{"expect":"DELETE /session/ses_0new0chat0000000000000001","reply":{"body":true}}
+{"sse":{"type":"session.updated","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","info":{"id":"ses_eaa561636ffezINnnn1ghd5370","directory":"$directory","title":"Marker","time":{"created":1,"updated":2}}}}}
+{"hang":true}

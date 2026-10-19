@@ -8,6 +8,7 @@ use std::net::SocketAddr;
 
 use serde_json::{Map, Value, json};
 
+use super::modes::Rule;
 use crate::model::{AgentOption, ImageAttachment, ModelOption};
 
 /// What `opencode serve` prints once it listens (its `serve` command).
@@ -76,6 +77,9 @@ pub struct SessionInfo {
     pub model: Option<ModelRef>,
     /// The model variant of the last prompt (`default` is none).
     pub variant: Option<String>,
+    /// The permission rules stored with the session (`PATCH` appends to them); `None` when they
+    /// cannot be read.
+    pub permission: Option<Vec<Rule>>,
 }
 
 /// Reads a session; `None` without an id or a directory.
@@ -97,6 +101,10 @@ pub fn session_info(value: &Value) -> Option<SessionInfo> {
         variant: model
             .and_then(|model| string(model, "variant"))
             .filter(|variant| variant != "default"),
+        permission: match value.get("permission") {
+            None | Some(Value::Null) => Some(Vec::new()),
+            Some(rules) => serde_json::from_value(rules.clone()).ok(),
+        },
     })
 }
 

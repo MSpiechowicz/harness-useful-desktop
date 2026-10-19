@@ -204,3 +204,62 @@ async fn an_abort_settles_aborted_and_keeps_the_held_follow_up() {
 
     session.stop().await;
 }
+
+/// Waits for a `state` titled `title` (a scenario's sync point).
+async fn titled(chat: &Chat, title: &str) {
+    chat.wait(
+        title,
+        |event| matches!(event, AgentEvent::State { state } if state.session_name.as_deref() == Some(title)),
+    )
+    .await;
+}
+
+#[tokio::test]
+async fn steering_while_the_turns_end_is_checked_is_held_as_a_follow_up() {
+    let chat = start("opencode_steer_checking.jsonl").await;
+    prompt(&chat, "Say hello").await;
+    streaming(&chat).await;
+    chat.session().send(steer("late steer")).await.expect("steered");
+
+    titled(&chat, "Checking").await;
+    chat.session().send(steer("while checking")).await.expect("held");
+    chat.session()
+        .send(AgentAction::SetSessionName {
+            name: "Named".to_owned(),
+        })
+        .await
+        .expect("renamed");
+
+    let events = until_marker(&chat).await;
+    assert_eq!(
+        queue_updates(&events),
+        [
+            (strings(&["late steer"]), vec![], 1),
+            (strings(&["late steer"]), strings(&["while checking"]), 1),
+            (vec![], strings(&["while checking"]), 0),
+            (vec![], vec![], 0),
+        ],
+        "held, then sent once the turn ended"
+    );
+    assert_eq!(results(&events), [PromptStatus::Completed, PromptStatus::Completed]);
+    assert_eq!(count(&events, "settled"), 1);
+    assert!(chat.session().is_running(), "every request matched the scenario");
+
+    chat.session().stop().await;
+}
+
+#[tokio::test]
+async fn an_abort_before_the_run_started_is_sent_again_when_it_starts() {
+    let chat = start("opencode_abort_early.jsonl").await;
+    prompt(&chat, "Say hello").await;
+
+    let reply = chat.session().send(AgentAction::Abort).await.expect("aborted");
+    assert_eq!(reply, AgentReply::Ack);
+
+    let events = until_marker(&chat).await;
+    assert_eq!(results(&events), [PromptStatus::Aborted]);
+    assert!(events.contains(&AgentEvent::Settled { aborted: Some(true) }));
+    assert!(chat.session().is_running(), "both aborts matched the scenario");
+
+    chat.session().stop().await;
+}

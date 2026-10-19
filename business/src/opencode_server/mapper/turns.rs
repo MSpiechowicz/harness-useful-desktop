@@ -14,6 +14,9 @@
 //!   idle with steering unanswered first asks the engine whether OpenCode left it without a reply
 //!   ([`Mapped::CheckStranded`], once every steering message reached OpenCode); each steering
 //!   message is sent again at most once.
+//! - **Abort** before the turn started is remembered, and the turn's start asks OpenCode to abort
+//!   again ([`Mapped::Abort`]): an abort that reached OpenCode before its run started does
+//!   nothing there.
 //! - **Retries:** a `retry` status reports `retry` `start` with the attempt and reason, the next
 //!   `busy` or the end of the turn `retry` `end`.
 //! - **Errors:** a `session.error` outside a turn becomes an error notice, unless it repeats the
@@ -38,6 +41,8 @@ pub(super) struct Turn {
     aborted: bool,
     /// The attempt of a running retry.
     retrying: Option<u32>,
+    /// The user aborted before the turn started (see [`Mapper::abort_requested`]).
+    abort_pending: bool,
 }
 
 struct TurnError {
@@ -52,9 +57,10 @@ impl Mapper {
         self.turn.active || self.turn.prompts > 0 || self.checking || self.quiet.is_some()
     }
 
-    /// False while a quiet run lasts: steering then waits like a follow-up.
+    /// False while a quiet run lasts or the end of a turn is being checked: steering then waits
+    /// like a follow-up.
     pub fn can_steer(&self) -> bool {
-        self.quiet.is_none()
+        self.quiet.is_none() && !self.checking
     }
 
     /// A prompt is about to be sent.
@@ -65,24 +71,40 @@ impl Mapper {
     /// The prompt announced by [`Mapper::prompt_sent`] was not delivered; its sender reports why.
     pub fn prompt_failed(&mut self) {
         self.turn.prompts = self.turn.prompts.saturating_sub(1);
+
+        if self.turn.prompts == 0 {
+            self.turn.abort_pending = false;
+        }
     }
 
     /// A prompt sent in the background (a queued follow-up, a server command) failed with
     /// `error`. Once a turn runs, the turn reports its own outcome; before that the prompt fails
-    /// on its own, and the chat moves on to the next follow-up or settles.
-    pub fn prompt_failed_late(&mut self, error: &str) -> Vec<Mapped> {
+    /// on its own, and the chat moves on to the next follow-up or settles. `taken` when the agent
+    /// took the prompt before it failed (a server command OpenCode answered): the prompt-taken
+    /// call runs first.
+    pub fn prompt_failed_late(&mut self, error: &str, taken: bool) -> Vec<Mapped> {
         if self.turn.active || self.turn.prompts == 0 {
             return Vec::new();
         }
 
         self.turn.prompts -= 1;
 
-        let mut mapped = vec![Mapped::Event(AgentEvent::PromptResult {
+        if self.turn.prompts == 0 {
+            self.turn.abort_pending = false;
+        }
+
+        let mut mapped = Vec::new();
+
+        if taken {
+            mapped.push(Mapped::PromptTaken);
+        }
+
+        mapped.push(Mapped::Event(AgentEvent::PromptResult {
             request_id: None,
             status: PromptStatus::Error,
             error: Some(redact_text(error)),
             retryable: false,
-        })];
+        }));
 
         if self.turn.prompts == 0 && !self.checking {
             mapped.extend(self.after_turn(false));
@@ -142,10 +164,14 @@ impl Mapper {
     }
 
     /// The user asked to abort the running turn: it ends as aborted, and no steering is sent
-    /// again for it.
+    /// again for it. Before the turn started (a prompt on its way, or taken but not yet running)
+    /// the abort is remembered: OpenCode may get it before its run starts, so the turn's start
+    /// asks for it again ([`Mapped::Abort`]).
     pub fn abort_requested(&mut self) {
         if self.turn.active {
             self.turn.aborted = true;
+        } else if self.turn.prompts > 0 {
+            self.turn.abort_pending = true;
         }
     }
 
@@ -209,6 +235,12 @@ impl Mapper {
                     }
 
                     out.push(AgentEvent::AgentStart);
+
+                    if std::mem::take(&mut self.turn.abort_pending) {
+                        self.turn.aborted = true;
+                        mapped.extend(events(std::mem::take(&mut out)));
+                        mapped.push(Mapped::Abort);
+                    }
                 }
 
                 if kind == "retry" {
@@ -302,7 +334,7 @@ impl Mapper {
     /// Ends the turn (see the module docs); what follows the turn's events.
     fn end_turn(&mut self, out: &mut Vec<AgentEvent>) -> Vec<Mapped> {
         let turn = std::mem::take(&mut self.turn);
-        self.asks.cancel_all(out);
+        self.close_asks(out);
         self.messages.end_all(turn.aborted, out);
 
         if let Some(attempt) = turn.retrying {

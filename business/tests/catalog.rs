@@ -217,3 +217,34 @@ fn opencode_server_commands_come_from_the_live_list_as_prompt_text() {
     );
     assert!(merged.iter().all(|command| command.name != "tui-only"));
 }
+
+#[test]
+fn opencode_command_hints_become_argument_hints() {
+    let path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/fixtures/opencode/server/command-list.json"
+    );
+    let recorded: Value = serde_json::from_str(&std::fs::read_to_string(path).expect("recording")).expect("JSON");
+    let mut live = recorded["body"].as_array().expect("command list").clone();
+    live.push(json!({ "name": "deploy", "source": "command", "hints": ["$1", "$2", "$ARGUMENTS"] }));
+    live.push(json!({ "name": "odd", "source": "command", "hints": ["$x", 7] }));
+
+    let merged = OpenCode.catalog().merged(&live);
+
+    assert_eq!(find(&merged, "init").argument_hint.as_deref(), Some("[arguments]"));
+    assert_eq!(find(&merged, "review").argument_hint.as_deref(), Some("[arguments]"));
+    assert_eq!(
+        find(&merged, "customize-opencode").argument_hint,
+        None,
+        "no hints, no hint"
+    );
+    assert_eq!(
+        find(&merged, "deploy").argument_hint.as_deref(),
+        Some("<arg1> <arg2> [arguments]")
+    );
+    assert_eq!(
+        find(&merged, "odd").argument_hint,
+        None,
+        "unknown placeholders are left out"
+    );
+}

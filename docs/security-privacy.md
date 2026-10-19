@@ -244,7 +244,7 @@ you typed into a prompt or an agent writes into a note.
   or forget only projects already stored; every command that takes a project (`agent_start`, `config_view`,
   `git_*`, `sessions_*`, `extension_action`) requires it to be the active or a recent one.
 - `reveal_path` (`src-tauri/src/access.rs`): the path must be absolute, contain no `..`, and after symlink resolution
-  lie inside a harness `config_root` or `agent_dir` or the active project. A missing path outside the roots is
+  lie inside a harness `config_root` or `agent_dir`, the active project or the app's exports folder. A missing path outside the roots is
   `Forbidden`, not `NotFound`, so the command cannot probe which files exist.
 - Sessions: the webview sends `SessionRef { harness, id }`. The id (at most 128 characters, checked by
   `is_safe_session_id`) is resolved by a shallow scan of the project's session folder; it can never name another file.
@@ -541,7 +541,8 @@ The chat with OpenCode runs one `opencode serve` per chat and talks to it over H
   because a user config with `server.mdns: true` would otherwise make the server listen on every interface. The client
   connects to loopback addresses only and refuses anything else.
 - **Password.** Each launch gets a random `OPENCODE_SERVER_PASSWORD` (Basic auth, user `opencode`). It lives in memory,
-  is masked in every log line, stderr line and event, and a password or server variable inherited from the app's
+  is masked in every log line, stderr line, event and reply (history, last reply, `!command` output, export), the
+  launch spec's `Debug` shows no environment values, and a password or server variable inherited from the app's
   environment is removed first. **Documented limitation:** OpenCode passes its environment on to the tool shells, MCP
   servers and plugins it starts, so a command the agent runs, or a plugin you installed, can read the password and call
   the chat's server for as long as the chat runs. The app cannot strip it from the processes OpenCode starts. Such a
@@ -554,20 +555,46 @@ The chat with OpenCode runs one `opencode serve` per chat and talks to it over H
   write, `/auth/*`, OAuth or provider login, `/tui/*`, `/pty/*` or `/experimental/*`. `scripts/check-forbidden.ts` rejects
   these paths, `--mdns` without `=false` and `--port 4096` in the engine files, with no opt-out. If your own OpenCode
   config turns on auto-share, that is your setting and OpenCode applies it, as it would in its terminal.
-- **No config writes.** The app never changes OpenCode's own settings for a chat. The approval modes (Always ask, Write
-  ask first, Yolo) are permission rules set on that chat's session only (`PATCH /session/{id}`), computed from the
-  agent's own rules so a deny stays a deny. With no mode picked, no rules are set and your OpenCode settings apply.
-  "Always allow" on an approval card is kept by the server in memory for that chat and is never saved by the app, so it
-  ends with the chat. Subagent sessions inherit only the parent's denies, so in Always ask and Write ask first the
-  `task` tool asks before it starts a subagent.
+- **No config writes, and session rules that do not outlive the chat.** The app never changes OpenCode's config files.
+  The approval modes (Always ask, Write ask first, Yolo) are permission rules on that chat's session
+  (`PATCH /session/{id}`), computed from the agent's own rules so a deny stays a deny: Always ask asks for every tool but
+  questions, todos and plan switches; Write ask first asks for every tool but a closed read-only list (`read`, `glob`,
+  `grep`, `list`, `lsp`, `skill`, `todowrite`, `question`, plan switches), so web, MCP, plugin and custom tools ask too;
+  Yolo allows what asks, keeps every deny, and keeps asking where your config asks for something the agent denies
+  (the plan agent with `edit: ask` still asks before an edit). OpenCode *appends* a `PATCH`ed list to the rules it
+  stores with the session in its database, where its own apps read them later too. So every list the app sends starts
+  with a catch-all and decides every call on its own, whatever earlier lists the session holds, and the app never
+  sends a list the session already ends with. When the chat stops or moves to another session (new chat, fork, clone,
+  or a lost connection), the app appends the agent's own rules (the neutral list), so the session decides as your
+  settings do (best effort, 3 s). A chat opened with no mode sets nothing, unless the session already holds rules (a
+  crashed chat's, which keep applying until then): it gets the neutral list first. **Limitations:** the neutral list
+  holds the rules of the agent the chat used last, so another agent used on that session in OpenCode's own apps
+  later decides as that agent would. A session the app left in a crash keeps the mode's rules until the app opens it
+  again. The stored list grows by one list per mode or agent change and per release, as OpenCode cannot remove
+  session rules.
+- **"Always allow"** on an approval card is kept by the server in memory for that chat and is never saved by the app,
+  so it ends with the chat.
+- **Subagents.** Subagent sessions inherit only the parent's denies, so in Always ask and Write ask first the `task`
+  tool asks before it starts a subagent. Once allowed, the subagent runs its own tools under your OpenCode settings
+  and its agent's rules: the app does not ask again for each of them (asks OpenCode raises in the subagent session
+  still reach the chat).
+- **Command templates.** A server command (`/name` for a custom command, an MCP prompt or a skill) runs its template,
+  and OpenCode runs the `` !`cmd` `` shell snippets in a template without a permission check, as in its terminal app. A
+  routine or hook prompt that starts with `/name` runs that command the same way. The commands are OpenCode's own
+  (`/init`, `/review`) and those of your config, MCP servers and skills. The app adds none.
 - **Questions and approvals** reach the same dialogs as in OMP. A dismissed question is rejected, and rejecting an
-  approval rejects every other open ask of that session, as OpenCode does.
+  approval rejects every other open ask of that session, as OpenCode does. An answer that does not reach the server
+  (no answer, or a server error) shows the dialog again, so an ask is never left without one.
 - **Exports.** The HTML export is written to the `exports` folder of the app's data folder (never the project, which
-  would put the transcript in a repository), as `opencode-<session id>.html`, with mode `0600`, replaced in one rename.
-  Every text in it (messages, tool input and output, errors) is redacted with `redact_text` and HTML-escaped. The page
-  loads nothing and carries a content security policy that forbids scripts.
+  would put the transcript in a repository; the folder is created with mode `0700`), as `opencode-<session id>.html`,
+  with mode `0600`, replaced in one rename. Every text in it (messages, tool input and output, errors) is redacted with
+  `redact_text`, the server password is masked, and it is HTML-escaped. The page loads nothing and carries a content
+  security policy that forbids scripts.
 - **Helper chats.** The AI chat name comes from a helper session that denies every tool and is deleted when the chat
-  stops.
+  stops (3 s deadline).
+- **Lost connection.** When the server's event stream stays silent for 35 s (it sends a heartbeat every 10 s) or ends
+  while the server runs, the chat says so, releases its session rules and ends the server, so a chat never goes on
+  without seeing approvals and questions.
 - **Environment.** Every launch also sets `OPENCODE_DISABLE_AUTOUPDATE=1` (see [Process spawning](#process-spawning)).
   Sessions, history and statistics are read from the server's own messages, and the app does not open OpenCode's
   database.

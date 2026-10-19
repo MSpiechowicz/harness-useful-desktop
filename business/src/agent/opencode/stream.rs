@@ -2,9 +2,13 @@
 //! and turns each event into the chat's events under the chat's lock, so a prompt's bookkeeping
 //! and the events around it keep one order.
 //!
-//! A skipped event (too large, not UTF-8, not an event object) becomes a `frameError`. When the
-//! stream ends while the server still runs, the chat can no longer follow it: an error notice
-//! says so.
+//! A skipped event (too large, not UTF-8, not an event object) becomes a `frameError`.
+//!
+//! **Watchdog:** OpenCode sends a heartbeat every 10 s. When the stream stays silent for
+//! [`SessionOptions::event_silence`](crate::agent::SessionOptions::event_silence) (35 s), or ends
+//! while the server still runs, the chat can no longer follow it: an error notice says so, the
+//! open dialogs close, the chat leaves its session (`approvals.rs`) and the server is ended, so
+//! `exited` closes the chat as for any other exit.
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -13,6 +17,7 @@ use tokio::sync::watch;
 use tokio::task::AbortHandle;
 
 use super::{Chat, Live, delivery, reports};
+use crate::agent::process::Terminator;
 use crate::model::{AgentEvent, NoticeLevel};
 use crate::opencode_server::wire::{SessionInfo, envelope};
 use crate::opencode_server::{EventStream, Mapped};
@@ -21,17 +26,32 @@ use crate::process::ExitInfo;
 /// How long the end of the stream waits for the server's exit before reporting a lost stream.
 const EXIT_WAIT: Duration = Duration::from_secs(2);
 
-/// Shown when the event stream ends while the server runs.
-const LOST_STREAM: &str = "The connection to OpenCode's event stream was lost, so this chat no longer updates. \
-                           Restart the chat to continue.";
+/// Shown when the event stream is lost while the server runs.
+const LOST_STREAM: &str = "The connection to OpenCode was lost, so this chat stops. Start it again to continue.";
 
-/// Starts the event task.
-pub(super) fn spawn(chat: Arc<Chat>, events: EventStream, exited: watch::Receiver<Option<ExitInfo>>) -> AbortHandle {
-    tokio::spawn(run(chat, events, exited)).abort_handle()
+/// What the event task watches.
+pub(super) struct Watch {
+    /// Changes to `Some` once the server exited.
+    pub exited: watch::Receiver<Option<ExitInfo>>,
+    /// Ends the server when the stream is lost.
+    pub terminator: Terminator,
+    /// The longest silence of a live stream.
+    pub silence: Duration,
 }
 
-async fn run(chat: Arc<Chat>, mut events: EventStream, mut exited: watch::Receiver<Option<ExitInfo>>) {
-    while let Some(item) = events.next().await {
+/// Starts the event task.
+pub(super) fn spawn(chat: Arc<Chat>, events: EventStream, watch: Watch) -> AbortHandle {
+    tokio::spawn(run(chat, events, watch)).abort_handle()
+}
+
+async fn run(chat: Arc<Chat>, mut events: EventStream, mut watch: Watch) {
+    loop {
+        let item = match tokio::time::timeout(watch.silence, events.next()).await {
+            Ok(Some(item)) => item,
+            Ok(None) => break,
+            Err(_) => return lost(&chat, &watch).await,
+        };
+
         match item {
             Ok(data) => take_event(&chat, &data),
             Err(fault) => chat.shared.emit(AgentEvent::FrameError {
@@ -41,14 +61,25 @@ async fn run(chat: Arc<Chat>, mut events: EventStream, mut exited: watch::Receiv
         }
     }
 
-    let exit = exited.wait_for(Option::is_some);
+    let exit = watch.exited.wait_for(Option::is_some);
 
     if tokio::time::timeout(EXIT_WAIT, exit).await.is_err() {
-        chat.shared.emit(AgentEvent::Notice {
-            level: NoticeLevel::Error,
-            message: LOST_STREAM.to_owned(),
-        });
+        lost(&chat, &watch).await;
     }
+}
+
+/// The stream is lost while the server runs: the chat stops (see the module docs).
+async fn lost(chat: &Chat, watch: &Watch) {
+    chat.shared.emit(AgentEvent::Notice {
+        level: NoticeLevel::Error,
+        message: LOST_STREAM.to_owned(),
+    });
+
+    let cancelled = chat.lock().mapper.cancel_asks();
+    cancelled.into_iter().for_each(|event| chat.shared.emit(event));
+
+    chat.leave_session().await;
+    watch.terminator.terminate().await;
 }
 
 /// Maps one event's `data:` and delivers the result.
@@ -77,6 +108,7 @@ pub(super) fn apply(chat: &Arc<Chat>, live: &mut Live, mapped: Vec<Mapped>) {
             Mapped::Session(info) => chat.session_changed(live, info),
             Mapped::Send(message) => delivery::send(chat, live, message),
             Mapped::CheckStranded(steering) => delivery::check_stranded(chat, steering),
+            Mapped::Abort => delivery::abort(chat, live),
         }
     }
 }

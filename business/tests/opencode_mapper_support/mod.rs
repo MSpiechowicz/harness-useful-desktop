@@ -98,7 +98,8 @@ pub fn kind(event: &AgentEvent) -> String {
         .to_owned()
 }
 
-/// The kinds of `mapped`: event types, `taken`, `session`, `send:<text>` and `check:<texts>`.
+/// The kinds of `mapped`: event types, `taken`, `session`, `send:<text>`, `check:<texts>` and
+/// `abort`.
 pub fn shape(mapped: &[Mapped]) -> Vec<String> {
     mapped
         .iter()
@@ -106,6 +107,7 @@ pub fn shape(mapped: &[Mapped]) -> Vec<String> {
             Mapped::Event(event) => kind(event),
             Mapped::PromptTaken => "taken".to_owned(),
             Mapped::Session(_) => "session".to_owned(),
+            Mapped::Abort => "abort".to_owned(),
             Mapped::Send(message) => format!("send:{}", message.text),
             Mapped::CheckStranded(steering) => {
                 let texts: Vec<&str> = steering.iter().map(|message| message.text.as_str()).collect();

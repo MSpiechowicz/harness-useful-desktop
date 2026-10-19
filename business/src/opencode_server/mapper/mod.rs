@@ -49,6 +49,8 @@ pub enum Mapped {
     Session(SessionInfo),
     /// Send this queued follow-up now (it already counts as a prompt on its way).
     Send(Outgoing),
+    /// The user aborted before the turn started: abort the running turn now.
+    Abort,
     /// The turn went idle with these steering messages unanswered: check whether OpenCode left the
     /// newest one without a reply, then answer with [`Mapper::resend_stranded`] or [`Mapper::stranded_checked`].
     CheckStranded(Vec<Outgoing>),
@@ -61,6 +63,9 @@ pub struct Mapper {
     children: HashMap<String, String>,
     messages: Messages,
     asks: Asks,
+    /// Each ask still open on OpenCode's side, as it came (`properties`, from a subagent), so a
+    /// dialog whose answer did not reach OpenCode can be shown again ([`Mapper::reopen`]).
+    asked: HashMap<String, (Value, bool)>,
     turn: Turn,
     /// The error the last turn ended with, until the next turn starts.
     last_error: Option<String>,
@@ -91,6 +96,7 @@ impl Mapper {
             children: HashMap::new(),
             messages: Messages::new(project.to_path_buf(), directory.to_path_buf()),
             asks: Asks::new(directory.to_path_buf()),
+            asked: HashMap::new(),
             turn: Turn::default(),
             last_error: None,
             steering: Vec::new(),
@@ -165,8 +171,33 @@ impl Mapper {
     /// Closes every open dialog (the chat stops).
     pub fn cancel_asks(&mut self) -> Vec<AgentEvent> {
         let mut out = Vec::new();
-        self.asks.cancel_all(&mut out);
+        self.close_asks(&mut out);
         out
+    }
+
+    /// Shows ask `request` again: the answer to its dialog did not reach OpenCode, which still
+    /// waits for one. A question starts over at its first part. Nothing when the ask is no longer
+    /// open (answered elsewhere, or its turn ended).
+    pub fn reopen(&mut self, request: &str) -> Vec<AgentEvent> {
+        let Some((properties, subagent)) = self.asked.get(request).cloned() else {
+            return Vec::new();
+        };
+
+        let mut out = Vec::new();
+
+        if properties.get("questions").is_some() {
+            self.asks.question_asked(&properties, &mut out);
+        } else {
+            self.asks.permission_asked(&properties, subagent, &mut out);
+        }
+
+        out
+    }
+
+    /// Closes every open dialog.
+    fn close_asks(&mut self, out: &mut Vec<AgentEvent>) {
+        self.asks.cancel_all(out);
+        self.asked.clear();
     }
 
     /// An event of a subagent session: only its asks reach the chat.
@@ -191,12 +222,26 @@ impl Mapper {
         let request = properties.get("requestID").and_then(Value::as_str);
 
         match (envelope.kind.as_str(), request) {
-            ("permission.asked", _) => self.asks.permission_asked(properties, subagent, out),
-            ("question.asked", _) => self.asks.question_asked(properties, out),
+            ("permission.asked", _) => {
+                self.note_asked(properties, subagent);
+                self.asks.permission_asked(properties, subagent, out);
+            }
+            ("question.asked", _) => {
+                self.note_asked(properties, subagent);
+                self.asks.question_asked(properties, out);
+            }
             ("permission.replied" | "question.replied" | "question.rejected", Some(id)) => {
+                self.asked.remove(id);
                 self.asks.answered_elsewhere(id, out);
             }
             _ => {}
+        }
+    }
+
+    /// Keeps an ask for [`Mapper::reopen`].
+    fn note_asked(&mut self, properties: &Value, subagent: bool) {
+        if let Some(id) = properties.get("id").and_then(Value::as_str) {
+            self.asked.insert(id.to_owned(), (properties.clone(), subagent));
         }
     }
 

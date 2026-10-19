@@ -79,7 +79,12 @@ impl OpenCodeSession {
 
         let response = response.error_for_status()?;
 
-        Ok(parse_bash(Some(&json!({ "output": shell_output(&response.json()?) }))))
+        let output = parse_bash(Some(&json!({ "output": shell_output(&response.json()?) })));
+
+        Ok(BashOutput {
+            output: chat.shared.mask(&output.output, output.truncated),
+            ..output
+        })
     }
 
     /// Compacts the context in the background (see the module docs).

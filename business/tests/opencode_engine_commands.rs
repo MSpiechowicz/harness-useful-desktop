@@ -36,7 +36,7 @@ async fn server_commands_use_the_command_route_and_other_slashes_go_as_text() {
     let taken_at = prompt(&chat, "/review the parser").await;
     settled(&chat, 2).await;
 
-    prompt(&chat, "/init").await;
+    let init_taken_at = prompt(&chat, "/init").await;
     let events = until_marker(&chat).await;
 
     let results: Vec<(PromptStatus, Option<String>)> = events
@@ -72,6 +72,28 @@ async fn server_commands_use_the_command_route_and_other_slashes_go_as_text() {
         .expect("the command's turn");
     let taken_at = taken_at.lock().unwrap().expect("taken");
     assert!(taken_at <= second_start, "the command was taken when its turn started");
+
+    let init_failed = events
+        .iter()
+        .position(|event| {
+            matches!(
+                event,
+                AgentEvent::PromptResult {
+                    status: PromptStatus::Error,
+                    ..
+                }
+            )
+        })
+        .map(|index| index + 3)
+        .expect("the failed command's result");
+    let init_taken_at = init_taken_at
+        .lock()
+        .unwrap()
+        .expect("a command OpenCode answered was taken");
+    assert!(
+        init_taken_at <= init_failed,
+        "taken, then its error result, then settled"
+    );
     assert!(chat.session().is_running(), "every request matched the scenario");
 
     chat.session().stop().await;

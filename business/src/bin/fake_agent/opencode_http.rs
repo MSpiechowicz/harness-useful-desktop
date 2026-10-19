@@ -7,16 +7,23 @@
 //! `www-authenticate`. `GET /global/event` becomes an SSE subscriber (chunked
 //! `text/event-stream`, `server.connected` first), `allow` rules answer here, and every other
 //! request goes to the scenario runner together with its connection.
+//!
+//! **Stored session rules:** with `FAKE_OPENCODE_STORE=<file>` (a JSON object of session id →
+//! rule list, missing or empty at first) the fake keeps sessions' permission rules there like
+//! OpenCode's database: `PATCH /session/{id} {permission}` *appends* to the stored list
+//! (`Permission.merge` concatenates), and the replies to `GET` and `PATCH /session/{id}` carry the
+//! stored list as `permission` (without one when the session has none).
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{Shutdown, TcpListener, TcpStream};
+use std::path::{Path, PathBuf};
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
 
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
-use serde_json::{Value, json};
+use serde_json::{Map, Value, json};
 
 /// Largest request head (request line and headers) the fake reads.
 const MAX_HEAD_BYTES: usize = 64 * 1024;
@@ -87,6 +94,8 @@ pub struct Shared {
     subscribers: Mutex<Vec<TcpStream>>,
     /// The last `?directory=` (or `x-opencode-directory`) a request carried.
     directory: Mutex<Option<String>>,
+    /// `FAKE_OPENCODE_STORE`: where sessions' permission rules are kept.
+    store: Option<PathBuf>,
 }
 
 impl Shared {
@@ -102,6 +111,7 @@ impl Shared {
             allows: Mutex::default(),
             subscribers: Mutex::default(),
             directory: Mutex::default(),
+            store: std::env::var_os("FAKE_OPENCODE_STORE").map(PathBuf::from),
         }
     }
 
@@ -155,6 +165,53 @@ impl Shared {
         Reply { status, body, headers }
     }
 
+    /// [`Shared::reply`] to `request`, with the stored rules of the session it is about.
+    pub fn reply_to(&self, request: &Request, spec: &Value) -> Reply {
+        let mut reply = self.reply(spec);
+
+        let Some(session) = session_route(request) else {
+            return reply;
+        };
+
+        if let (Some(store), Some(Value::Object(body))) = (&self.store, reply.body.as_mut()) {
+            body.remove("permission");
+
+            if let Some(rules) = read_store(store).get(session) {
+                body.insert("permission".to_owned(), rules.clone());
+            }
+        }
+
+        reply
+    }
+
+    /// Appends the rules of a `PATCH /session/{id} {permission}` to the session's stored ones.
+    fn store_rules(&self, request: &Request) {
+        let (Some(store), Some(session)) = (&self.store, session_route(request)) else {
+            return;
+        };
+        let Some(Value::Array(rules)) = request.body.get("permission").filter(|_| request.method == "PATCH") else {
+            return;
+        };
+
+        let mut sessions = read_store(store);
+        let stored = sessions.entry(session.to_owned()).or_insert_with(|| json!([]));
+
+        if let Value::Array(stored) = stored {
+            stored.extend(rules.iter().cloned());
+        }
+
+        let text = serde_json::to_string_pretty(&sessions).unwrap_or_default();
+        std::fs::write(store, text).unwrap_or_else(|error| crate::fail(2, &format!("store: {error}")));
+    }
+
+    /// Ends every SSE stream (the last chunk, then the connection is shut).
+    pub fn close_subscribers(&self) {
+        for mut stream in lock(&self.subscribers).drain(..) {
+            stream.write_all(b"0\r\n\r\n").ok();
+            stream.shutdown(Shutdown::Both).ok();
+        }
+    }
+
     /// The number of open SSE streams.
     pub fn subscribers(&self) -> usize {
         lock(&self.subscribers).len()
@@ -196,6 +253,20 @@ impl Shared {
             subscribers.push(stream);
         }
     }
+}
+
+/// The session id of a `/session/{id}` request.
+fn session_route(request: &Request) -> Option<&str> {
+    let session = request.path.strip_prefix("/session/")?;
+
+    (!session.is_empty() && !session.contains('/')).then_some(session)
+}
+
+/// The stored rules by session; empty when the file is missing or empty.
+fn read_store(path: &Path) -> Map<String, Value> {
+    let text = std::fs::read_to_string(path).unwrap_or_default();
+
+    serde_json::from_str(&text).unwrap_or_default()
 }
 
 pub fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -253,6 +324,8 @@ fn handle(shared: &Shared, stream: TcpStream, runner: &Sender<Request>) {
         return;
     }
 
+    shared.store_rules(&request);
+
     let allowed = lock(&shared.allows)
         .iter()
         .rev()
@@ -260,7 +333,10 @@ fn handle(shared: &Shared, stream: TcpStream, runner: &Sender<Request>) {
         .map(|(_, reply)| reply.clone());
 
     match allowed {
-        Some(reply) => respond(request.stream, &shared.reply(&reply)),
+        Some(reply) => {
+            let reply = shared.reply_to(&request, &reply);
+            respond(request.stream, &reply);
+        }
         None => {
             runner.send(request).ok();
         }

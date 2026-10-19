@@ -7,9 +7,11 @@
 //!
 //! The server's own commands (`/init`, `/review`), custom commands, MCP prompts and skills arrive
 //! with a running chat's `GET /command` list ([`CommandCatalog::parse_live`]) and run as `/name
-//! args` prompt text, which the chat engine sends to `POST /session/{id}/command`.
+//! args` prompt text, which the chat engine sends to `POST /session/{id}/command`. Their `hints`
+//! (the template's `$1`, `$2`, … and `$ARGUMENTS`) become the argument hint: `<arg1> <arg2>
+//! [arguments]`.
 
-use serde_json::Value;
+use serde_json::{Value, json};
 
 use crate::harness::{Builtin, CommandCatalog, builtin_specs, gui, parse_live_commands, rpc, unsupported};
 use crate::model::{AgentActionKind, CommandInvocation, CommandSource, CommandSpec, GuiTarget};
@@ -32,8 +34,38 @@ impl CommandCatalog for OpenCodeCatalog {
     }
 
     fn parse_live(&self, raw: &[Value]) -> Vec<CommandSpec> {
-        parse_live_commands(raw, live_source, |_| CommandInvocation::PromptText)
+        let raw: Vec<Value> = raw.iter().map(with_input_hint).collect();
+
+        parse_live_commands(&raw, live_source, |_| CommandInvocation::PromptText)
     }
+}
+
+/// `entry` with its `hints` as the `input.hint` the shared parser reads.
+fn with_input_hint(entry: &Value) -> Value {
+    let mut entry = entry.clone();
+    let hints = entry.get("hints").and_then(Value::as_array).into_iter().flatten();
+    let hint: Vec<String> = hints.filter_map(Value::as_str).filter_map(hint_word).collect();
+
+    if !hint.is_empty() && entry.is_object() {
+        entry["input"] = json!({ "hint": hint.join(" ") });
+    }
+
+    entry
+}
+
+/// One of OpenCode's argument placeholders as the hint shows it.
+fn hint_word(placeholder: &str) -> Option<String> {
+    if placeholder == "$ARGUMENTS" {
+        return Some("[arguments]".to_owned());
+    }
+
+    let number = placeholder.strip_prefix('$')?;
+
+    if number.is_empty() || !number.bytes().all(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
+
+    Some(format!("<arg{number}>"))
 }
 
 /// `GET /command` source labels.

@@ -240,13 +240,20 @@ fn a_prompt_that_fails_before_its_turn_fails_alone_and_the_queue_moves_on() {
     mapper.queue_follow_up(Outgoing::new("next", &[]));
     mapper.prompt_sent();
 
-    let failed = mapper.prompt_failed_late("the OpenCode server answered HTTP 400");
+    let failed = mapper.prompt_failed_late("connection refused", false);
     assert_eq!(shape(&failed), ["promptResult", "queueUpdate", "send:next"]);
     assert_eq!(results(&failed), [PromptStatus::Error]);
 
+    let answered = mapper.prompt_failed_late("the OpenCode server answered HTTP 400", true);
+    assert_eq!(
+        shape(&answered),
+        ["taken", "promptResult", "settled"],
+        "a command OpenCode answered was taken before it failed"
+    );
+
     feed(&mut mapper, &[status("busy")]);
     assert!(
-        mapper.prompt_failed_late("timed out").is_empty(),
+        mapper.prompt_failed_late("timed out", false).is_empty(),
         "once the turn runs, the turn reports"
     );
 }

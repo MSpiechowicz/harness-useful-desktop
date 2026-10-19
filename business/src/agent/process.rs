@@ -7,7 +7,8 @@
 //! Stop: close stdin → (engines that ask for it, [`ProcessTraits::terminate_on_stop`]: SIGTERM to
 //! the process group) → wait up to the grace period (3 s) → kill the process group. `exited` is
 //! always the last event and is emitted exactly once, also when the agent crashes. A process
-//! dropped without `stop` is killed.
+//! dropped without `stop` is killed. Another task can end the process the same way without the
+//! stdin step ([`Terminator`]).
 //!
 //! Stderr (and whatever stdout an engine passes on) reaches the session as redacted, rate-limited
 //! lines ([`LineForwarder`]); a secret the agent has in its environment
@@ -166,14 +167,7 @@ impl AgentProcess {
         self.shared.writer.try_send(WriterMsg::Close).ok();
 
         if self.terminate_on_stop {
-            self.control.send_if_modified(|control| {
-                let running = *control == Control::Run;
-                if running {
-                    *control = Control::Terminate;
-                }
-
-                running
-            });
+            request_terminate(&self.control);
         }
 
         if !self.wait_exit(self.stop_grace).await {
@@ -194,11 +188,58 @@ impl AgentProcess {
 
     /// Waits at most `limit` for the process to exit; false when it is still running.
     pub async fn wait_exit(&self, limit: Duration) -> bool {
-        let mut exited = self.exited.clone();
-        let done = exited.wait_for(Option::is_some);
-
-        matches!(tokio::time::timeout(limit, done).await, Ok(Ok(_)))
+        wait_exit(&self.exited, limit).await
     }
+
+    /// A handle that ends the process from another task.
+    pub fn terminator(&self) -> Terminator {
+        Terminator {
+            control: self.control.clone(),
+            exited: self.exited.clone(),
+            grace: self.stop_grace,
+        }
+    }
+}
+
+/// Ends an [`AgentProcess`] from another task: SIGTERM to the process group, then a kill after
+/// the stop grace. The exit is reported as usual (`exited` last).
+#[derive(Clone)]
+pub(crate) struct Terminator {
+    control: watch::Sender<Control>,
+    exited: watch::Receiver<Option<ExitInfo>>,
+    grace: Duration,
+}
+
+impl Terminator {
+    /// Ends the process and waits (briefly) until it was reaped.
+    pub async fn terminate(&self) {
+        request_terminate(&self.control);
+
+        if !wait_exit(&self.exited, self.grace).await {
+            self.control.send_replace(Control::Kill);
+            wait_exit(&self.exited, KILL_WAIT).await;
+        }
+    }
+}
+
+/// Asks the exit waiter for SIGTERM, unless a stop is already under way.
+fn request_terminate(control: &watch::Sender<Control>) {
+    control.send_if_modified(|control| {
+        let running = *control == Control::Run;
+        if running {
+            *control = Control::Terminate;
+        }
+
+        running
+    });
+}
+
+/// Waits at most `limit` for the process to exit; false when it is still running.
+async fn wait_exit(exited: &watch::Receiver<Option<ExitInfo>>, limit: Duration) -> bool {
+    let mut exited = exited.clone();
+    let done = exited.wait_for(Option::is_some);
+
+    matches!(tokio::time::timeout(limit, done).await, Ok(Ok(_)))
 }
 
 impl Drop for AgentProcess {

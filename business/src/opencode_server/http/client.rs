@@ -35,7 +35,8 @@ impl ServerPassword {
         Self(password.into())
     }
 
-    /// A random password for one launch: 256 bits from the OS generator, as 64 hex digits.
+    /// A random password for one launch: two UUID v4 from the OS generator, 244 random bits as
+    /// 64 hex digits.
     pub fn random() -> Self {
         let first = uuid::Uuid::new_v4().simple().to_string();
         let second = uuid::Uuid::new_v4().simple().to_string();

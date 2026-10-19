@@ -35,6 +35,7 @@ pub use runner::{ExecOutput, ProcessRunner, TokioRunner};
 pub use spawner::{ChildHandle, ProcessSpawner, SpawnedProcess, TokioSpawner};
 
 use std::ffi::{OsStr, OsString};
+use std::fmt;
 use std::future::Future;
 use std::path::PathBuf;
 use std::pin::Pin;
@@ -56,8 +57,9 @@ pub const DEFAULT_MAX_OUTPUT_BYTES: usize = 1024 * 1024;
 
 /// What to execute. The child inherits the parent environment (with an AppImage launcher's changes
 /// undone) minus the variables named by `env_remove_prefixes`, plus `env` overrides, with
-/// `search_dirs` appended to its `PATH`.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// `search_dirs` appended to its `PATH`. `Debug` shows the names of `env` without their values
+/// (the OpenCode server password is one) and the size of `stdin` without its bytes.
+#[derive(Clone, PartialEq, Eq)]
 pub struct ExecSpec {
     /// Absolute path of the executable (resolve it first, see [`resolve_binary`]).
     pub program: PathBuf,
@@ -88,6 +90,34 @@ pub struct ExecSpec {
     /// Bytes [`ProcessRunner::run`] writes to the child's stdin before closing it; `None` gives the
     /// child a closed stdin (ignored by spawners).
     pub stdin: Option<Vec<u8>>,
+}
+
+impl fmt::Debug for ExecSpec {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let env: Vec<String> = self
+            .env
+            .iter()
+            .map(|(name, _)| format!("{}=<redacted>", name.to_string_lossy()))
+            .collect();
+
+        formatter
+            .debug_struct("ExecSpec")
+            .field("program", &self.program)
+            .field("args", &self.args)
+            .field("raw_arg", &self.raw_arg)
+            .field("cwd", &self.cwd)
+            .field("env", &env)
+            .field("env_remove_prefixes", &self.env_remove_prefixes)
+            .field("timeout", &self.timeout)
+            .field("max_output_bytes", &self.max_output_bytes)
+            .field("keep_tail", &self.keep_tail)
+            .field("search_dirs", &self.search_dirs)
+            .field(
+                "stdin",
+                &self.stdin.as_ref().map(|bytes| format!("<{} bytes>", bytes.len())),
+            )
+            .finish()
+    }
 }
 
 impl ExecSpec {

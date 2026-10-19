@@ -7,11 +7,13 @@ use std::collections::{HashSet, VecDeque};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
+use serde::Serialize;
+use serde::de::DeserializeOwned;
 use tokio::sync::{mpsc, oneshot};
 
 use super::process::Stdout;
 use super::sink::{EmitMsg, PromptTaken};
-use crate::model::AgentEvent;
+use crate::model::{AgentEvent, AgentReply};
 use crate::pi_family::rpc::{
     DecodeState, Frame, FrameReader, Inbound, PendingRequests, RequestKind, RpcDialect, encode_frame,
 };
@@ -102,25 +104,36 @@ impl Shared {
         }
     }
 
-    /// `event` with the secret masked in every text it carries. The secret is plain hex, so it
-    /// is replaced in the event's JSON and the event read back.
+    /// `event` with the secret masked in every text it carries.
     fn masked(&self, event: AgentEvent) -> AgentEvent {
-        let Some(secret) = &self.secret else {
-            return event;
-        };
-
-        let Ok(json) = serde_json::to_string(&event) else {
-            return event;
-        };
-
-        if !json.contains(secret.as_str()) {
-            return event;
-        }
-
-        serde_json::from_str(&mask_secret(&json, secret, false)).unwrap_or_else(|_| AgentEvent::FrameError {
+        self.masked_json(event).unwrap_or_else(|| AgentEvent::FrameError {
             original_type: None,
             error: "an event that held a secret was dropped".to_owned(),
         })
+    }
+
+    /// `reply` with the secret masked in every text it carries.
+    pub fn masked_reply(&self, reply: AgentReply) -> crate::error::Result<AgentReply> {
+        self.masked_json(reply)
+            .ok_or_else(|| crate::BusinessError::Internal("a reply that held a secret was dropped".to_owned()))
+    }
+
+    /// `value` with the secret masked: the secret is plain hex, so it is replaced in the value's
+    /// JSON and the value read back; `None` when that fails.
+    fn masked_json<T: Serialize + DeserializeOwned>(&self, value: T) -> Option<T> {
+        let Some(secret) = &self.secret else {
+            return Some(value);
+        };
+
+        let Ok(json) = serde_json::to_string(&value) else {
+            return Some(value);
+        };
+
+        if !json.contains(secret.as_str()) {
+            return Some(value);
+        }
+
+        serde_json::from_str(&mask_secret(&json, secret, false)).ok()
     }
 
     pub fn has_open_dialog(&self) -> bool {

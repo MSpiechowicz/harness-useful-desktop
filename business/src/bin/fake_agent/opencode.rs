@@ -27,6 +27,8 @@
 //!   object is the payload and gets `"directory": "$directory"`. Waits up to 10 s for a
 //!   subscriber, no subscriber by then counts as a failure. `server.connected` is sent on
 //!   subscribe, there is no heartbeat.
+//! - `{"sseClose": true}` — end every `GET /global/event` stream, as a server would that stops
+//!   sending events.
 //! - `{"listen": true}` — print the listening line here instead of before the first step (to
 //!   script a slow or failed startup).
 //! - `{"sleep": ms}`, `{"stderr": "line"}`, `{"stderrRepeat": …}` as for the other dialects;
@@ -40,6 +42,9 @@
 //! app never shows it. `"$request/messageID"` (any JSON pointer after `$request`) in `match`
 //! values, replies and events becomes that field of the last expected request with a JSON object
 //! body (for a `match`, the one before), for ids the app chose.
+//!
+//! Sessions' permission rules can be kept across runs like OpenCode keeps them
+//! (`FAKE_OPENCODE_STORE`, see [`super::opencode_http`]).
 //!
 //! End of the scenario: after a failure the fake exits 4 at once. Otherwise it keeps serving the
 //! allow rules until stdin closes, then exits 0. The real server ignores stdin EOF and needs
@@ -155,6 +160,8 @@ impl Server {
             respond(stream, &self.shared.reply(&reply));
         } else if let Some(event) = field("sse") {
             self.sse(event);
+        } else if field("sseClose").is_some() {
+            self.shared.close_subscribers();
         } else if field("listen").is_some() {
             self.announce();
         } else if let Some(line) = field("stdout").and_then(Value::as_str) {
@@ -202,7 +209,8 @@ impl Server {
         }
 
         let reply = self.with_request(&self.resolve(step.get("reply")));
-        respond(request.stream, &self.shared.reply(&reply));
+        let reply = self.shared.reply_to(&request, &reply);
+        respond(request.stream, &reply);
     }
 
     /// `value` with `"$request<pointer>"` replaced from the last expected request's body.

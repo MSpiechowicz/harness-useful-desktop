@@ -1,0 +1,24 @@
+// Steering sent while the end of a turn is being checked (the check's message read is held, the
+// title "Checking" tells the test) is held as a follow-up. A rename shows the steer was handled
+// before the check answers: no stranded steering, the turn ends, then the follow-up runs its own
+// turn. Last, a title marker.
+{"include":"opencode_startup.jsonl"}
+{"expect":"POST /session/ses_eaa561636ffezINnnn1ghd5370/prompt_async","match":{"/parts/0/text":"Say hello","/agent":"build"}}
+{"sse":{"type":"message.updated","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","info":{"id":"msg_155a9eeb3001SWCCbgpm0fXcQJ","role":"user","sessionID":"ses_eaa561636ffezINnnn1ghd5370","time":{"created":1},"agent":"build","model":{"providerID":"mock","modelID":"m1"}}}}}
+{"sse":{"type":"message.part.updated","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","part":{"type":"text","text":"Say hello","messageID":"msg_155a9eeb3001SWCCbgpm0fXcQJ","sessionID":"ses_eaa561636ffezINnnn1ghd5370","id":"prt_u1"}}}}
+{"sse":{"type":"session.status","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","status":{"type":"busy"}}}}
+{"sse":{"type":"message.updated","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","info":{"id":"msg_155a9eeb80018zbVAUXYL6o8VQ","parentID":"msg_155a9eeb3001SWCCbgpm0fXcQJ","role":"assistant","mode":"build","agent":"build","modelID":"m1","providerID":"mock","time":{"created":2},"sessionID":"ses_eaa561636ffezINnnn1ghd5370"}}}}
+{"sse":{"type":"message.part.updated","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","part":{"type":"text","text":"","messageID":"msg_155a9eeb80018zbVAUXYL6o8VQ","sessionID":"ses_eaa561636ffezINnnn1ghd5370","id":"prt_a1"}}}}
+{"sse":{"type":"message.part.delta","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","messageID":"msg_155a9eeb80018zbVAUXYL6o8VQ","partID":"prt_a1","field":"text","delta":"Hello "}}}
+{"expect":"POST /session/ses_eaa561636ffezINnnn1ghd5370/prompt_async","match":{"/parts/0/text":"late steer","/agent":"build"}}
+{"sse":{"type":"message.updated","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","info":{"id":"msg_155a9eeb80018zbVAUXYL6o8VQ","parentID":"msg_155a9eeb3001SWCCbgpm0fXcQJ","role":"assistant","mode":"build","agent":"build","modelID":"m1","providerID":"mock","time":{"created":2,"completed":3},"sessionID":"ses_eaa561636ffezINnnn1ghd5370"}}}}
+{"sse":{"type":"session.status","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","status":{"type":"idle"}}}}
+{"expect":"GET /session/ses_eaa561636ffezINnnn1ghd5370/message","match":{"query.limit":"2"},"hold":true,"as":"check"}
+{"sse":{"type":"session.updated","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","info":{"id":"ses_eaa561636ffezINnnn1ghd5370","directory":"$directory","title":"Checking","time":{"created":1,"updated":2}}}}}
+{"expect":"PATCH /session/ses_eaa561636ffezINnnn1ghd5370","match":{"title":"Named"},"reply":{"body":{"id":"ses_eaa561636ffezINnnn1ghd5370","slug":"happy-sailor","projectID":"0c8d2a560942650d801f05588b0f2da5c16aa197","directory":"$directory","path":"","title":"Named","version":"1.19.3","time":{"created":1792438567705,"updated":1792438567705}}}}
+{"respond":"check","reply":{"body":[{"info":{"id":"msg_155a9eeb80018zbVAUXYL6o8VQ","parentID":"msg_155a9eeb3001SWCCbgpm0fXcQJ","role":"assistant","sessionID":"ses_eaa561636ffezINnnn1ghd5370","time":{"created":2,"completed":3},"modelID":"m1","providerID":"mock"},"parts":[]}]}}
+{"expect":"POST /session/ses_eaa561636ffezINnnn1ghd5370/prompt_async","match":{"/parts/0/text":"while checking","/agent":"build"}}
+{"sse":{"type":"session.status","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","status":{"type":"busy"}}}}
+{"sse":{"type":"session.status","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","status":{"type":"idle"}}}}
+{"sse":{"type":"session.updated","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","info":{"id":"ses_eaa561636ffezINnnn1ghd5370","directory":"$directory","title":"Marker","time":{"created":1,"updated":2}}}}}
+{"hang":true}

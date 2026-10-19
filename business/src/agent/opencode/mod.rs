@@ -13,7 +13,8 @@
 //!   actions (`ops.rs`), `!command`s and compaction (`runs.rs`), and statistics, the context
 //!   meter, the last reply and the HTML export (`reports.rs`).
 //! - **Approval modes and helper chats** (`approvals.rs`): session permission rules.
-//! - **Stop:** open dialogs close, a helper chat's session is deleted, then the server stops.
+//! - **Stop:** open dialogs close, a helper chat's session is deleted (an approval mode's rules
+//!   are released), then the server stops.
 
 mod approvals;
 mod delivery;
@@ -33,7 +34,7 @@ use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use serde_json::Value;
 use tokio::task::AbortHandle;
 
-use self::approvals::LaunchRules;
+use self::approvals::{LaunchRules, SessionRules};
 
 use super::io::Shared;
 use super::process::AgentProcess;
@@ -99,8 +100,8 @@ struct Live {
     turn: TurnSettings,
     /// Names of the server's commands (`GET /command`).
     commands: Vec<String>,
-    /// The agent the session's permission rules were last set for.
-    rules_agent: Option<String>,
+    /// The permission rules the session ends with, when the chat set (or found) any.
+    rules: Option<SessionRules>,
     /// What the chat knows about the context's size.
     context: Context,
 }
@@ -252,7 +253,7 @@ impl OpenCodeSession {
         action.validate()?;
         self.process.ensure_running()?;
 
-        match action {
+        let reply = match action {
             A::Prompt { .. }
             | A::Steer { .. }
             | A::FollowUp { .. }
@@ -268,7 +269,10 @@ impl OpenCodeSession {
             | A::SetAgent { .. }
             | A::RefreshCommands => self.setting(action).await,
             _ => self.session_op(action).await,
-        }
+        };
+
+        // Tools see the server password: whatever OpenCode stored never shows it.
+        self.chat.shared.masked_reply(reply?)
     }
 
     /// Puts `event` into the session's stream, after the events already in it.
@@ -289,7 +293,7 @@ impl OpenCodeSession {
         let cancelled = self.chat.lock().mapper.cancel_asks();
         cancelled.into_iter().for_each(|event| self.chat.shared.emit(event));
 
-        self.delete_helper_session().await;
+        self.chat.leave_session().await;
         self.process.stop().await;
     }
 }

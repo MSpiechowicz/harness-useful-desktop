@@ -1,0 +1,13 @@
+// Approval mode write, the agent switched to plan, then a clone that fails after its rules were set
+// (reading the copy fails): the copy is deleted, the chat stays, and its own session still gets the
+// plan agent's rules before the next prompt. At stop the plan agent's own rules are appended.
+{"include":"opencode_startup.jsonl"}
+{"expect":"PATCH /session/ses_eaa561636ffezINnnn1ghd5370","match":{"/permission/0":{"permission":"*","pattern":"*","action":"ask"},"/permission/24":{"permission":"external_directory","pattern":"/work/data/opencode/tool-output/*","action":"allow"},"/permission/25":"$absent"},"reply":{"recording":"../opencode/server/session-patch-permission.json"}}
+{"expect":"POST /session/ses_eaa561636ffezINnnn1ghd5370/fork","reply":{"body":{"id":"ses_0new0chat0000000000000001","slug":"happy-sailor","projectID":"0c8d2a560942650d801f05588b0f2da5c16aa197","directory":"$directory","path":"","title":"Copy","version":"1.19.3","time":{"created":1792438567705,"updated":1792438567705}}}}
+{"expect":"PATCH /session/ses_0new0chat0000000000000001","match":{"/permission/0":{"permission":"*","pattern":"*","action":"ask"},"/permission/26":{"permission":"edit","pattern":"*","action":"deny"},"/permission/30":"$absent"},"reply":{"recording":"../opencode/server/session-patch-permission.json"}}
+{"expect":"GET /session/ses_0new0chat0000000000000001/message","reply":{"status":500,"body":{"name":"UnknownError","data":{}}}}
+{"expect":"DELETE /session/ses_0new0chat0000000000000001","reply":{"body":true}}
+{"expect":"PATCH /session/ses_eaa561636ffezINnnn1ghd5370","match":{"/permission/0":{"permission":"*","pattern":"*","action":"ask"},"/permission/26":{"permission":"edit","pattern":"*","action":"deny"},"/permission/30":"$absent"},"reply":{"recording":"../opencode/server/session-patch-permission.json"}}
+{"expect":"POST /session/ses_eaa561636ffezINnnn1ghd5370/prompt_async","match":{"/parts/0/text":"Make a plan","/agent":"plan"}}
+{"expect":"PATCH /session/ses_eaa561636ffezINnnn1ghd5370","match":{"/permission/0":{"permission":"*","pattern":"*","action":"allow"},"/permission/16":{"permission":"edit","pattern":"*","action":"deny"},"/permission/20":"$absent"},"reply":{"recording":"../opencode/server/session-patch-permission.json"}}
+{"hang":true}

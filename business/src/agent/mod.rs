@@ -52,6 +52,10 @@ pub const STARTUP_DEADLINE: Duration = Duration::from_secs(30);
 /// How long `stop` waits after closing stdin before killing the process group.
 pub const STOP_GRACE: Duration = Duration::from_secs(3);
 
+/// How long the event stream of an engine that reads one (OpenCode, which sends a heartbeat every
+/// 10 s) may stay silent before the chat counts its connection as lost and stops.
+pub const EVENT_SILENCE: Duration = Duration::from_secs(35);
+
 /// Produces a value on demand (session keys, timestamps); replaceable in tests.
 pub type Generator = Arc<dyn Fn() -> String + Send + Sync>;
 
@@ -73,6 +77,8 @@ pub struct SessionOptions {
     /// Where an engine that renders HTML exports itself (OpenCode) writes them; `None` is the
     /// `exports` folder in the app's data folder, never the project.
     pub export_dir: Option<PathBuf>,
+    /// See [`EVENT_SILENCE`].
+    pub event_silence: Duration,
 }
 
 impl Default for SessionOptions {
@@ -85,6 +91,7 @@ impl Default for SessionOptions {
             key: Arc::new(|| uuid::Uuid::new_v4().to_string()),
             clock: Arc::new(|| rfc3339(SystemTime::now())),
             export_dir: None,
+            event_silence: EVENT_SILENCE,
         }
     }
 }
@@ -97,6 +104,7 @@ impl std::fmt::Debug for SessionOptions {
             .field("startup_timeout", &self.startup_timeout)
             .field("startup_deadline", &self.startup_deadline)
             .field("export_dir", &self.export_dir)
+            .field("event_silence", &self.event_silence)
             .finish_non_exhaustive()
     }
 }

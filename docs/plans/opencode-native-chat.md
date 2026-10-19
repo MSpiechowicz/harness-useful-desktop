@@ -69,7 +69,8 @@ Paths under `packages/opencode/src` of the OpenCode source.
   send the deprecated `tools`, it replaces session permissions, `prompt.ts:1060-1067`); `POST /session/{id}/command
   {command, arguments, agent?, model:"prov/model", variant?}` (blocks); `POST /session/{id}/shell {agent, command,
   model?}` (blocks, 409 when busy, no permission check, no exit code); `POST /session`; `GET|PATCH|DELETE
-  /session/{id}` (PATCH `{title?, permission?}` replaces the whole rule list); `POST /session/{id}/fork {messageID?}`
+  /session/{id}` (PATCH `{title?, permission?}` *appends* `permission` to the rules stored with the session,
+  `Permission.merge` concatenates, nothing removes them); `POST /session/{id}/fork {messageID?}`
   (copies messages before `messageID`, no `parentID`); `POST /session/{id}/abort`; `POST /session/{id}/summarize
   {providerID, modelID}` (blocks); `GET /session/{id}/message?limit&before`; `GET /session/status`;
   `GET /config/providers` → `{providers, default}`; `GET /agent`; `GET /command` → `{name, description,
@@ -133,10 +134,15 @@ Paths under `packages/opencode/src` of the OpenCode source.
 | Move project | not possible | `move_session: false` |
 
 **Approval modes** (`modes.rs`, recomputed per agent, PATCHed before a prompt when agent or mode changed, only while
-idle): session rules = a leading catch-all + the agent's own rules transformed, so `findLast` keeps denies and order.
-Always ask `[*:*:ask]` + allow→ask (except `question`, `todowrite`, `plan_*`). Write `[edit|bash|task:*:ask]` +
-allow→ask for those. Yolo `[*:*:allow]` + ask→allow, agent denies kept (plan stays read-only). No override: no session
-rules, the user's config applies.
+idle): session rules = a leading catch-all + the agent's own rules transformed, so `findLast` keeps denies and order,
+and the last list a session holds decides alone. Always ask `[*:*:ask]` + allow→ask (except `question`, `todowrite`,
+`plan_*`). Write `[*:*:ask]` + allow→ask except a read-only allowlist (`read glob grep list lsp skill todowrite
+question plan_*`), the agent's `external_directory` rules kept. Yolo `[*:*:allow]` + ask→allow, agent denies kept (plan
+stays read-only), an ask inside an earlier deny stays an ask. No override: no session rules, the user's config applies.
+Because PATCH appends and the rules persist in OpenCode's database, the chat releases a mode when it leaves a session
+(stop, new, fork, clone, lost stream) by appending the agent's own rules (the neutral list), neutralises a resumed
+session that holds rules without an override, and never re-sends a list the session already ends with
+(review round 1, H1).
 
 ## Hooks and routines
 

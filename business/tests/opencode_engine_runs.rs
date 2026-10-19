@@ -224,7 +224,46 @@ async fn rename_stats_last_reply_and_an_escaped_export_outside_the_project() {
 
         let mode = std::fs::metadata(&path).expect("metadata").permissions().mode();
         assert_eq!(mode & 0o777, 0o600, "only the user reads the transcript");
+
+        let folder = std::fs::metadata(&export_dir).expect("metadata").permissions().mode();
+        assert_eq!(folder & 0o777, 0o700, "only the user lists the exports");
     }
+
+    assert!(session.is_running(), "every request matched the scenario");
+    session.stop().await;
+}
+
+#[tokio::test]
+async fn replies_never_show_the_server_password() {
+    let exports = tempfile::tempdir().expect("export folder");
+    let options = SessionOptions {
+        export_dir: Some(exports.path().to_path_buf()),
+        ..agent_support::options()
+    };
+    let chat = start_with("opencode_password_replies.jsonl", None, options).await;
+    let session = chat.session();
+    let password = chat.password();
+
+    let last = session
+        .send(AgentAction::GetLastAssistantText)
+        .await
+        .expect("last reply");
+    let AgentReply::Text { text: Some(text) } = last else {
+        panic!("last reply: {last:?}");
+    };
+    assert!(!text.contains(&password), "{text}");
+    assert!(text.contains("••••"), "{text}");
+
+    let path = match session.send(AgentAction::ExportHtml).await {
+        Ok(AgentReply::Exported { path }) => std::path::PathBuf::from(path),
+        other => panic!("export: {other:?}"),
+    };
+    let html = std::fs::read_to_string(&path).expect("the export");
+    assert!(!html.contains(&password), "the export holds the password");
+
+    let output = session.bash("env").await.expect("ran");
+    assert!(!output.output.contains(&password), "{output:?}");
+    assert!(output.output.contains("••••"), "{output:?}");
 
     assert!(session.is_running(), "every request matched the scenario");
     session.stop().await;

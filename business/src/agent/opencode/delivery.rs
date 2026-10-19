@@ -18,7 +18,7 @@ use super::startup::get_json;
 use super::{Chat, Live, stream};
 use crate::error::{BusinessError, Result};
 use crate::opencode_server::wire::{Outgoing, command_body, newest_message, prompt_body, slash_command};
-use crate::opencode_server::{MessageId, Route, SessionId};
+use crate::opencode_server::{HttpError, MessageId, Route, SessionId};
 
 /// How a message is sent.
 pub(super) enum Request {
@@ -46,6 +46,12 @@ impl Request {
 
     /// Sends the request; `Ok` for a `2xx` answer.
     pub(super) async fn post(&self, chat: &Chat, session: &SessionId) -> Result<()> {
+        Ok(self.post_http(chat, session).await?)
+    }
+
+    /// [`Request::post`] with the HTTP error (an answer other than `2xx` is
+    /// [`HttpError::Status`]).
+    async fn post_http(&self, chat: &Chat, session: &SessionId) -> std::result::Result<(), HttpError> {
         let sent = match self {
             Self::Prompt(body) => chat.client.send(Route::PromptAsync { session }, Some(body)).await,
             Self::Command(body) => chat.client.send(Route::Command { session }, Some(body)).await,
@@ -70,19 +76,41 @@ pub(super) fn send(chat: &Arc<Chat>, live: &mut Live, message: Outgoing) {
     let chat = chat.clone();
 
     tokio::spawn(async move {
+        // A command OpenCode answered with an error was taken: the prompt-taken call runs first.
         let sent = match chat.rules_for_turn(&session).await {
-            Ok(()) => request.post(&chat, &session).await,
-            Err(error) => Err(error),
+            Ok(()) => request.post_http(&chat, &session).await.map_err(|error| {
+                let answered = matches!(error, HttpError::Status { .. });
+                (BusinessError::from(error), answered && request.is_command())
+            }),
+            Err(error) => Err((error, false)),
         };
         let mut live = chat.lock();
 
         match sent {
             Ok(()) if !request.is_command() => chat.shared.prompt_taken_now(),
             Ok(()) => {}
-            Err(error) => {
-                let mapped = live.mapper.prompt_failed_late(&error.to_string());
+            Err((error, taken)) => {
+                let mapped = live.mapper.prompt_failed_late(&error.to_string(), taken);
                 stream::apply(&chat, &mut live, mapped);
             }
+        }
+    });
+}
+
+/// Asks OpenCode in the background to abort the chat's running turn (an abort the user asked for
+/// before the turn started); a failure leaves the turn running, as the user can abort again.
+pub(super) fn abort(chat: &Arc<Chat>, live: &Live) {
+    let session = live.session.clone();
+    let chat = chat.clone();
+
+    tokio::spawn(async move {
+        let sent = chat
+            .client
+            .send(Route::Abort { session: &session }, Some(&serde_json::json!({})))
+            .await;
+
+        if let Err(error) = sent.and_then(|response| response.error_for_status()) {
+            tracing::debug!(%error, "OpenCode was not asked again to abort the turn");
         }
     });
 }

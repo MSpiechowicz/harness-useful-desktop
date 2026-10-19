@@ -1,7 +1,9 @@
 // Approval mode write: the build agent's rules at startup, the plan agent's (its edit deny kept)
 // before the first prompt after the switch, then the prompt with the plan agent.
 {"include":"opencode_startup.jsonl"}
-{"expect":"PATCH /session/ses_eaa561636ffezINnnn1ghd5370","match":{"/permission/0":{"permission":"edit","pattern":"*","action":"ask"},"/permission/3":{"permission":"*","pattern":"*","action":"allow"}},"reply":{"recording":"../opencode/server/session-patch-permission.json"}}
-{"expect":"PATCH /session/ses_eaa561636ffezINnnn1ghd5370","match":{"/permission/0":{"permission":"edit","pattern":"*","action":"ask"},"/permission/22":{"permission":"edit","pattern":"*","action":"deny"}},"reply":{"recording":"../opencode/server/session-patch-permission.json"}}
+{"expect":"PATCH /session/ses_eaa561636ffezINnnn1ghd5370","match":{"/permission/0":{"permission":"*","pattern":"*","action":"ask"},"/permission/2":{"permission":"read","pattern":"*","action":"allow"},"/permission/24":{"permission":"external_directory","pattern":"/work/data/opencode/tool-output/*","action":"allow"},"/permission/25":"$absent"},"reply":{"recording":"../opencode/server/session-patch-permission.json"}}
+{"expect":"PATCH /session/ses_eaa561636ffezINnnn1ghd5370","match":{"/permission/0":{"permission":"*","pattern":"*","action":"ask"},"/permission/26":{"permission":"edit","pattern":"*","action":"deny"},"/permission/27":{"permission":"edit","pattern":".opencode/plans/*.md","action":"ask"},"/permission/30":"$absent"},"reply":{"recording":"../opencode/server/session-patch-permission.json"}}
 {"expect":"POST /session/ses_eaa561636ffezINnnn1ghd5370/prompt_async","match":{"/parts/0/text":"Make a plan","/agent":"plan"},"reply":{"recording":"../opencode/server/prompt-async.json"}}
+// At stop the plan agent's own rules are appended (released).
+{"expect":"PATCH /session/ses_eaa561636ffezINnnn1ghd5370","match":{"/permission/0":{"permission":"*","pattern":"*","action":"allow"},"/permission/16":{"permission":"edit","pattern":"*","action":"deny"},"/permission/19":{"permission":"external_directory","pattern":"/work/data/opencode/tool-output/*","action":"allow"},"/permission/20":"$absent"},"reply":{"recording":"../opencode/server/session-patch-permission.json"}}
 {"hang":true}
