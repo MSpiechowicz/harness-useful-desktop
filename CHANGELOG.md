@@ -1,3 +1,17 @@
+# [0.28.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.27.1...v0.28.0) (2026-10-19)
+
+
+### Bug Fixes
+
+* **ci:** Windows clippy and the duplicate test setup ([5588c67](https://github.com/MSpiechowicz/harness-useful-desktop/commit/5588c67385fdf481a2c9b2b8db1c2c0f8baae01e))
+* **memory:** say to update Harness Memory when it cannot save from the app ([d032a3e](https://github.com/MSpiechowicz/harness-useful-desktop/commit/d032a3ea96dffd16a340f3ef6cb0d8ae69cd8c4a))
+
+
+### Features
+
+* **memory:** Notes and Scripts views with add, edit and notes import ([0d34504](https://github.com/MSpiechowicz/harness-useful-desktop/commit/0d34504c0ae64772ea8db939ac6a132ddf4422f1))
+* **settings:** Amazon DocumentDB as a team memory database ([bdd54e7](https://github.com/MSpiechowicz/harness-useful-desktop/commit/bdd54e74edaa789100a904c98ed4a4fff2b4be64))
+
 ## [0.27.1](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.27.0...v0.27.1) (2026-10-19)
 
 
