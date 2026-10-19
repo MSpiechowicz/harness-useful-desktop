@@ -10,7 +10,7 @@ import type { SortOrder } from '$lib/ipc/bindings/SortOrder';
 import { ipc } from '$lib/ipc/client';
 import { IpcFailure } from '$lib/ipc/transport';
 
-import { memoryItemGone } from './memoryScripts.svelte';
+import { memoryItemGone, saveFailureText } from './memoryScripts.svelte';
 import { toasts } from './toasts.svelte';
 import { viewState } from './view-state.svelte';
 import { ViewLoader } from './view-loader.svelte';
@@ -62,7 +62,7 @@ export async function deleteNote(id: number, project: string | null, confirm: ()
   try {
     await ipc.invoke('memory_note_delete', { id, project });
   } catch (error) {
-    toasts.push({ title: t('memory.notes.delete.failed'), description: IpcFailure.from(error).message, tone: 'danger' });
+    toasts.push({ title: t('memory.notes.delete.failed'), description: saveFailureText(IpcFailure.from(error)), tone: 'danger' });
     await noteList.refresh();
 
     return false;
@@ -87,7 +87,7 @@ export async function saveNote(project: string | null, draft: NoteDraft, replace
   try {
     saved = await ipc.invoke('memory_note_save', replaceId === undefined ? { project, draft } : { project, draft, replaceId });
   } catch (error) {
-    toasts.push({ title: t('memory.editor.note.toast.failed'), description: IpcFailure.from(error).message, tone: 'danger' });
+    toasts.push({ title: t('memory.editor.note.toast.failed'), description: saveFailureText(IpcFailure.from(error)), tone: 'danger' });
 
     return null;
   }

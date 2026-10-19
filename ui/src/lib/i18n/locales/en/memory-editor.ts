@@ -4,6 +4,7 @@ export const memoryEditor = {
   'memory.editor.edit': 'Edit',
   'memory.editor.cancel': 'Cancel',
   'memory.editor.optional': 'Optional',
+  'memory.editor.outdated': 'A newer Harness Memory is needed to save from the app. Update it on the Ecosystem page.',
   'memory.editor.counter': '{used} / {max}',
   'memory.editor.scope': 'Scope',
   'memory.editor.scope.repo': 'Repository',

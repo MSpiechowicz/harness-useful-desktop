@@ -7,6 +7,7 @@ export const memoryEditor: AreaMessages<typeof enMemoryEditor> = {
   'memory.editor.edit': 'Modifier',
   'memory.editor.cancel': 'Annuler',
   'memory.editor.optional': 'Facultatif',
+  'memory.editor.outdated': 'Un Harness Memory plus récent est nécessaire pour enregistrer depuis l’app. Mettez-le à jour sur la page Écosystème.',
   'memory.editor.counter': '{used} / {max}',
   'memory.editor.scope': 'Portée',
   'memory.editor.scope.repo': 'Dépôt',

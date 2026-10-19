@@ -166,6 +166,24 @@ describe('adding a note', () => {
     await waitFor(() => expect(toasts.items.map((toast) => [toast.title, toast.description])).toContainEqual(['The note was not saved', 'harness-memory stopped']));
     expect(screen.getByRole('dialog', { name: 'Add a note' })).toBeInTheDocument();
   });
+
+  it('says to update Harness Memory when the installed one is too old to save', async () => {
+    const invoke = fakeMemory();
+    const dialog = await openEditor();
+    const base = invoke.getMockImplementation() as (name: CommandName, args: unknown) => Promise<unknown>;
+    invoke.mockImplementation((async (name: CommandName, args: unknown) => {
+      if (name === 'memory_note_save') {
+        throw IpcFailure.from({ code: 'unsupported', message: 'this harness-memory predates saving notes and scripts from the app; update Harness Memory' });
+      }
+
+      return base(name, args);
+    }) as typeof ipc.invoke);
+
+    await fill(dialog, { title: 'Release checklist', body: 'Tag the release.' });
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Add note' }));
+
+    await waitFor(() => expect(toasts.items.map((toast) => toast.description)).toContain('A newer Harness Memory is needed to save from the app. Update it on the Ecosystem page.'));
+  });
 });
 
 describe('editing a note', () => {

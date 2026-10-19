@@ -64,6 +64,11 @@ export function memoryItemGone(failure: IpcFailure): boolean {
   return failure.message !== 'not found: executable harness-memory';
 }
 
+/** Why a note or a script was not saved, for its toast: an installed Harness Memory too old to save from the app says to update it. */
+export function saveFailureText(failure: IpcFailure): string {
+  return failure.code === 'unsupported' ? t('memory.editor.outdated') : failure.message;
+}
+
 export const scriptDetail = new ViewLoader<ScriptDetail, string>((id, project) => ipc.invoke('memory_script_get', { id: Number(id), project }), { goneIsFinal: memoryItemGone });
 
 /** Deletes a script once the user confirms, then re-reads the list so the row is gone (or back, if the call failed). */
@@ -180,7 +185,7 @@ export async function saveScript(project: string | null, draft: ScriptDraft, rep
       return SCRIPT_CHANGED;
     }
 
-    toasts.push({ title: t('memory.editor.script.toast.failed'), description: cause.message, tone: 'danger' });
+    toasts.push({ title: t('memory.editor.script.toast.failed'), description: saveFailureText(cause), tone: 'danger' });
 
     return null;
   }

@@ -199,7 +199,14 @@ impl MemoryScripts {
             return Err(unavailable(MemoryScriptsAvailability::Outdated));
         }
 
-        self.pool.call_tool(&spec, tool, arguments).await
+        // A server of the generation that asks first, but from before the note tools were renamed
+        // (`memory_remember`, a 1.x development build), does not know `note_save`.
+        match self.pool.call_tool(&spec, tool, arguments).await {
+            Err(BusinessError::Protocol(message)) if unknown_tool(&message) => {
+                Err(unavailable(MemoryScriptsAvailability::Outdated))
+            }
+            answer => answer,
+        }
     }
 
     /// Stops the server now (app shutdown, tests).
@@ -313,6 +320,11 @@ fn server_spec(env: &Env, binary: &Path) -> ExecSpec {
     ExecSpec::new(binary).args(["mcp"]).cwd(&env.home).env("NO_COLOR", "1")
 }
 
+/// A JSON-RPC refusal of a tool the server does not have (`-32602`, `unknown tool: …`).
+fn unknown_tool(message: &str) -> bool {
+    message.contains("(-32602)") && message.to_lowercase().contains("unknown tool")
+}
+
 /// `arguments` with `project_path` when there is a project.
 pub(crate) fn with_project(mut arguments: Map<String, Value>, project: Option<&Path>) -> Map<String, Value> {
     if let Some(project) = project {
@@ -390,6 +402,14 @@ fn missing_field(tool: &str, field: &str) -> BusinessError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn an_unknown_tool_is_told_apart_from_other_refusals() {
+        assert!(unknown_tool("tools/call failed (-32602): unknown tool: note_save"));
+        assert!(unknown_tool("tools/call failed (-32602): Unknown tool: note_save"));
+        assert!(!unknown_tool("tools/call failed (-32602): invalid arguments"));
+        assert!(!unknown_tool("tools/call failed (-32603): unknown tool: note_save"));
+    }
 
     #[test]
     fn a_missing_server_reads_as_the_ui_expects() {
