@@ -1,0 +1,16 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/session/ses_eaa561636ffezINnnn1ghd5370/prompt_async",
+    "body": {
+      "parts": [
+        {
+          "type": "text",
+          "text": "Say hello"
+        }
+      ]
+    }
+  },
+  "status": 204,
+  "body": null
+}

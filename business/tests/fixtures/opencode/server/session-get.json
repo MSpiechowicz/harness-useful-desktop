@@ -1,0 +1,59 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/session/ses_eaa561636ffezINnnn1ghd5370",
+    "body": null
+  },
+  "status": 200,
+  "body": {
+    "id": "ses_eaa561636ffezINnnn1ghd5370",
+    "slug": "silent-moon",
+    "projectID": "0c8d2a560942650d801f05588b0f2da5c16aa197",
+    "directory": "/work/project",
+    "path": "",
+    "summary": {
+      "additions": 0,
+      "deletions": 0,
+      "files": 0
+    },
+    "cost": 0,
+    "tokens": {
+      "input": 305,
+      "output": 54,
+      "reasoning": 0,
+      "cache": {
+        "read": 0,
+        "write": 0
+      }
+    },
+    "title": "Renamed chat",
+    "agent": "build",
+    "model": {
+      "id": "m1",
+      "providerID": "mock",
+      "variant": "default"
+    },
+    "version": "1.19.3",
+    "time": {
+      "created": 1792438561225,
+      "updated": 1792438567804
+    },
+    "permission": [
+      {
+        "permission": "*",
+        "pattern": "*",
+        "action": "allow"
+      },
+      {
+        "permission": "bash",
+        "pattern": "*",
+        "action": "ask"
+      },
+      {
+        "permission": "edit",
+        "pattern": "*",
+        "action": "ask"
+      }
+    ]
+  }
+}

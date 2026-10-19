@@ -1,0 +1,10 @@
+HTTP/1.1 200 OK
+Access-Control-Expose-Headers: Link, X-Next-Cursor
+Link: <http://127.0.0.1:4096/session/ses_eaa561636ffezINnnn1ghd5370/message?limit=2&before=eyJpZCI6Im1zZ18xNTVhYTAzNWUwMDFkc1FhQUhMNVE1dEFyYyIsInRpbWUiOjE3OTI0Mzg1Njc3NzR9>; rel="next"
+Content-Type: application/json
+Date: Mon, 19 Oct 2026 19:36:08 GMT
+Content-Length: 1588
+Vary: Origin
+x-next-cursor: eyJpZCI6Im1zZ18xNTVhYTAzNWUwMDFkc1FhQUhMNVE1dEFyYyIsInRpbWUiOjE3OTI0Mzg1Njc3NzR9
+
+[{"info":{"role":"assistant","parentID":"msg_155aa0359001UrFezhsnh2tJoF","mode":"compaction","agent":"compaction","summary":true,"path":{"cwd":"/work/project","root":"/work/project"},"cost":0,"tokens":{"total":7,"input":5,"output":2,"reasoning":0,"cache":{"write":0,"read":0}},"modelID":"m1","providerID":"mock","time":{"created":1792438567774,"completed":1792438567802},"finish":"stop","id":"msg_155aa035e001dsQaAHL5Q5tArc","sessionID":"ses_eaa561636ffezINnnn1ghd5370"},"parts":[{"snapshot":"5dadd1311caf60dbb1c640bf8060a87309319eee","type":"step-start","id":"prt_155aa0369001D3D4nUoGrYDttW","sessionID":"ses_eaa561636ffezINnnn1ghd5370","messageID":"msg_155aa035e001dsQaAHL5Q5tArc"},{"type":"text","text":"Mock title","time":{"start":1792438567786,"end":1792438567787},"id":"prt_155aa036a001xWEgrnRWKN2gTe","sessionID":"ses_eaa561636ffezINnnn1ghd5370","messageID":"msg_155aa035e001dsQaAHL5Q5tArc"},{"reason":"stop","snapshot":"5dadd1311caf60dbb1c640bf8060a87309319eee","type":"step-finish","tokens":{"total":7,"input":5,"output":2,"reasoning":0,"cache":{"write":0,"read":0}},"cost":0,"id":"prt_155aa03700012sqyiqOGI3h5GN","sessionID":"ses_eaa561636ffezINnnn1ghd5370","messageID":"msg_155aa035e001dsQaAHL5Q5tArc"}]},{"info":{"role":"user","time":{"created":1792438567810},"agent":"build","model":{"providerID":"nope","modelID":"missing"},"id":"msg_155aa0382001iSyK8uOLkPS59o","sessionID":"ses_eaa561636ffezINnnn1ghd5370"},"parts":[{"type":"text","text":"x","id":"prt_155aa0383001a0RTItIxqVwHzX","sessionID":"ses_eaa561636ffezINnnn1ghd5370","messageID":"msg_155aa0382001iSyK8uOLkPS59o"}]}]

@@ -1,0 +1,14 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/mcp?directory=/work/project",
+    "body": null
+  },
+  "status": 200,
+  "body": {
+    "probe": {
+      "status": "failed",
+      "error": "MCP error -32000: Connection closed"
+    }
+  }
+}

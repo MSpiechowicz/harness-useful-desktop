@@ -1,0 +1,20 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/session/ses_eaa561636ffezINnnn1ghd5370/prompt_async",
+    "body": {
+      "parts": [
+        {
+          "type": "text",
+          "text": "x"
+        }
+      ],
+      "model": {
+        "providerID": "nope",
+        "modelID": "missing"
+      }
+    }
+  },
+  "status": 204,
+  "body": null
+}

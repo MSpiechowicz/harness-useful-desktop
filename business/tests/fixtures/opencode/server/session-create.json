@@ -1,0 +1,31 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/session?directory=/work/project",
+    "body": {}
+  },
+  "status": 200,
+  "body": {
+    "id": "ses_eaa561636ffezINnnn1ghd5370",
+    "slug": "silent-moon",
+    "projectID": "0c8d2a560942650d801f05588b0f2da5c16aa197",
+    "directory": "/work/project",
+    "path": "",
+    "cost": 0,
+    "tokens": {
+      "input": 0,
+      "output": 0,
+      "reasoning": 0,
+      "cache": {
+        "read": 0,
+        "write": 0
+      }
+    },
+    "title": "New session - 2026-10-19T19:36:01.225Z",
+    "version": "1.19.3",
+    "time": {
+      "created": 1792438561225,
+      "updated": 1792438561225
+    }
+  }
+}

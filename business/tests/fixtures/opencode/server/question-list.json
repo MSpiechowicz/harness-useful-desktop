@@ -1,0 +1,34 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/question?directory=/work/project",
+    "body": null
+  },
+  "status": 200,
+  "body": [
+    {
+      "id": "que_155a9f268001rb9HZw2SFL0I5S",
+      "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+      "questions": [
+        {
+          "question": "Pick one",
+          "header": "Pick",
+          "options": [
+            {
+              "label": "Alpha",
+              "description": "first"
+            },
+            {
+              "label": "Beta",
+              "description": "second"
+            }
+          ]
+        }
+      ],
+      "tool": {
+        "messageID": "msg_155a9f254001dNsmKfD02p3Ei9",
+        "callID": "call_1"
+      }
+    }
+  ]
+}

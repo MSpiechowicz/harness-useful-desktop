@@ -1,0 +1,9 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/session/status?directory=/work/project",
+    "body": null
+  },
+  "status": 200,
+  "body": {}
+}

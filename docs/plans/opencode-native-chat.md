@@ -157,7 +157,7 @@ rules, the user's config applies.
 | # | Step | Owner | Commit | Status |
 | --- | --- | --- | --- | --- |
 | 0 | This plan | main | `docs(opencode): plan native server chat (level 3)` | done |
-| 1 | Record real `opencode serve` responses (scratch HOME, `unshare -rn`) → `business/tests/fixtures/opencode/server/` | main | `test(opencode): record opencode serve responses` | todo |
+| 1 | Record real `opencode serve` responses (scratch HOME, `unshare -rn`) → `business/tests/fixtures/opencode/server/` | main | `test(opencode): record opencode serve responses` | done |
 | 2 | Shared process plumbing (`agent/process.rs`), no behaviour change | backend | `refactor(agent): share the process lifecycle between chat engines` | todo |
 | 3 | Engine seam, OpenCode still "coming soon" | backend | `refactor(agent): engine seam for non-RPC chat protocols` | todo |
 | 4 | Loopback HTTP + SSE client, closed route allowlist | backend | `feat(opencode): loopback HTTP and SSE client` | todo |
@@ -198,9 +198,16 @@ last reply; `!command`; image; AI naming; question dialog; a subagent's ask; hoo
 - Hand-written HTTP edge cases: tested against recorded Bun byte streams.
 - Cross-repo change for team routines.
 
-## Open checks (step 1 or during implementation)
+## Recording results (step 1)
+
+See `business/tests/fixtures/opencode/server/README.md`. Confirmed: listening line after 0.9 s; `--port 0` may pick
+4096, so read the port from the line; **no exit on stdin EOF**, stop sends SIGTERM before the kill; global MCP config
+loads; steering lands after the running step; abort gives `MessageAbortedError`; an unknown model gets `204` then
+`session.error` twice; `data:` images work; question tool on; message pages via `x-next-cursor` / `before`; SSE is
+chunked, JSON replies use `Content-Length`; `sync` duplicates on the global stream.
+
+## Open checks (during implementation)
 
 - Where OMP/PI write HTML exports; mirror it, otherwise the app data dir, never the project.
 - Whether PI's fork puts the message text back in the composer.
 - How `BashOutput.exit_code: None` renders.
-- Whether `serve` loads the global MCP config, and whether a `data:` image URL is accepted.

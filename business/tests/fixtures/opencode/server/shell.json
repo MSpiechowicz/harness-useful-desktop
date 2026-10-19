@@ -1,0 +1,66 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/session/ses_eaa561636ffezINnnn1ghd5370/shell",
+    "body": {
+      "agent": "build",
+      "command": "echo from-shell"
+    }
+  },
+  "status": 200,
+  "body": {
+    "info": {
+      "id": "msg_155aa02ef001Sr49UnQlIJIlpb",
+      "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+      "role": "assistant",
+      "time": {
+        "created": 1792438567663,
+        "completed": 1792438567689
+      },
+      "parentID": "msg_155aa02ed001geWU25KTlQNhQF",
+      "modelID": "m1",
+      "providerID": "mock",
+      "mode": "build",
+      "agent": "build",
+      "path": {
+        "cwd": "/work/project",
+        "root": "/work/project"
+      },
+      "cost": 0,
+      "tokens": {
+        "input": 0,
+        "output": 0,
+        "reasoning": 0,
+        "cache": {
+          "read": 0,
+          "write": 0
+        }
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_155aa02f0001k1CTvHW9q5w15K",
+        "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+        "messageID": "msg_155aa02ef001Sr49UnQlIJIlpb",
+        "type": "tool",
+        "callID": "01M5ATM0QG4H97AVK95NENA3A5",
+        "tool": "bash",
+        "state": {
+          "status": "completed",
+          "input": {
+            "command": "echo from-shell"
+          },
+          "output": "from-shell\n",
+          "title": "",
+          "metadata": {
+            "output": "from-shell\n"
+          },
+          "time": {
+            "start": 1792438567664,
+            "end": 1792438567689
+          }
+        }
+      }
+    ]
+  }
+}

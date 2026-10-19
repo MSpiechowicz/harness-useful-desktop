@@ -1,0 +1,12 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/session/ses_eaa561636ffezINnnn1ghd5370/summarize",
+    "body": {
+      "providerID": "mock",
+      "modelID": "m1"
+    }
+  },
+  "status": 200,
+  "body": true
+}

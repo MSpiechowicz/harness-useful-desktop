@@ -1,0 +1,28 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/permission?directory=/work/project",
+    "body": null
+  },
+  "status": 200,
+  "body": [
+    {
+      "id": "per_155a9eef10017ZkJ249WX4lF43",
+      "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+      "permission": "bash",
+      "patterns": [
+        "echo recorded"
+      ],
+      "metadata": {
+        "command": "echo recorded"
+      },
+      "always": [
+        "echo *"
+      ],
+      "tool": {
+        "messageID": "msg_155a9eeb80018zbVAUXYL6o8VQ",
+        "callID": "call_1"
+      }
+    }
+  ]
+}

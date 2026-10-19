@@ -1,0 +1,1222 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/session/ses_eaa561636ffezINnnn1ghd5370/message?limit=200",
+    "body": null
+  },
+  "status": 200,
+  "body": [
+    {
+      "info": {
+        "id": "msg_155a9ebb4001ymgqU86K96DtpB",
+        "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+        "role": "user",
+        "time": {
+          "created": 1792438561716
+        },
+        "summary": {
+          "diffs": []
+        },
+        "agent": "build",
+        "model": {
+          "providerID": "mock",
+          "modelID": "m1"
+        }
+      },
+      "parts": [
+        {
+          "id": "prt_155a9ebb7001RZjwjNAJT96LHr",
+          "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+          "messageID": "msg_155a9ebb4001ymgqU86K96DtpB",
+          "type": "text",
+          "text": "Say hello"
+        }
+      ]
+    },
+    {
+      "info": {
+        "id": "msg_155a9ebc0001sN2nswbVTUYQaw",
+        "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+        "role": "assistant",
+        "time": {
+          "created": 1792438561728,
+          "completed": 1792438562150
+        },
+        "parentID": "msg_155a9ebb4001ymgqU86K96DtpB",
+        "modelID": "m1",
+        "providerID": "mock",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/work/project",
+          "root": "/work/project"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 25,
+          "input": 20,
+          "output": 5,
+          "reasoning": 0,
+          "cache": {
+            "read": 0,
+            "write": 0
+          }
+        },
+        "finish": "stop"
+      },
+      "parts": [
+        {
+          "id": "prt_155a9ed50001e17d4QA98uoGCb",
+          "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+          "messageID": "msg_155a9ebc0001sN2nswbVTUYQaw",
+          "type": "step-start",
+          "snapshot": "5dadd1311caf60dbb1c640bf8060a87309319eee"
+        },
+        {
+          "id": "prt_155a9ed51001iWsg6DQN016shy",
+          "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+          "messageID": "msg_155a9ebc0001sN2nswbVTUYQaw",
+          "type": "text",
+          "text": "Hello from the mock model.",
+          "time": {
+            "start": 1792438562129,
+            "end": 1792438562132
+          }
+        },
+        {
+          "id": "prt_155a9ed5f001kJJSIFk7Qc11v1",
+          "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+          "messageID": "msg_155a9ebc0001sN2nswbVTUYQaw",
+          "type": "step-finish",
+          "reason": "stop",
+          "snapshot": "5dadd1311caf60dbb1c640bf8060a87309319eee",
+          "cost": 0,
+          "tokens": {
+            "total": 25,
+            "input": 20,
+            "output": 5,
+            "reasoning": 0,
+            "cache": {
+              "read": 0,
+              "write": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "info": {
+        "id": "msg_155a9eeb3001SWCCbgpm0fXcQJ",
+        "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+        "role": "user",
+        "time": {
+          "created": 1792438562483
+        },
+        "summary": {
+          "diffs": []
+        },
+        "agent": "build",
+        "model": {
+          "providerID": "mock",
+          "modelID": "m1"
+        }
+      },
+      "parts": [
+        {
+          "id": "prt_155a9eeb3002iMmUF6SSfjuhuH",
+          "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+          "messageID": "msg_155a9eeb3001SWCCbgpm0fXcQJ",
+          "type": "text",
+          "text": "MAKE_TOOL now"
+        }
+      ]
+    },
+    {
+      "info": {
+        "id": "msg_155a9eeb80018zbVAUXYL6o8VQ",
+        "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+        "role": "assistant",
+        "time": {
+          "created": 1792438562488,
+          "completed": 1792438562614
+        },
+        "parentID": "msg_155a9eeb3001SWCCbgpm0fXcQJ",
+        "modelID": "m1",
+        "providerID": "mock",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/work/project",
+          "root": "/work/project"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 48,
+          "input": 40,
+          "output": 8,
+          "reasoning": 0,
+          "cache": {
+            "read": 0,
+            "write": 0
+          }
+        },
+        "finish": "tool-calls"
+      },
+      "parts": [
+        {
+          "id": "prt_155a9eecb0015GzxwXkA5Qt9t1",
+          "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+          "messageID": "msg_155a9eeb80018zbVAUXYL6o8VQ",
+          "type": "step-start",
+          "snapshot": "5dadd1311caf60dbb1c640bf8060a87309319eee"
+        },
+        {
+          "id": "prt_155a9eecc00104x6D5SQubq8LS",
+          "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+          "messageID": "msg_155a9eeb80018zbVAUXYL6o8VQ",
+          "type": "reasoning",
+          "text": "Thinking about it.",
+          "time": {
+            "start": 1792438562508,
+            "end": 1792438562510
+          }
+        },
+        {
+          "id": "prt_155a9eed0001NMOM6qxNWV7srf",
+          "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+          "messageID": "msg_155a9eeb80018zbVAUXYL6o8VQ",
+          "type": "tool",
+          "callID": "call_1",
+          "tool": "bash",
+          "state": {
+            "status": "completed",
+            "input": {
+              "command": "echo recorded",
+              "description": "Echo a word"
+            },
+            "output": "recorded\n",
+            "title": "echo recorded",
+            "metadata": {
+              "output": "recorded\n",
+              "exit": 0,
+              "truncated": false
+            },
+            "time": {
+              "start": 1792438562516,
+              "end": 1792438562597
+            }
+          }
+        },
+        {
+          "id": "prt_155a9ef2b001KFA3Can9pMgAiw",
+          "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+          "messageID": "msg_155a9eeb80018zbVAUXYL6o8VQ",
+          "type": "step-finish",
+          "reason": "tool-calls",
+          "snapshot": "5dadd1311caf60dbb1c640bf8060a87309319eee",
+          "cost": 0,
+          "tokens": {
+            "total": 48,
+            "input": 40,
+            "output": 8,
+            "reasoning": 0,
+            "cache": {
+              "read": 0,
+              "write": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "info": {
+        "id": "msg_155a9ef380014bVTUxUkMfO148",
+        "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+        "role": "assistant",
+        "time": {
+          "created": 1792438562616,
+          "completed": 1792438562657
+        },
+        "parentID": "msg_155a9eeb3001SWCCbgpm0fXcQJ",
+        "modelID": "m1",
+        "providerID": "mock",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/work/project",
+          "root": "/work/project"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 54,
+          "input": 50,
+          "output": 4,
+          "reasoning": 0,
+          "cache": {
+            "read": 0,
+            "write": 0
+          }
+        },
+        "finish": "stop"
+      },
+      "parts": [
+        {
+          "id": "prt_155a9ef4c001n9ehsUFiOyau6e",
+          "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+          "messageID": "msg_155a9ef380014bVTUxUkMfO148",
+          "type": "step-start",
+          "snapshot": "5dadd1311caf60dbb1c640bf8060a87309319eee"
+        },
+        {
+          "id": "prt_155a9ef4e001QPaySik3InxD6u",
+          "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+          "messageID": "msg_155a9ef380014bVTUxUkMfO148",
+          "type": "text",
+          "text": "Done after tool.",
+          "time": {
+            "start": 1792438562638,
+            "end": 1792438562639
+          }
+        },
+        {
+          "id": "prt_155a9ef5b001aOl0oJpKoU5sld",
+          "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+          "messageID": "msg_155a9ef380014bVTUxUkMfO148",
+          "type": "step-finish",
+          "reason": "stop",
+          "snapshot": "5dadd1311caf60dbb1c640bf8060a87309319eee",
+          "cost": 0,
+          "tokens": {
+            "total": 54,
+            "input": 50,
+            "output": 4,
+            "reasoning": 0,
+            "cache": {
+              "read": 0,
+              "write": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "info": {
+        "id": "msg_155a9f0b5001HaBeQ2HlwBJfCB",
+        "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+        "role": "user",
+        "time": {
+          "created": 1792438562997
+        },
+        "summary": {
+          "diffs": []
+        },
+        "agent": "build",
+        "model": {
+          "providerID": "mock",
+          "modelID": "m1"
+        }
+      },
+      "parts": [
+        {
+          "id": "prt_155a9f0b5002Ad8LNKc6GFdOmV",
+          "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+          "messageID": "msg_155a9f0b5001HaBeQ2HlwBJfCB",
+          "type": "text",
+          "text": "MAKE_EDIT now"
+        }
+      ]
+    },
+    {
+      "info": {
+        "id": "msg_155a9f0ba001g4qlfXGRBFhqKj",
+        "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+        "role": "assistant",
+        "time": {
+          "created": 1792438563002,
+          "completed": 1792438563070
+        },
+        "parentID": "msg_155a9f0b5001HaBeQ2HlwBJfCB",
+        "modelID": "m1",
+        "providerID": "mock",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/work/project",
+          "root": "/work/project"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 48,
+          "input": 40,
+          "output": 8,
+          "reasoning": 0,
+          "cache": {
+            "read": 0,
+            "write": 0
+          }
+        },
+        "finish": "tool-calls"
+      },
+      "parts": [
+        {
+          "id": "prt_155a9f0c80018iV6Yry0pUAUH9",
+          "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+          "messageID": "msg_155a9f0ba001g4qlfXGRBFhqKj",
+          "type": "step-start",
+          "snapshot": "5dadd1311caf60dbb1c640bf8060a87309319eee"
+        },
+        {
+          "id": "prt_155a9f0c9001OvU8Nw22CYNbv9",
+          "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+          "messageID": "msg_155a9f0ba001g4qlfXGRBFhqKj",
+          "type": "reasoning",
+          "text": "Thinking about it.",
+          "time": {
+            "start": 1792438563017,
+            "end": 1792438563018
+          }
+        },
+        {
+          "id": "prt_155a9f0cb0013if2olEKxwJKFj",
+          "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+          "messageID": "msg_155a9f0ba001g4qlfXGRBFhqKj",
+          "type": "tool",
+          "callID": "call_1",
+          "tool": "write",
+          "state": {
+            "status": "error",
+            "input": {
+              "filePath": "/work/project/note.txt",
+              "content": "hello\n"
+            },
+            "error": "The user rejected permission to use this specific tool call.",
+            "time": {
+              "start": 1792438563023,
+              "end": 1792438563054
+            }
+          }
+        },
+        {
+          "id": "prt_155a9f0f8001nuRYysSMZuDZi3",
+          "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+          "messageID": "msg_155a9f0ba001g4qlfXGRBFhqKj",
+          "type": "step-finish",
+          "reason": "tool-calls",
+          "snapshot": "5dadd1311caf60dbb1c640bf8060a87309319eee",
+          "cost": 0,
+          "tokens": {
+            "total": 48,
+            "input": 40,
+            "output": 8,
+            "reasoning": 0,
+            "cache": {
+              "read": 0,
+              "write": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "info": {
+        "id": "msg_155a9f24e001zq7aLhAp0wZsBs",
+        "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+        "role": "user",
+        "time": {
+          "created": 1792438563406
+        },
+        "summary": {
+          "diffs": []
+        },
+        "agent": "build",
+        "model": {
+          "providerID": "mock",
+          "modelID": "m1"
+        }
+      },
+      "parts": [
+        {
+          "id": "prt_155a9f24e00286wI6ZzT24k6SV",
+          "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+          "messageID": "msg_155a9f24e001zq7aLhAp0wZsBs",
+          "type": "text",
+          "text": "MAKE_QUESTION now"
+        }
+      ]
+    },
+    {
+      "info": {
+        "id": "msg_155a9f254001dNsmKfD02p3Ei9",
+        "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+        "role": "assistant",
+        "time": {
+          "created": 1792438563412,
+          "completed": 1792438563482
+        },
+        "parentID": "msg_155a9f24e001zq7aLhAp0wZsBs",
+        "modelID": "m1",
+        "providerID": "mock",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/work/project",
+          "root": "/work/project"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 48,
+          "input": 40,
+          "output": 8,
+          "reasoning": 0,
+          "cache": {
+            "read": 0,
+            "write": 0
+          }
+        },
+        "finish": "tool-calls"
+      },
+      "parts": [
+        {
+          "id": "prt_155a9f2620012DHRHgpbhVXGAt",
+          "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+          "messageID": "msg_155a9f254001dNsmKfD02p3Ei9",
+          "type": "step-start",
+          "snapshot": "5dadd1311caf60dbb1c640bf8060a87309319eee"
+        },
+        {
+          "id": "prt_155a9f263001G6QBdKeCB05Kud",
+          "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+          "messageID": "msg_155a9f254001dNsmKfD02p3Ei9",
+          "type": "reasoning",
+          "text": "Thinking about it.",
+          "time": {
+            "start": 1792438563427,
+            "end": 1792438563429
+          }
+        },
+        {
+          "id": "prt_155a9f2660014ncKw5M6W92ePQ",
+          "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+          "messageID": "msg_155a9f254001dNsmKfD02p3Ei9",
+          "type": "tool",
+          "callID": "call_1",
+          "tool": "question",
+          "state": {
+            "status": "completed",
+            "input": {
+              "questions": [
+                {
+                  "question": "Pick one",
+                  "header": "Pick",
+                  "options": [
+                    {
+                      "label": "Alpha",
+                      "description": "first"
+                    },
+                    {
+                      "label": "Beta",
+                      "description": "second"
+                    }
+                  ]
+                }
+              ]
+            },
+            "output": "User has answered your questions: \"Pick one\"=\"Beta\". You can now continue with the user's answers in mind.",
+            "title": "Asked 1 question",
+            "metadata": {
+              "answers": [
+                [
+                  "Beta"
+                ]
+              ],
+              "truncated": false
+            },
+            "time": {
+              "start": 1792438563433,
+              "end": 1792438563465
+            }
+          }
+        },
+        {
+          "id": "prt_155a9f294001qwRIuWBccAmFVZ",
+          "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+          "messageID": "msg_155a9f254001dNsmKfD02p3Ei9",
+          "type": "step-finish",
+          "reason": "tool-calls",
+          "snapshot": "5dadd1311caf60dbb1c640bf8060a87309319eee",
+          "cost": 0,
+          "tokens": {
+            "total": 48,
+            "input": 40,
+            "output": 8,
+            "reasoning": 0,
+            "cache": {
+              "read": 0,
+              "write": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "info": {
+        "id": "msg_155a9f29c001oq3SEKXnHMoE57",
+        "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+        "role": "assistant",
+        "time": {
+          "created": 1792438563484,
+          "completed": 1792438563523
+        },
+        "parentID": "msg_155a9f24e001zq7aLhAp0wZsBs",
+        "modelID": "m1",
+        "providerID": "mock",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/work/project",
+          "root": "/work/project"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 54,
+          "input": 50,
+          "output": 4,
+          "reasoning": 0,
+          "cache": {
+            "read": 0,
+            "write": 0
+          }
+        },
+        "finish": "stop"
+      },
+      "parts": [
+        {
+          "id": "prt_155a9f2ae001MH0VLZe4oqWZpj",
+          "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+          "messageID": "msg_155a9f29c001oq3SEKXnHMoE57",
+          "type": "step-start",
+          "snapshot": "5dadd1311caf60dbb1c640bf8060a87309319eee"
+        },
+        {
+          "id": "prt_155a9f2af001I6NeACYJDAZjrF",
+          "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+          "messageID": "msg_155a9f29c001oq3SEKXnHMoE57",
+          "type": "text",
+          "text": "Done after tool.",
+          "time": {
+            "start": 1792438563503,
+            "end": 1792438563505
+          }
+        },
+        {
+          "id": "prt_155a9f2bd001Jx4Ffg7PSIVOYA",
+          "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+          "messageID": "msg_155a9f29c001oq3SEKXnHMoE57",
+          "type": "step-finish",
+          "reason": "stop",
+          "snapshot": "5dadd1311caf60dbb1c640bf8060a87309319eee",
+          "cost": 0,
+          "tokens": {
+            "total": 54,
+            "input": 50,
+            "output": 4,
+            "reasoning": 0,
+            "cache": {
+              "read": 0,
+              "write": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "info": {
+        "id": "msg_155a9f41b001Wn4IvRo0SKbciZ",
+        "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+        "role": "user",
+        "time": {
+          "created": 1792438563867
+        },
+        "summary": {
+          "diffs": []
+        },
+        "agent": "build",
+        "model": {
+          "providerID": "mock",
+          "modelID": "m1"
+        }
+      },
+      "parts": [
+        {
+          "id": "prt_155a9f41c001Zu46ESY9tX395O",
+          "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+          "messageID": "msg_155a9f41b001Wn4IvRo0SKbciZ",
+          "type": "text",
+          "text": "SLOW answer"
+        }
+      ]
+    },
+    {
+      "info": {
+        "id": "msg_155a9f421001jNXQVOz2QdMvFr",
+        "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+        "role": "assistant",
+        "time": {
+          "created": 1792438563873,
+          "completed": 1792438566302
+        },
+        "parentID": "msg_155a9f41b001Wn4IvRo0SKbciZ",
+        "modelID": "m1",
+        "providerID": "mock",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/work/project",
+          "root": "/work/project"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 25,
+          "input": 20,
+          "output": 5,
+          "reasoning": 0,
+          "cache": {
+            "read": 0,
+            "write": 0
+          }
+        },
+        "finish": "stop"
+      },
+      "parts": [
+        {
+          "id": "prt_155a9f42f001sf4dJfO6XzZMg5",
+          "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+          "messageID": "msg_155a9f421001jNXQVOz2QdMvFr",
+          "type": "step-start",
+          "snapshot": "5dadd1311caf60dbb1c640bf8060a87309319eee"
+        },
+        {
+          "id": "prt_155a9f430001YpByjgUKSsOgJP",
+          "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+          "messageID": "msg_155a9f421001jNXQVOz2QdMvFr",
+          "type": "text",
+          "text": "Hello from the mock model.",
+          "time": {
+            "start": 1792438563888,
+            "end": 1792438566288
+          }
+        },
+        {
+          "id": "prt_155a9fd97001zW9n3tlcmVjl6w",
+          "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+          "messageID": "msg_155a9f421001jNXQVOz2QdMvFr",
+          "type": "step-finish",
+          "reason": "stop",
+          "snapshot": "5dadd1311caf60dbb1c640bf8060a87309319eee",
+          "cost": 0,
+          "tokens": {
+            "total": 25,
+            "input": 20,
+            "output": 5,
+            "reasoning": 0,
+            "cache": {
+              "read": 0,
+              "write": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "info": {
+        "id": "msg_155a9f649001fSXZeyXxkv8P5T",
+        "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+        "role": "user",
+        "time": {
+          "created": 1792438564425
+        },
+        "summary": {
+          "diffs": []
+        },
+        "agent": "build",
+        "model": {
+          "providerID": "mock",
+          "modelID": "m1"
+        }
+      },
+      "parts": [
+        {
+          "id": "prt_155a9f649002iRS0q5yfv0ptan",
+          "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+          "messageID": "msg_155a9f649001fSXZeyXxkv8P5T",
+          "type": "text",
+          "text": "steered message"
+        }
+      ]
+    },
+    {
+      "info": {
+        "id": "msg_155a9fd9f001eiKfolEk3h14Md",
+        "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+        "role": "assistant",
+        "time": {
+          "created": 1792438566303,
+          "completed": 1792438566347
+        },
+        "parentID": "msg_155a9f649001fSXZeyXxkv8P5T",
+        "modelID": "m1",
+        "providerID": "mock",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/work/project",
+          "root": "/work/project"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 25,
+          "input": 20,
+          "output": 5,
+          "reasoning": 0,
+          "cache": {
+            "read": 0,
+            "write": 0
+          }
+        },
+        "finish": "stop"
+      },
+      "parts": [
+        {
+          "id": "prt_155a9fdb9001bYfkgfLfAD4WkC",
+          "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+          "messageID": "msg_155a9fd9f001eiKfolEk3h14Md",
+          "type": "step-start",
+          "snapshot": "5dadd1311caf60dbb1c640bf8060a87309319eee"
+        },
+        {
+          "id": "prt_155a9fdba00109hAF3s7Y3wJ8h",
+          "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+          "messageID": "msg_155a9fd9f001eiKfolEk3h14Md",
+          "type": "text",
+          "text": "Hello from the mock model.",
+          "time": {
+            "start": 1792438566330,
+            "end": 1792438566332
+          }
+        },
+        {
+          "id": "prt_155a9fdc10014mM9jsBHJA87k6",
+          "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+          "messageID": "msg_155a9fd9f001eiKfolEk3h14Md",
+          "type": "step-finish",
+          "reason": "stop",
+          "snapshot": "5dadd1311caf60dbb1c640bf8060a87309319eee",
+          "cost": 0,
+          "tokens": {
+            "total": 25,
+            "input": 20,
+            "output": 5,
+            "reasoning": 0,
+            "cache": {
+              "read": 0,
+              "write": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "info": {
+        "id": "msg_155a9ffe5001yzL7lSsRo6B851",
+        "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+        "role": "user",
+        "time": {
+          "created": 1792438566885
+        },
+        "summary": {
+          "diffs": []
+        },
+        "agent": "build",
+        "model": {
+          "providerID": "mock",
+          "modelID": "m1"
+        }
+      },
+      "parts": [
+        {
+          "id": "prt_155a9ffe6001odjpMd9DGCbKPM",
+          "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+          "messageID": "msg_155a9ffe5001yzL7lSsRo6B851",
+          "type": "text",
+          "text": "SLOW again"
+        }
+      ]
+    },
+    {
+      "info": {
+        "id": "msg_155a9ffeb0011441GrNTLLl7tX",
+        "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+        "role": "assistant",
+        "time": {
+          "created": 1792438566891,
+          "completed": 1792438566949
+        },
+        "error": {
+          "name": "MessageAbortedError",
+          "data": {
+            "message": "Aborted"
+          }
+        },
+        "parentID": "msg_155a9ffe5001yzL7lSsRo6B851",
+        "modelID": "m1",
+        "providerID": "mock",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/work/project",
+          "root": "/work/project"
+        },
+        "cost": 0,
+        "tokens": {
+          "input": 0,
+          "output": 0,
+          "reasoning": 0,
+          "cache": {
+            "read": 0,
+            "write": 0
+          }
+        }
+      },
+      "parts": [
+        {
+          "id": "prt_155aa0002001d5qWpTwcsyi4N7",
+          "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+          "messageID": "msg_155a9ffeb0011441GrNTLLl7tX",
+          "type": "step-start",
+          "snapshot": "5dadd1311caf60dbb1c640bf8060a87309319eee"
+        },
+        {
+          "id": "prt_155aa0003001DiVVDD28P6LIgo",
+          "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+          "messageID": "msg_155a9ffeb0011441GrNTLLl7tX",
+          "type": "text",
+          "text": "Hello ",
+          "time": {
+            "start": 1792438566915,
+            "end": 1792438566949
+          }
+        }
+      ]
+    },
+    {
+      "info": {
+        "id": "msg_155aa0157001zEytp89Ql3qvh3",
+        "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+        "role": "user",
+        "time": {
+          "created": 1792438567255
+        },
+        "summary": {
+          "diffs": []
+        },
+        "agent": "build",
+        "model": {
+          "providerID": "mock",
+          "modelID": "m1"
+        }
+      },
+      "parts": [
+        {
+          "id": "prt_155aa0157002of4e4XKZFyGkvQ",
+          "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+          "messageID": "msg_155aa0157001zEytp89Ql3qvh3",
+          "type": "text",
+          "text": "Look"
+        },
+        {
+          "id": "prt_155aa0157003psXEu5QHkmK111",
+          "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+          "messageID": "msg_155aa0157001zEytp89Ql3qvh3",
+          "type": "file",
+          "mime": "image/png",
+          "filename": "dot.png",
+          "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC"
+        }
+      ]
+    },
+    {
+      "info": {
+        "id": "msg_155aa0167001ZYp9W96oeOdAPP",
+        "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+        "role": "assistant",
+        "time": {
+          "created": 1792438567271,
+          "completed": 1792438567317
+        },
+        "parentID": "msg_155aa0157001zEytp89Ql3qvh3",
+        "modelID": "m1",
+        "providerID": "mock",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/work/project",
+          "root": "/work/project"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 25,
+          "input": 20,
+          "output": 5,
+          "reasoning": 0,
+          "cache": {
+            "read": 0,
+            "write": 0
+          }
+        },
+        "finish": "stop"
+      },
+      "parts": [
+        {
+          "id": "prt_155aa0183001hYWRO7cAPLDW4c",
+          "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+          "messageID": "msg_155aa0167001ZYp9W96oeOdAPP",
+          "type": "step-start",
+          "snapshot": "5dadd1311caf60dbb1c640bf8060a87309319eee"
+        },
+        {
+          "id": "prt_155aa0184001TR0b8U7cOdpDGm",
+          "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+          "messageID": "msg_155aa0167001ZYp9W96oeOdAPP",
+          "type": "text",
+          "text": "Hello from the mock model.",
+          "time": {
+            "start": 1792438567300,
+            "end": 1792438567301
+          }
+        },
+        {
+          "id": "prt_155aa018f001d0pE4C7i2H2ekH",
+          "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+          "messageID": "msg_155aa0167001ZYp9W96oeOdAPP",
+          "type": "step-finish",
+          "reason": "stop",
+          "snapshot": "5dadd1311caf60dbb1c640bf8060a87309319eee",
+          "cost": 0,
+          "tokens": {
+            "total": 25,
+            "input": 20,
+            "output": 5,
+            "reasoning": 0,
+            "cache": {
+              "read": 0,
+              "write": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "info": {
+        "id": "msg_155aa02ed001geWU25KTlQNhQF",
+        "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+        "role": "user",
+        "time": {
+          "created": 1792438567661
+        },
+        "agent": "build",
+        "model": {
+          "providerID": "mock",
+          "modelID": "m1"
+        }
+      },
+      "parts": [
+        {
+          "id": "prt_155aa02ee001v8kFQatXfnoHhw",
+          "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+          "messageID": "msg_155aa02ed001geWU25KTlQNhQF",
+          "type": "text",
+          "text": "The following tool was executed by the user",
+          "synthetic": true
+        }
+      ]
+    },
+    {
+      "info": {
+        "id": "msg_155aa02ef001Sr49UnQlIJIlpb",
+        "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+        "role": "assistant",
+        "time": {
+          "created": 1792438567663,
+          "completed": 1792438567689
+        },
+        "parentID": "msg_155aa02ed001geWU25KTlQNhQF",
+        "modelID": "m1",
+        "providerID": "mock",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/work/project",
+          "root": "/work/project"
+        },
+        "cost": 0,
+        "tokens": {
+          "input": 0,
+          "output": 0,
+          "reasoning": 0,
+          "cache": {
+            "read": 0,
+            "write": 0
+          }
+        }
+      },
+      "parts": [
+        {
+          "id": "prt_155aa02f0001k1CTvHW9q5w15K",
+          "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+          "messageID": "msg_155aa02ef001Sr49UnQlIJIlpb",
+          "type": "tool",
+          "callID": "01M5ATM0QG4H97AVK95NENA3A5",
+          "tool": "bash",
+          "state": {
+            "status": "completed",
+            "input": {
+              "command": "echo from-shell"
+            },
+            "output": "from-shell\n",
+            "title": "",
+            "metadata": {
+              "output": "from-shell\n"
+            },
+            "time": {
+              "start": 1792438567664,
+              "end": 1792438567689
+            }
+          }
+        }
+      ]
+    },
+    {
+      "info": {
+        "id": "msg_155aa0359001UrFezhsnh2tJoF",
+        "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+        "role": "user",
+        "time": {
+          "created": 1792438567769
+        },
+        "summary": {
+          "diffs": []
+        },
+        "agent": "build",
+        "model": {
+          "providerID": "mock",
+          "modelID": "m1"
+        }
+      },
+      "parts": [
+        {
+          "id": "prt_155aa035a001hgQewWSEP5TIUC",
+          "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+          "messageID": "msg_155aa0359001UrFezhsnh2tJoF",
+          "type": "compaction",
+          "auto": false
+        }
+      ]
+    },
+    {
+      "info": {
+        "id": "msg_155aa035e001dsQaAHL5Q5tArc",
+        "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+        "role": "assistant",
+        "time": {
+          "created": 1792438567774,
+          "completed": 1792438567802
+        },
+        "parentID": "msg_155aa0359001UrFezhsnh2tJoF",
+        "modelID": "m1",
+        "providerID": "mock",
+        "mode": "compaction",
+        "agent": "compaction",
+        "path": {
+          "cwd": "/work/project",
+          "root": "/work/project"
+        },
+        "summary": true,
+        "cost": 0,
+        "tokens": {
+          "total": 7,
+          "input": 5,
+          "output": 2,
+          "reasoning": 0,
+          "cache": {
+            "read": 0,
+            "write": 0
+          }
+        },
+        "finish": "stop"
+      },
+      "parts": [
+        {
+          "id": "prt_155aa0369001D3D4nUoGrYDttW",
+          "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+          "messageID": "msg_155aa035e001dsQaAHL5Q5tArc",
+          "type": "step-start",
+          "snapshot": "5dadd1311caf60dbb1c640bf8060a87309319eee"
+        },
+        {
+          "id": "prt_155aa036a001xWEgrnRWKN2gTe",
+          "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+          "messageID": "msg_155aa035e001dsQaAHL5Q5tArc",
+          "type": "text",
+          "text": "Mock title",
+          "time": {
+            "start": 1792438567786,
+            "end": 1792438567787
+          }
+        },
+        {
+          "id": "prt_155aa03700012sqyiqOGI3h5GN",
+          "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+          "messageID": "msg_155aa035e001dsQaAHL5Q5tArc",
+          "type": "step-finish",
+          "reason": "stop",
+          "snapshot": "5dadd1311caf60dbb1c640bf8060a87309319eee",
+          "cost": 0,
+          "tokens": {
+            "total": 7,
+            "input": 5,
+            "output": 2,
+            "reasoning": 0,
+            "cache": {
+              "read": 0,
+              "write": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "info": {
+        "id": "msg_155aa0382001iSyK8uOLkPS59o",
+        "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+        "role": "user",
+        "time": {
+          "created": 1792438567810
+        },
+        "agent": "build",
+        "model": {
+          "providerID": "nope",
+          "modelID": "missing"
+        }
+      },
+      "parts": [
+        {
+          "id": "prt_155aa0383001a0RTItIxqVwHzX",
+          "sessionID": "ses_eaa561636ffezINnnn1ghd5370",
+          "messageID": "msg_155aa0382001iSyK8uOLkPS59o",
+          "type": "text",
+          "text": "x"
+        }
+      ]
+    }
+  ]
+}

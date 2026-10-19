@@ -1,0 +1,22 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/session/ses_eaa561636ffezINnnn1ghd5370/prompt_async",
+    "body": {
+      "parts": [
+        {
+          "type": "text",
+          "text": "Look"
+        },
+        {
+          "type": "file",
+          "mime": "image/png",
+          "filename": "dot.png",
+          "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC"
+        }
+      ]
+    }
+  },
+  "status": 204,
+  "body": null
+}

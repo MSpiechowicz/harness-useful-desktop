@@ -1,0 +1,33 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/session/ses_eaa561636ffezINnnn1ghd5370/fork",
+    "body": {
+      "messageID": "msg_155a9eeb3001SWCCbgpm0fXcQJ"
+    }
+  },
+  "status": 200,
+  "body": {
+    "id": "ses_eaa55fce6ffeMnl5ZAKxvDBT61",
+    "slug": "happy-sailor",
+    "projectID": "0c8d2a560942650d801f05588b0f2da5c16aa197",
+    "directory": "/work/project",
+    "path": "",
+    "cost": 0,
+    "tokens": {
+      "input": 0,
+      "output": 0,
+      "reasoning": 0,
+      "cache": {
+        "read": 0,
+        "write": 0
+      }
+    },
+    "title": "Renamed chat (fork #1)",
+    "version": "1.19.3",
+    "time": {
+      "created": 1792438567705,
+      "updated": 1792438567705
+    }
+  }
+}

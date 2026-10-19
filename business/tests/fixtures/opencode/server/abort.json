@@ -1,0 +1,9 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/session/ses_eaa561636ffezINnnn1ghd5370/abort?directory=/work/project",
+    "body": {}
+  },
+  "status": 200,
+  "body": true
+}

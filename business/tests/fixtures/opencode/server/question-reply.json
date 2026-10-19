@@ -1,0 +1,15 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/question/que_155a9f268001rb9HZw2SFL0I5S/reply?directory=/work/project",
+    "body": {
+      "answers": [
+        [
+          "Beta"
+        ]
+      ]
+    }
+  },
+  "status": 200,
+  "body": true
+}

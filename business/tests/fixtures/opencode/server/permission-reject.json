@@ -1,0 +1,11 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/permission/per_155a9f0d10013Kh3mvXr5FdNzJ/reply?directory=/work/project",
+    "body": {
+      "reply": "reject"
+    }
+  },
+  "status": 200,
+  "body": true
+}
