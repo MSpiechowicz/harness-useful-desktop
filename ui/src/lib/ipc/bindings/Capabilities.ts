@@ -86,4 +86,9 @@ agentPicker: boolean,
 /**
  * Chat works but is still a preview; the UI marks it with a badge.
  */
-chatPreview: boolean, };
+chatPreview: boolean, 
+/**
+ * `/compact` takes instructions for the summary (OMP, PI), so picking it asks for them first.
+ * Without it the chat compacts at once.
+ */
+compactInstructions: boolean, };

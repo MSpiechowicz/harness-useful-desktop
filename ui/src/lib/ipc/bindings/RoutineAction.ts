@@ -9,7 +9,7 @@ import type { ScriptScope } from "./ScriptScope";
  */
 export type RoutineAction = { "type": "agent", 
 /**
- * `omp` or `pi` (OpenCode has no chat yet).
+ * A harness with chat: `omp`, `pi` or `opencode`.
  */
 harness: HarnessId, 
 /**
@@ -21,7 +21,7 @@ model: RoutineModel | null,
  */
 prompt: string, 
 /**
- * OMP only: the chat's approval mode; `None` keeps the harness's setting.
+ * OMP and OpenCode only: the chat's approval mode; `None` keeps the harness's setting.
  */
 approvalMode: ApprovalMode | null, 
 /**

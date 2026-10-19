@@ -62,7 +62,7 @@ export interface RoutineForm {
   /** The model as typed, a provider and an id; both empty for the harness's own default. */
   provider: string;
   modelId: string;
-  /** OMP only: null keeps the harness's own setting. */
+  /** OMP and OpenCode only (approval modes): null keeps the harness's own setting. */
   approvalMode: ApprovalMode | null;
   /** PI only. */
   trustOnce: boolean;

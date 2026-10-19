@@ -19,7 +19,7 @@ use crate::model::{
     ApprovalMode, HarnessId, HookAuthor, HookScope, RoutineAction, RoutineDraft, RoutineModel, RoutineView,
     RoutineWhen, RoutineWhenKind, ScriptScope,
 };
-use crate::routines::format::{check_action, check_when};
+use crate::routines::format::{check_action, check_when, takes_approval_mode, takes_trust_once};
 use crate::routines::{RoutineKind, RoutineStore};
 
 /// Sent with every routine shown: routines an agent writes wait for the user.
@@ -359,7 +359,7 @@ fn action(
 }
 
 /// The agent action of `fields`, the fields of the `current` agent action kept. A kept approval
-/// mode is dropped when the harness becomes pi, a kept trustOnce when it becomes omp.
+/// mode is dropped when the harness becomes pi, a kept trustOnce when it becomes omp or opencode.
 fn agent(fields: &Fields, current: Option<&RoutineAction>, what: &str) -> Result<RoutineAction, String> {
     let (kept_harness, kept_model, kept_prompt, kept_mode, kept_trust, kept_minutes) = match current {
         Some(RoutineAction::Agent {
@@ -390,7 +390,7 @@ fn agent(fields: &Fields, current: Option<&RoutineAction>, what: &str) -> Result
 
     let approval_mode = match fields.approval_mode {
         Some(mode) => mode.mode(),
-        None => kept_mode.filter(|_| harness == HarnessId::Omp),
+        None => kept_mode.filter(|_| takes_approval_mode(harness)),
     };
 
     Ok(RoutineAction::Agent {
@@ -398,7 +398,7 @@ fn agent(fields: &Fields, current: Option<&RoutineAction>, what: &str) -> Result
         model,
         prompt,
         approval_mode,
-        trust_once: fields.trust_once.unwrap_or(kept_trust && harness == HarnessId::Pi),
+        trust_once: fields.trust_once.unwrap_or(kept_trust && takes_trust_once(harness)),
         max_minutes: fields.max_minutes.or(kept_minutes),
     })
 }

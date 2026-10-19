@@ -15,7 +15,15 @@ export type SlashOutcome =
   | { type: 'gui'; target: GuiTarget }
   | { type: 'unsupported'; reason: string };
 
+/** What the chat's harness lets a picked command do. */
+export interface PickOptions {
+  /** `/compact` takes instructions (`Capabilities.compactInstructions`), so picking it asks for them first. */
+  compactInstructions: boolean;
+}
+
 const MAX_SUGGESTIONS = 8;
+
+const ASK_FOR_INSTRUCTIONS: PickOptions = { compactInstructions: true };
 
 /** The partial command name while the draft is a lone `/token` (no space yet); otherwise null. */
 export function slashQuery(draft: string): string | null {
@@ -46,10 +54,10 @@ export function filterCommands(commands: CommandSpec[], query: string, limit: nu
     .map((entry) => entry.command);
 }
 
-function rpcOutcome(kind: AgentActionKind, args: string, interactive: boolean): SlashOutcome {
+function rpcOutcome(kind: AgentActionKind, args: string, interactive: boolean, options: PickOptions): SlashOutcome {
   switch (kind) {
     case 'compact':
-      return args === '' && interactive ? { type: 'ask', kind: 'compact' } : { type: 'action', kind, action: { type: 'compact', instructions: args === '' ? null : args } };
+      return args === '' && interactive && options.compactInstructions ? { type: 'ask', kind: 'compact' } : { type: 'action', kind, action: { type: 'compact', instructions: args === '' ? null : args } };
 
     case 'setSessionName':
       return args === '' ? { type: 'ask', kind: 'name' } : { type: 'action', kind, action: { type: 'setSessionName', name: args } };
@@ -74,7 +82,7 @@ function rpcOutcome(kind: AgentActionKind, args: string, interactive: boolean): 
   }
 }
 
-function invocation(command: CommandSpec, args: string, interactive: boolean): SlashOutcome {
+function invocation(command: CommandSpec, args: string, interactive: boolean, options: PickOptions = ASK_FOR_INSTRUCTIONS): SlashOutcome {
   const how = command.invocation;
 
   switch (how.kind) {
@@ -82,7 +90,7 @@ function invocation(command: CommandSpec, args: string, interactive: boolean): S
       return interactive ? { type: 'insert', text: `/${command.name} ` } : { type: 'send', text: args === '' ? `/${command.name}` : `/${command.name} ${args}` };
 
     case 'rpc':
-      return rpcOutcome(how.action, args, interactive);
+      return rpcOutcome(how.action, args, interactive, options);
 
     case 'gui':
       return { type: 'gui', target: how.target };
@@ -93,8 +101,8 @@ function invocation(command: CommandSpec, args: string, interactive: boolean): S
 }
 
 /** Picking a command from the suggestion list. */
-export function acceptCommand(command: CommandSpec): SlashOutcome {
-  return invocation(command, '', true);
+export function acceptCommand(command: CommandSpec, options: PickOptions = ASK_FOR_INSTRUCTIONS): SlashOutcome {
+  return invocation(command, '', true, options);
 }
 
 /**

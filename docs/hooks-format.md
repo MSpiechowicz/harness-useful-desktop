@@ -79,6 +79,21 @@ A `command` hook's stdout is used like the text of the matching action: context 
 
 Only on `toolEnd`. Grammar: `matcher = name *( "|" name )`, `name = 1*[A-Za-z0-9_.:-]`, at most 200 characters, no spaces, no empty part. A hook matches a tool when the tool name equals one of the names, ASCII case-insensitive. Exact names only, no regex or wildcards. A matcher on any other event is Invalid.
 
+The tool name is the one the harness reports. OpenCode (1.19) uses these tool ids:
+
+| Tool | What it does | Touched paths |
+| --- | --- | --- |
+| `bash` | runs a shell command | none |
+| `read`, `glob`, `grep` | read a file, find files, search file contents | none |
+| `edit`, `write` | change or write the file in `filePath` | that file |
+| `apply_patch` | applies a patch | the files of its `*** Add File:`, `*** Update File:`, `*** Delete File:` and `*** Move to:` headers |
+| `task` | runs a subagent | none |
+| `webfetch`, `websearch` | fetch a URL, search the web | none |
+| `todowrite`, `skill`, `question` | update the todo list, load a skill, ask the user | none |
+| `<server>_<tool>` | tool `<tool>` of MCP server `<server>` | none |
+
+So `edit|write|apply_patch` matches every OpenCode file change. Only paths inside the project count. Tool calls of a subagent (a `task`) are not reported, as in OMP: they fire no `toolEnd` and add no touched paths.
+
 ## Events
 
 - `sessionStart`: the first eligible prompt of a new desktop chat (fresh or after a new session, including `/new`). Eligible means a user prompt that is not a steer or follow-up and does not start with `/` or `!`. When its context does not fit in the prompt (see Prompt text), it fires again on the next eligible prompt. A `sessionStart` whose hooks produced nothing (a command without output) does not.

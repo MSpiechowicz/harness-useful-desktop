@@ -25,8 +25,8 @@ use crate::commands::{agent, sessions};
 use crate::lifecycle::page_reloaded;
 use crate::state::AppState;
 use crate::test_support::{
-    AgentSetup, agent_setup, assert_envelopes_in_order, closable_channel, collecting_channel, event_types, fake_agent,
-    save_global_hook, start_request, wait_until,
+    AgentSetup, agent_setup_for, assert_envelopes_in_order, closable_channel, collecting_channel, event_types,
+    fake_agent, save_global_hook, start_request, wait_until,
 };
 
 /// The OMP session every scenario reports (`omp_startup.jsonl`).
@@ -66,8 +66,14 @@ pub(super) struct Fixture {
 impl Fixture {
     /// `None` (the test skips) when `fake_agent` is not built.
     pub(super) fn new(scenario: &str, timing: AgentTiming) -> Option<Self> {
+        Self::of(HarnessId::Omp, scenario, timing)
+    }
+
+    /// Agents of `harness` that play `scenario`; `None` (the test skips) when `fake_agent` is not
+    /// built.
+    pub(super) fn of(harness: HarnessId, scenario: &str, timing: AgentTiming) -> Option<Self> {
         let binary = fake_agent()?;
-        let mut setup = agent_setup(&binary, scenario);
+        let mut setup = agent_setup_for(&binary, harness, scenario);
 
         let unused = AppState::new(setup.project.join("unused"), Env::for_tests(&setup.project));
         let state = Arc::new(std::mem::replace(&mut setup.state, unused));
@@ -161,6 +167,30 @@ impl Fixture {
         assert_eq!(run.record.status, RunStatus::Stopped);
         assert_eq!(run.record.message.as_deref(), Some(STOPPED_MESSAGE));
         wait_until("the agent to stop", || self.chats().is_empty());
+    }
+
+    /// Runs `action` now and checks that its question went unanswered: the run needs attention,
+    /// the view heard that it needed the user, and the agent stopped. Answers the run's relay.
+    pub(super) fn run_unanswered(&self, action: RoutineAction) -> Arc<RelaySink> {
+        let (listener, events) = collecting_channel();
+        self.state.routines.listen(listener);
+
+        let (id, run_id) = self.run(action);
+        let relay = self.relay(&run_id);
+        let run = self.ended(&id);
+
+        assert_eq!(run.record.status, RunStatus::NeedsAttention);
+        assert_eq!(run.record.message.as_deref(), Some(UNANSWERED_MESSAGE));
+        assert!(
+            events
+                .lock()
+                .unwrap()
+                .iter()
+                .any(|event| event["kind"] == "needsYou" && event["runId"] == run_id.as_str())
+        );
+        wait_until("the agent to stop", || self.chats().is_empty());
+
+        relay
     }
 
     pub(super) fn chats(&self) -> Vec<AgentSessionInfo> {
@@ -415,23 +445,7 @@ fn a_question_nobody_answers_is_cancelled_and_the_run_needs_attention() {
     let Some(fixture) = Fixture::new("omp_routine_question.jsonl", quick) else {
         return;
     };
-    let (listener, events) = collecting_channel();
-    fixture.state.routines.listen(listener);
-
-    let (id, run_id) = fixture.run(agent("Run the tests"));
-    let relay = fixture.relay(&run_id);
-    let run = fixture.ended(&id);
-
-    assert_eq!(run.record.status, RunStatus::NeedsAttention);
-    assert_eq!(run.record.message.as_deref(), Some(UNANSWERED_MESSAGE));
-    assert!(
-        events
-            .lock()
-            .unwrap()
-            .iter()
-            .any(|event| event["kind"] == "needsYou" && event["runId"] == run_id.as_str())
-    );
-    wait_until("the agent to stop", || fixture.chats().is_empty());
+    let relay = fixture.run_unanswered(agent("Run the tests"));
 
     // The agent got "cancelled" for its question (its scenario says so in a notice) and exited.
     wait_until("the agent's last events", || {

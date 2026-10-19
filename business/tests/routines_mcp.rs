@@ -132,7 +132,7 @@ fn tools_list_has_the_routine_tools_with_flat_arguments() {
     );
     assert_eq!(
         add["inputSchema"]["properties"]["harness"]["enum"],
-        json!(["omp", "pi"])
+        json!(["omp", "pi", "opencode"])
     );
     assert_eq!(add["inputSchema"]["additionalProperties"], json!(false));
 
@@ -364,10 +364,9 @@ fn invalid_schedules_and_actions_are_refused_with_the_format_wording() {
         (json!({ "every": 5 }), "every belongs to when"),
         (
             json!({ "harness": "pi", "approvalMode": "yolo" }),
-            "action.approvalMode is for omp only",
+            "action.approvalMode is for omp or opencode only",
         ),
         (json!({ "trustOnce": true }), "action.trustOnce is for pi only"),
-        (json!({ "harness": "opencode" }), "runs omp or pi"),
         (json!({ "maxMinutes": 241 }), "from 1 to 240"),
         (
             json!({ "command": "ls" }),
@@ -422,9 +421,16 @@ fn model_is_provider_slash_id_and_an_edit_keeps_what_it_leaves_out() {
     assert_eq!(weekly["when"], json!({ "type": "daily", "at": "09:00" }), "at is kept");
     assert_eq!(weekly["action"], added["action"], "the action is kept");
 
+    let opencode = machine.ok(
+        "routine_update",
+        json!({ "id": added["id"], "sha256": weekly["sha256"], "harness": "opencode" }),
+    )["updated"]
+        .clone();
+    assert_eq!(opencode["action"]["approvalMode"], "yolo", "opencode keeps it");
+
     let pi = machine.ok(
         "routine_update",
-        json!({ "id": added["id"], "sha256": weekly["sha256"], "harness": "pi", "model": "" }),
+        json!({ "id": added["id"], "sha256": opencode["sha256"], "harness": "pi", "model": "" }),
     )["updated"]
         .clone();
     assert_eq!(pi["action"]["harness"], "pi");

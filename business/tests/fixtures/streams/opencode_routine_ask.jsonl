@@ -1,0 +1,10 @@
+// An OpenCode routine run whose agent asks for a tool approval nobody gives (src-tauri routine
+// tests): the app rejects it. Any other answer fails the match, and the fake exits 4.
+{"include":"opencode_startup.jsonl"}
+{"expect":"POST /session/ses_eaa561636ffezINnnn1ghd5370/prompt_async","match":{"/parts/0/text":"Run the tests"},"reply":{"recording":"../opencode/server/prompt-async.json"}}
+{"sse":{"type":"message.updated","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","info":{"id":"msg_155a9eeb3001SWCCbgpm0fXcQJ","role":"user","sessionID":"ses_eaa561636ffezINnnn1ghd5370","time":{"created":1},"agent":"build"}}}}
+{"sse":{"type":"session.status","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","status":{"type":"busy"}}}}
+{"sse":{"type":"message.updated","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","info":{"id":"msg_155a9eeb80018zbVAUXYL6o8VQ","parentID":"msg_155a9eeb3001SWCCbgpm0fXcQJ","role":"assistant","agent":"build","modelID":"m1","providerID":"mock","time":{"created":2},"sessionID":"ses_eaa561636ffezINnnn1ghd5370"}}}}
+{"sse":{"type":"message.part.updated","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","part":{"id":"prt_b","messageID":"msg_155a9eeb80018zbVAUXYL6o8VQ","sessionID":"ses_eaa561636ffezINnnn1ghd5370","type":"tool","tool":"bash","callID":"call_1","state":{"status":"running","input":{"command":"cargo test","description":"Run the tests"},"time":{"start":1}}}}}}
+{"sse":{"type":"permission.asked","properties":{"id":"per_1","sessionID":"ses_eaa561636ffezINnnn1ghd5370","permission":"bash","patterns":["cargo test"],"metadata":{"command":"cargo test"},"always":["cargo *"],"tool":{"messageID":"msg_155a9eeb80018zbVAUXYL6o8VQ","callID":"call_1"}}}}
+{"expect":"POST /permission/per_1/reply","match":{"reply":"reject"},"reply":{"body":true}}

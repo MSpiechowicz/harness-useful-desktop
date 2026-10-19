@@ -17,35 +17,47 @@ use super::chat;
 use crate::commands::{agent, hooks as hook_commands};
 use crate::state::AppState;
 use crate::test_support::{
-    AgentSetup, agent_setup, collecting_channel, fake_agent, save_global_hook, start_request, wait_until,
+    AgentSetup, agent_setup_for, collecting_channel, fake_agent, save_global_hook, start_request, wait_until,
 };
 
 /// A chat app state whose agents play one scenario.
-struct Chats {
-    setup: AgentSetup,
+pub(super) struct Chats {
+    pub(super) setup: AgentSetup,
 }
 
-/// `None` (the test skips) when `fake_agent` is not built.
+/// OMP chats; `None` (the test skips) when `fake_agent` is not built.
 fn chats(scenario: &str) -> Option<Chats> {
+    chats_of(HarnessId::Omp, scenario)
+}
+
+/// Chats of `harness`; `None` (the test skips) when `fake_agent` is not built.
+pub(super) fn chats_of(harness: HarnessId, scenario: &str) -> Option<Chats> {
     let binary = fake_agent()?;
 
     Some(Chats {
-        setup: agent_setup(&binary, scenario),
+        setup: agent_setup_for(&binary, harness, scenario),
     })
 }
 
 impl Chats {
-    fn state(&self) -> &AppState {
+    pub(super) fn state(&self) -> &AppState {
         &self.setup.state
     }
 
     /// Writes a global hook as `author` (the desktop's is approved, an agent's pending), created
     /// `secs` after a fixed time so the run order is known.
-    fn hook(&self, name: &str, event: HookEvent, action: HookAction, author: HookAuthor, secs: u64) -> HookView {
+    pub(super) fn hook(
+        &self,
+        name: &str,
+        event: HookEvent,
+        action: HookAction,
+        author: HookAuthor,
+        secs: u64,
+    ) -> HookView {
         save_global_hook(self.state(), name, event, action, author, secs)
     }
 
-    fn start(&self, request: AgentStartRequest) -> (String, Arc<Mutex<Vec<Value>>>) {
+    pub(super) fn start(&self, request: AgentStartRequest) -> (String, Arc<Mutex<Vec<Value>>>) {
         let (channel, received) = collecting_channel();
         let key = block_on(agent::start(self.state(), request, channel))
             .expect("the chat starts")
@@ -54,12 +66,12 @@ impl Chats {
         (key, received)
     }
 
-    fn send(&self, key: &str, action: AgentAction) -> harness_business::Result<AgentReply> {
+    pub(super) fn send(&self, key: &str, action: AgentAction) -> harness_business::Result<AgentReply> {
         block_on(chat::send(self.state(), key, action))
     }
 
     /// Sends `message`; fails when the agent did not accept it (a `match` failed).
-    fn prompt(&self, key: &str, message: &str) {
+    pub(super) fn prompt(&self, key: &str, message: &str) {
         self.send(key, prompt(message)).expect("the agent accepts the prompt");
     }
 }
@@ -70,7 +82,7 @@ impl Drop for Chats {
     }
 }
 
-fn prompt(message: &str) -> AgentAction {
+pub(super) fn prompt(message: &str) -> AgentAction {
     AgentAction::Prompt {
         message: message.to_owned(),
         images: Vec::new(),
@@ -78,12 +90,12 @@ fn prompt(message: &str) -> AgentAction {
     }
 }
 
-fn context(text: &str) -> HookAction {
+pub(super) fn context(text: &str) -> HookAction {
     HookAction::AddContext { text: text.to_owned() }
 }
 
 /// The events of one type the chat's channel received.
-fn events_of(received: &Mutex<Vec<Value>>, kind: &str) -> Vec<Value> {
+pub(super) fn events_of(received: &Mutex<Vec<Value>>, kind: &str) -> Vec<Value> {
     received
         .lock()
         .unwrap()

@@ -3,7 +3,7 @@
 
 use serde_json::{Map, Value};
 
-use super::{check_plain_text, has_chat};
+use super::{check_plain_text, harness_names, has_chat, takes_approval_mode, takes_trust_once};
 use crate::model::{ApprovalMode, HarnessId, HookScope, RoutineAction, RoutineModel, ScriptScope};
 use crate::signed_docs::fields::typed_object;
 use crate::signed_docs::unicode::is_hidden_char;
@@ -147,7 +147,7 @@ pub fn check_action(action: &RoutineAction, scope: HookScope) -> Result<(), Stri
             max_minutes,
         } => {
             if !has_chat(*harness) {
-                return Err("an agent routine runs omp or pi".to_owned());
+                return Err(format!("an agent routine runs {}", harness_names(has_chat)));
             }
 
             check_plain_text("action.prompt", prompt, MAX_PROMPT_CHARS)?;
@@ -157,12 +157,18 @@ pub fn check_action(action: &RoutineAction, scope: HookScope) -> Result<(), Stri
                 check_model_part("id", &model.id)?;
             }
 
-            if approval_mode.is_some() && *harness != HarnessId::Omp {
-                return Err("action.approvalMode is for omp only".to_owned());
+            if approval_mode.is_some() && !takes_approval_mode(*harness) {
+                return Err(format!(
+                    "action.approvalMode is for {} only",
+                    harness_names(takes_approval_mode)
+                ));
             }
 
-            if *trust_once && *harness != HarnessId::Pi {
-                return Err("action.trustOnce is for pi only".to_owned());
+            if *trust_once && !takes_trust_once(*harness) {
+                return Err(format!(
+                    "action.trustOnce is for {} only",
+                    harness_names(takes_trust_once)
+                ));
             }
 
             check_range("maxMinutes", *max_minutes, MAX_MAX_MINUTES)

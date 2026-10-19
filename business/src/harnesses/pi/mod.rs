@@ -82,6 +82,7 @@ impl Harness for Pi {
             cli_actions: true,
             project_trust: true,
             session_tree: true,
+            compact_instructions: true,
             ..Capabilities::default()
         }
     }

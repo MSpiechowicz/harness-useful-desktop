@@ -98,6 +98,9 @@ pub struct Capabilities {
     pub agent_picker: bool,
     /// Chat works but is still a preview; the UI marks it with a badge.
     pub chat_preview: bool,
+    /// `/compact` takes instructions for the summary (OMP, PI), so picking it asks for them first.
+    /// Without it the chat compacts at once.
+    pub compact_instructions: bool,
 }
 
 /// How the detected CLI version relates to the versions this app was tested with.

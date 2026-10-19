@@ -73,6 +73,7 @@
   const stopping = $derived(session.streaming && !canSend);
   const queue = $derived(queuedRows(session.chat.queue));
   const removable = $derived(Boolean(harness.get(session.info.harness)?.capabilities.removeQueued));
+  const compactInstructions = $derived(harness.get(session.info.harness)?.capabilities.compactInstructions ?? true);
 
   const placeholder = $derived(bash ? t('chat.composer.placeholder.bash') : session.streaming ? t('chat.composer.placeholder.streaming') : t('chat.composer.placeholder'));
 
@@ -184,7 +185,7 @@
   }
 
   function accept(command: CommandSpec): void {
-    const outcome = acceptCommand(command);
+    const outcome = acceptCommand(command, { compactInstructions });
 
     if (outcome.type !== 'insert') {
       session.draft = '';

@@ -221,14 +221,14 @@ fn action() -> Value {
 }
 
 fn harness() -> Value {
-    json!({ "type": "string", "enum": ["omp", "pi"], "description": "agent: the harness that runs the chat" })
+    json!({ "type": "string", "enum": ["omp", "pi", "opencode"], "description": "agent: the harness that runs the chat" })
 }
 
 fn approval_mode() -> Value {
     json!({
         "type": "string",
         "enum": ["alwaysAsk", "write", "yolo", "default"],
-        "description": "agent, omp only: ask before every tool (alwaysAsk), before tools that write or run \
+        "description": "agent, omp and opencode only: ask before every tool (alwaysAsk), before tools that write or run \
             something (write), or never (yolo). Absent or default: the harness's setting",
     })
 }

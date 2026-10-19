@@ -1,0 +1,5 @@
+// Hooks in an OpenCode chat (src-tauri hooks tests): a prompt the app refuses before it is sent
+// leaves the sessionStart context for the next one.
+{"include":"opencode_startup.jsonl"}
+{"expect":"POST /session/ses_eaa561636ffezINnnn1ghd5370/prompt_async","match":{"/parts/0/text":"<harness-hook-context>\n<hook name=\"Project notes\">Read NOTES.md first.</hook>\n</harness-hook-context>\n\nHello"},"reply":{"recording":"../opencode/server/prompt-async.json"}}
+{"hang":true}

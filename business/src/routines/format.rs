@@ -12,7 +12,8 @@ use serde_json::{Map, Value};
 
 use super::RoutineKind;
 use super::cron::CronExpr;
-use crate::model::{HarnessId, Routine, RoutineWhen};
+use crate::harness::HarnessRegistry;
+use crate::model::{Capabilities, HarnessId, Routine, RoutineWhen};
 use crate::signed_docs::fields::{
     ProjectForm, check_length, file_object, parse_head, parse_stamps, required_bool, typed_object,
 };
@@ -200,7 +201,44 @@ pub(crate) fn check_plain_text(field: &str, text: &str, max: usize) -> Result<()
     Ok(())
 }
 
+/// What `harness` can do, as this app ships it.
+fn capabilities(harness: HarnessId) -> Capabilities {
+    HarnessRegistry::with_defaults()
+        .get(harness)
+        .map(|harness| harness.capabilities())
+        .unwrap_or_default()
+}
+
 /// The harnesses a routine can chat with.
 pub(crate) fn has_chat(harness: HarnessId) -> bool {
-    matches!(harness, HarnessId::Omp | HarnessId::Pi)
+    capabilities(harness).chat
+}
+
+/// The harnesses whose agent routine may set an approval mode (OMP, OpenCode).
+pub(crate) fn takes_approval_mode(harness: HarnessId) -> bool {
+    let capabilities = capabilities(harness);
+
+    capabilities.chat && capabilities.approval_modes
+}
+
+/// The harnesses whose agent routine may trust the project once (PI).
+pub(crate) fn takes_trust_once(harness: HarnessId) -> bool {
+    let capabilities = capabilities(harness);
+
+    capabilities.chat && capabilities.project_trust
+}
+
+/// The CLI names of the harnesses that pass `allowed`, in display order, as "omp, pi or opencode".
+pub(crate) fn harness_names(allowed: fn(HarnessId) -> bool) -> String {
+    let names: Vec<&str> = HarnessId::ALL
+        .into_iter()
+        .filter(|harness| allowed(*harness))
+        .map(HarnessId::binary_name)
+        .collect();
+
+    match names.split_last() {
+        None => String::new(),
+        Some((last, [])) => (*last).to_owned(),
+        Some((last, rest)) => format!("{} or {last}", rest.join(", ")),
+    }
 }

@@ -28,7 +28,8 @@
       "moveSession": true,
       "removeQueued": true,
       "agentPicker": false,
-      "chatPreview": false
+      "chatPreview": false,
+      "compactInstructions": true
     },
     "detection": {
       "installed": true,
@@ -71,7 +72,8 @@
       "moveSession": false,
       "removeQueued": false,
       "agentPicker": false,
-      "chatPreview": false
+      "chatPreview": false,
+      "compactInstructions": true
     },
     "detection": {
       "installed": false,
@@ -117,7 +119,8 @@
       "moveSession": false,
       "removeQueued": true,
       "agentPicker": true,
-      "chatPreview": true
+      "chatPreview": true,
+      "compactInstructions": false
     },
     "detection": {
       "installed": true,

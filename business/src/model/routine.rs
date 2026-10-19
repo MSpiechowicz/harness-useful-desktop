@@ -113,13 +113,13 @@ pub struct RoutineModel {
 pub enum RoutineAction {
     /// Starts a chat with an agent and sends `prompt`.
     Agent {
-        /// `omp` or `pi` (OpenCode has no chat yet).
+        /// A harness with chat: `omp`, `pi` or `opencode`.
         harness: HarnessId,
         /// The model to switch to; `None` keeps the harness's default.
         model: Option<RoutineModel>,
         /// 1 to 8192 characters, sent as written.
         prompt: String,
-        /// OMP only: the chat's approval mode; `None` keeps the harness's setting.
+        /// OMP and OpenCode only: the chat's approval mode; `None` keeps the harness's setting.
         approval_mode: Option<ApprovalMode>,
         /// PI only: trust the project's local resources for this launch.
         trust_once: bool,
@@ -143,8 +143,8 @@ pub enum RoutineAction {
 }
 
 impl RoutineAction {
-    /// True for an agent action that runs tools without asking: OMP `approvalMode: "yolo"` or PI
-    /// `trustOnce: true`.
+    /// True for an agent action that runs tools without asking: OMP or OpenCode
+    /// `approvalMode: "yolo"`, or PI `trustOnce: true`.
     pub fn runs_unattended(&self) -> bool {
         match self {
             Self::Agent {

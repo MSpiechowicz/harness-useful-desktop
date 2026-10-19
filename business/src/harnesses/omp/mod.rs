@@ -69,6 +69,7 @@ impl Harness for Omp {
             session_tree: true,
             move_session: true,
             remove_queued: true,
+            compact_instructions: true,
             ..Capabilities::default()
         }
     }

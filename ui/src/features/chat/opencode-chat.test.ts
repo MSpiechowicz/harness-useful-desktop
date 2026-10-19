@@ -236,3 +236,18 @@ describe('the queue of a harness that cannot withdraw a message', () => {
     expect(of('agent_send').map((call) => call.action)).toContainEqual({ type: 'removeQueued', message: 'later', queue: 'followUp' });
   });
 });
+
+describe('compact in a harness that takes no instructions for it', () => {
+  it('compacts at once when picked from the menu, without asking for instructions', async () => {
+    const { session, of } = await openCodeChat();
+    render(Composer, { session });
+    const box = screen.getByRole('combobox', { name: 'Message' });
+
+    await fireEvent.input(box, { target: { value: '/compa' } });
+    await waitFor(() => expect(screen.getAllByRole('option')[0]).toHaveTextContent('/compact'));
+    await fireEvent.keyDown(box, { key: 'Enter' });
+
+    await waitFor(() => expect(of('agent_send').map((call) => call.action)).toContainEqual({ type: 'compact', instructions: null }));
+    expect(session.ui.ask).toBeNull();
+  });
+});

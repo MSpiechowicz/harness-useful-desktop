@@ -25,6 +25,7 @@ use crate::test_support::{ProjectHome, place_memory_server};
 /// The ids of the team routines the stand-in lists.
 pub(super) const TEAM_ID: &str = "7eaa0000000000000000000000000001";
 const OTHER_ID: &str = "7eaa0000000000000000000000000002";
+const OPENCODE_ID: &str = "7eaa0000000000000000000000000003";
 
 /// The repository key the stand-in gives every project.
 const REPO_KEY: &str = "git:github.com/o/r";
@@ -184,8 +185,9 @@ pub(super) fn echo(text: &str) -> Value {
     json!({"type": "command", "command": format!("echo {text}"), "timeoutSecs": null})
 }
 
-fn yolo() -> Value {
-    json!({"type": "agent", "harness": "omp", "model": null, "prompt": "Tidy up.", "approvalMode": "yolo",
+/// An agent action of `harness` that runs tools without asking.
+fn yolo(harness: &str) -> Value {
+    json!({"type": "agent", "harness": harness, "model": null, "prompt": "Tidy up.", "approvalMode": "yolo",
         "trustOnce": false, "maxMinutes": null})
 }
 
@@ -242,16 +244,24 @@ fn trust_runs_every_team_routine_even_one_that_runs_tools_without_asking() {
     };
 
     team.sharing(Some((true, true)));
-    team.rows(&[row(TEAM_ID, None, echo("trusted")), row(OTHER_ID, None, yolo())]);
+    team.rows(&[
+        row(TEAM_ID, None, echo("trusted")),
+        row(OTHER_ID, None, yolo("omp")),
+        row(OPENCODE_ID, None, yolo("opencode")),
+    ]);
     team.refresh();
 
     let trusted = team.enable(TEAM_ID, true, None).expect("turned on");
     assert_eq!(trusted.status, RoutineStatus::Active);
 
-    let unattended = team.enable(OTHER_ID, true, None).expect("turned on");
-    assert_eq!(unattended.status, RoutineStatus::Active, "trust covers yolo too");
-    assert!(unattended.runs_unattended);
-    assert_eq!(team.scheduled().len(), 2);
+    for id in [OTHER_ID, OPENCODE_ID] {
+        let unattended = team.enable(id, true, None).expect("turned on");
+        assert_eq!(unattended.status, RoutineStatus::Active, "trust covers yolo too");
+        assert!(unattended.runs_unattended);
+    }
+    assert_eq!(team.scheduled().len(), 3);
+
+    team.enable(OPENCODE_ID, false, None).expect("turned off");
 
     // Without trust each one waits until its exact bytes are approved here.
     team.sharing(Some((true, false)));
