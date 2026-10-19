@@ -159,7 +159,7 @@ rules, the user's config applies.
 | 0 | This plan | main | `docs(opencode): plan native server chat (level 3)` | done |
 | 1 | Record real `opencode serve` responses (scratch HOME, `unshare -rn`) → `business/tests/fixtures/opencode/server/` | main | `test(opencode): record opencode serve responses` | done |
 | 2 | Shared process plumbing (`agent/process.rs`), no behaviour change | backend | `refactor(agent): share the process lifecycle between chat engines` | done |
-| 3 | Engine seam, OpenCode still "coming soon" | backend | `refactor(agent): engine seam for non-RPC chat protocols` | todo |
+| 3 | Engine seam, OpenCode still "coming soon" | backend | `refactor(agent): engine seam for non-RPC chat protocols` | done |
 | 4 | Loopback HTTP + SSE client, closed route allowlist | backend | `feat(opencode): loopback HTTP and SSE client` | todo |
 | 5 | Fake OpenCode server (`fake_agent --dialect opencode`) + scenarios | backend | `test(opencode): scripted fake opencode server` | todo |
 | 6 | Contract: `agent_picker`, `chat_preview`, `SessionState.agent`, `SetAgent`, `GetAvailableAgents`, bindings | backend | `feat(model): agent picker and preview capability in the chat contract` | todo |

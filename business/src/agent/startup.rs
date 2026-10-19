@@ -1,4 +1,4 @@
-//! Startup of an [`AgentSession`]: handshake (OMP `ready` within 10 s; PI none) → the dialect's
+//! Startup of an [`RpcSession`]: handshake (OMP `ready` within 10 s; PI none) → the dialect's
 //! post-handshake commands → `get_state` (PI's probe, also within 10 s) → the command list →
 //! `ready`, `state` and `commandsUpdated` are emitted, then everything the agent sent meanwhile.
 //!
@@ -16,14 +16,14 @@ use tokio::sync::oneshot;
 
 use super::SessionOptions;
 use super::process::{StartAbort, run_startup};
-use super::session::AgentSession;
+use super::session::RpcSession;
 use super::sink::EmitMsg;
 use crate::error::{BusinessError, Result};
 use crate::model::{AgentAction, AgentEvent, AgentReply};
 use crate::pi_family::rpc::pending::DEFAULT_TIMEOUT;
 use crate::pi_family::rpc::{Handshake, RequestKind};
 
-impl AgentSession {
+impl RpcSession {
     /// Runs the startup within the deadline of `options`, unless `abort` resolves first.
     pub(super) async fn startup(
         &mut self,

@@ -30,7 +30,8 @@ use tokio::task::JoinSet;
 use tokio::time::Instant;
 
 use super::SessionOptions;
-use super::session::{AgentSession, SessionLaunch};
+use super::engine::{AgentSession, SessionLaunch};
+use super::launch::{ensure_chat, exec_spec};
 use super::sink::{EventSink, PromptTaken};
 use super::slots::{
     BindingSink, Bound, Claimant, Entry, Holder, Reservation, SessionClaim, Slots, bind, open_elsewhere, still_stopping,
@@ -42,7 +43,7 @@ use crate::model::{
     AgentAction, AgentEvent, AgentReply, AgentSessionInfo, AgentStartRequest, BashOutput, NoticeLevel, UiResponse,
 };
 use crate::pi_family::sessions::is_safe_session_id;
-use crate::process::{ProcessSpawner, ResolvedBinary, launcher_search_dirs};
+use crate::process::{ProcessSpawner, ResolvedBinary};
 use crate::security::validate_project_dir;
 
 /// Sessions that may run at once.
@@ -183,6 +184,8 @@ impl AgentManager {
             ));
         }
 
+        ensure_chat(harness)?;
+
         let project = validate_project_dir(deps.env, Path::new(&request.project))?;
         let resume = match &request.resume {
             Some(session) if session.harness != harness.id() || !is_safe_session_id(&session.id) => {
@@ -202,17 +205,17 @@ impl AgentManager {
         let approval_override = request.approval_override.filter(|_| capabilities.approval_modes);
         let trust_once = request.trust_once && capabilities.project_trust;
 
-        let spec = harness
-            .launch_spec(&LaunchRequest {
+        let spec = exec_spec(
+            &deps,
+            &LaunchRequest {
                 binary: &deps.binary,
                 project: &project,
                 resume,
                 approval_override,
                 trust_once,
                 utility: request.utility,
-            })?
-            .envs(harness.spawn_env().iter().copied())
-            .search_dirs(launcher_search_dirs(deps.env, &deps.binary.path));
+            },
+        )?;
 
         if let Some(id) = resume {
             self.wait_until_released(id).await?;
@@ -235,9 +238,12 @@ impl AgentManager {
             key: key.clone(),
             spec,
             spawner: deps.spawner.as_ref(),
-            dialect: harness.dialect(),
+            protocol: harness.chat_protocol(),
             project: project.clone(),
             sessions_dir: harness.sessions_dir(deps.env, &project),
+            resume,
+            approval_override,
+            utility: request.utility,
             sink,
             options: &self.options,
             abort,

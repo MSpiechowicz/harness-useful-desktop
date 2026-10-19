@@ -2,8 +2,9 @@
 //!
 //! Config and data follow the XDG directories (see [`paths`]). OpenCode keeps its sessions in a
 //! SQLite database that also holds credentials, so the app never opens it: sessions are listed,
-//! exported and deleted through the CLI ([`Harness::cli_sessions`]). Chat (OpenCode speaks ACP,
-//! not the PI-family RPC) is not available yet, and extension actions are not offered. Every spawn
+//! exported and deleted through the CLI ([`Harness::cli_sessions`]). Chat (driven through
+//! `opencode serve`, not the PI-family RPC) is not available yet, and extension actions are not
+//! offered. Every spawn
 //! switches off OpenCode's self-updater.
 
 mod catalog;
@@ -79,9 +80,13 @@ impl Harness for OpenCode {
         ))
     }
 
-    /// Never reached: [`OpenCode::launch_spec`] refuses every launch.
+    /// Never reached for chat: OpenCode chats over [`ChatProtocol::OpenCodeServer`].
     fn dialect(&self) -> &'static dyn RpcDialect {
         &PiDialect
+    }
+
+    fn chat_protocol(&self) -> ChatProtocol {
+        ChatProtocol::OpenCodeServer
     }
 
     /// The data directory, where the session database lives (it is never opened).

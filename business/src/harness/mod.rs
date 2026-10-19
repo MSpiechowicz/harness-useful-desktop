@@ -15,8 +15,9 @@
 //! still has per-harness touch points (badge labels, colour tokens, mock fixtures): see
 //! `docs/adding-a-harness.md`.
 //!
-//! Chat sessions additionally need [`Harness::launch_spec`] (the RPC command line) and
-//! [`Harness::dialect`] (how the harness speaks the PI-family RPC protocol). Saved sessions need
+//! Chat sessions additionally need [`Harness::launch_spec`] (the command line) and
+//! [`Harness::chat_protocol`] (which chat engine drives the process; for the PI-family RPC
+//! protocol, [`Harness::dialect`] says how the harness speaks it). Saved sessions need
 //! [`Harness::sessions_dir`]; listing, trees and transcripts default to the PI-family session
 //! format and are overridden by harnesses that store sessions differently, or replaced by
 //! [`Harness::cli_sessions`] for a harness whose sessions are only reachable through its CLI.
@@ -45,7 +46,7 @@ pub mod prelude {
     pub use std::path::PathBuf;
 
     pub use super::{
-        CliInvocation, CliSessionCtx, CliSessions, CommandCatalog, CompanionSetup, Harness, HarnessPaths,
+        ChatProtocol, CliInvocation, CliSessionCtx, CliSessions, CommandCatalog, CompanionSetup, Harness, HarnessPaths,
         LaunchRequest, McpTarget, ShareSupport, SkillsStrategy,
     };
     pub use crate::env::Env;
@@ -70,6 +71,15 @@ use crate::model::{
 use crate::pi_family::rpc::RpcDialect;
 use crate::pi_family::sessions::{self, SessionCache};
 use crate::process::{BlockingRunner, BoxFuture, ExecSpec, ProcessRunner, ResolvedBinary};
+
+/// How the app talks to a harness's chat process: which engine of [`crate::agent`] drives it.
+#[derive(Clone, Copy)]
+pub enum ChatProtocol {
+    /// The PI-family RPC protocol on stdin/stdout (`--mode rpc`), spoken in this dialect.
+    Rpc(&'static dyn RpcDialect),
+    /// An `opencode serve` HTTP server on a loopback port, with its event stream.
+    OpenCodeServer,
+}
 
 /// Where a harness keeps its files, resolved from an [`Env`] (and the project, if any).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -241,6 +251,12 @@ pub trait Harness: Send + Sync {
 
     /// The RPC dialect the harness speaks in `--mode rpc`.
     fn dialect(&self) -> &'static dyn RpcDialect;
+
+    /// The protocol of the process [`Harness::launch_spec`] starts (default: RPC in
+    /// [`Harness::dialect`]).
+    fn chat_protocol(&self) -> ChatProtocol {
+        ChatProtocol::Rpc(self.dialect())
+    }
 
     /// The folder holding the saved sessions of `project` (a canonical project directory): the
     /// harness's encoded per-project folder or a configured session directory.

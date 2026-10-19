@@ -1,11 +1,14 @@
-//! Agent chat sessions: a harness CLI running in `--mode rpc`, driven through its
-//! [`RpcDialect`](crate::pi_family::rpc::RpcDialect).
+//! Agent chat sessions: a harness CLI driven by the chat engine of its
+//! [`ChatProtocol`](crate::harness::ChatProtocol).
 //!
 //! - [`AgentManager`] — every running session by key (at most [`MAX_SESSIONS`]); a
 //!   [`SessionClaim`] keeps agents off a session id while its files are deleted.
-//! - [`AgentSession`] — one RPC session: request correlation, dialogs and startup, on top of the
-//!   process lifecycle every chat engine shares (`process.rs`: spawn, writer, stderr and waiter
-//!   tasks, startup deadline, shutdown).
+//! - [`AgentSession`] — one session of either engine, on top of the process lifecycle every chat
+//!   engine shares (`process.rs`: spawn, writer, stderr and waiter tasks, startup deadline,
+//!   shutdown):
+//!   - [`RpcSession`] — a CLI in `--mode rpc`, driven through its
+//!     [`RpcDialect`](crate::pi_family::rpc::RpcDialect): request correlation, dialogs and startup;
+//!   - [`OpenCodeSession`] — `opencode serve` (not available yet).
 //! - [`EventSink`] — where the normalized [`AgentEnvelope`](crate::model::AgentEnvelope)s go
 //!   (the desktop shell adapts it to a Tauri channel).
 //! - [`DeltaCoalescer`] — merges streaming deltas within [`COALESCE_WINDOW`].
@@ -14,8 +17,11 @@
 //! diagnostics, and numbered per session.
 
 mod coalesce;
+mod engine;
 mod io;
+mod launch;
 mod manager;
+mod opencode;
 mod process;
 mod session;
 mod sink;
@@ -26,9 +32,11 @@ use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 pub use coalesce::{COALESCE_WINDOW, DeltaCoalescer};
+pub use engine::{AgentSession, SessionLaunch};
 pub use manager::{AgentDeps, AgentManager, MAX_SESSIONS, Stopping};
+pub use opencode::OpenCodeSession;
 pub use process::{MAX_STDERR_LINE, MAX_STDERR_PER_SECOND, StartAbort};
-pub use session::{AgentSession, BASH_TIMEOUT, SessionLaunch};
+pub use session::{BASH_TIMEOUT, RpcSession};
 pub use sink::{CollectingSink, EventSink, PromptTaken};
 pub use slots::SessionClaim;
 

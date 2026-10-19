@@ -1,4 +1,4 @@
-//! One running agent process spoken to over RPC.
+//! The RPC chat engine: one running agent process spoken to over the PI-family RPC protocol.
 //!
 //! Startup: spawn, then the steps of `startup.rs`, all within a deadline. A failed startup kills
 //! the process and emits nothing. The process lifecycle (tasks, stop, exit) is
@@ -12,10 +12,10 @@ use std::time::Duration;
 use serde_json::Value;
 use tokio::sync::oneshot;
 
-use super::SessionOptions;
+use super::engine::SessionLaunch;
 use super::io::{Shared, WriterMsg, read_loop};
-use super::process::{AgentProcess, StartAbort};
-use super::sink::{EventSink, PromptTaken};
+use super::process::AgentProcess;
+use super::sink::PromptTaken;
 use crate::error::{BusinessError, Result};
 use crate::model::{AgentAction, AgentEvent, AgentReply, BashOutput, MAX_ACTION_TEXT_BYTES, SessionState, UiResponse};
 use crate::pi_family::normalize::{chat_message, hidden_message, model_option, string};
@@ -24,7 +24,7 @@ use crate::pi_family::rpc::shared::{items, parse_bash, parse_reply, slice_histor
 use crate::pi_family::rpc::{
     DecodeState, EncodeContext, RequestKind, RpcDialect, RpcResponse, await_response, encode_frame, timeout_for,
 };
-use crate::process::{ExecSpec, ExitInfo, ProcessSpawner};
+use crate::process::ExitInfo;
 use crate::security::redact_text;
 
 /// Time limit for a `bash` command.
@@ -39,30 +39,8 @@ const MOVE_CHECKS: usize = 10;
 /// Pause between two move checks.
 const MOVE_CHECK_INTERVAL: Duration = Duration::from_millis(200);
 
-/// Everything needed to start a session.
-pub struct SessionLaunch<'a> {
-    /// Desktop session key.
-    pub key: String,
-    /// The command to run.
-    pub spec: ExecSpec,
-    /// Starts the process.
-    pub spawner: &'a dyn ProcessSpawner,
-    /// The harness's dialect.
-    pub dialect: &'static dyn RpcDialect,
-    /// Canonical project directory.
-    pub project: PathBuf,
-    /// The project's session folder (for `switchSession`).
-    pub sessions_dir: PathBuf,
-    /// Receives the events.
-    pub sink: Arc<dyn EventSink>,
-    /// Timing knobs.
-    pub options: &'a SessionOptions,
-    /// Gives the startup up when it resolves first.
-    pub abort: StartAbort<'a>,
-}
-
-/// A running agent session (see the module docs).
-pub struct AgentSession {
+/// A running RPC agent session (see the module docs).
+pub struct RpcSession {
     process: AgentProcess,
     pub(super) shared: Arc<Shared>,
     pub(super) dialect: &'static dyn RpcDialect,
@@ -72,10 +50,10 @@ pub struct AgentSession {
     pub(super) protocol_version: Option<u32>,
 }
 
-impl AgentSession {
-    /// Spawns the agent and completes startup.
-    pub async fn start(launch: SessionLaunch<'_>) -> Result<Self> {
-        let dialect = launch.dialect;
+impl RpcSession {
+    /// Spawns the agent and completes startup. The resume, approval override and utility settings
+    /// of `launch` are already in its command line.
+    pub async fn start(launch: SessionLaunch<'_>, dialect: &'static dyn RpcDialect) -> Result<Self> {
         let (ready_tx, ready_rx) = oneshot::channel();
         let decode = DecodeState::new(&launch.project);
 

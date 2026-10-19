@@ -13,8 +13,9 @@ use agent_support::{ScenarioSpawner, binary, options, project, request, start_wi
 use common::{demo_project, omp_home};
 use harness_business::agent::{AgentDeps, AgentManager, CollectingSink, MAX_SESSIONS};
 use harness_business::env::Env;
+use harness_business::error::BusinessError;
 use harness_business::harness::Harness;
-use harness_business::harnesses::{Omp, Pi};
+use harness_business::harnesses::{Omp, OpenCode, Pi};
 use harness_business::model::{ApprovalMode, HarnessId, IpcErrorCode, SessionRef};
 use pretty_assertions::assert_eq;
 
@@ -153,6 +154,39 @@ async fn invalid_start_requests_are_refused_before_spawning() {
     }
 
     assert!(spawner.requested().is_empty());
+}
+
+#[tokio::test]
+async fn a_harness_without_chat_is_refused_before_anything_spawns() {
+    let OmpManager {
+        project,
+        env,
+        manager,
+        spawner,
+        ..
+    } = omp_manager("omp_hang.jsonl");
+
+    let deps = AgentDeps {
+        harness: &OpenCode,
+        env: &env,
+        spawner: spawner.clone(),
+        binary: binary(),
+    };
+    let error = manager
+        .start(
+            request(HarnessId::OpenCode, project.path()),
+            deps,
+            CollectingSink::new(),
+        )
+        .await
+        .unwrap_err();
+
+    assert!(
+        matches!(&error, BusinessError::Unsupported(message) if message == "chat with OpenCode is coming soon"),
+        "{error:?}"
+    );
+    assert!(spawner.requested().is_empty());
+    assert!(manager.list().is_empty());
 }
 
 #[tokio::test]

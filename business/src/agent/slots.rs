@@ -8,7 +8,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, PoisonError, Weak};
 
-use super::session::AgentSession;
+use super::engine::AgentSession;
 use super::sink::EventSink;
 use crate::error::BusinessError;
 use crate::model::{AgentEnvelope, AgentEvent, AgentSessionInfo};
