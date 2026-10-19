@@ -1,5 +1,5 @@
 import { fireEvent, screen, within } from '@testing-library/svelte';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { viewState } from '$lib/stores/view-state.svelte';
 
@@ -16,6 +16,10 @@ const header = (name: string) => within(grid()).getByRole('columnheader', { name
 const sortBy = (name: string) => fireEvent.click(within(header(name)).getByRole('button'));
 
 describe('sorting the routines table', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('starts in the run order, with every sortable header unsorted', async () => {
     fakeRoutines();
     await showRoutines();
@@ -44,6 +48,9 @@ describe('sorting the routines table', () => {
   });
 
   it('orders by the next run with the routines that have none last, whichever way it runs', async () => {
+    // A Monday morning, where the next runs come in the same order in UTC (CI) and in Central Europe (not in every zone).
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-19T10:00:30Z'));
     fakeRoutines();
     await showRoutines();
 
