@@ -93,28 +93,25 @@
   in:rise={{ y: 14, delay: 120 + index * 80, duration: 420 }}
   class="flex min-w-0 flex-col gap-4 rounded-lg border border-line bg-surface-1 p-5 shadow-raised"
 >
-  <header class="flex items-start gap-3">
-    <!-- The product's own family mark, on a tile like its app icon. -->
-    <span class="grid size-10 shrink-0 place-items-center rounded-md border border-line bg-surface-2 shadow-raised" aria-hidden="true"><Logo variant="mark" product={item.id} size={18} /></span>
+  <header class="flex flex-col gap-3">
+    <!-- The family mark and the state share the top row, so the name below always gets the card's full width. -->
+    <div class="flex items-center justify-between gap-2">
+      <!-- The product's own family mark, on a tile like its app icon. -->
+      <span class="grid size-10 shrink-0 place-items-center rounded-md border border-line bg-surface-2 shadow-raised" aria-hidden="true"><Logo variant="mark" product={item.id} size={18} /></span>
 
-    <div class="flex min-w-0 flex-1 flex-col gap-0.5">
-      <div class="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-        <h3 id={titleId} class="max-w-full truncate text-lg text-fg">{item.name}</h3>
+      {#if updating}
+        <Badge tone="accent" dot size="lg">{t('ecosystem.card.updateAvailable')}</Badge>
+      {:else if status === 'installed'}
+        <Badge tone="success" dot size="lg">{t('ecosystem.card.installed')}</Badge>
+      {:else if status === 'missing'}
+        <Badge tone="neutral" size="lg">{t('ecosystem.card.notInstalled')}</Badge>
+      {:else}
+        <Badge tone="warning" size="lg">{t('ecosystem.card.unavailable')}</Badge>
+      {/if}
+    </div>
 
-        <!-- The state sits beside the name, and drops under it only when the name needs the room. -->
-        <div class="flex shrink-0 items-center gap-1.5">
-          {#if updating}
-            <Badge tone="accent" dot>{t('ecosystem.card.updateAvailable')}</Badge>
-          {:else if status === 'installed'}
-            <Badge tone="success" dot>{t('ecosystem.card.installed')}</Badge>
-          {:else if status === 'missing'}
-            <Badge tone="neutral">{t('ecosystem.card.notInstalled')}</Badge>
-          {:else}
-            <Badge tone="warning">{t('ecosystem.card.unavailable')}</Badge>
-          {/if}
-        </div>
-      </div>
-
+    <div class="flex min-w-0 flex-col gap-0.5">
+      <h3 id={titleId} class="truncate text-lg text-fg">{item.name}</h3>
       <p class="text-sm text-fg-2">{productTagline(item)}</p>
     </div>
   </header>
