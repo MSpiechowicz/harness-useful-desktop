@@ -14,7 +14,7 @@ use tokio::sync::oneshot;
 
 use super::engine::SessionLaunch;
 use super::io::{Shared, WriterMsg, read_loop};
-use super::process::AgentProcess;
+use super::process::{AgentProcess, ProcessTraits};
 use super::sink::PromptTaken;
 use crate::error::{BusinessError, Result};
 use crate::model::{AgentAction, AgentEvent, AgentReply, BashOutput, MAX_ACTION_TEXT_BYTES, SessionState, UiResponse};
@@ -63,6 +63,7 @@ impl RpcSession {
             launch.key,
             launch.sink,
             launch.options,
+            ProcessTraits::default(),
             move |stdout, shared| read_loop(stdout, shared, dialect, ready_tx, decode),
         )?;
 
@@ -96,14 +97,6 @@ impl RpcSession {
     /// True until the process exited.
     pub fn is_running(&self) -> bool {
         self.process.is_running()
-    }
-
-    fn ensure_running(&self) -> Result<()> {
-        if self.is_running() {
-            return Ok(());
-        }
-
-        Err(BusinessError::Process("the agent session has exited".to_owned()))
     }
 
     pub(super) fn next_id(&self) -> String {
@@ -182,7 +175,7 @@ impl RpcSession {
     /// `refreshCommands` also emits `commandsUpdated`.
     pub async fn send(&self, action: AgentAction) -> Result<AgentReply> {
         action.validate()?;
-        self.ensure_running()?;
+        self.process.ensure_running()?;
 
         if let AgentAction::GetHistory { cursor, limit } = &action {
             return self.history(cursor.as_deref(), *limit).await;
@@ -222,7 +215,7 @@ impl RpcSession {
     /// confirmed by the session file now living in `sessions_dir`; otherwise it fails and the
     /// session stays where it was (OMP rolls a failed move back itself).
     pub async fn move_project(&self, project: &Path, sessions_dir: &Path) -> Result<()> {
-        self.ensure_running()?;
+        self.process.ensure_running()?;
 
         let target = project
             .to_str()
@@ -319,7 +312,7 @@ impl RpcSession {
 
     /// Answers an open dialog; fails for ids that are not open (answered, cancelled or unknown).
     pub async fn respond(&self, response: UiResponse) -> Result<()> {
-        self.ensure_running()?;
+        self.process.ensure_running()?;
 
         if let crate::model::UiOutcome::Value { value } = &response.outcome
             && value.len() > MAX_ACTION_TEXT_BYTES
@@ -344,7 +337,7 @@ impl RpcSession {
     /// Runs `command` through the agent's `bash` RPC. The caller must have obtained the user's
     /// explicit confirmation.
     pub async fn bash(&self, command: &str) -> Result<BashOutput> {
-        self.ensure_running()?;
+        self.process.ensure_running()?;
 
         if command.trim().is_empty() || command.len() > MAX_ACTION_TEXT_BYTES {
             return Err(BusinessError::InvalidInput(format!(

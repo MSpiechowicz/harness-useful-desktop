@@ -1,0 +1,6 @@
+// An OpenCode server that does not print its listening line in time.
+{"allow":"GET /global/health","reply":{"body":{"healthy":true,"version":"1.19.3"}}}
+{"stdout":"Performing one time database migration, may take a few minutes..."}
+{"sleep":5000}
+{"listen":true}
+{"hang":true}

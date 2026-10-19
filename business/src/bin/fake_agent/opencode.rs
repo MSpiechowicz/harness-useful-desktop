@@ -28,12 +28,15 @@
 //!   subscribe, there is no heartbeat.
 //! - `{"listen": true}` — print the listening line here instead of before the first step (to
 //!   script a slow or failed startup).
-//! - `{"sleep": ms}`, `{"stderr": "line"}`, `{"stderrRepeat": …}` as for the other dialects.
+//! - `{"sleep": ms}`, `{"stderr": "line"}`, `{"stderrRepeat": …}` as for the other dialects;
+//!   `{"stdout": "line"}` prints a line on stdout (after the listening line).
 //! - `{"exit": code}` (4 instead after a failure), `{"hang": true}` (serve the allow rules and
 //!   ignore stdin EOF until killed).
 //!
 //! `"$directory"` in replies and events becomes the last `?directory=` (or
-//! `x-opencode-directory`) a request carried, the working directory before any.
+//! `x-opencode-directory`) a request carried, the working directory before any. `"$password"`
+//! (also in `stdout` and `stderr` lines) becomes `OPENCODE_SERVER_PASSWORD`, to check that the
+//! app never shows it.
 //!
 //! End of the scenario: after a failure the fake exits 4 at once. Otherwise it keeps serving the
 //! allow rules until stdin closes, then exits 0. The real server ignores stdin EOF and needs
@@ -127,7 +130,7 @@ struct Server {
 
 impl Server {
     fn run(&mut self, step: &Value) {
-        if crate::run_output_step(step) {
+        if crate::run_output_step(&self.shared.substitute_password(step)) {
             return;
         }
 
@@ -148,6 +151,9 @@ impl Server {
             self.sse(event);
         } else if field("listen").is_some() {
             self.announce();
+        } else if let Some(line) = field("stdout").and_then(Value::as_str) {
+            let line = self.shared.substitute_password(&json!(line));
+            print(line.as_str().unwrap_or_default());
         } else if let Some(code) = field("exit").and_then(Value::as_i64) {
             self.exit(i32::try_from(code).unwrap_or(1));
         } else if field("hang").is_some() {
@@ -164,9 +170,7 @@ impl Server {
         }
 
         self.announced = true;
-        let mut stdout = std::io::stdout().lock();
-        writeln!(stdout, "opencode server listening on http://127.0.0.1:{}", self.port).ok();
-        stdout.flush().ok();
+        print(&format!("opencode server listening on http://127.0.0.1:{}", self.port));
     }
 
     fn expect(&mut self, route: &str, step: &Value) {
@@ -272,6 +276,13 @@ impl Server {
     fn exit(&self, code: i32) -> ! {
         std::process::exit(if self.failed { 4 } else { code });
     }
+}
+
+/// Prints `line` to stdout at once.
+fn print(line: &str) {
+    let mut stdout = std::io::stdout().lock();
+    writeln!(stdout, "{line}").ok();
+    stdout.flush().ok();
 }
 
 /// Why `request` does not fit `route` and `expected`, if it does not.

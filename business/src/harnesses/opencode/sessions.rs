@@ -37,6 +37,7 @@ use crate::agent::rfc3339;
 use crate::error::{BusinessError, Result};
 use crate::harness::{CliSessionCtx, CliSessions, Harness};
 use crate::model::{HarnessId, SessionMessagesPage, SessionRef, SessionSummary};
+use crate::opencode_server::mapper::project_dir;
 use crate::pi_family::normalize::plain_text;
 use crate::pi_family::sessions::{is_safe_session_id, page_range};
 use crate::process::{ExecOutput, ExecSpec, launcher_search_dirs};
@@ -326,7 +327,7 @@ fn summary_of(entry: &Value, project: &Path) -> Option<(i64, SessionSummary)> {
         .and_then(Value::as_str)
         .filter(|id| is_opencode_id(id))?;
     let directory = entry.get("directory").and_then(Value::as_str)?;
-    transcript::project_dir(directory, project)?;
+    project_dir(directory, project)?;
 
     let millis = |key: &str| entry.get(key).and_then(Value::as_i64).filter(|time| *time >= 0);
     let updated = millis("updated").or_else(|| millis("created")).unwrap_or(0);

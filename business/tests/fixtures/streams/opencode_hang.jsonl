@@ -1,0 +1,4 @@
+// A started OpenCode chat that answers the catalog GETs and waits to be stopped (it ignores stdin
+// EOF like `opencode serve`, so only SIGTERM or a kill ends it).
+{"include":"opencode_startup.jsonl"}
+{"hang":true}

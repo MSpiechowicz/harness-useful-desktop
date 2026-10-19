@@ -20,7 +20,8 @@ use super::{BLOCKING_TIMEOUT, DEFAULT_TIMEOUT, HttpError, MAX_BODY_BYTES, Method
 use crate::opencode_server::routes::Route;
 use crate::pi_family::rpc::MAX_FRAME_BYTES;
 
-/// The Basic auth user name (`OPENCODE_SERVER_USERNAME` is never set, so OpenCode's default).
+/// The Basic auth user name (OpenCode's default; the engine also sets `OPENCODE_SERVER_USERNAME`
+/// to it).
 const USERNAME: &str = "opencode";
 
 /// The password of one `opencode serve` (`OPENCODE_SERVER_PASSWORD`). `Debug` never shows it and

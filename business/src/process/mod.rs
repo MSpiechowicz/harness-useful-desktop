@@ -408,7 +408,18 @@ fn kill_tree(child: &mut Child) -> Result<()> {
 /// Sends SIGKILL to the process group led by `pid` (the child was spawned with `process_group(0)`).
 #[cfg(unix)]
 fn kill_group(pid: u32) {
-    use nix::sys::signal::{Signal, killpg};
+    signal_group(pid, nix::sys::signal::Signal::SIGKILL);
+}
+
+/// Sends SIGTERM to the process group led by `pid`, asking it to shut down.
+#[cfg(unix)]
+fn terminate_group(pid: u32) {
+    signal_group(pid, nix::sys::signal::Signal::SIGTERM);
+}
+
+#[cfg(unix)]
+fn signal_group(pid: u32, signal: nix::sys::signal::Signal) {
+    use nix::sys::signal::killpg;
     use nix::unistd::Pid;
 
     let Ok(raw) = i32::try_from(pid) else {
@@ -416,7 +427,7 @@ fn kill_group(pid: u32) {
     };
 
     // ESRCH (group already gone) is the expected race; anything else is not actionable here.
-    if let Err(error) = killpg(Pid::from_raw(raw), Signal::SIGKILL)
+    if let Err(error) = killpg(Pid::from_raw(raw), signal)
         && error != nix::errno::Errno::ESRCH
     {
         tracing::debug!(%error, "killpg failed");

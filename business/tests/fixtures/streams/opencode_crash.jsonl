@@ -1,0 +1,4 @@
+// A started OpenCode chat whose server exits with code 3 right away.
+{"include":"opencode_startup.jsonl"}
+{"sleep":200}
+{"exit":3}

@@ -167,7 +167,7 @@ rules, the user's config applies.
 | 8 | Approvals, questions, approval modes | backend | `feat(opencode): approvals, questions and per-chat approval modes` | todo |
 | 9 | Session ops: new, fork, clone, rename, compact, export, stats, last text, shell, images | backend | `feat(opencode): session actions, export, stats and !commands` | todo |
 | 10 | Harness wiring: launch spec, `chat_protocol`, capabilities, catalog | backend | `feat(opencode): enable chat for the OpenCode harness` | todo |
-| 11 | Hooks and routines (+ harness-useful-memory commit) | backend | `feat(routines): OpenCode agent routines and hooks` | todo |
+| 11 | Hooks and routines (memory side done: harness-useful-memory `feat/opencode-routines` 37b53d7, unpushed). Desktop: mirror its 3 routine fixtures (`valid-opencode-agent.json` renamed from `invalid-agent-harness-opencode.json`, `valid-opencode-approval-write.json`, `invalid-agent-trust-once-with-opencode.json`), fix `hooks_mcp/routine_tools.rs` approvalMode text | backend | `feat(routines): OpenCode agent routines and hooks` | todo |
 | 12 | UI: agent picker, Preview badge, approval badge, routine form, onboarding, 5 locales | frontend | `feat(ui): OpenCode chat with agent picker and Preview badge` | todo |
 | 13 | Guard rules and docs | general | `docs(opencode): native chat architecture, security and formats` | todo |
 | 14 | Full verification, reviews, `cargo clean`, final commit | main | — | todo |

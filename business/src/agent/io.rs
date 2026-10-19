@@ -15,6 +15,7 @@ use crate::model::AgentEvent;
 use crate::pi_family::rpc::{
     DecodeState, Frame, FrameReader, Inbound, PendingRequests, RequestKind, RpcDialect, encode_frame,
 };
+use crate::security::mask_secret;
 
 /// Stderr lines kept for startup error messages.
 const STDERR_TAIL: usize = 5;
@@ -38,6 +39,9 @@ pub(crate) struct Shared {
     project_change: Mutex<Option<PathBuf>>,
     /// Told in event order when the agent takes the next prompt.
     prompt_taken: Mutex<Option<PromptTaken>>,
+    /// A secret the agent has in its environment (the OpenCode server password), masked in every
+    /// event.
+    secret: Option<String>,
 }
 
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -45,7 +49,11 @@ fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
 }
 
 impl Shared {
-    pub fn new(writer: mpsc::Sender<WriterMsg>, events: mpsc::UnboundedSender<EmitMsg>) -> Self {
+    pub fn new(
+        writer: mpsc::Sender<WriterMsg>,
+        events: mpsc::UnboundedSender<EmitMsg>,
+        secret: Option<String>,
+    ) -> Self {
         Self {
             writer,
             pending: PendingRequests::default(),
@@ -54,6 +62,7 @@ impl Shared {
             stderr_tail: Mutex::new(VecDeque::new()),
             project_change: Mutex::new(None),
             prompt_taken: Mutex::new(None),
+            secret,
         }
     }
 
@@ -63,13 +72,55 @@ impl Shared {
         *lock(&self.prompt_taken) = Some(taken);
     }
 
+    /// Runs the call set by [`Shared::on_prompt_taken`], if any, after the events sent so far.
+    pub fn prompt_taken_now(&self) {
+        if let Some(taken) = lock(&self.prompt_taken).take() {
+            self.events.send(EmitMsg::Call(taken)).ok();
+        }
+    }
+
     /// Makes the reader resolve paths (touched files) against `project` from the next frame on.
     pub fn change_project(&self, project: PathBuf) {
         *lock(&self.project_change) = Some(project);
     }
 
     pub fn emit(&self, event: AgentEvent) {
-        self.events.send(EmitMsg::Event(Box::new(event))).ok();
+        self.events.send(EmitMsg::Event(Box::new(self.masked(event)))).ok();
+    }
+
+    /// Ends startup: delivers `first`, then the events held back meanwhile.
+    pub fn open(&self, first: Vec<AgentEvent>) {
+        let first = first.into_iter().map(|event| self.masked(event)).collect();
+        self.events.send(EmitMsg::Open(first)).ok();
+    }
+
+    /// `text` with the secret masked (see [`mask_secret`]); `cut` when it was truncated.
+    pub fn mask(&self, text: &str, cut: bool) -> String {
+        match &self.secret {
+            Some(secret) => mask_secret(text, secret, cut),
+            None => text.to_owned(),
+        }
+    }
+
+    /// `event` with the secret masked in every text it carries. The secret is plain hex, so it
+    /// is replaced in the event's JSON and the event read back.
+    fn masked(&self, event: AgentEvent) -> AgentEvent {
+        let Some(secret) = &self.secret else {
+            return event;
+        };
+
+        let Ok(json) = serde_json::to_string(&event) else {
+            return event;
+        };
+
+        if !json.contains(secret.as_str()) {
+            return event;
+        }
+
+        serde_json::from_str(&mask_secret(&json, secret, false)).unwrap_or_else(|_| AgentEvent::FrameError {
+            original_type: None,
+            error: "an event that held a secret was dropped".to_owned(),
+        })
     }
 
     pub fn has_open_dialog(&self) -> bool {
@@ -163,9 +214,7 @@ async fn route(
                     shared.emit(event);
                 }
 
-                if let Some(taken) = lock(&shared.prompt_taken).take() {
-                    shared.events.send(EmitMsg::Call(taken)).ok();
-                }
+                shared.prompt_taken_now();
             }
 
             shared.pending.resolve(response);

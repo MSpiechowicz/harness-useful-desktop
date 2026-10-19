@@ -5,9 +5,15 @@
 //!   loopback addresses, with Basic auth, size caps and deadlines.
 //! - [`routes`]: the closed [`Route`] allowlist, the only requests the client can make, and the
 //!   checked ids they take.
+//! - [`wire`]: the server's JSON read field by field, and the prompt body.
+//! - [`mapper`]: the server's events as chat events ([`Mapper`]), and the OpenCode message
+//!   conversion the CLI transcript shares.
 
 pub mod http;
+pub mod mapper;
 pub mod routes;
+pub mod wire;
 
 pub use http::{ClientOptions, EventStream, HttpError, Method, OpenCodeClient, Response, ServerPassword, SseFault};
+pub use mapper::{Mapped, Mapper};
 pub use routes::{MessageId, PermissionId, QuestionId, Route, RouteError, SessionId};

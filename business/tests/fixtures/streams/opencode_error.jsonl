@@ -1,0 +1,14 @@
+// A prompt with an unknown model, as recorded: busy, session.error, idle, then the same error again
+// with a stack trace (not shown twice), then an unrelated error outside a turn (a notice).
+// Last, a title change marks the end of the scenario.
+{"include":"opencode_startup.jsonl"}
+{"expect":"POST /session/ses_eaa561636ffezINnnn1ghd5370/prompt_async","match":{"/parts/0/type":"text","/parts/0/text":"Say hello","/agent":"build"},"reply":{"recording":"../opencode/server/prompt-async.json"}}
+{"sse":{"type":"message.updated","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","info":{"id":"msg_155a9eeb3001SWCCbgpm0fXcQJ","role":"user","sessionID":"ses_eaa561636ffezINnnn1ghd5370","time":{"created":1792438562480},"agent":"build","model":{"providerID":"mock","modelID":"m1"}}}}}
+{"sse":{"type":"message.part.updated","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","part":{"type":"text","text":"Say hello","messageID":"msg_155a9eeb3001SWCCbgpm0fXcQJ","sessionID":"ses_eaa561636ffezINnnn1ghd5370","id":"prt_x1"}}}}
+{"sse":{"type":"session.status","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","status":{"type":"busy"}}}}
+{"sse":{"type":"session.error","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","error":{"name":"UnknownError","data":{"message":"Model not found: nope/missing. Did you mean: standardcompute?"}}}}}
+{"sse":{"type":"session.status","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","status":{"type":"idle"}}}}
+{"sse":{"type":"session.idle","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370"}}}
+{"sse":{"type":"session.error","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","error":{"name":"UnknownError","data":{"message":"ProviderModelNotFoundError: Model not found: nope/missing. Did you mean: standardcompute?\n    at <anonymous> (/$bunfs/root/chunk-3w3d1rw9.js:2:65664)"}}}}}
+{"sse":{"type":"session.error","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","error":{"name":"ProviderAuthError","data":{"providerID":"mock","message":"Bad credentials"}}}}}
+{"sse":{"type":"session.updated","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","info":{"id":"ses_eaa561636ffezINnnn1ghd5370","directory":"$directory","title":"Marker","agent":"build","model":{"id":"m1","providerID":"mock","variant":"default"},"time":{"created":1,"updated":2}}}}}

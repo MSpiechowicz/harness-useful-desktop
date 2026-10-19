@@ -105,6 +105,10 @@ impl ChildHandle for CountedChild {
     fn start_kill(&mut self) -> harness_business::Result<()> {
         self.inner.start_kill()
     }
+
+    fn terminate(&mut self) {
+        self.inner.terminate();
+    }
 }
 
 /// A temporary project with a `src/` directory (touched-path containment needs it).
@@ -179,11 +183,15 @@ impl Run {
 
     /// Waits for an event matching `predicate`; panics after [`WAIT`].
     pub async fn wait(&self, what: &str, predicate: impl Fn(&AgentEvent) -> bool) -> AgentEvent {
-        self.sink
-            .wait_for(WAIT, predicate)
-            .await
-            .unwrap_or_else(|| panic!("no {what} event; got {:#?}", self.events()))
+        wait_event(&self.sink, what, predicate).await
     }
+}
+
+/// Waits for an event of `sink` matching `predicate`; panics after [`WAIT`].
+pub async fn wait_event(sink: &CollectingSink, what: &str, predicate: impl Fn(&AgentEvent) -> bool) -> AgentEvent {
+    sink.wait_for(WAIT, predicate)
+        .await
+        .unwrap_or_else(|| panic!("no {what} event; got {:#?}", sink.events()))
 }
 
 /// The start request for `harness` in `project`.

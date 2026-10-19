@@ -2,7 +2,7 @@
 //! [`ChatProtocol`] at start and forwards every call to it.
 //!
 //! - RPC ([`RpcSession`]): OMP and PI in `--mode rpc`.
-//! - OpenCode server ([`OpenCodeSession`]): `opencode serve`, not available yet.
+//! - OpenCode server ([`OpenCodeSession`]): `opencode serve` (the manager does not offer it yet).
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;

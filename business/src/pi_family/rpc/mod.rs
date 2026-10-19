@@ -17,7 +17,7 @@ use crate::error::Result;
 use crate::harness::CommandCatalog;
 use crate::model::{AgentAction, AgentEvent, ChatMessage, HarnessId, UiRequest, UiResponse};
 
-pub use codec::{Frame, FrameFault, FrameReader, LineSplitter, MAX_FRAME_BYTES, encode_frame, parse_frame};
+pub use codec::{Frame, FrameFault, FrameReader, Line, LineSplitter, MAX_FRAME_BYTES, encode_frame, parse_frame};
 
 /// Everything a dialect implementation needs: `use crate::pi_family::rpc::prelude::*;`.
 pub mod prelude {

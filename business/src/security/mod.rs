@@ -12,4 +12,4 @@ mod rules;
 
 pub use deny::{DenyReason, SafeReader, is_denied};
 pub use paths::{canonical_within, is_safe_arg, validate_project_dir};
-pub use redact::{RedactionContext, Redactor, redact_text};
+pub use redact::{RedactionContext, Redactor, mask_secret, redact_text};

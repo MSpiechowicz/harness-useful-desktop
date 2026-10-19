@@ -1,11 +1,14 @@
 //! The OpenCode command catalog: the built-in slash commands of OpenCode 1.19.3 (the server's
 //! `/init` and `/review`, and the terminal UI's commands).
 //!
-//! Chat with OpenCode is not available in the desktop app yet, so every command, the shared ones
-//! included, is listed as unsupported with that reason. Custom commands appear in the extensions
-//! view.
+//! Chat with OpenCode is not available in the desktop app yet, so every built-in command, the
+//! shared ones included, is listed as unsupported with that reason. Custom commands appear in the
+//! extensions view. A running server's `GET /command` list (custom commands, MCP prompts and
+//! skills) is sent as `/name args` prompt text.
 
-use crate::harness::{CommandCatalog, SharedCommand, spec, unsupported};
+use serde_json::Value;
+
+use crate::harness::{CommandCatalog, SharedCommand, parse_live_commands, spec, unsupported};
 use crate::model::{CommandInvocation, CommandSource, CommandSpec};
 
 /// Why no OpenCode command runs from the desktop app.
@@ -70,5 +73,19 @@ impl CommandCatalog for OpenCodeCatalog {
 
     fn map_shared(&self, _command: SharedCommand) -> CommandInvocation {
         unsupported(CHAT_COMING_SOON)
+    }
+
+    fn parse_live(&self, raw: &[Value]) -> Vec<CommandSpec> {
+        parse_live_commands(raw, live_source, |_| CommandInvocation::PromptText)
+    }
+}
+
+/// `GET /command` source labels.
+fn live_source(label: &str) -> Option<CommandSource> {
+    match label {
+        "command" => Some(CommandSource::Custom),
+        "mcp" => Some(CommandSource::McpPrompt),
+        "skill" => Some(CommandSource::Skill),
+        _ => None,
     }
 }

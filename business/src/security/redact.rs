@@ -217,3 +217,31 @@ pub fn redact_text(text: &str) -> String {
     out.push_str(rest);
     out
 }
+
+/// Shortest trailing piece of a secret [`mask_secret`] masks in a cut text.
+const MIN_SECRET_PIECE: usize = 4;
+
+/// `text` with every occurrence of `secret` masked. A `cut` text (truncated to a size limit) also
+/// loses a trailing piece of at least [`MIN_SECRET_PIECE`] bytes that starts `secret`, so a
+/// password cut in half does not show either. An empty `secret` changes nothing.
+pub fn mask_secret(text: &str, secret: &str, cut: bool) -> String {
+    if secret.is_empty() {
+        return text.to_owned();
+    }
+
+    let mut masked = text.replace(secret, super::rules::MASK);
+
+    if cut {
+        let start = (MIN_SECRET_PIECE..secret.len().min(masked.len() + 1))
+            .rev()
+            .map(|length| masked.len() - length)
+            .find(|start| masked.is_char_boundary(*start) && secret.starts_with(&masked[*start..]));
+
+        if let Some(start) = start {
+            masked.truncate(start);
+            masked.push_str(super::rules::MASK);
+        }
+    }
+
+    masked
+}

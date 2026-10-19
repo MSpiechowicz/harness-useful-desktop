@@ -5,9 +5,9 @@ use std::process::Stdio;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::process::Child;
 
-#[cfg(unix)]
-use super::kill_group;
 use super::{BoxFuture, ExecSpec, ExitInfo, build_command, kill_tree, spawn_command};
+#[cfg(unix)]
+use super::{kill_group, terminate_group};
 use crate::error::{BusinessError, Result};
 
 /// Control over a spawned child, independent of how it was created.
@@ -29,6 +29,11 @@ pub trait ChildHandle: Send {
     /// The group id stays reserved while any member lives, so this reaches only the child's group;
     /// once every member is gone the id is free and could in theory be taken by a new group.
     fn kill_process_group(&mut self) {}
+
+    /// Asks the child to shut down without waiting: SIGTERM to its process group on Unix while it
+    /// was not reaped. Windows has no such request, so its process tree is killed at once. A no-op
+    /// by default; servers that ignore stdin EOF (`opencode serve`) stop this way.
+    fn terminate(&mut self) {}
 }
 
 /// The stdio streams and control handle of a spawned child.
@@ -112,6 +117,16 @@ impl ChildHandle for TokioChild {
 
     fn start_kill(&mut self) -> Result<()> {
         kill_tree(&mut self.child)
+    }
+
+    fn terminate(&mut self) {
+        #[cfg(unix)]
+        if let Some(pid) = self.child.id() {
+            terminate_group(pid);
+        }
+
+        #[cfg(not(unix))]
+        kill_tree(&mut self.child).ok();
     }
 
     fn kill_process_group(&mut self) {

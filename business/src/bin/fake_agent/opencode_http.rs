@@ -79,6 +79,8 @@ pub struct Reply {
 pub struct Shared {
     /// `user:password` a request must present, `None` without `OPENCODE_SERVER_PASSWORD`.
     credentials: Option<String>,
+    /// `OPENCODE_SERVER_PASSWORD`, for `"$password"`.
+    password: Option<String>,
     /// `allow` rules: route pattern and reply, newest last.
     pub allows: Mutex<Vec<(String, Value)>>,
     /// Open `/global/event` streams.
@@ -95,7 +97,8 @@ impl Shared {
         let user = std::env::var("OPENCODE_SERVER_USERNAME").unwrap_or_else(|_| "opencode".to_owned());
 
         Self {
-            credentials: password.map(|password| format!("{user}:{password}")),
+            credentials: password.as_ref().map(|password| format!("{user}:{password}")),
+            password,
             allows: Mutex::default(),
             subscribers: Mutex::default(),
             directory: Mutex::default(),
@@ -103,7 +106,7 @@ impl Shared {
     }
 
     /// Replaces `"$directory"` with the directory of the last routed request (the working
-    /// directory before any).
+    /// directory before any) and `"$password"` with the server password.
     pub fn substitute(&self, value: &Value) -> Value {
         let directory = lock(&self.directory).clone().unwrap_or_else(|| {
             std::env::current_dir()
@@ -111,7 +114,19 @@ impl Shared {
                 .unwrap_or_default()
         });
 
-        crate::substitute(value, &|name| (name == "directory").then(|| json!(directory)))
+        crate::substitute(value, &|name| match name {
+            "directory" => Some(json!(directory)),
+            _ => self.password_value(name),
+        })
+    }
+
+    /// Replaces only `"$password"`, which never changes.
+    pub fn substitute_password(&self, value: &Value) -> Value {
+        crate::substitute(value, &|name| self.password_value(name))
+    }
+
+    fn password_value(&self, name: &str) -> Option<Value> {
+        (name == "password").then(|| json!(self.password.clone().unwrap_or_default()))
     }
 
     /// The reply `{"status", "body", "headers"}` describes (`$directory` substituted). Without a
