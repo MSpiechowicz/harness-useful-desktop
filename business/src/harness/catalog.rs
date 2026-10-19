@@ -187,6 +187,17 @@ pub fn parse_live_commands(
     commands
 }
 
+/// A harness's own command: name, description, argument hint and how the desktop runs it.
+pub type Builtin = (&'static str, &'static str, Option<&'static str>, CommandInvocation);
+
+/// The [`CommandSource::Builtin`] specs of `builtins`, in order.
+pub fn builtin_specs(builtins: Vec<Builtin>) -> Vec<CommandSpec> {
+    builtins
+        .into_iter()
+        .map(|(name, description, hint, invocation)| spec(name, description, hint, CommandSource::Builtin, invocation))
+        .collect()
+}
+
 /// Builds a [`CommandSpec`].
 pub fn spec(
     name: &str,

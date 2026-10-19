@@ -98,7 +98,7 @@
       "homepage": "https://opencode.ai"
     },
     "capabilities": {
-      "chat": false,
+      "chat": true,
       "plugins": true,
       "marketplaces": false,
       "packages": false,
@@ -110,14 +110,14 @@
       "themes": true,
       "cliActions": false,
       "profiles": false,
-      "approvalModes": false,
+      "approvalModes": true,
       "projectTrust": false,
-      "slashCommandsViaPrompt": false,
+      "slashCommandsViaPrompt": true,
       "sessionTree": false,
       "moveSession": false,
-      "removeQueued": false,
-      "agentPicker": false,
-      "chatPreview": false
+      "removeQueued": true,
+      "agentPicker": true,
+      "chatPreview": true
     },
     "detection": {
       "installed": true,

@@ -29,7 +29,10 @@ mod detect;
 mod launch;
 mod registry;
 
-pub use catalog::{CommandCatalog, SharedCommand, gui, merge_commands, parse_live_commands, rpc, spec, unsupported};
+pub use catalog::{
+    Builtin, CommandCatalog, SharedCommand, builtin_specs, gui, merge_commands, parse_live_commands, rpc, spec,
+    unsupported,
+};
 pub(crate) use cli::clean;
 pub use cli::{
     CLI_ACTION_TIMEOUT, CliInvocation, CliRun, MAX_CLI_TARGET_CHARS, TargetKind, cli_target, optional_cli_target,
@@ -330,7 +333,8 @@ pub trait Harness: Send + Sync {
     }
 
     /// The approval mode the user configured for `project` (harnesses with
-    /// `capabilities.approvalModes`); `None` when the harness has no approval modes.
+    /// `capabilities.approvalModes`); `None` when the harness has no approval modes or its own
+    /// settings decide without one (OpenCode).
     fn configured_approval_mode(&self, _env: &Env, _project: Option<&Path>) -> Option<ApprovalMode> {
         None
     }

@@ -141,24 +141,79 @@ fn pi_terminal_builtins_map_to_rpc_views_or_unsupported() {
 }
 
 #[test]
-fn opencode_commands_are_listed_but_unsupported_until_chat_arrives() {
+fn opencode_terminal_commands_map_to_chat_actions_views_or_unsupported() {
     let merged = OpenCode.catalog().merged(&[]);
-    let coming_soon = CommandInvocation::Unsupported {
-        reason: "Chat with OpenCode is coming soon.".to_owned(),
-    };
+    let invocation = |name: &str| find(&merged, name).invocation.clone();
+    let view = |target| CommandInvocation::Gui { target };
+
+    assert_eq!(invocation("new"), rpc(AgentActionKind::NewSession));
+    assert_eq!(invocation("compact"), rpc(AgentActionKind::Compact));
+    assert_eq!(invocation("rename"), rpc(AgentActionKind::SetSessionName));
+    assert_eq!(invocation("name"), rpc(AgentActionKind::SetSessionName));
+    assert_eq!(invocation("export"), rpc(AgentActionKind::ExportHtml));
+    assert_eq!(invocation("copy"), rpc(AgentActionKind::GetLastAssistantText));
+    assert_eq!(invocation("abort"), rpc(AgentActionKind::Abort));
+    assert_eq!(invocation("fork"), view(GuiTarget::ForkPicker));
+    assert_eq!(invocation("sessions"), view(GuiTarget::ResumePicker));
+    assert_eq!(invocation("resume"), view(GuiTarget::ResumePicker));
+    assert_eq!(invocation("models"), view(GuiTarget::ModelPicker));
+    assert_eq!(invocation("model"), view(GuiTarget::ModelPicker));
+    assert_eq!(invocation("variants"), view(GuiTarget::ThinkingPicker));
+    assert_eq!(invocation("thinking"), view(GuiTarget::ThinkingPicker));
+    assert_eq!(invocation("agents"), view(GuiTarget::AgentPicker));
+    assert_eq!(invocation("agent"), view(GuiTarget::AgentPicker));
 
     for name in [
-        "init", "review", "undo", "redo", "models", "agents", "help", "new", "compact",
+        "undo", "redo", "timeline", "move", "mcps", "skills", "connect", "themes", "editor", "status", "help", "exit",
     ] {
-        assert_eq!(find(&merged, name).source, CommandSource::Builtin, "/{name}");
+        assert!(
+            matches!(invocation(name), CommandInvocation::Unsupported { reason } if !reason.contains("coming soon")),
+            "/{name} must be unsupported with a reason"
+        );
     }
 
-    for name in ["model", "name", "abort"] {
-        assert_eq!(find(&merged, name).source, CommandSource::Shared, "/{name}");
-    }
+    let prompt_text = merged
+        .iter()
+        .filter(|command| command.invocation == CommandInvocation::PromptText)
+        .count();
+    assert_eq!(prompt_text, 0, "terminal commands are never sent as prompt text");
+}
+
+#[test]
+fn opencode_server_commands_come_from_the_live_list_as_prompt_text() {
+    let live = [
+        json!({ "name": "init", "description": "guided AGENTS.md setup", "source": "command" }),
+        json!({ "name": "review", "source": "command", "subtask": true }),
+        json!({ "name": "github:triage", "source": "mcp" }),
+        json!({ "name": "customize-opencode", "source": "skill" }),
+        json!({ "name": "export", "source": "command" }),
+        json!({ "name": "tui-only", "source": "tui" }),
+    ];
 
     assert!(
-        merged.iter().all(|command| command.invocation == coming_soon),
-        "no OpenCode command runs yet"
+        OpenCode
+            .catalog()
+            .merged(&[])
+            .iter()
+            .all(|command| command.name != "init")
     );
+
+    let merged = OpenCode.catalog().merged(&live);
+    for (name, source) in [
+        ("init", CommandSource::Custom),
+        ("review", CommandSource::Custom),
+        ("github:triage", CommandSource::McpPrompt),
+        ("customize-opencode", CommandSource::Skill),
+    ] {
+        assert_eq!(find(&merged, name).source, source, "/{name}");
+        assert_eq!(find(&merged, name).invocation, CommandInvocation::PromptText, "/{name}");
+    }
+    assert_eq!(find(&merged, "init").description, "guided AGENTS.md setup");
+
+    assert_eq!(
+        find(&merged, "export").invocation,
+        rpc(AgentActionKind::ExportHtml),
+        "a terminal command keeps its mapping"
+    );
+    assert!(merged.iter().all(|command| command.name != "tui-only"));
 }

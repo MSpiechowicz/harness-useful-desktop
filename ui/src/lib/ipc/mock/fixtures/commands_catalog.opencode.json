@@ -1,52 +1,42 @@
 [
   {
-    "name": "init",
-    "description": "Create or update AGENTS.md for this project",
-    "argumentHint": null,
-    "source": "builtin",
-    "invocation": {
-      "kind": "unsupported",
-      "reason": "Chat with OpenCode is coming soon."
-    }
-  },
-  {
-    "name": "review",
-    "description": "Review changes, by default the uncommitted ones",
-    "argumentHint": "[commit|branch|pr]",
-    "source": "builtin",
-    "invocation": {
-      "kind": "unsupported",
-      "reason": "Chat with OpenCode is coming soon."
-    }
-  },
-  {
     "name": "new",
     "description": "Start a new session",
     "argumentHint": null,
     "source": "builtin",
     "invocation": {
-      "kind": "unsupported",
-      "reason": "Chat with OpenCode is coming soon."
+      "kind": "rpc",
+      "action": "newSession"
     }
   },
   {
     "name": "sessions",
-    "description": "Switch session",
+    "description": "Switch to another saved session",
     "argumentHint": null,
     "source": "builtin",
     "invocation": {
-      "kind": "unsupported",
-      "reason": "Chat with OpenCode is coming soon."
+      "kind": "gui",
+      "target": "resumePicker"
+    }
+  },
+  {
+    "name": "resume",
+    "description": "Switch to another saved session",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "gui",
+      "target": "resumePicker"
     }
   },
   {
     "name": "rename",
     "description": "Rename the session",
-    "argumentHint": null,
+    "argumentHint": "<name>",
     "source": "builtin",
     "invocation": {
-      "kind": "unsupported",
-      "reason": "Chat with OpenCode is coming soon."
+      "kind": "rpc",
+      "action": "setSessionName"
     }
   },
   {
@@ -55,8 +45,78 @@
     "argumentHint": null,
     "source": "builtin",
     "invocation": {
-      "kind": "unsupported",
-      "reason": "Chat with OpenCode is coming soon."
+      "kind": "rpc",
+      "action": "compact"
+    }
+  },
+  {
+    "name": "fork",
+    "description": "Create a new session from an earlier message",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "gui",
+      "target": "forkPicker"
+    }
+  },
+  {
+    "name": "export",
+    "description": "Export the session as HTML",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "rpc",
+      "action": "exportHtml"
+    }
+  },
+  {
+    "name": "copy",
+    "description": "Copy the last assistant message",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "rpc",
+      "action": "getLastAssistantText"
+    }
+  },
+  {
+    "name": "models",
+    "description": "Choose the model",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "gui",
+      "target": "modelPicker"
+    }
+  },
+  {
+    "name": "variants",
+    "description": "Choose the model variant",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "gui",
+      "target": "thinkingPicker"
+    }
+  },
+  {
+    "name": "agents",
+    "description": "Switch agent",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "gui",
+      "target": "agentPicker"
+    }
+  },
+  {
+    "name": "agent",
+    "description": "Switch agent",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "gui",
+      "target": "agentPicker"
     }
   },
   {
@@ -66,7 +126,7 @@
     "source": "builtin",
     "invocation": {
       "kind": "unsupported",
-      "reason": "Chat with OpenCode is coming soon."
+      "reason": "Only in the OpenCode terminal app. Fork from an earlier message instead."
     }
   },
   {
@@ -76,17 +136,7 @@
     "source": "builtin",
     "invocation": {
       "kind": "unsupported",
-      "reason": "Chat with OpenCode is coming soon."
-    }
-  },
-  {
-    "name": "fork",
-    "description": "Fork the session",
-    "argumentHint": null,
-    "source": "builtin",
-    "invocation": {
-      "kind": "unsupported",
-      "reason": "Chat with OpenCode is coming soon."
+      "reason": "Only in the OpenCode terminal app."
     }
   },
   {
@@ -96,57 +146,17 @@
     "source": "builtin",
     "invocation": {
       "kind": "unsupported",
-      "reason": "Chat with OpenCode is coming soon."
+      "reason": "Only in the OpenCode terminal app."
     }
   },
   {
-    "name": "copy",
-    "description": "Copy the session transcript",
+    "name": "move",
+    "description": "Move the session to another copy of the project",
     "argumentHint": null,
     "source": "builtin",
     "invocation": {
       "kind": "unsupported",
-      "reason": "Chat with OpenCode is coming soon."
-    }
-  },
-  {
-    "name": "export",
-    "description": "Export the session transcript",
-    "argumentHint": null,
-    "source": "builtin",
-    "invocation": {
-      "kind": "unsupported",
-      "reason": "Chat with OpenCode is coming soon."
-    }
-  },
-  {
-    "name": "models",
-    "description": "Switch model",
-    "argumentHint": null,
-    "source": "builtin",
-    "invocation": {
-      "kind": "unsupported",
-      "reason": "Chat with OpenCode is coming soon."
-    }
-  },
-  {
-    "name": "variants",
-    "description": "Switch model variant",
-    "argumentHint": null,
-    "source": "builtin",
-    "invocation": {
-      "kind": "unsupported",
-      "reason": "Chat with OpenCode is coming soon."
-    }
-  },
-  {
-    "name": "agents",
-    "description": "Switch agent",
-    "argumentHint": null,
-    "source": "builtin",
-    "invocation": {
-      "kind": "unsupported",
-      "reason": "Chat with OpenCode is coming soon."
+      "reason": "Only in the OpenCode terminal app."
     }
   },
   {
@@ -156,7 +166,7 @@
     "source": "builtin",
     "invocation": {
       "kind": "unsupported",
-      "reason": "Chat with OpenCode is coming soon."
+      "reason": "Only in the OpenCode terminal app."
     }
   },
   {
@@ -166,7 +176,7 @@
     "source": "builtin",
     "invocation": {
       "kind": "unsupported",
-      "reason": "Chat with OpenCode is coming soon."
+      "reason": "Skills are listed with the other slash commands."
     }
   },
   {
@@ -176,7 +186,7 @@
     "source": "builtin",
     "invocation": {
       "kind": "unsupported",
-      "reason": "Chat with OpenCode is coming soon."
+      "reason": "Connect providers from a terminal: run opencode and use /connect."
     }
   },
   {
@@ -186,17 +196,7 @@
     "source": "builtin",
     "invocation": {
       "kind": "unsupported",
-      "reason": "Chat with OpenCode is coming soon."
-    }
-  },
-  {
-    "name": "thinking",
-    "description": "Expand or collapse thinking",
-    "argumentHint": null,
-    "source": "builtin",
-    "invocation": {
-      "kind": "unsupported",
-      "reason": "Chat with OpenCode is coming soon."
+      "reason": "Only in the OpenCode terminal app."
     }
   },
   {
@@ -206,7 +206,7 @@
     "source": "builtin",
     "invocation": {
       "kind": "unsupported",
-      "reason": "Chat with OpenCode is coming soon."
+      "reason": "Only in the OpenCode terminal app."
     }
   },
   {
@@ -216,7 +216,7 @@
     "source": "builtin",
     "invocation": {
       "kind": "unsupported",
-      "reason": "Chat with OpenCode is coming soon."
+      "reason": "Only in the OpenCode terminal app."
     }
   },
   {
@@ -226,7 +226,7 @@
     "source": "builtin",
     "invocation": {
       "kind": "unsupported",
-      "reason": "Chat with OpenCode is coming soon."
+      "reason": "Only in the OpenCode terminal app."
     }
   },
   {
@@ -236,7 +236,7 @@
     "source": "builtin",
     "invocation": {
       "kind": "unsupported",
-      "reason": "Chat with OpenCode is coming soon."
+      "reason": "Only in the OpenCode terminal app."
     }
   },
   {
@@ -246,7 +246,7 @@
     "source": "builtin",
     "invocation": {
       "kind": "unsupported",
-      "reason": "Chat with OpenCode is coming soon."
+      "reason": "Only in the OpenCode terminal app."
     }
   },
   {
@@ -256,7 +256,7 @@
     "source": "builtin",
     "invocation": {
       "kind": "unsupported",
-      "reason": "Chat with OpenCode is coming soon."
+      "reason": "Stop the session from the desktop app instead."
     }
   },
   {
@@ -265,8 +265,18 @@
     "argumentHint": null,
     "source": "shared",
     "invocation": {
-      "kind": "unsupported",
-      "reason": "Chat with OpenCode is coming soon."
+      "kind": "gui",
+      "target": "modelPicker"
+    }
+  },
+  {
+    "name": "thinking",
+    "description": "Choose the thinking level",
+    "argumentHint": null,
+    "source": "shared",
+    "invocation": {
+      "kind": "gui",
+      "target": "thinkingPicker"
     }
   },
   {
@@ -275,8 +285,8 @@
     "argumentHint": "<name>",
     "source": "shared",
     "invocation": {
-      "kind": "unsupported",
-      "reason": "Chat with OpenCode is coming soon."
+      "kind": "rpc",
+      "action": "setSessionName"
     }
   },
   {
@@ -285,8 +295,8 @@
     "argumentHint": null,
     "source": "shared",
     "invocation": {
-      "kind": "unsupported",
-      "reason": "Chat with OpenCode is coming soon."
+      "kind": "rpc",
+      "action": "abort"
     }
   }
 ]

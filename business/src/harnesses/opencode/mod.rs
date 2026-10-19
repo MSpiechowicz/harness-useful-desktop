@@ -2,19 +2,21 @@
 //!
 //! Config and data follow the XDG directories (see [`paths`]). OpenCode keeps its sessions in a
 //! SQLite database that also holds credentials, so the app never opens it: sessions are listed,
-//! exported and deleted through the CLI ([`Harness::cli_sessions`]). Chat (driven through
-//! `opencode serve`, not the PI-family RPC) is not available yet, and extension actions are not
-//! offered. Every spawn
+//! exported and deleted through the CLI ([`Harness::cli_sessions`]). Chat runs one
+//! `opencode serve` per chat ([`ChatProtocol::OpenCodeServer`], see [`launch`]), not the
+//! PI-family RPC, and is marked as a preview. Extension actions are not offered. Every spawn
 //! switches off OpenCode's self-updater.
 
 mod catalog;
 mod config;
 mod extensions;
+mod launch;
 mod paths;
 mod sessions;
 mod setup;
 
 pub use catalog::OpenCodeCatalog;
+pub use launch::opencode_launch_spec;
 pub use paths::{PROJECT_DIR_NAME, config_dir, custom_config_dir, data_dir, home_config_dir};
 pub use sessions::OpenCodeSessions;
 
@@ -54,6 +56,12 @@ impl Harness for OpenCode {
             prompt_templates: true,
             agents: true,
             themes: true,
+            chat: true,
+            approval_modes: true,
+            slash_commands_via_prompt: true,
+            remove_queued: true,
+            agent_picker: true,
+            chat_preview: true,
             ..Capabilities::default()
         }
     }
@@ -74,13 +82,12 @@ impl Harness for OpenCode {
         &catalog::CATALOG
     }
 
-    fn launch_spec(&self, _request: &LaunchRequest<'_>) -> Result<ExecSpec> {
-        Err(BusinessError::Unsupported(
-            "chat with OpenCode is coming soon".to_owned(),
-        ))
+    /// `opencode serve` on a loopback port (see [`launch`]).
+    fn launch_spec(&self, request: &LaunchRequest<'_>) -> Result<ExecSpec> {
+        opencode_launch_spec(request)
     }
 
-    /// Never reached for chat: OpenCode chats over [`ChatProtocol::OpenCodeServer`].
+    /// Never reached for chat: OpenCode chats over [`ChatProtocol::OpenCodeServer`], not RPC.
     fn dialect(&self) -> &'static dyn RpcDialect {
         &PiDialect
     }
@@ -123,6 +130,12 @@ impl Harness for OpenCode {
 
     fn session_files_touched(&self, _env: &Env, _project: &Path, _session: &SessionRef) -> Result<Vec<String>> {
         Err(no_session_files())
+    }
+
+    /// `None`: OpenCode's own permission settings apply without an override, and the app does
+    /// not read them (the UI names "OpenCode settings" as the source).
+    fn configured_approval_mode(&self, _env: &Env, _project: Option<&Path>) -> Option<ApprovalMode> {
+        None
     }
 
     fn cli_sessions(&self) -> Option<&dyn CliSessions> {

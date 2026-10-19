@@ -5,8 +5,8 @@
  */
 export type Capabilities = { 
 /**
- * Chat sessions the app drives (an RPC launch and dialect); without it the UI shows that chat
- * is coming later.
+ * Chat sessions the app drives (a launch spec and a chat protocol); without it the UI shows
+ * that chat is coming later.
  */
 chat: boolean, 
 /**

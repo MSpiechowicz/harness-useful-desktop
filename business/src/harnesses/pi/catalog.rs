@@ -8,7 +8,7 @@
 
 use serde_json::Value;
 
-use crate::harness::{CommandCatalog, gui, parse_live_commands, rpc, spec, unsupported};
+use crate::harness::{Builtin, CommandCatalog, builtin_specs, gui, parse_live_commands, rpc, unsupported};
 use crate::model::{AgentActionKind, CommandInvocation, CommandSource, CommandSpec, GuiTarget};
 
 use AgentActionKind as Action;
@@ -19,12 +19,7 @@ pub struct PiCatalog;
 
 impl CommandCatalog for PiCatalog {
     fn native(&self) -> Vec<CommandSpec> {
-        builtins()
-            .into_iter()
-            .map(|(name, description, hint, invocation)| {
-                spec(name, description, hint, CommandSource::Builtin, invocation)
-            })
-            .collect()
+        builtin_specs(builtins())
     }
 
     fn parse_live(&self, raw: &[Value]) -> Vec<CommandSpec> {
@@ -41,8 +36,6 @@ fn live_source(label: &str) -> Option<CommandSource> {
         _ => None,
     }
 }
-
-type Builtin = (&'static str, &'static str, Option<&'static str>, CommandInvocation);
 
 fn builtins() -> Vec<Builtin> {
     vec![

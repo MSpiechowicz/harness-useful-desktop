@@ -1,6 +1,6 @@
 //! Starts the OpenCode chat engine directly ([`AgentSession::start`]) against the scripted
-//! `opencode serve` (`fake_agent --dialect opencode`): the manager does not offer OpenCode chat
-//! yet.
+//! `opencode serve` (`fake_agent --dialect opencode`). Starts through the manager are in
+//! `opencode_launch.rs`.
 #![allow(dead_code)]
 
 use std::path::PathBuf;

@@ -1,5 +1,5 @@
 //! Agent command lines per harness: RPC mode, approval override, trust once, resume and the
-//! utility helper, and the flags no launch may ever carry.
+//! utility helper, OpenCode's loopback server, and the flags no launch may ever carry.
 
 mod agent_support;
 
@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 
 use agent_support::binary;
 use harness_business::harness::{Harness, LaunchRequest};
-use harness_business::harnesses::{Omp, Pi};
+use harness_business::harnesses::{Omp, OpenCode, Pi};
 use harness_business::model::ApprovalMode;
 use harness_business::process::ResolvedBinary;
 use pretty_assertions::assert_eq;
@@ -83,6 +83,45 @@ fn a_utility_helper_runs_without_tools_session_or_thinking() {
     assert_eq!(args(&Pi, helper), expected);
 }
 
+/// Every OpenCode chat launch, whatever the request.
+const OPENCODE_SERVE: [&str; 6] = ["serve", "--hostname", "127.0.0.1", "--port", "0", "--mdns=false"];
+
+#[test]
+fn opencode_serves_on_a_loopback_port_and_sets_everything_else_over_http() {
+    let binary = binary();
+    let project = PathBuf::from("/work/demo");
+    let base = launch(&binary, &project);
+
+    assert_eq!(args(&OpenCode, base), OPENCODE_SERVE);
+
+    for request in [
+        LaunchRequest {
+            resume: Some("ses_eaa561636ffezINnnn1ghd5370"),
+            approval_override: Some(ApprovalMode::Yolo),
+            trust_once: true,
+            ..base
+        },
+        LaunchRequest { utility: true, ..base },
+    ] {
+        assert_eq!(args(&OpenCode, request), OPENCODE_SERVE);
+    }
+}
+
+#[test]
+fn opencode_never_inherits_server_credentials_or_a_workspace() {
+    let binary = binary();
+    let project = PathBuf::from("/work/demo");
+    let spec = OpenCode.launch_spec(&launch(&binary, &project)).expect("launch spec");
+
+    for prefix in ["OPENCODE_SERVER_", "OPENCODE_WORKSPACE_ID"] {
+        assert!(spec.env_remove_prefixes.contains(&OsString::from(prefix)), "{prefix}");
+    }
+    assert!(
+        spec.env.is_empty(),
+        "the engine adds the credentials, the manager the spawn env"
+    );
+}
+
 #[test]
 fn no_launch_ever_disables_dialogs_skips_approvals_or_drops_the_session() {
     let binary = binary();
@@ -114,4 +153,43 @@ fn batch_script_launchers_accept_the_rpc_arguments() {
 
     let plain = Omp.launch_spec(&launch(&batch, &project)).expect("safe arguments");
     assert_eq!(plain.args, [OsString::from("--mode"), OsString::from("rpc")]);
+}
+
+#[test]
+fn no_opencode_launch_skips_approvals_signs_in_or_listens_beyond_loopback() {
+    let binary = binary();
+    let project = PathBuf::from("/work/demo");
+    // The approval-skipping flags, sign-in and OpenCode's default port.
+    let forbidden = ["auto", "yolo", "dangerously", "login", "4096"]; // guard-allow: login-rpc
+
+    for approval in [None, Some(ApprovalMode::Yolo)] {
+        for utility in [false, true] {
+            let all = LaunchRequest {
+                approval_override: approval,
+                trust_once: true,
+                utility,
+                ..launch(&binary, &project)
+            };
+            let args = args(&OpenCode, all);
+
+            for arg in &args {
+                assert!(!forbidden.iter().any(|word| arg.contains(word)), "{arg}");
+                assert_ne!(arg, "auth");
+                assert!(!arg.starts_with("--mdns") || arg == "--mdns=false", "{arg}");
+            }
+            assert!(args.contains(&"--mdns=false".to_owned()));
+        }
+    }
+}
+
+#[test]
+fn a_batch_script_opencode_accepts_the_serve_arguments() {
+    let batch = ResolvedBinary {
+        path: PathBuf::from("C:/npm/opencode.cmd"),
+        is_batch_script: true,
+    };
+    let project = PathBuf::from("C:/work/demo");
+
+    let spec = OpenCode.launch_spec(&launch(&batch, &project)).expect("safe arguments");
+    assert_eq!(spec.args, OPENCODE_SERVE.map(OsString::from));
 }

@@ -1,52 +1,23 @@
-//! The OpenCode command catalog: the built-in slash commands of OpenCode 1.19.3 (the server's
-//! `/init` and `/review`, and the terminal UI's commands).
+//! The OpenCode command catalog (OpenCode 1.19.3).
 //!
-//! Chat with OpenCode is not available in the desktop app yet, so every built-in command, the
-//! shared ones included, is listed as unsupported with that reason. Custom commands appear in the
-//! extensions view. A running server's `GET /command` list (custom commands, MCP prompts and
-//! skills) is sent as `/name args` prompt text.
+//! The terminal app's slash commands (`packages/tui`) never reach the server: sent as prompt text
+//! they would go to the model. Each one therefore maps to the matching chat action or desktop
+//! view, or is marked unsupported with a reason. The shared desktop commands (`/name`, `/model`,
+//! `/thinking`, …) keep their default mapping, which the chat engine supports.
+//!
+//! The server's own commands (`/init`, `/review`), custom commands, MCP prompts and skills arrive
+//! with a running chat's `GET /command` list ([`CommandCatalog::parse_live`]) and run as `/name
+//! args` prompt text, which the chat engine sends to `POST /session/{id}/command`.
 
 use serde_json::Value;
 
-use crate::harness::{CommandCatalog, SharedCommand, parse_live_commands, spec, unsupported};
-use crate::model::{CommandInvocation, CommandSource, CommandSpec};
+use crate::harness::{Builtin, CommandCatalog, builtin_specs, gui, parse_live_commands, rpc, unsupported};
+use crate::model::{AgentActionKind, CommandInvocation, CommandSource, CommandSpec, GuiTarget};
 
-/// Why no OpenCode command runs from the desktop app.
-const CHAT_COMING_SOON: &str = "Chat with OpenCode is coming soon.";
+use AgentActionKind as Action;
 
-/// Name, description and argument hint of each built-in command.
-const BUILTINS: &[(&str, &str, Option<&str>)] = &[
-    ("init", "Create or update AGENTS.md for this project", None),
-    (
-        "review",
-        "Review changes, by default the uncommitted ones",
-        Some("[commit|branch|pr]"),
-    ),
-    ("new", "Start a new session", None),
-    ("sessions", "Switch session", None),
-    ("rename", "Rename the session", None),
-    ("compact", "Compact the session", None),
-    ("undo", "Undo the previous message", None),
-    ("redo", "Redo the undone message", None),
-    ("fork", "Fork the session", None),
-    ("timeline", "Jump to a message", None),
-    ("copy", "Copy the session transcript", None),
-    ("export", "Export the session transcript", None),
-    ("models", "Switch model", None),
-    ("variants", "Switch model variant", None),
-    ("agents", "Switch agent", None),
-    ("mcps", "Turn MCP servers on or off", None),
-    ("skills", "Browse skills", None),
-    ("connect", "Connect a provider", None),
-    ("themes", "Switch theme", None),
-    ("thinking", "Expand or collapse thinking", None),
-    ("timestamps", "Show or hide timestamps", None),
-    ("editor", "Write the prompt in your editor", None),
-    ("diff", "Open the diff viewer", None),
-    ("status", "View status", None),
-    ("help", "Show help", None),
-    ("exit", "Exit OpenCode", None),
-];
+/// Why a command of the OpenCode terminal app has no desktop counterpart.
+const TERMINAL_ONLY: &str = "Only in the OpenCode terminal app.";
 
 /// The OpenCode catalog.
 #[derive(Debug, Clone, Copy, Default)]
@@ -57,22 +28,7 @@ pub static CATALOG: OpenCodeCatalog = OpenCodeCatalog;
 
 impl CommandCatalog for OpenCodeCatalog {
     fn native(&self) -> Vec<CommandSpec> {
-        BUILTINS
-            .iter()
-            .map(|(name, description, hint)| {
-                spec(
-                    name,
-                    description,
-                    *hint,
-                    CommandSource::Builtin,
-                    unsupported(CHAT_COMING_SOON),
-                )
-            })
-            .collect()
-    }
-
-    fn map_shared(&self, _command: SharedCommand) -> CommandInvocation {
-        unsupported(CHAT_COMING_SOON)
+        builtin_specs(builtins())
     }
 
     fn parse_live(&self, raw: &[Value]) -> Vec<CommandSpec> {
@@ -88,4 +44,102 @@ fn live_source(label: &str) -> Option<CommandSource> {
         "skill" => Some(CommandSource::Skill),
         _ => None,
     }
+}
+
+/// The terminal app's commands (with `/resume` and `/agent`, which the desktop also accepts), in
+/// the terminal app's order.
+fn builtins() -> Vec<Builtin> {
+    vec![
+        ("new", "Start a new session", None, rpc(Action::NewSession)),
+        (
+            "sessions",
+            "Switch to another saved session",
+            None,
+            gui(GuiTarget::ResumePicker),
+        ),
+        (
+            "resume",
+            "Switch to another saved session",
+            None,
+            gui(GuiTarget::ResumePicker),
+        ),
+        (
+            "rename",
+            "Rename the session",
+            Some("<name>"),
+            rpc(Action::SetSessionName),
+        ),
+        ("compact", "Compact the session", None, rpc(Action::Compact)),
+        (
+            "fork",
+            "Create a new session from an earlier message",
+            None,
+            gui(GuiTarget::ForkPicker),
+        ),
+        ("export", "Export the session as HTML", None, rpc(Action::ExportHtml)),
+        (
+            "copy",
+            "Copy the last assistant message",
+            None,
+            rpc(Action::GetLastAssistantText),
+        ),
+        ("models", "Choose the model", None, gui(GuiTarget::ModelPicker)),
+        (
+            "variants",
+            "Choose the model variant",
+            None,
+            gui(GuiTarget::ThinkingPicker),
+        ),
+        ("agents", "Switch agent", None, gui(GuiTarget::AgentPicker)),
+        ("agent", "Switch agent", None, gui(GuiTarget::AgentPicker)),
+        (
+            "undo",
+            "Undo the previous message",
+            None,
+            unsupported("Only in the OpenCode terminal app. Fork from an earlier message instead."),
+        ),
+        ("redo", "Redo the undone message", None, unsupported(TERMINAL_ONLY)),
+        ("timeline", "Jump to a message", None, unsupported(TERMINAL_ONLY)),
+        (
+            "move",
+            "Move the session to another copy of the project",
+            None,
+            unsupported(TERMINAL_ONLY),
+        ),
+        ("mcps", "Turn MCP servers on or off", None, unsupported(TERMINAL_ONLY)),
+        (
+            "skills",
+            "Browse skills",
+            None,
+            unsupported("Skills are listed with the other slash commands."),
+        ),
+        (
+            "connect",
+            "Connect a provider",
+            None,
+            unsupported("Connect providers from a terminal: run opencode and use /connect."),
+        ),
+        ("themes", "Switch theme", None, unsupported(TERMINAL_ONLY)),
+        (
+            "timestamps",
+            "Show or hide timestamps",
+            None,
+            unsupported(TERMINAL_ONLY),
+        ),
+        (
+            "editor",
+            "Write the prompt in your editor",
+            None,
+            unsupported(TERMINAL_ONLY),
+        ),
+        ("diff", "Open the diff viewer", None, unsupported(TERMINAL_ONLY)),
+        ("status", "View status", None, unsupported(TERMINAL_ONLY)),
+        ("help", "Show help", None, unsupported(TERMINAL_ONLY)),
+        (
+            "exit",
+            "Exit OpenCode",
+            None,
+            unsupported("Stop the session from the desktop app instead."),
+        ),
+    ]
 }

@@ -14,9 +14,14 @@ use common::{demo_project, omp_home};
 use harness_business::agent::{AgentDeps, AgentManager, CollectingSink, MAX_SESSIONS};
 use harness_business::env::Env;
 use harness_business::error::BusinessError;
-use harness_business::harness::Harness;
-use harness_business::harnesses::{Omp, OpenCode, Pi};
-use harness_business::model::{ApprovalMode, HarnessId, IpcErrorCode, SessionRef};
+use harness_business::harness::{CommandCatalog, CompanionSetup, Harness, HarnessPaths, LaunchRequest};
+use harness_business::harnesses::{Omp, Pi};
+use harness_business::model::{
+    ApprovalMode, Capabilities, ConfigView, ExtensionsView, HarnessId, HarnessInfo, InstallHint, IpcErrorCode,
+    SessionRef,
+};
+use harness_business::pi_family::rpc::RpcDialect;
+use harness_business::process::ExecSpec;
 use pretty_assertions::assert_eq;
 
 /// A manager of OMP agents playing `scenario`, a project and an empty home.
@@ -156,6 +161,62 @@ async fn invalid_start_requests_are_refused_before_spawning() {
     assert!(spawner.requested().is_empty());
 }
 
+/// PI without chat: every adapter of the registry chats, so the guard is checked on a stand-in.
+struct ChatlessPi;
+
+impl Harness for ChatlessPi {
+    fn id(&self) -> HarnessId {
+        Pi.id()
+    }
+
+    fn info(&self) -> HarnessInfo {
+        Pi.info()
+    }
+
+    fn capabilities(&self) -> Capabilities {
+        Capabilities {
+            chat: false,
+            ..Pi.capabilities()
+        }
+    }
+
+    fn paths(&self, env: &Env, project: Option<&Path>) -> HarnessPaths {
+        Pi.paths(env, project)
+    }
+
+    fn config_view(&self, env: &Env, project: Option<&Path>) -> harness_business::Result<ConfigView> {
+        Pi.config_view(env, project)
+    }
+
+    fn extensions_view(&self, env: &Env, project: Option<&Path>) -> harness_business::Result<ExtensionsView> {
+        Pi.extensions_view(env, project)
+    }
+
+    fn catalog(&self) -> &dyn CommandCatalog {
+        Pi.catalog()
+    }
+
+    fn launch_spec(&self, request: &LaunchRequest<'_>) -> harness_business::Result<ExecSpec> {
+        Pi.launch_spec(request)
+    }
+
+    fn dialect(&self) -> &'static dyn RpcDialect {
+        Pi.dialect()
+    }
+
+    fn sessions_dir(&self, env: &Env, project: &Path) -> PathBuf {
+        Pi.sessions_dir(env, project)
+    }
+
+    fn install_hint(&self) -> InstallHint {
+        Pi.install_hint()
+    }
+
+    fn companion_setup(&self) -> CompanionSetup {
+        Pi.companion_setup()
+    }
+}
+
 #[tokio::test]
 async fn a_harness_without_chat_is_refused_before_anything_spawns() {
     let OmpManager {
@@ -167,22 +228,18 @@ async fn a_harness_without_chat_is_refused_before_anything_spawns() {
     } = omp_manager("omp_hang.jsonl");
 
     let deps = AgentDeps {
-        harness: &OpenCode,
+        harness: &ChatlessPi,
         env: &env,
         spawner: spawner.clone(),
         binary: binary(),
     };
     let error = manager
-        .start(
-            request(HarnessId::OpenCode, project.path()),
-            deps,
-            CollectingSink::new(),
-        )
+        .start(request(HarnessId::Pi, project.path()), deps, CollectingSink::new())
         .await
         .unwrap_err();
 
     assert!(
-        matches!(&error, BusinessError::Unsupported(message) if message == "chat with OpenCode is coming soon"),
+        matches!(&error, BusinessError::Unsupported(message) if message == "chat with Pi is coming soon"),
         "{error:?}"
     );
     assert!(spawner.requested().is_empty());

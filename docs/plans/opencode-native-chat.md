@@ -166,7 +166,7 @@ rules, the user's config applies.
 | 7 | Engine core: lifecycle, SSE mapper, prompts, steer, queue, idle race, abort, state, history | backend | `feat(opencode): native chat engine over opencode serve` (7a f5062c4) + `feat(opencode): steering, queue, abort, slash commands and history` (7b) | done |
 | 8 | Approvals, questions, approval modes | backend | `feat(opencode): approvals, questions and per-chat approval modes` | done |
 | 9 | Session ops: new, fork, clone, rename, compact, export, stats, last text, shell, images | backend | `feat(opencode): session actions, export, stats and !commands` | todo |
-| 10 | Harness wiring: launch spec, `chat_protocol`, capabilities, catalog | backend | `feat(opencode): enable chat for the OpenCode harness` | todo |
+| 10 | Harness wiring: launch spec, `chat_protocol`, capabilities, catalog | backend | `feat(opencode): enable chat for the OpenCode harness` | done |
 | 11 | Hooks and routines (memory side done: harness-useful-memory `feat/opencode-routines` 37b53d7, unpushed). Desktop: mirror its 3 routine fixtures (`valid-opencode-agent.json` renamed from `invalid-agent-harness-opencode.json`, `valid-opencode-approval-write.json`, `invalid-agent-trust-once-with-opencode.json`), fix `hooks_mcp/routine_tools.rs` approvalMode text | backend | `feat(routines): OpenCode agent routines and hooks` | todo |
 | 12 | UI: agent picker, Preview badge, approval badge, routine form, onboarding, 5 locales | frontend | `feat(ui): OpenCode chat with agent picker and Preview badge` | done (406007a) |
 | 13 | Guard rules and docs | general | `docs(opencode): native chat architecture, security and formats` | todo |
@@ -212,3 +212,6 @@ chunked, JSON replies use `Content-Length`; `sync` duplicates on the global stre
 - Whether PI's fork puts the message text back in the composer.
 - How `BashOutput.exit_code: None` renders.
 - Questions with Yes/No-like option labels are numbered by the backend ("1. Yes") so `approval.ts` does not render them as approval cards. A question marker in the UI contract would be cleaner (review item).
+- `/compact` picked from suggestions opens the instructions dialog (`ui/src/lib/chat/slash.ts` `rpcOutcome`), but OpenCode refuses instructions: needs a no-ask path for OpenCode (fix with step 11/13).
+- Mock `agent_start` refusal text in `ui/src/lib/ipc/mock/agent-handlers.ts` still names OpenCode as coming soon (dead now, fix in step 13).
+- `docs/adding-a-harness.md` uses OpenCode as the `chat: false` example (step 13).

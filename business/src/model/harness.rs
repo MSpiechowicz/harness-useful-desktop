@@ -55,8 +55,8 @@ pub struct HarnessInfo {
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
 pub struct Capabilities {
-    /// Chat sessions the app drives (an RPC launch and dialect); without it the UI shows that chat
-    /// is coming later.
+    /// Chat sessions the app drives (a launch spec and a chat protocol); without it the UI shows
+    /// that chat is coming later.
     pub chat: bool,
     /// Installable plugins (OMP `omp plugin …`).
     pub plugins: bool,
