@@ -335,8 +335,8 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
   At most two session commands run at once (more wait), concurrent list requests for the same project share one run,
   and a list is reused for 5 seconds. Before a delete lists again, it waits for a list already running and then starts
   a new one, so a session created meanwhile is found. Each command has capped output (4 MiB list, 16 MiB export) and a
-  time limit (15 s for list and delete, 30 s for export) after which its process group is killed (on Windows only the
-  direct child, see [Limits](#limits)), so every wait above is bounded by those limits. A command that exited normally
+  time limit (15 s for list and delete, 30 s for export) after which its process group is killed (on Windows its
+  process tree, see [Limits](#limits)), so every wait above is bounded by those limits. A command that exited normally
   gets 2 seconds for any process it left holding its output, then that process group, if any member is left, is killed
   too (on Unix only: on Windows such a process is left running).
 - **Binary resolution.** `resolve_binary` uses absolute `PATH` entries only, then the standard install directories. A
@@ -469,7 +469,8 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
   `GIT_ASKPASS`, `GIT_TRACE*`, ...). Diffs use `--no-ext-diff --no-textconv`. Git reads status, diffs and the branch
   list; its only writes are `git_discard_all` and `git_discard_files` (one file and, for a rename, its old name), which the UI runs only after the user confirms: `restore --source=HEAD
   --staged --worktree` and `clean -f -d` (no `-x`, so ignored files stay), both limited to the project directory.
-- **Children.** Each child gets `kill_on_drop` and, on Unix, its own process group, which is killed with it. Agents stop by
+- **Children.** Each child gets `kill_on_drop` and, on Unix, its own process group, which is killed with it. On Windows
+  a kill of a child that has not been reaped yet ends its process tree (`taskkill /T /F`, no window). Agents stop by
   closing stdin, waiting 3 s, then killing the group. Output of run-to-completion commands has a time limit and a size
   cap.
 - **Dashboard.** `harness-dashboard mcp` runs in the home directory, without `CLAUDE_CODE_SESSION_ID`, and stops after 30 s without
@@ -769,8 +770,8 @@ follow-up prompt after the agent settles, or run a shell command. Agents can wri
   `/bin/sh -c <command>` on Linux and macOS, `cmd.exe /D /S /C "<command>"` on Windows. The text is the hook's `command`,
   written by you or approved by you in the version you saw. It runs with your privileges and the app's environment, in the
   project root (project hook) or the chat's folder (global hook), with stdin closed and in its own process group, killed at
-  its timeout (default 10 s, at most 30 s; the commands of one firing share 30 s). On Windows only the direct child is
-  killed (see [Limits](#limits)).
+  its timeout (default 10 s, at most 30 s; the commands of one firing share 30 s). On Windows its process tree is
+  killed instead (see [Limits](#limits)).
   - **Environment.** `HARNESS_HOOK_EVENT`, `HARNESS_HOOK_PROJECT`, `HARNESS_HOOK_SESSION`, `HARNESS_HOOK_TOOL`,
     `HARNESS_HOOK_TOOL_ERROR` and `HARNESS_HOOK_TOUCHED` (paths the tool call or run changed, at most 16 KiB). No tool
     result, tool argument or prompt text is passed: `HookSink` replaces a `ToolEnd` result with `null` before the engine
@@ -970,8 +971,9 @@ command is not granted). Process errors name only the program's file name (`Exec
 - **Chat content is not redacted** (see above).
 - **Git filters.** A repository's `.git/config` can name clean/smudge `filter` drivers; git may run them while `status`
   or `diff` re-reads a changed file, as in a terminal (`business/src/git/mod.rs`). Open only repositories you trust.
-- **Windows.** Only the direct child of a spawned process is killed (no job object yet), so grandchildren may outlive
-  it.
+- **Windows.** A kill ends the child's process tree with `taskkill /T` (no job object: it needs `unsafe` code). The tree
+  is found by parent process id, so a process whose parent already exited, and what a child left running after it
+  exited, may outlive it.
 - **The companion installers are remote code.** Once you confirm, one runs a script fetched from the `main` branch of
   `MSpiechowicz/harness-useful-dashboard` or `MSpiechowicz/harness-useful-memory` with your privileges, as if you ran the
   install command in your terminal. The app confirms first and lists what it changes, but does not pin or verify the
@@ -998,8 +1000,8 @@ command is not granted). Process errors name only the program's file name (`Exec
   access is outside the app. `redact_text` on its output is a heuristic, and hook texts and commands are not scanned for
   secrets. What a hook adds to a prompt goes to your model provider and stays in the harness's session file. Anything that
   can write the app's config folder as you can approve a hook (see [Hooks](#hooks)). A follow-up hook costs one more
-  model request per user run that earns one. On Windows a timed-out command kills only its direct child (see Windows
-  above). A project hook matches the project root by its exact path, so a project that moves loses its project hooks until
+  model request per user run that earns one. On Windows a timed-out command kills its process tree, which can miss a process
+  whose parent already exited (see Windows above). A project hook matches the project root by its exact path, so a project that moves loses its project hooks until
   they are saved again.
 - **Heuristics.** The entropy rule and key-name rules can hide harmless values and can miss unusual secrets. The same
   holds for Share setup: secret flags and machine paths in free-form MCP arguments and URLs are detected by patterns,

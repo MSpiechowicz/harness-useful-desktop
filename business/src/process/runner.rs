@@ -1,6 +1,7 @@
 //! Run-to-completion execution with timeout and output cap.
 
 use std::process::Stdio;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt};
@@ -8,6 +9,8 @@ use tokio::time::{Instant, timeout_at};
 
 #[cfg(unix)]
 use super::kill_group;
+#[cfg(windows)]
+use super::windows_tree::kill_process_tree;
 use super::{BoxFuture, ExecSpec, build_command, kill_tree, spawn_command};
 use crate::error::{BusinessError, Result};
 
@@ -49,9 +52,11 @@ pub trait ProcessRunner: Send + Sync {
 /// [`ProcessRunner`] backed by `tokio::process`.
 ///
 /// stdin is null unless the spec gives bytes for it (written, then closed), each output stream is capped (excess is drained and discarded so the child
-/// never blocks on a full pipe), and a timeout kills the child and its process group. Dropping the
-/// future before it finished (a cancelled run) kills the process group too on Unix, so nothing the
-/// child started in its group outlives it; on Windows only the direct child is killed.
+/// never blocks on a full pipe), and a timeout kills the child and its process group (Unix) or
+/// process tree (Windows). Dropping the future before it finished (a cancelled run) kills them too,
+/// so nothing the child started in its group or tree outlives it. On Windows a cancel after the
+/// child exited (while a process it started still holds the output) kills nothing more: once the
+/// child was reaped, its pid may name another process.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct TokioRunner;
 
@@ -71,7 +76,10 @@ async fn run_to_completion(spec: &ExecSpec) -> Result<ExecOutput> {
 
     // Until the run finished, dropping this future kills the whole group (`kill_on_drop` alone
     // reaches only the direct child).
-    let group = GroupGuard { group: child.id() };
+    let group = GroupGuard {
+        group: child.id(),
+        reaped: AtomicBool::new(false),
+    };
 
     let (Some(stdout), Some(stderr)) = (child.stdout.take(), child.stderr.take()) else {
         return Err(BusinessError::Internal("child pipes missing".to_owned()));
@@ -94,13 +102,16 @@ async fn run_to_completion(spec: &ExecSpec) -> Result<ExecOutput> {
     };
 
     let waiter = async {
-        match timeout_at(deadline, child.wait()).await {
+        let waited = match timeout_at(deadline, child.wait()).await {
             Ok(status) => status.map(|status| (status.code(), false)),
             Err(_elapsed) => {
                 kill_tree(&mut child).ok();
                 child.wait().await.map(|_| (None, true))
             }
-        }
+        };
+
+        group.reaped();
+        waited
     };
 
     let all = async { tokio::join!(capture.read(stdout), capture.read(stderr), waiter, feed) };
@@ -129,14 +140,23 @@ async fn run_to_completion(spec: &ExecSpec) -> Result<ExecOutput> {
     })
 }
 
-/// Kills the process group of a child when dropped before [`GroupGuard::disarm`]: the future of
-/// a run was dropped (cancelled) while its child, or something it started, may still run.
+/// Kills the process group (Unix) or process tree (Windows) of a child when dropped before
+/// [`GroupGuard::disarm`]: the future of a run was dropped (cancelled) while its child, or
+/// something it started, may still run.
 struct GroupGuard {
-    /// The child's pid, which is its process group id (it leads its own group).
+    /// The child's pid, which is its process group id on Unix (it leads its own group).
     group: Option<u32>,
+    /// Set once the child was reaped. Windows frees its pid then (nothing holds the process any
+    /// more), so the tree is no longer killed by pid.
+    reaped: AtomicBool,
 }
 
 impl GroupGuard {
+    /// The child was reaped: its exit status is known.
+    fn reaped(&self) {
+        self.reaped.store(true, Ordering::Relaxed);
+    }
+
     /// The run finished: what it left behind is the caller's business, as before.
     fn disarm(mut self) {
         self.group = None;
@@ -145,11 +165,20 @@ impl GroupGuard {
 
 impl Drop for GroupGuard {
     fn drop(&mut self) {
+        let Some(group) = self.group.take() else {
+            return;
+        };
+
         // The group id stays reserved while any member lives, so this reaches only the child's
-        // group (see `ChildHandle::kill_process_group`). Windows: `kill_on_drop` kills the child.
+        // group (see `ChildHandle::kill_process_group`).
         #[cfg(unix)]
-        if let Some(group) = self.group.take() {
-            kill_group(group);
+        kill_group(group);
+
+        // The child is dropped after this guard, so while it is unreaped its handle keeps the pid
+        // from being reused. `kill_on_drop` then kills the child itself, if taskkill did not.
+        #[cfg(windows)]
+        if !self.reaped.load(Ordering::Relaxed) {
+            kill_process_tree(group);
         }
     }
 }

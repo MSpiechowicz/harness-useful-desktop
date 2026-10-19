@@ -27,8 +27,8 @@ const CHUNK: usize = 16 * 1024;
 /// Runs a command to completion on the calling thread. Implementations never use a shell.
 ///
 /// The contract matches [`super::ProcessRunner::run`]: `spec.timeout` bounds the run and kills the
-/// child (and its process group on Unix) when exceeded, each output stream is capped at
-/// `spec.max_output_bytes`, stdin is null, and a timeout is reported via
+/// child (and its process group on Unix, its process tree on Windows) when exceeded, each output
+/// stream is capped at `spec.max_output_bytes`, stdin is null, and a timeout is reported via
 /// [`ExecOutput::timed_out`], not as an error. Errors mean the process could not be started.
 pub trait BlockingRunner: Send + Sync {
     /// Runs `spec` and captures its output.
@@ -107,11 +107,13 @@ fn wait_until(child: &mut Child, deadline: Instant) -> std::io::Result<(Option<i
     }
 }
 
-/// Kills the child and, on Unix, its whole process group. Only called before the child was reaped,
-/// so its pid (and group id) cannot have been reused yet.
+/// Kills the child and its whole process group (Unix) or process tree (Windows). Only called
+/// before the child was reaped, so its pid (and group id) cannot have been reused yet.
 fn kill_tree(child: &mut Child) {
     #[cfg(unix)]
     super::kill_group(child.id());
+    #[cfg(windows)]
+    super::windows_tree::kill_process_tree(child.id());
 
     // Fails only when the child already exited, which is the outcome wanted.
     child.kill().ok();

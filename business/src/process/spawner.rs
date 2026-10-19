@@ -18,7 +18,8 @@ pub trait ChildHandle: Send {
     /// Waits for the child to exit.
     fn wait(&mut self) -> BoxFuture<'_, Result<ExitInfo>>;
 
-    /// Starts killing the child (and its process group on Unix) without waiting.
+    /// Starts killing the child (and its process group on Unix, its process tree on Windows)
+    /// without waiting.
     /// Succeeds when the child already exited.
     fn start_kill(&mut self) -> Result<()>;
 
@@ -58,8 +59,8 @@ pub trait ProcessSpawner: Send + Sync {
 
 /// [`ProcessSpawner`] backed by `tokio::process`.
 ///
-/// The child is killed when its handle is dropped; on Unix the whole process group is killed.
-/// On Windows only the direct child is killed (no job object yet), so grandchildren may outlive it.
+/// The child is killed when its handle is dropped; on Unix the whole process group is killed, on
+/// Windows its process tree (`taskkill /T`) while the child was not reaped yet.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct TokioSpawner;
 
@@ -119,7 +120,8 @@ impl ChildHandle for TokioChild {
             kill_group(group);
         }
 
-        // Windows: no job object yet, so what the child left behind is not reached.
+        // Windows: the tree is found by parent pid, so what the exited child left behind is not
+        // reached.
         #[cfg(not(unix))]
         let _ = self.group;
     }
@@ -127,7 +129,7 @@ impl ChildHandle for TokioChild {
 
 impl Drop for TokioChild {
     fn drop(&mut self) {
-        // `kill_on_drop` covers only the direct child; this also reaches its process group.
+        // `kill_on_drop` covers only the direct child; this also reaches its process group or tree.
         kill_tree(&mut self.child).ok();
     }
 }

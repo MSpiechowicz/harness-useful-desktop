@@ -7,7 +7,8 @@
 //! - [`resolve`] finds harness binaries without asking a shell for `PATH`.
 //!
 //! Every spawn uses a fixed, absolute program path plus an explicit argv; a shell is never
-//! involved. On Unix each child leads its own process group so a kill reaches its descendants.
+//! involved. On Unix each child leads its own process group so a kill reaches its descendants; on
+//! Windows a kill of a child that was not reaped yet ends its process tree (`taskkill /T`).
 //!
 //! # Why boxed futures
 //!
@@ -22,6 +23,8 @@ mod blocking;
 mod resolve;
 mod runner;
 mod spawner;
+#[cfg(windows)]
+mod windows_tree;
 
 pub use blocking::{BlockingRunner, StdRunner};
 pub use resolve::{
@@ -382,8 +385,8 @@ fn spawn_error(error: &std::io::Error, spec: &ExecSpec) -> BusinessError {
     }
 }
 
-/// Kills the child and, on Unix, its whole process group. A no-op once the child was reaped (see
-/// [`ChildHandle::kill_process_group`] for what is left after that).
+/// Kills the child and its whole process group (Unix) or process tree (Windows). A no-op once the
+/// child was reaped (see [`ChildHandle::kill_process_group`] for what is left after that).
 fn kill_tree(child: &mut Child) -> Result<()> {
     // `id()` is `None` once tokio reaped the child; the pid (and its group id) may then be reused.
     let Some(pid) = child.id() else {
@@ -392,8 +395,8 @@ fn kill_tree(child: &mut Child) -> Result<()> {
 
     #[cfg(unix)]
     kill_group(pid);
-    #[cfg(not(unix))]
-    let _ = pid;
+    #[cfg(windows)]
+    windows_tree::kill_process_tree(pid);
 
     match child.start_kill() {
         Ok(()) => Ok(()),

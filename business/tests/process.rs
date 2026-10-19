@@ -10,9 +10,10 @@ use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 
 mod process_support;
 
-use process_support::helper;
 #[cfg(unix)]
-use process_support::{GROUP_KILL_TIMEOUTS, assert_process_gone, find_grandchild_pid, grandchild_was_killed};
+use process_support::find_grandchild_pid;
+use process_support::helper;
+use process_support::{GROUP_KILL_TIMEOUTS, assert_process_gone, grandchild_was_killed};
 
 /// Not a real test: the body of the helper child, see [`process_support::helper_process`].
 #[test]
@@ -71,7 +72,7 @@ async fn relative_programs_are_rejected_and_missing_ones_not_found() {
     ));
 }
 
-#[cfg(unix)]
+/// On Windows the process tree is killed (`taskkill /T`), there is no process group.
 #[tokio::test]
 async fn runner_timeout_kills_the_whole_process_group() {
     for timeout in GROUP_KILL_TIMEOUTS {
@@ -86,8 +87,7 @@ async fn runner_timeout_kills_the_whole_process_group() {
 }
 
 /// A run whose future is dropped (a routine run stopped by the user) leaves nothing of its process
-/// group running, not only its direct child.
-#[cfg(unix)]
+/// group (Windows: process tree) running, not only its direct child.
 #[tokio::test]
 async fn dropping_a_run_kills_its_whole_process_group() {
     let dir = tempfile::tempdir().expect("temp dir");
@@ -142,7 +142,6 @@ async fn spawner_kill_stops_the_child() {
     process.child.start_kill().unwrap();
 }
 
-#[cfg(unix)]
 #[tokio::test]
 async fn dropping_a_spawned_child_kills_its_process_group() {
     let process = TokioSpawner.spawn(&helper("grandchild")).unwrap();

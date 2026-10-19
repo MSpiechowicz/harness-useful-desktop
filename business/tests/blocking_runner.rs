@@ -9,8 +9,9 @@ use harness_business::process::{BlockingRunner, ExecSpec, StdRunner};
 mod process_support;
 
 use process_support::helper;
+use process_support::{GROUP_KILL_TIMEOUTS, grandchild_was_killed};
 #[cfg(unix)]
-use process_support::{GROUP_KILL_TIMEOUTS, assert_process_gone, find_grandchild_pid, grandchild_was_killed};
+use process_support::{assert_process_gone, find_grandchild_pid};
 
 /// Not a real test: the body of the helper child, see [`process_support::helper_process`].
 #[test]
@@ -80,7 +81,7 @@ fn relative_programs_are_rejected_and_missing_ones_not_found() {
     assert!(matches!(missing, Err(BusinessError::NotFound(_))));
 }
 
-#[cfg(unix)]
+/// On Windows the process tree is killed (`taskkill /T`), there is no process group.
 #[test]
 fn a_timeout_kills_the_whole_process_group() {
     for timeout in GROUP_KILL_TIMEOUTS {
