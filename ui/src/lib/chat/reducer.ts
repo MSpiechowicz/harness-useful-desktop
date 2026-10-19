@@ -158,6 +158,9 @@ export function applyEvent(state: ChatState, event: AgentEvent): ChatState {
     case 'thinkingChanged':
       return state.session ? { ...state, session: { ...state.session, thinkingLevel: event.level } } : state;
 
+    case 'agentChanged':
+      return state.session ? { ...state, session: { ...state.session, agent: event.agent } } : state;
+
     case 'uiRequest':
       return openRequest(state, event.request);
 

@@ -45,13 +45,13 @@ mod update;
 pub use agent::{AgentSessionInfo, AgentStartRequest, ApprovalMode, BashOutput, SessionRef};
 pub use agent_action::{
     AgentAction, AgentReply, IMAGE_MIME_TYPES, ImageAttachment, MAX_ACTION_IMAGE_BYTES, MAX_ACTION_IMAGES,
-    MAX_ACTION_TEXT_BYTES, MAX_HISTORY_PAGE, StreamingBehavior,
+    MAX_ACTION_TEXT_BYTES, MAX_AGENT_ID_BYTES, MAX_HISTORY_PAGE, StreamingBehavior,
 };
 pub use agent_event::{AgentEnvelope, AgentEvent};
 pub use app::AppInfo;
 pub use chat::{
-    ChatBlock, ChatMessage, ContextUsage, MessageRole, ModelOption, PromptStatus, SessionState, SessionStats,
-    TokenUsage,
+    AgentOption, ChatBlock, ChatMessage, ContextUsage, MessageRole, ModelOption, PromptStatus, SessionState,
+    SessionStats, TokenUsage,
 };
 pub use command::{AgentActionKind, CommandInvocation, CommandSource, CommandSpec, GuiTarget};
 pub use config::{ConfigFormat, ConfigLayer, ConfigSection, ConfigSource, ConfigView, Notice, NoticeLevel};

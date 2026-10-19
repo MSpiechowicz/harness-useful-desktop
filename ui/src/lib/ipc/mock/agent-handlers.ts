@@ -155,6 +155,11 @@ export function agentHandlers(
 
         return ACK;
 
+      // Like OMP and PI: the mock runs no harness with an agent picker.
+      case 'setAgent':
+      case 'getAvailableAgents':
+        throw IpcFailure.from({ code: 'unsupported', message: 'This harness cannot switch agents.' });
+
       case 'setSessionName':
         target.state = { ...target.state, sessionName: action.name };
         stream.emit({ type: 'state', state: target.state });

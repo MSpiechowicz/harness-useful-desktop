@@ -32,6 +32,21 @@ pub struct ModelOption {
     pub input: Vec<String>,
 }
 
+/// A primary agent the chat can switch to (OpenCode `build`, `plan` or a custom one).
+///
+/// Display fields only: the agent's prompt, tools and permission rules stay in the harness.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct AgentOption {
+    /// Agent id, sent back in `setAgent` (e.g. `"plan"`).
+    pub id: String,
+    /// Display name.
+    pub name: String,
+    /// One-line description, when the agent has one.
+    pub description: Option<String>,
+}
+
 /// How full the context window is.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
@@ -60,6 +75,8 @@ pub struct SessionState {
     pub model: Option<ModelOption>,
     /// The active thinking level (e.g. `"medium"`).
     pub thinking_level: Option<String>,
+    /// The active agent id, for harnesses with an agent picker (see `Capabilities.agent_picker`).
+    pub agent: Option<String>,
     /// True while the agent is producing a response.
     pub is_streaming: bool,
     /// True while the context is being compacted.

@@ -182,7 +182,11 @@ message: string | null, } | { "type": "modelChanged",
 /**
  * The new model.
  */
-model: ModelOption | null, } | { "type": "thinkingChanged", 
+model: ModelOption | null, } | { "type": "agentChanged", 
+/**
+ * The new agent id.
+ */
+agent: string, } | { "type": "thinkingChanged", 
 /**
  * The new level.
  */

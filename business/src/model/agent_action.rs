@@ -6,11 +6,14 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use super::{ChatMessage, CommandSpec, ModelOption, SessionRef, SessionState, SessionStats};
+use super::{AgentOption, ChatMessage, CommandSpec, ModelOption, SessionRef, SessionState, SessionStats};
 use crate::error::{BusinessError, Result};
 
 /// Largest accepted `message`, `instructions` or `name` text, in bytes (512 KiB).
 pub const MAX_ACTION_TEXT_BYTES: usize = 512 * 1024;
+
+/// Largest accepted `setAgent` agent id, in bytes.
+pub const MAX_AGENT_ID_BYTES: usize = 128;
 
 /// Largest accepted `getHistory` page size.
 pub const MAX_HISTORY_PAGE: u32 = 200;
@@ -108,6 +111,11 @@ pub enum AgentAction {
         /// Model id within the provider.
         model_id: String,
     },
+    /// Switch to another primary agent (harnesses with an agent picker).
+    SetAgent {
+        /// One of the ids from `getAvailableAgents`.
+        agent: String,
+    },
     /// Change the thinking level.
     SetThinkingLevel {
         /// One of the levels from `getAvailableThinkingLevels`.
@@ -127,6 +135,8 @@ pub enum AgentAction {
     GetState,
     /// List selectable models.
     GetAvailableModels,
+    /// List the primary agents the chat can switch to.
+    GetAvailableAgents,
     /// List thinking levels of the active model.
     GetAvailableThinkingLevels,
     /// Read token and cost statistics.
@@ -161,6 +171,7 @@ impl AgentAction {
                 instructions: Some(instructions),
             } => check_text("instructions", instructions),
             Self::SetSessionName { name } => check_text("name", name),
+            Self::SetAgent { agent } => check_agent_id(agent),
             Self::GetHistory { limit, .. } => check_history_limit(*limit),
             _ => Ok(()),
         }
@@ -171,6 +182,16 @@ fn check_text(field: &str, text: &str) -> Result<()> {
     if text.len() > MAX_ACTION_TEXT_BYTES {
         return Err(BusinessError::InvalidInput(format!(
             "{field} exceeds {MAX_ACTION_TEXT_BYTES} bytes"
+        )));
+    }
+
+    Ok(())
+}
+
+fn check_agent_id(agent: &str) -> Result<()> {
+    if agent.is_empty() || agent.len() > MAX_AGENT_ID_BYTES {
+        return Err(BusinessError::InvalidInput(format!(
+            "agent must be 1 to {MAX_AGENT_ID_BYTES} bytes"
         )));
     }
 
@@ -248,6 +269,11 @@ pub enum AgentReply {
     Models {
         /// Selectable models.
         models: Vec<ModelOption>,
+    },
+    /// Answer to `getAvailableAgents`.
+    Agents {
+        /// Selectable primary agents.
+        agents: Vec<AgentOption>,
     },
     /// Answer to `getAvailableThinkingLevels`.
     ThinkingLevels {

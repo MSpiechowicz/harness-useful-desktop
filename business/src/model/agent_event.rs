@@ -174,6 +174,11 @@ pub enum AgentEvent {
         /// The new model.
         model: Option<ModelOption>,
     },
+    /// The active agent changed (harnesses with an agent picker).
+    AgentChanged {
+        /// The new agent id.
+        agent: String,
+    },
     /// The thinking level changed.
     ThinkingChanged {
         /// The new level.

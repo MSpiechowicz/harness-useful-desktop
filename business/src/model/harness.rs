@@ -93,6 +93,11 @@ pub struct Capabilities {
     pub move_session: bool,
     /// A message waiting in the steering or follow-up queue can be withdrawn (OMP `remove_queued_message`).
     pub remove_queued: bool,
+    /// The chat can switch between the harness's primary agents (OpenCode `build`, `plan`, custom
+    /// ones).
+    pub agent_picker: bool,
+    /// Chat works but is still a preview; the UI marks it with a badge.
+    pub chat_preview: bool,
 }
 
 /// How the detected CLI version relates to the versions this app was tested with.

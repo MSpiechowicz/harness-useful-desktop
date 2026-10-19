@@ -23,6 +23,10 @@ model: ModelOption | null,
  */
 thinkingLevel: string | null, 
 /**
+ * The active agent id, for harnesses with an agent picker (see `Capabilities.agent_picker`).
+ */
+agent: string | null, 
+/**
  * True while the agent is producing a response.
  */
 isStreaming: boolean, 

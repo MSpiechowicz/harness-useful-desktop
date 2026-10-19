@@ -77,4 +77,13 @@ moveSession: boolean,
 /**
  * A message waiting in the steering or follow-up queue can be withdrawn (OMP `remove_queued_message`).
  */
-removeQueued: boolean, };
+removeQueued: boolean, 
+/**
+ * The chat can switch between the harness's primary agents (OpenCode `build`, `plan`, custom
+ * ones).
+ */
+agentPicker: boolean, 
+/**
+ * Chat works but is still a preview; the UI marks it with a badge.
+ */
+chatPreview: boolean, };

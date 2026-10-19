@@ -185,6 +185,13 @@ fn dialect_specific_commands() {
         .unwrap_err();
     assert_eq!(unsupported.code(), IpcErrorCode::Unsupported);
 
+    for dialect in [omp, pi] {
+        let set = dialect.encode(&AgentAction::SetAgent { agent: text("plan") }, "req-1", &context);
+        let list = dialect.encode(&AgentAction::GetAvailableAgents, "req-1", &context);
+        assert_eq!(set.unwrap_err().code(), IpcErrorCode::Unsupported);
+        assert_eq!(list.unwrap_err().code(), IpcErrorCode::Unsupported);
+    }
+
     assert_eq!(
         omp.history_request(Some("c-1"), "req-2"),
         json!({ "id": "req-2", "type": "get_messages_page", "cursor": "c-1", "limit": 256 })

@@ -58,7 +58,11 @@ provider: string,
 /**
  * Model id within the provider.
  */
-modelId: string, } | { "type": "setThinkingLevel", 
+modelId: string, } | { "type": "setAgent", 
+/**
+ * One of the ids from `getAvailableAgents`.
+ */
+agent: string, } | { "type": "setThinkingLevel", 
 /**
  * One of the levels from `getAvailableThinkingLevels`.
  */
@@ -70,7 +74,7 @@ instructions: string | null, } | { "type": "setSessionName",
 /**
  * New name.
  */
-name: string, } | { "type": "getState" } | { "type": "getAvailableModels" } | { "type": "getAvailableThinkingLevels" } | { "type": "getSessionStats" } | { "type": "exportHtml" } | { "type": "getLastAssistantText" } | { "type": "refreshCommands" } | { "type": "getHistory", 
+name: string, } | { "type": "getState" } | { "type": "getAvailableModels" } | { "type": "getAvailableAgents" } | { "type": "getAvailableThinkingLevels" } | { "type": "getSessionStats" } | { "type": "exportHtml" } | { "type": "getLastAssistantText" } | { "type": "refreshCommands" } | { "type": "getHistory", 
 /**
  * Cursor from the previous page's `nextCursor`; `None` for the first page.
  */

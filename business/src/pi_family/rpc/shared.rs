@@ -20,7 +20,8 @@ fn text(value: &str) -> Value {
     Value::from(value)
 }
 
-/// The frame for an action both OMP and PI encode the same way; `None` for the rest.
+/// The frame for an action both OMP and PI encode the same way; `None` for the rest. Agent
+/// switching, which neither has, is refused as `Unsupported`.
 pub fn encode_shared(
     harness: HarnessId,
     action: &AgentAction,
@@ -77,6 +78,11 @@ pub fn encode_shared(
         A::GetSessionStats => frame("get_session_stats", Vec::new()),
         A::ExportHtml => frame("export_html", Vec::new()),
         A::GetLastAssistantText => frame("get_last_assistant_text", Vec::new()),
+        A::SetAgent { .. } | A::GetAvailableAgents => {
+            return Err(BusinessError::Unsupported(
+                "this harness cannot switch agents".to_owned(),
+            ));
+        }
         A::Clone | A::RefreshCommands | A::GetHistory { .. } | A::RemoveQueued { .. } => None,
     };
 

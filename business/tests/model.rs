@@ -4,8 +4,8 @@ use harness_business::BusinessError;
 use harness_business::model::{
     AgentAction, AgentActionKind, AgentEnvelope, AgentReply, AppInfo, AppPrefs, CommandInvocation, CommandSource,
     CommandSpec, ConfigField, ConfigValue, Detection, GuiTarget, HarnessId, ImageAttachment, InstallHint, IpcError,
-    IpcErrorCode, MAX_ACTION_IMAGE_BYTES, MAX_ACTION_IMAGES, MAX_ACTION_TEXT_BYTES, ModelOption, SecretKind, UiRequest,
-    UiResponse, VersionSupport,
+    IpcErrorCode, MAX_ACTION_IMAGE_BYTES, MAX_ACTION_IMAGES, MAX_ACTION_TEXT_BYTES, MAX_AGENT_ID_BYTES, ModelOption,
+    SecretKind, UiRequest, UiResponse, VersionSupport,
 };
 use harness_business::security::Redactor;
 use pretty_assertions::assert_eq;
@@ -300,6 +300,8 @@ fn agent_actions_are_tagged_with_camel_case_fields() {
         json!({ "type": "abort" }),
         json!({ "type": "switchSession", "session": { "harness": "pi", "id": "0199c1f2" } }),
         json!({ "type": "setModel", "provider": "anthropic", "modelId": "claude-sonnet-4-5" }),
+        json!({ "type": "setAgent", "agent": "plan" }),
+        json!({ "type": "getAvailableAgents" }),
         json!({ "type": "compact", "instructions": null }),
         json!({ "type": "getHistory", "cursor": "page-2", "limit": 50 }),
     ]);
@@ -320,11 +322,22 @@ fn agent_action_text_and_page_limits_are_enforced() {
         streaming_behavior: None,
     };
     let history = |limit: u32| AgentAction::GetHistory { cursor: None, limit };
+    let agent = |size: usize| AgentAction::SetAgent {
+        agent: "a".repeat(size),
+    };
 
     assert!(prompt(MAX_ACTION_TEXT_BYTES).validate().is_ok());
     assert!(history(200).validate().is_ok());
+    assert!(agent(MAX_AGENT_ID_BYTES).validate().is_ok());
 
-    for action in [prompt(MAX_ACTION_TEXT_BYTES + 1), history(0), history(201)] {
+    let refused = [
+        prompt(MAX_ACTION_TEXT_BYTES + 1),
+        history(0),
+        history(201),
+        agent(0),
+        agent(MAX_AGENT_ID_BYTES + 1),
+    ];
+    for action in refused {
         let error = IpcError::from(action.validate().unwrap_err());
         assert_eq!(error.code, IpcErrorCode::InvalidInput);
     }
@@ -373,6 +386,7 @@ fn agent_events_are_enveloped_and_tagged_with_camel_case_fields() {
             "type": "promptResult", "requestId": null, "status": "error", "error": "429", "retryable": true
         })),
         envelope(json!({ "type": "queueUpdate", "steering": ["a"], "followUp": [], "liveSteered": 0 })),
+        envelope(json!({ "type": "agentChanged", "agent": "plan" })),
         envelope(json!({ "type": "uiCancel", "requestId": "ui-1" })),
         envelope(json!({ "type": "frameError", "originalType": null, "error": "bad json" })),
         envelope(json!({ "type": "exited", "code": null, "signal": 9 })),
@@ -404,6 +418,10 @@ fn agent_replies_are_tagged_by_type() {
         json!({ "type": "ack" }),
         json!({ "type": "prompt", "agentInvoked": false, "disposition": null }),
         json!({ "type": "thinkingLevels", "levels": ["off", "high"] }),
+        json!({ "type": "agents", "agents": [
+            { "id": "build", "name": "build", "description": null },
+            { "id": "plan", "name": "plan", "description": "Read-only planning" }
+        ] }),
         json!({ "type": "text", "text": null }),
         json!({ "type": "history", "messages": [{
             "id": "e1", "role": "assistant",

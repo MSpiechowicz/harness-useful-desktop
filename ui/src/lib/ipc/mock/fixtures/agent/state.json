@@ -16,6 +16,7 @@
       ]
     },
     "thinkingLevel": "medium",
+    "agent": null,
     "isStreaming": false,
     "isCompacting": false,
     "messageCount": 6,

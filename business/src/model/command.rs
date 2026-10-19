@@ -58,6 +58,8 @@ pub enum GuiTarget {
     ModelPicker,
     /// Thinking-level picker.
     ThinkingPicker,
+    /// Agent picker (harnesses with `Capabilities.agent_picker`).
+    AgentPicker,
     /// Session branch tree.
     SessionTree,
     /// Pick an entry to fork from.

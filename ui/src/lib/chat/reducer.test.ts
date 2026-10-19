@@ -249,6 +249,21 @@ describe('agent UI requests and extras', () => {
   });
 });
 
+describe('agent switching', () => {
+  it('records the new agent in the session state', () => {
+    const state = applyEvent(replay('basic'), { type: 'agentChanged', agent: 'plan' });
+
+    expect(state.session?.agent).toBe('plan');
+    expect(state.session?.model).toEqual(replay('basic').session?.model);
+  });
+
+  it('waits for a session state before recording an agent', () => {
+    const state = applyEvent(initialChatState(KEY), { type: 'agentChanged', agent: 'plan' });
+
+    expect(state.session).toBeNull();
+  });
+});
+
 describe('history', () => {
   it('puts older messages in front and folds tool results into their cards', () => {
     const history = fixtures.agent.history;

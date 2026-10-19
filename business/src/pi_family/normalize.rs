@@ -134,6 +134,7 @@ pub fn session_state(value: &Value) -> SessionState {
         session_name: string(value, "sessionName"),
         model: value.get("model").and_then(model_option),
         thinking_level: string(value, "thinkingLevel"),
+        agent: None,
         is_streaming: flag(value, "isStreaming"),
         is_compacting: flag(value, "isCompacting"),
         message_count: count(value, "messageCount"),

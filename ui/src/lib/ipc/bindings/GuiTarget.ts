@@ -3,4 +3,4 @@
 /**
  * A desktop view that replaces a terminal-only slash command.
  */
-export type GuiTarget = "modelPicker" | "thinkingPicker" | "sessionTree" | "forkPicker" | "resumePicker" | "settings" | "approvalMode";
+export type GuiTarget = "modelPicker" | "thinkingPicker" | "agentPicker" | "sessionTree" | "forkPicker" | "resumePicker" | "settings" | "approvalMode";

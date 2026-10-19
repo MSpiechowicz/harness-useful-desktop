@@ -26,7 +26,9 @@
       "slashCommandsViaPrompt": true,
       "sessionTree": true,
       "moveSession": true,
-      "removeQueued": true
+      "removeQueued": true,
+      "agentPicker": false,
+      "chatPreview": false
     },
     "detection": {
       "installed": true,
@@ -67,7 +69,9 @@
       "slashCommandsViaPrompt": false,
       "sessionTree": true,
       "moveSession": false,
-      "removeQueued": false
+      "removeQueued": false,
+      "agentPicker": false,
+      "chatPreview": false
     },
     "detection": {
       "installed": false,
@@ -111,7 +115,9 @@
       "slashCommandsViaPrompt": false,
       "sessionTree": false,
       "moveSession": false,
-      "removeQueued": false
+      "removeQueued": false,
+      "agentPicker": false,
+      "chatPreview": false
     },
     "detection": {
       "installed": true,
