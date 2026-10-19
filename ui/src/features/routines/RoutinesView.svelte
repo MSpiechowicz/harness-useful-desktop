@@ -39,7 +39,7 @@
   import SessionConfirm, { type ConfirmRequest } from '../sessions/SessionConfirm.svelte';
   import DeleteRoutinesDialog from './DeleteRoutinesDialog.svelte';
   import { openRunChat, openRunSession } from './routine-open';
-  import { filterCounts, folderName, groupRoutines, inSource, inStatus, inWhen, matchesQuery, routineTitle, STATUS_LABELS, STATUSES, viewKey, WHEN_ICONS, WHEN_KINDS, WHEN_LABELS, whenText } from './routine-format';
+  import { filterCounts, folderName, groupRoutines, inSource, inStatus, inWhen, matchesQuery, routineTitle, sortRoutines, STATUS_LABELS, STATUSES, viewKey, WHEN_ICONS, WHEN_KINDS, WHEN_LABELS, whenText } from './routine-format';
   import type { EditorTarget } from './routine-form';
   import { NO_HANDLERS, type RoutineHandlers } from './routine-handlers';
   import { turnOnTray } from './routine-tray';
@@ -74,7 +74,8 @@
   const filtered = $derived(when !== 'all' || status !== 'all' || source !== 'all');
   const narrowed = $derived(filtered || query.trim() !== '');
   const shown = $derived(views.filter((view) => inWhen(view, when) && inStatus(view, status) && inSource(view, source) && matchesQuery(view, query)));
-  const groups = $derived(groupRoutines(views, shown, narrowed, team !== null));
+  const sort = $derived(viewState.routinesSort);
+  const groups = $derived(sortRoutines(groupRoutines(views, shown, narrowed, team !== null), sort));
   const openId = $derived(viewState.routineId);
   const section = $derived(viewState.routinesSection);
   const waiting = $derived(routines.waiting);
@@ -369,6 +370,8 @@
               <RoutineList
                 bind:table
                 {groups}
+                {sort}
+                onsort={(next) => (viewState.routinesSort = next)}
                 {openId}
                 projectName={project.active ? folderName(project.active.path) : null}
                 teamProblem={team?.problem ?? null}

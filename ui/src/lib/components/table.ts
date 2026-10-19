@@ -20,9 +20,18 @@ export interface Sort {
   desc: boolean;
 }
 
-/** The sort after a click on a header: the same column flips its direction, another one starts in its natural direction. */
-export function nextSort(current: Sort, column: Column): Sort {
-  return current.key === column.key ? { key: column.key, desc: !current.desc } : { key: column.key, desc: column.descFirst === true };
+/** The sort after a click on a header: the same column flips its direction, another one starts in its natural direction. A table not sorted yet (null) starts in the natural direction too. */
+export function nextSort(current: Sort | null, column: Pick<Column, 'key' | 'descFirst'>): Sort {
+  return current?.key === column.key ? { key: column.key, desc: !current.desc } : { key: column.key, desc: column.descFirst === true };
+}
+
+/** The `aria-sort` of a sortable column's header. */
+export function ariaSort(sort: Sort | null, key: string): 'ascending' | 'descending' | 'none' {
+  if (sort?.key !== key) {
+    return 'none';
+  }
+
+  return sort.desc ? 'descending' : 'ascending';
 }
 
 /** The narrowest a column can be dragged to. */

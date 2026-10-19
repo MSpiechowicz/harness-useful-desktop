@@ -92,6 +92,8 @@ export class ViewState {
   hooksWhen = $state<HookWhen>('all');
   hooksStatus = $state<HookStatusFilter>('all');
   hooksSource = $state<HookSource>('all');
+  /** The column the hooks of each group are sorted by; null for the run order. */
+  hooksSort = $state<Sort | null>(null);
 
   /** Which list of the Routines view is on screen, the routine whose panel is open (its row key), what the search holds and the three filters ('all' for none). */
   routinesSection = $state<RoutinesSection>('routines');
@@ -100,6 +102,8 @@ export class ViewState {
   routinesWhen = $state<RoutineWhenFilter>('all');
   routinesStatus = $state<RoutineStatusFilter>('all');
   routinesSource = $state<RoutineSource>('all');
+  /** The column the routines of each group are sorted by; null for the order they run in. */
+  routinesSort = $state<Sort | null>(null);
 
   /** The run history: the run whose panel is open, the routine it is narrowed to (null for all), the status filter and the page (from 0). */
   runId = $state<string | null>(null);
@@ -162,6 +166,7 @@ export class ViewState {
       this.hooksWhen = 'all';
       this.hooksStatus = 'all';
       this.hooksSource = 'all';
+      this.hooksSort = null;
     } else if (view === 'routines') {
       this.routinesSection = 'routines';
       this.routineId = null;
@@ -169,6 +174,7 @@ export class ViewState {
       this.routinesWhen = 'all';
       this.routinesStatus = 'all';
       this.routinesSource = 'all';
+      this.routinesSort = null;
       this.runId = null;
       this.runsRoutine = null;
       this.runsStatus = 'all';

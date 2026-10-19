@@ -1,6 +1,4 @@
 <script lang="ts" generics="T">
-  import ArrowDown from '@lucide/svelte/icons/arrow-down';
-  import ArrowUp from '@lucide/svelte/icons/arrow-up';
   import ChevronRight from '@lucide/svelte/icons/chevron-right';
   import { type Snippet, untrack } from 'svelte';
 
@@ -8,7 +6,8 @@
 
   import ColumnHandle from './ColumnHandle.svelte';
   import { ICON } from './icon';
-  import { type Column, type ColumnWidths, MIN_COLUMN_PX, nextSort, readColumnWidths, saveColumnWidths, type Sort } from './table';
+  import SortButton from './SortButton.svelte';
+  import { ariaSort, type Column, type ColumnWidths, MIN_COLUMN_PX, nextSort, readColumnWidths, saveColumnWidths, type Sort } from './table';
 
   interface Props {
     /** Accessible name of the table. */
@@ -135,14 +134,6 @@
   }
 </script>
 
-{#snippet arrow(active: boolean)}
-  {#if active}
-    <span class="grid size-4 shrink-0 place-items-center" aria-hidden="true">
-      {#if sort.desc}<ArrowDown size={ICON.sm} />{:else}<ArrowUp size={ICON.sm} />{/if}
-    </span>
-  {/if}
-{/snippet}
-
 <!-- A grid of the page on screen: every row is one stop of the Tab key, the arrow keys move between rows, and a row opens
      its detail. Headers of sortable columns are buttons. The container query decides which columns fit. It lies in a
      flex column and is its own scrolling viewport, with the header held at the top. A chevron ends every row: it is what
@@ -159,24 +150,12 @@
             role="columnheader"
             scope="col"
             aria-label={column.label}
-            aria-sort={column.sortable ? (active ? (sort.desc ? 'descending' : 'ascending') : 'none') : undefined}
+            aria-sort={column.sortable ? ariaSort(sort, column.key) : undefined}
             style:width={widths[column.key] ? `${widths[column.key]}px` : column.width}
             class={cx('relative h-9 select-none border-b border-line px-3 text-[11px] leading-[16px] font-medium tracking-wide text-fg-3 uppercase', column.align === 'end' ? 'text-right' : 'text-left', visible(column))}
           >
             {#if column.sortable}
-              <button
-                type="button"
-                class={cx(
-                  '-mx-2 inline-flex h-7 max-w-full items-center gap-1 rounded-sm px-2 uppercase transition-colors duration-[var(--dur-fast)] hover:bg-hover hover:text-fg-2 focus-visible:outline-2',
-                  active && 'text-fg',
-                )}
-                onclick={() => onsort(nextSort(sort, column))}
-              >
-                <!-- The arrow goes on the side away from the edge the text is set to, so the label stays where it is when a sort turns on. -->
-                {#if column.align === 'end'}{@render arrow(active)}{/if}
-                <span class="truncate">{column.label}</span>
-                {#if column.align !== 'end'}{@render arrow(active)}{/if}
-              </button>
+              <SortButton label={column.label} {active} desc={sort.desc} end={column.align === 'end'} onclick={() => onsort(nextSort(sort, column))} />
             {:else}
               <span class="truncate">{column.label}</span>
             {/if}

@@ -36,7 +36,7 @@
   import DesktopMcpHint from './DesktopMcpHint.svelte';
   import DeleteAllDialog from './DeleteAllDialog.svelte';
   import FamilyDialog from './FamilyDialog.svelte';
-  import { EVENT_LABELS, EVENT_WHEN, EVENTS, filterCounts, folderName, groupHooks, hookTitle, inSource, inStatus, inWhen, matchesQuery, STATUS_LABELS, STATUSES, type WaitingFor, viewKey, waitingFor } from './hook-format';
+  import { EVENT_LABELS, EVENT_WHEN, EVENTS, filterCounts, folderName, groupHooks, hookTitle, inSource, inStatus, inWhen, matchesQuery, sortHooks, STATUS_LABELS, STATUSES, type WaitingFor, viewKey, waitingFor } from './hook-format';
   import { type EditorTarget } from './hook-form';
   import { originalOf } from './hook-team';
   import HookEditor from './HookEditor.svelte';
@@ -70,7 +70,8 @@
   const filtered = $derived(when !== 'all' || status !== 'all' || source !== 'all');
   const narrowed = $derived(filtered || query.trim() !== '');
   const shown = $derived(views.filter((view) => inWhen(view, when) && inStatus(view, status) && inSource(view, source) && matchesQuery(view, query)));
-  const groups = $derived(groupHooks(views, shown, narrowed, team !== null));
+  const sort = $derived(viewState.hooksSort);
+  const groups = $derived(sortHooks(groupHooks(views, shown, narrowed, team !== null), sort));
   const openId = $derived(viewState.hookId);
 
   const whenOptions = $derived([
@@ -312,6 +313,8 @@
             <HookList
               bind:table
               {groups}
+              {sort}
+              onsort={(next) => (viewState.hooksSort = next)}
               {openId}
               projectName={project.active ? folderName(project.active.path) : null}
               teamProblem={team?.problem ?? null}

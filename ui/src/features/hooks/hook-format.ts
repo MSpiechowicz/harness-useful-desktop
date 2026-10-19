@@ -9,8 +9,9 @@ import Send from '@lucide/svelte/icons/send';
 import SquareTerminal from '@lucide/svelte/icons/square-terminal';
 import Wrench from '@lucide/svelte/icons/wrench';
 
-import { type DocGroup, groupDocs, MAX_PER_SCOPE } from '$lib/components/docs/doc-groups';
+import { type DocGroup, groupDocs, MAX_PER_SCOPE, type SortValue, sortGroups } from '$lib/components/docs/doc-groups';
 import type { IconComponent } from '$lib/components/icon';
+import { t } from '$lib/i18n/i18n.svelte';
 import type { MessageKey } from '$lib/i18n/locales/en';
 import type { Hook } from '$lib/ipc/bindings/Hook';
 import type { HookAction } from '$lib/ipc/bindings/HookAction';
@@ -20,10 +21,12 @@ import type { HookScope } from '$lib/ipc/bindings/HookScope';
 import type { HookStatus } from '$lib/ipc/bindings/HookStatus';
 import type { HookRequirement } from '$lib/ipc/bindings/HookRequirement';
 import type { HookView } from '$lib/ipc/bindings/HookView';
+import type { Sort } from '$lib/components/table';
 import type { HookSource, HookStatusFilter, HookWhen } from '$lib/stores/view-state.svelte';
 
 import { spelledOut } from '../memory/script-format';
 import type { Companion } from '../onboarding/setup-model';
+import { switchedOn } from './hook-team';
 
 export { MAX_PER_SCOPE };
 
@@ -186,6 +189,20 @@ export type HookGroup = DocGroup<HookView>;
 /** The hooks that answer the search and the filter, in their groups (see `groupDocs`). */
 export function groupHooks(all: HookView[], shown: HookView[], narrowed: boolean, teamOn = false): HookGroup[] {
   return groupDocs(all, shown, narrowed, teamOn, (view) => (view.origin === 'team' ? 'team' : (view.hook?.scope ?? 'invalid')));
+}
+
+/** What each sortable column of the list sorts a hook by: the name, the event in the order they happen in a chat, what it does and its status as the reader sees them, and whether it is switched on. */
+const SORT_VALUES: Record<string, (view: HookView) => SortValue> = {
+  hook: (view) => hookTitle(view),
+  when: (view) => (view.hook ? EVENTS.indexOf(view.hook.event) : null),
+  does: (view) => (view.hook ? t(ACTION_LABELS[view.hook.action.type]) : null),
+  status: (view) => t(STATUS_LABELS[view.status]),
+  on: (view) => Number(switchedOn(view)),
+};
+
+/** The hooks of each group in the order of a column; null keeps the run order (see `sortGroups`). */
+export function sortHooks(groups: HookGroup[], sort: Sort | null): HookGroup[] {
+  return sortGroups(groups, sort, SORT_VALUES);
 }
 
 /** The tool names of a `toolEnd` filter, one chip each. */

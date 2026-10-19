@@ -19,9 +19,9 @@
 {#if hint}
   <Tooltip text={hint}>
     {#snippet children({ describedby })}
-      <span aria-describedby={describedby} class="inline-flex"><Badge {tone}>{label}</Badge></span>
+      <span aria-describedby={describedby} class="inline-flex"><Badge {tone} size="lg">{label}</Badge></span>
     {/snippet}
   </Tooltip>
 {:else}
-  <Badge {tone} {dot}>{label}</Badge>
+  <Badge {tone} {dot} size="lg">{label}</Badge>
 {/if}

@@ -29,6 +29,11 @@ export function teamSwitchedOn(view: HookView): boolean {
   return view.hook !== null && view.hook.enabled && !view.teamDisabled && view.status !== 'pending' && view.status !== 'invalid' && view.status !== 'duplicate';
 }
 
+/** The switch position of a hook: a local hook as its file says, a team hook as this computer has it. */
+export function switchedOn(view: HookView): boolean {
+  return view.origin === 'team' ? teamSwitchedOn(view) : view.status !== 'pending' && view.status !== 'invalid' && (view.hook?.enabled ?? false);
+}
+
 /** Why the switch of a hook is off, or null when it works. A hook that waits for approval or cannot run is never turned on by a click. */
 export function switchLock(view: HookView): MessageKey | null {
   if (view.origin === 'team') {

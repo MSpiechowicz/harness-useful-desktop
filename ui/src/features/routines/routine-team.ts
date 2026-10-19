@@ -35,6 +35,11 @@ export function teamSwitchedOn(view: RoutineView): boolean {
   return view.teamOn && (view.status === 'active' || view.status === 'running' || view.status === 'paused' || view.status === 'pending');
 }
 
+/** The switch position of a routine: a local routine as its file says, a team routine as this computer has it. */
+export function switchedOn(view: RoutineView): boolean {
+  return view.origin === 'team' ? teamSwitchedOn(view) : view.status !== 'pending' && view.status !== 'invalid' && (view.routine?.enabled ?? false);
+}
+
 /** The local routine a team routine was shared from: the one with the same id. */
 export function originalOf(views: readonly RoutineView[], team: RoutineView): RoutineView | null {
   return views.find((view) => view.origin === 'local' && view.id === team.id) ?? null;

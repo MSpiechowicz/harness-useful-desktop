@@ -10,7 +10,8 @@ import Repeat from '@lucide/svelte/icons/repeat';
 import SquareTerminal from '@lucide/svelte/icons/square-terminal';
 import Timer from '@lucide/svelte/icons/timer';
 
-import { type DocGroup, groupDocs, MAX_PER_SCOPE } from '$lib/components/docs/doc-groups';
+import { type DocGroup, groupDocs, MAX_PER_SCOPE, type SortValue, sortGroups } from '$lib/components/docs/doc-groups';
+import type { Sort } from '$lib/components/table';
 import type { IconComponent } from '$lib/components/icon';
 import { t, tn } from '$lib/i18n/i18n.svelte';
 import type { MessageKey } from '$lib/i18n/locales/en';
@@ -30,6 +31,7 @@ import type { RoutineSource, RoutineStatusFilter, RoutineWhenFilter } from '$lib
 import { perLocale } from '$lib/utils/format';
 
 import { spelledOut } from '../memory/script-format';
+import { switchedOn } from './routine-team';
 
 export { MAX_PER_SCOPE };
 
@@ -236,6 +238,27 @@ export type RoutineGroup = DocGroup<RoutineView>;
 /** The routines that answer the search and the filters, in their groups (see `groupDocs`). */
 export function groupRoutines(all: RoutineView[], shown: RoutineView[], narrowed: boolean, teamOn = false): RoutineGroup[] {
   return groupDocs(all, shown, narrowed, teamOn, (view) => (view.origin === 'team' ? 'team' : (view.routine?.scope ?? 'invalid')));
+}
+
+/** The moment of the next run as a number, null for a routine with none (or a date that cannot be read). */
+function nextRunAt(view: RoutineView): number | null {
+  const at = view.nextRun ? Date.parse(view.nextRun) : Number.NaN;
+
+  return Number.isNaN(at) ? null : at;
+}
+
+/** What each sortable column of the list sorts a routine by: the name, the kind of schedule and then its words, the next run, the status as the reader sees it, and whether it is switched on. */
+const SORT_VALUES: Record<string, (view: RoutineView) => SortValue> = {
+  routine: (view) => routineTitle(view),
+  when: (view) => (view.routine ? `${String(WHEN_KINDS.indexOf(view.routine.when.type)).padStart(2, '0')} ${whenText(view.routine.when)}` : null),
+  next: nextRunAt,
+  status: (view) => t(STATUS_LABELS[view.status]),
+  on: (view) => Number(switchedOn(view)),
+};
+
+/** The routines of each group in the order of a column; null keeps the run order (see `sortGroups`). */
+export function sortRoutines(groups: RoutineGroup[], sort: Sort | null): RoutineGroup[] {
+  return sortGroups(groups, sort, SORT_VALUES);
 }
 
 /** The last part of a folder path: the name a project is shown by. */

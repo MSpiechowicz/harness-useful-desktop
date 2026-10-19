@@ -5,12 +5,18 @@
   import { cx } from '$lib/utils/cx';
 
   import { ICON } from '../icon';
+  import SortButton from '../SortButton.svelte';
+  import { ariaSort, nextSort, type Sort } from '../table';
   import type { DocColumn } from './doc-groups';
 
   interface Props {
     /** Accessible name of the table. */
     label: string;
     columns: DocColumn[];
+    /** The sort the rows of every group are in; null for the run order. Only the columns with a key sort. */
+    sort?: Sort | null;
+    /** A header of a sortable column was clicked: the sort to apply. */
+    onsort?: (sort: Sort) => void;
     groups: G[];
     rowKey: (view: V) => string;
     /** The row whose panel is open. */
@@ -28,7 +34,7 @@
     empty: Snippet<[G]>;
   }
 
-  let { label, columns, groups, rowKey, openId, onopen, onmove, heading, note, cells, empty }: Props = $props();
+  let { label, columns, sort = null, onsort, groups, rowKey, openId, onopen, onmove, heading, note, cells, empty }: Props = $props();
 
   let body: HTMLElement | undefined = $state();
 
@@ -86,7 +92,15 @@
     <thead class="sticky top-0 z-10 bg-surface-1">
       <tr class="h-9 text-left text-[11px] leading-[16px] font-medium tracking-wide text-fg-3 uppercase">
         {#each columns as column (column.label)}
-          <th scope="col" class={cx('border-b border-line px-3 font-medium', column.right ? 'text-right' : 'text-left', column.head)}>{column.label}</th>
+          {@const key = column.key}
+
+          <th scope="col" aria-sort={key && onsort ? ariaSort(sort, key) : undefined} class={cx('border-b border-line px-3 font-medium', column.right ? 'text-right' : 'text-left', column.head)}>
+            {#if key && onsort}
+              <SortButton label={column.label} active={sort?.key === key} desc={sort?.desc ?? false} end={column.right} onclick={() => onsort(nextSort(sort, { key, descFirst: column.descFirst }))} />
+            {:else}
+              {column.label}
+            {/if}
+          </th>
         {/each}
         <th scope="col" aria-hidden="true" class="border-b border-line"></th>
       </tr>

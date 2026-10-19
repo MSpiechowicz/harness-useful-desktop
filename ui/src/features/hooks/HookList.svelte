@@ -5,16 +5,20 @@
   import DocTeamNote from '$lib/components/docs/DocTeamNote.svelte';
   import type { DocListHandlers } from '$lib/components/docs/doc-groups';
   import { ICON } from '$lib/components/icon';
+  import type { Sort } from '$lib/components/table';
   import { t } from '$lib/i18n/i18n.svelte';
   import type { HookView } from '$lib/ipc/bindings/HookView';
   import { cx } from '$lib/utils/cx';
 
   import { ACTION_LABELS, EVENT_ICONS, EVENT_LABELS, hookTitle, type HookGroup, MAX_PER_SCOPE, SCOPE_ICONS, SCOPE_LABELS, viewKey } from './hook-format';
-  import { switchLock, teamSwitchedOn } from './hook-team';
+  import { switchedOn, switchLock, teamSwitchedOn } from './hook-team';
   import HookStatusBadge from './HookStatusBadge.svelte';
 
   interface Props extends DocListHandlers<HookView> {
     groups: HookGroup[];
+    /** The sort the hooks of each group are in; null for the run order. */
+    sort: Sort | null;
+    onsort: (sort: Sort) => void;
     /** The hook whose panel is open. */
     openId: string | null;
     /** The name of the open project, which the project group is titled with. */
@@ -27,7 +31,7 @@
     busy: ReadonlySet<string>;
   }
 
-  let { groups, openId, projectName, teamProblem = null, teamTrusted = false, busy, onopen, onmove, ontoggle, onadd, table = $bindable() }: Props = $props();
+  let { groups, sort, onsort, openId, projectName, teamProblem = null, teamTrusted = false, busy, onopen, onmove, ontoggle, onadd, table = $bindable() }: Props = $props();
 
   const labels = $derived({
     global: t(SCOPE_LABELS.global),
@@ -41,11 +45,11 @@
   });
 
   const COLUMNS = $derived([
-    { label: t('hooks.list.column.hook') },
-    { label: t('hooks.list.column.when'), col: 'w-[17rem]' },
-    { label: t('hooks.list.column.does'), col: 'hidden w-[8.5rem] @min-[780px]:table-column', head: 'hidden @min-[780px]:table-cell' },
-    { label: t('hooks.list.column.status'), col: 'w-[10.5rem]' },
-    { label: t('hooks.list.column.on'), col: 'w-[5.5rem]', right: true },
+    { key: 'hook', label: t('hooks.list.column.hook') },
+    { key: 'when', label: t('hooks.list.column.when'), col: 'w-[17rem]' },
+    { key: 'does', label: t('hooks.list.column.does'), col: 'hidden w-[8.5rem] @min-[780px]:table-column', head: 'hidden @min-[780px]:table-cell' },
+    { key: 'status', label: t('hooks.list.column.status'), col: 'w-[10.5rem]' },
+    { key: 'on', label: t('hooks.list.column.on'), col: 'w-[5.5rem]', right: true, descFirst: true },
   ]);
 
   const span = $derived(COLUMNS.length + 1);
@@ -60,11 +64,6 @@
   /** Whether the row's label offers to turn it off: a team hook as this computer has it, a local one as its file says. */
   function isOn(view: HookView): boolean {
     return view.origin === 'team' ? teamSwitchedOn(view) : (view.hook?.enabled ?? false);
-  }
-
-  /** The switch position of a row: a local hook as its file says, a team hook as this computer has it. */
-  function switchedOn(view: HookView): boolean {
-    return view.origin === 'team' ? teamSwitchedOn(view) : view.status !== 'pending' && view.status !== 'invalid' && (view.hook?.enabled ?? false);
   }
 </script>
 
@@ -116,4 +115,4 @@
   {/if}
 {/snippet}
 
-<DocTable bind:this={table} label={t('hooks.list.label')} columns={COLUMNS} {groups} rowKey={viewKey} {openId} {onopen} {onmove} {heading} {note} {cells} {empty} />
+<DocTable bind:this={table} label={t('hooks.list.label')} columns={COLUMNS} {sort} {onsort} {groups} rowKey={viewKey} {openId} {onopen} {onmove} {heading} {note} {cells} {empty} />

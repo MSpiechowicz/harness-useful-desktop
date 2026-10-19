@@ -34,3 +34,12 @@ export async function pick(button: string, choice: RegExp): Promise<void> {
   await fireEvent.click(screen.getByRole('button', { name: button }));
   await fireEvent.click(await screen.findByRole('menuitemradio', { name: choice }));
 }
+
+/** What a documents table lists, top to bottom: the heading of each group ("# Global") followed by the names of its rows. */
+export function listed(grid: HTMLElement): string[] {
+  return [...grid.querySelectorAll<HTMLElement>('tbody tr')].map((row) => {
+    const heading = row.querySelector('th[scope="colgroup"]');
+
+    return heading ? `# ${heading.querySelector('span span')?.textContent?.trim() ?? ''}` : (row.querySelector('td .truncate')?.textContent?.trim() ?? '');
+  });
+}
