@@ -1,3 +1,10 @@
+## [0.27.1](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.27.0...v0.27.1) (2026-10-19)
+
+
+### Bug Fixes
+
+* **ui:** larger status badges on Ecosystem cards ([684c0ea](https://github.com/MSpiechowicz/harness-useful-desktop/commit/684c0ea04b121313fee4b0c2c7c36d27fccee78f))
+
 # [0.27.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.26.0...v0.27.0) (2026-10-19)
 
 
