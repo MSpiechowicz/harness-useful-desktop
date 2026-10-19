@@ -185,14 +185,18 @@ fn a_command_runs_in_its_folder_with_the_routine_variables_and_its_stderr_kept()
     let job = job(&setup, command("env"));
     // The ids are random hex, which the redaction masks in output: they are compared in the shell.
     let text = format!(
-        r#"test "$HARNESS_ROUTINE_ID" = {} && test "$HARNESS_ROUTINE_RUN" = {} && test "$HARNESS_ROUTINE_TRIGGER" = manual && test "$HARNESS_ROUTINE_PROJECT" = "$(pwd)" && echo vars-ok; pwd; echo oops >&2; exit 4"#,
+        r#"test "$HARNESS_ROUTINE_ID" = {} && test "$HARNESS_ROUTINE_RUN" = {} && test "$HARNESS_ROUTINE_TRIGGER" = manual && test "$HARNESS_ROUTINE_PROJECT" = "$(pwd)" && echo vars-ok; echo ran > in-folder; echo oops >&2; exit 4"#,
         job.run.routine_id, job.run.record.id
     );
 
     let outcome = block_on(command_run::run(&setup.state.env, &job, &text, None));
 
-    let expected = format!("vars-ok\n{}", setup.project.to_string_lossy());
-    assert_eq!(outcome.excerpt.as_deref(), Some(expected.as_str()));
+    // A marker, not a printed path: the redaction may mask parts of a path in the output.
+    assert!(
+        setup.project.join("in-folder").is_file(),
+        "the command ran in its folder"
+    );
+    assert_eq!(outcome.excerpt.as_deref(), Some("vars-ok"));
     assert_eq!(outcome.error_excerpt.as_deref(), Some("oops"));
     assert_eq!(outcome.status, RunStatus::Failed);
     assert_eq!(outcome.exit_code, Some(4));

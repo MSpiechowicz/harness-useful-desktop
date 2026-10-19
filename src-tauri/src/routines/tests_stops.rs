@@ -238,35 +238,52 @@ fn a_look_at_an_unreadable_folder_plans_and_forgets_nothing() {
 fn each_global_routine_runs_in_its_own_folder_and_is_authorized_there() {
     let setup = ProjectHome::new("routines-own-folder");
     let state = &setup.state;
+    // `echo … > file` means the same to `sh -c` and to `cmd.exe /C`: each run leaves its marker in
+    // the folder it ran in.
     let first = save(
         state,
-        &draft("First", RoutineWhen::AppStart, command("pwd")),
+        &draft("First", RoutineWhen::AppStart, command("echo ran > first-ran")),
         HookAuthor::Desktop,
     );
     let second = save(
         state,
-        &draft("Second", RoutineWhen::AppStart, command("pwd")),
+        &draft("Second", RoutineWhen::AppStart, command("echo ran > second-ran")),
         HookAuthor::Desktop,
     );
 
     for id in [&first.id, &second.id] {
         block_on(state.routines.run_now(id)).expect("ran");
+        assert_eq!(ended(state, id, 1)[0].record.status, RunStatus::Ok);
     }
 
     let workspace = state.routines.workspace().expect("the workspace exists");
-    let folder_of = |id: &str| ended(state, id, 1)[0].record.excerpt.clone().map(PathBuf::from);
-    assert_eq!(folder_of(&first.id), Some(workspace.join(&first.id)));
-    assert_eq!(folder_of(&second.id), Some(workspace.join(&second.id)));
+    let (first_folder, second_folder) = (workspace.join(&first.id), workspace.join(&second.id));
+    let elsewhere = [workspace.clone(), setup.home.clone(), setup.project.clone()];
+
+    for (marker, own, other) in [
+        ("first-ran", &first_folder, &second_folder),
+        ("second-ran", &second_folder, &first_folder),
+    ] {
+        assert!(own.join(marker).is_file(), "{marker} is missing from {}", own.display());
+
+        for folder in elsewhere.iter().chain([other]) {
+            assert!(
+                !folder.join(marker).exists(),
+                "{marker} was written in {}",
+                folder.display()
+            );
+        }
+    }
 
     let as_project = |path: &Path| path.to_string_lossy().into_owned();
     assert_eq!(
-        state.routines.workspace_folder(&as_project(&workspace.join(&first.id))),
-        Some(workspace.join(&first.id))
+        state.routines.workspace_folder(&as_project(&first_folder)),
+        Some(first_folder.clone())
     );
     assert_eq!(state.routines.workspace_folder(&as_project(&workspace.join("x"))), None);
     assert_eq!(
         state.routines.routine_workspaces(),
-        sorted([workspace.join(&first.id), workspace.join(&second.id)])
+        sorted([first_folder, second_folder])
     );
 }
 

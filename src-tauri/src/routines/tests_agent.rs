@@ -122,14 +122,20 @@ impl Fixture {
         relays.get(run_id).expect("the relay")
     }
 
-    /// Runs `action` now with a window attached to its chat, which stays open; answers the
-    /// routine's id, the run's, the chat and the window's open flag.
+    /// Runs `action` now with a window attached to its chat, which stays open, and waits until the
+    /// window shows the agent at work on the prompt (an end from then on is not a refused prompt,
+    /// however slow the machine); answers the routine's id, the run's, the chat and the window's
+    /// open flag.
     pub(super) fn run_shown(&self, action: RoutineAction) -> (String, String, AgentSessionInfo, Arc<AtomicBool>) {
         let (id, run_id) = self.run(action);
         self.relay(&run_id);
 
-        let (window, open, _) = closable_channel(true);
+        let (window, open, heard) = closable_channel(true);
         let info = attach(&self.state, &run_id, window).expect("the chat opens");
+
+        wait_until("the agent to take the prompt", || {
+            event_types(&heard).iter().any(|kind| kind == "agentStart")
+        });
 
         (id, run_id, info, open)
     }

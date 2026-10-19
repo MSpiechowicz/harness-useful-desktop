@@ -43,7 +43,7 @@ Top-level fields. Required means the key MUST be present and valid. Readers igno
 | `name` | string | yes | 1 to 80 characters, not blank, no control characters, no invisible characters |
 | `description` | string or null | no | at most 500 characters, no invisible characters |
 | `scope` | string | yes | `"global"` or `"project"` |
-| `project` | string or null | for `"project"` | absolute canonical project root (see Project identity; on Windows with its drive or share), at most 4096 bytes, no control or invisible characters. Must be `null` or absent when `scope` is `"global"` |
+| `project` | string or null | for `"project"` | absolute canonical project root (see Project identity). Accepted when it starts at a filesystem root (`/…`, on Windows also `C:\…` or `\\server\share\…`), so a POSIX path still reads on Windows. At most 4096 bytes, no control or invisible characters. Must be `null` or absent when `scope` is `"global"` |
 | `event` | string | yes | `sessionStart`, `promptSubmit`, `toolEnd`, `turnEnd`, `sessionEnd` |
 | `matcher` | string or null | no | `toolEnd` only, see Matcher. `null` or absent means all tools |
 | `action` | object | yes | see Actions |

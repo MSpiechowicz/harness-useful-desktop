@@ -229,13 +229,13 @@ pub(crate) fn parse_scope<K: DocKind>(
     }
 }
 
-/// A project root is an absolute path (on Windows with its drive or share) of at most
-/// [`MAX_PROJECT_PATH_BYTES`] without control or invisible characters; a repository key starts
-/// with `git:`, is at most [`MAX_REPO_KEY_BYTES`] long and has no spaces, control or invisible
-/// characters.
+/// A project root starts at a filesystem root (`/…`, or on Windows also `C:\…` or `\\server\share`,
+/// so a file written on another system still reads), is at most [`MAX_PROJECT_PATH_BYTES`] long
+/// and has no control or invisible characters; a repository key starts with `git:`, is at most
+/// [`MAX_REPO_KEY_BYTES`] long and has no spaces, control or invisible characters.
 fn check_project(project: &str, form: ProjectForm) -> Result<(), String> {
     match form {
-        ProjectForm::Root if !Path::new(project).is_absolute() => Err("project must be an absolute path".to_owned()),
+        ProjectForm::Root if !Path::new(project).has_root() => Err("project must be an absolute path".to_owned()),
         ProjectForm::Root if project.len() > MAX_PROJECT_PATH_BYTES => {
             Err(format!("project is longer than {MAX_PROJECT_PATH_BYTES} bytes"))
         }

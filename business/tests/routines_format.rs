@@ -231,12 +231,18 @@ fn a_team_body_names_a_repository_key_not_a_path() {
 }
 
 #[test]
-fn a_local_project_is_an_absolute_plain_path_of_limited_length() {
+fn a_local_project_is_a_rooted_plain_path_of_limited_length() {
     let id = "1".repeat(32);
-    let root = if cfg!(windows) { "C:\\work\\app" } else { "/work/app" };
+    let root = "/work/app";
     let project = |path: &str| parse_routine_file(&id, &routine_with(json!({"scope": "project", "project": path})));
 
-    assert!(project(root).is_ok());
+    assert!(project(root).is_ok(), "a POSIX root reads on every system");
+
+    if cfg!(windows) {
+        assert!(project("C:\\work\\app").is_ok(), "a root with its drive");
+        assert!(project("\\\\server\\share\\app").is_ok(), "a root on a share");
+        assert!(project("C:work\\app").is_err(), "a drive without its root");
+    }
 
     let long = format!("{root}{}", "a".repeat(4096));
     let control = format!("{root}\u{7}");
@@ -250,10 +256,6 @@ fn a_local_project_is_an_absolute_plain_path_of_limited_length() {
         (long.as_str(), "over 4096 bytes"),
     ] {
         assert!(project(bad).is_err(), "{why}: {bad:?} was accepted");
-    }
-
-    if cfg!(windows) {
-        assert!(project("\\work\\app").is_err(), "a path without its drive");
     }
 }
 
