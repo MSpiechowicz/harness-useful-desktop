@@ -36,3 +36,4 @@ pub use collect::{
 };
 pub use plan::{BuiltPlan, build_plan};
 pub use plan_rows::StoredPlan;
+pub(crate) use validate_source::is_npm_registry_spec;

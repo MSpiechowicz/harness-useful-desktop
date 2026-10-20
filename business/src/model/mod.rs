@@ -65,7 +65,7 @@ pub use dashboard_args::{
 };
 pub use dropped::{AttachedFile, DropEvent, DroppedImage};
 pub use ecosystem::{EcosystemId, EcosystemInstalled, EcosystemItem, EcosystemRelease, EcosystemStatus, InstallStep};
-pub use extension_action::{CliResult, ExtensionAction, InstallScope, MAX_CLI_OUTPUT_BYTES};
+pub use extension_action::{CliResult, ConfigEdit, ExtensionAction, InstallScope, MAX_CLI_OUTPUT_BYTES};
 pub use extensions::{
     AgentInfo, AgentMode, ExtensionModuleInfo, ExtensionScope, ExtensionsView, MarketplaceEntry, MarketplaceInfo,
     McpServerInfo, McpTransport, PackageInfo, PluginFeature, PluginInfo, PromptTemplateInfo, SkillInfo, ThemeInfo,

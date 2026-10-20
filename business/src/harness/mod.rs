@@ -55,8 +55,8 @@ pub mod prelude {
     pub use crate::env::Env;
     pub use crate::error::Result;
     pub use crate::model::{
-        ApprovalMode, Capabilities, ConfigView, ExtensionAction, ExtensionsView, HarnessId, HarnessInfo, InstallHint,
-        SessionFolder,
+        ApprovalMode, Capabilities, CliResult, ConfigView, ExtensionAction, ExtensionsView, HarnessId, HarnessInfo,
+        InstallHint, SessionFolder,
     };
     pub use crate::pi_family::rpc::RpcDialect;
     pub use crate::process::ExecSpec;
@@ -67,9 +67,9 @@ use std::path::{Path, PathBuf};
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::model::{
-    ApprovalMode, Capabilities, ConfigView, Detection, ExtensionAction, ExtensionsView, HarnessId, HarnessInfo,
-    HarnessSummary, InstallHint, SessionFolder, SessionMessagesPage, SessionRef, SessionSummary, SessionTree,
-    SyncItemKind, VersionSupport,
+    ApprovalMode, Capabilities, CliResult, ConfigView, Detection, ExtensionAction, ExtensionsView, HarnessId,
+    HarnessInfo, HarnessSummary, InstallHint, SessionFolder, SessionMessagesPage, SessionRef, SessionSummary,
+    SessionTree, SyncItemKind, VersionSupport,
 };
 use crate::pi_family::rpc::RpcDialect;
 use crate::pi_family::sessions::{self, SessionCache};
@@ -352,6 +352,22 @@ pub trait Harness: Send + Sync {
             "{} has no extension actions",
             self.info().short_name
         )))
+    }
+
+    /// Applies `action` by editing the harness's own config file instead of running its CLI, or
+    /// previews that edit when `dry_run` is set (nothing is written). `Ok(None)`: the action goes
+    /// to the CLI ([`Harness::cli_action`]); `extension_action` asks this first. Reads and writes
+    /// files, so call it from a blocking-capable context. Default: every action goes to the CLI.
+    fn config_action(
+        &self,
+        env: &Env,
+        action: &ExtensionAction,
+        project: Option<&Path>,
+        dry_run: bool,
+    ) -> Result<Option<CliResult>> {
+        let _ = (env, action, project, dry_run);
+
+        Ok(None)
     }
 
     /// The output line that reports a failed extension action although the CLI exited with 0
