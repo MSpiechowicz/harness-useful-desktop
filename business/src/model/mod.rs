@@ -125,7 +125,7 @@ pub use routine_run::{
 };
 pub use session::{
     MAX_FIRST_PROMPT_CHARS, MAX_NODE_PREVIEW_CHARS, MAX_SESSION_PAGE, MAX_TREE_NODES, ModelTurns, SessionFolder,
-    SessionMessagesPage, SessionNode, SessionNodeKind, SessionSummary, SessionTitleSource, SessionTree,
+    SessionMessagesPage, SessionNode, SessionNodeKind, SessionSummary, SessionTitleSource, SessionTotals, SessionTree,
     TranscriptStats,
 };
 pub use setup::{

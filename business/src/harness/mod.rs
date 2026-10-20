@@ -18,9 +18,10 @@
 //! Chat sessions additionally need [`Harness::launch_spec`] (the command line) and
 //! [`Harness::chat_protocol`] (which chat engine drives the process; for the PI-family RPC
 //! protocol, [`Harness::dialect`] says how the harness speaks it). Saved sessions need
-//! [`Harness::sessions_dir`]; listing, trees and transcripts default to the PI-family session
-//! format and are overridden by harnesses that store sessions differently, or replaced by
-//! [`Harness::cli_sessions`] for a harness whose sessions are only reachable through its CLI.
+//! [`Harness::sessions_dir`] (and [`Harness::session_store`] for the machine-wide totals);
+//! listing, trees and transcripts default to the PI-family session format and are overridden by
+//! harnesses that store sessions differently, or replaced by [`Harness::cli_sessions`] for a
+//! harness whose sessions are only reachable through its CLI.
 //! Extension actions (install, remove, …) need [`Harness::cli_action`], run by [`run_cli_action`].
 
 mod catalog;
@@ -59,6 +60,7 @@ pub mod prelude {
         InstallHint, SessionFolder,
     };
     pub use crate::pi_family::rpc::RpcDialect;
+    pub use crate::pi_family::sessions::SessionStore;
     pub use crate::process::ExecSpec;
 }
 
@@ -69,7 +71,7 @@ use crate::error::{BusinessError, Result};
 use crate::model::{
     ApprovalMode, Capabilities, CliResult, ConfigView, Detection, ExtensionAction, ExtensionsView, HarnessId,
     HarnessInfo, HarnessSummary, InstallHint, SessionFolder, SessionMessagesPage, SessionRef, SessionSummary,
-    SessionTree, SyncItemKind, VersionSupport,
+    SessionTotals, SessionTree, SyncItemKind, VersionSupport,
 };
 use crate::pi_family::rpc::RpcDialect;
 use crate::pi_family::sessions::{self, SessionCache};
@@ -287,6 +289,22 @@ pub trait Harness: Send + Sync {
             &self.sessions_dir(env, project),
             cache,
         ))
+    }
+
+    /// Where the session files of every project live (default: `Unsupported`, no session files).
+    fn session_store(&self, _env: &Env) -> Result<sessions::SessionStore> {
+        Err(BusinessError::Unsupported(format!(
+            "{} has no session files",
+            self.info().short_name
+        )))
+    }
+
+    /// The session count and last use across every project, from [`Harness::session_store`] (see
+    /// [`sessions::session_totals`]); `Unsupported` without session files (CLI sessions included).
+    fn session_totals(&self, env: &Env) -> Result<SessionTotals> {
+        let store = self.session_store(env)?;
+
+        Ok(sessions::session_totals(&store, sessions::MAX_TOTALS_ENTRIES))
     }
 
     /// The session file `session` names, looked up only in `project`'s session folder.

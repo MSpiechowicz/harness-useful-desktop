@@ -2,14 +2,17 @@ import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
 import type { HarnessSummary } from '$lib/ipc/bindings/HarnessSummary';
 import type { ProjectInfo } from '$lib/ipc/bindings/ProjectInfo';
 import { ipc } from '$lib/ipc/client';
+import { IpcFailure } from '$lib/ipc/transport';
 
 /** One fact about a harness on this machine: still being read, read, or not known (it could not be read, or does not apply). */
 export type Fact<T> = { status: 'loading' } | { status: 'ready'; value: T } | { status: 'unknown' };
 
 export interface SessionsFact {
-  /** The project whose sessions were counted. */
-  project: string;
+  /** The project whose sessions were counted, or null when the count covers every project on this machine. */
+  project: string | null;
   count: number;
+  /** Whether the count stopped at a limit, so there are at least this many. */
+  capped: boolean;
   /** When the newest session was last written (RFC 3339), or null when there is none. */
   lastUsed: string | null;
 }
@@ -31,7 +34,28 @@ export function projectToCount(active: ProjectInfo | null, recents: ProjectInfo[
   return active ?? recents.find((recent) => recent.exists) ?? null;
 }
 
+/** What the harness's sessions are across every project on this machine, or null when the harness cannot tell. */
+async function readTotals(harness: HarnessId): Promise<SessionsFact | null> {
+  try {
+    const { count, lastUsed, capped } = await ipc.invoke('harness_session_totals', { harness });
+
+    return { project: null, count, capped, lastUsed };
+  } catch (error) {
+    // Only a harness that cannot total its sessions falls back to one project. Any other failure leaves the fact unknown.
+    if (IpcFailure.from(error).code === 'unsupported') {
+      return null;
+    }
+
+    throw error;
+  }
+}
+
 async function readSessions(harness: HarnessId, project: ProjectInfo | null): Promise<Fact<SessionsFact>> {
+  const totals = await readTotals(harness);
+  if (totals !== null) {
+    return { status: 'ready', value: totals };
+  }
+
   if (project === null) {
     return { status: 'unknown' };
   }
@@ -39,7 +63,7 @@ async function readSessions(harness: HarnessId, project: ProjectInfo | null): Pr
   // The backend lists a project's sessions in one answer (newest first) and has no total, so this counts that one project's.
   const sessions = (await ipc.invoke('sessions_list', { harness, project: project.path })).filter((session) => !session.emptyCopy);
 
-  return { status: 'ready', value: { project: project.name, count: sessions.length, lastUsed: sessions[0]?.updatedAt ?? null } };
+  return { status: 'ready', value: { project: project.name, count: sessions.length, capped: false, lastUsed: sessions[0]?.updatedAt ?? null } };
 }
 
 async function readExtensions(harness: HarnessSummary): Promise<Fact<ExtensionsFact>> {

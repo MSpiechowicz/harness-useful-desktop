@@ -25,6 +25,8 @@ pub fn fixtures() -> Vec<(&'static str, Value)> {
         .session_messages(env, project, &main, None, MAX_SESSION_PAGE)
         .expect("OMP transcript");
     let touched = Omp.session_files_touched(env, project, &main).expect("touched files");
+    let omp_totals = Omp.session_totals(env).expect("OMP totals");
+    let pi_totals = Pi.session_totals(env).expect("PI totals");
 
     vec![
         (
@@ -40,6 +42,14 @@ pub fn fixtures() -> Vec<(&'static str, Value)> {
         (
             "sessions/session_files_touched.omp.json",
             exported(touched, &home.home, project),
+        ),
+        (
+            "sessions/harness_session_totals.omp.json",
+            exported(omp_totals, &home.home, project),
+        ),
+        (
+            "sessions/harness_session_totals.pi.json",
+            exported(pi_totals, &home.home, project),
         ),
     ]
 }

@@ -3,8 +3,11 @@ import type { SessionMessagesPage } from '../bindings/SessionMessagesPage';
 import type { SessionRef } from '../bindings/SessionRef';
 import type { SessionRoutineTag } from '../bindings/SessionRoutineTag';
 import type { SessionSummary } from '../bindings/SessionSummary';
+import type { SessionTotals } from '../bindings/SessionTotals';
 import { IpcFailure } from '../transport';
 import { fixtures } from './fixtures';
+import totalsOmp from './fixtures/sessions/harness_session_totals.omp.json';
+import totalsPi from './fixtures/sessions/harness_session_totals.pi.json';
 import sessionsListOpenCode from './fixtures/sessions/sessions_list.opencode.json';
 import type { MockRoutines } from './routine-state';
 import type { MockState } from './state';
@@ -12,6 +15,7 @@ import type { Handlers } from './types';
 
 type SessionCommands =
   | 'sessions_list'
+  | 'harness_session_totals'
   | 'sessions_folder'
   | 'session_tree'
   | 'session_messages'
@@ -136,6 +140,15 @@ export function sessionHandlers(state: MockState, routines: Pick<MockRoutines, '
       const sessions = structuredClone(listed(state, harness));
 
       return project === routines.workspace() ? inRoutinesFolder(sessions, tags.global, project) : taggedInProject(sessions, tags.project);
+    },
+
+    harness_session_totals: ({ harness }) => {
+      // OpenCode keeps its sessions in a database the totals do not read.
+      if (harness === 'opencode') {
+        throw IpcFailure.from({ code: 'unsupported', message: 'OpenCode sessions cannot be counted across projects.' });
+      }
+
+      return structuredClone(harness === 'pi' ? totalsPi : totalsOmp) as SessionTotals;
     },
 
     sessions_folder: ({ harness, project }) => {

@@ -299,3 +299,30 @@ fn opencode_sessions_run_its_cli_in_the_project() {
     let stranger = block_on(list(state, HarnessId::OpenCode, text(&setup.stranger))).expect_err("unknown project");
     assert_eq!(stranger.code(), IpcErrorCode::Forbidden);
 }
+
+#[test]
+fn totals_count_every_projects_sessions_without_a_project() {
+    let setup = setup();
+    let state = &setup.state;
+
+    // The stranger's session counts too: totals are machine-wide and name no project.
+    let omp = block_on(totals(state, HarnessId::Omp)).expect("OMP totals");
+    assert_eq!((omp.count, omp.capped), (2, false));
+    assert!(omp.last_used.is_some());
+
+    let pi = block_on(totals(state, HarnessId::Pi)).expect("PI totals");
+    assert_eq!((pi.count, pi.last_used), (0, None));
+}
+
+#[test]
+fn opencode_has_no_session_totals() {
+    let setup = setup();
+
+    // Installed or not: its sessions are only reachable through its CLI, per project.
+    for binary in [None, fake_agent()] {
+        cache_detection(&setup.state, HarnessId::OpenCode, binary.as_deref());
+
+        let error = block_on(totals(&setup.state, HarnessId::OpenCode)).expect_err("no session files");
+        assert_eq!(error.code(), IpcErrorCode::Unsupported);
+    }
+}

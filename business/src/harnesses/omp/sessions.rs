@@ -11,7 +11,10 @@ use std::path::{Path, PathBuf};
 
 use super::paths::omp_paths;
 use crate::env::{Env, OsKind};
-use crate::pi_family::sessions::{canonical_text, configured_session_dir, omp_dir_name, temp_root};
+use crate::error::Result;
+use crate::pi_family::sessions::{
+    SessionStore, canonical_text, configured_session_dir, configured_store, omp_dir_name, temp_root,
+};
 
 /// The root of OMP's per-project session folders.
 pub fn omp_sessions_root(env: &Env) -> PathBuf {
@@ -45,4 +48,14 @@ pub fn omp_sessions_dir(env: &Env, project: &Path) -> PathBuf {
     );
 
     omp_sessions_root(env).join(name)
+}
+
+/// Where OMP keeps the session files of every project: the configured session directory, else
+/// one folder per project below [`omp_sessions_root`].
+pub fn omp_session_store(env: &Env) -> Result<SessionStore> {
+    if let Some(raw) = env.var("PI_CODING_AGENT_SESSION_DIR") {
+        return configured_store(env, raw);
+    }
+
+    Ok(SessionStore::PerProject(omp_sessions_root(env)))
 }

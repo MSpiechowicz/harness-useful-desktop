@@ -63,6 +63,7 @@ const COMMANDS: &[&str] = &[
     "agent_list",
     "agent_move_project",
     "sessions_list",
+    "harness_session_totals",
     "sessions_folder",
     "session_tree",
     "session_messages",

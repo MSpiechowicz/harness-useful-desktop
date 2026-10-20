@@ -59,6 +59,7 @@ const sampleArgs = (sessionKey: string): { [K in CommandName]: CommandArgs<K> } 
   agent_stop: { key: sessionKey },
   agent_list: undefined,
   sessions_list: { harness: 'omp', project: fixtures.recentProjects[0].path },
+  harness_session_totals: { harness: 'omp' },
   sessions_folder: { harness: 'pi', project: fixtures.recentProjects[0].path },
   session_tree: { session: SESSION, project: fixtures.recentProjects[0].path },
   session_messages: { session: SESSION, project: fixtures.recentProjects[0].path, cursor: null, limit: 50 },

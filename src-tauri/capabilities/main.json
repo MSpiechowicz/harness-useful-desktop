@@ -59,6 +59,7 @@
     "allow-agent-list",
     "allow-agent-move-project",
     "allow-sessions-list",
+    "allow-harness-session-totals",
     "allow-sessions-folder",
     "allow-session-tree",
     "allow-session-messages",

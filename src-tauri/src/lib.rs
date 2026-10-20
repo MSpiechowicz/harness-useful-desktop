@@ -122,6 +122,7 @@ pub fn run() -> ExitCode {
             commands::agent::agent_move_project,
             commands::agent::agent_list,
             commands::sessions::sessions_list,
+            commands::sessions::harness_session_totals,
             commands::sessions::sessions_folder,
             commands::sessions::session_tree,
             commands::sessions::session_messages,

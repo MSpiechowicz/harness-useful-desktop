@@ -45,9 +45,10 @@
     }
 
     if (sessions.status === 'ready') {
-      const { count, lastUsed, project } = sessions.value;
+      const { count, capped, lastUsed, project } = sessions.value;
+      const label = project === null ? t('onboarding.facts.sessions') : t('onboarding.facts.sessionsIn', { project });
 
-      result.push({ key: 'sessions', state: 'ready', value: formatCount(count), label: t('onboarding.facts.sessions', { project }) });
+      result.push({ key: 'sessions', state: 'ready', value: capped ? `${formatCount(count)}+` : formatCount(count), label });
 
       if (lastUsed !== null) {
         result.push({ key: 'last', state: 'ready', value: relativeTime(lastUsed), label: t('onboarding.facts.lastUsed') });

@@ -54,6 +54,7 @@ import type { SessionFolder } from './bindings/SessionFolder';
 import type { SessionMessagesPage } from './bindings/SessionMessagesPage';
 import type { SessionRef } from './bindings/SessionRef';
 import type { SessionSummary } from './bindings/SessionSummary';
+import type { SessionTotals } from './bindings/SessionTotals';
 import type { SessionTree } from './bindings/SessionTree';
 import type { SyncExported } from './bindings/SyncExported';
 import type { SyncExportPreview } from './bindings/SyncExportPreview';
@@ -102,6 +103,7 @@ export const commands = {
   agent_move_project: cmd<{ key: string; project: string }, AgentSessionInfo>(),
   agent_list: cmd<undefined, AgentSessionInfo[]>(),
   sessions_list: cmd<{ harness: HarnessId; project: string }, SessionSummary[]>(),
+  harness_session_totals: cmd<{ harness: HarnessId }, SessionTotals>(),
   sessions_folder: cmd<{ harness: HarnessId; project: string }, SessionFolder>(),
   session_tree: cmd<{ session: SessionRef; project: string }, SessionTree>(),
   session_messages: cmd<{ session: SessionRef; project: string; cursor: string | null; limit: number }, SessionMessagesPage>(),

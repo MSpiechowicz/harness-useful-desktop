@@ -15,13 +15,19 @@
 //! A harness without session files (OpenCode) lists, reads and deletes its sessions through its
 //! CLI ([`Harness::cli_sessions`]): its detected binary runs in the blocking task, and a harness
 //! that is not installed is `notFound`. Such sessions have no branch tree.
+//!
+//! `harness_session_totals` needs no project: it counts a harness's session files across every
+//! project on this machine ([`Harness::session_totals`]). A harness without session files
+//! (OpenCode) is `unsupported`.
 
 use std::path::{Path, PathBuf};
 
 use harness_business::BusinessError;
 use harness_business::env::Env;
 use harness_business::harness::{CliSessionCtx, CliSessions, Harness};
-use harness_business::model::{HarnessId, SessionFolder, SessionMessagesPage, SessionRef, SessionSummary, SessionTree};
+use harness_business::model::{
+    HarnessId, SessionFolder, SessionMessagesPage, SessionRef, SessionSummary, SessionTotals, SessionTree,
+};
 use harness_business::process::StdRunner;
 use tauri::State;
 
@@ -39,6 +45,13 @@ pub async fn sessions_list(
     project: String,
 ) -> CommandResult<Vec<SessionSummary>> {
     list(&state, harness, project).await
+}
+
+/// How many saved sessions `harness` holds across every project on this machine, and when one was
+/// last written. `unsupported` for a harness without session files.
+#[tauri::command]
+pub async fn harness_session_totals(state: State<'_, AppState>, harness: HarnessId) -> CommandResult<SessionTotals> {
+    totals(&state, harness).await
 }
 
 /// The folder `harness` keeps the sessions of `project` in; `configured` when the project's own
@@ -125,6 +138,21 @@ pub(crate) async fn list(state: &AppState, harness: HarnessId, project: String) 
     blocking(move || {
         tag_routines(&routines, &mut summaries);
         Ok(summaries)
+    })
+    .await
+}
+
+/// The totals of `harness`, read in a blocking task.
+pub(crate) async fn totals(state: &AppState, harness: HarnessId) -> CommandResult<SessionTotals> {
+    let env = state.env.clone();
+    let registry = state.registry.clone();
+
+    blocking(move || {
+        let found = registry
+            .get(harness)
+            .ok_or_else(|| BusinessError::NotFound(format!("harness {harness:?}")))?;
+
+        Ok(found.session_totals(&env)?)
     })
     .await
 }
