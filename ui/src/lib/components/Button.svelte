@@ -11,8 +11,8 @@
   interface Props extends Omit<HTMLButtonAttributes, 'children' | 'class'> {
     class?: string;
     variant?: Variant;
-    /** Onboarding-only: it keeps its own `sm`/`lg` sizes. Everything else omits this and gets the one control height. */
-    size?: 'sm' | 'lg';
+    /** The children are not a plain text label (an icon-only button, a truncating span): skip the label trim wrapper. */
+    bare?: boolean;
     loading?: boolean;
     leading?: Snippet;
     trailing?: Snippet;
@@ -21,7 +21,7 @@
 
   let {
     variant = 'secondary',
-    size,
+    bare = false,
     loading = false,
     disabled = false,
     type = 'button',
@@ -46,19 +46,9 @@
     // A destructive action that is not the main one: red text, no fill until it is hovered.
     dangerQuiet: 'border border-danger/30 text-danger hover:bg-danger-wash active:bg-danger-wash',
   };
-  const SIZES = {
-    control: 'h-control gap-2 rounded-md px-4 text-base',
-    sm: 'h-8 gap-1.5 rounded-sm px-3 text-sm',
-    lg: 'h-11 gap-2.5 rounded-md px-5 text-lg',
-  } as const;
+  const SIZE = 'h-control gap-2 rounded-md px-4 text-base';
   // An icon's glyph sits inside its box, so the side it is on gets one step less padding to look as tight as the text side.
-  const ICON_SIDE = {
-    control: { leading: 'pl-3', trailing: 'pr-3' },
-    sm: { leading: 'pl-2.5', trailing: 'pr-2.5' },
-    lg: { leading: 'pl-4', trailing: 'pr-4' },
-  } as const;
-
-  const sizeKey = $derived(size ?? 'control');
+  const ICON_SIDE = { leading: 'pl-3', trailing: 'pr-3' } as const;
 </script>
 
 <button
@@ -68,9 +58,9 @@
   class={cx(
     'relative isolate inline-flex select-none items-center justify-center overflow-hidden font-medium whitespace-nowrap transition-[transform,background-color,color] duration-[var(--dur-fast)] ease-[var(--ease-out-expo)] active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100',
     VARIANTS[variant],
-    SIZES[sizeKey],
-    (leading || loading) && children && ICON_SIDE[sizeKey].leading,
-    trailing && children && ICON_SIDE[sizeKey].trailing,
+    SIZE,
+    (leading || loading) && children && ICON_SIDE.leading,
+    trailing && children && ICON_SIDE.trailing,
     className,
   )}
   {...rest}
@@ -81,8 +71,11 @@
     {@render leading()}
   {/if}
 
-  {#if children}
+  {#if children && bare}
     {@render children()}
+  {:else if children}
+    <!-- Trimmed to the x-height and the baseline, so the label's lowercase body (not the line box with its leading) sits on the button's centre. -->
+    <span class="label-trim">{@render children()}</span>
   {/if}
 
   {#if trailing && !loading}

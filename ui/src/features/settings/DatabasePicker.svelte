@@ -28,7 +28,7 @@
 <Popover bind:open {label} kind="menu" align="end" class="w-72 min-w-0!">
   {#snippet trigger({ props })}
     <!-- Focus shows as the field border, like the URL field next to it, not as a ring around the border. -->
-    <Button {...props} aria-label={`${label}: ${current}`} class="w-72 justify-between! focus-visible:outline-none focus-visible:border-focus">
+    <Button {...props} bare aria-label={`${label}: ${current}`} class="w-72 justify-between! focus-visible:outline-none focus-visible:border-focus">
       <span class="min-w-0 truncate">{current}</span>
       {#snippet trailing()}<ChevronDown size={ICON.sm} class={cx('transition-transform duration-[var(--dur-fast)]', open && 'rotate-180')} aria-hidden="true" />{/snippet}
     </Button>

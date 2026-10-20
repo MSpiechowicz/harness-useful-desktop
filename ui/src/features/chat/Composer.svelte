@@ -356,6 +356,7 @@
         {#if stopping}
           <Button
             variant="danger"
+            bare
             class={cx('size-control px-0!', stopArmed && 'animate-pulse')}
             aria-label={t('chat.composer.stop')}
             title={t('chat.composer.stopHint')}
@@ -366,6 +367,7 @@
         {:else}
           <Button
             variant="primary"
+            bare
             class="size-control px-0!"
             aria-label={bash ? t('chat.composer.reviewCommand') : t('chat.composer.send')}
             disabled={!canSend}

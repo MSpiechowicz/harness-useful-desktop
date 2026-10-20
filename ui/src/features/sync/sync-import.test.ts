@@ -203,7 +203,7 @@ describe('Import', () => {
     expect(within(dialog).getByText('omp plugin marketplace add MSpiechowicz/harness-useful-skills')).toBeInTheDocument();
     expect(within(dialog).getByText('Skipped')).toBeInTheDocument();
     expect(within(dialog).getByText('Its marketplace failed.')).toBeInTheDocument();
-    expect(within(dialog).getAllByText('Done', { selector: 'span' })).toHaveLength(5);
+    expect(within(dialog).getAllByText('Done').filter((el) => !el.closest('button'))).toHaveLength(5);
   });
 
   it('says so when every selected item is in place', async () => {

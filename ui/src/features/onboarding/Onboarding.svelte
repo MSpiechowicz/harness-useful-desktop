@@ -157,7 +157,7 @@
         <footer class={cx('flex w-full shrink-0 items-center', onboarding.index === 0 ? 'justify-center' : 'justify-between')}>
           {#if onboarding.index > 0}
             <!-- Back and the primary action are the wizard's navigation buttons: same size and width, Back the quieter one. -->
-            <Button variant="secondary" size="lg" class="min-w-36" disabled={onboarding.busy} onclick={() => onboarding.back()}>
+            <Button variant="secondary" class="min-w-36" disabled={onboarding.busy} onclick={() => onboarding.back()}>
               {#snippet leading()}<ArrowLeft size={18} aria-hidden="true" />{/snippet}
               {t('onboarding.back')}
             </Button>
@@ -165,10 +165,10 @@
 
           <div class="flex items-center gap-3">
             {#if canSkipSetup}
-              <Button variant="ghost" size="lg" class="min-w-36 hover:bg-surface-3" disabled={onboarding.busy} onclick={() => onboarding.next()}>{t('onboarding.action.skip')}</Button>
+              <Button variant="ghost" class="min-w-36 hover:bg-surface-3" disabled={onboarding.busy} onclick={() => onboarding.next()}>{t('onboarding.action.skip')}</Button>
             {/if}
 
-            <Button variant="primary" size="lg" class="min-w-36" loading={finishing || (onboarding.step === 'setup' && setup.running)} disabled={onboarding.busy || readingSetup} onclick={() => void advance()}>
+            <Button variant="primary" class="min-w-36" loading={finishing || (onboarding.step === 'setup' && setup.running)} disabled={onboarding.busy || readingSetup} onclick={() => void advance()}>
               {primaryLabel}
               {#snippet trailing()}<ArrowRight size={18} aria-hidden="true" />{/snippet}
             </Button>

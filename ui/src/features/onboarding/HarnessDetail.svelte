@@ -62,7 +62,7 @@
         <h3 class="min-w-24 flex-1 self-center text-xl text-fg">{summary.info.name}</h3>
 
         {#if soon}
-          <Badge size="lg" class="h-control shrink-0">{t('onboarding.card.comingSoon')}</Badge>
+          <Badge class="shrink-0 self-center">{t('onboarding.card.comingSoon')}</Badge>
         {:else}
           <div role="radiogroup" aria-label={t('onboarding.harnesses.group')} class="shrink-0">
             <button
@@ -93,11 +93,11 @@
       {#if detection.installed}
         <div class="flex flex-wrap content-start items-center gap-2">
           {#if detection.version}
-            <Badge size="lg" class="tabular">v{detection.version}</Badge>
+            <Badge class="tabular">v{detection.version}</Badge>
           {/if}
           <!-- The badge carries the version note as a tooltip, so the panel stays short. -->
           <span class="inline-flex" title={support.note}>
-            <Badge size="lg" tone={support.tone}>{support.label}</Badge>
+            <Badge tone={support.tone}>{support.label}</Badge>
           </span>
         </div>
       {/if}
@@ -122,12 +122,12 @@
         <div class="flex flex-wrap items-center gap-2">
           {#if detection.installHint}
             {@const docsUrl = detection.installHint.docsUrl}
-            <Button size="sm" class="min-w-36 flex-1" onclick={() => void openExternal(docsUrl)}>
+            <Button class="min-w-36 flex-1" onclick={() => void openExternal(docsUrl)}>
               {#snippet leading()}<ExternalLink size={16} aria-hidden="true" />{/snippet}
               {t('onboarding.card.installDocs')}
             </Button>
           {/if}
-          <Button size="sm" class="min-w-36 flex-1" onclick={() => void harness.pickBinary(summary.info.id)}>
+          <Button class="min-w-36 flex-1" onclick={() => void harness.pickBinary(summary.info.id)}>
             {#snippet leading()}<FolderOpen size={16} aria-hidden="true" />{/snippet}
             {t('onboarding.card.chooseBinary')}
           </Button>
@@ -144,7 +144,7 @@
         <dt class="text-fg-3">{t('onboarding.card.config')}</dt>
         <dd class="flex min-w-0 items-center gap-2">
           <span class="min-w-0 truncate font-mono text-fg-2" title={detection.configDir ?? undefined}>{detection.configDir ?? t('onboarding.card.unknown')}</span>
-          <Badge size="lg" tone={detection.configDirExists ? 'success' : 'neutral'}>{detection.configDirExists ? t('onboarding.card.found') : t('onboarding.card.notCreated')}</Badge>
+          <Badge tone={detection.configDirExists ? 'success' : 'neutral'}>{detection.configDirExists ? t('onboarding.card.found') : t('onboarding.card.notCreated')}</Badge>
         </dd>
       </dl>
 

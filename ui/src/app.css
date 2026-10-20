@@ -237,6 +237,14 @@
   margin-block: -0.3em;
 }
 
+/* A button label, trimmed from the x-height down to the baseline: Inter's lowercase body, not the line box, sits on the centre. */
+/* Button labels: Inter's lowercase and descenders read about 1.3px low in a centred line box. A small lift (half the
+   difference between an ex-centred and a cap-centred label) keeps labels with and without descenders within about 1px. */
+@utility label-trim {
+  display: block;
+  translate: 0 -0.05em;
+}
+
 /* Side panel padding, from the tokens: the text starts `--panel-pad-x` from the panel edge whatever the row looks like. */
 @utility panel-pad {
   padding-inline: var(--panel-pad-x);
