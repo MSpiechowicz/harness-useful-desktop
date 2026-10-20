@@ -69,7 +69,6 @@
           class="flex items-center gap-2.5 rounded-sm px-2.5 py-2 text-left transition-colors duration-[var(--dur-fast)] hover:bg-hover focus-visible:bg-hover"
           onclick={() => {
             close();
-            needle = '';
             onchange(option.value);
           }}
         >

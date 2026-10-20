@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { ProjectScope } from '$lib/ipc/bindings/ProjectScope';
@@ -45,6 +45,22 @@ describe('the Scope filter', () => {
 
     expect(screen.getByRole('button', { name: 'Scope: All' })).toBeInTheDocument();
     expect(labels(menu)).toEqual(['All 10', 'scratch 0', 'widget acme/widget 5', 'zeta/last Remote only 2', 'Global 3']);
+  });
+
+  it('starts the search afresh each time it opens', async () => {
+    const { menu } = await openMenu();
+
+    await fireEvent.input(within(menu).getByRole('searchbox', { name: 'Search repositories' }), { target: { value: 'zeta' } });
+    expect(labels(menu)).toEqual(['zeta/last Remote only 2']);
+
+    await fireEvent.keyDown(within(menu).getByRole('searchbox', { name: 'Search repositories' }), { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
+
+    await fireEvent.click(screen.getByRole('button', { name: /^Scope:/ }));
+    const again = await screen.findByRole('menu', { name: 'Scope' });
+
+    expect(within(again).getByRole('searchbox', { name: 'Search repositories' })).toHaveValue('');
+    expect(labels(again)).toHaveLength(5);
   });
 
   it('keeps the entries whose name or hint has what is typed and says when none does', async () => {

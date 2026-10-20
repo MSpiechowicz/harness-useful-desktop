@@ -28,7 +28,7 @@
   import { scriptEditor } from './editor-state.svelte';
   import HiddenFilter from './HiddenFilter.svelte';
   import MemoryFilterHint from './MemoryFilterHint.svelte';
-    import MemoryReachFilter from './MemoryReachFilter.svelte';
+  import MemoryReachFilter from './MemoryReachFilter.svelte';
   import MemorySearch from './MemorySearch.svelte';
   import MemoryTable from './MemoryTable.svelte';
   import { scriptsTeam } from './notes-team.svelte';

@@ -20,6 +20,11 @@ export function repoReach(key: string): Reach {
   return `${REPO_PREFIX}${key}`;
 }
 
+/** Whether a reach is a project on this computer without a repository key. It reads nothing by itself (see `reachArgs`), so nothing may be deleted by it. */
+export function isKeyless(reach: Reach): boolean {
+  return reach.startsWith(`${REPO_PREFIX}${LOCAL_PREFIX}`);
+}
+
 /** The repository key of a reach of one repository; null for any other, and for a project without a key (nothing to read it by). */
 export function reachKey(reach: Reach): string | null {
   const key = reach.startsWith(REPO_PREFIX) ? reach.slice(REPO_PREFIX.length) : null;

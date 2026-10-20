@@ -10,7 +10,8 @@ import { nav } from '$lib/stores/nav.svelte';
 import { toasts } from '$lib/stores/toasts.svelte';
 import { viewState } from '$lib/stores/view-state.svelte';
 
-import { calls, fakeMemory, registerMemoryHooks, REPO_ARGS, REPO_REACH, rowButton, showMemory, showNotes } from './memory-test-support';
+import { calls, fakeMemory, KEYLESS_PROJECT, registerMemoryHooks, REPO_ARGS, REPO_REACH, rowButton, showMemory, showNotes } from './memory-test-support';
+import { deleteAll, readScope } from './delete-all';
 import ScriptsView from './ScriptsView.svelte';
 
 registerMemoryHooks();
@@ -222,5 +223,31 @@ describe('deleting all notes', () => {
     await waitFor(() => expect(toasts.items.at(-1)).toMatchObject({ title: `Nothing to delete here. The ${own(notes).length} remote notes stay, you can hide them.`, tone: 'info' }));
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(calls(invoke, 'memory_notes_delete_all')).toHaveLength(0);
+  });
+});
+
+describe('deleting by a project without a repository key', () => {
+  const keyless = `repo:local:${KEYLESS_PROJECT}`;
+
+  it('never sends the arguments of the global entries for it, whichever section is asked', async () => {
+    const invoke = fakeMemory();
+
+    await expect(deleteAll('notes', keyless)).rejects.toThrow('Pick a repository, or Global, in the Scope filter first.');
+    await expect(deleteAll('scripts', keyless)).rejects.toThrow('Pick a repository, or Global, in the Scope filter first.');
+    await expect(readScope('notes', keyless)).resolves.toBeNull();
+
+    expect(calls(invoke, 'memory_notes_delete_all')).toHaveLength(0);
+    expect(calls(invoke, 'memory_scripts_delete_all')).toHaveLength(0);
+    expect(calls(invoke, 'memory_notes_list')).toHaveLength(0);
+  });
+
+  it('keeps Delete all off while such a project is the Scope', async () => {
+    viewState.memoryReach = keyless;
+    fakeMemory();
+    await showNotes();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+
+    expect(await screen.findByRole('menuitem', { name: 'Delete all notes…' })).toBeDisabled();
   });
 });

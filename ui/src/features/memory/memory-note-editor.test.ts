@@ -210,6 +210,25 @@ describe('adding a note', () => {
     expect(within(dialog).queryByText('This title is taken')).not.toBeInTheDocument();
   });
 
+  it('drops the finding once Applies to moves to another project, so Replace never reaches a note of the first one', async () => {
+    const invoke = fakeMemory();
+    const dialog = await openEditor();
+
+    await fill(dialog, { title: TAKEN_TITLE, body: 'A newer answer.' });
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Add note' }));
+    await within(dialog).findByText('This title is taken');
+
+    await pickTarget(dialog, /^research/);
+
+    expect(within(dialog).queryByText('This title is taken')).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole('button', { name: 'Replace it' })).not.toBeInTheDocument();
+    expect(calls(invoke, 'memory_note_save').filter((args) => (args as { replaceId?: number }).replaceId !== undefined)).toHaveLength(0);
+
+    // Back on the project it was found for, the finding stands again.
+    await pickTarget(dialog, /^demo/);
+    expect(within(dialog).getByText('This title is taken')).toBeInTheDocument();
+  });
+
   it('keeps the dialog open and says why when the note could not be saved', async () => {
     const invoke = fakeMemory();
     const dialog = await openEditor();
@@ -262,6 +281,28 @@ describe('editing a note', () => {
     expect(appliesTo(dialog)).toHaveTextContent('demo');
     expect(appliesTo(dialog)).toBeDisabled();
     expect(within(dialog).getByText('A note keeps its scope.')).toBeInTheDocument();
+  });
+
+  it('shows the project of the note once the projects are known, when they were not as the editor opened', async () => {
+    const invoke = fakeMemory();
+    const real = invoke.getMockImplementation() as (name: CommandName, args: unknown) => Promise<unknown>;
+    let release = () => {};
+    const known = new Promise<void>((resolve) => (release = resolve));
+    invoke.mockImplementation((async (name: CommandName, args: unknown) => {
+      if (name === 'project_scopes') {
+        await known;
+      }
+
+      return real(name, args);
+    }) as typeof ipc.invoke);
+
+    const dialog = await openEdit(4, TITLE);
+    expect(appliesTo(dialog)).not.toHaveTextContent('demo');
+
+    release();
+
+    await waitFor(() => expect(appliesTo(dialog)).toHaveTextContent('demo'));
+    expect(appliesTo(dialog)).toBeDisabled();
   });
 
   it('shows the repository of a note that is not on this computer, and saves it from the open project', async () => {

@@ -59,6 +59,7 @@ export function registerRoutinesHooks(): void {
   beforeEach(() => {
     viewState.reset('routines');
     routines.reset();
+    projectScopes.sync(null, null);
     // The window is in front, so the app says what the backend would otherwise put in a notification.
     routines.notices.focused = () => true;
   });

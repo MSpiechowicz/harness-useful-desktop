@@ -6,7 +6,7 @@
   import DocFormTail from '$lib/components/docs/DocFormTail.svelte';
   import DocEditorFooter from '$lib/components/docs/DocEditorFooter.svelte';
   import { scopeIsFull } from '$lib/components/docs/doc-groups';
-  import { heldIn, sameTarget } from '$lib/components/docs/doc-target';
+  import { heldIn, staysIn } from '$lib/components/docs/doc-target';
   import ScopeSelect from '$lib/components/scope/ScopeSelect.svelte';
   import SegmentedControl from '$lib/components/SegmentedControl.svelte';
   import type { StripOption } from '$lib/components/strip';
@@ -60,7 +60,7 @@
   });
 
   // Whether the scope the hook would be in already holds the most it can: a hook that stays in its scope is not counted twice.
-  const scopeFull = $derived(scopeIsFull(heldIn(hooks.views, form.target, projects, hookDoc), editing !== null && sameTarget(form.target, target.target)));
+  const scopeFull = $derived(scopeIsFull(heldIn(hooks.views, form.target, projects, hookDoc), editing !== null && staysIn(hookDoc(editing), form.target, projects)));
 
   const problems = $derived(problemsOf(form, { scopeFull }));
   const shown = $derived(problems.filter((problem) => !problem.required || touched[problem.field]));

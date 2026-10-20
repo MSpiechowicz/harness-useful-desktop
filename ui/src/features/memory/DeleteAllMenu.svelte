@@ -11,7 +11,7 @@
   import { type PluralBase, t, tn } from '$lib/i18n/i18n.svelte';
   import type { MessageKey } from '$lib/i18n/locales/en';
   import { IpcFailure } from '$lib/ipc/transport';
-  import { ALL_REPOS } from '$lib/stores/memory-reach';
+  import { ALL_REPOS, isKeyless } from '$lib/stores/memory-reach';
   import { noteList } from '$lib/stores/memoryNotes.svelte';
   import { scriptList } from '$lib/stores/memoryScripts.svelte';
   import { toasts } from '$lib/stores/toasts.svelte';
@@ -82,7 +82,7 @@
 
   // A search or a filter that leaves nothing still has something behind it to delete, so only an empty list that is not narrowed is disabled.
   // Every repository cannot be deleted at once: a repository, or the global ones, has to be picked first.
-  const everything = $derived(path === ALL_REPOS);
+  const everything = $derived(path === ALL_REPOS || isKeyless(path));
   const disabled = $derived(everything || listed === null || (listed === 0 && !narrowed));
 
   // What the open question is about, kept after it closes so it fades out showing the same words.

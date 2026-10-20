@@ -6,7 +6,7 @@
   import DocFormTail from '$lib/components/docs/DocFormTail.svelte';
   import DocEditorFooter from '$lib/components/docs/DocEditorFooter.svelte';
   import { scopeIsFull } from '$lib/components/docs/doc-groups';
-  import { docTarget, heldIn, sameTarget } from '$lib/components/docs/doc-target';
+  import { heldIn, staysIn } from '$lib/components/docs/doc-target';
   import DocField from '$lib/components/docs/DocField.svelte';
   import { fieldClass } from '$lib/components/docs/doc-field';
   import ScopeSelect from '$lib/components/scope/ScopeSelect.svelte';
@@ -63,7 +63,7 @@
   const scopeHelp = $derived(form.scope === 'global' ? t('routines.editor.scope.global.hint') : t('routines.editor.scope.project.hint', { project: chosen?.name ?? folderName(form.projectPath ?? '') }));
 
   // Whether the scope the routine would be in already holds the most it can. A routine that stays in its scope is held already.
-  const stays = $derived(editing !== null && sameTarget(docTarget(routineDoc(editing), projects), targetOf(form)));
+  const stays = $derived(editing !== null && staysIn(routineDoc(editing), targetOf(form), projects));
   const scopeFull = $derived(scopeIsFull(heldIn(routines.views, targetOf(form), projects, routineDoc), stays));
 
   const problems = $derived(problemsOf(form, { projectChosen: form.projectPath !== null, scopeFull }));

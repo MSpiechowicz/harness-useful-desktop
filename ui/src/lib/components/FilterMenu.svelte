@@ -104,7 +104,6 @@
           )}
           onclick={() => {
             close();
-            needle = '';
             onchange(option.value);
           }}
         >

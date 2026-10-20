@@ -262,7 +262,7 @@ describe('The editor of a new hook', () => {
     await fireEvent.click(appliesTo(dialog));
     const menu = await screen.findByRole('menu', { name: 'Applies to' });
 
-    expect(menuItems(menu)).toEqual(['Global', 'demo useful/harness-desktop', 'legacy-api', 'research']);
+    expect(menuItems(menu)).toEqual(['Global', 'demo useful/harness-desktop', 'research']);
   });
 
   it('starts for the project the Scope filter shows, and saves it there although it is not the open one', async () => {
@@ -334,7 +334,7 @@ describe('The editor of a new hook', () => {
     await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Add hook' })).toBeEnabled());
   });
 
-  it('offers a project whose folder is gone too, and no repository only the team has', async () => {
+  it('offers no project whose folder is gone and no repository only the team has', async () => {
     fakeHooks('team');
     await showHooks();
     const dialog = await openEditor();
@@ -343,7 +343,7 @@ describe('The editor of a new hook', () => {
     const menu = await screen.findByRole('menu', { name: 'Applies to' });
 
     expect(menuItems(menu).some((item) => item?.includes('acme'))).toBe(false);
-    expect(within(menu).getByRole('menuitemradio', { name: /^legacy-api/ })).toBeInTheDocument();
+    expect(within(menu).queryByRole('menuitemradio', { name: /^legacy-api/ })).not.toBeInTheDocument();
   });
 });
 

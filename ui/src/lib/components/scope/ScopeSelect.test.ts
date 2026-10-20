@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { ProjectScope } from '$lib/ipc/bindings/ProjectScope';
@@ -46,6 +46,27 @@ describe('the Applies to field', () => {
 
     await fireEvent.input(within(menu).getByRole('searchbox', { name: 'Search repositories' }), { target: { value: 'zzz' } });
     expect(within(menu).getByText('No repository matches')).toBeInTheDocument();
+  });
+
+  it('starts the search afresh each time it opens, whether it was closed by Escape or by a click outside', async () => {
+    show({ kind: 'global' });
+    let menu = await openMenu();
+
+    await fireEvent.input(within(menu).getByRole('searchbox', { name: 'Search repositories' }), { target: { value: 'wid' } });
+    await fireEvent.keyDown(within(menu).getByRole('searchbox', { name: 'Search repositories' }), { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
+
+    menu = await openMenu();
+    expect(within(menu).getByRole('searchbox', { name: 'Search repositories' })).toHaveValue('');
+    expect(within(menu).getAllByRole('menuitemradio')).toHaveLength(3);
+
+    await fireEvent.input(within(menu).getByRole('searchbox', { name: 'Search repositories' }), { target: { value: 'alp' } });
+    await fireEvent.pointerDown(document.body);
+    await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
+
+    menu = await openMenu();
+    expect(within(menu).getByRole('searchbox', { name: 'Search repositories' })).toHaveValue('');
+    expect(within(menu).getAllByRole('menuitemradio')).toHaveLength(3);
   });
 
   it('hands over the folder of the project chosen, or Global', async () => {

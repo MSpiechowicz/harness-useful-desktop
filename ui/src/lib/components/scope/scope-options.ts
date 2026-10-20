@@ -76,6 +76,18 @@ function byLabel(a: { label: string }, b: { label: string }): number {
   return collator.compare(a.label, b.label);
 }
 
+/** The entries with the folder (`pathOf`) as their hint where the label and hint alone would not tell them apart. */
+function toldApart<T extends { label: string; hint?: string }>(entries: T[], pathOf: (entry: T) => string | undefined): T[] {
+  const looks = (entry: T) => `${entry.label}\n${entry.hint ?? ''}`;
+  const seen = new Map<string, number>();
+
+  for (const entry of entries) {
+    seen.set(looks(entry), (seen.get(looks(entry)) ?? 0) + 1);
+  }
+
+  return entries.map((entry) => ((seen.get(looks(entry)) ?? 0) > 1 ? { ...entry, hint: pathOf(entry) ?? entry.hint } : entry));
+}
+
 /** The projects on this computer, one per choice (two folders of the same repository are one entry, the first listed wins). */
 function distinctProjects(projects: ProjectScope[]): ProjectScope[] {
   const seen = new Set<ScopeChoice>();
@@ -138,6 +150,7 @@ export function buildScopeOptions({ projects, remote, counts = null, globalCount
       };
     })
     .sort(byLabel);
+  const shown = toldApart(here, (option) => option.path);
 
   const away = (remote ?? [])
     .filter((repo) => !localKeys.has(repo.key))
@@ -146,7 +159,7 @@ export function buildScopeOptions({ projects, remote, counts = null, globalCount
 
   return [
     { value: ALL_REPOS as ScopeChoice, label: labels.all, count: allCount, remoteOnly: false, keyless: false },
-    ...here,
+    ...shown,
     ...away,
     { value: GLOBAL_ONLY as ScopeChoice, label: labels.global, count: globalCount, remoteOnly: false, keyless: false },
   ];
@@ -214,15 +227,18 @@ function folderName(path: string): string {
 
 /**
  * The entries of an Applies to field: Global, then the projects on this computer by name with `owner/repo` under the name.
- * Nothing is saved to a repository only the source knows. A `current` target that is no project of the list (one that left the
- * recent projects) is listed too by its folder, so the field never claims another scope than the one it holds.
+ * Nothing is saved to a repository only the source knows, and nothing to a project whose folder is gone (a save has to find its
+ * repository there). Projects that would look alike (two clones of one repository, two folders of one name) are told apart by their
+ * folder. A `current` target that is no project of the list (one that left the recent projects) is listed too by its folder,
+ * so the field never claims another scope than the one it holds.
  */
 export function buildTargetOptions(projects: ProjectScope[], globalLabel: string, current?: ScopeTarget): TargetOption[] {
   const here = projects
+    .filter((project) => project.root !== null || (current?.kind === 'repo' && current.path === project.path))
     .map<TargetOption>((project) => ({ value: targetValue({ kind: 'repo', path: project.path }), label: project.name, hint: projectHint(project) }))
     .sort(byLabel);
 
-  const options = [{ value: GLOBAL_VALUE, label: globalLabel }, ...here];
+  const options = [{ value: GLOBAL_VALUE, label: globalLabel }, ...toldApart(here, (option) => option.value.slice(REPO_VALUE.length))];
 
   if (current && !options.some((option) => option.value === targetValue(current)) && current.kind === 'repo') {
     options.push({ value: targetValue(current), label: folderName(current.path), hint: current.path });

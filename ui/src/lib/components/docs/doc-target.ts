@@ -54,3 +54,15 @@ export function heldIn<V>(views: V[], target: ScopeTarget, projects: ProjectScop
     return target.kind === 'global' ? doc.scope === 'global' : doc.scope === 'project' && root !== null && doc.root === root;
   }).length;
 }
+
+/**
+ * Whether a document that exists stays in its scope when saved for `target`: its own stored root against the root of the target, read
+ * from the projects as they are now, so it does not matter when they were read. A file that is not a document never stays.
+ */
+export function staysIn(doc: ScopedDoc, target: ScopeTarget, projects: ProjectScope[]): boolean {
+  if (doc.scope === 'global') {
+    return target.kind === 'global';
+  }
+
+  return doc.scope === 'project' && doc.root !== null && target.kind === 'repo' && targetRoot(target, projects) === doc.root;
+}

@@ -8,7 +8,8 @@ const LABELS = { all: 'All', global: 'Global', remoteOnly: 'Remote only' };
 
 const WIDGET: ProjectScope = { path: '/work/widget', name: 'widget', root: '/work/widget', key: 'git:github.com/acme/widget' };
 const ALPHA: ProjectScope = { path: '/work/alpha', name: 'Alpha', root: '/work/alpha', key: 'git:github.com/acme/alpha' };
-const SCRATCH: ProjectScope = { path: '/tmp/scratch', name: 'scratch', root: null, key: null };
+const SCRATCH: ProjectScope = { path: '/tmp/scratch', name: 'scratch', root: '/tmp/scratch', key: null };
+const GONE: ProjectScope = { path: '/old/gone', name: 'gone', root: null, key: null };
 
 describe('shortRepoName', () => {
   it('drops the host of a repository and leaves a folder as it is', () => {
@@ -54,7 +55,7 @@ describe('buildScopeOptions', () => {
   it('flags a project without a repository key and offers it by its folder', () => {
     const [, scratch] = buildScopeOptions({ projects: [SCRATCH], remote: [], labels: LABELS });
 
-    expect(scratch).toMatchObject({ value: 'repo:local:/tmp/scratch', label: 'scratch', keyless: true, path: '/tmp/scratch', root: undefined });
+    expect(scratch).toMatchObject({ value: 'repo:local:/tmp/scratch', label: 'scratch', keyless: true, path: '/tmp/scratch', root: '/tmp/scratch' });
     expect(scratch.hint).toBeUndefined();
   });
 
@@ -63,6 +64,16 @@ describe('buildScopeOptions', () => {
     const options = buildScopeOptions({ projects: [WIDGET, ALPHA], remote: null, counts, labels: LABELS });
 
     expect(options.map((option) => option.count)).toEqual([undefined, 0, 4, undefined]);
+  });
+
+  it('tells two folders of one name and no repository apart by their path', () => {
+    const second: ProjectScope = { path: '/b/scratch', name: 'scratch', root: '/b/scratch', key: null };
+    const options = buildScopeOptions({ projects: [SCRATCH, second], remote: [], labels: LABELS });
+
+    expect(options.slice(1, 3).map(({ label, hint }) => ({ label, hint }))).toEqual([
+      { label: 'scratch', hint: '/tmp/scratch' },
+      { label: 'scratch', hint: '/b/scratch' },
+    ]);
   });
 
   it('lists two folders of one repository once', () => {
@@ -100,10 +111,10 @@ describe('choiceKey and matchesScope', () => {
   });
 
   it('matches a project without a key by its root alone', () => {
-    const withRoot: ProjectScope = { ...SCRATCH, root: '/tmp/scratch' };
+    const rootless: ProjectScope = { ...SCRATCH, root: null };
 
-    expect(matchesScope(projectChoice(withRoot), { global: false, root: '/tmp/scratch', key: null }, [withRoot])).toBe(true);
-    expect(matchesScope(projectChoice(SCRATCH), { global: false, root: '/tmp/scratch', key: null }, projects)).toBe(false);
+    expect(matchesScope(projectChoice(SCRATCH), { global: false, root: '/tmp/scratch', key: null }, [SCRATCH])).toBe(true);
+    expect(matchesScope(projectChoice(rootless), { global: false, root: '/tmp/scratch', key: null }, [rootless])).toBe(false);
   });
 });
 
@@ -114,6 +125,26 @@ describe('the Applies to options', () => {
       { value: 'repo:/work/alpha', label: 'Alpha', hint: 'acme/alpha' },
       { value: 'repo:/tmp/scratch', label: 'scratch', hint: undefined },
       { value: 'repo:/work/widget', label: 'widget', hint: 'acme/widget' },
+    ]);
+  });
+
+  it('leaves out a project whose folder is gone, unless the field holds it', () => {
+    expect(buildTargetOptions([WIDGET, GONE], 'Global').map((option) => option.value)).toEqual(['global', 'repo:/work/widget']);
+    expect(buildTargetOptions([WIDGET, GONE], 'Global', { kind: 'repo', path: '/old/gone' }).map((option) => option.value)).toEqual(['global', 'repo:/old/gone', 'repo:/work/widget']);
+  });
+
+  it('tells projects that look alike apart by their folder', () => {
+    const twin: ProjectScope = { ...WIDGET, path: '/other/widget', root: '/other/widget' };
+    const plain: ProjectScope = { path: '/a/app', name: 'app', root: '/a/app', key: null };
+    const plainTwin: ProjectScope = { path: '/b/app', name: 'app', root: '/b/app', key: null };
+    const other: ProjectScope = { ...ALPHA, name: 'widget' };
+
+    expect(buildTargetOptions([WIDGET, twin, plain, plainTwin, other], 'Global').slice(1)).toEqual([
+      { value: 'repo:/a/app', label: 'app', hint: '/a/app' },
+      { value: 'repo:/b/app', label: 'app', hint: '/b/app' },
+      { value: 'repo:/work/widget', label: 'widget', hint: '/work/widget' },
+      { value: 'repo:/other/widget', label: 'widget', hint: '/other/widget' },
+      { value: 'repo:/work/alpha', label: 'widget', hint: 'acme/alpha' },
     ]);
   });
 

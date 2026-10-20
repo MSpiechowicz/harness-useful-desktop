@@ -5,7 +5,7 @@ import type { ProjectScope } from '$lib/ipc/bindings/ProjectScope';
 import { projectChoice } from '../scope/scope-options';
 import { sortDocs } from './doc-groups';
 import type { ScopedDoc } from './doc-scope';
-import { docTarget, heldIn, newDocTarget, sameTarget, targetRoot } from './doc-target';
+import { docTarget, heldIn, newDocTarget, sameTarget, staysIn, targetRoot } from './doc-target';
 
 const APP: ProjectScope = { path: '/work/app/web', name: 'web', root: '/work/app', key: 'git:github.com/acme/app' };
 const SITE: ProjectScope = { path: '/work/site', name: 'site', root: null, key: null };
@@ -65,5 +65,22 @@ describe('sortDocs', () => {
     expect(sortDocs(words, { key: 'size', desc: true }, values)).toEqual(['ccc', 'bb', 'dd', 'a', '']);
     expect(sortDocs(words, null, values)).toBe(words);
     expect(sortDocs(words, { key: 'unknown', desc: false }, values)).toBe(words);
+  });
+});
+
+describe('staying in a scope', () => {
+  const NOW = [APP, { ...SITE, root: '/work/site' }];
+
+  it('is the root a document is stored under against the root of the target, read from the projects as they are now', () => {
+    expect(staysIn(doc({}), { kind: 'repo', path: '/work/app/web' }, PROJECTS)).toBe(true);
+    expect(staysIn(doc({}), { kind: 'repo', path: '/work/site' }, NOW)).toBe(false);
+    expect(staysIn(doc({}), { kind: 'global' }, PROJECTS)).toBe(false);
+    expect(staysIn(doc({ scope: 'global', root: null }), { kind: 'global' }, PROJECTS)).toBe(true);
+    expect(staysIn(doc({ scope: 'global', root: null }), { kind: 'repo', path: '/work/app/web' }, PROJECTS)).toBe(false);
+  });
+
+  it('holds for a folder the projects have not named yet, by its root, and never for a file that is no document', () => {
+    expect(staysIn(doc({}), { kind: 'repo', path: '/work/app' }, [])).toBe(true);
+    expect(staysIn(doc({ scope: null, root: null }), { kind: 'global' }, PROJECTS)).toBe(false);
   });
 });

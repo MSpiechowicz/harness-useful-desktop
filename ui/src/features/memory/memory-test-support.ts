@@ -58,7 +58,7 @@ export const KEYLESS_PROJECT = fixtures.recentProjects[2].path;
 export const SCOPES: ProjectScope[] = [
   { path: PROJECT, name: 'demo', root: PROJECT, key: REPO_KEY },
   { path: EMPTY_PROJECT, name: 'research', root: EMPTY_PROJECT, key: `path:${EMPTY_PROJECT}` },
-  { path: KEYLESS_PROJECT, name: 'legacy-api', root: null, key: null },
+  { path: KEYLESS_PROJECT, name: 'legacy-api', root: KEYLESS_PROJECT, key: null },
 ];
 
 let shownScopes = SCOPES;

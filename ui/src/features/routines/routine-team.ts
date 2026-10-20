@@ -53,7 +53,8 @@ export function repoName(key: string): string {
 
 /**
  * The folder on this computer a team project routine is turned on in or copied to: the project with its repository (by key, else by
- * the root a refresh confirmed), else that root. Null for a global routine, and for a routine of a repository no project here has.
+ * the root a refresh confirmed). Only the open project and the recent ones count, as the backend takes no other folder for it, so it is
+ * null for a global routine, and for a routine of a repository no project here has.
  */
 export function teamProject(view: RoutineView, projects: readonly ProjectScope[]): string | null {
   const key = view.teamRepo;
@@ -64,7 +65,7 @@ export function teamProject(view: RoutineView, projects: readonly ProjectScope[]
 
   const project = projects.find((candidate) => candidate.key === key) ?? projects.find((candidate) => view.root !== null && candidate.root === view.root);
 
-  return project?.path ?? view.root;
+  return project?.path ?? null;
 }
 
 /**

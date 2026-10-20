@@ -34,9 +34,35 @@ export function openProjectOf(projects: ProjectScope[], path: string | null): Pr
   return path === null ? undefined : projects.find((project) => project.path === path);
 }
 
+/** What "Delete all" reaches: the global documents, and those of the open project when there is one. */
+export interface DeleteReach {
+  /** The name of the open project; null with none. */
+  project: string | null;
+  /** The root the open project's documents are kept under; null with no open project, or while it is not known. */
+  root: string | null;
+  /** Whether what would go can be told. Not while the open project's root is unknown (the projects are not read yet, or its folder is gone): the delete goes for that project too, so it stays off until it is. */
+  known: boolean;
+}
+
+/** What "Delete all" reaches for the open project, as the delete itself will take it (by the open project's path), not as the projects read so far happen to list it. */
+export function deleteReach(active: { path: string; name: string } | null, projects: ProjectScope[]): DeleteReach {
+  if (active === null) {
+    return { project: null, root: null, known: true };
+  }
+
+  const root = openProjectOf(projects, active.path)?.root ?? null;
+
+  return { project: active.name, root, known: root !== null };
+}
+
 /** Which scopes "Delete all" reaches, for the question: Global, and the open project when there is one. */
-export function deleteScopeText(open: ProjectScope | undefined): string {
-  return open ? t('components.scope.globalAnd', { project: open.name }) : t('components.scope.global');
+export function deleteScopeText(project: string | null): string {
+  return project === null ? t('components.scope.global') : t('components.scope.globalAnd', { project });
+}
+
+/** The Scope filter's choice as the view applies it: one the filter no longer lists (a project forgotten, a repository the team no longer names) counts as All, once what the filter lists is `known`. */
+export function resolveScope(chosen: ScopeChoice, options: ScopeOption[], known: boolean): ScopeChoice {
+  return !known || options.some((option) => option.value === chosen) ? chosen : 'all';
 }
 
 /** The folder name of a path. */

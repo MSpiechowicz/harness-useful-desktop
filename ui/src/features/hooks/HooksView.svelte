@@ -11,7 +11,8 @@
   import DocFilter from '$lib/components/docs/DocFilter.svelte';
   import DocNewButton from '$lib/components/docs/DocNewButton.svelte';
   import { DOC_PAGE_SIZE, type DocTableHandle } from '$lib/components/docs/doc-groups';
-  import { type DocScope, docScope, docScopeOptions, inScope, openProjectOf, projectOf, scopeSortValue, scopeText } from '$lib/components/docs/doc-scope';
+  import { revealOpenRow, startPageOver } from '$lib/components/docs/doc-page.svelte';
+  import { deleteReach, type DocScope, docScope, docScopeOptions, inScope, projectOf, resolveScope, scopeSortValue, scopeText } from '$lib/components/docs/doc-scope';
   import { docTarget, newDocTarget } from '$lib/components/docs/doc-target';
   import { closePanel, emptyReason, emptySearchOnEscape } from '$lib/components/docs/doc-view';
   import DocSplit from '$lib/components/docs/DocSplit.svelte';
@@ -67,23 +68,23 @@
   const counts = $derived(filterCounts(views));
   const projects = $derived(projectScopes.data ?? []);
   // "Delete all" removes the global hooks, the open project's and the files that break the format alike. Another project's hooks and the team's stay.
-  const openProject = $derived(openProjectOf(projects, path));
-  const deletable = $derived(deletableCount(views, openProject?.root ?? null));
+  const reach = $derived(deleteReach(project.active, projects));
+  const deletable = $derived(deletableCount(views, reach.root));
   const query = $derived(viewState.hooksQuery);
   const when = $derived(viewState.hooksWhen);
   const status = $derived(viewState.hooksStatus);
   // The team's state: null while hooks are not shared, and then there is no Source filter, so a kept choice of it counts for nothing.
   const team = $derived(hooks.listing?.team ?? null);
   const source = $derived(team ? viewState.hooksSource : 'all');
-  const scope = $derived(viewState.hooksScope as ScopeChoice);
+  // The Scope filter lists the projects on this computer and the repositories only the team's hooks name. A choice that is gone from it (a project forgotten) counts as All once they are read.
+  const scopeOptions = $derived(docScopeOptions(views.map(hookDoc), projects, { all: t('components.scope.all'), global: t('components.scope.global'), remoteOnly: t('components.scope.remoteOnly') }));
+  const scope = $derived<ScopeChoice>(resolveScope(viewState.hooksScope as ScopeChoice, scopeOptions, loaded && projectScopes.data !== null));
   const filtered = $derived(scope !== 'all' || when !== 'all' || status !== 'all' || source !== 'all');
   const shown = $derived(inScope(views, scope, hookDoc, projects).filter((view) => inWhen(view, when) && inStatus(view, status) && inSource(view, source) && matchesQuery(view, query)));
   const sort = $derived(viewState.hooksSort);
   const sorted = $derived(sortHooks(shown, sort, (view) => scopeSortValue(scopeOf(view))));
   const pagination = $derived({ page: clampPage(viewState.hooksPage, sorted.length, DOC_PAGE_SIZE), pageSize: DOC_PAGE_SIZE, total: sorted.length, onpage: (page: number) => (viewState.hooksPage = page) });
   const openId = $derived(viewState.hookId);
-
-  const scopeOptions = $derived(docScopeOptions(views.map(hookDoc), projects, { all: t('components.scope.all'), global: t('components.scope.global'), remoteOnly: t('components.scope.remoteOnly') }));
 
   const whenOptions = $derived([
     { value: 'all' as HookWhen, label: t('hooks.filter.all'), count: counts.when.all },
@@ -139,6 +140,29 @@
     }
   });
 
+  // Whatever narrows or reorders the table starts it from its first page again.
+  startPageOver(() => JSON.stringify([query, when, status, source, scope, sort]), () => (viewState.hooksPage = 0));
+
+  // A hook that opens (one just saved) shows in the table, whatever the filters and the page were.
+  revealOpenRow({
+    openId: () => openId,
+    listed: (id) => hooks.find(id) !== null,
+    indexOf: (id) => {
+      const index = sorted.findIndex((view) => viewKey(view) === id);
+
+      return index < 0 ? null : index;
+    },
+    pageSize: DOC_PAGE_SIZE,
+    setPage: (page) => (viewState.hooksPage = page),
+    clearFilters: () => {
+      viewState.hooksQuery = '';
+      viewState.hooksScope = 'all';
+      viewState.hooksWhen = 'all';
+      viewState.hooksStatus = 'all';
+      viewState.hooksSource = 'all';
+    },
+  });
+
   // Opening the view, or switching project, reads again; a list already read is refreshed quietly. The team hooks are asked for
   // once the list is up, so the view never waits for the network.
   $effect(() => {
@@ -173,12 +197,6 @@
   /** What a hook's Scope cell says. */
   function scopeOf(view: HookView): DocScope {
     return docScope(hookDoc(view), projects);
-  }
-
-  /** A change to what narrows the list starts it again from its first page. */
-  function narrow(change: () => void): void {
-    change();
-    viewState.hooksPage = 0;
   }
 
   /** A new hook starts out for the project the Scope filter shows, else for every project. */
@@ -258,7 +276,7 @@
     {#snippet actions()}
       {#if views.length > 0}
         <div class="search-width">
-          <SearchField bind:value={() => viewState.hooksQuery, (next) => narrow(() => (viewState.hooksQuery = next))} label={t('hooks.search.label')} placeholder={t('hooks.search.placeholder')} shortcut="mod+f" onkeydown={(event) => emptySearchOnEscape(event, viewState.hooksQuery, () => narrow(() => (viewState.hooksQuery = '')))} />
+          <SearchField bind:value={viewState.hooksQuery} label={t('hooks.search.label')} placeholder={t('hooks.search.placeholder')} shortcut="mod+f" onkeydown={(event) => emptySearchOnEscape(event, viewState.hooksQuery, () => (viewState.hooksQuery = ''))} />
         </div>
       {/if}
 
@@ -278,7 +296,7 @@
           <MenuItem
             tone="danger"
             icon={Trash2}
-            disabled={deletable === 0}
+            disabled={deletable === 0 || !reach.known}
             onclick={() => {
               close();
               deleteAllOpen = true;
@@ -336,12 +354,12 @@
       <DocSplit {openId} emptyIcon={Webhook} emptyMessage={t('hooks.detail.empty')} onclose={() => void close()}>
         {#snippet body()}
           <FilterRow count={tn('hooks.count', shown.length)}>
-            <ScopeFilter options={scopeOptions} value={scope} onchange={(next) => narrow(() => (viewState.hooksScope = next))} />
-            <DocFilter label={t('hooks.list.column.when')} icon={Clock} options={whenOptions} value={when} onchange={(next) => narrow(() => (viewState.hooksWhen = next))} clearLabel={t('hooks.filter.clearWhen')} />
-            <DocFilter label={t('hooks.list.column.status')} options={statusOptions} value={status} onchange={(next) => narrow(() => (viewState.hooksStatus = next))} clearLabel={t('hooks.filter.clearStatus')} />
+            <ScopeFilter options={scopeOptions} value={scope} onchange={(next) => (viewState.hooksScope = next)} />
+            <DocFilter label={t('hooks.list.column.when')} icon={Clock} options={whenOptions} value={when} onchange={(next) => (viewState.hooksWhen = next)} clearLabel={t('hooks.filter.clearWhen')} />
+            <DocFilter label={t('hooks.list.column.status')} options={statusOptions} value={status} onchange={(next) => (viewState.hooksStatus = next)} clearLabel={t('hooks.filter.clearStatus')} />
             <!-- Mine and Team only mean something while hooks are shared. -->
             {#if team}
-              <DocFilter label={t('hooks.filter.source')} icon={UsersRound} options={sourceOptions} value={source} onchange={(next) => narrow(() => (viewState.hooksSource = next))} clearLabel={t('hooks.filter.clearSource')} />
+              <DocFilter label={t('hooks.filter.source')} icon={UsersRound} options={sourceOptions} value={source} onchange={(next) => (viewState.hooksSource = next)} clearLabel={t('hooks.filter.clearSource')} />
             {/if}
           </FilterRow>
 
@@ -355,7 +373,7 @@
               rows={pageOf(sorted, viewState.hooksPage, DOC_PAGE_SIZE)}
               {pagination}
               {sort}
-              onsort={(next) => narrow(() => (viewState.hooksSort = next))}
+              onsort={(next) => (viewState.hooksSort = next)}
               {openId}
               {scopeOf}
               busy={hooks.busy}
@@ -395,5 +413,5 @@
 
 <HookEditor bind:open={editorOpen} target={editorTarget} onsaved={saved} />
 <FamilyDialog bind:open={familyOpen} />
-<DeleteAllDialog bind:open={deleteAllOpen} count={deletable} {openProject} onremoved={() => (viewState.hookId = null)} />
+<DeleteAllDialog bind:open={deleteAllOpen} count={deletable} {reach} onremoved={() => (viewState.hookId = null)} />
 <SessionConfirm bind:this={confirmer} />

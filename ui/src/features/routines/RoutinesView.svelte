@@ -12,7 +12,8 @@
   import DocFilter from '$lib/components/docs/DocFilter.svelte';
   import DocNewButton from '$lib/components/docs/DocNewButton.svelte';
   import { DOC_PAGE_SIZE, type DocTableHandle } from '$lib/components/docs/doc-groups';
-  import { docScope, docScopeOptions, inScope, openProjectOf, scopeText } from '$lib/components/docs/doc-scope';
+  import { revealOpenRow, startPageOver } from '$lib/components/docs/doc-page.svelte';
+  import { deleteReach, docScope, docScopeOptions, inScope, resolveScope, scopeText } from '$lib/components/docs/doc-scope';
   import { newDocTarget } from '$lib/components/docs/doc-target';
   import { closePanel, emptyReason, emptySearchOnEscape } from '$lib/components/docs/doc-view';
   import DocMcpHint from '$lib/components/docs/DocMcpHint.svelte';
@@ -54,7 +55,7 @@
   import RoutineEditor from './RoutineEditor.svelte';
   import RoutineList from './RoutineList.svelte';
   import RoutinePanel from './RoutinePanel.svelte';
-    import { routines } from './routines-data.svelte';
+  import { routines } from './routines-data.svelte';
   import RunHistory from './RunHistory.svelte';
   import TrayHint from './TrayHint.svelte';
 
@@ -72,8 +73,8 @@
   const counts = $derived(filterCounts(routines.listing?.counts ?? { total: 0, status: {}, when: {}, origin: {} }));
   const projects = $derived(projectScopes.data ?? []);
   // "Delete all" removes the global routines, the open project's and the files that break the format alike. The team's stay, and so do other projects'.
-  const openProject = $derived(openProjectOf(projects, path));
-  const deletable = $derived(deletableIn(views, openProject?.root ?? null));
+  const reach = $derived(deleteReach(project.active, projects));
+  const deletable = $derived(deletableIn(views, reach.root));
   const query = $derived(viewState.routinesQuery);
   const when = $derived(viewState.routinesWhen);
   const status = $derived(viewState.routinesStatus);
@@ -82,11 +83,7 @@
   const source = $derived(team ? viewState.routinesSource : 'all');
   // The Scope filter lists the projects on this computer and the repositories only the team's routines name. A choice that is gone from it (a project forgotten) counts as All once the projects are read.
   const scopeOptions = $derived(docScopeOptions(views.map(routineDoc), projects, { all: t('components.scope.all'), global: t('components.scope.global'), remoteOnly: t('components.scope.remoteOnly') }));
-  const scope = $derived.by<ScopeChoice>(() => {
-    const chosen = viewState.routinesScope as ScopeChoice;
-
-    return projectScopes.data === null || scopeOptions.some((option) => option.value === chosen) ? chosen : 'all';
-  });
+  const scope = $derived<ScopeChoice>(resolveScope(viewState.routinesScope as ScopeChoice, scopeOptions, loaded && projectScopes.data !== null));
   const filtered = $derived(scope !== 'all' || when !== 'all' || status !== 'all' || source !== 'all');
   const shown = $derived(inScope(views.filter((view) => inWhen(view, when) && inStatus(view, status) && inSource(view, source) && matchesQuery(view, query)), scope, routineDoc, projects));
   const sort = $derived(viewState.routinesSort);
@@ -159,19 +156,27 @@
     });
   });
 
-  // Whatever narrows or reorders the table starts it from its first page again. A page kept from before (the view was left and opened again) stays.
-  let narrowedBy: string | null = null;
+  // Whatever narrows or reorders the table starts it from its first page again.
+  startPageOver(() => JSON.stringify([query, when, status, source, scope, sort]), () => (viewState.routinesPage = 0));
 
-  $effect(() => {
-    const by = JSON.stringify([query, when, status, source, scope, sort]);
+  // A routine that opens (one just saved, one chosen from the run history) shows in the table, whatever the filters and the page were.
+  revealOpenRow({
+    openId: () => openId,
+    listed: (id) => routines.find(id) !== null,
+    indexOf: (id) => {
+      const index = sorted.findIndex((view) => viewKey(view) === id);
 
-    untrack(() => {
-      if (narrowedBy !== null && narrowedBy !== by) {
-        viewState.routinesPage = 0;
-      }
-
-      narrowedBy = by;
-    });
+      return index < 0 ? null : index;
+    },
+    pageSize: DOC_PAGE_SIZE,
+    setPage: (next) => (viewState.routinesPage = next),
+    clearFilters: () => {
+      viewState.routinesQuery = '';
+      viewState.routinesScope = 'all';
+      viewState.routinesWhen = 'all';
+      viewState.routinesStatus = 'all';
+      viewState.routinesSource = 'all';
+    },
   });
 
   // A list that failed to load is read again on the retry schedule, a little later each time, instead of at the poll's pace.
@@ -337,7 +342,7 @@
           <MenuItem
             tone="danger"
             icon={Trash2}
-            disabled={deletable === 0}
+            disabled={deletable === 0 || !reach.known}
             onclick={() => {
               close();
               deleteOpen = 'all';
@@ -444,5 +449,5 @@
 </div>
 
 <RoutineEditor bind:open={editorOpen} target={editorTarget} onsaved={saved} />
-<DeleteRoutinesDialog bind:open={() => deleteOpen !== null, (next) => !next && (deleteOpen = null)} kind={deleteOpen ?? 'all'} count={deletable} {openProject} onremoved={() => (viewState.routineId = null)} />
+<DeleteRoutinesDialog bind:open={() => deleteOpen !== null, (next) => !next && (deleteOpen = null)} kind={deleteOpen ?? 'all'} count={deletable} {reach} onremoved={() => (viewState.routineId = null)} />
 <SessionConfirm bind:this={confirmer} />

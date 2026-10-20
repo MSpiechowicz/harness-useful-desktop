@@ -49,4 +49,23 @@ describe('where a new script applies', () => {
 
     expect(appliesTo(dialog)).toHaveTextContent('Global');
   });
+
+  it('drops the finding once Applies to moves to another project, so Replace never reaches a script of the first one', async () => {
+    const invoke = fakeMemory();
+    const dialog = await openEditor();
+
+    await fill(dialog, { name: 'ci-status', description: 'A newer one.', body: BODY });
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Add script' }));
+    await within(dialog).findByText('This name is taken');
+
+    await pickTarget(dialog, /^research/);
+
+    expect(within(dialog).queryByText('This name is taken')).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole('button', { name: 'Replace it' })).not.toBeInTheDocument();
+    expect(calls(invoke, 'memory_script_save').filter((args) => (args as { replace?: boolean }).replace === true)).toHaveLength(0);
+
+    // Back on the project it was found for, the finding stands again.
+    await pickTarget(dialog, /^demo/);
+    expect(within(dialog).getByText('This name is taken')).toBeInTheDocument();
+  });
 });

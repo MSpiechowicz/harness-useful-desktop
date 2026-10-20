@@ -23,8 +23,8 @@ describe('the folder a remote routine is turned on and copied in', () => {
     expect(teamProject(team({ teamRepo: 'git:github.com/acme/other', root: '/work/notes' }), PROJECTS)).toBe('/work/notes');
   });
 
-  it('is the confirmed root itself when no project of the list has it, and none for a repository this computer lacks', () => {
-    expect(teamProject(team({ teamRepo: 'git:github.com/acme/other', root: '/work/gone' }), PROJECTS)).toBe('/work/gone');
+  it('is none for a confirmed root that is no project of the list (the backend takes no other folder), and for a repository this computer lacks', () => {
+    expect(teamProject(team({ teamRepo: 'git:github.com/acme/other', root: '/work/gone' }), PROJECTS)).toBeNull();
     expect(teamProject(team({ teamRepo: 'git:github.com/acme/website' }), PROJECTS)).toBeNull();
   });
 

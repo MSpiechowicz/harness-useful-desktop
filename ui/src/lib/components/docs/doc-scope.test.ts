@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { ProjectScope } from '$lib/ipc/bindings/ProjectScope';
 
-import { deleteScopeText, docScope, docScopeOptions, inScope, openProjectOf, scopeSortValue, type ScopedDoc, scopeText, versionScopeText } from './doc-scope';
+import { deleteReach, deleteScopeText, docScope, docScopeOptions, inScope, resolveScope, scopeSortValue, type ScopedDoc, scopeText, versionScopeText } from './doc-scope';
 
 const LABELS = { all: 'All', global: 'Global', remoteOnly: 'Remote only' };
 
@@ -94,8 +94,39 @@ describe('versionScopeText', () => {
 
 describe('deleteScopeText', () => {
   it('says Global and the open project, or only Global while no project is open', () => {
-    expect(deleteScopeText(openProjectOf(PROJECTS, '/work/notes'))).toBe('Global and notes');
-    expect(deleteScopeText(openProjectOf(PROJECTS, null))).toBe('Global');
-    expect(deleteScopeText(openProjectOf(PROJECTS, '/gone'))).toBe('Global');
+    expect(deleteScopeText('notes')).toBe('Global and notes');
+    expect(deleteScopeText(null)).toBe('Global');
+  });
+});
+
+describe('deleteReach', () => {
+  it('names the open project as the delete takes it and gives the root its documents are under', () => {
+    expect(deleteReach({ path: '/work/notes', name: 'notes' }, PROJECTS)).toEqual({ project: 'notes', root: '/work/notes', known: true });
+  });
+
+  it('reaches only the global documents with no open project', () => {
+    expect(deleteReach(null, PROJECTS)).toEqual({ project: null, root: null, known: true });
+  });
+
+  it('still names the open project, but is not known, while the projects are not read or lack it or its folder is gone', () => {
+    const open = { path: '/work/notes', name: 'notes' };
+
+    expect(deleteReach(open, [])).toEqual({ project: 'notes', root: null, known: false });
+    expect(deleteReach(open, [PROJECTS[0]])).toEqual({ project: 'notes', root: null, known: false });
+    expect(deleteReach(open, [{ ...PROJECTS[1], root: null }])).toEqual({ project: 'notes', root: null, known: false });
+  });
+});
+
+describe('resolveScope', () => {
+  const options = docScopeOptions(DOCS, PROJECTS, LABELS);
+
+  it('keeps a choice the filter lists, or any choice while what it lists is not known', () => {
+    expect(resolveScope('repo:git:github.com/acme/widget', options, true)).toBe('repo:git:github.com/acme/widget');
+    expect(resolveScope('global', options, true)).toBe('global');
+    expect(resolveScope('repo:git:github.com/gone/app', options, false)).toBe('repo:git:github.com/gone/app');
+  });
+
+  it('counts a choice the filter no longer lists as All', () => {
+    expect(resolveScope('repo:git:github.com/gone/app', options, true)).toBe('all');
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { ALL_REPOS, GLOBAL_ONLY, reachArgs, reachKey, reachScope, repoReach } from './memory-reach';
+import { ALL_REPOS, GLOBAL_ONLY, isKeyless, reachArgs, reachKey, reachScope, repoReach } from './memory-reach';
 
 describe('the reach of a Scope choice', () => {
   it('reads every repository, the global entries alone, or one repository by its key', () => {
@@ -18,5 +18,13 @@ describe('the reach of a Scope choice', () => {
     expect(reachKey(keyless)).toBeNull();
     expect(reachArgs(keyless)).toEqual({ project: null });
     expect(reachScope(keyless)).toBeNull();
+  });
+
+  it('knows a project without a key apart from the choices that read something', () => {
+    expect(isKeyless('repo:local:/work/scratch')).toBe(true);
+    expect(isKeyless(repoReach('path:/work/widget'))).toBe(false);
+    expect(isKeyless(repoReach('git:github.com/acme/widget'))).toBe(false);
+    expect(isKeyless(ALL_REPOS)).toBe(false);
+    expect(isKeyless(GLOBAL_ONLY)).toBe(false);
   });
 });

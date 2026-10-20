@@ -5,6 +5,7 @@
   import DocField from '$lib/components/docs/DocField.svelte';
   import { fieldClass } from '$lib/components/docs/doc-field';
   import SegmentedControl from '$lib/components/SegmentedControl.svelte';
+  import { targetValue } from '$lib/components/scope/scope-options';
   import type { StripOption } from '$lib/components/strip';
   import { t, tn } from '$lib/i18n/i18n.svelte';
   import type { ScriptDetail } from '$lib/ipc/bindings/ScriptDetail';
@@ -22,9 +23,9 @@
   import EditorNotice from './EditorNotice.svelte';
   import ExistsNotice from './ExistsNotice.svelte';
   import HiddenText from './HiddenText.svelte';
-  import { defaultTarget, editProject, projectOfTarget, targetLabel } from './scope-target';
+  import { defaultTarget, editProject, projectOfTarget, targetLabel, targetOfItem } from './scope-target';
   import ScriptChangedNotice from './ScriptChangedNotice.svelte';
-  import { blankForm, codeChanged, DEFAULT_TIMEOUT_SECS, draftOf, type FieldKey, formOf, LANGUAGES, problemsOf, type ScriptForm, type ScriptScope, unsupportedLanguage } from './script-form';
+  import { blankForm, codeChanged, DEFAULT_TIMEOUT_SECS, draftOf, type FieldKey, formOf, LANGUAGES, problemsOf, type ScriptForm, unsupportedLanguage } from './script-form';
   import { languageLabel, needsReview, revealHidden } from './script-format';
 
   interface Props {
@@ -43,11 +44,11 @@
 
   const ids = { name: uid('script-name'), description: uid('script-description'), language: uid('script-language'), body: uid('script-body'), timeout: uid('script-timeout'), scope: uid('script-scope') };
 
-  /** What a save found: this script (of this name, in this scope) already exists. */
+  /** What a save found: this script (of this name, in this scope) already exists. `target` is the Applies to choice the save was for, as `targetValue` gives it. */
   interface Taken {
     id: number;
     name: string;
-    scope: ScriptScope;
+    target: string;
   }
 
   let form = $state<ScriptForm>(blankForm({ kind: 'global' }));
@@ -80,8 +81,15 @@
 
   const fields = fieldProblems(() => problemsOf(form, { editing }), () => open);
 
+  // An item that exists keeps its scope, but the project it is shown as may be known only after the editor opened (the projects load on their own).
+  $effect(() => {
+    if (script !== null && open) {
+      form.target = targetOfItem(script, projects);
+    }
+  });
+
   // The finding stands only while the draft is still the one it was found for.
-  const conflict = $derived(taken && taken.name === form.name.trim() && taken.scope === form.target.kind ? taken : null);
+  const conflict = $derived(taken && taken.name === form.name.trim() && taken.target === targetValue(form.target) ? taken : null);
   const hidden = $derived(revealHidden(form.body).count);
   const languages = $derived<StripOption<ScriptLanguage>[]>(LANGUAGES.map((language) => ({ value: language, label: languageLabel(language) })));
   const scopeHelp = $derived.by(() => {
@@ -104,6 +112,7 @@
 
     try {
       const draft = draftOf(form);
+      const target = targetValue(form.target);
       // An edit is saved against the version it opened, never an add, not even one that replaces the script of that name.
       const saved = await saveScript(script ? editProject(script, projects, projectPath) : projectOfTarget(form.target), draft, replace, editing ? opened?.sha256 : undefined);
 
@@ -118,7 +127,7 @@
       }
 
       if (saved.outcome === 'exists') {
-        taken = { id: saved.id, name: draft.name, scope: draft.scope };
+        taken = { id: saved.id, name: draft.name, target };
 
         return;
       }

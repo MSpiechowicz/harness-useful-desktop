@@ -7,6 +7,7 @@
   import { fieldClass } from '$lib/components/docs/doc-field';
   import DocSelect from '$lib/components/docs/DocSelect.svelte';
   import { ICON } from '$lib/components/icon';
+  import { targetValue } from '$lib/components/scope/scope-options';
   import { t } from '$lib/i18n/i18n.svelte';
   import type { NoteContent } from '$lib/ipc/bindings/NoteContent';
   import type { NoteLink } from '$lib/ipc/bindings/NoteLink';
@@ -23,7 +24,7 @@
   import ExistsNotice from './ExistsNotice.svelte';
   import { KIND_LABELS, NOTE_KINDS } from './note-format';
   import NoteLinks from './NoteLinks.svelte';
-  import { defaultTarget, editProject, projectOfTarget, targetLabel } from './scope-target';
+  import { defaultTarget, editProject, projectOfTarget, targetLabel, targetOfItem } from './scope-target';
   import { spelledOut } from './script-format';
   import {
     blankForm,
@@ -36,7 +37,6 @@
     length,
     LIMITS,
     type NoteForm,
-    type NoteScope,
     problemsOf,
     TAG_RULES,
     tagFlagged,
@@ -60,11 +60,11 @@
 
   const ids = { title: uid('note-title'), body: uid('note-body'), kind: uid('note-kind'), tags: uid('note-tags'), entities: uid('note-entities'), links: uid('note-links'), kept: uid('note-kept'), scope: uid('note-scope') };
 
-  /** What a save found: this note (of this title, in this scope) already has the title. */
+  /** What a save found: this note (of this title, in this scope) already has the title. `target` is the Applies to choice the save was for, as `targetValue` gives it. */
   interface Taken {
     id: number;
     title: string;
-    scope: NoteScope;
+    target: string;
   }
 
   let form = $state<NoteForm>(blankForm({ kind: 'global' }));
@@ -88,8 +88,15 @@
     },
   );
 
+  // An item that exists keeps its scope, but the project it is shown as may be known only after the editor opened (the projects load on their own).
+  $effect(() => {
+    if (note !== null && open) {
+      form.target = targetOfItem(note, projects);
+    }
+  });
+
   // The finding stands only while the draft is still the one it was found for.
-  const conflict = $derived(taken && taken.title === form.title.trim() && taken.scope === form.target.kind ? taken : null);
+  const conflict = $derived(taken && taken.title === form.title.trim() && taken.target === targetValue(form.target) ? taken : null);
   // Replacing goes through an edit, which leaves the entities of the note it replaces as they are.
   const existsBody = $derived.by(() => {
     if (editing) {
@@ -129,6 +136,7 @@
 
     try {
       const draft = draftOf(form);
+      const target = targetValue(form.target);
       const saved = await saveNote(note ? editProject(note, projects, projectPath) : projectOfTarget(form.target), draft, replaceId ?? note?.id);
 
       if (saved === null) {
@@ -140,7 +148,7 @@
         if (saved.id === null) {
           failure = t(editing ? 'memory.editor.note.exists.body.edit' : 'memory.editor.note.exists.body', { title: draft.title });
         } else {
-          taken = { id: saved.id, title: draft.title, scope: draft.scope };
+          taken = { id: saved.id, title: draft.title, target };
         }
 
         return;

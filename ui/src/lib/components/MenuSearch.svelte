@@ -17,6 +17,11 @@
   }
 
   let { search, needle = $bindable(), none, children }: Props = $props();
+
+  // The panel is built anew each time the menu opens, so what was typed before (and left by Escape or a click outside) does not narrow the next one.
+  $effect(() => {
+    needle = '';
+  });
 </script>
 
 <!-- The part of a menu with many choices that the filters and the form dropdowns share: a field above the choices, which is where focus lands on open
