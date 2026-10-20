@@ -87,7 +87,10 @@ export class ViewState {
   hooksWhen = $state<HookWhen>('all');
   hooksStatus = $state<HookStatusFilter>('all');
   hooksSource = $state<HookSource>('all');
-  /** The column the hooks of each group are sorted by; null for the run order. */
+  /** Where the hooks shown apply (a Scope filter choice: `all`, `global` or `repo:<key>`) and the page of the table (from 0). */
+  hooksScope = $state<string>('all');
+  hooksPage = $state(0);
+  /** The column the hooks are sorted by; null for the run order. */
   hooksSort = $state<Sort | null>(null);
 
   /** Which list of the Routines view is on screen, the routine whose panel is open (its row key), what the search holds and the three filters ('all' for none). */
@@ -97,7 +100,10 @@ export class ViewState {
   routinesWhen = $state<RoutineWhenFilter>('all');
   routinesStatus = $state<RoutineStatusFilter>('all');
   routinesSource = $state<RoutineSource>('all');
-  /** The column the routines of each group are sorted by; null for the order they run in. */
+  /** Where the routines shown apply (a Scope filter choice) and the page of the table (from 0). */
+  routinesScope = $state<string>('all');
+  routinesPage = $state(0);
+  /** The column the routines are sorted by; null for the order they run in. */
   routinesSort = $state<Sort | null>(null);
 
   /** The run history: the run whose panel is open, the routine it is narrowed to (null for all), the status filter and the page (from 0). */
@@ -163,6 +169,8 @@ export class ViewState {
       this.hooksWhen = 'all';
       this.hooksStatus = 'all';
       this.hooksSource = 'all';
+      this.hooksScope = 'all';
+      this.hooksPage = 0;
       this.hooksSort = null;
     } else if (view === 'routines') {
       this.routinesSection = 'routines';
@@ -171,6 +179,8 @@ export class ViewState {
       this.routinesWhen = 'all';
       this.routinesStatus = 'all';
       this.routinesSource = 'all';
+      this.routinesScope = 'all';
+      this.routinesPage = 0;
       this.routinesSort = null;
       this.runId = null;
       this.runsRoutine = null;
