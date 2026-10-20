@@ -40,7 +40,8 @@ export const PICKER = {
   /**
    * The least the detail panel is tall, so moving between harnesses does not move what is below it. Measured in WebKitGTK:
    * the tallest realistic panel (a missing harness with a wrapping install command, an error line and two buttons) is
-   * 316px at the narrowest side by side, so 24rem (336px) holds every case.
+   * 316px at the narrowest side by side, so 24rem (336px) holds every case. An installed harness fills it with its facts
+   * and actions (also 336px in WebKitGTK, with about 2px to spare).
    */
   detailMinHeight: 'min-h-[24rem]',
 } as const;

@@ -10,11 +10,14 @@
   import { t } from '$lib/i18n/i18n.svelte';
   import type { HarnessSummary } from '$lib/ipc/bindings/HarnessSummary';
   import type { VersionSupport } from '$lib/ipc/bindings/VersionSupport';
-  import { openExternal } from '$lib/ipc/actions';
+  import { openExternal, revealPath } from '$lib/ipc/actions';
   import { harness } from '$lib/stores/harness.svelte';
   import { cx } from '$lib/utils/cx';
+  import { uid } from '$lib/utils/ids';
 
+  import HarnessFacts from './HarnessFacts.svelte';
   import { PICKER } from './layout';
+  import type { MachineFacts } from './machine-facts.svelte';
 
   interface Props {
     summary: HarnessSummary;
@@ -22,9 +25,13 @@
     selected: boolean;
     onselect: () => void;
     id: string;
+    /** What was read about this harness on this machine; undefined before the read starts. */
+    facts: MachineFacts | undefined;
   }
 
-  let { summary, selected, onselect, id }: Props = $props();
+  let { summary, selected, onselect, id, facts }: Props = $props();
+
+  const factsId = uid('harness-facts');
 
   const SUPPORT = $derived<Record<VersionSupport, { label: string; tone: 'success' | 'warning' | 'neutral'; note: string }>>({
     supported: { label: t('onboarding.card.supported'), tone: 'success', note: t('onboarding.card.supported.note') },
@@ -41,13 +48,13 @@
 
 <!--
   The same rows, in this order, whatever the harness: header, extra facts, then its binary (or how to get one) and
-  its config. The panel keeps a minimum height, so the footer below does not move from one harness to the next, and the
-  spare room is at the bottom. A harness the app cannot chat with yet keeps the rows, greyed out, with "Coming soon" in place of the choice.
+  its config. The panel keeps a minimum height, so the footer below does not move from one harness to the next. An
+  installed harness spends the spare room on what it has on this machine and a way into it, at the bottom. A harness the app cannot chat with yet keeps the rows, greyed out, with "Coming soon" in place of the choice.
 -->
 <article {id} aria-label={label} class={cx('flex flex-col rounded-lg border-card bg-glass p-6 shadow-float transition-colors duration-[var(--dur-base)]', PICKER.detailMinHeight, selected ? 'edge-accent shadow-glow' : 'border-line')}>
   <!-- The content of another harness fades in over the same panel. -->
   {#key summary.info.id}
-    <div class={cx('flex flex-1 flex-col gap-5', soon && 'opacity-60 grayscale')} in:rise={{ y: 6, duration: DURATION.base }}>
+    <div class={cx('flex flex-1 flex-col gap-4', soon && 'opacity-60 grayscale')} in:rise={{ y: 6, duration: DURATION.base }}>
       <!-- The choice drops under the name when the panel is too narrow for both. -->
       <header class="flex flex-wrap items-start gap-x-3 gap-y-3">
         <HarnessBadge info={summary.info} size="lg" />
@@ -140,6 +147,24 @@
           <Badge size="lg" tone={detection.configDirExists ? 'success' : 'neutral'}>{detection.configDirExists ? t('onboarding.card.found') : t('onboarding.card.notCreated')}</Badge>
         </dd>
       </dl>
+
+      <!-- What the harness holds on this machine, and a way into it. The room left over in the panel is above these. -->
+      {#if detection.installed && !soon}
+        {@const configDir = detection.configDir}
+
+        <HarnessFacts {summary} {facts} id={factsId} />
+
+        <div class="mt-auto flex flex-wrap items-center gap-2">
+          <Button class="min-w-36 flex-1" disabled={!configDir || !detection.configDirExists} onclick={() => configDir && void revealPath(configDir)}>
+            {#snippet leading()}<FolderOpen size={16} aria-hidden="true" />{/snippet}
+            {t('onboarding.card.openConfig')}
+          </Button>
+          <Button class="min-w-36 flex-1" onclick={() => void openExternal(summary.info.homepage)}>
+            {#snippet leading()}<ExternalLink size={16} aria-hidden="true" />{/snippet}
+            {t('onboarding.card.homepage')}
+          </Button>
+        </div>
+      {/if}
     </div>
   {/key}
 </article>

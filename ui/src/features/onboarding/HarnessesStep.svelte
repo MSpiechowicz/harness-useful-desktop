@@ -1,9 +1,12 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
+
   import Skeleton from '$lib/components/Skeleton.svelte';
   import StatusDot from '$lib/components/StatusDot.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
   import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
   import { harness } from '$lib/stores/harness.svelte';
+  import { project } from '$lib/stores/project.svelte';
   import { cx } from '$lib/utils/cx';
   import { uid } from '$lib/utils/ids';
 
@@ -11,6 +14,7 @@
   import HarnessList from './HarnessList.svelte';
   import HarnessScan from './HarnessScan.svelte';
   import { PICKER, WIDTH } from './layout';
+  import { MachineFactsCache, projectToCount } from './machine-facts.svelte';
   import { onboarding } from './onboarding-state.svelte';
   import StepHeader from './StepHeader.svelte';
 
@@ -31,6 +35,18 @@
   });
 
   const shown = $derived(harness.summaries.find((summary) => summary.info.id === (focusId ?? opening)));
+
+  /** What each harness has on this machine, read the first time its details open and kept while the step is open. */
+  const facts = new MachineFactsCache();
+
+  // The app cannot read the sessions of a harness it cannot chat with, and a missing one has nothing to read.
+  $effect(() => {
+    if (shown?.detection.installed && shown.capabilities.chat) {
+      const target = projectToCount(project.active, project.recents);
+
+      untrack(() => facts.load(shown, target));
+    }
+  });
 </script>
 
 <div class={cx('mx-auto flex w-full flex-col gap-8 [@media(max-height:720px)]:gap-4', WIDTH.wide)}>
@@ -71,7 +87,7 @@
               <HarnessList summaries={harness.summaries} focused={shown.info.id} driver={onboarding.driver} {panel} onfocus={(id) => (focusId = id)} />
             </div>
 
-            <HarnessDetail id={panel} summary={shown} selected={onboarding.driver === shown.info.id} onselect={() => onboarding.choose(shown.info.id)} />
+            <HarnessDetail id={panel} summary={shown} facts={facts.of(shown.info.id)} selected={onboarding.driver === shown.info.id} onselect={() => onboarding.choose(shown.info.id)} />
           </div>
         </div>
       {/if}
