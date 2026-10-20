@@ -397,3 +397,58 @@ fn stored_session_rules_other_than_denies_override_a_mode() {
     ));
     assert!(stored_overrides(&json!("odd")));
 }
+
+#[test]
+fn rules_of_one_action_may_come_in_another_order_on_the_second_start() {
+    // OpenCode adds an `allow` per skill folder it found, in another order on every start.
+    let user = json!({ "build": { "external_directory": { "/a/*": "allow", "/b/*": "allow", "/c/*": "deny" } } });
+    let probed = agents_with(&user);
+    let config = mode_config(ApprovalMode::Write, &probed).expect("expressible");
+    let applied = served(&merge_deep(&user_config(&user), &config));
+    check_applied(&probed, &applied, &config).expect("as set");
+
+    let swapped = |first: &str, second: &str| {
+        let mut agents = applied.clone();
+        let build = agents
+            .as_array_mut()
+            .expect("agents")
+            .iter_mut()
+            .find(|agent| agent["name"] == "build")
+            .expect("build");
+        let rules = build["permission"].as_array_mut().expect("rules");
+        let at = |pattern: &str| {
+            rules
+                .iter()
+                .position(|rule| rule["permission"] == "external_directory" && rule["pattern"] == pattern)
+                .expect("the user's rule")
+        };
+        let (a, b) = (at(first), at(second));
+        rules.swap(a, b);
+        agents
+    };
+
+    check_applied(&probed, &swapped("/a/*", "/b/*"), &config).expect("two allows swapped decide the same");
+    assert!(
+        check_applied(&probed, &swapped("/b/*", "/c/*"), &config).is_err(),
+        "an allow and a deny swapped decide otherwise"
+    );
+}
+
+#[test]
+fn only_opencodes_tool_output_rule_may_follow_the_mode() {
+    let probed = json!([{ "name": "build", "permission": [
+        { "permission": "*", "pattern": "*", "action": "allow" },
+        { "permission": "external_directory", "pattern": "/x/*", "action": "allow" },
+    ] }]);
+    let config = mode_config(ApprovalMode::AlwaysAsk, &probed).expect("expressible");
+    let mut rules: Vec<Rule> = serde_json::from_value(probed[0]["permission"].clone()).expect("rules");
+    let moved = rules.pop().expect("the folder rule");
+    rules.extend(config_rules(&config["agent"]["build"]["permission"], None));
+    rules.push(moved);
+    let applied = json!([{ "name": "build", "permission": rules }]);
+
+    assert!(
+        check_applied(&probed, &applied, &config).is_err(),
+        "a folder allow after the mode is not OpenCode's tool-output rule"
+    );
+}

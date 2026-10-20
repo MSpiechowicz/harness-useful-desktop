@@ -25,9 +25,10 @@
 //!   the list that applies to it (wildcard ones too), a pattern only at its last place. For every
 //!   permission the last matching rule is then the one of the list.
 //!
-//! [`check_applied`] checks that every agent the server reports with the mode has exactly the
-//! rules it had without it, then the mode's: anything else refuses the mode instead of weakening
-//! it. That covers a configuration layer OpenCode reads after ours (managed settings, a legacy
+//! [`check_applied`] checks that every agent the server reports with the mode has the rules it had
+//! without it, then the mode's: anything else refuses the mode instead of weakening it. Only the
+//! order inside a run of rules with one action may differ: it decides nothing, and OpenCode lists
+//! its skill folders' `allow` rules in another order on every start. That covers a configuration layer OpenCode reads after ours (managed settings, a legacy
 //! `mode` entry), a user key like ours, an agent permission given as a single string (`mergeDeep`
 //! replaces it with our object, so the agent's rules change), and a server whose agents differ
 //! from the probe's. The one rule OpenCode appends after every agent's configuration, an `allow`
@@ -281,9 +282,10 @@ pub fn inherited_config(text: Option<&str>) -> Result<Value, String> {
     }
 }
 
-/// Checks that every agent the server reports with the mode (`applied`) has exactly the rules it
-/// had without it (`probed`), then its mode rules (`config`), and only then the tool-output rule
-/// when it ended with one without the mode; an error names the first agent that does not.
+/// Checks that every agent the server reports with the mode (`applied`) has the rules it had
+/// without it (`probed`), then its mode rules (`config`), and only then the tool-output rule when
+/// it ended with one without the mode; rules of one action next to each other may come in another
+/// order. An error names the first agent that does not.
 pub fn check_applied(probed: &Value, applied: &Value, config: &Value) -> Result<(), String> {
     let before = listed_agents(probed)?;
     let after = listed_agents(applied)?;
@@ -304,12 +306,13 @@ pub fn check_applied(probed: &Value, applied: &Value, config: &Value) -> Result<
     Ok(())
 }
 
-/// True when `after` is `before` with `ours` appended, before OpenCode's trailing tool-output rule
-/// when `before` ends with one.
+/// True when `after` decides as `before` with `ours` appended, before OpenCode's trailing
+/// tool-output rule when `before` ends with one.
 fn appended(before: &[Rule], ours: &[Rule], after: &[Rule]) -> bool {
+    let after = decisions(after);
     let plain: Vec<Rule> = before.iter().chain(ours).cloned().collect();
 
-    if after == plain {
+    if after == decisions(&plain) {
         return true;
     }
 
@@ -317,8 +320,27 @@ fn appended(before: &[Rule], ours: &[Rule], after: &[Rule]) -> bool {
         return false;
     };
 
-    let tool_output = last.permission == "external_directory" && last.action == "allow";
+    // OpenCode's own folder (`<data>/tool-output/*`, `\` separators on Windows).
+    let in_tool_output = ["/tool-output/*", "\\tool-output\\*"]
+        .iter()
+        .any(|folder| last.pattern.ends_with(folder));
+    let tool_output = last.permission == "external_directory" && last.action == "allow" && in_tool_output;
     let expected: Vec<Rule> = head.iter().chain(ours).chain([last]).cloned().collect();
 
-    tool_output && after == expected
+    tool_output && after == decisions(&expected)
+}
+
+/// `rules` with each run of rules of one action sorted. OpenCode applies the last rule that
+/// matches, so the order inside such a run decides nothing, and OpenCode lists some of them in a
+/// different order on every start (an `allow` per skill folder it found).
+fn decisions(rules: &[Rule]) -> Vec<Rule> {
+    let mut sorted: Vec<Rule> = Vec::with_capacity(rules.len());
+
+    for run in rules.chunk_by(|a, b| a.action == b.action) {
+        let mut run = run.to_vec();
+        run.sort_by(|a, b| (&a.permission, &a.pattern).cmp(&(&b.permission, &b.pattern)));
+        sorted.extend(run);
+    }
+
+    sorted
 }
