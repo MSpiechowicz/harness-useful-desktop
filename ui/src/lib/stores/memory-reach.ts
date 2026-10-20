@@ -12,14 +12,19 @@ export const GLOBAL_ONLY: Reach = 'global';
 
 const REPO_PREFIX = 'repo:';
 
+/** The stand-in key of a project on this computer that Harness Memory knows no repository key for (`repo:local:<folder>`): it names no repository to read. */
+export const LOCAL_PREFIX = 'local:';
+
 /** The reach of one repository, by its key. */
 export function repoReach(key: string): Reach {
   return `${REPO_PREFIX}${key}`;
 }
 
-/** The repository key of a reach of one repository; null for any other. */
+/** The repository key of a reach of one repository; null for any other, and for a project without a key (nothing to read it by). */
 export function reachKey(reach: Reach): string | null {
-  return reach.startsWith(REPO_PREFIX) ? reach.slice(REPO_PREFIX.length) : null;
+  const key = reach.startsWith(REPO_PREFIX) ? reach.slice(REPO_PREFIX.length) : null;
+
+  return key === null || key.startsWith(LOCAL_PREFIX) ? null : key;
 }
 
 /** What the notes and scripts commands take to read `reach`: no project, and the repositories when there are any. */

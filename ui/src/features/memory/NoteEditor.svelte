@@ -13,14 +13,17 @@
   import type { NoteSaved } from '$lib/ipc/bindings/NoteSaved';
   import { saveNote } from '$lib/stores/memoryNotes.svelte';
   import { project } from '$lib/stores/project.svelte';
+  import { projectScopes } from '$lib/stores/project-scopes.svelte';
+  import { viewState } from '$lib/stores/view-state.svelte';
   import { uid } from '$lib/utils/ids';
 
   import { fieldProblems, onOpen } from './editor-fields.svelte';
   import EditorDialog from './EditorDialog.svelte';
+  import EditorScope from './EditorScope.svelte';
   import ExistsNotice from './ExistsNotice.svelte';
   import { KIND_LABELS, NOTE_KINDS } from './note-format';
   import NoteLinks from './NoteLinks.svelte';
-  import ScopeField from './ScopeField.svelte';
+  import { defaultTarget, editProject, projectOfTarget, targetLabel } from './scope-target';
   import { spelledOut } from './script-format';
   import {
     blankForm,
@@ -64,28 +67,29 @@
     scope: NoteScope;
   }
 
-  let form = $state<NoteForm>(blankForm(false));
+  let form = $state<NoteForm>(blankForm({ kind: 'global' }));
   let saving = $state(false);
   let taken = $state<Taken | null>(null);
   let failure = $state<string | null>(null);
 
   const editing = $derived(note !== null);
   const projectPath = $derived(project.active?.path ?? null);
+  const projects = $derived(projectScopes.data ?? []);
 
-  const fields = fieldProblems(() => problemsOf(form, { projectOpen: projectPath !== null, editing }), () => open);
+  const fields = fieldProblems(() => problemsOf(form, { editing }), () => open);
 
   // The editor opens on what it was given, fresh each time.
   onOpen(
     () => open,
     () => {
-      form = note ? formOf(note) : blankForm(untrack(() => projectPath) !== null);
+      form = note ? untrack(() => formOf(note, projects)) : blankForm(untrack(() => defaultTarget(viewState.memoryReach, projects, projectPath)));
       taken = null;
       failure = null;
     },
   );
 
   // The finding stands only while the draft is still the one it was found for.
-  const conflict = $derived(taken && taken.title === form.title.trim() && taken.scope === form.scope ? taken : null);
+  const conflict = $derived(taken && taken.title === form.title.trim() && taken.scope === form.target.kind ? taken : null);
   // Replacing goes through an edit, which leaves the entities of the note it replaces as they are.
   const existsBody = $derived.by(() => {
     if (editing) {
@@ -102,7 +106,7 @@
       return t('memory.editor.note.scope.fixed');
     }
 
-    return form.scope === 'repo' ? t('memory.editor.note.scope.repo.hint', { project: project.active?.name ?? '' }) : t('memory.editor.note.scope.global.hint');
+    return form.target.kind === 'repo' ? t('memory.editor.note.scope.repo.hint', { project: targetLabel(projects, form.target, t('components.scope.global')) }) : t('memory.editor.note.scope.global.hint');
   });
 
   /** The characters used of a field's limit, said once the field is nearly full. */
@@ -125,7 +129,7 @@
 
     try {
       const draft = draftOf(form);
-      const saved = await saveNote(projectPath, draft, replaceId ?? note?.id);
+      const saved = await saveNote(note ? editProject(note, projects, projectPath) : projectOfTarget(form.target), draft, replaceId ?? note?.id);
 
       if (saved === null) {
         return;
@@ -264,5 +268,5 @@
     </DocField>
   {/if}
 
-  <ScopeField bind:value={form.scope} fixed={editing} projectOpen={projectPath !== null} id={ids.scope} error={fields.messageOf('scope')} help={scopeHelp} />
+  <EditorScope bind:value={form.target} {projects} id={ids.scope} error={fields.messageOf('scope')} help={scopeHelp} fixed={editing} />
 </EditorDialog>

@@ -2,29 +2,34 @@
   import Button from '$lib/components/Button.svelte';
   import { NOTICE_LOOKS } from '$lib/components/notice';
   import { ICON } from '$lib/components/icon';
+  import type { ScopeTarget } from '$lib/components/scope/scope-options';
+  import ScopeSelect from '$lib/components/scope/ScopeSelect.svelte';
   import Switch from '$lib/components/Switch.svelte';
   import { t, tn } from '$lib/i18n/i18n.svelte';
-  import { project } from '$lib/stores/project.svelte';
+  import { projectScopes } from '$lib/stores/project-scopes.svelte';
   import { uid } from '$lib/utils/ids';
 
   import { importable, needsDefaultScope } from './notes-import';
   import { notesImport as flow } from './notes-import-state.svelte';
   import NotesImportTable from './NotesImportTable.svelte';
-  import ScopeField from './ScopeField.svelte';
+  import { targetLabel } from './scope-target';
 
   const scopeId = uid('import-scope');
   const look = NOTICE_LOOKS.warning;
 
   const plan = $derived(flow.plan);
-  const projectOpen = $derived(project.active !== null);
+  // The plan was read for one project, so the rows can only be kept in it or be global.
+  const reviewedFor = $derived(flow.reviewedFor);
+  const projects = $derived((projectScopes.data ?? []).filter((candidate) => candidate.path === reviewedFor));
+  const target = $derived<ScopeTarget>(flow.defaultScope === 'repo' && reviewedFor !== null ? { kind: 'repo', path: reviewedFor } : { kind: 'global' });
   const usable = $derived(flow.rows.filter(importable).length);
   const wantsScope = $derived(needsDefaultScope(flow.rows, flow.picks));
   const scopeHelp = $derived.by(() => {
-    if (!projectOpen) {
+    if (reviewedFor === null) {
       return t('memory.import.scope.noProject');
     }
 
-    return flow.defaultScope === 'repo' ? t('memory.import.scope.repo', { project: project.active?.name ?? '' }) : t('memory.import.scope.global');
+    return target.kind === 'repo' ? t('memory.import.scope.repo', { project: targetLabel(projects, target, t('components.scope.global')) }) : t('memory.import.scope.global');
   });
 </script>
 
@@ -51,7 +56,7 @@
     <NotesImportTable rows={flow.rows} picks={flow.picks} ontoggle={(index, on) => flow.toggle(index, on)} />
 
     {#if wantsScope}
-      <ScopeField bind:value={flow.defaultScope} fixed={false} {projectOpen} id={scopeId} error={null} help={scopeHelp} />
+      <ScopeSelect label={t('components.scope.appliesTo')} labelId={scopeId} {projects} value={target} onchange={(next) => (flow.defaultScope = next.kind)} help={scopeHelp} />
     {/if}
 
     <div class="flex items-start justify-between gap-4">

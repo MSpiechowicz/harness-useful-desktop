@@ -155,4 +155,16 @@ export const components: AreaMessages<typeof enComponents> = {
   'components.workspace.details': 'Szczegóły',
   'components.workspace.layout': 'Układ',
   'components.table.resize': 'Zmień szerokość kolumny {column}',
+
+  'components.scope.label': 'Zakres',
+  'components.scope.all': 'Wszystkie',
+  'components.scope.global': 'Globalnie',
+  'components.scope.clear': 'Wyczyść filtr Zakres',
+  'components.scope.search': 'Szukaj repozytoriów',
+  'components.scope.search.placeholder': 'Szukaj repozytoriów…',
+  'components.scope.search.empty': 'Brak pasującego repozytorium',
+  'components.scope.remoteOnly': 'Tylko zdalne',
+  'components.scope.appliesTo': 'Dotyczy',
+  'components.scope.unknown': 'Nieznany',
+  'components.scope.remote': 'Zdalne',
 };

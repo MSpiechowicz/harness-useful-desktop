@@ -12,15 +12,17 @@
   import type { ScriptSaved } from '$lib/ipc/bindings/ScriptSaved';
   import { rereadScript, SCRIPT_CHANGED, saveScript } from '$lib/stores/memoryScripts.svelte';
   import { project } from '$lib/stores/project.svelte';
+  import { projectScopes } from '$lib/stores/project-scopes.svelte';
   import { viewState } from '$lib/stores/view-state.svelte';
   import { uid } from '$lib/utils/ids';
 
   import { fieldProblems, onOpen } from './editor-fields.svelte';
   import EditorDialog from './EditorDialog.svelte';
+  import EditorScope from './EditorScope.svelte';
   import EditorNotice from './EditorNotice.svelte';
   import ExistsNotice from './ExistsNotice.svelte';
   import HiddenText from './HiddenText.svelte';
-  import ScopeField from './ScopeField.svelte';
+  import { defaultTarget, editProject, projectOfTarget, targetLabel } from './scope-target';
   import ScriptChangedNotice from './ScriptChangedNotice.svelte';
   import { blankForm, codeChanged, DEFAULT_TIMEOUT_SECS, draftOf, type FieldKey, formOf, LANGUAGES, problemsOf, type ScriptForm, type ScriptScope, unsupportedLanguage } from './script-form';
   import { languageLabel, needsReview, revealHidden } from './script-format';
@@ -48,7 +50,7 @@
     scope: ScriptScope;
   }
 
-  let form = $state<ScriptForm>(blankForm(false));
+  let form = $state<ScriptForm>(blankForm({ kind: 'global' }));
   let saving = $state(false);
   let taken = $state<Taken | null>(null);
   /** The version of the script the form was filled from: the one opened, or the one the user reloaded. Its hash is what an edit is saved against. */
@@ -63,22 +65,23 @@
   // A language this version does not know is not edited: saving would have to name another one.
   const unsupported = $derived(opened ? unsupportedLanguage(opened) : null);
   const projectPath = $derived(project.active?.path ?? null);
+  const projects = $derived(projectScopes.data ?? []);
 
   // The editor opens on what it was given, fresh each time.
   onOpen(
     () => open,
     () => {
       opened = script;
-      form = script ? formOf(script) : blankForm(untrack(() => projectPath) !== null);
+      form = script ? untrack(() => formOf(script, projects)) : blankForm(untrack(() => defaultTarget(viewState.memoryReach, projects, projectPath)));
       taken = null;
       stale = null;
     },
   );
 
-  const fields = fieldProblems(() => problemsOf(form, { projectOpen: projectPath !== null, editing }), () => open);
+  const fields = fieldProblems(() => problemsOf(form, { editing }), () => open);
 
   // The finding stands only while the draft is still the one it was found for.
-  const conflict = $derived(taken && taken.name === form.name.trim() && taken.scope === form.scope ? taken : null);
+  const conflict = $derived(taken && taken.name === form.name.trim() && taken.scope === form.target.kind ? taken : null);
   const hidden = $derived(revealHidden(form.body).count);
   const languages = $derived<StripOption<ScriptLanguage>[]>(LANGUAGES.map((language) => ({ value: language, label: languageLabel(language) })));
   const scopeHelp = $derived.by(() => {
@@ -86,7 +89,7 @@
       return t('memory.editor.script.scope.fixed');
     }
 
-    return form.scope === 'repo' ? t('memory.editor.script.scope.repo.hint', { project: project.active?.name ?? '' }) : t('memory.editor.script.scope.global.hint');
+    return form.target.kind === 'repo' ? t('memory.editor.script.scope.repo.hint', { project: targetLabel(projects, form.target, t('components.scope.global')) }) : t('memory.editor.script.scope.global.hint');
   });
 
   /** Writes the script. `replace` overwrites the script that has the name: an edit, or the user's choice on a taken name. */
@@ -102,7 +105,7 @@
     try {
       const draft = draftOf(form);
       // An edit is saved against the version it opened, never an add, not even one that replaces the script of that name.
-      const saved = await saveScript(projectPath, draft, replace, editing ? opened?.sha256 : undefined);
+      const saved = await saveScript(script ? editProject(script, projects, projectPath) : projectOfTarget(form.target), draft, replace, editing ? opened?.sha256 : undefined);
 
       if (saved === null) {
         return;
@@ -142,7 +145,7 @@
         stale = 'gone';
       } else if (latest !== null) {
         opened = latest;
-        form = formOf(latest);
+        form = formOf(latest, projects);
         stale = null;
       }
     } finally {
@@ -257,7 +260,7 @@
     </div>
   </DocField>
 
-  <ScopeField bind:value={form.scope} fixed={editing} projectOpen={projectPath !== null} id={ids.scope} error={fields.messageOf('scope')} help={scopeHelp} />
+  <EditorScope bind:value={form.target} {projects} id={ids.scope} error={fields.messageOf('scope')} help={scopeHelp} fixed={editing} />
 
   <EditorNotice level="info" icon={ShieldCheck} body={t('memory.editor.script.trust')} />
 </EditorDialog>

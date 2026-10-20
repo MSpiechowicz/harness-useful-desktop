@@ -1,9 +1,12 @@
 import { type ChipRules, chipsOf, mergeChips } from '$lib/components/docs/chips';
+import type { ScopeTarget } from '$lib/components/scope/scope-options';
 import type { NoteContent } from '$lib/ipc/bindings/NoteContent';
 import type { NoteDraft } from '$lib/ipc/bindings/NoteDraft';
 import type { NoteKind } from '$lib/ipc/bindings/NoteKind';
+import type { ProjectScope } from '$lib/ipc/bindings/ProjectScope';
 
 import type { Problem } from './editor-fields.svelte';
+import { targetOfItem, targetProblems } from './scope-target';
 
 /** The limits Harness Memory puts on a note. */
 export const LIMITS = { title: 120, body: 4000, tags: 8, tag: 32, entities: 10, entity: 80 } as const;
@@ -31,26 +34,25 @@ export interface NoteForm {
   entities: string[];
   /** The text typed after the last entity chip. */
   entitiesDraft: string;
-  scope: NoteScope;
+  /** Where the note applies: Global, or the project it is kept in (the chosen one, not necessarily the open one). */
+  target: ScopeTarget;
 }
 
 export type FieldKey = 'title' | 'body' | 'tags' | 'entities' | 'scope';
 
 export interface ProblemContext {
-  /** A project is open, so a repository note has a repository to belong to. */
-  projectOpen: boolean;
   /** An existing note is being edited: its scope is not changed, so it needs no project. */
   editing: boolean;
 }
 
-/** A new note: in the repository when a project is open, otherwise global. */
-export function blankForm(projectOpen: boolean): NoteForm {
-  return { title: '', body: '', kind: 'note', tags: [], tagsDraft: '', entities: [], entitiesDraft: '', scope: projectOpen ? 'repo' : 'global' };
+/** A new note, applying to `target`. */
+export function blankForm(target: ScopeTarget): NoteForm {
+  return { title: '', body: '', kind: 'note', tags: [], tagsDraft: '', entities: [], entitiesDraft: '', target };
 }
 
-/** The editor for a note that exists. */
-export function formOf(note: NoteContent): NoteForm {
-  return { title: note.title, body: note.body, kind: note.kind, tags: note.tags, tagsDraft: '', entities: note.entities, entitiesDraft: '', scope: note.scope };
+/** The editor for a note that exists, applying where it does. */
+export function formOf(note: NoteContent, projects: ProjectScope[]): NoteForm {
+  return { title: note.title, body: note.body, kind: note.kind, tags: note.tags, tagsDraft: '', entities: note.entities, entitiesDraft: '', target: targetOfItem(note, projects) };
 }
 
 /** The tags of the form, as the server keeps them: the chips and what is typed after them, lowercase, each once. */
@@ -112,13 +114,11 @@ export function problemsOf(form: NoteForm, context: ProblemContext): Problem<Fie
     problems.push({ field: 'entities', message: 'memory.editor.note.problem.entities.long', params: { max: LIMITS.entity }, required: false });
   }
 
-  if (!context.editing && form.scope === 'repo' && !context.projectOpen) {
-    problems.push({ field: 'scope', message: 'memory.editor.scope.needsProject', required: false });
-  }
+  problems.push(...targetProblems(form.target, context.editing));
 
   return problems;
 }
 
 export function draftOf(form: NoteForm): NoteDraft {
-  return { title: form.title.trim(), body: form.body.trim(), kind: form.kind, tags: tagsOf(form), entities: entitiesOf(form), scope: form.scope };
+  return { title: form.title.trim(), body: form.body.trim(), kind: form.kind, tags: tagsOf(form), entities: entitiesOf(form), scope: form.target.kind };
 }

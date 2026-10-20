@@ -8,13 +8,15 @@
 
   import Button from './Button.svelte';
   import { ICON, type IconComponent } from './icon';
+  import MenuSearch from './MenuSearch.svelte';
+  import { matchOptions, type MenuSearchTexts } from './menu-search';
   import Popover from './Popover.svelte';
 
   interface Props {
     /** Accessible name of the menu, e.g. "Show". */
     label: string;
-    /** The predefined filters; the first one is the unfiltered "All". A `count` is shown after the label. */
-    options: { value: V; label: string; icon?: IconComponent; count?: number }[];
+    /** The predefined filters; the first one is the unfiltered "All". A `count` is shown after the label, a `hint` under it in quiet text (the search matches it too). A `disabled` one is shown but cannot be chosen. */
+    options: { value: V; label: string; hint?: string; icon?: IconComponent; count?: number; disabled?: boolean }[];
     value: V;
     onchange: (value: V) => void;
     /** Names what the button filters ("When"), so it reads "When: All". The button then shows the filter on, and a clear x when it narrows the list. */
@@ -29,18 +31,14 @@
     align?: 'start' | 'end';
     /** A menu for long labels (folder names): wider than the usual one. */
     wide?: boolean;
-    /** A field above the choices that keeps those whose label has what was typed; for a menu with many. The texts are its accessible name, hint and the line shown when nothing matches. */
-    search?: { label: string; placeholder: string; empty: string };
+    /** A field above the choices that keeps those whose label or hint has what was typed; for a menu with many. The list then has a fixed height with its own scroll. The texts are its accessible name, hint and the line shown when nothing matches. */
+    search?: MenuSearchTexts;
   }
 
   let { label, options, value, onchange, prefix, icon, onclear, clearLabel, align = 'end', wide = false, search }: Props = $props();
 
   let needle = $state('');
-  const shown = $derived.by(() => {
-    const typed = needle.trim().toLowerCase();
-
-    return typed === '' ? options : options.filter((option) => option.label.toLowerCase().includes(typed));
-  });
+  const shown = $derived(matchOptions(options, needle));
 
   const current = $derived(options.find((option) => option.value === value) ?? options[0]);
   const TriggerIcon = $derived(icon ?? current.icon ?? ListFilter);
@@ -91,34 +89,18 @@
   {/snippet}
 
   {#snippet children({ close })}
-    {#if search}
-      <!-- The field is where focus lands on open; the arrow keys go on to the choices. -->
-      <div class="px-1 pb-1.5">
-        <input
-          type="search"
-          data-autofocus
-          bind:value={needle}
-          aria-label={search.label}
-          placeholder={search.placeholder}
-          autocomplete="off"
-          spellcheck="false"
-          class="h-control w-full rounded-md border border-line-strong bg-surface-2 px-2.5 text-sm text-fg outline-none placeholder:text-fg-3 focus-visible:border-accent/50"
-        />
-      </div>
-    {/if}
-    <div role="none" class={cx('flex flex-col', search && 'max-h-64 overflow-y-auto')}>
-      {#if search && shown.length === 0}
-        <p class="px-2.5 py-2 text-sm text-fg-3" role="status">{search.empty}</p>
-      {/if}
+    <MenuSearch {search} bind:needle none={shown.length === 0}>
       {#each shown as option (option.value)}
         <button
           type="button"
           role="menuitemradio"
           aria-checked={option.value === value}
-          data-menu-item
+          disabled={option.disabled}
+          data-menu-item={option.disabled ? undefined : ''}
           class={cx(
             'flex items-center justify-between gap-2 rounded-sm px-2.5 py-2 text-left text-sm transition-colors duration-[var(--dur-fast)] hover:bg-hover focus-visible:bg-hover',
             option.value === value ? 'text-fg' : 'text-fg-2',
+            option.disabled && 'cursor-not-allowed opacity-50 hover:bg-transparent',
           )}
           onclick={() => {
             close();
@@ -128,7 +110,11 @@
         >
           <span class="flex min-w-0 items-center gap-2.5">
             {#if option.icon}<option.icon size={ICON.sm} class="shrink-0 text-fg-3" aria-hidden="true" />{/if}
-            <span class="truncate">{option.label}</span>
+            {#if option.hint}
+              <span class="flex min-w-0 flex-col"><span class="truncate">{option.label}</span> <span class="truncate text-xs text-fg-3">{option.hint}</span></span>
+            {:else}
+              <span class="truncate">{option.label}</span>
+            {/if}
           </span>
           <span class="flex shrink-0 items-center gap-2">
             {#if option.count !== undefined}<span class={cx('tabular min-w-[2ch] text-right text-xs text-fg-3', option.count === 0 && 'opacity-60')}>{option.count}</span>{/if}
@@ -141,6 +127,6 @@
           </span>
         </button>
       {/each}
-    </div>
+    </MenuSearch>
   {/snippet}
 </Popover>

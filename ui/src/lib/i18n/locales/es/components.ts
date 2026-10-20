@@ -147,4 +147,16 @@ export const components: AreaMessages<typeof enComponents> = {
   'components.workspace.details': 'Detalles',
   'components.workspace.layout': 'Diseño',
   'components.table.resize': 'Cambiar el ancho de la columna {column}',
+
+  'components.scope.label': 'Ámbito',
+  'components.scope.all': 'Todos',
+  'components.scope.global': 'Global',
+  'components.scope.clear': 'Quitar el filtro Ámbito',
+  'components.scope.search': 'Buscar repositorios',
+  'components.scope.search.placeholder': 'Buscar repositorios…',
+  'components.scope.search.empty': 'Ningún repositorio coincide',
+  'components.scope.remoteOnly': 'Solo remoto',
+  'components.scope.appliesTo': 'Se aplica a',
+  'components.scope.unknown': 'Desconocido',
+  'components.scope.remote': 'Remoto',
 };

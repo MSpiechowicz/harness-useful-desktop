@@ -20,7 +20,7 @@ describe('a narrow view', () => {
     fakeMemory();
     await showMemory();
 
-    expect(screen.getByRole('button', { name: 'Repository: All repositories' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Scope: All' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Status: All' })).toBeInTheDocument();
     expect(screen.queryByText('Select a script to see its code')).toBeNull();
     expect(screen.queryByRole('region')).toBeNull();
@@ -60,7 +60,7 @@ describe('a wide view', () => {
 
     // No column of choices beside the table: the filters are the same two menus in the row above it.
     expect(screen.queryByRole('radiogroup')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Repository: All repositories' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Scope: All' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Status: All' })).toBeInTheDocument();
     expect(screen.getByText('Select a script to see its code')).toBeInTheDocument();
     expect(screen.getAllByText('5 scripts')).toHaveLength(1);
@@ -71,7 +71,7 @@ describe('a wide view', () => {
     fakeMemory();
     await showMemory();
 
-    await pickFilter('Repository: All repositories', /^Global only/);
+    await pickFilter('Scope: All', /^Global/);
 
     await waitFor(() => expect(rowButton('open-prs')).toBeNull());
     expect(rowButton('disk-hogs')).not.toBeNull();

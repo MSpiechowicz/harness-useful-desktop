@@ -208,6 +208,8 @@
   --pane-title-min: 240px;
   /* The line height of a notice banner that sits between the top bar and a workspace view: a whole pixel, so the view below starts on one. */
   --notice-line: 18px;
+  /* The height of the list in a menu with a search field (the Scope filter, a repository picker): fixed, so the menu does not jump while typing narrows it. */
+  --menu-list-h: 288px;
   --gutter: 24px;
   --chat-measure: 880px;
   --chat-col: calc(var(--chat-measure) + 2 * var(--gutter));

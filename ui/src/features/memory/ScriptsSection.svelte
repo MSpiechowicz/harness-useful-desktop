@@ -28,7 +28,7 @@
   import { scriptEditor } from './editor-state.svelte';
   import HiddenFilter from './HiddenFilter.svelte';
   import MemoryFilterHint from './MemoryFilterHint.svelte';
-  import MemoryRepoFilter from './MemoryRepoFilter.svelte';
+    import MemoryReachFilter from './MemoryReachFilter.svelte';
   import MemorySearch from './MemorySearch.svelte';
   import MemoryTable from './MemoryTable.svelte';
   import { scriptsTeam } from './notes-team.svelte';
@@ -261,7 +261,7 @@
 </script>
 
 {#snippet filters()}
-  <MemoryRepoFilter section="scripts" onchange={repoChosen} />
+  <MemoryReachFilter section="scripts" onchange={repoChosen} />
 
   {#if combined}
     {#if hiddenCount > 0 || scriptsTeam.showHidden}

@@ -60,7 +60,7 @@ describe('deleting all scripts', () => {
 
     await fireEvent.click(screen.getByRole('button', { name: 'Delete all scripts' }));
 
-    await waitFor(() => expect(screen.getByText('No scripts yet')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('No scripts match these filters.')).toBeInTheDocument());
     expect(calls(invoke, 'memory_scripts_delete_all')).toEqual([REPO_ARGS]);
     expect(viewState.scriptId).toBeNull();
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
@@ -138,7 +138,7 @@ describe('deleting all scripts', () => {
 
   it('does not offer it when there is nothing to delete', async () => {
     fakeMemory({ kind: 'available' }, []);
-    await showWithoutTable('No scripts yet');
+    await showWithoutTable('No scripts match these filters.');
     await fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
 
     expect(await screen.findByRole('menuitem', { name: 'Delete all scripts…' })).toBeDisabled();
@@ -167,7 +167,7 @@ describe('deleting all notes', () => {
 
     await fireEvent.click(screen.getByRole('button', { name: 'Delete all notes' }));
 
-    await waitFor(() => expect(screen.getByText('No notes yet')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('No notes match these filters.')).toBeInTheDocument());
     expect(calls(invoke, 'memory_notes_delete_all')).toEqual([REPO_ARGS]);
     expect(toasts.items.at(-1)).toMatchObject({ title: `${all.length} notes deleted` });
   });

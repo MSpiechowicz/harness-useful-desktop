@@ -7,18 +7,22 @@
   import { NOTICE_LOOKS } from '$lib/components/notice';
   import { t, tn } from '$lib/i18n/i18n.svelte';
   import { project } from '$lib/stores/project.svelte';
+  import { projectScopes } from '$lib/stores/project-scopes.svelte';
+  import { viewState } from '$lib/stores/view-state.svelte';
 
   import { refusalText, writtenCount } from './notes-import';
   import { notesImport as flow } from './notes-import-state.svelte';
   import NotesImportResult from './NotesImportResult.svelte';
   import NotesImportReview from './NotesImportReview.svelte';
   import NotesImportStart from './NotesImportStart.svelte';
+  import { defaultTarget, projectOfTarget } from './scope-target';
 
   const refused = NOTICE_LOOKS.error;
 
   const applying = $derived(flow.stage === 'applying');
   const chosen = $derived(flow.picked.length);
-  const path = $derived(project.active?.path ?? null);
+  // The file is read for the project the Scope filter looks at (Global for none), else the open one: the review keeps the notes there.
+  const path = $derived(projectOfTarget(defaultTarget(viewState.memoryReach, projectScopes.data ?? [], project.active?.path ?? null)));
 
   const title = $derived.by(() => {
     switch (flow.stage) {

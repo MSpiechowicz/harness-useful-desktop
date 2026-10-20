@@ -177,8 +177,8 @@ flowchart LR
    most 50 links, both ways) and `notes delete <id>`. Every one of these commands (and the scripts ones, `trust` included)
    takes the repositories to read instead of `--project`: the Rust `Repos` enum (`memory_cli.rs`) is `--project <root>`, `--repo <key>`
    (one repository wherever it is checked out) or `--all-repos`, sent when a command has `repos` (`MemoryRepos`:
-   `all` or `repo` + `key`). The Repository filter of both views (`ui/src/lib/stores/memory-reach.ts`: `all`, `global`,
-   `repo:<key>`) picks it and the repositories offered come from `memory_repos_list` (`notes repos --json`, `scripts repos --json`);
+   `all` or `repo` + `key`). The Scope filter of both views (`ui/src/lib/stores/memory-reach.ts`: `all`, `global`,
+   `repo:<key>`) picks it and the repositories offered are the projects on this computer (`project_scopes`) plus the ones from `memory_repos_list` (`notes repos --json`, `scripts repos --json`);
    `notes delete --all` and `scripts delete --all` refuse every repository. A script read or deleted outside a project goes through
    the CLI, as the server's MCP tools only see a project's repository. `memory_notes_delete_all` and `memory_scripts_delete_all` run
    `notes delete --all --yes --json [--project <root>]` and `scripts delete --all --yes --json [--project <root>]`
@@ -330,7 +330,10 @@ flowchart LR
    `setup_install_memory`, `after_member_install`), `restore_member` adds its missing hooks again, deleted ones
    included, and overwrites none. Uninstalling a member deletes nothing, its hooks show `paused`.
 8. **IPC.** `hooks_list` (global hooks and those of `project`, which must be the active or a recent project, else
-   `forbidden`; invalid files always), `hook_save` (create or edit from a `HookDraft`; a project draft names an
+   `forbidden`; invalid files always; with `all`, the files of every project and every cached team hook, each row
+   with its `root` and `repoKey`, a team row matched to a root only when a refresh of this session verified it),
+   `project_scopes` (the active and recent projects with their roots and Harness Memory repository keys, the keys
+   kept for the session in `ProjectKeys`), `hook_save` (create or edit from a `HookDraft`; a project draft names an
    authorized project folder or the root the edited file already holds; `conflict` when `expectedSha256` differs),
    `hook_delete`, `hook_approve`, `hook_reject`, `hooks_family`, `hooks_family_apply` and `hooks_listen`
    (`Channel<HooksEvent>`), all in `src-tauri/src/commands/hooks.rs`, plus `setup_register_desktop_mcp`

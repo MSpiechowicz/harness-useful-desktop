@@ -144,4 +144,16 @@ export const components = {
   'components.workspace.details': 'Details',
   'components.workspace.layout': 'Layout',
   'components.table.resize': 'Resize the {column} column',
+
+  'components.scope.label': 'Scope',
+  'components.scope.all': 'All',
+  'components.scope.global': 'Global',
+  'components.scope.clear': 'Clear the Scope filter',
+  'components.scope.search': 'Search repositories',
+  'components.scope.search.placeholder': 'Search repositories…',
+  'components.scope.search.empty': 'No repository matches',
+  'components.scope.remoteOnly': 'Remote only',
+  'components.scope.appliesTo': 'Applies to',
+  'components.scope.unknown': 'Unknown',
+  'components.scope.remote': 'Remote',
 } satisfies Record<string, string>;

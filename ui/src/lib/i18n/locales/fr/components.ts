@@ -147,4 +147,16 @@ export const components: AreaMessages<typeof enComponents> = {
   'components.workspace.details': 'Détails',
   'components.workspace.layout': 'Disposition',
   'components.table.resize': 'Redimensionner la colonne {column}',
+
+  'components.scope.label': 'Portée',
+  'components.scope.all': 'Tous',
+  'components.scope.global': 'Global',
+  'components.scope.clear': 'Effacer le filtre Portée',
+  'components.scope.search': 'Rechercher un dépôt',
+  'components.scope.search.placeholder': 'Rechercher un dépôt…',
+  'components.scope.search.empty': 'Aucun dépôt ne correspond',
+  'components.scope.remoteOnly': 'Distant uniquement',
+  'components.scope.appliesTo': 'S’applique à',
+  'components.scope.unknown': 'Inconnu',
+  'components.scope.remote': 'Distant',
 };

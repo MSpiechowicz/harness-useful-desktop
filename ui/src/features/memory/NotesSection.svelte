@@ -24,7 +24,7 @@
   import { noteEditor } from './editor-state.svelte';
   import HiddenFilter from './HiddenFilter.svelte';
   import MemoryFilterHint from './MemoryFilterHint.svelte';
-  import MemoryRepoFilter from './MemoryRepoFilter.svelte';
+    import MemoryReachFilter from './MemoryReachFilter.svelte';
   import MemorySearch from './MemorySearch.svelte';
   import MemoryTable from './MemoryTable.svelte';
   import { notesImport } from './notes-import-state.svelte';
@@ -201,7 +201,7 @@
 </script>
 
 {#snippet filters()}
-  <MemoryRepoFilter section="notes" onchange={repoChosen} />
+  <MemoryReachFilter section="notes" onchange={repoChosen} />
 
   {#if hiddenCount > 0 || notesTeam.showHidden}
     <HiddenFilter count={hiddenCount} on={notesTeam.showHidden} onchange={showHidden} />

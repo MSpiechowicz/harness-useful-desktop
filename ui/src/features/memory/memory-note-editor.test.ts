@@ -5,6 +5,7 @@ import { sampleNotes } from '$lib/ipc/mock/memory-notes-fixtures';
 import { IpcFailure } from '$lib/ipc/transport';
 import { ipc } from '$lib/ipc/client';
 import type { CommandName } from '$lib/ipc/commands';
+import { projectChoice } from '$lib/components/scope/scope-options';
 import { noteList } from '$lib/stores/memoryNotes.svelte';
 import { nav } from '$lib/stores/nav.svelte';
 import { project } from '$lib/stores/project.svelte';
@@ -12,7 +13,7 @@ import { toasts } from '$lib/stores/toasts.svelte';
 import { viewState } from '$lib/stores/view-state.svelte';
 
 import { noteEditor } from './editor-state.svelte';
-import { calls, fakeMemory, noteRow, PROJECT, registerMemoryHooks, showNotes } from './memory-test-support';
+import { appliesTo, calls, EMPTY_PROJECT, fakeMemory, noteRow, pickTarget, PROJECT, registerMemoryHooks, showNotes } from './memory-test-support';
 import { chipsOf, fill, openEdit, openEditor, TAKEN_TITLE } from './note-editor-support';
 import NotesView from './NotesView.svelte';
 
@@ -61,18 +62,79 @@ describe('adding a note', () => {
     expect(viewState.noteId).not.toBeNull();
   });
 
-  it('keeps a note global when it is chosen, and does not offer the repository without a project', async () => {
+  it('keeps a note global when it is chosen, and offers Global with every project on this computer', async () => {
     const invoke = fakeMemory();
     const dialog = await openEditor();
 
-    expect(within(dialog).getByRole('radio', { name: 'Repository' })).toBeChecked();
+    expect(within(dialog).getByText('Applies to')).toBeInTheDocument();
+    expect(appliesTo(dialog)).toHaveTextContent('demo');
 
-    await fireEvent.click(within(dialog).getByRole('radio', { name: 'Global' }));
+    await fireEvent.click(appliesTo(dialog));
+    const menu = await screen.findByRole('menu', { name: 'Applies to' });
+    expect(within(menu).getAllByRole('menuitemradio').map((item) => item.textContent?.replace(/\s+/g, ' ').trim())).toEqual(['Global', 'demo useful/harness-desktop', 'legacy-api', 'research']);
+    await fireEvent.click(within(menu).getByRole('menuitemradio', { name: 'Global' }));
+
+    expect(appliesTo(dialog)).toHaveTextContent('Global');
+    expect(within(dialog).getByText('For every project.')).toBeInTheDocument();
+
     await fill(dialog, { title: 'Release checklist', body: 'Tag the release.' });
     await fireEvent.click(within(dialog).getByRole('button', { name: 'Add note' }));
 
     await waitFor(() => expect(calls(invoke, 'memory_note_save')).toHaveLength(1));
-    expect(calls(invoke, 'memory_note_save')[0]).toMatchObject({ draft: { scope: 'global' } });
+    expect(calls(invoke, 'memory_note_save')[0]).toMatchObject({ project: null, draft: { scope: 'global' } });
+  });
+
+  it('saves the note in a recent project that is not the open one, and names that project in the help', async () => {
+    const invoke = fakeMemory();
+    const dialog = await openEditor();
+
+    await pickTarget(dialog, /^research/);
+
+    expect(appliesTo(dialog)).toHaveTextContent('research');
+    expect(within(dialog).getByText('Only for research.')).toBeInTheDocument();
+
+    await fill(dialog, { title: 'Release checklist', body: 'Tag the release.' });
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Add note' }));
+
+    await waitFor(() => expect(calls(invoke, 'memory_note_save')).toHaveLength(1));
+    expect(calls(invoke, 'memory_note_save')[0]).toMatchObject({ project: EMPTY_PROJECT, draft: { scope: 'repo' } });
+  });
+
+  it('starts on what the Scope filter looks at', async () => {
+    viewState.memoryReach = projectChoice({ path: EMPTY_PROJECT, key: `path:${EMPTY_PROJECT}` });
+    const invoke = fakeMemory();
+    // The project has no notes, so there is no table to wait for: the view says so and the Add button is there.
+    nav.go('notes');
+    render(NotesView);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Add note' })).toBeEnabled());
+    await fireEvent.click(screen.getByRole('button', { name: 'Add note' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Add a note' });
+
+    expect(appliesTo(dialog)).toHaveTextContent('research');
+    expect(screen.getByRole('button', { name: 'Scope: research' })).toBeInTheDocument();
+
+    await fill(dialog, { title: 'Release checklist', body: 'Tag the release.' });
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Add note' }));
+
+    await waitFor(() => expect(calls(invoke, 'memory_note_save')).toHaveLength(1));
+    expect(calls(invoke, 'memory_note_save')[0]).toMatchObject({ project: EMPTY_PROJECT, draft: { scope: 'repo' } });
+  });
+
+  it('starts on Global when the Scope filter looks at the global notes', async () => {
+    viewState.memoryReach = 'global';
+    fakeMemory();
+    const dialog = await openEditor();
+
+    expect(appliesTo(dialog)).toHaveTextContent('Global');
+  });
+
+  it('starts on the open project when the Scope filter looks at a repository that is not on this computer', async () => {
+    viewState.memoryReach = 'repo:git:github.com/acme/widget';
+    let moved = 0;
+    fakeMemory({ kind: 'available' }, undefined, undefined, sampleNotes().map((note) => (note.scope === 'repo' && moved++ < 5 ? { ...note, repo: 'github.com/acme/widget' } : note)));
+    const dialog = await openEditor();
+
+    expect(appliesTo(dialog)).toHaveTextContent('demo');
   });
 
   it('says what is wrong with a field once the user has been at it, and keeps the note from being added', async () => {
@@ -197,10 +259,27 @@ describe('editing a note', () => {
     expect(within(dialog).getByLabelText('Title')).toHaveValue(TITLE);
     expect(within(dialog).getByLabelText('Content')).toHaveValue(note?.body);
     expect(chipsOf(dialog, 'tag')).toEqual(note?.tags);
-    expect(within(dialog).getByRole('radio', { name: 'Repository' })).toBeChecked();
-    expect(within(dialog).getByRole('radio', { name: 'Repository' })).toBeDisabled();
-    expect(within(dialog).getByRole('radio', { name: 'Global' })).toBeDisabled();
+    expect(appliesTo(dialog)).toHaveTextContent('demo');
+    expect(appliesTo(dialog)).toBeDisabled();
     expect(within(dialog).getByText('A note keeps its scope.')).toBeInTheDocument();
+  });
+
+  it('shows the repository of a note that is not on this computer, and saves it from the open project', async () => {
+    let moved = 0;
+    const invoke = fakeMemory({ kind: 'available' }, undefined, undefined, sampleNotes().map((note) => (note.scope === 'repo' && moved++ < 5 ? { ...note, repo: 'github.com/acme/widget' } : note)));
+    await showNotes();
+    await fireEvent.click(noteRow(3) as HTMLElement);
+    const panel = await screen.findByRole('region', { name: TAKEN_TITLE });
+    await fireEvent.click(await within(panel).findByRole('button', { name: 'Edit' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Edit note' });
+
+    expect(appliesTo(dialog)).toHaveTextContent('widget');
+    expect(appliesTo(dialog)).toBeDisabled();
+
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(calls(invoke, 'memory_note_save')).toHaveLength(1));
+    expect(calls(invoke, 'memory_note_save')[0]).toMatchObject({ project: PROJECT, replaceId: 3, draft: { scope: 'repo' } });
   });
 
   it('saves the changes to that note by id, says so, and shows them in its panel', async () => {

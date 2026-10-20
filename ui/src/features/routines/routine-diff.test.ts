@@ -86,6 +86,8 @@ describe('routineFacts', () => {
       teamOn: false,
       teamFolder: null,
       shareBlock: null,
+      root: null,
+      repoKey: null,
       ...patch,
     };
   }

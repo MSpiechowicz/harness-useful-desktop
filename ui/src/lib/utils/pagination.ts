@@ -11,6 +11,13 @@ export function clampPage(page: number, total: number, pageSize: number): number
   return Math.min(Math.max(0, page), pageCount(total, pageSize) - 1);
 }
 
+/** The entries of one page of a list held in full (Hooks, Routines): the page is clamped first, so a list that shrank shows its last page, not an empty one. */
+export function pageOf<T>(rows: readonly T[], page: number, size: number): T[] {
+  const at = clampPage(page, rows.length, size);
+
+  return rows.slice(at * size, (at + 1) * size);
+}
+
 /**
  * The page buttons to show: the first and the last page, the current one with a neighbour on each side, and an ellipsis
  * where pages are left out. Near either end four pages are shown together, so the pager keeps the same width while paging.
