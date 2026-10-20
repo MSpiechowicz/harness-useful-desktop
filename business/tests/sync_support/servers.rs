@@ -1,4 +1,7 @@
-//! MCP server builders for the "Share setup" schema tests.
+//! MCP server builders for the "Share setup" tests.
+//!
+//! Each helper is used by some tests only, hence the `dead_code` allowance.
+#![allow(dead_code)]
 
 use harness_business::sync::schema::{McpServer, Transport};
 
@@ -25,5 +28,14 @@ pub fn http(name: &str, url: &str) -> McpServer {
         url: Some(url.to_owned()),
         env_keys: Vec::new(),
         header_keys: Vec::new(),
+    }
+}
+
+/// The GitHub server the export tests share: `npx -y @modelcontextprotocol/server-github` with a
+/// `GITHUB_TOKEN` env key.
+pub fn github_server() -> McpServer {
+    McpServer {
+        env_keys: vec!["GITHUB_TOKEN".to_owned()],
+        ..stdio("github", "npx", &["-y", "@modelcontextprotocol/server-github"])
     }
 }

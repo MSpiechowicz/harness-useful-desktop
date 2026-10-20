@@ -1,7 +1,9 @@
 //! Running the companion installers: the fixed command per companion and OS, streamed and cleaned output, success
 //! only when the binary answers afterwards, and the time limit.
 
-use std::path::{Path, PathBuf};
+mod setup_support;
+
+use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -14,14 +16,10 @@ use harness_business::ecosystem::{Companion, installer, run_installer, run_insta
 use harness_business::env::{Env, OsKind};
 use harness_business::model::{DashboardInstallResult, InstallLogLine, InstallStream};
 use harness_business::process::{BoxFuture, ExecOutput, ExecSpec, ExitInfo, ProcessRunner};
-use harness_business::testing::{DuplexSpawner, FakePeer};
+use harness_business::testing::DuplexSpawner;
 use pretty_assertions::assert_eq;
+use setup_support::{EXITED_0, assert_unix_installer, assert_windows_installer, play, powershell};
 use tokio::io::AsyncWriteExt;
-
-const EXITED_0: ExitInfo = ExitInfo {
-    code: Some(0),
-    signal: None,
-};
 
 /// Answers every version probe with `stdout`, keeping the arguments of each.
 struct Prints {
@@ -77,18 +75,6 @@ fn install_binary(home: &Path, name: &str) {
     }
 }
 
-/// Plays one installer run: writes `stdout` and `stderr`, closes them, exits with `exit`.
-async fn play(mut peer: FakePeer, stdout: &str, stderr: &str, exit: ExitInfo) -> ExecSpec {
-    peer.stdout.write_all(stdout.as_bytes()).await.unwrap();
-    peer.stderr.write_all(stderr.as_bytes()).await.unwrap();
-    peer.stdout.shutdown().await.unwrap();
-    peer.stderr.shutdown().await.unwrap();
-
-    let spec = peer.spec.clone();
-    peer.exit(exit);
-    spec
-}
-
 /// Runs the installer against a scripted peer and returns the result, the lines and the spec.
 async fn run_scripted(
     env: &Env,
@@ -124,37 +110,14 @@ fn line(stream: InstallStream, text: &str) -> InstallLogLine {
 #[test]
 fn the_installer_command_is_fixed_per_os() {
     let home = tempfile::tempdir().unwrap();
-
-    for os in [OsKind::Linux, OsKind::MacOs] {
-        let spec = installer(&Env::for_tests(home.path()).with_os(os), Companion::Dashboard);
-
-        assert_eq!(spec.program, PathBuf::from("/bin/sh")); // guard-allow: installer-shell
-        assert_eq!(spec.args, vec!["-c".to_owned(), DASHBOARD_INSTALL_SH.to_owned()]);
-        assert_eq!(spec.command, DASHBOARD_INSTALL_SH);
-        assert!(
-            spec.args[1].starts_with("curl --proto '=https' --tlsv1.2 -fsSL https://"),
-            "the download is held to HTTPS: {}",
-            spec.args[1]
-        );
-    }
+    let download = "curl --proto '=https' --tlsv1.2 -fsSL https://";
+    assert_unix_installer(home.path(), Companion::Dashboard, DASHBOARD_INSTALL_SH, download);
 
     let windows = Env::for_tests(home.path()).with_os(OsKind::Windows);
-    let powershell = |root: &str| {
-        PathBuf::from(root)
-            .join("System32")
-            .join("WindowsPowerShell")
-            .join("v1.0")
-            .join("powershell.exe") // guard-allow: installer-shell
-    };
     let script = "irm https://raw.githubusercontent.com/MSpiechowicz/harness-useful-dashboard/main/install.ps1 | iex";
 
     let default_root = installer(&windows, Companion::Dashboard);
-    assert_eq!(default_root.program, powershell(r"C:\Windows"));
-    assert_eq!(
-        default_root.args,
-        ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script]
-    );
-    assert_eq!(default_root.command, DASHBOARD_INSTALL_PS1);
+    assert_windows_installer(&default_root, script, DASHBOARD_INSTALL_PS1);
 
     let custom_root = installer(&windows.with_var("SystemRoot", r"D:\Win"), Companion::Dashboard);
     assert_eq!(custom_root.program, powershell(r"D:\Win"));
@@ -163,38 +126,13 @@ fn the_installer_command_is_fixed_per_os() {
 #[test]
 fn the_memory_installer_command_is_fixed_per_os() {
     let home = tempfile::tempdir().unwrap();
-
-    for os in [OsKind::Linux, OsKind::MacOs] {
-        let spec = installer(&Env::for_tests(home.path()).with_os(os), Companion::Memory);
-
-        assert_eq!(spec.program, PathBuf::from("/bin/sh")); // guard-allow: installer-shell
-        assert_eq!(spec.args, vec!["-c".to_owned(), MEMORY_INSTALL_SH.to_owned()]);
-        assert_eq!(spec.command, MEMORY_INSTALL_SH);
-        assert!(
-            spec.args[1].starts_with(
-                "curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/MSpiechowicz/harness-useful-memory/"
-            ),
-            "the download is held to HTTPS: {}",
-            spec.args[1]
-        );
-    }
+    let download =
+        "curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/MSpiechowicz/harness-useful-memory/";
+    assert_unix_installer(home.path(), Companion::Memory, MEMORY_INSTALL_SH, download);
 
     let windows = installer(&Env::for_tests(home.path()).with_os(OsKind::Windows), Companion::Memory);
     let script = "irm https://raw.githubusercontent.com/MSpiechowicz/harness-useful-memory/main/install.ps1 | iex";
-
-    assert_eq!(
-        windows.program,
-        PathBuf::from(r"C:\Windows")
-            .join("System32")
-            .join("WindowsPowerShell")
-            .join("v1.0")
-            .join("powershell.exe") // guard-allow: installer-shell
-    );
-    assert_eq!(
-        windows.args,
-        ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script]
-    );
-    assert_eq!(windows.command, MEMORY_INSTALL_PS1);
+    assert_windows_installer(&windows, script, MEMORY_INSTALL_PS1);
 }
 
 #[tokio::test]

@@ -13,8 +13,8 @@ use harness_business::model::{
 use harness_business::sync::codec::to_json_pretty;
 use harness_business::sync::{build_bundle, collect_export, export_preview};
 use import_support::{
-    BOTH, Machine, OPENCODE_JSON, OPENCODE_JSONC, apply, argv, bundle, fake, item, outcome_of, selectable, statuses,
-    summaries,
+    BOTH, Machine, OPENCODE_JSON, OPENCODE_JSONC, apply, apply_done, argv, bundle, fake, item, outcome_of, selectable,
+    statuses, summaries,
 };
 use pretty_assertions::assert_eq;
 use serde_json::{Value, json};
@@ -138,11 +138,8 @@ async fn a_round_trip_installs_pinned_plugins_and_writes_opencode_entries_into_a
         "opencode:plugin:opencode-wakatime",
     ]
     .map(str::to_owned);
-    let (result, _) = apply(&machine, &runner, &built.stored, &plugins, true).await;
-    let result = result.expect("applied");
+    let (result, _) = apply_done(&machine, &runner, &built.stored, &plugins).await;
 
-    assert!(result.ok, "{result:?}");
-    assert!(result.items.iter().all(|item| item.outcome == SyncOutcome::Done));
     assert_eq!(
         runner.seen(),
         [

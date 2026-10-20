@@ -23,17 +23,16 @@ use serde_json::{Map, Value};
 use super::collect::{
     CollectedItem, Entry, Found, UNKNOWN_LABEL, excluded_reason, item_id, preview_row, safe_label, source_problem,
 };
-use super::collect_mcp::{endpoint_problem, keys, list, preview, text};
+use super::collect_mcp::{checked_server, collect_servers, list, not_shared, text};
 use super::schema::{McpServer, Plugin, Transport};
 use super::validate;
-use super::validate_mcp::is_reserved_server;
 use super::validate_source::{is_npm_registry_spec, split_npm_spec};
 use crate::ecosystem::mcp_target;
 use crate::env::Env;
 use crate::harness::Harness;
 use crate::harnesses::opencode::{PluginEntry, global_plugin_entries};
 use crate::model::{ConfigFormat, HarnessId, SyncExcludedReason, SyncExportItem, SyncItemKind, SyncNote};
-use crate::pi_family::{Document, read_document, tilde};
+use crate::pi_family::read_document;
 
 /// Server fields that are shared (or deliberately dropped without a note).
 const KNOWN_FIELDS: &[&str] = &["type", "command", "url", "environment", "headers", "enabled", "oauth"];
@@ -130,36 +129,8 @@ pub(super) fn opencode_servers(env: &Env, harness: &dyn Harness, found: &mut Fou
         return;
     };
 
-    let kind = SyncItemKind::McpServer;
     let document = read_document(&file.path, ConfigFormat::Jsonc);
-    let servers = match &document {
-        Document::Missing => return,
-        Document::Invalid(_) => None,
-        Document::Parsed(value) => match value.get("mcp") {
-            None => return,
-            Some(servers) => servers.as_object(),
-        },
-    };
-
-    let Some(servers) = servers else {
-        let label = safe_label(Some(&tilde(env, &file.path)));
-        found.exclude(harness.id(), kind, label, SyncExcludedReason::Invalid);
-        return;
-    };
-
-    for (name, server) in servers {
-        if is_reserved_server(name) {
-            continue;
-        }
-
-        match shared_server(name, server) {
-            Ok((server, notes)) => found.items.push(CollectedItem {
-                preview: preview(item_id(harness.id(), kind, name), &server, notes),
-                entry: Entry::McpServer(server),
-            }),
-            Err(reason) => found.exclude(harness.id(), kind, safe_label(Some(name)), reason),
-        }
-    }
+    collect_servers(env, harness, found, &file.path, &document, "mcp", shared_server);
 }
 
 /// The shared form of one OpenCode server and the notes on what stays here, or why it is left out.
@@ -178,21 +149,8 @@ fn shared_server(name: &str, server: &Value) -> Result<(McpServer, Vec<SyncNote>
         _ => return Err(SyncExcludedReason::Unsupported),
     };
 
-    endpoint_problem(command.as_deref(), &args, url.as_deref())?;
-
-    let env_keys = keys(fields, "environment")?;
-    let header_keys = keys(fields, "headers")?;
-    let notes = notes(fields, transport, &env_keys, &header_keys);
-
-    let server = McpServer {
-        name: name.to_owned(),
-        transport,
-        command,
-        args,
-        url,
-        env_keys,
-        header_keys,
-    };
+    let server = checked_server(name, fields, transport, command, args, url, "environment")?;
+    let notes = notes(fields, &server);
     validate::opencode_mcp_server(&server).map_err(excluded_reason)?;
 
     Ok((server, notes))
@@ -200,25 +158,17 @@ fn shared_server(name: &str, server: &Value) -> Result<(McpServer, Vec<SyncNote>
 
 /// What is not shared: environment and header values, OAuth settings, and fields outside the
 /// allowlist (also a `url` on a local server or a `command` on a remote one).
-fn notes(
-    fields: &Map<String, Value>,
-    transport: Transport,
-    env_keys: &[String],
-    header_keys: &[String],
-) -> Vec<SyncNote> {
-    let unused_endpoint = match transport {
-        Transport::Stdio => fields.contains_key("url"),
-        Transport::Http | Transport::Sse => fields.contains_key("command"),
+fn notes(fields: &Map<String, Value>, server: &McpServer) -> Vec<SyncNote> {
+    let unused: &[&str] = match server.transport {
+        Transport::Stdio => &["url"],
+        Transport::Http | Transport::Sse => &["command"],
     };
-    let other = unused_endpoint || fields.keys().any(|key| !KNOWN_FIELDS.contains(&key.as_str()));
 
-    [
-        (!env_keys.is_empty(), SyncNote::EnvValuesNotShared),
-        (!header_keys.is_empty(), SyncNote::HeaderValuesNotShared),
-        (fields.contains_key("oauth"), SyncNote::AuthNotShared),
-        (other, SyncNote::OtherFieldsNotShared),
-    ]
-    .into_iter()
-    .filter_map(|(applies, note)| applies.then_some(note))
-    .collect()
+    not_shared(
+        fields,
+        server,
+        unused,
+        KNOWN_FIELDS,
+        &[(&["oauth"], SyncNote::AuthNotShared)],
+    )
 }

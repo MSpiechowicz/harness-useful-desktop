@@ -2,11 +2,11 @@
 //! record, offered as their installer script when `node` is there, unavailable without it, and an
 //! installer run that is ok only once the record holds a version.
 
+mod setup_support;
+
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
 use std::time::Duration;
 
-use harness_business::Result;
 use harness_business::ecosystem::catalog::{SKILLS_INSTALL_PS1, SKILLS_INSTALL_SH};
 use harness_business::ecosystem::{Companion, installer, run_installer_with, setup_status};
 use harness_business::env::{Env, OsKind};
@@ -15,33 +15,11 @@ use harness_business::harnesses::OpenCode;
 use harness_business::model::{
     DashboardInstallResult, Detection, HarnessId, HarnessSummary, SkillsSetup, SkillsUnavailableCode, VersionSupport,
 };
-use harness_business::process::{BoxFuture, ExecOutput, ExecSpec, ExitInfo, ProcessRunner};
+use harness_business::process::{ExecSpec, ExitInfo};
 use harness_business::testing::DuplexSpawner;
 use pretty_assertions::assert_eq;
 use serde_json::json;
-use tokio::io::AsyncWriteExt;
-
-const EXITED_0: ExitInfo = ExitInfo {
-    code: Some(0),
-    signal: None,
-};
-
-/// Counts the probes it is asked to run; every one fails.
-#[derive(Default)]
-struct CountingRunner(Mutex<usize>);
-
-impl ProcessRunner for CountingRunner {
-    fn run<'a>(&'a self, _spec: &'a ExecSpec) -> BoxFuture<'a, Result<ExecOutput>> {
-        *self.0.lock().unwrap() += 1;
-
-        Box::pin(async {
-            Ok(ExecOutput {
-                status: Some(1),
-                ..ExecOutput::default()
-            })
-        })
-    }
-}
+use setup_support::{CountingRunner, EXITED_0, assert_unix_installer, assert_windows_installer, play};
 
 fn write(path: &Path, text: &str) {
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
@@ -239,41 +217,15 @@ async fn a_symlinked_record_does_not_count() {
 #[test]
 fn the_installer_command_is_fixed_per_os() {
     let home = tempfile::tempdir().unwrap();
-
-    for os in [OsKind::Linux, OsKind::MacOs] {
-        let spec = installer(&Env::for_tests(home.path()).with_os(os), Companion::OpenCodeSkills);
-
-        assert_eq!(spec.program, PathBuf::from("/bin/sh")); // guard-allow: installer-shell
-        assert_eq!(spec.args, vec!["-c".to_owned(), SKILLS_INSTALL_SH.to_owned()]);
-        assert_eq!(spec.command, SKILLS_INSTALL_SH);
-        assert!(
-            spec.args[1].starts_with(
-                "curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/MSpiechowicz/harness-useful-skills/main/install.sh"
-            ),
-            "the download is held to HTTPS: {}",
-            spec.args[1]
-        );
-    }
+    let download = "curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/MSpiechowicz/harness-useful-skills/main/install.sh";
+    assert_unix_installer(home.path(), Companion::OpenCodeSkills, SKILLS_INSTALL_SH, download);
 
     let windows = installer(
         &Env::for_tests(home.path()).with_os(OsKind::Windows),
         Companion::OpenCodeSkills,
     );
     let script = "irm https://raw.githubusercontent.com/MSpiechowicz/harness-useful-skills/main/install.ps1 | iex";
-
-    assert_eq!(
-        windows.program,
-        PathBuf::from(r"C:\Windows")
-            .join("System32")
-            .join("WindowsPowerShell")
-            .join("v1.0")
-            .join("powershell.exe") // guard-allow: installer-shell
-    );
-    assert_eq!(
-        windows.args,
-        ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script]
-    );
-    assert_eq!(windows.command, SKILLS_INSTALL_PS1);
+    assert_windows_installer(&windows, script, SKILLS_INSTALL_PS1);
 }
 
 /// Runs the skills installer against a peer that writes `stderr`, then exits with `exit`; returns
@@ -283,16 +235,7 @@ async fn run_scripted(home: &Path, stderr: &'static str, exit: ExitInfo) -> (Das
     let runner = CountingRunner::default();
     let (spawner, mut peers) = DuplexSpawner::new();
 
-    let player = tokio::spawn(async move {
-        let mut peer = peers.recv().await.unwrap();
-        peer.stderr.write_all(stderr.as_bytes()).await.unwrap();
-        peer.stdout.shutdown().await.unwrap();
-        peer.stderr.shutdown().await.unwrap();
-
-        let spec = peer.spec.clone();
-        peer.exit(exit);
-        spec
-    });
+    let player = tokio::spawn(async move { play(peers.recv().await.unwrap(), "", stderr, exit).await });
     let result = run_installer_with(
         &env,
         Companion::OpenCodeSkills,
@@ -305,7 +248,7 @@ async fn run_scripted(home: &Path, stderr: &'static str, exit: ExitInfo) -> (Das
     .unwrap();
 
     let spec = player.await.unwrap();
-    let probes = *runner.0.lock().unwrap();
+    let probes = runner.probes();
     (result, spec, probes)
 }
 

@@ -9,6 +9,9 @@ use harness_business::harnesses::{Omp, Pi};
 use harness_business::model::{ExtensionAction, InstallScope};
 use pretty_assertions::assert_eq;
 
+#[cfg(unix)]
+mod fake_cli_support;
+
 fn invocation(harness: &dyn Harness, action: ExtensionAction, project: Option<&Path>) -> CliInvocation {
     harness
         .cli_action(&action, project)
@@ -244,58 +247,27 @@ fn package_specs_urls_and_local_paths_are_accepted() {
 
 #[cfg(unix)]
 mod runs {
-    use std::os::unix::fs::PermissionsExt;
     use std::path::{Path, PathBuf};
 
     use harness_business::env::Env;
     use harness_business::harness::{CliRun, Harness, run_cli_action};
     use harness_business::harnesses::{Omp, Pi};
     use harness_business::model::{CliResult, ExtensionAction, InstallScope, MAX_CLI_OUTPUT_BYTES};
-    use harness_business::process::{ResolvedBinary, TokioRunner};
-    use tempfile::TempDir;
+    use harness_business::process::TokioRunner;
+
+    use super::fake_cli_support::FakeCli;
 
     /// A fake CLI in `<dir>/bin/<name>` that records its arguments, working directory and
-    /// `NO_COLOR`, prints `<dir>/bin/stdout` and `<dir>/bin/stderr` and exits with `code`.
-    struct FakeCli {
-        dir: TempDir,
-        binary: ResolvedBinary,
-    }
-
-    impl FakeCli {
-        fn new(name: &str, stdout: &str, stderr: &str, code: i32) -> Self {
-            let dir = tempfile::tempdir().expect("temp dir");
-            let bin = dir.path().join("bin");
-            std::fs::create_dir_all(&bin).expect("create bin");
-            std::fs::write(bin.join("stdout"), stdout).expect("write stdout");
-            std::fs::write(bin.join("stderr"), stderr).expect("write stderr");
-
-            let shebang = "#!/bin/sh"; // guard-allow: installer-shell
-            let script = format!(
-                "{shebang}\nd=$(dirname \"$0\")\nprintf '%s\\n' \"$@\" > \"$d/argv\"\npwd -P > \"$d/cwd\"\n\
-                 printf '%s' \"$NO_COLOR\" > \"$d/no_color\"\ncat \"$d/stdout\"\ncat \"$d/stderr\" >&2\nexit {code}\n"
-            );
-            let path = bin.join(name);
-            std::fs::write(&path, script).expect("write script");
-            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).expect("chmod");
-
-            Self {
-                dir,
-                binary: ResolvedBinary {
-                    path,
-                    is_batch_script: false,
-                },
-            }
-        }
-
-        fn recorded(&self, file: &str) -> Option<String> {
-            std::fs::read_to_string(self.dir.path().join("bin").join(file)).ok()
-        }
-
-        fn home(&self) -> PathBuf {
-            let home = self.dir.path().join("home");
-            std::fs::create_dir_all(&home).expect("create home");
-            home
-        }
+    /// `NO_COLOR`, prints `stdout` and `stderr` and exits with `code`.
+    fn fake_cli(name: &str, stdout: &str, stderr: &str, code: i32) -> FakeCli {
+        let body = format!(
+            "printf '%s\\n' \"$@\" > \"$d/argv\"\npwd -P > \"$d/cwd\"\n\
+             printf '%s' \"$NO_COLOR\" > \"$d/no_color\"\ncat \"$d/stdout\"\ncat \"$d/stderr\" >&2\nexit {code}\n"
+        );
+        let cli = FakeCli::script(name, &body);
+        cli.place("stdout", stdout);
+        cli.place("stderr", stderr);
+        cli
     }
 
     async fn run(
@@ -330,7 +302,7 @@ mod runs {
     #[tokio::test]
     async fn an_omp_failure_with_exit_code_zero_is_not_ok() {
         let line = "✘ Failed to disable demo: Error: Plugin demo not found in runtime config";
-        let cli = FakeCli::new("omp", "", &format!("{line}\n"), 0);
+        let cli = fake_cli("omp", "", &format!("{line}\n"), 0);
 
         let result = run(
             &Omp,
@@ -353,7 +325,7 @@ mod runs {
 
     #[tokio::test]
     async fn a_dry_run_install_runs_in_the_project_with_the_preview_flag() {
-        let cli = FakeCli::new(
+        let cli = fake_cli(
             "omp",
             "[dry-run] Would install harness-useful-sidebar@harness-useful-sidebar\n",
             "",
@@ -384,7 +356,7 @@ mod runs {
 
     #[tokio::test]
     async fn without_a_project_the_cli_runs_in_the_home_directory() {
-        let cli = FakeCli::new("omp", "✔ Installed\n", "", 0);
+        let cli = fake_cli("omp", "✔ Installed\n", "", 0);
 
         let result = run(&Omp, &cli, sidebar_install(InstallScope::User), false, None).await;
 
@@ -397,7 +369,7 @@ mod runs {
 
     #[tokio::test]
     async fn a_dry_run_without_a_preview_flag_runs_nothing() {
-        let cli = FakeCli::new("pi", "", "", 0);
+        let cli = fake_cli("pi", "", "", 0);
 
         let action = ExtensionAction::PackageInstall {
             source: "npm:pi-mcp-adapter".to_owned(),
@@ -418,7 +390,7 @@ mod runs {
         };
         let applying = ["omp", "plugin", "uninstall", "demo-plugin"];
 
-        let omp = FakeCli::new("omp", "[dry-run] Would uninstall demo-plugin\n", "", 0);
+        let omp = fake_cli("omp", "[dry-run] Would uninstall demo-plugin\n", "", 0);
         let preview = run(&Omp, &omp, uninstall(), true, None).await;
 
         assert_eq!(preview.exit_code, Some(0));
@@ -434,7 +406,7 @@ mod runs {
             "the preview shows what the run applies"
         );
 
-        let pi = FakeCli::new("pi", "", "", 0);
+        let pi = fake_cli("pi", "", "", 0);
         let action = ExtensionAction::PackageRemove {
             source: "npm:pi-mcp-adapter".to_owned(),
         };
@@ -448,7 +420,7 @@ mod runs {
     #[tokio::test]
     async fn output_is_stripped_of_escapes_and_redacted() {
         let stdout = "\u{1b}[32m✔ Installed demo\u{1b}[0m\nusing token=ghp_abcdefghijklmnopqrstuvwxyz0123456789\n";
-        let cli = FakeCli::new("omp", stdout, "", 0);
+        let cli = fake_cli("omp", stdout, "", 0);
 
         let result = run(&Omp, &cli, sidebar_install(InstallScope::User), false, None).await;
 
@@ -460,7 +432,7 @@ mod runs {
     #[tokio::test]
     async fn a_failing_exit_code_is_not_ok_and_large_output_is_capped() {
         let flood = "x".repeat(MAX_CLI_OUTPUT_BYTES + 10_000);
-        let cli = FakeCli::new("pi", &flood, "npm error 404 Not Found\n", 1);
+        let cli = fake_cli("pi", &flood, "npm error 404 Not Found\n", 1);
 
         let action = ExtensionAction::PackageRemove {
             source: "npm:missing".to_owned(),

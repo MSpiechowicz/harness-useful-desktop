@@ -2,9 +2,10 @@
 //! harness (installed, marketplace actions, manual command) and the MCP states of the dashboard,
 //! the memory server and the app's own server.
 
+mod setup_support;
+
 use std::path::Path;
 
-use harness_business::Result;
 use harness_business::ecosystem::catalog::{DASHBOARD_INSTALL_PS1, DASHBOARD_INSTALL_SH};
 use harness_business::ecosystem::setup_status;
 use harness_business::env::{Env, OsKind};
@@ -14,23 +15,9 @@ use harness_business::model::{
     Detection, ExtensionAction, HarnessId, HarnessSetup, HarnessSummary, InstallScope, McpState, RecommendedSetup,
     SkillsSetup, VersionSupport,
 };
-use harness_business::process::{BoxFuture, ExecOutput, ExecSpec, ProcessRunner};
 use pretty_assertions::assert_eq;
 use serde_json::json;
-
-/// Every probe fails (no dashboard version).
-struct NoVersion;
-
-impl ProcessRunner for NoVersion {
-    fn run<'a>(&'a self, _spec: &'a ExecSpec) -> BoxFuture<'a, Result<ExecOutput>> {
-        Box::pin(async {
-            Ok(ExecOutput {
-                status: Some(1),
-                ..ExecOutput::default()
-            })
-        })
-    }
-}
+use setup_support::CountingRunner;
 
 fn write(path: &Path, text: &str) {
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
@@ -56,7 +43,13 @@ fn summary(harness: &dyn Harness, installed: bool) -> HarnessSummary {
 }
 
 async fn status(env: &Env, summaries: &[HarnessSummary]) -> RecommendedSetup {
-    setup_status(env, &NoVersion, &HarnessRegistry::with_defaults(), summaries).await
+    setup_status(
+        env,
+        &CountingRunner::default(),
+        &HarnessRegistry::with_defaults(),
+        summaries,
+    )
+    .await
 }
 
 fn harness(setup: &RecommendedSetup, id: HarnessId) -> &HarnessSetup {

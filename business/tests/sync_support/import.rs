@@ -15,7 +15,8 @@ use std::sync::{Arc, Mutex};
 use harness_business::env::Env;
 use harness_business::harness::HarnessRegistry;
 use harness_business::model::{
-    HarnessId, SyncImportItem, SyncImportPlan, SyncImportResult, SyncItemOutcome, SyncItemStatus, SyncProgress,
+    HarnessId, SyncImportItem, SyncImportPlan, SyncImportResult, SyncItemOutcome, SyncItemStatus, SyncOutcome,
+    SyncProgress,
 };
 use harness_business::process::{BoxFuture, ExecOutput, ExecSpec, ProcessRunner, ResolvedBinary};
 use harness_business::sync::codec::decode_input;
@@ -399,6 +400,23 @@ pub async fn apply(
 
     let mut events = Vec::new();
     let result = apply_plan(context, stored, selected, confirmed, |event| events.push(event)).await;
+
+    (result, events)
+}
+
+/// Applies `selected` (confirmed), checks that every item is done, and returns the result and the
+/// progress events.
+pub async fn apply_done(
+    machine: &Machine,
+    runner: &FakeCli,
+    stored: &StoredPlan,
+    selected: &[String],
+) -> (SyncImportResult, Vec<SyncProgress>) {
+    let (result, events) = apply(machine, runner, stored, selected, true).await;
+    let result = result.expect("applied");
+
+    assert!(result.ok, "{result:?}");
+    assert!(result.items.iter().all(|item| item.outcome == SyncOutcome::Done));
 
     (result, events)
 }

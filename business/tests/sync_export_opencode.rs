@@ -9,6 +9,7 @@ use harness_business::sync::codec::{decode_input, to_json_pretty};
 use harness_business::sync::schema::{Bundle, McpServer, Plugin, Transport};
 use harness_business::sync::{ExportCollection, build_bundle, export_code, export_preview};
 use pretty_assertions::assert_eq;
+use sync_support::servers::github_server;
 use sync_support::{BOTH, Home, ids};
 
 const OPENCODE: &[HarnessId] = &[HarnessId::OpenCode];
@@ -145,15 +146,7 @@ fn servers_and_npm_plugins_are_shared_by_reference_from_a_commented_config() {
                 env_keys: Vec::new(),
                 header_keys: vec!["Authorization".to_owned()],
             },
-            McpServer {
-                name: "github".to_owned(),
-                transport: Transport::Stdio,
-                command: Some("npx".to_owned()),
-                args: vec!["-y".to_owned(), "@modelcontextprotocol/server-github".to_owned()],
-                url: None,
-                env_keys: vec!["GITHUB_TOKEN".to_owned()],
-                header_keys: Vec::new(),
-            },
+            github_server(),
         ]
     );
 }

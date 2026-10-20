@@ -11,6 +11,9 @@ use harness_business::harnesses::OpenCode;
 use harness_business::model::{ExtensionAction, InstallScope};
 use pretty_assertions::assert_eq;
 
+#[cfg(unix)]
+mod fake_cli_support;
+
 fn install(target: &str) -> ExtensionAction {
     ExtensionAction::PluginInstall {
         target: target.to_owned(),
@@ -152,67 +155,38 @@ fn opencode_offers_cli_actions() {
 
 #[cfg(unix)]
 mod runs {
-    use std::os::unix::fs::PermissionsExt;
-    use std::path::PathBuf;
-
     use harness_business::env::Env;
     use harness_business::harness::{CliRun, run_cli_action};
     use harness_business::harnesses::OpenCode;
     use harness_business::model::{CliResult, ExtensionAction};
-    use harness_business::process::{ResolvedBinary, TokioRunner};
+    use harness_business::process::TokioRunner;
     use pretty_assertions::assert_eq;
-    use tempfile::TempDir;
 
+    use super::fake_cli_support::FakeCli;
     use super::{hostile_modules, install, unsupported_actions};
 
     /// A fake `opencode` that records its arguments and `OPENCODE_DISABLE_AUTOUPDATE`.
-    struct FakeOpenCode {
-        dir: TempDir,
-        binary: ResolvedBinary,
-    }
+    struct FakeOpenCode(FakeCli);
 
     impl FakeOpenCode {
         fn new() -> Self {
-            let dir = tempfile::tempdir().expect("temp dir");
-            let bin = dir.path().join("bin");
-            std::fs::create_dir_all(&bin).expect("create bin");
-
-            let shebang = "#!/bin/sh"; // guard-allow: installer-shell
-            let script = format!(
-                "{shebang}\nd=$(dirname \"$0\")\nprintf '%s\\n' \"$@\" > \"$d/argv\"\n\
-                 printf '%s' \"$OPENCODE_DISABLE_AUTOUPDATE\" > \"$d/autoupdate\"\necho 'Installed plugin'\n"
-            );
-            let path = bin.join("opencode");
-            std::fs::write(&path, script).expect("write script");
-            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).expect("chmod");
-
-            Self {
-                dir,
-                binary: ResolvedBinary {
-                    path,
-                    is_batch_script: false,
-                },
-            }
+            let body = "printf '%s\\n' \"$@\" > \"$d/argv\"\n\
+                        printf '%s' \"$OPENCODE_DISABLE_AUTOUPDATE\" > \"$d/autoupdate\"\necho 'Installed plugin'\n";
+            Self(FakeCli::script("opencode", body))
         }
 
         fn recorded(&self, file: &str) -> Option<String> {
-            std::fs::read_to_string(self.dir.path().join("bin").join(file)).ok()
-        }
-
-        fn home(&self) -> PathBuf {
-            let home = self.dir.path().join("home");
-            std::fs::create_dir_all(&home).expect("create home");
-            home
+            self.0.recorded(file)
         }
 
         async fn run(&self, action: ExtensionAction, dry_run: bool) -> harness_business::Result<CliResult> {
-            let env = Env::for_tests(self.home());
+            let env = Env::for_tests(self.0.home());
 
             run_cli_action(CliRun {
                 harness: &OpenCode,
                 env: &env,
                 runner: &TokioRunner,
-                binary: &self.binary,
+                binary: &self.0.binary,
                 action: &action,
                 dry_run,
                 project: None,

@@ -1,6 +1,7 @@
 //! A temporary home for the "Share setup" export tests, and harness summaries.
 
 mod harnesses;
+pub mod servers;
 
 use harness_business::env::Env;
 use harness_business::harness::HarnessRegistry;

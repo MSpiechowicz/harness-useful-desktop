@@ -9,8 +9,8 @@ use harness_business::model::{
     HarnessId, SyncInvalidReason, SyncItemStatus, SyncOutcome, SyncProgress, SyncSkipReason,
 };
 use import_support::{
-    BOTH, MCP_SECRET, Machine, OMP_MARKETPLACES, OMP_MCP, PI_MCP, apply, argv, bundle, fake, item, outcome_of,
-    selectable, statuses, typical,
+    BOTH, MCP_SECRET, Machine, OMP_MARKETPLACES, OMP_MCP, PI_MCP, apply, apply_done, argv, bundle, fake, item,
+    outcome_of, selectable, statuses, typical,
 };
 use pretty_assertions::assert_eq;
 use serde_json::json;
@@ -22,11 +22,8 @@ async fn applying_runs_marketplaces_plugins_packages_then_merges_mcp_files_and_t
     let built = machine.plan(&typical());
     let selected = selectable(&built.plan);
 
-    let (result, events) = apply(&machine, &runner, &built.stored, &selected, true).await;
-    let result = result.expect("applied");
+    let (result, events) = apply_done(&machine, &runner, &built.stored, &selected).await;
 
-    assert!(result.ok, "{result:?}");
-    assert!(result.items.iter().all(|item| item.outcome == SyncOutcome::Done));
     assert_eq!(
         runner.seen(),
         [

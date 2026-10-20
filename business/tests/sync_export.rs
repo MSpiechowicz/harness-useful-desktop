@@ -10,10 +10,11 @@ use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use harness_business::BusinessError;
 use harness_business::model::{HarnessId, SyncExcluded, SyncExcludedReason, SyncExportPreview, SyncItemKind, SyncNote};
 use harness_business::sync::codec::{decode_input, to_json_pretty};
-use harness_business::sync::schema::{Bundle, McpServer, Transport};
+use harness_business::sync::schema::Bundle;
 use harness_business::sync::{ExportCollection, build_bundle, export_code, export_preview};
 use pretty_assertions::assert_eq;
 use serde_json::{Value, json};
+use sync_support::servers::github_server;
 use sync_support::{BOTH, Home, ids};
 
 const GITHUB_TOKEN: &str = "ghp_A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8";
@@ -398,19 +399,7 @@ fn every_export_imports_again_without_invalid_items() {
         assert!(decoded.unsupported.is_empty());
     }
 
-    let github = &bundle.harnesses[&HarnessId::Omp].mcp_servers[0];
-    assert_eq!(
-        github,
-        &McpServer {
-            name: "github".to_owned(),
-            transport: Transport::Stdio,
-            command: Some("npx".to_owned()),
-            args: vec!["-y".to_owned(), "@modelcontextprotocol/server-github".to_owned()],
-            url: None,
-            env_keys: vec!["GITHUB_TOKEN".to_owned()],
-            header_keys: Vec::new(),
-        }
-    );
+    assert_eq!(bundle.harnesses[&HarnessId::Omp].mcp_servers[0], github_server());
 }
 
 #[test]
