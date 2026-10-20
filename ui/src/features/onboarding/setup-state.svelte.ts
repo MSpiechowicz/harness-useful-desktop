@@ -13,7 +13,7 @@ import { agentSessions } from '$lib/stores/agentSession.svelte';
 import { harness } from '$lib/stores/harness.svelte';
 import { CompanionInstaller } from './companion-installer.svelte';
 import { onboarding } from './onboarding-state.svelte';
-import { commandOf, companionEffects, MCP_COMPANION, refusalText, type Companion, type ItemPhase, type McpKind, type Plan, type PlannedFile, type SetupKey } from './setup-model';
+import { commandOf, companionEffects, MCP_COMPANION, refusalText, type Companion, type Installer, type ItemPhase, type McpKind, type Plan, type PlannedFile, type SetupKey } from './setup-model';
 
 export type SetupLoad = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -50,8 +50,8 @@ export class SetupController {
   private phases = $state<Record<string, ItemPhase>>({});
   private failures = $state<Record<string, string>>({});
 
-  /** The two installers' output and outcome, each shown on its own card. */
-  readonly installers: Record<Companion, CompanionInstaller>;
+  /** The installers' output and outcome: the two companions' each on its own row, the Harness Skills' for OpenCode under the skills row. */
+  readonly installers: Record<Installer, CompanionInstaller>;
 
   private token = 0;
 
@@ -59,7 +59,11 @@ export class SetupController {
     private readonly transport: Transport,
     private readonly hooks: Hooks,
   ) {
-    this.installers = { dashboard: new CompanionInstaller('dashboard', transport), memory: new CompanionInstaller('memory', transport) };
+    this.installers = {
+      dashboard: new CompanionInstaller('dashboard', transport),
+      memory: new CompanionInstaller('memory', transport),
+      opencodeSkills: new CompanionInstaller('opencodeSkills', transport),
+    };
   }
 
   // ── Reading ──────────────────────────────────────────────────────────────
@@ -79,8 +83,7 @@ export class SetupController {
     this.off = {};
     this.phases = {};
     this.failures = {};
-    this.installers.dashboard.reset();
-    this.installers.memory.reset();
+    Object.values(this.installers).forEach((installer) => installer.reset());
 
     try {
       const data = await this.transport.invoke('setup_status', undefined);
@@ -182,10 +185,10 @@ export class SetupController {
     }
 
     if (kind === 'skills') {
-      return entry.skills.type === 'install';
+      return entry.skills.type === 'install' || entry.skills.type === 'script';
     }
 
-    // A harness the app cannot chat with yet (OpenCode) is shown as coming soon and gets no MCP entries.
+    // A harness the app cannot chat with is listed as coming soon and gets no MCP entries.
     if (comingSoon(id)) {
       return false;
     }
@@ -268,8 +271,15 @@ export class SetupController {
     }
 
     for (const entry of data.harnesses) {
-      if (this.isSelected(`skills:${entry.harness}`) && entry.skills.type === 'install') {
+      if (!this.isSelected(`skills:${entry.harness}`)) {
+        continue;
+      }
+
+      if (entry.skills.type === 'install') {
         plan.commands.push(...entry.skills.actions.map((action) => ({ owner: entry.harness, command: commandOf(entry.harness, action) })));
+      } else if (entry.skills.type === 'script') {
+        plan.commands.push({ owner: entry.harness, command: entry.skills.command });
+        plan.effects.push({ owner: 'opencodeSkills', effects: entry.skills.sideEffects });
       }
     }
 
@@ -370,21 +380,33 @@ export class SetupController {
     }
   }
 
-  private async installCompanion(companion: Companion): Promise<boolean> {
-    this.set(companion, 'running');
+  private installCompanion(companion: Companion): Promise<boolean> {
+    return this.runInstaller(companion, companion);
+  }
 
-    const outcome = await this.installers[companion].run();
+  /** Runs one installer and records its outcome on the item it belongs to. */
+  private async runInstaller(installer: Installer, key: SetupKey): Promise<boolean> {
+    this.set(key, 'running');
+
+    const outcome = await this.installers[installer].run();
 
     if (outcome.ok) {
-      this.set(companion, 'done');
+      this.set(key, 'done');
     } else {
-      this.set(companion, 'failed', outcome.failure);
+      this.set(key, 'failed', outcome.failure);
     }
 
     return outcome.ok;
   }
 
   private async installSkills(entry: HarnessSetup): Promise<void> {
+    // The skills of a harness with its own installer script (only OpenCode has one): the same confirmed run and streamed output as a companion's.
+    if (entry.skills.type === 'script') {
+      await this.runInstaller('opencodeSkills', `skills:${entry.harness}`);
+
+      return;
+    }
+
     const key: SetupKey = `skills:${entry.harness}`;
     if (entry.skills.type !== 'install') {
       return;

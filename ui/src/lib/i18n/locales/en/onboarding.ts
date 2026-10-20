@@ -178,6 +178,7 @@ export const onboarding = {
   'onboarding.setup.skills.failedIn': '{name}: could not install: {reason}',
   'onboarding.setup.skills.rowDetail': 'Installs the skills in {harnesses}',
   'onboarding.setup.skills.rowNone': 'No supported harness found to install them in',
+  'onboarding.setup.skills.version': 'Version {version}',
   'onboarding.setup.mcp.title': 'Harness Dashboard MCP',
   'onboarding.setup.mcp.body': 'Lets your agents look up their own usage and cost, by registering the dashboard as an MCP server.',
   'onboarding.setup.mcp.note':
@@ -231,6 +232,7 @@ export const onboarding = {
   'onboarding.setup.confirm.files': 'Files',
   'onboarding.setup.confirm.effects.dashboard': 'The dashboard installer also',
   'onboarding.setup.confirm.effects.memory': 'The memory installer also',
+  'onboarding.setup.confirm.effects.skills': 'The Harness Skills installer also',
   'onboarding.setup.confirm.creates': 'will be created',
   'onboarding.setup.confirm.adds.one': 'adds one entry',
   'onboarding.setup.confirm.adds.other': 'adds {count} entries',

@@ -21,6 +21,9 @@ export type SetupKey = Companion | `skills:${HarnessId}` | `${McpKind}:${Harness
 /** The companion each MCP entry runs, which has to be installed before the entry can be added. The app's own entry runs the app itself, so it waits for nothing. */
 export const MCP_COMPANION: Record<McpKind, Companion | null> = { mcp: 'dashboard', memoryMcp: 'memory', desktopMcp: null };
 
+/** Everything the step runs an installer script for: the two companions, and the Harness Skills of OpenCode. */
+export type Installer = Companion | 'opencodeSkills';
+
 /** One line of what the confirmation lists. */
 export interface PlannedCommand {
   /** Whose command it is: a companion or a harness. */
@@ -37,7 +40,7 @@ export interface PlannedFile {
 
 /** What one companion's installer changes besides the binary, one sentence each. */
 export interface PlannedEffects {
-  owner: Companion;
+  owner: Installer;
   effects: string[];
 }
 
@@ -174,6 +177,7 @@ export function skillsChip(setup: HarnessSetup, phase: ItemPhase, waiting: boole
       case 'installed':
         return { tone: 'success', label: t('onboarding.setup.chip.installed') };
       case 'install':
+      case 'script':
         return { tone: 'warning', label: t('onboarding.setup.chip.missing') };
       case 'manual':
         return { tone: 'neutral', label: t('onboarding.setup.chip.manual') };
@@ -206,7 +210,7 @@ export function mcpChip(setup: HarnessSetup, kind: McpKind, phase: ItemPhase, wa
 /** Harness Skills across every harness found: installed in all of them, in some, or in none yet. */
 export function skillsOverviewChip(harnesses: HarnessSetup[]): Chip {
   const installed = harnesses.filter((entry) => entry.installed);
-  // A harness the skills cannot be installed in at all (no package for it) does not hold the overview back.
+  // A harness the skills cannot be installed in at all (OpenCode without Node.js) does not hold the overview back. Its own row says why.
   const found = installed.filter((entry) => entry.skills.type !== 'unavailable');
   const have = found.filter((entry) => entry.skills.type === 'installed').length;
 
@@ -228,7 +232,12 @@ export function skillsRowChip(harnesses: HarnessSetup[], phase: ItemPhase, waiti
 
 /** The harnesses the skills row installs in: found ones that have the skills or can be given them. A manual step or none at all leaves a harness out. */
 export function skillsTargets(harnesses: HarnessSetup[]): HarnessSetup[] {
-  return harnesses.filter((entry) => entry.installed && (entry.skills.type === 'install' || entry.skills.type === 'installed'));
+  return harnesses.filter((entry) => entry.installed && (entry.skills.type === 'install' || entry.skills.type === 'script' || entry.skills.type === 'installed'));
+}
+
+/** Found harnesses the skills cannot be installed in at all, each with the reason the backend gives. */
+export function skillsUnavailable(harnesses: HarnessSetup[]): { harness: HarnessId; reason: string }[] {
+  return harnesses.flatMap((entry) => (entry.installed && entry.skills.type === 'unavailable' ? [{ harness: entry.harness, reason: entry.skills.reason }] : []));
 }
 
 /** The state of a companion's binary, or what a run is doing to it. */

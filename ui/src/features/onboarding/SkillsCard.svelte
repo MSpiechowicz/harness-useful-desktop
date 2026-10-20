@@ -7,6 +7,7 @@
   import SetupCard from './SetupCard.svelte';
   import SetupChip from './SetupChip.svelte';
   import SetupCommand from './SetupCommand.svelte';
+  import SetupEffects from './SetupEffects.svelte';
   import { commandOf, skillsChip, skillsOverviewChip } from './setup-model';
   import { badgeOf, nameOf } from './setup-view';
 
@@ -17,11 +18,20 @@
 
   let { harnesses }: Props = $props();
 
-  /** Harnesses without Harness Skills (OpenCode, for now) are left out rather than listed with a reason. */
-  const listed = $derived(harnesses.filter((entry) => entry.skills.type !== 'unavailable'));
+  /** The commands the setup would run for the skills, across every harness that lacks them. A harness with its own installer counts one per change it lists. */
+  const changes = $derived(
+    harnesses.reduce((count, entry) => {
+      if (!entry.installed) {
+        return count;
+      }
 
-  /** The commands the setup would run for the skills, across every harness that lacks them. */
-  const changes = $derived(harnesses.reduce((count, entry) => (entry.installed && entry.skills.type === 'install' ? count + entry.skills.actions.length : count), 0));
+      if (entry.skills.type === 'install') {
+        return count + entry.skills.actions.length;
+      }
+
+      return entry.skills.type === 'script' ? count + entry.skills.sideEffects.length : count;
+    }, 0),
+  );
 </script>
 
 <!-- Built like the two installer cards above it: header line, description, details. -->
@@ -37,7 +47,7 @@
       <h4 class="text-xs font-medium tracking-wider text-fg-3 uppercase">{t('onboarding.setup.skills.perHarness')}</h4>
 
       <ul class="flex flex-col gap-4">
-        {#each listed as entry (entry.harness)}
+        {#each harnesses as entry (entry.harness)}
           {@const name = nameOf(entry.harness)}
           <li class={cx('flex flex-col gap-2', !entry.installed && 'opacity-60')}>
             <div class="flex items-center justify-between gap-3">
@@ -51,13 +61,22 @@
 
             {#if !entry.installed}
               <p class="text-fg-3">{t('onboarding.setup.skills.installFirst', { name })}</p>
+            {:else if entry.skills.type === 'installed'}
+              {#if entry.skills.version}
+                <p class="text-fg-3">{t('onboarding.setup.skills.version', { version: entry.skills.version })}</p>
+              {/if}
             {:else if entry.skills.type === 'install'}
               {#each entry.skills.actions as action, index (index)}
                 <SetupCommand text={commandOf(entry.harness, action)} copyLabel={t('onboarding.setup.copyCommand')} />
               {/each}
+            {:else if entry.skills.type === 'script'}
+              <SetupCommand text={entry.skills.command} copyLabel={t('onboarding.setup.copyCommand')} />
+              <SetupEffects effects={entry.skills.sideEffects} />
             {:else if entry.skills.type === 'manual'}
               <p>{entry.skills.note}</p>
               <SetupCommand text={entry.skills.command} copyLabel={t('onboarding.setup.copyCommand')} />
+            {:else}
+              <p>{entry.skills.reason}</p>
             {/if}
           </li>
         {/each}

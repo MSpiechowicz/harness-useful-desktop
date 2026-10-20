@@ -10,10 +10,10 @@ import type { McpState } from '../bindings/McpState';
 import type { RecommendedSetup } from '../bindings/RecommendedSetup';
 import type { SkillsSetup } from '../bindings/SkillsSetup';
 import { IpcFailure } from '../transport';
-import { opencodeSnippet, rosterFor, type RosterEntry } from './setup-roster';
+import { OPENCODE_SKILLS, OPENCODE_SKILLS_COMMAND, OPENCODE_SKILLS_NO_NODE, opencodeSnippet, rosterFor, type RosterEntry } from './setup-roster';
 import type { Handlers } from './types';
 
-type SetupCommands = 'setup_status' | 'setup_install_dashboard' | 'setup_install_memory' | 'setup_register_mcp' | 'setup_register_memory' | 'setup_register_desktop_mcp';
+type SetupCommands = 'setup_status' | 'setup_install_dashboard' | 'setup_install_memory' | 'setup_install_opencode_skills' | 'setup_register_mcp' | 'setup_register_memory' | 'setup_register_desktop_mcp';
 
 /**
  * What the mock recommended setup starts from. The browser preview picks one with `?setup=<name>`:
@@ -25,8 +25,9 @@ type SetupCommands = 'setup_status' | 'setup_install_dashboard' | 'setup_install
  * `many` has five harnesses in every kind of state (see `setup-roster.ts`), `manyLong` a sixth with a very long name.
  * `opencodeOnly` has OpenCode alone, with a config file that has comments, so its MCP entries are left to a manual edit.
  * `manualEdit` has the usual harnesses and the same commented OpenCode file.
+ * `noNode` finds no Node.js, so the Harness Skills cannot be installed for OpenCode and its row says why.
  */
-export const SETUP_SCENARIOS = ['none', 'configured', 'fail', 'refused', 'both', 'bothRefused', 'memory', 'many', 'manyLong', 'opencodeOnly', 'manualEdit'] as const;
+export const SETUP_SCENARIOS = ['none', 'configured', 'fail', 'refused', 'both', 'bothRefused', 'memory', 'many', 'manyLong', 'opencodeOnly', 'manualEdit', 'noNode'] as const;
 export type SetupScenario = (typeof SETUP_SCENARIOS)[number];
 
 /** Pause between two installer log lines; tests do not wait. */
@@ -59,6 +60,20 @@ const MEMORY_OUTPUT_OK: InstallLogLine[] = [
 const MEMORY_OUTPUT_FAILED: InstallLogLine[] = [
   { stream: 'stdout', line: '==> Downloading harness-memory-x86_64-unknown-linux-gnu (latest)' },
   { stream: 'stderr', line: 'error: download failed' },
+];
+
+const OPENCODE_SKILLS_VERSION = '0.2.40';
+
+const OPENCODE_SKILLS_OUTPUT_OK: InstallLogLine[] = [
+  { stream: 'stdout', line: '==> Checking Node.js (22 or newer)' },
+  { stream: 'stdout', line: '==> Installing the Harness Skills into ~/.config/opencode' },
+  { stream: 'stdout', line: '==> Adding the useful_skills MCP server to opencode.json' },
+  { stream: 'stdout', line: `==> Harness Skills ${OPENCODE_SKILLS_VERSION} installed. Restart OpenCode to load them.` },
+];
+
+const OPENCODE_SKILLS_OUTPUT_FAILED: InstallLogLine[] = [
+  { stream: 'stdout', line: '==> Checking Node.js (22 or newer)' },
+  { stream: 'stderr', line: 'error: could not download the Harness Skills package' },
 ];
 
 const MCP_FILE: Record<HarnessId, string> = { omp: '~/.omp/agent/mcp.json', pi: '~/.pi/agent/mcp.json', opencode: '~/.config/opencode/opencode.json' };
@@ -103,9 +118,9 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function skillsOffer(harness: HarnessId): SkillsSetup {
+function skillsOffer(harness: HarnessId, nodeFound: boolean): SkillsSetup {
   if (harness === 'opencode') {
-    return { type: 'unavailable', reason: 'Harness Skills has no OpenCode package yet.' };
+    return nodeFound ? OPENCODE_SKILLS : OPENCODE_SKILLS_NO_NODE;
   }
 
   if (harness === 'pi') {
@@ -147,6 +162,15 @@ const MEMORY_INSTALLER: MockInstaller = {
   output: MEMORY_OUTPUT_OK,
   failedOutput: MEMORY_OUTPUT_FAILED,
   failedSummary: 'error: download failed',
+};
+
+const OPENCODE_SKILLS_INSTALLER: MockInstaller = {
+  binary: 'Harness Skills for OpenCode',
+  version: OPENCODE_SKILLS_VERSION,
+  command: OPENCODE_SKILLS_COMMAND,
+  output: OPENCODE_SKILLS_OUTPUT_OK,
+  failedOutput: OPENCODE_SKILLS_OUTPUT_FAILED,
+  failedSummary: 'error: could not download the Harness Skills package',
 };
 
 /** Plays `installer` line by line; it fails when `fails`. */
@@ -204,7 +228,7 @@ export function setupHandlers(
     if (scenario() === 'configured') {
       dashboardInstalled = true;
       memoryInstalled = true;
-      (['omp', 'pi'] as const).forEach((id) => {
+      (['omp', 'pi', 'opencode'] as const).forEach((id) => {
         skills.add(id);
         mcp.add(id);
         memoryMcp.add(id);
@@ -244,6 +268,9 @@ export function setupHandlers(
     return { type: 'missing', file: MCP_FILE[harness], exists: harness !== 'pi' };
   }
 
+  /** OpenCode's skills come from their own installer, which records its own version. */
+  const installedSkills = (harness: HarnessId): SkillsSetup => ({ type: 'installed', version: harness === 'opencode' ? OPENCODE_SKILLS_VERSION : '0.2.36' });
+
   /** A harness of the `many` roster: its own starting state, moved by what a run did to it. */
   function rosterSetup(entry: RosterEntry): HarnessSetup {
     const id = entry.id;
@@ -254,7 +281,7 @@ export function setupHandlers(
     return {
       harness: id,
       installed: entry.installed,
-      skills: skills.has(id) ? { type: 'installed', version: '0.2.36' } : entry.skills,
+      skills: skills.has(id) ? installedSkills(id) : entry.skills,
       mcp: registered ? { type: 'configured', file: entry.mcp.file, name: 'harness-dashboard' } : entry.mcp,
       memoryMcp: memoryRegistered ? { type: 'configured', file: entry.memoryMcp.file, name: 'harness-memory' } : entry.memoryMcp,
       desktopMcp: desktopRegistered ? { type: 'configured', file: entry.desktopMcp.file, name: 'harness-desktop' } : entry.desktopMcp,
@@ -272,7 +299,7 @@ export function setupHandlers(
     return {
       harness: id,
       installed: summary.detection.installed || (id === 'pi' && ['both', 'bothRefused', 'memory'].includes(scenario())),
-      skills: skills.has(id) ? { type: 'installed', version: '0.2.36' } : skillsOffer(id),
+      skills: skills.has(id) ? installedSkills(id) : skillsOffer(id, scenario() !== 'noNode'),
       mcp: mcpState(id),
       memoryMcp: mcpState(id, memoryMcp),
       desktopMcp: mcpState(id, desktopMcp),
@@ -318,6 +345,16 @@ export function setupHandlers(
       setup_install_memory: async ({ confirmed, onLog }): Promise<DashboardInstallResult> => {
         const result = await install(MEMORY_INSTALLER, confirmed, onLog);
         memoryInstalled ||= result.ok;
+
+        return result;
+      },
+
+      setup_install_opencode_skills: async ({ confirmed, onLog }): Promise<DashboardInstallResult> => {
+        const result = await install(OPENCODE_SKILLS_INSTALLER, confirmed, onLog);
+
+        if (result.ok) {
+          skills.add('opencode');
+        }
 
         return result;
       },

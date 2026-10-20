@@ -80,12 +80,29 @@ describe('Meet the Harness family step', () => {
     expect(within(memory).getByText('harness-memory mcp')).toBeInTheDocument();
 
     const skills = screen.getByRole('region', { name: 'Harness Skills' });
-    expect(within(skills).getByRole('button', { name: /^Details/ })).toHaveTextContent('2 changes');
+    // OMP's two commands, and the five things OpenCode's own installer changes.
+    expect(within(skills).getByRole('button', { name: /^Details/ })).toHaveTextContent('7 changes');
 
     await fireEvent.click(within(skills).getByRole('button', { name: /^Details/ }));
 
     expect(skills).toHaveTextContent('omp plugin marketplace add MSpiechowicz/harness-useful-skills');
     expect(skills).toHaveTextContent('omp plugin install harness-useful-skills@harness-useful-skills --scope user');
+    expect(skills).toHaveTextContent('harness-useful-skills/main/install.sh');
+    expect(within(skills).getByText(/Adds the/)).toHaveTextContent('useful_skills MCP server to opencode.json');
+  });
+
+  it('says why the skills cannot be installed for OpenCode when Node.js is missing, instead of leaving it out', async () => {
+    window.history.replaceState(null, '', '/?setup=noNode');
+    await openFamily();
+
+    // Only OMP's two commands are left to run once the fresh reading is in.
+    const skills = screen.getByRole('region', { name: 'Harness Skills' });
+    await waitFor(() => expect(within(skills).getByRole('button', { name: /^Details/ })).toHaveTextContent('2 changes'));
+    await fireEvent.click(within(skills).getByRole('button', { name: /^Details/ }));
+
+    expect(await within(skills).findByText('Needs Node.js 22 or newer.')).toBeInTheDocument();
+    expect(within(skills).getByText('Not available')).toBeInTheDocument();
+    expect(skills).not.toHaveTextContent('install.sh');
   });
 
   it('shows what is installed already, and leaves the Continue and Back buttons working', async () => {
@@ -93,6 +110,9 @@ describe('Meet the Harness family step', () => {
     await openFamily();
 
     await waitFor(() => expect(within(screen.getByRole('region', { name: 'Harness Skills' })).getByText('Installed')).toBeInTheDocument());
+    // OpenCode's installer records its own version, which its row shows.
+    await fireEvent.click(within(screen.getByRole('region', { name: 'Harness Skills' })).getByRole('button', { name: /^Details/ }));
+    expect(await screen.findByText('Version 0.2.40')).toBeInTheDocument();
     expect(within(screen.getByRole('region', { name: 'Harness Dashboard' })).getByText('Installed')).toBeInTheDocument();
     expect(within(screen.getByRole('region', { name: 'Harness Memory' })).getByText('Installed')).toBeInTheDocument();
 

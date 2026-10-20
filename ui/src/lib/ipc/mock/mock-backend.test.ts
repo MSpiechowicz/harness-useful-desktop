@@ -79,6 +79,7 @@ const sampleArgs = (sessionKey: string): { [K in CommandName]: CommandArgs<K> } 
   setup_status: undefined,
   setup_install_dashboard: { confirmed: true, onLog: () => {} },
   setup_install_memory: { confirmed: true, onLog: () => {} },
+  setup_install_opencode_skills: { confirmed: true, onLog: () => {} },
   setup_register_mcp: { harness: 'omp' },
   setup_register_memory: { harness: 'omp' },
   setup_register_desktop_mcp: { harness: 'omp' },
@@ -132,9 +133,7 @@ const sampleArgs = (sessionKey: string): { [K in CommandName]: CommandArgs<K> } 
 const SESSION = { harness: 'omp', id: fixtures.sessions.list.omp[0].ref.id } as const;
 const START_REQUEST = { harness: 'omp', project: fixtures.recentProjects[0].path, resume: null, approvalOverride: null, trustOnce: false, utility: false } as const;
 
-function transport() {
-  return createMockTransport(defaultScenario(), 0);
-}
+const transport = () => createMockTransport(defaultScenario(), 0);
 
 /** The commands that need a team to work on: the `?hooks=team` preview has hooks to share and team hooks to remove, copy and switch. */
 const TEAM_COMMANDS = ['hooks_share', 'hooks_team_remove', 'hooks_team_refresh', 'hooks_team_copy', 'hooks_team_enable'] as const;

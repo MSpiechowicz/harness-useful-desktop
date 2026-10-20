@@ -45,6 +45,12 @@ function setup(
   const transport = fakeTransport({
     setup_install_dashboard: run('dashboard'),
     setup_install_memory: run('memory'),
+    // Never reached: the Harness Skills for OpenCode update from OpenCode itself.
+    setup_install_opencode_skills: async () => {
+      log.push('start:skills');
+
+      return installed();
+    },
   });
   const updater = new FamilyUpdater({
     transport,
@@ -66,6 +72,15 @@ function setup(
 }
 
 describe('Harness family auto-update', () => {
+  it('leaves the Harness Skills alone, since OpenCode updates them itself', async () => {
+    const { updater, log, toasts } = setup({ items: [member('skills')] });
+
+    await updater.check();
+
+    expect(log).toEqual([]);
+    expect(toasts).toEqual([]);
+  });
+
   it('updates an installed member that has a newer release, then refreshes what depends on it', async () => {
     const { updater, log, toasts, updated } = setup({ items: [member('memory')] });
 

@@ -182,6 +182,7 @@ export const onboarding: AreaMessages<typeof enOnboarding> = {
   'onboarding.setup.skills.failedIn': '{name} : installation impossible : {reason}',
   'onboarding.setup.skills.rowDetail': 'Installe les skills dans {harnesses}',
   'onboarding.setup.skills.rowNone': 'Aucun harness compatible trouvé où les installer',
+  'onboarding.setup.skills.version': 'Version {version}',
   'onboarding.setup.mcp.title': 'Harness Dashboard MCP',
   'onboarding.setup.mcp.body': 'Permet à vos agents de consulter leur propre consommation et leur coût, en enregistrant le dashboard comme serveur MCP.',
   'onboarding.setup.mcp.note':
@@ -235,6 +236,7 @@ export const onboarding: AreaMessages<typeof enOnboarding> = {
   'onboarding.setup.confirm.files': 'Fichiers',
   'onboarding.setup.confirm.effects.dashboard': 'L’installeur du dashboard fait aussi',
   'onboarding.setup.confirm.effects.memory': 'L’installeur de Memory fait aussi',
+  'onboarding.setup.confirm.effects.skills': 'L’installeur de Harness Skills fait aussi',
   'onboarding.setup.confirm.creates': 'sera créé',
   'onboarding.setup.confirm.adds.one': 'ajoute une entrée',
   'onboarding.setup.confirm.adds.other': 'ajoute {count} entrées',

@@ -8,7 +8,7 @@
   import SetupCommand from './SetupCommand.svelte';
   import SetupFamilyRow from './SetupFamilyRow.svelte';
   import SetupLog from './SetupLog.svelte';
-  import { companionChip, skillsRowChip, skillsTargets, type Companion } from './setup-model';
+  import { companionChip, skillsRowChip, skillsTargets, skillsUnavailable, type Companion } from './setup-model';
   import { setup } from './setup-state.svelte';
   import { nameOf } from './setup-view';
 
@@ -33,7 +33,13 @@
 
   /** Harnesses whose skills the app cannot install but the user can, with a command to run by hand. */
   const manual = $derived(data.harnesses.filter((entry) => entry.installed && entry.skills.type === 'manual'));
+  /** Harnesses found where the skills cannot be installed, each with the reason: the row says it instead of leaving them out. */
+  const unavailable = $derived(skillsUnavailable(data.harnesses));
   const failures = $derived(setup.skillsFailures());
+
+  /** The Harness Skills' own installer (OpenCode) has output once it ran, like a companion's. */
+  const scriptInstaller = setup.installers.opencodeSkills;
+  const scriptRan = $derived(setup.phase('skills:opencode') !== 'idle' || scriptInstaller.log.length > 0);
 </script>
 
 <!-- The whole Harness family on the step that sets it up: one row each, whatever its state, in the order they run, and the output under it once there is some. -->
@@ -65,11 +71,29 @@
     {/each}
 
     <SetupFamilyRow product="skills" name={t('onboarding.setup.skills.title')} detail={skillsDetail} chip={skillsRowChip(data.harnesses, setup.skillsShown(), setup.skillsWaiting())}>
-      {#if failures.length > 0 || manual.length > 0}
+      {#if failures.length > 0 || manual.length > 0 || unavailable.length > 0 || scriptRan}
         <div class="flex flex-col gap-2">
           {#if failures.length > 0}
             {@render failure(failures.map(({ harness, reason }) => t('onboarding.setup.skills.failedIn', { name: nameOf(harness), reason })))}
           {/if}
+
+          {#if scriptRan}
+            {@const name = nameOf('opencode')}
+
+            <section class="flex flex-col gap-2" aria-label={name}>
+              <h4 class="text-xs font-medium tracking-wider text-fg-3 uppercase">{name}</h4>
+              <SetupLog lines={scriptInstaller.log} />
+            </section>
+          {/if}
+
+          {#each unavailable as { harness, reason } (harness)}
+            {@const name = nameOf(harness)}
+
+            <section class="flex flex-col gap-2" aria-label={name}>
+              <h4 class="text-xs font-medium tracking-wider text-fg-3 uppercase">{name}</h4>
+              <p class="text-sm text-fg-2">{reason}</p>
+            </section>
+          {/each}
 
           {#each manual as entry (entry.harness)}
             {@const name = nameOf(entry.harness)}
