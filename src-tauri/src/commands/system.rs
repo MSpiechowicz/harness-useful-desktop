@@ -122,7 +122,7 @@ mod tests {
 
         let target = reveal_target(&reveal_roots(&state, None), &export).expect("an export is revealed");
 
-        assert_eq!(target, export.canonicalize().unwrap());
+        assert_eq!(target, dunce::canonicalize(&export).unwrap());
     }
 
     #[test]
