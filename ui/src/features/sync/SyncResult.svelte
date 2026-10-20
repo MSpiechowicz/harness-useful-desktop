@@ -3,6 +3,7 @@
   import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
   import { uid } from '$lib/utils/ids';
 
+  import SetupCommand from '../onboarding/SetupCommand.svelte';
   import SyncCommand from './SyncCommand.svelte';
   import SyncGroupHead from './SyncGroupHead.svelte';
   import SyncRow from './SyncRow.svelte';
@@ -39,6 +40,10 @@
           <SyncRow kind={row.kind} label={row.label} sub={row.note} chip={row.chip}>
             {#if row.summary && row.chip.tone === 'danger'}
               <p class="text-sm text-fg-2 [overflow-wrap:anywhere]">{row.summary}</p>
+            {/if}
+
+            {#if row.manualEdit}
+              <SetupCommand text={row.manualEdit.snippet} copyLabel={t('sync.result.copySnippet')} />
             {/if}
 
             {#if row.argv.length > 0 && row.chip.tone === 'danger'}

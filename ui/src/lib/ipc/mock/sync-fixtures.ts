@@ -2,10 +2,14 @@ import type { SyncExcluded } from '../bindings/SyncExcluded';
 import type { SyncExportSection } from '../bindings/SyncExportSection';
 import type { SyncImportItem } from '../bindings/SyncImportItem';
 import type { SyncImportSection } from '../bindings/SyncImportSection';
+import type { SyncMcpPreview } from '../bindings/SyncMcpPreview';
 import type { SyncUnsupported } from '../bindings/SyncUnsupported';
 
 const OMP_MCP = '~/.omp/agent/mcp.json';
 const PI_MCP = '~/.pi/agent/mcp.json';
+const OPENCODE_MCP = '~/.config/opencode/opencode.json';
+/** The same file when it has comments: an import leaves it alone and hands over the entry. */
+export const OPENCODE_COMMENTED_MCP = '~/.config/opencode/opencode.jsonc';
 const SKILLS_SOURCE = 'MSpiechowicz/harness-useful-skills';
 
 /** What an import item has in common whatever it is; each fixture overrides what differs. */
@@ -50,12 +54,21 @@ export const EXPORT_SECTIONS: SyncExportSection[] = [
       { id: 'pi:mcp:time', kind: 'mcpServer', label: 'time', detail: 'uvx mcp-server-time', version: null, runsProgram: true, envKeys: [], headerKeys: [], notes: ['otherFieldsNotShared'] },
     ],
   },
+  {
+    harness: 'opencode',
+    items: [
+      { id: 'opencode:plugin:opencode-wakatime', kind: 'plugin', label: 'opencode-wakatime', detail: null, version: '1.2.3', runsProgram: false, envKeys: [], headerKeys: [], notes: [] },
+      { id: 'opencode:mcp:repo-search', kind: 'mcpServer', label: 'repo-search', detail: 'npx -y @acme/repo-search-mcp', version: null, runsProgram: true, envKeys: ['REPO_TOKEN'], headerKeys: [], notes: ['envValuesNotShared'] },
+      { id: 'opencode:mcp:docs', kind: 'mcpServer', label: 'docs', detail: 'https://docs.example.com/mcp', version: null, runsProgram: false, envKeys: [], headerKeys: ['Authorization'], notes: ['headerValuesNotShared', 'authNotShared'] },
+    ],
+  },
 ];
 
 export const EXCLUDED_TYPICAL: SyncExcluded[] = [
   { harness: 'omp', kind: 'mcpServer', label: 'github', reason: 'containsSecret' },
   { harness: 'omp', kind: 'marketplace', label: 'local-dev', reason: 'localPath' },
   { harness: 'pi', kind: 'package', label: 'unknown', reason: 'localPath' },
+  { harness: 'opencode', kind: 'plugin', label: 'my-local-plugin', reason: 'localPath' },
 ];
 
 export const EXCLUDED_ALL: SyncExcluded[] = [
@@ -147,7 +160,54 @@ const TYPICAL_PI: SyncImportSection = {
   ],
 };
 
-export const TYPICAL_PLAN_SECTIONS: SyncImportSection[] = [TYPICAL_OMP, TYPICAL_PI];
+const TYPICAL_OPENCODE: SyncImportSection = {
+  harness: 'opencode',
+  installed: true,
+  items: [
+    item({
+      id: 'opencode:plugin:opencode-wakatime',
+      kind: 'plugin',
+      label: 'opencode-wakatime',
+      version: '1.2.3',
+      steps: [{ type: 'cli', command: ['opencode', 'plugin', 'opencode-wakatime@1.2.3', '-g'] }],
+    }),
+    item({ id: 'opencode:plugin:opencode-notify', kind: 'plugin', label: 'opencode-notify', version: '0.4.0', ...alreadyThere }),
+    item({
+      id: 'opencode:mcp:repo-search',
+      kind: 'mcpServer',
+      label: 'repo-search',
+      detail: 'npx -y @acme/repo-search-mcp',
+      selectedByDefault: false,
+      runsProgram: true,
+      envKeys: ['REPO_TOKEN'],
+      notes: ['envValuesNotShared', 'writtenDisabled'],
+      steps: [{ type: 'mcpMerge', file: OPENCODE_MCP, server: { name: 'repo-search', transport: 'stdio', command: 'npx', args: ['-y', '@acme/repo-search-mcp'], url: null, enabled: false } }],
+    }),
+    item({
+      id: 'opencode:mcp:docs',
+      kind: 'mcpServer',
+      label: 'docs',
+      headerKeys: ['X-Api-Key'],
+      notes: ['headerValuesNotShared', 'authNotShared', 'writtenDisabled'],
+      steps: [{ type: 'mcpMerge', file: OPENCODE_MCP, server: { name: 'docs', transport: 'http', command: null, args: [], url: 'https://docs.example.com/mcp', enabled: false } }],
+    }),
+    item({
+      id: 'opencode:mcp:status',
+      kind: 'mcpServer',
+      label: 'status',
+      steps: [{ type: 'mcpMerge', file: OPENCODE_MCP, server: { name: 'status', transport: 'http', command: null, args: [], url: 'https://status.example.com/mcp', enabled: true } }],
+    }),
+  ],
+};
+
+export const TYPICAL_PLAN_SECTIONS: SyncImportSection[] = [TYPICAL_OMP, TYPICAL_PI, TYPICAL_OPENCODE];
+
+/** The entry of an OpenCode server as the backend hands it over to paste: `"name": { … }` in OpenCode's shape. */
+export function opencodeEntrySnippet(server: SyncMcpPreview): string {
+  const endpoint = server.transport === 'stdio' ? `"type": "local",\n  "command": ${JSON.stringify([server.command ?? '', ...server.args]).replaceAll('","', '", "')}` : `"type": "remote",\n  "url": ${JSON.stringify(server.url ?? '')}`;
+
+  return `${JSON.stringify(server.name)}: {\n  ${endpoint},\n  "enabled": ${server.enabled}\n}`;
+}
 
 /** Hostile input: items the backend refused, and a harness that is not installed here. */
 export const HOSTILE_PLAN_SECTIONS: SyncImportSection[] = [

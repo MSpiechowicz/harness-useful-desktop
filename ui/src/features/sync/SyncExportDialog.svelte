@@ -22,7 +22,7 @@
   import SyncNotices from './SyncNotices.svelte';
   import SyncRow from './SyncRow.svelte';
   import { ExportController } from './sync-export-state.svelte';
-  import { excludedText, keysLine, sizeText } from './sync-model';
+  import { excludedText, itemLabel, showsVersion, sizeText } from './sync-model';
 
   interface Props {
     open: boolean;
@@ -90,13 +90,13 @@
             {#each section.items as item (item.id)}
               <SyncRow
                 kind={item.kind}
-                label={item.label}
-                sub={[item.version ? t('sync.version', { version: item.version }) : null, item.detail].filter((part) => part !== null).join(' · ') || null}
+                label={itemLabel(section.harness, item)}
+                sub={[showsVersion(section.harness, item) ? t('sync.version', { version: item.version }) : null, item.detail].filter((part) => part !== null).join(' · ') || null}
                 chip={item.runsProgram ? { tone: 'warning', label: t('sync.runs.chip') } : undefined}
                 reserve
               >
                 {#snippet check()}
-                  <Checkbox label={t('sync.exportDialog.item', { name: item.label })} checked={flow.isSelected(item.id)} onchange={(on) => flow.toggle(item.id, on)} />
+                  <Checkbox label={t('sync.exportDialog.item', { name: itemLabel(section.harness, item) })} checked={flow.isSelected(item.id)} onchange={(on) => flow.toggle(item.id, on)} />
                 {/snippet}
 
                 <SyncNotices runsProgram={false} envKeys={item.envKeys} headerKeys={item.headerKeys} notes={item.notes} />

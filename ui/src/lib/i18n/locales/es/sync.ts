@@ -125,8 +125,11 @@ export const sync: AreaMessages<typeof enSync> = {
   'sync.skip.dependencyFailed': 'Su marketplace falló.',
   'sync.skip.harnessNotInstalled': 'El harness no está instalado.',
   'sync.skip.mcpFileRefused': 'El archivo MCP no se tocó. {reason}',
+  'sync.skip.manualEdit': '{file} tiene comentarios que se perderían al reescribirlo, así que no se escribió nada. Añade tú mismo esta entrada:',
   'sync.result.ok': 'Todo lo que elegiste está en su sitio.',
   'sync.result.partial': 'Algunos elementos no se configuraron. Lo que funcionó se queda; no se deshace nada.',
+  'sync.result.manual': 'Todo lo demás está en su sitio. Añade tú mismo las entradas de abajo en sus archivos.',
+  'sync.result.copySnippet': 'Copiar fragmento',
   'sync.result.failed': 'No se pudo ejecutar la importación: {reason}',
   'sync.result.command': 'Comando',
 };

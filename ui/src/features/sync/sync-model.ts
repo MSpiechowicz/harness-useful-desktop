@@ -1,4 +1,5 @@
 import { t, type MessageKey } from '$lib/i18n/i18n.svelte';
+import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
 import type { McpRefusal } from '$lib/ipc/bindings/McpRefusal';
 import type { SyncBlockReason } from '$lib/ipc/bindings/SyncBlockReason';
 import type { SyncExcludedReason } from '$lib/ipc/bindings/SyncExcludedReason';
@@ -7,6 +8,7 @@ import type { SyncItemKind } from '$lib/ipc/bindings/SyncItemKind';
 import type { SyncItemStatus } from '$lib/ipc/bindings/SyncItemStatus';
 import type { SyncMcpPreview } from '$lib/ipc/bindings/SyncMcpPreview';
 import type { SyncNote } from '$lib/ipc/bindings/SyncNote';
+import type { SyncImportResult } from '$lib/ipc/bindings/SyncImportResult';
 import type { SyncOutcome } from '$lib/ipc/bindings/SyncOutcome';
 import type { SyncSkipReason } from '$lib/ipc/bindings/SyncSkipReason';
 
@@ -149,7 +151,25 @@ function skipText(reason: SyncSkipReason): string {
       return t('sync.skip.harnessNotInstalled');
     case 'mcpFileRefused':
       return t('sync.skip.mcpFileRefused', { reason: t(REFUSAL_KEYS[reason.refusal]) });
+    case 'manualEdit':
+      return t('sync.skip.manualEdit', { file: reason.file });
   }
+}
+
+/** The entry a person has to add by hand because the app left the file alone, or null when the item was not skipped for that. */
+export function manualEditOf(outcome: SyncOutcome): { file: string; snippet: string } | null {
+  if (outcome.type !== 'skipped' || outcome.reason.type !== 'manualEdit') {
+    return null;
+  }
+
+  return { file: outcome.reason.file, snippet: outcome.reason.snippet };
+}
+
+/** Every item that did not end well was left for the user to add by hand: the run itself went as planned. */
+export function onlyManualEdits(result: SyncImportResult): boolean {
+  const open = result.items.filter((item) => item.outcome.type !== 'done' && item.outcome.type !== 'alreadyPresent');
+
+  return open.length > 0 && open.every((item) => manualEditOf(item.outcome) !== null);
 }
 
 /** The sentence under a finished item: why it was skipped, or null when the chip says it all. */
@@ -171,8 +191,16 @@ export function keysLine(envKeys: string[], headerKeys: string[]): string | null
   return keys.length > 0 ? t('sync.needsKeys', { keys: keys.join(', ') }) : null;
 }
 
-/** The MCP entry an import writes, as it lands under `mcpServers`: exactly the fields the backend writes, arguments on one line. */
-export function mcpEntryJson(server: SyncMcpPreview): string {
+/** The MCP entry an import writes, as it lands in the harness's servers object: exactly the fields the backend writes, arguments on one line. OpenCode's file has its own shape. */
+export function mcpEntryJson(server: SyncMcpPreview, harness?: HarnessId): string {
+  const fields = harness === 'opencode' ? opencodeFields(server) : standardFields(server);
+  const lines = fields.map(([key, value]) => `  ${JSON.stringify(key)}: ${JSON.stringify(value).replaceAll('","', '", "')}`);
+
+  return `${JSON.stringify(server.name)}: {\n${lines.join(',\n')}\n}`;
+}
+
+/** OMP and PI: `command` and `args`, or `type` and `url`, and `enabled: false` only when values are missing. */
+function standardFields(server: SyncMcpPreview): [string, unknown][] {
   const fields: [string, unknown][] = [];
 
   if (server.transport === 'stdio') {
@@ -185,9 +213,37 @@ export function mcpEntryJson(server: SyncMcpPreview): string {
     fields.push(['enabled', false]);
   }
 
-  const lines = fields.map(([key, value]) => `  ${JSON.stringify(key)}: ${JSON.stringify(value).replaceAll('","', '", "')}`);
+  return fields;
+}
 
-  return `${JSON.stringify(server.name)}: {\n${lines.join(',\n')}\n}`;
+/** OpenCode: `local` with the command and its arguments in one array, or `remote` with the url, and `enabled` always. */
+function opencodeFields(server: SyncMcpPreview): [string, unknown][] {
+  const fields: [string, unknown][] = [];
+
+  if (server.transport === 'stdio') {
+    fields.push(['type', 'local'], ['command', [server.command ?? '', ...server.args]]);
+  } else {
+    fields.push(['type', 'remote'], ['url', server.url ?? '']);
+  }
+
+  fields.push(['enabled', server.enabled]);
+
+  return fields;
+}
+
+/** OpenCode installs a plugin at exactly the shared version, so it is part of the plugin's name there. */
+function pinsVersion(harness: HarnessId, kind: SyncItemKind): boolean {
+  return harness === 'opencode' && kind === 'plugin';
+}
+
+/** The name an item is listed by: an OpenCode plugin is `name@version` (no marketplace), everything else its label. */
+export function itemLabel(harness: HarnessId, item: { kind: SyncItemKind; label: string; version: string | null }): string {
+  return pinsVersion(harness, item.kind) && item.version ? `${item.label}@${item.version}` : item.label;
+}
+
+/** The version as small print under the name, unless the name already carries it (an OpenCode pin). */
+export function showsVersion(harness: HarnessId, item: { kind: SyncItemKind; version: string | null }): boolean {
+  return item.version !== null && !pinsVersion(harness, item.kind);
 }
 
 /** A byte count as "812 B" or "3.4 KB". */

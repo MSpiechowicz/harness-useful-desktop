@@ -139,8 +139,11 @@ export const sync = {
   'sync.skip.dependencyFailed': 'Its marketplace failed.',
   'sync.skip.harnessNotInstalled': 'The harness is not installed.',
   'sync.skip.mcpFileRefused': 'The MCP file was left alone. {reason}',
+  'sync.skip.manualEdit': '{file} has comments that rewriting would lose, so nothing was written there. Add this entry yourself:',
   'sync.result.ok': 'Everything you selected is in place.',
   'sync.result.partial': 'Some items were not set up. What worked stays; nothing is rolled back.',
+  'sync.result.manual': 'Everything else is in place. Add the entries below to their files yourself.',
+  'sync.result.copySnippet': 'Copy snippet',
   'sync.result.failed': 'The import could not run: {reason}',
   'sync.result.command': 'Command',
 } satisfies Record<string, string>;

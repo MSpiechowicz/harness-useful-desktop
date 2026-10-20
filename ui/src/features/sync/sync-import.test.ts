@@ -109,7 +109,7 @@ describe('Import', () => {
 
     const notices = dialog.querySelectorAll('[data-runs-program]');
 
-    expect(notices).toHaveLength(2);
+    expect(notices).toHaveLength(3);
     expect(notices[0]).toHaveTextContent('Runs a program on this computer');
     expect(within(dialog).getByText('Needs GITHUB_TOKEN. Set it after importing.')).toBeInTheDocument();
     expect(within(dialog).getByText('Needs Authorization. Set it after importing.')).toBeInTheDocument();
@@ -162,9 +162,9 @@ describe('Import', () => {
     await review();
     const confirm = () => screen.getByRole('button', { name: /^Import selected/ });
 
-    expect(confirm()).toHaveTextContent('Import selected (4)');
+    expect(confirm()).toHaveTextContent('Import selected (7)');
 
-    for (const name of ['harness-useful-skills', 'docs-search', 'npm:@acme/pi-theme@1.2.0']) {
+    for (const name of ['harness-useful-skills', 'docs-search', 'npm:@acme/pi-theme@1.2.0', 'opencode-wakatime@1.2.3', 'docs', 'status']) {
       await fireEvent.click(box(name));
     }
 
@@ -185,7 +185,7 @@ describe('Import', () => {
     expect(call).toMatchObject({
       planId: 'plan-1',
       confirmed: true,
-      selected: ['omp:marketplace:harness-useful-skills', 'omp:plugin:harness-useful-skills@harness-useful-skills', 'pi:package:npm:@acme/pi-theme@1.2.0', 'pi:mcp:time'],
+      selected: ['omp:marketplace:harness-useful-skills', 'omp:plugin:harness-useful-skills@harness-useful-skills', 'pi:package:npm:@acme/pi-theme@1.2.0', 'pi:mcp:time', 'opencode:plugin:opencode-wakatime', 'opencode:mcp:docs', 'opencode:mcp:status'],
     });
     expect(backend.calls('sync_import_apply')).toHaveLength(1);
   });
@@ -203,7 +203,7 @@ describe('Import', () => {
     expect(within(dialog).getByText('omp plugin marketplace add MSpiechowicz/harness-useful-skills')).toBeInTheDocument();
     expect(within(dialog).getByText('Skipped')).toBeInTheDocument();
     expect(within(dialog).getByText('Its marketplace failed.')).toBeInTheDocument();
-    expect(within(dialog).getAllByText('Done', { selector: 'span' })).toHaveLength(2);
+    expect(within(dialog).getAllByText('Done', { selector: 'span' })).toHaveLength(5);
   });
 
   it('says so when every selected item is in place', async () => {
@@ -233,7 +233,7 @@ describe('Import', () => {
 
     expect(within(dialog).queryByRole('button', { name: 'Close dialog' })).not.toBeInTheDocument();
     await waitFor(() => expect(within(dialog).getByText('Running')).toBeInTheDocument());
-    expect(within(dialog).getAllByText('Waiting')).toHaveLength(3);
+    expect(within(dialog).getAllByText('Waiting')).toHaveLength(6);
 
     await fireEvent.keyDown(dialog, { key: 'Escape' });
 
@@ -242,6 +242,60 @@ describe('Import', () => {
     finish({ ok: true, items: [] });
     await waitFor(() => expect(screen.getByRole('dialog', { name: 'Import finished' })).toBeInTheDocument());
     expect(screen.getByRole('button', { name: 'Close dialog' })).toBeInTheDocument();
+  });
+
+  describe('OpenCode', () => {
+    it('lists a plugin as name@version, installed as pinned, with no marketplace and no version note', async () => {
+      const dialog = await review();
+      const row = within(box('opencode-wakatime@1.2.3').closest('li') as HTMLElement);
+
+      expect(row.getByText('Plugin')).toBeInTheDocument();
+      expect(row.getByText('opencode-wakatime@1.2.3')).toBeInTheDocument();
+      expect(row.getByText('opencode plugin opencode-wakatime@1.2.3 -g')).toBeInTheDocument();
+      expect(row.queryByText(/Shared version/)).not.toBeInTheDocument();
+      expect(row.queryByText(/latest one is installed/)).not.toBeInTheDocument();
+      expect(row.queryByText(/marketplace/i)).not.toBeInTheDocument();
+      expect(within(dialog).getByText('opencode-notify@0.4.0')).toBeInTheDocument();
+    });
+
+    it('shows the entry written to the OpenCode file, in the shape the file uses', async () => {
+      await review();
+
+      const local = within(box('repo-search').closest('li') as HTMLElement);
+
+      expect(local.getByText(/Writes to ~\/\.config\/opencode\/opencode\.json/)).toBeInTheDocument();
+      expect(local.getByText(/"type": "local",\s+"command": \["npx", "-y", "@acme\/repo-search-mcp"\],\s+"enabled": false/)).toBeInTheDocument();
+      expect(local.getByText('Needs REPO_TOKEN. Set it after importing.')).toBeInTheDocument();
+      expect(local.queryByText(/mcpServers|"args"/)).not.toBeInTheDocument();
+
+      const remote = within(box('status').closest('li') as HTMLElement);
+
+      expect(remote.getByText(/"type": "remote",\s+"url": "https:\/\/status\.example\.com\/mcp",\s+"enabled": true/)).toBeInTheDocument();
+    });
+
+    it('hands over the entry to paste when the file has comments, as a note and not an error', async () => {
+      useScenario('commented');
+      await review();
+      await fireEvent.click(box('docs'));
+      await fireEvent.click(box('status'));
+      await fireEvent.click(box('opencode-wakatime@1.2.3'));
+      await fireEvent.click(box('repo-search'));
+      await fireEvent.click(screen.getByRole('button', { name: /^Import selected/ }));
+
+      const dialog = await screen.findByRole('dialog', { name: 'Import finished' });
+      const row = within(within(dialog).getByText('repo-search').closest('li') as HTMLElement);
+
+      expect(row.getByText('Skipped')).toBeInTheDocument();
+      expect(row.getByText(/~\/\.config\/opencode\/opencode\.jsonc has comments that rewriting would lose, so nothing was written there/)).toBeInTheDocument();
+
+      const snippet = (row.getByRole('button', { name: 'Copy snippet' }).closest('div')?.textContent ?? '').replace(/\s+/g, '');
+
+      expect(snippet).toContain('"repo-search":{"type":"local","command":["npx","-y","@acme/repo-search-mcp"],"enabled":false}');
+      expect(row.getByRole('button', { name: 'Copy snippet' })).toBeInTheDocument();
+      expect(within(dialog).queryByRole('alert')).not.toBeInTheDocument();
+      expect(within(dialog).queryByText('Failed')).not.toBeInTheDocument();
+      expect(within(dialog).getByText('Everything else is in place. Add the entries below to their files yourself.')).toBeInTheDocument();
+    });
   });
 
   it('lists what it could not use: invalid items, unknown harnesses, a harness that is not installed', async () => {

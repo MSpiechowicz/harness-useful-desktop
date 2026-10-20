@@ -4,18 +4,19 @@ import type { SyncImportSection } from '../bindings/SyncImportSection';
 import type { SyncItemOutcome } from '../bindings/SyncItemOutcome';
 import type { SyncOutcome } from '../bindings/SyncOutcome';
 import { IpcFailure } from '../transport';
-import { EXCLUDED_ALL, EXCLUDED_TYPICAL, EXPORT_SECTIONS, HOSTILE_PLAN_SECTIONS, HOSTILE_UNSUPPORTED, TYPICAL_PLAN_SECTIONS } from './sync-fixtures';
+import { EXCLUDED_ALL, EXCLUDED_TYPICAL, EXPORT_SECTIONS, HOSTILE_PLAN_SECTIONS, HOSTILE_UNSUPPORTED, OPENCODE_COMMENTED_MCP, opencodeEntrySnippet, TYPICAL_PLAN_SECTIONS } from './sync-fixtures';
 import type { Handlers } from './types';
 
 type SyncCommands = 'sync_export_preview' | 'sync_export' | 'sync_export_save' | 'sync_import_preview' | 'sync_import_apply';
 
 /**
  * What the mock share setup starts from. The browser preview picks one with `?sync=<name>`: `typical` (the default) is
- * OMP and PI (OpenCode has no share support) with marketplaces, plugins, packages and MCP servers in every kind of state, `empty` a machine with nothing
+ * OMP, PI and OpenCode with marketplaces, plugins, packages and MCP servers in every kind of state, `empty` a machine with nothing
  * to share, `hostile` a bundle of refused items and an uninstalled harness, `newer` a bundle from a newer app,
- * `partial` an import where a marketplace fails and its plugins are skipped, and `cancelled` closes both pickers.
+ * `partial` an import where a marketplace fails and its plugins are skipped, `commented` an import where OpenCode's config
+ * file has comments, so its servers are left to paste by hand, and `cancelled` closes both pickers.
  */
-export const SYNC_SCENARIOS = ['typical', 'empty', 'hostile', 'newer', 'partial', 'cancelled'] as const;
+export const SYNC_SCENARIOS = ['typical', 'empty', 'hostile', 'newer', 'partial', 'commented', 'cancelled'] as const;
 export type SyncScenario = (typeof SYNC_SCENARIOS)[number];
 
 /** Pause between two items of an import; tests do not wait. */
@@ -78,6 +79,15 @@ export function syncHandlers(scenario: () => SyncScenario = syncScenarioFromLoca
   function outcomeOf(section: SyncImportSection, id: string, failed: Set<string>): { outcome: SyncOutcome; summary: string | null; argv: string[] } {
     const item = section.items.find((candidate) => candidate.id === id)!;
     const argv = item.steps.flatMap((step) => (step.type === 'cli' ? step.command : []));
+    const opencodeServer = section.harness === 'opencode' ? item.steps.find((step) => step.type === 'mcpMerge') : undefined;
+
+    if (scenario() === 'commented' && opencodeServer?.type === 'mcpMerge') {
+      return {
+        outcome: { type: 'skipped', reason: { type: 'manualEdit', file: OPENCODE_COMMENTED_MCP, snippet: opencodeEntrySnippet(opencodeServer.server) } },
+        summary: null,
+        argv: [],
+      };
+    }
 
     if (scenario() === 'partial' && id === FAILED_MARKETPLACE) {
       failed.add(id);

@@ -57,7 +57,7 @@
 
         <ul>
           {#each section.items as item (item.id)}
-            <SyncItemRow {item} {flow} disabled={flow.stage !== 'review'} />
+            <SyncItemRow {item} harness={section.harness} {flow} disabled={flow.stage !== 'review'} />
           {/each}
         </ul>
       </section>
