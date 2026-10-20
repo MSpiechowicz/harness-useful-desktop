@@ -7,6 +7,7 @@
 
   import SetupCommand from './SetupCommand.svelte';
   import SetupFamilyRow from './SetupFamilyRow.svelte';
+  import SetupDetails from './SetupDetails.svelte';
   import SetupLog from './SetupLog.svelte';
   import { companionChip, skillsRowChip, skillsTargets, skillsUnavailable, type Companion } from './setup-model';
   import { setup } from './setup-state.svelte';
@@ -40,17 +41,21 @@
   /** The Harness Skills' own installer (OpenCode) has output once it ran, like a companion's. */
   const scriptInstaller = setup.installers.opencodeSkills;
   const scriptRan = $derived(setup.phase('skills:opencode') !== 'idle' || scriptInstaller.log.length > 0);
+
+  /** A companion's installer has output once it ran, even if it printed nothing yet. */
+  const ran = (companion: Companion) => setup.phase(companion) !== 'idle' || setup.installers[companion].log.length > 0;
+
+  /** Nothing ran and nothing to note: no toggle at all. */
+  const hasDetails = $derived(COMPANIONS.some(ran) || scriptRan || unavailable.length > 0 || manual.length > 0);
 </script>
 
-<!-- The whole Harness family on the step that sets it up: one row each, whatever its state, in the order they run, and the output under it once there is some. -->
+<!-- The whole Harness family on the step that sets it up: one row each, whatever its state, in the order they run. A failure stays under its row, the output and the notes sit behind the card's Details. -->
 <section aria-labelledby={titleId} class="flex min-w-0 flex-col gap-1 rounded-lg border border-line bg-glass p-4 shadow-float [@media(max-height:720px)]:p-3.5">
   <h3 id={titleId} class="truncate text-xs font-medium tracking-wider text-fg-3 uppercase">{t('onboarding.setup.installers.title')}</h3>
 
   <ul class="mt-2 flex flex-col">
     {#each COMPANIONS as companion (companion)}
       {@const server = data[companion]}
-      {@const installer = setup.installers[companion]}
-      {@const phase = setup.phase(companion)}
 
       <SetupFamilyRow
         product={companion}
@@ -58,59 +63,63 @@
         detail={server.supportedOnThisOs ? t('onboarding.setup.companion.rowDetail') : t('onboarding.setup.companion.unsupported')}
         chip={companionChip(server, setup.shown(companion), setup.waiting(companion))}
       >
-        {#if phase !== 'idle' || installer.log.length > 0}
-          <div class="flex flex-col gap-2">
-            <SetupLog lines={installer.log} />
-
-            {#if phase === 'failed'}
-              {@render failure([installer.result?.timedOut ? t('onboarding.setup.companion.timedOut') : t('onboarding.setup.companion.failed', { reason: setup.failure(companion) || t('onboarding.setup.companion.noReason') })])}
-            {/if}
-          </div>
+        {#if setup.phase(companion) === 'failed'}
+          {@render failure([setup.installers[companion].result?.timedOut ? t('onboarding.setup.companion.timedOut') : t('onboarding.setup.companion.failed', { reason: setup.failure(companion) || t('onboarding.setup.companion.noReason') })])}
         {/if}
       </SetupFamilyRow>
     {/each}
 
     <SetupFamilyRow product="skills" name={t('onboarding.setup.skills.title')} detail={skillsDetail} chip={skillsRowChip(data.harnesses, setup.skillsShown(), setup.skillsWaiting())}>
-      {#if failures.length > 0 || manual.length > 0 || unavailable.length > 0 || scriptRan}
-        <div class="flex flex-col gap-2">
-          {#if failures.length > 0}
-            {@render failure(failures.map(({ harness, reason }) => t('onboarding.setup.skills.failedIn', { name: nameOf(harness), reason })))}
-          {/if}
-
-          {#if scriptRan}
-            {@const name = nameOf('opencode')}
-
-            <section class="flex flex-col gap-2" aria-label={name}>
-              <h4 class="text-xs font-medium tracking-wider text-fg-3 uppercase">{name}</h4>
-              <SetupLog lines={scriptInstaller.log} />
-            </section>
-          {/if}
-
-          {#each unavailable as { harness, reason } (harness)}
-            {@const name = nameOf(harness)}
-
-            <section class="flex flex-col gap-2" aria-label={name}>
-              <h4 class="text-xs font-medium tracking-wider text-fg-3 uppercase">{name}</h4>
-              <p class="text-sm text-fg-2">{reason}</p>
-            </section>
-          {/each}
-
-          {#each manual as entry (entry.harness)}
-            {@const name = nameOf(entry.harness)}
-
-            {#if entry.skills.type === 'manual'}
-              <section class="flex flex-col gap-2" aria-label={name}>
-                <h4 class="text-xs font-medium tracking-wider text-fg-3 uppercase">{name}</h4>
-                <p class="text-sm text-fg-2">{entry.skills.note}</p>
-                <SetupCommand text={entry.skills.command} copyLabel={t('onboarding.setup.copyCommand')} />
-              </section>
-            {/if}
-          {/each}
-
-        </div>
+      {#if failures.length > 0}
+        {@render failure(failures.map(({ harness, reason }) => t('onboarding.setup.skills.failedIn', { name: nameOf(harness), reason })))}
       {/if}
     </SetupFamilyRow>
   </ul>
+
+  {#if hasDetails}
+    <SetupDetails>
+      {#each COMPANIONS as companion (companion)}
+        {#if ran(companion)}
+          {@const name = NAMES[companion]()}
+
+          <section class="flex flex-col gap-2" aria-label={name}>
+            <h4 class="text-xs font-medium tracking-wider text-fg-3 uppercase">{name}</h4>
+            <SetupLog lines={setup.installers[companion].log} />
+          </section>
+        {/if}
+      {/each}
+
+      {#if scriptRan}
+        {@const name = nameOf('opencode')}
+
+        <section class="flex flex-col gap-2" aria-label={name}>
+          <h4 class="text-xs font-medium tracking-wider text-fg-3 uppercase">{name}</h4>
+          <SetupLog lines={scriptInstaller.log} />
+        </section>
+      {/if}
+
+      {#each unavailable as { harness, reason } (harness)}
+        {@const name = nameOf(harness)}
+
+        <section class="flex flex-col gap-2" aria-label={name}>
+          <h4 class="text-xs font-medium tracking-wider text-fg-3 uppercase">{name}</h4>
+          <p class="text-sm text-fg-2">{reason}</p>
+        </section>
+      {/each}
+
+      {#each manual as entry (entry.harness)}
+        {@const name = nameOf(entry.harness)}
+
+        {#if entry.skills.type === 'manual'}
+          <section class="flex flex-col gap-2" aria-label={name}>
+            <h4 class="text-xs font-medium tracking-wider text-fg-3 uppercase">{name}</h4>
+            <p class="text-sm text-fg-2">{entry.skills.note}</p>
+            <SetupCommand text={entry.skills.command} copyLabel={t('onboarding.setup.copyCommand')} />
+          </section>
+        {/if}
+      {/each}
+    </SetupDetails>
+  {/if}
 </section>
 
 {#snippet failure(messages: string[])}

@@ -66,6 +66,13 @@ async function openSetup(): Promise<void> {
 /** One installer's row on the set-up step. */
 const installer = (name: 'Harness Dashboard' | 'Harness Memory' | 'Harness Skills') => within(screen.getByRole('region', { name: 'Harness family' })).getByRole('group', { name });
 
+/** The Harness family card, whose Details hold the installers' output and the notes on the skills. */
+const family = () => within(screen.getByRole('region', { name: 'Harness family' }));
+const familyDetails = () => family().queryByRole('button', { name: /^Details/ });
+const openFamilyDetails = async () => fireEvent.click(family().getByRole('button', { name: /^Details/ }));
+/** One installer's block of the opened Details, found by its heading. */
+const output = (name: string) => within(family().getByRole('region', { name })).getByRole('log', { name: 'Installer output' });
+
 describe('Set up step', () => {
   it('only reads when opened, and skipping changes nothing', async () => {
     await openSetup();
@@ -192,10 +199,13 @@ describe('Set up step', () => {
     expect(within(dashboard).getByText('Installed')).toBeInTheDocument();
     expect(within(memory).getByText('Installed')).toBeInTheDocument();
     expect(within(installer('Harness Skills')).getByText('Installed')).toBeInTheDocument();
-    // Each installer keeps its own output, here on the step that ran it.
-    expect(within(within(dashboard).getByRole('log', { name: 'Installer output' })).getByText('Verifying checksum… ok')).toBeInTheDocument();
-    expect(within(within(memory).getByRole('log', { name: 'Installer output' })).getByText('==> Checksum verified')).toBeInTheDocument();
-    expect(within(within(installer('Harness Skills')).getByRole('log', { name: 'Installer output' })).getByText(/Harness Skills 0\.2\.40 installed/)).toBeInTheDocument();
+    // Each installer keeps its own output, here on the step that ran it, behind the card's Details and not in the rows.
+    expect(within(dashboard).queryByRole('log')).toBeNull();
+    expect(family().queryByRole('log')).toBeNull();
+    await openFamilyDetails();
+    expect(within(output('Harness Dashboard')).getByText('Verifying checksum… ok')).toBeInTheDocument();
+    expect(within(output('Harness Memory')).getByText('==> Checksum verified')).toBeInTheDocument();
+    expect(within(output('OpenCode')).getByText(/Harness Skills 0\.2\.40 installed/)).toBeInTheDocument();
 
     // The status was read again: OpenCode's row on the family step now holds the version its installer recorded.
     await click('Back');
@@ -220,9 +230,13 @@ describe('Set up step', () => {
     window.history.replaceState(null, '', '/?setup=noNode');
     await openSetup();
 
-    const skills = installer('Harness Skills');
-    expect(await within(skills).findByText('Needs Node.js 22 or newer.')).toBeInTheDocument();
-    expect(within(skills).getByRole('heading', { name: 'OpenCode' })).toBeInTheDocument();
+    // The reason is a note, so it waits in the family card's Details.
+    await waitFor(() => expect(familyDetails()).toBeInTheDocument());
+    expect(screen.queryByText('Needs Node.js 22 or newer.')).toBeNull();
+    await openFamilyDetails();
+    const opencode = family().getByRole('region', { name: 'OpenCode' });
+    expect(within(opencode).getByText('Needs Node.js 22 or newer.')).toBeInTheDocument();
+    expect(within(opencode).getByRole('heading', { name: 'OpenCode' })).toBeInTheDocument();
 
     await fireEvent.click(await primary('Install and continue'));
     const confirmation = await screen.findByRole('dialog', { name: 'Run the recommended setup?' });
@@ -239,6 +253,8 @@ describe('Set up step', () => {
 
     expect(within(installer('Harness Memory')).getByText('Installed')).toBeInTheDocument();
     expect(within(installer('Harness Skills')).getByText('Installed')).toBeInTheDocument();
+    // Codex is found where the skills cannot go, which is a note, so Details is there and closed.
+    expect(familyDetails()).toHaveAttribute('aria-expanded', 'false');
 
     expect(await screen.findByRole('region', { name: 'MCP servers' })).toBeInTheDocument();
     expect(await primary('Continue')).toBeEnabled();
@@ -246,6 +262,20 @@ describe('Set up step', () => {
     expect(screen.queryByRole('button', { name: 'Install and continue' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Skip for now' })).toBeNull();
     expect(screen.queryAllByRole('switch')).toHaveLength(0);
+  });
+
+  it('has no Details on the family card when nothing ran and there is nothing to note', async () => {
+    window.history.replaceState(null, '', '/?setup=configured');
+    const real = backend.spy.getMockImplementation()!;
+    backend.spy.mockImplementation(async (name, args) => {
+      const result = await real(name, args);
+
+      return name === 'setup_status' ? { ...result, harnesses: result.harnesses.filter((entry: { skills: { type: string } }) => entry.skills.type !== 'unavailable') } : result;
+    });
+    await openSetup();
+
+    expect(within(installer('Harness Skills')).getByText('Installed')).toBeInTheDocument();
+    expect(familyDetails()).toBeNull();
   });
 
   it('shows what the installer printed when it fails, and still lets you go on', async () => {
@@ -257,13 +287,16 @@ describe('Set up step', () => {
     await click('Run setup');
 
     const dashboard = installer('Harness Dashboard');
-    const log = await within(dashboard).findByRole('log', { name: 'Installer output' });
-    await waitFor(() => expect(within(log).getByText('curl: (22) The requested URL returned error: 404')).toBeInTheDocument());
+    expect(familyDetails()).toHaveAttribute('aria-expanded', 'false');
+    // The failure line is in the row without opening anything, the output is in Details.
     expect(await within(dashboard).findByText(/The installer did not finish: The installer exited with code 22\./)).toBeInTheDocument();
     // The memory server's installer failed too, on its own row, and did not stop the run.
     const memory = installer('Harness Memory');
     await waitFor(() => expect(within(memory).getByText(/The installer did not finish: error: download failed/)).toBeInTheDocument());
-    expect(within(within(memory).getByRole('log', { name: 'Installer output' })).getByText('error: download failed')).toBeInTheDocument();
+    expect(family().queryByRole('log')).toBeNull();
+    await openFamilyDetails();
+    await waitFor(() => expect(within(output('Harness Dashboard')).getByText('curl: (22) The requested URL returned error: 404')).toBeInTheDocument());
+    expect(within(output('Harness Memory')).getByText('error: download failed')).toBeInTheDocument();
 
     // Each MCP entry needs its own companion, so neither was attempted; the skills do not, so OMP's went through while OpenCode's own installer failed too.
     // A failed run keeps the step on screen: the forward action is now "Continue anyway", and skipping is no longer offered.
@@ -274,7 +307,7 @@ describe('Set up step', () => {
     expect(backend.calls('extension_action')).toHaveLength(2);
     const skills = installer('Harness Skills');
     expect(await within(skills).findByText('OpenCode: could not install: error: could not download the Harness Skills package')).toBeInTheDocument();
-    expect(within(within(skills).getByRole('log', { name: 'Installer output' })).getByText('error: could not download the Harness Skills package')).toBeInTheDocument();
+    expect(within(output('OpenCode')).getByText('error: could not download the Harness Skills package')).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: 'Try again' })).toHaveLength(3);
     expect(sent()).not.toContain('setup_register_mcp');
     expect(sent()).not.toContain('setup_register_memory');
@@ -365,7 +398,9 @@ describe('Set up step', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Details: Codex' }));
     expect(await screen.findByText(/It is switched off in the file/)).toBeInTheDocument();
     // A found harness the skills cannot be installed in is listed on the skills row with its reason.
-    const unavailable = within(installer('Harness Skills')).getByRole('region', { name: 'Codex' });
+    expect(within(installer('Harness Skills')).queryByRole('region', { name: 'Codex' })).toBeNull();
+    await openFamilyDetails();
+    const unavailable = family().getByRole('region', { name: 'Codex' });
     expect(within(unavailable).getByText('Not supported yet.')).toBeInTheDocument();
   });
 
