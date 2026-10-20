@@ -189,6 +189,22 @@ pub async fn start_through(
     }
 }
 
+/// The exit of a server ended at stop: SIGTERM on Unix. Windows has no signals and
+/// TerminateProcess leaves exit code 1.
+pub fn terminated() -> AgentEvent {
+    if cfg!(unix) {
+        AgentEvent::Exited {
+            code: None,
+            signal: Some(15),
+        }
+    } else {
+        AgentEvent::Exited {
+            code: Some(1),
+            signal: None,
+        }
+    }
+}
+
 /// The `type` tag of an event.
 pub fn kind(event: &AgentEvent) -> String {
     serde_json::to_value(event).expect("events serialize")["type"]

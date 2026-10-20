@@ -12,7 +12,7 @@ use harness_business::agent::SessionOptions;
 use harness_business::model::{
     AgentAction, AgentEvent, AgentReply, CommandSource, ImageAttachment, IpcErrorCode, ModelOption,
 };
-use opencode_engine_support::{SESSION, env, kind, start, start_with};
+use opencode_engine_support::{SESSION, env, kind, start, start_with, terminated};
 use pretty_assertions::assert_eq;
 
 fn mock_model() -> ModelOption {
@@ -128,13 +128,7 @@ async fn stop_sends_sigterm_to_a_server_that_ignores_stdin_eof() {
         started.elapsed() < Duration::from_secs(5),
         "stopped by SIGTERM, not after the grace"
     );
-    assert_eq!(
-        chat.events().last(),
-        Some(&AgentEvent::Exited {
-            code: None,
-            signal: Some(15)
-        })
-    );
+    assert_eq!(chat.events().last(), Some(&terminated()));
     assert!(!chat.session().is_running());
 }
 

@@ -8,7 +8,7 @@ use agent_support::options;
 use harness_business::BusinessError;
 use harness_business::model::{AgentAction, AgentEvent, UiOutcome, UiPurpose, UiRequestKind};
 use opencode_engine_support::{
-    Chat, SESSION, answer, choose, dialog, kind, prompt, start, start_as, start_mode, until_marker,
+    Chat, SESSION, answer, choose, dialog, kind, prompt, start, start_as, start_mode, terminated, until_marker,
 };
 use pretty_assertions::assert_eq;
 
@@ -160,10 +160,7 @@ async fn a_helper_chat_denies_every_tool_and_deletes_its_session_at_stop() {
         .iter()
         .position(|event| matches!(event, AgentEvent::Stderr { line } if line == "deleted"));
     assert!(deleted.is_some(), "the session was deleted at stop: {events:#?}");
-    assert!(matches!(
-        events.last(),
-        Some(AgentEvent::Exited { signal: Some(15), .. })
-    ));
+    assert_eq!(events.last(), Some(&terminated()));
 
     let resumed = start_as("opencode_utility.jsonl", Some(SESSION), None, true, options()).await;
     let error = resumed.session.as_ref().err().expect("refused");

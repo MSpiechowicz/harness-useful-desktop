@@ -9,7 +9,7 @@ use std::time::Duration;
 use agent_support::options;
 use harness_business::agent::SessionOptions;
 use harness_business::model::{AgentEvent, NoticeLevel};
-use opencode_engine_support::{Chat, start, start_with};
+use opencode_engine_support::{Chat, start, start_with, terminated};
 use pretty_assertions::assert_eq;
 
 /// Waits for `exited`; the events then.
@@ -56,12 +56,5 @@ async fn a_closed_event_stream_stops_the_chat() {
     let events = exited(&chat).await;
 
     assert_lost(&events);
-    assert_eq!(
-        events.last(),
-        Some(&AgentEvent::Exited {
-            code: None,
-            signal: Some(15)
-        }),
-        "the server was ended"
-    );
+    assert_eq!(events.last(), Some(&terminated()), "the server was ended");
 }

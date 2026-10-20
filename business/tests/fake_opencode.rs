@@ -378,7 +378,9 @@ fn a_held_request_is_answered_after_later_steps() {
         let busy = events.next();
         assert_eq!(busy["payload"]["type"], "session.status");
         let cwd = dunce::canonicalize(dir.path()).expect("canonical cwd");
-        assert_eq!(busy["directory"], json!(cwd.to_string_lossy()));
+        // Windows may report the temp folder by its 8.3 short name (`RUNNER~1`).
+        let reported = busy["directory"].as_str().expect("directory");
+        assert_eq!(dunce::canonicalize(reported).expect("canonical directory"), cwd);
         assert!(!shell.is_finished(), "the shell reply waits for `respond`");
 
         assert_eq!(shell.join().unwrap().json(), json!({ "id": "msg_1" }));

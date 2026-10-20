@@ -110,7 +110,10 @@ mod tests {
     #[test]
     fn a_chat_export_can_be_revealed() {
         let dir = TempDir::new("reveal-export");
-        let state = state(&dir);
+        // Windows keeps exports under `%LOCALAPPDATA%`, which test envs leave unset.
+        let env = Env::for_tests(dir.path().join("home"))
+            .with_var("LOCALAPPDATA", dir.path().join("local").to_string_lossy());
+        let state = AppState::new(dir.path().join("config"), env);
         let export = exports_dir(&state.env)
             .expect("exports folder")
             .join("opencode-ses_1.html");
