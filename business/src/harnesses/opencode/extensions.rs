@@ -180,7 +180,7 @@ fn prompt_templates(steps: &[Step]) -> Vec<PromptTemplateInfo> {
 /// Plugins named in the `plugin` key of each settings file (npm specs, or paths relative to that
 /// file) and the `*.ts` / `*.js` files in `plugin/` and `plugins/` of each config directory. A
 /// plugin listed again (same npm package or same file) keeps its place and takes the later scope.
-fn plugins(steps: &[Step]) -> Vec<PluginInfo> {
+pub(super) fn plugins(steps: &[Step]) -> Vec<PluginInfo> {
     let mut plugins: Vec<PluginInfo> = Vec::new();
 
     for step in steps {

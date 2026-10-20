@@ -4,9 +4,9 @@
 //!
 //! A file has a [`Shape`]: the servers sit under `mcpServers` (a `mcp.json`, strict JSON) or under
 //! `mcp` (an OpenCode config file, JSONC). `merge_servers` and `existing_server` work on
-//! `mcpServers` files only.
+//! `mcpServers` files; `merge_entries` and `existing_entry` take the shape.
 //!
-//! - Merge: inserts each entry into `mcpServers`, as given (an `"enabled": false` included), after
+//! - Merge: inserts each entry into the servers object, as given (an `"enabled": false` included), after
 //!   the servers already there, keeping every other key, server and value in order. A missing file
 //!   is created (mode `0600`, parent directories too); a blank file counts as `{}`.
 //! - An existing name is never overwritten: it is reported as `AlreadyPresent` when its definition
@@ -129,9 +129,24 @@ pub enum MergeResult {
 ///
 /// `env` is unused for now; it keeps the signature in line with the other MCP file functions.
 pub fn merge_servers(_env: &Env, path: &Path, entries: &[(String, Value)]) -> MergeOutcome {
-    let changed = change_file(path, Shape::McpServers, |target| {
+    match merge_entries(path, Shape::McpServers, entries) {
+        Ok(results) => MergeOutcome::Merged(results),
+        Err(Blocked::Refused(reason)) => MergeOutcome::Refused(reason),
+        // A `mcpServers` file is strict JSON, so comments make it unparsable rather than this.
+        Err(Blocked::ManualEdit) => MergeOutcome::Refused(McpRefusal::Unparsable),
+    }
+}
+
+/// [`merge_servers`] for a file of any `shape`: one result per entry, or why the file is left
+/// alone ([`Blocked::ManualEdit`] for a JSONC file with comments that needs a new entry).
+pub(crate) fn merge_entries(
+    path: &Path,
+    shape: Shape,
+    entries: &[(String, Value)],
+) -> Result<Vec<MergedServer>, Blocked> {
+    change_file(path, shape, |target| {
         let mut document = target.document();
-        let results = insert(&mut document, entries);
+        let results = insert(&mut document, shape, entries);
         let added = results.iter().any(|server| server.result == MergeResult::Added);
 
         if added {
@@ -139,14 +154,7 @@ pub fn merge_servers(_env: &Env, path: &Path, entries: &[(String, Value)]) -> Me
         } else {
             Change::Keep(results)
         }
-    });
-
-    match changed {
-        Ok(results) => MergeOutcome::Merged(results),
-        Err(Blocked::Refused(reason)) => MergeOutcome::Refused(reason),
-        // A `mcpServers` file is strict JSON, so comments make it unparsable rather than this.
-        Err(Blocked::ManualEdit) => MergeOutcome::Refused(McpRefusal::Unparsable),
-    }
+    })
 }
 
 /// The definition of the server `name` in `path`'s `mcpServers`, or `None` when the file or the
@@ -155,8 +163,12 @@ pub fn merge_servers(_env: &Env, path: &Path, entries: &[(String, Value)]) -> Me
 /// The definition is returned as written, secrets (env, headers, ...) included: it is for comparing
 /// in process only, and must never be logged, returned over IPC or shown.
 pub fn existing_server(_env: &Env, path: &Path, name: &str) -> Result<Option<Value>, McpRefusal> {
-    let shape = Shape::McpServers;
+    existing_entry(path, Shape::McpServers, name)
+}
 
+/// [`existing_server`] for a file of any `shape` (a JSONC file with comments is read too). The same
+/// care applies: the definition holds secrets.
+pub(crate) fn existing_entry(path: &Path, shape: Shape, name: &str) -> Result<Option<Value>, McpRefusal> {
     match load(path, shape)? {
         Target::Absent { .. } => Ok(None),
         Target::Present { document, .. } => {
@@ -222,8 +234,8 @@ pub(crate) fn change_file<R>(
 }
 
 /// Inserts the entries whose names are free and reports each one.
-fn insert(document: &mut Map<String, Value>, entries: &[(String, Value)]) -> Vec<MergedServer> {
-    let Some(servers) = servers_mut(document, Shape::McpServers) else {
+fn insert(document: &mut Map<String, Value>, shape: Shape, entries: &[(String, Value)]) -> Vec<MergedServer> {
+    let Some(servers) = servers_mut(document, shape) else {
         return Vec::new();
     };
 

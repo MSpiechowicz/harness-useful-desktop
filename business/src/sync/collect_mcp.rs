@@ -67,7 +67,7 @@ pub(super) fn mcp_servers(env: &Env, harness: &dyn Harness, found: &mut Found) {
     }
 }
 
-fn preview(id: String, server: &McpServer, notes: Vec<SyncNote>) -> SyncExportItem {
+pub(super) fn preview(id: String, server: &McpServer, notes: Vec<SyncNote>) -> SyncExportItem {
     SyncExportItem {
         id,
         detail: Some(server.detail()),
@@ -129,7 +129,7 @@ fn transport(fields: &Map<String, Value>) -> Option<Transport> {
 }
 
 /// A required string field.
-fn text(fields: &Map<String, Value>, key: &str) -> Result<String, SyncExcludedReason> {
+pub(super) fn text(fields: &Map<String, Value>, key: &str) -> Result<String, SyncExcludedReason> {
     match fields.get(key) {
         Some(Value::String(value)) => Ok(value.clone()),
         _ => Err(SyncExcludedReason::Invalid),
@@ -137,7 +137,7 @@ fn text(fields: &Map<String, Value>, key: &str) -> Result<String, SyncExcludedRe
 }
 
 /// An optional list of strings.
-fn list(fields: &Map<String, Value>, key: &str) -> Result<Vec<String>, SyncExcludedReason> {
+pub(super) fn list(fields: &Map<String, Value>, key: &str) -> Result<Vec<String>, SyncExcludedReason> {
     let Some(value) = fields.get(key) else {
         return Ok(Vec::new());
     };
@@ -151,7 +151,7 @@ fn list(fields: &Map<String, Value>, key: &str) -> Result<Vec<String>, SyncExclu
 
 /// The key names of an optional object (`env`, `headers`), never its values. Key names that look
 /// like secrets leave the server out.
-fn keys(fields: &Map<String, Value>, key: &str) -> Result<Vec<String>, SyncExcludedReason> {
+pub(super) fn keys(fields: &Map<String, Value>, key: &str) -> Result<Vec<String>, SyncExcludedReason> {
     let Some(value) = fields.get(key) else {
         return Ok(Vec::new());
     };
@@ -166,7 +166,11 @@ fn keys(fields: &Map<String, Value>, key: &str) -> Result<Vec<String>, SyncExclu
 
 /// Why the command, arguments or URL may not leave this machine: credentials, then secrets, then a
 /// local path (checked before the import validators so the reason names the actual problem).
-fn endpoint_problem(command: Option<&str>, args: &[String], url: Option<&str>) -> Result<(), SyncExcludedReason> {
+pub(super) fn endpoint_problem(
+    command: Option<&str>,
+    args: &[String],
+    url: Option<&str>,
+) -> Result<(), SyncExcludedReason> {
     let values = || command.into_iter().chain(url);
 
     if values().any(validate::has_credentials) {

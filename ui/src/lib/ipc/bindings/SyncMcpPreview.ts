@@ -6,7 +6,9 @@ import type { McpTransport } from "./McpTransport";
  */
 export type SyncMcpPreview = { 
 /**
- * The key under `mcpServers`.
+ * The key under `mcpServers` (`mcp` in OpenCode's config file, where a stdio server is written
+ * as `{"type": "local", "command": [command, ...args], "enabled": …}` and an http/sse one as
+ * `{"type": "remote", "url": …, "enabled": …}`).
  */
 name: string, 
 /**

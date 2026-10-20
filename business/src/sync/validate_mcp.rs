@@ -4,7 +4,9 @@
 //! A harness expands `$NAME` / `${NAME}` in a server's fields from its own environment, so a
 //! received reference could send this machine's secrets to the bundle's author: URLs may hold none,
 //! and arguments only reference the env keys the server declares (it is then written switched off
-//! until the user fills them in).
+//! until the user fills them in). OpenCode also substitutes `{env:NAME}` and `{file:path}` anywhere
+//! in its config file, which would put this machine's variables or file contents into the command
+//! line or the URL, so its servers may hold neither ([`opencode_mcp_server`]).
 
 use std::sync::LazyLock;
 
@@ -216,4 +218,24 @@ pub fn mcp_server(item: &McpServer) -> Check {
 
     key_names(&item.env_keys)?;
     key_names(&item.header_keys)
+}
+
+/// A whole shared OpenCode server: [`mcp_server`], and no `{env:…}` or `{file:…}` substitution
+/// (any case) in the command, an argument or the URL (`unsafeValue`).
+pub fn opencode_mcp_server(item: &McpServer) -> Check {
+    mcp_server(item)?;
+
+    let mut fields = item.command.iter().chain(&item.args).chain(&item.url);
+    if fields.any(|value| has_substitution(value)) {
+        return Err(SyncInvalidReason::UnsafeValue);
+    }
+
+    Ok(())
+}
+
+/// True when `value` holds an OpenCode config substitution (`{env:` or `{file:`, any case).
+fn has_substitution(value: &str) -> bool {
+    let lower = value.to_ascii_lowercase();
+
+    lower.contains("{env:") || lower.contains("{file:")
 }

@@ -21,6 +21,7 @@ pub mod codec;
 pub mod collect;
 mod collect_items;
 mod collect_mcp;
+mod collect_opencode;
 pub mod plan;
 mod plan_presence;
 mod plan_rows;

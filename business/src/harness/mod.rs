@@ -154,12 +154,14 @@ pub enum McpTarget {
 
 /// Which kinds of items "Share setup" exports from a harness and imports into it (see
 /// [`crate::sync`]). The default shares nothing, so a new harness opts in kind by kind; MCP servers
-/// also need a [`McpTarget::UserMcpJson`] in [`Harness::companion_setup`].
+/// also need a [`McpTarget::UserMcpJson`] or [`McpTarget::OpenCodeConfig`] in
+/// [`Harness::companion_setup`].
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct ShareSupport {
     /// Plugin marketplaces (OMP's marketplace registry).
     pub marketplaces: bool,
-    /// Plugins installed in the user scope (OMP's plugin registry and npm plugins).
+    /// Plugins installed in the user scope (OMP's plugin registry and npm plugins, OpenCode's npm
+    /// plugins of the global config file).
     pub plugins: bool,
     /// Packages of the user settings (PI's `packages`).
     pub packages: bool,

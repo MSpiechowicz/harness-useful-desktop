@@ -6,8 +6,8 @@
 //! id: Rust rebuilds every bundle from disk and keeps every import plan, so nothing the webview
 //! sends can add a command. Bundles are not signed (zlib's Adler-32 only detects corruption).
 //!
-//! Item ids: `omp:marketplace:<name>`, `omp:plugin:<id>`, `pi:package:<identity>`,
-//! `<harness>:mcp:<name>`.
+//! Item ids: `omp:marketplace:<name>`, `omp:plugin:<id>`, `opencode:plugin:<npm name>`,
+//! `pi:package:<identity>`, `<harness>:mcp:<name>`.
 
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
@@ -21,7 +21,7 @@ use super::{HarnessId, McpRefusal, McpTransport};
 pub enum SyncItemKind {
     /// A plugin marketplace (OMP), registered with `MarketplaceAdd`.
     Marketplace,
-    /// A plugin (OMP), installed in the user scope.
+    /// A plugin (OMP; OpenCode npm plugins), installed in the user scope.
     Plugin,
     /// A package (PI), installed globally.
     Package,
@@ -346,7 +346,9 @@ pub enum SyncStep {
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
 pub struct SyncMcpPreview {
-    /// The key under `mcpServers`.
+    /// The key under `mcpServers` (`mcp` in OpenCode's config file, where a stdio server is written
+    /// as `{"type": "local", "command": [command, ...args], "enabled": …}` and an http/sse one as
+    /// `{"type": "remote", "url": …, "enabled": …}`).
     pub name: String,
     /// `stdio`, `http` or `sse`.
     pub transport: McpTransport,
@@ -443,6 +445,14 @@ pub enum SyncSkipReason {
     McpFileRefused {
         /// Why.
         refusal: McpRefusal,
+    },
+    /// The harness's config file has comments a rewrite would lose (OpenCode's JSONC), so nothing
+    /// was written: the user pastes `snippet` into its servers object (`mcp`).
+    ManualEdit {
+        /// The file's home-relative display path (e.g. `"~/.config/opencode/opencode.jsonc"`).
+        file: String,
+        /// The server entry to add, as text ready to paste (`"<name>": { … }`).
+        snippet: String,
     },
 }
 

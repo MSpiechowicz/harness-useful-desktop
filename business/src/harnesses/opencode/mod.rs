@@ -6,7 +6,8 @@
 //! `opencode serve` per chat ([`ChatProtocol::OpenCodeServer`], see [`launch`]), not the
 //! PI-family RPC, and is marked as a preview. Extension actions install npm plugins through
 //! `opencode plugin <module> -g` ([`cli`]) and remove them by editing the global config file
-//! ([`plugin_remove`]), since OpenCode has no uninstall command. Every spawn switches off
+//! ([`plugin_remove`]), since OpenCode has no uninstall command. "Share setup" shares the npm
+//! plugins and MCP servers of the global config file ([`share`]). Every spawn switches off
 //! OpenCode's self-updater.
 
 mod catalog;
@@ -18,11 +19,13 @@ mod paths;
 mod plugin_remove;
 mod sessions;
 mod setup;
+mod share;
 
 pub use catalog::OpenCodeCatalog;
 pub use launch::opencode_launch_spec;
 pub use paths::{PROJECT_DIR_NAME, config_dir, custom_config_dir, data_dir, home_config_dir};
 pub use sessions::OpenCodeSessions;
+pub(crate) use share::{PluginEntry, global_plugin_entries, user_npm_plugins};
 
 use crate::error::BusinessError;
 use crate::harness::prelude::*;
@@ -187,6 +190,16 @@ impl Harness for OpenCode {
 
     fn companion_setup(&self) -> CompanionSetup {
         setup::companion_setup()
+    }
+
+    /// The npm plugins and the MCP servers of the global config file (see [`share`]).
+    fn share_support(&self) -> ShareSupport {
+        ShareSupport {
+            marketplaces: false,
+            plugins: true,
+            packages: false,
+            mcp_servers: true,
+        }
     }
 
     fn supported_versions(&self) -> &'static [&'static str] {

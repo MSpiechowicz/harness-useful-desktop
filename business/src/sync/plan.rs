@@ -8,9 +8,10 @@
 //! ```
 //!
 //! Every step is built here from validated fields only: `MarketplaceAdd`, `PluginInstall` in the
-//! user scope, `PackageInstall` (no project), or an MCP entry holding only `type`, `command`, `args`,
-//! `url` and, when the server needs env or header values, `"enabled": false`. The MCP file comes
-//! from [`mcp_target_paths`], never from the bundle. Statuses compare the bundle with this machine's
+//! user scope (an OpenCode plugin as `<name>[@<version>]`), `PackageInstall` (no project), or an MCP
+//! entry holding only `type`, `command`, `args`, `url` and, when the server needs env or header
+//! values, `"enabled": false` (OpenCode: `type`, the `command` array or `url`, and `enabled`). The
+//! MCP file comes from [`mcp_target`], never from the bundle. Statuses compare the bundle with this machine's
 //! files in process (see [`super::plan_presence`]); existing MCP definitions and local sources never
 //! reach the plan.
 //!
@@ -29,7 +30,7 @@ use super::collect::item_id;
 use super::plan_presence::{Machine, McpFiles, Presence, mcp_presence};
 use super::plan_rows::{Dependency, Row, SharedMarketplace, Step, StoredPlan, display_argv, mcp_preview};
 use super::schema::{Parsed, ParsedSection, Plugin};
-use crate::ecosystem::mcp_target_paths;
+use crate::ecosystem::mcp_target;
 use crate::env::Env;
 use crate::harness::{Harness, HarnessRegistry, ShareSupport};
 use crate::model::{
@@ -98,11 +99,20 @@ pub fn build_plan(
 
 /// The user MCP file of `harness`, when it has one.
 fn mcp_files(env: &Env, harness: &dyn Harness) -> Option<McpFiles> {
-    mcp_target_paths(env, harness).map(|(target, also_read)| McpFiles { target, also_read })
+    mcp_target(env, harness).map(|file| McpFiles {
+        target: file.path,
+        also_read: file.also_read,
+        shape: file.shape,
+    })
 }
 
-/// The marketplace a plugin comes from: its `marketplace`, else the `@marketplace` of its id.
-fn plugin_marketplace(plugin: &Plugin) -> Option<String> {
+/// The marketplace a plugin comes from: its `marketplace`, else the `@marketplace` of its id. An
+/// OpenCode plugin is an npm package and has none.
+fn plugin_marketplace(harness: HarnessId, plugin: &Plugin) -> Option<String> {
+    if harness == HarnessId::OpenCode {
+        return None;
+    }
+
     if let Some(marketplace) = &plugin.marketplace {
         return Some(marketplace.clone());
     }
@@ -138,7 +148,7 @@ impl<'a> Context<'a> {
 
         // Nothing is read for a harness that is not installed: all its items are blocked.
         let (machine, mcp_files) = match harness {
-            Some(harness) if installed => (Machine::read(&harness.paths(env, None)), mcp_files(env, harness)),
+            Some(harness) if installed => (Machine::read(env, harness), mcp_files(env, harness)),
             _ => (Machine::default(), None),
         };
 
@@ -255,7 +265,7 @@ impl<'a> Context<'a> {
             Step::Plugin(plugin) => self.machine.plugin(plugin),
             Step::Package(package) => self.machine.package(package),
             Step::Mcp(server) => match &self.mcp_files {
-                Some(files) => mcp_presence(self.env, files, server).unwrap_or(Presence::Absent),
+                Some(files) => mcp_presence(files, server).unwrap_or(Presence::Absent),
                 None => Presence::Absent,
             },
         };
@@ -274,7 +284,7 @@ impl<'a> Context<'a> {
         plugin: &Plugin,
         marketplaces: &[SharedMarketplace],
     ) -> (SyncItemStatus, Option<Dependency>) {
-        let Some(name) = plugin_marketplace(plugin) else {
+        let Some(name) = plugin_marketplace(self.id, plugin) else {
             return (SyncItemStatus::New, None);
         };
 
@@ -308,7 +318,7 @@ impl<'a> Context<'a> {
                 .map(|files| (mcp_preview(tilde(self.env, &files.target), server), Some(files.clone()))),
             _ => self
                 .harness
-                .zip(step.action())
+                .zip(step.action(self.id))
                 .and_then(|(harness, action)| display_argv(harness, &action))
                 .map(|display| (display, None)),
         };

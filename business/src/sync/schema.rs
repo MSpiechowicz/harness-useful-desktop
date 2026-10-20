@@ -7,8 +7,13 @@
 //!              "plugins": [{ "id": "name@marketplace", "marketplace": "…", "version": "…" }],
 //!              "mcpServers": [{ "name": "…", "transport": "stdio", "command": "…", "args": ["…"],
 //!                               "envKeys": ["…"], "headerKeys": ["…"] }] },
-//!     "pi": { "packages": [{ "source": "npm:pkg@1.2.0" }], "mcpServers": [] } } }
+//!     "pi": { "packages": [{ "source": "npm:pkg@1.2.0" }], "mcpServers": [] },
+//!     "opencode": { "plugins": [{ "id": "@scope/name", "version": "1.2.3" }], "mcpServers": [] } } }
 //! ```
+//!
+//! An OpenCode plugin is an npm package name with the version it installs (`opencode plugin
+//! <id>@<version> -g`), never a marketplace; its servers are the `mcp` entries of the global config
+//! file in the same form (`local` as stdio, `remote` as http).
 //!
 //! Forward compatible: unknown fields anywhere are ignored (no `deny_unknown_fields`), unknown
 //! harness sections and item kinds are counted, never shown. Each item is parsed and validated on
@@ -103,7 +108,7 @@ pub struct HarnessSection {
     /// OMP plugin marketplaces.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub marketplaces: Vec<Marketplace>,
-    /// OMP plugins.
+    /// OMP and OpenCode plugins.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub plugins: Vec<Plugin>,
     /// PI packages.
@@ -135,12 +140,13 @@ pub struct Marketplace {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Plugin {
-    /// `name@marketplace` or an npm package name.
+    /// `name@marketplace` or an npm package name (OpenCode: an npm package name only).
     pub id: String,
-    /// The marketplace it comes from, when it has one.
+    /// The marketplace it comes from, when it has one (never for OpenCode).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub marketplace: Option<String>,
-    /// The installed version (informational: import installs the latest).
+    /// OMP: the installed version (informational: import installs the latest). OpenCode: the
+    /// version, range or tag the config pins, installed as is.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub version: Option<String>,
 }
@@ -266,13 +272,28 @@ impl ParsedSection {
 /// Parses the [`KNOWN_KINDS`] of a harness section, item by item. `section` must already have
 /// passed the item limits (see `codec`); a non-array value of a known kind counts as no items, and
 /// other keys are left to the caller.
+///
+/// OpenCode plugins and servers pass [`validate::opencode_plugin`] and
+/// [`validate::opencode_mcp_server`].
 pub fn parse_section(harness: HarnessId, section: &Map<String, Value>) -> ParsedSection {
+    let opencode = harness == HarnessId::OpenCode;
+    let plugin: fn(&Plugin) -> Check = if opencode {
+        validate::opencode_plugin
+    } else {
+        validate::plugin
+    };
+    let mcp_server: fn(&McpServer) -> Check = if opencode {
+        validate::opencode_mcp_server
+    } else {
+        validate::mcp_server
+    };
+
     ParsedSection {
         harness,
         marketplaces: parse_items(section.get("marketplaces"), "name", validate::marketplace),
-        plugins: parse_items(section.get("plugins"), "id", validate::plugin),
+        plugins: parse_items(section.get("plugins"), "id", plugin),
         packages: parse_items(section.get("packages"), "source", validate::package),
-        mcp_servers: parse_items(section.get("mcpServers"), "name", validate::mcp_server),
+        mcp_servers: parse_items(section.get("mcpServers"), "name", mcp_server),
     }
 }
 

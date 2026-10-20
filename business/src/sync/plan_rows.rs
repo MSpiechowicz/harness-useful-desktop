@@ -6,6 +6,7 @@ use serde_json::{Map, Value};
 use super::collect::package_identity;
 use super::plan_presence::McpFiles;
 use super::schema::{Marketplace, McpServer, Package, Plugin, Transport};
+use crate::ecosystem::Shape;
 use crate::harness::Harness;
 use crate::model::{
     ExtensionAction, HarnessId, InstallScope, SyncImportItem, SyncInvalidReason, SyncItemKind, SyncItemStatus,
@@ -90,7 +91,7 @@ pub(crate) struct Dependency {
 pub(crate) enum Step {
     /// `MarketplaceAdd { source }`.
     Marketplace(Marketplace),
-    /// `PluginInstall { target: id, scope: User }`.
+    /// `PluginInstall { target, scope: User }` (see [`Step::action`]).
     Plugin(Plugin),
     /// `PackageInstall { source }` (no project).
     Package(Package),
@@ -99,14 +100,16 @@ pub(crate) enum Step {
 }
 
 impl Step {
-    /// The CLI action of a marketplace, plugin or package; `None` for an MCP server.
-    pub fn action(&self) -> Option<ExtensionAction> {
+    /// The CLI action of a marketplace, plugin or package of `harness`; `None` for an MCP server. A
+    /// plugin installs its id; an OpenCode plugin installs `<id>@<version>` when it has a version
+    /// (the pin is kept, not informational).
+    pub fn action(&self, harness: HarnessId) -> Option<ExtensionAction> {
         match self {
             Self::Marketplace(marketplace) => Some(ExtensionAction::MarketplaceAdd {
                 source: marketplace.source.clone(),
             }),
             Self::Plugin(plugin) => Some(ExtensionAction::PluginInstall {
-                target: plugin.id.clone(),
+                target: plugin_target(harness, plugin),
                 scope: InstallScope::User,
             }),
             Self::Package(package) => Some(ExtensionAction::PackageInstall {
@@ -116,7 +119,8 @@ impl Step {
         }
     }
 
-    /// The id key: marketplace name, plugin id, [`package_identity`] or server name.
+    /// The id key: marketplace name, plugin id (without version), [`package_identity`] or server
+    /// name.
     pub fn key(&self) -> String {
         match self {
             Self::Marketplace(marketplace) => marketplace.name.clone(),
@@ -177,7 +181,7 @@ impl Row {
             }
         }
 
-        item.notes = notes(step);
+        item.notes = notes(step, harness);
         let stored = stored(&item, harness);
 
         Self { item, stored }
@@ -256,10 +260,20 @@ fn stored(item: &SyncImportItem, harness: HarnessId) -> StoredItem {
     }
 }
 
-fn notes(step: &Step) -> Vec<SyncNote> {
+/// What `plugin` of `harness` installs: its id, or `<id>@<version>` for a pinned OpenCode plugin.
+fn plugin_target(harness: HarnessId, plugin: &Plugin) -> String {
+    match (&plugin.version, harness) {
+        (Some(version), HarnessId::OpenCode) => format!("{}@{version}", plugin.id),
+        _ => plugin.id.clone(),
+    }
+}
+
+/// The notes of a valid item. An OpenCode plugin's version is installed as is, so it is not
+/// informational there.
+fn notes(step: &Step, harness: HarnessId) -> Vec<SyncNote> {
     let (version, env, headers) = match step {
         Step::Marketplace(_) => (false, false, false),
-        Step::Plugin(plugin) => (plugin.version.is_some(), false, false),
+        Step::Plugin(plugin) => (plugin.version.is_some() && harness != HarnessId::OpenCode, false, false),
         Step::Package(package) => (package.version.is_some(), false, false),
         Step::Mcp(server) => (false, !server.env_keys.is_empty(), !server.header_keys.is_empty()),
     };
@@ -304,9 +318,16 @@ fn needs_values(server: &McpServer) -> bool {
     !server.env_keys.is_empty() || !server.header_keys.is_empty()
 }
 
-/// The entry an import writes for `server`: stdio `{command, args}`, http/sse `{type, url}`, plus
-/// `"enabled": false` when it needs env or header values. Nothing else, ever.
-pub(crate) fn mcp_definition(server: &McpServer) -> Value {
+/// The entry an import writes for `server` into a file of `shape`: stdio `{command, args}`,
+/// http/sse `{type, url}`, plus `"enabled": false` when it needs env or header values. OpenCode:
+/// `{type: "local", command: [command, ...args], enabled}` or `{type: "remote", url, enabled}`, with
+/// `enabled` false when it needs values. Nothing else, ever: env and header names are not written
+/// (the review lists them), so no empty value can reach the server.
+pub(crate) fn mcp_definition(server: &McpServer, shape: Shape) -> Value {
+    if shape == Shape::OpenCode {
+        return opencode_definition(server);
+    }
+
     let mut entry = Map::new();
 
     match server.transport {
@@ -328,6 +349,29 @@ pub(crate) fn mcp_definition(server: &McpServer) -> Value {
     if needs_values(server) {
         entry.insert("enabled".to_owned(), false.into());
     }
+
+    Value::Object(entry)
+}
+
+/// The OpenCode entry for `server` (see [`mcp_definition`]).
+fn opencode_definition(server: &McpServer) -> Value {
+    let mut entry = Map::new();
+
+    match server.transport {
+        Transport::Stdio => {
+            let mut command = vec![server.command.clone().unwrap_or_default()];
+            command.extend(server.args.iter().cloned());
+
+            entry.insert("type".to_owned(), "local".into());
+            entry.insert("command".to_owned(), command.into());
+        }
+        Transport::Http | Transport::Sse => {
+            entry.insert("type".to_owned(), "remote".into());
+            entry.insert("url".to_owned(), server.url.clone().unwrap_or_default().into());
+        }
+    }
+
+    entry.insert("enabled".to_owned(), (!needs_values(server)).into());
 
     Value::Object(entry)
 }

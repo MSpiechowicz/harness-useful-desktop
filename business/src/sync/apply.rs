@@ -11,8 +11,9 @@
 //! same-name item with another definition ends `conflict`, and neither runs anything. CLI steps go
 //! through [`run_cli_action`] (fixed argv, no shell, ANSI stripped, output redacted and capped), in
 //! the user scope and without a project. The MCP servers of one file are written by one
-//! [`merge_servers`] call; a refused file skips all of them. A failed marketplace skips the plugins
-//! that depend on it; every other item still runs.
+//! [`merge_entries`] call; a refused file skips all of them, and an OpenCode config file with
+//! comments skips them as `manualEdit`, each with the entry to paste. A failed marketplace skips
+//! the plugins that depend on it; every other item still runs.
 //!
 //! There is no rollback: what succeeded stays when a later item fails. Logs carry counts only.
 
@@ -21,13 +22,16 @@ use std::collections::{BTreeMap, HashSet};
 use super::StoredPlan;
 use super::plan_presence::{Machine, McpFiles, Presence, mcp_presence};
 use super::plan_rows::{Step, StoredItem, mcp_definition};
-use crate::ecosystem::{MergeOutcome, MergeResult, merge_servers};
+use crate::ecosystem::mcp_merge::merge_entries;
+use crate::ecosystem::mcp_register::snippet;
+use crate::ecosystem::{Blocked, MergeResult};
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::harness::{CliRun, Harness, HarnessRegistry, run_cli_action};
 use crate::model::{
     HarnessId, SyncImportResult, SyncItemKind, SyncItemOutcome, SyncOutcome, SyncProgress, SyncSkipReason,
 };
+use crate::pi_family::tilde;
 use crate::process::{ProcessRunner, ResolvedBinary};
 use crate::security::redact_text;
 
@@ -161,7 +165,7 @@ fn registered(context: ApplyContext<'_>, harness: HarnessId, name: &str) -> bool
     context
         .registry
         .get(harness)
-        .is_some_and(|harness| Machine::read(&harness.paths(context.env, None)).has_marketplace(name))
+        .is_some_and(|harness| Machine::read(context.env, harness).has_marketplace(name))
 }
 
 /// The harnesses of `items`, in order of first appearance.
@@ -260,7 +264,7 @@ impl Run<'_> {
             }
         }
 
-        let Some(action) = step.action() else {
+        let Some(action) = step.action(item.harness) else {
             return outcome(item, SyncOutcome::Failed);
         };
 
@@ -300,7 +304,7 @@ impl Run<'_> {
 /// What is installed now for a CLI step. A shared marketplace that now conflicts ends `conflict`,
 /// which skips its dependent plugins.
 fn recheck(env: &Env, harness: &dyn Harness, step: &Step) -> Presence {
-    let machine = Machine::read(&harness.paths(env, None));
+    let machine = Machine::read(env, harness);
 
     match step {
         Step::Marketplace(marketplace) => machine.marketplace(marketplace),
@@ -336,7 +340,7 @@ fn mcp_batch(env: &Env, files: Option<&McpFiles>, items: &[&StoredItem]) -> Vec<
             continue;
         };
 
-        let decided = match mcp_presence(env, files, server) {
+        let decided = match mcp_presence(files, server) {
             Err(refusal) => Some(SyncOutcome::Skipped {
                 reason: SyncSkipReason::McpFileRefused { refusal },
             }),
@@ -346,7 +350,7 @@ fn mcp_batch(env: &Env, files: Option<&McpFiles>, items: &[&StoredItem]) -> Vec<
         };
 
         if decided.is_none() {
-            pending.push((index, (server.name.clone(), mcp_definition(server))));
+            pending.push((index, (server.name.clone(), mcp_definition(server, files.shape))));
         }
 
         outcomes.push(decided.map(|decided| outcome(item, decided)));
@@ -354,14 +358,20 @@ fn mcp_batch(env: &Env, files: Option<&McpFiles>, items: &[&StoredItem]) -> Vec<
 
     if !pending.is_empty() {
         let entries: Vec<(String, serde_json::Value)> = pending.iter().map(|(_, entry)| entry.clone()).collect();
-        let merged = merge_servers(env, &files.target, &entries);
+        let merged = merge_entries(&files.target, files.shape, &entries);
 
-        for (position, (index, _)) in pending.iter().enumerate() {
+        for (position, (index, (name, definition))) in pending.iter().enumerate() {
             let result = match &merged {
-                MergeOutcome::Refused(refusal) => SyncOutcome::Skipped {
+                Err(Blocked::Refused(refusal)) => SyncOutcome::Skipped {
                     reason: SyncSkipReason::McpFileRefused { refusal: *refusal },
                 },
-                MergeOutcome::Merged(results) => match results.get(position).map(|server| server.result) {
+                Err(Blocked::ManualEdit) => SyncOutcome::Skipped {
+                    reason: SyncSkipReason::ManualEdit {
+                        file: tilde(env, &files.target),
+                        snippet: snippet(name, definition),
+                    },
+                },
+                Ok(results) => match results.get(position).map(|server| server.result) {
                     Some(MergeResult::Added) => SyncOutcome::Done,
                     Some(MergeResult::AlreadyPresent) => SyncOutcome::AlreadyPresent,
                     Some(MergeResult::Conflict) => SyncOutcome::Conflict,

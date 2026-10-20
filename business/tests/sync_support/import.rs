@@ -30,6 +30,8 @@ pub const PI_MCP: &str = ".pi/agent/mcp.json";
 pub const OMP_MARKETPLACES: &str = ".omp/marketplaces.json";
 pub const OMP_PLUGINS: &str = ".omp/plugins/installed_plugins.json";
 pub const PI_SETTINGS: &str = ".pi/agent/settings.json";
+pub const OPENCODE_JSON: &str = ".config/opencode/opencode.json";
+pub const OPENCODE_JSONC: &str = ".config/opencode/opencode.jsonc";
 
 /// A home directory with harness files, and the harnesses detected as installed.
 pub struct Machine {
@@ -125,9 +127,10 @@ pub fn ids(plan: &SyncImportPlan) -> Vec<String> {
         .collect()
 }
 
-/// The fake `omp` and `pi`: records each command line (program file name first) and, unless told
-/// to fail it, does what it asks to the files of `home`: registers a marketplace (named after
-/// `marketplace_names`), installs a user plugin, adds a PI package.
+/// The fake `omp`, `pi` and `opencode`: records each command line (program file name first) and,
+/// unless told to fail it, does what it asks to the files of `home`: registers a marketplace (named
+/// after `marketplace_names`), installs a user plugin, adds a PI package, adds an OpenCode plugin to
+/// `opencode.json`.
 pub struct FakeCli {
     home: PathBuf,
     marketplace_names: Vec<(String, String)>,
@@ -198,6 +201,15 @@ impl FakeCli {
                     None => settings["packages"] = json!([source]),
                 }
                 write_json(&path, &settings);
+            }
+            ["opencode", "plugin", spec, "-g"] => {
+                let path = self.home.join(OPENCODE_JSON);
+                let mut config = read_json(&path);
+                match config["plugin"].as_array_mut() {
+                    Some(plugins) => plugins.push(json!(spec)),
+                    None => config["plugin"] = json!([spec]),
+                }
+                write_json(&path, &config);
             }
             _ => panic!("unexpected command {argv:?}"),
         }

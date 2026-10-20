@@ -245,7 +245,7 @@ fn manual_edit(env: &Env, path: &Path, name: &str, entry: &Value) -> McpState {
 }
 
 /// `"<name>": <entry>`, pretty-printed, ready to paste into the servers object.
-fn snippet(name: &str, entry: &Value) -> String {
+pub(crate) fn snippet(name: &str, entry: &Value) -> String {
     let name = Value::String(name.to_owned());
     let entry = serde_json::to_string_pretty(entry).unwrap_or_default();
 
