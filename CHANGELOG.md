@@ -1,3 +1,28 @@
+# [0.33.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.32.0...v0.33.0) (2026-10-20)
+
+
+### Bug Fixes
+
+* **opencode:** accept approval modes when OpenCode reorders its skill rules ([eed4003](https://github.com/MSpiechowicz/harness-useful-desktop/commit/eed4003479c8f45883e54ea6d5071e03adc3b43f))
+* **opencode:** bind approval cards to their tool call and mark questions ([b4edcae](https://github.com/MSpiechowicz/harness-useful-desktop/commit/b4edcae0e318c0b502acf06556d161992438bb74))
+* **opencode:** deliver approval modes as the chat server's config ([74ec28b](https://github.com/MSpiechowicz/harness-useful-desktop/commit/74ec28bc39e8c429493f2779ff556aaf78095628))
+* **opencode:** neutralise stored approval rules and harden the engine ([346daf1](https://github.com/MSpiechowicz/harness-useful-desktop/commit/346daf140898b452fc93550688b78dac59ec4543))
+* **opencode:** probe the session's own folder and refuse untrusted agent lists ([5b9c11f](https://github.com/MSpiechowicz/harness-useful-desktop/commit/5b9c11f94813c8fd9dc1d155e727950ab0fc3e93))
+* **opencode:** show the default model, the switch at once, and no agent picker ([1aab01c](https://github.com/MSpiechowicz/harness-useful-desktop/commit/1aab01cef559c566413d32fafd989aba78b7f212))
+
+
+### Features
+
+* **model:** agent picker and preview capability in the chat contract ([2f700df](https://github.com/MSpiechowicz/harness-useful-desktop/commit/2f700df12f220e693e17a5e45ae55dac1dbb66e5))
+* **opencode:** approvals, questions and per-chat approval modes ([cb3354e](https://github.com/MSpiechowicz/harness-useful-desktop/commit/cb3354e5f76b13e08c6ce9de8e2f0d1e8273dfec))
+* **opencode:** enable chat for the OpenCode harness ([7d5f2a7](https://github.com/MSpiechowicz/harness-useful-desktop/commit/7d5f2a744badac155c940298afbce5579e45f737))
+* **opencode:** loopback HTTP and SSE client ([5cb2a4c](https://github.com/MSpiechowicz/harness-useful-desktop/commit/5cb2a4cb60ad0ee1e152079b7815e7da218477e5))
+* **opencode:** native chat engine over opencode serve ([f5062c4](https://github.com/MSpiechowicz/harness-useful-desktop/commit/f5062c4078e8487cdc84a8de758964f31895af55))
+* **opencode:** session actions, export, stats and !commands ([4ba6000](https://github.com/MSpiechowicz/harness-useful-desktop/commit/4ba60006cfce486850e09bc92566233c5a4c16cf))
+* **opencode:** steering, queue, abort, slash commands and history ([5837d60](https://github.com/MSpiechowicz/harness-useful-desktop/commit/5837d60ce75eef29836d3d836e5e398b8322748b))
+* **routines:** OpenCode agent routines and hooks ([89201e8](https://github.com/MSpiechowicz/harness-useful-desktop/commit/89201e8ce80812e8f676a53d826d3c5e93975574))
+* **ui:** OpenCode chat with agent picker and Preview badge ([406007a](https://github.com/MSpiechowicz/harness-useful-desktop/commit/406007ad03262ebce5de942739012f0933e56dea))
+
 # [0.32.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.31.0...v0.32.0) (2026-10-20)
 
 
