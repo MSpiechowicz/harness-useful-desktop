@@ -31,7 +31,7 @@
   {/snippet}
 
   {#snippet body()}
-    <p class="mx-4 my-3 border-l-2 border-think-wash pl-4 text-sm leading-relaxed break-words whitespace-pre-wrap text-fg-2">
+    <p class="mx-4 my-3 text-sm leading-relaxed break-words whitespace-pre-wrap text-fg-2">
       {redacted ? t('chat.thinking.redacted') : text}{#if streaming}<span class="caret" aria-hidden="true"></span>{/if}
     </p>
   {/snippet}

@@ -41,7 +41,7 @@
   <button
     type="button"
     aria-expanded={open}
-    class={cx('grid h-11 w-full grid-cols-[28px_minmax(0,1fr)_auto_16px] items-center gap-x-3 chat-radius pr-3.5 pl-2 text-left transition-colors hover:bg-hover active:bg-press', open && 'rounded-b-none')}
+    class={cx('grid h-11 w-full grid-cols-[28px_minmax(0,1fr)_auto_16px] items-center gap-x-3 chat-radius pr-3.5 pl-[18px] text-left transition-colors hover:bg-hover active:bg-press', open && 'rounded-b-none')}
     onclick={ontoggle}
   >
     <span class={cx('grid size-7 place-items-center rounded-[8px]', TILES[tone])}>{@render icon()}</span>
