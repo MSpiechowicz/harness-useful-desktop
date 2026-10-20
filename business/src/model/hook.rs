@@ -139,11 +139,18 @@ pub enum HookSeed {
     MemorySave,
     /// Harness Dashboard: "Check limits before long work" (`sessionStart`).
     DashboardLimits,
+    /// Harness Memory: "Check Useful Skills first" (`sessionStart`).
+    UsefulSkills,
 }
 
 impl HookSeed {
     /// Every family hook, in catalog order.
-    pub const ALL: [Self; 3] = [Self::MemorySearch, Self::MemorySave, Self::DashboardLimits];
+    pub const ALL: [Self; 4] = [
+        Self::MemorySearch,
+        Self::MemorySave,
+        Self::DashboardLimits,
+        Self::UsefulSkills,
+    ];
 
     /// The name in the file and in `hooks-state.json`.
     pub fn as_str(self) -> &'static str {
@@ -151,6 +158,7 @@ impl HookSeed {
             Self::MemorySearch => "memory-search",
             Self::MemorySave => "memory-save",
             Self::DashboardLimits => "dashboard-limits",
+            Self::UsefulSkills => "useful-skills",
         }
     }
 

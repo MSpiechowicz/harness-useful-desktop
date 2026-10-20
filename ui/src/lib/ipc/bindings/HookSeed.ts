@@ -3,4 +3,4 @@
 /**
  * Which Harness family hook a hook is (the catalog in [`crate::hooks::family`]).
  */
-export type HookSeed = "memory-search" | "memory-save" | "dashboard-limits";
+export type HookSeed = "memory-search" | "memory-save" | "dashboard-limits" | "useful-skills";

@@ -58,8 +58,8 @@ pub use engine::{
     SendPlan,
 };
 pub use family::{
-    FAMILY, FamilyHook, SEED_DASHBOARD_LIMITS_TEXT, SEED_MEMORY_SAVE_TEXT, SEED_MEMORY_SEARCH_TEXT, apply_family,
-    family_hook, family_status, restore_member, seed_defaults,
+    FAMILY, FamilyHook, SEED_DASHBOARD_LIMITS_TEXT, SEED_MEMORY_SAVE_TEXT, SEED_MEMORY_SEARCH_TEXT,
+    SEED_USEFUL_SKILLS_TEXT, apply_family, family_hook, family_status, restore_member, seed_defaults,
 };
 pub use format::{MAX_HOOK_FILE_BYTES, is_hook_id, parse_hook_file};
 pub use plan::MAX_TOUCHED_BYTES;

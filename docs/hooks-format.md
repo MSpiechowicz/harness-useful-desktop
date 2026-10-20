@@ -49,7 +49,7 @@ Top-level fields. Required means the key MUST be present and valid. Readers igno
 | `action` | object | yes | see Actions |
 | `enabled` | boolean | yes | |
 | `requires` | array of string or null | no | unique, `"harness-memory"` (Harness Memory installed and its memory setting on) or `"harness-dashboard"` (Harness Dashboard installed). A hook whose requirement is not met does not run and shows as waiting |
-| `seed` | string or null | no | `"memory-search"`, `"memory-save"` or `"dashboard-limits"`: marks a Harness family hook, set only by the app window. Other writers keep it as is |
+| `seed` | string or null | no | `"memory-search"`, `"memory-save"`, `"dashboard-limits"` or `"useful-skills"`: marks a Harness family hook, set only by the app window. Other writers keep it as is |
 | `createdAt` | string | yes | RFC 3339 UTC, `YYYY-MM-DDTHH:MM:SSZ` (a fraction is accepted on read), e.g. `2026-10-17T10:00:00Z` |
 | `createdBy` | string | yes | `"desktop"` or `"agent"`. Set once when the file is created and never changed by any writer. Decides who may remove the hook |
 | `updatedAt` | string | yes | same format, set on every write |
@@ -167,7 +167,7 @@ Content:
 
 Approved copies `<app_config_dir>/hook-approved/<id>.json`: the exact bytes of the approved version (mode `0600`, written with the approval, removed when the app deletes the hook), so the Hooks view can show what a pending edit changed. Written only by the app window.
 
-Hooks state `<app_config_dir>/hooks-state.json`: `{ "version": 1, "seeded": ["memory-search", "memory-save", "dashboard-limits"], "teamDisabled": ["<id>"], "sharedFrom": { "<id>": "<sha256>" } }`. `seeded`: the seeds launch seeding created (or found) once. `teamDisabled` and `sharedFrom` (both optional, see Team hooks): the team hooks turned off on this machine, and the SHA-256 each local hook had when the user shared it. Written only by the app window. An invalid file is set aside and rebuilt with every seed listed and no team entries.
+Hooks state `<app_config_dir>/hooks-state.json`: `{ "version": 1, "seeded": ["memory-search", "memory-save", "dashboard-limits", "useful-skills"], "teamDisabled": ["<id>"], "sharedFrom": { "<id>": "<sha256>" } }`. `seeded`: the seeds launch seeding created (or found) once. `teamDisabled` and `sharedFrom` (both optional, see Team hooks): the team hooks turned off on this machine, and the SHA-256 each local hook had when the user shared it. Written only by the app window. An invalid file is set aside and rebuilt with every seed listed and no team entries.
 
 ## Harness family hooks
 
@@ -178,12 +178,14 @@ A catalog of hooks for the Harness family members agents use over MCP. Each is g
 | `memory-search` | `harness-memory` | `Search Harness Memory first` | `sessionStart` | `addContext` |
 | `memory-save` | `harness-memory` | `Save what you learned` | `turnEnd` | `followUp` |
 | `dashboard-limits` | `harness-dashboard` | `Check limits before long work` | `sessionStart` | `addContext` |
+| `useful-skills` | `harness-memory` | `Check Useful Skills first` | `sessionStart` | `addContext` |
 
 Exact texts:
 
 - `memory-search`: `Before you start, search Harness Memory for notes about this task (note_search) and check the saved scripts (script_list). Reuse what fits.`
 - `memory-save`: `If this turn taught you something worth keeping, save it to Harness Memory (note_save or note_update). Save any command sequence you would run again as a script (script_save). Reply briefly, or say nothing needs saving.`
 - `dashboard-limits`: `Before a long or expensive task, check the plan limits and budgets with Harness Dashboard (limits, budget_status). Say so if a limit is close.`
+- `useful-skills`: `If Useful Skills are installed, read the ones that apply before you act: decide the workflow first (plan, implement, review), then read any other skill that fits the task and follow its limits (for example the 500-line file maximum). Do not skip a matching skill.`
 
 When the app writes them:
 

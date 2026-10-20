@@ -67,8 +67,9 @@ describe('Harness family hooks', () => {
 
     await waitFor(() => expect(within(rowIn(dialog, 'Search Harness Memory first')).getByText('Installed')).toBeInTheDocument());
     expect(within(rowIn(dialog, 'Save what you learned')).getByText('Installed')).toBeInTheDocument();
+    expect(within(rowIn(dialog, 'Check Useful Skills first')).getByRole('button', { name: 'Add' })).toBeEnabled();
     expect(within(dialog).getByText('Harness Dashboard · Session start')).toBeInTheDocument();
-    expect(within(dialog).getByRole('button', { name: 'Add the missing hook' })).toBeEnabled();
+    expect(within(dialog).getByRole('button', { name: 'Add all 2 missing hooks' })).toBeEnabled();
 
     await fireEvent.click(within(rowIn(dialog, 'Check limits before long work')).getByRole('button', { name: 'Add' }));
 
@@ -76,7 +77,7 @@ describe('Harness family hooks', () => {
     expect(calls(invoke, 'hooks_family_apply')).toEqual([{ seeds: ['dashboard-limits'] }]);
     expect(within(rowOf('Check limits before long work')).getByText('Active')).toBeInTheDocument();
     expect(toasts.items.map((toast) => toast.title)).toContain('1 family hook ready');
-    expect(within(dialog).getByRole('button', { name: 'Add all' })).toBeDisabled();
+    await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Add the missing hook' })).toBeEnabled());
   });
 
   it('updates a family hook whose text the catalog has since changed', async () => {
@@ -122,9 +123,9 @@ describe('Harness family hooks', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Harness family hooks' }));
     const dialog = await screen.findByRole('dialog', { name: 'Harness family hooks' });
 
-    await fireEvent.click(await within(dialog).findByRole('button', { name: 'Add all 3 missing hooks' }));
+    await fireEvent.click(await within(dialog).findByRole('button', { name: 'Add all 4 missing hooks' }));
 
-    await waitFor(() => expect(calls(invoke, 'hooks_family_apply')).toEqual([{ seeds: ['memory-search', 'memory-save', 'dashboard-limits'] }]));
+    await waitFor(() => expect(calls(invoke, 'hooks_family_apply')).toEqual([{ seeds: ['memory-search', 'memory-save', 'dashboard-limits', 'useful-skills'] }]));
     await fireEvent.click(within(dialog).getByRole('button', { name: 'Close' }));
     await waitFor(() => expect(screen.queryByText('No hooks yet')).not.toBeInTheDocument());
     expect(within(rowOf('Save what you learned')).getByText('Active')).toBeInTheDocument();
