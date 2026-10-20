@@ -31,7 +31,7 @@ describe('notes table', () => {
     const decision = within(noteRow(3) as HTMLElement);
     expect(decision.getByText('Notes are read through the Memory CLI, never its database')).toBeInTheDocument();
     expect(decision.getByText('Decision')).toBeInTheDocument();
-    expect(decision.getByText('github.com/useful/harness-desktop')).toBeInTheDocument();
+    expect(decision.getByText('demo')).toBeInTheDocument();
     expect(decision.getByText('Remote')).toBeInTheDocument();
     expect(within(noteRow(9) as HTMLElement).getByText('Global')).toBeInTheDocument();
   });

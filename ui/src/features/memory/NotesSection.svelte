@@ -4,9 +4,11 @@
   import { untrack } from 'svelte';
 
   import Button from '$lib/components/Button.svelte';
+  import { memoryScope } from '$lib/components/docs/doc-scope';
   import DocNewButton from '$lib/components/docs/DocNewButton.svelte';
   import FilterMenu from '$lib/components/FilterMenu.svelte';
   import { ICON } from '$lib/components/icon';
+  import ScopeLabel from '$lib/components/ScopeLabel.svelte';
   import type { Column } from '$lib/components/table';
   import { t, tn } from '$lib/i18n/i18n.svelte';
   import type { NoteDetail } from '$lib/ipc/bindings/NoteDetail';
@@ -15,6 +17,7 @@
   import type { NoteSummary } from '$lib/ipc/bindings/NoteSummary';
   import { ALL_REPOS } from '$lib/stores/memory-reach';
   import { deleteNote, hideNote, noteDetail, noteDetailKey, noteList, NOTES_PAGE_SIZE } from '$lib/stores/memoryNotes.svelte';
+  import { projectScopes } from '$lib/stores/project-scopes.svelte';
   import { toasts } from '$lib/stores/toasts.svelte';
   import { viewState } from '$lib/stores/view-state.svelte';
   import { formatDateTime, relativeTime } from '$lib/utils/format';
@@ -276,7 +279,7 @@
     {:else if column.key === 'kind'}
       <NoteKindBadge kind={note.kind} />
     {:else if column.key === 'scope'}
-      <span class="text-fg-2" title={note.repo ?? undefined}>{noteScopeText(note)}</span>
+      <div class="min-w-0 text-fg-2"><ScopeLabel scope={memoryScope(note, projectScopes.data ?? [], t('memory.scripts.row.thisRepo'))} /></div>
     {:else if column.key === 'place'}
       <span class="text-fg-2">{t(PLACE_LABELS[note.place])}</span>
     {:else}

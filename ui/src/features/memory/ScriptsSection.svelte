@@ -5,9 +5,11 @@
 
   import Badge from '$lib/components/Badge.svelte';
   import Button from '$lib/components/Button.svelte';
+  import { memoryScope } from '$lib/components/docs/doc-scope';
   import DocNewButton from '$lib/components/docs/DocNewButton.svelte';
   import FilterMenu from '$lib/components/FilterMenu.svelte';
   import { ICON } from '$lib/components/icon';
+  import ScopeLabel from '$lib/components/ScopeLabel.svelte';
   import type { Column } from '$lib/components/table';
   import { t, tn } from '$lib/i18n/i18n.svelte';
   import type { ScriptDetail } from '$lib/ipc/bindings/ScriptDetail';
@@ -18,6 +20,7 @@
   import type { ScriptSummary } from '$lib/ipc/bindings/ScriptSummary';
   import { ALL_REPOS } from '$lib/stores/memory-reach';
   import { deleteScript, hideScript, type ReviewedScript, SCRIPTS_PAGE_SIZE, scriptDetail, scriptDetailKey, scriptList, trustScripts } from '$lib/stores/memoryScripts.svelte';
+  import { projectScopes } from '$lib/stores/project-scopes.svelte';
   import { toasts } from '$lib/stores/toasts.svelte';
   import { viewState } from '$lib/stores/view-state.svelte';
   import { formatDateTime, relativeTime } from '$lib/utils/format';
@@ -354,7 +357,7 @@
     {:else if column.key === 'language'}
       <Badge>{languageLabel(script.language)}</Badge>
     {:else if column.key === 'scope'}
-      <span class="text-fg-2" title={script.repo ?? undefined}>{scopeText(script)}</span>
+      <div class="min-w-0 text-fg-2"><ScopeLabel scope={memoryScope(script, projectScopes.data ?? [], t('memory.scripts.row.thisRepo'))} /></div>
     {:else if column.key === 'place'}
       <span class="text-fg-2">{t(PLACE_LABELS[script.place])}</span>
     {:else if column.key === 'runs'}

@@ -154,3 +154,25 @@ export function docScopeOptions(docs: ScopedDoc[], projects: ProjectScope[], lab
 export function inScope<V>(views: V[], choice: ScopeChoice, docOf: (view: V) => ScopedDoc, projects: ProjectScope[]): V[] {
   return choice === 'all' ? views : views.filter((view) => matchesScope(choice, scopeRow(docOf(view)), projects));
 }
+
+/** What the Scope column of a note or a script says: Global, the name of its project on this computer, else `owner/repo` (or the folder) of its repository. */
+export function memoryScope(item: { scope: 'repo' | 'global'; repo: string | null }, projects: ProjectScope[], unnamed: string): DocScope {
+  if (item.scope !== 'repo') {
+    return { kind: 'global' };
+  }
+
+  const repo = item.repo?.trim();
+
+  if (!repo) {
+    return { kind: 'repo', label: unnamed };
+  }
+
+  const key = repo.startsWith('path:') ? repo : `git:${repo}`;
+  const project = projects.find((candidate) => candidate.key === key);
+
+  if (project) {
+    return { kind: 'repo', label: project.name };
+  }
+
+  return { kind: 'repo', label: repo.startsWith('path:') ? folderName(repo.slice('path:'.length)) : shortRepoName(repo) };
+}
