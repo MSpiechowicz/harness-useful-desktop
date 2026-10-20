@@ -194,6 +194,7 @@ export const onboarding: AreaMessages<typeof enOnboarding> = {
   'onboarding.setup.skills.rowDetail': 'Instala las skills en {harnesses}',
   'onboarding.setup.skills.rowNone': 'No se encontró ningún harness compatible donde instalarlas',
   'onboarding.setup.skills.version': 'Versión {version}',
+  'onboarding.setup.skills.unavailable.nodeMissing': 'Necesita Node.js 22 o posterior.',
   'onboarding.setup.mcp.title': 'Harness Dashboard MCP',
   'onboarding.setup.mcp.body': 'Permite que tus agentes consulten su propio uso y coste, registrando el dashboard como servidor MCP.',
   'onboarding.setup.mcp.note':

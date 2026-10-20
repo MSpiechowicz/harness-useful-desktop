@@ -35,6 +35,7 @@ export const sync: AreaMessages<typeof enSync> = {
   'sync.note.writtenDisabled': 'Écrit désactivé jusqu’à ce que vous ajoutiez ses valeurs et l’activiez.',
   'sync.note.needsSharedMarketplace': 'Nécessite sa marketplace de cette configuration.',
   'sync.note.opencodeMergedCheck': 'Vérifié avec la configuration fusionnée d’OpenCode lors de l’import. La vérification démarre OpenCode une fois.',
+  'sync.note.configUnreadable': 'Un fichier de configuration n’a pas pu être lu, l’app ne peut donc pas savoir si ce serveur existe déjà. Rien n’est écrit.',
   'sync.needsKeys': 'Nécessite {keys}. À renseigner après l’import.',
   'sync.runs.title': 'Exécute un programme sur cet ordinateur',
   'sync.runs.chip': 'Exécute un programme',

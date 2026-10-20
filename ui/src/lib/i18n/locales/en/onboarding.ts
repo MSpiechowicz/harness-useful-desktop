@@ -190,6 +190,7 @@ export const onboarding = {
   'onboarding.setup.skills.rowDetail': 'Installs the skills in {harnesses}',
   'onboarding.setup.skills.rowNone': 'No supported harness found to install them in',
   'onboarding.setup.skills.version': 'Version {version}',
+  'onboarding.setup.skills.unavailable.nodeMissing': 'Needs Node.js 22 or newer.',
   'onboarding.setup.mcp.title': 'Harness Dashboard MCP',
   'onboarding.setup.mcp.body': 'Lets your agents look up their own usage and cost, by registering the dashboard as an MCP server.',
   'onboarding.setup.mcp.note':

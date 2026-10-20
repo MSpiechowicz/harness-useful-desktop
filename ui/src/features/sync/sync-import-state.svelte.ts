@@ -5,6 +5,7 @@ import type { SyncImportPlan } from '$lib/ipc/bindings/SyncImportPlan';
 import type { SyncImportResult } from '$lib/ipc/bindings/SyncImportResult';
 import type { SyncItemKind } from '$lib/ipc/bindings/SyncItemKind';
 import type { SyncItemOutcome } from '$lib/ipc/bindings/SyncItemOutcome';
+import type { SyncNote } from '$lib/ipc/bindings/SyncNote';
 import type { SyncProgress } from '$lib/ipc/bindings/SyncProgress';
 import { IpcFailure, type Transport } from '$lib/ipc/transport';
 
@@ -21,6 +22,8 @@ export interface RunRow {
   label: string;
   chip: Chip;
   note: string | null;
+  /** The remarks on the outcome, such as an unreadable config file behind a conflict. */
+  notes: SyncNote[];
   /** The redacted outcome line of the command that ran. */
   summary: string | null;
   /** The command line that ran. */
@@ -278,7 +281,7 @@ export class ImportController {
   private pendingRow(harness: HarnessId, item: SyncImportItem): RunRow {
     const chip: Chip = this.running === item.id ? { tone: 'accent', label: t('sync.run.running'), busy: true } : { tone: 'neutral', label: t('sync.run.queued') };
 
-    return { id: item.id, harness, kind: item.kind, label: itemLabel(harness, item), chip, note: null, summary: null, argv: [], manualEdit: null };
+    return { id: item.id, harness, kind: item.kind, label: itemLabel(harness, item), chip, note: null, notes: [], summary: null, argv: [], manualEdit: null };
   }
 }
 
@@ -290,7 +293,8 @@ function finishedRow(outcome: SyncItemOutcome, label: string = outcome.label): R
     kind: outcome.kind,
     label,
     chip: outcomeChip(outcome.outcome),
-    note: outcomeNote(outcome.outcome),
+    note: outcomeNote(outcome.outcome, outcome.notes),
+    notes: outcome.notes,
     summary: outcome.summary,
     argv: outcome.argv,
     manualEdit: manualEditOf(outcome.outcome),

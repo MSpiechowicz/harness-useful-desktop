@@ -8,7 +8,7 @@
   import SetupChip from './SetupChip.svelte';
   import SetupCommand from './SetupCommand.svelte';
   import SetupEffects from './SetupEffects.svelte';
-  import { commandOf, skillsChip, skillsOverviewChip } from './setup-model';
+  import { commandOf, skillsChip, skillsOverviewChip, unavailableReason } from './setup-model';
   import { badgeOf, nameOf } from './setup-view';
 
   interface Props {
@@ -76,7 +76,7 @@
               <p>{entry.skills.note}</p>
               <SetupCommand text={entry.skills.command} copyLabel={t('onboarding.setup.copyCommand')} />
             {:else}
-              <p>{entry.skills.reason}</p>
+              <p>{unavailableReason(entry.skills)}</p>
             {/if}
           </li>
         {/each}

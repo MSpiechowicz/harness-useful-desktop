@@ -307,6 +307,30 @@ describe('Import', () => {
       expect(within(dialog).getByText('Some items were not set up. What worked stays; nothing is rolled back.')).toBeInTheDocument();
     });
 
+    it('says a config file could not be read on the review row instead of calling it a different definition', async () => {
+      useScenario('unreadable');
+      await review();
+
+      const row = within(screen.getByText('status').closest('li') as HTMLElement);
+
+      expect(row.getByText('Conflict')).toBeInTheDocument();
+      expect(row.getByText(/A config file could not be read, so the app can’t tell whether this server already exists\. Nothing is written\./)).toBeInTheDocument();
+      expect(row.queryByText(/a different definition/)).not.toBeInTheDocument();
+    });
+
+    it('says it on the result row too when the check could not read a config file', async () => {
+      useScenario('unreadable');
+      await review();
+      await fireEvent.click(screen.getByRole('button', { name: /^Import selected/ }));
+
+      const dialog = await screen.findByRole('dialog', { name: 'Import finished' });
+      const row = within(within(dialog).getByText('docs').closest('li') as HTMLElement);
+
+      expect(row.getByText('Conflict')).toBeInTheDocument();
+      expect(row.getByText(/A config file could not be read, so the app can’t tell whether this server already exists\. Nothing is written\./)).toBeInTheDocument();
+      expect(row.queryByText(/a different definition/)).not.toBeInTheDocument();
+    });
+
     it('hands over the entry to paste when the file has comments, as a note and not an error', async () => {
       useScenario('commented');
       await review();

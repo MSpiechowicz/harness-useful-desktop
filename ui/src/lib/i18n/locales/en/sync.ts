@@ -37,6 +37,7 @@ export const sync = {
   'sync.note.writtenDisabled': 'Written disabled until you add its values and switch it on.',
   'sync.note.needsSharedMarketplace': 'Needs its marketplace from this setup.',
   'sync.note.opencodeMergedCheck': 'Checked against OpenCode’s merged configuration when you import. The check starts OpenCode once.',
+  'sync.note.configUnreadable': 'A config file could not be read, so the app can’t tell whether this server already exists. Nothing is written.',
   'sync.needsKeys': 'Needs {keys}. Set it after importing.',
   'sync.runs.title': 'Runs a program on this computer',
   'sync.runs.chip': 'Runs a program',

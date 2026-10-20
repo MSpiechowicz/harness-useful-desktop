@@ -39,6 +39,7 @@ const NOTE_KEYS: Record<SyncNote, MessageKey> = {
   writtenDisabled: 'sync.note.writtenDisabled',
   needsSharedMarketplace: 'sync.note.needsSharedMarketplace',
   opencodeMergedCheck: 'sync.note.opencodeMergedCheck',
+  configUnreadable: 'sync.note.configUnreadable',
 };
 
 const EXCLUDED_KEYS: Record<SyncExcludedReason, MessageKey> = {
@@ -111,7 +112,7 @@ export function statusChip(status: SyncItemStatus): Chip {
 }
 
 /** The sentence that explains a state, or null when the chip says it all. */
-export function statusNote(status: SyncItemStatus): string | null {
+export function statusNote(status: SyncItemStatus, notes: SyncNote[] = []): string | null {
   switch (status.type) {
     case 'new':
       return null;
@@ -120,7 +121,7 @@ export function statusNote(status: SyncItemStatus): string | null {
     case 'differentVersion':
       return t('sync.statusNote.differentVersion', { installed: status.installed, shared: status.shared });
     case 'conflict':
-      return t('sync.statusNote.conflict');
+      return conflictNote(notes);
     case 'blocked':
       return t(BLOCK_KEYS[status.reason]);
     case 'invalid':
@@ -173,13 +174,18 @@ export function onlyManualEdits(result: SyncImportResult): boolean {
   return open.length > 0 && open.every((item) => manualEditOf(item.outcome) !== null);
 }
 
+/** Why a conflict is one: an unreadable config file is said by its own note, so the "different definition" wording would be wrong. */
+function conflictNote(notes: SyncNote[]): string | null {
+  return notes.includes('configUnreadable') ? null : t('sync.statusNote.conflict');
+}
+
 /** The sentence under a finished item: why it was skipped, or null when the chip says it all. */
-export function outcomeNote(outcome: SyncOutcome): string | null {
+export function outcomeNote(outcome: SyncOutcome, notes: SyncNote[] = []): string | null {
   switch (outcome.type) {
     case 'skipped':
       return skipText(outcome.reason);
     case 'conflict':
-      return t('sync.statusNote.conflict');
+      return conflictNote(notes);
     default:
       return null;
   }

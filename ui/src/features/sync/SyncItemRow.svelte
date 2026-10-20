@@ -21,7 +21,7 @@
   let { item, harness, flow, disabled }: Props = $props();
 
   const label = $derived(itemLabel(harness, item));
-  const note = $derived(statusNote(item.status));
+  const note = $derived(statusNote(item.status, item.notes));
   const sub = $derived([showsVersion(harness, item) && item.status.type !== 'differentVersion' ? t('sync.versionShared', { version: item.version }) : null, note].filter((part) => part !== null).join(' · '));
   const unavailable = $derived(item.status.type === 'blocked' || item.status.type === 'invalid');
 </script>

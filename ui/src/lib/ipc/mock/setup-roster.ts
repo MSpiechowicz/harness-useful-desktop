@@ -47,7 +47,7 @@ export const OPENCODE_SKILLS_SIDE_EFFECTS = [
 export const OPENCODE_SKILLS: SkillsSetup = { type: 'script', command: OPENCODE_SKILLS_COMMAND, sideEffects: OPENCODE_SKILLS_SIDE_EFFECTS };
 
 /** What it reports when Node.js is missing. */
-export const OPENCODE_SKILLS_NO_NODE: SkillsSetup = { type: 'unavailable', reason: 'Needs Node.js 22 or newer.' };
+export const OPENCODE_SKILLS_NO_NODE: SkillsSetup = { type: 'unavailable', reason: 'Needs Node.js 22 or newer.', code: 'nodeMissing' };
 
 const FIVE: RosterEntry[] = [
   {
@@ -85,7 +85,7 @@ const FIVE: RosterEntry[] = [
     name: 'Codex',
     shortName: 'CDX',
     installed: true,
-    skills: { type: 'unavailable', reason: 'Not supported yet.' },
+    skills: { type: 'unavailable', reason: 'Not supported yet.', code: null },
     mcp: { type: 'disabled', file: '~/.codex/config.toml', name: 'harness-dashboard' },
     memoryMcp: { type: 'missing', file: '~/.codex/config.toml', exists: true },
     desktopMcp: { type: 'missing', file: '~/.codex/config.toml', exists: true },

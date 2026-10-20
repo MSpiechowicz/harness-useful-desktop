@@ -5,6 +5,7 @@ import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
 import type { HarnessSetup } from '$lib/ipc/bindings/HarnessSetup';
 import type { McpRefusal } from '$lib/ipc/bindings/McpRefusal';
 import type { McpState } from '$lib/ipc/bindings/McpState';
+import type { SkillsUnavailableCode } from '$lib/ipc/bindings/SkillsUnavailableCode';
 
 /** What one item of the step is doing: `idle` until a run reaches it. */
 export type ItemPhase = 'idle' | 'running' | 'done' | 'failed' | 'skipped';
@@ -235,9 +236,19 @@ export function skillsTargets(harnesses: HarnessSetup[]): HarnessSetup[] {
   return harnesses.filter((entry) => entry.installed && (entry.skills.type === 'install' || entry.skills.type === 'script' || entry.skills.type === 'installed'));
 }
 
-/** Found harnesses the skills cannot be installed in at all, each with the reason the backend gives. */
+/** Why the skills cannot be installed: the backend's code in the app's language, or else its English reason. */
+export function unavailableReason(skills: { reason: string; code: SkillsUnavailableCode | null }): string {
+  switch (skills.code) {
+    case 'nodeMissing':
+      return t('onboarding.setup.skills.unavailable.nodeMissing');
+    default:
+      return skills.reason;
+  }
+}
+
+/** Found harnesses the skills cannot be installed in at all, each with the reason why. */
 export function skillsUnavailable(harnesses: HarnessSetup[]): { harness: HarnessId; reason: string }[] {
-  return harnesses.flatMap((entry) => (entry.installed && entry.skills.type === 'unavailable' ? [{ harness: entry.harness, reason: entry.skills.reason }] : []));
+  return harnesses.flatMap((entry) => (entry.installed && entry.skills.type === 'unavailable' ? [{ harness: entry.harness, reason: unavailableReason(entry.skills) }] : []));
 }
 
 /** The state of a companion's binary, or what a run is doing to it. */

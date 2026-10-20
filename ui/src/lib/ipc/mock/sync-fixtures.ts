@@ -203,6 +203,17 @@ const TYPICAL_OPENCODE: SyncImportSection = {
 
 export const TYPICAL_PLAN_SECTIONS: SyncImportSection[] = [TYPICAL_OMP, TYPICAL_PI, TYPICAL_OPENCODE];
 
+/** The OpenCode server that the `unreadable` scenario reviews as a conflict, because a config file it reads could not be parsed. */
+const UNREADABLE_REVIEW_ID = 'opencode:mcp:status';
+
+/** The typical plan where a config file cannot be read: the `status` server is a conflict that is not selectable, its note says why. */
+export const UNREADABLE_PLAN_SECTIONS: SyncImportSection[] = TYPICAL_PLAN_SECTIONS.map((section) => ({
+  ...section,
+  items: section.items.map((candidate) =>
+    candidate.id === UNREADABLE_REVIEW_ID ? { ...candidate, status: { type: 'conflict' }, selectable: false, selectedByDefault: false, steps: [], notes: ['configUnreadable'] } : candidate,
+  ),
+}));
+
 /** The entry of an OpenCode server as the backend hands it over to paste: `"name": { … }` in OpenCode's shape. */
 export function opencodeEntrySnippet(server: SyncMcpPreview): string {
   const endpoint = server.transport === 'stdio' ? `"type": "local",\n  "command": ${JSON.stringify([server.command ?? '', ...server.args]).replaceAll('","', '", "')}` : `"type": "remote",\n  "url": ${JSON.stringify(server.url ?? '')}`;
