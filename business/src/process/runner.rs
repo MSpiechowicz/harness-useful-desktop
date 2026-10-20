@@ -282,8 +282,14 @@ impl StdoutFile {
         #[cfg(unix)]
         std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
 
+        // Not shared: no other process can open the file while the child writes to it. The child
+        // gets a duplicated handle, which the share mode does not restrict.
         #[cfg(windows)]
-        std::os::windows::fs::OpenOptionsExt::custom_flags(&mut options, FILE_FLAG_DELETE_ON_CLOSE);
+        {
+            use std::os::windows::fs::OpenOptionsExt;
+
+            options.custom_flags(FILE_FLAG_DELETE_ON_CLOSE).share_mode(0);
+        }
 
         let file = options
             .open(&path)

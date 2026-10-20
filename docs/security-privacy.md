@@ -750,8 +750,11 @@ and a new OpenCode server is shown with a note that its name is checked when you
 runs once per import, and only when a selected OpenCode server is missing from every config file the app reads. Running
 OpenCode is not read-only: it may fetch your organisation's config over the network, start a plugin dependency install
 (`bun add @opencode-ai/plugin`) in its config folders and write a `.gitignore` there, create `opencode.jsonc` or add
-`$schema` to your config, and migrate a legacy TOML config to `config.json` (deleting the TOML file). Its stdout goes
-through a private temporary file that is unlinked at once on Unix and opened delete-on-close on Windows.
+`$schema` to your config, and may migrate a legacy TOML config to `config.json` (overwriting an existing one and
+removing the TOML file). It starts OpenCode fully, so your configured plugins load and run, including any plugin the
+same import just installed. A plugin can change what the check sees, so the check is only as trustworthy as the
+plugins you run. Its stdout goes
+through a private temporary file that is unlinked at once on Unix and opened unshared and delete-on-close on Windows.
 
 Residual limits: an app session whose `XDG_DATA_HOME` differs from your shell's (for example one started from a desktop
 launcher) may not find OpenCode's login, so names from the organisation layer can be missed. OpenCode derives tool

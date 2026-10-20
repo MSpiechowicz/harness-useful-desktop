@@ -281,8 +281,10 @@ registered here.
     configuration when you import, and that check starts OpenCode once.
   - **What starting OpenCode can change.** The command is not read-only. OpenCode may fetch your organisation's config
     over the network, start a plugin dependency install (`bun add @opencode-ai/plugin`) in its config folders and add a
-    `.gitignore` there, create `opencode.jsonc` or add `$schema` to your config, and migrate a legacy TOML config to
-    `config.json` (deleting the TOML file).
+    `.gitignore` there, create `opencode.jsonc` or add `$schema` to your config, and may migrate a legacy TOML config
+    to `config.json` (overwriting an existing one and removing the TOML file). It starts OpenCode fully, so your
+    configured plugins load and run, including any plugin this import just installed, and a plugin can change what
+    the check sees.
   - **Outcomes.** It runs once per import, after OpenCode's plugins and before any of its servers is written, and only
     when at least one selected OpenCode server is missing from every config file the app reads. A server whose name is
     in the merged config ends `conflict` and is not written. If OpenCode is not found the servers end `skipped`
@@ -293,8 +295,8 @@ registered here.
     missed. OpenCode also names a server's tools by a sanitized server name, so servers such as `foo.bar` and `foo_bar`
     produce the same tool names: one server's tools can shadow the other's. They are still separate entries and do not
     share headers or env.
-  An OpenCode config file with comments is never rewritten: its servers end `skipped` (`manualEdit`) and the review's
-  result shows the entry to paste.
+- **OpenCode config files with comments.** Such a file is never rewritten: its servers end `skipped` (`manualEdit`)
+  and the import's result shows the entry to paste.
 
 ## Applying
 

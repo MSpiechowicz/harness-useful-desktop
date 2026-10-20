@@ -4,8 +4,10 @@
 //!
 //! The command is not read-only: OpenCode may fetch its organization config over the network,
 //! start a dependency install (`bun add @opencode-ai/plugin`) in its config directories, create
-//! `opencode.jsonc`, add `$schema`, or migrate a legacy TOML config. "Share setup" runs it only
-//! while applying an import the user confirmed, never while reviewing one.
+//! `opencode.jsonc`, add `$schema`, or migrate a legacy TOML config. It starts OpenCode fully, so
+//! the configured plugins load and run (including any the same import just installed), and a
+//! plugin's config hook can change what it reports. "Share setup" runs it only while applying an
+//! import the user confirmed, never while reviewing one.
 //!
 //! OpenCode also merges layers the app cannot read: a remote organization config (`opencode auth
 //! login`), managed settings, `OPENCODE_CONFIG_CONTENT` and the project layers of the directory it
