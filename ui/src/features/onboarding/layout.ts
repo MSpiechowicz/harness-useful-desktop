@@ -55,7 +55,7 @@ export const FACTS = {
  */
 export const PICKER = {
   frame: '@container',
-  columns: 'grid grid-cols-1 gap-4 @min-[55rem]:grid-cols-[17rem_minmax(0,1fr)]',
+  columns: 'grid grid-cols-1 gap-4 @min-[55rem]:grid-cols-[19.5rem_minmax(0,1fr)]',
   /**
    * The least the detail panel is tall, so moving between harnesses does not move what is below it. Measured in WebKitGTK:
    * the tallest realistic panel (a missing harness with a wrapping install command, an error line and two buttons) is
