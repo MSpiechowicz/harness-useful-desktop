@@ -154,6 +154,22 @@ describe('installing', () => {
     expect(fractions).toEqual([0.25, null]);
   });
 
+  it('keeps the bar full once the download is done and the install runs', async () => {
+    const fractions: (number | null)[] = [];
+    const { store } = setup({
+      install: (onProgress) => {
+        onProgress({ phase: 'downloading', downloaded: 700, total: 1000 });
+        onProgress({ phase: 'installing', downloaded: 1000, total: 1000 });
+        fractions.push(store.fraction);
+      },
+    });
+    await store.check();
+
+    await store.install();
+
+    expect(fractions).toEqual([1]);
+  });
+
   it('installs only an update a check found, and only once at a time', async () => {
     const { store, calls } = setup();
 
