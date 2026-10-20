@@ -62,7 +62,7 @@
         <h3 class="min-w-24 flex-1 self-center text-xl text-fg">{summary.info.name}</h3>
 
         {#if soon}
-          <Badge class="shrink-0 self-center">{t('onboarding.card.comingSoon')}</Badge>
+          <Badge size="lg" class="shrink-0 self-center">{t('onboarding.card.comingSoon')}</Badge>
         {:else}
           <div role="radiogroup" aria-label={t('onboarding.harnesses.group')} class="shrink-0">
             <button
@@ -93,11 +93,11 @@
       {#if detection.installed}
         <div class="flex flex-wrap content-start items-center gap-2">
           {#if detection.version}
-            <Badge class="tabular">v{detection.version}</Badge>
+            <Badge size="lg" class="tabular">v{detection.version}</Badge>
           {/if}
           <!-- The badge carries the version note as a tooltip, so the panel stays short. -->
           <span class="inline-flex" title={support.note}>
-            <Badge tone={support.tone}>{support.label}</Badge>
+            <Badge size="lg" tone={support.tone}>{support.label}</Badge>
           </span>
         </div>
       {/if}
@@ -144,7 +144,7 @@
         <dt class="text-fg-3">{t('onboarding.card.config')}</dt>
         <dd class="flex min-w-0 items-center gap-2">
           <span class="min-w-0 truncate font-mono text-fg-2" title={detection.configDir ?? undefined}>{detection.configDir ?? t('onboarding.card.unknown')}</span>
-          <Badge tone={detection.configDirExists ? 'success' : 'neutral'}>{detection.configDirExists ? t('onboarding.card.found') : t('onboarding.card.notCreated')}</Badge>
+          <Badge size="lg" tone={detection.configDirExists ? 'success' : 'neutral'}>{detection.configDirExists ? t('onboarding.card.found') : t('onboarding.card.notCreated')}</Badge>
         </dd>
       </dl>
 

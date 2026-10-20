@@ -62,5 +62,5 @@ export const PICKER = {
    * 316px at the narrowest side by side. An installed harness fills the panel with its facts and actions: 341px in
    * WebKitGTK, so 24.5rem (343px) holds it with about 2px to spare.
    */
-  detailMinHeight: 'min-h-[24.5rem]',
+  detailMinHeight: 'min-h-[25.5rem]',
 } as const;

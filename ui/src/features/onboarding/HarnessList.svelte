@@ -78,7 +78,7 @@
     >
       <HarnessBadge info={summary.info} size="sm" />
       <span class="min-w-0 truncate text-base font-medium text-fg">{summary.info.name}</span>
-      <Badge tone={chip.tone}>{chip.label}</Badge>
+      <Badge size="lg" tone={chip.tone}>{chip.label}</Badge>
     </button>
   {/each}
 </div>

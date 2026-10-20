@@ -36,7 +36,7 @@
 
   <ul class="flex flex-wrap content-start items-start gap-2" aria-label={t('onboarding.meet.tags')}>
     {#each tags as tag (tag)}
-      <li><Badge>{t(tag)}</Badge></li>
+      <li><Badge size="lg">{t(tag)}</Badge></li>
     {/each}
   </ul>
 </article>
