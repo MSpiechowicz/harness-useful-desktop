@@ -17,10 +17,12 @@ import { fixtures } from '$lib/ipc/mock/fixtures';
 import { sampleScripts, summaryOf } from '$lib/ipc/mock/memory-scripts-fixtures';
 import { detailOf, sampleNotes } from '$lib/ipc/mock/memory-notes-fixtures';
 import { pageOfNotes } from '$lib/ipc/mock/memory-notes-handlers';
+import { reaches } from '$lib/ipc/mock/memory-reach';
 import { type CopyStores, teamNotesHandlers, teamScriptsHandlers } from '$lib/ipc/mock/memory-notes-team-handlers';
 import { pageOfScripts } from '$lib/ipc/mock/memory-scripts-handlers';
 import { IpcFailure } from '$lib/ipc/transport';
 import { ecosystem } from '$lib/stores/ecosystem.svelte';
+import { repoReach } from '$lib/stores/memory-reach';
 import { noteDetail, noteList } from '$lib/stores/memoryNotes.svelte';
 import { scriptDetail, scriptList } from '$lib/stores/memoryScripts.svelte';
 import { nav } from '$lib/stores/nav.svelte';
@@ -35,6 +37,14 @@ import NotesView from './NotesView.svelte';
 import ScriptsView from './ScriptsView.svelte';
 
 export const PROJECT = fixtures.recentProjects[0].path;
+
+/** What a read of every repository sends, which is what the views start on. */
+export const ALL = { project: null, repos: { kind: 'all' } } as const;
+
+/** The repository of the sample notes and scripts, and what a read of it alone sends. */
+export const REPO_KEY = 'git:github.com/useful/harness-desktop';
+export const REPO_REACH = repoReach(REPO_KEY);
+export const REPO_ARGS = { project: null, repos: { kind: 'repo', key: REPO_KEY }, scope: 'repo' } as const;
 
 /** What GitHub says about the latest Harness Memory release next to the installed one. */
 export type MemoryRelease = Pick<EcosystemRelease, 'latestVersion' | 'updateAvailable'>;
@@ -190,7 +200,7 @@ export function fakeMemory(availability: MemoryScriptsAvailability | (() => Memo
 
     if (name === 'memory_scripts_list') {
       const asked = args as CommandArgs<'memory_scripts_list'>;
-      const visible = scripts.filter((script) => script.scope === 'global' || asked.project !== null);
+      const visible = scripts.filter((script) => reaches(script, asked));
       const found = probe();
       const page =
         found.kind === 'available'
@@ -203,7 +213,7 @@ export function fakeMemory(availability: MemoryScriptsAvailability | (() => Memo
     if (name === 'memory_notes_list') {
       const asked = args as CommandArgs<'memory_notes_list'>;
       const found = probe();
-      const page = found.kind === 'available' ? pageOfNotes(notes.filter((note) => note.scope === 'global' || asked.project !== null), asked, combines(), notes) : { total: 0, kinds: [], scopes: null, combinedFilters: combines(), notes: [], hiddenCount: null, localCounts: null };
+      const page = found.kind === 'available' ? pageOfNotes(notes.filter((note) => reaches(note, asked)), asked, combines(), notes) : { total: 0, kinds: [], scopes: null, combinedFilters: combines(), notes: [], hiddenCount: null, localCounts: null };
 
       return { availability: found, ...page } as CommandResult<K>;
     }
@@ -240,7 +250,8 @@ export function fakeMemory(availability: MemoryScriptsAvailability | (() => Memo
     // Deleting everything takes what the project sees: its repository's and the global ones.
     if (name === 'memory_notes_delete_all') {
       // A team note that is read-only here stays.
-      const seen = notes.filter((note) => note.scope === 'global' || (args as CommandArgs<'memory_notes_delete_all'>).project !== undefined);
+      const asked = args as CommandArgs<'memory_notes_delete_all'>;
+      const seen = notes.filter((note) => reaches(note, { project: null, ...asked }) && (asked.scope === undefined || note.scope === asked.scope));
       const gone = seen.filter((note) => !note.readOnly);
       notes = notes.filter((note) => !gone.includes(note));
 
@@ -249,7 +260,8 @@ export function fakeMemory(availability: MemoryScriptsAvailability | (() => Memo
 
     if (name === 'memory_scripts_delete_all') {
       // A remote script that is read-only here stays.
-      const seen = scripts.filter((script) => script.scope === 'global' || (args as CommandArgs<'memory_scripts_delete_all'>).project !== undefined);
+      const asked = args as CommandArgs<'memory_scripts_delete_all'>;
+      const seen = scripts.filter((script) => reaches(script, { project: null, ...asked }) && (asked.scope === undefined || script.scope === asked.scope));
       const gone = seen.filter((script) => !script.readOnly);
       scripts = scripts.filter((script) => !gone.includes(script));
 
@@ -365,6 +377,7 @@ export function registerMemoryHooks(): void {
   beforeEach(() => {
     viewState.reset('notes');
     viewState.reset('scripts');
+    viewState.memoryReach = 'all';
     noteList.sync(null, null);
     noteDetail.sync(null, null);
     scriptList.sync(null, null);

@@ -174,7 +174,13 @@ flowchart LR
    [--project <root>]` (the project's repository notes and the global ones, the total, the count of each kind under
    the search and scope, and of each scope under the search and kind; a server that predates combined filters is
    asked once more without `--scope` and the page says `combinedFilters: false`), `notes get <id> --json` (the body and at
-   most 50 links, both ways) and `notes delete <id>`. `memory_notes_delete_all` and `memory_scripts_delete_all` run
+   most 50 links, both ways) and `notes delete <id>`. Every one of these commands (and the scripts ones, `trust` included)
+   takes the repositories to read instead of `--project`: the Rust `Repos` enum (`memory_cli.rs`) is `--project <root>`, `--repo <key>`
+   (one repository wherever it is checked out) or `--all-repos`, sent when a command has `repos` (`MemoryRepos`:
+   `all` or `repo` + `key`). The Repository filter of both views (`ui/src/lib/stores/memory-reach.ts`: `all`, `global`,
+   `repo:<key>`) picks it and the repositories offered come from `memory_repos_list` (`notes repos --json`, `scripts repos --json`);
+   `notes delete --all` and `scripts delete --all` refuse every repository. A script read or deleted outside a project goes through
+   the CLI, as the server's MCP tools only see a project's repository. `memory_notes_delete_all` and `memory_scripts_delete_all` run
    `notes delete --all --yes --json [--project <root>]` and `scripts delete --all --yes --json [--project <root>]`
    (60 s): every entry the list shows without filters, answered as `MemoryDeleteAll` (`deleted`, and `team`, how many
    were in the team database). A note the server cannot see from the project is `notFound`. They

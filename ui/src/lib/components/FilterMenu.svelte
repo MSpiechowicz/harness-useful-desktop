@@ -29,9 +29,18 @@
     align?: 'start' | 'end';
     /** A menu for long labels (folder names): wider than the usual one. */
     wide?: boolean;
+    /** A field above the choices that keeps those whose label has what was typed; for a menu with many. The texts are its accessible name, hint and the line shown when nothing matches. */
+    search?: { label: string; placeholder: string; empty: string };
   }
 
-  let { label, options, value, onchange, prefix, icon, onclear, clearLabel, align = 'end', wide = false }: Props = $props();
+  let { label, options, value, onchange, prefix, icon, onclear, clearLabel, align = 'end', wide = false, search }: Props = $props();
+
+  let needle = $state('');
+  const shown = $derived.by(() => {
+    const typed = needle.trim().toLowerCase();
+
+    return typed === '' ? options : options.filter((option) => option.label.toLowerCase().includes(typed));
+  });
 
   const current = $derived(options.find((option) => option.value === value) ?? options[0]);
   const TriggerIcon = $derived(icon ?? current.icon ?? ListFilter);
@@ -40,7 +49,7 @@
 </script>
 
 <!-- A filter picks from a few ready-made choices; typing is for search. -->
-<Popover {label} kind="menu" {align} class={cx('min-w-0!', counted || wide ? 'w-60' : 'w-48')}>
+<Popover {label} kind="menu" {align} class={cx('min-w-0!', search ? 'w-72' : counted || wide ? 'w-60' : 'w-48')}>
   {#snippet trigger({ props, open })}
     {#if prefix}
       <!-- The button and its clear x share one frame, so the pair reads as one control: the x clears, the rest opens the menu. -->
@@ -82,8 +91,26 @@
   {/snippet}
 
   {#snippet children({ close })}
-    <div role="none" class="flex flex-col">
-      {#each options as option (option.value)}
+    {#if search}
+      <!-- The field is where focus lands on open; the arrow keys go on to the choices. -->
+      <div class="px-1 pb-1.5">
+        <input
+          type="search"
+          data-autofocus
+          bind:value={needle}
+          aria-label={search.label}
+          placeholder={search.placeholder}
+          autocomplete="off"
+          spellcheck="false"
+          class="h-control w-full rounded-md border border-line-strong bg-surface-2 px-2.5 text-sm text-fg outline-none placeholder:text-fg-3 focus-visible:border-accent/50"
+        />
+      </div>
+    {/if}
+    <div role="none" class={cx('flex flex-col', search && 'max-h-64 overflow-y-auto')}>
+      {#if search && shown.length === 0}
+        <p class="px-2.5 py-2 text-sm text-fg-3" role="status">{search.empty}</p>
+      {/if}
+      {#each shown as option (option.value)}
         <button
           type="button"
           role="menuitemradio"
@@ -95,6 +122,7 @@
           )}
           onclick={() => {
             close();
+            needle = '';
             onchange(option.value);
           }}
         >
@@ -103,11 +131,12 @@
             <span class="truncate">{option.label}</span>
           </span>
           <span class="flex shrink-0 items-center gap-2">
-            {#if option.count !== undefined}<span class={cx('tabular text-xs text-fg-3', option.count === 0 && 'opacity-60')}>{option.count}</span>{/if}
-            {#if option.value === value}
-              <Check size={ICON.sm} class="text-accent-text" aria-hidden="true" />
-            {:else if counted}
-              <span class="size-4" aria-hidden="true"></span>
+            {#if option.count !== undefined}<span class={cx('tabular min-w-[2ch] text-right text-xs text-fg-3', option.count === 0 && 'opacity-60')}>{option.count}</span>{/if}
+            <!-- The tick has a slot of its own in every row, so the counts line up whether or not one is chosen. -->
+            {#if counted || option.value === value}
+              <span class="grid size-4 shrink-0 place-items-center" aria-hidden="true">
+                {#if option.value === value}<Check size={ICON.sm} class="text-accent-text" />{/if}
+              </span>
             {/if}
           </span>
         </button>

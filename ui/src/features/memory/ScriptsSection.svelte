@@ -16,8 +16,8 @@
   import type { ScriptSaved } from '$lib/ipc/bindings/ScriptSaved';
   import type { ScriptScope } from '$lib/ipc/bindings/ScriptScope';
   import type { ScriptSummary } from '$lib/ipc/bindings/ScriptSummary';
+  import { ALL_REPOS } from '$lib/stores/memory-reach';
   import { deleteScript, hideScript, type ReviewedScript, SCRIPTS_PAGE_SIZE, scriptDetail, scriptDetailKey, scriptList, trustScripts } from '$lib/stores/memoryScripts.svelte';
-  import { project } from '$lib/stores/project.svelte';
   import { toasts } from '$lib/stores/toasts.svelte';
   import { viewState } from '$lib/stores/view-state.svelte';
   import { formatDateTime, relativeTime } from '$lib/utils/format';
@@ -28,7 +28,7 @@
   import { scriptEditor } from './editor-state.svelte';
   import HiddenFilter from './HiddenFilter.svelte';
   import MemoryFilterHint from './MemoryFilterHint.svelte';
-  import MemoryScopeFilter from './MemoryScopeFilter.svelte';
+  import MemoryRepoFilter from './MemoryRepoFilter.svelte';
   import MemorySearch from './MemorySearch.svelte';
   import MemoryTable from './MemoryTable.svelte';
   import { scriptsTeam } from './notes-team.svelte';
@@ -51,7 +51,7 @@
   let confirmer: SessionConfirm | undefined = $state();
   let trusting = $state(false);
 
-  const path = $derived(project.active?.path ?? null);
+  const path = $derived(viewState.memoryReach);
   const page = $derived(scriptList.data);
   const availability = $derived(page && page.availability.kind !== 'available' ? page.availability : null);
   const rows = $derived(page?.scripts ?? []);
@@ -63,7 +63,7 @@
   // An older Harness Memory cannot combine the scope with the status: it gets one "Show" filter of its groups, and a hint that an update adds the scope.
   const combined = $derived(page?.combinedFilters ?? true);
   const searching = $derived(viewState.scriptsQuery.trim() !== '');
-  const filtered = $derived((combined ? viewState.scriptsScope !== null || viewState.scriptsStatus !== null : viewState.scriptsGroup !== null) || scriptsTeam.showHidden);
+  const filtered = $derived(viewState.memoryReach !== ALL_REPOS || (combined ? viewState.scriptsStatus !== null : viewState.scriptsGroup !== null) || scriptsTeam.showHidden);
   // Remote scripts hidden on this computer: a switch to them shows once there are any, and stays while they are shown.
   const hiddenCount = $derived(page?.hiddenCount ?? 0);
   // Nothing saved yet: one page with the explanation, not an empty table beside a message.
@@ -93,9 +93,9 @@
     return !searching && filtered ? t('memory.scripts.list.noFilter') : t('memory.scripts.list.noMatch');
   });
 
-  function chooseScope(scope: ScriptScope | null): void {
-    viewState.scriptsScope = scope;
+  function repoChosen(): void {
     viewState.scriptsPage = 0;
+    viewState.scriptId = null;
   }
 
   function showHidden(on: boolean): void {
@@ -261,9 +261,9 @@
 </script>
 
 {#snippet filters()}
-  {#if combined}
-    <MemoryScopeFilter value={viewState.scriptsScope} counts={page?.scopes ?? null} onchange={chooseScope} />
+  <MemoryRepoFilter section="scripts" onchange={repoChosen} />
 
+  {#if combined}
     {#if hiddenCount > 0 || scriptsTeam.showHidden}
       <HiddenFilter count={hiddenCount} on={scriptsTeam.showHidden} onchange={showHidden} />
     {/if}

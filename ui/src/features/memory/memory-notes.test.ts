@@ -9,7 +9,7 @@ import { nav } from '$lib/stores/nav.svelte';
 import { toasts } from '$lib/stores/toasts.svelte';
 import { viewState } from '$lib/stores/view-state.svelte';
 
-import { calls, fakeMemory, noteRow, PROJECT, pickFilter, registerMemoryHooks, showNotes } from './memory-test-support';
+import { ALL, calls, fakeMemory, noteRow, pickFilter, PROJECT, registerMemoryHooks, showNotes } from './memory-test-support';
 import NotesView from './NotesView.svelte';
 import ScriptsView from './ScriptsView.svelte';
 
@@ -26,7 +26,7 @@ describe('notes table', () => {
     const invoke = fakeMemory();
     await showNotes();
 
-    expect(calls(invoke, 'memory_notes_list')[0]).toEqual({ project: PROJECT, offset: 0, limit: 50, sort: 'updated', order: 'desc' });
+    expect(calls(invoke, 'memory_notes_list')[0]).toEqual({ ...ALL, offset: 0, limit: 50, sort: 'updated', order: 'desc' });
 
     const decision = within(noteRow(3) as HTMLElement);
     expect(decision.getByText('Notes are read through the Memory CLI, never its database')).toBeInTheDocument();
@@ -126,7 +126,7 @@ describe('note panel', () => {
 
     expect(within(panel).getByText('Fix · github.com/useful/harness-desktop')).toBeInTheDocument();
     expect(await within(panel).findByText(/WebKitGTK renders into a DMA buffer/)).toBeInTheDocument();
-    expect(calls(invoke, 'memory_note_get')[0]).toEqual({ id: 4, project: PROJECT });
+    expect(calls(invoke, 'memory_note_get')[0]).toEqual({ id: 4, ...ALL });
     for (const heading of ['Content', 'Tags & entities', 'Linked notes', 'Actions', 'Details']) {
       expect(within(panel).getByRole('heading', { level: 3, name: heading })).toBeInTheDocument();
     }
@@ -169,7 +169,7 @@ describe('note panel', () => {
 
     const next = await screen.findByRole('region', { name: 'The release build fails on macOS when the notarization queue is slow' });
     expect(await within(next).findByText(/notarytool waits 10 minutes/)).toBeInTheDocument();
-    expect(calls(invoke, 'memory_note_get').at(-1)).toEqual({ id: 5, project: PROJECT });
+    expect(calls(invoke, 'memory_note_get').at(-1)).toEqual({ id: 5, ...ALL });
     expect(viewState.noteId).toBe(5);
   });
 
@@ -238,7 +238,7 @@ describe('deleting a note', () => {
     await fireEvent.click(await screen.findByRole('button', { name: 'Delete note' }));
 
     await waitFor(() => expect(noteRow(3)).toBeNull());
-    expect(calls(invoke, 'memory_note_delete')).toEqual([{ id: 3, project: PROJECT }]);
+    expect(calls(invoke, 'memory_note_delete')).toEqual([{ id: 3, ...ALL }]);
     expect(calls(invoke, 'memory_notes_list').length).toBeGreaterThan(1);
     await waitFor(() => expect(screen.queryByRole('region', { name: 'Notes are read through the Memory CLI, never its database' })).toBeNull());
     expect(viewState.noteId).toBeNull();

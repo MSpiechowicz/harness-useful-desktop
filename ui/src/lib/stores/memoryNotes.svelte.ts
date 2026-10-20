@@ -10,6 +10,8 @@ import type { SortOrder } from '$lib/ipc/bindings/SortOrder';
 import { ipc } from '$lib/ipc/client';
 import { IpcFailure } from '$lib/ipc/transport';
 
+import { type Reach, reachArgs } from './memory-reach';
+import { noteRepos } from './memoryRepos.svelte';
 import { hideEntry, memoryItemGone, saveFailureText } from './memoryScripts.svelte';
 import { toasts } from './toasts.svelte';
 import { viewState } from './view-state.svelte';
@@ -35,13 +37,13 @@ export function notesKey(request: NotesRequest): string {
   return JSON.stringify(request);
 }
 
-/** One page of the notes this project sees (its repository's and the global ones), with the count of every kind and scope. */
-export const noteList = new ViewLoader<MemoryNotesPage, string>((key, project) => {
+/** One page of the notes `reach` covers (every repository, one, or the global ones), with the count of every kind and scope. */
+export const noteList = new ViewLoader<MemoryNotesPage, string>((key, reach) => {
   const { query, scope, kind, sort, order, page, hidden } = JSON.parse(key) as NotesRequest;
   const search = query.trim();
 
   return ipc.invoke('memory_notes_list', {
-    project,
+    ...reachArgs(reach ?? ''),
     offset: page * NOTES_PAGE_SIZE,
     limit: NOTES_PAGE_SIZE,
     query: search === '' ? undefined : search,
@@ -60,21 +62,21 @@ export function noteDetailKey(id: number, hidden: boolean): string {
 
 /** The note on screen, body and links included. The list carries no bodies, so this is read when one is chosen. */
 export const noteDetail = new ViewLoader<NoteDetail, string>(
-  (key, project) => {
+  (key, reach) => {
     const [id, hidden] = key.split(':');
 
-    return ipc.invoke('memory_note_get', { id: Number(id), project, hidden: hidden === undefined ? undefined : true });
+    return ipc.invoke('memory_note_get', { id: Number(id), ...reachArgs(reach ?? ''), hidden: hidden === undefined ? undefined : true });
   },
   { goneIsFinal: memoryItemGone },
 );
 
 /** Hides a remote note on this computer, or shows it again (`hidden: false`). See `hideEntry`. */
-export function hideNote(id: number, title: string, project: string | null, hidden: boolean): Promise<boolean> {
+export function hideNote(id: number, title: string, reach: Reach, hidden: boolean): Promise<boolean> {
   return hideEntry({
     id,
     title,
     hidden,
-    send: () => ipc.invoke('memory_note_hide', { id, project, hidden }),
+    send: () => ipc.invoke('memory_note_hide', { id, ...reachArgs(reach), hidden }),
     failed: 'memory.hidden.toast.failed',
     unhideFailed: 'memory.hidden.toast.unhideFailed',
     leave: () => {
@@ -83,18 +85,18 @@ export function hideNote(id: number, title: string, project: string | null, hidd
       }
     },
     refresh: () => noteList.refresh(),
-    undo: () => void hideNote(id, title, project, false),
+    undo: () => void hideNote(id, title, reach, false),
   });
 }
 
 /** Deletes a note once the user confirms, then re-reads the page so the row is gone (or back, if the call failed). */
-export async function deleteNote(id: number, project: string | null, confirm: () => Promise<boolean>): Promise<boolean> {
+export async function deleteNote(id: number, reach: Reach, confirm: () => Promise<boolean>): Promise<boolean> {
   if (!(await confirm())) {
     return false;
   }
 
   try {
-    await ipc.invoke('memory_note_delete', { id, project });
+    await ipc.invoke('memory_note_delete', { id, ...reachArgs(reach) });
   } catch (error) {
     toasts.push({ title: t('memory.notes.delete.failed'), description: saveFailureText(IpcFailure.from(error)), tone: 'danger' });
     await noteList.refresh();
@@ -105,7 +107,7 @@ export async function deleteNote(id: number, project: string | null, confirm: ()
   if (viewState.noteId === id) {
     viewState.noteId = null;
   }
-  await noteList.refresh();
+  await Promise.all([noteList.refresh(), noteRepos.refresh({ quiet: true })]);
 
   return true;
 }

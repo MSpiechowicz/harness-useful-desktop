@@ -27,6 +27,7 @@ const COMMANDS: &[&str] = &[
     "memory_scripts_discard_local",
     "memory_script_requests_listen",
     "memory_script_decide",
+    "memory_repos_list",
     "memory_notes_list",
     "memory_note_get",
     "memory_note_delete",

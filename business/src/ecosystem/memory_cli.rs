@@ -20,7 +20,9 @@ use serde_json::Value;
 use super::catalog::MEMORY_BINARY;
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
-use crate::model::{MemoryDeleteAll, MemoryScopeCounts, MemoryScriptsAvailability, ScriptScope, SortOrder};
+use crate::model::{
+    MemoryDeleteAll, MemoryRepos, MemoryScopeCounts, MemoryScriptsAvailability, ScriptScope, SortOrder,
+};
 use crate::process::{ExecSpec, ProcessRunner, launcher_search_dirs};
 use crate::security::redact_text;
 
@@ -97,7 +99,7 @@ impl ListWindow {
 
     /// `list --json --offset N --limit N [--query Q] <filters> --sort S --order O
     /// [--project P]`: `filters` are the command's own options and values (`--kind fix`).
-    pub(crate) fn list_args(&self, filters: &[(&str, &str)], sort: &str, project: Option<&Path>) -> Vec<OsString> {
+    pub(crate) fn list_args(&self, filters: &[(&str, &str)], sort: &str, repos: Repos<'_>) -> Vec<OsString> {
         let order = match self.order {
             Some(SortOrder::Asc) => "asc",
             Some(SortOrder::Desc) => "desc",
@@ -121,9 +123,55 @@ impl ListWindow {
         }
 
         args.extend(["--sort", sort, "--order", order].map(OsString::from));
-        args.extend(project_args(project));
+        args.extend(repos_args(repos));
 
         args
+    }
+}
+
+/// The longest repository key accepted (a path or a remote; far more than any real one).
+const MAX_KEY_CHARS: usize = 1024;
+
+/// Which repositories a notes or scripts command reads besides the global ones.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Repos<'a> {
+    /// `--project <root>`: that project's repository; none for the global ones only.
+    Project(Option<&'a Path>),
+    /// `--repo <key>`: the repository with that key, wherever it is checked out.
+    Key(&'a str),
+    /// `--all-repos`: every repository.
+    All,
+}
+
+impl<'a> Repos<'a> {
+    /// `repos` when the caller picked repositories, else the repository of `project`. `invalidInput` for a
+    /// repository key that is not one (a real key starts with `git:` or `path:`, has no control characters, and
+    /// is at most [`MAX_KEY_CHARS`] long), so no string from the UI can name anything but one repository.
+    pub fn of(project: Option<&'a Path>, repos: Option<&'a MemoryRepos>) -> Result<Self> {
+        match repos {
+            Some(MemoryRepos::All) => Ok(Self::All),
+            Some(MemoryRepos::Repo { key }) => {
+                let shaped = (key.starts_with("git:") || key.starts_with("path:"))
+                    && key.chars().count() <= MAX_KEY_CHARS
+                    && !key.chars().any(char::is_control);
+
+                if shaped {
+                    Ok(Self::Key(key))
+                } else {
+                    Err(BusinessError::InvalidInput("that is not a repository key".to_owned()))
+                }
+            }
+            None => Ok(Self::Project(project)),
+        }
+    }
+}
+
+/// The options that name `repos`: `--project <root>`, `--repo <key>` or `--all-repos`.
+pub(crate) fn repos_args(repos: Repos<'_>) -> Vec<OsString> {
+    match repos {
+        Repos::Project(project) => project_args(project),
+        Repos::Key(key) => vec!["--repo".into(), key.into()],
+        Repos::All => vec!["--all-repos".into()],
     }
 }
 
@@ -388,14 +436,26 @@ pub(crate) async fn delete_all(
     runner: &dyn ProcessRunner,
     server: &Path,
     command: &str,
-    project: Option<&Path>,
+    repos: Repos<'_>,
+    scope: Option<ScriptScope>,
 ) -> Result<MemoryDeleteAll> {
+    if repos == Repos::All {
+        return Err(BusinessError::InvalidInput(
+            "every repository cannot be deleted at once; pick one".to_owned(),
+        ));
+    }
+
     let name = format!("{command} delete --all");
 
     let mut args: Vec<OsString> = [command, "delete", "--all", "--yes", "--json"]
         .map(OsString::from)
         .into();
-    args.extend(project_args(project));
+    args.extend(repos_args(repos));
+    args.extend(
+        scope
+            .into_iter()
+            .flat_map(|scope| [OsString::from("--scope"), scope_name(scope).into()]),
+    );
 
     let call = CliCall {
         name: &name,

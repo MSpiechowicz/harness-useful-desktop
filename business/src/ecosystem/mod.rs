@@ -73,6 +73,7 @@ mod memory_notes_titles;
 pub mod memory_record;
 pub mod memory_register;
 pub mod memory_remote;
+pub mod memory_repos;
 pub mod memory_requests;
 pub mod memory_scripts;
 mod memory_scripts_list;
@@ -97,6 +98,7 @@ pub use mcp_pool::{McpPool, PoolOptions};
 pub use mcp_register::{mcp_state, memory_mcp_state, register_dashboard_mcp};
 pub use memory_binary::{installed_memory, memory_version, parse_memory_version, resolve_memory};
 pub use memory_cli::ListWindow;
+pub use memory_cli::Repos;
 pub use memory_features::{FeaturesSupport, MemoryFeatures};
 pub use memory_hidden::{MAX_LOCAL_IDS, discard_local, hide_entry};
 pub use memory_hooks::{HooksConfig, HooksSupport, MemoryHooks};
@@ -119,6 +121,7 @@ pub use memory_remote::{
     MemoryRemoteChange, MemorySupport, ScriptsSupport, memory_config_path, memory_remote_get, memory_remote_set,
     memory_remote_test,
 };
+pub use memory_repos::list_repos;
 pub use memory_requests::{RequestWatcher, memory_data_dir, remove_alive, touch_alive};
 pub use memory_scripts::{MemoryScripts, SCRIPT_LIST_TOOL, ScriptsQuery};
 pub use memory_team_docs::{MemoryTeamDocs, TeamDocsConfig, TeamDocsSupport};

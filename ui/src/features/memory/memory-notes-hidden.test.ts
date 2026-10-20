@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { sampleNotes } from '$lib/ipc/mock/memory-notes-fixtures';
 import { toasts } from '$lib/stores/toasts.svelte';
 
-import { calls, fakeMemory, noteRow, PROJECT, registerMemoryHooks, showNotes } from './memory-test-support';
+import { ALL, calls, fakeMemory, noteRow, PROJECT, registerMemoryHooks, showNotes } from './memory-test-support';
 
 registerMemoryHooks();
 
@@ -33,7 +33,7 @@ describe('hiding team notes on this computer', () => {
 
     await fireEvent.click(within(panel).getByRole('button', { name: 'Hide on this computer' }));
 
-    await waitFor(() => expect(calls(invoke, 'memory_note_hide')).toEqual([{ id: 3, project: PROJECT, hidden: true }]));
+    await waitFor(() => expect(calls(invoke, 'memory_note_hide')).toEqual([{ id: 3, ...ALL, hidden: true }]));
     expect(await screen.findByRole('button', { name: 'Hidden on this computer (1)' })).toBeInTheDocument();
     expect(noteRow(3)).toBeNull();
     expect(toasts.items.at(-1)).toMatchObject({ title: 'Hidden on this computer', description: TEAM_NOTE, tone: 'success' });
@@ -75,7 +75,7 @@ describe('hiding team notes on this computer', () => {
 
     await fireEvent.click(within(panel).getByRole('button', { name: 'Unhide' }));
 
-    await waitFor(() => expect(calls(invoke, 'memory_note_hide')).toEqual([{ id: 5, project: PROJECT, hidden: false }]));
+    await waitFor(() => expect(calls(invoke, 'memory_note_hide')).toEqual([{ id: 5, ...ALL, hidden: false }]));
     // The last hidden note is shown again: the filter has nothing left and the list is the full one.
     await waitFor(() => expect(screen.queryByRole('button', { name: /Hidden on this computer/ })).toBeNull());
     await waitFor(() => expect(noteRow(5)).not.toBeNull());

@@ -41,6 +41,7 @@ use std::path::Path;
 use serde_json::{Map, Value, json};
 
 use super::mcp_client::ToolOutput;
+use super::memory_cli::Repos;
 use super::memory_scripts::{MemoryScripts, SCRIPT_GET_TOOL, parse, tool_error_text, with_project};
 use super::memory_trust::{script_sha256, trust_scripts};
 use crate::env::Env;
@@ -162,12 +163,12 @@ impl MemoryScripts {
             sha256: script_sha256(draft.language, &draft.body),
         };
 
-        if let Err(error) = trust_scripts(env, runner, &[item], project).await {
+        if let Err(error) = trust_scripts(env, runner, &[item], Repos::Project(project)).await {
             tracing::warn!(id, code = ?error.code(), "the saved memory script was not approved");
             return script.clone();
         }
 
-        match self.get(env, id, project).await {
+        match self.get(env, runner, id, Repos::Project(project)).await {
             Ok(detail) => detail.summary,
             Err(error) => {
                 tracing::warn!(id, code = ?error.code(), "the approved memory script was not read again");

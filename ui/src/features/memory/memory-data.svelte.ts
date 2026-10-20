@@ -3,9 +3,11 @@ import { untrack } from 'svelte';
 import type { NoteSort } from '$lib/ipc/bindings/NoteSort';
 import type { ScriptSort } from '$lib/ipc/bindings/ScriptSort';
 import { MEMORY_NOTES_POLL_MS, MEMORY_SCRIPTS_POLL_MS } from '$lib/stores/live';
+import { reachScope } from '$lib/stores/memory-reach';
+import { project } from '$lib/stores/project.svelte';
+import { noteRepos, scriptRepos } from '$lib/stores/memoryRepos.svelte';
 import { noteDetail, noteList, type NotesRequest, notesKey } from '$lib/stores/memoryNotes.svelte';
 import { scriptDetail, scriptList, type ScriptsRequest, scriptsKey } from '$lib/stores/memoryScripts.svelte';
-import { project } from '$lib/stores/project.svelte';
 import { viewState } from '$lib/stores/view-state.svelte';
 import { autoRefresh } from '$lib/utils/auto-refresh';
 
@@ -55,7 +57,8 @@ function settled(read: () => string): { readonly value: string } {
  * Call it once while the view initialises: it registers the effects of the calling component.
  */
 export function useNotesData(): void {
-  const path = $derived(project.active?.path ?? null);
+  const path = $derived(viewState.memoryReach);
+  const active = $derived(project.active?.path ?? null);
   const query = settled(() => viewState.notesQuery);
 
   // A server is asked for what it answers: the scope next to the kind only while it combines filters (it says so with every page).
@@ -63,7 +66,7 @@ export function useNotesData(): void {
 
   const request = $derived<NotesRequest>({
     query: query.value,
-    scope: combined ? viewState.notesScope : null,
+    scope: combined ? reachScope(viewState.memoryReach) : null,
     kind: viewState.notesKind,
     sort: sortOf(NOTE_SORTS, viewState.notesSort.key),
     order: viewState.notesSort.desc ? 'desc' : 'asc',
@@ -73,7 +76,7 @@ export function useNotesData(): void {
 
   // The editor and the import review belong to the project on screen and to this view: neither outlives a switch of project or leaving the view.
   $effect(() => {
-    void path;
+    void active;
 
     return () => {
       noteEditor.reset();
@@ -90,6 +93,11 @@ export function useNotesData(): void {
     untrack(() => noteList.revalidate(key, where));
   });
 
+  // The repositories in the Repository filter: read when the view opens, and again with every look at the list.
+  $effect(() => {
+    untrack(() => noteRepos.revalidate('notes', null));
+  });
+
   // The last hidden note shown again leaves a filter with nothing to show.
   $effect(() => {
     const page = noteList.data;
@@ -102,7 +110,7 @@ export function useNotesData(): void {
 
   $effect(() => {
     // A list that failed to load is read again on the retry schedule, a little later each time, instead of at the poll's pace.
-    return autoRefresh(() => Promise.all([noteList.refresh({ quiet: true }), noteDetail.refresh({ quiet: true })]), MEMORY_NOTES_POLL_MS, {
+    return autoRefresh(() => Promise.all([noteList.refresh({ quiet: true }), noteDetail.refresh({ quiet: true }), noteRepos.refresh({ quiet: true })]), MEMORY_NOTES_POLL_MS, {
       failing: noteList.status === 'error',
     });
   });
@@ -110,14 +118,15 @@ export function useNotesData(): void {
 
 /** The same for the Scripts view: its list, read for this project and kept fresh. Call it once while the view initialises. */
 export function useScriptsData(): void {
-  const path = $derived(project.active?.path ?? null);
+  const path = $derived(viewState.memoryReach);
+  const active = $derived(project.active?.path ?? null);
   const query = settled(() => viewState.scriptsQuery);
 
   const combined = $derived(scriptList.data?.combinedFilters ?? true);
 
   const request = $derived<ScriptsRequest>({
     query: query.value,
-    scope: combined ? viewState.scriptsScope : null,
+    scope: combined ? reachScope(viewState.memoryReach) : null,
     review: combined ? viewState.scriptsStatus : null,
     group: combined ? null : viewState.scriptsGroup,
     sort: sortOf(SCRIPT_SORTS, viewState.scriptsSort.key),
@@ -128,7 +137,7 @@ export function useScriptsData(): void {
 
   // The editor belongs to the project on screen and to this view: it does not outlive a switch of project or leaving the view.
   $effect(() => {
-    void path;
+    void active;
 
     return scriptEditor.reset.bind(scriptEditor);
   });
@@ -138,6 +147,10 @@ export function useScriptsData(): void {
     const where = path;
 
     untrack(() => scriptList.revalidate(key, where));
+  });
+
+  $effect(() => {
+    untrack(() => scriptRepos.revalidate('scripts', null));
   });
 
   // The last hidden script shown again leaves a filter with nothing to show.
@@ -151,5 +164,5 @@ export function useScriptsData(): void {
   });
 
   // The open script is read again with every look at the list, so what an agent changed in it shows whether or not its row is on this page.
-  $effect(() => autoRefresh(() => Promise.all([scriptList.refresh({ quiet: true }), scriptDetail.refresh({ quiet: true })]), MEMORY_SCRIPTS_POLL_MS, { failing: scriptList.status === 'error' }));
+  $effect(() => autoRefresh(() => Promise.all([scriptList.refresh({ quiet: true }), scriptDetail.refresh({ quiet: true }), scriptRepos.refresh({ quiet: true })]), MEMORY_SCRIPTS_POLL_MS, { failing: scriptList.status === 'error' }));
 }

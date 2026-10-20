@@ -20,6 +20,7 @@ const sampleArgs = (sessionKey: string): { [K in CommandName]: CommandArgs<K> } 
   memory_remote_get: undefined,
   memory_remote_set: { enabled: true, kind: 'postgres', url: 'postgres://memory:pw@db.ok.example.com/harness_memory', token: null, repositoryNotes: 'remote', globalNotes: 'local', scripts: 'remote', trustTeamScripts: false },
   memory_remote_test: { kind: 'libsql', url: 'libsql://team-ok.turso.io', token: 'tok' },
+  memory_repos_list: { kind: 'scripts' },
   memory_scripts_list: { project: '/home/demo/project', offset: 0 },
   memory_script_get: { id: 12, project: '/home/demo/project' },
   memory_script_delete: { id: 12, project: '/home/demo/project' },

@@ -3,6 +3,8 @@ import type { MemoryRemote } from './bindings/MemoryRemote';
 import type { MemoryRemoteKind } from './bindings/MemoryRemoteKind';
 import type { MemoryRemoteTest } from './bindings/MemoryRemoteTest';
 import type { MemoryNotesPage } from './bindings/MemoryNotesPage';
+import type { MemoryRepos } from './bindings/MemoryRepos';
+import type { MemoryReposPage } from './bindings/MemoryReposPage';
 import type { MemoryScriptsPage } from './bindings/MemoryScriptsPage';
 import type { MemorySwitchResult } from './bindings/MemorySwitchResult';
 import type { NoteDetail } from './bindings/NoteDetail';
@@ -91,6 +93,8 @@ export const memoryCommands = {
   memory_scripts_list: cmd<
     {
       project: string | null;
+      /** Read these repositories instead of `project`'s: every one, or one by its key (with the global notes). */
+      repos?: MemoryRepos;
       offset: number;
       limit?: number;
       query?: string;
@@ -107,14 +111,14 @@ export const memoryCommands = {
     MemoryScriptsPage
   >(),
   /** One script with its body (`script_get`). `hidden` reads a remote script hidden on this computer. `notFound` when it is gone or the server is not installed. */
-  memory_script_get: cmd<{ id: number; project: string | null; hidden?: boolean }, ScriptDetail>(),
+  memory_script_get: cmd<{ id: number; project: string | null; repos?: MemoryRepos; hidden?: boolean }, ScriptDetail>(),
   /** Deletes one script (`script_delete`). `notFound` when it is gone or the server is not installed. */
-  memory_script_delete: cmd<{ id: number; project: string | null }, null>(),
+  memory_script_delete: cmd<{ id: number; project: string | null; repos?: MemoryRepos }, null>(),
   /**
    * Hides remote script `id` on this computer (`hidden: true`, `harness-memory scripts hide`) or shows it again. The remote database never
    * changes. `notFound` when the script is gone, `unsupported` when the server predates hiding scripts, `process` when it refuses.
    */
-  memory_script_hide: cmd<{ id: number; project: string | null; hidden: boolean }, null>(),
+  memory_script_hide: cmd<{ id: number; project: string | null; repos?: MemoryRepos; hidden: boolean }, null>(),
   /**
    * Deletes scripts from the local file while scripts are routed to the remote database, where they are invisible (`scripts discard-local`):
    * `ids` are local-file ids from `memory_notes_copy_rows` (kind `scripts`), or `all`, narrowed by `scope`. Answers how many were deleted.
@@ -139,14 +143,14 @@ export const memoryCommands = {
    * Memory is not installed, `process` with the server's (redacted) message when it fails, `forbidden` for a project that
    * is not open or recent.
    */
-  memory_scripts_delete_all: cmd<{ project?: string | null }, MemoryDeleteAll>(),
+  memory_scripts_delete_all: cmd<{ project?: string | null; repos?: MemoryRepos; scope?: ScriptScope }, MemoryDeleteAll>(),
   /**
    * Approves the reviewed versions of scripts with `harness-memory trust <id>=<sha256>… [--project <root>]` (20 s and 1 s per script, 120 s at most): each item
    * is a script id and the `sha256` the user saw (64 lowercase hex), at most 500. Rejects with `conflict` when a script
    * changed since it was reviewed (reload it and ask again, the others are still approved), `invalidInput` for no items or
    * a bad id or hash, `process` with the server's (redacted) message when it fails, `notFound` when Harness Memory is not installed.
    */
-  memory_scripts_trust: cmd<{ items: { id: number; sha256: string }[]; project: string | null }, null>(),
+  memory_scripts_trust: cmd<{ items: { id: number; sha256: string }[]; project: string | null; repos?: MemoryRepos }, null>(),
   /**
    * Sends the run requests of agents (a script this machine has not approved) to `onRequest`, replacing the previous listener.
    * Every request still waiting is sent again at once. `gone` follows when the server got an answer or stopped waiting (45 s).
@@ -157,6 +161,11 @@ export const memoryCommands = {
    * or was never reported to `memory_script_requests_listen`, or already answered.
    */
   memory_script_decide: cmd<{ requestId: string; allow: boolean }, null>(),
+  /**
+   * The repositories that have notes or scripts (`kind`), by name, each with its key and how many there are, and how many global
+   * ones (`harness-memory notes|scripts repos --json`). Never rejects for a missing or old server: see `availability`.
+   */
+  memory_repos_list: cmd<{ kind: MemoryCopyKind }, MemoryReposPage>(),
   /**
    * One page of the project's repository notes and the global ones (`harness-memory notes list --json`, 15 s). Never
    * rejects for a missing or old server: see `availability` (`notes` is empty, `total` 0 and `kinds` empty unless
@@ -170,6 +179,8 @@ export const memoryCommands = {
   memory_notes_list: cmd<
     {
       project: string | null;
+      /** Read these repositories instead of `project`'s: every one, or one by its key (with the global notes). */
+      repos?: MemoryRepos;
       offset: number;
       limit?: number;
       query?: string;
@@ -188,17 +199,17 @@ export const memoryCommands = {
    * Harness Memory is not installed, `unsupported` when the server predates the notes view, `process` with the server's
    * (redacted) message when it fails.
    */
-  memory_note_get: cmd<{ id: number; project: string | null; hidden?: boolean }, NoteDetail>(),
+  memory_note_get: cmd<{ id: number; project: string | null; repos?: MemoryRepos; hidden?: boolean }, NoteDetail>(),
   /**
    * Deletes one note (`harness-memory notes delete`, 15 s). `notFound` when it is gone or Harness Memory is not installed,
    * `unsupported` when the server predates the notes view, `process` with the server's (redacted) message when it fails.
    */
-  memory_note_delete: cmd<{ id: number; project: string | null }, null>(),
+  memory_note_delete: cmd<{ id: number; project: string | null; repos?: MemoryRepos }, null>(),
   /**
    * Hides team note `id` on this computer (`hidden: true`, `harness-memory notes hide`) or shows it again. The team database never
    * changes. `notFound` when the note is gone, `unsupported` when the server predates hiding, `process` when it refuses.
    */
-  memory_note_hide: cmd<{ id: number; project: string | null; hidden: boolean }, null>(),
+  memory_note_hide: cmd<{ id: number; project: string | null; repos?: MemoryRepos; hidden: boolean }, null>(),
   /**
    * Deletes notes from the local file of a scope routed to the team database, where they are invisible (`notes discard-local`):
    * `ids` are local-file ids from `memory_notes_copy_rows`, or `all`, narrowed by `scope`. Answers how many were deleted.
@@ -233,7 +244,7 @@ export const memoryCommands = {
    * say). Rejects with `unsupported` when the server predates it, `notFound` when Harness Memory is not installed,
    * `process` with the server's (redacted) message when it fails, `forbidden` for a project that is not open or recent.
    */
-  memory_notes_delete_all: cmd<{ project?: string | null }, MemoryDeleteAll>(),
+  memory_notes_delete_all: cmd<{ project?: string | null; repos?: MemoryRepos; /** Only the repository's own entries (`repo`) or only the global ones (`global`), as the list shows them. */ scope?: ScriptScope }, MemoryDeleteAll>(),
   /**
    * Opens the native file picker for a CSV or JSON file of notes and reviews it for `project` (null for global notes only). Null when
    * the user cancelled the picker. `plan`: at most 500 notes (`truncated` past that) of a file of at most 2 MiB, each row with what is

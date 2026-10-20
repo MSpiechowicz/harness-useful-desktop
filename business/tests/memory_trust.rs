@@ -12,7 +12,7 @@ use std::ffi::OsString;
 use std::path::Path;
 
 use harness_business::ecosystem::memory_trust::{MAX_TRUSTED_IDS, trust_args, trust_timeout};
-use harness_business::ecosystem::trust_scripts;
+use harness_business::ecosystem::{Repos, trust_scripts};
 use harness_business::env::Env;
 use harness_business::model::ScriptTrustItem;
 use harness_business::process::{ExecOutput, ProcessRunner, TokioRunner};
@@ -23,7 +23,7 @@ use pretty_assertions::assert_eq;
 fn trust(env: &Env, runner: &dyn ProcessRunner, items: &[ScriptTrustItem], project: Option<&Path>) -> Result<()> {
     tokio::runtime::Runtime::new()
         .unwrap()
-        .block_on(trust_scripts(env, runner, items, project))
+        .block_on(trust_scripts(env, runner, items, Repos::Project(project)))
 }
 
 /// Script `id` with the hash the stand-in gives it (`id` as 64 hex digits).
@@ -48,7 +48,7 @@ fn each_id_with_its_hash_then_the_project_go_on_the_command_line() {
     let sha = "0123456789abcdef".repeat(4);
 
     assert_eq!(
-        texts(&trust_args(&[item(12, &sha), reviewed(7)], Some(project)).unwrap()),
+        texts(&trust_args(&[item(12, &sha), reviewed(7)], Repos::Project(Some(project))).unwrap()),
         [
             "trust".to_owned(),
             format!("12={sha}"),
@@ -58,8 +58,21 @@ fn each_id_with_its_hash_then_the_project_go_on_the_command_line() {
         ]
     );
     assert_eq!(
-        texts(&trust_args(&[reviewed(3)], None).unwrap()),
+        texts(&trust_args(&[reviewed(3)], Repos::Project(None)).unwrap()),
         ["trust", &format!("3={:064x}", 3)]
+    );
+    assert_eq!(
+        texts(&trust_args(&[reviewed(3)], Repos::Key("git:github.com/acme/widget")).unwrap()),
+        [
+            "trust",
+            &format!("3={:064x}", 3),
+            "--repo",
+            "git:github.com/acme/widget"
+        ]
+    );
+    assert_eq!(
+        texts(&trust_args(&[reviewed(3)], Repos::All).unwrap()),
+        ["trust", &format!("3={:064x}", 3), "--all-repos"]
     );
 
     let too_many: Vec<ScriptTrustItem> = (1..=i64::try_from(MAX_TRUSTED_IDS).unwrap() + 1)
@@ -80,7 +93,7 @@ fn each_id_with_its_hash_then_the_project_go_on_the_command_line() {
         .chain(bad_hashes.iter().map(|hash| vec![reviewed(5), item(6, hash)]));
 
     for items in bad {
-        let result = trust_args(&items, None);
+        let result = trust_args(&items, Repos::Project(None));
         assert!(
             matches!(result, Err(BusinessError::InvalidInput(_))),
             "{items:?}: {result:?}"

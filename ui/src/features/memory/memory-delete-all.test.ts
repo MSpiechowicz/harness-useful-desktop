@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import { ipc } from '$lib/ipc/client';
 import type { CommandName } from '$lib/ipc/commands';
@@ -10,10 +10,15 @@ import { nav } from '$lib/stores/nav.svelte';
 import { toasts } from '$lib/stores/toasts.svelte';
 import { viewState } from '$lib/stores/view-state.svelte';
 
-import { calls, fakeMemory, PROJECT, registerMemoryHooks, rowButton, showMemory, showNotes } from './memory-test-support';
+import { calls, fakeMemory, registerMemoryHooks, REPO_ARGS, REPO_REACH, rowButton, showMemory, showNotes } from './memory-test-support';
 import ScriptsView from './ScriptsView.svelte';
 
 registerMemoryHooks();
+
+// Every repository cannot be deleted at once, so these start on one repository.
+beforeEach(() => {
+  viewState.memoryReach = REPO_REACH;
+});
 
 async function chooseDeleteAll(label: string): Promise<void> {
   await fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
@@ -36,6 +41,9 @@ function failDeleteAll(invoke: ReturnType<typeof fakeMemory>): void {
       : real(name as never, args)) as typeof ipc.invoke);
 }
 
+/** What deleting everything of one repository takes: its own entries, not the global ones the list leaves out. */
+const own = <T extends { scope: string }>(entries: T[]): T[] => entries.filter((entry) => entry.scope === 'repo');
+
 describe('deleting all scripts', () => {
   it('asks with the number and the team, deletes by project, closes the panel and reads the list again', async () => {
     const invoke = fakeMemory();
@@ -45,35 +53,36 @@ describe('deleting all scripts', () => {
 
     await chooseDeleteAll('Delete all scripts…');
 
-    expect(await screen.findByText('Delete all 5 scripts?')).toBeInTheDocument();
-    expect(screen.getByText('4 of them are in the remote database, so your teammates lose them too.')).toBeInTheDocument();
+    const mine = own(sampleScripts());
+    expect(await screen.findByText(`Delete all ${mine.length} scripts?`)).toBeInTheDocument();
+    expect(screen.getByText(`${mine.filter((script) => script.place === 'team').length} of them are in the remote database, so your teammates lose them too.`)).toBeInTheDocument();
     expect(calls(invoke, 'memory_scripts_delete_all')).toHaveLength(0);
 
     await fireEvent.click(screen.getByRole('button', { name: 'Delete all scripts' }));
 
-    expect(await screen.findByText('No scripts yet')).toBeInTheDocument();
-    expect(calls(invoke, 'memory_scripts_delete_all')).toEqual([{ project: PROJECT }]);
+    await waitFor(() => expect(screen.getByText('No scripts yet')).toBeInTheDocument());
+    expect(calls(invoke, 'memory_scripts_delete_all')).toEqual([REPO_ARGS]);
     expect(viewState.scriptId).toBeNull();
-    expect(screen.queryByRole('dialog')).toBeNull();
-    expect(toasts.items.at(-1)).toMatchObject({ title: '5 scripts deleted', description: '4 of them were in the remote database.', tone: 'success' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(toasts.items.at(-1)).toMatchObject({ title: `${mine.length} scripts deleted`, description: `${mine.filter((script) => script.place === 'team').length} of them were in the remote database.`, tone: 'success' });
   });
 
   it('leaves the read-only remote scripts out, says they stay and can be hidden, and tells how many stayed', async () => {
     const scripts = sampleScripts().map((script) => ({ ...script, readOnly: script.place === 'team' }));
-    const stay = scripts.filter((script) => script.readOnly).length;
+    const stay = own(scripts).filter((script) => script.readOnly).length;
     const invoke = fakeMemory({ kind: 'available' }, scripts);
     await showMemory();
 
     await chooseDeleteAll('Delete all scripts…');
 
-    expect(scripts.length - stay).toBe(1);
+    expect(own(scripts).length - stay).toBe(1);
     expect(await screen.findByText('Delete 1 script?')).toBeInTheDocument();
     expect(screen.getByText(`${stay} remote scripts stay, you can hide them.`)).toBeInTheDocument();
     expect(screen.queryByText(/your teammates lose/)).toBeNull();
 
     await fireEvent.click(screen.getByRole('button', { name: 'Delete all scripts' }));
 
-    await waitFor(() => expect(calls(invoke, 'memory_scripts_delete_all')).toEqual([{ project: PROJECT }]));
+    await waitFor(() => expect(calls(invoke, 'memory_scripts_delete_all')).toEqual([REPO_ARGS]));
     await waitFor(() => expect(toasts.items.at(-1)).toMatchObject({ title: '1 script deleted', description: `${stay} remote scripts stay, you can hide them.` }));
   });
 
@@ -84,7 +93,7 @@ describe('deleting all scripts', () => {
 
     await chooseDeleteAll('Delete all scripts…');
 
-    await waitFor(() => expect(toasts.items.at(-1)).toMatchObject({ title: `Nothing to delete here. The ${scripts.length} remote scripts stay, you can hide them.`, tone: 'info' }));
+    await waitFor(() => expect(toasts.items.at(-1)).toMatchObject({ title: `Nothing to delete here. The ${own(scripts).length} remote scripts stay, you can hide them.`, tone: 'info' }));
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(calls(invoke, 'memory_scripts_delete_all')).toHaveLength(0);
   });
@@ -97,7 +106,7 @@ describe('deleting all scripts', () => {
 
     await chooseDeleteAll('Delete all scripts…');
 
-    expect(await screen.findByText('Delete all 5 scripts?')).toBeInTheDocument();
+    expect(await screen.findByText(`Delete all ${own(sampleScripts()).length} scripts?`)).toBeInTheDocument();
   });
 
   it('keeps everything when it is cancelled', async () => {
@@ -147,7 +156,7 @@ describe('deleting all scripts', () => {
 describe('deleting all notes', () => {
   it('asks for the notes, says how many are the team', async () => {
     const invoke = fakeMemory();
-    const all = sampleNotes();
+    const all = own(sampleNotes());
     const team = all.filter((note) => note.place === 'team').length;
     await showNotes();
 
@@ -158,8 +167,8 @@ describe('deleting all notes', () => {
 
     await fireEvent.click(screen.getByRole('button', { name: 'Delete all notes' }));
 
-    expect(await screen.findByText('No notes yet')).toBeInTheDocument();
-    expect(calls(invoke, 'memory_notes_delete_all')).toEqual([{ project: PROJECT }]);
+    await waitFor(() => expect(screen.getByText('No notes yet')).toBeInTheDocument());
+    expect(calls(invoke, 'memory_notes_delete_all')).toEqual([REPO_ARGS]);
     expect(toasts.items.at(-1)).toMatchObject({ title: `${all.length} notes deleted` });
   });
 
@@ -175,7 +184,7 @@ describe('deleting all notes', () => {
   });
 
   it('leaves the team out when every note is on this computer', async () => {
-    const local = sampleNotes().map((note) => ({ ...note, place: 'local' as const }));
+    const local = own(sampleNotes().map((note) => ({ ...note, place: 'local' as const })));
     fakeMemory({ kind: 'available' }, undefined, undefined, local);
     await showNotes();
 
@@ -187,20 +196,20 @@ describe('deleting all notes', () => {
 
   it('leaves the read-only remote notes out, says they stay and can be hidden, and tells how many stayed', async () => {
     const notes = sampleNotes().map((note) => ({ ...note, readOnly: note.place === 'team' }));
-    const stay = notes.filter((note) => note.readOnly).length;
+    const stay = own(notes).filter((note) => note.readOnly).length;
     const invoke = fakeMemory({ kind: 'available' }, undefined, undefined, notes);
     await showNotes();
 
     await chooseDeleteAll('Delete all notes…');
 
-    expect(await screen.findByText(`Delete all ${notes.length - stay} notes?`)).toBeInTheDocument();
+    expect(await screen.findByText(`Delete all ${own(notes).length - stay} notes?`)).toBeInTheDocument();
     expect(screen.getByText(`${stay} remote notes stay, you can hide them.`)).toBeInTheDocument();
     expect(screen.queryByText(/your teammates lose/)).toBeNull();
 
     await fireEvent.click(screen.getByRole('button', { name: 'Delete all notes' }));
 
-    await waitFor(() => expect(calls(invoke, 'memory_notes_delete_all')).toEqual([{ project: PROJECT }]));
-    await waitFor(() => expect(toasts.items.at(-1)).toMatchObject({ title: `${notes.length - stay} notes deleted`, description: `${stay} remote notes stay, you can hide them.` }));
+    await waitFor(() => expect(calls(invoke, 'memory_notes_delete_all')).toEqual([REPO_ARGS]));
+    await waitFor(() => expect(toasts.items.at(-1)).toMatchObject({ title: `${own(notes).length - stay} notes deleted`, description: `${stay} remote notes stay, you can hide them.` }));
   });
 
   it('says so instead of asking when only read-only remote notes are left', async () => {
@@ -210,7 +219,7 @@ describe('deleting all notes', () => {
 
     await chooseDeleteAll('Delete all notes…');
 
-    await waitFor(() => expect(toasts.items.at(-1)).toMatchObject({ title: `Nothing to delete here. The ${notes.length} remote notes stay, you can hide them.`, tone: 'info' }));
+    await waitFor(() => expect(toasts.items.at(-1)).toMatchObject({ title: `Nothing to delete here. The ${own(notes).length} remote notes stay, you can hide them.`, tone: 'info' }));
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(calls(invoke, 'memory_notes_delete_all')).toHaveLength(0);
   });

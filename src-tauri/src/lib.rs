@@ -86,6 +86,7 @@ pub fn run() -> ExitCode {
             commands::memory_scripts::memory_scripts_discard_local,
             commands::memory_requests::memory_script_requests_listen,
             commands::memory_requests::memory_script_decide,
+            commands::memory_scripts::memory_repos_list,
             commands::memory_notes::memory_notes_list,
             commands::memory_notes::memory_note_get,
             commands::memory_notes::memory_note_delete,

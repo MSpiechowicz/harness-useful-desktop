@@ -21,7 +21,7 @@ use std::path::Path;
 use serde_json::Value;
 
 use super::memory_cli::{
-    ListAnswer, ListWindow, count_of, counts_by_scope, list_availability, run_list, scope_counts, scope_name,
+    ListAnswer, ListWindow, Repos, count_of, counts_by_scope, list_availability, run_list, scope_counts, scope_name,
 };
 use super::memory_hidden::HIDDEN_FLAG;
 use super::memory_scripts::parse;
@@ -87,7 +87,7 @@ pub(super) async fn list_page(
     env: &Env,
     runner: &dyn ProcessRunner,
     server: &Path,
-    project: Option<&Path>,
+    project: Repos<'_>,
     query: &ScriptsQuery,
 ) -> MemoryScriptsPage {
     let sort = match query.sort {

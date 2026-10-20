@@ -12,6 +12,7 @@
   import type { ScriptSaved } from '$lib/ipc/bindings/ScriptSaved';
   import { rereadScript, SCRIPT_CHANGED, saveScript } from '$lib/stores/memoryScripts.svelte';
   import { project } from '$lib/stores/project.svelte';
+  import { viewState } from '$lib/stores/view-state.svelte';
   import { uid } from '$lib/utils/ids';
 
   import { fieldProblems, onOpen } from './editor-fields.svelte';
@@ -135,7 +136,7 @@
     reloading = true;
 
     try {
-      const latest = await rereadScript(opened.id, projectPath);
+      const latest = await rereadScript(opened.id, viewState.memoryReach);
 
       if (latest === 'gone') {
         stale = 'gone';

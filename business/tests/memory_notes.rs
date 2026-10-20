@@ -8,7 +8,7 @@ use std::path::Path;
 
 use harness_business::BusinessError;
 use harness_business::ecosystem::memory_cli::{MAX_PAGE_SIZE, MAX_QUERY_CHARS};
-use harness_business::ecosystem::{ListWindow, NotesQuery, delete_all_notes, delete_note, get_note, list_notes};
+use harness_business::ecosystem::{ListWindow, NotesQuery, Repos, delete_all_notes, delete_note, get_note, list_notes};
 use harness_business::model::{
     MemoryDeleteAll, MemoryNotesPage, MemoryScriptsAvailability, NoteKind, NoteKindCount, NoteLink, NoteLinkDirection,
     NoteSort, ScriptPlace, ScriptScope, SortOrder,
@@ -29,7 +29,14 @@ fn first_page() -> NotesQuery {
 }
 
 async fn list(setup: &Setup, project: Option<&Path>, query: &NotesQuery) -> MemoryNotesPage {
-    list_notes(&setup.env, &setup.scripts, setup.runner(), project, query).await
+    list_notes(
+        &setup.env,
+        &setup.scripts,
+        setup.runner(),
+        Repos::Project(project),
+        query,
+    )
+    .await
 }
 
 fn ids(page: &MemoryNotesPage) -> Vec<i64> {
@@ -210,9 +217,15 @@ async fn deleting_them_all_sends_the_confirmation_and_reads_the_counts() {
     let setup = Setup::installed(CURRENT, &[]);
     let project = setup.project();
 
-    let deleted = delete_all_notes(&setup.env, &setup.scripts, setup.runner(), Some(&project))
-        .await
-        .expect("deleted");
+    let deleted = delete_all_notes(
+        &setup.env,
+        &setup.scripts,
+        setup.runner(),
+        Repos::Project(Some(&project)),
+        None,
+    )
+    .await
+    .expect("deleted");
     assert_eq!(
         deleted,
         MemoryDeleteAll {
@@ -234,7 +247,7 @@ async fn deleting_them_all_sends_the_confirmation_and_reads_the_counts() {
         ]
     );
 
-    let global = delete_all_notes(&setup.env, &setup.scripts, setup.runner(), None)
+    let global = delete_all_notes(&setup.env, &setup.scripts, setup.runner(), Repos::Project(None), None)
         .await
         .expect("deleted");
     assert_eq!(global.deleted, 5, "without a project only the global notes");
@@ -242,12 +255,19 @@ async fn deleting_them_all_sends_the_confirmation_and_reads_the_counts() {
     setup.scripts.shutdown().await;
 
     let older = Setup::installed(CURRENT, UNPAGED);
-    let refused = delete_all_notes(&older.env, &older.scripts, older.runner(), None).await;
+    let refused = delete_all_notes(&older.env, &older.scripts, older.runner(), Repos::Project(None), None).await;
     assert!(matches!(refused, Err(BusinessError::Unsupported(_))), "{refused:?}");
     older.scripts.shutdown().await;
 
     let missing = Setup::without_server(CURRENT, &[]);
-    let refused = delete_all_notes(&missing.env, &missing.scripts, missing.runner(), None).await;
+    let refused = delete_all_notes(
+        &missing.env,
+        &missing.scripts,
+        missing.runner(),
+        Repos::Project(None),
+        None,
+    )
+    .await;
     assert!(matches!(refused, Err(BusinessError::NotFound(_))), "{refused:?}");
     assert!(missing.requested().is_empty());
 }
@@ -273,9 +293,16 @@ async fn a_note_comes_with_its_body_and_the_links_both_ways() {
     let setup = Setup::installed(CURRENT, &[]);
     let project = setup.project();
 
-    let detail = get_note(&setup.env, &setup.scripts, setup.runner(), 2, Some(&project), false)
-        .await
-        .expect("note 2");
+    let detail = get_note(
+        &setup.env,
+        &setup.scripts,
+        setup.runner(),
+        2,
+        Repos::Project(Some(&project)),
+        false,
+    )
+    .await
+    .expect("note 2");
     assert_eq!(detail.note.summary.title, "Retry the watcher on rename");
     assert_eq!(detail.note.body, "Retry the watcher on rename.\nWritten by an agent.\n");
     assert_eq!(
@@ -315,13 +342,21 @@ async fn a_note_comes_with_its_body_and_the_links_both_ways() {
 async fn a_note_the_server_cannot_see_is_not_found() {
     let setup = Setup::installed(CURRENT, &[]);
 
-    let repository_note = get_note(&setup.env, &setup.scripts, setup.runner(), 3, None, false).await;
+    let repository_note = get_note(
+        &setup.env,
+        &setup.scripts,
+        setup.runner(),
+        3,
+        Repos::Project(None),
+        false,
+    )
+    .await;
     assert!(
         matches!(&repository_note, Err(BusinessError::NotFound(message)) if message == "note 3"),
         "{repository_note:?}"
     );
 
-    let unknown = delete_note(&setup.env, &setup.scripts, setup.runner(), 42, None).await;
+    let unknown = delete_note(&setup.env, &setup.scripts, setup.runner(), 42, Repos::Project(None)).await;
     assert!(matches!(unknown, Err(BusinessError::NotFound(_))), "{unknown:?}");
 
     setup.scripts.shutdown().await;
@@ -332,19 +367,32 @@ async fn delete_runs_on_the_project_and_failures_come_back_redacted() {
     let setup = Setup::installed(CURRENT, &[]);
     let project = setup.project();
 
-    delete_note(&setup.env, &setup.scripts, setup.runner(), 3, Some(&project))
-        .await
-        .expect("deleted");
+    delete_note(
+        &setup.env,
+        &setup.scripts,
+        setup.runner(),
+        3,
+        Repos::Project(Some(&project)),
+    )
+    .await
+    .expect("deleted");
     assert_eq!(
         texts(&setup.runs()[0].args),
         ["notes", "delete", "3", "--project", &project.to_string_lossy()]
     );
 
     for result in [
-        get_note(&setup.env, &setup.scripts, setup.runner(), 500, None, false)
-            .await
-            .map(|_| ()),
-        delete_note(&setup.env, &setup.scripts, setup.runner(), 500, None).await,
+        get_note(
+            &setup.env,
+            &setup.scripts,
+            setup.runner(),
+            500,
+            Repos::Project(None),
+            false,
+        )
+        .await
+        .map(|_| ()),
+        delete_note(&setup.env, &setup.scripts, setup.runner(), 500, Repos::Project(None)).await,
     ] {
         let Err(BusinessError::Process(message)) = &result else {
             panic!("expected a process error, got {result:?}");
@@ -369,7 +417,15 @@ async fn older_servers_are_outdated() {
         assert_eq!(page.availability, MemoryScriptsAvailability::Outdated, "{vars:?}");
         assert!(page.notes.is_empty() && page.kinds.is_empty() && page.total == 0);
 
-        let get = get_note(&setup.env, &setup.scripts, setup.runner(), 7, None, false).await;
+        let get = get_note(
+            &setup.env,
+            &setup.scripts,
+            setup.runner(),
+            7,
+            Repos::Project(None),
+            false,
+        )
+        .await;
         assert!(matches!(get, Err(BusinessError::Unsupported(_))), "{vars:?}: {get:?}");
 
         setup.scripts.shutdown().await;
@@ -383,7 +439,7 @@ async fn without_the_binary_nothing_runs() {
     let page = list(&setup, None, &first_page()).await;
     assert_eq!(page.availability, MemoryScriptsAvailability::NotInstalled);
 
-    let delete = delete_note(&setup.env, &setup.scripts, setup.runner(), 7, None).await;
+    let delete = delete_note(&setup.env, &setup.scripts, setup.runner(), 7, Repos::Project(None)).await;
     assert!(matches!(delete, Err(BusinessError::NotFound(_))), "{delete:?}");
     assert!(setup.requested().is_empty());
 }

@@ -8,7 +8,7 @@ import { IpcFailure } from '$lib/ipc/transport';
 import { ecosystem } from '$lib/stores/ecosystem.svelte';
 import { viewState } from '$lib/stores/view-state.svelte';
 
-import { calls, fakeMemory, filterChoices, NO_NEWER_RELEASE, noteRow, pickFilter, registerMemoryHooks, rowButton, showMemory, showNotes } from './memory-test-support';
+import { ALL, calls, fakeMemory, filterChoices, NO_NEWER_RELEASE, noteRow, pickFilter, registerMemoryHooks, REPO_ARGS, REPO_REACH, rowButton, showMemory, showNotes } from './memory-test-support';
 
 registerMemoryHooks();
 
@@ -28,15 +28,71 @@ function inOrder(first: string, second: string): boolean {
   return Boolean(before.compareDocumentPosition(after) & Node.DOCUMENT_POSITION_FOLLOWING);
 }
 
+describe('the Repository filter', () => {
+  const WIDGET = 'git:github.com/acme/widget';
+
+  /** The sample notes with the first repository ones moved to another repository. */
+  function inTwoRepositories() {
+    let moved = 0;
+
+    return sampleNotes().map((note) => (note.scope === 'repo' && moved++ < 5 ? { ...note, repo: 'github.com/acme/widget' } : note));
+  }
+
+  it('lists every repository by name with its count, and keeps the ones what is typed matches', async () => {
+    fakeMemory({ kind: 'available' }, undefined, undefined, inTwoRepositories());
+    await showNotes();
+
+    expect(await filterChoices('Repository: All repositories', 'Repository')).toEqual(['All repositories 70', 'acme/widget 5', 'useful/harness-desktop 50', 'Global only 15']);
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Repository: All repositories' }));
+    const menu = await screen.findByRole('menu', { name: 'Repository' });
+    await fireEvent.input(within(menu).getByRole('searchbox', { name: 'Search repositories' }), { target: { value: 'WIDG' } });
+
+    expect(within(menu).getAllByRole('menuitemradio').map((item) => item.textContent?.trim())).toEqual(['acme/widget 5']);
+
+    await fireEvent.input(within(menu).getByRole('searchbox', { name: 'Search repositories' }), { target: { value: 'nothing' } });
+
+    expect(within(menu).queryAllByRole('menuitemradio')).toHaveLength(0);
+    expect(within(menu).getByText('No repository matches')).toBeInTheDocument();
+  });
+
+  it('asks for one repository by its key with its own notes only, every repository with none, and the global ones with no repository', async () => {
+    const invoke = fakeMemory({ kind: 'available' }, undefined, undefined, inTwoRepositories());
+    await showNotes();
+    const lastAsk = () => calls(invoke, 'memory_notes_list').at(-1);
+
+    expect(lastAsk()).toMatchObject(ALL);
+    expect(sent(lastAsk(), 'scope')).toBeUndefined();
+
+    await pickFilter('Repository: All repositories', /^acme\/widget/);
+    await waitFor(() => expect(lastAsk()).toMatchObject({ project: null, repos: { kind: 'repo', key: WIDGET }, scope: 'repo', offset: 0 }));
+    await waitFor(() => expect(screen.getByText('5 notes')).toBeInTheDocument());
+
+    await pickFilter('Repository: acme/widget', /^Global only/);
+    await waitFor(() => expect(lastAsk()).toMatchObject({ project: null, scope: 'global' }));
+    expect(sent(lastAsk(), 'repos')).toBeUndefined();
+    await waitFor(() => expect(screen.getByText('15 notes')).toBeInTheDocument());
+  });
+
+  it('reads a note of another repository by the same choice, so it opens whichever chat is in front', async () => {
+    const invoke = fakeMemory({ kind: 'available' }, undefined, undefined, inTwoRepositories());
+    await showNotes();
+
+    await fireEvent.click(noteRow(3) as HTMLElement);
+
+    await waitFor(() => expect(calls(invoke, 'memory_note_get').at(-1)).toMatchObject({ id: 3, ...ALL }));
+  });
+});
+
 describe('the filters of the notes', () => {
-  it('are Scope and then Kind, both on All, with the count of notes in the row once', async () => {
+  it('are Repository and then Kind, both on All, with the count of notes in the row once', async () => {
     fakeMemory();
     await showNotes();
 
-    expect(inOrder('Scope: All', 'Kind: All')).toBe(true);
+    expect(inOrder('Repository: All repositories', 'Kind: All')).toBe(true);
     expect(screen.getAllByText('70 notes')).toHaveLength(1);
     expect(screen.queryByRole('radiogroup')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Clear the Scope filter' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Clear the Repository filter' })).toBeNull();
     expect(screen.queryByText('Update Harness Memory to add the Scope filter.')).toBeNull();
   });
 
@@ -44,19 +100,19 @@ describe('the filters of the notes', () => {
     fakeMemory();
     await showNotes();
 
-    expect(await filterChoices('Scope: All', 'Scope')).toEqual(['All 70', 'This repository 55', 'Global 15']);
+    // The repositories are counted whatever kind is chosen: they are the ones that have notes.
+    expect(await filterChoices('Repository: All repositories', 'Repository')).toEqual(['All repositories 70', 'useful/harness-desktop 55', 'Global only 15']);
     expect(await filterChoices('Kind: All', 'Kind')).toEqual(ALL_KINDS);
 
-    await pickFilter('Scope: All', /^Global/);
+    await pickFilter('Repository: All repositories', /^Global only/);
 
     await waitFor(() => expect(screen.getByText('15 notes')).toBeInTheDocument());
     expect(await filterChoices('Kind: All', 'Kind')).toEqual(GLOBAL_KINDS);
 
-    await pickFilter('Scope: Global', /^All/);
+    await pickFilter('Repository: Global only', /^All repositories/);
     await pickFilter('Kind: All', /^Decision/);
 
     await waitFor(() => expect(screen.getByText('11 notes')).toBeInTheDocument());
-    expect(await filterChoices('Scope: All', 'Scope')).toEqual(['All 11', 'This repository 8', 'Global 3']);
   });
 
   it('ask the server for the scope alone, the kind alone, and both together, from the first page', async () => {
@@ -65,10 +121,10 @@ describe('the filters of the notes', () => {
     await showNotes();
     const lastAsk = () => calls(invoke, 'memory_notes_list').at(-1);
 
-    await pickFilter('Scope: All', /^This repository/);
+    await pickFilter('Repository: All repositories', /^useful\/harness-desktop/);
     await waitFor(() => expect(lastAsk()).toMatchObject({ scope: 'repo', offset: 0 }));
     expect(sent(lastAsk(), 'kind')).toBeUndefined();
-    expect(viewState.notesScope).toBe('repo');
+    expect(viewState.memoryReach).toBe(REPO_REACH);
     await waitFor(() => expect(screen.getByText('55 notes')).toBeInTheDocument());
 
     await pickFilter('Kind: All', /^Decision/);
@@ -78,7 +134,7 @@ describe('the filters of the notes', () => {
     expect(noteRow(3)).not.toBeNull();
     expect(noteRow(4)).toBeNull();
 
-    await pickFilter('Scope: This repository', /^Global/);
+    await pickFilter('Repository: useful/harness-desktop', /^Global only/);
     await waitFor(() => expect(lastAsk()).toMatchObject({ scope: 'global', kind: 'decision' }));
     await waitFor(() => expect(screen.getByText('3 notes')).toBeInTheDocument());
     expect(noteRow(3)).toBeNull();
@@ -90,30 +146,30 @@ describe('the filters of the notes', () => {
 
     expect(screen.queryByRole('button', { name: 'Clear the Kind filter' })).toBeNull();
 
-    await pickFilter('Scope: All', /^Global/);
+    await pickFilter('Repository: All repositories', /^Global only/);
     await pickFilter('Kind: All', /^Outcome/);
     await waitFor(() => expect(screen.getByText('1 note')).toBeInTheDocument());
 
     await fireEvent.click(screen.getByRole('button', { name: 'Clear the Kind filter' }));
 
     await waitFor(() => expect(screen.getByText('15 notes')).toBeInTheDocument());
-    expect(screen.getByRole('button', { name: 'Scope: Global' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Repository: Global only' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Kind: All' })).toBeInTheDocument();
     expect(viewState.notesKind).toBeNull();
-    expect(viewState.notesScope).toBe('global');
+    expect(viewState.memoryReach).toBe('global');
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Clear the Scope filter' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Clear the Repository filter' }));
 
     await waitFor(() => expect(screen.getByText('70 notes')).toBeInTheDocument());
     expect(sent(calls(invoke, 'memory_notes_list').at(-1), 'scope')).toBeUndefined();
-    expect(screen.queryByRole('button', { name: 'Clear the Scope filter' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Clear the Repository filter' })).toBeNull();
   });
 
   it('say so when the two leave nothing, and a search keeps its own message', async () => {
     fakeMemory({ kind: 'available' }, undefined, undefined, sampleNotes().filter((note) => note.scope !== 'global' || note.kind !== 'outcome'));
     await showNotes();
 
-    await pickFilter('Scope: All', /^Global/);
+    await pickFilter('Repository: All repositories', /^Global only/);
     await pickFilter('Kind: All', /^Outcome 0/);
 
     expect(await screen.findByText('No notes match these filters.')).toBeInTheDocument();
@@ -122,27 +178,27 @@ describe('the filters of the notes', () => {
     await fireEvent.input(screen.getByRole('searchbox', { name: 'Search notes' }), { target: { value: 'zzz-nothing' } });
 
     expect(await screen.findByText('No note matches that search.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Scope: Global' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Repository: Global only' })).toBeInTheDocument();
   });
 
   it('keep the choice of the view when it is left and shown again', async () => {
     fakeMemory();
     await showNotes();
-    await pickFilter('Scope: All', /^Global/);
+    await pickFilter('Repository: All repositories', /^Global only/);
 
     cleanup();
     await showNotes();
 
-    expect(screen.getByRole('button', { name: 'Scope: Global' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Repository: Global only' })).toBeInTheDocument();
   });
 });
 
 describe('the filters of the scripts', () => {
-  it('are Scope and then Status, both on All, in the same place as on the notes', async () => {
+  it('are Repository and then Status, both on All, in the same place as on the notes', async () => {
     fakeMemory();
     await showMemory();
 
-    expect(inOrder('Scope: All', 'Status: All')).toBe(true);
+    expect(inOrder('Repository: All repositories', 'Status: All')).toBe(true);
     expect(screen.getAllByText('5 scripts')).toHaveLength(1);
     expect(screen.queryByRole('radiogroup')).toBeNull();
     expect(screen.queryByText('Update Harness Memory to add the Scope filter.')).toBeNull();
@@ -152,17 +208,16 @@ describe('the filters of the scripts', () => {
     fakeMemory();
     await showMemory();
 
-    expect(await filterChoices('Scope: All', 'Scope')).toEqual(['All 5', 'This repository 4', 'Global 1']);
+    expect(await filterChoices('Repository: All repositories', 'Repository')).toEqual(['All repositories 5', 'useful/harness-desktop 4', 'Global only 1']);
     expect(await filterChoices('Status: All', 'Status')).toEqual(['All 5', 'Needs review 2', 'Trusted 3']);
 
-    await pickFilter('Scope: All', /^Global/);
+    await pickFilter('Repository: All repositories', /^Global only/);
     await waitFor(() => expect(screen.getByText('1 script')).toBeInTheDocument());
     expect(await filterChoices('Status: All', 'Status')).toEqual(['All 1', 'Needs review 1', 'Trusted 0']);
 
-    await pickFilter('Scope: Global', /^All/);
+    await pickFilter('Repository: Global only', /^All repositories/);
     await pickFilter('Status: All', /^Trusted/);
     await waitFor(() => expect(screen.getByText('3 scripts')).toBeInTheDocument());
-    expect(await filterChoices('Scope: All', 'Scope')).toEqual(['All 3', 'This repository 3', 'Global 0']);
   });
 
   it('ask the server for scope and review, never for a group next to them', async () => {
@@ -171,7 +226,7 @@ describe('the filters of the scripts', () => {
     await showMemory();
     const lastAsk = () => calls(invoke, 'memory_scripts_list').at(-1);
 
-    await pickFilter('Scope: All', /^This repository/);
+    await pickFilter('Repository: All repositories', /^useful\/harness-desktop/);
     await waitFor(() => expect(lastAsk()).toMatchObject({ scope: 'repo', offset: 0 }));
 
     await pickFilter('Status: All', /^Trusted/);
@@ -182,7 +237,7 @@ describe('the filters of the scripts', () => {
     expect(rowButton('ci-status')).not.toBeNull();
     expect(rowButton('deploy-check')).toBeNull();
 
-    await pickFilter('Scope: This repository', /^Global/);
+    await pickFilter('Repository: useful/harness-desktop', /^Global only/);
     await pickFilter('Status: Trusted', /^Needs review/);
     await waitFor(() => expect(lastAsk()).toMatchObject({ scope: 'global', review: 'needed' }));
     await waitFor(() => expect(rowButton('open-prs')).toBeNull());
@@ -197,7 +252,7 @@ describe('the filters of the scripts', () => {
     fakeMemory();
     await showMemory();
 
-    await pickFilter('Scope: All', /^Global/);
+    await pickFilter('Repository: All repositories', /^Global only/);
     await pickFilter('Status: All', /^Trusted/);
 
     expect(await screen.findByText('No scripts match these filters.')).toBeInTheDocument();
@@ -208,9 +263,9 @@ describe('the filters of the scripts', () => {
     await waitFor(() => expect(rowButton('disk-hogs')).not.toBeNull());
     expect(rowButton('open-prs')).toBeNull();
     expect(viewState.scriptsStatus).toBeNull();
-    expect(viewState.scriptsScope).toBe('global');
+    expect(viewState.memoryReach).toBe('global');
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Clear the Scope filter' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Clear the Repository filter' }));
 
     await waitFor(() => expect(rowButton('open-prs')).not.toBeNull());
   });
@@ -221,7 +276,6 @@ describe('an older Harness Memory', () => {
 
   it('gets the Kind filter alone on the notes, never asked for a scope, and a hint to update', async () => {
     const invoke = fakeMemory({ kind: 'available' }, undefined, undefined, undefined, false);
-    viewState.notesScope = 'repo';
     await showNotes();
 
     expect(await screen.findByRole('button', { name: 'Kind: All' })).toBeInTheDocument();
@@ -300,7 +354,7 @@ describe('an older Harness Memory', () => {
     expect(screen.queryByRole('button', { name: 'Update Harness Memory' })).toBeNull();
   });
 
-  it('adds the Scope filter once Harness Memory is updated from the hint, after asking first', async () => {
+  it('adds the Status filter once Harness Memory is updated from the hint, after asking first', async () => {
     let updated = false;
     const invoke = fakeMemory({ kind: 'available' }, undefined, undefined, undefined, () => updated);
     const rest = invoke.getMockImplementation()!;
@@ -323,8 +377,7 @@ describe('an older Harness Memory', () => {
     expect(calls(invoke, 'setup_install_memory')).toEqual([]);
     await fireEvent.click(within(dialog).getByRole('button', { name: 'Update Harness Memory' }));
 
-    expect(await screen.findByRole('button', { name: 'Scope: All' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Status: All' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Status: All' })).toBeInTheDocument();
     expect(screen.queryByText(HINT)).toBeNull();
     expect(calls(invoke, 'setup_install_memory')).toEqual([expect.objectContaining({ confirmed: true })]);
   });

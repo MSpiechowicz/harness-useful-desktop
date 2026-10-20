@@ -63,10 +63,12 @@ export class ViewState {
   /** What the Sessions search field in the top bar holds. */
   sessionsQuery = $state('');
 
+  /** What the Notes and Scripts views read (see `Reach`): every repository by default. */
+  memoryReach = $state<string>('all');
+
   /** The note whose panel is open, what the search field holds, the scope and kind filters (null for all), the sort and the page (from 0) of the notes table. */
   noteId = $state<number | null>(null);
   notesQuery = $state('');
-  notesScope = $state<ScriptScope | null>(null);
   notesKind = $state<NoteKind | null>(null);
   notesSort = $state<Sort>({ key: 'updated', desc: true });
   notesPage = $state(0);
@@ -74,7 +76,6 @@ export class ViewState {
   /** The same for the scripts table, with its scope and status filters (null for all). `scriptsGroup` is the one "Show" filter of a Harness Memory that cannot combine them. */
   scriptId = $state<number | null>(null);
   scriptsQuery = $state('');
-  scriptsScope = $state<ScriptScope | null>(null);
   scriptsStatus = $state<ScriptReview | null>(null);
   scriptsGroup = $state<ScriptGroup | null>(null);
   scriptsSort = $state<Sort>({ key: 'updated', desc: true });
@@ -137,6 +138,7 @@ export class ViewState {
     this.reset('scripts');
     this.reset('hooks');
     this.reset('routines');
+    this.memoryReach = 'all';
     this.settingsTarget = null;
     this.scrolls.clear();
   }
@@ -177,14 +179,12 @@ export class ViewState {
     } else if (view === 'notes') {
       this.noteId = null;
       this.notesQuery = '';
-      this.notesScope = null;
       this.notesKind = null;
       this.notesSort = { key: 'updated', desc: true };
       this.notesPage = 0;
     } else if (view === 'scripts') {
       this.scriptId = null;
       this.scriptsQuery = '';
-      this.scriptsScope = null;
       this.scriptsStatus = null;
       this.scriptsGroup = null;
       this.scriptsSort = { key: 'updated', desc: true };

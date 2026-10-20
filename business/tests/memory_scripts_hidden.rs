@@ -6,7 +6,7 @@
 //! read-only team script of its name.
 
 use harness_business::BusinessError;
-use harness_business::ecosystem::{ListWindow, ScriptsQuery, discard_local, hide_entry};
+use harness_business::ecosystem::{ListWindow, Repos, ScriptsQuery, discard_local, hide_entry};
 use harness_business::model::{
     LocalNoteIds, MemoryCopyKind, MemoryDeleteAll, MemoryScopeCounts, MemoryScriptsPage, NoteIdsWord,
     ScriptSaveOutcome, ScriptScope, ScriptSort,
@@ -39,7 +39,12 @@ async fn first_page(setup: &Setup, hidden: bool) -> MemoryScriptsPage {
 
     setup
         .scripts
-        .list(&setup.env, setup.runner(), Some(&project), &query(hidden))
+        .list(
+            &setup.env,
+            setup.runner(),
+            Repos::Project(Some(&project)),
+            &query(hidden),
+        )
         .await
 }
 
@@ -95,7 +100,7 @@ async fn hidden_team_scripts_are_listed_and_read_only_when_asked_for() {
 
     let hidden = setup
         .scripts
-        .get_hidden(&setup.env, setup.runner(), 41, None)
+        .get_hidden(&setup.env, setup.runner(), 41, Repos::Project(None))
         .await
         .expect("the hidden script");
     assert!(hidden.summary.hidden);
@@ -104,14 +109,17 @@ async fn hidden_team_scripts_are_listed_and_read_only_when_asked_for() {
 
     let not_hidden = setup
         .scripts
-        .get_hidden(&setup.env, setup.runner(), 31, Some(&project))
+        .get_hidden(&setup.env, setup.runner(), 31, Repos::Project(Some(&project)))
         .await;
     assert!(
         matches!(&not_hidden, Err(BusinessError::NotFound(message)) if message == "script 31"),
         "{not_hidden:?}"
     );
 
-    let unseen = setup.scripts.get(&setup.env, 41, None).await;
+    let unseen = setup
+        .scripts
+        .get(&setup.env, setup.runner(), 41, Repos::Project(None))
+        .await;
     assert!(
         matches!(unseen, Err(BusinessError::NotFound(_))),
         "a hidden script is not read as a visible one: {unseen:?}"
@@ -127,8 +135,10 @@ async fn a_team_script_is_hidden_and_shown_again_but_a_local_one_is_refused() {
     let hide =
         |id, project, hidden| hide_entry(&setup.env, &setup.scripts, setup.runner(), SCRIPTS, id, project, hidden);
 
-    hide(30, Some(project.as_path()), true).await.expect("hidden");
-    hide(41, None, false).await.expect("shown again");
+    hide(30, Repos::Project(Some(project.as_path())), true)
+        .await
+        .expect("hidden");
+    hide(41, Repos::Project(None), false).await.expect("shown again");
     assert_eq!(
         setup.run_args(0),
         [
@@ -142,13 +152,13 @@ async fn a_team_script_is_hidden_and_shown_again_but_a_local_one_is_refused() {
     );
     assert_eq!(setup.run_args(1), ["scripts", "unhide", "41", "--json"]);
 
-    let local = hide(12, Some(project.as_path()), true).await;
+    let local = hide(12, Repos::Project(Some(project.as_path())), true).await;
     assert!(
         matches!(&local, Err(BusinessError::Process(message)) if message.ends_with("delete it instead")),
         "{local:?}"
     );
 
-    let gone = hide(30, None, true).await;
+    let gone = hide(30, Repos::Project(None), true).await;
     assert!(
         matches!(&gone, Err(BusinessError::NotFound(message)) if message == "script 30"),
         "a repository script without its project: {gone:?}"
@@ -156,7 +166,16 @@ async fn a_team_script_is_hidden_and_shown_again_but_a_local_one_is_refused() {
     setup.scripts.shutdown().await;
 
     let setup = Setup::installed(CURRENT, &[]);
-    let alone = hide_entry(&setup.env, &setup.scripts, setup.runner(), SCRIPTS, 31, None, true).await;
+    let alone = hide_entry(
+        &setup.env,
+        &setup.scripts,
+        setup.runner(),
+        SCRIPTS,
+        31,
+        Repos::Project(None),
+        true,
+    )
+    .await;
     assert!(
         matches!(&alone, Err(BusinessError::Process(message)) if message.contains("no team database")),
         "{alone:?}"
@@ -221,7 +240,7 @@ async fn deleting_them_all_keeps_the_read_only_team_scripts() {
 
     let deleted = setup
         .scripts
-        .delete_all(&setup.env, setup.runner(), None)
+        .delete_all(&setup.env, setup.runner(), Repos::Project(None), None)
         .await
         .expect("deleted");
     assert_eq!(

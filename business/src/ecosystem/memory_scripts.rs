@@ -36,14 +36,16 @@ use super::catalog::MEMORY_BINARY;
 use super::mcp_client::{ToolOutput, clean_error_text};
 use super::mcp_pool::{McpPool, PoolOptions};
 use super::memory_binary::resolve_memory;
-use super::memory_cli::{delete_all, run_json};
+use super::memory_cli::{Repos, delete_all, run_json, run_text};
 use super::memory_hidden::{HIDDEN_FLAG, by_id, call, entry_server, not_found};
 use super::memory_remote::ScriptsSupport;
 pub use super::memory_scripts_list::ScriptsQuery;
 use super::memory_scripts_list::{list_page, unavailable_page};
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
-use crate::model::{MemoryCopyKind, MemoryDeleteAll, MemoryScriptsAvailability, MemoryScriptsPage, ScriptDetail};
+use crate::model::{
+    MemoryCopyKind, MemoryDeleteAll, MemoryScriptsAvailability, MemoryScriptsPage, ScriptDetail, ScriptScope,
+};
 use crate::process::{ExecSpec, ProcessRunner, ProcessSpawner};
 
 /// The tool whose presence marks a server that keeps scripts.
@@ -126,7 +128,7 @@ impl MemoryScripts {
         &self,
         env: &Env,
         runner: &dyn ProcessRunner,
-        project: Option<&Path>,
+        project: Repos<'_>,
         query: &ScriptsQuery,
     ) -> MemoryScriptsPage {
         match self.cli_server(env).await {
@@ -149,7 +151,12 @@ impl MemoryScripts {
 
     /// Script `id` with its body. `notFound` when it is gone or the server is not installed,
     /// `unsupported` when the server predates scripts, `process` when the server fails it.
-    pub async fn get(&self, env: &Env, id: i64, project: Option<&Path>) -> Result<ScriptDetail> {
+    pub async fn get(&self, env: &Env, runner: &dyn ProcessRunner, id: i64, repos: Repos<'_>) -> Result<ScriptDetail> {
+        // The server's tools only see the repository of a project; any other repository is read by its command.
+        let Repos::Project(project) = repos else {
+            return self.get_from(env, runner, id, repos, false).await;
+        };
+
         let data = self.call_by_id(env, SCRIPT_GET_TOOL, id, project).await?;
 
         let script = data
@@ -169,13 +176,27 @@ impl MemoryScripts {
         env: &Env,
         runner: &dyn ProcessRunner,
         id: i64,
-        project: Option<&Path>,
+        project: Repos<'_>,
+    ) -> Result<ScriptDetail> {
+        self.get_from(env, runner, id, project, true).await
+    }
+
+    /// Script `id` with its body from `harness-memory scripts get <id> --json`, of the hidden ones
+    /// when `hidden`.
+    async fn get_from(
+        &self,
+        env: &Env,
+        runner: &dyn ProcessRunner,
+        id: i64,
+        repos: Repos<'_>,
+        hidden: bool,
     ) -> Result<ScriptDetail> {
         const COMMAND: &str = "scripts get";
         let kind = MemoryCopyKind::Scripts;
 
         let server = entry_server(env, self, kind).await?;
-        let args = by_id(kind, "get", id, &["--json", HIDDEN_FLAG], project);
+        let flags: &[&str] = if hidden { &["--json", HIDDEN_FLAG] } else { &["--json"] };
+        let args = by_id(kind, "get", id, flags, repos);
 
         let data = run_json(env, runner, &server, call(COMMAND, args))
             .await
@@ -191,7 +212,18 @@ impl MemoryScripts {
 
     /// Deletes script `id`. `notFound` when it is gone or the server is not installed,
     /// `unsupported` when the server predates scripts, `process` when the server fails it.
-    pub async fn delete(&self, env: &Env, id: i64, project: Option<&Path>) -> Result<()> {
+    pub async fn delete(&self, env: &Env, runner: &dyn ProcessRunner, id: i64, repos: Repos<'_>) -> Result<()> {
+        let Repos::Project(project) = repos else {
+            let kind = MemoryCopyKind::Scripts;
+            let server = entry_server(env, self, kind).await?;
+            let args = by_id(kind, "delete", id, &[], repos);
+
+            return run_text(env, runner, &server, call("scripts delete", args))
+                .await
+                .map(|_| ())
+                .map_err(|error| not_found(kind, error, id));
+        };
+
         let data = self.call_by_id(env, SCRIPT_DELETE_TOOL, id, project).await?;
 
         match data.get("deleted").and_then(Value::as_bool) {
@@ -209,14 +241,15 @@ impl MemoryScripts {
         &self,
         env: &Env,
         runner: &dyn ProcessRunner,
-        project: Option<&Path>,
+        project: Repos<'_>,
+        scope: Option<ScriptScope>,
     ) -> Result<MemoryDeleteAll> {
         let server = self
             .cli_server(env)
             .await
             .map_err(|availability| unavailable_error(availability, "scripts"))?;
 
-        delete_all(env, runner, &server, "scripts", project).await
+        delete_all(env, runner, &server, "scripts", project, scope).await
     }
 
     /// Calls `tool` with `arguments` on the pooled server, when it is the generation the notes

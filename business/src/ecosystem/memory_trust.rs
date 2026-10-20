@@ -10,13 +10,12 @@
 //! its error line comes back redacted. [`script_sha256`] is that hash for a version the app has.
 
 use std::ffi::OsString;
-use std::path::Path;
 use std::time::Duration;
 
 use sha2::{Digest, Sha256};
 
 use super::catalog::MEMORY_BINARY;
-use super::memory_cli::{CliAnswer, CliCall, run_memory_cli};
+use super::memory_cli::{CliAnswer, CliCall, Repos, repos_args, run_memory_cli};
 use crate::ecosystem::memory_binary::installed_memory;
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
@@ -54,7 +53,7 @@ const TRUST_OUTPUT_BYTES: usize = 16 * 1024;
 /// The arguments after the binary: `trust <id>=<sha256>…`, then `--project <root>` when there is
 /// one. `invalidInput` for no items, more than [`MAX_TRUSTED_IDS`], an id below 1, or a hash that
 /// is not 64 lowercase hex characters.
-pub fn trust_args(items: &[ScriptTrustItem], project: Option<&Path>) -> Result<Vec<OsString>> {
+pub fn trust_args(items: &[ScriptTrustItem], repos: Repos<'_>) -> Result<Vec<OsString>> {
     if items.is_empty() {
         return Err(BusinessError::InvalidInput("pick the scripts to trust".to_owned()));
     }
@@ -84,10 +83,7 @@ pub fn trust_args(items: &[ScriptTrustItem], project: Option<&Path>) -> Result<V
             .map(|item| OsString::from(format!("{}={}", item.id, item.sha256))),
     );
 
-    if let Some(project) = project {
-        args.push(OsString::from("--project"));
-        args.push(project.as_os_str().to_owned());
-    }
+    args.extend(repos_args(repos));
 
     Ok(args)
 }
@@ -129,9 +125,9 @@ pub async fn trust_scripts(
     env: &Env,
     runner: &dyn ProcessRunner,
     items: &[ScriptTrustItem],
-    project: Option<&Path>,
+    repos: Repos<'_>,
 ) -> Result<()> {
-    let args = trust_args(items, project)?;
+    let args = trust_args(items, repos)?;
 
     let Some(server) = installed_memory(env, runner).await else {
         return Err(BusinessError::NotFound(format!("executable {MEMORY_BINARY}")));

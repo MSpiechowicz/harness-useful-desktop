@@ -8,11 +8,12 @@
 //! `--project`. Null asks for the global notes only.
 
 use harness_business::ecosystem::{
-    ListWindow, NotesQuery, delete_all_notes, delete_note, discard_local, get_note, hide_entry, list_notes, save_note,
+    ListWindow, NotesQuery, Repos, delete_all_notes, delete_note, discard_local, get_note, hide_entry, list_notes,
+    save_note,
 };
 use harness_business::model::{
-    LocalNoteIds, MemoryCopyKind, MemoryDeleteAll, MemoryNotesPage, NoteDetail, NoteDraft, NoteKind, NoteSaved,
-    NoteSort, ScriptScope, SortOrder,
+    LocalNoteIds, MemoryCopyKind, MemoryDeleteAll, MemoryNotesPage, MemoryRepos, NoteDetail, NoteDraft, NoteKind,
+    NoteSaved, NoteSort, ScriptScope, SortOrder,
 };
 use tauri::State;
 
@@ -34,6 +35,7 @@ use crate::state::AppState;
 pub async fn memory_notes_list(
     state: State<'_, AppState>,
     project: Option<String>,
+    repos: Option<MemoryRepos>,
     offset: Option<u32>,
     limit: Option<u32>,
     query: Option<String>,
@@ -51,7 +53,7 @@ pub async fn memory_notes_list(
         hidden: hidden.unwrap_or(false),
     };
 
-    list(&state, project, &query).await
+    list(&state, project, repos, &query).await
 }
 
 /// One note with its body and links; with `hidden` a team note hidden on this machine. `notFound`
@@ -62,9 +64,10 @@ pub async fn memory_note_get(
     state: State<'_, AppState>,
     id: i64,
     project: Option<String>,
+    repos: Option<MemoryRepos>,
     hidden: Option<bool>,
 ) -> CommandResult<NoteDetail> {
-    get(&state, id, project, hidden.unwrap_or(false)).await
+    get(&state, id, project, repos, hidden.unwrap_or(false)).await
 }
 
 /// Hides a team note on this machine (`hidden`), or shows it again; the team database is not
@@ -76,6 +79,7 @@ pub async fn memory_note_hide(
     state: State<'_, AppState>,
     id: i64,
     project: Option<String>,
+    repos: Option<MemoryRepos>,
     hidden: bool,
 ) -> CommandResult<()> {
     let project = project_root(&state, project).await?;
@@ -86,7 +90,7 @@ pub async fn memory_note_hide(
         &state.runner,
         MemoryCopyKind::Notes,
         id,
-        project.as_deref(),
+        Repos::of(project.as_deref(), repos.as_ref())?,
         hidden,
     )
     .await?)
@@ -111,8 +115,13 @@ pub async fn memory_notes_discard_local(
 /// Deletes one note (the UI confirms first). `notFound` when it is gone or the server is not
 /// installed, `unsupported` when the server predates the notes view.
 #[tauri::command]
-pub async fn memory_note_delete(state: State<'_, AppState>, id: i64, project: Option<String>) -> CommandResult<()> {
-    delete(&state, id, project).await
+pub async fn memory_note_delete(
+    state: State<'_, AppState>,
+    id: i64,
+    project: Option<String>,
+    repos: Option<MemoryRepos>,
+) -> CommandResult<()> {
+    delete(&state, id, project, repos).await
 }
 
 /// Deletes every note the list shows for the project without filters (the UI confirms first):
@@ -123,8 +132,10 @@ pub async fn memory_note_delete(state: State<'_, AppState>, id: i64, project: Op
 pub async fn memory_notes_delete_all(
     state: State<'_, AppState>,
     project: Option<String>,
+    repos: Option<MemoryRepos>,
+    scope: Option<ScriptScope>,
 ) -> CommandResult<MemoryDeleteAll> {
-    delete_all(&state, project).await
+    delete_all(&state, project, repos, scope).await
 }
 
 /// Creates a note, or with `replace_id` rewrites that note (an edit, or replacing the note that
@@ -162,20 +173,31 @@ async fn save(
     .await?)
 }
 
-async fn list(state: &AppState, project: Option<String>, query: &NotesQuery) -> CommandResult<MemoryNotesPage> {
+async fn list(
+    state: &AppState,
+    project: Option<String>,
+    repos: Option<MemoryRepos>,
+    query: &NotesQuery,
+) -> CommandResult<MemoryNotesPage> {
     let project = project_root(state, project).await?;
 
     Ok(list_notes(
         &state.env,
         &state.memory_scripts,
         &state.runner,
-        project.as_deref(),
+        Repos::of(project.as_deref(), repos.as_ref())?,
         query,
     )
     .await)
 }
 
-async fn get(state: &AppState, id: i64, project: Option<String>, hidden: bool) -> CommandResult<NoteDetail> {
+async fn get(
+    state: &AppState,
+    id: i64,
+    project: Option<String>,
+    repos: Option<MemoryRepos>,
+    hidden: bool,
+) -> CommandResult<NoteDetail> {
     let project = project_root(state, project).await?;
 
     Ok(get_note(
@@ -183,22 +205,29 @@ async fn get(state: &AppState, id: i64, project: Option<String>, hidden: bool) -
         &state.memory_scripts,
         &state.runner,
         id,
-        project.as_deref(),
+        Repos::of(project.as_deref(), repos.as_ref())?,
         hidden,
     )
     .await?)
 }
 
-async fn delete(state: &AppState, id: i64, project: Option<String>) -> CommandResult<()> {
+async fn delete(state: &AppState, id: i64, project: Option<String>, repos: Option<MemoryRepos>) -> CommandResult<()> {
     let project = project_root(state, project).await?;
+    let repos = Repos::of(project.as_deref(), repos.as_ref())?;
 
-    Ok(delete_note(&state.env, &state.memory_scripts, &state.runner, id, project.as_deref()).await?)
+    Ok(delete_note(&state.env, &state.memory_scripts, &state.runner, id, repos).await?)
 }
 
-async fn delete_all(state: &AppState, project: Option<String>) -> CommandResult<MemoryDeleteAll> {
+async fn delete_all(
+    state: &AppState,
+    project: Option<String>,
+    repos: Option<MemoryRepos>,
+    scope: Option<ScriptScope>,
+) -> CommandResult<MemoryDeleteAll> {
     let project = project_root(state, project).await?;
+    let repos = Repos::of(project.as_deref(), repos.as_ref())?;
 
-    Ok(delete_all_notes(&state.env, &state.memory_scripts, &state.runner, project.as_deref()).await?)
+    Ok(delete_all_notes(&state.env, &state.memory_scripts, &state.runner, repos, scope).await?)
 }
 
 #[cfg(test)]
@@ -240,10 +269,10 @@ mod tests {
         let (state, stranger) = (&setup.state, &setup.stranger);
 
         let codes = [
-            block_on(list(state, path_arg(stranger), &first_page())).map(|_| ()),
-            block_on(get(state, 3, path_arg(stranger), false)).map(|_| ()),
-            block_on(delete(state, 3, path_arg(stranger))),
-            block_on(delete_all(state, path_arg(stranger))).map(|_| ()),
+            block_on(list(state, path_arg(stranger), None, &first_page())).map(|_| ()),
+            block_on(get(state, 3, path_arg(stranger), None, false)).map(|_| ()),
+            block_on(delete(state, 3, path_arg(stranger), None)),
+            block_on(delete_all(state, path_arg(stranger), None, None)).map(|_| ()),
             block_on(save(
                 state,
                 path_arg(stranger),
@@ -262,30 +291,30 @@ mod tests {
         let setup = ProjectHome::new("notes-list");
         let (state, project) = (&setup.state, &setup.project);
 
-        let page = block_on(list(state, None, &first_page())).expect("listed");
+        let page = block_on(list(state, None, None, &first_page())).expect("listed");
         assert_eq!(page.availability, MemoryScriptsAvailability::NotInstalled);
 
-        let error = block_on(get(state, 3, None, false)).expect_err("not installed");
+        let error = block_on(get(state, 3, None, None, false)).expect_err("not installed");
         assert_eq!(error.code(), IpcErrorCode::NotFound);
 
         if place_memory_server(&setup.home).is_none() {
             return;
         }
 
-        let page = block_on(list(state, path_arg(project), &first_page())).expect("listed");
+        let page = block_on(list(state, path_arg(project), None, &first_page())).expect("listed");
         assert_eq!(page.availability, MemoryScriptsAvailability::Available);
         assert_eq!(page.total, 8, "the fixtures, one of a kind the app skips");
         assert_eq!(page.notes.len(), 7);
 
-        let detail = block_on(get(state, 3, path_arg(project), false)).expect("repository note");
+        let detail = block_on(get(state, 3, path_arg(project), None, false)).expect("repository note");
         assert_eq!(detail.note.summary.title, "Watcher misses renames");
 
-        let error = block_on(get(state, 3, None, false)).expect_err("a repository note without its project");
+        let error = block_on(get(state, 3, None, None, false)).expect_err("a repository note without its project");
         assert_eq!(error.code(), IpcErrorCode::NotFound);
 
-        block_on(delete(state, 3, path_arg(project))).expect("deleted");
+        block_on(delete(state, 3, path_arg(project), None)).expect("deleted");
 
-        let deleted = block_on(delete_all(state, path_arg(project))).expect("deleted them all");
+        let deleted = block_on(delete_all(state, path_arg(project), None, None)).expect("deleted them all");
         assert_eq!(
             deleted,
             MemoryDeleteAll {
@@ -295,7 +324,7 @@ mod tests {
             }
         );
 
-        let global = block_on(delete_all(state, None)).expect("deleted the global ones");
+        let global = block_on(delete_all(state, None, None, None)).expect("deleted the global ones");
         assert_eq!(global.deleted, 5);
 
         block_on(state.memory_scripts.shutdown());

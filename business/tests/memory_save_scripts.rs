@@ -3,7 +3,7 @@
 //! against the version the editor opened, and when the user's code is approved.
 
 use harness_business::BusinessError;
-use harness_business::ecosystem::script_sha256;
+use harness_business::ecosystem::{Repos, script_sha256};
 use harness_business::model::{
     ScriptApproval, ScriptDraft, ScriptLanguage, ScriptSaveOutcome, ScriptSaved, ScriptScope, ScriptSummary,
 };
@@ -236,7 +236,7 @@ async fn an_edit_of_a_script_that_changed_since_it_was_opened_saves_nothing() {
 
     let kept = setup
         .scripts
-        .get(&setup.env, 7, Some(&project))
+        .get(&setup.env, setup.runner(), 7, Repos::Project(Some(&project)))
         .await
         .expect("still there");
     assert_eq!(
@@ -257,7 +257,7 @@ async fn an_edit_of_a_script_deleted_since_it_was_opened_saves_nothing() {
 
     setup
         .scripts
-        .delete(&setup.env, 7, Some(&project))
+        .delete(&setup.env, setup.runner(), 7, Repos::Project(Some(&project)))
         .await
         .expect("deleted");
 
