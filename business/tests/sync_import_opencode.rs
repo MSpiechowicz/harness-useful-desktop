@@ -93,7 +93,14 @@ async fn a_round_trip_installs_pinned_plugins_and_writes_opencode_entries_into_a
     );
 
     let github = item(&built.plan, "opencode:mcp:github");
-    assert_eq!(github.notes, [SyncNote::EnvValuesNotShared, SyncNote::WrittenDisabled]);
+    assert_eq!(
+        github.notes,
+        [
+            SyncNote::EnvValuesNotShared,
+            SyncNote::WrittenDisabled,
+            SyncNote::OpenCodeMergedCheck
+        ]
+    );
     assert_eq!(
         github.steps,
         [SyncStep::McpMerge {

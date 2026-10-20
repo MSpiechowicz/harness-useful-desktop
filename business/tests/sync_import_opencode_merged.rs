@@ -1,8 +1,10 @@
 //! Import of "Share setup" OpenCode MCP servers against what OpenCode merges from all its config
 //! layers (`opencode debug config`), including those the app cannot read (a remote organization
-//! config, managed settings, `OPENCODE_CONFIG_CONTENT`). A server of a merged name is a conflict,
-//! at review time and again right before the apply writes; when the check fails, no OpenCode server
-//! is offered or written. Plugins are not affected.
+//! config, managed settings, `OPENCODE_CONFIG_CONTENT`). `opencode debug config` is not read-only,
+//! so the review never runs it: a new OpenCode server carries a note that its name is checked when
+//! it is imported. The apply runs the check once, before writing, and only when a server would be
+//! written: a merged name is a conflict, and when the check fails no OpenCode server is written.
+//! Plugins are not affected.
 
 #[path = "sync_support/import.rs"]
 mod import_support;
@@ -10,7 +12,7 @@ mod import_support;
 use std::ffi::OsString;
 
 use harness_business::harnesses::opencode::{PROBE_ARGS, PROBE_MAX_BYTES, PROBE_TIMEOUT};
-use harness_business::model::{HarnessId, SyncItemStatus, SyncOutcome};
+use harness_business::model::{HarnessId, SyncItemStatus, SyncNote, SyncOutcome, SyncSkipReason};
 use harness_business::process::ExecOutput;
 use import_support::{BOTH, Machine, OPENCODE_JSON, apply, argv, bundle, fake, item, outcome_of, selectable, statuses};
 use pretty_assertions::assert_eq;
@@ -32,35 +34,82 @@ fn shared() -> Value {
     }}))
 }
 
-fn status(machine: &Machine, id: &str) -> SyncItemStatus {
-    item(&machine.plan(&shared()).plan, id).status.clone()
+fn docs_entry() -> Value {
+    json!({ "type": "remote", "url": "https://docs.example.com/mcp", "enabled": true })
 }
 
-#[tokio::test]
-async fn a_server_opencode_merges_from_a_layer_the_app_cannot_read_is_a_conflict() {
+#[test]
+fn the_review_runs_nothing_and_offers_new_servers_with_the_merged_check_note() {
     let machine = Machine::new(OPENCODE);
+    // A check would report `github`: the review does not know, because it never runs OpenCode.
     machine.opencode_merges(&["github"]);
 
-    let (built, probes) = machine.plan_probed(&shared());
+    let built = machine.plan(&shared());
 
     assert_eq!(
         statuses(&built.plan),
         [
             (PLUGIN.to_owned(), SyncItemStatus::New),
-            (GITHUB.to_owned(), SyncItemStatus::Conflict),
+            (GITHUB.to_owned(), SyncItemStatus::New),
             (DOCS.to_owned(), SyncItemStatus::New),
         ]
     );
-    assert_eq!(selectable(&built.plan), [PLUGIN, DOCS]);
+    assert_eq!(selectable(&built.plan), [PLUGIN, GITHUB, DOCS]);
+    for id in [GITHUB, DOCS] {
+        assert_eq!(item(&built.plan, id).notes, [SyncNote::OpenCodeMergedCheck], "{id}");
+    }
+    assert!(item(&built.plan, PLUGIN).notes.is_empty(), "plugins are not checked");
+    assert_eq!(machine.text(OPENCODE_JSON), None, "the review writes nothing");
+}
 
-    let shown = serde_json::to_string(&built.plan).unwrap();
-    assert!(
-        !shown.contains("org.example.com"),
-        "the merged config never reaches the plan"
+#[test]
+fn a_server_already_in_the_config_is_present_without_the_note() {
+    let machine = Machine::new(OPENCODE);
+    machine.write(
+        OPENCODE_JSON,
+        &json!({ "mcp": {
+            "docs": { "type": "remote", "url": "https://docs.example.com/mcp" },
+            "github": { "type": "remote", "url": "https://github.example.com/mcp" },
+        } }),
     );
 
-    // The check: `opencode debug config` in the home directory, without self-update, capped, and
-    // read through a file (OpenCode keeps only 64 KiB of it in a pipe).
+    let built = machine.plan(&shared());
+
+    assert_eq!(item(&built.plan, DOCS).status, SyncItemStatus::AlreadyPresent);
+    assert_eq!(item(&built.plan, GITHUB).status, SyncItemStatus::Conflict);
+    for id in [GITHUB, DOCS] {
+        assert!(item(&built.plan, id).notes.is_empty(), "{id}");
+    }
+}
+
+#[tokio::test]
+async fn the_apply_checks_once_before_writing_and_a_merged_name_is_a_conflict() {
+    let machine = Machine::new(OPENCODE);
+    machine.opencode_merges(&["github"]);
+    let built = machine.plan(&shared());
+
+    let runner = fake(&machine);
+    let (result, _) = apply(&machine, &runner, &built.stored, &argv(&[PLUGIN, GITHUB, DOCS]), true).await;
+    let result = result.expect("applied");
+
+    assert_eq!(outcome_of(&result, PLUGIN).outcome, SyncOutcome::Done);
+    assert_eq!(outcome_of(&result, GITHUB).outcome, SyncOutcome::Conflict);
+    assert_eq!(outcome_of(&result, DOCS).outcome, SyncOutcome::Done);
+    assert_eq!(
+        machine.json(OPENCODE_JSON),
+        json!({ "plugin": ["opencode-wakatime"], "mcp": { "docs": docs_entry() } }),
+        "github is never written"
+    );
+
+    let shown = serde_json::to_string(&result).unwrap();
+    assert!(
+        !shown.contains("org.example.com"),
+        "the merged config never reaches the result"
+    );
+
+    // The check: `opencode debug config` once, in the home directory, without self-update,
+    // capped, and read through a file (OpenCode keeps only 64 KiB of it in a pipe).
+    let probes = runner.probes();
     let [probe] = probes.as_slice() else {
         panic!("one check, got {probes:?}");
     };
@@ -75,47 +124,83 @@ async fn a_server_opencode_merges_from_a_layer_the_app_cannot_read_is_a_conflict
     assert_eq!(probe.timeout, PROBE_TIMEOUT);
     assert_eq!(probe.max_output_bytes, PROBE_MAX_BYTES);
     assert!(probe.stdout_through_file);
-
-    let runner = fake(&machine);
-    let (result, _) = apply(&machine, &runner, &built.stored, &argv(&[PLUGIN, DOCS]), true).await;
-
-    assert!(result.expect("applied").ok);
-    assert_eq!(
-        machine.json(OPENCODE_JSON),
-        json!({
-            "plugin": ["opencode-wakatime"],
-            "mcp": { "docs": { "type": "remote", "url": "https://docs.example.com/mcp", "enabled": true } },
-        }),
-        "github is never written"
-    );
 }
 
-#[test]
-fn a_bundle_without_opencode_servers_runs_no_check() {
+#[tokio::test]
+async fn names_are_compared_exactly() {
+    let machine = Machine::new(OPENCODE);
+    machine.opencode_merges(&["other", "GitHub"]);
+    let built = machine.plan(&shared());
+
+    let runner = fake(&machine);
+    let (result, _) = apply(&machine, &runner, &built.stored, &argv(&[GITHUB, DOCS]), true).await;
+    let result = result.expect("applied");
+
+    assert!(result.ok);
+    assert_eq!(outcome_of(&result, GITHUB).outcome, SyncOutcome::Done);
+    assert_eq!(outcome_of(&result, DOCS).outcome, SyncOutcome::Done);
+}
+
+#[tokio::test]
+async fn an_apply_without_opencode_servers_runs_no_check() {
     let machine = Machine::new(&[BOTH, OPENCODE].concat());
     machine.opencode_merges(&["docs"]);
     let shared = bundle(json!({
         "omp": { "mcpServers": [{ "name": "docs", "transport": "http", "url": "https://docs.example.com/mcp" }] },
         "opencode": { "plugins": [{ "id": "opencode-wakatime" }] },
     }));
+    let built = machine.plan(&shared);
 
-    let (built, probes) = machine.plan_probed(&shared);
+    let runner = fake(&machine);
+    let (result, _) = apply(&machine, &runner, &built.stored, &argv(&["omp:mcp:docs", PLUGIN]), true).await;
 
-    assert!(probes.is_empty());
-    assert_eq!(selectable(&built.plan), ["omp:mcp:docs", PLUGIN]);
+    assert!(result.expect("applied").ok);
+    assert!(runner.probes().is_empty());
 }
 
-#[test]
-fn a_name_opencode_does_not_merge_is_new_as_before() {
+#[tokio::test]
+async fn servers_found_present_or_conflicting_by_the_apply_run_no_check() {
     let machine = Machine::new(OPENCODE);
-    machine.opencode_merges(&["other", "GitHub"]);
+    let built = machine.plan(&shared());
+
+    // Both were added meanwhile, and a check would fail.
+    machine.write(
+        OPENCODE_JSON,
+        &json!({ "mcp": {
+            "docs": { "type": "remote", "url": "https://docs.example.com/mcp" },
+            "github": { "type": "remote", "url": "https://github.example.com/mcp" },
+        } }),
+    );
+    machine.opencode_prints(ExecOutput::default());
+
+    let runner = fake(&machine);
+    let (result, _) = apply(&machine, &runner, &built.stored, &argv(&[GITHUB, DOCS]), true).await;
+    let result = result.expect("applied");
+
+    assert_eq!(outcome_of(&result, DOCS).outcome, SyncOutcome::AlreadyPresent);
+    assert_eq!(outcome_of(&result, GITHUB).outcome, SyncOutcome::Conflict);
+    assert!(runner.probes().is_empty(), "nothing would be written");
+}
+
+#[tokio::test]
+async fn without_opencode_at_apply_time_no_server_is_written() {
+    let mut machine = Machine::new(OPENCODE);
+    let built = machine.plan(&shared());
+
+    machine.installed.clear();
+
+    let runner = fake(&machine);
+    let (result, _) = apply(&machine, &runner, &built.stored, &argv(&[DOCS]), true).await;
+    let result = result.expect("applied");
 
     assert_eq!(
-        status(&machine, GITHUB),
-        SyncItemStatus::New,
-        "names are compared exactly"
+        outcome_of(&result, DOCS).outcome,
+        SyncOutcome::Skipped {
+            reason: SyncSkipReason::HarnessNotInstalled
+        }
     );
-    assert_eq!(status(&machine, DOCS), SyncItemStatus::New);
+    assert!(runner.probes().is_empty());
+    assert_eq!(machine.text(OPENCODE_JSON), None);
 }
 
 /// Outputs of `opencode debug config` that tell nothing, with what each one is.
@@ -157,62 +242,6 @@ fn failed_checks() -> Vec<(&'static str, ExecOutput)> {
     ]
 }
 
-#[test]
-fn when_the_check_fails_no_opencode_server_is_offered_but_plugins_are() {
-    for (what, output) in failed_checks() {
-        let machine = Machine::new(OPENCODE);
-        machine.opencode_prints(output);
-
-        let built = machine.plan(&shared());
-
-        assert_eq!(
-            statuses(&built.plan),
-            [
-                (PLUGIN.to_owned(), SyncItemStatus::New),
-                (GITHUB.to_owned(), SyncItemStatus::Conflict),
-                (DOCS.to_owned(), SyncItemStatus::Conflict),
-            ],
-            "{what}"
-        );
-        assert_eq!(selectable(&built.plan), [PLUGIN], "{what}");
-    }
-}
-
-#[test]
-fn a_server_already_in_the_config_stays_present_whatever_the_check_says() {
-    let machine = Machine::new(OPENCODE);
-    machine.write(
-        OPENCODE_JSON,
-        &json!({ "mcp": { "docs": { "type": "remote", "url": "https://docs.example.com/mcp" } } }),
-    );
-
-    assert_eq!(status(&machine, DOCS), SyncItemStatus::AlreadyPresent);
-
-    machine.opencode_prints(ExecOutput::default());
-    assert_eq!(status(&machine, DOCS), SyncItemStatus::AlreadyPresent);
-}
-
-#[tokio::test]
-async fn a_name_merged_by_the_time_of_the_apply_is_a_conflict_and_not_written() {
-    let machine = Machine::new(OPENCODE);
-    let built = machine.plan(&shared());
-    assert_eq!(selectable(&built.plan), [PLUGIN, GITHUB, DOCS]);
-
-    machine.opencode_merges(&["github"]);
-
-    let runner = fake(&machine);
-    let (result, _) = apply(&machine, &runner, &built.stored, &argv(&[GITHUB, DOCS]), true).await;
-    let result = result.expect("applied");
-
-    assert_eq!(outcome_of(&result, GITHUB).outcome, SyncOutcome::Conflict);
-    assert_eq!(outcome_of(&result, DOCS).outcome, SyncOutcome::Done);
-    assert_eq!(
-        machine.json(OPENCODE_JSON)["mcp"],
-        json!({ "docs": { "type": "remote", "url": "https://docs.example.com/mcp", "enabled": true } })
-    );
-    assert_eq!(runner.probes().len(), 1, "checked once, right before writing");
-}
-
 #[tokio::test]
 async fn when_the_check_fails_at_apply_time_no_opencode_server_is_written() {
     for (what, output) in failed_checks() {
@@ -237,6 +266,7 @@ async fn when_the_check_fails_at_apply_time_no_opencode_server_is_written() {
                     .is_some_and(|summary| !summary.contains("Error"))
             );
         }
+        assert_eq!(runner.probes().len(), 1, "{what}");
         assert_eq!(
             machine.json(OPENCODE_JSON).get("mcp"),
             None,

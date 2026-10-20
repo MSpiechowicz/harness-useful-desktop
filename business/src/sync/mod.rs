@@ -7,9 +7,10 @@
 //!   with the source and MCP checks of `validate_source` and `validate_mcp`;
 //! - [`secrets`] — whether a value holds anything the redactor would hide;
 //! - [`collect`] — what this machine can export, read from the harnesses' files;
-//! - [`plan`] — the import review of a received bundle on this machine (reads files, and runs
-//!   `opencode debug config` for the MCP server names OpenCode merges);
-//! - [`apply`] — applying the reviewed items the user selected (runs the harness CLIs, merges MCP
+//! - [`plan`] — the import review of a received bundle on this machine (reads files only, never
+//!   runs anything);
+//! - [`apply`] — applying the reviewed items the user selected (runs the harness CLIs and, before
+//!   writing an OpenCode server, `opencode debug config` for the names OpenCode merges; merges MCP
 //!   files).
 //!
 //! Apart from [`collect`], [`plan`] and [`apply`], these modules are pure: no file IO, no
@@ -36,6 +37,6 @@ pub use apply::{ApplyContext, apply_plan};
 pub use collect::{
     ExportCollection, build_bundle, collect_export, export_code, export_preview, item_id, package_identity,
 };
-pub use plan::{BuiltPlan, OpenCodeMerged, build_plan};
+pub use plan::{BuiltPlan, build_plan};
 pub use plan_rows::StoredPlan;
 pub(crate) use validate_source::is_npm_registry_spec;

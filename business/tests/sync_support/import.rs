@@ -10,9 +10,7 @@ mod harnesses;
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
-use std::pin::pin;
 use std::sync::{Arc, Mutex};
-use std::task::{Context, Poll, Waker};
 
 use harness_business::env::Env;
 use harness_business::harness::HarnessRegistry;
@@ -21,7 +19,7 @@ use harness_business::model::{
 };
 use harness_business::process::{BoxFuture, ExecOutput, ExecSpec, ProcessRunner, ResolvedBinary};
 use harness_business::sync::codec::decode_input;
-use harness_business::sync::{ApplyContext, BuiltPlan, OpenCodeMerged, StoredPlan, apply_plan, build_plan};
+use harness_business::sync::{ApplyContext, BuiltPlan, StoredPlan, apply_plan, build_plan};
 use harness_business::{BusinessError, Result};
 use serde_json::{Value, json};
 use tempfile::TempDir;
@@ -40,7 +38,7 @@ pub const OPENCODE_JSONC: &str = ".config/opencode/opencode.jsonc";
 #[derive(Debug, Clone)]
 pub enum Probe {
     /// A config whose `mcp` holds the servers of the OpenCode config files here (those that parse
-    /// as plain JSON) plus these names, from layers the app cannot read (secret values masked).
+    /// as plain JSON) plus these names, from layers the app cannot read (some values masked).
     Merges(Vec<String>),
     /// This output instead.
     Prints(ExecOutput),
@@ -95,36 +93,17 @@ impl Machine {
         serde_json::from_str(&self.text(relative).expect("file exists")).unwrap()
     }
 
-    /// The review of `bundle` (share file JSON) on this machine, with OpenCode's merged names
-    /// checked through the fake CLI as the app does.
+    /// The review of `bundle` (share file JSON) on this machine. It reads files only: there is
+    /// no runner to run a CLI with.
     pub fn plan(&self, bundle: &Value) -> BuiltPlan {
-        let (built, _) = self.plan_probed(bundle);
-
-        built
-    }
-
-    /// [`Machine::plan`], with the commands the check ran.
-    pub fn plan_probed(&self, bundle: &Value) -> (BuiltPlan, Vec<ExecSpec>) {
         let decoded = decode_input(&bundle.to_string()).expect("a valid bundle");
-        let runner = FakeCli::new(self);
-        let binaries = self.binaries();
 
-        let opencode = if OpenCodeMerged::needed(&decoded) {
-            let probe = OpenCodeMerged::probe(&self.env, &runner, binaries.get(&HarnessId::OpenCode));
-            ready(probe)
-        } else {
-            OpenCodeMerged::Unknown
-        };
-
-        let built = build_plan(
+        build_plan(
             &self.env,
             &HarnessRegistry::with_defaults(),
             &summaries(&self.installed),
             &decoded,
-            &opencode,
-        );
-
-        (built, runner.probes())
+        )
     }
 
     /// The binaries of the installed harnesses (never started: the fake CLI answers instead).
@@ -145,14 +124,6 @@ impl Machine {
 pub fn write_json(path: &Path, value: &Value) {
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
     std::fs::write(path, serde_json::to_string_pretty(value).unwrap()).unwrap();
-}
-
-/// The output of a future that never waits (the fake CLI answers at once).
-fn ready<F: Future>(future: F) -> F::Output {
-    match pin!(future).as_mut().poll(&mut Context::from_waker(Waker::noop())) {
-        Poll::Ready(output) => output,
-        Poll::Pending => panic!("the fake CLI never waits"),
-    }
 }
 
 fn read_json(path: &Path) -> Value {

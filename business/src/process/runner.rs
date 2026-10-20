@@ -265,8 +265,9 @@ impl Capture {
 
 /// The private temporary file a child writes its stdout to (see
 /// [`ExecSpec::stdout_through_file`]): created new, owner-only on Unix, in the temporary directory.
-/// On Unix its name is removed at once (the open handles keep the file); elsewhere it is removed
-/// when this is dropped.
+/// On Unix its name is removed at once (the open handles keep the file). On Windows it is opened
+/// delete-on-close, so it goes away once the last handle closes, even one a process the child
+/// started still holds; elsewhere it is removed when this is dropped.
 struct StdoutFile {
     file: Option<File>,
     path: Option<PathBuf>,
@@ -281,12 +282,18 @@ impl StdoutFile {
         #[cfg(unix)]
         std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
 
+        #[cfg(windows)]
+        std::os::windows::fs::OpenOptionsExt::custom_flags(&mut options, FILE_FLAG_DELETE_ON_CLOSE);
+
         let file = options
             .open(&path)
             .map_err(|error| BusinessError::from_io("creating a temporary output file", error))?;
 
         if cfg!(unix) {
             std::fs::remove_file(&path).ok();
+        }
+
+        if cfg!(any(unix, windows)) {
             return Ok(Self {
                 file: Some(file),
                 path: None,
@@ -330,6 +337,10 @@ impl StdoutFile {
         Ok(Captured { bytes, truncated })
     }
 }
+
+/// `FILE_FLAG_DELETE_ON_CLOSE`: Windows deletes the file when its last handle closes.
+#[cfg(windows)]
+const FILE_FLAG_DELETE_ON_CLOSE: u32 = 0x0400_0000;
 
 impl Drop for StdoutFile {
     fn drop(&mut self) {

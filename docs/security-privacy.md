@@ -739,10 +739,24 @@ only the first match, and is opened read-only through the same reader as other a
 that exists but cannot be read or parsed makes the server a conflict (the app fails closed). The target file is still
 refused when it is a symlink, and its servers cannot then be selected. For OpenCode the app also runs
 `opencode debug config` to get the merged config. It runs in your home folder with `OPENCODE_DISABLE_AUTOUPDATE=1` and
-a short timeout, and its output is only compared by server name and never logged or returned. A name already in the
-merged config is a conflict, including names from layers the app cannot read itself: the organisation config fetched by
-`opencode auth login`, organisation and managed config, `OPENCODE_CONFIG_CONTENT` and a legacy TOML file. If the command
-fails, no OpenCode MCP server can be imported in that run. Plugins are unaffected.
+a short timeout, and its output is only compared by server name and never logged, stored or returned (OpenCode masks
+only some secret values in it). A name already in the merged config is a conflict, including names from layers the app
+cannot read itself: the organisation config fetched by `opencode auth login`, organisation and managed config,
+`OPENCODE_CONFIG_CONTENT` and a legacy TOML file. If the command cannot run or fails, no OpenCode MCP server is written
+in that import. Plugins are unaffected.
+
+The check runs only when you import, after you confirm, never while you review a setup: the review only reads files,
+and a new OpenCode server is shown with a note that its name is checked when you import, which starts OpenCode once. It
+runs once per import, and only when a selected OpenCode server is missing from every config file the app reads. Running
+OpenCode is not read-only: it may fetch your organisation's config over the network, start a plugin dependency install
+(`bun add @opencode-ai/plugin`) in its config folders and write a `.gitignore` there, create `opencode.jsonc` or add
+`$schema` to your config, and migrate a legacy TOML config to `config.json` (deleting the TOML file). Its stdout goes
+through a private temporary file that is unlinked at once on Unix and opened delete-on-close on Windows.
+
+Residual limits: an app session whose `XDG_DATA_HOME` differs from your shell's (for example one started from a desktop
+launcher) may not find OpenCode's login, so names from the organisation layer can be missed. OpenCode derives tool
+names from a sanitized server name, so servers such as `foo.bar` and `foo_bar` get colliding tool names and one can
+shadow the other's tools. The two stay separate entries, so neither inherits the other's headers or env.
 
 **Files and network.** Written: the user `mcp.json` merge above, and an exported file, which only a native save dialog
 can name. Read: a setup file, which only a native open dialog can name, through `SafeReader` (256 KiB). The app opens no

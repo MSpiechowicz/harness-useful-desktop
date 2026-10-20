@@ -14,9 +14,12 @@
 //! [`merge_entries`] call; a refused file skips all of them, and an OpenCode config file with
 //! comments skips them as `manualEdit`, each with the entry to paste. OpenCode servers are first
 //! checked against the names OpenCode merges from all its layers ([`merged_mcp_names`], run once
-//! per apply right before they are written): a merged name ends `conflict`, and when the check
-//! cannot run (no binary: `skipped: harnessNotInstalled`) or fails (`failed`), none is written. A
-//! failed marketplace skips the plugins that depend on it; every other item still runs.
+//! per apply after OpenCode's CLI items and before any of its servers is written, and only when
+//! one of them is missing from every file the app reads): a merged name ends `conflict`, and when
+//! the check cannot run (no binary: `skipped: harnessNotInstalled`) or fails (`failed`), none is
+//! written. Without the check (every server already present, conflicting or refused) no OpenCode
+//! server is written either: one found missing by then ends `conflict`. A failed marketplace skips
+//! the plugins that depend on it; every other item still runs.
 //!
 //! There is no rollback: what succeeded stays when a later item fails. Logs carry counts only.
 
@@ -88,9 +91,10 @@ pub async fn apply_plan(
         }
 
         // The merge needs no binary: an MCP item has its file only when the review found the
-        // harness installed. OpenCode's merged names are checked once, after its CLI items ran.
+        // harness installed. OpenCode's merged names are checked once, after its CLI items ran, and
+        // only when one of its servers would be written.
         let merged = match harness {
-            HarnessId::OpenCode if !servers.is_empty() => Some(opencode_merged(context).await),
+            HarnessId::OpenCode if any_missing(&servers) => Some(opencode_merged(context).await),
             _ => None,
         };
 
@@ -99,10 +103,11 @@ pub async fn apply_plan(
                 run.started(item, &mut sink);
             }
 
-            let outcomes = match &merged {
-                Some(Err(unchecked)) => servers.iter().map(|item| unchecked.outcome(item)).collect(),
-                Some(Ok(names)) => mcp_batch(context.env, files.as_ref(), &servers, Some(names)),
-                None => mcp_batch(context.env, files.as_ref(), &servers, None),
+            let outcomes = match (&merged, harness) {
+                (Some(Err(unchecked)), _) => servers.iter().map(|item| unchecked.outcome(item)).collect(),
+                (Some(Ok(names)), _) => mcp_batch(context.env, files.as_ref(), &servers, Names::Checked(names)),
+                (None, HarnessId::OpenCode) => mcp_batch(context.env, files.as_ref(), &servers, Names::Unchecked),
+                (None, _) => mcp_batch(context.env, files.as_ref(), &servers, Names::NotNeeded),
             };
             for (item, outcome) in servers.into_iter().zip(outcomes) {
                 run.finished(item, outcome, &mut sink);
@@ -207,6 +212,15 @@ fn by_file<'p>(servers: &[&'p StoredItem]) -> Vec<(Option<McpFiles>, Vec<&'p Sto
     }
 
     groups
+}
+
+/// True when one of the MCP `servers` is missing from every file the app reads, so it would be
+/// written.
+fn any_missing(servers: &[&StoredItem]) -> bool {
+    servers.iter().any(|item| match (&item.mcp_files, &item.step) {
+        (Some(files), Some(Step::Mcp(server))) => matches!(mcp_presence(files, server), Ok(Presence::Absent)),
+        _ => false,
+    })
 }
 
 fn succeeded(outcome: &SyncOutcome) -> bool {
@@ -371,15 +385,22 @@ fn recheck(env: &Env, harness: &dyn Harness, step: &Step) -> Presence {
     }
 }
 
-/// The MCP servers of one file: each re-checked (an OpenCode one against the `merged` names too),
-/// then all that are still missing merged at once. Without a file (the review found the harness
-/// not installed) every server is skipped.
-fn mcp_batch(
-    env: &Env,
-    files: Option<&McpFiles>,
-    items: &[&StoredItem],
-    merged: Option<&BTreeSet<String>>,
-) -> Vec<SyncItemOutcome> {
+/// What the MCP servers of a batch are checked against besides the files the app reads.
+#[derive(Clone, Copy)]
+enum Names<'a> {
+    /// Nothing else (not OpenCode).
+    NotNeeded,
+    /// The names OpenCode merges, as `opencode debug config` reported them in this apply.
+    Checked(&'a BTreeSet<String>),
+    /// OpenCode's merged names were not checked in this apply (no server was missing): a server
+    /// found missing now is a conflict, never written unchecked.
+    Unchecked,
+}
+
+/// The MCP servers of one file: each re-checked (an OpenCode one against OpenCode's merged `names`
+/// too), then all that are still missing merged at once. Without a file (the review found the
+/// harness not installed) every server is skipped.
+fn mcp_batch(env: &Env, files: Option<&McpFiles>, items: &[&StoredItem], names: Names<'_>) -> Vec<SyncItemOutcome> {
     let Some(files) = files else {
         return items
             .iter()
@@ -403,9 +424,12 @@ fn mcp_batch(
             continue;
         };
 
-        let presence = match merged {
-            Some(names) => mcp_presence(files, server).map(|presence| with_merged(presence, Some(names), &server.name)),
-            None => mcp_presence(files, server),
+        let presence = match names {
+            Names::NotNeeded => mcp_presence(files, server),
+            Names::Checked(names) => {
+                mcp_presence(files, server).map(|presence| with_merged(presence, Some(names), &server.name))
+            }
+            Names::Unchecked => mcp_presence(files, server).map(|presence| with_merged(presence, None, &server.name)),
         };
 
         let decided = match presence {

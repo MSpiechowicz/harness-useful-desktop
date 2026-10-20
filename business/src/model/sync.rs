@@ -55,6 +55,11 @@ pub enum SyncNote {
     /// The plugin comes from a marketplace this bundle registers; unticking that marketplace
     /// unticks the plugin.
     NeedsSharedMarketplace,
+    /// An OpenCode MCP server: the review only read OpenCode's config files. When the import runs
+    /// (after the user confirms), the app starts OpenCode once (`opencode debug config`) to check
+    /// the name against OpenCode's merged configuration, and a name found there is a conflict.
+    #[serde(rename = "opencodeMergedCheck")]
+    OpenCodeMergedCheck,
 }
 
 // ---------------------------------------------------------------------------------------------

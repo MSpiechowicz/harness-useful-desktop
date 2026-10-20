@@ -1,5 +1,11 @@
 //! The MCP server names OpenCode merges from all its config layers, read from
-//! `opencode debug config`, which prints the resolved config as JSON with secret values masked.
+//! `opencode debug config`, which prints the resolved config as JSON. OpenCode masks some secret
+//! values in it, not all: the output is never logged, stored or returned.
+//!
+//! The command is not read-only: OpenCode may fetch its organization config over the network,
+//! start a dependency install (`bun add @opencode-ai/plugin`) in its config directories, create
+//! `opencode.jsonc`, add `$schema`, or migrate a legacy TOML config. "Share setup" runs it only
+//! while applying an import the user confirmed, never while reviewing one.
 //!
 //! OpenCode also merges layers the app cannot read: a remote organization config (`opencode auth
 //! login`), managed settings, `OPENCODE_CONFIG_CONTENT` and the project layers of the directory it

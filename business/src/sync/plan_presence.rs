@@ -2,7 +2,8 @@
 //! item's status and by [`super::apply`] right before each step (so applying is idempotent).
 //! OpenCode plugins are found by npm name in the `plugin` lists of every user config layer, its
 //! servers by name in the `mcp` object of the global config file and the files OpenCode also reads,
-//! and in the names OpenCode reports merging from all its layers ([`with_merged`]).
+//! and, at apply time only, in the names OpenCode reports merging from all its layers
+//! ([`with_merged`]).
 //!
 //! Everything read here stays in process: local sources, plugin versions that are not display-safe
 //! and existing MCP definitions (env values included) are only compared, never returned. The only
@@ -216,7 +217,7 @@ pub(super) fn mcp_presence(files: &McpFiles, shared: &McpServer) -> Result<Prese
 }
 
 /// The presence of an OpenCode server once the names OpenCode merges from all its layers are known
-/// (`None`: they could not be read). A server no file the app reads has, but that OpenCode merges
+/// (`None`: they were not or could not be read). A server no file the app reads has, but that OpenCode merges
 /// from a layer the app cannot read (or might), is a conflict: a new entry would merge with it.
 pub(super) fn with_merged(presence: Presence, merged: Option<&BTreeSet<String>>, name: &str) -> Presence {
     let merged_elsewhere = merged.is_none_or(|names| names.contains(name));

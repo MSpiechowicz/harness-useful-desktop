@@ -242,7 +242,7 @@ exported file always imports again with zero invalid items.
 | `new` | Not here yet; it would be added. | yes | yes, except stdio MCP servers |
 | `alreadyPresent` | Same marketplace name and source, same plugin id, same PI package source, or an MCP server of the same name and identical definition. | no | |
 | `differentVersion` | Installed here in another version (a plugin version, or a PI package with another pin). Informational; never upgraded or downgraded. | no | |
-| `conflict` | An MCP server or marketplace of the same name with a different definition. Left untouched. An MCP server is also a conflict when a config file the harness reads besides its user MCP file exists but cannot be read or parsed (see [MCP servers](#mcp-servers)), and for OpenCode when its merged config already holds that name. | no | |
+| `conflict` | An MCP server or marketplace of the same name with a different definition. Left untouched. An MCP server is also a conflict when a config file the harness reads besides its user MCP file exists but cannot be read or parsed (see [MCP servers](#mcp-servers)). For OpenCode, a name already in its merged config is found only when you import (see [MCP servers](#mcp-servers)) and ends `conflict` then. | no | |
 | `blocked` | The harness is not installed here; it has no such kind of item or no user MCP file; or a plugin's marketplace is neither registered here nor in the bundle. | no | |
 | `invalid` | The item failed validation, with a typed reason. Never applied. | no | |
 
@@ -273,10 +273,26 @@ registered here.
   a `conflict`: the app fails closed, because the harness might merge a server of that name from it and the new entry
   could inherit that server's headers or env.
 - **OpenCode's merged config.** For OpenCode the app also asks OpenCode for its merged config (`opencode debug config`,
-  run in your home folder with auto-update off and a short timeout, its output never logged). A server whose name is
-  already in the merged config is a `conflict`. This covers layers the app cannot read itself: the organisation config
-  fetched by `opencode auth login`, organisation and managed config, `OPENCODE_CONFIG_CONTENT` and a legacy TOML file. If
-  this check fails, no OpenCode MCP server can be imported in that run. Plugins are not affected.
+  run in your home folder with auto-update off and a short timeout, its output never logged or stored). This covers
+  layers the app cannot read itself: the organisation config fetched by `opencode auth login`, organisation and managed
+  config, `OPENCODE_CONFIG_CONTENT` and a legacy TOML file.
+  - **Only when you import.** The check runs after you confirm the import, never while you review a setup. The review
+    only reads files, so a new OpenCode server carries a note: its name is checked against OpenCode's merged
+    configuration when you import, and that check starts OpenCode once.
+  - **What starting OpenCode can change.** The command is not read-only. OpenCode may fetch your organisation's config
+    over the network, start a plugin dependency install (`bun add @opencode-ai/plugin`) in its config folders and add a
+    `.gitignore` there, create `opencode.jsonc` or add `$schema` to your config, and migrate a legacy TOML config to
+    `config.json` (deleting the TOML file).
+  - **Outcomes.** It runs once per import, after OpenCode's plugins and before any of its servers is written, and only
+    when at least one selected OpenCode server is missing from every config file the app reads. A server whose name is
+    in the merged config ends `conflict` and is not written. If OpenCode is not found the servers end `skipped`
+    (`harnessNotInstalled`), and if the check fails they end `failed`. In both cases no OpenCode MCP server is written
+    in that import. Plugins are not affected.
+  - **Limits.** If the app runs with another `XDG_DATA_HOME` than your shell (for example started from a desktop
+    launcher), OpenCode may not find the login that fetches the organisation config, so names from that layer can be
+    missed. OpenCode also names a server's tools by a sanitized server name, so servers such as `foo.bar` and `foo_bar`
+    produce the same tool names: one server's tools can shadow the other's. They are still separate entries and do not
+    share headers or env.
   An OpenCode config file with comments is never rewritten: its servers end `skipped` (`manualEdit`) and the review's
   result shows the entry to paste.
 

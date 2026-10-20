@@ -2,7 +2,7 @@
 //!
 //! ```text
 //! codec::decode_input / decode_file -> DecodedBundle
-//!     build_plan(env, registry, summaries, &decoded, &opencode_merged) -> BuiltPlan
+//!     build_plan(env, registry, summaries, &decoded) -> BuiltPlan
 //!         .plan   -> SyncImportPlan  (to the webview: statuses, exact steps, notes)
 //!         .stored -> StoredPlan      (kept by Rust under the plan id, consumed by `apply_plan`)
 //! ```
@@ -21,26 +21,29 @@
 //! selectable; they start ticked, except stdio MCP servers (they run a program). A plugin whose
 //! marketplace the bundle shares with the same name but another source is a `conflict` (installing
 //! it would use the marketplace registered here). A repeated id keeps its first item. An MCP server
-//! whose target file cannot be read safely is a `conflict` (nothing can be written there). An
-//! OpenCode server is also a `conflict` when OpenCode merges a server of that name from a layer the
-//! app cannot read, or when that could not be checked ([`OpenCodeMerged`]).
+//! whose target file cannot be read safely is a `conflict` (nothing can be written there).
+//!
+//! The review only reads files: it never runs a harness CLI. In particular it never runs `opencode
+//! debug config`, which is not read-only (OpenCode may fetch a remote organization config, install
+//! plugin dependencies in its config directories, create or rewrite config files). A `new` OpenCode
+//! server therefore carries [`SyncNote::OpenCodeMergedCheck`]: its name is checked against
+//! OpenCode's merged configuration only when the user applies it ([`super::apply_plan`]).
 
-use std::collections::{BTreeSet, HashSet};
+use std::collections::HashSet;
 
 use super::codec::DecodedBundle;
 use super::collect::item_id;
-use super::plan_presence::{Machine, McpFiles, Presence, mcp_presence, with_merged};
+use super::plan_presence::{Machine, McpFiles, Presence, mcp_presence};
 use super::plan_rows::{Dependency, Row, SharedMarketplace, Step, StoredPlan, display_argv, mcp_preview};
 use super::schema::{McpServer, Parsed, ParsedSection, Plugin};
 use crate::ecosystem::mcp_target;
 use crate::env::Env;
 use crate::harness::{Harness, HarnessRegistry, ShareSupport};
-use crate::harnesses::opencode::merged_mcp_names;
 use crate::model::{
     HarnessId, HarnessSummary, SyncBlockReason, SyncImportPlan, SyncImportSection, SyncItemKind, SyncItemStatus,
+    SyncNote,
 };
 use crate::pi_family::tilde;
-use crate::process::{ProcessRunner, ResolvedBinary};
 
 /// A reviewed import: what the webview shows, and what Rust keeps to apply it.
 #[derive(Debug, Clone)]
@@ -51,73 +54,21 @@ pub struct BuiltPlan {
     pub stored: StoredPlan,
 }
 
-/// The MCP server names OpenCode merges from all its config layers, including those the app cannot
-/// read (a remote organization config, managed settings, `OPENCODE_CONFIG_CONTENT`, ...), as
-/// `opencode debug config` reports them ([`merged_mcp_names`]). Checked before the review
-/// ([`OpenCodeMerged::probe`]) and again right before the apply writes an OpenCode server.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub enum OpenCodeMerged {
-    /// Not checked, or the check failed: no new OpenCode server is offered.
-    #[default]
-    Unknown,
-    /// The names OpenCode merges.
-    Names(BTreeSet<String>),
-}
-
-impl OpenCodeMerged {
-    /// True when `decoded` shares a valid OpenCode MCP server, which needs the check.
-    pub fn needed(decoded: &DecodedBundle) -> bool {
-        decoded
-            .sections
-            .iter()
-            .filter(|section| section.harness == HarnessId::OpenCode)
-            .any(|section| section.mcp_servers.iter().any(|server| server.item.is_ok()))
-    }
-
-    /// Runs the check with OpenCode's detected `binary`; `Unknown` without one or when it fails
-    /// (logged without any of the output).
-    pub async fn probe(env: &Env, runner: &dyn ProcessRunner, binary: Option<&ResolvedBinary>) -> Self {
-        let Some(binary) = binary else {
-            return Self::Unknown;
-        };
-
-        match merged_mcp_names(env, runner, binary).await {
-            Ok(names) => Self::Names(names),
-            Err(error) => {
-                tracing::warn!(%error, "share setup could not check OpenCode's merged config");
-                Self::Unknown
-            }
-        }
-    }
-
-    fn names(&self) -> Option<&BTreeSet<String>> {
-        match self {
-            Self::Unknown => None,
-            Self::Names(names) => Some(names),
-        }
-    }
-}
-
 /// Builds the review of `decoded` for this machine, under a fresh uuid plan id. A harness counts as
-/// installed when its summary in `summaries` says so; `opencode` is what OpenCode merges (see
-/// [`OpenCodeMerged`]). Reads the harnesses' registries and MCP files (never runs anything); call
-/// it from a blocking-capable context.
+/// installed when its summary in `summaries` says so. Reads the harnesses' registries and MCP files
+/// (never runs anything); call it from a blocking-capable context.
 pub fn build_plan(
     env: &Env,
     registry: &HarnessRegistry,
     summaries: &[HarnessSummary],
     decoded: &DecodedBundle,
-    opencode: &OpenCodeMerged,
 ) -> BuiltPlan {
     let mut seen = HashSet::new();
     let mut sections = Vec::new();
     let mut stored = Vec::new();
 
     for parsed in &decoded.sections {
-        let mut context = Context::new(env, registry.get(parsed.harness), parsed.harness, summaries);
-        if parsed.harness == HarnessId::OpenCode {
-            context.merged = opencode.names();
-        }
+        let context = Context::new(env, registry.get(parsed.harness), parsed.harness, summaries);
 
         let rows: Vec<Row> = context
             .rows(parsed)
@@ -193,8 +144,6 @@ struct Context<'a> {
     support: ShareSupport,
     machine: Machine,
     mcp_files: Option<McpFiles>,
-    /// For OpenCode, the names it merges (`None`: unknown).
-    merged: Option<&'a BTreeSet<String>>,
 }
 
 impl<'a> Context<'a> {
@@ -219,7 +168,6 @@ impl<'a> Context<'a> {
             support,
             machine,
             mcp_files,
-            merged: None,
         }
     }
 
@@ -300,6 +248,11 @@ impl<'a> Context<'a> {
             self.select(&mut row, step, dependency);
         }
 
+        // Checked against OpenCode's merged configuration only when it is applied.
+        if self.id == HarnessId::OpenCode && kind == SyncItemKind::McpServer && row.item.selectable {
+            row.item.notes.push(SyncNote::OpenCodeMergedCheck);
+        }
+
         row
     }
 
@@ -333,21 +286,15 @@ impl<'a> Context<'a> {
         }
     }
 
-    /// What this machine has of an MCP server. A target file that cannot be read safely is a
-    /// conflict (nothing could be written there); so is an OpenCode server OpenCode merges from
-    /// elsewhere, or that could not be checked.
+    /// What this machine's MCP files have of a server. A target file that cannot be read safely is
+    /// a conflict (nothing could be written there), and so is a file the harness also reads that
+    /// cannot be read or parsed.
     fn mcp(&self, server: &McpServer) -> Presence {
         let Some(files) = &self.mcp_files else {
             return Presence::Absent;
         };
 
-        let presence = mcp_presence(files, server).unwrap_or(Presence::Conflict);
-
-        if self.id != HarnessId::OpenCode {
-            return presence;
-        }
-
-        with_merged(presence, self.merged, &server.name)
+        mcp_presence(files, server).unwrap_or(Presence::Conflict)
     }
 
     /// A plugin that is not installed: `new` when its marketplace is registered here or shared as
