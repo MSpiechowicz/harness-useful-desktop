@@ -47,10 +47,12 @@ async function reveal(id: string, { indexOf, pageSize, setPage, clearFilters }: 
 
 /**
  * Keeps the row whose panel opens in sight: a row the filters hide shows once they are cleared, and the table turns to the page it is on.
- * It acts once for each row opened (a saved row, one chosen from the run history), not as the list changes under an open panel. Call it while the view is set up.
+ * It acts once for each row opened while the view is up (a saved row, one chosen from the run history), not as the list changes under an open panel
+ * nor for a panel left open when the view was left. Call it while the view is set up.
  */
 export function revealOpenRow(input: Reveal): void {
-  let handled: string | null = null;
+  // A panel already open as the view opens again was seen before: the filters chosen since then stay.
+  let handled: string | null = untrack(() => input.openId());
 
   $effect(() => {
     const id = input.openId();

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
 
 import type { HookDraft } from '$lib/ipc/bindings/HookDraft';
@@ -176,6 +176,21 @@ describe('A hook that opens', () => {
     await hooks.refresh();
 
     expect(viewState.hooksQuery).toBe('memory');
+  });
+
+  it('keeps the filters chosen under an open panel when the view is opened again', async () => {
+    fakeHooks();
+    await showHooks();
+    await fireEvent.click(rowOf(LINT));
+    await screen.findByRole('region', { name: LINT });
+    viewState.hooksQuery = 'memory';
+    await waitFor(() => expect(listed(grid())).not.toContain(LINT));
+
+    cleanup();
+    await showHooks();
+
+    expect(viewState.hooksQuery).toBe('memory');
+    expect(listed(grid())).not.toContain(LINT);
   });
 });
 
