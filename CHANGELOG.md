@@ -1,3 +1,11 @@
+# [0.30.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.29.0...v0.30.0) (2026-10-20)
+
+
+### Features
+
+* **memory:** percent-encode MongoDB and DocumentDB credentials in the team database URL ([07cb691](https://github.com/MSpiechowicz/harness-useful-desktop/commit/07cb691bb968eb990f60c1dbd72d93985e4dd946))
+* **memory:** Repository filter for Notes and Scripts, notice formatting in chat ([ad9a792](https://github.com/MSpiechowicz/harness-useful-desktop/commit/ad9a79296a707434361daea923fb53fc00acabf4))
+
 # [0.29.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.28.0...v0.29.0) (2026-10-19)
 
 
