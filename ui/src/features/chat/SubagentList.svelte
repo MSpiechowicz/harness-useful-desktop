@@ -16,9 +16,11 @@
 
   interface Props {
     subagents: Subagent[];
+    /** Pinned above the composer as its own card, rows scrolling inside a capped height, instead of inline in a tool card. */
+    docked?: boolean;
   }
 
-  let { subagents }: Props = $props();
+  let { subagents, docked = false }: Props = $props();
 
   let openId = $state<string | null>(null);
 
@@ -82,14 +84,15 @@
 </script>
 
 <!-- The subagents a `task` call spawned: one live row each, expandable to what it was asked and what it did last. -->
-<section aria-label={t('chat.subagents.label')} class="border-t border-line">
-  <header class="flex items-center gap-2 px-4 pt-2.5 pb-1.5 text-xs text-fg-3">
+<section aria-label={t('chat.subagents.label')} class={docked ? 'chat-radius mb-2 overflow-hidden border-card border-line bg-surface-1 bg-clip-padding' : 'border-t border-line'}>
+  <!-- pr: the row's right padding + chevron (14px) + its gap, so the totals end where the rows' time column ends. -->
+  <header class="flex items-center gap-2 pt-2.5 pr-[calc(1rem+14px+0.75rem)] pb-1.5 pl-4 text-xs text-fg-3">
     <span class="font-medium text-fg-2">{t('chat.subagents.label')}</span>
     <span>· {counts}</span>
     <span class="tabular ml-auto">{t('chat.subagents.totalTokens', { tokens: formatTokens(totalTokens) })}{totalCost > 0 ? ` · ${formatUsd(totalCost)}` : ''}</span>
   </header>
 
-  <ul class="flex flex-col pb-1.5">
+  <ul class={cx('flex flex-col pb-1.5', docked && 'max-h-64 overflow-y-auto')}>
     {#each subagents as subagent (subagent.id)}
       {@const expanded = openId === subagent.id}
       <li>
@@ -120,8 +123,8 @@
           </span>
 
           <span class="tabular flex shrink-0 items-center gap-3 text-xs text-fg-3">
-            {#if subagent.tokens !== null}<span>{t('chat.subagents.tok', { tokens: formatTokens(subagent.tokens) })}</span>{/if}
-            {#if subagent.durationMs !== null}<span class="w-12 text-right">{elapsed(subagent.durationMs)}</span>{/if}
+            <span class="w-24 text-right">{subagent.tokens !== null ? t('chat.subagents.totalTokens', { tokens: formatTokens(subagent.tokens) }) : ''}</span>
+            <span class="w-14 text-right">{elapsed(subagent.durationMs) ?? ''}</span>
           </span>
           <ChevronRight size={14} aria-hidden="true" class={cx('shrink-0 text-fg-3 transition-transform duration-[var(--dur-fast)]', expanded && 'rotate-90')} />
         </button>

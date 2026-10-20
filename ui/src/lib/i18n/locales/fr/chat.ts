@@ -230,7 +230,6 @@ export const chat: AreaMessages<typeof enChat> = {
   'chat.subagents.done': '{count} terminés',
   'chat.subagents.failed': '{count} en échec',
   'chat.subagents.totalTokens': '{tokens} tokens',
-  'chat.subagents.tok': '{tokens} tok.',
   'chat.subagents.waitingToStart': 'En attente de démarrage',
   'chat.subagents.working': 'Travail en cours',
   'chat.subagents.recentTools': 'Outils récents',
