@@ -1,9 +1,16 @@
 <script lang="ts">
   import Button from '$lib/components/Button.svelte';
   import Dialog from '$lib/components/Dialog.svelte';
-  import { t, tn } from '$lib/i18n/i18n.svelte';
+  import { t, tn, type MessageKey } from '$lib/i18n/i18n.svelte';
 
-  import type { Plan } from './setup-model';
+  import type { Installer, Plan } from './setup-model';
+
+  /** The heading over what each installer changes besides its own files. */
+  const EFFECTS_HEADING: Record<Installer, MessageKey> = {
+    dashboard: 'onboarding.setup.confirm.effects.dashboard',
+    memory: 'onboarding.setup.confirm.effects.memory',
+    opencodeSkills: 'onboarding.setup.confirm.effects.skills',
+  };
 
   interface Props {
     open: boolean;
@@ -55,7 +62,7 @@
     {/if}
 
     {#each plan.effects as group (group.owner)}
-      {@const heading = t(group.owner === 'memory' ? 'onboarding.setup.confirm.effects.memory' : 'onboarding.setup.confirm.effects.dashboard')}
+      {@const heading = t(EFFECTS_HEADING[group.owner])}
       <section class="flex flex-col gap-2" aria-label={heading}>
         <h3 class="text-xs font-medium tracking-wider text-fg-3 uppercase">{heading}</h3>
         <ul class="flex list-disc flex-col gap-1 pl-5 text-sm text-fg-2 marker:text-fg-3">

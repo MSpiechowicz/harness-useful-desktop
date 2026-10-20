@@ -1,6 +1,6 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use harness_business::model::{IpcErrorCode, SyncItemStatus, SyncOutcome};
+use harness_business::model::{IpcErrorCode, SyncItemStatus, SyncNote, SyncOutcome};
 use harness_business::process::{BoxFuture, ExecOutput, ExecSpec};
 use serde_json::{Value, json};
 
@@ -103,6 +103,29 @@ fn a_review_is_kept_as_the_current_plan_and_a_newer_one_replaces_it() {
 
     assert_ne!(second.plan_id, first.plan_id);
     assert_eq!(stored_id(&state).as_deref(), Some(second.plan_id.as_str()));
+}
+
+#[test]
+fn reviewing_an_opencode_server_runs_nothing_and_notes_the_check_at_import() {
+    let dir = TempDir::new("sync-opencode-review");
+    let state = state(&dir);
+    // A binary that cannot start: a check while reviewing would fail, and fail closed (`conflict`).
+    cache_detection(&state, HarnessId::OpenCode, Some(&dir.path().join("missing-opencode")));
+    let shared = json!({
+        "format": "harness-useful-desktop/setup",
+        "version": 1,
+        "harnesses": {
+            "opencode": { "mcpServers": [{ "name": "docs", "transport": "http", "url": "https://docs.example.com/mcp" }] }
+        }
+    });
+
+    let plan = review(&state, shared.to_string()).expect("reviewed");
+
+    let item = &plan.sections[0].items[0];
+    assert_eq!(item.id, "opencode:mcp:docs");
+    assert_eq!(item.status, SyncItemStatus::New);
+    assert!(item.selectable);
+    assert_eq!(item.notes, [SyncNote::OpenCodeMergedCheck]);
 }
 
 #[test]

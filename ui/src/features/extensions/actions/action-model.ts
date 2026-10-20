@@ -142,9 +142,14 @@ export function failureLine(result: CliResult): string | null {
   return lines.find((line) => line.startsWith('✘') || line.includes('Failed to')) ?? null;
 }
 
-/** True when the CLI could not preview the action and nothing ran. */
+/** True when the CLI could not preview the action and nothing ran. A config edit has no exit code either, but it does preview. */
 export function hasNoPreview(result: CliResult): boolean {
-  return result.exitCode === null && !result.timedOut;
+  return result.exitCode === null && !result.timedOut && !result.configEdit;
+}
+
+/** OpenCode plugins can be installed from npm and removed, and nothing else: no scope, enable, disable, upgrade, marketplace or package. */
+export function installAndRemoveOnly(harness: HarnessId | undefined): boolean {
+  return harness === 'opencode';
 }
 
 export type Outcome = 'confirmed' | 'missing' | 'unchecked';
@@ -195,8 +200,29 @@ export const OUTCOME_TEXT: Record<Outcome, string> = {
   },
 };
 
-/** Mirrors the backend's argument rules, so a bad value is caught before a round trip. */
-export function targetProblem(value: string): string | null {
+const NPM_NAME = /^(?:@[A-Za-z0-9][\w.-]*\/)?[A-Za-z0-9][\w.-]*$/;
+const NPM_VERSION = /^=?[0-9A-Za-z][\w.+-]*$/;
+const NPM_NAME_MAX = 214;
+const ARCHIVE = /\.(?:tgz|tar|tar\.gz|zip)$/i;
+
+/** True for `name` or `@scope/name`, optionally followed by `@version` or `@tag`: what the registry resolves, not a path, URL or git address. */
+function isNpmRegistrySpec(spec: string): boolean {
+  const at = spec.startsWith('@') ? spec.indexOf('@', 1) : spec.indexOf('@');
+  const name = at === -1 ? spec : spec.slice(0, at);
+  const wanted = at === -1 ? null : spec.slice(at + 1);
+
+  if (name.length > NPM_NAME_MAX || !NPM_NAME.test(name) || ARCHIVE.test(name)) {
+    return false;
+  }
+
+  return wanted === null || (NPM_VERSION.test(wanted) && !ARCHIVE.test(wanted));
+}
+
+/**
+ * Mirrors the backend's argument rules, so a bad value is caught before a round trip. `npm` adds the rule of an
+ * OpenCode plugin, which must be a package of the npm registry.
+ */
+export function targetProblem(value: string, kind: 'any' | 'npm' = 'any'): string | null {
   const text = value.trim();
 
   if (text === '') {
@@ -213,6 +239,9 @@ export function targetProblem(value: string): string | null {
   }
   if (/:\/\/[^/]*@/.test(text)) {
     return t('extensions.problem.credentials');
+  }
+  if (kind === 'npm' && !isNpmRegistrySpec(text)) {
+    return t('extensions.problem.npmSpec');
   }
 
   return null;

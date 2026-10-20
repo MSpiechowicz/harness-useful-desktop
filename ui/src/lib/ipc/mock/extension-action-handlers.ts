@@ -4,6 +4,7 @@ import type { ExtensionsView } from '../bindings/ExtensionsView';
 import type { HarnessId } from '../bindings/HarnessId';
 import { IpcFailure } from '../transport';
 import type { MockState } from './state';
+import { npmSpec, opencodeAction } from './opencode-extension-actions';
 import type { Handlers } from './types';
 
 type ActionCommands = 'extension_action' | 'extensions_view';
@@ -164,6 +165,16 @@ export function applyAction(view: ExtensionsView, { action, project }: Pick<Appl
     }
 
     case 'pluginInstall': {
+      // An OpenCode plugin is an npm package, listed by its package name.
+      if (next.harness === 'opencode') {
+        const { name, wanted } = npmSpec(action.target);
+
+        if (!next.plugins.some(matches(name))) {
+          next.plugins.push({ id: name, name, version: wanted, description: null, enabled: true, scope: 'user', marketplace: null, features: [], path: null, latestVersion: null, updateAvailable: false });
+        }
+        break;
+      }
+
       const [name, marketplace = null] = action.target.split('@');
       const entry = next.marketplaces.find((candidate) => candidate.name === marketplace)?.entries.find((candidate) => candidate.name === name);
       if (entry) {
@@ -223,11 +234,28 @@ export function applyAction(view: ExtensionsView, { action, project }: Pick<Appl
 export function extensionActionHandlers(state: MockState, plainView: Handlers['extensions_view']): Pick<Handlers, ActionCommands> {
   const applied: Applied[] = [];
 
+  const currentView: Handlers['extensions_view'] = async (args) => {
+    const view = await plainView(args);
+
+    return applied.filter((entry) => entry.harness === args.harness).reduce((current, entry) => applyAction(current, entry), view);
+  };
+
   return {
     extension_action: async ({ harness, action, dryRun: preview, project }) => {
-      // OpenCode is read-only: the backend refuses every action for a harness without CLI actions.
       if (harness === 'opencode') {
-        throw IpcFailure.from({ code: 'unsupported', message: 'OpenCode extensions are read-only here. Manage them in its own configuration.' });
+        state.requireKnown(project);
+
+        const outcome = opencodeAction(action, preview, await currentView({ harness, project }));
+        if (preview) {
+          return outcome;
+        }
+
+        await delay(RUN_MS);
+        if (outcome.ok) {
+          applied.push({ harness, action, project });
+        }
+
+        return outcome;
       }
 
       const wrongHarness = harness === 'omp' ? action.type.startsWith('package') : !action.type.startsWith('package');
@@ -252,10 +280,6 @@ export function extensionActionHandlers(state: MockState, plainView: Handlers['e
       return outcome;
     },
 
-    extensions_view: async (args) => {
-      const view = await plainView(args);
-
-      return applied.filter((entry) => entry.harness === args.harness).reduce((current, entry) => applyAction(current, entry), view);
-    },
+    extensions_view: currentView,
   };
 }

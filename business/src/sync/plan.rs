@@ -8,9 +8,10 @@
 //! ```
 //!
 //! Every step is built here from validated fields only: `MarketplaceAdd`, `PluginInstall` in the
-//! user scope, `PackageInstall` (no project), or an MCP entry holding only `type`, `command`, `args`,
-//! `url` and, when the server needs env or header values, `"enabled": false`. The MCP file comes
-//! from [`mcp_target_paths`], never from the bundle. Statuses compare the bundle with this machine's
+//! user scope (an OpenCode plugin as `<name>[@<version>]`), `PackageInstall` (no project), or an MCP
+//! entry holding only `type`, `command`, `args`, `url` and, when the server needs env or header
+//! values, `"enabled": false` (OpenCode: `type`, the `command` array or `url`, and `enabled`). The
+//! MCP file comes from [`mcp_target`], never from the bundle. Statuses compare the bundle with this machine's
 //! files in process (see [`super::plan_presence`]); existing MCP definitions and local sources never
 //! reach the plan.
 //!
@@ -19,8 +20,16 @@
 //! what is here (`alreadyPresent`, `differentVersion`, `conflict`), else `new`. Only `new` items are
 //! selectable; they start ticked, except stdio MCP servers (they run a program). A plugin whose
 //! marketplace the bundle shares with the same name but another source is a `conflict` (installing
-//! it would use the marketplace registered here). A repeated id keeps its first item. An MCP file
-//! that cannot be read safely leaves its servers `new`; the apply reports the refusal on each.
+//! it would use the marketplace registered here). A repeated id keeps its first item. An MCP server
+//! whose target file cannot be read safely, or that a file the harness also reads might define but
+//! that cannot be read or parsed, is a `conflict` with [`SyncNote::ConfigUnreadable`] (nothing can
+//! be written there safely).
+//!
+//! The review only reads files: it never runs a harness CLI. In particular it never runs `opencode
+//! debug config`, which is not read-only (OpenCode may fetch a remote organization config, install
+//! plugin dependencies in its config directories, create or rewrite config files). A `new` OpenCode
+//! server therefore carries [`SyncNote::OpenCodeMergedCheck`]: its name is checked against
+//! OpenCode's merged configuration only when the user applies it ([`super::apply_plan`]).
 
 use std::collections::HashSet;
 
@@ -28,12 +37,13 @@ use super::codec::DecodedBundle;
 use super::collect::item_id;
 use super::plan_presence::{Machine, McpFiles, Presence, mcp_presence};
 use super::plan_rows::{Dependency, Row, SharedMarketplace, Step, StoredPlan, display_argv, mcp_preview};
-use super::schema::{Parsed, ParsedSection, Plugin};
-use crate::ecosystem::mcp_target_paths;
+use super::schema::{McpServer, Parsed, ParsedSection, Plugin};
+use crate::ecosystem::mcp_target;
 use crate::env::Env;
 use crate::harness::{Harness, HarnessRegistry, ShareSupport};
 use crate::model::{
     HarnessId, HarnessSummary, SyncBlockReason, SyncImportPlan, SyncImportSection, SyncItemKind, SyncItemStatus,
+    SyncNote,
 };
 use crate::pi_family::tilde;
 
@@ -61,6 +71,7 @@ pub fn build_plan(
 
     for parsed in &decoded.sections {
         let context = Context::new(env, registry.get(parsed.harness), parsed.harness, summaries);
+
         let rows: Vec<Row> = context
             .rows(parsed)
             .into_iter()
@@ -98,11 +109,20 @@ pub fn build_plan(
 
 /// The user MCP file of `harness`, when it has one.
 fn mcp_files(env: &Env, harness: &dyn Harness) -> Option<McpFiles> {
-    mcp_target_paths(env, harness).map(|(target, also_read)| McpFiles { target, also_read })
+    mcp_target(env, harness).map(|file| McpFiles {
+        target: file.path,
+        also_read: file.also_read,
+        shape: file.shape,
+    })
 }
 
-/// The marketplace a plugin comes from: its `marketplace`, else the `@marketplace` of its id.
-fn plugin_marketplace(plugin: &Plugin) -> Option<String> {
+/// The marketplace a plugin comes from: its `marketplace`, else the `@marketplace` of its id. An
+/// OpenCode plugin is an npm package and has none.
+fn plugin_marketplace(harness: HarnessId, plugin: &Plugin) -> Option<String> {
+    if harness == HarnessId::OpenCode {
+        return None;
+    }
+
     if let Some(marketplace) = &plugin.marketplace {
         return Some(marketplace.clone());
     }
@@ -138,7 +158,7 @@ impl<'a> Context<'a> {
 
         // Nothing is read for a harness that is not installed: all its items are blocked.
         let (machine, mcp_files) = match harness {
-            Some(harness) if installed => (Machine::read(&harness.paths(env, None)), mcp_files(env, harness)),
+            Some(harness) if installed => (Machine::read(env, harness), mcp_files(env, harness)),
             _ => (Machine::default(), None),
         };
 
@@ -220,14 +240,21 @@ impl<'a> Context<'a> {
             }
         };
 
-        let (status, dependency) = match self.blocked(kind) {
-            Some(reason) => (SyncItemStatus::Blocked { reason }, None),
+        let compared = match self.blocked(kind) {
+            Some(reason) => Compared::status(SyncItemStatus::Blocked { reason }),
             None => self.compare(&step, marketplaces),
         };
 
-        let mut row = Row::valid(item_id(self.id, kind, &step.key()), self.id, &step, status);
+        let mut row = Row::valid(item_id(self.id, kind, &step.key()), self.id, &step, compared.status);
+        row.item.notes.extend(compared.note);
+
         if row.item.status == SyncItemStatus::New {
-            self.select(&mut row, step, dependency);
+            self.select(&mut row, step, compared.dependency);
+        }
+
+        // Checked against OpenCode's merged configuration only when it is applied.
+        if self.id == HarnessId::OpenCode && kind == SyncItemKind::McpServer && row.item.selectable {
+            row.item.notes.push(SyncNote::OpenCodeMergedCheck);
         }
 
         row
@@ -249,53 +276,58 @@ impl<'a> Context<'a> {
     }
 
     /// The status of an item against this machine, and the bundle marketplace a new plugin needs.
-    fn compare(&self, step: &Step, marketplaces: &[SharedMarketplace]) -> (SyncItemStatus, Option<Dependency>) {
+    fn compare(&self, step: &Step, marketplaces: &[SharedMarketplace]) -> Compared {
         let presence = match step {
             Step::Marketplace(marketplace) => self.machine.marketplace(marketplace),
             Step::Plugin(plugin) => self.machine.plugin(plugin),
             Step::Package(package) => self.machine.package(package),
-            Step::Mcp(server) => match &self.mcp_files {
-                Some(files) => mcp_presence(self.env, files, server).unwrap_or(Presence::Absent),
-                None => Presence::Absent,
-            },
+            Step::Mcp(server) => self.mcp(server),
         };
 
         match (step, presence) {
             (Step::Plugin(plugin), Presence::Absent) => self.plugin_status(plugin, marketplaces),
-            (_, presence) => (status_of(presence), None),
+            (_, Presence::Unreadable) => Compared {
+                note: Some(SyncNote::ConfigUnreadable),
+                ..Compared::status(SyncItemStatus::Conflict)
+            },
+            (_, presence) => Compared::status(status_of(presence)),
         }
+    }
+
+    /// What this machine's MCP files have of a server. A target file that cannot be read safely is
+    /// unreadable (nothing could be written there), and so is a file the harness also reads that
+    /// cannot be read or parsed.
+    fn mcp(&self, server: &McpServer) -> Presence {
+        let Some(files) = &self.mcp_files else {
+            return Presence::Absent;
+        };
+
+        mcp_presence(files, server).unwrap_or(Presence::Unreadable)
     }
 
     /// A plugin that is not installed: `new` when its marketplace is registered here or shared as
     /// `new` (then it depends on that item), `conflict` when the bundle's marketplace of that name
     /// conflicts, else blocked.
-    fn plugin_status(
-        &self,
-        plugin: &Plugin,
-        marketplaces: &[SharedMarketplace],
-    ) -> (SyncItemStatus, Option<Dependency>) {
-        let Some(name) = plugin_marketplace(plugin) else {
-            return (SyncItemStatus::New, None);
+    fn plugin_status(&self, plugin: &Plugin, marketplaces: &[SharedMarketplace]) -> Compared {
+        let Some(name) = plugin_marketplace(self.id, plugin) else {
+            return Compared::status(SyncItemStatus::New);
         };
 
         let shared = marketplaces.iter().find(|marketplace| marketplace.name == name);
 
         match shared {
-            Some(shared) if shared.status == SyncItemStatus::New => {
-                let dependency = Dependency {
+            Some(shared) if shared.status == SyncItemStatus::New => Compared {
+                dependency: Some(Dependency {
                     id: shared.id.clone(),
                     marketplace: name,
-                };
-                (SyncItemStatus::New, Some(dependency))
-            }
-            Some(shared) if shared.status == SyncItemStatus::Conflict => (SyncItemStatus::Conflict, None),
-            _ if self.machine.has_marketplace(&name) => (SyncItemStatus::New, None),
-            _ => (
-                SyncItemStatus::Blocked {
-                    reason: SyncBlockReason::MarketplaceMissing,
-                },
-                None,
-            ),
+                }),
+                ..Compared::status(SyncItemStatus::New)
+            },
+            Some(shared) if shared.status == SyncItemStatus::Conflict => Compared::status(SyncItemStatus::Conflict),
+            _ if self.machine.has_marketplace(&name) => Compared::status(SyncItemStatus::New),
+            _ => Compared::status(SyncItemStatus::Blocked {
+                reason: SyncBlockReason::MarketplaceMissing,
+            }),
         }
     }
 
@@ -308,7 +340,7 @@ impl<'a> Context<'a> {
                 .map(|files| (mcp_preview(tilde(self.env, &files.target), server), Some(files.clone()))),
             _ => self
                 .harness
-                .zip(step.action())
+                .zip(step.action(self.id))
                 .and_then(|(harness, action)| display_argv(harness, &action))
                 .map(|display| (display, None)),
         };
@@ -325,11 +357,30 @@ impl<'a> Context<'a> {
     }
 }
 
+/// How an item compares with this machine.
+struct Compared {
+    status: SyncItemStatus,
+    /// The bundle marketplace a new plugin needs.
+    dependency: Option<Dependency>,
+    /// A remark on the status (`configUnreadable` on a conflict).
+    note: Option<SyncNote>,
+}
+
+impl Compared {
+    fn status(status: SyncItemStatus) -> Self {
+        Self {
+            status,
+            dependency: None,
+            note: None,
+        }
+    }
+}
+
 fn status_of(presence: Presence) -> SyncItemStatus {
     match presence {
         Presence::Absent => SyncItemStatus::New,
         Presence::Present => SyncItemStatus::AlreadyPresent,
         Presence::DifferentVersion { installed, shared } => SyncItemStatus::DifferentVersion { installed, shared },
-        Presence::Conflict => SyncItemStatus::Conflict,
+        Presence::Conflict | Presence::Unreadable => SyncItemStatus::Conflict,
     }
 }

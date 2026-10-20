@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-harness-session-totals"
+description = "Enables the harness_session_totals command without any pre-configured scope."
+commands.allow = ["harness_session_totals"]
+
+[[permission]]
+identifier = "deny-harness-session-totals"
+description = "Denies the harness_session_totals command without any pre-configured scope."
+commands.deny = ["harness_session_totals"]

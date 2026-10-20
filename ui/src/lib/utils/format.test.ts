@@ -74,6 +74,21 @@ describe('formatting follows the language on screen', () => {
     expect(format.relativeTime('2026-10-08T11:55:00Z', now)).toBe('vor 5 Minuten');
   });
 
+  it('writes a short time since in the words of the language', async () => {
+    const { format } = await onPolishSystem();
+    const { i18n: fresh } = await import('$lib/i18n/i18n.svelte');
+    const now = Date.parse('2026-10-08T12:00:00Z');
+
+    expect(format.shortRelativeTime('2026-10-08T11:59:30Z', now)).toBe('just now');
+    expect(format.shortRelativeTime('2026-10-08T11:23:00Z', now)).toBe('37 min. ago');
+    expect(format.shortRelativeTime('2026-10-08T10:00:00Z', now)).toBe('2 hr. ago');
+    expect(format.shortRelativeTime('2026-09-27T12:00:00Z', now)).toBe('11 days ago');
+
+    await fresh.load('pl');
+
+    expect(format.shortRelativeTime('2026-10-08T11:23:00Z', now)).toBe('37 min temu');
+  });
+
   it('writes sizes with the decimal mark of the language', async () => {
     const { format } = await onPolishSystem();
     const { i18n: fresh } = await import('$lib/i18n/i18n.svelte');

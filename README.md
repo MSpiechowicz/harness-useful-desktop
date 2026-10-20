@@ -32,14 +32,15 @@ privacy. Made with the app's demo data. [Download the full-quality 4K video](htt
   on any line and send the comments to the agent as one prompt.
 - **Config viewer.** Settings, MCP servers and profiles in one readable place, with secrets masked.
 - **Extensions.** Plugins, marketplaces, packages, skills, commands, agents, MCP servers and themes, with install,
-  enable and update actions run through the harness's own CLI and a dry-run preview where the CLI offers one. OpenCode's
-  extensions are read-only.
+  enable and update actions run through the harness's own CLI and a dry-run preview where the CLI offers one. For
+  OpenCode you can install npm plugins (`opencode plugin <module> -g`) and remove them (the app edits the `plugin` list of
+  the global config), but not update or enable them.
 - **Ecosystem tab and dashboard widgets.** Detects the companion tools and shows cost and token widgets from the local
   [Harness Dashboard](https://github.com/MSpiechowicz/harness-useful-dashboard) when it is installed.
 - **Recommended setup.** An optional onboarding step (also **Run recommended setup** on the Ecosystem screen) that,
   after you confirm each part, installs the Harness Dashboard and Harness Memory with their official installers, installs the
-  [Harness Skills](https://github.com/MSpiechowicz/harness-useful-skills) (OMP as a plugin, PI as a package, not yet
-  for OpenCode) and registers the dashboard as an MCP server in each detected harness: in its user `mcp.json` for OMP
+  [Harness Skills](https://github.com/MSpiechowicz/harness-useful-skills) (OMP as a plugin, PI as a package, OpenCode
+  with the skills' own installer, which needs Node.js 22 or newer) and registers the dashboard as an MCP server in each detected harness: in its user `mcp.json` for OMP
   and PI, in the `mcp` object of the global `opencode.json` or `opencode.jsonc` for OpenCode. An OpenCode config file
   with comments is never rewritten, so the app shows the entry to paste instead. The same step can register the app's own
   `harness-desktop` MCP server (for hooks) in each harness.
@@ -47,9 +48,9 @@ privacy. Made with the app's demo data. [Download the full-quality 4K video](htt
   per repository. See [Project memory](#project-memory).
 - **Hooks.** Small rules that add context to a prompt, send a follow-up after the agent finishes or run a command when
   something happens in a chat, with ready-made ones for Harness Memory and the dashboard. See [Hooks](#hooks).
-- **Share setup.** In Settings, export the marketplaces, plugins, packages and MCP servers of OMP and PI as a `hud1:`
+- **Share setup.** In Settings, export the marketplaces, plugins, packages and MCP servers of OMP, PI and OpenCode as a `hud1:`
   string or a `.json` file (references and key names, env and header values are never shared), and import one on another
-  machine. OpenCode is not covered yet. An import always shows a review of
+  machine. For OpenCode that means npm plugins and MCP servers. An import always shows a review of
   the exact commands and files, adds only what you tick after you confirm, and never removes or overwrites anything.
   Format: [docs/share-setup.md](docs/share-setup.md).
 - **Command palette and shortcuts.** Keyboard-first navigation (`Ctrl/Cmd+K`, `Ctrl/Cmd+1..9`), plus a shortcuts
@@ -64,7 +65,7 @@ privacy. Made with the app's demo data. [Download the full-quality 4K video](htt
 | --- | --- |
 | [Oh My Pi](https://omp.sh) (`omp`) | Supported. Verified against 18.6.1. |
 | [Pi](https://github.com/earendil-works/pi) (`pi`) | Supported. Tested with PI 1.1. Other versions show as untested. |
-| [OpenCode](https://opencode.ai) (`opencode`) | Partly supported. Works: detection (also in `~/.opencode/bin`), the configuration (JSON with comments, secrets masked), extensions (skills, commands, agents, plugins, MCP servers, themes, read-only), sessions (list, transcript, delete) and the dashboard and memory MCP entries in Recommended setup. Versions 1.18 and 1.19 are supported, others show as untested. Chat works as a preview (see [docs/security-privacy.md](docs/security-privacy.md#opencode-chat) for how the app runs the server). No Harness Skills install and no Share setup yet. |
+| [OpenCode](https://opencode.ai) (`opencode`) | Partly supported. Works: detection (also in `~/.opencode/bin`), the configuration (JSON with comments, secrets masked), extensions (skills, commands, agents, plugins, MCP servers, themes, with npm plugin install and remove), sessions (list, transcript, delete), the Harness Skills install and the dashboard and memory MCP entries in Recommended setup, and Share setup of npm plugins and MCP servers. Versions 1.18 and 1.19 are supported, others show as untested. Chat works as a preview (see [docs/security-privacy.md](docs/security-privacy.md#opencode-chat) for how the app runs the server). Not done: plugin updates and project-scope plugin installs. |
 | Other harness CLIs | Planned. Adding one is an implementation of the `Harness` trait; see [docs/adding-a-harness.md](docs/adding-a-harness.md). Every new harness must also join Recommended setup (skills install and dashboard MCP). |
 
 The app finds the CLI on `PATH` and in the usual install directories (bun, cargo, npm global, `~/.local/bin`, `~/.opencode/bin`, Homebrew), or you can

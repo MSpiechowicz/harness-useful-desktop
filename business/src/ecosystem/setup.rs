@@ -3,7 +3,8 @@
 //! (`harness-desktop mcp`) MCP servers.
 //!
 //! Everything here only reads: the dashboard's and the memory server's version probes, the OMP plugin and marketplace
-//! registries, PI's user settings and the user MCP files. The MCP files of a harness are those of
+//! registries, PI's user settings, the Harness Skills' OpenCode install record (see
+//! [`super::skills_record`]), where `node` is (their installer needs it) and the user MCP files. The MCP files of a harness are those of
 //! its user agent directory ([`Harness::paths`] without a project), so with an OMP profile active
 //! only that profile's files count. OpenCode's is its global config file ([`mcp_target`]).
 
@@ -12,9 +13,10 @@ use std::path::PathBuf;
 
 use super::catalog::{SKILLS_MARKETPLACE, SKILLS_PLUGIN, SKILLS_TARGET, supported_on};
 use super::desktop_register::{current_app_command, desktop_mcp_state};
-use super::installer::{Companion, installer};
+use super::installer::{Companion, Installed, installer};
 use super::mcp_merge::Shape;
 use super::mcp_register::{mcp_state, memory_mcp_state};
+use super::skills_record::opencode_skills_version;
 use crate::env::{Env, OsKind};
 use crate::harness::{Harness, HarnessRegistry, McpTarget, SkillsStrategy};
 use crate::harnesses::omp::{installed_plugins, marketplaces};
@@ -22,9 +24,9 @@ use crate::harnesses::opencode;
 use crate::harnesses::pi::user_has_package;
 use crate::model::{
     DashboardSetup, EcosystemId, ExtensionAction, HarnessSetup, HarnessSummary, InstallScope, McpRefusal, McpState,
-    RecommendedSetup, SkillsSetup,
+    RecommendedSetup, SkillsSetup, SkillsUnavailableCode,
 };
-use crate::process::ProcessRunner;
+use crate::process::{ProcessRunner, ResolvedBinary, resolve_binary};
 
 /// The setup step's view of this machine. `summaries` are the latest harness detections (a
 /// harness without one counts as not installed). Reads files; call it from a blocking-capable
@@ -160,26 +162,23 @@ pub async fn memory_server_setup(env: &Env, runner: &dyn ProcessRunner) -> Dashb
 }
 
 async fn binary_setup(env: &Env, runner: &dyn ProcessRunner, companion: Companion) -> DashboardSetup {
-    let binary = companion.resolve(env);
-    let version = match &binary {
-        Some(binary) => companion.version(env, runner, binary).await,
-        None => None,
-    };
+    let found = companion.installed(env, runner).await;
 
     let (id, side_effects) = match companion {
         Companion::Dashboard => (EcosystemId::Dashboard, dashboard_side_effects(env.os)),
         Companion::Memory => (EcosystemId::Memory, memory_side_effects(env.os)),
+        Companion::OpenCodeSkills => (EcosystemId::Skills, skills_side_effects(env.os)),
     };
 
     // A memory server without a version is never registered or run, so the installer is offered.
     let installed = match companion {
-        Companion::Dashboard => binary.is_some(),
-        Companion::Memory => version.is_some(),
+        Companion::Dashboard => found != Installed::Missing,
+        Companion::Memory | Companion::OpenCodeSkills => found.version().is_some(),
     };
 
     DashboardSetup {
         installed,
-        version,
+        version: found.version().map(str::to_owned),
         supported_on_this_os: supported_on(id, env.os),
         command: installer(env, companion).command.to_owned(),
         side_effects: side_effects.iter().map(|line| (*line).to_owned()).collect(),
@@ -198,6 +197,27 @@ fn memory_side_effects(os: OsKind) -> &'static [&'static str] {
         OsKind::Windows => &[
             r"Puts the harness-memory command in %LOCALAPPDATA%\Programs\harness-memory and adds that folder to your user PATH.",
             "Running memory servers keep working; each harness starts the new version next time.",
+        ],
+    }
+}
+
+/// What the Harness Skills' OpenCode installer of `os` changes, per its script (`install.sh`,
+/// `install.ps1`). OpenCode keeps its config folder below the home folder on Windows too.
+fn skills_side_effects(os: OsKind) -> &'static [&'static str] {
+    match os {
+        OsKind::Linux | OsKind::MacOs => &[
+            "Installs the Harness Skills plugin, skills, agents and commands into the OpenCode config folder (~/.config/opencode).",
+            "Adds the useful_skills MCP server to opencode.json in that folder.",
+            "Needs Node.js 22 or newer.",
+            "Restart OpenCode and running OpenCode chats to load the skills.",
+            "Updates come from /useful-skills update in OpenCode.",
+        ],
+        OsKind::Windows => &[
+            r"Installs the Harness Skills plugin, skills, agents and commands into the OpenCode config folder (%USERPROFILE%\.config\opencode).",
+            "Adds the useful_skills MCP server to opencode.json in that folder.",
+            "Needs Node.js 22 or newer.",
+            "Restart OpenCode and running OpenCode chats to load the skills.",
+            "Updates come from /useful-skills update in OpenCode.",
         ],
     }
 }
@@ -239,6 +259,7 @@ fn skills_setup(env: &Env, harness: &dyn Harness) -> SkillsSetup {
                 }],
             }
         }
+        SkillsStrategy::Installer => opencode_skills(env),
         SkillsStrategy::Manual { command, note } => {
             if user_has_package(&harness.paths(env, None), SKILLS_PLUGIN) {
                 return SkillsSetup::Installed { version: None };
@@ -251,8 +272,37 @@ fn skills_setup(env: &Env, harness: &dyn Harness) -> SkillsSetup {
         }
         SkillsStrategy::Unsupported { reason } => SkillsSetup::Unavailable {
             reason: reason.to_owned(),
+            code: None,
         },
     }
+}
+
+/// Installed when the install record holds a version; otherwise the installer, which needs `node`.
+fn opencode_skills(env: &Env) -> SkillsSetup {
+    if let Some(version) = opencode_skills_version(env) {
+        return SkillsSetup::Installed { version: Some(version) };
+    }
+
+    if find_node(env).is_none() {
+        return SkillsSetup::Unavailable {
+            reason: "Needs Node.js 22 or newer.".to_owned(),
+            code: Some(SkillsUnavailableCode::NodeMissing),
+        };
+    }
+
+    SkillsSetup::Script {
+        command: installer(env, Companion::OpenCodeSkills).command.to_owned(),
+        side_effects: skills_side_effects(env.os)
+            .iter()
+            .map(|line| (*line).to_owned())
+            .collect(),
+    }
+}
+
+/// `node` on `PATH` or in the usual install directories, where the skills' installer finds it too
+/// (they are appended to its `PATH`). Its version is not checked here, the installer does.
+fn find_node(env: &Env) -> Option<ResolvedBinary> {
+    resolve_binary(env, "node", None)
 }
 
 /// Installed when the user has the skills plugin (marketplace or npm install); otherwise the

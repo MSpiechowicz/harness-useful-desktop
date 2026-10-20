@@ -137,7 +137,7 @@
 
       {#if editing}
         <Button variant="dangerQuiet" disabled={ticked.length === 0 || removing} loading={removing} onclick={() => void removeTicked()}>
-          <Trash2 size={16} aria-hidden="true" />
+          {#snippet leading()}<Trash2 size={16} aria-hidden="true" />{/snippet}
           {tn('chat.project.remove', Math.max(ticked.length, 1))}
         </Button>
       {:else}

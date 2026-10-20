@@ -2,26 +2,42 @@ import type { SyncExportPreview } from '../bindings/SyncExportPreview';
 import type { SyncImportPlan } from '../bindings/SyncImportPlan';
 import type { SyncImportSection } from '../bindings/SyncImportSection';
 import type { SyncItemOutcome } from '../bindings/SyncItemOutcome';
+import type { SyncNote } from '../bindings/SyncNote';
 import type { SyncOutcome } from '../bindings/SyncOutcome';
 import { IpcFailure } from '../transport';
-import { EXCLUDED_ALL, EXCLUDED_TYPICAL, EXPORT_SECTIONS, HOSTILE_PLAN_SECTIONS, HOSTILE_UNSUPPORTED, TYPICAL_PLAN_SECTIONS } from './sync-fixtures';
+import {
+  EXCLUDED_ALL,
+  EXCLUDED_TYPICAL,
+  EXPORT_SECTIONS,
+  HOSTILE_PLAN_SECTIONS,
+  HOSTILE_UNSUPPORTED,
+  OPENCODE_COMMENTED_MCP,
+  opencodeEntrySnippet,
+  TYPICAL_PLAN_SECTIONS,
+  UNREADABLE_PLAN_SECTIONS,
+} from './sync-fixtures';
 import type { Handlers } from './types';
 
 type SyncCommands = 'sync_export_preview' | 'sync_export' | 'sync_export_save' | 'sync_import_preview' | 'sync_import_apply';
 
 /**
  * What the mock share setup starts from. The browser preview picks one with `?sync=<name>`: `typical` (the default) is
- * OMP and PI (OpenCode has no share support) with marketplaces, plugins, packages and MCP servers in every kind of state, `empty` a machine with nothing
+ * OMP, PI and OpenCode with marketplaces, plugins, packages and MCP servers in every kind of state, `empty` a machine with nothing
  * to share, `hostile` a bundle of refused items and an uninstalled harness, `newer` a bundle from a newer app,
- * `partial` an import where a marketplace fails and its plugins are skipped, and `cancelled` closes both pickers.
+ * `partial` an import where a marketplace fails and its plugins are skipped, `commented` an import where OpenCode's config
+ * file has comments, so its servers are left to paste by hand, `exists` an import where the merged check finds OpenCode already
+ * defining the `docs` server, `unreadable` a review where the `status` server is a conflict and an import where `docs` is one, both because a config file
+ * could not be read, and `cancelled` closes both pickers.
  */
-export const SYNC_SCENARIOS = ['typical', 'empty', 'hostile', 'newer', 'partial', 'cancelled'] as const;
+export const SYNC_SCENARIOS = ['typical', 'empty', 'hostile', 'newer', 'partial', 'commented', 'exists', 'unreadable', 'cancelled'] as const;
 export type SyncScenario = (typeof SYNC_SCENARIOS)[number];
 
 /** Pause between two items of an import; tests do not wait. */
 const STEP_MS = import.meta.env.MODE === 'test' ? 0 : 700;
 
 const FAILED_MARKETPLACE = 'omp:marketplace:harness-useful-skills';
+/** The OpenCode server that the merged-configuration check finds already defined in the `exists` scenario. */
+const EXISTING_OPENCODE_SERVER = 'opencode:mcp:docs';
 const FAILED_ARGV = ['omp', 'plugin', 'marketplace', 'add', 'MSpiechowicz/harness-useful-skills'];
 
 /** Reads the scenario from the page URL (browser preview only); unknown names fall back to the default. */
@@ -44,7 +60,14 @@ function encode(text: string): string {
 }
 
 function sectionsFor(scenario: SyncScenario): SyncImportSection[] {
-  return scenario === 'hostile' ? HOSTILE_PLAN_SECTIONS : TYPICAL_PLAN_SECTIONS;
+  switch (scenario) {
+    case 'hostile':
+      return HOSTILE_PLAN_SECTIONS;
+    case 'unreadable':
+      return UNREADABLE_PLAN_SECTIONS;
+    default:
+      return TYPICAL_PLAN_SECTIONS;
+  }
 }
 
 function invalid(message: string): IpcFailure {
@@ -75,21 +98,39 @@ export function syncHandlers(scenario: () => SyncScenario = syncScenarioFromLoca
   }
 
   /** What an apply does to one item: a failed marketplace fails, its plugins are skipped, the rest succeeds. */
-  function outcomeOf(section: SyncImportSection, id: string, failed: Set<string>): { outcome: SyncOutcome; summary: string | null; argv: string[] } {
+  function outcomeOf(section: SyncImportSection, id: string, failed: Set<string>): { outcome: SyncOutcome; summary: string | null; argv: string[]; notes: SyncNote[] } {
     const item = section.items.find((candidate) => candidate.id === id)!;
     const argv = item.steps.flatMap((step) => (step.type === 'cli' ? step.command : []));
+    const opencodeServer = section.harness === 'opencode' ? item.steps.find((step) => step.type === 'mcpMerge') : undefined;
+
+    if (scenario() === 'commented' && opencodeServer?.type === 'mcpMerge') {
+      return {
+        outcome: { type: 'skipped', reason: { type: 'manualEdit', file: OPENCODE_COMMENTED_MCP, snippet: opencodeEntrySnippet(opencodeServer.server) } },
+        summary: null,
+        argv: [],
+        notes: [],
+      };
+    }
+
+    if (scenario() === 'exists' && id === EXISTING_OPENCODE_SERVER) {
+      return { outcome: { type: 'conflict' }, summary: 'OpenCode already defines a server named docs, so it was left alone.', argv: [], notes: [] };
+    }
+
+    if (scenario() === 'unreadable' && id === EXISTING_OPENCODE_SERVER) {
+      return { outcome: { type: 'conflict' }, summary: null, argv: [], notes: ['configUnreadable'] };
+    }
 
     if (scenario() === 'partial' && id === FAILED_MARKETPLACE) {
       failed.add(id);
 
-      return { outcome: { type: 'failed' }, summary: 'Could not clone the repository: exit code 128.', argv: FAILED_ARGV };
+      return { outcome: { type: 'failed' }, summary: 'Could not clone the repository: exit code 128.', argv: FAILED_ARGV, notes: [] };
     }
 
     if (item.dependsOn && failed.has(item.dependsOn)) {
-      return { outcome: { type: 'skipped', reason: { type: 'dependencyFailed' } }, summary: null, argv: [] };
+      return { outcome: { type: 'skipped', reason: { type: 'dependencyFailed' } }, summary: null, argv: [], notes: [] };
     }
 
-    return { outcome: { type: 'done' }, summary: null, argv };
+    return { outcome: { type: 'done' }, summary: null, argv, notes: [] };
   }
 
   return {
@@ -171,8 +212,8 @@ export function syncHandlers(scenario: () => SyncScenario = syncScenarioFromLoca
         onProgress({ type: 'started', id: item.id, index, total: ordered.length });
         await delay(STEP_MS);
 
-        const { outcome, summary, argv } = outcomeOf(section, item.id, failed);
-        const finished: SyncItemOutcome = { id: item.id, harness: section.harness, kind: item.kind, label: item.label, outcome, summary, argv };
+        const { outcome, summary, argv, notes } = outcomeOf(section, item.id, failed);
+        const finished: SyncItemOutcome = { id: item.id, harness: section.harness, kind: item.kind, label: item.label, outcome, summary, argv, notes };
 
         items.push(finished);
         onProgress({ type: 'finished', outcome: finished });

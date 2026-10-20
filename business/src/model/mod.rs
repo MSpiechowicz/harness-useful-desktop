@@ -65,7 +65,7 @@ pub use dashboard_args::{
 };
 pub use dropped::{AttachedFile, DropEvent, DroppedImage};
 pub use ecosystem::{EcosystemId, EcosystemInstalled, EcosystemItem, EcosystemRelease, EcosystemStatus, InstallStep};
-pub use extension_action::{CliResult, ExtensionAction, InstallScope, MAX_CLI_OUTPUT_BYTES};
+pub use extension_action::{CliResult, ConfigEdit, ExtensionAction, InstallScope, MAX_CLI_OUTPUT_BYTES};
 pub use extensions::{
     AgentInfo, AgentMode, ExtensionModuleInfo, ExtensionScope, ExtensionsView, MarketplaceEntry, MarketplaceInfo,
     McpServerInfo, McpTransport, PackageInfo, PluginFeature, PluginInfo, PromptTemplateInfo, SkillInfo, ThemeInfo,
@@ -125,12 +125,12 @@ pub use routine_run::{
 };
 pub use session::{
     MAX_FIRST_PROMPT_CHARS, MAX_NODE_PREVIEW_CHARS, MAX_SESSION_PAGE, MAX_TREE_NODES, ModelTurns, SessionFolder,
-    SessionMessagesPage, SessionNode, SessionNodeKind, SessionSummary, SessionTitleSource, SessionTree,
+    SessionMessagesPage, SessionNode, SessionNodeKind, SessionSummary, SessionTitleSource, SessionTotals, SessionTree,
     TranscriptStats,
 };
 pub use setup::{
     DashboardInstallResult, DashboardSetup, HarnessSetup, InstallLogLine, InstallStream, ManualRemoval, McpRefusal,
-    McpState, MemorySwitchResult, RecommendedSetup, SkillsSetup,
+    McpState, MemorySwitchResult, RecommendedSetup, SkillsSetup, SkillsUnavailableCode,
 };
 pub use subagent::{Subagent, SubagentStatus, SubagentTool};
 pub use sync::{

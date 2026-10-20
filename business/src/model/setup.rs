@@ -1,5 +1,6 @@
-//! The "Recommended setup" onboarding step (`setup_status`, the dashboard and memory installers and
-//! the MCP registration), and the "Project memory" switch (`memory_set_enabled`).
+//! The "Recommended setup" onboarding step (`setup_status`, the dashboard, memory and Harness
+//! Skills for OpenCode installers and the MCP registration), and the "Project memory" switch
+//! (`memory_set_enabled`).
 //!
 //! Unlike the Ecosystem tab, this step runs the companions' official installers and edits the
 //! harnesses' user MCP files, but only after the user confirms each action in the UI.
@@ -85,11 +86,31 @@ pub enum SkillsSetup {
         /// A remark shown next to it.
         note: String,
     },
-    /// The skills do not exist for this harness.
-    Unavailable {
-        /// Why, for display.
-        reason: String,
+    /// Installable by the Harness Skills' own installer, which the app runs once the user confirms
+    /// (`setup_install_opencode_skills`).
+    Script {
+        /// The installer as a copyable command for this OS.
+        command: String,
+        /// What the installer changes on this machine, one line each.
+        side_effects: Vec<String>,
     },
+    /// The skills cannot be installed for this harness (they do not exist for it, or something
+    /// they need is missing).
+    Unavailable {
+        /// Why, in English: the fallback when `code` is null or unknown to the UI.
+        reason: String,
+        /// Why, as a stable code the UI localises; null when only `reason` says why.
+        code: Option<SkillsUnavailableCode>,
+    },
+}
+
+/// Why the Harness Skills cannot be installed, for a localised sentence.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub enum SkillsUnavailableCode {
+    /// Their installer needs Node.js 22 or newer, and `node` was not found.
+    NodeMissing,
 }
 
 /// A companion's MCP server (`harness-dashboard`, `harness-memory` or the app's own

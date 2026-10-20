@@ -85,6 +85,22 @@ pub struct SessionSummary {
     pub routine: Option<SessionRoutineTag>,
 }
 
+/// Result of `harness_session_totals`: the saved sessions of a harness across every project on
+/// this machine.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct SessionTotals {
+    /// Saved sessions: the non-empty session files, so drafts and empty copies that
+    /// `sessions_list` leaves out or flags are counted too.
+    pub count: u32,
+    /// When a session was last written (RFC 3339); `None` without sessions.
+    pub last_used: Option<String>,
+    /// True when the store was larger than the walk examines: `count` is then a lower bound and
+    /// `lastUsed` may miss newer sessions.
+    pub capped: bool,
+}
+
 /// What a session entry is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]

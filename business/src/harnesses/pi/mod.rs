@@ -22,7 +22,7 @@ pub use dialect::PiDialect;
 pub use extensions::pi_extensions_view;
 pub use launch::pi_launch_spec;
 pub(crate) use packages::{PackageRecord, user_has_package, user_package_records};
-pub use sessions::{pi_session_folder, pi_sessions_dir};
+pub use sessions::{pi_session_folder, pi_session_store, pi_sessions_dir};
 
 use crate::harness::prelude::*;
 
@@ -113,6 +113,10 @@ impl Harness for Pi {
 
     fn sessions_dir(&self, env: &Env, project: &Path) -> PathBuf {
         pi_sessions_dir(env, project)
+    }
+
+    fn session_store(&self, env: &Env) -> Result<SessionStore> {
+        pi_session_store(env)
     }
 
     fn session_folder(&self, env: &Env, project: &Path) -> SessionFolder {

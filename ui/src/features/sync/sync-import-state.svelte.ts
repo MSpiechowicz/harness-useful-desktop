@@ -5,11 +5,12 @@ import type { SyncImportPlan } from '$lib/ipc/bindings/SyncImportPlan';
 import type { SyncImportResult } from '$lib/ipc/bindings/SyncImportResult';
 import type { SyncItemKind } from '$lib/ipc/bindings/SyncItemKind';
 import type { SyncItemOutcome } from '$lib/ipc/bindings/SyncItemOutcome';
+import type { SyncNote } from '$lib/ipc/bindings/SyncNote';
 import type { SyncProgress } from '$lib/ipc/bindings/SyncProgress';
 import { IpcFailure, type Transport } from '$lib/ipc/transport';
 
 import { IdSelection } from './id-selection.svelte';
-import { outcomeChip, outcomeNote, type Chip } from './sync-model';
+import { itemLabel, manualEditOf, outcomeChip, outcomeNote, type Chip } from './sync-model';
 
 export type ImportStage = 'input' | 'review' | 'applying' | 'result';
 
@@ -21,10 +22,14 @@ export interface RunRow {
   label: string;
   chip: Chip;
   note: string | null;
+  /** The remarks on the outcome, such as an unreadable config file behind a conflict. */
+  notes: SyncNote[];
   /** The redacted outcome line of the command that ran. */
   summary: string | null;
   /** The command line that ran. */
   argv: string[];
+  /** The entry to add by hand to a file the app left alone, when that is why the item was skipped. */
+  manualEdit: { file: string; snippet: string } | null;
 }
 
 /**
@@ -254,7 +259,9 @@ export class ImportController {
   /** What the run screens list: the final outcomes, or the selected items with what they have done so far. */
   get runRows(): RunRow[] {
     if (this.result) {
-      return this.result.items.map(finishedRow);
+      const labels = new Map((this.plan?.sections ?? []).flatMap((section) => section.items.map((item) => [item.id, itemLabel(section.harness, item)] as const)));
+
+      return this.result.items.map((outcome) => finishedRow(outcome, labels.get(outcome.id)));
     }
 
     const rows: RunRow[] = [];
@@ -263,7 +270,7 @@ export class ImportController {
       for (const item of section.items.filter((candidate) => this.picks.has(candidate.id))) {
         const done = this.finished[item.id];
 
-        rows.push(done ? finishedRow(done) : this.pendingRow(section.harness, item));
+        rows.push(done ? finishedRow(done, itemLabel(section.harness, item)) : this.pendingRow(section.harness, item));
       }
     }
 
@@ -274,19 +281,22 @@ export class ImportController {
   private pendingRow(harness: HarnessId, item: SyncImportItem): RunRow {
     const chip: Chip = this.running === item.id ? { tone: 'accent', label: t('sync.run.running'), busy: true } : { tone: 'neutral', label: t('sync.run.queued') };
 
-    return { id: item.id, harness, kind: item.kind, label: item.label, chip, note: null, summary: null, argv: [] };
+    return { id: item.id, harness, kind: item.kind, label: itemLabel(harness, item), chip, note: null, notes: [], summary: null, argv: [], manualEdit: null };
   }
 }
 
-function finishedRow(outcome: SyncItemOutcome): RunRow {
+/** A finished item, listed by `label` (the plan's name for it) or else the name the run reported. */
+function finishedRow(outcome: SyncItemOutcome, label: string = outcome.label): RunRow {
   return {
     id: outcome.id,
     harness: outcome.harness,
     kind: outcome.kind,
-    label: outcome.label,
+    label,
     chip: outcomeChip(outcome.outcome),
-    note: outcomeNote(outcome.outcome),
+    note: outcomeNote(outcome.outcome, outcome.notes),
+    notes: outcome.notes,
     summary: outcome.summary,
     argv: outcome.argv,
+    manualEdit: manualEditOf(outcome.outcome),
   };
 }

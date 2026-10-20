@@ -29,6 +29,7 @@ fn dry_run() -> CliResult {
         timed_out: false,
         argv: argv(&[INSTALL.as_slice(), &["--dry-run"]].concat()),
         command: argv(&INSTALL),
+        config_edit: None,
     }
 }
 
@@ -45,6 +46,7 @@ fn installed() -> CliResult {
         timed_out: false,
         argv: argv(&INSTALL),
         command: argv(&INSTALL),
+        config_edit: None,
     }
 }
 
@@ -62,6 +64,7 @@ fn failed_with_exit_zero() -> CliResult {
         timed_out: false,
         argv: argv(&["omp", "plugin", "disable", "harness-useful-sidebar"]),
         command: argv(&["omp", "plugin", "disable", "harness-useful-sidebar"]),
+        config_edit: None,
     }
 }
 

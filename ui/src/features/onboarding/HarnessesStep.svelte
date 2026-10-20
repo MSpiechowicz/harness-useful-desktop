@@ -1,40 +1,49 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
+
   import Skeleton from '$lib/components/Skeleton.svelte';
   import StatusDot from '$lib/components/StatusDot.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
+  import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
   import { harness } from '$lib/stores/harness.svelte';
-  import { HARNESS_SETUP_POLL_MS } from '$lib/stores/live';
-  import { autoRefresh } from '$lib/utils/auto-refresh';
+  import { project } from '$lib/stores/project.svelte';
   import { cx } from '$lib/utils/cx';
-  import { rovingIndex } from '$lib/utils/roving';
+  import { uid } from '$lib/utils/ids';
 
-  import HarnessCard from './HarnessCard.svelte';
-  import { WIDTH } from './layout';
+  import HarnessDetail from './HarnessDetail.svelte';
+  import HarnessList from './HarnessList.svelte';
+  import HarnessScan from './HarnessScan.svelte';
+  import { PICKER, WIDTH } from './layout';
+  import { machineFacts, projectToCount, readable } from './machine-facts.svelte';
   import { onboarding } from './onboarding-state.svelte';
   import StepHeader from './StepHeader.svelte';
 
   const installed = $derived(harness.installed);
+  const panel = uid('harness-detail');
 
-  /**
-   * As many cards across as fit at a readable width: three on the full frame, two when there are two harnesses (their
-   * empty third column folds away), fewer as the window narrows. The cards share its rows (see HarnessCard).
-   */
-  const CARD_GRID = 'grid grid-cols-[repeat(auto-fit,minmax(16rem,1fr))] gap-x-4 gap-y-4';
+  /** The harness whose details are open: where the step opened, then wherever the user looked last. */
+  let focusId = $state<HarnessId | null>(null);
 
-  // A harness installed in a terminal while this step is open turns up on its own.
-  $effect(() => autoRefresh(() => void harness.rescan(), HARNESS_SETUP_POLL_MS));
+  /** Where the step opens: on the daily driver, else the first harness found, else the first one missing. */
+  const opening = $derived(onboarding.driver ?? installed[0]?.info.id ?? harness.summaries[0]?.info.id ?? null);
 
-  // Arrow keys move the daily-driver choice between installed harnesses, like a native radio group.
-  function onKeydown(event: KeyboardEvent): void {
-    const current = installed.findIndex((summary) => summary.info.id === onboarding.driver);
-    const next = rovingIndex(event.key, current, installed.length, 'vertical') ?? rovingIndex(event.key, current, installed.length, 'horizontal');
-    if (next === null || installed.length === 0) {
-      return;
+  // The opening choice is made once, so a harness turning up in a scan later does not pull the user away from the one they are reading.
+  $effect(() => {
+    if (focusId === null && opening !== null) {
+      focusId = opening;
     }
+  });
 
-    event.preventDefault();
-    onboarding.choose(installed[next].info.id);
-  }
+  const shown = $derived(harness.summaries.find((summary) => summary.info.id === (focusId ?? opening)));
+
+  // The intro step already reads every harness. This covers a step opened without it (a re-run from here) and a harness found later: a harness is read once per run.
+  $effect(() => {
+    if (shown && readable(shown)) {
+      const target = projectToCount(project.active, project.recents);
+
+      untrack(() => machineFacts.load(shown, target));
+    }
+  });
 </script>
 
 <div class={cx('mx-auto flex w-full flex-col gap-8 [@media(max-height:720px)]:gap-4', WIDTH.wide)}>
@@ -44,35 +53,41 @@
     body={t('onboarding.harnesses.body')}
   />
 
-  {#if harness.status === 'loading' || harness.status === 'idle'}
-    <div class={CARD_GRID} role="status" aria-label={t('onboarding.harnesses.looking')}>
-      <Skeleton height="16rem" />
-      <Skeleton height="16rem" />
-      <Skeleton height="16rem" />
-    </div>
-  {:else if harness.status === 'error'}
-    <p class="rounded-md border border-line bg-danger-wash p-4 text-sm text-fg" role="alert">
-      {t('onboarding.harnesses.error', { message: harness.error?.message })}
-    </p>
-  {:else}
-    <!-- What the scan found, in a strip as wide as the cards below it. -->
-    <div class="-mb-1.5 flex items-center gap-3 rounded-lg border border-line bg-glass px-4 py-2">
-      <p class="flex min-w-0 items-center gap-2.5 text-sm text-fg-2" role="status">
-        <StatusDot tone={installed.length === 0 ? 'warning' : installed.length === harness.summaries.length ? 'success' : 'accent'} beforeText />
-        {#if installed.length === 0}
-          {t('onboarding.harnesses.none')}
-        {:else}
-          {t('onboarding.harnesses.found', { found: installed.length, total: harness.summaries.length })}
-        {/if}
-      </p>
-    </div>
+  <HarnessScan>
+    {#snippet loading()}
+      <div class={PICKER.frame}>
+        <div class={PICKER.columns}>
+          <Skeleton height="12rem" />
+          <Skeleton height="20rem" />
+        </div>
+      </div>
+    {/snippet}
 
-    <!-- Arrow keys are a convenience on top of the radio buttons, which are individually focusable. -->
-    <div role="radiogroup" aria-label={t('onboarding.harnesses.group')} tabindex="-1" class={cx(CARD_GRID, 'outline-none')} onkeydown={onKeydown}>
-      {#each harness.summaries as summary (summary.info.id)}
-        <HarnessCard {summary} selected={onboarding.driver === summary.info.id} onselect={() => onboarding.choose(summary.info.id)} />
-      {/each}
-    </div>
+    <!-- The strip and the picker belong together: the picker's own gap apart, not the step's. -->
+    <div class="flex flex-col gap-4">
+      <!-- What the scan found, in a strip as wide as the picker below it. -->
+      <div class="flex items-center gap-3 rounded-lg border border-line bg-glass px-4 py-2">
+        <p class="flex min-w-0 items-center gap-2.5 text-sm text-fg-2" role="status">
+          <StatusDot tone={installed.length === 0 ? 'warning' : installed.length === harness.summaries.length ? 'success' : 'accent'} beforeText />
+          {#if installed.length === 0}
+            {t('onboarding.harnesses.none')}
+          {:else}
+            {t('onboarding.harnesses.found', { found: installed.length, total: harness.summaries.length })}
+          {/if}
+        </p>
+      </div>
 
-  {/if}
+      {#if shown}
+        <div class={PICKER.frame}>
+          <div class={PICKER.columns}>
+            <div class="self-start">
+              <HarnessList summaries={harness.summaries} focused={shown.info.id} driver={onboarding.driver} {panel} onfocus={(id) => (focusId = id)} />
+            </div>
+
+            <HarnessDetail id={panel} summary={shown} facts={machineFacts.of(shown.info.id)} selected={onboarding.driver === shown.info.id} onselect={() => onboarding.choose(shown.info.id)} />
+          </div>
+        </div>
+      {/if}
+    </div>
+  </HarnessScan>
 </div>

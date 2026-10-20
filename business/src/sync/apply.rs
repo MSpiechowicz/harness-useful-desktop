@@ -11,17 +11,27 @@
 //! same-name item with another definition ends `conflict`, and neither runs anything. CLI steps go
 //! through [`run_cli_action`] (fixed argv, no shell, ANSI stripped, output redacted and capped), in
 //! the user scope and without a project. The MCP servers of one file are written by one
-//! [`merge_servers`] call; a refused file skips all of them. A failed marketplace skips the plugins
-//! that depend on it; every other item still runs.
+//! `merge_entries` call; a refused file skips all of them, and an OpenCode config file with
+//! comments skips them as `manualEdit`, each with the entry to paste. OpenCode servers are first
+//! checked against the names OpenCode merges from all its layers (`merged_mcp_names`, run once
+//! per apply after OpenCode's CLI items and before any of its servers is written, and only when
+//! one of them is missing from every file the app reads): a merged name ends `conflict`, and when
+//! the check cannot run (no binary: `skipped: harnessNotInstalled`) or fails (`failed`), none is
+//! written: each server still missing ends that way, the others end as they would after a check
+//! (`alreadyPresent`, `conflict`, `skipped`). Without the check (every server already present,
+//! conflicting or refused) no OpenCode server is written either: one found missing by then ends
+//! `conflict`. A server left alone because a file that could define it cannot be read or parsed
+//! ends `conflict` with the note `configUnreadable`. A failed marketplace skips the plugins that
+//! depend on it; every other item still runs.
 //!
 //! There is no rollback: what succeeded stays when a later item fails. Logs carry counts only.
 
 use std::collections::{BTreeMap, HashSet};
 
 use super::StoredPlan;
-use super::plan_presence::{Machine, McpFiles, Presence, mcp_presence};
-use super::plan_rows::{Step, StoredItem, mcp_definition};
-use crate::ecosystem::{MergeOutcome, MergeResult, merge_servers};
+use super::apply_mcp::{Names, any_missing, mcp_batch, opencode_merged};
+use super::plan_presence::{Machine, McpFiles, Presence};
+use super::plan_rows::{Step, StoredItem};
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::harness::{CliRun, Harness, HarnessRegistry, run_cli_action};
@@ -42,7 +52,8 @@ pub struct ApplyContext<'a> {
     pub runner: &'a dyn ProcessRunner,
     /// The detected binary of each installed harness (the Tauri layer resolves one per
     /// [`StoredPlan::harnesses`]). CLI items of a harness missing here end `skipped:
-    /// harnessNotInstalled`; its MCP servers are still merged (no binary needed).
+    /// harnessNotInstalled`; its MCP servers are still merged (no binary needed), except
+    /// OpenCode's, which need it to check what OpenCode merges.
     pub binaries: &'a BTreeMap<HarnessId, ResolvedBinary>,
 }
 
@@ -79,13 +90,26 @@ pub async fn apply_plan(
         }
 
         // The merge needs no binary: an MCP item has its file only when the review found the
-        // harness installed.
+        // harness installed. OpenCode's merged names are checked once, after its CLI items ran, and
+        // only when one of its servers would be written.
+        let merged = match harness {
+            HarnessId::OpenCode if any_missing(&servers) => Some(opencode_merged(context).await),
+            _ => None,
+        };
+
         for (files, servers) in by_file(&servers) {
             for item in &servers {
                 run.started(item, &mut sink);
             }
 
-            let outcomes = mcp_batch(context.env, files.as_ref(), &servers);
+            let names = match (&merged, harness) {
+                (Some(Ok(names)), _) => Names::Checked(names),
+                (Some(Err(unchecked)), _) => Names::Unavailable(unchecked),
+                (None, HarnessId::OpenCode) => Names::Unchecked,
+                (None, _) => Names::NotNeeded,
+            };
+
+            let outcomes = mcp_batch(context.env, files.as_ref(), &servers, names);
             for (item, outcome) in servers.into_iter().zip(outcomes) {
                 run.finished(item, outcome, &mut sink);
             }
@@ -161,7 +185,7 @@ fn registered(context: ApplyContext<'_>, harness: HarnessId, name: &str) -> bool
     context
         .registry
         .get(harness)
-        .is_some_and(|harness| Machine::read(&harness.paths(context.env, None)).has_marketplace(name))
+        .is_some_and(|harness| Machine::read(context.env, harness).has_marketplace(name))
 }
 
 /// The harnesses of `items`, in order of first appearance.
@@ -254,13 +278,13 @@ impl Run<'_> {
 
         match recheck(self.context.env, harness, step) {
             Presence::Absent => {}
-            Presence::Conflict => return outcome(item, SyncOutcome::Conflict),
+            Presence::Conflict | Presence::Unreadable => return outcome(item, SyncOutcome::Conflict),
             Presence::Present | Presence::DifferentVersion { .. } => {
                 return outcome(item, SyncOutcome::AlreadyPresent);
             }
         }
 
-        let Some(action) = step.action() else {
+        let Some(action) = step.action(item.harness) else {
             return outcome(item, SyncOutcome::Failed);
         };
 
@@ -300,7 +324,7 @@ impl Run<'_> {
 /// What is installed now for a CLI step. A shared marketplace that now conflicts ends `conflict`,
 /// which skips its dependent plugins.
 fn recheck(env: &Env, harness: &dyn Harness, step: &Step) -> Presence {
-    let machine = Machine::read(&harness.paths(env, None));
+    let machine = Machine::read(env, harness);
 
     match step {
         Step::Marketplace(marketplace) => machine.marketplace(marketplace),
@@ -310,78 +334,8 @@ fn recheck(env: &Env, harness: &dyn Harness, step: &Step) -> Presence {
     }
 }
 
-/// The MCP servers of one file: each re-checked, then all that are still missing merged at once.
-/// Without a file (the review found the harness not installed) every server is skipped.
-fn mcp_batch(env: &Env, files: Option<&McpFiles>, items: &[&StoredItem]) -> Vec<SyncItemOutcome> {
-    let Some(files) = files else {
-        return items
-            .iter()
-            .map(|item| {
-                outcome(
-                    item,
-                    SyncOutcome::Skipped {
-                        reason: SyncSkipReason::HarnessNotInstalled,
-                    },
-                )
-            })
-            .collect();
-    };
-
-    let mut outcomes: Vec<Option<SyncItemOutcome>> = Vec::new();
-    let mut pending: Vec<(usize, (String, serde_json::Value))> = Vec::new();
-
-    for (index, item) in items.iter().enumerate() {
-        let Some(Step::Mcp(server)) = &item.step else {
-            outcomes.push(Some(outcome(item, SyncOutcome::Failed)));
-            continue;
-        };
-
-        let decided = match mcp_presence(env, files, server) {
-            Err(refusal) => Some(SyncOutcome::Skipped {
-                reason: SyncSkipReason::McpFileRefused { refusal },
-            }),
-            Ok(Presence::Absent) => None,
-            Ok(Presence::Conflict) => Some(SyncOutcome::Conflict),
-            Ok(Presence::Present | Presence::DifferentVersion { .. }) => Some(SyncOutcome::AlreadyPresent),
-        };
-
-        if decided.is_none() {
-            pending.push((index, (server.name.clone(), mcp_definition(server))));
-        }
-
-        outcomes.push(decided.map(|decided| outcome(item, decided)));
-    }
-
-    if !pending.is_empty() {
-        let entries: Vec<(String, serde_json::Value)> = pending.iter().map(|(_, entry)| entry.clone()).collect();
-        let merged = merge_servers(env, &files.target, &entries);
-
-        for (position, (index, _)) in pending.iter().enumerate() {
-            let result = match &merged {
-                MergeOutcome::Refused(refusal) => SyncOutcome::Skipped {
-                    reason: SyncSkipReason::McpFileRefused { refusal: *refusal },
-                },
-                MergeOutcome::Merged(results) => match results.get(position).map(|server| server.result) {
-                    Some(MergeResult::Added) => SyncOutcome::Done,
-                    Some(MergeResult::AlreadyPresent) => SyncOutcome::AlreadyPresent,
-                    Some(MergeResult::Conflict) => SyncOutcome::Conflict,
-                    None => SyncOutcome::Failed,
-                },
-            };
-
-            outcomes[*index] = Some(outcome(items[*index], result));
-        }
-    }
-
-    items
-        .iter()
-        .zip(outcomes)
-        .map(|(item, decided)| decided.unwrap_or_else(|| outcome(item, SyncOutcome::Failed)))
-        .collect()
-}
-
 /// `outcome` for `item`, with no command run.
-fn outcome(item: &StoredItem, outcome: SyncOutcome) -> SyncItemOutcome {
+pub(super) fn outcome(item: &StoredItem, outcome: SyncOutcome) -> SyncItemOutcome {
     SyncItemOutcome {
         id: item.id.clone(),
         harness: item.harness,
@@ -390,5 +344,6 @@ fn outcome(item: &StoredItem, outcome: SyncOutcome) -> SyncItemOutcome {
         outcome,
         summary: None,
         argv: Vec::new(),
+        notes: Vec::new(),
     }
 }

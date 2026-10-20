@@ -20,6 +20,7 @@
   import FamilyStep from './FamilyStep.svelte';
   import HarnessesStep from './HarnessesStep.svelte';
   import { STEP_WIDTH, WIDTH } from './layout';
+  import MeetStep from './MeetStep.svelte';
   import { onboarding } from './onboarding-state.svelte';
   import ProjectStep from './ProjectStep.svelte';
   import { setup } from './setup-state.svelte';
@@ -56,6 +57,8 @@
     switch (onboarding.step) {
       case 'welcome':
         return t('onboarding.action.getStarted');
+      case 'meet':
+        return t('onboarding.action.continue');
       case 'harnesses':
         return harness.installed.length === 0 ? t('onboarding.action.continueWithout') : t('onboarding.action.continue');
       case 'project':
@@ -132,6 +135,8 @@
             >
               {#if onboarding.step === 'welcome'}
                 <WelcomeStep />
+              {:else if onboarding.step === 'meet'}
+                <MeetStep />
               {:else if onboarding.step === 'harnesses'}
                 <HarnessesStep />
               {:else if onboarding.step === 'project'}
@@ -152,7 +157,7 @@
         <footer class={cx('flex w-full shrink-0 items-center', onboarding.index === 0 ? 'justify-center' : 'justify-between')}>
           {#if onboarding.index > 0}
             <!-- Back and the primary action are the wizard's navigation buttons: same size and width, Back the quieter one. -->
-            <Button variant="secondary" size="lg" class="min-w-36" disabled={onboarding.busy} onclick={() => onboarding.back()}>
+            <Button variant="secondary" class="min-w-36" disabled={onboarding.busy} onclick={() => onboarding.back()}>
               {#snippet leading()}<ArrowLeft size={18} aria-hidden="true" />{/snippet}
               {t('onboarding.back')}
             </Button>
@@ -160,10 +165,10 @@
 
           <div class="flex items-center gap-3">
             {#if canSkipSetup}
-              <Button variant="ghost" size="lg" class="min-w-36 hover:bg-surface-3" disabled={onboarding.busy} onclick={() => onboarding.next()}>{t('onboarding.action.skip')}</Button>
+              <Button variant="ghost" class="min-w-36 hover:bg-surface-3" disabled={onboarding.busy} onclick={() => onboarding.next()}>{t('onboarding.action.skip')}</Button>
             {/if}
 
-            <Button variant="primary" size="lg" class="min-w-36" loading={finishing || (onboarding.step === 'setup' && setup.running)} disabled={onboarding.busy || readingSetup} onclick={() => void advance()}>
+            <Button variant="primary" class="min-w-36" loading={finishing || (onboarding.step === 'setup' && setup.running)} disabled={onboarding.busy || readingSetup} onclick={() => void advance()}>
               {primaryLabel}
               {#snippet trailing()}<ArrowRight size={18} aria-hidden="true" />{/snippet}
             </Button>

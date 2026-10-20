@@ -180,7 +180,7 @@ fn prompt_templates(steps: &[Step]) -> Vec<PromptTemplateInfo> {
 /// Plugins named in the `plugin` key of each settings file (npm specs, or paths relative to that
 /// file) and the `*.ts` / `*.js` files in `plugin/` and `plugins/` of each config directory. A
 /// plugin listed again (same npm package or same file) keeps its place and takes the later scope.
-fn plugins(steps: &[Step]) -> Vec<PluginInfo> {
+pub(super) fn plugins(steps: &[Step]) -> Vec<PluginInfo> {
     let mut plugins: Vec<PluginInfo> = Vec::new();
 
     for step in steps {
@@ -207,6 +207,37 @@ fn plugins(steps: &[Step]) -> Vec<PluginInfo> {
     }
 
     plugins
+}
+
+/// Every place that defines a plugin, in merge order: the plugin's id as [`plugins`] lists it, and
+/// the settings file naming it or the plugin file itself.
+pub(super) fn plugin_sources(steps: &[Step]) -> Vec<(String, PathBuf)> {
+    let mut sources = Vec::new();
+
+    for step in steps {
+        match step {
+            Step::File { path, document, .. } => sources.extend(
+                plugin_specs(document.get("plugin"))
+                    .into_iter()
+                    .map(|spec| (plugin_entry_id(spec, path), path.clone())),
+            ),
+
+            Step::Dir(dir) => sources.extend(
+                ["plugin", "plugins"]
+                    .iter()
+                    .flat_map(|name| list_dir(&dir.path.join(name)))
+                    .filter(|entry| entry.is_file && (entry.name.ends_with(".ts") || entry.name.ends_with(".js")))
+                    .map(|entry| (local_plugin(&entry.path, dir.place.scope()).id, entry.path)),
+            ),
+        }
+    }
+
+    sources
+}
+
+/// The id [`plugins`] lists the `plugin` entry `spec` of `config_file` under.
+pub(super) fn plugin_entry_id(spec: &str, config_file: &Path) -> String {
+    configured_plugin(spec, config_file, ExtensionScope::User).id
 }
 
 /// The spec strings of a `plugin` list; an entry may be `[spec, options]` (options are not shown).

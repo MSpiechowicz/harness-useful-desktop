@@ -13,14 +13,14 @@
     /** The one line under the name. */
     detail: string;
     chip: Chip;
-    /** What the run has to say about the row, once it has anything. */
+    /** What the row has to say once it failed. */
     children?: Snippet;
   }
 
   let { product, name, detail, chip, children }: Props = $props();
 </script>
 
-<!-- One member of the Harness family: mark, name, one line and the state, then whatever its run printed or failed with. Every row has this shape. -->
+<!-- One member of the Harness family: mark, name, one line and the state, then its failure if it has one. Every row has this shape. -->
 <li class="border-t border-line">
   <div role="group" aria-label={name} class="flex flex-col gap-2.5 py-[9px]">
     <SetupLine {lead} name={heading} {chip} />

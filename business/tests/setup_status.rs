@@ -194,13 +194,8 @@ async fn an_empty_machine_is_offered_everything() {
         }
     );
 
+    // OpenCode's skills offer depends on `node` and the install record: see setup_opencode_skills.rs.
     let opencode = harness(&setup, HarnessId::OpenCode);
-    assert_eq!(
-        opencode.skills,
-        SkillsSetup::Unavailable {
-            reason: "Harness Skills has no OpenCode package yet.".to_owned()
-        }
-    );
     let opencode_missing = McpState::Missing {
         file: "~/.config/opencode/opencode.json".to_owned(),
         exists: false,

@@ -4,21 +4,31 @@
 //! SQLite database that also holds credentials, so the app never opens it: sessions are listed,
 //! exported and deleted through the CLI ([`Harness::cli_sessions`]). Chat runs one
 //! `opencode serve` per chat ([`ChatProtocol::OpenCodeServer`], see [`launch`]), not the
-//! PI-family RPC, and is marked as a preview. Extension actions are not offered. Every spawn
-//! switches off OpenCode's self-updater.
+//! PI-family RPC, and is marked as a preview. Extension actions install npm plugins through
+//! `opencode plugin <module> -g` ([`cli`]) and remove them by editing the global config file
+//! ([`plugin_remove`]), since OpenCode has no uninstall command. "Share setup" shares the npm
+//! plugins and MCP servers of the global config file ([`share`]), checking the names OpenCode merges
+//! from all its layers before writing a server ([`merged`]). Every spawn switches off
+//! OpenCode's self-updater.
 
 mod catalog;
+mod cli;
 mod config;
 mod extensions;
 mod launch;
+mod merged;
 mod paths;
+mod plugin_remove;
 mod sessions;
 mod setup;
+mod share;
 
 pub use catalog::OpenCodeCatalog;
 pub use launch::opencode_launch_spec;
+pub use merged::{PROBE_ARGS, PROBE_MAX_BYTES, PROBE_TIMEOUT, merged_mcp_names};
 pub use paths::{PROJECT_DIR_NAME, config_dir, custom_config_dir, data_dir, home_config_dir};
 pub use sessions::OpenCodeSessions;
+pub(crate) use share::{PluginEntry, global_plugin_entries, user_npm_plugins};
 
 use crate::error::BusinessError;
 use crate::harness::prelude::*;
@@ -61,6 +71,7 @@ impl Harness for OpenCode {
             slash_commands_via_prompt: true,
             remove_queued: true,
             chat_preview: true,
+            cli_actions: true,
             ..Capabilities::default()
         }
     }
@@ -141,6 +152,28 @@ impl Harness for OpenCode {
         Some(sessions::cli_sessions())
     }
 
+    /// `opencode plugin <module> -g` (see [`cli`]).
+    fn cli_action(&self, action: &ExtensionAction, project: Option<&Path>) -> Result<CliInvocation> {
+        cli::opencode_cli_action(action, project)
+    }
+
+    /// Plugin removal edits the global config file (see [`plugin_remove`]); every other action goes
+    /// to the CLI.
+    fn config_action(
+        &self,
+        env: &Env,
+        action: &ExtensionAction,
+        project: Option<&Path>,
+        dry_run: bool,
+    ) -> Result<Option<CliResult>> {
+        match action {
+            ExtensionAction::PluginUninstall { name } => {
+                plugin_remove::remove_plugin(env, name, project, dry_run).map(Some)
+            }
+            _ => Ok(None),
+        }
+    }
+
     fn spawn_env(&self) -> &'static [(&'static str, &'static str)] {
         &[("OPENCODE_DISABLE_AUTOUPDATE", "1")]
     }
@@ -160,6 +193,16 @@ impl Harness for OpenCode {
 
     fn companion_setup(&self) -> CompanionSetup {
         setup::companion_setup()
+    }
+
+    /// The npm plugins and the MCP servers of the global config file (see [`share`]).
+    fn share_support(&self) -> ShareSupport {
+        ShareSupport {
+            marketplaces: false,
+            plugins: true,
+            packages: false,
+            mcp_servers: true,
+        }
     }
 
     fn supported_versions(&self) -> &'static [&'static str] {

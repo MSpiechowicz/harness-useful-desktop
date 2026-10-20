@@ -11,8 +11,9 @@ use std::path::{Path, PathBuf};
 
 use super::pi_paths;
 use crate::env::Env;
+use crate::error::Result;
 use crate::model::SessionFolder;
-use crate::pi_family::sessions::{canonical_text, configured_session_dir, pi_dir_name};
+use crate::pi_family::sessions::{SessionStore, canonical_text, configured_session_dir, configured_store, pi_dir_name};
 use crate::pi_family::{read_json, text_field};
 
 /// The folder holding the session files of `project`.
@@ -37,26 +38,44 @@ pub fn pi_session_folder(env: &Env, project: &Path) -> SessionFolder {
     }
 }
 
+/// Where PI keeps the session files of every project: `PI_CODING_AGENT_SESSION_DIR`, else the
+/// user's `sessionDir`, else one folder per project below `<agent dir>/sessions`. A project's own
+/// `sessionDir` is not known without the project, so those sessions are not in the store.
+pub fn pi_session_store(env: &Env) -> Result<SessionStore> {
+    let paths = pi_paths(env, None);
+
+    if let Some(raw) = env.var("PI_CODING_AGENT_SESSION_DIR") {
+        return configured_store(env, raw);
+    }
+
+    if let Some(raw) = setting(&paths.agent_dir.join("settings.json")) {
+        return configured_store(env, &raw);
+    }
+
+    Ok(SessionStore::PerProject(paths.agent_dir.join("sessions")))
+}
+
+/// The non-blank `sessionDir` of the settings file at `file`.
+fn setting(file: &Path) -> Option<String> {
+    read_json(file)
+        .value()
+        .and_then(|settings| text_field(settings, "sessionDir"))
+        .filter(|raw| !raw.trim().is_empty())
+}
+
 /// The session folder and whether the project's own settings chose it.
 fn resolve(env: &Env, project: &Path) -> (PathBuf, bool) {
     let paths = pi_paths(env, Some(project));
-
-    let setting = |file: PathBuf| {
-        read_json(&file)
-            .value()
-            .and_then(|settings| text_field(settings, "sessionDir"))
-            .filter(|raw| !raw.trim().is_empty())
-    };
 
     if let Some(raw) = env.var("PI_CODING_AGENT_SESSION_DIR") {
         return (configured_session_dir(env, project, raw), false);
     }
 
-    if let Some(raw) = paths.project_dir.and_then(|dir| setting(dir.join("settings.json"))) {
+    if let Some(raw) = paths.project_dir.and_then(|dir| setting(&dir.join("settings.json"))) {
         return (configured_session_dir(env, project, &raw), true);
     }
 
-    if let Some(raw) = setting(paths.agent_dir.join("settings.json")) {
+    if let Some(raw) = setting(&paths.agent_dir.join("settings.json")) {
         return (configured_session_dir(env, project, &raw), false);
     }
 

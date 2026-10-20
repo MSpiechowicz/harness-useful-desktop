@@ -4,7 +4,9 @@
 //! A harness expands `$NAME` / `${NAME}` in a server's fields from its own environment, so a
 //! received reference could send this machine's secrets to the bundle's author: URLs may hold none,
 //! and arguments only reference the env keys the server declares (it is then written switched off
-//! until the user fills them in).
+//! until the user fills them in). OpenCode also substitutes `{env:NAME}` and `{file:path}` anywhere
+//! in its config file, which would put this machine's variables or file contents into the command
+//! line or the URL, so its servers may hold neither ([`opencode_mcp_server`]).
 
 use std::sync::LazyLock;
 
@@ -15,7 +17,9 @@ use super::schema::{
 };
 use super::secrets::{args_exportable, exportable};
 use super::validate::{Check, compile, has_credentials, is_local_path, name, text};
-use crate::ecosystem::catalog::{DASHBOARD_BINARY, DASHBOARD_MCP_SERVER, MEMORY_BINARY, MEMORY_MCP_SERVER};
+use crate::ecosystem::catalog::{
+    DASHBOARD_BINARY, DASHBOARD_MCP_SERVER, MEMORY_BINARY, MEMORY_MCP_SERVER, SKILLS_MCP_SERVER,
+};
 use crate::model::SyncInvalidReason;
 
 /// Stdio MCP commands: a bare program name.
@@ -33,17 +37,25 @@ static ENV_REFERENCE: LazyLock<Regex> =
 /// Programs an MCP command may never be (compared without directory, case and `.exe`).
 const SHELLS: &[&str] = &["sh", "bash", "zsh", "dash", "fish", "cmd", "pwsh", "powershell"];
 
-/// An MCP server name (see [`name`]), except the dashboard's own entry ([`DASHBOARD_MCP_SERVER`])
-/// and the app's memory server ([`MEMORY_MCP_SERVER`]), in any case: Recommended setup and the app
-/// write those and recognise them by name.
+/// An MCP server name (see [`name`]), except a [reserved](is_reserved_server) one.
 pub fn mcp_name(value: &str) -> Check {
     name(value)?;
 
-    if value.eq_ignore_ascii_case(DASHBOARD_MCP_SERVER) || value.eq_ignore_ascii_case(MEMORY_MCP_SERVER) {
+    if is_reserved_server(value) {
         return Err(SyncInvalidReason::BadName);
     }
 
     Ok(())
+}
+
+/// True for the names of the servers Recommended setup and the app write themselves, in any case:
+/// the dashboard's own entry ([`DASHBOARD_MCP_SERVER`]), the app's memory server
+/// ([`MEMORY_MCP_SERVER`]) and the skills' OpenCode server ([`SKILLS_MCP_SERVER`]). Export skips
+/// them without a row and import refuses them.
+pub(super) fn is_reserved_server(name: &str) -> bool {
+    [DASHBOARD_MCP_SERVER, MEMORY_MCP_SERVER, SKILLS_MCP_SERVER]
+        .iter()
+        .any(|reserved| name.eq_ignore_ascii_case(reserved))
 }
 
 /// True when `command` is a shell interpreter (`sh`, `bash`, `zsh`, `dash`, `fish`, `cmd`, `pwsh`,
@@ -216,4 +228,24 @@ pub fn mcp_server(item: &McpServer) -> Check {
 
     key_names(&item.env_keys)?;
     key_names(&item.header_keys)
+}
+
+/// A whole shared OpenCode server: [`mcp_server`], and no `{env:…}` or `{file:…}` substitution
+/// (any case) in the command, an argument or the URL (`unsafeValue`).
+pub fn opencode_mcp_server(item: &McpServer) -> Check {
+    mcp_server(item)?;
+
+    let mut fields = item.command.iter().chain(&item.args).chain(&item.url);
+    if fields.any(|value| has_substitution(value)) {
+        return Err(SyncInvalidReason::UnsafeValue);
+    }
+
+    Ok(())
+}
+
+/// True when `value` holds an OpenCode config substitution (`{env:` or `{file:`, any case).
+fn has_substitution(value: &str) -> bool {
+    let lower = value.to_ascii_lowercase();
+
+    lower.contains("{env:") || lower.contains("{file:")
 }

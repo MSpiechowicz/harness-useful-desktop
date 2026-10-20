@@ -12,7 +12,7 @@ import { prefs } from '$lib/stores/prefs.svelte';
 import { toasts, type ToastsStore } from '$lib/stores/toasts.svelte';
 import { extensionsView } from '$lib/stores/views.svelte';
 
-import { failureLine } from './action-model';
+import { failureLine, installAndRemoveOnly } from './action-model';
 import { actionRunner, reloadChatsAfterPluginChange } from './action-runner.svelte';
 
 const NAMES_SHOWN = 3;
@@ -119,7 +119,8 @@ export class ExtensionUpdater {
       return;
     }
 
-    if (capabilities.plugins) {
+    // OpenCode plugins are never reported outdated, so there is nothing to upgrade and no list to read.
+    if (capabilities.plugins && !installAndRemoveOnly(info.id)) {
       await this.upgradePlugins(info.id);
     }
 

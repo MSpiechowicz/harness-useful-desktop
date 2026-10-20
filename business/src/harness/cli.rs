@@ -24,6 +24,7 @@ use crate::model::{CliResult, ExtensionAction, MAX_CLI_OUTPUT_BYTES};
 use crate::process::{ExecOutput, ExecSpec, ProcessRunner, ResolvedBinary, launcher_search_dirs};
 use crate::security::paths::has_credentials;
 use crate::security::{is_safe_arg, redact_text};
+use crate::sync::is_npm_registry_spec;
 
 /// Time limit of one CLI action (installs may download packages).
 pub const CLI_ACTION_TIMEOUT: Duration = Duration::from_secs(5 * 60);
@@ -87,6 +88,9 @@ pub enum TargetKind {
     MarketplaceName,
     /// A package source (`npm:…`, `git:…`, a URL or a local path).
     PackageSource,
+    /// An npm registry module (`name`, `@scope/name`, optionally `@version` or `@tag`), never a
+    /// path, URL or other scheme (OpenCode's `opencode plugin <module>`).
+    NpmModule,
 }
 
 impl TargetKind {
@@ -97,6 +101,7 @@ impl TargetKind {
             Self::MarketplaceSource => "marketplace source",
             Self::MarketplaceName => "marketplace name",
             Self::PackageSource => "package source",
+            Self::NpmModule => "npm module",
         }
     }
 }
@@ -106,7 +111,9 @@ impl TargetKind {
 /// Refused (`invalidInput`, without echoing the value): empty or longer than
 /// [`MAX_CLI_TARGET_CHARS`], starting with `-` (it would read as a flag), characters outside
 /// `A-Z a-z 0-9 @ . _ / : + = , -` (see [`is_safe_arg`]; this also keeps batch-script shims safe),
-/// and URLs carrying credentials (`https://user:token@host/…`, `git:token@host/…`).
+/// and URLs carrying credentials (`https://user:token@host/…`, `git:token@host/…`). An
+/// [`TargetKind::NpmModule`] must also be an npm registry spec (a name of at most 214 characters
+/// with an optional version or tag): paths, URLs and `file:`, `github:` or `git+` specs are refused.
 pub fn cli_target(kind: TargetKind, value: &str) -> Result<String> {
     let label = kind.label();
 
@@ -125,6 +132,12 @@ pub fn cli_target(kind: TargetKind, value: &str) -> Result<String> {
     if has_credentials(value) {
         return Err(BusinessError::InvalidInput(format!(
             "the {label} must not contain credentials"
+        )));
+    }
+
+    if kind == TargetKind::NpmModule && !is_npm_registry_spec(value) {
+        return Err(BusinessError::InvalidInput(format!(
+            "the {label} must be an npm package name (`name` or `@scope/name`), optionally with `@version`"
         )));
     }
 
@@ -219,6 +232,7 @@ fn preview_only(harness: &dyn Harness, command: Vec<String>) -> CliResult {
         timed_out: false,
         argv: command.clone(),
         command,
+        config_edit: None,
     }
 }
 
@@ -249,6 +263,7 @@ fn cli_result(harness: &dyn Harness, argv: Vec<String>, command: Vec<String>, ou
         timed_out: output.timed_out,
         argv,
         command,
+        config_edit: None,
     }
 }
 

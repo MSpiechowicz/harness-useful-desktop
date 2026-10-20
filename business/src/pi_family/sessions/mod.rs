@@ -14,6 +14,8 @@
 //! - [`session_messages`]: the paged active-path transcript for `session_messages`.
 //! - [`session_files_touched`]: edited files for `session_files_touched`.
 //! - [`delete_session`]: removes a session with its companion directory for `session_delete`.
+//! - [`session_totals`]: the session count and last use across every project for
+//!   `harness_session_totals`.
 //! - [`recall_block`]: the memory recall block older app versions put in front of a message, left
 //!   out of previews.
 
@@ -23,6 +25,7 @@ mod parse;
 pub mod recall_block;
 mod scan;
 mod stats;
+mod totals;
 mod transcript;
 mod tree;
 
@@ -31,6 +34,7 @@ pub use encode::{canonical_text, omp_dir_name, pi_dir_name, temp_root};
 pub use parse::epoch_millis;
 pub use scan::{MAX_SESSION_FILES, SUMMARY_BYTES, SessionCache, list_sessions};
 pub(crate) use stats::{StatsTally, page_range};
+pub use totals::{MAX_TOTALS_ENTRIES, SessionStore, configured_store, session_totals};
 pub use transcript::{session_files_touched, session_messages};
 pub use tree::{TreeReport, read_tree, session_tree};
 

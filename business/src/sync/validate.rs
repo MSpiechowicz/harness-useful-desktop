@@ -14,7 +14,10 @@ use regex::Regex;
 
 use super::schema::{MAX_TEXT_CHARS, Marketplace, Package, Plugin};
 use super::secrets::exportable;
-pub use super::validate_mcp::{is_shell, key_names, mcp_args, mcp_command, mcp_name, mcp_server, mcp_url};
+pub use super::validate_mcp::{
+    is_shell, key_names, mcp_args, mcp_command, mcp_name, mcp_server, mcp_url, opencode_mcp_server,
+};
+use super::validate_source::{is_npm_registry_spec, split_npm_spec};
 pub use super::validate_source::{marketplace_source, package_source};
 use crate::harness::{TargetKind, cli_target};
 use crate::model::SyncInvalidReason;
@@ -296,6 +299,40 @@ pub fn plugin(item: &Plugin) -> Check {
         Some((_, from_id)) if !item.id.starts_with('@') && from_id == marketplace => Ok(()),
         _ => Err(SyncInvalidReason::Malformed),
     }
+}
+
+/// A whole shared OpenCode plugin: an npm package name (`name` or `@scope/name`, never
+/// `name@marketplace`) installed by `opencode plugin <id>[@<version>] -g`, so `version` is what gets
+/// installed: a version, an x-range or a dist-tag npm reads from the registry (`1.2.3`, `1.x`,
+/// `latest`). No marketplace.
+pub fn opencode_plugin(item: &Plugin) -> Check {
+    target(TargetKind::NpmModule, &item.id)?;
+
+    let (_, wanted) = split_npm_spec(&item.id);
+    if wanted.is_some() || !is_npm_registry_spec(&item.id) {
+        return Err(SyncInvalidReason::BadName);
+    }
+
+    if item.marketplace.is_some() {
+        return Err(SyncInvalidReason::Malformed);
+    }
+
+    let Some(version) = item.version.as_deref() else {
+        return Ok(());
+    };
+
+    text(version, MAX_TEXT_CHARS)?;
+
+    if !exportable(version) {
+        return Err(SyncInvalidReason::ContainsSecret);
+    }
+
+    let spec = format!("{}@{version}", item.id);
+    if !is_npm_registry_spec(&spec) || target(TargetKind::NpmModule, &spec).is_err() {
+        return Err(SyncInvalidReason::Malformed);
+    }
+
+    Ok(())
 }
 
 /// A whole shared package.

@@ -6,8 +6,8 @@
 //! id: Rust rebuilds every bundle from disk and keeps every import plan, so nothing the webview
 //! sends can add a command. Bundles are not signed (zlib's Adler-32 only detects corruption).
 //!
-//! Item ids: `omp:marketplace:<name>`, `omp:plugin:<id>`, `pi:package:<identity>`,
-//! `<harness>:mcp:<name>`.
+//! Item ids: `omp:marketplace:<name>`, `omp:plugin:<id>`, `opencode:plugin:<npm name>`,
+//! `pi:package:<identity>`, `<harness>:mcp:<name>`.
 
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
@@ -21,7 +21,7 @@ use super::{HarnessId, McpRefusal, McpTransport};
 pub enum SyncItemKind {
     /// A plugin marketplace (OMP), registered with `MarketplaceAdd`.
     Marketplace,
-    /// A plugin (OMP), installed in the user scope.
+    /// A plugin (OMP; OpenCode npm plugins), installed in the user scope.
     Plugin,
     /// A package (PI), installed globally.
     Package,
@@ -55,6 +55,16 @@ pub enum SyncNote {
     /// The plugin comes from a marketplace this bundle registers; unticking that marketplace
     /// unticks the plugin.
     NeedsSharedMarketplace,
+    /// An OpenCode MCP server: the review only read OpenCode's config files. When the import runs
+    /// (after the user confirms), the app starts OpenCode once (`opencode debug config`) to check
+    /// the name against OpenCode's merged configuration, and a name found there is a conflict.
+    #[serde(rename = "opencodeMergedCheck")]
+    OpenCodeMergedCheck,
+    /// An MCP server left alone as a conflict because a config file the harness reads servers from
+    /// could not be read or parsed (or its user MCP file cannot be changed safely), so the app
+    /// cannot tell what that file defines under this name. Without this note, a conflict means a
+    /// server of the same name with another definition is there.
+    ConfigUnreadable,
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -261,7 +271,8 @@ pub enum SyncItemStatus {
         /// The version in the bundle.
         shared: String,
     },
-    /// Something with the same name but a different definition is here; left alone.
+    /// Something with the same name but a different definition is here, or (note
+    /// `configUnreadable`) a file that could hold one cannot be read; left alone.
     Conflict,
     /// Cannot be imported on this machine.
     Blocked {
@@ -346,7 +357,9 @@ pub enum SyncStep {
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
 pub struct SyncMcpPreview {
-    /// The key under `mcpServers`.
+    /// The key under `mcpServers` (`mcp` in OpenCode's config file, where a stdio server is written
+    /// as `{"type": "local", "command": [command, ...args], "enabled": …}` and an http/sse one as
+    /// `{"type": "remote", "url": …, "enabled": …}`).
     pub name: String,
     /// `stdio`, `http` or `sse`.
     pub transport: McpTransport,
@@ -407,6 +420,8 @@ pub struct SyncItemOutcome {
     pub summary: Option<String>,
     /// The command line that ran (program name first), when one ran.
     pub argv: Vec<String>,
+    /// Remarks on the outcome (`configUnreadable` on a `conflict`).
+    pub notes: Vec<SyncNote>,
 }
 
 /// The outcome of one item.
@@ -418,8 +433,8 @@ pub enum SyncOutcome {
     Done,
     /// Found already present when re-checked right before its step; nothing ran.
     AlreadyPresent,
-    /// Something with the same name but a different definition appeared since the preview; left
-    /// alone.
+    /// Something with the same name but a different definition appeared since the preview, or
+    /// (note `configUnreadable`) a file that could hold one cannot be read; left alone.
     Conflict,
     /// Not attempted.
     Skipped {
@@ -443,6 +458,14 @@ pub enum SyncSkipReason {
     McpFileRefused {
         /// Why.
         refusal: McpRefusal,
+    },
+    /// The harness's config file has comments a rewrite would lose (OpenCode's JSONC), so nothing
+    /// was written: the user pastes `snippet` into its servers object (`mcp`).
+    ManualEdit {
+        /// The file's home-relative display path (e.g. `"~/.config/opencode/opencode.jsonc"`).
+        file: String,
+        /// The server entry to add, as text ready to paste (`"<name>": { … }`).
+        snippet: String,
     },
 }
 

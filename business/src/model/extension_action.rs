@@ -118,6 +118,26 @@ pub struct CliResult {
     pub argv: Vec<String>,
     /// The command line that applies the action once the user confirms (program name first, never
     /// the preview flag), for display only. The same for a dry run and for the real run, so a
-    /// confirm dialog shows this, not `argv`.
+    /// confirm dialog shows this, not `argv`. Empty, like `argv`, for a config edit.
     pub command: Vec<String>,
+    /// Set when the harness applies the action by editing its config file instead of running its
+    /// CLI (OpenCode plugin removal): nothing ran, `argv` and `command` are empty and `summary`
+    /// says what the edit does, did, or what the user has to edit themselves. Absent for CLI runs.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub config_edit: Option<ConfigEdit>,
+}
+
+/// A config file edit that applies an extension action (see [`CliResult::config_edit`]).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct ConfigEdit {
+    /// The file edited, or that would be or has to be edited, for display (`~/…` below the home
+    /// directory).
+    pub file: String,
+    /// True when the app left the file alone and the user edits it (`ok` is false, `summary` says
+    /// what to change): the file has comments a rewrite would lose, the entry carries options, or
+    /// the plugin is defined in another file.
+    pub manual_edit: bool,
 }

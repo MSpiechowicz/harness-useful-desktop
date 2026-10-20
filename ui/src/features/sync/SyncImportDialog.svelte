@@ -13,6 +13,7 @@
   import SyncResult from './SyncResult.svelte';
   import SyncReviewList from './SyncReviewList.svelte';
   import { ImportController } from './sync-import-state.svelte';
+  import { onlyManualEdits } from './sync-model';
 
   interface Props {
     open: boolean;
@@ -51,7 +52,7 @@
       case 'applying':
         return t('sync.importDialog.descriptionApplying');
       case 'result':
-        return flow.failure ? t('sync.result.failed', { reason: flow.failure }) : flow.result?.ok ? t('sync.result.ok') : t('sync.result.partial');
+        return flow.failure ? t('sync.result.failed', { reason: flow.failure }) : flow.result?.ok ? t('sync.result.ok') : flow.result && onlyManualEdits(flow.result) ? t('sync.result.manual') : t('sync.result.partial');
     }
   });
 </script>

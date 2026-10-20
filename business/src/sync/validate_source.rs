@@ -104,6 +104,22 @@ pub(super) fn split_npm_spec(spec: &str) -> (&str, Option<&str>) {
     }
 }
 
+/// Longest npm package name, scope included (npm's own limit).
+const MAX_NPM_NAME_CHARS: usize = 214;
+
+/// True for an npm registry spec: `name` or `@scope/name`, optionally `@<version, range or tag>`,
+/// with a name of at most 214 characters. Paths, tarballs, URLs and other schemes (`file:`,
+/// `github:`, `git+…`) are not registry specs. OpenCode plugin modules (`opencode plugin`) use it.
+pub(crate) fn is_npm_registry_spec(spec: &str) -> bool {
+    let (name, wanted) = split_npm_spec(spec);
+
+    if name.chars().count() > MAX_NPM_NAME_CHARS || !NPM_PACKAGE.is_match(name) || is_archive(name) {
+        return false;
+    }
+
+    wanted.is_none_or(|wanted| NPM_VERSION.is_match(wanted) && !is_archive(wanted))
+}
+
 /// An npm spec (after `npm:`): a registry name with an optional version, else a remote location
 /// (see [`npm_location`]). A name ending like a tarball (`pkg.tgz`) is a local file to npm.
 fn npm_spec(spec: &str) -> Check {

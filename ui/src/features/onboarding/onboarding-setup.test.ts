@@ -13,6 +13,7 @@ import Onboarding from './Onboarding.svelte';
 import { onboarding } from './onboarding-state.svelte';
 
 const DASHBOARD_COMMAND = "curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/MSpiechowicz/harness-useful-dashboard/main/install.sh | sh";
+const OPENCODE_SKILLS_COMMAND = "curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/MSpiechowicz/harness-useful-skills/main/install.sh | sh";
 const MEMORY_COMMAND = "curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/MSpiechowicz/harness-useful-memory/main/install.sh | sh";
 
 let backend: Backend;
@@ -65,6 +66,13 @@ async function openSetup(): Promise<void> {
 /** One installer's row on the set-up step. */
 const installer = (name: 'Harness Dashboard' | 'Harness Memory' | 'Harness Skills') => within(screen.getByRole('region', { name: 'Harness family' })).getByRole('group', { name });
 
+/** The Harness family card, whose Details hold the installers' output and the notes on the skills. */
+const family = () => within(screen.getByRole('region', { name: 'Harness family' }));
+const familyDetails = () => family().queryByRole('button', { name: /^Details/ });
+const openFamilyDetails = async () => fireEvent.click(family().getByRole('button', { name: /^Details/ }));
+/** One installer's block of the opened Details, found by its heading. */
+const output = (name: string) => within(family().getByRole('region', { name })).getByRole('log', { name: 'Installer output' });
+
 describe('Set up step', () => {
   it('only reads when opened, and skipping changes nothing', async () => {
     await openSetup();
@@ -116,6 +124,10 @@ describe('Set up step', () => {
     // Each installer's own changes, under its own heading; the memory server also says it adds itself to the harnesses.
     const dashboardEffects = within(confirmation).getByRole('region', { name: 'The dashboard installer also' });
     expect(within(dashboardEffects).getByText(/Appends a line that puts ~\/\.local\/bin on your PATH/)).toBeInTheDocument();
+    // OpenCode's skills come from their own installer, which the confirmation lists like the other two.
+    expect(within(confirmation).getByText(OPENCODE_SKILLS_COMMAND)).toBeInTheDocument();
+    const skillsEffects = within(confirmation).getByRole('region', { name: 'The Harness Skills installer also' });
+    expect(within(skillsEffects).getByText('Needs Node.js 22 or newer.')).toBeInTheDocument();
     const memoryEffects = within(confirmation).getByRole('region', { name: 'The memory installer also' });
     expect(within(memoryEffects).getByText(/Installs the harness-memory command to/)).toBeInTheDocument();
     expect(within(memoryEffects).getByText(/as an MCP server in each detected harness/)).toBeInTheDocument();
@@ -131,7 +143,7 @@ describe('Set up step', () => {
     await prefs.setMemoryEnabled(false);
     await openSetup();
 
-    expect(screen.getByText('6 items to install')).toBeInTheDocument();
+    expect(screen.getByText('7 items to install')).toBeInTheDocument();
 
     await fireEvent.click(await primary('Install and continue'));
     await screen.findByRole('dialog', { name: 'Run the recommended setup?' });
@@ -143,7 +155,7 @@ describe('Set up step', () => {
     // Once the run is over the step goes on by itself.
     await screen.findByRole('heading', { name: 'You’re ready to go' });
 
-    const ran = sent().filter((name) => ['setup_install_dashboard', 'setup_install_memory', 'extension_action', 'setup_register_mcp', 'setup_register_memory', 'setup_register_desktop_mcp'].includes(name));
+    const ran = sent().filter((name) => ['setup_install_dashboard', 'setup_install_memory', 'setup_install_opencode_skills', 'extension_action', 'setup_register_mcp', 'setup_register_memory', 'setup_register_desktop_mcp'].includes(name));
     // The two installers one after the other while the skills already run; each MCP entry after its own server's
     // installer, and the memory server's entry after the dashboard's (they go into the same file).
     const at = (name: (typeof ran)[number]) => ran.indexOf(name);
@@ -156,6 +168,7 @@ describe('Set up step', () => {
       'extension_action',
       'setup_install_dashboard',
       'setup_install_memory',
+      'setup_install_opencode_skills',
       'setup_register_desktop_mcp',
       'setup_register_mcp',
       'setup_register_memory',
@@ -165,6 +178,8 @@ describe('Set up step', () => {
     expect(ran.indexOf('setup_register_memory')).toBeLessThan(ran.indexOf('setup_register_desktop_mcp'));
     expect(backend.calls('setup_install_dashboard')).toMatchObject([{ confirmed: true }]);
     expect(backend.calls('setup_install_memory')).toMatchObject([{ confirmed: true }]);
+    // The skills' installer for OpenCode runs on the same confirmation, and does not wait for the other two.
+    expect(backend.calls('setup_install_opencode_skills')).toMatchObject([{ confirmed: true }]);
     expect(backend.calls('extension_action').map((call) => call.dryRun)).toEqual([false, false]);
     // OpenCode is coming soon, so only OMP gets the entries.
     expect(backend.calls('setup_register_mcp')).toEqual([{ harness: 'omp' }]);
@@ -184,9 +199,52 @@ describe('Set up step', () => {
     expect(within(dashboard).getByText('Installed')).toBeInTheDocument();
     expect(within(memory).getByText('Installed')).toBeInTheDocument();
     expect(within(installer('Harness Skills')).getByText('Installed')).toBeInTheDocument();
-    // Each installer keeps its own output, here on the step that ran it.
-    expect(within(within(dashboard).getByRole('log', { name: 'Installer output' })).getByText('Verifying checksum… ok')).toBeInTheDocument();
-    expect(within(within(memory).getByRole('log', { name: 'Installer output' })).getByText('==> Checksum verified')).toBeInTheDocument();
+    // Each installer keeps its own output, here on the step that ran it, behind the card's Details and not in the rows.
+    expect(within(dashboard).queryByRole('log')).toBeNull();
+    expect(family().queryByRole('log')).toBeNull();
+    await openFamilyDetails();
+    expect(within(output('Harness Dashboard')).getByText('Verifying checksum… ok')).toBeInTheDocument();
+    expect(within(output('Harness Memory')).getByText('==> Checksum verified')).toBeInTheDocument();
+    expect(within(output('OpenCode')).getByText(/Harness Skills 0\.2\.40 installed/)).toBeInTheDocument();
+
+    // The status was read again: OpenCode's row on the family step now holds the version its installer recorded.
+    await click('Back');
+    await screen.findByRole('region', { name: 'Harness Skills' });
+    await fireEvent.click(within(screen.getByRole('region', { name: 'Harness Skills' })).getByRole('button', { name: /^Details/ }));
+    expect(await screen.findByText('Version 0.2.40')).toBeInTheDocument();
+  });
+
+  it('does not run OpenCode’s skills installer before the confirmation, and not when it is declined', async () => {
+    await openSetup();
+
+    await fireEvent.click(await primary('Install and continue'));
+    const confirmation = await screen.findByRole('dialog', { name: 'Run the recommended setup?' });
+    expect(sent()).not.toContain('setup_install_opencode_skills');
+
+    await fireEvent.click(within(confirmation).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Run the recommended setup?' })).toBeNull());
+    expect(sent()).not.toContain('setup_install_opencode_skills');
+  });
+
+  it('says why OpenCode’s skills cannot be installed when Node.js is missing, and offers no installer for them', async () => {
+    window.history.replaceState(null, '', '/?setup=noNode');
+    await openSetup();
+
+    // The reason is a note, so it waits in the family card's Details.
+    await waitFor(() => expect(familyDetails()).toBeInTheDocument());
+    expect(screen.queryByText('Needs Node.js 22 or newer.')).toBeNull();
+    await openFamilyDetails();
+    const opencode = family().getByRole('region', { name: 'OpenCode' });
+    expect(within(opencode).getByText('Needs Node.js 22 or newer.')).toBeInTheDocument();
+    expect(within(opencode).getByRole('heading', { name: 'OpenCode' })).toBeInTheDocument();
+
+    await fireEvent.click(await primary('Install and continue'));
+    const confirmation = await screen.findByRole('dialog', { name: 'Run the recommended setup?' });
+    expect(within(confirmation).queryByText(OPENCODE_SKILLS_COMMAND)).toBeNull();
+    await click('Run setup');
+    await screen.findByRole('heading', { name: 'You’re ready to go' });
+
+    expect(sent()).not.toContain('setup_install_opencode_skills');
   });
 
   it('reads Continue and offers nothing to select when everything is already set up', async () => {
@@ -195,6 +253,8 @@ describe('Set up step', () => {
 
     expect(within(installer('Harness Memory')).getByText('Installed')).toBeInTheDocument();
     expect(within(installer('Harness Skills')).getByText('Installed')).toBeInTheDocument();
+    // Codex is found where the skills cannot go, which is a note, so Details is there and closed.
+    expect(familyDetails()).toHaveAttribute('aria-expanded', 'false');
 
     expect(await screen.findByRole('region', { name: 'MCP servers' })).toBeInTheDocument();
     expect(await primary('Continue')).toBeEnabled();
@@ -202,6 +262,20 @@ describe('Set up step', () => {
     expect(screen.queryByRole('button', { name: 'Install and continue' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Skip for now' })).toBeNull();
     expect(screen.queryAllByRole('switch')).toHaveLength(0);
+  });
+
+  it('has no Details on the family card when nothing ran and there is nothing to note', async () => {
+    window.history.replaceState(null, '', '/?setup=configured');
+    const real = backend.spy.getMockImplementation()!;
+    backend.spy.mockImplementation(async (name, args) => {
+      const result = await real(name, args);
+
+      return name === 'setup_status' ? { ...result, harnesses: result.harnesses.filter((entry: { skills: { type: string } }) => entry.skills.type !== 'unavailable') } : result;
+    });
+    await openSetup();
+
+    expect(within(installer('Harness Skills')).getByText('Installed')).toBeInTheDocument();
+    expect(familyDetails()).toBeNull();
   });
 
   it('shows what the installer printed when it fails, and still lets you go on', async () => {
@@ -212,23 +286,29 @@ describe('Set up step', () => {
     await screen.findByRole('dialog', { name: 'Run the recommended setup?' });
     await click('Run setup');
 
-    const log = await screen.findByRole('log', { name: 'Installer output' });
-    await waitFor(() => expect(within(log).getByText('curl: (22) The requested URL returned error: 404')).toBeInTheDocument());
-    expect(await screen.findByText(/The installer did not finish: The installer exited with code 22\./)).toBeInTheDocument();
+    const dashboard = installer('Harness Dashboard');
+    expect(familyDetails()).toHaveAttribute('aria-expanded', 'false');
+    // The failure line is in the row without opening anything, the output is in Details.
+    expect(await within(dashboard).findByText(/The installer did not finish: The installer exited with code 22\./)).toBeInTheDocument();
     // The memory server's installer failed too, on its own row, and did not stop the run.
     const memory = installer('Harness Memory');
     await waitFor(() => expect(within(memory).getByText(/The installer did not finish: error: download failed/)).toBeInTheDocument());
-    expect(within(within(memory).getByRole('log', { name: 'Installer output' })).getByText('error: download failed')).toBeInTheDocument();
+    expect(family().queryByRole('log')).toBeNull();
+    await openFamilyDetails();
+    await waitFor(() => expect(within(output('Harness Dashboard')).getByText('curl: (22) The requested URL returned error: 404')).toBeInTheDocument());
+    expect(within(output('Harness Memory')).getByText('error: download failed')).toBeInTheDocument();
 
-    // Each MCP entry needs its own companion, so neither was attempted; the skills do not, so they went through.
+    // Each MCP entry needs its own companion, so neither was attempted; the skills do not, so OMP's went through while OpenCode's own installer failed too.
     // A failed run keeps the step on screen: the forward action is now "Continue anyway", and skipping is no longer offered.
     const anyway = await primary('Continue anyway');
     await waitFor(() => expect(anyway).toBeEnabled());
     expect(screen.queryByRole('button', { name: 'Skip for now' })).toBeNull();
     expect(screen.getByRole('heading', { name: 'Get more from your agents' })).toBeInTheDocument();
     expect(backend.calls('extension_action')).toHaveLength(2);
-    expect(await within(installer('Harness Skills')).findByText('Installed')).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: 'Try again' })).toHaveLength(2);
+    const skills = installer('Harness Skills');
+    expect(await within(skills).findByText('OpenCode: could not install: error: could not download the Harness Skills package')).toBeInTheDocument();
+    expect(within(output('OpenCode')).getByText('error: could not download the Harness Skills package')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Try again' })).toHaveLength(3);
     expect(sent()).not.toContain('setup_register_mcp');
     expect(sent()).not.toContain('setup_register_memory');
     const omp = within(screen.getByRole('region', { name: 'MCP servers' })).getAllByRole('listitem')[0];
@@ -306,7 +386,7 @@ describe('Set up step', () => {
     await harness.load();
     await openSetup();
 
-    await screen.findByText('Codex');
+    await within(await screen.findByRole('region', { name: 'MCP servers' })).findByText('Codex');
 
     // Pi's agent file is refused, so each column's snippet is in view without asking.
     expect(await screen.findAllByText(/The file is not valid JSON\./)).toHaveLength(3);
@@ -317,8 +397,11 @@ describe('Set up step', () => {
     expect(screen.queryByText(/It is switched off in the file/)).toBeNull();
     await fireEvent.click(screen.getByRole('button', { name: 'Details: Codex' }));
     expect(await screen.findByText(/It is switched off in the file/)).toBeInTheDocument();
-    // A harness without Harness Skills is left out of the skills row rather than listed with a reason.
-    expect(within(installer('Harness Skills')).queryByText(/Codex/)).toBeNull();
+    // A found harness the skills cannot be installed in is listed on the skills row with its reason.
+    expect(within(installer('Harness Skills')).queryByRole('region', { name: 'Codex' })).toBeNull();
+    await openFamilyDetails();
+    const unavailable = family().getByRole('region', { name: 'Codex' });
+    expect(within(unavailable).getByText('Not supported yet.')).toBeInTheDocument();
   });
 
   it('shows OpenCode as coming soon and leaves its config alone', async () => {
@@ -354,7 +437,7 @@ describe('Set up step', () => {
 
     const skills = installer('Harness Skills');
     expect(await within(skills).findByText('Oh My Pi: could not install: plugin host unreachable')).toBeInTheDocument();
-    expect(within(skills).getByText('Failed')).toBeInTheDocument();
+    expect(await within(skills).findByText('Failed')).toBeInTheDocument();
     expect(within(skills).getByRole('button', { name: 'Try again' })).toBeInTheDocument();
 
     // The MCP entries do not depend on the skills.

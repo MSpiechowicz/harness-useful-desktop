@@ -189,7 +189,9 @@ async fn read_picked_file<R: Runtime>(app: &AppHandle<R>, state: &AppState) -> C
     .await
 }
 
-/// Builds the review of `decoded` and keeps its steps as the current plan.
+/// Builds the review of `decoded` and keeps its steps as the current plan. Only reads files: no
+/// harness CLI runs while reviewing (OpenCode's merged config is checked when the import is
+/// applied).
 async fn preview(state: &AppState, decoded: DecodedBundle) -> CommandResult<SyncImportPlan> {
     let summaries = summaries(state).await?;
     let env = state.env.clone();

@@ -11,7 +11,8 @@
 //!
 //! Sources are the raw user files, never the redacted extensions view: OMP's marketplace registry,
 //! user plugin registry and `<plugins>/package.json`; PI's user `settings.json` `packages`; the user
-//! MCP file of [`mcp_target_paths`]. Only installed harnesses (per `summaries`) are read, and only
+//! MCP file of [`mcp_target_paths`]; OpenCode's global config (`plugin` and `mcp`, see
+//! [`super::collect_opencode`]). Only installed harnesses (per `summaries`) are read, and only
 //! the kinds their [`Harness::share_support`] allows. Files are read through `SafeReader`; auth
 //! files are never opened, and no value is logged.
 //!
@@ -33,6 +34,7 @@ use std::collections::BTreeSet;
 use super::codec;
 use super::collect_items::{marketplaces, packages, plugins};
 use super::collect_mcp::mcp_servers;
+use super::collect_opencode::{opencode_plugins, opencode_servers};
 use super::schema::{Bundle, MAX_ITEMS, MAX_ITEMS_PER_KIND, Marketplace, McpServer, Package, Plugin};
 use super::secrets::exportable;
 use super::validate;
@@ -160,6 +162,8 @@ fn collect_kind(env: &Env, harness: &dyn Harness, kind: SyncItemKind) -> Found {
         (HarnessId::Omp, SyncItemKind::Marketplace) => marketplaces(harness.id(), &paths, &mut found),
         (HarnessId::Omp, SyncItemKind::Plugin) => plugins(harness.id(), &paths, &mut found),
         (HarnessId::Pi, SyncItemKind::Package) => packages(harness.id(), &paths, &mut found),
+        (HarnessId::OpenCode, SyncItemKind::Plugin) => opencode_plugins(env, &mut found),
+        (HarnessId::OpenCode, SyncItemKind::McpServer) => opencode_servers(env, harness, &mut found),
         (_, SyncItemKind::McpServer) => mcp_servers(env, harness, &mut found),
         // A kind a harness declares without a reader here yields nothing.
         _ => {}

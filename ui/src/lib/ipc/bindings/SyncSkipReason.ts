@@ -8,4 +8,12 @@ export type SyncSkipReason = { "type": "dependencyFailed" } | { "type": "harness
 /**
  * Why.
  */
-refusal: McpRefusal, };
+refusal: McpRefusal, } | { "type": "manualEdit", 
+/**
+ * The file's home-relative display path (e.g. `"~/.config/opencode/opencode.jsonc"`).
+ */
+file: string, 
+/**
+ * The server entry to add, as text ready to paste (`"<name>": { … }`).
+ */
+snippet: string, };

@@ -33,7 +33,21 @@ const SKILLS_ACTIONS: SkillsSetup = {
   ],
 };
 
-const OPENCODE_SKILLS: SkillsSetup = { type: 'unavailable', reason: 'Harness Skills has no OpenCode package yet.' };
+/** The Harness Skills' own installer for OpenCode and what it changes, as the backend words them. */
+export const OPENCODE_SKILLS_COMMAND = "curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/MSpiechowicz/harness-useful-skills/main/install.sh | sh";
+export const OPENCODE_SKILLS_SIDE_EFFECTS = [
+  'Installs the Harness Skills plugin, skills, agents and commands into the OpenCode config folder (~/.config/opencode).',
+  'Adds the useful_skills MCP server to opencode.json in that folder.',
+  'Needs Node.js 22 or newer.',
+  'Restart OpenCode and running OpenCode chats to load the skills.',
+  'Updates come from /useful-skills update in OpenCode.',
+];
+
+/** What `setup_status` reports for OpenCode's skills when Node.js is found. */
+export const OPENCODE_SKILLS: SkillsSetup = { type: 'script', command: OPENCODE_SKILLS_COMMAND, sideEffects: OPENCODE_SKILLS_SIDE_EFFECTS };
+
+/** What it reports when Node.js is missing. */
+export const OPENCODE_SKILLS_NO_NODE: SkillsSetup = { type: 'unavailable', reason: 'Needs Node.js 22 or newer.', code: 'nodeMissing' };
 
 const FIVE: RosterEntry[] = [
   {
@@ -71,7 +85,7 @@ const FIVE: RosterEntry[] = [
     name: 'Codex',
     shortName: 'CDX',
     installed: true,
-    skills: { type: 'unavailable', reason: 'Not supported yet.' },
+    skills: { type: 'unavailable', reason: 'Not supported yet.', code: null },
     mcp: { type: 'disabled', file: '~/.codex/config.toml', name: 'harness-dashboard' },
     memoryMcp: { type: 'missing', file: '~/.codex/config.toml', exists: true },
     desktopMcp: { type: 'missing', file: '~/.codex/config.toml', exists: true },

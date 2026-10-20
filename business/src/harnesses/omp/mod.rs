@@ -29,7 +29,7 @@ pub use marketplaces::{mark_updates, marketplaces};
 pub use paths::{active_profile, omp_paths};
 pub use plugins::{InstalledPlugins, installed_plugins};
 pub(crate) use plugins::{PluginOrigin, PluginRecord, user_plugin_records};
-pub use sessions::{omp_sessions_dir, omp_sessions_root};
+pub use sessions::{omp_session_store, omp_sessions_dir, omp_sessions_root};
 
 use crate::harness::prelude::*;
 
@@ -100,6 +100,10 @@ impl Harness for Omp {
 
     fn sessions_dir(&self, env: &Env, project: &Path) -> PathBuf {
         omp_sessions_dir(env, project)
+    }
+
+    fn session_store(&self, env: &Env) -> Result<SessionStore> {
+        omp_session_store(env)
     }
 
     fn configured_approval_mode(&self, env: &Env, project: Option<&Path>) -> Option<ApprovalMode> {

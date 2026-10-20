@@ -54,6 +54,7 @@ import type { SessionFolder } from './bindings/SessionFolder';
 import type { SessionMessagesPage } from './bindings/SessionMessagesPage';
 import type { SessionRef } from './bindings/SessionRef';
 import type { SessionSummary } from './bindings/SessionSummary';
+import type { SessionTotals } from './bindings/SessionTotals';
 import type { SessionTree } from './bindings/SessionTree';
 import type { SyncExported } from './bindings/SyncExported';
 import type { SyncExportPreview } from './bindings/SyncExportPreview';
@@ -102,6 +103,7 @@ export const commands = {
   agent_move_project: cmd<{ key: string; project: string }, AgentSessionInfo>(),
   agent_list: cmd<undefined, AgentSessionInfo[]>(),
   sessions_list: cmd<{ harness: HarnessId; project: string }, SessionSummary[]>(),
+  harness_session_totals: cmd<{ harness: HarnessId }, SessionTotals>(),
   sessions_folder: cmd<{ harness: HarnessId; project: string }, SessionFolder>(),
   session_tree: cmd<{ session: SessionRef; project: string }, SessionTree>(),
   session_messages: cmd<{ session: SessionRef; project: string; cursor: string | null; limit: number }, SessionMessagesPage>(),
@@ -123,6 +125,8 @@ export const commands = {
   setup_install_dashboard: cmd<{ confirmed: boolean; onLog: EventSink<InstallLogLine> }, DashboardInstallResult>(),
   /** Runs the Harness Memory installer; once `ok`, registers the server while project memory is on. */
   setup_install_memory: cmd<{ confirmed: boolean; onLog: EventSink<InstallLogLine> }, DashboardInstallResult>(),
+  /** Runs the Harness Skills installer for OpenCode (its own script, which needs Node.js 22). `ok` once their install record holds a version. */
+  setup_install_opencode_skills: cmd<{ confirmed: boolean; onLog: EventSink<InstallLogLine> }, DashboardInstallResult>(),
   setup_register_mcp: cmd<{ harness: HarnessId }, McpState>(),
   /** Registers the installed Harness Memory server in one harness (turning Project memory on); `invalidInput` while it is not installed. */
   setup_register_memory: cmd<{ harness: HarnessId }, McpState>(),

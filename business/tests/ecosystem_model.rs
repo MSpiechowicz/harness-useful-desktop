@@ -79,6 +79,7 @@ fn cli_results_use_camel_case_fields() {
                 "disable".to_owned(),
                 "demo".to_owned(),
             ],
+            config_edit: None,
         },
         json!({
             "ok": false,

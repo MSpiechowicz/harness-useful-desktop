@@ -18,9 +18,10 @@
 //! Chat sessions additionally need [`Harness::launch_spec`] (the command line) and
 //! [`Harness::chat_protocol`] (which chat engine drives the process; for the PI-family RPC
 //! protocol, [`Harness::dialect`] says how the harness speaks it). Saved sessions need
-//! [`Harness::sessions_dir`]; listing, trees and transcripts default to the PI-family session
-//! format and are overridden by harnesses that store sessions differently, or replaced by
-//! [`Harness::cli_sessions`] for a harness whose sessions are only reachable through its CLI.
+//! [`Harness::sessions_dir`] (and [`Harness::session_store`] for the machine-wide totals);
+//! listing, trees and transcripts default to the PI-family session format and are overridden by
+//! harnesses that store sessions differently, or replaced by [`Harness::cli_sessions`] for a
+//! harness whose sessions are only reachable through its CLI.
 //! Extension actions (install, remove, …) need [`Harness::cli_action`], run by [`run_cli_action`].
 
 mod catalog;
@@ -55,10 +56,11 @@ pub mod prelude {
     pub use crate::env::Env;
     pub use crate::error::Result;
     pub use crate::model::{
-        ApprovalMode, Capabilities, ConfigView, ExtensionAction, ExtensionsView, HarnessId, HarnessInfo, InstallHint,
-        SessionFolder,
+        ApprovalMode, Capabilities, CliResult, ConfigView, ExtensionAction, ExtensionsView, HarnessId, HarnessInfo,
+        InstallHint, SessionFolder,
     };
     pub use crate::pi_family::rpc::RpcDialect;
+    pub use crate::pi_family::sessions::SessionStore;
     pub use crate::process::ExecSpec;
 }
 
@@ -67,9 +69,9 @@ use std::path::{Path, PathBuf};
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::model::{
-    ApprovalMode, Capabilities, ConfigView, Detection, ExtensionAction, ExtensionsView, HarnessId, HarnessInfo,
-    HarnessSummary, InstallHint, SessionFolder, SessionMessagesPage, SessionRef, SessionSummary, SessionTree,
-    SyncItemKind, VersionSupport,
+    ApprovalMode, Capabilities, CliResult, ConfigView, Detection, ExtensionAction, ExtensionsView, HarnessId,
+    HarnessInfo, HarnessSummary, InstallHint, SessionFolder, SessionMessagesPage, SessionRef, SessionSummary,
+    SessionTotals, SessionTree, SyncItemKind, VersionSupport,
 };
 use crate::pi_family::rpc::RpcDialect;
 use crate::pi_family::sessions::{self, SessionCache};
@@ -119,6 +121,9 @@ pub enum SkillsStrategy {
         /// The package source, as the harness CLI takes it (for example `git:github.com/owner/repo`).
         source: &'static str,
     },
+    /// The Harness Skills' own installer script (OpenCode's `install.sh` / `install.ps1`): the app
+    /// runs it for the user once they confirm, and its install record tells whether it is there.
+    Installer,
     /// A command the user runs themselves.
     Manual {
         /// The command to copy.
@@ -151,12 +156,14 @@ pub enum McpTarget {
 
 /// Which kinds of items "Share setup" exports from a harness and imports into it (see
 /// [`crate::sync`]). The default shares nothing, so a new harness opts in kind by kind; MCP servers
-/// also need a [`McpTarget::UserMcpJson`] in [`Harness::companion_setup`].
+/// also need a [`McpTarget::UserMcpJson`] or [`McpTarget::OpenCodeConfig`] in
+/// [`Harness::companion_setup`].
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct ShareSupport {
     /// Plugin marketplaces (OMP's marketplace registry).
     pub marketplaces: bool,
-    /// Plugins installed in the user scope (OMP's plugin registry and npm plugins).
+    /// Plugins installed in the user scope (OMP's plugin registry and npm plugins, OpenCode's npm
+    /// plugins of the global config file).
     pub plugins: bool,
     /// Packages of the user settings (PI's `packages`).
     pub packages: bool,
@@ -284,6 +291,22 @@ pub trait Harness: Send + Sync {
         ))
     }
 
+    /// Where the session files of every project live (default: `Unsupported`, no session files).
+    fn session_store(&self, _env: &Env) -> Result<sessions::SessionStore> {
+        Err(BusinessError::Unsupported(format!(
+            "{} has no session files",
+            self.info().short_name
+        )))
+    }
+
+    /// The session count and last use across every project, from [`Harness::session_store`] (see
+    /// [`sessions::session_totals`]); `Unsupported` without session files (CLI sessions included).
+    fn session_totals(&self, env: &Env) -> Result<SessionTotals> {
+        let store = self.session_store(env)?;
+
+        Ok(sessions::session_totals(&store, sessions::MAX_TOTALS_ENTRIES))
+    }
+
     /// The session file `session` names, looked up only in `project`'s session folder.
     fn resolve_session(&self, env: &Env, project: &Path, session: &SessionRef) -> Result<PathBuf> {
         own_session(self.id(), session)?;
@@ -349,6 +372,22 @@ pub trait Harness: Send + Sync {
             "{} has no extension actions",
             self.info().short_name
         )))
+    }
+
+    /// Applies `action` by editing the harness's own config file instead of running its CLI, or
+    /// previews that edit when `dry_run` is set (nothing is written). `Ok(None)`: the action goes
+    /// to the CLI ([`Harness::cli_action`]); `extension_action` asks this first. Reads and writes
+    /// files, so call it from a blocking-capable context. Default: every action goes to the CLI.
+    fn config_action(
+        &self,
+        env: &Env,
+        action: &ExtensionAction,
+        project: Option<&Path>,
+        dry_run: bool,
+    ) -> Result<Option<CliResult>> {
+        let _ = (env, action, project, dry_run);
+
+        Ok(None)
     }
 
     /// The output line that reports a failed extension action although the CLI exited with 0
