@@ -15,13 +15,14 @@ not guaranteed, it says so under [Limits](#limits).
   the picture is the project memory that the `harness-memory` server (a separate program from its own repository, which
   you install; your harnesses start it) opens directly with SQLite; the desktop app never opens it itself. See [Project memory](#project-memory).
 - The only things the app writes into a harness's configuration are MCP server entries, in the user `mcp.json` of OMP and
-  PI and in the `mcp` object of OpenCode's global config file (`opencode.json` or `opencode.jsonc`): the
+  PI and in the `mcp` object of OpenCode's global config file (`opencode.json` or `opencode.jsonc`), and one removal:
+  when you remove an OpenCode plugin in Extensions, its entry in the `plugin` list of that same global file. The
   `harness-memory` entry (project memory, added automatically on launch once the server is installed, until you switch it
   off in Settings or remove the entry yourself), the `harness-desktop` entry (the app's own MCP server for hooks, added
   automatically on launch in release builds, or when you choose it in Recommended setup, until you remove the entry
   yourself), the `harness-dashboard` entry when you choose it in Recommended setup, and the MCP servers you
-  tick when you import a shared setup (OMP and PI only). An OpenCode config file that has comments is never rewritten
-  (the app shows the entry to paste instead). Switching project memory off does not rewrite such a file either: the app's
+  tick when you import a shared setup. An OpenCode config file that has comments is never rewritten
+  (the app shows the entry to paste or the plugin to remove instead). Switching project memory off does not rewrite such a file either: the app's
   own `harness-memory` entry stays in it, and Settings names the file and the entry so you can remove it yourself. An
   existing entry is never overwritten; the only change to one is the `command`
   of the app's own `harness-memory` entry, which is re-pointed to whichever server the app resolves (the installer's
@@ -33,12 +34,13 @@ not guaranteed, it says so under [Limits](#limits).
   in it runs until you have read the review and confirmed. Secret and path detection in free-form text is best effort,
   and host names are part of sources and URLs. Bundles are not signed. See [Shared setups](#shared-setups).
 - Secrets in configuration and in the app's own CLI output are masked before they reach the screen.
-- No shell is spawned, with two exceptions: the companion installers (Harness Dashboard and Harness Memory), fixed
+- No shell is spawned, with two exceptions: the companion installers (Harness Dashboard, Harness Memory and the Harness Skills
+  for OpenCode), fixed
   commands that run only after you confirm them, and command hooks, shell commands that run only when you wrote them or
   approved that exact version (see [Process spawning](#process-spawning) and [Hooks](#hooks)). Their interpreter has an
   absolute path (`/bin/sh`, Windows PowerShell for the installers, `cmd.exe` from `<SystemRoot>\System32` for
   command hooks), but the `curl` and `sh` the Linux and macOS command line names are
-  looked up on the `PATH` the app inherited, for the dashboard's installer and the memory server's alike. Every other
+  looked up on the `PATH` the app inherited, for all three installers alike. Every other
   process has an absolute program path and an explicit argument list.
 - Project memory stores what your agents choose to write, on this machine only, unencrypted and outside any repository.
   Text is passed through `redact_text` first, which is a heuristic. It is never exported by Share setup and never sent
@@ -72,7 +74,7 @@ your terminal (see [Limits](#limits)).
 ## Network
 
 The app contains no analytics client. Its only HTTP clients are the updater and the companion release lookup; the one
-other downloads, those of the companion installers (dashboard and memory server), are made by the installer command
+other downloads, those of the companion installers (dashboard, memory server and Harness Skills for OpenCode), are made by the installer command
 itself, and only after consent. Enumerated:
 
 | Request | When | Details |
@@ -81,6 +83,7 @@ itself, and only after consent. Enumerated:
 | Companion release lookup | When the Ecosystem view loads or is refreshed, at most once per companion every 6 hours while the app runs (the cache is in memory, so a restart asks again; failed lookups, including rate limits, retry after 5 minutes), and only while **Check companions for updates** (`checkCompanionUpdates` in prefs, on by default) is on. A prefs file that exists but cannot be read counts as off. | Four fixed URLs, `https://api.github.com/repos/MSpiechowicz/harness-useful-{dashboard,memory,skills,sidebar}/releases/latest`, HTTPS only, with timeouts and a capped response. Only `tag_name` is read. The request carries a `User-Agent` (`harness-desktop/<version>`) and an `Accept` header and nothing else: no token, no cookies, no referer, no installed versions or other local data. While at least one companion is installed, all four are requested, so the request set does not reveal which ones (with none installed, nothing is requested); GitHub sees the IP address, the app version and when Ecosystem was opened. The comparison with the installed version happens on this machine (`ecosystem_releases`). Redirects are followed only to `https://api.github.com` on port 443. System proxy settings apply, as for the updater. A failed lookup only means no update badge. |
 | Dashboard installer download | Only when the user confirms **Install the dashboard** in Recommended setup (onboarding, or **Run recommended setup** in Ecosystem), or, for an already installed dashboard with a newer release, without asking each time while **Update extensions automatically** (`autoUpdateExtensions`, on by default) and **Check companions for updates** are on | The app opens no connection itself. The installer command it runs (a `curl` of `install.sh` piped to `sh` on Linux and macOS, `irm` of `install.ps1` piped to `iex` on Windows) fetches the script from `https://raw.githubusercontent.com/MSpiechowicz/harness-useful-dashboard/main/` and then whatever that script downloads, the dashboard release. GitHub sees the IP address and the request. See [Process spawning](#process-spawning). |
 | Memory server installer download | Only when the user confirms the install of Harness Memory (Recommended setup, or the **Project memory** switch in Settings), or, for an already installed server with a newer release, without asking each time under the same two switches as the dashboard | The same as the dashboard installer, from `https://raw.githubusercontent.com/MSpiechowicz/harness-useful-memory/main/` and then the `harness-memory` release it names; its `install.sh` and `install.ps1` verify the release's `checksums.txt`. |
+| Harness Skills installer download | Only when the user confirms the install of the Harness Skills for OpenCode in Recommended setup. It is never part of the automatic family updates. | The same as the dashboard installer, from `https://raw.githubusercontent.com/MSpiechowicz/harness-useful-skills/main/` (`install.sh` fetched by a `curl` held to HTTPS and TLS 1.2 or newer, `install.ps1` by `irm`). The script needs Node.js 22 or newer and downloads the skills' release tarball from `codeload.github.com`, checks its entries, sizes and manifests, and runs `useful-skills install --host opencode --scope user`. There is no checksum: the trust model is that of the skills' own updater. GitHub sees the IP address and the request. |
 | Extension catalog refresh | While **Refresh catalogs automatically** (`autoRefreshCatalogs`, on by default) is on: the first look 30 s after start, then every 30 minutes. With **Update extensions automatically** on, the catalogs are refreshed on the same schedule even with this switch off, never more often than every 30 minutes (see below). | The app opens no connection itself. For each OMP catalog it runs `omp plugin marketplace update <name>`, and OMP clones or fetches that catalog's repository from the git or `https` URL it was added with: hosts you chose when adding the catalog (GitHub for the Harness Skills). The host sees the IP address and the request. |
 | Opening a link | Only when the user clicks one | `open_external` hands an allowlisted `https` URL (any `https` URL, or `http` to localhost, with **Open any web link** on) to the OS browser. The app itself does not fetch it. |
 
@@ -127,14 +130,15 @@ Everything else:
   client. What a hook adds to a prompt, and a command hook's redacted output, are sent by the harness to its model
   provider like the rest of the prompt. A command a hook runs may open connections of its own: that is the command you
   approved.
-- Harness CLIs make their own provider requests. Extension actions (`omp plugin install`, `pi install`) run the CLI,
+- Harness CLIs make their own provider requests. Extension actions (`omp plugin install`, `pi install`, `opencode plugin <module> -g`) run the CLI,
   which may download packages. The UI asks first and previews with the CLI's dry-run flag where one exists. Recommended
   setup installs the Harness Skills for OMP the same way (`omp plugin marketplace add`, then `omp plugin install` at
-  user scope, through `extension_action`, after you confirm). For PI it only shows `pi install
-  git:github.com/MSpiechowicz/harness-useful-skills` for copying; the app never runs it.
+  user scope, through `extension_action`, after you confirm). For PI it runs `pi install` of the skills' package the same
+  way. For OpenCode it runs the Harness Skills installer (see the Network table). Removing an OpenCode plugin runs nothing:
+  it edits a local file.
 - Share setup opens no connection. Export and import read and write local files; an import's marketplace, plugin and
   package installs go through the harness CLI, which fetches from the sources in the setup you confirmed, exactly as
-  `omp plugin install` or `pi install` do in your terminal.
+  `omp plugin install`, `pi install` or `opencode plugin` do in your terminal.
 - Project memory opens no connection once installed (the installer above is the only download). `harness-memory` speaks MCP over stdio to the harness that started it
   and has no HTTP client; the only program it runs is `git` (see
   [Process spawning](#process-spawning)). What an agent reads from it is sent by the harness to its model provider like
@@ -142,7 +146,7 @@ Everything else:
   you set in Settings: then `harness-memory` itself connects to it (PostgreSQL, libSQL or MongoDB at the URL you gave).
   The app still opens no connection; **Test** runs `harness-memory check`, which does. See [Team database](#team-database).
 - The Ecosystem tab shows install commands for copying (`business/src/ecosystem/catalog.rs`). The app never runs them,
-  except the Harness Dashboard and Harness Memory installers (see [Process spawning](#process-spawning)).
+  except the Harness Dashboard, Harness Memory and Harness Skills (OpenCode) installers (see [Process spawning](#process-spawning)).
 
 ## Files the app never reads
 
@@ -287,12 +291,13 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
   The webview sends no command line to run: it can only save a hook, which the window approves because it saved it.
   See [Hooks](#hooks).
 - **Companion installers (one of the two shells).** Recommended setup can run the official Harness Dashboard installer
-  (`setup_install_dashboard`) and the official Harness Memory installer (`setup_install_memory`, also offered by the
-  **Project memory** switch), both through `run_installer` in `business/src/ecosystem/installer.rs`. It is the only place
+  (`setup_install_dashboard`), the official Harness Memory installer (`setup_install_memory`, also offered by the
+  **Project memory** switch) and the Harness Skills installer for OpenCode (`setup_install_opencode_skills`), all
+  through `run_installer` in `business/src/ecosystem/installer.rs`. It is the only place
   the app runs an install command. The only other place that names a shell is the command hook runner (see
   [Hooks](#hooks)). Each command is a Rust constant per companion and OS
-  (`DASHBOARD_INSTALL_SH` / `DASHBOARD_INSTALL_PS1_SCRIPT` and `MEMORY_INSTALL_SH` / `MEMORY_INSTALL_PS1_SCRIPT` in
-  `business/src/ecosystem/catalog.rs`): `/bin/sh -c` on Linux and macOS, Windows PowerShell from
+  (`DASHBOARD_INSTALL_SH` / `DASHBOARD_INSTALL_PS1_SCRIPT`, `MEMORY_INSTALL_SH` / `MEMORY_INSTALL_PS1_SCRIPT` and
+  `SKILLS_INSTALL_SH` / `SKILLS_INSTALL_PS1_SCRIPT` in `business/src/ecosystem/catalog.rs`): `/bin/sh -c` on Linux and macOS, Windows PowerShell from
   `<SystemRoot>\System32\WindowsPowerShell\v1.0` with `-NoProfile` on Windows. The webview sends only `confirmed`; no
   command line, path or URL. The command fails with `invalidInput` unless `confirmed` is true (the UI asks first and
   lists what the installer changes), and only one install per companion runs at a time. The child runs in the home
@@ -300,8 +305,13 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
   and is killed with it after 10 minutes. Its output reaches the UI line by line with escapes stripped and secrets
   redacted (`redact_text`; 2 KiB per line, 256 KiB in all); the log keeps only counts and the exit code. Success needs
   exit code 0 and a `harness-dashboard` (or `harness-memory`) that reports a version afterwards, because a piped
-  download can exit 0 after failing. After a successful memory install the app registers the server (see the next
-  item). The scripts come from the `main` branch of the companions' repositories; the app does not pin or verify them
+  download can exit 0 after failing. The Harness Skills have no binary: success needs an install record
+  (`plugins/useful-skills/install-record.json` in OpenCode's config directory) that is a regular file, not a symlink,
+  of at most 256 KiB, with a valid `version`. The skills' installer runs `node`, so the usual install directories are
+  appended to its `PATH` (after the user's own entries). It downloads the skills' release tarball and checks its
+  entries, sizes and manifests, but has no checksum, so it trusts GitHub and the repository like the skills' updater. After a successful memory install the app registers the server (see the next
+  item). The scripts come from the `main` branch of the companions' repositories (for the Harness Skills,
+  `MSpiechowicz/harness-useful-skills`); the app does not pin or verify them
   (see [Limits](#limits)), though the Harness Memory script itself verifies the release's `checksums.txt`. The guard keeps both exceptions narrow: rule `installer-shell` in
   `scripts/check-forbidden.ts` rejects `/bin/sh`, `cmd.exe` and `powershell.exe` in any Rust file except
   `business/src/ecosystem/installer.rs` (the companion installers), `business/src/hooks/command.rs` (command hooks) and
@@ -313,7 +323,8 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
   once the Ecosystem reading shows a newer release. It never installs a companion that is not installed, runs one
   installer at a time, never while the first-run setup is installing, and tries each release once per launch. A
   failure is shown in a toast and the update stays offered in Ecosystem. The installers verify the release's
-  `checksums.txt` themselves, and the scripts are the unpinned ones described above and in [Limits](#limits). To stop
+  `checksums.txt` themselves, and the scripts are the unpinned ones described above and in [Limits](#limits). The
+  Harness Skills for OpenCode are not part of it: the app never reruns their installer by itself. To stop
   this, switch off **Update extensions automatically** in Settings under Updates (or **Check companions for updates**,
   which also stops the release lookup). The installs then happen only when you run them.
 - **OpenCode.** Every OpenCode child gets `OPENCODE_DISABLE_AUTOUPDATE=1`, so no probe, session listing or action
@@ -345,7 +356,11 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
   dialog (`harness_pick_binary`), never through `prefs_set`. Harness children get the binary's directory and the
   standard install directories appended (never prepended) to their `PATH`, so the user's own entries keep precedence.
 - **Arguments.** Extension targets pass `cli_target`: non-empty, 512 characters at most, no leading `-`, only
-  `A-Z a-z 0-9 @ . _ / : + = , -`, no URL credentials. Windows `.cmd`/`.bat` shims (re-parsed by `cmd.exe`) only
+  `A-Z a-z 0-9 @ . _ / : + = , -`, no URL credentials. An OpenCode plugin install passes `cli_target` with the stricter
+  npm module kind: an npm registry name (`name` or `@scope/name`, at most 214 characters) with an optional version or
+  tag, never a path, URL, `file:`, `github:` or `git+` spec. The argv is then exactly `opencode plugin <module> -g`
+  (user scope only, no `-f`). A name that fails any check is refused before anything is spawned, without echoing it.
+  OpenCode has no preview flag, so a dry run never starts the CLI. Windows `.cmd`/`.bat` shims (re-parsed by `cmd.exe`) only
   receive arguments that pass `is_safe_arg` after the leading dashes are removed. The webview sends typed actions,
   never command lines.
 - **Flags never passed.** `--auto-approve`, `--auto`, `--yolo`, `--dangerously-skip-permissions`, `--no-ui`, login and
@@ -380,6 +395,16 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
   `~/.opencode` and `OPENCODE_CONFIG_DIR`, and the file `OPENCODE_CONFIG` names (absolute paths only), are looked at to find an existing entry, never written. The
   write is atomic (temporary sibling, flushed, renamed) and keeps the file's permissions; a new file is created with
   `0600`. File contents are never logged or returned.
+- **OpenCode plugin removal.** OpenCode has no uninstall command, so removing a plugin in Extensions edits a file instead
+  (`remove_plugin`, `business/src/harnesses/opencode/plugin_remove.rs`, through `Harness::config_action`). It touches only
+  the global config file the MCP registration above also uses (`opencode.jsonc` if there is one, else `opencode.json`)
+  and only the string entries of its `plugin` list whose package name matches. The write is the same atomic one as the
+  MCP merge: permissions kept, retried once if the file changed meanwhile, refused for a symlink, anything but a regular
+  file, a file over 2 MiB or one that is not valid JSON with comments. A file with comments is never rewritten, and a
+  `[spec, options]` entry for the plugin is never rewritten either. Nor is a plugin that only another file defines (the
+  project's config, another global file or a plugin file). In those cases nothing is written, and the result names the
+  file and what to remove yourself. Removing a plugin that is not listed changes nothing. A dry run only reads. The
+  webview sends the plugin's id, never a path.
 - **Project memory registration.** At every launch, in the background and only while `memoryEnabled` is on (the
   default) and the server is installed, the shell (`src-tauri/src/memory_setup.rs`) registers it in the user MCP file
   (`mcp.json`, or OpenCode's global config file) of every detected harness whose adapter has one (`register_memory_mcp`, `business/src/ecosystem/memory_register.rs`);
@@ -642,6 +667,13 @@ sources with credentials, local or unknown packages, local marketplaces, `file:`
 items and anything over the limits. Export runs the same validators as import, so an exported file imports again without
 invalid items.
 
+**OpenCode.** Its export has two kinds. Plugins are the npm registry specs in the `plugin` lists of the global config
+files, as the package name plus the version, range or tag they pin. Local files, git, `github:` and URL specs, and
+`[spec, options]` entries (the options may hold secrets) are left out. MCP servers are the `mcp` object of the global
+config file: a `local` server as stdio, a `remote` one as http, with the key names of `environment` and `headers`. Their
+values, OAuth settings and other fields are never exported, and a server whose command, arguments or URL hold a
+`{env:…}` or `{file:…}` substitution is left out whole.
+
 **An import is untrusted input.** A pasted string or picked file is decoded defensively (`codec.rs`): pasted text at
 most 128 KiB, compressed payload 96 KiB, decompressed JSON 256 KiB read through a capped reader (zip-bomb guard), at
 most 16 sections, 200 items per kind and 500 in total, serde_json's recursion limit kept. Every field of every item is
@@ -664,6 +696,10 @@ then validated in Rust (`validate.rs`, `validate_source.rs`, `validate_mcp.rs`, 
   `${VAR}` and `$NAME` on your machine and could send the value to the setup's author; secret flags in arguments are
   refused. Machine paths in arguments and URLs are left out on export and, as free-form text, not checked on import:
   read them in the review.
+- OpenCode items: a plugin id is a bare npm package name (no `name@marketplace`, no marketplace), its version a
+  registry version, range or tag, and the install runs `opencode plugin <id>@<version> -g`. A server's command, arguments
+  and URL may hold no `{env:…}` or `{file:…}` substitution in any case, since OpenCode would expand it on your machine
+  into environment variables or file contents (`unsafeValue`).
 - `version` fields must be semver-like (an item with a bad one is invalid); `app` and `createdAt` (`YYYY-MM-DD`, month
   01 to 12, day 01 to 31) are dropped when they are not.
 
@@ -672,7 +708,8 @@ are ignored and only counted. Secret and machine-path detection in free-form arg
 review lists the exact command line or `mcp.json` entry of every item so you can read what would run.
 
 **What an import can do.** Add only, in the user scope: `omp plugin marketplace add`, `omp plugin install --scope user`,
-`pi install` (no `--local`), and an atomic merge of MCP entries into the harness's user `mcp.json`. It never uninstalls,
+`pi install` (no `--local`), `opencode plugin <module> -g`, and an atomic merge of MCP entries into the harness's user
+`mcp.json` (OpenCode: the `mcp` object of its global config file). It never uninstalls,
 upgrades, downgrades, overwrites or touches project scope, preferences or harness settings. Commands are built in Rust
 from validated fields and go through `cli_target` and the harness's own `cli_action`; the webview sends only a plan id,
 item ids and `confirmed`. The command (`sync_import_apply`) fails with `invalidInput`, running and writing nothing,
@@ -687,7 +724,10 @@ is not ticked by default, and the app never starts it. An http or sse server run
 service offer tools to your agent; it is ticked by default like other items, so check its URL. The entry written holds
 only `command`/`args` or `type`/`url`; a server that declares env or header keys is written with `"enabled": false`, so
 nothing runs until you add the values and enable it. The file is the harness's user `mcp.json` from its own paths,
-never a path from the bundle. The merge is gated by the plan's installed state: a harness that was not installed at
+never a path from the bundle. An OpenCode server is written as `{"type": "local", "command": [...]}` or
+`{"type": "remote", "url": ...}`, with `"enabled"` false under the same condition (true otherwise). An entry whose name exists is never
+overwritten: the same definition counts as already present, another one as a conflict. If the OpenCode config file has
+comments, nothing is written and the server is skipped as `manualEdit`, with the entry to paste. The merge is gated by the plan's installed state: a harness that was not installed at
 review time has no file, so its servers are skipped.
 
 **Files and network.** Written: the user `mcp.json` merge above, and an exported file, which only a native save dialog
@@ -1099,12 +1139,13 @@ command is not granted). Process errors name only the program's file name (`Exec
   is found by parent process id, so a process whose parent already exited, and what a child left running after it
   exited, may outlive it.
 - **The companion installers are remote code.** Once you confirm, one runs a script fetched from the `main` branch of
-  `MSpiechowicz/harness-useful-dashboard` or `MSpiechowicz/harness-useful-memory` with your privileges, as if you ran the
+  `MSpiechowicz/harness-useful-dashboard`, `MSpiechowicz/harness-useful-memory` or `MSpiechowicz/harness-useful-skills`
+  (the Harness Skills for OpenCode) with your privileges, as if you ran the
   install command in your terminal. The app confirms first and lists what it changes, but does not pin or verify the
   script (the memory script verifies its release download against `checksums.txt`, which comes from the same
-  repository). To avoid it, skip the step and install the tool yourself.
+  repository, and the skills script has no checksum at all, only checks of the tarball's entries, sizes and manifests). To avoid it, skip the step and install the tool yourself.
 - **Shared setups are unsigned.** A `hud1:` string or file has no author or signature; the checksum only detects
-  corruption. An imported marketplace, plugin or package is installed by the harness CLI, which runs with your
+  corruption. An imported marketplace, plugin or package (an OpenCode npm plugin included) is installed by the harness CLI, which runs with your
   privileges and may execute code from it, and an imported stdio MCP server is a program the harness will run. The app
   validates what it can, shows the exact steps and asks first, but cannot judge whether the code behind a source is
   safe. Import only setups you trust.

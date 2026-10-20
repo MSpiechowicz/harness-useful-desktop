@@ -35,7 +35,8 @@ An import only **adds**. These are the only actions it can produce, and only in 
 | Marketplace (OMP) | `omp plugin marketplace add <source>` |
 | Plugin (OMP) | `omp plugin install <id> --scope user` |
 | Package (PI) | `pi install <source>` (global, no `--local`) |
-| MCP server | One atomic merge of the entry into the harness's user `mcp.json` |
+| Plugin (OpenCode) | `opencode plugin <name>[@<version>] -g` |
+| MCP server | One atomic merge of the entry into the harness's user `mcp.json` (OpenCode: the `mcp` object of its global config file) |
 
 It never uninstalls, removes, upgrades, downgrades, overwrites, or touches project scope, app preferences or harness
 settings. Something already present is left alone. Versions in a bundle are informational: the latest version is
@@ -114,10 +115,13 @@ Empty lists are omitted when written. Top level:
 | `version` | integer | `1`. |
 | `app` | string, optional | App version that wrote it, semver-like (`0.15.0`, `v2.1`, `1.0.0-beta.1`). Anything else is dropped. |
 | `createdAt` | string, optional | Export date, `YYYY-MM-DD` with a month of 01 to 12 and a day of 01 to 31. Anything else is dropped. |
-| `harnesses` | object | One section per harness id (`omp`, `pi`). |
+| `harnesses` | object | One section per harness id (`omp`, `pi`, `opencode`). |
 
 A harness section holds up to four arrays; which ones a harness accepts depends on what it supports (OMP:
-marketplaces, plugins, MCP servers; PI: packages, MCP servers).
+marketplaces, plugins, MCP servers; PI: packages, MCP servers; OpenCode: plugins, MCP servers). An OpenCode
+plugin is an npm package name (`@scope/name`) with the version, range or tag its config pins, never a marketplace. An
+OpenCode server uses the same fields as the others (`local` is shared as stdio, `remote` as http) and is written as
+`{"type": "local" | "remote", ...}` with `enabled` set.
 
 | Array | Field | Type | Meaning |
 | --- | --- | --- | --- |
@@ -216,6 +220,8 @@ Left out of the file and listed in the export dialog by name and reason (never b
 | The `harness-dashboard` server (any letter case) | Recommended setup installs it. Skipped without a row in the list. |
 | The `harness-memory` server (any letter case) and the project memory database | The app installs and registers the server itself, and the notes are local to this machine. Skipped without a row in the list; an import refuses that name. |
 | Local or unknown PI packages, local marketplaces, `file:` / `link:` plugin specs | Machine paths. |
+| OpenCode plugins that are local files, git, `github:` or URL specs, and `[spec, options]` entries | Machine paths, and options that may hold secrets. Only npm registry specs are shared. |
+| OpenCode servers with a `{env:...}` or `{file:...}` substitution in the command, arguments or URL | OpenCode would put this machine's variables or file contents there. An import refuses them as well. |
 | Sources with credentials | Secrets. |
 | Project-scope plugins and servers | The share is user scope only. |
 | Auth and credential files | Never opened. |
@@ -258,6 +264,8 @@ registered here.
 - Merge rules: existing keys and servers keep their order and values; a name that already exists is never overwritten
   (identical is `alreadyPresent`, different is `conflict`). The file is refused, and nothing written, if it is invalid
   JSON, a symlink, not a regular file, over 2 MiB, or changed while it was read. A missing file is created with `0600`.
+  An OpenCode config file with comments is never rewritten: its servers end `skipped` (`manualEdit`) and the review's
+  result shows the entry to paste.
 
 ## Applying
 

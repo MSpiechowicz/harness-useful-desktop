@@ -136,7 +136,7 @@ really does. Beyond the extension kinds (`plugins`, `marketplaces`, `packages`, 
 | `agentPicker` | The chat can switch between the harness's primary agents (`AgentAction::SetAgent`, `GetAvailableAgents`, `SessionState.agent`) and the composer shows an agent picker. None today: OpenCode's engine supports it, but the picker is off because skills cover planning. | No agent picker. |
 | `compactInstructions` | `/compact` takes instructions for the summary, so picking it asks for them first. OMP and PI. | `/compact` runs at once and an action with instructions is refused as unsupported. OpenCode. |
 | `agents` | `extensions_view` fills `agents` (`AgentInfo`) and the Extensions view has an Agents tab. | No Agents tab. OpenCode sets it. |
-| `cliActions` | Extension changes run the harness CLI (`cli_action`). | The install, enable, update and remove bars are hidden and the view is read-only. OpenCode. |
+| `cliActions` | Extension changes run the harness CLI (`cli_action`). | The install, enable, update and remove bars are hidden and the view is read-only. |
 
 The default for every flag is false (`Capabilities` derives `Default`), so an adapter lists only what it has.
 
@@ -352,7 +352,7 @@ entered.
 
 Extension changes (install, remove, enable, upgrade) run the harness CLI. A harness without such actions leaves
 `capabilities.cliActions` false (and the default `cli_action`, which returns `Unsupported`): the UI then hides the action
-bars and the extension lists are read-only. OpenCode does this: the app offers no `opencode plugin` actions yet. Otherwise implement `cli_action(action, project)`:
+bars and the extension lists are read-only. OpenCode sets it to true, with install only (below). Otherwise implement `cli_action(action, project)`:
 map an `ExtensionAction` to a `CliInvocation { args, dry_run_flag }`. Validate every user-supplied value with
 `cli_target(TargetKind, value)` (non-empty, at most 512 characters, no leading `-`, only `A-Z a-z 0-9 @ . _ / : + =
 , -`, no URL credentials).
@@ -366,6 +366,17 @@ Ok(CliInvocation::new(["plugin", "install", target.as_str(), "--scope", scope]).
 Set `dry_run_flag` only when the CLI honours it for that action. Without it, a dry run runs nothing and returns just
 the command line (`run_cli_action` handles this). Override `cli_failure_line` if the CLI exits 0 on failure (OMP
 does). Return `BusinessError::Unsupported` for actions the CLI does not have; that is also the default.
+
+A CLI without a command for an action can still support it by editing its own config file. Override
+`config_action(env, action, project, dry_run)` for that: `extension_action` asks it first, and `Ok(None)` sends the
+action on to `cli_action`. The edit returns a `CliResult` with `config_edit` set (`argv` and `command` are empty), and a
+dry run only reports what it would do. OpenCode is the example. `cli_action` maps `PluginInstall` in the user scope to
+`opencode plugin <module> -g` (`business/src/harnesses/opencode/cli.rs`). The module must pass
+`cli_target(TargetKind::NpmModule, …)`, so only an npm registry name with an optional version or tag. Project
+installs, upgrade (`-f`), enable, disable and marketplace actions are `Unsupported`. OpenCode has no preview flag, so a
+dry run never starts the CLI. `PluginUninstall` goes through `config_action` and removes the entry from the `plugin`
+list of the global config file (`plugin_remove.rs`). It never edits another file, and it leaves a file with comments, a
+`[spec, options]` entry or a plugin another file defines to the user (`config_edit.manualEdit`, `ok` false).
 
 `run_cli_action` runs the binary without a shell in the project (or the home directory), with a 5 minute timeout and
 capped output, strips ANSI escapes and redacts both streams. See `business/src/harnesses/omp/cli.rs` and
@@ -394,14 +405,20 @@ fn companion_setup(&self) -> CompanionSetup {
 - `OmpMarketplace`: the CLI has OMP's plugin marketplace. The app runs `marketplace add` and `plugin install` (user
   scope) through `extension_action`, so `cli_action` must support both ([CLI actions](#8-cli-actions)). Only a harness
   with that exact plugin system qualifies.
-- `Package { source }`: the CLI has its own package manager (PI's `pi install <source>`). The app installs the source
+- `Package { source }`: the CLI has its own package manager (PI's `pi install <source>`, which PI uses). The app installs the source
   for the user through `extension_action` (`PackageInstall`), so `cli_action` must support it. The step reports the
   skills as installed when the harness's user settings list the package (`user_has_package`, in
   `business/src/ecosystem/setup.rs`); extend that if your CLI records packages elsewhere.
-- `Manual { command, note }`: the user copies a command; the app never runs it. Use it when you have not verified an
-  install command against the CLI yet, and say so in `note` (PI does). The step reports the skills as installed
+- `Installer`: the Harness Skills have their own installer script (OpenCode's `install.sh` / `install.ps1`, which
+  need Node.js 22 or newer). The app runs it through a `Companion` (`OpenCodeSkills`, in
+  `business/src/ecosystem/installer.rs`) after the user confirms, with no CLI action. The step reports the skills as
+  installed when the installer's install record holds a version (`business/src/ecosystem/skills_record.rs`: a regular
+  file, not a symlink, `plugins/useful-skills/install-record.json` in the config directory). A new script installer needs
+  its own `Companion`, a fixed command per OS in `catalog.rs`, and a Tauri command.
+- `Manual { command, note }`: the user copies a command, the app never runs it. Use it when you have not verified an
+  install command against the CLI yet, and say so in `note`. The step reports the skills as installed
   when the harness's user settings list the package (`user_has_package`, in `business/src/ecosystem/setup.rs`);
-  extend that if your CLI records packages elsewhere.
+  extend that if your CLI records packages elsewhere. No harness uses it right now.
 - `Unsupported { reason }`: the skills do not exist for this harness.
 
 `McpTarget`:
@@ -457,22 +474,27 @@ fn share_support(&self) -> ShareSupport {
 ```
 
 `ShareSupport` (`business/src/harness/mod.rs`) has one flag per `SyncItemKind`. OMP declares marketplaces, plugins and
-MCP servers, PI declares packages and MCP servers, and OpenCode shares nothing yet (the default).
+MCP servers, PI declares packages and MCP servers, and OpenCode declares plugins and MCP servers.
 
-- **`mcp_servers`** needs `McpTarget::UserMcpJson` in `companion_setup` ([Recommended setup](#9-recommended-setup)): the
+- **`mcp_servers`** needs `McpTarget::UserMcpJson` (or `OpenCodeConfig`) in `companion_setup` ([Recommended setup](#9-recommended-setup)): the
   export reads, and the import merges into, the file `mcp_target_paths` returns for the harness (it returns `None` for
   any other target, so only strict-JSON `mcpServers` files are shared). Only user scope is shared. With
-  `McpTarget::Unsupported` the harness's servers are blocked as not supported. `McpTarget::OpenCodeConfig` is not
-  shared yet.
+  `McpTarget::Unsupported` the harness's servers are blocked as not supported. `McpTarget::OpenCodeConfig` shares the
+  `mcp` key of the global config file (`local` as stdio, `remote` as http), with key names only for `environment` and
+  `headers`. A server whose command, arguments or URL hold a `{env:…}` or `{file:…}` substitution is left out on
+  export and refused on import. A config file with comments is not rewritten: the import skips the servers as
+  `manualEdit` with the entry to paste.
 - **`marketplaces`, `plugins`, `packages`** are CLI installs, and the import runs them through `cli_action`
   ([CLI actions](#8-cli-actions)). Every kind you declare must be supported there: `MarketplaceAdd { source }`
   for marketplaces, `PluginInstall { target, scope: User }` for plugins, `PackageInstall { source }` for packages
   (PI also receives no `--local`). The import builds only these actions, never remove, upgrade or project scope. A step
-  the adapter refuses makes the item `blocked`, never offered.
+  the adapter refuses makes the item `blocked`, never offered. OpenCode shares only npm registry plugins of the global
+  config files, as the package name plus the version or tag the config pins (`opencode plugin <name>@<version> -g`).
+  Local files, git, `github:` and URL specs, and `[spec, options]` entries (options may hold secrets) are left out.
 - **Reading what is installed.** The MCP reader is generic. The other kinds read the harness's own registry files:
   `collect_kind` in `business/src/sync/collect.rs` (export) and `Machine::read` in `business/src/sync/plan_presence.rs`
   (statuses `alreadyPresent`, `differentVersion`, `conflict`) currently understand OMP's marketplace and plugin
-  registries and PI's `packages` setting. A harness that stores these elsewhere needs a reader there too (through
+  registries, PI's `packages` setting and OpenCode's `plugin` lists (`business/src/harnesses/opencode/share.rs`). A harness that stores these elsewhere needs a reader there too (through
   `SafeReader`, returning only references, never credentials); one that uses the same files reuses the readers.
 - **Validation is shared.** Sources and ids are checked by `business/src/sync/validate.rs` and `validate_source.rs`
   (MCP fields by `validate_mcp.rs`), which allow `npm:` (registry names, `github:owner/repo`, `https:`/`git+https:`),

@@ -21,13 +21,20 @@ current release. The implementation follows the 1.19.3 sources and replays recor
 | 1 Detection, config, gate | Done | `business/src/harnesses/opencode/{mod,paths,config,catalog}.rs`, `pi_family/jsonc.rs`, `process/resolve.rs` (`~/.opencode/bin`), `env.rs`, `security/{deny,rules}.rs` |
 | 2 Sessions | Done | `harnesses/opencode/sessions.rs`, `process/blocking.rs`, `src-tauri/src/commands/sessions.rs` |
 | 3 Chat | Done (Preview) | Native server API (`opencode serve`), see [opencode-native-chat.md](opencode-native-chat.md) |
-| 4 Extensions | Done, read-only | `harnesses/opencode/extensions*.rs`; no `opencode plugin` actions (`capabilities.cliActions` is false) |
+| 4 Extensions | Done | Reading in `harnesses/opencode/extensions*.rs`. Install runs `opencode plugin <module> -g` (`opencode/cli.rs`), removal edits the global config (`opencode/plugin_remove.rs`, through `Harness::config_action`). `capabilities.cliActions` is true |
+| Harness Skills install | Done | `SkillsStrategy::Installer`: the Harness Skills' `install.sh` / `install.ps1` from Recommended setup (`ecosystem/installer.rs`, `ecosystem/skills_record.rs`) |
+| Share setup | Done | Plugins and MCP servers (`opencode/share.rs`, `sync/collect_opencode.rs`, `sync/validate*.rs`) |
 
 Also done: Recommended setup registers the dashboard and memory MCP servers in OpenCode's global config
 (`McpTarget::OpenCodeConfig`, JSONC-aware, a file with comments gives `McpState::ManualEdit` with a snippet to
 paste), the Agents extensions tab, the OpenCode onboarding card with an allow-by-default notice, and the chat gate in the UI.
-Not done on purpose: Harness Skills install (`SkillsStrategy::Unsupported`, no OpenCode package), Share setup
-(`ShareSupport::NONE`), reading `opencode.db` or `storage/`. The checklist for a harness like this is in
+Also done: Harness Skills install from Recommended setup (needs Node.js 22 or newer, installed when the skills'
+install record holds a version), Extensions install and remove of npm plugins (a config with comments, a
+`[spec, options]` entry or a plugin another file defines is left to the user with a note), and Share setup of npm
+plugins and MCP servers.
+Not done: plugin updates (`opencode plugin -f`), project-scope plugin installs, `[spec, options]` entries in Share
+setup and removal, reading `opencode.db` or `storage/`. Untested: the installer and plugin actions on Windows, and a real
+`opencode plugin` run (the argv follows `opencode plugin --help` of 1.19.3). The checklist for a harness like this is in
 [adding-a-harness.md](../adding-a-harness.md).
 
 ## Decisions taken
