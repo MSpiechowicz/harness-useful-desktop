@@ -126,6 +126,6 @@ describe('Meet the Harness family step', () => {
   it('sits right before the set-up step, adding one step to the flow', async () => {
     expect(onboarding.steps.indexOf('family')).toBe(onboarding.steps.indexOf('setup') - 1);
     expect(onboarding.steps.at(-1)).toBe('done');
-    expect(onboarding.steps).toHaveLength(onboarding.needsApprovalNotice ? 7 : 6);
+    expect(onboarding.steps).toHaveLength(onboarding.needsApprovalNotice ? 8 : 7);
   });
 });

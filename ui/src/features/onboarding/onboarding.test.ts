@@ -50,10 +50,14 @@ describe('Onboarding', () => {
     await next(/find your harness/);
     await click('Get started');
 
-    await next('Which agent do you use every day?');
+    await next('Meet your harnesses');
+    await click('Continue');
+
+    await next('Which harness do you use every day?');
     expect(await screen.findByRole('article', { name: 'Oh My Pi' })).toHaveTextContent('Supported');
+    await fireEvent.click(screen.getByRole('option', { name: /^Pi/ }));
+    expect(screen.getByRole('option', { name: /^Pi/ })).toHaveTextContent('Not found');
     const piCard = screen.getByRole('article', { name: 'Pi' });
-    expect(piCard).toHaveTextContent('Not found');
     expect(piCard).toHaveTextContent('curl -fsSL https://pi.dev/install.sh | sh');
     expect(screen.getByRole('radio', { name: 'Use Pi as daily driver' })).toHaveAttribute('aria-disabled', 'true');
 
@@ -97,8 +101,9 @@ describe('Onboarding', () => {
       onboarding.restart('harnesses');
       render(Onboarding);
 
-      await next('Which agent do you use every day?');
-      expect(await screen.findByRole('article', { name: 'Pi' })).toHaveTextContent('Not found');
+      await next('Which harness do you use every day?');
+      await fireEvent.click(await screen.findByRole('option', { name: /^Pi/ }));
+      expect(screen.getByRole('option', { name: /^Pi/ })).toHaveTextContent('Not found');
       expect(screen.queryByRole('button', { name: /re-scan/i })).toBeNull();
 
       // Installed behind the app's back, as a terminal would do.
@@ -113,7 +118,7 @@ describe('Onboarding', () => {
     onboarding.restart('harnesses');
     render(Onboarding);
 
-    await next('Which agent do you use every day?');
+    await next('Which harness do you use every day?');
     await fireEvent.click(await screen.findByRole('radio', { name: 'Use Oh My Pi as daily driver' }));
     await click('Continue');
     await next('Pick a project to work in');
@@ -140,15 +145,17 @@ describe('Onboarding', () => {
   it('lists OpenCode next to the others and says its chat is still to come', async () => {
     onboarding.restart('harnesses');
     render(Onboarding);
-    await next('Which agent do you use every day?');
+    await next('Which harness do you use every day?');
 
     // OpenCode is listed, greyed out, but not offered as a daily driver until the app can chat with it.
-    expect(await screen.findAllByRole('radio')).toHaveLength(2);
-    expect(screen.queryByRole('radio', { name: 'Use OpenCode as daily driver' })).not.toBeInTheDocument();
+    const row = await screen.findByRole('option', { name: /^OpenCode/ });
+    expect(row).toHaveTextContent('Coming soon');
+    expect(screen.getByRole('option', { name: /^Oh My Pi/ })).not.toHaveTextContent('Coming soon');
+
+    await fireEvent.click(row);
+    expect(screen.queryByRole('radio')).not.toBeInTheDocument();
     const card = screen.getByRole('article', { name: 'OpenCode' });
-    expect(card).toHaveTextContent('Installed');
     expect(card).toHaveTextContent('Coming soon');
-    expect(screen.getByRole('article', { name: 'Oh My Pi' })).not.toHaveTextContent('Coming soon');
   });
 
   it('offers OpenCode as a daily driver without a coming-soon label when it can chat', async () => {
@@ -156,10 +163,12 @@ describe('Onboarding', () => {
     onboarding.restart('harnesses');
     render(Onboarding);
 
-    await next('Which agent do you use every day?');
-    const card = await screen.findByRole('article', { name: 'OpenCode' });
+    await next('Which harness do you use every day?');
+    const row = await screen.findByRole('option', { name: /^OpenCode/ });
+    await fireEvent.click(row);
+    const card = screen.getByRole('article', { name: 'OpenCode' });
 
-    expect(card).toHaveTextContent('Installed');
+    expect(row).toHaveTextContent('Installed');
     expect(card).not.toHaveTextContent('Coming soon');
     expect(screen.getByRole('radio', { name: 'Use OpenCode as daily driver' })).not.toHaveAttribute('aria-disabled', 'true');
   });
@@ -170,7 +179,7 @@ describe('Onboarding', () => {
     onboarding.restart('harnesses');
     render(Onboarding);
 
-    await next('Which agent do you use every day?');
+    await next('Which harness do you use every day?');
     await click('Continue');
     await next('Pick a project to work in');
     // The chat tile does not promise a chat the app cannot start yet.
@@ -206,7 +215,7 @@ describe('Onboarding', () => {
     render(Onboarding);
 
     // With nothing picked, the only installed harness is the daily driver and its notice is next.
-    await next('Which agent do you use every day?');
+    await next('Which harness do you use every day?');
     expect(onboarding.driver).toBe('opencode');
     await click('Continue');
     await next('Pick a project to work in');
@@ -243,7 +252,7 @@ describe('Onboarding', () => {
   it('lets you continue with no harness installed', async () => {
     onboarding.restart('harnesses');
     render(Onboarding);
-    await next('Which agent do you use every day?');
+    await next('Which harness do you use every day?');
 
     // As if the user had no harness on this machine.
     harness.summaries = harness.summaries.map((summary) => ({ ...summary, detection: { ...summary.detection, installed: false } }));
@@ -260,10 +269,14 @@ describe('Onboarding', () => {
     await next(/Znajdźmy twój harness/);
     await click('Zaczynamy');
 
-    await next('Którego agenta używasz na co dzień?');
-    expect(await screen.findByRole('radiogroup', { name: 'Codzienny harness' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Szukaj ponownie' })).toBeNull();
+    await next('Poznaj swoje harnessy');
+    await click('Dalej');
+
+    await next('Którego harnessa używasz na co dzień?');
+    // A harness the app can chat with, so its detail offers the choice.
+    await fireEvent.click(await screen.findByRole('option', { name: /^Oh My Pi/ }));
     expect(screen.getByRole('radiogroup', { name: 'Codzienny harness' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Szukaj ponownie' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Wstecz' })).toBeInTheDocument();
   });
 });

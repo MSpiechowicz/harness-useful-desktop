@@ -20,6 +20,7 @@
   import FamilyStep from './FamilyStep.svelte';
   import HarnessesStep from './HarnessesStep.svelte';
   import { STEP_WIDTH, WIDTH } from './layout';
+  import MeetStep from './MeetStep.svelte';
   import { onboarding } from './onboarding-state.svelte';
   import ProjectStep from './ProjectStep.svelte';
   import { setup } from './setup-state.svelte';
@@ -56,6 +57,8 @@
     switch (onboarding.step) {
       case 'welcome':
         return t('onboarding.action.getStarted');
+      case 'meet':
+        return t('onboarding.action.continue');
       case 'harnesses':
         return harness.installed.length === 0 ? t('onboarding.action.continueWithout') : t('onboarding.action.continue');
       case 'project':
@@ -132,6 +135,8 @@
             >
               {#if onboarding.step === 'welcome'}
                 <WelcomeStep />
+              {:else if onboarding.step === 'meet'}
+                <MeetStep />
               {:else if onboarding.step === 'harnesses'}
                 <HarnessesStep />
               {:else if onboarding.step === 'project'}
