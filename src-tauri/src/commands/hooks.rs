@@ -6,13 +6,19 @@
 //! Every write is the app window's: what it saves is approved at once. A project is the active or
 //! a recent one (`forbidden` otherwise); its hooks are stored under its project root.
 
+use std::future::Future;
+use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
-use harness_business::hooks::team::{TeamFolder, app_listing, app_listing_all, approve_team_hook, team_view};
+use harness_business::ecosystem::memory_team_docs::{TeamDocsConfig, project_key};
+use harness_business::hooks::team::{
+    ProjectKey, TeamFolder, app_listing, app_listing_all, approve_team_hook, team_view,
+};
 use harness_business::hooks::{apply_family, family_status, project_identity};
 use harness_business::model::{
     HookAuthor, HookDraft, HookFamilyEntry, HookListing, HookScope, HookSeed, HookView, HooksDeleted, HooksEvent,
 };
+use harness_business::signed_docs::DocKind;
 use harness_business::{BusinessError, Result};
 use tauri::State;
 use tauri::ipc::Channel;
@@ -151,6 +157,26 @@ pub(crate) async fn project_root(state: &AppState, project: String) -> CommandRe
         Ok(utf8(root.into_os_string().into_string())?)
     })
     .await
+}
+
+/// The project root of `project` (the active or a recent project) and the repository key Harness
+/// Memory gives that root now, asked of `server` (the sharing server of the team documents `K`).
+/// A folder a team document is turned on for or copied to is checked against the server, not an
+/// earlier answer. `None` without a project, and then `server` is never awaited.
+pub(crate) async fn root_and_key<K: DocKind>(
+    state: &AppState,
+    project: Option<String>,
+    server: impl Future<Output = Result<(PathBuf, TeamDocsConfig)>>,
+) -> CommandResult<Option<(String, ProjectKey)>> {
+    let Some(project) = project else {
+        return Ok(None);
+    };
+
+    let root = project_root(state, project).await?;
+    let (server, _) = server.await?;
+    let key = project_key::<K>(&state.env, &state.runner, &server, Path::new(&root)).await?;
+
+    Ok(Some((root, key)))
 }
 
 fn utf8(text: std::result::Result<String, std::ffi::OsString>) -> Result<String> {

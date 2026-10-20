@@ -4,8 +4,10 @@
 //! A key is asked of the installed server (`harness-memory hooks list --project <root>`, one row:
 //! it answers the identity of the root whether or not hooks are shared), at most [`KEYS_AT_ONCE`]
 //! at a time, and kept for the session in [`ProjectKeys`]; opening or forgetting a project drops
-//! its entry. A server that is missing, predates the command or fails leaves the key `None` and
-//! never fails the list. That answer is kept for [`RETRY_AFTER`] while the binary is unchanged.
+//! its entry. Lists run one at a time, so a list that starts while another asks reuses its answers
+//! instead of asking again. A server that is missing, predates the command or fails leaves the key
+//! `None` and never fails the list. That answer is kept for [`RETRY_AFTER`] while the binary is
+//! unchanged.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -31,6 +33,8 @@ pub const RETRY_AFTER: Duration = Duration::from_secs(5 * 60);
 #[derive(Debug, Default)]
 pub struct ProjectKeys {
     keys: Mutex<HashMap<String, Kept>>,
+    /// Held for a whole [`resolve_keys`], so concurrent lists never ask for the same root twice.
+    lookups: tokio::sync::Mutex<()>,
 }
 
 /// What [`ProjectKeys`] keeps of one path.
@@ -128,13 +132,16 @@ pub async fn with_keys(
 
 /// Fills in the key of each of `scopes` from `keys`, asking `ask` for the root of each one not
 /// kept ([`KEYS_AT_ONCE`] at a time) while a server is installed (`binary`), and keeping its
-/// answer. A scope without a root gets only a key already kept.
+/// answer. A scope without a root gets only a key already kept. One call at a time: a second one
+/// waits and finds the keys the first kept.
 async fn resolve_keys<'a>(
     keys: &ProjectKeys,
     mut scopes: Vec<ProjectScope>,
     binary: Option<&Binary>,
     ask: &(dyn Fn(String) -> BoxFuture<'a, Option<String>> + Sync),
 ) -> Vec<ProjectScope> {
+    let _lookup = keys.lookups.lock().await;
+
     let now = Instant::now();
     let mut unknown = Vec::new();
 

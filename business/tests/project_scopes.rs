@@ -8,10 +8,13 @@ mod memory_cli_support;
 mod team_support;
 
 use std::path::Path;
+use std::time::Duration;
 
+use harness_business::Result;
 use harness_business::env::Env;
 use harness_business::model::ProjectScope;
 use harness_business::prefs::PrefsStore;
+use harness_business::process::{BoxFuture, ExecOutput, ExecSpec, ProcessRunner};
 use harness_business::project::{ProjectKeys, Projects, with_keys};
 use memory_cli_support::installed;
 use pretty_assertions::assert_eq;
@@ -172,4 +175,40 @@ fn a_server_that_gives_no_key_leaves_it_null_without_failing_the_list() {
             .then(|| answers(json!({"project": {"key": "bad\nkey", "shareable": false}, "hooks": []})))
     });
     assert_eq!(keys(&world.scopes(&ProjectKeys::default(), &odd)), [("web", None)]);
+}
+
+/// A [`Cli`] whose answers take a while, so two lists overlap.
+struct Slow(Cli);
+
+impl ProcessRunner for Slow {
+    fn run<'a>(&'a self, spec: &'a ExecSpec) -> BoxFuture<'a, Result<ExecOutput>> {
+        Box::pin(async move {
+            tokio::time::sleep(Duration::from_millis(20)).await;
+            self.0.run(spec).await
+        })
+    }
+}
+
+#[test]
+fn lists_at_the_same_time_ask_for_each_key_once() {
+    let world = World::new(true);
+    world.open("web", true);
+    world.open("api", true);
+
+    let cli = Slow(keys_by_folder());
+    let kept = ProjectKeys::default();
+    let list = || with_keys(&world.env, &cli, &kept, world.projects().scopes());
+
+    let (first, second) = wait(async { tokio::join!(list(), list()) });
+
+    assert_eq!(
+        keys(&first),
+        [("api", Some("git:host/api")), ("web", Some("git:host/web"))]
+    );
+    assert_eq!(keys(&second), keys(&first));
+    assert_eq!(
+        cli.0.commands().len(),
+        2,
+        "the second list reuses the first one's answers"
+    );
 }

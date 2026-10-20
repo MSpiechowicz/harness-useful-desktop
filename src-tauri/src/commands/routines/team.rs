@@ -10,19 +10,17 @@
 //! routines are not shared. Turning a team routine off here or removing it stops its run, and a
 //! removed one's run records are deleted (see `RoutineRuntime::reconcile_team`).
 
-use std::path::Path;
-
 use harness_business::BusinessError;
-use harness_business::ecosystem::memory_team_docs::{delete_mine_team_docs, delete_team_doc, project_key, put_shared};
+use harness_business::ecosystem::memory_team_docs::{delete_mine_team_docs, delete_team_doc, put_shared};
 use harness_business::model::{RoutineFilter, RoutineListing, RoutineView, TeamRoutines, TeamRoutinesRemoved};
 use harness_business::routines::RoutineKind;
 use harness_business::routines::team::{
-    ProjectKey, TeamFolder, copy_team_routine, forget_team_routine, record_share, set_team_enabled, share_request,
-    team_view,
+    TeamFolder, copy_team_routine, forget_team_routine, record_share, set_team_enabled, share_request, team_view,
 };
 use tauri::State;
 
 use super::{finished, list, project_root};
+use crate::commands::hooks::root_and_key;
 use crate::error::CommandResult;
 use crate::state::AppState;
 
@@ -214,15 +212,8 @@ pub(crate) async fn copy(
 ) -> CommandResult<RoutineView> {
     let team = sharing(state)?;
 
-    let project = match project {
-        Some(project) => {
-            let root = project_root(state, project).await?;
-            let key = repo_key(state, &root).await?;
-
-            Some((root, key.key))
-        }
-        None => None,
-    };
+    let server = state.routines.team().sharing_server(&state.env);
+    let project = root_and_key::<RoutineKind>(state, project, server).await?;
 
     // A copy that may run on trust alone is what the team database holds, not what the file in
     // the team folder says.
@@ -247,7 +238,7 @@ pub(crate) async fn copy(
     let view = state
         .routines
         .write(move |store| {
-            let project = project.as_ref().map(|(root, key)| (root.as_str(), key.as_str()));
+            let project = project.as_ref().map(|(root, key)| (root.as_str(), key.key.as_str()));
 
             copy_team_routine(store, &TeamFolder::of(store), team.trust, &id, &sha256, project)
         })
@@ -266,16 +257,12 @@ pub(crate) async fn enable(
 ) -> CommandResult<RoutineView> {
     let team = sharing(state)?;
 
-    let folder = match project.filter(|_| enabled) {
-        Some(project) => {
-            let root = project_root(state, project).await?;
-            let key = repo_key(state, &root).await?;
-            state.routines.team().note_root(&state.env, &root);
+    let server = state.routines.team().sharing_server(&state.env);
+    let folder = root_and_key::<RoutineKind>(state, project.filter(|_| enabled), server).await?;
 
-            Some((root, key))
-        }
-        None => None,
-    };
+    if let Some((root, _)) = &folder {
+        state.routines.team().note_root(&state.env, root);
+    }
 
     let changed_id = id.clone();
 
@@ -309,12 +296,4 @@ fn sharing(state: &AppState) -> CommandResult<TeamRoutines> {
         .routines
         .team_settings()
         .ok_or_else(|| BusinessError::Unsupported("sharing routines with the team is off".to_owned()).into())
-}
-
-/// The repository key Harness Memory gives the project root `root` now (a folder a team routine
-/// is turned on for or copied to is checked against the server, not an earlier answer).
-async fn repo_key(state: &AppState, root: &str) -> CommandResult<ProjectKey> {
-    let (server, _) = state.routines.team().sharing_server(&state.env).await?;
-
-    Ok(project_key::<RoutineKind>(&state.env, &state.runner, &server, Path::new(root)).await?)
 }

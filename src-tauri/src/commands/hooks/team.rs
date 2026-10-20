@@ -7,19 +7,17 @@
 //! `harness-memory hooks put|delete`, which reach the team database; `unsupported` while hooks are
 //! not shared.
 
-use std::path::Path;
-
 use harness_business::BusinessError;
-use harness_business::ecosystem::memory_hooks::{delete_team_hook, project_key};
+use harness_business::ecosystem::memory_hooks::delete_team_hook;
 use harness_business::ecosystem::memory_team_docs::put_shared;
 use harness_business::hooks::HookKind;
 use harness_business::hooks::team::{
-    ProjectKey, TeamFolder, copy_team_hook, forget_team_hook, record_share, set_team_enabled, share_request, team_view,
+    TeamFolder, copy_team_hook, forget_team_hook, record_share, set_team_enabled, share_request, team_view,
 };
 use harness_business::model::{HookListing, HookView, TeamHooks};
 use tauri::State;
 
-use super::{listing, project_root};
+use super::{listing, project_root, root_and_key};
 use crate::error::CommandResult;
 use crate::state::AppState;
 
@@ -153,23 +151,14 @@ pub(crate) async fn copy(
 ) -> CommandResult<HookView> {
     let team = sharing(state)?;
 
-    let project = match project {
-        Some(project) => {
-            let root = project_root(state, project).await?;
-            let key = key_of(state, &root).await?;
-
-            Some((root, key.key))
-        }
-        None => None,
-    };
-
+    let project = root_and_key::<HookKind>(state, project, state.hooks.sharing_server()).await?;
     let capabilities = state.hooks.capabilities().await;
     let copied_id = id.clone();
 
     let view = state
         .hooks
         .write(move |store| {
-            let project = project.as_ref().map(|(root, key)| (root.as_str(), key.as_str()));
+            let project = project.as_ref().map(|(root, key)| (root.as_str(), key.key.as_str()));
 
             copy_team_hook(
                 store,
@@ -214,21 +203,4 @@ fn sharing(state: &AppState) -> CommandResult<TeamHooks> {
         .hooks
         .team_settings()
         .ok_or_else(|| BusinessError::Unsupported("sharing hooks with the team is off".to_owned()).into())
-}
-
-/// The repository key of the project root `root`: from the last refresh, else asked now.
-async fn key_of(state: &AppState, root: &str) -> CommandResult<ProjectKey> {
-    let saved_root = root.to_owned();
-    let saved = state
-        .hooks
-        .read(move |store| Ok(TeamFolder::of(store).projects().remove(&saved_root)))
-        .await?;
-
-    if let Some(key) = saved {
-        return Ok(key);
-    }
-
-    let (server, _) = state.hooks.sharing_server().await?;
-
-    Ok(project_key(&state.env, &state.runner, &server, Path::new(root)).await?)
 }
