@@ -17,7 +17,9 @@ use super::schema::{
 };
 use super::secrets::{args_exportable, exportable};
 use super::validate::{Check, compile, has_credentials, is_local_path, name, text};
-use crate::ecosystem::catalog::{DASHBOARD_BINARY, DASHBOARD_MCP_SERVER, MEMORY_BINARY, MEMORY_MCP_SERVER};
+use crate::ecosystem::catalog::{
+    DASHBOARD_BINARY, DASHBOARD_MCP_SERVER, MEMORY_BINARY, MEMORY_MCP_SERVER, SKILLS_MCP_SERVER,
+};
 use crate::model::SyncInvalidReason;
 
 /// Stdio MCP commands: a bare program name.
@@ -35,17 +37,25 @@ static ENV_REFERENCE: LazyLock<Regex> =
 /// Programs an MCP command may never be (compared without directory, case and `.exe`).
 const SHELLS: &[&str] = &["sh", "bash", "zsh", "dash", "fish", "cmd", "pwsh", "powershell"];
 
-/// An MCP server name (see [`name`]), except the dashboard's own entry ([`DASHBOARD_MCP_SERVER`])
-/// and the app's memory server ([`MEMORY_MCP_SERVER`]), in any case: Recommended setup and the app
-/// write those and recognise them by name.
+/// An MCP server name (see [`name`]), except a [reserved](is_reserved_server) one.
 pub fn mcp_name(value: &str) -> Check {
     name(value)?;
 
-    if value.eq_ignore_ascii_case(DASHBOARD_MCP_SERVER) || value.eq_ignore_ascii_case(MEMORY_MCP_SERVER) {
+    if is_reserved_server(value) {
         return Err(SyncInvalidReason::BadName);
     }
 
     Ok(())
+}
+
+/// True for the names of the servers Recommended setup and the app write themselves, in any case:
+/// the dashboard's own entry ([`DASHBOARD_MCP_SERVER`]), the app's memory server
+/// ([`MEMORY_MCP_SERVER`]) and the skills' OpenCode server ([`SKILLS_MCP_SERVER`]). Export skips
+/// them without a row and import refuses them.
+pub(super) fn is_reserved_server(name: &str) -> bool {
+    [DASHBOARD_MCP_SERVER, MEMORY_MCP_SERVER, SKILLS_MCP_SERVER]
+        .iter()
+        .any(|reserved| name.eq_ignore_ascii_case(reserved))
 }
 
 /// True when `command` is a shell interpreter (`sh`, `bash`, `zsh`, `dash`, `fish`, `cmd`, `pwsh`,

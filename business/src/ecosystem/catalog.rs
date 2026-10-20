@@ -35,6 +35,10 @@ pub const MEMORY_BINARY: &str = "harness-memory";
 /// The name the app gives the memory server in a harness's `mcpServers`.
 pub const MEMORY_MCP_SERVER: &str = "harness-memory";
 
+/// The name the skills' OpenCode installer gives their MCP server in OpenCode's `mcp` (a `local`
+/// server running the installed `mcp-server.js` by absolute path).
+pub const SKILLS_MCP_SERVER: &str = "useful_skills";
+
 /// The skills' OMP marketplace source (`omp plugin marketplace add …`).
 pub const SKILLS_MARKETPLACE: &str = "MSpiechowicz/harness-useful-skills";
 

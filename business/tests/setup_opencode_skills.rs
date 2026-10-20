@@ -319,6 +319,13 @@ async fn an_install_without_a_record_afterwards_is_not_ok() {
         spec.search_dirs.contains(&home.path().join(".local/bin")),
         "node is looked for in the usual install directories too"
     );
+    assert!(
+        spec.env
+            .iter()
+            .any(|(name, value)| name == "OPENCODE_DISABLE_AUTOUPDATE" && value == "1"),
+        "an opencode the installer runs never updates itself: {:?}",
+        spec.env
+    );
     assert!(!result.ok);
     assert_eq!(result.exit_code, Some(0));
     assert_eq!(result.version, None);

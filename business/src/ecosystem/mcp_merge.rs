@@ -177,6 +177,23 @@ pub(crate) fn existing_entry(path: &Path, shape: Shape, name: &str) -> Result<Op
     }
 }
 
+/// [`existing_entry`] for a file the app only reads, never writes: a symlink is followed (the
+/// [`SafeReader`] deny list still applies). A missing file has no entry. Anything else that keeps
+/// the file from being read or parsed (not a regular file, over 2 MiB, invalid UTF-8 or JSON) is
+/// an error, so callers can fail closed. The definition holds secrets, as for [`existing_server`].
+pub(crate) fn read_only_entry(path: &Path, shape: Shape, name: &str) -> Result<Option<Value>, McpRefusal> {
+    let text = match SafeReader::read_to_string(path, MAX_MCP_BYTES) {
+        Ok(text) => text,
+        Err(BusinessError::NotFound(_)) => return Ok(None),
+        Err(BusinessError::InvalidInput(_)) => return Err(McpRefusal::Unparsable),
+        Err(_) => return Err(McpRefusal::Unreadable),
+    };
+
+    let (document, _) = parse(&text, shape)?;
+
+    Ok(servers(&document, shape).and_then(|servers| servers.get(name)).cloned())
+}
+
 /// The servers object of `document`, when there is one.
 pub(crate) fn servers(document: &Map<String, Value>, shape: Shape) -> Option<&Map<String, Value>> {
     document.get(shape.root()).and_then(Value::as_object)

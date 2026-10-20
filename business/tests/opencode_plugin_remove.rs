@@ -222,6 +222,49 @@ fn a_plugin_defined_elsewhere_is_left_to_the_user() {
 }
 
 #[test]
+fn a_removal_names_the_other_file_that_still_lists_the_plugin() {
+    let home = Home::new();
+    let file = home.config("opencode.json");
+    let legacy = home.config("config.json");
+    let legacy_text = r#"{"plugin": ["demo@1.0.0"]}"#;
+    home.write(&legacy, legacy_text);
+    home.write(&file, r#"{"plugin": ["demo", "kept"]}"#);
+
+    let preview = home.remove("demo", None, true).expect("a preview");
+
+    assert!(preview.ok);
+    assert_eq!(
+        preview.summary.as_deref(),
+        Some(
+            "Would remove this plugin from \"plugin\" in ~/.config/opencode/opencode.json. Nothing was changed. \
+             It is still listed in ~/.config/opencode/config.json."
+        )
+    );
+
+    let removed = home.remove("demo", None, false).expect("removed");
+
+    assert!(removed.ok);
+    assert_eq!(removed.config_edit, edit(GLOBAL, false));
+    assert_eq!(
+        removed.summary.as_deref(),
+        Some(
+            "Removed this plugin from \"plugin\" in ~/.config/opencode/opencode.json. \
+             It is still listed in ~/.config/opencode/config.json."
+        )
+    );
+    assert_eq!(parsed(&file)["plugin"], json!(["kept"]));
+    assert_eq!(read(&legacy), legacy_text, "the other file is never edited");
+
+    let alone = Home::new();
+    alone.write(&alone.config("opencode.json"), r#"{"plugin": ["demo"]}"#);
+    let summary = alone.remove("demo", None, false).expect("removed").summary;
+    assert_eq!(
+        summary.as_deref(),
+        Some("Removed this plugin from \"plugin\" in ~/.config/opencode/opencode.json.")
+    );
+}
+
+#[test]
 fn files_the_app_cannot_rewrite_safely_are_refused() {
     let home = Home::new();
     let file = home.config("opencode.json");

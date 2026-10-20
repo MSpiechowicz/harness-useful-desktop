@@ -15,7 +15,8 @@
 //!   holding one), since `curl … | sh` exits with 0 when the download failed.
 //! - `PATH`: the Harness Skills' installer runs `node`, so the usual install directories
 //!   ([`extra_search_dirs`]) are appended to its `PATH`, the same places the setup step looks for
-//!   `node` after `PATH`.
+//!   `node` after `PATH`. It also gets OpenCode's spawn variables (`OPENCODE_DISABLE_AUTOUPDATE`),
+//!   so an `opencode` it runs does not update itself.
 
 use std::path::PathBuf;
 use std::time::Duration;
@@ -34,7 +35,8 @@ use super::memory_binary::{memory_version, resolve_memory};
 use super::skills_record::opencode_skills_installed;
 use crate::env::{Env, OsKind};
 use crate::error::Result;
-use crate::harness::clean;
+use crate::harness::{Harness, clean};
+use crate::harnesses::OpenCode;
 use crate::model::{DashboardInstallResult, InstallLogLine, InstallStream};
 use crate::process::{ChildHandle, ExecSpec, ExitInfo, ProcessRunner, ProcessSpawner, TokioRunner, extra_search_dirs};
 
@@ -155,6 +157,15 @@ impl Companion {
             Self::OpenCodeSkills => extra_search_dirs(env),
         }
     }
+
+    /// Variables set for its installer: the Harness Skills' installer may run `opencode`, which
+    /// gets OpenCode's own spawn variables so it never updates itself meanwhile.
+    fn installer_env(self) -> &'static [(&'static str, &'static str)] {
+        match self {
+            Self::Dashboard | Self::Memory => &[],
+            Self::OpenCodeSkills => OpenCode.spawn_env(),
+        }
+    }
 }
 
 /// A binary companion that was found, with the `version` its probe reported.
@@ -238,6 +249,7 @@ pub async fn run_installer_with(
         .args(installer.args.iter().cloned())
         .cwd(&env.home)
         .env("NO_COLOR", "1")
+        .envs(companion.installer_env().iter().copied())
         .search_dirs(companion.search_dirs(env));
 
     let process = spawner.spawn(&spec)?;

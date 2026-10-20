@@ -5,7 +5,9 @@
 //!   `opencode.jsonc` in the config directory). Only npm registry specs are shared, as the package
 //!   name and the version, x-range or tag the spec pins (the import installs exactly that). Local
 //!   files (`file://`, paths), git, `github:` and URL specs, and `[spec, options]` entries (options
-//!   may hold secrets and are not shared) are left out, named by their package or file name.
+//!   may hold secrets and are not shared) are left out, named by their package or file name. A
+//!   package listed in more than one file is shared as the last file lists it (OpenCode's later
+//!   file wins).
 //! - MCP servers: the `mcp` object of the file of [`mcp_target`] (`opencode.jsonc`, else
 //!   `opencode.json`; JSON with comments). A `local` server is shared as stdio (the first word of
 //!   its `command` array is the command, the rest its arguments), a `remote` one as http, with the
@@ -24,8 +26,8 @@ use super::collect::{
 use super::collect_mcp::{endpoint_problem, keys, list, preview, text};
 use super::schema::{McpServer, Plugin, Transport};
 use super::validate;
+use super::validate_mcp::is_reserved_server;
 use super::validate_source::{is_npm_registry_spec, split_npm_spec};
-use crate::ecosystem::catalog::{DASHBOARD_MCP_SERVER, MEMORY_MCP_SERVER};
 use crate::ecosystem::mcp_target;
 use crate::env::Env;
 use crate::harness::Harness;
@@ -55,17 +57,26 @@ pub(super) fn opencode_plugins(env: &Env, found: &mut Found) {
             }
         };
 
-        match plugin(&spec) {
-            Ok(plugin) => found.items.push(CollectedItem {
-                preview: SyncExportItem {
-                    id: item_id(harness, kind, &plugin.id),
-                    version: plugin.version.clone(),
-                    ..preview_row(kind, plugin.id.clone())
-                },
-                entry: Entry::Plugin(plugin),
-            }),
-            Err(reason) => found.exclude(harness, kind, plugin_label(&spec), reason),
-        }
+        let plugin = match plugin(&spec) {
+            Ok(plugin) => plugin,
+            Err(reason) => {
+                found.exclude(harness, kind, plugin_label(&spec), reason);
+                continue;
+            }
+        };
+
+        // A later file wins in OpenCode's merge, so its entry replaces an earlier one.
+        let id = item_id(harness, kind, &plugin.id);
+        found.items.retain(|item| item.preview.id != id);
+
+        found.items.push(CollectedItem {
+            preview: SyncExportItem {
+                id,
+                version: plugin.version.clone(),
+                ..preview_row(kind, plugin.id.clone())
+            },
+            entry: Entry::Plugin(plugin),
+        });
     }
 }
 
@@ -137,7 +148,7 @@ pub(super) fn opencode_servers(env: &Env, harness: &dyn Harness, found: &mut Fou
     };
 
     for (name, server) in servers {
-        if name.eq_ignore_ascii_case(DASHBOARD_MCP_SERVER) || name.eq_ignore_ascii_case(MEMORY_MCP_SERVER) {
+        if is_reserved_server(name) {
             continue;
         }
 

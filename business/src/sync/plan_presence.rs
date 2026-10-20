@@ -8,7 +8,7 @@
 //! local values that leave are display-safe versions and package sources that would pass import
 //! validation (in [`Presence::DifferentVersion`]).
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use serde_json::Value;
 
@@ -16,7 +16,7 @@ use super::collect::{UNKNOWN_LABEL, is_safe_text, package_identity};
 use super::schema::{Marketplace, McpServer, Package, Plugin, Transport};
 use super::validate;
 use crate::ecosystem::Shape;
-use crate::ecosystem::mcp_merge::existing_entry;
+use crate::ecosystem::mcp_merge::{existing_entry, read_only_entry};
 use crate::env::Env;
 use crate::harness::Harness;
 use crate::harnesses::omp::{PluginOrigin, marketplace_records, user_plugin_records};
@@ -177,16 +177,25 @@ pub(super) struct McpFiles {
 /// A server is present when a server of that name in the target file (or, failing that, in an
 /// `also_read` file) has the same transport, command, arguments and URL; env, headers and other
 /// fields do not count (the import writes none of them). Any other definition is a conflict. A
-/// refused target file is reported as such; refused `also_read` files are ignored. OpenCode files
-/// are read as JSONC, comments included.
+/// refused target file is reported as such. OpenCode files are read as JSONC, comments included.
+///
+/// `also_read` files (OMP's `.mcp.json`, OpenCode's other config layers) are never written, so a
+/// symlink there is followed. One that exists but cannot be read or parsed fails closed as a
+/// conflict: the harness may merge a server of that name from it (OpenCode deep-merges its
+/// layers), and a new entry could then inherit that server's headers or env.
 pub(super) fn mcp_presence(files: &McpFiles, shared: &McpServer) -> Result<Presence, McpRefusal> {
-    let existing = match existing_entry(&files.target, files.shape, &shared.name)? {
-        Some(existing) => Some(existing),
-        None => files
-            .also_read
-            .iter()
-            .find_map(|other| also_read(other, files.shape, &shared.name)),
-    };
+    let mut existing = existing_entry(&files.target, files.shape, &shared.name)?;
+
+    for other in &files.also_read {
+        if existing.is_some() {
+            break;
+        }
+
+        match read_only_entry(other, files.shape, &shared.name) {
+            Ok(found) => existing = found,
+            Err(_) => return Ok(Presence::Conflict),
+        }
+    }
 
     let same = match files.shape {
         Shape::McpServers => same_server,
@@ -198,10 +207,6 @@ pub(super) fn mcp_presence(files: &McpFiles, shared: &McpServer) -> Result<Prese
         Some(existing) if same(&existing, shared) => Presence::Present,
         Some(_) => Presence::Conflict,
     })
-}
-
-fn also_read(path: &Path, shape: Shape, name: &str) -> Option<Value> {
-    existing_entry(path, shape, name).ok().flatten()
 }
 
 /// True when the OpenCode entry `existing` defines the same endpoint as `shared`: a `local` server

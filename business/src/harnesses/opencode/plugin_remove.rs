@@ -12,6 +12,8 @@
 //!   comments a rewrite would lose, a `[spec, options]` entry for the plugin, or a plugin that only
 //!   another file defines (another settings file, the project's, or a plugin file).
 //! - Not listed anywhere: `ok`, nothing written, so removing twice is harmless.
+//! - Removed (or a dry run that would remove) while another file still defines the plugin: the
+//!   summary names that file, since OpenCode keeps loading the plugin from it.
 //! - A dry run reads the file and reports what the run would do. It never writes.
 
 use std::io;
@@ -52,9 +54,15 @@ enum Found {
 
 /// What the action did or would do.
 enum Outcome {
-    Removed,
+    /// Removed from the global file; `still_in` is another file OpenCode still loads it from.
+    Removed {
+        still_in: Option<PathBuf>,
+    },
     NotListed,
-    Manual { file: PathBuf, instruction: String },
+    Manual {
+        file: PathBuf,
+        instruction: String,
+    },
 }
 
 /// Removes the plugin `name` from the global config file, or previews that (see the module docs).
@@ -74,7 +82,9 @@ pub fn remove_plugin(env: &Env, name: &str, project: Option<&Path>, dry_run: boo
     };
 
     let outcome = match found.map_err(|reason| refused(&shown, reason))? {
-        Found::Entries => Outcome::Removed,
+        Found::Entries => Outcome::Removed {
+            still_in: other_source(env, project, &file, name),
+        },
         Found::Nothing => elsewhere(env, project, &file, name).unwrap_or(Outcome::NotListed),
         Found::WithOptions => Outcome::Manual {
             instruction: format!("{shown} sets options for this plugin. Remove its entry from \"plugin\" yourself."),
@@ -166,19 +176,28 @@ fn decide(target: &Target, file: &Path, name: &str) -> Change<Found> {
     Change::Write(document, Found::Entries)
 }
 
+/// The first file other than `global` that defines `name` (a settings file or a plugin file).
+fn other_source(env: &Env, project: Option<&Path>, global: &Path, name: &str) -> Option<PathBuf> {
+    plugin_sources(&merge_steps(env, project))
+        .into_iter()
+        .find(|(id, path)| id == name && path != global)
+        .map(|(_, path)| path)
+}
+
+/// True for an OpenCode settings file (`*.json`, `*.jsonc`), false for a plugin file.
+fn is_settings_file(path: &Path) -> bool {
+    path.extension()
+        .is_some_and(|extension| extension == "json" || extension == "jsonc")
+}
+
 /// The other file that defines `name`, as an edit the user makes: OpenCode loads it from there.
 fn elsewhere(env: &Env, project: Option<&Path>, global: &Path, name: &str) -> Option<Outcome> {
-    let (_, path) = plugin_sources(&merge_steps(env, project))
-        .into_iter()
-        .find(|(id, path)| id == name && path != global)?;
+    let path = other_source(env, project, global, name)?;
 
     let shown = tilde(env, &path);
     let global = tilde(env, global);
 
-    let is_settings_file = path
-        .extension()
-        .is_some_and(|extension| extension == "json" || extension == "jsonc");
-    let instruction = if is_settings_file {
+    let instruction = if is_settings_file(&path) {
         format!("OpenCode loads this plugin from {shown}. The app only edits {global}, so remove it there yourself.")
     } else {
         format!("This plugin is the file {shown}. Delete that file to remove it.")
@@ -192,18 +211,20 @@ fn elsewhere(env: &Env, project: Option<&Path>, global: &Path, name: &str) -> Op
 
 fn result(env: &Env, outcome: Outcome, shown: &str, dry_run: bool) -> CliResult {
     let (ok, summary, file, manual_edit) = match outcome {
-        Outcome::Removed if dry_run => (
-            true,
-            format!("Would remove this plugin from \"plugin\" in {shown}. Nothing was changed."),
-            shown.to_owned(),
-            false,
-        ),
-        Outcome::Removed => (
-            true,
-            format!("Removed this plugin from \"plugin\" in {shown}."),
-            shown.to_owned(),
-            false,
-        ),
+        Outcome::Removed { still_in } => {
+            let done = if dry_run {
+                format!("Would remove this plugin from \"plugin\" in {shown}. Nothing was changed.")
+            } else {
+                format!("Removed this plugin from \"plugin\" in {shown}.")
+            };
+
+            (
+                true,
+                still_loaded(env, done, still_in.as_deref()),
+                shown.to_owned(),
+                false,
+            )
+        }
         Outcome::NotListed => (
             true,
             format!("This plugin is not listed in {shown}. Nothing to change."),
@@ -224,6 +245,21 @@ fn result(env: &Env, outcome: Outcome, shown: &str, dry_run: bool) -> CliResult 
         argv: Vec::new(),
         command: Vec::new(),
         config_edit: Some(ConfigEdit { file, manual_edit }),
+    }
+}
+
+/// `summary`, followed by where OpenCode still loads the plugin from, if anywhere.
+fn still_loaded(env: &Env, summary: String, still_in: Option<&Path>) -> String {
+    let Some(path) = still_in else {
+        return summary;
+    };
+
+    let other = tilde(env, path);
+
+    if is_settings_file(path) {
+        format!("{summary} It is still listed in {other}.")
+    } else {
+        format!("{summary} The plugin file {other} still loads it.")
     }
 }
 

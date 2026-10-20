@@ -273,3 +273,24 @@ fn an_unparsable_config_is_reported_by_its_path() {
         }]
     );
 }
+
+#[test]
+fn a_plugin_listed_in_several_global_files_is_shared_as_the_last_file_lists_it() {
+    let home = Home::empty();
+    home.write(
+        ".config/opencode/config.json",
+        &serde_json::json!({ "plugin": ["foo@1.0.0", "bar@0.1.0"] }),
+    );
+    home.write(CONFIG_JSON, &serde_json::json!({ "plugin": ["foo@1.5.0"] }));
+    home.write_text(CONFIG_JSONC, "{\n  // newest\n  \"plugin\": [\"foo@2.0.0\"],\n}\n");
+
+    let collection = home.collect(OPENCODE);
+    let preview = export_preview(&collection);
+
+    assert_eq!(ids(&preview), ["opencode:plugin:bar", "opencode:plugin:foo"]);
+    assert_eq!(preview.sections[0].items[1].version.as_deref(), Some("2.0.0"));
+    assert_eq!(
+        bundle_of_everything(&collection).harnesses[&HarnessId::OpenCode].plugins,
+        [plugin("bar", Some("0.1.0")), plugin("foo", Some("2.0.0"))]
+    );
+}

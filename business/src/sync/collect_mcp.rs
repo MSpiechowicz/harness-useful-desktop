@@ -5,9 +5,9 @@
 //! URL (http/sse), and the key names of `env` and `headers`. Their values, `auth`/`oauth`, `cwd` and
 //! any other field stay here (noted on the item). A server whose command, arguments or URL holds a
 //! secret, credentials, a local path or an env reference the import would refuse is left out whole.
-//! The dashboard's own entry ([`DASHBOARD_MCP_SERVER`]) and the app's memory server
-//! ([`MEMORY_MCP_SERVER`]) are skipped without a row: Recommended setup and the app install them,
-//! and the import refuses those names.
+//! The servers Recommended setup and the app install themselves ([`is_reserved_server`]: the
+//! dashboard's, the memory server and the skills' server) are skipped without a row, and the import
+//! refuses those names.
 
 use serde_json::{Map, Value};
 
@@ -15,7 +15,7 @@ use super::collect::{CollectedItem, Entry, Found, excluded_reason, item_id, prev
 use super::schema::{McpServer, Transport};
 use super::secrets::{args_exportable, exportable};
 use super::validate;
-use crate::ecosystem::catalog::{DASHBOARD_MCP_SERVER, MEMORY_MCP_SERVER};
+use super::validate_mcp::is_reserved_server;
 use crate::ecosystem::mcp_target_paths;
 use crate::env::Env;
 use crate::harness::Harness;
@@ -53,7 +53,7 @@ pub(super) fn mcp_servers(env: &Env, harness: &dyn Harness, found: &mut Found) {
     };
 
     for (name, server) in servers {
-        if name.eq_ignore_ascii_case(DASHBOARD_MCP_SERVER) || name.eq_ignore_ascii_case(MEMORY_MCP_SERVER) {
+        if is_reserved_server(name) {
             continue;
         }
 
