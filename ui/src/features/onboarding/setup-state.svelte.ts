@@ -13,6 +13,7 @@ import { agentSessions } from '$lib/stores/agentSession.svelte';
 import { harness } from '$lib/stores/harness.svelte';
 import { CompanionInstaller } from './companion-installer.svelte';
 import { onboarding } from './onboarding-state.svelte';
+import { runSetup } from './setup-run';
 import { commandOf, companionEffects, MCP_COMPANION, refusalText, type Companion, type Installer, type ItemPhase, type McpKind, type Plan, type PlannedFile, type SetupKey } from './setup-model';
 
 export type SetupLoad = 'idle' | 'loading' | 'ready' | 'error';
@@ -333,30 +334,13 @@ export class SetupController {
     this.failures = {};
 
     try {
-      // Everything that does not depend on something else runs at once. The two installers stay one after the other:
-      // on Windows both edit the user's PATH, and two writers at a time could lose one of the entries. The skills need
-      // neither installer, so they start right away. A harness's MCP entry waits only for its own server's installer,
-      // and its two entries go into the same file, so the memory server's waits for the dashboard's.
-      const dashboard = this.picked.has('dashboard') ? this.installCompanion('dashboard') : Promise.resolve(true);
-      const memory = dashboard.then(() => (this.picked.has('memory') ? this.installCompanion('memory') : true));
-
-      await Promise.all([
-        dashboard,
-        memory,
-        ...data.harnesses.filter((entry) => this.picked.has(`skills:${entry.harness}`)).map((entry) => this.installSkills(entry)),
-        ...data.harnesses.map(async (entry) => {
-          if (this.picked.has(`mcp:${entry.harness}`)) {
-            await this.registerMcp('mcp', entry.harness, await dashboard);
-          }
-          if (this.picked.has(`memoryMcp:${entry.harness}`)) {
-            await this.registerMcp('memoryMcp', entry.harness, await memory);
-          }
-          // The three entries go into the same file one after the other. The app's own needs no installer.
-          if (this.picked.has(`desktopMcp:${entry.harness}`)) {
-            await this.registerMcp('desktopMcp', entry.harness, true);
-          }
-        }),
-      ]);
+      await runSetup({
+        harnesses: data.harnesses,
+        picked: this.picked,
+        installCompanion: (companion) => this.installCompanion(companion),
+        installSkills: (entry) => this.installSkills(entry),
+        registerMcp: (kind, harness, companionOk) => this.registerMcp(kind, harness, companionOk),
+      });
     } finally {
       const memoryRegistered = [...this.picked].some((key) => key.startsWith('memoryMcp:') && this.phase(key) === 'done');
       this.picked = new Set();
