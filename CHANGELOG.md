@@ -1,3 +1,22 @@
+# [0.31.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.30.0...v0.31.0) (2026-10-20)
+
+
+### Bug Fixes
+
+* **chat:** drop the purple line from thinking text and balance row padding ([2ff992e](https://github.com/MSpiechowicz/harness-useful-desktop/commit/2ff992edd8fe1647119aa90fc6afd5610b9ce4eb)), closes [#31](https://github.com/MSpiechowicz/harness-useful-desktop/issues/31)
+* **chat:** list running subagents on a running wait card and hide empty args ([#33](https://github.com/MSpiechowicz/harness-useful-desktop/issues/33)) ([9ce84ab](https://github.com/MSpiechowicz/harness-useful-desktop/commit/9ce84ab3cb847cdd6697d47746fbf3a70ebb6fe1))
+* **chat:** name the chat again after /new starts a new session ([#35](https://github.com/MSpiechowicz/harness-useful-desktop/issues/35)) ([93e66c5](https://github.com/MSpiechowicz/harness-useful-desktop/commit/93e66c5746eab3e39c9443c832ce5e0694307336))
+* **chat:** unwrap system notices whose tag has attributes ([b7102d8](https://github.com/MSpiechowicz/harness-useful-desktop/commit/b7102d8cb1ee2ee3b6cf874f9c79936fa90a2321))
+* **chat:** use the chat corner and card border on the queued messages list ([a9726d9](https://github.com/MSpiechowicz/harness-useful-desktop/commit/a9726d9e7941b3c1b6f16945a5de52ad21f5ac80)), closes [#34](https://github.com/MSpiechowicz/harness-useful-desktop/issues/34)
+* **ui:** keep the spinner ring still and turn only its arc so the running pill no longer wobbles sideways ([#36](https://github.com/MSpiechowicz/harness-useful-desktop/issues/36)) ([70b2e4b](https://github.com/MSpiechowicz/harness-useful-desktop/commit/70b2e4b139633872b0709b7dcee033d0d6d0fc78))
+* **updates:** keep the update bar full while installing instead of dropping to a sweep mid-fill ([#28](https://github.com/MSpiechowicz/harness-useful-desktop/issues/28)) ([f2a389d](https://github.com/MSpiechowicz/harness-useful-desktop/commit/f2a389d695ac57a965f99d765c24d8dfa285bf99))
+
+
+### Features
+
+* **chat:** pin running subagents above the composer ([7f64a15](https://github.com/MSpiechowicz/harness-useful-desktop/commit/7f64a1568022dabe8b96a29b690396dc855ea99d))
+* **chat:** readable tool names in tool cards and approvals ([0fb776d](https://github.com/MSpiechowicz/harness-useful-desktop/commit/0fb776d3b70b2d55693311589b7c3a2895acdfe7))
+
 # [0.30.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.29.0...v0.30.0) (2026-10-20)
 
 
