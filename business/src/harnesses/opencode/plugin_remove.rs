@@ -4,7 +4,8 @@
 //! else `opencode.json`). It never edits another file.
 //!
 //! - `name` is the plugin's id as the extensions view lists it: the package name of an npm spec
-//!   (`demo`, `demo@1.2` and `demo@latest` all match `demo`), the file path of a local one.
+//!   (`demo`, `demo@1.2` and `demo@latest` all match `demo`), the file path of a local one (in any
+//!   form of that path: `/` or `\` separators, a `\\?\` prefix or a lower-case drive letter).
 //! - Every string entry with that id goes; other keys and entries stay, in order. The write follows
 //!   [`change_file`]: atomic, permissions kept, and a symlink, anything but a regular file, a file
 //!   over 2 MiB or one that is not valid JSONC is refused (an error, nothing written).
@@ -23,7 +24,7 @@ use serde_json::{Map, Value};
 
 use super::OpenCode;
 use super::config::merge_steps;
-use super::extensions::{plugin_entry_id, plugin_sources};
+use super::extensions::{plugin_entry_id, plugin_sources, same_plugin_id};
 use crate::ecosystem::mcp_merge::{Blocked, Change, Shape, Target, change_file, load};
 use crate::ecosystem::setup::mcp_target;
 use crate::env::Env;
@@ -150,7 +151,7 @@ fn decide(target: &Target, file: &Path, name: &str) -> Change<Found> {
         Some(_) => return Change::Keep(Found::NotAList),
     };
 
-    let matches = |spec: Option<&str>| spec.is_some_and(|spec| plugin_entry_id(spec, file) == name);
+    let matches = |spec: Option<&str>| spec.is_some_and(|spec| same_plugin_id(&plugin_entry_id(spec, file), name));
 
     let with_options = entries.iter().any(|entry| {
         entry
@@ -180,7 +181,7 @@ fn decide(target: &Target, file: &Path, name: &str) -> Change<Found> {
 fn other_source(env: &Env, project: Option<&Path>, global: &Path, name: &str) -> Option<PathBuf> {
     plugin_sources(&merge_steps(env, project))
         .into_iter()
-        .find(|(id, path)| id == name && path != global)
+        .find(|(id, path)| same_plugin_id(id, name) && path != global)
         .map(|(_, path)| path)
 }
 
