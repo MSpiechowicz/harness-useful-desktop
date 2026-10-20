@@ -281,7 +281,10 @@ mod hooks_store_folder {
         assert!(folder.store.list(MEMORY).hooks.is_empty());
 
         let created = seed_defaults(&folder.store, MEMORY, at(0)).unwrap();
-        assert_eq!(created, vec![HookSeed::MemorySearch, HookSeed::MemorySave, HookSeed::UsefulSkills]);
+        assert_eq!(
+            created,
+            vec![HookSeed::MemorySearch, HookSeed::MemorySave, HookSeed::UsefulSkills]
+        );
 
         let listed = folder.store.list(MEMORY);
         assert_eq!(listed.hooks.len(), 3);
