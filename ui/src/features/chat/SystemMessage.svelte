@@ -38,7 +38,8 @@
   const notice = $derived(item.role === 'bash' ? { title: null, body: raw, details: null } : unwrapNotice(raw));
 </script>
 
-<article class="chat-radius border border-line bg-surface-1/50 px-3.5 py-2.5 text-sm text-fg-2">
+<!-- With a details box the card's bottom gap matches its side gap: the box has no line-height slack below it like text has. -->
+<article class={['chat-radius border border-line bg-surface-1/50 px-3.5 pt-2.5 text-sm text-fg-2', notice.details ? 'pb-3.5' : 'pb-2.5']}>
   <p class="mb-1 text-xs font-medium tracking-wide text-fg-3 uppercase">{notice.title ?? label(item.role)}</p>
   {#if item.role === 'bash'}
     <p class="break-words whitespace-pre-wrap">{notice.body}</p>
