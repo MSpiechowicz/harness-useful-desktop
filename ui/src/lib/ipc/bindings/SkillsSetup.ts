@@ -20,7 +20,15 @@ command: string,
 /**
  * A remark shown next to it.
  */
-note: string, } | { "type": "unavailable", 
+note: string, } | { "type": "script", 
+/**
+ * The installer as a copyable command for this OS.
+ */
+command: string, 
+/**
+ * What the installer changes on this machine, one line each.
+ */
+sideEffects: Array<string>, } | { "type": "unavailable", 
 /**
  * Why, for display.
  */

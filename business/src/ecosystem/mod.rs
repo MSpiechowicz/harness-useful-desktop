@@ -1,11 +1,13 @@
 //! The Harness Useful ecosystem: the companion tools on the Ecosystem tab and the dashboard data
 //! shown in the app.
 //!
-//! - [`catalog`]: names, links and copyable install steps (not run, except the dashboard's and
-//!   the memory server's installers).
+//! - [`catalog`]: names, links and copyable install steps (not run, except the dashboard's, the
+//!   memory server's and the Harness Skills' OpenCode installers).
 //! - [`detect`]: which tools are installed (`ecosystem_status`).
 //! - [`setup`]: what the "Recommended setup" step offers (`setup_status`).
-//! - [`installer`]: runs the dashboard's or the memory server's installer, once the user confirms.
+//! - [`installer`]: runs the dashboard's, the memory server's or the Harness Skills' OpenCode
+//!   installer, once the user confirms, and [`skills_record`]: the install record that tells
+//!   whether the Harness Skills for OpenCode are installed.
 //! - [`mcp_merge`]: adds server entries to a harness's user MCP file without overwriting any.
 //! - [`mcp_register`]: the dashboard's MCP server in a harness's user MCP file, and the state of
 //!   the memory server's.
@@ -83,6 +85,7 @@ pub mod memory_team_docs;
 pub mod memory_trust;
 pub mod releases;
 pub mod setup;
+pub mod skills_record;
 
 pub use catalog::{ECOSYSTEM, catalog_item, supported_on};
 pub use dashboard::{Dashboard, DashboardOptions, resolve_dashboard};
@@ -91,7 +94,7 @@ pub use desktop_register::{
     DESKTOP_MCP_SERVER, DesktopRegistration, app_command, current_app_command, desktop_mcp_state, register_desktop_mcp,
 };
 pub use detect::ecosystem_status;
-pub use installer::{Companion, InstallerSpec, installer, run_installer, run_installer_with};
+pub use installer::{Companion, Installed, InstallerSpec, installer, run_installer, run_installer_with};
 pub use mcp_client::{McpClient, McpOptions, McpTool, ToolOutput};
 pub use mcp_merge::{Blocked, MergeOutcome, MergeResult, MergedServer, Shape, existing_server, merge_servers};
 pub use mcp_pool::{McpPool, PoolOptions};
@@ -128,3 +131,4 @@ pub use memory_team_docs::{MemoryTeamDocs, TeamDocsConfig, TeamDocsSupport};
 pub use memory_trust::{script_sha256, trust_scripts};
 pub use releases::{CompanionReleases, release_endpoint};
 pub use setup::{McpFile, mcp_target, mcp_target_paths, memory_server_setup, setup_status};
+pub use skills_record::{opencode_skills_record, opencode_skills_version};

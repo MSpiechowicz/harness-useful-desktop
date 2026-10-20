@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-setup-install-opencode-skills"
+description = "Enables the setup_install_opencode_skills command without any pre-configured scope."
+commands.allow = ["setup_install_opencode_skills"]
+
+[[permission]]
+identifier = "deny-setup-install-opencode-skills"
+description = "Denies the setup_install_opencode_skills command without any pre-configured scope."
+commands.deny = ["setup_install_opencode_skills"]

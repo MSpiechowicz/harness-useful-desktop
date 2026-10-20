@@ -1,7 +1,8 @@
 //! The "Recommended setup" onboarding step: what is set up (`setup_status`), the official
-//! installers of the dashboard (`setup_install_dashboard`) and of the memory server
-//! (`setup_install_memory`), and the dashboard's and the memory server's MCP servers in a harness's
-//! user MCP file (`setup_register_mcp`, `setup_register_memory`).
+//! installers of the dashboard (`setup_install_dashboard`), of the memory server
+//! (`setup_install_memory`) and of the Harness Skills for OpenCode
+//! (`setup_install_opencode_skills`), and the dashboard's and the memory server's MCP servers in a
+//! harness's user MCP file (`setup_register_mcp`, `setup_register_memory`).
 //!
 //! The webview sends no command line and no path: the installer is fixed per OS and the MCP file
 //! follows from the harness id (its user agent directory, the active OMP profile's when one is
@@ -24,7 +25,7 @@ use crate::hooks::after_member_install;
 use crate::memory_setup::{after_install, register_in};
 use crate::state::AppState;
 
-/// The dashboard and memory binaries, and per harness its skills and the dashboard's MCP entry. Read-only;
+/// The dashboard and memory binaries, and per harness its skills and its MCP entries. Read-only;
 /// detects the harnesses first when they have not been yet.
 #[tauri::command]
 pub async fn setup_status(state: State<'_, AppState>) -> CommandResult<RecommendedSetup> {
@@ -67,6 +68,18 @@ pub async fn setup_install_memory(
     Ok(result)
 }
 
+/// Runs the Harness Skills' OpenCode installer like [`setup_install_dashboard`] (its own lock: one
+/// skills install at a time). `ok` once their install record holds a version; OpenCode and its
+/// running chats load them after a restart.
+#[tauri::command]
+pub async fn setup_install_opencode_skills(
+    state: State<'_, AppState>,
+    confirmed: bool,
+    on_log: Channel<InstallLogLine>,
+) -> CommandResult<DashboardInstallResult> {
+    install(&state, &TokioSpawner, Companion::OpenCodeSkills, confirmed, &on_log).await
+}
+
 async fn install(
     state: &AppState,
     spawner: &dyn ProcessSpawner,
@@ -81,9 +94,10 @@ async fn install(
     let lock = match companion {
         Companion::Dashboard => &state.dashboard_install,
         Companion::Memory => &state.memory_install,
+        Companion::OpenCodeSkills => &state.opencode_skills_install,
     };
     let Ok(_installing) = lock.try_lock() else {
-        return Err(BusinessError::InvalidInput(format!("{} is already being installed", companion.binary())).into());
+        return Err(BusinessError::InvalidInput(format!("{} is already being installed", companion.name())).into());
     };
 
     tracing::info!(?companion, "installer started");

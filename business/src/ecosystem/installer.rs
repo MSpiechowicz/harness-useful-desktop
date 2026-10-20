@@ -1,7 +1,7 @@
-//! Runs the official installer of a [`Companion`] (Harness Dashboard, Harness Memory) for the
-//! "Recommended setup" step and the "Project memory" install, the only place the app runs an
-//! install command (and the only place allowed to name a shell, enforced by the `installer-shell`
-//! guard rule).
+//! Runs the official installer of a [`Companion`] (Harness Dashboard, Harness Memory, the Harness
+//! Skills for OpenCode) for the "Recommended setup" step and the "Project memory" install, the only
+//! place the app runs an install command (and the only place allowed to name a shell, enforced by
+//! the `installer-shell` guard rule).
 //!
 //! - Command: fixed per companion and OS ([`installer`]); nothing from the webview reaches it.
 //! - Process: its own process group, stdin closed at once, killed with its group on drop or after
@@ -10,8 +10,12 @@
 //! - Output: streamed line by line to a sink with terminal escapes stripped and secrets redacted;
 //!   a line keeps at most [`MAX_LOG_LINE_BYTES`], the whole log at most [`MAX_LOG_LINES`] lines
 //!   and [`MAX_LOG_BYTES`] (each line counting its terminator).
-//! - Success: exit code 0 **and** the companion's binary resolving with a version afterwards,
-//!   since `curl … | sh` exits with 0 when the download failed.
+//! - Success: exit code 0 **and** the companion found with a version afterwards
+//!   ([`Companion::installed`]: its binary reporting one, or the Harness Skills' install record
+//!   holding one), since `curl … | sh` exits with 0 when the download failed.
+//! - `PATH`: the Harness Skills' installer runs `node`, so the usual install directories
+//!   ([`extra_search_dirs`]) are appended to its `PATH`, the same places the setup step looks for
+//!   `node` after `PATH`.
 
 use std::path::PathBuf;
 use std::time::Duration;
@@ -21,16 +25,18 @@ use tokio::time::{Instant, sleep_until, timeout};
 
 use super::catalog::{
     DASHBOARD_BINARY, DASHBOARD_INSTALL_PS1, DASHBOARD_INSTALL_PS1_SCRIPT, DASHBOARD_INSTALL_SH, MEMORY_BINARY,
-    MEMORY_INSTALL_PS1, MEMORY_INSTALL_PS1_SCRIPT, MEMORY_INSTALL_SH,
+    MEMORY_INSTALL_PS1, MEMORY_INSTALL_PS1_SCRIPT, MEMORY_INSTALL_SH, SKILLS_INSTALL_PS1, SKILLS_INSTALL_PS1_SCRIPT,
+    SKILLS_INSTALL_SH,
 };
 use super::dashboard::resolve_dashboard;
 use super::detect::dashboard_version;
 use super::memory_binary::{memory_version, resolve_memory};
+use super::skills_record::opencode_skills_installed;
 use crate::env::{Env, OsKind};
 use crate::error::Result;
 use crate::harness::clean;
 use crate::model::{DashboardInstallResult, InstallLogLine, InstallStream};
-use crate::process::{ChildHandle, ExecSpec, ExitInfo, ProcessRunner, ProcessSpawner, ResolvedBinary, TokioRunner};
+use crate::process::{ChildHandle, ExecSpec, ExitInfo, ProcessRunner, ProcessSpawner, TokioRunner, extra_search_dirs};
 
 /// Time limit of one installer run.
 pub const INSTALL_TIMEOUT: Duration = Duration::from_secs(10 * 60);
@@ -65,38 +71,66 @@ pub enum Companion {
     Dashboard,
     /// Harness Memory (`harness-memory`).
     Memory,
+    /// Harness Skills for OpenCode: files in OpenCode's config directory, no binary (see
+    /// [`super::skills_record`]).
+    OpenCodeSkills,
+}
+
+/// A companion as found on this machine.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Installed {
+    /// Nothing of it was found.
+    Missing,
+    /// Found, but without a version: its executable did not report one, or the Harness Skills'
+    /// install record holds none.
+    NoVersion,
+    /// Found, with this version.
+    Version(String),
+}
+
+impl Installed {
+    /// The version, when found with one.
+    pub fn version(&self) -> Option<&str> {
+        match self {
+            Self::Version(version) => Some(version),
+            Self::Missing | Self::NoVersion => None,
+        }
+    }
 }
 
 impl Companion {
-    /// Its executable's name.
-    pub const fn binary(self) -> &'static str {
+    /// Its name in messages: the executable's for a binary.
+    pub const fn name(self) -> &'static str {
         match self {
             Self::Dashboard => DASHBOARD_BINARY,
             Self::Memory => MEMORY_BINARY,
+            Self::OpenCodeSkills => "Harness Skills for OpenCode",
         }
     }
 
-    /// Its executable, where its installer puts it or anywhere on `PATH`.
-    pub fn resolve(self, env: &Env) -> Option<ResolvedBinary> {
+    /// Whether and which version of it is installed: a binary's executable (where its installer puts
+    /// it or anywhere on `PATH`) and the version it reports within the version probe's time limit;
+    /// the Harness Skills' install record and the version it holds.
+    pub async fn installed(self, env: &Env, runner: &dyn ProcessRunner) -> Installed {
         match self {
-            Self::Dashboard => resolve_dashboard(env),
-            Self::Memory => resolve_memory(env),
+            Self::Dashboard => match resolve_dashboard(env) {
+                Some(binary) => probed(dashboard_version(env, runner, &binary).await),
+                None => Installed::Missing,
+            },
+            Self::Memory => match resolve_memory(env) {
+                Some(binary) => probed(memory_version(env, runner, &binary).await),
+                None => Installed::Missing,
+            },
+            Self::OpenCodeSkills => opencode_skills_installed(env),
         }
     }
 
-    /// The version `binary` reports, within the version probe's time limit.
-    pub async fn version(self, env: &Env, runner: &dyn ProcessRunner, binary: &ResolvedBinary) -> Option<String> {
+    /// Where the version comes from, for the summary.
+    const fn version_source(self) -> &'static str {
         match self {
-            Self::Dashboard => dashboard_version(env, runner, binary).await,
-            Self::Memory => memory_version(env, runner, binary).await,
-        }
-    }
-
-    /// The command line of the version probe, for the summary.
-    const fn version_command(self) -> &'static str {
-        match self {
-            Self::Dashboard => "harness-dashboard version",
-            Self::Memory => "harness-memory --version",
+            Self::Dashboard => "`harness-dashboard version`",
+            Self::Memory => "`harness-memory --version`",
+            Self::OpenCodeSkills => "the Harness Skills install record",
         }
     }
 
@@ -109,7 +143,25 @@ impl Companion {
                 DASHBOARD_INSTALL_PS1,
             ),
             Self::Memory => (MEMORY_INSTALL_SH, MEMORY_INSTALL_PS1_SCRIPT, MEMORY_INSTALL_PS1),
+            Self::OpenCodeSkills => (SKILLS_INSTALL_SH, SKILLS_INSTALL_PS1_SCRIPT, SKILLS_INSTALL_PS1),
         }
+    }
+
+    /// Directories appended to its installer's `PATH`: the usual install directories for the
+    /// Harness Skills, whose installer runs `node`.
+    fn search_dirs(self, env: &Env) -> Vec<PathBuf> {
+        match self {
+            Self::Dashboard | Self::Memory => Vec::new(),
+            Self::OpenCodeSkills => extra_search_dirs(env),
+        }
+    }
+}
+
+/// A binary companion that was found, with the `version` its probe reported.
+fn probed(version: Option<String>) -> Installed {
+    match version {
+        Some(version) => Installed::Version(version),
+        None => Installed::NoVersion,
     }
 }
 
@@ -185,7 +237,8 @@ pub async fn run_installer_with(
     let spec = ExecSpec::new(&installer.program)
         .args(installer.args.iter().cloned())
         .cwd(&env.home)
-        .env("NO_COLOR", "1");
+        .env("NO_COLOR", "1")
+        .search_dirs(companion.search_dirs(env));
 
     let process = spawner.spawn(&spec)?;
     // Closed at once: an installer that asks a question reads end of input instead of hanging.
@@ -194,20 +247,23 @@ pub async fn run_installer_with(
     let mut log = Log::new(sink);
     let run = drive(process.stdout, process.stderr, process.child, time_limit, &mut log).await;
 
-    let binary = companion.resolve(env);
-    let version = match &binary {
-        Some(binary) if !run.timed_out => companion.version(env, runner, binary).await,
-        _ => None,
+    // A stopped installer fails whatever it left behind, so nothing is probed then.
+    let found = if run.timed_out {
+        Installed::Missing
+    } else {
+        companion.installed(env, runner).await
     };
     let exit_code = run.exit.and_then(|exit| exit.code);
-    let ok = exit_code == Some(0) && !run.timed_out && version.is_some();
+    let ok = exit_code == Some(0) && !run.timed_out && found.version().is_some();
 
-    let found = Found {
+    let summary = summary(
+        &run,
+        time_limit,
+        exit_code,
         companion,
-        binary: binary.is_some(),
-        version: version.as_deref(),
-    };
-    let summary = summary(&run, time_limit, exit_code, &found, log.last_stderr.as_deref());
+        &found,
+        log.last_stderr.as_deref(),
+    );
 
     Ok(DashboardInstallResult {
         ok,
@@ -215,7 +271,7 @@ pub async fn run_installer_with(
         exit_code,
         timed_out: run.timed_out,
         truncated: log.truncated,
-        version,
+        version: found.version().map(str::to_owned),
         command: installer.command.to_owned(),
     })
 }
@@ -281,19 +337,13 @@ async fn drive<F: FnMut(InstallLogLine)>(
     }
 }
 
-/// What the companion's detection found after the run.
-struct Found<'a> {
-    companion: Companion,
-    binary: bool,
-    version: Option<&'a str>,
-}
-
 /// The one-line outcome shown with the result.
 fn summary(
     run: &Run,
     time_limit: Duration,
     exit_code: Option<i32>,
-    found: &Found<'_>,
+    companion: Companion,
+    found: &Installed,
     last_stderr: Option<&str>,
 ) -> String {
     if run.timed_out {
@@ -316,17 +366,20 @@ fn summary(
         };
     }
 
-    let binary = found.companion.binary();
+    let name = companion.name();
 
-    match (found.binary, found.version) {
-        (true, Some(version)) => format!("Installed {binary} {version}."),
-        (true, None) => format!(
-            "The installer finished, but `{}` did not report a version.",
-            found.companion.version_command()
+    match (found, companion) {
+        (Installed::Version(version), _) => format!("Installed {name} {version}."),
+        (Installed::NoVersion, _) => format!(
+            "The installer finished, but {} did not report a version.",
+            companion.version_source()
         ),
-        (false, _) => {
-            format!("The installer finished, but {binary} was not found afterwards; the download may have failed.")
+        (Installed::Missing, Companion::Dashboard | Companion::Memory) => {
+            format!("The installer finished, but {name} was not found afterwards; the download may have failed.")
         }
+        (Installed::Missing, Companion::OpenCodeSkills) => "The installer finished, but the Harness Skills install \
+             record was not found afterwards. The install may have failed."
+            .to_owned(),
     }
 }
 

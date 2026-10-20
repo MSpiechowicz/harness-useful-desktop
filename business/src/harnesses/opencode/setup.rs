@@ -2,12 +2,11 @@
 
 use crate::harness::{CompanionSetup, McpTarget, SkillsStrategy};
 
-/// The Harness Skills have no OpenCode package; the MCP servers go into the global config file.
+/// The Harness Skills come from their own installer script; the MCP servers go into the global
+/// config file.
 pub fn companion_setup() -> CompanionSetup {
     CompanionSetup {
-        skills: SkillsStrategy::Unsupported {
-            reason: "Harness Skills has no OpenCode package yet.",
-        },
+        skills: SkillsStrategy::Installer,
         mcp: McpTarget::OpenCodeConfig,
     }
 }

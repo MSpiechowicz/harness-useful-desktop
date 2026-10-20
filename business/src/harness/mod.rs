@@ -119,6 +119,9 @@ pub enum SkillsStrategy {
         /// The package source, as the harness CLI takes it (for example `git:github.com/owner/repo`).
         source: &'static str,
     },
+    /// The Harness Skills' own installer script (OpenCode's `install.sh` / `install.ps1`): the app
+    /// runs it for the user once they confirm, and its install record tells whether it is there.
+    Installer,
     /// A command the user runs themselves.
     Manual {
         /// The command to copy.

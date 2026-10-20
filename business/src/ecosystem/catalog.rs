@@ -2,8 +2,9 @@
 //!
 //! Install steps follow each tool's README (the dashboard's and the memory server's `install.sh` /
 //! `install.ps1`, the OMP marketplace installs of the skills and the sidebar). They are shown for
-//! copying; the exception is the "Recommended setup" step, which runs the dashboard's or the
-//! memory server's installer (see [`super::installer`]) after the user confirms it.
+//! copying; the exception is the "Recommended setup" step, which runs the dashboard's, the memory
+//! server's or the Harness Skills' OpenCode installer (see [`super::installer`]) after the user
+//! confirms it.
 
 use crate::env::OsKind;
 use crate::model::{EcosystemId, EcosystemItem, InstallStep};
@@ -64,6 +65,19 @@ pub const MEMORY_INSTALL_PS1_SCRIPT: &str =
 
 /// The memory server's Windows installer, as a copyable command.
 pub const MEMORY_INSTALL_PS1: &str = "powershell -ExecutionPolicy Bypass -c \"irm https://raw.githubusercontent.com/MSpiechowicz/harness-useful-memory/main/install.ps1 | iex\"";
+
+/// The Harness Skills' Unix installer for OpenCode, as a copyable shell command (also the script
+/// the setup step runs on Linux and macOS). `curl` is held to HTTPS and TLS 1.2 or newer, redirects
+/// included.
+pub const SKILLS_INSTALL_SH: &str = "curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/MSpiechowicz/harness-useful-skills/main/install.sh | sh";
+
+/// The PowerShell script of the Harness Skills' Windows installer for OpenCode (what the setup
+/// step runs there).
+pub const SKILLS_INSTALL_PS1_SCRIPT: &str =
+    "irm https://raw.githubusercontent.com/MSpiechowicz/harness-useful-skills/main/install.ps1 | iex";
+
+/// The Harness Skills' Windows installer for OpenCode, as a copyable command.
+pub const SKILLS_INSTALL_PS1: &str = "powershell -ExecutionPolicy Bypass -c \"irm https://raw.githubusercontent.com/MSpiechowicz/harness-useful-skills/main/install.ps1 | iex\"";
 
 /// True when `id` runs on `os` (the sidebar needs tmux or a native pane: Linux and macOS only).
 pub fn supported_on(id: EcosystemId, os: OsKind) -> bool {

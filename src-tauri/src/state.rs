@@ -74,6 +74,8 @@ pub struct AppState {
     pub dashboard_install: async_runtime::Mutex<()>,
     /// Held while the memory server's installer runs, so only one runs at a time.
     pub memory_install: async_runtime::Mutex<()>,
+    /// Held while the Harness Skills' OpenCode installer runs, so only one runs at a time.
+    pub opencode_skills_install: async_runtime::Mutex<()>,
     /// The latest "Share setup" import review, kept until it is applied or replaced by a newer one.
     pub sync_plan: Mutex<Option<StoredPlan>>,
     /// Held while a "Share setup" import is applied, so only one runs at a time.
@@ -144,6 +146,7 @@ impl AppState {
             releases: CompanionReleases::default(),
             dashboard_install: async_runtime::Mutex::new(()),
             memory_install: async_runtime::Mutex::new(()),
+            opencode_skills_install: async_runtime::Mutex::new(()),
             sync_plan: Mutex::new(None),
             sync_apply: async_runtime::Mutex::new(()),
             notes_import: Mutex::new(None),

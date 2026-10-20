@@ -83,6 +83,7 @@ const COMMANDS: &[&str] = &[
     "setup_status",
     "setup_install_dashboard",
     "setup_install_memory",
+    "setup_install_opencode_skills",
     "setup_register_mcp",
     "setup_register_memory",
     "setup_register_desktop_mcp",
