@@ -151,11 +151,7 @@ impl<'a> Repos<'a> {
         match repos {
             Some(MemoryRepos::All) => Ok(Self::All),
             Some(MemoryRepos::Repo { key }) => {
-                let shaped = (key.starts_with("git:") || key.starts_with("path:"))
-                    && key.chars().count() <= MAX_KEY_CHARS
-                    && !key.chars().any(char::is_control);
-
-                if shaped {
+                if is_repo_key(key) {
                     Ok(Self::Key(key))
                 } else {
                     Err(BusinessError::InvalidInput("that is not a repository key".to_owned()))
@@ -164,6 +160,14 @@ impl<'a> Repos<'a> {
             None => Ok(Self::Project(project)),
         }
     }
+}
+
+/// True for a repository key: it starts with `git:` or `path:`, has no control characters, and
+/// is at most [`MAX_KEY_CHARS`] long.
+pub(crate) fn is_repo_key(key: &str) -> bool {
+    (key.starts_with("git:") || key.starts_with("path:"))
+        && key.chars().count() <= MAX_KEY_CHARS
+        && !key.chars().any(char::is_control)
 }
 
 /// The options that name `repos`: `--project <root>`, `--repo <key>` or `--all-repos`.

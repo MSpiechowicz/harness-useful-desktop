@@ -21,7 +21,7 @@ use harness_business::model::{
     HookAuthor, HookScope, RoutineDraft, RoutineFilter, RoutineListing, RoutineView, RoutinesDeleted, RoutinesEvent,
 };
 use harness_business::routines::local_zone;
-use harness_business::routines::team::{TeamFolder, app_listing, approve_team_routine, team_view};
+use harness_business::routines::team::{TeamFolder, app_listing, app_listing_all, approve_team_routine, team_view};
 use jiff::Timestamp;
 use tauri::State;
 use tauri::ipc::Channel;
@@ -37,14 +37,16 @@ use crate::state::AppState;
 /// The global routine files, and those of the project at `project` (the active or a recent one;
 /// `None`: global only), then (while routines are shared) the team routines of that project and
 /// every one turned on here, with their status and next run, kept by `filter` (`None`: all). The
-/// counts are those of every listed routine.
+/// counts are those of every listed routine. With `all`, every routine file and every team
+/// routine instead (`project` is still the project in use).
 #[tauri::command]
 pub async fn routines_list(
     state: State<'_, AppState>,
     project: Option<String>,
     filter: Option<RoutineFilter>,
+    all: Option<bool>,
 ) -> CommandResult<RoutineListing> {
-    list(&state, project, filter.unwrap_or_default()).await
+    list_in(&state, project, filter.unwrap_or_default(), all.unwrap_or_default()).await
 }
 
 /// The routine file `id` as `routines_list` shows it. `notFound` when it is gone.
@@ -108,6 +110,16 @@ pub(crate) async fn list(
     project: Option<String>,
     filter: RoutineFilter,
 ) -> CommandResult<RoutineListing> {
+    list_in(state, project, filter, false).await
+}
+
+/// The listing for `project` kept by `filter` (see `routines_list`), of every routine with `all`.
+pub(crate) async fn list_in(
+    state: &AppState,
+    project: Option<String>,
+    filter: RoutineFilter,
+    all: bool,
+) -> CommandResult<RoutineListing> {
     let root = match project {
         Some(project) => Some(project_root(state, project).await?),
         None => None,
@@ -119,16 +131,23 @@ pub(crate) async fn list(
         state.routines.team().note_root(&state.env, root);
     }
 
-    let verified = root
-        .as_deref()
-        .is_some_and(|root| state.routines.team().root_verified(root));
-
+    let verified = state.routines.team().verified_roots();
     let live = state.routines.live_routines();
 
     let listing = state
         .routines
         .read(move |store| {
-            let mut listing = app_listing(store, &TeamFolder::of(store), root.as_deref(), team.as_ref(), verified);
+            let folder = TeamFolder::of(store);
+            let project = root.as_deref();
+            let team = team.as_ref();
+
+            let mut listing = if all {
+                app_listing_all(store, &folder, project, team, &|root| verified.contains(root))
+            } else {
+                let verified = project.is_some_and(|root| verified.contains(root));
+                app_listing(store, &folder, project, team, verified)
+            };
+
             listing.finish(&live, Timestamp::now(), &local_zone());
 
             Ok(listing)

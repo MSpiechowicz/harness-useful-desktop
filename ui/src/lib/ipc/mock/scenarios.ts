@@ -45,11 +45,13 @@ export function defaultScenario(): Scenario {
   const routines = new MockRoutines(routineScenarioFromLocation);
 
   const { attach, ...agentCommands } = agentHandlers(state, agentPace, (project) => hooks.sessionContext(project));
+  let memoryInstalled = false;
+  const memoryAvailability = () => availabilityOf(memoryInstalled ? scenarioAfterInstall(scriptScenarioFromLocation()) : scriptScenarioFromLocation());
 
   const base = {
     ...hostHandlers(state),
     ...harnessHandlers(state),
-    ...projectHandlers(state),
+    ...projectHandlers(state, () => memoryAvailability().kind === 'available'),
     ...agentCommands,
     ...sessionHandlers(state, routines),
     ...gitHandlers(state),
@@ -66,7 +68,6 @@ export function defaultScenario(): Scenario {
   };
   const setup = setupHandlers(harnesses, setupScenarioFromLocation, () => state.setMemoryEnabled(true));
   const ecosystem = ecosystemHandlers();
-  let memoryInstalled = false;
   const copyStores: CopyStores = {};
 
   const handlers: Handlers = {
@@ -113,7 +114,7 @@ export function defaultScenario(): Scenario {
     // `?scripts=empty|notInstalled|outdated|outdatedNoRelease|failed` changes what the Scripts view finds, `?scripts=ok` (the default) lists three samples.
     ...memoryScriptsHandlers(() => (memoryInstalled ? scenarioAfterInstall(scriptScenarioFromLocation()) : scriptScenarioFromLocation()), undefined, copyStores),
     // The notes follow the same server as the scripts. `?notes=empty` keeps none. The copy commands serve both, so they share the stores.
-    ...memoryNotesHandlers(() => availabilityOf(memoryInstalled ? scenarioAfterInstall(scriptScenarioFromLocation()) : scriptScenarioFromLocation()), undefined, undefined, undefined, copyStores),
+    ...memoryNotesHandlers(memoryAvailability, undefined, undefined, undefined, copyStores),
     // Installing or updating Harness Memory from the Notes or Scripts view fixes its `notInstalled` and `outdated` previews.
     setup_install_memory: async (args) => {
       const result = await setup.handlers.setup_install_memory(args);

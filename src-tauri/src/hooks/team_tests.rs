@@ -77,7 +77,7 @@ impl Team {
     fn listed(&self) -> Vec<HookView> {
         let project = Some(self.setup.project.to_string_lossy().into_owned());
 
-        block_on(hook_commands::list(&self.setup.state, project))
+        block_on(hook_commands::list(&self.setup.state, project, false))
             .expect("listed")
             .hooks
     }
@@ -259,7 +259,7 @@ fn an_older_memory_server_shows_no_team_hooks() {
     team.sharing(None);
     team.refresh();
 
-    let listing = block_on(hook_commands::list(&team.setup.state, None)).expect("listed");
+    let listing = block_on(hook_commands::list(&team.setup.state, None, false)).expect("listed");
     assert!(listing.team.is_none());
 
     let key = team.start();

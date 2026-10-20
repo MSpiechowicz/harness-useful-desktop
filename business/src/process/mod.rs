@@ -20,6 +20,7 @@
 #[cfg(unix)]
 mod appimage;
 mod blocking;
+mod join;
 mod resolve;
 mod runner;
 mod spawner;
@@ -27,6 +28,7 @@ mod spawner;
 mod windows_tree;
 
 pub use blocking::{BlockingRunner, StdRunner};
+pub(crate) use join::join_all;
 pub use resolve::{
     ResolvedBinary, absolute_path_dirs, extra_search_dirs, find_override, is_batch_script, is_executable_file,
     launcher_search_dirs, resolve_binary,

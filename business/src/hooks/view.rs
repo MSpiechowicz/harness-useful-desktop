@@ -130,6 +130,8 @@ pub(crate) fn local_defaults() -> HookView {
         team_changed: false,
         share_block: None,
         team_disabled: false,
+        root: None,
+        repo_key: None,
     }
 }
 

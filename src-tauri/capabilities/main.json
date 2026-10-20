@@ -49,6 +49,7 @@
     "allow-project-close",
     "allow-project-recent",
     "allow-project-forget",
+    "allow-project-scopes",
     "allow-reveal-path",
     "allow-open-external",
     "allow-agent-start",

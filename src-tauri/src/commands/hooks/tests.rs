@@ -58,14 +58,43 @@ fn a_project_lists_the_global_hooks_and_its_own() {
         .save(&other, HookAuthor::Agent, Default::default(), SystemTime::now())
         .expect("agent hook");
 
-    let demo = block_on(list(state, path_arg(&home.project))).expect("listed");
+    let demo = block_on(list(state, path_arg(&home.project), false)).expect("listed");
     assert_eq!(names(&demo), ["Everywhere", "Demo only"]);
 
-    let global = block_on(list(state, None)).expect("listed");
+    let global = block_on(list(state, None, false)).expect("listed");
     assert_eq!(names(&global), ["Everywhere"]);
 
-    let stranger = block_on(list(state, path_arg(&home.stranger))).expect_err("not a known project");
+    let stranger = block_on(list(state, path_arg(&home.stranger), false)).expect_err("not a known project");
     assert_eq!(stranger.code(), IpcErrorCode::Forbidden);
+}
+
+#[test]
+fn with_all_every_project_lists_its_hooks_with_its_root() {
+    let home = ProjectHome::new("hooks-list-all");
+    let state = &home.state;
+    save_global_and_demo(&home);
+
+    let store = state.hooks.store().unwrap();
+    let other = draft("Elsewhere", HookScope::Project, path_arg(&home.stranger));
+    let other = store
+        .save(&other, HookAuthor::Agent, Default::default(), SystemTime::now())
+        .expect("agent hook");
+
+    // Project hooks saved in the same second run by id, so only the global one has a fixed place.
+    let all = block_on(list(state, path_arg(&home.project), true)).expect("listed");
+    let mut listed = names(&all);
+    listed[1..].sort_unstable();
+    assert_eq!(listed, ["Everywhere", "Demo only", "Elsewhere"]);
+
+    let elsewhere = all.hooks.iter().find(|view| view.id == other.id).unwrap();
+    assert_eq!(
+        elsewhere.root,
+        other.hook.as_ref().and_then(|hook| hook.project.clone())
+    );
+    assert_eq!(all.hooks[0].root, None);
+
+    // Without a project too: `all` does not depend on the open one.
+    assert_eq!(names(&block_on(list(state, None, true)).unwrap()).len(), 3);
 }
 
 #[test]
@@ -79,7 +108,7 @@ fn a_project_hook_is_saved_only_for_a_known_project() {
     .expect_err("not a known project");
 
     assert_eq!(refused.code(), IpcErrorCode::Forbidden);
-    assert!(names(&block_on(list(&home.state, None)).unwrap()).is_empty());
+    assert!(names(&block_on(list(&home.state, None, false)).unwrap()).is_empty());
 }
 
 #[test]
@@ -123,7 +152,7 @@ fn deleting_all_removes_what_the_view_lists_for_the_project() {
 
     let deleted = block_on(delete_all(state, path_arg(&home.project))).expect("deleted");
     assert_eq!(deleted, HooksDeleted { deleted: 3 });
-    assert!(names(&block_on(list(state, path_arg(&home.project))).unwrap()).is_empty());
+    assert!(names(&block_on(list(state, path_arg(&home.project), false)).unwrap()).is_empty());
 
     // Another project's hooks stay.
     let left: Vec<String> = store
@@ -171,7 +200,7 @@ fn another_projects_hooks_over_its_limit_are_neither_listed_nor_deleted() {
         .collect();
     assert_eq!(over, [elsewhere[64].clone()], "the 65th is over the limit");
 
-    let demo = block_on(list(state, path_arg(&home.project))).expect("listed");
+    let demo = block_on(list(state, path_arg(&home.project), false)).expect("listed");
     assert_eq!(names(&demo), ["Everywhere", "Demo only"]);
 
     let deleted = block_on(delete_all(state, path_arg(&home.project))).expect("deleted");
@@ -239,7 +268,7 @@ fn the_watcher_reports_changes_and_drops_approvals_of_removed_files() {
     std::fs::write(&path, bytes).unwrap();
     assert!(hooks.poll());
 
-    let listing = block_on(list(state, None)).expect("listed");
+    let listing = block_on(list(state, None, false)).expect("listed");
     assert_eq!(
         (listing.hooks[0].status, listing.hooks[0].approval),
         (HookStatus::Pending, HookApproval::Never)

@@ -3,6 +3,7 @@ import type { RoutineRun } from '../bindings/RoutineRun';
 import type { RunStatus } from '../bindings/RunStatus';
 import type { RunTrigger } from '../bindings/RunTrigger';
 import { fixtures } from './fixtures';
+import { DEMO_REPO } from './project-scopes';
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
@@ -15,7 +16,7 @@ export const ROUTINES_PROJECT = fixtures.recentProjects[0].path;
 export const ROUTINES_WORKSPACE = '/home/demo/.local/share/harness-routines/workspace';
 
 /** The repository the sample project routines of the team belong to: only this key travels, never a folder. */
-export const ROUTINES_TEAM_REPO = 'git:github.com/acme/harness-demo';
+export const ROUTINES_TEAM_REPO = DEMO_REPO;
 
 export function ago(ms: number): string {
   return new Date(Date.now() - ms).toISOString().replace(/\.\d+Z$/, 'Z');

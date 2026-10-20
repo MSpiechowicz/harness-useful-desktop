@@ -4,10 +4,11 @@ import type { HookView } from '../bindings/HookView';
 import type { TeamHooks } from '../bindings/TeamHooks';
 import { IpcFailure } from '../transport';
 import { fakeSha, HOOKS_PROJECT } from './hooks-fixtures';
+import { DEMO_REPO, REMOTE_ONLY_REPO, teamPlace } from './project-scopes';
 import type { TeamMode } from './team-preview';
 
 /** The repository the sample project hooks of the team belong to: only this key travels, never a folder. */
-export const TEAM_REPO = 'git:github.com/acme/harness-demo';
+export const TEAM_REPO = DEMO_REPO;
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
@@ -16,8 +17,8 @@ function ago(ms: number): string {
   return new Date(Date.now() - ms).toISOString().replace(/\.\d+Z$/, 'Z');
 }
 
-/** The fields every local view has for the team: none of them apply. */
-export const LOCAL_ORIGIN = { origin: 'local', teamAuthor: null, teamUpdatedAt: null, teamRepo: null, teamChanged: false, teamDisabled: false } as const;
+/** The fields every local view has for the team: none of them apply. A global hook has no root or repository either (a project hook's come from `localPlace`). */
+export const LOCAL_ORIGIN = { origin: 'local', teamAuthor: null, teamUpdatedAt: null, teamRepo: null, teamChanged: false, teamDisabled: false, root: null, repoKey: null } as const;
 
 /** One hook on the team database. */
 interface Row {
@@ -69,11 +70,13 @@ function sampleRows(): Row[] {
   const typesOld = sample(TYPES_ID, { name: 'Run the type checker', scope: 'project', project: TEAM_REPO, event: 'toolEnd', matcher: 'edit', action: { type: 'command', command: 'bun run check', timeoutSecs: null } }, 12 * 24 * HOUR);
   const typesNow = { ...typesOld, matcher: 'edit|write', action: { type: 'command', command: 'bun run check && bun run lint', timeoutSecs: 30 } as const, updatedAt: ago(3 * HOUR), updatedBy: 'desktop' as const };
   const status = sample(STATUS_ID, { name: 'Show the git status when a chat ends', event: 'sessionEnd', action: { type: 'command', command: 'git status --short', timeoutSecs: null } }, 2 * HOUR);
+  const styles = sample('c'.repeat(32), { name: 'Lint the stylesheets', scope: 'project', project: REMOTE_ONLY_REPO, event: 'toolEnd', matcher: 'edit', action: { type: 'command', command: 'bun run lint:css', timeoutSecs: null } }, 6 * 24 * HOUR);
 
   return [
     { hook: commits, author: 'Anna Kowalska', updatedAt: ago(20 * 24 * HOUR), approved: commits, disabled: false },
     { hook: typesNow, author: 'Marek Nowak', updatedAt: ago(3 * HOUR), approved: typesOld, disabled: false },
     { hook: status, author: 'Anna Kowalska', updatedAt: ago(2 * HOUR), approved: null, disabled: false },
+    { hook: styles, author: 'Marek Nowak', updatedAt: ago(6 * 24 * HOUR), approved: styles, disabled: false },
   ];
 }
 
@@ -121,9 +124,10 @@ export class MockTeam {
     return this.mode ? { trust: this.mode.trust, problem: this.mode.problem, refreshedAt: this.refreshedAt } : null;
   }
 
-  /** The team's views for the project: the global ones, and the repository's when the project has an origin remote. Global first. */
-  views(local: LocalHooks, project: string | null): HookView[] {
-    const visible = [...this.rows.values()].filter(({ hook }) => hook.scope === 'global' || (project !== null && this.mode?.shareable === true));
+  /** The team's views for the project: the global ones, and the repository's when the project has an origin remote. Global first. With `all` every team hook, of any repository. */
+  views(local: LocalHooks, project: string | null, all = false): HookView[] {
+    const ofProject = (hook: Hook) => project !== null && this.mode?.shareable === true && hook.project === TEAM_REPO;
+    const visible = [...this.rows.values()].filter(({ hook }) => all || hook.scope === 'global' || ofProject(hook));
     const order = ({ hook }: Row) => `${hook.scope === 'global' ? 0 : 1}${hook.createdAt}${hook.id}`;
 
     return visible.sort((a, b) => order(a).localeCompare(order(b))).map((row) => this.view(row, local));
@@ -160,10 +164,11 @@ export class MockTeam {
       origin: 'team',
       teamAuthor: row.author,
       teamUpdatedAt: row.updatedAt,
-      teamRepo: hook.scope === 'project' ? TEAM_REPO : null,
+      teamRepo: hook.scope === 'project' ? hook.project : null,
       teamChanged: original !== undefined && sharedSha !== undefined && fakeSha(original) !== sharedSha,
       shareBlock: null,
       teamDisabled: row.disabled,
+      ...teamPlace(hook.scope === 'project' ? hook.project : null),
     };
   }
 

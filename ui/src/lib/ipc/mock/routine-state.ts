@@ -18,6 +18,7 @@ import { fixtures } from './fixtures';
 import { previewSchedule } from './routine-schedule';
 import { ago, fakeSha, liveRun, routineId, ROUTINES_PROJECT, ROUTINES_WORKSPACE, sample, sampleRoutines, sampleRuns } from './routine-fixtures';
 import { MockRuns } from './routine-runs-state';
+import { localPlace } from './project-scopes';
 import { LOCAL_ORIGIN, MockRoutineTeam } from './routine-team-state';
 import { teamModeOf } from './team-preview';
 
@@ -173,6 +174,7 @@ export class MockRoutines {
       queued: false,
       nextRun: scheduled ? (previewSchedule(routine.when, new Date(), 1).next[0] ?? null) : null,
       shareBlock: this.team.on ? this.team.shareBlock(routine, status === 'pending') : null,
+      ...localPlace(routine, this.team.mode),
     };
   }
 
@@ -199,8 +201,8 @@ export class MockRoutines {
     };
   }
 
-  /** The routines of the global scope and of `project`, valid ones first, and the team's after them. */
-  list(project: string | null): RoutineListing {
+  /** The routines of the global scope and of `project` (with `all`, of every project), valid ones first, and the team's after them. */
+  list(project: string | null, all = false): RoutineListing {
     if (this.scenario() === 'failing') {
       throw IpcFailure.from({ code: 'internal', message: 'The routines folder could not be read.' });
     }
@@ -209,11 +211,11 @@ export class MockRoutines {
       return { routines: [], folderProblem: 'The folder is writable by other users.', team: null, counts: countsOf([]) };
     }
 
-    const locals = [...this.files.values()].filter(({ routine }) => inScope(routine, project));
+    const locals = [...this.files.values()].filter(({ routine }) => all || inScope(routine, project));
     const order = (stored: Stored): number => (stored.routine.scope === 'global' ? 0 : 1);
     const valid = locals.sort((a, b) => order(a) - order(b) || a.routine.createdAt.localeCompare(b.routine.createdAt)).map((stored) => this.view(stored));
     const broken = [...this.invalid].map(([id, problem]) => this.invalidView(id, problem));
-    const team = this.team.on ? this.team.views(this.files) : [];
+    const team = this.team.on ? this.team.views(this.files, all) : [];
     const routines = [...valid, ...broken, ...team];
 
     return { routines, folderProblem: null, team: this.team.state(), counts: countsOf(routines) };

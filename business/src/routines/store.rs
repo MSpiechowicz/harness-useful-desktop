@@ -64,7 +64,10 @@ impl RoutineStore {
                 let routines = local_views(sorted, &approvals, &approved)
                     .into_iter()
                     .filter(|(_, owner)| keep(owner))
-                    .map(|(view, _)| view)
+                    .map(|(view, owner)| RoutineView {
+                        root: owner.root(),
+                        ..view
+                    })
                     .collect();
 
                 (routines, None)

@@ -110,7 +110,7 @@ pub use memory_scripts::{
 pub use prefs::{
     AppPrefs, BinaryOverride, ChatDefaults, DEFAULT_LANGUAGE, LANGUAGES, MotionPref, ThemePref, UpdatePolicy,
 };
-pub use project::ProjectInfo;
+pub use project::{ProjectInfo, ProjectScope};
 pub use review::{
     CommentSide, ComposedReview, MAX_REVIEW_COMMENTS, MAX_REVIEW_PROMPT_BYTES, MAX_REVIEW_SNIPPET_LINES,
     MAX_REVIEW_TEXT_BYTES, ReviewComment, ReviewRequest,

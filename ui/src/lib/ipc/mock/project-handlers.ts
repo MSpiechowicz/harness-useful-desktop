@@ -1,10 +1,12 @@
 import { IpcFailure } from '../transport';
+import { scopeOf } from './project-scopes';
 import type { MockState } from './state';
 import type { Handlers } from './types';
 
-type ProjectCommands = 'project_pick' | 'project_open' | 'project_close' | 'project_recent' | 'project_forget';
+type ProjectCommands = 'project_pick' | 'project_open' | 'project_close' | 'project_recent' | 'project_forget' | 'project_scopes';
 
-export function projectHandlers(state: MockState): Pick<Handlers, ProjectCommands> {
+/** The project commands of the mock backend. `memoryUp` says whether Harness Memory answers, which `project_scopes` needs for the keys. */
+export function projectHandlers(state: MockState, memoryUp: () => boolean = () => true): Pick<Handlers, ProjectCommands> {
   return {
     project_pick: () => {
       const picked = state.pickFolder();
@@ -39,6 +41,13 @@ export function projectHandlers(state: MockState): Pick<Handlers, ProjectCommand
       }
 
       return structuredClone(state.recents);
+    },
+
+    project_scopes: () => {
+      const recents = state.recents.filter((project) => project.path !== state.active?.path);
+      const projects = state.active ? [state.active, ...recents] : recents;
+
+      return projects.map((project) => scopeOf(project, memoryUp()));
     },
   };
 }

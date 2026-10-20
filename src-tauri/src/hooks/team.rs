@@ -15,6 +15,7 @@
 //!
 //! Logs carry ids and counts, never a hook's text, command or body.
 
+use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
@@ -86,6 +87,11 @@ impl HookRuntime {
     /// repository key may be used.
     pub fn root_verified(&self, root: &str) -> bool {
         self.team.root_verified(root)
+    }
+
+    /// Every root [`HookRuntime::root_verified`] holds true for now.
+    pub fn verified_roots(&self) -> HashSet<String> {
+        self.team.verified_roots()
     }
 
     /// Keeps refresh rounds from running while the guard lives (a share or a removal, so a round

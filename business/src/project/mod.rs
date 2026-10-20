@@ -5,6 +5,8 @@
 //! known (the active project or a recent one), so the webview cannot point the app at an
 //! arbitrary directory.
 
+mod scopes;
+
 use std::path::{Path, PathBuf};
 
 use crate::env::Env;
@@ -12,6 +14,8 @@ use crate::error::{BusinessError, Result};
 use crate::model::{AppPrefs, ProjectInfo};
 use crate::prefs::PrefsStore;
 use crate::security::validate_project_dir;
+
+pub use scopes::{KEYS_AT_ONCE, ProjectKeys, RETRY_AFTER, with_keys};
 
 impl ProjectInfo {
     /// Describes the directory at `path` without reading any file: the name is the last path

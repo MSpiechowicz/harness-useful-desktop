@@ -97,6 +97,14 @@ impl FileOwner {
             Self::Project(root) => project == Some(root.as_str()),
         }
     }
+
+    /// The project root of a project document, `None` otherwise.
+    pub(crate) fn root(&self) -> Option<String> {
+        match self {
+            Self::Project(root) => Some(root.clone()),
+            Self::Global | Self::Unknown => None,
+        }
+    }
 }
 
 /// Where a document goes: by origin and scope, then `createdAt`, then `id`.
