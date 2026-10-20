@@ -24,6 +24,14 @@ describe('unwrapNotice', () => {
     expect(performance.now() - started).toBeLessThan(500);
   });
 
+  it('keeps a reminder with attributes whole as its body, titled by its tag', () => {
+    expect(unwrapNotice('<system-reminder reason="rule_violation" rule="x">\nFirst line.\n\n## Why\n\n- a\n</system-reminder>')).toEqual({
+      title: 'System reminder',
+      body: 'First line.\n\n## Why\n\n- a',
+      details: null,
+    });
+  });
+
   it('leaves text that is not one wrapped block as it is', () => {
     for (const text of ['plain text', '<a>one</a> and <b>two</b>', 'before <a>one</a>']) {
       expect(unwrapNotice(text)).toEqual({ title: null, body: text, details: null });

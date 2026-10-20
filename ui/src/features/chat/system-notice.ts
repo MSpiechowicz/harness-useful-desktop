@@ -1,5 +1,5 @@
-/** The opening tag of a harness notice, e.g. `<system-notice>`: lowercase words joined by `-` or `_`. */
-const OPENING = /^<([a-z][\w-]*)>/i;
+/** The opening tag of a harness notice, e.g. `<system-notice>` or `<system-reminder reason="…">`: lowercase words joined by `-` or `_`, then optional attributes. */
+const OPENING = /^<([a-z][\w-]*)(\s[^<>]*)?>/i;
 
 /** The line a harness notice ends its headline with to tell the agent what to do; it means nothing to the reader. */
 const AGENT_CUE = /^resume your work using the result below\.?$/i;
@@ -44,7 +44,14 @@ export function unwrapNotice(text: string): Unwrapped {
   }
 
   const words = opening[1].replace(/[-_]+/g, ' ');
+  const title = words.charAt(0).toUpperCase() + words.slice(1);
+
+  // A reminder with attributes is prose (markdown), not a headline over command output: keep it whole.
+  if (opening[2]) {
+    return { title, body: inside.trim(), details: null };
+  }
+
   const { first, rest } = headline(inside.trim());
 
-  return { title: words.charAt(0).toUpperCase() + words.slice(1), body: first, details: rest };
+  return { title, body: first, details: rest };
 }
