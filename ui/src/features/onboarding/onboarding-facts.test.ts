@@ -55,23 +55,40 @@ function answering(command: string, answer: unknown): void {
 
 const factsOf = async (name: string) => within(await detail(name)).findByRole('list', { name: `What ${name} has on this machine` });
 
+/** The tile with this label: its number (empty while it is being read) and the tile itself. */
+function tileOf(facts: HTMLElement, label: string): { value: string; item: HTMLElement } {
+  const item = within(facts).getByText(label).closest('li') as HTMLElement;
+
+  return { value: item.firstElementChild?.textContent?.trim() ?? '', item };
+}
+
+const labelsOf = (facts: HTMLElement): (string | null)[] => within(facts).getAllByRole('listitem').map((item) => item.children[1]?.textContent ?? null);
+
+/** An answer that is given when `release` is called. */
+function pending(): { promise: Promise<never>; release: (answer: unknown) => void } {
+  let release: (answer: unknown) => void = () => undefined;
+  const promise = new Promise<never>((resolve) => {
+    release = resolve as (answer: unknown) => void;
+  });
+
+  return { promise, release };
+}
+
 function readsOf(command: string): number {
   return vi.mocked(ipc.invoke).mock.calls.filter(([name]) => name === command).length;
 }
 
 describe('What an installed harness has on this machine', () => {
-  it('shows the sessions, when it was last used, and the plugins and MCP servers', async () => {
+  it('shows the sessions, when it was last used, the plugins and the MCP servers as one number each', async () => {
     await openPicker();
 
-    const omp = await detail('Oh My Pi');
-    const facts = await within(omp).findByRole('list', { name: 'What Oh My Pi has on this machine' });
+    const facts = await factsOf('Oh My Pi');
 
-    await within(facts).findByText('Plugins · MCP servers');
-    const [sessions, lastUsed, installed] = within(facts).getAllByRole('listitem');
-
-    expect(sessions).toHaveTextContent(/^5 Sessions$/);
-    expect(lastUsed).toHaveTextContent(/^.+ ago Last used$/);
-    expect(installed).toHaveTextContent(/^3 · 5 Plugins · MCP servers$/);
+    await waitFor(() => expect(tileOf(facts, 'Plugins').value).toBe('3'));
+    expect(labelsOf(facts)).toEqual(['Sessions', 'Last used', 'Plugins', 'MCP servers']);
+    expect(tileOf(facts, 'Sessions').value).toBe('5');
+    expect(tileOf(facts, 'Last used').value).toMatch(/ago$/);
+    expect(tileOf(facts, 'MCP servers').value).toBe('5');
   });
 
   it('counts packages where the harness has packages and no plugins', async () => {
@@ -80,10 +97,19 @@ describe('What an installed harness has on this machine', () => {
     );
     await openPicker();
 
-    const facts = await within(await detail('Oh My Pi')).findByRole('list', { name: 'What Oh My Pi has on this machine' });
+    const facts = await factsOf('Oh My Pi');
 
-    await waitFor(() => expect(within(facts).getByText('Packages · MCP servers')).toBeInTheDocument());
-    expect(within(facts).queryByText(/Plugins/)).toBeNull();
+    await waitFor(() => expect(labelsOf(facts)).toEqual(['Sessions', 'Last used', 'Packages', 'MCP servers']));
+    expect(within(facts).queryByText('Plugins')).toBeNull();
+  });
+
+  it('shows the last use in a few words', async () => {
+    answering('harness_session_totals', { count: 4, lastUsed: new Date(Date.now() - 37 * 60_000).toISOString(), capped: false });
+    await openPicker();
+
+    const facts = await factsOf('Oh My Pi');
+
+    await waitFor(() => expect(tileOf(facts, 'Last used').value).toBe('37 min. ago'));
   });
 
   it('leaves out a fact it cannot read and lets the others share the row', async () => {
@@ -94,9 +120,8 @@ describe('What an installed harness has on this machine', () => {
 
     const facts = await within(await detail('Oh My Pi')).findByRole('list', { name: 'What Oh My Pi has on this machine' });
 
-    await within(facts).findByText('Last used');
-    await waitFor(() => expect(within(facts).getAllByRole('listitem')).toHaveLength(2));
-    expect(facts).not.toHaveTextContent('MCP servers');
+    await waitFor(() => expect(labelsOf(facts)).toEqual(['Sessions', 'Last used']));
+    expect(tileOf(facts, 'Sessions').value).toBe('5');
     expect(facts).not.toHaveTextContent('—');
   });
 
@@ -111,12 +136,11 @@ describe('What an installed harness has on this machine', () => {
 
     try {
       await openPicker();
-      const omp = await detail('Oh My Pi');
-      await within(omp).findByText('Last used');
-      const [sessions, lastUsed] = within(omp).getAllByRole('listitem');
+      const facts = await factsOf('Oh My Pi');
 
-      expect(sessions).toHaveTextContent(/^5 Sessions$/);
-      expect(lastUsed).toHaveTextContent(/^.+ ago Last used$/);
+      await waitFor(() => expect(tileOf(facts, 'Sessions').value).toBe('5'));
+      expect(labelsOf(facts)).toEqual(['Sessions', 'Last used']);
+      expect(tileOf(facts, 'Last used').value).toMatch(/ago$/);
     } finally {
       project.recents = recents;
       project.active = active;
@@ -128,10 +152,7 @@ describe('What an installed harness has on this machine', () => {
     await openPicker();
 
     const facts = await factsOf('Oh My Pi');
-    await within(facts).findByText('Sessions');
-    const [sessions] = within(facts).getAllByRole('listitem');
-
-    expect(sessions).toHaveTextContent(/^500\+ Sessions$/);
+    await waitFor(() => expect(tileOf(facts, 'Sessions').value).toBe('500+'));
   });
 
   it('leaves out the last use when the harness has no session yet', async () => {
@@ -140,21 +161,78 @@ describe('What an installed harness has on this machine', () => {
 
     const facts = await factsOf('Oh My Pi');
 
-    await within(facts).findByText('Plugins · MCP servers');
-    expect(within(facts).getAllByRole('listitem')).toHaveLength(2);
-    expect(within(facts).getAllByRole('listitem')[0]).toHaveTextContent(/^0 Sessions$/);
-    expect(facts).not.toHaveTextContent('Last used');
+    await waitFor(() => expect(labelsOf(facts)).toEqual(['Sessions', 'Plugins', 'MCP servers']));
+    expect(tileOf(facts, 'Sessions').value).toBe('0');
   });
 
-  it('counts the sessions of the project where the harness cannot total them', async () => {
+  it('counts the sessions of the project where the harness cannot total them, and names the project outside the label', async () => {
     await openPicker();
     await fireEvent.click(await screen.findByRole('option', { name: /^OpenCode/ }));
 
     const facts = await factsOf('OpenCode');
-    await within(facts).findByText('Sessions in demo');
-    const [sessions] = within(facts).getAllByRole('listitem');
 
-    expect(sessions).toHaveTextContent(/^2 Sessions in demo$/);
+    await waitFor(() => expect(tileOf(facts, 'Sessions').value).toBe('2'));
+    const { item } = tileOf(facts, 'Sessions');
+
+    expect(item).toHaveAttribute('title', 'Sessions in demo');
+    expect(item).toHaveAccessibleDescription('Sessions in demo');
+    expect(within(facts).getByText('Sessions')).toBeVisible();
+    expect(within(facts).queryByText(/in demo/)).not.toBeVisible();
+  });
+
+  it('shows the labels while the numbers are read, then the numbers where the placeholders were', async () => {
+    const totals = pending();
+    const extensions = pending();
+    const invoke = ipc.invoke.bind(ipc);
+    vi.spyOn(ipc, 'invoke').mockImplementation(((name: never, args: never) => {
+      if ((name as string) === 'harness_session_totals') {
+        return totals.promise;
+      }
+
+      return (name as string) === 'extensions_view' ? extensions.promise : invoke(name, args);
+    }) as typeof ipc.invoke);
+    await openPicker();
+
+    const facts = await factsOf('Oh My Pi');
+    const labels = ['Sessions', 'Last used', 'Plugins', 'MCP servers'];
+
+    expect(labelsOf(facts)).toEqual(labels);
+    for (const label of labels) {
+      expect(tileOf(facts, label).value).toBe('');
+    }
+
+    // One answer is not enough: the row is laid out once, when every fact is known or given up on.
+    totals.release({ count: 7, lastUsed: null, capped: false });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(labelsOf(facts)).toEqual(labels);
+    expect(tileOf(facts, 'Sessions').value).toBe('');
+
+    extensions.release({ plugins: [{}, {}], mcpServers: [{}], packages: [], skills: [] });
+    await waitFor(() => expect(tileOf(facts, 'Sessions').value).toBe('7'));
+    expect(labelsOf(facts)).toEqual(['Sessions', 'Plugins', 'MCP servers']);
+    expect(tileOf(facts, 'Plugins').value).toBe('2');
+    expect(tileOf(facts, 'MCP servers').value).toBe('1');
+  });
+
+  it('reads the installed harnesses on the intro step, so the picker has the numbers without asking again', async () => {
+    vi.spyOn(ipc, 'invoke');
+    onboarding.restart('meet');
+    render(Onboarding);
+    await screen.findByRole('heading', { name: 'Meet your harnesses' });
+
+    await waitFor(() => expect(readsOf('extensions_view')).toBe(2));
+    await waitFor(() => expect(readsOf('harness_session_totals')).toBe(2));
+    await waitFor(() => expect(readsOf('sessions_list')).toBe(1));
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    await screen.findByRole('heading', { name: 'Which harness do you use every day?' });
+    const facts = await factsOf('Oh My Pi');
+
+    expect(tileOf(facts, 'Sessions').value).toBe('5');
+    expect(tileOf(facts, 'Plugins').value).toBe('3');
+    expect(readsOf('extensions_view')).toBe(2);
+    expect(readsOf('harness_session_totals')).toBe(2);
+    expect(readsOf('sessions_list')).toBe(1);
   });
 
   it('shows no sessions and no last use where the harness cannot total them and there is no project, and no empty heading when nothing is known', async () => {
@@ -187,10 +265,7 @@ describe('What an installed harness has on this machine', () => {
 
     const facts = await factsOf('Oh My Pi');
 
-    await within(facts).findByText('Plugins · MCP servers');
-    expect(within(facts).getAllByRole('listitem')).toHaveLength(1);
-    expect(facts).not.toHaveTextContent('Sessions');
-    expect(facts).not.toHaveTextContent('Last used');
+    await waitFor(() => expect(labelsOf(facts)).toEqual(['Plugins', 'MCP servers']));
     expect(readsOf('sessions_list')).toBe(0);
   });
 
@@ -244,8 +319,8 @@ describe('What an installed harness has on this machine', () => {
     await fireEvent.click(await screen.findByRole('option', { name: /^OpenCode/ }));
     await fireEvent.click(await screen.findByRole('option', { name: /^Oh My Pi/ }));
 
-    const facts = await within(await detail('Oh My Pi')).findByRole('list', { name: 'What Oh My Pi has on this machine' });
-    await within(facts).findByText('Plugins · MCP servers');
+    const facts = await factsOf('Oh My Pi');
+    await waitFor(() => expect(tileOf(facts, 'Plugins').value).toBe('3'));
     expect(readsOf('extensions_view')).toBe(2);
     await waitFor(() => expect(readsOf('sessions_list')).toBe(1));
     expect(readsOf('harness_session_totals')).toBe(2);

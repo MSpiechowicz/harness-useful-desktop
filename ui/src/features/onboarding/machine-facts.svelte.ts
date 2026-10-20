@@ -89,6 +89,11 @@ async function readExtensions(harness: HarnessSummary): Promise<Fact<ExtensionsF
   };
 }
 
+/** The app cannot read the sessions of a harness it cannot chat with, and a missing one has nothing to read. */
+export function readable(harness: HarnessSummary): boolean {
+  return harness.detection.installed && harness.capabilities.chat;
+}
+
 async function settle<T>(read: Promise<Fact<T>>): Promise<Fact<T>> {
   try {
     return await read;
@@ -98,14 +103,28 @@ async function settle<T>(read: Promise<Fact<T>>): Promise<Fact<T>> {
 }
 
 /**
- * What the picker step shows about each harness on this machine, read when it is first looked at and kept for the
- * step: moving between rows asks nothing again. A fact that cannot be read stays unknown, and the panel leaves it out.
+ * What the picker step shows about each harness on this machine, read when it is first needed (the intro step reads
+ * them all) and kept for the onboarding run: moving between rows or steps asks nothing again. A fact that cannot be read stays unknown, and the panel leaves it out.
  */
 export class MachineFactsCache {
   private facts = $state<Partial<Record<HarnessId, MachineFacts>>>({});
 
   of(id: HarnessId): MachineFacts | undefined {
     return this.facts[id];
+  }
+
+  /** Forgets what was read, so the next onboarding run reads the machine again. */
+  reset(): void {
+    this.facts = {};
+  }
+
+  /** Reads every harness the app can chat with and that is installed, each once, without waiting for any of them. */
+  prefetch(harnesses: HarnessSummary[], project: ProjectInfo | null): void {
+    for (const harness of harnesses) {
+      if (readable(harness)) {
+        this.load(harness, project);
+      }
+    }
   }
 
   /** Reads the facts of `harness` unless they were already asked for. */
@@ -125,3 +144,6 @@ export class MachineFactsCache {
     });
   }
 }
+
+/** The facts of this onboarding run: read as early as the harnesses are known, so the picker finds them ready. */
+export const machineFacts = new MachineFactsCache();

@@ -1,10 +1,13 @@
 <script lang="ts">
   import Skeleton from '$lib/components/Skeleton.svelte';
+  import { DURATION, rise } from '$lib/design/motion';
   import { t } from '$lib/i18n/i18n.svelte';
   import type { HarnessSummary } from '$lib/ipc/bindings/HarnessSummary';
-  import { formatCount, relativeTime } from '$lib/utils/format';
+  import { cx } from '$lib/utils/cx';
+  import { formatCount, shortRelativeTime } from '$lib/utils/format';
 
-  import type { ExtensionsFact, MachineFacts } from './machine-facts.svelte';
+  import { FACTS } from './layout';
+  import type { MachineFacts } from './machine-facts.svelte';
 
   interface Props {
     summary: HarnessSummary;
@@ -17,72 +20,74 @@
 
   interface Tile {
     key: string;
-    state: 'loading' | 'ready';
-    value: string;
     label: string;
+    /** The number, or null while it is being read (and, once all are read, for a fact that is not known). */
+    value: string | null;
+    /** Whether this fact can turn up for this harness, so its place is kept while the facts are being read. */
+    expected: boolean;
+    /** What the label alone leaves out (the project a count is for), as a tooltip and for assistive technology. */
+    note?: string;
   }
 
-  /** The harness's own nouns for what is installed in it, with their counts: plugins or packages, then MCP servers. */
-  function installed(fact: ExtensionsFact): { value: string; label: string } {
-    const counts: [number | null, string][] = [
-      [fact.plugins, t('onboarding.facts.plugins')],
-      [fact.packages, t('onboarding.facts.packages')],
-      [fact.mcpServers, t('onboarding.facts.mcpServers')],
+  const sessions = $derived(facts?.sessions ?? { status: 'loading' as const });
+  const extensions = $derived(facts?.extensions ?? { status: 'loading' as const });
+
+  /** Whether every fact is either known or given up on, so the tiles are laid out once and not as each answer comes in. */
+  const settled = $derived(sessions.status !== 'loading' && extensions.status !== 'loading');
+
+  const countOf = (count: number | null | undefined): string | null => (count == null ? null : formatCount(count));
+
+  /** Every tile the harness could have, one number each. The labels are known up front, so only the values wait. */
+  const candidates = $derived.by<Tile[]>(() => {
+    const read = sessions.status === 'ready' ? sessions.value : null;
+    const installed = extensions.status === 'ready' ? extensions.value : null;
+    const { capabilities } = summary;
+
+    return [
+      {
+        key: 'sessions',
+        label: t('onboarding.facts.sessions'),
+        value: read ? `${formatCount(read.count)}${read.capped ? '+' : ''}` : null,
+        expected: true,
+        note: read?.project ? t('onboarding.facts.sessionsIn', { project: read.project }) : undefined,
+      },
+      { key: 'last', label: t('onboarding.facts.lastUsed'), value: read?.lastUsed ? shortRelativeTime(read.lastUsed) : null, expected: true },
+      { key: 'plugins', label: t('onboarding.facts.plugins'), value: countOf(installed?.plugins), expected: capabilities.plugins },
+      { key: 'packages', label: t('onboarding.facts.packages'), value: countOf(installed?.packages), expected: capabilities.packages },
+      { key: 'mcpServers', label: t('onboarding.facts.mcpServers'), value: countOf(installed?.mcpServers), expected: capabilities.mcp },
     ];
-    const known = counts.filter((count): count is [number, string] => count[0] !== null);
-
-    return { value: known.map(([count]) => formatCount(count)).join(' · '), label: known.map(([, label]) => label).join(' · ') };
-  }
-
-  /** Only what is known or on its way: a fact that could not be read has no tile, so the others share the row. */
-  const tiles = $derived.by<Tile[]>(() => {
-    const sessions = facts?.sessions ?? { status: 'loading' as const };
-    const extensions = facts?.extensions ?? { status: 'loading' as const };
-    const result: Tile[] = [];
-
-    if (sessions.status === 'loading') {
-      result.push({ key: 'sessions', state: 'loading', value: '', label: '' }, { key: 'last', state: 'loading', value: '', label: '' });
-    }
-
-    if (sessions.status === 'ready') {
-      const { count, capped, lastUsed, project } = sessions.value;
-      const label = project === null ? t('onboarding.facts.sessions') : t('onboarding.facts.sessionsIn', { project });
-
-      result.push({ key: 'sessions', state: 'ready', value: capped ? `${formatCount(count)}+` : formatCount(count), label });
-
-      if (lastUsed !== null) {
-        result.push({ key: 'last', state: 'ready', value: relativeTime(lastUsed), label: t('onboarding.facts.lastUsed') });
-      }
-    }
-
-    if (extensions.status === 'loading') {
-      result.push({ key: 'extensions', state: 'loading', value: '', label: '' });
-    }
-
-    if (extensions.status === 'ready') {
-      result.push({ key: 'extensions', state: 'ready', ...installed(extensions.value) });
-    }
-
-    return result;
   });
+
+  /**
+   * While any fact is still being read, every tile that might turn up has its place (with a placeholder for the value).
+   * Once all are settled the ones that could not be read are gone and the others share the row, so the row changes once
+   * and not as each answer comes in.
+   */
+  const tiles = $derived(candidates.filter((tile) => (settled ? tile.value !== null : tile.expected)));
 
   const name = $derived(summary.info.name);
 </script>
 
 <!-- Nothing at all while no fact is known, so the panel never shows an empty heading. -->
 {#if tiles.length > 0}
-  <section class="flex flex-col gap-2" aria-labelledby={id}>
+  <section class={cx('flex flex-col gap-2', FACTS.section)} aria-labelledby={id}>
     <h4 {id} class="text-xs font-medium tracking-wide text-fg-3 uppercase">{t('onboarding.facts.title')}</h4>
 
-    <ul class="flex gap-2" aria-label={t('onboarding.facts.list', { name })}>
+    <ul class={FACTS.row} aria-label={t('onboarding.facts.list', { name })}>
       {#each tiles as tile (tile.key)}
-        <li class="flex h-14 min-w-0 flex-1 basis-0 flex-col justify-center gap-0.5 rounded-md border border-line bg-surface-1 px-3">
-          {#if tile.state === 'loading'}
-            <Skeleton height="1.25rem" width="55%" />
-            <Skeleton height="0.75rem" width="80%" />
-          {:else}
-            <span class="tabular truncate text-lg font-medium text-fg" title={tile.value}>{tile.value}</span>
-            <span class="truncate text-xs text-fg-3" title={tile.label}>{tile.label}</span>
+        <li class={FACTS.tile} title={tile.note} aria-describedby={tile.note ? `${id}-${tile.key}` : undefined}>
+          <span class={FACTS.value}>
+            {#if !settled || tile.value === null}
+              <Skeleton height="1.125rem" width="3.5rem" />
+            {:else}
+              <span class="tabular text-lg font-medium text-fg" in:rise={{ y: 4, duration: DURATION.base }}>{tile.value}</span>
+            {/if}
+          </span>
+
+          <span class={FACTS.label}>{tile.label}</span>
+
+          {#if tile.note}
+            <span hidden id="{id}-{tile.key}">{tile.note}</span>
           {/if}
         </li>
       {/each}

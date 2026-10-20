@@ -4,6 +4,7 @@ import { prefs, type PrefsStore } from '$lib/stores/prefs.svelte';
 
 import { intro } from '../intro/intro-state.svelte';
 import { type ApprovalNotice, rememberNotices, seenNotices } from './approval-notices';
+import { machineFacts } from './machine-facts.svelte';
 
 export type OnboardingStep = 'welcome' | 'meet' | 'harnesses' | 'project' | 'approval' | 'family' | 'setup' | 'done';
 
@@ -111,6 +112,7 @@ export class OnboardingController {
     this.direction = 1;
     this.step = from;
     this.shownNotices = new Set();
+    machineFacts.reset();
     this.rerun = true;
     this.noteNotice(from);
   }

@@ -14,7 +14,7 @@
   import HarnessList from './HarnessList.svelte';
   import HarnessScan from './HarnessScan.svelte';
   import { PICKER, WIDTH } from './layout';
-  import { MachineFactsCache, projectToCount } from './machine-facts.svelte';
+  import { machineFacts, projectToCount, readable } from './machine-facts.svelte';
   import { onboarding } from './onboarding-state.svelte';
   import StepHeader from './StepHeader.svelte';
 
@@ -36,15 +36,12 @@
 
   const shown = $derived(harness.summaries.find((summary) => summary.info.id === (focusId ?? opening)));
 
-  /** What each harness has on this machine, read the first time its details open and kept while the step is open. */
-  const facts = new MachineFactsCache();
-
-  // The app cannot read the sessions of a harness it cannot chat with, and a missing one has nothing to read.
+  // The intro step already reads every harness. This covers a step opened without it (a re-run from here) and a harness found later: a harness is read once per run.
   $effect(() => {
-    if (shown?.detection.installed && shown.capabilities.chat) {
+    if (shown && readable(shown)) {
       const target = projectToCount(project.active, project.recents);
 
-      untrack(() => facts.load(shown, target));
+      untrack(() => machineFacts.load(shown, target));
     }
   });
 </script>
@@ -87,7 +84,7 @@
               <HarnessList summaries={harness.summaries} focused={shown.info.id} driver={onboarding.driver} {panel} onfocus={(id) => (focusId = id)} />
             </div>
 
-            <HarnessDetail id={panel} summary={shown} facts={facts.of(shown.info.id)} selected={onboarding.driver === shown.info.id} onselect={() => onboarding.choose(shown.info.id)} />
+            <HarnessDetail id={panel} summary={shown} facts={machineFacts.of(shown.info.id)} selected={onboarding.driver === shown.info.id} onselect={() => onboarding.choose(shown.info.id)} />
           </div>
         </div>
       {/if}

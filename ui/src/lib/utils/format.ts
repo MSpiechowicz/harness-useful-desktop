@@ -39,6 +39,7 @@ export function perLocale<T>(make: (locale: string) => T): () => T {
 }
 
 const relative = perLocale((l) => new Intl.RelativeTimeFormat(l, { numeric: 'auto' }));
+const relativeShort = perLocale((l) => new Intl.RelativeTimeFormat(l, { numeric: 'auto', style: 'short' }));
 const COUNT = perLocale((l) => new Intl.NumberFormat(l));
 const CLOCK = perLocale((l) => new Intl.DateTimeFormat(l, { hour: '2-digit', minute: '2-digit' }));
 const LONG_DATE = perLocale((l) => new Intl.DateTimeFormat(l, { year: 'numeric', month: 'long', day: 'numeric' }));
@@ -100,8 +101,7 @@ export function compactAge(iso: string, now: number = Date.now()): string {
   return step ? SHORT_UNIT()(step.unit, Math.floor(elapsed / step.size)) : SHORT_UNIT()('year', Math.floor(elapsed / (365 * DAY)));
 }
 
-/** "just now", "5 minutes ago", "yesterday", "3 months ago" for an RFC 3339 time. */
-export function relativeTime(iso: string, now: number = Date.now()): string {
+function relativeAge(iso: string, now: number, format: Intl.RelativeTimeFormat): string {
   const time = Date.parse(iso);
   if (Number.isNaN(time)) {
     return '';
@@ -114,10 +114,20 @@ export function relativeTime(iso: string, now: number = Date.now()): string {
 
   const step = UNITS.find((candidate) => elapsed < candidate.limit);
   if (!step) {
-    return relative().format(-Math.floor(elapsed / (365 * DAY)), 'year');
+    return format.format(-Math.floor(elapsed / (365 * DAY)), 'year');
   }
 
-  return relative().format(-Math.floor(elapsed / step.size), step.unit);
+  return format.format(-Math.floor(elapsed / step.size), step.unit);
+}
+
+/** "just now", "5 minutes ago", "yesterday", "3 months ago" for an RFC 3339 time. */
+export function relativeTime(iso: string, now: number = Date.now()): string {
+  return relativeAge(iso, now, relative());
+}
+
+/** The same in the language's short words, for a narrow place: "just now", "5 min. ago", "yesterday", "3 mo. ago". */
+export function shortRelativeTime(iso: string, now: number = Date.now()): string {
+  return relativeAge(iso, now, relativeShort());
 }
 
 /** "812 B", "48.2 KB", "1.9 MB". */
