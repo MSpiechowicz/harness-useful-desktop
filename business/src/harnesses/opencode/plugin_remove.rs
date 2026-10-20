@@ -24,7 +24,8 @@ use serde_json::{Map, Value};
 
 use super::OpenCode;
 use super::config::merge_steps;
-use super::extensions::{plugin_entry_id, plugin_sources, same_plugin_id};
+use super::extensions::{plugin_entry_id, plugin_sources};
+use super::plugin_ids::same_plugin_id;
 use crate::ecosystem::mcp_merge::{Blocked, Change, Shape, Target, change_file, load};
 use crate::ecosystem::setup::mcp_target;
 use crate::env::Env;

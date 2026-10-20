@@ -18,6 +18,7 @@ mod extensions;
 mod launch;
 mod merged;
 mod paths;
+mod plugin_ids;
 mod plugin_remove;
 mod sessions;
 mod setup;
