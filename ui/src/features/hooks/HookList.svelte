@@ -34,9 +34,9 @@
 
   const COLUMNS = $derived([
     { key: 'hook', label: t('hooks.list.column.hook') },
-    { key: 'scope', label: t('components.scope.label'), col: 'w-[15rem]' },
-    { key: 'when', label: t('hooks.list.column.when'), col: 'w-[17rem]' },
-    { key: 'does', label: t('hooks.list.column.does'), col: 'hidden w-[8.5rem] @min-[780px]:table-column', head: 'hidden @min-[780px]:table-cell' },
+    { key: 'scope', label: t('components.scope.label'), col: 'w-[13rem]' },
+    { key: 'when', label: t('hooks.list.column.when'), col: 'w-[15rem]' },
+    { key: 'does', label: t('hooks.list.column.does'), col: 'hidden w-[8.5rem] @min-[1000px]:table-column', head: 'hidden @min-[1000px]:table-cell' },
     { key: 'status', label: t('hooks.list.column.status'), col: 'w-[10.5rem]' },
     { key: 'on', label: t('hooks.list.column.on'), col: 'w-[5.5rem]', right: true, descFirst: true },
   ]);
@@ -70,14 +70,14 @@
       <div class="flex min-w-0 items-center gap-1.5">
         <WhenIcon size={ICON.sm} aria-hidden="true" class="shrink-0 text-fg-3" />
         <span class="truncate">{t(EVENT_LABELS[hook.event])}</span>
-        {#if hook.matcher}<span class="h-5 max-w-[7rem] truncate rounded-sm bg-surface-3 px-1.5 font-mono text-xs leading-5 text-fg-2" title={t('hooks.field.toolFilter')}>{hook.matcher}</span>{/if}
+        {#if hook.matcher}<span class="h-5 max-w-[5rem] shrink-[4] truncate rounded-sm bg-surface-3 px-1.5 font-mono text-xs leading-5 text-fg-2" title={t('hooks.field.toolFilter')}>{hook.matcher}</span>{/if}
       </div>
     {:else}
       <span class="text-fg-3">–</span>
     {/if}
   </td>
 
-  <td role="gridcell" class="hidden border-b border-line/60 px-3 text-fg-2 @min-[780px]:table-cell">
+  <td role="gridcell" class="hidden border-b border-line/60 px-3 text-fg-2 @min-[1000px]:table-cell">
     <div class="truncate">{#if hook}{t(ACTION_LABELS[hook.action.type])}{:else}–{/if}</div>
   </td>
 

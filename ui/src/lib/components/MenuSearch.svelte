@@ -27,7 +27,7 @@
 <!-- The part of a menu with many choices that the filters and the form dropdowns share: a field above the choices, which is where focus lands on open
      (the arrow keys go on to the choices), and a list of one fixed height with its own scroll, so the menu keeps its size while typing narrows it. -->
 {#if search}
-  <div class="px-1 pb-1.5">
+  <div class="pb-1.5">
     <input
       type="search"
       data-autofocus

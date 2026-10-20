@@ -44,7 +44,7 @@
 
   const COLUMNS = $derived([
     { key: 'routine', label: t('routines.list.column.routine') },
-    { key: 'scope', label: t('routines.list.column.scope'), col: 'w-[9rem]' },
+    { key: 'scope', label: t('routines.list.column.scope'), col: 'w-[13rem]' },
     { key: 'when', label: t('routines.list.column.when'), col: 'w-[13rem]' },
     { key: 'next', label: t('routines.list.column.next'), col: 'hidden w-[8.5rem] @min-[960px]:table-column', head: 'hidden @min-[960px]:table-cell' },
     { key: 'status', label: t('routines.list.column.status'), col: 'w-[10.5rem]' },
