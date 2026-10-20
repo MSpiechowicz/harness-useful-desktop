@@ -51,4 +51,21 @@ describe('subagent card', () => {
 
     expect(screen.queryByRole('region', { name: 'Subagents' })).toBeNull();
   });
+
+  it('lists the running subagents on a running wait call, and only those', () => {
+    const subagents = {
+      ParserScout: subagent('ParserScout', 'running', { intent: 'Finding parse callers' }),
+      DocsReviewer: subagent('DocsReviewer', 'completed', { index: 1 }),
+    };
+    const wait: ToolCallState = { ...call, name: 'wait', args: {}, intent: null, status: 'running', resultText: null };
+
+    const { rerender } = render(ToolCard, { call: wait, active: true, subagents });
+
+    const list = screen.getByRole('region', { name: 'Subagents' });
+    expect(within(list).getByText('Finding parse callers')).toBeInTheDocument();
+    expect(within(list).queryByText('DocsReviewer')).toBeNull();
+
+    rerender({ call: { ...wait, status: 'ok' }, active: true, subagents });
+    expect(screen.queryByRole('region', { name: 'Subagents' })).toBeNull();
+  });
 });
