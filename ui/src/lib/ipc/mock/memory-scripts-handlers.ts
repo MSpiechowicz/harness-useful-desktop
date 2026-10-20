@@ -8,7 +8,7 @@ import type { ScriptSummary } from '../bindings/ScriptSummary';
 import type { CommandArgs } from '../commands';
 import { IpcFailure } from '../transport';
 import { fakeSha } from './fake-sha';
-import { deletedAll, requireServer } from './memory-delete-all';
+import { deletion, requireServer } from './memory-delete-all';
 import { type Reach, reaches } from './memory-reach';
 import { combinesFilters } from './memory-notes-handlers';
 import { type CopyStores, type TeamScriptsHandlers, teamScriptsHandlers } from './memory-notes-team-handlers';
@@ -235,16 +235,11 @@ export function memoryScriptsHandlers(scenario: () => ScriptScenario = scriptSce
     memory_scripts_delete_all: ({ project = null, repos, scope }) => {
       requireServer(availabilityOf(scenario()));
 
-      if (repos?.kind === 'all') {
-        throw IpcFailure.from({ code: 'invalidInput', message: 'every repository cannot be deleted at once; pick one' });
-      }
-
       // A remote script that is read-only here stays.
-      const all = visible({ project, repos }).filter((candidate) => scope === undefined || candidate.scope === scope);
-      const gone = all.filter((candidate) => !candidate.readOnly);
+      const { gone, answer } = deletion(visible({ project, repos }), repos, scope);
       scripts = current().filter((candidate) => !gone.includes(candidate));
 
-      return deletedAll(gone, all.length - gone.length);
+      return answer;
     },
     memory_script_decide: ({ requestId, allow }) => {
       if (!pending.delete(requestId)) {

@@ -225,9 +225,15 @@ async fn delete_all(
     scope: Option<ScriptScope>,
 ) -> CommandResult<MemoryDeleteAll> {
     let project = project_root(state, project).await?;
-    let repos = Repos::of(project.as_deref(), repos.as_ref())?;
 
-    Ok(delete_all_notes(&state.env, &state.memory_scripts, &state.runner, repos, scope).await?)
+    Ok(delete_all_notes(
+        &state.env,
+        &state.memory_scripts,
+        &state.runner,
+        Repos::of(project.as_deref(), repos.as_ref())?,
+        scope,
+    )
+    .await?)
 }
 
 #[cfg(test)]

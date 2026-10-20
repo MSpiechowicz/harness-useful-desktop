@@ -11,7 +11,7 @@ import type { NotesImportResult } from '../bindings/NotesImportResult';
 import type { NotesImportRow } from '../bindings/NotesImportRow';
 import type { CommandArgs } from '../commands';
 import { IpcFailure } from '../transport';
-import { deletedAll, requireServer } from './memory-delete-all';
+import { deletion, requireServer } from './memory-delete-all';
 import { type Reach, reaches, reposPage } from './memory-reach';
 import { detailOf, noteSummaryOf, sampleNotes } from './memory-notes-fixtures';
 import { type CopyStores, type TeamNotesHandlers, teamNotesHandlers } from './memory-notes-team-handlers';
@@ -228,16 +228,11 @@ export function memoryNotesHandlers(
     memory_notes_delete_all: ({ project = null, repos, scope }: CommandArgs<'memory_notes_delete_all'>): MemoryDeleteAll => {
       requireServer(availability());
 
-      if (repos?.kind === 'all') {
-        throw IpcFailure.from({ code: 'invalidInput', message: 'every repository cannot be deleted at once; pick one' });
-      }
-
       // A team note that is read-only here stays.
-      const all = visible({ project, repos }).filter((candidate) => scope === undefined || candidate.scope === scope);
-      const gone = all.filter((candidate) => !candidate.readOnly);
+      const { gone, answer } = deletion(visible({ project, repos }), repos, scope);
       notes = current().filter((candidate) => !gone.includes(candidate));
 
-      return deletedAll(gone, all.length - gone.length);
+      return answer;
     },
     // Like the real backend: an edit (or a replace) goes by id and keeps the scope, and a new note whose title a note of its scope
     // has is refused (`exists`): the server refuses a repository one, the app looks a global one up first.
