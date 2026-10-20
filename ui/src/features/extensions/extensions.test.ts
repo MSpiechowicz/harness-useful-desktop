@@ -47,16 +47,6 @@ describe('ExtensionsViewer', () => {
     expect(headings()).not.toContain('Plugins');
   });
 
-  it('offers no install or update actions for OpenCode, whose extensions are read-only', async () => {
-    prefs.value = samplePrefs({ motion: 'off', defaultHarness: 'opencode' });
-    render(ExtensionsViewer);
-    // The inventory is a list when OpenCode has extensions and the empty state when it has none.
-    await waitFor(() => expect(screen.queryByRole('navigation', { name: 'Extensions' }) ?? screen.queryByText('No extensions yet')).not.toBeNull());
-
-    expect(screen.queryByRole('button', { name: 'Install' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
-  });
-
   it('folds a long group at first and a heading toggles it', async () => {
     await useHarness('omp');
     const long = extensionsView.data!.themes.length > 20;

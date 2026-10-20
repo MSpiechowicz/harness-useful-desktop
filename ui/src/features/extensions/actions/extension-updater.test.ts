@@ -23,8 +23,13 @@ const PI = {
   info: { id: 'pi' },
   capabilities: { plugins: false, marketplaces: false, packages: true, cliActions: true },
 } as HarnessSummary;
-/** Lists plugins but runs nothing through its CLI. */
+/** Installs and removes plugins, but never reports one outdated. */
 const OPENCODE = {
+  info: { id: 'opencode' },
+  capabilities: { plugins: true, marketplaces: false, packages: false, cliActions: true },
+} as HarnessSummary;
+/** Lists plugins but runs nothing through its CLI. */
+const READ_ONLY = {
   info: { id: 'opencode' },
   capabilities: { plugins: true, marketplaces: false, packages: false, cliActions: false },
 } as HarnessSummary;
@@ -123,6 +128,14 @@ describe('Extension auto-update', () => {
   });
 
   it('leaves a harness without CLI actions alone', async () => {
+    const { updater, log } = setup({ harnesses: [READ_ONLY], view: () => outdated('a@m') });
+
+    await updater.check();
+
+    expect(log).toEqual([]);
+  });
+
+  it('never upgrades OpenCode plugins, which it can only install and remove', async () => {
     const { updater, log } = setup({ harnesses: [OPENCODE], view: () => outdated('a@m') });
 
     await updater.check();

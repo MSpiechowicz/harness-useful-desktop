@@ -7,12 +7,13 @@
   import MoreMenu from '$lib/components/MoreMenu.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
   import { revealPath } from '$lib/ipc/actions';
+  import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
   import { ecosystem } from '$lib/stores/ecosystem.svelte';
   import { harness } from '$lib/stores/harness.svelte';
   import { extensionsView } from '$lib/stores/views.svelte';
 
   import { withCompanionUpdates } from '../companion-updates';
-  import { actionRequest, type UserAction } from './action-model';
+  import { actionRequest, installAndRemoveOnly, type UserAction } from './action-model';
   import { actionRunner } from './action-runner.svelte';
   import { entry } from './entry';
 
@@ -22,6 +23,8 @@
     /** Needs this capability of the harness. */
     needs: 'plugins' | 'packages';
     action: UserAction;
+    /** Leaves the entry out for a harness that cannot do it. */
+    unless?: (harness: HarnessId | undefined) => boolean;
     /** Greys the entry out while there is nothing for it to do. */
     idle?: () => boolean;
   }
@@ -32,6 +35,7 @@
       icon: ArrowUpFromLine,
       needs: 'plugins',
       action: { type: 'pluginUpgrade', name: null },
+      unless: installAndRemoveOnly,
       idle: () => !(extensionsView.data && withCompanionUpdates(extensionsView.data, ecosystem.status).plugins.some((plugin) => plugin.updateAvailable)),
     }),
     entry('title.updateAllPackages', { icon: ArrowUpFromLine, needs: 'packages', action: { type: 'packageUpdate', source: null } }),
@@ -45,7 +49,7 @@
   let { reveal = null }: Props = $props();
 
   const capabilities = $derived(harness.active?.capabilities);
-  const bulk = $derived(BULK.filter((item) => capabilities?.cliActions && capabilities[item.needs]));
+  const bulk = $derived(BULK.filter((item) => capabilities?.cliActions && capabilities[item.needs] && !item.unless?.(harness.active?.info.id)));
   const busy = $derived(actionRunner.phase !== 'idle');
 
   function run(item: Entry, close: () => void): void {

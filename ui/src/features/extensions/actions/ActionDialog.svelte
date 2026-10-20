@@ -28,6 +28,13 @@
   const ran = $derived(runner.result !== null);
   const command = $derived(((ran ? runner.result?.argv : runner.preview?.command) ?? []).join(' '));
 
+  // An action the harness applies by editing its config file has no command: the file is shown instead. When the app
+  // leaves that edit to the user, it is a note to read and not a failure.
+  const shown = $derived(ran ? runner.result : runner.preview);
+  const configEdit = $derived(shown?.configEdit ?? null);
+  const manualEdit = $derived(configEdit?.manualEdit ?? false);
+  const fileHeading = $derived(manualEdit ? t('extensions.dialog.fileManual') : ran ? t('extensions.dialog.fileEdited') : t('extensions.dialog.fileWillEdit'));
+
   // The dialog belongs to the Extensions view: leaving the view dismisses it, so coming back never finds an old preview
   // still waiting for a confirm. A run in progress keeps going (`close` leaves it alone) and shows its outcome on return.
   $effect(() => () => runner.close());
@@ -64,6 +71,15 @@
         </section>
       {/if}
 
+      {#if configEdit}
+        <section class="flex flex-col gap-1.5" aria-label={t('extensions.dialog.file')}>
+          <h3 class="text-xs font-medium tracking-wider text-fg-3 uppercase">{fileHeading}</h3>
+          <div class="rounded-md border border-line bg-surface-2 px-3 py-2">
+            <code class="font-mono text-sm [overflow-wrap:anywhere] text-fg">{configEdit.file}</code>
+          </div>
+        </section>
+      {/if}
+
       {#if runner.phase === 'previewing'}
         <p class="flex items-center gap-2 text-sm text-fg-2" role="status"><Spinner size={16} />{t('extensions.dialog.checking')}</p>
       {:else if runner.error && runner.phase === 'ready'}
@@ -74,7 +90,9 @@
         <section class="flex flex-col gap-1.5" aria-label={t('extensions.dialog.preview')}>
           <h3 class="text-xs font-medium tracking-wider text-fg-3 uppercase">{t('extensions.dialog.preview')}</h3>
 
-          {#if hasNoPreview(preview)}
+          {#if manualEdit}
+            {@render note(preview.summary)}
+          {:else if hasNoPreview(preview)}
             <p class="flex items-start gap-2 rounded-md border border-line bg-surface-2 px-3 py-2 text-sm text-fg-2">
               <Info size={16} class="mt-0.5 shrink-0 text-info" aria-hidden="true" />
               {t('extensions.dialog.noPreview')}
@@ -82,6 +100,8 @@
           {:else if !runner.confirmable}
             {@render problem(t('extensions.dialog.previewProblem'), preview.summary ?? t('extensions.failure.default'))}
             {#if output(preview)}{@render log(output(preview), t('extensions.dialog.previewOutput'))}{/if}
+          {:else if preview.configEdit}
+            {@render log(preview.summary ?? t('extensions.dialog.previewEmpty'), t('extensions.dialog.previewOutput'))}
           {:else}
             {@render log(output(preview) || t('extensions.dialog.previewEmpty'), t('extensions.dialog.previewOutput'))}
             <p class="text-xs text-fg-3">{t('extensions.dialog.nothingChanged')}</p>
@@ -91,7 +111,9 @@
       {:else if runner.phase === 'running'}
         <p class="flex items-center gap-2 text-sm text-fg-2" role="status"><Spinner size={16} />{downloads ? t('extensions.dialog.running') : t('extensions.dialog.runningLocal')}</p>
       {:else if runner.phase === 'done'}
-        {#if runner.failure !== null || runner.error}
+        {#if manualEdit && !runner.error}
+          {@render note(runner.result?.summary ?? null)}
+        {:else if runner.failure !== null || runner.error}
           {@render problem(runner.error ? t('extensions.dialog.couldNotRun') : t('extensions.dialog.failed'), runner.error ?? runner.failure ?? '')}
         {:else}
           <p class="flex items-start gap-2 rounded-md border border-line bg-success-wash px-3 py-2.5 text-sm text-fg" role="status">
@@ -109,7 +131,7 @@
     </div>
 
     {#snippet footer()}
-      {#if runner.phase === 'done'}
+      {#if runner.phase === 'done' || manualEdit}
         <Button variant="primary" onclick={() => runner.close()}>{t('extensions.dialog.close')}</Button>
       {:else}
         <Button variant="ghost" disabled={runner.phase === 'running'} onclick={() => runner.close()}>{t('extensions.dialog.cancel')}</Button>
@@ -130,6 +152,13 @@
   <p class="flex items-start gap-2 rounded-md border border-line bg-danger-wash px-3 py-2.5 text-sm text-fg" role="alert">
     <CircleAlert size={16} class="mt-0.5 shrink-0 text-danger" aria-hidden="true" />
     <span class="flex min-w-0 flex-col"><span class="font-medium">{title}</span><span class="text-fg-2 [overflow-wrap:anywhere]">{detail}</span></span>
+  </p>
+{/snippet}
+
+{#snippet note(summary: string | null)}
+  <p class="flex items-start gap-2 rounded-md border border-line bg-surface-2 px-3 py-2.5 text-sm text-fg" role="status">
+    <Info size={16} class="mt-0.5 shrink-0 text-info" aria-hidden="true" />
+    <span class="flex min-w-0 flex-col"><span class="font-medium">{t('extensions.dialog.manualEdit')}</span><span class="text-fg-2 [overflow-wrap:anywhere]">{summary ?? t('extensions.failure.default')}</span></span>
   </p>
 {/snippet}
 

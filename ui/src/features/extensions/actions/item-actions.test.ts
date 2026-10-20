@@ -40,4 +40,11 @@ describe('pluginActions', () => {
 
     expect(update.state).toBe('ready');
   });
+
+  it('offers OpenCode plugins nothing but the removal', () => {
+    const actions = pluginActions('opencode', plugin({ id: 'opencode-wakatime', marketplace: null }), null);
+
+    expect(actions.map((action) => action.label)).toEqual(['Uninstall']);
+    expect(actions[0].request.action).toEqual({ type: 'pluginUninstall', name: 'opencode-wakatime' });
+  });
 });

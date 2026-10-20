@@ -10,7 +10,7 @@
   import { project } from '$lib/stores/project.svelte';
   import { uid } from '$lib/utils/ids';
 
-  import { actionRequest, targetProblem, type ActionRequest, type ComposeKind } from './action-model';
+  import { actionRequest, installAndRemoveOnly, targetProblem, type ActionRequest, type ComposeKind } from './action-model';
 
   interface Props {
     kind: ComposeKind;
@@ -37,6 +37,25 @@
         return t('extensions.compose.plugin.hint');
       },
       scoped: true,
+      npm: false,
+    },
+    // OpenCode installs npm packages for the user only.
+    opencodePlugin: {
+      get title() {
+        return t('extensions.compose.plugin.title');
+      },
+      get description() {
+        return t('extensions.compose.opencodePlugin.description');
+      },
+      get label() {
+        return t('extensions.compose.plugin.label');
+      },
+      placeholder: 'opencode-wakatime',
+      get hint() {
+        return t('extensions.compose.opencodePlugin.hint');
+      },
+      scoped: false,
+      npm: true,
     },
     marketplace: {
       get title() {
@@ -53,6 +72,7 @@
         return t('extensions.compose.marketplace.hint');
       },
       scoped: false,
+      npm: false,
     },
     package: {
       get title() {
@@ -69,10 +89,11 @@
         return t('extensions.compose.package.hint');
       },
       scoped: true,
+      npm: false,
     },
   };
 
-  const copy = $derived(COPY[kind]);
+  const copy = $derived(COPY[kind === 'plugin' && installAndRemoveOnly(harness.active?.info.id) ? 'opencodePlugin' : kind]);
   const hintId = uid('install-hint');
   const projectPath = $derived(project.active?.path ?? null);
   const scopes = $derived<StripOption<InstallScope>[]>([
@@ -85,7 +106,7 @@
   // An empty field is not an error until the user tries to continue; leaving it half-typed is.
   let touched = $state(false);
 
-  const problem = $derived(targetProblem(value));
+  const problem = $derived(targetProblem(value, copy.npm ? 'npm' : 'any'));
   const shownProblem = $derived(touched && problem ? problem : null);
 
   function submit(): void {
@@ -99,7 +120,7 @@
     const text = value.trim();
     const action =
       kind === 'plugin'
-        ? ({ type: 'pluginInstall', target: text, scope } as const)
+        ? ({ type: 'pluginInstall', target: text, scope: copy.scoped ? scope : 'user' } as const)
         : kind === 'marketplace'
           ? ({ type: 'marketplaceAdd', source: text } as const)
           : ({ type: 'packageInstall', source: text } as const);

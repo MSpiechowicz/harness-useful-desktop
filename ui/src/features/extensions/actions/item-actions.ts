@@ -10,7 +10,7 @@ import type { MarketplaceInfo } from '$lib/ipc/bindings/MarketplaceInfo';
 import type { PackageInfo } from '$lib/ipc/bindings/PackageInfo';
 import type { PluginInfo } from '$lib/ipc/bindings/PluginInfo';
 
-import { actionRequest, type BarAction } from './action-model';
+import { actionRequest, installAndRemoveOnly, type BarAction } from './action-model';
 
 function scopeOf(scope: string): InstallScope {
   return scope === 'project' ? 'project' : 'user';
@@ -24,10 +24,24 @@ export function pluginUpdateRequest(harness: HarnessId, plugin: PluginInfo, proj
 /**
  * Enable or disable, upgrade and uninstall of an installed plugin. Upgrade is offered only when the marketplace
  * catalog has a newer version: the CLI would otherwise reinstall the same version and call it a success.
+ * OpenCode plugins can only be removed.
  */
 export function pluginActions(harness: HarnessId, plugin: PluginInfo, project: string | null): BarAction[] {
   const scope = scopeOf(plugin.scope);
   const request = (action: Parameters<typeof actionRequest>[1]) => actionRequest(harness, action, scope, project);
+  const uninstall: BarAction = {
+    label: t('extensions.verb.uninstall'),
+    title: t('extensions.action.uninstall.title'),
+    description: t('extensions.action.uninstall.description'),
+    icon: Trash2,
+    danger: true,
+    request: request({ type: 'pluginUninstall', name: plugin.id }),
+  };
+
+  if (installAndRemoveOnly(harness)) {
+    return [uninstall];
+  }
+
   const actions: BarAction[] = [
     plugin.enabled
       ? {
@@ -60,14 +74,7 @@ export function pluginActions(harness: HarnessId, plugin: PluginInfo, project: s
     request: pluginUpdateRequest(harness, plugin, project),
   });
 
-  actions.push({
-    label: t('extensions.verb.uninstall'),
-    title: t('extensions.action.uninstall.title'),
-    description: t('extensions.action.uninstall.description'),
-    icon: Trash2,
-    danger: true,
-    request: request({ type: 'pluginUninstall', name: plugin.id }),
-  });
+  actions.push(uninstall);
 
   return actions;
 }

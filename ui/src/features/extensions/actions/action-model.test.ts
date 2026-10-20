@@ -30,6 +30,10 @@ describe('no preview', () => {
     expect(hasNoPreview(result({ exitCode: null, timedOut: true }))).toBe(false);
     expect(hasNoPreview(result({ exitCode: 0 }))).toBe(false);
   });
+
+  it('is not a config edit, which has no exit code either but does report what it would change', () => {
+    expect(hasNoPreview(result({ exitCode: null, configEdit: { file: '~/.config/opencode/opencode.json', manualEdit: false } }))).toBe(false);
+  });
 });
 
 describe('actionRequest', () => {
@@ -77,5 +81,22 @@ describe('targetProblem', () => {
     expect(targetProblem('a b')).toMatch(/only letters/);
     expect(targetProblem('https://user:pw@host/repo')).toMatch(/credentials/);
     expect(targetProblem('x'.repeat(513))).toMatch(/too long/);
+  });
+});
+
+describe('targetProblem for an npm package', () => {
+  it('accepts a registry name with an optional version or tag', () => {
+    for (const ok of ['opencode-wakatime', '@scope/name', '@scope/name@1.2.3', 'name@latest', 'name@1.x']) {
+      expect(targetProblem(ok, 'npm')).toBeNull();
+    }
+  });
+
+  it('explains why a path, an address, a git spec or a flag is refused', () => {
+    for (const bad of ['file:///x', 'github:a/b', 'git+https://host/a/b.git', './local', '/abs/path', 'pkg.tgz', 'name@file:../x', 'x'.repeat(215)]) {
+      expect(targetProblem(bad, 'npm'), bad).toMatch(/npm package name/);
+    }
+
+    expect(targetProblem('a b', 'npm')).toMatch(/only letters/);
+    expect(targetProblem('-g', 'npm')).toMatch(/dash/);
   });
 });
