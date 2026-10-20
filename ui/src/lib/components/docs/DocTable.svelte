@@ -1,4 +1,4 @@
-<script lang="ts" generics="V, G extends { id: string; views: V[] }">
+<script lang="ts" generics="V">
   import ChevronRight from '@lucide/svelte/icons/chevron-right';
   import type { Snippet } from 'svelte';
 
@@ -14,15 +14,13 @@
     /** Accessible name of the table. */
     label: string;
     columns: DocColumn[];
-    /** The sort the rows of every group are in; null for the run order. Only the columns with a key sort. */
+    /** The sort the rows are in; null for the run order. Only the columns with a key sort. */
     sort?: Sort | null;
     /** A header of a sortable column was clicked: the sort to apply. */
     onsort?: (sort: Sort) => void;
-    /** The documents in their groups, each under its heading. Without it the table is flat: `rows` in one run, no headings. */
-    groups?: G[];
-    /** The documents of a flat table (no `groups`), e.g. one page of them. */
-    rows?: V[];
-    /** The pages of a flat table: the pager under the rows, where the rows are one page of `total`. */
+    /** The documents, e.g. one page of them. */
+    rows: V[];
+    /** The pager under the rows, where the rows are one page of `total`. */
     pagination?: { page: number; pageSize: number; total: number; onpage: (page: number) => void };
     rowKey: (view: V) => string;
     /** The row whose panel is open. */
@@ -30,22 +28,14 @@
     onopen: (id: string) => void;
     /** Moves the open panel along when the arrow keys move the focus. */
     onmove: (id: string) => void;
-    /** The heading row of a group (a `DocGroupHeader`). */
-    heading?: Snippet<[G]>;
-    /** More rows right after a group's heading, e.g. why the team's documents could not be read. */
-    note?: Snippet<[G]>;
     /** The cells of one row, without the chevron that ends it. */
     cells: Snippet<[V]>;
-    /** What an empty group says, in its one row. */
-    empty?: Snippet<[G]>;
   }
 
-  let { label, columns, sort = null, onsort, groups, rows: flat, pagination, rowKey, openId, onopen, onmove, heading, note, cells, empty }: Props = $props();
+  let { label, columns, sort = null, onsort, rows: shown, pagination, rowKey, openId, onopen, onmove, cells }: Props = $props();
 
   let body: HTMLElement | undefined = $state();
 
-  const span = $derived(columns.length + 1);
-  const shown = $derived(groups ? groups.flatMap((group) => group.views) : (flat ?? []));
   const first = $derived(shown.length > 0 ? rowKey(shown[0]) : null);
   const stop = $derived(shown.some((view) => rowKey(view) === openId) ? openId : first);
 
@@ -110,7 +100,7 @@
   </tr>
 {/snippet}
 
-<!-- A table of the documents, in their groups or in one flat run with a pager: every row is one stop of the Tab key, the arrow keys move between rows, and a row opens its panel.
+<!-- A table of the documents in one run with a pager: every row is one stop of the Tab key, the arrow keys move between rows, and a row opens its panel.
      The controls of a row stay out of the way of that: they work the document without opening it. A chevron ends every row, as it does in the Memory tables. -->
 <div class="flex min-h-0 min-w-0 flex-1 flex-col">
   <div class="doc-table @container min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]">
@@ -140,26 +130,9 @@
       </thead>
 
       <tbody bind:this={body}>
-        {#if groups}
-          {#each groups as group (group.id)}
-            {@render heading?.(group)}
-            {@render note?.(group)}
-
-            {#each group.views as view, index (rowKey(view))}
-              {@render line(view, index)}
-            {/each}
-
-            {#if group.views.length === 0 && empty}
-              <tr>
-                <td colspan={span} class="h-11 border-b border-line/60 px-3 text-sm text-fg-3">{@render empty(group)}</td>
-              </tr>
-            {/if}
-          {/each}
-        {:else}
-          {#each flat ?? [] as view, index (rowKey(view))}
-            {@render line(view, index)}
-          {/each}
-        {/if}
+        {#each shown as view, index (rowKey(view))}
+          {@render line(view, index)}
+        {/each}
       </tbody>
     </table>
   </div>

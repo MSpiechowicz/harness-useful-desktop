@@ -23,7 +23,7 @@
     scope: ScriptScope;
     /** The routine's own scope: a global routine has no repository to look a script up in. */
     routineScope: HookScope;
-    /** The folder of the open project, which the scripts of its repository are listed for. */
+    /** The folder of the project the routine is for, which the scripts of its repository are listed for; null for a global routine. */
     project: string | null;
     /** What is wrong with the choice, if the editor says so. */
     error: string | null;

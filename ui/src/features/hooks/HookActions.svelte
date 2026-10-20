@@ -14,11 +14,13 @@
     sharing: boolean;
     /** The local original of a team hook is there to update the team copy from. */
     canUpdate: boolean;
+    /** Why a team hook cannot be copied for want of a project folder, or null. */
+    copyLock: string | null;
     /** A change to this hook is being written. */
     busy: boolean;
   }
 
-  let { view, lockReason, sharing, canUpdate, busy, onedit, ondelete, onshare, onupdate, onremove, oncopy }: Props = $props();
+  let { view, lockReason, sharing, canUpdate, copyLock, busy, onedit, ondelete, onshare, onupdate, onremove, oncopy }: Props = $props();
 
   const labels = $derived({ edit: t('hooks.panel.edit'), share: t('hooks.share.action'), delete: t('hooks.panel.delete'), copy: t('hooks.team.copy'), update: t('hooks.team.update'), remove: t('hooks.team.remove') });
   const blocked = $derived(view.shareBlock === null ? null : t(SHARE_BLOCK_TEXT[view.shareBlock]));
@@ -27,7 +29,7 @@
   const copyBlock = $derived.by(() => {
     const key = COPY_BLOCK_TEXT[view.status as CopyBlocked];
 
-    return key === undefined ? null : t(key);
+    return key === undefined ? copyLock : t(key);
   });
 </script>
 

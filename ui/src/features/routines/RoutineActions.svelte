@@ -21,6 +21,8 @@
     sharing: boolean;
     /** The local original of a team routine is there to update the team copy from. */
     canUpdate: boolean;
+    /** A folder of the repository of a team routine is there on this computer, which a copy is kept in. */
+    projectKnown: boolean;
     /** A run of the routine is going on. */
     running: boolean;
     /** A change to this routine is being written. */
@@ -29,7 +31,7 @@
     onstop: () => void;
   }
 
-  let { view, lockReason, sharing, canUpdate, running, busy, onrun, onstop, onedit, ondelete, onshare, onupdate, onremove, oncopy }: Props = $props();
+  let { view, lockReason, sharing, canUpdate, projectKnown, running, busy, onrun, onstop, onedit, ondelete, onshare, onupdate, onremove, oncopy }: Props = $props();
 
   const labels = $derived({ edit: t('routines.panel.edit'), share: t('routines.share.action'), delete: t('routines.panel.delete'), copy: t('routines.team.copy'), update: t('routines.team.update'), remove: t('routines.team.remove') });
   const blocked = $derived(view.shareBlock === null ? null : t(SHARE_BLOCK_TEXT[view.shareBlock]));
@@ -38,7 +40,12 @@
   const copyBlock = $derived.by(() => {
     const key = COPY_BLOCK_TEXT[view.status as CopyBlocked];
 
-    return key === undefined ? null : t(key);
+    if (key !== undefined) {
+      return t(key);
+    }
+
+    // A copy of a routine of a repository is kept in a folder of it.
+    return view.origin === 'team' && view.teamRepo !== null && !projectKnown ? t('routines.team.copy.noProject') : null;
   });
 
   // Run now needs a routine that is valid and approved. A pending one never runs, not even by hand. One that waits for a free place starts by itself.

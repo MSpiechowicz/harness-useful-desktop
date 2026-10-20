@@ -4,7 +4,7 @@ import type { Routine } from '$lib/ipc/bindings/Routine';
 
 import { abilitiesOf } from './routine-abilities';
 import { modeText } from './routine-facts';
-import { ACTION_LABELS, actionText, HARNESS_NAMES, SCOPE_LABELS, whenText } from './routine-format';
+import { ACTION_LABELS, actionText, HARNESS_NAMES, whenText } from './routine-format';
 import { DEFAULT_MAX_MINUTES, DEFAULT_TIMEOUT_SECS } from './routine-form';
 
 /** The parts of a routine that the review compares. */
@@ -49,8 +49,8 @@ function approvalValue(routine: Routine): string | null {
   return ways.length === 0 ? null : ways.join(', ');
 }
 
-/** The values of a routine as the review shows them: written for a reader, except the parts that are text, code or a path. The empty ones are null. */
-function valuesOf(routine: Routine): Record<ChangedField, string | null> {
+/** The values of a routine as the review shows them: written for a reader, except the parts that are text, code or a path (`scopeOf` names where it applies). The empty ones are null. */
+function valuesOf(routine: Routine, scopeOf: (routine: Routine) => string): Record<ChangedField, string | null> {
   const action = routine.action;
   const agent = action.type === 'agent' ? action : null;
 
@@ -66,7 +66,7 @@ function valuesOf(routine: Routine): Record<ChangedField, string | null> {
     text: actionText(action),
     timeout: action.type === 'command' ? t('routines.value.seconds', { count: action.timeoutSecs ?? DEFAULT_TIMEOUT_SECS }) : null,
     scriptScope: action.type === 'script' ? t(action.scope === 'repo' ? 'routines.value.scriptRepo' : 'routines.value.scriptGlobal') : null,
-    scope: t(SCOPE_LABELS[routine.scope]),
+    scope: scopeOf(routine),
     project: routine.project,
     enabled: t(routine.enabled ? 'routines.value.on' : 'routines.value.off'),
   };
@@ -76,8 +76,9 @@ const ORDER: readonly ChangedField[] = ['name', 'description', 'when', 'does', '
 
 /**
  * What differs between a waiting routine and the version the user approved. Without an approved version (an agent added the
- * routine) every part it sets is listed as new, so the review shows what the routine would do before it ever runs.
+ * routine) every part it sets is listed as new, so the review shows what the routine would do before it ever runs. `scopeOf` names
+ * where a version applies, e.g. the project it moved to.
  */
-export function changesOf(waiting: Routine, approved: Routine | null): FieldChange[] {
-  return diffFields(ORDER, valuesOf(waiting), approved ? valuesOf(approved) : null);
+export function changesOf(waiting: Routine, approved: Routine | null, scopeOf: (routine: Routine) => string): FieldChange[] {
+  return diffFields(ORDER, valuesOf(waiting, scopeOf), approved ? valuesOf(approved, scopeOf) : null);
 }

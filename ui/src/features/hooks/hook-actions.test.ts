@@ -34,10 +34,10 @@ function team(patch: Partial<HookView> = {}): HookView {
   return { ...local(null), origin: 'team', teamAuthor: 'Anna', teamUpdatedAt: '2026-10-17T10:00:00Z', ...patch };
 }
 
-function show(view: HookView, props: { sharing?: boolean; canUpdate?: boolean } = {}) {
+function show(view: HookView, props: { sharing?: boolean; canUpdate?: boolean; copyLock?: string } = {}) {
   const handlers = { onedit: vi.fn(), ondelete: vi.fn(), onshare: vi.fn(), onupdate: vi.fn(), onremove: vi.fn(), oncopy: vi.fn() };
 
-  render(HookActions, { view, lockReason: null, sharing: props.sharing ?? true, canUpdate: props.canUpdate ?? true, busy: false, ...handlers });
+  render(HookActions, { view, lockReason: null, sharing: props.sharing ?? true, canUpdate: props.canUpdate ?? true, copyLock: props.copyLock ?? null, busy: false, ...handlers });
 
   return handlers;
 }
@@ -106,6 +106,19 @@ describe('The actions of a remote hook', () => {
     await fireEvent.pointerEnter(copy.parentElement as HTMLElement);
 
     expect(await screen.findByRole('tooltip')).toHaveTextContent(reason);
+    await fireEvent.click(copy);
+    expect(oncopy).not.toHaveBeenCalled();
+  });
+
+  it('cannot be copied for want of a project folder, with the reason as a tooltip', async () => {
+    const { oncopy } = show(team(), { copyLock: 'Open this project to copy this hook to it.' });
+    const copy = screen.getByRole('button', { name: 'Copy to my hooks' });
+
+    expect(copy).toBeDisabled();
+
+    await fireEvent.pointerEnter(copy.parentElement as HTMLElement);
+
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Open this project to copy this hook to it.');
     await fireEvent.click(copy);
     expect(oncopy).not.toHaveBeenCalled();
   });

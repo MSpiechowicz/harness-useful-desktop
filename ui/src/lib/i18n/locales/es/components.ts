@@ -151,6 +151,7 @@ export const components: AreaMessages<typeof enComponents> = {
   'components.scope.label': 'Ámbito',
   'components.scope.all': 'Todos',
   'components.scope.global': 'Global',
+  'components.scope.globalAnd': 'Global y {project}',
   'components.scope.clear': 'Quitar el filtro Ámbito',
   'components.scope.search': 'Buscar repositorios',
   'components.scope.search.placeholder': 'Buscar repositorios…',

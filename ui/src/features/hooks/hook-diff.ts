@@ -9,8 +9,8 @@ export type ChangedField = 'name' | 'description' | 'event' | 'matcher' | 'actio
 /** One part that differs between the version the user approved and the one waiting. `from` is null when there was no approved version, or the part was empty. */
 export type FieldChange = DocChange<ChangedField>;
 
-/** The values of a hook as the review shows them; the empty ones are null. */
-function valuesOf(hook: Hook): Record<ChangedField, string | null> {
+/** The values of a hook as the review shows them (`scopeOf` names where it applies), the empty ones are null. */
+function valuesOf(hook: Hook, scopeOf: (hook: Hook) => string): Record<ChangedField, string | null> {
   const action = hook.action;
 
   return {
@@ -21,7 +21,7 @@ function valuesOf(hook: Hook): Record<ChangedField, string | null> {
     action: action.type,
     text: actionText(action),
     timeout: action.type === 'command' && action.timeoutSecs !== null ? String(action.timeoutSecs) : null,
-    scope: hook.scope,
+    scope: scopeOf(hook),
     project: hook.project,
     enabled: String(hook.enabled),
   };
@@ -31,8 +31,9 @@ const ORDER: readonly ChangedField[] = ['name', 'description', 'event', 'matcher
 
 /**
  * What differs between a waiting hook and the version the user approved. Without an approved version (an agent added the
- * hook) every part it sets is listed as new, so the review shows what the hook would do before it ever runs.
+ * hook) every part it sets is listed as new, so the review shows what the hook would do before it ever runs. `scopeOf` names
+ * where a version applies, e.g. the project it moved to.
  */
-export function changesOf(waiting: Hook, approved: Hook | null): FieldChange[] {
-  return diffFields(ORDER, valuesOf(waiting), approved ? valuesOf(approved) : null);
+export function changesOf(waiting: Hook, approved: Hook | null, scopeOf: (hook: Hook) => string): FieldChange[] {
+  return diffFields(ORDER, valuesOf(waiting, scopeOf), approved ? valuesOf(approved, scopeOf) : null);
 }

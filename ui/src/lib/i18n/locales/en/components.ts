@@ -148,6 +148,7 @@ export const components = {
   'components.scope.label': 'Scope',
   'components.scope.all': 'All',
   'components.scope.global': 'Global',
+  'components.scope.globalAnd': 'Global and {project}',
   'components.scope.clear': 'Clear the Scope filter',
   'components.scope.search': 'Search repositories',
   'components.scope.search.placeholder': 'Search repositories…',

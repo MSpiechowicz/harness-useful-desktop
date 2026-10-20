@@ -2,21 +2,26 @@
   import { type DocReviewHandlers, type ReviewChange, reviewChanges } from '$lib/components/docs/doc-diff';
   import DocReview from '$lib/components/docs/DocReview.svelte';
   import { reviewTitleKey, type ReviewTitleKeys } from '$lib/components/docs/review-title';
+  import { versionScopeText } from '$lib/components/docs/doc-scope';
   import { t } from '$lib/i18n/i18n.svelte';
   import type { MessageKey } from '$lib/i18n/locales/en';
+  import type { ProjectScope } from '$lib/ipc/bindings/ProjectScope';
   import type { RoutineView } from '$lib/ipc/bindings/RoutineView';
 
   import { lineDiff } from '../memory/line-diff';
   import { spelledOut } from '../memory/script-format';
   import ScriptDiff from '../memory/ScriptDiff.svelte';
   import { type ChangedField, changesOf } from './routine-diff';
+  import { routineDoc } from './routine-format';
   import UnattendedChip from './UnattendedChip.svelte';
 
   interface Props extends DocReviewHandlers {
     view: RoutineView;
+    /** The projects on this computer, which a routine's scope is named by. */
+    projects: ProjectScope[];
   }
 
-  let { view, busy, onapprove, onreject }: Props = $props();
+  let { view, projects, busy, onapprove, onreject }: Props = $props();
 
   const routine = $derived(view.routine);
   // A routine that was never approved is new to the user. One with an approved version has been changed since.
@@ -59,14 +64,14 @@
   const MONO: ReadonlySet<ChangedField> = new Set(['model', 'project']);
 
   /** Names, descriptions and paths come from files an agent may have written: no character stays hidden. */
-  const SPELLED: ReadonlySet<ChangedField> = new Set(['name', 'description', 'project']);
+  const SPELLED: ReadonlySet<ChangedField> = new Set(['name', 'description', 'scope', 'project']);
 
   function shown(field: ChangedField, value: string | null): string | null {
     return value !== null && SPELLED.has(field) ? spelledOut(value) : value;
   }
 
   const changes = $derived(
-    reviewChanges(routine ? changesOf(routine, view.approved) : [], {
+    reviewChanges(routine ? changesOf(routine, view.approved, (version) => versionScopeText(routineDoc(view), version, projects)) : [], {
       mono: MONO,
       text: 'text',
       value: shown,

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { ProjectScope } from '$lib/ipc/bindings/ProjectScope';
 
-import { docScope, docScopeOptions, inScope, type ScopedDoc } from './doc-scope';
+import { deleteScopeText, docScope, docScopeOptions, inScope, openProjectOf, scopeSortValue, type ScopedDoc, scopeText, versionScopeText } from './doc-scope';
 
 const LABELS = { all: 'All', global: 'Global', remoteOnly: 'Remote only' };
 
@@ -69,5 +69,33 @@ describe('inScope', () => {
     expect(inScope(DOCS, widget, id, PROJECTS)).toEqual([DOCS[1], DOCS[2]]);
     expect(inScope(DOCS, notes, id, PROJECTS)).toEqual([DOCS[3]]);
     expect(inScope(DOCS, site, id, PROJECTS)).toEqual([DOCS[4]]);
+  });
+});
+
+describe('scopeText and scopeSortValue', () => {
+  it('say a scope in a sentence and sort Global first, the repositories by name and an unknown scope last', () => {
+    const scopes = DOCS.map((candidate) => docScope(candidate, PROJECTS));
+
+    expect(scopes.map(scopeText)).toEqual(['Global', 'widget', 'widget', 'notes', 'acme/site', 'Unknown']);
+    expect(scopes.map(scopeSortValue)).toEqual(['', 'widget', 'widget', 'notes', 'acme/site', null]);
+  });
+});
+
+describe('versionScopeText', () => {
+  it('names the project a version applies to, which is another one when it moved, and Global when it was widened', () => {
+    const row = doc({ root: '/work/widget', repoKey: 'git:github.com/acme/widget' });
+
+    expect(versionScopeText(row, { scope: 'project', project: '/work/widget' }, PROJECTS)).toBe('widget');
+    expect(versionScopeText(row, { scope: 'project', project: '/work/notes' }, PROJECTS)).toBe('notes');
+    expect(versionScopeText(row, { scope: 'project', project: '/elsewhere/app' }, PROJECTS)).toBe('app');
+    expect(versionScopeText(row, { scope: 'global', project: null }, PROJECTS)).toBe('Global');
+  });
+});
+
+describe('deleteScopeText', () => {
+  it('says Global and the open project, or only Global while no project is open', () => {
+    expect(deleteScopeText(openProjectOf(PROJECTS, '/work/notes'))).toBe('Global and notes');
+    expect(deleteScopeText(openProjectOf(PROJECTS, null))).toBe('Global');
+    expect(deleteScopeText(openProjectOf(PROJECTS, '/gone'))).toBe('Global');
   });
 });

@@ -5,7 +5,7 @@ import type { HookStatus } from '$lib/ipc/bindings/HookStatus';
 import type { HookView } from '$lib/ipc/bindings/HookView';
 import { LOCAL_ORIGIN } from '$lib/ipc/mock/hooks-team-state';
 
-import { filterCounts, groupHooks, inSource, inStatus, inWhen, matchesQuery, pendingCount, viewKey, waitingFor } from './hook-format';
+import { deletableCount, filterCounts, hookDoc, inSource, inStatus, inWhen, matchesQuery, pendingCount, viewKey, waitingFor } from './hook-format';
 
 const LOCAL = { ...LOCAL_ORIGIN, shareBlock: null } as const;
 
@@ -93,28 +93,23 @@ describe('the filters', () => {
   });
 });
 
-describe('the groups', () => {
-  it('put global hooks first, then the project ones, then the files to fix, with the total of each scope', () => {
-    const groups = groupHooks(LIST, LIST, false);
+describe('where a hook applies', () => {
+  it('is the scope of its file with the project it names, and unknown for a file that is not a hook', () => {
+    const located = { ...LIST[2], root: '/work/app', repoKey: 'git:github.com/acme/app' };
 
-    expect(groups.map((group) => [group.id, group.views.length, group.total])).toEqual([
-      ['global', 2, 2],
-      ['project', 2, 2],
-      ['invalid', 1, 1],
-    ]);
+    expect(hookDoc(LIST[0])).toEqual({ origin: 'local', scope: 'global', root: null, repoKey: null });
+    expect(hookDoc(located)).toEqual({ origin: 'local', scope: 'project', root: '/work/app', repoKey: 'git:github.com/acme/app' });
+    expect(hookDoc(broken).scope).toBeNull();
   });
+});
 
-  it('keep both scopes in the full list, even when one is empty', () => {
-    const onlyGlobal = LIST.slice(0, 2);
+describe('the hooks Delete all removes', () => {
+  const OTHER = { ...view({ id: '5', name: 'Elsewhere', scope: 'project', project: '/work/other' }), root: '/work/other' };
+  const MINE = { ...LIST[3], root: '/work/app' };
 
-    expect(groupHooks(onlyGlobal, onlyGlobal, false).map((group) => group.id)).toEqual(['global', 'project']);
-  });
-
-  it('leave out the groups a search or filter leaves empty, but still count the whole scope', () => {
-    const shown = LIST.filter((item) => inWhen(item, 'toolEnd'));
-    const groups = groupHooks(LIST, shown, true);
-
-    expect(groups.map((group) => [group.id, group.views.length, group.total])).toEqual([['project', 1, 2]]);
+  it('are the global ones, the files that are not hooks and the open project\'s', () => {
+    expect(deletableCount([LIST[0], MINE, OTHER, broken], '/work/app')).toBe(3);
+    expect(deletableCount([LIST[0], MINE, OTHER, broken], null)).toBe(2);
   });
 });
 
@@ -138,11 +133,8 @@ describe('the team hooks', () => {
     expect(filterCounts(WITH_TEAM)).toMatchObject({ source: { all: 7, mine: 5, team: 2 }, status: { duplicate: 1, active: 2 } });
   });
 
-  it('come last in a group of their own, which an unfiltered list shows even while empty', () => {
-    expect(groupHooks(WITH_TEAM, WITH_TEAM, false, true).map((group) => [group.id, group.views.length])).toEqual([['global', 2], ['project', 2], ['invalid', 1], ['team', 2]]);
-    expect(groupHooks(LIST, LIST, false, true).map((group) => group.id)).toEqual(['global', 'project', 'invalid', 'team']);
-    expect(groupHooks(LIST, LIST, false, false).map((group) => group.id)).toEqual(['global', 'project', 'invalid']);
-    expect(groupHooks(LIST, [], true, true)).toEqual([]);
+  it('are never counted among the hooks Delete all removes', () => {
+    expect(deletableCount(WITH_TEAM, '/work/app')).toBe(LIST.length);
   });
 });
 

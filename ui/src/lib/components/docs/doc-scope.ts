@@ -1,8 +1,10 @@
+import { t } from '$lib/i18n/i18n.svelte';
 import type { HookOrigin } from '$lib/ipc/bindings/HookOrigin';
 import type { HookScope } from '$lib/ipc/bindings/HookScope';
 import type { ProjectScope } from '$lib/ipc/bindings/ProjectScope';
 
 import { buildScopeOptions, type KnownRepo, matchesScope, projectChoice, type ScopeChoice, type ScopeLabels, type ScopeOption, type ScopeRow, shortRepoName } from '../scope/scope-options';
+import type { SortValue } from './doc-groups';
 
 /** What a documents list (hooks, routines) knows of where one of its rows applies. `scope` is that of the parsed body, null for a file that is not a document. */
 export interface ScopedDoc {
@@ -23,8 +25,18 @@ export function scopeRow(doc: ScopedDoc): ScopeRow {
 }
 
 /** The project on this computer a row belongs to: the one with its key, else the one with its root. */
-function projectOf(doc: ScopedDoc, projects: ProjectScope[]): ProjectScope | undefined {
+export function projectOf(doc: ScopedDoc, projects: ProjectScope[]): ProjectScope | undefined {
   return projects.find((project) => doc.repoKey !== null && project.key === doc.repoKey) ?? projects.find((project) => doc.root !== null && project.root === doc.root);
+}
+
+/** The open project among the projects on this computer, if it is one of them. */
+export function openProjectOf(projects: ProjectScope[], path: string | null): ProjectScope | undefined {
+  return path === null ? undefined : projects.find((project) => project.path === path);
+}
+
+/** Which scopes "Delete all" reaches, for the question: Global, and the open project when there is one. */
+export function deleteScopeText(open: ProjectScope | undefined): string {
+  return open ? t('components.scope.globalAnd', { project: open.name }) : t('components.scope.global');
 }
 
 /** The folder name of a path. */
@@ -53,6 +65,31 @@ export function docScope(doc: ScopedDoc, projects: ProjectScope[]): DocScope {
   }
 
   return doc.root === null ? { kind: 'unknown' } : { kind: 'repo', label: folderName(doc.root) };
+}
+
+/** What a scope is called in a sentence: Global, the name of the repository, or Unknown. */
+export function scopeText(scope: DocScope): string {
+  if (scope.kind === 'repo') {
+    return scope.label;
+  }
+
+  return t(scope.kind === 'global' ? 'components.scope.global' : 'components.scope.unknown');
+}
+
+/** What a scope is called for a version of a file: that of the row, unless the version applies elsewhere (it moved to another project or became global). */
+export function versionScopeText(doc: ScopedDoc, version: { scope: HookScope; project: string | null }, projects: ProjectScope[]): string {
+  const moved = version.project !== doc.root;
+
+  return scopeText(docScope({ ...doc, scope: version.scope, root: version.project, repoKey: moved ? null : doc.repoKey }, projects));
+}
+
+/** What the Scope column sorts a row by: Global first, then the repositories by name, a row of an unknown scope last. */
+export function scopeSortValue(scope: DocScope): SortValue {
+  if (scope.kind === 'unknown') {
+    return null;
+  }
+
+  return scope.kind === 'global' ? '' : scope.label;
 }
 
 /**

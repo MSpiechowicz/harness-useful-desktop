@@ -1,4 +1,5 @@
 import type { MessageKey } from '$lib/i18n/locales/en';
+import type { ProjectScope } from '$lib/ipc/bindings/ProjectScope';
 import type { RoutineStatus } from '$lib/ipc/bindings/RoutineStatus';
 import type { RoutineView } from '$lib/ipc/bindings/RoutineView';
 import type { ShareBlock } from '$lib/ipc/bindings/ShareBlock';
@@ -51,13 +52,29 @@ export function repoName(key: string): string {
 }
 
 /**
+ * The folder on this computer a team project routine is turned on in or copied to: the project with its repository (by key, else by
+ * the root a refresh confirmed), else that root. Null for a global routine, and for a routine of a repository no project here has.
+ */
+export function teamProject(view: RoutineView, projects: readonly ProjectScope[]): string | null {
+  const key = view.teamRepo;
+
+  if (key === null) {
+    return null;
+  }
+
+  const project = projects.find((candidate) => candidate.key === key) ?? projects.find((candidate) => view.root !== null && candidate.root === view.root);
+
+  return project?.path ?? view.root;
+}
+
+/**
  * Why the switch of a routine is off, or null when it works. A routine that waits for approval is never turned on by a click,
  * as a write approves what it writes. A team routine's switch is this computer's own choice, which a project routine can only
- * make from the project's folder.
+ * make in a folder of its repository (`projectKnown`: there is one, see `teamProject`).
  */
-export function switchLock(view: RoutineView, projectOpen: boolean): MessageKey | null {
+export function switchLock(view: RoutineView, projectKnown: boolean): MessageKey | null {
   if (view.origin === 'team') {
-    return teamSwitchLock(view, projectOpen);
+    return teamSwitchLock(view, projectKnown);
   }
 
   if (view.status === 'pending') {
@@ -67,7 +84,7 @@ export function switchLock(view: RoutineView, projectOpen: boolean): MessageKey 
   return view.routine === null ? 'routines.locked.invalid' : null;
 }
 
-function teamSwitchLock(view: RoutineView, projectOpen: boolean): MessageKey | null {
+function teamSwitchLock(view: RoutineView, projectKnown: boolean): MessageKey | null {
   if (view.status === 'duplicate') {
     return 'routines.locked.duplicate';
   }
@@ -78,5 +95,5 @@ function teamSwitchLock(view: RoutineView, projectOpen: boolean): MessageKey | n
 
   const turningOn = !view.teamOn;
 
-  return turningOn && view.teamRepo !== null && !projectOpen ? 'routines.locked.teamNoProject' : null;
+  return turningOn && view.teamRepo !== null && !projectKnown ? 'routines.locked.teamNoProject' : null;
 }

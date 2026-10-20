@@ -15,7 +15,7 @@ function flat(rows: string[], extra: Record<string, unknown> = {}) {
   const onopen = vi.fn();
   const onmove = vi.fn();
 
-  render(DocTable<string, never>, { label: 'Docs', columns: COLUMNS, rows, rowKey: (view: string) => view, openId: null, onopen, onmove, cells, ...extra });
+  render(DocTable<string>, { label: 'Docs', columns: COLUMNS, rows, rowKey: (view: string) => view, openId: null, onopen, onmove, cells, ...extra });
 
   return { onopen, onmove };
 }

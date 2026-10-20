@@ -12,7 +12,7 @@ import { formatDateTime } from '$lib/utils/format';
 import { spelledOut } from '../memory/script-format';
 
 import { abilitiesOf } from './routine-abilities';
-import { ACTION_LABELS, folderName, HARNESS_NAMES, SCOPE_LABELS, untilTime, whenText } from './routine-format';
+import { ACTION_LABELS, HARNESS_NAMES, untilTime, whenText } from './routine-format';
 import { DEFAULT_MAX_MINUTES, DEFAULT_TIMEOUT_SECS } from './routine-form';
 import { repoName } from './routine-team';
 
@@ -75,21 +75,20 @@ function actionFacts(action: RoutineAction): FactRow[] {
 
 /**
  * The Details card of a routine: the same facts in the same order for every routine, with the ones that do not apply left out.
- * A team routine (`team` is its view) names its repository instead of a folder, and who shared it and when instead of who wrote it.
+ * A team routine (`team` is its view) names its repository instead of a folder, and who shared it and when instead of who wrote it. `scope` says where it applies (see `docScope`).
  */
-export function routineFacts(routine: Routine, approval: HookApproval, view: RoutineView, now: number = Date.now()): FactRow[] {
+export function routineFacts(routine: Routine, approval: HookApproval, view: RoutineView, scope: string, now: number = Date.now()): FactRow[] {
   const team = view.origin === 'team';
   const project = routine.scope === 'project' ? routine.project : null;
   // Where a project routine applies: a team routine names its repository (`acme/app`), a local one its folder.
   const where = project ? (team ? repoName(view.teamRepo ?? project) : project) : null;
-  const scope = where ? `${t(SCOPE_LABELS.project)} · ${spelledOut(folderName(where))}` : t(SCOPE_LABELS[routine.scope]);
 
   return [
     { label: t('routines.field.when'), value: whenText(routine.when), mono: routine.when.type === 'cron' },
     ...(view.nextRun ? [{ label: t('routines.field.nextRun'), value: untilTime(view.nextRun, now), title: formatDateTime(view.nextRun) }] : []),
     { label: t('routines.field.does'), value: t(ACTION_LABELS[routine.action.type]) },
     ...actionFacts(routine.action),
-    { label: t('routines.field.appliesTo'), value: scope },
+    { label: t('routines.field.appliesTo'), value: spelledOut(scope) },
     // The whole path, since a short name does not tell two folders apart, and an agent can move a routine to another one.
     ...(where ? [{ label: t(team ? 'routines.field.repository' : 'routines.field.project'), value: spelledOut(where), mono: true, cutStart: true, title: spelledOut(where) }] : []),
     ...(team && view.teamFolder ? [{ label: t('routines.field.runsIn'), value: spelledOut(view.teamFolder), mono: true, cutStart: true, title: spelledOut(view.teamFolder) }] : []),

@@ -13,6 +13,7 @@ const TYPES = 'Run the type checker';
 const COMMITS = 'Use conventional commits';
 const STATUS = 'Show the git status when a chat ends';
 const SMALL = 'Keep commits small';
+const STYLES = 'Lint the stylesheets';
 
 /** Opens a hook's panel from its row and answers the panel. */
 async function open(row: HTMLElement, name: string): Promise<HTMLElement> {
@@ -21,43 +22,56 @@ async function open(row: HTMLElement, name: string): Promise<HTMLElement> {
   return screen.findByRole('region', { name });
 }
 
-describe('The Team group', () => {
-  it('comes after the local groups, with the hooks of the team and of this repository', async () => {
+describe('The remote hooks', () => {
+  it('are listed in the one table after the local ones, each marked Remote, with the hooks of every repository', async () => {
     fakeHooks('team');
     await showHooks();
 
     const grid = screen.getByRole('grid', { name: 'Hooks' });
-    const headings = within(grid).getAllByRole('columnheader').filter((cell) => cell.getAttribute('scope') === 'colgroup');
+    const team = [...document.querySelectorAll<HTMLElement>('[data-row^="team:"]')];
 
-    expect(headings.map((cell) => cell.textContent?.replace(/\s+/g, ' ').trim())).toEqual(['Global 4 of 64', 'This project demo 2 of 64', 'Remote 5']);
+    expect(within(grid).queryAllByRole('columnheader').filter((cell) => cell.getAttribute('scope') === 'colgroup')).toEqual([]);
+    expect(team).toHaveLength(6);
+    expect(team.every((row) => within(row).queryByText('Remote') !== null)).toBe(true);
+    expect([...document.querySelectorAll<HTMLElement>('[data-row]:not([data-row^="team:"])')].every((row) => within(row).queryByText('Remote') === null)).toBe(true);
     expect(within(teamRowOf(COMMITS)).getByText('Active')).toBeInTheDocument();
     expect(within(teamRowOf(TYPES)).getByText('Pending approval')).toBeInTheDocument();
     expect(within(teamRowOf('Remind about tests')).getByText('Overridden')).toBeInTheDocument();
   });
 
-  it('is not there while hooks are not shared with a team', async () => {
+  it('say which repository they are for: the project on this computer by name, any other by owner and repository', async () => {
+    fakeHooks('team');
+    await showHooks();
+
+    expect(within(teamRowOf(COMMITS)).getByText('Global')).toBeInTheDocument();
+    expect(within(teamRowOf(TYPES)).getByText('demo')).toBeInTheDocument();
+    expect(within(teamRowOf(STYLES)).getByText('acme/website')).toBeInTheDocument();
+  });
+
+  it('are not there while hooks are not shared with a team', async () => {
     const { invoke } = fakeHooks('ok');
     await showHooks();
 
-    expect(screen.queryByText('Remote', { selector: 'th span' })).not.toBeInTheDocument();
+    expect(document.querySelector('[data-row^="team:"]')).toBeNull();
     expect(screen.queryByRole('button', { name: /^Source:/ })).not.toBeInTheDocument();
     expect(calls(invoke, 'hooks_team_refresh')).toEqual([{ project: PROJECT }]);
   });
 
-  it('asks the team for its hooks when the view opens, without a refresh button', async () => {
+  it('are asked of the team when the view opens, without a refresh button, and listed with the hooks of all projects', async () => {
     const { invoke } = fakeHooks('team');
     await showHooks();
 
     await waitFor(() => expect(calls(invoke, 'hooks_team_refresh')).toEqual([{ project: PROJECT }]));
+    expect(calls(invoke, 'hooks_list')[0]).toEqual({ project: PROJECT, all: true });
     expect(screen.queryByRole('button', { name: /refresh/i })).not.toBeInTheDocument();
   });
 
-  it('narrows to the team or to the hooks of this computer with a third filter after When and Status', async () => {
+  it('are narrowed to the team or to the hooks of this computer with a filter after Scope, When and Status', async () => {
     fakeHooks('team');
     await showHooks();
 
-    const buttons = screen.getAllByRole('button', { name: /^(When|Status|Source):/ }).map((button) => button.getAttribute('aria-label'));
-    expect(buttons).toEqual(['When: All', 'Status: All', 'Source: All']);
+    const buttons = screen.getAllByRole('button', { name: /^(Scope|When|Status|Source):/ }).map((button) => button.getAttribute('aria-label'));
+    expect(buttons).toEqual(['Scope: All', 'When: All', 'Status: All', 'Source: All']);
 
     await pick('Source: All', /^Remote/);
     expect(screen.getByRole('button', { name: 'Source: Remote' })).toBeInTheDocument();
@@ -67,10 +81,9 @@ describe('The Team group', () => {
     await pick('Source: Remote', /^Mine/);
     expect(screen.getByText('Search Harness Memory first')).toBeInTheDocument();
     expect(document.querySelector('[data-row^="team:"]')).toBeNull();
-    expect(screen.queryByText('Remote', { selector: 'th span' })).not.toBeInTheDocument();
   });
 
-  it('lists Overridden as a status only while a remote hook is in it', async () => {
+  it('list Overridden as a status only while a remote hook is in it', async () => {
     fakeHooks('team');
     await showHooks();
 
@@ -79,21 +92,26 @@ describe('The Team group', () => {
     expect(within(menu).getByRole('menuitemradio', { name: /^Overridden/ })).toHaveTextContent('2');
   });
 
-  it('says quietly that the latest refresh failed, in the group', async () => {
+  it('say quietly above the table that the latest refresh failed', async () => {
     fakeHooks('teamProblem');
     await showHooks();
 
-    expect(await screen.findByText(/Could not refresh the remote hooks, so these are the last ones read\. The remote database did not answer in time\./)).toBeInTheDocument();
+    const note = await screen.findByText(/Could not refresh the remote hooks, so these are the last ones read\. The remote database did not answer in time\./);
+
+    expect(note.closest('[role="status"]')).not.toBeNull();
+    expect(note.closest('table')).toBeNull();
     expect(teamRowOf(COMMITS)).toBeInTheDocument();
   });
 });
 
 describe('The trust of the team', () => {
-  it('is said in the Team group while remote hooks run without asking, and not otherwise', async () => {
+  it('is said above the table while remote hooks run without asking, and not otherwise', async () => {
     fakeHooks('teamTrusted');
     await showHooks();
 
-    expect(screen.getByText('Trusted: run without asking')).toBeInTheDocument();
+    const badge = screen.getByText('Trusted: run without asking');
+
+    expect(badge.closest('table')).toBeNull();
   });
 
   it('is not claimed while approval is needed', async () => {
@@ -131,13 +149,12 @@ describe('Sharing a local hook', () => {
     fakeHooks('teamNoOrigin');
     await showHooks();
 
-    const panel = await open(rowOf('Remind about tests'), 'Remind about tests');
+    const panel = await open(localRowOf('Remind about tests'), 'Remind about tests');
     const share = within(panel).getByRole('button', { name: 'Share with team' });
 
     expect(share).toBeDisabled();
     await fireEvent.pointerEnter(share.parentElement as HTMLElement);
     expect(await screen.findByRole('tooltip')).toHaveTextContent('This repository has no origin remote, so its hooks cannot be shared.');
-    expect(screen.queryByText(TYPES)).not.toBeInTheDocument();
   });
 
   it('is not offered while hooks are not shared', async () => {

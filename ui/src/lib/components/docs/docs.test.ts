@@ -1,30 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import { diffFields, reviewChanges } from './doc-diff';
-import { groupDocs, MAX_PER_SCOPE, scopeIsFull } from './doc-groups';
+import { MAX_PER_SCOPE, scopeIsFull } from './doc-groups';
 import { emptyReason, emptySearchOnEscape } from './doc-view';
 import { reviewTitleKey, type ReviewTitleKeys } from './review-title';
 
-describe('groupDocs', () => {
-  const ids = (groups: ReturnType<typeof groupDocs<string>>) => groups.map((group) => [group.id, group.views, group.total]);
-  const of = (name: string) => (name.startsWith('t:') ? 'team' : name.startsWith('i:') ? 'invalid' : name.startsWith('p:') ? 'project' : 'global');
-
-  it('puts each document in its group, with how many each holds in all', () => {
-    const all = ['g1', 'p:1', 'i:1', 't:1'];
-
-    expect(ids(groupDocs(all, ['g1', 't:1'], true, true, of))).toEqual([
-      ['global', ['g1'], 1],
-      ['team', ['t:1'], 1],
-    ]);
-    expect(ids(groupDocs(all, all, false, true, of)).map(([id]) => id)).toEqual(['global', 'project', 'invalid', 'team']);
-  });
-
-  it('shows both scopes while nothing narrows the list, and the team only while it is shared', () => {
-    expect(groupDocs(['g1'], ['g1'], false, false, of).map((group) => group.id)).toEqual(['global', 'project']);
-    expect(groupDocs([], [], false, true, of).map((group) => group.id)).toEqual(['global', 'project', 'team']);
-    expect(groupDocs([], [], true, true, of)).toEqual([]);
-  });
-
+describe('the scope limit', () => {
   it('knows when a scope is full, and does not count a document that stays in it twice', () => {
     expect(scopeIsFull(MAX_PER_SCOPE, false)).toBe(true);
     expect(scopeIsFull(MAX_PER_SCOPE, true)).toBe(false);

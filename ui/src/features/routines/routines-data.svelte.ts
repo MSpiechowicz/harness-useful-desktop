@@ -13,11 +13,12 @@ import { ipc } from '$lib/ipc/client';
 import { IpcFailure } from '$lib/ipc/transport';
 import { DocBusy } from '$lib/stores/doc-busy.svelte';
 import { project } from '$lib/stores/project.svelte';
+import { projectScopes } from '$lib/stores/project-scopes.svelte';
 import { toasts } from '$lib/stores/toasts.svelte';
 import { ViewLoader } from '$lib/stores/view-loader.svelte';
 
 import { RunNotices, stoppedWaiting } from './routine-notices';
-import { originalOf } from './routine-team';
+import { originalOf, teamProject } from './routine-team';
 import { isQueued, pendingCount, routineTitle, viewKey, waitingRoutines, whenText } from './routine-format';
 import { toggleDraft } from './routine-form';
 
@@ -36,13 +37,13 @@ export function runsKey(query: RoutineRunsQuery): string {
 }
 
 /**
- * The routines of the active project (and the global ones), read once for the whole app so the rail can count the ones
+ * The routines of every project and the global ones, with the team's, read once for the whole app so the rail can count the ones
  * waiting for the user while another view is open. The backend tells when the folder, the approvals or a run change, and
  * the list is read again then. The one `routines_listen` listener of the app is this store's: whoever else wants the events
  * (a toast, a navigation) subscribes here.
  */
 export class RoutinesStore {
-  readonly list = new ViewLoader<RoutineListing, string>((_key, path) => ipc.invoke('routines_list', { project: path }));
+  readonly list = new ViewLoader<RoutineListing, string>((_key, path) => ipc.invoke('routines_list', { project: path, all: true }));
 
   /** One page of the run history, for the query it is keyed by (`runsKey`). */
   readonly runs = new ViewLoader<RoutineRunsPage, string>((key) => ipc.invoke('routine_runs', { query: JSON.parse(key) as RoutineRunsQuery }));
@@ -113,7 +114,7 @@ export class RoutinesStore {
     return this.pending + this.waiting.size;
   }
 
-  /** Reads the routines of this project (or the global ones, with none) and the runs going on; a list already read is refreshed quietly. */
+  /** Reads every routine (`path` is the open project, which the team routines are verified for) and the runs going on; a list already read is refreshed quietly. */
   follow(path: string | null): void {
     this.list.revalidate(KEY, path);
     void this.readRunning();
@@ -287,7 +288,7 @@ export class RoutinesStore {
   /** Turns a routine's schedule on or off, keeping everything else as it is. A team routine's switch is a choice of this computer only. */
   async toggle(view: RoutineView, enabled: boolean): Promise<boolean> {
     if (view.origin === 'team') {
-      return this.run(viewKey(view), 'routines.toast.toggleFailed', () => ipc.invoke('routines_team_enable', { id: view.id, enabled, project: view.teamRepo === null ? null : (project.active?.path ?? null) }));
+      return this.run(viewKey(view), 'routines.toast.toggleFailed', () => ipc.invoke('routines_team_enable', { id: view.id, enabled, project: teamProject(view, projectScopes.data ?? []) }));
     }
 
     const routine = view.routine;

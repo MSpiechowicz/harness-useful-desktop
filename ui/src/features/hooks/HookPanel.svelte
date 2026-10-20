@@ -2,6 +2,7 @@
   import Pause from '@lucide/svelte/icons/pause';
 
   import Button from '$lib/components/Button.svelte';
+  import { docScope, scopeText } from '$lib/components/docs/doc-scope';
   import DocSwitchCell from '$lib/components/docs/DocSwitchCell.svelte';
   import DocInvalidNotice from '$lib/components/docs/DocInvalidNotice.svelte';
   import FactsCard from '$lib/components/FactsCard.svelte';
@@ -12,7 +13,8 @@
   import { t } from '$lib/i18n/i18n.svelte';
   import type { MessageKey } from '$lib/i18n/locales/en';
   import type { HookView } from '$lib/ipc/bindings/HookView';
-    import { nav } from '$lib/stores/nav.svelte';
+  import type { ProjectScope } from '$lib/ipc/bindings/ProjectScope';
+  import { nav } from '$lib/stores/nav.svelte';
   import { prefs } from '$lib/stores/prefs.svelte';
   import { viewState } from '$lib/stores/view-state.svelte';
   import { cx } from '$lib/utils/cx';
@@ -22,7 +24,7 @@
   import SettingRow from '../settings/SettingRow.svelte';
   import FamilyInstall from './FamilyInstall.svelte';
   import { hookFacts } from './hook-facts';
-  import { actionText, EVENT_LABELS, EVENT_WHEN, hookTitle, MEMBER_LABELS, SCOPE_LABELS, waitingFor } from './hook-format';
+  import { actionText, EVENT_LABELS, EVENT_WHEN, hookDoc, hookTitle, MEMBER_LABELS, waitingFor } from './hook-format';
   import { switchLock, teamSwitchedOn } from './hook-team';
   import HookActions from './HookActions.svelte';
   import HookReview from './HookReview.svelte';
@@ -32,12 +34,16 @@
     /** In a column of its own beside the list, not sliding in over it. */
     inline: boolean;
     view: HookView | null;
+    /** The projects on this computer, which the hook's scope is named by. */
+    projects: ProjectScope[];
     /** A change to this hook is being written. */
     busy: boolean;
     /** Hooks are shared with the team: a local hook can be shared. */
     sharing: boolean;
     /** The local original of a team hook is still there, so its team copy can be updated from it. */
     canUpdate: boolean;
+    /** Why a team hook cannot be copied to the user's hooks (its repository is not on this computer), or null. */
+    copyLock: string | null;
     ontoggle: (enabled: boolean) => void;
     onapprove: () => void;
     onreject: () => void;
@@ -50,7 +56,7 @@
     onclose: () => void;
   }
 
-  let { open, inline, view, busy, sharing, canUpdate, ontoggle, onapprove, onreject, onedit, ondelete, onshare, onupdate, onremove, oncopy, onclose }: Props = $props();
+  let { open, inline, view, projects, busy, sharing, canUpdate, copyLock, ontoggle, onapprove, onreject, onedit, ondelete, onshare, onupdate, onremove, oncopy, onclose }: Props = $props();
 
   const hook = $derived(view?.hook ?? null);
   const info = NOTICE_LOOKS.info;
@@ -68,6 +74,8 @@
 
   const waiting = $derived(hook && view?.status === 'paused' ? waitingFor(hook, prefs.value?.memoryEnabled !== false) : null);
   const team = $derived(view?.origin === 'team');
+  // Where the hook applies: Global, or the project it belongs to, which is not always the open one.
+  const scope = $derived(view ? scopeText(docScope(hookDoc(view), projects)) : '');
   // Why the switch and Edit are off: both would write the file, and a write approves what it writes. A team hook has no Edit.
   const lockReason = $derived.by(() => {
     const key = view ? switchLock(view) : null;
@@ -95,7 +103,7 @@
   {open}
   {inline}
   title={view ? hookTitle(view) : ''}
-  subtitle={hook ? `${t(EVENT_LABELS[hook.event])} · ${t(SCOPE_LABELS[hook.scope])}${team ? ` · ${t('hooks.source.team')}` : ''}` : (view?.id ?? '')}
+  subtitle={hook ? `${t(EVENT_LABELS[hook.event])} · ${scope}${team ? ` · ${t('hooks.source.team')}` : ''}` : (view?.id ?? '')}
   {onclose}
 >
   {#if view}
@@ -139,7 +147,7 @@
 
     {#if view.status === 'pending'}
       <SectionCard flat heading={t('hooks.panel.review')}>
-        <HookReview {view} {busy} {onapprove} onreject={team ? undefined : onreject} />
+        <HookReview {view} {projects} {busy} {onapprove} onreject={team ? undefined : onreject} />
       </SectionCard>
     {/if}
 
@@ -150,7 +158,7 @@
         </SectionCard>
       {/if}
 
-      <FactsCard flat heading={t('hooks.panel.details')} rows={hookFacts(hook, view.approval, team ? view : null)} />
+      <FactsCard flat heading={t('hooks.panel.details')} rows={hookFacts(hook, view.approval, scope, team ? view : null)} />
 
       <SectionCard flat heading={t(TEXT_HEADINGS[hook.action.type])}>
         {#if hook.action.type === 'command'}
@@ -162,7 +170,7 @@
     {/if}
 
     <SectionCard flat heading={t('hooks.panel.actions')}>
-      <HookActions {view} {lockReason} {sharing} {canUpdate} {busy} {onedit} {ondelete} {onshare} {onupdate} {onremove} {oncopy} />
+      <HookActions {view} {lockReason} {sharing} {canUpdate} {copyLock} {busy} {onedit} {ondelete} {onshare} {onupdate} {onremove} {oncopy} />
     </SectionCard>
   {/if}
 </SidePanel>

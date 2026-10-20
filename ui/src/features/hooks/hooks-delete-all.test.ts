@@ -20,7 +20,7 @@ async function openMenu() {
 }
 
 describe('deleting all hooks', () => {
-  it('asks with the number and where the family hooks come back, deletes by project, closes the panel and says how many went', async () => {
+  it('asks with the number, whose hooks go and where the family hooks come back, deletes by project, closes the panel and says how many went', async () => {
     const { invoke } = fakeHooks();
     await showHooks();
     await fireEvent.click(rowOf(LINT));
@@ -28,8 +28,8 @@ describe('deleting all hooks', () => {
 
     await fireEvent.click(await openMenu());
 
-    expect(await screen.findByText('Delete all 4 hooks?')).toBeInTheDocument();
-    expect(screen.getByText(/can add again from "Harness family hooks"\. This cannot be undone\./)).toBeInTheDocument();
+    expect(await screen.findByText('Delete the 4 hooks of Global and demo?')).toBeInTheDocument();
+    expect(screen.getByText(/can add again from "Harness family hooks"\. Hooks of other projects and the team's stay\. This cannot be undone\./)).toBeInTheDocument();
     expect(calls(invoke, 'hooks_delete_all')).toHaveLength(0);
 
     await fireEvent.click(screen.getByRole('button', { name: 'Delete all hooks' }));

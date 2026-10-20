@@ -1,7 +1,10 @@
+import { docTarget } from '$lib/components/docs/doc-target';
+import type { ScopeTarget } from '$lib/components/scope/scope-options';
 import type { MessageKey } from '$lib/i18n/locales/en';
 import type { ApprovalMode } from '$lib/ipc/bindings/ApprovalMode';
 import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
 import type { HookScope } from '$lib/ipc/bindings/HookScope';
+import type { ProjectScope } from '$lib/ipc/bindings/ProjectScope';
 import type { Routine } from '$lib/ipc/bindings/Routine';
 import type { RoutineAction } from '$lib/ipc/bindings/RoutineAction';
 import type { RoutineDraft } from '$lib/ipc/bindings/RoutineDraft';
@@ -40,10 +43,10 @@ const AT = /^([01][0-9]|2[0-3]):[0-5][0-9]$/;
 const SCRIPT_NAME = /^[a-z0-9][a-z0-9_-]{0,63}$/;
 const WHOLE_NUMBER = /^\d+$/;
 
-/** What the editor opens on: a routine to edit, or a new routine in a scope. */
+/** What the editor opens on: a routine to edit, or a new routine for a scope (Global, or a project on this computer). */
 export interface EditorTarget {
   view: RoutineView | null;
-  scope: HookScope;
+  target: ScopeTarget;
 }
 
 /** What the editor holds: every field as typed, so switching the schedule or the action loses nothing. */
@@ -74,6 +77,8 @@ export interface RoutineForm {
   scriptName: string;
   scriptScope: ScriptScope;
   scope: HookScope;
+  /** The folder of the project a project routine is for, as the project is listed (see `ProjectScope.path`); null for a global routine. */
+  projectPath: string | null;
   enabled: boolean;
 }
 
@@ -87,7 +92,7 @@ export interface Problem {
   required: boolean;
 }
 
-export function blankForm(scope: HookScope = 'global'): RoutineForm {
+export function blankForm(target: ScopeTarget = { kind: 'global' }): RoutineForm {
   return {
     name: '',
     description: '',
@@ -107,14 +112,20 @@ export function blankForm(scope: HookScope = 'global'): RoutineForm {
     timeout: '',
     scriptName: '',
     scriptScope: 'global',
-    scope,
+    scope: target.kind === 'global' ? 'global' : 'project',
+    projectPath: target.kind === 'global' ? null : target.path,
     enabled: true,
   };
 }
 
-/** The editor for a routine that exists. */
-export function formOf(routine: Routine): RoutineForm {
-  const form: RoutineForm = { ...blankForm(routine.scope), name: routine.name, description: routine.description ?? '', enabled: routine.enabled };
+/** The scope the form is for, as the Applies to field shows it. */
+export function targetOf(form: Pick<RoutineForm, 'scope' | 'projectPath'>): ScopeTarget {
+  return form.scope === 'global' || form.projectPath === null ? { kind: 'global' } : { kind: 'repo', path: form.projectPath };
+}
+
+/** The editor for a routine that exists, set to the project it is for. */
+export function formOf(routine: Routine, projects: ProjectScope[] = []): RoutineForm {
+  const form: RoutineForm = { ...blankForm(docTarget({ origin: 'local', scope: routine.scope, root: routine.project, repoKey: null }, projects)), name: routine.name, description: routine.description ?? '', enabled: routine.enabled };
 
   return { ...form, ...whenFields(routine.when), ...actionFields(routine.action) };
 }
@@ -161,9 +172,11 @@ export function withHarness(form: RoutineForm, harness: HarnessId): RoutineForm 
   return { ...form, harness, approvalMode: abilities.approvalMode ? form.approvalMode : null, trustOnce: abilities.trustOnce ? form.trustOnce : false };
 }
 
-/** Moves the routine to another scope. A global routine has no repository to look a script up in. */
-export function withScope(form: RoutineForm, scope: HookScope): RoutineForm {
-  return { ...form, scope, scriptScope: scope === 'global' ? 'global' : form.scriptScope };
+/** Moves the routine to another scope or project. A global routine has no repository to look a script up in. */
+export function withTarget(form: RoutineForm, target: ScopeTarget): RoutineForm {
+  const scope = target.kind === 'global' ? 'global' : 'project';
+
+  return { ...form, scope, projectPath: target.kind === 'global' ? null : target.path, scriptScope: scope === 'global' ? 'global' : form.scriptScope };
 }
 
 function isWhole(value: string, min: number, max: number): boolean {
@@ -203,8 +216,8 @@ export function hasHiddenCharacters(text: string): boolean {
 }
 
 export interface FormContext {
-  /** A project is open, so a routine can be made for it. */
-  projectOpen: boolean;
+  /** A project is chosen, so a routine can be made for it. */
+  projectChosen: boolean;
   /** The scope the routine would be in already holds the most it can. */
   scopeFull: boolean;
 }
@@ -213,7 +226,7 @@ export interface FormContext {
 export function problemsOf(form: RoutineForm, context: FormContext): Problem[] {
   const found = [...nameProblems(form), ...whenProblems(form), ...actionProblems(form)];
 
-  if (form.scope === 'project' && !context.projectOpen) {
+  if (form.scope === 'project' && !context.projectChosen) {
     found.push({ field: 'scope', message: 'routines.editor.scope.noProject', required: false });
   } else if (context.scopeFull) {
     found.push({ field: 'scope', message: 'routines.editor.scope.full', params: { max: 64 }, required: false });
@@ -381,7 +394,7 @@ function actionOf(form: RoutineForm): RoutineAction {
 }
 
 /** What `routine_save` takes, for a form without problems (see `problemsOf`). An edit names the file and the version it started from, so a change made meanwhile is a conflict, not a lost update. */
-export function draftOf(form: RoutineForm, edit: Pick<RoutineView, 'id' | 'sha256'> | null, project: string | null): RoutineDraft {
+export function draftOf(form: RoutineForm, edit: Pick<RoutineView, 'id' | 'sha256'> | null): RoutineDraft {
   const description = form.description.trim();
   const when = whenOf(form);
 
@@ -395,7 +408,7 @@ export function draftOf(form: RoutineForm, edit: Pick<RoutineView, 'id' | 'sha25
     name: form.name.trim(),
     description: description === '' ? null : description,
     scope: form.scope,
-    project: form.scope === 'project' ? project : null,
+    project: form.scope === 'project' ? form.projectPath : null,
     when,
     action: actionOf(form),
     enabled: form.enabled,

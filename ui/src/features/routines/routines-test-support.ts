@@ -7,6 +7,7 @@ import { fixtures } from '$lib/ipc/mock/fixtures';
 import { routineHandlers } from '$lib/ipc/mock/routine-handlers';
 import { MockRoutines, type RoutineScenario } from '$lib/ipc/mock/routine-state';
 import { nav } from '$lib/stores/nav.svelte';
+import { projectScopes } from '$lib/stores/project-scopes.svelte';
 import { toasts } from '$lib/stores/toasts.svelte';
 import { viewState } from '$lib/stores/view-state.svelte';
 
@@ -27,18 +28,19 @@ export function fakeRoutines(scenario: RoutineScenario = 'ok') {
   return { state, invoke: spyOnInvoke(routineHandlers(state, (info) => info)) };
 }
 
-/** Like `fakeRoutines`, with each routine of the list changed as the backend would say it (a queued routine, a paused one), and some commands answered as `answers` say. */
-export function fakeRoutinesWhere(change: (view: RoutineView) => RoutineView, answers: object = {}) {
-  const state = new MockRoutines(() => 'ok');
+/** Like `fakeRoutines`, with the listing changed as `change` says (more routines, a routine of another project) and some commands answered as `answers` say. */
+export function fakeRoutinesListing(change: (listing: RoutineListing) => RoutineListing, answers: object = {}, scenario: RoutineScenario = 'ok') {
+  const state = new MockRoutines(() => scenario);
   const handlers = routineHandlers(state, (info) => info);
   const listed = handlers.routines_list;
-  const changed = { ...handlers, ...answers, routines_list: async (args: Parameters<typeof listed>[0]): Promise<RoutineListing> => {
-    const listing = await listed(args);
-
-    return { ...listing, routines: listing.routines.map(change) };
-  } };
+  const changed = { ...handlers, ...answers, routines_list: async (args: Parameters<typeof listed>[0]): Promise<RoutineListing> => change(await listed(args)) };
 
   return { state, invoke: spyOnInvoke(changed) };
+}
+
+/** Like `fakeRoutines`, with each routine of the list changed as the backend would say it (a queued routine, a paused one), and some commands answered as `answers` say. */
+export function fakeRoutinesWhere(change: (view: RoutineView) => RoutineView, answers: object = {}) {
+  return fakeRoutinesListing((listing) => ({ ...listing, routines: listing.routines.map(change) }), answers);
 }
 
 export { calls, pick };
@@ -68,9 +70,10 @@ export function registerRoutinesHooks(): void {
   });
 }
 
-/** Shows the Routines view once it has read the routines (or failed to). */
+/** Shows the Routines view once it has read the routines (or failed to) and the projects its Scope names. */
 export async function showRoutines(): Promise<void> {
   nav.go('routines');
   render(RoutinesView);
   await waitFor(() => expect(screen.queryByRole('status', { name: 'Loading routines' })).not.toBeInTheDocument());
+  await waitFor(() => expect(projectScopes.data).not.toBeNull());
 }
