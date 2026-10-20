@@ -352,6 +352,33 @@ fn urls_and_tokens_are_validated_without_echoing_them() {
 }
 
 #[test]
+fn mongodb_credentials_are_percent_encoded_once() {
+    let (_dir, env, path) = home();
+
+    {
+        let kind = MemoryRemoteKind::Mongodb;
+        let encode = |url: &str| {
+            set(&env, change(kind, Some(url), None)).unwrap();
+            saved(&path)["database_url"].as_str().unwrap().to_owned()
+        };
+
+        assert_eq!(
+            encode("mongodb://me@x.com:p@ss:w/rd?#%zz@h.example.com:27017/db?tls=true"),
+            "mongodb://me%40x.com:p%40ss%3Aw%2Frd%3F%23%25zz@h.example.com:27017/db?tls=true"
+        );
+        assert_eq!(
+            encode("mongodb+srv://u:p%40ss@c.example.net/"),
+            "mongodb+srv://u:p%40ss@c.example.net/"
+        );
+        assert_eq!(encode("mongodb://h.example.com/db"), "mongodb://h.example.com/db");
+        assert_eq!(encode("mongodb://u@h/db"), "mongodb://u@h/db");
+    }
+
+    set(&env, change(MemoryRemoteKind::Postgres, Some("postgres://u:p@ss@h/db"), None)).unwrap();
+    assert_eq!(saved(&path)["database_url"].as_str().unwrap(), "postgres://u:p@ss@h/db");
+}
+
+#[test]
 fn escaping_round_trips_quotes_backslashes_and_unicode() {
     let (_dir, env, path) = home();
     let password = r#"p"a\ss'w=ó🔑\"#;

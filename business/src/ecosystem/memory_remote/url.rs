@@ -128,7 +128,9 @@ pub(super) fn a_kind(kind: MemoryRemoteKind) -> String {
 /// `raw` trimmed, when it is a URL Harness Memory accepts for `kind`: at most
 /// [`MAX_SECRET_BYTES`], no control characters (line breaks included), a scheme of `kind` (Amazon
 /// DocumentDB takes MongoDB's); for
-/// libSQL also no user, password, query or fragment, and `http://` only for this machine.
+/// libSQL also no user, password, query or fragment, and `http://` only for this machine. For
+/// MongoDB and Amazon DocumentDB the user and password are percent-encoded when they hold reserved
+/// characters ([`encode_credentials`]), so a pasted raw password works.
 pub fn validate_url(raw: &str, kind: MemoryRemoteKind) -> Result<String> {
     let url = raw.trim();
 
@@ -158,7 +160,54 @@ pub fn validate_url(raw: &str, kind: MemoryRemoteKind) -> Result<String> {
         check_libsql(url)?;
     }
 
+    if matches!(kind, MemoryRemoteKind::Mongodb | MemoryRemoteKind::Documentdb) {
+        return Ok(encode_credentials(url));
+    }
+
     Ok(url.to_owned())
+}
+
+/// `url` with the user and password of `scheme://user:password@host…` percent-encoded. As in
+/// [`redact_url`], the last `@` ends the credentials, so a password may hold a raw `@`, `/`, `?`
+/// or `#`. A `%` followed by two hex digits is kept, so an already encoded URL is unchanged
+/// (a password that literally contains such a sequence must be written `%25xx`). A URL without
+/// credentials is returned as is.
+fn encode_credentials(url: &str) -> String {
+    let Some((scheme, rest)) = url.split_once("://") else {
+        return url.to_owned();
+    };
+
+    let Some(at) = rest.rfind('@') else {
+        return url.to_owned();
+    };
+
+    let (credentials, host) = (&rest[..at], &rest[at..]);
+    let encoded = match credentials.split_once(':') {
+        Some((user, password)) => format!("{}:{}", percent_encode(user), percent_encode(password)),
+        None => percent_encode(credentials),
+    };
+
+    format!("{scheme}://{encoded}{host}")
+}
+
+/// `text` with every byte outside `A-Z a-z 0-9 - . _ ~` written as `%XX`; an existing `%XX` stays.
+fn percent_encode(text: &str) -> String {
+    let bytes = text.as_bytes();
+    let mut out = String::with_capacity(text.len());
+
+    for (index, &byte) in bytes.iter().enumerate() {
+        let escaped = byte == b'%'
+            && bytes.get(index + 1).is_some_and(u8::is_ascii_hexdigit)
+            && bytes.get(index + 2).is_some_and(u8::is_ascii_hexdigit);
+
+        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'~') || escaped {
+            out.push(char::from(byte));
+        } else {
+            out.push_str(&format!("%{byte:02X}"));
+        }
+    }
+
+    out
 }
 
 /// The schemes a URL of `kind` may start with.
