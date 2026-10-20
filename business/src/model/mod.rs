@@ -130,7 +130,7 @@ pub use session::{
 };
 pub use setup::{
     DashboardInstallResult, DashboardSetup, HarnessSetup, InstallLogLine, InstallStream, ManualRemoval, McpRefusal,
-    McpState, MemorySwitchResult, RecommendedSetup, SkillsSetup,
+    McpState, MemorySwitchResult, RecommendedSetup, SkillsSetup, SkillsUnavailableCode,
 };
 pub use subagent::{Subagent, SubagentStatus, SubagentTool};
 pub use sync::{

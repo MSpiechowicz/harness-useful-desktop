@@ -24,7 +24,7 @@ use crate::harnesses::opencode;
 use crate::harnesses::pi::user_has_package;
 use crate::model::{
     DashboardSetup, EcosystemId, ExtensionAction, HarnessSetup, HarnessSummary, InstallScope, McpRefusal, McpState,
-    RecommendedSetup, SkillsSetup,
+    RecommendedSetup, SkillsSetup, SkillsUnavailableCode,
 };
 use crate::process::{ProcessRunner, ResolvedBinary, resolve_binary};
 
@@ -272,6 +272,7 @@ fn skills_setup(env: &Env, harness: &dyn Harness) -> SkillsSetup {
         }
         SkillsStrategy::Unsupported { reason } => SkillsSetup::Unavailable {
             reason: reason.to_owned(),
+            code: None,
         },
     }
 }
@@ -285,6 +286,7 @@ fn opencode_skills(env: &Env) -> SkillsSetup {
     if find_node(env).is_none() {
         return SkillsSetup::Unavailable {
             reason: "Needs Node.js 22 or newer.".to_owned(),
+            code: Some(SkillsUnavailableCode::NodeMissing),
         };
     }
 

@@ -60,6 +60,11 @@ pub enum SyncNote {
     /// the name against OpenCode's merged configuration, and a name found there is a conflict.
     #[serde(rename = "opencodeMergedCheck")]
     OpenCodeMergedCheck,
+    /// An MCP server left alone as a conflict because a config file the harness reads servers from
+    /// could not be read or parsed (or its user MCP file cannot be changed safely), so the app
+    /// cannot tell what that file defines under this name. Without this note, a conflict means a
+    /// server of the same name with another definition is there.
+    ConfigUnreadable,
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -266,7 +271,8 @@ pub enum SyncItemStatus {
         /// The version in the bundle.
         shared: String,
     },
-    /// Something with the same name but a different definition is here; left alone.
+    /// Something with the same name but a different definition is here, or (note
+    /// `configUnreadable`) a file that could hold one cannot be read; left alone.
     Conflict,
     /// Cannot be imported on this machine.
     Blocked {
@@ -414,6 +420,8 @@ pub struct SyncItemOutcome {
     pub summary: Option<String>,
     /// The command line that ran (program name first), when one ran.
     pub argv: Vec<String>,
+    /// Remarks on the outcome (`configUnreadable` on a `conflict`).
+    pub notes: Vec<SyncNote>,
 }
 
 /// The outcome of one item.
@@ -425,8 +433,8 @@ pub enum SyncOutcome {
     Done,
     /// Found already present when re-checked right before its step; nothing ran.
     AlreadyPresent,
-    /// Something with the same name but a different definition appeared since the preview; left
-    /// alone.
+    /// Something with the same name but a different definition appeared since the preview, or
+    /// (note `configUnreadable`) a file that could hold one cannot be read; left alone.
     Conflict,
     /// Not attempted.
     Skipped {

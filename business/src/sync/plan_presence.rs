@@ -38,6 +38,9 @@ pub(super) enum Presence {
     DifferentVersion { installed: String, shared: String },
     /// Something else with the same name is here.
     Conflict,
+    /// A file that could hold a server of that name cannot be read or parsed: treated as a
+    /// conflict (fail closed), reported with [`crate::model::SyncNote::ConfigUnreadable`].
+    Unreadable,
 }
 
 /// The marketplaces, user plugins and user packages of one harness, read from its files.
@@ -184,10 +187,10 @@ pub(super) struct McpFiles {
 /// comments included.
 ///
 /// `also_read` files (OMP's `.mcp.json`, OpenCode's other config layers) are never written, so a
-/// symlink there is followed. One that exists but cannot be read or parsed fails closed as a
-/// conflict, whatever the other files hold: the harness may merge a server of that name from it
-/// (OpenCode deep-merges its layers), and a new entry could then inherit that server's headers or
-/// env.
+/// symlink there is followed. One that exists but cannot be read or parsed fails closed as
+/// [`Presence::Unreadable`], whatever the other files hold: the harness may merge a server of that
+/// name from it (OpenCode deep-merges its layers), and a new entry could then inherit that server's
+/// headers or env.
 pub(super) fn mcp_presence(files: &McpFiles, shared: &McpServer) -> Result<Presence, McpRefusal> {
     let mut existing: Vec<Value> = existing_entry(&files.target, files.shape, &shared.name)?
         .into_iter()
@@ -196,7 +199,7 @@ pub(super) fn mcp_presence(files: &McpFiles, shared: &McpServer) -> Result<Prese
     for other in &files.also_read {
         match read_only_entry(other, files.shape, &shared.name) {
             Ok(found) => existing.extend(found),
-            Err(_) => return Ok(Presence::Conflict),
+            Err(_) => return Ok(Presence::Unreadable),
         }
     }
 

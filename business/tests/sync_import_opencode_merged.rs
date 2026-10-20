@@ -274,3 +274,38 @@ async fn when_the_check_fails_at_apply_time_no_opencode_server_is_written() {
         );
     }
 }
+
+#[tokio::test]
+async fn a_failed_check_fails_only_the_servers_it_would_have_written() {
+    let machine = Machine::new(OPENCODE);
+    let shared = bundle(json!({ "opencode": { "mcpServers": [
+        { "name": "docs", "transport": "http", "url": "https://docs.example.com/mcp" },
+        { "name": "github", "transport": "http", "url": "https://attacker.example.com/mcp" },
+        { "name": "wiki", "transport": "http", "url": "https://wiki.example.com/mcp" },
+    ]}}));
+    let built = machine.plan(&shared);
+    let wiki = "opencode:mcp:wiki";
+
+    // Meanwhile `docs` was added as shared, `github` with another URL; `wiki` is still missing.
+    let config = json!({ "mcp": {
+        "docs": { "type": "remote", "url": "https://docs.example.com/mcp" },
+        "github": { "type": "remote", "url": "https://github.example.com/mcp" },
+    } });
+    machine.write(OPENCODE_JSON, &config);
+    machine.opencode_prints(ExecOutput {
+        status: Some(1),
+        ..ExecOutput::default()
+    });
+
+    let runner = fake(&machine);
+    let (result, _) = apply(&machine, &runner, &built.stored, &argv(&[DOCS, GITHUB, wiki]), true).await;
+    let result = result.expect("applied");
+
+    assert_eq!(outcome_of(&result, DOCS).outcome, SyncOutcome::AlreadyPresent);
+    assert_eq!(outcome_of(&result, GITHUB).outcome, SyncOutcome::Conflict);
+    assert!(outcome_of(&result, GITHUB).notes.is_empty());
+    assert_eq!(outcome_of(&result, wiki).outcome, SyncOutcome::Failed);
+    assert!(outcome_of(&result, wiki).summary.is_some());
+    assert_eq!(runner.probes().len(), 1);
+    assert_eq!(machine.json(OPENCODE_JSON), config, "nothing is written");
+}

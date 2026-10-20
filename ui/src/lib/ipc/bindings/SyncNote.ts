@@ -3,4 +3,4 @@
 /**
  * A remark on an item, rendered as a localized sentence by the UI.
  */
-export type SyncNote = "envValuesNotShared" | "headerValuesNotShared" | "authNotShared" | "cwdNotShared" | "otherFieldsNotShared" | "versionInformational" | "filtersNotShared" | "writtenDisabled" | "needsSharedMarketplace" | "opencodeMergedCheck";
+export type SyncNote = "envValuesNotShared" | "headerValuesNotShared" | "authNotShared" | "cwdNotShared" | "otherFieldsNotShared" | "versionInformational" | "filtersNotShared" | "writtenDisabled" | "needsSharedMarketplace" | "opencodeMergedCheck" | "configUnreadable";

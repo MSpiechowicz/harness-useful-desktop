@@ -13,7 +13,7 @@ use harness_business::env::{Env, OsKind};
 use harness_business::harness::{Harness, HarnessRegistry};
 use harness_business::harnesses::OpenCode;
 use harness_business::model::{
-    DashboardInstallResult, Detection, HarnessId, HarnessSummary, SkillsSetup, VersionSupport,
+    DashboardInstallResult, Detection, HarnessId, HarnessSummary, SkillsSetup, SkillsUnavailableCode, VersionSupport,
 };
 use harness_business::process::{BoxFuture, ExecOutput, ExecSpec, ExitInfo, ProcessRunner};
 use harness_business::testing::DuplexSpawner;
@@ -140,7 +140,8 @@ async fn without_node_the_skills_are_unavailable() {
     assert_eq!(
         opencode_skills(&env).await,
         SkillsSetup::Unavailable {
-            reason: "Needs Node.js 22 or newer.".to_owned()
+            reason: "Needs Node.js 22 or newer.".to_owned(),
+            code: Some(SkillsUnavailableCode::NodeMissing),
         }
     );
 

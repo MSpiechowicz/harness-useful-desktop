@@ -19,6 +19,7 @@
 //! before anything runs.
 
 pub mod apply;
+mod apply_mcp;
 pub mod codec;
 pub mod collect;
 mod collect_items;
