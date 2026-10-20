@@ -7,7 +7,7 @@
 use std::ffi::OsString;
 
 use harness_business::BusinessError;
-use harness_business::ecosystem::{ListWindow, NotesQuery, ScriptsQuery, list_notes};
+use harness_business::ecosystem::{ListWindow, NotesQuery, Repos, ScriptsQuery, list_notes};
 use harness_business::model::{
     MemoryNotesPage, MemoryScopeCounts, MemoryScriptsAvailability, MemoryScriptsPage, NoteKind, NoteKindCount,
     ScriptGroup, ScriptReview, ScriptReviewCounts, ScriptScope, ScriptSort,
@@ -38,7 +38,14 @@ fn scripts_query(scope: Option<ScriptScope>, review: Option<ScriptReview>) -> Sc
 async fn notes(setup: &Setup, query: &NotesQuery) -> MemoryNotesPage {
     let project = setup.project();
 
-    list_notes(&setup.env, &setup.scripts, setup.runner(), Some(&project), query).await
+    list_notes(
+        &setup.env,
+        &setup.scripts,
+        setup.runner(),
+        Repos::Project(Some(&project)),
+        query,
+    )
+    .await
 }
 
 async fn scripts(setup: &Setup, query: &ScriptsQuery) -> MemoryScriptsPage {
@@ -46,7 +53,7 @@ async fn scripts(setup: &Setup, query: &ScriptsQuery) -> MemoryScriptsPage {
 
     setup
         .scripts
-        .list(&setup.env, setup.runner(), Some(&project), query)
+        .list(&setup.env, setup.runner(), Repos::Project(Some(&project)), query)
         .await
 }
 

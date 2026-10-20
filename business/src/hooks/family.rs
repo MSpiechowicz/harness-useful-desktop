@@ -39,6 +39,11 @@ pub const SEED_MEMORY_SAVE_TEXT: &str = "If this turn taught you something worth
 pub const SEED_DASHBOARD_LIMITS_TEXT: &str = "Before a long or expensive task, check the plan limits and budgets \
      with Harness Dashboard (limits, budget_status). Say so if a limit is close.";
 
+/// The `useful-skills` context.
+pub const SEED_USEFUL_SKILLS_TEXT: &str = "If Useful Skills are installed, read the ones that apply before you \
+     act: decide the workflow first (plan, implement, review), then read any other skill that fits the task \
+     and follow its limits (for example the 500-line file maximum). Do not skip a matching skill.";
+
 /// One catalog entry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct FamilyHook {
@@ -115,7 +120,7 @@ impl FamilyHook {
 }
 
 /// The catalog, in the order the dialog lists it.
-pub const FAMILY: [FamilyHook; 3] = [
+pub const FAMILY: [FamilyHook; 4] = [
     FamilyHook {
         seed: HookSeed::MemorySearch,
         member: HookRequirement::HarnessMemory,
@@ -148,6 +153,15 @@ pub const FAMILY: [FamilyHook; 3] = [
         description: "Seeded default. Asks the agent to check plan limits and budgets before a long task.",
         event: HookEvent::SessionStart,
         text: SEED_DASHBOARD_LIMITS_TEXT,
+        earlier: &[],
+    },
+    FamilyHook {
+        seed: HookSeed::UsefulSkills,
+        member: HookRequirement::HarnessMemory,
+        name: "Check Useful Skills first",
+        description: "Seeded default. Asks the agent to read the installed Useful Skills and pick the workflow before it acts.",
+        event: HookEvent::SessionStart,
+        text: SEED_USEFUL_SKILLS_TEXT,
         earlier: &[],
     },
 ];

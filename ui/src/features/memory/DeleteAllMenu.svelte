@@ -11,9 +11,9 @@
   import { type PluralBase, t, tn } from '$lib/i18n/i18n.svelte';
   import type { MessageKey } from '$lib/i18n/locales/en';
   import { IpcFailure } from '$lib/ipc/transport';
+  import { ALL_REPOS } from '$lib/stores/memory-reach';
   import { noteList } from '$lib/stores/memoryNotes.svelte';
   import { scriptList } from '$lib/stores/memoryScripts.svelte';
-  import { project } from '$lib/stores/project.svelte';
   import { toasts } from '$lib/stores/toasts.svelte';
   import { viewState } from '$lib/stores/view-state.svelte';
 
@@ -60,7 +60,7 @@
     },
   };
 
-  const path = $derived(project.active?.path ?? null);
+  const path = $derived(viewState.memoryReach);
 
   // How many the list says there are; null while it was not read or cannot be.
   const listed = $derived.by<number | null>(() => {
@@ -74,14 +74,16 @@
   });
   const narrowed = $derived.by(() => {
     if (section === 'notes') {
-      return viewState.notesQuery.trim() !== '' || viewState.notesScope !== null || viewState.notesKind !== null;
+      return viewState.notesQuery.trim() !== '' || viewState.notesKind !== null;
     }
 
-    return viewState.scriptsQuery.trim() !== '' || viewState.scriptsScope !== null || viewState.scriptsStatus !== null || viewState.scriptsGroup !== null;
+    return viewState.scriptsQuery.trim() !== '' || viewState.scriptsStatus !== null || viewState.scriptsGroup !== null;
   });
 
   // A search or a filter that leaves nothing still has something behind it to delete, so only an empty list that is not narrowed is disabled.
-  const disabled = $derived(listed === null || (listed === 0 && !narrowed));
+  // Every repository cannot be deleted at once: a repository, or the global ones, has to be picked first.
+  const everything = $derived(path === ALL_REPOS);
+  const disabled = $derived(everything || listed === null || (listed === 0 && !narrowed));
 
   // What the open question is about, kept after it closes so it fades out showing the same words.
   let target = $state<{ section: MemorySection; scope: DeleteScope }>({ section: 'notes', scope: { total: 0, team: 0, stay: 0, exact: true } });
@@ -127,7 +129,7 @@
 <MoreMenu label={t('memory.menu.label')} panelClass="w-56">
   {#snippet children({ close })}
     {@render extra?.({ close })}
-    <MenuItem tone="danger" icon={Trash2} {disabled} onclick={() => void ask(close)}>{t(TEXT[section].action)}</MenuItem>
+    <MenuItem tone="danger" icon={Trash2} {disabled} title={everything ? t('memory.deleteAll.pickRepo') : undefined} onclick={() => void ask(close)}>{t(TEXT[section].action)}</MenuItem>
   {/snippet}
 </MoreMenu>
 

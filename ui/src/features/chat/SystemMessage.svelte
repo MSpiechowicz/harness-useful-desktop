@@ -3,6 +3,8 @@
   import { t } from '$lib/i18n/i18n.svelte';
   import type { MessageItem } from '$lib/chat/types';
 
+  import { unwrapNotice } from './system-notice';
+
   interface Props {
     item: MessageItem;
   }
@@ -31,14 +33,21 @@
     }
   }
 
-  const text = $derived(item.blocks.flatMap((block) => (block.type === 'text' ? [block.text] : [])).join('\n'));
+  const raw = $derived(item.blocks.flatMap((block) => (block.type === 'text' ? [block.text] : [])).join('\n'));
+  // A harness notice arrives wrapped in a tag of its own: its text is shown, under the tag's name.
+  const notice = $derived(item.role === 'bash' ? { title: null, body: raw, details: null } : unwrapNotice(raw));
 </script>
 
-<article class="chat-radius border border-line bg-surface-1/50 px-3.5 py-2.5 text-sm text-fg-2">
-  <p class="mb-1 text-xs font-medium tracking-wide text-fg-3 uppercase">{label(item.role)}</p>
+<!-- With a details box the card's bottom gap matches its side gap: the box has no line-height slack below it like text has. -->
+<article class={['chat-radius border border-line bg-surface-1/50 px-3.5 pt-2.5 text-sm text-fg-2', notice.details ? 'pb-3.5' : 'pb-2.5']}>
+  <p class="mb-1 text-xs font-medium tracking-wide text-fg-3 uppercase">{notice.title ?? label(item.role)}</p>
   {#if item.role === 'bash'}
-    <p class="break-words whitespace-pre-wrap">{text}</p>
+    <p class="break-words whitespace-pre-wrap">{notice.body}</p>
   {:else}
-    <Markdown source={text} />
+    <Markdown source={notice.body} />
+  {/if}
+  {#if notice.details}
+    <!-- Command output and errors keep their lines and scroll inside the card instead of filling the chat. -->
+    <pre class="mt-2 max-h-60 overflow-auto rounded-md border border-line bg-surface-2 p-2.5 font-mono text-xs break-words whitespace-pre-wrap text-fg-2">{notice.details}</pre>
   {/if}
 </article>

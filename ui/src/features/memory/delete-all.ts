@@ -1,7 +1,9 @@
 import { type PluralBase, t, tn } from '$lib/i18n/i18n.svelte';
 import type { MessageKey } from '$lib/i18n/locales/en';
 import { ipc } from '$lib/ipc/client';
+import { type Reach, reachArgs, reachScope } from '$lib/stores/memory-reach';
 import { noteList } from '$lib/stores/memoryNotes.svelte';
+import { noteRepos, scriptRepos } from '$lib/stores/memoryRepos.svelte';
 import { scriptList } from '$lib/stores/memoryScripts.svelte';
 import { toasts } from '$lib/stores/toasts.svelte';
 import { viewState } from '$lib/stores/view-state.svelte';
@@ -29,9 +31,9 @@ export interface DeleteScope {
   exact: boolean;
 }
 
-/** Reads the whole section as the project sees it: one page, as the list does, but with no search and no filter. Null when it cannot be read. */
-export async function readScope(section: MemorySection, project: string | null): Promise<DeleteScope | null> {
-  const window = { project, offset: 0, limit: PROBE_LIMIT };
+/** Reads the whole section as `reach` sees it: one page, as the list does, but with no search and no filter. Null when it cannot be read. */
+export async function readScope(section: MemorySection, reach: Reach): Promise<DeleteScope | null> {
+  const window = { ...reachArgs(reach), scope: reachScope(reach) ?? undefined, offset: 0, limit: PROBE_LIMIT };
 
   try {
     const page = section === 'notes' ? await ipc.invoke('memory_notes_list', window) : await ipc.invoke('memory_scripts_list', window);
@@ -54,8 +56,8 @@ export async function readScope(section: MemorySection, project: string | null):
 }
 
 /** Deletes everything of one section, then lets go of the open row, reads the list again and says how many went. Rejects with the server's reason. */
-export async function deleteAll(section: MemorySection, project: string | null): Promise<void> {
-  const args = { project: project ?? undefined };
+export async function deleteAll(section: MemorySection, reach: Reach): Promise<void> {
+  const args = { ...reachArgs(reach), scope: reachScope(reach) ?? undefined };
   const result = section === 'notes' ? await ipc.invoke('memory_notes_delete_all', args) : await ipc.invoke('memory_scripts_delete_all', args);
 
   if (section === 'notes') {
@@ -75,7 +77,8 @@ export async function deleteAll(section: MemorySection, project: string | null):
     tone: 'success',
   });
 
-  await (section === 'notes' ? noteList : scriptList).refresh();
+  // The repositories offered change too: one left with nothing is not offered any more.
+  await Promise.all(section === 'notes' ? [noteList.refresh(), noteRepos.refresh({ quiet: true })] : [scriptList.refresh(), scriptRepos.refresh({ quiet: true })]);
 }
 
 /** The lines of the confirmation about the remote database: what the team loses, and the remote entries that stay. Empty when neither applies. */

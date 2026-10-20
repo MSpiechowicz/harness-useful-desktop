@@ -140,7 +140,7 @@ describe('Changes view', () => {
     const call: ToolCallState = { id: 'c1', name: 'edit', args: { path: LIB }, intent: null, status: 'ok', partial: null, result: null, resultText: 'done', touchedPaths: [LIB] };
     render(ToolCard, { call, active: false });
 
-    await fireEvent.click(screen.getByRole('button', { name: /edit/ }));
+    await fireEvent.click(screen.getByRole('button', { name: /edit/i }));
     await fireEvent.click(screen.getByRole('button', { name: 'View changes' }));
 
     expect(nav.current).toBe('changes');

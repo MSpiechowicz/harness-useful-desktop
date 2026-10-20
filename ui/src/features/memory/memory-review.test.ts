@@ -8,7 +8,7 @@ import { IpcFailure } from '$lib/ipc/transport';
 import { trustScripts } from '$lib/stores/memoryScripts.svelte';
 import { toasts } from '$lib/stores/toasts.svelte';
 
-import { calls, fakeMemory, filterChoices, pickFilter, PROJECT, registerMemoryHooks, rowButton, showMemory } from './memory-test-support';
+import { ALL, calls, fakeMemory, filterChoices, pickFilter, PROJECT, registerMemoryHooks, rowButton, showMemory } from './memory-test-support';
 
 registerMemoryHooks();
 
@@ -116,7 +116,7 @@ describe('trusting one script', () => {
     expect(await screen.findByText('Not approved on this computer')).toBeInTheDocument();
     await fireEvent.click(screen.getByRole('button', { name: 'Trust' }));
 
-    await waitFor(() => expect(calls(invoke, 'memory_scripts_trust')).toEqual([{ items: [itemOf('disk-hogs')], project: PROJECT }]));
+    await waitFor(() => expect(calls(invoke, 'memory_scripts_trust')).toEqual([{ items: [itemOf('disk-hogs')], ...ALL }]));
     await waitFor(() => expect(screen.queryByText('Not approved on this computer')).toBeNull());
     expect(within(await panelOf('disk-hogs')).getByText('Approved')).toBeInTheDocument();
     expect(rowOf('disk-hogs').getByText('Approved')).toBeInTheDocument();
@@ -160,7 +160,7 @@ describe('trusting every script shown', () => {
 
     await fireEvent.click(screen.getByRole('button', { name: 'Trust 2 scripts' }));
 
-    await waitFor(() => expect(calls(invoke, 'memory_scripts_trust')).toEqual([{ items: [itemOf('deploy-check'), itemOf('disk-hogs')], project: PROJECT }]));
+    await waitFor(() => expect(calls(invoke, 'memory_scripts_trust')).toEqual([{ items: [itemOf('deploy-check'), itemOf('disk-hogs')], ...ALL }]));
     await waitFor(() => expect(rowOf('deploy-check').getByText('Approved')).toBeInTheDocument());
     expect(rowOf('disk-hogs').getByText('Approved')).toBeInTheDocument();
     expect(toasts.items.at(-1)).toMatchObject({ title: '2 scripts trusted' });
@@ -187,7 +187,7 @@ describe('trusting every script shown', () => {
     expect(await screen.findByText('Trust 1 script?')).toBeInTheDocument();
     await fireEvent.click(screen.getByRole('button', { name: 'Trust 1 script' }));
 
-    await waitFor(() => expect(calls(invoke, 'memory_scripts_trust')).toEqual([{ items: [itemOf('deploy-check')], project: PROJECT }]));
+    await waitFor(() => expect(calls(invoke, 'memory_scripts_trust')).toEqual([{ items: [itemOf('deploy-check')], ...ALL }]));
   });
 
   it('names five scripts at most and counts the rest', async () => {

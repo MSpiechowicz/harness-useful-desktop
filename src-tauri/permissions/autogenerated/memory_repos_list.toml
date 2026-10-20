@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-memory-repos-list"
+description = "Enables the memory_repos_list command without any pre-configured scope."
+commands.allow = ["memory_repos_list"]
+
+[[permission]]
+identifier = "deny-memory-repos-list"
+description = "Denies the memory_repos_list command without any pre-configured scope."
+commands.deny = ["memory_repos_list"]

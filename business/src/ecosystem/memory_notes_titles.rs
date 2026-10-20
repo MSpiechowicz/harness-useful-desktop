@@ -24,7 +24,7 @@ use std::sync::LazyLock;
 use regex::Regex;
 use serde_json::{Map, json};
 
-use super::memory_cli::{ListWindow, MAX_PAGE_SIZE};
+use super::memory_cli::{ListWindow, MAX_PAGE_SIZE, Repos};
 use super::memory_notes::{NotesQuery, get_note, list_notes};
 use super::memory_scripts::{MemoryScripts, tool_error_text, unavailable_error};
 use crate::env::Env;
@@ -174,7 +174,7 @@ async fn confirmed(
     id: i64,
     wanted: &str,
 ) -> Result<bool> {
-    match get_note(env, probe, runner, id, None, false).await {
+    match get_note(env, probe, runner, id, Repos::Project(None), false).await {
         Ok(detail) => Ok(is_titled(&detail.note.summary, wanted)),
         Err(BusinessError::NotFound(_)) => Ok(false),
         Err(error) => Err(error),
@@ -235,7 +235,7 @@ async fn each_global_page(
             sort: Some(NoteSort::Title),
             hidden: false,
         };
-        let listed = list_notes(env, probe, runner, None, &query).await;
+        let listed = list_notes(env, probe, runner, Repos::Project(None), &query).await;
 
         if listed.availability != MemoryScriptsAvailability::Available {
             return Err(unavailable_error(listed.availability, "the notes view"));

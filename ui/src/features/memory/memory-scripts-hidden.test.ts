@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { sampleScripts } from '$lib/ipc/mock/memory-scripts-fixtures';
 import { toasts } from '$lib/stores/toasts.svelte';
 
-import { calls, fakeMemory, PROJECT, registerMemoryHooks, rowButton, showMemory } from './memory-test-support';
+import { ALL, calls, fakeMemory, PROJECT, registerMemoryHooks, rowButton, showMemory } from './memory-test-support';
 
 registerMemoryHooks();
 
@@ -30,7 +30,7 @@ describe('hiding remote scripts on this computer', () => {
 
     await fireEvent.click(within(panel).getByRole('button', { name: 'Hide on this computer' }));
 
-    await waitFor(() => expect(calls(invoke, 'memory_script_hide')).toEqual([{ id: 12, project: PROJECT, hidden: true }]));
+    await waitFor(() => expect(calls(invoke, 'memory_script_hide')).toEqual([{ id: 12, ...ALL, hidden: true }]));
     expect(await screen.findByRole('button', { name: 'Hidden on this computer (1)' })).toBeInTheDocument();
     expect(rowButton('open-prs')).toBeNull();
     expect(toasts.items.at(-1)).toMatchObject({ title: 'Hidden on this computer', description: 'open-prs', tone: 'success' });
@@ -75,7 +75,7 @@ describe('hiding remote scripts on this computer', () => {
 
     await fireEvent.click(within(panel).getByRole('button', { name: 'Unhide' }));
 
-    await waitFor(() => expect(calls(invoke, 'memory_script_hide')).toEqual([{ id: 21, project: PROJECT, hidden: false }]));
+    await waitFor(() => expect(calls(invoke, 'memory_script_hide')).toEqual([{ id: 21, ...ALL, hidden: false }]));
     // The last hidden script is shown again: the filter has nothing left and the list is the full one.
     await waitFor(() => expect(screen.queryByRole('button', { name: /Hidden on this computer/ })).toBeNull());
     expect(await screen.findByText('5 scripts')).toBeInTheDocument();

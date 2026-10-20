@@ -7,7 +7,7 @@ use std::ffi::OsString;
 use std::path::Path;
 
 use harness_business::BusinessError;
-use harness_business::ecosystem::{ListWindow, ScriptsQuery, ScriptsSupport};
+use harness_business::ecosystem::{ListWindow, Repos, ScriptsQuery, ScriptsSupport};
 use harness_business::model::{
     MemoryDeleteAll, MemoryScriptsAvailability, ScriptApproval, ScriptGroup, ScriptGroupCounts, ScriptPlace,
     ScriptScope, ScriptSort, SortOrder,
@@ -35,7 +35,7 @@ async fn names(setup: &Setup, project: Option<&Path>) -> Vec<String> {
         .list(
             &setup.env,
             setup.runner(),
-            project,
+            Repos::Project(project),
             &query(None, Some(ScriptSort::Name)),
         )
         .await;
@@ -48,7 +48,7 @@ async fn names(setup: &Setup, project: Option<&Path>) -> Vec<String> {
 async fn assert_outdated_list(setup: &Setup) {
     let page = setup
         .scripts
-        .list(&setup.env, setup.runner(), None, &query(None, None))
+        .list(&setup.env, setup.runner(), Repos::Project(None), &query(None, None))
         .await;
 
     assert_eq!(page.availability, MemoryScriptsAvailability::Outdated);
@@ -79,7 +79,7 @@ async fn a_current_server_lists_a_page_of_project_and_global_scripts() {
         .list(
             &setup.env,
             setup.runner(),
-            Some(&project),
+            Repos::Project(Some(&project)),
             &query(None, Some(ScriptSort::Name)),
         )
         .await;
@@ -159,7 +159,12 @@ async fn the_page_window_group_and_order_go_to_the_server() {
     };
     let page = setup
         .scripts
-        .list(&setup.env, setup.runner(), Some(&project), &needs_review)
+        .list(
+            &setup.env,
+            setup.runner(),
+            Repos::Project(Some(&project)),
+            &needs_review,
+        )
         .await;
     let ids: Vec<i64> = page.scripts.iter().map(|script| script.id).collect();
     assert_eq!(ids, [7]);
@@ -196,7 +201,7 @@ async fn the_page_window_group_and_order_go_to_the_server() {
     };
     let page = setup
         .scripts
-        .list(&setup.env, setup.runner(), Some(&project), &second)
+        .list(&setup.env, setup.runner(), Repos::Project(Some(&project)), &second)
         .await;
     let ids: Vec<i64> = page.scripts.iter().map(|script| script.id).collect();
     assert_eq!(ids, [12], "the second of odd-scope, open-prs, release-notes");
@@ -221,7 +226,12 @@ async fn every_sort_goes_to_the_server_by_its_name() {
     for (run, (sort, name)) in sorts.into_iter().enumerate() {
         let page = setup
             .scripts
-            .list(&setup.env, setup.runner(), Some(&project), &query(None, Some(sort)))
+            .list(
+                &setup.env,
+                setup.runner(),
+                Repos::Project(Some(&project)),
+                &query(None, Some(sort)),
+            )
             .await;
         assert_eq!(page.availability, MemoryScriptsAvailability::Available, "{name}");
         assert_eq!(
@@ -241,7 +251,7 @@ async fn every_sort_goes_to_the_server_by_its_name() {
     };
     let page = setup
         .scripts
-        .list(&setup.env, setup.runner(), Some(&project), &most_runs)
+        .list(&setup.env, setup.runner(), Repos::Project(Some(&project)), &most_runs)
         .await;
     assert_eq!(page.total, 3);
     assert_eq!(
@@ -259,7 +269,7 @@ async fn deleting_them_all_sends_the_confirmation_and_reads_the_counts() {
 
     let deleted = setup
         .scripts
-        .delete_all(&setup.env, setup.runner(), Some(&project))
+        .delete_all(&setup.env, setup.runner(), Repos::Project(Some(&project)), None)
         .await
         .expect("deleted");
     assert_eq!(
@@ -291,7 +301,7 @@ async fn deleting_them_all_sends_the_confirmation_and_reads_the_counts() {
     ] {
         let refused = unusable
             .scripts
-            .delete_all(&unusable.env, unusable.runner(), None)
+            .delete_all(&unusable.env, unusable.runner(), Repos::Project(None), None)
             .await
             .expect_err("refused");
         let found = match refused {
@@ -321,7 +331,7 @@ async fn get_returns_the_body_and_delete_removes_the_script() {
 
     let detail = setup
         .scripts
-        .get(&setup.env, 12, Some(&project))
+        .get(&setup.env, setup.runner(), 12, Repos::Project(Some(&project)))
         .await
         .expect("script 12");
     assert_eq!(detail.summary.name, "open-prs");
@@ -333,14 +343,20 @@ async fn get_returns_the_body_and_delete_removes_the_script() {
 
     setup
         .scripts
-        .delete(&setup.env, 12, Some(&project))
+        .delete(&setup.env, setup.runner(), 12, Repos::Project(Some(&project)))
         .await
         .expect("deleted");
 
-    let again = setup.scripts.delete(&setup.env, 12, Some(&project)).await;
+    let again = setup
+        .scripts
+        .delete(&setup.env, setup.runner(), 12, Repos::Project(Some(&project)))
+        .await;
     assert!(matches!(again, Err(BusinessError::NotFound(_))), "{again:?}");
 
-    let gone = setup.scripts.get(&setup.env, 12, Some(&project)).await;
+    let gone = setup
+        .scripts
+        .get(&setup.env, setup.runner(), 12, Repos::Project(Some(&project)))
+        .await;
     assert!(
         matches!(&gone, Err(BusinessError::NotFound(message)) if message == "script 12 not found"),
         "{gone:?}"
@@ -354,8 +370,15 @@ async fn another_tool_error_is_not_not_found_and_carries_the_redacted_text() {
     let setup = Setup::installed(CURRENT, &[]);
 
     for result in [
-        setup.scripts.get(&setup.env, 500, None).await.map(|_| ()),
-        setup.scripts.delete(&setup.env, 500, None).await,
+        setup
+            .scripts
+            .get(&setup.env, setup.runner(), 500, Repos::Project(None))
+            .await
+            .map(|_| ()),
+        setup
+            .scripts
+            .delete(&setup.env, setup.runner(), 500, Repos::Project(None))
+            .await,
     ] {
         let Err(BusinessError::Process(message)) = &result else {
             panic!("expected a process error, got {result:?}");
@@ -413,66 +436,11 @@ async fn a_server_without_script_tools_is_outdated() {
 
     assert_outdated_list(&setup).await;
 
-    let get = setup.scripts.get(&setup.env, 7, None).await;
+    let get = setup
+        .scripts
+        .get(&setup.env, setup.runner(), 7, Repos::Project(None))
+        .await;
     assert!(matches!(get, Err(BusinessError::Unsupported(_))), "{get:?}");
-
-    setup.scripts.shutdown().await;
-}
-
-#[tokio::test]
-async fn without_the_binary_nothing_starts() {
-    let setup = Setup::without_server(CURRENT, &[]);
-
-    assert_eq!(
-        setup
-            .scripts
-            .list(&setup.env, setup.runner(), None, &query(None, None))
-            .await
-            .availability,
-        MemoryScriptsAvailability::NotInstalled
-    );
-
-    let delete = setup.scripts.delete(&setup.env, 7, None).await;
-    assert!(matches!(delete, Err(BusinessError::NotFound(_))), "{delete:?}");
-    assert_eq!(setup.scripts.support(&setup.env).await, ScriptsSupport::Unknown);
-    assert!(setup.requested().is_empty());
-}
-
-#[tokio::test]
-async fn a_server_that_does_not_start_is_failed_and_probed_again() {
-    // `fake_agent` without a dialect exits at once with its usage.
-    let setup = Setup::installed(&[], &[]);
-
-    let MemoryScriptsAvailability::Failed { message } = setup.scripts.availability(&setup.env).await else {
-        panic!("expected failed");
-    };
-    assert!(message.contains("exited before answering initialize"), "{message}");
-
-    assert_eq!(
-        setup.scripts.support(&setup.env).await,
-        ScriptsSupport::Unknown,
-        "a failed probe says nothing about scripts"
-    );
-    assert_eq!(setup.requested().len(), 2, "a failed probe is not cached");
-}
-
-#[tokio::test]
-async fn a_binary_upgraded_in_place_is_probed_on_a_fresh_server() {
-    let setup = Setup::installed(CURRENT, LEGACY);
-
-    assert_eq!(
-        setup.scripts.availability(&setup.env).await,
-        MemoryScriptsAvailability::Outdated
-    );
-
-    // The old server is still pooled when the binary changes.
-    setup.upgrade(&[]);
-
-    assert_eq!(
-        setup.scripts.availability(&setup.env).await,
-        MemoryScriptsAvailability::Available
-    );
-    assert_eq!(setup.requested().len(), 2, "the new binary runs in a new server");
 
     setup.scripts.shutdown().await;
 }

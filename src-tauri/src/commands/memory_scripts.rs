@@ -14,10 +14,12 @@
 
 use std::path::PathBuf;
 
-use harness_business::ecosystem::{ListWindow, ScriptsQuery, discard_local, hide_entry, trust_scripts};
+use harness_business::ecosystem::{
+    ListWindow, Repos, ScriptsQuery, discard_local, hide_entry, list_repos, trust_scripts,
+};
 use harness_business::model::{
-    LocalNoteIds, MemoryCopyKind, MemoryDeleteAll, MemoryScriptsPage, ScriptDetail, ScriptDraft, ScriptGroup,
-    ScriptReview, ScriptSaved, ScriptScope, ScriptSort, ScriptTrustItem, SortOrder,
+    LocalNoteIds, MemoryCopyKind, MemoryDeleteAll, MemoryRepos, MemoryReposPage, MemoryScriptsPage, ScriptDetail,
+    ScriptDraft, ScriptGroup, ScriptReview, ScriptSaved, ScriptScope, ScriptSort, ScriptTrustItem, SortOrder,
 };
 use tauri::State;
 
@@ -39,6 +41,7 @@ use crate::state::AppState;
 pub async fn memory_scripts_list(
     state: State<'_, AppState>,
     project: Option<String>,
+    repos: Option<MemoryRepos>,
     offset: Option<u32>,
     limit: Option<u32>,
     query: Option<String>,
@@ -55,7 +58,7 @@ pub async fn memory_scripts_list(
         ..ScriptsQuery::new(window, group, scope, review, sort)?
     };
 
-    list(&state, project, &query).await
+    list(&state, project, repos, &query).await
 }
 
 /// One script with its body; with `hidden` a team script hidden on this machine (only, read with
@@ -67,16 +70,18 @@ pub async fn memory_script_get(
     state: State<'_, AppState>,
     id: i64,
     project: Option<String>,
+    repos: Option<MemoryRepos>,
     hidden: Option<bool>,
 ) -> CommandResult<ScriptDetail> {
     let project = project_root(&state, project).await?;
     let (env, scripts) = (&state.env, &state.memory_scripts);
+    let repos = Repos::of(project.as_deref(), repos.as_ref())?;
 
     if hidden.unwrap_or(false) {
-        return Ok(scripts.get_hidden(env, &state.runner, id, project.as_deref()).await?);
+        return Ok(scripts.get_hidden(env, &state.runner, id, repos).await?);
     }
 
-    Ok(scripts.get(env, id, project.as_deref()).await?)
+    Ok(scripts.get(env, &state.runner, id, repos).await?)
 }
 
 /// Hides a team script on this machine (`hidden`), or shows it again; the team database is not
@@ -88,12 +93,19 @@ pub async fn memory_script_hide(
     state: State<'_, AppState>,
     id: i64,
     project: Option<String>,
+    repos: Option<MemoryRepos>,
     hidden: bool,
 ) -> CommandResult<()> {
-    hide(&state, id, project, hidden).await
+    hide(&state, id, project, repos, hidden).await
 }
 
-async fn hide(state: &AppState, id: i64, project: Option<String>, hidden: bool) -> CommandResult<()> {
+async fn hide(
+    state: &AppState,
+    id: i64,
+    project: Option<String>,
+    repos: Option<MemoryRepos>,
+    hidden: bool,
+) -> CommandResult<()> {
     let project = project_root(state, project).await?;
     let scripts = MemoryCopyKind::Scripts;
 
@@ -103,7 +115,7 @@ async fn hide(state: &AppState, id: i64, project: Option<String>, hidden: bool) 
         &state.runner,
         scripts,
         id,
-        project.as_deref(),
+        Repos::of(project.as_deref(), repos.as_ref())?,
         hidden,
     )
     .await?)
@@ -129,9 +141,18 @@ pub async fn memory_scripts_discard_local(
 /// Deletes one script (the UI confirms first). `notFound` when it is gone or the server is not
 /// installed, `unsupported` when the server predates scripts.
 #[tauri::command]
-pub async fn memory_script_delete(state: State<'_, AppState>, id: i64, project: Option<String>) -> CommandResult<()> {
+pub async fn memory_script_delete(
+    state: State<'_, AppState>,
+    id: i64,
+    project: Option<String>,
+    repos: Option<MemoryRepos>,
+) -> CommandResult<()> {
     let project = project_root(&state, project).await?;
-    state.memory_scripts.delete(&state.env, id, project.as_deref()).await?;
+    let repos = Repos::of(project.as_deref(), repos.as_ref())?;
+    state
+        .memory_scripts
+        .delete(&state.env, &state.runner, id, repos)
+        .await?;
 
     tracing::info!(id, "memory script deleted");
     Ok(())
@@ -184,16 +205,24 @@ async fn save(
 pub async fn memory_scripts_delete_all(
     state: State<'_, AppState>,
     project: Option<String>,
+    repos: Option<MemoryRepos>,
+    scope: Option<ScriptScope>,
 ) -> CommandResult<MemoryDeleteAll> {
-    delete_all(&state, project).await
+    delete_all(&state, project, repos, scope).await
 }
 
-async fn delete_all(state: &AppState, project: Option<String>) -> CommandResult<MemoryDeleteAll> {
+async fn delete_all(
+    state: &AppState,
+    project: Option<String>,
+    repos: Option<MemoryRepos>,
+    scope: Option<ScriptScope>,
+) -> CommandResult<MemoryDeleteAll> {
     let project = project_root(state, project).await?;
+    let repos = Repos::of(project.as_deref(), repos.as_ref())?;
 
     Ok(state
         .memory_scripts
-        .delete_all(&state.env, &state.runner, project.as_deref())
+        .delete_all(&state.env, &state.runner, repos, scope)
         .await?)
 }
 
@@ -207,23 +236,48 @@ pub async fn memory_scripts_trust(
     state: State<'_, AppState>,
     items: Vec<ScriptTrustItem>,
     project: Option<String>,
+    repos: Option<MemoryRepos>,
 ) -> CommandResult<()> {
-    trust(&state, items, project).await
+    trust(&state, items, project, repos).await
 }
 
-async fn trust(state: &AppState, items: Vec<ScriptTrustItem>, project: Option<String>) -> CommandResult<()> {
+async fn trust(
+    state: &AppState,
+    items: Vec<ScriptTrustItem>,
+    project: Option<String>,
+    repos: Option<MemoryRepos>,
+) -> CommandResult<()> {
     let project = project_root(state, project).await?;
+    let repos = Repos::of(project.as_deref(), repos.as_ref())?;
 
-    Ok(trust_scripts(&state.env, &state.runner, &items, project.as_deref()).await?)
+    Ok(trust_scripts(&state.env, &state.runner, &items, repos).await?)
 }
 
-async fn list(state: &AppState, project: Option<String>, query: &ScriptsQuery) -> CommandResult<MemoryScriptsPage> {
+async fn list(
+    state: &AppState,
+    project: Option<String>,
+    repos: Option<MemoryRepos>,
+    query: &ScriptsQuery,
+) -> CommandResult<MemoryScriptsPage> {
     let project = project_root(state, project).await?;
 
     Ok(state
         .memory_scripts
-        .list(&state.env, &state.runner, project.as_deref(), query)
+        .list(
+            &state.env,
+            &state.runner,
+            Repos::of(project.as_deref(), repos.as_ref())?,
+            query,
+        )
         .await)
+}
+
+/// The repositories that have notes (`kind` notes) or scripts, by name, with their counts and how
+/// many global ones there are (`harness-memory notes|scripts repos --json`). Never fails for a
+/// missing or old server: see the page's `availability`.
+#[tauri::command]
+pub async fn memory_repos_list(state: State<'_, AppState>, kind: MemoryCopyKind) -> CommandResult<MemoryReposPage> {
+    Ok(list_repos(&state.env, &state.memory_scripts, &state.runner, kind).await)
 }
 
 /// The canonical root of `project` (`forbidden` unless active or recent); `None` for none.
@@ -265,13 +319,16 @@ mod tests {
     fn a_project_that_is_not_open_or_recent_is_refused() {
         let setup = ProjectHome::new("scripts-stranger");
 
-        let error = block_on(list(&setup.state, path_arg(&setup.stranger), &by_name())).expect_err("unknown project");
+        let error =
+            block_on(list(&setup.state, path_arg(&setup.stranger), None, &by_name())).expect_err("unknown project");
         assert_eq!(error.code(), IpcErrorCode::Forbidden);
 
-        let error = block_on(delete_all(&setup.state, path_arg(&setup.stranger))).expect_err("unknown project");
+        let error =
+            block_on(delete_all(&setup.state, path_arg(&setup.stranger), None, None)).expect_err("unknown project");
         assert_eq!(error.code(), IpcErrorCode::Forbidden);
 
-        let error = block_on(hide(&setup.state, 30, path_arg(&setup.stranger), true)).expect_err("unknown project");
+        let error =
+            block_on(hide(&setup.state, 30, path_arg(&setup.stranger), None, true)).expect_err("unknown project");
         assert_eq!(error.code(), IpcErrorCode::Forbidden);
 
         let error = block_on(save(
@@ -297,13 +354,13 @@ mod tests {
             }]
         };
 
-        let error = block_on(trust(state, item(), path_arg(&setup.stranger))).expect_err("unknown project");
+        let error = block_on(trust(state, item(), path_arg(&setup.stranger), None)).expect_err("unknown project");
         assert_eq!(error.code(), IpcErrorCode::Forbidden);
 
-        let error = block_on(trust(state, item(), path_arg(&setup.project))).expect_err("not installed");
+        let error = block_on(trust(state, item(), path_arg(&setup.project), None)).expect_err("not installed");
         assert_eq!(error.code(), IpcErrorCode::NotFound);
 
-        let error = block_on(trust(state, Vec::new(), None)).expect_err("no ids");
+        let error = block_on(trust(state, Vec::new(), None, None)).expect_err("no ids");
         assert_eq!(error.code(), IpcErrorCode::InvalidInput);
     }
 
@@ -312,20 +369,20 @@ mod tests {
         let setup = ProjectHome::new("scripts-list");
         let state = &setup.state;
 
-        let page = block_on(list(state, None, &by_name())).expect("listed");
+        let page = block_on(list(state, None, None, &by_name())).expect("listed");
         assert_eq!(page.availability, MemoryScriptsAvailability::NotInstalled);
 
         if place_memory_server(&setup.home).is_none() {
             return;
         }
 
-        let page = block_on(list(state, path_arg(&setup.project), &by_name())).expect("listed");
+        let page = block_on(list(state, path_arg(&setup.project), None, &by_name())).expect("listed");
         assert_eq!(page.availability, MemoryScriptsAvailability::Available);
 
         let names: Vec<&str> = page.scripts.iter().map(|script| script.name.as_str()).collect();
         assert_eq!(names, ["open-prs", "release-notes"]);
 
-        let deleted = block_on(delete_all(state, path_arg(&setup.project))).expect("deleted them all");
+        let deleted = block_on(delete_all(state, path_arg(&setup.project), None, None)).expect("deleted them all");
         assert_eq!(
             deleted,
             MemoryDeleteAll {

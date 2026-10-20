@@ -8,7 +8,8 @@ import type { ScriptSummary } from '../bindings/ScriptSummary';
 import type { CommandArgs } from '../commands';
 import { IpcFailure } from '../transport';
 import { fakeSha } from './fake-sha';
-import { deletedAll, requireServer } from './memory-delete-all';
+import { deletion, requireServer } from './memory-delete-all';
+import { type Reach, reaches } from './memory-reach';
 import { combinesFilters } from './memory-notes-handlers';
 import { type CopyStores, type TeamScriptsHandlers, teamScriptsHandlers } from './memory-notes-team-handlers';
 import { sampleScripts, summaryOf } from './memory-scripts-fixtures';
@@ -173,11 +174,11 @@ export function memoryScriptsHandlers(scenario: () => ScriptScenario = scriptSce
   let scripts: ScriptDetail[] | null = null;
   const current = (): ScriptDetail[] => (scripts ??= withReadOnly(scenario()));
 
-  /** A project sees its repository's scripts and the global ones, no project only the global ones. */
-  const visible = (project: string | null): ScriptDetail[] => current().filter((script) => script.scope === 'global' || project !== null);
+  /** A project sees its repository's scripts and the global ones, no project only the global ones; `repos` reads every repository or one. */
+  const visible = (reach: Reach): ScriptDetail[] => current().filter((script) => reaches(script, reach));
 
-  const find = (id: number, project: string | null, hidden = false): ScriptDetail => {
-    const script = visible(project).find((candidate) => candidate.id === id && candidate.hidden === hidden);
+  const find = (id: number, reach: Reach, hidden = false): ScriptDetail => {
+    const script = visible(reach).find((candidate) => candidate.id === id && candidate.hidden === hidden);
     if (!script) {
       throw IpcFailure.from({ code: 'notFound', message: `script ${id} was not found` });
     }
@@ -222,24 +223,23 @@ export function memoryScriptsHandlers(scenario: () => ScriptScenario = scriptSce
         return { availability, total: 0, groups: { needsReview: 0, repo: 0, global: 0 }, scopes: null, review: null, combinedFilters: combined(), scripts: [], hiddenCount: null, localCounts: null };
       }
 
-      return { availability, ...pageOfScripts(visible(args.project).map(summaryOf), args, combined(), current().map(summaryOf)) };
+      return { availability, ...pageOfScripts(visible(args).map(summaryOf), args, combined(), current().map(summaryOf)) };
     },
-    memory_script_get: ({ id, project, hidden }) => find(id, project, hidden),
-    memory_script_delete: ({ id, project }) => {
-      const script = find(id, project);
+    memory_script_get: ({ id, hidden, ...reach }) => find(id, reach, hidden),
+    memory_script_delete: ({ id, ...reach }) => {
+      const script = find(id, reach);
       scripts = current().filter((candidate) => candidate !== script);
 
       return null;
     },
-    memory_scripts_delete_all: ({ project = null }) => {
+    memory_scripts_delete_all: ({ project = null, repos, scope }) => {
       requireServer(availabilityOf(scenario()));
 
       // A remote script that is read-only here stays.
-      const all = visible(project);
-      const gone = all.filter((candidate) => !candidate.readOnly);
+      const { gone, answer } = deletion(visible({ project, repos }), repos, scope);
       scripts = current().filter((candidate) => !gone.includes(candidate));
 
-      return deletedAll(gone, all.length - gone.length);
+      return answer;
     },
     memory_script_decide: ({ requestId, allow }) => {
       if (!pending.delete(requestId)) {
@@ -266,7 +266,7 @@ export function memoryScriptsHandlers(scenario: () => ScriptScenario = scriptSce
       }
 
       const name = draft.name.trim();
-      const existing = visible(project).find((candidate) => candidate.name === name && candidate.scope === draft.scope && !candidate.readOnly);
+      const existing = visible({ project }).find((candidate) => candidate.name === name && candidate.scope === draft.scope && !candidate.readOnly);
       if (base !== undefined && existing?.sha256 !== base) {
         throw IpcFailure.from({ code: 'conflict', message: 'the script changed since you opened it' });
       }
@@ -306,8 +306,8 @@ export function memoryScriptsHandlers(scenario: () => ScriptScenario = scriptSce
       return { outcome: existing ? 'replaced' : 'created', id: saved.id, script: summaryOf(saved) };
     },
     // Like the real server: a script that changed since it was reviewed is refused, and the others are approved anyway.
-    memory_scripts_trust: ({ items, project }) => {
-      const found = items.map((item) => ({ script: find(item.id, project), sha256: item.sha256 }));
+    memory_scripts_trust: ({ items, ...reach }) => {
+      const found = items.map((item) => ({ script: find(item.id, reach), sha256: item.sha256 }));
       found.filter(({ script, sha256 }) => script.sha256 === sha256).forEach(({ script }) => approve(script));
 
       if (found.some(({ script, sha256 }) => script.sha256 !== sha256)) {

@@ -229,7 +229,6 @@ export const chat = {
   'chat.subagents.done': '{count} done',
   'chat.subagents.failed': '{count} failed',
   'chat.subagents.totalTokens': '{tokens} tokens',
-  'chat.subagents.tok': '{tokens} tok',
   'chat.subagents.waitingToStart': 'Waiting to start',
   'chat.subagents.working': 'Working',
   'chat.subagents.recentTools': 'Recent tools',

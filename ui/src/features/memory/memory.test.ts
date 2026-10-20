@@ -9,7 +9,7 @@ import { IpcFailure } from '$lib/ipc/transport';
 import { nav } from '$lib/stores/nav.svelte';
 import { toasts } from '$lib/stores/toasts.svelte';
 
-import { calls, fakeMemory, PROJECT, registerMemoryHooks, rowButton, showMemory } from './memory-test-support';
+import { ALL, calls, fakeMemory, registerMemoryHooks, rowButton, showMemory } from './memory-test-support';
 import ScriptsView from './ScriptsView.svelte';
 
 registerMemoryHooks();
@@ -19,7 +19,7 @@ describe('scripts table', () => {
     const invoke = fakeMemory();
     await showMemory();
 
-    expect(calls(invoke, 'memory_scripts_list')[0]).toEqual({ project: PROJECT, offset: 0, limit: 50, sort: 'updated', order: 'desc' });
+    expect(calls(invoke, 'memory_scripts_list')[0]).toEqual({ ...ALL, offset: 0, limit: 50, sort: 'updated', order: 'desc' });
 
     const open = within(rowButton('open-prs') as HTMLElement);
     expect(open.getByText('Bash')).toBeInTheDocument();
@@ -102,7 +102,7 @@ describe('script panel', () => {
     expect(within(panel).getByText('Lists the open pull requests of this repository with their review state.')).toBeInTheDocument();
     expect(within(panel).getByText('Bash · github.com/useful/harness-desktop')).toBeInTheDocument();
     expect(await within(panel).findByText(/gh pr list --state open/)).toBeInTheDocument();
-    expect(calls(invoke, 'memory_script_get')[0]).toEqual({ id: 12, project: PROJECT });
+    expect(calls(invoke, 'memory_script_get')[0]).toEqual({ id: 12, ...ALL });
     for (const heading of ['Description', 'Code', 'Actions', 'Details']) {
       expect(within(panel).getByRole('heading', { level: 3, name: heading })).toBeInTheDocument();
     }
@@ -258,7 +258,7 @@ describe('deleting a script', () => {
     await fireEvent.click(await screen.findByRole('button', { name: 'Delete script' }));
 
     await waitFor(() => expect(rowButton('open-prs')).toBeNull());
-    expect(calls(invoke, 'memory_script_delete')).toEqual([{ id: 12, project: PROJECT }]);
+    expect(calls(invoke, 'memory_script_delete')).toEqual([{ id: 12, ...ALL }]);
     expect(calls(invoke, 'memory_scripts_list').length).toBeGreaterThan(1);
     // The panel of the script that is gone closes.
     await waitFor(() => expect(screen.queryByRole('region', { name: 'open-prs' })).toBeNull());

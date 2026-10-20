@@ -13,9 +13,8 @@
   import type { NoteKind } from '$lib/ipc/bindings/NoteKind';
   import type { NoteSaved } from '$lib/ipc/bindings/NoteSaved';
   import type { NoteSummary } from '$lib/ipc/bindings/NoteSummary';
-  import type { ScriptScope } from '$lib/ipc/bindings/ScriptScope';
+  import { ALL_REPOS } from '$lib/stores/memory-reach';
   import { deleteNote, hideNote, noteDetail, noteDetailKey, noteList, NOTES_PAGE_SIZE } from '$lib/stores/memoryNotes.svelte';
-  import { project } from '$lib/stores/project.svelte';
   import { toasts } from '$lib/stores/toasts.svelte';
   import { viewState } from '$lib/stores/view-state.svelte';
   import { formatDateTime, relativeTime } from '$lib/utils/format';
@@ -25,7 +24,7 @@
   import { noteEditor } from './editor-state.svelte';
   import HiddenFilter from './HiddenFilter.svelte';
   import MemoryFilterHint from './MemoryFilterHint.svelte';
-  import MemoryScopeFilter from './MemoryScopeFilter.svelte';
+  import MemoryRepoFilter from './MemoryRepoFilter.svelte';
   import MemorySearch from './MemorySearch.svelte';
   import MemoryTable from './MemoryTable.svelte';
   import { notesImport } from './notes-import-state.svelte';
@@ -45,7 +44,7 @@
 
   let confirmer: SessionConfirm | undefined = $state();
 
-  const path = $derived(project.active?.path ?? null);
+  const path = $derived(viewState.memoryReach);
   const page = $derived(noteList.data);
   const availability = $derived(page && page.availability.kind !== 'available' ? page.availability : null);
   const rows = $derived(page?.notes ?? []);
@@ -54,7 +53,7 @@
   // An older Harness Memory cannot combine the scope with the kind: it gets the kind only, and a hint that an update adds the scope.
   const combined = $derived(page?.combinedFilters ?? true);
   const searching = $derived(viewState.notesQuery.trim() !== '');
-  const filtered = $derived(viewState.notesKind !== null || (combined && viewState.notesScope !== null) || notesTeam.showHidden);
+  const filtered = $derived(viewState.notesKind !== null || viewState.memoryReach !== ALL_REPOS || notesTeam.showHidden);
   // Team notes hidden on this computer: a switch to them shows once there are any, and stays while they are shown.
   const hiddenCount = $derived(page?.hiddenCount ?? 0);
   // Nothing at all is kept: no notes of any kind, and no search or filter that would explain it.
@@ -74,9 +73,9 @@
     return !searching && filtered ? t('memory.notes.noFilter') : t('memory.notes.noMatch');
   });
 
-  function chooseScope(scope: ScriptScope | null): void {
-    viewState.notesScope = scope;
+  function repoChosen(): void {
     viewState.notesPage = 0;
+    viewState.noteId = null;
   }
 
   function showHidden(on: boolean): void {
@@ -202,9 +201,7 @@
 </script>
 
 {#snippet filters()}
-  {#if combined}
-    <MemoryScopeFilter value={viewState.notesScope} counts={page?.scopes ?? null} onchange={chooseScope} />
-  {/if}
+  <MemoryRepoFilter section="notes" onchange={repoChosen} />
 
   {#if hiddenCount > 0 || notesTeam.showHidden}
     <HiddenFilter count={hiddenCount} on={notesTeam.showHidden} onchange={showHidden} />

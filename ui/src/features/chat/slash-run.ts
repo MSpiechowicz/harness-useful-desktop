@@ -1,6 +1,5 @@
 import type { SlashOutcome } from '$lib/chat/slash';
 import type { ChatSession } from '$lib/chat/session.svelte';
-import { clearTranscript } from '$lib/chat/reducer';
 import { t } from '$lib/i18n/i18n.svelte';
 import type { GuiTarget } from '$lib/ipc/bindings/GuiTarget';
 import { revealPath } from '$lib/ipc/actions';
@@ -81,7 +80,7 @@ async function runAction(session: ChatSession, outcome: Extract<SlashOutcome, { 
   }
 
   if (outcome.kind === 'newSession') {
-    session.apply(clearTranscript);
+    session.startOver();
   } else if (outcome.kind === 'exportHtml' && reply.type === 'exported') {
     const path = reply.path;
     toasts.push({ title: t('chat.toast.exported'), description: path, tone: 'success', duration: 9000, action: { label: t('chat.toast.reveal'), run: () => void revealPath(path) } });

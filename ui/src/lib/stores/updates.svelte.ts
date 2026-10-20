@@ -100,9 +100,17 @@ export class UpdatesStore {
     return 'info' in current ? current.info : null;
   }
 
-  /** Download progress as a fraction, or `null` when unknown or not downloading. */
+  /**
+   * Download progress as a fraction: 1 once the download is done and the install runs (so the bar
+   * does not drop back to a sweep while its fill is still catching up), `null` when the size is
+   * unknown or nothing is downloading.
+   */
   get fraction(): number | null {
     const current = this.state;
+    if (current.kind === 'installing') {
+      return 1;
+    }
+
     if (current.kind !== 'downloading' || !current.progress?.total) {
       return null;
     }

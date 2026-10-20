@@ -23,6 +23,7 @@
     "allow-memory-scripts-discard-local",
     "allow-memory-script-requests-listen",
     "allow-memory-script-decide",
+    "allow-memory-repos-list",
     "allow-memory-notes-list",
     "allow-memory-note-get",
     "allow-memory-note-delete",

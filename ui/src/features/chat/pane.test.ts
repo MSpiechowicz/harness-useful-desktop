@@ -398,3 +398,29 @@ describe('a harness with no model to use', () => {
     });
   });
 });
+
+describe('docked subagents', () => {
+  const agent = (id: string, status: 'running' | 'completed') =>
+    ({
+      type: 'subagent',
+      subagent: {
+        id, parentToolCallId: 'call_1', agent: 'explore', status, index: 0, detached: true, description: null, task: null, intent: null,
+        currentTool: null, currentArgs: null, recentTools: null, recentOutput: null, toolCount: null, tokens: null, contextTokens: null,
+        contextWindow: null, costUsd: null, durationMs: null, model: null,
+      },
+    }) as AgentEvent;
+
+  it('pins the list above the composer while one runs, and drops it once all finish', async () => {
+    const { session } = chatSession([...STREAMING, agent('Scout', 'running'), agent('Reviewer', 'completed')]);
+    render(ChatPane, { session });
+
+    const list = screen.getByRole('region', { name: 'Subagents' });
+    expect(within(list).getByText('Scout')).toBeInTheDocument();
+    expect(within(list).getByText('Reviewer')).toBeInTheDocument();
+
+    session.ingest({ sessionKey: session.key, seq: 99, event: agent('Scout', 'completed') });
+    session.flush();
+
+    await waitFor(() => expect(screen.queryByRole('region', { name: 'Subagents' })).toBeNull());
+  });
+});

@@ -20,6 +20,7 @@ const sampleArgs = (sessionKey: string): { [K in CommandName]: CommandArgs<K> } 
   memory_remote_get: undefined,
   memory_remote_set: { enabled: true, kind: 'postgres', url: 'postgres://memory:pw@db.ok.example.com/harness_memory', token: null, repositoryNotes: 'remote', globalNotes: 'local', scripts: 'remote', trustTeamScripts: false },
   memory_remote_test: { kind: 'libsql', url: 'libsql://team-ok.turso.io', token: 'tok' },
+  memory_repos_list: { kind: 'scripts' },
   memory_scripts_list: { project: '/home/demo/project', offset: 0 },
   memory_script_get: { id: 12, project: '/home/demo/project' },
   memory_script_delete: { id: 12, project: '/home/demo/project' },
@@ -129,7 +130,6 @@ const sampleArgs = (sessionKey: string): { [K in CommandName]: CommandArgs<K> } 
 });
 
 const SESSION = { harness: 'omp', id: fixtures.sessions.list.omp[0].ref.id } as const;
-
 const START_REQUEST = { harness: 'omp', project: fixtures.recentProjects[0].path, resume: null, approvalOverride: null, trustOnce: false, utility: false } as const;
 
 function transport() {

@@ -17,12 +17,12 @@
 //! `script`, exit 1), which comes back as `notFound`.
 
 use std::ffi::OsString;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use serde_json::Value;
 
 use super::memory_cli::{
-    CliCall, DELETE_ALL_TIMEOUT, LIST_OUTPUT_BYTES, LIST_TIMEOUT, count_of, project_args, run_json, scope_name,
+    CliCall, DELETE_ALL_TIMEOUT, LIST_OUTPUT_BYTES, LIST_TIMEOUT, Repos, count_of, repos_args, run_json, scope_name,
 };
 use super::memory_scripts::{MemoryScripts, unavailable_error};
 use crate::env::Env;
@@ -47,7 +47,7 @@ pub async fn hide_entry(
     runner: &dyn ProcessRunner,
     kind: MemoryCopyKind,
     id: i64,
-    project: Option<&Path>,
+    repos: Repos<'_>,
     hidden: bool,
 ) -> Result<()> {
     let server = entry_server(env, probe, kind).await?;
@@ -57,7 +57,7 @@ pub async fn hide_entry(
         ("unhide", "unhidden")
     };
     let name = format!("{} {command}", kind_command(kind));
-    let args = by_id(kind, command, id, &["--json"], project);
+    let args = by_id(kind, command, id, &["--json"], repos);
 
     let data = run_json(env, runner, &server, call(&name, args))
         .await
@@ -194,16 +194,10 @@ pub(super) fn kind_args(kind: MemoryCopyKind, rest: Vec<OsString>) -> Vec<OsStri
 }
 
 /// `<kind> <command> <id> [<flags>] [--project <root>]`.
-pub(super) fn by_id(
-    kind: MemoryCopyKind,
-    command: &str,
-    id: i64,
-    flags: &[&str],
-    project: Option<&Path>,
-) -> Vec<OsString> {
+pub(super) fn by_id(kind: MemoryCopyKind, command: &str, id: i64, flags: &[&str], repos: Repos<'_>) -> Vec<OsString> {
     let mut rest: Vec<OsString> = vec![command.into(), id.to_string().into()];
     rest.extend(flags.iter().map(OsString::from));
-    rest.extend(project_args(project));
+    rest.extend(repos_args(repos));
 
     kind_args(kind, rest)
 }

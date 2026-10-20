@@ -11,7 +11,8 @@ import type { NotesImportResult } from '../bindings/NotesImportResult';
 import type { NotesImportRow } from '../bindings/NotesImportRow';
 import type { CommandArgs } from '../commands';
 import { IpcFailure } from '../transport';
-import { deletedAll, requireServer } from './memory-delete-all';
+import { deletion, requireServer } from './memory-delete-all';
+import { type Reach, reaches, reposPage } from './memory-reach';
 import { detailOf, noteSummaryOf, sampleNotes } from './memory-notes-fixtures';
 import { type CopyStores, type TeamNotesHandlers, teamNotesHandlers } from './memory-notes-team-handlers';
 
@@ -191,11 +192,11 @@ export function memoryNotesHandlers(
   const current = (): NoteContent[] =>
     (notes ??= scenario() === 'empty' ? [] : withBlocked(sampleNotes(), scenario() === 'blocked').map((found) => ({ ...found, readOnly: scenario() === 'readonly' && found.place === 'team' })));
 
-  /** A project sees its repository's notes and the global ones, no project only the global ones. */
-  const visible = (project: string | null): NoteContent[] => current().filter((found) => found.scope === 'global' || project !== null);
+  /** A project sees its repository's notes and the global ones, no project only the global ones; `repos` reads every repository or one. */
+  const visible = (reach: Reach): NoteContent[] => current().filter((found) => reaches(found, reach));
 
-  const find = (id: number, project: string | null, hidden = false): NoteContent => {
-    const found = visible(project).find((candidate) => candidate.id === id && candidate.hidden === hidden);
+  const find = (id: number, reach: Reach, hidden = false): NoteContent => {
+    const found = visible(reach).find((candidate) => candidate.id === id && candidate.hidden === hidden);
     if (!found) {
       throw IpcFailure.from({ code: 'notFound', message: `note ${id} was not found` });
     }
@@ -215,24 +216,23 @@ export function memoryNotesHandlers(
         return { availability: state, total: 0, kinds: [], scopes: null, combinedFilters: combined(), notes: [], hiddenCount: null, localCounts: null };
       }
 
-      return { availability: state, ...pageOfNotes(visible(args.project), args, combined(), current()) };
+      return { availability: state, ...pageOfNotes(visible(args), args, combined(), current()) };
     },
-    memory_note_get: ({ id, project, hidden }: CommandArgs<'memory_note_get'>): NoteDetail => detailOf(find(id, project, hidden), visible(project)),
-    memory_note_delete: ({ id, project }: CommandArgs<'memory_note_delete'>): null => {
-      const found = find(id, project);
+    memory_note_get: ({ id, hidden, ...reach }: CommandArgs<'memory_note_get'>): NoteDetail => detailOf(find(id, reach, hidden), visible(reach)),
+    memory_note_delete: ({ id, ...reach }: CommandArgs<'memory_note_delete'>): null => {
+      const found = find(id, reach);
       notes = current().filter((candidate) => candidate !== found);
 
       return null;
     },
-    memory_notes_delete_all: ({ project = null }: CommandArgs<'memory_notes_delete_all'>): MemoryDeleteAll => {
+    memory_notes_delete_all: ({ project = null, repos, scope }: CommandArgs<'memory_notes_delete_all'>): MemoryDeleteAll => {
       requireServer(availability());
 
       // A team note that is read-only here stays.
-      const all = visible(project);
-      const gone = all.filter((candidate) => !candidate.readOnly);
+      const { gone, answer } = deletion(visible({ project, repos }), repos, scope);
       notes = current().filter((candidate) => !gone.includes(candidate));
 
-      return deletedAll(gone, all.length - gone.length);
+      return answer;
     },
     // Like the real backend: an edit (or a replace) goes by id and keeps the scope, and a new note whose title a note of its scope
     // has is refused (`exists`): the server refuses a repository one, the app looks a global one up first.
@@ -240,8 +240,8 @@ export function memoryNotesHandlers(
       requireServer(availability());
 
       if (replaceId !== undefined) {
-        const found = find(replaceId, project);
-        const other = visible(project).find((candidate) => candidate !== found && candidate.scope === found.scope && sameTitle(candidate.title, draft.title));
+        const found = find(replaceId, { project });
+        const other = visible({ project }).find((candidate) => candidate !== found && candidate.scope === found.scope && sameTitle(candidate.title, draft.title));
         if (other) {
           return { outcome: 'exists', id: other.id };
         }
@@ -254,7 +254,7 @@ export function memoryNotesHandlers(
         throw IpcFailure.from({ code: 'invalidInput', message: 'a repository note needs a project' });
       }
 
-      const same = visible(project).find((candidate) => candidate.scope === draft.scope && sameTitle(candidate.title, draft.title));
+      const same = visible({ project }).find((candidate) => candidate.scope === draft.scope && sameTitle(candidate.title, draft.title));
       if (same) {
         return { outcome: 'exists', id: same.id };
       }

@@ -50,6 +50,14 @@ export const CATALOG: readonly CatalogEntry[] = [
     type: 'addContext',
     text: 'Before a long or expensive task, check the plan limits and budgets with Harness Dashboard (limits, budget_status). Say so if a limit is close.',
   },
+  {
+    seed: 'useful-skills',
+    member: 'harness-memory',
+    name: 'Check Useful Skills first',
+    event: 'sessionStart',
+    type: 'addContext',
+    text: 'If Useful Skills are installed, read the ones that apply before you act: decide the workflow first (plan, implement, review), then read any other skill that fits the task and follow its limits (for example the 500-line file maximum). Do not skip a matching skill.',
+  },
 ];
 
 /** The text the memory-save hook had before the catalog changed: the sample of an outdated family hook. */

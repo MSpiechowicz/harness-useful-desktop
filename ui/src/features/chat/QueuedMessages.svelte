@@ -18,7 +18,7 @@
 </script>
 
 <!-- What waits for the agent, above the composer: one row per message, each with its own remove button. -->
-<section class="mb-2 overflow-hidden rounded-xl border border-line bg-surface-1" aria-label={t('chat.composer.queued')}>
+<section class="chat-radius mb-2 overflow-hidden border-card border-line bg-surface-1 bg-clip-padding" aria-label={t('chat.composer.queued')}>
   <header class="flex items-center justify-between gap-3 px-3 pt-2 pb-1 text-xs text-fg-3">
     <span class="font-medium tracking-wide uppercase">{t('chat.composer.queued')} · <span class="tabular">{rows.length}</span></span>
     {#if removable}

@@ -1,5 +1,6 @@
 import type { LocalNoteIds } from '../bindings/LocalNoteIds';
 import type { MemoryCopyKind } from '../bindings/MemoryCopyKind';
+import type { MemoryReposPage } from '../bindings/MemoryReposPage';
 import type { MemoryScriptsAvailability } from '../bindings/MemoryScriptsAvailability';
 import type { NoteContent } from '../bindings/NoteContent';
 import type { NotesCopyCounts } from '../bindings/NotesCopyCounts';
@@ -12,6 +13,7 @@ import type { ScriptDetail } from '../bindings/ScriptDetail';
 import type { CommandArgs } from '../commands';
 import { IpcFailure } from '../transport';
 import { requireServer } from './memory-delete-all';
+import { reposPage } from './memory-reach';
 
 /** What a note and a script share for hiding, discarding and copying: where they apply, where they are kept, and whether this computer hides them. */
 export interface TeamEntry {
@@ -47,8 +49,9 @@ export interface TeamScriptsHandlers {
   memory_scripts_discard_local: (args: CommandArgs<'memory_scripts_discard_local'>) => number;
 }
 
-/** The commands that copy the entries of a kind to the team database. */
+/** The commands that copy the entries of a kind to the team database, and the one that lists the repositories they are in. */
 export interface CopyHandlers {
+  memory_repos_list: (args: CommandArgs<'memory_repos_list'>) => MemoryReposPage;
   memory_notes_copy_preview: (args: CommandArgs<'memory_notes_copy_preview'>) => NotesCopyPreview;
   memory_notes_copy_rows: (args: CommandArgs<'memory_notes_copy_rows'>) => NotesCopyRows;
   memory_notes_copy_apply: (args: CommandArgs<'memory_notes_copy_apply'>) => NotesCopyResult;
@@ -174,6 +177,12 @@ export function copyHandlers(stores: CopyStores): CopyHandlers {
   };
 
   return {
+    memory_repos_list: ({ kind }) => {
+      const store = storeOf(kind);
+      const availability = store.availability();
+
+      return availability.kind === 'available' ? reposPage(store.read()) : { availability, repos: [], global: 0 };
+    },
     memory_notes_copy_preview: ({ kind }) => {
       const store = storeOf(kind);
       requireServer(store.availability());

@@ -27,6 +27,7 @@ mod memory_import;
 mod memory_notes;
 mod memory_notes_copy;
 mod memory_remote;
+mod memory_repos;
 mod memory_requests;
 mod memory_save;
 mod memory_scripts;
@@ -94,6 +95,7 @@ pub use memory_notes_copy::{
     NotesCopyPreview, NotesCopyResult, NotesCopyRow, NotesCopyRows,
 };
 pub use memory_remote::{MemoryNotesRouting, MemoryNotesTarget, MemoryRemote, MemoryRemoteKind, MemoryRemoteTest};
+pub use memory_repos::{MemoryRepoEntry, MemoryRepos, MemoryReposPage};
 pub use memory_requests::{
     ScriptPreviousOrigin, ScriptPreviousVersion, ScriptRequestEvent, ScriptRunRequest, ScriptStdin,
 };

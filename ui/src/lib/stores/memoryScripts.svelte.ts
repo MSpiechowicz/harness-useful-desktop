@@ -12,6 +12,8 @@ import type { SortOrder } from '$lib/ipc/bindings/SortOrder';
 import { ipc } from '$lib/ipc/client';
 import { IpcFailure } from '$lib/ipc/transport';
 
+import { type Reach, reachArgs } from './memory-reach';
+import { scriptRepos } from './memoryRepos.svelte';
 import { toasts } from './toasts.svelte';
 import { viewState } from './view-state.svelte';
 import { ViewLoader } from './view-loader.svelte';
@@ -41,12 +43,12 @@ export function scriptsKey(request: ScriptsRequest): string {
 }
 
 /** One page of the scripts agents saved in Harness Memory that this project sees (its own and the global ones), with the size of every group, scope and approval. */
-export const scriptList = new ViewLoader<MemoryScriptsPage, string>((key, project) => {
+export const scriptList = new ViewLoader<MemoryScriptsPage, string>((key, reach) => {
   const { query, scope, review, group, sort, order, page, hidden } = JSON.parse(key) as ScriptsRequest;
   const search = query.trim();
 
   return ipc.invoke('memory_scripts_list', {
-    project,
+    ...reachArgs(reach ?? ''),
     offset: page * SCRIPTS_PAGE_SIZE,
     limit: SCRIPTS_PAGE_SIZE,
     query: search === '' ? undefined : search,
@@ -79,10 +81,10 @@ export function scriptDetailKey(id: number, hidden: boolean): string {
 
 /** The script on screen, body included. The list carries no bodies, so this is read when one is chosen. */
 export const scriptDetail = new ViewLoader<ScriptDetail, string>(
-  (key, project) => {
+  (key, reach) => {
     const [id, hidden] = key.split(':');
 
-    return ipc.invoke('memory_script_get', { id: Number(id), project, hidden: hidden === undefined ? undefined : true });
+    return ipc.invoke('memory_script_get', { id: Number(id), ...reachArgs(reach ?? ''), hidden: hidden === undefined ? undefined : true });
   },
   { goneIsFinal: memoryItemGone },
 );
@@ -132,12 +134,12 @@ export async function hideEntry({ title, hidden, send, failed, unhideFailed, lea
 }
 
 /** Hides a remote script on this computer, or shows it again (`hidden: false`). See {@link hideEntry}. */
-export function hideScript(id: number, name: string, project: string | null, hidden: boolean): Promise<boolean> {
+export function hideScript(id: number, name: string, reach: Reach, hidden: boolean): Promise<boolean> {
   return hideEntry({
     id,
     title: name,
     hidden,
-    send: () => ipc.invoke('memory_script_hide', { id, project, hidden }),
+    send: () => ipc.invoke('memory_script_hide', { id, ...reachArgs(reach), hidden }),
     failed: 'memory.hidden.scripts.toast.failed',
     unhideFailed: 'memory.hidden.scripts.toast.unhideFailed',
     leave: () => {
@@ -146,18 +148,18 @@ export function hideScript(id: number, name: string, project: string | null, hid
       }
     },
     refresh: () => scriptList.refresh(),
-    undo: () => void hideScript(id, name, project, false),
+    undo: () => void hideScript(id, name, reach, false),
   });
 }
 
 /** Deletes a script once the user confirms, then re-reads the list so the row is gone (or back, if the call failed). */
-export async function deleteScript(id: number, project: string | null, confirm: () => Promise<boolean>): Promise<boolean> {
+export async function deleteScript(id: number, reach: Reach, confirm: () => Promise<boolean>): Promise<boolean> {
   if (!(await confirm())) {
     return false;
   }
 
   try {
-    await ipc.invoke('memory_script_delete', { id, project });
+    await ipc.invoke('memory_script_delete', { id, ...reachArgs(reach) });
   } catch (error) {
     toasts.push({ title: t('memory.scripts.delete.failed'), description: IpcFailure.from(error).message, tone: 'danger' });
     await scriptList.refresh();
@@ -168,7 +170,7 @@ export async function deleteScript(id: number, project: string | null, confirm: 
   if (viewState.scriptId === id) {
     viewState.scriptId = null;
   }
-  await scriptList.refresh();
+  await Promise.all([scriptList.refresh(), scriptRepos.refresh({ quiet: true })]);
 
   return true;
 }
@@ -188,7 +190,7 @@ export interface ReviewedScript {
  * Trusts the given scripts on this computer, so agents may run them, then re-reads the list and the open script so the approval on screen is the new one.
  * Each is trusted as the version in `sha256` only. A script rewritten since is not trusted and is named, the others still are, and its new version is shown again.
  */
-export async function trustScripts(scripts: ReviewedScript[], project: string | null): Promise<boolean> {
+export async function trustScripts(scripts: ReviewedScript[], reach: Reach): Promise<boolean> {
   let trusted = 0;
   const refused: ReviewedScript[] = [];
   let failure: IpcFailure | null = null;
@@ -197,7 +199,7 @@ export async function trustScripts(scripts: ReviewedScript[], project: string | 
     const batch = scripts.slice(from, from + TRUST_BATCH);
 
     try {
-      await ipc.invoke('memory_scripts_trust', { items: batch.map(({ id, sha256 }) => ({ id, sha256 })), project });
+      await ipc.invoke('memory_scripts_trust', { items: batch.map(({ id, sha256 }) => ({ id, sha256 })), ...reachArgs(reach) });
       trusted += batch.length;
     } catch (error) {
       const cause = IpcFailure.from(error);
@@ -277,9 +279,9 @@ export async function saveScript(project: string | null, draft: ScriptDraft, rep
 }
 
 /** The script as it is now, read again for an editor that found it changed: `gone` when it no longer exists, null (said in a toast) when it could not be read. */
-export async function rereadScript(id: number, project: string | null): Promise<ScriptDetail | 'gone' | null> {
+export async function rereadScript(id: number, reach: Reach): Promise<ScriptDetail | 'gone' | null> {
   try {
-    const script = await ipc.invoke('memory_script_get', { id, project });
+    const script = await ipc.invoke('memory_script_get', { id, ...reachArgs(reach) });
 
     await Promise.all([scriptList.refresh({ quiet: true }), scriptDetail.refresh({ quiet: true })]);
 

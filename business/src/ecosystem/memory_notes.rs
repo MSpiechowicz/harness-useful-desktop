@@ -29,14 +29,14 @@
 //! kinds.
 
 use std::ffi::OsString;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 
 use super::memory_cli::{
-    ListAnswer, ListWindow, count_of, counts_by_scope, delete_all, list_availability, run_json, run_list, run_text,
-    scope_counts, scope_name,
+    ListAnswer, ListWindow, Repos, count_of, counts_by_scope, delete_all, list_availability, run_json, run_list,
+    run_text, scope_counts, scope_name,
 };
 pub(super) use super::memory_hidden::ids_on_stdin;
 use super::memory_hidden::{HIDDEN_FLAG, by_id, call, entry_server, kind_args, not_found};
@@ -74,7 +74,7 @@ pub async fn list_notes(
     env: &Env,
     probe: &MemoryScripts,
     runner: &dyn ProcessRunner,
-    project: Option<&Path>,
+    project: Repos<'_>,
     query: &NotesQuery,
 ) -> MemoryNotesPage {
     let unavailable = |availability| MemoryNotesPage {
@@ -129,7 +129,7 @@ pub async fn get_note(
     probe: &MemoryScripts,
     runner: &dyn ProcessRunner,
     id: i64,
-    project: Option<&Path>,
+    project: Repos<'_>,
     hidden: bool,
 ) -> Result<NoteDetail> {
     let server = server(env, probe).await?;
@@ -159,7 +159,7 @@ pub async fn delete_note(
     probe: &MemoryScripts,
     runner: &dyn ProcessRunner,
     id: i64,
-    project: Option<&Path>,
+    project: Repos<'_>,
 ) -> Result<()> {
     let server = server(env, probe).await?;
     let args = by_id(NOTES, "delete", id, &[], project);
@@ -180,11 +180,12 @@ pub async fn delete_all_notes(
     env: &Env,
     probe: &MemoryScripts,
     runner: &dyn ProcessRunner,
-    project: Option<&Path>,
+    project: Repos<'_>,
+    scope: Option<ScriptScope>,
 ) -> Result<MemoryDeleteAll> {
     let server = server(env, probe).await?;
 
-    delete_all(env, runner, &server, "notes", project).await
+    delete_all(env, runner, &server, "notes", project, scope).await
 }
 
 /// The installed server when it has the notes view, else the error that says why not.
