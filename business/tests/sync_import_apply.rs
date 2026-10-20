@@ -359,14 +359,25 @@ async fn env_references_are_only_written_for_declared_keys_and_the_dashboard_nam
     );
 }
 
+/// A file refused at review time offers none of its servers; one refused only by the time of the
+/// apply skips them.
 #[tokio::test]
 async fn a_refused_mcp_file_skips_its_servers() {
     let machine = Machine::new(BOTH);
     std::fs::create_dir_all(machine.home().join(".omp/agent")).unwrap();
     std::fs::write(machine.home().join(OMP_MCP), "{ not json").unwrap();
-    let runner = fake(&machine);
-    let built = machine.plan(&typical());
 
+    let refused = machine.plan(&typical());
+    for id in ["omp:mcp:github", "omp:mcp:remote"] {
+        assert_eq!(item(&refused.plan, id).status, SyncItemStatus::Conflict);
+        assert!(!selectable(&refused.plan).contains(&id.to_owned()));
+    }
+
+    std::fs::remove_file(machine.home().join(OMP_MCP)).unwrap();
+    let built = machine.plan(&typical());
+    std::fs::write(machine.home().join(OMP_MCP), "{ not json").unwrap();
+
+    let runner = fake(&machine);
     let (result, _) = apply(
         &machine,
         &runner,

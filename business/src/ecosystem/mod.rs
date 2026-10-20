@@ -54,6 +54,7 @@ pub mod desktop_record;
 pub mod desktop_register;
 pub mod detect;
 pub mod installer;
+mod installer_log;
 pub mod mcp_client;
 pub mod mcp_merge;
 pub mod mcp_pool;

@@ -12,15 +12,18 @@
 //! through [`run_cli_action`] (fixed argv, no shell, ANSI stripped, output redacted and capped), in
 //! the user scope and without a project. The MCP servers of one file are written by one
 //! [`merge_entries`] call; a refused file skips all of them, and an OpenCode config file with
-//! comments skips them as `manualEdit`, each with the entry to paste. A failed marketplace skips
-//! the plugins that depend on it; every other item still runs.
+//! comments skips them as `manualEdit`, each with the entry to paste. OpenCode servers are first
+//! checked against the names OpenCode merges from all its layers ([`merged_mcp_names`], run once
+//! per apply right before they are written): a merged name ends `conflict`, and when the check
+//! cannot run (no binary: `skipped: harnessNotInstalled`) or fails (`failed`), none is written. A
+//! failed marketplace skips the plugins that depend on it; every other item still runs.
 //!
 //! There is no rollback: what succeeded stays when a later item fails. Logs carry counts only.
 
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 
 use super::StoredPlan;
-use super::plan_presence::{Machine, McpFiles, Presence, mcp_presence};
+use super::plan_presence::{Machine, McpFiles, Presence, mcp_presence, with_merged};
 use super::plan_rows::{Step, StoredItem, mcp_definition};
 use crate::ecosystem::mcp_merge::merge_entries;
 use crate::ecosystem::mcp_register::snippet;
@@ -28,6 +31,7 @@ use crate::ecosystem::{Blocked, MergeResult};
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::harness::{CliRun, Harness, HarnessRegistry, run_cli_action};
+use crate::harnesses::opencode::merged_mcp_names;
 use crate::model::{
     HarnessId, SyncImportResult, SyncItemKind, SyncItemOutcome, SyncOutcome, SyncProgress, SyncSkipReason,
 };
@@ -46,7 +50,8 @@ pub struct ApplyContext<'a> {
     pub runner: &'a dyn ProcessRunner,
     /// The detected binary of each installed harness (the Tauri layer resolves one per
     /// [`StoredPlan::harnesses`]). CLI items of a harness missing here end `skipped:
-    /// harnessNotInstalled`; its MCP servers are still merged (no binary needed).
+    /// harnessNotInstalled`; its MCP servers are still merged (no binary needed), except
+    /// OpenCode's, which need it to check what OpenCode merges.
     pub binaries: &'a BTreeMap<HarnessId, ResolvedBinary>,
 }
 
@@ -83,13 +88,22 @@ pub async fn apply_plan(
         }
 
         // The merge needs no binary: an MCP item has its file only when the review found the
-        // harness installed.
+        // harness installed. OpenCode's merged names are checked once, after its CLI items ran.
+        let merged = match harness {
+            HarnessId::OpenCode if !servers.is_empty() => Some(opencode_merged(context).await),
+            _ => None,
+        };
+
         for (files, servers) in by_file(&servers) {
             for item in &servers {
                 run.started(item, &mut sink);
             }
 
-            let outcomes = mcp_batch(context.env, files.as_ref(), &servers);
+            let outcomes = match &merged {
+                Some(Err(unchecked)) => servers.iter().map(|item| unchecked.outcome(item)).collect(),
+                Some(Ok(names)) => mcp_batch(context.env, files.as_ref(), &servers, Some(names)),
+                None => mcp_batch(context.env, files.as_ref(), &servers, None),
+            };
             for (item, outcome) in servers.into_iter().zip(outcomes) {
                 run.finished(item, outcome, &mut sink);
             }
@@ -301,6 +315,49 @@ impl Run<'_> {
     }
 }
 
+/// Why OpenCode's merged names could not be checked: none of its servers is written then.
+enum Unchecked {
+    /// OpenCode has no detected binary now.
+    NoBinary,
+    /// `opencode debug config` failed.
+    Failed,
+}
+
+impl Unchecked {
+    fn outcome(&self, item: &StoredItem) -> SyncItemOutcome {
+        match self {
+            Self::NoBinary => outcome(
+                item,
+                SyncOutcome::Skipped {
+                    reason: SyncSkipReason::HarnessNotInstalled,
+                },
+            ),
+            Self::Failed => SyncItemOutcome {
+                summary: Some(UNCHECKED_SUMMARY.to_owned()),
+                ..outcome(item, SyncOutcome::Failed)
+            },
+        }
+    }
+}
+
+/// The summary of an OpenCode server not written because the check failed.
+const UNCHECKED_SUMMARY: &str =
+    "Could not check the MCP servers OpenCode merges from all its config layers. Nothing was written.";
+
+/// The names OpenCode merges now (logged without any of the output when the check fails).
+async fn opencode_merged(context: ApplyContext<'_>) -> std::result::Result<BTreeSet<String>, Unchecked> {
+    let Some(binary) = context.binaries.get(&HarnessId::OpenCode) else {
+        return Err(Unchecked::NoBinary);
+    };
+
+    merged_mcp_names(context.env, context.runner, binary)
+        .await
+        .map_err(|error| {
+            tracing::warn!(%error, "share setup could not check OpenCode's merged config");
+            Unchecked::Failed
+        })
+}
+
 /// What is installed now for a CLI step. A shared marketplace that now conflicts ends `conflict`,
 /// which skips its dependent plugins.
 fn recheck(env: &Env, harness: &dyn Harness, step: &Step) -> Presence {
@@ -314,9 +371,15 @@ fn recheck(env: &Env, harness: &dyn Harness, step: &Step) -> Presence {
     }
 }
 
-/// The MCP servers of one file: each re-checked, then all that are still missing merged at once.
-/// Without a file (the review found the harness not installed) every server is skipped.
-fn mcp_batch(env: &Env, files: Option<&McpFiles>, items: &[&StoredItem]) -> Vec<SyncItemOutcome> {
+/// The MCP servers of one file: each re-checked (an OpenCode one against the `merged` names too),
+/// then all that are still missing merged at once. Without a file (the review found the harness
+/// not installed) every server is skipped.
+fn mcp_batch(
+    env: &Env,
+    files: Option<&McpFiles>,
+    items: &[&StoredItem],
+    merged: Option<&BTreeSet<String>>,
+) -> Vec<SyncItemOutcome> {
     let Some(files) = files else {
         return items
             .iter()
@@ -340,7 +403,12 @@ fn mcp_batch(env: &Env, files: Option<&McpFiles>, items: &[&StoredItem]) -> Vec<
             continue;
         };
 
-        let decided = match mcp_presence(files, server) {
+        let presence = match merged {
+            Some(names) => mcp_presence(files, server).map(|presence| with_merged(presence, Some(names), &server.name)),
+            None => mcp_presence(files, server),
+        };
+
+        let decided = match presence {
             Err(refusal) => Some(SyncOutcome::Skipped {
                 reason: SyncSkipReason::McpFileRefused { refusal },
             }),

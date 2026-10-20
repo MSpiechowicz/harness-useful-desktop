@@ -14,6 +14,9 @@ const HELPER_ENV: &str = "HARNESS_TEST_HELPER";
 pub const PID_FILE_ENV: &str = "HARNESS_TEST_PID_FILE";
 const FLOOD_BYTES: usize = 1024 * 1024;
 
+/// What the `flood_then_exit` helper writes: more than any default pipe holds.
+pub const DROPPED_FLOOD_BYTES: usize = 512 * 1024;
+
 /// The body of the helper child. Without `HARNESS_TEST_HELPER` it does nothing.
 pub fn helper_process() {
     let Ok(mode) = std::env::var(HELPER_ENV) else {
@@ -38,6 +41,19 @@ pub fn helper_process() {
             let mut line = String::new();
             std::io::stdin().lock().read_line(&mut line).unwrap();
             writeln!(stdout, "echo:{}", line.trim_end()).unwrap();
+        }
+        // Like a Bun program that exits right after writing: what does not fit in a pipe now is
+        // dropped (stdout is non-blocking and a full pipe ends the write).
+        #[cfg(unix)]
+        "flood_then_exit" => {
+            use nix::fcntl::{FcntlArg, OFlag, fcntl};
+
+            fcntl(&stdout, FcntlArg::F_SETFL(OFlag::O_NONBLOCK)).unwrap();
+            let mut lock = stdout.lock();
+            lock.write_all(b"\n").ok();
+            lock.write_all(&vec![b'z'; DROPPED_FLOOD_BYTES]).ok();
+            lock.flush().ok();
+            std::process::exit(0);
         }
         "exit3" => {
             eprintln!("helper failing on purpose");

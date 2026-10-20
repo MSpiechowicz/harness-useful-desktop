@@ -1,5 +1,8 @@
 //! Run-to-completion execution with timeout and output cap.
 
+use std::fs::File;
+use std::io::{Read, Seek, SeekFrom};
+use std::path::PathBuf;
 use std::process::Stdio;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
@@ -71,7 +74,13 @@ async fn run_to_completion(spec: &ExecSpec) -> Result<ExecOutput> {
         Some(_) => Stdio::piped(),
         None => Stdio::null(),
     };
-    let command = build_command(spec, stdin)?;
+    let mut command = build_command(spec, stdin)?;
+
+    let stdout_file = spec.stdout_through_file.then(StdoutFile::create).transpose()?;
+    if let Some(file) = &stdout_file {
+        command.stdout(file.for_child()?);
+    }
+
     let mut child = spawn_command(command, spec)?;
 
     // Until the run finished, dropping this future kills the whole group (`kill_on_drop` alone
@@ -81,7 +90,8 @@ async fn run_to_completion(spec: &ExecSpec) -> Result<ExecOutput> {
         reaped: AtomicBool::new(false),
     };
 
-    let (Some(stdout), Some(stderr)) = (child.stdout.take(), child.stderr.take()) else {
+    // `stdout` is `None` when it goes to the file.
+    let (stdout, Some(stderr)) = (child.stdout.take(), child.stderr.take()) else {
         return Err(BusinessError::Internal("child pipes missing".to_owned()));
     };
 
@@ -114,7 +124,13 @@ async fn run_to_completion(spec: &ExecSpec) -> Result<ExecOutput> {
         waited
     };
 
-    let all = async { tokio::join!(capture.read(stdout), capture.read(stderr), waiter, feed) };
+    let piped = async {
+        match stdout {
+            Some(stdout) => capture.read(stdout).await,
+            None => Captured::default(),
+        }
+    };
+    let all = async { tokio::join!(piped, capture.read(stderr), waiter, feed) };
 
     // The pipes normally close when the process group dies; a descendant that escaped the group
     // could keep them open, so collecting is bounded too.
@@ -130,6 +146,12 @@ async fn run_to_completion(spec: &ExecSpec) -> Result<ExecOutput> {
 
     let (status, timed_out) =
         waited.map_err(|error| BusinessError::Process(format!("waiting for {}: {error}", spec.label())))?;
+
+    // The child is gone: what it wrote to the file is all there is.
+    let out = match stdout_file {
+        Some(file) => file.read_back(capture)?,
+        None => out,
+    };
 
     Ok(ExecOutput {
         status,
@@ -191,6 +213,7 @@ struct Capture {
 }
 
 /// Bytes captured from one stream.
+#[derive(Default)]
 struct Captured {
     bytes: Vec<u8>,
     truncated: bool,
@@ -238,6 +261,89 @@ impl Capture {
 
         captured
     }
+}
+
+/// The private temporary file a child writes its stdout to (see
+/// [`ExecSpec::stdout_through_file`]): created new, owner-only on Unix, in the temporary directory.
+/// On Unix its name is removed at once (the open handles keep the file); elsewhere it is removed
+/// when this is dropped.
+struct StdoutFile {
+    file: Option<File>,
+    path: Option<PathBuf>,
+}
+
+impl StdoutFile {
+    fn create() -> Result<Self> {
+        let path = std::env::temp_dir().join(format!("harness-run-{}.out", uuid::Uuid::new_v4()));
+        let mut options = std::fs::OpenOptions::new();
+        options.read(true).write(true).create_new(true);
+
+        #[cfg(unix)]
+        std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
+
+        let file = options
+            .open(&path)
+            .map_err(|error| BusinessError::from_io("creating a temporary output file", error))?;
+
+        if cfg!(unix) {
+            std::fs::remove_file(&path).ok();
+            return Ok(Self {
+                file: Some(file),
+                path: None,
+            });
+        }
+
+        Ok(Self {
+            file: Some(file),
+            path: Some(path),
+        })
+    }
+
+    /// A handle for the child's stdout.
+    fn for_child(&self) -> Result<Stdio> {
+        let file = self.file.as_ref().ok_or_else(missing_file)?;
+        let handle = file
+            .try_clone()
+            .map_err(|error| BusinessError::from_io("sharing a temporary output file", error))?;
+
+        Ok(Stdio::from(handle))
+    }
+
+    /// What the child wrote, capped like a pipe (the first or, with `tail`, the last bytes).
+    fn read_back(mut self, capture: Capture) -> Result<Captured> {
+        let mut file = self.file.take().ok_or_else(missing_file)?;
+        let reading = |error| BusinessError::from_io("reading a temporary output file", error);
+
+        let length = file.seek(SeekFrom::End(0)).map_err(reading)?;
+        let cap = u64::try_from(capture.cap).unwrap_or(u64::MAX);
+        let truncated = length > cap;
+        let start = if capture.tail { length.saturating_sub(cap) } else { 0 };
+
+        file.seek(SeekFrom::Start(start)).map_err(reading)?;
+        let mut bytes = Vec::new();
+        file.take(cap).read_to_end(&mut bytes).map_err(reading)?;
+
+        if capture.tail && truncated {
+            drop_cut_word(&mut bytes);
+        }
+
+        Ok(Captured { bytes, truncated })
+    }
+}
+
+impl Drop for StdoutFile {
+    fn drop(&mut self) {
+        // Closed first: Windows removes no file that is still open.
+        self.file.take();
+
+        if let Some(path) = self.path.take() {
+            std::fs::remove_file(path).ok();
+        }
+    }
+}
+
+fn missing_file() -> BusinessError {
+    BusinessError::Internal("temporary output file missing".to_owned())
 }
 
 /// Drops the first word of a tail that was cut off at its start: the bytes up to and including

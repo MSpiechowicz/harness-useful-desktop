@@ -1,7 +1,9 @@
 //! Import of "Share setup" MCP servers against the files a harness only reads (OpenCode's other
 //! config layers, OMP's `.mcp.json`): a symlinked one is followed, and one that exists but cannot
 //! be read or parsed fails closed. The server is never offered as new and nothing is written, so
-//! an imported server can never merge with a same-name server the user has in that file.
+//! an imported server can never merge with a same-name server the user has in that file. A server
+//! is present only when every file holding its name agrees, and a target file the app refuses to
+//! write offers none of its servers.
 
 #[path = "sync_support/import.rs"]
 mod import_support;
@@ -137,4 +139,91 @@ async fn an_unparsable_omp_dot_mcp_json_fails_closed_too() {
     );
     assert!(selectable(&built.plan).is_empty());
     assert_eq!(machine.text(OMP_MCP), None);
+}
+
+/// The bundle's `github` server, as an OpenCode entry.
+fn same_as_shared() -> Value {
+    json!({ "mcp": { "github": { "type": "remote", "url": "https://attacker.example.com/mcp" } } })
+}
+
+#[test]
+fn every_layer_holding_the_name_must_agree_for_it_to_be_present() {
+    let machine = Machine::new(OPENCODE);
+    machine.write(OPENCODE_JSON, &same_as_shared());
+
+    // The global file agrees, a later layer holds the user's server with its header.
+    machine.write(LEGACY, &users_config());
+    assert_eq!(status(&machine), SyncItemStatus::Conflict);
+
+    // One that cannot be read fails closed even when another layer agrees.
+    std::fs::write(machine.home().join(LEGACY), "{ \"mcp\": ").unwrap();
+    assert_eq!(status(&machine), SyncItemStatus::Conflict);
+
+    machine.write(LEGACY, &same_as_shared());
+    assert_eq!(status(&machine), SyncItemStatus::AlreadyPresent);
+}
+
+#[test]
+fn an_omp_dot_mcp_json_that_disagrees_with_the_user_file_is_a_conflict() {
+    let machine = Machine::new(BOTH);
+    let shared = bundle(json!({ "omp": { "mcpServers": [
+        { "name": "docs", "transport": "http", "url": "https://docs.example.com/mcp" },
+    ]}}));
+    machine.write(
+        OMP_MCP,
+        &json!({ "mcpServers": { "docs": { "type": "http", "url": "https://docs.example.com/mcp" } } }),
+    );
+    machine.write(
+        ".omp/agent/.mcp.json",
+        &json!({ "mcpServers": { "docs": { "type": "http", "url": "https://mine.example.com/mcp" } } }),
+    );
+
+    let built = machine.plan(&shared);
+
+    assert_eq!(
+        statuses(&built.plan),
+        [("omp:mcp:docs".to_owned(), SyncItemStatus::Conflict)]
+    );
+}
+
+/// A target file the app refuses to write (here a symlink) offers none of its servers, even one it
+/// holds already, for every harness.
+#[cfg(unix)]
+#[test]
+fn a_refused_target_file_offers_nothing() {
+    let cases = [
+        (
+            OPENCODE,
+            OPENCODE_JSON,
+            "opencode:mcp:github",
+            shared(),
+            same_as_shared(),
+        ),
+        (
+            BOTH,
+            OMP_MCP,
+            "omp:mcp:github",
+            bundle(json!({ "omp": { "mcpServers": [
+                { "name": "github", "transport": "http", "url": "https://attacker.example.com/mcp" },
+            ]}})),
+            json!({ "mcpServers": { "github": { "type": "http", "url": "https://attacker.example.com/mcp" } } }),
+        ),
+    ];
+
+    for (installed, target, id, shared, held) in cases {
+        let machine = Machine::new(installed);
+        machine.write("dotfiles/target.json", &held);
+        let link = machine.home().join(target);
+        std::fs::create_dir_all(link.parent().unwrap()).unwrap();
+        std::os::unix::fs::symlink(machine.home().join("dotfiles/target.json"), &link).unwrap();
+
+        let built = machine.plan(&shared);
+
+        assert_eq!(
+            statuses(&built.plan),
+            [(id.to_owned(), SyncItemStatus::Conflict)],
+            "{id}"
+        );
+        assert!(selectable(&built.plan).is_empty(), "{id}");
+    }
 }

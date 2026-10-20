@@ -1,13 +1,15 @@
 //! What this machine already has, compared with one shared item: used by [`super::plan`] for each
 //! item's status and by [`super::apply`] right before each step (so applying is idempotent).
 //! OpenCode plugins are found by npm name in the `plugin` lists of every user config layer, its
-//! servers by name in the `mcp` object of the global config file and the files OpenCode also reads.
+//! servers by name in the `mcp` object of the global config file and the files OpenCode also reads,
+//! and in the names OpenCode reports merging from all its layers ([`with_merged`]).
 //!
 //! Everything read here stays in process: local sources, plugin versions that are not display-safe
 //! and existing MCP definitions (env values included) are only compared, never returned. The only
 //! local values that leave are display-safe versions and package sources that would pass import
 //! validation (in [`Presence::DifferentVersion`]).
 
+use std::collections::BTreeSet;
 use std::path::PathBuf;
 
 use serde_json::Value;
@@ -174,25 +176,25 @@ pub(super) struct McpFiles {
     pub shape: Shape,
 }
 
-/// A server is present when a server of that name in the target file (or, failing that, in an
-/// `also_read` file) has the same transport, command, arguments and URL; env, headers and other
-/// fields do not count (the import writes none of them). Any other definition is a conflict. A
-/// refused target file is reported as such. OpenCode files are read as JSONC, comments included.
+/// A server is present when every file holding a server of that name (the target file and the
+/// `also_read` files) defines the same transport, command, arguments and URL; env, headers and
+/// other fields do not count (the import writes none of them). Any other definition in any of them
+/// is a conflict. A refused target file is reported as such. OpenCode files are read as JSONC,
+/// comments included.
 ///
 /// `also_read` files (OMP's `.mcp.json`, OpenCode's other config layers) are never written, so a
 /// symlink there is followed. One that exists but cannot be read or parsed fails closed as a
-/// conflict: the harness may merge a server of that name from it (OpenCode deep-merges its
-/// layers), and a new entry could then inherit that server's headers or env.
+/// conflict, whatever the other files hold: the harness may merge a server of that name from it
+/// (OpenCode deep-merges its layers), and a new entry could then inherit that server's headers or
+/// env.
 pub(super) fn mcp_presence(files: &McpFiles, shared: &McpServer) -> Result<Presence, McpRefusal> {
-    let mut existing = existing_entry(&files.target, files.shape, &shared.name)?;
+    let mut existing: Vec<Value> = existing_entry(&files.target, files.shape, &shared.name)?
+        .into_iter()
+        .collect();
 
     for other in &files.also_read {
-        if existing.is_some() {
-            break;
-        }
-
         match read_only_entry(other, files.shape, &shared.name) {
-            Ok(found) => existing = found,
+            Ok(found) => existing.extend(found),
             Err(_) => return Ok(Presence::Conflict),
         }
     }
@@ -202,11 +204,28 @@ pub(super) fn mcp_presence(files: &McpFiles, shared: &McpServer) -> Result<Prese
         Shape::OpenCode => same_opencode_server,
     };
 
-    Ok(match existing {
-        None => Presence::Absent,
-        Some(existing) if same(&existing, shared) => Presence::Present,
-        Some(_) => Presence::Conflict,
-    })
+    if existing.is_empty() {
+        return Ok(Presence::Absent);
+    }
+
+    if existing.iter().all(|entry| same(entry, shared)) {
+        return Ok(Presence::Present);
+    }
+
+    Ok(Presence::Conflict)
+}
+
+/// The presence of an OpenCode server once the names OpenCode merges from all its layers are known
+/// (`None`: they could not be read). A server no file the app reads has, but that OpenCode merges
+/// from a layer the app cannot read (or might), is a conflict: a new entry would merge with it.
+pub(super) fn with_merged(presence: Presence, merged: Option<&BTreeSet<String>>, name: &str) -> Presence {
+    let merged_elsewhere = merged.is_none_or(|names| names.contains(name));
+
+    if presence == Presence::Absent && merged_elsewhere {
+        return Presence::Conflict;
+    }
+
+    presence
 }
 
 /// True when the OpenCode entry `existing` defines the same endpoint as `shared`: a `local` server

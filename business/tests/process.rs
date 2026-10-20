@@ -11,6 +11,8 @@ use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 mod process_support;
 
 #[cfg(unix)]
+use process_support::DROPPED_FLOOD_BYTES;
+#[cfg(unix)]
 use process_support::find_grandchild_pid;
 use process_support::helper;
 use process_support::{GROUP_KILL_TIMEOUTS, assert_process_gone, grandchild_was_killed};
@@ -55,6 +57,38 @@ async fn runner_caps_output_and_reports_truncation() {
     assert_eq!(output.stdout.len(), 1024);
     assert!(output.truncated);
     assert_eq!(output.status, Some(0));
+}
+
+/// A child that exits without waiting for a full pipe loses what did not fit; through a file
+/// nothing is lost, and the cap and the other stream work as with a pipe.
+#[cfg(unix)]
+#[tokio::test]
+async fn runner_captures_stdout_through_a_file_when_asked() {
+    let whole = TokioRunner
+        .run(&helper("flood_then_exit").stdout_through_file())
+        .await
+        .unwrap();
+
+    assert_eq!(whole.status, Some(0));
+    assert_eq!(
+        whole.stdout.matches('z').count(),
+        DROPPED_FLOOD_BYTES,
+        "nothing is dropped"
+    );
+    assert!(!whole.truncated);
+
+    let capped = TokioRunner
+        .run(&helper("flood").stdout_through_file().max_output_bytes(1024))
+        .await
+        .unwrap();
+
+    assert_eq!(capped.stdout.len(), 1024);
+    assert_eq!(capped.stderr.len(), 1024, "stderr is still piped");
+    assert!(capped.truncated);
+
+    let failed = TokioRunner.run(&helper("exit3").stdout_through_file()).await.unwrap();
+    assert_eq!(failed.status, Some(3));
+    assert!(failed.stderr.contains("helper failing on purpose"));
 }
 
 #[tokio::test]

@@ -328,7 +328,8 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
   this, switch off **Update extensions automatically** in Settings under Updates (or **Check companions for updates**,
   which also stops the release lookup). The installs then happen only when you run them.
 - **OpenCode.** Every OpenCode child gets `OPENCODE_DISABLE_AUTOUPDATE=1`, so no probe, session listing or action
-  updates the binary behind the user's back. `OPENCODE_PERMISSION` and `OPENCODE_CONFIG_CONTENT` inherited from the
+  updates the binary behind the user's back. The Harness Skills installer gets it too, so an `opencode` it runs does not
+  update itself. `OPENCODE_PERMISSION` and `OPENCODE_CONFIG_CONTENT` inherited from the
   app's environment are passed on unchanged; the app records only whether they are set (never their values) and says
   so in the configuration view. The session commands (`session list`, `export <id>`, `session delete <id>`,
   `business/src/harnesses/opencode/sessions.rs`) run in the project with `--pure` (no external plugins) and
@@ -661,8 +662,9 @@ the redactor would change (`secrets.rs` builds on `Redactor` and `redact_text`),
 a non-numeric value, `--password`, `--token`, `--key`, `--pat`, `user:password` after `-u`/`--user`/`--auth`, ...), a
 machine path (an absolute, home or drive path after `=` or `@`, or a system or user directory after `:`, `,`, `;` or
 `scheme:///`) or a `${VAR}`/`$NAME`
-reference the server does not declare, the dashboard's own `harness-dashboard` entry (Recommended setup installs it)
-and the app's `harness-memory` entry (the app registers it; project memory itself is never exported),
+reference the server does not declare, the dashboard's own `harness-dashboard` entry (Recommended setup installs it),
+the app's `harness-memory` entry (the app registers it; project memory itself is never exported) and the `useful_skills`
+entry (the Harness Skills installer registers it for OpenCode),
 sources with credentials, local or unknown packages, local marketplaces, `file:`/`link:` plugin specs, project-scope
 items and anything over the limits. Export runs the same validators as import, so an exported file imports again without
 invalid items.
@@ -689,7 +691,7 @@ then validated in Rust (`validate.rs`, `validate_source.rs`, `validate_mcp.rs`, 
   `https://` only for a URL). Specs that name a path (starting with `.`, `/`, `~`, `\` or a drive letter), a tarball or
   archive (`.tgz`, `.tar`, `.tar.gz`, `.zip`), `file:`, `link:`, `git+file:`, `http:`, `git+http:` or `git:` are
   refused. Every URL or git host must be a plain host name.
-- MCP: the server name pattern (`harness-dashboard` and `harness-memory` are reserved, in any case); the command must
+- MCP: the server name pattern (`harness-dashboard`, `harness-memory` and `useful_skills` are reserved, in any case, for every harness); the command must
   be a bare program name, not a path, not a shell interpreter and not `harness-dashboard` or `harness-memory` (any case,
   with or without `.exe`), so an import can neither add nor shadow either app entry, by name or under another name; URLs are `http(s)` without user info; arguments and URLs may not reference environment
   variables unless the item declares the name in `envKeys` (URLs may hold none at all), because the harness expands
@@ -729,6 +731,18 @@ never a path from the bundle. An OpenCode server is written as `{"type": "local"
 overwritten: the same definition counts as already present, another one as a conflict. If the OpenCode config file has
 comments, nothing is written and the server is skipped as `manualEdit`, with the entry to paste. The merge is gated by the plan's installed state: a harness that was not installed at
 review time has no file, so its servers are skipped.
+
+**Name clashes with other config layers.** OpenCode deep-merges its config layers by server name, so an imported server
+named like one from another layer could inherit that server's headers or env. The review therefore checks more than the
+file it writes. Every file the harness also reads (OpenCode's other config layers, OMP's `.mcp.json`) is checked, not
+only the first match, and is opened read-only through the same reader as other app reads, a symlink included. A file
+that exists but cannot be read or parsed makes the server a conflict (the app fails closed). The target file is still
+refused when it is a symlink, and its servers cannot then be selected. For OpenCode the app also runs
+`opencode debug config` to get the merged config. It runs in your home folder with `OPENCODE_DISABLE_AUTOUPDATE=1` and
+a short timeout, and its output is only compared by server name and never logged or returned. A name already in the
+merged config is a conflict, including names from layers the app cannot read itself: the organisation config fetched by
+`opencode auth login`, organisation and managed config, `OPENCODE_CONFIG_CONTENT` and a legacy TOML file. If the command
+fails, no OpenCode MCP server can be imported in that run. Plugins are unaffected.
 
 **Files and network.** Written: the user `mcp.json` merge above, and an exported file, which only a native save dialog
 can name. Read: a setup file, which only a native open dialog can name, through `SafeReader` (256 KiB). The app opens no

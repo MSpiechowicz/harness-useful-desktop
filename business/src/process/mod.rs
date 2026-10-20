@@ -90,6 +90,9 @@ pub struct ExecSpec {
     /// Bytes [`ProcessRunner::run`] writes to the child's stdin before closing it; `None` gives the
     /// child a closed stdin (ignored by spawners).
     pub stdin: Option<Vec<u8>>,
+    /// [`TokioRunner`] captures stdout through a private temporary file instead of a pipe (see
+    /// [`ExecSpec::stdout_through_file`]); ignored by the other runners and the spawners.
+    pub stdout_through_file: bool,
 }
 
 impl fmt::Debug for ExecSpec {
@@ -116,6 +119,7 @@ impl fmt::Debug for ExecSpec {
                 "stdin",
                 &self.stdin.as_ref().map(|bytes| format!("<{} bytes>", bytes.len())),
             )
+            .field("stdout_through_file", &self.stdout_through_file)
             .finish()
     }
 }
@@ -135,6 +139,7 @@ impl ExecSpec {
             max_output_bytes: DEFAULT_MAX_OUTPUT_BYTES,
             keep_tail: false,
             stdin: None,
+            stdout_through_file: false,
         }
     }
 
@@ -214,6 +219,15 @@ impl ExecSpec {
     /// Sets the bytes written to the child's stdin (see [`ExecSpec::stdin`]).
     pub fn stdin(mut self, bytes: impl Into<Vec<u8>>) -> Self {
         self.stdin = Some(bytes.into());
+        self
+    }
+
+    /// Captures stdout through a private temporary file rather than a pipe, for a program that
+    /// exits without writing what did not fit in the pipe (OpenCode, a Bun program, keeps only the
+    /// first 64 KiB of `opencode debug config` written to a pipe). The cap still applies to what
+    /// is read back; the file is removed once the run ends.
+    pub fn stdout_through_file(mut self) -> Self {
+        self.stdout_through_file = true;
         self
     }
 

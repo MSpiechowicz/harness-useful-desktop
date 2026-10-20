@@ -132,7 +132,7 @@ OpenCode server uses the same fields as the others (`local` is shared as stdio, 
 | | `version` | string, optional | Informational. |
 | `packages` | `source` | string | `npm:…`, `git:…` or `https://…`, with any pin it had (see [Validation](#validation-of-every-item)). |
 | | `version` | string, optional | Informational. |
-| `mcpServers` | `name` | string | `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`, never `harness-dashboard` or `harness-memory` (reserved). |
+| `mcpServers` | `name` | string | `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`, never `harness-dashboard`, `harness-memory` or `useful_skills` (reserved). |
 | | `transport` | `stdio`, `http`, `sse` | How the harness talks to it. |
 | | `command` | string | Stdio only: a bare program name (`^[A-Za-z0-9][A-Za-z0-9._+-]*$`: no directory, no flag, not a shell). |
 | | `args` | string array | Stdio only. |
@@ -174,9 +174,10 @@ is never echoed back. Besides the shapes above:
     other `://` form (`ssh://`, `git+ssh://`, `http://`) is refused.
 - **Plugin ids:** `name@marketplace` or an npm package name, never a path or URL; `marketplace`, if present, matches the
   `@marketplace` part.
-- **MCP server names:** the pattern above. `harness-dashboard` and `harness-memory` (any case) are reserved: Recommended setup installs and
-  registers the first, and the app installs and registers the second (project memory), so neither is ever exported and an
-  imported one is refused.
+- **MCP server names:** the pattern above. `harness-dashboard`, `harness-memory` and `useful_skills` (any case) are
+  reserved: Recommended setup installs and registers the first, the app installs and registers the second (project
+  memory), and the Harness Skills installer registers the third for OpenCode. None is ever exported, and an imported one
+  is refused (for every harness, as a bad name).
 - **MCP commands:** a bare program name, never a path and never a shell interpreter (`sh`, `bash`, `zsh`, `dash`,
   `fish`, `cmd`, `pwsh`, `powershell`, with or without a directory or `.exe`). Never `harness-dashboard` or
   `harness-memory` either (any case, with or without `.exe`): together with the reserved names, an import can neither
@@ -219,6 +220,7 @@ Left out of the file and listed in the export dialog by name and reason (never b
 | MCP servers with an undeclared `${VAR}` / `$NAME` reference, a shell command, a non-bare command, or a `harness-dashboard` / `harness-memory` command under another name | Would hand an environment variable to the setup's author, run a shell, or shadow an app entry on the other machine. |
 | The `harness-dashboard` server (any letter case) | Recommended setup installs it. Skipped without a row in the list. |
 | The `harness-memory` server (any letter case) and the project memory database | The app installs and registers the server itself, and the notes are local to this machine. Skipped without a row in the list; an import refuses that name. |
+| The `useful_skills` server (any letter case) | The Harness Skills server for OpenCode, registered by its installer. Skipped without a row in the list. An import refuses that name for every harness. |
 | Local or unknown PI packages, local marketplaces, `file:` / `link:` plugin specs | Machine paths. |
 | OpenCode plugins that are local files, git, `github:` or URL specs, and `[spec, options]` entries | Machine paths, and options that may hold secrets. Only npm registry specs are shared. |
 | OpenCode servers with a `{env:...}` or `{file:...}` substitution in the command, arguments or URL | OpenCode would put this machine's variables or file contents there. An import refuses them as well. |
@@ -240,7 +242,7 @@ exported file always imports again with zero invalid items.
 | `new` | Not here yet; it would be added. | yes | yes, except stdio MCP servers |
 | `alreadyPresent` | Same marketplace name and source, same plugin id, same PI package source, or an MCP server of the same name and identical definition. | no | |
 | `differentVersion` | Installed here in another version (a plugin version, or a PI package with another pin). Informational; never upgraded or downgraded. | no | |
-| `conflict` | An MCP server or marketplace of the same name with a different definition. Left untouched. | no | |
+| `conflict` | An MCP server or marketplace of the same name with a different definition. Left untouched. An MCP server is also a conflict when a config file the harness reads besides its user MCP file exists but cannot be read or parsed (see [MCP servers](#mcp-servers)), and for OpenCode when its merged config already holds that name. | no | |
 | `blocked` | The harness is not installed here; it has no such kind of item or no user MCP file; or a plugin's marketplace is neither registered here nor in the bundle. | no | |
 | `invalid` | The item failed validation, with a typed reason. Never applied. | no | |
 
@@ -264,6 +266,17 @@ registered here.
 - Merge rules: existing keys and servers keep their order and values; a name that already exists is never overwritten
   (identical is `alreadyPresent`, different is `conflict`). The file is refused, and nothing written, if it is invalid
   JSON, a symlink, not a regular file, over 2 MiB, or changed while it was read. A missing file is created with `0600`.
+  A refused target file makes its servers not selectable.
+- **Files the harness also reads.** Some harnesses read servers from more files than the one the merge writes (OpenCode's
+  other config layers, OMP's `.mcp.json`). The app checks all of them for the name, not only the first match, and never
+  writes them. A symlink there is followed (read-only). A file that exists but cannot be read or parsed makes the server
+  a `conflict`: the app fails closed, because the harness might merge a server of that name from it and the new entry
+  could inherit that server's headers or env.
+- **OpenCode's merged config.** For OpenCode the app also asks OpenCode for its merged config (`opencode debug config`,
+  run in your home folder with auto-update off and a short timeout, its output never logged). A server whose name is
+  already in the merged config is a `conflict`. This covers layers the app cannot read itself: the organisation config
+  fetched by `opencode auth login`, organisation and managed config, `OPENCODE_CONFIG_CONTENT` and a legacy TOML file. If
+  this check fails, no OpenCode MCP server can be imported in that run. Plugins are not affected.
   An OpenCode config file with comments is never rewritten: its servers end `skipped` (`manualEdit`) and the review's
   result shows the entry to paste.
 

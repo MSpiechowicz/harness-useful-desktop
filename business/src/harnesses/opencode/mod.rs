@@ -7,7 +7,8 @@
 //! PI-family RPC, and is marked as a preview. Extension actions install npm plugins through
 //! `opencode plugin <module> -g` ([`cli`]) and remove them by editing the global config file
 //! ([`plugin_remove`]), since OpenCode has no uninstall command. "Share setup" shares the npm
-//! plugins and MCP servers of the global config file ([`share`]). Every spawn switches off
+//! plugins and MCP servers of the global config file ([`share`]), checking the names OpenCode merges
+//! from all its layers before writing a server ([`merged`]). Every spawn switches off
 //! OpenCode's self-updater.
 
 mod catalog;
@@ -15,6 +16,7 @@ mod cli;
 mod config;
 mod extensions;
 mod launch;
+mod merged;
 mod paths;
 mod plugin_remove;
 mod sessions;
@@ -23,6 +25,7 @@ mod share;
 
 pub use catalog::OpenCodeCatalog;
 pub use launch::opencode_launch_spec;
+pub use merged::{PROBE_ARGS, PROBE_MAX_BYTES, PROBE_TIMEOUT, merged_mcp_names};
 pub use paths::{PROJECT_DIR_NAME, config_dir, custom_config_dir, data_dir, home_config_dir};
 pub use sessions::OpenCodeSessions;
 pub(crate) use share::{PluginEntry, global_plugin_entries, user_npm_plugins};

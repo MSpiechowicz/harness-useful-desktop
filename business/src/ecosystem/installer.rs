@@ -31,11 +31,12 @@ use super::catalog::{
 };
 use super::dashboard::resolve_dashboard;
 use super::detect::dashboard_version;
+use super::installer_log::{Log, Splitter};
 use super::memory_binary::{memory_version, resolve_memory};
 use super::skills_record::opencode_skills_installed;
 use crate::env::{Env, OsKind};
 use crate::error::Result;
-use crate::harness::{Harness, clean};
+use crate::harness::Harness;
 use crate::harnesses::OpenCode;
 use crate::model::{DashboardInstallResult, InstallLogLine, InstallStream};
 use crate::process::{ChildHandle, ExecSpec, ExitInfo, ProcessRunner, ProcessSpawner, TokioRunner, extra_search_dirs};
@@ -52,9 +53,6 @@ pub const MAX_LOG_BYTES: usize = 256 * 1024;
 
 /// Most lines passed to the sink in one run (later lines are dropped).
 pub const MAX_LOG_LINES: usize = 5_000;
-
-/// Raw bytes kept of one line before cleaning (room for escapes the cleaning removes).
-const MAX_RAW_LINE_BYTES: usize = 2 * MAX_LOG_LINE_BYTES;
 
 /// How long the output is still read after the installer exited (a background child may hold
 /// the pipes open).
@@ -393,114 +391,4 @@ fn summary(
              record was not found afterwards. The install may have failed."
             .to_owned(),
     }
-}
-
-/// The sink plus the log budget.
-struct Log<F> {
-    sink: F,
-    /// Bytes passed on, a terminator counted per line (so empty lines use the budget too).
-    used: usize,
-    /// Lines passed on.
-    lines: usize,
-    truncated: bool,
-    last_stderr: Option<String>,
-}
-
-impl<F: FnMut(InstallLogLine)> Log<F> {
-    fn new(sink: F) -> Self {
-        Self {
-            sink,
-            used: 0,
-            lines: 0,
-            truncated: false,
-            last_stderr: None,
-        }
-    }
-
-    /// Cleans one raw line (`clipped` when bytes of it were already dropped) and passes it on
-    /// while the budget lasts.
-    fn emit(&mut self, stream: InstallStream, raw: &[u8], clipped: bool) {
-        let text = String::from_utf8_lossy(raw);
-        let mut line = clean(text.trim_end_matches('\r'));
-
-        if clipped || line.len() > MAX_LOG_LINE_BYTES {
-            line = clip(&line, MAX_LOG_LINE_BYTES);
-            self.truncated = true;
-        }
-
-        let cost = line.len() + 1;
-        if self.lines >= MAX_LOG_LINES || self.used + cost > MAX_LOG_BYTES {
-            self.truncated = true;
-            return;
-        }
-
-        self.used += cost;
-        self.lines += 1;
-
-        if stream == InstallStream::Stderr && !line.trim().is_empty() {
-            self.last_stderr = Some(clip(line.trim(), 300));
-        }
-
-        (self.sink)(InstallLogLine { stream, line });
-    }
-}
-
-/// Splits one stream into lines, keeping at most [`MAX_RAW_LINE_BYTES`] of each.
-struct Splitter {
-    stream: InstallStream,
-    pending: Vec<u8>,
-    clipped: bool,
-}
-
-impl Splitter {
-    fn new(stream: InstallStream) -> Self {
-        Self {
-            stream,
-            pending: Vec::new(),
-            clipped: false,
-        }
-    }
-
-    fn push<F: FnMut(InstallLogLine)>(&mut self, mut bytes: &[u8], log: &mut Log<F>) {
-        while let Some(end) = bytes.iter().position(|byte| *byte == b'\n') {
-            self.keep(&bytes[..end]);
-            log.emit(self.stream, &self.pending, self.clipped);
-            self.pending.clear();
-            self.clipped = false;
-            bytes = &bytes[end + 1..];
-        }
-
-        self.keep(bytes);
-    }
-
-    /// Emits an unterminated last line.
-    fn finish<F: FnMut(InstallLogLine)>(&mut self, log: &mut Log<F>) {
-        if !self.pending.is_empty() || self.clipped {
-            log.emit(self.stream, &self.pending, self.clipped);
-            self.pending.clear();
-            self.clipped = false;
-        }
-    }
-
-    fn keep(&mut self, bytes: &[u8]) {
-        let room = MAX_RAW_LINE_BYTES.saturating_sub(self.pending.len());
-        let kept = bytes.len().min(room);
-
-        self.pending.extend_from_slice(&bytes[..kept]);
-        self.clipped |= kept < bytes.len();
-    }
-}
-
-/// `text` cut to at most `max` bytes on a character boundary.
-fn clip(text: &str, max: usize) -> String {
-    if text.len() <= max {
-        return text.to_owned();
-    }
-
-    let mut end = max;
-    while !text.is_char_boundary(end) {
-        end -= 1;
-    }
-
-    text[..end].to_owned()
 }

@@ -25,7 +25,8 @@ use harness_business::security::SafeReader;
 use harness_business::sync::codec::{self, DecodedBundle};
 use harness_business::sync::schema::{Bundle, MAX_JSON_BYTES};
 use harness_business::sync::{
-    ApplyContext, StoredPlan, apply_plan, build_bundle, build_plan, collect_export, export_code, export_preview,
+    ApplyContext, OpenCodeMerged, StoredPlan, apply_plan, build_bundle, build_plan, collect_export, export_code,
+    export_preview,
 };
 use tauri::async_runtime::block_on;
 use tauri::ipc::Channel;
@@ -192,13 +193,27 @@ async fn read_picked_file<R: Runtime>(app: &AppHandle<R>, state: &AppState) -> C
 /// Builds the review of `decoded` and keeps its steps as the current plan.
 async fn preview(state: &AppState, decoded: DecodedBundle) -> CommandResult<SyncImportPlan> {
     let summaries = summaries(state).await?;
+    let opencode = opencode_merged(state, &decoded).await;
     let env = state.env.clone();
     let registry = state.registry.clone();
 
-    let built = blocking(move || Ok(build_plan(&env, &registry, &summaries, &decoded))).await?;
+    let built = blocking(move || Ok(build_plan(&env, &registry, &summaries, &decoded, &opencode))).await?;
     *state.sync_plan.lock().unwrap_or_else(PoisonError::into_inner) = Some(built.stored);
 
     Ok(built.plan)
+}
+
+/// The MCP server names OpenCode merges from all its config layers, checked only when `decoded`
+/// shares an OpenCode server. Unknown (no OpenCode server is offered) when OpenCode is not detected
+/// or the check fails.
+async fn opencode_merged(state: &AppState, decoded: &DecodedBundle) -> OpenCodeMerged {
+    if !OpenCodeMerged::needed(decoded) {
+        return OpenCodeMerged::Unknown;
+    }
+
+    let binary = detected_binary(state, HarnessId::OpenCode).await.ok().flatten();
+
+    OpenCodeMerged::probe(&state.env, &state.runner, binary.as_ref()).await
 }
 
 /// Applies the `selected` items of the reviewed plan `plan_id`, streaming each item's start and end

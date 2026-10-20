@@ -1,5 +1,6 @@
 //! A temporary machine for the "Share setup" import tests: harness files, summaries, binaries, and
 //! a fake harness CLI that records every command line and performs what it asks for on the files.
+//! The fake `opencode debug config` answers what OpenCode merges (see [`Probe`]).
 //!
 //! Each helper is used by some tests only, hence the `dead_code` allowance.
 #![allow(dead_code)]
@@ -9,7 +10,9 @@ mod harnesses;
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::pin::pin;
+use std::sync::{Arc, Mutex};
+use std::task::{Context, Poll, Waker};
 
 use harness_business::env::Env;
 use harness_business::harness::HarnessRegistry;
@@ -18,7 +21,7 @@ use harness_business::model::{
 };
 use harness_business::process::{BoxFuture, ExecOutput, ExecSpec, ProcessRunner, ResolvedBinary};
 use harness_business::sync::codec::decode_input;
-use harness_business::sync::{ApplyContext, BuiltPlan, StoredPlan, apply_plan, build_plan};
+use harness_business::sync::{ApplyContext, BuiltPlan, OpenCodeMerged, StoredPlan, apply_plan, build_plan};
 use harness_business::{BusinessError, Result};
 use serde_json::{Value, json};
 use tempfile::TempDir;
@@ -33,11 +36,22 @@ pub const PI_SETTINGS: &str = ".pi/agent/settings.json";
 pub const OPENCODE_JSON: &str = ".config/opencode/opencode.json";
 pub const OPENCODE_JSONC: &str = ".config/opencode/opencode.jsonc";
 
+/// What the fake `opencode debug config` answers.
+#[derive(Debug, Clone)]
+pub enum Probe {
+    /// A config whose `mcp` holds the servers of the OpenCode config files here (those that parse
+    /// as plain JSON) plus these names, from layers the app cannot read (secret values masked).
+    Merges(Vec<String>),
+    /// This output instead.
+    Prints(ExecOutput),
+}
+
 /// A home directory with harness files, and the harnesses detected as installed.
 pub struct Machine {
     dir: TempDir,
     pub env: Env,
     pub installed: Vec<HarnessId>,
+    probe: Arc<Mutex<Probe>>,
 }
 
 impl Machine {
@@ -49,7 +63,19 @@ impl Machine {
             dir,
             env,
             installed: installed.to_vec(),
+            probe: Arc::new(Mutex::new(Probe::Merges(Vec::new()))),
         }
+    }
+
+    /// OpenCode merges servers named `names` from a layer the app cannot read.
+    pub fn opencode_merges(&self, names: &[&str]) {
+        let names = names.iter().map(|name| (*name).to_owned()).collect();
+        *self.probe.lock().unwrap() = Probe::Merges(names);
+    }
+
+    /// `opencode debug config` prints `output`.
+    pub fn opencode_prints(&self, output: ExecOutput) {
+        *self.probe.lock().unwrap() = Probe::Prints(output);
     }
 
     pub fn home(&self) -> &Path {
@@ -69,16 +95,36 @@ impl Machine {
         serde_json::from_str(&self.text(relative).expect("file exists")).unwrap()
     }
 
-    /// The review of `bundle` (share file JSON) on this machine.
+    /// The review of `bundle` (share file JSON) on this machine, with OpenCode's merged names
+    /// checked through the fake CLI as the app does.
     pub fn plan(&self, bundle: &Value) -> BuiltPlan {
-        let decoded = decode_input(&bundle.to_string()).expect("a valid bundle");
+        let (built, _) = self.plan_probed(bundle);
 
-        build_plan(
+        built
+    }
+
+    /// [`Machine::plan`], with the commands the check ran.
+    pub fn plan_probed(&self, bundle: &Value) -> (BuiltPlan, Vec<ExecSpec>) {
+        let decoded = decode_input(&bundle.to_string()).expect("a valid bundle");
+        let runner = FakeCli::new(self);
+        let binaries = self.binaries();
+
+        let opencode = if OpenCodeMerged::needed(&decoded) {
+            let probe = OpenCodeMerged::probe(&self.env, &runner, binaries.get(&HarnessId::OpenCode));
+            ready(probe)
+        } else {
+            OpenCodeMerged::Unknown
+        };
+
+        let built = build_plan(
             &self.env,
             &HarnessRegistry::with_defaults(),
             &summaries(&self.installed),
             &decoded,
-        )
+            &opencode,
+        );
+
+        (built, runner.probes())
     }
 
     /// The binaries of the installed harnesses (never started: the fake CLI answers instead).
@@ -99,6 +145,14 @@ impl Machine {
 pub fn write_json(path: &Path, value: &Value) {
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
     std::fs::write(path, serde_json::to_string_pretty(value).unwrap()).unwrap();
+}
+
+/// The output of a future that never waits (the fake CLI answers at once).
+fn ready<F: Future>(future: F) -> F::Output {
+    match pin!(future).as_mut().poll(&mut Context::from_waker(Waker::noop())) {
+        Poll::Ready(output) => output,
+        Poll::Pending => panic!("the fake CLI never waits"),
+    }
 }
 
 fn read_json(path: &Path) -> Value {
@@ -131,11 +185,16 @@ pub fn ids(plan: &SyncImportPlan) -> Vec<String> {
 /// unless told to fail it, does what it asks to the files of `home`: registers a marketplace (named
 /// after `marketplace_names`), installs a user plugin, adds a PI package, adds an OpenCode plugin to
 /// `opencode.json`.
+///
+/// `opencode debug config` answers the machine's [`Probe`]; it is recorded in
+/// [`FakeCli::probes`], not in [`FakeCli::seen`].
 pub struct FakeCli {
     home: PathBuf,
     marketplace_names: Vec<(String, String)>,
     failing: Vec<Vec<String>>,
     seen: Mutex<Vec<Vec<String>>>,
+    probe: Arc<Mutex<Probe>>,
+    probes: Mutex<Vec<ExecSpec>>,
 }
 
 impl FakeCli {
@@ -145,6 +204,41 @@ impl FakeCli {
             marketplace_names: Vec::new(),
             failing: Vec::new(),
             seen: Mutex::new(Vec::new()),
+            probe: machine.probe.clone(),
+            probes: Mutex::new(Vec::new()),
+        }
+    }
+
+    /// The `opencode debug config` commands run.
+    pub fn probes(&self) -> Vec<ExecSpec> {
+        self.probes.lock().unwrap().clone()
+    }
+
+    /// The answer of `opencode debug config`.
+    fn merged_config(&self) -> ExecOutput {
+        let names = match &*self.probe.lock().unwrap() {
+            Probe::Prints(output) => return output.clone(),
+            Probe::Merges(names) => names.clone(),
+        };
+
+        let mut servers = serde_json::Map::new();
+        for file in [OPENCODE_JSON, OPENCODE_JSONC, ".config/opencode/config.json"] {
+            if let Some(found) = read_json(&self.home.join(file))["mcp"].as_object() {
+                servers.extend(found.clone());
+            }
+        }
+        for name in names {
+            let org = json!({ "type": "remote", "url": "https://org.example.com/mcp",
+                              "headers": { "Authorization": "***" } });
+            servers.insert(name, org);
+        }
+
+        let config = json!({ "mcp": servers, "$schema": "https://opencode.ai/config.json", "plugin": [] });
+
+        ExecOutput {
+            status: Some(0),
+            stdout: serde_json::to_string_pretty(&config).unwrap(),
+            ..ExecOutput::default()
         }
     }
 
@@ -221,6 +315,14 @@ impl ProcessRunner for FakeCli {
         let program = spec.program.file_name().unwrap().to_string_lossy().into_owned();
         let mut argv = vec![program];
         argv.extend(spec.args.iter().map(|arg| arg.to_string_lossy().into_owned()));
+
+        if argv == ["opencode", "debug", "config"] {
+            self.probes.lock().unwrap().push(spec.clone());
+            let output = self.merged_config();
+
+            return Box::pin(async move { Ok(output) });
+        }
+
         self.seen.lock().unwrap().push(argv.clone());
 
         let output = if self.failing.contains(&argv) {
