@@ -1,3 +1,15 @@
+# [0.32.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.31.0...v0.32.0) (2026-10-20)
+
+
+### Bug Fixes
+
+* **chat:** match the bottom padding of a system notice card to its sides when it shows a details box ([82969fe](https://github.com/MSpiechowicz/harness-useful-desktop/commit/82969fe6adbd1925ebf66a12ef3cdee36f4fd0bc))
+
+
+### Features
+
+* **hooks:** add the Check Useful Skills first family hook so agents read installed Useful Skills ([#30](https://github.com/MSpiechowicz/harness-useful-desktop/issues/30)) ([92a96cb](https://github.com/MSpiechowicz/harness-useful-desktop/commit/92a96cbbfe8741ce91e8ee78911e5f354a9d97fe))
+
 # [0.31.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.30.0...v0.31.0) (2026-10-20)
 
 
