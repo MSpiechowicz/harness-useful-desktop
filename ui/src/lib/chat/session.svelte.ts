@@ -22,7 +22,7 @@ import { labelFromPrompt, type ChatLabel } from './naming';
 import { splitHooks } from './hook-context';
 import { splitRecall } from './memory-recall';
 import { prependHistory } from './messages';
-import { applyEvent, dropRequest, reduceEnvelope } from './reducer';
+import { applyEvent, clearTranscript, dropRequest, reduceEnvelope } from './reducer';
 import { mergeCatalog } from './slash';
 import { initialChatState } from './state';
 import type { ChatState } from './types';
@@ -98,8 +98,9 @@ export class ChatSession {
   });
   /** The card text: the helper's when it answered, else the opening words of the first message. */
   label = $derived(this.aiLabel ?? labelFromPrompt(this.firstPrompt));
-  /** Called once, when the first user message of a new chat lands. */
+  /** Called when the first user message of a chat lands, and again after `startOver` (a new session in the same chat). */
   onFirstPrompt: ((session: ChatSession) => void) | null = null;
+  private firstPromptSeen = false;
 
   private incoming: AgentEnvelope[] = [];
   private readonly rechecking = new Flight();
@@ -199,11 +200,18 @@ export class ChatSession {
       void this.send({ type: 'getState' });
     }
 
-    if (before.lastUserText === null && after.lastUserText !== null) {
-      const callback = this.onFirstPrompt;
-      this.onFirstPrompt = null;
-      callback?.(this);
+    if (before.lastUserText === null && after.lastUserText !== null && !this.firstPromptSeen) {
+      this.firstPromptSeen = true;
+      this.onFirstPrompt?.(this);
     }
+  }
+
+  /** The agent began a new session in this chat: the transcript and every name made from the old one go, and the next first message names the chat again. */
+  startOver(): void {
+    this.apply((state) => clearTranscript({ ...state, session: state.session ? { ...state.session, sessionName: null } : state.session }));
+    this.aiLabel = null;
+    this.userNamed = false;
+    this.firstPromptSeen = false;
   }
 
   /** Applies a change the UI already knows about (an answered request, a reply that carries state). */
