@@ -52,6 +52,11 @@ async function readTotals(harness: HarnessId): Promise<SessionsFact | null> {
 
 async function readSessions(harness: HarnessId, project: ProjectInfo | null): Promise<Fact<SessionsFact>> {
   const totals = await readTotals(harness);
+  // A walk cut off before it counted anything tells nothing, so it is unknown rather than "0+".
+  if (totals !== null && totals.capped && totals.count === 0) {
+    return { status: 'unknown' };
+  }
+
   if (totals !== null) {
     return { status: 'ready', value: totals };
   }
