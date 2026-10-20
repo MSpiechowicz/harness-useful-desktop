@@ -122,8 +122,8 @@ fn builtins() -> Vec<Builtin> {
             None,
             gui(GuiTarget::ThinkingPicker),
         ),
-        ("agents", "Switch agent", None, gui(GuiTarget::AgentPicker)),
-        ("agent", "Switch agent", None, gui(GuiTarget::AgentPicker)),
+        ("agents", "Switch agent", None, unsupported(TERMINAL_ONLY)),
+        ("agent", "Switch agent", None, unsupported(TERMINAL_ONLY)),
         (
             "undo",
             "Undo the previous message",

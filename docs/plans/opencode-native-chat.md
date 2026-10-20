@@ -117,7 +117,7 @@ Paths under `packages/opencode/src` of the OpenCode source.
 | Approvals | `permission.asked` → reply route; `permission.replied` | `UiRequest::Select` "Allow once" / "Always allow" / "Reject"; `UiCancel` |
 | Approval modes | server configuration (below) | `approval_modes: true`, badge source "OpenCode settings" |
 | Model, thinking | `/config/providers` (`limit.context`, `variants`), `variant` per prompt | `ModelOption`, levels = variant keys |
-| Agent picker | `GET /agent` (primary, not hidden), `agent` per prompt | new `SetAgent`, `GetAvailableAgents`, `SessionState.agent`, `agent_picker` |
+| Agent picker | `GET /agent` (primary, not hidden), `agent` per prompt | new `SetAgent`, `GetAvailableAgents`, `SessionState.agent`, `agent_picker`. Turned off after the user's first check (2026-10-20): skills cover planning, `/agent` is terminal-only |
 | Slash commands | `GET /command`; `/name args` → `/session/{id}/command` | `parse_live` by `source` |
 | Steer | `prompt_async` while busy | live until a reply with that parent appears |
 | Follow-up, remove | held by the app, sent at idle | `QueueUpdate`, `RemoveQueued`, `remove_queued: true` |

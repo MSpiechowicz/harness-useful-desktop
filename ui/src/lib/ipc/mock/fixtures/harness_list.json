@@ -118,7 +118,7 @@
       "sessionTree": false,
       "moveSession": false,
       "removeQueued": true,
-      "agentPicker": true,
+      "agentPicker": false,
       "chatPreview": true,
       "compactInstructions": false
     },

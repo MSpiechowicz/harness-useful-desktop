@@ -60,7 +60,6 @@ impl Harness for OpenCode {
             approval_modes: true,
             slash_commands_via_prompt: true,
             remove_queued: true,
-            agent_picker: true,
             chat_preview: true,
             ..Capabilities::default()
         }

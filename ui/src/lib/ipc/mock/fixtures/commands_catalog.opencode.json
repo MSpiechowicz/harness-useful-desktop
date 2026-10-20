@@ -105,8 +105,8 @@
     "argumentHint": null,
     "source": "builtin",
     "invocation": {
-      "kind": "gui",
-      "target": "agentPicker"
+      "kind": "unsupported",
+      "reason": "Only in the OpenCode terminal app."
     }
   },
   {
@@ -115,8 +115,8 @@
     "argumentHint": null,
     "source": "builtin",
     "invocation": {
-      "kind": "gui",
-      "target": "agentPicker"
+      "kind": "unsupported",
+      "reason": "Only in the OpenCode terminal app."
     }
   },
   {

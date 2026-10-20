@@ -135,9 +135,7 @@ export const chat = {
 
   'chat.context.label': 'Context window used',
   'chat.context.detail': '{used} of {total} tokens in context',
-  'chat.context.unknownDetail': 'Context usage is not known yet',
   'chat.context.valueText': '{value} percent',
-  'chat.context.unknown': 'unknown',
 
   'chat.countdown.label': 'Time left to answer',
   'chat.countdown.value': '{seconds}s',

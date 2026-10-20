@@ -9,16 +9,16 @@
   const WHOLE = perLocale((locale) => new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }));
 
   interface Props {
-    usage: ContextUsage | null;
+    usage: ContextUsage;
   }
 
   let { usage }: Props = $props();
 
-  const percent = $derived(usage ? Math.min(100, Math.max(0, usage.percent)) : 0);
+  const percent = $derived(Math.min(100, Math.max(0, usage.percent)));
   const tone = $derived(percent >= 90 ? 'text-danger' : percent >= 75 ? 'text-warning' : 'text-accent');
   // A 16px ring: radius 6 with a 2px stroke.
   const CIRCUMFERENCE = 2 * Math.PI * 6;
-  const detail = $derived(usage ? t('chat.context.detail', { used: formatCount(usage.tokens), total: formatCount(usage.contextWindow) }) : t('chat.context.unknownDetail'));
+  const detail = $derived(t('chat.context.detail', { used: formatCount(usage.tokens), total: formatCount(usage.contextWindow) }));
   const fraction = $derived(percent < 10 ? ONE_DECIMAL() : WHOLE());
 </script>
 
@@ -31,8 +31,8 @@
       aria-label={t('chat.context.label')}
       aria-valuemin={0}
       aria-valuemax={100}
-      aria-valuenow={usage ? Math.round(percent) : undefined}
-      aria-valuetext={usage ? t('chat.context.valueText', { value: ONE_DECIMAL().format(percent) }) : t('chat.context.unknown')}
+      aria-valuenow={Math.round(percent)}
+      aria-valuetext={t('chat.context.valueText', { value: ONE_DECIMAL().format(percent) })}
       aria-describedby={describedby}
       class="inline-flex h-control items-center gap-1.5 rounded-md px-1.5 text-xs text-fg-3"
     >
@@ -51,7 +51,7 @@
           class={cx('transition-[stroke-dashoffset] duration-[var(--dur-slow)]', tone, percent === 0 && 'opacity-0')}
         />
       </svg>
-      <span class="tabular">{usage ? `${fraction.format(percent)}%` : '—'}</span>
+      <span class="tabular">{`${fraction.format(percent)}%`}</span>
     </div>
   {/snippet}
 </Tooltip>

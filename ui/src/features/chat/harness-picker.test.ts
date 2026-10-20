@@ -50,6 +50,16 @@ describe('harness picker', () => {
     agentSessions.activeKey = null;
   });
 
+  it('shows the harness the chat is moving to, with a spinner, until it is ready', async () => {
+    const { session } = chatSession([{ type: 'ready', protocolVersion: 1 }], { project: '/home/demo/app' });
+    session.switchingTo = 'opencode';
+    render(HarnessPicker, { session });
+
+    const button = screen.getByRole('button', { name: /^Harness: / });
+    expect(button).toHaveAccessibleName(/^Harness: OpenCode\./);
+    expect(within(button).getByRole('status')).toBeInTheDocument();
+  });
+
   it('shows a harness without chat as coming soon and never starts a chat with it', async () => {
     withoutChat(harness, 'opencode');
     const { session, menu } = await openPicker();

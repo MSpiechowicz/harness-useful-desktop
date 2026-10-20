@@ -126,6 +126,14 @@ describe('header controls', () => {
     expect(screen.getByRole('meter', { name: 'Context window used' })).toHaveAttribute('aria-valuenow', '9');
   });
 
+  it('hides the context meter while the usage is not known', async () => {
+    const { session } = await startedSession();
+    session.apply((state) => ({ ...state, session: { ...fixtures.agent.state.state, contextUsage: null } }));
+    render(Composer, { session });
+
+    expect(screen.queryByRole('meter', { name: 'Context window used' })).toBeNull();
+  });
+
   it('loads statistics on demand', async () => {
     const { session } = await startedSession();
     session.apply((state) => ({ ...state, session: fixtures.agent.state.state }));

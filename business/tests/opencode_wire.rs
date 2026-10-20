@@ -6,7 +6,7 @@ mod opencode_mapper_support;
 use harness_business::model::ImageAttachment;
 use harness_business::opencode_server::wire::{
     ModelRef, Outgoing, Settings, command_body, config_model, is_default_title, listening_addr, newest_message,
-    primary_agents, prompt_body, provider_models, session_info, slash_command,
+    primary_agents, prompt_body, provider_models, server_default_model, session_info, slash_command,
 };
 use opencode_mapper_support::{SESSION, recorded_body};
 use pretty_assertions::assert_eq;
@@ -164,6 +164,31 @@ fn a_command_body_names_the_model_as_provider_slash_model() {
     assert_eq!(slash_command("/init"), Some(("init", "")));
     assert_eq!(slash_command("/ x"), None);
     assert_eq!(slash_command("no command"), None);
+}
+
+#[test]
+fn without_a_configured_model_the_first_allowed_providers_default_is_used() {
+    let providers = recorded_body("config-providers.json");
+    let model = |provider: &str, id: &str| {
+        Some(ModelRef {
+            provider: provider.to_owned(),
+            id: id.to_owned(),
+        })
+    };
+
+    let configured = json!({ "model": "mock/m1" });
+    assert_eq!(server_default_model(&configured, &providers), model("mock", "m1"));
+
+    let first = providers["providers"][0]["id"].as_str().expect("a provider");
+    let first_default = providers["default"][first].as_str().expect("its default");
+    assert_eq!(
+        server_default_model(&json!({}), &providers),
+        model(first, first_default)
+    );
+
+    let only_mock = json!({ "provider": { "mock": {} } });
+    assert_eq!(server_default_model(&only_mock, &providers), model("mock", "m1"));
+    assert_eq!(server_default_model(&json!({}), &json!({ "providers": [] })), None);
 }
 
 #[test]

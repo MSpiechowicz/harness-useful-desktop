@@ -133,7 +133,7 @@ really does. Beyond the extension kinds (`plugins`, `marketplaces`, `packages`, 
 | --- | --- | --- |
 | `chat` | The app drives chat sessions (`launch_spec` and the chat protocol work). OMP, PI and OpenCode. | The UI shows "Chat coming soon" instead of the chat, the harness picker marks the harness as coming soon, and a chat is never started with it. If no installed harness can chat, the chat view says so. |
 | `chatPreview` | Chat works but is still a preview: the UI marks it with a "Preview" badge. OpenCode. | No badge. |
-| `agentPicker` | The chat can switch between the harness's primary agents (`AgentAction::SetAgent`, `GetAvailableAgents`, `SessionState.agent`) and the composer shows an agent picker. OpenCode. | No agent picker. |
+| `agentPicker` | The chat can switch between the harness's primary agents (`AgentAction::SetAgent`, `GetAvailableAgents`, `SessionState.agent`) and the composer shows an agent picker. None today: OpenCode's engine supports it, but the picker is off because skills cover planning. | No agent picker. |
 | `compactInstructions` | `/compact` takes instructions for the summary, so picking it asks for them first. OMP and PI. | `/compact` runs at once and an action with instructions is refused as unsupported. OpenCode. |
 | `agents` | `extensions_view` fills `agents` (`AgentInfo`) and the Extensions view has an Agents tab. | No Agents tab. OpenCode sets it. |
 | `cliActions` | Extension changes run the harness CLI (`cli_action`). | The install, enable, update and remove bars are hidden and the view is read-only. OpenCode. |

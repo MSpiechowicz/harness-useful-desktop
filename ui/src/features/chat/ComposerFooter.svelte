@@ -59,7 +59,10 @@
   <!-- With no model there is no context to fill and nothing to pay for, so the empty meter and its dash are not shown. -->
   {#if !session.noModels}
     <div class="ml-auto flex shrink-0 items-center">
-      <ContextMeter usage={session.chat.session?.contextUsage ?? null} />
+      <!-- Shown once the harness reports how full the context is: an unknown amount says nothing. -->
+      {#if session.chat.session?.contextUsage}
+        <ContextMeter usage={session.chat.session.contextUsage} />
+      {/if}
       <CostChip kind="session" args={costArgs} refreshKey={session.streaming} align="end" side="top" quiet />
     </div>
   {/if}

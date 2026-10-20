@@ -5,8 +5,8 @@
 //! opened before any call that changes something → `POST /session` or, to resume,
 //! `GET /session/{id}` (refused unless the session's directory is the project or inside it) →
 //! `GET /agent` (with a mode: checked against the probe's, see
-//! [`check_applied`]), `/config/providers`, `/command` and `/config` (read only: its default model
-//! is the one a new session shows) → a helper chat's deny-all rules (`approvals.rs`) → `ready`,
+//! [`check_applied`]), `/config/providers`, `/command` and `/config` (read only: they give the
+//! model a new session shows, see [`server_default_model`]) → a helper chat's deny-all rules (`approvals.rs`) → `ready`,
 //! `state` and `commandsUpdated`, then the events that arrived meanwhile. A helper chat never
 //! resumes a session.
 //!
@@ -36,7 +36,7 @@ use crate::model::AgentEvent;
 use crate::opencode_server::mapper::project_dir;
 use crate::opencode_server::mode_config::check_applied;
 use crate::opencode_server::wire::{
-    ModelRef, SessionInfo, config_model, listening_addr, primary_agents, provider_models, session_info,
+    ModelRef, SessionInfo, listening_addr, primary_agents, provider_models, server_default_model, session_info,
 };
 use crate::opencode_server::{EventStream, OpenCodeClient, Route, ServerPassword, SessionId};
 use crate::pi_family::rpc::LineSplitter;
@@ -55,7 +55,7 @@ struct Booted {
     directory: PathBuf,
     catalog: Catalog,
     commands: Vec<Value>,
-    /// The default model of the configuration.
+    /// The model OpenCode uses while the chat names none (`wire::server_default_model`).
     default_model: Option<ModelRef>,
     /// The chat's agent.
     agent: String,
@@ -246,7 +246,7 @@ async fn boot(
         info,
         directory,
         commands: commands.as_array().cloned().unwrap_or_default(),
-        default_model: config_model(&config),
+        default_model: server_default_model(&config, &providers),
         agent,
         catalog,
         resumed: resume.is_some(),

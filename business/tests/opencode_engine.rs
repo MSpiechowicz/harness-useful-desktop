@@ -58,7 +58,15 @@ async fn startup_creates_a_session_and_emits_ready_state_and_commands_first() {
     assert_eq!(state.session_id, SESSION);
     assert_eq!(state.session_name, None, "OpenCode's default title is not a name");
     assert_eq!(state.agent.as_deref(), Some("build"));
-    assert_eq!(state.model, None, "OpenCode picks the model of a new session");
+    let model = state
+        .model
+        .as_ref()
+        .map(|model| (model.provider.as_str(), model.id.as_str()));
+    assert_eq!(
+        model,
+        Some(("opencode", "big-pickle")),
+        "a new session shows the model OpenCode picks: the first provider's default"
+    );
     assert!(!state.is_streaming);
 
     let AgentEvent::CommandsUpdated { commands } = &events[2] else {

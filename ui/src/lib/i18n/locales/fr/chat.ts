@@ -138,9 +138,7 @@ export const chat: AreaMessages<typeof enChat> = {
 
   'chat.context.label': 'Fenêtre de contexte utilisée',
   'chat.context.detail': '{used} sur {total} tokens dans le contexte',
-  'chat.context.unknownDetail': 'L’utilisation du contexte n’est pas encore connue',
   'chat.context.valueText': '{value} pour cent',
-  'chat.context.unknown': 'inconnu',
 
   'chat.countdown.label': 'Temps restant pour répondre',
   'chat.countdown.value': '{seconds} s',

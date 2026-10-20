@@ -160,11 +160,10 @@ fn opencode_terminal_commands_map_to_chat_actions_views_or_unsupported() {
     assert_eq!(invocation("model"), view(GuiTarget::ModelPicker));
     assert_eq!(invocation("variants"), view(GuiTarget::ThinkingPicker));
     assert_eq!(invocation("thinking"), view(GuiTarget::ThinkingPicker));
-    assert_eq!(invocation("agents"), view(GuiTarget::AgentPicker));
-    assert_eq!(invocation("agent"), view(GuiTarget::AgentPicker));
 
     for name in [
-        "undo", "redo", "timeline", "move", "mcps", "skills", "connect", "themes", "editor", "status", "help", "exit",
+        "agents", "agent", "undo", "redo", "timeline", "move", "mcps", "skills", "connect", "themes", "editor",
+        "status", "help", "exit",
     ] {
         assert!(
             matches!(invocation(name), CommandInvocation::Unsupported { reason } if !reason.contains("coming soon")),

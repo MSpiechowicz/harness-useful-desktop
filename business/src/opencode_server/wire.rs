@@ -313,6 +313,34 @@ pub fn config_model(config: &Value) -> Option<ModelRef> {
     })
 }
 
+/// The model OpenCode uses for a prompt that names none: the configured `model`, else the
+/// `default` model (`GET /config/providers`) of the first provider the config allows (its
+/// `Provider.defaultModel`, whose models recently used in the terminal app come in between: the
+/// first reply's model corrects that).
+pub fn server_default_model(config: &Value, providers: &Value) -> Option<ModelRef> {
+    if let Some(model) = config_model(config) {
+        return Some(model);
+    }
+
+    let allowed: Vec<&String> = config
+        .get("provider")
+        .and_then(Value::as_object)
+        .map(|entries| entries.keys().collect())
+        .unwrap_or_default();
+    let defaults = providers.get("default")?;
+    let listed = providers.get("providers")?.as_array()?;
+
+    listed
+        .iter()
+        .filter_map(|provider| string(provider, "id"))
+        .find(|id| allowed.is_empty() || allowed.contains(&id))
+        .and_then(|provider| {
+            let id = string(defaults, &provider)?;
+
+            Some(ModelRef { provider, id })
+        })
+}
+
 /// The role and id of the newest message of a `GET /session/{id}/message` page (oldest first).
 pub fn newest_message(page: &Value) -> Option<(String, String)> {
     let info = page.as_array()?.last()?.get("info")?;

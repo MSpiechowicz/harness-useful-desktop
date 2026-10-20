@@ -5,8 +5,8 @@
 //!   ran, with the message OpenCode stored (the output also enters the context). The output is
 //!   redacted and cut like the RPC engine's; OpenCode reports no exit code. It refuses while the
 //!   session works (`409`), so the chat refuses first while it works.
-//! - **Compaction:** `POST /session/{id}/summarize {providerID, modelID}` with the chat's model, or
-//!   the last reply's while OpenCode picks. It runs in the background between `compaction`
+//! - **Compaction:** `POST /session/{id}/summarize {providerID, modelID}` with the model the user
+//!   picked, else the last reply's, else the one the chat shows while OpenCode picks. It runs in the background between `compaction`
 //!   `start` and `end`; OpenCode compacts with its own prompt, so instructions are refused.
 //! - A run's events stay hidden until its call answered and its `idle` arrived; a call answered
 //!   without one ends the run after [`IDLE_GRACE`].
@@ -125,11 +125,17 @@ impl OpenCodeSession {
         Ok(AgentReply::Ack)
     }
 
-    /// The chat's model, or the model of the session's last reply while OpenCode picks.
+    /// The model the user picked, else the model of the session's last reply, else the one the
+    /// chat shows while OpenCode picks.
     async fn compaction_model(&self, session: &SessionId) -> Result<ModelRef> {
-        if let Some(model) = self.chat.lock().model.clone() {
-            return Ok(model);
-        }
+        let shown = {
+            let live = self.chat.lock();
+
+            match (&live.model, live.model_chosen) {
+                (Some(model), true) => return Ok(model.clone()),
+                (model, _) => model.clone(),
+            }
+        };
 
         let route = Route::Messages {
             session,
@@ -146,7 +152,7 @@ impl OpenCodeSession {
             })
         });
 
-        model.ok_or_else(|| {
+        model.or(shown).ok_or_else(|| {
             BusinessError::Unsupported("OpenCode compacts with the chat's model: pick a model first".to_owned())
         })
     }
