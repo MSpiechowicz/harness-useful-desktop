@@ -34,6 +34,7 @@ export const sync: AreaMessages<typeof enSync> = {
   'sync.note.versionInformational': 'Die Version dient nur zur Information; installiert wird die neueste.',
   'sync.note.writtenDisabled': 'Wird deaktiviert geschrieben, bis du die Werte einträgst und ihn einschaltest.',
   'sync.note.needsSharedMarketplace': 'Braucht seinen Marktplatz aus diesem Setup.',
+  'sync.note.opencodeMergedCheck': 'Wird beim Import mit der zusammengeführten Konfiguration von OpenCode abgeglichen. Dafür wird OpenCode einmal gestartet.',
   'sync.needsKeys': 'Braucht {keys}. Trage es nach dem Import ein.',
   'sync.runs.title': 'Führt ein Programm auf diesem Computer aus',
   'sync.runs.chip': 'Führt ein Programm aus',

@@ -38,6 +38,7 @@ const NOTE_KEYS: Record<SyncNote, MessageKey> = {
   versionInformational: 'sync.note.versionInformational',
   writtenDisabled: 'sync.note.writtenDisabled',
   needsSharedMarketplace: 'sync.note.needsSharedMarketplace',
+  opencodeMergedCheck: 'sync.note.opencodeMergedCheck',
 };
 
 const EXCLUDED_KEYS: Record<SyncExcludedReason, MessageKey> = {

@@ -36,6 +36,7 @@ export const sync = {
   'sync.note.versionInformational': 'The version is for information; the latest one is installed.',
   'sync.note.writtenDisabled': 'Written disabled until you add its values and switch it on.',
   'sync.note.needsSharedMarketplace': 'Needs its marketplace from this setup.',
+  'sync.note.opencodeMergedCheck': 'Checked against OpenCode’s merged configuration when you import. The check starts OpenCode once.',
   'sync.needsKeys': 'Needs {keys}. Set it after importing.',
   'sync.runs.title': 'Runs a program on this computer',
   'sync.runs.chip': 'Runs a program',

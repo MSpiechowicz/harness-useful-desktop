@@ -14,15 +14,18 @@ type SyncCommands = 'sync_export_preview' | 'sync_export' | 'sync_export_save' |
  * OMP, PI and OpenCode with marketplaces, plugins, packages and MCP servers in every kind of state, `empty` a machine with nothing
  * to share, `hostile` a bundle of refused items and an uninstalled harness, `newer` a bundle from a newer app,
  * `partial` an import where a marketplace fails and its plugins are skipped, `commented` an import where OpenCode's config
- * file has comments, so its servers are left to paste by hand, and `cancelled` closes both pickers.
+ * file has comments, so its servers are left to paste by hand, `exists` an import where the merged check finds OpenCode already
+ * defining the `docs` server, and `cancelled` closes both pickers.
  */
-export const SYNC_SCENARIOS = ['typical', 'empty', 'hostile', 'newer', 'partial', 'commented', 'cancelled'] as const;
+export const SYNC_SCENARIOS = ['typical', 'empty', 'hostile', 'newer', 'partial', 'commented', 'exists', 'cancelled'] as const;
 export type SyncScenario = (typeof SYNC_SCENARIOS)[number];
 
 /** Pause between two items of an import; tests do not wait. */
 const STEP_MS = import.meta.env.MODE === 'test' ? 0 : 700;
 
 const FAILED_MARKETPLACE = 'omp:marketplace:harness-useful-skills';
+/** The OpenCode server that the merged-configuration check finds already defined in the `exists` scenario. */
+const EXISTING_OPENCODE_SERVER = 'opencode:mcp:docs';
 const FAILED_ARGV = ['omp', 'plugin', 'marketplace', 'add', 'MSpiechowicz/harness-useful-skills'];
 
 /** Reads the scenario from the page URL (browser preview only); unknown names fall back to the default. */
@@ -87,6 +90,10 @@ export function syncHandlers(scenario: () => SyncScenario = syncScenarioFromLoca
         summary: null,
         argv: [],
       };
+    }
+
+    if (scenario() === 'exists' && id === EXISTING_OPENCODE_SERVER) {
+      return { outcome: { type: 'conflict' }, summary: 'OpenCode already defines a server named docs, so it was left alone.', argv: [] };
     }
 
     if (scenario() === 'partial' && id === FAILED_MARKETPLACE) {

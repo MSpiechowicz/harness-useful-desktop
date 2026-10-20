@@ -273,6 +273,40 @@ describe('Import', () => {
       expect(remote.getByText(/"type": "remote",\s+"url": "https:\/\/status\.example\.com\/mcp",\s+"enabled": true/)).toBeInTheDocument();
     });
 
+    it('notes on each selectable new server that it is checked when importing, and on nothing else', async () => {
+      const dialog = await review();
+      const note = /Checked against OpenCode’s merged configuration when you import\. The check starts OpenCode once\./;
+
+      for (const name of ['repo-search', 'docs', 'status']) {
+        expect(within(box(name).closest('li') as HTMLElement).getByText(note)).toBeInTheDocument();
+      }
+
+      expect(within(dialog).getAllByText(note)).toHaveLength(3);
+
+      const writtenDisabled = within(box('docs').closest('li') as HTMLElement).getAllByRole('listitem').map((item) => item.textContent);
+
+      expect(writtenDisabled.at(-2)).toMatch(/Written disabled/);
+      expect(writtenDisabled.at(-1)).toMatch(/Checked against OpenCode/);
+      expect(within(box('opencode-wakatime@1.2.3').closest('li') as HTMLElement).queryByText(note)).not.toBeInTheDocument();
+      expect(within(dialog).queryByText('opencode-notify@0.4.0')?.closest('li')).not.toHaveTextContent('Checked against');
+    });
+
+    it('shows a server OpenCode already defines as a conflict that is left alone', async () => {
+      useScenario('exists');
+      await review();
+      await fireEvent.click(box('status'));
+      await fireEvent.click(box('opencode-wakatime@1.2.3'));
+      await fireEvent.click(screen.getByRole('button', { name: /^Import selected/ }));
+
+      const dialog = await screen.findByRole('dialog', { name: 'Import finished' });
+      const row = within(within(dialog).getByText('docs').closest('li') as HTMLElement);
+
+      expect(row.getByText('Conflict')).toBeInTheDocument();
+      expect(row.getByText('Something with this name but a different definition exists here. It is left alone.')).toBeInTheDocument();
+      expect(within(dialog).queryByText('Failed')).not.toBeInTheDocument();
+      expect(within(dialog).getByText('Some items were not set up. What worked stays; nothing is rolled back.')).toBeInTheDocument();
+    });
+
     it('hands over the entry to paste when the file has comments, as a note and not an error', async () => {
       useScenario('commented');
       await review();
