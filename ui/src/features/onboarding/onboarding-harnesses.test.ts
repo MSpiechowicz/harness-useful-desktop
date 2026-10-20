@@ -55,6 +55,20 @@ describe('Meet your harnesses', () => {
     expect(screen.queryByText('Chat')).toBeNull();
     expect(screen.queryByRole('radio')).toBeNull();
   });
+
+  it('names at most three things a harness supports, however many it has', async () => {
+    harness.summaries = harness.summaries.map((summary) => ({
+      ...summary,
+      capabilities: { ...summary.capabilities, plugins: true, packages: true, mcp: true, skills: true, profiles: true },
+    }));
+    await openStep('meet');
+
+    for (const summary of harness.summaries) {
+      const card = await screen.findByRole('article', { name: summary.info.name });
+
+      expect(within(card).getAllByRole('listitem')).toHaveLength(3);
+    }
+  });
 });
 
 describe('Which harness do you use every day?', () => {
@@ -113,9 +127,12 @@ describe('Which harness do you use every day?', () => {
     expect(detail).toHaveTextContent(harness.get('pi')?.detection.installHint?.command ?? 'no command');
     expect(within(detail).getByRole('button', { name: 'Install docs' })).toBeEnabled();
     expect(within(detail).getByRole('button', { name: 'Choose binary…' })).toBeEnabled();
-    expect(screen.getByRole('radio', { name: 'Use Pi as daily driver' })).toHaveAttribute('aria-disabled', 'true');
+    const radio = screen.getByRole('radio', { name: 'Use Pi as daily driver' });
+    expect(radio).toHaveAttribute('aria-disabled', 'true');
+    expect(radio).toHaveAttribute('aria-checked', 'false');
 
-    await fireEvent.click(screen.getByRole('radio', { name: 'Use Pi as daily driver' }));
+    await fireEvent.click(radio);
+    expect(radio).toHaveAttribute('aria-checked', 'false');
     expect(onboarding.driver).toBe('omp');
     expect(await row(/^Oh My Pi/)).toHaveTextContent('Daily driver');
   });
@@ -129,6 +146,7 @@ describe('Which harness do you use every day?', () => {
     await fireEvent.click(opencode);
     // Looking is not choosing.
     expect(onboarding.driver).toBe('omp');
+    expect(screen.getByRole('radio', { name: 'Use OpenCode as daily driver' })).toHaveAttribute('aria-checked', 'false');
 
     await fireEvent.click(screen.getByRole('radio', { name: 'Use OpenCode as daily driver' }));
 
@@ -154,6 +172,43 @@ describe('Which harness do you use every day?', () => {
     await fireEvent.keyDown(first, { key: 'ArrowUp' });
     expect(screen.getByRole('option', { name: /^OpenCode/ })).toHaveFocus();
     expect(onboarding.driver).toBe('omp');
+  });
+
+  it('jumps to the first and last harness with Home and End', async () => {
+    await openStep('harnesses');
+
+    const first = await row(/^Oh My Pi/);
+    first.focus();
+
+    await fireEvent.keyDown(first, { key: 'End' });
+    const last = screen.getByRole('option', { name: /^OpenCode/ });
+    expect(last).toHaveFocus();
+    expect(last).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('article', { name: 'OpenCode' })).toBeInTheDocument();
+
+    await fireEvent.keyDown(last, { key: 'Home' });
+    expect(first).toHaveFocus();
+    expect(first).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('article', { name: 'Oh My Pi' })).toBeInTheDocument();
+    expect(onboarding.driver).toBe('omp');
+  });
+
+  it('shows a harness the app cannot chat with as coming soon, without a binary it does not have', async () => {
+    harness.summaries = harness.summaries.map((summary) =>
+      summary.info.id === 'pi' ? { ...summary, capabilities: { ...summary.capabilities, chat: false } } : summary,
+    );
+    await openStep('harnesses');
+
+    const soon = await row(/^Pi/);
+    expect(soon).toHaveTextContent('Coming soon');
+    await fireEvent.click(soon);
+
+    const detail = screen.getByRole('article', { name: 'Pi' });
+    expect(within(detail).getByText('Coming soon')).toBeInTheDocument();
+    expect(within(detail).queryByText('Not found')).toBeNull();
+    expect(within(detail).queryByText('Binary')).toBeNull();
+    expect(within(detail).getByText('Config')).toBeInTheDocument();
+    expect(within(detail).queryByRole('radio')).toBeNull();
   });
 
   it('keeps the harness being read when a scan turns up another', async () => {

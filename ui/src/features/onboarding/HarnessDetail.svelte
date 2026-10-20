@@ -55,7 +55,7 @@
         <h3 class="min-w-24 flex-1 self-center text-xl text-fg">{summary.info.name}</h3>
 
         {#if soon}
-          <Badge size="lg" class="h-8 shrink-0">{t('onboarding.card.comingSoon')}</Badge>
+          <Badge size="lg" class="h-control shrink-0">{t('onboarding.card.comingSoon')}</Badge>
         {:else}
           <div role="radiogroup" aria-label={t('onboarding.harnesses.group')} class="shrink-0">
             <button
@@ -66,7 +66,7 @@
               aria-label={t('onboarding.card.use', { name: label })}
               onclick={() => detection.installed && onselect()}
               class={cx(
-                'flex h-8 items-center gap-2 rounded-full border-card px-3 whitespace-nowrap text-sm font-medium transition-colors duration-[var(--dur-fast)]',
+                'flex h-control items-center gap-2 rounded-full border-card px-3 whitespace-nowrap text-sm font-medium transition-colors duration-[var(--dur-fast)]',
                 selected ? 'edge-accent bg-accent-wash text-fg' : 'border-line-strong text-fg-2',
                 detection.installed ? 'hover:bg-hover active:bg-press' : 'cursor-not-allowed opacity-50',
               )}
@@ -127,11 +127,11 @@
         </div>
       {/if}
 
-      <!-- Where it lives: the binary (once there is one) and the config follow each other, whatever the harness. -->
+      <!-- Where it lives: the binary (once it is installed) and the config follow each other, whatever the harness. -->
       <dl class="grid grid-cols-[max-content_1fr] items-center gap-x-4 gap-y-3 text-sm">
-        {#if detection.installed || soon}
+        {#if detection.installed}
           <dt class="text-fg-3">{t('onboarding.card.binary')}</dt>
-          <dd class="min-w-0 truncate font-mono text-fg-2" title={detection.binaryPath ?? undefined}>{detection.binaryPath ?? t('onboarding.card.notFound')}</dd>
+          <dd class="min-w-0 truncate font-mono text-fg-2" title={detection.binaryPath ?? undefined}>{detection.binaryPath ?? t('onboarding.card.unknown')}</dd>
         {/if}
 
         <dt class="text-fg-3">{t('onboarding.card.config')}</dt>

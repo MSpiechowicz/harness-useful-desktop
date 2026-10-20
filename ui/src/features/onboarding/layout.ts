@@ -37,6 +37,10 @@ export const HARNESS_GRID = 'grid grid-cols-[repeat(auto-fit,minmax(16rem,1fr))]
 export const PICKER = {
   frame: '@container',
   columns: 'grid grid-cols-1 gap-4 @min-[46rem]:grid-cols-[17rem_minmax(0,1fr)]',
-  /** The least the detail panel is tall, so moving between harnesses does not move the buttons below it. */
-  detailMinHeight: 'min-h-[20rem]',
+  /**
+   * The least the detail panel is tall, so moving between harnesses does not move what is below it. Measured in WebKitGTK:
+   * the tallest realistic panel (a missing harness with a wrapping install command, an error line and two buttons) is
+   * 316px at the narrowest side by side, so 24rem (336px) holds every case.
+   */
+  detailMinHeight: 'min-h-[24rem]',
 } as const;

@@ -50,28 +50,31 @@
       </div>
     {/snippet}
 
-    <!-- What the scan found, in a strip as wide as the picker below it. -->
-    <div class="-mb-1.5 flex items-center gap-3 rounded-lg border border-line bg-glass px-4 py-2">
-      <p class="flex min-w-0 items-center gap-2.5 text-sm text-fg-2" role="status">
-        <StatusDot tone={installed.length === 0 ? 'warning' : installed.length === harness.summaries.length ? 'success' : 'accent'} beforeText />
-        {#if installed.length === 0}
-          {t('onboarding.harnesses.none')}
-        {:else}
-          {t('onboarding.harnesses.found', { found: installed.length, total: harness.summaries.length })}
-        {/if}
-      </p>
-    </div>
-
-    {#if shown}
-      <div class={PICKER.frame}>
-        <div class={PICKER.columns}>
-          <div class="self-start">
-            <HarnessList summaries={harness.summaries} focused={shown.info.id} driver={onboarding.driver} {panel} onfocus={(id) => (focusId = id)} />
-          </div>
-
-          <HarnessDetail id={panel} summary={shown} selected={onboarding.driver === shown.info.id} onselect={() => onboarding.choose(shown.info.id)} />
-        </div>
+    <!-- The strip and the picker belong together: the picker's own gap apart, not the step's. -->
+    <div class="flex flex-col gap-4">
+      <!-- What the scan found, in a strip as wide as the picker below it. -->
+      <div class="flex items-center gap-3 rounded-lg border border-line bg-glass px-4 py-2">
+        <p class="flex min-w-0 items-center gap-2.5 text-sm text-fg-2" role="status">
+          <StatusDot tone={installed.length === 0 ? 'warning' : installed.length === harness.summaries.length ? 'success' : 'accent'} beforeText />
+          {#if installed.length === 0}
+            {t('onboarding.harnesses.none')}
+          {:else}
+            {t('onboarding.harnesses.found', { found: installed.length, total: harness.summaries.length })}
+          {/if}
+        </p>
       </div>
-    {/if}
+
+      {#if shown}
+        <div class={PICKER.frame}>
+          <div class={PICKER.columns}>
+            <div class="self-start">
+              <HarnessList summaries={harness.summaries} focused={shown.info.id} driver={onboarding.driver} {panel} onfocus={(id) => (focusId = id)} />
+            </div>
+
+            <HarnessDetail id={panel} summary={shown} selected={onboarding.driver === shown.info.id} onselect={() => onboarding.choose(shown.info.id)} />
+          </div>
+        </div>
+      {/if}
+    </div>
   </HarnessScan>
 </div>
