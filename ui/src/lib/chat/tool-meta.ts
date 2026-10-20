@@ -84,7 +84,24 @@ export function commandOf(call: ToolCallState): string | null {
   return typeof command === 'string' ? command : null;
 }
 
-/** Card title: the agent's stated intent, else the tool name. */
+/**
+ * A tool name for people: `mcp__harness_memory_note_search` → "Harness memory note search",
+ * `mcp__server__tool_name` → "Server · Tool name", `web_search` → "Web search".
+ */
+export function humanToolName(name: string): string {
+  const words = (part: string) => {
+    const spaced = part.replace(/[_-]+/g, ' ').trim();
+
+    return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+  };
+
+  const parts = name.split('__').filter((part) => part !== '' && part !== 'mcp');
+  const shown = parts.map(words).filter((part) => part !== '');
+
+  return shown.length > 0 ? shown.join(' · ') : name;
+}
+
+/** Card title: the agent's stated intent, else the readable tool name. */
 export function toolTitle(call: ToolCallState): string {
-  return call.intent?.trim() || call.name;
+  return call.intent?.trim() || humanToolName(call.name);
 }
