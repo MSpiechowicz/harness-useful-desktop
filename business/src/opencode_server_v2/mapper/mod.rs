@@ -3,9 +3,9 @@
 //! [`Mapper`] per chat.
 //!
 //! - **Sessions:** only events of the chat's own session count. Subagent sessions started from it
-//!   (`session.created` with a known `parentID`, at any depth) are tracked for their asks
-//!   ([`asks`]); their messages and tool calls are not shown. Forks are other chats. Events
-//!   without a session (`server.*`, catalog and project events) are ignored.
+//!   (at any depth, see [`family`]) are tracked for their asks ([`asks`]); their messages and tool
+//!   calls are not shown. Forks are other chats. Events without a session (`server.*`, catalog and
+//!   project events) are ignored.
 //! - **Turns, steering and the follow-up queue:** see [`turns`]. A turn is one execution
 //!   (`session.execution.started` … `succeeded | failed | interrupted`); `session.status`
 //!   (`busy`, `retry`, `idle`), which OpenCode 2.1.2 does not send, works too.
@@ -20,6 +20,7 @@
 //!   OpenCode starts on its own during a turn shows as `compaction` `start` and `end`.
 
 mod asks;
+mod family;
 mod form;
 mod quiet;
 mod replies;
@@ -39,8 +40,7 @@ use self::replies::{PartKind, Replies};
 use self::tools::Tools;
 use self::turns::{Outcome, Turn};
 use super::events::{
-    CompactionEnded, CompactionFailed, CompactionStarted, Event, EventKind, InboxEnqueued, SessionCreated,
-    SessionStatus, Usage,
+    CompactionEnded, CompactionFailed, CompactionStarted, Event, EventKind, InboxEnqueued, SessionStatus, Usage,
 };
 use super::messages::SessionMessage;
 use super::wire::{Form, ModelRef, PermissionRequest};
@@ -175,6 +175,10 @@ impl Mapper {
             return self.subagent_event(event);
         }
 
+        if let EventKind::ToolProgress(progress) = &event.kind {
+            self.note_progress(progress, event);
+        }
+
         if let Some(hidden) = self.quiet_event(event) {
             return hidden;
         }
@@ -233,17 +237,6 @@ impl Mapper {
         self.asks.answer(response)
     }
 
-    /// The directory of subagent session `session`, when the chat knows it; `None` for the
-    /// chat's own session or one the chat does not know.
-    pub fn subagent_directory(&self, session: &str) -> Option<&str> {
-        self.children.get(session).and_then(Option::as_deref)
-    }
-
-    /// True for the chat's own session and the subagent sessions started from it.
-    pub fn is_chat_session(&self, session: &str) -> bool {
-        session == self.session || self.children.contains_key(session)
-    }
-
     /// The permission requests still waiting for an answer on OpenCode's side, shown or not, by id.
     pub fn pending_permissions(&self) -> Vec<PermissionRequest> {
         let mut pending: Vec<PermissionRequest> = self
@@ -257,6 +250,33 @@ impl Mapper {
 
         pending.sort_by(|a, b| a.id.cmp(&b.id));
         pending
+    }
+
+    /// True when ask `id` (a permission request or a form) is open on OpenCode's side as far as
+    /// the chat knows.
+    pub fn knows_ask(&self, id: &str) -> bool {
+        self.asked.contains_key(id)
+    }
+
+    /// Closes the dialogs of the asks OpenCode no longer waits for: every ask not in `pending`
+    /// (answered or cancelled while the chat did not follow its events).
+    pub fn settle_asks(&mut self, pending: &[&str]) -> Vec<AgentEvent> {
+        let mut settled: Vec<String> = self
+            .asked
+            .keys()
+            .filter(|id| !pending.contains(&id.as_str()))
+            .cloned()
+            .collect();
+        settled.sort();
+
+        let mut out = Vec::new();
+
+        for id in settled {
+            self.asked.remove(&id);
+            self.asks.answered_elsewhere(&id, &mut out);
+        }
+
+        out
     }
 
     /// Closes every open dialog (the chat stops).
@@ -343,26 +363,12 @@ impl Mapper {
         true
     }
 
-    /// An event of another session: only the asks of the chat's subagents reach the chat.
-    fn subagent_event(&mut self, event: &Event) -> Vec<Mapped> {
-        let known = event
-            .session_id
-            .as_deref()
-            .is_some_and(|session| self.children.contains_key(session));
-
-        if !known {
-            return Vec::new();
-        }
-
-        let mut out = Vec::new();
-        self.ask_event(&event.kind, true, &mut out);
-
-        events(out).collect()
-    }
-
     /// Permission and form events.
     fn ask_event(&mut self, kind: &EventKind, subagent: bool, out: &mut Vec<AgentEvent>) {
         match kind {
+            // The same ask again (a catch-up showed it already) changes nothing.
+            EventKind::PermissionAsked(permission) if self.asked.contains_key(&permission.id) => {}
+            EventKind::FormCreated(created) if self.asked.contains_key(&created.form.id) => {}
             EventKind::PermissionAsked(permission) => {
                 let asked = Asked::Permission(permission.clone(), subagent);
                 self.asked.insert(permission.id.clone(), asked);
@@ -392,17 +398,6 @@ impl Mapper {
         let source = permission.source.as_ref().filter(|_| !subagent)?;
 
         self.tools.input(&source.id).cloned()
-    }
-
-    /// Tracks a session started from a tracked one.
-    fn note_child(&mut self, created: &SessionCreated, event: &Event) {
-        let parent = created.parent_id.as_deref();
-        let known = parent.is_some_and(|parent| parent == self.session || self.children.contains_key(parent));
-
-        if known {
-            let directory = event.location.as_ref().map(|location| location.directory.clone());
-            self.children.insert(created.session_id.clone(), directory);
-        }
     }
 }
 

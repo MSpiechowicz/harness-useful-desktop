@@ -1,4 +1,4 @@
-// The catalogs and configuration of opencode2_startup.jsonl, any number of times (included by scenarios that do not create a session).
+// The catalogs and configuration of opencode2_startup.jsonl (and no pending asks or subagent sessions), any number of times (included by scenarios that do not create a session).
 {"allow":"GET /api/agent","reply":{"recording":"../opencode2/recorded/ops.jsonl","route":"GET /api/agent"}}
 {"allow":"GET /api/model","reply":{"recording":"../opencode2/recorded/ops.jsonl","route":"GET /api/model"}}
 {"allow":"GET /api/command","reply":{"recording":"../opencode2/recorded/shell_command.jsonl","route":"GET /api/command"}}
@@ -6,3 +6,5 @@
 {"allow":"GET /api/provider","reply":{"data":[{"id":"opencode","integrationID":"opencode","name":"OpenCode Zen","activation":"auto","package":"@opencode/ai/providers/openai-compatible","settings":{}}],"location":{"directory":"$directory"}}}
 {"allow":"GET /api/config"}
 {"allow":"GET /api/form","reply":{"data":[],"location":{"directory":"$directory"}}}
+{"allow":"GET /api/permission/request","reply":{"data":[],"location":{"directory":"$directory"}}}
+{"allow":"GET /api/session","reply":{"data":[],"cursor":{}}}

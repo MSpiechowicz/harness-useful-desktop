@@ -1,8 +1,8 @@
 // Startup of a new OpenCode 2 chat (included by the other opencode2_* scenarios), as `opencode serve`
 // 2.1.2 played it (recordings/turn.jsonl, catalogs from opencode2/recorded; the skill list as 2.1.2
 // lists it, unrecorded: its two built-in skills and one of the user's, instructions shortened): the
-// catalogs and the configuration any number of times, then the new session in the project and the
-// events that follow it.
+// catalogs and the configuration (and no pending asks or subagent sessions) any number of times, then
+// the new session in the project and the events that follow it.
 {"allow":"GET /api/agent","reply":{"recording":"../opencode2/recorded/ops.jsonl","route":"GET /api/agent"}}
 {"allow":"GET /api/model","reply":{"recording":"../opencode2/recorded/ops.jsonl","route":"GET /api/model"}}
 {"allow":"GET /api/command","reply":{"recording":"../opencode2/recorded/shell_command.jsonl","route":"GET /api/command"}}
@@ -10,6 +10,8 @@
 {"allow":"GET /api/provider","reply":{"data":[{"id":"opencode","integrationID":"opencode","name":"OpenCode Zen","activation":"auto","package":"@opencode/ai/providers/openai-compatible","settings":{}}],"location":{"directory":"$directory"}}}
 {"allow":"GET /api/config"}
 {"allow":"GET /api/form","reply":{"data":[],"location":{"directory":"$directory"}}}
+{"allow":"GET /api/permission/request","reply":{"data":[],"location":{"directory":"$directory"}}}
+{"allow":"GET /api/session","reply":{"data":[],"cursor":{}}}
 {"expect":"POST /api/session","reply":{"data":{"id":"ses_ea2843d6fffeeHJKZwBKUXqULv","projectID":"global","model":{"id":"big-pickle","providerID":"opencode","variant":"default"},"cost":0,"tokens":{"input":0,"output":0,"reasoning":0,"cache":{"read":0,"write":0}},"time":{"created":1792569754266,"updated":1792569754266},"location":{"directory":"$directory"}}}}
 {"sse":{"id":"evt_15d7bc29a001a05BVRjcYO3nVG","created":1792569754266,"type":"session.created","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","slug":"playful-comet","version":"2.1.2","projectID":"global","location":{"directory":"$directory"},"subpath":"","model":{"id":"big-pickle","providerID":"opencode"}},"durable":{"aggregateID":"ses_ea2843d6fffeeHJKZwBKUXqULv","seq":0,"version":1}}}
 {"sse":{"id":"evt_15d7bc2a50017daLJhfXHbWBwd","created":1792569754277,"type":"project.updated","location":{"directory":"$directory"},"data":{"id":"global","canonical":"$directory","vcs":"git","time":{"created":1792569561673,"updated":1792569561673,"active":1792569754277},"sandboxes":[]}}}

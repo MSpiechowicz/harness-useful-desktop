@@ -13,9 +13,10 @@
 //! - **No override:** nothing is set or read, the user's OpenCode settings apply.
 //! - **Helper chat** (naming a chat): its session is created with rules that deny every tool
 //!   (`POST /api/session {permissions}`, which the sessions started from it inherit) and deleted
-//!   when the chat stops or loses its server's events. A helper chat never resumes a session.
+//!   when the chat stops or loses its server's events, when the startup fails after creating it,
+//!   and when the chat moves to another session. A helper chat never resumes a session.
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
 use serde_json::Value;
@@ -210,15 +211,39 @@ impl Chat {
         }
 
         let session = self.lock().session.clone();
-        let route = RouteV2::SessionDelete {
-            session: &session,
-            directory: &self.directory,
-        };
-        let deleted = self.client.send_with_timeout(route, None, CLEANUP_TIMEOUT).await;
+        delete_helper(&self.client, &session, &self.directory).await;
+    }
+}
 
-        if let Err(error) = deleted.and_then(|response| response.error_for_status()) {
-            tracing::debug!(%error, "a helper chat's OpenCode session was not deleted");
+/// A helper chat's session created during startup, deleted when the startup fails after it was
+/// created.
+#[derive(Clone, Default)]
+pub(super) struct StartedHelper(Arc<Mutex<Option<(OpenCodeClient, SessionId, String)>>>);
+
+impl StartedHelper {
+    /// Remembers `session`, created in `directory` through `client`.
+    pub(super) fn created(&self, client: &OpenCodeClient, session: SessionId, directory: &str) {
+        let mut slot = self.0.lock().unwrap_or_else(PoisonError::into_inner);
+        *slot = Some((client.clone(), session, directory.to_owned()));
+    }
+
+    /// Deletes the session the startup created, if any (the startup failed).
+    pub(super) async fn delete(&self) {
+        let created = self.0.lock().unwrap_or_else(PoisonError::into_inner).take();
+
+        if let Some((client, session, directory)) = created {
+            delete_helper(&client, &session, &directory).await;
         }
+    }
+}
+
+/// `DELETE /api/session/{id}` of a helper chat's session, best effort.
+async fn delete_helper(client: &OpenCodeClient, session: &SessionId, directory: &str) {
+    let route = RouteV2::SessionDelete { session, directory };
+    let deleted = client.send_with_timeout(route, None, CLEANUP_TIMEOUT).await;
+
+    if let Err(error) = deleted.and_then(|response| response.error_for_status()) {
+        tracing::debug!(%error, "a helper chat's OpenCode session was not deleted");
     }
 }
 

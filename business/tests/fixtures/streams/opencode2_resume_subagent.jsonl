@@ -1,0 +1,10 @@
+// Resuming a session whose subagent session (ses_child3) still works: the chat lists the session's
+// subagent sessions before the first event, so the subagent's permission ask reaches the chat. A title
+// change marks the end.
+{"include":"opencode2_catalogs.jsonl"}
+{"allow":"GET /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/message","reply":{"data":[]}}
+{"allow":"GET /api/session","match":{"query.parentID":"ses_ea2843d6fffeeHJKZwBKUXqULv"},"reply":{"data":[{"id":"ses_child3","projectID":"global","parentID":"ses_ea2843d6fffeeHJKZwBKUXqULv","time":{"created":1792569754400,"updated":1792569754500},"location":{"directory":"$directory"}}],"cursor":{}}}
+{"expect":"GET /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv","reply":{"data":{"id":"ses_ea2843d6fffeeHJKZwBKUXqULv","projectID":"global","title":"Resumed","model":{"id":"big-pickle","providerID":"opencode","variant":"default"},"time":{"created":1792569754266,"updated":1792569757094},"location":{"directory":"$directory"}}}}
+{"sse":{"type":"permission.asked","location":{"directory":"$directory"},"data":{"id":"per_8","sessionID":"ses_child3","action":"shell","resources":["make test"],"save":["make *"]}}}
+{"sse":{"type":"session.renamed","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","title":"Marker"}}}
+{"hang":true}

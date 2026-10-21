@@ -12,6 +12,9 @@
 //! - **Ends:** an `idle` marker newer than the newest event the chat read ([`Live::mark`]) ends the
 //!   chat's turn as it ended (succeeded, failed or interrupted), with the prompt results, the next
 //!   held follow-up or `settled` that follow.
+//! - **Subagent sessions and asks:** the subagent sessions started meanwhile count as the chat's,
+//!   an ask raised meanwhile shows and the dialog of one settled meanwhile closes (`family.rs`),
+//!   after the messages.
 //! - A read that fails leaves the chat as it is: the live events that follow still show.
 
 use std::sync::Arc;
@@ -19,7 +22,7 @@ use std::sync::Arc;
 use serde_json::{Value, json};
 
 use super::startup::get_data;
-use super::{Chat, Live, stream};
+use super::{Chat, Live, family, stream};
 use crate::opencode_server_v2::events;
 use crate::opencode_server_v2::mapper::SessionChange;
 use crate::opencode_server_v2::wire::{Envelope, Session};
@@ -43,6 +46,10 @@ pub(super) async fn run(chat: &Arc<Chat>) {
     .await;
     let page = newest_messages(chat, &session).await;
 
+    let children = family::children(chat, &session).await;
+    let known = known_directories(chat);
+    let pending = family::pending(chat, &children, &known).await;
+
     let mut live = chat.lock();
 
     if live.session != session {
@@ -61,6 +68,34 @@ pub(super) async fn run(chat: &Arc<Chat>) {
         }
         Err(error) => tracing::debug!(%error, "the OpenCode messages were not read to catch up"),
     }
+
+    family::adopt(&mut live, &children);
+    family::take(chat, &mut live, pending);
+}
+
+/// Lists the subagent sessions of the chat's session and counts them as the chat's (a resumed
+/// session's, whose starts the chat never saw).
+pub(super) async fn adopt_children(chat: &Chat) {
+    let session = chat.lock().session.clone();
+    let children = family::children(chat, &session).await;
+
+    let mut live = chat.lock();
+
+    if live.session == session {
+        family::adopt(&mut live, &children);
+    }
+}
+
+/// The directories of the subagent sessions the chat knows.
+fn known_directories(chat: &Chat) -> Vec<String> {
+    let live = chat.lock();
+    let sessions = live.mapper.subagent_sessions();
+
+    sessions
+        .iter()
+        .filter_map(|session| live.mapper.subagent_directory(session))
+        .map(str::to_owned)
+        .collect()
 }
 
 /// The session's newest messages, newest first.

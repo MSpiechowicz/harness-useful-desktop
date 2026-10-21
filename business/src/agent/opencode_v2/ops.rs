@@ -9,7 +9,8 @@
 //!   (no turn, queue or subagents of the old one; follow-ups still held are dropped; a fork's or
 //!   clone's copied messages are read first and never shown again, and the newest reply among them
 //!   sizes the context), the new title, the agent and model the session has, and a fresh `state`
-//!   (the manager rebinds the chat's session id). The old session stays as it is.
+//!   (the manager rebinds the chat's session id). The old session stays as it is, except a helper
+//!   chat's, which is deleted (best effort).
 //! - A prompt that arrives while the new session is being prepared wins: the move is refused like
 //!   one asked for while the agent works, and the new session is deleted (best effort), as is one
 //!   the chat could not move to for another reason. A session OpenCode reports in another directory
@@ -146,15 +147,27 @@ impl OpenCodeV2Session {
             self.commit(session.clone(), info, &messages, action)
         });
 
-        if moved.is_err() {
-            delete_session(chat, &session).await;
+        match moved {
+            // A helper chat's sessions are never resumed: the one it left goes.
+            Ok(previous) if chat.rules.utility => delete_session(chat, &previous).await,
+            Ok(_) => {}
+            Err(error) => {
+                delete_session(chat, &session).await;
+                return Err(error);
+            }
         }
 
-        moved
+        Ok(())
     }
 
-    /// Moves the chat to `session` unless it works by now.
-    fn commit(&self, session: SessionId, info: Session, messages: &[SessionMessage], action: &str) -> Result<()> {
+    /// Moves the chat to `session` unless it works by now; the session it left.
+    fn commit(
+        &self,
+        session: SessionId,
+        info: Session,
+        messages: &[SessionMessage],
+        action: &str,
+    ) -> Result<SessionId> {
         let chat = &self.chat;
         let mut live = chat.lock();
 
@@ -168,7 +181,7 @@ impl OpenCodeV2Session {
         mapper.seen(messages);
 
         live.mapper = mapper;
-        live.session = session;
+        let previous = std::mem::replace(&mut live.session, session);
         live.title = info.title;
         live.context = last_context(messages);
         live.picks.clear();
@@ -196,7 +209,7 @@ impl OpenCodeV2Session {
             state: chat.state(&live),
         });
 
-        Ok(())
+        Ok(previous)
     }
 }
 
@@ -219,7 +232,8 @@ async fn created(chat: &Chat, route: RouteV2<'_>, body: &impl Serialize) -> Resu
     Ok(response.json::<Envelope<Session>>()?.data)
 }
 
-/// `DELETE /api/session/{id}`, best effort: a session the chat created but could not move to.
+/// `DELETE /api/session/{id}`, best effort: a session the chat created but could not move to, or
+/// the one a helper chat left.
 async fn delete_session(chat: &Chat, session: &SessionId) {
     let route = RouteV2::SessionDelete {
         session,

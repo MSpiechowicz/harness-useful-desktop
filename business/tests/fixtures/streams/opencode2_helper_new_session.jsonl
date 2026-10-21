@@ -1,0 +1,9 @@
+// A helper chat that moves to a new session: the new one denies every tool too, and the session it left is
+// deleted. At stop the new one is deleted.
+{"include":"opencode2_catalogs.jsonl"}
+{"expect":"POST /api/session","match":{"/permissions/0/action":"*","/permissions/0/resource":"*","/permissions/0/effect":"deny","/permissions/1":"$absent"},"reply":{"data":{"id":"ses_ea2843d6fffeeHJKZwBKUXqULv","projectID":"global","model":{"id":"big-pickle","providerID":"opencode","variant":"default"},"cost":0,"tokens":{"input":0,"output":0,"reasoning":0,"cache":{"read":0,"write":0}},"time":{"created":1792569754266,"updated":1792569754266},"location":{"directory":"$directory"},"permissions":[{"action":"*","resource":"*","effect":"deny"}]}}}
+{"sse":{"type":"session.renamed","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","title":"Marker"}}}
+{"expect":"POST /api/session","match":{"/permissions/0/action":"*","/permissions/0/resource":"*","/permissions/0/effect":"deny","/permissions/1":"$absent"},"reply":{"data":{"id":"ses_0new0chat0000000000000001","projectID":"global","model":{"id":"big-pickle","providerID":"opencode","variant":"default"},"time":{"created":1792570185966,"updated":1792570185966},"location":{"directory":"$directory"},"permissions":[{"action":"*","resource":"*","effect":"deny"}]}}}
+{"expect":"DELETE /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv","match":{"query.location[directory]":"$directory"}}
+{"expect":"DELETE /api/session/ses_0new0chat0000000000000001","match":{"query.location[directory]":"$directory"}}
+{"hang":true}

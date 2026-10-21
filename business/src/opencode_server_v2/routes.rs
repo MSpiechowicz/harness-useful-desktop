@@ -4,8 +4,8 @@
 //! - Ids are checked when they are parsed ([`Id::parse`]): the kind's prefix (`ses_`, `msg_`,
 //!   `per_`, `frm_`), then only `[A-Za-z0-9]`, at most [`MAX_ID_LEN`] bytes. A valid id can never
 //!   add a path segment or a query.
-//! - Every route but [`RouteV2::Info`], [`RouteV2::Event`] and [`RouteV2::PermissionSaved`] (a
-//!   project query) carries the project directory as the `location[directory]` query,
+//! - Every route but [`RouteV2::Info`], [`RouteV2::Event`], [`RouteV2::PermissionSaved`] (a
+//!   project query) and [`RouteV2::SessionChildren`] (a parent query) carries the project directory as the `location[directory]` query,
 //!   percent-encoded and last, as recorded against `opencode` 2.1.2. Callers pass the absolute
 //!   project directory.
 //! - Left out on purpose (standing rules): share, pairing, credentials, config writes
@@ -27,6 +27,9 @@ pub const MAX_ID_LEN: usize = 128;
 
 /// Largest message page the server serves (`SessionMessagesQuery.limit` is 1 to 200).
 pub const MAX_MESSAGE_PAGE: u32 = 200;
+
+/// Largest page of sessions the chat asks for (`SessionsQuery.limit` has no upper bound).
+pub const MAX_SESSION_PAGE: u32 = 200;
 
 /// What an [`Id`] names: its prefix and a label for errors.
 pub trait IdKind {
@@ -163,6 +166,13 @@ pub enum RouteV2<'a> {
         /// The project directory.
         directory: &'a str,
     },
+    /// `GET /api/session?limit=&parentID=` → `{data: [session], cursor}`, newest change first.
+    SessionChildren {
+        /// The parent session.
+        parent: &'a SessionId,
+        /// Sessions per page, clamped to 1..=[`MAX_SESSION_PAGE`].
+        limit: u32,
+    },
     /// `GET /api/session/{id}` → `{data: session}`.
     SessionGet {
         /// The session.
@@ -261,6 +271,11 @@ pub enum RouteV2<'a> {
         /// The project directory.
         directory: &'a str,
     },
+    /// `GET /api/permission/request` → `{data: [request], location}`, the directory's pending ones.
+    PermissionRequests {
+        /// The project directory.
+        directory: &'a str,
+    },
     /// `POST /api/session/{id}/permission/{requestID}/reply` (`{decision, message?}`); `204`.
     PermissionReply {
         /// The session.
@@ -344,9 +359,11 @@ impl RouteV2<'_> {
         match self {
             Self::Info
             | Self::Event
+            | Self::SessionChildren { .. }
             | Self::SessionGet { .. }
             | Self::Messages { .. }
             | Self::PermissionList { .. }
+            | Self::PermissionRequests { .. }
             | Self::PermissionSaved { .. }
             | Self::FormList { .. }
             | Self::AgentList { .. }
@@ -374,6 +391,10 @@ impl RouteV2<'_> {
             Self::Info => "/api/info".to_owned(),
             Self::Event => "/api/event".to_owned(),
             Self::SessionCreate { directory } => located("/api/session", Vec::new(), directory),
+            Self::SessionChildren { parent, limit } => format!(
+                "/api/session?limit={}&parentID={parent}",
+                limit.clamp(1, MAX_SESSION_PAGE)
+            ),
             Self::SessionGet { session, directory }
             | Self::SessionUpdate { session, directory }
             | Self::SessionDelete { session, directory } => {
@@ -395,6 +416,7 @@ impl RouteV2<'_> {
                 order,
             } => messages(session, directory, limit, cursor, order),
             Self::PermissionList { session, directory } => in_session(session, "permission", directory),
+            Self::PermissionRequests { directory } => located("/api/permission/request", Vec::new(), directory),
             Self::PermissionReply {
                 session,
                 permission,

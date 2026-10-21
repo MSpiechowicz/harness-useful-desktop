@@ -1,0 +1,8 @@
+// A started chat whose event stream stays silent while the server still answers: the chat opens the stream
+// again and catches up from the session; the first catch-up's read of the messages sends a title change on
+// the new stream, which marks the end.
+{"include":"opencode2_startup.jsonl"}
+{"allow":"GET /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv","reply":{"data":{"id":"ses_ea2843d6fffeeHJKZwBKUXqULv","projectID":"global","model":{"id":"big-pickle","providerID":"opencode","variant":"default"},"time":{"created":1792569754266,"updated":1792569754300},"location":{"directory":"$directory"}}}}
+{"allow":"GET /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/message","reply":{"data":[]}}
+{"on":"GET /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/message","reply":{"data":[]},"emit":[{"sse":{"type":"session.renamed","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","title":"Marker"}}}]}
+{"hang":true}

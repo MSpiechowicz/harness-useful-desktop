@@ -10,10 +10,13 @@
 //!   exited cannot be reached: its exit closes the chat as for any other exit, without a notice.
 //! - **Watchdog:** OpenCode 2's heartbeats are SSE comments the reader never passes on, so a
 //!   stream silent for [`SessionOptions::event_silence`](crate::agent::SessionOptions::event_silence)
-//!   asks `GET /api/info` whether the server still answers. When it does not, or when the stream
-//!   cannot be opened again while the server runs, the chat can no longer follow it: an error
-//!   notice says so, the open dialogs close, a helper chat's session is deleted and the server is
-//!   ended, so `exited` closes the chat.
+//!   asks `GET /api/info` whether the server still answers. When it does, the stream may have
+//!   stalled: it is opened again and the chat catches up, as for a stream that ended. When the
+//!   server does not answer, or when the stream cannot be opened again while the server runs, the
+//!   chat can no longer follow it: an error notice says so, the open dialogs close, a helper chat's
+//!   session is deleted and the server is ended, so `exited` closes the chat.
+//! - **Resume:** before the first event, the subagent sessions of a resumed session count as the
+//!   chat's (`catch_up.rs`), so their asks reach the chat.
 //! - A permission ask the chat's "Always allow" answers cover is answered without a dialog
 //!   (`approvals.rs`).
 
@@ -56,11 +59,13 @@ pub(super) struct Watch {
     pub terminator: Terminator,
     /// The longest silence before the server is asked whether it still answers.
     pub silence: Duration,
+    /// The chat resumed its session.
+    pub resumed: bool,
 }
 
 /// How reading a stream ended.
 enum Ended {
-    /// The stream ended or broke.
+    /// The stream ended or broke, or went silent while the server answers.
     Closed,
     /// The stream went silent and the server does not answer.
     Silent,
@@ -72,6 +77,10 @@ pub(super) fn spawn(chat: Arc<Chat>, events: EventStream, watch: Watch) -> Abort
 }
 
 async fn run(chat: Arc<Chat>, mut events: EventStream, mut watch: Watch) {
+    if watch.resumed {
+        catch_up::adopt_children(&chat).await;
+    }
+
     loop {
         if let Ended::Silent = follow(&chat, &mut events, &watch).await {
             return lost(&chat, &watch).await;
@@ -86,13 +95,16 @@ async fn run(chat: Arc<Chat>, mut events: EventStream, mut watch: Watch) {
     }
 }
 
-/// Reads `events` until the stream ends, or goes silent with a server that does not answer.
+/// Reads `events` until the stream ends or goes silent.
 async fn follow(chat: &Arc<Chat>, events: &mut EventStream, watch: &Watch) -> Ended {
     loop {
         let item = match tokio::time::timeout(watch.silence, events.next()).await {
             Ok(Some(item)) => item,
             Ok(None) => return Ended::Closed,
-            Err(_) if answers(chat).await => continue,
+            Err(_) if answers(chat).await => {
+                tracing::debug!("the OpenCode event stream went silent: it is opened again");
+                return Ended::Closed;
+            }
             Err(_) => return Ended::Silent,
         };
 

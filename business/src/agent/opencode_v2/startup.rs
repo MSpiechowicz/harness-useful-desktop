@@ -12,7 +12,7 @@
 //! `/api/command` and `/api/skill` ([`Slash`]; and `/api/model/default` for the model a session
 //! that names none uses) →
 //! `ready`, `state` and `commandsUpdated`, then the events that arrived meanwhile. A helper chat
-//! never resumes a session.
+//! never resumes a session; the one it created is deleted when the startup fails later.
 //!
 //! The whole startup, the probe included, runs within one budget and abort race
 //! ([`run_startup_until`]): the startup deadline, twice that with a mode (two cold starts); a
@@ -28,7 +28,7 @@ use serde::de::DeserializeOwned;
 use serde_json::Value;
 use tokio::sync::oneshot;
 
-use super::approvals::{Allowed, LaunchRules, denies_all};
+use super::approvals::{Allowed, LaunchRules, StartedHelper, denies_all};
 use super::catalog::Catalog;
 use super::commands::Slash;
 use super::history::{all_messages, last_context};
@@ -82,6 +82,7 @@ struct Booted {
     model: Option<ModelRef>,
     /// A resumed session's messages, oldest first (none for a new one).
     messages: Vec<SessionMessage>,
+    resumed: bool,
 }
 
 impl OpenCodeV2Session {
@@ -135,19 +136,24 @@ impl OpenCodeV2Session {
             None => error,
         })?;
 
+        let helper = StartedHelper::default();
         let steps = boot(
             listening,
             password,
             &launch.project,
             launch.resume,
-            rules,
+            (rules, &helper),
             moded.as_ref(),
             options.startup_timeout,
         );
 
         match run_startup_until(budget, until, &mut abort, steps).await {
             Ok(booted) => Ok(Self::open(process, &launch.project, rules, options, booted)),
-            Err(error) => Err(process.fail_start(error).await),
+            Err(error) => {
+                // A helper session the failed startup created is never used: it goes too.
+                helper.delete().await;
+                Err(process.fail_start(error).await)
+            }
         }
     }
 
@@ -205,6 +211,7 @@ impl OpenCodeV2Session {
             exited: process.exit_watch(),
             terminator: process.terminator(),
             silence: options.event_silence,
+            resumed: booted.resumed,
         };
         let events = stream::spawn(chat.clone(), booted.events, watch);
 
@@ -218,7 +225,7 @@ async fn boot(
     password: ServerPassword,
     project: &Path,
     resume: Option<&str>,
-    rules: LaunchRules,
+    (rules, helper): (LaunchRules, &StartedHelper),
     moded: Option<&ModeLaunch>,
     limit: Duration,
 ) -> Result<Booted> {
@@ -231,7 +238,7 @@ async fn boot(
         .ok_or_else(|| BusinessError::InvalidInput("the project path is not valid UTF-8".to_owned()))?;
     let info = match resume {
         Some(id) => resumed(&client, id, project_text).await?,
-        None => created(&client, project_text, rules.utility).await?,
+        None => created(&client, project_text, rules.utility.then_some(helper)).await?,
     };
 
     let directory = project_dir(&info.location.directory, project).ok_or_else(|| match resume {
@@ -275,6 +282,7 @@ async fn boot(
         agent,
         model,
         messages: messages.iter().map(SessionMessage::parse).collect(),
+        resumed: resume.is_some(),
     })
 }
 
@@ -386,9 +394,10 @@ pub(super) async fn ready(client: &OpenCodeClient) -> Result<()> {
     }
 }
 
-/// `POST /api/session` in `directory`; for a helper chat with rules that deny every tool, which
-/// the created session must show.
-async fn created(client: &OpenCodeClient, directory: &str, utility: bool) -> Result<Session> {
+/// `POST /api/session` in `directory`; for a helper chat (`helper` remembers its session) with
+/// rules that deny every tool, which the created session must show.
+async fn created(client: &OpenCodeClient, directory: &str, helper: Option<&StartedHelper>) -> Result<Session> {
+    let utility = helper.is_some();
     let body = CreateBody {
         permissions: utility.then(deny_all),
         ..CreateBody::default()
@@ -401,6 +410,11 @@ async fn created(client: &OpenCodeClient, directory: &str, utility: bool) -> Res
         .error_for_status()?;
 
     let session = response.json::<Envelope<Session>>()?.data;
+
+    if let (Some(helper), Ok(id)) = (helper, SessionId::parse(&session.id)) {
+        let scope = Some(session.location.directory.as_str()).filter(|scope| !scope.is_empty());
+        helper.created(client, id, scope.unwrap_or(directory));
+    }
 
     if utility && !denies_all(&session.permissions) {
         return Err(BusinessError::Protocol(

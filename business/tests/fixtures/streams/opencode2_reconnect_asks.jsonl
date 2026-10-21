@@ -1,0 +1,23 @@
+// Asks while the chat follows no event stream. The chat shows a permission ask (per_1), then OpenCode ends
+// the stream. Meanwhile a subagent session the chat never saw start (ses_child1) asks per_2, a question
+// form waits and per_1 was answered elsewhere. The chat opens the stream again and reads the session, its
+// messages, its subagent sessions and the pending asks: per_2 and the form show, per_1's dialog closes.
+// The answer to per_2 goes to the subagent session. A title change marks the end.
+{"include":"opencode2_startup.jsonl"}
+{"expect":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/prompt","match":{"/text":"Run it"}}
+{"sse":{"type":"session.inbox.enqueued","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","inboxID":"$inbox","item":{"type":"user","payload":{"text":"Run it"},"delivery":"steer"}}}}
+{"sse":{"type":"session.execution.started","data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv"}}}
+{"sse":{"type":"session.inbox.delivered","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","inboxID":"$inbox"}}}
+{"sse":{"type":"session.step.started","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","agent":"build","model":{"id":"big-pickle","providerID":"opencode","variant":"default"},"assistantMessageID":"msg_reply1"}}}
+{"sse":{"type":"session.tool.input.started","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_reply1","id":"call_1","name":"shell"}}}
+{"sse":{"type":"session.tool.called","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_reply1","id":"call_1","input":{"command":"echo hi"},"executed":false}}}
+{"sse":{"type":"permission.asked","location":{"directory":"$directory"},"data":{"id":"per_1","sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","action":"shell","resources":["echo hi"],"save":["echo *"],"source":{"type":"tool","messageID":"msg_reply1","id":"call_1"}}}}
+{"allow":"GET /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv","reply":{"data":{"id":"ses_ea2843d6fffeeHJKZwBKUXqULv","projectID":"global","model":{"id":"big-pickle","providerID":"opencode","variant":"default"},"time":{"created":1792569754266,"updated":1792569754300},"location":{"directory":"$directory"}}}}
+{"allow":"GET /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/message","reply":{"data":[]}}
+{"allow":"GET /api/session","match":{"query.parentID":"ses_ea2843d6fffeeHJKZwBKUXqULv"},"reply":{"data":[{"id":"ses_child1","projectID":"global","parentID":"ses_ea2843d6fffeeHJKZwBKUXqULv","time":{"created":1792569754400,"updated":1792569754500},"location":{"directory":"$directory"}}],"cursor":{}}}
+{"allow":"GET /api/permission/request","reply":{"data":[{"id":"per_2","sessionID":"ses_child1","action":"shell","resources":["make test"],"save":["make *"]}],"location":{"directory":"$directory"}}}
+{"allow":"GET /api/form","reply":{"data":[{"id":"frm_1","sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","title":"Questions","metadata":{"kind":"question","tool":{"messageID":"msg_reply1","id":"call_q"}},"fields":[{"key":"q0","title":"Color preference","description":"Which color do you prefer, red or blue?","type":"string","options":[{"value":"Red","label":"Red"},{"value":"Blue","label":"Blue"}],"custom":true}]}],"location":{"directory":"$directory"}}}
+{"allow":"POST /api/session/ses_child1/permission/per_2/reply","match":{"decision":"once","query.location[directory]":"$directory"}}
+{"sseClose":true}
+{"sse":{"type":"session.renamed","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","title":"Marker"}}}
+{"hang":true}

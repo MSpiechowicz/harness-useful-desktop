@@ -9,7 +9,9 @@
 //!   seen), the agents and models (`catalog.rs`), and the commands and skills (`commands.rs`).
 //! - **Events** (`stream.rs`): one task reads the event stream and maps it ([`Mapper`]) under the
 //!   chat's lock, so prompt bookkeeping and event order never interleave. A stream that ends while
-//!   the server runs is opened again and the chat catches up from the session (`catch_up.rs`).
+//!   the server runs, or stays silent while the server answers, is opened again and the chat
+//!   catches up from the session, its subagent sessions and the pending asks (`catch_up.rs`,
+//!   `family.rs`).
 //! - **Actions:** prompts, steering, follow-ups and abort (`prompts.rs`, sent by `delivery.rs`),
 //!   history (`history.rs`), the model, thinking level and agent pickers and renaming
 //!   (`settings.rs`), answers to approvals and forms (`dialogs.rs`), new chat, fork and clone
@@ -26,6 +28,7 @@ mod catch_up;
 mod commands;
 mod delivery;
 mod dialogs;
+mod family;
 mod history;
 mod ops;
 mod probe;
