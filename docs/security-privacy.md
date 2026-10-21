@@ -351,6 +351,15 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
   run: it writes `opencode.jsonc` (a `$schema` line) and `.gitignore` in its config folder (`~/.config/opencode`),
   `.gitignore` in `~/.opencode` (when it exists) and `OPENCODE_CONFIG_DIR`, tries the same package install in each of
   them, and opens its database and logs under `~/.local/share/opencode`, which the app itself never reads.
+  **On OpenCode 2** the session commands are `session list --standalone --format json`, `session export --standalone
+  <id>` and `session delete --standalone <id>`: `--standalone` runs a private server for the one command, so OpenCode
+  2's shared background service is never started or used. OpenCode 2 has no `--pure`, so **your global OpenCode
+  plugins load for these commands** (in the project folder, as they would in OpenCode's own app); the project's own
+  config and plugins stay out because the app sets `OPENCODE_CONFIG_PROJECT_DISABLE=1` and
+  `OPENCODE_DISABLE_PROJECT_CONFIG=1` explicitly (OpenCode 2 reads the first name first, so an inherited `0` or
+  `false` cannot turn the project's config back on), together with `OPENCODE_DISABLE_MODELS_FETCH=1` and both
+  file-watcher switches. The merged MCP names check of a Share import (`opencode api --standalone GET /api/config`)
+  runs with the same environment.
   At most two session commands run at once (more wait), concurrent list requests for the same project share one run,
   and a list is reused for 5 seconds. Before a delete lists again, it waits for a list already running and then starts
   a new one, so a session created meanwhile is found. Each command has capped output (4 MiB list, 16 MiB export) and a
