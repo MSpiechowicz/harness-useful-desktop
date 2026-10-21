@@ -16,7 +16,7 @@ pub struct HarnessRegistry {
 impl HarnessRegistry {
     /// The harnesses this app ships with. Adding a harness adds one line here.
     pub fn with_defaults() -> Self {
-        Self::new(vec![Box::new(Omp), Box::new(Pi), Box::new(OpenCode)])
+        Self::new(vec![Box::new(Omp), Box::new(Pi), Box::new(OpenCode::default())])
     }
 
     /// A registry over `harnesses` (tests, or a future plugin mechanism).

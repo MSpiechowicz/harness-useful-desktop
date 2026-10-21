@@ -55,7 +55,7 @@ fn fixtures() -> Vec<(&'static str, Value)> {
         (
             "config_view.opencode.json",
             exported(
-                OpenCode.config_view(&opencode_env, Some(&project)).unwrap(),
+                OpenCode::default().config_view(&opencode_env, Some(&project)).unwrap(),
                 &opencode,
                 &project,
             ),
@@ -71,7 +71,9 @@ fn fixtures() -> Vec<(&'static str, Value)> {
         (
             "extensions_view.opencode.json",
             exported(
-                OpenCode.extensions_view(&opencode_env, Some(&project)).unwrap(),
+                OpenCode::default()
+                    .extensions_view(&opencode_env, Some(&project))
+                    .unwrap(),
                 &opencode,
                 &project,
             ),
@@ -80,7 +82,7 @@ fn fixtures() -> Vec<(&'static str, Value)> {
         ("commands_catalog.pi.json", to_json(Pi.catalog().merged(&[]))),
         (
             "commands_catalog.opencode.json",
-            to_json(OpenCode.catalog().merged(&[])),
+            to_json(OpenCode::default().catalog().merged(&[])),
         ),
         ("project_recent.json", to_json(mock_support::project_recent())),
     ];

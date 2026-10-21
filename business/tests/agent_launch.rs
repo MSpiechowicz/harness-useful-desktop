@@ -92,7 +92,7 @@ fn opencode_serves_on_a_loopback_port_and_sets_everything_else_over_http() {
     let project = PathBuf::from("/work/demo");
     let base = launch(&binary, &project);
 
-    assert_eq!(args(&OpenCode, base), OPENCODE_SERVE);
+    assert_eq!(args(&OpenCode::default(), base), OPENCODE_SERVE);
 
     for request in [
         LaunchRequest {
@@ -103,7 +103,7 @@ fn opencode_serves_on_a_loopback_port_and_sets_everything_else_over_http() {
         },
         LaunchRequest { utility: true, ..base },
     ] {
-        assert_eq!(args(&OpenCode, request), OPENCODE_SERVE);
+        assert_eq!(args(&OpenCode::default(), request), OPENCODE_SERVE);
     }
 }
 
@@ -111,7 +111,9 @@ fn opencode_serves_on_a_loopback_port_and_sets_everything_else_over_http() {
 fn opencode_never_inherits_server_credentials_or_a_workspace() {
     let binary = binary();
     let project = PathBuf::from("/work/demo");
-    let spec = OpenCode.launch_spec(&launch(&binary, &project)).expect("launch spec");
+    let spec = OpenCode::default()
+        .launch_spec(&launch(&binary, &project))
+        .expect("launch spec");
 
     for prefix in ["OPENCODE_SERVER_", "OPENCODE_WORKSPACE_ID"] {
         assert!(spec.env_remove_prefixes.contains(&OsString::from(prefix)), "{prefix}");
@@ -170,7 +172,7 @@ fn no_opencode_launch_skips_approvals_signs_in_or_listens_beyond_loopback() {
                 utility,
                 ..launch(&binary, &project)
             };
-            let args = args(&OpenCode, all);
+            let args = args(&OpenCode::default(), all);
 
             for arg in &args {
                 assert!(!forbidden.iter().any(|word| arg.contains(word)), "{arg}");
@@ -190,6 +192,8 @@ fn a_batch_script_opencode_accepts_the_serve_arguments() {
     };
     let project = PathBuf::from("C:/work/demo");
 
-    let spec = OpenCode.launch_spec(&launch(&batch, &project)).expect("safe arguments");
+    let spec = OpenCode::default()
+        .launch_spec(&launch(&batch, &project))
+        .expect("safe arguments");
     assert_eq!(spec.args, OPENCODE_SERVE.map(OsString::from));
 }

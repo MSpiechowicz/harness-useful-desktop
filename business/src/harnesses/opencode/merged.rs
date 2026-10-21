@@ -25,10 +25,9 @@ use std::time::Duration;
 
 use serde_json::Value;
 
-use super::OpenCode;
+use super::SPAWN_ENV;
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
-use crate::harness::Harness;
 use crate::process::{ExecSpec, ProcessRunner, ResolvedBinary, launcher_search_dirs};
 
 /// The arguments of the probe.
@@ -53,7 +52,7 @@ pub async fn merged_mcp_names(
         .cwd(&env.home)
         .env("NO_COLOR", "1")
         .env("FORCE_COLOR", "0")
-        .envs(OpenCode.spawn_env().iter().copied())
+        .envs(SPAWN_ENV.iter().copied())
         .search_dirs(launcher_search_dirs(env, &binary.path))
         .timeout(PROBE_TIMEOUT)
         .max_output_bytes(PROBE_MAX_BYTES)

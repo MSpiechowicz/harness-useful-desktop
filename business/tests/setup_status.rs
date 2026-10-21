@@ -211,7 +211,7 @@ async fn opencodes_servers_are_read_from_its_global_config() {
     });
     write(&path, &entries.to_string());
 
-    let setup = status(&Env::for_tests(home.path()), &[summary(&OpenCode, true)]).await;
+    let setup = status(&Env::for_tests(home.path()), &[summary(&OpenCode::default(), true)]).await;
     let opencode = harness(&setup, HarnessId::OpenCode);
 
     assert!(opencode.installed);
@@ -243,7 +243,7 @@ async fn a_server_in_the_file_opencode_config_names_counts() {
     let env = Env::for_tests(home.path());
 
     let named = env.clone().with_var("OPENCODE_CONFIG", team.to_string_lossy());
-    let setup = status(&named, &[summary(&OpenCode, true)]).await;
+    let setup = status(&named, &[summary(&OpenCode::default(), true)]).await;
     assert_eq!(
         harness(&setup, HarnessId::OpenCode).mcp,
         McpState::Configured {
@@ -255,7 +255,7 @@ async fn a_server_in_the_file_opencode_config_names_counts() {
 
     // A relative path depends on OpenCode's working directory, so it is not read.
     let relative = env.with_var("OPENCODE_CONFIG", "team/opencode.json");
-    let setup = status(&relative, &[summary(&OpenCode, true)]).await;
+    let setup = status(&relative, &[summary(&OpenCode::default(), true)]).await;
     assert!(
         matches!(harness(&setup, HarnessId::OpenCode).mcp, McpState::Missing { .. }),
         "{:?}",

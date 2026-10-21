@@ -3,6 +3,7 @@
 //!
 //! - RPC ([`RpcSession`]): OMP and PI in `--mode rpc`.
 //! - OpenCode server ([`OpenCodeSession`]): `opencode serve` (the manager does not offer it yet).
+//! - OpenCode 2 server ([`ChatProtocol::OpenCodeServerV2`]): not available yet, starting fails.
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -12,7 +13,7 @@ use super::opencode::OpenCodeSession;
 use super::process::StartAbort;
 use super::session::RpcSession;
 use super::sink::{EventSink, PromptTaken};
-use crate::error::Result;
+use crate::error::{BusinessError, Result};
 use crate::harness::ChatProtocol;
 use crate::model::{AgentAction, AgentEvent, AgentReply, ApprovalMode, BashOutput, UiResponse};
 use crate::process::{ExecSpec, ExitInfo, ProcessSpawner};
@@ -60,6 +61,9 @@ impl AgentSession {
         match launch.protocol {
             ChatProtocol::Rpc(dialect) => RpcSession::start(launch, dialect).await.map(Self::Rpc),
             ChatProtocol::OpenCodeServer => OpenCodeSession::start(launch).await.map(Self::OpenCode),
+            ChatProtocol::OpenCodeServerV2 => Err(BusinessError::Unsupported(
+                "OpenCode 2 chat is not available yet".to_owned(),
+            )),
         }
     }
 

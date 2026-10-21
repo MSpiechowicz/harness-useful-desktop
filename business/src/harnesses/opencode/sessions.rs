@@ -32,10 +32,10 @@ use serde_json::Value;
 
 use self::limits::{Flights, Runs};
 use self::transcript::Transcript;
-use super::OpenCode;
+use super::SPAWN_ENV;
 use crate::agent::rfc3339;
 use crate::error::{BusinessError, Result};
-use crate::harness::{CliSessionCtx, CliSessions, Harness};
+use crate::harness::{CliSessionCtx, CliSessions};
 use crate::model::{HarnessId, SessionMessagesPage, SessionRef, SessionSummary};
 use crate::opencode_server::mapper::project_dir;
 use crate::pi_family::normalize::plain_text;
@@ -270,7 +270,7 @@ fn spec(ctx: &CliSessionCtx<'_>, args: &[&str], timeout: Duration, max_output_by
         .env("NO_COLOR", "1")
         .env("FORCE_COLOR", "0")
         .env("OPENCODE_DISABLE_PROJECT_CONFIG", "1")
-        .envs(OpenCode.spawn_env().iter().copied())
+        .envs(SPAWN_ENV.iter().copied())
         .search_dirs(launcher_search_dirs(ctx.env, &ctx.binary.path))
         .timeout(timeout)
         .max_output_bytes(max_output_bytes)

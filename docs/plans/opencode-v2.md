@@ -1,0 +1,197 @@
+# OpenCode 2 support — plan (resumable)
+
+Branch `feat/opencode-v2` (desktop) and `feat/opencode-v2` (harness-useful-skills). Plan approved 2026-10-21, including
+real-traffic recording with the free `opencode/big-pickle` model. Builds on
+[opencode-native-chat.md](opencode-native-chat.md) and [opencode-support.md](opencode-support.md). Each step below ends
+in one commit; the **Status** column says where to resume.
+
+## Goal
+
+OpenCode 2 (2.1.x, npm `@opencode/cli`) gets the same parity as OpenCode 1 (1.18 / 1.19): detection, wizard, Config and
+Extensions views, Sessions (list, open, export, delete, touched files), plugin install and remove, Share setup, Harness
+Skills, MCP registration, native chat (streaming, tool cards, approvals and approval modes, model / thinking / agent
+pickers, slash commands, steering and follow-up queue, abort, new / resume / fork / clone / rename / compact, HTML
+export, stats and context meter, copy last reply, `!command`, images, AI naming, question dialogs), hooks (#16), team
+hooks (#26) and routines (#14). Nothing changes for OpenCode 1.18 / 1.19.
+
+Not in scope: importing OpenCode 1 sessions, the v2 background service, remote or stdio servers, live subagent cards,
+login, per-session MCP.
+
+## Acceptance
+
+- `opencode --version` printing `opencode v2.1.2` is detected as 2.1.2, Supported. Wizard, Config and Extensions views
+  show what v2 reads: `plugins` (string or `{package, options}`) plus legacy `plugin`, `mcp.servers.*` plus legacy
+  `mcp.*`, `agents` / `agent`, `commands` / `command`; no `config.json` layer on v2; `OPENCODE_CONFIG_DIR` replaces
+  the global directory on v2.
+- Sessions view lists, opens (transcript, touched files), exports and deletes v2 sessions; every v2 CLI call has
+  `--standalone`; no `opencode serve --service` is left running.
+- Plugins: v2 installs with `opencode plugin add <pkg>`; remove keeps its preview and edits `plugins` (and legacy
+  `plugin`); Share setup exports and imports v2 plugins and MCP servers; Recommended setup registers the dashboard,
+  memory and desktop MCP servers as `mcp.servers.<name>` and recognises existing entries in either shape.
+- Chat on v2 reaches v1 parity with one private `serve --hostname 127.0.0.1 --port 0` per chat and a random
+  `OPENCODE_SERVER_PASSWORD`.
+- Hooks and routines work on v2; `toolEnd` reports v2 tool ids (`shell`, `patch`, `subagent`, ...); touched paths come
+  from edit / write input paths and `patch` patchText headers.
+- All existing OpenCode 1 tests stay green.
+
+## Decisions (user, 2026-10-21)
+
+1. **One "OpenCode" harness.** v1 or v2 is chosen from the parsed `opencode --version` (v1 prints `1.19.3`, v2 prints
+   `opencode v2.1.2`). v1 support is unchanged.
+2. **`2.1.` is a supported version prefix.**
+3. **One private `opencode serve` per chat**, as on v1. The user's v2 background service is never started:
+   `--standalone` on every CLI call that accepts it (session list / export / delete, run). v2 CLI commands that call
+   the service (`debug agents`, `debug config`, `plugin list`, `mcp list`) are avoided; config files are read instead,
+   as v1 already does.
+4. **Hooks report v2 native tool ids** (`shell`, `patch`, `subagent`, ...). Templates and docs match both
+   (`edit|write|apply_patch|patch`); `docs/hooks-format.md` gets a v2 table.
+5. **Harness Skills get a V2 plugin entry** in harness-useful-skills (branch `feat/opencode-v2`), no release without
+   the user's go.
+6. **One commit per step** on `feat/opencode-v2`; parallel tracks work in git worktrees with `CARGO_TARGET_DIR` on
+   `/home`; no push.
+
+Standing v1 rules carry over: random per-launch password, 127.0.0.1 only, `OPENCODE_DISABLE_AUTOUPDATE=1`, never change
+OpenCode config files from chat, never pass `--auto`, never call share / auth / upgrade / config-write routes.
+
+Install hint: OpenCode 1 keeps its install script (npm `opencode-ai` on Windows). OpenCode 2 is
+`npm install -g @opencode/cli` everywhere: the install script at opencode.ai installs OpenCode 1 releases only and
+refuses 2.x (checked 2026-10-21).
+
+## Architecture
+
+- **Generation:** `OpenCodeGeneration { V1, V2 }` in `business/src/harness/opencode_generation.rs` (prelude
+  re-export). `from_version(&str)`: major 1 → V1, major ≥ 2 → V2, unknown → V1.
+- **Version hook:** `Harness::note_version(&self, Option<&str>)` (default no-op), called by `detect::detect` after the
+  version probe (with `None` when the binary is missing). `OpenCode` is `OpenCode { generation: Arc<AtomicU8> }`
+  with `with_generation()` for tests; every trait method that differs reads `self.generation()`. `SPAWN_ENV` is a
+  const so helpers no longer need an `OpenCode` value.
+- **Desktop shell:** `ensure_detected(state, harness)` in `src-tauri/src/commands/harness.rs` detects a harness without
+  a cached detection before the Config and Extensions views and the Harness Skills install. Plugin actions, sync,
+  sessions, chat and MCP registration already detect through `installed_binary` / `detected_binary` / `summaries`.
+- **Chat:** `ChatProtocol::OpenCodeServerV2`; `OpenCode::chat_protocol()` picks it for V2;
+  `AgentSession::OpenCodeV2(OpenCodeV2Session)` in `agent/engine.rs` (until S9 the arm fails with "OpenCode 2 chat is
+  not available yet").
+- **Shared with v1:** `opencode_server::http` becomes route-agnostic through an `ApiRoute` trait (method, target,
+  blocks, is_stream) implemented by `Route` (v1) and `RouteV2`; `ServerPassword`, the SSE reader, `export_html`,
+  `stats::usage`, `agent::process` / `agent::io`; the `mode_config` rule tables (v2 normalizes legacy
+  `agent.<n>.permission`, verified: bash → shell).
+- **New modules** (each file under 500 lines): `business/src/opencode_server_v2/` (`routes.rs`,
+  `wire/{mod,envelope,session,catalog,prompt}.rs`, `events.rs`, `messages.rs`, `tools.rs`,
+  `mapper/{mod,turns,tools,asks,quiet}.rs`, `modes.rs`, `stats.rs`); `business/src/agent/opencode_v2/` (`mod`,
+  `startup`, `stream`, `prompts`, `history`, `settings`, `dialogs`, `approvals`, `probe`, `ops`, `runs`, `reports`);
+  fake server `business/src/bin/fake_agent/opencode2{,_http,_events}.rs`. S1 declares every module as a doc-only
+  stub so each later track fills only its own files.
+
+## Steps
+
+Order: S1 → (Track A: S3 → S4 ∥ Track B: S5 ∥ Track C: S2 → S6 → (S7 ∥ S8) → S9 → S10 → S11 → S12) → S13 → S14,
+S15 in the skills repo. S7 also needs S5.
+
+- **S1 version plumbing and skeleton** (backend, first, serial): `harness/mod.rs` (`ChatProtocol::OpenCodeServerV2`,
+  `note_version`), `harness/detect.rs`, `harness/opencode_generation.rs`, `harness/registry.rs`,
+  `harnesses/opencode/mod.rs` (supported `1.18.`, `1.19.`, `2.1.`; install hint per generation; `SPAWN_ENV` const used
+  by `merged.rs`, `sessions.rs`, `ecosystem/installer.rs`); `agent/engine.rs` V2 arm returns `Unsupported` until S9;
+  doc-only stubs for `opencode_server_v2/*` and `agent/opencode_v2/*`; src-tauri `ensure_detected`; this plan. Tests:
+  `business/tests/opencode_generation.rs`.
+- **S2 route-agnostic HTTP** (Track C): `opencode_server/http/client.rs`, `routes.rs` implements `ApiRoute` for
+  `Route`. Pure refactor, existing tests prove it.
+- **S3 config and extensions read** (Track A): `harnesses/opencode/paths.rs`, `config.rs`, `config/layers.rs` (no
+  `config.json` on V2), `extensions.rs` split into `extensions/plugins.rs`, `extensions/mcp.rs`,
+  `extensions/agents.rs`, `share.rs`, `sync/collect_opencode.rs`. V1 reads legacy keys only. Tests with fixtures
+  `business/tests/fixtures/opencode2-home/...`, `opencode2_views.rs`, `sync_export_opencode2.rs`.
+- **S4 writes** (Track A): `cli.rs` V2 `["plugin", "add", module]`; `plugin_remove.rs` V2 edits `plugins` plus legacy
+  `plugin`; `McpTarget::OpenCodeConfig(OpenCodeGeneration)`; `ecosystem/mcp_merge.rs` `Shape::OpenCodeV2` (nested
+  `mcp.servers`, entry `{type: "local", command: [bin, "mcp"]}`, no `enabled`; split to `mcp_merge/shape.rs` past 500
+  lines); existing-entry lookup in `memory_register.rs`, `desktop_register.rs`, `mcp_register.rs` checks both shapes;
+  `ecosystem/setup.rs::opencode_file`; `sync/plan_rows.rs` v2 command line; `merged.rs` V2 → `Names::Unchecked`
+  instead of `debug config` (which spawns the service). Tests `opencode2_plugin_actions.rs`,
+  `opencode2_plugin_remove.rs`, `setup_mcp_register_opencode2.rs`, `sync_import_opencode2.rs`.
+- **S5 sessions v2** (Track B): `sessions/v2.rs` and `sessions/transcript_v2.rs` (`session list --standalone --format
+  json -n N`, `export --standalone`, `delete --standalone`, ms times, optional title, `Session not found:` →
+  `NotFound`); `opencode_server_v2/messages.rs` (`SessionMessage` union → transcript and history model) and
+  `tools.rs` (v2 tool ids, touched paths). Fixtures `business/tests/fixtures/sessions/opencode2/*.json`; tests
+  `sessions_opencode2.rs`, `sessions_opencode2_transcript.rs`.
+- **S6 wire, routes, events** (Track C): `RouteV2` allowlist (info, event, session create / get / patch / delete, fork
+  `{before?}`, agent and model switch, prompt, interrupt, command, shell, compact, message list, permission list /
+  reply, form reply / cancel, agent / command / config / model / provider lists); `location[directory]` encoding; id
+  checks; wire envelope `{data}` / cursor, session object, catalogs, prompt body `{text, files, delivery: steer|queue}`;
+  `events.rs` typed SSE envelope, unknown types ignored. Tests `opencode2_routes.rs`, `opencode2_wire.rs` against
+  `business/tests/fixtures/opencode2/recorded/`.
+- **S7 mapper** (Track C, after S5 and S6): text and reasoning deltas, step / execution, status idle / busy / retry,
+  tool input / called / progress / success / failed → tool cards and `ToolEnd` with v2 ids and touched paths,
+  `permission.asked` / `replied`, `form.*` → dialogs, compaction and shell as quiet runs. Tests `opencode2_mapper.rs`,
+  `opencode2_asks_mapper.rs`.
+- **S8 fake v2 server** (Track C, parallel with S7): `bin/fake_agent/opencode2*.rs`, `--dialect opencode2`, Basic auth,
+  `{data}` envelope, SSE heartbeat comments, scripted events; `business/tests/opencode2_engine_support/mod.rs`,
+  `fake_opencode2.rs`; fixtures from real recordings.
+- **S9 engine core** (Track C): `agent/opencode_v2/{mod,startup,stream,prompts,history,settings}.rs` — listening line,
+  `/api/info` readiness (503 retry), event stream, session create / resume (checks the directory), catalogs, prompt,
+  steer / queue, interrupt, model / agent / variant pickers, SSE overflow → reconnect and refetch;
+  `harnesses/opencode/launch.rs` V2 args without `--mdns`, `OPENCODE_PASSWORD` added to the stripped env prefixes;
+  `engine.rs` arm. Fixtures `opencode2_{smoke,startup,turn,tools,steer,follow_up,abort,resume,crash,no_listen}.jsonl`;
+  tests `opencode2_engine*.rs`.
+- **S10 approvals and modes** (Track C): `opencode_server_v2/modes.rs`, `agent/opencode_v2/{approvals,dialogs,probe}.rs`;
+  mode rules in the server's `OPENCODE_CONFIG_CONTENT` as `agents.<n>.permissions` per agent; replies
+  `{decision: once|always|reject}`; forms answered or cancelled; helper chat session with deny-all permissions,
+  deleted at stop.
+- **S11 ops** (Track C): `agent/opencode_v2/{ops,runs,reports}.rs`, `opencode_server_v2/stats.rs` — new, resume, fork
+  (`before`), clone (fork without `before`), rename (PATCH title), compact, HTML export through the shared
+  `export_html`, stats from cost and tokens, context meter, last reply, `!command`, slash commands, images, AI naming.
+- **S12 hooks and routines tests** (Track C): `src-tauri/src/hooks/tests_opencode2.rs`,
+  `src-tauri/src/routines/tests_agent_opencode2.rs`, fixtures `opencode2_hooks.jsonl`,
+  `opencode2_routine_{write,ask}.jsonl`.
+- **S13 UI** (frontend, only if needed): mock fixture `ui/src/lib/ipc/mock/fixtures/harness_list.json` v2 entry; copy
+  rules (no semicolons, "Harness family").
+- **S14 docs:** `hooks-format.md` v2 tool table and matcher example `edit|write|apply_patch|patch`;
+  `opencode-support.md` v2 column; `architecture.md` / `adding-a-harness.md` on `note_version` and `ChatProtocol`;
+  finalise the status table.
+- **S15 Harness Skills V2 entry** (harness-useful-skills, branch `feat/opencode-v2`): `opencode/v2.js` default export
+  `{id: "useful-skills", setup(ctx)}`; v1 `experimental.chat.system.transform` → `ctx.session.hook("context", ...)`;
+  `chat.message` → `session.hook("prompt")`; tool hooks → `ctx.tool.hook("execute.before" | "execute.after")`; events
+  `ctx.event.subscribe`; `command.execute.before` → `ctx.command.transform` or a prompt rewrite; no toast. Check
+  whether v2's legacy auto-discovery of `plugins/` breaks on the v1 entry and whether v1 tolerates a default export
+  (one dual entry, or the installer picks the entry). Build script, installers, `test/opencode-v2.test.js`. No
+  release.
+
+## Status
+
+| # | Step | Owner | Status |
+| --- | --- | --- | --- |
+| S1 | Version plumbing and skeleton | backend | done |
+| S2 | Route-agnostic HTTP | backend | todo |
+| S3 | Config and extensions read | backend | todo |
+| S4 | Config writes, plugins, MCP registration | backend | todo |
+| S5 | Sessions v2 | backend | todo |
+| S6 | Wire, routes, events | backend | todo |
+| S7 | Event mapper | backend | todo |
+| S8 | Fake v2 server | backend | todo |
+| S9 | Engine core | backend | todo |
+| S10 | Approvals and approval modes | backend | todo |
+| S11 | Session ops, export, stats | backend | todo |
+| S12 | Hooks and routines tests | backend | todo |
+| S13 | UI (only if needed) | frontend | todo |
+| S14 | Docs | general | todo |
+| S15 | Harness Skills V2 entry | general | todo |
+
+## Verification
+
+- Each Rust step: `cargo test -p harness_business --test <new tests>` plus the existing `opencode_*` tests,
+  `cargo clippy --workspace --all-targets -- -D warnings`; `cargo test -p harness_desktop` when src-tauri changed.
+  UI: `bun run check`, `bun run test`. Skills: `node --test` with coverage, `node scripts/build-opencode-plugin.js
+  --check`.
+- Sandboxed real v2 end-to-end run (under `unshare`, no provider): detection, empty-project session list, create /
+  list / export / delete through app code, chat start → ready, pickers, rename and fork, approval-mode config through
+  `GET /api/config`, plugin add / remove in a temporary HOME, MCP register → `GET /api/config` shows `mcp.servers`;
+  `pgrep -f "serve --service"` empty after each.
+- At most 3 review and 3 security passes, then the user's real-provider checklist.
+
+## Risks
+
+- Harness Skills entry loader compatibility between v1 and v2.
+- `/api/agent` is empty offline (fallback agent list for modes).
+- Subagent permission inheritance; PATCH permissions semantics (not used).
+- Serve exposure through the user's config (check the cli serve handler; the client refuses non-loopback).
+- Merged MCP names on v2 → `Unchecked`.
+- Unverified: busy 409, `list -n` paging, prompt `files` shape for images, form reply payload.
+- `--standalone` spawn cost; `opencode2`-only installs are ignored (the binary name stays `opencode`).
+- The generation is stale until the next detection (an upgrade from 1 to 2 needs a re-detect).

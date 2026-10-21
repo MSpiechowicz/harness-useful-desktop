@@ -98,8 +98,13 @@ pub(super) async fn detect<H: Harness + ?Sized>(
                 }
                 Err(problem) => problems.push(problem),
             }
+
+            harness.note_version(detection.version.as_deref());
         }
-        None => detection.install_hint = Some(harness.install_hint()),
+        None => {
+            harness.note_version(None);
+            detection.install_hint = Some(harness.install_hint());
+        }
     }
 
     if !problems.is_empty() {

@@ -1,4 +1,6 @@
 //! OpenCode (`opencode`, `opencode-ai`), following the OpenCode sources (1.19.3) and documentation.
+//! OpenCode 2 (`@opencode/cli`, 2.1.x) uses the same binary name: detection notes the version and
+//! [`OpenCode::generation`] picks the behaviour of each generation ([`OpenCodeGeneration`]).
 //!
 //! Config and data follow the XDG directories (see [`paths`]). OpenCode keeps its sessions in a
 //! SQLite database that also holds credentials, so the app never opens it: sessions are listed,
@@ -31,15 +33,39 @@ pub use paths::{PROJECT_DIR_NAME, config_dir, custom_config_dir, data_dir, home_
 pub use sessions::OpenCodeSessions;
 pub(crate) use share::{PluginEntry, global_plugin_entries, user_npm_plugins};
 
+use std::sync::Arc;
+use std::sync::atomic::{AtomicU8, Ordering};
+
 use crate::error::BusinessError;
 use crate::harness::prelude::*;
 use crate::harnesses::pi::PiDialect;
 use crate::model::{SessionMessagesPage, SessionRef, SessionSummary, SessionTree};
 use crate::pi_family::sessions::SessionCache;
 
-/// The OpenCode adapter.
-#[derive(Debug, Clone, Copy, Default)]
-pub struct OpenCode;
+/// Environment variables set on every spawn of `opencode` (see [`Harness::spawn_env`]): its
+/// self-updater stays off.
+pub const SPAWN_ENV: &[(&str, &str)] = &[("OPENCODE_DISABLE_AUTOUPDATE", "1")];
+
+/// The OpenCode adapter. Clones share the generation, which detection updates
+/// ([`Harness::note_version`]); until then it is [`OpenCodeGeneration::V1`].
+#[derive(Debug, Clone, Default)]
+pub struct OpenCode {
+    generation: Arc<AtomicU8>,
+}
+
+impl OpenCode {
+    /// An adapter fixed to `generation` until the next detection (tests, callers that know it).
+    pub fn with_generation(generation: OpenCodeGeneration) -> Self {
+        Self {
+            generation: Arc::new(AtomicU8::new(generation.code())),
+        }
+    }
+
+    /// The generation the last detection found ([`OpenCodeGeneration::V1`] before any).
+    pub fn generation(&self) -> OpenCodeGeneration {
+        OpenCodeGeneration::from_code(self.generation.load(Ordering::Relaxed))
+    }
+}
 
 impl Harness for OpenCode {
     fn id(&self) -> HarnessId {
@@ -104,7 +130,10 @@ impl Harness for OpenCode {
     }
 
     fn chat_protocol(&self) -> ChatProtocol {
-        ChatProtocol::OpenCodeServer
+        match self.generation() {
+            OpenCodeGeneration::V1 => ChatProtocol::OpenCodeServer,
+            OpenCodeGeneration::V2 => ChatProtocol::OpenCodeServerV2,
+        }
     }
 
     /// The data directory, where the session database lives (it is never opened).
@@ -176,11 +205,15 @@ impl Harness for OpenCode {
     }
 
     fn spawn_env(&self) -> &'static [(&'static str, &'static str)] {
-        &[("OPENCODE_DISABLE_AUTOUPDATE", "1")]
+        SPAWN_ENV
     }
 
+    /// OpenCode 1 from its install script (`npm` on Windows), OpenCode 2 from npm only: the
+    /// script installs OpenCode 1 releases and refuses 2.x.
     fn install_hint(&self) -> InstallHint {
-        let command = if cfg!(windows) {
+        let command = if self.generation() == OpenCodeGeneration::V2 {
+            "npm install -g @opencode/cli"
+        } else if cfg!(windows) {
             "npm install -g opencode-ai"
         } else {
             "curl -fsSL https://opencode.ai/install | bash"
@@ -207,7 +240,13 @@ impl Harness for OpenCode {
     }
 
     fn supported_versions(&self) -> &'static [&'static str] {
-        &["1.18.", "1.19."]
+        &["1.18.", "1.19.", "2.1."]
+    }
+
+    fn note_version(&self, version: Option<&str>) {
+        let generation = version.map_or(OpenCodeGeneration::V1, OpenCodeGeneration::from_version);
+
+        self.generation.store(generation.code(), Ordering::Relaxed);
     }
 }
 

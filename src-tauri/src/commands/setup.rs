@@ -19,7 +19,7 @@ use tauri::async_runtime::block_on;
 use tauri::ipc::Channel;
 
 use super::blocking;
-use super::harness::{find, find_in, installed_binary, summaries};
+use super::harness::{ensure_detected, find, find_in, installed_binary, summaries};
 use crate::error::CommandResult;
 use crate::hooks::after_member_install;
 use crate::memory_setup::{after_install, register_in};
@@ -70,13 +70,16 @@ pub async fn setup_install_memory(
 
 /// Runs the Harness Skills' OpenCode installer like [`setup_install_dashboard`] (its own lock: one
 /// skills install at a time). `ok` once their install record holds a version; OpenCode and its
-/// running chats load them after a restart.
+/// running chats load them after a restart. OpenCode is detected first, so its generation is known
+/// (see `ensure_detected`).
 #[tauri::command]
 pub async fn setup_install_opencode_skills(
     state: State<'_, AppState>,
     confirmed: bool,
     on_log: Channel<InstallLogLine>,
 ) -> CommandResult<DashboardInstallResult> {
+    ensure_detected(&state, HarnessId::OpenCode).await?;
+
     install(&state, &TokioSpawner, Companion::OpenCodeSkills, confirmed, &on_log).await
 }
 

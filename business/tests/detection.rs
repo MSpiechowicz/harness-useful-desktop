@@ -304,11 +304,14 @@ fn the_registry_lists_every_harness() {
 
 #[test]
 fn opencode_1_18_and_1_19_are_supported_and_everything_else_untested() {
-    assert_eq!(OpenCode.version_support("1.18.35"), VersionSupport::Supported);
-    assert_eq!(OpenCode.version_support("1.19.3"), VersionSupport::Supported);
-    assert_eq!(OpenCode.version_support("1.17.9"), VersionSupport::Untested);
-    assert_eq!(OpenCode.version_support("2.0.0"), VersionSupport::Untested);
-    assert_eq!(OpenCode.version_support("11.18.0"), VersionSupport::Untested);
+    assert_eq!(
+        OpenCode::default().version_support("1.18.35"),
+        VersionSupport::Supported
+    );
+    assert_eq!(OpenCode::default().version_support("1.19.3"), VersionSupport::Supported);
+    assert_eq!(OpenCode::default().version_support("1.17.9"), VersionSupport::Untested);
+    assert_eq!(OpenCode::default().version_support("2.0.0"), VersionSupport::Untested);
+    assert_eq!(OpenCode::default().version_support("11.18.0"), VersionSupport::Untested);
 }
 
 #[tokio::test]
@@ -318,7 +321,7 @@ async fn opencode_prints_a_bare_version_and_is_probed_without_updating_itself() 
     let binary = fake_binary(&bin, &binary_file("opencode"), "");
     let runner = CannedRunner::printing("1.18.35\n");
 
-    let detection = OpenCode.detect(&env, &runner, None).await;
+    let detection = OpenCode::default().detect(&env, &runner, None).await;
 
     assert!(detection.installed);
     assert_eq!(detection.version.as_deref(), Some("1.18.35"));
@@ -355,7 +358,7 @@ async fn opencode_is_found_where_its_install_script_puts_it() {
     let binary = fake_binary(&home.path().join(".opencode").join("bin"), &binary_file("opencode"), "");
     let runner = CannedRunner::printing("1.19.3\n");
 
-    let detection = OpenCode.detect(&env, &runner, None).await;
+    let detection = OpenCode::default().detect(&env, &runner, None).await;
 
     assert!(detection.installed);
     assert_eq!(
@@ -370,7 +373,7 @@ async fn a_missing_opencode_reports_its_install_hint() {
     let home = TempDir::new().unwrap();
     let (env, _) = env_with_bin(&home);
 
-    let detection = OpenCode.detect(&env, &NoRunner, None).await;
+    let detection = OpenCode::default().detect(&env, &NoRunner, None).await;
 
     assert!(!detection.installed);
     let hint = detection.install_hint.unwrap();

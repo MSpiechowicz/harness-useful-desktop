@@ -23,6 +23,7 @@ mod io;
 mod launch;
 mod manager;
 mod opencode;
+mod opencode_v2;
 mod process;
 mod session;
 mod sink;

@@ -105,7 +105,7 @@ async fn a_failed_startup_never_shows_the_password() {
     let spawner = ScenarioSpawner::new("opencode", "opencode_no_listen.jsonl");
     let sink = CollectingSink::new();
     let deps = AgentDeps {
-        harness: &OpenCode,
+        harness: &OpenCode::default(),
         env: &env,
         spawner: spawner.clone(),
         binary: binary(),

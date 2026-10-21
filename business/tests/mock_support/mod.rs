@@ -43,8 +43,8 @@ pub fn harness_list() -> Vec<HarnessSummary> {
     };
 
     let opencode = HarnessSummary {
-        info: OpenCode.info(),
-        capabilities: OpenCode.capabilities(),
+        info: OpenCode::default().info(),
+        capabilities: OpenCode::default().capabilities(),
         detection: Detection {
             installed: true,
             binary_path: Some(format!("{DEMO_HOME}/.opencode/bin/opencode")),

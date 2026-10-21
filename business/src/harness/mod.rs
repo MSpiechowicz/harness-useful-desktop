@@ -28,6 +28,7 @@ mod catalog;
 mod cli;
 mod detect;
 mod launch;
+mod opencode_generation;
 mod registry;
 
 pub use catalog::{
@@ -41,6 +42,7 @@ pub use cli::{
 };
 pub use detect::{VERSION_TIMEOUT, first_semver, override_name_matches};
 pub use launch::{LaunchRequest, flag_with, rpc_exec_spec, utility_args};
+pub use opencode_generation::OpenCodeGeneration;
 pub use registry::HarnessRegistry;
 
 /// Everything an adapter's `impl Harness` block needs: `use crate::harness::prelude::*;`.
@@ -51,7 +53,7 @@ pub mod prelude {
 
     pub use super::{
         ChatProtocol, CliInvocation, CliSessionCtx, CliSessions, CommandCatalog, CompanionSetup, Harness, HarnessPaths,
-        LaunchRequest, McpTarget, ShareSupport, SkillsStrategy,
+        LaunchRequest, McpTarget, OpenCodeGeneration, ShareSupport, SkillsStrategy,
     };
     pub use crate::env::Env;
     pub use crate::error::Result;
@@ -82,8 +84,10 @@ use crate::process::{BlockingRunner, BoxFuture, ExecSpec, ProcessRunner, Resolve
 pub enum ChatProtocol {
     /// The PI-family RPC protocol on stdin/stdout (`--mode rpc`), spoken in this dialect.
     Rpc(&'static dyn RpcDialect),
-    /// An `opencode serve` HTTP server on a loopback port, with its event stream.
+    /// An `opencode serve` HTTP server of OpenCode 1 on a loopback port, with its event stream.
     OpenCodeServer,
+    /// An `opencode serve` HTTP server of OpenCode 2 (its `/api` routes) on a loopback port.
+    OpenCodeServerV2,
 }
 
 /// Where a harness keeps its files, resolved from an [`Env`] (and the project, if any).
@@ -422,6 +426,13 @@ pub trait Harness: Send + Sync {
     /// Version prefixes this app was tested with (e.g. `"18."`); empty means none verified yet.
     fn supported_versions(&self) -> &'static [&'static str] {
         &[]
+    }
+
+    /// Called by [`Harness::detect`] with the version the probe read (`None` when it read none or
+    /// the binary is missing), so a harness whose behaviour depends on its version (OpenCode 1 or
+    /// 2) can pick it. Default: nothing.
+    fn note_version(&self, version: Option<&str>) {
+        let _ = version;
     }
 
     /// How `version` relates to [`Harness::supported_versions`].

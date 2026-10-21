@@ -8,7 +8,7 @@ pub const BOTH: &[HarnessId] = &[HarnessId::Omp, HarnessId::Pi];
 
 /// The summaries of OMP, PI and OpenCode, with `installed` detected as installed.
 pub fn summaries(installed: &[HarnessId]) -> Vec<HarnessSummary> {
-    let harnesses: [&dyn Harness; 3] = [&Omp, &Pi, &OpenCode];
+    let harnesses: [&dyn Harness; 3] = [&Omp, &Pi, &OpenCode::default()];
 
     harnesses
         .iter()

@@ -142,7 +142,7 @@ fn pi_terminal_builtins_map_to_rpc_views_or_unsupported() {
 
 #[test]
 fn opencode_terminal_commands_map_to_chat_actions_views_or_unsupported() {
-    let merged = OpenCode.catalog().merged(&[]);
+    let merged = OpenCode::default().catalog().merged(&[]);
     let invocation = |name: &str| find(&merged, name).invocation.clone();
     let view = |target| CommandInvocation::Gui { target };
 
@@ -190,14 +190,14 @@ fn opencode_server_commands_come_from_the_live_list_as_prompt_text() {
     ];
 
     assert!(
-        OpenCode
+        OpenCode::default()
             .catalog()
             .merged(&[])
             .iter()
             .all(|command| command.name != "init")
     );
 
-    let merged = OpenCode.catalog().merged(&live);
+    let merged = OpenCode::default().catalog().merged(&live);
     for (name, source) in [
         ("init", CommandSource::Custom),
         ("review", CommandSource::Custom),
@@ -228,7 +228,7 @@ fn opencode_command_hints_become_argument_hints() {
     live.push(json!({ "name": "deploy", "source": "command", "hints": ["$1", "$2", "$ARGUMENTS"] }));
     live.push(json!({ "name": "odd", "source": "command", "hints": ["$x", 7] }));
 
-    let merged = OpenCode.catalog().merged(&live);
+    let merged = OpenCode::default().catalog().merged(&live);
 
     assert_eq!(find(&merged, "init").argument_hint.as_deref(), Some("[arguments]"));
     assert_eq!(find(&merged, "review").argument_hint.as_deref(), Some("[arguments]"));

@@ -31,7 +31,7 @@ impl Home {
 
     /// The file OpenCode's servers are registered in, as the setup step picks it.
     fn opencode_file(&self) -> McpFile {
-        mcp_target(&self.env, &OpenCode).expect("OpenCode has an MCP file")
+        mcp_target(&self.env, &OpenCode::default()).expect("OpenCode has an MCP file")
     }
 
     fn register_opencode(&self) -> McpState {
@@ -335,7 +335,7 @@ fn an_entry_in_another_opencode_config_file_counts_and_nothing_is_created() {
     std::fs::create_dir_all(&team).unwrap();
     std::fs::write(team.join("opencode.jsonc"), format!("// team\n{entry}")).unwrap();
     let env = home.env.clone().with_var("OPENCODE_CONFIG_DIR", team.to_string_lossy());
-    let file = mcp_target(&env, &OpenCode).unwrap();
+    let file = mcp_target(&env, &OpenCode::default()).unwrap();
 
     assert_eq!(file.path, home.opencode("opencode.json"));
     assert_eq!(

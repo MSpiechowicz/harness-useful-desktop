@@ -394,13 +394,14 @@ fn oversized_or_slow_output_is_an_error() {
 fn the_harness_exposes_the_cli_sessions() {
     let fixture = Fixture::new();
     let runner = Replay::answering([fixture.list_output()]);
-    let cli = OpenCode.cli_sessions().expect("OpenCode sessions go through its CLI");
+    let harness = OpenCode::default();
+    let cli = harness.cli_sessions().expect("OpenCode sessions go through its CLI");
 
     let listed = cli.list(&fixture.ctx(fixture.project(), &runner)).unwrap();
 
     assert_eq!(listed.len(), 2);
     assert_eq!(
-        OpenCode
+        OpenCode::default()
             .list_sessions(&fixture.home.env, fixture.project(), &Default::default())
             .map(drop)
             .map_err(|error| error.code()),

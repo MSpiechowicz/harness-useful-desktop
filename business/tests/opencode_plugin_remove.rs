@@ -39,7 +39,7 @@ impl Home {
     fn remove(&self, name: &str, project: Option<&Path>, dry_run: bool) -> harness_business::Result<CliResult> {
         let action = ExtensionAction::PluginUninstall { name: name.to_owned() };
 
-        OpenCode
+        OpenCode::default()
             .config_action(&self.env, &action, project, dry_run)
             .map(|result| result.expect("a config edit"))
     }

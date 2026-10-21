@@ -53,8 +53,8 @@ fn env_with_node(home: &Path) -> Env {
 /// The OpenCode skills offer of `env`, with OpenCode detected.
 async fn opencode_skills(env: &Env) -> SkillsSetup {
     let summary = HarnessSummary {
-        info: OpenCode.info(),
-        capabilities: OpenCode.capabilities(),
+        info: OpenCode::default().info(),
+        capabilities: OpenCode::default().capabilities(),
         detection: Detection {
             installed: true,
             binary_path: None,

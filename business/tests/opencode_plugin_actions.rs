@@ -93,7 +93,7 @@ fn opencode_installs_npm_modules_globally_without_a_preview_flag() {
         &"x".repeat(214),
     ] {
         for project in [None, Some(project)] {
-            let built = OpenCode.cli_action(&install(module), project).expect(module);
+            let built = OpenCode::default().cli_action(&install(module), project).expect(module);
 
             assert_eq!(built.args, ["plugin", module, "-g"]);
             assert_eq!(built.dry_run_flag, None, "{module}");
@@ -104,7 +104,9 @@ fn opencode_installs_npm_modules_globally_without_a_preview_flag() {
 #[test]
 fn hostile_modules_are_refused_without_echoing_them() {
     for module in hostile_modules() {
-        let error = OpenCode.cli_action(&install(&module), None).expect_err(&module);
+        let error = OpenCode::default()
+            .cli_action(&install(&module), None)
+            .expect_err(&module);
 
         assert!(matches!(error, BusinessError::InvalidInput(_)), "{module:?}: {error:?}");
         if module.len() > 2 && module.len() < 100 {
@@ -121,7 +123,7 @@ fn opencode_actions_other_than_a_user_install_are_unsupported_by_its_cli() {
     });
 
     for action in actions {
-        let error = OpenCode
+        let error = OpenCode::default()
             .cli_action(&action, Some(Path::new("/home/demo/p")))
             .expect_err("unsupported");
 
@@ -139,7 +141,7 @@ fn only_plugin_removal_is_a_config_edit() {
 
     for action in actions {
         for dry_run in [true, false] {
-            let routed = OpenCode
+            let routed = OpenCode::default()
                 .config_action(&env, &action, None, dry_run)
                 .expect("not refused");
 
@@ -150,7 +152,7 @@ fn only_plugin_removal_is_a_config_edit() {
 
 #[test]
 fn opencode_offers_cli_actions() {
-    assert!(OpenCode.capabilities().cli_actions);
+    assert!(OpenCode::default().capabilities().cli_actions);
 }
 
 #[cfg(unix)]
@@ -183,7 +185,7 @@ mod runs {
             let env = Env::for_tests(self.0.home());
 
             run_cli_action(CliRun {
-                harness: &OpenCode,
+                harness: &OpenCode::default(),
                 env: &env,
                 runner: &TokioRunner,
                 binary: &self.0.binary,

@@ -36,8 +36,7 @@ use super::memory_binary::{memory_version, resolve_memory};
 use super::skills_record::opencode_skills_installed;
 use crate::env::{Env, OsKind};
 use crate::error::Result;
-use crate::harness::Harness;
-use crate::harnesses::OpenCode;
+use crate::harnesses::opencode::SPAWN_ENV;
 use crate::model::{DashboardInstallResult, InstallLogLine, InstallStream};
 use crate::process::{ChildHandle, ExecSpec, ExitInfo, ProcessRunner, ProcessSpawner, TokioRunner, extra_search_dirs};
 
@@ -161,7 +160,7 @@ impl Companion {
     fn installer_env(self) -> &'static [(&'static str, &'static str)] {
         match self {
             Self::Dashboard | Self::Memory => &[],
-            Self::OpenCodeSkills => OpenCode.spawn_env(),
+            Self::OpenCodeSkills => SPAWN_ENV,
         }
     }
 }

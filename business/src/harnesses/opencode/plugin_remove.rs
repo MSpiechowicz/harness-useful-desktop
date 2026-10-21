@@ -72,7 +72,7 @@ enum Outcome {
 pub fn remove_plugin(env: &Env, name: &str, project: Option<&Path>, dry_run: bool) -> Result<CliResult> {
     check_name(name)?;
 
-    let file = mcp_target(env, &OpenCode)
+    let file = mcp_target(env, &OpenCode::default())
         .map(|target| target.path)
         .ok_or_else(|| BusinessError::Internal("OpenCode has no global config file".to_owned()))?;
     let shown = tilde(env, &file);

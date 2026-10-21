@@ -220,6 +220,6 @@ fn the_walk_stops_at_its_entry_budget() {
 fn opencode_has_no_session_files_to_count() {
     let home = session_home();
 
-    let error = OpenCode.session_totals(&home.env).expect_err("CLI sessions");
+    let error = OpenCode::default().session_totals(&home.env).expect_err("CLI sessions");
     assert_eq!(error.code(), IpcErrorCode::Unsupported);
 }

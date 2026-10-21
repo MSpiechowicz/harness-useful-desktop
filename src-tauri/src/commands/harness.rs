@@ -150,6 +150,16 @@ pub(super) async fn detect(state: &AppState, harness: HarnessId) -> CommandResul
     Ok(summary)
 }
 
+/// Detects `harness` when the cache has no entry yet, so the version it reported has picked its
+/// behaviour (OpenCode 1 or 2, see `Harness::note_version`) before a view or action reads it.
+pub(super) async fn ensure_detected(state: &AppState, harness: HarnessId) -> CommandResult<()> {
+    if state.detections.read().await.contains_key(&harness) {
+        return Ok(());
+    }
+
+    detect(state, harness).await.map(|_| ())
+}
+
 /// The detected binary of `harness` (detecting it when the cache has no entry yet); `notFound`
 /// when it is not installed.
 pub(super) async fn installed_binary(state: &AppState, harness: HarnessId) -> CommandResult<ResolvedBinary> {
@@ -185,12 +195,15 @@ async fn stored_overrides(state: &AppState) -> CommandResult<Vec<BinaryOverride>
     blocking(move || Ok(prefs.with(|store| store.load()).binary_overrides)).await
 }
 
-/// Authorizes `project` (see [`Projects::authorize`]) and runs `view` in a blocking task.
+/// Authorizes `project` (see [`Projects::authorize`]) and runs `view` in a blocking task, once
+/// `harness` was detected ([`ensure_detected`]).
 async fn with_project<T, F>(state: &AppState, harness: HarnessId, project: Option<String>, view: F) -> CommandResult<T>
 where
     T: Send + 'static,
     F: FnOnce(&dyn Harness, &Env, Option<&Path>) -> harness_business::Result<T> + Send + 'static,
 {
+    ensure_detected(state, harness).await?;
+
     let prefs = state.prefs.clone();
     let env = state.env.clone();
     let registry = state.registry.clone();

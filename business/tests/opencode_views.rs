@@ -15,11 +15,11 @@ use harness_business::model::{
 use pretty_assertions::assert_eq;
 
 fn config(env: &Env, project: Option<&Path>) -> ConfigView {
-    OpenCode.config_view(env, project).unwrap()
+    OpenCode::default().config_view(env, project).unwrap()
 }
 
 fn extensions(env: &Env, project: Option<&Path>) -> ExtensionsView {
-    OpenCode.extensions_view(env, project).unwrap()
+    OpenCode::default().extensions_view(env, project).unwrap()
 }
 
 /// Section file paths relative to the fixture home or the demo project.

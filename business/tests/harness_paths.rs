@@ -107,7 +107,7 @@ fn pi_uses_its_agent_dir_variable() {
 #[test]
 fn opencode_defaults_to_the_xdg_fallbacks_below_home() {
     let project = home().join("Projects/demo");
-    let paths = OpenCode.paths(&Env::for_tests(home()), Some(&project));
+    let paths = OpenCode::default().paths(&Env::for_tests(home()), Some(&project));
 
     assert_eq!(paths.config_root, home().join(".config/opencode"));
     assert_eq!(paths.agent_dir, paths.config_root);
@@ -125,16 +125,16 @@ fn opencode_honours_absolute_xdg_directories_only() {
         .with_var("XDG_CONFIG_HOME", config.to_string_lossy())
         .with_var("XDG_DATA_HOME", data.to_string_lossy());
 
-    let paths = OpenCode.paths(&env, None);
+    let paths = OpenCode::default().paths(&env, None);
     assert_eq!(paths.config_root, config.join("opencode"));
     assert_eq!(paths.data_root, data.join("opencode"));
-    assert_eq!(OpenCode.sessions_dir(&env, &home()), data.join("opencode"));
+    assert_eq!(OpenCode::default().sessions_dir(&env, &home()), data.join("opencode"));
 
     let relative = Env::for_tests(home())
         .with_var("XDG_CONFIG_HOME", "xdg/config")
         .with_var("XDG_DATA_HOME", "xdg/data");
     assert_eq!(
-        OpenCode.paths(&relative, None).config_root,
+        OpenCode::default().paths(&relative, None).config_root,
         home().join(".config/opencode")
     );
     assert_eq!(data_dir(&relative), home().join(".local/share/opencode"));
@@ -145,7 +145,10 @@ fn the_opencode_config_dir_variable_adds_a_layer_without_moving_the_root() {
     let team = home().join("team-opencode");
     let env = Env::for_tests(home()).with_var("OPENCODE_CONFIG_DIR", team.to_string_lossy());
 
-    assert_eq!(OpenCode.paths(&env, None).config_root, home().join(".config/opencode"));
+    assert_eq!(
+        OpenCode::default().paths(&env, None).config_root,
+        home().join(".config/opencode")
+    );
     assert_eq!(custom_config_dir(&env), Some(team));
 
     let relative = Env::for_tests(home()).with_var("OPENCODE_CONFIG_DIR", "team-opencode");
