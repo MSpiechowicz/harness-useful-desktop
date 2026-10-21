@@ -1,6 +1,7 @@
 //! OpenCode 2 tool ids (`shell`, `patch`, `subagent`, ...) and the project files their calls may
-//! have changed, and tool calls as OpenCode 2 stores them ([`ToolCall`]). Shared by the CLI
-//! transcript and the live chat.
+//! have changed, tool calls as OpenCode 2 stores them ([`ToolCall`]), and how a call's output
+//! shows ([`content_text`], [`failure_text`]). Shared by the CLI transcript and the live chat, so a
+//! card shows the same output live and after resume.
 //!
 //! `edit` and `write` name their file in `path`; `patch` names its files in the `*** Add File:`,
 //! `*** Update File:`, `*** Delete File:` and `*** Move to:` headers of `patchText`
@@ -15,6 +16,7 @@ use std::path::Path;
 use serde::Deserialize;
 use serde_json::{Value, json};
 
+pub use super::events::ToolContent;
 use super::messages::{SessionError, Times};
 use crate::model::ChatBlock;
 use crate::pi_family::touched::touched_paths;
@@ -163,22 +165,6 @@ pub enum ToolState {
     Other,
 }
 
-/// One item of a tool's output.
-#[derive(Debug, Clone, Deserialize)]
-#[serde(tag = "type", rename_all = "kebab-case")]
-pub enum ToolContent {
-    Text {
-        #[serde(default)]
-        text: String,
-    },
-    File {
-        #[serde(default)]
-        name: Option<String>,
-    },
-    #[serde(other)]
-    Other,
-}
-
 impl ToolCall {
     /// The call's arguments; `Null` while they stream.
     pub fn input(&self) -> &Value {
@@ -192,8 +178,7 @@ impl ToolCall {
     pub fn outcome(&self) -> Option<(String, bool)> {
         let (output, is_error) = match &self.state {
             ToolState::Completed { content, .. } => (content_text(content), false),
-            ToolState::Error { error, content, .. } if error.message.is_empty() => (content_text(content), true),
-            ToolState::Error { error, .. } => (error.message.clone(), true),
+            ToolState::Error { error, content, .. } => (failure_text(&error.message, content, None), true),
             _ => return None,
         };
 
@@ -220,15 +205,33 @@ impl ToolCall {
     }
 }
 
-/// The text items of a tool's output, one per line; named files as `@name`.
-fn content_text(content: &[ToolContent]) -> String {
+/// A tool's output as its card shows it, live and after resume: the text items one per line, a
+/// named file (an image a tool read) as `@name`; unnamed files are not shown.
+pub fn content_text(content: &[ToolContent]) -> String {
     let lines: Vec<String> = content
         .iter()
         .filter_map(|item| match item {
             ToolContent::Text { text } => Some(text.clone()),
-            ToolContent::File { name: Some(name) } => Some(format!("@{name}")),
+            ToolContent::File { name: Some(name), .. } => Some(format!("@{name}")),
             _ => None,
         })
+        .collect();
+
+    lines.join("\n")
+}
+
+/// A failed call's output as its card shows it: what the call wrote before it failed (`content`,
+/// else the output streamed while it ran), then the `error`.
+pub fn failure_text(error: &str, content: &[ToolContent], streamed: Option<&str>) -> String {
+    let written = content_text(content);
+    let partial = match streamed {
+        Some(streamed) if written.is_empty() => streamed,
+        _ => written.as_str(),
+    };
+
+    let lines: Vec<&str> = [partial.trim_end(), error]
+        .into_iter()
+        .filter(|line| !line.is_empty())
         .collect();
 
     lines.join("\n")

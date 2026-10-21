@@ -1,5 +1,6 @@
 //! The OpenCode 2 mapper's turns: errors, retries, the status-only fallback, aborts, held
-//! follow-ups and steering, as the OpenCode 1 mapper reports them. Crafted events of one session.
+//! follow-ups and steering, as the OpenCode 1 mapper reports them, and interruptions by their
+//! reason. Crafted events of one session.
 
 mod opencode2_mapper_support;
 mod opencode2_recorded;
@@ -232,4 +233,111 @@ fn steering_the_run_never_took_leaves_the_queue_when_the_turn_ends() {
     mapper.steer_sent(Outgoing::new("stranded", &[]));
     let out = feed(&mut mapper, &[ours("session.execution.succeeded", json!({}))]);
     assert_eq!(shape(&out), ["queueUpdate", "agentEnd", "promptResult", "settled"]);
+}
+
+/// A running turn with a held follow-up, whose step OpenCode interrupts.
+fn interrupted_turn(reason: &str, user_abort: bool) -> Vec<AgentEvent> {
+    let mut mapper = mapper();
+    mapper.prompt_sent();
+    feed(&mut mapper, &[ours("session.execution.started", json!({}))]);
+    mapper.queue_follow_up(Outgoing::new("later", &[]));
+
+    if user_abort {
+        mapper.abort_requested();
+    }
+
+    let out = feed(
+        &mut mapper,
+        &[
+            ours(
+                "session.step.failed",
+                json!({ "assistantMessageID": "msg_a", "error": { "type": "aborted", "message": "Step interrupted" } }),
+            ),
+            ours("session.execution.interrupted", json!({ "reason": reason })),
+        ],
+    );
+
+    let sent = shape(&out).contains(&"send:later".to_owned());
+    let opencodes_stop = !user_abort && !matches!(reason, "user" | "");
+    assert_eq!(
+        sent, opencodes_stop,
+        "{reason}: the follow-up goes on only after a failure"
+    );
+
+    events(out)
+}
+
+fn prompt_result(events: &[AgentEvent]) -> (PromptStatus, Option<String>) {
+    events
+        .iter()
+        .find_map(|event| match event {
+            AgentEvent::PromptResult { status, error, .. } => Some((*status, error.clone())),
+            _ => None,
+        })
+        .expect("a prompt result")
+}
+
+#[test]
+fn an_interruption_opencode_decides_on_fails_the_turn_with_why() {
+    for (reason, error) in [
+        ("shutdown", "OpenCode shut down before the turn finished."),
+        (
+            "inactivity",
+            "OpenCode stopped the turn because it made no progress for too long.",
+        ),
+        (
+            "superseded",
+            "OpenCode stopped the turn because a newer run replaced it.",
+        ),
+        ("a-future-reason", "OpenCode stopped the turn."),
+    ] {
+        let events = interrupted_turn(reason, false);
+
+        assert_eq!(
+            prompt_result(&events),
+            (PromptStatus::Error, Some(error.to_owned())),
+            "{reason}"
+        );
+        assert!(
+            !events.contains(&AgentEvent::Settled { aborted: Some(true) }),
+            "{reason}"
+        );
+    }
+}
+
+#[test]
+fn the_users_own_stop_aborts_the_turn_whatever_the_reason() {
+    for (reason, user_abort) in [("user", false), ("user", true), ("shutdown", true), ("", false)] {
+        let events = interrupted_turn(reason, user_abort);
+
+        assert_eq!(prompt_result(&events), (PromptStatus::Aborted, None), "{reason}");
+        assert_eq!(
+            events.last(),
+            Some(&AgentEvent::Settled { aborted: Some(true) }),
+            "{reason}"
+        );
+    }
+}
+
+#[test]
+fn an_interruption_outside_a_turn_is_a_notice_unless_the_user_stopped() {
+    let mut mapper = mapper();
+
+    let out = feed(
+        &mut mapper,
+        &[ours("session.execution.interrupted", json!({ "reason": "inactivity" }))],
+    );
+    assert_eq!(
+        events(out),
+        [AgentEvent::Notice {
+            level: NoticeLevel::Error,
+            message: "OpenCode stopped the turn because it made no progress for too long.".to_owned(),
+        }]
+    );
+
+    let out = feed(
+        &mut mapper,
+        &[ours("session.execution.interrupted", json!({ "reason": "user" }))],
+    );
+    assert!(out.is_empty());
 }

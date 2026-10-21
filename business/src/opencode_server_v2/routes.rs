@@ -2,7 +2,7 @@
 //!
 //! - Every request names a [`RouteV2`]; the client never builds a path from free text.
 //! - Ids are checked when they are parsed ([`Id::parse`]): the kind's prefix (`ses_`, `msg_`,
-//!   `per_`, `frm_`), then only `[A-Za-z0-9]`, at most [`MAX_ID_LEN`] bytes. A valid id can never
+//!   `per_`, `frm_`, `sh_`), then only `[A-Za-z0-9]`, at most [`MAX_ID_LEN`] bytes. A valid id can never
 //!   add a path segment or a query.
 //! - Every route but [`RouteV2::Info`], [`RouteV2::Event`], [`RouteV2::PermissionSaved`] (a
 //!   project query) and [`RouteV2::SessionChildren`] (a parent query) carries the project directory as the `location[directory]` query,
@@ -11,126 +11,25 @@
 //! - Left out on purpose (standing rules): share, pairing, credentials, config writes
 //!   (`/api/experimental/config`), plugin and MCP management, PTYs, session archive, move, revert,
 //!   environment, import and saved permission changes. `PATCH /api/session/{id}` is only ever sent
-//!   with a title ([`super::wire::session::TitleBody`]), never with permissions.
+//!   with a title ([`super::wire::session::TitleBody`]), never with permissions. Of the shell
+//!   routes only reading a running tool call's output is allowed ([`RouteV2::ShellOutput`]), never
+//!   creating or removing a shell.
 
-use std::fmt;
-use std::marker::PhantomData;
+mod ids;
 
-use serde::{Serialize, Serializer};
-
+pub use self::ids::{
+    FormId, FormKind, Id, IdKind, MAX_ID_LEN, MessageId, MessageKind, PermissionId, PermissionKind, SessionId,
+    SessionKind, ShellId, ShellKind,
+};
 use crate::opencode_server::http::sealed::Sealed;
 use crate::opencode_server::http::{ApiRoute, Method};
-use crate::opencode_server::routes::{RouteError, percent_encode};
-
-/// Longest accepted id, prefix included (OpenCode 2's are about 30 bytes).
-pub const MAX_ID_LEN: usize = 128;
+use crate::opencode_server::routes::percent_encode;
 
 /// Largest message page the server serves (`SessionMessagesQuery.limit` is 1 to 200).
 pub const MAX_MESSAGE_PAGE: u32 = 200;
 
 /// Largest page of sessions the chat asks for (`SessionsQuery.limit` has no upper bound).
 pub const MAX_SESSION_PAGE: u32 = 200;
-
-/// What an [`Id`] names: its prefix and a label for errors.
-pub trait IdKind {
-    /// The prefix every id of this kind starts with.
-    const PREFIX: &'static str;
-
-    /// What the id names, for error messages (the value itself is never shown).
-    const LABEL: &'static str;
-}
-
-/// Marker of session ids (`ses_…`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum SessionKind {}
-
-/// Marker of message ids (`msg_…`, also inbox items).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum MessageKind {}
-
-/// Marker of permission request ids (`per_…`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum PermissionKind {}
-
-/// Marker of form ids (`frm_…`, the questions a tool asks).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum FormKind {}
-
-impl IdKind for SessionKind {
-    const PREFIX: &'static str = "ses_";
-    const LABEL: &'static str = "session";
-}
-
-impl IdKind for MessageKind {
-    const PREFIX: &'static str = "msg_";
-    const LABEL: &'static str = "message";
-}
-
-impl IdKind for PermissionKind {
-    const PREFIX: &'static str = "per_";
-    const LABEL: &'static str = "permission";
-}
-
-impl IdKind for FormKind {
-    const PREFIX: &'static str = "frm_";
-    const LABEL: &'static str = "form";
-}
-
-/// An OpenCode 2 session id.
-pub type SessionId = Id<SessionKind>;
-
-/// An OpenCode 2 message id (also the id of an inbox item).
-pub type MessageId = Id<MessageKind>;
-
-/// An OpenCode 2 permission request id.
-pub type PermissionId = Id<PermissionKind>;
-
-/// An OpenCode 2 form id.
-pub type FormId = Id<FormKind>;
-
-/// A checked OpenCode 2 id of kind `K` (see the module docs). Serializes as the plain string.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Id<K> {
-    value: String,
-    kind: PhantomData<K>,
-}
-
-impl<K: IdKind> Id<K> {
-    /// Checks `value`: the kind's prefix, a non-empty rest of `[A-Za-z0-9]`, at most
-    /// [`MAX_ID_LEN`] bytes.
-    pub fn parse(value: &str) -> Result<Self, RouteError> {
-        let rest = value.strip_prefix(K::PREFIX).unwrap_or_default();
-
-        let valid =
-            !rest.is_empty() && value.len() <= MAX_ID_LEN && rest.bytes().all(|byte| byte.is_ascii_alphanumeric());
-
-        if !valid {
-            return Err(RouteError::InvalidId { kind: K::LABEL });
-        }
-
-        Ok(Self {
-            value: value.to_owned(),
-            kind: PhantomData,
-        })
-    }
-
-    /// The id as OpenCode writes it.
-    pub fn as_str(&self) -> &str {
-        &self.value
-    }
-}
-
-impl<K> fmt::Display for Id<K> {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(&self.value)
-    }
-}
-
-impl<K> Serialize for Id<K> {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.serialize_str(&self.value)
-    }
-}
 
 /// The order of the first message page (`order=asc|desc`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -242,6 +141,18 @@ pub enum RouteV2<'a> {
         session: &'a SessionId,
         /// The project directory.
         directory: &'a str,
+    },
+    /// `GET /api/shell/{id}/output?cursor&limit` → `{data: {output, cursor, size, truncated},
+    /// location}`: up to `limit` bytes of a shell's combined output from byte `cursor` on.
+    ShellOutput {
+        /// The shell.
+        shell: &'a ShellId,
+        /// The project directory.
+        directory: &'a str,
+        /// The byte to read from.
+        cursor: u64,
+        /// The most bytes to read.
+        limit: u64,
     },
     /// `POST /api/session/{id}/compact` (`{}`) → `{data: inbox item}`, once admitted.
     Compact {
@@ -362,6 +273,7 @@ impl RouteV2<'_> {
             | Self::SessionChildren { .. }
             | Self::SessionGet { .. }
             | Self::Messages { .. }
+            | Self::ShellOutput { .. }
             | Self::PermissionList { .. }
             | Self::PermissionRequests { .. }
             | Self::PermissionSaved { .. }
@@ -408,6 +320,16 @@ impl RouteV2<'_> {
             Self::Command { session, directory } => in_session(session, "command", directory),
             Self::Shell { session, directory } => in_session(session, "shell", directory),
             Self::Compact { session, directory } => in_session(session, "compact", directory),
+            Self::ShellOutput {
+                shell,
+                directory,
+                cursor,
+                limit,
+            } => located(
+                &format!("/api/shell/{shell}/output"),
+                vec![format!("cursor={cursor}"), format!("limit={limit}")],
+                directory,
+            ),
             Self::Messages {
                 session,
                 directory,

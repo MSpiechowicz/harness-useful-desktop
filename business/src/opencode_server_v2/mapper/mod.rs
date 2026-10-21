@@ -37,6 +37,7 @@ pub use self::asks::{Answer, PERMISSION_OPTIONS, Reply, ReplyKind};
 use self::quiet::QuietRun;
 pub use self::quiet::{QuietKind, ShellResult, compaction_started};
 use self::replies::{PartKind, Replies};
+pub use self::tools::ShellCall;
 use self::tools::Tools;
 use self::turns::{Outcome, Turn};
 use super::events::{
@@ -190,7 +191,9 @@ impl Mapper {
             EventKind::ExecutionStarted(_) => return self.turn_started(out),
             EventKind::ExecutionSucceeded(_) => return self.execution_ended(Outcome::Succeeded),
             EventKind::ExecutionFailed(failed) => return self.execution_ended(Outcome::Failed(failed.error.clone())),
-            EventKind::ExecutionInterrupted(_) => return self.execution_ended(Outcome::Interrupted),
+            EventKind::ExecutionInterrupted(stopped) => {
+                return self.execution_ended(Outcome::Interrupted(stopped.reason.clone()));
+            }
             EventKind::Status(changed) => return self.status(&changed.status, out),
             EventKind::Idle(_) => return self.status(&SessionStatus::Idle, out),
             EventKind::RetryScheduled(retry) => out.push(self.retry_scheduled(retry)),

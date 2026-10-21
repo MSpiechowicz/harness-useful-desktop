@@ -152,8 +152,11 @@ async fn skills_are_listed_and_run_as_prompts_with_the_skill_attached() {
     prompt(&chat, "/greet be brief").await;
     settled(&chat, 1).await;
 
-    let taken_at = prompt(&chat, "/greet").await;
+    prompt(&chat, "/greet").await;
     settled(&chat, 2).await;
+
+    let taken_at = prompt(&chat, "/greet").await;
+    settled(&chat, 3).await;
 
     let events = until_marker(&chat).await;
     let results: Vec<(PromptStatus, Option<String>)> = events
@@ -167,6 +170,7 @@ async fn skills_are_listed_and_run_as_prompts_with_the_skill_attached() {
         results,
         [
             (PromptStatus::Completed, None),
+            (PromptStatus::Completed, None),
             (
                 PromptStatus::Error,
                 Some("protocol error: the OpenCode server answered HTTP 400".to_owned())
@@ -174,7 +178,11 @@ async fn skills_are_listed_and_run_as_prompts_with_the_skill_attached() {
         ],
         "a skill OpenCode refuses fails like a refused command"
     );
-    assert_eq!(user_texts(&events), ["be brief"]);
+    assert_eq!(
+        user_texts(&events),
+        ["/greet be brief", "/greet"],
+        "the user's message names the skill, also with no text after it"
+    );
 
     let failed = events
         .iter()
@@ -200,6 +208,7 @@ async fn skills_are_listed_and_run_as_prompts_with_the_skill_attached() {
         prompts,
         [
             serde_json::json!({ "text": "be brief", "skills": [{ "id": "greet" }] }),
+            serde_json::json!({ "text": "", "skills": [{ "id": "greet" }] }),
             serde_json::json!({ "text": "", "skills": [{ "id": "greet" }] }),
         ]
     );

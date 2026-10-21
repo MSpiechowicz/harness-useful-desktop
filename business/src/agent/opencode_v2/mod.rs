@@ -36,6 +36,7 @@ mod prompts;
 mod reports;
 mod runs;
 mod settings;
+mod shell_output;
 mod startup;
 mod stream;
 
