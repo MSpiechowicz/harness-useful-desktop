@@ -86,6 +86,25 @@ pub(super) async fn adopt_children(chat: &Chat) {
     }
 }
 
+/// Lists the chat's subagent sessions again and counts them as the chat's, with their pending
+/// asks, after a `subagent` call named a session the chat does not count
+/// ([`take_unlisted`](crate::opencode_server_v2::Mapper::take_unlisted)): only a session OpenCode
+/// lists as a child of the chat's sessions counts. The event task waits for it, so the asks that
+/// follow find the session counted (or not).
+pub(super) async fn confirm_children(chat: &Arc<Chat>) {
+    let session = chat.lock().session.clone();
+    let children = family::children(chat, &session).await;
+    let known = known_directories(chat);
+    let pending = family::pending(chat, &children, &known).await;
+
+    let mut live = chat.lock();
+
+    if live.session == session {
+        family::adopt(&mut live, &children);
+        family::take(chat, &mut live, pending);
+    }
+}
+
 /// The directories of the subagent sessions the chat knows.
 fn known_directories(chat: &Chat) -> Vec<String> {
     let live = chat.lock();

@@ -8,6 +8,11 @@
 //!   as `toolUpdate` (redacted) while the call runs.
 //! - Bounded: a card shows the newest [`MAX_OUTPUT`] bytes, led by [`CUT`] once older output was
 //!   left out, and a read skips output too old to show.
+//! - Whole characters: OpenCode decodes each page on its own (`toString("utf8")`), so a character
+//!   split by a page's end comes as one U+FFFD, and each byte of one split by its start (a skip
+//!   lands anywhere) as one more. A trailing U+FFFD that stands for at most three of the page's
+//!   bytes (its cursor tells) is read again with the next page, so a U+FFFD of the output itself
+//!   waits for the output that follows; leading ones after a skip are dropped.
 //! - The task ends once the call ended (or the chat no longer has it) or a read fails: the call's
 //!   result still comes with its end.
 
@@ -36,6 +41,12 @@ const MAX_READS: u32 = 4;
 
 /// Leads output whose start was left out.
 const CUT: &str = "...\n";
+
+/// What OpenCode decodes a partial character as.
+const REPLACEMENT: char = '\u{FFFD}';
+
+/// The most bytes of a partial character (a whole one has at most four).
+const MAX_PARTIAL: u64 = 3;
 
 /// One page of a shell's output (`Shell.Output`).
 #[derive(Debug, Deserialize)]
@@ -125,26 +136,33 @@ struct Output {
     cursor: u64,
     /// Older output was left out.
     cut: bool,
+    /// The read skipped to a byte that may be within a character.
+    mid_character: bool,
 }
 
 impl Output {
     /// Adds `page`; true when more output waits and the read moved on.
     fn add(&mut self, page: Page) -> bool {
-        let moved = page.cursor > self.cursor;
+        let read = page.cursor.saturating_sub(self.cursor);
+        let moved = read > 0;
+        let waiting = page.size.saturating_sub(page.cursor);
 
         if moved {
-            self.text.push_str(&page.output);
-            self.cursor = page.cursor;
+            let mid_character = std::mem::take(&mut self.mid_character);
+            let (text, held) = whole_characters(&page.output, read, mid_character);
+
+            self.text.push_str(text);
+            self.cursor = page.cursor - held;
         }
 
         let limit = MAX_OUTPUT as u64;
-        let waiting = page.size.saturating_sub(self.cursor);
 
         // More waits than a card shows: only the newest output is read.
-        if waiting > limit {
+        if page.size.saturating_sub(self.cursor) > limit {
             self.text.clear();
             self.cursor = page.size - limit;
             self.cut = true;
+            self.mid_character = true;
         }
 
         self.keep_newest();
@@ -178,9 +196,43 @@ impl Output {
     }
 }
 
+/// The whole characters of `output`, a page of `read` bytes, and how many bytes at its end to read
+/// again (see the module docs): `mid_character` when the page may start within a character.
+fn whole_characters(output: &str, read: u64, mid_character: bool) -> (&str, u64) {
+    let mut text = output;
+    let mut dropped = 0;
+
+    while mid_character && dropped < MAX_PARTIAL {
+        let Some(rest) = text.strip_prefix(REPLACEMENT) else {
+            break;
+        };
+
+        text = rest;
+        dropped += 1;
+    }
+
+    let Some(body) = text.strip_suffix(REPLACEMENT) else {
+        return (text, 0);
+    };
+
+    let decoded = dropped + body.len() as u64;
+    let partial = read.saturating_sub(decoded);
+
+    if decoded < read && partial <= MAX_PARTIAL {
+        return (body, partial);
+    }
+
+    (text, 0)
+}
+
 #[cfg(test)]
 mod tests {
     use super::{CUT, MAX_OUTPUT, Output, Page};
+
+    /// `bytes` as OpenCode decodes a page of them.
+    fn decoded(bytes: &[u8]) -> String {
+        String::from_utf8_lossy(bytes).into_owned()
+    }
 
     fn page(output: &str, cursor: u64, size: u64) -> Page {
         Page {
@@ -216,5 +268,74 @@ mod tests {
         assert!(output.add(page("start\n", 6, size)));
         assert_eq!(output.cursor, size - MAX_OUTPUT as u64);
         assert_eq!(output.shown(), CUT);
+    }
+
+    #[test]
+    fn a_character_split_by_a_page_end_shows_whole_once_the_next_page_has_it() {
+        let bytes = "a€b😀c".as_bytes();
+        let mut output = Output::default();
+
+        // "a" and two of the euro sign's three bytes.
+        assert!(output.add(page(&decoded(&bytes[..3]), 3, bytes.len() as u64)));
+        assert_eq!(output.shown(), "a");
+        assert_eq!(output.cursor, 1, "the partial character is read again");
+
+        // From the euro sign on, the page ending within the emoji.
+        let end = 7;
+        assert!(output.add(page(&decoded(&bytes[1..end]), end as u64, bytes.len() as u64)));
+        assert_eq!(output.shown(), "a€b");
+
+        let size = bytes.len() as u64;
+        assert!(!output.add(page(&decoded(&bytes[output.cursor as usize..]), size, size)));
+        assert_eq!(output.shown(), "a€b😀c");
+    }
+
+    #[test]
+    fn a_page_of_only_a_partial_character_waits_for_the_rest() {
+        let bytes = "é".as_bytes();
+        let mut output = Output::default();
+
+        output.add(page(&decoded(&bytes[..1]), 1, 1));
+        assert_eq!(output.shown(), "");
+        assert_eq!(output.cursor, 0);
+
+        output.add(page(&decoded(bytes), 2, 2));
+        assert_eq!(output.shown(), "é");
+    }
+
+    #[test]
+    fn a_replacement_character_of_the_output_itself_shows_once_more_follows() {
+        let text = "bad \u{FFFD}";
+        let size = text.len() as u64;
+        let mut output = Output::default();
+
+        // A whole U+FFFD at a page's end reads as a partial character: it waits.
+        output.add(page(text, size, size));
+        assert_eq!(output.shown(), "bad ");
+
+        let more = format!("{text}!");
+        let size = more.len() as u64;
+        output.add(page(&more[output.cursor as usize..], size, size));
+        assert_eq!(output.shown(), more);
+    }
+
+    #[test]
+    fn a_skip_into_a_character_drops_its_remaining_bytes() {
+        // The newest MAX_OUTPUT bytes start two bytes into the first euro sign.
+        let all = format!("{}{}ab", "x".repeat(2 * MAX_OUTPUT), "€".repeat(MAX_OUTPUT / 3));
+        let size = all.len() as u64;
+        let mut output = Output::default();
+
+        assert!(output.add(page("x", 1, size)));
+        let start = output.cursor as usize;
+        assert!(!all.is_char_boundary(start));
+
+        output.add(page(&decoded(&all.as_bytes()[start..]), size, size));
+
+        let shown = output.shown();
+        let head: String = shown.chars().take(6).collect();
+        assert!(shown.starts_with(&format!("{CUT}€")), "{head:?}");
+        assert!(!shown.contains('\u{FFFD}'), "no partial character shows");
+        assert!(shown.ends_with("€ab"));
     }
 }

@@ -228,6 +228,11 @@ impl Tools {
         })
     }
 
+    /// The tool id of call `id`.
+    pub(super) fn name(&self, id: &str) -> Option<&str> {
+        self.calls.get(id).map(|call| call.name.as_str())
+    }
+
     /// The parsed input of call `id`, once known.
     pub(super) fn input(&self, id: &str) -> Option<&Value> {
         self.calls

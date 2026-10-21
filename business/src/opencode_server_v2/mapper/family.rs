@@ -4,16 +4,20 @@
 //! A subagent session is known from any of:
 //!
 //! - `session.created` with a known `parentID`;
-//! - `session.tool.progress` of a known session whose metadata names the session its subagent
-//!   call runs in (`{sessionID, status}`), so a child whose start the chat missed (the stream was
-//!   opened again meanwhile) still counts;
 //! - [`Mapper::adopt`]: the engine lists the children of the chat's sessions when it catches up
-//!   or resumes.
+//!   or resumes, and when a `subagent` call of the chat's own session names a session the chat
+//!   does not count ([`Mapper::take_unlisted`]): its progress metadata names the session the call
+//!   runs in (`{sessionID, status}`), so a child whose start the chat missed (the stream was
+//!   opened again meanwhile) still counts. The name alone counts for nothing: any tool can put
+//!   any session there, and only OpenCode's list of the children confirms one.
 
 use serde_json::Value;
 
 use super::{Mapped, Mapper, events};
-use crate::opencode_server_v2::events::{Event, EventKind, SessionCreated, ToolProgress};
+use crate::opencode_server_v2::events::{Event, SessionCreated, ToolProgress};
+
+/// The tool that runs a subagent in a session of its own.
+const SUBAGENT_TOOL: &str = "subagent";
 
 impl Mapper {
     /// Counts `session` (started from `parent`) as one of the chat's subagent sessions, working
@@ -48,6 +52,13 @@ impl Mapper {
         sessions
     }
 
+    /// The sessions `subagent` calls of the chat's session named that the chat does not count,
+    /// each handed out once: the engine lists the chat's subagent sessions again to confirm them
+    /// (see the module docs).
+    pub fn take_unlisted(&mut self) -> Vec<String> {
+        std::mem::take(&mut self.unlisted)
+    }
+
     /// Tracks a session started from a tracked one.
     pub(super) fn note_child(&mut self, created: &SessionCreated, event: &Event) {
         let Some(parent) = created.parent_id.as_deref() else {
@@ -57,13 +68,21 @@ impl Mapper {
         self.adopt(&created.session_id, parent, event_directory(event));
     }
 
-    /// Tracks the session a subagent call of a tracked session runs in.
-    pub(super) fn note_progress(&mut self, progress: &ToolProgress, event: &Event) {
-        let child = progress.metadata.get("sessionID").and_then(Value::as_str);
-
-        if let Some(child) = child {
-            self.adopt(child, &progress.session_id, event_directory(event));
+    /// Notes the session a `subagent` call of the chat's session names, for the engine to confirm.
+    pub(super) fn note_progress(&mut self, progress: &ToolProgress) {
+        if self.tools.name(&progress.id) != Some(SUBAGENT_TOOL) {
+            return;
         }
+
+        let Some(child) = progress.metadata.get("sessionID").and_then(Value::as_str) else {
+            return;
+        };
+
+        if child.is_empty() || self.is_chat_session(child) || !self.named.insert(child.to_owned()) {
+            return;
+        }
+
+        self.unlisted.push(child.to_owned());
     }
 
     /// An event of another session: only the asks of the chat's subagents reach the chat.
@@ -74,11 +93,6 @@ impl Mapper {
             .is_some_and(|session| self.children.contains_key(session));
 
         if !known {
-            return Vec::new();
-        }
-
-        if let EventKind::ToolProgress(progress) = &event.kind {
-            self.note_progress(progress, event);
             return Vec::new();
         }
 

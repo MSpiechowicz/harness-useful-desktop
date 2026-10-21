@@ -1,8 +1,9 @@
 //! Asks and subagent sessions the OpenCode 2 chat engine did not see live, against the scripted
 //! OpenCode 2 server: after the event stream was opened again, an ask raised meanwhile (a
 //! subagent's too) shows and the dialog of one answered meanwhile closes; a subagent session known
-//! only from its call's progress, or from the session list of a resumed session, reaches the chat
-//! with its asks.
+//! only from its call's progress, once OpenCode lists it as a child, or from the session list of a
+//! resumed session, reaches the chat with its asks; a session another tool's progress names, or one
+//! OpenCode does not list, does not.
 
 mod agent_support;
 mod opencode2_engine_helpers;
@@ -106,6 +107,42 @@ async fn a_subagent_known_from_its_calls_progress_reaches_the_chat_with_its_asks
     let ask = ask.unwrap_or_else(|| panic!("the subagent's ask shows: {events:#?}"));
     assert_eq!(title(ask), "Allow shell for a subagent: make test?");
     assert_eq!(ask.tool_call_id, None, "a subagent's call has no card in the chat");
+
+    let lists = chat.requests_to("GET /api/session");
+    assert!(
+        lists
+            .iter()
+            .any(|request| request.target.contains(&format!("parentID={SESSION}"))),
+        "OpenCode's list of children confirms the named session: {lists:#?}"
+    );
+
+    chat.session().stop().await;
+}
+
+#[tokio::test]
+async fn a_session_a_call_names_that_opencode_does_not_list_as_a_child_never_reaches_the_chat() {
+    let chat = start("opencode2_foreign_progress.jsonl").await;
+    prompt(&chat, "Delegate it").await;
+
+    let events = until_marker(&chat).await;
+
+    let dialogs = shown(&events);
+    assert!(
+        dialogs.iter().all(|request| !request.id.starts_with("per_f")),
+        "a foreign session's asks are not this chat's: {dialogs:#?}"
+    );
+    assert!(chat.requests_to("POST /api/session/*/permission/*/reply").is_empty());
+
+    let lists: Vec<_> = chat
+        .requests_to("GET /api/session")
+        .into_iter()
+        .filter(|request| request.target.contains(&format!("parentID={SESSION}")))
+        .collect();
+    assert_eq!(
+        lists.len(),
+        1,
+        "only the subagent call has the children listed: {lists:#?}"
+    );
 
     chat.session().stop().await;
 }

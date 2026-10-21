@@ -1,7 +1,9 @@
-// A subagent call whose session start the chat did not see: its progress names the subagent session, whose
-// permission ask then reaches the chat. A title change marks the end.
+// A subagent call whose session start the chat did not see: its progress names the subagent session, which
+// OpenCode lists as a child of the chat's session, so its permission ask then reaches the chat. A title change
+// marks the end.
 {"include":"opencode2_startup.jsonl"}
 {"expect":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/prompt","match":{"/text":"Delegate it"}}
+{"allow":"GET /api/session","match":{"query.parentID":"ses_ea2843d6fffeeHJKZwBKUXqULv"},"reply":{"data":[{"id":"ses_child2","projectID":"global","parentID":"ses_ea2843d6fffeeHJKZwBKUXqULv","time":{"created":1792569754400,"updated":1792569754500},"location":{"directory":"$directory"}}],"cursor":{}}}
 {"sse":{"type":"session.inbox.enqueued","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","inboxID":"$inbox","item":{"type":"user","payload":{"text":"Delegate it"},"delivery":"steer"}}}}
 {"sse":{"type":"session.execution.started","data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv"}}}
 {"sse":{"type":"session.inbox.delivered","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","inboxID":"$inbox"}}}

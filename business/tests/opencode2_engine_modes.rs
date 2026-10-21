@@ -279,6 +279,42 @@ async fn an_agent_added_while_the_chat_runs_stops_a_chat_with_a_mode() {
 }
 
 #[tokio::test]
+async fn a_reload_with_the_same_agents_and_rules_keeps_a_chat_with_a_mode() {
+    let chat = start_mode("opencode2_modes_reload_same.jsonl", Some(ApprovalMode::Write), false).await;
+    assert_matched(&until_marker(&chat).await);
+    let listed = chat.requests_to("GET /api/agent").len();
+
+    let rename = AgentAction::SetSessionName { name: "Go".to_owned() };
+    chat.session().send(rename).await.expect("renamed");
+
+    chat.wait(
+        "the second title",
+        |event| matches!(event, AgentEvent::State { state } if state.session_name.as_deref() == Some("Checked")),
+    )
+    .await;
+
+    let events = chat.events();
+    assert_matched(&events);
+    assert!(
+        chat.requests_to("GET /api/agent").len() >= listed + 2,
+        "config.updated and agent.updated each check the mode again"
+    );
+    let error = |event: &&AgentEvent| {
+        matches!(
+            event,
+            AgentEvent::Notice {
+                level: NoticeLevel::Error,
+                ..
+            }
+        )
+    };
+    assert_eq!(events.iter().find(error), None, "no error notice");
+    assert!(chat.session().is_running(), "the mode still holds: the chat goes on");
+
+    chat.session().stop().await;
+}
+
+#[tokio::test]
 async fn always_allow_never_answers_a_subagent_ask_for_an_agent_the_probe_did_not_list() {
     let chat = start_mode(
         "opencode2_modes_unknown_subagent.jsonl",

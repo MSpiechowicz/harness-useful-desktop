@@ -27,7 +27,7 @@ mod replies;
 mod tools;
 mod turns;
 
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::Path;
 
 use serde_json::Value;
@@ -119,6 +119,10 @@ pub struct Mapper {
     session: String,
     /// Subagent sessions and their directories.
     children: HashMap<String, Option<String>>,
+    /// Sessions `subagent` calls named, so each is handed out once ([`Mapper::take_unlisted`]).
+    named: HashSet<String>,
+    /// Named sessions the engine has not confirmed yet.
+    unlisted: Vec<String>,
     replies: Replies,
     tools: Tools,
     asks: Asks,
@@ -147,6 +151,8 @@ impl Mapper {
         Self {
             session: session.to_owned(),
             children: HashMap::new(),
+            named: HashSet::new(),
+            unlisted: Vec::new(),
             replies: Replies::default(),
             tools: Tools::new(project.to_path_buf(), directory.to_path_buf()),
             asks: Asks::new(directory.to_path_buf()),
@@ -177,7 +183,7 @@ impl Mapper {
         }
 
         if let EventKind::ToolProgress(progress) = &event.kind {
-            self.note_progress(progress, event);
+            self.note_progress(progress);
         }
 
         if let Some(hidden) = self.quiet_event(event) {

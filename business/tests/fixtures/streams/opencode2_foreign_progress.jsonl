@@ -1,0 +1,21 @@
+// Tool calls of the chat's session whose progress names sessions OpenCode does not list as children of the
+// chat's sessions: an MCP tool names ses_foreign1 (the chat does not even ask for the list), a subagent call
+// names ses_foreign2 (the list does not have it). The asks of both sessions do not reach the chat. A title
+// change marks the end.
+{"include":"opencode2_startup.jsonl"}
+{"expect":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/prompt","match":{"/text":"Delegate it"}}
+{"allow":"GET /api/session","match":{"query.parentID":"ses_ea2843d6fffeeHJKZwBKUXqULv"},"reply":{"data":[{"id":"ses_child2","projectID":"global","parentID":"ses_ea2843d6fffeeHJKZwBKUXqULv","time":{"created":1792569754400,"updated":1792569754500},"location":{"directory":"$directory"}}],"cursor":{}}}
+{"sse":{"type":"session.inbox.enqueued","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","inboxID":"$inbox","item":{"type":"user","payload":{"text":"Delegate it"},"delivery":"steer"}}}}
+{"sse":{"type":"session.execution.started","data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv"}}}
+{"sse":{"type":"session.inbox.delivered","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","inboxID":"$inbox"}}}
+{"sse":{"type":"session.step.started","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","agent":"build","model":{"id":"big-pickle","providerID":"opencode","variant":"default"},"assistantMessageID":"msg_reply1"}}}
+{"sse":{"type":"session.tool.input.started","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_reply1","id":"call_m","name":"mcp_lookup"}}}
+{"sse":{"type":"session.tool.called","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_reply1","id":"call_m","input":{"query":"status"},"executed":false}}}
+{"sse":{"type":"session.tool.progress","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_reply1","id":"call_m","metadata":{"sessionID":"ses_foreign1","status":"running"}}}}
+{"sse":{"type":"permission.asked","location":{"directory":"$directory"},"data":{"id":"per_f1","sessionID":"ses_foreign1","action":"shell","resources":["make clean"],"save":["make *"]}}}
+{"sse":{"type":"session.tool.input.started","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_reply1","id":"call_s","name":"subagent"}}}
+{"sse":{"type":"session.tool.called","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_reply1","id":"call_s","input":{"description":"Check the tests","agent":"general","prompt":"Run the tests"},"executed":false}}}
+{"sse":{"type":"session.tool.progress","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_reply1","id":"call_s","metadata":{"sessionID":"ses_foreign2","status":"running"}}}}
+{"sse":{"type":"permission.asked","location":{"directory":"$directory"},"data":{"id":"per_f2","sessionID":"ses_foreign2","action":"shell","resources":["make clean"],"save":["make *"]}}}
+{"sse":{"type":"session.renamed","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","title":"Marker"}}}
+{"hang":true}
