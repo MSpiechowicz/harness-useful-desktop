@@ -16,7 +16,7 @@ use tokio::time::timeout;
 use super::chunked::{BodyReader, Framing};
 use super::head::{Head, read_head};
 use super::sse::EventStream;
-use super::{BLOCKING_TIMEOUT, DEFAULT_TIMEOUT, HttpError, MAX_BODY_BYTES, Method, Response};
+use super::{ApiRoute, BLOCKING_TIMEOUT, DEFAULT_TIMEOUT, HttpError, MAX_BODY_BYTES, Method, Response};
 use crate::opencode_server::routes::Route;
 use crate::pi_family::rpc::MAX_FRAME_BYTES;
 
@@ -62,8 +62,7 @@ pub struct ClientOptions {
     /// Deadline of one call: connect, request and the whole response (the event stream: up to its
     /// head).
     pub timeout: Duration,
-    /// Deadline of the routes that block until their work is done (`command`, `shell`,
-    /// `summarize`).
+    /// Deadline of the routes that block until their work is done ([`ApiRoute::blocks`]).
     pub blocking_timeout: Duration,
     /// Largest accepted response body.
     pub max_body_bytes: usize,
@@ -115,7 +114,7 @@ impl OpenCodeClient {
     }
 
     /// Calls `route` with an optional JSON body, within the route's default deadline.
-    pub async fn send(&self, route: Route<'_>, body: Option<&Value>) -> Result<Response, HttpError> {
+    pub async fn send<R: ApiRoute>(&self, route: R, body: Option<&Value>) -> Result<Response, HttpError> {
         let limit = if route.blocks() {
             self.options.blocking_timeout
         } else {
@@ -126,29 +125,41 @@ impl OpenCodeClient {
     }
 
     /// Calls `route` with an optional JSON body, within `limit`. Any status is returned as a
-    /// [`Response`]; see [`Response::error_for_status`].
-    pub async fn send_with_timeout(
+    /// [`Response`]; see [`Response::error_for_status`]. The event stream is refused
+    /// ([`HttpError::StreamRoute`]).
+    pub async fn send_with_timeout<R: ApiRoute>(
         &self,
-        route: Route<'_>,
+        route: R,
         body: Option<&Value>,
         limit: Duration,
     ) -> Result<Response, HttpError> {
-        if route == Route::GlobalEvent {
+        if route.is_stream() {
             return Err(HttpError::StreamRoute);
         }
 
-        let request = self.encode(route, body, "application/json");
+        let request = self.encode(route.method(), &route.target(), body, "application/json");
 
         timeout(limit, self.exchange(request))
             .await
             .map_err(|_| HttpError::Timeout(limit))?
     }
 
-    /// Opens `GET /global/event` and streams its events (see [`EventStream`]). Fails on a
-    /// non-`2xx` status or when the head does not arrive within [`ClientOptions::timeout`]; the
-    /// stream itself has no deadline.
+    /// Opens OpenCode 1's `GET /global/event` stream: [`stream`](Self::stream) of
+    /// [`Route::GlobalEvent`].
     pub async fn events(&self) -> Result<EventStream, HttpError> {
-        let request = self.encode(Route::GlobalEvent, None, "text/event-stream");
+        self.stream(Route::GlobalEvent).await
+    }
+
+    /// Opens the event stream `route` and streams its events (see [`EventStream`]). Refuses a
+    /// route that is not a stream ([`HttpError::NotStreamRoute`]). Fails on a non-`2xx` status or
+    /// when the head does not arrive within [`ClientOptions::timeout`]; the stream itself has no
+    /// deadline.
+    pub async fn stream<R: ApiRoute>(&self, route: R) -> Result<EventStream, HttpError> {
+        if !route.is_stream() {
+            return Err(HttpError::NotStreamRoute);
+        }
+
+        let request = self.encode(route.method(), &route.target(), None, "text/event-stream");
         let limit = self.options.timeout;
 
         let (reader, head) = timeout(limit, self.open(request))
@@ -207,15 +218,14 @@ impl OpenCodeClient {
         Ok((reader, head))
     }
 
-    fn encode(&self, route: Route<'_>, body: Option<&Value>, accept: &str) -> Vec<u8> {
-        let method = route.method();
+    fn encode(&self, method: Method, target: &str, body: Option<&Value>, accept: &str) -> Vec<u8> {
         let credentials = BASE64.encode(format!("{USERNAME}:{}", self.password.expose_secret()));
 
         let mut head = format!(
             "{} {} HTTP/1.1\r\nHost: {}\r\nAuthorization: Basic {credentials}\r\nAccept: {accept}\r\n\
              Connection: close\r\n",
             method.as_str(),
-            route.target(),
+            target,
             self.addr,
         );
 
@@ -236,5 +246,20 @@ impl OpenCodeClient {
         request.extend(body.unwrap_or_default());
 
         request
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn a_plain_route_is_not_opened_as_an_event_stream() {
+        let addr = SocketAddr::from(([127, 0, 0, 1], 9));
+        let client = OpenCodeClient::new(addr, ServerPassword::new("secret")).expect("loopback client");
+
+        let error = client.stream(Route::Health).await.expect_err("not a stream");
+
+        assert!(matches!(error, HttpError::NotStreamRoute));
     }
 }

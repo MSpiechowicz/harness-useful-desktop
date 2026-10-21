@@ -19,7 +19,8 @@ use std::marker::PhantomData;
 use std::sync::{Mutex, PoisonError};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use super::http::Method;
+use super::http::sealed::Sealed;
+use super::http::{ApiRoute, Method};
 use crate::error::BusinessError;
 
 /// Longest accepted id, prefix included (OpenCode's are about 30 bytes).
@@ -352,6 +353,26 @@ impl Route<'_> {
             Self::QuestionReply { id, directory } => in_directory(&format!("/question/{id}/reply"), directory),
             Self::QuestionReject { id, directory } => in_directory(&format!("/question/{id}/reject"), directory),
         }
+    }
+}
+
+impl Sealed for Route<'_> {}
+
+impl ApiRoute for Route<'_> {
+    fn method(&self) -> Method {
+        Route::method(self)
+    }
+
+    fn target(&self) -> String {
+        Route::target(self)
+    }
+
+    fn blocks(&self) -> bool {
+        Route::blocks(self)
+    }
+
+    fn is_stream(&self) -> bool {
+        matches!(self, Self::GlobalEvent)
     }
 }
 

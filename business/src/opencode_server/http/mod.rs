@@ -7,13 +7,16 @@
 //! - Never sends `Accept-Encoding`, so OpenCode's compression middleware leaves bodies plain.
 //! - A response head may take [`MAX_HEAD_BYTES`]; a body (`Content-Length`, chunked, or until the
 //!   server closes) [`ClientOptions::max_body_bytes`], past which the call fails.
+//! - Route-agnostic: every request names an [`ApiRoute`], a typed value from a closed allowlist
+//!   (OpenCode 1's [`Route`], OpenCode 2's own route type), never a free string. Only this crate
+//!   can add route types.
 //! - Every call has a deadline: [`ClientOptions::timeout`], or [`ClientOptions::blocking_timeout`]
-//!   for the routes that answer only when their work is done ([`Route::blocks`]).
-//! - The event stream ([`OpenCodeClient::events`]) yields each SSE event's `data:` payload
-//!   ([`sse`]).
+//!   for the routes that answer only when their work is done ([`ApiRoute::blocks`]).
+//! - An event stream ([`OpenCodeClient::stream`], [`OpenCodeClient::events`]) yields each SSE
+//!   event's `data:` payload ([`sse`]).
 //! - Errors name what failed, never request headers or response bodies.
 //!
-//! [`Route::blocks`]: super::routes::Route::blocks
+//! [`Route`]: super::routes::Route
 
 mod chunked;
 mod client;
@@ -39,8 +42,7 @@ pub const MAX_BODY_BYTES: usize = 16 * 1024 * 1024;
 /// Default deadline of one call.
 pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
 
-/// Default deadline of the calls that block until their work is done (`command`, `shell`,
-/// `summarize`).
+/// Default deadline of the calls that block until their work is done ([`ApiRoute::blocks`]).
 pub const BLOCKING_TIMEOUT: Duration = Duration::from_secs(30 * 60);
 
 /// A request method used by a route.
@@ -66,6 +68,32 @@ impl Method {
             Self::Delete => "DELETE",
         }
     }
+}
+
+/// One request the client can make: a typed value from a closed allowlist, never a free string.
+///
+/// Sealed: only route types of this crate implement it, so the client never builds a request from
+/// text it was handed.
+pub trait ApiRoute: sealed::Sealed {
+    /// The request method.
+    fn method(&self) -> Method;
+
+    /// The request target: path and query, with every value checked or percent-encoded.
+    fn target(&self) -> String;
+
+    /// True for the calls that answer only when their work is done; they get
+    /// [`ClientOptions::blocking_timeout`].
+    fn blocks(&self) -> bool;
+
+    /// True for the event stream, which is read with [`OpenCodeClient::stream`] and refused by
+    /// [`OpenCodeClient::send`].
+    fn is_stream(&self) -> bool;
+}
+
+/// Keeps [`ApiRoute`] closed to route types outside this crate.
+pub(crate) mod sealed {
+    /// Implemented by every [`ApiRoute`](super::ApiRoute) type of this crate.
+    pub trait Sealed {}
 }
 
 /// A complete response.
@@ -134,6 +162,10 @@ pub enum HttpError {
     #[error("the OpenCode event stream is read with `events`, not as a single response")]
     StreamRoute,
 
+    /// A plain request was asked for as an event stream.
+    #[error("only the OpenCode event stream is read with `events`")]
+    NotStreamRoute,
+
     /// Connecting, writing or reading failed (also a malformed chunked body).
     #[error("OpenCode server connection failed: {0}")]
     Io(#[source] io::Error),
@@ -187,7 +219,7 @@ impl From<HttpError> for BusinessError {
         match error {
             HttpError::NotLoopback => Self::Forbidden(message),
             HttpError::Timeout(_) => Self::Timeout(message),
-            HttpError::StreamRoute => Self::Internal(message),
+            HttpError::StreamRoute | HttpError::NotStreamRoute => Self::Internal(message),
             _ => Self::Protocol(message),
         }
     }
