@@ -59,7 +59,8 @@ pub fn replay(file: &str) -> Replay {
 
     let project = TempDir::new().expect("project");
     let root = dunce::canonicalize(project.path()).expect("canonical project");
-    let root_text = root.to_string_lossy().into_owned();
+    let quoted = serde_json::to_string(&root.to_string_lossy()).expect("quoted root");
+    let root_text = quoted.trim_matches('"');
 
     let session = rows
         .iter()
@@ -79,7 +80,7 @@ pub fn replay(file: &str) -> Replay {
     for row in rows {
         match row["kind"].as_str() {
             Some("sse") => {
-                let data = row["event"].to_string().replace(DIRECTORY, &root_text);
+                let data = row["event"].to_string().replace(DIRECTORY, root_text);
                 let event = parse(&data).expect("recorded event");
                 let mapped = replay.mapper.map(&event);
                 replay.out.extend(mapped);

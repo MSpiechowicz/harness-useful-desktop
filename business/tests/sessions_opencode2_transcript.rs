@@ -124,7 +124,7 @@ fn the_export_maps_onto_chat_messages() {
     };
     assert_eq!(
         args,
-        &json!({ "path": fixture.project().join("notes.txt").to_string_lossy() })
+        &json!({ "path": format!("{}/notes.txt", fixture.project().to_string_lossy()) })
     );
     assert_eq!(intent, &None);
 

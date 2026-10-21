@@ -24,6 +24,8 @@
     "ui/src/lib/brand/vendor/**",
     "ui/src/lib/i18n/locales/**",
     "business/tests/fixtures/**",
+    "**/*opencode*/**",
+    "**/*opencode*.rs",
     "**/*.lock",
     "src-tauri/gen/**",
     "CHANGELOG.md",

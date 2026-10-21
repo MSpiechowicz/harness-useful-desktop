@@ -15,6 +15,7 @@ use harness_business::harnesses::OpenCode;
 use harness_business::model::{
     AgentAction, AgentEvent, AgentReply, ImageAttachment, IpcErrorCode, ModelOption, SessionState,
 };
+use harness_business::opencode_server::routes::percent_encode;
 use opencode2_engine_support::{
     SERVE_ARGS, SESSION, count, env, kind, start, start_with, terminated, text_prompt, until_marker,
 };
@@ -84,11 +85,7 @@ async fn startup_creates_a_session_and_emits_ready_state_and_commands_first() {
     assert!(requests.iter().all(|request| request.authorized), "{requests:#?}");
     let project = chat.project.to_str().expect("UTF-8 project");
     let created = chat.requests_to("POST /api/session").pop().expect("session created");
-    assert!(
-        created.target.ends_with(&project.replace('/', "%2F")),
-        "{}",
-        created.target
-    );
+    assert!(created.target.ends_with(&percent_encode(project)), "{}", created.target);
 
     let agents = match session.send(AgentAction::GetAvailableAgents).await {
         Ok(AgentReply::Agents { agents }) => agents,

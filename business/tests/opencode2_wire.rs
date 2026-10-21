@@ -258,8 +258,14 @@ fn request_bodies_are_sent_as_recorded() {
         json(PromptBody::text(text(queue)).with_delivery(Delivery::Queue)),
         *queue
     );
-    let file = FileRef::local(Path::new("/work/proj/dot.png")).expect("absolute");
-    assert_eq!(json(PromptBody::text(text(image)).with_files(vec![file])), *image);
+    // The recorded image path is a Unix one.
+    #[cfg(unix)]
+    {
+        let file = FileRef::local(Path::new("/work/proj/dot.png")).expect("absolute");
+        assert_eq!(json(PromptBody::text(text(image)).with_files(vec![file])), *image);
+    }
+    #[cfg(not(unix))]
+    let _ = image;
 
     assert_eq!(
         json(CommandBody {
@@ -344,9 +350,15 @@ fn picker_bodies_name_the_agent_and_the_model() {
 
 #[test]
 fn local_files_become_file_uris() {
-    let file = FileRef::local(Path::new("/home/me/my shots/a#1 ü.png")).expect("absolute");
+    // An absolute path needs a drive on Windows.
+    let drive = if cfg!(windows) { "/C:" } else { "" };
+    let path = format!("{}/home/me/my shots/a#1 ü.png", drive.trim_start_matches('/'));
+    let file = FileRef::local(Path::new(&path)).expect("absolute");
 
-    assert_eq!(file.uri, "file:///home/me/my%20shots/a%231%20%C3%BC.png");
+    assert_eq!(
+        file.uri,
+        format!("file://{drive}/home/me/my%20shots/a%231%20%C3%BC.png")
+    );
     assert_eq!(file.name.as_deref(), Some("a#1 ü.png"));
     assert_eq!(FileRef::local(Path::new("shots/a.png")), None);
 }

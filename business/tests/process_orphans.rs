@@ -108,6 +108,19 @@ fn tamper(file: &Path, edit: impl FnOnce(&mut Value)) {
     fs::write(file, serde_json::to_vec(&record).unwrap()).unwrap();
 }
 
+/// A `sleep` recorded in `dir` by an app that then crashed, and its record file.
+fn orphan_of_a_crashed_app(dir: &Path) -> (Child, PathBuf) {
+    let app = FakeApp::start();
+    let registry = ChildRegistry::with_owner(dir, app.identity.clone());
+    let child = start_sleep();
+    registry.record(child.id(), &sleep_args()).expect("recorded");
+    let file = registry.file().to_path_buf();
+    drop(registry);
+    app.crash();
+
+    (child, file)
+}
+
 #[test]
 fn a_crashed_apps_child_is_killed() {
     let dir = tempfile::tempdir().unwrap();
@@ -196,15 +209,8 @@ fn a_pid_whose_identity_changed_is_never_killed() {
     ];
 
     for edit in edits {
-        let app = FakeApp::start();
-        let registry = ChildRegistry::with_owner(dir.path(), app.identity.clone());
-        let mut child = start_sleep();
-        registry.record(child.id(), &sleep_args()).expect("recorded");
-
-        tamper(registry.file(), edit);
-        let file = registry.file().to_path_buf();
-        drop(registry);
-        app.crash();
+        let (mut child, file) = orphan_of_a_crashed_app(dir.path());
+        tamper(&file, edit);
 
         let report = sweep_orphans(dir.path());
 
@@ -290,12 +296,7 @@ fn foreign_files_do_not_crowd_out_a_record() {
         fs::write(dir.path().join(format!("aaa-{index:03}.json")), b"{}").unwrap();
     }
 
-    let app = FakeApp::start();
-    let registry = ChildRegistry::with_owner(dir.path(), app.identity.clone());
-    let mut child = start_sleep();
-    registry.record(child.id(), &sleep_args()).expect("recorded");
-    drop(registry);
-    app.crash();
+    let (mut child, _) = orphan_of_a_crashed_app(dir.path());
 
     let report = sweep_orphans(dir.path());
 
@@ -325,13 +326,7 @@ fn recording_narrows_an_existing_folder() {
 #[test]
 fn a_folder_others_may_write_to_is_not_swept() {
     let dir = tempfile::tempdir().unwrap();
-    let app = FakeApp::start();
-    let registry = ChildRegistry::with_owner(dir.path(), app.identity.clone());
-    let mut child = start_sleep();
-    registry.record(child.id(), &sleep_args()).expect("recorded");
-    let file = registry.file().to_path_buf();
-    drop(registry);
-    app.crash();
+    let (mut child, file) = orphan_of_a_crashed_app(dir.path());
 
     set_mode(dir.path(), 0o777);
     let report = sweep_orphans(dir.path());
@@ -354,13 +349,7 @@ fn a_folder_others_may_write_to_is_not_swept() {
 #[test]
 fn a_record_group_or_others_may_open_is_skipped() {
     let dir = tempfile::tempdir().unwrap();
-    let app = FakeApp::start();
-    let registry = ChildRegistry::with_owner(dir.path(), app.identity.clone());
-    let mut child = start_sleep();
-    registry.record(child.id(), &sleep_args()).expect("recorded");
-    let file = registry.file().to_path_buf();
-    drop(registry);
-    app.crash();
+    let (mut child, file) = orphan_of_a_crashed_app(dir.path());
 
     for mode in [0o644, 0o660, 0o604, 0o620] {
         set_mode(&file, mode);

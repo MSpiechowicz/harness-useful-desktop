@@ -44,11 +44,19 @@ impl FakeCli {
         self.probes.lock().unwrap().clone()
     }
 
+    /// The [`Probe::Merges`] names, or the output a [`Probe::Prints`] answers with.
+    fn merged_names(&self) -> Result<Vec<String>, ExecOutput> {
+        match &*self.probe.lock().unwrap() {
+            Probe::Prints(output) => Err(output.clone()),
+            Probe::Merges(names) => Ok(names.clone()),
+        }
+    }
+
     /// The answer of `opencode debug config`.
     fn merged_config(&self) -> ExecOutput {
-        let names = match &*self.probe.lock().unwrap() {
-            Probe::Prints(output) => return output.clone(),
-            Probe::Merges(names) => names.clone(),
+        let names = match self.merged_names() {
+            Ok(names) => names,
+            Err(printed) => return printed,
         };
 
         let mut servers = serde_json::Map::new();
@@ -76,9 +84,9 @@ impl FakeCli {
     /// OpenCode config file here (its `mcp` as written) and one, without a path, holding the
     /// [`Probe::Merges`] names under `mcp.servers` (a layer the app cannot read).
     fn merged_sources(&self) -> ExecOutput {
-        let names = match &*self.probe.lock().unwrap() {
-            Probe::Prints(output) => return output.clone(),
-            Probe::Merges(names) => names.clone(),
+        let names = match self.merged_names() {
+            Ok(names) => names,
+            Err(printed) => return printed,
         };
 
         let mut sources = Vec::new();

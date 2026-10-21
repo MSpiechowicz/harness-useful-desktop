@@ -55,8 +55,9 @@ async fn the_names_of_every_document_are_read_through_a_private_server() {
         Some("api\n--standalone\nGET\n/api/config\n")
     );
     assert_eq!(
-        cli.recorded("cwd").map(|cwd| cwd.trim().to_owned()),
-        Some(cli.home().to_string_lossy().into_owned())
+        cli.recorded("cwd")
+            .map(|cwd| std::fs::canonicalize(cwd.trim()).expect("cwd")),
+        Some(std::fs::canonicalize(cli.home()).expect("home"))
     );
     assert_eq!(cli.recorded("autoupdate").as_deref(), Some("1"));
     assert_eq!(cli.recorded("quiet").as_deref(), Some("1 1 1"));

@@ -42,6 +42,10 @@ pub struct ProcessIdentity {
 
 /// What the OS reports about a pid.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    not(any(target_os = "linux", target_os = "macos", test)),
+    expect(dead_code, reason = "elsewhere every pid is unknown")
+)]
 pub(crate) enum Observation {
     /// A process runs under the pid (not a zombie).
     Running(Observed),
