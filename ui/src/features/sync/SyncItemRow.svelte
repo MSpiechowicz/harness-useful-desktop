@@ -3,6 +3,7 @@
   import { t } from '$lib/i18n/i18n.svelte';
   import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
   import type { SyncImportItem } from '$lib/ipc/bindings/SyncImportItem';
+  import { harness as harnesses } from '$lib/stores/harness.svelte';
 
   import SyncCommand from './SyncCommand.svelte';
   import SyncNotices from './SyncNotices.svelte';
@@ -44,7 +45,7 @@
     {#if step.type === 'cli'}
       <SyncCommand title={t('sync.review.runs')} text={commandLine(step.command)} />
     {:else}
-      <SyncCommand title={t('sync.review.writes', { file: step.file })} text={mcpEntryJson(step.server, harness)} />
+      <SyncCommand title={t('sync.review.writes', { file: step.file })} text={mcpEntryJson(step.server, harness, harnesses.openCodeGeneration)} />
     {/if}
   {/each}
 

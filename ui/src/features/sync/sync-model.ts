@@ -11,6 +11,7 @@ import type { SyncNote } from '$lib/ipc/bindings/SyncNote';
 import type { SyncImportResult } from '$lib/ipc/bindings/SyncImportResult';
 import type { SyncOutcome } from '$lib/ipc/bindings/SyncOutcome';
 import type { SyncSkipReason } from '$lib/ipc/bindings/SyncSkipReason';
+import type { OpenCodeGeneration } from '$lib/ipc/harness-ids';
 
 export type Tone = 'neutral' | 'accent' | 'success' | 'warning' | 'danger' | 'info';
 
@@ -198,9 +199,9 @@ export function keysLine(envKeys: string[], headerKeys: string[]): string | null
   return keys.length > 0 ? t('sync.needsKeys', { keys: keys.join(', ') }) : null;
 }
 
-/** The MCP entry an import writes, as it lands in the harness's servers object: exactly the fields the backend writes, arguments on one line. OpenCode's file has its own shape. */
-export function mcpEntryJson(server: SyncMcpPreview, harness?: HarnessId): string {
-  const fields = harness === 'opencode' ? opencodeFields(server) : standardFields(server);
+/** The MCP entry an import writes, as it lands in the harness's servers object: exactly the fields the backend writes, arguments on one line. OpenCode's file has its own shape, and OpenCode 2's differs from OpenCode 1's. */
+export function mcpEntryJson(server: SyncMcpPreview, harness?: HarnessId, generation: OpenCodeGeneration = 1): string {
+  const fields = harness === 'opencode' ? opencodeFields(server, generation) : standardFields(server);
   const lines = fields.map(([key, value]) => `  ${JSON.stringify(key)}: ${JSON.stringify(value).replaceAll('","', '", "')}`);
 
   return `${JSON.stringify(server.name)}: {\n${lines.join(',\n')}\n}`;
@@ -223,8 +224,8 @@ function standardFields(server: SyncMcpPreview): [string, unknown][] {
   return fields;
 }
 
-/** OpenCode: `local` with the command and its arguments in one array, or `remote` with the url, and `enabled` always. */
-function opencodeFields(server: SyncMcpPreview): [string, unknown][] {
+/** OpenCode: `local` with the command and its arguments in one array, or `remote` with the url. OpenCode 1 always adds `enabled`, OpenCode 2 has none and writes `disabled: true` only for a server that is off. */
+function opencodeFields(server: SyncMcpPreview, generation: OpenCodeGeneration): [string, unknown][] {
   const fields: [string, unknown][] = [];
 
   if (server.transport === 'stdio') {
@@ -233,7 +234,11 @@ function opencodeFields(server: SyncMcpPreview): [string, unknown][] {
     fields.push(['type', 'remote'], ['url', server.url ?? '']);
   }
 
-  fields.push(['enabled', server.enabled]);
+  if (generation === 1) {
+    fields.push(['enabled', server.enabled]);
+  } else if (!server.enabled) {
+    fields.push(['disabled', true]);
+  }
 
   return fields;
 }

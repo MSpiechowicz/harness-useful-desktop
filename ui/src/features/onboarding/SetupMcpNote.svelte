@@ -2,6 +2,7 @@
   import { t } from '$lib/i18n/i18n.svelte';
   import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
   import type { McpRefusal } from '$lib/ipc/bindings/McpRefusal';
+  import { harness as harnesses } from '$lib/stores/harness.svelte';
 
   import SetupCommand from './SetupCommand.svelte';
   import { mcpSnippet, refusalText, type McpKind } from './setup-model';
@@ -32,7 +33,7 @@
 
   {#if refused}
     <p class="text-sm text-fg-2">{t('onboarding.setup.mcp.refused', { reason: refusalText(refused) })}</p>
-    <SetupCommand text={mcpSnippet(kind, harness)} copyLabel={t('onboarding.setup.copySnippet')} />
+    <SetupCommand text={mcpSnippet(kind, harness, harnesses.openCodeGeneration)} copyLabel={t('onboarding.setup.copySnippet')} />
   {:else if manualEdit}
     <p class="text-sm text-fg-2">{t('onboarding.setup.mcp.manualEdit', { file: manualEdit.file })}</p>
     <SetupCommand text={manualEdit.snippet} copyLabel={t('onboarding.setup.copySnippet')} />

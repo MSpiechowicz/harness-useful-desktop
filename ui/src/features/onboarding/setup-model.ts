@@ -6,6 +6,7 @@ import type { HarnessSetup } from '$lib/ipc/bindings/HarnessSetup';
 import type { McpRefusal } from '$lib/ipc/bindings/McpRefusal';
 import type { McpState } from '$lib/ipc/bindings/McpState';
 import type { SkillsUnavailableCode } from '$lib/ipc/bindings/SkillsUnavailableCode';
+import type { OpenCodeGeneration } from '$lib/ipc/harness-ids';
 
 /** What one item of the step is doing: `idle` until a run reaches it. */
 export type ItemPhase = 'idle' | 'running' | 'done' | 'failed' | 'skipped';
@@ -88,9 +89,26 @@ export function mcpTitle(kind: McpKind): string {
 /** The server name and command of each MCP entry. */
 const MCP_SERVER: Record<McpKind, string> = { mcp: 'harness-dashboard', memoryMcp: 'harness-memory', desktopMcp: 'harness-desktop' };
 
-/** The JSON a person adds to an MCP file when the app leaves it alone, one key per line so it never wraps mid-token. OpenCode keeps its servers under "mcp", the command as one list. */
-export function mcpSnippet(kind: McpKind, harness?: HarnessId): string {
+/**
+ * The JSON a person adds to an MCP file when the app leaves it alone, one key per line so it never wraps mid-token.
+ * OpenCode 1 keeps its servers under "mcp" with `enabled`. OpenCode 2 keeps them under "mcp.servers" and has no `enabled`.
+ * Either way the command is one list.
+ */
+export function mcpSnippet(kind: McpKind, harness?: HarnessId, generation: OpenCodeGeneration = 1): string {
   const server = MCP_SERVER[kind];
+
+  if (harness === 'opencode' && generation === 2) {
+    return `{
+  "mcp": {
+    "servers": {
+      "${server}": {
+        "type": "local",
+        "command": ["${server}", "mcp"]
+      }
+    }
+  }
+}`;
+  }
 
   if (harness === 'opencode') {
     return `{

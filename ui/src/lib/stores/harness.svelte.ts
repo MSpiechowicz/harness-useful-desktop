@@ -1,5 +1,6 @@
 import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
 import type { HarnessSummary } from '$lib/ipc/bindings/HarnessSummary';
+import { openCodeGeneration, type OpenCodeGeneration } from '$lib/ipc/harness-ids';
 import { t, type MessageKey } from '$lib/i18n/i18n.svelte';
 import { ipc } from '$lib/ipc/client';
 import { IpcFailure, type Transport } from '$lib/ipc/transport';
@@ -49,6 +50,11 @@ export class HarnessStore {
 
   get(id: HarnessId): HarnessSummary | undefined {
     return this.summaries.find((summary) => summary.info.id === id);
+  }
+
+  /** The generation of the OpenCode on this machine, from its detected version. */
+  get openCodeGeneration(): OpenCodeGeneration {
+    return openCodeGeneration(this.get('opencode')?.detection.version);
   }
 
   /** Whether the app can drive a chat with this harness. A harness the list does not know is not asked about, so it counts. */
