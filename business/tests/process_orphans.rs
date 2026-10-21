@@ -5,7 +5,6 @@
 
 use std::ffi::OsString;
 use std::fs;
-use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::Arc;
@@ -124,49 +123,32 @@ fn the_sweep_reaches_what_the_orphan_started() {
     let app = FakeApp::start();
     let registry = ChildRegistry::with_owner(dir.path(), app.identity.clone());
 
-    // A shell leading its own group, with a `sleep` it started in the background.
-    let script = format!("{} 300 & echo $!; wait", sleep_binary().display());
-    let args = [OsString::from("-c"), OsString::from(&script)];
-    let mut command = Command::new("/bin/sh"); // guard-allow: installer-shell
-    command
-        .args(&args)
+    // A `sleep` leading its own group, and a second `sleep` in that group (what the orphan started).
+    let mut leader = start_sleep();
+    let leader_pid = leader.id();
+    let mut member_command = Command::new(sleep_binary());
+    member_command
+        .arg("300")
         .stdin(Stdio::null())
-        .stdout(Stdio::piped())
+        .stdout(Stdio::null())
         .stderr(Stdio::null());
-    std::os::unix::process::CommandExt::process_group(&mut command, 0);
-    let mut shell = command.spawn().unwrap();
+    std::os::unix::process::CommandExt::process_group(&mut member_command, leader_pid as i32);
+    let mut member = member_command.spawn().unwrap();
+    let args = [OsString::from("300")];
 
-    let mut line = String::new();
-    BufReader::new(shell.stdout.take().unwrap())
-        .read_line(&mut line)
-        .unwrap();
-    let grandchild: i32 = line.trim().parse().unwrap();
-
-    registry.record(shell.id(), &args).expect("recorded");
+    registry.record(leader_pid, &args).expect("recorded");
     drop(registry);
     app.crash();
 
     let report = sweep_orphans(dir.path());
 
-    assert_eq!(report.killed, vec![shell.id()]);
-    assert_eq!(wait_for_signal(&mut shell), Some(9));
-    assert!(is_gone(grandchild), "the background sleep died with its group");
-}
-
-/// True once `pid` no longer exists (an orphaned grandchild is reaped by init), polled for at most
-/// [`DEATH_LIMIT`].
-fn is_gone(pid: i32) -> bool {
-    let deadline = Instant::now() + DEATH_LIMIT;
-
-    while Instant::now() < deadline {
-        if nix::sys::signal::kill(nix::unistd::Pid::from_raw(pid), None) == Err(nix::errno::Errno::ESRCH) {
-            return true;
-        }
-
-        std::thread::sleep(Duration::from_millis(20));
-    }
-
-    false
+    assert_eq!(report.killed, vec![leader_pid]);
+    assert_eq!(wait_for_signal(&mut leader), Some(9));
+    assert_eq!(
+        wait_for_signal(&mut member),
+        Some(9),
+        "the group member died with its leader"
+    );
 }
 
 #[test]
