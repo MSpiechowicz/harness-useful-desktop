@@ -355,7 +355,7 @@
         {#if script.approval !== 'local'}<ApprovalBadge approval={script.approval} />{/if}
       </span>
     {:else if column.key === 'language'}
-      <Badge>{languageLabel(script.language)}</Badge>
+      <Badge size="lg">{languageLabel(script.language)}</Badge>
     {:else if column.key === 'scope'}
       <div class="min-w-0 text-fg-2"><ScopeLabel scope={memoryScope(script, projectScopes.data ?? [], t('memory.scripts.row.thisRepo'))} /></div>
     {:else if column.key === 'place'}

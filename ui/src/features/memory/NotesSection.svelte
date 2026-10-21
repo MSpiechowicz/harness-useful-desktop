@@ -277,7 +277,7 @@
     {#if column.key === 'title'}
       <span class="text-fg">{spelledOut(note.title)}</span>
     {:else if column.key === 'kind'}
-      <NoteKindBadge kind={note.kind} />
+      <NoteKindBadge kind={note.kind} size="lg" />
     {:else if column.key === 'scope'}
       <div class="min-w-0 text-fg-2"><ScopeLabel scope={memoryScope(note, projectScopes.data ?? [], t('memory.scripts.row.thisRepo'))} /></div>
     {:else if column.key === 'place'}

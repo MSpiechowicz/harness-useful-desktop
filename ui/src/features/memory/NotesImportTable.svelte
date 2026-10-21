@@ -76,7 +76,7 @@
                 <p class="text-xs text-warning">{t('memory.import.duplicate', { row: row.duplicateOf + 1 })}</p>
               {/if}
             </td>
-            <td class="border-b border-line/60 px-3 py-2 align-middle"><NoteKindBadge kind={row.kind} /></td>
+            <td class="border-b border-line/60 px-3 py-2 align-middle"><NoteKindBadge kind={row.kind} size="lg" /></td>
             <td class={cx('border-b border-line/60 px-3 py-2 align-middle text-fg-2', FROM.md)}><div class="truncate">{row.tags.join(', ')}</div></td>
             <td class="border-b border-line/60 px-3 py-2 align-middle text-fg-2"><div class="truncate">{scopeText(row)}</div></td>
             <td class={cx('border-b border-line/60 px-3 py-2 align-middle text-fg-3', FROM.lg)}><div class="truncate" title={row.bodyPreview}>{row.bodyPreview}</div></td>

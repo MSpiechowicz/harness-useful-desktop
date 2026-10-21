@@ -28,5 +28,5 @@
     <Folder size={ICON.sm} aria-hidden="true" class="shrink-0 text-fg-3" />
   {/if}
   <span class={scope.kind === 'unknown' ? 'truncate text-fg-3' : 'truncate'} title={label}>{label}</span>
-  {#if remote}<Badge class="shrink-0">{t('components.scope.remote')}</Badge>{/if}
+  {#if remote}<Badge size="lg" class="shrink-0">{t('components.scope.remote')}</Badge>{/if}
 </div>
