@@ -703,7 +703,7 @@ OpenCode 2 gets the same guarantees through its own engine (`business/src/agent/
   OpenCode 2 reloads its agents while it runs (an agent file added or changed under an agent folder). A chat with a
   mode re-reads the agents on every agent or config update, after a reopen and when a subagent ask names an agent the
   probe did not list, runs the same strict check, and stops with a notice when the mode no longer covers them (a new
-  chat applies it again). "Always allow" never answers a subagent ask for an agent the probe did not list.
+  chat applies it again). A subagent ask for an agent the probe did not list is checked before it shows (the chat stops instead when the mode no longer covers the agents), can only be rejected, and "Always allow" never answers it.
   **Residual:** OpenCode 2 sends no event when another OpenCode client saves an "always" rule for the project while
   the chat runs, so such a rule is only checked when a chat starts.
 - **"Always allow"** is never sent to OpenCode 2, which would save it for the whole project. The app answers `once`
