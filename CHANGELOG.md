@@ -1,3 +1,10 @@
+## [0.35.1](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.35.0...v0.35.1) (2026-10-21)
+
+
+### Bug Fixes
+
+* **hooks:** let the memory-save hook save every note that is useful ([abb9fdc](https://github.com/MSpiechowicz/harness-useful-desktop/commit/abb9fdca003cb79078093a74b05820a49cd02340))
+
 # [0.35.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.34.0...v0.35.0) (2026-10-21)
 
 
