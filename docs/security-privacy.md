@@ -279,6 +279,13 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
 
 ## Process spawning
 
+- **Orphaned agents.** Every agent and chat server the app starts (`TrackedSpawner`, `business/src/process/orphans.rs`)
+  is recorded with its pid, start time and arguments in one file per running app under
+  `<local data dir>/child-processes/` (folder `0700`, file `0600`, at most 64 entries). An entry goes when the child is
+  reaped or dropped. At the next start a background sweep reads the files of apps that are gone and kills each
+  recorded child (its process group) only when its start time and arguments still match, so a reused pid is never
+  hit, and the files of a running app (another build sharing the folder) are left alone. Linux and macOS. On Windows
+  nothing is recorded.
 - **No shell.** `build_command` (`business/src/process/mod.rs`) requires an absolute program path and passes the
   argument list verbatim. `scripts/check-forbidden.ts` rejects `Command::new("sh" | "bash" | "cmd" | ...)` with no
   opt-out. The exceptions are the companion installers and command hooks below.
