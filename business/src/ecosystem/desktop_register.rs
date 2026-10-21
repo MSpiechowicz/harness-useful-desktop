@@ -3,9 +3,9 @@
 //! on the user's request, [`desktop_mcp_state`] for the setup step.
 //!
 //! - Found: a server named [`DESKTOP_MCP_SERVER`], or any server running `harness-desktop mcp`
-//!   (any directory, `.exe` or not), in the target file or one of the `also_read` files, switched
-//!   off by the target file's `disabledServers` or by `"enabled": false` (as in
-//!   [`super::mcp_register`]).
+//!   (any directory, `.exe` or not), in the target file or one of the `also_read` files (on
+//!   OpenCode 2 under `mcp.servers` or the legacy `mcp`), switched off by the target file's
+//!   `disabledServers` or by the server itself (as in [`super::mcp_register`]).
 //! - Owned: an entry in the target file (never an `also_read` one) named exactly
 //!   [`DESKTOP_MCP_SERVER`] whose only argument is `mcp` and whose program is the app: the current
 //!   one, the one the app last wrote into that file (the record, see [`super::desktop_record`]), or
@@ -24,7 +24,7 @@ use std::path::{Path, PathBuf};
 
 use serde_json::{Map, Value};
 
-use super::mcp_merge::{Blocked, Change, Shape, Target, change_file, load};
+use super::mcp_merge::{Blocked, Change, Shape, Target, change_file, load, server_mut};
 use super::mcp_register::{FoundServer, add_server, find_server, server_program};
 use super::setup::McpFile;
 use crate::env::Env;
@@ -232,10 +232,7 @@ fn only_mcp_argument(server: &Value) -> bool {
 /// Points the owned entry at `program` in place: its `command`, or the first item of its `command`
 /// array.
 fn repoint(document: &mut Map<String, Value>, shape: Shape, program: &str) {
-    let slot = document
-        .get_mut(shape.root())
-        .and_then(|servers| servers.get_mut(DESKTOP_MCP_SERVER))
-        .and_then(|entry| entry.get_mut("command"));
+    let slot = server_mut(document, shape, DESKTOP_MCP_SERVER).and_then(|entry| entry.get_mut("command"));
 
     match slot {
         Some(Value::Array(parts)) if !parts.is_empty() => parts[0] = Value::String(program.to_owned()),

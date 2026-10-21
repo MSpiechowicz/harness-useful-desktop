@@ -1,17 +1,22 @@
-//! Removing an OpenCode plugin (`ExtensionAction::PluginUninstall`). OpenCode has no uninstall
-//! command, so the app removes the plugin's entry from the `plugin` list of the global config file,
-//! the one the setup step registers MCP servers in ([`mcp_target`]: `opencode.jsonc` when present,
-//! else `opencode.json`). It never edits another file.
+//! Removing an OpenCode plugin (`ExtensionAction::PluginUninstall`) by editing the global config
+//! file, the one the setup step registers MCP servers in ([`global_settings_file`]: OpenCode 1
+//! `opencode.jsonc` when present, else `opencode.json`; OpenCode 2 the file its own `plugin add`
+//! writes). OpenCode 1 has no uninstall command; OpenCode 2's `plugin remove` has no preview, so
+//! both generations get the same edit. It never edits another file.
 //!
+//! - The lists: `plugin` on OpenCode 1; `plugin` (legacy) and `plugins` on OpenCode 2, both edited
+//!   so no copy is left under the other key.
 //! - `name` is the plugin's id as the extensions view lists it: the package name of an npm spec
 //!   (`demo`, `demo@1.2` and `demo@latest` all match `demo`), the file path of a local one (in any
 //!   form of that path: `/` or `\` separators, a `\\?\` prefix or a lower-case drive letter).
-//! - Every string entry with that id goes; other keys and entries stay, in order. The write follows
-//!   [`change_file`]: atomic, permissions kept, and a symlink, anything but a regular file, a file
-//!   over 2 MiB or one that is not valid JSONC is refused (an error, nothing written).
+//! - Every plain entry with that id goes (a spec string, and on OpenCode 2 a `{package}` without
+//!   options); other keys and entries stay, in order. The write follows [`change_file`]: atomic,
+//!   permissions kept, and a symlink, anything but a regular file, a file over 2 MiB or one that is
+//!   not valid JSONC is refused (an error, nothing written).
 //! - Left to the user ([`ConfigEdit::manual_edit`], `ok` false, nothing written): a file with
-//!   comments a rewrite would lose, a `[spec, options]` entry for the plugin, or a plugin that only
-//!   another file defines (another settings file, the project's, or a plugin file).
+//!   comments a rewrite would lose, an entry with options for the plugin (`[spec, options]`, on
+//!   OpenCode 2 also `{package, options}`), or a plugin that only another file defines (another
+//!   settings file, the project's, or a plugin file or folder).
 //! - Not listed anywhere: `ok`, nothing written, so removing twice is harmless.
 //! - Removed (or a dry run that would remove) while another file still defines the plugin: the
 //!   summary names that file, since OpenCode keeps loading the plugin from it.
@@ -22,42 +27,49 @@ use std::path::{Path, PathBuf};
 
 use serde_json::{Map, Value};
 
-use super::OpenCode;
-use super::config::merge_steps;
+use super::config::{Layers, layers};
 use super::extensions::{plugin_entry_id, plugin_sources};
 use super::plugin_ids::same_plugin_id;
+use super::share::global_settings_file;
 use crate::ecosystem::mcp_merge::{Blocked, Change, Shape, Target, change_file, load};
-use crate::ecosystem::setup::mcp_target;
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
-use crate::harness::MAX_CLI_TARGET_CHARS;
+use crate::harness::{MAX_CLI_TARGET_CHARS, OpenCodeGeneration};
 use crate::model::{CliResult, ConfigEdit, McpRefusal};
 use crate::pi_family::tilde;
 use crate::security::redact_text;
 use crate::sync::validate::display_safe;
 
-/// The key listing OpenCode's plugins.
-const PLUGIN_KEY: &str = "plugin";
+/// The keys listing plugins in a settings file of `generation`.
+fn plugin_keys(generation: OpenCodeGeneration) -> &'static [&'static str] {
+    match generation {
+        OpenCodeGeneration::V1 => &["plugin"],
+        OpenCodeGeneration::V2 => &["plugin", "plugins"],
+    }
+}
 
 /// What a removal found in the global file.
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum Found {
-    /// String entries with the id (removed, or that a dry run would remove).
-    Entries,
-    /// A `[spec, options]` entry with the id.
-    WithOptions,
+    /// Plain entries with the id under these keys (removed, or that a dry run would remove).
+    Entries(Vec<&'static str>),
+    /// An entry with options for the id, under this key.
+    WithOptions(&'static str),
     /// No entry with the id.
     Nothing,
-    /// The `plugin` key holds something other than a list.
-    NotAList,
-    /// String entries with the id, in a file with comments a rewrite would lose (nothing written).
-    Comments,
+    /// This key holds something other than a list.
+    NotAList(&'static str),
+    /// Plain entries with the id under these keys, in a file with comments a rewrite would lose
+    /// (nothing written).
+    Comments(Vec<&'static str>),
 }
 
 /// What the action did or would do.
 enum Outcome {
-    /// Removed from the global file; `still_in` is another file OpenCode still loads it from.
+    /// Removed from these keys of the global file; `still_in` is another file OpenCode still
+    /// loads it from.
     Removed {
+        keys: Vec<&'static str>,
         still_in: Option<PathBuf>,
     },
     NotListed,
@@ -67,45 +79,82 @@ enum Outcome {
     },
 }
 
-/// Removes the plugin `name` from the global config file, or previews that (see the module docs).
-/// `project` only widens the search for a plugin defined elsewhere.
-pub fn remove_plugin(env: &Env, name: &str, project: Option<&Path>, dry_run: bool) -> Result<CliResult> {
+/// One removal: the plugin `name` from `file`, as `generation` reads it.
+#[derive(Clone, Copy)]
+struct Edit<'a> {
+    file: &'a Path,
+    name: &'a str,
+    generation: OpenCodeGeneration,
+}
+
+impl Edit<'_> {
+    fn shape(self) -> Shape {
+        match self.generation {
+            OpenCodeGeneration::V1 => Shape::OpenCode,
+            OpenCodeGeneration::V2 => Shape::OpenCodeV2,
+        }
+    }
+
+    /// True when the entry spec `spec` names the plugin.
+    fn matches(self, spec: Option<&str>) -> bool {
+        spec.is_some_and(|spec| same_plugin_id(&plugin_entry_id(spec, self.file, self.generation), self.name))
+    }
+}
+
+/// Removes the plugin `name` from the global config file of `generation`, or previews that (see
+/// the module docs). `project` only widens the search for a plugin defined elsewhere.
+pub fn remove_plugin(
+    env: &Env,
+    name: &str,
+    project: Option<&Path>,
+    dry_run: bool,
+    generation: OpenCodeGeneration,
+) -> Result<CliResult> {
     check_name(name)?;
 
-    let file = mcp_target(env, &OpenCode::default())
-        .map(|target| target.path)
-        .ok_or_else(|| BusinessError::Internal("OpenCode has no global config file".to_owned()))?;
+    let file = global_settings_file(env, generation);
     let shown = tilde(env, &file);
-
-    let found = if dry_run {
-        preview(&file, name)
-    } else {
-        apply(&file, name)
+    let edit = Edit {
+        file: &file,
+        name,
+        generation,
     };
 
+    let found = if dry_run { preview(edit) } else { apply(edit) };
+    let layers = layers(env, project, generation);
+
     let outcome = match found.map_err(|reason| refused(&shown, reason))? {
-        Found::Entries => Outcome::Removed {
-            still_in: other_source(env, project, &file, name),
+        Found::Entries(keys) => Outcome::Removed {
+            keys,
+            still_in: other_source(&layers, &file, name),
         },
-        Found::Nothing => elsewhere(env, project, &file, name).unwrap_or(Outcome::NotListed),
-        Found::WithOptions => Outcome::Manual {
-            instruction: format!("{shown} sets options for this plugin. Remove its entry from \"plugin\" yourself."),
+        Found::Nothing => elsewhere(env, &layers, &file, name).unwrap_or(Outcome::NotListed),
+        Found::WithOptions(key) => Outcome::Manual {
+            instruction: format!("{shown} sets options for this plugin. Remove its entry from \"{key}\" yourself."),
             file: file.clone(),
         },
-        Found::NotAList => {
+        Found::NotAList(key) => {
             return Err(BusinessError::InvalidInput(format!(
-                "\"plugin\" in {shown} is not a list"
+                "\"{key}\" in {shown} is not a list"
             )));
         }
-        Found::Comments => Outcome::Manual {
+        Found::Comments(keys) => Outcome::Manual {
             instruction: format!(
-                "{shown} has comments the app would lose. Remove this plugin from \"plugin\" there yourself."
+                "{shown} has comments the app would lose. Remove this plugin from {} there yourself.",
+                quoted(&keys)
             ),
             file: file.clone(),
         },
     };
 
     Ok(result(env, outcome, &shown, dry_run))
+}
+
+/// `"plugin"`, or `"plugin" and "plugins"`.
+fn quoted(keys: &[&str]) -> String {
+    let quoted: Vec<String> = keys.iter().map(|key| format!("\"{key}\"")).collect();
+
+    quoted.join(" and ")
 }
 
 /// `name` must be a non-empty id the UI can show back (no control or invisible characters).
@@ -120,67 +169,128 @@ fn check_name(name: &str) -> Result<()> {
 }
 
 /// What a run would find, without writing.
-fn preview(file: &Path, name: &str) -> Result<Found, McpRefusal> {
-    let target = load(file, Shape::OpenCode)?;
+fn preview(edit: Edit<'_>) -> Result<Found, McpRefusal> {
+    let target = load(edit.file, edit.shape())?;
 
-    match decide(&target, file, name) {
+    match decide(&target, edit) {
         Change::Keep(found) => Ok(found),
         Change::Write(_, found) if target.rewritable() => Ok(found),
-        Change::Write(..) => Ok(Found::Comments),
+        Change::Write(_, Found::Entries(keys)) => Ok(Found::Comments(keys)),
+        Change::Write(_, found) => Ok(found),
     }
 }
 
 /// Removes the entries, unless the file has comments.
-fn apply(file: &Path, name: &str) -> Result<Found, McpRefusal> {
-    match change_file(file, Shape::OpenCode, |target| decide(target, file, name)) {
+fn apply(edit: Edit<'_>) -> Result<Found, McpRefusal> {
+    let mut wanted: Vec<&'static str> = Vec::new();
+
+    let changed = change_file(edit.file, edit.shape(), |target| {
+        let change = decide(target, edit);
+
+        if let Change::Write(_, Found::Entries(keys)) = &change {
+            wanted.clone_from(keys);
+        }
+
+        change
+    });
+
+    match changed {
         Ok(found) => Ok(found),
-        Err(Blocked::ManualEdit) => Ok(Found::Comments),
+        Err(Blocked::ManualEdit) => Ok(Found::Comments(wanted)),
         Err(Blocked::Refused(reason)) => Err(reason),
     }
 }
 
-/// Writes the document without the string entries of `name`, when there are some and no entry
-/// with options for it.
-fn decide(target: &Target, file: &Path, name: &str) -> Change<Found> {
+/// One plugin entry, as far as a removal cares.
+enum Entry<'a> {
+    /// A spec string, or on OpenCode 2 `{package}` without options.
+    Plain(&'a str),
+    /// An entry with options: `[spec, options]`, or on OpenCode 2 `{package, options}`.
+    WithOptions(Option<&'a str>),
+    /// Anything else (left alone).
+    Other,
+}
+
+/// What the entry `item` is. OpenCode 1 reads any list as `[spec, options]`; OpenCode 2 reads
+/// `[spec, {options}]` and `{package, options?}` (see [`super::config`]).
+fn entry(item: &Value, generation: OpenCodeGeneration) -> Entry<'_> {
+    match (item, generation) {
+        (Value::String(spec), _) => Entry::Plain(spec),
+        (Value::Array(pair), OpenCodeGeneration::V1) => Entry::WithOptions(pair.first().and_then(Value::as_str)),
+        (Value::Array(pair), OpenCodeGeneration::V2) => match pair.as_slice() {
+            [Value::String(spec), Value::Object(_)] => Entry::WithOptions(Some(spec)),
+            _ => Entry::Other,
+        },
+        (Value::Object(fields), OpenCodeGeneration::V2) => {
+            let package = fields.get("package").and_then(Value::as_str);
+
+            match (package, fields.get("options")) {
+                (Some(package), None) => Entry::Plain(package),
+                (Some(package), Some(Value::Object(_))) => Entry::WithOptions(Some(package)),
+                _ => Entry::Other,
+            }
+        }
+        _ => Entry::Other,
+    }
+}
+
+/// Writes the document without the plain entries of the plugin under every plugin key, when
+/// there are some and no entry with options for it.
+fn decide(target: &Target, edit: Edit<'_>) -> Change<Found> {
     let Target::Present { document, .. } = target else {
         return Change::Keep(Found::Nothing);
     };
 
-    let entries = match document.get(PLUGIN_KEY) {
-        None => return Change::Keep(Found::Nothing),
-        Some(Value::Array(entries)) => entries,
-        Some(_) => return Change::Keep(Found::NotAList),
-    };
-
-    let matches = |spec: Option<&str>| spec.is_some_and(|spec| same_plugin_id(&plugin_entry_id(spec, file), name));
-
-    let with_options = entries.iter().any(|entry| {
-        entry
-            .as_array()
-            .is_some_and(|pair| matches(pair.first().and_then(Value::as_str)))
-    });
-    if with_options {
-        return Change::Keep(Found::WithOptions);
+    let mut lists: Vec<(&'static str, &Vec<Value>)> = Vec::new();
+    for key in plugin_keys(edit.generation) {
+        match document.get(*key) {
+            None => {}
+            Some(Value::Array(entries)) => lists.push((key, entries)),
+            Some(_) => return Change::Keep(Found::NotAList(key)),
+        }
     }
 
-    let kept: Vec<Value> = entries
-        .iter()
-        .filter(|entry| !matches(entry.as_str()))
-        .cloned()
-        .collect();
-    if kept.len() == entries.len() {
+    for (key, entries) in &lists {
+        let with_options = entries.iter().any(|item| match entry(item, edit.generation) {
+            Entry::WithOptions(spec) => edit.matches(spec),
+            _ => false,
+        });
+
+        if with_options {
+            return Change::Keep(Found::WithOptions(key));
+        }
+    }
+
+    let mut changed: Map<String, Value> = document.clone();
+    let mut removed_from: Vec<&'static str> = Vec::new();
+
+    for (key, entries) in lists {
+        let kept: Vec<Value> = entries
+            .iter()
+            .filter(|item| match entry(item, edit.generation) {
+                Entry::Plain(spec) => !edit.matches(Some(spec)),
+                _ => true,
+            })
+            .cloned()
+            .collect();
+
+        if kept.len() != entries.len() {
+            changed.insert(key.to_owned(), Value::Array(kept));
+            removed_from.push(key);
+        }
+    }
+
+    if removed_from.is_empty() {
         return Change::Keep(Found::Nothing);
     }
 
-    let mut document: Map<String, Value> = document.clone();
-    document.insert(PLUGIN_KEY.to_owned(), Value::Array(kept));
-
-    Change::Write(document, Found::Entries)
+    Change::Write(changed, Found::Entries(removed_from))
 }
 
-/// The first file other than `global` that defines `name` (a settings file or a plugin file).
-fn other_source(env: &Env, project: Option<&Path>, global: &Path, name: &str) -> Option<PathBuf> {
-    plugin_sources(&merge_steps(env, project))
+/// The first file other than `global` that defines `name` (a settings file, or a plugin file or
+/// folder).
+fn other_source(layers: &Layers, global: &Path, name: &str) -> Option<PathBuf> {
+    plugin_sources(layers)
         .into_iter()
         .find(|(id, path)| same_plugin_id(id, name) && path != global)
         .map(|(_, path)| path)
@@ -193,14 +303,16 @@ fn is_settings_file(path: &Path) -> bool {
 }
 
 /// The other file that defines `name`, as an edit the user makes: OpenCode loads it from there.
-fn elsewhere(env: &Env, project: Option<&Path>, global: &Path, name: &str) -> Option<Outcome> {
-    let path = other_source(env, project, global, name)?;
+fn elsewhere(env: &Env, layers: &Layers, global: &Path, name: &str) -> Option<Outcome> {
+    let path = other_source(layers, global, name)?;
 
     let shown = tilde(env, &path);
     let global = tilde(env, global);
 
     let instruction = if is_settings_file(&path) {
         format!("OpenCode loads this plugin from {shown}. The app only edits {global}, so remove it there yourself.")
+    } else if path.is_dir() {
+        format!("This plugin is the folder {shown}. Delete that folder to remove it.")
     } else {
         format!("This plugin is the file {shown}. Delete that file to remove it.")
     };
@@ -213,11 +325,12 @@ fn elsewhere(env: &Env, project: Option<&Path>, global: &Path, name: &str) -> Op
 
 fn result(env: &Env, outcome: Outcome, shown: &str, dry_run: bool) -> CliResult {
     let (ok, summary, file, manual_edit) = match outcome {
-        Outcome::Removed { still_in } => {
+        Outcome::Removed { keys, still_in } => {
+            let keys = quoted(&keys);
             let done = if dry_run {
-                format!("Would remove this plugin from \"plugin\" in {shown}. Nothing was changed.")
+                format!("Would remove this plugin from {keys} in {shown}. Nothing was changed.")
             } else {
-                format!("Removed this plugin from \"plugin\" in {shown}.")
+                format!("Removed this plugin from {keys} in {shown}.")
             };
 
             (
@@ -260,6 +373,8 @@ fn still_loaded(env: &Env, summary: String, still_in: Option<&Path>) -> String {
 
     if is_settings_file(path) {
         format!("{summary} It is still listed in {other}.")
+    } else if path.is_dir() {
+        format!("{summary} The plugin folder {other} still loads it.")
     } else {
         format!("{summary} The plugin file {other} still loads it.")
     }

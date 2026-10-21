@@ -10,8 +10,8 @@
 //! - [`plan`] — the import review of a received bundle on this machine (reads files only, never
 //!   runs anything);
 //! - [`apply`] — applying the reviewed items the user selected (runs the harness CLIs and, before
-//!   writing an OpenCode server, `opencode debug config` for the names OpenCode merges; merges MCP
-//!   files).
+//!   writing an OpenCode server, `opencode debug config`, or `opencode api --standalone` on
+//!   OpenCode 2, for the names OpenCode merges; merges MCP files).
 //!
 //! Apart from [`collect`], [`plan`] and [`apply`], these modules are pure: no file IO, no
 //! processes. Only references are shared, never secret values (env/header values, auth, tokens);

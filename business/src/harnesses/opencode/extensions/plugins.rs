@@ -59,9 +59,13 @@ pub(in crate::harnesses::opencode) fn plugin_sources(layers: &Layers) -> Vec<(St
         .collect()
 }
 
-/// The id OpenCode 1 lists the `plugin` entry `spec` of `config_file` under.
-pub(in crate::harnesses::opencode) fn plugin_entry_id(spec: &str, config_file: &Path) -> String {
-    match configured_plugin(spec, config_file, ExtensionScope::User, OpenCodeGeneration::V1) {
+/// The id `generation` lists the plugin entry `spec` of `config_file` under.
+pub(in crate::harnesses::opencode) fn plugin_entry_id(
+    spec: &str,
+    config_file: &Path,
+    generation: OpenCodeGeneration,
+) -> String {
+    match configured_plugin(spec, config_file, ExtensionScope::User, generation) {
         Some(plugin) => plugin.id,
         None => spec.to_owned(),
     }

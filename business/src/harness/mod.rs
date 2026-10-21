@@ -151,9 +151,10 @@ pub enum McpTarget {
         /// File names in the agent directory that are also read.
         also_read: &'static [&'static str],
     },
-    /// The `mcp` object of the global OpenCode config file (`opencode.jsonc` or `opencode.json` in
-    /// the config directory), whose entries run `command` arrays.
-    OpenCodeConfig,
+    /// The servers of the global OpenCode config file of this generation, whose entries run
+    /// `command` arrays: `mcp.<name>` on OpenCode 1, `mcp.servers.<name>` on OpenCode 2 (see
+    /// [`crate::ecosystem::mcp_target`]).
+    OpenCodeConfig(OpenCodeGeneration),
     /// The harness has no user MCP file the app can register a server in.
     Unsupported,
 }
@@ -433,6 +434,11 @@ pub trait Harness: Send + Sync {
     /// 2) can pick it. Default: nothing.
     fn note_version(&self, version: Option<&str>) {
         let _ = version;
+    }
+
+    /// The OpenCode generation the last detection found; `None` for every harness but OpenCode.
+    fn opencode_generation(&self) -> Option<OpenCodeGeneration> {
+        None
     }
 
     /// How `version` relates to [`Harness::supported_versions`].

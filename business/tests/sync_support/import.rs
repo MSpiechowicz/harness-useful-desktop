@@ -1,6 +1,7 @@
 //! A temporary machine for the "Share setup" import tests: harness files, summaries, binaries, and
 //! a fake harness CLI that records every command line and performs what it asks for on the files.
-//! The fake `opencode debug config` answers what OpenCode merges (see [`Probe`]).
+//! The fake `opencode debug config` (and OpenCode 2's `opencode api --standalone GET /api/config`)
+//! answers what OpenCode merges (see [`Probe`]).
 //!
 //! Each helper is used by some tests only, hence the `dead_code` allowance.
 #![allow(dead_code)]
@@ -97,14 +98,14 @@ impl Machine {
     /// The review of `bundle` (share file JSON) on this machine. It reads files only: there is
     /// no runner to run a CLI with.
     pub fn plan(&self, bundle: &Value) -> BuiltPlan {
+        self.plan_in(&HarnessRegistry::with_defaults(), bundle)
+    }
+
+    /// [`Machine::plan`] with the harnesses of `registry` (an OpenCode 2 one, say).
+    pub fn plan_in(&self, registry: &HarnessRegistry, bundle: &Value) -> BuiltPlan {
         let decoded = decode_input(&bundle.to_string()).expect("a valid bundle");
 
-        build_plan(
-            &self.env,
-            &HarnessRegistry::with_defaults(),
-            &summaries(&self.installed),
-            &decoded,
-        )
+        build_plan(&self.env, registry, &summaries(&self.installed), &decoded)
     }
 
     /// The binaries of the installed harnesses (never started: the fake CLI answers instead).
@@ -156,7 +157,7 @@ pub fn ids(plan: &SyncImportPlan) -> Vec<String> {
 /// The fake `omp`, `pi` and `opencode`: records each command line (program file name first) and,
 /// unless told to fail it, does what it asks to the files of `home`: registers a marketplace (named
 /// after `marketplace_names`), installs a user plugin, adds a PI package, adds an OpenCode plugin to
-/// `opencode.json`.
+/// `opencode.json` (`plugin <spec> -g` to `plugin`, OpenCode 2's `plugin add <spec>` to `plugins`).
 ///
 /// `opencode debug config` answers the machine's [`Probe`]; it is recorded in
 /// [`FakeCli::probes`], not in [`FakeCli::seen`].
@@ -181,7 +182,8 @@ impl FakeCli {
         }
     }
 
-    /// The `opencode debug config` commands run.
+    /// The `opencode debug config` (OpenCode 2: `opencode api --standalone GET /api/config`)
+    /// commands run.
     pub fn probes(&self) -> Vec<ExecSpec> {
         self.probes.lock().unwrap().clone()
     }
@@ -210,6 +212,37 @@ impl FakeCli {
         ExecOutput {
             status: Some(0),
             stdout: serde_json::to_string_pretty(&config).unwrap(),
+            ..ExecOutput::default()
+        }
+    }
+
+    /// The answer of OpenCode 2's `opencode api --standalone GET /api/config`: one document per
+    /// OpenCode config file here (its `mcp` as written) and one, without a path, holding the
+    /// [`Probe::Merges`] names under `mcp.servers` (a layer the app cannot read).
+    fn merged_sources(&self) -> ExecOutput {
+        let names = match &*self.probe.lock().unwrap() {
+            Probe::Prints(output) => return output.clone(),
+            Probe::Merges(names) => names.clone(),
+        };
+
+        let mut sources = Vec::new();
+        for file in [OPENCODE_JSON, OPENCODE_JSONC] {
+            let path = self.home.join(file);
+            if let Some(mcp) = read_json(&path).get("mcp") {
+                sources.push(json!({ "type": "document", "path": path, "info": { "mcp": mcp } }));
+            }
+        }
+        sources.push(json!({ "type": "directory", "path": self.home.join(".config/opencode") }));
+
+        let org: serde_json::Map<String, Value> = names
+            .into_iter()
+            .map(|name| (name, json!({ "type": "remote", "url": "https://org.example.com/mcp" })))
+            .collect();
+        sources.push(json!({ "type": "document", "info": { "mcp": { "servers": org } } }));
+
+        ExecOutput {
+            status: Some(0),
+            stdout: Value::Array(sources).to_string(),
             ..ExecOutput::default()
         }
     }
@@ -277,6 +310,15 @@ impl FakeCli {
                 }
                 write_json(&path, &config);
             }
+            ["opencode", "plugin", "add", spec] => {
+                let path = self.home.join(OPENCODE_JSON);
+                let mut config = read_json(&path);
+                match config["plugins"].as_array_mut() {
+                    Some(plugins) => plugins.push(json!(spec)),
+                    None => config["plugins"] = json!([spec]),
+                }
+                write_json(&path, &config);
+            }
             _ => panic!("unexpected command {argv:?}"),
         }
     }
@@ -291,6 +333,13 @@ impl ProcessRunner for FakeCli {
         if argv == ["opencode", "debug", "config"] {
             self.probes.lock().unwrap().push(spec.clone());
             let output = self.merged_config();
+
+            return Box::pin(async move { Ok(output) });
+        }
+
+        if argv == ["opencode", "api", "--standalone", "GET", "/api/config"] {
+            self.probes.lock().unwrap().push(spec.clone());
+            let output = self.merged_sources();
 
             return Box::pin(async move { Ok(output) });
         }
@@ -389,11 +438,30 @@ pub async fn apply(
     selected: &[String],
     confirmed: bool,
 ) -> (Result<SyncImportResult>, Vec<SyncProgress>) {
-    let registry = HarnessRegistry::with_defaults();
+    apply_in(
+        machine,
+        runner,
+        &HarnessRegistry::with_defaults(),
+        stored,
+        selected,
+        confirmed,
+    )
+    .await
+}
+
+/// [`apply`] with the harnesses of `registry`.
+pub async fn apply_in(
+    machine: &Machine,
+    runner: &FakeCli,
+    registry: &HarnessRegistry,
+    stored: &StoredPlan,
+    selected: &[String],
+    confirmed: bool,
+) -> (Result<SyncImportResult>, Vec<SyncProgress>) {
     let binaries = machine.binaries();
     let context = ApplyContext {
         env: &machine.env,
-        registry: &registry,
+        registry,
         runner,
         binaries: &binaries,
     };

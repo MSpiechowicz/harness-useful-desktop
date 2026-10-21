@@ -1,7 +1,8 @@
 //! What this machine already has, compared with one shared item: used by [`super::plan`] for each
 //! item's status and by [`super::apply`] right before each step (so applying is idempotent).
-//! OpenCode plugins are found by npm name in the `plugin` lists of every user config layer, its
-//! servers by name in the `mcp` object of the global config file and the files OpenCode also reads,
+//! OpenCode plugins are found by npm name in the `plugin` lists (OpenCode 2: `plugin` and
+//! `plugins`) of every user config layer, its servers by name in the `mcp` object (OpenCode 2:
+//! `mcp.servers` and the legacy `mcp`) of the global config file and the files OpenCode also reads,
 //! and, at apply time only, in the names OpenCode reports merging from all its layers
 //! ([`with_merged`]).
 //!
@@ -25,7 +26,7 @@ use crate::harness::Harness;
 use crate::harnesses::omp::{PluginOrigin, marketplace_records, user_plugin_records};
 use crate::harnesses::opencode::user_npm_plugins;
 use crate::harnesses::pi::user_package_records;
-use crate::model::{HarnessId, McpRefusal};
+use crate::model::McpRefusal;
 
 /// How a shared item relates to what is installed here.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -58,9 +59,9 @@ impl Machine {
     /// Reads the registries of `harness` (missing or unreadable files contribute nothing). OpenCode
     /// has only plugins: the npm plugins of every user config layer.
     pub fn read(env: &Env, harness: &dyn Harness) -> Self {
-        if harness.id() == HarnessId::OpenCode {
+        if let Some(generation) = harness.opencode_generation() {
             return Self {
-                plugins: user_npm_plugins(env),
+                plugins: user_npm_plugins(env, generation),
                 ..Self::default()
             };
         }
@@ -205,7 +206,7 @@ pub(super) fn mcp_presence(files: &McpFiles, shared: &McpServer) -> Result<Prese
 
     let same = match files.shape {
         Shape::McpServers => same_server,
-        Shape::OpenCode => same_opencode_server,
+        Shape::OpenCode | Shape::OpenCodeV2 => same_opencode_server,
     };
 
     if existing.is_empty() {

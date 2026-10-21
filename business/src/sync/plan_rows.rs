@@ -319,13 +319,14 @@ fn needs_values(server: &McpServer) -> bool {
 }
 
 /// The entry an import writes for `server` into a file of `shape`: stdio `{command, args}`,
-/// http/sse `{type, url}`, plus `"enabled": false` when it needs env or header values. OpenCode:
+/// http/sse `{type, url}`, plus `"enabled": false` when it needs env or header values. OpenCode 1:
 /// `{type: "local", command: [command, ...args], enabled}` or `{type: "remote", url, enabled}`, with
-/// `enabled` false when it needs values. Nothing else, ever: env and header names are not written
-/// (the review lists them), so no empty value can reach the server.
+/// `enabled` false when it needs values. OpenCode 2 (under `mcp.servers`): the same without
+/// `enabled`, plus `"disabled": true` when it needs values. Nothing else, ever: env and header
+/// names are not written (the review lists them), so no empty value can reach the server.
 pub(crate) fn mcp_definition(server: &McpServer, shape: Shape) -> Value {
-    if shape == Shape::OpenCode {
-        return opencode_definition(server);
+    if shape.is_opencode() {
+        return opencode_definition(server, shape);
     }
 
     let mut entry = Map::new();
@@ -353,8 +354,8 @@ pub(crate) fn mcp_definition(server: &McpServer, shape: Shape) -> Value {
     Value::Object(entry)
 }
 
-/// The OpenCode entry for `server` (see [`mcp_definition`]).
-fn opencode_definition(server: &McpServer) -> Value {
+/// The OpenCode entry for `server` in a file of `shape` (see [`mcp_definition`]).
+fn opencode_definition(server: &McpServer, shape: Shape) -> Value {
     let mut entry = Map::new();
 
     match server.transport {
@@ -371,7 +372,48 @@ fn opencode_definition(server: &McpServer) -> Value {
         }
     }
 
-    entry.insert("enabled".to_owned(), (!needs_values(server)).into());
+    if shape == Shape::OpenCodeV2 {
+        if needs_values(server) {
+            entry.insert("disabled".to_owned(), true.into());
+        }
+    } else {
+        entry.insert("enabled".to_owned(), (!needs_values(server)).into());
+    }
 
     Value::Object(entry)
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+
+    fn stdio(env_keys: &[&str]) -> McpServer {
+        McpServer {
+            name: "github".to_owned(),
+            transport: Transport::Stdio,
+            command: Some("npx".to_owned()),
+            args: vec!["server-github".to_owned()],
+            url: None,
+            env_keys: env_keys.iter().map(|key| (*key).to_owned()).collect(),
+            header_keys: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn opencode_2_entries_have_no_enabled_and_are_disabled_when_they_need_values() {
+        assert_eq!(
+            mcp_definition(&stdio(&[]), Shape::OpenCodeV2),
+            json!({ "type": "local", "command": ["npx", "server-github"] })
+        );
+        assert_eq!(
+            mcp_definition(&stdio(&["TOKEN"]), Shape::OpenCodeV2),
+            json!({ "type": "local", "command": ["npx", "server-github"], "disabled": true })
+        );
+        assert_eq!(
+            mcp_definition(&stdio(&["TOKEN"]), Shape::OpenCode),
+            json!({ "type": "local", "command": ["npx", "server-github"], "enabled": false })
+        );
+    }
 }

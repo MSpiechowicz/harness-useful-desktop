@@ -111,11 +111,6 @@ pub(in crate::harnesses::opencode) fn layers(
     Layers { generation, steps }
 }
 
-/// The OpenCode 1 [`layers`].
-pub(in crate::harnesses::opencode) fn merge_steps(env: &Env, project: Option<&Path>) -> Layers {
-    layers(env, project, OpenCodeGeneration::V1)
-}
-
 fn v1_steps(env: &Env, project: Option<&Path>) -> Vec<Step> {
     let mut files: Vec<(PathBuf, Place)> = Vec::new();
     let global = config_dir(env);

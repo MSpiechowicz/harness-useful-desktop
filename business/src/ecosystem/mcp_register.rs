@@ -5,14 +5,16 @@
 //! - Found: a server named [`DASHBOARD_MCP_SERVER`], or any server that runs `harness-dashboard`
 //!   (any directory, `.exe` or not) with the single argument `mcp`, as `"command"` and `"args"`
 //!   (`mcpServers`) or as a `"command"` array (OpenCode), in the target file or one of the
-//!   `also_read` files (first file wins). It is disabled when the target file's `disabledServers`
-//!   names it, or it sets `"enabled": false` and `enabledServers` does not name it. The memory
-//!   server is found the same way, by [`MEMORY_MCP_SERVER`] and `harness-memory`.
-//! - Register: adds the file's [`Shape::entry`] for `harness-dashboard` under
-//!   [`change_file`](super::mcp_merge::change_file)'s rules: other keys, servers and values kept in
-//!   order, a missing file created (mode `0600`), a blank file counted as `{}`, the same refusals,
-//!   an atomic write keeping permissions, one re-read when the file changed meanwhile. Nothing is
-//!   written when the server is found.
+//!   `also_read` files (first file wins). On OpenCode 2 both `mcp.servers.<name>` and the legacy
+//!   `mcp.<name>` count. It is disabled when the target file's `disabledServers` names it, or it
+//!   switches itself off ([`Shape::switched_off`]: `"enabled": false`, on OpenCode 2 also
+//!   `"disabled": true`) and `enabledServers` does not name it. The memory server is found the
+//!   same way, by [`MEMORY_MCP_SERVER`] and `harness-memory`.
+//! - Register: adds the file's [`Shape::entry`] for `harness-dashboard` (on OpenCode 2 under
+//!   `mcp.servers`) under [`change_file`](super::mcp_merge::change_file)'s rules: other keys,
+//!   servers and values kept in order, a missing file created (mode `0600`), a blank file counted
+//!   as `{}`, the same refusals, an atomic write keeping permissions, one re-read when the file
+//!   changed meanwhile. Nothing is written when the server is found.
 //! - Manual edit: a JSONC file with comments is never written; when the server is not in it, the
 //!   state is [`McpState::ManualEdit`] with the entry to paste.
 //!
@@ -176,9 +178,9 @@ pub(crate) fn find_server(file: &McpFile, target: &Target, name: &str, binary: &
 
     documents.find_map(|(path, document)| {
         let servers = servers(&document, file.shape)?;
-        let (found_name, server) = server_entry(servers, name, binary)?;
+        let (found_name, server) = server_entry(&servers, name, binary)?;
 
-        let switched_off = server.get("enabled") == Some(&Value::Bool(false)) && !forced_on.contains(found_name);
+        let switched_off = file.shape.switched_off(server) && !forced_on.contains(found_name);
 
         Some(FoundServer {
             file: path.to_path_buf(),

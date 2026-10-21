@@ -27,7 +27,7 @@ pub(super) fn any_missing(servers: &[&StoredItem]) -> bool {
 pub(super) enum Unchecked {
     /// OpenCode has no detected binary now.
     NoBinary,
-    /// `opencode debug config` failed.
+    /// The probe (`opencode debug config`, or `opencode api` on OpenCode 2) failed.
     Failed,
 }
 
@@ -52,13 +52,20 @@ impl Unchecked {
 const UNCHECKED_SUMMARY: &str =
     "Could not check the MCP servers OpenCode merges from all its config layers. Nothing was written.";
 
-/// The names OpenCode merges now (logged without any of the output when the check fails).
+/// The names OpenCode merges now, asked of the detected generation (logged without any of the
+/// output when the check fails).
 pub(super) async fn opencode_merged(context: ApplyContext<'_>) -> std::result::Result<BTreeSet<String>, Unchecked> {
     let Some(binary) = context.binaries.get(&HarnessId::OpenCode) else {
         return Err(Unchecked::NoBinary);
     };
 
-    merged_mcp_names(context.env, context.runner, binary)
+    let generation = context
+        .registry
+        .get(HarnessId::OpenCode)
+        .and_then(|opencode| opencode.opencode_generation())
+        .unwrap_or_default();
+
+    merged_mcp_names(context.env, context.runner, binary, generation)
         .await
         .map_err(|error| {
             tracing::warn!(%error, "share setup could not check OpenCode's merged config");
@@ -71,7 +78,7 @@ pub(super) async fn opencode_merged(context: ApplyContext<'_>) -> std::result::R
 pub(super) enum Names<'a> {
     /// Nothing else (not OpenCode).
     NotNeeded,
-    /// The names OpenCode merges, as `opencode debug config` reported them in this apply.
+    /// The names OpenCode merges, as its probe reported them in this apply.
     Checked(&'a BTreeSet<String>),
     /// OpenCode's merged names were not checked in this apply (no server was missing): a server
     /// found missing now is a conflict, never written unchecked.
