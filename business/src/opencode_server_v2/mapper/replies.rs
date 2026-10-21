@@ -83,6 +83,11 @@ impl Replies {
         self.done.insert(id.to_owned());
     }
 
+    /// True when message `id` ended, is open, or the session already had it.
+    pub(super) fn knows(&self, id: &str) -> bool {
+        self.done.contains(id) || self.open.iter().any(|reply| reply.id == id)
+    }
+
     /// `session.step.started`: a reply begins (nothing shows before its first part).
     pub(super) fn step_started(&mut self, step: &StepStarted, created: Option<u64>) {
         if let Some(reply) = self.reply(&step.assistant_message_id, created) {

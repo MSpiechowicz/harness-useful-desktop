@@ -1,0 +1,10 @@
+// Model, thinking level and agent picks go to the session at once; OpenCode confirms each with its
+// selected event. Then a prompt with an image (a data: URL file) is admitted and the run has not
+// started yet. A title change marks the end.
+{"on":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/model","match":{"/model/id":"deepseek-v4.1-flash-free","/model/providerID":"opencode","/model/variant":"$absent"},"emit":[{"sse":{"type":"session.model.selected","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","model":{"id":"deepseek-v4.1-flash-free","providerID":"opencode","variant":"default"}}}}]}
+{"on":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/model","match":{"/model/id":"deepseek-v4.1-flash-free","/model/variant":"high"},"emit":[{"sse":{"type":"session.model.selected","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","model":{"id":"deepseek-v4.1-flash-free","providerID":"opencode","variant":"high"}}}}]}
+{"on":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/agent","match":{"agent":"plan"},"emit":[{"sse":{"type":"session.agent.selected","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","agent":"plan"}}}]}
+{"include":"opencode2_startup.jsonl"}
+{"expect":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/prompt","match":{"/text":"Look","/files/0/name":"image-1.png","/files/0/uri":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC","/delivery":"$absent","/id":"$absent"}}
+{"sse":{"type":"session.renamed","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","title":"Marker"}}}
+{"hang":true}

@@ -284,6 +284,12 @@ impl Mapper {
         }
     }
 
+    /// True when message `id` (a prompt or a reply) is in the chat: shown, still streaming, or one
+    /// the session already had ([`Mapper::seen`]).
+    pub fn has_message(&self, id: &str) -> bool {
+        self.replies.knows(id)
+    }
+
     /// Closes every open dialog.
     fn close_asks(&mut self, out: &mut Vec<AgentEvent>) {
         self.asks.cancel_all(out);

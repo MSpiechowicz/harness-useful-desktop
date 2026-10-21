@@ -1,0 +1,3 @@
+// An OpenCode 2 server that refuses the chat's password (another password reached it).
+{"allow":"GET /api/info","reply":{"status":401}}
+{"hang":true}

@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::session::count;
+use crate::opencode_server_v2::routes::MessageId;
 
 /// When a prompt sent during a run is delivered: at the next step boundary (`steer`) or after the
 /// run (`queue`). Without one the server steers.
@@ -77,9 +78,12 @@ pub struct AgentMention {
     pub name: String,
 }
 
-/// `POST …/prompt` body: `{text, files?, agents?, delivery?}`.
+/// `POST …/prompt` body: `{id?, text, files?, agents?, delivery?}`.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 pub struct PromptBody {
+    /// The id the message gets (`msg_…`), when the app names it: steering is then known by its id.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<MessageId>,
     /// The prompt.
     pub text: String,
     /// Attached files.
@@ -105,6 +109,12 @@ impl PromptBody {
     /// The prompt with `files` attached.
     pub fn with_files(mut self, files: Vec<FileRef>) -> Self {
         self.files = files;
+        self
+    }
+
+    /// The prompt named `id` (the inbox item and the message get it).
+    pub fn with_id(mut self, id: MessageId) -> Self {
+        self.id = Some(id);
         self
     }
 
