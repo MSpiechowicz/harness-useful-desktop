@@ -79,7 +79,7 @@ A `command` hook's stdout is used like the text of the matching action: context 
 
 Only on `toolEnd`. Grammar: `matcher = name *( "|" name )`, `name = 1*[A-Za-z0-9_.:-]`, at most 200 characters, no spaces, no empty part. A hook matches a tool when the tool name equals one of the names, ASCII case-insensitive. Exact names only, no regex or wildcards. A matcher on any other event is Invalid.
 
-The tool name is the one the harness reports. OpenCode (1.19) uses these tool ids:
+The tool name is the one the harness reports. OpenCode reports the native id of the generation the app detected (`opencode --version`: `1.19.3` is OpenCode 1, `opencode v2.1.2` is OpenCode 2), so the same action is `bash` on one and `shell` on the other. OpenCode 1 (1.19) uses these tool ids:
 
 | Tool | What it does | Touched paths |
 | --- | --- | --- |
@@ -92,7 +92,23 @@ The tool name is the one the harness reports. OpenCode (1.19) uses these tool id
 | `todowrite`, `skill`, `question` | update the todo list, load a skill, ask the user | none |
 | `<server>_<tool>` | tool `<tool>` of MCP server `<server>` | none |
 
-So `edit|write|apply_patch` matches every OpenCode file change. Only paths inside the project count. Tool calls of a subagent (a `task`) are not reported, as in OMP: they fire no `toolEnd` and add no touched paths.
+So `edit|write|apply_patch` matches every OpenCode 1 file change. Only paths inside the project count. Tool calls of a subagent (a `task`) are not reported, as in OMP: they fire no `toolEnd` and add no touched paths.
+
+OpenCode 2 (2.1) renamed some tools and the argument that names the file:
+
+| Tool | What it does | Touched paths |
+| --- | --- | --- |
+| `shell` | runs a shell command | none |
+| `read`, `glob`, `grep` | read a file, find files, search file contents | none |
+| `edit` | replaces text in the file in `path` | that file |
+| `write` | writes the file in `path` | that file |
+| `patch` | applies a patch | the files of the `*** Add File:`, `*** Update File:`, `*** Delete File:` and `*** Move to:` headers of its `patchText` |
+| `subagent` | runs a subagent | none |
+| `webfetch`, `websearch` | fetch a URL, search the web | none |
+| `todowrite`, `skill`, `question` | update the todo list, load a skill, ask the user | none |
+| `<server>_<tool>` | tool `<tool>` of MCP server `<server>` | none |
+
+A relative path resolves against the working directory of the OpenCode session. One hook can match the file changes of both generations by naming every id: `edit|write|apply_patch|patch`. Likewise `bash|shell` for the shell tool and `task|subagent` for subagents. The same rules apply as on OpenCode 1: only paths inside the project count, and tool calls made inside a subagent are not reported. A session that OpenCode 2 migrated from OpenCode 1 may still hold `apply_patch` calls and a `filePath` argument, and both count as file changes.
 
 ## Events
 
