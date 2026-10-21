@@ -1,0 +1,20 @@
+// Skills on OpenCode 2 (shapes of a sandboxed opencode serve 2.1.2: GET /api/skill, a prompt with
+// skills [{id}]): at startup the server lists init and review as commands and the skills greet and
+// review (the command of the same name wins). "/greet be brief" goes as the prompt "be brief" with
+// greet attached and runs a turn; "/greet" again is refused (400, as 2.1.2 answers for a skill it
+// does not have). Last, a marker.
+{"on":"GET /api/skill","times":1,"reply":{"data":[{"id":"greet","name":"greet","description":"Greets the user warmly","path":"$cwd/.opencode/skills/greet/SKILL.md","content":"Say hello in a friendly way.\n"},{"id":"review","name":"review","description":"A skill named like a command","path":"$cwd/.opencode/skills/review/SKILL.md","content":"Review.\n"}],"location":{"directory":"$directory"}}}
+{"include":"opencode2_startup.jsonl"}
+{"expect":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/prompt","match":{"text":"be brief","/skills/0/id":"greet","/skills/1":"$absent","/files":"$absent"}}
+{"sse":{"type":"session.inbox.enqueued","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","inboxID":"$inbox","item":{"type":"user","payload":{"text":"be brief","skills":[{"id":"greet","name":"greet","text":"<skill_content name=\"greet\">\n# Skill: greet\n\nSay hello in a friendly way.\n</skill_content>"}]},"delivery":"steer"}}}}
+{"sse":{"type":"session.execution.started","data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv"}}}
+{"sse":{"type":"session.inbox.delivered","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","inboxID":"$inbox"}}}
+{"sse":{"type":"session.step.started","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","agent":"build","model":{"id":"big-pickle","providerID":"opencode","variant":"default"},"assistantMessageID":"msg_15d7bc3d6001greetTheUser01"}}}
+{"sse":{"type":"session.text.started","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_15d7bc3d6001greetTheUser01","ordinal":0}}}
+{"sse":{"type":"session.text.delta","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_15d7bc3d6001greetTheUser01","ordinal":0,"delta":"Hello!"}}}
+{"sse":{"type":"session.text.ended","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_15d7bc3d6001greetTheUser01","ordinal":0,"text":"Hello!"}}}
+{"sse":{"type":"session.step.ended","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_15d7bc3d6001greetTheUser01","finish":"stop","cost":0,"tokens":{"input":310,"output":3,"reasoning":0,"cache":{"read":5120,"write":0}},"files":[]}}}
+{"sse":{"type":"session.execution.succeeded","data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv"}}}
+{"expect":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/prompt","match":{"text":"","/skills/0/id":"greet"},"reply":{"status":400,"body":{"_tag":"InvalidRequestError","message":"Skill not found: greet","field":"skills"}}}
+{"sse":{"type":"session.renamed","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","title":"Marker"}}}
+{"hang":true}

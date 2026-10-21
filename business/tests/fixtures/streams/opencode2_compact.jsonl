@@ -5,7 +5,6 @@
 {"include":"opencode2_startup.jsonl"}
 {"expect":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/compact","reply":{"recording":"../opencode2/recorded/ops.jsonl","route":"POST /api/session/*/compact"}}
 {"sse":{"type":"session.renamed","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","title":"Compacting"}}}
-{"expect":"GET /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv","reply":{"data":{"id":"ses_ea2843d6fffeeHJKZwBKUXqULv","projectID":"global","model":{"id":"big-pickle","providerID":"opencode","variant":"default"},"cost":0,"tokens":{"input":0,"output":0,"reasoning":0,"cache":{"read":0,"write":0}},"time":{"created":1792570185966,"updated":1792570185966},"location":{"directory":"$directory"}}}}
 {"expect":"GET /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/message","reply":{"data":[]}}
 {"sse":{"type":"session.inbox.enqueued","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","inboxID":"msg_15d8258f3001dFHSDSV3PIjSf6","item":{"type":"compaction","payload":{},"delivery":"steer"}}}}
 {"sse":{"type":"session.execution.started","data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv"}}}

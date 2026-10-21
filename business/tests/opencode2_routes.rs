@@ -171,6 +171,7 @@ fn every_route_has_its_method_target_and_deadline() {
             Method::Get,
             format!("/api/command?{l}"),
         ),
+        (RouteV2::SkillList { directory }, Method::Get, format!("/api/skill?{l}")),
         (
             RouteV2::ConfigGet { directory },
             Method::Get,

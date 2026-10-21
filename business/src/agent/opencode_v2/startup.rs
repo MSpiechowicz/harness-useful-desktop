@@ -8,8 +8,9 @@
 //! directory is the project or inside it) and every message of the resumed session, marked as
 //! seen → `GET /api/agent` (OpenCode loads a directory's agents after the first request there, so
 //! an empty list is asked again for at most [`AGENT_WAIT`]; with a mode until they have the mode's
-//! rules, then the project's saved "Always allow" rules are read, see `probe.rs`), `/api/model` and
-//! `/api/command` (and `/api/model/default` for the model a session that names none uses) →
+//! rules, then the project's saved "Always allow" rules are read, see `probe.rs`), `/api/model`,
+//! `/api/command` and `/api/skill` ([`Slash`]; and `/api/model/default` for the model a session
+//! that names none uses) →
 //! `ready`, `state` and `commandsUpdated`, then the events that arrived meanwhile. A helper chat
 //! never resumes a session.
 //!
@@ -29,6 +30,7 @@ use tokio::sync::oneshot;
 
 use super::approvals::{Allowed, LaunchRules, denies_all};
 use super::catalog::Catalog;
+use super::commands::Slash;
 use super::history::{all_messages, last_context};
 use super::probe::{ModeLaunch, Probe, check_mode, mode_launch, with_content};
 use super::{Chat, Live, OpenCodeV2Session, normalized, stream};
@@ -73,7 +75,7 @@ struct Booted {
     /// The session's directory, canonical.
     directory: std::path::PathBuf,
     catalog: Catalog,
-    commands: Vec<Value>,
+    slash: Slash,
     /// The chat's agent.
     agent: String,
     /// The session's model, or the one OpenCode uses while the session names none.
@@ -164,14 +166,15 @@ impl OpenCodeV2Session {
         mapper.seen(&booted.messages);
         mapper.set_mode_applied(rules.mode().is_some());
 
-        let commands = OpenCodeCatalog.merged(&booted.commands);
+        let commands = OpenCodeCatalog.merged(&booted.slash.entries);
         let live = Live {
             session: booted.session,
             mapper,
             title: info.title,
             model: booted.model.map(normalized),
             agent: booted.agent,
-            commands: command_names(&booted.commands),
+            commands: booted.slash.commands,
+            skills: booted.slash.skills,
             context: last_context(&booted.messages),
             picks: Vec::new(),
             mark: info.time.updated,
@@ -252,7 +255,7 @@ async fn boot(
     let agents: Vec<Agent> = serde_json::from_value(listed)
         .map_err(|error| BusinessError::Protocol(format!("OpenCode sent an unreadable agent list: {error}")))?;
     let models: Vec<Model> = get_data(&client, RouteV2::ModelList { directory: scope }).await?;
-    let commands = live_commands(get_data(&client, RouteV2::CommandList { directory: scope }).await?);
+    let slash = Slash::read(&client, scope).await?;
 
     let catalog = Catalog::new(models, &agents);
     let agent = catalog.chat_agent(info.agent.as_deref());
@@ -268,7 +271,7 @@ async fn boot(
         info,
         directory,
         catalog,
-        commands,
+        slash,
         agent,
         model,
         messages: messages.iter().map(SessionMessage::parse).collect(),
@@ -437,37 +440,6 @@ pub(super) async fn get_data<T: DeserializeOwned>(client: &OpenCodeClient, route
     let response = client.send(route, None).await?.error_for_status()?;
 
     Ok(response.json::<Envelope<T>>()?.data)
-}
-
-/// The `GET /api/command` list as the command catalog reads it. OpenCode 2 names no source: an MCP
-/// prompt is `<server>:<prompt>` (`source: mcp`), every other entry a command (`source: command`).
-/// Skills are not commands on OpenCode 2.
-pub(super) fn live_commands(commands: Vec<Value>) -> Vec<Value> {
-    commands
-        .into_iter()
-        .map(|mut command| {
-            let mcp = command
-                .get("name")
-                .and_then(Value::as_str)
-                .is_some_and(|name| name.contains(':'));
-            let source = if mcp { "mcp" } else { "command" };
-
-            if let Some(entry) = command.as_object_mut() {
-                entry.entry("source").or_insert_with(|| Value::from(source));
-            }
-
-            command
-        })
-        .collect()
-}
-
-/// The names in a `GET /api/command` list.
-pub(super) fn command_names(commands: &[Value]) -> Vec<String> {
-    commands
-        .iter()
-        .filter_map(|command| command.get("name").and_then(Value::as_str))
-        .map(str::to_owned)
-        .collect()
 }
 
 /// Reads stdout: the listening line goes to startup, every other line is passed on like stderr.

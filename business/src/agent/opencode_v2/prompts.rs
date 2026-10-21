@@ -7,6 +7,8 @@
 //!   streaming behaviour) is held by the chat, not by OpenCode's queue, so it can be withdrawn,
 //!   and sent when the turn is over. While a `!command` or a compaction runs, steering is held
 //!   like a follow-up.
+//! - A server command or skill that starts a turn is sent in the background (`delivery.rs`): one
+//!   OpenCode refuses ends with an error result in the chat, not with a failed action.
 //! - Every message counts with the [`Mapper`](crate::opencode_server_v2::Mapper) before it is
 //!   sent, and a failed send takes it back. The prompt-taken call runs when OpenCode admitted the
 //!   prompt or when the turn starts, whichever the chat sees first, always under the chat's lock,
@@ -111,6 +113,11 @@ impl OpenCodeV2Session {
             }
 
             live.mapper.prompt_sent();
+
+            if live.is_command(&message.text) {
+                send(chat, &mut live, message);
+                return Ok(prompt_reply("started"));
+            }
 
             (Request::next_turn(&live, &message), live.session.clone())
         };

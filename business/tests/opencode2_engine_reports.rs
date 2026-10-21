@@ -10,7 +10,7 @@ use harness_business::model::{AgentAction, AgentEvent, AgentReply, ContextUsage,
 use harness_business::opencode_server_v2::mapper::ContextNote;
 use harness_business::opencode_server_v2::messages::SessionMessage;
 use harness_business::opencode_server_v2::stats::{last_context, last_reply_text, session_stats};
-use harness_business::opencode_server_v2::wire::{CacheTokens, ModelRef, Tokens};
+use harness_business::opencode_server_v2::wire::ModelRef;
 use opencode2_engine_support::{SESSION, start_with};
 use pretty_assertions::assert_eq;
 use serde_json::{Value, json};
@@ -53,12 +53,13 @@ async fn rename_stats_last_reply_and_an_escaped_export_outside_the_project() {
             assistant_messages: 9,
             tool_calls: 13,
             total_messages: 2 + 9 + 13 + 1,
+            // Every step's tokens and cost, as on OpenCode 1.
             tokens: TokenUsage {
-                input: 16_165,
-                output: 1_803 + 3_738,
-                cache_read: 69_375,
+                input: 16_174,
+                output: 1_799 + 3_671,
+                cache_read: 67_709,
                 cache_write: 0,
-                total: 16_165 + 1_803 + 3_738 + 69_375,
+                total: 16_174 + 1_799 + 3_671 + 67_709,
             },
             cost_usd: Some(0.125),
             context_usage: Some(ContextUsage {
@@ -198,33 +199,30 @@ fn the_context_is_the_newest_reply_with_output_and_unknown_after_a_compaction() 
 }
 
 #[test]
-fn totals_count_reasoning_as_output_and_the_last_reply_skips_steps_without_text() {
-    let tokens = Tokens {
-        input: 300,
-        output: 30,
-        reasoning: 5,
-        cache: CacheTokens { read: 14, write: 6 },
-    };
+fn totals_add_up_every_step_and_compaction_and_the_last_reply_skips_steps_without_text() {
     let messages = parse(&[
         json!({ "type": "user", "id": "msg_0", "text": "Hi" }),
         assistant("msg_1", 10, "Hello"),
         json!({ "type": "assistant", "id": "msg_2", "content": [{ "type": "reasoning", "text": "hmm" }] }),
+        json!({ "type": "compaction", "id": "msg_3", "status": "completed", "reason": "manual",
+            "summary": "Summary", "cost": 0.5,
+            "tokens": { "input": 200, "output": 20, "reasoning": 0, "cache": { "read": 0, "write": 0 } } }),
     ]);
 
-    let stats = session_stats(0.75, &tokens, &messages, &|_| None);
+    let stats = session_stats(&messages, &|_| None);
 
     assert_eq!(
         stats.tokens,
         TokenUsage {
-            input: 300,
-            output: 35,
-            cache_read: 14,
-            cache_write: 6,
-            total: 355,
+            input: 100 + 200,
+            output: 10 + 5 + 20,
+            cache_read: 7,
+            cache_write: 3,
+            total: 300 + 35 + 7 + 3,
         }
     );
     assert_eq!(stats.cost_usd, Some(0.75));
-    assert_eq!(stats.context_usage, None, "an unknown model has no window");
+    assert_eq!(stats.context_usage, None, "the context is unknown after a compaction");
     assert_eq!((stats.user_messages, stats.assistant_messages), (1, 2));
     assert_eq!(last_reply_text(&messages).as_deref(), Some("Hello"));
     assert_eq!(last_reply_text(&[]), None);

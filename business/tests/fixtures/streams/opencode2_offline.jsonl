@@ -1,5 +1,6 @@
-// An OpenCode 2 server without network access (as 2.1.2 runs offline): no agents listed, and a new
-// session that names no model, so OpenCode's default model is asked for.
+// An OpenCode 2 server whose agent list stays empty (2.1.2 fills it 150 to 300 ms after the first
+// request to a directory, this one never does), and a new session that names no model, so OpenCode's
+// default model is asked for.
 {"include":"opencode2_catalogs.jsonl"}
 {"allow":"GET /api/agent","reply":{"data":[],"location":{"directory":"$directory"}}}
 {"allow":"GET /api/model/default","reply":{"data":{"id":"deepseek-v4.1-flash-free","modelID":"deepseek-v4.1-flash-free","providerID":"opencode","name":"DeepSeek V4.1 Flash Free","capabilities":{"tools":true,"input":["text","image"],"output":["text"]},"variants":[{"id":"low"},{"id":"high"},{"id":"max"}],"enabled":true,"limit":{"context":200000,"output":32000}},"location":{"directory":"$directory"}}}

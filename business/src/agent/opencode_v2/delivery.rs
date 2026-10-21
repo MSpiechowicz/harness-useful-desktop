@@ -2,8 +2,11 @@
 //!
 //! - A message that starts a turn goes to `POST /api/session/{id}/prompt` (`{text, files}`; images
 //!   as `data:` URLs, which the server inlines like a file), or, as `/name args` for one of the
-//!   server's commands, to `POST …/command` (`{name, text}`). Both answer once OpenCode admitted the
-//!   input; the session's model, variant and agent apply (`settings.rs`).
+//!   server's commands, to `POST …/command` (`{name, text}`). `/name args` for one of its skills is
+//!   a prompt of `args` with the skill attached (`skills: [{id}]`). Each answers once OpenCode
+//!   admitted the input; the session's model, variant and agent apply (`settings.rs`).
+//! - Commands and skills are sent in the background, as on OpenCode 1: one OpenCode refuses counts
+//!   as taken, then fails with an error result in the chat.
 //! - Steering goes to `prompt` with `delivery: steer` and an id the app chose, so the chat knows
 //!   it when the run takes it.
 //! - Held follow-ups the mapper releases ([`Mapped::Send`](crate::opencode_server_v2::Mapped)) are
@@ -28,24 +31,33 @@ pub(super) enum Request {
     Prompt(PromptBody),
     /// `command` with this body.
     Command(CommandBody),
+    /// `prompt` with this body, which attaches a skill.
+    Skill(PromptBody),
 }
 
 impl Request {
-    /// Prepares `message` as the next turn's: a server command or a prompt. The caller counts it
-    /// as a prompt on its way.
+    /// Prepares `message` as the next turn's: a server command, a skill or a prompt. The caller
+    /// counts it as a prompt on its way.
     pub(super) fn next_turn(live: &Live, message: &Outgoing) -> Self {
-        let command = live
-            .is_command(&message.text)
-            .then(|| slash_command(&message.text))
-            .flatten();
+        let Some((name, arguments)) = slash_command(&message.text) else {
+            return Self::Prompt(prompt_body(message));
+        };
 
-        match command {
-            Some((name, arguments)) => Self::Command(CommandBody {
+        if live.commands.iter().any(|command| command == name) {
+            return Self::Command(CommandBody {
                 name: name.to_owned(),
                 text: arguments.to_owned(),
-            }),
-            None => Self::Prompt(prompt_body(message)),
+            });
         }
+
+        if live.skills.iter().any(|skill| skill == name) {
+            let mut body = prompt_body(message).with_skill(name);
+            body.text = arguments.to_owned();
+
+            return Self::Skill(body);
+        }
+
+        Self::Prompt(prompt_body(message))
     }
 
     /// Steering `message` (named `id`) for the running turn.
@@ -58,7 +70,7 @@ impl Request {
         let directory = chat.directory.as_str();
 
         let sent = match self {
-            Self::Prompt(body) => {
+            Self::Prompt(body) | Self::Skill(body) => {
                 let route = RouteV2::Prompt { session, directory };
                 chat.client.send(route, Some(&json(body))).await
             }
@@ -70,6 +82,11 @@ impl Request {
 
         sent?.error_for_status()?;
         Ok(())
+    }
+
+    /// True for a server command or a skill.
+    fn runs_command(&self) -> bool {
+        matches!(self, Self::Command(_) | Self::Skill(_))
     }
 }
 
@@ -115,8 +132,11 @@ pub(super) fn send(chat: &Arc<Chat>, live: &mut Live, message: Outgoing) {
         match sent {
             Ok(()) => chat.shared.prompt_taken_now(),
             Err(error) => {
+                // A command or skill OpenCode answered with an error was taken, as on OpenCode 1:
+                // the prompt-taken call runs first.
+                let taken = matches!(error, HttpError::Status { .. }) && request.runs_command();
                 let error = BusinessError::from(error);
-                let mapped = live.mapper.prompt_failed_late(&error.to_string(), false);
+                let mapped = live.mapper.prompt_failed_late(&error.to_string(), taken);
                 stream::apply(&chat, &mut live, mapped);
             }
         }

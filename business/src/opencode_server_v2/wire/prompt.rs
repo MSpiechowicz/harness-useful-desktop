@@ -78,7 +78,14 @@ pub struct AgentMention {
     pub name: String,
 }
 
-/// `POST …/prompt` body: `{id?, text, files?, agents?, delivery?}`.
+/// A skill attached to a prompt: `{id}`; the server adds its instructions to the message.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct SkillRef {
+    /// The skill id (`GET /api/skill`).
+    pub id: String,
+}
+
+/// `POST …/prompt` body: `{id?, text, files?, agents?, skills?, delivery?}`.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 pub struct PromptBody {
     /// The id the message gets (`msg_…`), when the app names it: steering is then known by its id.
@@ -92,6 +99,9 @@ pub struct PromptBody {
     /// Mentioned agents.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub agents: Vec<AgentMention>,
+    /// Attached skills.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub skills: Vec<SkillRef>,
     /// When a prompt sent during a run is delivered.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub delivery: Option<Delivery>,
@@ -121,6 +131,12 @@ impl PromptBody {
     /// The prompt with its delivery during a run.
     pub fn with_delivery(mut self, delivery: Delivery) -> Self {
         self.delivery = Some(delivery);
+        self
+    }
+
+    /// The prompt with skill `id` attached.
+    pub fn with_skill(mut self, id: impl Into<String>) -> Self {
+        self.skills.push(SkillRef { id: id.into() });
         self
     }
 

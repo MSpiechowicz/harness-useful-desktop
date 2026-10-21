@@ -1,7 +1,8 @@
-//! The OpenCode 2 agent, command, model and provider lists, and the configuration sources.
+//! The OpenCode 2 agent, command, skill, model and provider lists, and the configuration sources.
 //!
 //! Nothing is copied wholesale: agents keep their id, name, description and mode (not their
-//! request headers or system prompt), models their display fields (not `settings`, which hold API
+//! request headers or system prompt), skills their id, name and description (not their path or
+//! instructions), models their display fields (not `settings`, which hold API
 //! keys and URLs), providers their id, name and activation. Every type reads leniently.
 
 use serde::Deserialize;
@@ -44,6 +45,20 @@ pub struct Command {
     /// The name, without the slash.
     pub name: String,
     /// What it does.
+    #[serde(default)]
+    pub description: Option<String>,
+}
+
+/// A skill of `GET /api/skill`: `{id, name, description?}`. Its path and instructions are not
+/// kept.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct Skill {
+    /// The id a prompt attaches it by (`skills: [{id}]`).
+    pub id: String,
+    /// Display name.
+    #[serde(default)]
+    pub name: String,
+    /// What it is for.
     #[serde(default)]
     pub description: Option<String>,
 }
