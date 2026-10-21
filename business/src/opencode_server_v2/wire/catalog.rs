@@ -1,12 +1,11 @@
-//! The OpenCode 2 agent, command, skill, model and provider lists, and the configuration sources.
+//! The OpenCode 2 agent, command, skill and model lists.
 //!
 //! Nothing is copied wholesale: agents keep their id, name, description and mode (not their
 //! request headers or system prompt), skills their id, name and description (not their path or
 //! instructions), models their display fields (not `settings`, which hold API
-//! keys and URLs), providers their id, name and activation. Every type reads leniently.
+//! keys and URLs). Every type reads leniently.
 
 use serde::Deserialize;
-use serde_json::Value;
 
 use super::session::{ModelRef, count};
 
@@ -149,45 +148,4 @@ pub struct Limit {
     /// Largest output.
     #[serde(default, deserialize_with = "count")]
     pub output: u64,
-}
-
-/// A provider of `GET /api/provider`.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-pub struct Provider {
-    /// Provider id.
-    pub id: String,
-    /// Display name.
-    #[serde(default)]
-    pub name: String,
-    /// The integration that supplies it.
-    #[serde(default, rename = "integrationID")]
-    pub integration_id: Option<String>,
-    /// `auto`, `enabled` or `disabled`.
-    #[serde(default)]
-    pub activation: String,
-}
-
-/// One entry of `GET /api/config` (not enveloped), lowest priority first.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(tag = "type", rename_all = "lowercase")]
-pub enum ConfigSource {
-    /// A directory OpenCode reads agents, commands, skills and plugins from.
-    Directory {
-        /// The directory.
-        #[serde(default)]
-        path: String,
-    },
-    /// A configuration document, already normalized (`agents.<name>.permissions`, …). It can hold
-    /// credentials: read the keys needed, never log it.
-    Document {
-        /// The file it came from; `None` for inline content (`OPENCODE_CONFIG_CONTENT`).
-        #[serde(default)]
-        path: Option<String>,
-        /// The document.
-        #[serde(default)]
-        info: Value,
-    },
-    /// A source kind this app does not know.
-    #[serde(other)]
-    Other,
 }

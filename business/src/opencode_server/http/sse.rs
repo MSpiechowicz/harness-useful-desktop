@@ -7,6 +7,9 @@
 //!   after the colon is dropped); comments (`:` lines) and other fields (`event`, `id`, `retry`)
 //!   are ignored, and an event without `data` is not passed on, so OpenCode 2's `: heartbeat`
 //!   comment blocks never reach the consumer.
+//! - **Liveness:** every line received, comments included, counts as a sign of life
+//!   ([`EventStream::last_activity`]), so a consumer can tell a stream that only sends comment
+//!   heartbeats (OpenCode 2) from one that went silent. Events are passed on as before.
 //! - An event larger than `max_event_bytes` is skipped and reported as [`SseFault::TooLarge`]; at
 //!   most that much of it is ever buffered. A payload that is not UTF-8 is reported as
 //!   [`SseFault::NotUtf8`]. Both are recoverable: the stream continues.
@@ -15,9 +18,12 @@
 //!   reported once as [`SseFault::Stream`] before the end.
 //! - A task reads the connection; dropping the [`EventStream`] stops it and closes the connection.
 
+use std::sync::{Arc, Mutex, PoisonError};
+
 use tokio::io::{AsyncBufRead, AsyncRead};
 use tokio::sync::mpsc;
 use tokio::task::AbortHandle;
+use tokio::time::Instant;
 
 use super::chunked::BodyReader;
 use crate::pi_family::rpc::LineSplitter;
@@ -49,6 +55,7 @@ pub enum SseFault {
 pub struct EventStream {
     events: mpsc::Receiver<Result<String, SseFault>>,
     reader: AbortHandle,
+    activity: Activity,
 }
 
 impl EventStream {
@@ -57,14 +64,43 @@ impl EventStream {
         R: AsyncBufRead + Unpin + Send + 'static,
     {
         let (sender, events) = mpsc::channel(EVENT_QUEUE);
-        let reader = tokio::spawn(pump(body, max_event_bytes, sender)).abort_handle();
+        let activity = Activity::new();
+        let reader = tokio::spawn(pump(body, max_event_bytes, sender, activity.clone())).abort_handle();
 
-        Self { events, reader }
+        Self {
+            events,
+            reader,
+            activity,
+        }
     }
 
     /// The next event's `data:` payload, a recoverable fault, or `None` at the end of the stream.
     pub async fn next(&mut self) -> Option<Result<String, SseFault>> {
         self.events.recv().await
+    }
+
+    /// When the server last sent a line: an event's, a comment such as OpenCode 2's `: heartbeat`,
+    /// or the empty line that ends either; when the stream opened before the first one.
+    pub fn last_activity(&self) -> Instant {
+        self.activity.last()
+    }
+}
+
+/// When the reader last received a line (see [`EventStream::last_activity`]).
+#[derive(Debug, Clone)]
+struct Activity(Arc<Mutex<Instant>>);
+
+impl Activity {
+    fn new() -> Self {
+        Self(Arc::new(Mutex::new(Instant::now())))
+    }
+
+    fn touch(&self) {
+        *self.0.lock().unwrap_or_else(PoisonError::into_inner) = Instant::now();
+    }
+
+    fn last(&self) -> Instant {
+        *self.0.lock().unwrap_or_else(PoisonError::into_inner)
     }
 }
 
@@ -74,11 +110,16 @@ impl Drop for EventStream {
     }
 }
 
-async fn pump<R>(mut body: BodyReader<R>, max_event_bytes: usize, sender: mpsc::Sender<Result<String, SseFault>>)
-where
+async fn pump<R>(
+    mut body: BodyReader<R>,
+    max_event_bytes: usize,
+    sender: mpsc::Sender<Result<String, SseFault>>,
+    activity: Activity,
+) where
     R: AsyncBufRead + Unpin,
 {
-    let mut events = EventParser::new(LineSplitter::new(&mut body, max_event_bytes), max_event_bytes);
+    let lines = LineSplitter::new(&mut body, max_event_bytes);
+    let mut events = EventParser::new(lines, max_event_bytes, activity);
 
     while let Some(event) = events.next().await {
         if sender.send(event).await.is_err() {
@@ -93,15 +134,20 @@ where
     }
 }
 
-/// Groups lines into events.
+/// Groups lines into events and notes each line in `activity`.
 struct EventParser<R> {
     lines: LineSplitter<R>,
     max_event_bytes: usize,
+    activity: Activity,
 }
 
 impl<R: AsyncRead + Unpin> EventParser<R> {
-    fn new(lines: LineSplitter<R>, max_event_bytes: usize) -> Self {
-        Self { lines, max_event_bytes }
+    fn new(lines: LineSplitter<R>, max_event_bytes: usize, activity: Activity) -> Self {
+        Self {
+            lines,
+            max_event_bytes,
+            activity,
+        }
     }
 
     async fn next(&mut self) -> Option<Result<String, SseFault>> {
@@ -111,6 +157,7 @@ impl<R: AsyncRead + Unpin> EventParser<R> {
 
         loop {
             let line = self.lines.next_line().await?;
+            self.activity.touch();
 
             if line.bytes.is_empty() && !line.overflowed {
                 if too_large {
@@ -177,7 +224,11 @@ mod tests {
     use super::*;
 
     async fn parse(stream: &[u8]) -> Vec<Result<String, SseFault>> {
-        let mut parser = EventParser::new(LineSplitter::new(stream, 1024), 1024);
+        parse_noting(stream, Activity::new()).await
+    }
+
+    async fn parse_noting(stream: &[u8], activity: Activity) -> Vec<Result<String, SseFault>> {
+        let mut parser = EventParser::new(LineSplitter::new(stream, 1024), 1024, activity);
         let mut events = Vec::new();
 
         while let Some(event) = parser.next().await {
@@ -205,5 +256,17 @@ mod tests {
                 Ok(r#"{"type":"session.busy"}"#.to_owned()),
             ]
         );
+    }
+
+    #[tokio::test]
+    async fn heartbeat_comments_count_as_activity() {
+        let activity = Activity::new();
+        let opened = activity.last();
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+
+        let events = parse_noting(b": heartbeat\n\n", activity.clone()).await;
+
+        assert!(events.is_empty(), "{events:?}");
+        assert!(activity.last() > opened, "the heartbeat was noted");
     }
 }

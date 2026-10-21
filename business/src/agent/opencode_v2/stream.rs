@@ -5,16 +5,23 @@
 //! - An event that cannot be read (too large, not UTF-8, not an event object, a known type without
 //!   its fields) becomes a `frameError`.
 //! - **Reconnect:** OpenCode 2 ends a subscriber's stream when it falls behind. A stream that ends
-//!   (or breaks) while the server runs is opened again, up to [`RECONNECT_ATTEMPTS`] times, and the
-//!   chat catches up from the session (`catch_up.rs`), so nothing shows twice. A server that
-//!   exited cannot be reached: its exit closes the chat as for any other exit, without a notice.
-//! - **Watchdog:** OpenCode 2's heartbeats are SSE comments the reader never passes on, so a
-//!   stream silent for [`SessionOptions::event_silence`](crate::agent::SessionOptions::event_silence)
-//!   asks `GET /api/info` whether the server still answers. When it does, the stream may have
-//!   stalled: it is opened again and the chat catches up, as for a stream that ended. When the
-//!   server does not answer, or when the stream cannot be opened again while the server runs, the
-//!   chat can no longer follow it: an error notice says so, the open dialogs close, a helper chat's
-//!   session is deleted and the server is ended, so `exited` closes the chat.
+//!   (or breaks) while the server runs is opened again and the chat catches up from the session
+//!   (`catch_up.rs`), so nothing shows twice. A stream that could not be opened, and one that ended
+//!   within [`SHORT_LIVED`] of opening, count as failed attempts: each further one waits twice as
+//!   long, and after [`RECONNECT_ATTEMPTS`] in a row the stream is lost. A stream that lived
+//!   longer starts the count again. A server that exited cannot be reached: its exit closes the
+//!   chat as for any other exit, without a notice.
+//! - **Watchdog:** OpenCode 2's heartbeats are SSE comments (`: heartbeat` every 15 s), which the
+//!   reader never passes on as events but counts as signs of life
+//!   ([`EventStream::last_activity`]). A stream that sent nothing, not even a heartbeat, for
+//!   [`SessionOptions::event_silence`](crate::agent::SessionOptions::event_silence) asks
+//!   `GET /api/info` whether the server still answers. When it does, the stream stalled: it is
+//!   opened again and the chat catches up, as for a stream that ended. When the server does not
+//!   answer, or when the stream cannot be opened again while the server runs, the chat can no
+//!   longer follow it: an error notice says so, the open dialogs close, a helper chat's session is
+//!   deleted and the server is ended, so `exited` closes the chat.
+//! - **Approval mode:** OpenCode reloading its agents, and a stream opened again, check the mode
+//!   again (`guard.rs`); when it no longer holds, the chat stops the same way with its own notice.
 //! - **Resume:** before the first event, the subagent sessions of a resumed session count as the
 //!   chat's (`catch_up.rs`), so their asks reach the chat.
 //! - A permission ask the chat's "Always allow" answers cover is answered without a dialog
@@ -25,12 +32,13 @@ use std::time::Duration;
 
 use tokio::sync::watch;
 use tokio::task::AbortHandle;
+use tokio::time::Instant;
 
-use super::{Chat, Live, approvals, catch_up, delivery, normalized, runs, shell_output};
+use super::{Chat, Live, approvals, catch_up, delivery, guard, normalized, runs, shell_output};
 use crate::agent::process::Terminator;
 use crate::model::{AgentEvent, NoticeLevel};
 use crate::opencode_server::EventStream;
-use crate::opencode_server_v2::events::{self, EventError};
+use crate::opencode_server_v2::events::{self, EventError, EventKind};
 use crate::opencode_server_v2::mapper::SessionChange;
 use crate::opencode_server_v2::{Mapped, RouteV2};
 use crate::process::ExitInfo;
@@ -39,8 +47,12 @@ use crate::process::ExitInfo;
 /// a lost stream.
 const EXIT_WAIT: Duration = Duration::from_secs(2);
 
-/// How often a stream that ended is opened again before the chat gives up.
+/// Failed attempts in a row (a stream that did not open or was short-lived) before the chat gives
+/// up.
 const RECONNECT_ATTEMPTS: u32 = 3;
+
+/// A stream that ends sooner after it opened counts as a failed attempt.
+const SHORT_LIVED: Duration = Duration::from_secs(1);
 
 /// The wait before the second attempt, doubled for each further one.
 const RECONNECT_DELAY: Duration = Duration::from_millis(100);
@@ -65,10 +77,14 @@ pub(super) struct Watch {
 
 /// How reading a stream ended.
 enum Ended {
-    /// The stream ended or broke, or went silent while the server answers.
+    /// The stream ended or broke.
     Closed,
+    /// The stream went silent while the server answers.
+    Stalled,
     /// The stream went silent and the server does not answer.
     Silent,
+    /// The approval mode no longer holds (`guard.rs`).
+    Unguarded,
 }
 
 /// Starts the event task.
@@ -81,39 +97,63 @@ async fn run(chat: Arc<Chat>, mut events: EventStream, mut watch: Watch) {
         catch_up::adopt_children(&chat).await;
     }
 
+    let mut failures = 0;
+
     loop {
-        if let Ended::Silent = follow(&chat, &mut events, &watch).await {
-            return lost(&chat, &watch).await;
+        let opened = Instant::now();
+
+        match follow(&chat, &mut events, &watch).await {
+            Ended::Silent => return stop(&chat, &watch, LOST_STREAM).await,
+            Ended::Unguarded => return stop(&chat, &watch, guard::NOTICE).await,
+            Ended::Stalled => failures = 0,
+            Ended::Closed if opened.elapsed() < SHORT_LIVED => failures += 1,
+            Ended::Closed => failures = 0,
         }
 
-        let Some(reopened) = reconnect(&chat, &watch).await else {
+        let Some((reopened, failed)) = reconnect(&chat, &watch, failures).await else {
             return gone(&chat, &mut watch).await;
         };
 
         events = reopened;
+        failures = failed;
         catch_up::run(&chat).await;
+
+        if guard::recheck(&chat).await.is_err() {
+            return stop(&chat, &watch, guard::NOTICE).await;
+        }
     }
 }
 
-/// Reads `events` until the stream ends or goes silent.
+/// Reads `events` until the stream ends, goes silent or the approval mode no longer holds.
 async fn follow(chat: &Arc<Chat>, events: &mut EventStream, watch: &Watch) -> Ended {
     loop {
-        let item = match tokio::time::timeout(watch.silence, events.next()).await {
+        let quiet_until = events.last_activity() + watch.silence;
+
+        let item = match tokio::time::timeout_at(quiet_until, events.next()).await {
             Ok(Some(item)) => item,
             Ok(None) => return Ended::Closed,
+            // A heartbeat came meanwhile.
+            Err(_) if events.last_activity() + watch.silence > Instant::now() => continue,
             Err(_) if answers(chat).await => {
                 tracing::debug!("the OpenCode event stream went silent: it is opened again");
-                return Ended::Closed;
+                return Ended::Stalled;
             }
             Err(_) => return Ended::Silent,
         };
 
-        match item {
+        let recheck = match item {
             Ok(data) => take_event(chat, &data),
-            Err(fault) => chat.shared.emit(AgentEvent::FrameError {
-                original_type: None,
-                error: fault.to_string(),
-            }),
+            Err(fault) => {
+                chat.shared.emit(AgentEvent::FrameError {
+                    original_type: None,
+                    error: fault.to_string(),
+                });
+                false
+            }
+        };
+
+        if recheck && guard::recheck(chat).await.is_err() {
+            return Ended::Unguarded;
         }
     }
 }
@@ -125,27 +165,30 @@ async fn answers(chat: &Chat) -> bool {
     answer.is_ok_and(|response| response.is_success())
 }
 
-/// Opens the event stream again; `None` once the server exited or after the last attempt.
-async fn reconnect(chat: &Chat, watch: &Watch) -> Option<EventStream> {
-    let mut delay = RECONNECT_DELAY;
+/// Opens the event stream again after `failures` failed attempts in a row (see the module docs);
+/// the stream and the failed attempts so far, or `None` once the server exited or the attempts
+/// ran out.
+async fn reconnect(chat: &Chat, watch: &Watch, mut failures: u32) -> Option<(EventStream, u32)> {
+    loop {
+        if failures >= RECONNECT_ATTEMPTS {
+            return None;
+        }
 
-    for attempt in 1..=RECONNECT_ATTEMPTS {
+        if failures > 0 {
+            tokio::time::sleep(RECONNECT_DELAY * 2_u32.pow(failures - 1)).await;
+        }
+
         if watch.exited.borrow().is_some() {
             return None;
         }
 
         match chat.client.stream(RouteV2::Event).await {
-            Ok(events) => return Some(events),
-            Err(error) => tracing::debug!(%error, attempt, "the OpenCode event stream did not open again"),
+            Ok(events) => return Some((events, failures)),
+            Err(error) => tracing::debug!(%error, failures, "the OpenCode event stream did not open again"),
         }
 
-        if attempt < RECONNECT_ATTEMPTS {
-            tokio::time::sleep(delay).await;
-            delay *= 2;
-        }
+        failures += 1;
     }
-
-    None
 }
 
 /// The stream cannot be opened again: the server's exit closes the chat, else the stream is lost.
@@ -153,15 +196,15 @@ async fn gone(chat: &Chat, watch: &mut Watch) {
     let exit = watch.exited.wait_for(Option::is_some);
 
     if tokio::time::timeout(EXIT_WAIT, exit).await.is_err() {
-        lost(chat, watch).await;
+        stop(chat, watch, LOST_STREAM).await;
     }
 }
 
-/// The stream is lost while the server runs: the chat stops (see the module docs).
-async fn lost(chat: &Chat, watch: &Watch) {
+/// The chat stops while the server runs, `message` says why (see the module docs).
+async fn stop(chat: &Chat, watch: &Watch, message: &str) {
     chat.shared.emit(AgentEvent::Notice {
         level: NoticeLevel::Error,
-        message: LOST_STREAM.to_owned(),
+        message: message.to_owned(),
     });
 
     let cancelled = chat.lock().mapper.cancel_asks();
@@ -171,8 +214,9 @@ async fn lost(chat: &Chat, watch: &Watch) {
     watch.terminator.terminate().await;
 }
 
-/// Maps one event's `data:` and delivers the result.
-fn take_event(chat: &Arc<Chat>, data: &str) {
+/// Maps one event's `data:` and delivers the result; true when the approval mode must be checked
+/// again (`guard.rs`).
+fn take_event(chat: &Arc<Chat>, data: &str) -> bool {
     let event = match events::parse(data) {
         Ok(event) => event,
         Err(error) => {
@@ -181,11 +225,17 @@ fn take_event(chat: &Arc<Chat>, data: &str) {
                 EventError::Envelope => None,
             };
 
-            return chat.shared.emit(AgentEvent::FrameError {
+            chat.shared.emit(AgentEvent::FrameError {
                 original_type,
                 error: error.to_string(),
             });
+            return false;
         }
+    };
+
+    let recheck = match &event.kind {
+        EventKind::PermissionAsked(permission) => guard::unknown_agent(chat, permission),
+        kind => guard::rechecks(kind),
     };
 
     let mut live = chat.lock();
@@ -195,12 +245,14 @@ fn take_event(chat: &Arc<Chat>, data: &str) {
     }
 
     if approvals::answered_by_always(chat, &live, &event) {
-        return;
+        return recheck;
     }
 
     let mapped = live.mapper.map(&event);
     apply(chat, &mut live, mapped);
     shell_output::follow(chat, &mut live);
+
+    recheck
 }
 
 /// Carries out what the mapper decided, in order, under the chat's lock.

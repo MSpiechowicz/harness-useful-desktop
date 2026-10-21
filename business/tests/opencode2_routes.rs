@@ -172,17 +172,7 @@ fn every_route_has_its_method_target_and_deadline() {
             format!("/api/command?{l}"),
         ),
         (RouteV2::SkillList { directory }, Method::Get, format!("/api/skill?{l}")),
-        (
-            RouteV2::ConfigGet { directory },
-            Method::Get,
-            format!("/api/config?{l}"),
-        ),
         (RouteV2::ModelList { directory }, Method::Get, format!("/api/model?{l}")),
-        (
-            RouteV2::ProviderList { directory },
-            Method::Get,
-            format!("/api/provider?{l}"),
-        ),
     ];
 
     for (route, method, target) in routes {
@@ -206,6 +196,11 @@ fn every_recorded_request_is_an_allowlisted_route() {
     for exchange in exchanges() {
         if exchange.method == "GET" && exchange.path() == "/api/session" {
             // The session list is read through the CLI (`session list --standalone`), not here.
+            continue;
+        }
+
+        if exchange.method == "GET" && exchange.path() == "/api/config" {
+            // The configuration is read through the CLI (`api --standalone GET /api/config`).
             continue;
         }
 
@@ -296,7 +291,6 @@ fn route_of(exchange: &Exchange) -> (Method, String) {
         ("GET", ["form"]) => RouteV2::FormList { directory },
         ("GET", ["agent"]) => RouteV2::AgentList { directory },
         ("GET", ["command"]) => RouteV2::CommandList { directory },
-        ("GET", ["config"]) => RouteV2::ConfigGet { directory },
         ("GET", ["model"]) => RouteV2::ModelList { directory },
         other => panic!("no allowlisted route for the recorded {other:?} ({})", exchange.file),
     };

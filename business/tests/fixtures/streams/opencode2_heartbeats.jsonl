@@ -1,0 +1,30 @@
+// A started chat whose event stream sends only `: heartbeat` comments for a while, more often than the
+// test's silence limit: the chat neither asks the server whether it answers nor opens the stream again.
+// Then a title marker.
+{"include":"opencode2_startup.jsonl"}
+{"sleep":100}
+{"heartbeat":true}
+{"sleep":100}
+{"heartbeat":true}
+{"sleep":100}
+{"heartbeat":true}
+{"sleep":100}
+{"heartbeat":true}
+{"sleep":100}
+{"heartbeat":true}
+{"sleep":100}
+{"heartbeat":true}
+{"sleep":100}
+{"heartbeat":true}
+{"sleep":100}
+{"heartbeat":true}
+{"sleep":100}
+{"heartbeat":true}
+{"sleep":100}
+{"heartbeat":true}
+{"sleep":100}
+{"heartbeat":true}
+{"sleep":100}
+{"heartbeat":true}
+{"sse":{"type":"session.renamed","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","title":"Marker"}}}
+{"hang":true}

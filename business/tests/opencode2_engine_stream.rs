@@ -1,6 +1,8 @@
 //! The event stream of the OpenCode 2 chat engine against the scripted OpenCode 2 server: a stream
 //! OpenCode ends is opened again and the chat catches up from the session without showing anything
-//! twice; a silent stream of a server that still answers is opened again the same way.
+//! twice; a silent stream (no event and no heartbeat) of a server that still answers is opened again
+//! the same way; heartbeats alone keep a stream; streams that end right after opening are given up
+//! after a few tries.
 
 mod agent_support;
 mod opencode2_engine_helpers;
@@ -10,7 +12,7 @@ use std::time::Duration;
 
 use agent_support::options;
 use harness_business::agent::SessionOptions;
-use harness_business::model::{AgentEvent, ChatBlock, MessageRole, PromptStatus};
+use harness_business::model::{AgentEvent, ChatBlock, MessageRole, NoticeLevel, PromptStatus};
 use opencode2_engine_helpers::{message_end, prompt, results, streamed, streaming, user_texts};
 use opencode2_engine_support::{count, start, start_with, until_marker};
 use pretty_assertions::assert_eq;
@@ -116,4 +118,53 @@ async fn a_silent_stream_of_a_server_that_answers_is_opened_again_and_the_chat_c
     );
 
     chat.session().stop().await;
+}
+
+/// Test options with a short silence limit.
+fn quick_silence(millis: u64) -> SessionOptions {
+    SessionOptions {
+        event_silence: Duration::from_millis(millis),
+        ..options()
+    }
+}
+
+#[tokio::test]
+async fn heartbeats_alone_keep_the_stream() {
+    let chat = start_with("opencode2_heartbeats.jsonl", None, quick_silence(300)).await;
+
+    let events = until_marker(&chat).await;
+
+    assert_eq!(chat.requests_to("GET /api/event").len(), 1, "never opened again");
+    assert_eq!(
+        chat.requests_to("GET /api/info").len(),
+        1,
+        "only the readiness check: the server was never pinged"
+    );
+    assert!(chat.requests_to("GET /api/session/*/message").is_empty(), "no catch-up");
+    assert!(
+        !events.iter().any(|event| matches!(event, AgentEvent::Notice { .. })),
+        "{events:#?}"
+    );
+
+    chat.session().stop().await;
+}
+
+#[tokio::test]
+async fn streams_that_end_right_after_opening_are_given_up_with_backoff() {
+    let chat = start("opencode2_short_streams.jsonl").await;
+
+    let notice = chat
+        .wait("the lost-connection notice", |event| {
+            matches!(event, AgentEvent::Notice { level: NoticeLevel::Error, message } if message.contains("lost"))
+        })
+        .await;
+    assert!(matches!(notice, AgentEvent::Notice { .. }));
+    chat.wait("exited", |event| matches!(event, AgentEvent::Exited { .. }))
+        .await;
+
+    let opened = chat.requests_to("GET /api/event").len();
+    assert!(
+        (2..=4).contains(&opened),
+        "three short-lived streams in a row end the chat, not an endless reopen: {opened} opens"
+    );
 }

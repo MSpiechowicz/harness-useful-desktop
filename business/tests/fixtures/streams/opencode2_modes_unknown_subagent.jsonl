@@ -1,0 +1,15 @@
+// An OpenCode 2 chat with an approval mode: "Always allow" for a subagent ask whose `save` covers every
+// agent, then a subagent ask for `sneaky`, an agent the mode's probe did not list (no `agent.updated`
+// came). It is not answered for the chat: it shows as a dialog. Then a title marker.
+{"allow":"GET /api/permission/saved","match":{"query.projectID":"global"},"reply":{"data":[]}}
+{"include":"opencode2_startup.jsonl"}
+{"expect":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/prompt","match":{"/text":"Say hello"}}
+{"sse":{"type":"session.inbox.enqueued","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","inboxID":"$inbox","item":{"type":"user","payload":{"text":"Say hello"},"delivery":"steer"}}}}
+{"sse":{"type":"session.execution.started","data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv"}}}
+{"sse":{"type":"session.inbox.delivered","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","inboxID":"$inbox"}}}
+{"sse":{"type":"permission.asked","location":{"directory":"$directory"},"data":{"id":"per_1","sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","action":"subagent","resources":["general"],"save":["*"]}}}
+{"expect":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/permission/per_1/reply","match":{"decision":"once"}}
+{"sse":{"type":"permission.replied","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","requestID":"per_1","reply":"once"}}}
+{"sse":{"type":"permission.asked","location":{"directory":"$directory"},"data":{"id":"per_2","sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","action":"subagent","resources":["sneaky"],"save":["sneaky"]}}}
+{"sse":{"type":"session.renamed","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","title":"Marker"}}}
+{"hang":true}
