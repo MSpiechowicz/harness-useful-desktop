@@ -1,3 +1,54 @@
+# [0.34.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.33.0...v0.34.0) (2026-10-21)
+
+
+### Bug Fixes
+
+* **deps:** update markdown-it to 15.0.3 for GHSA-vfgh-jcmw-g37q ([141b88d](https://github.com/MSpiechowicz/harness-useful-desktop/commit/141b88dbbd3904eb53449e372daad6a079f9ea2f)), closes [GHSA-vf#jcmw-g37q](https://github.com/GHSA-vf/issues/jcmw-g37q)
+* **deps:** update rustls-webpki and webpki-root-certs for RUSTSEC-2026-0382 and -0383 ([77aa832](https://github.com/MSpiechowicz/harness-useful-desktop/commit/77aa832a95181cf59b48bc0dd400ca8903ba08af))
+* **extensions:** treat Windows paths as local OpenCode plugin files when removing ([8df1871](https://github.com/MSpiechowicz/harness-useful-desktop/commit/8df187164636ea8f8f05680f1706a8719d8c549a))
+* **hooks,routines:** give the name column room next to Scope and align the menu search ([9cad6bd](https://github.com/MSpiechowicz/harness-useful-desktop/commit/9cad6bd212b26c6adb1d8bdffa740f772f23d606)), closes [#37](https://github.com/MSpiechowicz/harness-useful-desktop/issues/37)
+* **hooks:** check a team hook's repository with the server before copying it to a project ([9098ee4](https://github.com/MSpiechowicz/harness-useful-desktop/commit/9098ee42b902ada9fe3d61f6ac7b445896d128f2)), closes [#37](https://github.com/MSpiechowicz/harness-useful-desktop/issues/37)
+* **memory,scope:** give the badges in table rows the size of the status badges ([886e512](https://github.com/MSpiechowicz/harness-useful-desktop/commit/886e512cc08073c960e11539e13f134c5f748f65))
+* **memory:** let Delete all count the Kept in filter only where it applies ([1fb684c](https://github.com/MSpiechowicz/harness-useful-desktop/commit/1fb684c2e7932724c15322a68136c40b5df9f948))
+* **memory:** show the Kept in filter whenever Harness Memory can filter by place ([8867b55](https://github.com/MSpiechowicz/harness-useful-desktop/commit/8867b558aa8faff634b817e1b71616aba8ff9bb3))
+* **onboarding:** hide the sessions tile when the count was cut off before counting anything ([ac4d48b](https://github.com/MSpiechowicz/harness-useful-desktop/commit/ac4d48bd1eb89a4e2578cad4b14f2fc66dbf8795))
+* **onboarding:** one control height in the harness picker, no Not found for coming-soon harnesses ([fce6330](https://github.com/MSpiechowicz/harness-useful-desktop/commit/fce63306599699c7af82556e0d1b069f7731a4ef))
+* **onboarding:** use the large badge in the harness intro and picker, like the Harness family cards ([5c5993f](https://github.com/MSpiechowicz/harness-useful-desktop/commit/5c5993f58501dfd16cca2d984f77a2e63c79a9dd))
+* **onboarding:** widen the harness list so names and the Daily driver chip fit ([fa87c2f](https://github.com/MSpiechowicz/harness-useful-desktop/commit/fa87c2ff6e9526002ca197fbaca5ab69404a6ec7))
+* **scope:** keep Replace, Delete all and the open row true to the project chosen ([635d51c](https://github.com/MSpiechowicz/harness-useful-desktop/commit/635d51c64bec3a30b08c3b2f066fed78f376a073)), closes [#37](https://github.com/MSpiechowicz/harness-useful-desktop/issues/37)
+* **scope:** keep the filters chosen under an open panel when the view opens again ([0ec4580](https://github.com/MSpiechowicz/harness-useful-desktop/commit/0ec4580300b830bde101755a5c64a868a9e57875)), closes [#37](https://github.com/MSpiechowicz/harness-useful-desktop/issues/37)
+* **setup:** register OpenCode MCP servers only after the Harness Skills install settles ([b82b2e3](https://github.com/MSpiechowicz/harness-useful-desktop/commit/b82b2e3334b9984afe7550753b57def786b34ad9)), closes [#25](https://github.com/MSpiechowicz/harness-useful-desktop/issues/25)
+* **share:** ask OpenCode for its merged config only when importing, never while reviewing ([7722907](https://github.com/MSpiechowicz/harness-useful-desktop/commit/7722907fcf6c9d0b352b387e1c57710351451d59)), closes [#24](https://github.com/MSpiechowicz/harness-useful-desktop/issues/24)
+* **share:** check OpenCode's merged config before importing an MCP server ([230f487](https://github.com/MSpiechowicz/harness-useful-desktop/commit/230f487ecf9172e26de202d2a79fc0ea86f1b225)), closes [#24](https://github.com/MSpiechowicz/harness-useful-desktop/issues/24)
+* **share:** fail closed on unreadable OpenCode config layers and reserve the Harness Skills server ([c17ae9e](https://github.com/MSpiechowicz/harness-useful-desktop/commit/c17ae9e2a3eb61783986343e7c63ab17d9100dbe)), closes [#23](https://github.com/MSpiechowicz/harness-useful-desktop/issues/23) [#24](https://github.com/MSpiechowicz/harness-useful-desktop/issues/24) [#25](https://github.com/MSpiechowicz/harness-useful-desktop/issues/25)
+* **share:** keep the probe's temp file unshared on Windows and document that it runs OpenCode plugins ([53a175a](https://github.com/MSpiechowicz/harness-useful-desktop/commit/53a175aa1ebdfe8298a2eefc2b70140879e26df9))
+* **share:** name unreadable config layers, fail only unwritten servers on a failed OpenCode check, and give the Node message a code ([bc6fc06](https://github.com/MSpiechowicz/harness-useful-desktop/commit/bc6fc06415aa513ee779394c7a70fdf7848353d9)), closes [#24](https://github.com/MSpiechowicz/harness-useful-desktop/issues/24) [#25](https://github.com/MSpiechowicz/harness-useful-desktop/issues/25)
+* **ui:** one 36px button height and one badge size in onboarding, button labels lifted to sit optically centred ([f4937da](https://github.com/MSpiechowicz/harness-useful-desktop/commit/f4937dac4f1bf35cc0d04092bc8988fa7db7db30))
+
+
+### Features
+
+* **extensions:** install and remove OpenCode plugins (backend) ([afb28f5](https://github.com/MSpiechowicz/harness-useful-desktop/commit/afb28f5dc697f32e7a319a65541fb295c8dd938a)), closes [#23](https://github.com/MSpiechowicz/harness-useful-desktop/issues/23)
+* **extensions:** install and remove OpenCode plugins from the Extensions view ([d63cf73](https://github.com/MSpiechowicz/harness-useful-desktop/commit/d63cf73b39b6ab74ea346148963d10dc1f7f8aea)), closes [#23](https://github.com/MSpiechowicz/harness-useful-desktop/issues/23)
+* **hooks,routines:** one table of every project with a Scope filter, paging and an Applies to dropdown ([0d4857c](https://github.com/MSpiechowicz/harness-useful-desktop/commit/0d4857cc7ede8890cf61f9ee698e6258d2f2e28b)), closes [#37](https://github.com/MSpiechowicz/harness-useful-desktop/issues/37)
+* **memory:** add a Kept in filter to the notes and scripts tables ([db18f53](https://github.com/MSpiechowicz/harness-useful-desktop/commit/db18f53cbb71402ae5a81cbff19fe9e2e015689e)), closes [#37](https://github.com/MSpiechowicz/harness-useful-desktop/issues/37)
+* **memory:** filter notes and scripts by where they are kept ([ca096a1](https://github.com/MSpiechowicz/harness-useful-desktop/commit/ca096a10d3cac2f8f89f91a72cf4134a1b3ba8a3))
+* **memory:** one Scope filter and an Applies to dropdown for notes and scripts ([1b6e26f](https://github.com/MSpiechowicz/harness-useful-desktop/commit/1b6e26fdcab759db0b848fb403c6e407faca9fe1)), closes [#37](https://github.com/MSpiechowicz/harness-useful-desktop/issues/37)
+* **memory:** show the Scope of notes and scripts like hooks and routines ([8057781](https://github.com/MSpiechowicz/harness-useful-desktop/commit/8057781066d5f3bf7eb7fb83fc3aa447ae1c43db)), closes [#37](https://github.com/MSpiechowicz/harness-useful-desktop/issues/37)
+* **onboarding:** count each harness's sessions across all projects for the picker ([cfebec7](https://github.com/MSpiechowicz/harness-useful-desktop/commit/cfebec77996c3ab7f1710f28a29174ab998abc22))
+* **onboarding:** introduce the harnesses first, then pick the daily driver from a list ([5f8017f](https://github.com/MSpiechowicz/harness-useful-desktop/commit/5f8017fdcb768d13e8b62c4483c5317ba30b4cb1))
+* **onboarding:** keep installer output in the Harness family card's Details ([10d65e1](https://github.com/MSpiechowicz/harness-useful-desktop/commit/10d65e167919cc24c49a453ca095a9dc5f365ad6))
+* **onboarding:** one number per machine-facts tile, real labels while loading, facts prefetched on the intro ([c144448](https://github.com/MSpiechowicz/harness-useful-desktop/commit/c144448269f069113077a2ecc23d1dab1a401931))
+* **onboarding:** show what is on this machine for an installed harness in the picker ([4391716](https://github.com/MSpiechowicz/harness-useful-desktop/commit/439171692f34615e878f5c3158c42397d9657bbc))
+* **scope:** list the scope of every added project and all hooks and routines at once (backend) ([b57b920](https://github.com/MSpiechowicz/harness-useful-desktop/commit/b57b920fcd6a21b78285bdb0a28fe66ce595523a)), closes [#37](https://github.com/MSpiechowicz/harness-useful-desktop/issues/37)
+* **scope:** shared Scope helpers and view state for the hooks and routines tables ([49dd67f](https://github.com/MSpiechowicz/harness-useful-desktop/commit/49dd67f28cdd8485135fca3119a756cb0b61c84b)), closes [#37](https://github.com/MSpiechowicz/harness-useful-desktop/issues/37)
+* **setup:** install Harness Skills for OpenCode from Recommended setup (backend) ([0fd374f](https://github.com/MSpiechowicz/harness-useful-desktop/commit/0fd374f2a35537c83ea7e984cc3e45a20a927a3a)), closes [#25](https://github.com/MSpiechowicz/harness-useful-desktop/issues/25)
+* **setup:** offer Harness Skills for OpenCode in onboarding (UI) ([b25dba0](https://github.com/MSpiechowicz/harness-useful-desktop/commit/b25dba06d39329927ca5a7573c16fbb4796b96ac)), closes [#25](https://github.com/MSpiechowicz/harness-useful-desktop/issues/25)
+* **share:** export and import OpenCode MCP servers and plugins (backend) ([a2e45d6](https://github.com/MSpiechowicz/harness-useful-desktop/commit/a2e45d629ad47d09348a97393068ff36d74ee7de)), closes [#24](https://github.com/MSpiechowicz/harness-useful-desktop/issues/24)
+* **share:** note that new OpenCode MCP servers are checked when you import ([02b1380](https://github.com/MSpiechowicz/harness-useful-desktop/commit/02b13806e4d383d9e1fcd3dbac36d54283fbcaf8)), closes [#24](https://github.com/MSpiechowicz/harness-useful-desktop/issues/24)
+* **share:** show OpenCode MCP servers, plugins and manual edits in Share setup (UI) ([96afc20](https://github.com/MSpiechowicz/harness-useful-desktop/commit/96afc203c34863dee75876b43e5f4205932d34f5)), closes [#24](https://github.com/MSpiechowicz/harness-useful-desktop/issues/24)
+* **share:** show unreadable config files and the localised Node.js message ([71462be](https://github.com/MSpiechowicz/harness-useful-desktop/commit/71462bec4c0242162deff9acbb5e69930bbcb3ff)), closes [#24](https://github.com/MSpiechowicz/harness-useful-desktop/issues/24) [#25](https://github.com/MSpiechowicz/harness-useful-desktop/issues/25)
+
 # [0.33.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.32.0...v0.33.0) (2026-10-20)
 
 
