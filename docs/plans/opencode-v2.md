@@ -170,7 +170,7 @@ S15 in the skills repo. S7 also needs S5.
 | S11 | Session ops, export, stats | backend | done (merged; S11b skills, background commands, summed stats 6900116) |
 | S12 | Hooks and routines tests | backend | done (merged d04a536) |
 | S13 | UI (only if needed) | frontend | done (merged e4573f7) |
-| S14 | Docs | general | done (bbab074, drop "not available yet" in README/architecture when S9–S12 land) |
+| S14 | Docs | general | done (bbab074, final wording after S12) |
 | S16 | Orphaned chat servers killed on next start (user-approved addition) | backend | done (merged 1cb9454) |
 | S15 | Harness Skills V2 entry | general | done (harness-useful-skills b285e6f, branch feat/opencode-v2, unreleased; dual entry checked on real 1.19.3 and 2.1.2) |
 

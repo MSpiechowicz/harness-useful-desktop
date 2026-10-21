@@ -644,6 +644,30 @@ The chat with OpenCode runs one `opencode serve` per chat and talks to it over H
   Sessions, history and statistics are read from the server's own messages, and the app does not open OpenCode's
   database.
 
+### OpenCode 2 chat
+
+OpenCode 2 gets the same guarantees through its own engine (`business/src/agent/opencode_v2/`, client
+`business/src/opencode_server_v2/`, plan [opencode-v2.md](plans/opencode-v2.md)). The differences:
+
+- **Start.** `opencode serve --hostname 127.0.0.1 --port 0` (OpenCode 2 has no mDNS option and rejects the flag), never
+  `--service` or `--stdio`, so the chat never uses or starts OpenCode 2's shared background service. Readiness is
+  `GET /api/info`, which also needs the password. `OPENCODE_PASSWORD` (which OpenCode 2 prefers) is removed from the
+  inherited environment too, and the random password goes in `OPENCODE_SERVER_PASSWORD`.
+- **A closed set of requests.** `RouteV2` (`opencode_server_v2/routes.rs`): info, the event stream, sessions (create,
+  read, rename, delete, fork, agent and model pick, prompt, interrupt, command, shell, compact, messages), permission
+  and form lists and replies, read-only agent, command, skill, config, model, default model and provider lists, and
+  the project's saved permission rules (read only). No share, auth, PTY, service or `/api/experimental/*` route.
+- **Approval modes** are `agents.<name>.permissions` rule lists in the chat server's `OPENCODE_CONFIG_CONTENT`, with
+  the same probe start and strict check after start. A project with permission rules OpenCode saved (an "always" in
+  OpenCode's own app) refuses Always ask and Write ask first, because OpenCode applies those rules after every
+  agent's.
+- **"Always allow"** is never sent to OpenCode 2, which would save it for the whole project. The app answers `once`
+  and answers later matching asks of the chat itself, so the allowance ends with the chat and OpenCode's database
+  holds nothing new.
+- **Helper chats** create their session with a deny-all rule and delete it when the chat stops.
+- **Orphans.** Like every agent process, the server is recorded while it runs, and the next app start kills one a
+  crashed app left behind (see [Process spawning](#process-spawning)).
+
 ## Shared setups
 
 Share setup (Settings) exports the extensions and MCP servers of your harnesses as a `hud1:` string or a `.json` file
