@@ -21,7 +21,6 @@
 
 use std::ffi::OsString;
 use std::fs;
-use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, SystemTime};
@@ -32,6 +31,9 @@ use super::identity::{ProcessIdentity, kill_observed};
 use super::{BoxFuture, ChildHandle, ExecSpec, ExitInfo, ProcessSpawner, SpawnedProcess};
 use crate::error::{BusinessError, Result};
 use crate::fs_atomic::{ensure_private_dir, replace_atomically, unix_nanos};
+use record::{ReadRecord, read_record};
+
+mod record;
 
 /// The most children one app records; more are started untracked (and logged).
 pub const MAX_RECORDED_CHILDREN: usize = 64;
@@ -311,6 +313,10 @@ pub fn sweep_orphans(dir: &Path) -> SweepReport {
                 report.untrusted += 1;
                 continue;
             }
+            ReadRecord::Unavailable => {
+                tracing::warn!(file = %name, "skipped a child process record that could not be read now");
+                continue;
+            }
             ReadRecord::Corrupt => {
                 tracing::warn!(file = %name, "removed an unreadable child process record");
                 report.corrupt += 1;
@@ -354,64 +360,6 @@ fn sweep_child(child: &ProcessIdentity, report: &mut SweepReport) {
     kill_observed(child.pid, &observed);
     tracing::info!(pid = child.pid, "stopped a child process left by an earlier run");
     report.killed.push(child.pid);
-}
-
-/// What reading one registry file gave.
-enum ReadRecord {
-    Record(RegistryFile),
-    /// Another user's file, or one group or others may open: left alone, unread.
-    Untrusted,
-    /// Not a regular file, too large, unreadable or not a registry file of [`VERSION`].
-    Corrupt,
-}
-
-/// The registry file at `path` (see [`ReadRecord`]), opened without following a link (on Unix)
-/// and checked on what was opened, so a file swapped in after a check by path is never read.
-fn read_record(path: &Path) -> ReadRecord {
-    let (file, metadata) = match open_record(path) {
-        Ok(opened) => opened,
-        Err(error) if error.kind() == std::io::ErrorKind::PermissionDenied => return ReadRecord::Untrusted,
-        Err(_) => return ReadRecord::Corrupt,
-    };
-
-    if !metadata.is_file() {
-        return ReadRecord::Corrupt;
-    }
-
-    if !private_file(&metadata) {
-        return ReadRecord::Untrusted;
-    }
-
-    if metadata.len() > MAX_FILE_BYTES {
-        return ReadRecord::Corrupt;
-    }
-
-    let mut bytes = Vec::new();
-
-    if file.take(MAX_FILE_BYTES).read_to_end(&mut bytes).is_err() {
-        return ReadRecord::Corrupt;
-    }
-
-    let record = serde_json::from_slice::<RegistryFile>(&bytes).ok();
-    let valid = |record: &RegistryFile| record.version == VERSION && record.children.len() <= MAX_RECORDED_CHILDREN;
-
-    record.filter(valid).map_or(ReadRecord::Corrupt, ReadRecord::Record)
-}
-
-/// Opens `path` for reading, with the metadata of what was opened: on Unix never through a link,
-/// nor waiting for a writer when it is a FIFO.
-fn open_record(path: &Path) -> std::io::Result<(fs::File, fs::Metadata)> {
-    let mut options = fs::OpenOptions::new();
-
-    #[cfg(unix)]
-    std::os::unix::fs::OpenOptionsExt::custom_flags(
-        &mut options,
-        (nix::fcntl::OFlag::O_NOFOLLOW | nix::fcntl::OFlag::O_NONBLOCK).bits(),
-    );
-
-    let file = options.read(true).open(path)?;
-
-    file.metadata().map(|metadata| (file, metadata))
 }
 
 /// Removes the temporary file at `path` once it is old enough not to be a write in progress.
