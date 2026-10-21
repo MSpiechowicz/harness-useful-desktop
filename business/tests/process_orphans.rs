@@ -5,13 +5,14 @@
 
 use std::ffi::OsString;
 use std::fs;
+use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use harness_business::process::{
-    ChildRegistry, ExecSpec, ProcessIdentity, ProcessSpawner, TokioSpawner, TrackedSpawner, sweep_orphans,
+    ChildRegistry, ExecSpec, ProcessIdentity, ProcessSpawner, SweepReport, TokioSpawner, TrackedSpawner, sweep_orphans,
 };
 use serde_json::Value;
 
@@ -86,6 +87,20 @@ fn stop(mut child: Child) {
     child.wait().ok();
 }
 
+fn mode_of(path: &Path) -> u32 {
+    fs::metadata(path).unwrap().permissions().mode() & 0o777
+}
+
+fn set_mode(path: &Path, mode: u32) {
+    fs::set_permissions(path, fs::Permissions::from_mode(mode)).unwrap();
+}
+
+/// Writes a registry-named file the way the app does (`0600`).
+fn write_private(path: &Path, bytes: &[u8]) {
+    fs::write(path, bytes).unwrap();
+    set_mode(path, 0o600);
+}
+
 /// Rewrites the first recorded child in `file` with `edit`.
 fn tamper(file: &Path, edit: impl FnOnce(&mut Value)) {
     let mut record: Value = serde_json::from_slice(&fs::read(file).unwrap()).unwrap();
@@ -103,8 +118,7 @@ fn a_crashed_apps_child_is_killed() {
     let recorded = registry.record(child.id(), &sleep_args()).expect("recorded");
     assert_eq!(recorded.pid, child.id());
 
-    let mode = std::os::unix::fs::PermissionsExt::mode(&fs::metadata(registry.file()).unwrap().permissions());
-    assert_eq!(mode & 0o777, 0o600, "the record is private");
+    assert_eq!(mode_of(registry.file()), 0o600, "the record is private");
 
     let file = registry.file().to_path_buf();
     drop(registry);
@@ -255,8 +269,8 @@ async fn a_reaped_or_dropped_child_leaves_the_record() {
 #[test]
 fn corrupt_oversized_and_foreign_files_are_ignored() {
     let dir = tempfile::tempdir().unwrap();
-    fs::write(dir.path().join("app-1-2.json"), b"{not json").unwrap();
-    fs::write(dir.path().join("app-3-4.json"), vec![b' '; 512 * 1024]).unwrap();
+    write_private(&dir.path().join("app-1-2.json"), b"{not json");
+    write_private(&dir.path().join("app-3-4.json"), &vec![b' '; 512 * 1024]);
     fs::write(dir.path().join("notes.txt"), b"kept").unwrap();
 
     let report = sweep_orphans(dir.path());
@@ -287,4 +301,76 @@ fn foreign_files_do_not_crowd_out_a_record() {
 
     assert_eq!(report.killed, vec![child.id()]);
     assert_eq!(wait_for_signal(&mut child), Some(9), "the orphan was killed");
+}
+
+#[test]
+fn recording_narrows_an_existing_folder() {
+    let dir = tempfile::tempdir().unwrap();
+    let registry_dir = dir.path().join("child-processes");
+    fs::create_dir(&registry_dir).unwrap();
+    set_mode(&registry_dir, 0o777);
+
+    let app = FakeApp::start();
+    let registry = ChildRegistry::with_owner(&registry_dir, app.identity.clone());
+    let child = start_sleep();
+    registry.record(child.id(), &sleep_args()).expect("recorded");
+
+    assert_eq!(mode_of(&registry_dir), 0o700, "the folder is private again");
+
+    drop(registry);
+    stop(child);
+    app.crash();
+}
+
+#[test]
+fn a_folder_others_may_write_to_is_not_swept() {
+    let dir = tempfile::tempdir().unwrap();
+    let app = FakeApp::start();
+    let registry = ChildRegistry::with_owner(dir.path(), app.identity.clone());
+    let mut child = start_sleep();
+    registry.record(child.id(), &sleep_args()).expect("recorded");
+    let file = registry.file().to_path_buf();
+    drop(registry);
+    app.crash();
+
+    set_mode(dir.path(), 0o777);
+    let report = sweep_orphans(dir.path());
+
+    assert_eq!(
+        report,
+        SweepReport::default(),
+        "nothing is read in a folder others may write to"
+    );
+    assert!(still_running(&mut child), "nothing is killed");
+    assert!(file.exists(), "nothing is removed");
+
+    // The same record in a private folder is swept.
+    set_mode(dir.path(), 0o700);
+
+    assert_eq!(sweep_orphans(dir.path()).killed, vec![child.id()]);
+    assert_eq!(wait_for_signal(&mut child), Some(9));
+}
+
+#[test]
+fn a_record_that_is_not_0600_is_skipped() {
+    let dir = tempfile::tempdir().unwrap();
+    let app = FakeApp::start();
+    let registry = ChildRegistry::with_owner(dir.path(), app.identity.clone());
+    let mut child = start_sleep();
+    registry.record(child.id(), &sleep_args()).expect("recorded");
+    let file = registry.file().to_path_buf();
+    drop(registry);
+    app.crash();
+
+    for mode in [0o644, 0o660, 0o700] {
+        set_mode(&file, mode);
+        let report = sweep_orphans(dir.path());
+
+        assert_eq!(report.untrusted, 1, "mode {mode:o}");
+        assert!(report.killed.is_empty(), "mode {mode:o}");
+        assert!(file.exists(), "a skipped record is left as it is");
+    }
+
+    assert!(still_running(&mut child), "nothing is killed");
+    stop(child);
 }

@@ -87,8 +87,9 @@ pub struct McpFile {
 ///   `opencode.json[c]` in `~/.opencode` and in `OPENCODE_CONFIG_DIR`, and the file
 ///   `OPENCODE_CONFIG` names.
 /// - OpenCode 2 (whose global directory is `OPENCODE_CONFIG_DIR` when set, and which reads no
-///   `config.json`): the other settings file of its global directory, `opencode.json[c]` in
-///   `~/.opencode` (read for projects below the home directory) and the file `OPENCODE_CONFIG`
+///   `config.json`): the other settings file of its global directory, `opencode.json[c]` in the
+///   home directory and in `~/.opencode` (its project walk reads both for every project below the
+///   home directory, while its merged-names check skips them) and the file `OPENCODE_CONFIG`
 ///   names.
 pub fn mcp_target(env: &Env, harness: &dyn Harness) -> Option<McpFile> {
     match harness.companion_setup().mcp {
@@ -135,7 +136,7 @@ fn opencode_file(env: &Env, generation: OpenCodeGeneration) -> McpFile {
         OpenCodeGeneration::V2 => (
             &["opencode.json", "opencode.jsonc"],
             Shape::OpenCodeV2,
-            vec![opencode::home_config_dir(env)],
+            vec![env.home.clone(), opencode::home_config_dir(env)],
         ),
     };
 

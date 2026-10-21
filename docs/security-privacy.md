@@ -284,8 +284,11 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
   `<local data dir>/child-processes/` (folder `0700`, file `0600`, at most 64 entries). An entry goes when the child is
   reaped or dropped. At the next start a background sweep reads the files of apps that are gone and kills each
   recorded child (its process group) only when its start time and arguments still match, so a reused pid is never
-  hit, and the files of a running app (another build sharing the folder) are left alone. Linux and macOS. On Windows
-  nothing is recorded.
+  hit, and the files of a running app (another build sharing the folder) are left alone. The records are trusted only
+  while they are private: each write narrows an existing folder to `0700`, the sweep stops nothing when the folder
+  belongs to another user or group or others may write to it, and it skips (leaves unread) a file that another user
+  owns or whose mode is not `0600`, so nobody else can plant a record that makes the app kill a process. Linux and
+  macOS. On Windows nothing is recorded.
 - **No shell.** `build_command` (`business/src/process/mod.rs`) requires an absolute program path and passes the
   argument list verbatim. `scripts/check-forbidden.ts` rejects `Command::new("sh" | "bash" | "cmd" | ...)` with no
   opt-out. The exceptions are the companion installers and command hooks below.
@@ -359,7 +362,9 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
   `OPENCODE_DISABLE_PROJECT_CONFIG=1` explicitly (OpenCode 2 reads the first name first, so an inherited `0` or
   `false` cannot turn the project's config back on), together with `OPENCODE_DISABLE_MODELS_FETCH=1` and both
   file-watcher switches. The merged MCP names check of a Share import (`opencode api --standalone GET /api/config`)
-  runs with the same environment.
+  runs with the same environment, so it does not see a server that only `~/opencode.json[c]` defines (OpenCode 2
+  reads it for every project below the home directory): the app reads those two files itself, as it reads
+  `~/.opencode`, and a server of the same name there is present or a conflict, never written beside it.
   At most two session commands run at once (more wait), concurrent list requests for the same project share one run,
   and a list is reused for 5 seconds. Before a delete lists again, it waits for a list already running and then starts
   a new one, so a session created meanwhile is found. Each command has capped output (4 MiB list, 16 MiB export) and a
@@ -409,7 +414,9 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
   config is read as JSONC (comments and trailing commas allowed). One with comments is never written, because a
   rewrite would lose them: the setup row shows the entry and the file instead (`McpState::ManualEdit`), and nothing is
   written at launch. Only the other OpenCode global files it reads, `config.json` there, `opencode.json[c]` in
-  `~/.opencode` and `OPENCODE_CONFIG_DIR`, and the file `OPENCODE_CONFIG` names (absolute paths only), are looked at to find an existing entry, never written. The
+  `~/.opencode` and `OPENCODE_CONFIG_DIR`, and the file `OPENCODE_CONFIG` names (absolute paths only), are looked at to find an existing entry, never written
+  (OpenCode 2: no `config.json`, `OPENCODE_CONFIG_DIR` replaces the global folder, and `~/opencode.json[c]` is read
+  too). The
   write is atomic (temporary sibling, flushed, renamed) and keeps the file's permissions; a new file is created with
   `0600`. File contents are never logged or returned.
 - **OpenCode plugin removal.** OpenCode has no uninstall command, so removing a plugin in Extensions edits a file instead
@@ -670,9 +677,20 @@ OpenCode 2 gets the same guarantees through its own engine (`business/src/agent/
   `GET /api/info`, which also needs the password. `OPENCODE_PASSWORD` (which OpenCode 2 prefers) is removed from the
   inherited environment too, and the random password goes in `OPENCODE_SERVER_PASSWORD`.
 - **A closed set of requests.** `RouteV2` (`opencode_server_v2/routes.rs`): info, the event stream, sessions (create,
-  read, rename, delete, fork, agent and model pick, prompt, interrupt, command, shell, compact, messages), permission
-  and form lists and replies, read-only agent, command, skill, config, model, default model and provider lists, and
-  the project's saved permission rules (read only). No share, auth, PTY, service or `/api/experimental/*` route.
+  read, rename, delete, fork, agent and model pick, prompt, interrupt, command, shell, compact, messages), the
+  subagent sessions of a session (`GET /api/session?parentID=`, the one session route without a directory), permission
+  and form lists and replies (also the directory's pending permission requests, `GET /api/permission/request`), the
+  output of a running shell tool call (`GET /api/shell/{id}/output`, read only, polled every second while the call
+  runs; a shell is never created or removed through it), read-only agent, command, skill, config, model, default
+  model and provider lists, and the project's saved permission rules (read only). No share, auth, PTY, service or
+  `/api/experimental/*` route. `scripts/check-forbidden.ts` applies the OpenCode route and flag rules to the OpenCode 2
+  engine and client too, keeps their Config route `GET` only and rejects `--service`, `--stdio`, a `service` command
+  and `--cors` there and in the harness wiring.
+- **Reconnects.** OpenCode 2 ends a stream that falls behind. The chat opens it again (also when it went silent while
+  the server still answers) and catches up from the server: the session, its newest messages, its subagent sessions
+  and the pending permission requests and forms, so an ask raised meanwhile shows and a dialog answered elsewhere
+  closes. The catch-up only reads; an ask it finds is answered as a live one would be (by you, or by the chat's own
+  "Always allow").
 - **Approval modes** are `agents.<name>.permissions` rule lists in the chat server's `OPENCODE_CONFIG_CONTENT`, with
   the same probe start and strict check after start. A project with permission rules OpenCode saved (an "always" in
   OpenCode's own app) refuses Always ask and Write ask first, because OpenCode applies those rules after every

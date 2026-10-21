@@ -224,6 +224,20 @@ fn only_the_files_opencode_2_reads_count() {
 }
 
 #[test]
+fn the_home_folder_config_is_read_never_written() {
+    let home = Home::new();
+    home.write_opencode("opencode.json", "{}");
+    std::fs::write(
+        home.dir.path().join("opencode.jsonc"),
+        r#"{"mcp":{"servers":{"dash":{"type":"local","command":["harness-dashboard","mcp"]}}}}"#,
+    )
+    .unwrap();
+
+    assert_eq!(home.register(), configured("~/opencode.jsonc", "dash"));
+    assert_eq!(read(&home.opencode("opencode.json")), json!({}), "nothing is doubled");
+}
+
+#[test]
 fn the_custom_config_dir_replaces_the_global_one() {
     let home = Home::new();
     let team = home.dir.path().join("team");

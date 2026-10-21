@@ -9,6 +9,11 @@
 //! - [`sweep_orphans`] runs once at app start: for every file whose app is gone, it kills each
 //!   recorded child that still runs and is still provably the same process, then removes the file.
 //!   A file of an app that still runs (a dev build next to the installed app) is left alone.
+//! - On Unix the registry is trusted only while it is private to the user the app runs as: the
+//!   folder is narrowed to `0700` on every write; the sweep refuses a folder that another user
+//!   owns or that group or others can write to, and skips (leaves unread) a file that another user
+//!   owns or whose mode is not `0600`. Nobody else can plant a record that makes the app kill a
+//!   process.
 //!
 //! Nothing is recorded where identities are unsupported ([`ChildRegistry::open`] gives `None`), so
 //! Windows children are not swept. `PR_SET_PDEATHSIG` is not used: it fires when the spawning
@@ -26,7 +31,7 @@ use serde::{Deserialize, Serialize};
 use super::identity::{ProcessIdentity, kill_observed};
 use super::{BoxFuture, ChildHandle, ExecSpec, ExitInfo, ProcessSpawner, SpawnedProcess};
 use crate::error::{BusinessError, Result};
-use crate::fs_atomic::{create_private_dir, replace_atomically, unix_nanos};
+use crate::fs_atomic::{ensure_private_dir, replace_atomically, unix_nanos};
 
 /// The most children one app records; more are started untracked (and logged).
 pub const MAX_RECORDED_CHILDREN: usize = 64;
@@ -141,7 +146,7 @@ impl ChildRegistry {
         }
 
         if let Some(dir) = self.file.parent() {
-            create_private_dir(dir, "creating the child process folder")?;
+            ensure_private_dir(dir, "creating the child process folder")?;
         }
 
         let record = RegistryFile {
@@ -255,13 +260,28 @@ pub struct SweepReport {
     pub live_apps: usize,
     /// Unreadable, oversized or corrupt registry files (removed unread).
     pub corrupt: usize,
+    /// Registry files that are not private to this user (left alone, unread).
+    pub untrusted: usize,
 }
 
 /// Kills the children recorded by apps that are gone, when they still run and are still the
 /// same process, and removes those apps' registry files (see the module docs). Blocks (it reads
-/// files and, on macOS, runs `ps`); a missing `dir` is an empty sweep.
+/// files and, on macOS, runs `ps`); a missing `dir`, or one that is not private to this user, is
+/// an empty sweep.
 pub fn sweep_orphans(dir: &Path) -> SweepReport {
     let mut report = SweepReport::default();
+
+    let Ok(metadata) = fs::symlink_metadata(dir) else {
+        return report;
+    };
+
+    if !metadata.is_dir() || !private_dir(&metadata) {
+        tracing::warn!(
+            dir = %dir.display(),
+            "the child process folder is not private to this user, nothing left by an earlier run is stopped"
+        );
+        return report;
+    }
 
     let Ok(entries) = fs::read_dir(dir) else {
         return report;
@@ -284,11 +304,19 @@ pub fn sweep_orphans(dir: &Path) -> SweepReport {
             continue;
         }
 
-        let Some(record) = read_record(&path) else {
-            tracing::warn!(file = %name, "removed an unreadable child process record");
-            report.corrupt += 1;
-            fs::remove_file(&path).ok();
-            continue;
+        let record = match read_record(&path) {
+            ReadRecord::Record(record) => record,
+            ReadRecord::Untrusted => {
+                tracing::warn!(file = %name, "skipped a child process record that is not private to this user");
+                report.untrusted += 1;
+                continue;
+            }
+            ReadRecord::Corrupt => {
+                tracing::warn!(file = %name, "removed an unreadable child process record");
+                report.corrupt += 1;
+                fs::remove_file(&path).ok();
+                continue;
+            }
         };
 
         if record.owner.is_alive() {
@@ -328,15 +356,39 @@ fn sweep_child(child: &ProcessIdentity, report: &mut SweepReport) {
     report.killed.push(child.pid);
 }
 
-/// The registry file at `path`; `None` when it is not a regular file, too large or not a
-/// registry file of [`VERSION`].
-fn read_record(path: &Path) -> Option<RegistryFile> {
-    let metadata = fs::symlink_metadata(path).ok()?;
+/// What reading one registry file gave.
+enum ReadRecord {
+    Record(RegistryFile),
+    /// Another user's file, or one whose mode is not `0600`: left alone, unread.
+    Untrusted,
+    /// Not a regular file, too large, unreadable or not a registry file of [`VERSION`].
+    Corrupt,
+}
 
-    if !metadata.is_file() || metadata.len() > MAX_FILE_BYTES {
-        return None;
+/// The registry file at `path` (see [`ReadRecord`]).
+fn read_record(path: &Path) -> ReadRecord {
+    let Ok(metadata) = fs::symlink_metadata(path) else {
+        return ReadRecord::Corrupt;
+    };
+
+    if !metadata.is_file() {
+        return ReadRecord::Corrupt;
     }
 
+    if !private_file(&metadata) {
+        return ReadRecord::Untrusted;
+    }
+
+    if metadata.len() > MAX_FILE_BYTES {
+        return ReadRecord::Corrupt;
+    }
+
+    parse_record(path).map_or(ReadRecord::Corrupt, ReadRecord::Record)
+}
+
+/// The registry file at `path`, read up to [`MAX_FILE_BYTES`]; `None` when it cannot be read or
+/// is not a registry file of [`VERSION`].
+fn parse_record(path: &Path) -> Option<RegistryFile> {
     let mut bytes = Vec::new();
     fs::File::open(path)
         .ok()?
@@ -358,5 +410,74 @@ fn remove_stale_temp(path: &Path) {
 
     if age.is_some_and(|age| age > STALE_TEMP) {
         fs::remove_file(path).ok();
+    }
+}
+
+/// True when the registry folder with `metadata` is private to this user (always on Windows).
+#[cfg(unix)]
+fn private_dir(metadata: &fs::Metadata) -> bool {
+    use std::os::unix::fs::MetadataExt;
+
+    private_dir_mode(metadata.uid(), metadata.mode(), nix::unistd::geteuid().as_raw())
+}
+
+#[cfg(not(unix))]
+fn private_dir(_metadata: &fs::Metadata) -> bool {
+    true
+}
+
+/// True when the registry file with `metadata` is private to this user (always on Windows).
+#[cfg(unix)]
+fn private_file(metadata: &fs::Metadata) -> bool {
+    use std::os::unix::fs::MetadataExt;
+
+    private_file_mode(metadata.uid(), metadata.mode(), nix::unistd::geteuid().as_raw())
+}
+
+#[cfg(not(unix))]
+fn private_file(_metadata: &fs::Metadata) -> bool {
+    true
+}
+
+/// A folder owned by `owner` with mode `mode` is private to user `me`: theirs, and neither group
+/// nor others may write to it.
+#[cfg(unix)]
+fn private_dir_mode(owner: u32, mode: u32, me: u32) -> bool {
+    owner == me && mode & 0o022 == 0
+}
+
+/// A file owned by `owner` with mode `mode` is private to user `me`: theirs, with mode `0600`.
+#[cfg(unix)]
+fn private_file_mode(owner: u32, mode: u32, me: u32) -> bool {
+    owner == me && mode & 0o777 == 0o600
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::{private_dir_mode, private_file_mode};
+
+    const ME: u32 = 1000;
+    const OTHER: u32 = 1001;
+
+    #[test]
+    fn only_the_users_own_private_folder_is_trusted() {
+        assert!(private_dir_mode(ME, 0o40700, ME));
+        assert!(private_dir_mode(ME, 0o40755, ME), "others may read, not write");
+
+        assert!(!private_dir_mode(OTHER, 0o40700, ME), "another user's folder");
+        assert!(!private_dir_mode(0, 0o40700, ME), "root's folder");
+        assert!(!private_dir_mode(ME, 0o40770, ME), "group may write");
+        assert!(!private_dir_mode(ME, 0o40777, ME), "others may write");
+    }
+
+    #[test]
+    fn only_the_users_own_0600_file_is_trusted() {
+        assert!(private_file_mode(ME, 0o100600, ME));
+
+        assert!(!private_file_mode(OTHER, 0o100600, ME), "another user's file");
+        assert!(!private_file_mode(ME, 0o100644, ME), "others may read it");
+        assert!(!private_file_mode(ME, 0o100640, ME), "group may read it");
+        assert!(!private_file_mode(ME, 0o100700, ME), "executable");
+        assert!(!private_file_mode(ME, 0o100400, ME), "read only");
     }
 }

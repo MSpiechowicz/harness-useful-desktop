@@ -26,12 +26,17 @@ interface Rule {
 }
 
 const SOURCE = ['.rs', '.ts', '.svelte', '.js'] as const;
-// The OpenCode chat engine: the loopback server client, the session engine and the harness wiring.
+// The OpenCode chat engine (OpenCode 1 and 2): the loopback server clients, the session engines and the
+// harness wiring.
 const OPENCODE_ENGINE = [
   'business/src/opencode_server/**',
+  'business/src/opencode_server_v2/**',
   'business/src/agent/opencode/**',
+  'business/src/agent/opencode_v2/**',
   'business/src/harnesses/opencode/**',
 ] as const;
+// The route allowlists, where a Config route must be read only.
+const OPENCODE_ROUTES = ['business/src/opencode_server/routes.rs', 'business/src/opencode_server_v2/routes.rs'] as const;
 const UI_ONLY = ['ui/**'] as const;
 const TEST_FILES = ['**/*.test.ts', 'ui/tests/**'] as const;
 // The only Rust files that may name a shell interpreter (each such line needs `guard-allow: installer-shell`):
@@ -123,9 +128,10 @@ const OPENCODE_RULES: readonly Rule[] = [
     id: 'opencode-config-write',
     reason: 'never write OpenCode configuration: a Config route must use GET',
     // A route variant named Config…, alone or in an or-pattern, whose method is not Get.
-    pattern: /(?:Self|Route)::Config\w*\s*(?:\{[^}]*\})?(?:\s*\|\s*(?:Self|Route)::\w+\s*(?:\{[^}]*\})?)*\s*=>\s*Method::(?!Get\b)/g,
+    pattern:
+      /(?:Self|Route(?:V2)?)::Config\w*\s*(?:\{[^}]*\})?(?:\s*\|\s*(?:Self|Route(?:V2)?)::\w+\s*(?:\{[^}]*\})?)*\s*=>\s*Method::(?!Get\b)/g,
     extensions: ['.rs'],
-    only: ['business/src/opencode_server/routes.rs'],
+    only: OPENCODE_ROUTES,
     scope: 'file',
     optOut: false,
   },
@@ -133,6 +139,23 @@ const OPENCODE_RULES: readonly Rule[] = [
     id: 'opencode-mdns',
     reason: 'OpenCode must always start with --mdns=false (a user config could otherwise announce and listen beyond loopback)',
     pattern: /["'`]--mdns(?!=false["'`])/,
+    extensions: ['.rs'],
+    only: OPENCODE_ENGINE,
+    optOut: false,
+  },
+  {
+    id: 'opencode-service',
+    reason:
+      'never start or use the OpenCode background service: no --service or --stdio flag and no "service" command (the chat runs its own loopback server)',
+    pattern: /["'`]--(?:service|stdio)(?:["'`]|=)|["'`]service["'`]/,
+    extensions: ['.rs'],
+    only: OPENCODE_ENGINE,
+    optOut: false,
+  },
+  {
+    id: 'opencode-cors',
+    reason: 'never pass --cors to OpenCode (a browser origin could then call the chat server)',
+    pattern: /["'`]--cors(?:["'`]|=)/,
     extensions: ['.rs'],
     only: OPENCODE_ENGINE,
     optOut: false,

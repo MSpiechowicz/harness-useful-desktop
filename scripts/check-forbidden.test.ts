@@ -12,6 +12,9 @@ const ENGINE = 'business/src/opencode_server/sample.rs';
 const SESSION = 'business/src/agent/opencode/sample.rs';
 const HARNESS = 'business/src/harnesses/opencode/sample.rs';
 const ROUTES = 'business/src/opencode_server/routes.rs';
+const ENGINE_V2 = 'business/src/opencode_server_v2/sample.rs';
+const SESSION_V2 = 'business/src/agent/opencode_v2/sample.rs';
+const ROUTES_V2 = 'business/src/opencode_server_v2/routes.rs';
 
 let scratch: string;
 
@@ -74,7 +77,7 @@ describe('OpenCode route and flag rules', () => {
     expectViolation(ENGINE, route(path), id);
   });
 
-  test.each([ENGINE, SESSION, HARNESS])('the route rules cover %s', (path) => {
+  test.each([ENGINE, SESSION, HARNESS, ENGINE_V2, SESSION_V2])('the route rules cover %s', (path) => {
     expectViolation(path, route('/global/dispose'), 'opencode-global-admin');
   });
 
@@ -88,6 +91,51 @@ describe('OpenCode route and flag rules', () => {
     const post = 'fn m(&self) -> Method { match self { Self::Health | Self::Config { .. } | Self::Agents { .. } => Method::Post } }\n';
 
     expectViolation(ROUTES, post, 'opencode-config-write');
+  });
+
+  test.each([
+    ['opencode-share', '/api/session/{session}/share'],
+    ['opencode-auth', '/api/provider'],
+    ['opencode-auth', '/api/provider/{id}/oauth/authorize'],
+    ['opencode-surface', '/api/experimental/x'],
+    ['opencode-surface', '/api/experimental/config'],
+    ['opencode-surface', '/api/pty/{id}'],
+    ['opencode-config-write', '/api/config/{key}'],
+  ])('%s forbids the OpenCode 2 route %s', (id, path) => {
+    expectViolation(ENGINE_V2, route(path), id);
+  });
+
+  test('an OpenCode 2 Config route with a write method is forbidden', () => {
+    const patch =
+      'fn m(&self) -> Method { match self { Self::Info | Self::ConfigGet { .. } | Self::ModelList { .. } => Method::Patch, _ => Method::Get } }\n';
+
+    expectViolation(ROUTES_V2, patch, 'opencode-config-write');
+    expectViolation(ROUTES_V2, 'fn m(r: RouteV2) -> Method { match r { RouteV2::ConfigSet { .. } => Method::Post } }\n', 'opencode-config-write');
+  });
+
+  test('the OpenCode 2 read routes pass', () => {
+    const allowed = [
+      '//! Left out on purpose: `/api/experimental/config`, share, PTYs.\n',
+      route('/api/config?location%5Bdirectory%5D={directory}'),
+      route('/api/session/{session}/prompt'),
+      route('/api/shell/{shell}/output'),
+      route('/api/permission/request'),
+      argv('api', '--standalone', 'GET', '/api/config'),
+      'fn m(&self) -> Method { match self { Self::Info | Self::ConfigGet { .. } | Self::ModelList { .. } => Method::Get, _ => Method::Post } }\n',
+    ].join('');
+
+    expectClean(ROUTES_V2, allowed);
+  });
+
+  test.each([
+    ['opencode-service', ['--', 'service'].join('')],
+    ['opencode-service', ['--', 'stdio'].join('')],
+    ['opencode-service', 'service'],
+    ['opencode-cors', ['--', 'cors'].join('')],
+    ['opencode-cors', `${['--', 'cors'].join('')}=*`],
+  ])('%s forbids %s', (id, flag) => {
+    expectViolation(HARNESS, argv('serve', flag), id);
+    expectViolation(SESSION_V2, argv('serve', flag), id);
   });
 
   test.each([
@@ -126,7 +174,10 @@ describe('rules that already cover OpenCode files', () => {
   const flag = (name: string) => ['--', name].join('');
 
   test.each(['auto', 'yolo', 'dangerously-skip-permissions'])('--%s is forbidden in the engine', (name) => {
-    expectViolation(SESSION, argv('serve', flag(name)), name === 'auto' ? 'auto-flag' : `${name === 'yolo' ? 'yolo' : 'skip-permissions'}-flag`);
+    const id = name === 'auto' ? 'auto-flag' : `${name === 'yolo' ? 'yolo' : 'skip-permissions'}-flag`;
+
+    expectViolation(SESSION, argv('serve', flag(name)), id);
+    expectViolation(SESSION_V2, argv('serve', flag(name)), id);
   });
 
   test('login, mcp and private-store argv are forbidden in the harness wiring', () => {

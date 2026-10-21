@@ -245,6 +245,30 @@ From the real OpenCode 2.1.2 binary in a sandbox (`unshare`, no provider) and re
 - Commands and skills start their turn in the background, a refused one shows an error result (as v1).
 - Stats sum the session's replies and compactions (as v1), so a fork counts its copied messages.
 - Images go as `data:` URLs in `files`.
+- Catch-up after a reconnect reads the session, its newest 50 messages, the subagent sessions and the pending
+  permission requests (`GET /api/permission/request`) and forms (`GET /api/form`) of each location, shows asks the chat
+  missed and closes dialogs no longer pending (only when every list was read).
+- Subagent sessions count as the chat's from `session.created` (parentID), from `session.tool.progress`
+  `metadata.sessionID`, and from `GET /api/session?parentID=` (breadth first, at most 16 lists of 50) on resume and
+  catch-up, so their asks reach the chat after a reconnect.
+- A silent stream of a server that still answers `GET /api/info` is reopened and caught up instead of kept.
+- A running shell call's card shows its output from `GET /api/shell/{id}/output`, polled every 1 s (newest 30,000
+  bytes), since `session.tool.progress` carries only `{shellID}`.
+- Interruptions: `reason: user` (or an abort the chat asked for) aborts the turn; `shutdown`, `inactivity` and
+  `superseded` fail it with an error that says why.
+- A bare `/skill` (no text) shows `/id` as the user's message.
+
+## Review round 1
+
+Fixed: catch-up of asks and forms after a reconnect, reopening a silent stream, subagent adoption after a reconnect or
+resume, helper sessions deleted on a failed start and on a switch, an orphan sweep that treats an app it cannot read as
+alive and keeps only its own files, live shell output, one tool-result formatter live and after resume, partial output
+kept on a failed call, interruption reasons, logged unreadable messages, bare `/skill`, both install hints for a missing
+OpenCode, `OPENCODE_CONFIG_PROJECT_DISABLE` captured and set (sessions and the merged-names probe, with the models fetch
+and file watcher off), the v2 config dir on first detection, MCP removal from both shapes, the v2 project walk skipping
+only what OpenCode 2 skips, the guard covering the OpenCode 2 engine (service, stdio, cors, Config GET only), private
+orphan registry checks, and `~/opencode.json[c]` read for Share MCP presence. Documented, not changed: Harness Skills
+under `OPENCODE_CONFIG_DIR` and a downgrade with `mcp.servers` entries (see Risks).
 
 ## Verification
 

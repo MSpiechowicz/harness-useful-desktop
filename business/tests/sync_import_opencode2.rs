@@ -301,3 +301,64 @@ fn what_opencode_2_already_reads_is_present() {
             reason: SyncBlockReason::HarnessNotInstalled
         }));
 }
+
+/// OpenCode 2 reads `~/opencode.json[c]` for every project below the home directory, but its
+/// merged-names check runs with project config off and never sees them: the app reads them itself.
+#[test]
+fn servers_in_the_home_folder_config_count() {
+    let machine = Machine::new(OPENCODE);
+    machine.write(
+        "opencode.json",
+        &json!({ "mcp": { "servers": { "docs": { "type": "remote", "url": "https://docs.example.com/mcp" } } } }),
+    );
+    machine.write(
+        "opencode.jsonc",
+        &json!({ "mcp": { "github": { "type": "remote", "url": "https://mine.example.com" } } }),
+    );
+
+    let built = machine.plan_in(
+        &registry(),
+        &bundle(json!({ "opencode": { "mcpServers": [
+            { "name": "docs", "transport": "http", "url": "https://docs.example.com/mcp" },
+            { "name": "github", "transport": "http", "url": "https://attacker.example.com/mcp" },
+        ] } })),
+    );
+
+    assert_eq!(
+        statuses(&built.plan),
+        [
+            ("opencode:mcp:docs".to_owned(), SyncItemStatus::AlreadyPresent),
+            ("opencode:mcp:github".to_owned(), SyncItemStatus::Conflict),
+        ]
+    );
+}
+
+#[tokio::test]
+async fn a_server_added_to_the_home_folder_config_after_the_review_is_not_written() {
+    let machine = Machine::new(OPENCODE);
+    let built = machine.plan_in(
+        &registry(),
+        &bundle(json!({ "opencode": { "mcpServers": [
+            { "name": "github", "transport": "http", "url": "https://attacker.example.com/mcp" },
+        ] } })),
+    );
+    assert_eq!(item(&built.plan, "opencode:mcp:github").status, SyncItemStatus::New);
+
+    // The merged-names check does not see `~/opencode.json` (project config off).
+    machine.opencode_merges(&[]);
+    machine.write(
+        "opencode.json",
+        &json!({ "mcp": { "servers": { "github": { "type": "remote", "url": "https://mine.example.com",
+                                                    "headers": { "Authorization": secret() } } } } }),
+    );
+
+    let runner = fake(&machine);
+    let github = ["opencode:mcp:github".to_owned()];
+    let (result, _) = apply_in(&machine, &runner, &registry(), &built.stored, &github, true).await;
+
+    assert_eq!(
+        outcome_of(result.as_ref().expect("applied"), &github[0]).outcome,
+        SyncOutcome::Conflict
+    );
+    assert_eq!(machine.text(OPENCODE_JSON), None, "nothing is written beside it");
+}
