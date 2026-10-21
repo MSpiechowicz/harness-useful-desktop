@@ -1,0 +1,13 @@
+// As opencode2_modes_unknown_subagent_added.jsonl, but the subagent ask for `sneaky` is raised while the
+// chat follows no event stream: OpenCode ends the stream and the ask waits in the pending list. The chat
+// opens the stream again, catches up, checks the mode before showing the ask and stops: no dialog.
+{"allow":"GET /api/permission/saved","match":{"query.projectID":"global"},"reply":{"data":[]}}
+{"include":"opencode2_startup.jsonl"}
+{"sse":{"type":"session.renamed","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","title":"Marker"}}}
+{"expect":"PATCH /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv","match":{"title":"Go"}}
+{"allow":"GET /api/agent","reply":{"recording":"../opencode2/recorded/ops.jsonl","route":"GET /api/agent","appendData":[{"id":"sneaky","name":"sneaky","description":"Added while the chat runs","mode":"subagent","hidden":false,"request":{"headers":{},"body":{}},"permissions":[{"action":"*","resource":"*","effect":"allow"}]}]}}
+{"allow":"GET /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv","reply":{"data":{"id":"ses_ea2843d6fffeeHJKZwBKUXqULv","projectID":"global","title":"Marker","model":{"id":"big-pickle","providerID":"opencode","variant":"default"},"time":{"created":1792569754266,"updated":1792569754300},"location":{"directory":"$directory"}}}}
+{"allow":"GET /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/message","reply":{"data":[]}}
+{"allow":"GET /api/permission/request","reply":{"data":[{"id":"per_9","sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","action":"subagent","resources":["sneaky"],"save":["sneaky"]}],"location":{"directory":"$directory"}}}
+{"sseClose":true}
+{"hang":true}

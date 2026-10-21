@@ -8,6 +8,9 @@
 //!   as `toolUpdate` (redacted) while the call runs.
 //! - Bounded: a card shows the newest [`MAX_OUTPUT`] bytes, led by [`CUT`] once older output was
 //!   left out, and a read skips output too old to show.
+//! - Whole lines after a cut: the line the cut fell in shows from the next line break on (`\n` or
+//!   `\r`), so a cut within the server password (masked only where it shows whole) shows none of
+//!   it. Output without a line break after the cut shows only [`CUT`] until one comes.
 //! - Whole characters: OpenCode decodes each page on its own (`toString("utf8")`), so a character
 //!   split by a page's end comes as one U+FFFD, and each byte of one split by its start (a skip
 //!   lands anywhere) as one more. A trailing U+FFFD that stands for at most three of the page's
@@ -138,6 +141,9 @@ struct Output {
     cut: bool,
     /// The read skipped to a byte that may be within a character.
     mid_character: bool,
+    /// The text may start within a line (older output was left out): it is dropped up to the next
+    /// line break.
+    mid_line: bool,
 }
 
 impl Output {
@@ -163,9 +169,11 @@ impl Output {
             self.cursor = page.size - limit;
             self.cut = true;
             self.mid_character = true;
+            self.mid_line = true;
         }
 
         self.keep_newest();
+        self.drop_partial_line();
 
         moved && waiting > 0
     }
@@ -184,6 +192,28 @@ impl Output {
 
         self.text.drain(..start);
         self.cut = true;
+        self.mid_line = true;
+    }
+
+    /// Drops the start of a line the cut fell in, up to and with the next line break; all of the
+    /// text while it has none.
+    fn drop_partial_line(&mut self) {
+        if !self.mid_line {
+            return;
+        }
+
+        let Some(at) = self.text.find(['\n', '\r']) else {
+            self.text.clear();
+            return;
+        };
+
+        let end = match self.text[at..].starts_with("\r\n") {
+            true => at + 2,
+            false => at + 1,
+        };
+
+        self.text.drain(..end);
+        self.mid_line = false;
     }
 
     /// The output as the card shows it.
@@ -228,6 +258,7 @@ fn whole_characters(output: &str, read: u64, mid_character: bool) -> (&str, u64)
 #[cfg(test)]
 mod tests {
     use super::{CUT, MAX_OUTPUT, Output, Page};
+    use crate::security::mask_secret;
 
     /// `bytes` as OpenCode decodes a page of them.
     fn decoded(bytes: &[u8]) -> String {
@@ -251,13 +282,13 @@ mod tests {
         assert!(!output.add(page("two\n", 8, 12)), "a read that did not move on stops");
         assert_eq!(output.shown(), "one\ntwo\n");
 
-        let long = "é".repeat(MAX_OUTPUT);
+        let long = "é\n".repeat(MAX_OUTPUT);
         output.add(page(&long, 8 + long.len() as u64, 8 + long.len() as u64));
         let shown = output.shown();
 
-        assert!(shown.starts_with(CUT));
+        assert!(shown.starts_with(&format!("{CUT}é\n")), "whole lines after the cut");
         assert!(shown.len() <= MAX_OUTPUT + CUT.len());
-        assert!(shown.ends_with('é'));
+        assert!(shown.ends_with("é\n"));
     }
 
     #[test]
@@ -322,7 +353,11 @@ mod tests {
     #[test]
     fn a_skip_into_a_character_drops_its_remaining_bytes() {
         // The newest MAX_OUTPUT bytes start two bytes into the first euro sign.
-        let all = format!("{}{}ab", "x".repeat(2 * MAX_OUTPUT), "€".repeat(MAX_OUTPUT / 3));
+        let all = format!(
+            "{}{}\n€abcd",
+            "x".repeat(2 * MAX_OUTPUT),
+            "€".repeat(MAX_OUTPUT / 3 - 2)
+        );
         let size = all.len() as u64;
         let mut output = Output::default();
 
@@ -333,9 +368,70 @@ mod tests {
         output.add(page(&decoded(&all.as_bytes()[start..]), size, size));
 
         let shown = output.shown();
-        let head: String = shown.chars().take(6).collect();
-        assert!(shown.starts_with(&format!("{CUT}€")), "{head:?}");
         assert!(!shown.contains('\u{FFFD}'), "no partial character shows");
-        assert!(shown.ends_with("€ab"));
+        assert_eq!(shown, format!("{CUT}€abcd"), "the next whole line");
+    }
+
+    /// The fake server password of the cut tests.
+    const SECRET: &str = "0123456789abcdef0123456789abcdef";
+
+    /// `text` with [`SECRET`] masked as the chat masks every event.
+    fn masked(text: &str) -> String {
+        mask_secret(text, SECRET, false)
+    }
+
+    #[test]
+    fn a_cut_within_the_password_shows_none_of_it() {
+        let half = SECRET.len() / 2;
+        let rest = "rest\n";
+        // Past MAX_OUTPUT by half the password: the newest bytes start within it.
+        let filler = "y".repeat(MAX_OUTPUT - half - 1 - rest.len());
+        let text = format!("{SECRET}\n{rest}{filler}");
+        let size = text.len() as u64;
+        let mut output = Output::default();
+
+        output.add(page(&text, size, size));
+
+        let shown = masked(&output.shown());
+        assert!(!shown.contains(&SECRET[half..]), "no piece of the password shows");
+        assert_eq!(shown, format!("{CUT}{rest}{filler}"));
+    }
+
+    #[test]
+    fn a_skip_into_the_password_shows_none_of_it() {
+        let half = SECRET.len() / 2;
+        let rest = "rest\r\n";
+        let filler = "y".repeat(MAX_OUTPUT - half - rest.len());
+        let all = format!("{}{SECRET}{rest}{filler}", "x".repeat(2 * MAX_OUTPUT));
+        let size = all.len() as u64;
+        let mut output = Output::default();
+
+        assert!(output.add(page("x", 1, size)));
+        let start = output.cursor as usize;
+        assert_eq!(
+            &all[start..start + SECRET.len() - half],
+            &SECRET[half..],
+            "the skip lands within it"
+        );
+
+        output.add(page(&all[start..], size, size));
+
+        let shown = masked(&output.shown());
+        assert!(!shown.contains(&SECRET[half..]), "no piece of the password shows");
+        assert_eq!(shown, format!("{CUT}{filler}"));
+    }
+
+    #[test]
+    fn a_cut_line_without_a_break_shows_once_the_next_line_starts() {
+        let size = 2 * MAX_OUTPUT as u64;
+        let mut output = Output::default();
+
+        output.add(page(&"z".repeat(2 * MAX_OUTPUT), size, size));
+        assert_eq!(output.shown(), CUT, "only a partial line so far");
+
+        let more = "z\nnext\n";
+        let size = size + more.len() as u64;
+        output.add(page(more, size, size));
+        assert_eq!(output.shown(), format!("{CUT}next\n"));
     }
 }

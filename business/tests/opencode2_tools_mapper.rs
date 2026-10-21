@@ -145,6 +145,19 @@ fn a_running_shell_calls_output_streams_until_it_ends() {
 }
 
 #[test]
+fn only_a_shell_call_names_a_shell_the_engine_reads() {
+    let mut mapper = running_call("read", json!({ "filePath": "a.txt" }));
+
+    let progress = ours(
+        "session.tool.progress",
+        json!({ "assistantMessageID": "msg_a", "id": "call_1", "metadata": { "shellID": "sh_15d82a82d001Fd4r5Yj4H78EvM" } }),
+    );
+    feed(&mut mapper, &[progress]);
+
+    assert!(mapper.take_shells().is_empty(), "a read call's shellID is ignored");
+}
+
+#[test]
 fn a_prompt_that_runs_a_skill_names_it_live_and_after_resume() {
     let skill =
         json!({ "id": "greet", "name": "greet", "text": "<skill_content name=\"greet\">Say hello.</skill_content>" });

@@ -8,11 +8,14 @@
 //! - **Check again:** on `agent.updated` and `config.updated`, after the event stream was opened
 //!   again (one may have been missed), and when a `subagent` ask names an agent the probe did not
 //!   list, `GET /api/agent` is read and checked as at startup ([`check_applied`]), asked again for
-//!   at most [`AGENT_WAIT`] while OpenCode applies the configuration. When the agents no longer have
-//!   the mode's rules, or the list cannot be read, the chat stops with [`NOTICE`] (`stream.rs`): a
-//!   new chat probes again.
-//! - **"Always allow"** never answers a `subagent` ask for an agent the probe did not list: it shows
-//!   as a dialog.
+//!   at most [`AGENT_WAIT`] while OpenCode applies the configuration. Agents other than the probe's
+//!   fail at once: they do not come back by waiting. When the agents no longer have the mode's
+//!   rules, or the list cannot be read, the chat stops with [`NOTICE`] (`stream.rs`): a new chat
+//!   probes again.
+//! - **Unknown agents:** a `subagent` ask for an agent the probe did not list, live or found while
+//!   catching up (`catch_up.rs`), shows only after the check passed, so a chat that stops never
+//!   showed it. "Always allow" never answers it, and an answer that allows it is refused
+//!   (`dialogs.rs`): only rejecting it reaches OpenCode.
 //! - **Not covered:** saved "Always allow" rules added to the project while the chat runs (another
 //!   OpenCode client of the project answering "Always"). OpenCode 2 applies them on every check
 //!   (`permission.ts`) but announces no change, so only the startup reads them.
@@ -28,6 +31,9 @@ use crate::opencode_server_v2::RouteV2;
 use crate::opencode_server_v2::events::EventKind;
 use crate::opencode_server_v2::mode_config::{check_applied, listed_agents};
 use crate::opencode_server_v2::wire::PermissionRequest;
+
+/// The approval mode no longer holds, or cannot be confirmed (see the module docs).
+pub(super) struct Unguarded;
 
 /// Shown when the chat stops because the mode may no longer hold.
 pub(super) const NOTICE: &str = "OpenCode reloaded its agents and the chat cannot confirm that the approval mode \
@@ -84,8 +90,8 @@ pub(super) fn unknown_agent(chat: &Chat, permission: &PermissionRequest) -> bool
 }
 
 /// Checks that the server's agents still have the mode's rules (see the module docs); `Ok` for a
-/// chat without a mode. The error says why not.
-pub(super) async fn recheck(chat: &Chat) -> Result<(), String> {
+/// chat without a mode.
+pub(super) async fn recheck(chat: &Chat) -> Result<(), Unguarded> {
     let Some(guard) = &chat.guard else {
         return Ok(());
     };
@@ -93,14 +99,27 @@ pub(super) async fn recheck(chat: &Chat) -> Result<(), String> {
     let checked = tokio::time::timeout(CHECK_LIMIT, applied(chat, guard)).await;
     let result = checked.unwrap_or_else(|_| Err("OpenCode did not list its agents in time".to_owned()));
 
-    if let Err(why) = &result {
+    result.map_err(|why| {
         tracing::warn!(%why, "the approval mode of an OpenCode 2 chat no longer holds");
-    }
-
-    result
+        Unguarded
+    })
 }
 
-/// Reads `GET /api/agent` until it has the mode's rules, for at most [`AGENT_WAIT`].
+/// Checks the mode before `permissions` show when one of them names an agent the probe did not
+/// list (see the module docs).
+pub(super) async fn before_asks<'a>(
+    chat: &Chat,
+    mut permissions: impl Iterator<Item = &'a PermissionRequest>,
+) -> Result<(), Unguarded> {
+    if permissions.any(|permission| unknown_agent(chat, permission)) {
+        return recheck(chat).await;
+    }
+
+    Ok(())
+}
+
+/// Reads `GET /api/agent` until it has the mode's rules, for at most [`AGENT_WAIT`]; at once when
+/// it lists other agents than the probe.
 async fn applied(chat: &Chat, guard: &ModeGuard) -> Result<(), String> {
     let until = tokio::time::Instant::now() + AGENT_WAIT;
     let directory = chat.directory.as_str();
@@ -108,6 +127,9 @@ async fn applied(chat: &Chat, guard: &ModeGuard) -> Result<(), String> {
     loop {
         let listed = get_data::<Value>(&chat.client, RouteV2::AgentList { directory }).await;
         let checked = match listed {
+            Ok(listed) if other_agents(guard, &listed) => {
+                return Err("OpenCode lists other agents than the mode's probe".to_owned());
+            }
             Ok(listed) => check_applied(&guard.probed, &listed, &guard.config),
             Err(error) => Err(error.to_string()),
         };
@@ -118,4 +140,19 @@ async fn applied(chat: &Chat, guard: &ModeGuard) -> Result<(), String> {
             Err(_) => tokio::time::sleep(AGENT_POLL).await,
         }
     }
+}
+
+/// True when `listed` (`GET /api/agent`) reads as other agents than the probe's; a list that
+/// cannot be read is left to [`check_applied`].
+fn other_agents(guard: &ModeGuard, listed: &Value) -> bool {
+    let Ok(agents) = listed_agents(listed) else {
+        return false;
+    };
+
+    let mut ids: Vec<&str> = agents.iter().map(|(id, _)| id.as_str()).collect();
+    let mut probed: Vec<&str> = guard.ids.iter().map(String::as_str).collect();
+    ids.sort_unstable();
+    probed.sort_unstable();
+
+    ids != probed
 }

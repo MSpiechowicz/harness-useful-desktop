@@ -94,6 +94,13 @@ pub(super) struct Pending {
     complete: bool,
 }
 
+impl Pending {
+    /// The pending permission asks.
+    pub(super) fn permissions(&self) -> impl Iterator<Item = &PermissionRequest> {
+        self.permissions.iter()
+    }
+}
+
 /// Reads the pending asks of the chat's directory and of `children`'s own.
 pub(super) async fn pending(chat: &Chat, children: &[Child], known: &[String]) -> Pending {
     let mut directories = vec![chat.directory.clone()];
