@@ -7,8 +7,9 @@
 //!   session asks), the subject in full on one line: the command of a `shell` call, the URL or
 //!   query of a web call, the description of a `subagent` call, else the requested resources
 //!   (files relative to the session's directory). Answers: `once`, `always`, `reject`; a
-//!   dismissed dialog rejects. OpenCode 2 saves an `always` answer for the project (its `save`
-//!   patterns), which the `Always allow` detail says.
+//!   dismissed dialog rejects. The chat keeps an `always` answer to itself (the engine tells
+//!   OpenCode `once`, which would save `always` for the project), so the `Always allow` detail
+//!   says it lasts until the chat ends.
 //! - **Forms** (`form.created`, the `question` tool's questions among them) are marked as
 //!   questions, so the UI never shows one as an approval card, and shown one dialog per field, in
 //!   order (see [`super::form`]). The answers go out together after the last one, as
@@ -39,9 +40,8 @@ const SUBAGENT_DETAIL: &str = "The subagent then runs its own tools under OpenCo
 /// What `Allow once` means for a `subagent` ask with an approval mode.
 const SUBAGENT_DETAIL_MODE: &str = "The subagent's own tools then follow this chat's approval mode.";
 
-/// Where an `always` answer applies: OpenCode 2 saves it for the project
-/// (`permission.ts`, `saved.add`), and a rule that denies still wins.
-const SAVED: &str = " in this project, in later chats too (OpenCode saves the rule)";
+/// How long an `always` answer applies: the chat keeps it, OpenCode saves nothing.
+const UNTIL_END: &str = " until this chat ends";
 
 /// What answering a dialog means for OpenCode.
 #[derive(Debug, Clone, PartialEq)]
@@ -145,8 +145,8 @@ impl Asks {
 
         let always_detail = match permission.save.as_slice() {
             [] => None,
-            [only] if only == "*" => Some(format!("Allows every {action} call{SAVED}")),
-            patterns => Some(format!("Also allows {}{SAVED}", patterns.join(", "))),
+            [only] if only == "*" => Some(format!("Allows every {action} call{UNTIL_END}")),
+            patterns => Some(format!("Also allows {}{UNTIL_END}", patterns.join(", "))),
         };
         let subagent_detail = if self.mode_applied {
             SUBAGENT_DETAIL_MODE

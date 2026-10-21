@@ -4,13 +4,14 @@
 //! - Ids are checked when they are parsed ([`Id::parse`]): the kind's prefix (`ses_`, `msg_`,
 //!   `per_`, `frm_`), then only `[A-Za-z0-9]`, at most [`MAX_ID_LEN`] bytes. A valid id can never
 //!   add a path segment or a query.
-//! - Every route but [`RouteV2::Info`] and [`RouteV2::Event`] carries the project directory as the
-//!   `location[directory]` query, percent-encoded and last, as recorded against `opencode` 2.1.2.
-//!   Callers pass the absolute project directory.
+//! - Every route but [`RouteV2::Info`], [`RouteV2::Event`] and [`RouteV2::PermissionSaved`] (a
+//!   project query) carries the project directory as the `location[directory]` query,
+//!   percent-encoded and last, as recorded against `opencode` 2.1.2. Callers pass the absolute
+//!   project directory.
 //! - Left out on purpose (standing rules): share, pairing, credentials, config writes
 //!   (`/api/experimental/config`), plugin and MCP management, PTYs, session archive, move, revert,
-//!   environment and import. `PATCH /api/session/{id}` is only ever sent with a title
-//!   ([`super::wire::session::TitleBody`]), never with permissions.
+//!   environment, import and saved permission changes. `PATCH /api/session/{id}` is only ever sent
+//!   with a title ([`super::wire::session::TitleBody`]), never with permissions.
 
 use std::fmt;
 use std::marker::PhantomData;
@@ -269,6 +270,12 @@ pub enum RouteV2<'a> {
         /// The project directory.
         directory: &'a str,
     },
+    /// `GET /api/permission/saved?projectID=` → `{data: [rule]}`, the project's saved "Always
+    /// allow" rules (read only).
+    PermissionSaved {
+        /// The project id (`projectID` of a session).
+        project: &'a str,
+    },
     /// `GET /api/form` → `{data: [form]}`, the directory's pending forms.
     FormList {
         /// The project directory.
@@ -334,6 +341,7 @@ impl RouteV2<'_> {
             | Self::SessionGet { .. }
             | Self::Messages { .. }
             | Self::PermissionList { .. }
+            | Self::PermissionSaved { .. }
             | Self::FormList { .. }
             | Self::AgentList { .. }
             | Self::CommandList { .. }
@@ -385,6 +393,9 @@ impl RouteV2<'_> {
                 permission,
                 directory,
             } => in_session(session, &format!("permission/{permission}/reply"), directory),
+            Self::PermissionSaved { project } => {
+                format!("/api/permission/saved?projectID={}", percent_encode(project))
+            }
             Self::FormList { directory } => located("/api/form", Vec::new(), directory),
             Self::FormReply {
                 session,

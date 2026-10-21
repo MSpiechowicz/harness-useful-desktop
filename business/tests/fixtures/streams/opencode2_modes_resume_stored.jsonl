@@ -1,0 +1,5 @@
+// Resuming a session that holds permission rules of its own (another client set them): OpenCode applies
+// them after the agents' rules, so an approval mode is refused while the probe reads the session.
+{"include":"opencode2_catalogs.jsonl"}
+{"expect":"GET /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv","reply":{"data":{"id":"ses_ea2843d6fffeeHJKZwBKUXqULv","projectID":"global","model":{"id":"big-pickle","providerID":"opencode","variant":"default"},"cost":0,"tokens":{"input":0,"output":0,"reasoning":0,"cache":{"read":0,"write":0}},"time":{"created":1792569754266,"updated":1792569754266},"location":{"directory":"$directory"},"title":"Mine","permissions":[{"action":"shell","resource":"*","effect":"allow"}]}}}
+{"hang":true}

@@ -1,0 +1,5 @@
+// A server that creates the helper chat's session without the rules that deny every tool: the startup is
+// refused.
+{"include":"opencode2_catalogs.jsonl"}
+{"expect":"POST /api/session","match":{"/permissions/0/action":"*","/permissions/0/resource":"*","/permissions/0/effect":"deny","/permissions/1":"$absent"},"reply":{"data":{"id":"ses_ea2843d6fffeeHJKZwBKUXqULv","projectID":"global","model":{"id":"big-pickle","providerID":"opencode","variant":"default"},"cost":0,"tokens":{"input":0,"output":0,"reasoning":0,"cache":{"read":0,"write":0}},"time":{"created":1792569754266,"updated":1792569754266},"location":{"directory":"$directory"}}}}
+{"hang":true}

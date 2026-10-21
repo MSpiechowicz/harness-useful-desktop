@@ -11,13 +11,15 @@
 //!   chat's lock, so prompt bookkeeping and event order never interleave. A stream that ends while
 //!   the server runs is opened again and the chat catches up from the session (`catch_up.rs`).
 //! - **Actions:** prompts, steering, follow-ups and abort (`prompts.rs`, sent by `delivery.rs`),
-//!   history (`history.rs`), the model, thinking level and agent pickers (`settings.rs`) and
-//!   renaming.
-//! - **Not yet** (later steps of the plan, refused as not available yet): answers to approvals and
-//!   questions, approval modes and helper chats (S10: `approvals.rs`, `dialogs.rs`, `probe.rs`);
-//!   new chat, fork, clone, compaction, `!command`s, statistics, the last reply and the HTML export
-//!   (S11: `ops.rs`, `runs.rs`, `reports.rs`).
-//! - **Stop:** open dialogs close, then the server stops.
+//!   history (`history.rs`), the model, thinking level and agent pickers (`settings.rs`),
+//!   renaming, and answers to approvals and forms (`dialogs.rs`).
+//! - **Approval modes** (`approvals.rs`, `probe.rs`): configuration of the chat's own server, read
+//!   from a first start without the mode. "Always allow" lasts as long as the chat. **Helper
+//!   chats:** a session whose own rules deny everything.
+//! - **Not yet** (later steps of the plan, refused as not available yet): new chat, fork, clone,
+//!   compaction, `!command`s, statistics, the last reply and the HTML export (S11: `ops.rs`,
+//!   `runs.rs`, `reports.rs`).
+//! - **Stop:** open dialogs close, a helper chat's session is deleted, then the server stops.
 
 mod approvals;
 mod catalog;
@@ -39,6 +41,7 @@ use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use tokio::task::AbortHandle;
 
+use self::approvals::{Allowed, LaunchRules};
 use self::catalog::Catalog;
 use super::io::Shared;
 use super::process::AgentProcess;
@@ -67,6 +70,8 @@ struct Chat {
     /// The session's directory as OpenCode stores it (the `location[directory]` of its routes).
     directory: String,
     catalog: Catalog,
+    /// The approval mode and whether this is a helper chat.
+    rules: LaunchRules,
     live: Mutex<Live>,
 }
 
@@ -87,6 +92,8 @@ struct Live {
     /// The server time (milliseconds) of the newest event read, at least the session's last
     /// change at startup: a catch-up takes the session's ends after it as missed.
     mark: u64,
+    /// What the chat's "Always allow" answers allow.
+    allowed: Allowed,
 }
 
 /// Picks kept waiting for OpenCode's confirmation at most.
@@ -234,11 +241,11 @@ impl OpenCodeV2Session {
         self.chat.shared.masked_reply(reply?)
     }
 
-    /// Answers an open dialog. Not available yet: S10 sends the answers.
-    pub async fn respond(&self, _response: UiResponse) -> Result<()> {
+    /// Answers an open dialog (`dialogs.rs`).
+    pub async fn respond(&self, response: UiResponse) -> Result<()> {
         self.process.ensure_running()?;
 
-        Err(not_yet("answer approvals and questions"))
+        self.answer_dialog(response).await
     }
 
     /// Runs `command` in the session's shell. Not available yet: S11 runs it.
@@ -273,6 +280,7 @@ impl OpenCodeV2Session {
         let cancelled = self.chat.lock().mapper.cancel_asks();
         cancelled.into_iter().for_each(|event| self.chat.shared.emit(event));
 
+        self.chat.delete_helper_session().await;
         self.process.stop().await;
     }
 }

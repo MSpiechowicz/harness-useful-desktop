@@ -239,6 +239,26 @@ impl Mapper {
         self.children.get(session).and_then(Option::as_deref)
     }
 
+    /// True for the chat's own session and the subagent sessions started from it.
+    pub fn is_chat_session(&self, session: &str) -> bool {
+        session == self.session || self.children.contains_key(session)
+    }
+
+    /// The permission requests still waiting for an answer on OpenCode's side, shown or not, by id.
+    pub fn pending_permissions(&self) -> Vec<PermissionRequest> {
+        let mut pending: Vec<PermissionRequest> = self
+            .asked
+            .values()
+            .filter_map(|asked| match asked {
+                Asked::Permission(permission, _) => Some(permission.clone()),
+                Asked::Form(_) => None,
+            })
+            .collect();
+
+        pending.sort_by(|a, b| a.id.cmp(&b.id));
+        pending
+    }
+
     /// Closes every open dialog (the chat stops).
     pub fn cancel_asks(&mut self) -> Vec<AgentEvent> {
         let mut out = Vec::new();

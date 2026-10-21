@@ -1,0 +1,26 @@
+// Answers that do not reach OpenCode 2: a 500 shows the dialog again and the next answer goes through;
+// an ask the chat's "Always allow" covers whose answer fails shows as a dialog; a 404 leaves a form
+// closed. Then a title marker.
+{"include":"opencode2_startup.jsonl"}
+{"expect":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/prompt","match":{"/text":"Say hello"}}
+{"sse":{"type":"session.inbox.enqueued","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","inboxID":"$inbox","item":{"type":"user","payload":{"text":"Say hello"},"delivery":"steer"}}}}
+{"sse":{"type":"session.execution.started","data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv"}}}
+{"sse":{"type":"session.inbox.delivered","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","inboxID":"$inbox"}}}
+{"sse":{"type":"session.step.started","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","agent":"build","model":{"id":"big-pickle","providerID":"opencode","variant":"default"},"assistantMessageID":"msg_reply1"}}}
+{"sse":{"type":"permission.asked","location":{"directory":"$directory"},"data":{"id":"per_1","sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","action":"shell","resources":["ls"],"save":["ls *"]}}}
+{"expect":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/permission/per_1/reply","match":{"decision":"once","message":"$absent"},"reply":{"status":500,"body":{"name":"UnknownError","data":{"message":"busy"}}}}
+{"expect":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/permission/per_1/reply","match":{"decision":"once","message":"$absent"}}
+{"sse":{"type":"permission.replied","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","requestID":"per_1","reply":"once"}}}
+{"sse":{"type":"permission.asked","location":{"directory":"$directory"},"data":{"id":"per_2","sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","action":"shell","resources":["ls src"],"save":["ls *"]}}}
+{"expect":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/permission/per_2/reply","match":{"decision":"once","message":"$absent"}}
+{"sse":{"type":"permission.replied","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","requestID":"per_2","reply":"once"}}}
+{"sse":{"type":"permission.asked","location":{"directory":"$directory"},"data":{"id":"per_3","sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","action":"shell","resources":["ls docs"],"save":["ls *"]}}}
+{"expect":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/permission/per_3/reply","match":{"decision":"once","message":"$absent"},"reply":{"status":500,"body":{"name":"UnknownError","data":{"message":"busy"}}}}
+{"expect":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/permission/per_3/reply","match":{"decision":"once","message":"$absent"}}
+{"sse":{"type":"permission.replied","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","requestID":"per_3","reply":"once"}}}
+{"sse":{"type":"form.created","location":{"directory":"$directory"},"data":{"form":{"id":"frm_1","sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","title":"Questions","metadata":{"kind":"question"},"fields":[{"key":"q0","title":"Color","description":"Which color?","type":"string","options":[{"value":"red","label":"Red"},{"value":"blue","label":"Blue"}],"custom":false}]}}}}
+{"expect":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/form/frm_1/reply","match":{"/answer/q0":"red"},"reply":{"status":404,"body":{"name":"FormNotFoundError","data":{"message":"gone"}}}}
+{"sse":{"type":"session.step.ended","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_reply1","finish":"stop","cost":0,"tokens":{"input":10,"output":2,"reasoning":0,"cache":{"read":0,"write":0}},"files":[]}}}
+{"sse":{"type":"session.execution.succeeded","data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv"}}}
+{"sse":{"type":"session.renamed","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","title":"Marker"}}}
+{"hang":true}

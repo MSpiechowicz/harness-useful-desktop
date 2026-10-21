@@ -1,0 +1,7 @@
+// An OpenCode 2 chat with an approval mode, played by the probe (it reads the agents and stops) and by
+// the chat's server (the fake applies OPENCODE_CONFIG_CONTENT to GET /api/agent like OpenCode): no saved
+// "Always allow" rules for the project, nothing set on the session. Then a title marker.
+{"allow":"GET /api/permission/saved","match":{"query.projectID":"global"},"reply":{"data":[]}}
+{"include":"opencode2_startup.jsonl"}
+{"sse":{"type":"session.renamed","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","title":"Marker"}}}
+{"hang":true}

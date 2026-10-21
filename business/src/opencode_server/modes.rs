@@ -118,7 +118,8 @@ pub fn evaluate<'a>(rules: &'a [Rule], permission: &str, pattern: &str) -> Optio
 
 /// `*:*:ask`, then the agent's `rules` with every `allow` an `ask`, except for permissions in
 /// `exempt` (a wildcard `allow` that covers one is followed by an `allow` for it) and in `kept`.
-fn gated(rules: &[Rule], exempt: &[&str], kept: &[&str]) -> Vec<Rule> {
+/// OpenCode 2's modes use it with their own tool names.
+pub(crate) fn gated(rules: &[Rule], exempt: &[&str], kept: &[&str]) -> Vec<Rule> {
     let mut list = vec![Rule::new("*", "*", "ask")];
 
     for rule in rules {
@@ -141,7 +142,7 @@ fn gated(rules: &[Rule], exempt: &[&str], kept: &[&str]) -> Vec<Rule> {
 /// `*:*:allow`, then the agent's `rules` with every `ask` an `allow`, unless it reopens what an
 /// earlier rule denies: an `ask` inside a denied area stays, and a denied area inside an `ask`
 /// keeps asking.
-fn relaxed(rules: &[Rule]) -> Vec<Rule> {
+pub(crate) fn relaxed(rules: &[Rule]) -> Vec<Rule> {
     let mut list = vec![Rule::new("*", "*", "allow")];
 
     for (index, rule) in rules.iter().enumerate() {

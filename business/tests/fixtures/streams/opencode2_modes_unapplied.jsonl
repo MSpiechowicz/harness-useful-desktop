@@ -1,0 +1,11 @@
+// A server whose agents never show the approval mode's configuration (as when a managed setting or a
+// plugin changes them after it): the startup is refused once the agents were asked for long enough.
+{"allow":"GET /api/agent","reply":{"recording":"../opencode2/recorded/ops.jsonl","route":"GET /api/agent","ignoreConfig":true}}
+{"allow":"GET /api/model","reply":{"recording":"../opencode2/recorded/ops.jsonl","route":"GET /api/model"}}
+{"allow":"GET /api/command","reply":{"recording":"../opencode2/recorded/shell_command.jsonl","route":"GET /api/command"}}
+{"allow":"GET /api/provider","reply":{"data":[{"id":"opencode","integrationID":"opencode","name":"OpenCode Zen","activation":"auto","package":"@opencode/ai/providers/openai-compatible","settings":{}}],"location":{"directory":"$directory"}}}
+{"allow":"GET /api/config"}
+{"allow":"GET /api/form","reply":{"data":[],"location":{"directory":"$directory"}}}
+{"allow":"GET /api/permission/saved","match":{"query.projectID":"global"},"reply":{"data":[]}}
+{"expect":"POST /api/session","reply":{"data":{"id":"ses_ea2843d6fffeeHJKZwBKUXqULv","projectID":"global","model":{"id":"big-pickle","providerID":"opencode","variant":"default"},"cost":0,"tokens":{"input":0,"output":0,"reasoning":0,"cache":{"read":0,"write":0}},"time":{"created":1792569754266,"updated":1792569754266},"location":{"directory":"$directory"}}}}
+{"hang":true}

@@ -12,7 +12,10 @@
 //!   stream silent for [`SessionOptions::event_silence`](crate::agent::SessionOptions::event_silence)
 //!   asks `GET /api/info` whether the server still answers. When it does not, or when the stream
 //!   cannot be opened again while the server runs, the chat can no longer follow it: an error
-//!   notice says so, the open dialogs close and the server is ended, so `exited` closes the chat.
+//!   notice says so, the open dialogs close, a helper chat's session is deleted and the server is
+//!   ended, so `exited` closes the chat.
+//! - A permission ask the chat's "Always allow" answers cover is answered without a dialog
+//!   (`approvals.rs`).
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -20,7 +23,7 @@ use std::time::Duration;
 use tokio::sync::watch;
 use tokio::task::AbortHandle;
 
-use super::{Chat, Live, catch_up, delivery, normalized};
+use super::{Chat, Live, approvals, catch_up, delivery, normalized};
 use crate::agent::process::Terminator;
 use crate::model::{AgentEvent, NoticeLevel};
 use crate::opencode_server::EventStream;
@@ -152,6 +155,7 @@ async fn lost(chat: &Chat, watch: &Watch) {
     let cancelled = chat.lock().mapper.cancel_asks();
     cancelled.into_iter().for_each(|event| chat.shared.emit(event));
 
+    chat.delete_helper_session().await;
     watch.terminator.terminate().await;
 }
 
@@ -176,6 +180,10 @@ fn take_event(chat: &Arc<Chat>, data: &str) {
 
     if let Some(created) = event.created {
         live.mark = live.mark.max(created);
+    }
+
+    if approvals::answered_by_always(chat, &live, &event) {
+        return;
     }
 
     let mapped = live.mapper.map(&event);

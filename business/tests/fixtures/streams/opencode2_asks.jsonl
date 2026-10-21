@@ -1,0 +1,40 @@
+// Permission asks of an OpenCode 2 turn answered from the chat (shapes of recordings/edit_once.jsonl and
+// edit_reject.jsonl): once; a reject that OpenCode cascades to the other open ask; "Always allow" sent as
+// `once`, the waiting ask it covers answered at once, a later one it covers answered without a dialog (a
+// subagent's too); an ask it does not cover still shows. Then a title marker.
+{"include":"opencode2_startup.jsonl"}
+{"expect":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/prompt","match":{"/text":"Say hello"}}
+{"sse":{"type":"session.inbox.enqueued","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","inboxID":"$inbox","item":{"type":"user","payload":{"text":"Say hello"},"delivery":"steer"}}}}
+{"sse":{"type":"session.execution.started","data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv"}}}
+{"sse":{"type":"session.inbox.delivered","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","inboxID":"$inbox"}}}
+{"sse":{"type":"session.step.started","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","agent":"build","model":{"id":"big-pickle","providerID":"opencode","variant":"default"},"assistantMessageID":"msg_reply1"}}}
+{"sse":{"type":"session.tool.input.started","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_reply1","id":"call_1","name":"shell"}}}
+{"sse":{"type":"session.tool.called","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_reply1","id":"call_1","input":{"command":"echo hi"},"executed":false}}}
+{"sse":{"type":"permission.asked","location":{"directory":"$directory"},"data":{"id":"per_1","sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","action":"shell","resources":["echo hi"],"save":["echo *"],"source":{"type":"tool","messageID":"msg_reply1","id":"call_1"}}}}
+{"expect":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/permission/per_1/reply","match":{"decision":"once","message":"$absent"}}
+{"sse":{"type":"permission.replied","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","requestID":"per_1","reply":"once"}}}
+{"sse":{"type":"permission.asked","location":{"directory":"$directory"},"data":{"id":"per_2","sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","action":"edit","resources":["notes.txt"],"save":["*"]}}}
+{"sse":{"type":"permission.asked","location":{"directory":"$directory"},"data":{"id":"per_3","sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","action":"shell","resources":["ls"],"save":["ls *"]}}}
+{"expect":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/permission/per_2/reply","match":{"decision":"reject","message":"$absent"}}
+{"sse":{"type":"permission.replied","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","requestID":"per_2","reply":"reject"}}}
+{"sse":{"type":"permission.replied","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","requestID":"per_3","reply":"reject"}}}
+{"sse":{"type":"permission.asked","location":{"directory":"$directory"},"data":{"id":"per_4","sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","action":"shell","resources":["ls -la"],"save":["ls *"]}}}
+{"sse":{"type":"permission.asked","location":{"directory":"$directory"},"data":{"id":"per_5","sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","action":"shell","resources":["ls src"],"save":["ls *"]}}}
+{"expect":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/permission/per_4/reply","match":{"decision":"once","message":"$absent"}}
+{"expect":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/permission/per_5/reply","match":{"decision":"once","message":"$absent"}}
+{"sse":{"type":"permission.replied","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","requestID":"per_4","reply":"once"}}}
+{"sse":{"type":"permission.replied","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","requestID":"per_5","reply":"once"}}}
+{"sse":{"type":"permission.asked","location":{"directory":"$directory"},"data":{"id":"per_6","sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","action":"shell","resources":["ls docs"],"save":["ls *"]}}}
+{"expect":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/permission/per_6/reply","match":{"decision":"once","message":"$absent"}}
+{"sse":{"type":"permission.replied","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","requestID":"per_6","reply":"once"}}}
+{"sse":{"type":"session.created","location":{"directory":"$directory"},"data":{"sessionID":"ses_child1","parentID":"ses_ea2843d6fffeeHJKZwBKUXqULv","location":{"directory":"$directory"}}}}
+{"sse":{"type":"permission.asked","location":{"directory":"$directory"},"data":{"id":"per_7","sessionID":"ses_child1","action":"shell","resources":["ls build"],"save":["ls *"]}}}
+{"expect":"POST /api/session/ses_child1/permission/per_7/reply","match":{"decision":"once","message":"$absent"}}
+{"sse":{"type":"permission.replied","location":{"directory":"$directory"},"data":{"sessionID":"ses_child1","requestID":"per_7","reply":"once"}}}
+{"sse":{"type":"permission.asked","location":{"directory":"$directory"},"data":{"id":"per_8","sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","action":"shell","resources":["cat notes.txt"],"save":["cat *"]}}}
+{"expect":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/permission/per_8/reply","match":{"decision":"once","message":"$absent"}}
+{"sse":{"type":"permission.replied","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","requestID":"per_8","reply":"once"}}}
+{"sse":{"type":"session.step.ended","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_reply1","finish":"stop","cost":0,"tokens":{"input":10,"output":2,"reasoning":0,"cache":{"read":0,"write":0}},"files":[]}}}
+{"sse":{"type":"session.execution.succeeded","data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv"}}}
+{"sse":{"type":"session.renamed","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","title":"Marker"}}}
+{"hang":true}
