@@ -1,7 +1,8 @@
 //! Scripted OMP/PI RPC peer for the agent-session integration tests, scripted MCP server for the
-//! MCP client tests, and scripted `opencode serve` for the OpenCode chat tests ([`opencode`]).
+//! MCP client tests, and scripted `opencode serve` for the OpenCode chat tests ([`opencode`], OpenCode
+//! 2: [`opencode2`]).
 //!
-//! `fake_agent --dialect omp|pi|mcp|opencode --scenario <file.jsonl>` plays a scenario: one JSON step per
+//! `fake_agent --dialect omp|pi|mcp|opencode|opencode2 --scenario <file.jsonl>` plays a scenario: one JSON step per
 //! line (blank lines and `//` comments are skipped). With `--dialect omp` the OMP `ready` frame is
 //! sent first. With `--dialect mcp` messages are JSON-RPC 2.0: an `expect` names a `method`
 //! instead of a `type`, and replies are `{"jsonrpc":"2.0","id":…, ...reply}` (so `reply` holds
@@ -60,6 +61,12 @@ mod memory_push;
 mod memory_scripts_hidden;
 #[path = "fake_agent/opencode.rs"]
 mod opencode;
+#[path = "fake_agent/opencode2.rs"]
+mod opencode2;
+#[path = "fake_agent/opencode2_events.rs"]
+mod opencode2_events;
+#[path = "fake_agent/opencode2_http.rs"]
+mod opencode2_http;
 #[path = "fake_agent/opencode_config.rs"]
 mod opencode_config;
 #[path = "fake_agent/opencode_http.rs"]
@@ -105,11 +112,11 @@ fn main() {
     let (Some(dialect), Some(scenario)) = (option("--dialect"), option("--scenario")) else {
         fail(
             2,
-            "usage: fake_agent --dialect omp|pi|mcp|opencode --scenario <file.jsonl>",
+            "usage: fake_agent --dialect omp|pi|mcp|opencode|opencode2 --scenario <file.jsonl>",
         );
     };
 
-    if !["omp", "pi", "mcp", "opencode"].contains(&dialect.as_str()) {
+    if !["omp", "pi", "mcp", "opencode", "opencode2"].contains(&dialect.as_str()) {
         fail(2, &format!("unknown dialect: {dialect}"));
     }
 
@@ -117,6 +124,10 @@ fn main() {
 
     if dialect == "opencode" {
         opencode::serve(&steps, Path::new(&scenario));
+    }
+
+    if dialect == "opencode2" {
+        opencode2::serve(&args, &steps, Path::new(&scenario));
     }
 
     let mut agent = Agent {

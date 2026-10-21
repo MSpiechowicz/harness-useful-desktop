@@ -1,0 +1,25 @@
+// A streamed OpenCode 2 turn (shapes of recordings/turn.jsonl and edit_reject.jsonl): the prompt and its
+// inbox entry, the run, reasoning and text streamed with deltas, the step's usage and success; then a
+// catalog event and an unknown event, neither of which show. Last, a title change marks the end.
+{"include":"opencode2_startup.jsonl"}
+{"expect":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/prompt","match":{"/text":"Say hello"}}
+{"sse":{"type":"session.inbox.enqueued","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","inboxID":"$inbox","item":{"type":"user","payload":{"text":"Say hello"},"delivery":"steer"}}}}
+{"sse":{"type":"session.execution.started","data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv"}}}
+{"sse":{"type":"session.inbox.delivered","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","inboxID":"$inbox"}}}
+{"sse":{"type":"session.step.started","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","agent":"build","model":{"id":"big-pickle","providerID":"opencode","variant":"default"},"assistantMessageID":"msg_15d7bc3d6001sXHw8uAIflaGhD","snapshot":"5198f0e6bf7fa048720c2ef90ad3dba852b4374d"}}}
+{"sse":{"type":"session.reasoning.started","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_15d7bc3d6001sXHw8uAIflaGhD","ordinal":0,"native":{"reasoningField":"reasoning_content"}}}}
+{"sse":{"type":"session.reasoning.delta","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_15d7bc3d6001sXHw8uAIflaGhD","ordinal":0,"delta":"The user wants "}}}
+{"sse":{"type":"session.reasoning.delta","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_15d7bc3d6001sXHw8uAIflaGhD","ordinal":0,"delta":"a greeting."}}}
+{"sse":{"type":"session.reasoning.ended","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_15d7bc3d6001sXHw8uAIflaGhD","ordinal":0,"text":"The user wants a greeting."}}}
+{"sse":{"type":"session.text.started","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_15d7bc3d6001sXHw8uAIflaGhD","ordinal":0}}}
+{"sse":{"type":"session.text.delta","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_15d7bc3d6001sXHw8uAIflaGhD","ordinal":0,"delta":"Hello "}}}
+{"sse":{"type":"session.text.delta","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_15d7bc3d6001sXHw8uAIflaGhD","ordinal":0,"delta":"from the "}}}
+{"sse":{"type":"session.text.delta","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_15d7bc3d6001sXHw8uAIflaGhD","ordinal":0,"delta":"fake server."}}}
+{"sse":{"type":"session.text.ended","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_15d7bc3d6001sXHw8uAIflaGhD","ordinal":0,"text":"Hello from the fake server."}}}
+{"sse":{"type":"session.step.streamed","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_15d7bc3d6001sXHw8uAIflaGhD"}}}
+{"sse":{"type":"session.step.ended","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_15d7bc3d6001sXHw8uAIflaGhD","finish":"stop","rawFinish":"stop","cost":0,"tokens":{"input":280,"output":12,"reasoning":9,"cache":{"read":5120,"write":0}},"snapshot":"5198f0e6bf7fa048720c2ef90ad3dba852b4374d","files":[]}}}
+{"sse":{"type":"session.usage.updated","data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","cost":0,"tokens":{"input":280,"output":12,"reasoning":9,"cache":{"read":5120,"write":0}}}}}
+{"sse":{"type":"session.execution.succeeded","data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv"}}}
+{"sse":{"type":"command.updated","location":{"directory":"$directory"},"data":{}}}
+{"sse":{"type":"fake.unknown","data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","anything":true}}}
+{"sse":{"type":"session.renamed","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","title":"Marker"}}}
