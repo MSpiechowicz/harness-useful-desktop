@@ -158,20 +158,20 @@ S15 in the skills repo. S7 also needs S5.
 | # | Step | Owner | Status |
 | --- | --- | --- | --- |
 | S1 | Version plumbing and skeleton | backend | done |
-| S2 | Route-agnostic HTTP | backend | todo |
-| S3 | Config and extensions read | backend | todo |
-| S4 | Config writes, plugins, MCP registration | backend | todo |
-| S5 | Sessions v2 | backend | todo |
-| S6 | Wire, routes, events | backend | todo |
-| S7 | Event mapper | backend | todo |
-| S8 | Fake v2 server | backend | todo |
+| S2 | Route-agnostic HTTP | backend | done (46e6559) |
+| S3 | Config and extensions read | backend | done |
+| S4 | Config writes, plugins, MCP registration | backend | in progress (worktree a) |
+| S5 | Sessions v2 | backend | done (00afe63) |
+| S6 | Wire, routes, events | backend | done |
+| S7 | Event mapper | backend | in progress (worktree c) |
+| S8 | Fake v2 server | backend | in progress (worktree b) |
 | S9 | Engine core | backend | todo |
 | S10 | Approvals and approval modes | backend | todo |
 | S11 | Session ops, export, stats | backend | todo |
 | S12 | Hooks and routines tests | backend | todo |
 | S13 | UI (only if needed) | frontend | todo |
 | S14 | Docs | general | todo |
-| S15 | Harness Skills V2 entry | general | todo |
+| S15 | Harness Skills V2 entry | general | done (harness-useful-skills b285e6f, branch feat/opencode-v2, unreleased; dual entry checked on real 1.19.3 and 2.1.2) |
 
 ## Verification
 
@@ -192,6 +192,8 @@ S15 in the skills repo. S7 also needs S5.
 - Subagent permission inheritance; PATCH permissions semantics (not used).
 - Serve exposure through the user's config (check the cli serve handler; the client refuses non-loopback).
 - Merged MCP names on v2 → `Unchecked`.
-- Unverified: busy 409, `list -n` paging, prompt `files` shape for images, form reply payload.
+- Verified by recordings (business/tests/fixtures/opencode2/recorded): no 409 while busy (shell 204, compact 200),
+  images as `files[{uri: file://…}]`, form reply `{answer:{key:value}}`, no `session.status` events (a run ends with
+  `session.execution.succeeded|failed|interrupted`).
 - `--standalone` spawn cost; `opencode2`-only installs are ignored (the binary name stays `opencode`).
 - The generation is stale until the next detection (an upgrade from 1 to 2 needs a re-detect).
