@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 
-use harness_business::app_dirs::local_data_dir;
+use harness_business::app_dirs::{child_processes_dir, local_data_dir};
 use harness_business::ecosystem::{
     CompanionReleases, Dashboard, DashboardOptions, MemoryFeatures, MemoryKinds, MemoryScripts, NotesCopyCache,
     PoolOptions, StoredNotesImport,
@@ -107,11 +107,14 @@ impl AppState {
     /// Builds the state from the app's config directory and the process environment.
     pub fn from_app<R: Runtime>(app: &AppHandle<R>) -> Result<Self, Box<dyn Error>> {
         let config_dir = app.path().app_config_dir()?;
+        let env = Env::from_process()?;
+        let agents = Agents::tracked(child_processes_dir(&env));
 
         Ok(Self {
             updates: Updates::from_config(app.config()),
             attachments_dir: app.path().app_cache_dir()?.join("attachments"),
-            ..Self::new(config_dir, Env::from_process()?)
+            agents: Arc::new(agents),
+            ..Self::new(config_dir, env)
         })
     }
 

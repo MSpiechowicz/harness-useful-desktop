@@ -5,6 +5,8 @@
 //!   callers.
 //! - [`ProcessSpawner`] starts a long-lived child with piped stdio (RPC agent sessions).
 //! - [`resolve`] finds harness binaries without asking a shell for `PATH`.
+//! - [`TrackedSpawner`] records long-lived children so [`sweep_orphans`] can stop the ones a
+//!   crashed app left behind.
 //!
 //! Every spawn uses a fixed, absolute program path plus an explicit argv; a shell is never
 //! involved. On Unix each child leads its own process group so a kill reaches its descendants; on
@@ -20,7 +22,9 @@
 #[cfg(unix)]
 mod appimage;
 mod blocking;
+mod identity;
 mod join;
+mod orphans;
 mod resolve;
 mod runner;
 mod spawner;
@@ -28,7 +32,9 @@ mod spawner;
 mod windows_tree;
 
 pub use blocking::{BlockingRunner, StdRunner};
+pub use identity::ProcessIdentity;
 pub(crate) use join::join_all;
+pub use orphans::{ChildRegistry, MAX_RECORDED_CHILDREN, SweepReport, TrackedSpawner, sweep_orphans};
 pub use resolve::{
     ResolvedBinary, absolute_path_dirs, extra_search_dirs, find_override, is_batch_script, is_executable_file,
     launcher_search_dirs, resolve_binary,
