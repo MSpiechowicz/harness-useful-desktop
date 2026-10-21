@@ -681,12 +681,14 @@ OpenCode 2 gets the same guarantees through its own engine (`business/src/agent/
   subagent sessions of a session (`GET /api/session?parentID=`, the one session route without a directory), permission
   and form lists and replies (also the directory's pending permission requests, `GET /api/permission/request`), the
   output of a running shell tool call (`GET /api/shell/{id}/output`, read only, polled every second while the call
-  runs; a shell is never created or removed through it), read-only agent, command, skill, config, model, default
-  model and provider lists, and the project's saved permission rules (read only). No share, auth, PTY, service or
+  runs; a shell is never created or removed through it), read-only agent, command, skill, model and default model
+  lists, and the project's saved permission rules (read only). No share, auth, PTY, service or
   `/api/experimental/*` route. `scripts/check-forbidden.ts` applies the OpenCode route and flag rules to the OpenCode 2
   engine and client too, keeps their Config route `GET` only and rejects `--service`, `--stdio`, a `service` command
   and `--cors` there and in the harness wiring.
-- **Reconnects.** OpenCode 2 ends a stream that falls behind. The chat opens it again (also when it went silent while
+- **Reconnects.** OpenCode 2's heartbeats are SSE comments, and the chat counts them as signs of life. OpenCode 2
+  ends a stream that falls behind. A stream that ends right after opening counts as a failed attempt (backoff, then
+  the lost-connection notice after three). The chat opens it again (also when it went silent while
   the server still answers) and catches up from the server: the session, its newest messages, its subagent sessions
   and the pending permission requests and forms, so an ask raised meanwhile shows and a dialog answered elsewhere
   closes. The catch-up only reads; an ask it finds is answered as a live one would be (by you, or by the chat's own
@@ -695,6 +697,12 @@ OpenCode 2 gets the same guarantees through its own engine (`business/src/agent/
   the same probe start and strict check after start. A project with permission rules OpenCode saved (an "always" in
   OpenCode's own app) refuses Always ask and Write ask first, because OpenCode applies those rules after every
   agent's.
+  OpenCode 2 reloads its agents while it runs (an agent file added or changed under an agent folder). A chat with a
+  mode re-reads the agents on every agent or config update, after a reopen and when a subagent ask names an agent the
+  probe did not list, runs the same strict check, and stops with a notice when the mode no longer covers them (a new
+  chat applies it again). "Always allow" never answers a subagent ask for an agent the probe did not list.
+  **Residual:** OpenCode 2 sends no event when another OpenCode client saves an "always" rule for the project while
+  the chat runs, so such a rule is only checked when a chat starts.
 - **"Always allow"** is never sent to OpenCode 2, which would save it for the whole project. The app answers `once`
   and answers later matching asks of the chat itself, so the allowance ends with the chat and OpenCode's database
   holds nothing new.

@@ -113,7 +113,8 @@ S15 in the skills repo. S7 also needs S5.
   `sessions_opencode2.rs`, `sessions_opencode2_transcript.rs`.
 - **S6 wire, routes, events** (Track C): `RouteV2` allowlist (info, event, session create / get / patch / delete, fork
   `{before?}`, agent and model switch, prompt, interrupt, command, shell, compact, message list, permission list /
-  reply, form reply / cancel, agent / command / config / model / provider lists); `location[directory]` encoding; id
+  reply, form reply / cancel, agent / command / model lists; the config and provider lists were dropped in review
+  round 1 as unused); `location[directory]` encoding; id
   checks; wire envelope `{data}` / cursor, session object, catalogs, prompt body `{text, files, delivery: steer|queue}`;
   `events.rs` typed SSE envelope, unknown types ignored. Tests `opencode2_routes.rs`, `opencode2_wire.rs` against
   `business/tests/fixtures/opencode2/recorded/`.
@@ -269,6 +270,12 @@ and file watcher off), the v2 config dir on first detection, MCP removal from bo
 only what OpenCode 2 skips, the guard covering the OpenCode 2 engine (service, stdio, cors, Config GET only), private
 orphan registry checks, and `~/opencode.json[c]` read for Share MCP presence. Documented, not changed: Harness Skills
 under `OPENCODE_CONFIG_DIR` and a downgrade with `mcp.servers` entries (see Risks).
+Also fixed (security pass 1): a mode chat re-checks agents OpenCode reloads at runtime and stops when the mode no longer
+covers them (Always allow never answers a subagent ask for an unprobed agent), SSE heartbeats count as activity, streams
+that end right after opening back off, the unused provider and config routes are gone. Harness Skills
+(`8e590a7`): `/useful-skills` and `/us-ignore-workflow` run only from the plugin's real commands, background shell
+output is redacted before it reaches the model. Residual: saved "always" rules another OpenCode client adds while a
+chat runs (no event).
 
 ## Verification
 
