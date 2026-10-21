@@ -1,3 +1,15 @@
+# [0.37.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.36.0...v0.37.0) (2026-10-21)
+
+
+### Bug Fixes
+
+* **opencode:** a command right after one that answered waits for its idle ([a9a7bb4](https://github.com/MSpiechowicz/harness-useful-desktop/commit/a9a7bb4be4c05a285cc75ad5825073915ef74c2b))
+
+
+### Features
+
+* **memory:** save guards for notes and scripts ([#39](https://github.com/MSpiechowicz/harness-useful-desktop/issues/39)) ([c6a9389](https://github.com/MSpiechowicz/harness-useful-desktop/commit/c6a93896567588dc86e3da35cee410adec9955ad))
+
 # [0.36.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.35.3...v0.36.0) (2026-10-21)
 
 
