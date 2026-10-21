@@ -1,3 +1,38 @@
+# [0.36.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.35.3...v0.36.0) (2026-10-21)
+
+
+### Bug Fixes
+
+* **ci:** green Windows and macOS tests, OpenCode out of the duplication guard ([1fab3f4](https://github.com/MSpiechowicz/harness-useful-desktop/commit/1fab3f43533f8a3b62d3a73bd8cb91dac8b037de))
+* **opencode:** adopt subagent sessions only when OpenCode lists them as children ([d18ecf0](https://github.com/MSpiechowicz/harness-useful-desktop/commit/d18ecf09f5cc61cbf355915ae95b41369f3f5bd3))
+* **opencode:** an ask for an unprobed subagent never shows before the mode check ([62b8a32](https://github.com/MSpiechowicz/harness-useful-desktop/commit/62b8a32e9ee7e5a82de37b2f9999e1e961994127))
+* **opencode:** box the plugin entry so Windows clippy passes ([cc364d4](https://github.com/MSpiechowicz/harness-useful-desktop/commit/cc364d49ef60abd37dea08bbd095fb801a45ae4d))
+* **opencode:** guard covers the OpenCode 2 engine, trusted orphan registry, home config in Share checks ([2f792bf](https://github.com/MSpiechowicz/harness-useful-desktop/commit/2f792bfa27ee6824583a808989c60f4087e59c08))
+* **opencode:** live shell output and v1-equal tool cards on OpenCode 2 ([b0761df](https://github.com/MSpiechowicz/harness-useful-desktop/commit/b0761df7662132ec0c8c8dfe7e49169605adad10))
+* **opencode:** never remove a legacy MCP server the app does not own ([ec63e85](https://github.com/MSpiechowicz/harness-useful-desktop/commit/ec63e8521db98d387aafc03d3342602f7d73baba))
+* **opencode:** OpenCode 2 chat recovers asks and subagents after a reconnect ([e8c7cc6](https://github.com/MSpiechowicz/harness-useful-desktop/commit/e8c7cc6e78cda12eaa43c84163c3976148933701))
+* **opencode:** OpenCode 2 install hint, project-config switches and safer orphan sweep ([5af3e18](https://github.com/MSpiechowicz/harness-useful-desktop/commit/5af3e18d6960b4f1827ad10ee3d37c43c2bd0654))
+* **opencode:** OpenCode 2 mode chats re-check reloaded agents, heartbeats keep the stream ([465d631](https://github.com/MSpiechowicz/harness-useful-desktop/commit/465d631c3169ced660cf2aaddcd1bc619457b427))
+* **opencode:** re-check the mode before caught-up asks, mask a trailing password piece ([8f55696](https://github.com/MSpiechowicz/harness-useful-desktop/commit/8f556964d202f566ad54f606c232489f65dbc204))
+* **process:** a failing ps keeps an app alive, owner-only orphan files, guard skips comments ([a6e3511](https://github.com/MSpiechowicz/harness-useful-desktop/commit/a6e3511afbb35efb2c341e2a6724b53e331323f6))
+* **process:** keep an orphan record that cannot be read right now ([055ef31](https://github.com/MSpiechowicz/harness-useful-desktop/commit/055ef31052b122670e2711679d382b1347451381))
+* **process:** kill chat servers a crashed app left behind ([81fcfbf](https://github.com/MSpiechowicz/harness-useful-desktop/commit/81fcfbf776beea3d6f7f95652880d852aa51d3ec))
+
+
+### Features
+
+* **opencode:** approvals, approval modes, questions and helper chat on OpenCode 2 ([0bfdd0a](https://github.com/MSpiechowicz/harness-useful-desktop/commit/0bfdd0a5b0c2fb624a3e0ce201977134ac76dc3a))
+* **opencode:** detect OpenCode 2 and route by generation ([9d0c979](https://github.com/MSpiechowicz/harness-useful-desktop/commit/9d0c9795f8e9d433e86d25f279c530fc049a0ed5))
+* **opencode:** map OpenCode 2 events to chat events ([31f0d59](https://github.com/MSpiechowicz/harness-useful-desktop/commit/31f0d59aa32884b55b7b1a3f03986e6cd9002d43))
+* **opencode:** OpenCode 2 chat engine core ([86d3c17](https://github.com/MSpiechowicz/harness-useful-desktop/commit/86d3c174c63e55bf4d30278b711e2d29fda8cf4c))
+* **opencode:** OpenCode 2 routes, wire types and events ([12c456f](https://github.com/MSpiechowicz/harness-useful-desktop/commit/12c456f4f1f00287482e85d13956a68cea5717bd))
+* **opencode:** plugin and MCP writes for OpenCode 2 ([88aee95](https://github.com/MSpiechowicz/harness-useful-desktop/commit/88aee95b002b2b0958bcf4a441b1114d72a5c964))
+* **opencode:** read OpenCode 2 config and extensions ([d8285aa](https://github.com/MSpiechowicz/harness-useful-desktop/commit/d8285aaf38ad7791b6e610980fbb4a73d14b5883))
+* **opencode:** session operations for OpenCode 2 chat ([248aec4](https://github.com/MSpiechowicz/harness-useful-desktop/commit/248aec4c9667202dfd00c38c450ce6b96b1ed659))
+* **opencode:** sessions for OpenCode 2 ([00afe63](https://github.com/MSpiechowicz/harness-useful-desktop/commit/00afe6340e9d9f1615f24f671f212f3d2995f435))
+* **opencode:** skills in the slash menu, background commands, summed stats on OpenCode 2 ([87a02c6](https://github.com/MSpiechowicz/harness-useful-desktop/commit/87a02c6074ec141468ba615b1e28269e58e8411f))
+* **ui:** OpenCode 2 aware MCP snippets and import preview ([848d80e](https://github.com/MSpiechowicz/harness-useful-desktop/commit/848d80e95eed583e8194be9b06c7a8799afb45ac))
+
 ## [0.35.3](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.35.2...v0.35.3) (2026-10-21)
 
 
