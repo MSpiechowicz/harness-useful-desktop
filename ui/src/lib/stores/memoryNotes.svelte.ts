@@ -5,6 +5,7 @@ import type { NoteDraft } from '$lib/ipc/bindings/NoteDraft';
 import type { NoteKind } from '$lib/ipc/bindings/NoteKind';
 import type { NoteSaved } from '$lib/ipc/bindings/NoteSaved';
 import type { NoteSort } from '$lib/ipc/bindings/NoteSort';
+import type { ScriptPlace } from '$lib/ipc/bindings/ScriptPlace';
 import type { ScriptScope } from '$lib/ipc/bindings/ScriptScope';
 import type { SortOrder } from '$lib/ipc/bindings/SortOrder';
 import { ipc } from '$lib/ipc/client';
@@ -20,11 +21,12 @@ import { ViewLoader } from './view-loader.svelte';
 /** How many notes one page of the table holds. */
 export const NOTES_PAGE_SIZE = 50;
 
-/** What the table asks the server for: one page of the notes that answer the search, the scope and the kind, in this order. */
+/** What the table asks the server for: one page of the notes that answer the search, the scope, the kind and the place, in this order. */
 export interface NotesRequest {
   query: string;
   scope: ScriptScope | null;
   kind: NoteKind | null;
+  place: ScriptPlace | null;
   sort: NoteSort;
   order: SortOrder;
   page: number;
@@ -39,7 +41,7 @@ export function notesKey(request: NotesRequest): string {
 
 /** One page of the notes `reach` covers (every repository, one, or the global ones), with the count of every kind and scope. */
 export const noteList = new ViewLoader<MemoryNotesPage, string>((key, reach) => {
-  const { query, scope, kind, sort, order, page, hidden } = JSON.parse(key) as NotesRequest;
+  const { query, scope, kind, place, sort, order, page, hidden } = JSON.parse(key) as NotesRequest;
   const search = query.trim();
 
   return ipc.invoke('memory_notes_list', {
@@ -49,6 +51,7 @@ export const noteList = new ViewLoader<MemoryNotesPage, string>((key, reach) => 
     query: search === '' ? undefined : search,
     scope: scope ?? undefined,
     kind: kind ?? undefined,
+    place: place ?? undefined,
     sort,
     order,
     hidden: hidden || undefined,

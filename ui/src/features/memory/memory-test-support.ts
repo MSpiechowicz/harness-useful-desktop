@@ -231,7 +231,7 @@ export function fakeMemory(availability: MemoryScriptsAvailability | (() => Memo
       const page =
         found.kind === 'available'
           ? pageOfScripts(visible.map(summaryOf), asked, combines(), scripts.map(summaryOf))
-          : { total: 0, groups: { needsReview: 0, repo: 0, global: 0 }, scopes: null, review: null, combinedFilters: combines(), scripts: [], hiddenCount: null, localCounts: null };
+          : { total: 0, groups: { needsReview: 0, repo: 0, global: 0 }, scopes: null, review: null, places: null, combinedFilters: combines(), scripts: [], hiddenCount: null, localCounts: null };
 
       return { availability: found, ...page } as CommandResult<K>;
     }
@@ -239,7 +239,7 @@ export function fakeMemory(availability: MemoryScriptsAvailability | (() => Memo
     if (name === 'memory_notes_list') {
       const asked = args as CommandArgs<'memory_notes_list'>;
       const found = probe();
-      const page = found.kind === 'available' ? pageOfNotes(notes.filter((note) => reaches(note, asked)), asked, combines(), notes) : { total: 0, kinds: [], scopes: null, combinedFilters: combines(), notes: [], hiddenCount: null, localCounts: null };
+      const page = found.kind === 'available' ? pageOfNotes(notes.filter((note) => reaches(note, asked)), asked, combines(), notes) : { total: 0, kinds: [], scopes: null, places: null, combinedFilters: combines(), notes: [], hiddenCount: null, localCounts: null };
 
       return { availability: found, ...page } as CommandResult<K>;
     }

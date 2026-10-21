@@ -14,6 +14,7 @@
   import { t, tn } from '$lib/i18n/i18n.svelte';
   import type { ScriptDetail } from '$lib/ipc/bindings/ScriptDetail';
   import type { ScriptGroup } from '$lib/ipc/bindings/ScriptGroup';
+  import type { ScriptPlace } from '$lib/ipc/bindings/ScriptPlace';
   import type { ScriptReview } from '$lib/ipc/bindings/ScriptReview';
   import type { ScriptSaved } from '$lib/ipc/bindings/ScriptSaved';
   import type { ScriptScope } from '$lib/ipc/bindings/ScriptScope';
@@ -35,6 +36,7 @@
   import MemorySearch from './MemorySearch.svelte';
   import MemoryTable from './MemoryTable.svelte';
   import { scriptsTeam } from './notes-team.svelte';
+  import PlaceFilter, { placeApplied } from './PlaceFilter.svelte';
   import ScriptEditor from './ScriptEditor.svelte';
   import ScriptPanel from './ScriptPanel.svelte';
   import { languageLabel, needsReview, PLACE_LABELS, scopeText } from './script-format';
@@ -61,12 +63,13 @@
   const total = $derived(page?.total ?? 0);
   const groups = $derived(page?.groups ?? { needsReview: 0, repo: 0, global: 0 });
   const reviews = $derived(page?.review ?? null);
+  const places = $derived(page?.places ?? null);
   // The groups are disjoint (a script that needs review is in neither scope group), so together they are all of the scripts.
   const everything = $derived(groups.needsReview + groups.repo + groups.global);
   // An older Harness Memory cannot combine the scope with the status: it gets one "Show" filter of its groups, and a hint that an update adds the scope.
   const combined = $derived(page?.combinedFilters ?? true);
   const searching = $derived(viewState.scriptsQuery.trim() !== '');
-  const filtered = $derived(viewState.memoryReach !== ALL_REPOS || (combined ? viewState.scriptsStatus !== null : viewState.scriptsGroup !== null) || scriptsTeam.showHidden);
+  const filtered = $derived(viewState.memoryReach !== ALL_REPOS || (combined ? viewState.scriptsStatus !== null : viewState.scriptsGroup !== null) || placeApplied(places, viewState.scriptsPlace) || scriptsTeam.showHidden);
   // Remote scripts hidden on this computer: a switch to them shows once there are any, and stays while they are shown.
   const hiddenCount = $derived(page?.hiddenCount ?? 0);
   // Nothing saved yet: one page with the explanation, not an empty table beside a message.
@@ -114,6 +117,11 @@
 
   function chooseGroup(group: ScriptGroup | null): void {
     viewState.scriptsGroup = group;
+    viewState.scriptsPage = 0;
+  }
+
+  function choosePlace(place: ScriptPlace | null): void {
+    viewState.scriptsPlace = place;
     viewState.scriptsPage = 0;
   }
 
@@ -265,6 +273,8 @@
 
 {#snippet filters()}
   <MemoryReachFilter section="scripts" onchange={repoChosen} />
+
+  <PlaceFilter {places} place={viewState.scriptsPlace} onchange={choosePlace} />
 
   {#if combined}
     {#if hiddenCount > 0 || scriptsTeam.showHidden}

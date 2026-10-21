@@ -15,6 +15,7 @@
   import type { NoteKind } from '$lib/ipc/bindings/NoteKind';
   import type { NoteSaved } from '$lib/ipc/bindings/NoteSaved';
   import type { NoteSummary } from '$lib/ipc/bindings/NoteSummary';
+  import type { ScriptPlace } from '$lib/ipc/bindings/ScriptPlace';
   import { ALL_REPOS } from '$lib/stores/memory-reach';
   import { deleteNote, hideNote, noteDetail, noteDetailKey, noteList, NOTES_PAGE_SIZE } from '$lib/stores/memoryNotes.svelte';
   import { projectScopes } from '$lib/stores/project-scopes.svelte';
@@ -35,6 +36,7 @@
   import NoteEditor from './NoteEditor.svelte';
   import NoteKindBadge from './NoteKindBadge.svelte';
   import NotePanel from './NotePanel.svelte';
+  import PlaceFilter, { placeApplied } from './PlaceFilter.svelte';
   import { KIND_LABELS, NOTE_KINDS, noteColumns, noteScopeText, totalCount } from './note-format';
   import { PLACE_LABELS, spelledOut } from './script-format';
 
@@ -53,10 +55,11 @@
   const rows = $derived(page?.notes ?? []);
   const total = $derived(page?.total ?? 0);
   const kinds = $derived(page?.kinds ?? []);
+  const places = $derived(page?.places ?? null);
   // An older Harness Memory cannot combine the scope with the kind: it gets the kind only, and a hint that an update adds the scope.
   const combined = $derived(page?.combinedFilters ?? true);
   const searching = $derived(viewState.notesQuery.trim() !== '');
-  const filtered = $derived(viewState.notesKind !== null || viewState.memoryReach !== ALL_REPOS || notesTeam.showHidden);
+  const filtered = $derived(viewState.notesKind !== null || placeApplied(places, viewState.notesPlace) || viewState.memoryReach !== ALL_REPOS || notesTeam.showHidden);
   // Team notes hidden on this computer: a switch to them shows once there are any, and stays while they are shown.
   const hiddenCount = $derived(page?.hiddenCount ?? 0);
   // Nothing at all is kept: no notes of any kind, and no search or filter that would explain it.
@@ -89,6 +92,11 @@
 
   function chooseKind(kind: NoteKind | null): void {
     viewState.notesKind = kind;
+    viewState.notesPage = 0;
+  }
+
+  function choosePlace(place: ScriptPlace | null): void {
+    viewState.notesPlace = place;
     viewState.notesPage = 0;
   }
 
@@ -205,6 +213,8 @@
 
 {#snippet filters()}
   <MemoryReachFilter section="notes" onchange={repoChosen} />
+
+  <PlaceFilter {places} place={viewState.notesPlace} onchange={choosePlace} />
 
   {#if hiddenCount > 0 || notesTeam.showHidden}
     <HiddenFilter count={hiddenCount} on={notesTeam.showHidden} onchange={showHidden} />

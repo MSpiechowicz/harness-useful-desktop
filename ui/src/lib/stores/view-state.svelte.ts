@@ -3,6 +3,7 @@ import type { HookEvent } from '$lib/ipc/bindings/HookEvent';
 import type { HookStatus } from '$lib/ipc/bindings/HookStatus';
 import type { NoteKind } from '$lib/ipc/bindings/NoteKind';
 import type { ScriptGroup } from '$lib/ipc/bindings/ScriptGroup';
+import type { ScriptPlace } from '$lib/ipc/bindings/ScriptPlace';
 import type { ScriptReview } from '$lib/ipc/bindings/ScriptReview';
 import type { RoutineStatus } from '$lib/ipc/bindings/RoutineStatus';
 import type { RoutineWhenKind } from '$lib/ipc/bindings/RoutineWhenKind';
@@ -70,6 +71,8 @@ export class ViewState {
   noteId = $state<number | null>(null);
   notesQuery = $state('');
   notesKind = $state<NoteKind | null>(null);
+  /** Where the notes shown are kept (the Kept in filter); null for both places. */
+  notesPlace = $state<ScriptPlace | null>(null);
   notesSort = $state<Sort>({ key: 'updated', desc: true });
   notesPage = $state(0);
 
@@ -78,6 +81,8 @@ export class ViewState {
   scriptsQuery = $state('');
   scriptsStatus = $state<ScriptReview | null>(null);
   scriptsGroup = $state<ScriptGroup | null>(null);
+  /** Where the scripts shown are kept (the Kept in filter); null for both places. */
+  scriptsPlace = $state<ScriptPlace | null>(null);
   scriptsSort = $state<Sort>({ key: 'updated', desc: true });
   scriptsPage = $state(0);
 
@@ -190,6 +195,7 @@ export class ViewState {
       this.noteId = null;
       this.notesQuery = '';
       this.notesKind = null;
+      this.notesPlace = null;
       this.notesSort = { key: 'updated', desc: true };
       this.notesPage = 0;
     } else if (view === 'scripts') {
@@ -197,6 +203,7 @@ export class ViewState {
       this.scriptsQuery = '';
       this.scriptsStatus = null;
       this.scriptsGroup = null;
+      this.scriptsPlace = null;
       this.scriptsSort = { key: 'updated', desc: true };
       this.scriptsPage = 0;
     }

@@ -74,10 +74,10 @@
   });
   const narrowed = $derived.by(() => {
     if (section === 'notes') {
-      return viewState.notesQuery.trim() !== '' || viewState.notesKind !== null;
+      return viewState.notesQuery.trim() !== '' || viewState.notesKind !== null || viewState.notesPlace !== null;
     }
 
-    return viewState.scriptsQuery.trim() !== '' || viewState.scriptsStatus !== null || viewState.scriptsGroup !== null;
+    return viewState.scriptsQuery.trim() !== '' || viewState.scriptsStatus !== null || viewState.scriptsGroup !== null || viewState.scriptsPlace !== null;
   });
 
   // A search or a filter that leaves nothing still has something behind it to delete, so only an empty list that is not narrowed is disabled.
