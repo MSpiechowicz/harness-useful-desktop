@@ -1,8 +1,11 @@
 //! Export readers for OpenCode: the npm plugins and the MCP servers of its global config. See
-//! [`super::collect`].
+//! [`super::collect`]. OpenCode 2 differs where noted.
 //!
 //! - Plugins: the `plugin` entries of the global config files (`config.json`, `opencode.json`,
-//!   `opencode.jsonc` in the config directory). Only npm registry specs are shared, as the package
+//!   `opencode.jsonc` in the config directory). OpenCode 2: `plugin` then `plugins` of
+//!   `opencode.json` and `opencode.jsonc` in its global directory (`OPENCODE_CONFIG_DIR` when
+//!   set); `{package, options}` counts as an entry with options, and `-<package>` drops the
+//!   package an earlier entry listed. Only npm registry specs are shared, as the package
 //!   name and the version, x-range or tag the spec pins (the import installs exactly that). Local
 //!   files (`file://`, paths), git, `github:` and URL specs, and `[spec, options]` entries (options
 //!   may hold secrets and are not shared) are left out, named by their package or file name. A
@@ -16,7 +19,9 @@
 //!   that is switched off is shared, and the import writes it switched on unless it needs values.
 //!   Servers whose command, arguments or URL hold a secret, credentials, a local path or a
 //!   `{env:…}` / `{file:…}` substitution are left out whole; the app's own servers are skipped
-//!   without a row.
+//!   without a row. OpenCode 2: the `mcp.servers` object and the legacy `mcp.<name>` servers of
+//!   its global file ([`global_settings_file`]; a nested server wins over a legacy one of the same
+//!   name, legacy entries that only set `enabled` are skipped), and `disabled` is not shared either.
 
 use serde_json::{Map, Value};
 
@@ -30,24 +35,47 @@ use super::validate_source::{is_npm_registry_spec, split_npm_spec};
 use crate::ecosystem::mcp_target;
 use crate::env::Env;
 use crate::harness::Harness;
-use crate::harnesses::opencode::{PluginEntry, global_plugin_entries};
+use crate::harness::OpenCodeGeneration;
+use crate::harnesses::opencode::{
+    PluginEntry, generation_of, global_plugin_entries, global_settings_file, mcp_servers as file_servers,
+};
 use crate::model::{ConfigFormat, HarnessId, SyncExcludedReason, SyncExportItem, SyncItemKind, SyncNote};
-use crate::pi_family::read_document;
+use crate::pi_family::{Document, read_document};
 
 /// Server fields that are shared (or deliberately dropped without a note).
 const KNOWN_FIELDS: &[&str] = &["type", "command", "url", "environment", "headers", "enabled", "oauth"];
 
+/// [`KNOWN_FIELDS`] of OpenCode 2, which switches a server off with `disabled`.
+const KNOWN_FIELDS_V2: &[&str] = &[
+    "type",
+    "command",
+    "url",
+    "environment",
+    "headers",
+    "enabled",
+    "disabled",
+    "oauth",
+];
+
 /// The npm plugins of the global config files (see the module docs).
-pub(super) fn opencode_plugins(env: &Env, found: &mut Found) {
+pub(super) fn opencode_plugins(env: &Env, opencode: &dyn Harness, found: &mut Found) {
     let harness = HarnessId::OpenCode;
     let kind = SyncItemKind::Plugin;
 
-    for entry in global_plugin_entries(env) {
+    for entry in global_plugin_entries(env, generation_of(opencode)) {
         let spec = match entry {
             PluginEntry::Spec(spec) => spec,
             PluginEntry::WithOptions(spec) => {
                 let label = plugin_label(spec.as_deref().unwrap_or_default());
                 found.exclude(harness, kind, label, SyncExcludedReason::Unsupported);
+                continue;
+            }
+            PluginEntry::Remove(target) => {
+                // OpenCode 2 drops the package an earlier entry listed.
+                if let Ok(removed) = plugin(&target) {
+                    let id = item_id(harness, kind, &removed.id);
+                    found.items.retain(|item| item.preview.id != id);
+                }
                 continue;
             }
             PluginEntry::Other => {
@@ -122,9 +150,17 @@ fn plugin_label(spec: &str) -> String {
 }
 
 /// The servers of the global config file; nothing when it is missing or has no `mcp`. A file that
-/// cannot be read or parsed, or whose `mcp` is not an object, is listed as excluded (`invalid`,
-/// labelled with its home-relative path).
+/// cannot be read or parsed, or whose `mcp` (on OpenCode 2 also `mcp.servers`) is not an object,
+/// is listed as excluded (`invalid`, labelled with its home-relative path).
 pub(super) fn opencode_servers(env: &Env, harness: &dyn Harness, found: &mut Found) {
+    if generation_of(harness) == OpenCodeGeneration::V2 {
+        let path = global_settings_file(env, OpenCodeGeneration::V2);
+        let document = v2_servers(read_document(&path, ConfigFormat::Jsonc));
+
+        collect_servers(env, harness, found, &path, &document, "mcp", shared_server_v2);
+        return;
+    }
+
     let Some(file) = mcp_target(env, harness) else {
         return;
     };
@@ -133,8 +169,37 @@ pub(super) fn opencode_servers(env: &Env, harness: &dyn Harness, found: &mut Fou
     collect_servers(env, harness, found, &file.path, &document, "mcp", shared_server);
 }
 
-/// The shared form of one OpenCode server and the notes on what stays here, or why it is left out.
+/// The OpenCode 2 servers of a parsed file as one `mcp` object; `mcp` is `false` when the file's
+/// servers are not an object, so the file is reported as invalid.
+fn v2_servers(document: Document) -> Document {
+    let Document::Parsed(value) = &document else {
+        return document;
+    };
+
+    if value.get("mcp").is_none() {
+        return document;
+    }
+
+    let servers = match file_servers(value, OpenCodeGeneration::V2) {
+        Some(servers) => Value::Object(servers.into_iter().collect()),
+        None => Value::Bool(false),
+    };
+
+    Document::Parsed(serde_json::json!({ "mcp": servers }))
+}
+
+/// The shared form of one OpenCode 1 server and the notes on what stays here, or why it is left
+/// out.
 fn shared_server(name: &str, server: &Value) -> Result<(McpServer, Vec<SyncNote>), SyncExcludedReason> {
+    shared(name, server, KNOWN_FIELDS)
+}
+
+/// [`shared_server`] for OpenCode 2.
+fn shared_server_v2(name: &str, server: &Value) -> Result<(McpServer, Vec<SyncNote>), SyncExcludedReason> {
+    shared(name, server, KNOWN_FIELDS_V2)
+}
+
+fn shared(name: &str, server: &Value, known: &[&str]) -> Result<(McpServer, Vec<SyncNote>), SyncExcludedReason> {
     validate::mcp_name(name).map_err(excluded_reason)?;
 
     let fields = server.as_object().ok_or(SyncExcludedReason::Invalid)?;
@@ -150,7 +215,7 @@ fn shared_server(name: &str, server: &Value) -> Result<(McpServer, Vec<SyncNote>
     };
 
     let server = checked_server(name, fields, transport, command, args, url, "environment")?;
-    let notes = notes(fields, &server);
+    let notes = notes(fields, &server, known);
     validate::opencode_mcp_server(&server).map_err(excluded_reason)?;
 
     Ok((server, notes))
@@ -158,17 +223,11 @@ fn shared_server(name: &str, server: &Value) -> Result<(McpServer, Vec<SyncNote>
 
 /// What is not shared: environment and header values, OAuth settings, and fields outside the
 /// allowlist (also a `url` on a local server or a `command` on a remote one).
-fn notes(fields: &Map<String, Value>, server: &McpServer) -> Vec<SyncNote> {
+fn notes(fields: &Map<String, Value>, server: &McpServer, known: &[&str]) -> Vec<SyncNote> {
     let unused: &[&str] = match server.transport {
         Transport::Stdio => &["url"],
         Transport::Http | Transport::Sse => &["command"],
     };
 
-    not_shared(
-        fields,
-        server,
-        unused,
-        KNOWN_FIELDS,
-        &[(&["oauth"], SyncNote::AuthNotShared)],
-    )
+    not_shared(fields, server, unused, known, &[(&["oauth"], SyncNote::AuthNotShared)])
 }

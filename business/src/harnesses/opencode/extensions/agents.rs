@@ -3,13 +3,19 @@
 //! (named by their path below it). Later definitions win field by field. The legacy `mode` key
 //! and `mode/` / `modes/` files define primary agents, and `disable: true` removes an agent,
 //! built-in ones included.
+//!
+//! OpenCode 2 (`core/src/config/plugin/agent.ts`, `core/src/config/normalize.ts`, 2.1.2) also reads
+//! the `agents` key: in one file, a `mode` entry replaces an `agent` entry of the same name and an
+//! `agents` entry replaces both. It removes an agent with `disabled: true` (the legacy `disable`
+//! still works), and a model may be `{providerID, model}`.
 
 use std::path::{Path, PathBuf};
 
 use serde_json::{Map, Value};
 
-use super::super::config::{Place, Step};
-use super::{description, markdown_fields, markdown_files, object_entries};
+use super::super::config::{Layers, Place, Step, object_entries, replace};
+use super::{description, markdown_fields, markdown_files};
+use crate::harness::OpenCodeGeneration;
 use crate::model::{AgentInfo, AgentMode, ExtensionScope};
 use crate::pi_family::text_field;
 use crate::security::redact_text;
@@ -56,15 +62,27 @@ struct Definition {
     place: Place,
 }
 
+/// The OpenCode 2 description of its `plan` agent.
+const V2_PLAN: &str = "Read-only agent for exploring the codebase and planning work before implementation.";
+
 /// See the module docs. Built-in agents come first, in OpenCode's order, then the others by name.
-pub(super) fn agents(steps: &[Step]) -> Vec<AgentInfo> {
-    let definitions = definitions(steps);
+pub(super) fn agents(layers: &Layers) -> Vec<AgentInfo> {
+    let (definitions, removal) = match layers.generation {
+        OpenCodeGeneration::V1 => (definitions(&layers.steps), "disable"),
+        OpenCodeGeneration::V2 => (v2_definitions(&layers.steps), "disabled"),
+    };
 
     let mut agents: Vec<AgentInfo> = BUILTINS.iter().map(builtin).collect();
+    if layers.generation == OpenCodeGeneration::V2
+        && let Some(plan) = agents.iter_mut().find(|agent| agent.name == "plan")
+    {
+        plan.description = Some(V2_PLAN.to_owned());
+    }
+
     let mut custom: Vec<AgentInfo> = Vec::new();
 
     for definition in definitions {
-        if definition.fields.get("disable").and_then(Value::as_bool) == Some(true) {
+        if definition.fields.get(removal).and_then(Value::as_bool) == Some(true) {
             agents.retain(|agent| agent.name != definition.name);
             continue;
         }
@@ -93,7 +111,8 @@ pub(super) fn agents(steps: &[Step]) -> Vec<AgentInfo> {
     agents
 }
 
-/// Every agent definition in merge order; `mode` key entries are applied last, as OpenCode does.
+/// Every OpenCode 1 agent definition in merge order; `mode` key entries are applied last, as
+/// OpenCode 1 does.
 fn definitions(steps: &[Step]) -> Vec<Definition> {
     let mut definitions: Vec<Definition> = Vec::new();
     let mut modes: Vec<Definition> = Vec::new();
@@ -101,16 +120,14 @@ fn definitions(steps: &[Step]) -> Vec<Definition> {
     for step in steps {
         match step {
             Step::File { path, place, document } => {
-                for (name, fields) in object_entries(document.get("agent")) {
-                    if let Some(fields) = fields.as_object() {
-                        define(&mut definitions, name, fields.clone(), path, *place);
-                    }
+                let document = document.value().unwrap_or(&Value::Null);
+
+                for (name, fields) in objects(document, "agent") {
+                    define(&mut definitions, &name, fields, path, *place);
                 }
 
-                for (name, fields) in object_entries(document.get("mode")) {
-                    if let Some(fields) = fields.as_object() {
-                        define(&mut modes, name, primary(fields.clone()), path, *place);
-                    }
+                for (name, fields) in objects(document, "mode") {
+                    define(&mut modes, &name, primary(fields), path, *place);
                 }
             }
 
@@ -135,6 +152,79 @@ fn definitions(steps: &[Step]) -> Vec<Definition> {
     }
 
     definitions
+}
+
+/// Every OpenCode 2 agent definition in merge order, with legacy `disable` read as `disabled`.
+fn v2_definitions(steps: &[Step]) -> Vec<Definition> {
+    let mut definitions: Vec<Definition> = Vec::new();
+
+    for step in steps {
+        match step {
+            Step::File { path, place, document } => {
+                let document = document.value().unwrap_or(&Value::Null);
+
+                for (name, fields) in v2_file_agents(document) {
+                    define(&mut definitions, &name, fields, path, *place);
+                }
+            }
+
+            Step::Dir(dir) => {
+                for (name, file) in markdown_files(&dir.path, &["agent", "agents"], true) {
+                    if let Some(fields) = markdown_fields(&file) {
+                        define(&mut definitions, &name, legacy(fields), &file, dir.place);
+                    }
+                }
+
+                for (name, file) in markdown_files(&dir.path, &["mode", "modes"], false) {
+                    if let Some(fields) = markdown_fields(&file) {
+                        define(&mut definitions, &name, primary(legacy(fields)), &file, dir.place);
+                    }
+                }
+            }
+        }
+    }
+
+    definitions
+}
+
+/// The agents of one OpenCode 2 settings file: `agent`, then `mode` (primary), then `agents`, each
+/// replacing a whole entry of the same name.
+fn v2_file_agents(document: &Value) -> Vec<(String, Map<String, Value>)> {
+    let mut agents = Vec::new();
+
+    for (name, fields) in objects(document, "agent") {
+        replace(&mut agents, &name, legacy(fields));
+    }
+
+    for (name, fields) in objects(document, "mode") {
+        replace(&mut agents, &name, primary(legacy(fields)));
+    }
+
+    for (name, fields) in objects(document, "agents") {
+        replace(&mut agents, &name, fields);
+    }
+
+    agents
+}
+
+/// The object entries of `key` whose values are objects.
+fn objects(document: &Value, key: &str) -> Vec<(String, Map<String, Value>)> {
+    object_entries(document, key)
+        .into_iter()
+        .filter_map(|(name, fields)| match fields {
+            Value::Object(fields) => Some((name, fields)),
+            _ => None,
+        })
+        .collect()
+}
+
+/// An OpenCode 1 definition as OpenCode 2 reads it: `disable` becomes `disabled`.
+fn legacy(mut fields: Map<String, Value>) -> Map<String, Value> {
+    if let Some(disable) = fields.remove("disable") {
+        fields.entry("disabled").or_insert(disable);
+    }
+
+    fields
 }
 
 /// Adds `fields` to the definition of `name` (later fields win) and records where they came from.
@@ -184,13 +274,26 @@ fn apply(agent: &mut AgentInfo, fields: &Map<String, Value>) {
         agent.mode = mode;
     }
 
-    if let Some(model) = text_field(&fields, "model") {
+    if let Some(model) = model(&fields) {
         agent.model = Some(redact_text(&model));
     }
 
     if let Some(hidden) = fields.get("hidden").and_then(Value::as_bool) {
         agent.hidden = hidden;
     }
+}
+
+/// `provider/model` as written, or built from OpenCode 2's `{providerID, model}`.
+fn model(fields: &Value) -> Option<String> {
+    if let Some(model) = text_field(fields, "model") {
+        return Some(model);
+    }
+
+    let selection = fields.get("model")?;
+    let provider = selection.get("providerID")?.as_str()?;
+    let model = selection.get("model")?.as_str()?;
+
+    Some(format!("{provider}/{model}"))
 }
 
 fn parse_mode(value: &str) -> Option<AgentMode> {

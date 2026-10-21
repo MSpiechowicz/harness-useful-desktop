@@ -1,0 +1,1 @@
+{ "plugin": ["config-json-plugin"], "mcp": { "config-json-server": { "type": "local", "command": ["x"] } } }

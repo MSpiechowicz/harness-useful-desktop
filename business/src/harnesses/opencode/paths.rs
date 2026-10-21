@@ -1,9 +1,10 @@
 //! OpenCode directory resolution, mirroring `packages/core/src/global.ts` and
-//! `packages/opencode/src/config/paths.ts` (1.19.3, `xdg-basedir`).
+//! `packages/opencode/src/config/paths.ts` (1.19.3, `xdg-basedir`), and `util/src/global.ts`
+//! (2.1.2).
 //!
 //! - Config: `$XDG_CONFIG_HOME/opencode`, else `~/.config/opencode`, on every OS (Windows too).
-//!   `OPENCODE_CONFIG_DIR` adds one more config directory, read after the others; it never
-//!   replaces this one.
+//!   On OpenCode 1, `OPENCODE_CONFIG_DIR` adds one more config directory, read after the others;
+//!   it never replaces this one. On OpenCode 2 it replaces it ([`global_config_dir`]).
 //! - Data (sessions database, credentials, logs): `$XDG_DATA_HOME/opencode`, else
 //!   `~/.local/share/opencode`.
 //! - Project layer: `<project>/.opencode`.
@@ -14,7 +15,7 @@
 use std::path::{Path, PathBuf};
 
 use crate::env::Env;
-use crate::harness::HarnessPaths;
+use crate::harness::{HarnessPaths, OpenCodeGeneration};
 
 /// Application name used under the XDG directories.
 const APP_NAME: &str = "opencode";
@@ -23,9 +24,9 @@ const APP_NAME: &str = "opencode";
 pub const PROJECT_DIR_NAME: &str = ".opencode";
 
 /// Resolves every OpenCode directory for `env` (see the module docs). OpenCode has no profiles;
-/// skills, agents, commands and themes live in the config directory.
-pub fn paths(env: &Env, project: Option<&Path>) -> HarnessPaths {
-    let config = config_dir(env);
+/// skills, agents, commands and themes live in the global config directory of `generation`.
+pub fn paths(env: &Env, project: Option<&Path>, generation: OpenCodeGeneration) -> HarnessPaths {
+    let config = global_config_dir(env, generation);
 
     HarnessPaths {
         config_root: config.clone(),
@@ -41,6 +42,15 @@ pub fn config_dir(env: &Env) -> PathBuf {
     xdg_dir(env, "XDG_CONFIG_HOME", ".config").join(APP_NAME)
 }
 
+/// The global config directory `generation` reads: [`config_dir`], or on OpenCode 2 the absolute
+/// directory `OPENCODE_CONFIG_DIR` names instead.
+pub fn global_config_dir(env: &Env, generation: OpenCodeGeneration) -> PathBuf {
+    match generation {
+        OpenCodeGeneration::V1 => config_dir(env),
+        OpenCodeGeneration::V2 => custom_config_dir(env).unwrap_or_else(|| config_dir(env)),
+    }
+}
+
 /// The data directory: `$XDG_DATA_HOME/opencode` or `~/.local/share/opencode`.
 pub fn data_dir(env: &Env) -> PathBuf {
     xdg_dir(env, "XDG_DATA_HOME", ".local/share").join(APP_NAME)
@@ -52,7 +62,8 @@ pub fn home_config_dir(env: &Env) -> PathBuf {
     env.home_join(PROJECT_DIR_NAME)
 }
 
-/// The extra config directory `OPENCODE_CONFIG_DIR` names, when absolute.
+/// The directory `OPENCODE_CONFIG_DIR` names, when absolute: an extra config directory on
+/// OpenCode 1, the global one on OpenCode 2.
 pub fn custom_config_dir(env: &Env) -> Option<PathBuf> {
     absolute_var(env, "OPENCODE_CONFIG_DIR")
 }
@@ -72,7 +83,11 @@ mod tests {
 
     #[test]
     fn config_and_data_default_below_home() {
-        let paths = paths(&Env::for_tests("/home/u"), Some(Path::new("/work/app")));
+        let paths = paths(
+            &Env::for_tests("/home/u"),
+            Some(Path::new("/work/app")),
+            OpenCodeGeneration::V1,
+        );
 
         assert_eq!(paths.config_root, PathBuf::from("/home/u/.config/opencode"));
         assert_eq!(paths.agent_dir, paths.config_root);
@@ -96,8 +111,22 @@ mod tests {
         let team = std::env::temp_dir().join("team");
         let env = Env::for_tests("/home/u").with_var("OPENCODE_CONFIG_DIR", team.to_string_lossy());
 
-        assert_eq!(paths(&env, None).config_root, PathBuf::from("/home/u/.config/opencode"));
+        let config_root = paths(&env, None, OpenCodeGeneration::V1).config_root;
+        assert_eq!(config_root, PathBuf::from("/home/u/.config/opencode"));
         assert_eq!(custom_config_dir(&env), Some(team));
         assert_eq!(custom_config_dir(&env.with_var("OPENCODE_CONFIG_DIR", "team")), None);
+    }
+
+    #[test]
+    fn on_opencode_2_the_custom_config_dir_replaces_the_global_one() {
+        let team = std::env::temp_dir().join("team");
+        let env = Env::for_tests("/home/u").with_var("OPENCODE_CONFIG_DIR", team.to_string_lossy());
+        let relative = env.clone().with_var("OPENCODE_CONFIG_DIR", "team");
+
+        assert_eq!(paths(&env, None, OpenCodeGeneration::V2).config_root, team);
+        assert_eq!(
+            global_config_dir(&relative, OpenCodeGeneration::V2),
+            PathBuf::from("/home/u/.config/opencode")
+        );
     }
 }

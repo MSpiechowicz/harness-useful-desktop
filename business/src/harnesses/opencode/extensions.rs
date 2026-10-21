@@ -1,25 +1,31 @@
 //! The OpenCode extensions view: skills, commands, agents, plugins, MCP servers and themes, read
-//! from the layers in [`super::config`] the way OpenCode 1.19.3 merges them (later layers win).
+//! from the layers in [`super::config`] the way OpenCode 1.19.3 or 2.1.2 merges them (later layers
+//! win). OpenCode 2 also reads its native keys (`plugins`, `mcp.servers`, `agents`, `commands`)
+//! beside the OpenCode 1 ones.
 //!
 //! Nothing is installed or run: npm plugins are listed by their spec, never resolved, and MCP
 //! servers are never started.
 
 mod agents;
 mod mcp;
+mod plugins;
 
 use std::path::{Path, PathBuf};
 
 use serde_json::{Map, Value};
 
-use super::config::{Place, Step, config_dirs, merge_steps, project_ancestors, read_config, tui_files};
-use super::paths::{PROJECT_DIR_NAME, config_dir, home_config_dir};
-use super::plugin_ids::file_url_drive_path;
+pub(super) use self::plugins::{plugin_entry_id, plugin_sources, plugins};
+use super::config::{
+    Layers, Place, Step, command_entries, config_dirs, layers, project_ancestors, read_config, tui_files, v2_walk,
+};
+use super::paths::{PROJECT_DIR_NAME, global_config_dir, home_config_dir};
 use crate::env::Env;
-use crate::model::{ExtensionScope, ExtensionsView, HarnessId, PluginInfo, PromptTemplateInfo, SkillInfo, ThemeInfo};
+use crate::harness::OpenCodeGeneration;
+use crate::model::{ExtensionScope, ExtensionsView, HarnessId, PromptTemplateInfo, SkillInfo, ThemeInfo};
 use crate::pi_family::frontmatter::MAX_MARKDOWN_BYTES;
 use crate::pi_family::resources::walk_tree;
 use crate::pi_family::{
-    SkillRoot, builtin_themes, dedupe_skills, list_dir, parse_frontmatter, scan_skills, text_field, themes_in_dir,
+    SkillRoot, builtin_themes, dedupe_skills, parse_frontmatter, scan_skills, text_field, themes_in_dir,
 };
 use crate::security::{SafeReader, redact_text};
 
@@ -69,18 +75,18 @@ const BUILTIN_THEMES: &[&str] = &[
 const DEFAULT_THEME: &str = "opencode";
 
 /// See the module docs.
-pub fn extensions_view(env: &Env, project: Option<&Path>) -> ExtensionsView {
-    let steps = merge_steps(env, project);
+pub fn extensions_view(env: &Env, project: Option<&Path>, generation: OpenCodeGeneration) -> ExtensionsView {
+    let layers = layers(env, project, generation);
 
     ExtensionsView {
         harness: HarnessId::OpenCode,
-        plugins: plugins(&steps),
+        plugins: plugins(&layers),
         marketplaces: Vec::new(),
-        skills: skills(env, project),
-        prompt_templates: prompt_templates(&steps),
-        agents: agents::agents(&steps),
-        mcp_servers: mcp::mcp_servers(&steps),
-        themes: themes(env, project),
+        skills: skills(env, project, generation),
+        prompt_templates: prompt_templates(&layers),
+        agents: agents::agents(&layers),
+        mcp_servers: mcp::mcp_servers(&layers),
+        themes: themes(env, project, generation),
         packages: Vec::new(),
         extension_modules: Vec::new(),
         notices: Vec::new(),
@@ -88,9 +94,10 @@ pub fn extensions_view(env: &Env, project: Option<&Path>) -> ExtensionsView {
 }
 
 /// OpenCode reads `~/.claude/skills`, `~/.agents/skills`, then `.claude/skills` and
-/// `.agents/skills` from the project up to the worktree (see [`project_ancestors`]), then `skill/` and `skills/` of
-/// every config directory; a later skill of the same name wins.
-fn skills(env: &Env, project: Option<&Path>) -> Vec<SkillInfo> {
+/// `.agents/skills` from the project up (to the worktree on OpenCode 1, see [`project_ancestors`];
+/// along the whole config walk on OpenCode 2, see [`v2_walk`]), then `skill/` and `skills/` of every
+/// config directory; a later skill of the same name wins.
+fn skills(env: &Env, project: Option<&Path>, generation: OpenCodeGeneration) -> Vec<SkillInfo> {
     let mut roots = Vec::new();
     let mut add = |dir: PathBuf, scope| roots.push(SkillRoot::labeled(env, project, dir, scope));
 
@@ -98,15 +105,17 @@ fn skills(env: &Env, project: Option<&Path>) -> Vec<SkillInfo> {
         add(env.home_join(external).join("skills"), ExtensionScope::User);
     }
 
-    if let Some(project) = project {
-        for dir in project_ancestors(project) {
-            for external in [".claude", ".agents"] {
-                add(dir.join(external).join("skills"), walked_scope(env, &dir));
-            }
+    let walked = match generation {
+        OpenCodeGeneration::V1 => project.map(project_ancestors).unwrap_or_default(),
+        OpenCodeGeneration::V2 => v2_walk(env, project),
+    };
+    for dir in walked {
+        for external in [".claude", ".agents"] {
+            add(dir.join(external).join("skills"), walked_scope(env, &dir));
         }
     }
 
-    for dir in config_dirs(env, project) {
+    for dir in config_dirs(env, project, generation) {
         for name in ["skill", "skills"] {
             add(dir.path.join(name), dir.place.scope());
         }
@@ -131,16 +140,21 @@ fn walked_scope(env: &Env, dir: &Path) -> ExtensionScope {
 /// One command definition: name, description, defining file and its place.
 type CommandDefinition = (String, Option<String>, PathBuf, Place);
 
-/// The `command` key of each settings file, and the Markdown files in `command/` and `commands/`
-/// of each config directory (named by their path below that directory). A later definition takes
-/// over the file and scope and keeps an earlier description it does not set.
-fn prompt_templates(steps: &[Step]) -> Vec<PromptTemplateInfo> {
+/// The `command` key of each settings file (and `commands` on OpenCode 2), and the Markdown files
+/// in `command/` and `commands/` of each config directory (named by their path below that
+/// directory). A later definition takes over the file and scope and keeps an earlier description
+/// it does not set.
+fn prompt_templates(layers: &Layers) -> Vec<PromptTemplateInfo> {
     let mut templates: Vec<PromptTemplateInfo> = Vec::new();
 
-    for step in steps {
+    for step in &layers.steps {
         let found: Vec<CommandDefinition> = match step {
-            Step::File { path, place, document } => object_entries(document.get("command"))
-                .map(|(name, command)| (name.clone(), description(command), path.clone(), *place))
+            Step::File { path, place, document } => document
+                .value()
+                .map(|value| command_entries(value, layers.generation))
+                .unwrap_or_default()
+                .into_iter()
+                .map(|(name, command)| (name, description(&command), path.clone(), *place))
                 .collect(),
 
             Step::Dir(dir) => markdown_files(&dir.path, &["command", "commands"], true)
@@ -178,171 +192,29 @@ fn prompt_templates(steps: &[Step]) -> Vec<PromptTemplateInfo> {
     templates
 }
 
-/// Plugins named in the `plugin` key of each settings file (npm specs, or paths relative to that
-/// file) and the `*.ts` / `*.js` files in `plugin/` and `plugins/` of each config directory. A
-/// plugin listed again (same npm package or same file) keeps its place and takes the later scope.
-pub(super) fn plugins(steps: &[Step]) -> Vec<PluginInfo> {
-    let mut plugins: Vec<PluginInfo> = Vec::new();
-
-    for step in steps {
-        let found: Vec<PluginInfo> = match step {
-            Step::File { path, place, document } => plugin_specs(document.get("plugin"))
-                .into_iter()
-                .map(|spec| configured_plugin(spec, path, place.scope()))
-                .collect(),
-
-            Step::Dir(dir) => ["plugin", "plugins"]
-                .iter()
-                .flat_map(|name| list_dir(&dir.path.join(name)))
-                .filter(|entry| entry.is_file && (entry.name.ends_with(".ts") || entry.name.ends_with(".js")))
-                .map(|entry| local_plugin(&entry.path, dir.place.scope()))
-                .collect(),
-        };
-
-        for plugin in found {
-            match plugins.iter_mut().find(|existing| existing.id == plugin.id) {
-                Some(existing) => *existing = plugin,
-                None => plugins.push(plugin),
-            }
-        }
-    }
-
-    plugins
-}
-
-/// Every place that defines a plugin, in merge order: the plugin's id as [`plugins`] lists it, and
-/// the settings file naming it or the plugin file itself.
-pub(super) fn plugin_sources(steps: &[Step]) -> Vec<(String, PathBuf)> {
-    let mut sources = Vec::new();
-
-    for step in steps {
-        match step {
-            Step::File { path, document, .. } => sources.extend(
-                plugin_specs(document.get("plugin"))
-                    .into_iter()
-                    .map(|spec| (plugin_entry_id(spec, path), path.clone())),
-            ),
-
-            Step::Dir(dir) => sources.extend(
-                ["plugin", "plugins"]
-                    .iter()
-                    .flat_map(|name| list_dir(&dir.path.join(name)))
-                    .filter(|entry| entry.is_file && (entry.name.ends_with(".ts") || entry.name.ends_with(".js")))
-                    .map(|entry| (local_plugin(&entry.path, dir.place.scope()).id, entry.path)),
-            ),
-        }
-    }
-
-    sources
-}
-
-/// The id [`plugins`] lists the `plugin` entry `spec` of `config_file` under.
-pub(super) fn plugin_entry_id(spec: &str, config_file: &Path) -> String {
-    configured_plugin(spec, config_file, ExtensionScope::User).id
-}
-
-/// The spec strings of a `plugin` list; an entry may be `[spec, options]` (options are not shown).
-fn plugin_specs(value: Option<&Value>) -> Vec<&str> {
-    let Some(items) = value.and_then(Value::as_array) else {
-        return Vec::new();
-    };
-
-    items
-        .iter()
-        .filter_map(|item| match item {
-            Value::String(spec) => Some(spec.as_str()),
-            Value::Array(pair) => pair.first().and_then(Value::as_str),
-            _ => None,
-        })
-        .collect()
-}
-
-/// A `plugin` entry: a local file for `file://`, relative and absolute paths, else an npm package.
-/// `components` drops the `.` of `./plugin.ts` and, on Windows, turns `C:/x/plugin.ts` into
-/// `C:\x\plugin.ts`, so the file matches its directory scan.
-fn configured_plugin(spec: &str, config_file: &Path, scope: ExtensionScope) -> PluginInfo {
-    let local: Option<PathBuf> = match spec.strip_prefix("file://") {
-        Some(path) if cfg!(windows) => Some(Path::new(file_url_drive_path(path)).components().collect()),
-        Some(path) => Some(Path::new(path).components().collect()),
-        None if spec.starts_with('.') => config_file.parent().map(|dir| dir.join(spec).components().collect()),
-        None if Path::new(spec).is_absolute() => Some(Path::new(spec).components().collect()),
-        None => None,
-    };
-
-    if let Some(path) = local {
-        return local_plugin(&path, scope);
-    }
-
-    let (name, version) = npm_package(spec);
-    let name = redact_text(name);
-
-    PluginInfo {
-        id: name.clone(),
-        name,
-        version: version.map(redact_text),
-        description: None,
-        enabled: true,
-        scope,
-        marketplace: None,
-        features: Vec::new(),
-        path: None,
-        latest_version: None,
-        update_available: false,
-    }
-}
-
-/// Package name and requested version of an npm spec (`name`, `name@1.2`, `@scope/name@^1`).
-/// Other specs (git URLs, aliases) are the name as a whole.
-fn npm_package(spec: &str) -> (&str, Option<&str>) {
-    if spec.contains(':') {
-        return (spec, None);
-    }
-
-    let name_start = usize::from(spec.starts_with('@'));
-    match spec[name_start..].split_once('@') {
-        Some((name, version)) if !name.is_empty() && !version.is_empty() => {
-            (&spec[..name_start + name.len()], Some(version))
-        }
-        _ => (spec, None),
-    }
-}
-
-/// A plugin file, named after its file stem.
-fn local_plugin(path: &Path, scope: ExtensionScope) -> PluginInfo {
-    let path = path.to_string_lossy().into_owned();
-    let name = Path::new(&path)
-        .file_stem()
-        .map(|stem| stem.to_string_lossy().into_owned())
-        .unwrap_or_else(|| path.clone());
-
-    PluginInfo {
-        id: path.clone(),
-        name,
-        version: None,
-        description: None,
-        enabled: true,
-        scope,
-        marketplace: None,
-        features: Vec::new(),
-        path: Some(path),
-        latest_version: None,
-        update_available: false,
-    }
-}
-
-/// Built-in themes plus `themes/*.json` in the global config directory, every project `.opencode/`
-/// and `~/.opencode` (a later theme of the same name wins). The active theme is the last `theme`
-/// set in a terminal UI settings file, else `opencode`.
-fn themes(env: &Env, project: Option<&Path>) -> Vec<ThemeInfo> {
-    let active = active_theme(env, project);
+/// Built-in themes plus `themes/*.json` in the global config directory and every project
+/// `.opencode/` (a later theme of the same name wins). OpenCode 1 walks up to the worktree, then
+/// reads `~/.opencode`; OpenCode 2 walks up to the filesystem root, the farthest directory last.
+/// The active theme is the last `theme` (or `theme.name`) set in a terminal UI settings file, else
+/// `opencode`.
+fn themes(env: &Env, project: Option<&Path>, generation: OpenCodeGeneration) -> Vec<ThemeInfo> {
+    let active = active_theme(env, project, generation);
     let is_active = |name: &str| name == active;
 
-    let mut dirs = vec![(config_dir(env), ExtensionScope::User)];
-    if let Some(project) = project {
-        let project_dirs = project_ancestors(project).into_iter();
-        dirs.extend(project_dirs.map(|dir| (dir.join(PROJECT_DIR_NAME), walked_scope(env, &dir))));
+    let mut dirs = vec![(global_config_dir(env, generation), ExtensionScope::User)];
+    let walked: Vec<PathBuf> = match (generation, project) {
+        (_, None) => Vec::new(),
+        (OpenCodeGeneration::V1, Some(project)) => project_ancestors(project),
+        (OpenCodeGeneration::V2, Some(project)) => project.ancestors().map(Path::to_path_buf).collect(),
+    };
+    dirs.extend(
+        walked
+            .into_iter()
+            .map(|dir| (dir.join(PROJECT_DIR_NAME), walked_scope(env, &dir))),
+    );
+    if generation == OpenCodeGeneration::V1 {
+        dirs.push((home_config_dir(env), ExtensionScope::User));
     }
-    dirs.push((home_config_dir(env), ExtensionScope::User));
 
     let mut themes = builtin_themes(BUILTIN_THEMES, &is_active);
 
@@ -358,23 +230,20 @@ fn themes(env: &Env, project: Option<&Path>) -> Vec<ThemeInfo> {
     themes
 }
 
-/// `theme` (or `tui.theme`) of the last terminal UI settings file that sets one.
-fn active_theme(env: &Env, project: Option<&Path>) -> String {
-    tui_files(env, project)
+/// `theme` (or `tui.theme`, or `theme.name` as OpenCode 2 writes it) of the last terminal UI
+/// settings file that sets one.
+fn active_theme(env: &Env, project: Option<&Path>, generation: OpenCodeGeneration) -> String {
+    tui_files(env, project, generation)
         .iter()
         .filter_map(|path| {
             let document = read_config(path);
             let nested = document.get("tui").and_then(|tui| tui.get("theme"));
+            let theme = document.get("theme").or(nested)?;
 
-            document.get("theme").or(nested)?.as_str().map(str::to_owned)
+            theme.get("name").unwrap_or(theme).as_str().map(str::to_owned)
         })
         .next_back()
         .unwrap_or_else(|| DEFAULT_THEME.to_owned())
-}
-
-/// The entries of an object value (none for anything else).
-fn object_entries(value: Option<&Value>) -> impl Iterator<Item = (&String, &Value)> {
-    value.and_then(Value::as_object).into_iter().flatten()
 }
 
 /// The `description` of a definition, with secrets in the text masked.
@@ -435,29 +304,5 @@ fn markdown_fields(path: &Path) -> Option<Map<String, Value>> {
     match parse_frontmatter(&text)? {
         Value::Object(fields) => Some(fields),
         _ => None,
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn npm_specs_split_into_package_and_version() {
-        assert_eq!(npm_package("opencode-wakatime"), ("opencode-wakatime", None));
-        assert_eq!(
-            npm_package("opencode-wakatime@1.2.0"),
-            ("opencode-wakatime", Some("1.2.0"))
-        );
-        assert_eq!(npm_package("@acme/plugin"), ("@acme/plugin", None));
-        assert_eq!(npm_package("@acme/plugin@^2"), ("@acme/plugin", Some("^2")));
-        assert_eq!(npm_package("github:acme/plugin"), ("github:acme/plugin", None));
-    }
-
-    #[test]
-    fn plugin_lists_accept_specs_with_options() {
-        let value = serde_json::json!(["a", ["b", { "apiKey": "x" }], 3, []]);
-
-        assert_eq!(plugin_specs(Some(&value)), ["a", "b"]);
     }
 }
