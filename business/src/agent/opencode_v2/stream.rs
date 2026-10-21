@@ -24,6 +24,9 @@
 //!   again (`guard.rs`); when it no longer holds, the chat stops the same way with its own notice.
 //! - **Resume:** before the first event, the subagent sessions of a resumed session count as the
 //!   chat's (`catch_up.rs`), so their asks reach the chat.
+//! - **Subagent sessions named by a call:** a `subagent` call that names a session the chat does
+//!   not count has the subagent sessions listed again before the next event (`catch_up.rs`): the
+//!   session counts only when OpenCode lists it as a child of the chat's sessions.
 //! - A permission ask the chat's "Always allow" answers cover is answered without a dialog
 //!   (`approvals.rs`).
 
@@ -154,6 +157,12 @@ async fn follow(chat: &Arc<Chat>, events: &mut EventStream, watch: &Watch) -> En
 
         if recheck && guard::recheck(chat).await.is_err() {
             return Ended::Unguarded;
+        }
+
+        let unlisted = chat.lock().mapper.take_unlisted();
+
+        if !unlisted.is_empty() {
+            catch_up::confirm_children(chat).await;
         }
     }
 }

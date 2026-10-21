@@ -1,6 +1,7 @@
 //! The chat's subagent sessions and the asks OpenCode waits for, read when the chat follows the
-//! event stream again (`catch_up.rs`) and, for the subagent sessions, when it resumes a session
-//! (`stream.rs`): what the chat missed meanwhile shows as it would have live.
+//! event stream again (`catch_up.rs`), when a `subagent` call names a session the chat does not
+//! count, and, for the subagent sessions, when it resumes a session (`stream.rs`): what the chat
+//! missed meanwhile shows as it would have live.
 //!
 //! - **Subagent sessions:** `GET /api/session?parentID=` of the chat's session and, breadth first,
 //!   of each session found, at most [`MAX_CHILD_LISTS`] lists of the [`CHILD_PAGE`] most recently

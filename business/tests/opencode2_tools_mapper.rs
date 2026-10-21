@@ -1,15 +1,17 @@
 //! Tool cards of the OpenCode 2 mapper: the output a card shows live matches what it shows after
 //! resume (files, a failed call's partial output), a running `shell` call's output streams as
-//! `toolUpdate` once the engine reads its shell, and a prompt that runs a skill names it. Also the
-//! lenient reading of session messages.
+//! `toolUpdate` once the engine reads its shell, a session a `subagent` call names counts only once
+//! the engine confirms it, and a prompt that runs a skill names it. Also the lenient reading of
+//! session messages.
 
 mod opencode2_mapper_support;
 mod opencode2_recorded;
 
 use harness_business::model::{AgentEvent, MessageRole};
+use harness_business::opencode_server_v2::events::Event;
 use harness_business::opencode_server_v2::mapper::{Mapper, ShellCall, history};
 use harness_business::opencode_server_v2::messages::{SessionMessage, ToolState};
-use opencode2_mapper_support::{ended, events, feed, mapper, ours, result_text, text_of};
+use opencode2_mapper_support::{SESSION, ended, event, events, feed, mapper, ours, requests, result_text, text_of};
 use pretty_assertions::assert_eq;
 use serde_json::{Value, json};
 
@@ -214,4 +216,59 @@ fn a_streaming_call_has_no_arguments_or_result_yet() {
     assert!(call.input().is_null());
     assert_eq!(call.outcome(), None);
     assert_eq!(message.chat_messages().len(), 1);
+}
+
+/// A `permission.asked` of `session` to edit a file.
+fn asked(id: &str, session: &str) -> Event {
+    event(
+        "permission.asked",
+        json!({ "id": id, "sessionID": session, "action": "edit", "resources": ["x.txt"] }),
+    )
+}
+
+/// The input start and the progress of call `id` of tool `name`, whose metadata names `session`.
+fn call_naming(id: &str, name: &str, session: &str) -> Vec<Event> {
+    vec![
+        ours(
+            "session.tool.input.started",
+            json!({ "assistantMessageID": "msg_a", "id": id, "name": name }),
+        ),
+        ours(
+            "session.tool.progress",
+            json!({ "assistantMessageID": "msg_a", "id": id, "metadata": { "sessionID": session, "status": "running" } }),
+        ),
+    ]
+}
+
+#[test]
+fn a_session_a_call_names_counts_only_once_the_engine_confirms_it() {
+    let mut mapper = mapper();
+
+    feed(&mut mapper, &call_naming("call_m", "mcp_lookup", "ses_foreign"));
+    assert!(
+        mapper.take_unlisted().is_empty(),
+        "another tool's metadata names no subagent session"
+    );
+
+    feed(&mut mapper, &call_naming("call_s", "subagent", "ses_named"));
+    feed(&mut mapper, &call_naming("call_t", "subagent", "ses_named"));
+    assert_eq!(mapper.take_unlisted(), ["ses_named"], "named once, handed out once");
+    assert!(mapper.take_unlisted().is_empty());
+
+    let before = events(feed(
+        &mut mapper,
+        &[asked("per_f", "ses_foreign"), asked("per_n", "ses_named")],
+    ));
+    assert!(
+        requests(&before).is_empty(),
+        "a named session's asks wait for the confirmation: {before:#?}"
+    );
+    assert!(!mapper.is_chat_session("ses_foreign"));
+    assert!(!mapper.is_chat_session("ses_named"));
+
+    mapper.adopt("ses_named", SESSION, None);
+    let after = events(feed(&mut mapper, &[asked("per_m", "ses_named")]));
+
+    let ids: Vec<String> = requests(&after).into_iter().map(|request| request.id).collect();
+    assert_eq!(ids, ["per_m"]);
 }
