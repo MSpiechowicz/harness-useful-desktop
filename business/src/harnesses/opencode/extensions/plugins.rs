@@ -25,7 +25,7 @@ use crate::security::redact_text;
 /// What one entry or directory does to the plugin list.
 enum Change {
     /// Adds the plugin, defined in the file (a settings file or the plugin itself).
-    Add(PluginInfo, PathBuf),
+    Add(Box<PluginInfo>, PathBuf),
     /// Removes the plugin with this id (OpenCode 2).
     Remove(String),
 }
@@ -37,8 +37,8 @@ pub(in crate::harnesses::opencode) fn plugins(layers: &Layers) -> Vec<PluginInfo
     for change in changes(layers) {
         match change {
             Change::Add(plugin, _) => match plugins.iter_mut().find(|existing| existing.id == plugin.id) {
-                Some(existing) => *existing = plugin,
-                None => plugins.push(plugin),
+                Some(existing) => *existing = *plugin,
+                None => plugins.push(*plugin),
             },
             Change::Remove(id) => plugins.retain(|plugin| plugin.id != id),
         }
@@ -106,7 +106,7 @@ fn entry_change(
     match entry {
         PluginEntry::Spec(spec) | PluginEntry::WithOptions(Some(spec)) => {
             let plugin = configured_plugin(&spec, config_file, scope, generation)?;
-            Some(Change::Add(plugin, config_file.to_path_buf()))
+            Some(Change::Add(Box::new(plugin), config_file.to_path_buf()))
         }
         PluginEntry::Remove(target) => {
             let plugin = configured_plugin(&target, config_file, scope, generation)?;
@@ -133,7 +133,7 @@ fn dir_plugins(dir: &Path, scope: ExtensionScope, generation: OpenCodeGeneration
 
     entries
         .into_iter()
-        .map(|entry| Change::Add(local_plugin(&entry.path, scope), entry.path))
+        .map(|entry| Change::Add(Box::new(local_plugin(&entry.path, scope)), entry.path))
         .collect()
 }
 
