@@ -10,9 +10,10 @@
 //!   ([`call_touched`](crate::opencode_server_v2::tools::call_touched)). Content shows as after
 //!   resume ([`content_text`], [`failure_text`]). A call that ends without having been called
 //!   (interrupted while its input streamed) starts and ends at once.
-//! - **Shell output:** a `shell` call reports only its shell (`metadata.shellID`). The engine reads
-//!   that shell's output while the call runs ([`Mapper::take_shells`]) and hands it in
-//!   ([`Mapper::shell_output`]), so it streams as `toolUpdate` as OpenCode 1 streamed `bash`.
+//! - **Shell output:** a `shell` call reports only its shell (`metadata.shellID`, ignored from any
+//!   other tool). The engine reads that shell's output while the call runs
+//!   ([`Mapper::take_shells`]) and hands it in ([`Mapper::shell_output`]), so it streams as
+//!   `toolUpdate` as OpenCode 1 streamed `bash`.
 //! - A call still running when its turn ends fails with [`UNFINISHED_TOOL`]. A call the chat
 //!   never saw named (its first events came before the chat followed the stream) is not shown,
 //!   nor is one a session already had.
@@ -30,6 +31,9 @@ use crate::opencode_server_v2::events::{
 use crate::opencode_server_v2::tools::{call_touched, content_text, failure_text};
 use crate::pi_family::normalize::tool_result;
 use crate::security::redact_text;
+
+/// The tool whose calls run in a shell the engine reads (`metadata.shellID`).
+const SHELL_TOOL: &str = "shell";
 
 /// Result text of a call still running when its turn ended.
 const UNFINISHED_TOOL: &str = "The tool call did not finish.";
@@ -136,12 +140,14 @@ impl Tools {
     }
 
     /// `session.tool.progress`: new partial output, when the tool reports one, or the shell of a
-    /// `shell` call, for the engine to read.
+    /// `shell` call, for the engine to read (only a `shell` call names a shell the chat reads).
     pub(super) fn progress(&mut self, progress: &ToolProgress, out: &mut Vec<AgentEvent>) {
         let shell = progress.metadata.get("shellID").and_then(Value::as_str);
 
         if let Some(shell) = shell
-            && let Some(call) = self.running(&progress.id).filter(|call| !call.shell)
+            && let Some(call) = self
+                .running(&progress.id)
+                .filter(|call| call.name == SHELL_TOOL && !call.shell)
         {
             call.shell = true;
             self.shells.push(ShellCall {

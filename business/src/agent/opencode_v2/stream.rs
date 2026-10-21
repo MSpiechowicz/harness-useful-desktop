@@ -21,7 +21,8 @@
 //!   longer follow it: an error notice says so, the open dialogs close, a helper chat's session is
 //!   deleted and the server is ended, so `exited` closes the chat.
 //! - **Approval mode:** OpenCode reloading its agents, and a stream opened again, check the mode
-//!   again (`guard.rs`); when it no longer holds, the chat stops the same way with its own notice.
+//!   again (`guard.rs`), as does a `subagent` ask for an agent the mode's probe did not list, before
+//!   it shows; when the mode no longer holds, the chat stops the same way with its own notice.
 //! - **Resume:** before the first event, the subagent sessions of a resumed session count as the
 //!   chat's (`catch_up.rs`), so their asks reach the chat.
 //! - **Subagent sessions named by a call:** a `subagent` call that names a session the chat does
@@ -41,7 +42,7 @@ use super::{Chat, Live, approvals, catch_up, delivery, guard, normalized, runs, 
 use crate::agent::process::Terminator;
 use crate::model::{AgentEvent, NoticeLevel};
 use crate::opencode_server::EventStream;
-use crate::opencode_server_v2::events::{self, EventError, EventKind};
+use crate::opencode_server_v2::events::{self, Event, EventError, EventKind};
 use crate::opencode_server_v2::mapper::SessionChange;
 use crate::opencode_server_v2::{Mapped, RouteV2};
 use crate::process::ExitInfo;
@@ -119,9 +120,8 @@ async fn run(chat: Arc<Chat>, mut events: EventStream, mut watch: Watch) {
 
         events = reopened;
         failures = failed;
-        catch_up::run(&chat).await;
 
-        if guard::recheck(&chat).await.is_err() {
+        if catch_up::run(&chat).await.is_err() || guard::recheck(&chat).await.is_err() {
             return stop(&chat, &watch, guard::NOTICE).await;
         }
     }
@@ -144,25 +144,25 @@ async fn follow(chat: &Arc<Chat>, events: &mut EventStream, watch: &Watch) -> En
             Err(_) => return Ended::Silent,
         };
 
-        let recheck = match item {
-            Ok(data) => take_event(chat, &data),
+        let taken = match item {
+            Ok(data) => take_event(chat, &data).await,
             Err(fault) => {
                 chat.shared.emit(AgentEvent::FrameError {
                     original_type: None,
                     error: fault.to_string(),
                 });
-                false
+                Ok(())
             }
         };
 
-        if recheck && guard::recheck(chat).await.is_err() {
+        if taken.is_err() {
             return Ended::Unguarded;
         }
 
         let unlisted = chat.lock().mapper.take_unlisted();
 
-        if !unlisted.is_empty() {
-            catch_up::confirm_children(chat).await;
+        if !unlisted.is_empty() && catch_up::confirm_children(chat).await.is_err() {
+            return Ended::Unguarded;
         }
     }
 }
@@ -223,45 +223,63 @@ async fn stop(chat: &Chat, watch: &Watch, message: &str) {
     watch.terminator.terminate().await;
 }
 
-/// Maps one event's `data:` and delivers the result; true when the approval mode must be checked
-/// again (`guard.rs`).
-fn take_event(chat: &Arc<Chat>, data: &str) -> bool {
-    let event = match events::parse(data) {
-        Ok(event) => event,
-        Err(error) => {
-            let original_type = match &error {
-                EventError::Data { kind } => Some(kind.clone()),
-                EventError::Envelope => None,
-            };
-
-            chat.shared.emit(AgentEvent::FrameError {
-                original_type,
-                error: error.to_string(),
-            });
-            return false;
-        }
+/// Maps one event's `data:` and delivers the result, checking the approval mode first when the
+/// event is a `subagent` ask for an agent the mode's probe did not list, and after it when OpenCode
+/// may list other agents or rules (`guard.rs`). An error when the mode no longer holds: such an
+/// ask was not shown.
+async fn take_event(chat: &Arc<Chat>, data: &str) -> Result<(), guard::Unguarded> {
+    let Some(event) = parsed(chat, data) else {
+        return Ok(());
     };
 
-    let recheck = match &event.kind {
-        EventKind::PermissionAsked(permission) => guard::unknown_agent(chat, permission),
-        kind => guard::rechecks(kind),
+    if let EventKind::PermissionAsked(permission) = &event.kind {
+        guard::before_asks(chat, std::iter::once(permission)).await?;
+    }
+
+    deliver(chat, &event);
+
+    if guard::rechecks(&event.kind) {
+        guard::recheck(chat).await?;
+    }
+
+    Ok(())
+}
+
+/// The event of `data`; `None`, and a `frameError`, when it cannot be read.
+fn parsed(chat: &Chat, data: &str) -> Option<Event> {
+    let error = match events::parse(data) {
+        Ok(event) => return Some(event),
+        Err(error) => error,
     };
 
+    let original_type = match &error {
+        EventError::Data { kind } => Some(kind.clone()),
+        EventError::Envelope => None,
+    };
+
+    chat.shared.emit(AgentEvent::FrameError {
+        original_type,
+        error: error.to_string(),
+    });
+
+    None
+}
+
+/// Maps `event` and carries out the result under the chat's lock.
+fn deliver(chat: &Arc<Chat>, event: &Event) {
     let mut live = chat.lock();
 
     if let Some(created) = event.created {
         live.mark = live.mark.max(created);
     }
 
-    if approvals::answered_by_always(chat, &live, &event) {
-        return recheck;
+    if approvals::answered_by_always(chat, &live, event) {
+        return;
     }
 
-    let mapped = live.mapper.map(&event);
+    let mapped = live.mapper.map(event);
     apply(chat, &mut live, mapped);
     shell_output::follow(chat, &mut live);
-
-    recheck
 }
 
 /// Carries out what the mapper decided, in order, under the chat's lock.

@@ -1,7 +1,8 @@
 //! Approvals and question forms of the OpenCode 2 chat engine against the scripted OpenCode 2
 //! server: answers go to the asking session's routes, a reject's cascade closes the other dialogs,
 //! "Always allow" lasts as long as the chat (OpenCode is told `once`, so nothing is saved for later
-//! chats), and an answer that did not reach OpenCode shows the dialog again.
+//! chats), and an answer that did not reach OpenCode shows the dialog again. With an approval mode,
+//! a subagent ask for an agent the mode's probe did not list can only be rejected.
 
 mod agent_support;
 mod opencode2_engine_helpers;
@@ -9,10 +10,11 @@ mod opencode2_engine_support;
 
 use std::time::Duration;
 
+use agent_support::WAIT;
 use harness_business::BusinessError;
-use harness_business::model::{AgentEvent, UiOutcome, UiPurpose, UiRequest, UiRequestKind, UiResponse};
+use harness_business::model::{AgentEvent, ApprovalMode, UiOutcome, UiPurpose, UiRequest, UiRequestKind, UiResponse};
 use opencode2_engine_helpers::prompt;
-use opencode2_engine_support::{Chat, start, until_marker};
+use opencode2_engine_support::{Chat, start, start_mode, until_marker};
 use pretty_assertions::assert_eq;
 
 fn select(kind: &UiRequestKind) -> (String, Vec<String>, Vec<Option<String>>) {
@@ -231,6 +233,69 @@ async fn question_forms_are_answered_together_or_cancelled() {
     let events = until_marker(&chat).await;
     assert!(chat.session().is_running(), "every answer matched the scenario");
     assert_matched(&events);
+
+    chat.session().stop().await;
+}
+
+#[tokio::test]
+async fn a_subagent_ask_for_an_agent_the_probe_did_not_list_can_only_be_rejected() {
+    let chat = start_mode(
+        "opencode2_modes_unknown_subagent.jsonl",
+        Some(ApprovalMode::Write),
+        false,
+    )
+    .await;
+    let message = opencode2_engine_support::text_prompt("Say hello");
+    chat.session().send(message).await.expect("prompt taken");
+
+    let answer = |id: &str, value: &str| UiResponse {
+        id: id.to_owned(),
+        outcome: UiOutcome::Value {
+            value: value.to_owned(),
+        },
+    };
+    let per_2 = |event: &AgentEvent| matches!(event, AgentEvent::UiRequest { request } if request.id == "per_2");
+
+    chat.wait(
+        "per_1",
+        |event| matches!(event, AgentEvent::UiRequest { request } if request.id == "per_1"),
+    )
+    .await;
+    chat.session()
+        .respond(answer("per_1", "Allow once"))
+        .await
+        .expect("allowed");
+    until_marker(&chat).await;
+
+    for allow in ["Allow once", "Always allow"] {
+        let refused = chat.session().respond(answer("per_2", allow)).await;
+        assert!(
+            matches!(refused, Err(BusinessError::Forbidden(_))),
+            "{allow}: {refused:?}"
+        );
+    }
+
+    let replies = || chat.requests_to("POST /api/session/*/permission/per_2/reply");
+    assert!(replies().is_empty(), "no allow reached OpenCode");
+
+    let deadline = tokio::time::Instant::now() + WAIT;
+    while chat.events().iter().filter(|event| per_2(event)).count() < 3 {
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "the dialog shows again after each refused answer"
+        );
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+
+    chat.session()
+        .respond(answer("per_2", "Reject"))
+        .await
+        .expect("rejected");
+    assert_eq!(replies().len(), 1);
+    assert_eq!(replies()[0].body["decision"], "reject");
+    let mismatched =
+        |event: &AgentEvent| matches!(event, AgentEvent::Stderr { line } if line.starts_with("fake_agent:"));
+    assert!(!chat.events().iter().any(mismatched), "{:#?}", chat.events());
 
     chat.session().stop().await;
 }

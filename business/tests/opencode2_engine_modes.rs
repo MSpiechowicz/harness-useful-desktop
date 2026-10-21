@@ -2,7 +2,7 @@
 //! server: a first start without the mode reads the agents, the chat's server then starts with the
 //! mode as `OPENCODE_CONFIG_CONTENT` (the fake applies it to `GET /api/agent` like OpenCode), and
 //! nothing is ever set on the session. Agents OpenCode reloads while the chat runs are checked
-//! again. A helper chat's session is created with rules that deny every tool and deleted when the
+//! again, before a subagent ask for an agent the probe did not list shows. A helper chat's session is created with rules that deny every tool and deleted when the
 //! chat stops.
 
 mod agent_support;
@@ -348,6 +348,33 @@ async fn always_allow_never_answers_a_subagent_ask_for_an_agent_the_probe_did_no
     assert_matched(&events);
 
     chat.session().stop().await;
+}
+
+#[tokio::test]
+async fn a_subagent_ask_for_an_added_agent_stops_the_chat_before_it_shows_live_and_after_a_reconnect() {
+    for name in [
+        "opencode2_modes_unknown_subagent_added.jsonl",
+        "opencode2_modes_unknown_subagent_catch_up.jsonl",
+    ] {
+        let chat = start_mode(name, Some(ApprovalMode::Write), false).await;
+        assert_matched(&until_marker(&chat).await);
+
+        // The scenario then adds an agent and raises a subagent ask for it.
+        let rename = AgentAction::SetSessionName { name: "Go".to_owned() };
+        chat.session().send(rename).await.expect("renamed");
+
+        chat.wait("exited", |event| matches!(event, AgentEvent::Exited { .. }))
+            .await;
+        let events = chat.events();
+        assert_matched(&events);
+
+        let notice = |event: &AgentEvent| matches!(event, AgentEvent::Notice { level: NoticeLevel::Error, message } if message.contains("approval mode"));
+        let dialogs = events
+            .iter()
+            .filter(|event| matches!(event, AgentEvent::UiRequest { .. }));
+        assert!(events.iter().any(notice), "{name}: the mode notice");
+        assert_eq!(dialogs.count(), 0, "{name}: no dialog for the ask");
+    }
 }
 
 /// Where the `deleted` stderr line the helper scenarios write before answering the delete is.

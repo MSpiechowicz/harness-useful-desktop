@@ -9,6 +9,9 @@
 //!   their dialogs.
 //! - **Form:** `POST …/form/{id}/reply {answer: {key: value}}`; a dismissed dialog cancels the form
 //!   (`DELETE …/form/{id}`).
+//! - **Unknown agents:** with an approval mode, an answer that allows a `subagent` ask for an agent
+//!   the mode's probe did not list (`guard.rs`) fails and shows the dialog again: only `reject`
+//!   reaches OpenCode.
 //! - An answer that did not reach OpenCode (no answer, or a `5xx`) fails and shows the dialog again
 //!   ([`Mapper::reopen`](crate::opencode_server_v2::Mapper::reopen)), as OpenCode still waits; a
 //!   `4xx` means the ask is gone, and the dialog stays closed.
@@ -18,7 +21,7 @@ use std::sync::Arc;
 use serde_json::Value;
 
 use super::approvals::{PermissionAnswer, always_allowed, asker_directory, undelivered};
-use super::{Chat, OpenCodeV2Session, stream};
+use super::{Chat, OpenCodeV2Session, guard, stream};
 use crate::error::{BusinessError, Result};
 use crate::model::{MAX_ACTION_TEXT_BYTES, UiOutcome, UiResponse};
 use crate::opencode_server::HttpError;
@@ -49,6 +52,13 @@ impl OpenCodeV2Session {
                 Answer::Send(reply) => reply,
             };
 
+            if allows_unknown_agent(chat, &reply, &live.mapper.pending_permissions()) {
+                let reopened = live.mapper.reopen(request_id(&reply.kind));
+                stream::apply(chat, &mut live, reopened.into_iter().map(Mapped::event).collect());
+
+                return Err(BusinessError::Forbidden(UNKNOWN_AGENT.to_owned()));
+            }
+
             let directory = asker_directory(chat, &live, &reply.session);
             let always = always_answer(&reply, &live.mapper.pending_permissions());
 
@@ -73,6 +83,26 @@ impl OpenCodeV2Session {
 
         Ok(())
     }
+}
+
+/// Why an answer that allows a `subagent` ask for an unknown agent fails.
+const UNKNOWN_AGENT: &str = "This subagent is not covered by the chat's approval mode, so it can only be rejected.";
+
+/// True when `reply` allows (once or always) a `subagent` ask, among the `pending` ones, for an
+/// agent the approval mode's probe did not list.
+fn allows_unknown_agent(chat: &Chat, reply: &Reply, pending: &[PermissionRequest]) -> bool {
+    let ReplyKind::Permission { id, decision } = &reply.kind else {
+        return false;
+    };
+
+    if *decision == Decision::Reject {
+        return false;
+    }
+
+    pending
+        .iter()
+        .find(|permission| permission.id == *id)
+        .is_some_and(|permission| guard::unknown_agent(chat, permission))
 }
 
 /// The request an `Always allow` answer in `reply` is for, among the `pending` ones.

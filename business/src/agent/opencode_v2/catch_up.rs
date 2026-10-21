@@ -14,13 +14,15 @@
 //!   held follow-up or `settled` that follow.
 //! - **Subagent sessions and asks:** the subagent sessions started meanwhile count as the chat's,
 //!   an ask raised meanwhile shows and the dialog of one settled meanwhile closes (`family.rs`),
-//!   after the messages.
+//!   after the messages. A `subagent` ask for an agent the approval mode's probe did not list
+//!   first checks the mode (`guard.rs`).
 //! - A read that fails leaves the chat as it is: the live events that follow still show.
 
 use std::sync::Arc;
 
 use serde_json::{Value, json};
 
+use super::guard::{self, Unguarded};
 use super::startup::get_data;
 use super::{Chat, Live, family, stream};
 use crate::opencode_server_v2::events;
@@ -31,8 +33,10 @@ use crate::opencode_server_v2::{MessageOrder, RouteV2, SessionId};
 /// Messages read to catch up.
 const CATCH_UP_PAGE: u32 = 50;
 
-/// Reads the session and its newest messages and replays what the chat missed.
-pub(super) async fn run(chat: &Arc<Chat>) {
+/// Reads the session and its newest messages and replays what the chat missed. An error, and
+/// nothing replayed, when a pending ask names an agent the approval mode's probe did not list and
+/// the mode no longer holds (`guard.rs`).
+pub(super) async fn run(chat: &Arc<Chat>) -> Result<(), Unguarded> {
     let session = chat.lock().session.clone();
     let directory = chat.directory.as_str();
 
@@ -49,11 +53,12 @@ pub(super) async fn run(chat: &Arc<Chat>) {
     let children = family::children(chat, &session).await;
     let known = known_directories(chat);
     let pending = family::pending(chat, &children, &known).await;
+    guard::before_asks(chat, pending.permissions()).await?;
 
     let mut live = chat.lock();
 
     if live.session != session {
-        return;
+        return Ok(());
     }
 
     match info {
@@ -71,6 +76,8 @@ pub(super) async fn run(chat: &Arc<Chat>) {
 
     family::adopt(&mut live, &children);
     family::take(chat, &mut live, pending);
+
+    Ok(())
 }
 
 /// Lists the subagent sessions of the chat's session and counts them as the chat's (a resumed
@@ -90,12 +97,13 @@ pub(super) async fn adopt_children(chat: &Chat) {
 /// asks, after a `subagent` call named a session the chat does not count
 /// ([`take_unlisted`](crate::opencode_server_v2::Mapper::take_unlisted)): only a session OpenCode
 /// lists as a child of the chat's sessions counts. The event task waits for it, so the asks that
-/// follow find the session counted (or not).
-pub(super) async fn confirm_children(chat: &Arc<Chat>) {
+/// follow find the session counted (or not). An error, and nothing taken, as for [`run`].
+pub(super) async fn confirm_children(chat: &Arc<Chat>) -> Result<(), Unguarded> {
     let session = chat.lock().session.clone();
     let children = family::children(chat, &session).await;
     let known = known_directories(chat);
     let pending = family::pending(chat, &children, &known).await;
+    guard::before_asks(chat, pending.permissions()).await?;
 
     let mut live = chat.lock();
 
@@ -103,6 +111,8 @@ pub(super) async fn confirm_children(chat: &Arc<Chat>) {
         family::adopt(&mut live, &children);
         family::take(chat, &mut live, pending);
     }
+
+    Ok(())
 }
 
 /// The directories of the subagent sessions the chat knows.
