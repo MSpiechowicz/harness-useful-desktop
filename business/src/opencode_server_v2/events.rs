@@ -103,6 +103,8 @@ pub enum EventKind {
     ServerConnected,
     /// `agent.updated`: the agent list changed.
     AgentsUpdated,
+    /// `config.updated`: the configuration changed (the agents are reloaded after it).
+    ConfigUpdated,
     /// `command.updated`: the command list changed.
     CommandsUpdated,
     /// `model.updated`: the model list changed.
@@ -212,6 +214,7 @@ impl EventKind {
         let event = match kind {
             "server.connected" => E::ServerConnected,
             "agent.updated" => E::AgentsUpdated,
+            "config.updated" => E::ConfigUpdated,
             "command.updated" => E::CommandsUpdated,
             "model.updated" => E::ModelsUpdated,
             "provider.updated" => E::ProvidersUpdated,

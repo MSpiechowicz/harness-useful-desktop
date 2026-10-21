@@ -9,7 +9,8 @@
 //!   request's action and `save` patterns itself ([`Allowed`]). A later ask of the chat or its
 //!   subagents they cover is answered `once` without a dialog, as are the asks already waiting
 //!   that they cover. OpenCode never asks for a call its rules deny, so a deny still wins. When
-//!   such an answer does not reach OpenCode, the ask shows as a dialog.
+//!   such an answer does not reach OpenCode, the ask shows as a dialog. With a mode, a `subagent`
+//!   ask for an agent the mode's probe did not list always shows (`guard.rs`).
 //! - **No override:** nothing is set or read, the user's OpenCode settings apply.
 //! - **Helper chat** (naming a chat): its session is created with rules that deny every tool
 //!   (`POST /api/session {permissions}`, which the sessions started from it inherit) and deleted
@@ -21,7 +22,7 @@ use std::time::Duration;
 
 use serde_json::Value;
 
-use super::{Chat, Live, stream};
+use super::{Chat, Live, guard, stream};
 use crate::error::{BusinessError, Result};
 use crate::model::ApprovalMode;
 use crate::opencode_server::{HttpError, OpenCodeClient};
@@ -88,7 +89,7 @@ pub(super) fn answered_by_always(chat: &Arc<Chat>, live: &Live, event: &Event) -
         return false;
     };
 
-    if !live.mapper.is_chat_session(&permission.session_id) || !live.allowed.covers(permission) {
+    if !live.mapper.is_chat_session(&permission.session_id) || !allows(chat, live, permission) {
         return false;
     }
 
@@ -110,12 +111,18 @@ pub(super) fn always_allowed(chat: &Arc<Chat>, permission: &PermissionRequest) {
     live.allowed.remember(permission);
 
     let pending = live.mapper.pending_permissions().into_iter();
-    let covered = pending.filter(|waiting| waiting.id != permission.id && live.allowed.covers(waiting));
+    let covered = pending.filter(|waiting| waiting.id != permission.id && allows(chat, live, waiting));
 
     for waiting in covered.collect::<Vec<_>>() {
         let directory = asker_directory(chat, live, &waiting.session_id);
         tokio::spawn(allow_once(chat.clone(), waiting, directory, None));
     }
+}
+
+/// True when the chat's "Always allow" answers cover `permission`; never for a `subagent` ask
+/// naming an agent the mode's probe did not list (`guard.rs`).
+fn allows(chat: &Chat, live: &Live, permission: &PermissionRequest) -> bool {
+    live.allowed.covers(permission) && !guard::unknown_agent(chat, permission)
 }
 
 /// The directory of the session that asked: a subagent's own, else the chat's.

@@ -36,7 +36,8 @@
 //! - A reply is `{"status", "body", "headers"}` (without `status`: 200 with a body, 204 without),
 //!   `{"data", "cursor", "location"}` for the `{data}` envelope, or `{"recording": "<file.jsonl>",
 //!   "route": "GET /api/command", "nth": 0}` for the `status` and `response` of a recorded `http`
-//!   row (the other keys override them). No reply (or one without these keys) answers the
+//!   row (the other keys override them); `"appendData": [...]` adds items to the end of the
+//!   reply's `data` list. No reply (or one without these keys) answers the
 //!   route's default: an inbox entry for `prompt` and `compact` (`"inboxID"` picks its id, else
 //!   `msg_fakeinbox<n>`), `{"interrupted": true}` for `interrupt`, the configuration sources for
 //!   `GET /api/config`, else `204`. `GET /api/agent` replies show `OPENCODE_CONFIG_CONTENT`'s agent

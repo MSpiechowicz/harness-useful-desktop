@@ -31,6 +31,7 @@ use tokio::sync::oneshot;
 use super::approvals::{Allowed, LaunchRules, StartedHelper, denies_all};
 use super::catalog::Catalog;
 use super::commands::Slash;
+use super::guard::ModeGuard;
 use super::history::{all_messages, last_context};
 use super::probe::{ModeLaunch, Probe, check_mode, mode_launch, with_content};
 use super::{Chat, Live, OpenCodeV2Session, normalized, stream};
@@ -148,7 +149,10 @@ impl OpenCodeV2Session {
         );
 
         match run_startup_until(budget, until, &mut abort, steps).await {
-            Ok(booted) => Ok(Self::open(process, &launch.project, rules, options, booted)),
+            Ok(booted) => {
+                let guard = moded.as_ref().map(ModeGuard::new);
+                Ok(Self::open(process, &launch.project, (rules, guard), options, booted))
+            }
             Err(error) => {
                 // A helper session the failed startup created is never used: it goes too.
                 helper.delete().await;
@@ -161,7 +165,7 @@ impl OpenCodeV2Session {
     fn open(
         process: AgentProcess,
         project: &Path,
-        rules: LaunchRules,
+        (rules, guard): (LaunchRules, Option<ModeGuard>),
         options: &SessionOptions,
         booted: Booted,
     ) -> Self {
@@ -197,6 +201,7 @@ impl OpenCodeV2Session {
             export_dir: options.export_dir.clone(),
             catalog: booted.catalog,
             rules,
+            guard,
             live: Mutex::new(live),
         });
 

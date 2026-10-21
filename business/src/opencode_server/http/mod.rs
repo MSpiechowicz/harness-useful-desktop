@@ -13,7 +13,8 @@
 //! - Every call has a deadline: [`ClientOptions::timeout`], or [`ClientOptions::blocking_timeout`]
 //!   for the routes that answer only when their work is done ([`ApiRoute::blocks`]).
 //! - An event stream ([`OpenCodeClient::stream`], [`OpenCodeClient::events`]) yields each SSE
-//!   event's `data:` payload ([`sse`]).
+//!   event's `data:` payload and tells when the server last sent a line, comments included
+//!   ([`sse`]).
 //! - Errors name what failed, never request headers or response bodies.
 //!
 //! [`Route`]: super::routes::Route

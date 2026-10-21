@@ -1,8 +1,9 @@
 //! Approval modes and helper chats of the OpenCode 2 chat engine against the scripted OpenCode 2
 //! server: a first start without the mode reads the agents, the chat's server then starts with the
 //! mode as `OPENCODE_CONFIG_CONTENT` (the fake applies it to `GET /api/agent` like OpenCode), and
-//! nothing is ever set on the session. A helper chat's session is created with rules that deny every
-//! tool and deleted when the chat stops.
+//! nothing is ever set on the session. Agents OpenCode reloads while the chat runs are checked
+//! again. A helper chat's session is created with rules that deny every tool and deleted when the
+//! chat stops.
 
 mod agent_support;
 mod opencode2_engine_support;
@@ -13,7 +14,9 @@ use std::time::Duration;
 use agent_support::{WAIT, options};
 use harness_business::BusinessError;
 use harness_business::agent::SessionOptions;
-use harness_business::model::{AgentEvent, ApprovalMode, IpcErrorCode, NoticeLevel};
+use harness_business::model::{
+    AgentAction, AgentEvent, ApprovalMode, IpcErrorCode, NoticeLevel, UiOutcome, UiResponse,
+};
 use harness_business::opencode_server_v2::mode_config::{configured_rules, listed_agents};
 use harness_business::opencode_server_v2::modes::{Rule, decide};
 use harness_business::process::ExecSpec;
@@ -250,6 +253,65 @@ async fn a_resumed_session_with_rules_of_its_own_refuses_a_mode() {
     assert!(error.to_string().contains("rules of its own"), "{error}");
     assert_eq!(chat.spawner.requested().len(), 1, "only the probe ran");
     all_reaped(&chat).await;
+}
+
+#[tokio::test]
+async fn an_agent_added_while_the_chat_runs_stops_a_chat_with_a_mode() {
+    let chat = start_mode("opencode2_modes_agent_added.jsonl", Some(ApprovalMode::Write), false).await;
+    assert_matched(&until_marker(&chat).await);
+    assert!(
+        chat.session().is_running(),
+        "OpenCode's own agent.updated at startup changes nothing"
+    );
+
+    let rename = AgentAction::SetSessionName { name: "Go".to_owned() };
+    chat.session().send(rename).await.expect("renamed");
+
+    let notice = chat
+        .wait("the mode notice", |event| {
+            matches!(event, AgentEvent::Notice { level: NoticeLevel::Error, message } if message.contains("approval mode"))
+        })
+        .await;
+    assert!(matches!(notice, AgentEvent::Notice { .. }));
+    chat.wait("exited", |event| matches!(event, AgentEvent::Exited { .. }))
+        .await;
+    assert_matched(&chat.events());
+}
+
+#[tokio::test]
+async fn always_allow_never_answers_a_subagent_ask_for_an_agent_the_probe_did_not_list() {
+    let chat = start_mode(
+        "opencode2_modes_unknown_subagent.jsonl",
+        Some(ApprovalMode::Write),
+        false,
+    )
+    .await;
+    let message = opencode2_engine_support::text_prompt("Say hello");
+    chat.session().send(message).await.expect("prompt taken");
+
+    let shown = |id: &'static str| move |event: &AgentEvent| matches!(event, AgentEvent::UiRequest { request } if request.id == id);
+    chat.wait("per_1", shown("per_1")).await;
+    let always = UiResponse {
+        id: "per_1".to_owned(),
+        outcome: UiOutcome::Value {
+            value: "Always allow".to_owned(),
+        },
+    };
+    chat.session().respond(always).await.expect("always");
+
+    chat.wait("per_2", shown("per_2")).await;
+    let events = until_marker(&chat).await;
+    tokio::time::sleep(Duration::from_millis(200)).await;
+
+    let replies = chat.requests_to("POST /api/session/*/permission/*/reply");
+    assert_eq!(replies.len(), 1, "only per_1 was answered: {replies:#?}");
+    assert!(
+        chat.session().is_running(),
+        "the agents did not change: the chat goes on"
+    );
+    assert_matched(&events);
+
+    chat.session().stop().await;
 }
 
 /// Where the `deleted` stderr line the helper scenarios write before answering the delete is.

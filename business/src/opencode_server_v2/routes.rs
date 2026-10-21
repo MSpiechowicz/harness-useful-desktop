@@ -10,7 +10,8 @@
 //!   project directory.
 //! - Left out on purpose (standing rules): share, pairing, credentials, config writes
 //!   (`/api/experimental/config`), plugin and MCP management, PTYs, session archive, move, revert,
-//!   environment, import and saved permission changes. `PATCH /api/session/{id}` is only ever sent
+//!   environment, import and saved permission changes, and the provider list and configuration
+//!   reads, which the chat does not need (the configuration is read through the CLI). `PATCH /api/session/{id}` is only ever sent
 //!   with a title ([`super::wire::session::TitleBody`]), never with permissions. Of the shell
 //!   routes only reading a running tool call's output is allowed ([`RouteV2::ShellOutput`]), never
 //!   creating or removing a shell.
@@ -241,11 +242,6 @@ pub enum RouteV2<'a> {
         /// The project directory.
         directory: &'a str,
     },
-    /// `GET /api/config` → `[source]` (read only, not enveloped).
-    ConfigGet {
-        /// The project directory.
-        directory: &'a str,
-    },
     /// `GET /api/model` → `{data: [model], location}`.
     ModelList {
         /// The project directory.
@@ -254,11 +250,6 @@ pub enum RouteV2<'a> {
     /// `GET /api/model/default` → `{data: model?, location}`: the model a session without its own
     /// selection uses.
     ModelDefault {
-        /// The project directory.
-        directory: &'a str,
-    },
-    /// `GET /api/provider` → `{data: [provider], location}`.
-    ProviderList {
         /// The project directory.
         directory: &'a str,
     },
@@ -281,10 +272,8 @@ impl RouteV2<'_> {
             | Self::AgentList { .. }
             | Self::CommandList { .. }
             | Self::SkillList { .. }
-            | Self::ConfigGet { .. }
             | Self::ModelList { .. }
-            | Self::ModelDefault { .. }
-            | Self::ProviderList { .. } => Method::Get,
+            | Self::ModelDefault { .. } => Method::Get,
             Self::SessionUpdate { .. } => Method::Patch,
             Self::SessionDelete { .. } | Self::FormCancel { .. } => Method::Delete,
             _ => Method::Post,
@@ -361,10 +350,8 @@ impl RouteV2<'_> {
             Self::AgentList { directory } => located("/api/agent", Vec::new(), directory),
             Self::CommandList { directory } => located("/api/command", Vec::new(), directory),
             Self::SkillList { directory } => located("/api/skill", Vec::new(), directory),
-            Self::ConfigGet { directory } => located("/api/config", Vec::new(), directory),
             Self::ModelList { directory } => located("/api/model", Vec::new(), directory),
             Self::ModelDefault { directory } => located("/api/model/default", Vec::new(), directory),
-            Self::ProviderList { directory } => located("/api/provider", Vec::new(), directory),
         }
     }
 }

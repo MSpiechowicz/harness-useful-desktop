@@ -7,9 +7,9 @@ use std::path::Path;
 
 use harness_business::opencode_server_v2::MessageId;
 use harness_business::opencode_server_v2::wire::{
-    Agent, AgentBody, CommandBody, CompactBody, ConfigSource, CreateBody, Decision, Delivery, Envelope, FileRef,
-    ForkBody, Form, FormReplyBody, FormValue, InboxEntry, Interrupted, Model, ModelBody, ModelRef, PermissionReplyBody,
-    PermissionRequest, PromptBody, Provider, ServerInfo, Session, ShellBody, TitleBody,
+    Agent, AgentBody, CommandBody, CompactBody, CreateBody, Decision, Delivery, Envelope, FileRef, ForkBody, Form,
+    FormReplyBody, FormValue, InboxEntry, Interrupted, Model, ModelBody, ModelRef, PermissionReplyBody,
+    PermissionRequest, PromptBody, ServerInfo, Session, ShellBody, TitleBody,
 };
 use opencode2_recorded::{DIRECTORY, Exchange, exchanges, find};
 use pretty_assertions::assert_eq;
@@ -37,10 +37,17 @@ fn big_pickle() -> ModelRef {
 #[test]
 fn every_recorded_response_decodes_into_its_type() {
     let mut decoded = 0;
+    let mut skipped = 0;
 
     for exchange in exchanges() {
         let path = exchange.path();
         let method = exchange.method.as_str();
+
+        if path == "/api/config" {
+            // The configuration is read through the CLI, never by the chat.
+            skipped += 1;
+            continue;
+        }
 
         if exchange.status == 204 {
             assert_eq!(exchange.response, Value::Null, "{} {path}", exchange.file);
@@ -70,8 +77,6 @@ fn every_recorded_response_decodes_into_its_type() {
             let _: Envelope<Vec<harness_business::opencode_server_v2::wire::Command>> = decode(&exchange);
         } else if path == "/api/model" {
             let _: Envelope<Vec<Model>> = decode(&exchange);
-        } else if path == "/api/config" {
-            let _: Vec<ConfigSource> = decode(&exchange);
         } else if path == "/api/form" {
             let _: Envelope<Vec<Form>> = decode(&exchange);
         } else {
@@ -82,7 +87,7 @@ fn every_recorded_response_decodes_into_its_type() {
         decoded += 1;
     }
 
-    assert_eq!(decoded, exchanges().len());
+    assert_eq!(decoded + skipped, exchanges().len());
 }
 
 #[test]
@@ -179,57 +184,6 @@ fn catalogs_keep_display_fields_only() {
 
     let shown = format!("{:?}", agents.data);
     assert!(!shown.contains("headers") && !shown.contains("file search specialist"));
-}
-
-#[test]
-fn providers_keep_id_name_and_activation() {
-    let body = json!({
-        "location": {"directory": DIRECTORY},
-        "data": [{
-            "id": "opencode",
-            "integrationID": "opencode",
-            "name": "OpenCode Zen",
-            "activation": "auto",
-            "package": "@opencode/ai/providers/openai-compatible",
-            "settings": {"apiKey": "secret-value", "baseURL": "https://example.invalid"}
-        }]
-    });
-
-    let providers: Envelope<Vec<Provider>> = serde_json::from_value(body).expect("providers");
-
-    assert_eq!(
-        providers.data[0],
-        Provider {
-            id: "opencode".to_owned(),
-            name: "OpenCode Zen".to_owned(),
-            integration_id: Some("opencode".to_owned()),
-            activation: "auto".to_owned(),
-        }
-    );
-}
-
-#[test]
-fn config_sources_read_directories_and_documents() {
-    let recorded: Vec<ConfigSource> = decode(&find("GET", "/api/config")[0]);
-    assert_eq!(
-        recorded,
-        [ConfigSource::Directory {
-            path: "/home/user/.config/opencode".to_owned()
-        }]
-    );
-
-    let inline = json!([
-        {"type": "document", "info": {"agents": {"build": {"permissions": [{"action": "edit", "resource": "*", "effect": "ask"}]}}}},
-        {"type": "remote", "url": "https://example.invalid"}
-    ]);
-    let sources: Vec<ConfigSource> = serde_json::from_value(inline).expect("sources");
-
-    let ConfigSource::Document { path, info } = &sources[0] else {
-        panic!("a document");
-    };
-    assert_eq!(*path, None);
-    assert_eq!(info["agents"]["build"]["permissions"][0]["effect"], "ask");
-    assert_eq!(sources[1], ConfigSource::Other);
 }
 
 #[test]

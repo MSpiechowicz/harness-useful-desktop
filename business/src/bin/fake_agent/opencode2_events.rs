@@ -219,6 +219,8 @@ pub fn reply(shared: &Shared, spec: &Value, request: &Request) -> Reply {
         canned(shared, &spec, request)
     };
 
+    append_data(&spec, &mut reply);
+
     let configured = shared
         .config
         .as_ref()
@@ -439,5 +441,23 @@ fn apply_agent_config(config: &Value, body: &mut Value) {
         let added: Vec<Value> = shared_rules.iter().chain(&own).cloned().collect();
 
         rules.splice(at..at, added);
+    }
+}
+
+/// Adds a reply spec's `appendData` items to the end of the reply's `data` list (an agent added to a
+/// recorded `GET /api/agent`, say).
+fn append_data(spec: &Value, reply: &mut Reply) {
+    let Some(extra) = spec.get("appendData").and_then(Value::as_array) else {
+        return;
+    };
+
+    let listed = reply
+        .body
+        .as_mut()
+        .and_then(|body| body.get_mut("data"))
+        .and_then(Value::as_array_mut);
+
+    if let Some(listed) = listed {
+        listed.extend(extra.iter().cloned());
     }
 }

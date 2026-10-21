@@ -18,8 +18,9 @@
 //!   (`ops.rs`), `!command`s and compaction (`runs.rs`), and statistics, the last reply and the HTML
 //!   export (`reports.rs`).
 //! - **Approval modes** (`approvals.rs`, `probe.rs`): configuration of the chat's own server, read
-//!   from a first start without the mode. "Always allow" lasts as long as the chat. **Helper
-//!   chats:** a session whose own rules deny everything.
+//!   from a first start without the mode, checked again when OpenCode reloads its agents
+//!   (`guard.rs`). "Always allow" lasts as long as the chat. **Helper chats:** a session whose own
+//!   rules deny everything.
 //! - **Stop:** open dialogs close, a helper chat's session is deleted, then the server stops.
 
 mod approvals;
@@ -29,6 +30,7 @@ mod commands;
 mod delivery;
 mod dialogs;
 mod family;
+mod guard;
 mod history;
 mod ops;
 mod probe;
@@ -48,6 +50,7 @@ use tokio::task::AbortHandle;
 
 use self::approvals::{Allowed, LaunchRules};
 use self::catalog::Catalog;
+use self::guard::ModeGuard;
 use super::io::Shared;
 use super::process::AgentProcess;
 use super::sink::PromptTaken;
@@ -83,6 +86,8 @@ struct Chat {
     catalog: Catalog,
     /// The approval mode and whether this is a helper chat.
     rules: LaunchRules,
+    /// With a mode: what keeps it exact while the chat runs (`guard.rs`).
+    guard: Option<ModeGuard>,
     live: Mutex<Live>,
 }
 
