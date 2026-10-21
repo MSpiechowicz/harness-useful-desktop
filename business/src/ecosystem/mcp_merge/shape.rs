@@ -142,29 +142,45 @@ pub(crate) fn server_mut<'a>(document: &'a mut Map<String, Value>, shape: Shape,
     root.get_mut(NESTED)?.as_object_mut()?.get_mut(name)
 }
 
-/// Removes the server `name`; true when there was one. On OpenCode 2 both copies go: the nested
-/// one, then a legacy `mcp.<name>` server that would show through once the nested one is gone.
-pub(crate) fn remove_server(document: &mut Map<String, Value>, shape: Shape, name: &str) -> bool {
+/// Removes the server `name` when `owned` accepts it; true when one was removed. On OpenCode 2
+/// both copies are checked: the nested one, then a legacy `mcp.<name>` server that would show
+/// through once the nested one is gone. A copy `owned` refuses is kept as it is (OpenCode then
+/// still sees it, see [`servers`]).
+pub(crate) fn remove_server(
+    document: &mut Map<String, Value>,
+    shape: Shape,
+    name: &str,
+    owned: impl Fn(&Value) -> bool,
+) -> bool {
     let Some(root) = document.get_mut(shape.root()).and_then(Value::as_object_mut) else {
         return false;
     };
 
     if shape != Shape::OpenCodeV2 {
-        return root.shift_remove(name).is_some();
+        return remove_owned(root, name, &owned);
     }
 
     let nested = root
         .get_mut(NESTED)
         .and_then(Value::as_object_mut)
-        .is_some_and(|nested| nested.shift_remove(name).is_some());
+        .is_some_and(|nested| remove_owned(nested, name, &owned));
 
     let legacy = is_legacy_only(document, name)
         && document
             .get_mut(shape.root())
             .and_then(Value::as_object_mut)
-            .is_some_and(|root| root.shift_remove(name).is_some());
+            .is_some_and(|root| remove_owned(root, name, &owned));
 
     nested || legacy
+}
+
+/// Removes `servers[name]` when `owned` accepts it; true when it was removed.
+fn remove_owned(servers: &mut Map<String, Value>, name: &str, owned: impl Fn(&Value) -> bool) -> bool {
+    if !servers.get(name).is_some_and(owned) {
+        return false;
+    }
+
+    servers.shift_remove(name).is_some()
 }
 
 /// True when OpenCode 2 sees `name` only as a legacy `mcp.<name>` server.
@@ -191,6 +207,10 @@ mod tests {
         value.as_object().cloned().unwrap()
     }
 
+    fn any(_: &Value) -> bool {
+        true
+    }
+
     #[test]
     fn opencode_2_sees_legacy_and_nested_servers_and_adds_nested_ones() {
         let mut file = document(json!({ "mcp": {
@@ -208,12 +228,12 @@ mod tests {
         assert!(file["mcp"]["servers"].get("added").is_some());
 
         assert!(server_mut(&mut file, Shape::OpenCodeV2, "old").is_some());
-        assert!(remove_server(&mut file, Shape::OpenCodeV2, "old"));
+        assert!(remove_server(&mut file, Shape::OpenCodeV2, "old", any));
         assert!(file["mcp"].get("old").is_none());
-        assert!(remove_server(&mut file, Shape::OpenCodeV2, "new"));
+        assert!(remove_server(&mut file, Shape::OpenCodeV2, "new", any));
         assert!(file["mcp"]["servers"].get("new").is_none());
         assert!(
-            !remove_server(&mut file, Shape::OpenCodeV2, "toggle"),
+            !remove_server(&mut file, Shape::OpenCodeV2, "toggle", any),
             "not a server on OpenCode 2"
         );
     }
@@ -244,19 +264,42 @@ mod tests {
             },
         }}));
 
-        assert!(remove_server(&mut file, Shape::OpenCodeV2, "same"));
+        assert!(remove_server(&mut file, Shape::OpenCodeV2, "same", any));
         assert!(file["mcp"].get("same").is_none());
         assert!(file["mcp"]["servers"].get("same").is_none());
         assert!(servers(&file, Shape::OpenCodeV2).unwrap().get("same").is_none());
 
-        assert!(remove_server(&mut file, Shape::OpenCodeV2, "toggle"));
+        assert!(remove_server(&mut file, Shape::OpenCodeV2, "toggle", any));
         assert_eq!(
             file["mcp"]["toggle"],
             json!({ "enabled": false }),
             "a legacy toggle is not a server on OpenCode 2"
         );
-        assert!(!remove_server(&mut file, Shape::OpenCodeV2, "servers"));
+        assert!(!remove_server(&mut file, Shape::OpenCodeV2, "servers", any));
         assert!(file["mcp"].get("servers").is_some());
+    }
+
+    #[test]
+    fn a_copy_that_is_not_owned_is_kept() {
+        let mine = |server: &Value| server["command"][0] == "mine";
+        let legacy =
+            json!({ "type": "remote", "url": "https://team.example/mcp", "headers": { "Authorization": "x" } });
+        let mut file = document(json!({ "mcp": {
+            "same": legacy,
+            "servers": { "same": { "type": "local", "command": ["mine"] } },
+        }}));
+
+        assert!(remove_server(&mut file, Shape::OpenCodeV2, "same", mine));
+        assert!(file["mcp"]["servers"].get("same").is_none());
+        assert_eq!(file["mcp"]["same"], legacy);
+        assert_eq!(servers(&file, Shape::OpenCodeV2).unwrap()["same"], legacy);
+
+        assert!(!remove_server(&mut file, Shape::OpenCodeV2, "same", mine));
+        assert_eq!(file["mcp"]["same"], legacy);
+
+        let mut flat = document(json!({ "mcpServers": { "same": { "command": "other" } } }));
+        assert!(!remove_server(&mut flat, Shape::McpServers, "same", mine));
+        assert!(flat["mcpServers"].get("same").is_some());
     }
 
     #[test]

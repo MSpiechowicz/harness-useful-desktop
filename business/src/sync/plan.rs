@@ -11,7 +11,7 @@
 //! user scope (an OpenCode plugin as `<name>[@<version>]`), `PackageInstall` (no project), or an MCP
 //! entry holding only `type`, `command`, `args`, `url` and, when the server needs env or header
 //! values, `"enabled": false` (OpenCode: `type`, the `command` array or `url`, and `enabled`). The
-//! MCP file comes from [`mcp_target`], never from the bundle. Statuses compare the bundle with this machine's
+//! MCP file comes from [`share_mcp_target`], never from the bundle. Statuses compare the bundle with this machine's
 //! files in process (see [`super::plan_presence`]); existing MCP definitions and local sources never
 //! reach the plan.
 //!
@@ -38,7 +38,7 @@ use super::collect::item_id;
 use super::plan_presence::{Machine, McpFiles, Presence, mcp_presence};
 use super::plan_rows::{Dependency, Row, SharedMarketplace, Step, StoredPlan, display_argv, mcp_preview};
 use super::schema::{McpServer, Parsed, ParsedSection, Plugin};
-use crate::ecosystem::mcp_target;
+use crate::ecosystem::share_mcp_target;
 use crate::env::Env;
 use crate::harness::{Harness, HarnessRegistry, ShareSupport};
 use crate::model::{
@@ -109,7 +109,7 @@ pub fn build_plan(
 
 /// The user MCP file of `harness`, when it has one.
 fn mcp_files(env: &Env, harness: &dyn Harness) -> Option<McpFiles> {
-    mcp_target(env, harness).map(|file| McpFiles {
+    share_mcp_target(env, harness).map(|file| McpFiles {
         target: file.path,
         also_read: file.also_read,
         shape: file.shape,

@@ -132,5 +132,5 @@ pub use memory_scripts::{MemoryScripts, SCRIPT_LIST_TOOL, ScriptsQuery};
 pub use memory_team_docs::{MemoryTeamDocs, TeamDocsConfig, TeamDocsSupport};
 pub use memory_trust::{script_sha256, trust_scripts};
 pub use releases::{CompanionReleases, release_endpoint};
-pub use setup::{McpFile, mcp_target, mcp_target_paths, memory_server_setup, setup_status};
+pub use setup::{McpFile, mcp_target, mcp_target_paths, memory_server_setup, setup_status, share_mcp_target};
 pub use skills_record::{opencode_skills_record, opencode_skills_version};

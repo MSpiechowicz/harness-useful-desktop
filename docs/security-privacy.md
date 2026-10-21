@@ -415,8 +415,9 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
   rewrite would lose them: the setup row shows the entry and the file instead (`McpState::ManualEdit`), and nothing is
   written at launch. Only the other OpenCode global files it reads, `config.json` there, `opencode.json[c]` in
   `~/.opencode` and `OPENCODE_CONFIG_DIR`, and the file `OPENCODE_CONFIG` names (absolute paths only), are looked at to find an existing entry, never written
-  (OpenCode 2: no `config.json`, `OPENCODE_CONFIG_DIR` replaces the global folder, and `~/opencode.json[c]` is read
-  too). The
+  (OpenCode 2: no `config.json`, `OPENCODE_CONFIG_DIR` replaces the global folder, and `opencode.json[c]` in the home
+  folder and in `~/.opencode` do not count, because OpenCode 2 reads them only for projects below the home folder; Share
+  setup still checks them). The
   write is atomic (temporary sibling, flushed, renamed) and keeps the file's permissions; a new file is created with
   `0600`. File contents are never logged or returned.
 - **OpenCode plugin removal.** OpenCode has no uninstall command, so removing a plugin in Extensions edits a file instead
@@ -459,7 +460,9 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
     installed (`invalidInput` otherwise).
   - **Only owned entries change.** An entry in the harness's own MCP file named exactly `harness-memory` that runs
     `harness-memory mcp` gets its `command` (OpenCode: the first item of its `command` array) re-pointed to the resolved server whenever that lives elsewhere (logged at
-    info with the old and new path); every other field and server is kept. Switching the pref off removes only such entries. In an OpenCode config file with comments the owned entry is not
+    info with the old and new path); every other field and server is kept. Switching the pref off removes only such entries. On OpenCode 2 a legacy `mcp.harness-memory` beside the
+    removed `mcp.servers.harness-memory` goes too only when it runs `harness-memory mcp` as well; any other one stays as it
+    is (logged as a warning, since OpenCode then still starts it). In an OpenCode config file with comments the owned entry is not
     removed: the switch returns it (`manualRemovals`: harness, `~` path, entry name) and logs a warning, and Settings
     asks you to delete it by hand. Until you do, OpenCode still starts the server. Other entries are never touched, and the server,
     the record and the database stay.

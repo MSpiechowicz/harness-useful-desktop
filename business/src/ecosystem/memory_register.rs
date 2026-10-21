@@ -11,7 +11,9 @@
 //!   [`MEMORY_MCP_SERVER`] that runs `harness-memory mcp`. Only owned entries are ever changed:
 //!   the program they run follows the resolved server (`command`, or the first item of a `command`
 //!   array), and turning project memory off removes them. Every other field (`enabled`, `env`, ...)
-//!   and the key order are kept.
+//!   and the key order are kept. On OpenCode 2 a legacy `mcp.harness-memory` beside an owned
+//!   `mcp.servers.harness-memory` is removed with it only when it runs `harness-memory mcp` too;
+//!   any other one is kept as it is (and logged, since OpenCode then loads it).
 //! - Added: the file's [`Shape::entry`] for the absolute path (`{"command": "<path>", "args":
 //!   ["mcp"]}`, OpenCode 1's `{"type": "local", "command": ["<path>", "mcp"], "enabled": true}`, or
 //!   OpenCode 2's `{"type": "local", "command": ["<path>", "mcp"]}` under `mcp.servers`), only
@@ -116,7 +118,17 @@ pub fn unregister_memory_mcp(file: &McpFile) -> Result<bool, Blocked> {
         }
 
         let mut document = target.document();
-        remove_server(&mut document, file.shape, MEMORY_MCP_SERVER);
+        remove_server(&mut document, file.shape, MEMORY_MCP_SERVER, |entry| {
+            runs_mcp(entry, MEMORY_BINARY)
+        });
+
+        let still_seen = servers(&document, file.shape).is_some_and(|left| left.contains_key(MEMORY_MCP_SERVER));
+        if still_seen {
+            tracing::warn!(
+                file = %file.path.display(),
+                "project memory: the app's entry was removed, but a harness-memory server the app does not own stays and is still loaded"
+            );
+        }
 
         Change::Write(document, true)
     })

@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 
 use harness_business::ecosystem::{
     DesktopRegistration, McpFile, MemoryRegistration, Shape, mcp_state, mcp_target, memory_mcp_state,
-    register_dashboard_mcp, register_desktop_mcp, register_memory_mcp, unregister_memory_mcp,
+    register_dashboard_mcp, register_desktop_mcp, register_memory_mcp, share_mcp_target, unregister_memory_mcp,
 };
 use harness_business::env::Env;
 use harness_business::harness::OpenCodeGeneration;
@@ -209,32 +209,62 @@ fn only_the_files_opencode_2_reads_count() {
         "OpenCode 2 reads no config.json"
     );
 
-    // The other settings file of the global directory and `~/.opencode` are read, never written.
+    // The other settings file of the global directory and the file `OPENCODE_CONFIG` names are
+    // read, never written.
     let home = Home::new();
     home.write_opencode("opencode.jsonc", &format!("// mine\n{entry_text}"));
     assert_eq!(home.file().path, home.opencode("opencode.jsonc"));
 
     let home = Home::new();
     home.write_opencode("opencode.json", "{}");
-    let dotdir = home.dir.path().join(".opencode/opencode.json");
-    std::fs::create_dir_all(dotdir.parent().unwrap()).unwrap();
-    std::fs::write(&dotdir, entry_text).unwrap();
-    assert_eq!(home.register(), configured("~/.opencode/opencode.json", "dash"));
+    let explicit = home.dir.path().join("team.json");
+    std::fs::write(&explicit, entry_text).unwrap();
+    let env = home.env.clone().with_var("OPENCODE_CONFIG", explicit.to_string_lossy());
+    assert_eq!(
+        register_dashboard_mcp(&env, &target(&env)),
+        configured("~/team.json", "dash")
+    );
     assert_eq!(read(&home.opencode("opencode.json")), json!({}));
 }
 
+/// OpenCode 2 reads `opencode.json[c]` in the home directory and in `~/.opencode` only for
+/// projects below the home directory, so a server found only there is registered globally too
+/// (and the files are never written). Share setup still checks them.
 #[test]
-fn the_home_folder_config_is_read_never_written() {
-    let home = Home::new();
-    home.write_opencode("opencode.json", "{}");
-    std::fs::write(
-        home.dir.path().join("opencode.jsonc"),
-        r#"{"mcp":{"servers":{"dash":{"type":"local","command":["harness-dashboard","mcp"]}}}}"#,
-    )
-    .unwrap();
+fn the_home_folder_configs_do_not_count_as_registered() {
+    let nested = r#"{"mcp":{"servers":{"harness-dashboard":{"type":"local","command":["harness-dashboard","mcp"]},"harness-memory":{"type":"local","command":["harness-memory","mcp"]},"harness-desktop":{"type":"local","command":["/opt/Harness/harness-desktop","mcp"]}}}}"#;
 
-    assert_eq!(home.register(), configured("~/opencode.jsonc", "dash"));
-    assert_eq!(read(&home.opencode("opencode.json")), json!({}), "nothing is doubled");
+    for home_file in ["opencode.jsonc", ".opencode/opencode.json"] {
+        let home = Home::new();
+        let walked = home.dir.path().join(home_file);
+        std::fs::create_dir_all(walked.parent().unwrap()).unwrap();
+        std::fs::write(&walked, nested).unwrap();
+
+        let file = home.file();
+        assert!(!file.also_read.contains(&walked), "{home_file}");
+        let share = share_mcp_target(&home.env, &OpenCode::with_generation(OpenCodeGeneration::V2)).unwrap();
+        assert!(share.also_read.contains(&walked), "{home_file}");
+
+        assert_eq!(home.register(), configured(OPENCODE_JSON, "harness-dashboard"));
+        assert_eq!(
+            register_memory_mcp(&file, Path::new("/opt/bin/harness-memory"), false),
+            MemoryRegistration::Added
+        );
+        assert_eq!(
+            register_desktop_mcp(&file, Path::new("/opt/Harness/harness-desktop"), false, None),
+            DesktopRegistration::Added
+        );
+
+        let servers = &read(&home.opencode("opencode.json"))["mcp"]["servers"];
+        assert_eq!(servers["harness-dashboard"], entry("harness-dashboard"));
+        assert_eq!(servers["harness-memory"], entry("/opt/bin/harness-memory"));
+        assert_eq!(servers["harness-desktop"], entry("/opt/Harness/harness-desktop"));
+        assert_eq!(
+            std::fs::read_to_string(&walked).unwrap(),
+            nested,
+            "{home_file} is never written"
+        );
+    }
 }
 
 #[test]
@@ -348,6 +378,39 @@ fn the_memory_server_is_added_nested_repointed_in_place_and_removed() {
     );
     assert_eq!(unregister_memory_mcp(&file), Ok(true));
     assert_eq!(read(&path), json!({ "mcp": { "servers": {} } }));
+}
+
+/// Turning project memory off removes the owned nested entry, but never a legacy server of the
+/// same name the app does not own (a hand-written remote one with its token stays as it was).
+#[test]
+fn removing_the_memory_server_keeps_a_legacy_server_the_app_does_not_own() {
+    let home = Home::new();
+    let file = home.file();
+    let token = format!("Bearer {}", "FAKE-not-a-token");
+    let legacy = json!({ "type": "remote", "url": "https://team.example/mcp", "headers": { "Authorization": token } });
+    let original = json!({ "mcp": {
+        "harness-memory": legacy,
+        "servers": { "harness-memory": { "type": "local", "command": ["/home/u/.local/bin/harness-memory", "mcp"] } },
+    }});
+    let path = home.write_opencode("opencode.json", &original.to_string());
+
+    assert_eq!(unregister_memory_mcp(&file), Ok(true));
+
+    let left = read(&path);
+    assert_eq!(left["mcp"]["servers"], json!({}), "the owned nested entry is removed");
+    assert_eq!(
+        serde_json::to_string(&left["mcp"]["harness-memory"]).unwrap(),
+        serde_json::to_string(&legacy).unwrap(),
+        "the legacy server is kept byte for byte"
+    );
+    assert_eq!(
+        memory_mcp_state(&home.env, &file),
+        configured(OPENCODE_JSON, "harness-memory"),
+        "OpenCode still loads it"
+    );
+
+    assert_eq!(unregister_memory_mcp(&file), Ok(false), "nothing owned is left");
+    assert_eq!(read(&path), left);
 }
 
 #[test]

@@ -87,10 +87,11 @@ pub struct McpFile {
 ///   `opencode.json[c]` in `~/.opencode` and in `OPENCODE_CONFIG_DIR`, and the file
 ///   `OPENCODE_CONFIG` names.
 /// - OpenCode 2 (whose global directory is `OPENCODE_CONFIG_DIR` when set, and which reads no
-///   `config.json`): the other settings file of its global directory, `opencode.json[c]` in the
-///   home directory and in `~/.opencode` (its project walk reads both for every project below the
-///   home directory, while its merged-names check skips them) and the file `OPENCODE_CONFIG`
-///   names.
+///   `config.json`): the other settings file of its global directory and the file
+///   `OPENCODE_CONFIG` names. Not `opencode.json[c]` in the home directory or in `~/.opencode`:
+///   its project walk reads those only for projects below the home directory, so a server found
+///   only there would not load elsewhere (Share setup still checks them, see
+///   [`share_mcp_target`]).
 pub fn mcp_target(env: &Env, harness: &dyn Harness) -> Option<McpFile> {
     match harness.companion_setup().mcp {
         McpTarget::UserMcpJson { .. } => {
@@ -133,11 +134,7 @@ fn opencode_file(env: &Env, generation: OpenCodeGeneration) -> McpFile {
                 .chain(opencode::custom_config_dir(env))
                 .collect(),
         ),
-        OpenCodeGeneration::V2 => (
-            &["opencode.json", "opencode.jsonc"],
-            Shape::OpenCodeV2,
-            vec![env.home.clone(), opencode::home_config_dir(env)],
-        ),
+        OpenCodeGeneration::V2 => (&["opencode.json", "opencode.jsonc"], Shape::OpenCodeV2, Vec::new()),
     };
 
     let candidates = global_names
@@ -158,6 +155,30 @@ fn opencode_file(env: &Env, generation: OpenCodeGeneration) -> McpFile {
     }
 
     McpFile { path, also_read, shape }
+}
+
+/// The file Share setup merges `harness`'s servers into, and every file it checks for a server of
+/// the same name: [`mcp_target`], and on OpenCode 2 also `opencode.json[c]` in the home directory
+/// and in `~/.opencode`, which its project walk reads for every project below the home directory
+/// (a new entry would merge with a server there).
+pub fn share_mcp_target(env: &Env, harness: &dyn Harness) -> Option<McpFile> {
+    let mut file = mcp_target(env, harness)?;
+
+    if harness.companion_setup().mcp != McpTarget::OpenCodeConfig(OpenCodeGeneration::V2) {
+        return Some(file);
+    }
+
+    let home_walk = [env.home.clone(), opencode::home_config_dir(env)]
+        .into_iter()
+        .flat_map(|dir| [dir.join("opencode.json"), dir.join("opencode.jsonc")]);
+
+    for candidate in home_walk {
+        if candidate != file.path && !file.also_read.contains(&candidate) {
+            file.also_read.push(candidate);
+        }
+    }
+
+    Some(file)
 }
 
 /// The file `OPENCODE_CONFIG` names, when absolute (a relative one depends on OpenCode's working
