@@ -1,3 +1,10 @@
+## [0.35.3](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.35.2...v0.35.3) (2026-10-21)
+
+
+### Bug Fixes
+
+* **updates:** recheck for new releases while the app is open ([16d46fc](https://github.com/MSpiechowicz/harness-useful-desktop/commit/16d46fc66cff117f3034a9c8dbcf10c78f926eef))
+
 ## [0.35.2](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.35.1...v0.35.2) (2026-10-21)
 
 
