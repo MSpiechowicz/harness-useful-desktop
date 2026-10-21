@@ -48,9 +48,9 @@ describe('sorting the routines table', () => {
   });
 
   it('orders by the next run with the routines that have none last, whichever way it runs', async () => {
-    // A Monday morning, where the next runs come in the same order in UTC (CI) and in Central Europe (not in every zone).
+    // A Monday afternoon, where the next runs come in the same order in UTC (CI), Central Europe and New York (not in every zone): the hourly and the cron routine tie in none of them.
     vi.useFakeTimers({ toFake: ['Date'] });
-    vi.setSystemTime(new Date('2026-10-19T10:00:30Z'));
+    vi.setSystemTime(new Date('2026-10-19T13:00:30Z'));
     fakeRoutines();
     await showRoutines();
 
