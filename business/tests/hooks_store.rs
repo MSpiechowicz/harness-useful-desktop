@@ -138,7 +138,7 @@ mod hooks_store {
 
         let without = folder.store.list(NO_MEMORY);
         let seeded: Vec<&HookView> = without.hooks.iter().filter(|view| view.id != off.id).collect();
-        assert_eq!(seeded.len(), 3);
+        assert_eq!(seeded.len(), 4);
         assert!(seeded.iter().all(|view| view.status == HookStatus::Paused));
 
         let with = folder.store.list(MEMORY);

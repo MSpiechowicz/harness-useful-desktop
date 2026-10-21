@@ -39,7 +39,7 @@
     <span title={branch} class="inline-flex h-control min-w-0 shrink-[100] items-center gap-1.5 px-2 text-sm text-fg-3">
       <span class="sr-only">{t('chat.footer.branchLabel')}</span>
       <GitBranch size={14} aria-hidden="true" class="shrink-0" />
-      <span class="min-w-0 -mb-[3px] truncate pb-[3px] [text-box:trim-both_cap_alphabetic]">{branch}</span>
+      <span class="min-w-0 -my-[3px] truncate py-[3px] [text-box:trim-both_cap_alphabetic]">{branch}</span>
       {#if status.ahead > 0}
         <span class="tabular inline-flex shrink-0 items-center text-xs text-success"><ArrowUp size={12} aria-hidden="true" />{status.ahead}<span class="sr-only">{t('chat.footer.ahead', { count: status.ahead })}</span></span>
       {/if}

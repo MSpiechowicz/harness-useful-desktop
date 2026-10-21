@@ -1,3 +1,31 @@
+## [0.35.3](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.35.2...v0.35.3) (2026-10-21)
+
+
+### Bug Fixes
+
+* **updates:** recheck for new releases while the app is open ([16d46fc](https://github.com/MSpiechowicz/harness-useful-desktop/commit/16d46fc66cff117f3034a9c8dbcf10c78f926eef))
+
+## [0.35.2](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.35.1...v0.35.2) (2026-10-21)
+
+
+### Bug Fixes
+
+* **chat:** uppercase branch names are no longer clipped in the composer footer ([9256ca5](https://github.com/MSpiechowicz/harness-useful-desktop/commit/9256ca506649be56fda4596a6496331a2bf0225c))
+
+## [0.35.1](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.35.0...v0.35.1) (2026-10-21)
+
+
+### Bug Fixes
+
+* **hooks:** let the memory-save hook save every note that is useful ([abb9fdc](https://github.com/MSpiechowicz/harness-useful-desktop/commit/abb9fdca003cb79078093a74b05820a49cd02340))
+
+# [0.35.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.34.0...v0.35.0) (2026-10-21)
+
+
+### Features
+
+* **hooks:** add branch-sync family hook and make the memory hooks selective ([88badd6](https://github.com/MSpiechowicz/harness-useful-desktop/commit/88badd670f59e730f1da0a00806da90fe025d431))
+
 # [0.34.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.33.0...v0.34.0) (2026-10-21)
 
 

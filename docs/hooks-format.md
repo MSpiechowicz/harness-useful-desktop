@@ -49,7 +49,7 @@ Top-level fields. Required means the key MUST be present and valid. Readers igno
 | `action` | object | yes | see Actions |
 | `enabled` | boolean | yes | |
 | `requires` | array of string or null | no | unique, `"harness-memory"` (Harness Memory installed and its memory setting on) or `"harness-dashboard"` (Harness Dashboard installed). A hook whose requirement is not met does not run and shows as waiting |
-| `seed` | string or null | no | `"memory-search"`, `"memory-save"`, `"dashboard-limits"` or `"useful-skills"`: marks a Harness family hook, set only by the app window. Other writers keep it as is |
+| `seed` | string or null | no | `"memory-search"`, `"memory-save"`, `"dashboard-limits"`, `"useful-skills"` or `"branch-sync"`: marks a Harness family hook, set only by the app window. Other writers keep it as is |
 | `createdAt` | string | yes | RFC 3339 UTC, `YYYY-MM-DDTHH:MM:SSZ` (a fraction is accepted on read), e.g. `2026-10-17T10:00:00Z` |
 | `createdBy` | string | yes | `"desktop"` or `"agent"`. Set once when the file is created and never changed by any writer. Decides who may remove the hook |
 | `updatedAt` | string | yes | same format, set on every write |
@@ -198,7 +198,7 @@ Content:
 
 Approved copies `<app_config_dir>/hook-approved/<id>.json`: the exact bytes of the approved version (mode `0600`, written with the approval, removed when the app deletes the hook), so the Hooks view can show what a pending edit changed. Written only by the app window.
 
-Hooks state `<app_config_dir>/hooks-state.json`: `{ "version": 1, "seeded": ["memory-search", "memory-save", "dashboard-limits", "useful-skills"], "teamDisabled": ["<id>"], "sharedFrom": { "<id>": "<sha256>" } }`. `seeded`: the seeds launch seeding created (or found) once. `teamDisabled` and `sharedFrom` (both optional, see Team hooks): the team hooks turned off on this machine, and the SHA-256 each local hook had when the user shared it. Written only by the app window. An invalid file is set aside and rebuilt with every seed listed and no team entries.
+Hooks state `<app_config_dir>/hooks-state.json`: `{ "version": 1, "seeded": ["memory-search", "memory-save", "dashboard-limits", "useful-skills", "branch-sync"], "teamDisabled": ["<id>"], "sharedFrom": { "<id>": "<sha256>" } }`. `seeded`: the seeds launch seeding created (or found) once. `teamDisabled` and `sharedFrom` (both optional, see Team hooks): the team hooks turned off on this machine, and the SHA-256 each local hook had when the user shared it. Written only by the app window. An invalid file is set aside and rebuilt with every seed listed and no team entries.
 
 ## Harness family hooks
 
@@ -210,13 +210,15 @@ A catalog of hooks for the Harness family members agents use over MCP. Each is g
 | `memory-save` | `harness-memory` | `Save what you learned` | `turnEnd` | `followUp` |
 | `dashboard-limits` | `harness-dashboard` | `Check limits before long work` | `sessionStart` | `addContext` |
 | `useful-skills` | `harness-memory` | `Check Useful Skills first` | `sessionStart` | `addContext` |
+| `branch-sync` | `harness-memory` | `Check the branch against main` | `sessionStart` | `addContext` |
 
 Exact texts:
 
-- `memory-search`: `Before you start, search Harness Memory for notes about this task (note_search) and check the saved scripts (script_list). Reuse what fits.`
-- `memory-save`: `If this turn taught you something worth keeping, save it to Harness Memory (note_save or note_update). Save any command sequence you would run again as a script (script_save). Reply briefly, or say nothing needs saving.`
+- `memory-search`: `Before you start, search Harness Memory for notes about this task (note_search) and check the saved scripts (script_list). Reuse what fits. Pass project_path on every Harness Memory call: the absolute path of the repository you are working in (its git root), so nothing is read from or saved to another repository.`
+- `memory-save`: `Most turns need no note: reply "nothing to save" unless this turn produced knowledge that a future agent or a teammate could not get from the code or git history, such as the root cause of a non-obvious bug and its fix, a decision with the reason behind it, a constraint or gotcha, or where something non-obvious lives. Never save routine work: installing or configuring tools or MCP servers, running commands, editing files, progress or status, or anything this turn merely did. Before saving, search with note_search and update the existing note (note_update, by id) instead of adding a near duplicate. Write a specific title and a body that stands alone for a reader with no context: what, why, and the repo-relative paths involved; no transcripts or step lists. Save as many notes as clear this bar and none otherwise: one focused note per finding, repository-specific knowledge in the repository scope and knowledge useful across projects in the global scope. Save a command sequence as a script (script_save) only when you have run it more than once and it will recur. Always pass project_path (the absolute path of the repository you are working in, its git root) to note_save, note_update and script_save: without it a note can land in the wrong repository. Reply briefly.`
 - `dashboard-limits`: `Before a long or expensive task, check the plan limits and budgets with Harness Dashboard (limits, budget_status). Say so if a limit is close.`
 - `useful-skills`: `If Useful Skills are installed, read the ones that apply before you act: decide the workflow first (plan, implement, review), then read any other skill that fits the task and follow its limits (for example the 500-line file maximum). Do not skip a matching skill.`
+- `branch-sync`: `At the start of the session, compare the branch you are working on with the repository's main branch: main, master or prod, whichever exists (git symbolic-ref refs/remotes/origin/HEAD names the default). Run git fetch, find which of the two has the most recent commits, and list the commits of the main branch your branch does not contain (git log HEAD..origin/<main> --oneline). If there are any, pull them into your branch unless the work tree is dirty or the merge would conflict, then tell me what came in and whether it touches the files in the scope of this work. Never discard local changes or rewrite history; ask me first when unsure.`
 
 When the app writes them:
 

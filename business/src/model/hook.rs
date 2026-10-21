@@ -141,15 +141,18 @@ pub enum HookSeed {
     DashboardLimits,
     /// Harness Memory: "Check Useful Skills first" (`sessionStart`).
     UsefulSkills,
+    /// Harness Memory: "Check the branch against main" (`sessionStart`).
+    BranchSync,
 }
 
 impl HookSeed {
     /// Every family hook, in catalog order.
-    pub const ALL: [Self; 4] = [
+    pub const ALL: [Self; 5] = [
         Self::MemorySearch,
         Self::MemorySave,
         Self::DashboardLimits,
         Self::UsefulSkills,
+        Self::BranchSync,
     ];
 
     /// The name in the file and in `hooks-state.json`.
@@ -159,6 +162,7 @@ impl HookSeed {
             Self::MemorySave => "memory-save",
             Self::DashboardLimits => "dashboard-limits",
             Self::UsefulSkills => "useful-skills",
+            Self::BranchSync => "branch-sync",
         }
     }
 

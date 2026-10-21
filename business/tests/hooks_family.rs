@@ -103,7 +103,12 @@ mod hooks_family {
         assert_eq!(seed_defaults(&store, NOTHING, at(0)).unwrap(), vec![]);
         assert_eq!(
             seed_defaults(&store, MEMORY, at(0)).unwrap(),
-            vec![HookSeed::MemorySearch, HookSeed::MemorySave, HookSeed::UsefulSkills]
+            vec![
+                HookSeed::MemorySearch,
+                HookSeed::MemorySave,
+                HookSeed::UsefulSkills,
+                HookSeed::BranchSync
+            ]
         );
         assert_eq!(
             seed_defaults(&store, BOTH, at(1)).unwrap(),
@@ -138,6 +143,7 @@ mod hooks_family {
                 (HookSeed::MemorySave, HookFamilyStatus::Missing),
                 (HookSeed::DashboardLimits, HookFamilyStatus::NeedsMember),
                 (HookSeed::UsefulSkills, HookFamilyStatus::Missing),
+                (HookSeed::BranchSync, HookFamilyStatus::Missing),
             ]
         );
 
@@ -151,6 +157,7 @@ mod hooks_family {
                 (HookSeed::MemorySave, HookFamilyStatus::Installed),
                 (HookSeed::DashboardLimits, HookFamilyStatus::NeedsMember),
                 (HookSeed::UsefulSkills, HookFamilyStatus::Installed),
+                (HookSeed::BranchSync, HookFamilyStatus::Installed),
             ]
         );
 
@@ -210,7 +217,7 @@ mod hooks_family {
             search.hook.unwrap().action,
             family_hook(HookSeed::MemorySearch).action()
         );
-        assert_eq!(store.list(MEMORY).hooks.len(), 3, "replaced, not duplicated");
+        assert_eq!(store.list(MEMORY).hooks.len(), 4, "replaced, not duplicated");
     }
 
     #[test]
@@ -317,7 +324,7 @@ mod hooks_family {
         let (_temp, store) = store();
         seed_defaults(&store, BOTH, at(0)).unwrap();
 
-        assert_eq!(store.delete_all(None).unwrap(), 4);
+        assert_eq!(store.delete_all(None).unwrap(), 5);
         assert_eq!(seed_defaults(&store, BOTH, at(1)).unwrap(), vec![]);
         assert!(store.list(BOTH).hooks.is_empty());
     }
