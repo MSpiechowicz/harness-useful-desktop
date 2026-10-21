@@ -7,10 +7,11 @@ use std::time::{Duration, UNIX_EPOCH};
 
 use harness_business::ecosystem::memory_config_path;
 use harness_business::hooks::sha256_hex;
-use harness_business::hooks::team::TeamFolder;
+use harness_business::hooks::team::{ProjectKey, TeamFolder, TeamRow};
 use harness_business::hooks::{HookCapabilities, HookStore};
 use harness_business::model::{
     AgentAction, HookAction, HookAuthor, HookDraft, HookEvent, HookOrigin, HookScope, HookStatus, HookView,
+    IpcErrorCode,
 };
 use serde_json::json;
 use tauri::async_runtime::block_on;
@@ -77,7 +78,7 @@ impl Team {
     fn listed(&self) -> Vec<HookView> {
         let project = Some(self.setup.project.to_string_lossy().into_owned());
 
-        block_on(hook_commands::list(&self.setup.state, project))
+        block_on(hook_commands::list(&self.setup.state, project, false))
             .expect("listed")
             .hooks
     }
@@ -259,7 +260,7 @@ fn an_older_memory_server_shows_no_team_hooks() {
     team.sharing(None);
     team.refresh();
 
-    let listing = block_on(hook_commands::list(&team.setup.state, None)).expect("listed");
+    let listing = block_on(hook_commands::list(&team.setup.state, None, false)).expect("listed");
     assert!(listing.team.is_none());
 
     let key = team.start();
@@ -341,4 +342,56 @@ fn a_roots_repository_is_used_only_once_this_session_confirmed_it() {
     std::fs::rename(&parked, &team.setup.project).unwrap();
     team.refresh();
     assert!(has_team_hook());
+}
+
+#[test]
+fn a_team_hook_is_copied_only_to_a_folder_the_server_now_gives_its_repository() {
+    let Some(team) = team("omp_hooks_plain.jsonl") else {
+        return;
+    };
+    let state = &team.setup.state;
+    let store = team.store();
+    let folder = TeamFolder::of(&store);
+    let project = team.setup.project.to_string_lossy().into_owned();
+    let root = harness_business::hooks::project_identity(&team.setup.project)
+        .unwrap()
+        .to_string_lossy()
+        .into_owned();
+
+    team.sharing(Some((true, true)));
+    team.refresh();
+
+    // An earlier session saved another repository for the root, and the team has a hook of it.
+    let other = "git:github.com/o/other";
+    let stale = ProjectKey {
+        key: other.to_owned(),
+        shareable: true,
+    };
+    folder.save_projects(&[(root, stale)].into()).unwrap();
+
+    let action = json!({"type": "addContext", "text": "Use tabs."});
+    let row: TeamRow = serde_json::from_value(row_in(Some(other), "Other rule", action.clone())).unwrap();
+    folder.write_row(&row).unwrap();
+
+    let copy = |sha256: &str| {
+        block_on(hook_commands::team::copy(
+            state,
+            TEAM_ID.to_owned(),
+            sha256.to_owned(),
+            Some(project.clone()),
+        ))
+    };
+
+    // The server gives the root `git:github.com/o/r` now, so the saved key is not used.
+    let refused = copy(&row.sha256).expect_err("another repository");
+    assert_eq!(refused.code(), IpcErrorCode::InvalidInput);
+    let message = serde_json::to_value(&refused).unwrap()["message"].clone();
+    assert_eq!(message, "invalid input: the hook belongs to another repository");
+    assert!(!store.hooks_dir().join(format!("{TEAM_ID}.json")).exists());
+
+    let row: TeamRow = serde_json::from_value(row_in(Some("git:github.com/o/r"), "Repo rule", action)).unwrap();
+    folder.write_row(&row).unwrap();
+
+    let copied = copy(&row.sha256).expect("copied");
+    assert_eq!(copied.origin, HookOrigin::Local);
 }

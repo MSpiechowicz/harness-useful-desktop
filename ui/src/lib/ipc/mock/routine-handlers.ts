@@ -33,7 +33,7 @@ export type AttachRunChat = (info: AgentSessionInfo, onEvent: EventSink<AgentEnv
 /** The routines folder, the runs and the schedule preview of the mock backend: the commands of the Routines view, without a folder. */
 export function routineHandlers(routines: MockRoutines, attach: AttachRunChat): Pick<Handlers, RoutineCommands> {
   return {
-    routines_list: ({ project }) => routines.list(project),
+    routines_list: ({ project, all }) => routines.list(project, all === true),
     routine_get: ({ id }) => routines.get(id),
     routine_save: ({ draft }) => routines.save(draft),
     routine_delete: ({ id, sha256 }) => routines.delete(id, sha256),

@@ -53,6 +53,7 @@ const COMMANDS: &[&str] = &[
     "project_close",
     "project_recent",
     "project_forget",
+    "project_scopes",
     "reveal_path",
     "open_external",
     "agent_start",

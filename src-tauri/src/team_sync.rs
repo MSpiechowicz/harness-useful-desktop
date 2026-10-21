@@ -182,6 +182,11 @@ impl<K: DocKind, S: TeamSettings> TeamSync<K, S> {
         self.lock().verified.contains(root)
     }
 
+    /// Every root [`TeamSync::root_verified`] holds true for now.
+    pub fn verified_roots(&self) -> HashSet<String> {
+        self.lock().verified.clone()
+    }
+
     /// Keeps refresh rounds from running while the guard lives (a share or a removal, so a round
     /// that listed before it cannot undo its copy).
     pub async fn hold_rounds(&self) -> tokio::sync::MutexGuard<'_, ()> {

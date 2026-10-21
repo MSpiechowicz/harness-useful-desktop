@@ -15,13 +15,15 @@ registerRoutinesHooks();
 const MORNING = 'Morning review';
 
 describe('Routines view', () => {
-  it('lists the routines in their scopes, each with its schedule and status, and opens no panel by itself', async () => {
+  it('lists the routines in one table, each with its scope, schedule and status, and opens no panel by itself', async () => {
     fakeRoutines();
     await showRoutines();
 
     const grid = screen.getByRole('grid', { name: 'Routines' });
-    expect(within(grid).getByText('Global')).toBeInTheDocument();
-    expect(within(grid).getByText('This project')).toBeInTheDocument();
+    expect(within(grid).queryByText('This project')).not.toBeInTheDocument();
+    expect(within(grid).queryByRole('rowheader')).not.toBeInTheDocument();
+    expect(within(rowOf(MORNING)).getByText('Global')).toBeInTheDocument();
+    expect(within(rowOf('Run the tests')).getByText('demo')).toBeInTheDocument();
 
     expect(within(rowOf(MORNING)).getByText('Active')).toBeInTheDocument();
     expect(within(rowOf(MORNING)).getByText('Weekdays at 09:00')).toBeInTheDocument();
@@ -446,14 +448,14 @@ describe('A view with nothing to show', () => {
     expect(screen.getByText(/writable by other users/)).toBeInTheDocument();
   });
 
-  it('lists a file that breaks the format under the files to fix, and keeps it from running', async () => {
+  it('lists a file that breaks the format with an unknown scope, and keeps it from running', async () => {
     fakeRoutines('invalid');
     await showRoutines();
 
-    expect(screen.getByText('Files to fix')).toBeInTheDocument();
     const row = [...document.querySelectorAll<HTMLElement>('[data-row]')].find((candidate) => within(candidate).queryByText('Invalid'));
 
     expect(row).toBeDefined();
+    expect(within(row as HTMLElement).getByText('Unknown')).toBeInTheDocument();
     expect(within(row as HTMLElement).getByRole('switch')).toBeDisabled();
   });
 });

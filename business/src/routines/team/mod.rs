@@ -42,7 +42,7 @@ pub use actions::{
     share_request,
 };
 pub use confirm::confirm_team_copy;
-pub use views::{TeamRoutineViews, app_listing, team_view, team_views};
+pub use views::{TeamRoutineViews, app_listing, app_listing_all, team_view, team_views};
 
 pub use crate::signed_docs::team::{ProjectKey, SyncCounts, TeamFetch, TeamFile, TeamRow, apply_round, clear_team};
 

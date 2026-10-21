@@ -1,23 +1,24 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
+
   import { autofocus } from '$lib/a11y/autofocus';
   import Dialog from '$lib/components/Dialog.svelte';
   import DocFormTail from '$lib/components/docs/DocFormTail.svelte';
   import DocEditorFooter from '$lib/components/docs/DocEditorFooter.svelte';
   import { scopeIsFull } from '$lib/components/docs/doc-groups';
+  import { heldIn, staysIn } from '$lib/components/docs/doc-target';
   import DocField from '$lib/components/docs/DocField.svelte';
   import { fieldClass } from '$lib/components/docs/doc-field';
-  import SegmentedControl from '$lib/components/SegmentedControl.svelte';
-  import type { StripOption } from '$lib/components/strip';
+  import ScopeSelect from '$lib/components/scope/ScopeSelect.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
-  import type { HookScope } from '$lib/ipc/bindings/HookScope';
   import type { RoutineView } from '$lib/ipc/bindings/RoutineView';
   import { IpcFailure } from '$lib/ipc/transport';
-  import { project } from '$lib/stores/project.svelte';
+  import { projectScopes } from '$lib/stores/project-scopes.svelte';
   import { uid } from '$lib/utils/ids';
 
   import ActionFields from './ActionFields.svelte';
-  import { blankForm, draftOf, type EditorTarget, type FieldKey, formOf, type Problem, problemsOf, type RoutineForm, withScope } from './routine-form';
-  import { SCOPE_ICONS, SCOPE_LABELS } from './routine-format';
+  import { blankForm, draftOf, type EditorTarget, type FieldKey, formOf, type Problem, problemsOf, type RoutineForm, targetOf, withTarget } from './routine-form';
+  import { folderName, routineDoc } from './routine-format';
   import { routines } from './routines-data.svelte';
   import WhenFields from './WhenFields.svelte';
 
@@ -40,7 +41,7 @@
 
   const editing = $derived(target.view);
   const routine = $derived(editing?.routine ?? null);
-  const projectPath = $derived(project.active?.path ?? null);
+  const projects = $derived(projectScopes.data ?? []);
 
   // The editor opens on what it was given, fresh each time.
   $effect.pre(() => {
@@ -50,22 +51,24 @@
 
     const toEdit = target.view?.routine ?? null;
 
-    form = toEdit ? formOf(toEdit) : blankForm(target.scope);
+    form = toEdit ? untrack(() => formOf(toEdit, projects)) : blankForm(target.target);
     touched = {};
     failure = null;
     saving = false;
     previewProblem = null;
   });
 
-  // Whether the scope the routine would be in already holds the most it can.
-  const scopeFull = $derived(scopeIsFull(routines.views.filter((view) => view.origin === 'local' && view.routine?.scope === form.scope).length, routine?.scope === form.scope));
+  // The project the routine is for: its name for the help. A folder that is no project of the list any more stands as it is.
+  const chosen = $derived(form.projectPath === null ? undefined : projects.find((candidate) => candidate.path === form.projectPath));
+  const scopeHelp = $derived(form.scope === 'global' ? t('routines.editor.scope.global.hint') : t('routines.editor.scope.project.hint', { project: chosen?.name ?? folderName(form.projectPath ?? '') }));
 
-  const problems = $derived(problemsOf(form, { projectOpen: projectPath !== null, scopeFull }));
+  // Whether the scope the routine would be in already holds the most it can. A routine that stays in its scope is held already.
+  const stays = $derived(editing !== null && staysIn(routineDoc(editing), targetOf(form), projects));
+  const scopeFull = $derived(scopeIsFull(heldIn(routines.views, targetOf(form), projects, routineDoc), stays));
+
+  const problems = $derived(problemsOf(form, { projectChosen: form.projectPath !== null, scopeFull }));
   const shown = $derived(problems.filter((problem) => !problem.required || touched[problem.field]));
   const blocked = $derived(problems.length > 0 || previewProblem !== null);
-  const scopes = $derived<StripOption<HookScope>[]>(
-    (['global', 'project'] as const).map((scope) => ({ value: scope, label: t(SCOPE_LABELS[scope]), icon: SCOPE_ICONS[scope], disabled: scope === 'project' && projectPath === null })),
-  );
 
   function problemOf(field: FieldKey): Problem | undefined {
     return shown.find((problem) => problem.field === field);
@@ -92,7 +95,7 @@
     failure = null;
 
     try {
-      const saved = await routines.save(draftOf(form, editing, projectPath));
+      const saved = await routines.save(draftOf(form, editing));
 
       open = false;
       onsaved(saved, editing === null);
@@ -141,11 +144,9 @@
 
     <WhenFields bind:form {problemOf} {touch} bind:previewProblem />
 
-    <ActionFields bind:form {problemOf} {touch} {projectPath} />
+    <ActionFields bind:form {problemOf} {touch} />
 
-    <DocField label={t('routines.editor.scope')} labelId={ids.scope} error={messageOf('scope')} help={t(form.scope === 'global' ? 'routines.editor.scope.global.hint' : 'routines.editor.scope.project.hint', { project: project.active?.name ?? '' })}>
-      <div class="flex"><SegmentedControl label={t('routines.editor.scope')} options={scopes} bind:value={() => form.scope, (next) => (form = withScope(form, next))} /></div>
-    </DocField>
+    <ScopeSelect label={t('routines.field.appliesTo')} labelId={ids.scope} {projects} value={targetOf(form)} onchange={(next) => (form = withTarget(form, next))} help={scopeHelp} error={messageOf('scope')} />
 
     <DocFormTail {failure} saveLabel={t('routines.editor.save')} />
   </form>

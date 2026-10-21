@@ -5,6 +5,7 @@ import type { ScriptSort } from '$lib/ipc/bindings/ScriptSort';
 import { MEMORY_NOTES_POLL_MS, MEMORY_SCRIPTS_POLL_MS } from '$lib/stores/live';
 import { reachScope } from '$lib/stores/memory-reach';
 import { project } from '$lib/stores/project.svelte';
+import { revalidateProjectScopes } from '$lib/stores/project-scopes.svelte';
 import { noteRepos, scriptRepos } from '$lib/stores/memoryRepos.svelte';
 import { noteDetail, noteList, type NotesRequest, notesKey } from '$lib/stores/memoryNotes.svelte';
 import { scriptDetail, scriptList, type ScriptsRequest, scriptsKey } from '$lib/stores/memoryScripts.svelte';
@@ -14,6 +15,16 @@ import { autoRefresh } from '$lib/utils/auto-refresh';
 import { noteEditor, scriptEditor } from './editor-state.svelte';
 import { notesImport } from './notes-import-state.svelte';
 import { notesTeam, scriptsTeam } from './notes-team.svelte';
+
+/** Keeps the projects of the Scope filter and of the editors current: read when the view opens and again when the open project changes. Call it while a component initialises. */
+function watchProjectScopes(active: () => string | null): void {
+  $effect(() => {
+    void active();
+    void project.recents;
+
+    untrack(() => revalidateProjectScopes());
+  });
+}
 
 /** The columns the server sorts the notes by: all of them, and a column is named by its key. */
 const NOTE_SORTS: readonly NoteSort[] = ['updated', 'title', 'kind', 'scope', 'place'];
@@ -68,6 +79,7 @@ export function useNotesData(): void {
     query: query.value,
     scope: combined ? reachScope(viewState.memoryReach) : null,
     kind: viewState.notesKind,
+    place: viewState.notesPlace,
     sort: sortOf(NOTE_SORTS, viewState.notesSort.key),
     order: viewState.notesSort.desc ? 'desc' : 'asc',
     page: viewState.notesPage,
@@ -93,10 +105,12 @@ export function useNotesData(): void {
     untrack(() => noteList.revalidate(key, where));
   });
 
-  // The repositories in the Repository filter: read when the view opens, and again with every look at the list.
+  // The repositories in the Scope filter: read when the view opens, and again with every look at the list.
   $effect(() => {
     untrack(() => noteRepos.revalidate('notes', null));
   });
+
+  watchProjectScopes(() => active);
 
   // The last hidden note shown again leaves a filter with nothing to show.
   $effect(() => {
@@ -129,6 +143,7 @@ export function useScriptsData(): void {
     scope: combined ? reachScope(viewState.memoryReach) : null,
     review: combined ? viewState.scriptsStatus : null,
     group: combined ? null : viewState.scriptsGroup,
+    place: viewState.scriptsPlace,
     sort: sortOf(SCRIPT_SORTS, viewState.scriptsSort.key),
     order: viewState.scriptsSort.desc ? 'desc' : 'asc',
     page: viewState.scriptsPage,
@@ -152,6 +167,8 @@ export function useScriptsData(): void {
   $effect(() => {
     untrack(() => scriptRepos.revalidate('scripts', null));
   });
+
+  watchProjectScopes(() => active);
 
   // The last hidden script shown again leaves a filter with nothing to show.
   $effect(() => {

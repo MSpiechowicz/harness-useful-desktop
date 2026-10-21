@@ -13,7 +13,7 @@ use crate::routines::RoutineKind;
 use crate::routines::state::{RoutinesState, read_state};
 use crate::routines::store::RoutineStore;
 use crate::routines::view::{blank_view, counts_of};
-use crate::signed_docs::listing::share_block;
+use crate::signed_docs::listing::{ListingScope, share_block};
 use crate::signed_docs::team::entries::{TeamEntry, team_entries};
 
 /// Every team routine with its status, and the repository key of each known project root.
@@ -91,7 +91,48 @@ pub fn app_listing(
     team: Option<&TeamRoutines>,
     verified: bool,
 ) -> RoutineListing {
-    let mut listing = store.list_for(project);
+    let project_verified = |root: &str| verified && project == Some(root);
+    let scope = ListingScope {
+        project,
+        all: false,
+        verified: &project_verified,
+    };
+
+    listing_in(store, folder, &scope, team)
+}
+
+/// The app window's listing of every routine: every local file as [`RoutineStore::list`] shows
+/// it, each with why it cannot be shared for its own root, then, while `team` is set, every team
+/// routine. A row is matched to a project root only by a root `verified` this session; `project`
+/// (the active project root) is preferred.
+pub fn app_listing_all(
+    store: &RoutineStore,
+    folder: &TeamFolder,
+    project: Option<&str>,
+    team: Option<&TeamRoutines>,
+    verified: &dyn Fn(&str) -> bool,
+) -> RoutineListing {
+    let scope = ListingScope {
+        project,
+        all: true,
+        verified,
+    };
+
+    listing_in(store, folder, &scope, team)
+}
+
+/// The listing of `scope`, each row with its project root and repository key.
+fn listing_in(
+    store: &RoutineStore,
+    folder: &TeamFolder,
+    scope: &ListingScope<'_>,
+    team: Option<&TeamRoutines>,
+) -> RoutineListing {
+    let mut listing = if scope.all {
+        store.list()
+    } else {
+        store.list_for(scope.project)
+    };
 
     let (projects, team_ids, team_views) = match team {
         Some(settings) => {
@@ -109,13 +150,23 @@ pub fn app_listing(
     }
 
     if let (Some(views), Some(settings)) = (team_views, team) {
-        let root = project.filter(|_| verified);
-        let key = root
-            .and_then(|root| views.projects.get(root))
-            .map(|key| key.key.as_str());
+        if scope.all {
+            listing.routines.extend(views.views.iter().cloned());
+        } else {
+            let key = scope
+                .verified_project()
+                .and_then(|root| views.projects.get(root))
+                .map(|key| key.key.as_str());
 
-        listing.routines.extend(views.shown_in(key).cloned());
+            listing.routines.extend(views.shown_in(key).cloned());
+        }
+
         listing.team = Some(settings.clone());
+    }
+
+    for view in &mut listing.routines {
+        (view.root, view.repo_key) =
+            scope.repo_of(view.origin, view.root.as_deref(), view.team_repo.as_deref(), &projects);
     }
 
     listing.counts = counts_of(&listing.routines);

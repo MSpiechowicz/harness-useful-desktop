@@ -6,7 +6,7 @@ import type { RoutineRun } from '$lib/ipc/bindings/RoutineRun';
 import type { RoutineView } from '$lib/ipc/bindings/RoutineView';
 import type { RoutineWhen } from '$lib/ipc/bindings/RoutineWhen';
 
-import { actionText, doesText, durationText, filterCounts, groupRoutines, inSource, inStatus, inWhen, matchesQuery, pendingCount, resultLine, routineTitle, slotText, untilTime, viewKey, waitingRoutines, whenText } from './routine-format';
+import { actionText, doesText, durationText, deletableIn, filterCounts, inSource, inStatus, inWhen, matchesQuery, pendingCount, resultLine, routineDoc, routineTitle, slotText, untilTime, viewKey, waitingRoutines, whenText } from './routine-format';
 
 const ROUTINE: Routine = {
   id: 'a'.repeat(32),
@@ -47,6 +47,8 @@ function view(patch: Partial<Omit<RoutineView, 'routine'>> & { routine?: Partial
     teamOn: false,
     teamFolder: null,
     shareBlock: null,
+    root: null,
+    repoKey: null,
     ...rest,
   };
 }
@@ -128,22 +130,26 @@ describe('searching and filtering', () => {
   });
 });
 
-describe('groupRoutines', () => {
+describe('where a routine applies', () => {
   const GLOBAL = view({ id: '1'.repeat(32) });
-  const PROJECT = view({ id: '2'.repeat(32), routine: { scope: 'project', project: '/work/app' } });
+  const PROJECT = view({ id: '2'.repeat(32), routine: { scope: 'project', project: '/work/app' }, root: '/work/app', repoKey: 'git:github.com/acme/app' });
+  const OTHER = view({ id: '5'.repeat(32), routine: { scope: 'project', project: '/work/other' }, root: '/work/other' });
   const BROKEN = view({ id: '3'.repeat(32), routine: null, status: 'invalid' });
-  const TEAM = view({ id: '4'.repeat(32), origin: 'team' });
+  const TEAM = view({ id: '4'.repeat(32), origin: 'team', routine: { scope: 'project', project: 'git:github.com/acme/website' }, repoKey: 'git:github.com/acme/website' });
 
-  it('puts the routines in the global, project, invalid and team groups, with how many each holds in all', () => {
-    const groups = groupRoutines([GLOBAL, PROJECT, BROKEN, TEAM], [GLOBAL, PROJECT, BROKEN, TEAM], false, true);
-
-    expect(groups.map((group) => [group.id, group.views.length, group.total])).toEqual([['global', 1, 1], ['project', 1, 1], ['invalid', 1, 1], ['team', 1, 1]]);
+  it('hands the Scope filter and the Scope column the scope of the parsed routine, its root and its repository', () => {
+    expect(routineDoc(GLOBAL)).toEqual({ origin: 'local', scope: 'global', root: null, repoKey: null });
+    expect(routineDoc(PROJECT)).toEqual({ origin: 'local', scope: 'project', root: '/work/app', repoKey: 'git:github.com/acme/app' });
+    expect(routineDoc(BROKEN)).toMatchObject({ scope: null });
+    expect(routineDoc(TEAM)).toMatchObject({ origin: 'team', scope: 'project', repoKey: 'git:github.com/acme/website' });
   });
 
-  it('shows both scopes while empty, hides the invalid and the team group, and leaves out what a search leaves empty', () => {
-    expect(groupRoutines([GLOBAL], [GLOBAL], false).map((group) => group.id)).toEqual(['global', 'project']);
-    expect(groupRoutines([GLOBAL], [GLOBAL], false, true).map((group) => group.id)).toEqual(['global', 'project', 'team']);
-    expect(groupRoutines([GLOBAL, PROJECT], [PROJECT], true).map((group) => [group.id, group.total])).toEqual([['project', 1]]);
+  it('counts what Delete all removes: the global routines, the broken files and the open project\'s, never the team\'s or another project\'s', () => {
+    const all = [GLOBAL, PROJECT, OTHER, BROKEN, TEAM];
+
+    expect(deletableIn(all, '/work/app')).toBe(3);
+    expect(deletableIn(all, null)).toBe(2);
+    expect(deletableIn(all, '/work/other')).toBe(3);
   });
 });
 

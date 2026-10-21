@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import type { ProjectScope } from '$lib/ipc/bindings/ProjectScope';
 import type { Routine } from '$lib/ipc/bindings/Routine';
 import { fixtures } from '$lib/ipc/mock/fixtures';
 import { withOpenCodeChat } from '$lib/ipc/mock/opencode-chat';
 import { harness } from '$lib/stores/harness.svelte';
 
-import { blankForm, draftOf, formOf, hasHiddenCharacters, problemsOf, type RoutineForm, runsUnattended, toggleDraft, whenOf, withHarness, withScope } from './routine-form';
+import { blankForm, draftOf, formOf, hasHiddenCharacters, problemsOf, type RoutineForm, runsUnattended, targetOf, toggleDraft, whenOf, withHarness, withTarget } from './routine-form';
 
 // The harness list says what each harness lets a routine ask for.
 beforeEach(() => {
@@ -16,7 +17,7 @@ afterEach(() => {
   harness.summaries = [];
 });
 
-const CONTEXT = { projectOpen: true, scopeFull: false };
+const CONTEXT = { projectChosen: true, scopeFull: false };
 
 const AGENT: Routine = {
   id: 'a'.repeat(32),
@@ -45,8 +46,8 @@ describe('the form of an existing routine', () => {
   it('holds every field as the routine has it, and writes the same routine back', () => {
     const form = formOf(AGENT);
 
-    expect(form).toMatchObject({ name: 'Morning review', whenKind: 'weekdays', at: '09:00', kind: 'agent', harness: 'omp', provider: 'anthropic', modelId: 'claude-sonnet-4-5', approvalMode: 'write', maxMinutes: '20', scope: 'project' });
-    expect(draftOf(form, { id: AGENT.id, sha256: 'f'.repeat(64) }, '/work/app')).toEqual({
+    expect(form).toMatchObject({ name: 'Morning review', whenKind: 'weekdays', at: '09:00', kind: 'agent', harness: 'omp', provider: 'anthropic', modelId: 'claude-sonnet-4-5', approvalMode: 'write', maxMinutes: '20', scope: 'project', projectPath: '/work/app' });
+    expect(draftOf(form, { id: AGENT.id, sha256: 'f'.repeat(64) })).toEqual({
       id: AGENT.id,
       expectedSha256: 'f'.repeat(64),
       name: 'Morning review',
@@ -75,29 +76,58 @@ describe('the form of an existing routine', () => {
 
     expect(command).toMatchObject({ kind: 'command', command: 'ls', timeout: '30' });
     expect(script).toMatchObject({ kind: 'script', scriptName: 'disk-hogs', scriptScope: 'repo' });
-    expect(draftOf(script, null, '/work/app').action).toEqual({ type: 'script', name: 'disk-hogs', scope: 'repo' });
+    expect(draftOf(script, null).action).toEqual({ type: 'script', name: 'disk-hogs', scope: 'repo' });
+  });
+});
+
+const PROJECTS: ProjectScope[] = [
+  { path: '/work/other', name: 'other', root: '/work/other', key: 'git:github.com/acme/other' },
+  { path: '/work/app/packages/ui', name: 'ui', root: '/work/app', key: 'git:github.com/acme/app' },
+];
+
+describe('the project a routine is for', () => {
+  it('is the project of the root the routine names, not the open one', () => {
+    const form = formOf(AGENT, PROJECTS);
+
+    expect(form.projectPath).toBe('/work/app/packages/ui');
+    expect(targetOf(form)).toEqual({ kind: 'repo', path: '/work/app/packages/ui' });
+    expect(draftOf(form, { id: AGENT.id, sha256: 'f'.repeat(64) })).toMatchObject({ scope: 'project', project: '/work/app/packages/ui' });
+  });
+
+  it('is the root itself while no project of the list has it, so an edit still names the folder the file has', () => {
+    expect(formOf(AGENT, [PROJECTS[0]]).projectPath).toBe('/work/app');
+    expect(formOf({ ...AGENT, scope: 'global', project: null }, PROJECTS)).toMatchObject({ scope: 'global', projectPath: null });
+  });
+
+  it('follows the target chosen in the editor', () => {
+    const form = withTarget(complete(), { kind: 'repo', path: '/work/other' });
+
+    expect(form).toMatchObject({ scope: 'project', projectPath: '/work/other' });
+    expect(draftOf(form, null)).toMatchObject({ scope: 'project', project: '/work/other' });
+    expect(targetOf(blankForm({ kind: 'repo', path: '/work/other' }))).toEqual({ kind: 'repo', path: '/work/other' });
+    expect(targetOf(blankForm())).toEqual({ kind: 'global' });
   });
 });
 
 describe('the draft', () => {
   it('trims what was typed, leaves out what was left empty, and keeps the project only for a project routine', () => {
-    const draft = draftOf(complete({ name: '  Archive logs ', description: '   ', prompt: ' Pack up. ', maxMinutes: '', scope: 'global' }), null, '/work/app');
+    const draft = draftOf(complete({ name: '  Archive logs ', description: '   ', prompt: ' Pack up. ', maxMinutes: '', scope: 'global', projectPath: null }), null);
 
     expect(draft).toMatchObject({ id: null, expectedSha256: null, name: 'Archive logs', description: null, scope: 'global', project: null });
     expect(draft.action).toEqual({ type: 'agent', harness: 'omp', model: null, prompt: 'Pack up.', approvalMode: null, trustOnce: false, maxMinutes: null });
-    expect(draftOf(complete({ scope: 'project' }), null, '/work/app').project).toBe('/work/app');
+    expect(draftOf(complete({ scope: 'project', projectPath: '/work/app' }), null).project).toBe('/work/app');
   });
 
   it('sends a model only when both its parts are there, and an approval mode or a trust only to the harness that has it', () => {
-    expect(draftOf(complete({ provider: 'a', modelId: 'b' }), null, null).action).toMatchObject({ model: { provider: 'a', id: 'b' } });
-    expect(draftOf(withHarness(complete({ approvalMode: 'yolo', trustOnce: true }), 'pi'), null, null).action).toMatchObject({ harness: 'pi', approvalMode: null, trustOnce: true });
-    expect(draftOf(withHarness(complete({ harness: 'pi', trustOnce: true }), 'omp'), null, null).action).toMatchObject({ harness: 'omp', approvalMode: null, trustOnce: false });
+    expect(draftOf(complete({ provider: 'a', modelId: 'b' }), null).action).toMatchObject({ model: { provider: 'a', id: 'b' } });
+    expect(draftOf(withHarness(complete({ approvalMode: 'yolo', trustOnce: true }), 'pi'), null).action).toMatchObject({ harness: 'pi', approvalMode: null, trustOnce: true });
+    expect(draftOf(withHarness(complete({ harness: 'pi', trustOnce: true }), 'omp'), null).action).toMatchObject({ harness: 'omp', approvalMode: null, trustOnce: false });
   });
 
   it('sends an approval mode for every harness that has approval modes and a one-time trust only for one with project trust', () => {
     const opencode = withHarness(complete({ approvalMode: 'write', trustOnce: true }), 'opencode');
 
-    expect(draftOf(opencode, null, null).action).toMatchObject({ harness: 'opencode', approvalMode: 'write', trustOnce: false });
+    expect(draftOf(opencode, null).action).toMatchObject({ harness: 'opencode', approvalMode: 'write', trustOnce: false });
     expect(runsUnattended({ ...opencode, approvalMode: 'yolo' })).toBe(true);
     expect(runsUnattended({ ...opencode, approvalMode: 'write' })).toBe(false);
   });
@@ -107,20 +137,20 @@ describe('the draft', () => {
       summary.info.id === 'omp' ? { ...summary, capabilities: { ...summary.capabilities, approvalModes: false, projectTrust: true } } : summary,
     );
 
-    expect(draftOf(complete({ approvalMode: 'yolo', trustOnce: true }), null, null).action).toMatchObject({ harness: 'omp', approvalMode: null, trustOnce: true });
+    expect(draftOf(complete({ approvalMode: 'yolo', trustOnce: true }), null).action).toMatchObject({ harness: 'omp', approvalMode: null, trustOnce: true });
     expect(runsUnattended(complete({ approvalMode: null, trustOnce: true }))).toBe(true);
   });
 
   it('keeps what a routine holds for a harness the list does not know yet, so nothing is lost on a save', () => {
     harness.summaries = [];
 
-    expect(draftOf(complete({ approvalMode: 'write' }), null, null).action).toMatchObject({ approvalMode: 'write' });
+    expect(draftOf(complete({ approvalMode: 'write' }), null).action).toMatchObject({ approvalMode: 'write' });
   });
 
   it('turns a global routine\'s repository script into a global one, since it has no repository', () => {
-    const form = withScope(complete({ kind: 'script', scriptName: 'disk-hogs', scriptScope: 'repo', scope: 'project' }), 'global');
+    const form = withTarget(complete({ kind: 'script', scriptName: 'disk-hogs', scriptScope: 'repo', scope: 'project', projectPath: '/work/app' }), { kind: 'global' });
 
-    expect(form.scriptScope).toBe('global');
+    expect(form).toMatchObject({ scope: 'global', projectPath: null, scriptScope: 'global' });
   });
 
   it('writes a switch as the routine with only its schedule turned on or off', () => {
@@ -130,7 +160,7 @@ describe('the draft', () => {
   });
 
   it('refuses to write a schedule that is not complete', () => {
-    expect(() => draftOf(complete({ whenKind: 'cron', cron: '' }), null, null)).toThrow('the schedule is not valid');
+    expect(() => draftOf(complete({ whenKind: 'cron', cron: '' }), null)).toThrow('the schedule is not valid');
   });
 });
 
@@ -206,9 +236,9 @@ describe('what keeps a routine from being saved', () => {
     expect(fieldsWithProblems(complete({ kind: 'script', scriptName: 'disk-hogs', scriptScope: 'repo', scope: 'project' }))).toEqual([]);
   });
 
-  it('wants an open project for a project routine, and room in the scope', () => {
-    expect(fieldsWithProblems(complete({ scope: 'project' }), { projectOpen: false, scopeFull: false })).toEqual(['scope']);
-    expect(fieldsWithProblems(complete(), { projectOpen: true, scopeFull: true })).toEqual(['scope']);
+  it('wants a chosen project for a project routine, and room in the scope', () => {
+    expect(fieldsWithProblems(complete({ scope: 'project' }), { projectChosen: false, scopeFull: false })).toEqual(['scope']);
+    expect(fieldsWithProblems(complete(), { projectChosen: true, scopeFull: true })).toEqual(['scope']);
   });
 });
 

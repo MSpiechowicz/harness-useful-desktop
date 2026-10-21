@@ -2,21 +2,25 @@
   import { type DocReviewHandlers, type ReviewChange, reviewChanges } from '$lib/components/docs/doc-diff';
   import DocReview from '$lib/components/docs/DocReview.svelte';
   import { reviewTitleKey, type ReviewTitleKeys } from '$lib/components/docs/review-title';
+  import { versionScopeText } from '$lib/components/docs/doc-scope';
   import { t } from '$lib/i18n/i18n.svelte';
   import type { MessageKey } from '$lib/i18n/locales/en';
   import type { HookView } from '$lib/ipc/bindings/HookView';
+  import type { ProjectScope } from '$lib/ipc/bindings/ProjectScope';
 
   import { lineDiff } from '../memory/line-diff';
   import { spelledOut } from '../memory/script-format';
   import ScriptDiff from '../memory/ScriptDiff.svelte';
   import { type ChangedField, changesOf } from './hook-diff';
-  import { ACTION_LABELS, EVENT_LABELS, SCOPE_LABELS } from './hook-format';
+  import { ACTION_LABELS, EVENT_LABELS, hookDoc } from './hook-format';
 
   interface Props extends DocReviewHandlers {
     view: HookView;
+    /** The projects on this computer, which a hook's scope is named by. */
+    projects: ProjectScope[];
   }
 
-  let { view, busy, onapprove, onreject }: Props = $props();
+  let { view, projects, busy, onapprove, onreject }: Props = $props();
 
   const hook = $derived(view.hook);
   // A hook that was never approved is new to the user; one with an approved version has been changed since.
@@ -65,8 +69,6 @@
         return t(EVENT_LABELS[value as keyof typeof EVENT_LABELS]);
       case 'action':
         return t(ACTION_LABELS[value as keyof typeof ACTION_LABELS]);
-      case 'scope':
-        return t(SCOPE_LABELS[value as keyof typeof SCOPE_LABELS]);
       case 'enabled':
         return t(value === 'true' ? 'hooks.value.on' : 'hooks.value.off');
       case 'timeout':
@@ -80,7 +82,7 @@
   }
 
   const changes = $derived(
-    reviewChanges(hook ? changesOf(hook, view.approved) : [], {
+    reviewChanges(hook ? changesOf(hook, view.approved, (version) => versionScopeText(hookDoc(view), version, projects)) : [], {
       label: (field) => (field === 'text' ? textLabel : t(LABELS[field])),
       value: shown,
       text: 'text',

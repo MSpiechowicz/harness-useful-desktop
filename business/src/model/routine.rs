@@ -260,6 +260,13 @@ pub struct RoutineView {
     pub team_folder: Option<String>,
     /// Local routines: why "Share with team" is not possible, `None` when it is.
     pub share_block: Option<ShareBlock>,
+    /// The project root of a project routine: a local file's (also over its scope's limit), a
+    /// team routine's only once a refresh of this session confirmed a root of its repository.
+    /// `None` for a global routine or an unknown scope.
+    pub root: Option<String>,
+    /// The repository key of a project routine: a team routine's, or the one a refresh of this
+    /// session confirmed for a local file's root. `None` for a global routine or while unknown.
+    pub repo_key: Option<String>,
 }
 
 /// The team routines as this machine sees them, while sharing is on.

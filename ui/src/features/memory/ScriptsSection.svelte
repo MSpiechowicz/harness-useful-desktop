@@ -5,19 +5,23 @@
 
   import Badge from '$lib/components/Badge.svelte';
   import Button from '$lib/components/Button.svelte';
+  import { memoryScope } from '$lib/components/docs/doc-scope';
   import DocNewButton from '$lib/components/docs/DocNewButton.svelte';
   import FilterMenu from '$lib/components/FilterMenu.svelte';
   import { ICON } from '$lib/components/icon';
+  import ScopeLabel from '$lib/components/ScopeLabel.svelte';
   import type { Column } from '$lib/components/table';
   import { t, tn } from '$lib/i18n/i18n.svelte';
   import type { ScriptDetail } from '$lib/ipc/bindings/ScriptDetail';
   import type { ScriptGroup } from '$lib/ipc/bindings/ScriptGroup';
+  import type { ScriptPlace } from '$lib/ipc/bindings/ScriptPlace';
   import type { ScriptReview } from '$lib/ipc/bindings/ScriptReview';
   import type { ScriptSaved } from '$lib/ipc/bindings/ScriptSaved';
   import type { ScriptScope } from '$lib/ipc/bindings/ScriptScope';
   import type { ScriptSummary } from '$lib/ipc/bindings/ScriptSummary';
   import { ALL_REPOS } from '$lib/stores/memory-reach';
   import { deleteScript, hideScript, type ReviewedScript, SCRIPTS_PAGE_SIZE, scriptDetail, scriptDetailKey, scriptList, trustScripts } from '$lib/stores/memoryScripts.svelte';
+  import { projectScopes } from '$lib/stores/project-scopes.svelte';
   import { toasts } from '$lib/stores/toasts.svelte';
   import { viewState } from '$lib/stores/view-state.svelte';
   import { formatDateTime, relativeTime } from '$lib/utils/format';
@@ -28,10 +32,11 @@
   import { scriptEditor } from './editor-state.svelte';
   import HiddenFilter from './HiddenFilter.svelte';
   import MemoryFilterHint from './MemoryFilterHint.svelte';
-  import MemoryRepoFilter from './MemoryRepoFilter.svelte';
+  import MemoryReachFilter from './MemoryReachFilter.svelte';
   import MemorySearch from './MemorySearch.svelte';
   import MemoryTable from './MemoryTable.svelte';
   import { scriptsTeam } from './notes-team.svelte';
+  import PlaceFilter, { placeApplied } from './PlaceFilter.svelte';
   import ScriptEditor from './ScriptEditor.svelte';
   import ScriptPanel from './ScriptPanel.svelte';
   import { languageLabel, needsReview, PLACE_LABELS, scopeText } from './script-format';
@@ -58,12 +63,13 @@
   const total = $derived(page?.total ?? 0);
   const groups = $derived(page?.groups ?? { needsReview: 0, repo: 0, global: 0 });
   const reviews = $derived(page?.review ?? null);
+  const places = $derived(page?.places ?? null);
   // The groups are disjoint (a script that needs review is in neither scope group), so together they are all of the scripts.
   const everything = $derived(groups.needsReview + groups.repo + groups.global);
   // An older Harness Memory cannot combine the scope with the status: it gets one "Show" filter of its groups, and a hint that an update adds the scope.
   const combined = $derived(page?.combinedFilters ?? true);
   const searching = $derived(viewState.scriptsQuery.trim() !== '');
-  const filtered = $derived(viewState.memoryReach !== ALL_REPOS || (combined ? viewState.scriptsStatus !== null : viewState.scriptsGroup !== null) || scriptsTeam.showHidden);
+  const filtered = $derived(viewState.memoryReach !== ALL_REPOS || (combined ? viewState.scriptsStatus !== null : viewState.scriptsGroup !== null) || placeApplied(places, viewState.scriptsPlace) || scriptsTeam.showHidden);
   // Remote scripts hidden on this computer: a switch to them shows once there are any, and stays while they are shown.
   const hiddenCount = $derived(page?.hiddenCount ?? 0);
   // Nothing saved yet: one page with the explanation, not an empty table beside a message.
@@ -111,6 +117,11 @@
 
   function chooseGroup(group: ScriptGroup | null): void {
     viewState.scriptsGroup = group;
+    viewState.scriptsPage = 0;
+  }
+
+  function choosePlace(place: ScriptPlace | null): void {
+    viewState.scriptsPlace = place;
     viewState.scriptsPage = 0;
   }
 
@@ -261,7 +272,9 @@
 </script>
 
 {#snippet filters()}
-  <MemoryRepoFilter section="scripts" onchange={repoChosen} />
+  <MemoryReachFilter section="scripts" onchange={repoChosen} />
+
+  <PlaceFilter {places} place={viewState.scriptsPlace} onchange={choosePlace} />
 
   {#if combined}
     {#if hiddenCount > 0 || scriptsTeam.showHidden}
@@ -352,9 +365,9 @@
         {#if script.approval !== 'local'}<ApprovalBadge approval={script.approval} />{/if}
       </span>
     {:else if column.key === 'language'}
-      <Badge>{languageLabel(script.language)}</Badge>
+      <Badge size="lg">{languageLabel(script.language)}</Badge>
     {:else if column.key === 'scope'}
-      <span class="text-fg-2" title={script.repo ?? undefined}>{scopeText(script)}</span>
+      <div class="min-w-0 text-fg-2"><ScopeLabel scope={memoryScope(script, projectScopes.data ?? [], t('memory.scripts.row.thisRepo'))} /></div>
     {:else if column.key === 'place'}
       <span class="text-fg-2">{t(PLACE_LABELS[script.place])}</span>
     {:else if column.key === 'runs'}

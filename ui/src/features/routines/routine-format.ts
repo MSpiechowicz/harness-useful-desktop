@@ -2,21 +2,20 @@ import Bot from '@lucide/svelte/icons/bot';
 import CalendarDays from '@lucide/svelte/icons/calendar-days';
 import Clock from '@lucide/svelte/icons/clock';
 import FileCode from '@lucide/svelte/icons/file-code';
-import Folder from '@lucide/svelte/icons/folder';
-import Globe from '@lucide/svelte/icons/globe';
 import Hourglass from '@lucide/svelte/icons/hourglass';
 import Power from '@lucide/svelte/icons/power';
 import Repeat from '@lucide/svelte/icons/repeat';
 import SquareTerminal from '@lucide/svelte/icons/square-terminal';
 import Timer from '@lucide/svelte/icons/timer';
 
-import { type DocGroup, groupDocs, MAX_PER_SCOPE, type SortValue, sortGroups } from '$lib/components/docs/doc-groups';
+import { MAX_PER_SCOPE, type SortValue, sortDocs } from '$lib/components/docs/doc-groups';
+import { docScope, type ScopedDoc, scopeSortValue } from '$lib/components/docs/doc-scope';
 import type { Sort } from '$lib/components/table';
 import type { IconComponent } from '$lib/components/icon';
 import { t, tn } from '$lib/i18n/i18n.svelte';
 import type { MessageKey } from '$lib/i18n/locales/en';
 import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
-import type { HookScope } from '$lib/ipc/bindings/HookScope';
+import type { ProjectScope } from '$lib/ipc/bindings/ProjectScope';
 import type { RoutineAction } from '$lib/ipc/bindings/RoutineAction';
 import type { RoutineCounts } from '$lib/ipc/bindings/RoutineCounts';
 import type { RoutineListing } from '$lib/ipc/bindings/RoutineListing';
@@ -78,10 +77,6 @@ export const ACTION_LABELS: Record<ActionKind, MessageKey> = {
 };
 
 export const ACTION_ICONS: Record<ActionKind, IconComponent> = { agent: Bot, command: SquareTerminal, script: FileCode };
-
-export const SCOPE_LABELS: Record<HookScope, MessageKey> = { global: 'routines.scope.global', project: 'routines.scope.project' };
-
-export const SCOPE_ICONS: Record<HookScope, IconComponent> = { global: Globe, project: Folder };
 
 /** What a harness is called on screen. These are product names and stay the same in every language. */
 export const HARNESS_NAMES: Record<HarnessId, string> = { omp: 'OMP', pi: 'PI', opencode: 'OpenCode' };
@@ -229,12 +224,14 @@ export function filterCounts(counts: RoutineCounts): FilterCounts {
   return { when, status, source: { all: counts.total, mine: counts.origin.local ?? 0, team: counts.origin.team ?? 0 } };
 }
 
-/** One block of the list: the global routines, the project's, the files that are not routines (invalid), or the team's. */
-export type RoutineGroup = DocGroup<RoutineView>;
+/** What the Scope filter and the Scope column know of where a routine applies. */
+export function routineDoc(view: RoutineView): ScopedDoc {
+  return { origin: view.origin, scope: view.routine?.scope ?? null, root: view.root, repoKey: view.repoKey };
+}
 
-/** The routines that answer the search and the filters, in their groups (see `groupDocs`). */
-export function groupRoutines(all: RoutineView[], shown: RoutineView[], narrowed: boolean, teamOn = false): RoutineGroup[] {
-  return groupDocs(all, shown, narrowed, teamOn, (view) => (view.origin === 'team' ? 'team' : (view.routine?.scope ?? 'invalid')));
+/** How many routines "Delete all" removes: the global ones, the files that are not routines, and those of the open project (`root`, null while it is not known). The team's and other projects' stay. */
+export function deletableIn(views: readonly RoutineView[], root: string | null): number {
+  return views.filter((view) => view.origin === 'local' && (view.routine === null || view.routine.scope === 'global' || (root !== null && view.root === root))).length;
 }
 
 /** The moment of the next run as a number, null for a routine with none (or a date that cannot be read). */
@@ -253,9 +250,9 @@ const SORT_VALUES: Record<string, (view: RoutineView) => SortValue> = {
   on: (view) => Number(switchedOn(view)),
 };
 
-/** The routines of each group in the order of a column; null keeps the run order (see `sortGroups`). */
-export function sortRoutines(groups: RoutineGroup[], sort: Sort | null): RoutineGroup[] {
-  return sortGroups(groups, sort, SORT_VALUES);
+/** The routines in the order of a column; null keeps the run order (see `sortDocs`). The Scope column sorts by the name it shows. */
+export function sortRoutines(views: RoutineView[], sort: Sort | null, projects: ProjectScope[]): RoutineView[] {
+  return sortDocs(views, sort, { ...SORT_VALUES, scope: (view) => scopeSortValue(docScope(routineDoc(view), projects)) });
 }
 
 /** The last part of a folder path: the name a project is shown by. */

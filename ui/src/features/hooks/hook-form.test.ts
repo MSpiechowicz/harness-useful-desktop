@@ -4,7 +4,7 @@ import type { Hook } from '$lib/ipc/bindings/Hook';
 
 import { blankForm, draftOf, formOf, type FormContext, LIMITS, matcherProblem, problemsOf, validActions, withEvent } from './hook-form';
 
-const OPEN: FormContext = { projectOpen: true, scopeFull: false };
+const OPEN: FormContext = { scopeFull: false };
 
 function valid() {
   return { ...blankForm(), name: 'Check', text: 'Look at the notes.' };
@@ -67,8 +67,8 @@ describe('the tool filter', () => {
   it('is left out of the draft for any other event', () => {
     const form = { ...valid(), matcher: 'edit' };
 
-    expect(draftOf(form, null, null).matcher).toBeNull();
-    expect(draftOf(withEvent(form, 'toolEnd'), null, null).matcher).toBe('edit');
+    expect(draftOf(form, null).matcher).toBeNull();
+    expect(draftOf(withEvent(form, 'toolEnd'), null).matcher).toBe('edit');
   });
 });
 
@@ -116,20 +116,22 @@ describe('the fields', () => {
     expect(problemsOf({ ...valid(), command: 'x'.repeat(LIMITS.command + 10), timeout: '99' }, OPEN)).toEqual([]);
   });
 
-  it('need an open project for a project hook, and room in a full scope', () => {
-    const project = { ...valid(), scope: 'project' as const };
+  it('need a folder for a project hook, and room in a full scope', () => {
+    const nowhere = { ...valid(), target: { kind: 'repo' as const, path: '' } };
+    const project = { ...valid(), target: { kind: 'repo' as const, path: '/work/app' } };
 
-    expect(problemsOf(project, { projectOpen: false, scopeFull: false }).map((problem) => problem.message)).toEqual(['hooks.editor.scope.noProject']);
+    expect(problemsOf(nowhere, OPEN).map((problem) => problem.message)).toEqual(['hooks.editor.scope.noProject']);
     expect(problemsOf(project, OPEN)).toEqual([]);
-    expect(problemsOf(valid(), { projectOpen: true, scopeFull: true }).map((problem) => problem.message)).toEqual(['hooks.editor.scope.full']);
+    expect(problemsOf(project, { scopeFull: true }).map((problem) => problem.message)).toEqual(['hooks.editor.scope.full']);
+    expect(problemsOf(valid(), { scopeFull: true }).map((problem) => problem.message)).toEqual(['hooks.editor.scope.full']);
   });
 });
 
 describe('the draft', () => {
   it('trims the text and names the file and version of an edit', () => {
-    const form = { ...valid(), name: '  Check  ', description: '  ', text: '  Look.  ', scope: 'project' as const };
+    const form = { ...valid(), name: '  Check  ', description: '  ', text: '  Look.  ', target: { kind: 'repo' as const, path: '/work/app' } };
 
-    expect(draftOf(form, { id: 'a'.repeat(32), sha256: 'b'.repeat(64) }, '/work/app')).toEqual({
+    expect(draftOf(form, { id: 'a'.repeat(32), sha256: 'b'.repeat(64) })).toEqual({
       id: 'a'.repeat(32),
       expectedSha256: 'b'.repeat(64),
       name: 'Check',
@@ -143,11 +145,11 @@ describe('the draft', () => {
     });
   });
 
-  it('sends no project for a global hook and the timeout of a command only when one was typed', () => {
+  it('sends the folder of a project hook only, and the timeout of a command only when one was typed', () => {
     const command = { ...valid(), kind: 'command' as const, command: 'bun test ', event: 'sessionEnd' as const };
 
-    expect(draftOf(command, null, '/work/app')).toMatchObject({ project: null, id: null, expectedSha256: null, action: { type: 'command', command: 'bun test', timeoutSecs: null } });
-    expect(draftOf({ ...command, timeout: ' 20 ' }, null, null).action).toEqual({ type: 'command', command: 'bun test', timeoutSecs: 20 });
+    expect(draftOf(command, null)).toMatchObject({ scope: 'global', project: null, id: null, expectedSha256: null, action: { type: 'command', command: 'bun test', timeoutSecs: null } });
+    expect(draftOf({ ...command, timeout: ' 20 ' }, null).action).toEqual({ type: 'command', command: 'bun test', timeoutSecs: 20 });
   });
 
   it('is the form of a hook again after editing it', () => {
@@ -169,9 +171,9 @@ describe('the draft', () => {
       updatedBy: 'agent',
     };
 
-    const form = formOf(hook);
+    const form = formOf(hook, { kind: 'repo', path: '/work/app' });
 
-    expect(form).toMatchObject({ name: 'Lint', description: 'Style', kind: 'command', command: 'bun run lint', timeout: '20', matcher: 'edit|write', scope: 'project', enabled: false });
-    expect(draftOf(form, { id: hook.id, sha256: 'c'.repeat(64) }, '/work/app')).toMatchObject({ name: 'Lint', matcher: 'edit|write', action: hook.action, enabled: false, project: '/work/app' });
+    expect(form).toMatchObject({ name: 'Lint', description: 'Style', kind: 'command', command: 'bun run lint', timeout: '20', matcher: 'edit|write', target: { kind: 'repo', path: '/work/app' }, enabled: false });
+    expect(draftOf(form, { id: hook.id, sha256: 'c'.repeat(64) })).toMatchObject({ name: 'Lint', matcher: 'edit|write', action: hook.action, enabled: false, project: '/work/app' });
   });
 });

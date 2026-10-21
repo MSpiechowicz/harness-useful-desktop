@@ -5,14 +5,15 @@ import type { ShareBlock } from '../bindings/ShareBlock';
 import type { TeamRoutines } from '../bindings/TeamRoutines';
 import { IpcFailure } from '../transport';
 import { ago, fakeSha, ROUTINES_PROJECT, ROUTINES_TEAM_REPO, sample } from './routine-fixtures';
+import { REMOTE_ONLY_REPO, teamPlace } from './project-scopes';
 import type { TeamMode } from './team-preview';
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 
-/** The fields every local view has for the team: none of them apply. */
-export const LOCAL_ORIGIN = { origin: 'local', teamAuthor: null, teamUpdatedAt: null, teamRepo: null, teamChanged: false, teamOn: false, teamFolder: null } as const;
+/** The fields every local view has for the team: none of them apply. A global routine has no root or repository either (a project routine's come from `localPlace`). */
+export const LOCAL_ORIGIN = { origin: 'local', teamAuthor: null, teamUpdatedAt: null, teamRepo: null, teamChanged: false, teamOn: false, teamFolder: null, root: null, repoKey: null } as const;
 
 /** One routine on the team database. */
 interface Row {
@@ -44,10 +45,14 @@ function sampleRows(): Row[] {
     3 * HOUR,
   );
 
+  // Built from the audit rather than with `sample`, so the ids of the other samples stay as they were.
+  const preview = { ...audit, id: 'd'.repeat(32), name: 'Deploy the preview site', project: REMOTE_ONLY_REPO, when: { type: 'weekdays', at: '18:00' }, action: { type: 'command', command: 'bun run deploy:preview', timeoutSecs: 300 } } satisfies Routine;
+
   return [
     { routine: standup, author: 'Anna Kowalska', updatedAt: ago(20 * DAY), approved: standup, on: true, folder: null },
     { routine: audit, author: 'Marek Nowak', updatedAt: ago(2 * DAY), approved: null, on: false, folder: null },
     { routine: sweep, author: 'Anna Kowalska', updatedAt: ago(3 * HOUR), approved: null, on: true, folder: null },
+    { routine: preview, author: 'Marek Nowak', updatedAt: ago(5 * DAY), approved: preview, on: false, folder: null },
   ];
 }
 
@@ -202,16 +207,20 @@ export class MockRoutineTeam {
       nextRun: null,
       teamAuthor: row.author,
       teamUpdatedAt: row.updatedAt,
-      teamRepo: row.routine.scope === 'project' ? ROUTINES_TEAM_REPO : null,
+      teamRepo: row.routine.scope === 'project' ? row.routine.project : null,
       teamChanged: original !== undefined && local !== undefined && fakeSha(local.routine) !== original,
       teamOn: row.on,
       teamFolder: row.folder,
       shareBlock: null,
+      ...teamPlace(row.routine.scope === 'project' ? row.routine.project : null),
     };
   }
 
-  views(locals: ReadonlyMap<string, unknown>): RoutineView[] {
-    return [...this.rows.values()].map((row) => this.view(row, locals));
+  /** Every team routine of the global scope and of the demo repository, or with `all` of any repository. */
+  views(locals: ReadonlyMap<string, unknown>, all = false): RoutineView[] {
+    const shown = [...this.rows.values()].filter(({ routine }) => all || routine.scope === 'global' || routine.project === ROUTINES_TEAM_REPO);
+
+    return shown.map((row) => this.view(row, locals));
   }
 
   /** Marks the routines shared before: `sharedNow` is the local version, changed since it went to the team as `sharedThen`. */

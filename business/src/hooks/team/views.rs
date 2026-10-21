@@ -17,7 +17,7 @@ use crate::hooks::view::local_defaults;
 use crate::model::{
     Hook, HookApproval, HookListing, HookOrigin, HookScope, HookStatus, HookView, ShareBlock, TeamHooks,
 };
-use crate::signed_docs::listing::share_block;
+use crate::signed_docs::listing::{ListingScope, share_block};
 use crate::signed_docs::team::entries::{TeamEntry, team_entries};
 
 /// Every team hook with its status, and the repository key of each known project root.
@@ -91,7 +91,50 @@ pub fn app_listing(
     team: Option<&TeamHooks>,
     verified: bool,
 ) -> HookListing {
-    let mut listing = store.list_for(capabilities, project);
+    let project_verified = |root: &str| verified && project == Some(root);
+    let scope = ListingScope {
+        project,
+        all: false,
+        verified: &project_verified,
+    };
+
+    listing_in(store, folder, capabilities, &scope, team)
+}
+
+/// The app window's listing of every hook: every local file as [`HookStore::list`] shows it, each
+/// with why it cannot be shared for its own root, then, while `team` is set, every team hook. A
+/// row is matched to a project root only by a root `verified` this session; `project` (the active
+/// project root) is preferred.
+pub fn app_listing_all(
+    store: &HookStore,
+    folder: &TeamFolder,
+    capabilities: HookCapabilities,
+    project: Option<&str>,
+    team: Option<&TeamHooks>,
+    verified: &dyn Fn(&str) -> bool,
+) -> HookListing {
+    let scope = ListingScope {
+        project,
+        all: true,
+        verified,
+    };
+
+    listing_in(store, folder, capabilities, &scope, team)
+}
+
+/// The listing of `scope`, each row with its project root and repository key.
+fn listing_in(
+    store: &HookStore,
+    folder: &TeamFolder,
+    capabilities: HookCapabilities,
+    scope: &ListingScope<'_>,
+    team: Option<&TeamHooks>,
+) -> HookListing {
+    let mut listing = if scope.all {
+        store.list(capabilities)
+    } else {
+        store.list_for(capabilities, scope.project)
+    };
 
     let Some(settings) = team else {
         for view in &mut listing.hooks {
@@ -108,8 +151,22 @@ pub fn app_listing(
         view.share_block = local_share_block(view, &team_views.projects, &team_ids);
     }
 
-    let key = team_views.key_of(project.filter(|_| verified));
-    listing.hooks.extend(team_views.shown_in(key).cloned());
+    if scope.all {
+        listing.hooks.extend(team_views.views.iter().cloned());
+    } else {
+        let key = team_views.key_of(scope.verified_project());
+        listing.hooks.extend(team_views.shown_in(key).cloned());
+    }
+
+    for view in &mut listing.hooks {
+        (view.root, view.repo_key) = scope.repo_of(
+            view.origin,
+            view.root.as_deref(),
+            view.team_repo.as_deref(),
+            &team_views.projects,
+        );
+    }
+
     listing.team = Some(settings.clone());
 
     listing

@@ -24,11 +24,9 @@
     form: RoutineForm;
     problemOf: (field: FieldKey) => Problem | undefined;
     touch: (field: FieldKey) => void;
-    /** The folder of the open project, which a script of its repository is looked up for. */
-    projectPath: string | null;
   }
 
-  let { form = $bindable(), problemOf, touch, projectPath }: Props = $props();
+  let { form = $bindable(), problemOf, touch }: Props = $props();
 
   const ids = { kind: uid('routine-kind'), prompt: uid('routine-prompt'), harness: uid('routine-harness'), model: uid('routine-model'), modelId: uid('routine-model-id'), mode: uid('routine-mode'), max: uid('routine-max'), command: uid('routine-command'), timeout: uid('routine-timeout') };
 
@@ -145,5 +143,5 @@
     <input id={ids.timeout} bind:value={form.timeout} inputmode="numeric" autocomplete="off" placeholder={String(DEFAULT_TIMEOUT_SECS)} aria-invalid={timeout ? 'true' : undefined} class={fieldClass(timeout !== undefined, 'h-control px-3')} />
   </DocField>
 {:else}
-  <ScriptPicker bind:name={form.scriptName} bind:scope={form.scriptScope} routineScope={form.scope} project={projectPath} error={message(script)} onblur={() => touch('script')} />
+  <ScriptPicker bind:name={form.scriptName} bind:scope={form.scriptScope} routineScope={form.scope} project={form.projectPath} error={message(script)} onblur={() => touch('script')} />
 {/if}

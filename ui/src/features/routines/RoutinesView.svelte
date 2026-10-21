@@ -11,17 +11,23 @@
   import Button from '$lib/components/Button.svelte';
   import DocFilter from '$lib/components/docs/DocFilter.svelte';
   import DocNewButton from '$lib/components/docs/DocNewButton.svelte';
-  import type { DocTableHandle } from '$lib/components/docs/doc-groups';
+  import { DOC_PAGE_SIZE, type DocTableHandle } from '$lib/components/docs/doc-groups';
+  import { revealOpenRow, startPageOver } from '$lib/components/docs/doc-page.svelte';
+  import { deleteReach, docScope, docScopeOptions, inScope, resolveScope, scopeText } from '$lib/components/docs/doc-scope';
+  import { newDocTarget } from '$lib/components/docs/doc-target';
   import { closePanel, emptyReason, emptySearchOnEscape } from '$lib/components/docs/doc-view';
   import DocMcpHint from '$lib/components/docs/DocMcpHint.svelte';
   import DocSplit from '$lib/components/docs/DocSplit.svelte';
   import DocStage from '$lib/components/docs/DocStage.svelte';
+  import DocTeamNotice from '$lib/components/docs/DocTeamNotice.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
   import FilterMenu from '$lib/components/FilterMenu.svelte';
   import FilterRow from '$lib/components/FilterRow.svelte';
   import { ICON, type IconComponent } from '$lib/components/icon';
   import MenuItem from '$lib/components/MenuItem.svelte';
   import MoreMenu from '$lib/components/MoreMenu.svelte';
+  import ScopeFilter from '$lib/components/scope/ScopeFilter.svelte';
+  import type { ScopeChoice } from '$lib/components/scope/scope-options';
   import SearchField from '$lib/components/SearchField.svelte';
   import Skeleton from '$lib/components/Skeleton.svelte';
   import ViewHeader from '$lib/components/ViewHeader.svelte';
@@ -31,19 +37,21 @@
   import { ROUTINES_POLL_MS } from '$lib/stores/live';
   import { prefs } from '$lib/stores/prefs.svelte';
   import { project } from '$lib/stores/project.svelte';
+  import { projectScopes, revalidateProjectScopes } from '$lib/stores/project-scopes.svelte';
   import { toasts } from '$lib/stores/toasts.svelte';
   import { type RoutineSource, type RoutinesSection, type RoutineStatusFilter, type RoutineWhenFilter, viewState } from '$lib/stores/view-state.svelte';
   import { autoRefresh } from '$lib/utils/auto-refresh';
+  import { clampPage, pageOf } from '$lib/utils/pagination';
 
   import { onboarding } from '../onboarding/onboarding-state.svelte';
   import SessionConfirm, { type ConfirmRequest } from '../sessions/SessionConfirm.svelte';
   import DeleteRoutinesDialog from './DeleteRoutinesDialog.svelte';
   import { openRunChat, openRunSession } from './routine-open';
-  import { filterCounts, folderName, groupRoutines, inSource, inStatus, inWhen, matchesQuery, routineTitle, sortRoutines, STATUS_LABELS, STATUSES, viewKey, WHEN_ICONS, WHEN_KINDS, WHEN_LABELS, whenText } from './routine-format';
+  import { deletableIn, filterCounts, inSource, inStatus, inWhen, matchesQuery, routineDoc, routineTitle, sortRoutines, STATUS_LABELS, STATUSES, viewKey, WHEN_ICONS, WHEN_KINDS, WHEN_LABELS, whenText } from './routine-format';
   import type { EditorTarget } from './routine-form';
   import { NO_HANDLERS, type RoutineHandlers } from './routine-handlers';
   import { turnOnTray } from './routine-tray';
-  import { originalOf } from './routine-team';
+  import { originalOf, teamProject } from './routine-team';
   import RoutineEditor from './RoutineEditor.svelte';
   import RoutineList from './RoutineList.svelte';
   import RoutinePanel from './RoutinePanel.svelte';
@@ -54,7 +62,7 @@
   let confirmer: SessionConfirm | undefined = $state();
   let table: DocTableHandle | undefined = $state();
   let editorOpen = $state(false);
-  let editorTarget = $state<EditorTarget>({ view: null, scope: 'global' });
+  let editorTarget = $state<EditorTarget>({ view: null, target: { kind: 'global' } });
   let deleteOpen = $state<'all' | 'mine' | null>(null);
 
   const path = $derived(project.active?.path ?? null);
@@ -63,19 +71,25 @@
   const folderProblem = $derived(routines.listing?.folderProblem ?? null);
   const none = $derived(loaded && folderProblem === null && views.length === 0);
   const counts = $derived(filterCounts(routines.listing?.counts ?? { total: 0, status: {}, when: {}, origin: {} }));
-  // "Delete all" removes the local routines and the files that break the format alike. The team's stay.
-  const deletable = $derived(views.filter((view) => view.origin === 'local').length);
+  const projects = $derived(projectScopes.data ?? []);
+  // "Delete all" removes the global routines, the open project's and the files that break the format alike. The team's stay, and so do other projects'.
+  const reach = $derived(deleteReach(project.active, projects));
+  const deletable = $derived(deletableIn(views, reach.root));
   const query = $derived(viewState.routinesQuery);
   const when = $derived(viewState.routinesWhen);
   const status = $derived(viewState.routinesStatus);
   // The team's state: null while routines are not shared, and then there is no Source filter, so a kept choice of it counts for nothing.
   const team = $derived(routines.listing?.team ?? null);
   const source = $derived(team ? viewState.routinesSource : 'all');
-  const filtered = $derived(when !== 'all' || status !== 'all' || source !== 'all');
-  const narrowed = $derived(filtered || query.trim() !== '');
-  const shown = $derived(views.filter((view) => inWhen(view, when) && inStatus(view, status) && inSource(view, source) && matchesQuery(view, query)));
+  // The Scope filter lists the projects on this computer and the repositories only the team's routines name. A choice that is gone from it (a project forgotten) counts as All once the projects are read.
+  const scopeOptions = $derived(docScopeOptions(views.map(routineDoc), projects, { all: t('components.scope.all'), global: t('components.scope.global'), remoteOnly: t('components.scope.remoteOnly') }));
+  const scope = $derived<ScopeChoice>(resolveScope(viewState.routinesScope as ScopeChoice, scopeOptions, loaded && projectScopes.data !== null));
+  const filtered = $derived(scope !== 'all' || when !== 'all' || status !== 'all' || source !== 'all');
+  const shown = $derived(inScope(views.filter((view) => inWhen(view, when) && inStatus(view, status) && inSource(view, source) && matchesQuery(view, query)), scope, routineDoc, projects));
   const sort = $derived(viewState.routinesSort);
-  const groups = $derived(sortRoutines(groupRoutines(views, shown, narrowed, team !== null), sort));
+  const sorted = $derived(sortRoutines(shown, sort, projects));
+  const page = $derived(clampPage(viewState.routinesPage, sorted.length, DOC_PAGE_SIZE));
+  const rows = $derived(pageOf(sorted, page, DOC_PAGE_SIZE));
   const openId = $derived(viewState.routineId);
   const section = $derived(viewState.routinesSection);
   const waiting = $derived(routines.waiting);
@@ -121,6 +135,8 @@
   let last = $state.raw<RoutineView | null>(null);
   const shownView = $derived(openId === null ? last : live);
   const running = $derived(shownView ? routines.runOf(shownView.id) : null);
+  // Each routine of the team that belongs to a repository is turned on and copied in a folder of it: the panel says when there is none here.
+  const projectKnown = $derived(shownView !== null && teamProject(shownView, projects) !== null);
 
   $effect(() => {
     if (live) {
@@ -129,14 +145,38 @@
   });
 
   // Opening the view, or switching project, reads again; a list already read is refreshed quietly. The team routines are asked for
-  // once the list is up, so the view never waits for the network.
+  // once the list is up, so the view never waits for the network. The projects are read again too, as the Scope filter names them.
   $effect(() => {
     const where = path;
 
     untrack(() => {
+      revalidateProjectScopes();
       routines.follow(where);
       void routines.refreshTeam(where);
     });
+  });
+
+  // Whatever narrows or reorders the table starts it from its first page again.
+  startPageOver(() => JSON.stringify([query, when, status, source, scope, sort]), () => (viewState.routinesPage = 0));
+
+  // A routine that opens (one just saved, one chosen from the run history) shows in the table, whatever the filters and the page were.
+  revealOpenRow({
+    openId: () => openId,
+    listed: (id) => routines.find(id) !== null,
+    indexOf: (id) => {
+      const index = sorted.findIndex((view) => viewKey(view) === id);
+
+      return index < 0 ? null : index;
+    },
+    pageSize: DOC_PAGE_SIZE,
+    setPage: (next) => (viewState.routinesPage = next),
+    clearFilters: () => {
+      viewState.routinesQuery = '';
+      viewState.routinesScope = 'all';
+      viewState.routinesWhen = 'all';
+      viewState.routinesStatus = 'all';
+      viewState.routinesSource = 'all';
+    },
   });
 
   // A list that failed to load is read again on the retry schedule, a little later each time, instead of at the poll's pace.
@@ -153,7 +193,7 @@
   $effect(() => {
     if (routines.wantsNew) {
       routines.wantsNew = false;
-      create('global');
+      create();
     }
   });
 
@@ -166,13 +206,14 @@
     return closePanel(openId, () => (viewState.routineId = null), (id) => table?.focusRow(id));
   }
 
-  function create(scope: EditorTarget['scope']): void {
-    editorTarget = { view: null, scope };
+  /** A new routine starts where the Scope filter looks: in the project it shows, else Global. */
+  function create(): void {
+    editorTarget = { view: null, target: newDocTarget(scope, projects) };
     editorOpen = true;
   }
 
   function edit(view: RoutineView): void {
-    editorTarget = { view, scope: view.routine?.scope ?? 'global' };
+    editorTarget = { view, target: { kind: 'global' } };
     editorOpen = true;
   }
 
@@ -193,7 +234,7 @@
     const accepted = await confirmed({
       title: t('routines.delete.title'),
       description: t('routines.delete.body'),
-      subject: { icon: CalendarClock, name: routineTitle(view), details: routine ? `${whenText(routine.when)} · ${routine.scope === 'project' ? t('routines.scope.project') : t('routines.scope.global')}` : view.id },
+      subject: { icon: CalendarClock, name: routineTitle(view), details: routine ? `${whenText(routine.when)} · ${scopeText(docScope(routineDoc(view), projects))}` : view.id },
       confirmLabel: t('routines.delete.confirm'),
     });
 
@@ -218,7 +259,7 @@
 
   /** Copies a team routine to the user's own, and opens the copy. */
   async function copyToMine(view: RoutineView): Promise<void> {
-    const copy = await routines.copyTeam(view, path);
+    const copy = await routines.copyTeam(view, view.teamRepo === null ? path : teamProject(view, projects));
 
     if (copy) {
       viewState.routineId = viewKey(copy);
@@ -282,7 +323,7 @@
         <FilterMenu label={t('routines.section.label')} options={sections} value={section} onchange={(next) => (viewState.routinesSection = next)} />
       {/if}
 
-      <DocNewButton label={t('routines.new')} onclick={() => create('global')} />
+      <DocNewButton label={t('routines.new')} onclick={() => create()} />
     {/snippet}
 
     {#snippet fixed()}
@@ -301,7 +342,7 @@
           <MenuItem
             tone="danger"
             icon={Trash2}
-            disabled={deletable === 0}
+            disabled={deletable === 0 || !reach.known}
             onclick={() => {
               close();
               deleteOpen = 'all';
@@ -345,7 +386,7 @@
           <EmptyState icon={CalendarClock} title={t('routines.empty.title')} body={t('routines.empty.body')}>
             {#snippet action()}
               <div in:rise={{ y: 8, delay: 120 }} class="flex flex-wrap items-center justify-center gap-2">
-                <DocNewButton label={t('routines.new')} onclick={() => create('global')} />
+                <DocNewButton label={t('routines.new')} onclick={() => create()} />
               </div>
 
               <div class="mt-4 w-full max-w-md"><DocMcpHint message={t('routines.mcpHint')} action={t('routines.mcpHint.action')} onsetup={() => onboarding.restart('setup')} /></div>
@@ -356,6 +397,7 @@
         <DocSplit {openId} emptyIcon={CalendarClock} emptyMessage={t('routines.detail.empty')} onclose={() => void close()}>
           {#snippet body()}
             <FilterRow count={tn('routines.count', shown.length)}>
+              <ScopeFilter options={scopeOptions} value={scope} onchange={(next) => (viewState.routinesScope = next)} />
               <DocFilter label={t('routines.list.column.when')} icon={Clock} options={whenOptions} value={when} onchange={(next) => (viewState.routinesWhen = next)} clearLabel={t('routines.filter.clearWhen')} />
               <DocFilter label={t('routines.list.column.status')} options={statusOptions} value={status} onchange={(next) => (viewState.routinesStatus = next)} clearLabel={t('routines.filter.clearStatus')} />
               <!-- Mine and Team only mean something while routines are shared. -->
@@ -364,24 +406,24 @@
               {/if}
             </FilterRow>
 
+            {#if team}<DocTeamNotice problem={team.problem ? t('routines.list.teamProblem', { reason: team.problem }) : null} trusted={team.trust} trustedLabel={t('routines.list.teamTrusted')} />{/if}
+
             {#if noMatch}
               <p class="min-h-0 flex-1 px-4 py-10 text-center text-sm text-fg-3" role="status">{noMatch}</p>
             {:else}
               <RoutineList
                 bind:table
-                {groups}
+                {rows}
+                pagination={{ page, pageSize: DOC_PAGE_SIZE, total: sorted.length, onpage: (next) => (viewState.routinesPage = next) }}
                 {sort}
                 onsort={(next) => (viewState.routinesSort = next)}
                 {openId}
-                projectName={project.active ? folderName(project.active.path) : null}
-                teamProblem={team?.problem ?? null}
-                teamTrusted={team?.trust ?? false}
+                {projects}
                 busy={routines.busy}
                 {waiting}
                 onopen={(id) => (viewState.routineId = id)}
                 onmove={(id) => openId !== null && (viewState.routineId = id)}
                 ontoggle={(view, enabled) => void routines.toggle(view, enabled)}
-                onadd={create}
               />
             {/if}
           {/snippet}
@@ -391,11 +433,12 @@
               open={openId !== null}
               {inline}
               view={shownView}
+              {projects}
               {running}
               busy={shownView !== null && routines.busy.has(viewKey(shownView))}
               sharing={team !== null}
               canUpdate={shownView !== null && originalOf(views, shownView) !== null}
-              projectOpen={project.active !== null}
+              {projectKnown}
               handlers={shownView ? handlersOf(shownView) : NO_HANDLERS}
             />
           {/snippet}
@@ -406,5 +449,5 @@
 </div>
 
 <RoutineEditor bind:open={editorOpen} target={editorTarget} onsaved={saved} />
-<DeleteRoutinesDialog bind:open={() => deleteOpen !== null, (next) => !next && (deleteOpen = null)} kind={deleteOpen ?? 'all'} count={deletable} onremoved={() => (viewState.routineId = null)} />
+<DeleteRoutinesDialog bind:open={() => deleteOpen !== null, (next) => !next && (deleteOpen = null)} kind={deleteOpen ?? 'all'} count={deletable} {reach} onremoved={() => (viewState.routineId = null)} />
 <SessionConfirm bind:this={confirmer} />

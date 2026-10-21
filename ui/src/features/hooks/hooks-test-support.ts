@@ -6,6 +6,7 @@ import { fixtures } from '$lib/ipc/mock/fixtures';
 import { hooksHandlers } from '$lib/ipc/mock/hooks-handlers';
 import { type HookScenario, MockHooks } from '$lib/ipc/mock/hooks-state';
 import { nav } from '$lib/stores/nav.svelte';
+import { projectScopes } from '$lib/stores/project-scopes.svelte';
 import { toasts } from '$lib/stores/toasts.svelte';
 import { viewState } from '$lib/stores/view-state.svelte';
 
@@ -15,6 +16,9 @@ import { hooks } from './hooks-data.svelte';
 import HooksView from './HooksView.svelte';
 
 export const PROJECT = fixtures.recentProjects[0].path;
+
+/** A recent project that is not the open one. */
+export const OTHER_PROJECT = fixtures.recentProjects[1].path;
 
 /**
  * A hooks folder kept in memory that answers the hook commands like the real one (the mock backend's own), with the rest of
@@ -43,6 +47,7 @@ export function fakeHooks(scenario: HookScenario = 'ok', memory = { on: true }, 
   return { state, invoke, memory };
 }
 
+export { appliesTo, pickTarget } from '../memory/memory-test-support';
 export { calls, pick };
 
 /** The table row of a hook, by its name. */
@@ -81,6 +86,7 @@ export function registerHooksHooks(): void {
   beforeEach(() => {
     viewState.reset('hooks');
     hooks.reset();
+    projectScopes.sync(null, null);
   });
 
   afterEach(() => {
@@ -90,9 +96,10 @@ export function registerHooksHooks(): void {
   });
 }
 
-/** Shows the Hooks view once it has read the hooks (or failed to). */
+/** Shows the Hooks view once it has read the hooks (or failed to) and the projects the Scope filter lists. */
 export async function showHooks(): Promise<void> {
   nav.go('hooks');
   render(HooksView);
   await waitFor(() => expect(screen.queryByRole('status', { name: 'Loading hooks' })).not.toBeInTheDocument());
+  await waitFor(() => expect(projectScopes.status).toBe('ready'));
 }

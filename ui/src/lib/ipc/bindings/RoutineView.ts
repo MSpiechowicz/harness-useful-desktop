@@ -91,4 +91,15 @@ teamFolder: string | null,
 /**
  * Local routines: why "Share with team" is not possible, `None` when it is.
  */
-shareBlock: ShareBlock | null, };
+shareBlock: ShareBlock | null, 
+/**
+ * The project root of a project routine: a local file's (also over its scope's limit), a
+ * team routine's only once a refresh of this session confirmed a root of its repository.
+ * `None` for a global routine or an unknown scope.
+ */
+root: string | null, 
+/**
+ * The repository key of a project routine: a team routine's, or the one a refresh of this
+ * session confirmed for a local file's root. `None` for a global routine or while unknown.
+ */
+repoKey: string | null, };

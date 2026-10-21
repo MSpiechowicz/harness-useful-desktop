@@ -11,6 +11,7 @@ import type { ShareBlock } from '../bindings/ShareBlock';
 import { IpcFailure } from '../transport';
 import { CATALOG, type CatalogEntry, fakeSha, familyHook, hookId, HOOKS_PROJECT, lintApproved, lintChanged, OLD_SAVE_TEXT, testsReminder } from './hooks-fixtures';
 import { LOCAL_ORIGIN, MockTeam, sharedSamples } from './hooks-team-state';
+import { localPlace } from './project-scopes';
 import { teamModeOf } from './team-preview';
 
 /** Browser-preview switch `?hooks=`: what the Hooks view finds. Anything else shows the sample hooks. */
@@ -163,11 +164,12 @@ export class MockHooks {
       approved: stored.changed ? stored.approved : null,
       ...LOCAL_ORIGIN,
       shareBlock: this.shareBlock(stored),
+      ...localPlace(stored.hook, this.team.mode),
     };
   }
 
-  /** Global hooks first, then by creation, as the real folder runs them; files that break the format come last. */
-  list(project: string | null): HookListing {
+  /** Global hooks first, then by creation, as the real folder runs them; files that break the format come last. With `all` the hooks of every project and every team hook. */
+  list(project: string | null, all = false): HookListing {
     if (this.scenario() === 'problem') {
       return { hooks: [], folderProblem: 'The folder can be changed by other users on this computer.', team: null };
     }
@@ -176,12 +178,12 @@ export class MockHooks {
       throw IpcFailure.from({ code: 'io', message: 'The hooks folder could not be read.' });
     }
 
-    const visible = [...this.files.values()].filter(({ hook }) => hook.scope === 'global' || (project !== null && hook.project === project));
+    const visible = [...this.files.values()].filter(({ hook }) => all || hook.scope === 'global' || (project !== null && hook.project === project));
     const order = (hook: Hook) => `${hook.scope === 'global' ? 0 : 1}${hook.createdAt}${hook.id}`;
     const hooks = visible.sort((a, b) => order(a.hook).localeCompare(order(b.hook))).map((stored) => this.view(stored));
     const broken = [...this.invalid].map(([id, problem]): HookView => ({ id, hook: null, name: 'Format on save', status: 'invalid', sha256: fakeSha({ id } as Hook), problem, approval: 'never', approved: null, ...LOCAL_ORIGIN, shareBlock: this.team.on ? 'invalid' : null }));
 
-    return { hooks: [...hooks, ...broken, ...this.team.views(this.files, project)], folderProblem: null, team: this.team.info() };
+    return { hooks: [...hooks, ...broken, ...this.team.views(this.files, project, all)], folderProblem: null, team: this.team.info() };
   }
 
   /** Creates or edits a hook the way the desktop does: the written version is approved at once. */

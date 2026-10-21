@@ -4,14 +4,16 @@
 //! Each call runs one `harness-memory notes` command as [`memory_cli`](super::memory_cli) runs the
 //! server's commands, within [`LIST_TIMEOUT`]:
 //!
-//! - `notes list --json --offset N --limit N [--query Q] [--kind K] [--scope repo|global] --sort
-//!   updated|title|kind|scope|place --order O [--project P] [--hidden]` answers `{"notes": [...],
-//!   "total": N, "kinds": [{"kind", "count"}], "scopes": {"repo", "global"}}`: the repository notes
-//!   of the project and the global ones, each with `readOnly` and `hidden`, and with a team
-//!   database `hiddenCount` and `localCounts` (`{"repo", "global"}`, every repository). `--hidden`
-//!   lists the team notes hidden on this machine instead. A server that predates combined filters
-//!   answers without `scopes` and refuses `--scope` (a usage error): the list is then asked once
-//!   more without it (see [`run_list`]);
+//! - `notes list --json --offset N --limit N [--query Q] [--kind K] [--scope repo|global] [--place
+//!   local|team] --sort updated|title|kind|scope|place --order O [--project P] [--hidden]` answers
+//!   `{"notes": [...], "total": N, "kinds": [{"kind", "count"}], "scopes": {"repo", "global"},
+//!   "places": {"local", "team"}}`: the repository notes of the project and the global ones, each
+//!   with `readOnly` and `hidden`, and with a team database `hiddenCount` and `localCounts`
+//!   (`{"repo", "global"}`, every repository). `places` counts each place under every other
+//!   filter. `--hidden` lists the team notes hidden on this machine instead. A server that
+//!   predates the place answers without `places` and refuses `--place` (a usage error), one that
+//!   predates combined filters answers without `scopes` either and refuses `--scope`: the list is
+//!   then asked again without them (see [`memory_list`](super::memory_list));
 //! - `notes get <id> --json [--project P] [--hidden]` answers `{"note": {... "body"}, "links":
 //!   [...]}`; a hidden note only with `--hidden`;
 //! - `notes hide|unhide` and `notes discard-local` are [`memory_hidden`](super::memory_hidden)'s,
@@ -35,17 +37,18 @@ use serde::de::DeserializeOwned;
 use serde_json::Value;
 
 use super::memory_cli::{
-    ListAnswer, ListWindow, Repos, count_of, counts_by_scope, delete_all, list_availability, run_json, run_list,
-    run_text, scope_counts, scope_name,
+    ListWindow, Repos, count_of, counts_by_scope, delete_all, list_availability, run_json, run_text, scope_counts,
+    scope_name,
 };
 pub(super) use super::memory_hidden::ids_on_stdin;
 use super::memory_hidden::{HIDDEN_FLAG, by_id, call, entry_server, kind_args, not_found};
+use super::memory_list::{ListAnswer, list_filters, place_counts, run_list};
 use super::memory_scripts::MemoryScripts;
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::model::{
     MemoryCopyKind, MemoryDeleteAll, MemoryNotesPage, MemoryScriptsAvailability, NoteDetail, NoteKind, NoteKindCount,
-    NoteSort, NoteSummary, ScriptScope,
+    NoteSort, NoteSummary, ScriptPlace, ScriptScope,
 };
 use crate::process::ProcessRunner;
 
@@ -61,6 +64,8 @@ pub struct NotesQuery {
     pub kind: Option<NoteKind>,
     /// One scope only, or both (dropped by a server that does not combine filters).
     pub scope: Option<ScriptScope>,
+    /// One place only, or both (dropped by a server that does not filter by place).
+    pub place: Option<ScriptPlace>,
     /// `updated` unless given.
     pub sort: Option<NoteSort>,
     /// List the team notes hidden on this machine instead of the visible ones.
@@ -82,6 +87,7 @@ pub async fn list_notes(
         total: 0,
         kinds: Vec::new(),
         scopes: None,
+        places: None,
         combined_filters: false,
         notes: Vec::new(),
         hidden_count: None,
@@ -102,8 +108,13 @@ pub async fn list_notes(
     };
 
     let kind: Vec<(&str, &str)> = query.kind.map(|kind| ("--kind", kind_name(kind))).into_iter().collect();
-    let mut filters = kind.clone();
-    filters.extend(query.scope.map(|scope| ("--scope", scope_name(scope))));
+    let scope: Vec<(&str, &str)> = query
+        .scope
+        .map(|scope| ("--scope", scope_name(scope)))
+        .into_iter()
+        .collect();
+
+    let (filters, fallbacks) = list_filters(&kind, &scope, query.place);
 
     let hidden = query.hidden.then(|| OsString::from(HIDDEN_FLAG));
     let listed = |filters: &[(&str, &str)]| {
@@ -113,9 +124,9 @@ pub async fn list_notes(
     };
 
     let args = listed(&filters);
-    let fallback = query.scope.map(|_| listed(&kind));
+    let fallbacks = fallbacks.iter().map(|filters| listed(filters)).collect();
 
-    match run_list(env, runner, &server, "notes list", args, fallback).await {
+    match run_list(env, runner, &server, "notes list", args, fallbacks).await {
         Ok(answer) => notes_page(answer),
         Err(error) => unavailable(list_availability(error)),
     }
@@ -217,6 +228,7 @@ fn notes_page(answer: ListAnswer) -> MemoryNotesPage {
         total: count_of(data.get("total")).unwrap_or(u32::try_from(notes.len()).unwrap_or(u32::MAX)),
         kinds: entries::<NoteKindCount>(data, "kinds"),
         scopes: scope_counts(data),
+        places: place_counts(data),
         combined_filters: answer.combined_filters,
         notes,
         hidden_count: count_of(data.get("hiddenCount")),

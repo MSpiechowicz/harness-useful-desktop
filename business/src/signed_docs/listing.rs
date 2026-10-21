@@ -1,7 +1,8 @@
 //! What every kind's listing shares: the files of a folder sorted into the documents used and the
 //! invalid files ([`sort_files`]), the approved earlier version a pending edit is compared with,
-//! and why a local document cannot be shared ([`share_block`]). Each kind builds its own views
-//! from these.
+//! why a local document cannot be shared ([`share_block`]), and which documents the app window's
+//! listing shows and the repository each belongs to ([`ListingScope`]). Each kind builds its own
+//! views from these.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -9,7 +10,7 @@ use super::approvals::Approvals;
 use super::scope::{FileOwner, InvalidFile, ScopedDoc, ranked, within_limits};
 use super::team::ProjectKey;
 use super::{DocFile, DocKind, DocStore};
-use crate::model::{HookApproval, HookScope, ShareBlock};
+use crate::model::{HookApproval, HookOrigin, HookScope, ShareBlock};
 
 /// A folder's files as a listing shows them.
 pub(crate) struct SortedFiles<D> {
@@ -100,4 +101,59 @@ pub(crate) fn share_block<K: DocKind>(
     }
 
     team_ids.contains(doc.doc_id()).then_some(ShareBlock::OnTeam)
+}
+
+/// Which documents the app window's listing shows, and the roots it may match to a repository key.
+pub(crate) struct ListingScope<'a> {
+    /// The active project root (`None`: global only).
+    pub project: Option<&'a str>,
+    /// Every local file and every team copy, not only those a chat in `project` sees.
+    pub all: bool,
+    /// True for a project root a refresh of this session queried, so its repository key
+    /// (`projects.json`) may be used.
+    pub verified: &'a dyn Fn(&str) -> bool,
+}
+
+impl ListingScope<'_> {
+    /// The active project root while its repository key may be used.
+    pub(crate) fn verified_project(&self) -> Option<&str> {
+        self.project.filter(|root| (self.verified)(root))
+    }
+
+    /// The project root and the repository key of a listed document. A local one has the root its
+    /// file names (`root`) and the key `projects` holds for that root while it is verified. A team
+    /// one has its repository key (`team_repo`) and a root only when a verified root has that key
+    /// (the active project first): a team document is never matched to a folder on what an
+    /// earlier session left behind.
+    pub(crate) fn repo_of(
+        &self,
+        origin: HookOrigin,
+        root: Option<&str>,
+        team_repo: Option<&str>,
+        projects: &BTreeMap<String, ProjectKey>,
+    ) -> (Option<String>, Option<String>) {
+        let key_of = |root: &str| {
+            projects
+                .get(root)
+                .filter(|_| (self.verified)(root))
+                .map(|project| project.key.as_str())
+        };
+
+        match origin {
+            HookOrigin::Local => (root.map(str::to_owned), root.and_then(key_of).map(str::to_owned)),
+            HookOrigin::Team => {
+                let Some(key) = team_repo else {
+                    return (None, None);
+                };
+
+                let root = self
+                    .project
+                    .into_iter()
+                    .chain(projects.keys().map(String::as_str))
+                    .find(|root| key_of(root) == Some(key));
+
+                (root.map(str::to_owned), Some(key.to_owned()))
+            }
+        }
+    }
 }

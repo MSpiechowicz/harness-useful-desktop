@@ -14,14 +14,17 @@ registerHooksHooks();
 const LINT = 'Run lint after edits';
 
 describe('Hooks view', () => {
-  it('lists the hooks in their scopes, each with its status, and opens no panel by itself', async () => {
+  it('lists the hooks in one table, each with its scope and its status, and opens no panel by itself', async () => {
     fakeHooks();
     await showHooks();
 
     const grid = screen.getByRole('grid', { name: 'Hooks' });
-    expect(within(grid).getByText('Global')).toBeInTheDocument();
-    expect(within(grid).getAllByText('2 of 64')).toHaveLength(2);
-    expect(within(grid).getByText('This project')).toBeInTheDocument();
+    expect(within(grid).queryByRole('columnheader', { name: 'This project' })).not.toBeInTheDocument();
+    expect(within(grid).queryByText('2 of 64')).not.toBeInTheDocument();
+    expect(within(grid).getAllByRole('columnheader').map((cell) => cell.textContent?.trim())).toEqual(['Hook', 'Scope', 'When', 'Does', 'Status', 'On']);
+    expect(within(rowOf('Search Harness Memory first')).getByText('Global')).toBeInTheDocument();
+    expect(within(rowOf(LINT)).getByText('demo')).toBeInTheDocument();
+    expect(within(rowOf('Remind about tests')).getByText('demo')).toBeInTheDocument();
 
     expect(within(rowOf('Search Harness Memory first')).getByText('Active')).toBeInTheDocument();
     expect(within(rowOf('Search Harness Memory first')).getByText('Session start')).toBeInTheDocument();
@@ -311,7 +314,7 @@ describe('Hooks that wait for Harness Memory', () => {
     prefs.value = { ...(prefs.value as NonNullable<typeof prefs.value>), memoryEnabled: false };
     await showHooks();
 
-    const notice = screen.getByRole('status', { name: '' });
+    const notice = screen.getByText('Harness Memory is off').closest<HTMLElement>('[role="status"]') as HTMLElement;
     expect(within(notice).getByText('Harness Memory is off')).toBeInTheDocument();
     expect(within(notice).getByText('2 hooks use Harness Memory and wait until it is back on.')).toBeInTheDocument();
     expect(within(rowOf('Save what you learned')).getByText('Paused')).toBeInTheDocument();

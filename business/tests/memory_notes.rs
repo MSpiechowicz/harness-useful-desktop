@@ -23,6 +23,7 @@ fn first_page() -> NotesQuery {
         window: ListWindow::new(None, None, None, None).unwrap(),
         kind: None,
         scope: None,
+        place: None,
         sort: None,
         hidden: false,
     }
@@ -122,6 +123,7 @@ async fn search_kind_order_and_page_narrow_the_list() {
         window: ListWindow::new(None, Some(10), Some(" Watcher ".to_owned()), None).unwrap(),
         kind: Some(NoteKind::Fix),
         scope: None,
+        place: None,
         sort: None,
         hidden: false,
     };
@@ -152,6 +154,7 @@ async fn search_kind_order_and_page_narrow_the_list() {
         window: ListWindow::new(Some(1), Some(2), Some("   ".to_owned()), None).unwrap(),
         kind: None,
         scope: None,
+        place: None,
         sort: Some(NoteSort::Title),
         hidden: false,
     };
@@ -172,6 +175,7 @@ async fn search_kind_order_and_page_narrow_the_list() {
         window: ListWindow::new(None, None, None, Some(SortOrder::Asc)).unwrap(),
         kind: None,
         scope: None,
+        place: None,
         sort: Some(NoteSort::Updated),
         hidden: false,
     };
@@ -189,6 +193,7 @@ async fn every_sort_goes_to_the_server_by_its_name() {
         window: ListWindow::new(None, None, None, None).unwrap(),
         kind: None,
         scope: None,
+        place: None,
         sort: Some(sort),
         hidden: false,
     };

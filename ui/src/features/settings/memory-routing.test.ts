@@ -42,8 +42,8 @@ function fakeBackend(initial: Partial<MemoryRemote> = {}, localCounts = { repo: 
     scriptsTeamAndLocalSupported: true,
     ...initial,
   } as MemoryRemote;
-  const page = { availability: { kind: 'available' }, total: 0, kinds: [], scopes: null, combinedFilters: true, notes: [], hiddenCount: null, localCounts } as MemoryNotesPage;
-  const scriptsPage = { availability: { kind: 'available' }, total: 0, groups: { needsReview: 0, repo: 0, global: 0 }, scopes: null, review: null, combinedFilters: true, scripts: [], hiddenCount: null, localCounts: scriptCounts } as MemoryScriptsPage;
+  const page = { availability: { kind: 'available' }, total: 0, kinds: [], scopes: null, places: null, combinedFilters: true, notes: [], hiddenCount: null, localCounts } as MemoryNotesPage;
+  const scriptsPage = { availability: { kind: 'available' }, total: 0, groups: { needsReview: 0, repo: 0, global: 0 }, scopes: null, review: null, places: null, combinedFilters: true, scripts: [], hiddenCount: null, localCounts: scriptCounts } as MemoryScriptsPage;
   const passthrough = ipc.invoke.bind(ipc);
 
   return vi.spyOn(ipc, 'invoke').mockImplementation(async <K extends CommandName>(name: K, args: CommandArgs<K>) => {

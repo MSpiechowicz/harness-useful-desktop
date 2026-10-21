@@ -13,7 +13,7 @@ use harness_business::ecosystem::{
 };
 use harness_business::model::{
     LocalNoteIds, MemoryCopyKind, MemoryDeleteAll, MemoryNotesPage, MemoryRepos, NoteDetail, NoteDraft, NoteKind,
-    NoteSaved, NoteSort, ScriptScope, SortOrder,
+    NoteSaved, NoteSort, ScriptPlace, ScriptScope, SortOrder,
 };
 use tauri::State;
 
@@ -21,9 +21,10 @@ use super::memory_scripts::project_root;
 use crate::error::CommandResult;
 use crate::state::AppState;
 
-/// One page of the project's repository notes and the global ones, of one `kind` and one `scope`
-/// when asked. Never fails for a missing or old server: see the page's `availability` (`notes` is
-/// empty unless `available`); a server that does not combine filters drops `scope` and answers
+/// One page of the project's repository notes and the global ones, of one `kind`, one `scope` and
+/// one `place` when asked. Never fails for a missing or old server: see the page's `availability`
+/// (`notes` is empty unless `available`); a server that does not filter by place drops `place` and
+/// answers `places: null`, one that does not combine filters drops `scope` too and answers
 /// `combinedFilters: false`. `hidden` lists the team notes hidden on this machine instead.
 /// `invalidInput` for a limit of 0 or above 200, or a query above 256 characters, `forbidden` for
 /// a project that is not open or recent.
@@ -41,6 +42,7 @@ pub async fn memory_notes_list(
     query: Option<String>,
     kind: Option<NoteKind>,
     scope: Option<ScriptScope>,
+    place: Option<ScriptPlace>,
     sort: Option<NoteSort>,
     order: Option<SortOrder>,
     hidden: Option<bool>,
@@ -49,6 +51,7 @@ pub async fn memory_notes_list(
         window: ListWindow::new(offset, limit, query, order)?,
         kind,
         scope,
+        place,
         sort,
         hidden: hidden.unwrap_or(false),
     };
@@ -249,6 +252,7 @@ mod tests {
             window: ListWindow::new(None, None, None, None).expect("the first page"),
             kind: None,
             scope: None,
+            place: None,
             sort: None,
             hidden: false,
         }

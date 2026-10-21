@@ -2,7 +2,8 @@
 //! `scripts delete --all`, `hooks`), shared by [`memory_trust`](super::memory_trust),
 //! [`memory_notes`](super::memory_notes), the scripts list of
 //! [`memory_scripts`](super::memory_scripts) and [`memory_team_docs`](super::memory_team_docs),
-//! the page of a list ([`ListWindow`]), and deleting every note or script ([`delete_all`]).
+//! the page of a list ([`ListWindow`]; the filters it asks with are
+//! [`memory_list`](super::memory_list)'s), and deleting every note or script ([`delete_all`]).
 //!
 //! The server runs in the home directory with closed stdin (`hooks put` gets the hook on it),
 //! `NO_COLOR=1`, a time limit and capped
@@ -151,11 +152,7 @@ impl<'a> Repos<'a> {
         match repos {
             Some(MemoryRepos::All) => Ok(Self::All),
             Some(MemoryRepos::Repo { key }) => {
-                let shaped = (key.starts_with("git:") || key.starts_with("path:"))
-                    && key.chars().count() <= MAX_KEY_CHARS
-                    && !key.chars().any(char::is_control);
-
-                if shaped {
+                if is_repo_key(key) {
                     Ok(Self::Key(key))
                 } else {
                     Err(BusinessError::InvalidInput("that is not a repository key".to_owned()))
@@ -164,6 +161,14 @@ impl<'a> Repos<'a> {
             None => Ok(Self::Project(project)),
         }
     }
+}
+
+/// True for a repository key: it starts with `git:` or `path:`, has no control characters, and
+/// is at most [`MAX_KEY_CHARS`] long.
+pub(crate) fn is_repo_key(key: &str) -> bool {
+    (key.starts_with("git:") || key.starts_with("path:"))
+        && key.chars().count() <= MAX_KEY_CHARS
+        && !key.chars().any(char::is_control)
 }
 
 /// The options that name `repos`: `--project <root>`, `--repo <key>` or `--all-repos`.
@@ -326,58 +331,6 @@ pub(crate) async fn run_json(env: &Env, runner: &dyn ProcessRunner, server: &Pat
 
     serde_json::from_str(&stdout)
         .map_err(|_| BusinessError::Protocol(format!("harness-memory {name} answered output this app cannot read")))
-}
-
-/// A list command's JSON answer, and whether the server combines filters.
-pub(crate) struct ListAnswer {
-    /// The answer.
-    pub data: Value,
-    /// True when the server took the filters only a server that combines them knows, or answered
-    /// without them as such a server does (with `scopes`).
-    pub combined_filters: bool,
-}
-
-/// Runs list command `name` with `args`. `fallback` is the same command without the filters only
-/// a server that combines them knows (`--scope`, `--review`), when `args` has any: a usage error
-/// then means an older server, which is asked once more with `fallback` and answers without
-/// combined filters. Fails as [`run_json`].
-pub(crate) async fn run_list(
-    env: &Env,
-    runner: &dyn ProcessRunner,
-    server: &Path,
-    name: &str,
-    args: Vec<OsString>,
-    fallback: Option<Vec<OsString>>,
-) -> Result<ListAnswer> {
-    let call = |args| CliCall {
-        name,
-        args,
-        timeout: LIST_TIMEOUT,
-        output_bytes: LIST_OUTPUT_BYTES,
-        stdin: None,
-    };
-
-    match (run_json(env, runner, server, call(args)).await, fallback) {
-        (Err(BusinessError::Unsupported(_)), Some(fallback)) => {
-            tracing::info!(
-                command = name,
-                "harness-memory predates combined filters; listing without them"
-            );
-
-            let data = run_json(env, runner, server, call(fallback)).await?;
-
-            Ok(ListAnswer {
-                data,
-                combined_filters: false,
-            })
-        }
-        (answer, _) => {
-            let data = answer?;
-            let combined_filters = data.get("scopes").is_some_and(Value::is_object);
-
-            Ok(ListAnswer { data, combined_filters })
-        }
-    }
 }
 
 /// What a failed list says on its page: a server that predates the command is `outdated`, a

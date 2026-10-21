@@ -42,10 +42,15 @@ class NotesImport {
   failure = $state<string | null>(null);
 
   /** The project the plan was made for. */
-  private project: string | null = null;
+  private project = $state<string | null>(null);
 
   /** Raised by `reset`, so a file or an import that was under way before it is dropped instead of opening the dialog again. */
   private generation = 0;
+
+  /** The project the file was reviewed for: the only repository the rows can be kept in, since the plan was read for it. */
+  get reviewedFor(): string | null {
+    return this.project;
+  }
 
   get rows() {
     return this.plan?.rows ?? [];

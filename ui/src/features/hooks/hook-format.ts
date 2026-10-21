@@ -1,15 +1,14 @@
 import CornerDownRight from '@lucide/svelte/icons/corner-down-right';
 import FilePlus from '@lucide/svelte/icons/file-plus';
 import Flag from '@lucide/svelte/icons/flag';
-import Folder from '@lucide/svelte/icons/folder';
-import Globe from '@lucide/svelte/icons/globe';
 import LogOut from '@lucide/svelte/icons/log-out';
 import Play from '@lucide/svelte/icons/play';
 import Send from '@lucide/svelte/icons/send';
 import SquareTerminal from '@lucide/svelte/icons/square-terminal';
 import Wrench from '@lucide/svelte/icons/wrench';
 
-import { type DocGroup, groupDocs, MAX_PER_SCOPE, type SortValue, sortGroups } from '$lib/components/docs/doc-groups';
+import { MAX_PER_SCOPE, type SortValue, sortDocs } from '$lib/components/docs/doc-groups';
+import type { ScopedDoc } from '$lib/components/docs/doc-scope';
 import type { IconComponent } from '$lib/components/icon';
 import { t } from '$lib/i18n/i18n.svelte';
 import type { MessageKey } from '$lib/i18n/locales/en';
@@ -17,7 +16,6 @@ import type { Hook } from '$lib/ipc/bindings/Hook';
 import type { HookAction } from '$lib/ipc/bindings/HookAction';
 import type { HookEvent } from '$lib/ipc/bindings/HookEvent';
 import type { HookListing } from '$lib/ipc/bindings/HookListing';
-import type { HookScope } from '$lib/ipc/bindings/HookScope';
 import type { HookStatus } from '$lib/ipc/bindings/HookStatus';
 import type { HookRequirement } from '$lib/ipc/bindings/HookRequirement';
 import type { HookView } from '$lib/ipc/bindings/HookView';
@@ -89,10 +87,6 @@ export const ACTION_ICONS: Record<ActionKind, IconComponent> = {
   followUp: CornerDownRight,
   command: SquareTerminal,
 };
-
-export const SCOPE_LABELS: Record<HookScope, MessageKey> = { global: 'hooks.scope.global', project: 'hooks.scope.project' };
-
-export const SCOPE_ICONS: Record<HookScope, IconComponent> = { global: Globe, project: Folder };
 
 export const STATUS_LABELS: Record<HookStatus, MessageKey> = {
   active: 'hooks.status.active',
@@ -183,12 +177,9 @@ export function filterCounts(views: HookView[]): FilterCounts {
   return { when, status, source };
 }
 
-/** One block of the list: the global hooks, the project's, the files that are not hooks (invalid), or the team's. */
-export type HookGroup = DocGroup<HookView>;
-
-/** The hooks that answer the search and the filter, in their groups (see `groupDocs`). */
-export function groupHooks(all: HookView[], shown: HookView[], narrowed: boolean, teamOn = false): HookGroup[] {
-  return groupDocs(all, shown, narrowed, teamOn, (view) => (view.origin === 'team' ? 'team' : (view.hook?.scope ?? 'invalid')));
+/** Where a hook applies, as the Scope column and the Scope filter read it: the file's own scope (none for a file that is not a hook) and the project it names. */
+export function hookDoc(view: HookView): ScopedDoc {
+  return { origin: view.origin, scope: view.hook?.scope ?? null, root: view.root, repoKey: view.repoKey };
 }
 
 /** What each sortable column of the list sorts a hook by: the name, the event in the order they happen in a chat, what it does and its status as the reader sees them, and whether it is switched on. */
@@ -200,9 +191,14 @@ const SORT_VALUES: Record<string, (view: HookView) => SortValue> = {
   on: (view) => Number(switchedOn(view)),
 };
 
-/** The hooks of each group in the order of a column; null keeps the run order (see `sortGroups`). */
-export function sortHooks(groups: HookGroup[], sort: Sort | null): HookGroup[] {
-  return sortGroups(groups, sort, SORT_VALUES);
+/** How many hooks "Delete all" removes: the global ones, the files that are not hooks and those of the open project (by its root). Another project's hooks and the team's stay. */
+export function deletableCount(views: HookView[], openRoot: string | null): number {
+  return views.filter((view) => view.origin === 'local' && (view.hook === null || view.hook.scope === 'global' || (openRoot !== null && view.hook.project === openRoot))).length;
+}
+
+/** The hooks in the order of a column; null keeps the run order (see `sortDocs`). `scopeValue` is what the Scope column sorts a hook by. */
+export function sortHooks(views: HookView[], sort: Sort | null, scopeValue: (view: HookView) => SortValue): HookView[] {
+  return sortDocs(views, sort, { ...SORT_VALUES, scope: scopeValue });
 }
 
 /** The tool names of a `toolEnd` filter, one chip each. */
@@ -241,9 +237,4 @@ export function waitingFor(hook: Hook, memoryEnabled: boolean): WaitingFor | nul
   const member = memberOf(requirement);
 
   return { member, off: member === 'memory' && !memoryEnabled };
-}
-
-/** The last part of a folder path: the name a project is shown by. */
-export function folderName(path: string): string {
-  return path.split(/[\\/]/).filter(Boolean).pop() ?? path;
 }

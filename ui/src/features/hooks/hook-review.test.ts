@@ -28,18 +28,22 @@ const APPROVED: Hook = {
 function review(waiting: Hook): void {
   const view: HookView = { id: waiting.id, hook: waiting, name: waiting.name, status: 'pending', sha256: 'c'.repeat(64), problem: null, approval: 'changed', approved: APPROVED, ...LOCAL_ORIGIN, shareBlock: null };
 
-  render(HookReview, { view, busy: false, onapprove: () => {}, onreject: () => {} });
+  render(HookReview, { view, projects: [], busy: false, onapprove: () => {}, onreject: () => {} });
 }
 
 describe('Hook review', () => {
-  it('shows the folder an agent moved a hook to, in full, next to the one the user approved', () => {
+  it('shows the folder an agent moved a hook to, in full, and the project it applies to now, next to the ones the user approved', () => {
     review({ ...APPROVED, project: '/work/other-app', updatedBy: 'agent' });
 
     const group = screen.getByRole('group', { name: 'Changes to Project' });
 
     expect(within(group).getByText('/work/app')).toBeInTheDocument();
     expect(within(group).getByText('/work/other-app')).toBeInTheDocument();
-    expect(screen.queryByRole('group', { name: 'Changes to Applies to' })).not.toBeInTheDocument();
+
+    const scope = screen.getByRole('group', { name: 'Changes to Applies to' });
+
+    expect(within(scope).getByText('app')).toBeInTheDocument();
+    expect(within(scope).getByText('other-app')).toBeInTheDocument();
   });
 
   it('spells out the characters an agent hid in a name or a description', () => {

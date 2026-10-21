@@ -10,7 +10,7 @@ import { project } from '$lib/stores/project.svelte';
 import { toasts } from '$lib/stores/toasts.svelte';
 import { viewState } from '$lib/stores/view-state.svelte';
 
-import { calls, fakeMemory, IMPORT_TAKEN_TITLE, importRow, PROJECT, registerMemoryHooks, SAMPLE_IMPORT, showNotes } from './memory-test-support';
+import { appliesTo, calls, EMPTY_PROJECT, fakeMemory, IMPORT_TAKEN_TITLE, importRow, pickTarget, PROJECT, registerMemoryHooks, SAMPLE_IMPORT, showNotes } from './memory-test-support';
 import { notesImport } from './notes-import-state.svelte';
 import NotesView from './NotesView.svelte';
 
@@ -197,12 +197,48 @@ describe('reviewing a file', () => {
     expect(within(dialog).getByText('120 of 120 selected')).toBeInTheDocument();
   });
 
-  it('keeps the repository for the notes without a scope only while a project is open', async () => {
+  it('keeps the notes without a scope in the open project, or global', async () => {
     fakeMemory();
     const dialog = await openReview();
 
-    expect(within(dialog).getByRole('radio', { name: 'Repository' })).toBeChecked();
-    expect(within(dialog).getByText(/Notes whose file gives no scope are kept in /)).toBeInTheDocument();
+    expect(within(dialog).getByText('Applies to')).toBeInTheDocument();
+    expect(appliesTo(dialog)).toHaveTextContent('demo');
+    expect(within(dialog).getByText('Notes whose file gives no scope are kept in demo.')).toBeInTheDocument();
+
+    // The file was read for the open project, so that and Global are all it can offer.
+    await fireEvent.click(appliesTo(dialog));
+    const menu = await screen.findByRole('menu', { name: 'Applies to' });
+    expect(within(menu).getAllByRole('menuitemradio').map((item) => item.textContent?.replace(/\s+/g, ' ').trim())).toEqual(['Global', 'demo useful/harness-desktop']);
+  });
+
+  it('reads the file for the project the Scope filter looks at', async () => {
+    viewState.memoryReach = 'repo:path:' + EMPTY_PROJECT;
+    const invoke = fakeMemory();
+    // The project has no notes, so there is no table to wait for.
+    nav.go('notes');
+    render(NotesView);
+    await fireEvent.click(await screen.findByRole('button', { name: 'More actions' }));
+    await fireEvent.click(await screen.findByRole('menuitem', { name: 'Import from file…' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Import notes' });
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Choose file…' }));
+    await waitFor(() => expect(notesImport.stage).toBe('review'));
+
+    expect(calls(invoke, 'memory_notes_import_preview')).toEqual([{ project: EMPTY_PROJECT }]);
+    expect(appliesTo(dialog)).toHaveTextContent('research');
+
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Import 3 notes' }));
+
+    await waitFor(() => expect(calls(invoke, 'memory_notes_import_apply')).toMatchObject([{ defaultScope: 'repo', project: EMPTY_PROJECT }]));
+  });
+
+  it('reads the file for no project when the Scope filter looks at the global notes', async () => {
+    viewState.memoryReach = 'global';
+    const invoke = fakeMemory();
+    const dialog = await openReview();
+
+    expect(calls(invoke, 'memory_notes_import_preview')).toEqual([{ project: null }]);
+    expect(appliesTo(dialog)).toHaveTextContent('Global');
+    expect(within(dialog).getByText(/Open a project to keep them in its repository/)).toBeInTheDocument();
   });
 });
 
@@ -224,7 +260,7 @@ describe('importing the notes', () => {
     const invoke = fakeMemory(undefined, undefined, undefined, undefined, undefined, { preview: SAMPLE_IMPORT, hold });
     const dialog = await openReview();
 
-    await fireEvent.click(within(dialog).getByRole('radio', { name: 'Global' }));
+    await pickTarget(dialog, 'Global');
     await fireEvent.click(tickOf(dialog, IMPORT_TAKEN_TITLE)[0]);
     await fireEvent.click(tickOf(dialog, 'Retry a flaky test once')[1]);
     await fireEvent.click(within(dialog).getByRole('button', { name: 'Import 3 notes' }));

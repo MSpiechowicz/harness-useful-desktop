@@ -6,19 +6,21 @@
   import DocFormTail from '$lib/components/docs/DocFormTail.svelte';
   import DocEditorFooter from '$lib/components/docs/DocEditorFooter.svelte';
   import { scopeIsFull } from '$lib/components/docs/doc-groups';
+  import { heldIn, staysIn } from '$lib/components/docs/doc-target';
+  import ScopeSelect from '$lib/components/scope/ScopeSelect.svelte';
   import SegmentedControl from '$lib/components/SegmentedControl.svelte';
   import type { StripOption } from '$lib/components/strip';
   import { scaled } from '$lib/design/motion';
   import { t } from '$lib/i18n/i18n.svelte';
-  import type { HookScope } from '$lib/ipc/bindings/HookScope';
   import type { HookView } from '$lib/ipc/bindings/HookView';
-    import { IpcFailure } from '$lib/ipc/transport';
-  import { project } from '$lib/stores/project.svelte';
+  import { IpcFailure } from '$lib/ipc/transport';
+  import { projectScopes } from '$lib/stores/project-scopes.svelte';
   import { cx } from '$lib/utils/cx';
   import { uid } from '$lib/utils/ids';
 
+  import { targetLabel } from '../memory/scope-target';
   import EventSelect from './EventSelect.svelte';
-  import { ACTION_ICONS, ACTION_LABELS, EVENT_WHEN, length, SCOPE_ICONS, SCOPE_LABELS } from './hook-format';
+  import { ACTION_ICONS, ACTION_LABELS, EVENT_WHEN, hookDoc, length } from './hook-format';
   import { blankForm, DEFAULT_TIMEOUT_SECS, draftOf, type EditorTarget, type FieldKey, formOf, type HookForm, LIMITS, type Problem, problemsOf, validActions, withEvent } from './hook-form';
   import { hooks } from './hooks-data.svelte';
 
@@ -41,8 +43,7 @@
   let failure = $state<string | null>(null);
 
   const editing = $derived(target.view);
-  const hook = $derived(editing?.hook ?? null);
-  const projectPath = $derived(project.active?.path ?? null);
+  const projects = $derived(projectScopes.data ?? []);
 
   // The editor opens on what it was given, fresh each time.
   $effect.pre(() => {
@@ -52,21 +53,24 @@
 
     const hookToEdit = target.view?.hook ?? null;
 
-    form = hookToEdit ? formOf(hookToEdit) : { ...withEvent(blankForm(target.scope), target.event ?? 'sessionStart') };
+    form = hookToEdit ? formOf(hookToEdit, target.target) : { ...withEvent(blankForm(target.target), target.event ?? 'sessionStart') };
     touched = {};
     failure = null;
     saving = false;
   });
 
   // Whether the scope the hook would be in already holds the most it can: a hook that stays in its scope is not counted twice.
-  const scopeFull = $derived(scopeIsFull(hooks.views.filter((view) => view.hook?.scope === form.scope).length, hook?.scope === form.scope));
+  const scopeFull = $derived(scopeIsFull(heldIn(hooks.views, form.target, projects, hookDoc), editing !== null && staysIn(hookDoc(editing), form.target, projects)));
 
-  const problems = $derived(problemsOf(form, { projectOpen: projectPath !== null, scopeFull }));
+  const problems = $derived(problemsOf(form, { scopeFull }));
   const shown = $derived(problems.filter((problem) => !problem.required || touched[problem.field]));
   const actions = $derived<StripOption<string>[]>(validActions(form.event).map((kind) => ({ value: kind, label: t(ACTION_LABELS[kind]), icon: ACTION_ICONS[kind] })));
-  const scopes = $derived<StripOption<HookScope>[]>(
-    (['global', 'project'] as const).map((scope) => ({ value: scope, label: t(SCOPE_LABELS[scope]), icon: SCOPE_ICONS[scope], disabled: scope === 'project' && projectPath === null })),
-  );
+  const scopeHelp = $derived(form.target.kind === 'repo' ? t('hooks.editor.scope.project.hint', { project: targetLabel(projects, form.target, t('components.scope.global')) }) : t('hooks.editor.scope.global.hint'));
+  const scopeError = $derived.by(() => {
+    const problem = problemOf('scope');
+
+    return problem ? t(problem.message, problem.params) : null;
+  });
   const isCommand = $derived(form.kind === 'command');
   const textField = $derived<FieldKey>(isCommand ? 'command' : 'text');
 
@@ -96,7 +100,7 @@
     failure = null;
 
     try {
-      const saved = await hooks.save(draftOf(form, editing, projectPath));
+      const saved = await hooks.save(draftOf(form, editing));
 
       open = false;
       onsaved(saved, editing === null);
@@ -247,12 +251,7 @@
       </div>
     {/if}
 
-    <div class="flex flex-col gap-1.5">
-      <span id={ids.scope} class="text-sm text-fg-2">{t('hooks.editor.scope')}</span>
-      <div class="flex"><SegmentedControl label={t('hooks.editor.scope')} options={scopes} bind:value={() => form.scope, (next) => (form.scope = next)} /></div>
-      <p class="text-xs text-fg-3">{t(form.scope === 'global' ? 'hooks.editor.scope.global.hint' : 'hooks.editor.scope.project.hint', { project: project.active?.name ?? '' })}</p>
-      {@render error('scope')}
-    </div>
+    <ScopeSelect label={t('hooks.field.appliesTo')} labelId={ids.scope} {projects} value={form.target} onchange={(next) => (form.target = next)} help={scopeHelp} error={scopeError} />
 
     <DocFormTail {failure} saveLabel={t('hooks.editor.save')} />
   </form>

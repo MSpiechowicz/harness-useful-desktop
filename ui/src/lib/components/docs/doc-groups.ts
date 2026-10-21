@@ -1,40 +1,14 @@
 import type { Sort } from '../table';
 
+/** How many documents (hooks, routines) a page of their table holds. */
+export const DOC_PAGE_SIZE = 50;
+
 /** How many documents (hooks, routines) one scope, the global ones or one project's, can hold. */
 export const MAX_PER_SCOPE = 64;
 
 /** Whether a scope already holds the most documents it can: a document that stays in its scope (`stays`) is not counted twice. */
 export function scopeIsFull(held: number, stays: boolean): boolean {
   return !stays && held >= MAX_PER_SCOPE;
-}
-
-/** One block of a documents list: the global ones, the project's, the files that are not documents (invalid), or the team's. */
-export interface DocGroup<V> {
-  id: 'global' | 'project' | 'invalid' | 'team';
-  views: V[];
-  /** How many documents the group holds in all, whatever the search or the filter shows. */
-  total: number;
-}
-
-/**
- * The documents that answer the search and the filter, in their groups. A group the search or filter leaves empty is left out,
- * while the unfiltered list always shows both scopes, so an empty scope can say so and offer a first document. The team's group
- * comes last and shows (empty) only while documents are shared with the team (`teamOn`).
- */
-export function groupDocs<V>(all: V[], shown: V[], narrowed: boolean, teamOn: boolean, groupOf: (view: V) => DocGroup<V>['id']): DocGroup<V>[] {
-  const groups = (['global', 'project', 'invalid', 'team'] as const).map((id) => ({
-    id,
-    views: shown.filter((view) => groupOf(view) === id),
-    total: all.filter((view) => groupOf(view) === id).length,
-  }));
-
-  return groups.filter((group) => {
-    if (group.views.length > 0) {
-      return true;
-    }
-
-    return group.id === 'invalid' || narrowed ? false : group.id !== 'team' || teamOn;
-  });
 }
 
 /** What a column sorts a document by: a number, a text (in the reader's alphabet), or null for a document with nothing in that column. */
@@ -47,31 +21,27 @@ function compareValues(a: Exclude<SortValue, null>, b: Exclude<SortValue, null>)
 }
 
 /**
- * The documents of each group in the order a column asks for, the groups themselves as they are: a heading never moves and its count stays.
- * `null` leaves every group in its own order (the run order). A tie keeps that order too, and a document with nothing in the column
- * goes last, whichever way the sort runs.
+ * The documents in the order a column asks for. `null` leaves them as they are (the run order). A tie keeps that order too, and a
+ * document with nothing in the column goes last, whichever way the sort runs.
  */
-export function sortGroups<V, G extends DocGroup<V>>(groups: G[], sort: Sort | null, values: Record<string, (view: V) => SortValue>): G[] {
+export function sortDocs<V>(views: V[], sort: Sort | null, values: Record<string, (view: V) => SortValue>): V[] {
   const valueOf = sort ? values[sort.key] : undefined;
 
   if (!sort || !valueOf) {
-    return groups;
+    return views;
   }
 
   const sign = sort.desc ? -1 : 1;
 
-  return groups.map((group) => ({
-    ...group,
-    views: [...group.views].sort((a, b) => {
-      const [first, second] = [valueOf(a), valueOf(b)];
+  return [...views].sort((a, b) => {
+    const [first, second] = [valueOf(a), valueOf(b)];
 
-      if (first === null || second === null) {
-        return Number(first === null) - Number(second === null);
-      }
+    if (first === null || second === null) {
+      return Number(first === null) - Number(second === null);
+    }
 
-      return compareValues(first, second) * sign;
-    }),
-  }));
+    return compareValues(first, second) * sign;
+  });
 }
 
 /** A column of a documents table: the classes of its `<col>` (width, when it shows) and of its header cell. */
@@ -108,7 +78,6 @@ export interface DocListHandlers<V> {
   /** Moves the open panel along when the arrow keys move the focus. */
   onmove: (id: string) => void;
   ontoggle: (view: V, enabled: boolean) => void;
-  onadd: (scope: 'global' | 'project') => void;
   /** The table, for the view to put the focus back on a row once its panel is closed. */
   table?: DocTableHandle;
 }

@@ -145,13 +145,14 @@ const NOTE_ORDERS: Record<NoteSort, NoteOrder> = {
 };
 
 /**
- * One page of notes as the server answers: filtered by the query, the scope and the kind, sorted and cut. The kinds are counted under the
- * query and the scope, the scopes under the query and the kind. `combined: false` is an older server: it drops the scope and counts no scopes.
+ * One page of notes as the server answers: filtered by the query, the scope, the place and the kind, sorted and cut. The kinds are counted under the
+ * query, the scope and the place, the scopes under the query, the kind and the place, the places under the query, the kind and the scope.
+ * `combined: false` is an older server: it drops the scope and the place and counts neither.
  * A hidden note is listed only when `hidden` asks for them. `everything` is every note of the store, which the count of notes on this computer takes in.
  */
 export function pageOfNotes(
   visible: NoteContent[],
-  { offset, limit = DEFAULT_LIMIT, query = '', kind, scope, sort = 'updated', order, hidden = false }: CommandArgs<'memory_notes_list'>,
+  { offset, limit = DEFAULT_LIMIT, query = '', kind, scope, place, sort = 'updated', order, hidden = false }: CommandArgs<'memory_notes_list'>,
   combined = true,
   everything: NoteContent[] = visible,
 ): Omit<MemoryNotesPage, 'availability'> {
@@ -161,12 +162,16 @@ export function pageOfNotes(
   const compare = NOTE_ORDERS[sort];
   const inKind = answering.filter((found) => kind === undefined || found.kind === kind);
   const inScope = answering.filter((found) => !combined || scope === undefined || found.scope === scope);
-  const chosen = inKind.filter((found) => inScope.includes(found));
+  const inPlace = answering.filter((found) => !combined || place === undefined || found.place === place);
+  const chosen = inKind.filter((found) => inScope.includes(found) && inPlace.includes(found));
+  const ofKindHere = inKind.filter((found) => inPlace.includes(found));
+  const ofKindInScope = inKind.filter((found) => inScope.includes(found));
 
   return {
     total: chosen.length,
-    kinds: KIND_ORDER.map((each) => ({ kind: each, count: inScope.filter((found) => found.kind === each).length })),
-    scopes: combined ? { repo: inKind.filter((found) => found.scope === 'repo').length, global: inKind.filter((found) => found.scope === 'global').length } : null,
+    kinds: KIND_ORDER.map((each) => ({ kind: each, count: inScope.filter((found) => found.kind === each && inPlace.includes(found)).length })),
+    scopes: combined ? { repo: ofKindHere.filter((found) => found.scope === 'repo').length, global: ofKindHere.filter((found) => found.scope === 'global').length } : null,
+    places: combined ? { local: ofKindInScope.filter((found) => found.place === 'local').length, team: ofKindInScope.filter((found) => found.place === 'team').length } : null,
     combinedFilters: combined,
     notes: [...chosen].sort((a, b) => direction * (compare(a, b) || a.id - b.id)).slice(offset, offset + limit).map(noteSummaryOf),
     hiddenCount: visible.filter((found) => found.hidden).length,
@@ -213,7 +218,7 @@ export function memoryNotesHandlers(
     memory_notes_list: (args: CommandArgs<'memory_notes_list'>): MemoryNotesPage => {
       const state = availability();
       if (state.kind !== 'available') {
-        return { availability: state, total: 0, kinds: [], scopes: null, combinedFilters: combined(), notes: [], hiddenCount: null, localCounts: null };
+        return { availability: state, total: 0, kinds: [], scopes: null, places: null, combinedFilters: combined(), notes: [], hiddenCount: null, localCounts: null };
       }
 
       return { availability: state, ...pageOfNotes(visible(args), args, combined(), current()) };

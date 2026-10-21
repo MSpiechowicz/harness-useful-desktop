@@ -1,7 +1,7 @@
 import { type PluralBase, t, tn } from '$lib/i18n/i18n.svelte';
 import type { MessageKey } from '$lib/i18n/locales/en';
 import { ipc } from '$lib/ipc/client';
-import { type Reach, reachArgs, reachScope } from '$lib/stores/memory-reach';
+import { isKeyless, type Reach, reachArgs, reachScope } from '$lib/stores/memory-reach';
 import { noteList } from '$lib/stores/memoryNotes.svelte';
 import { noteRepos, scriptRepos } from '$lib/stores/memoryRepos.svelte';
 import { scriptList } from '$lib/stores/memoryScripts.svelte';
@@ -33,6 +33,11 @@ export interface DeleteScope {
 
 /** Reads the whole section as `reach` sees it: one page, as the list does, but with no search and no filter. Null when it cannot be read. */
 export async function readScope(section: MemorySection, reach: Reach): Promise<DeleteScope | null> {
+  // A project without a key names no repository, and a read by it would be the global entries.
+  if (isKeyless(reach)) {
+    return null;
+  }
+
   const window = { ...reachArgs(reach), scope: reachScope(reach) ?? undefined, offset: 0, limit: PROBE_LIMIT };
 
   try {
@@ -57,6 +62,11 @@ export async function readScope(section: MemorySection, reach: Reach): Promise<D
 
 /** Deletes everything of one section, then lets go of the open row, reads the list again and says how many went. Rejects with the server's reason. */
 export async function deleteAll(section: MemorySection, reach: Reach): Promise<void> {
+  // A project without a key names no repository: the arguments of its reach are those of the global entries, which must not go with it.
+  if (isKeyless(reach)) {
+    throw new Error(t('memory.deleteAll.pickRepo'));
+  }
+
   const args = { ...reachArgs(reach), scope: reachScope(reach) ?? undefined };
   const result = section === 'notes' ? await ipc.invoke('memory_notes_delete_all', args) : await ipc.invoke('memory_scripts_delete_all', args);
 

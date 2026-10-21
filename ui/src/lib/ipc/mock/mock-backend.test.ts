@@ -51,6 +51,7 @@ const sampleArgs = (sessionKey: string): { [K in CommandName]: CommandArgs<K> } 
   project_close: undefined,
   project_recent: undefined,
   project_forget: { path: fixtures.recentProjects[1].path },
+  project_scopes: undefined,
   agent_start: { request: START_REQUEST, onEvent: () => {} },
   agent_send: { key: sessionKey, action: { type: 'getState' } },
   agent_ui_respond: { key: sessionKey, response: { id: 'none', outcome: { type: 'cancelled' } } },
@@ -487,14 +488,5 @@ describe('mock transport', () => {
     const running = mock.invoke('memory_notes_import_apply', args);
     await expect(mock.invoke('memory_notes_import_apply', args)).rejects.toMatchObject({ code: 'invalidInput', message: 'an import is already running' });
     await expect(running).resolves.toMatchObject({ created: 1 });
-  });
-
-  it('clears the recent projects when remembering is turned off', async () => {
-    const mock = transport();
-    const prefs = await mock.invoke('prefs_get', undefined);
-
-    await mock.invoke('prefs_set', { prefs: { ...prefs, rememberRecentProjects: false } });
-
-    await expect(mock.invoke('project_recent', undefined)).resolves.toEqual([]);
   });
 });

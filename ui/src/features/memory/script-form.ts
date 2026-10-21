@@ -1,8 +1,11 @@
+import type { ScopeTarget } from '$lib/components/scope/scope-options';
+import type { ProjectScope } from '$lib/ipc/bindings/ProjectScope';
 import type { ScriptDetail } from '$lib/ipc/bindings/ScriptDetail';
 import type { ScriptDraft } from '$lib/ipc/bindings/ScriptDraft';
 import type { ScriptLanguage } from '$lib/ipc/bindings/ScriptLanguage';
 
 import type { Problem } from './editor-fields.svelte';
+import { targetOfItem, targetProblems } from './scope-target';
 
 /** The limits Harness Memory puts on a script. */
 export const LIMITS = { name: 64, description: 500, bodyKiB: 64, timeoutSecs: { min: 1, max: 600 } } as const;
@@ -27,21 +30,20 @@ export interface ScriptForm {
   body: string;
   /** Seconds as typed; empty means the default. */
   timeout: string;
-  scope: ScriptScope;
+  /** Where the script applies: Global, or the project it is kept in (the chosen one, not necessarily the open one). */
+  target: ScopeTarget;
 }
 
 export type FieldKey = 'name' | 'description' | 'body' | 'timeout' | 'scope';
 
 export interface ProblemContext {
-  /** A project is open, so a repository script has a repository to belong to. */
-  projectOpen: boolean;
   /** An existing script is being edited: its name and scope are kept, so neither is checked. */
   editing: boolean;
 }
 
-/** A new script: in the repository when a project is open, otherwise global. */
-export function blankForm(projectOpen: boolean): ScriptForm {
-  return { name: '', description: '', language: 'bash', body: '', timeout: '', scope: projectOpen ? 'repo' : 'global' };
+/** A new script, applying to `target`. */
+export function blankForm(target: ScopeTarget): ScriptForm {
+  return { name: '', description: '', language: 'bash', body: '', timeout: '', target };
 }
 
 /** The interpreter a script names, if this version knows it. */
@@ -54,15 +56,15 @@ export function unsupportedLanguage(script: Pick<ScriptDetail, 'language'>): str
   return knownLanguage(script.language) === null ? script.language : null;
 }
 
-/** The editor for a script that exists. A language this version does not know is shown as the usual one, and `unsupportedLanguage` keeps the script from being saved. */
-export function formOf(script: ScriptDetail): ScriptForm {
+/** The editor for a script that exists, applying where it does. A language this version does not know is shown as the usual one, and `unsupportedLanguage` keeps the script from being saved. */
+export function formOf(script: ScriptDetail, projects: ProjectScope[]): ScriptForm {
   return {
     name: script.name,
     description: script.description,
     language: knownLanguage(script.language) ?? 'bash',
     body: script.body,
     timeout: String(script.timeoutSecs),
-    scope: script.scope,
+    target: targetOfItem(script, projects),
   };
 }
 
@@ -115,9 +117,7 @@ export function problemsOf(form: ScriptForm, context: ProblemContext): Problem<F
     problems.push({ field: 'timeout', message: 'memory.editor.script.problem.timeout', params: LIMITS.timeoutSecs, required: false });
   }
 
-  if (!context.editing && form.scope === 'repo' && !context.projectOpen) {
-    problems.push({ field: 'scope', message: 'memory.editor.scope.needsProject', required: false });
-  }
+  problems.push(...targetProblems(form.target, context.editing));
 
   return problems;
 }
@@ -129,7 +129,7 @@ export function draftOf(form: ScriptForm): ScriptDraft {
     language: form.language,
     body: form.body,
     timeoutSecs: timeoutOf(form.timeout) ?? DEFAULT_TIMEOUT_SECS,
-    scope: form.scope,
+    scope: form.target.kind,
   };
 }
 

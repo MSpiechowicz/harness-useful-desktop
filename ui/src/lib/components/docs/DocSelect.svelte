@@ -5,6 +5,8 @@
   import { cx } from '$lib/utils/cx';
 
   import { ICON, type IconComponent } from '../icon';
+  import MenuSearch from '../MenuSearch.svelte';
+  import { matchOptions, type MenuSearchTexts } from '../menu-search';
   import Popover from '../Popover.svelte';
 
   interface Props {
@@ -17,9 +19,16 @@
     onchange: (value: V) => void;
     /** Shown while no option is chosen (the value is not among them). Without it the first option stands in. */
     placeholder?: string;
+    /** A field above the choices that keeps those whose label or hint has what was typed; for a field with many. The list then has a fixed height with its own scroll. */
+    search?: MenuSearchTexts;
+    /** The choice is fixed: the field shows it and does not open. */
+    disabled?: boolean;
   }
 
-  let { label, options, value, labelledby, onchange, placeholder }: Props = $props();
+  let { label, options, value, labelledby, onchange, placeholder, search, disabled = false }: Props = $props();
+
+  let needle = $state('');
+  const shown = $derived(matchOptions(options, needle));
 
   const chosen = $derived(options.find((option) => option.value === value));
   const current = $derived(chosen ?? (placeholder === undefined ? options[0] : undefined));
@@ -32,8 +41,9 @@
     <button
       {...props}
       type="button"
+      {disabled}
       aria-labelledby={labelledby}
-      class="flex h-control w-full items-center gap-2.5 rounded-md border border-line-strong bg-surface-2 px-3 text-left text-base text-fg transition-colors duration-[var(--dur-fast)] hover:bg-surface-3 focus-visible:border-focus"
+      class="flex h-control w-full items-center gap-2.5 rounded-md border border-line-strong bg-surface-2 px-3 text-left text-base text-fg transition-colors duration-[var(--dur-fast)] hover:bg-surface-3 focus-visible:border-focus disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-surface-2"
     >
       {#if CurrentIcon}<CurrentIcon size={ICON.sm} class="shrink-0 text-fg-3" aria-hidden="true" />{/if}
       {#if current}
@@ -42,13 +52,13 @@
       {:else}
         <span class="min-w-0 flex-1 truncate text-fg-3">{placeholder}</span>
       {/if}
-      <ChevronDown size={ICON.sm} class="shrink-0 text-fg-3" aria-hidden="true" />
+      {#if !disabled}<ChevronDown size={ICON.sm} class="shrink-0 text-fg-3" aria-hidden="true" />{/if}
     </button>
   {/snippet}
 
   {#snippet children({ close })}
-    <div role="none" class="flex flex-col">
-      {#each options as option (option.value)}
+    <MenuSearch {search} bind:needle none={shown.length === 0}>
+      {#each shown as option (option.value)}
         {@const Icon = option.icon}
 
         <button
@@ -70,6 +80,6 @@
           {#if option.value === value}<Check size={ICON.sm} class="shrink-0 text-accent-text" aria-hidden="true" />{/if}
         </button>
       {/each}
-    </div>
+    </MenuSearch>
   {/snippet}
 </Popover>

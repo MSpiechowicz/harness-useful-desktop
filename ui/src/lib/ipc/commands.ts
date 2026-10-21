@@ -38,6 +38,7 @@ import type { InstallLogLine } from './bindings/InstallLogLine';
 import type { McpState } from './bindings/McpState';
 import type { RecommendedSetup } from './bindings/RecommendedSetup';
 import type { ProjectInfo } from './bindings/ProjectInfo';
+import type { ProjectScope } from './bindings/ProjectScope';
 import type { ReviewRequest } from './bindings/ReviewRequest';
 import type { RoutineDraft } from './bindings/RoutineDraft';
 import type { RoutineFilter } from './bindings/RoutineFilter';
@@ -95,6 +96,12 @@ export const commands = {
   project_close: cmd<undefined, null>(),
   project_recent: cmd<undefined, ProjectInfo[]>(),
   project_forget: cmd<{ path: string }, ProjectInfo[]>(),
+  /**
+   * The active project, then the recent ones (each once), with the project root hooks and routines store (null for a folder that is gone)
+   * and the Harness Memory repository key (`git:…` or `path:…`, null while Harness Memory is missing, outdated or does not answer).
+   * Keys are kept for the session, asked again after `project_open`, `project_pick` or `project_forget` of that project. Never rejects for a key.
+   */
+  project_scopes: cmd<undefined, ProjectScope[]>(),
   agent_start: cmd<{ request: AgentStartRequest; onEvent: EventSink<AgentEnvelope> }, AgentSessionInfo>(),
   agent_send: cmd<{ key: string; action: AgentAction }, AgentReply>(),
   agent_ui_respond: cmd<{ key: string; response: UiResponse }, null>(),
@@ -143,8 +150,10 @@ export const commands = {
    * The hooks of the Hooks view: every hook file of the global folder and of the project at `project` (null for global only), valid
    * or not, with the status each has. Never rejects for a bad file, see `HookView.problem`. `folderProblem` says why the folder is not read.
    * While hooks are shared with the team (`team` not null) the team hooks of that chat follow the local ones (`origin: team`).
+   * With `all` the hook files of every project and every cached team hook instead (`project` is still the project in use). Each row has
+   * its `root` (a team hook's only once a refresh of this session confirmed a root of its repository) and `repoKey`.
    */
-  hooks_list: cmd<{ project: string | null }, HookListing>(),
+  hooks_list: cmd<{ project: string | null; all?: boolean }, HookListing>(),
   /**
    * Creates a hook (`draft.id` null) or edits one (`draft.expectedSha256` is the version the user edited) and approves the written
    * version, so it runs at once. Rejects with `conflict` when the file changed since, `invalidInput` when the draft breaks the format
@@ -195,9 +204,10 @@ export const commands = {
   /**
    * The routines of the Routines view: every routine file of the global folder and of the project at `project` (null for global only),
    * valid ones first, each with its status (`running` while a run goes on) and `nextRun`. `filter` keeps only the matching routines (null
-   * or absent keeps all), `counts` are those of every listed routine. `forbidden` for a project that is not open or recent.
+   * or absent keeps all), `counts` are those of every listed routine. `forbidden` for a project that is not open or recent. With `all` the
+   * routine files of every project and every cached team routine instead, each row with its `root` and `repoKey` as in `hooks_list`.
    */
-  routines_list: cmd<{ project: string | null; filter?: RoutineFilter | null }, RoutineListing>(),
+  routines_list: cmd<{ project: string | null; filter?: RoutineFilter | null; all?: boolean }, RoutineListing>(),
   /** One routine file as `routines_list` shows it. `notFound` when it is gone. */
   routine_get: cmd<{ id: string }, RoutineView>(),
   /**

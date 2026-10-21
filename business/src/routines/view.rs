@@ -127,6 +127,8 @@ pub(crate) fn blank_view(origin: HookOrigin) -> RoutineView {
         team_on: false,
         team_folder: None,
         share_block: None,
+        root: None,
+        repo_key: None,
     }
 }
 

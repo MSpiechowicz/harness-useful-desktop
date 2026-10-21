@@ -10,33 +10,40 @@
   import Button from '$lib/components/Button.svelte';
   import DocFilter from '$lib/components/docs/DocFilter.svelte';
   import DocNewButton from '$lib/components/docs/DocNewButton.svelte';
-  import type { DocTableHandle } from '$lib/components/docs/doc-groups';
+  import { DOC_PAGE_SIZE, type DocTableHandle } from '$lib/components/docs/doc-groups';
+  import { revealOpenRow, startPageOver } from '$lib/components/docs/doc-page.svelte';
+  import { deleteReach, type DocScope, docScope, docScopeOptions, inScope, projectOf, resolveScope, scopeSortValue, scopeText } from '$lib/components/docs/doc-scope';
+  import { docTarget, newDocTarget } from '$lib/components/docs/doc-target';
   import { closePanel, emptyReason, emptySearchOnEscape } from '$lib/components/docs/doc-view';
   import DocSplit from '$lib/components/docs/DocSplit.svelte';
   import DocStage from '$lib/components/docs/DocStage.svelte';
+  import DocTeamNotice from '$lib/components/docs/DocTeamNotice.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
   import { ICON } from '$lib/components/icon';
   import FilterRow from '$lib/components/FilterRow.svelte';
   import MenuItem from '$lib/components/MenuItem.svelte';
   import MoreMenu from '$lib/components/MoreMenu.svelte';
+  import ScopeFilter from '$lib/components/scope/ScopeFilter.svelte';
+  import type { ScopeChoice } from '$lib/components/scope/scope-options';
   import SearchField from '$lib/components/SearchField.svelte';
   import Skeleton from '$lib/components/Skeleton.svelte';
   import ViewHeader from '$lib/components/ViewHeader.svelte';
   import { rise } from '$lib/design/motion';
   import { t, tn } from '$lib/i18n/i18n.svelte';
-  import type { HookScope } from '$lib/ipc/bindings/HookScope';
   import type { HookView } from '$lib/ipc/bindings/HookView';
   import { HOOKS_POLL_MS } from '$lib/stores/live';
   import { project } from '$lib/stores/project.svelte';
+  import { projectScopes, revalidateProjectScopes } from '$lib/stores/project-scopes.svelte';
   import { toasts } from '$lib/stores/toasts.svelte';
   import { type HookSource, type HookStatusFilter, type HookWhen, viewState } from '$lib/stores/view-state.svelte';
   import { autoRefresh } from '$lib/utils/auto-refresh';
+  import { clampPage, pageOf } from '$lib/utils/pagination';
 
   import SessionConfirm, { type ConfirmRequest } from '../sessions/SessionConfirm.svelte';
   import DesktopMcpHint from './DesktopMcpHint.svelte';
   import DeleteAllDialog from './DeleteAllDialog.svelte';
   import FamilyDialog from './FamilyDialog.svelte';
-  import { EVENT_LABELS, EVENT_WHEN, EVENTS, filterCounts, folderName, groupHooks, hookTitle, inSource, inStatus, inWhen, matchesQuery, sortHooks, STATUS_LABELS, STATUSES, type WaitingFor, viewKey, waitingFor } from './hook-format';
+  import { deletableCount, EVENT_LABELS, EVENT_WHEN, EVENTS, filterCounts, hookDoc, hookTitle, inSource, inStatus, inWhen, matchesQuery, sortHooks, STATUS_LABELS, STATUSES, type WaitingFor, viewKey, waitingFor } from './hook-format';
   import { type EditorTarget } from './hook-form';
   import { originalOf } from './hook-team';
   import HookEditor from './HookEditor.svelte';
@@ -49,7 +56,7 @@
   let confirmer: SessionConfirm | undefined = $state();
   let table: DocTableHandle | undefined = $state();
   let editorOpen = $state(false);
-  let editorTarget = $state<EditorTarget>({ view: null, scope: 'global' });
+  let editorTarget = $state<EditorTarget>({ view: null, target: { kind: 'global' } });
   let familyOpen = $state(false);
   let deleteAllOpen = $state(false);
 
@@ -59,19 +66,24 @@
   const folderProblem = $derived(hooks.listing?.folderProblem ?? null);
   const none = $derived(loaded && folderProblem === null && views.length === 0);
   const counts = $derived(filterCounts(views));
-  // "Delete all" removes the hooks and the files that break the format alike.
-  const deletable = $derived(views.length);
+  const projects = $derived(projectScopes.data ?? []);
+  // "Delete all" removes the global hooks, the open project's and the files that break the format alike. Another project's hooks and the team's stay.
+  const reach = $derived(deleteReach(project.active, projects));
+  const deletable = $derived(deletableCount(views, reach.root));
   const query = $derived(viewState.hooksQuery);
   const when = $derived(viewState.hooksWhen);
   const status = $derived(viewState.hooksStatus);
   // The team's state: null while hooks are not shared, and then there is no Source filter, so a kept choice of it counts for nothing.
   const team = $derived(hooks.listing?.team ?? null);
   const source = $derived(team ? viewState.hooksSource : 'all');
-  const filtered = $derived(when !== 'all' || status !== 'all' || source !== 'all');
-  const narrowed = $derived(filtered || query.trim() !== '');
-  const shown = $derived(views.filter((view) => inWhen(view, when) && inStatus(view, status) && inSource(view, source) && matchesQuery(view, query)));
+  // The Scope filter lists the projects on this computer and the repositories only the team's hooks name. A choice that is gone from it (a project forgotten) counts as All once they are read.
+  const scopeOptions = $derived(docScopeOptions(views.map(hookDoc), projects, { all: t('components.scope.all'), global: t('components.scope.global'), remoteOnly: t('components.scope.remoteOnly') }));
+  const scope = $derived<ScopeChoice>(resolveScope(viewState.hooksScope as ScopeChoice, scopeOptions, loaded && projectScopes.data !== null));
+  const filtered = $derived(scope !== 'all' || when !== 'all' || status !== 'all' || source !== 'all');
+  const shown = $derived(inScope(views, scope, hookDoc, projects).filter((view) => inWhen(view, when) && inStatus(view, status) && inSource(view, source) && matchesQuery(view, query)));
   const sort = $derived(viewState.hooksSort);
-  const groups = $derived(sortHooks(groupHooks(views, shown, narrowed, team !== null), sort));
+  const sorted = $derived(sortHooks(shown, sort, (view) => scopeSortValue(scopeOf(view))));
+  const pagination = $derived({ page: clampPage(viewState.hooksPage, sorted.length, DOC_PAGE_SIZE), pageSize: DOC_PAGE_SIZE, total: sorted.length, onpage: (page: number) => (viewState.hooksPage = page) });
   const openId = $derived(viewState.hookId);
 
   const whenOptions = $derived([
@@ -119,11 +131,36 @@
   const live = $derived(hooks.find(openId));
   let last = $state.raw<HookView | null>(null);
   const shownView = $derived(openId === null ? last : live);
+  // A team hook of a repository that is not on this computer has no folder to be copied to.
+  const copyLock = $derived(shownView?.origin === 'team' && copyFolder(shownView) === undefined ? t('hooks.team.copy.noProject') : null);
 
   $effect(() => {
     if (live) {
       last = live;
     }
+  });
+
+  // Whatever narrows or reorders the table starts it from its first page again.
+  startPageOver(() => JSON.stringify([query, when, status, source, scope, sort]), () => (viewState.hooksPage = 0));
+
+  // A hook that opens (one just saved) shows in the table, whatever the filters and the page were.
+  revealOpenRow({
+    openId: () => openId,
+    listed: (id) => hooks.find(id) !== null,
+    indexOf: (id) => {
+      const index = sorted.findIndex((view) => viewKey(view) === id);
+
+      return index < 0 ? null : index;
+    },
+    pageSize: DOC_PAGE_SIZE,
+    setPage: (page) => (viewState.hooksPage = page),
+    clearFilters: () => {
+      viewState.hooksQuery = '';
+      viewState.hooksScope = 'all';
+      viewState.hooksWhen = 'all';
+      viewState.hooksStatus = 'all';
+      viewState.hooksSource = 'all';
+    },
   });
 
   // Opening the view, or switching project, reads again; a list already read is refreshed quietly. The team hooks are asked for
@@ -132,6 +169,7 @@
     const where = path;
 
     untrack(() => {
+      revalidateProjectScopes();
       hooks.follow(where);
       void hooks.refreshTeam(where);
     });
@@ -156,13 +194,19 @@
     return closePanel(openId, () => (viewState.hookId = null), (id) => table?.focusRow(id));
   }
 
-  function create(scope: HookScope): void {
-    editorTarget = { view: null, scope };
+  /** What a hook's Scope cell says. */
+  function scopeOf(view: HookView): DocScope {
+    return docScope(hookDoc(view), projects);
+  }
+
+  /** A new hook starts out for the project the Scope filter shows, else for every project. */
+  function create(): void {
+    editorTarget = { view: null, target: newDocTarget(scope, projects) };
     editorOpen = true;
   }
 
   function edit(view: HookView): void {
-    editorTarget = { view, scope: view.hook?.scope ?? 'global' };
+    editorTarget = { view, target: docTarget(hookDoc(view), projects) };
     editorOpen = true;
   }
 
@@ -183,7 +227,7 @@
     const confirmed = await ask({
       title: t('hooks.delete.title'),
       description: t('hooks.delete.body'),
-      subject: { icon: Webhook, name: hookTitle(view), details: hook ? `${t(EVENT_LABELS[hook.event])} · ${hook.scope === 'project' ? t('hooks.scope.project') : t('hooks.scope.global')}` : view.id },
+      subject: { icon: Webhook, name: hookTitle(view), details: hook ? `${t(EVENT_LABELS[hook.event])} · ${scopeText(scopeOf(view))}` : view.id },
       confirmLabel: t('hooks.delete.confirm'),
     });
 
@@ -206,9 +250,20 @@
     }
   }
 
+  /** The folder a team hook is copied for: its repository's project on this computer, the open project for a global hook. Undefined for a repository that is not on this computer. */
+  function copyFolder(view: HookView): string | null | undefined {
+    return view.hook?.scope === 'project' ? projectOf(hookDoc(view), projects)?.path : path;
+  }
+
   /** Copies a team hook to the user's own, and opens the copy. */
   async function copyToMine(view: HookView): Promise<void> {
-    const copy = await hooks.copyTeam(view, path);
+    const folder = copyFolder(view);
+
+    if (folder === undefined) {
+      return;
+    }
+
+    const copy = await hooks.copyTeam(view, folder);
 
     if (copy) {
       viewState.hookId = viewKey(copy);
@@ -225,7 +280,7 @@
         </div>
       {/if}
 
-      <DocNewButton label={t('hooks.new')} onclick={() => create('global')} />
+      <DocNewButton label={t('hooks.new')} onclick={create} />
     {/snippet}
 
     {#snippet fixed()}
@@ -241,7 +296,7 @@
           <MenuItem
             tone="danger"
             icon={Trash2}
-            disabled={deletable === 0}
+            disabled={deletable === 0 || !reach.known}
             onclick={() => {
               close();
               deleteAllOpen = true;
@@ -284,7 +339,7 @@
         <EmptyState icon={Webhook} title={t('hooks.empty.title')} body={t('hooks.empty.body')}>
           {#snippet action()}
             <div in:rise={{ y: 8, delay: 120 }} class="flex flex-wrap items-center justify-center gap-2">
-              <DocNewButton label={t('hooks.new')} onclick={() => create('global')} />
+              <DocNewButton label={t('hooks.new')} onclick={create} />
               <Button onclick={() => (familyOpen = true)}>
                 {#snippet leading()}<Users size={ICON.sm} aria-hidden="true" />{/snippet}
                 {t('hooks.menu.family')}
@@ -299,6 +354,7 @@
       <DocSplit {openId} emptyIcon={Webhook} emptyMessage={t('hooks.detail.empty')} onclose={() => void close()}>
         {#snippet body()}
           <FilterRow count={tn('hooks.count', shown.length)}>
+            <ScopeFilter options={scopeOptions} value={scope} onchange={(next) => (viewState.hooksScope = next)} />
             <DocFilter label={t('hooks.list.column.when')} icon={Clock} options={whenOptions} value={when} onchange={(next) => (viewState.hooksWhen = next)} clearLabel={t('hooks.filter.clearWhen')} />
             <DocFilter label={t('hooks.list.column.status')} options={statusOptions} value={status} onchange={(next) => (viewState.hooksStatus = next)} clearLabel={t('hooks.filter.clearStatus')} />
             <!-- Mine and Team only mean something while hooks are shared. -->
@@ -307,23 +363,23 @@
             {/if}
           </FilterRow>
 
+          <DocTeamNotice problem={team?.problem ? t('hooks.list.teamProblem', { reason: team.problem }) : null} trusted={team?.trust ?? false} trustedLabel={t('hooks.list.teamTrusted')} />
+
           {#if noMatch}
             <p class="min-h-0 flex-1 px-4 py-10 text-center text-sm text-fg-3" role="status">{noMatch}</p>
           {:else}
             <HookList
               bind:table
-              {groups}
+              rows={pageOf(sorted, viewState.hooksPage, DOC_PAGE_SIZE)}
+              {pagination}
               {sort}
               onsort={(next) => (viewState.hooksSort = next)}
               {openId}
-              projectName={project.active ? folderName(project.active.path) : null}
-              teamProblem={team?.problem ?? null}
-              teamTrusted={team?.trust ?? false}
+              {scopeOf}
               busy={hooks.busy}
               onopen={(id) => (viewState.hookId = id)}
               onmove={(id) => openId !== null && (viewState.hookId = id)}
               ontoggle={(view, enabled) => void hooks.toggle(view, enabled)}
-              onadd={create}
             />
           {/if}
         {/snippet}
@@ -333,9 +389,11 @@
             open={openId !== null}
             {inline}
             view={shownView}
+            {projects}
             busy={shownView !== null && hooks.busy.has(viewKey(shownView))}
             sharing={team !== null}
             canUpdate={shownView !== null && originalOf(views, shownView) !== null}
+            {copyLock}
             ontoggle={(enabled) => shownView && void hooks.toggle(shownView, enabled)}
             onapprove={() => shownView && void hooks.approve(shownView)}
             onreject={() => shownView && void hooks.reject(shownView)}
@@ -355,5 +413,5 @@
 
 <HookEditor bind:open={editorOpen} target={editorTarget} onsaved={saved} />
 <FamilyDialog bind:open={familyOpen} />
-<DeleteAllDialog bind:open={deleteAllOpen} count={deletable} onremoved={() => (viewState.hookId = null)} />
+<DeleteAllDialog bind:open={deleteAllOpen} count={deletable} {reach} onremoved={() => (viewState.hookId = null)} />
 <SessionConfirm bind:this={confirmer} />

@@ -14,29 +14,13 @@ import { toasts } from '$lib/stores/toasts.svelte';
 import { viewState } from '$lib/stores/view-state.svelte';
 
 import { scriptEditor } from './editor-state.svelte';
-import { calls, fakeMemory, PROJECT, registerMemoryHooks, rowButton, showMemory } from './memory-test-support';
+import { appliesTo, calls, fakeMemory, PROJECT, registerMemoryHooks, rowButton, showMemory } from './memory-test-support';
+import { BODY, fill, openEditor } from './script-editor-support';
 import ScriptsView from './ScriptsView.svelte';
 
 registerMemoryHooks();
 
-const BODY = '#!/usr/bin/env bash\necho todo';
 const OPEN_PRS_SHA = sampleScripts().find((script) => script.name === 'open-prs')?.sha256;
-
-/** Opens the editor on a new script from the primary action of the header. */
-async function openEditor(): Promise<HTMLElement> {
-  await showMemory();
-  await fireEvent.click(await screen.findByRole('button', { name: 'Add script' }));
-
-  return screen.findByRole('dialog', { name: 'Add a script' });
-}
-
-async function fill(dialog: HTMLElement, fields: { name?: string; description?: string; body?: string; timeout?: string }): Promise<void> {
-  const labels = { name: 'Name', description: 'Description', body: 'Code', timeout: 'Time limit' } as const;
-
-  for (const [field, value] of Object.entries(fields)) {
-    await fireEvent.input(within(dialog).getByLabelText(labels[field as keyof typeof labels]), { target: { value } });
-  }
-}
 
 /** Opens the Scripts view where there is no table to show, only words, and waits for them. */
 async function showWithoutTable(words: string): Promise<{ unmount: () => void }> {
@@ -225,8 +209,9 @@ describe('editing a script', () => {
     expect((within(dialog).getByLabelText('Code') as HTMLTextAreaElement).value).toContain('gh pr list');
     expect(within(dialog).getByLabelText('Time limit')).toHaveValue('60');
     expect(within(dialog).getByRole('radio', { name: 'Bash' })).toBeChecked();
-    expect(within(dialog).getByRole('radio', { name: 'Repository' })).toBeDisabled();
-    expect(within(dialog).getByRole('radio', { name: 'Global' })).toBeDisabled();
+    expect(appliesTo(dialog)).toHaveTextContent('demo');
+    expect(appliesTo(dialog)).toBeDisabled();
+    expect(within(dialog).getByText('A script keeps its scope.')).toBeInTheDocument();
   });
 
   it('saves the changes over the script of that name, says so, and shows them in its panel', async () => {

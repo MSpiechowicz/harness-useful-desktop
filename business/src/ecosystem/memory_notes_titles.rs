@@ -232,6 +232,7 @@ async fn each_global_page(
             window: ListWindow::new(Some(offset), Some(MAX_PAGE_SIZE), None, Some(SortOrder::Asc))?,
             kind: None,
             scope: Some(ScriptScope::Global),
+            place: None,
             sort: Some(NoteSort::Title),
             hidden: false,
         };

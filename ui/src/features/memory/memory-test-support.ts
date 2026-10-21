@@ -10,6 +10,7 @@ import type { NoteSaved } from '$lib/ipc/bindings/NoteSaved';
 import type { NotesImportPreview } from '$lib/ipc/bindings/NotesImportPreview';
 import type { NotesImportResult } from '$lib/ipc/bindings/NotesImportResult';
 import type { NotesImportRow } from '$lib/ipc/bindings/NotesImportRow';
+import type { ProjectScope } from '$lib/ipc/bindings/ProjectScope';
 import type { ScriptDetail } from '$lib/ipc/bindings/ScriptDetail';
 import { ipc } from '$lib/ipc/client';
 import type { CommandArgs, CommandName, CommandResult } from '$lib/ipc/commands';
@@ -27,6 +28,7 @@ import { noteDetail, noteList } from '$lib/stores/memoryNotes.svelte';
 import { scriptDetail, scriptList } from '$lib/stores/memoryScripts.svelte';
 import { nav } from '$lib/stores/nav.svelte';
 import { memoryRemote } from '$lib/stores/memoryRemote.svelte';
+import { projectScopes } from '$lib/stores/project-scopes.svelte';
 import { toasts } from '$lib/stores/toasts.svelte';
 import { viewState } from '$lib/stores/view-state.svelte';
 
@@ -45,6 +47,26 @@ export const ALL = { project: null, repos: { kind: 'all' } } as const;
 export const REPO_KEY = 'git:github.com/useful/harness-desktop';
 export const REPO_REACH = repoReach(REPO_KEY);
 export const REPO_ARGS = { project: null, repos: { kind: 'repo', key: REPO_KEY }, scope: 'repo' } as const;
+
+/** A recent project of the fake app that is no repository of the sample notes, and has none of its own: the Scope filter still offers it. */
+export const EMPTY_PROJECT = fixtures.recentProjects[1].path;
+
+/** A recent project Harness Memory cannot name a repository key for. */
+export const KEYLESS_PROJECT = fixtures.recentProjects[2].path;
+
+/** The projects the fake answers `project_scopes` with: the open one is the repository of the sample notes, one has no notes, one has no key. */
+export const SCOPES: ProjectScope[] = [
+  { path: PROJECT, name: 'demo', root: PROJECT, key: REPO_KEY },
+  { path: EMPTY_PROJECT, name: 'research', root: EMPTY_PROJECT, key: `path:${EMPTY_PROJECT}` },
+  { path: KEYLESS_PROJECT, name: 'legacy-api', root: KEYLESS_PROJECT, key: null },
+];
+
+let shownScopes = SCOPES;
+
+/** Changes the projects the fake answers `project_scopes` with, for the rest of the test. */
+export function setProjectScopes(next: ProjectScope[]): void {
+  shownScopes = next;
+}
 
 /** What GitHub says about the latest Harness Memory release next to the installed one. */
 export type MemoryRelease = Pick<EcosystemRelease, 'latestVersion' | 'updateAvailable'>;
@@ -194,6 +216,10 @@ export function fakeMemory(availability: MemoryScriptsAvailability | (() => Memo
   const teamCommand = (name: string): name is keyof typeof team => name in team;
 
   return vi.spyOn(ipc, 'invoke').mockImplementation(async <K extends CommandName>(name: K, args: CommandArgs<K>) => {
+    if ((name as string) === 'project_scopes') {
+      return structuredClone(shownScopes) as CommandResult<K>;
+    }
+
     if (teamCommand(name)) {
       return (team[name] as (args: CommandArgs<K>) => CommandResult<K>)(args);
     }
@@ -205,7 +231,7 @@ export function fakeMemory(availability: MemoryScriptsAvailability | (() => Memo
       const page =
         found.kind === 'available'
           ? pageOfScripts(visible.map(summaryOf), asked, combines(), scripts.map(summaryOf))
-          : { total: 0, groups: { needsReview: 0, repo: 0, global: 0 }, scopes: null, review: null, combinedFilters: combines(), scripts: [], hiddenCount: null, localCounts: null };
+          : { total: 0, groups: { needsReview: 0, repo: 0, global: 0 }, scopes: null, review: null, places: null, combinedFilters: combines(), scripts: [], hiddenCount: null, localCounts: null };
 
       return { availability: found, ...page } as CommandResult<K>;
     }
@@ -213,7 +239,7 @@ export function fakeMemory(availability: MemoryScriptsAvailability | (() => Memo
     if (name === 'memory_notes_list') {
       const asked = args as CommandArgs<'memory_notes_list'>;
       const found = probe();
-      const page = found.kind === 'available' ? pageOfNotes(notes.filter((note) => reaches(note, asked)), asked, combines(), notes) : { total: 0, kinds: [], scopes: null, combinedFilters: combines(), notes: [], hiddenCount: null, localCounts: null };
+      const page = found.kind === 'available' ? pageOfNotes(notes.filter((note) => reaches(note, asked)), asked, combines(), notes) : { total: 0, kinds: [], scopes: null, places: null, combinedFilters: combines(), notes: [], hiddenCount: null, localCounts: null };
 
       return { availability: found, ...page } as CommandResult<K>;
     }
@@ -378,6 +404,8 @@ export function registerMemoryHooks(): void {
     viewState.reset('notes');
     viewState.reset('scripts');
     viewState.memoryReach = 'all';
+    shownScopes = SCOPES;
+    projectScopes.sync(null, null);
     noteList.sync(null, null);
     noteDetail.sync(null, null);
     scriptList.sync(null, null);
@@ -422,7 +450,7 @@ export async function pickFilter(button: string, choice: RegExp): Promise<void> 
   await fireEvent.click(await screen.findByRole('menuitemradio', { name: choice }));
 }
 
-/** What a filter menu offers, each choice with its count as the user reads it; the menu is closed again. */
+/** What a filter menu offers, each choice with its hint and count as the user reads it; the menu is closed again. */
 export async function filterChoices(button: string, menu: string): Promise<string[]> {
   await fireEvent.click(screen.getByRole('button', { name: button }));
 
@@ -432,4 +460,13 @@ export async function filterChoices(button: string, menu: string): Promise<strin
   await fireEvent.keyDown(open, { key: 'Escape' });
 
   return choices;
+}
+
+/** What the Applies to field of an editor shows. */
+export const appliesTo = (dialog: HTMLElement) => within(dialog).getByRole('button', { name: 'Applies to' });
+
+/** Opens the Applies to field of an editor and picks one of its choices by name. */
+export async function pickTarget(dialog: HTMLElement, choice: RegExp | string): Promise<void> {
+  await fireEvent.click(appliesTo(dialog));
+  await fireEvent.click(await screen.findByRole('menuitemradio', { name: choice }));
 }

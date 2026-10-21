@@ -19,7 +19,8 @@ use harness_business::ecosystem::{
 };
 use harness_business::model::{
     LocalNoteIds, MemoryCopyKind, MemoryDeleteAll, MemoryRepos, MemoryReposPage, MemoryScriptsPage, ScriptDetail,
-    ScriptDraft, ScriptGroup, ScriptReview, ScriptSaved, ScriptScope, ScriptSort, ScriptTrustItem, SortOrder,
+    ScriptDraft, ScriptGroup, ScriptPlace, ScriptReview, ScriptSaved, ScriptScope, ScriptSort, ScriptTrustItem,
+    SortOrder,
 };
 use tauri::State;
 
@@ -28,9 +29,10 @@ use crate::error::CommandResult;
 use crate::state::AppState;
 
 /// One page of the project's scripts and the global ones (`harness-memory scripts list --json`).
-/// One `group`, or one `scope` and one `review` combined. Never fails for a missing or old server:
-/// see the page's `availability` (`scripts` is empty unless `available`); a server that does not
-/// combine filters drops `scope` and `review` and answers `combinedFilters: false`. `hidden`
+/// One `group`, or one `scope` and one `review` combined, and one `place`. Never fails for a
+/// missing or old server: see the page's `availability` (`scripts` is empty unless `available`);
+/// a server that does not filter by place drops `place` and answers `places: null`, one that does
+/// not combine filters drops `scope` and `review` too and answers `combinedFilters: false`. `hidden`
 /// lists the team scripts hidden on this machine instead. `invalidInput` for a limit of 0 or above 200, a query above 256 characters, or a `group` with
 /// a `scope` or `review`, `forbidden` for a project that is not open or recent.
 #[tauri::command]
@@ -48,12 +50,14 @@ pub async fn memory_scripts_list(
     group: Option<ScriptGroup>,
     scope: Option<ScriptScope>,
     review: Option<ScriptReview>,
+    place: Option<ScriptPlace>,
     sort: Option<ScriptSort>,
     order: Option<SortOrder>,
     hidden: Option<bool>,
 ) -> CommandResult<MemoryScriptsPage> {
     let window = ListWindow::new(offset, limit, query, order)?;
     let query = ScriptsQuery {
+        place,
         hidden: hidden.unwrap_or(false),
         ..ScriptsQuery::new(window, group, scope, review, sort)?
     };

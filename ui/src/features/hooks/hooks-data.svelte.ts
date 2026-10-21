@@ -23,12 +23,12 @@ import { originalOf } from './hook-team';
 const KEY = 'hooks';
 
 /**
- * The hooks of the active project (and the global ones), read once for the whole app so the rail can count the ones
- * waiting for the user while another view is open. The backend tells when the folder or the approvals change, and the
+ * The hooks of every project (and the global ones, and every team hook read), read once for the whole app so the rail can
+ * count the ones waiting for the user while another view is open. The backend tells when the folder or the approvals change, and the
  * list is read again then.
  */
 export class HooksStore {
-  readonly list = new ViewLoader<HookListing, string>((_key, path) => ipc.invoke('hooks_list', { project: path }));
+  readonly list = new ViewLoader<HookListing, string>((_key, path) => ipc.invoke('hooks_list', { project: path, all: true }));
 
   /** The Harness family catalog against the hook files; null until the dialog asked. */
   private updatingFamily = false;
@@ -60,7 +60,7 @@ export class HooksStore {
     return pendingCount(this.list.data);
   }
 
-  /** Reads the hooks of this project (or the global ones, with none); a list already read is refreshed quietly. */
+  /** Reads the hooks of every project (`path` is the one in use, the team hooks are verified for it); a list already read is refreshed quietly. */
   follow(path: string | null): void {
     this.list.revalidate(KEY, path);
   }

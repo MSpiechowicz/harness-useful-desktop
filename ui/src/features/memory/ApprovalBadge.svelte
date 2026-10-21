@@ -14,4 +14,4 @@
   const TONES = { local: 'neutral', approved: 'success', team: 'info', needed: 'warning' } as const satisfies Record<ScriptSummary['approval'], 'neutral' | 'success' | 'info' | 'warning'>;
 </script>
 
-<Badge tone={TONES[approval]}>{t(APPROVAL_LABELS[approval])}</Badge>
+<Badge tone={TONES[approval]} size="lg">{t(APPROVAL_LABELS[approval])}</Badge>

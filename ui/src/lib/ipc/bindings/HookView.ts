@@ -72,4 +72,15 @@ shareBlock: ShareBlock | null,
 /**
  * Team hooks: turned off on this machine only (never written to the team).
  */
-teamDisabled: boolean, };
+teamDisabled: boolean, 
+/**
+ * The project root of a project hook: a local file's (also over its scope's limit), a team
+ * hook's only once a refresh of this session confirmed a root of its repository. `None` for
+ * a global hook or an unknown scope.
+ */
+root: string | null, 
+/**
+ * The repository key of a project hook: a team hook's, or the one a refresh of this session
+ * confirmed for a local file's root. `None` for a global hook or while unknown.
+ */
+repoKey: string | null, };

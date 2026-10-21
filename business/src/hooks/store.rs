@@ -71,7 +71,10 @@ impl HookStore {
                 let hooks = views(files, &approvals, capabilities, &approved)
                     .into_iter()
                     .filter(|(_, owner)| keep(owner))
-                    .map(|(view, _)| view)
+                    .map(|(view, owner)| HookView {
+                        root: owner.root(),
+                        ..view
+                    })
                     .collect();
 
                 HookListing {

@@ -67,6 +67,7 @@ pub mod memory_hidden;
 pub mod memory_hooks;
 pub mod memory_kinds;
 mod memory_line_probe;
+mod memory_list;
 pub mod memory_migrate;
 pub mod memory_notes;
 pub mod memory_notes_copy;

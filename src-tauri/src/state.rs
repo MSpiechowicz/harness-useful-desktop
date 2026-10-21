@@ -18,6 +18,7 @@ use harness_business::model::{HarnessId, HarnessSummary};
 use harness_business::pi_family::sessions::SessionCache;
 use harness_business::prefs::PrefsStore;
 use harness_business::process::{TokioRunner, TokioSpawner};
+use harness_business::project::ProjectKeys;
 use harness_business::routines::RoutineStore;
 use harness_business::sync::StoredPlan;
 use tauri::async_runtime::{self, RwLock};
@@ -98,6 +99,8 @@ pub struct AppState {
     pub hooks: Arc<HookRuntime>,
     /// The routines folder, its schedule and the runs.
     pub routines: Arc<RoutineRuntime>,
+    /// The Harness Memory repository key of each project, for the session (`project_scopes`).
+    pub project_keys: ProjectKeys,
 }
 
 impl AppState {
@@ -157,6 +160,7 @@ impl AppState {
             desktop_mcp_setup: async_runtime::Mutex::new(()),
             hooks: Arc::new(hooks),
             routines: Arc::new(routines),
+            project_keys: ProjectKeys::default(),
         }
     }
 }

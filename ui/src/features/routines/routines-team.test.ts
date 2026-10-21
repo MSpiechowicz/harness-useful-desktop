@@ -19,7 +19,7 @@ function teamRowOf(name: string): HTMLElement {
 }
 
 describe('Routines shared with a team', () => {
-  it('has no Source filter, no Team group and no way to remove remote routines while nothing is shared', async () => {
+  it('has no Source filter, no Remote marker and no way to remove remote routines while nothing is shared', async () => {
     fakeRoutines();
     await showRoutines();
 
@@ -35,7 +35,7 @@ describe('Routines shared with a team', () => {
     fakeRoutines('team');
     await showRoutines();
 
-    expect(screen.getByText('Remote')).toBeInTheDocument();
+    expect(within(teamRowOf('Standup summary')).getByText('Remote')).toBeInTheDocument();
     expect(within(teamRowOf('Standup summary')).getByText('Active')).toBeInTheDocument();
     expect(within(teamRowOf('Dependency audit')).getByText('Off')).toBeInTheDocument();
     expect(within(teamRowOf('Sweep stale branches')).getByText('Pending approval')).toBeInTheDocument();
@@ -90,6 +90,22 @@ describe('Routines shared with a team', () => {
     expect(within(teamRowOf('Sweep stale branches')).getByText('Active')).toBeInTheDocument();
   });
 
+  it('says in one line above the table that the remote routines are trusted', async () => {
+    fakeRoutines('teamTrusted');
+    await showRoutines();
+
+    expect(screen.getByText('Trusted: run without asking').compareDocumentPosition(screen.getByRole('grid', { name: 'Routines' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(screen.getByRole('grid', { name: 'Routines' })).queryByText('Trusted: run without asking')).not.toBeInTheDocument();
+  });
+
+  it('says in one line above the table why the remote routines could not be refreshed', async () => {
+    fakeRoutines('teamProblem');
+    await showRoutines();
+
+    expect(await screen.findByText(/Could not refresh the remote routines, so these are the last ones read\./)).toBeInTheDocument();
+    expect(screen.queryByText('Trusted: run without asking')).not.toBeInTheDocument();
+  });
+
   it('shares a routine of the user\'s with the team, and updates the remote copy after a change', async () => {
     const { invoke } = fakeRoutines('team');
     await showRoutines();
@@ -125,7 +141,7 @@ describe('Deleting all routines', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
     await fireEvent.click(await screen.findByRole('menuitem', { name: 'Delete all routines…' }));
 
-    const dialog = await screen.findByRole('dialog', { name: 'Delete all 8 routines?' });
+    const dialog = await screen.findByRole('dialog', { name: 'Delete the 8 routines of Global and demo?' });
     expect(calls(invoke, 'routines_delete_all')).toHaveLength(0);
 
     await fireEvent.click(within(dialog).getByRole('button', { name: 'Delete all routines' }));
@@ -140,9 +156,9 @@ describe('Deleting all routines', () => {
 
     await fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
     await fireEvent.click(await screen.findByRole('menuitem', { name: 'Delete all routines…' }));
-    await fireEvent.click(within(await screen.findByRole('dialog', { name: 'Delete all 8 routines?' })).getByRole('button', { name: 'Keep them' }));
+    await fireEvent.click(within(await screen.findByRole('dialog', { name: 'Delete the 8 routines of Global and demo?' })).getByRole('button', { name: 'Keep them' }));
 
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Delete all 8 routines?' })).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Delete the 8 routines of Global and demo?' })).not.toBeInTheDocument());
     expect(calls(invoke, 'routines_delete_all')).toHaveLength(0);
     expect(screen.getByText('Morning review')).toBeInTheDocument();
   });

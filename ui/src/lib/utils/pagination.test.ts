@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { clampPage, pageCount, pageItems } from './pagination';
+import { clampPage, pageCount, pageItems, pageOf } from './pagination';
 
 describe('pageCount and clampPage', () => {
   it('counts a partial last page and keeps one page for an empty list', () => {
@@ -13,6 +13,21 @@ describe('pageCount and clampPage', () => {
     expect(clampPage(9, 120, 50)).toBe(2);
     expect(clampPage(-1, 120, 50)).toBe(0);
     expect(clampPage(1, 0, 50)).toBe(0);
+  });
+});
+
+describe('pageOf', () => {
+  const rows = Array.from({ length: 120 }, (_, index) => index);
+
+  it('cuts the entries of a page, the last one short', () => {
+    expect(pageOf(rows, 0, 50)).toEqual(rows.slice(0, 50));
+    expect(pageOf(rows, 2, 50)).toEqual(rows.slice(100));
+  });
+
+  it('shows the last page of a list that shrank below the page and the first for a negative one', () => {
+    expect(pageOf(rows, 9, 50)).toEqual(rows.slice(100));
+    expect(pageOf(rows, -3, 50)).toEqual(rows.slice(0, 50));
+    expect(pageOf([], 4, 50)).toEqual([]);
   });
 });
 

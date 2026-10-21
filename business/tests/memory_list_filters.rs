@@ -1,18 +1,19 @@
 //! The combined list filters of `harness-memory notes list` (`--kind` with `--scope`) and
-//! `scripts list` (`--scope` with `--review`, never with `--group`) against the stand-in of
-//! `fake_agent` (see `src/bin/fake_agent/memory_cli.rs`): the flags only when asked, the counts of
-//! each scope and review read, and a server that predates them asked once more without them, its
-//! page marked as not combining filters.
+//! `scripts list` (`--scope` with `--review`, never with `--group`), and the place of both
+//! (`--place`), against the stand-in of `fake_agent` (see `src/bin/fake_agent/memory_cli.rs`): the
+//! flags only when asked, the counts of each scope, review and place read, and a server that
+//! predates them asked again without them, its page marked as not combining filters or without
+//! place counts.
 
 use std::ffi::OsString;
 
 use harness_business::BusinessError;
 use harness_business::ecosystem::{ListWindow, NotesQuery, Repos, ScriptsQuery, list_notes};
 use harness_business::model::{
-    MemoryNotesPage, MemoryScopeCounts, MemoryScriptsAvailability, MemoryScriptsPage, NoteKind, NoteKindCount,
-    ScriptGroup, ScriptReview, ScriptReviewCounts, ScriptScope, ScriptSort,
+    MemoryNotesPage, MemoryPlaceCounts, MemoryScopeCounts, MemoryScriptsAvailability, MemoryScriptsPage, NoteKind,
+    NoteKindCount, ScriptGroup, ScriptPlace, ScriptReview, ScriptReviewCounts, ScriptScope, ScriptSort,
 };
-use memory_stand_in::{CURRENT, SINGLE, Setup, UNPAGED};
+use memory_stand_in::{CURRENT, SCOPED, SINGLE, Setup, UNPAGED, Vars};
 use pretty_assertions::assert_eq;
 
 mod memory_stand_in;
@@ -26,6 +27,7 @@ fn notes_query(kind: Option<NoteKind>, scope: Option<ScriptScope>) -> NotesQuery
         window: window(),
         kind,
         scope,
+        place: None,
         sort: None,
         hidden: false,
     }
@@ -226,6 +228,177 @@ async fn a_server_that_refuses_the_list_again_is_still_outdated() {
     let scripts = scripts(&setup, &scripts_query(Some(ScriptScope::Repo), None)).await;
     assert_eq!(scripts.availability, MemoryScriptsAvailability::Outdated);
     assert!(scripts.scripts.is_empty() && scripts.scopes.is_none());
+
+    setup.scripts.shutdown().await;
+}
+
+/// A team database for scripts, so that some are kept there.
+const TEAM_SCRIPTS: Vars = &[("HARNESS_MEMORY_SCRIPTS", "remote")];
+
+/// [`TEAM_SCRIPTS`] on a server that predates the place.
+const SCOPED_TEAM_SCRIPTS: Vars = &[("FAKE_MEMORY_CLI", "scoped"), ("HARNESS_MEMORY_SCRIPTS", "remote")];
+
+fn placed_notes(kind: Option<NoteKind>, scope: Option<ScriptScope>, place: ScriptPlace) -> NotesQuery {
+    NotesQuery {
+        place: Some(place),
+        ..notes_query(kind, scope)
+    }
+}
+
+fn placed_scripts(scope: Option<ScriptScope>, place: ScriptPlace) -> ScriptsQuery {
+    ScriptsQuery {
+        place: Some(place),
+        ..scripts_query(scope, None)
+    }
+}
+
+fn note_ids(page: &MemoryNotesPage) -> Vec<i64> {
+    page.notes.iter().map(|note| note.id).collect()
+}
+
+fn script_ids(page: &MemoryScriptsPage) -> Vec<i64> {
+    page.scripts.iter().map(|script| script.id).collect()
+}
+
+#[tokio::test]
+async fn notes_filter_by_place_and_count_each_place() {
+    let setup = Setup::installed(CURRENT, &[]);
+
+    let all = notes(&setup, &notes_query(None, None)).await;
+    assert_eq!(all.places, Some(MemoryPlaceCounts { local: 5, team: 3 }));
+    assert!(filters(&setup, 0).is_empty(), "no place unless asked");
+
+    let local = notes(&setup, &placed_notes(None, None, ScriptPlace::Local)).await;
+    assert_eq!(note_ids(&local), [3, 5, 6, 7], "the note of an unknown kind is skipped");
+    assert_eq!(local.total, 5, "the server's count");
+    assert_eq!(
+        local.places,
+        Some(MemoryPlaceCounts { local: 5, team: 3 }),
+        "both places, whatever place was asked for"
+    );
+    assert_eq!(
+        local.scopes,
+        Some(MemoryScopeCounts { repo: 2, global: 3 }),
+        "under the place"
+    );
+    assert_eq!(filters(&setup, 1), ["--place", "local"]);
+
+    let team_fixes = notes(
+        &setup,
+        &placed_notes(Some(NoteKind::Fix), Some(ScriptScope::Repo), ScriptPlace::Team),
+    )
+    .await;
+    assert_eq!(note_ids(&team_fixes), [2]);
+    assert_eq!(
+        team_fixes.places,
+        Some(MemoryPlaceCounts { local: 0, team: 1 }),
+        "under the kind and scope"
+    );
+    assert_eq!(
+        filters(&setup, 2),
+        ["--kind", "fix", "--scope", "repo", "--place", "team"]
+    );
+    assert_eq!(setup.runs().len(), 3, "one run per page");
+
+    let wire = serde_json::to_value(&team_fixes).unwrap();
+    assert_eq!(wire["places"], serde_json::json!({ "local": 0, "team": 1 }));
+
+    setup.scripts.shutdown().await;
+}
+
+#[tokio::test]
+async fn a_server_without_the_place_lists_notes_again_with_the_other_filters() {
+    let setup = Setup::installed(CURRENT, SCOPED);
+
+    let page = notes(&setup, &placed_notes(None, Some(ScriptScope::Repo), ScriptPlace::Team)).await;
+    assert_eq!(page.availability, MemoryScriptsAvailability::Available);
+    assert_eq!(page.places, None, "no place counts: the place was dropped");
+    assert!(page.combined_filters, "the scope still holds");
+    assert_eq!(note_ids(&page), [2, 3, 5], "every place of the scope");
+
+    assert_eq!(setup.runs().len(), 2, "asked once more");
+    assert_eq!(filters(&setup, 0), ["--scope", "repo", "--place", "team"]);
+    assert_eq!(filters(&setup, 1), ["--scope", "repo"]);
+
+    setup.scripts.shutdown().await;
+}
+
+#[tokio::test]
+async fn a_server_without_combined_filters_drops_the_place_then_the_scope() {
+    let setup = Setup::installed(CURRENT, SINGLE);
+
+    let page = notes(
+        &setup,
+        &placed_notes(Some(NoteKind::Fix), Some(ScriptScope::Global), ScriptPlace::Local),
+    )
+    .await;
+    assert_eq!(page.availability, MemoryScriptsAvailability::Available);
+    assert_eq!((page.places, page.scopes), (None, None));
+    assert!(!page.combined_filters);
+    assert_eq!(note_ids(&page), [2], "the kind only");
+
+    let place_only = notes(&setup, &placed_notes(None, None, ScriptPlace::Team)).await;
+    assert_eq!(place_only.places, None);
+    assert_eq!(place_only.total, 8, "every note");
+
+    let runs: Vec<Vec<String>> = (0..setup.runs().len()).map(|index| filters(&setup, index)).collect();
+    assert_eq!(
+        runs,
+        [
+            vec!["--kind", "fix", "--scope", "global", "--place", "local"],
+            vec!["--kind", "fix", "--scope", "global"],
+            vec!["--kind", "fix"],
+            vec!["--place", "team"],
+            vec![],
+        ]
+    );
+
+    setup.scripts.shutdown().await;
+}
+
+#[tokio::test]
+async fn scripts_filter_by_place_and_count_each_place() {
+    let setup = Setup::installed(CURRENT, TEAM_SCRIPTS);
+
+    let team = scripts(&setup, &placed_scripts(None, ScriptPlace::Team)).await;
+    assert_eq!(script_ids(&team), [31, 30], "by name");
+    assert_eq!(team.total, 2);
+    assert_eq!(team.places, Some(MemoryPlaceCounts { local: 3, team: 2 }));
+    assert_eq!(filters(&setup, 0), ["--place", "team"]);
+
+    let local_repo = scripts(&setup, &placed_scripts(Some(ScriptScope::Repo), ScriptPlace::Local)).await;
+    assert_eq!(script_ids(&local_repo), [12]);
+    assert_eq!(
+        local_repo.places,
+        Some(MemoryPlaceCounts { local: 1, team: 1 }),
+        "under the scope"
+    );
+    assert_eq!(
+        local_repo.scopes,
+        Some(MemoryScopeCounts { repo: 1, global: 1 }),
+        "under the place"
+    );
+    assert_eq!(filters(&setup, 1), ["--scope", "repo", "--place", "local"]);
+
+    let wire = serde_json::to_value(&local_repo).unwrap();
+    assert_eq!(wire["places"], serde_json::json!({ "local": 1, "team": 1 }));
+
+    setup.scripts.shutdown().await;
+}
+
+#[tokio::test]
+async fn a_server_without_the_place_lists_scripts_again_with_the_other_filters() {
+    let setup = Setup::installed(CURRENT, SCOPED_TEAM_SCRIPTS);
+
+    let page = scripts(&setup, &placed_scripts(Some(ScriptScope::Global), ScriptPlace::Team)).await;
+    assert_eq!(page.availability, MemoryScriptsAvailability::Available);
+    assert_eq!(page.places, None);
+    assert!(page.combined_filters);
+    assert_eq!(script_ids(&page), [31, 7], "every place of the scope");
+
+    assert_eq!(setup.runs().len(), 2);
+    assert_eq!(filters(&setup, 0), ["--scope", "global", "--place", "team"]);
+    assert_eq!(filters(&setup, 1), ["--scope", "global"]);
 
     setup.scripts.shutdown().await;
 }

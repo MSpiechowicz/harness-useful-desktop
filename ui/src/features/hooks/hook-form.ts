@@ -1,8 +1,8 @@
+import type { ScopeTarget } from '$lib/components/scope/scope-options';
 import type { MessageKey } from '$lib/i18n/locales/en';
 import type { Hook } from '$lib/ipc/bindings/Hook';
 import type { HookDraft } from '$lib/ipc/bindings/HookDraft';
 import type { HookEvent } from '$lib/ipc/bindings/HookEvent';
-import type { HookScope } from '$lib/ipc/bindings/HookScope';
 import type { HookView } from '$lib/ipc/bindings/HookView';
 
 import { type ActionKind, length, VALID_ACTIONS } from './hook-format';
@@ -13,10 +13,10 @@ export const LIMITS = { name: 80, description: 500, text: 4096, command: 2048, m
 /** How long a command may run when the hook names no time. */
 export const DEFAULT_TIMEOUT_SECS = 10;
 
-/** What the editor opens on: a hook to edit, or a new hook in a scope. */
+/** What the editor opens on: a hook to edit, or a new hook, and where it applies to start with. */
 export interface EditorTarget {
   view: HookView | null;
-  scope: HookScope;
+  target: ScopeTarget;
   event?: HookEvent;
 }
 
@@ -32,7 +32,8 @@ export interface HookForm {
   /** Seconds as typed; empty means the default. */
   timeout: string;
   matcher: string;
-  scope: HookScope;
+  /** Where the hook applies: Global, or the project at a folder. */
+  target: ScopeTarget;
   enabled: boolean;
 }
 
@@ -46,12 +47,12 @@ export interface Problem {
   required: boolean;
 }
 
-export function blankForm(scope: HookScope = 'global'): HookForm {
-  return { name: '', description: '', event: 'sessionStart', kind: 'addContext', text: '', command: '', timeout: '', matcher: '', scope, enabled: true };
+export function blankForm(target: ScopeTarget = { kind: 'global' }): HookForm {
+  return { name: '', description: '', event: 'sessionStart', kind: 'addContext', text: '', command: '', timeout: '', matcher: '', target, enabled: true };
 }
 
-/** The editor for a hook that exists. */
-export function formOf(hook: Hook): HookForm {
+/** The editor for a hook that exists, which applies where `target` says (see `docTarget`). */
+export function formOf(hook: Hook, target: ScopeTarget): HookForm {
   const action = hook.action;
 
   return {
@@ -63,7 +64,7 @@ export function formOf(hook: Hook): HookForm {
     command: action.type === 'command' ? action.command : '',
     timeout: action.type === 'command' && action.timeoutSecs !== null ? String(action.timeoutSecs) : '',
     matcher: hook.matcher ?? '',
-    scope: hook.scope,
+    target,
     enabled: hook.enabled,
   };
 }
@@ -116,8 +117,6 @@ function timeoutProblem(timeout: string): boolean {
 }
 
 export interface FormContext {
-  /** A project is open, so a hook can be made for it. */
-  projectOpen: boolean;
   /** The scope the hook would be in already holds the most it can. */
   scopeFull: boolean;
 }
@@ -159,7 +158,7 @@ export function problemsOf(form: HookForm, context: FormContext): Problem[] {
     }
   }
 
-  if (form.scope === 'project' && !context.projectOpen) {
+  if (form.target.kind === 'repo' && form.target.path === '') {
     found.push({ field: 'scope', message: 'hooks.editor.scope.noProject', required: false });
   } else if (context.scopeFull) {
     found.push({ field: 'scope', message: 'hooks.editor.scope.full', params: { max: 64 }, required: false });
@@ -185,8 +184,8 @@ function commandProblems(form: HookForm): Problem[] {
   return found;
 }
 
-/** What `hook_save` takes. An edit names the file and the version it started from, so a change made meanwhile is a conflict, not a lost update. */
-export function draftOf(form: HookForm, edit: Pick<HookView, 'id' | 'sha256'> | null, project: string | null): HookDraft {
+/** What `hook_save` takes. An edit names the file and the version it started from, so a change made meanwhile is a conflict, not a lost update. A project hook names the folder the form's target stands for. */
+export function draftOf(form: HookForm, edit: Pick<HookView, 'id' | 'sha256'> | null): HookDraft {
   const trimmedTimeout = form.timeout.trim();
   const description = form.description.trim();
   const matcher = form.event === 'toolEnd' ? form.matcher.trim() : '';
@@ -196,8 +195,8 @@ export function draftOf(form: HookForm, edit: Pick<HookView, 'id' | 'sha256'> | 
     expectedSha256: edit?.sha256 ?? null,
     name: form.name.trim(),
     description: description === '' ? null : description,
-    scope: form.scope,
-    project: form.scope === 'project' ? project : null,
+    scope: form.target.kind === 'repo' ? 'project' : 'global',
+    project: form.target.kind === 'repo' ? form.target.path : null,
     event: form.event,
     matcher: matcher === '' ? null : matcher,
     action:

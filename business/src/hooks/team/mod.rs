@@ -31,7 +31,7 @@ pub use actions::{
     ShareRequest, approve_team_hook, copy_team_hook, forget_team_hook, record_share, set_team_enabled, share_request,
 };
 pub use body::{parse_team_hook, share_body};
-pub use views::{TeamViews, app_listing, team_view, team_views};
+pub use views::{TeamViews, app_listing, app_listing_all, team_view, team_views};
 
 pub use crate::signed_docs::team::{
     PROJECTS_FILE, ProjectKey, REPO_KEY_PREFIX, SyncCounts, TEAM_FOLDER, TeamFetch, TeamFile, TeamRow, apply_round,

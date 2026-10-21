@@ -19,6 +19,7 @@ import type { NotesImportResult } from './bindings/NotesImportResult';
 import type { ScriptDetail } from './bindings/ScriptDetail';
 import type { ScriptDraft } from './bindings/ScriptDraft';
 import type { ScriptGroup } from './bindings/ScriptGroup';
+import type { ScriptPlace } from './bindings/ScriptPlace';
 import type { ScriptReview } from './bindings/ScriptReview';
 import type { ScriptSaved } from './bindings/ScriptSaved';
 import type { ScriptScope } from './bindings/ScriptScope';
@@ -101,6 +102,8 @@ export const memoryCommands = {
       /** The scripts of one scope, and by approval: with a server that combines them. Never sent with `group` (`invalidInput`). */
       scope?: ScriptScope;
       review?: ScriptReview;
+      /** The scripts kept in one place; a server that predates it drops it (the page then says `places: null`). */
+      place?: ScriptPlace;
       /** The one group of an older server, which cannot combine filters. Never sent with `scope` or `review`. */
       group?: ScriptGroup;
       sort?: ScriptSort;
@@ -187,6 +190,8 @@ export const memoryCommands = {
       kind?: NoteKind;
       /** The notes of one scope; an older server drops it (the page then says `combinedFilters: false`). */
       scope?: ScriptScope;
+      /** The notes kept in one place; a server that predates it drops it (the page then says `places: null`). */
+      place?: ScriptPlace;
       sort?: NoteSort;
       order?: SortOrder;
       /** Only the team notes hidden on this computer (the page's `total` is then their count). */

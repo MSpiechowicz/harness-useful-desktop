@@ -4,6 +4,7 @@ import type { MemoryScriptsPage } from '$lib/ipc/bindings/MemoryScriptsPage';
 import type { ScriptDetail } from '$lib/ipc/bindings/ScriptDetail';
 import type { ScriptDraft } from '$lib/ipc/bindings/ScriptDraft';
 import type { ScriptGroup } from '$lib/ipc/bindings/ScriptGroup';
+import type { ScriptPlace } from '$lib/ipc/bindings/ScriptPlace';
 import type { ScriptReview } from '$lib/ipc/bindings/ScriptReview';
 import type { ScriptSaved } from '$lib/ipc/bindings/ScriptSaved';
 import type { ScriptScope } from '$lib/ipc/bindings/ScriptScope';
@@ -30,6 +31,7 @@ export interface ScriptsRequest {
   scope: ScriptScope | null;
   review: ScriptReview | null;
   group: ScriptGroup | null;
+  place: ScriptPlace | null;
   sort: ScriptSort;
   order: SortOrder;
   page: number;
@@ -44,7 +46,7 @@ export function scriptsKey(request: ScriptsRequest): string {
 
 /** One page of the scripts agents saved in Harness Memory that this project sees (its own and the global ones), with the size of every group, scope and approval. */
 export const scriptList = new ViewLoader<MemoryScriptsPage, string>((key, reach) => {
-  const { query, scope, review, group, sort, order, page, hidden } = JSON.parse(key) as ScriptsRequest;
+  const { query, scope, review, group, place, sort, order, page, hidden } = JSON.parse(key) as ScriptsRequest;
   const search = query.trim();
 
   return ipc.invoke('memory_scripts_list', {
@@ -55,6 +57,7 @@ export const scriptList = new ViewLoader<MemoryScriptsPage, string>((key, reach)
     scope: scope ?? undefined,
     review: review ?? undefined,
     group: group ?? undefined,
+    place: place ?? undefined,
     sort,
     order,
     hidden: hidden || undefined,

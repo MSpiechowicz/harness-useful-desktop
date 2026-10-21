@@ -3,6 +3,7 @@
   import SquareArrowOutUpRight from '@lucide/svelte/icons/square-arrow-out-up-right';
 
   import Button from '$lib/components/Button.svelte';
+  import { docScope, scopeText } from '$lib/components/docs/doc-scope';
   import DocInvalidNotice from '$lib/components/docs/DocInvalidNotice.svelte';
   import DocSwitchCell from '$lib/components/docs/DocSwitchCell.svelte';
   import { ICON } from '$lib/components/icon';
@@ -12,6 +13,7 @@
   import SectionCard from '$lib/components/SectionCard.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
   import type { MessageKey } from '$lib/i18n/locales/en';
+  import type { ProjectScope } from '$lib/ipc/bindings/ProjectScope';
   import type { RoutineRun } from '$lib/ipc/bindings/RoutineRun';
   import type { RoutineView } from '$lib/ipc/bindings/RoutineView';
   import { cx } from '$lib/utils/cx';
@@ -23,7 +25,7 @@
   import RecentRuns from './RecentRuns.svelte';
   import RoutineActions from './RoutineActions.svelte';
   import { routineFacts } from './routine-facts';
-  import { actionText, isQueued, routineTitle, SCOPE_LABELS, whenText } from './routine-format';
+  import { actionText, isQueued, routineDoc, routineTitle, whenText } from './routine-format';
   import type { RoutineHandlers } from './routine-handlers';
   import { switchLock, teamSwitchedOn } from './routine-team';
   import RoutineReview from './RoutineReview.svelte';
@@ -34,6 +36,8 @@
     /** Fills the column beside the list instead of sliding in over it. */
     inline: boolean;
     view: RoutineView | null;
+    /** The projects on this computer, which the routine's scope is named by. */
+    projects: ProjectScope[];
     /** The run going on now, if any. */
     running: RoutineRun | null;
     /** A change to this routine is being written. */
@@ -42,15 +46,17 @@
     sharing: boolean;
     /** The local original of a team routine is still there, so its team copy can be updated from it. */
     canUpdate: boolean;
-    /** A project is open, which a team routine of a repository is turned on from. */
-    projectOpen: boolean;
+    /** A folder of the repository of a team routine is there on this computer (a project of it), which the routine is turned on and copied in. */
+    projectKnown: boolean;
     handlers: RoutineHandlers;
   }
 
-  let { open, inline, view, running, busy, sharing, canUpdate, projectOpen, handlers }: Props = $props();
+  let { open, inline, view, projects, running, busy, sharing, canUpdate, projectKnown, handlers }: Props = $props();
 
   const routine = $derived(view?.routine ?? null);
   const team = $derived(view?.origin === 'team');
+  // Where the routine applies: Global, or the project it belongs to, which is not always the open one.
+  const scope = $derived(view ? scopeText(docScope(routineDoc(view), projects)) : '');
   const info = NOTICE_LOOKS.info;
   const warning = NOTICE_LOOKS.warning;
   const waiting = $derived(running?.needsYou === true);
@@ -69,7 +75,7 @@
 
   // Why the switch and Edit are off: both would write the file, and a write approves what it writes. A team routine has no Edit.
   const lockReason = $derived.by(() => {
-    const key = view ? switchLock(view, projectOpen) : null;
+    const key = view ? switchLock(view, projectKnown) : null;
 
     return key === null ? null : t(key);
   });
@@ -94,7 +100,7 @@
   {open}
   {inline}
   title={view ? routineTitle(view) : ''}
-  subtitle={routine ? `${whenText(routine.when)} · ${t(SCOPE_LABELS[routine.scope])}${team ? ` · ${t('routines.source.team')}` : ''}` : (view?.id ?? '')}
+  subtitle={routine ? `${whenText(routine.when)} · ${scope}${team ? ` · ${t('routines.source.team')}` : ''}` : (view?.id ?? '')}
   onclose={handlers.close}
 >
   {#if view}
@@ -154,7 +160,7 @@
 
     {#if view.status === 'pending'}
       <SectionCard flat heading={t('routines.panel.review')}>
-        <RoutineReview {view} {busy} onapprove={handlers.approve} onreject={team ? undefined : handlers.reject} />
+        <RoutineReview {view} {projects} {busy} onapprove={handlers.approve} onreject={team ? undefined : handlers.reject} />
       </SectionCard>
     {/if}
 
@@ -165,7 +171,7 @@
         </SectionCard>
       {/if}
 
-      <FactsCard flat heading={t('routines.panel.details')} rows={routineFacts(routine, view.approval, view)} />
+      <FactsCard flat heading={t('routines.panel.details')} rows={routineFacts(routine, view.approval, view, scope)} />
 
       <SectionCard flat heading={t(TEXT_HEADINGS[routine.action.type])}>
         {#if routine.action.type === 'command'}
@@ -190,6 +196,7 @@
         {lockReason}
         {sharing}
         {canUpdate}
+        {projectKnown}
         running={running !== null}
         {busy}
         onrun={handlers.run}

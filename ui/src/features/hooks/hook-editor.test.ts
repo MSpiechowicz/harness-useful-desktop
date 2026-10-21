@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { toasts } from '$lib/stores/toasts.svelte';
 import { viewState } from '$lib/stores/view-state.svelte';
 
-import { calls, fakeHooks, PROJECT, registerHooksHooks, rowOf, showHooks } from './hooks-test-support';
+import { calls, fakeHooks, pickTarget, PROJECT, registerHooksHooks, rowOf, showHooks } from './hooks-test-support';
 
 registerHooksHooks();
 
@@ -126,7 +126,7 @@ describe('Hook editor', () => {
     await fireEvent.input(within(dialog).getByLabelText('Tool filter'), { target: { value: 'edit|write' } });
     await fireEvent.click(within(dialog).getByRole('radio', { name: 'Command' }));
     await fireEvent.input(within(dialog).getByLabelText('Command'), { target: { value: 'bun run lint' } });
-    await fireEvent.click(within(dialog).getByRole('radio', { name: 'This project' }));
+    await pickTarget(dialog, /^demo/);
     await fireEvent.click(within(dialog).getByRole('button', { name: 'Add hook' }));
 
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'New hook' })).not.toBeInTheDocument());

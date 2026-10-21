@@ -100,14 +100,15 @@ function neverRunLast(sort: ScriptSort, a: ScriptSummary, b: ScriptSummary): num
 }
 
 /**
- * One page of scripts as the server answers: filtered by the query (name or description), the scope, the review and the group, sorted and cut.
- * The groups (disjoint: a script that needs review is in no scope group) are counted under the query, the scopes under the query and the review, the review under the query and the scope. A group asked for
- * together with a scope or review is refused. `combined: false` is an older server: it drops the scope and the review and counts neither.
+ * One page of scripts as the server answers: filtered by the query (name or description), the scope, the review, the place and the group, sorted and cut.
+ * The groups (disjoint: a script that needs review is in no scope group) are counted under the query, the scopes under the query, the review and the place,
+ * the review under the query, the scope and the place, the places under the query, the scope and the review. A group asked for
+ * together with a scope or review is refused. `combined: false` is an older server: it drops the scope, the review and the place and counts none of them.
  * A hidden script is listed only when `hidden` asks for them. `everything` is every script of the store, which the count of scripts on this computer takes in.
  */
 export function pageOfScripts(
   visible: ScriptSummary[],
-  { offset, limit = DEFAULT_LIMIT, query = '', scope, review, group, sort = 'updated', order, hidden }: CommandArgs<'memory_scripts_list'>,
+  { offset, limit = DEFAULT_LIMIT, query = '', scope, review, place, group, sort = 'updated', order, hidden }: CommandArgs<'memory_scripts_list'>,
   combined = true,
   everything: ScriptSummary[] = visible,
 ): Omit<MemoryScriptsPage, 'availability'> {
@@ -122,7 +123,11 @@ export function pageOfScripts(
   const compare = SCRIPT_ORDERS[sort];
   const inScope = answering.filter((script) => !combined || scope === undefined || script.scope === scope);
   const inReview = answering.filter((script) => !combined || review === undefined || REVIEWS[review](script));
-  const chosen = answering.filter((script) => inScope.includes(script) && inReview.includes(script) && (group === undefined || GROUPS[group](script)));
+  const inPlace = answering.filter((script) => !combined || place === undefined || script.place === place);
+  const chosen = answering.filter((script) => inScope.includes(script) && inReview.includes(script) && inPlace.includes(script) && (group === undefined || GROUPS[group](script)));
+  const reviewedHere = inReview.filter((script) => inPlace.includes(script));
+  const inScopeHere = inScope.filter((script) => inPlace.includes(script));
+  const reviewedInScope = inReview.filter((script) => inScope.includes(script));
 
   return {
     total: chosen.length,
@@ -131,8 +136,9 @@ export function pageOfScripts(
       repo: answering.filter(GROUPS.repo).length,
       global: answering.filter(GROUPS.global).length,
     },
-    scopes: combined ? { repo: inReview.filter(SCOPES.repo).length, global: inReview.filter(SCOPES.global).length } : null,
-    review: combined ? { needed: inScope.filter(REVIEWS.needed).length, trusted: inScope.filter(REVIEWS.trusted).length } : null,
+    scopes: combined ? { repo: reviewedHere.filter(SCOPES.repo).length, global: reviewedHere.filter(SCOPES.global).length } : null,
+    review: combined ? { needed: inScopeHere.filter(REVIEWS.needed).length, trusted: inScopeHere.filter(REVIEWS.trusted).length } : null,
+    places: combined ? { local: reviewedInScope.filter((script) => script.place === 'local').length, team: reviewedInScope.filter((script) => script.place === 'team').length } : null,
     combinedFilters: combined,
     scripts: [...chosen].sort((a, b) => neverRunLast(sort, a, b) || direction * (compare(a, b) || a.id - b.id)).slice(offset, offset + limit),
     hiddenCount: visible.filter((script) => script.hidden).length,
@@ -220,7 +226,7 @@ export function memoryScriptsHandlers(scenario: () => ScriptScenario = scriptSce
     memory_scripts_list: (args) => {
       const availability = availabilityOf(scenario());
       if (availability.kind !== 'available') {
-        return { availability, total: 0, groups: { needsReview: 0, repo: 0, global: 0 }, scopes: null, review: null, combinedFilters: combined(), scripts: [], hiddenCount: null, localCounts: null };
+        return { availability, total: 0, groups: { needsReview: 0, repo: 0, global: 0 }, scopes: null, review: null, places: null, combinedFilters: combined(), scripts: [], hiddenCount: null, localCounts: null };
       }
 
       return { availability, ...pageOfScripts(visible(args).map(summaryOf), args, combined(), current().map(summaryOf)) };

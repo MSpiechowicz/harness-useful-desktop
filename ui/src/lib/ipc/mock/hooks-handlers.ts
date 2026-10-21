@@ -6,7 +6,7 @@ type HookCommands = 'hooks_list' | 'hook_save' | 'hook_delete' | 'hook_approve' 
 /** The hooks folder of the mock backend: `hooks_list` and the commands that change it, like the real ones, without a folder. */
 export function hooksHandlers(hooks: MockHooks): Pick<Handlers, HookCommands> {
   return {
-    hooks_list: ({ project }) => hooks.list(project),
+    hooks_list: ({ project, all }) => hooks.list(project, all === true),
     hook_save: ({ draft }) => hooks.save(draft),
     hook_delete: ({ id, sha256 }) => hooks.delete(id, sha256),
     hook_approve: ({ id, sha256 }) => hooks.approve(id, sha256),

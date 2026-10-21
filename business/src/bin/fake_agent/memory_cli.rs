@@ -3,11 +3,12 @@
 //! discard-local`, `scripts list --hidden` and the team fields of scripts are
 //! [`crate::memory_scripts_hidden`]'s.
 //!
-//! - `notes list --json --offset N --limit N [--query Q] [--kind K] [--scope repo|global] --sort
-//!   updated|title|kind|scope|place --order asc|desc [--project P]` prints `{"notes", "total", "kinds",
-//!   "scopes"}`: the global notes, plus the repository ones with `--project`, one of them of a kind
-//!   the app does not know (`idea`). `--query` matches titles (any case); `kinds` counts every kind
-//!   under the query and scope, `scopes` both scopes under the query and kind.
+//! - `notes list --json --offset N --limit N [--query Q] [--kind K] [--scope repo|global] [--place
+//!   local|team] --sort updated|title|kind|scope|place --order asc|desc [--project P]` prints
+//!   `{"notes", "total", "kinds", "scopes", "places"}`: the global notes, plus the repository ones
+//!   with `--project`, one of them of a kind the app does not know (`idea`). `--query` matches
+//!   titles (any case); `kinds` counts every kind under the query, scope and place, `scopes` both
+//!   scopes under the query, kind and place, `places` both places under every other filter.
 //! - `notes get <id> --json [--project P]` prints `{"note", "links"}`; `notes delete <id>
 //!   [--project P]` prints `deleted note <id> <title>`. A note not visible from the arguments exits
 //!   1 with `harness-memory: note <id> not found`; id [`FAILING_ID`] exits 1 with a URL with a
@@ -18,14 +19,17 @@
 //!   and scripts stay (`"kept"`, when there are any).
 //! - `scripts list --json` takes the same paging options, with `--group needsReview|repo|global`
 //!   instead of `--kind`, or `--scope repo|global` and `--review needed|trusted` (not with
-//!   `--group`), and `--sort updated|name|language|scope|place|runs|lastRun` (a script never run
-//!   last either way); it prints `{"scripts", "total", "groups", "scopes", "review"}` from the
-//!   stand-in's scripts (see [`crate::memory`]): `groups` under the query, `scopes` under the query
-//!   and review, `review` under the query and scope.
+//!   `--group`), `--place local|team`, and `--sort updated|name|language|scope|place|runs|lastRun`
+//!   (a script never run last either way); it prints `{"scripts", "total", "groups", "scopes",
+//!   "review", "places"}` from the stand-in's scripts (see [`crate::memory`]): `groups` under the
+//!   query and place, `scopes` under the query, review and place, `review` under the query, scope
+//!   and place, `places` under every other filter.
 //! - An option this stand-in does not know, a missing value, or `FAKE_MEMORY_CLI=unpaged` (a
 //!   server whose commands take no pages) exits 2 with a usage line, as the real server does.
 //!   `FAKE_MEMORY_CLI=single` is a server that predates combined filters: `--scope` and `--review`
-//!   are usage errors, and lists answer without `scopes` and `review`.
+//!   are usage errors, and lists answer without `scopes` and `review`. `FAKE_MEMORY_CLI=scoped` is
+//!   one that combines filters but predates the place: `--place` is a usage error, and lists
+//!   answer without `places`; `single` predates the place too.
 //! - `notes list|get --hidden`, `notes hide|unhide|discard-local` and the team-and-local fields
 //!   of the notes are [`crate::memory_push`]'s.
 //! - `FAKE_MEMORY_NOTES` adds a global note for each of its lines (that title), from id 100 on, to
@@ -53,6 +57,9 @@ struct Options {
     review: Option<String>,
     /// Whether this server combines filters (not `FAKE_MEMORY_CLI=single`).
     combines: bool,
+    place: Option<String>,
+    /// Whether this server filters by place (neither `single` nor `scoped`).
+    places: bool,
     sort: Option<String>,
     order: Option<String>,
     project: bool,
@@ -165,6 +172,7 @@ fn parse(args: &[String], filter: &str, with_id: bool) -> Options {
 
     let mut options = Options {
         combines: mode != "single",
+        places: mode != "single" && mode != "scoped",
         ..Options::default()
     };
     let mut rest = args.iter();
@@ -190,6 +198,7 @@ fn parse(args: &[String], filter: &str, with_id: bool) -> Options {
             "--order" => options.order = Some(value()),
             "--project" => options.project = !value().is_empty(),
             "--scope" if options.combines => options.scope = Some(value()),
+            "--place" if options.places => options.place = Some(value()),
             "--review" if options.combines && filter == "--group" => options.review = Some(value()),
             other if !filter.is_empty() && other == filter => options.filter = Some(value()),
             _ => usage(),
@@ -226,6 +235,21 @@ fn list(field: &str, entries: Vec<Value>, options: &Options) -> ! {
             .is_none_or(|scope| entry["scope"] == scope.as_str())
     };
     let keeps_review = |entry: &Value| options.review.as_ref().is_none_or(|review| review_of(entry) == review);
+    let keeps_place = |entry: &Value| {
+        options
+            .place
+            .as_ref()
+            .is_none_or(|place| entry["place"] == place.as_str())
+    };
+
+    let in_other_filters: Vec<&Value> = matching
+        .iter()
+        .filter(|entry| keeps_filter(entry) && keeps_scope(entry) && keeps_review(entry))
+        .collect();
+    let place = |name: &str| in_other_filters.iter().filter(|entry| entry["place"] == name).count();
+    let places = json!({ "local": place("local"), "team": place("team") });
+
+    matching.retain(|entry| keeps_place(entry));
 
     let counts = if notes {
         let in_scope: Vec<Value> = matching.iter().filter(|entry| keeps_scope(entry)).cloned().collect();
@@ -278,6 +302,10 @@ fn list(field: &str, entries: Vec<Value>, options: &Options) -> ! {
         crate::memory_push::list_extras(&mut answer);
     } else {
         crate::memory_scripts_hidden::list_extras(&mut answer);
+    }
+
+    if options.places {
+        answer["places"] = places;
     }
 
     for (name, count) in counts.as_object().into_iter().flatten() {

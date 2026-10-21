@@ -8,8 +8,8 @@ import { fakeRoutines, registerRoutinesHooks, showRoutines } from './routines-te
 
 registerRoutinesHooks();
 
-const GLOBAL = '# Global  4 of 64';
-const PROJECT = '# This project demo 4 of 64';
+const WHEN_ORDER = ['Check the disk', 'Release notes', 'Morning review', 'Run the tests', 'Look for hogs', 'Weekly changelog', 'Triage new issues', 'Check the build on start'];
+const ON_ORDER = ['Check the disk', 'Morning review', 'Look for hogs', 'Run the tests', 'Triage new issues', 'Weekly changelog', 'Release notes', 'Check the build on start'];
 
 const grid = () => screen.getByRole('grid', { name: 'Routines' });
 const header = (name: string) => within(grid()).getByRole('columnheader', { name });
@@ -24,26 +24,26 @@ describe('sorting the routines table', () => {
     fakeRoutines();
     await showRoutines();
 
-    for (const name of ['Routine', 'When', 'Next run', 'Status', 'On']) {
+    for (const name of ['Routine', 'Scope', 'When', 'Next run', 'Status', 'On']) {
       expect(header(name)).toHaveAttribute('aria-sort', 'none');
     }
     expect(viewState.routinesSort).toBeNull();
-    expect(listed(grid())).toEqual([GLOBAL, 'Check the disk', 'Morning review', 'Look for hogs', 'Weekly changelog', PROJECT, 'Release notes', 'Check the build on start', 'Run the tests', 'Triage new issues']);
+    expect(listed(grid())).toEqual(['Check the disk', 'Morning review', 'Look for hogs', 'Weekly changelog', 'Release notes', 'Check the build on start', 'Run the tests', 'Triage new issues']);
   });
 
-  it('sorts the routines of each group by a column and reverses on the second click, the group headings staying where they are', async () => {
+  it('sorts the routines by a column and reverses on the second click', async () => {
     fakeRoutines();
     await showRoutines();
 
     await sortBy('Routine');
 
     expect(header('Routine')).toHaveAttribute('aria-sort', 'ascending');
-    expect(listed(grid())).toEqual([GLOBAL, 'Check the disk', 'Look for hogs', 'Morning review', 'Weekly changelog', PROJECT, 'Check the build on start', 'Release notes', 'Run the tests', 'Triage new issues']);
+    expect(listed(grid())).toEqual(['Check the build on start', 'Check the disk', 'Look for hogs', 'Morning review', 'Release notes', 'Run the tests', 'Triage new issues', 'Weekly changelog']);
 
     await sortBy('Routine');
 
     expect(header('Routine')).toHaveAttribute('aria-sort', 'descending');
-    expect(listed(grid())).toEqual([GLOBAL, 'Weekly changelog', 'Morning review', 'Look for hogs', 'Check the disk', PROJECT, 'Triage new issues', 'Run the tests', 'Release notes', 'Check the build on start']);
+    expect(listed(grid())).toEqual(['Weekly changelog', 'Triage new issues', 'Run the tests', 'Release notes', 'Morning review', 'Look for hogs', 'Check the disk', 'Check the build on start']);
     expect(viewState.routinesSort).toEqual({ key: 'routine', desc: true });
   });
 
@@ -55,11 +55,11 @@ describe('sorting the routines table', () => {
     await showRoutines();
 
     await sortBy('Next run');
-    expect(listed(grid())).toEqual([GLOBAL, 'Look for hogs', 'Check the disk', 'Morning review', 'Weekly changelog', PROJECT, 'Run the tests', 'Triage new issues', 'Release notes', 'Check the build on start']);
+    expect(listed(grid())).toEqual(['Run the tests', 'Triage new issues', 'Look for hogs', 'Check the disk', 'Morning review', 'Weekly changelog', 'Release notes', 'Check the build on start']);
 
     await sortBy('Next run');
     expect(header('Next run')).toHaveAttribute('aria-sort', 'descending');
-    expect(listed(grid())).toEqual([GLOBAL, 'Morning review', 'Check the disk', 'Look for hogs', 'Weekly changelog', PROJECT, 'Triage new issues', 'Run the tests', 'Release notes', 'Check the build on start']);
+    expect(listed(grid())).toEqual(['Morning review', 'Check the disk', 'Look for hogs', 'Triage new issues', 'Run the tests', 'Weekly changelog', 'Release notes', 'Check the build on start']);
   });
 
   it('orders by the kind of schedule, and by On with the switched-on routines first', async () => {
@@ -67,12 +67,25 @@ describe('sorting the routines table', () => {
     await showRoutines();
 
     await sortBy('When');
-    expect(listed(grid()).slice(6)).toEqual(['Release notes', 'Run the tests', 'Triage new issues', 'Check the build on start']);
+    expect(listed(grid())).toEqual(WHEN_ORDER);
 
     await sortBy('On');
     expect(header('On')).toHaveAttribute('aria-sort', 'descending');
     expect(header('When')).toHaveAttribute('aria-sort', 'none');
-    expect(listed(grid()).slice(6)).toEqual(['Run the tests', 'Triage new issues', 'Release notes', 'Check the build on start']);
+    expect(listed(grid())).toEqual(ON_ORDER);
+  });
+
+  it('orders by the scope as the table names it, Global first and then the projects by name', async () => {
+    fakeRoutines();
+    await showRoutines();
+
+    await sortBy('Scope');
+    expect(header('Scope')).toHaveAttribute('aria-sort', 'ascending');
+    expect(listed(grid()).slice(0, 4)).toEqual(['Check the disk', 'Morning review', 'Look for hogs', 'Weekly changelog']);
+
+    await sortBy('Scope');
+    expect(listed(grid()).slice(0, 4)).toEqual(['Release notes', 'Check the build on start', 'Run the tests', 'Triage new issues']);
+    expect(viewState.routinesSort).toEqual({ key: 'scope', desc: true });
   });
 
   it('is sorted from the keyboard: a header is a button', async () => {

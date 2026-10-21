@@ -112,6 +112,7 @@ pub fn run() -> ExitCode {
             commands::projects::project_close,
             commands::projects::project_recent,
             commands::projects::project_forget,
+            commands::projects::project_scopes,
             commands::system::reveal_path,
             commands::system::open_external,
             commands::agent::agent_start,

@@ -23,7 +23,7 @@ describe('scripts table', () => {
 
     const open = within(rowButton('open-prs') as HTMLElement);
     expect(open.getByText('Bash')).toBeInTheDocument();
-    expect(open.getByText('github.com/useful/harness-desktop')).toBeInTheDocument();
+    expect(open.getByText('demo')).toBeInTheDocument();
     expect(open.getByText('Remote')).toBeInTheDocument();
     expect(open.getByText('14')).toBeInTheDocument();
 

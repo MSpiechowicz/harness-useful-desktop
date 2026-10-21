@@ -28,6 +28,7 @@ fn query(hidden: bool) -> NotesQuery {
         window: ListWindow::new(None, None, None, None).unwrap(),
         kind: None,
         scope: None,
+        place: None,
         sort: None,
         hidden,
     }

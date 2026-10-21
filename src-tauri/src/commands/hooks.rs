@@ -6,13 +6,19 @@
 //! Every write is the app window's: what it saves is approved at once. A project is the active or
 //! a recent one (`forbidden` otherwise); its hooks are stored under its project root.
 
+use std::future::Future;
+use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
-use harness_business::hooks::team::{TeamFolder, app_listing, approve_team_hook, team_view};
+use harness_business::ecosystem::memory_team_docs::{TeamDocsConfig, project_key};
+use harness_business::hooks::team::{
+    ProjectKey, TeamFolder, app_listing, app_listing_all, approve_team_hook, team_view,
+};
 use harness_business::hooks::{apply_family, family_status, project_identity};
 use harness_business::model::{
     HookAuthor, HookDraft, HookFamilyEntry, HookListing, HookScope, HookSeed, HookView, HooksDeleted, HooksEvent,
 };
+use harness_business::signed_docs::DocKind;
 use harness_business::{BusinessError, Result};
 use tauri::State;
 use tauri::ipc::Channel;
@@ -24,10 +30,15 @@ use crate::state::AppState;
 /// The global hook files, and those of the project at `project` (the active or a recent one;
 /// `None`: global only), with the status each has, then (while hooks are shared) the team hooks of
 /// that chat. A hook over its scope's limit is listed with its scope; a file that is not a valid
-/// hook is always listed.
+/// hook is always listed. With `all`, every hook file and every team hook instead (`project` is
+/// still the project in use).
 #[tauri::command]
-pub async fn hooks_list(state: State<'_, AppState>, project: Option<String>) -> CommandResult<HookListing> {
-    list(&state, project).await
+pub async fn hooks_list(
+    state: State<'_, AppState>,
+    project: Option<String>,
+    all: Option<bool>,
+) -> CommandResult<HookListing> {
+    list(&state, project, all.unwrap_or_default()).await
 }
 
 /// Creates (`draft.id` `None`) or edits a hook and approves the written version.
@@ -87,17 +98,24 @@ pub async fn hooks_listen(state: State<'_, AppState>, on_event: Channel<HooksEve
     Ok(())
 }
 
-pub(crate) async fn list(state: &AppState, project: Option<String>) -> CommandResult<HookListing> {
+/// The listing for `project` (see `hooks_list`), of every hook with `all`.
+pub(crate) async fn list(state: &AppState, project: Option<String>, all: bool) -> CommandResult<HookListing> {
     let root = match project {
         Some(project) => Some(project_root(state, project).await?),
         None => None,
     };
 
-    listing(state, root).await
+    listing_in(state, root, all).await
 }
 
 /// The listing with the global hooks and those of `root` (a project root), local then team.
 pub(crate) async fn listing(state: &AppState, root: Option<String>) -> CommandResult<HookListing> {
+    listing_in(state, root, false).await
+}
+
+/// [`listing`], or with `all` every hook file and every team hook (`root` is still noted as the
+/// project in use).
+async fn listing_in(state: &AppState, root: Option<String>, all: bool) -> CommandResult<HookListing> {
     let capabilities = state.hooks.capabilities().await;
 
     if let Some(root) = &root {
@@ -105,19 +123,24 @@ pub(crate) async fn listing(state: &AppState, root: Option<String>) -> CommandRe
     }
 
     let team = state.hooks.team_settings();
-    let verified = root.as_deref().is_some_and(|root| state.hooks.root_verified(root));
+    let verified = state.hooks.verified_roots();
 
     let listing = state
         .hooks
         .read(move |store| {
-            Ok(app_listing(
-                store,
-                &TeamFolder::of(store),
-                capabilities,
-                root.as_deref(),
-                team.as_ref(),
-                verified,
-            ))
+            let folder = TeamFolder::of(store);
+            let project = root.as_deref();
+            let team = team.as_ref();
+
+            if all {
+                return Ok(app_listing_all(store, &folder, capabilities, project, team, &|root| {
+                    verified.contains(root)
+                }));
+            }
+
+            let verified = project.is_some_and(|root| verified.contains(root));
+
+            Ok(app_listing(store, &folder, capabilities, project, team, verified))
         })
         .await?;
 
@@ -134,6 +157,26 @@ pub(crate) async fn project_root(state: &AppState, project: String) -> CommandRe
         Ok(utf8(root.into_os_string().into_string())?)
     })
     .await
+}
+
+/// The project root of `project` (the active or a recent project) and the repository key Harness
+/// Memory gives that root now, asked of `server` (the sharing server of the team documents `K`).
+/// A folder a team document is turned on for or copied to is checked against the server, not an
+/// earlier answer. `None` without a project, and then `server` is never awaited.
+pub(crate) async fn root_and_key<K: DocKind>(
+    state: &AppState,
+    project: Option<String>,
+    server: impl Future<Output = Result<(PathBuf, TeamDocsConfig)>>,
+) -> CommandResult<Option<(String, ProjectKey)>> {
+    let Some(project) = project else {
+        return Ok(None);
+    };
+
+    let root = project_root(state, project).await?;
+    let (server, _) = server.await?;
+    let key = project_key::<K>(&state.env, &state.runner, &server, Path::new(&root)).await?;
+
+    Ok(Some((root, key)))
 }
 
 fn utf8(text: std::result::Result<String, std::ffi::OsString>) -> Result<String> {
