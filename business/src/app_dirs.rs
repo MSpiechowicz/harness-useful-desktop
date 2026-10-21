@@ -76,6 +76,13 @@ pub fn exports_dir(env: &Env) -> Option<PathBuf> {
     local_data_dir(env).map(|dir| dir.join("exports"))
 }
 
+/// The folder where each running app records the chat servers and agents it started, so the next
+/// launch can stop the ones a crash left behind (`process::sweep_orphans`): `child-processes` in
+/// [`local_data_dir`] (process ids are per machine).
+pub fn child_processes_dir(env: &Env) -> Option<PathBuf> {
+    local_data_dir(env).map(|dir| dir.join("child-processes"))
+}
+
 /// The stable copy of the bundled `harness-memory` server that builds up to 0.16 installed on
 /// macOS and Windows: `<local data>/bin/harness-memory[.exe]`. `None` on Linux, where that copy
 /// was `~/.local/bin/harness-memory`, the path the Harness Memory installer uses now, and on

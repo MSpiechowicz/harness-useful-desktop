@@ -51,6 +51,7 @@ pub fn run() -> ExitCode {
         .plugin(notifications::plugin())
         .setup(|app| {
             app.manage(AppState::from_app(app.handle())?);
+            app.state::<AppState>().agents.sweep_orphans_in_background();
             window::create_main_window(app)?;
             memory_setup::spawn_on_launch(app.handle());
             desktop_mcp::spawn_on_launch(app.handle());
