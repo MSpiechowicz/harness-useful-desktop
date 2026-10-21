@@ -67,7 +67,7 @@ fn missing_files_are_no_guards() {
 fn global_guards_round_trip_privately_with_repositories_as_project_roots() {
     let (_dir, data, repo) = setup();
     let root = repo.to_string_lossy().into_owned();
-    let gone = "/no/such/repository".to_owned();
+    let gone = repo.with_file_name("no-such-repository").to_string_lossy().into_owned();
 
     let asked = MemoryGuards {
         notes: GlobalKindGuard {
@@ -285,8 +285,13 @@ fn a_patch_changes_only_what_it_names() {
 
 #[test]
 fn patches_made_at_once_all_apply() {
-    let (_dir, data, _repo) = setup();
-    let repos: Vec<String> = (0..16).map(|index| format!("/no/such/repository-{index:02}")).collect();
+    let (dir, data, _repo) = setup();
+    let repos: Vec<String> = (0..16)
+        .map(|index| {
+            let gone = dir.path().join(format!("no-such-repository-{index:02}"));
+            gone.to_string_lossy().into_owned()
+        })
+        .collect();
 
     std::thread::scope(|scope| {
         for repo in &repos {

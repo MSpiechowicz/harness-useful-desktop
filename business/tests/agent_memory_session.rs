@@ -3,19 +3,20 @@
 //! `HARNESS_MEMORY_SESSION`, which its MCP servers inherit. Any other launch has the variable
 //! removed, and a key that is not a lowercase UUID starts nothing. The chat file names the project
 //! root of the chat (its git root, else the folder, as a turned-off folder is listed); a chat
-//! whose file cannot be written (no data folder) gets no variable.
+//! whose file cannot be written (no data folder) gets no variable. The test home holds the data
+//! folder on every platform (on Windows through `LOCALAPPDATA`).
 
 mod agent_support;
 
 use std::ffi::OsString;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
-use agent_support::{Run, options, start_in, start_with};
+use agent_support::{Run, options, start_in};
 use harness_business::BusinessError;
 use harness_business::ecosystem::{SESSION_VAR, memory_data_dir, read_chat, read_chat_repo, update_global};
 use harness_business::env::{Env, OsKind};
 use harness_business::model::{
-    HarnessId, KindGuard, MemoryChatGuards, MemoryChatStart, MemoryGuardKind, MemoryGuardsPatch,
+    AgentStartRequest, HarnessId, KindGuard, MemoryChatGuards, MemoryChatStart, MemoryGuardKind, MemoryGuardsPatch,
 };
 use harness_business::process::ExecSpec;
 use pretty_assertions::assert_eq;
@@ -35,6 +36,19 @@ fn memory_chat(key: &str) -> MemoryChatStart {
         key: key.to_owned(),
         guards: guards(),
     }
+}
+
+/// `env` with Windows' local data folder in its home, so Harness Memory's data folder is known on
+/// every platform (`LOCALAPPDATA` counts only on Windows).
+fn with_data_folder(env: Env) -> Env {
+    let local = env.home.to_string_lossy().into_owned();
+
+    env.with_var("LOCALAPPDATA", local)
+}
+
+/// Harness Memory's data folder of `run`.
+fn data_folder(run: &Run) -> PathBuf {
+    memory_data_dir(&with_data_folder(Env::for_tests(run.home.path()))).expect("a data folder")
 }
 
 /// The value `spec` sets for `name`.
@@ -62,8 +76,18 @@ fn assert_no_session_variable(run: &Run) {
     assert!(spec.env_remove_prefixes.contains(&OsString::from(SESSION_VAR)));
 }
 
+/// Starts `scenario` with Harness Memory's data folder known ([`with_data_folder`]).
+async fn start_with(
+    harness: HarnessId,
+    dialect: &'static str,
+    scenario: &str,
+    customize: impl FnOnce(&mut AgentStartRequest),
+) -> harness_business::Result<Run> {
+    start_in(harness, dialect, scenario, options(), with_data_folder, customize).await
+}
+
 async fn start(harness: HarnessId, dialect: &'static str, scenario: &str, key: Option<&str>) -> Run {
-    start_with(harness, dialect, scenario, options(), |request| {
+    start_with(harness, dialect, scenario, |request| {
         request.memory_chat = key.map(memory_chat);
     })
     .await
@@ -86,7 +110,7 @@ async fn omp_pi_and_opencode_get_the_chat_key_and_its_guards_first() {
             "an inherited value is replaced ({harness:?})"
         );
 
-        let data = memory_data_dir(&Env::for_tests(run.home.path())).unwrap();
+        let data = data_folder(&run);
         assert_eq!(read_chat(&data, KEY).unwrap(), Some(guards()), "{harness:?}");
 
         run.manager.stop(run.key()).await.unwrap();
@@ -103,7 +127,7 @@ async fn a_chat_without_a_memory_identity_never_passes_one_on() {
 
 #[tokio::test]
 async fn a_helper_chat_has_no_memory_identity() {
-    let run = start_with(HarnessId::Omp, "omp", "omp_basic.jsonl", options(), |request| {
+    let run = start_with(HarnessId::Omp, "omp", "omp_basic.jsonl", |request| {
         request.utility = true;
         request.memory_chat = Some(memory_chat(KEY));
     })
@@ -112,7 +136,7 @@ async fn a_helper_chat_has_no_memory_identity() {
 
     assert_eq!(env_value(&spawned(&run), SESSION_VAR), None);
 
-    let data = memory_data_dir(&Env::for_tests(run.home.path())).unwrap();
+    let data = data_folder(&run);
     assert_eq!(read_chat(&data, KEY).unwrap(), None, "no guards written");
 
     run.manager.stop(run.key()).await.unwrap();
@@ -121,7 +145,7 @@ async fn a_helper_chat_has_no_memory_identity() {
 #[tokio::test]
 async fn a_key_that_is_not_a_lowercase_uuid_starts_nothing() {
     for key in ["3B2F6C1E-8A4D-4E5F-9A0B-1C2D3E4F5A6B", "../../escape", ""] {
-        let error = start_with(HarnessId::Pi, "pi", "pi_basic.jsonl", options(), |request| {
+        let error = start_with(HarnessId::Pi, "pi", "pi_basic.jsonl", |request| {
             request.memory_chat = Some(memory_chat(key));
         })
         .await
@@ -134,14 +158,14 @@ async fn a_key_that_is_not_a_lowercase_uuid_starts_nothing() {
 
 #[tokio::test]
 async fn the_chat_file_names_the_git_root_of_the_project() {
-    let run = start_with(HarnessId::Omp, "omp", "omp_basic.jsonl", options(), |request| {
+    let run = start_with(HarnessId::Omp, "omp", "omp_basic.jsonl", |request| {
         std::fs::create_dir(Path::new(&request.project).join(".git")).unwrap();
         request.memory_chat = Some(memory_chat(KEY));
     })
     .await
     .expect("the chat starts");
 
-    let data = memory_data_dir(&Env::for_tests(run.home.path())).unwrap();
+    let data = data_folder(&run);
     let root = dunce::canonicalize(run.project.path()).unwrap();
 
     assert_eq!(
@@ -155,7 +179,7 @@ async fn the_chat_file_names_the_git_root_of_the_project() {
 #[tokio::test]
 async fn a_chat_outside_a_repository_names_its_folder_as_turned_off() {
     let run = start(HarnessId::Omp, "omp", "omp_basic.jsonl", Some(KEY)).await;
-    let data = memory_data_dir(&Env::for_tests(run.home.path())).unwrap();
+    let data = data_folder(&run);
 
     let turn_off = MemoryGuardsPatch {
         kind: MemoryGuardKind::Notes,
@@ -235,5 +259,9 @@ async fn a_data_folder_other_users_can_write_to_fails_the_start_with_the_fix() {
         message.contains(&format!("can write to the Harness Memory folder {folder}")),
         "{message}"
     );
-    assert!(message.contains(&format!("chmod 700 {folder}")), "{message}");
+    // The command quotes a folder with a space (macOS: `Application Support`) as one word.
+    assert!(
+        message.contains(&format!("chmod 700 {folder}")) || message.contains(&format!("chmod 700 '{folder}'")),
+        "{message}"
+    );
 }
