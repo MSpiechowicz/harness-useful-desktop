@@ -13,9 +13,10 @@
 //! the user scope and without a project. The MCP servers of one file are written by one
 //! `merge_entries` call; a refused file skips all of them, and an OpenCode config file with
 //! comments skips them as `manualEdit`, each with the entry to paste. OpenCode servers are first
-//! checked against the names OpenCode merges from all its layers (`merged_mcp_names`, run once
-//! per apply after OpenCode's CLI items and before any of its servers is written, and only when
-//! one of them is missing from every file the app reads): a merged name ends `conflict`, and when
+//! checked against the names OpenCode merges from all its layers (`merged_mcp_names`: `opencode
+//! debug config`, on OpenCode 2 `opencode api --standalone GET /api/config`; run once per apply
+//! after OpenCode's CLI items and before any of its servers is written, and only when one of them
+//! is missing from every file the app reads): a merged name ends `conflict`, and when
 //! the check cannot run (no binary: `skipped: harnessNotInstalled`) or fails (`failed`), none is
 //! written: each server still missing ends that way, the others end as they would after a check
 //! (`alreadyPresent`, `conflict`, `skipped`). Without the check (every server already present,

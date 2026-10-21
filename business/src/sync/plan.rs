@@ -26,7 +26,7 @@
 //! be written there safely).
 //!
 //! The review only reads files: it never runs a harness CLI. In particular it never runs `opencode
-//! debug config`, which is not read-only (OpenCode may fetch a remote organization config, install
+//! debug config` (or OpenCode 2's `opencode api --standalone`), which is not read-only (OpenCode may fetch a remote organization config, install
 //! plugin dependencies in its config directories, create or rewrite config files). A `new` OpenCode
 //! server therefore carries [`SyncNote::OpenCodeMergedCheck`]: its name is checked against
 //! OpenCode's merged configuration only when the user applies it ([`super::apply_plan`]).

@@ -32,7 +32,7 @@ use serde_json::Value;
 pub(crate) use self::keys::{PluginEntry, mcp_servers};
 pub(super) use self::keys::{command_entries, object_entries, plugin_entries, replace};
 use self::layers::{LEGACY_FILE, SETTINGS_FILES, env_config_file, project_config_enabled, project_roots, tui_names};
-pub(super) use self::layers::{Layers, Place, Step, config_dirs, layers, merge_steps, project_ancestors, tui_files};
+pub(super) use self::layers::{Layers, Place, Step, config_dirs, layers, project_ancestors, tui_files};
 pub(super) use self::read::{format_of, read_config};
 use super::paths::global_config_dir;
 use crate::env::Env;

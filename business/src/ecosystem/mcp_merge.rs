@@ -2,20 +2,23 @@
 //! for an in-process comparison (`existing_server`), and the read-decide-write cycle the merge
 //! and the companions' registrations use (`change_file`).
 //!
-//! A file has a [`Shape`]: the servers sit under `mcpServers` (a `mcp.json`, strict JSON) or under
-//! `mcp` (an OpenCode config file, JSONC). `merge_servers` and `existing_server` work on
-//! `mcpServers` files; `merge_entries` and `existing_entry` take the shape.
+//! A file has a [`Shape`]: the servers sit under `mcpServers` (a `mcp.json`, strict JSON), under
+//! `mcp` (an OpenCode 1 config file, JSONC) or under `mcp.servers` and the legacy `mcp` (an
+//! OpenCode 2 config file, JSONC; see the `shape` module). `merge_servers` and `existing_server`
+//! work on `mcpServers` files; `merge_entries` and `existing_entry` take the shape.
 //!
 //! - Merge: inserts each entry into the servers object, as given (an `"enabled": false` included), after
 //!   the servers already there, keeping every other key, server and value in order. A missing file
 //!   is created (mode `0600`, parent directories too); a blank file counts as `{}`.
 //! - An existing name is never overwritten: it is reported as `AlreadyPresent` when its definition
-//!   is identical, else as `Conflict`, and left as it was. Nothing is written when no entry is added.
-//! - Refused, nothing written: invalid JSON, a root or servers object that is not an object, a
-//!   symlink, anything but a regular file, more than 2 MiB, or a file that cannot be read.
+//!   is identical, else as `Conflict`, and left as it was (on OpenCode 2 a legacy `mcp.<name>`
+//!   counts too). Nothing is written when no entry is added.
+//! - Refused, nothing written: invalid JSON, a root or servers object that is not an object (on
+//!   OpenCode 2 also a `mcp.servers` that is a server itself), a symlink, anything but a regular
+//!   file, more than 2 MiB, or a file that cannot be read.
 //! - JSONC: a file of a JSONC shape is read as JSONC. One with comments is never written
 //!   ([`Blocked::ManualEdit`]): a rewrite would lose them. One with only trailing commas is
-//!   rewritten as plain JSON. A new file of the OpenCode shape starts with OpenCode's `$schema`.
+//!   rewritten as plain JSON. A new file of an OpenCode shape starts with OpenCode's `$schema`.
 //! - The write is atomic (temporary sibling, flushed, renamed over the file) and keeps the file's
 //!   permissions. A file that changed meanwhile is read again once, then refused; a write that
 //!   fails (or a second change) is refused as `WriteFailed`, the file left as it was.
@@ -27,7 +30,7 @@ use std::fs::{self, Metadata, Permissions};
 use std::path::Path;
 use std::time::SystemTime;
 
-use serde_json::{Map, Value, json};
+use serde_json::{Map, Value};
 
 use crate::env::Env;
 use crate::error::BusinessError;
@@ -36,56 +39,13 @@ use crate::model::McpRefusal;
 use crate::pi_family::jsonc;
 use crate::security::SafeReader;
 
+mod shape;
+
+pub use shape::Shape;
+pub(crate) use shape::{remove_server, server_mut, servers, servers_mut};
+
 /// Largest MCP file read or changed.
 const MAX_MCP_BYTES: u64 = SafeReader::DEFAULT_MAX_BYTES;
-
-/// The `$schema` OpenCode writes into its config files.
-const OPENCODE_SCHEMA: &str = "https://opencode.ai/config.json";
-
-/// How an MCP file holds its servers.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Shape {
-    /// `{"mcpServers": {"<name>": {"command": "<binary>", "args": ["mcp"]}}}`, strict JSON (OMP's and
-    /// PI's `mcp.json`).
-    McpServers,
-    /// `{"mcp": {"<name>": {"type": "local", "command": ["<binary>", "mcp"], "enabled": true}}}`,
-    /// JSONC (OpenCode's config file).
-    OpenCode,
-}
-
-impl Shape {
-    /// The key holding the servers.
-    pub fn root(self) -> &'static str {
-        match self {
-            Self::McpServers => "mcpServers",
-            Self::OpenCode => "mcp",
-        }
-    }
-
-    /// The entry that runs `<command> mcp`.
-    pub fn entry(self, command: &str) -> Value {
-        match self {
-            Self::McpServers => json!({ "command": command, "args": ["mcp"] }),
-            Self::OpenCode => json!({ "type": "local", "command": [command, "mcp"], "enabled": true }),
-        }
-    }
-
-    /// Whether the file is JSONC (comments, trailing commas).
-    fn jsonc(self) -> bool {
-        self == Self::OpenCode
-    }
-
-    /// The document a missing file starts as.
-    fn new_document(self) -> Map<String, Value> {
-        let mut document = Map::new();
-
-        if self == Self::OpenCode {
-            document.insert("$schema".to_owned(), Value::String(OPENCODE_SCHEMA.to_owned()));
-        }
-
-        document
-    }
-}
 
 /// Why [`change_file`] left a file alone.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -171,9 +131,7 @@ pub fn existing_server(_env: &Env, path: &Path, name: &str) -> Result<Option<Val
 pub(crate) fn existing_entry(path: &Path, shape: Shape, name: &str) -> Result<Option<Value>, McpRefusal> {
     match load(path, shape)? {
         Target::Absent { .. } => Ok(None),
-        Target::Present { document, .. } => {
-            Ok(servers(&document, shape).and_then(|servers| servers.get(name)).cloned())
-        }
+        Target::Present { document, .. } => Ok(servers(&document, shape).and_then(|mut servers| servers.remove(name))),
     }
 }
 
@@ -191,21 +149,7 @@ pub(crate) fn read_only_entry(path: &Path, shape: Shape, name: &str) -> Result<O
 
     let (document, _) = parse(&text, shape)?;
 
-    Ok(servers(&document, shape).and_then(|servers| servers.get(name)).cloned())
-}
-
-/// The servers object of `document`, when there is one.
-pub(crate) fn servers(document: &Map<String, Value>, shape: Shape) -> Option<&Map<String, Value>> {
-    document.get(shape.root()).and_then(Value::as_object)
-}
-
-/// The servers object of `document`, created when missing (`None` when the key holds something
-/// else, which [`load`] refuses).
-pub(crate) fn servers_mut(document: &mut Map<String, Value>, shape: Shape) -> Option<&mut Map<String, Value>> {
-    document
-        .entry(shape.root())
-        .or_insert_with(|| Value::Object(Map::new()))
-        .as_object_mut()
+    Ok(servers(&document, shape).and_then(|mut servers| servers.remove(name)))
 }
 
 /// What a [`change_file`] decision does with the file it was shown.
@@ -250,18 +194,21 @@ pub(crate) fn change_file<R>(
     Err(Blocked::Refused(McpRefusal::WriteFailed))
 }
 
-/// Inserts the entries whose names are free and reports each one.
+/// Inserts the entries whose names are free (every server the harness sees counts, see
+/// [`servers`]) and reports each one.
 fn insert(document: &mut Map<String, Value>, shape: Shape, entries: &[(String, Value)]) -> Vec<MergedServer> {
-    let Some(servers) = servers_mut(document, shape) else {
+    let mut known = servers(document, shape).unwrap_or_default();
+    let Some(target) = servers_mut(document, shape) else {
         return Vec::new();
     };
 
     entries
         .iter()
         .map(|(name, definition)| {
-            let result = match servers.get(name) {
+            let result = match known.get(name) {
                 None => {
-                    servers.insert(name.clone(), definition.clone());
+                    target.insert(name.clone(), definition.clone());
+                    known.insert(name.clone(), definition.clone());
                     MergeResult::Added
                 }
                 Some(existing) if existing == definition => MergeResult::AlreadyPresent,
@@ -371,7 +318,7 @@ fn parse(text: &str, shape: Shape) -> Result<(Map<String, Value>, bool), McpRefu
         return Ok((Map::new(), true));
     }
 
-    let (value, rewritable) = if shape.jsonc() {
+    let (value, rewritable) = if shape.is_opencode() {
         let value = jsonc::parse(text).map_err(|_| McpRefusal::Unparsable)?;
         (value, !jsonc::has_comments(text))
     } else {
@@ -382,13 +329,14 @@ fn parse(text: &str, shape: Shape) -> Result<(Map<String, Value>, bool), McpRefu
     let document = match value {
         Value::Object(document) => document,
         // Only comments: OpenCode reads it as an empty config.
-        Value::Null if shape.jsonc() => Map::new(),
+        Value::Null if shape.is_opencode() => Map::new(),
         _ => return Err(McpRefusal::NotAnObject),
     };
 
-    match document.get(shape.root()) {
-        None | Some(Value::Object(_)) => Ok((document, rewritable)),
-        Some(_) => Err(McpRefusal::ServersNotAnObject),
+    if shape.servers_valid(&document) {
+        Ok((document, rewritable))
+    } else {
+        Err(McpRefusal::ServersNotAnObject)
     }
 }
 

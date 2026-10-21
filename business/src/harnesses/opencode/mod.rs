@@ -7,11 +7,11 @@
 //! exported and deleted through the CLI ([`Harness::cli_sessions`]). Chat runs one
 //! `opencode serve` per chat ([`ChatProtocol::OpenCodeServer`], see [`launch`]), not the
 //! PI-family RPC, and is marked as a preview. Extension actions install npm plugins through
-//! `opencode plugin <module> -g` ([`cli`]) and remove them by editing the global config file
-//! ([`plugin_remove`]), since OpenCode has no uninstall command. "Share setup" shares the npm
-//! plugins and MCP servers of the global config file ([`share`]), checking the names OpenCode merges
-//! from all its layers before writing a server ([`merged`]). Every spawn switches off
-//! OpenCode's self-updater.
+//! `opencode plugin <module> -g` (OpenCode 2: `opencode plugin add <module>`, see [`cli`]) and
+//! remove them by editing the global config file ([`plugin_remove`]), keeping a preview. "Share
+//! setup" shares the npm plugins and MCP servers of the global config file ([`share`]), checking
+//! the names OpenCode merges from all its layers before writing a server ([`merged`]). Every
+//! spawn switches off OpenCode's self-updater.
 
 mod catalog;
 mod cli;
@@ -29,10 +29,10 @@ mod share;
 pub use catalog::OpenCodeCatalog;
 pub(crate) use config::mcp_servers;
 pub use launch::opencode_launch_spec;
-pub use merged::{PROBE_ARGS, PROBE_MAX_BYTES, PROBE_TIMEOUT, merged_mcp_names};
+pub use merged::{PROBE_ARGS, PROBE_ARGS_V2, PROBE_MAX_BYTES, PROBE_TIMEOUT, merged_mcp_names};
 pub use paths::{PROJECT_DIR_NAME, config_dir, custom_config_dir, data_dir, global_config_dir, home_config_dir};
 pub use sessions::OpenCodeSessions;
-pub(crate) use share::{PluginEntry, generation_of, global_plugin_entries, global_settings_file, user_npm_plugins};
+pub(crate) use share::{PluginEntry, global_plugin_entries, global_settings_file, user_npm_plugins};
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU8, Ordering};
@@ -183,9 +183,9 @@ impl Harness for OpenCode {
         Some(sessions::cli_sessions(self.generation()))
     }
 
-    /// `opencode plugin <module> -g` (see [`cli`]).
+    /// `opencode plugin <module> -g`, or `opencode plugin add <module>` on OpenCode 2 (see [`cli`]).
     fn cli_action(&self, action: &ExtensionAction, project: Option<&Path>) -> Result<CliInvocation> {
-        cli::opencode_cli_action(action, project)
+        cli::opencode_cli_action(action, project, self.generation())
     }
 
     /// Plugin removal edits the global config file (see [`plugin_remove`]); every other action goes
@@ -199,7 +199,7 @@ impl Harness for OpenCode {
     ) -> Result<Option<CliResult>> {
         match action {
             ExtensionAction::PluginUninstall { name } => {
-                plugin_remove::remove_plugin(env, name, project, dry_run).map(Some)
+                plugin_remove::remove_plugin(env, name, project, dry_run, self.generation()).map(Some)
             }
             _ => Ok(None),
         }
@@ -227,7 +227,7 @@ impl Harness for OpenCode {
     }
 
     fn companion_setup(&self) -> CompanionSetup {
-        setup::companion_setup()
+        setup::companion_setup(self.generation())
     }
 
     /// The npm plugins and the MCP servers of the global config file (see [`share`]).
@@ -248,6 +248,10 @@ impl Harness for OpenCode {
         let generation = version.map_or(OpenCodeGeneration::V1, OpenCodeGeneration::from_version);
 
         self.generation.store(generation.code(), Ordering::Relaxed);
+    }
+
+    fn opencode_generation(&self) -> Option<OpenCodeGeneration> {
+        Some(self.generation())
     }
 }
 

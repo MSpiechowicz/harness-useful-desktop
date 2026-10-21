@@ -4,16 +4,18 @@
 //!
 //! - Found: like the dashboard's server (see [`super::mcp_register`]): a server named
 //!   [`MEMORY_MCP_SERVER`], or any server running `harness-memory` (any directory, `.exe` or not)
-//!   with the single argument `mcp`, in the target file or one of the `also_read` files, switched
-//!   off by the target file's `disabledServers` or by `"enabled": false`.
+//!   with the single argument `mcp`, in the target file or one of the `also_read` files (on
+//!   OpenCode 2 under `mcp.servers` or the legacy `mcp`), switched off by the target file's
+//!   `disabledServers` or by the server itself.
 //! - Owned: an entry in the target file (never an `also_read` one) named exactly
 //!   [`MEMORY_MCP_SERVER`] that runs `harness-memory mcp`. Only owned entries are ever changed:
 //!   the program they run follows the resolved server (`command`, or the first item of a `command`
 //!   array), and turning project memory off removes them. Every other field (`enabled`, `env`, ...)
 //!   and the key order are kept.
 //! - Added: the file's [`Shape::entry`] for the absolute path (`{"command": "<path>", "args":
-//!   ["mcp"]}`, or OpenCode's `{"type": "local", "command": ["<path>", "mcp"], "enabled": true}`),
-//!   only when nothing is found and the app has not registered the server in that file before (a
+//!   ["mcp"]}`, OpenCode 1's `{"type": "local", "command": ["<path>", "mcp"], "enabled": true}`, or
+//!   OpenCode 2's `{"type": "local", "command": ["<path>", "mcp"]}` under `mcp.servers`), only
+//!   when nothing is found and the app has not registered the server in that file before (a
 //!   user who removed it keeps it removed).
 //!
 //! Writes follow [`super::mcp_merge`]'s rules: the same refusals, a JSONC file with comments never
@@ -26,7 +28,7 @@ use std::path::Path;
 use serde_json::{Map, Value};
 
 use super::catalog::{MEMORY_BINARY, MEMORY_MCP_SERVER};
-use super::mcp_merge::{Blocked, Change, Shape, Target, change_file, load, servers};
+use super::mcp_merge::{Blocked, Change, Shape, Target, change_file, load, remove_server, server_mut, servers};
 use super::mcp_register::{FoundServer, add_server, find_server, runs_mcp, server_program};
 use super::setup::McpFile;
 use crate::model::McpRefusal;
@@ -114,9 +116,7 @@ pub fn unregister_memory_mcp(file: &McpFile) -> Result<bool, Blocked> {
         }
 
         let mut document = target.document();
-        if let Some(Value::Object(servers)) = document.get_mut(file.shape.root()) {
-            servers.shift_remove(MEMORY_MCP_SERVER);
-        }
+        remove_server(&mut document, file.shape, MEMORY_MCP_SERVER);
 
         Change::Write(document, true)
     })
@@ -201,11 +201,7 @@ fn owned(path: &Path, server: &FoundServer) -> bool {
 /// Sets the program the owned entry runs (its `command`, or the first item of its `command` array)
 /// in place, keeping its position and its other fields.
 fn set_program(document: &mut Map<String, Value>, shape: Shape, program: &str) {
-    let entry = document
-        .get_mut(shape.root())
-        .and_then(Value::as_object_mut)
-        .and_then(|servers| servers.get_mut(MEMORY_MCP_SERVER))
-        .and_then(Value::as_object_mut);
+    let entry = server_mut(document, shape, MEMORY_MCP_SERVER).and_then(Value::as_object_mut);
 
     let Some(entry) = entry else {
         return;

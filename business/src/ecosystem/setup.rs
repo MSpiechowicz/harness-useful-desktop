@@ -8,7 +8,6 @@
 //! its user agent directory ([`Harness::paths`] without a project), so with an OMP profile active
 //! only that profile's files count. OpenCode's is its global config file ([`mcp_target`]).
 
-use std::fs;
 use std::path::PathBuf;
 
 use super::catalog::{SKILLS_MARKETPLACE, SKILLS_PLUGIN, SKILLS_TARGET, supported_on};
@@ -18,7 +17,7 @@ use super::mcp_merge::Shape;
 use super::mcp_register::{mcp_state, memory_mcp_state};
 use super::skills_record::opencode_skills_version;
 use crate::env::{Env, OsKind};
-use crate::harness::{Harness, HarnessRegistry, McpTarget, SkillsStrategy};
+use crate::harness::{Harness, HarnessRegistry, McpTarget, OpenCodeGeneration, SkillsStrategy};
 use crate::harnesses::omp::{installed_plugins, marketplaces};
 use crate::harnesses::opencode;
 use crate::harnesses::pi::user_has_package;
@@ -81,10 +80,16 @@ pub struct McpFile {
 /// harness has none.
 ///
 /// OpenCode merges every global config file it finds. The app writes the one OpenCode itself
-/// would edit (`opencode.jsonc`, else `opencode.json`, in the config directory), creating
-/// `opencode.json` when there is neither, and only reads the others: `config.json` there,
-/// `opencode.json[c]` in `~/.opencode` and in `OPENCODE_CONFIG_DIR`, and the file `OPENCODE_CONFIG`
-/// names.
+/// would edit (`global_settings_file` of the OpenCode adapter), creating `opencode.json` when
+/// there is none, and only reads the others, to find an existing entry.
+///
+/// - OpenCode 1: `config.json` and the other settings file of the config directory,
+///   `opencode.json[c]` in `~/.opencode` and in `OPENCODE_CONFIG_DIR`, and the file
+///   `OPENCODE_CONFIG` names.
+/// - OpenCode 2 (whose global directory is `OPENCODE_CONFIG_DIR` when set, and which reads no
+///   `config.json`): the other settings file of its global directory, `opencode.json[c]` in
+///   `~/.opencode` (read for projects below the home directory) and the file `OPENCODE_CONFIG`
+///   names.
 pub fn mcp_target(env: &Env, harness: &dyn Harness) -> Option<McpFile> {
     match harness.companion_setup().mcp {
         McpTarget::UserMcpJson { .. } => {
@@ -96,7 +101,7 @@ pub fn mcp_target(env: &Env, harness: &dyn Harness) -> Option<McpFile> {
                 shape: Shape::McpServers,
             })
         }
-        McpTarget::OpenCodeConfig => Some(opencode_file(env)),
+        McpTarget::OpenCodeConfig(generation) => Some(opencode_file(env, generation)),
         McpTarget::Unsupported => None,
     }
 }
@@ -115,23 +120,33 @@ pub fn mcp_target_paths(env: &Env, harness: &dyn Harness) -> Option<(PathBuf, Ve
 }
 
 /// OpenCode's global config file and the other user config files it reads (see [`mcp_target`]).
-fn opencode_file(env: &Env) -> McpFile {
-    let config = opencode::config_dir(env);
-    let jsonc = config.join("opencode.jsonc");
-    let json = config.join("opencode.json");
+fn opencode_file(env: &Env, generation: OpenCodeGeneration) -> McpFile {
+    let config = opencode::global_config_dir(env, generation);
+    let path = opencode::global_settings_file(env, generation);
 
-    // A symlink counts as there, so it is refused rather than passed over.
-    let path = if fs::symlink_metadata(&jsonc).is_ok() {
-        jsonc
-    } else {
-        json
+    let (global_names, shape, extra_dirs): (&[&str], Shape, Vec<PathBuf>) = match generation {
+        OpenCodeGeneration::V1 => (
+            &["config.json", "opencode.json", "opencode.jsonc"],
+            Shape::OpenCode,
+            std::iter::once(opencode::home_config_dir(env))
+                .chain(opencode::custom_config_dir(env))
+                .collect(),
+        ),
+        OpenCodeGeneration::V2 => (
+            &["opencode.json", "opencode.jsonc"],
+            Shape::OpenCodeV2,
+            vec![opencode::home_config_dir(env)],
+        ),
     };
 
-    let extra_dirs = std::iter::once(opencode::home_config_dir(env)).chain(opencode::custom_config_dir(env));
-    let candidates = ["config.json", "opencode.json", "opencode.jsonc"]
+    let candidates = global_names
+        .iter()
         .map(|name| config.join(name))
-        .into_iter()
-        .chain(extra_dirs.flat_map(|dir| [dir.join("opencode.json"), dir.join("opencode.jsonc")]))
+        .chain(
+            extra_dirs
+                .iter()
+                .flat_map(|dir| [dir.join("opencode.json"), dir.join("opencode.jsonc")]),
+        )
         .chain(env_config_file(env));
 
     let mut also_read: Vec<PathBuf> = Vec::new();
@@ -141,11 +156,7 @@ fn opencode_file(env: &Env) -> McpFile {
         }
     }
 
-    McpFile {
-        path,
-        also_read,
-        shape: Shape::OpenCode,
-    }
+    McpFile { path, also_read, shape }
 }
 
 /// The file `OPENCODE_CONFIG` names, when absolute (a relative one depends on OpenCode's working

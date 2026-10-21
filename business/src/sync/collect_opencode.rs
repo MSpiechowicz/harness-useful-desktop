@@ -37,7 +37,7 @@ use crate::env::Env;
 use crate::harness::Harness;
 use crate::harness::OpenCodeGeneration;
 use crate::harnesses::opencode::{
-    PluginEntry, generation_of, global_plugin_entries, global_settings_file, mcp_servers as file_servers,
+    PluginEntry, global_plugin_entries, global_settings_file, mcp_servers as file_servers,
 };
 use crate::model::{ConfigFormat, HarnessId, SyncExcludedReason, SyncExportItem, SyncItemKind, SyncNote};
 use crate::pi_family::{Document, read_document};
@@ -62,7 +62,9 @@ pub(super) fn opencode_plugins(env: &Env, opencode: &dyn Harness, found: &mut Fo
     let harness = HarnessId::OpenCode;
     let kind = SyncItemKind::Plugin;
 
-    for entry in global_plugin_entries(env, generation_of(opencode)) {
+    let generation = opencode.opencode_generation().unwrap_or_default();
+
+    for entry in global_plugin_entries(env, generation) {
         let spec = match entry {
             PluginEntry::Spec(spec) => spec,
             PluginEntry::WithOptions(spec) => {
@@ -153,7 +155,7 @@ fn plugin_label(spec: &str) -> String {
 /// cannot be read or parsed, or whose `mcp` (on OpenCode 2 also `mcp.servers`) is not an object,
 /// is listed as excluded (`invalid`, labelled with its home-relative path).
 pub(super) fn opencode_servers(env: &Env, harness: &dyn Harness, found: &mut Found) {
-    if generation_of(harness) == OpenCodeGeneration::V2 {
+    if harness.opencode_generation() == Some(OpenCodeGeneration::V2) {
         let path = global_settings_file(env, OpenCodeGeneration::V2);
         let document = v2_servers(read_document(&path, ConfigFormat::Jsonc));
 
