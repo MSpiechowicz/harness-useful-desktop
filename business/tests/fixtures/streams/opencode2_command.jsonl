@@ -1,0 +1,29 @@
+// Slash commands on OpenCode 2 (shapes of recordings/shell_command.jsonl): at startup the server lists
+// init, review and an MCP prompt (<server>:<prompt>). "/nonexistent arg" goes as prompt text; "/review
+// the parser" goes to the command route ({name, text}, 204) and runs the template; "/init" is refused
+// (400). Last, a marker.
+{"on":"GET /api/command","times":1,"reply":{"data":[{"name":"init","description":"guided AGENTS.md setup"},{"name":"review","description":"review changes [commit|branch|pr], defaults to uncommitted"},{"name":"docs:search","description":"Search the docs"}],"location":{"directory":"$directory"}}}
+{"include":"opencode2_startup.jsonl"}
+{"expect":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/prompt","match":{"/text":"/nonexistent arg"}}
+{"sse":{"type":"session.inbox.enqueued","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","inboxID":"$inbox","item":{"type":"user","payload":{"text":"/nonexistent arg"},"delivery":"steer"}}}}
+{"sse":{"type":"session.execution.started","data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv"}}}
+{"sse":{"type":"session.inbox.delivered","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","inboxID":"$inbox"}}}
+{"sse":{"type":"session.step.started","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","agent":"build","model":{"id":"big-pickle","providerID":"opencode","variant":"default"},"assistantMessageID":"msg_15d7bc3d6001replyToTheText"}}}
+{"sse":{"type":"session.text.started","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_15d7bc3d6001replyToTheText","ordinal":0}}}
+{"sse":{"type":"session.text.delta","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_15d7bc3d6001replyToTheText","ordinal":0,"delta":"Unknown."}}}
+{"sse":{"type":"session.text.ended","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_15d7bc3d6001replyToTheText","ordinal":0,"text":"Unknown."}}}
+{"sse":{"type":"session.step.ended","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_15d7bc3d6001replyToTheText","finish":"stop","cost":0,"tokens":{"input":280,"output":12,"reasoning":0,"cache":{"read":5120,"write":0}},"files":[]}}}
+{"sse":{"type":"session.execution.succeeded","data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv"}}}
+{"expect":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/command","match":{"name":"review","text":"the parser","/delivery":"$absent"}}
+{"sse":{"type":"session.inbox.enqueued","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","inboxID":"$inbox","item":{"type":"user","payload":{"text":"You are a code reviewer.\n\nInput: the parser"},"delivery":"steer"}}}}
+{"sse":{"type":"session.execution.started","data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv"}}}
+{"sse":{"type":"session.inbox.delivered","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","inboxID":"$inbox"}}}
+{"sse":{"type":"session.step.started","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","agent":"build","model":{"id":"big-pickle","providerID":"opencode","variant":"default"},"assistantMessageID":"msg_15d81110c001svyAyIX3XQ01aP"}}}
+{"sse":{"type":"session.text.started","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_15d81110c001svyAyIX3XQ01aP","ordinal":0}}}
+{"sse":{"type":"session.text.delta","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_15d81110c001svyAyIX3XQ01aP","ordinal":0,"delta":"Nothing to review."}}}
+{"sse":{"type":"session.text.ended","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_15d81110c001svyAyIX3XQ01aP","ordinal":0,"text":"Nothing to review."}}}
+{"sse":{"type":"session.step.ended","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_15d81110c001svyAyIX3XQ01aP","finish":"stop","cost":0,"tokens":{"input":280,"output":12,"reasoning":0,"cache":{"read":5120,"write":0}},"files":[]}}}
+{"sse":{"type":"session.execution.succeeded","data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv"}}}
+{"expect":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/command","match":{"name":"init","text":""},"reply":{"status":400,"body":{"name":"CommandExecutionError","data":{"message":"init failed"}}}}
+{"sse":{"type":"session.renamed","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","title":"Marker"}}}
+{"hang":true}

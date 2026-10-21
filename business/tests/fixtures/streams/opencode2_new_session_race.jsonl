@@ -1,0 +1,11 @@
+// A prompt arrives while a new OpenCode 2 chat is being created (its POST /api/session is held, the
+// title "Held" tells the test): the prompt goes to the current session, the move is refused and the
+// created session is deleted. Last, a title marker.
+{"include":"opencode2_startup.jsonl"}
+{"expect":"POST /api/session","hold":true,"as":"create"}
+{"sse":{"type":"session.renamed","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","title":"Held"}}}
+{"expect":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/prompt","match":{"/text":"Hurry"}}
+{"respond":"create","reply":{"data":{"id":"ses_0new0chat0000000000000001","projectID":"global","model":{"id":"big-pickle","providerID":"opencode","variant":"default"},"cost":0,"tokens":{"input":0,"output":0,"reasoning":0,"cache":{"read":0,"write":0}},"time":{"created":1792570185966,"updated":1792570185966},"location":{"directory":"$directory"}}}}
+{"expect":"DELETE /api/session/ses_0new0chat0000000000000001"}
+{"sse":{"type":"session.renamed","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","title":"Marker"}}}
+{"hang":true}

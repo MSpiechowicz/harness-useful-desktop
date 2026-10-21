@@ -1,0 +1,30 @@
+// Compaction on OpenCode 2 (shapes of recordings/ops.jsonl): the compact route admits an inbox item of
+// type compaction (200), the title "Compacting" tells the test it was asked. A steer meanwhile is
+// held; the statistics are the sync point. The compaction's run, summary deltas and usage show nothing
+// but compaction end; then the held prompt runs. Last, a marker.
+{"include":"opencode2_startup.jsonl"}
+{"expect":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/compact","reply":{"recording":"../opencode2/recorded/ops.jsonl","route":"POST /api/session/*/compact"}}
+{"sse":{"type":"session.renamed","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","title":"Compacting"}}}
+{"expect":"GET /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv","reply":{"data":{"id":"ses_ea2843d6fffeeHJKZwBKUXqULv","projectID":"global","model":{"id":"big-pickle","providerID":"opencode","variant":"default"},"cost":0,"tokens":{"input":0,"output":0,"reasoning":0,"cache":{"read":0,"write":0}},"time":{"created":1792570185966,"updated":1792570185966},"location":{"directory":"$directory"}}}}
+{"expect":"GET /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/message","reply":{"data":[]}}
+{"sse":{"type":"session.inbox.enqueued","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","inboxID":"msg_15d8258f3001dFHSDSV3PIjSf6","item":{"type":"compaction","payload":{},"delivery":"steer"}}}}
+{"sse":{"type":"session.execution.started","data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv"}}}
+{"sse":{"type":"session.inbox.delivered","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","inboxID":"msg_15d8258f3001dFHSDSV3PIjSf6"}}}
+{"sse":{"type":"session.compaction.started","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","reason":"manual","inputID":"msg_15d8258f3001dFHSDSV3PIjSf6"}}}
+{"sse":{"type":"session.compaction.delta","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","text":"## Objective"}}}
+{"sse":{"type":"session.compaction.delta","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","text":"\n- Say one, then two."}}}
+{"sse":{"type":"session.usage.updated","data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","cost":0,"tokens":{"input":3710,"output":13,"reasoning":65,"cache":{"read":7801,"write":0}}}}}
+{"sse":{"type":"session.compaction.ended","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","reason":"manual","model":{"id":"big-pickle","providerID":"opencode","variant":"default"},"text":"## Objective\n- Say one, then two."}}}
+{"sse":{"type":"session.execution.succeeded","data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv"}}}
+{"expect":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/prompt","match":{"/text":"after compaction","/delivery":"$absent"}}
+{"sse":{"type":"session.inbox.enqueued","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","inboxID":"$inbox","item":{"type":"user","payload":{"text":"after compaction"},"delivery":"steer"}}}}
+{"sse":{"type":"session.execution.started","data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv"}}}
+{"sse":{"type":"session.inbox.delivered","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","inboxID":"$inbox"}}}
+{"sse":{"type":"session.step.started","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","agent":"build","model":{"id":"big-pickle","providerID":"opencode","variant":"default"},"assistantMessageID":"msg_15d7bc3d6001afterCompaction"}}}
+{"sse":{"type":"session.text.started","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_15d7bc3d6001afterCompaction","ordinal":0}}}
+{"sse":{"type":"session.text.delta","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_15d7bc3d6001afterCompaction","ordinal":0,"delta":"Done."}}}
+{"sse":{"type":"session.text.ended","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_15d7bc3d6001afterCompaction","ordinal":0,"text":"Done."}}}
+{"sse":{"type":"session.step.ended","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_15d7bc3d6001afterCompaction","finish":"stop","cost":0,"tokens":{"input":280,"output":12,"reasoning":0,"cache":{"read":5120,"write":0}},"files":[]}}}
+{"sse":{"type":"session.execution.succeeded","data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv"}}}
+{"sse":{"type":"session.renamed","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","title":"Marker"}}}
+{"hang":true}

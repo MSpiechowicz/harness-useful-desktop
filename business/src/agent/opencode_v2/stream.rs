@@ -20,7 +20,7 @@ use std::time::Duration;
 use tokio::sync::watch;
 use tokio::task::AbortHandle;
 
-use super::{Chat, Live, catch_up, delivery, normalized};
+use super::{Chat, Live, catch_up, delivery, normalized, runs};
 use crate::agent::process::Terminator;
 use crate::model::{AgentEvent, NoticeLevel};
 use crate::opencode_server::EventStream;
@@ -192,8 +192,9 @@ pub(super) fn apply(chat: &Arc<Chat>, live: &mut Live, mapped: Vec<Mapped>) {
             Mapped::Send(message) => delivery::send(chat, live, message),
             Mapped::Abort => delivery::abort(chat, live),
             Mapped::Context(note) => live.context = Some(note),
-            // S11: the session's totals feed the statistics, a `!command`'s end its answer.
-            Mapped::Usage(_) | Mapped::ShellDone(_) => {}
+            Mapped::ShellDone(result) => runs::shell_done(live, result),
+            // The statistics read the session's totals when asked.
+            Mapped::Usage(_) => {}
         }
     }
 }

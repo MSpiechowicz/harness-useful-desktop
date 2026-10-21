@@ -10,10 +10,11 @@ use super::OpenCodeV2Session;
 use crate::error::Result;
 use crate::model::AgentReply;
 use crate::opencode_server::OpenCodeClient;
-use crate::opencode_server_v2::mapper::{ContextNote, history};
+use crate::opencode_server_v2::mapper::history;
 use crate::opencode_server_v2::messages::SessionMessage;
 use crate::opencode_server_v2::routes::MAX_MESSAGE_PAGE;
-use crate::opencode_server_v2::wire::{Envelope, ModelRef};
+pub(super) use crate::opencode_server_v2::stats::last_context;
+use crate::opencode_server_v2::wire::Envelope;
 use crate::opencode_server_v2::{MessageOrder, RouteV2, SessionId};
 use crate::pi_family::rpc::shared::slice_history;
 
@@ -62,25 +63,4 @@ pub(super) async fn all_messages(client: &OpenCodeClient, session: &SessionId, d
 
     records.reverse();
     Ok(records)
-}
-
-/// What the newest reply with output (or a newer compaction) tells about the context's size.
-pub(super) fn last_context(messages: &[SessionMessage]) -> Option<ContextNote> {
-    messages.iter().rev().find_map(|message| match message {
-        SessionMessage::Compaction(_) => Some(ContextNote::Compacted),
-        SessionMessage::Assistant(reply) => {
-            let tokens = reply.tokens.filter(|tokens| tokens.output > 0)?;
-            let model = reply.model.as_ref().map(|model| ModelRef {
-                id: model.id.clone(),
-                provider_id: model.provider_id.clone(),
-                variant: None,
-            });
-
-            Some(ContextNote::Tokens {
-                tokens: tokens.usage().total,
-                model,
-            })
-        }
-        _ => None,
-    })
 }

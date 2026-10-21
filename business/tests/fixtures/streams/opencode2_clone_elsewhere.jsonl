@@ -1,0 +1,7 @@
+// OpenCode 2 reports the clone in another directory: the chat stays, the copy is left alone (no
+// delete), and the next request is the rename. Last, a marker.
+{"include":"opencode2_startup.jsonl"}
+{"expect":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/fork","match":{"before":"$absent"},"reply":{"data":{"id":"ses_ea27da70fffea5dJXkjhzIlcBu","projectID":"global","model":{"id":"big-pickle","providerID":"opencode","variant":"default"},"cost":0,"tokens":{"input":0,"output":0,"reasoning":0,"cache":{"read":0,"write":0}},"time":{"created":1792570185966,"updated":1792570185966},"location":{"directory":"/elsewhere"}}}}
+{"expect":"PATCH /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv","match":{"title":"Named"}}
+{"sse":{"type":"session.renamed","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","title":"Marker"}}}
+{"hang":true}

@@ -11,12 +11,11 @@
 //!   chat's lock, so prompt bookkeeping and event order never interleave. A stream that ends while
 //!   the server runs is opened again and the chat catches up from the session (`catch_up.rs`).
 //! - **Actions:** prompts, steering, follow-ups and abort (`prompts.rs`, sent by `delivery.rs`),
-//!   history (`history.rs`), the model, thinking level and agent pickers (`settings.rs`) and
-//!   renaming.
-//! - **Not yet** (later steps of the plan, refused as not available yet): answers to approvals and
-//!   questions, approval modes and helper chats (S10: `approvals.rs`, `dialogs.rs`, `probe.rs`);
-//!   new chat, fork, clone, compaction, `!command`s, statistics, the last reply and the HTML export
-//!   (S11: `ops.rs`, `runs.rs`, `reports.rs`).
+//!   history (`history.rs`), the model, thinking level and agent pickers and renaming
+//!   (`settings.rs`), new chat, fork and clone (`ops.rs`), `!command`s and compaction (`runs.rs`),
+//!   and statistics, the last reply and the HTML export (`reports.rs`).
+//! - **Not yet** (a later step of the plan, refused as not available yet): answers to approvals and
+//!   questions, approval modes and helper chats (S10: `approvals.rs`, `dialogs.rs`, `probe.rs`).
 //! - **Stop:** open dialogs close, then the server stops.
 
 mod approvals;
@@ -34,9 +33,10 @@ mod settings;
 mod startup;
 mod stream;
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
+use tokio::sync::oneshot;
 use tokio::task::AbortHandle;
 
 use self::catalog::Catalog;
@@ -44,11 +44,11 @@ use super::io::Shared;
 use super::process::AgentProcess;
 use super::sink::PromptTaken;
 use crate::error::{BusinessError, Result};
-use crate::model::{AgentAction, AgentEvent, AgentReply, BashOutput, ContextUsage, SessionState, UiResponse};
+use crate::model::{AgentAction, AgentEvent, AgentReply, ContextUsage, SessionState, UiResponse};
 use crate::opencode_server::OpenCodeClient;
 use crate::opencode_server::stats::usage;
 use crate::opencode_server::wire::slash_command;
-use crate::opencode_server_v2::mapper::{ContextNote, QuietKind, SessionChange};
+use crate::opencode_server_v2::mapper::{ContextNote, QuietKind, SessionChange, ShellResult};
 use crate::opencode_server_v2::wire::ModelRef;
 use crate::opencode_server_v2::{Mapper, SessionId};
 use crate::process::ExitInfo;
@@ -66,6 +66,12 @@ struct Chat {
     client: OpenCodeClient,
     /// The session's directory as OpenCode stores it (the `location[directory]` of its routes).
     directory: String,
+    /// The project, canonical.
+    project: PathBuf,
+    /// The session's directory, canonical (inside the project).
+    root: PathBuf,
+    /// Where HTML exports go (`SessionOptions::export_dir`).
+    export_dir: Option<PathBuf>,
     catalog: Catalog,
     live: Mutex<Live>,
 }
@@ -87,6 +93,8 @@ struct Live {
     /// The server time (milliseconds) of the newest event read, at least the session's last
     /// change at startup: a catch-up takes the session's ends after it as missed.
     mark: u64,
+    /// Where the running `!command`'s output goes, with its quiet run's generation (`runs.rs`).
+    shell: Option<(u64, oneshot::Sender<ShellResult>)>,
 }
 
 /// Picks kept waiting for OpenCode's confirmation at most.
@@ -220,14 +228,13 @@ impl OpenCodeV2Session {
             A::SwitchSession { .. } => Err(BusinessError::Unsupported(
                 "OpenCode chats cannot switch sessions: open the session from the Sessions view".to_owned(),
             )),
-            // S11 fills these in.
-            A::NewSession => Err(not_yet("start a new chat")),
-            A::Fork { .. } => Err(not_yet("fork a chat")),
-            A::Clone => Err(not_yet("clone a chat")),
-            A::Compact { .. } => Err(not_yet("compact a chat")),
-            A::GetSessionStats => Err(not_yet("show session statistics")),
-            A::ExportHtml => Err(not_yet("export a chat")),
-            A::GetLastAssistantText => Err(not_yet("copy the last reply")),
+            A::NewSession => self.new_session().await,
+            A::Fork { entry_id } => self.fork(&entry_id).await,
+            A::Clone => self.clone_session().await,
+            A::Compact { instructions } => self.compact(instructions.as_deref()).await,
+            A::GetSessionStats => self.stats().await,
+            A::ExportHtml => self.export_html().await,
+            A::GetLastAssistantText => self.last_reply().await,
         };
 
         // Tools see the server password: whatever OpenCode stored never shows it.
@@ -239,13 +246,6 @@ impl OpenCodeV2Session {
         self.process.ensure_running()?;
 
         Err(not_yet("answer approvals and questions"))
-    }
-
-    /// Runs `command` in the session's shell. Not available yet: S11 runs it.
-    pub async fn bash(&self, _command: &str) -> Result<BashOutput> {
-        self.process.ensure_running()?;
-
-        Err(not_yet("run !commands"))
     }
 
     /// Refuses: OpenCode cannot move a session to another project.

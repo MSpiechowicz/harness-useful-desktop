@@ -1,0 +1,17 @@
+// !commands on OpenCode 2 (shapes of recordings/shell_command.jsonl): the shell route answers 204 once
+// the command ended. The first command's end event comes after that answer (as recorded), the second's
+// before it (the request is held); its output holds the server password. Neither shows a turn. Last, a
+// marker; the agent switch after it proves the chat is idle again.
+{"include":"opencode2_startup.jsonl"}
+{"expect":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/shell","match":{"command":"echo hi && ls"}}
+{"sse":{"type":"session.shell.started","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","shell":{"id":"sh_15d810535001fEpDs8aSOEHU0e","status":"running","command":"echo hi && ls","cwd":"$directory","shell":"/usr/bin/zsh","time":{"created":1792570098997}}}}}
+{"sse":{"type":"session.shell.ended","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","shell":{"id":"sh_15d810535001fEpDs8aSOEHU0e","status":"exited","command":"echo hi && ls","cwd":"$directory","shell":"/usr/bin/zsh","time":{"created":1792570098997},"exit":0},"output":{"output":"hi\ndot.png\nnotes.txt\n","cursor":21,"size":21,"truncated":false}}}}
+{"sse":{"type":"session.inbox.enqueued","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","inboxID":"msg_15d81053b001GztyZauSBGtSD8","item":{"type":"synthetic","payload":{"text":"The following shell command was executed by the user:\n<shell>echo hi && ls</shell>","description":"echo hi && ls"},"delivery":"steer"}}}}
+{"expect":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/shell","match":{"command":"printenv"},"hold":true,"as":"shell"}
+{"sse":{"type":"session.shell.started","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","shell":{"id":"sh_15d810535002secondShell01","status":"running","command":"printenv","cwd":"$directory","shell":"/usr/bin/zsh","time":{"created":1792570098997}}}}}
+{"sse":{"type":"session.shell.ended","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","shell":{"id":"sh_15d810535002secondShell01","status":"exited","command":"printenv","cwd":"$directory","shell":"/usr/bin/zsh","time":{"created":1792570098997},"exit":3},"output":{"output":"$password","cursor":9,"size":9,"truncated":false}}}}
+{"respond":"shell","reply":{}}
+{"sse":{"type":"session.inbox.enqueued","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","inboxID":"msg_15d81053b001GztyZauSBGtSD8","item":{"type":"synthetic","payload":{"text":"The following shell command was executed by the user:\n<shell>printenv</shell>","description":"printenv"},"delivery":"steer"}}}}
+{"sse":{"type":"session.renamed","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","title":"Marker"}}}
+{"expect":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/agent","match":{"agent":"plan"}}
+{"hang":true}

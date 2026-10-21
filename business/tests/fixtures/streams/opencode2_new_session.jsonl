@@ -1,0 +1,23 @@
+// New chat and rename on OpenCode 2: while a prompt is on its way the session actions are refused (no
+// request); the statistics are the sync point. Once the run ended, a new session in the project with
+// the chat's agent and model, the next prompt goes to it, a late event of the old session is not
+// shown, and the new session is renamed (204, then session.renamed). Last, a marker on the new
+// session.
+{"include":"opencode2_startup.jsonl"}
+{"expect":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/prompt","match":{"/text":"Say hello"}}
+{"expect":"GET /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv","reply":{"data":{"id":"ses_ea2843d6fffeeHJKZwBKUXqULv","projectID":"global","model":{"id":"big-pickle","providerID":"opencode","variant":"default"},"cost":0,"tokens":{"input":0,"output":0,"reasoning":0,"cache":{"read":0,"write":0}},"time":{"created":1792570185966,"updated":1792570185966},"location":{"directory":"$directory"}}}}
+{"expect":"GET /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/message","match":{"query.order":"desc"},"reply":{"data":[]}}
+{"sse":{"type":"session.inbox.enqueued","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","inboxID":"$inbox","item":{"type":"user","payload":{"text":"Say hello"},"delivery":"steer"}}}}
+{"sse":{"type":"session.execution.started","data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv"}}}
+{"sse":{"type":"session.inbox.delivered","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","inboxID":"$inbox"}}}
+{"sse":{"type":"session.execution.succeeded","data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv"}}}
+{"expect":"POST /api/session","match":{"/agent":"build","/model/id":"big-pickle","/model/providerID":"opencode","/model/variant":"$absent","query.location[directory]":"$directory"},"reply":{"data":{"id":"ses_0new0chat0000000000000001","projectID":"global","model":{"id":"big-pickle","providerID":"opencode","variant":"default"},"cost":0,"tokens":{"input":0,"output":0,"reasoning":0,"cache":{"read":0,"write":0}},"time":{"created":1792570185966,"updated":1792570185966},"location":{"directory":"$directory"}}}}
+{"sse":{"type":"session.created","location":{"directory":"$directory"},"data":{"sessionID":"ses_0new0chat0000000000000001","slug":"happy-sailor","projectID":"global","location":{"directory":"$directory"}}}}
+{"expect":"POST /api/session/ses_0new0chat0000000000000001/prompt","match":{"/text":"Again"}}
+{"sse":{"type":"session.step.started","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","agent":"build","model":{"id":"big-pickle","providerID":"opencode","variant":"default"},"assistantMessageID":"msg_15d7bc3d6009oldSessionReply"}}}
+{"sse":{"type":"session.text.started","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_15d7bc3d6009oldSessionReply","ordinal":0}}}
+{"sse":{"type":"session.text.delta","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_15d7bc3d6009oldSessionReply","ordinal":0,"delta":"old"}}}
+{"expect":"PATCH /api/session/ses_0new0chat0000000000000001","match":{"title":"Named"}}
+{"sse":{"type":"session.renamed","location":{"directory":"$directory"},"data":{"sessionID":"ses_0new0chat0000000000000001","title":"Named"}}}
+{"sse":{"type":"session.renamed","location":{"directory":"$directory"},"data":{"sessionID":"ses_0new0chat0000000000000001","title":"Marker"}}}
+{"hang":true}

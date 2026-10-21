@@ -117,12 +117,16 @@ impl OpenCodeV2Session {
             context: last_context(&booted.messages),
             picks: Vec::new(),
             mark: info.time.updated,
+            shell: None,
         };
 
         let chat = Arc::new(Chat {
             shared: shared.clone(),
             client: booted.client,
             directory: info.location.directory,
+            project: project.to_path_buf(),
+            root: booted.directory,
+            export_dir: options.export_dir.clone(),
             catalog: booted.catalog,
             live: Mutex::new(live),
         });
@@ -325,14 +329,21 @@ pub(super) async fn get_data<T: DeserializeOwned>(client: &OpenCodeClient, route
     Ok(response.json::<Envelope<T>>()?.data)
 }
 
-/// The `GET /api/command` list as the command catalog reads it: OpenCode 2 names no source, so
-/// every entry is a command (`source: command`).
+/// The `GET /api/command` list as the command catalog reads it. OpenCode 2 names no source: an MCP
+/// prompt is `<server>:<prompt>` (`source: mcp`), every other entry a command (`source: command`).
+/// Skills are not commands on OpenCode 2.
 pub(super) fn live_commands(commands: Vec<Value>) -> Vec<Value> {
     commands
         .into_iter()
         .map(|mut command| {
+            let mcp = command
+                .get("name")
+                .and_then(Value::as_str)
+                .is_some_and(|name| name.contains(':'));
+            let source = if mcp { "mcp" } else { "command" };
+
             if let Some(entry) = command.as_object_mut() {
-                entry.entry("source").or_insert_with(|| Value::from("command"));
+                entry.entry("source").or_insert_with(|| Value::from(source));
             }
 
             command
