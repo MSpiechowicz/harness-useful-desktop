@@ -1,10 +1,3 @@
-# [0.35.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.34.0...v0.35.0) (2026-10-21)
-
-
-### Features
-
-* **hooks:** add branch-sync family hook and make the memory hooks selective ([88badd6](https://github.com/MSpiechowicz/harness-useful-desktop/commit/88badd670f59e730f1da0a00806da90fe025d431))
-
 # [0.34.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.33.0...v0.34.0) (2026-10-21)
 
 
