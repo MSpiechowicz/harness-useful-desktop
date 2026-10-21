@@ -74,6 +74,10 @@ export function retryable(reason: UpdateFailureKind): boolean {
   return reason === 'network' || reason === 'installer';
 }
 
+/** How often an open app looks for a newer release, and the shortest gap between two looks (focus events come in bursts). */
+const RECHECK_MS = 30 * 60_000;
+const MIN_GAP_MS = 60_000;
+
 /** Checking for, downloading and installing app updates, following the update policy of the preferences. */
 export class UpdatesStore {
   state = $state<UpdateState>({ kind: 'idle' });
@@ -81,6 +85,8 @@ export class UpdatesStore {
   /** Notices the user sent away with "Later"; a new version or a new stage brings the notice back. */
   private dismissed = $state<string[]>([]);
   private started = false;
+  private rechecking = false;
+  private lastLook = 0;
 
   /** Whether the restart waits for the user's word, and how many working chats it would stop. */
   confirmingRestart = $state(false);
@@ -237,8 +243,60 @@ export class UpdatesStore {
       return;
     }
 
+    this.lastLook = Date.now();
     await this.check();
+    await this.autoInstall(policy);
+  }
 
+  /**
+   * Looks again while the app stays open, every `RECHECK_MS` and when the window comes back to the
+   * front, so a release made after launch is found without a restart. Returns the stop function.
+   */
+  watch(): () => void {
+    const look = () => {
+      if (!document.hidden) {
+        void this.recheck();
+      }
+    };
+    const timer = setInterval(look, RECHECK_MS);
+    document.addEventListener('visibilitychange', look);
+    window.addEventListener('focus', look);
+
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', look);
+      window.removeEventListener('focus', look);
+    };
+  }
+
+  /** A quiet look for a newer release: no "checking" state, a failure keeps what is shown, and it never disturbs an update in progress. */
+  private async recheck(): Promise<void> {
+    const policy = this.preferences.value?.updatePolicy ?? 'startupAsk';
+    const state = this.state;
+    const current = state.kind;
+    const idle = current === 'idle' || current === 'upToDate' || (state.kind === 'failed' && state.during === 'check');
+    if (policy === 'off' || !this.started || this.rechecking || !idle || Date.now() - this.lastLook < MIN_GAP_MS) {
+      return;
+    }
+
+    this.rechecking = true;
+    this.lastLook = Date.now();
+
+    try {
+      const info = await this.transport.invoke('update_check', undefined);
+      if (this.state.kind === current) {
+        this.state = info ? { kind: 'available', info } : { kind: 'upToDate', checkedAt: new Date() };
+      }
+    } catch {
+      // Quiet: the next look tries again; Settings shows failures of a check the user asked for.
+    } finally {
+      this.rechecking = false;
+    }
+
+    await this.autoInstall(policy);
+  }
+
+  private async autoInstall(policy: string): Promise<void> {
     // An installer that closes the app must not do so under a running agent: ask instead.
     const unattended = !(this.environment.installerClosesApp() && this.environment.agentsRunning());
     if (policy === 'autoInstall' && this.state.kind === 'available' && unattended) {

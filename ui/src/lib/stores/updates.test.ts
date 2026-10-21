@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { AppPrefs } from '$lib/ipc/bindings/AppPrefs';
 import type { UpdateInfo } from '$lib/ipc/bindings/UpdateInfo';
@@ -119,6 +119,52 @@ describe('startup policy', () => {
 
     expect(calls).toEqual(['check']);
     expect(store.state.kind).toBe('available');
+  });
+});
+
+describe('watching while the app stays open', () => {
+  afterEach(() => vi.useRealTimers());
+
+  it('finds a release made after startup without a restart', async () => {
+    vi.useFakeTimers();
+    let release: UpdateInfo | null = null;
+    const { store, calls } = setup({ check: () => release });
+    await store.startup();
+    expect(store.state.kind).toBe('upToDate');
+    const stop = store.watch();
+
+    release = INFO;
+    await vi.advanceTimersByTimeAsync(30 * 60_000);
+
+    expect(calls).toEqual(['check', 'check']);
+    expect(store.state).toEqual({ kind: 'available', info: INFO });
+    stop();
+  });
+
+  it('keeps a found update and stays quiet when a later look fails', async () => {
+    vi.useFakeTimers();
+    let fail = false;
+    const { store } = setup({ check: () => (fail ? failing('timeout')() : null) });
+    await store.startup();
+    const stop = store.watch();
+
+    fail = true;
+    await vi.advanceTimersByTimeAsync(30 * 60_000);
+
+    expect(store.state.kind).toBe('upToDate');
+    stop();
+  });
+
+  it('does not look again once an update is available', async () => {
+    vi.useFakeTimers();
+    const { store, calls } = setup();
+    await store.startup();
+    const stop = store.watch();
+
+    await vi.advanceTimersByTimeAsync(60 * 60_000);
+
+    expect(calls).toEqual(['check']);
+    stop();
   });
 });
 

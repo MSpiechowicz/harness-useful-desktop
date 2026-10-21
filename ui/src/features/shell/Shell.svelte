@@ -171,6 +171,13 @@
     }
   });
 
+  // A release made after launch is found while the app stays open, not only at the next start.
+  $effect(() => {
+    if (intro.phase === 'done' && !onboarding.visible) {
+      return updates.watch();
+    }
+  });
+
   // Extensions keep themselves current: the marketplace catalogs always, and (while the setting is on) the plugins and
   // packages they reveal. The schedule runs from the start; the setting is read at every look.
   $effect(() => {
