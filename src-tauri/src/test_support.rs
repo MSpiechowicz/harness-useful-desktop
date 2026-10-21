@@ -461,6 +461,7 @@ pub fn start_request(project: &Path) -> AgentStartRequest {
         approval_override: None,
         trust_once: false,
         utility: false,
+        memory_chat: None,
     }
 }
 

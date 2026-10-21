@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-memory-held-listen"
+description = "Enables the memory_held_listen command without any pre-configured scope."
+commands.allow = ["memory_held_listen"]
+
+[[permission]]
+identifier = "deny-memory-held-listen"
+description = "Denies the memory_held_listen command without any pre-configured scope."
+commands.deny = ["memory_held_listen"]

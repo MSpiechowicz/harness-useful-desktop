@@ -96,8 +96,8 @@ describe('revealHidden against the shared fixture with the Memory server', () =>
 describe('scopeText', () => {
   it('names the repository, falls back for a missing one, and says all projects for a global script', () => {
     expect(scopeText({ scope: 'repo', repo: 'github.com/o/r' })).toBe('github.com/o/r');
-    expect(scopeText({ scope: 'repo', repo: null })).toBe('A repository');
-    expect(scopeText({ scope: 'repo', repo: ' ' })).toBe('A repository');
+    expect(scopeText({ scope: 'repo', repo: null })).toBe('A project');
+    expect(scopeText({ scope: 'repo', repo: ' ' })).toBe('A project');
     expect(scopeText({ scope: 'global', repo: null })).toBe('Global');
   });
 });

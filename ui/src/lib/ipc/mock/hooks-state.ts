@@ -458,6 +458,23 @@ export class MockHooks {
 
     return `<harness-hook-context>\n${lines.join('\n')}\n</harness-hook-context>\n\n`;
   }
+
+  /**
+   * What "Check again" sends a chat in this project: the active "Save what you learned" follow-up as the user keeps it (name and text), else
+   * the catalog's version, as the format composes a follow-up.
+   */
+  memorySaveFollowUp(project: string | null): string {
+    const configured = [...this.files.values()]
+      .filter((stored) => this.statusOf(stored) === 'active')
+      .map(({ hook }) => hook)
+      .find((hook) => hook.seed === 'memory-save' && hook.action.type === 'followUp' && (hook.scope === 'global' || hook.project === project));
+    const catalog = CATALOG.find((entry) => entry.seed === 'memory-save');
+
+    const name = configured?.name ?? catalog?.name ?? '';
+    const text = configured?.action.type === 'followUp' ? configured.action.text : (catalog?.text ?? '');
+
+    return `<harness-hook-followup name="${escapeName(name)}">${escapeText(text)}</harness-hook-followup>`;
+  }
 }
 
 function escapeName(name: string): string {

@@ -232,8 +232,8 @@ describe('deleting by a project without a repository key', () => {
   it('never sends the arguments of the global entries for it, whichever section is asked', async () => {
     const invoke = fakeMemory();
 
-    await expect(deleteAll('notes', keyless)).rejects.toThrow('Pick a repository, or Global, in the Scope filter first.');
-    await expect(deleteAll('scripts', keyless)).rejects.toThrow('Pick a repository, or Global, in the Scope filter first.');
+    await expect(deleteAll('notes', keyless)).rejects.toThrow('Pick a project, or Global, in the Scope filter first.');
+    await expect(deleteAll('scripts', keyless)).rejects.toThrow('Pick a project, or Global, in the Scope filter first.');
     await expect(readScope('notes', keyless)).resolves.toBeNull();
 
     expect(calls(invoke, 'memory_notes_delete_all')).toHaveLength(0);

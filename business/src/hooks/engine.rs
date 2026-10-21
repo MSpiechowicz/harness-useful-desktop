@@ -30,6 +30,13 @@
 //! - `sessionEnd` fires once, when the agent exits or the chat is stopped, with the paths the chat
 //!   changed (the latest 256, within 16 KiB).
 //! - A utility agent fires nothing.
+//! - The Harness family hook "Save what you learned" does not fire while the chat's memory guards
+//!   skip it, and asks about one kind only while the other may not be saved ([`MemoryGuardState`],
+//!   set with [`HookSession::set_memory_guards`]).
+//! - An eligible user prompt carries a short "Memory settings" part when the chat's memory guards
+//!   changed since the agent was told last ([`SendPlan::memory_notice`]). A chat where everything
+//!   may be saved starts with nothing to tell, and so does every new, switched, forked or cloned
+//!   session.
 
 use std::collections::BTreeSet;
 use std::path::PathBuf;
@@ -43,7 +50,14 @@ pub use super::plan::{
     ChatContext, CommandRequest, EventOutcome, Firing, FollowUpPlan, HookSet, PlannedPart, SendPlan,
 };
 
+mod memory_gate;
+mod memory_state;
 mod user_marks;
+
+pub use memory_gate::{MemorySaveGate, memory_save_part};
+pub use memory_state::{MEMORY_NOTICE_ID, MEMORY_NOTICE_NAME, MemoryGuardState, SaveRule};
+
+pub(crate) use memory_state::Announcement;
 
 /// Who sends an action.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -70,6 +84,10 @@ pub struct HookSession {
     clock: SettleClock,
     /// Follow-ups the harness handled without a run whose `Handled` result is still to come.
     hook_handled: u32,
+    /// Where the chat's memory guards stand now.
+    memory: MemoryGuardState,
+    /// Where they stood when the agent was last told.
+    announced: MemoryGuardState,
 }
 
 impl HookSession {
@@ -89,6 +107,8 @@ impl HookSession {
             ended: false,
             clock: SettleClock::default(),
             hook_handled: 0,
+            memory: MemoryGuardState::OPEN,
+            announced: MemoryGuardState::OPEN,
         }
     }
 
@@ -129,11 +149,13 @@ impl HookSession {
             AgentAction::NewSession => {
                 self.armed = true;
                 self.forget_run();
+                self.forget_announced();
                 return SendPlan::default();
             }
             AgentAction::SwitchSession { .. } | AgentAction::Fork { .. } | AgentAction::Clone => {
                 self.armed = false;
                 self.forget_run();
+                self.forget_announced();
                 return SendPlan::default();
             }
             _ => {}
@@ -157,6 +179,8 @@ impl HookSession {
             return plan;
         }
 
+        self.announce_memory(&mut plan);
+
         if self.armed {
             self.armed = false;
             plan.consumed_start = true;
@@ -171,10 +195,14 @@ impl HookSession {
     }
 
     /// Call after the context of `plan` was composed: `resolved` is what its firings produced,
-    /// `delivered` the ids of the hooks whose context the message carries. When `sessionStart`
+    /// `delivered` the ids of the hooks whose context the message carries (with
+    /// [`MEMORY_NOTICE_ID`] when it carries the memory settings notice). When `sessionStart`
     /// produced context but none of it fit in the message, it fires on the next eligible prompt
-    /// again. A `sessionStart` that produced nothing (a command without output) stays consumed.
+    /// again. A `sessionStart` that produced nothing (a command without output) stays consumed. A
+    /// notice that did not fit is told on the next eligible prompt.
     pub fn context_composed(&mut self, plan: &SendPlan, resolved: &[ResolvedPart], delivered: &[String]) {
+        self.memory_announced(plan, delivered);
+
         if !plan.consumed_start {
             return;
         }
@@ -377,6 +405,9 @@ impl HookSession {
         if !run.user_sent() {
             return EventOutcome::Nothing;
         }
+
+        let gated = memory_gate::gated(hooks, self.memory);
+        let hooks = gated.as_ref().unwrap_or(hooks);
 
         let touched: Vec<String> = run.touched.iter().cloned().collect();
         let turn = self.firing(

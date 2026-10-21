@@ -28,7 +28,7 @@ function emptyChatFor(agents: AgentSessionsStore, ref: SessionRef, project: stri
 }
 
 function startResumed(agents: AgentSessionsStore, ref: SessionRef, project: string): Promise<ChatSession | null> {
-  return agents.start({ harness: ref.harness, project, resume: ref, approvalOverride: null, trustOnce: false, utility: false });
+  return agents.start({ harness: ref.harness, project, resume: ref, approvalOverride: null, trustOnce: false, utility: false, memoryChat: null });
 }
 
 /** Opens a saved session in the chat view, reusing the chat that already has it open. */

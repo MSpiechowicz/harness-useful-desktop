@@ -238,7 +238,7 @@ describe('reviewing a file', () => {
 
     expect(calls(invoke, 'memory_notes_import_preview')).toEqual([{ project: null }]);
     expect(appliesTo(dialog)).toHaveTextContent('Global');
-    expect(within(dialog).getByText(/Open a project to keep them in its repository/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/Open a project to keep them in its project/)).toBeInTheDocument();
   });
 });
 

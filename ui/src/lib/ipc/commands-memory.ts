@@ -33,6 +33,14 @@ import type { NotesCopyResult } from './bindings/NotesCopyResult';
 import type { LocalNoteIds } from './bindings/LocalNoteIds';
 import type { NotesCopyFilter } from './bindings/NotesCopyFilter';
 import type { NotesCopyRows } from './bindings/NotesCopyRows';
+import type { HeldItem } from './bindings/HeldItem';
+import type { HeldSaved } from './bindings/HeldSaved';
+import type { JsonValue } from './bindings/serde_json/JsonValue';
+import type { MemoryChatGuards } from './bindings/MemoryChatGuards';
+import type { MemoryChatGuardsSet } from './bindings/MemoryChatGuardsSet';
+import type { MemoryGuards } from './bindings/MemoryGuards';
+import type { MemoryGuardsPatch } from './bindings/MemoryGuardsPatch';
+import type { MemoryHeldEvent } from './bindings/MemoryHeldEvent';
 import type { EventSink } from './transport';
 import { cmd } from './command-spec';
 
@@ -164,6 +172,60 @@ export const memoryCommands = {
    * or was never reported to `memory_script_requests_listen`, or already answered.
    */
   memory_script_decide: cmd<{ requestId: string; allow: boolean }, null>(),
+  /**
+   * What agents may save everywhere (`guards/global.json` in Harness Memory's data folder): each kind paused, and the repositories it is off in.
+   * Nothing saved yet is all on. Rejects with `protocol` for a guards file that cannot be read (Harness Memory then refuses every agent save
+   * until it is saved again), `unsupported` while the data folder is unknown.
+   */
+  memory_guards_get: cmd<undefined, MemoryGuards>(),
+  /**
+   * Applies one change to what agents may save everywhere, to what is saved now, and returns it as saved: `paused` pauses or resumes the kind,
+   * `addRepo` turns a repository (any folder in it) off, `removeRepo` turns one on again. Each repository is kept as its project root (git
+   * root), once, sorted. Changes sent at once all apply. `invalidInput` for a repository that is not an absolute folder path, or more than 256
+   * of them, `protocol` while the saved file cannot be read.
+   */
+  memory_guards_update: cmd<{ patch: MemoryGuardsPatch }, MemoryGuards>(),
+  /**
+   * Saves what the agents of chat `key` (its `memoryChat.key`, a lowercase UUID) may save, applied to their next save. `revision` counts the
+   * chat's writes up: a write whose revision is not higher than the last one saved for the chat came late and is ignored (it still resolves,
+   * with `applied: false`). `revision` in the answer is the last one saved for the chat: after a late write, count on from above it and
+   * write once more. The chat file keeps its project root. `invalidInput` for another key or a data folder other users can write to (the
+   * message names the folder and the fix).
+   */
+  memory_chat_guards_set: cmd<{ key: string; guards: MemoryChatGuards; revision: number }, MemoryChatGuardsSet>(),
+  /**
+   * The saves the agents of chat `chatKey` made while "Ask before saving" was on, waiting for the user, newest first. Rejects with
+   * `invalidInput` for a key that is not a lowercase UUID, `notFound` while Harness Memory is not installed, `unsupported` while it predates
+   * save guards (`saveGuardsSupported`).
+   */
+  memory_held_list: cmd<{ chatKey: string }, HeldItem[]>(),
+  /**
+   * Saves held save `heldId` as the agent sent it, or with the user's `edited` draft (`{title, body, kind, tags, entities, scope}` for a
+   * `note_save`, `{title, body, kind, tags}` for a `note_update`, `{name, description, language, body, timeoutSecs, scope}` for a
+   * `script_save`; the fields given replace the agent's). `revision` is the `HeldItem.revision` the user reviewed: only that version is
+   * saved. A script is saved untrusted (it needs the user's trust before it runs). Rejects with `notFound` when it is gone, `conflict` when
+   * the note a `note_update` changes was deleted (it stays held), `changed` when the agent held it again since the user saw `revision` (it
+   * stays held, as the newer version: show it for another review), `invalidInput` for a draft the server refuses.
+   */
+  memory_held_save: cmd<{ heldId: string; edited: JsonValue | null; revision: string | null }, HeldSaved>(),
+  /**
+   * Drops held save `heldId` without saving anything. `revision` is the `HeldItem.revision` the user saw: only that version is dropped.
+   * Rejects with `notFound` when it is gone, `changed` when the agent held it again since the user saw `revision` (it stays held, as the
+   * newer version), `invalidInput` for a revision that is not 64 lowercase hex digits.
+   */
+  memory_held_skip: cmd<{ heldId: string; revision: string | null }, null>(),
+  /**
+   * Sends `changed` to `onEvent` whenever the held saves change (checked every 500 ms, one event per burst of changes, at most one per
+   * 500 ms), replacing the previous listener.
+   */
+  memory_held_listen: cmd<{ onEvent: EventSink<MemoryHeldEvent> }, null>(),
+  /**
+   * "Check again": asks the agent of chat `agentId` (its session key) to save what it learned now, with the text of the "Save what you
+   * learned" hook as the user keeps it (the catalog's text while the chat has none active), sent as the hooks send it. Rejects with
+   * `invalidInput` while the chat is paused or notes and scripts are both off for it, its repository or everywhere, `notFound` for a chat
+   * that is not running.
+   */
+  chat_memory_check_again: cmd<{ agentId: string }, null>(),
   /**
    * The repositories that have notes or scripts (`kind`), by name, each with its key and how many there are, and how many global
    * ones (`harness-memory notes|scripts repos --json`). Never rejects for a missing or old server: see `availability`.

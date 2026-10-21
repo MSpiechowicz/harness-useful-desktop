@@ -38,6 +38,7 @@ pub const EVERY_FEATURE: FeaturesSupport = FeaturesSupport::Listed {
     scripts_remote_local: true,
     scripts_hide: true,
     scripts_push_json: true,
+    save_guards: true,
 };
 
 /// What a server with `scripts` support and `features` supports (team documents and database kinds

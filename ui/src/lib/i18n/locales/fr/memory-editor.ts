@@ -10,9 +10,9 @@ export const memoryEditor: AreaMessages<typeof enMemoryEditor> = {
   'memory.editor.outdated': 'Un Harness Memory plus récent est nécessaire pour enregistrer depuis l’app. Mettez-le à jour sur la page Écosystème.',
   'memory.editor.counter': '{used} / {max}',
   'memory.editor.scope': 'Portée',
-  'memory.editor.scope.repo': 'Dépôt',
+  'memory.editor.scope.repo': 'Projet',
   'memory.editor.scope.global': 'Global',
-  'memory.editor.scope.needsProject': 'Un élément de dépôt demande un projet ouvert.',
+  'memory.editor.scope.needsProject': 'Un élément de projet demande un projet ouvert.',
   'memory.editor.exists.open': 'L’ouvrir',
   'memory.editor.exists.replace': 'La remplacer',
 

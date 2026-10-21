@@ -53,7 +53,7 @@ describe('createTauriTransport', () => {
     const received: unknown[] = [];
 
     await createTauriTransport().invoke('agent_start', {
-      request: { harness: 'omp', project: '/p', resume: null, approvalOverride: null, trustOnce: false, utility: false },
+      request: { harness: 'omp', project: '/p', resume: null, approvalOverride: null, trustOnce: false, utility: false, memoryChat: null },
       onEvent: (event) => received.push(event),
     });
 

@@ -17,6 +17,7 @@ import { hooks } from './hooks';
 import { routines } from './routines';
 import { memoryEditor } from './memory-editor';
 import { memoryImport } from './memory-import';
+import { memoryGuards } from './memory-guards';
 
 export const en = {
   ...common,
@@ -38,6 +39,7 @@ export const en = {
   ...routines,
   ...memoryEditor,
   ...memoryImport,
+  ...memoryGuards,
 } satisfies Record<string, string>;
 
 /** Every message key of the app; the other languages must have exactly these. */

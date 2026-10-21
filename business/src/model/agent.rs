@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use super::HarnessId;
+use super::{HarnessId, MemoryChatStart};
 
 /// An opaque reference to a harness session (OMP/PI session uuid).
 ///
@@ -50,6 +50,10 @@ pub struct AgentStartRequest {
     /// A throwaway helper agent (naming a chat): no tools, no saved session, no thinking. Cannot
     /// resume a session.
     pub utility: bool,
+    /// The chat's Harness Memory identity: its key goes to the harness as `HARNESS_MEMORY_SESSION`
+    /// and its guards are written before the harness starts. `None` for a chat without one (a
+    /// utility agent, a routine run).
+    pub memory_chat: Option<MemoryChatStart>,
 }
 
 /// A running agent session as returned by `agent_start` and `agent_list`.

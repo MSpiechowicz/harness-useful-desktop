@@ -18,6 +18,7 @@ import { hooks } from './hooks';
 import { routines } from './routines';
 import { memoryEditor } from './memory-editor';
 import { memoryImport } from './memory-import';
+import { memoryGuards } from './memory-guards';
 
 export const pl: Dict = {
   ...common,
@@ -39,4 +40,5 @@ export const pl: Dict = {
   ...routines,
   ...memoryEditor,
   ...memoryImport,
+  ...memoryGuards,
 };

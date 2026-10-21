@@ -1,5 +1,5 @@
 //! What the installed Harness Memory can do beyond its commands: `harness-memory features` prints
-//! one feature per line and exits 0. The desktop reads six:
+//! one feature per line and exits 0. The desktop reads seven:
 //!
 //! - `notes-remote-local`: a note scope may be routed `remote+local` (read the team database and
 //!   this computer, save here);
@@ -8,7 +8,10 @@
 //! - `scripts-remote-local`: scripts may be routed `remote+local`;
 //! - `scripts-hide`: `scripts hide|unhide`, `scripts list|get --hidden` and `scripts
 //!   discard-local`;
-//! - `scripts-push-json`: `scripts push --json`, with the options of `push --json`.
+//! - `scripts-push-json`: `scripts push --json`, with the options of `push --json`;
+//! - `save-guards`: the server applies the save guards of each chat, repository and place, holds
+//!   saves for review (`held list|save|skip`), and saves the user's own notes and scripts through
+//!   `notes save|update` and `scripts save`, which agents cannot reach through MCP.
 //!
 //! An older server does not know the command and exits non-zero. [`MemoryFeatures::support`] asks
 //! once per binary through a [`LineProbe`] (cached per binary, an older server cached as one
@@ -36,6 +39,9 @@ const SCRIPTS_HIDE: &str = "scripts-hide";
 /// The line for `scripts push --json`.
 const SCRIPTS_PUSH_JSON: &str = "scripts-push-json";
 
+/// The line for save guards, held saves and the user's own saves.
+const SAVE_GUARDS: &str = "save-guards";
+
 /// What the installed server says it can do.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FeaturesSupport {
@@ -53,6 +59,8 @@ pub enum FeaturesSupport {
         scripts_hide: bool,
         /// `scripts-push-json` is listed.
         scripts_push_json: bool,
+        /// `save-guards` is listed.
+        save_guards: bool,
     },
     /// It predates `features` (or failed it): none of them.
     Unsupported,
@@ -90,6 +98,12 @@ impl FeaturesSupport {
             }
         )
     }
+
+    /// Whether the server applies save guards, holds saves for review and takes the user's own
+    /// saves through its CLI: `save-guards` is listed.
+    pub fn save_guards(self) -> bool {
+        matches!(self, Self::Listed { save_guards: true, .. })
+    }
 }
 
 /// The probe of the installed server's features. See the module docs.
@@ -122,6 +136,7 @@ impl MemoryFeatures {
                 scripts_remote_local: answer.lists(SCRIPTS_REMOTE_LOCAL),
                 scripts_hide: answer.lists(SCRIPTS_HIDE),
                 scripts_push_json: answer.lists(SCRIPTS_PUSH_JSON),
+                save_guards: answer.lists(SAVE_GUARDS),
             },
             LineAnswer::Unsupported => FeaturesSupport::Unsupported,
             LineAnswer::NotInstalled => FeaturesSupport::NotInstalled,

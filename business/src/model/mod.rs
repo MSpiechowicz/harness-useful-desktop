@@ -23,6 +23,7 @@ mod git;
 mod harness;
 mod hook;
 mod ipc_error;
+mod memory_guards;
 mod memory_import;
 mod memory_notes;
 mod memory_notes_copy;
@@ -83,6 +84,10 @@ pub use hook::{
     TeamHooks,
 };
 pub use ipc_error::{IpcError, IpcErrorCode};
+pub use memory_guards::{
+    GlobalKindGuard, HeldItem, HeldKind, HeldSaved, HeldTool, KindGuard, MemoryChatGuards, MemoryChatGuardsSet,
+    MemoryChatStart, MemoryGuardKind, MemoryGuards, MemoryGuardsPatch, MemoryHeldEvent,
+};
 pub use memory_import::{
     NotesImportExisting, NotesImportFailure, NotesImportField, NotesImportFileProblem, NotesImportFormat,
     NotesImportPlan, NotesImportPreview, NotesImportProblem, NotesImportProblemCode, NotesImportProgress,

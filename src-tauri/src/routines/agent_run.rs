@@ -361,6 +361,7 @@ async fn start(
             approval_override: order.approval_mode,
             trust_once: order.trust_once,
             utility: false,
+            memory_chat: None,
         };
 
         let started: CommandResult<AgentSessionInfo> =

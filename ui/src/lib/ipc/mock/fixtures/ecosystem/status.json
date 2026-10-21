@@ -30,7 +30,7 @@
       "id": "memory",
       "name": "Harness Memory",
       "tagline": "One project memory for every coding agent, kept on this machine.",
-      "description": "A local MCP server that keeps notes and how they relate per repository, so what one agent learns the next one finds. The app registers it with each detected harness while Project memory is on, and adds matching notes to the first message of a new chat.",
+      "description": "A local MCP server that keeps notes and how they relate per project, so what one agent learns the next one finds. The app registers it with each detected harness while Project memory is on, and adds matching notes to the first message of a new chat.",
       "repoUrl": "https://github.com/MSpiechowicz/harness-useful-memory",
       "docsUrl": "https://github.com/MSpiechowicz/harness-useful-memory#readme",
       "installed": true,

@@ -89,7 +89,7 @@ function saves(invoke: ReturnType<typeof fakeBackend>): unknown[] {
   return calls(invoke, 'memory_remote_set').map(([, args]) => args);
 }
 
-async function choose(group: 'Repository notes' | 'Global notes' | 'Scripts', place: string): Promise<void> {
+async function choose(group: 'Project notes' | 'Global notes' | 'Scripts', place: string): Promise<void> {
   await fireEvent.click(within(await screen.findByRole('radiogroup', { name: group })).getByRole('radio', { name: place }));
 }
 
@@ -123,7 +123,7 @@ describe('The third place for notes, team plus this computer', () => {
     fakeBackend();
     render(SettingsView);
 
-    for (const group of ['Repository notes', 'Global notes'] as const) {
+    for (const group of ['Project notes', 'Global notes'] as const) {
       const radios = within(await screen.findByRole('radiogroup', { name: group })).getAllByRole('radio');
 
       expect(radios.map((radio) => radio.textContent?.trim())).toEqual(['Remote', 'This computer', 'Remote + this computer']);
@@ -137,7 +137,7 @@ describe('The third place for notes, team plus this computer', () => {
     fakeBackend({ teamAndLocalSupported: false });
     render(SettingsView);
 
-    const repository = await screen.findByRole('radiogroup', { name: 'Repository notes' });
+    const repository = await screen.findByRole('radiogroup', { name: 'Project notes' });
 
     expect(within(repository).getByRole('radio', { name: 'Remote + this computer' })).toBeDisabled();
     expect(within(screen.getByRole('radiogroup', { name: 'Global notes' })).getByRole('radio', { name: 'Remote + this computer' })).toBeDisabled();
@@ -175,7 +175,7 @@ describe('The third place for notes, team plus this computer', () => {
     expect(within(scripts).getByRole('radio', { name: 'Remote + this computer' })).toBeDisabled();
     expect(within(scripts).getByRole('radio', { name: 'Remote' })).toBeEnabled();
     expect(within(scripts).getByRole('radio', { name: 'This computer' })).toBeEnabled();
-    expect(within(screen.getByRole('radiogroup', { name: 'Repository notes' })).getByRole('radio', { name: 'Remote + this computer' })).toBeEnabled();
+    expect(within(screen.getByRole('radiogroup', { name: 'Project notes' })).getByRole('radio', { name: 'Remote + this computer' })).toBeEnabled();
     expect(screen.getByText('Update Harness Memory to read remote and this computer together for scripts.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Update Harness Memory' })).toBeEnabled();
   });
@@ -199,11 +199,11 @@ describe('The third place for notes, team plus this computer', () => {
     const invoke = fakeBackend();
     render(SettingsView);
 
-    await choose('Repository notes', 'Remote + this computer');
+    await choose('Project notes', 'Remote + this computer');
     await saveForm();
 
     const dialog = await screen.findByRole('dialog', { name: CHANGE });
-    expect(within(dialog).getByText('Repository notes')).toBeInTheDocument();
+    expect(within(dialog).getByText('Project notes')).toBeInTheDocument();
     expect(within(dialog).getByText('Nothing is hidden. New notes are saved on this computer and remote notes become read-only here.')).toBeInTheDocument();
     expect(saves(invoke)).toHaveLength(0);
 
@@ -232,7 +232,7 @@ describe('The third place for notes, team plus this computer', () => {
     viewState.noteId = 42;
     render(SettingsView);
 
-    await choose('Repository notes', 'This computer');
+    await choose('Project notes', 'This computer');
     await saveForm();
     await fireEvent.click(within(await screen.findByRole('dialog', { name: CHANGE })).getByRole('button', { name: 'Save' }));
 
@@ -308,11 +308,11 @@ describe('The third place for notes, team plus this computer', () => {
     const invoke = fakeBackend({ repositoryNotes: 'local', scripts: 'local' }, { repo: 3, global: 0 }, { repo: 1, global: 1 });
     render(SettingsView);
 
-    await choose('Repository notes', 'Remote');
+    await choose('Project notes', 'Remote');
     await choose('Scripts', 'Remote');
     await saveForm();
     const change = await screen.findByRole('dialog', { name: CHANGE });
-    expect(within(change).getAllByRole('listitem').map((item) => within(item).getAllByRole('paragraph')[0].textContent)).toEqual(['Repository notes', 'Scripts']);
+    expect(within(change).getAllByRole('listitem').map((item) => within(item).getAllByRole('paragraph')[0].textContent)).toEqual(['Project notes', 'Scripts']);
     await fireEvent.click(within(change).getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(calls(invoke, 'memory_notes_copy_preview')).toHaveLength(1));
@@ -331,7 +331,7 @@ describe('The third place for notes, team plus this computer', () => {
     const invoke = fakeBackend({ repositoryNotes: 'local', scripts: 'local' }, { repo: 0, global: 0 }, { repo: 2, global: 0 });
     render(SettingsView);
 
-    await choose('Repository notes', 'Remote');
+    await choose('Project notes', 'Remote');
     await choose('Scripts', 'Remote');
     await saveForm();
     await fireEvent.click(within(await screen.findByRole('dialog', { name: CHANGE })).getByRole('button', { name: 'Save' }));
@@ -340,15 +340,15 @@ describe('The third place for notes, team plus this computer', () => {
     expect(kindsOf(invoke)).toEqual(['scripts']);
   });
 
-  it('counts the notes saved on this computer, across all repositories, when moving back to the remote database', async () => {
+  it('counts the notes saved on this computer, across all projects, when moving back to the remote database', async () => {
     const invoke = fakeBackend({ repositoryNotes: 'local' }, { repo: 3, global: 0 });
     render(SettingsView);
 
-    await choose('Repository notes', 'Remote');
+    await choose('Project notes', 'Remote');
     await saveForm();
 
     const dialog = await screen.findByRole('dialog', { name: CHANGE });
-    expect(within(dialog).getByText('3 notes saved on this computer, across all repositories, are hidden. You can copy them to the remote database next.')).toBeInTheDocument();
+    expect(within(dialog).getByText('3 notes saved on this computer, across all projects, are hidden. You can copy them to the remote database next.')).toBeInTheDocument();
 
     await fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
 
@@ -360,7 +360,7 @@ describe('The third place for notes, team plus this computer', () => {
     const invoke = fakeBackend({ repositoryNotes: 'local' }, { repo: 3, global: 0 });
     render(SettingsView);
 
-    await choose('Repository notes', 'Remote');
+    await choose('Project notes', 'Remote');
     await saveForm();
     await fireEvent.click(within(await screen.findByRole('dialog', { name: CHANGE })).getByRole('button', { name: 'Save' }));
 
@@ -372,7 +372,7 @@ describe('The third place for notes, team plus this computer', () => {
     const invoke = fakeBackend({ repositoryNotes: 'local' }, { repo: 0, global: 5 });
     render(SettingsView);
 
-    await choose('Repository notes', 'Remote');
+    await choose('Project notes', 'Remote');
     await saveForm();
 
     await waitFor(() => expect(saves(invoke)).toHaveLength(1));
@@ -385,7 +385,7 @@ describe('The third place for notes, team plus this computer', () => {
     const invoke = fakeBackend({}, { repo: 3, global: 0 });
     render(SettingsView);
 
-    await choose('Repository notes', 'This computer');
+    await choose('Project notes', 'This computer');
     await saveForm();
     await fireEvent.click(within(await screen.findByRole('dialog', { name: CHANGE })).getByRole('button', { name: 'Save' }));
 

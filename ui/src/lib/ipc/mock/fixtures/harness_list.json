@@ -29,7 +29,8 @@
       "removeQueued": true,
       "agentPicker": false,
       "chatPreview": false,
-      "compactInstructions": true
+      "compactInstructions": true,
+      "memoryChatGuards": true
     },
     "detection": {
       "installed": true,
@@ -73,7 +74,8 @@
       "removeQueued": false,
       "agentPicker": false,
       "chatPreview": false,
-      "compactInstructions": true
+      "compactInstructions": true,
+      "memoryChatGuards": true
     },
     "detection": {
       "installed": false,
@@ -125,7 +127,8 @@
       "removeQueued": true,
       "agentPicker": false,
       "chatPreview": true,
-      "compactInstructions": false
+      "compactInstructions": false,
+      "memoryChatGuards": true
     },
     "detection": {
       "installed": true,

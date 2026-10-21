@@ -31,6 +31,7 @@ pub use template::import_template;
 use super::memory_notes_save::{BODY_MAX, TAG_MAX, TAGS_MAX, TITLE_MAX, save_note, save_note_in};
 use super::memory_notes_titles::{ImportTitles, title_key};
 use super::memory_scripts::MemoryScripts;
+use super::memory_user_save::SaveRoute;
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::model::{
@@ -160,8 +161,8 @@ pub struct NotesImportRequest {
     pub replace: bool,
 }
 
-/// Saves the requested rows of `stored` in the file's order, through `probe` (and `runner` for
-/// the server's commands), for the project it was reviewed for, calling `on_progress` after each. `invalidInput` (nothing saved) for an
+/// Saves the requested rows of `stored` in the file's order, through `probe` or the user's save
+/// commands (`route`; `runner` runs the server's commands), for the project it was reviewed for, calling `on_progress` after each. `invalidInput` (nothing saved) for an
 /// empty selection or one with an index the file does not have or a row with problems. A server
 /// that is missing or predates saving (`notFound`, `unsupported`) ends the import with that
 /// error; the rows saved before it stay saved. Any other refusal fails that row only.
@@ -169,6 +170,7 @@ pub async fn apply_notes_import(
     env: &Env,
     probe: &MemoryScripts,
     runner: &dyn ProcessRunner,
+    route: SaveRoute,
     stored: &StoredNotesImport,
     request: &NotesImportRequest,
     mut on_progress: impl FnMut(NotesImportProgress),
@@ -182,13 +184,13 @@ pub async fn apply_notes_import(
     for (done, row) in (1u32..).zip(selected) {
         let draft = row.draft(request.default_scope);
 
-        match save_note_in(env, probe, runner, project, &draft, None, Some(&mut titles)).await {
+        match save_note_in(env, probe, runner, route, project, &draft, None, Some(&mut titles)).await {
             Ok(saved) => match saved.outcome {
                 NoteSaveOutcome::Created => result.created += 1,
                 NoteSaveOutcome::Updated => result.updated += 1,
                 NoteSaveOutcome::Exists => match saved.id {
                     Some(id) if request.replace => {
-                        let replaced = save_note(env, probe, runner, project, &draft, Some(id)).await;
+                        let replaced = save_note(env, probe, runner, route, project, &draft, Some(id)).await;
                         record_replace(&mut result, row.index, replaced);
                     }
                     id => result.exists.push(NotesImportExisting { index: row.index, id }),

@@ -33,6 +33,11 @@
 //!
 //! Otherwise (or when the server answers `conflict`) the save answers `needed` as the server did.
 //!
+//! A server with `save-guards` ([`SaveRoute::Cli`]) takes the script through `scripts save`
+//! instead (see [`memory_user_save`](super::memory_user_save)), which no save guard stops and which
+//! trusts it as `script_save` does; the script is then read again with `script_get` and approved
+//! as above.
+//!
 //! The draft is checked against the server's limits first, and a repository script needs a
 //! project (`invalidInput`). Neither the description nor the body is logged.
 
@@ -42,13 +47,15 @@ use serde_json::{Map, Value, json};
 
 use super::mcp_client::ToolOutput;
 use super::memory_cli::Repos;
+use super::memory_hidden::entry_server;
 use super::memory_scripts::{MemoryScripts, SCRIPT_GET_TOOL, parse, tool_error_text, with_project};
 use super::memory_trust::{script_sha256, trust_scripts};
+use super::memory_user_save::{SaveRoute, save_script_cli};
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::model::{
-    ScriptApproval, ScriptDetail, ScriptDraft, ScriptSaveOutcome, ScriptSaved, ScriptScope, ScriptSummary,
-    ScriptTrustItem,
+    MemoryCopyKind, ScriptApproval, ScriptDetail, ScriptDraft, ScriptSaveOutcome, ScriptSaved, ScriptScope,
+    ScriptSummary, ScriptTrustItem,
 };
 use crate::process::ProcessRunner;
 
@@ -77,11 +84,17 @@ impl MemoryScripts {
     /// `invalidInput` for a draft over a limit or a repository script without a project,
     /// `process` with the server's (redacted) text when it refuses.
     /// A saved script the server answers `needed` for is approved with `runner` (see the module
-    /// docs); failing that, it is still saved and answered as the server did.
+    /// docs); failing that, it is still saved and answered as the server did. `route`
+    /// [`SaveRoute::Cli`] saves through `scripts save` (see the module docs).
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "one argument per part of the request, as the IPC command takes them"
+    )]
     pub async fn save(
         &self,
         env: &Env,
         runner: &dyn ProcessRunner,
+        route: SaveRoute,
         project: Option<&Path>,
         draft: &ScriptDraft,
         replace: bool,
@@ -117,10 +130,15 @@ impl MemoryScripts {
             });
         }
 
-        let output = self
-            .call_tool(env, SCRIPT_SAVE_TOOL, with_project(fields, project))
-            .await?;
-        let saved = saved_from(&output)?;
+        let saved = match route {
+            SaveRoute::Mcp => {
+                let output = self
+                    .call_tool(env, SCRIPT_SAVE_TOOL, with_project(fields, project))
+                    .await?;
+                saved_from(&output)?
+            }
+            SaveRoute::Cli => self.save_through_cli(env, runner, project, fields).await?,
+        };
         tracing::info!(id = saved.id, outcome = ?saved.outcome, "memory script saved");
 
         let Some(script) = saved.script.as_ref() else {
@@ -175,6 +193,43 @@ impl MemoryScripts {
                 approved(script)
             }
         }
+    }
+
+    /// Saves script `fields` with `scripts save` and reads it again (`script_get`), as
+    /// [`saved_from`] reads the answer of `script_save`.
+    async fn save_through_cli(
+        &self,
+        env: &Env,
+        runner: &dyn ProcessRunner,
+        project: Option<&Path>,
+        fields: Map<String, Value>,
+    ) -> Result<ScriptSaved> {
+        let server = entry_server(env, self, MemoryCopyKind::Scripts).await?;
+        let answer = save_script_cli(env, runner, &server, project, fields.clone()).await?;
+
+        let Some(created) = answer.get("created").and_then(Value::as_bool) else {
+            return Err(BusinessError::Protocol(
+                "harness-memory scripts save answered without `created`".to_owned(),
+            ));
+        };
+
+        let Some(script) = self.existing(env, project, &fields).await? else {
+            return Err(BusinessError::Protocol(
+                "the saved script cannot be read again".to_owned(),
+            ));
+        };
+
+        let outcome = if created {
+            ScriptSaveOutcome::Created
+        } else {
+            ScriptSaveOutcome::Replaced
+        };
+
+        Ok(ScriptSaved {
+            outcome,
+            id: script.summary.id,
+            script: Some(script.summary),
+        })
     }
 
     /// The script named in `fields` in their scope, with its body, or `None` when there is none

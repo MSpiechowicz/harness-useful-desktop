@@ -102,6 +102,12 @@ teamAndLocalSupported: boolean,
  */
 scriptsTeamAndLocalSupported: boolean, 
 /**
+ * True when the installed Harness Memory lists `save-guards` in `harness-memory features`: it
+ * applies the guards of each chat, repository and place, holds saves for review, and saves
+ * the user's own notes and scripts through commands agents cannot reach.
+ */
+saveGuardsSupported: boolean, 
+/**
  * The config file, home-relative for display (`~/.config/harness-memory/config.toml`).
  */
 configPath: string, 

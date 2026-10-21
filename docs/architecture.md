@@ -64,7 +64,7 @@ Later calls (`agent_send`, `agent_ui_respond`, `agent_bash`, `agent_stop`) addre
 
 ## Project memory
 
-`harness-memory` gives every harness a shared memory per repository plus a global scope. It lives in its own repository
+`harness-memory` gives every harness a shared memory per project plus a global scope. It lives in its own repository
 ([harness-useful-memory](https://github.com/MSpiechowicz/harness-useful-memory)) and is not part of this app's build or
 bundle. The window installs it after the user confirms and registers it; the harnesses run it.
 
@@ -196,6 +196,38 @@ flowchart LR
    codes, and the earlier row with the same title); Rust keeps the rows under a single-use plan id with the project
    (`AppState::notes_import`), and `memory_notes_import_apply` (one at a time) saves the selected row indexes as
    `memory_note_save` does, streaming each row's end over a channel.
+9. **Save guards.** The user decides what agents may save, per chat, per project and everywhere. Plan and file
+   contract: [plans/memory-save-guards.md](plans/memory-save-guards.md). Reading and recall are never guarded.
+   - **Chat.** Every chat gets a random `chatKey` (lowercase UUID v4), and the harness is started with
+     `HARNESS_MEMORY_SESSION=<chatKey>` (`SESSION_VAR`, `agent/launch.rs`, after its guards file is written); the
+     `harness-memory mcp` child inherits it. Any other launch (a utility agent, a chat without a memory identity) has the
+     variable removed, so a value the app itself inherited never names a chat.
+     `AgentStartRequest.memoryChat` carries the key and the chat's starting guards (`MemoryChatGuards`: `paused`, and
+     `on` and `ask` for notes and for scripts), which the "Ask before saving" defaults `memoryNotesAskDefault` and
+     `memoryScriptsAskDefault` seed. A harness whose `memoryChatGuards` capability is false (the MCP child does not get
+     the variable) keeps only the repository and global guards and cannot turn Ask on. OMP, PI and OpenCode 1.19.3
+     pass it on, checked on Linux.
+   - **Files.** `business/src/ecosystem/memory_guards.rs` writes `guards/global.json` (`MemoryGuards`: per kind a
+     `paused` flag and the `offRepos`, git roots) and `guards/chats/<chatKey>.json` in the Harness Memory data folder
+     (`memory_data_dir`), at chat start and on every toggle (`memory_guards_get`, `memory_guards_update`,
+     `memory_chat_guards_set`). The server reads them on every gated call and refuses when one is unreadable. The server
+     writes `held/<chatKey>/<heldId>.json` for a save held by Ask, and the app lists and settles those (`memory_held.rs`,
+     `memory_held_list`, `memory_held_save`, `memory_held_skip`, event `memory-held-changed`, watched through the
+     folder's change stamp) only through `harness-memory held list|save|skip --json`. Nothing here goes into the
+     team database.
+   - **User-only saves.** The user's own saves (the Notes and Scripts views, the waiting card) run
+     `harness-memory notes save|update`, `scripts save` and `held save` (`memory_user_save.rs`) as client
+     `harness-desktop`. These commands are not MCP tools, so no guard applies to them. A server without `save-guards`
+     in `harness-memory features` has no guards, the app saves through MCP as before and hides the Memory button and
+     the Settings cards (`MemoryFeatures.saveGuards`).
+   - **Hook.** `ChatHooks::memory_gate` (`src-tauri/src/hooks/chat/memory.rs`) reads the guards at each settle. The
+     Harness family hook "Save what you learned" is skipped while the chat is paused or notes and scripts are both off
+     for the chat, its repository or everywhere (`MemorySaveGate`, `business/src/hooks/engine/memory_gate.rs`).
+     `chat_memory_check_again` sends the hook's text at once through the hook path, and is refused in those states.
+   - **UI.** The Memory button in the chat top bar (`ui/src/features/chat/MemoryButton.svelte`) opens a popover with a
+     Notes and a Scripts card (this chat, this repository, Ask before saving), Pause and Check again. A waiting card in
+     the transcript shows the held saves for Save, Edit or Skip. Settings > Memory has a Notes and a Scripts card
+     (`MemoryGuardsCard.svelte`: pause everywhere, the Ask default, repositories without saves).
 
 Older app versions put a `<harness-memory-recall>` block of found notes in front of the first message of a new chat;
 the app no longer adds it. Transcripts that hold one still show it as a collapsed chip (`splitRecall`,

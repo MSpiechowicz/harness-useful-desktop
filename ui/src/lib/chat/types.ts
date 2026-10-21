@@ -97,7 +97,17 @@ export interface ToolItem {
   toolCallId: string;
 }
 
-export type TranscriptItem = MessageItem | NoticeItem | OutputItem | BashItem | BannerItem | UrlItem | ToolItem;
+/**
+ * The chat's memory: the saves its agent holds for the user's review, and what was done with earlier ones. Not part of the
+ * agent's conversation, so the reducer never makes one: the list pins it after the last turn while there is something to say.
+ */
+export interface MemoryItem {
+  kind: 'memory';
+  key: string;
+  order: number;
+}
+
+export type TranscriptItem = MessageItem | NoticeItem | OutputItem | BashItem | BannerItem | UrlItem | ToolItem | MemoryItem;
 
 export type ToolStatus = 'pending' | 'running' | 'ok' | 'error';
 

@@ -36,6 +36,7 @@ fn a_server_that_lists_every_feature_routes_notes_and_scripts_to_both_and_is_ask
             scripts_remote_local: true,
             scripts_hide: true,
             scripts_push_json: true,
+            save_guards: false,
         }
     );
     assert!(answer.team_and_local());
@@ -129,4 +130,19 @@ fn without_harness_memory_there_are_no_features() {
         FeaturesSupport::NotInstalled
     );
     assert!(cli.commands().is_empty());
+}
+
+#[test]
+fn save_guards_are_read_from_their_own_line() {
+    let (_dir, env) = installed();
+
+    let guarded = wait(MemoryFeatures::new().support(&env, &features("push-json\nsave-guards\n")));
+    assert!(guarded.save_guards());
+    assert!(!guarded.team_and_local());
+
+    let older = wait(MemoryFeatures::new().support(&env, &features("notes-remote-local\nnotes-hide\npush-json\n")));
+    assert!(!older.save_guards());
+
+    assert!(!FeaturesSupport::Unsupported.save_guards());
+    assert!(!FeaturesSupport::Unknown.save_guards());
 }

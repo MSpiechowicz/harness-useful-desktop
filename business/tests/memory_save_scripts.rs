@@ -3,6 +3,7 @@
 //! against the version the editor opened, and when the user's code is approved.
 
 use harness_business::BusinessError;
+use harness_business::ecosystem::SaveRoute;
 use harness_business::ecosystem::{Repos, script_sha256};
 use harness_business::model::{
     ScriptApproval, ScriptDraft, ScriptLanguage, ScriptSaveOutcome, ScriptSaved, ScriptScope, ScriptSummary,
@@ -22,6 +23,7 @@ async fn a_script_name_taken_in_its_scope_is_exists_unless_replacing() {
         .save(
             &setup.env,
             setup.runner(),
+            SaveRoute::Mcp,
             Some(&project),
             &script("open-prs"),
             false,
@@ -36,6 +38,7 @@ async fn a_script_name_taken_in_its_scope_is_exists_unless_replacing() {
         .save(
             &setup.env,
             setup.runner(),
+            SaveRoute::Mcp,
             Some(&project),
             &script("open-prs"),
             true,
@@ -52,6 +55,7 @@ async fn a_script_name_taken_in_its_scope_is_exists_unless_replacing() {
         .save(
             &setup.env,
             setup.runner(),
+            SaveRoute::Mcp,
             Some(&project),
             &ScriptDraft {
                 body: "fail".to_owned(),
@@ -119,6 +123,7 @@ async fn an_edit_whose_stored_version_changed_stays_waiting_for_approval() {
         .save(
             &setup.env,
             setup.runner(),
+            SaveRoute::Mcp,
             Some(&project),
             &script("new-one"),
             false,
@@ -138,7 +143,15 @@ async fn an_edit_whose_stored_version_changed_stays_waiting_for_approval() {
 
     let saved = setup
         .scripts
-        .save(&setup.env, setup.runner(), Some(&project), &draft, true, Some(OPENED))
+        .save(
+            &setup.env,
+            setup.runner(),
+            SaveRoute::Mcp,
+            Some(&project),
+            &draft,
+            true,
+            Some(OPENED),
+        )
         .await
         .expect("saved, though not approved");
     let script = saved.script.expect("the saved script");
@@ -223,6 +236,7 @@ async fn an_edit_of_a_script_that_changed_since_it_was_opened_saves_nothing() {
         .save(
             &setup.env,
             setup.runner(),
+            SaveRoute::Mcp,
             Some(&project),
             &draft,
             true,
@@ -263,13 +277,29 @@ async fn an_edit_of_a_script_deleted_since_it_was_opened_saves_nothing() {
 
     let refused = setup
         .scripts
-        .save(&setup.env, setup.runner(), Some(&project), &draft, true, Some(OPENED))
+        .save(
+            &setup.env,
+            setup.runner(),
+            SaveRoute::Mcp,
+            Some(&project),
+            &draft,
+            true,
+            Some(OPENED),
+        )
         .await;
     assert!(matches!(refused, Err(BusinessError::Conflict(_))), "{refused:?}");
 
     let again = setup
         .scripts
-        .save(&setup.env, setup.runner(), Some(&project), &draft, false, None)
+        .save(
+            &setup.env,
+            setup.runner(),
+            SaveRoute::Mcp,
+            Some(&project),
+            &draft,
+            false,
+            None,
+        )
         .await
         .expect("an add");
     assert_eq!(
@@ -319,7 +349,15 @@ async fn replacing_a_waiting_script_with_its_own_code_keeps_it_waiting() {
 
     let saved = setup
         .scripts
-        .save(&setup.env, setup.runner(), Some(&project), &draft, true, None)
+        .save(
+            &setup.env,
+            setup.runner(),
+            SaveRoute::Mcp,
+            Some(&project),
+            &draft,
+            true,
+            None,
+        )
         .await
         .expect("replaced");
 
@@ -334,7 +372,15 @@ async fn edit(setup: &Setup, draft: &ScriptDraft) -> (ScriptSaved, ScriptSummary
     let project = setup.project();
     let saved = setup
         .scripts
-        .save(&setup.env, setup.runner(), Some(&project), draft, true, Some(OPENED))
+        .save(
+            &setup.env,
+            setup.runner(),
+            SaveRoute::Mcp,
+            Some(&project),
+            draft,
+            true,
+            Some(OPENED),
+        )
         .await
         .expect("replaced");
     let script = saved.script.clone().expect("the saved script");

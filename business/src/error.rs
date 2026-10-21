@@ -55,6 +55,10 @@ pub enum BusinessError {
     #[error("conflict: {0}")]
     Conflict(String),
 
+    /// What the user reviewed changed meanwhile; show the new version and review again.
+    #[error("changed: {0}")]
+    Changed(String),
+
     /// A bug or unexpected state.
     #[error("internal error: {0}")]
     Internal(String),
@@ -84,6 +88,7 @@ impl BusinessError {
             Self::Timeout(_) => IpcErrorCode::Timeout,
             Self::Protocol(_) => IpcErrorCode::Protocol,
             Self::Conflict(_) => IpcErrorCode::Conflict,
+            Self::Changed(_) => IpcErrorCode::Changed,
             Self::Internal(_) => IpcErrorCode::Internal,
         }
     }

@@ -220,7 +220,7 @@ export const ecosystem = {
 
   'ecosystem.product.memory.tagline': 'One project memory for every coding agent, kept on this machine.',
   'ecosystem.product.memory.description':
-    'A local MCP server that keeps notes and how they relate per repository, so what one agent learns the next one finds. The app registers it with each detected harness while Project memory is on, and adds matching notes to the first message of a new chat.',
+    'A local MCP server that keeps notes and how they relate per project, so what one agent learns the next one finds. The app registers it with each detected harness while Project memory is on, and adds matching notes to the first message of a new chat.',
   'ecosystem.product.memory.note.0': 'Runs locally as `harness-memory mcp`; nothing is sent over the network.',
   'ecosystem.product.memory.note.1': 'Turn it on or off for every harness in Settings, under Project memory.',
   'ecosystem.product.memory.step.0.title': 'Install the binary',

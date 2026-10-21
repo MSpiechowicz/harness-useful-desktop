@@ -25,15 +25,15 @@
 <SettingRow {title} {description} {descriptions}>
   {#snippet control()}
     <!-- The segments take the width of the longest label (the same three in every row), so every row lines up in any language. -->
-    <div class="inline-flex flex-col gap-1.5">
-      <SegmentedControl label={title} {options} equal bind:value={() => value, onchange} />
-      <!-- The hint wraps at the control's width instead of widening it, and keeps room for the longest hint, so choosing a place never shifts the layout. -->
-      <p class="grid w-0 min-w-full text-xs text-fg-3">
-        {#each Object.entries(hints) as [place, text] (place)}
-          <span class="invisible [grid-area:1/1]" aria-hidden="true">{text}</span>
-        {/each}
-        <span class="[grid-area:1/1]">{hints[value]}</span>
-      </p>
-    </div>
+    <SegmentedControl label={title} {options} equal bind:value={() => value, onchange} />
+  {/snippet}
+  {#snippet below()}
+    <!-- The hint hangs under the control, which stays centred on the title and description. It wraps at the control's width instead of widening it, and keeps room for the longest hint, so choosing a place never shifts the layout. -->
+    <p class="mt-1.5 grid w-0 min-w-full text-xs text-fg-3">
+      {#each Object.entries(hints) as [place, text] (place)}
+        <span class="invisible [grid-area:1/1]" aria-hidden="true">{text}</span>
+      {/each}
+      <span class="[grid-area:1/1]">{hints[value]}</span>
+    </p>
   {/snippet}
 </SettingRow>

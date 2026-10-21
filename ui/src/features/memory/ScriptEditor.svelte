@@ -9,6 +9,7 @@
   import type { StripOption } from '$lib/components/strip';
   import { t, tn } from '$lib/i18n/i18n.svelte';
   import type { ScriptDetail } from '$lib/ipc/bindings/ScriptDetail';
+  import type { ScriptDraft } from '$lib/ipc/bindings/ScriptDraft';
   import type { ScriptLanguage } from '$lib/ipc/bindings/ScriptLanguage';
   import type { ScriptSaved } from '$lib/ipc/bindings/ScriptSaved';
   import { rereadScript, SCRIPT_CHANGED, saveScript } from '$lib/stores/memoryScripts.svelte';
@@ -33,12 +34,19 @@
     /** The script to edit, with its code; null adds a new one. */
     script: ScriptDetail | null;
     /** The script was written; the editor is closing. `codeChanged` tells whether the code differs from what the editor was opened on. */
-    onsaved: (saved: ScriptSaved, name: string, codeChanged: boolean) => void;
+    onsaved?: (saved: ScriptSaved, name: string, codeChanged: boolean) => void;
     /** The user chose to open the script that has the name instead of saving. The editor is closing. */
-    onopen: (id: number) => void;
+    onopen?: (id: number) => void;
+    /** What a new script starts with instead of a blank form (the script an agent wants to save, to change before it is). */
+    prefill?: ScriptForm | null;
+    /**
+     * Takes the draft instead of writing the script: the caller saves it. Resolves with why it could not, or null when it did, and the
+     * editor closes. The editor then neither writes the script nor looks for one of the same name.
+     */
+    commit?: (draft: ScriptDraft) => Promise<string | null>;
   }
 
-  let { open = $bindable(false), script, onsaved, onopen }: Props = $props();
+  let { open = $bindable(false), script, onsaved, onopen, prefill = null, commit }: Props = $props();
 
   const FIELDS: readonly FieldKey[] = ['name', 'description', 'body', 'timeout', 'scope'];
 
@@ -59,6 +67,7 @@
   /** The last save found the script changed (`changed`) or deleted (`gone`) since `opened` was read. */
   let stale = $state<'changed' | 'gone' | null>(null);
   let reloading = $state(false);
+  let failure = $state<string | null>(null);
 
   const editing = $derived(script !== null);
   // A script that waits for review stays waiting unless its code is changed here, which makes it the user's own.
@@ -68,14 +77,24 @@
   const projectPath = $derived(project.active?.path ?? null);
   const projects = $derived(projectScopes.data ?? []);
 
+  /** What the editor opens on: the script edited, else what an agent wants to save, else a blank script in the scope the view looks at. */
+  function startingForm(): ScriptForm {
+    if (script) {
+      return formOf(script, projects);
+    }
+
+    return prefill ? $state.snapshot(prefill) : blankForm(defaultTarget(viewState.memoryReach, projects, projectPath));
+  }
+
   // The editor opens on what it was given, fresh each time.
   onOpen(
     () => open,
     () => {
       opened = script;
-      form = script ? untrack(() => formOf(script, projects)) : blankForm(untrack(() => defaultTarget(viewState.memoryReach, projects, projectPath)));
+      form = untrack(startingForm);
       taken = null;
       stale = null;
+      failure = null;
     },
   );
 
@@ -112,6 +131,17 @@
 
     try {
       const draft = draftOf(form);
+
+      if (commit) {
+        failure = await commit(draft);
+
+        if (failure === null) {
+          open = false;
+        }
+
+        return;
+      }
+
       const target = targetValue(form.target);
       // An edit is saved against the version it opened, never an add, not even one that replaces the script of that name.
       const saved = await saveScript(script ? editProject(script, projects, projectPath) : projectOfTarget(form.target), draft, replace, editing ? opened?.sha256 : undefined);
@@ -133,7 +163,7 @@
       }
 
       open = false;
-      onsaved(saved, draft.name, opened === null || codeChanged(opened.body, draft.body));
+      onsaved?.(saved, draft.name, opened === null || codeChanged(opened.body, draft.body));
     } finally {
       saving = false;
     }
@@ -164,19 +194,20 @@
 
   function openTaken(id: number): void {
     open = false;
-    onopen(id);
+    onopen?.(id);
   }
 </script>
 
 <!-- The focus starts on the first field that can be typed in: the name of a new script, the description of an edited one. -->
 <EditorDialog
   bind:open
-  title={t(editing ? 'memory.editor.script.title.edit' : 'memory.editor.script.title.new')}
-  description={t(editing ? 'memory.editor.script.description.edit' : 'memory.editor.script.description.new')}
+  title={commit ? t('memory.guards.edit.script.title') : t(editing ? 'memory.editor.script.title.edit' : 'memory.editor.script.title.new')}
+  description={commit ? t('memory.guards.edit.description') : t(editing ? 'memory.editor.script.description.edit' : 'memory.editor.script.description.new')}
   initialFocus={`#${editing ? ids.description : ids.name}`}
-  saveLabel={t(editing ? 'memory.editor.script.save' : 'memory.editor.script.add')}
+  saveLabel={commit ? t('memory.guards.waiting.save') : t(editing ? 'memory.editor.script.save' : 'memory.editor.script.add')}
   {saving}
   blocked={fields.blocked || unsupported !== null || stale === 'gone'}
+  {failure}
   onsubmit={() => void submit()}
 >
   {#if stale !== null}
@@ -271,5 +302,5 @@
 
   <EditorScope bind:value={form.target} {projects} id={ids.scope} error={fields.messageOf('scope')} help={scopeHelp} fixed={editing} />
 
-  <EditorNotice level="info" icon={ShieldCheck} body={t('memory.editor.script.trust')} />
+  <EditorNotice level="info" icon={ShieldCheck} body={t(commit ? 'memory.guards.waiting.script.trust' : 'memory.editor.script.trust')} />
 </EditorDialog>

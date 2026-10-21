@@ -333,6 +333,15 @@ impl HookRuntime {
         self.lock_chats().get(key).cloned()
     }
 
+    /// The project root of the tracked chat whose Harness Memory key is `memory_key`, when one is
+    /// tracked and has a root.
+    pub fn memory_project(&self, memory_key: &str) -> Option<String> {
+        self.lock_chats()
+            .values()
+            .find(|chat| chat.memory_key() == Some(memory_key))
+            .and_then(|chat| chat.project())
+    }
+
     /// Stops tracking chat `key` (it stopped or its channel closed). A `sessionEnd` still fires
     /// from its `exited` event.
     pub fn forget(&self, key: &str) {

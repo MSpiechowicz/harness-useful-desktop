@@ -15,6 +15,8 @@
   import { ui } from '$lib/stores/ui-state.svelte';
   import { palette } from '$lib/stores/palette.svelte';
   import { prefs } from '$lib/stores/prefs.svelte';
+  import { memoryChat } from '$lib/stores/memoryChat.svelte';
+  import { memoryHeld } from '$lib/stores/memoryHeld.svelte';
   import { scriptRequests } from '$lib/stores/scriptRequests.svelte';
   import { updates } from '$lib/stores/updates.svelte';
   import { configView, extensionsView } from '$lib/stores/views.svelte';
@@ -196,6 +198,15 @@
 
   // An agent that wants to run a script this computer has not approved asks wherever the user is, so the shell listens from the start.
   $effect(() => scriptRequests.start());
+
+  // Saves an agent holds for review ("Ask before saving") wait in their chat's card and are counted by its Memory button, so the shell listens from the start.
+  $effect(() => untrack(() => memoryHeld.start()));
+  // The waiting saves are listed per open chat: a chat that starts is read at once, one that stops is forgotten.
+  $effect(() => {
+    const keys = memoryChat.keys();
+
+    untrack(() => memoryHeld.follow(keys));
+  });
 
   // Hooks an agent wrote wait for the user's approval, and the rail counts them wherever the user is, so the shell listens from the start.
   $effect(() => hooks.start());

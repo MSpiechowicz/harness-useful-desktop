@@ -235,6 +235,7 @@ async fn live_omp_handshake_state_commands_and_shutdown() {
         approval_override: None,
         trust_once: false,
         utility: false,
+        memory_chat: None,
     };
     let deps = AgentDeps {
         harness: &Omp,

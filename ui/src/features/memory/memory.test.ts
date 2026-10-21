@@ -211,10 +211,10 @@ describe('script detail facts', () => {
     fakeMemory({ kind: 'available' }, scripts);
     await showMemory();
 
-    expect(within(rowButton('open-prs') as HTMLElement).getByText('A repository')).toBeInTheDocument();
+    expect(within(rowButton('open-prs') as HTMLElement).getByText('A project')).toBeInTheDocument();
     await fireEvent.click(rowButton('open-prs') as HTMLElement);
     const panel = await screen.findByRole('region', { name: 'open-prs' });
-    expect(within(panel).getAllByText('A repository')).toHaveLength(1);
+    expect(within(panel).getAllByText('A project')).toHaveLength(1);
   });
 
   it('writes invisible characters out and warns above the code', async () => {

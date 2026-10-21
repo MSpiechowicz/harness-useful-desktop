@@ -244,7 +244,7 @@ export const ecosystem: AreaMessages<typeof enEcosystem> = {
   'ecosystem.product.memory.tagline':
     'Jedna pamięć projektu dla każdego agenta programistycznego, przechowywana na tym komputerze.',
   'ecosystem.product.memory.description':
-    'Lokalny serwer MCP, który zapisuje notatki i ich powiązania osobno dla każdego repozytorium, tak by to, czego nauczy się jeden agent, znalazł następny. Aplikacja rejestruje go w każdym wykrytym harnessie, dopóki pamięć projektu jest włączona, i dodaje pasujące notatki do pierwszej wiadomości nowego czatu.',
+    'Lokalny serwer MCP, który zapisuje notatki i ich powiązania osobno dla każdego projektu, tak by to, czego nauczy się jeden agent, znalazł następny. Aplikacja rejestruje go w każdym wykrytym harnessie, dopóki pamięć projektu jest włączona, i dodaje pasujące notatki do pierwszej wiadomości nowego czatu.',
   'ecosystem.product.memory.note.0': 'Działa lokalnie jako `harness-memory mcp`; nic nie jest wysyłane przez sieć.',
   'ecosystem.product.memory.note.1': 'Włącz lub wyłącz go dla wszystkich harnessów w Ustawieniach, w sekcji Pamięć projektu.',
   'ecosystem.product.memory.step.0.title': 'Zainstaluj plik wykonywalny',

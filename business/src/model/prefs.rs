@@ -146,6 +146,10 @@ pub struct AppPrefs {
     /// Whether closing the main window hides it to the tray instead of quitting, so routines keep
     /// running (default off). Without a tray icon closing always quits.
     pub keep_running_in_tray: bool,
+    /// Whether a new chat starts with "Ask before saving" on for notes (default off).
+    pub memory_notes_ask_default: bool,
+    /// Whether a new chat starts with "Ask before saving" on for scripts (default off).
+    pub memory_scripts_ask_default: bool,
 }
 
 impl AppPrefs {
@@ -180,6 +184,8 @@ impl Default for AppPrefs {
             chat_defaults: Vec::new(),
             memory_enabled: true,
             keep_running_in_tray: false,
+            memory_notes_ask_default: false,
+            memory_scripts_ask_default: false,
         }
     }
 }

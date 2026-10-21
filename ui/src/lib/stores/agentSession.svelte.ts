@@ -16,11 +16,16 @@ import { IpcFailure, type Transport } from '$lib/ipc/transport';
 
 import { buffered, nextNumber, type RestartOptions, type RestoredChat, type StartingChat } from './agent-tabs';
 import { harness } from './harness.svelte';
+import { type MemoryIdentities, withMemory } from './agent-memory';
+import { type ChatMemory, memoryChat } from './memoryChat.svelte';
 import { prefs } from './prefs.svelte';
 import { openRunWindow } from './routine-window';
 import { toasts, type ToastsStore } from './toasts.svelte';
 
 export type { RestartOptions, RestoredChat, StartingChat } from './agent-tabs';
+
+/** A start failure longer than this many characters is a sentence to read and act on, not a label. */
+const LONG_START_FAILURE = 80;
 
 /** Every open chat session (the tabs) and which one is showing. */
 export class AgentSessionsStore {
@@ -74,6 +79,7 @@ export class AgentSessionsStore {
   constructor(
     private readonly transport: Transport,
     private readonly notifications: ToastsStore,
+    readonly memory: MemoryIdentities = memoryChat,
   ) {}
 
   get(key: string): ChatSession | undefined {
@@ -83,8 +89,9 @@ export class AgentSessionsStore {
   /**
    * Starts an agent. Events can arrive before the command returns, so they wait until the session exists.
    * `quiet` drops a failure without a toast (reopening last run's chats: one that can't come back just stays closed).
+   * A chat gets its memory identity here (see `withMemory`): `keep` is the identity of the chat being replaced or brought back.
    */
-  async start(request: AgentStartRequest, { activate = true, quiet = false } = {}): Promise<ChatSession | null> {
+  async start(request: AgentStartRequest, { activate = true, quiet = false, keep = null }: { activate?: boolean; quiet?: boolean; keep?: ChatMemory | null } = {}): Promise<ChatSession | null> {
     // The callers gate on chat support already, this keeps a missed path from launching an agent that cannot run.
     if (!harness.canChat(request.harness)) {
       if (!quiet) {
@@ -97,13 +104,16 @@ export class AgentSessionsStore {
 
     const feed = buffered();
     let session: ChatSession;
+    const launched = await withMemory(this.memory, request, keep);
 
     try {
-      const info = await this.transport.invoke('agent_start', { request, onEvent: feed.onEvent });
+      const info = await this.transport.invoke('agent_start', { request: launched, onEvent: feed.onEvent });
       session = new ChatSession(info, this.transport, this.notifications);
     } catch (error) {
       if (!quiet) {
-        this.notifications.push({ title: t('chat.toast.startFailed'), description: IpcFailure.from(error).message, tone: 'danger' });
+        const message = IpcFailure.from(error).message;
+        // A long reason names a fix to carry out (a folder to chmod): it stays until the user dismisses it.
+        this.notifications.push({ title: t('chat.toast.startFailed'), description: message, tone: 'danger', duration: message.length > LONG_START_FAILURE ? 0 : undefined });
       }
 
       return null;
@@ -111,6 +121,7 @@ export class AgentSessionsStore {
 
     feed.bind(session);
 
+    this.memory.attach(session.key, launched.memoryChat, request.resume);
     if (!request.utility && !request.resume) {
       session.onFirstPrompt = (named) => void this.nameWithAi(named);
     }
@@ -199,7 +210,7 @@ export class AgentSessionsStore {
     this.starting = [...this.starting, placeholder];
     this.activeKey = placeholder.key;
 
-    const session = await this.start({ harness, project, resume: null, approvalOverride: null, trustOnce: false, utility: false }, { activate: false });
+    const session = await this.start({ harness, project, resume: null, approvalOverride: null, trustOnce: false, utility: false, memoryChat: null }, { activate: false });
     this.starting = this.starting.filter((chat) => chat.key !== placeholder.key);
     this.handOverNumber(placeholder.key, session?.key ?? null);
 
@@ -277,8 +288,8 @@ export class AgentSessionsStore {
     }
 
     return this.start(
-      { harness: chat.harness, project: chat.project, resume: { harness: chat.harness, id: chat.sessionId }, approvalOverride: null, trustOnce: false, utility: false },
-      { activate: false, quiet: true },
+      { harness: chat.harness, project: chat.project, resume: { harness: chat.harness, id: chat.sessionId }, approvalOverride: null, trustOnce: false, utility: false, memoryChat: null },
+      { activate: false, quiet: true, keep: chat.memory ?? null },
     );
   }
 
@@ -291,6 +302,7 @@ export class AgentSessionsStore {
 
     this.sessions = this.sessions.filter((session) => session.key !== key);
     this.numbers.delete(key);
+    this.memory.release(key);
     if (this.activeKey === key) {
       this.activeKey = this.sessions[Math.min(index, this.sessions.length - 1)]?.key ?? this.starting.at(-1)?.key ?? null;
     }
@@ -316,6 +328,7 @@ export class AgentSessionsStore {
     const draft = old.draft;
     const index = this.sessions.indexOf(old);
     const number = this.numbers.get(key);
+    const keep = this.memory.get(key); // the replacement is the same chat for Harness Memory: its key, with the guards as they are now
 
     await this.stop(key);
     if (number !== undefined) {
@@ -323,14 +336,8 @@ export class AgentSessionsStore {
       this.numbers.set(`restart-${key}`, number);
     }
 
-    const fresh = await this.start({
-      harness: old.info.harness,
-      project: old.info.project,
-      resume,
-      approvalOverride: options.approvalOverride === undefined ? old.info.approvalOverride : options.approvalOverride,
-      trustOnce: options.trustOnce ?? false,
-      utility: false,
-    });
+    const approvalOverride = options.approvalOverride === undefined ? old.info.approvalOverride : options.approvalOverride;
+    const fresh = await this.start({ harness: old.info.harness, project: old.info.project, resume, approvalOverride, trustOnce: options.trustOnce ?? false, utility: false, memoryChat: null }, { keep });
 
     this.handOverNumber(`restart-${key}`, fresh?.key ?? null);
     if (!fresh) {
@@ -376,7 +383,7 @@ export class AgentSessionsStore {
     }
 
     old.switchingTo = harnessId;
-    const fresh = await this.start({ harness: harnessId, project: old.info.project, resume: null, approvalOverride: null, trustOnce: false, utility: false }, { activate: false });
+    const fresh = await this.start({ harness: harnessId, project: old.info.project, resume: null, approvalOverride: null, trustOnce: false, utility: false, memoryChat: null }, { activate: false });
     if (!fresh) {
       old.switchingTo = null;
 

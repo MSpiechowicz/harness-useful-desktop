@@ -10,6 +10,7 @@ pub mod git;
 pub mod harness;
 pub mod hooks;
 pub mod memory;
+pub mod memory_guards;
 pub mod memory_notes;
 pub mod memory_notes_copy;
 pub mod memory_notes_import;

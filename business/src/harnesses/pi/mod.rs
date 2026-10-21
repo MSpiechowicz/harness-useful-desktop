@@ -83,6 +83,7 @@ impl Harness for Pi {
             project_trust: true,
             session_tree: true,
             compact_instructions: true,
+            memory_chat_guards: true,
             ..Capabilities::default()
         }
     }

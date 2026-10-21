@@ -83,6 +83,7 @@ fn a_server_without_every_feature_never_gets_remote_local_written() {
         scripts_remote_local: true,
         scripts_hide: true,
         scripts_push_json: true,
+        save_guards: false,
     };
 
     for (features, wording) in [

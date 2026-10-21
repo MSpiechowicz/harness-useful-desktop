@@ -91,4 +91,10 @@ chatPreview: boolean,
  * `/compact` takes instructions for the summary (OMP, PI), so picking it asks for them first.
  * Without it the chat compacts at once.
  */
-compactInstructions: boolean, };
+compactInstructions: boolean, 
+/**
+ * The harness passes `HARNESS_MEMORY_SESSION` on to its MCP servers, so Harness Memory applies
+ * the chat's own guards and can hold a save for review. Without it per-chat rules only skip the
+ * app's memory-save hook, and "Ask before saving" is not offered.
+ */
+memoryChatGuards: boolean, };

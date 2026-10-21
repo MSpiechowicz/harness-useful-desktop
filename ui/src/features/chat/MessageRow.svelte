@@ -2,6 +2,7 @@
   import type { ChatState, TranscriptItem } from '$lib/chat/types';
 
   import AssistantMessage from './AssistantMessage.svelte';
+  import MemoryChatRow from './MemoryChatRow.svelte';
   import SystemMessage from './SystemMessage.svelte';
   import ToolCard from './ToolCard.svelte';
   import TranscriptNote from './TranscriptNote.svelte';
@@ -32,6 +33,8 @@
   {#if call}
     <ToolCard {call} {active} subagents={chat.subagents} />
   {/if}
+{:else if item.kind === 'memory'}
+  <MemoryChatRow agentKey={chat.key} />
 {:else}
   <TranscriptNote {item} />
 {/if}

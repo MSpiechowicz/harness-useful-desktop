@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-chat-memory-check-again"
+description = "Enables the chat_memory_check_again command without any pre-configured scope."
+commands.allow = ["chat_memory_check_again"]
+
+[[permission]]
+identifier = "deny-chat-memory-check-again"
+description = "Denies the chat_memory_check_again command without any pre-configured scope."
+commands.deny = ["chat_memory_check_again"]

@@ -5,15 +5,20 @@
 //! and sends them to the page that called `memory_script_requests_listen` (a new one also reaches
 //! the user through [`crate::notifications`] while the main window is not in front), and every
 //! [`HEARTBEAT_INTERVAL`] touches `desktop.alive` while Harness Memory is installed and its data
-//! folder exists (the server creates it). [`ScriptRequests::stop`] (app exit) ends both and
-//! removes the heartbeat file, so the server stops waiting for an answer from this app.
+//! folder exists (the server creates it), and on every poll tells [`crate::memory_held`]'s
+//! listener when the held saves changed (one event per burst). [`ScriptRequests::stop`] (app exit)
+//! ends both and removes the heartbeat file, so the server stops waiting for an answer from this
+//! app. Before its first poll the thread removes the chats' memory guards files untouched for 30 days
+//! ([`sweep_chats`]).
 
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard, PoisonError};
-use std::time::SystemTime;
+use std::time::{Instant, SystemTime};
 
 use harness_business::ecosystem::memory_requests::{HEARTBEAT_INTERVAL, POLL_INTERVAL, check_request_id};
-use harness_business::ecosystem::{RequestWatcher, memory_data_dir, remove_alive, resolve_memory, touch_alive};
+use harness_business::ecosystem::{
+    CHAT_MAX_AGE, RequestWatcher, memory_data_dir, remove_alive, resolve_memory, sweep_chats, touch_alive,
+};
 use harness_business::env::Env;
 use harness_business::model::ScriptRequestEvent;
 use harness_business::{BusinessError, Result};
@@ -183,6 +188,13 @@ pub fn spawn<R: Runtime>(app: &AppHandle<R>) {
     let started = std::thread::Builder::new()
         .name("memory-requests".to_owned())
         .spawn(move || {
+            if let Some(data_dir) = handle
+                .try_state::<AppState>()
+                .and_then(|state| memory_data_dir(&state.env))
+            {
+                sweep_chats(&data_dir, CHAT_MAX_AGE);
+            }
+
             let mut polls: u32 = 0;
 
             loop {
@@ -195,6 +207,7 @@ pub fn spawn<R: Runtime>(app: &AppHandle<R>) {
                 }
 
                 let fresh = state.script_requests.tick(&state.env, polls == 0, SystemTime::now());
+                state.memory_held.tick(&state.env, Instant::now());
                 polls = (polls + 1) % POLLS_PER_HEARTBEAT;
 
                 if !fresh.is_empty() {

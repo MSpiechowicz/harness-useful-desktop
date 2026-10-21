@@ -40,7 +40,7 @@ async function openDialog() {
 const pickBox = (title: string) => screen.getByRole('checkbox', { name: `Overwrite the remote copy of ${title}` });
 
 describe('the banner for notes saved on this computer', () => {
-  it('says how many notes the scopes on the remote database leave stranded, across all repositories', async () => {
+  it('says how many notes the scopes on the remote database leave stranded, across all projects', async () => {
     const invoke = fakeMemory();
     withTeamDatabase(invoke, { repositoryNotes: 'remote', globalNotes: 'remote' });
     await showNotes();
@@ -138,7 +138,7 @@ describe('copying the notes to the remote database', () => {
 
     const local = onThisComputer(sampleNotes()).length;
     expect(await screen.findByText(`Copy ${local} notes saved on this computer to the remote database?`)).toBeInTheDocument();
-    expect(screen.getByText(/This covers all repositories/)).toBeInTheDocument();
+    expect(screen.getByText(/This covers all projects/)).toBeInTheDocument();
     expect(calls(invoke, 'memory_notes_copy_preview')).toEqual([{ kind: 'notes' }]);
 
     const boxes = screen.getAllByRole('checkbox');

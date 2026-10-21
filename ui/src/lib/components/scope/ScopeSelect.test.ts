@@ -41,31 +41,31 @@ describe('the Applies to field', () => {
 
     expect(items()).toEqual(['Global', 'Alpha acme/alpha', 'widget acme/widget']);
 
-    await fireEvent.input(within(menu).getByRole('searchbox', { name: 'Search repositories' }), { target: { value: 'wid' } });
+    await fireEvent.input(within(menu).getByRole('searchbox', { name: 'Search projects' }), { target: { value: 'wid' } });
     expect(items()).toEqual(['widget acme/widget']);
 
-    await fireEvent.input(within(menu).getByRole('searchbox', { name: 'Search repositories' }), { target: { value: 'zzz' } });
-    expect(within(menu).getByText('No repository matches')).toBeInTheDocument();
+    await fireEvent.input(within(menu).getByRole('searchbox', { name: 'Search projects' }), { target: { value: 'zzz' } });
+    expect(within(menu).getByText('No project matches')).toBeInTheDocument();
   });
 
   it('starts the search afresh each time it opens, whether it was closed by Escape or by a click outside', async () => {
     show({ kind: 'global' });
     let menu = await openMenu();
 
-    await fireEvent.input(within(menu).getByRole('searchbox', { name: 'Search repositories' }), { target: { value: 'wid' } });
-    await fireEvent.keyDown(within(menu).getByRole('searchbox', { name: 'Search repositories' }), { key: 'Escape' });
+    await fireEvent.input(within(menu).getByRole('searchbox', { name: 'Search projects' }), { target: { value: 'wid' } });
+    await fireEvent.keyDown(within(menu).getByRole('searchbox', { name: 'Search projects' }), { key: 'Escape' });
     await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
 
     menu = await openMenu();
-    expect(within(menu).getByRole('searchbox', { name: 'Search repositories' })).toHaveValue('');
+    expect(within(menu).getByRole('searchbox', { name: 'Search projects' })).toHaveValue('');
     expect(within(menu).getAllByRole('menuitemradio')).toHaveLength(3);
 
-    await fireEvent.input(within(menu).getByRole('searchbox', { name: 'Search repositories' }), { target: { value: 'alp' } });
+    await fireEvent.input(within(menu).getByRole('searchbox', { name: 'Search projects' }), { target: { value: 'alp' } });
     await fireEvent.pointerDown(document.body);
     await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
 
     menu = await openMenu();
-    expect(within(menu).getByRole('searchbox', { name: 'Search repositories' })).toHaveValue('');
+    expect(within(menu).getByRole('searchbox', { name: 'Search projects' })).toHaveValue('');
     expect(within(menu).getAllByRole('menuitemradio')).toHaveLength(3);
   });
 

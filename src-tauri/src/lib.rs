@@ -13,6 +13,7 @@ mod error;
 mod hooks;
 mod lifecycle;
 mod logging;
+mod memory_held;
 mod memory_requests;
 mod memory_setup;
 mod native_text;
@@ -87,6 +88,14 @@ pub fn run() -> ExitCode {
             commands::memory_scripts::memory_scripts_discard_local,
             commands::memory_requests::memory_script_requests_listen,
             commands::memory_requests::memory_script_decide,
+            commands::memory_guards::memory_guards_get,
+            commands::memory_guards::memory_guards_update,
+            commands::memory_guards::memory_chat_guards_set,
+            commands::memory_guards::memory_held_list,
+            commands::memory_guards::memory_held_save,
+            commands::memory_guards::memory_held_skip,
+            commands::memory_guards::memory_held_listen,
+            commands::memory_guards::chat_memory_check_again,
             commands::memory_scripts::memory_repos_list,
             commands::memory_notes::memory_notes_list,
             commands::memory_notes::memory_note_get,
@@ -109,6 +118,7 @@ pub fn run() -> ExitCode {
             commands::harness::extensions_view,
             commands::harness::commands_catalog,
             commands::projects::project_pick,
+            commands::projects::dialog_pick_folder,
             commands::projects::project_open,
             commands::projects::project_close,
             commands::projects::project_recent,

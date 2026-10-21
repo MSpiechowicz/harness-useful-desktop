@@ -82,6 +82,8 @@ pub fn with_ui_fields(stored: AppPrefs, ui: &AppPrefs) -> AppPrefs {
         approval_notice_seen,
         chat_defaults,
         keep_running_in_tray,
+        memory_notes_ask_default,
+        memory_scripts_ask_default,
         // Server-managed: kept from `stored`.
         active_project: _,
         recent_projects: _,
@@ -109,6 +111,8 @@ pub fn with_ui_fields(stored: AppPrefs, ui: &AppPrefs) -> AppPrefs {
         approval_notice_seen,
         chat_defaults,
         keep_running_in_tray,
+        memory_notes_ask_default,
+        memory_scripts_ask_default,
         ..stored
     }
 }

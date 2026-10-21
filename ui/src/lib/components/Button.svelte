@@ -6,7 +6,7 @@
 
   import Spinner from './Spinner.svelte';
 
-  type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'dangerQuiet';
+  type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'dangerQuiet' | 'warning';
 
   interface Props extends Omit<HTMLButtonAttributes, 'children' | 'class'> {
     class?: string;
@@ -45,6 +45,8 @@
     danger: `bg-danger-fill ${VEIL}`,
     // A destructive action that is not the main one: red text, no fill until it is hovered.
     dangerQuiet: 'border border-danger/30 text-danger hover:bg-danger-wash active:bg-danger-wash',
+    // Something that needs care but is not destructive (pausing what agents may do): the amber wash of the warning badges.
+    warning: 'bg-warning-wash text-warning hover:brightness-125',
   };
   const SIZE = 'h-control gap-2 rounded-md px-4 text-base';
   // An icon's glyph sits inside its box, so the side it is on gets one step less padding to look as tight as the text side.

@@ -14,6 +14,9 @@ pub struct NativeText {
     pub quit: &'static str,
     /// Title of the folder dialog that opens a project.
     pub open_project_folder: &'static str,
+    /// Title of the folder dialog that picks a folder without opening it (a repository to turn
+    /// memory saves off in).
+    pub choose_folder: &'static str,
     /// Title of the file dialog that picks a setup file to import ("Share setup").
     pub open_setup_file: &'static str,
     /// Title of the save dialog that writes an exported setup file.
@@ -62,6 +65,7 @@ const EN: NativeText = NativeText {
     hide_window: "Hide window",
     quit: "Quit Harness Desktop",
     open_project_folder: "Open a project folder",
+    choose_folder: "Choose a folder",
     open_setup_file: "Open a setup file",
     save_setup_file: "Save the setup",
     setup_files: "Setup files",
@@ -86,6 +90,7 @@ const DE: NativeText = NativeText {
     hide_window: "Fenster ausblenden",
     quit: "Harness Desktop beenden",
     open_project_folder: "Projektordner öffnen",
+    choose_folder: "Ordner auswählen",
     open_setup_file: "Setup-Datei öffnen",
     save_setup_file: "Setup speichern",
     setup_files: "Setup-Dateien",
@@ -110,6 +115,7 @@ const ES: NativeText = NativeText {
     hide_window: "Ocultar ventana",
     quit: "Salir de Harness Desktop",
     open_project_folder: "Abrir una carpeta de proyecto",
+    choose_folder: "Elegir una carpeta",
     open_setup_file: "Abrir un archivo de configuración",
     save_setup_file: "Guardar la configuración",
     setup_files: "Archivos de configuración",
@@ -134,6 +140,7 @@ const FR: NativeText = NativeText {
     hide_window: "Masquer la fenêtre",
     quit: "Quitter Harness Desktop",
     open_project_folder: "Ouvrir un dossier de projet",
+    choose_folder: "Choisir un dossier",
     open_setup_file: "Ouvrir un fichier de configuration",
     save_setup_file: "Enregistrer la configuration",
     setup_files: "Fichiers de configuration",
@@ -158,6 +165,7 @@ const PL: NativeText = NativeText {
     hide_window: "Ukryj okno",
     quit: "Zakończ Harness Desktop",
     open_project_folder: "Otwórz folder projektu",
+    choose_folder: "Wybierz folder",
     open_setup_file: "Otwórz plik konfiguracji",
     save_setup_file: "Zapisz konfigurację",
     setup_files: "Pliki konfiguracji",
@@ -204,6 +212,7 @@ mod tests {
                 text.hide_window,
                 text.quit,
                 text.open_project_folder,
+                text.choose_folder,
                 text.open_setup_file,
                 text.save_setup_file,
                 text.setup_files,

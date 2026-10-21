@@ -1,5 +1,8 @@
 import { motion } from '$lib/stores/motion.svelte';
 
+import type { CommandArgs } from '../commands';
+import { IpcFailure } from '../transport';
+
 import { agentHandlers } from './agent-handlers';
 import { ecosystemHandlers } from './ecosystem-handlers';
 import { extensionActionHandlers } from './extension-action-handlers';
@@ -8,6 +11,7 @@ import { harnessHandlers } from './harness-handlers';
 import { hooksHandlers } from './hooks-handlers';
 import { hookScenarioFromLocation, MockHooks } from './hooks-state';
 import { hostHandlers } from './host-handlers';
+import { MockMemoryGuards } from './memory-guards-handlers';
 import { memoryRemoteHandlers } from './memory-remote-handlers';
 import { memoryNotesHandlers } from './memory-notes-handlers';
 import type { CopyStores } from './memory-notes-team-handlers';
@@ -45,6 +49,8 @@ export function defaultScenario(): Scenario {
   const routines = new MockRoutines(routineScenarioFromLocation);
 
   const { attach, ...agentCommands } = agentHandlers(state, agentPace, (project) => hooks.sessionContext(project));
+  // `?held=empty` starts without held saves; by default the first chat with a memory identity has three waiting for review.
+  const guards = new MockMemoryGuards();
   let memoryInstalled = false;
   const memoryAvailability = () => availabilityOf(memoryInstalled ? scenarioAfterInstall(scriptScenarioFromLocation()) : scriptScenarioFromLocation());
 
@@ -53,6 +59,12 @@ export function defaultScenario(): Scenario {
     ...harnessHandlers(state),
     ...projectHandlers(state, () => memoryAvailability().kind === 'available'),
     ...agentCommands,
+    agent_start: async (args: CommandArgs<'agent_start'>) => {
+      const info = await agentCommands.agent_start(args);
+      guards.chatStarted(info.key, info.project, args.request.memoryChat);
+
+      return info;
+    },
     ...sessionHandlers(state, routines),
     ...gitHandlers(state),
   };
@@ -111,6 +123,18 @@ export function defaultScenario(): Scenario {
     }),
     // `?remote=postgres|libsql|problem` starts with a saved team database; `harness-memory check` passes for URLs containing "ok".
     ...memoryRemoteHandlers(),
+    ...guards.handlers(),
+    // Like the backend: refused while the chat's guards skip the memory-save hook, else the hook's text as the user keeps it sent to the agent.
+    chat_memory_check_again: async ({ agentId }) => {
+      if (guards.skipsMemorySave(agentId)) {
+        throw IpcFailure.from({ code: 'invalidInput', message: 'saving to Harness Memory is off for this chat' });
+      }
+
+      const message = hooks.memorySaveFollowUp(guards.projectOf(agentId));
+      await base.agent_send({ key: agentId, action: { type: 'prompt', message, images: [], streamingBehavior: null } });
+
+      return null;
+    },
     // `?scripts=empty|notInstalled|outdated|outdatedNoRelease|failed` changes what the Scripts view finds, `?scripts=ok` (the default) lists three samples.
     ...memoryScriptsHandlers(() => (memoryInstalled ? scenarioAfterInstall(scriptScenarioFromLocation()) : scriptScenarioFromLocation()), undefined, copyStores),
     // The notes follow the same server as the scripts. `?notes=empty` keeps none. The copy commands serve both, so they share the stores.

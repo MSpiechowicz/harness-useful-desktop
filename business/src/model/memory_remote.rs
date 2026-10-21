@@ -118,6 +118,10 @@ pub struct MemoryRemote {
     /// `scripts-push-json` in `harness-memory features`, so scripts may be saved as `remoteLocal`,
     /// team scripts hidden on this machine and local scripts copied to the team database.
     pub scripts_team_and_local_supported: bool,
+    /// True when the installed Harness Memory lists `save-guards` in `harness-memory features`: it
+    /// applies the guards of each chat, repository and place, holds saves for review, and saves
+    /// the user's own notes and scripts through commands agents cannot reach.
+    pub save_guards_supported: bool,
     /// The config file, home-relative for display (`~/.config/harness-memory/config.toml`).
     pub config_path: String,
     /// What is wrong with the file, if anything: unreadable, not valid TOML, keys the server does

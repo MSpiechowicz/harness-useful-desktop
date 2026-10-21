@@ -137,7 +137,7 @@ fn memory(os: OsKind) -> EcosystemItem {
         EcosystemId::Memory,
         "Harness Memory",
         "One project memory for every coding agent, kept on this machine.",
-        "A local MCP server that keeps notes and how they relate per repository, so what one agent learns the \
+        "A local MCP server that keeps notes and how they relate per project, so what one agent learns the \
          next one finds. The app registers it with each detected harness while Project memory is on, and adds \
          matching notes to the first message of a new chat.",
         vec![step("Install the binary", install)],

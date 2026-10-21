@@ -43,6 +43,8 @@ export function defaultPrefs(): AppPrefs {
     chatDefaults: [],
     memoryEnabled: true,
     keepRunningInTray: false,
+    memoryNotesAskDefault: false,
+    memoryScriptsAskDefault: false,
   };
 }
 

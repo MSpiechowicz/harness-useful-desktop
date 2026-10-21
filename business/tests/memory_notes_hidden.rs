@@ -5,6 +5,7 @@
 //! local notes (ids on stdin), and saving a global note beside a read-only team note.
 
 use harness_business::BusinessError;
+use harness_business::ecosystem::SaveRoute;
 use harness_business::ecosystem::{
     ListWindow, NotesQuery, Repos, delete_all_notes, discard_local, get_note, hide_entry, list_notes, save_note,
 };
@@ -282,16 +283,32 @@ async fn a_global_note_is_saved_beside_a_read_only_team_note_of_its_title() {
     };
 
     let setup = Setup::installed(CURRENT, GLOBAL_TEAM_AND_LOCAL);
-    let saved = save_note(&setup.env, &setup.scripts, setup.runner(), None, &draft, None)
-        .await
-        .expect("saved");
+    let saved = save_note(
+        &setup.env,
+        &setup.scripts,
+        setup.runner(),
+        SaveRoute::Mcp,
+        None,
+        &draft,
+        None,
+    )
+    .await
+    .expect("saved");
     assert_eq!(saved.outcome, NoteSaveOutcome::Created, "the team note does not count");
     setup.scripts.shutdown().await;
 
     let setup = Setup::installed(CURRENT, &[]);
-    let saved = save_note(&setup.env, &setup.scripts, setup.runner(), None, &draft, None)
-        .await
-        .expect("refused");
+    let saved = save_note(
+        &setup.env,
+        &setup.scripts,
+        setup.runner(),
+        SaveRoute::Mcp,
+        None,
+        &draft,
+        None,
+    )
+    .await
+    .expect("refused");
     assert_eq!(
         (saved.outcome, saved.id),
         (NoteSaveOutcome::Exists, Some(1)),

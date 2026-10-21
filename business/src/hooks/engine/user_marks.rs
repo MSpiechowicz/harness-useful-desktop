@@ -34,12 +34,14 @@ impl HookSession {
     }
 
     /// Call when the action of `plan` could not be delivered: `sessionStart` fires on the next
-    /// eligible prompt again, the message does not count as sent and the follow-up it cancelled
-    /// may go out again.
+    /// eligible prompt again, so does its memory settings notice, the message does not count as
+    /// sent and the follow-up it cancelled may go out again.
     pub fn send_failed(&mut self, plan: &SendPlan) {
         if plan.consumed_start {
             self.armed = true;
         }
+
+        self.memory_not_announced(plan);
 
         let Some(previous) = &plan.previous else {
             return;

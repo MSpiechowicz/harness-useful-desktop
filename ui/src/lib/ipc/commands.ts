@@ -92,6 +92,8 @@ export const commands = {
   extensions_view: cmd<{ harness: HarnessId; project: string | null }, ExtensionsView>(),
   commands_catalog: cmd<{ harness: HarnessId }, CatalogCommand[]>(),
   project_pick: cmd<undefined, ProjectInfo | null>(),
+  /** Lets the user choose a folder in a native dialog and returns its path, null when cancelled. Opens and remembers nothing ("Add repository…"). */
+  dialog_pick_folder: cmd<undefined, string | null>(),
   project_open: cmd<{ path: string }, ProjectInfo>(),
   project_close: cmd<undefined, null>(),
   project_recent: cmd<undefined, ProjectInfo[]>(),

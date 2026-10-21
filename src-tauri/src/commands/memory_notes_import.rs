@@ -152,11 +152,13 @@ async fn apply(
     };
 
     let stored = take_plan(state, plan_id, project.as_deref())?;
+    let route = state.save_route().await;
 
     let result = apply_notes_import(
         &state.env,
         &state.memory_scripts,
         &state.runner,
+        route,
         &stored,
         request,
         |progress| {

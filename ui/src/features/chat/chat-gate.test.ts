@@ -122,7 +122,7 @@ describe('chats go to a harness that can chat', () => {
   });
 
   it('refuses to launch a harness without chat even when a caller asks, and says why', async () => {
-    const started = await agentSessions.start({ harness: 'opencode', project: project.active?.path ?? '/', resume: null, approvalOverride: null, trustOnce: false, utility: false });
+    const started = await agentSessions.start({ harness: 'opencode', project: project.active?.path ?? '/', resume: null, approvalOverride: null, trustOnce: false, utility: false, memoryChat: null });
 
     expect(started).toBeNull();
     expect(backend.calls('agent_start')).toHaveLength(0);

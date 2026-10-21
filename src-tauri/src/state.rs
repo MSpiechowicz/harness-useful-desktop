@@ -8,8 +8,8 @@ use std::sync::{Arc, Mutex, PoisonError};
 
 use harness_business::app_dirs::{child_processes_dir, local_data_dir};
 use harness_business::ecosystem::{
-    CompanionReleases, Dashboard, DashboardOptions, MemoryFeatures, MemoryKinds, MemoryScripts, NotesCopyCache,
-    PoolOptions, StoredNotesImport,
+    ChatGuardWrites, CompanionReleases, Dashboard, DashboardOptions, MemoryFeatures, MemoryKinds, MemoryScripts,
+    NotesCopyCache, PoolOptions, SaveRoute, StoredNotesImport,
 };
 use harness_business::env::Env;
 use harness_business::harness::HarnessRegistry;
@@ -27,6 +27,7 @@ use tauri::{AppHandle, Manager, Runtime};
 use crate::agents::Agents;
 use crate::drops::DropSink;
 use crate::hooks::HookRuntime;
+use crate::memory_held::HeldWatcher;
 use crate::memory_requests::ScriptRequests;
 use crate::routines::RoutineRuntime;
 use crate::updates::Updates;
@@ -63,6 +64,11 @@ pub struct AppState {
     pub memory_features: MemoryFeatures,
     /// The script run requests of Harness Memory and the heartbeat that lets the server ask.
     pub script_requests: Arc<ScriptRequests>,
+    /// The page told when the saves Harness Memory holds for review change.
+    pub memory_held: Arc<HeldWatcher>,
+    /// The writes of each chat's memory guards file after its start (toggles, newest revision
+    /// only, and moves), one at a time per chat.
+    pub memory_chat_writes: Arc<ChatGuardWrites>,
     /// Where saved attachments live (the app's cache; the agent opens them by path).
     pub attachments_dir: PathBuf,
     /// Where native drag and drop events go.
@@ -146,6 +152,8 @@ impl AppState {
             memory_kinds: MemoryKinds::new(),
             memory_features: MemoryFeatures::new(),
             script_requests: Arc::new(ScriptRequests::default()),
+            memory_held: Arc::new(HeldWatcher::default()),
+            memory_chat_writes: Arc::new(ChatGuardWrites::default()),
             attachments_dir: prefs_dir.join("attachments"),
             drops: DropSink::default(),
             updates: Updates::new(None),
@@ -165,6 +173,12 @@ impl AppState {
             routines: Arc::new(routines),
             project_keys: ProjectKeys::default(),
         }
+    }
+
+    /// How the user's own notes and scripts are saved: through the commands agents cannot reach
+    /// while the installed Harness Memory lists `save-guards`, else through MCP.
+    pub async fn save_route(&self) -> SaveRoute {
+        SaveRoute::of(self.memory_features.support(&self.env, &self.runner).await)
     }
 }
 

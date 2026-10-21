@@ -147,6 +147,8 @@ export function memoryRemoteHandlers(scenario: () => RemoteScenario = remoteScen
       // Likewise for saving notes on this computer next to the team database, hiding team notes and copying.
       teamAndLocalSupported: true,
       scriptsTeamAndLocalSupported: true,
+      // And for save guards: the Memory button, held saves and the Settings cards.
+      saveGuardsSupported: true,
       configPath: CONFIG_PATH,
       problem: file.blocked,
     };

@@ -128,6 +128,7 @@ fn without_a_file_team_memory_is_off() {
             documentdb_supported: false,
             team_and_local_supported: false,
             scripts_team_and_local_supported: false,
+            save_guards_supported: false,
             config_path: "~/.config/harness-memory/config.toml".to_owned(),
             problem: None,
         }

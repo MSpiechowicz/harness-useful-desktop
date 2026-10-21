@@ -45,6 +45,10 @@
 //! - [`memory_kinds`]: which team databases the installed server can use (`harness-memory
 //!   kinds`), [`memory_features`]: what else it can do (`harness-memory features`), both probed
 //!   through [`memory_line_probe`].
+//! - [`memory_guards`]: the save guards of every chat and of each one (`memory_guards_get`,
+//!   `memory_guards_update`, `memory_chat_guards_set`), [`memory_held`]: the saves held for the user's
+//!   review (`memory_held_list`, `memory_held_save`, `memory_held_skip`), and
+//!   [`memory_user_save`]: the user's own saves through commands agents cannot reach.
 //! - [`memory_notes_copy`]: copying the notes or scripts saved on this computer to the team database
 //!   (`harness-memory push --json`, `scripts push --json`), its answer read by `memory_copy_answer`.
 
@@ -63,6 +67,8 @@ pub mod memory_binary;
 pub mod memory_cli;
 mod memory_copy_answer;
 pub mod memory_features;
+pub mod memory_guards;
+pub mod memory_held;
 pub mod memory_hidden;
 pub mod memory_hooks;
 pub mod memory_kinds;
@@ -85,6 +91,7 @@ pub mod memory_scripts_run;
 pub mod memory_scripts_save;
 pub mod memory_team_docs;
 pub mod memory_trust;
+pub mod memory_user_save;
 pub mod releases;
 pub mod setup;
 pub mod skills_record;
@@ -105,6 +112,11 @@ pub use memory_binary::{installed_memory, memory_version, parse_memory_version, 
 pub use memory_cli::ListWindow;
 pub use memory_cli::Repos;
 pub use memory_features::{FeaturesSupport, MemoryFeatures};
+pub use memory_guards::{
+    CHAT_MAX_AGE, ChatGuardWrites, SESSION_VAR, chat_repo_root, check_chat_key, is_chat_key, read_chat, read_chat_repo,
+    read_global, sweep_chats, update_global, write_chat,
+};
+pub use memory_held::{HeldSave, guarded_server, held_stamp, list_held, save_held, skip_held};
 pub use memory_hidden::{MAX_LOCAL_IDS, discard_local, hide_entry};
 pub use memory_hooks::{HooksConfig, HooksSupport, MemoryHooks};
 pub use memory_kinds::{KindsSupport, MemoryKinds};
@@ -131,6 +143,7 @@ pub use memory_requests::{RequestWatcher, memory_data_dir, remove_alive, touch_a
 pub use memory_scripts::{MemoryScripts, SCRIPT_LIST_TOOL, ScriptsQuery};
 pub use memory_team_docs::{MemoryTeamDocs, TeamDocsConfig, TeamDocsSupport};
 pub use memory_trust::{script_sha256, trust_scripts};
+pub use memory_user_save::SaveRoute;
 pub use releases::{CompanionReleases, release_endpoint};
 pub use setup::{McpFile, mcp_target, mcp_target_paths, memory_server_setup, setup_status, share_mcp_target};
 pub use skills_record::{opencode_skills_record, opencode_skills_version};

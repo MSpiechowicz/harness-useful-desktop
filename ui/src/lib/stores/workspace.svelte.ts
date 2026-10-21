@@ -5,6 +5,8 @@ import { isHarnessId } from '$lib/ipc/harness-ids';
 
 import { type AgentSessionsStore, resumable } from './agentSession.svelte';
 import { harness } from './harness.svelte';
+import type { ChatMemory } from './memoryChat.svelte';
+import { readChatMemory } from './memory-chat';
 import { nav, VIEW_IDS, type ViewId } from './nav.svelte';
 
 /**
@@ -23,6 +25,8 @@ interface SavedWorkspace {
     userNamed?: boolean;
     /** The run the chat is the live window of, to look at it again after a reload. */
     routine?: SessionRoutineTag | null;
+    /** The chat's memory key and guards, so the reopened chat is the same one for Harness Memory. */
+    memory?: ChatMemory | null;
   }[];
   /** Index into `chats` of the chat that was showing, or -1. */
   active: number;
@@ -40,14 +44,22 @@ export function saveWorkspace(agents: AgentSessionsStore): void {
   });
   const record: SavedWorkspace = {
     view: nav.current,
-    chats: open.map(({ session, ref }) => ({
-      harness: session.info.harness,
-      sessionId: ref?.id ?? '',
-      project: session.info.project,
-      label: session.aiLabel,
-      userNamed: session.userNamed,
-      routine: session.routine,
-    })),
+    chats: open.map(({ session, ref }) => {
+      // A conversation that can be resumed from the Sessions list keeps its memory key and guards there too.
+      if (ref) {
+        agents.memory.remember(session.key, ref.harness, ref.id);
+      }
+
+      return {
+        harness: session.info.harness,
+        sessionId: ref?.id ?? '',
+        project: session.info.project,
+        label: session.aiLabel,
+        userNamed: session.userNamed,
+        routine: session.routine,
+        memory: agents.memory.get(session.key),
+      };
+    }),
     active: open.findIndex(({ session }) => session.key === agents.activeKey),
   };
 
@@ -103,7 +115,7 @@ function readWorkspace(): SavedWorkspace | null {
     const chats = uniqueSessions(
       record.chats
         .filter((chat) => typeof chat?.sessionId === 'string' && typeof chat.project === 'string' && isHarnessId(chat.harness) && harness.canChat(chat.harness))
-        .map((chat) => ({ ...chat, label: isLabel(chat.label) ? chat.label : null, userNamed: chat.userNamed === true, routine: isRoutine(chat.routine) ? chat.routine : null }))
+        .map((chat) => ({ ...chat, label: isLabel(chat.label) ? chat.label : null, userNamed: chat.userNamed === true, routine: isRoutine(chat.routine) ? chat.routine : null, memory: readChatMemory(chat.memory) }))
         .filter((chat) => chat.sessionId !== '' || chat.routine !== null),
     );
 
@@ -148,7 +160,7 @@ export function restoreWorkspace(agents: AgentSessionsStore): Promise<boolean> {
       nav.go(saved.view);
     }
 
-    const chats = saved.chats.slice(0, MAX_RESTORED).map((chat) => ({ harness: chat.harness, project: chat.project, sessionId: chat.sessionId, label: chat.label ?? null, userNamed: chat.userNamed ?? false, routine: chat.routine ?? null }));
+    const chats = saved.chats.slice(0, MAX_RESTORED).map((chat) => ({ harness: chat.harness, project: chat.project, sessionId: chat.sessionId, label: chat.label ?? null, userNamed: chat.userNamed ?? false, routine: chat.routine ?? null, memory: chat.memory ?? null }));
 
     return (await agents.restore(chats, saved.active)) > 0;
   })().finally(() => {

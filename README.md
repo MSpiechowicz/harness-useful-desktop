@@ -45,7 +45,7 @@ privacy. Made with the app's demo data. [Download the full-quality 4K video](htt
   with comments is never rewritten, so the app shows the entry to paste instead. The same step can register the app's own
   `harness-desktop` MCP server (for hooks) in each harness.
 - **Project memory.** Your harnesses share a local memory of what was done, problems and fixes, and where things are,
-  per repository. See [Project memory](#project-memory).
+  per project. See [Project memory](#project-memory).
 - **Hooks.** Small rules that add context to a prompt, send a follow-up after the agent finishes or run a command when
   something happens in a chat, with ready-made ones for Harness Memory and the dashboard. See [Hooks](#hooks).
 - **Share setup.** In Settings, export the marketplaces, plugins, packages and MCP servers of OMP, PI and OpenCode as a `hud1:`
@@ -99,6 +99,12 @@ same repository starts better informed. The switch is on by default; the server 
   instructions inside one. The repository key is only a name: any agent with the server can read and write any
   repository's notes, so a same-title note from another checkout, or from an agent that names another repository by
   path, is reported instead of replaced.
+- **Choose what agents save.** The **Memory** button in a chat's top bar sets, for that chat and its repository, whether
+  agents may save notes and scripts, pauses saving, and turns on **Ask before saving**, which holds each save in the
+  transcript until you press Save, Edit or Skip. Settings > Memory has a **Notes** and a **Scripts** card to pause saving
+  in every chat, choose the Ask default and list repositories where agents save nothing. Reading is never affected. The
+  rules are local files, never in a team database, and they stop agents that use the memory tools, not an agent with a
+  shell. Tested on Linux with OMP, PI and OpenCode 1.19.3, not yet with OpenCode 2, macOS or Windows.
 - **Turn it off.** Switch **Project memory** off in Settings: the app removes its entries from the harnesses and stops
   adding them. Your notes stay and come back when you switch it on again. Deleting the `harness-memory` entry from a
   harness's `mcp.json` (OpenCode: its `mcp` object) turns it off for that harness only.

@@ -4,6 +4,7 @@ import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
 import type { SessionRoutineTag } from '$lib/ipc/bindings/SessionRoutineTag';
 import { generatedNameCount } from '$lib/chat/naming';
 import type { ChatSession } from '$lib/chat/session.svelte';
+import type { ChatMemory } from './memory-chat';
 
 /** Options a restart can change; everything else carries over from the session being replaced. */
 export interface RestartOptions {
@@ -27,6 +28,8 @@ export interface RestoredChat {
   userNamed: boolean;
   /** Set for a tab that was the live window of a routine run: it attaches to the run again while it goes on. */
   routine?: SessionRoutineTag | null;
+  /** The chat's memory identity from the last run, so the reopened chat keeps its key and guards. */
+  memory?: ChatMemory | null;
 }
 
 /**

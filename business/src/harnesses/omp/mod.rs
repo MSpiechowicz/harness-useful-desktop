@@ -70,6 +70,7 @@ impl Harness for Omp {
             move_session: true,
             remove_queued: true,
             compact_instructions: true,
+            memory_chat_guards: true,
             ..Capabilities::default()
         }
     }

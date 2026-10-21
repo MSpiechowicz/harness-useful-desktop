@@ -4,6 +4,7 @@
 //! app. The script saves are in `memory_save_scripts.rs`.
 
 use harness_business::BusinessError;
+use harness_business::ecosystem::SaveRoute;
 use harness_business::ecosystem::{NotesImportRequest, apply_notes_import, read_notes_file, save_note};
 use harness_business::model::{NoteDraft, NoteKind, NoteSaveOutcome, NoteSaved, ScriptScope};
 use memory_stand_in::{AGENT_APPROVAL, CURRENT, LEGACY, Setup, script};
@@ -28,9 +29,17 @@ async fn a_note_is_created_then_its_title_is_taken_until_replaced_by_id() {
     let project = setup.project();
     let draft = note("Retry the build", ScriptScope::Repo);
 
-    let created = save_note(&setup.env, &setup.scripts, setup.runner(), Some(&project), &draft, None)
-        .await
-        .expect("created");
+    let created = save_note(
+        &setup.env,
+        &setup.scripts,
+        setup.runner(),
+        SaveRoute::Mcp,
+        Some(&project),
+        &draft,
+        None,
+    )
+    .await
+    .expect("created");
     assert_eq!(
         created,
         NoteSaved {
@@ -39,9 +48,17 @@ async fn a_note_is_created_then_its_title_is_taken_until_replaced_by_id() {
         }
     );
 
-    let again = save_note(&setup.env, &setup.scripts, setup.runner(), Some(&project), &draft, None)
-        .await
-        .expect("refused");
+    let again = save_note(
+        &setup.env,
+        &setup.scripts,
+        setup.runner(),
+        SaveRoute::Mcp,
+        Some(&project),
+        &draft,
+        None,
+    )
+    .await
+    .expect("refused");
     assert_eq!(
         again,
         NoteSaved {
@@ -55,6 +72,7 @@ async fn a_note_is_created_then_its_title_is_taken_until_replaced_by_id() {
         &setup.env,
         &setup.scripts,
         setup.runner(),
+        SaveRoute::Mcp,
         Some(&project),
         &draft,
         Some(9),
@@ -67,6 +85,7 @@ async fn a_note_is_created_then_its_title_is_taken_until_replaced_by_id() {
         &setup.env,
         &setup.scripts,
         setup.runner(),
+        SaveRoute::Mcp,
         Some(&project),
         &draft,
         Some(404),
@@ -90,6 +109,7 @@ async fn a_new_global_note_with_a_taken_title_is_exists() {
             &setup.env,
             &setup.scripts,
             setup.runner(),
+            SaveRoute::Mcp,
             Some(&project),
             &note(title, ScriptScope::Global),
             None,
@@ -107,9 +127,17 @@ async fn a_new_global_note_with_a_taken_title_is_exists() {
     }
 
     let new = note("Prefer bun over yarn", ScriptScope::Global);
-    let created = save_note(&setup.env, &setup.scripts, setup.runner(), None, &new, None)
-        .await
-        .expect("created");
+    let created = save_note(
+        &setup.env,
+        &setup.scripts,
+        setup.runner(),
+        SaveRoute::Mcp,
+        None,
+        &new,
+        None,
+    )
+    .await
+    .expect("created");
     assert_eq!(
         created,
         NoteSaved {
@@ -139,9 +167,17 @@ async fn a_global_title_is_found_where_the_search_cannot_tell() {
         let draft = note(title, ScriptScope::Global);
         let setup = &setup;
         async move {
-            save_note(&setup.env, &setup.scripts, setup.runner(), None, &draft, None)
-                .await
-                .expect("answered")
+            save_note(
+                &setup.env,
+                &setup.scripts,
+                setup.runner(),
+                SaveRoute::Mcp,
+                None,
+                &draft,
+                None,
+            )
+            .await
+            .expect("answered")
         }
     };
     let exists = |id| NoteSaved {
@@ -196,6 +232,7 @@ async fn an_import_lists_the_global_notes_once() {
         &setup.env,
         &setup.scripts,
         setup.runner(),
+        SaveRoute::Mcp,
         &read.stored,
         &request,
         |_| {},
@@ -240,6 +277,7 @@ async fn a_server_older_than_the_notes_view_cannot_save() {
             &setup.env,
             &setup.scripts,
             setup.runner(),
+            SaveRoute::Mcp,
             Some(&project),
             &note("Retry the build", ScriptScope::Repo),
             None,
@@ -252,6 +290,7 @@ async fn a_server_older_than_the_notes_view_cannot_save() {
             .save(
                 &setup.env,
                 setup.runner(),
+                SaveRoute::Mcp,
                 Some(&project),
                 &script("new-one"),
                 false,
@@ -275,6 +314,7 @@ async fn without_a_server_saving_is_not_found() {
         &setup.env,
         &setup.scripts,
         setup.runner(),
+        SaveRoute::Mcp,
         None,
         &note("Retry the build", ScriptScope::Global),
         None,

@@ -144,6 +144,8 @@ Escaping: in `NAME` replace `&` `<` `>` `"` with `&amp;` `&lt;` `&gt;` `&quot;`.
 
 Cap: each composed context block (the `<harness-hook-context>` wrapper's elements) and each composed follow-up prompt is at most 8 KiB (8192 bytes) of elements. Elements are taken in hook order, one that does not fit is dropped and logged, later smaller ones may still fit. When the user's text with the block would exceed the prompt limit (512 KiB), the last elements are dropped until it fits, and the text is sent alone when none fits.
 
+The app may add its own element first in `<harness-hook-context>`: `<hook name="Memory settings">`, which tells the agent where saving notes and scripts stands after the user changed the chat's memory settings. Its id `harness-desktop:memory-settings` is not a hook id, so no hook file matches or replaces it (see [the memory save guards plan](plans/memory-save-guards.md#telling-the-agent)).
+
 ## Commands
 
 Run by the desktop only, after approval. Shell: `/bin/sh -c <command>` on Linux and macOS, `cmd.exe /D /S /C <command>` on Windows. Working directory: the project root for project hooks, the chat's folder for global ones. Stdin is closed. Exit code non-zero, a timeout (the process is killed) or a spawn failure means no output. Stdout is capped at 16 KiB (truncated), stderr is dropped, and stdout is redacted for secrets before use.

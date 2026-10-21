@@ -7,9 +7,9 @@ export const memoryEditor = {
   'memory.editor.outdated': 'A newer Harness Memory is needed to save from the app. Update it on the Ecosystem page.',
   'memory.editor.counter': '{used} / {max}',
   'memory.editor.scope': 'Scope',
-  'memory.editor.scope.repo': 'Repository',
+  'memory.editor.scope.repo': 'Project',
   'memory.editor.scope.global': 'Global',
-  'memory.editor.scope.needsProject': 'A repository entry needs an open project.',
+  'memory.editor.scope.needsProject': 'A project entry needs an open project.',
   'memory.editor.exists.open': 'Open it',
   'memory.editor.exists.replace': 'Replace it',
 

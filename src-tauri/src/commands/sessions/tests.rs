@@ -184,6 +184,7 @@ fn a_session_open_in_a_chat_is_not_deleted() {
         approval_override: None,
         trust_once: false,
         utility: false,
+        memory_chat: None,
     };
     let deps = AgentDeps {
         harness: state.registry.get(HarnessId::Omp).expect("OMP is registered"),

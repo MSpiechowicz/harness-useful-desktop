@@ -114,6 +114,7 @@ impl Harness for OpenCode {
             remove_queued: true,
             chat_preview: true,
             cli_actions: true,
+            memory_chat_guards: true,
             ..Capabilities::default()
         }
     }

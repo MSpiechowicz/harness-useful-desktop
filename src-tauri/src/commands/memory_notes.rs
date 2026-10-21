@@ -164,11 +164,13 @@ async fn save(
     replace_id: Option<i64>,
 ) -> CommandResult<NoteSaved> {
     let project = project_root(state, project).await?;
+    let route = state.save_route().await;
 
     Ok(save_note(
         &state.env,
         &state.memory_scripts,
         &state.runner,
+        route,
         project.as_deref(),
         draft,
         replace_id,

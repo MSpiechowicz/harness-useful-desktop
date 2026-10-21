@@ -33,6 +33,7 @@ function fakeBackend(initial: Partial<MemoryRemote> = {}, probe: MemoryRemoteTes
     documentdbSupported: true,
     teamAndLocalSupported: true,
     scriptsTeamAndLocalSupported: true,
+    saveGuardsSupported: false,
     ...initial,
   };
   const passthrough = ipc.invoke.bind(ipc);
@@ -310,7 +311,7 @@ describe('Memory section', () => {
     expect(calls(invoke, 'memory_remote_test')).toEqual([{ kind: 'postgres', url: null, token: null }]);
 
     // Both choices start on the remote database.
-    const repository = screen.getByRole('radiogroup', { name: 'Repository notes' });
+    const repository = screen.getByRole('radiogroup', { name: 'Project notes' });
     expect(within(repository).getByRole('radio', { name: 'Remote' })).toBeChecked();
     expect(within(screen.getByRole('radiogroup', { name: 'Global notes' })).getByRole('radio', { name: 'Remote' })).toBeChecked();
 

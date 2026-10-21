@@ -36,6 +36,7 @@ pub mod engine;
 pub mod family;
 mod folder;
 pub mod format;
+mod memory_guards;
 mod plan;
 mod run;
 mod state;
@@ -54,8 +55,9 @@ pub use compose::{
     compose_prompt, parse_hook_context, strip_hook_context, with_hook_context,
 };
 pub use engine::{
-    ChatContext, CommandRequest, EventOutcome, Firing, FollowUpPlan, HookSession, HookSet, PlannedPart, SendOrigin,
-    SendPlan,
+    ChatContext, CommandRequest, EventOutcome, Firing, FollowUpPlan, HookSession, HookSet, MEMORY_NOTICE_ID,
+    MEMORY_NOTICE_NAME, MemoryGuardState, MemorySaveGate, PlannedPart, SaveRule, SendOrigin, SendPlan,
+    memory_save_part,
 };
 pub use family::{
     FAMILY, FamilyHook, SEED_BRANCH_SYNC_TEXT, SEED_DASHBOARD_LIMITS_TEXT, SEED_MEMORY_SAVE_TEXT,
@@ -63,6 +65,7 @@ pub use family::{
     seed_defaults,
 };
 pub use format::{MAX_HOOK_FILE_BYTES, is_hook_id, parse_hook_file};
+pub use memory_guards::read_memory_guards;
 pub use plan::MAX_TOUCHED_BYTES;
 pub use run::handled_without_run;
 pub use store::{HookCapabilities, HookStore, MAX_HOOKS_PER_SCOPE};

@@ -16,6 +16,10 @@
 //!   already has this title: …` when another note of its scope has the new title (`exists`), and
 //!   `note <id> not found …` when the project cannot see it (`notFound`).
 //!
+//! A server with `save-guards` ([`SaveRoute::Cli`]) takes the same note through `notes save` or
+//! `notes update` instead (see [`memory_user_save`](super::memory_user_save)), which no save guard
+//! stops.
+//!
 //! The draft is checked against the server's limits first, and a new repository note needs a
 //! project (`invalidInput`). Neither the title nor the body is logged.
 
@@ -26,11 +30,13 @@ use regex::Regex;
 use serde_json::{Map, Value, json};
 
 use super::mcp_client::ToolOutput;
+use super::memory_hidden::entry_server;
 use super::memory_notes_titles::{ImportTitles, global_titled};
 use super::memory_scripts::{MemoryScripts, tool_error_text, with_project};
+use super::memory_user_save::{SaveRoute, save_note_cli};
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
-use crate::model::{NoteDraft, NoteSaveOutcome, NoteSaved, ScriptScope};
+use crate::model::{MemoryCopyKind, NoteDraft, NoteSaveOutcome, NoteSaved, ScriptScope};
 use crate::process::ProcessRunner;
 
 /// Harness Memory's `TITLE_MAX`, in characters.
@@ -62,24 +68,31 @@ static TAKEN_TITLE: LazyLock<Regex> =
 /// that note is gone or the server is not installed, `unsupported` when the server predates
 /// saving from the app, `invalidInput` for a draft over a limit or a repository note without a
 /// project, `process` with the server's (redacted) text when it refuses otherwise. `runner` runs
-/// the server's commands that read the global notes.
+/// the server's commands that read the global notes, and the save itself on `route`
+/// [`SaveRoute::Cli`].
 pub async fn save_note(
     env: &Env,
     probe: &MemoryScripts,
     runner: &dyn ProcessRunner,
+    route: SaveRoute,
     project: Option<&Path>,
     draft: &NoteDraft,
     replace_id: Option<i64>,
 ) -> Result<NoteSaved> {
-    save_note_in(env, probe, runner, project, draft, replace_id, None).await
+    save_note_in(env, probe, runner, route, project, draft, replace_id, None).await
 }
 
 /// [`save_note`], within an import whose global titles `titles` keeps (a new global note is
 /// remembered there).
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the import passes its title cache on top of what a single save takes"
+)]
 pub(crate) async fn save_note_in(
     env: &Env,
     probe: &MemoryScripts,
     runner: &dyn ProcessRunner,
+    route: SaveRoute,
     project: Option<&Path>,
     draft: &NoteDraft,
     replace_id: Option<i64>,
@@ -114,8 +127,16 @@ pub(crate) async fn save_note_in(
         }
     };
 
-    let output = probe.call_tool(env, tool, with_project(arguments, project)).await?;
-    let saved = answer(tool, &output, replace_id)?;
+    let saved = match route {
+        SaveRoute::Mcp => {
+            let output = probe.call_tool(env, tool, with_project(arguments, project)).await?;
+            answer(tool, &output, replace_id)?
+        }
+        SaveRoute::Cli => {
+            let server = entry_server(env, probe, MemoryCopyKind::Notes).await?;
+            save_note_cli(env, runner, &server, project, arguments, replace_id).await?
+        }
+    };
 
     tracing::info!(tool, id = saved.id, outcome = ?saved.outcome, "memory note saved");
 
@@ -261,7 +282,7 @@ fn saved_from(text: &str, fallback: NoteSaveOutcome) -> NoteSaved {
 }
 
 /// The id of the note that already has the title, in a refusal.
-fn taken_title(text: &str) -> Option<i64> {
+pub(super) fn taken_title(text: &str) -> Option<i64> {
     TAKEN_TITLE.captures(text).and_then(|found| found[1].parse().ok())
 }
 

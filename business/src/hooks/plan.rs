@@ -7,6 +7,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use super::compose::ResolvedPart;
+use super::engine::Announcement;
 use super::format::DEFAULT_TIMEOUT_SECS;
 use super::view::{RunOrder, order_key, team_order_key};
 use crate::model::{Hook, HookAction, HookEvent, HookScope, HookStatus, HookView};
@@ -35,7 +36,7 @@ pub struct ChatContext {
 /// then the team hooks (global, then project).
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct HookSet {
-    hooks: Vec<SetHook>,
+    pub(super) hooks: Vec<SetHook>,
 }
 
 /// One hook of a [`HookSet`] and where it runs.
@@ -198,14 +199,21 @@ impl Firing {
 }
 
 /// What to do before a message goes out ([`super::HookSession::on_send`]): resolve the firings
-/// (`sessionStart`, then `promptSubmit`), put [`super::compose_prompt`] of all their parts in front
-/// of the message and report what it kept ([`super::HookSession::context_composed`]). Right
+/// (`sessionStart`, then `promptSubmit`), put [`super::compose_prompt`] of the memory settings
+/// notice (when there is one) and all their parts in front of the message
+/// ([`SendPlan::context_parts`]) and report what it kept
+/// ([`super::HookSession::context_composed`]). Right
 /// before the message is delivered, pass it to [`super::HookSession::sending`], and to
 /// [`super::HookSession::send_failed`] when the message could not be delivered.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct SendPlan {
     /// Firings whose parts become context, possibly empty.
     pub firings: Vec<Firing>,
+    /// The chat's memory guards changed since the agent was told: this part, named
+    /// [`super::engine::MEMORY_NOTICE_NAME`], goes in front of the firings' parts.
+    pub memory_notice: Option<ResolvedPart>,
+    /// The state the notice tells, and the one told before.
+    pub(crate) announcement: Option<Announcement>,
     pub(crate) consumed_start: bool,
     /// A user message: [`super::HookSession::sending`] counts it.
     pub(crate) user_message: bool,
@@ -232,7 +240,13 @@ pub(crate) struct UserMark {
 impl SendPlan {
     /// True when nothing is added to the message.
     pub fn is_empty(&self) -> bool {
-        self.firings.iter().all(Firing::is_empty)
+        self.memory_notice.is_none() && self.firings.iter().all(Firing::is_empty)
+    }
+
+    /// The parts to compose in front of the message: the memory settings notice, then `resolved`
+    /// (what the firings produced).
+    pub fn context_parts(&self, resolved: Vec<ResolvedPart>) -> Vec<ResolvedPart> {
+        self.memory_notice.iter().cloned().chain(resolved).collect()
     }
 }
 

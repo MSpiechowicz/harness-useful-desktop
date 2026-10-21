@@ -133,10 +133,10 @@ describe('resolveScope', () => {
 
 describe('memoryScope', () => {
   it('names a note or script by its project on this computer, else by owner/repo or folder', () => {
-    expect(memoryScope({ scope: 'global', repo: null }, PROJECTS, 'This repository')).toEqual({ kind: 'global' });
-    expect(memoryScope({ scope: 'repo', repo: 'github.com/acme/widget' }, PROJECTS, 'This repository')).toEqual({ kind: 'repo', label: 'widget' });
-    expect(memoryScope({ scope: 'repo', repo: 'github.com/acme/site' }, PROJECTS, 'This repository')).toEqual({ kind: 'repo', label: 'acme/site' });
-    expect(memoryScope({ scope: 'repo', repo: 'path:/work/old-app' }, PROJECTS, 'This repository')).toEqual({ kind: 'repo', label: 'old-app' });
-    expect(memoryScope({ scope: 'repo', repo: null }, PROJECTS, 'This repository')).toEqual({ kind: 'repo', label: 'This repository' });
+    expect(memoryScope({ scope: 'global', repo: null }, PROJECTS, 'This project')).toEqual({ kind: 'global' });
+    expect(memoryScope({ scope: 'repo', repo: 'github.com/acme/widget' }, PROJECTS, 'This project')).toEqual({ kind: 'repo', label: 'widget' });
+    expect(memoryScope({ scope: 'repo', repo: 'github.com/acme/site' }, PROJECTS, 'This project')).toEqual({ kind: 'repo', label: 'acme/site' });
+    expect(memoryScope({ scope: 'repo', repo: 'path:/work/old-app' }, PROJECTS, 'This project')).toEqual({ kind: 'repo', label: 'old-app' });
+    expect(memoryScope({ scope: 'repo', repo: null }, PROJECTS, 'This project')).toEqual({ kind: 'repo', label: 'This project' });
   });
 });

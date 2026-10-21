@@ -10,6 +10,7 @@
   import { targetValue } from '$lib/components/scope/scope-options';
   import { t } from '$lib/i18n/i18n.svelte';
   import type { NoteContent } from '$lib/ipc/bindings/NoteContent';
+  import type { NoteDraft } from '$lib/ipc/bindings/NoteDraft';
   import type { NoteLink } from '$lib/ipc/bindings/NoteLink';
   import type { NoteSaved } from '$lib/ipc/bindings/NoteSaved';
   import { saveNote } from '$lib/stores/memoryNotes.svelte';
@@ -49,12 +50,19 @@
     /** The links of the note edited, as its panel read them; shown, never changed. */
     links: NoteLink[];
     /** The note was written; the editor is closing. */
-    onsaved: (saved: NoteSaved, title: string) => void;
+    onsaved?: (saved: NoteSaved, title: string) => void;
     /** The user chose to open the note that has the title instead of saving. The editor is closing. */
-    onopen: (id: number) => void;
+    onopen?: (id: number) => void;
+    /** What a new note starts with instead of a blank form (the note an agent wants to save, to change before it is). */
+    prefill?: NoteForm | null;
+    /**
+     * Takes the draft instead of writing the note: the caller saves it. Resolves with why it could not, or null when it did, and the
+     * editor closes. The editor then neither writes the note nor looks for one of the same title.
+     */
+    commit?: (draft: NoteDraft) => Promise<string | null>;
   }
 
-  let { open = $bindable(false), note, links, onsaved, onopen }: Props = $props();
+  let { open = $bindable(false), note, links, onsaved, onopen, prefill = null, commit }: Props = $props();
 
   const FIELDS: readonly FieldKey[] = ['title', 'body', 'tags', 'entities', 'scope'];
 
@@ -78,11 +86,20 @@
 
   const fields = fieldProblems(() => problemsOf(form, { editing }), () => open);
 
+  /** What the editor opens on: the note edited, else what an agent wants to save, else a blank note in the scope the view looks at. */
+  function startingForm(): NoteForm {
+    if (note) {
+      return formOf(note, projects);
+    }
+
+    return prefill ? $state.snapshot(prefill) : blankForm(defaultTarget(viewState.memoryReach, projects, projectPath));
+  }
+
   // The editor opens on what it was given, fresh each time.
   onOpen(
     () => open,
     () => {
-      form = note ? untrack(() => formOf(note, projects)) : blankForm(untrack(() => defaultTarget(viewState.memoryReach, projects, projectPath)));
+      form = untrack(startingForm);
       taken = null;
       failure = null;
     },
@@ -136,6 +153,17 @@
 
     try {
       const draft = draftOf(form);
+
+      if (commit) {
+        failure = await commit(draft);
+
+        if (failure === null) {
+          open = false;
+        }
+
+        return;
+      }
+
       const target = targetValue(form.target);
       const saved = await saveNote(note ? editProject(note, projects, projectPath) : projectOfTarget(form.target), draft, replaceId ?? note?.id);
 
@@ -155,7 +183,7 @@
       }
 
       open = false;
-      onsaved(saved, draft.title);
+      onsaved?.(saved, draft.title);
     } finally {
       saving = false;
     }
@@ -163,7 +191,7 @@
 
   function openTaken(id: number): void {
     open = false;
-    onopen(id);
+    onopen?.(id);
   }
 </script>
 
@@ -171,10 +199,10 @@
 <!-- The focus starts on the title. -->
 <EditorDialog
   bind:open
-  title={t(editing ? 'memory.editor.note.title.edit' : 'memory.editor.note.title.new')}
-  description={t(editing ? 'memory.editor.note.description.edit' : 'memory.editor.note.description.new')}
+  title={commit ? t('memory.guards.edit.note.title') : t(editing ? 'memory.editor.note.title.edit' : 'memory.editor.note.title.new')}
+  description={commit ? t('memory.guards.edit.description') : t(editing ? 'memory.editor.note.description.edit' : 'memory.editor.note.description.new')}
   initialFocus={`#${ids.title}`}
-  saveLabel={t(editing ? 'memory.editor.note.save' : 'memory.editor.note.add')}
+  saveLabel={commit ? t('memory.guards.waiting.save') : t(editing ? 'memory.editor.note.save' : 'memory.editor.note.add')}
   {saving}
   blocked={fields.blocked}
   {failure}

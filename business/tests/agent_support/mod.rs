@@ -203,6 +203,7 @@ pub fn request(harness: HarnessId, project: &Path) -> AgentStartRequest {
         approval_override: None,
         trust_once: false,
         utility: false,
+        memory_chat: None,
     }
 }
 
@@ -222,11 +223,23 @@ pub async fn start_with(
     options: SessionOptions,
     customize: impl FnOnce(&mut AgentStartRequest),
 ) -> harness_business::Result<Run> {
+    start_in(harness, dialect, scenario_name, options, |env| env, customize).await
+}
+
+/// [`start_with`] in the test environment as `environment` changes it.
+pub async fn start_in(
+    harness: HarnessId,
+    dialect: &'static str,
+    scenario_name: &str,
+    options: SessionOptions,
+    environment: impl FnOnce(Env) -> Env,
+    customize: impl FnOnce(&mut AgentStartRequest),
+) -> harness_business::Result<Run> {
     let registry = HarnessRegistry::with_defaults();
     let adapter: &dyn Harness = registry.get(harness).expect("registered harness");
     let project = project();
     let home = tempfile::tempdir().expect("temp home");
-    let env = Env::for_tests(home.path());
+    let env = environment(Env::for_tests(home.path()));
 
     let manager = AgentManager::with_options(options);
     let sink = CollectingSink::new();

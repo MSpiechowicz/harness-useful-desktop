@@ -50,22 +50,22 @@ describe('the Scope filter', () => {
   it('starts the search afresh each time it opens', async () => {
     const { menu } = await openMenu();
 
-    await fireEvent.input(within(menu).getByRole('searchbox', { name: 'Search repositories' }), { target: { value: 'zeta' } });
+    await fireEvent.input(within(menu).getByRole('searchbox', { name: 'Search projects' }), { target: { value: 'zeta' } });
     expect(labels(menu)).toEqual(['zeta/last Remote only 2']);
 
-    await fireEvent.keyDown(within(menu).getByRole('searchbox', { name: 'Search repositories' }), { key: 'Escape' });
+    await fireEvent.keyDown(within(menu).getByRole('searchbox', { name: 'Search projects' }), { key: 'Escape' });
     await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
 
     await fireEvent.click(screen.getByRole('button', { name: /^Scope:/ }));
     const again = await screen.findByRole('menu', { name: 'Scope' });
 
-    expect(within(again).getByRole('searchbox', { name: 'Search repositories' })).toHaveValue('');
+    expect(within(again).getByRole('searchbox', { name: 'Search projects' })).toHaveValue('');
     expect(labels(again)).toHaveLength(5);
   });
 
   it('keeps the entries whose name or hint has what is typed and says when none does', async () => {
     const { menu } = await openMenu();
-    const search = within(menu).getByRole('searchbox', { name: 'Search repositories' });
+    const search = within(menu).getByRole('searchbox', { name: 'Search projects' });
 
     await fireEvent.input(search, { target: { value: 'REMOTE' } });
     expect(labels(menu)).toEqual(['zeta/last Remote only 2']);
@@ -75,7 +75,7 @@ describe('the Scope filter', () => {
 
     await fireEvent.input(search, { target: { value: 'nothing' } });
     expect(within(menu).queryAllByRole('menuitemradio')).toHaveLength(0);
-    expect(within(menu).getByText('No repository matches')).toBeInTheDocument();
+    expect(within(menu).getByText('No project matches')).toBeInTheDocument();
   });
 
   it('hands over the choice and goes back to All with the clear button', async () => {

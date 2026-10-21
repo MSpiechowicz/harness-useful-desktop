@@ -12,14 +12,16 @@
     /** Every text `description` can switch to; the row keeps room for the longest, so switching never shifts the layout. */
     descriptions?: string[];
     control: Snippet;
+    /** A note under the control (a hint about its value). It adds height under the row and never moves the control off the middle of the title and description. */
+    below?: Snippet;
     /** An icon or badge before the title. */
     leading?: Snippet;
   }
 
-  let { title, description, points, descriptions, control, leading }: Props = $props();
+  let { title, description, points, descriptions, control, below, leading }: Props = $props();
 </script>
 
-<div class="flex items-center justify-between gap-6 py-4">
+<div class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-6 py-4">
   <div class="flex min-w-0 items-center gap-3">
     {@render leading?.()}
 
@@ -56,8 +58,14 @@
     </div>
   </div>
 
-  <!-- The control sits in the vertical middle of the row, whatever the height of the text beside it. -->
-  <div class="shrink-0">
+  <!-- The control (a switch, a button, a segmented control) is centred on the title and description beside it, whatever the height of the text. A flex box, so no line box adds space around an inline control. -->
+  <div class="flex items-center justify-self-end">
     {@render control()}
   </div>
+
+  {#if below}
+    <div class="col-start-2">
+      {@render below()}
+    </div>
+  {/if}
 </div>

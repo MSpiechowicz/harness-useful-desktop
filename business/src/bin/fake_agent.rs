@@ -59,6 +59,8 @@ mod memory_notes;
 mod memory_push;
 #[path = "fake_agent/memory_scripts_hidden.rs"]
 mod memory_scripts_hidden;
+#[path = "fake_agent/memory_user.rs"]
+mod memory_user;
 #[path = "fake_agent/opencode.rs"]
 mod opencode;
 #[path = "fake_agent/opencode2.rs"]
@@ -87,9 +89,16 @@ fn main() {
     if is_memory_named() {
         match args.get(1).map(String::as_str) {
             Some("trust") => memory::trust(&args[2..]),
-            Some("notes") => memory_cli::notes(&args[2..]),
+            Some("notes") => {
+                memory_user::notes(&args[2..]);
+                memory_cli::notes(&args[2..])
+            }
+            Some("held") => memory_user::held(&args[2..]),
             Some("scripts") if args.get(2).is_some_and(|arg| arg == "push") => memory_push::push_scripts(&args[3..]),
-            Some("scripts") => memory_cli::scripts(&args[2..]),
+            Some("scripts") => {
+                memory_user::scripts(&args[2..]);
+                memory_cli::scripts(&args[2..])
+            }
             Some("features") => memory_push::features(),
             Some("push") => memory_push::push(&args[2..]),
             Some(plural @ ("hooks" | "routines")) => memory_hooks::docs(plural, &args[2..]),

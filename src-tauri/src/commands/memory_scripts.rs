@@ -194,10 +194,19 @@ async fn save(
     base: Option<&str>,
 ) -> CommandResult<ScriptSaved> {
     let project = project_root(state, project).await?;
+    let route = state.save_route().await;
 
     Ok(state
         .memory_scripts
-        .save(&state.env, &state.runner, project.as_deref(), draft, replace, base)
+        .save(
+            &state.env,
+            &state.runner,
+            route,
+            project.as_deref(),
+            draft,
+            replace,
+            base,
+        )
         .await?)
 }
 

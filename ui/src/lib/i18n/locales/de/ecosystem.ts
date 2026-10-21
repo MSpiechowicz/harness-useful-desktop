@@ -223,7 +223,7 @@ export const ecosystem: AreaMessages<typeof enEcosystem> = {
 
   'ecosystem.product.memory.tagline': 'Ein Projektgedächtnis für jeden Coding-Agenten, auf diesem Rechner gespeichert.',
   'ecosystem.product.memory.description':
-    'Ein lokaler MCP-Server, der pro Repository Notizen und ihre Zusammenhänge festhält, damit der nächste Agent findet, was der vorige gelernt hat. Die App trägt ihn in jedes erkannte Harness ein, solange das Projektgedächtnis aktiv ist, und fügt passende Notizen zur ersten Nachricht eines neuen Chats hinzu.',
+    'Ein lokaler MCP-Server, der pro Projekt Notizen und ihre Zusammenhänge festhält, damit der nächste Agent findet, was der vorige gelernt hat. Die App trägt ihn in jedes erkannte Harness ein, solange das Projektgedächtnis aktiv ist, und fügt passende Notizen zur ersten Nachricht eines neuen Chats hinzu.',
   'ecosystem.product.memory.note.0': 'Läuft lokal als `harness-memory mcp`; es wird nichts über das Netzwerk gesendet.',
   'ecosystem.product.memory.note.1': 'Schalte es für alle Harnesses in den Einstellungen unter Projektgedächtnis ein oder aus.',
   'ecosystem.product.memory.step.0.title': 'Das Programm installieren',

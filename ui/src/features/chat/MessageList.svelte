@@ -17,9 +17,11 @@
   import { rise } from '$lib/design/motion';
   import { harness } from '$lib/stores/harness.svelte';
   import { MODELS_POLL_MS } from '$lib/stores/live';
+  import { memoryChat } from '$lib/stores/memoryChat.svelte';
   import { prefs } from '$lib/stores/prefs.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
 
+  import { hasMemoryRow } from './memory-rows';
   import MessageRow from './MessageRow.svelte';
   import WorkingIndicator from './WorkingIndicator.svelte';
 
@@ -37,6 +39,22 @@
   let list: VirtualList<TranscriptItem> | undefined = $state();
   let atBottom = $state(true);
   let loadingEarlier = $state(false);
+
+  // What the chat's agent holds for the user's review, and what was done with it, sits after the last turn. It is not part of the conversation.
+  const memoryItem: TranscriptItem = { kind: 'memory', key: 'memory', order: Number.MAX_SAFE_INTEGER };
+  const rows = $derived(hasMemoryRow(session.key, session.chat.items.length > 0) ? [...session.chat.items, memoryItem] : session.chat.items);
+
+  // "Review" in the Memory popover brings the waiting saves into view.
+  let reviews = untrack(() => memoryChat.reviewRequests(session.key));
+
+  $effect(() => {
+    const requested = memoryChat.reviewRequests(session.key);
+
+    if (requested !== reviews) {
+      reviews = requested;
+      list?.scrollToIndex(untrack(() => rows.length) - 1);
+    }
+  });
 
   const noModels = $derived(session.chat.items.length === 0 && session.noModels && !session.ended);
 
@@ -116,7 +134,7 @@
   <VirtualList
     bind:this={list}
     bind:atBottom
-    items={session.chat.items}
+    items={rows}
     variable
     stick
     estimate={ESTIMATED_ROW_PX}
@@ -125,7 +143,7 @@
     class="size-full [scrollbar-gutter:stable_both-edges]"
   >
     {#snippet row(item, index)}
-      <div class={cx('chat-col py-2', index === 0 && 'pt-4', index === session.chat.items.length - 1 && 'pb-4')} in:rise|global={{ y: 8, duration: entrance(item) }}>
+      <div class={cx('chat-col py-2', index === 0 && 'pt-4', index === rows.length - 1 && 'pb-4')} in:rise|global={{ y: 8, duration: entrance(item) }}>
         {#if index === 0 && session.hasEarlier}
           <div class="mb-3 flex justify-center">
             <Button variant="ghost" loading={loadingEarlier} onclick={loadEarlier}>
@@ -150,7 +168,7 @@
     <div class="absolute inset-0 grid place-items-center">
       <EmptyState icon={KeyRound} title={t('chat.noModels.title', { harness: harness.get(session.info.harness)?.info.name ?? '' })} body={t('chat.noModels.body', { harness: harness.get(session.info.harness)?.info.name ?? '' })} />
     </div>
-  {:else if session.chat.items.length === 0}
+  {:else if rows.length === 0}
     <p class="pointer-events-none absolute inset-0 grid place-items-center px-8 text-center text-base text-fg-3">
       {session.ended ? t('chat.list.ended') : t('chat.list.empty')}
     </p>

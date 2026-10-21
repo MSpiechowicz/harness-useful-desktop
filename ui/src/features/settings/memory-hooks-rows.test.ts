@@ -43,6 +43,7 @@ function fakeBackend(initial: Partial<MemoryRemote> = {}) {
     documentdbSupported: true,
     teamAndLocalSupported: true,
     scriptsTeamAndLocalSupported: true,
+    saveGuardsSupported: false,
     ...initial,
   };
   const passthrough = ipc.invoke.bind(ipc);
@@ -95,7 +96,7 @@ describe('The panel of the remote database settings', () => {
     const places = (item: string) => within(screen.getByRole('radiogroup', { name: item })).getAllByRole('radio').map((radio) => radio.textContent?.trim());
 
     // Every row of Kept in offers the same three places, in the same order.
-    for (const item of ['Repository notes', 'Global notes', 'Scripts', 'Hooks', 'Routines']) {
+    for (const item of ['Project notes', 'Global notes', 'Scripts', 'Hooks', 'Routines']) {
       expect(places(item)).toEqual(['Remote', 'This computer', 'Remote + this computer']);
     }
   });

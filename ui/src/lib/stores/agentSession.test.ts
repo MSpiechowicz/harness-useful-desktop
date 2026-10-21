@@ -9,19 +9,22 @@ import { PROJECT, sampleInfo, storeWithMock } from '../../../tests/chat-helpers'
 import { AgentSessionsStore } from './agentSession.svelte';
 import { ToastsStore } from './toasts.svelte';
 
-const REQUEST: AgentStartRequest = { harness: 'omp', project: PROJECT, resume: null, approvalOverride: null, trustOnce: false, utility: false };
+const REQUEST: AgentStartRequest = { harness: 'omp', project: PROJECT, resume: null, approvalOverride: null, trustOnce: false, utility: false, memoryChat: null };
 
 function messageTexts(chat: { items: { kind: string; blocks?: { type: string; text?: string }[] }[] }): string[] {
   return chat.items.flatMap((item) => (item.kind === 'message' ? (item.blocks ?? []).flatMap((block) => (block.type === 'text' ? [block.text ?? ''] : [])) : []));
 }
 
 describe('starting sessions', () => {
-  /** A transport whose agent_start waits until the test lets it finish. */
+  /** A transport whose agent_start waits until the test lets it finish. Finishing waits until the agent was asked to start (the chat's memory identity is settled first). */
   function slowStart(info = sampleInfo()) {
     let finish: (ok: boolean) => void = () => {};
+    let asked = false;
     const transport: Transport = {
       invoke: (name) => {
         if (name === 'agent_start') {
+          asked = true;
+
           return new Promise((resolve, reject) => {
             finish = (ok) => (ok ? resolve(info as never) : reject(new IpcFailure({ code: 'process', message: 'omp exited' })));
           });
@@ -31,7 +34,14 @@ describe('starting sessions', () => {
       },
     };
 
-    return { store: new AgentSessionsStore(transport, new ToastsStore()), finish: (ok: boolean) => finish(ok), info };
+    return {
+      store: new AgentSessionsStore(transport, new ToastsStore()),
+      finish: async (ok: boolean) => {
+        await vi.waitUntil(() => asked);
+        finish(ok);
+      },
+      info,
+    };
   }
 
   it('shows a new chat as a starting tab at once and swaps in the session when the agent is ready', async () => {
@@ -41,7 +51,7 @@ describe('starting sessions', () => {
     expect(store.starting).toHaveLength(1);
     expect(store.activeStarting?.key).toBe(store.starting[0].key);
 
-    finish(true);
+    await finish(true);
     await created;
 
     expect(store.starting).toHaveLength(0);
@@ -56,7 +66,7 @@ describe('starting sessions', () => {
 
     const created = store.create('omp', PROJECT);
     store.select(existing!.key);
-    finish(true);
+    await finish(true);
     await created;
 
     expect(store.activeKey).toBe(existing!.key);
@@ -94,7 +104,7 @@ describe('starting sessions', () => {
     const { store, finish } = slowStart();
 
     const created = store.create('omp', PROJECT);
-    finish(false);
+    await finish(false);
 
     expect(await created).toBeNull();
     expect(store.starting).toHaveLength(0);
@@ -132,6 +142,16 @@ describe('starting sessions', () => {
     expect(await store.start(REQUEST)).toBeNull();
     expect(store.sessions).toHaveLength(0);
     expect(notifications.items[0]).toMatchObject({ title: 'Could not start the agent', description: 'omp is not installed', tone: 'danger' });
+  });
+
+  it('keeps a long start failure on screen until dismissed, so its fix can be carried out', async () => {
+    const notifications = new ToastsStore();
+    const message = 'other users can write to the Harness Memory folder /home/me/.local/share/harness-memory. Run chmod 700 /home/me/.local/share/harness-memory and try again';
+    const transport: Transport = { invoke: () => Promise.reject(new IpcFailure({ code: 'process', message })) };
+    const store = new AgentSessionsStore(transport, notifications);
+
+    expect(await store.start(REQUEST)).toBeNull();
+    expect(notifications.items[0]).toMatchObject({ description: message, duration: 0 });
   });
 
   it('opens a tab per session, activates the newest and loads the slash catalog once per harness', async () => {

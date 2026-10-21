@@ -12,6 +12,7 @@
   import { viewState } from '$lib/stores/view-state.svelte';
 
   import ManualRemovalNote from './ManualRemovalNote.svelte';
+  import MemoryGuardsSections from './MemoryGuardsSections.svelte';
   import RemoteMemoryPanel from './RemoteMemoryPanel.svelte';
   import { readsRemote } from './routing-change';
   import SettingRow from './SettingRow.svelte';
@@ -133,4 +134,8 @@
       <RemoteMemoryPanel {remote} />
     </div>
   {/if}
+
+  {#snippet after()}
+    <MemoryGuardsSections />
+  {/snippet}
 </SettingsSection>

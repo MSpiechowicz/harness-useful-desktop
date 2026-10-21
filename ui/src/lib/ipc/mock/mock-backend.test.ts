@@ -10,6 +10,7 @@ import { fixtures } from './fixtures';
 import { sampleScripts } from './memory-scripts-fixtures';
 import type { ScriptLanguage } from '../bindings/ScriptLanguage';
 import { MEMORY_NOTE_ARGS } from './mock-backend-note-args';
+import { memoryGuardArgs } from './mock-backend-guard-args';
 
 /** One valid call per command; typed so adding a command to the map forces an entry here. */
 const sampleArgs = (sessionKey: string): { [K in CommandName]: CommandArgs<K> } => ({
@@ -34,6 +35,7 @@ const sampleArgs = (sessionKey: string): { [K in CommandName]: CommandArgs<K> } 
   },
   memory_scripts_delete_all: { project: '/home/demo/project' },
   ...MEMORY_NOTE_ARGS,
+  ...memoryGuardArgs(sessionKey),
   memory_scripts_trust: { items: [{ id: 21, sha256: sampleScripts().find((script) => script.id === 21)?.sha256 ?? '' }], project: '/home/demo/project' },
   memory_script_requests_listen: { onRequest: () => {} },
   memory_script_decide: { requestId: 'a'.repeat(32), allow: false },
@@ -133,7 +135,7 @@ const sampleArgs = (sessionKey: string): { [K in CommandName]: CommandArgs<K> } 
 });
 
 const SESSION = { harness: 'omp', id: fixtures.sessions.list.omp[0].ref.id } as const;
-const START_REQUEST = { harness: 'omp', project: fixtures.recentProjects[0].path, resume: null, approvalOverride: null, trustOnce: false, utility: false } as const;
+const START_REQUEST = { harness: 'omp', project: fixtures.recentProjects[0].path, resume: null, approvalOverride: null, trustOnce: false, utility: false, memoryChat: null } as const;
 
 const transport = () => createMockTransport(defaultScenario(), 0);
 

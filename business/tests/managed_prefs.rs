@@ -55,6 +55,8 @@ fn with_ui_changes(base: AppPrefs) -> AppPrefs {
         onboarding_completed: true,
         approval_notice_seen: true,
         keep_running_in_tray: true,
+        memory_notes_ask_default: true,
+        memory_scripts_ask_default: true,
         ..base
     }
 }

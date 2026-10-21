@@ -25,6 +25,9 @@ pub enum IpcErrorCode {
     /// The thing changed since the user last saw it (a script edited after it was reviewed): the
     /// UI reloads it and asks again.
     Conflict,
+    /// What the user reviewed changed meanwhile (an agent saved a held note or script again): the
+    /// UI shows the new version for another review.
+    Changed,
     /// A bug or an unexpected internal state.
     Internal,
 }

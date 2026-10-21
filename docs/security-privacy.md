@@ -45,6 +45,9 @@ not guaranteed, it says so under [Limits](#limits).
 - Project memory stores what your agents choose to write, on this machine only, unencrypted and outside any repository.
   Text is passed through `redact_text` first, which is a heuristic. It is never exported by Share setup and never sent
   anywhere by the app. See [Project memory](#project-memory).
+- You decide what agents may save to project memory: per chat, per repository or everywhere, with an optional review
+  before each save. Reading is never affected. The guards stop agents that use the memory tools and are not a sandbox
+  against an agent with a shell. See [Save guards](#save-guards).
 - Hooks add text to your prompts and can run shell commands, so a hook runs only when you wrote it or approved that exact
   version of its file. An agent can write hooks through `harness-desktop mcp`, but each one waits for your approval, and an
   agent removes only hooks it created. What a hook adds to a prompt reaches your model provider with the prompt. See
@@ -941,6 +944,52 @@ config file, `config.toml` in `<config>/harness-memory`, where `<config>` is `$X
   command line; the app's own values of those variables and of `HARNESS_MEMORY_CONFIG` are not passed on. Its first line
   is shown after the typed and saved secrets are masked and `redact_text` ran over it.
 
+### Save guards
+
+You decide what agents may save to Harness Memory: per chat, per repository and everywhere, with an optional "Ask before
+saving". The Memory button in the chat top bar opens a popover with a Notes and a Scripts card (this chat, this
+repository, Ask before saving) and a Pause for the chat. Settings > Memory has a Notes and a Scripts card: pause saving in
+every chat, the Ask default new chats start with, and the repositories where agents save nothing. Plan and file contract:
+[plans/memory-save-guards.md](plans/memory-save-guards.md). Code: `business/src/ecosystem/memory_guards.rs`,
+`memory_held.rs`, `memory_user_save.rs`, `src-tauri/src/memory_held.rs`.
+
+- **Reading is never affected.** The guards cover only what an agent writes: `note_save`, `note_update`, `note_delete`,
+  `entity_link`, `entity_delete`, `script_save` and `script_delete`. Search, recall and running a script work as before,
+  and saved notes and scripts stay when a guard is turned on.
+- **Off, paused and Ask.** Off or paused refuses every write of that kind. Ask before saving holds only a new or changed
+  note or script until you press Save, Edit or Skip in the transcript, and lets deletes and links through. A held save is
+  not in the store, search, lists or trust. A script you save from a held item is saved untrusted and still needs your
+  trust before it runs. A repository you turned off applies to everything a chat in that repository writes,
+  global notes and scripts included. The agent is told that nothing was saved and not to retry.
+- **The session variable.** The app starts every chat's harness with `HARNESS_MEMORY_SESSION=<chatKey>`, a random
+  lowercase UUID per chat, which the `harness-memory mcp` child inherits. It names the chat to the server and is no
+  secret. A utility agent and any launch without a chat identity get no value (an inherited one is removed). A value that
+  is not a UUID makes every guarded call refuse.
+- **Local files, never in the team database.** In the same folder as `desktop.alive` (`<data>/harness-memory`,
+  `HARNESS_MEMORY_DIR` overrides it): `guards/global.json` and `guards/chats/<chatKey>.json`, written by the app (version
+  1: the pause flags, the chat's on and ask switches, and the git roots of the repositories turned off), and
+  `held/<chatKey>/<heldId>.json`, written by the server (the tool's arguments as the agent sent them, the note or script as saved
+  now, the chat key, the repository and a timestamp). Folders `0700`, files `0600` on Unix, written in one rename, a
+  symbolic link or a foreign owner refused. At most 50 held items per chat and 512 KiB each, swept after 30 days. A chat's
+  guards file stays after the chat ends. None of it goes to the team database, Share setup or the log, and the app logs
+  no held text.
+- **Fail closed.** A missing guards file means no guards. An unreadable one or one of another version refuses the save. Ask needs the app to be running (`desktop.alive` younger than 15 s) and refuses
+  with "no desktop" otherwise.
+- **Your own saves bypass the guards.** The Notes and Scripts views and the waiting card save through
+  `harness-memory notes save|update`, `scripts save` and `held save|skip`, commands of the server's command line that are
+  not MCP tools, so an agent using MCP cannot reach them. They run with client name `harness-desktop`, a draft on stdin,
+  no shell.
+- **The memory-save hook.** The Harness family hook "Save what you learned" is skipped while the chat is paused or notes
+  and scripts are both off for the chat, its repository or everywhere, so the agent is not asked to save what it may not.
+  **Check again** in the popover sends the hook's text at once, and is disabled in those states.
+- **Not a sandbox.** The guards stop an agent that uses the Harness Memory MCP tools. An agent with a shell can still
+  edit the guards or the database under your home folder or run `harness-memory` itself, the same limit as script trust.
+  The folder's privacy is the boundary (see [Script approval](#script-approval)).
+- **Where it works.** The variable reaches the memory server in OMP, PI and OpenCode 1.19.3, tested on Linux. Not tested:
+  OpenCode 2.x, macOS and Windows. A harness that does not pass it on is marked `memoryChatGuards: false`: per-chat rules
+  then only skip the hook, repository and global guards still apply, and Ask before saving is off for it. A server
+  without `save-guards` in `harness-memory features` has no guards, and the Memory button and the Settings cards are hidden.
+
 ### Script approval
 
 Agents run scripts inside Harness Memory, with the user's environment. An agent can never approve one: the server runs
@@ -1184,6 +1233,7 @@ Details of keys and releases: [release-and-updater-keys.md](release-and-updater-
 | `mcp.json` of a harness, OpenCode's global config | `<agent dir>/mcp.json` (for example `~/.omp/agent/mcp.json`), the harness's own file, and for OpenCode `opencode.jsonc` or `opencode.json` in `~/.config/opencode` (`$XDG_CONFIG_HOME/opencode`) | Written by the app in four cases (a shared setup never reaches OpenCode, and an OpenCode file with comments is never written): the `harness-memory` entry, added automatically at launch while project memory is on and the server is installed, and removed when you switch it off; the `harness-desktop` entry (the app's own hooks server), added automatically at launch in release builds and by Recommended setup; Recommended setup (one `harness-dashboard` server, after you choose it); and importing a shared setup (the MCP servers you ticked, after you confirm). Entries are merged in (see [Process spawning](#process-spawning)); the only existing entries ever changed are the app's own `harness-memory` and `harness-desktop` ones. Not app data; nothing else in it is touched. |
 | Project memory database | `memory.sqlite3` (plus `-wal` and `-shm` while in use) in `<data>/harness-memory` (`HARNESS_MEMORY_DIR` overrides it), where `<data>` is `$XDG_DATA_HOME` or `~/.local/share` (Linux), `~/Library/Application Support` (macOS) or `%LOCALAPPDATA%` (Windows) | Written by the `harness-memory` server, never by the app, which does not open it. Notes the agents wrote (title, body, kind, tags, entity names, relation labels, timestamps, and per note the client name and the checkout path of its latest write), and per repository its normalized remote and its path. On its first run the server copies the file older app builds kept in `<local data>/com.mspiechowicz.harness-useful-desktop/memory` (same `<data>` folders); the old file is left untouched. See [Project memory](#project-memory). On Unix a folder the server creates is `0700` and the file `0600`. Unencrypted. |
 | Script approval files | `desktop.alive` and `requests/<id>.json`, `requests/<id>.decision` in the same folder as the project memory database | `desktop.alive` (empty) is touched by the app every 5 s while it runs and removed at exit. Run requests (the script's summary and body, its previous approved version, the arguments, the agent's client name) are written by the server and read by the app; the app writes only the one-word answer. The server removes a request and its answer within 45 s. See [Script approval](#script-approval). `0600` files in a `0700` folder on Unix. |
+| Save guard files | `guards/global.json`, `guards/chats/<chatKey>.json` and `held/<chatKey>/<heldId>.json` in the same folder as the project memory database | Which saves agents may make (pause flags, per-chat switches, the git roots of repositories turned off) and the saves held for your review (the arguments the agent sent). The app writes the guards, the server writes the held items and the app settles them through the server's commands. Local only, never in the team database. `0600` files in `0700` folders on Unix. See [Save guards](#save-guards). |
 | `harness-memory` server | `~/.local/bin/harness-memory` (Linux, macOS), `%LOCALAPPDATA%\Programs\harness-memory\harness-memory.exe` (Windows) | The server executable, written by its installer (`install.sh` / `install.ps1`) after you confirm, not by the app. Builds up to 0.16 also kept a copy at `<local data>/com.mspiechowicz.harness-useful-desktop/bin/harness-memory[.exe]` on macOS and Windows; the app deletes it at launch once the installed server is in place and nothing runs it. |
 | Harness Memory `config.toml` | `<config>/harness-memory/config.toml` (see [Team database](#team-database)) | Only when you set a team database: its URL, the libSQL token and the note routing, in plain text. Written atomically by the app (`0600` file, `0700` folder on Unix) and read by `harness-memory`; deleted when you turn the team database off. |
 | `memory-registration.json` | The OS app-config directory, beside `prefs.json` | `{"version": 1, "registered": [{"harness", "file"}]}`: the home-relative `mcp.json` paths the server was registered in, so a removed entry is not added back. No file contents. Read with a 64 KiB cap, written atomically; an unusable file is renamed to `memory-registration.json.corrupt-<unix-seconds>`. |
@@ -1232,6 +1282,8 @@ command is not granted). Process errors name only the program's file name (`Exec
 - **Agents are not sandboxed.** A harness runs with your privileges, your environment (so it sees your provider
   configuration) and your files. The app's deny-list, redaction and approvals do not restrict it. Approval behaviour is
   the harness's.
+- **Save guards are not a sandbox.** They stop agents that use the Harness Memory MCP tools, not an agent with a shell
+  (see [Save guards](#save-guards)).
 - **Chat content is not redacted** (see above).
 - **Git filters.** A repository's `.git/config` can name clean/smudge `filter` drivers; git may run them while `status`
   or `diff` re-reads a changed file, as in a terminal (`business/src/git/mod.rs`). Open only repositories you trust.

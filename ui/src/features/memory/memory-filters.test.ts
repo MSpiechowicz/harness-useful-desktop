@@ -48,14 +48,14 @@ describe('the Scope filter', () => {
 
     await fireEvent.click(screen.getByRole('button', { name: 'Scope: All' }));
     const menu = await screen.findByRole('menu', { name: 'Scope' });
-    await fireEvent.input(within(menu).getByRole('searchbox', { name: 'Search repositories' }), { target: { value: 'WIDG' } });
+    await fireEvent.input(within(menu).getByRole('searchbox', { name: 'Search projects' }), { target: { value: 'WIDG' } });
 
     expect(within(menu).getAllByRole('menuitemradio').map((item) => item.textContent?.trim())).toEqual(['acme/widget Remote only 5']);
 
-    await fireEvent.input(within(menu).getByRole('searchbox', { name: 'Search repositories' }), { target: { value: 'nothing' } });
+    await fireEvent.input(within(menu).getByRole('searchbox', { name: 'Search projects' }), { target: { value: 'nothing' } });
 
     expect(within(menu).queryAllByRole('menuitemradio')).toHaveLength(0);
-    expect(within(menu).getByText('No repository matches')).toBeInTheDocument();
+    expect(within(menu).getByText('No project matches')).toBeInTheDocument();
   });
 
   it('asks for one repository by its key with its own notes only, every repository with none, and the global ones with no repository', async () => {
@@ -352,9 +352,9 @@ describe('an older Harness Memory', () => {
     expect(await screen.findByRole('button', { name: 'Show: All' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^Status: / })).toBeNull();
     expect(await screen.findByText(HINT)).toBeInTheDocument();
-    expect(await filterChoices('Show: All', 'Show')).toEqual(['All 5', 'Needs review 2', 'This repository 3', 'Global 0']);
+    expect(await filterChoices('Show: All', 'Show')).toEqual(['All 5', 'Needs review 2', 'This project 3', 'Global 0']);
 
-    await pickFilter('Show: All', /^This repository/);
+    await pickFilter('Show: All', /^This project/);
 
     await waitFor(() => expect(calls(invoke, 'memory_scripts_list').at(-1)).toMatchObject({ group: 'repo', offset: 0 }));
     expect(sent(calls(invoke, 'memory_scripts_list').at(-1), 'scope')).toBeUndefined();
@@ -374,7 +374,7 @@ describe('an older Harness Memory', () => {
     fakeMemory({ kind: 'available' }, [repoNeedsReview, globalTrusted], undefined, undefined, false);
     await showMemory();
 
-    expect(await filterChoices('Show: All', 'Show')).toEqual(['All 2', 'Needs review 1', 'This repository 0', 'Global 1']);
+    expect(await filterChoices('Show: All', 'Show')).toEqual(['All 2', 'Needs review 1', 'This project 0', 'Global 1']);
   });
 
   it('shows no hint and no update button when no newer Harness Memory release is known', async () => {

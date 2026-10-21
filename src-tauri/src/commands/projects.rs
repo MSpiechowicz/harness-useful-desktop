@@ -1,8 +1,10 @@
 //! Project commands. New directories arrive only through the native folder picker; the webview can
-//! re-open or forget only projects the app already knows.
+//! re-open or forget only projects the app already knows. `dialog_pick_folder` only hands a picked
+//! folder's path back.
 
 use std::path::PathBuf;
 
+use harness_business::BusinessError;
 use harness_business::model::{ProjectInfo, ProjectScope};
 use harness_business::project::{Projects, with_keys};
 use tauri::{AppHandle, State};
@@ -36,6 +38,25 @@ pub async fn project_pick(app: AppHandle, state: State<'_, AppState>) -> Command
     state.project_keys.forget(&opened.path);
 
     Ok(Some(opened))
+}
+
+/// Lets the user choose a folder in a native dialog, opened in the home folder, and returns its
+/// path; `None` when cancelled. Nothing else happens: no project is opened or remembered (for
+/// "Add repository…" in the memory guards). `invalidInput` for a path that is not text.
+#[tauri::command]
+pub async fn dialog_pick_folder(app: AppHandle, state: State<'_, AppState>) -> CommandResult<Option<String>> {
+    let title = crate::native_text::native_text(&saved_language(&state).await?).choose_folder;
+
+    let Some(picked) = dialogs::pick(&app, &state.dialog, Pick::Folder, title, Some(&state.env.home)).await? else {
+        return Ok(None);
+    };
+
+    let path = picked
+        .into_os_string()
+        .into_string()
+        .map_err(|_| BusinessError::InvalidInput("the folder's path is not valid text".to_owned()))?;
+
+    Ok(Some(path))
 }
 
 /// Re-opens the active project or a recent one; any other path is `forbidden`.

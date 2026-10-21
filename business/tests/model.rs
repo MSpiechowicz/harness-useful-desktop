@@ -43,7 +43,9 @@ fn default_prefs_serialize_with_camel_case_fields() {
             "approvalNoticeSeen": false,
             "binaryOverrides": [],
             "memoryEnabled": true,
-            "keepRunningInTray": false
+            "keepRunningInTray": false,
+            "memoryNotesAskDefault": false,
+            "memoryScriptsAskDefault": false
         })
     );
 }

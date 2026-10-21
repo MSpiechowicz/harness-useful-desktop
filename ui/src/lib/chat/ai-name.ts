@@ -68,7 +68,7 @@ export async function requestAiLabel(transport: Transport, request: AiNameReques
 
   try {
     helper = await transport.invoke('agent_start', {
-      request: { harness: request.harness, project: request.project, resume: null, approvalOverride: 'alwaysAsk', trustOnce: false, utility: true },
+      request: { harness: request.harness, project: request.project, resume: null, approvalOverride: 'alwaysAsk', trustOnce: false, utility: true, memoryChat: null },
       onEvent,
     });
 

@@ -21,6 +21,9 @@
 //!   puts a short notice in the chat, without the command or its output.
 //! - [`ChatHooks::is_idle`] tells a routine run whether the hooks still have work: an event the
 //!   task has not handled, or a follow-up whose run has not settled.
+//! - The memory-save hook follows the chat's memory guards, read at each settle, and every user
+//!   message reads them too: an eligible prompt carries a "Memory settings" part (shown with the
+//!   hooks' context) when they changed since the agent was told.
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -45,6 +48,9 @@ use crate::agents::Agents;
 use crate::state::AppState;
 
 mod counts;
+mod memory;
+
+pub use memory::check_again;
 
 /// Forwards a chat's events to its sink (the webview, or a routine run's relay) first, then hands
 /// the ones the hooks react to (tool ends, prompt results, settles, the exit) to the chat's hook
@@ -120,15 +126,18 @@ fn hook_relevant(event: &AgentEvent) -> Option<AgentEvent> {
 /// The hook state of one tracked chat.
 pub struct ChatHooks {
     key: String,
+    /// The chat's Harness Memory key (`HARNESS_MEMORY_SESSION`), when it has one.
+    memory_key: Option<String>,
     project: Mutex<Option<String>>,
     counts: Arc<Counts>,
     session: tokio::sync::Mutex<HookSession>,
 }
 
 impl ChatHooks {
-    fn new(chat: ChatContext, counts: Arc<Counts>) -> Self {
+    fn new(chat: ChatContext, memory_key: Option<String>, counts: Arc<Counts>) -> Self {
         Self {
             key: chat.session_id.clone(),
+            memory_key,
             project: Mutex::new(chat.project.clone()),
             counts,
             session: tokio::sync::Mutex::new(HookSession::new(chat)),
@@ -138,6 +147,11 @@ impl ChatHooks {
     /// The chat's session key.
     pub fn key(&self) -> &str {
         &self.key
+    }
+
+    /// The chat's Harness Memory key, when it has one.
+    pub fn memory_key(&self) -> Option<&str> {
+        self.memory_key.as_deref()
     }
 
     /// The chat's project root, when it has one.
@@ -158,9 +172,16 @@ impl ChatHooks {
     }
 }
 
-/// Tracks the chat `info` started (`fresh`: not a resumed session) and starts its hook task over
-/// `events`. A chat that stopped meanwhile is not tracked.
-pub async fn track(state: &AppState, info: &AgentSessionInfo, fresh: bool, events: HookEvents) {
+/// Tracks the chat `info` started (`fresh`: not a resumed session; `memory_key`: its Harness
+/// Memory key) and starts its hook task over `events`. A chat that stopped meanwhile is not
+/// tracked.
+pub async fn track(
+    state: &AppState,
+    info: &AgentSessionInfo,
+    fresh: bool,
+    memory_key: Option<String>,
+    events: HookEvents,
+) {
     let folder = PathBuf::from(&info.project);
     let project = project_root(&folder).await;
 
@@ -172,6 +193,7 @@ pub async fn track(state: &AppState, info: &AgentSessionInfo, fresh: bool, event
             fresh,
             utility: false,
         },
+        memory_key,
         events.counts.clone(),
     ));
 
@@ -190,13 +212,15 @@ pub async fn track(state: &AppState, info: &AgentSessionInfo, fresh: bool, event
 }
 
 /// Chat `key` moved to `folder` (`agent_move_project`): its hooks run there and are those of its
-/// new project from now on. Nothing happens for a chat that is not tracked.
+/// new project from now on, and its memory guards file names the repository there. Nothing
+/// happens for a chat that is not tracked.
 pub async fn moved(state: &AppState, key: &str, folder: PathBuf) {
     let Some(chat) = state.hooks.chat(key) else {
         return;
     };
 
     let project = project_root(&folder).await;
+    chat.memory_moved(state, &folder).await;
 
     let mut session = chat.session.lock().await;
     session.move_to(folder, project.clone());
@@ -259,6 +283,8 @@ pub async fn send(state: &AppState, key: &str, action: AgentAction) -> Result<Ag
     }
 
     let hooks = state.hooks.hook_set(chat.project().as_deref()).await;
+    session.set_memory_guards(chat.memory_guards(&state.env).await);
+
     let mut plan = session.on_send(&hooks, &action, SendOrigin::User);
 
     let action = if plan.is_empty() {
@@ -291,8 +317,9 @@ fn changes_session(action: &AgentAction) -> bool {
     )
 }
 
-/// `action` (an eligible prompt) with the context of `plan` in front of its text. A
-/// `sessionStart` context that did not fit fires again on the next prompt.
+/// `action` (an eligible prompt) with the memory settings notice and the context of `plan` in
+/// front of its text. A `sessionStart` context or a notice that did not fit comes again on the
+/// next prompt.
 async fn with_context(
     state: &AppState,
     key: &str,
@@ -312,8 +339,9 @@ async fn with_context(
     let result = run_firings(&TokioRunner, &state.env, &plan.firings).await;
     report(&state.agents, key, &result.failures);
 
-    let (message, delivered) = compose_prompt(&message, &result.parts);
-    session.context_composed(plan, &result.parts, &delivered);
+    let parts = plan.context_parts(result.parts);
+    let (message, delivered) = compose_prompt(&message, &parts);
+    session.context_composed(plan, &parts, &delivered);
 
     tracing::debug!(session = %key, parts = delivered.len(), "hook context added");
 
@@ -375,7 +403,22 @@ impl ChatTask {
     async fn run(self, mut events: HookEvents) {
         while let Some(event) = events.received.recv().await {
             let hooks = self.runtime.hook_set(self.chat.project().as_deref()).await;
-            let outcome = self.chat.session.lock().await.on_event(&hooks, &event);
+
+            // The guards as they are when the run settles decide its memory-save hook.
+            let guards = match event {
+                AgentEvent::Settled { .. } => Some(self.chat.memory_guards(&self.env).await),
+                _ => None,
+            };
+
+            let outcome = {
+                let mut session = self.chat.session.lock().await;
+
+                if let Some(guards) = guards {
+                    session.set_memory_guards(guards);
+                }
+
+                session.on_event(&hooks, &event)
+            };
 
             self.carry_out(outcome).await;
             self.chat.counts.handled();

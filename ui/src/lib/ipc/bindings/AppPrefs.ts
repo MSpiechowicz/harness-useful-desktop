@@ -118,4 +118,12 @@ memoryEnabled: boolean,
  * Whether closing the main window hides it to the tray instead of quitting, so routines keep
  * running (default off). Without a tray icon closing always quits.
  */
-keepRunningInTray: boolean, };
+keepRunningInTray: boolean, 
+/**
+ * Whether a new chat starts with "Ask before saving" on for notes (default off).
+ */
+memoryNotesAskDefault: boolean, 
+/**
+ * Whether a new chat starts with "Ask before saving" on for scripts (default off).
+ */
+memoryScriptsAskDefault: boolean, };

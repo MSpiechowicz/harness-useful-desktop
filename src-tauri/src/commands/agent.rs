@@ -158,6 +158,11 @@ pub(crate) async fn start_with(
     request.project = folder.0;
     let binary = installed_binary(state, request.harness).await?;
     let fresh = request.resume.is_none();
+    let memory_key = request
+        .memory_chat
+        .as_ref()
+        .filter(|_| !request.utility)
+        .map(|chat| chat.key.clone());
 
     // Utility agents (titles, reviews) never run hooks.
     let (events, hook_events): (Arc<dyn EventSink>, _) = if request.utility {
@@ -192,7 +197,7 @@ pub(crate) async fn start_with(
     tracing::info!(session = %info.key, harness = ?info.harness, "agent session started");
 
     if let Some(hook_events) = hook_events {
-        chat_hooks::track(state, &info, fresh, hook_events).await;
+        chat_hooks::track(state, &info, fresh, memory_key, hook_events).await;
     }
 
     Ok(info)

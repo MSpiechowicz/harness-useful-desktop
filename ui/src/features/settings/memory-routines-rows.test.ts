@@ -43,6 +43,7 @@ function fakeBackend(initial: Partial<MemoryRemote> = {}) {
     documentdbSupported: true,
     teamAndLocalSupported: true,
     scriptsTeamAndLocalSupported: true,
+    saveGuardsSupported: false,
     ...initial,
   };
   const passthrough = ipc.invoke.bind(ipc);
@@ -91,7 +92,7 @@ describe('The routines row of the remote database settings', () => {
     await screen.findByRole('radiogroup', { name: 'Routines' });
     const rows = screen.getAllByRole('radiogroup').map((group) => group.getAttribute('aria-label'));
 
-    expect(rows.filter((row) => ['Repository notes', 'Global notes', 'Scripts', 'Hooks', 'Routines'].includes(row ?? ''))).toEqual(['Repository notes', 'Global notes', 'Scripts', 'Hooks', 'Routines']);
+    expect(rows.filter((row) => ['Project notes', 'Global notes', 'Scripts', 'Hooks', 'Routines'].includes(row ?? ''))).toEqual(['Project notes', 'Global notes', 'Scripts', 'Hooks', 'Routines']);
     expect(within(screen.getByRole('radiogroup', { name: 'Routines' })).getAllByRole('radio').map((radio) => radio.textContent?.trim())).toEqual(['Remote', 'This computer', 'Remote + this computer']);
   });
 
