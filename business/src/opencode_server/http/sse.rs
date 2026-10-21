@@ -1,10 +1,12 @@
-//! The `GET /global/event` stream: Server-Sent Events read from the response body.
+//! An OpenCode event stream (`GET /global/event` on OpenCode 1, `GET /api/event` on OpenCode 2):
+//! Server-Sent Events read from the response body.
 //!
 //! - Lines end in `\n` (one `\r` before it is dropped); a bare `\r` does not end a line, OpenCode
 //!   never writes one.
 //! - An event ends at an empty line. Its payload is its `data:` values joined with `\n` (one space
 //!   after the colon is dropped); comments (`:` lines) and other fields (`event`, `id`, `retry`)
-//!   are ignored, and an event without `data` is not passed on.
+//!   are ignored, and an event without `data` is not passed on, so OpenCode 2's `: heartbeat`
+//!   comment blocks never reach the consumer.
 //! - An event larger than `max_event_bytes` is skipped and reported as [`SseFault::TooLarge`]; at
 //!   most that much of it is ever buffered. A payload that is not UTF-8 is reported as
 //!   [`SseFault::NotUtf8`]. Both are recoverable: the stream continues.
@@ -42,7 +44,7 @@ pub enum SseFault {
     Stream(String),
 }
 
-/// The events of one `GET /global/event` connection (see the module docs).
+/// The events of one event stream connection (see the module docs).
 #[derive(Debug)]
 pub struct EventStream {
     events: mpsc::Receiver<Result<String, SseFault>>,
@@ -168,4 +170,40 @@ fn data_value(line: &[u8]) -> Option<&[u8]> {
     }
 
     Some(value.strip_prefix(b" ").unwrap_or(value))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    async fn parse(stream: &[u8]) -> Vec<Result<String, SseFault>> {
+        let mut parser = EventParser::new(LineSplitter::new(stream, 1024), 1024);
+        let mut events = Vec::new();
+
+        while let Some(event) = parser.next().await {
+            events.push(event);
+        }
+
+        events
+    }
+
+    #[tokio::test]
+    async fn heartbeat_comments_between_data_events_are_not_passed_on() {
+        let stream = b": heartbeat\n\n\
+                       data: {\"type\":\"session.idle\"}\n\n\
+                       : heartbeat\r\n\r\n\
+                       :heartbeat\n: another comment\n\n\
+                       data: {\"type\":\"session.busy\"}\n\n\
+                       : heartbeat\n\n";
+
+        let events = parse(stream).await;
+
+        assert_eq!(
+            events,
+            [
+                Ok(r#"{"type":"session.idle"}"#.to_owned()),
+                Ok(r#"{"type":"session.busy"}"#.to_owned()),
+            ]
+        );
+    }
 }

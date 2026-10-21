@@ -22,6 +22,8 @@ pub mod routes;
 pub mod stats;
 pub mod wire;
 
-pub use http::{ClientOptions, EventStream, HttpError, Method, OpenCodeClient, Response, ServerPassword, SseFault};
+pub use http::{
+    ApiRoute, ClientOptions, EventStream, HttpError, Method, OpenCodeClient, Response, ServerPassword, SseFault,
+};
 pub use mapper::{Mapped, Mapper};
 pub use routes::{MessageId, PermissionId, QuestionId, Route, RouteError, SessionId};
