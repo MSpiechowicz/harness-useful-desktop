@@ -4,7 +4,7 @@ resolver = "3"
 members = ["business", "src-tauri"]
 
 [workspace.package]
-version = "0.34.0"
+version = "0.35.0"
 edition = "2024"
 license = "GPL-3.0-or-later"
 repository = "https://github.com/MSpiechowicz/harness-useful-desktop"
