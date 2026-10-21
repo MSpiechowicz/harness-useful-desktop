@@ -13,7 +13,7 @@ pub mod prompt;
 pub mod session;
 
 pub use catalog::{Agent, Capabilities, Command, ConfigSource, Limit, Model, Provider, Variant};
-pub use envelope::{Cursor, Envelope, Interrupted, Location, ServerInfo};
+pub use envelope::{Cursor, Envelope, Interrupted, Location, ServerInfo, listening_addr};
 pub use prompt::{
     AgentMention, CommandBody, CompactBody, Decision, Delivery, FileRef, Form, FormField, FormOption, FormReplyBody,
     FormValue, InboxEntry, InboxItem, InboxPayload, InboxTime, PermissionReplyBody, PermissionRequest,

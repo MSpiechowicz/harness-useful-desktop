@@ -1,0 +1,22 @@
+// Steering an OpenCode 2 run (shapes of recordings/steer_queue.jsonl): the steer goes to the prompt route
+// with delivery steer and the app's id; OpenCode admits it at once and delivers it at the next step
+// boundary, where a second step answers it. One run, one prompt result. A title change marks the end.
+{"include":"opencode2_startup.jsonl"}
+{"expect":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/prompt","match":{"/text":"Say hello","/delivery":"$absent"}}
+{"sse":{"type":"session.inbox.enqueued","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","inboxID":"$inbox","item":{"type":"user","payload":{"text":"Say hello"},"delivery":"steer"}}}}
+{"sse":{"type":"session.execution.started","data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv"}}}
+{"sse":{"type":"session.inbox.delivered","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","inboxID":"$inbox"}}}
+{"sse":{"type":"session.step.started","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","agent":"build","model":{"id":"big-pickle","providerID":"opencode","variant":"default"},"assistantMessageID":"msg_15d7bc3d6001sXHw8uAIflaGhD"}}}
+{"sse":{"type":"session.text.started","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_15d7bc3d6001sXHw8uAIflaGhD","ordinal":0}}}
+{"sse":{"type":"session.text.delta","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_15d7bc3d6001sXHw8uAIflaGhD","ordinal":0,"delta":"Hello "}}}
+{"expect":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/prompt","match":{"/text":"steered message","/delivery":"steer"},"reply":{"inboxID":"$request/id"}}
+{"sse":{"type":"session.inbox.enqueued","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","inboxID":"$inbox","item":{"type":"user","payload":{"text":"steered message"},"delivery":"steer"}}}}
+{"sse":{"type":"session.text.ended","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_15d7bc3d6001sXHw8uAIflaGhD","ordinal":0,"text":"Hello there."}}}
+{"sse":{"type":"session.step.ended","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_15d7bc3d6001sXHw8uAIflaGhD","finish":"stop","cost":0,"tokens":{"input":10,"output":3,"reasoning":0,"cache":{"read":0,"write":0}}}}}
+{"sse":{"type":"session.inbox.delivered","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","inboxID":"$inbox"}}}
+{"sse":{"type":"session.step.started","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","agent":"build","assistantMessageID":"msg_15d7bc3d6002sXHw8uAIflaGhE"}}}
+{"sse":{"type":"session.text.delta","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_15d7bc3d6002sXHw8uAIflaGhE","ordinal":0,"delta":"Steered."}}}
+{"sse":{"type":"session.step.ended","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_15d7bc3d6002sXHw8uAIflaGhE","finish":"stop","cost":0,"tokens":{"input":20,"output":2,"reasoning":0,"cache":{"read":0,"write":0}}}}}
+{"sse":{"type":"session.execution.succeeded","data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv"}}}
+{"sse":{"type":"session.renamed","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","title":"Marker"}}}
+{"hang":true}

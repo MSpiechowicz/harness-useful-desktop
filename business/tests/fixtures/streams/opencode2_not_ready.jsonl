@@ -1,0 +1,4 @@
+// An OpenCode 2 server that answers 503 to the first two readiness checks, then starts as usual.
+{"allow":"GET /api/info","reply":{"status":503,"body":{"name":"ServiceUnavailable"}},"times":2}
+{"include":"opencode2_startup.jsonl"}
+{"hang":true}

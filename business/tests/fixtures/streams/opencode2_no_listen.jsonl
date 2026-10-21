@@ -1,0 +1,4 @@
+// An OpenCode 2 server that never prints its listening line.
+{"listen":false}
+{"stdout":"Performing one time database migration, may take a few minutes..."}
+{"hang":true}

@@ -1,0 +1,4 @@
+// Resuming an OpenCode 2 session that belongs to another directory.
+{"include":"opencode2_catalogs.jsonl"}
+{"expect":"GET /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv","reply":{"data":{"id":"ses_ea2843d6fffeeHJKZwBKUXqULv","projectID":"global","time":{"created":1792569754266,"updated":1792569757094},"location":{"directory":"/elsewhere"}}}}
+{"hang":true}

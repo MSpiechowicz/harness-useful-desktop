@@ -1,0 +1,3 @@
+// A started OpenCode 2 chat whose server then only serves the rules until it is killed (it ignores stdin EOF).
+{"include":"opencode2_startup.jsonl"}
+{"hang":true}

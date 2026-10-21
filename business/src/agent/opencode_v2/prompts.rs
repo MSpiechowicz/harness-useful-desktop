@@ -1,1 +1,217 @@
-//! Prompts, steering, follow-ups and interrupts.
+//! Prompts, steering, follow-ups and abort of an [`OpenCodeV2Session`], as on OpenCode 1.
+//!
+//! - **Idle:** a prompt (also a steer or follow-up sent once the turn is over) starts a turn.
+//!   Follow-ups still held after an abort go first, the new message joins the queue behind them.
+//! - **Working:** a steer goes to OpenCode at once (`delivery: steer`, named by the app) and stays
+//!   listed until the run takes it; it cannot be withdrawn. A follow-up (or a prompt without a
+//!   streaming behaviour) is held by the chat, not by OpenCode's queue, so it can be withdrawn,
+//!   and sent when the turn is over. While a `!command` or a compaction runs, steering is held
+//!   like a follow-up.
+//! - Every message counts with the [`Mapper`](crate::opencode_server_v2::Mapper) before it is
+//!   sent, and a failed send takes it back. The prompt-taken call runs when OpenCode admitted the
+//!   prompt or when the turn starts, whichever the chat sees first, always under the chat's lock,
+//!   so it keeps its place among the events.
+//! - **Abort:** `POST /api/session/{id}/interrupt`; the turn settles as aborted and held
+//!   follow-ups stay held.
+
+use super::OpenCodeV2Session;
+use super::delivery::{Request, send};
+use crate::error::{BusinessError, Result};
+use crate::model::{AgentAction, AgentReply, ImageAttachment, StreamingBehavior};
+use crate::opencode_server::MessageId as AscendingId;
+use crate::opencode_server::wire::Outgoing;
+use crate::opencode_server_v2::{MessageId, RouteV2};
+
+impl OpenCodeV2Session {
+    /// Runs a prompt, queue, abort or history action.
+    pub(super) async fn prompt_action(&self, action: AgentAction) -> Result<AgentReply> {
+        match action {
+            AgentAction::Prompt {
+                message,
+                images,
+                streaming_behavior,
+            } => self.prompt(Outgoing::new(&message, &images), streaming_behavior).await,
+            AgentAction::Steer { message, images } => {
+                self.busy_message(&message, &images, StreamingBehavior::Steer).await
+            }
+            AgentAction::FollowUp { message, images } => {
+                self.busy_message(&message, &images, StreamingBehavior::FollowUp).await
+            }
+            AgentAction::RemoveQueued { message, queue } => self.remove_queued(&message, queue),
+            AgentAction::Abort => self.abort().await,
+            AgentAction::GetHistory { cursor, limit } => self.history(cursor.as_deref(), limit).await,
+            _ => Err(BusinessError::Internal("not a prompt action".to_owned())),
+        }
+    }
+
+    /// A prompt: starts a turn when idle, otherwise steers or is held as `behavior` says (held
+    /// without one).
+    async fn prompt(&self, message: Outgoing, behavior: Option<StreamingBehavior>) -> Result<AgentReply> {
+        let (working, steerable) = self.activity();
+
+        if !working {
+            return self.start_turn(message).await;
+        }
+
+        match behavior {
+            Some(StreamingBehavior::Steer) if steerable => self.steer(message).await?,
+            _ => self.hold(message),
+        }
+
+        Ok(prompt_reply("queued"))
+    }
+
+    /// A steer or follow-up: as `behavior` while working, a new turn otherwise.
+    async fn busy_message(
+        &self,
+        text: &str,
+        images: &[ImageAttachment],
+        behavior: StreamingBehavior,
+    ) -> Result<AgentReply> {
+        let message = Outgoing::new(text, images);
+        let (working, steerable) = self.activity();
+
+        match (working, behavior) {
+            (false, _) => {
+                self.start_turn(message).await?;
+            }
+            (true, StreamingBehavior::Steer) if steerable => self.steer(message).await?,
+            (true, _) => self.hold(message),
+        }
+
+        Ok(AgentReply::Ack)
+    }
+
+    /// Whether the chat is working, and whether steering can join what runs (not while a
+    /// `!command` or a compaction runs).
+    fn activity(&self) -> (bool, bool) {
+        let live = self.chat.lock();
+
+        (live.mapper.is_working(), live.mapper.can_steer())
+    }
+
+    /// Starts a turn with `message` (or with the held follow-ups, `message` behind them).
+    async fn start_turn(&self, message: Outgoing) -> Result<AgentReply> {
+        let chat = &self.chat;
+
+        let (request, session) = {
+            let mut live = chat.lock();
+
+            if live.mapper.has_follow_ups() {
+                let held = live.mapper.queue_follow_up(message);
+                let next = live.mapper.next_follow_up();
+                held.into_iter().for_each(|event| chat.shared.emit(event));
+
+                if let Some((next, update)) = next {
+                    update.into_iter().for_each(|event| chat.shared.emit(event));
+                    send(chat, &mut live, next);
+                }
+
+                return Ok(prompt_reply("started"));
+            }
+
+            live.mapper.prompt_sent();
+
+            (Request::next_turn(&live, &message), live.session.clone())
+        };
+
+        let sent = request.post(chat, &session).await;
+        let mut live = chat.lock();
+
+        if let Err(error) = sent {
+            live.mapper.prompt_failed();
+            return Err(error.into());
+        }
+
+        chat.shared.prompt_taken_now();
+
+        Ok(prompt_reply("started"))
+    }
+
+    /// Sends steering into the running turn under an id the app chose.
+    async fn steer(&self, mut message: Outgoing) -> Result<()> {
+        let chat = &self.chat;
+        let id = MessageId::parse(AscendingId::ascending().as_str())?;
+        message.id = Some(id.to_string());
+
+        let (request, session) = {
+            let mut live = chat.lock();
+            let request = Request::steering(&message, id.clone());
+
+            for event in live.mapper.steer_sent(message) {
+                chat.shared.emit(event);
+            }
+
+            (request, live.session.clone())
+        };
+
+        let sent = request.post(chat, &session).await;
+
+        if sent.is_err() {
+            let mut live = chat.lock();
+
+            for event in live.mapper.steer_undelivered(id.as_str()) {
+                chat.shared.emit(event);
+            }
+        }
+
+        Ok(sent?)
+    }
+
+    /// Holds a follow-up until the turn is over.
+    fn hold(&self, message: Outgoing) {
+        let mut live = self.chat.lock();
+
+        for event in live.mapper.queue_follow_up(message) {
+            self.chat.shared.emit(event);
+        }
+    }
+
+    /// Withdraws a held follow-up; steering is already with the agent.
+    fn remove_queued(&self, text: &str, queue: StreamingBehavior) -> Result<AgentReply> {
+        if queue == StreamingBehavior::Steer {
+            return Err(BusinessError::Unsupported(
+                "OpenCode already has the steering message, it cannot be withdrawn".to_owned(),
+            ));
+        }
+
+        let mut live = self.chat.lock();
+        let removed = live.mapper.remove_follow_up(text);
+        let done = removed.is_some();
+
+        for event in removed.into_iter().flatten() {
+            self.chat.shared.emit(event);
+        }
+
+        Ok(AgentReply::QueueRemoval { removed: done })
+    }
+
+    /// Interrupts the running turn; nothing to do while idle.
+    async fn abort(&self) -> Result<AgentReply> {
+        let session = {
+            let mut live = self.chat.lock();
+
+            if !live.mapper.is_working() {
+                return Ok(AgentReply::Ack);
+            }
+
+            live.mapper.abort_requested();
+            live.session.clone()
+        };
+
+        let route = RouteV2::Interrupt {
+            session: &session,
+            directory: &self.chat.directory,
+        };
+        self.chat.client.send(route, None).await?.error_for_status()?;
+
+        Ok(AgentReply::Ack)
+    }
+}
+
+fn prompt_reply(disposition: &str) -> AgentReply {
+    AgentReply::Prompt {
+        agent_invoked: Some(true),
+        disposition: Some(disposition.to_owned()),
+    }
+}

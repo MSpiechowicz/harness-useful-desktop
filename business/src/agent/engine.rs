@@ -3,17 +3,18 @@
 //!
 //! - RPC ([`RpcSession`]): OMP and PI in `--mode rpc`.
 //! - OpenCode server ([`OpenCodeSession`]): `opencode serve` (the manager does not offer it yet).
-//! - OpenCode 2 server ([`ChatProtocol::OpenCodeServerV2`]): not available yet, starting fails.
+//! - OpenCode 2 server ([`OpenCodeV2Session`]): `opencode serve` 2.x and its `/api` routes.
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use super::SessionOptions;
 use super::opencode::OpenCodeSession;
+use super::opencode_v2::OpenCodeV2Session;
 use super::process::StartAbort;
 use super::session::RpcSession;
 use super::sink::{EventSink, PromptTaken};
-use crate::error::{BusinessError, Result};
+use crate::error::Result;
 use crate::harness::ChatProtocol;
 use crate::model::{AgentAction, AgentEvent, AgentReply, ApprovalMode, BashOutput, UiResponse};
 use crate::process::{ExecSpec, ExitInfo, ProcessSpawner};
@@ -53,6 +54,8 @@ pub enum AgentSession {
     Rpc(RpcSession),
     /// The `opencode serve` engine.
     OpenCode(OpenCodeSession),
+    /// The `opencode serve` 2.x engine.
+    OpenCodeV2(OpenCodeV2Session),
 }
 
 impl AgentSession {
@@ -61,9 +64,7 @@ impl AgentSession {
         match launch.protocol {
             ChatProtocol::Rpc(dialect) => RpcSession::start(launch, dialect).await.map(Self::Rpc),
             ChatProtocol::OpenCodeServer => OpenCodeSession::start(launch).await.map(Self::OpenCode),
-            ChatProtocol::OpenCodeServerV2 => Err(BusinessError::Unsupported(
-                "OpenCode 2 chat is not available yet".to_owned(),
-            )),
+            ChatProtocol::OpenCodeServerV2 => OpenCodeV2Session::start(launch).await.map(Self::OpenCodeV2),
         }
     }
 
@@ -72,6 +73,7 @@ impl AgentSession {
         match self {
             Self::Rpc(session) => session.protocol_version(),
             Self::OpenCode(session) => session.protocol_version(),
+            Self::OpenCodeV2(session) => session.protocol_version(),
         }
     }
 
@@ -80,6 +82,7 @@ impl AgentSession {
         match self {
             Self::Rpc(session) => session.exit_info(),
             Self::OpenCode(session) => session.exit_info(),
+            Self::OpenCodeV2(session) => session.exit_info(),
         }
     }
 
@@ -88,6 +91,7 @@ impl AgentSession {
         match self {
             Self::Rpc(session) => session.is_running(),
             Self::OpenCode(session) => session.is_running(),
+            Self::OpenCodeV2(session) => session.is_running(),
         }
     }
 
@@ -96,6 +100,7 @@ impl AgentSession {
         match self {
             Self::Rpc(session) => session.send(action).await,
             Self::OpenCode(session) => session.send(action).await,
+            Self::OpenCodeV2(session) => session.send(action).await,
         }
     }
 
@@ -104,6 +109,7 @@ impl AgentSession {
         match self {
             Self::Rpc(session) => session.move_project(project, sessions_dir).await,
             Self::OpenCode(session) => session.move_project(project, sessions_dir).await,
+            Self::OpenCodeV2(session) => session.move_project(project, sessions_dir).await,
         }
     }
 
@@ -112,6 +118,7 @@ impl AgentSession {
         match self {
             Self::Rpc(session) => session.respond(response).await,
             Self::OpenCode(session) => session.respond(response).await,
+            Self::OpenCodeV2(session) => session.respond(response).await,
         }
     }
 
@@ -120,6 +127,7 @@ impl AgentSession {
         match self {
             Self::Rpc(session) => session.bash(command).await,
             Self::OpenCode(session) => session.bash(command).await,
+            Self::OpenCodeV2(session) => session.bash(command).await,
         }
     }
 
@@ -128,6 +136,7 @@ impl AgentSession {
         match self {
             Self::Rpc(session) => session.emit(event),
             Self::OpenCode(session) => session.emit(event),
+            Self::OpenCodeV2(session) => session.emit(event),
         }
     }
 
@@ -136,6 +145,7 @@ impl AgentSession {
         match self {
             Self::Rpc(session) => session.on_prompt_taken(taken),
             Self::OpenCode(session) => session.on_prompt_taken(taken),
+            Self::OpenCodeV2(session) => session.on_prompt_taken(taken),
         }
     }
 
@@ -144,6 +154,7 @@ impl AgentSession {
         match self {
             Self::Rpc(session) => session.stop().await,
             Self::OpenCode(session) => session.stop().await,
+            Self::OpenCodeV2(session) => session.stop().await,
         }
     }
 }

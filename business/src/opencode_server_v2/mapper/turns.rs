@@ -136,6 +136,13 @@ impl Mapper {
         vec![self.queue_update()]
     }
 
+    /// Steering the app named `id` (its prompt's `id`) was not delivered.
+    pub fn steer_undelivered(&mut self, id: &str) -> Vec<AgentEvent> {
+        self.steering.retain(|steering| steering.id.as_deref() != Some(id));
+
+        vec![self.queue_update()]
+    }
+
     /// Holds `message` until the chat is idle.
     pub fn queue_follow_up(&mut self, message: Outgoing) -> Vec<AgentEvent> {
         self.follow_ups.push_back(message);

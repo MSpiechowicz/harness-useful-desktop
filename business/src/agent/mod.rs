@@ -9,7 +9,8 @@
 //!   - [`RpcSession`] — a CLI in `--mode rpc`, driven through its
 //!     [`RpcDialect`](crate::pi_family::rpc::RpcDialect): request correlation, dialogs and startup;
 //!   - [`OpenCodeSession`] — `opencode serve` over loopback HTTP and its event stream (the
-//!     manager does not offer it yet).
+//!     manager does not offer it yet);
+//!   - [`OpenCodeV2Session`] — the same for OpenCode 2's `/api` server.
 //! - [`EventSink`] — where the normalized [`AgentEnvelope`](crate::model::AgentEnvelope)s go
 //!   (the desktop shell adapts it to a Tauri channel).
 //! - [`DeltaCoalescer`] — merges streaming deltas within [`COALESCE_WINDOW`].
@@ -38,6 +39,7 @@ pub use coalesce::{COALESCE_WINDOW, DeltaCoalescer};
 pub use engine::{AgentSession, SessionLaunch};
 pub use manager::{AgentDeps, AgentManager, MAX_SESSIONS, Stopping};
 pub use opencode::OpenCodeSession;
+pub use opencode_v2::OpenCodeV2Session;
 pub use process::{MAX_STDERR_LINE, MAX_STDERR_PER_SECOND, StartAbort};
 pub use session::{BASH_TIMEOUT, RpcSession};
 pub use sink::{CollectingSink, EventSink, PromptTaken};

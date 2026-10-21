@@ -312,6 +312,12 @@ pub enum RouteV2<'a> {
         /// The project directory.
         directory: &'a str,
     },
+    /// `GET /api/model/default` → `{data: model?, location}`: the model a session without its own
+    /// selection uses.
+    ModelDefault {
+        /// The project directory.
+        directory: &'a str,
+    },
     /// `GET /api/provider` → `{data: [provider], location}`.
     ProviderList {
         /// The project directory.
@@ -333,6 +339,7 @@ impl RouteV2<'_> {
             | Self::CommandList { .. }
             | Self::ConfigGet { .. }
             | Self::ModelList { .. }
+            | Self::ModelDefault { .. }
             | Self::ProviderList { .. } => Method::Get,
             Self::SessionUpdate { .. } => Method::Patch,
             Self::SessionDelete { .. } | Self::FormCancel { .. } => Method::Delete,
@@ -393,6 +400,7 @@ impl RouteV2<'_> {
             Self::CommandList { directory } => located("/api/command", Vec::new(), directory),
             Self::ConfigGet { directory } => located("/api/config", Vec::new(), directory),
             Self::ModelList { directory } => located("/api/model", Vec::new(), directory),
+            Self::ModelDefault { directory } => located("/api/model/default", Vec::new(), directory),
             Self::ProviderList { directory } => located("/api/provider", Vec::new(), directory),
         }
     }

@@ -1,0 +1,4 @@
+// A started OpenCode 2 chat whose server crashes right away (exit 1, the event stream ends with it).
+{"include":"opencode2_startup.jsonl"}
+{"sleep":200}
+{"crash":"opencode crashed"}

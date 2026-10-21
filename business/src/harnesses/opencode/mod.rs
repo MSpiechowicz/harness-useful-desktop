@@ -122,7 +122,7 @@ impl Harness for OpenCode {
 
     /// `opencode serve` on a loopback port (see [`launch`]).
     fn launch_spec(&self, request: &LaunchRequest<'_>) -> Result<ExecSpec> {
-        opencode_launch_spec(request)
+        opencode_launch_spec(request, self.generation())
     }
 
     /// Never reached for chat: OpenCode chats over [`ChatProtocol::OpenCodeServer`], not RPC.

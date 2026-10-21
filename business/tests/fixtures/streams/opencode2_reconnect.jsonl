@@ -1,0 +1,18 @@
+// OpenCode 2 ends the chat's event stream in the middle of a run (a subscriber that fell behind). While
+// the chat follows no stream the reply ends with a file write and the run succeeds; the chat opens the
+// stream again and reads the session (renamed meanwhile) and its newest messages, newest first: the idle
+// marker of the run's end (newer than any event the chat read), the finished reply and the prompt it
+// already showed. A title change marks the end.
+{"include":"opencode2_startup.jsonl"}
+{"expect":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/prompt","match":{"/text":"Say hello"}}
+{"sse":{"type":"session.inbox.enqueued","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","inboxID":"$inbox","item":{"type":"user","payload":{"text":"Say hello"},"delivery":"steer"}}}}
+{"sse":{"type":"session.execution.started","data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv"}}}
+{"sse":{"type":"session.inbox.delivered","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","inboxID":"$inbox"}}}
+{"sse":{"type":"session.step.started","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","agent":"build","model":{"id":"big-pickle","providerID":"opencode","variant":"default"},"assistantMessageID":"msg_15d7bc3d6001sXHw8uAIflaGhD"}}}
+{"sse":{"type":"session.text.started","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_15d7bc3d6001sXHw8uAIflaGhD","ordinal":0}}}
+{"sse":{"type":"session.text.delta","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_15d7bc3d6001sXHw8uAIflaGhD","ordinal":0,"delta":"Hello "}}}
+{"allow":"GET /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv","reply":{"data":{"id":"ses_ea2843d6fffeeHJKZwBKUXqULv","projectID":"global","title":"Caught up","model":{"id":"big-pickle","providerID":"opencode","variant":"default"},"outcome":"succeeded","time":{"created":1792569754266,"updated":4102444800000,"idle":4102444800000},"location":{"directory":"$directory"}}}}
+{"allow":"GET /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/message","reply":{"data":[{"id":"msg_ffffffffffff01idleAfterGap","time":{"created":4102444800000},"type":"idle","outcome":"succeeded"},{"id":"msg_15d7bc3d6001sXHw8uAIflaGhD","time":{"created":1792569754587,"completed":4102444700000},"type":"assistant","agent":"build","model":{"id":"big-pickle","providerID":"opencode","variant":"default"},"content":[{"type":"text","text":"Hello there."},{"type":"tool","id":"call_9","name":"write","state":{"status":"completed","input":{"path":"notes.md","content":"x"},"content":[{"type":"text","text":"Wrote notes.md"}]}}],"finish":"stop","cost":0,"tokens":{"input":10,"output":3,"reasoning":0,"cache":{"read":0,"write":0}}},{"id":"$inbox","time":{"created":1792569754573},"text":"Say hello","type":"user"}]}}
+{"sseClose":true}
+{"sse":{"type":"session.renamed","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","title":"Marker"}}}
+{"hang":true}

@@ -1,0 +1,11 @@
+// The chat interrupts an OpenCode 2 prompt before its run started (nothing to interrupt yet); when the
+// run starts the chat interrupts again, and the run ends interrupted. A title change marks the end.
+{"include":"opencode2_startup.jsonl"}
+{"expect":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/prompt","match":{"/text":"Say hello"}}
+{"expect":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/interrupt","reply":{"body":{"interrupted":false}}}
+{"sse":{"type":"session.inbox.enqueued","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","inboxID":"$inbox","item":{"type":"user","payload":{"text":"Say hello"},"delivery":"steer"}}}}
+{"sse":{"type":"session.execution.started","data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv"}}}
+{"expect":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/interrupt","reply":{"body":{"interrupted":true}}}
+{"sse":{"type":"session.execution.interrupted","data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","reason":"user"}}}
+{"sse":{"type":"session.renamed","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","title":"Marker"}}}
+{"hang":true}
