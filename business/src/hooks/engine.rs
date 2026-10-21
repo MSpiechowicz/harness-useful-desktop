@@ -42,9 +42,9 @@ use std::collections::BTreeSet;
 use std::path::PathBuf;
 
 use super::compose::ResolvedPart;
-use super::plan::{ToolEnv, matches_tool, planned_part, sort_parts};
+use super::plan::{ToolEnv, planned_part, sort_parts};
 use super::run::{RunState, SettleClock, TouchedLog, Waiting, commands_only, handled_without_run, is_eligible};
-use crate::model::{AgentAction, AgentEvent, AgentReply, HookAction, HookEvent, PromptStatus};
+use crate::model::{AgentAction, AgentEvent, AgentReply, HookEvent, PromptStatus};
 
 pub use super::plan::{
     ChatContext, CommandRequest, EventOutcome, Firing, FollowUpPlan, HookSet, PlannedPart, SendPlan,
@@ -52,6 +52,7 @@ pub use super::plan::{
 
 mod memory_gate;
 mod memory_state;
+mod tool_end;
 mod user_marks;
 
 pub use memory_gate::{MemorySaveGate, memory_save_part};
@@ -329,66 +330,6 @@ impl HookSession {
         let commands = commands_only(firing);
 
         (!commands.is_empty()).then_some(commands)
-    }
-
-    fn tool_ended(&mut self, hooks: &HookSet, name: &str, is_error: bool, touched: &[String]) -> EventOutcome {
-        self.current.touched.extend(touched.iter().cloned());
-
-        for path in touched {
-            self.chat_touched.add(path);
-        }
-
-        if !is_error {
-            self.current.tool_succeeded = true;
-        }
-
-        // A run the engine's own prompt started fires nothing.
-        if !self.current.user_sent() {
-            return EventOutcome::Nothing;
-        }
-
-        let tool = ToolEnv {
-            tool: Some((name, is_error)),
-            touched,
-        };
-        let mut commands = Vec::new();
-
-        for entry in hooks.of_event(HookEvent::ToolEnd) {
-            let hook = &entry.hook;
-
-            if !matches_tool(hook.matcher.as_deref(), name) {
-                continue;
-            }
-
-            match &hook.action {
-                HookAction::FollowUp { .. } => {
-                    let seen = self.current.tool_texts.iter().any(|part| part.hook_id == hook.id);
-
-                    if let (false, PlannedPart::Text(part)) =
-                        (seen, planned_part(entry, &self.chat, HookEvent::ToolEnd, tool))
-                    {
-                        self.current.tool_texts.push(part);
-                    }
-                }
-                HookAction::Command { .. } => {
-                    commands.push(planned_part(entry, &self.chat, HookEvent::ToolEnd, tool));
-                }
-                HookAction::AddContext { .. } => {}
-            }
-        }
-
-        if commands.is_empty() {
-            return EventOutcome::Nothing;
-        }
-
-        self.current.outstanding += 1;
-
-        EventOutcome::ToolCommands(Firing {
-            event: HookEvent::ToolEnd,
-            parts: commands,
-            run: self.current.id,
-            seq: self.take_seq(),
-        })
     }
 
     fn settled(&mut self, hooks: &HookSet, aborted: bool) -> EventOutcome {
