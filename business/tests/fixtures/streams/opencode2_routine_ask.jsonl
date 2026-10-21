@@ -1,0 +1,15 @@
+
+// An OpenCode 2 routine run whose agent asks for a tool approval nobody gives (src-tauri routine tests,
+// shapes of recordings/edit_reject.jsonl): the app rejects it. Any other answer fails the match, and the
+// fake exits 4.
+{"include":"opencode2_startup.jsonl"}
+{"expect":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/prompt","match":{"/text":"Run the tests"}}
+{"sse":{"type":"session.inbox.enqueued","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","inboxID":"$inbox","item":{"type":"user","payload":{"text":"Run the tests"},"delivery":"steer"}}}}
+{"sse":{"type":"session.execution.started","data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv"}}}
+{"sse":{"type":"session.inbox.delivered","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","inboxID":"$inbox"}}}
+{"sse":{"type":"session.step.started","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","agent":"build","model":{"id":"big-pickle","providerID":"opencode","variant":"default"},"assistantMessageID":"msg_routine1"}}}
+{"sse":{"type":"session.tool.input.started","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_routine1","id":"call_1","name":"shell"}}}
+{"sse":{"type":"session.tool.called","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_routine1","id":"call_1","input":{"command":"cargo test"},"executed":false}}}
+{"sse":{"type":"permission.asked","location":{"directory":"$directory"},"data":{"id":"per_1","sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","action":"shell","resources":["cargo test"],"save":["cargo *"],"source":{"type":"tool","messageID":"msg_routine1","id":"call_1"}}}}
+{"expect":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/permission/per_1/reply","match":{"decision":"reject"}}
+{"hang":true}

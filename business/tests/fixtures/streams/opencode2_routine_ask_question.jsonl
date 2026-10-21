@@ -1,0 +1,13 @@
+
+// An OpenCode 2 routine run whose agent asks a question nobody answers (src-tauri routine tests, shapes
+// of recordings/question.jsonl): the app dismisses the form. Any other answer fails the match, and the
+// fake exits 4.
+{"include":"opencode2_startup.jsonl"}
+{"expect":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/prompt","match":{"/text":"Pick a colour"}}
+{"sse":{"type":"session.inbox.enqueued","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","inboxID":"$inbox","item":{"type":"user","payload":{"text":"Pick a colour"},"delivery":"steer"}}}}
+{"sse":{"type":"session.execution.started","data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv"}}}
+{"sse":{"type":"session.inbox.delivered","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","inboxID":"$inbox"}}}
+{"sse":{"type":"session.step.started","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","agent":"build","model":{"id":"big-pickle","providerID":"opencode","variant":"default"},"assistantMessageID":"msg_routine1"}}}
+{"sse":{"type":"form.created","location":{"directory":"$directory"},"data":{"form":{"id":"frm_1","sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","title":"Questions","metadata":{"kind":"question","tool":{"messageID":"msg_routine1","id":"call_q"}},"fields":[{"key":"q0","title":"Colour","description":"Red or blue?","type":"string","options":[{"value":"Red","label":"Red"},{"value":"Blue","label":"Blue"}],"custom":true}]}}}}
+{"expect":"DELETE /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/form/frm_1"}
+{"hang":true}

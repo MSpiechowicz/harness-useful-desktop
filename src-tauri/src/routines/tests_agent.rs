@@ -25,8 +25,8 @@ use crate::commands::{agent, sessions};
 use crate::lifecycle::page_reloaded;
 use crate::state::AppState;
 use crate::test_support::{
-    AgentSetup, agent_setup_for, assert_envelopes_in_order, closable_channel, collecting_channel, event_types,
-    fake_agent, save_global_hook, start_request, wait_until,
+    AgentSetup, agent_setup_for, agent_setup_opencode2, assert_envelopes_in_order, closable_channel,
+    collecting_channel, event_types, fake_agent, save_global_hook, start_request, wait_until,
 };
 
 /// The OMP session every scenario reports (`omp_startup.jsonl`).
@@ -73,15 +73,26 @@ impl Fixture {
     /// built.
     pub(super) fn of(harness: HarnessId, scenario: &str, timing: AgentTiming) -> Option<Self> {
         let binary = fake_agent()?;
-        let mut setup = agent_setup_for(&binary, harness, scenario);
 
+        Some(Self::with_setup(agent_setup_for(&binary, harness, scenario), timing))
+    }
+
+    /// OpenCode 2 agents that play `scenario` on a scripted OpenCode 2 server; `None` (the test
+    /// skips) when `fake_agent` is not built.
+    pub(super) fn opencode2(scenario: &str, timing: AgentTiming) -> Option<Self> {
+        let binary = fake_agent()?;
+
+        Some(Self::with_setup(agent_setup_opencode2(&binary, scenario), timing))
+    }
+
+    fn with_setup(mut setup: AgentSetup, timing: AgentTiming) -> Self {
         let unused = AppState::new(setup.project.join("unused"), Env::for_tests(&setup.project));
         let state = Arc::new(std::mem::replace(&mut setup.state, unused));
 
         let fixture = Self { state, setup };
         fixture.install(timing);
 
-        Some(fixture)
+        fixture
     }
 
     pub(super) fn install(&self, timing: AgentTiming) {

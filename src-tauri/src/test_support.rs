@@ -22,6 +22,9 @@ use tauri::ipc::{Channel, InvokeResponseBody};
 use crate::agents::Agents;
 use crate::state::AppState;
 
+mod opencode2;
+pub use opencode2::agent_setup_opencode2;
+
 /// A uniquely named directory under the OS temp dir, removed on drop. Its path is canonical, so
 /// containment checks compare like with like (macOS `/var` → `/private/var`).
 pub struct TempDir(PathBuf);
@@ -307,11 +310,16 @@ impl ScenarioSpawner {
         Self::of(binary, HarnessId::Omp, scenario)
     }
 
-    /// Plays `scenario` as `harness` (an OpenCode one as a scripted `opencode serve`).
+    /// Plays `scenario` as `harness` (an OpenCode one as a scripted OpenCode 1 `opencode serve`).
     pub fn of(binary: &Path, harness: HarnessId, scenario: &str) -> Arc<Self> {
+        Self::in_dialect(binary, harness.binary_name(), scenario)
+    }
+
+    /// Plays `scenario` in the fake's `dialect` (`opencode2` for a scripted OpenCode 2 server).
+    pub fn in_dialect(binary: &Path, dialect: &'static str, scenario: &str) -> Arc<Self> {
         Arc::new(Self {
             binary: binary.to_path_buf(),
-            dialect: harness.binary_name(),
+            dialect,
             scenario: Path::new(env!("CARGO_MANIFEST_DIR"))
                 .join("../business/tests/fixtures/streams")
                 .join(scenario),
@@ -369,6 +377,10 @@ pub fn agent_setup(binary: &Path, scenario: &str) -> AgentSetup {
 /// An app state with an opened project, `harness` detected at `binary` and sessions that play the
 /// `scenario` stream as that harness.
 pub fn agent_setup_for(binary: &Path, harness: HarnessId, scenario: &str) -> AgentSetup {
+    agent_setup_with(binary, harness, ScenarioSpawner::of(binary, harness, scenario))
+}
+
+fn agent_setup_with(binary: &Path, harness: HarnessId, spawner: Arc<ScenarioSpawner>) -> AgentSetup {
     let dir = TempDir::new("agent");
     let home = dir.path().join("home");
     let project = home.join("demo");
@@ -379,7 +391,6 @@ pub fn agent_setup_for(binary: &Path, harness: HarnessId, scenario: &str) -> Age
         Projects::new(store, &state.env).open(&project).expect("open project");
     });
 
-    let spawner = ScenarioSpawner::of(binary, harness, scenario);
     let options = SessionOptions {
         coalesce_window: Duration::ZERO,
         ..SessionOptions::default()

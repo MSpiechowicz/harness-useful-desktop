@@ -50,6 +50,8 @@ mod tests_agent_end;
 #[cfg(test)]
 mod tests_agent_opencode;
 #[cfg(test)]
+mod tests_agent_opencode2;
+#[cfg(test)]
 mod tests_agent_wait;
 #[cfg(test)]
 mod tests_launch;

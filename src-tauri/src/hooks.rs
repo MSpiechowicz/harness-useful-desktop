@@ -34,6 +34,8 @@ mod team_tests;
 mod tests;
 #[cfg(test)]
 mod tests_opencode;
+#[cfg(test)]
+mod tests_opencode2;
 pub mod watch;
 
 use std::collections::{HashMap, HashSet};
