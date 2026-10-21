@@ -33,8 +33,8 @@
 //! is just as little read-only: the private server loads OpenCode fully, plugins included. Its
 //! private server also skips the project config, the model catalog download and the file watcher
 //! (as every OpenCode 2 command of the app), so the home directory is not walked as a project:
-//! `~/.opencode` is still checked, as one of the files the app reads itself, but a server only in
-//! `~/opencode.json[c]` (or a parent of the home directory) is not seen.
+//! `~/.opencode` and `~/opencode.json[c]` are still checked, as files the app reads itself, but a
+//! server only in a config file of a parent of the home directory is not seen.
 
 use std::collections::BTreeSet;
 use std::time::Duration;
