@@ -165,10 +165,10 @@ S15 in the skills repo. S7 also needs S5.
 | S6 | Wire, routes, events | backend | done |
 | S7 | Event mapper | backend | done (merged de6dab8) |
 | S8 | Fake v2 server | backend | done (merged 0a2dd27) |
-| S9 | Engine core | backend | in progress (worktree c) |
-| S10 | Approvals and approval modes | backend | todo |
-| S11 | Session ops, export, stats | backend | todo |
-| S12 | Hooks and routines tests | backend | todo |
+| S9 | Engine core | backend | done (merged 6d4195b) |
+| S10 | Approvals and approval modes | backend | done (merged 25a8e72) |
+| S11 | Session ops, export, stats | backend | done (merged; S11b skills, background commands, summed stats 6900116) |
+| S12 | Hooks and routines tests | backend | done (merged d04a536) |
 | S13 | UI (only if needed) | frontend | done (merged e4573f7) |
 | S14 | Docs | general | done (bbab074, drop "not available yet" in README/architecture when S9–S12 land) |
 | S16 | Orphaned chat servers killed on next start (user-approved addition) | backend | done (merged 1cb9454) |
@@ -190,7 +190,8 @@ From the real OpenCode 2.1.2 binary in a sandbox (`unshare`, no provider) and re
 - Session object: `{id: "ses_...", projectID, cost, tokens, time: {created, updated}, location: {directory}, title?}`.
   Times are millisecond numbers, `title` is absent until set.
 - `GET /api/command` lists `init` and `review`, `GET /api/model` lists models (`opencode/big-pickle` with the public key),
-  `GET /api/agent` is empty offline.
+  `GET /api/agent` starts empty for a directory and fills 150–300 ms after the first request there. `GET /api/skill`
+  lists `{id, name, description, path, content}` (built-ins `opencode` and `report` always present) and fills the same way.
 - Legacy `agent.<n>.permission` in `OPENCODE_CONFIG_CONTENT` is normalized by `GET /api/config` to
   `agents.<n>.permissions` rules (`bash` becomes `shell`). Native `agents.<n>.permissions` lists are accepted.
   Without config, shell runs without asking.
@@ -229,6 +230,15 @@ From the real OpenCode 2.1.2 binary in a sandbox (`unshare`, no provider) and re
 - `api --standalone GET /api/config` returns the config sources the private server merged: `{type: "directory", path}`
   and `{type: "document", info}`.
 
+## Engine decisions (S9–S11b)
+
+- Follow-ups are held by the app (mapper queue), steering goes as `delivery: steer` with an app-made `msg_` id.
+- Always allow lasts for the chat: OpenCode only ever gets `once` or `reject`, the chat answers matching asks itself.
+- Skills run as a prompt with `skills: [{id}]`, never through `/api/experimental/session/:id/skill`.
+- Commands and skills start their turn in the background, a refused one shows an error result (as v1).
+- Stats sum the session's replies and compactions (as v1), so a fork counts its copied messages.
+- Images go as `data:` URLs in `files`.
+
 ## Verification
 
 - Each Rust step: `cargo test -p harness_business --test <new tests>` plus the existing `opencode_*` tests,
@@ -244,7 +254,10 @@ From the real OpenCode 2.1.2 binary in a sandbox (`unshare`, no provider) and re
 ## Risks
 
 - Harness Skills entry loader compatibility between v1 and v2.
-- `/api/agent` is empty offline (fallback agent list for modes).
+- `/api/agent` (and `/api/skill`) start empty for each directory and fill 150–300 ms after its first request: startup asks again
+  for up to 3 s, the build/plan fallback only covers a list that stays empty.
+- A project's saved OpenCode allow rules (from the TUI's "always") apply after every agent's rules, so Always ask and
+  Write ask first are refused in such a project (Yolo still starts).
 - Subagent permission inheritance; PATCH permissions semantics (not used).
 - Serve exposure through the user's config (check the cli serve handler; the client refuses non-loopback).
 - Verified by recordings (business/tests/fixtures/opencode2/recorded): no 409 while busy (shell 204, compact 200),
