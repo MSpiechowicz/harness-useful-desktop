@@ -46,6 +46,21 @@ describe('mcpEntryJson for OpenCode shows the shape its file uses', () => {
   });
 });
 
+describe('mcpEntryJson for OpenCode 2 has no enabled', () => {
+  it('writes a local server and a remote one without it', () => {
+    expect(mcpEntryJson(stdio, 'opencode', 2)).toBe('"files": {\n  "type": "local",\n  "command": ["npx", "-y", "files-mcp"]\n}');
+    expect(mcpEntryJson(remote, 'opencode', 2)).toBe('"docs": {\n  "type": "remote",\n  "url": "https://docs.example/mcp"\n}');
+  });
+
+  it('writes disabled true for a server that needs values', () => {
+    expect(mcpEntryJson({ ...stdio, enabled: false }, 'opencode', 2)).toBe('"files": {\n  "type": "local",\n  "command": ["npx", "-y", "files-mcp"],\n  "disabled": true\n}');
+  });
+
+  it('leaves the OMP and PI shapes alone', () => {
+    expect(mcpEntryJson(stdio, 'omp', 2)).toBe(mcpEntryJson(stdio));
+  });
+});
+
 describe('itemLabel', () => {
   const plugin = { kind: 'plugin', label: 'wakatime', version: '1.2.3' } as const;
 

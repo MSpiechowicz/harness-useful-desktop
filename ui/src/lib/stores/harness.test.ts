@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { fakeTransport, samplePrefs, withoutChat } from '../../../tests/helpers';
+import { withOpenCode2 } from '../ipc/mock/opencode-v2';
 import { createMockTransport } from '../ipc/mock/transport';
 import { defaultScenario } from '../ipc/mock/scenarios';
 
@@ -26,6 +27,16 @@ async function setup(prefsOverride: Parameters<typeof samplePrefs>[0] = {}) {
 }
 
 describe('HarnessStore', () => {
+  it('tells the OpenCode generation from the detected version', async () => {
+    const { store } = await setup();
+
+    expect(store.openCodeGeneration).toBe(1);
+
+    store.summaries = store.summaries.map(withOpenCode2);
+
+    expect(store.openCodeGeneration).toBe(2);
+  });
+
   it('falls back to the first installed harness when no daily driver is set', async () => {
     const { store } = await setup({ defaultHarness: null });
 
