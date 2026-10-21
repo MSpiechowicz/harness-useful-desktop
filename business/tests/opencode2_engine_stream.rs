@@ -130,7 +130,9 @@ fn quick_silence(millis: u64) -> SessionOptions {
 
 #[tokio::test]
 async fn heartbeats_alone_keep_the_stream() {
-    let chat = start_with("opencode2_heartbeats.jsonl", None, quick_silence(300)).await;
+    // Heartbeats every 100 ms for about 2.4 s against a 600 ms silence limit: wide enough for a loaded runner, and the
+    // stream still outlasts the limit four times, so a chat that ignored heartbeats would reopen it.
+    let chat = start_with("opencode2_heartbeats.jsonl", None, quick_silence(600)).await;
 
     let events = until_marker(&chat).await;
 
