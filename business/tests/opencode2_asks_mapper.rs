@@ -431,7 +431,7 @@ fn a_form_the_chat_cannot_ask_is_not_shown() {
     let mut mapper = mapper();
     let fields = json!([
         { "key": "q0", "type": "string", "title": "Name?" },
-        { "key": "login", "type": "external", "url": "https://example.com/login" }
+        { "key": "sso", "type": "external", "url": "https://example.com/login" }
     ]);
 
     assert!(feed(&mut mapper, &[form("frm_1", json!({}), fields)]).is_empty());
