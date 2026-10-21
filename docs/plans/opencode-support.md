@@ -52,7 +52,8 @@ The six open decisions of the research, answered:
 6. **Agents.** A new extensions category (`ExtensionsView.agents`, `AgentInfo`, `Capabilities.agents`), not config view
    only.
 
-Further decisions: `supported_versions` is `1.18.` and `1.19.` (2.x shows as untested). The chat gate is a new
+Further decisions: `supported_versions` is `1.18.` and `1.19.` (since the OpenCode 2 work also `2.1.`, see
+[OpenCode 2 (v2 column)](#opencode-2-v2-column)). The chat gate is a new
 `Capabilities.chat` flag, next to `agents` and `cliActions`. Sessions are linear (`session_tree` false: no resume or
 fork). Sessions come only from the CLI, so a new `Harness::cli_sessions` hook and a synchronous `BlockingRunner` exist.
 
@@ -69,7 +70,8 @@ Findings from building it that differ from, or add to, the research below:
   session the project's list shows.
 - **OpenCode 1.19 stopped the terminal UI's auto-install of updates.** `OPENCODE_DISABLE_AUTOUPDATE=1` is still set on
   every spawn.
-- **OpenCode 2 exists** (`opencode upgrade --major`), so 2.x is detected as untested, not unsupported.
+- **OpenCode 2 exists** (`opencode upgrade --major`), so 2.x was detected as untested, not unsupported. 2.1 is
+  supported now, see [OpenCode 2 (v2 column)](#opencode-2-v2-column).
 - **`--pure` on every session call** (`session list`, `export`, `session delete`): OpenCode runs them without external
   plugins.
 - **Session ids** are checked (`ses_` prefix, characters safe as a CLI argument) before anything is spawned.
@@ -81,6 +83,7 @@ Findings from building it that differ from, or add to, the research below:
 - [Implemented](#implemented)
 - [Decisions taken](#decisions-taken)
 - [Corrected facts](#corrected-facts)
+- [OpenCode 2 (v2 column)](#opencode-2-v2-column)
 - [Proposed scope ladder](#proposed-scope-ladder)
 - [Integration points in this repo](#integration-points-in-this-repo)
 - [OpenCode facts](#opencode-facts)
@@ -90,6 +93,38 @@ Findings from building it that differ from, or add to, the research below:
 - [Never call](#never-call)
 - [Open decisions](#open-decisions)
 - [Open questions](#open-questions)
+
+## OpenCode 2 (v2 column)
+
+OpenCode 2 (2.1.x, 2026-10) is the same harness in the app. Plan, steps and status: [opencode-v2.md](opencode-v2.md).
+What differs from the 1.18 / 1.19 behaviour described in this file (the research below describes OpenCode 1):
+
+| Topic | OpenCode 1 (1.18, 1.19) | OpenCode 2 (2.1) |
+| --- | --- | --- |
+| Install | curl script (npm `opencode-ai` on Windows) | `npm install -g @opencode/cli` everywhere. The install script refuses 2.x. The package also has an `opencode2` bin, which the app ignores |
+| Detection | `--version` prints `1.19.3` | prints `opencode v2.1.2`. The version selects the generation (`OpenCodeGeneration`: major 1 and unknown versions are V1, major 2 and later V2), set by `Harness::note_version` and stale until the next detection |
+| Spawn env | `OPENCODE_DISABLE_AUTOUPDATE=1` | same, plus `OPENCODE_DISABLE_MODELS_FETCH=1` and `OPENCODE_DISABLE_FILEWATCHER=1` on session commands |
+| Background service | none | `opencode serve --service`, started by many CLI commands. The app never starts it |
+| CLI calls | `--pure` on session commands | `--standalone` on every call that takes it. Commands that call the service are avoided (`debug config`, `debug agents`, `plugin list`, `mcp list`) |
+| Config files | `opencode.json[c]`, plus a legacy global `config.json` | `opencode.json[c]` only, no `config.json` layer |
+| `OPENCODE_CONFIG_DIR` | an extra config directory, read after the others | replaces the global directory |
+| `OPENCODE_PERMISSION` | read | gone, `permissions` in the config replaces it. `OPENCODE_CONFIG`, `OPENCODE_CONFIG_CONTENT`, `OPENCODE_DISABLE_PROJECT_CONFIG` still work |
+| Plugins key | `plugin: [string \| [spec, options]]` | `plugins: [string \| {package, options}]`, legacy `plugin` still read |
+| MCP key | `mcp.<name>` with `enabled` | `mcp.servers.<name>`, legacy `mcp.<name>` still read, no `enabled` on entries the app writes |
+| Agents, commands | `agent`, `command` | `agents`, `commands`, legacy keys read. Discovery directories are unchanged |
+| Plugin install | `opencode plugin <module> -g` | `opencode plugin add <module>` (global `plugins`, no service) |
+| Plugin remove | the app edits the `plugin` list | the app edits `plugins` and the legacy `plugin` list (OpenCode 2's own `plugin remove` is not used) |
+| Merged MCP names (Share setup collision check) | `opencode debug config` | `opencode api --standalone GET /api/config`, which starts a private server and lists the merged config documents |
+| Sessions | `session list --pure --format json`, `export --pure`, `session delete --pure` | `session list --standalone --format json -n N`, `session export --standalone <id>`, `session delete --standalone <id>`. Times are Unix milliseconds, `title` may be missing, a missing session answers `Session not found: <id>` |
+| Existing sessions | n/a | OpenCode 2 does not read OpenCode 1 sessions, and the app does not import them. A migrated session may still hold OpenCode 1 tool names |
+| Chat server | `opencode serve`, `/session` and `/event` routes | `opencode serve --hostname 127.0.0.1 --port 0` (no `--mdns`), `/api/...` routes with `{data}` envelopes, `GET /api/info` as readiness, another event vocabulary. `ChatProtocol::OpenCodeServerV2` |
+| Approval modes | rules in `permission` | rules in `agents.<name>.permissions` (`{action, resource, effect}`), through the chat server's `OPENCODE_CONFIG_CONTENT` |
+| Hook tool ids | `bash`, `apply_patch`, `task`, `edit` / `write` with `filePath` | `shell`, `patch`, `subagent`, `edit` / `write` with `path`. See [hooks-format.md](../hooks-format.md#matcher) |
+
+Unchanged on OpenCode 2: one private server per chat on 127.0.0.1 with a random per-launch password, the Basic
+auth user `opencode`, never changing OpenCode's config files from a chat, never passing `--auto`, and never calling
+share, auth, upgrade or config-write routes. The Harness Skills plugin has a V2 entry (`harness-useful-skills`,
+`opencode/v2.js`) next to the V1 one.
 
 ## Proposed scope ladder
 

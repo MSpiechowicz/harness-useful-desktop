@@ -101,6 +101,7 @@ differs.
 | `supported_versions()` | no | `[]` | Version prefixes tested with this app, e.g. `&["18."]`. |
 | `version_support(version)` | no | `Supported` on a prefix match, else `Untested` | Never returns `Unknown`; that is detection's "no version" state. |
 | `detect(env, runner, override)` | no | `harness::detect` | See [Detection](#3-detection). |
+| `note_version(version)` | no | nothing | Called by `harness::detect` after the version probe with the version read (`None` when it read none or the binary is missing). For a harness whose behaviour depends on its version: OpenCode keeps an `OpenCodeGeneration` (`V1` for 1.x, `V2` for 2.x) in an atomic and every method that differs reads it. `opencode_generation()` reports it (`None` for other harnesses). Views that depend on it run `ensure_detected` first (`src-tauri/src/commands/harness.rs`). |
 | `summary(...)` | no | info + capabilities + detection | What `harness_list` returns. |
 | `list_sessions`, `resolve_session`, `session_tree`, `session_messages`, `session_files_touched` | no | PI-family session files | See [Sessions](#7-sessions). |
 | `delete_session` | no | PI-family session files | Deletes a session file with its companion folder and backups. |
@@ -293,7 +294,9 @@ results before delegating to `decode_common`).
 `Harness::chat_protocol()` tells the manager which engine drives a chat (`ChatProtocol` in `business/src/harness/mod.rs`).
 The default is `ChatProtocol::Rpc(self.dialect())`, which is OMP and PI. A harness with another protocol returns
 another variant, and `AgentSession` (`business/src/agent/engine.rs`) is an enum with one engine per protocol:
-`RpcSession` (`agent/session.rs`) and `OpenCodeSession` (`agent/opencode/`). A new engine:
+`RpcSession` (`agent/session.rs`), `OpenCodeSession` (`agent/opencode/`) and `OpenCodeV2Session` (`agent/opencode_v2/`). One
+harness can return different protocols by version: OpenCode answers `ChatProtocol::OpenCodeServer` for 1.x and
+`ChatProtocol::OpenCodeServerV2` for 2.x, chosen from the generation `note_version` stored. A new engine:
 
 - adds a `ChatProtocol` variant and an `AgentSession` variant that forwards `send`, `respond`, `bash`, `emit`,
   `on_prompt_taken`, `move_project`, `stop`, `exit_info`, `protocol_version` and `is_running`;
@@ -302,14 +305,16 @@ another variant, and `AgentSession` (`business/src/agent/engine.rs`) is an enum 
   copy that code (`bun run dup` fails on it);
 - turns what the harness reports into `AgentEvent`s and `AgentAction`s into the harness's calls, so the UI needs no
   change. OpenCode's server side (HTTP and event-stream client, a closed route allowlist, the event mapper) lives in
-  `business/src/opencode_server/` and its rules in [security-privacy.md](security-privacy.md#opencode-chat);
+  `business/src/opencode_server/` and its rules in [security-privacy.md](security-privacy.md#opencode-chat). OpenCode 2
+  has its own in `business/src/opencode_server_v2/`, reusing the HTTP client through the `ApiRoute` trait (a new route
+  type implements it, and the client stays closed to anything else);
 - fills `launch_spec` with the command that starts the engine's process (`harnesses/opencode/launch.rs`), and reads
   the extra `SessionLaunch` fields it needs (`resume`, `approval_override`, `utility`) after the process is up when
   the command line cannot carry them;
 - sets the capability flags the engine supports: `chat`, `chatPreview` while it is new, `agentPicker`,
   `approvalModes` and `compactInstructions` (see [Capabilities](#capabilities)).
 
-Test the engine with `fake_agent --dialect opencode --scenario <file.jsonl>` (see [Tests](#11-tests)).
+Test the engine with `fake_agent --dialect opencode --scenario <file.jsonl>` (`--dialect opencode2` for OpenCode 2), see [Tests](#11-tests).
 
 ## 7. Sessions
 
@@ -338,7 +343,10 @@ here: no tree, resume or fork (`capabilities.sessionTree` false). Remember to:
 - redact what you pass on, including CLI error lines.
 
 OpenCode's commands, all with `--pure` (no external plugins): `session list --pure --format json`,
-`export <id> --pure`, `session delete --pure <id>`. See `harnesses/opencode/sessions.rs`.
+`export <id> --pure`, `session delete --pure <id>`. See `harnesses/opencode/sessions.rs`. OpenCode 2 has no `--pure`.
+It takes `--standalone` instead on every call (`session list --standalone --format json -n 5000`, `session export
+--standalone <id>`, `session delete --standalone <id>`), because without it the CLI starts its background service and
+leaves it running. See `harnesses/opencode/sessions/v2.rs`.
 
 **Session files.** `sessions_dir` is required. The default `list_sessions`, `resolve_session`, `session_tree`, `session_messages` and
 `session_files_touched` read PI-family session files (`<timestamp>_<id>.jsonl`, entries linked by `id`/`parentId`)
@@ -371,11 +379,11 @@ A CLI without a command for an action can still support it by editing its own co
 `config_action(env, action, project, dry_run)` for that: `extension_action` asks it first, and `Ok(None)` sends the
 action on to `cli_action`. The edit returns a `CliResult` with `config_edit` set (`argv` and `command` are empty), and a
 dry run only reports what it would do. OpenCode is the example. `cli_action` maps `PluginInstall` in the user scope to
-`opencode plugin <module> -g` (`business/src/harnesses/opencode/cli.rs`). The module must pass
+`opencode plugin <module> -g` (`business/src/harnesses/opencode/cli.rs`), and on OpenCode 2 to `opencode plugin add <module>`. The module must pass
 `cli_target(TargetKind::NpmModule, …)`, so only an npm registry name with an optional version or tag. Project
 installs, upgrade (`-f`), enable, disable and marketplace actions are `Unsupported`. OpenCode has no preview flag, so a
 dry run never starts the CLI. `PluginUninstall` goes through `config_action` and removes the entry from the `plugin`
-list of the global config file (`plugin_remove.rs`). It never edits another file, and it leaves a file with comments, a
+list of the global config file (`plugin_remove.rs`, on OpenCode 2 the `plugins` list and the legacy `plugin` list). It never edits another file, and it leaves a file with comments, a
 `[spec, options]` entry or a plugin another file defines to the user (`config_edit.manualEdit`, `ok` false).
 
 `run_cli_action` runs the binary without a shell in the project (or the home directory), with a 5 minute timeout and
@@ -435,6 +443,9 @@ fn companion_setup(&self) -> CompanionSetup {
   `{"type": "local", "command": ["harness-dashboard", "mcp"], "enabled": true}`, and `"enabled": false` counts as switched
   off. The file is JSONC: a file with comments is never rewritten (a rewrite would lose them), so the setup row shows
   the entry to paste (`McpState::ManualEdit { file, snippet }`, with a copy button) instead. Only comments block a write.
+  The target carries the OpenCode generation (`OpenCodeConfig(OpenCodeGeneration)`). On OpenCode 2 the entry is
+  `mcp.servers.<name>` with `{"type": "local", "command": ["harness-dashboard", "mcp"]}` and no `enabled`, there is
+  no `config.json`, and an existing entry is recognised in either shape.
 - `Unsupported`: the CLI has no user MCP file the app can write. The step then shows "No MCP file to edit" for it, and
   the harness gets no project memory entry.
 

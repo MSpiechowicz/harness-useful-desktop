@@ -173,6 +173,61 @@ S15 in the skills repo. S7 also needs S5.
 | S14 | Docs | general | todo |
 | S15 | Harness Skills V2 entry | general | done (harness-useful-skills b285e6f, branch feat/opencode-v2, unreleased; dual entry checked on real 1.19.3 and 2.1.2) |
 
+## Verified facts
+
+From the real OpenCode 2.1.2 binary in a sandbox (`unshare`, no provider) and recordings of real traffic with the free
+`opencode/big-pickle` model (2026-10-21). The replayable recordings are under `business/tests/fixtures/opencode2/recorded/`.
+
+**Server and wire**
+
+- `serve --hostname 127.0.0.1 --port 0` with `OPENCODE_SERVER_PASSWORD` prints `server listening on http://127.0.0.1:<port>`
+  on stdout. `--mdns=false` is rejected.
+- `GET /api/info` answers 401 without auth and `{version, pid, urls, paths, capabilities}` with Basic `opencode:<password>`
+  (503 while starting).
+- Responses are wrapped in `{"data": ...}`, lists add `{"cursor": {previous, next}}`, catalogs add `{"location":
+  {directory}}`. A directory scopes a request as `?location%5Bdirectory%5D=<absolute dir>`.
+- Session object: `{id: "ses_...", projectID, cost, tokens, time: {created, updated}, location: {directory}, title?}`.
+  Times are millisecond numbers, `title` is absent until set.
+- `GET /api/command` lists `init` and `review`, `GET /api/model` lists models (`opencode/big-pickle` with the public key),
+  `GET /api/agent` is empty offline.
+- Legacy `agent.<n>.permission` in `OPENCODE_CONFIG_CONTENT` is normalized by `GET /api/config` to
+  `agents.<n>.permissions` rules (`bash` becomes `shell`). Native `agents.<n>.permissions` lists are accepted.
+  Without config, shell runs without asking.
+
+**Events and runs**
+
+- No `session.status` events. A run is `session.inbox.enqueued` → `session.execution.started` → `session.inbox.delivered` →
+  `session.step.started` → text / reasoning / tool events → `session.step.ended` → `session.usage.updated` →
+  `session.execution.succeeded`, `.failed` or `.interrupted {reason: "user"}`. `session.renamed` arrives early
+  (automatic title).
+- Tool events: `tool.input.started|delta|ended`, `tool.called {id, input}`, an optional `permission.asked`,
+  `tool.progress`, then `tool.success` or `tool.failed {error: {type, message}}`. Ids seen: `read`, `glob`, `edit`,
+  `write`, `shell`, `question`. Inputs: `edit {path, oldString, newString}`, `write {path, content}`, `shell {command}`,
+  `read {path}`.
+- `permission.asked {id: "per_...", action, resources, save, metadata, source}`. `GET /api/session/:id/permission` lists
+  the pending ones, `POST .../permission/:id/reply {decision: once|always|reject, message?}` answers 204 and emits
+  `permission.replied`.
+- The `question` tool emits `form.created` (fields with `key`, `title`, `options`). `POST /api/session/:id/form/:formID/reply
+  {answer: {q0: "blue"}}` answers 204, then `form.replied`.
+- Steering and queueing: `POST .../prompt` with `delivery` `steer` or `queue` while running answers 200, delivered at
+  boundaries. No 409 was seen while busy (`shell` answers 204, `compact` 200).
+- `interrupt` answers 200 `{"interrupted": true}`, the tool fails with error type `aborted`.
+- `shell` answers 204 (events `session.shell.started|ended`, then a synthetic item with the output). `command {name: "review",
+  text: ""}` answers 204 and enqueues the template. `PATCH` title answers 204 and emits `session.renamed`.
+- `fork {before: <messageID>}` answers 200 with `fork.boundary.type` `before`, `fork {}` with `through`. `compact` answers
+  200 with a compaction item, then `session.compaction.started|ended`.
+- Images go in `files: [{uri: "file:///abs/path.png", name}]`, the server inlines the data.
+
+**CLI**
+
+- `session list --standalone --format json` prints `[{id, updated, created, projectId, directory, title?}]`, `[]` when empty.
+  `session export --standalone <id>` prints `{info, messages}`. `session delete --standalone <missing>` prints `Session
+  not found: <id>` with exit code 1.
+- Without `--standalone`, `debug config`, `plugin list`, `mcp list` and `debug agents` start a persistent `opencode serve
+  --service`. With it no daemon is left.
+- `api --standalone GET /api/config` returns the config sources the private server merged: `{type: "directory", path}`
+  and `{type: "document", info}`.
+
 ## Verification
 
 - Each Rust step: `cargo test -p harness_business --test <new tests>` plus the existing `opencode_*` tests,
