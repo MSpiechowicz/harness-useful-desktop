@@ -12,7 +12,7 @@
 //! - On Unix the registry is trusted only while it is private to the user the app runs as: the
 //!   folder is narrowed to `0700` on every write; the sweep refuses a folder that another user
 //!   owns or that group or others can write to, and skips (leaves unread) a file that another user
-//!   owns or whose mode is not `0600`. Nobody else can plant a record that makes the app kill a
+//!   owns or that group or others may open (any mode beyond the owner's bits). Nobody else can plant a record that makes the app kill a
 //!   process.
 //!
 //! Nothing is recorded where identities are unsupported ([`ChildRegistry::open`] gives `None`), so
@@ -359,7 +359,7 @@ fn sweep_child(child: &ProcessIdentity, report: &mut SweepReport) {
 /// What reading one registry file gave.
 enum ReadRecord {
     Record(RegistryFile),
-    /// Another user's file, or one whose mode is not `0600`: left alone, unread.
+    /// Another user's file, or one group or others may open: left alone, unread.
     Untrusted,
     /// Not a regular file, too large, unreadable or not a registry file of [`VERSION`].
     Corrupt,
@@ -446,10 +446,11 @@ fn private_dir_mode(owner: u32, mode: u32, me: u32) -> bool {
     owner == me && mode & 0o022 == 0
 }
 
-/// A file owned by `owner` with mode `mode` is private to user `me`: theirs, with mode `0600`.
+/// A file owned by `owner` with mode `mode` is private to user `me`: theirs, and neither group
+/// nor others may touch it. Any owner-only mode counts, so a strict umask's `0400` still does.
 #[cfg(unix)]
 fn private_file_mode(owner: u32, mode: u32, me: u32) -> bool {
-    owner == me && mode & 0o777 == 0o600
+    owner == me && mode & 0o077 == 0
 }
 
 #[cfg(all(test, unix))]
@@ -471,13 +472,16 @@ mod tests {
     }
 
     #[test]
-    fn only_the_users_own_0600_file_is_trusted() {
+    fn only_the_users_own_owner_only_file_is_trusted() {
         assert!(private_file_mode(ME, 0o100600, ME));
+        assert!(private_file_mode(ME, 0o100400, ME), "read only, from a strict umask");
+        assert!(private_file_mode(ME, 0o100700, ME), "owner-only executable bit");
 
         assert!(!private_file_mode(OTHER, 0o100600, ME), "another user's file");
+        assert!(!private_file_mode(0, 0o100400, ME), "root's file");
         assert!(!private_file_mode(ME, 0o100644, ME), "others may read it");
         assert!(!private_file_mode(ME, 0o100640, ME), "group may read it");
-        assert!(!private_file_mode(ME, 0o100700, ME), "executable");
-        assert!(!private_file_mode(ME, 0o100400, ME), "read only");
+        assert!(!private_file_mode(ME, 0o100604, ME), "others may read it");
+        assert!(!private_file_mode(ME, 0o100620, ME), "group may write it");
     }
 }

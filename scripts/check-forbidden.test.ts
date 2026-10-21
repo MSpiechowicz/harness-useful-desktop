@@ -138,6 +138,21 @@ describe('OpenCode route and flag rules', () => {
     expectViolation(SESSION_V2, argv('serve', flag), id);
   });
 
+  test('a comment that names the service or cors flags passes, the same token in code does not', () => {
+    const service = ['--', 'service'].join('');
+    const cors = ['--', 'cors'].join('');
+    const comments = [
+      `//! Never \`${service}\`, never "service": the chat runs its own loopback server.\n`,
+      `    /// No \`${cors}\`, so a browser origin cannot call it.\n`,
+      `// "${cors}=*" stays out.\n`,
+    ].join('');
+
+    expectClean(SESSION_V2, comments);
+    expectClean(ENGINE_V2, comments);
+    expectViolation(SESSION_V2, `${comments}let flag = "${service}";\n`, 'opencode-service');
+    expectViolation(ENGINE_V2, `${comments}let flag = "${cors}";\n`, 'opencode-cors');
+  });
+
   test.each([
     ['--mdns'],
     ['--mdns=true'],

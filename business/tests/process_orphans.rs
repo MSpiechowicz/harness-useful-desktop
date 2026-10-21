@@ -352,7 +352,7 @@ fn a_folder_others_may_write_to_is_not_swept() {
 }
 
 #[test]
-fn a_record_that_is_not_0600_is_skipped() {
+fn a_record_group_or_others_may_open_is_skipped() {
     let dir = tempfile::tempdir().unwrap();
     let app = FakeApp::start();
     let registry = ChildRegistry::with_owner(dir.path(), app.identity.clone());
@@ -362,7 +362,7 @@ fn a_record_that_is_not_0600_is_skipped() {
     drop(registry);
     app.crash();
 
-    for mode in [0o644, 0o660, 0o700] {
+    for mode in [0o644, 0o660, 0o604, 0o620] {
         set_mode(&file, mode);
         let report = sweep_orphans(dir.path());
 
@@ -372,5 +372,10 @@ fn a_record_that_is_not_0600_is_skipped() {
     }
 
     assert!(still_running(&mut child), "nothing is killed");
-    stop(child);
+
+    // An owner-only record, as a strict umask leaves it, is swept.
+    set_mode(&file, 0o400);
+
+    assert_eq!(sweep_orphans(dir.path()).killed, vec![child.id()]);
+    assert_eq!(wait_for_signal(&mut child), Some(9));
 }

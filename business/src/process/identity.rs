@@ -240,24 +240,32 @@ pub(crate) fn observe(pid: u32) -> Observation {
         .arg(pid.to_string())
         .env("LC_ALL", "C")
         .stdin(Stdio::null())
-        .stderr(Stdio::null())
         .output();
 
     match output {
-        Ok(output) => ps_observation(output.status.success(), &String::from_utf8_lossy(&output.stdout), pid),
+        Ok(output) => ps_observation(
+            output.status.code(),
+            &String::from_utf8_lossy(&output.stdout),
+            &String::from_utf8_lossy(&output.stderr),
+            pid,
+        ),
         Err(_) => Observation::Unknown,
     }
 }
 
-/// What a `ps` run says about `pid`: a failed run without output is a pid that does not exist
-/// (`ps -p` exits 1 then), one with output is unknown.
+/// What a `ps` run says about `pid`. Only the exact "no such process" result is gone: `ps -p`
+/// exits 1 and prints nothing on either stream then. Any other failure (a signal, another exit
+/// code, an error message from a sandbox or a broken spawn) is unknown, so a live owner's
+/// servers are never killed over a `ps` that could not look.
 #[cfg(any(target_os = "macos", test))]
-fn ps_observation(success: bool, stdout: &str, pid: u32) -> Observation {
-    if success {
+fn ps_observation(code: Option<i32>, stdout: &str, stderr: &str, pid: u32) -> Observation {
+    if code == Some(0) {
         return parse_ps_line(stdout, pid);
     }
 
-    if stdout.trim().is_empty() {
+    let silent = stdout.trim().is_empty() && stderr.trim().is_empty();
+
+    if code == Some(1) && silent {
         Observation::Gone
     } else {
         Observation::Unknown
@@ -362,14 +370,21 @@ mod tests {
     }
 
     #[test]
-    fn only_a_failed_ps_without_output_is_a_gone_process() {
-        assert_eq!(ps_observation(false, "", 501), Observation::Gone);
-        assert_eq!(ps_observation(false, "\n", 501), Observation::Gone);
+    fn only_a_silent_exit_1_from_ps_is_a_gone_process() {
+        assert_eq!(ps_observation(Some(1), "", "", 501), Observation::Gone);
+        assert_eq!(ps_observation(Some(1), "\n", "\n", 501), Observation::Gone);
+
         assert_eq!(
-            ps_observation(false, "ps: something went wrong\n", 501),
+            ps_observation(Some(1), "ps: something went wrong\n", "", 501),
             Observation::Unknown
         );
-        assert_eq!(ps_observation(true, "garbage", 501), Observation::Unknown);
+        assert_eq!(
+            ps_observation(Some(1), "", "ps: Operation not permitted\n", 501),
+            Observation::Unknown
+        );
+        assert_eq!(ps_observation(Some(2), "", "", 501), Observation::Unknown);
+        assert_eq!(ps_observation(None, "", "", 501), Observation::Unknown);
+        assert_eq!(ps_observation(Some(0), "garbage", "", 501), Observation::Unknown);
     }
 
     #[test]

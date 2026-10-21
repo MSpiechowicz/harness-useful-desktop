@@ -147,7 +147,8 @@ const OPENCODE_RULES: readonly Rule[] = [
     id: 'opencode-service',
     reason:
       'never start or use the OpenCode background service: no --service or --stdio flag and no "service" command (the chat runs its own loopback server)',
-    pattern: /["'`]--(?:service|stdio)(?:["'`]|=)|["'`]service["'`]/,
+    // Code lines only, like the route rules: a comment that explains the ban stays allowed.
+    pattern: /^(?!\s*\/\/).*?(?:["'`]--(?:service|stdio)(?:["'`]|=)|["'`]service["'`])/,
     extensions: ['.rs'],
     only: OPENCODE_ENGINE,
     optOut: false,
@@ -155,7 +156,7 @@ const OPENCODE_RULES: readonly Rule[] = [
   {
     id: 'opencode-cors',
     reason: 'never pass --cors to OpenCode (a browser origin could then call the chat server)',
-    pattern: /["'`]--cors(?:["'`]|=)/,
+    pattern: /^(?!\s*\/\/).*?["'`]--cors(?:["'`]|=)/,
     extensions: ['.rs'],
     only: OPENCODE_ENGINE,
     optOut: false,
