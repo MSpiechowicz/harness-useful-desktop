@@ -1,3 +1,10 @@
+## [0.35.2](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.35.1...v0.35.2) (2026-10-21)
+
+
+### Bug Fixes
+
+* **chat:** uppercase branch names are no longer clipped in the composer footer ([9256ca5](https://github.com/MSpiechowicz/harness-useful-desktop/commit/9256ca506649be56fda4596a6496331a2bf0225c))
+
 ## [0.35.1](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.35.0...v0.35.1) (2026-10-21)
 
 
