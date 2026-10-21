@@ -103,7 +103,7 @@ S15 in the skills repo. S7 also needs S5.
   `plugin`; `McpTarget::OpenCodeConfig(OpenCodeGeneration)`; `ecosystem/mcp_merge.rs` `Shape::OpenCodeV2` (nested
   `mcp.servers`, entry `{type: "local", command: [bin, "mcp"]}`, no `enabled`; split to `mcp_merge/shape.rs` past 500
   lines); existing-entry lookup in `memory_register.rs`, `desktop_register.rs`, `mcp_register.rs` checks both shapes;
-  `ecosystem/setup.rs::opencode_file`; `sync/plan_rows.rs` v2 command line; `merged.rs` V2 → `Names::Unchecked`
+  `ecosystem/setup.rs::opencode_file`; `sync/plan_rows.rs` v2 command line; `merged.rs` V2 reads merged MCP names through `opencode api --standalone GET /api/config` (no background service)
   instead of `debug config` (which spawns the service). Tests `opencode2_plugin_actions.rs`,
   `opencode2_plugin_remove.rs`, `setup_mcp_register_opencode2.rs`, `sync_import_opencode2.rs`.
 - **S5 sessions v2** (Track B): `sessions/v2.rs` and `sessions/transcript_v2.rs` (`session list --standalone --format
@@ -160,17 +160,18 @@ S15 in the skills repo. S7 also needs S5.
 | S1 | Version plumbing and skeleton | backend | done |
 | S2 | Route-agnostic HTTP | backend | done (46e6559) |
 | S3 | Config and extensions read | backend | done |
-| S4 | Config writes, plugins, MCP registration | backend | in progress (worktree a) |
+| S4 | Config writes, plugins, MCP registration | backend | done (merged 306c96e) |
 | S5 | Sessions v2 | backend | done (00afe63) |
 | S6 | Wire, routes, events | backend | done |
-| S7 | Event mapper | backend | in progress (worktree c) |
-| S8 | Fake v2 server | backend | in progress (worktree b) |
-| S9 | Engine core | backend | todo |
+| S7 | Event mapper | backend | done (merged de6dab8) |
+| S8 | Fake v2 server | backend | done (merged 0a2dd27) |
+| S9 | Engine core | backend | in progress (worktree c) |
 | S10 | Approvals and approval modes | backend | todo |
 | S11 | Session ops, export, stats | backend | todo |
 | S12 | Hooks and routines tests | backend | todo |
-| S13 | UI (only if needed) | frontend | todo |
-| S14 | Docs | general | todo |
+| S13 | UI (only if needed) | frontend | done (merged e4573f7) |
+| S14 | Docs | general | done (bbab074, drop "not available yet" in README/architecture when S9–S12 land) |
+| S16 | Orphaned chat servers killed on next start (user-approved addition) | backend | done (merged 1cb9454) |
 | S15 | Harness Skills V2 entry | general | done (harness-useful-skills b285e6f, branch feat/opencode-v2, unreleased; dual entry checked on real 1.19.3 and 2.1.2) |
 
 ## Verified facts
@@ -246,7 +247,6 @@ From the real OpenCode 2.1.2 binary in a sandbox (`unshare`, no provider) and re
 - `/api/agent` is empty offline (fallback agent list for modes).
 - Subagent permission inheritance; PATCH permissions semantics (not used).
 - Serve exposure through the user's config (check the cli serve handler; the client refuses non-loopback).
-- Merged MCP names on v2 → `Unchecked`.
 - Verified by recordings (business/tests/fixtures/opencode2/recorded): no 409 while busy (shell 204, compact 200),
   images as `files[{uri: file://…}]`, form reply `{answer:{key:value}}`, no `session.status` events (a run ends with
   `session.execution.succeeded|failed|interrupted`).
