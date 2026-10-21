@@ -103,7 +103,12 @@ mod hooks_family {
         assert_eq!(seed_defaults(&store, NOTHING, at(0)).unwrap(), vec![]);
         assert_eq!(
             seed_defaults(&store, MEMORY, at(0)).unwrap(),
-            vec![HookSeed::MemorySearch, HookSeed::MemorySave, HookSeed::UsefulSkills, HookSeed::BranchSync]
+            vec![
+                HookSeed::MemorySearch,
+                HookSeed::MemorySave,
+                HookSeed::UsefulSkills,
+                HookSeed::BranchSync
+            ]
         );
         assert_eq!(
             seed_defaults(&store, BOTH, at(1)).unwrap(),

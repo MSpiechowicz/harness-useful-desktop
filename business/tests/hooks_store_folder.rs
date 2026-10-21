@@ -283,7 +283,12 @@ mod hooks_store_folder {
         let created = seed_defaults(&folder.store, MEMORY, at(0)).unwrap();
         assert_eq!(
             created,
-            vec![HookSeed::MemorySearch, HookSeed::MemorySave, HookSeed::UsefulSkills, HookSeed::BranchSync]
+            vec![
+                HookSeed::MemorySearch,
+                HookSeed::MemorySave,
+                HookSeed::UsefulSkills,
+                HookSeed::BranchSync
+            ]
         );
 
         let listed = folder.store.list(MEMORY);
