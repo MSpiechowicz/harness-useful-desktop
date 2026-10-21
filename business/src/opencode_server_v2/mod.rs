@@ -24,4 +24,4 @@ pub mod tools;
 pub mod wire;
 
 pub use mapper::{Mapped, Mapper};
-pub use routes::{FormId, MessageId, MessageOrder, PermissionId, RouteV2, SessionId};
+pub use routes::{FormId, MessageId, MessageOrder, PermissionId, RouteV2, SessionId, ShellId};

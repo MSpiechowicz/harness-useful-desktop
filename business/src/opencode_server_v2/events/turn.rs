@@ -226,7 +226,8 @@ pub struct ToolFailed {
     pub content: Vec<ToolContent>,
 }
 
-/// One piece of a tool result.
+/// One piece of a tool result, live and in a session's messages
+/// ([`content_text`](crate::opencode_server_v2::tools::content_text) shows it).
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum ToolContent {
@@ -236,14 +237,14 @@ pub enum ToolContent {
         #[serde(default)]
         text: String,
     },
-    /// A file.
+    /// A file (an image a tool read). Its URI, a `data:` URL for an image, is not kept.
     File {
-        /// Its URI.
-        #[serde(default)]
-        uri: String,
         /// Its media type.
         #[serde(default)]
         mime: String,
+        /// Its name (the path of a file a tool read), when OpenCode gives one.
+        #[serde(default)]
+        name: Option<String>,
     },
     /// A content kind this app does not know.
     #[serde(other)]

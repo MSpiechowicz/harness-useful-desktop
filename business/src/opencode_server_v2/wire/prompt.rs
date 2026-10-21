@@ -218,6 +218,9 @@ pub struct InboxPayload {
     /// Attached files, as the server stored them.
     #[serde(default)]
     pub files: Vec<Value>,
+    /// Attached skills (`{id, name, text?}`), as the server stored them.
+    #[serde(default)]
+    pub skills: Vec<Value>,
 }
 
 /// A pending permission request (`permission.asked`, `GET …/permission`).

@@ -5,10 +5,14 @@
 //!   streams as text (`input.delta`, `input.ended`) and is not shown.
 //! - `toolStart` once the call runs (`session.tool.called`, with the parsed input), `toolUpdate`
 //!   for new partial output (`metadata.output` of `session.tool.progress`), `toolEnd` once it
-//!   succeeded (its redacted text content) or failed (its redacted error, `aborted` ones
-//!   included), with the project files the call may have changed
-//!   ([`call_touched`](crate::opencode_server_v2::tools::call_touched)). A call that ends without
-//!   having been called (interrupted while its input streamed) starts and ends at once.
+//!   succeeded (its redacted content) or failed (what it wrote, then its redacted error, `aborted`
+//!   ones included), with the project files the call may have changed
+//!   ([`call_touched`](crate::opencode_server_v2::tools::call_touched)). Content shows as after
+//!   resume ([`content_text`], [`failure_text`]). A call that ends without having been called
+//!   (interrupted while its input streamed) starts and ends at once.
+//! - **Shell output:** a `shell` call reports only its shell (`metadata.shellID`). The engine reads
+//!   that shell's output while the call runs ([`Mapper::take_shells`]) and hands it in
+//!   ([`Mapper::shell_output`]), so it streams as `toolUpdate` as OpenCode 1 streamed `bash`.
 //! - A call still running when its turn ends fails with [`UNFINISHED_TOOL`]. A call the chat
 //!   never saw named (its first events came before the chat followed the stream) is not shown,
 //!   nor is one a session already had.
@@ -18,11 +22,12 @@ use std::path::PathBuf;
 
 use serde_json::{Value, json};
 
+use super::Mapper;
 use crate::model::{AgentEvent, ChatBlock};
 use crate::opencode_server_v2::events::{
-    ToolCalled, ToolContent, ToolFailed, ToolInputDelta, ToolInputEnded, ToolInputStarted, ToolProgress, ToolSuccess,
+    ToolCalled, ToolFailed, ToolInputDelta, ToolInputEnded, ToolInputStarted, ToolProgress, ToolSuccess,
 };
-use crate::opencode_server_v2::tools::call_touched;
+use crate::opencode_server_v2::tools::{call_touched, content_text, failure_text};
 use crate::pi_family::normalize::tool_result;
 use crate::security::redact_text;
 
@@ -38,6 +43,17 @@ pub(super) struct Tools {
     order: Vec<String>,
     /// Calls of earlier turns, and of messages the session already had.
     done: HashSet<String>,
+    /// Shells of running calls the engine does not read yet.
+    shells: Vec<ShellCall>,
+}
+
+/// The shell a running `shell` call runs its command in.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ShellCall {
+    /// The tool call.
+    pub call: String,
+    /// The shell (`sh_…`).
+    pub shell: String,
 }
 
 struct Call {
@@ -53,6 +69,8 @@ struct Call {
     ended: bool,
     /// The last partial output sent.
     output: Option<String>,
+    /// The call's shell is known.
+    shell: bool,
 }
 
 impl Tools {
@@ -63,6 +81,7 @@ impl Tools {
             calls: HashMap::new(),
             order: Vec::new(),
             done: HashSet::new(),
+            shells: Vec::new(),
         }
     }
 
@@ -87,6 +106,7 @@ impl Tools {
                 started: false,
                 ended: false,
                 output: None,
+                shell: false,
             },
         );
 
@@ -115,24 +135,23 @@ impl Tools {
         start(&called.id, call, out);
     }
 
-    /// `session.tool.progress`: new partial output, when the tool reports one.
+    /// `session.tool.progress`: new partial output, when the tool reports one, or the shell of a
+    /// `shell` call, for the engine to read.
     pub(super) fn progress(&mut self, progress: &ToolProgress, out: &mut Vec<AgentEvent>) {
-        let Some(call) = self
-            .calls
-            .get_mut(&progress.id)
-            .filter(|call| call.started && !call.ended)
-        else {
-            return;
-        };
+        let shell = progress.metadata.get("shellID").and_then(Value::as_str);
 
-        let output = progress.metadata.get("output").and_then(Value::as_str);
-
-        if let Some(output) = output.filter(|output| call.output.as_deref() != Some(*output)) {
-            call.output = Some(output.to_owned());
-            out.push(AgentEvent::ToolUpdate {
-                tool_call_id: progress.id.clone(),
-                partial: tool_result(Some(&Value::String(redact_text(output)))),
+        if let Some(shell) = shell
+            && let Some(call) = self.running(&progress.id).filter(|call| !call.shell)
+        {
+            call.shell = true;
+            self.shells.push(ShellCall {
+                call: progress.id.clone(),
+                shell: shell.to_owned(),
             });
+        }
+
+        if let Some(output) = progress.metadata.get("output").and_then(Value::as_str) {
+            self.partial(&progress.id, output, out);
         }
     }
 
@@ -140,14 +159,35 @@ impl Tools {
         self.finish(&success.id, &content_text(&success.content), false, out);
     }
 
+    /// `session.tool.failed`: what the call wrote (else what streamed while it ran), then the
+    /// error.
     pub(super) fn failed(&mut self, failed: &ToolFailed, out: &mut Vec<AgentEvent>) {
-        let output = if failed.error.message.is_empty() {
-            content_text(&failed.content)
-        } else {
-            failed.error.message.clone()
-        };
+        let streamed = self.calls.get(&failed.id).and_then(|call| call.output.as_deref());
+        let output = failure_text(&failed.error.message, &failed.content, streamed);
 
         self.finish(&failed.id, &output, true, out);
+    }
+
+    /// Sends `output` as call `id`'s partial output when it is new.
+    fn partial(&mut self, id: &str, output: &str, out: &mut Vec<AgentEvent>) {
+        let Some(call) = self.running(id) else {
+            return;
+        };
+
+        if call.output.as_deref() == Some(output) {
+            return;
+        }
+
+        call.output = Some(output.to_owned());
+        out.push(AgentEvent::ToolUpdate {
+            tool_call_id: id.to_owned(),
+            partial: tool_result(Some(&Value::String(redact_text(output)))),
+        });
+    }
+
+    /// Call `id` while it runs (started, not ended).
+    fn running(&mut self, id: &str) -> Option<&mut Call> {
+        self.calls.get_mut(id).filter(|call| call.started && !call.ended)
     }
 
     /// Ends every call still running (its turn ended) with [`UNFINISHED_TOOL`].
@@ -168,6 +208,7 @@ impl Tools {
     pub(super) fn forget(&mut self) {
         self.done.extend(self.order.drain(..));
         self.calls.clear();
+        self.shells.clear();
     }
 
     /// Call `id` as a block of its reply; arguments that are not an object become `{}`.
@@ -236,16 +277,29 @@ fn start(id: &str, call: &mut Call, out: &mut Vec<AgentEvent>) {
     });
 }
 
-/// The text items of a tool's output, one per line. Files (images a tool read, as `data:` URLs)
-/// are not shown.
-fn content_text(content: &[ToolContent]) -> String {
-    let lines: Vec<&str> = content
-        .iter()
-        .filter_map(|item| match item {
-            ToolContent::Text { text } => Some(text.as_str()),
-            _ => None,
-        })
-        .collect();
+impl Mapper {
+    /// The shells of running `shell` calls the engine should read now, each handed out once.
+    pub fn take_shells(&mut self) -> Vec<ShellCall> {
+        std::mem::take(&mut self.tools.shells)
+    }
 
-    lines.join("\n")
+    /// True while call `call` runs: its shell's output is still wanted.
+    pub fn shell_wanted(&self, call: &str) -> bool {
+        self.tools
+            .calls
+            .get(call)
+            .is_some_and(|call| call.started && !call.ended)
+    }
+
+    /// The output of call `call`'s shell so far: a `toolUpdate` when it is new and the call
+    /// still runs.
+    pub fn shell_output(&mut self, call: &str, output: &str) -> Vec<AgentEvent> {
+        let mut out = Vec::new();
+
+        if !output.is_empty() {
+            self.tools.partial(call, output, &mut out);
+        }
+
+        out
+    }
 }

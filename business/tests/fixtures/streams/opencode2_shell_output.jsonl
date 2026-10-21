@@ -1,0 +1,24 @@
+// A running shell tool call's output (shapes of opencode serve 2.1.2: session.tool.progress names only
+// the shell, GET /api/shell/{id}/output pages its output by byte cursor): the chat reads the shell
+// once the progress names it and streams what it read into the card, then the call succeeds and the
+// turn ends. Later reads find nothing new. Last, a marker.
+{"include":"opencode2_startup.jsonl"}
+{"expect":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/prompt","match":{"/text":"Run make"},"reply":{"inboxID":"msg_15d7be1e4001shellOutputInb1"}}
+{"sse":{"type":"session.inbox.enqueued","location":{"directory":"$directory"},"data":{"inboxID":"msg_15d7be1e4001shellOutputInb1","sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","item":{"type":"user","payload":{"text":"Run make"},"delivery":"steer"}}}}
+{"sse":{"type":"session.execution.started","data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv"}}}
+{"sse":{"type":"session.inbox.delivered","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","inboxID":"msg_15d7be1e4001shellOutputInb1"}}}
+{"sse":{"type":"session.step.started","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","agent":"build","model":{"id":"big-pickle","providerID":"opencode","variant":"default"},"assistantMessageID":"msg_15d7be2ed001shellOutputRe1"}}}
+{"sse":{"type":"session.tool.input.started","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_15d7be2ed001shellOutputRe1","id":"call_01a15d829c9f71a8be3b63f6","name":"shell"}}}
+{"sse":{"type":"session.tool.input.ended","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_15d7be2ed001shellOutputRe1","id":"call_01a15d829c9f71a8be3b63f6","text":"{\"command\": \"make\"}"}}}
+{"sse":{"type":"session.tool.called","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_15d7be2ed001shellOutputRe1","id":"call_01a15d829c9f71a8be3b63f6","input":{"command":"make"},"executed":false}}}
+{"sse":{"type":"shell.created","location":{"directory":"$directory"},"data":{"info":{"id":"sh_15d82a82d001Fd4r5Yj4H78EvM","status":"running","command":"make","cwd":"$directory","shell":"/usr/bin/zsh","file":"/home/user/.local/share/opencode/shell/global/sh_15d82a82d001Fd4r5Yj4H78EvM.out","metadata":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv"},"time":{"started":1792570206255}}}}}
+{"sse":{"type":"session.tool.progress","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_15d7be2ed001shellOutputRe1","id":"call_01a15d829c9f71a8be3b63f6","metadata":{"shellID":"sh_15d82a82d001Fd4r5Yj4H78EvM"}}}}
+{"expect":"GET /api/shell/sh_15d82a82d001Fd4r5Yj4H78EvM/output","match":{"query.cursor":"0","query.limit":"30000","query.location[directory]":"$directory"},"reply":{"data":{"output":"building\n","cursor":9,"size":9,"truncated":false},"location":{"directory":"$directory"}}}
+{"allow":"GET /api/shell/sh_15d82a82d001Fd4r5Yj4H78EvM/output","reply":{"data":{"output":"","cursor":9,"size":9,"truncated":false},"location":{"directory":"$directory"}}}
+{"sleep":300}
+{"sse":{"type":"shell.exited","location":{"directory":"$directory"},"data":{"id":"sh_15d82a82d001Fd4r5Yj4H78EvM","exit":0,"status":"exited"}}}
+{"sse":{"type":"session.tool.success","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_15d7be2ed001shellOutputRe1","id":"call_01a15d829c9f71a8be3b63f6","content":[{"type":"text","text":"building\ndone\n"}],"metadata":{"status":"completed","exit":0,"truncated":false,"shellID":"sh_15d82a82d001Fd4r5Yj4H78EvM"}}}}
+{"sse":{"type":"session.step.ended","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_15d7be2ed001shellOutputRe1","finish":"tool-calls","cost":0,"tokens":{"input":10,"output":3,"reasoning":0,"cache":{"read":0,"write":0}},"files":[]}}}
+{"sse":{"type":"session.execution.succeeded","data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv"}}}
+{"sse":{"type":"session.renamed","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","title":"Marker"}}}
+{"hang":true}

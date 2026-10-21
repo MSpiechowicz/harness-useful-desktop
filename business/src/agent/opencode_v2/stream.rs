@@ -23,7 +23,7 @@ use std::time::Duration;
 use tokio::sync::watch;
 use tokio::task::AbortHandle;
 
-use super::{Chat, Live, approvals, catch_up, delivery, normalized, runs};
+use super::{Chat, Live, approvals, catch_up, delivery, normalized, runs, shell_output};
 use crate::agent::process::Terminator;
 use crate::model::{AgentEvent, NoticeLevel};
 use crate::opencode_server::EventStream;
@@ -188,6 +188,7 @@ fn take_event(chat: &Arc<Chat>, data: &str) {
 
     let mapped = live.mapper.map(&event);
     apply(chat, &mut live, mapped);
+    shell_output::follow(chat, &mut live);
 }
 
 /// Carries out what the mapper decided, in order, under the chat's lock.

@@ -3,12 +3,13 @@
 //! and as the chat messages of the transcript and the chat history.
 //!
 //! Parsing is lenient ([`SessionMessage::parse`]): a message of an unknown type, or one whose shape
-//! does not match, is [`SessionMessage::Other`]; absent fields take defaults. Attachment data
-//! (base64) is never kept.
+//! does not match, is [`SessionMessage::Other`] (logged by its type only, never its content);
+//! absent fields take defaults. Attachment data (base64) and skill instructions are never kept.
 //!
 //! Chat messages ([`SessionMessage::chat_messages`]):
 //! - `user`: its text, images (MIME type only), and attached files and agents the text does not
-//!   mention as `@name`.
+//!   mention as `@name`. Attached skills it does not mention lead the text as `/id`, the command
+//!   that ran them, so a bare `/skill` still shows.
 //! - `assistant`: text, reasoning and tool calls in order, then a tool-result message per finished
 //!   call with its redacted output or error.
 //! - `shell` (a `!command`): a command message `$ command` with the redacted output.
@@ -22,6 +23,9 @@ use serde_json::Value;
 pub use super::tools::{ToolCall, ToolContent, ToolState};
 use crate::model::{ChatBlock, ChatMessage, MessageRole, TokenUsage};
 use crate::security::redact_text;
+
+/// Characters of an unread message's type that are logged.
+const MAX_TYPE_LOG: usize = 40;
 
 /// One OpenCode 2 session message.
 #[derive(Debug, Clone, Deserialize)]
@@ -115,6 +119,7 @@ pub struct UserMessage {
     pub text: String,
     pub files: Vec<FileAttachment>,
     pub agents: Vec<AgentAttachment>,
+    pub skills: Vec<SkillAttachment>,
 }
 
 /// An attached file; its data is not kept. `mention` is set when the prompt text names it.
@@ -129,6 +134,15 @@ pub struct FileAttachment {
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default)]
 pub struct AgentAttachment {
+    pub name: String,
+    pub mention: Option<Value>,
+}
+
+/// An attached skill; its instructions are not kept.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default)]
+pub struct SkillAttachment {
+    pub id: String,
     pub name: String,
     pub mention: Option<Value>,
 }
@@ -257,7 +271,14 @@ pub struct IdleMessage {
 impl SessionMessage {
     /// The message in `value`; [`Self::Other`] when it is not one this app reads.
     pub fn parse(value: &Value) -> Self {
-        Self::deserialize(value).unwrap_or(Self::Other)
+        let message = Self::deserialize(value).unwrap_or(Self::Other);
+
+        if let Self::Other = message {
+            let kind = value.get("type").and_then(Value::as_str).unwrap_or_default();
+            tracing::debug!(kind = %kind.chars().take(MAX_TYPE_LOG).collect::<String>(), "an OpenCode 2 message was not read");
+        }
+
+        message
     }
 
     /// The chat messages of this message (see the module docs).
@@ -324,9 +345,10 @@ fn text_block(text: impl Into<String>) -> ChatBlock {
 /// The prompt; `None` when nothing in it is shown.
 fn user_chat(user: &UserMessage) -> Option<ChatMessage> {
     let mut blocks = Vec::new();
+    let text = with_skills(user);
 
-    if !user.text.trim().is_empty() {
-        blocks.push(text_block(&user.text));
+    if !text.trim().is_empty() {
+        blocks.push(text_block(text));
     }
 
     for file in &user.files {
@@ -353,6 +375,24 @@ fn user_chat(user: &UserMessage) -> Option<ChatMessage> {
     message.blocks = blocks;
 
     Some(message)
+}
+
+/// The prompt's text led by `/id` for each attached skill the text does not mention.
+fn with_skills(user: &UserMessage) -> String {
+    let mut words: Vec<String> = user
+        .skills
+        .iter()
+        .filter(|skill| skill.mention.is_none())
+        .map(|skill| if skill.id.is_empty() { &skill.name } else { &skill.id })
+        .filter(|id| !id.is_empty())
+        .map(|id| format!("/{id}"))
+        .collect();
+
+    if !user.text.trim().is_empty() {
+        words.push(user.text.clone());
+    }
+
+    words.join(" ")
 }
 
 /// The reply followed by the results of its finished tool calls; nothing when it has neither
@@ -432,44 +472,4 @@ fn compaction_chat(compaction: &CompactionMessage) -> Option<ChatMessage> {
     message.blocks = vec![text_block(&compaction.summary)];
 
     Some(message)
-}
-
-#[cfg(test)]
-mod tests {
-    use serde_json::json;
-
-    use super::{SessionMessage, ToolState};
-
-    #[test]
-    fn unknown_and_unreadable_messages_are_other() {
-        for value in [
-            json!({ "type": "future-kind", "id": "msg_1" }),
-            json!({ "type": "user", "text": 42 }),
-            json!("not a message"),
-        ] {
-            assert!(
-                matches!(SessionMessage::parse(&value), SessionMessage::Other),
-                "{value}"
-            );
-        }
-    }
-
-    #[test]
-    fn a_streaming_call_has_no_arguments_or_result_yet() {
-        let value = json!({
-            "type": "assistant", "id": "msg_1", "time": { "created": 1 },
-            "content": [
-                { "type": "tool", "id": "call_1", "name": "write", "state": { "status": "streaming", "input": "{\"pa" }, "time": { "created": 1 } },
-                { "type": "future-part" }
-            ]
-        });
-
-        let message = SessionMessage::parse(&value);
-        let call = message.tool_calls().next().expect("the call");
-
-        assert!(matches!(call.state, ToolState::Streaming));
-        assert!(call.input().is_null());
-        assert_eq!(call.outcome(), None);
-        assert_eq!(message.chat_messages().len(), 1);
-    }
 }

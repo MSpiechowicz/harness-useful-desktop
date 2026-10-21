@@ -10,7 +10,8 @@
 //! - A part's full text (`*.ended`) reconciles what was streamed: only text past what was already
 //!   sent is sent, so nothing repeats. A rewritten text waits for `messageEnd`.
 //! - **Prompts:** a user inbox item shows as the user's message once the run takes it
-//!   (`session.inbox.delivered`): its text, images (MIME type only) and attached files as `@name`.
+//!   (`session.inbox.delivered`), as after resume: its text (led by `/id` for an attached skill),
+//!   images (MIME type only) and attached files as `@name`.
 //!   Synthetic items (a `!command`'s output) and compactions are OpenCode's own and not shown.
 //! - Events of a step the chat never saw start still open its message, so a reply whose first
 //!   events were missed shows from where the chat joined. A message that ended is never reported
@@ -18,13 +19,16 @@
 
 use std::collections::HashSet;
 
+use serde::de::DeserializeOwned;
+use serde_json::Value;
+
 use super::ContextNote;
 use super::tools::Tools;
 use crate::model::{AgentEvent, ChatBlock, ChatMessage, MessageRole, TokenUsage};
 use crate::opencode_server_v2::events::{
     InboxEnqueued, PartDelta, PartEnded, PartRef, StepEnded, StepFailed, StepStarted,
 };
-use crate::opencode_server_v2::messages::{FileAttachment, SessionMessage, Times, UserMessage};
+use crate::opencode_server_v2::messages::{FileAttachment, SessionMessage, SkillAttachment, Times, UserMessage};
 use crate::opencode_server_v2::wire::{ModelRef, Tokens};
 use crate::security::redact_text;
 
@@ -235,11 +239,8 @@ impl Replies {
         }
 
         let payload = &enqueued.item.payload;
-        let files = payload
-            .files
-            .iter()
-            .filter_map(|file| serde_json::from_value::<FileAttachment>(file.clone()).ok())
-            .collect();
+        let files = attachments::<FileAttachment>(&payload.files);
+        let skills = attachments::<SkillAttachment>(&payload.skills);
         let user = UserMessage {
             id: id.clone(),
             time: Times {
@@ -249,6 +250,7 @@ impl Replies {
             text: payload.text.clone().unwrap_or_default(),
             files,
             agents: Vec::new(),
+            skills,
         };
 
         let Some(message) = SessionMessage::User(user).chat_messages().into_iter().next() else {
@@ -384,6 +386,11 @@ impl Replies {
 }
 
 /// A step's tokens as the chat's usage; the total includes reasoning tokens.
+/// The attachments in `values` this app reads, as a user message holds them.
+fn attachments<T: DeserializeOwned>(values: &[Value]) -> Vec<T> {
+    values.iter().filter_map(|value| T::deserialize(value).ok()).collect()
+}
+
 fn token_usage(tokens: &Tokens) -> TokenUsage {
     TokenUsage {
         input: tokens.input,

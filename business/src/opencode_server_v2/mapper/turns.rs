@@ -6,6 +6,10 @@
 //!   execution's end (`succeeded`, `failed`, `interrupted`, or an `idle` status) ends it: what is
 //!   still open ends, then `agentEnd` and a `promptResult` for each prompt of the turn (the first
 //!   error of the execution or of a step; an interruption makes it `aborted`).
+//! - **Interruptions:** the user's own (`reason: user`, also an abort the chat asked for) abort the
+//!   turn. One OpenCode decides on (`shutdown`, `inactivity`, `superseded`) fails it with an error
+//!   that says why, as a server-side failure does on OpenCode 1: the held follow-ups go on, and
+//!   outside a turn it is an error notice.
 //! - **Settling:** after a turn the next held follow-up is sent ([`Mapped::Send`], its own prompt
 //!   with its own result), and only an empty queue settles the chat (`settled`), so `settled`
 //!   still means "the prompt and everything queued behind it are done". An aborted turn settles
@@ -32,6 +36,21 @@ use crate::security::redact_text;
 /// The error kind of an interruption.
 const ABORTED: &str = "aborted";
 
+/// The interruption reason of the user's own stop.
+const USER_STOP: &str = "user";
+
+/// Why a turn failed: OpenCode stopped it on shutdown.
+const SHUTDOWN: &str = "OpenCode shut down before the turn finished.";
+
+/// Why a turn failed: OpenCode stopped it after too long without progress.
+const INACTIVITY: &str = "OpenCode stopped the turn because it made no progress for too long.";
+
+/// Why a turn failed: OpenCode replaced it with a newer run.
+const SUPERSEDED: &str = "OpenCode stopped the turn because a newer run replaced it.";
+
+/// Why a turn failed: OpenCode stopped it for a reason this app does not know.
+const STOPPED: &str = "OpenCode stopped the turn.";
+
 /// The running turn.
 #[derive(Default)]
 pub(super) struct Turn {
@@ -42,6 +61,8 @@ pub(super) struct Turn {
     /// The first error of the turn.
     error: Option<String>,
     aborted: bool,
+    /// The user asked to abort this turn.
+    user_abort: bool,
     /// The attempt of a running retry.
     retrying: Option<u32>,
     /// The user aborted before the turn started (see [`Mapper::abort_requested`]).
@@ -52,7 +73,8 @@ pub(super) struct Turn {
 pub(super) enum Outcome {
     Succeeded,
     Failed(ErrorInfo),
-    Interrupted,
+    /// Interrupted, with OpenCode's reason (`user`, `shutdown`, `superseded`, `inactivity`).
+    Interrupted(String),
 }
 
 impl Mapper {
@@ -177,6 +199,7 @@ impl Mapper {
     pub fn abort_requested(&mut self) {
         if self.turn.active {
             self.turn.aborted = true;
+            self.turn.user_abort = true;
         } else if self.turn.prompts > 0 {
             self.turn.abort_pending = true;
         }
@@ -201,6 +224,7 @@ impl Mapper {
 
         if std::mem::take(&mut self.turn.abort_pending) {
             self.turn.aborted = true;
+            self.turn.user_abort = true;
             mapped.push(Mapped::Abort);
         }
 
@@ -237,12 +261,24 @@ impl Mapper {
 
         match outcome {
             Outcome::Succeeded => {}
-            Outcome::Interrupted => self.turn.aborted = true,
+            Outcome::Interrupted(reason) => self.interrupted(&reason),
             Outcome::Failed(error) if error.kind == ABORTED => self.turn.aborted = true,
             Outcome::Failed(error) => self.note_turn_error(error_message(&error.message)),
         }
 
         self.ended_idle()
+    }
+
+    /// The run was interrupted for `reason`: the user's stop aborts the turn, one OpenCode decided
+    /// on fails it (its steps, interrupted too, do not make it an abort).
+    fn interrupted(&mut self, reason: &str) {
+        match interruption_error(reason) {
+            Some(error) if !self.turn.user_abort => {
+                self.turn.aborted = false;
+                self.note_turn_error(error.to_owned());
+            }
+            _ => self.turn.aborted = true,
+        }
     }
 
     /// `session.retry.scheduled`: the model call is tried again.
@@ -344,17 +380,17 @@ impl Mapper {
     }
 
     /// A failed execution the chat did not see start: an error notice, unless it repeats the
-    /// last turn's error or reports an interruption.
+    /// last turn's error or reports the user's stop.
     fn failed_outside_turn(&mut self, outcome: &Outcome) -> Vec<Mapped> {
-        let Outcome::Failed(error) = outcome else {
-            return Vec::new();
+        let message = match outcome {
+            Outcome::Failed(error) if error.kind != ABORTED => error_message(&error.message),
+            Outcome::Interrupted(reason) => match interruption_error(reason) {
+                Some(error) => error.to_owned(),
+                None => return Vec::new(),
+            },
+            _ => return Vec::new(),
         };
 
-        if error.kind == ABORTED {
-            return Vec::new();
-        }
-
-        let message = error_message(&error.message);
         let repeated = self.last_error.as_deref().is_some_and(|last| message.contains(last));
 
         if repeated {
@@ -436,6 +472,18 @@ impl Mapper {
             follow_up: texts(&mut self.follow_ups.iter()),
             live_steered: u32::try_from(self.steering.len()).unwrap_or(u32::MAX),
         }
+    }
+}
+
+/// The error of an interruption OpenCode decided on; `None` for the user's own stop (or no
+/// reason given).
+fn interruption_error(reason: &str) -> Option<&'static str> {
+    match reason {
+        "" | USER_STOP => None,
+        "shutdown" => Some(SHUTDOWN),
+        "inactivity" => Some(INACTIVITY),
+        "superseded" => Some(SUPERSEDED),
+        _ => Some(STOPPED),
     }
 }
 
