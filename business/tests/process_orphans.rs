@@ -127,7 +127,7 @@ fn the_sweep_reaches_what_the_orphan_started() {
     // A shell leading its own group, with a `sleep` it started in the background.
     let script = format!("{} 300 & echo $!; wait", sleep_binary().display());
     let args = [OsString::from("-c"), OsString::from(&script)];
-    let mut command = Command::new("/bin/sh");
+    let mut command = Command::new("/bin/sh"); // guard-allow: installer-shell
     command
         .args(&args)
         .stdin(Stdio::null())
