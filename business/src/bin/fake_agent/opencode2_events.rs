@@ -12,6 +12,11 @@
 //! delivery}}`, `type` `user` or `compaction`, `delivery` the body's or `steer`), `interrupt`
 //! `{"interrupted": true}`, `GET /api/info` the server info, `GET /api/config` the configuration
 //! sources (`OPENCODE_CONFIG_CONTENT` as an inline document), anything else `204`.
+//!
+//! `OPENCODE_CONFIG_CONTENT` changes the agents of every `GET /api/agent` reply like OpenCode 2's
+//! agent configuration: each agent gets the content's top-level `permissions`, then its
+//! `agents.<id>.permissions`, appended before the `browser` deny OpenCode 2.1.2's browser
+//! connection puts last. A reply spec with `"ignoreConfig": true` answers as scripted.
 
 use std::io::Write;
 use std::net::{Shutdown, TcpStream};
@@ -214,6 +219,16 @@ pub fn reply(shared: &Shared, spec: &Value, request: &Request) -> Reply {
         canned(shared, &spec, request)
     };
 
+    let configured = shared
+        .config
+        .as_ref()
+        .filter(|_| spec.get("ignoreConfig") != Some(&json!(true)));
+    if let (Some(config), Some(body)) = (configured, reply.body.as_mut())
+        && matches("GET /api/agent", &request.method, &request.path)
+    {
+        apply_agent_config(config, body);
+    }
+
     let headers = spec.get("headers").and_then(Value::as_object).into_iter().flatten();
     reply.headers = headers
         .map(|(name, value)| {
@@ -393,5 +408,36 @@ fn relocate(value: &Value) -> Value {
         Value::Array(items) => Value::Array(items.iter().map(relocate).collect()),
         Value::Object(map) => Value::Object(map.iter().map(|(key, item)| (key.clone(), relocate(item))).collect()),
         other => other.clone(),
+    }
+}
+
+/// The agents of a `GET /api/agent` reply `body` with `config`'s permissions applied (see the module
+/// docs).
+fn apply_agent_config(config: &Value, body: &mut Value) {
+    let Some(agents) = body.get_mut("data").and_then(Value::as_array_mut) else {
+        return;
+    };
+
+    let shared_rules = config["permissions"].as_array().cloned().unwrap_or_default();
+
+    for agent in agents {
+        let id = agent["id"].as_str().unwrap_or_default().to_owned();
+        let own = config["agents"][&id]["permissions"]
+            .as_array()
+            .cloned()
+            .unwrap_or_default();
+        let Some(rules) = agent.get_mut("permissions").and_then(Value::as_array_mut) else {
+            continue;
+        };
+
+        let browser = json!({ "action": "browser", "resource": "*", "effect": "deny" });
+        let at = if rules.last() == Some(&browser) {
+            rules.len() - 1
+        } else {
+            rules.len()
+        };
+        let added: Vec<Value> = shared_rules.iter().chain(&own).cloned().collect();
+
+        rules.splice(at..at, added);
     }
 }

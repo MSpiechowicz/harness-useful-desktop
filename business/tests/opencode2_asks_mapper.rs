@@ -65,7 +65,7 @@ fn recorded_permissions_are_approval_cards_bound_to_their_calls() {
         details,
         [
             None,
-            Some("Allows every edit call in this project, in later chats too (OpenCode saves the rule)".to_owned()),
+            Some("Allows every edit call until this chat ends".to_owned()),
             None
         ]
     );
@@ -74,10 +74,7 @@ fn recorded_permissions_are_approval_cards_bound_to_their_calls() {
     assert_eq!(shell.tool_call_id.as_deref(), Some("call_01a15d7c540c72e7b51933da"));
     let (title, _, details) = select(&shell.kind);
     assert_eq!(title, "Allow shell: ls?");
-    assert_eq!(
-        details[1].as_deref(),
-        Some("Also allows ls * in this project, in later chats too (OpenCode saves the rule)")
-    );
+    assert_eq!(details[1].as_deref(), Some("Also allows ls * until this chat ends"));
 
     let decisions: Vec<(String, ReplyKind)> = replay
         .replies
@@ -117,9 +114,7 @@ fn a_shell_ask_shows_the_whole_command_of_its_call() {
     );
     assert_eq!(
         details[1].as_deref(),
-        Some(
-            "Also allows ls *, echo *, cat *, echo *, ls * in this project, in later chats too (OpenCode saves the rule)"
-        )
+        Some("Also allows ls *, echo *, cat *, echo *, ls * until this chat ends")
     );
 
     assert_eq!(

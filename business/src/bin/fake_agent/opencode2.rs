@@ -39,7 +39,8 @@
 //!   row (the other keys override them). No reply (or one without these keys) answers the
 //!   route's default: an inbox entry for `prompt` and `compact` (`"inboxID"` picks its id, else
 //!   `msg_fakeinbox<n>`), `{"interrupted": true}` for `interrupt`, the configuration sources for
-//!   `GET /api/config`, else `204`.
+//!   `GET /api/config`, else `204`. `GET /api/agent` replies show `OPENCODE_CONFIG_CONTENT`'s agent
+//!   permissions (see [`super::opencode2_events`]) unless the reply says `"ignoreConfig": true`.
 //! - `{"sse": {"type": "session.text.delta", "data": {...}, "location": {...}}}` — send one event
 //!   to every `GET /api/event` subscriber as `data: <json>`; `id` and `created` are filled in when
 //!   missing. Waits up to 10 s for a subscriber; none by then is a failure.

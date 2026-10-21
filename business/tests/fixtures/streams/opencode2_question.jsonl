@@ -1,0 +1,28 @@
+// The question tool's forms in an OpenCode 2 turn (shapes of recordings/question.jsonl): one field answered
+// with an option's value, a form of two fields answered together, one dismissed (cancelled), one
+// cancelled elsewhere, and one a subagent asks. Then a title marker.
+{"include":"opencode2_startup.jsonl"}
+{"expect":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/prompt","match":{"/text":"Ask me"}}
+{"sse":{"type":"session.inbox.enqueued","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","inboxID":"$inbox","item":{"type":"user","payload":{"text":"Ask me"},"delivery":"steer"}}}}
+{"sse":{"type":"session.execution.started","data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv"}}}
+{"sse":{"type":"session.inbox.delivered","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","inboxID":"$inbox"}}}
+{"sse":{"type":"session.step.started","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","agent":"build","model":{"id":"big-pickle","providerID":"opencode","variant":"default"},"assistantMessageID":"msg_reply1"}}}
+{"sse":{"type":"form.created","location":{"directory":"$directory"},"data":{"form":{"id":"frm_1","sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","title":"Questions","metadata":{"kind":"question","tool":{"messageID":"msg_reply1","id":"call_q"}},"fields":[{"key":"q0","title":"Color preference","description":"Which color do you prefer, red or blue?","type":"string","options":[{"value":"Red","label":"Red"},{"value":"Blue","label":"Blue"}],"custom":true}]}}}}
+{"expect":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/form/frm_1/reply","match":{"/answer/q0":"Blue","/answer/q1":"$absent"}}
+{"sse":{"type":"form.replied","location":{"directory":"$directory"},"data":{"id":"frm_1","sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","answer":{"q0":"Blue"}}}}
+{"sse":{"type":"form.created","location":{"directory":"$directory"},"data":{"form":{"id":"frm_2","sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","title":"Questions","metadata":{"kind":"question","tool":{"messageID":"msg_reply1","id":"call_q"}},"fields":[{"key":"q0","title":"Color preference","description":"Which color do you prefer, red or blue?","type":"string","options":[{"value":"Red","label":"Red"},{"value":"Blue","label":"Blue"}],"custom":true},{"key":"q1","title":"Sizes","description":"Which sizes?","type":"multiselect","options":[{"value":"S","label":"S"},{"value":"M","label":"M"}],"custom":true}]}}}}
+{"expect":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/form/frm_2/reply","match":{"/answer/q0":"Red","/answer/q1/0":"S","/answer/q1/1":"M"}}
+{"sse":{"type":"form.replied","location":{"directory":"$directory"},"data":{"id":"frm_2","sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","answer":{"q0":"Red","q1":["S","M"]}}}}
+{"sse":{"type":"form.created","location":{"directory":"$directory"},"data":{"form":{"id":"frm_3","sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","title":"Questions","metadata":{"kind":"question","tool":{"messageID":"msg_reply1","id":"call_q"}},"fields":[{"key":"q0","title":"Color preference","description":"Which color do you prefer, red or blue?","type":"string","options":[{"value":"Red","label":"Red"},{"value":"Blue","label":"Blue"}],"custom":true}]}}}}
+{"expect":"DELETE /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/form/frm_3"}
+{"sse":{"type":"form.cancelled","location":{"directory":"$directory"},"data":{"id":"frm_3","sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv"}}}
+{"sse":{"type":"form.created","location":{"directory":"$directory"},"data":{"form":{"id":"frm_4","sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","title":"Questions","metadata":{"kind":"question","tool":{"messageID":"msg_reply1","id":"call_q"}},"fields":[{"key":"q0","title":"Color preference","description":"Which color do you prefer, red or blue?","type":"string","options":[{"value":"Red","label":"Red"},{"value":"Blue","label":"Blue"}],"custom":true}]}}}}
+{"sse":{"type":"form.cancelled","location":{"directory":"$directory"},"data":{"id":"frm_4","sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv"}}}
+{"sse":{"type":"session.created","location":{"directory":"$directory"},"data":{"sessionID":"ses_child1","parentID":"ses_ea2843d6fffeeHJKZwBKUXqULv","location":{"directory":"$directory"}}}}
+{"sse":{"type":"form.created","location":{"directory":"$directory"},"data":{"form":{"id":"frm_5","sessionID":"ses_child1","title":"Questions","metadata":{"kind":"question","tool":{"messageID":"msg_reply1","id":"call_q"}},"fields":[{"key":"q0","title":"Color preference","description":"Which color do you prefer, red or blue?","type":"string","options":[{"value":"Red","label":"Red"},{"value":"Blue","label":"Blue"}],"custom":true}]}}}}
+{"expect":"POST /api/session/ses_child1/form/frm_5/reply","match":{"/answer/q0":"Red"}}
+{"sse":{"type":"form.replied","location":{"directory":"$directory"},"data":{"id":"frm_5","sessionID":"ses_child1","answer":{"q0":"Red"}}}}
+{"sse":{"type":"session.step.ended","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_reply1","finish":"stop","cost":0,"tokens":{"input":10,"output":2,"reasoning":0,"cache":{"read":0,"write":0}},"files":[]}}}
+{"sse":{"type":"session.execution.succeeded","data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv"}}}
+{"sse":{"type":"session.renamed","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","title":"Marker"}}}
+{"hang":true}

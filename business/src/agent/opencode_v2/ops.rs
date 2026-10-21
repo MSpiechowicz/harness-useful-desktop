@@ -48,6 +48,8 @@ impl OpenCodeV2Session {
                 title: None,
                 agent: Some(live.agent.clone()),
                 model: live.model.clone(),
+                // A helper chat's new session denies everything too.
+                permissions: chat.rules.utility.then(crate::opencode_server_v2::modes::deny_all),
             }
         };
 
@@ -201,7 +203,10 @@ impl OpenCodeV2Session {
 impl Chat {
     /// A fresh mapper for `session`.
     pub(super) fn mapper(&self, session: &SessionId) -> Mapper {
-        Mapper::new(session.as_str(), &self.project, &self.root)
+        let mut mapper = Mapper::new(session.as_str(), &self.project, &self.root);
+        mapper.set_mode_applied(self.rules.mode().is_some());
+
+        mapper
     }
 }
 

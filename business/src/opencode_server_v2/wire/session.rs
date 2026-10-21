@@ -1,11 +1,14 @@
-//! The OpenCode 2 session object (`id`, `title`, `time`, `location`, `cost`, `tokens`), the model
-//! reference, token counts and errors it shares with the events, and the session request bodies.
+//! The OpenCode 2 session object (`id`, `title`, `time`, `location`, `cost`, `tokens`, its own
+//! permission rules), the model reference, token counts and errors it shares with the events, and
+//! the session request bodies.
 //!
 //! Every type reads leniently: unknown fields are ignored, missing optional ones are `None` or 0.
 
 use serde::{Deserialize, Deserializer, Serialize};
+use serde_json::Value;
 
 use super::envelope::Location;
+use crate::opencode_server_v2::modes::Rule;
 use crate::opencode_server_v2::routes::MessageId;
 
 /// `Session.Info` as the server answers it (`GET`/`POST /api/session`, fork). `title` is absent
@@ -47,6 +50,9 @@ pub struct Session {
     /// The session's project directory.
     #[serde(default)]
     pub location: Location,
+    /// The session's own permission rules, applied after its agent's (`null` when it has none).
+    #[serde(default)]
+    pub permissions: Value,
 }
 
 /// A session's timestamps, in milliseconds since the epoch.
@@ -137,7 +143,8 @@ pub struct ErrorInfo {
     pub message: String,
 }
 
-/// `POST /api/session` body: `{title?, agent?, model?}`. Never carries permissions.
+/// `POST /api/session` body: `{title?, agent?, model?, permissions?}`. Permissions only for a
+/// helper chat's session, which denies every tool.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 pub struct CreateBody {
     /// The session's name.
@@ -149,6 +156,9 @@ pub struct CreateBody {
     /// The model.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub model: Option<ModelRef>,
+    /// The session's own rules, applied after its agent's.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub permissions: Option<Vec<Rule>>,
 }
 
 /// `PATCH /api/session/{id}` body: the title and nothing else.

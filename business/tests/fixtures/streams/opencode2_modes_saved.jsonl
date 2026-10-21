@@ -1,0 +1,6 @@
+// An approval mode in a project with a saved "Always allow" rule for shell commands (OpenCode applies it
+// after every agent's rules). Then a title marker.
+{"allow":"GET /api/permission/saved","match":{"query.projectID":"global"},"reply":{"data":[{"id":"psv_1","projectID":"global","action":"shell","resource":"ls *","time":{"created":1792569754266,"updated":1792569754266}},{"id":"psv_2","projectID":"global","action":"read","resource":"*","time":{"created":1792569754266,"updated":1792569754266}}]}}
+{"include":"opencode2_startup.jsonl"}
+{"sse":{"type":"session.renamed","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","title":"Marker"}}}
+{"hang":true}

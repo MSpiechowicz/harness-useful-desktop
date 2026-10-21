@@ -9,12 +9,14 @@
 //! - [`messages`]: OpenCode 2 session messages as transcript and history.
 //! - [`tools`]: OpenCode 2 tool ids and the paths their calls touch.
 //! - [`mapper`]: the server's events as chat events.
-//! - [`modes`]: per-chat approval modes as OpenCode 2 permission rules.
+//! - [`modes`]: per-chat approval modes as OpenCode 2 permission rules, and [`mode_config`]: those
+//!   rules as configuration of the chat's own server.
 //! - [`stats`]: session statistics and context usage.
 
 pub mod events;
 pub mod mapper;
 pub mod messages;
+pub mod mode_config;
 pub mod modes;
 pub mod routes;
 pub mod stats;

@@ -1,0 +1,10 @@
+// A helper chat (naming a chat): its session is created with one rule that denies every tool, shown in
+// the answer (then a title marker), and deleted when the chat stops (the `deleted` stderr line is written
+// before the delete is answered).
+{"include":"opencode2_catalogs.jsonl"}
+{"expect":"POST /api/session","match":{"/permissions/0/action":"*","/permissions/0/resource":"*","/permissions/0/effect":"deny","/permissions/1":"$absent"},"reply":{"data":{"id":"ses_ea2843d6fffeeHJKZwBKUXqULv","projectID":"global","model":{"id":"big-pickle","providerID":"opencode","variant":"default"},"cost":0,"tokens":{"input":0,"output":0,"reasoning":0,"cache":{"read":0,"write":0}},"time":{"created":1792569754266,"updated":1792569754266},"location":{"directory":"$directory"},"permissions":[{"action":"*","resource":"*","effect":"deny"}]}}}
+{"sse":{"type":"session.renamed","location":{"directory":"$directory"},"data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","title":"Marker"}}}
+{"expect":"DELETE /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv","match":{"query.location[directory]":"$directory"},"hold":true,"as":"delete"}
+{"stderr":"deleted"}
+{"respond":"delete"}
+{"hang":true}

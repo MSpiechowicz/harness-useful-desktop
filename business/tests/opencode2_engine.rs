@@ -13,10 +13,10 @@ use harness_business::agent::SessionOptions;
 use harness_business::harness::{Harness, LaunchRequest, OpenCodeGeneration};
 use harness_business::harnesses::OpenCode;
 use harness_business::model::{
-    AgentAction, AgentEvent, AgentReply, ApprovalMode, ImageAttachment, IpcErrorCode, ModelOption, SessionState,
+    AgentAction, AgentEvent, AgentReply, ImageAttachment, IpcErrorCode, ModelOption, SessionState,
 };
 use opencode2_engine_support::{
-    SERVE_ARGS, SESSION, count, env, kind, start, start_mode, start_with, terminated, text_prompt, until_marker,
+    SERVE_ARGS, SESSION, count, env, kind, start, start_with, terminated, text_prompt, until_marker,
 };
 use pretty_assertions::assert_eq;
 
@@ -281,17 +281,6 @@ async fn a_crashed_server_ends_the_chat_without_a_lost_stream_notice() {
 
     let refused = chat.session().send(AgentAction::GetState).await;
     assert_eq!(code(refused), IpcErrorCode::Process);
-}
-
-#[tokio::test]
-async fn approval_modes_and_helper_chats_are_refused_until_they_apply() {
-    for (mode, utility) in [(Some(ApprovalMode::AlwaysAsk), false), (None, true)] {
-        let chat = start_mode("opencode2_hang.jsonl", mode, utility).await;
-
-        let error = chat.session.as_ref().err().expect("refused");
-        assert!(matches!(error, BusinessError::Unsupported(_)), "{error:?}");
-        assert!(chat.spawner.requested().is_empty(), "nothing was started");
-    }
 }
 
 #[tokio::test]
