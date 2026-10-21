@@ -19,6 +19,7 @@
 
   import { deleteAll, type DeleteScope, type MemorySection, readScope, STAY_TEXT, teamLine } from './delete-all';
   import { totalCount } from './note-format';
+  import { placeApplied } from './PlaceFilter.svelte';
 
   interface Props {
     /** The list on screen: the menu acts on it. */
@@ -74,10 +75,10 @@
   });
   const narrowed = $derived.by(() => {
     if (section === 'notes') {
-      return viewState.notesQuery.trim() !== '' || viewState.notesKind !== null || viewState.notesPlace !== null;
+      return viewState.notesQuery.trim() !== '' || viewState.notesKind !== null || placeApplied(noteList.data?.places, viewState.notesPlace);
     }
 
-    return viewState.scriptsQuery.trim() !== '' || viewState.scriptsStatus !== null || viewState.scriptsGroup !== null || viewState.scriptsPlace !== null;
+    return viewState.scriptsQuery.trim() !== '' || viewState.scriptsStatus !== null || viewState.scriptsGroup !== null || placeApplied(scriptList.data?.places, viewState.scriptsPlace);
   });
 
   // A search or a filter that leaves nothing still has something behind it to delete, so only an empty list that is not narrowed is disabled.
