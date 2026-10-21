@@ -67,6 +67,30 @@ async fn commands_run_in_the_session_shell_without_showing_a_turn() {
 }
 
 #[tokio::test]
+async fn a_command_right_after_one_that_answered_waits_for_its_idle() {
+    let chat = start("opencode_shell_late_idle.jsonl").await;
+    let session = chat.session();
+
+    let first = session.bash("echo first").await.expect("the first command ran");
+    assert_eq!(first.output, "from-shell\n");
+
+    let second = session
+        .bash("echo second")
+        .await
+        .expect("sent once the first command's idle arrived");
+    assert_eq!(second.output, "from-shell\n");
+
+    let events = until_marker(&chat).await;
+    let shown: Vec<String> = events.iter().map(kind).collect();
+    for hidden in ["agentStart", "settled", "messageStart"] {
+        assert!(!shown.iter().any(|kind| kind == hidden), "{hidden} in {shown:?}");
+    }
+    assert!(session.is_running(), "every request matched the scenario");
+
+    session.stop().await;
+}
+
+#[tokio::test]
 async fn compaction_runs_in_the_background_and_holds_prompts_until_it_ends() {
     let chat = start("opencode_compact.jsonl").await;
     let session = chat.session();

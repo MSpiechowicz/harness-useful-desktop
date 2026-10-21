@@ -64,6 +64,11 @@ impl Mapper {
         self.quiet.as_ref().map(|run| run.kind)
     }
 
+    /// True while the quiet run's call answered and only its `idle` is still to come.
+    pub fn quiet_awaits_idle(&self) -> bool {
+        self.quiet.as_ref().is_some_and(|run| run.answered && !run.idle)
+    }
+
     /// The run's call answered. `ran` is false when OpenCode never ran it (refused, or not
     /// reached), `error` says why the call failed.
     pub fn quiet_answered(&mut self, ran: bool, error: Option<String>) -> Vec<Mapped> {

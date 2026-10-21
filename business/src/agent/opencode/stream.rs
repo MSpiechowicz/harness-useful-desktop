@@ -97,6 +97,7 @@ fn take_event(chat: &Arc<Chat>, data: &str) {
     let mapped = live.mapper.map(&envelope);
 
     apply(chat, &mut live, mapped);
+    chat.event_taken.notify_waiters();
 }
 
 /// Carries out what the mapper decided, in order, under the chat's lock.

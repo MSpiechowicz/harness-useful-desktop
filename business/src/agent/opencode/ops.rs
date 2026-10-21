@@ -78,8 +78,11 @@ impl OpenCodeSession {
     }
 
     /// The chat's session; refused with "the agent is working. Wait until it is done, then `action`"
-    /// while it works.
-    pub(super) fn idle_session(&self, action: &str) -> Result<SessionId> {
+    /// while it works. Waits first for the `idle` of a `!command` or compaction that answered
+    /// (`runs.rs`).
+    pub(super) async fn idle_session(&self, action: &str) -> Result<SessionId> {
+        self.chat.settle_answered_run().await;
+
         let live = self.chat.lock();
 
         if live.mapper.is_working() {
@@ -92,7 +95,7 @@ impl OpenCodeSession {
     /// `POST /session?directory=`, then the chat moves to the new session.
     async fn new_session(&self) -> Result<AgentReply> {
         const ACTION: &str = "start a new chat";
-        self.idle_session(ACTION)?;
+        self.idle_session(ACTION).await?;
 
         let chat = &self.chat;
         let route = Route::SessionCreate {
@@ -109,7 +112,7 @@ impl OpenCodeSession {
     async fn fork(&self, entry_id: &str) -> Result<AgentReply> {
         let message = MessageId::parse(entry_id)?;
         const ACTION: &str = "fork the chat";
-        let session = self.idle_session(ACTION)?;
+        let session = self.idle_session(ACTION).await?;
         let records = all_messages(&self.chat, &session).await?;
 
         let role = records
@@ -135,7 +138,7 @@ impl OpenCodeSession {
     /// Duplicates the session with every message.
     async fn clone_session(&self) -> Result<AgentReply> {
         const ACTION: &str = "clone the chat";
-        let session = self.idle_session(ACTION)?;
+        let session = self.idle_session(ACTION).await?;
 
         self.forked(&session, json!({}), ACTION).await
     }

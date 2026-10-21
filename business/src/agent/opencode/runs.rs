@@ -10,11 +10,15 @@
 //!   `start` and `end`; OpenCode compacts with its own prompt, so instructions are refused.
 //! - A run's events stay hidden until its call answered and its `idle` arrived; a call answered
 //!   without one ends the run after [`IDLE_GRACE`].
+//! - The `idle` and the call's answer race, so a `!command` or session action asked for right after
+//!   a run's call answered waits up to [`ANSWERED_WAIT`] for that run's `idle` before it counts the
+//!   chat as working.
 
 use std::sync::Arc;
 use std::time::Duration;
 
 use serde_json::{Value, json};
+use tokio::time::Instant;
 
 use super::startup::get_json;
 use super::{Chat, OpenCodeSession, stream};
@@ -29,6 +33,9 @@ use crate::pi_family::rpc::shared::parse_bash;
 
 /// How long a run whose call answered waits for its `idle`.
 const IDLE_GRACE: Duration = Duration::from_secs(5);
+
+/// How long an action waits for the `idle` of a run whose call answered.
+const ANSWERED_WAIT: Duration = Duration::from_secs(2);
 
 /// Messages read to find the last reply's model.
 const MODEL_PAGE: u32 = 50;
@@ -48,6 +55,8 @@ impl OpenCodeSession {
         check_command(command)?;
 
         let chat = &self.chat;
+        chat.settle_answered_run().await;
+
         let (session, body, generation) = {
             let mut live = chat.lock();
 
@@ -93,7 +102,7 @@ impl OpenCodeSession {
             return Err(BusinessError::Unsupported(NO_INSTRUCTIONS.to_owned()));
         }
 
-        let session = self.idle_session("compact the chat")?;
+        let session = self.idle_session("compact the chat").await?;
         let model = self.compaction_model(&session).await?;
         let chat = self.chat.clone();
 
@@ -155,6 +164,29 @@ impl OpenCodeSession {
         model.or(shown).ok_or_else(|| {
             BusinessError::Unsupported("OpenCode compacts with the chat's model: pick a model first".to_owned())
         })
+    }
+}
+
+impl Chat {
+    /// Waits up to [`ANSWERED_WAIT`] while the quiet run's call answered and only its `idle` is
+    /// still to come (see the module docs).
+    pub(super) async fn settle_answered_run(&self) {
+        let deadline = Instant::now() + ANSWERED_WAIT;
+
+        loop {
+            let taken = self.event_taken.notified();
+            tokio::pin!(taken);
+            // Registered before the check, so an event taken in right after it still wakes us.
+            taken.as_mut().enable();
+
+            if !self.lock().mapper.quiet_awaits_idle() {
+                return;
+            }
+
+            if tokio::time::timeout_at(deadline, taken).await.is_err() {
+                return;
+            }
+        }
     }
 }
 

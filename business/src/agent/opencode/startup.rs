@@ -20,7 +20,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use serde_json::{Value, json};
-use tokio::sync::oneshot;
+use tokio::sync::{Notify, oneshot};
 
 use super::approvals::{LaunchRules, deny_helper_tools};
 use super::probe::{ModeLaunch, Probe, mode_launch, refused, with_content};
@@ -170,6 +170,7 @@ impl OpenCodeSession {
             catalog: booted.catalog,
             rules,
             live: Mutex::new(live),
+            event_taken: Notify::new(),
         });
 
         let state = chat.state(&chat.lock());

@@ -1,0 +1,13 @@
+// Two quick !commands: the first one's call answers, its idle comes 300 ms later. The second
+// command is asked for in between and goes out once that idle arrived. Last, a marker.
+{"include":"opencode_startup.jsonl"}
+{"expect":"POST /session/ses_eaa561636ffezINnnn1ghd5370/shell","match":{"command":"echo first"},"hold":true,"as":"first"}
+{"sse":{"type":"session.status","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","status":{"type":"busy"}}}}
+{"respond":"first","reply":{"recording":"../opencode/server/shell.json"}}
+{"sleep":300}
+{"sse":{"type":"session.status","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","status":{"type":"idle"}}}}
+{"expect":"POST /session/ses_eaa561636ffezINnnn1ghd5370/shell","match":{"command":"echo second"},"hold":true,"as":"second"}
+{"sse":{"type":"session.status","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","status":{"type":"busy"}}}}
+{"sse":{"type":"session.status","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","status":{"type":"idle"}}}}
+{"respond":"second","reply":{"recording":"../opencode/server/shell.json"}}
+{"sse":{"type":"session.updated","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","info":{"id":"ses_eaa561636ffezINnnn1ghd5370","directory":"$directory","title":"Marker","time":{"created":1,"updated":2}}}}}

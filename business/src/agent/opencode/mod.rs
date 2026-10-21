@@ -33,6 +33,7 @@ mod stream;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
+use tokio::sync::Notify;
 use tokio::task::AbortHandle;
 
 use self::approvals::LaunchRules;
@@ -74,6 +75,9 @@ struct Chat {
     /// The approval mode and helper-chat flag of the launch (`approvals.rs`).
     rules: LaunchRules,
     live: Mutex<Live>,
+    /// Woken after each event the event task took in, for actions waiting on a quiet run's `idle`
+    /// (`runs.rs`).
+    event_taken: Notify,
 }
 
 /// The models and agents the server offered at startup.
