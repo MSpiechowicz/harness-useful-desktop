@@ -16,7 +16,7 @@
 use serde::Serialize;
 
 use super::catalog::DEFAULT_VARIANT;
-use super::startup::{command_names, get_data, live_commands};
+use super::commands::Slash;
 use super::{Chat, OpenCodeV2Session};
 use crate::error::{BusinessError, Result};
 use crate::harness::CommandCatalog;
@@ -178,16 +178,18 @@ impl OpenCodeV2Session {
         Ok(AgentReply::Ack)
     }
 
-    /// Reads `GET /api/command` again and emits the merged catalog.
+    /// Reads the server's commands and skills again and emits the merged catalog.
     async fn refresh_commands(&self) -> Result<AgentReply> {
         let chat = &self.chat;
-        let route = RouteV2::CommandList {
-            directory: &chat.directory,
-        };
-        let raw = live_commands(get_data(&chat.client, route).await?);
-        let commands = OpenCodeCatalog.merged(&raw);
+        let slash = Slash::read(&chat.client, &chat.directory).await?;
+        let commands = OpenCodeCatalog.merged(&slash.entries);
 
-        chat.lock().commands = command_names(&raw);
+        {
+            let mut live = chat.lock();
+            live.commands = slash.commands;
+            live.skills = slash.skills;
+        }
+
         chat.shared.emit(AgentEvent::CommandsUpdated {
             commands: commands.clone(),
         });

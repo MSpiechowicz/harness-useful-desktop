@@ -195,6 +195,9 @@ pub struct CompactionMessage {
     pub reason: String,
     pub summary: String,
     pub error: Option<SessionError>,
+    /// What the compaction request itself cost (not the size of the context it left).
+    pub cost: Option<f64>,
+    pub tokens: Option<Tokens>,
 }
 
 /// Context OpenCode added for the model (`synthetic`, `system`).

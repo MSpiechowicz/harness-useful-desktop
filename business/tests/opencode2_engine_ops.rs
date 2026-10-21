@@ -6,7 +6,7 @@ mod opencode2_engine_helpers;
 mod opencode2_engine_support;
 
 use harness_business::model::{
-    AgentAction, AgentEvent, AgentReply, ContextUsage, HarnessId, IpcErrorCode, SessionRef, SessionState,
+    AgentAction, AgentEvent, AgentReply, ContextUsage, HarnessId, IpcErrorCode, SessionRef, SessionState, TokenUsage,
 };
 use opencode2_engine_helpers::prompt;
 use opencode2_engine_support::{Chat, SESSION, count, kind, start, until_marker};
@@ -201,6 +201,28 @@ async fn fork_and_clone_move_to_the_copy_without_showing_the_copied_messages() {
         }),
         "the copied reply sizes the context"
     );
+
+    // OpenCode 2 starts the copy's own totals at zero: as on OpenCode 1, the copied messages count.
+    let stats = match session.send(AgentAction::GetSessionStats).await {
+        Ok(AgentReply::Stats { stats }) => stats,
+        other => panic!("stats: {other:?}"),
+    };
+    assert_eq!(
+        (stats.user_messages, stats.assistant_messages),
+        (1, 1),
+        "the first prompt and its reply"
+    );
+    assert_eq!(
+        stats.tokens,
+        TokenUsage {
+            input: 3686,
+            output: 4,
+            cache_read: 1710,
+            cache_write: 0,
+            total: 3686 + 4 + 1710,
+        }
+    );
+    assert_eq!(stats.cost_usd, Some(0.0));
 
     assert_eq!(session.send(AgentAction::Clone).await.expect("clone"), AgentReply::Ack);
     assert_eq!(state(&chat).await.session_id, CLONE);

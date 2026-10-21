@@ -6,7 +6,7 @@
 //!   every line and event) and SIGTERM on stop, since the server ignores stdin EOF.
 //! - **Startup** (`startup.rs`): the listening line, `/api/info` readiness, the event stream, then
 //!   the session (new, or the resumed one when it belongs to the project, its messages marked as
-//!   seen), the agents, models and commands (`catalog.rs`).
+//!   seen), the agents and models (`catalog.rs`), and the commands and skills (`commands.rs`).
 //! - **Events** (`stream.rs`): one task reads the event stream and maps it ([`Mapper`]) under the
 //!   chat's lock, so prompt bookkeeping and event order never interleave. A stream that ends while
 //!   the server runs is opened again and the chat catches up from the session (`catch_up.rs`).
@@ -23,6 +23,7 @@
 mod approvals;
 mod catalog;
 mod catch_up;
+mod commands;
 mod delivery;
 mod dialogs;
 mod history;
@@ -91,6 +92,8 @@ struct Live {
     agent: String,
     /// Names of the server's commands (`GET /api/command`).
     commands: Vec<String>,
+    /// Ids of the skills a `/name` runs (`GET /api/skill`, `commands.rs`).
+    skills: Vec<String>,
     /// What the newest finished step or compaction told about the context's size.
     context: Option<ContextNote>,
     /// The chat's own model and agent picks OpenCode has not confirmed yet, oldest first.
@@ -134,9 +137,9 @@ impl Live {
         true
     }
 
-    /// True when `text` is `/name …` for one of the server's commands.
+    /// True when `text` is `/name …` for one of the server's commands or skills.
     fn is_command(&self, text: &str) -> bool {
-        slash_command(text).is_some_and(|(name, _)| self.commands.iter().any(|known| known == name))
+        slash_command(text).is_some_and(|(name, _)| self.commands.iter().chain(&self.skills).any(|known| known == name))
     }
 }
 

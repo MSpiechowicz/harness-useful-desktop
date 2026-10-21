@@ -309,6 +309,12 @@ pub enum RouteV2<'a> {
         /// The project directory.
         directory: &'a str,
     },
+    /// `GET /api/skill` → `{data: [skill], location}` (each with its instructions, which the chat
+    /// does not keep).
+    SkillList {
+        /// The project directory.
+        directory: &'a str,
+    },
     /// `GET /api/config` → `[source]` (read only, not enveloped).
     ConfigGet {
         /// The project directory.
@@ -345,6 +351,7 @@ impl RouteV2<'_> {
             | Self::FormList { .. }
             | Self::AgentList { .. }
             | Self::CommandList { .. }
+            | Self::SkillList { .. }
             | Self::ConfigGet { .. }
             | Self::ModelList { .. }
             | Self::ModelDefault { .. }
@@ -409,6 +416,7 @@ impl RouteV2<'_> {
             } => in_session(session, &format!("form/{form}"), directory),
             Self::AgentList { directory } => located("/api/agent", Vec::new(), directory),
             Self::CommandList { directory } => located("/api/command", Vec::new(), directory),
+            Self::SkillList { directory } => located("/api/skill", Vec::new(), directory),
             Self::ConfigGet { directory } => located("/api/config", Vec::new(), directory),
             Self::ModelList { directory } => located("/api/model", Vec::new(), directory),
             Self::ModelDefault { directory } => located("/api/model/default", Vec::new(), directory),

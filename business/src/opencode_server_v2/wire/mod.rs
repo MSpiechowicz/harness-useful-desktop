@@ -3,7 +3,7 @@
 //!
 //! - [`envelope`]: the `{data}` response envelope, list cursors, `/api/info` and `interrupt`.
 //! - [`session`]: the session object, model reference, token counts and session request bodies.
-//! - [`catalog`]: the agent, command, model and provider lists and the configuration sources.
+//! - [`catalog`]: the agent, command, skill, model and provider lists and the configuration sources.
 //! - [`prompt`]: the prompt, command, shell and compact bodies, inbox items, permission requests,
 //!   forms and their reply bodies.
 
@@ -12,12 +12,12 @@ pub mod envelope;
 pub mod prompt;
 pub mod session;
 
-pub use catalog::{Agent, Capabilities, Command, ConfigSource, Limit, Model, Provider, Variant};
+pub use catalog::{Agent, Capabilities, Command, ConfigSource, Limit, Model, Provider, Skill, Variant};
 pub use envelope::{Cursor, Envelope, Interrupted, Location, ServerInfo, listening_addr};
 pub use prompt::{
     AgentMention, CommandBody, CompactBody, Decision, Delivery, FileRef, Form, FormField, FormOption, FormReplyBody,
     FormValue, InboxEntry, InboxItem, InboxPayload, InboxTime, PermissionReplyBody, PermissionRequest,
-    PermissionSource, PromptBody, ShellBody,
+    PermissionSource, PromptBody, ShellBody, SkillRef,
 };
 pub use session::{
     AgentBody, CacheTokens, CreateBody, ErrorInfo, ForkBody, ForkBoundary, ForkInfo, ModelBody, ModelRef, Session,

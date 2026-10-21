@@ -2,7 +2,8 @@
 //! HTML export ([`stats`](crate::opencode_server_v2::stats),
 //! [`export_html`](crate::opencode_server::export_html)), as on OpenCode 1.
 //!
-//! - **Statistics:** the session's totals (`GET /api/session/{id}`) and every message.
+//! - **Statistics:** every message of the session, its replies and compactions adding up the tokens
+//!   and cost, as on OpenCode 1 (a fork or clone counts what it copied).
 //! - **Context meter:** the `state`'s context usage comes from the newest step with output, which
 //!   the event task notes as steps end; a resumed, forked or cloned session's from its newest
 //!   reply (`startup.rs`, `ops.rs`).
@@ -18,7 +19,6 @@ use std::time::SystemTime;
 
 use super::OpenCodeV2Session;
 use super::history::all_messages;
-use super::startup::get_data;
 use crate::agent::rfc3339;
 use crate::app_dirs::exports_dir;
 use crate::env::Env;
@@ -26,31 +26,25 @@ use crate::error::{BusinessError, Result};
 use crate::fs_atomic::{ensure_private_dir, replace_atomically};
 use crate::model::AgentReply;
 use crate::opencode_server::export_html::{ExportPage, render};
+use crate::opencode_server_v2::SessionId;
 use crate::opencode_server_v2::mapper::history;
 use crate::opencode_server_v2::messages::SessionMessage;
 use crate::opencode_server_v2::stats::{last_reply_text, session_stats};
-use crate::opencode_server_v2::wire::{ModelRef, Session};
-use crate::opencode_server_v2::{RouteV2, SessionId};
+use crate::opencode_server_v2::wire::ModelRef;
 
 /// The title of an export of a session OpenCode has not named yet.
 const UNTITLED: &str = "OpenCode session";
 
 impl OpenCodeV2Session {
-    /// `getSessionStats` from the session's totals and every message.
+    /// `getSessionStats` from every message.
     pub(super) async fn stats(&self) -> Result<AgentReply> {
         let chat = &self.chat;
-        let session = self.current_session();
-        let route = RouteV2::SessionGet {
-            session: &session,
-            directory: &chat.directory,
-        };
-        let info: Session = get_data(&chat.client, route).await?;
-        let messages = self.messages(&session).await?;
+        let messages = self.messages(&self.current_session()).await?;
 
         let window = |model: &ModelRef| chat.catalog.model(model).and_then(|known| known.option.context_window);
 
         Ok(AgentReply::Stats {
-            stats: session_stats(info.cost, &info.tokens, &messages, &window),
+            stats: session_stats(&messages, &window),
         })
     }
 

@@ -119,7 +119,7 @@ async fn startup_creates_a_session_and_emits_ready_state_and_commands_first() {
 }
 
 #[tokio::test]
-async fn offline_the_default_model_shows_and_the_agents_fall_back_to_build_and_plan() {
+async fn without_agents_listed_the_default_model_shows_and_the_agents_fall_back_to_build_and_plan() {
     let chat = start("opencode2_offline.jsonl").await;
 
     let state = first_state(&chat).await;

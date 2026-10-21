@@ -2,6 +2,7 @@
 {"allow":"GET /api/agent","reply":{"recording":"../opencode2/recorded/ops.jsonl","route":"GET /api/agent"}}
 {"allow":"GET /api/model","reply":{"recording":"../opencode2/recorded/ops.jsonl","route":"GET /api/model"}}
 {"allow":"GET /api/command","reply":{"recording":"../opencode2/recorded/shell_command.jsonl","route":"GET /api/command"}}
+{"allow":"GET /api/skill","reply":{"data":[{"id":"opencode","name":"OpenCode","description":"Use this skill for any question about OpenCode itself, including how OpenCode works, using or configuring it.","path":"/builtin/opencode.md","content":"# OpenCode\n\nUse this guide as the starting point for work involving OpenCode itself."},{"id":"report","name":"Report","description":"Use when the user wants to report an opencode issue or bug.","path":"/builtin/report.md","content":"<!--\n  Built-in skill.\n-->\n"},{"id":"greet","name":"greet","description":"Greets the user warmly","path":"$cwd/.opencode/skills/greet/SKILL.md","content":"Say hello in a friendly way.\n"}],"location":{"directory":"$directory"}}}
 {"allow":"GET /api/provider","reply":{"data":[{"id":"opencode","integrationID":"opencode","name":"OpenCode Zen","activation":"auto","package":"@opencode/ai/providers/openai-compatible","settings":{}}],"location":{"directory":"$directory"}}}
 {"allow":"GET /api/config"}
 {"allow":"GET /api/form","reply":{"data":[],"location":{"directory":"$directory"}}}

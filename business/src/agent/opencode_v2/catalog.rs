@@ -4,9 +4,10 @@
 //! - **Models:** every enabled model, with its display fields; its variants are the thinking
 //!   levels, [`DEFAULT_VARIANT`] first. A model with variants counts as a reasoning model (OpenCode
 //!   2 lists no reasoning flag).
-//! - **Agents:** the primary ones (`primary` or `all`, not hidden). OpenCode 2.1.2 lists none
-//!   without network access; the chat then offers [`FALLBACK_AGENTS`], the primary agents every
-//!   install has, so the agent picker still works.
+//! - **Agents:** the primary ones (`primary` or `all`, not hidden). OpenCode 2.1.2 lists a
+//!   directory's agents only once it loaded them, 150 to 300 ms after the first request there
+//!   (startup asks again meanwhile, `startup.rs`). When the list stays empty, the chat offers
+//!   [`FALLBACK_AGENTS`], the primary agents every install has, so the agent picker still works.
 
 use crate::model::{AgentOption, ModelOption};
 use crate::opencode_server_v2::wire::{Agent, Model, ModelRef};

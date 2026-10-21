@@ -4,36 +4,37 @@
 //! - **Counts** follow the chat messages ([`history`]): user and assistant messages with something
 //!   to show, a tool call per tool item, and in the total also the tool results, `!command`s and
 //!   compaction summaries.
-//! - **Tokens and cost** are the session's running totals (`Session.cost`, `Session.tokens`, which
-//!   `session.usage.updated` reports as they grow): every model step, compactions included.
-//!   Reasoning tokens count as output, and the total is the sum.
+//! - **Tokens and cost** add up the session's messages, as on OpenCode 1: every reply (one per model
+//!   step) and every compaction. A fork or clone so counts the messages it copied, which its own
+//!   running totals (`Session.cost`, `Session.tokens`) leave out, and usage outside the messages
+//!   (the title OpenCode generates) is not counted, as on OpenCode 1. Reasoning tokens count as
+//!   output, and the total is the sum.
 //! - **Context**, as OpenCode's own sidebar shows it: the input, output, reasoning and cache tokens
 //!   of the newest reply with output, against its model's context window. After a newer compaction
 //!   it is unknown until the next reply.
 
 use super::mapper::{ContextNote, history};
 use super::messages::{AssistantMessage, SessionMessage};
-use super::wire::{ModelRef, Tokens};
+use super::wire::ModelRef;
 use crate::model::{ChatBlock, MessageRole, SessionStats, TokenUsage};
 use crate::opencode_server::stats::usage;
 
-/// The statistics of a session with the totals `cost` and `tokens` and `messages` (oldest first);
-/// `window` gives a model's context window.
-pub fn session_stats(
-    cost: f64,
-    tokens: &Tokens,
-    messages: &[SessionMessage],
-    window: &dyn Fn(&ModelRef) -> Option<u64>,
-) -> SessionStats {
+/// The statistics of a session with `messages` (oldest first); `window` gives a model's context
+/// window.
+pub fn session_stats(messages: &[SessionMessage], window: &dyn Fn(&ModelRef) -> Option<u64>) -> SessionStats {
     let mut stats = SessionStats {
         user_messages: 0,
         assistant_messages: 0,
         tool_calls: 0,
         total_messages: 0,
-        tokens: token_usage(tokens),
-        cost_usd: Some(cost.max(0.0)),
+        tokens: TokenUsage::default(),
+        cost_usd: Some(0.0),
         context_usage: None,
     };
+
+    for message in messages {
+        add_usage(&mut stats, message);
+    }
 
     for message in history(messages) {
         count_message(&mut stats, message.role, &message.blocks);
@@ -47,20 +48,25 @@ pub fn session_stats(
     stats
 }
 
-/// The session totals `tokens` as the chat's usage: reasoning counts as output.
-pub fn token_usage(tokens: &Tokens) -> TokenUsage {
-    let input = tokens.input;
-    let output = tokens.output + tokens.reasoning;
-    let cache_read = tokens.cache.read;
-    let cache_write = tokens.cache.write;
+/// Adds what the model step `message` (a reply or a compaction) used to `stats`.
+fn add_usage(stats: &mut SessionStats, message: &SessionMessage) {
+    let (cost, tokens) = match message {
+        SessionMessage::Assistant(reply) => (reply.cost, reply.tokens),
+        SessionMessage::Compaction(compaction) => (compaction.cost, compaction.tokens),
+        _ => return,
+    };
 
-    TokenUsage {
-        input,
-        output,
-        cache_read,
-        cache_write,
-        total: input + output + cache_read + cache_write,
+    if let Some(used) = tokens {
+        let total = &mut stats.tokens;
+        total.input += used.input;
+        total.output += used.output + used.reasoning;
+        total.cache_read += used.cache.read;
+        total.cache_write += used.cache.write;
+        total.total = total.input + total.output + total.cache_read + total.cache_write;
     }
+
+    let cost = cost.filter(|cost| *cost > 0.0).unwrap_or(0.0);
+    stats.cost_usd = Some(stats.cost_usd.unwrap_or(0.0) + cost);
 }
 
 /// What the newest reply with output (or a newer compaction) of `messages` (oldest first) tells
