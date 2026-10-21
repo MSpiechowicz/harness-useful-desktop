@@ -54,17 +54,16 @@ describe("the Kept in filter of the notes", () => {
     ).toBeTruthy();
   });
 
-  it("is not there when everything is kept in one place", async () => {
-    fakeMemory(
-      { kind: "available" },
-      undefined,
-      undefined,
-      sampleNotes().map((note) => ({ ...note, place: "local" as const })),
-    );
+  it("is there when everything is kept in one place too, as the column is", async () => {
+    const notes = sampleNotes().map((note) => ({ ...note, place: "local" as const }));
+    fakeMemory({ kind: "available" }, undefined, undefined, notes);
     await showNotes();
 
-    await screen.findByRole("button", { name: "Kind: All" });
-    expect(screen.queryByRole("button", { name: /^Kept in: / })).toBeNull();
+    expect(await filterChoices("Kept in: All", "Kept in")).toEqual([
+      `All ${notes.length}`,
+      `This computer ${notes.length}`,
+      "Remote 0",
+    ]);
   });
 
   it("is not there on a Harness Memory that cannot filter by place", async () => {
@@ -107,7 +106,7 @@ describe("the Kept in filter of the notes", () => {
     expect(viewState.notesPlace).toBeNull();
   });
 
-  it("stays to be cleared when the place chosen is the only one left, and says nothing matches", async () => {
+  it("says nothing matches a place that holds none, and goes back to All when cleared", async () => {
     fakeMemory(
       { kind: "available" },
       undefined,
@@ -129,7 +128,7 @@ describe("the Kept in filter of the notes", () => {
     expect(
       await screen.findByRole("grid", { name: "Notes" }),
     ).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /^Kept in: / })).toBeNull();
+    expect(screen.getByRole("button", { name: "Kept in: All" })).toBeInTheDocument();
   });
 
   it("does not count a place chosen before an older Harness Memory as a filter", async () => {
@@ -165,15 +164,16 @@ describe("the Kept in filter of the scripts", () => {
     ).toBeTruthy();
   });
 
-  it("is not there when everything is kept in one place", async () => {
-    fakeMemory(
-      { kind: "available" },
-      sampleScripts().map((script) => ({ ...script, place: "team" as const })),
-    );
+  it("is there when everything is kept in one place too, as the column is", async () => {
+    const scripts = sampleScripts().map((script) => ({ ...script, place: "team" as const }));
+    fakeMemory({ kind: "available" }, scripts);
     await showMemory();
 
-    await screen.findByRole("button", { name: "Status: All" });
-    expect(screen.queryByRole("button", { name: /^Kept in: / })).toBeNull();
+    expect(await filterChoices("Kept in: All", "Kept in")).toEqual([
+      `All ${scripts.length}`,
+      "This computer 0",
+      `Remote ${scripts.length}`,
+    ]);
   });
 
   it("is not there on a Harness Memory that cannot filter by place", async () => {
@@ -228,12 +228,16 @@ describe("the Kept in filter of the scripts", () => {
       `Remote ${inPlace(trusted, "team")}`,
     ]);
 
-    // The scripts that need review are all kept remotely: nothing left to tell apart.
+    // The scripts that need review are all kept remotely: the menu stays, with none on this computer.
     await pickFilter("Status: Trusted", /^Needs review/);
 
     await waitFor(() =>
       expect(screen.getByText("2 scripts")).toBeInTheDocument(),
     );
-    expect(screen.queryByRole("button", { name: /^Kept in: / })).toBeNull();
+    expect(await filterChoices("Kept in: All", "Kept in")).toEqual([
+      "All 2",
+      "This computer 0",
+      "Remote 2",
+    ]);
   });
 });

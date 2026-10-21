@@ -26,8 +26,6 @@
 
   let { places, place, onchange }: Props = $props();
 
-  // Nothing to tell apart when everything is kept in one place, unless a place is chosen: that choice stays to be let go of.
-  const shown = $derived(places !== null && ((places.local > 0 && places.team > 0) || place !== null));
 
   const options = $derived([
     { value: 'all' as PlaceChoice, label: t('memory.filter.all'), count: places ? places.local + places.team : undefined },
@@ -36,7 +34,7 @@
   ]);
 </script>
 
-{#if shown}
+{#if places !== null}
   <FilterMenu
     label={t('memory.filter.place')}
     prefix={t('memory.filter.place')}
