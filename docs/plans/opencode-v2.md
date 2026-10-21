@@ -173,7 +173,9 @@ S15 in the skills repo. S7 also needs S5.
 | S13 | UI (only if needed) | frontend | done (merged e4573f7) |
 | S14 | Docs | general | done (bbab074, final wording after S12) |
 | S16 | Orphaned chat servers killed on next start (user-approved addition) | backend | done (merged 1cb9454) |
-| S15 | Harness Skills V2 entry | general | done (harness-useful-skills b285e6f, branch feat/opencode-v2, unreleased; dual entry checked on real 1.19.3 and 2.1.2) |
+| S15 | Harness Skills V2 entry | general | done (harness-useful-skills feat/opencode-v2, b285e6f…6bbe4b9, unreleased; dual entry checked on real 1.19.3 and 2.1.2) |
+| R | Reviews | — | done: 3 correctness + 3 security passes (cap reached), all findings fixed or listed under Residuals; last commit 8f55696 |
+| U | Real-provider check | user | **next**: checklist below |
 
 ## Verified facts
 
@@ -276,6 +278,50 @@ that end right after opening back off, the unused provider and config routes are
 (`8e590a7`): `/useful-skills` and `/us-ignore-workflow` run only from the plugin's real commands, background shell
 output is redacted before it reaches the model. Residual: saved "always" rules another OpenCode client adds while a
 chat runs (no event).
+
+## Review rounds 2 and 3
+
+Pass 2 (correctness and security) and pass 3 (focused on the pass-2 fixes) found no acceptance failure. Fixed: subagent
+sessions adopted only when OpenCode lists them as children, a subagent ask for an unprobed agent checked before it
+shows and only rejectable, the mode re-checked before caught-up asks after a reconnect, a shell card fed only by shell
+calls, no password piece in cut or still-running shell output, owner-only orphan records opened without following
+links (kept when unreadable for a passing reason), a failing macOS `ps` treated as unknown, guard rules ignoring
+comments, no legacy MCP entry removed unless the app owns it, home-folder configs counted for Share checks only,
+Harness Skills command re-registration capped and redaction limited to text parts.
+
+## Residuals (known, accepted)
+
+- Saved "always" rules another OpenCode client adds while a chat runs (OpenCode 2 sends no event).
+- A stop pressed during an agent re-check takes effect after it (at most 10 s).
+- Live shell output: a single line longer than 30 KB shows only `...` until a line break; a call already running
+  when a chat reconnects or resumes gets no live output (its result still arrives).
+- AI chat naming fails on OpenCode's free tier (it refuses a request with every tool denied); it falls back to the
+  first-message name. Check with your own provider.
+- Global OpenCode plugins load for the v2 session commands (OpenCode 2 has no `--pure`).
+- Harness Skills under `OPENCODE_CONFIG_DIR` on OpenCode 2 (installer writes `~/.config/opencode`); a v2 → v1
+  downgrade with `mcp.servers` entries (see Risks).
+- The macOS `ps` code path and Windows were checked by reading and `cargo check` (Windows), not run.
+
+## Real-provider checklist (user)
+
+Install OpenCode 2 (`npm install -g @opencode/cli`), start the app (`bun dev`), then:
+
+1. Harness list: OpenCode shows 2.1.x Supported. Config and Extensions views show your `plugins` and `mcp.servers`.
+2. Sessions view: list, open (transcript and touched files), export and delete an OpenCode 2 session. No
+   `opencode serve --service` process stays (`pgrep -af "serve --service"`).
+3. Chat with your real model: streamed reply, tool cards (read, edit with path, shell with live output), stats and
+   context meter, copy last reply, HTML export.
+4. Approval modes: Always ask (edit card → Allow once, Always allow then a matching edit runs without a card, Reject
+   ends the run), Write ask first, Yolo. A question tool dialog.
+5. Steering while busy, a follow-up queued while busy, abort mid-run.
+6. `!ls`, `/review`, a skill from the `/` menu, compact, rename, fork at a message, clone, new chat, an image prompt.
+7. AI chat naming with your provider.
+8. Restart the app and resume the chat: history shows, no duplicate cards.
+9. A hook with matcher `edit|write|apply_patch|patch` fires with the touched path; a routine runs on OpenCode 2.
+10. Harness Skills: install from Recommended setup on OpenCode 2, `/useful-skills help` works, workflow guidance shows.
+11. Plugin install (`opencode plugin add`) and remove from Extensions; Share setup export and import of a plugin and an
+    MCP server.
+12. Regression: the same quick chat on OpenCode 1.19 still works.
 
 ## Verification
 
