@@ -83,10 +83,12 @@ pub(super) fn unknown_agent(chat: &Chat, permission: &PermissionRequest) -> bool
         return false;
     }
 
-    permission
-        .resources
-        .iter()
-        .any(|resource| !guard.ids.contains(resource))
+    names_unknown_agent(&guard.ids, &permission.resources)
+}
+
+/// True when `resources` (the agents a `subagent` ask names) hold one not in `ids`, or none at all.
+fn names_unknown_agent(ids: &[String], resources: &[String]) -> bool {
+    resources.is_empty() || resources.iter().any(|resource| !ids.contains(resource))
 }
 
 /// Checks that the server's agents still have the mode's rules (see the module docs); `Ok` for a
@@ -155,4 +157,22 @@ fn other_agents(guard: &ModeGuard, listed: &Value) -> bool {
     probed.sort_unstable();
 
     ids != probed
+}
+
+#[cfg(test)]
+mod tests {
+    use super::names_unknown_agent;
+
+    #[test]
+    fn an_ask_naming_no_agent_or_an_unlisted_one_is_unknown() {
+        let ids = vec!["build".to_owned(), "general".to_owned()];
+
+        assert!(!names_unknown_agent(&ids, &["general".to_owned()]));
+        assert!(names_unknown_agent(&ids, &[]));
+        assert!(names_unknown_agent(&ids, &["sneaky".to_owned()]));
+        assert!(names_unknown_agent(
+            &ids,
+            &["general".to_owned(), " general".to_owned()]
+        ));
+    }
 }

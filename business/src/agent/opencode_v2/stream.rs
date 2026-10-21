@@ -121,7 +121,8 @@ async fn run(chat: Arc<Chat>, mut events: EventStream, mut watch: Watch) {
         events = reopened;
         failures = failed;
 
-        if catch_up::run(&chat).await.is_err() || guard::recheck(&chat).await.is_err() {
+        // The mode is checked before caught-up asks show or are answered by "Always allow".
+        if guard::recheck(&chat).await.is_err() || catch_up::run(&chat).await.is_err() {
             return stop(&chat, &watch, guard::NOTICE).await;
         }
     }

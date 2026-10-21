@@ -92,7 +92,10 @@ async fn read_output(chat: Arc<Chat>, call: String, shell: ShellId) {
             let more = output.add(page);
             let mut live = chat.lock();
 
-            for event in live.mapper.shell_output(&call, &output.shown()) {
+            // Output still running can end inside the password: mask a trailing piece of it too.
+            let shown = chat.shared.mask(&output.shown(), true);
+
+            for event in live.mapper.shell_output(&call, &shown) {
                 chat.shared.emit(event);
             }
 
