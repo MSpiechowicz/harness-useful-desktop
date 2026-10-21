@@ -37,9 +37,11 @@ pub enum ScriptScope {
     Global,
 }
 
-/// Where the server keeps a script.
+/// Where the server keeps a note or script, and which of them `memory_notes_list` and
+/// `memory_scripts_list` keep (`place`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export)]
 pub enum ScriptPlace {
     /// The team database.
     Team,
@@ -174,6 +176,18 @@ pub struct MemoryScopeCounts {
     pub global: u32,
 }
 
+/// How many notes or scripts of each place match every other filter (`memory_notes_list`: the
+/// query, kind and scope, `memory_scripts_list`: the query, scope and review).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct MemoryPlaceCounts {
+    /// Those in the local file on this machine.
+    pub local: u32,
+    /// Those in the team database.
+    pub team: u32,
+}
+
 /// How many scripts need the user's approval and how many do not, under the query and scope.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
@@ -231,12 +245,16 @@ pub struct MemoryScriptsPage {
     pub total: u32,
     /// The scripts of each group under the query, whatever group was asked for.
     pub groups: ScriptGroupCounts,
-    /// The scripts of each scope under the query and review; `None` from a server that does not
-    /// combine filters.
+    /// The scripts of each scope under the query, review and place; `None` from a server that
+    /// does not combine filters.
     pub scopes: Option<MemoryScopeCounts>,
-    /// The scripts that need approval and the others under the query and scope; `None` from a
-    /// server that does not combine filters.
+    /// The scripts that need approval and the others under the query, scope and place; `None`
+    /// from a server that does not combine filters.
     pub review: Option<ScriptReviewCounts>,
+    /// The scripts of each place under the query, scope and review; `None` from a server that
+    /// does not filter by place, whose list then keeps every place (a `place` asked for was
+    /// dropped).
+    pub places: Option<MemoryPlaceCounts>,
     /// Whether the server combines `scope` and `review` (and answered their counts): false from
     /// an older one, whose list then follows the query and group only (a `scope` or `review`
     /// asked for was dropped).

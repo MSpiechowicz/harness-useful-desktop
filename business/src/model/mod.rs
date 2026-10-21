@@ -103,9 +103,9 @@ pub use memory_save::{
     NoteDraft, NoteSaveOutcome, NoteSaved, ScriptDraft, ScriptLanguage, ScriptSaveOutcome, ScriptSaved,
 };
 pub use memory_scripts::{
-    MemoryDeleteAll, MemoryScopeCounts, MemoryScriptsAvailability, MemoryScriptsPage, ScriptApproval, ScriptAuthor,
-    ScriptDetail, ScriptGroup, ScriptGroupCounts, ScriptPlace, ScriptReview, ScriptReviewCounts, ScriptScope,
-    ScriptSort, ScriptSummary, ScriptTrustItem,
+    MemoryDeleteAll, MemoryPlaceCounts, MemoryScopeCounts, MemoryScriptsAvailability, MemoryScriptsPage,
+    ScriptApproval, ScriptAuthor, ScriptDetail, ScriptGroup, ScriptGroupCounts, ScriptPlace, ScriptReview,
+    ScriptReviewCounts, ScriptScope, ScriptSort, ScriptSummary, ScriptTrustItem,
 };
 pub use prefs::{
     AppPrefs, BinaryOverride, ChatDefaults, DEFAULT_LANGUAGE, LANGUAGES, MotionPref, ThemePref, UpdatePolicy,

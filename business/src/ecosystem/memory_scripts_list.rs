@@ -3,11 +3,14 @@
 //! [`MemoryScripts::list`](super::memory_scripts::MemoryScripts::list).
 //!
 //! The list takes one `--group`, or `--scope repo|global` and `--review needed|trusted` combined
-//! (never both kinds: the server refuses that as a usage error), and answers the counts of each
-//! group, and with combined filters those of each scope (`scopes`, under the query and review)
-//! and review (`review`, under the query and scope). A server that predates combined filters
-//! answers neither and refuses `--scope` and `--review`: the list is then asked once more without
-//! them (see [`run_list`]).
+//! (never both kinds: the server refuses that as a usage error), and `--place local|team`. It
+//! answers the counts of each group, with combined filters those of each scope (`scopes`, under
+//! the query, review and place) and review (`review`, under the query, scope and place), and with
+//! the place those of each place (`places`, `{"local", "team"}` under the query, scope and
+//! review). A server that predates the place answers without `places` and refuses `--place`, one
+//! that predates combined filters answers neither `scopes` nor `review` and refuses `--scope` and
+//! `--review`: the list is then asked again without them (see
+//! [`memory_list`](super::memory_list)).
 //!
 //! Each script says where it is kept (`place`), whether it is a read-only team script (`readOnly`,
 //! scripts routed `remote+local`) and whether it is hidden on this machine (`hidden`); with a team
@@ -20,16 +23,15 @@ use std::path::Path;
 
 use serde_json::Value;
 
-use super::memory_cli::{
-    ListAnswer, ListWindow, Repos, count_of, counts_by_scope, list_availability, run_list, scope_counts, scope_name,
-};
+use super::memory_cli::{ListWindow, Repos, count_of, counts_by_scope, list_availability, scope_counts, scope_name};
 use super::memory_hidden::HIDDEN_FLAG;
+use super::memory_list::{ListAnswer, list_filters, place_counts, run_list};
 use super::memory_scripts::parse;
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::model::{
-    MemoryScriptsAvailability, MemoryScriptsPage, ScriptGroup, ScriptGroupCounts, ScriptReview, ScriptReviewCounts,
-    ScriptScope, ScriptSort, ScriptSummary,
+    MemoryScriptsAvailability, MemoryScriptsPage, ScriptGroup, ScriptGroupCounts, ScriptPlace, ScriptReview,
+    ScriptReviewCounts, ScriptScope, ScriptSort, ScriptSummary,
 };
 use crate::process::ProcessRunner;
 
@@ -48,6 +50,8 @@ pub struct ScriptsQuery {
     /// The scripts that need approval, the others, or all (dropped by a server that does not
     /// combine filters).
     pub review: Option<ScriptReview>,
+    /// One place only, or both (dropped by a server that does not filter by place).
+    pub place: Option<ScriptPlace>,
     /// `updated` unless given.
     pub sort: Option<ScriptSort>,
     /// List the team scripts hidden on this machine instead of the visible ones.
@@ -55,8 +59,8 @@ pub struct ScriptsQuery {
 }
 
 impl ScriptsQuery {
-    /// The query of the visible scripts; `invalidInput` for a `group` with a `scope` or `review`
-    /// (the server refuses that).
+    /// The query of the visible scripts of every place; `invalidInput` for a `group` with a
+    /// `scope` or `review` (the server refuses that).
     pub fn new(
         window: ListWindow,
         group: Option<ScriptGroup>,
@@ -75,6 +79,7 @@ impl ScriptsQuery {
             group,
             scope,
             review,
+            place: None,
             sort,
             hidden: false,
         })
@@ -106,9 +111,11 @@ pub(super) async fn list_page(
         .into_iter()
         .collect();
 
-    let mut filters = group.clone();
-    filters.extend(query.scope.map(|scope| ("--scope", scope_name(scope))));
-    filters.extend(query.review.map(|review| ("--review", review_name(review))));
+    let mut combined = Vec::new();
+    combined.extend(query.scope.map(|scope| ("--scope", scope_name(scope))));
+    combined.extend(query.review.map(|review| ("--review", review_name(review))));
+
+    let (filters, fallbacks) = list_filters(&group, &combined, query.place);
 
     let hidden = query.hidden.then(|| OsString::from(HIDDEN_FLAG));
     let args = |filters: &[(&str, &str)]| -> Vec<OsString> {
@@ -118,9 +125,9 @@ pub(super) async fn list_page(
             .chain(hidden.clone())
             .collect()
     };
-    let fallback = (filters.len() > group.len()).then(|| args(&group));
+    let fallbacks = fallbacks.iter().map(|filters| args(filters)).collect();
 
-    match run_list(env, runner, server, SCRIPTS_LIST_COMMAND, args(&filters), fallback).await {
+    match run_list(env, runner, server, SCRIPTS_LIST_COMMAND, args(&filters), fallbacks).await {
         Ok(answer) => scripts_page(answer),
         Err(error) => unavailable_page(list_availability(error)),
     }
@@ -151,6 +158,7 @@ pub(super) fn unavailable_page(availability: MemoryScriptsAvailability) -> Memor
         groups: ScriptGroupCounts::default(),
         scopes: None,
         review: None,
+        places: None,
         combined_filters: false,
         scripts: Vec::new(),
         hidden_count: None,
@@ -201,6 +209,7 @@ fn scripts_page(answer: ListAnswer) -> MemoryScriptsPage {
         },
         scopes: scope_counts(data),
         review,
+        places: place_counts(data),
         combined_filters: answer.combined_filters,
         scripts,
         hidden_count: count_of(data.get("hiddenCount")),

@@ -7,7 +7,9 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use super::memory_scripts::{MemoryScopeCounts, MemoryScriptsAvailability, ScriptAuthor, ScriptPlace, ScriptScope};
+use super::memory_scripts::{
+    MemoryPlaceCounts, MemoryScopeCounts, MemoryScriptsAvailability, ScriptAuthor, ScriptPlace, ScriptScope,
+};
 
 /// What a note records.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
@@ -163,7 +165,8 @@ pub struct NoteDetail {
 pub struct NoteKindCount {
     /// The kind.
     pub kind: NoteKind,
-    /// Its notes under the current query and scope (every kind, whatever `kind` was asked for).
+    /// Its notes under the current query, scope and place (every kind, whatever `kind` was asked
+    /// for).
     pub count: u32,
 }
 
@@ -174,13 +177,16 @@ pub struct NoteKindCount {
 pub struct MemoryNotesPage {
     /// Whether the notes could be read.
     pub availability: MemoryScriptsAvailability,
-    /// How many notes match the query, kind and scope (all pages).
+    /// How many notes match the query, kind, scope and place (all pages).
     pub total: u32,
-    /// The notes of each kind under the query and scope, whatever kind was asked for.
+    /// The notes of each kind under the query, scope and place, whatever kind was asked for.
     pub kinds: Vec<NoteKindCount>,
-    /// The notes of each scope under the query and kind; `None` from a server that does not
-    /// combine filters.
+    /// The notes of each scope under the query, kind and place; `None` from a server that does
+    /// not combine filters.
     pub scopes: Option<MemoryScopeCounts>,
+    /// The notes of each place under the query, kind and scope; `None` from a server that does
+    /// not filter by place, whose list then keeps every place (a `place` asked for was dropped).
+    pub places: Option<MemoryPlaceCounts>,
     /// Whether the server combines `scope` with `kind` (and answered the scope counts): false
     /// from an older one, whose list then follows the query and kind only (a `scope` asked for
     /// was dropped).

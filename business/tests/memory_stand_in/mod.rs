@@ -30,6 +30,9 @@ pub const UNPAGED: Vars = &[("FAKE_MEMORY_CLI", "unpaged")];
 /// A server whose lists predate combined filters: `--scope` and `--review` are usage errors, and
 /// lists answer without `scopes` and `review`.
 pub const SINGLE: Vars = &[("FAKE_MEMORY_CLI", "single")];
+/// A server whose lists combine filters but predate the place: `--place` is a usage error, and
+/// lists answer without `places`.
+pub const SCOPED: Vars = &[("FAKE_MEMORY_CLI", "scoped")];
 
 /// Runs the stand-in (with `vars` set) for every spawn and run, and records the requested specs:
 /// a spawn runs `fake_agent <args>` (the MCP server), a run `fake_agent <the spec's arguments>`
