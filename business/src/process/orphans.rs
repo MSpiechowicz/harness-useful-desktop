@@ -267,16 +267,20 @@ pub fn sweep_orphans(dir: &Path) -> SweepReport {
         return report;
     };
 
-    for entry in entries.flatten().take(MAX_FILES) {
-        let path = entry.path();
-        let name = entry.file_name().to_string_lossy().into_owned();
+    // Only the registry's own files count towards the limit, in a stable order.
+    let mut files: Vec<(String, PathBuf)> = entries
+        .flatten()
+        .filter_map(|entry| {
+            let name = entry.file_name().to_string_lossy().into_owned();
 
-        if name.starts_with(".app-") && name.contains(".tmp-") {
+            (is_temp_file(&name) || is_record_file(&name)).then(|| (name, entry.path()))
+        })
+        .collect();
+    files.sort();
+
+    for (name, path) in files.into_iter().take(MAX_FILES) {
+        if is_temp_file(&name) {
             remove_stale_temp(&path);
-            continue;
-        }
-
-        if !(name.starts_with("app-") && name.ends_with(".json")) {
             continue;
         }
 
@@ -300,6 +304,16 @@ pub fn sweep_orphans(dir: &Path) -> SweepReport {
     }
 
     report
+}
+
+/// A temporary file of an atomic registry write.
+fn is_temp_file(name: &str) -> bool {
+    name.starts_with(".app-") && name.contains(".tmp-")
+}
+
+/// An app's registry file.
+fn is_record_file(name: &str) -> bool {
+    name.starts_with("app-") && name.ends_with(".json")
 }
 
 /// Kills `child` when it still runs as recorded.

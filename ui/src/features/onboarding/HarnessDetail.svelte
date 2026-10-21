@@ -107,10 +107,18 @@
         <div class="flex flex-col gap-2">
           {#if detection.installHint}
             <p class="text-sm text-fg-2">{t('onboarding.card.installWith')}</p>
-            <div class="flex items-center gap-2 rounded-md border border-line bg-surface-1 py-1 pr-1 pl-3">
-              <code class="min-w-0 flex-1 py-1.5 font-mono text-sm [overflow-wrap:anywhere] text-fg">{detection.installHint.command}</code>
-              <CopyButton text={detection.installHint.command} label={t('onboarding.card.copyInstall')} />
-            </div>
+            <!-- One row per way to install it. A harness shipped as several release lines labels each row. -->
+            {#each detection.installHint.commands as install (install.command)}
+              <div class="flex flex-col gap-1">
+                {#if install.label}
+                  <p class="text-xs font-medium text-fg-3">{install.label}</p>
+                {/if}
+                <div class="flex items-center gap-2 rounded-md border border-line bg-surface-1 py-1 pr-1 pl-3">
+                  <code class="min-w-0 flex-1 py-1.5 font-mono text-sm [overflow-wrap:anywhere] text-fg">{install.command}</code>
+                  <CopyButton text={install.command} label={install.label ? t('onboarding.card.copyInstallFor', { name: install.label }) : t('onboarding.card.copyInstall')} />
+                </div>
+              </div>
+            {/each}
           {/if}
 
           {#if detection.error}

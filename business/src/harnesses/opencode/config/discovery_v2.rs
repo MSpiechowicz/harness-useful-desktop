@@ -7,15 +7,15 @@
 //! global files and directory, the file `OPENCODE_CONFIG` names, the project files (farthest
 //! first), then each project `.opencode/` (farthest first) with its files. `~/.opencode` is not a
 //! layer of its own: it is read only when the walk reaches the home directory. The walk is
-//! skipped when project config is off or the project is itself a global root (the global
-//! directory, `~/.claude` or `~/.agents`). Inline `OPENCODE_CONFIG_CONTENT` and the managed
-//! directory are not read.
+//! skipped when project config is off or the project is itself a config directory (the global
+//! one, or the system one, [`system_config_dir`]). Inline `OPENCODE_CONFIG_CONTENT` and the
+//! system (managed) directory are not read.
 
 use std::path::{Path, PathBuf};
 
 use super::super::paths::{PROJECT_DIR_NAME, global_config_dir};
 use super::layers::{ConfigDir, Place, SETTINGS_FILES, Step, env_config_file, file_step, project_config_enabled};
-use crate::env::Env;
+use crate::env::{Env, OsKind};
 use crate::harness::OpenCodeGeneration;
 
 const GENERATION: OpenCodeGeneration = OpenCodeGeneration::V2;
@@ -63,15 +63,15 @@ pub(super) fn config_dirs(env: &Env, project: Option<&Path>) -> Vec<ConfigDir> {
 }
 
 /// The walked directories whose `opencode.json[c]` OpenCode 2 reads, the farthest first; the
-/// global directory is never one of them.
+/// global and the system config directories are never among them.
 pub(super) fn project_roots(env: &Env, project: Option<&Path>) -> Vec<ConfigDir> {
-    let global = global_config_dir(env, GENERATION);
+    let config_dirs = [system_config_dir(env), global_config_dir(env, GENERATION)];
     let mut walked = walk(env, project);
     walked.reverse();
 
     walked
         .into_iter()
-        .filter(|dir| *dir != global)
+        .filter(|dir| !config_dirs.contains(dir))
         .map(|dir| super::layers::project_root(env, dir))
         .collect()
 }
@@ -102,7 +102,8 @@ fn project_dirs(env: &Env, project: Option<&Path>) -> Vec<ConfigDir> {
 }
 
 /// `project` and every ancestor up to the filesystem root, closest first; none without a
-/// project, when project config is off, or when the project is a global root.
+/// project, when project config is off, or when the project is the global or the system config
+/// directory (as `discovery.ts` skips it; `~/.claude` and `~/.agents` are walked).
 pub(in crate::harnesses::opencode) fn walk(env: &Env, project: Option<&Path>) -> Vec<PathBuf> {
     let Some(project) = project else {
         return Vec::new();
@@ -112,16 +113,22 @@ pub(in crate::harnesses::opencode) fn walk(env: &Env, project: Option<&Path>) ->
         return Vec::new();
     }
 
-    let global_roots = [
-        global_config_dir(env, GENERATION),
-        env.home_join(".claude"),
-        env.home_join(".agents"),
-    ];
-    if global_roots.iter().any(|root| root == project) {
+    let config_dirs = [system_config_dir(env), global_config_dir(env, GENERATION)];
+    if config_dirs.iter().any(|dir| dir == project) {
         return Vec::new();
     }
 
     project.ancestors().map(Path::to_path_buf).collect()
+}
+
+/// OpenCode 2's system config directory: `/etc/opencode`, `/Library/Application Support/opencode`
+/// on macOS, `%ProgramData%\opencode` on Windows (`systemDirectory` in `discovery.ts`).
+fn system_config_dir(env: &Env) -> PathBuf {
+    match env.os {
+        OsKind::Linux => PathBuf::from("/etc/opencode"),
+        OsKind::MacOs => PathBuf::from("/Library/Application Support/opencode"),
+        OsKind::Windows => PathBuf::from(env.var("ProgramData").unwrap_or("C:\\ProgramData")).join("opencode"),
+    }
 }
 
 #[cfg(test)]
@@ -143,14 +150,40 @@ mod tests {
     }
 
     #[test]
-    fn a_global_root_or_switched_off_project_config_is_not_walked() {
+    fn a_config_directory_or_switched_off_project_config_is_not_walked() {
         let home = std::env::temp_dir().join("home");
-        let env = Env::for_tests(&home);
+        let env = Env::for_tests(&home).with_os(OsKind::Linux);
 
-        assert!(walk(&env, Some(&home.join(".claude"))).is_empty());
         assert!(walk(&env, Some(&home.join(".config/opencode"))).is_empty());
+        assert!(walk(&env, Some(Path::new("/etc/opencode"))).is_empty());
 
         let off = env.with_var("OPENCODE_DISABLE_PROJECT_CONFIG", "true");
         assert!(walk(&off, Some(&home.join("work"))).is_empty());
+    }
+
+    #[test]
+    fn claude_and_agents_folders_are_walked_like_any_project() {
+        let home = std::env::temp_dir().join("home");
+        let env = Env::for_tests(&home);
+
+        for folder in [".claude", ".agents"] {
+            let project = home.join(folder);
+
+            assert_eq!(walk(&env, Some(&project))[..2], [project.clone(), home.clone()]);
+        }
+    }
+
+    #[test]
+    fn the_system_config_directory_follows_the_os() {
+        let env = Env::for_tests("/home/u");
+
+        assert_eq!(
+            system_config_dir(&env.clone().with_os(OsKind::MacOs)),
+            PathBuf::from("/Library/Application Support/opencode")
+        );
+        assert_eq!(
+            system_config_dir(&env.clone().with_os(OsKind::Windows).with_var("ProgramData", "D:\\Data")),
+            PathBuf::from("D:\\Data").join("opencode")
+        );
     }
 }

@@ -150,7 +150,9 @@ fn every_opencode2_spawn_is_standalone_without_plugins_flags_or_self_update() {
         for name in [
             "OPENCODE_DISABLE_AUTOUPDATE",
             "OPENCODE_DISABLE_PROJECT_CONFIG",
+            "OPENCODE_CONFIG_PROJECT_DISABLE",
             "OPENCODE_DISABLE_MODELS_FETCH",
+            "OPENCODE_FILEWATCHER_DISABLE",
             "OPENCODE_DISABLE_FILEWATCHER",
         ] {
             assert!(spec.env.contains(&env(name)), "{name}: {:?}", argv(spec));

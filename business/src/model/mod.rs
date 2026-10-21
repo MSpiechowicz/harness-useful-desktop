@@ -74,7 +74,9 @@ pub use git::{
     Branch, CommitInfo, DiffLine, DiffLineKind, DiffRequest, DiffScope, FileDiff, GitFileStatus, GitStatus, Hunk,
     MAX_BRANCHES, MAX_FILE_DIFF_BYTES, MAX_TOTAL_DIFF_BYTES, MAX_UNTRACKED_FILE_BYTES, StatusEntry,
 };
-pub use harness::{Capabilities, Detection, HarnessId, HarnessInfo, HarnessSummary, InstallHint, VersionSupport};
+pub use harness::{
+    Capabilities, Detection, HarnessId, HarnessInfo, HarnessSummary, InstallCommand, InstallHint, VersionSupport,
+};
 pub use hook::{
     Hook, HookAction, HookApproval, HookAuthor, HookDraft, HookEvent, HookFamilyEntry, HookFamilyStatus, HookListing,
     HookOrigin, HookRequirement, HookScope, HookSeed, HookStatus, HookView, HooksDeleted, HooksEvent, ShareBlock,

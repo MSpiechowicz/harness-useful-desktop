@@ -11,6 +11,10 @@
 //! - macOS: `/bin/ps -ww -o pgid= -o stat= -o lstart= -o command= -p <pid>` in the C locale (the
 //!   start time to the second).
 //! - Elsewhere (Windows): nothing is known, so nothing matches and nothing is ever killed.
+//!
+//! Only "no such process" (or a zombie) counts as gone. Any other failure to read (a transient
+//! `/proc` error, `hidepid`, another pid namespace, `ps` failing with output) leaves it unknown:
+//! a recorded app is then taken as still running, so its children are never killed.
 
 use std::ffi::OsString;
 use std::time::Duration;
@@ -36,6 +40,21 @@ pub struct ProcessIdentity {
     pub args: Vec<String>,
 }
 
+/// What the OS reports about a pid.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum Observation {
+    /// A process runs under the pid (not a zombie).
+    Running(Observed),
+    /// No process has the pid, or only a zombie.
+    Gone,
+    /// The OS could not tell (see the module docs).
+    Unknown,
+}
+
+/// `ESRCH` ("no such process"), the same number on Linux and macOS.
+#[cfg(any(target_os = "linux", test))]
+const ESRCH: i32 = 3;
+
 /// What the OS reports about a running process.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Observed {
@@ -58,7 +77,9 @@ impl ProcessIdentity {
         let args: Vec<String> = args.iter().map(|arg| arg.to_string_lossy().into_owned()).collect();
 
         for _ in 0..CAPTURE_ATTEMPTS {
-            let observed = observe(pid)?;
+            let Observation::Running(observed) = observe(pid) else {
+                return None;
+            };
 
             if ends_with_args(&observed.command, &args) {
                 return Some(Self {
@@ -83,18 +104,45 @@ impl ProcessIdentity {
         Self::capture(std::process::id(), &args)
     }
 
-    /// True while process [`ProcessIdentity::pid`] runs and is still this process.
+    /// True while process [`ProcessIdentity::pid`] runs and is still this process, and when the OS
+    /// cannot tell (see the module docs): false only when it is provably gone.
     pub fn is_alive(&self) -> bool {
-        self.observe_matching().is_some()
+        self.may_be_running(&observe(self.pid))
     }
 
-    /// What the OS reports about [`ProcessIdentity::pid`], when that is still this process.
+    /// What the OS reports about [`ProcessIdentity::pid`], when that is provably still this
+    /// process.
     pub(crate) fn observe_matching(&self) -> Option<Observed> {
-        let observed = observe(self.pid)?;
+        match observe(self.pid) {
+            Observation::Running(observed) if self.is(&observed) => Some(observed),
+            _ => None,
+        }
+    }
 
-        let same = observed.started == self.started && ends_with_args(&observed.command, &self.args);
+    /// False only when `observation` proves this process gone: no process, or another one.
+    fn may_be_running(&self, observation: &Observation) -> bool {
+        match observation {
+            Observation::Running(observed) => self.is(observed),
+            Observation::Gone => false,
+            Observation::Unknown => true,
+        }
+    }
 
-        same.then_some(observed)
+    /// True when `observed` started when this process did, with its arguments.
+    fn is(&self, observed: &Observed) -> bool {
+        observed.started == self.started && ends_with_args(&observed.command, &self.args)
+    }
+}
+
+/// A failed read about a process: gone when it does not exist, else unknown.
+#[cfg(any(target_os = "linux", test))]
+fn unreadable(error: &std::io::Error) -> Observation {
+    let missing = error.kind() == std::io::ErrorKind::NotFound || error.raw_os_error() == Some(ESRCH);
+
+    if missing {
+        Observation::Gone
+    } else {
+        Observation::Unknown
     }
 }
 
@@ -114,23 +162,39 @@ fn ends_with_args(command: &[String], args: &[String]) -> bool {
 
 /// Linux: reads `/proc` (see the module docs). A zombie counts as gone.
 #[cfg(target_os = "linux")]
-pub(crate) fn observe(pid: u32) -> Option<Observed> {
-    let stat = std::fs::read_to_string(format!("/proc/{pid}/stat")).ok()?;
-    let (state, group, ticks) = parse_proc_stat(&stat)?;
+pub(crate) fn observe(pid: u32) -> Observation {
+    observe_proc(pid, boot_id(), |path| std::fs::read(path))
+}
+
+/// [`observe`] with the files read by `read` (tests inject read errors).
+#[cfg(target_os = "linux")]
+fn observe_proc(pid: u32, boot_id: &str, read: impl Fn(&str) -> std::io::Result<Vec<u8>>) -> Observation {
+    let stat = match read(&format!("/proc/{pid}/stat")) {
+        Ok(stat) => String::from_utf8_lossy(&stat).into_owned(),
+        Err(error) => return unreadable(&error),
+    };
+
+    let Some((state, group, ticks)) = parse_proc_stat(&stat) else {
+        return Observation::Unknown;
+    };
 
     if state == "Z" || state == "X" {
-        return None;
+        return Observation::Gone;
     }
 
-    let cmdline = std::fs::read(format!("/proc/{pid}/cmdline")).ok()?;
+    let cmdline = match read(&format!("/proc/{pid}/cmdline")) {
+        Ok(cmdline) => cmdline,
+        Err(error) => return unreadable(&error),
+    };
+
     let command = cmdline
         .split(|byte| *byte == 0)
         .filter(|arg| !arg.is_empty())
         .map(|arg| String::from_utf8_lossy(arg).into_owned())
         .collect();
 
-    Some(Observed {
-        started: format!("{}:{ticks}", boot_id()),
+    Observation::Running(Observed {
+        started: format!("{boot_id}:{ticks}"),
         command,
         group_leader: group == pid,
     })
@@ -166,7 +230,7 @@ fn boot_id() -> &'static str {
 
 /// macOS: asks `ps` (see the module docs). A zombie counts as gone.
 #[cfg(target_os = "macos")]
-pub(crate) fn observe(pid: u32) -> Option<Observed> {
+pub(crate) fn observe(pid: u32) -> Observation {
     use std::process::{Command, Stdio};
 
     let output = Command::new("/bin/ps")
@@ -177,30 +241,53 @@ pub(crate) fn observe(pid: u32) -> Option<Observed> {
         .env("LC_ALL", "C")
         .stdin(Stdio::null())
         .stderr(Stdio::null())
-        .output()
-        .ok()?;
+        .output();
 
-    if !output.status.success() {
-        return None;
+    match output {
+        Ok(output) => ps_observation(output.status.success(), &String::from_utf8_lossy(&output.stdout), pid),
+        Err(_) => Observation::Unknown,
+    }
+}
+
+/// What a `ps` run says about `pid`: a failed run without output is a pid that does not exist
+/// (`ps -p` exits 1 then), one with output is unknown.
+#[cfg(any(target_os = "macos", test))]
+fn ps_observation(success: bool, stdout: &str, pid: u32) -> Observation {
+    if success {
+        return parse_ps_line(stdout, pid);
     }
 
-    parse_ps_line(&String::from_utf8_lossy(&output.stdout), pid)
+    if stdout.trim().is_empty() {
+        Observation::Gone
+    } else {
+        Observation::Unknown
+    }
 }
 
 /// Parses `ps -o pgid= -o stat= -o lstart= -o command=` output for `pid`: the group, the state
-/// (`Z…` is a zombie), the five words of `lstart` in the C locale (`Tue Oct 21 10:00:00 2026`) and
-/// the command line split into words.
+/// (`Z…` is a zombie, gone), the five words of `lstart` in the C locale (`Tue Oct 21 10:00:00
+/// 2026`) and the command line split into words. Output that does not read so is unknown.
 #[cfg(any(target_os = "macos", test))]
-fn parse_ps_line(output: &str, pid: u32) -> Option<Observed> {
-    let words: Vec<&str> = output.lines().next()?.split_whitespace().collect();
-    let group: u32 = words.first()?.parse().ok()?;
-    let state = words.get(1)?;
+fn parse_ps_line(output: &str, pid: u32) -> Observation {
+    let words: Vec<&str> = output
+        .lines()
+        .next()
+        .map(|line| line.split_whitespace().collect())
+        .unwrap_or_default();
 
-    if state.starts_with('Z') || words.len() < 8 {
-        return None;
+    let (Some(group), Some(state)) = (words.first().and_then(|group| group.parse::<u32>().ok()), words.get(1)) else {
+        return Observation::Unknown;
+    };
+
+    if state.starts_with('Z') {
+        return Observation::Gone;
     }
 
-    Some(Observed {
+    if words.len() < 8 {
+        return Observation::Unknown;
+    }
+
+    Observation::Running(Observed {
         started: words[2..7].join(" "),
         command: words[7..].iter().map(|word| (*word).to_owned()).collect(),
         group_leader: group == pid,
@@ -209,8 +296,8 @@ fn parse_ps_line(output: &str, pid: u32) -> Option<Observed> {
 
 /// Other systems report nothing, so no recorded process is ever killed there.
 #[cfg(not(any(target_os = "linux", target_os = "macos")))]
-pub(crate) fn observe(_pid: u32) -> Option<Observed> {
-    None
+pub(crate) fn observe(_pid: u32) -> Observation {
+    Observation::Unknown
 }
 
 /// Sends SIGKILL to the process group `observed` leads, or to the process alone when it does not
@@ -250,18 +337,125 @@ mod tests {
         assert_eq!(parse_proc_stat("garbage"), None);
     }
 
+    fn running(observation: Observation) -> Observed {
+        match observation {
+            Observation::Running(observed) => observed,
+            other => panic!("not running: {other:?}"),
+        }
+    }
+
     #[test]
     fn ps_output_gives_group_start_and_command() {
         let line = "  501 Ss   Tue Oct  7 09:05:01 2026     /Users/u/.opencode/bin/opencode serve --port 0\n";
-        let observed = parse_ps_line(line, 501).unwrap();
+        let observed = running(parse_ps_line(line, 501));
 
         assert_eq!(observed.started, "Tue Oct 7 09:05:01 2026");
         assert_eq!(observed.command.last().map(String::as_str), Some("0"));
         assert!(observed.group_leader);
 
-        assert!(!parse_ps_line(line, 777).unwrap().group_leader);
-        assert_eq!(parse_ps_line("  501 Z    Tue Oct  7 09:05:01 2026 x\n", 501), None);
-        assert_eq!(parse_ps_line("", 501), None);
+        assert!(!running(parse_ps_line(line, 777)).group_leader);
+        assert_eq!(
+            parse_ps_line("  501 Z    Tue Oct  7 09:05:01 2026 x\n", 501),
+            Observation::Gone
+        );
+        assert_eq!(parse_ps_line("", 501), Observation::Unknown);
+    }
+
+    #[test]
+    fn only_a_failed_ps_without_output_is_a_gone_process() {
+        assert_eq!(ps_observation(false, "", 501), Observation::Gone);
+        assert_eq!(ps_observation(false, "\n", 501), Observation::Gone);
+        assert_eq!(
+            ps_observation(false, "ps: something went wrong\n", 501),
+            Observation::Unknown
+        );
+        assert_eq!(ps_observation(true, "garbage", 501), Observation::Unknown);
+    }
+
+    #[test]
+    fn only_a_missing_process_is_gone_after_a_failed_read() {
+        use std::io::{Error, ErrorKind};
+
+        assert_eq!(unreadable(&Error::from(ErrorKind::NotFound)), Observation::Gone);
+        assert_eq!(unreadable(&Error::from_raw_os_error(ESRCH)), Observation::Gone);
+        assert_eq!(
+            unreadable(&Error::from(ErrorKind::PermissionDenied)),
+            Observation::Unknown
+        );
+        assert_eq!(unreadable(&Error::other("transient")), Observation::Unknown);
+    }
+
+    #[test]
+    fn an_owner_that_cannot_be_observed_counts_as_alive() {
+        let identity = ProcessIdentity {
+            pid: 42,
+            started: "boot:100".to_owned(),
+            args: vec!["serve".to_owned()],
+        };
+        let observed = |started: &str| {
+            Observation::Running(Observed {
+                started: started.to_owned(),
+                command: vec!["/bin/app".to_owned(), "serve".to_owned()],
+                group_leader: true,
+            })
+        };
+
+        assert!(identity.may_be_running(&Observation::Unknown));
+        assert!(identity.may_be_running(&observed("boot:100")));
+        assert!(!identity.may_be_running(&observed("boot:999")), "the pid was reused");
+        assert!(!identity.may_be_running(&Observation::Gone));
+    }
+
+    /// A `/proc` reader answering the stat file with `stat()` and the command line with
+    /// `cmdline()`.
+    #[cfg(target_os = "linux")]
+    fn proc_files(
+        stat: impl Fn() -> std::io::Result<Vec<u8>>,
+        cmdline: impl Fn() -> std::io::Result<Vec<u8>>,
+    ) -> impl Fn(&str) -> std::io::Result<Vec<u8>> {
+        move |path| if path.ends_with("/stat") { stat() } else { cmdline() }
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn proc_read_errors_other_than_a_missing_process_are_unknown() {
+        use std::io::{Error, ErrorKind};
+
+        let stat = || Ok(b"42 (app) S 1 42 42 0 -1 0 0 0 0 0 0 0 0 0 20 0 1 0 100 0 0".to_vec());
+        let cmdline = || Ok(b"/bin/app\0serve\0".to_vec());
+        let refused = || Err(Error::from(ErrorKind::PermissionDenied));
+
+        let observed = running(observe_proc(42, "boot", proc_files(stat, cmdline)));
+        assert_eq!(observed.started, "boot:100");
+        assert_eq!(observed.command, ["/bin/app", "serve"]);
+
+        assert_eq!(
+            observe_proc(42, "boot", proc_files(refused, cmdline)),
+            Observation::Unknown
+        );
+        assert_eq!(
+            observe_proc(42, "boot", proc_files(stat, refused)),
+            Observation::Unknown
+        );
+
+        let garbled = || Ok(b"garbage".to_vec());
+        assert_eq!(
+            observe_proc(42, "boot", proc_files(garbled, cmdline)),
+            Observation::Unknown
+        );
+
+        let missing = || Err(Error::from(ErrorKind::NotFound));
+        assert_eq!(
+            observe_proc(42, "boot", proc_files(missing, cmdline)),
+            Observation::Gone
+        );
+        assert_eq!(observe_proc(42, "boot", proc_files(stat, missing)), Observation::Gone);
+
+        let exited = || Err(Error::from_raw_os_error(ESRCH));
+        assert_eq!(observe_proc(42, "boot", proc_files(exited, cmdline)), Observation::Gone);
+
+        let zombie = || Ok(b"42 (app) Z 1 42 42 0 -1 0 0 0 0 0 0 0 0 0 20 0 1 0 100 0 0".to_vec());
+        assert_eq!(observe_proc(42, "boot", proc_files(zombie, cmdline)), Observation::Gone);
     }
 
     #[test]

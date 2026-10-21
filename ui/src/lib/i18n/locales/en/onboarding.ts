@@ -58,6 +58,7 @@ export const onboarding = {
   'onboarding.card.binary': 'Binary',
   'onboarding.card.installWith': 'Install it with:',
   'onboarding.card.copyInstall': 'Copy install command',
+  'onboarding.card.copyInstallFor': 'Copy the {name} install command',
   'onboarding.card.installDocs': 'Install docs',
   'onboarding.card.chooseBinary': 'Choose binary…',
   'onboarding.card.config': 'Config',

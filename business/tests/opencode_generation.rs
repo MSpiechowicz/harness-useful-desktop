@@ -32,11 +32,18 @@ fn opencode_2_1_is_supported() {
 }
 
 #[test]
-fn opencode_2_installs_from_npm() {
-    let hint = OpenCode::with_generation(OpenCodeGeneration::V2).install_hint();
+fn opencode_2_installs_from_npm_next_to_opencode_1_whatever_was_detected() {
+    let v1 = OpenCode::with_generation(OpenCodeGeneration::V1).install_hint();
+    let v2 = OpenCode::with_generation(OpenCodeGeneration::V2).install_hint();
 
-    assert_eq!(hint.command, "npm install -g @opencode/cli");
-    assert_eq!(hint.docs_url, "https://opencode.ai/docs/");
+    assert_eq!(v1, v2);
+    let opencode_2 = v2
+        .commands
+        .iter()
+        .find(|command| command.label.as_deref() == Some("OpenCode 2"))
+        .expect("an OpenCode 2 route");
+    assert_eq!(opencode_2.command, "npm install -g @opencode/cli");
+    assert_eq!(v2.docs_url, "https://opencode.ai/docs/");
 }
 
 #[test]
@@ -103,7 +110,7 @@ mod detected {
     }
 
     #[tokio::test]
-    async fn a_removed_opencode_2_falls_back_to_the_opencode_1_install_hint() {
+    async fn a_removed_opencode_2_offers_both_release_lines() {
         let (cli, env) = opencode_printing("opencode v2.1.2");
         let harness = OpenCode::default();
         harness.detect(&env, &TokioRunner, Some(&cli.binary.path)).await;
@@ -113,9 +120,13 @@ mod detected {
 
         assert!(!detection.installed);
         assert_eq!(harness.generation(), OpenCodeGeneration::V1);
-        assert_ne!(
-            detection.install_hint.expect("install hint").command,
-            "npm install -g @opencode/cli"
-        );
+        let labels: Vec<Option<String>> = detection
+            .install_hint
+            .expect("install hint")
+            .commands
+            .into_iter()
+            .map(|command| command.label)
+            .collect();
+        assert_eq!(labels, [Some("OpenCode 1".to_owned()), Some("OpenCode 2".to_owned())]);
     }
 }

@@ -177,7 +177,9 @@ async fn a_missing_binary_reports_the_install_hint() {
     assert!(!detection.installed);
     assert_eq!(detection.version_support, VersionSupport::Unknown);
     let hint = detection.install_hint.unwrap();
-    assert_eq!(hint.command, "curl -fsSL https://pi.dev/install.sh | sh");
+    assert_eq!(hint.commands.len(), 1);
+    assert_eq!(hint.commands[0].label, None);
+    assert_eq!(hint.commands[0].command, "curl -fsSL https://pi.dev/install.sh | sh");
     assert_eq!(hint.docs_url, "https://github.com/earendil-works/pi");
 }
 
@@ -369,7 +371,7 @@ async fn opencode_is_found_where_its_install_script_puts_it() {
 }
 
 #[tokio::test]
-async fn a_missing_opencode_reports_its_install_hint() {
+async fn a_missing_opencode_offers_both_release_lines() {
     let home = TempDir::new().unwrap();
     let (env, _) = env_with_bin(&home);
 
@@ -377,11 +379,37 @@ async fn a_missing_opencode_reports_its_install_hint() {
 
     assert!(!detection.installed);
     let hint = detection.install_hint.unwrap();
-    let command = if cfg!(windows) {
+    let opencode_1 = if cfg!(windows) {
         "npm install -g opencode-ai"
     } else {
         "curl -fsSL https://opencode.ai/install | bash"
     };
-    assert_eq!(hint.command, command);
+    let commands: Vec<(Option<&str>, &str)> = hint
+        .commands
+        .iter()
+        .map(|command| (command.label.as_deref(), command.command.as_str()))
+        .collect();
+    assert_eq!(
+        commands,
+        [
+            (Some("OpenCode 1"), opencode_1),
+            (Some("OpenCode 2"), "npm install -g @opencode/cli"),
+        ]
+    );
     assert_eq!(hint.docs_url, "https://opencode.ai/docs/");
+}
+
+#[tokio::test]
+async fn the_first_detection_of_opencode_2_shows_the_config_dir_it_reads() {
+    let home = TempDir::new().unwrap();
+    let (env, bin) = env_with_bin(&home);
+    let team = home.path().join("team-opencode");
+    let env = env.with_var("OPENCODE_CONFIG_DIR", team.to_string_lossy());
+    fake_binary(&bin, &binary_file("opencode"), "");
+    let runner = CannedRunner::printing("opencode v2.1.2\n");
+
+    let detection = OpenCode::default().detect(&env, &runner, None).await;
+
+    assert_eq!(detection.version.as_deref(), Some("2.1.2"));
+    assert_eq!(detection.config_dir, Some(team.to_string_lossy().into_owned()));
 }

@@ -84,7 +84,12 @@
       "configDir": "/home/demo/.pi",
       "configDirExists": true,
       "installHint": {
-        "command": "curl -fsSL https://pi.dev/install.sh | sh",
+        "commands": [
+          {
+            "label": null,
+            "command": "curl -fsSL https://pi.dev/install.sh | sh"
+          }
+        ],
         "docsUrl": "https://github.com/earendil-works/pi"
       },
       "error": null

@@ -121,10 +121,35 @@ pub enum VersionSupport {
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
 pub struct InstallHint {
-    /// A copyable install command (shown, never executed by the app).
-    pub command: String,
+    /// The ways to install it, at least one. A harness shipped as several release lines from
+    /// different places (OpenCode 1 and OpenCode 2) has one labelled command per line.
+    pub commands: Vec<InstallCommand>,
     /// Installation documentation URL.
     pub docs_url: String,
+}
+
+impl InstallHint {
+    /// A hint with one unlabelled `command`.
+    pub fn single(command: impl Into<String>, docs_url: impl Into<String>) -> Self {
+        Self {
+            commands: vec![InstallCommand {
+                label: None,
+                command: command.into(),
+            }],
+            docs_url: docs_url.into(),
+        }
+    }
+}
+
+/// One copyable install command (shown, never executed by the app).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct InstallCommand {
+    /// What it installs (`"OpenCode 2"`), when the hint has more than one command.
+    pub label: Option<String>,
+    /// The command line.
+    pub command: String,
 }
 
 /// Result of probing the machine for a harness CLI and its configuration directory.

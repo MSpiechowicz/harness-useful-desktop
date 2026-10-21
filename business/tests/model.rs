@@ -3,9 +3,9 @@
 use harness_business::BusinessError;
 use harness_business::model::{
     AgentAction, AgentActionKind, AgentEnvelope, AgentReply, AppInfo, AppPrefs, CommandInvocation, CommandSource,
-    CommandSpec, ConfigField, ConfigValue, Detection, GuiTarget, HarnessId, ImageAttachment, InstallHint, IpcError,
-    IpcErrorCode, MAX_ACTION_IMAGE_BYTES, MAX_ACTION_IMAGES, MAX_ACTION_TEXT_BYTES, MAX_AGENT_ID_BYTES, ModelOption,
-    SecretKind, UiRequest, UiResponse, VersionSupport,
+    CommandSpec, ConfigField, ConfigValue, Detection, GuiTarget, HarnessId, ImageAttachment, InstallCommand,
+    InstallHint, IpcError, IpcErrorCode, MAX_ACTION_IMAGE_BYTES, MAX_ACTION_IMAGES, MAX_ACTION_TEXT_BYTES,
+    MAX_AGENT_ID_BYTES, ModelOption, SecretKind, UiRequest, UiResponse, VersionSupport,
 };
 use harness_business::security::Redactor;
 use pretty_assertions::assert_eq;
@@ -242,7 +242,16 @@ fn missing_harness_detection_carries_an_install_hint() {
         config_dir: Some("/home/demo/.pi".into()),
         config_dir_exists: false,
         install_hint: Some(InstallHint {
-            command: "npm install -g example".into(),
+            commands: vec![
+                InstallCommand {
+                    label: None,
+                    command: "npm install -g example".into(),
+                },
+                InstallCommand {
+                    label: Some("Example 2".into()),
+                    command: "npm install -g example2".into(),
+                },
+            ],
             docs_url: "https://example.invalid/docs".into(),
         }),
         error: None,
@@ -258,7 +267,13 @@ fn missing_harness_detection_carries_an_install_hint() {
             "versionSupport": "unknown",
             "configDir": "/home/demo/.pi",
             "configDirExists": false,
-            "installHint": { "command": "npm install -g example", "docsUrl": "https://example.invalid/docs" },
+            "installHint": {
+                "commands": [
+                    { "label": null, "command": "npm install -g example" },
+                    { "label": "Example 2", "command": "npm install -g example2" }
+                ],
+                "docsUrl": "https://example.invalid/docs"
+            },
             "error": null
         })
     );

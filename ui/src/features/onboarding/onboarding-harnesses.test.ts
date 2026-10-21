@@ -124,7 +124,8 @@ describe('Which harness do you use every day?', () => {
     const detail = screen.getByRole('article', { name: 'Pi' });
     expect(missing).toHaveAttribute('aria-selected', 'true');
     expect(detail).toHaveTextContent('Install it with:');
-    expect(detail).toHaveTextContent(harness.get('pi')?.detection.installHint?.command ?? 'no command');
+    expect(detail).toHaveTextContent(harness.get('pi')?.detection.installHint?.commands[0]?.command ?? 'no command');
+    expect(within(detail).getByRole('button', { name: 'Copy install command' })).toBeInTheDocument();
     expect(within(detail).getByRole('button', { name: 'Install docs' })).toBeEnabled();
     expect(within(detail).getByRole('button', { name: 'Choose binary…' })).toBeEnabled();
     const radio = screen.getByRole('radio', { name: 'Use Pi as daily driver' });
@@ -135,6 +136,39 @@ describe('Which harness do you use every day?', () => {
     expect(radio).toHaveAttribute('aria-checked', 'false');
     expect(onboarding.driver).toBe('omp');
     expect(await row(/^Oh My Pi/)).toHaveTextContent('Daily driver');
+  });
+
+  it('offers every release line of a missing harness, each labelled with its own copy button', async () => {
+    harness.summaries = harness.summaries.map((summary) =>
+      summary.info.id === 'opencode'
+        ? {
+            ...summary,
+            detection: {
+              ...summary.detection,
+              installed: false,
+              binaryPath: null,
+              version: null,
+              installHint: {
+                commands: [
+                  { label: 'OpenCode 1', command: 'npm install -g opencode-ai' },
+                  { label: 'OpenCode 2', command: 'npm install -g @opencode/cli' },
+                ],
+                docsUrl: 'https://opencode.ai/docs/',
+              },
+            },
+          }
+        : summary,
+    );
+    await openStep('harnesses');
+    await fireEvent.click(await row(/^OpenCode/));
+
+    const detail = screen.getByRole('article', { name: 'OpenCode' });
+    expect(within(detail).getByText('OpenCode 1')).toBeInTheDocument();
+    expect(within(detail).getByText('npm install -g opencode-ai')).toBeInTheDocument();
+    expect(within(detail).getByText('OpenCode 2')).toBeInTheDocument();
+    expect(within(detail).getByText('npm install -g @opencode/cli')).toBeInTheDocument();
+    expect(within(detail).getByRole('button', { name: 'Copy the OpenCode 1 install command' })).toBeInTheDocument();
+    expect(within(detail).getByRole('button', { name: 'Copy the OpenCode 2 install command' })).toBeInTheDocument();
   });
 
   it('moves the daily driver chip in the list when another harness is chosen from its details', async () => {

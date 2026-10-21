@@ -230,6 +230,13 @@ From the real OpenCode 2.1.2 binary in a sandbox (`unshare`, no provider) and re
 - `api --standalone GET /api/config` returns the config sources the private server merged: `{type: "directory", path}`
   and `{type: "document", info}`.
 
+**Source (2.1.2)**
+
+- `cli/src/server-process.ts` reads `OPENCODE_CONFIG_PROJECT_DISABLE ?? OPENCODE_DISABLE_PROJECT_CONFIG` and
+  `OPENCODE_FILEWATCHER_DISABLE ?? OPENCODE_DISABLE_FILEWATCHER`: the newer name wins when both are set.
+- `core/src/config/discovery.ts` skips the project walk only for the system and the global config directory. `~/.claude`
+  and `~/.agents` are global roots for skills, not a reason to skip the walk.
+
 ## Engine decisions (S9–S11b)
 
 - Follow-ups are held by the app (mapper queue), steering goes as `delivery: steer` with an app-made `msg_` id.
@@ -265,3 +272,8 @@ From the real OpenCode 2.1.2 binary in a sandbox (`unshare`, no provider) and re
   `session.execution.succeeded|failed|interrupted`).
 - `--standalone` spawn cost; `opencode2`-only installs are ignored (the binary name stays `opencode`).
 - The generation is stale until the next detection (an upgrade from 1 to 2 needs a re-detect).
+- Harness Skills under `OPENCODE_CONFIG_DIR`: the skills installer writes to `~/.config/opencode` only, which OpenCode 2
+  does not read when the variable is set, while the app's record check still says installed. Documented in
+  [opencode-support.md](opencode-support.md#opencode-2-v2-column), the fix belongs in the installer.
+- A downgrade to OpenCode 1 with a shared config file: `mcp.servers.<name>` entries written for OpenCode 2 are not an
+  OpenCode 1 shape and must move back to `mcp.<name>`.

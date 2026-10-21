@@ -35,7 +35,7 @@ use serde_json::Value;
 
 use self::limits::{Flights, Runs};
 use self::transcript::Transcript;
-use super::SPAWN_ENV;
+use super::{ONE_SHOT_ENV_V2, SPAWN_ENV};
 use crate::agent::rfc3339;
 use crate::error::{BusinessError, Result};
 use crate::harness::{CliSessionCtx, CliSessions, OpenCodeGeneration};
@@ -183,12 +183,12 @@ impl OpenCodeSessions {
         timeout: Duration,
         max_output_bytes: usize,
     ) -> ExecSpec {
-        let (args, extra_env) = match self.generation {
-            OpenCodeGeneration::V1 => (v1_args(command), &[][..]),
-            OpenCodeGeneration::V2 => (v2::args(command), v2::SPAWN_ENV),
-        };
-
-        spec(ctx, &args, timeout, max_output_bytes).envs(extra_env.iter().copied())
+        match self.generation {
+            OpenCodeGeneration::V1 => spec(ctx, &v1_args(command), timeout, max_output_bytes),
+            OpenCodeGeneration::V2 => {
+                spec(ctx, &v2::args(command), timeout, max_output_bytes).envs(ONE_SHOT_ENV_V2.iter().copied())
+            }
+        }
     }
 
     /// Drops the project's cached list and the cached export of `id`.

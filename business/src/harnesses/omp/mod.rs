@@ -119,10 +119,10 @@ impl Harness for Omp {
     }
 
     fn install_hint(&self) -> InstallHint {
-        InstallHint {
-            command: "bun install -g @oh-my-pi/pi-coding-agent".to_owned(),
-            docs_url: "https://github.com/can1357/oh-my-pi".to_owned(),
-        }
+        InstallHint::single(
+            "bun install -g @oh-my-pi/pi-coding-agent",
+            "https://github.com/can1357/oh-my-pi",
+        )
     }
 
     fn companion_setup(&self) -> CompanionSetup {
