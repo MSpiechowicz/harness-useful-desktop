@@ -230,7 +230,7 @@ fn spawn_server(
     };
     let (listening_tx, listening) = oneshot::channel();
 
-    // TODO(oc2 merge): register with worktree b's orphan-server record unless it hooks `AgentProcess::spawn`.
+    // `spawner` is the app's tracked spawner, so a crashed app's server is killed on the next start.
     let process = AgentProcess::spawn(spawner, &spec, key, sink, options, traits, move |stdout, shared| {
         read_stdout(stdout, shared, listening_tx)
     })?;
