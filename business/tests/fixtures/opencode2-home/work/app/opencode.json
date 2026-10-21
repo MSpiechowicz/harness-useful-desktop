@@ -1,0 +1,4 @@
+{
+  "plugins": ["./local-dir-plugin", "./local-file.ts"],
+  "mcp": { "servers": { "project-server": { "type": "remote", "url": "https://project.example.com/mcp" } } }
+}

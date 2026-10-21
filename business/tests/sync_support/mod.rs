@@ -35,7 +35,26 @@ impl Home {
 
     /// The export of this home with `installed` detected as installed.
     pub fn collect(&self, installed: &[HarnessId]) -> ExportCollection {
-        collect_export(&self.env, &HarnessRegistry::with_defaults(), &summaries(installed))
+        self.collect_from(&HarnessRegistry::with_defaults(), installed)
+    }
+}
+
+/// Helpers some test crates use only, hence the `dead_code` allowance.
+#[allow(dead_code)]
+impl Home {
+    /// [`Self::collect`] with the harnesses of `registry`.
+    pub fn collect_from(&self, registry: &HarnessRegistry, installed: &[HarnessId]) -> ExportCollection {
+        collect_export(&self.env, registry, &summaries(installed))
+    }
+
+    /// Sets the environment variable `name` of this home to `value`.
+    pub fn set_var(&mut self, name: &str, value: &str) {
+        self.env = self.env.clone().with_var(name, value);
+    }
+
+    /// The absolute path of `relative` in this home.
+    pub fn path(&self, relative: &str) -> std::path::PathBuf {
+        self.dir.path().join(relative)
     }
 }
 

@@ -1,0 +1,42 @@
+{
+  // OpenCode 2 global settings: native keys beside the OpenCode 1 ones it still reads.
+  "$schema": "https://opencode.ai/config.json",
+  "update": "notify",
+  "plugin": ["legacy-plugin@1.0.0", ["legacy-tuple", { "apiKey": "CANARY-7f3a9c" }]],
+  "plugins": [
+    "native-plugin@2.0.0",
+    { "package": "@acme/with-options", "options": { "token": "CANARY-7f3a9c" } },
+    { "package": "plain-object" },
+    "-legacy-plugin",
+  ],
+  "mcp": {
+    "legacy-local": { "type": "local", "command": ["npx", "-y", "legacy-server"], "enabled": false },
+    "toggle-only": { "enabled": false },
+    "servers": {
+      "native-remote": {
+        "type": "remote",
+        "url": "https://mcp.example.com/mcp",
+        "headers": { "Authorization": "Bearer CANARY-7f3a9c" },
+      },
+      "native-local": {
+        "type": "local",
+        "command": ["native-server", "--api-key", "CANARY-7f3a9c"],
+        "disabled": true,
+      },
+      "legacy-local": { "type": "local", "command": ["overridden-server"] },
+    },
+  },
+  "agent": {
+    "legacy-agent": { "description": "Legacy agent", "mode": "subagent", "model": "anthropic/claude-sonnet-4-5" },
+    "explore": { "disable": true },
+  },
+  "agents": {
+    "native-agent": {
+      "description": "Native agent",
+      "mode": "primary",
+      "model": { "providerID": "openai", "model": "gpt-5" },
+    },
+  },
+  "command": { "legacy-cmd": { "template": "Old $ARGUMENTS", "description": "Legacy command" } },
+  "commands": { "native-cmd": { "template": "New $ARGUMENTS", "description": "Native command" } },
+}

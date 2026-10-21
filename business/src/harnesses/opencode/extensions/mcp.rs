@@ -1,5 +1,7 @@
 //! OpenCode MCP servers: the `mcp` key of each settings file, deep-merged by server name with
-//! later files winning (`config/config.ts`).
+//! later files winning (`config/config.ts`). OpenCode 2 (`core/src/config/plugin/mcp.ts`, 2.1.2)
+//! reads `mcp.servers.<name>` and the legacy `mcp.<name>` (see [`mcp_servers`](super::super::config::mcp_servers)),
+//! a later file replaces a whole server, and `disabled: true` switches one off.
 //!
 //! A local server is `{ "type": "local", "command": [executable, ...args], "environment": {...} }`,
 //! a remote one `{ "type": "remote", "url": ..., "headers": {...}, "oauth": {...} }`; both may set
@@ -9,39 +11,44 @@
 
 use serde_json::Value;
 
-use super::super::config::{Step, command_words, format_of};
+use super::super::config::{Layers, Step, command_words, format_of, mcp_servers as file_servers};
+use crate::harness::OpenCodeGeneration;
 use crate::model::{ConfigField, ConfigSource, ConfigValue, McpServerInfo, McpTransport};
 use crate::pi_family::source;
 use crate::security::{RedactionContext, Redactor};
 
 /// See the module docs. Servers keep the order in which their names first appear; the source is
 /// the last file that set the server.
-pub(super) fn mcp_servers(steps: &[Step]) -> Vec<McpServerInfo> {
+pub(super) fn mcp_servers(layers: &Layers) -> Vec<McpServerInfo> {
+    let generation = layers.generation;
     let mut merged: Vec<(String, Value, ConfigSource)> = Vec::new();
 
-    for step in steps {
+    for step in &layers.steps {
         let Step::File { path, place, document } = step else {
             continue;
         };
-        let Some(servers) = document.get("mcp").and_then(Value::as_object) else {
+        let Some(servers) = document.value().and_then(|value| file_servers(value, generation)) else {
             continue;
         };
         let file = source(path, place.layer(), None, format_of(path));
 
-        for (name, server) in servers.iter().filter(|(_, server)| server.is_object()) {
-            match merged.iter_mut().find(|(existing, _, _)| existing == name) {
+        for (name, server) in servers.into_iter().filter(|(_, server)| server.is_object()) {
+            match merged.iter_mut().find(|(existing, _, _)| *existing == name) {
                 Some((_, value, source)) => {
-                    merge_deep(value, server);
+                    match generation {
+                        OpenCodeGeneration::V1 => merge_deep(value, &server),
+                        OpenCodeGeneration::V2 => *value = server,
+                    }
                     *source = file.clone();
                 }
-                None => merged.push((name.clone(), server.clone(), file.clone())),
+                None => merged.push((name, server, file.clone())),
             }
         }
     }
 
     merged
         .into_iter()
-        .map(|(name, server, source)| server_info(name, &server, source))
+        .map(|(name, server, source)| server_info(name, &server, source, generation))
         .collect()
 }
 
@@ -62,13 +69,17 @@ fn merge_deep(target: &mut Value, source: &Value) {
     }
 }
 
-fn server_info(name: String, server: &Value, source: ConfigSource) -> McpServerInfo {
+fn server_info(name: String, server: &Value, source: ConfigSource, generation: OpenCodeGeneration) -> McpServerInfo {
+    let switched_off = |key: &str, off: bool| server.get(key).and_then(Value::as_bool) == Some(off);
+    let disabled =
+        switched_off("enabled", false) || (generation == OpenCodeGeneration::V2 && switched_off("disabled", true));
+
     let mut info = McpServerInfo {
         transport: transport(server),
         command: None,
         args: Vec::new(),
         url: None,
-        enabled: server.get("enabled").and_then(Value::as_bool) != Some(false),
+        enabled: !disabled,
         source,
         details: Vec::new(),
         name,
@@ -82,6 +93,7 @@ fn server_info(name: String, server: &Value, source: ConfigSource) -> McpServerI
     for ConfigField { key, value } in fields {
         match (key.as_str(), value) {
             ("type" | "enabled", _) => {}
+            ("disabled", _) if generation == OpenCodeGeneration::V2 => {}
             ("command", ConfigValue::List(words)) => {
                 let mut words = command_words(words).into_iter();
 

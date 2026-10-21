@@ -27,11 +27,12 @@ mod setup;
 mod share;
 
 pub use catalog::OpenCodeCatalog;
+pub(crate) use config::mcp_servers;
 pub use launch::opencode_launch_spec;
 pub use merged::{PROBE_ARGS, PROBE_MAX_BYTES, PROBE_TIMEOUT, merged_mcp_names};
-pub use paths::{PROJECT_DIR_NAME, config_dir, custom_config_dir, data_dir, home_config_dir};
+pub use paths::{PROJECT_DIR_NAME, config_dir, custom_config_dir, data_dir, global_config_dir, home_config_dir};
 pub use sessions::OpenCodeSessions;
-pub(crate) use share::{PluginEntry, global_plugin_entries, user_npm_plugins};
+pub(crate) use share::{PluginEntry, generation_of, global_plugin_entries, global_settings_file, user_npm_plugins};
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU8, Ordering};
@@ -104,15 +105,15 @@ impl Harness for OpenCode {
     }
 
     fn paths(&self, env: &Env, project: Option<&Path>) -> HarnessPaths {
-        paths::paths(env, project)
+        paths::paths(env, project, self.generation())
     }
 
     fn config_view(&self, env: &Env, project: Option<&Path>) -> Result<ConfigView> {
-        Ok(config::config_view(env, project))
+        Ok(config::config_view(env, project, self.generation()))
     }
 
     fn extensions_view(&self, env: &Env, project: Option<&Path>) -> Result<ExtensionsView> {
-        Ok(extensions::extensions_view(env, project))
+        Ok(extensions::extensions_view(env, project, self.generation()))
     }
 
     fn catalog(&self) -> &dyn CommandCatalog {

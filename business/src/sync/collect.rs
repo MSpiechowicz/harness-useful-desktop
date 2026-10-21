@@ -162,7 +162,7 @@ fn collect_kind(env: &Env, harness: &dyn Harness, kind: SyncItemKind) -> Found {
         (HarnessId::Omp, SyncItemKind::Marketplace) => marketplaces(harness.id(), &paths, &mut found),
         (HarnessId::Omp, SyncItemKind::Plugin) => plugins(harness.id(), &paths, &mut found),
         (HarnessId::Pi, SyncItemKind::Package) => packages(harness.id(), &paths, &mut found),
-        (HarnessId::OpenCode, SyncItemKind::Plugin) => opencode_plugins(env, &mut found),
+        (HarnessId::OpenCode, SyncItemKind::Plugin) => opencode_plugins(env, harness, &mut found),
         (HarnessId::OpenCode, SyncItemKind::McpServer) => opencode_servers(env, harness, &mut found),
         (_, SyncItemKind::McpServer) => mcp_servers(env, harness, &mut found),
         // A kind a harness declares without a reader here yields nothing.

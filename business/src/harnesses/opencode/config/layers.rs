@@ -1,28 +1,32 @@
 //! OpenCode's config layers, lowest precedence first (see [`super`]): which settings files and
-//! config directories exist, and how a settings file is read.
+//! config directories exist. OpenCode 2 finds them differently ([`super::discovery_v2`]).
 
 use std::path::{Path, PathBuf};
 
-use serde_json::Value;
-
 use super::super::paths::{PROJECT_DIR_NAME, config_dir, custom_config_dir, home_config_dir};
+use super::discovery_v2;
+use super::read::read_config;
 use crate::env::Env;
-use crate::model::{ConfigFormat, ConfigLayer, ExtensionScope};
-use crate::pi_family::{Document, read_document};
+use crate::harness::OpenCodeGeneration;
+use crate::model::{ConfigLayer, ExtensionScope};
+use crate::pi_family::Document;
 
 /// Settings files in every config location, lowest precedence first.
 pub(super) const SETTINGS_FILES: [&str; 2] = ["opencode.json", "opencode.jsonc"];
 
-/// The global settings file OpenCode read before `opencode.json`.
+/// The global settings file OpenCode 1 read before `opencode.json` (OpenCode 2 does not).
 pub(super) const LEGACY_FILE: &str = "config.json";
 
-/// Terminal UI settings files in every config location, lowest precedence first.
-pub(super) const TUI_FILES: [&str; 2] = ["tui.json", "tui.jsonc"];
+/// OpenCode 1 terminal UI settings files in every config location, lowest precedence first.
+const TUI_FILES: &[&str] = &["tui.json", "tui.jsonc"];
+
+/// OpenCode 2 terminal UI settings, in the global config directory only.
+const CLI_FILE: &[&str] = &["cli.json"];
 
 /// Where a config file or directory sits; decides its layer and extension scope.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(in crate::harnesses::opencode) enum Place {
-    /// The global config directory (`~/.config/opencode`).
+    /// The global config directory (`~/.config/opencode`, or `OPENCODE_CONFIG_DIR` on OpenCode 2).
     Global,
     /// The file `OPENCODE_CONFIG` names.
     EnvFile,
@@ -30,13 +34,13 @@ pub(in crate::harnesses::opencode) enum Place {
     Project,
     /// A `.opencode/` directory of the project.
     ProjectDir,
-    /// `~/.opencode`.
+    /// `~/.opencode` (on OpenCode 2 only when the project walk reaches it).
     Home,
     /// The home directory itself when the project walk reaches it (`~/opencode.json`). OpenCode
     /// reads it like a project file, but it applies to every project below the home directory,
     /// so it is shown as user configuration.
     HomeRoot,
-    /// The directory `OPENCODE_CONFIG_DIR` names.
+    /// The directory `OPENCODE_CONFIG_DIR` names (OpenCode 1).
     Custom,
 }
 
@@ -83,9 +87,36 @@ pub(in crate::harnesses::opencode) enum Step {
     Dir(ConfigDir),
 }
 
-/// Every settings file that exists and every config directory, in OpenCode's merge order (see
-/// [`super`]).
-pub(in crate::harnesses::opencode) fn merge_steps(env: &Env, project: Option<&Path>) -> Vec<Step> {
+/// The merge steps of one generation.
+#[derive(Debug, Clone)]
+pub(in crate::harnesses::opencode) struct Layers {
+    /// Which OpenCode reads them: decides the keys read from each file.
+    pub generation: OpenCodeGeneration,
+    /// Settings files and config directories, lowest precedence first.
+    pub steps: Vec<Step>,
+}
+
+/// Every settings file that exists and every config directory `generation` reads, in its merge
+/// order (see [`super`]).
+pub(in crate::harnesses::opencode) fn layers(
+    env: &Env,
+    project: Option<&Path>,
+    generation: OpenCodeGeneration,
+) -> Layers {
+    let steps = match generation {
+        OpenCodeGeneration::V1 => v1_steps(env, project),
+        OpenCodeGeneration::V2 => discovery_v2::steps(env, project),
+    };
+
+    Layers { generation, steps }
+}
+
+/// The OpenCode 1 [`layers`].
+pub(in crate::harnesses::opencode) fn merge_steps(env: &Env, project: Option<&Path>) -> Layers {
+    layers(env, project, OpenCodeGeneration::V1)
+}
+
+fn v1_steps(env: &Env, project: Option<&Path>) -> Vec<Step> {
     let mut files: Vec<(PathBuf, Place)> = Vec::new();
     let global = config_dir(env);
 
@@ -93,7 +124,7 @@ pub(in crate::harnesses::opencode) fn merge_steps(env: &Env, project: Option<&Pa
     files.extend(SETTINGS_FILES.iter().map(|name| (global.join(name), Place::Global)));
     files.extend(env_config_file(env).map(|path| (path, Place::EnvFile)));
 
-    for dir in project_roots(env, project) {
+    for dir in v1_project_roots(env, project) {
         files.extend(SETTINGS_FILES.iter().map(|name| (dir.path.join(name), dir.place)));
     }
 
@@ -102,7 +133,7 @@ pub(in crate::harnesses::opencode) fn merge_steps(env: &Env, project: Option<&Pa
         .filter_map(|(path, place)| file_step(path, place))
         .collect();
 
-    for dir in config_dirs(env, project) {
+    for dir in v1_config_dirs(env, project) {
         if dir.place != Place::Global {
             let names = SETTINGS_FILES.iter();
             steps.extend(names.filter_map(|name| file_step(dir.path.join(name), dir.place)));
@@ -114,7 +145,8 @@ pub(in crate::harnesses::opencode) fn merge_steps(env: &Env, project: Option<&Pa
     steps
 }
 
-fn file_step(path: PathBuf, place: Place) -> Option<Step> {
+/// The settings file at `path`, parsed, when it exists.
+pub(super) fn file_step(path: PathBuf, place: Place) -> Option<Step> {
     if !path.is_file() {
         return None;
     }
@@ -123,17 +155,29 @@ fn file_step(path: PathBuf, place: Place) -> Option<Step> {
     Some(Step::File { path, place, document })
 }
 
-/// The config directories in OpenCode order: the global one, every project `.opencode/` from the
-/// project up to the worktree (see [`project_ancestors`]), `~/.opencode` and `OPENCODE_CONFIG_DIR`.
-/// A directory listed twice keeps its first place.
-pub(in crate::harnesses::opencode) fn config_dirs(env: &Env, project: Option<&Path>) -> Vec<ConfigDir> {
+/// The config directories `generation` scans, in its order: on OpenCode 1 the global one, every
+/// project `.opencode/` from the project up to the worktree (see [`project_ancestors`]),
+/// `~/.opencode` and `OPENCODE_CONFIG_DIR` (a directory listed twice keeps its first place); on
+/// OpenCode 2 see [`discovery_v2::config_dirs`].
+pub(in crate::harnesses::opencode) fn config_dirs(
+    env: &Env,
+    project: Option<&Path>,
+    generation: OpenCodeGeneration,
+) -> Vec<ConfigDir> {
+    match generation {
+        OpenCodeGeneration::V1 => v1_config_dirs(env, project),
+        OpenCodeGeneration::V2 => discovery_v2::config_dirs(env, project),
+    }
+}
+
+fn v1_config_dirs(env: &Env, project: Option<&Path>) -> Vec<ConfigDir> {
     let mut dirs = vec![ConfigDir {
         path: config_dir(env),
         place: Place::Global,
     }];
 
     if let Some(project) = project
-        && project_config_enabled(env)
+        && project_config_enabled(env, OpenCodeGeneration::V1)
     {
         dirs.extend(project_ancestors(project).into_iter().map(|dir| {
             // `~/.opencode` keeps its user place when the walk passes the home directory.
@@ -169,98 +213,74 @@ pub(in crate::harnesses::opencode) fn config_dirs(env: &Env, project: Option<&Pa
     unique
 }
 
+/// The names of the terminal UI settings files `generation` reads in a directory at `place`:
+/// `tui.json[c]` everywhere on OpenCode 1, `cli.json` in the global directory on OpenCode 2.
+pub(super) fn tui_names(place: Place, generation: OpenCodeGeneration) -> &'static [&'static str] {
+    match (generation, place) {
+        (OpenCodeGeneration::V1, _) => TUI_FILES,
+        (OpenCodeGeneration::V2, Place::Global) => CLI_FILE,
+        (OpenCodeGeneration::V2, _) => &[],
+    }
+}
+
 /// Every terminal UI settings file that exists, lowest precedence first.
-pub(in crate::harnesses::opencode) fn tui_files(env: &Env, project: Option<&Path>) -> Vec<PathBuf> {
-    let mut dirs = vec![config_dir(env)];
-    dirs.extend(project_roots(env, project).into_iter().map(|dir| dir.path));
+pub(in crate::harnesses::opencode) fn tui_files(
+    env: &Env,
+    project: Option<&Path>,
+    generation: OpenCodeGeneration,
+) -> Vec<PathBuf> {
+    let global = config_dirs(env, project, generation).into_iter().take(1);
+    let mut dirs: Vec<ConfigDir> = global.collect();
+    dirs.extend(project_roots(env, project, generation));
     dirs.extend(
-        config_dirs(env, project)
+        config_dirs(env, project, generation)
             .into_iter()
-            .filter(|dir| dir.place != Place::Global)
-            .map(|dir| dir.path),
+            .filter(|dir| dir.place != Place::Global),
     );
 
     dirs.iter()
-        .flat_map(|dir| TUI_FILES.iter().map(move |name| dir.join(name)))
+        .flat_map(|dir| tui_names(dir.place, generation).iter().map(|name| dir.path.join(name)))
         .filter(|path| path.is_file())
         .collect()
 }
 
-/// Reads an OpenCode settings file: JSON with comments, `{env:NAME}` values shown by name.
-pub(in crate::harnesses::opencode) fn read_config(path: &Path) -> Document {
-    match read_document(path, ConfigFormat::Jsonc) {
-        Document::Parsed(value) => Document::Parsed(env_names(value)),
-        other => other,
+/// The project directories whose `opencode.json[c]` `generation` reads, the farthest first (see
+/// [`project_ancestors`] and [`discovery_v2::project_roots`]); none when project config is off.
+/// The home directory, when the walk reaches it, is [`Place::HomeRoot`].
+pub(super) fn project_roots(env: &Env, project: Option<&Path>, generation: OpenCodeGeneration) -> Vec<ConfigDir> {
+    match generation {
+        OpenCodeGeneration::V1 => v1_project_roots(env, project),
+        OpenCodeGeneration::V2 => discovery_v2::project_roots(env, project),
     }
 }
 
-/// `jsonc` for `*.jsonc` files, else `json` (OpenCode accepts comments in both).
-pub(in crate::harnesses::opencode) fn format_of(path: &Path) -> ConfigFormat {
-    match path.extension() {
-        Some(extension) if extension == "jsonc" => ConfigFormat::Jsonc,
-        _ => ConfigFormat::Json,
-    }
-}
-
-/// Rewrites every string that is exactly `{env:NAME}` to `${NAME}`, which the redactor shows as
-/// a reference to `NAME` without reading it. Other text, `{file:...}` included, is left as written.
-fn env_names(value: Value) -> Value {
-    match value {
-        Value::String(text) => match env_placeholder(&text) {
-            Some(name) => Value::String(format!("${{{name}}}")),
-            None => Value::String(text),
-        },
-        Value::Array(items) => Value::Array(items.into_iter().map(env_names).collect()),
-        Value::Object(entries) => {
-            Value::Object(entries.into_iter().map(|(key, item)| (key, env_names(item))).collect())
-        }
-        other => other,
-    }
-}
-
-/// `NAME` when `text` is exactly `{env:NAME}` and `NAME` is a plain variable name.
-fn env_placeholder(text: &str) -> Option<&str> {
-    let name = text.strip_prefix("{env:")?.strip_suffix('}')?;
-    let mut chars = name.chars();
-
-    let starts_well = chars
-        .next()
-        .is_some_and(|first| first.is_ascii_alphabetic() || first == '_');
-    let continues_well = chars.all(|next| next.is_ascii_alphanumeric() || next == '_');
-
-    (starts_well && continues_well).then_some(name)
-}
-
-/// The project directories whose `opencode.json[c]` OpenCode reads, the farthest first (see
-/// [`project_ancestors`]); none when project config is off. The home directory, when the walk
-/// reaches it, is [`Place::HomeRoot`].
-pub(super) fn project_roots(env: &Env, project: Option<&Path>) -> Vec<ConfigDir> {
+fn v1_project_roots(env: &Env, project: Option<&Path>) -> Vec<ConfigDir> {
     let Some(project) = project else {
         return Vec::new();
     };
 
-    if !project_config_enabled(env) {
+    if !project_config_enabled(env, OpenCodeGeneration::V1) {
         return Vec::new();
     }
 
     let mut roots = project_ancestors(project);
     roots.reverse();
 
-    roots
-        .into_iter()
-        .map(|path| {
-            let place = if path == env.home {
-                Place::HomeRoot
-            } else {
-                Place::Project
-            };
-
-            ConfigDir { path, place }
-        })
-        .collect()
+    roots.into_iter().map(|path| project_root(env, path)).collect()
 }
 
-/// `project` and its ancestors, closest first, as OpenCode walks them up to the worktree
+/// A walked project directory: [`Place::HomeRoot`] for the home directory.
+pub(super) fn project_root(env: &Env, path: PathBuf) -> ConfigDir {
+    let place = if path == env.home {
+        Place::HomeRoot
+    } else {
+        Place::Project
+    };
+
+    ConfigDir { path, place }
+}
+
+/// `project` and its ancestors, closest first, as OpenCode 1 walks them up to the worktree
 /// (`config/paths.ts`, `project/project.ts`): the repository root, the first directory containing
 /// `.git` (included), else the filesystem root. The home directory is walked like any other (OMP
 /// and PI stop before it).
@@ -286,8 +306,16 @@ fn ancestors_within(project: &Path, boundary: Option<&Path>) -> Vec<PathBuf> {
 }
 
 /// False when `OPENCODE_DISABLE_PROJECT_CONFIG` is `true` or `1`, as OpenCode's flag reads it.
-pub(super) fn project_config_enabled(env: &Env) -> bool {
-    let value = env.var("OPENCODE_DISABLE_PROJECT_CONFIG").unwrap_or_default();
+/// OpenCode 2 reads `OPENCODE_CONFIG_PROJECT_DISABLE` first, when set.
+pub(super) fn project_config_enabled(env: &Env, generation: OpenCodeGeneration) -> bool {
+    let preferred = match generation {
+        OpenCodeGeneration::V1 => None,
+        OpenCodeGeneration::V2 => env.var("OPENCODE_CONFIG_PROJECT_DISABLE"),
+    };
+
+    let value = preferred
+        .or_else(|| env.var("OPENCODE_DISABLE_PROJECT_CONFIG"))
+        .unwrap_or_default();
     !(value.eq_ignore_ascii_case("true") || value == "1")
 }
 
@@ -301,37 +329,30 @@ pub(super) fn env_config_file(env: &Env) -> Option<PathBuf> {
 
 #[cfg(test)]
 mod tests {
-    use serde_json::json;
-
     use super::*;
-
-    #[test]
-    fn only_whole_env_placeholders_become_references() {
-        let value = json!({
-            "apiKey": "{env:ANTHROPIC_API_KEY}",
-            "list": ["{env:_X1}", "{env:1BAD}", "pre {env:Y}", "{file:~/.secrets/key}"],
-        });
-
-        assert_eq!(
-            env_names(value),
-            json!({
-                "apiKey": "${ANTHROPIC_API_KEY}",
-                "list": ["${_X1}", "{env:1BAD}", "pre {env:Y}", "{file:~/.secrets/key}"],
-            })
-        );
-    }
+    use crate::harness::OpenCodeGeneration::{V1, V2};
 
     #[test]
     fn the_project_switch_reads_true_or_one() {
         let enabled_with = |value: &str| {
             let env = Env::for_tests("/home/u").with_var("OPENCODE_DISABLE_PROJECT_CONFIG", value);
-            project_config_enabled(&env)
+            project_config_enabled(&env, V1)
         };
 
-        assert!(project_config_enabled(&Env::for_tests("/home/u")));
+        assert!(project_config_enabled(&Env::for_tests("/home/u"), V1));
         assert!(!enabled_with("TRUE"));
         assert!(!enabled_with("1"));
         assert!(enabled_with("yes"));
+    }
+
+    #[test]
+    fn opencode_2_prefers_its_own_project_switch() {
+        let env = Env::for_tests("/home/u")
+            .with_var("OPENCODE_DISABLE_PROJECT_CONFIG", "1")
+            .with_var("OPENCODE_CONFIG_PROJECT_DISABLE", "false");
+
+        assert!(project_config_enabled(&env, V2));
+        assert!(!project_config_enabled(&env, V1));
     }
 
     #[test]
