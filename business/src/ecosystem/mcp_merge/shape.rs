@@ -142,20 +142,29 @@ pub(crate) fn server_mut<'a>(document: &'a mut Map<String, Value>, shape: Shape,
     root.get_mut(NESTED)?.as_object_mut()?.get_mut(name)
 }
 
-/// Removes the server [`server_mut`] finds; true when there was one.
+/// Removes the server `name`; true when there was one. On OpenCode 2 both copies go: the nested
+/// one, then a legacy `mcp.<name>` server that would show through once the nested one is gone.
 pub(crate) fn remove_server(document: &mut Map<String, Value>, shape: Shape, name: &str) -> bool {
-    let legacy = shape == Shape::OpenCodeV2 && is_legacy_only(document, name);
     let Some(root) = document.get_mut(shape.root()).and_then(Value::as_object_mut) else {
         return false;
     };
 
-    let servers = if shape != Shape::OpenCodeV2 || legacy {
-        Some(root)
-    } else {
-        root.get_mut(NESTED).and_then(Value::as_object_mut)
-    };
+    if shape != Shape::OpenCodeV2 {
+        return root.shift_remove(name).is_some();
+    }
 
-    servers.is_some_and(|servers| servers.shift_remove(name).is_some())
+    let nested = root
+        .get_mut(NESTED)
+        .and_then(Value::as_object_mut)
+        .is_some_and(|nested| nested.shift_remove(name).is_some());
+
+    let legacy = is_legacy_only(document, name)
+        && document
+            .get_mut(shape.root())
+            .and_then(Value::as_object_mut)
+            .is_some_and(|root| root.shift_remove(name).is_some());
+
+    nested || legacy
 }
 
 /// True when OpenCode 2 sees `name` only as a legacy `mcp.<name>` server.
@@ -222,6 +231,32 @@ mod tests {
         );
         let found = server_mut(&mut file, Shape::OpenCodeV2, "same").unwrap();
         assert_eq!(found["command"][0], "nested");
+    }
+
+    #[test]
+    fn removing_a_server_on_opencode_2_removes_its_nested_and_legacy_copies() {
+        let mut file = document(json!({ "mcp": {
+            "same": { "type": "local", "command": ["legacy"] },
+            "toggle": { "enabled": false },
+            "servers": {
+                "same": { "type": "local", "command": ["nested"] },
+                "toggle": { "type": "local", "command": ["t"] },
+            },
+        }}));
+
+        assert!(remove_server(&mut file, Shape::OpenCodeV2, "same"));
+        assert!(file["mcp"].get("same").is_none());
+        assert!(file["mcp"]["servers"].get("same").is_none());
+        assert!(servers(&file, Shape::OpenCodeV2).unwrap().get("same").is_none());
+
+        assert!(remove_server(&mut file, Shape::OpenCodeV2, "toggle"));
+        assert_eq!(
+            file["mcp"]["toggle"],
+            json!({ "enabled": false }),
+            "a legacy toggle is not a server on OpenCode 2"
+        );
+        assert!(!remove_server(&mut file, Shape::OpenCodeV2, "servers"));
+        assert!(file["mcp"].get("servers").is_some());
     }
 
     #[test]

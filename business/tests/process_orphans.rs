@@ -268,3 +268,23 @@ fn corrupt_oversized_and_foreign_files_are_ignored() {
 
     assert_eq!(sweep_orphans(&dir.path().join("missing")), Default::default());
 }
+
+#[test]
+fn foreign_files_do_not_crowd_out_a_record() {
+    let dir = tempfile::tempdir().unwrap();
+    for index in 0..200 {
+        fs::write(dir.path().join(format!("aaa-{index:03}.json")), b"{}").unwrap();
+    }
+
+    let app = FakeApp::start();
+    let registry = ChildRegistry::with_owner(dir.path(), app.identity.clone());
+    let mut child = start_sleep();
+    registry.record(child.id(), &sleep_args()).expect("recorded");
+    drop(registry);
+    app.crash();
+
+    let report = sweep_orphans(dir.path());
+
+    assert_eq!(report.killed, vec![child.id()]);
+    assert_eq!(wait_for_signal(&mut child), Some(9), "the orphan was killed");
+}

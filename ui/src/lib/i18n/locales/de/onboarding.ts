@@ -61,6 +61,7 @@ export const onboarding: AreaMessages<typeof enOnboarding> = {
   'onboarding.card.binary': 'Programm',
   'onboarding.card.installWith': 'Installiere es mit:',
   'onboarding.card.copyInstall': 'Installationsbefehl kopieren',
+  'onboarding.card.copyInstallFor': 'Installationsbefehl für {name} kopieren',
   'onboarding.card.installDocs': 'Installationsanleitung',
   'onboarding.card.chooseBinary': 'Programm wählen…',
   'onboarding.card.config': 'Konfiguration',

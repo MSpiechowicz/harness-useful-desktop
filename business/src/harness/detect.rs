@@ -58,7 +58,6 @@ pub(super) async fn detect<H: Harness + ?Sized>(
     override_path: Option<&Path>,
 ) -> Detection {
     let name = harness.binary_name();
-    let config_root = harness.paths(env, None).config_root;
     let mut problems = Vec::new();
 
     let override_path = match override_path {
@@ -79,8 +78,8 @@ pub(super) async fn detect<H: Harness + ?Sized>(
         is_batch_script: false,
         version: None,
         version_support: VersionSupport::Unknown,
-        config_dir: Some(config_root.to_string_lossy().into_owned()),
-        config_dir_exists: config_root.is_dir(),
+        config_dir: None,
+        config_dir_exists: false,
         install_hint: None,
         error: None,
     };
@@ -106,6 +105,11 @@ pub(super) async fn detect<H: Harness + ?Sized>(
             detection.install_hint = Some(harness.install_hint());
         }
     }
+
+    // After `note_version`: where the config lives may depend on the version just found.
+    let config_root = harness.paths(env, None).config_root;
+    detection.config_dir = Some(config_root.to_string_lossy().into_owned());
+    detection.config_dir_exists = config_root.is_dir();
 
     if !problems.is_empty() {
         detection.error = Some(problems.join(" "));

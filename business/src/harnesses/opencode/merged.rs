@@ -30,15 +30,19 @@
 //! names are those of `mcp.servers` of every document, plus any legacy `mcp.<name>` server (see
 //! [`super::config`]); a server switched off with `disabled` still counts, since a new entry of its
 //! name would merge with it. The same environment, limits and care as above apply, and the command
-//! is just as little read-only: the private server loads OpenCode fully, plugins included.
+//! is just as little read-only: the private server loads OpenCode fully, plugins included. Its
+//! private server also skips the project config, the model catalog download and the file watcher
+//! (as every OpenCode 2 command of the app), so the home directory is not walked as a project:
+//! `~/.opencode` is still checked, as one of the files the app reads itself, but a server only in
+//! `~/opencode.json[c]` (or a parent of the home directory) is not seen.
 
 use std::collections::BTreeSet;
 use std::time::Duration;
 
 use serde_json::Value;
 
-use super::SPAWN_ENV;
 use super::config::mcp_servers;
+use super::{ONE_SHOT_ENV_V2, SPAWN_ENV};
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::harness::OpenCodeGeneration;
@@ -71,12 +75,18 @@ pub async fn merged_mcp_names(
         OpenCodeGeneration::V2 => (&PROBE_ARGS_V2, "opencode api --standalone"),
     };
 
+    let one_shot_env = match generation {
+        OpenCodeGeneration::V1 => &[][..],
+        OpenCodeGeneration::V2 => ONE_SHOT_ENV_V2,
+    };
+
     let spec = ExecSpec::new(&binary.path)
         .args(args.iter().copied())
         .cwd(&env.home)
         .env("NO_COLOR", "1")
         .env("FORCE_COLOR", "0")
         .envs(SPAWN_ENV.iter().copied())
+        .envs(one_shot_env.iter().copied())
         .search_dirs(launcher_search_dirs(env, &binary.path))
         .timeout(PROBE_TIMEOUT)
         .max_output_bytes(PROBE_MAX_BYTES)

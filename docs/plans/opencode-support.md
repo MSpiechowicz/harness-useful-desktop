@@ -101,16 +101,16 @@ What differs from the 1.18 / 1.19 behaviour described in this file (the research
 
 | Topic | OpenCode 1 (1.18, 1.19) | OpenCode 2 (2.1) |
 | --- | --- | --- |
-| Install | curl script (npm `opencode-ai` on Windows) | `npm install -g @opencode/cli` everywhere. The install script refuses 2.x. The package also has an `opencode2` bin, which the app ignores |
+| Install | curl script (npm `opencode-ai` on Windows) | `npm install -g @opencode/cli` everywhere. The install script refuses 2.x. The package also has an `opencode2` bin, which the app ignores. A missing `opencode` gets both commands, labelled OpenCode 1 and OpenCode 2 |
 | Detection | `--version` prints `1.19.3` | prints `opencode v2.1.2`. The version selects the generation (`OpenCodeGeneration`: major 1 and unknown versions are V1, major 2 and later V2), set by `Harness::note_version` and stale until the next detection |
-| Spawn env | `OPENCODE_DISABLE_AUTOUPDATE=1` | same, plus `OPENCODE_DISABLE_MODELS_FETCH=1` and `OPENCODE_DISABLE_FILEWATCHER=1` on session commands |
+| Spawn env | `OPENCODE_DISABLE_AUTOUPDATE=1` | same, plus `OPENCODE_CONFIG_PROJECT_DISABLE=1`, `OPENCODE_DISABLE_PROJECT_CONFIG=1`, `OPENCODE_DISABLE_MODELS_FETCH=1`, `OPENCODE_FILEWATCHER_DISABLE=1` and `OPENCODE_DISABLE_FILEWATCHER=1` on session commands and the merged-names probe. OpenCode 2 reads the newer name of each switch first (`cli/src/server-process.ts`), so an inherited `0`, `false` or empty value never turns them back on. The probe therefore does not see a server that only `~/opencode.json[c]` (or a parent of the home directory) defines. `~/.opencode` is still checked, as a file the app reads itself |
 | Background service | none | `opencode serve --service`, started by many CLI commands. The app never starts it |
 | CLI calls | `--pure` on session commands | `--standalone` on every call that takes it. Commands that call the service are avoided (`debug config`, `debug agents`, `plugin list`, `mcp list`) |
 | Config files | `opencode.json[c]`, plus a legacy global `config.json` | `opencode.json[c]` only, no `config.json` layer |
-| `OPENCODE_CONFIG_DIR` | an extra config directory, read after the others | replaces the global directory |
-| `OPENCODE_PERMISSION` | read | gone, `permissions` in the config replaces it. `OPENCODE_CONFIG`, `OPENCODE_CONFIG_CONTENT`, `OPENCODE_DISABLE_PROJECT_CONFIG` still work |
+| `OPENCODE_CONFIG_DIR` | an extra config directory, read after the others | replaces the global directory. Detection shows it as the config folder from the first scan |
+| `OPENCODE_PERMISSION` | read | gone, `permissions` in the config replaces it. `OPENCODE_CONFIG`, `OPENCODE_CONFIG_CONTENT`, `OPENCODE_DISABLE_PROJECT_CONFIG` still work. `OPENCODE_CONFIG_PROJECT_DISABLE` is read before `OPENCODE_DISABLE_PROJECT_CONFIG` |
 | Plugins key | `plugin: [string \| [spec, options]]` | `plugins: [string \| {package, options}]`, legacy `plugin` still read |
-| MCP key | `mcp.<name>` with `enabled` | `mcp.servers.<name>`, legacy `mcp.<name>` still read, no `enabled` on entries the app writes |
+| MCP key | `mcp.<name>` with `enabled` | `mcp.servers.<name>`, legacy `mcp.<name>` still read, no `enabled` on entries the app writes. Removing a server removes both copies when a file has both |
 | Agents, commands | `agent`, `command` | `agents`, `commands`, legacy keys read. Discovery directories are unchanged |
 | Plugin install | `opencode plugin <module> -g` | `opencode plugin add <module>` (global `plugins`, no service) |
 | Plugin remove | the app edits the `plugin` list | the app edits `plugins` and the legacy `plugin` list (OpenCode 2's own `plugin remove` is not used) |
@@ -120,6 +120,24 @@ What differs from the 1.18 / 1.19 behaviour described in this file (the research
 | Chat server | `opencode serve`, `/session` and `/event` routes | `opencode serve --hostname 127.0.0.1 --port 0` (no `--mdns`), `/api/...` routes with `{data}` envelopes, `GET /api/info` as readiness, another event vocabulary. `ChatProtocol::OpenCodeServerV2` |
 | Approval modes | rules in `permission` | rules in `agents.<name>.permissions` (`{action, resource, effect}`), through the chat server's `OPENCODE_CONFIG_CONTENT` |
 | Hook tool ids | `bash`, `apply_patch`, `task`, `edit` / `write` with `filePath` | `shell`, `patch`, `subagent`, `edit` / `write` with `path`. See [hooks-format.md](../hooks-format.md#matcher) |
+
+Project walk on OpenCode 2 (`core/src/config/discovery.ts`): from the project up to the filesystem root, skipped
+only when project config is off or the project is the global or the system config directory (`/etc/opencode`,
+`/Library/Application Support/opencode`, `%ProgramData%\opencode`). `~/.claude` and `~/.agents` are walked like any
+other project.
+
+Known gaps on OpenCode 2:
+
+- Harness Skills and `OPENCODE_CONFIG_DIR`. The Harness Skills installer (skills repo, `opencode/paths.js`) writes to
+  `~/.config/opencode` (XDG) and ignores `OPENCODE_CONFIG_DIR`. OpenCode 2 reads that variable's directory instead of
+  the global one, so with it set OpenCode 2 never loads the skills. The app's install record check reads the same XDG
+  directory the installer writes, so it still says installed. Reporting not installed there would offer an Install
+  button that writes to the same unread place again, so the check stays as it is. The fix belongs in the installer:
+  on OpenCode 2, write to `OPENCODE_CONFIG_DIR` when it is set.
+- Downgrade from OpenCode 2 to 1. MCP servers the app writes for OpenCode 2 go to `mcp.servers.<name>` without
+  `enabled`. That is not an OpenCode 1 shape: OpenCode 1 reads `mcp.servers` as one server named `servers` and may
+  reject the file. After a downgrade with a shared config file, move each entry back to `mcp.<name>` with
+  `"enabled": true`.
 
 Unchanged on OpenCode 2: one private server per chat on 127.0.0.1 with a random per-launch password, the Basic
 auth user `opencode`, never changing OpenCode's config files from a chat, never passing `--auto`, and never calling

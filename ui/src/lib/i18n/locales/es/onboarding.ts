@@ -61,6 +61,7 @@ export const onboarding: AreaMessages<typeof enOnboarding> = {
   'onboarding.card.binary': 'Ejecutable',
   'onboarding.card.installWith': 'Instálalo con:',
   'onboarding.card.copyInstall': 'Copiar el comando de instalación',
+  'onboarding.card.copyInstallFor': 'Copiar el comando de instalación de {name}',
   'onboarding.card.installDocs': 'Guía de instalación',
   'onboarding.card.chooseBinary': 'Elegir ejecutable…',
   'onboarding.card.config': 'Configuración',

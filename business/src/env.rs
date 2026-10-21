@@ -32,6 +32,10 @@ pub const CAPTURED_VARS: &[&str] = &[
     "OPENCODE_CONFIG",
     "OPENCODE_CONFIG_DIR",
     "OPENCODE_DISABLE_PROJECT_CONFIG",
+    // OpenCode 2's name for the switch above, which it reads first.
+    "OPENCODE_CONFIG_PROJECT_DISABLE",
+    // The Windows folder of OpenCode 2's system config directory (`%ProgramData%\opencode`).
+    "ProgramData",
     // Harness Memory's data folder, where the app meets the server for script run requests.
     "HARNESS_MEMORY_DIR",
     // Harness Memory's config file, when not the default one (the team database settings).

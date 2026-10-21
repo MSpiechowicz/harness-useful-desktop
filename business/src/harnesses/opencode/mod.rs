@@ -40,12 +40,26 @@ use std::sync::atomic::{AtomicU8, Ordering};
 use crate::error::BusinessError;
 use crate::harness::prelude::*;
 use crate::harnesses::pi::PiDialect;
-use crate::model::{SessionMessagesPage, SessionRef, SessionSummary, SessionTree};
+use crate::model::{InstallCommand, SessionMessagesPage, SessionRef, SessionSummary, SessionTree};
 use crate::pi_family::sessions::SessionCache;
 
 /// Environment variables set on every spawn of `opencode` (see [`Harness::spawn_env`]): its
 /// self-updater stays off.
 pub const SPAWN_ENV: &[(&str, &str)] = &[("OPENCODE_DISABLE_AUTOUPDATE", "1")];
+
+/// Environment of the one-shot OpenCode 2 servers behind its CLI commands (the session commands,
+/// the merged-names probe), on top of [`SPAWN_ENV`]: no project config, no model catalog download
+/// and no file watcher. OpenCode 2 reads `OPENCODE_CONFIG_PROJECT_DISABLE` before
+/// `OPENCODE_DISABLE_PROJECT_CONFIG` and `OPENCODE_FILEWATCHER_DISABLE` before
+/// `OPENCODE_DISABLE_FILEWATCHER` (`cli/src/server-process.ts`), so the newer names are set too:
+/// an inherited value of either (`0`, `false`, empty) never switches them back on.
+const ONE_SHOT_ENV_V2: &[(&str, &str)] = &[
+    ("OPENCODE_CONFIG_PROJECT_DISABLE", "1"),
+    ("OPENCODE_DISABLE_PROJECT_CONFIG", "1"),
+    ("OPENCODE_DISABLE_MODELS_FETCH", "1"),
+    ("OPENCODE_FILEWATCHER_DISABLE", "1"),
+    ("OPENCODE_DISABLE_FILEWATCHER", "1"),
+];
 
 /// The OpenCode adapter. Clones share the generation, which detection updates
 /// ([`Harness::note_version`]); until then it is [`OpenCodeGeneration::V1`].
@@ -209,19 +223,26 @@ impl Harness for OpenCode {
         SPAWN_ENV
     }
 
-    /// OpenCode 1 from its install script (`npm` on Windows), OpenCode 2 from npm only: the
-    /// script installs OpenCode 1 releases and refuses 2.x.
+    /// Both release lines, labelled: OpenCode 1 from its install script (`npm` on Windows),
+    /// OpenCode 2 from npm only (the script installs OpenCode 1 releases and refuses 2.x). A
+    /// missing binary says nothing about which one the user wants.
     fn install_hint(&self) -> InstallHint {
-        let command = if self.generation() == OpenCodeGeneration::V2 {
-            "npm install -g @opencode/cli"
-        } else if cfg!(windows) {
+        let opencode_1 = if cfg!(windows) {
             "npm install -g opencode-ai"
         } else {
             "curl -fsSL https://opencode.ai/install | bash"
         };
 
-        InstallHint {
+        let labelled = |label: &str, command: &str| InstallCommand {
+            label: Some(label.to_owned()),
             command: command.to_owned(),
+        };
+
+        InstallHint {
+            commands: vec![
+                labelled("OpenCode 1", opencode_1),
+                labelled("OpenCode 2", "npm install -g @opencode/cli"),
+            ],
             docs_url: "https://opencode.ai/docs/".to_owned(),
         }
     }

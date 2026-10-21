@@ -19,7 +19,11 @@ fn fake(printed: &str, status: u8) -> FakeCli {
         "opencode",
         &format!(
             "printf '%s\\n' \"$@\" > \"$d/argv\"\npwd > \"$d/cwd\"\n\
-             printf '%s' \"$OPENCODE_DISABLE_AUTOUPDATE\" > \"$d/autoupdate\"\ncat \"$d/printed\"\nexit {status}\n"
+             printf '%s' \"$OPENCODE_DISABLE_AUTOUPDATE\" > \"$d/autoupdate\"\n\
+             printf '%s %s %s' \"$OPENCODE_DISABLE_MODELS_FETCH\" \"$OPENCODE_FILEWATCHER_DISABLE\" \
+             \"$OPENCODE_DISABLE_FILEWATCHER\" > \"$d/quiet\"\n\
+             printf '%s %s' \"$OPENCODE_CONFIG_PROJECT_DISABLE\" \"$OPENCODE_DISABLE_PROJECT_CONFIG\" > \"$d/project\"\n\
+             cat \"$d/printed\"\nexit {status}\n"
         ),
     );
     cli.place("printed", printed);
@@ -55,6 +59,38 @@ async fn the_names_of_every_document_are_read_through_a_private_server() {
         Some(cli.home().to_string_lossy().into_owned())
     );
     assert_eq!(cli.recorded("autoupdate").as_deref(), Some("1"));
+    assert_eq!(cli.recorded("quiet").as_deref(), Some("1 1 1"));
+    assert_eq!(cli.recorded("project").as_deref(), Some("1 1"));
+}
+
+/// Set in the child run of [`an_inherited_project_config_switch_is_overridden`].
+const CHILD_MARKER: &str = "HARNESS_PROBE_ENV_CHILD";
+
+/// The app may not change its own environment (`unsafe` is forbidden), so the test runs itself
+/// again with the switches turned back on in the inherited environment.
+#[tokio::test]
+async fn an_inherited_project_config_switch_is_overridden() {
+    let name = "an_inherited_project_config_switch_is_overridden";
+
+    if std::env::var_os(CHILD_MARKER).is_none() {
+        let output = std::process::Command::new(std::env::current_exe().expect("test binary"))
+            .args(["--exact", name, "--test-threads=1"])
+            .env(CHILD_MARKER, "1")
+            .env("OPENCODE_CONFIG_PROJECT_DISABLE", "0")
+            .env("OPENCODE_DISABLE_PROJECT_CONFIG", "false")
+            .env("OPENCODE_FILEWATCHER_DISABLE", "")
+            .output()
+            .expect("run the test binary");
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(output.status.success() && stdout.contains("1 passed"), "{stdout}");
+        return;
+    }
+
+    let cli = fake("[]", 0);
+
+    assert_eq!(names(&cli).await.expect("read"), Vec::<String>::new());
+    assert_eq!(cli.recorded("project").as_deref(), Some("1 1"));
+    assert_eq!(cli.recorded("quiet").as_deref(), Some("1 1 1"));
 }
 
 #[tokio::test]
