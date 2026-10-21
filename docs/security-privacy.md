@@ -1016,9 +1016,9 @@ follow-up prompt after the agent settles, or run a shell command. Agents can wri
 - **The approvals file is the trust anchor.** A process running as you that can write the app's config folder can approve
   a hook for itself, as it could change `prefs.json`. The privacy of that folder is the boundary. Hook files alone are not
   enough: a planted file is pending until its hash is approved.
-- **Harness family hooks.** The app can write four hooks that tell agents to use the other Harness tools: three for Harness
-  Memory (`memory-search` and `useful-skills` at `sessionStart`, `memory-save` at `turnEnd`) and one for Harness Dashboard (`dashboard-limits`
-  at `sessionStart`), each global and `requires` its member. Launch seeding creates them once for a member that is
+- **Harness family hooks.** The app can write five hooks that tell agents to use the other Harness tools: four for Harness
+  Memory (`memory-search`, `useful-skills` and `branch-sync` at `sessionStart`, `memory-save` at `turnEnd`) and one for Harness Dashboard (`dashboard-limits`
+  at `sessionStart`), each global and `requires` its member. `branch-sync` only asks the agent to run `git fetch` and merge the main branch into its branch; the app runs no git command for it, and the agent's own permission prompts apply. Launch seeding creates them once for a member that is
   available (Harness Memory: installed and its switch on) and records the seed in `hooks-state.json`, so a deleted one is
   not created at launch again; the dialog adds or updates them on your request, and an install of the member through the
   app adds its missing ones again. Nothing overwrites a hook you edited unless you ask for the update, and uninstalling

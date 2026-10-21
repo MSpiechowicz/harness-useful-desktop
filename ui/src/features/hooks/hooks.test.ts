@@ -136,7 +136,7 @@ describe('Hooks view', () => {
     await fireEvent.click(rowOf('Search Harness Memory first'));
 
     const panel = await screen.findByRole('region', { name: 'Search Harness Memory first' });
-    expect(within(panel).getByText('Before you start, search Harness Memory for notes about this task (note_search) and check the saved scripts (script_list). Reuse what fits.')).toBeInTheDocument();
+    expect(within(panel).getByText('Before you start, search Harness Memory for notes about this task (note_search) and check the saved scripts (script_list). Reuse what fits. Pass project_path on every Harness Memory call: the absolute path of the repository you are working in (its git root), so nothing is read from or saved to another repository.')).toBeInTheDocument();
     expect(within(panel).getByText('Harness family')).toBeInTheDocument();
     expect(viewState.hookId).not.toBeNull();
   });
