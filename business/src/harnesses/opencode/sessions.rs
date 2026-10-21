@@ -1,5 +1,6 @@
 //! OpenCode saved sessions, reachable only through the `opencode` CLI (the sessions database also
-//! holds credentials and is never opened).
+//! holds credentials and is never opened). OpenCode 1 is described here; OpenCode 2 runs other
+//! commands with the same rules (see [`v2`]). [`cli_sessions`] picks the generation.
 //!
 //! - List: `opencode session list --pure --format json`, run in the project. OpenCode lists the
 //!   root sessions of the whole project (its git worktree), so only sessions whose directory is the
@@ -22,6 +23,8 @@
 
 mod limits;
 mod transcript;
+mod transcript_v2;
+mod v2;
 
 use std::ops::Range;
 use std::path::{Path, PathBuf};
@@ -35,7 +38,7 @@ use self::transcript::Transcript;
 use super::SPAWN_ENV;
 use crate::agent::rfc3339;
 use crate::error::{BusinessError, Result};
-use crate::harness::{CliSessionCtx, CliSessions};
+use crate::harness::{CliSessionCtx, CliSessions, OpenCodeGeneration};
 use crate::model::{HarnessId, SessionMessagesPage, SessionRef, SessionSummary};
 use crate::opencode_server::mapper::project_dir;
 use crate::pi_family::normalize::plain_text;
@@ -71,9 +74,10 @@ const MAX_ERROR_CHARS: usize = 200;
 /// OpenCode commands running at once at most; more wait for a free slot.
 const MAX_RUNS: usize = 2;
 
-/// The OpenCode CLI sessions, with their caches.
+/// The OpenCode CLI sessions of one generation, with their caches.
 #[derive(Debug)]
 pub struct OpenCodeSessions {
+    generation: OpenCodeGeneration,
     lists: Mutex<Vec<Cached<Vec<SessionSummary>>>>,
     exports: Mutex<Vec<Cached<Transcript>>>,
     listing: Flights<CacheKey, Vec<SessionSummary>>,
@@ -87,16 +91,34 @@ impl Default for OpenCodeSessions {
 }
 
 static SESSIONS: OpenCodeSessions = OpenCodeSessions::new();
+static SESSIONS_V2: OpenCodeSessions = OpenCodeSessions::with_generation(OpenCodeGeneration::V2);
 
-/// The sessions [`super::OpenCode`] returns from `cli_sessions`.
-pub fn cli_sessions() -> &'static dyn CliSessions {
-    &SESSIONS
+/// The sessions [`super::OpenCode`] of `generation` returns from `cli_sessions`.
+pub fn cli_sessions(generation: OpenCodeGeneration) -> &'static dyn CliSessions {
+    match generation {
+        OpenCodeGeneration::V1 => &SESSIONS,
+        OpenCodeGeneration::V2 => &SESSIONS_V2,
+    }
+}
+
+/// An `opencode` command this module runs.
+#[derive(Debug, Clone, Copy)]
+enum Command<'a> {
+    List,
+    Export(&'a str),
+    Delete(&'a str),
 }
 
 impl OpenCodeSessions {
-    /// Sessions with empty caches.
+    /// OpenCode 1 sessions with empty caches.
     pub const fn new() -> Self {
+        Self::with_generation(OpenCodeGeneration::V1)
+    }
+
+    /// Sessions of `generation` with empty caches.
+    pub const fn with_generation(generation: OpenCodeGeneration) -> Self {
         Self {
+            generation,
             lists: Mutex::new(Vec::new()),
             exports: Mutex::new(Vec::new()),
             listing: Flights::new(),
@@ -129,8 +151,7 @@ impl OpenCodeSessions {
 
     /// Runs `session list` for the project.
     fn list_now(&self, ctx: &CliSessionCtx<'_>) -> Result<Vec<SessionSummary>> {
-        let args = ["session", "list", "--pure", "--format", "json"];
-        let spec = spec(ctx, &args, LIST_TIMEOUT, LIST_MAX_BYTES);
+        let spec = self.spec(ctx, Command::List, LIST_TIMEOUT, LIST_MAX_BYTES);
         let stdout = self.run(ctx, &spec, "session list", None)?;
 
         parse_list(&stdout, ctx.project)
@@ -144,11 +165,30 @@ impl OpenCodeSessions {
             return Ok(transcript);
         }
 
-        let spec = spec(ctx, &["export", id, "--pure"], EXPORT_TIMEOUT, EXPORT_MAX_BYTES);
+        let spec = self.spec(ctx, Command::Export(id), EXPORT_TIMEOUT, EXPORT_MAX_BYTES);
         let stdout = self.run(ctx, &spec, "export", Some(id))?;
-        let transcript = transcript::parse(&stdout, id, ctx.project)?;
+        let transcript = match self.generation {
+            OpenCodeGeneration::V1 => transcript::parse(&stdout, id, ctx.project)?,
+            OpenCodeGeneration::V2 => transcript_v2::parse(&stdout, id, ctx.project)?,
+        };
 
         Ok(store(&self.exports, key, transcript, MAX_EXPORTS))
+    }
+
+    /// `command` of this generation, run in the project (see the module docs).
+    fn spec(
+        &self,
+        ctx: &CliSessionCtx<'_>,
+        command: Command<'_>,
+        timeout: Duration,
+        max_output_bytes: usize,
+    ) -> ExecSpec {
+        let (args, extra_env) = match self.generation {
+            OpenCodeGeneration::V1 => (v1_args(command), &[][..]),
+            OpenCodeGeneration::V2 => (v2::args(command), v2::SPAWN_ENV),
+        };
+
+        spec(ctx, &args, timeout, max_output_bytes).envs(extra_env.iter().copied())
     }
 
     /// Drops the project's cached list and the cached export of `id`.
@@ -225,12 +265,7 @@ impl CliSessions for OpenCodeSessions {
             return Err(not_found(id));
         }
 
-        let spec = spec(
-            ctx,
-            &["session", "delete", "--pure", id],
-            DELETE_TIMEOUT,
-            DELETE_MAX_BYTES,
-        );
+        let spec = self.spec(ctx, Command::Delete(id), DELETE_TIMEOUT, DELETE_MAX_BYTES);
         let deleted = self.run(ctx, &spec, "session delete", Some(id));
         self.forget(ctx, id);
 
@@ -260,6 +295,15 @@ fn is_opencode_id(id: &str) -> bool {
 
 fn not_found(id: &str) -> BusinessError {
     BusinessError::NotFound(format!("session {id}"))
+}
+
+/// The OpenCode 1 argv of `command`.
+fn v1_args(command: Command<'_>) -> Vec<&str> {
+    match command {
+        Command::List => vec!["session", "list", "--pure", "--format", "json"],
+        Command::Export(id) => vec!["export", id, "--pure"],
+        Command::Delete(id) => vec!["session", "delete", "--pure", id],
+    }
 }
 
 /// An `opencode` command run in the project.

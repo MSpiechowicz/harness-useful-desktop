@@ -1,0 +1,178 @@
+{
+  "info": {
+    "id": "ses_ea2841e42ffeZTCd1U8mJvf9FY",
+    "projectID": "global",
+    "model": {
+      "id": "big-pickle",
+      "providerID": "opencode",
+      "variant": "default"
+    },
+    "cost": 0,
+    "tokens": {
+      "input": 3702,
+      "output": 88,
+      "reasoning": 66,
+      "cache": {
+        "read": 8136,
+        "write": 0
+      }
+    },
+    "outcome": "succeeded",
+    "time": {
+      "created": 1792569762246,
+      "updated": 1792569766452,
+      "idle": 1792569766453
+    },
+    "title": "Read notes.txt and list TXT files",
+    "location": {
+      "directory": "{{PROJECT}}"
+    }
+  },
+  "messages": [
+    {
+      "id": "msg_15d7be1e4001f83TAnUjlOmbv8",
+      "time": {
+        "created": 1792569762530
+      },
+      "text": "Use the read tool to read notes.txt, then use the glob tool to list *.txt files. Then reply with one short sentence.",
+      "type": "user"
+    },
+    {
+      "id": "msg_15d7be2ed001uoyeDAvO5rSu65",
+      "time": {
+        "created": 1792569762548,
+        "streamed": 1792569764709,
+        "completed": 1792569764725
+      },
+      "type": "assistant",
+      "agent": "build",
+      "model": {
+        "id": "big-pickle",
+        "providerID": "opencode",
+        "variant": "default"
+      },
+      "content": [
+        {
+          "type": "text",
+          "text": "I'll read the notes file and list the txt files."
+        },
+        {
+          "type": "tool",
+          "id": "call_function_ergyosjl9cx3_1",
+          "name": "read",
+          "executed": false,
+          "state": {
+            "status": "completed",
+            "input": {
+              "path": "notes.txt"
+            },
+            "content": [
+              {
+                "type": "text",
+                "text": "Read file notes.txt, lines 1-1\n1: first line"
+              }
+            ],
+            "metadata": {
+              "truncated": false
+            }
+          },
+          "time": {
+            "created": 1792569764698,
+            "ran": 1792569764705,
+            "completed": 1792569764715
+          }
+        },
+        {
+          "type": "tool",
+          "id": "call_function_ergyosjl9cx3_2",
+          "name": "glob",
+          "executed": false,
+          "state": {
+            "status": "completed",
+            "input": {
+              "pattern": "*.txt"
+            },
+            "content": [
+              {
+                "type": "text",
+                "text": "{{PROJECT}}/notes.txt"
+              }
+            ],
+            "metadata": {
+              "count": 1,
+              "truncated": false
+            }
+          },
+          "time": {
+            "created": 1792569764700,
+            "ran": 1792569764707,
+            "completed": 1792569764721
+          }
+        }
+      ],
+      "snapshot": {
+        "start": "5198f0e6bf7fa048720c2ef90ad3dba852b4374d",
+        "end": "5198f0e6bf7fa048720c2ef90ad3dba852b4374d",
+        "files": []
+      },
+      "finish": "tool-calls",
+      "rawFinish": "tool_calls",
+      "cost": 0,
+      "tokens": {
+        "input": 3576,
+        "output": 59,
+        "reasoning": 0,
+        "cache": {
+          "read": 1904,
+          "write": 0
+        }
+      }
+    },
+    {
+      "id": "msg_15d7beb7b001o78R393F14fJA5",
+      "time": {
+        "created": 1792569764738,
+        "streamed": 1792569766448,
+        "completed": 1792569766452
+      },
+      "type": "assistant",
+      "agent": "build",
+      "model": {
+        "id": "big-pickle",
+        "providerID": "opencode",
+        "variant": "default"
+      },
+      "content": [
+        {
+          "type": "text",
+          "text": "notes.txt contains \"first line\" and is the only .txt file in the project."
+        }
+      ],
+      "snapshot": {
+        "start": "5198f0e6bf7fa048720c2ef90ad3dba852b4374d",
+        "end": "5198f0e6bf7fa048720c2ef90ad3dba852b4374d",
+        "files": []
+      },
+      "finish": "stop",
+      "rawFinish": "stop",
+      "cost": 0,
+      "tokens": {
+        "input": 94,
+        "output": 19,
+        "reasoning": 0,
+        "cache": {
+          "read": 5537,
+          "write": 0
+        }
+      }
+    },
+    {
+      "id": "msg_15d7bf235002Qc6bYY5U48hIOs",
+      "time": {
+        "created": 1792569766453
+      },
+      "type": "idle",
+      "outcome": "succeeded"
+    }
+  ]
+}

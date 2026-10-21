@@ -1,0 +1,177 @@
+{
+  "info": {
+    "id": "ses_ea27dbca0ffeq7RgyVRicYAt6C",
+    "projectID": "global",
+    "model": {
+      "id": "big-pickle",
+      "providerID": "opencode",
+      "variant": "default"
+    },
+    "cost": 0,
+    "tokens": {
+      "input": 4277,
+      "output": 165,
+      "reasoning": 65,
+      "cache": {
+        "read": 13213,
+        "write": 0
+      }
+    },
+    "outcome": "succeeded",
+    "time": {
+      "created": 1792570180457,
+      "updated": 1792570185972,
+      "idle": 1792570193037
+    },
+    "title": "Recorded title",
+    "location": {
+      "directory": "{{PROJECT}}"
+    }
+  },
+  "messages": [
+    {
+      "id": "msg_15d824387001C5U5EIkeFSEWKC",
+      "time": {
+        "created": 1792570180738
+      },
+      "text": "Say one.",
+      "type": "user"
+    },
+    {
+      "id": "msg_15d82448a0010Nd2YPKniIjq4b",
+      "time": {
+        "created": 1792570180751,
+        "streamed": 1792570184606,
+        "completed": 1792570184610
+      },
+      "type": "assistant",
+      "agent": "build",
+      "model": {
+        "id": "big-pickle",
+        "providerID": "opencode",
+        "variant": "default"
+      },
+      "content": [
+        {
+          "type": "text",
+          "text": "One."
+        }
+      ],
+      "snapshot": {
+        "start": "5198f0e6bf7fa048720c2ef90ad3dba852b4374d",
+        "end": "5198f0e6bf7fa048720c2ef90ad3dba852b4374d",
+        "files": []
+      },
+      "finish": "stop",
+      "rawFinish": "stop",
+      "cost": 0,
+      "tokens": {
+        "input": 3686,
+        "output": 4,
+        "reasoning": 0,
+        "cache": {
+          "read": 1710,
+          "write": 0
+        }
+      }
+    },
+    {
+      "id": "msg_15d8253a5001sNbDAkot60Z9Tc",
+      "time": {
+        "created": 1792570184613
+      },
+      "type": "idle",
+      "outcome": "succeeded"
+    },
+    {
+      "id": "msg_15d8253a80015RYHUZtV7CNAfL",
+      "time": {
+        "created": 1792570184622
+      },
+      "text": "Say two.",
+      "type": "user"
+    },
+    {
+      "id": "msg_15d8253b1001cHz5hUUWBExk0D",
+      "time": {
+        "created": 1792570184632,
+        "streamed": 1792570185954,
+        "completed": 1792570185958
+      },
+      "type": "assistant",
+      "agent": "build",
+      "model": {
+        "id": "big-pickle",
+        "providerID": "opencode",
+        "variant": "default"
+      },
+      "content": [
+        {
+          "type": "text",
+          "text": "Two."
+        }
+      ],
+      "snapshot": {
+        "start": "5198f0e6bf7fa048720c2ef90ad3dba852b4374d",
+        "end": "5198f0e6bf7fa048720c2ef90ad3dba852b4374d",
+        "files": []
+      },
+      "finish": "stop",
+      "rawFinish": "stop",
+      "cost": 0,
+      "tokens": {
+        "input": 16,
+        "output": 4,
+        "reasoning": 0,
+        "cache": {
+          "read": 5396,
+          "write": 0
+        }
+      }
+    },
+    {
+      "id": "msg_15d8258e8001bAnKS3OqoufpRp",
+      "time": {
+        "created": 1792570185960
+      },
+      "type": "idle",
+      "outcome": "succeeded"
+    },
+    {
+      "type": "compaction",
+      "id": "msg_15d8258f3001dFHSDSV3PIjSf6",
+      "metadata": {
+        "keepID": "msg_15d8253a80015RYHUZtV7CNAfL"
+      },
+      "time": {
+        "created": 1792570185974
+      },
+      "status": "completed",
+      "reason": "manual",
+      "model": {
+        "id": "big-pickle",
+        "providerID": "opencode",
+        "variant": "default"
+      },
+      "summary": "## Objective\n- User is running a trivial turn-by-turn instruction sequence, requesting the assistant to say \"one\", then \"two\".\n\n## Requirements\n- Respond concisely with the exact requested word.\n\n## Decisions\n- (none)\n\n## Work State\n### Completed\n- Assistant replied \"One.\" to \"Say one.\"\n- Assistant replied \"Two.\" to \"Say two.\"\n\n### Active\n- (none)\n\n### Blocked\n- (none)\n\n## Next Move\n1. Await the user's next instruction and reply in the same minimal style.\n\n## Relevant Files\n- (none)\n\n## Important Context\n- No files were read or modified; no commands were run.\n- The exchange is a simple prompt-response drill with no tooling required.",
+      "cost": 0,
+      "tokens": {
+        "input": 567,
+        "output": 152,
+        "reasoning": 0,
+        "cache": {
+          "read": 5412,
+          "write": 0
+        }
+      }
+    },
+    {
+      "id": "msg_15d82748d001zdHnNTxoGqRrtt",
+      "time": {
+        "created": 1792570193037
+      },
+      "type": "idle",
+      "outcome": "succeeded"
+    }
+  ]
+}

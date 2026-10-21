@@ -1,0 +1,196 @@
+{
+  "info": {
+    "id": "ses_ea2837c64ffeCkDpkdXo15P9nS",
+    "projectID": "global",
+    "model": {
+      "id": "big-pickle",
+      "providerID": "opencode",
+      "variant": "default"
+    },
+    "cost": 0,
+    "tokens": {
+      "input": 4297,
+      "output": 209,
+      "reasoning": 162,
+      "cache": {
+        "read": 7373,
+        "write": 0
+      }
+    },
+    "time": {
+      "created": 1792569803684,
+      "updated": 1792570050613
+    },
+    "title": "Overwrite notes.txt with 'gone'",
+    "location": {
+      "directory": "{{PROJECT}}"
+    }
+  },
+  "messages": [
+    {
+      "id": "msg_15d7c83c3001hbHO4LztE7O2m7",
+      "time": {
+        "created": 1792569803953
+      },
+      "text": "Overwrite notes.txt with the text 'gone' using the write tool.",
+      "type": "user"
+    },
+    {
+      "id": "msg_15d7c84b9001imclrCXB2Hq5Jj",
+      "time": {
+        "created": 1792569803967,
+        "streamed": 1792569806566,
+        "completed": 1792569806578
+      },
+      "type": "assistant",
+      "agent": "build",
+      "model": {
+        "id": "big-pickle",
+        "providerID": "opencode",
+        "variant": "default"
+      },
+      "content": [
+        {
+          "type": "text",
+          "text": "I'll write 'gone' to notes.txt using the write tool."
+        },
+        {
+          "type": "tool",
+          "id": "call_01a15d7c8c7a700aaf777cb4",
+          "name": "write",
+          "executed": false,
+          "state": {
+            "status": "error",
+            "input": {
+              "path": "{{PROJECT}}/notes.txt",
+              "content": "gone"
+            },
+            "error": {
+              "type": "permission.rejected",
+              "message": "Do not change that file."
+            }
+          },
+          "time": {
+            "created": 1792569806065,
+            "ran": 1792569806563,
+            "completed": 1792569806574
+          }
+        }
+      ],
+      "snapshot": {
+        "start": "5198f0e6bf7fa048720c2ef90ad3dba852b4374d",
+        "end": "5198f0e6bf7fa048720c2ef90ad3dba852b4374d",
+        "files": []
+      },
+      "finish": "tool-calls",
+      "rawFinish": "tool_calls",
+      "cost": 0,
+      "tokens": {
+        "input": 3699,
+        "output": 103,
+        "reasoning": 0,
+        "cache": {
+          "read": 1709,
+          "write": 0
+        }
+      }
+    },
+    {
+      "id": "msg_15d7c8ef8001YiGGAXdw5SEsMt",
+      "time": {
+        "created": 1792569806590,
+        "streamed": 1792569809954,
+        "completed": 1792570050613
+      },
+      "type": "assistant",
+      "agent": "build",
+      "model": {
+        "id": "big-pickle",
+        "providerID": "opencode",
+        "variant": "default"
+      },
+      "content": [
+        {
+          "type": "reasoning",
+          "text": "The write was rejected by permission. Let me check whether notes.txt exists and what's in it, and maybe the permission system requires an approval. The task says \"Overwrite notes.txt with the text 'gone' using the write tool.\" The write tool rejected with \"Do not change that file.\" Perhaps there's a permission config that blocks it. Let me look at the repo to understand.\n\nLet me check the file and any opencode config forpermissions.",
+          "native": {
+            "reasoningField": "reasoning_content"
+          },
+          "time": {
+            "created": 1792569808658,
+            "completed": 1792569809949
+          }
+        },
+        {
+          "type": "tool",
+          "id": "call_01a15d7c999f71b298a808ea",
+          "name": "shell",
+          "executed": false,
+          "state": {
+            "status": "error",
+            "input": {
+              "command": "ls -la; echo \"---\"; cat notes.txt 2>/dev/null; echo \"---\"; ls -la .opencode 2>/dev/null"
+            },
+            "error": {
+              "type": "aborted",
+              "message": "Interaction cancelled because the location shut down"
+            }
+          },
+          "time": {
+            "created": 1792569809528,
+            "ran": 1792569809951,
+            "completed": 1792570050586
+          }
+        },
+        {
+          "type": "tool",
+          "id": "call_01a15d7c9a6572f0815e3ac5",
+          "name": "glob",
+          "executed": false,
+          "state": {
+            "status": "completed",
+            "input": {
+              "pattern": "**/{opencode,AGENTS,CLAUDE}.{json,jsonc,md}"
+            },
+            "content": [
+              {
+                "type": "text",
+                "text": "No files found"
+              }
+            ],
+            "metadata": {
+              "count": 0,
+              "truncated": false
+            }
+          },
+          "time": {
+            "created": 1792569809634,
+            "ran": 1792569809953,
+            "completed": 1792569809963
+          }
+        }
+      ],
+      "snapshot": {
+        "start": "5198f0e6bf7fa048720c2ef90ad3dba852b4374d",
+        "end": "5198f0e6bf7fa048720c2ef90ad3dba852b4374d",
+        "files": []
+      },
+      "finish": "error",
+      "rawFinish": "tool_calls",
+      "cost": 0,
+      "tokens": {
+        "input": 139,
+        "output": 95,
+        "reasoning": 90,
+        "cache": {
+          "read": 5408,
+          "write": 0
+        }
+      },
+      "error": {
+        "type": "aborted",
+        "message": "Step interrupted"
+      }
+    }
+  ]
+}

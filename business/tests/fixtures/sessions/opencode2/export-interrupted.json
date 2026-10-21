@@ -1,0 +1,98 @@
+{
+  "info": {
+    "id": "ses_ea27f21d1ffe637dkW2375t8zk",
+    "projectID": "global",
+    "model": {
+      "id": "big-pickle",
+      "providerID": "opencode",
+      "variant": "default"
+    },
+    "cost": 0,
+    "tokens": {
+      "input": 453,
+      "output": 10,
+      "reasoning": 90,
+      "cache": {
+        "read": 256,
+        "write": 0
+      }
+    },
+    "outcome": "interrupted",
+    "time": {
+      "created": 1792570089016,
+      "updated": 1792570093507,
+      "idle": 1792570093508
+    },
+    "title": "Rivers: Nature’s Lifelines",
+    "location": {
+      "directory": "{{PROJECT}}"
+    }
+  },
+  "messages": [
+    {
+      "id": "msg_15d80de58001eWXXqwBgJVByVh",
+      "time": {
+        "created": 1792570089299
+      },
+      "text": "Write a 600 word essay about rivers.",
+      "type": "user"
+    },
+    {
+      "id": "msg_15d80df5c001w23CugGRSr12xO",
+      "time": {
+        "created": 1792570089314,
+        "streamed": 1792570093501,
+        "completed": 1792570093507
+      },
+      "type": "assistant",
+      "agent": "build",
+      "model": {
+        "id": "big-pickle",
+        "providerID": "opencode",
+        "variant": "default"
+      },
+      "content": [
+        {
+          "type": "text",
+          "text": "I'll write that for you."
+        },
+        {
+          "type": "tool",
+          "id": "call_function_tr53ub2nql9i_1",
+          "name": "write",
+          "executed": false,
+          "state": {
+            "status": "error",
+            "input": {},
+            "error": {
+              "type": "aborted",
+              "message": "Tool execution interrupted"
+            }
+          },
+          "time": {
+            "created": 1792570091494,
+            "completed": 1792570093502
+          }
+        }
+      ],
+      "snapshot": {
+        "start": "5198f0e6bf7fa048720c2ef90ad3dba852b4374d",
+        "end": "5198f0e6bf7fa048720c2ef90ad3dba852b4374d",
+        "files": []
+      },
+      "finish": "error",
+      "error": {
+        "type": "aborted",
+        "message": "Step interrupted"
+      }
+    },
+    {
+      "id": "msg_15d80efc4001SVdU0L5kPPNn3G",
+      "time": {
+        "created": 1792570093508
+      },
+      "type": "idle",
+      "outcome": "interrupted"
+    }
+  ]
+}

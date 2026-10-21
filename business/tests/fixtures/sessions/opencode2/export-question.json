@@ -1,0 +1,167 @@
+{
+  "info": {
+    "id": "ses_ea27fb347ffe9TdQgsIApShsEN",
+    "projectID": "global",
+    "model": {
+      "id": "big-pickle",
+      "providerID": "opencode",
+      "variant": "default"
+    },
+    "cost": 0,
+    "tokens": {
+      "input": 1247,
+      "output": 149,
+      "reasoning": 90,
+      "cache": {
+        "read": 10496,
+        "write": 0
+      }
+    },
+    "outcome": "succeeded",
+    "time": {
+      "created": 1792570051778,
+      "updated": 1792570056375,
+      "idle": 1792570056376
+    },
+    "title": "Choosing between red and blue",
+    "location": {
+      "directory": "{{PROJECT}}"
+    }
+  },
+  "messages": [
+    {
+      "id": "msg_15d804cdf001hXjLpd2MfeIE3N",
+      "time": {
+        "created": 1792570052069
+      },
+      "text": "Use the question tool to ask me whether I prefer red or blue (two options). After I answer, reply with my choice.",
+      "type": "user"
+    },
+    {
+      "id": "msg_15d804dee001wSFpZhuIA43Ped",
+      "time": {
+        "created": 1792570052084,
+        "streamed": 1792570054699,
+        "completed": 1792570054710
+      },
+      "type": "assistant",
+      "agent": "build",
+      "model": {
+        "id": "big-pickle",
+        "providerID": "opencode",
+        "variant": "default"
+      },
+      "content": [
+        {
+          "type": "tool",
+          "id": "call_596aed8f43a64bc28ceac00f",
+          "name": "question",
+          "executed": false,
+          "state": {
+            "status": "completed",
+            "input": {
+              "questions": [
+                {
+                  "header": "Color preference",
+                  "question": "Which color do you prefer, red or blue?",
+                  "options": [
+                    {
+                      "label": "Red",
+                      "description": "Pick red as your preferred color."
+                    },
+                    {
+                      "label": "Blue",
+                      "description": "Pick blue as your preferred color."
+                    }
+                  ]
+                }
+              ]
+            },
+            "content": [
+              {
+                "type": "text",
+                "text": "User has answered your questions: \"Which color do you prefer, red or blue?\"=\"blue\". You can now continue with the user's answers in mind."
+              }
+            ],
+            "metadata": {
+              "answers": [
+                [
+                  "blue"
+                ]
+              ],
+              "truncated": false
+            }
+          },
+          "time": {
+            "created": 1792570054452,
+            "ran": 1792570054697,
+            "completed": 1792570054705
+          }
+        }
+      ],
+      "snapshot": {
+        "start": "5198f0e6bf7fa048720c2ef90ad3dba852b4374d",
+        "end": "5198f0e6bf7fa048720c2ef90ad3dba852b4374d",
+        "files": []
+      },
+      "finish": "tool-calls",
+      "rawFinish": "tool_calls",
+      "cost": 0,
+      "tokens": {
+        "input": 299,
+        "output": 134,
+        "reasoning": 0,
+        "cache": {
+          "read": 5120,
+          "write": 0
+        }
+      }
+    },
+    {
+      "id": "msg_15d80583d0017UPQOkOYWSJVgf",
+      "time": {
+        "created": 1792570054724,
+        "streamed": 1792570056370,
+        "completed": 1792570056375
+      },
+      "type": "assistant",
+      "agent": "build",
+      "model": {
+        "id": "big-pickle",
+        "providerID": "opencode",
+        "variant": "default"
+      },
+      "content": [
+        {
+          "type": "text",
+          "text": "You chose **blue**."
+        }
+      ],
+      "snapshot": {
+        "start": "5198f0e6bf7fa048720c2ef90ad3dba852b4374d",
+        "end": "5198f0e6bf7fa048720c2ef90ad3dba852b4374d",
+        "files": []
+      },
+      "finish": "stop",
+      "rawFinish": "stop",
+      "cost": 0,
+      "tokens": {
+        "input": 478,
+        "output": 7,
+        "reasoning": 0,
+        "cache": {
+          "read": 5120,
+          "write": 0
+        }
+      }
+    },
+    {
+      "id": "msg_15d805eb8002rFI1G5cd8rLB3S",
+      "time": {
+        "created": 1792570056376
+      },
+      "type": "idle",
+      "outcome": "succeeded"
+    }
+  ]
+}

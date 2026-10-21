@@ -179,7 +179,7 @@ impl Harness for OpenCode {
     }
 
     fn cli_sessions(&self) -> Option<&dyn CliSessions> {
-        Some(sessions::cli_sessions())
+        Some(sessions::cli_sessions(self.generation()))
     }
 
     /// `opencode plugin <module> -g` (see [`cli`]).
