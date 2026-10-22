@@ -36,6 +36,8 @@ pub const CAPTURED_VARS: &[&str] = &[
     "OPENCODE_CONFIG_PROJECT_DISABLE",
     // The Windows folder of OpenCode 2's system config directory (`%ProgramData%\opencode`).
     "ProgramData",
+    // The Windows folder of Claude Code's managed settings (`%ProgramFiles%\ClaudeCode`).
+    "ProgramFiles",
     // Claude Code's config directory, which also moves its global `.claude.json`.
     "CLAUDE_CONFIG_DIR",
     // Claude Code's cloud provider switches (not secret, shown as set).
@@ -121,12 +123,15 @@ impl Env {
             .map(|name| (*name).to_owned())
             .collect();
 
-        Ok(Self {
+        let env = Self {
             home,
             vars,
             present,
             os: OsKind::current(),
-        })
+        };
+
+        env.guard_private_roots();
+        Ok(env)
     }
 
     /// An environment rooted at `home` with no variables and the current OS (for tests).
@@ -155,7 +160,22 @@ impl Env {
         }
 
         self.vars.insert(name.to_owned(), value);
+        self.guard_private_roots();
         self
+    }
+
+    /// Adds the config directory an absolute `CLAUDE_CONFIG_DIR` names to the deny-list's Claude
+    /// roots (see [`crate::security::deny::add_claude_root`]), so its private files stay unread
+    /// whatever the directory is called.
+    fn guard_private_roots(&self) {
+        let claude_root = self
+            .var("CLAUDE_CONFIG_DIR")
+            .map(Path::new)
+            .filter(|dir| dir.is_absolute());
+
+        if let Some(root) = claude_root {
+            crate::security::deny::add_claude_root(root);
+        }
     }
 
     /// Returns a copy that reports `os` (for platform-specific path tests).

@@ -1,0 +1,5 @@
+{
+  "permissions": { "deny": ["Bash(curl:*)"], "disableBypassPermissionsMode": "disable" },
+  "env": { "OTEL_EXPORTER_OTLP_HEADERS": "CANARY-7f3a9c" },
+  "forceLoginMethod": "claudeai"
+}

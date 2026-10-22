@@ -28,7 +28,7 @@ pub mod ui_request;
 
 pub use config_files::{
     Document, SectionText, first_existing, optional_section, parse_text, read_document, read_json, section,
-    section_from, source, string_list, text_field,
+    section_from, section_with, source, string_list, text_field,
 };
 pub use frontmatter::{parse_frontmatter, read_frontmatter};
 pub use mcp_config::{ParsedServer, parse_servers};

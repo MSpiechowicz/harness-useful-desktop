@@ -1,0 +1,4 @@
+{
+  "model": "claude-haiku-4-5",
+  "env": { "WORK_TOKEN": "CANARY-7f3a9c" }
+}

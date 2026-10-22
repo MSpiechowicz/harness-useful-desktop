@@ -100,6 +100,26 @@ pub fn json_text(value: impl Serialize) -> String {
     serde_json::to_string(&value).expect("DTOs always serialize")
 }
 
+/// Every file below `dir`, sorted (enumeration only: callers read contents through `SafeReader`).
+pub fn files_below(dir: &Path) -> Vec<PathBuf> {
+    let mut files = Vec::new();
+    let mut pending = vec![dir.to_path_buf()];
+
+    while let Some(current) = pending.pop() {
+        for entry in std::fs::read_dir(&current).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() {
+                pending.push(path);
+            } else {
+                files.push(path);
+            }
+        }
+    }
+
+    files.sort();
+    files
+}
+
 /// Sets the Unix permission bits of `path`; nothing to do on other systems.
 pub fn set_mode(path: &Path, mode: u32) {
     #[cfg(unix)]

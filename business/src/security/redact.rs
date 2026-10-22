@@ -54,6 +54,8 @@ enum Scope {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct RedactionContext {
     path: Vec<String>,
+    /// Set by [`Redactor::redact_hidden`]: the whole value is a secret container.
+    hidden: bool,
 }
 
 impl RedactionContext {
@@ -66,6 +68,7 @@ impl RedactionContext {
     {
         Self {
             path: path.into_iter().map(Into::into).collect(),
+            hidden: false,
         }
     }
 
@@ -75,6 +78,10 @@ impl RedactionContext {
     }
 
     fn scope(&self) -> Scope {
+        if self.hidden {
+            return Scope::SecretContainer;
+        }
+
         let keys: Vec<String> = self.path.iter().map(|key| normalize_key(key)).collect();
 
         if keys.iter().any(|key| SECRET_CONTAINERS.contains(&key.as_str())) {
@@ -107,6 +114,18 @@ impl Redactor {
     /// Redacts a whole document.
     pub fn redact(&self, value: &Value) -> ConfigValue {
         self.redact_at(value, &mut RedactionContext::default())
+    }
+
+    /// Redacts `value` as a secret container (rule 3) whatever its keys: keys stay visible, every
+    /// string and number is hidden. For settings a harness documents as secret under a key the
+    /// rules do not know (Claude Code's `pluginConfigs`).
+    pub fn redact_hidden(&self, value: &Value) -> ConfigValue {
+        let mut context = RedactionContext {
+            path: Vec::new(),
+            hidden: true,
+        };
+
+        self.redact_at(value, &mut context)
     }
 
     /// Redacts `value` located at `context`'s key path. The context is restored on return.

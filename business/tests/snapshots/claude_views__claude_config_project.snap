@@ -1,0 +1,706 @@
+---
+source: business/tests/claude_views.rs
+expression: "exported(config(&env, Some(&project)), &home, &project)"
+---
+{
+  "harness": "claude",
+  "sections": [
+    {
+      "id": "managed.settings",
+      "title": "Managed settings",
+      "description": "Settings your organization manages. They override every other file.",
+      "source": {
+        "path": "/home/demo/Program Files/ClaudeCode/managed-settings.json",
+        "layer": "user",
+        "profile": null,
+        "format": "json",
+        "exists": true
+      },
+      "entries": [
+        {
+          "key": "permissions",
+          "value": {
+            "kind": "map",
+            "value": [
+              {
+                "key": "deny",
+                "value": {
+                  "kind": "list",
+                  "value": [
+                    {
+                      "kind": "text",
+                      "value": "Bash(curl:*)"
+                    }
+                  ]
+                }
+              },
+              {
+                "key": "disableBypassPermissionsMode",
+                "value": {
+                  "kind": "text",
+                  "value": "disable"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "key": "env",
+          "value": {
+            "kind": "map",
+            "value": [
+              {
+                "key": "OTEL_EXPORTER_OTLP_HEADERS",
+                "value": {
+                  "kind": "secret",
+                  "value": {
+                    "type": "value"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "key": "forceLoginMethod",
+          "value": {
+            "kind": "text",
+            "value": "claudeai"
+          }
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "managed.dropIn:10-team.json",
+      "title": "Managed settings (10-team.json)",
+      "description": "A managed drop-in file. Claude Code applies the drop-ins after managed-settings.json, in name order.",
+      "source": {
+        "path": "/home/demo/Program Files/ClaudeCode/managed-settings.d/10-team.json",
+        "layer": "user",
+        "profile": null,
+        "format": "json",
+        "exists": true
+      },
+      "entries": [
+        {
+          "key": "model",
+          "value": {
+            "kind": "text",
+            "value": "claude-opus-4-1"
+          }
+        },
+        {
+          "key": "apiKeyHelper",
+          "value": {
+            "kind": "secret",
+            "value": {
+              "type": "command"
+            }
+          }
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "user.settings",
+      "title": "Settings",
+      "description": "Global Claude Code settings: model, permissions, hooks, environment and plugins.",
+      "source": {
+        "path": "/home/demo/.claude/settings.json",
+        "layer": "user",
+        "profile": null,
+        "format": "json",
+        "exists": true
+      },
+      "entries": [
+        {
+          "key": "$schema",
+          "value": {
+            "kind": "text",
+            "value": "https://json.schemastore.org/claude-code-settings.json"
+          }
+        },
+        {
+          "key": "model",
+          "value": {
+            "kind": "text",
+            "value": "claude-sonnet-4-5"
+          }
+        },
+        {
+          "key": "permissions",
+          "value": {
+            "kind": "map",
+            "value": [
+              {
+                "key": "allow",
+                "value": {
+                  "kind": "list",
+                  "value": [
+                    {
+                      "kind": "text",
+                      "value": "Bash(git status)"
+                    }
+                  ]
+                }
+              },
+              {
+                "key": "defaultMode",
+                "value": {
+                  "kind": "text",
+                  "value": "default"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "key": "env",
+          "value": {
+            "kind": "map",
+            "value": [
+              {
+                "key": "ANTHROPIC_BASE_URL",
+                "value": {
+                  "kind": "secret",
+                  "value": {
+                    "type": "value"
+                  }
+                }
+              },
+              {
+                "key": "GATEWAY_TOKEN",
+                "value": {
+                  "kind": "secret",
+                  "value": {
+                    "type": "value"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "key": "apiKeyHelper",
+          "value": {
+            "kind": "secret",
+            "value": {
+              "type": "command"
+            }
+          }
+        },
+        {
+          "key": "awsCredentialExport",
+          "value": {
+            "kind": "secret",
+            "value": {
+              "type": "command"
+            }
+          }
+        },
+        {
+          "key": "awsAuthRefresh",
+          "value": {
+            "kind": "secret",
+            "value": {
+              "type": "command"
+            }
+          }
+        },
+        {
+          "key": "otelHeadersHelper",
+          "value": {
+            "kind": "secret",
+            "value": {
+              "type": "command"
+            }
+          }
+        },
+        {
+          "key": "hooks",
+          "value": {
+            "kind": "map",
+            "value": [
+              {
+                "key": "PostToolUse",
+                "value": {
+                  "kind": "list",
+                  "value": [
+                    {
+                      "kind": "map",
+                      "value": [
+                        {
+                          "key": "matcher",
+                          "value": {
+                            "kind": "text",
+                            "value": "Edit|Write"
+                          }
+                        },
+                        {
+                          "key": "hooks",
+                          "value": {
+                            "kind": "list",
+                            "value": [
+                              {
+                                "kind": "map",
+                                "value": [
+                                  {
+                                    "key": "type",
+                                    "value": {
+                                      "kind": "text",
+                                      "value": "command"
+                                    }
+                                  },
+                                  {
+                                    "key": "command",
+                                    "value": {
+                                      "kind": "text",
+                                      "value": "bun run lint"
+                                    }
+                                  }
+                                ]
+                              },
+                              {
+                                "kind": "map",
+                                "value": [
+                                  {
+                                    "key": "type",
+                                    "value": {
+                                      "kind": "text",
+                                      "value": "http"
+                                    }
+                                  },
+                                  {
+                                    "key": "url",
+                                    "value": {
+                                      "kind": "text",
+                                      "value": "https://hooks.example.com/edit"
+                                    }
+                                  },
+                                  {
+                                    "key": "headers",
+                                    "value": {
+                                      "kind": "map",
+                                      "value": [
+                                        {
+                                          "key": "X-Hook-Key",
+                                          "value": {
+                                            "kind": "secret",
+                                            "value": {
+                                              "type": "value"
+                                            }
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "key": "enabledPlugins",
+          "value": {
+            "kind": "map",
+            "value": [
+              {
+                "key": "useful-skills@useful-skills-local",
+                "value": {
+                  "kind": "bool",
+                  "value": true
+                }
+              }
+            ]
+          }
+        },
+        {
+          "key": "pluginConfigs",
+          "value": {
+            "kind": "map",
+            "value": [
+              {
+                "key": "useful-skills@useful-skills-local",
+                "value": {
+                  "kind": "map",
+                  "value": [
+                    {
+                      "key": "options",
+                      "value": {
+                        "kind": "map",
+                        "value": [
+                          {
+                            "key": "endpoint",
+                            "value": {
+                              "kind": "secret",
+                              "value": {
+                                "type": "value"
+                              }
+                            }
+                          },
+                          {
+                            "key": "retries",
+                            "value": {
+                              "kind": "secret",
+                              "value": {
+                                "type": "value"
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "key": "statusLine",
+          "value": {
+            "kind": "map",
+            "value": [
+              {
+                "key": "type",
+                "value": {
+                  "kind": "text",
+                  "value": "command"
+                }
+              },
+              {
+                "key": "command",
+                "value": {
+                  "kind": "text",
+                  "value": "~/.claude/statusline.sh"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "user.globalFile",
+      "title": "MCP servers",
+      "description": "Your MCP servers in .claude.json, available in every project. Nothing else in this file is shown.",
+      "source": {
+        "path": "/home/demo/.claude.json",
+        "layer": "user",
+        "profile": null,
+        "format": "json",
+        "exists": true
+      },
+      "entries": [
+        {
+          "key": "mcpServers",
+          "value": {
+            "kind": "map",
+            "value": [
+              {
+                "key": "github",
+                "value": {
+                  "kind": "map",
+                  "value": [
+                    {
+                      "key": "type",
+                      "value": {
+                        "kind": "text",
+                        "value": "stdio"
+                      }
+                    },
+                    {
+                      "key": "command",
+                      "value": {
+                        "kind": "text",
+                        "value": "npx"
+                      }
+                    },
+                    {
+                      "key": "args",
+                      "value": {
+                        "kind": "list",
+                        "value": [
+                          {
+                            "kind": "text",
+                            "value": "-y"
+                          },
+                          {
+                            "kind": "text",
+                            "value": "@modelcontextprotocol/server-github"
+                          },
+                          {
+                            "kind": "text",
+                            "value": "--api-key"
+                          },
+                          {
+                            "kind": "secret",
+                            "value": {
+                              "type": "value"
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "key": "env",
+                      "value": {
+                        "kind": "map",
+                        "value": [
+                          {
+                            "key": "GITHUB_PERSONAL_ACCESS_TOKEN",
+                            "value": {
+                              "kind": "secret",
+                              "value": {
+                                "type": "value"
+                              }
+                            }
+                          },
+                          {
+                            "key": "GITHUB_HOST",
+                            "value": {
+                              "kind": "secret",
+                              "value": {
+                                "type": "value"
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "key": "linear",
+                "value": {
+                  "kind": "map",
+                  "value": [
+                    {
+                      "key": "type",
+                      "value": {
+                        "kind": "text",
+                        "value": "http"
+                      }
+                    },
+                    {
+                      "key": "url",
+                      "value": {
+                        "kind": "text",
+                        "value": "https://mcp.linear.app/mcp"
+                      }
+                    },
+                    {
+                      "key": "headers",
+                      "value": {
+                        "kind": "map",
+                        "value": [
+                          {
+                            "key": "Authorization",
+                            "value": {
+                              "kind": "secret",
+                              "value": {
+                                "type": "value"
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "project.settings",
+      "title": "Project settings",
+      "description": "Settings shared with everyone working on this project, usually committed.",
+      "source": {
+        "path": "/home/demo/Projects/demo/.claude/settings.json",
+        "layer": "project",
+        "profile": null,
+        "format": "json",
+        "exists": true
+      },
+      "entries": [
+        {
+          "key": "permissions",
+          "value": {
+            "kind": "map",
+            "value": [
+              {
+                "key": "allow",
+                "value": {
+                  "kind": "list",
+                  "value": [
+                    {
+                      "kind": "text",
+                      "value": "Bash(bun run test)"
+                    },
+                    {
+                      "kind": "text",
+                      "value": "Edit(src/**)"
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "key": "hooks",
+          "value": {
+            "kind": "map",
+            "value": [
+              {
+                "key": "Stop",
+                "value": {
+                  "kind": "list",
+                  "value": [
+                    {
+                      "kind": "map",
+                      "value": [
+                        {
+                          "key": "hooks",
+                          "value": {
+                            "kind": "list",
+                            "value": [
+                              {
+                                "kind": "map",
+                                "value": [
+                                  {
+                                    "key": "type",
+                                    "value": {
+                                      "kind": "text",
+                                      "value": "command"
+                                    }
+                                  },
+                                  {
+                                    "key": "command",
+                                    "value": {
+                                      "kind": "text",
+                                      "value": "bun run guard"
+                                    }
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "key": "enabledPlugins",
+          "value": {
+            "kind": "map",
+            "value": [
+              {
+                "key": "release-notes@demo-market",
+                "value": {
+                  "kind": "bool",
+                  "value": true
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "project.localSettings",
+      "title": "Local project settings",
+      "description": "Your own settings for this project, not committed. They override the project settings.",
+      "source": {
+        "path": "/home/demo/Projects/demo/.claude/settings.local.json",
+        "layer": "project",
+        "profile": null,
+        "format": "json",
+        "exists": true
+      },
+      "entries": [
+        {
+          "key": "permissions",
+          "value": {
+            "kind": "map",
+            "value": [
+              {
+                "key": "allow",
+                "value": {
+                  "kind": "list",
+                  "value": [
+                    {
+                      "kind": "text",
+                      "value": "Bash(git push)"
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "key": "env",
+          "value": {
+            "kind": "map",
+            "value": [
+              {
+                "key": "DEMO_API_TOKEN",
+                "value": {
+                  "kind": "secret",
+                  "value": {
+                    "type": "value"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "key": "enabledMcpjsonServers",
+          "value": {
+            "kind": "list",
+            "value": [
+              {
+                "kind": "text",
+                "value": "docs"
+              }
+            ]
+          }
+        }
+      ],
+      "error": null
+    }
+  ],
+  "notices": [
+    {
+      "level": "info",
+      "message": "Claude Code also loads these memory files, whose text is not shown here: ~/.claude/CLAUDE.md (user), CLAUDE.md (project), CLAUDE.local.md (project, local), .claude/CLAUDE.md (project)."
+    },
+    {
+      "level": "info",
+      "message": "The login (.credentials.json), prompt history, caches and backups are never read. From .claude.json only MCP servers and this project's tool and trust settings are shown."
+    }
+  ]
+}

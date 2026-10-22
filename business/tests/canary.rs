@@ -2,10 +2,15 @@
 //! config value. Reading the whole tree through `SafeReader` and redacting what it returns must
 //! never surface the canary.
 
+mod common;
+
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
+use common::files_below;
+
 use harness_business::BusinessError;
+use harness_business::env::Env;
 use harness_business::model::{ConfigValue, SecretKind};
 use harness_business::security::{RedactionContext, Redactor, SafeReader, is_denied, redact_text};
 use serde_json::json;
@@ -14,26 +19,6 @@ const CANARY: &str = "CANARY-7f3a9c";
 
 fn canary_home() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/canary-home")
-}
-
-/// Every file below `dir` (enumeration only; contents are read through `SafeReader`).
-fn files_below(dir: &Path) -> Vec<PathBuf> {
-    let mut files = Vec::new();
-    let mut pending = vec![dir.to_path_buf()];
-
-    while let Some(current) = pending.pop() {
-        for entry in std::fs::read_dir(&current).unwrap() {
-            let path = entry.unwrap().path();
-            if path.is_dir() {
-                pending.push(path);
-            } else {
-                files.push(path);
-            }
-        }
-    }
-
-    files.sort();
-    files
 }
 
 fn relative(path: &Path) -> String {
@@ -102,22 +87,39 @@ fn reading_and_redacting_the_fixture_home_never_reveals_the_canary() {
     }
 }
 
-/// `tests/fixtures/claude-home`: a synthetic Claude Code home whose private files all hide the canary.
+/// `tests/fixtures/claude-home`: a synthetic Claude Code home whose private files all hide the
+/// canary, with a second config directory (`claude-work`) for `CLAUDE_CONFIG_DIR`.
 fn claude_home() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/claude-home")
 }
 
+/// The files of the Claude fixture home that stay readable: the global files, settings, managed
+/// settings and memory files. Their canaries sit in values the views hide or never show (see
+/// `adapter_canary.rs`).
+const CLAUDE_READABLE: &[&str] = &[
+    ".claude.json",
+    ".claude/CLAUDE.md",
+    ".claude/settings.json",
+    "Program Files/ClaudeCode/managed-settings.d/.draft.json",
+    "Program Files/ClaudeCode/managed-settings.d/10-team.json",
+    "Program Files/ClaudeCode/managed-settings.d/README.txt",
+    "Program Files/ClaudeCode/managed-settings.json",
+    "claude-work/.claude.json",
+    "claude-work/settings.json",
+];
+
 #[test]
 fn every_private_claude_file_is_refused_and_only_its_settings_stay_readable() {
     let home = claude_home();
+    // An environment naming `claude-work` as the config directory covers its private files too.
+    let _env = Env::for_tests(&home).with_var("CLAUDE_CONFIG_DIR", home.join("claude-work").to_string_lossy());
     let mut readable = BTreeSet::new();
 
     for path in files_below(&home) {
         let name = path.strip_prefix(&home).unwrap().to_string_lossy().replace('\\', "/");
 
         match SafeReader::read_to_string(&path, SafeReader::DEFAULT_MAX_BYTES) {
-            Ok(text) => {
-                assert!(!text.contains(CANARY), "{name} is readable and holds the canary");
+            Ok(_) => {
                 readable.insert(name);
             }
             Err(BusinessError::Forbidden(_)) => {
@@ -130,10 +132,7 @@ fn every_private_claude_file_is_refused_and_only_its_settings_stay_readable() {
         }
     }
 
-    let expected: BTreeSet<String> = [".claude.json", ".claude/settings.json"]
-        .into_iter()
-        .map(String::from)
-        .collect();
+    let expected: BTreeSet<String> = CLAUDE_READABLE.iter().copied().map(String::from).collect();
     assert_eq!(readable, expected);
 }
 
