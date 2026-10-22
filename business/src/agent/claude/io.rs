@@ -19,6 +19,7 @@ use serde_json::{Value, json};
 use tokio::sync::oneshot;
 
 use super::dialogs::Outcome;
+use super::reports::reply_text;
 use super::{Chat, Live};
 use crate::agent::io::WriterMsg;
 use crate::agent::process::Stdout;
@@ -27,7 +28,7 @@ use crate::claude_stream::wire::outbound::{HostRequest, control_error, control_r
 use crate::claude_stream::wire::{ControlResponse, decode_value};
 use crate::claude_stream::{Mapped, SendKind};
 use crate::error::{BusinessError, Result};
-use crate::model::{AgentEvent, ChatBlock, MessageRole, StreamingBehavior};
+use crate::model::{AgentEvent, MessageRole, StreamingBehavior};
 use crate::pi_family::rpc::{Frame, FrameReader, RequestKind, RpcResponse, await_response, encode_frame};
 use crate::security::redact_text;
 
@@ -82,7 +83,7 @@ impl Chat {
         for item in mapped {
             match item {
                 Mapped::Event(event) => {
-                    note_reply(live, &event);
+                    note(live, &event);
                     self.shared.emit(*event);
                 }
                 Mapped::Hint(hint) => self.hint(live, hint, &mut answers),
@@ -115,7 +116,18 @@ impl Chat {
             Hint::PromptCompleted(uuid) | Hint::PromptCancelled(uuid) => {
                 self.dequeue(live, std::slice::from_ref(&uuid));
             }
-            Hint::TurnEnded(end) => self.dequeue(live, &end.prompts),
+            Hint::TurnEnded(end) => {
+                let model = live.running_model.clone();
+                live.stats.on_result(&end.result, model.as_deref());
+                self.dequeue(live, &end.prompts);
+
+                // No settle follows a run without a model turn (a compaction, a `!command`'s
+                // output): the chat learns its new state here.
+                if end.quiet {
+                    self.emit_state(live);
+                }
+            }
+            Hint::Compacted(metadata) => live.stats.on_compacted(&metadata),
             Hint::Title(title) => {
                 live.title = Some(title);
                 self.emit_state(live);
@@ -147,7 +159,7 @@ impl Chat {
             Hint::Reply(response) => {
                 self.shared.pending.resolve(rpc_response(response));
             }
-            Hint::Compacted(_) | Hint::RateLimit(_) | Hint::SessionState(_) | Hint::ConversationReset(_) => {}
+            Hint::RateLimit(_) | Hint::SessionState(_) | Hint::ConversationReset(_) => {}
         }
     }
 
@@ -238,27 +250,22 @@ pub(super) fn send_kind(queue: Option<StreamingBehavior>) -> SendKind {
     }
 }
 
-/// Keeps the text of a finished reply for `getLastAssistantText`.
-fn note_reply(live: &mut Live, event: &AgentEvent) {
-    let AgentEvent::MessageEnd { message, .. } = event else {
-        return;
-    };
+/// Counts the chat's messages and keeps the text of a finished reply for `getLastAssistantText`.
+fn note(live: &mut Live, event: &AgentEvent) {
+    let counts = &mut live.counts;
 
-    if message.role != MessageRole::Assistant {
-        return;
-    }
+    match event {
+        AgentEvent::ToolStart { .. } => counts.tool_calls += 1,
+        AgentEvent::ToolEnd { .. } => counts.total += 1,
+        AgentEvent::MessageEnd { message, .. } if message.role == MessageRole::Assistant => {
+            counts.assistant += 1;
+            counts.total += 1;
 
-    let text: Vec<&str> = message
-        .blocks
-        .iter()
-        .filter_map(|block| match block {
-            ChatBlock::Text { text } if !text.is_empty() => Some(text.as_str()),
-            _ => None,
-        })
-        .collect();
-
-    if !text.is_empty() {
-        live.last_reply = Some(text.join("\n\n"));
+            if let Some(text) = reply_text(&message.blocks) {
+                live.last_reply = Some(text);
+            }
+        }
+        _ => {}
     }
 }
 

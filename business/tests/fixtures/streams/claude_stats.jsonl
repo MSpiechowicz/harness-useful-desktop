@@ -1,0 +1,4 @@
+// The statistics after one turn of basic.jsonl: the result's totals and a get_context_usage reply
+// shaped after the SDK type (not recorded: its fields per Verified fact 8).
+{"include": "claude_basic.jsonl"}
+{"expect": "control_request", "subtype": "get_context_usage", "reply": {"totalTokens": 33500, "maxTokens": 1000000, "rawMaxTokens": 1000000, "percentage": 3, "categories": [], "isAutoCompactEnabled": true, "autoCompactThreshold": 950000}}

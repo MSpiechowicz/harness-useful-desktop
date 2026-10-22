@@ -326,7 +326,7 @@ pub async fn start_through(
     let launch = SessionLaunch {
         key: "key-1".to_owned(),
         spec: serve_spec(&project, env),
-        spawner: used.as_ref(),
+        spawner: used.clone(),
         protocol: ChatProtocol::OpenCodeServerV2,
         project: project.clone(),
         sessions_dir: project.clone(),

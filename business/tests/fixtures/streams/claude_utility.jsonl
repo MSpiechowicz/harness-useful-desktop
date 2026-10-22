@@ -1,0 +1,6 @@
+// A helper chat (utility.jsonl): the handshake without the ask-all hook, one naming prompt and its
+// short reply (lines 7 to 21).
+{"expect": "control_request", "subtype": "initialize", "match": {"request": {"subtype": "initialize"}}, "hold": true}
+{"replay": "../claude/stream/utility.jsonl", "from": 5, "to": 5, "replace": {"req_1": "$initialize"}}
+{"expect": "user", "as": "naming", "match": {"/message/content": "Give a 3 word title for a chat about fixing a login bug. Reply with the title only."}}
+{"replay": "../claude/stream/utility.jsonl", "from": 7, "to": 21, "replace": {"a3cef994-b749-4187-8fcf-feac348093bc": "$naming"}}

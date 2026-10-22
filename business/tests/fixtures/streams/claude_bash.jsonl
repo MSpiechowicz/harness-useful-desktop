@@ -1,0 +1,7 @@
+// A !command's output handed to the model (bash.jsonl lines 63 to 67: the quiet message's
+// lifecycle and its result without a model turn), then the next turn reads it (lines 70 to 87).
+{"include": "claude_init.jsonl"}
+{"expect": "user", "as": "bash", "match": {"/message/content": "<bash-input>echo injected-output-42</bash-input>\n<bash-stdout>injected-output-42</bash-stdout><bash-stderr></bash-stderr>", "/shouldQuery": false}}
+{"replay": "../claude/stream/bash.jsonl", "from": 63, "to": 67, "replace": {"27aa876f-0042-44e4-95b6-10b6c7acc078": "$bash"}}
+{"expect": "user", "as": "asked", "match": {"/message/content": "What was the output of my last shell command? Answer with just the output."}}
+{"replay": "../claude/stream/bash.jsonl", "from": 70, "to": 87, "replace": {"ebe736f8-fb44-40c5-a714-be19e3edd2ab": "$asked"}}

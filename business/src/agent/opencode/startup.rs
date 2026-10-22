@@ -88,7 +88,7 @@ impl OpenCodeSession {
         let moded = match rules.mode() {
             Some(mode) => {
                 let probe = Probe {
-                    spawner: launch.spawner,
+                    spawner: launch.spawner.as_ref(),
                     spec: &spec,
                     key: &launch.key,
                     project: &launch.project,
@@ -106,13 +106,15 @@ impl OpenCodeSession {
             process,
             password,
             listening,
-        } = spawn_server(launch.spawner, &spec, launch.key, launch.sink, options).map_err(|error| match &moded {
-            Some(_) => BusinessError::Unsupported(format!(
-                "OpenCode could not be started with the approval mode's configuration ({error}). Start the chat \
+        } = spawn_server(launch.spawner.as_ref(), &spec, launch.key, launch.sink, options).map_err(
+            |error| match &moded {
+                Some(_) => BusinessError::Unsupported(format!(
+                    "OpenCode could not be started with the approval mode's configuration ({error}). Start the chat \
                  without an approval mode"
-            )),
-            None => error,
-        })?;
+                )),
+                None => error,
+            },
+        )?;
 
         let limit = options.startup_timeout;
         let steps = boot(

@@ -1,0 +1,6 @@
+// Renaming (controls.jsonl lines 38 to 40): rename_session with the host as its source, answered
+// after session_title_changed.
+{"include": "claude_init.jsonl"}
+{"expect": "control_request", "subtype": "rename_session", "match": {"/request/title": "Recorded rename", "/request/source": "host"}, "hold": true}
+{"replay": "../claude/stream/controls.jsonl", "from": 39, "to": 39}
+{"respond": "rename_session"}

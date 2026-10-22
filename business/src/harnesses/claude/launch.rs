@@ -8,9 +8,11 @@
 //! flag ever skips them, strips a login method or bypasses the permission mode. An approval
 //! override of Always ask or Write starts Claude Code in its `default` mode (`--permission-mode
 //! default`, see [`modes`](super::modes)); Yolo is refused, and without an override the user's
-//! own mode applies. A resumed session is `--resume <id>`, its id a Claude session UUID. No model flag is passed: the chat starts on
-//! the user's own default model, and the launch request names none. Helper chats (AI naming) are
-//! not available yet.
+//! own mode applies. A resumed session is `--resume <id>`, its id a Claude session UUID; the chat
+//! engine names a new session itself (`--session-id`) and starts the CLI again for a new session,
+//! a switch, a fork or a clone. No model flag is passed: the chat starts on the user's own default
+//! model, and the launch request names none. A helper chat (AI naming) runs without tools, thinking
+//! or a saved session ([`UTILITY_ARGS`]), also on the default model.
 
 use super::modes::WIRE_DEFAULT;
 use super::sessions::is_session_id;
@@ -31,14 +33,12 @@ pub const STREAM_ARGS: [&str; 8] = [
     "--include-partial-messages",
 ];
 
-/// `claude <stream args> [--resume <id>]` in the project.
-pub fn claude_launch_spec(request: &LaunchRequest<'_>) -> Result<ExecSpec> {
-    if request.utility {
-        return Err(BusinessError::Unsupported(
-            "helper chats with Claude Code are not available yet".to_owned(),
-        ));
-    }
+/// The arguments of a helper chat: no tools, no thinking, nothing saved.
+pub const UTILITY_ARGS: [&str; 4] = ["--tools", "", "--thinking=disabled", "--no-session-persistence"];
 
+/// `claude <stream args> [--permission-mode default] [--resume <id> | <utility args>]` in the
+/// project.
+pub fn claude_launch_spec(request: &LaunchRequest<'_>) -> Result<ExecSpec> {
     let mut args: Vec<String> = STREAM_ARGS.map(str::to_owned).to_vec();
 
     match request.approval_override {
@@ -61,6 +61,10 @@ pub fn claude_launch_spec(request: &LaunchRequest<'_>) -> Result<ExecSpec> {
         }
 
         args.extend(flag_with("--resume", id));
+    }
+
+    if request.utility {
+        args.extend(UTILITY_ARGS.map(str::to_owned));
     }
 
     rpc_exec_spec(request.binary, request.project, &args)

@@ -85,7 +85,7 @@ pub(in crate::harnesses::claude) fn session_files_touched(path: &Path, project: 
 }
 
 /// The chat messages of the active path.
-fn transcript(path: &Path) -> Result<Vec<ChatMessage>> {
+pub(super) fn transcript(path: &Path) -> Result<Vec<ChatMessage>> {
     let index = Index::read(path, MAX_INDEXED_ENTRIES)?;
     let wanted: HashSet<usize> = index
         .active_path()

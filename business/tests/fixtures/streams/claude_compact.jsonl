@@ -1,0 +1,5 @@
+// /compact with instructions (compact.jsonl lines 7 to 19): status compacting, the boundary, the
+// summary, the command's output and the quiet result.
+{"include": "claude_init.jsonl"}
+{"expect": "user", "as": "compact", "match": {"/message/content": "/compact keep only the words pong and ping"}}
+{"replay": "../claude/stream/compact.jsonl", "from": 7, "to": 19, "replace": {"f9fa9cdb-22a8-48f8-908e-5fb1d26500e4": "$compact"}}

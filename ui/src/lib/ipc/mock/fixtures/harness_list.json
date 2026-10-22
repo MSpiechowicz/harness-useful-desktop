@@ -158,7 +158,7 @@
       "homepage": "https://code.claude.com"
     },
     "capabilities": {
-      "chat": false,
+      "chat": true,
       "plugins": true,
       "marketplaces": true,
       "packages": false,
@@ -173,14 +173,14 @@
       "approvalModes": true,
       "yoloMode": false,
       "projectTrust": false,
-      "slashCommandsViaPrompt": false,
+      "slashCommandsViaPrompt": true,
       "sessionTree": false,
       "moveSession": false,
       "removeQueued": false,
       "agentPicker": false,
-      "chatPreview": false,
-      "compactInstructions": false,
-      "memoryChatGuards": false
+      "chatPreview": true,
+      "compactInstructions": true,
+      "memoryChatGuards": true
     },
     "detection": {
       "installed": false,
