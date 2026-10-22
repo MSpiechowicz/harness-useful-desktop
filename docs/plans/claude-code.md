@@ -263,7 +263,9 @@ Order: S1 → (Track A: S2 → S3 → S5 → S6 ∥ Track B: S4 ∥ Track C: S0 
 | S5 | CLI actions + Recommended setup | running (`.wt-cc/b`) |
 | S7 | Wire and mapper | done (93743b5). Mid-turn auto-compaction, subagent `task_*`, `api_retry`, `request_user_dialog` and `elicitation` are mapped from the SDK types only (not recorded) |
 | S8 | Engine core | running (`.wt-cc/c`) |
-| S9–S13 | | not started |
+| S11 (part) | Routines name any registered harness | done (608632c). Hooks tool table, memory guards flag and engine tests wait for S10 |
+| S12 (part) | Copy in 5 locales, README, bundle text, light badge `#ac3708` | done (a0aa63c). Left for later: approval notice, demo roster entry as installed, "coming soon" wording to flip in S10 |
+| S9, S10, S13 | | not started |
 
 ## Verified facts (S0 recording, 2026-10-22)
 
