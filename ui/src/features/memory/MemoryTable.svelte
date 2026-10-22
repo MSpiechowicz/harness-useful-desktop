@@ -101,6 +101,8 @@
 
   let grid: { focusRow: (key: string | number) => void } | undefined = $state();
 
+  /** A read for a changed search or filter is under way. The page still on screen answers the old one, so when it is empty, "nothing found" would be a stale claim. */
+  const stale = $derived(loader.status === 'loading' && rows.length === 0);
 
   /** Closes the panel and hands the focus back to the row it was opened from. */
   function close(): Promise<void> {
@@ -129,7 +131,7 @@
     </div>
   {:else if availability && availability.kind !== 'available'}
     <MemoryUnavailable {availability} onretry={() => void loader.refresh()} onrefresh={() => loader.refresh({ quiet: true })} />
-  {:else if none}
+  {:else if none && !stale}
     <div class="grid size-full place-items-center">
       <EmptyState icon={EmptyIcon} title={emptyTitle} body={emptyBody} action={emptyAction} />
     </div>
@@ -138,7 +140,13 @@
       {#snippet body()}
         <FilterRow {count} trailing={hint}>{@render filters()}</FilterRow>
 
-        {#if noMatch}
+        {#if stale}
+          <div class="flex flex-col gap-3 p-4" role="status" aria-label={loadingLabel}>
+            <Skeleton height="2.5rem" />
+            <Skeleton height="2.5rem" />
+            <Skeleton height="2.5rem" />
+          </div>
+        {:else if noMatch}
           <p class="min-h-0 flex-1 px-4 py-10 text-center text-sm text-fg-3" role="status">{noMatch}</p>
         {:else}
           <DataTable
