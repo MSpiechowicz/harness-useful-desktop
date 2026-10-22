@@ -23,23 +23,27 @@ privacy. Made with the app's demo data. [Download the full-quality 4K video](htt
 
 - **Chat with approvals.** Streams the agent's replies, thinking and tool calls (OMP and PI run in `--mode rpc`,
   OpenCode as a local `opencode serve` the app talks to on this machine, Claude Code as a `claude` process in stream-json
-  mode), answers its approval and input dialogs, picks
+  mode, Codex as a `codex app-server` process over stdio), answers its approval and input dialogs, picks
   the model and thinking level (and OpenCode's agent), runs slash commands, and asks before any shell command you
-  send. Chat with OpenCode and Claude Code is a preview. Claude Code chats offer the Always ask, Write and Auto approval modes,
-  never Yolo, and start in a folder Claude Code does not trust only after you pick Trust once.
+  send. Chat with OpenCode, Claude Code and Codex is a preview. Claude Code chats offer the Always ask, Write and Auto approval modes,
+  never Yolo, and start in a folder Claude Code does not trust only after you pick Trust once. Codex chats offer Always ask,
+  Write and Yolo, never Auto, and use a folder's own `.codex` settings only after you pick Trust once.
 - **Sessions and branches.** Lists a project's saved sessions, shows the branch tree of each, opens the transcript,
   resumes or forks. OpenCode sessions are linear: the app lists them, opens the transcript and deletes them through
   the `opencode` CLI, with no branch tree, and resumes or forks them in a chat. Claude Code sessions are listed, opened
-  as a transcript, deleted, and resumed or forked in a chat.
+  as a transcript, deleted, and resumed or forked in a chat. Codex sessions are listed, opened as a transcript and deleted
+  through a short-lived `codex app-server`, with no branch tree.
 - **Changes panel with review comments.** A graphical diff of the working tree (staged, unstaged, untracked). Comment
   on any line and send the comments to the agent as one prompt.
-- **Config viewer.** Settings, MCP servers and profiles of OMP, PI, OpenCode and Claude Code in one readable place, with
+- **Config viewer.** Settings, MCP servers and profiles of OMP, PI, OpenCode, Claude Code and Codex in one readable place, with
   secrets masked.
 - **Extensions.** Plugins, marketplaces, packages, skills, commands, agents, MCP servers and themes, with install,
   enable and update actions run through the harness's own CLI and a dry-run preview where the CLI offers one. For
   OpenCode you can install npm plugins (`opencode plugin <module> -g`) and remove them (the app edits the `plugin` list of
   the global config), but not update or enable them. For Claude Code the app runs `claude plugin …` for plugins and
-  marketplaces and adds MCP servers with `claude mcp add-json`, never by editing `~/.claude.json`.
+  marketplaces and adds MCP servers with `claude mcp add-json`, never by editing `~/.claude.json`. For Codex it runs
+  `codex plugin …` for plugins and marketplaces (no enable, disable or update of a single plugin) and adds MCP servers
+  with `codex mcp add`, never by editing `~/.codex/config.toml`.
 - **Ecosystem tab and dashboard widgets.** Detects the companion tools and shows cost and token widgets from the local
   [Harness Dashboard](https://github.com/MSpiechowicz/harness-useful-dashboard) when it is installed.
 - **Recommended setup.** An optional onboarding step (also **Run recommended setup** on the Ecosystem screen) that,
@@ -48,14 +52,15 @@ privacy. Made with the app's demo data. [Download the full-quality 4K video](htt
   with the skills' own installer, which needs Node.js 22 or newer) and registers the dashboard as an MCP server in each detected harness: in its user `mcp.json` for OMP
   and PI, in the `mcp` object of the global `opencode.json` or `opencode.jsonc` for OpenCode. An OpenCode config file
   with comments is never rewritten, so the app shows the entry to paste instead. The same step can register the app's own
-  `harness-desktop` MCP server (for hooks) in each harness.
+  `harness-desktop` MCP server (for hooks) in each harness. Claude Code and Codex get their entries through their own CLI
+  (`claude mcp`, `codex mcp`). Harness Skills have no Codex adapter yet, so Codex gets the MCP entries only.
 - **Project memory.** Your harnesses share a local memory of what was done, problems and fixes, and where things are,
   per project. See [Project memory](#project-memory).
 - **Hooks.** Small rules that add context to a prompt, send a follow-up after the agent finishes or run a command when
   something happens in a chat, with ready-made ones for Harness Memory and the dashboard. See [Hooks](#hooks).
-- **Share setup.** In Settings, export the marketplaces, plugins, packages and MCP servers of OMP, PI and OpenCode as a `hud1:`
+- **Share setup.** In Settings, export the marketplaces, plugins, packages and MCP servers of OMP, PI, OpenCode, Claude Code and Codex as a `hud1:`
   string or a `.json` file (references and key names, env and header values are never shared), and import one on another
-  machine. For OpenCode that means npm plugins and MCP servers. An import always shows a review of
+  machine. For OpenCode that means npm plugins and MCP servers, for Codex marketplaces, plugins and MCP servers. An import always shows a review of
   the exact commands and files, adds only what you tick after you confirm, and never removes or overwrites anything.
   Format: [docs/share-setup.md](docs/share-setup.md).
 - **Command palette and shortcuts.** Keyboard-first navigation (`Ctrl/Cmd+K`, `Ctrl/Cmd+1..9`), plus a shortcuts
@@ -72,6 +77,7 @@ privacy. Made with the app's demo data. [Download the full-quality 4K video](htt
 | [Pi](https://github.com/earendil-works/pi) (`pi`) | Supported. Tested with PI 1.1. Other versions show as untested. |
 | [OpenCode](https://opencode.ai) (`opencode`) | Partly supported. Works: detection (also in `~/.opencode/bin`), the configuration (JSON with comments, secrets masked), extensions (skills, commands, agents, plugins, MCP servers, themes, with npm plugin install and remove), sessions (list, transcript, delete), the Harness Skills install and the dashboard and memory MCP entries in Recommended setup, and Share setup of npm plugins and MCP servers. Versions 1.18, 1.19 and 2.1 are supported, others show as untested. OpenCode 2 is installed with `npm install -g @opencode/cli`, and the app never starts its background service. It does not import OpenCode 1 sessions, since OpenCode 2 does not read them. Chat works as a preview on OpenCode 1 and OpenCode 2 (see [docs/security-privacy.md](docs/security-privacy.md#opencode-chat) for how the app runs the server, and the [OpenCode 2 plan](docs/plans/opencode-v2.md)). Not done: plugin updates and project-scope plugin installs. |
 | [Claude Code](https://code.claude.com) (`claude`) | Supported, chat as a preview. Works: detection, the configuration (the settings layers, MCP entries from `~/.claude.json`, secrets masked), extensions (plugins, marketplaces, skills, commands, agents, MCP servers, with plugin and marketplace actions through `claude plugin`), sessions (list, transcript, delete, resume, fork), Recommended setup (Harness Skills plugin, MCP entries through `claude mcp`), Share setup and chat over Claude Code's stream-json mode (approval dialogs and questions, Always ask and Write modes, new, resume, fork, clone, rename, compact, export and `!command`). The chat starts in a folder Claude Code does not trust only after you pick Trust once, kept in memory until the app quits, and has no Yolo mode. The app runs your own `claude` with your own login. Versions 2.1.x are supported, others show as untested. |
+| [Codex](https://developers.openai.com/codex) (`codex`) | Supported, chat as a preview. Works: detection, the configuration (`config.toml` of the user and the project, secrets hidden), extensions (plugins, marketplaces, skills, MCP servers, with plugin and marketplace actions through `codex plugin`), sessions (list, transcript, delete), Recommended setup (the dashboard and memory MCP entries through `codex mcp`, no Harness Skills yet) and Share setup of marketplaces, plugins and MCP servers. Chat runs over `codex app-server` with approval dialogs, Always ask, Write and Yolo (no Auto) and Trust once. New, resume, fork, clone, rename, compact, export and `!command` are planned for the preview, see the [Codex plan](docs/plans/codex.md). The app runs your own `codex` with your own login and offers none: sign in from a terminal with `codex login`. Versions 0.154 to 0.156 are supported, others show as untested. |
 | Other harness CLIs | Planned. Adding one is an implementation of the `Harness` trait; see [docs/adding-a-harness.md](docs/adding-a-harness.md). Every new harness must also join Recommended setup (skills install and dashboard MCP). |
 
 The app finds the CLI on `PATH` and in the usual install directories (bun, cargo, npm global, `~/.local/bin`, `~/.opencode/bin`, Homebrew), or you can
@@ -127,7 +133,7 @@ Details and limits: [docs/security-privacy.md](docs/security-privacy.md#project-
 
 ## Hooks
 
-Hooks are small rules the app applies in your chats with OMP, PI and OpenCode. Open the
+Hooks are small rules the app applies in your chats with OMP, PI, OpenCode, Claude Code and Codex. Open the
 Hooks view (after Memory in the rail) to add, edit, switch off and delete them. A hook fires on one event:
 
 - **Session start**: the first message of a new chat. **Every message**: each message you send.
