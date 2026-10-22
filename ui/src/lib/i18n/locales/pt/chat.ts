@@ -301,8 +301,9 @@ export const chat: AreaMessages<typeof enChat> = {
   'chat.trust.doneUntilQuit': 'Pasta confiável até você sair do app',
   'chat.trust.popover': 'Confiar neste projeto',
   'chat.trust.trigger': 'Confiar no projeto uma vez',
-  'chat.trust.warning': 'O PI ignora as extensões, as skills e os modelos de prompt deste projeto até você confiar nele. Confiar permite que o código do projeto rode com as suas permissões.',
-  'chat.trust.scope': 'Vale só para esta sessão. O app pergunta de novo na próxima vez que o PI iniciar. A sessão reinicia e continua de onde parou.',
+  'chat.trust.warning': 'O {harness} ignora as extensões, as skills e os modelos de prompt deste projeto até você confiar nele. Confiar permite que o código do projeto rode com as suas permissões.',
+  'chat.trust.warning.codex': 'O Codex ignora as configurações, os hooks e as regras de .codex/ deste projeto até você confiar nele. Confiar permite que o código do projeto rode com as suas permissões.',
+  'chat.trust.scope': 'Vale só para esta sessão. O app pergunta de novo na próxima vez que o {harness} iniciar. A sessão reinicia e continua de onde parou.',
   'chat.trust.action': 'Reiniciar e confiar neste projeto',
 
   'chat.request.closes': 'Fecha sozinho quando o tempo acabar',

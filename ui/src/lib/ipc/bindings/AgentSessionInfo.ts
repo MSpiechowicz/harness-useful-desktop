@@ -43,6 +43,12 @@ nativeApprovalMode: NativeApprovalMode | null,
  */
 trustedOnce: boolean, 
 /**
+ * Whether trusting the project once would change anything for this harness: false when it
+ * has nothing of the project to leave out (Codex without an untrusted `.codex/` layer), so
+ * the chat offers no trust button.
+ */
+trustOffered: boolean, 
+/**
  * RPC protocol version reported by the agent, once known.
  */
 protocolVersion: number | null, };

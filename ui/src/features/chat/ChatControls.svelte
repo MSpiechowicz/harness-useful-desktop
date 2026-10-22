@@ -17,8 +17,11 @@
 
   const capabilities = $derived(harness.get(session.info.harness)?.capabilities);
   // A harness that starts only in a folder it trusts (Claude Code) has nothing left to trust in a running chat: it only
-  // shows that this chat trusted the project once.
-  const showTrust = $derived(Boolean(capabilities?.projectTrust) && (!capabilities?.projectTrustRequired || session.info.trustedOnce));
+  // shows that this chat trusted the project once. One that has nothing of this project to leave out (Codex without an
+  // untrusted .codex layer) offers no trust button either.
+  const showTrust = $derived(
+    Boolean(capabilities?.projectTrust) && (session.info.trustedOnce || (!capabilities?.projectTrustRequired && session.info.trustOffered)),
+  );
 </script>
 
 <!-- The open chat's controls, in the top bar's right side: how it asks before acting, what it shows, what it used. -->
