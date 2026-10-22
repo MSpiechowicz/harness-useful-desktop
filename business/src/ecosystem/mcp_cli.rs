@@ -15,7 +15,7 @@
 //! - Each run has a time limit of [`MCP_CLI_TIMEOUT`], runs without a shell and with the harness's
 //!   spawn environment ([`HarnessCli`]). When one fails, the file is read once more: a decision
 //!   that no longer needs a change (the server appeared meanwhile) is reported, anything else is
-//!   refused as `WriteFailed`. Nothing is retried, so a registration at launch never loops.
+//!   refused as `CliFailed`. Nothing is retried, so a registration at launch never loops.
 //!
 //! Logs name the harness, the command and the server, with the CLI's redacted last line; never a
 //! file's contents.
@@ -113,7 +113,7 @@ async fn change_via_cli<R>(
 
     match decide(&again) {
         Change::Keep(value) => Ok(value),
-        Change::Write(..) => Err(Blocked::Refused(McpRefusal::WriteFailed)),
+        Change::Write(..) => Err(Blocked::Refused(McpRefusal::CliFailed)),
     }
 }
 

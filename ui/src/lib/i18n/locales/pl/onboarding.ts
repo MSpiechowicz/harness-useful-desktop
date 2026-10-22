@@ -241,6 +241,7 @@ export const onboarding: AreaMessages<typeof enOnboarding> = {
   'onboarding.setup.refused.tooLarge': 'Plik jest większy niż 2 MiB.',
   'onboarding.setup.refused.unreadable': 'Nie udało się odczytać pliku.',
   'onboarding.setup.refused.writeFailed': 'Aplikacja nie mogła zapisać pliku (sprawdź, czy nie jest tylko do odczytu i czy możesz go edytować).',
+  'onboarding.setup.refused.cliFailed': 'Polecenie „claude mcp” nie powiodło się, więc nic nie zmieniono. Uruchom je w terminalu, żeby zobaczyć powód.',
   'onboarding.setup.chip.running': 'Pracuję…',
   'onboarding.setup.chip.failed': 'Błąd',
   'onboarding.setup.chip.skipped': 'Pominięto',

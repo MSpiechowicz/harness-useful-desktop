@@ -11,7 +11,7 @@ use std::time::Duration;
 
 use claude_support::{FakeClaude, binary, cli, read_object, stdio, write_json};
 use harness_business::ecosystem::{
-    DesktopRegistration, McpFile, MemoryRegistration, Shape, mcp_target, register_dashboard_mcp_cli,
+    Blocked, DesktopRegistration, McpFile, MemoryRegistration, Shape, mcp_target, register_dashboard_mcp_cli,
     register_desktop_mcp_cli, register_memory_mcp, register_memory_mcp_cli, unregister_memory_mcp_cli,
 };
 use harness_business::env::Env;
@@ -237,10 +237,26 @@ async fn a_failed_add_is_refused_once_without_a_retry() {
 
     assert_eq!(
         home.memory_registration(&fake, false).await,
-        MemoryRegistration::Refused(McpRefusal::WriteFailed)
+        MemoryRegistration::Refused(McpRefusal::CliFailed)
     );
     assert_eq!(fake.argvs().len(), 1, "one run, no retry");
     assert!(!home.global().exists(), "the app never writes the file");
+}
+
+#[tokio::test]
+async fn a_failed_remove_is_refused_as_a_failed_cli_run_and_not_a_write_failure() {
+    let home = Home::new();
+    let entry = stdio(&path_text(&home.memory()));
+    write_json(&home.global(), &json!({ "mcpServers": { "harness-memory": entry } }));
+
+    let fake = home.fake();
+    fake.fail("remove");
+
+    let claude = binary(home.dir.path());
+    let removed = unregister_memory_mcp_cli(cli(&home.env, &fake, &claude), &home.file()).await;
+
+    assert_eq!(removed, Err(Blocked::Refused(McpRefusal::CliFailed)));
+    assert_eq!(fake.argvs(), [remove("harness-memory")], "one run, no retry");
 }
 
 #[tokio::test]
@@ -253,7 +269,7 @@ async fn a_failed_change_puts_the_old_entry_back() {
     fake.fail("add-json");
     assert_eq!(
         home.memory_registration(&fake, true).await,
-        MemoryRegistration::Refused(McpRefusal::WriteFailed)
+        MemoryRegistration::Refused(McpRefusal::CliFailed)
     );
 
     let new = stdio(&path_text(&home.memory()));
@@ -351,7 +367,7 @@ async fn a_batch_script_claude_never_gets_the_json_argument() {
 
     let outcome = register_memory_mcp_cli(cli(&home.env, &fake, &shim), &home.file(), &home.memory(), false).await;
 
-    assert_eq!(outcome, MemoryRegistration::Refused(McpRefusal::WriteFailed));
+    assert_eq!(outcome, MemoryRegistration::Refused(McpRefusal::CliFailed));
     assert!(fake.argvs().is_empty(), "nothing runs");
 }
 

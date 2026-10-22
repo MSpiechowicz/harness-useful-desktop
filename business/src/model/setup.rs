@@ -183,6 +183,10 @@ pub enum McpRefusal {
     /// (permissions, a full disk, ...), or the file kept changing while it was being updated.
     /// Nothing was changed.
     WriteFailed,
+    /// The harness's CLI changes this file (Claude Code: `claude mcp add-json` and `remove`), and
+    /// that run failed, timed out or could not start. The file was read again afterwards and still
+    /// needs the change. Nothing is retried.
+    CliFailed,
 }
 
 /// Outcome of running a companion installer (`setup_install_dashboard`, `setup_install_memory`).

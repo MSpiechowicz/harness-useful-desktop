@@ -231,6 +231,7 @@ export const onboarding = {
   'onboarding.setup.refused.tooLarge': 'The file is larger than 2 MiB.',
   'onboarding.setup.refused.unreadable': 'The file could not be read.',
   'onboarding.setup.refused.writeFailed': 'The app could not write the file (check that it is not read-only and that you may edit it).',
+  'onboarding.setup.refused.cliFailed': 'The “claude mcp” command failed, so nothing was changed. Run it in a terminal to see why.',
   'onboarding.setup.chip.running': 'Working…',
   'onboarding.setup.chip.failed': 'Failed',
   'onboarding.setup.chip.skipped': 'Skipped',

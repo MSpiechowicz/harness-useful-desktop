@@ -31,7 +31,10 @@
 <section class="flex flex-col gap-2" aria-label={title}>
   <h4 class="text-xs font-medium tracking-wider text-fg-3 uppercase">{title}</h4>
 
-  {#if refused}
+  {#if refused === 'cliFailed'}
+    <!-- Claude Code's file is changed by its CLI only: a snippet to paste into it would be wrong advice. -->
+    <p class="text-sm text-fg-2">{refusalText(refused)}</p>
+  {:else if refused}
     <p class="text-sm text-fg-2">{t('onboarding.setup.mcp.refused', { reason: refusalText(refused) })}</p>
     <SetupCommand text={mcpSnippet(kind, harness, harnesses.openCodeGeneration)} copyLabel={t('onboarding.setup.copySnippet')} />
   {:else if manualEdit}

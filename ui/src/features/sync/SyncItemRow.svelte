@@ -8,7 +8,7 @@
   import SyncCommand from './SyncCommand.svelte';
   import SyncNotices from './SyncNotices.svelte';
   import SyncRow from './SyncRow.svelte';
-  import { commandLine, itemLabel, mcpEntryJson, showsVersion, statusChip, statusNote } from './sync-model';
+  import { addedByCli, commandLine, itemLabel, mcpEntryJson, showsVersion, statusChip, statusNote } from './sync-model';
   import type { ImportController } from './sync-import-state.svelte';
 
   interface Props {
@@ -49,5 +49,5 @@
     {/if}
   {/each}
 
-  <SyncNotices runsProgram={item.runsProgram} envKeys={item.envKeys} headerKeys={item.headerKeys} notes={item.notes} />
+  <SyncNotices runsProgram={item.runsProgram} envKeys={item.envKeys} headerKeys={item.headerKeys} notes={item.notes} viaCli={addedByCli(item)} />
 </SyncRow>

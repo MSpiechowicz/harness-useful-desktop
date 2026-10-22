@@ -132,8 +132,43 @@ export function mcpSnippet(kind: McpKind, harness?: HarnessId, generation: OpenC
 }`;
 }
 
+/**
+ * The `claude` line an action runs, exactly as `business/src/harnesses/claude/cli.rs` builds it: always with `--json`,
+ * and `--scope user` wherever the CLI takes one. An action Claude Code cannot run (a package) has no line.
+ */
+function claudeCommand(action: ExtensionAction): string | null {
+  switch (action.type) {
+    case 'pluginInstall':
+      return `claude plugin install ${action.target} --scope ${action.scope} --json`;
+    case 'pluginUninstall':
+      return `claude plugin uninstall ${action.name} --scope user --json`;
+    case 'pluginEnable':
+      return `claude plugin enable ${action.name} --scope user --json`;
+    case 'pluginDisable':
+      return `claude plugin disable ${action.name} --scope user --json`;
+    case 'pluginUpgrade':
+      return action.name ? `claude plugin update ${action.name} --scope user --json` : null;
+    case 'marketplaceAdd':
+      return `claude plugin marketplace add ${action.source} --scope user --json`;
+    case 'marketplaceRemove':
+      return `claude plugin marketplace remove ${action.name} --scope user --json`;
+    case 'marketplaceUpdate':
+      return action.name ? `claude plugin marketplace update ${action.name} --json` : 'claude plugin marketplace update';
+    default:
+      return null;
+  }
+}
+
 /** The harness CLI line an action stands for, as shown in the confirmation. */
 export function commandOf(harness: HarnessId, action: ExtensionAction): string {
+  if (harness === 'claude') {
+    const line = claudeCommand(action);
+
+    if (line) {
+      return line;
+    }
+  }
+
   switch (action.type) {
     case 'pluginInstall':
       return `${harness} plugin install ${action.target} --scope ${action.scope}`;
@@ -160,6 +195,7 @@ const REFUSAL_KEYS: Record<McpRefusal, MessageKey> = {
   tooLarge: 'onboarding.setup.refused.tooLarge',
   unreadable: 'onboarding.setup.refused.unreadable',
   writeFailed: 'onboarding.setup.refused.writeFailed',
+  cliFailed: 'onboarding.setup.refused.cliFailed',
 };
 
 /** Why the app leaves an MCP file alone, in a sentence. */

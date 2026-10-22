@@ -13,11 +13,13 @@
     envKeys: string[];
     headerKeys: string[];
     notes: SyncNote[];
+    /** The server is added by running the harness's CLI. */
+    viaCli?: boolean;
   }
 
-  let { runsProgram, envKeys, headerKeys, notes }: Props = $props();
+  let { runsProgram, envKeys, headerKeys, notes, viaCli = false }: Props = $props();
 
-  const keys = $derived(keysLine(envKeys, headerKeys));
+  const keys = $derived(keysLine(envKeys, headerKeys, viaCli));
   // The version line says it already.
   const shown = $derived(notes.filter((note) => note !== 'versionInformational'));
 </script>
@@ -40,8 +42,11 @@
   </p>
 {/if}
 
-{#if shown.length > 0}
+{#if shown.length > 0 || viaCli}
   <ul class="flex flex-col gap-0.5 text-xs text-fg-3">
+    {#if viaCli}
+      <li>{t('sync.note.addedByCli')}</li>
+    {/if}
     {#each shown as note (note)}
       <li>{noteText(note)}</li>
     {/each}

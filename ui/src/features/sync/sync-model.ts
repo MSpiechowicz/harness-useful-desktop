@@ -8,9 +8,11 @@ import type { SyncItemKind } from '$lib/ipc/bindings/SyncItemKind';
 import type { SyncItemStatus } from '$lib/ipc/bindings/SyncItemStatus';
 import type { SyncMcpPreview } from '$lib/ipc/bindings/SyncMcpPreview';
 import type { SyncNote } from '$lib/ipc/bindings/SyncNote';
+import type { SyncItemOutcome } from '$lib/ipc/bindings/SyncItemOutcome';
 import type { SyncImportResult } from '$lib/ipc/bindings/SyncImportResult';
 import type { SyncOutcome } from '$lib/ipc/bindings/SyncOutcome';
 import type { SyncSkipReason } from '$lib/ipc/bindings/SyncSkipReason';
+import type { SyncStep } from '$lib/ipc/bindings/SyncStep';
 import type { OpenCodeGeneration } from '$lib/ipc/harness-ids';
 
 export type Tone = 'neutral' | 'accent' | 'success' | 'warning' | 'danger' | 'info';
@@ -84,6 +86,7 @@ const REFUSAL_KEYS: Record<McpRefusal, MessageKey> = {
   tooLarge: 'onboarding.setup.refused.tooLarge',
   unreadable: 'onboarding.setup.refused.unreadable',
   writeFailed: 'onboarding.setup.refused.writeFailed',
+  cliFailed: 'onboarding.setup.refused.cliFailed',
 };
 
 export function noteText(note: SyncNote): string {
@@ -192,11 +195,28 @@ export function outcomeNote(outcome: SyncOutcome, notes: SyncNote[] = []): strin
   }
 }
 
-/** The names of the variables and headers a server needs, for "Needs …", or null when it needs none. */
-export function keysLine(envKeys: string[], headerKeys: string[]): string | null {
+/** The sentence under an MCP server that the harness's own CLI failed to add (Claude Code's `claude mcp add-json`), or null for any other item. The CLI's summary and command line are shown under it. */
+export function failedCliNote(item: Pick<SyncItemOutcome, 'kind' | 'outcome' | 'argv'>): string | null {
+  return item.kind === 'mcpServer' && item.outcome.type === 'failed' && item.argv[1] === 'mcp' ? t('sync.outcome.cliFailed') : null;
+}
+
+/** True for an MCP server the import adds by running the harness's CLI (Claude Code's `claude mcp add-json`) instead of writing a file. */
+export function addedByCli(item: { kind: SyncItemKind; steps: SyncStep[] }): boolean {
+  return item.kind === 'mcpServer' && item.steps.some((step) => step.type === 'cli');
+}
+
+/**
+ * The names of the variables and headers a server needs, for "Needs …", or null when it needs none. A server added through the CLI
+ * has no file the person can edit, so the line says where its values go.
+ */
+export function keysLine(envKeys: string[], headerKeys: string[], viaCli = false): string | null {
   const keys = [...envKeys, ...headerKeys];
 
-  return keys.length > 0 ? t('sync.needsKeys', { keys: keys.join(', ') }) : null;
+  if (keys.length === 0) {
+    return null;
+  }
+
+  return t(viaCli ? 'sync.needsKeysCli' : 'sync.needsKeys', { keys: keys.join(', ') });
 }
 
 /** The MCP entry an import writes, as it lands in the harness's servers object: exactly the fields the backend writes, arguments on one line. OpenCode's file has its own shape, and OpenCode 2's differs from OpenCode 1's. */

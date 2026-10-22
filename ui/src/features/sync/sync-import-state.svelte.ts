@@ -10,7 +10,7 @@ import type { SyncProgress } from '$lib/ipc/bindings/SyncProgress';
 import { IpcFailure, type Transport } from '$lib/ipc/transport';
 
 import { IdSelection } from './id-selection.svelte';
-import { itemLabel, manualEditOf, outcomeChip, outcomeNote, type Chip } from './sync-model';
+import { failedCliNote, itemLabel, manualEditOf, outcomeChip, outcomeNote, type Chip } from './sync-model';
 
 export type ImportStage = 'input' | 'review' | 'applying' | 'result';
 
@@ -293,7 +293,7 @@ function finishedRow(outcome: SyncItemOutcome, label: string = outcome.label): R
     kind: outcome.kind,
     label,
     chip: outcomeChip(outcome.outcome),
-    note: outcomeNote(outcome.outcome, outcome.notes),
+    note: failedCliNote(outcome) ?? outcomeNote(outcome.outcome, outcome.notes),
     notes: outcome.notes,
     summary: outcome.summary,
     argv: outcome.argv,
