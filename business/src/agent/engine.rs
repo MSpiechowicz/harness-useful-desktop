@@ -6,12 +6,14 @@
 //! - OpenCode 2 server ([`OpenCodeV2Session`]): `opencode serve` 2.x and its `/api` routes.
 //! - Claude Code stream-json ([`ClaudeSession`]): `claude` in stream-json mode with its control
 //!   protocol.
+//! - Codex app server ([`CodexSession`]): `codex app-server`, JSON-RPC on stdio.
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use super::SessionOptions;
 use super::claude::ClaudeSession;
+use super::codex::CodexSession;
 use super::opencode::OpenCodeSession;
 use super::opencode_v2::OpenCodeV2Session;
 use super::process::StartAbort;
@@ -66,6 +68,8 @@ pub enum AgentSession {
     OpenCodeV2(OpenCodeV2Session),
     /// The Claude Code stream-json engine.
     Claude(ClaudeSession),
+    /// The `codex app-server` engine.
+    Codex(CodexSession),
 }
 
 impl AgentSession {
@@ -76,6 +80,7 @@ impl AgentSession {
             ChatProtocol::OpenCodeServer => OpenCodeSession::start(launch).await.map(Self::OpenCode),
             ChatProtocol::OpenCodeServerV2 => OpenCodeV2Session::start(launch).await.map(Self::OpenCodeV2),
             ChatProtocol::ClaudeStream => ClaudeSession::start(launch).await.map(Self::Claude),
+            ChatProtocol::CodexAppServer => CodexSession::start(launch).await.map(Self::Codex),
         }
     }
 
@@ -86,6 +91,7 @@ impl AgentSession {
             Self::OpenCode(session) => session.protocol_version(),
             Self::OpenCodeV2(session) => session.protocol_version(),
             Self::Claude(session) => session.protocol_version(),
+            Self::Codex(session) => session.protocol_version(),
         }
     }
 
@@ -96,6 +102,7 @@ impl AgentSession {
             Self::OpenCode(session) => session.exit_info(),
             Self::OpenCodeV2(session) => session.exit_info(),
             Self::Claude(session) => session.exit_info(),
+            Self::Codex(session) => session.exit_info(),
         }
     }
 
@@ -106,6 +113,7 @@ impl AgentSession {
             Self::OpenCode(session) => session.is_running(),
             Self::OpenCodeV2(session) => session.is_running(),
             Self::Claude(session) => session.is_running(),
+            Self::Codex(session) => session.is_running(),
         }
     }
 
@@ -116,6 +124,7 @@ impl AgentSession {
             Self::OpenCode(session) => session.send(action).await,
             Self::OpenCodeV2(session) => session.send(action).await,
             Self::Claude(session) => session.send(action).await,
+            Self::Codex(session) => session.send(action).await,
         }
     }
 
@@ -126,6 +135,7 @@ impl AgentSession {
             Self::OpenCode(session) => session.move_project(project, sessions_dir).await,
             Self::OpenCodeV2(session) => session.move_project(project, sessions_dir).await,
             Self::Claude(session) => session.move_project(project, sessions_dir).await,
+            Self::Codex(session) => session.move_project(project, sessions_dir).await,
         }
     }
 
@@ -136,6 +146,7 @@ impl AgentSession {
             Self::OpenCode(session) => session.respond(response).await,
             Self::OpenCodeV2(session) => session.respond(response).await,
             Self::Claude(session) => session.respond(response).await,
+            Self::Codex(session) => session.respond(response).await,
         }
     }
 
@@ -146,6 +157,7 @@ impl AgentSession {
             Self::OpenCode(session) => session.bash(command).await,
             Self::OpenCodeV2(session) => session.bash(command).await,
             Self::Claude(session) => session.bash(command).await,
+            Self::Codex(session) => session.bash(command).await,
         }
     }
 
@@ -156,6 +168,7 @@ impl AgentSession {
             Self::OpenCode(session) => session.emit(event),
             Self::OpenCodeV2(session) => session.emit(event),
             Self::Claude(session) => session.emit(event),
+            Self::Codex(session) => session.emit(event),
         }
     }
 
@@ -166,6 +179,7 @@ impl AgentSession {
             Self::OpenCode(session) => session.on_prompt_taken(taken),
             Self::OpenCodeV2(session) => session.on_prompt_taken(taken),
             Self::Claude(session) => session.on_prompt_taken(taken),
+            Self::Codex(session) => session.on_prompt_taken(taken),
         }
     }
 
@@ -176,6 +190,7 @@ impl AgentSession {
             Self::OpenCode(session) => session.stop().await,
             Self::OpenCodeV2(session) => session.stop().await,
             Self::Claude(session) => session.stop().await,
+            Self::Codex(session) => session.stop().await,
         }
     }
 }

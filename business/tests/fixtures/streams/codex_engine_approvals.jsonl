@@ -1,0 +1,12 @@
+// The turn of 02_turn_approvals_accept.jsonl: the first command allowed once, the file change for the
+// session (Codex offers it for file changes), the last command rejected (only accept, a rule
+// amendment and cancel are listed: Always allow is not offered, decline still works, see 03).
+{"include": "codex_engine_open.jsonl"}
+{"expect": "turn/start", "match": {"/params/threadId": "01a164a0-4c41-7613-9735-20de2a8016a8"}, "reply": {"turn": {"id": "01a164a0-4c86-7902-8de6-44d0f7bc8ac7", "items": [], "itemsView": "notLoaded", "status": "inProgress", "error": null, "startedAt": null, "completedAt": null, "durationMs": null}}}
+{"replay": "../codex/app_server/02_turn_approvals_accept.jsonl", "from": 4, "to": 42, "except": ["response"]}
+{"expect": "answer", "match": {"/id": 0, "/result/decision": "accept"}}
+{"replay": "../codex/app_server/02_turn_approvals_accept.jsonl", "from": 44, "to": 53, "except": ["response"]}
+{"expect": "answer", "match": {"/id": 1, "/result/decision": "acceptForSession"}}
+{"replay": "../codex/app_server/02_turn_approvals_accept.jsonl", "from": 55, "to": 66, "except": ["response"]}
+{"expect": "answer", "match": {"/id": 2, "/result/decision": "decline"}}
+{"replay": "../codex/app_server/02_turn_approvals_accept.jsonl", "from": 68, "to": 104, "except": ["response"]}

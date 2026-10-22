@@ -2,17 +2,19 @@
 //!
 //! Everything lives in one home directory (`~/.codex` or `CODEX_HOME`, see [`paths`]): the
 //! `config.toml` settings, skills, plugins and the sessions of every project. The harness is
-//! detected and listed for now: the config and extension views are empty, sessions and chat are
-//! not available yet, and the catalog lists every command as unsupported. The login store
-//! (`auth.json`) is never read.
+//! detected and listed for now: the config and extension views are empty, sessions are not
+//! available yet, and the catalog lists every command as unsupported. The chat engine runs
+//! `codex app-server` ([`launch`], [`ChatProtocol::CodexAppServer`]) but chat stays off until its
+//! approvals and session operations land. The login store (`auth.json`) is never read.
 
 mod catalog;
+mod launch;
 mod paths;
 
 pub use catalog::CodexCatalog;
+pub use launch::{APP_SERVER_ARGS, codex_launch_spec, is_thread_id};
 pub use paths::{PROJECT_DIR_NAME, codex_home};
 
-use crate::error::BusinessError;
 use crate::harness::prelude::*;
 use crate::harnesses::pi::PiDialect;
 use crate::model::{SessionMessagesPage, SessionRef, SessionSummary, SessionTree};
@@ -77,14 +79,19 @@ impl Harness for Codex {
         &catalog::CATALOG
     }
 
-    /// Chat with Codex is not available yet.
-    fn launch_spec(&self, _request: &LaunchRequest<'_>) -> Result<ExecSpec> {
-        Err(chat_not_available())
+    /// `codex app-server` in the project (see [`launch`]); the manager does not offer it yet
+    /// (`capabilities.chat` is false).
+    fn launch_spec(&self, request: &LaunchRequest<'_>) -> Result<ExecSpec> {
+        launch::codex_launch_spec(request)
     }
 
-    /// Never reached: chat is off (`capabilities.chat` is false).
+    /// Never reached: Codex chats over [`ChatProtocol::CodexAppServer`], not RPC.
     fn dialect(&self) -> &'static dyn RpcDialect {
         &PiDialect
+    }
+
+    fn chat_protocol(&self) -> ChatProtocol {
+        ChatProtocol::CodexAppServer
     }
 
     /// `<home>/sessions`, shared by every project (see [`paths`]).
@@ -148,10 +155,6 @@ impl Harness for Codex {
     }
 }
 
-fn chat_not_available() -> BusinessError {
-    BusinessError::Unsupported("Codex chat is not available yet".to_owned())
-}
-
-fn sessions_not_available() -> BusinessError {
-    BusinessError::Unsupported("Codex sessions are not available yet".to_owned())
+fn sessions_not_available() -> crate::error::BusinessError {
+    crate::error::BusinessError::Unsupported("Codex sessions are not available yet".to_owned())
 }
