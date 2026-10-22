@@ -110,6 +110,23 @@ OpenCode 2 (2.1) renamed some tools and the argument that names the file:
 
 A relative path resolves against the working directory of the OpenCode session. One hook can match the file changes of both generations by naming every id: `edit|write|apply_patch|patch`. Likewise `bash|shell` for the shell tool and `task|subagent` for subagents. The same rules apply as on OpenCode 1: only paths inside the project count, and tool calls made inside a subagent are not reported. A session that OpenCode 2 migrated from OpenCode 1 may still hold `apply_patch` calls and a `filePath` argument, and both count as file changes.
 
+Claude Code reports its native tool ids, which are capitalized (the matcher ignores ASCII case, so `edit` matches `Edit`). The ids the app knows (`business/src/claude_stream/tools.rs`):
+
+| Tool | What it does | Touched paths |
+| --- | --- | --- |
+| `Bash` | runs a shell command | none |
+| `Read` | reads a file | none |
+| `Edit`, `MultiEdit` | replace text in the file in `file_path` (`MultiEdit` is in older Claude Code versions) | that file |
+| `Write` | writes the file in `file_path` | that file |
+| `NotebookEdit` | edits a cell of the notebook in `notebook_path` | that notebook |
+| `Task` | runs a subagent | none |
+| `AskUserQuestion` | asks the user questions | none |
+| `mcp__<server>__<tool>` | tool `<tool>` of MCP server `<server>` | none |
+
+`Edit`, `MultiEdit`, `Write` and `NotebookEdit` are the file changes, so the matcher `Edit|MultiEdit|Write|NotebookEdit` (or in lowercase, `edit|multiedit|write|notebookedit`) matches every one of them. `Bash` matches the shell tool. The app lists only these names, and a tool of another name is reported as Claude Code names it and has no touched paths. Only paths inside the project count, and a call that failed adds none. A relative path resolves against the working directory of the Claude Code session. Tool calls made inside a subagent (a `Task`) are not reported: they fire no `toolEnd` and add no touched paths. Claude Code's own hooks in its settings are not these hooks and run in Claude Code as they do in a terminal.
+
+Hooks run for Claude Code once its chat is switched on. Until then (`capabilities.chat` is `false`) the app has no Claude Code chat to fire them in.
+
 ## Events
 
 - `sessionStart`: the first eligible prompt of a new desktop chat (fresh or after a new session, including `/new`). Eligible means a user prompt that is not a steer or follow-up and does not start with `/` or `!`. When its context does not fit in the prompt (see Prompt text), it fires again on the next eligible prompt. A `sessionStart` whose hooks produced nothing (a command without output) does not.
