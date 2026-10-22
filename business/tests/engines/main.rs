@@ -9,6 +9,8 @@ mod agent_support;
 mod claude_engine_support;
 #[path = "../support/claude_recorded/mod.rs"]
 mod claude_recorded;
+#[path = "../support/codex_recorded/mod.rs"]
+mod codex_recorded;
 #[path = "../support/common/mod.rs"]
 mod common;
 #[path = "../support/fake_opencode2_support/mod.rs"]
@@ -49,6 +51,11 @@ mod claude_engine_turns;
 mod claude_launch;
 mod claude_wire;
 mod claude_wire_encode;
+mod codex_mapper;
+mod codex_mapper_asks;
+mod codex_mapper_crafted;
+mod codex_wire;
+mod fake_codex;
 mod fake_opencode;
 mod fake_opencode2;
 mod mcp_client;
