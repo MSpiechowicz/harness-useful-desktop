@@ -183,9 +183,9 @@ engine `agent/codex/`. Stdio only: no ports, no password, no daemon.
 | S1 skeleton | done (a2703b9). Light badge `#1d64c8` (dashboard blue too faint on its wash) |
 | S2, S3, S5, S6 | done (merged 9814795). `sessions/` + `archived_sessions/` denied (decision 3: sessions via app-server). Unverified against the real CLI: `codex mcp add` on an existing name, `codex plugin` output/exit codes, `[marketplaces.X]` keys `ref`/`sparse_paths`, `.agents/skills` lookup, built-in `openai-curated` marketplace not listed. Config source view prints TOML in YAML style (S12) |
 | S7 wire + mapper + fake_agent dialect | done (4b6c697, merged d096c22). Codex 0.154 offers commands only accept / acceptWithExecpolicyAmendment / cancel: "Always" for a command only when `acceptForSession` is offered, never the amendment (writes a lasting rule) |
-| S4 sessions | running in `/home/frogius/Projekty/.wt-cx/b` (wip/cx-b) |
-| S8 engine core | running in `/home/frogius/Projekty/.wt-cx/c` (wip/cx-c) |
-| Next | S9, S10, S11, S12, S13, reviews 3+3 |
+| S4 sessions | done (merged 6ca290a). Real CLI check 2026-10-22: `thread/list` leaves `forkedFromId` out (only `thread/read` has it), so no session tree / fork count; a fork is listed only after its own first turn (preview = its own prompt); an unknown id answers `-32600 "thread not loaded: <id>"` (→ NotFound); unloaded saved threads read fine; parent delete with forks → `-32600 "… forked history still references it"`. Cwd filter is exact (subfolder threads not listed) |
+| S8 engine core | done (merged dbf2185). Spawn `-c check_for_update_on_startup=false -c features.in_app_updates=false` (both accepted by the real CLI). `summary:"auto"` accepted but gpt-5.6-terra returns no reasoning text either way. Approval overrides refused until S9. Desktop does not pass `attachments_dir` yet (S10) |
+| Next | S9 approvals + modes + trust, S10 ops + chat on, then S11, S12, S13, reviews 3+3 |
 
 ## Verified facts (S0 recording, 2026-10-22)
 

@@ -57,8 +57,9 @@ impl Harness for Codex {
         }
     }
 
-    /// What the views list, the extension actions the CLI runs and the sessions (forks name their
-    /// parent, so the Sessions view counts them). Chat arrives in a later step of the plan.
+    /// What the views list and the extension actions the CLI runs. No session tree: Codex 0.154's
+    /// `thread/list` leaves `forkedFromId` out (only `thread/read` has it), so forks are not
+    /// counted. Chat arrives in a later step of the plan.
     fn capabilities(&self) -> Capabilities {
         Capabilities {
             plugins: true,
@@ -66,7 +67,6 @@ impl Harness for Codex {
             mcp: true,
             skills: true,
             cli_actions: true,
-            session_tree: true,
             ..Capabilities::default()
         }
     }

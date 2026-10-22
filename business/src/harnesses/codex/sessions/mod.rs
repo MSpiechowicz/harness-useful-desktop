@@ -384,12 +384,13 @@ fn owned_thread(server: &mut AppServer, ctx: &CliSessionCtx<'_>, id: &str) -> Re
     Ok(read.thread)
 }
 
-/// A failed call about thread `id`: Codex's "not found" is `NotFound`.
+/// A failed call about thread `id`: Codex's "not found" is `NotFound`. Codex 0.154 answers an
+/// unknown id with "thread not loaded" (a saved thread reads fine without being loaded).
 fn thread_failure(error: CallError, method: &str, id: &str) -> BusinessError {
     if let CallError::Rpc(rpc) = &error {
         let message = rpc.message.to_lowercase();
 
-        if message.contains("not found") || message.contains("no rollout") {
+        if message.contains("not found") || message.contains("not loaded") || message.contains("no rollout") {
             return not_found(id);
         }
     }
