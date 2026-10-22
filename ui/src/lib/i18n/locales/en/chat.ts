@@ -340,6 +340,7 @@ export const chat = {
   'chat.toast.noAnswer': 'The agent did not get your answer',
   'chat.toast.alreadySent': 'That message already reached the agent',
   'chat.toast.startFailed': 'Could not start the agent',
+  'chat.toast.startFailedHint': 'Check that the agent (OMP, PI, OpenCode) is up to date. An outdated version is the most common cause.',
   'chat.toast.comingSoon': 'Chat with {harness} is coming soon',
   'chat.toast.comingSoonBody': 'Sessions, configuration and extensions already work.',
   'chat.toast.stopFailed': 'Could not stop the agent',
