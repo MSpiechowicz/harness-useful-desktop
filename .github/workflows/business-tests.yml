@@ -73,6 +73,10 @@ jobs:
       fail-fast: false
       matrix:
         shard: ${{ fromJSON(inputs.shards) }}
+    env:
+      # insta finds stored snapshots through the workspace root, which it asks `cargo metadata` for when this is
+      # unset. These jobs install no Rust toolchain, so name the root (otherwise every snapshot reads as new).
+      INSTA_WORKSPACE_ROOT: ${{ github.workspace }}
     steps:
       # The checkout supplies fixtures and test sources (CARGO_MANIFEST_DIR); nothing is compiled here, and no
       # Rust toolchain is installed (cargo-nextest does not call cargo when it runs an archive).
@@ -108,6 +112,7 @@ jobs:
       # `.cargo/config.toml` sets this for cargo runs. Spell it out so the archive run does not depend on
       # nextest applying cargo's [env] table.
       TS_RS_EXPORT_DIR: ${{ github.workspace }}/ui/src/lib/ipc/bindings
+      INSTA_WORKSPACE_ROOT: ${{ github.workspace }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
