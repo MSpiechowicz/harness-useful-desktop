@@ -1,12 +1,13 @@
 //! The model a Claude Code chat starts on against the scripted `claude` (the recorded handshake of
-//! claude_init.jsonl): Harness Skills' default model role for a new session without a pick, never
-//! for a resumed, forked, cloned or helper session, and the `default` entry's model otherwise.
+//! claude_init.jsonl): Harness Skills' default model role for a new session without a pick, kept
+//! when that chat forks, clones or switches, never read for a resumed or helper session, and the
+//! `default` entry's model otherwise.
 
 mod agent_support;
 mod claude_engine_support;
 
 use claude_engine_support::{BASIC_SESSION, Chat, Setup, argv, prompt};
-use harness_business::model::{AgentAction, AgentEvent, AgentReply, SessionState};
+use harness_business::model::{AgentAction, AgentEvent, AgentReply, HarnessId, SessionRef, SessionState};
 use pretty_assertions::assert_eq;
 
 /// The models file that starts new chats on Sonnet 5.5 with high effort.
@@ -229,6 +230,39 @@ async fn a_helper_chat_never_reads_the_models_file() {
 
     assert_eq!(models_flags(&argv(&chat, 0)), Vec::<&str>::new());
     assert_eq!(first_state(&chat).await.thinking_level, None);
+
+    chat.stop().await;
+}
+
+/// A chat that started on the default role keeps it when it switches sessions, so the model it
+/// shows does not fall back to the CLI's default. A chat with a pick carries the pick instead.
+#[tokio::test]
+async fn a_switch_keeps_the_role_the_chat_started_on() {
+    let chat = Setup {
+        sessions: &[BASIC_SESSION],
+        models_file: Some(SONNET_HIGH),
+        ..Setup::new(&["claude_init.jsonl", "claude_init.jsonl"])
+    }
+    .start()
+    .await;
+    assert_eq!(
+        models_flags(&argv(&chat, 0)),
+        ["--model=claude-sonnet-5-5", "--effort=high"]
+    );
+
+    let switch = AgentAction::SwitchSession {
+        session: SessionRef {
+            harness: HarnessId::Claude,
+            id: BASIC_SESSION.to_owned(),
+        },
+    };
+    assert_eq!(chat.send(switch).await, AgentReply::Ack);
+    spawned(&chat, 2).await;
+    assert_eq!(
+        models_flags(&argv(&chat, 1)),
+        ["--model=claude-sonnet-5-5", "--effort=high"],
+        "the switched session keeps the role"
+    );
 
     chat.stop().await;
 }

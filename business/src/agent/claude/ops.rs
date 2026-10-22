@@ -132,14 +132,14 @@ impl ClaudeSession {
         let old = self.run();
         old.process.ensure_running()?;
 
-        let (model, sent) = {
+        let (model, carried, sent) = {
             let live = old.chat.lock();
 
             if live.is_busy() {
                 return Err(working(action));
             }
 
-            (live.model.clone(), live.counts.total)
+            (live.model.clone(), live.launched_role.clone(), live.counts.total)
         };
 
         let mut stopped = self.stopped.subscribe();
@@ -147,7 +147,7 @@ impl ClaudeSession {
             stopped.wait_for(|stopped| *stopped).await.ok();
         });
 
-        let (new, reply) = self.launcher.launch(&start, model.as_deref(), abort).await?;
+        let (new, reply) = self.launcher.launch(&start, model.as_deref(), carried, abort).await?;
 
         if let Err(error) = self.commit(&old, &new, reply, sent, action) {
             new.process.stop().await;

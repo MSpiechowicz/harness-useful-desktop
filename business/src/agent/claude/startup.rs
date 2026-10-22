@@ -171,7 +171,7 @@ impl ClaudeSession {
             options: launch.options.clone(),
         });
 
-        let (run, reply) = launcher.launch(&start, None, launch.abort).await?;
+        let (run, reply) = launcher.launch(&start, None, None, launch.abort).await?;
         run.open(reply);
 
         Ok(Self {
@@ -185,17 +185,20 @@ impl ClaudeSession {
 
 impl Launcher {
     /// Spawns `claude` for `start` (on `model`, the chat's pick, when there is one, else a new
-    /// session on Harness Skills' default role) and completes the handshake; the process is not
-    /// opened yet. A failed start kills it.
+    /// session on Harness Skills' default role, read again, and a fork, clone or switch on the role
+    /// the chat ran on, `carried`) and completes the handshake; the process is not opened yet. A
+    /// failed start kills it.
     pub(super) async fn launch(
         &self,
         start: &Start,
         model: Option<&str>,
+        carried: Option<Selection>,
         abort: StartAbort<'_>,
     ) -> Result<(Arc<Run>, InitializeReply)> {
         let role = match start {
-            Start::New(_) if model.is_none() => self.default_role().await,
-            _ => None,
+            _ if model.is_some() => None,
+            Start::New(_) => self.default_role().await,
+            _ => carried,
         };
 
         let spec = command_line(&self.base, start, model, role.as_ref());
@@ -216,8 +219,9 @@ impl Launcher {
         live.model = model.map(str::to_owned);
 
         if let Some(role) = role {
-            live.launched_model = Some(role.model);
-            live.thinking = role.effort;
+            live.launched_model = Some(role.model.clone());
+            live.thinking = role.effort.clone();
+            live.launched_role = Some(role);
         }
 
         if matches!(start, Start::Fork { .. }) {

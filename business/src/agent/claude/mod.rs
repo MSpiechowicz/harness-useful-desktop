@@ -92,6 +92,8 @@ struct Live {
     model: Option<String>,
     /// The model the process started on without a pick (Harness Skills' default role).
     launched_model: Option<String>,
+    /// The Harness Skills role the process launched on, kept for fork, clone and switch.
+    launched_role: Option<roles::Selection>,
     /// The model the latest `system/init` named.
     running_model: Option<String>,
     /// The thinking level the chat picked, `None` until it picks one (Claude Code does not report
@@ -149,6 +151,7 @@ impl Live {
             models: Vec::new(),
             model: None,
             launched_model: None,
+            launched_role: None,
             running_model: None,
             thinking: None,
             commands: Vec::new(),
