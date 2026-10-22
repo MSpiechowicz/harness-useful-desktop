@@ -166,7 +166,9 @@ fn a_claude_routine_in_yolo_is_refused() {
         .expect_err("no Yolo for Claude Code");
 
     assert!(
-        refused.to_string().contains("\"yolo\" is for omp or opencode only"),
+        refused
+            .to_string()
+            .contains("\"yolo\" is for omp, opencode or codex only"),
         "{refused}"
     );
     assert_eq!(fixture.setup.spawner.spawned(), 0, "nothing started");

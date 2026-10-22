@@ -44,7 +44,7 @@ impl CodexSession {
             AgentAction::GetSessionStats => {
                 let live = chat.lock();
                 Ok(AgentReply::Stats {
-                    stats: live.stats.session_stats(live.counts),
+                    stats: live.stats.session_stats(live.message_counts()),
                 })
             }
             _ => Err(BusinessError::Internal("not a setting action".to_owned())),
@@ -129,7 +129,7 @@ impl Chat {
             thinking_level: current_effort(live),
             agent: None,
             context_usage: live.stats.context().cloned(),
-            message_count: live.counts.total,
+            message_count: live.message_counts().total,
             queued_count: queued,
             is_streaming: live.mapper.is_working(),
             is_compacting: live.mapper.is_compacting(),

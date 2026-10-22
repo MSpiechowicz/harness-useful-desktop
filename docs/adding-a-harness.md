@@ -1,13 +1,16 @@
 # Adding a harness
 
-A harness is one coding-agent CLI. The app supports OMP, PI, OpenCode and Claude Code today. This guide adds a new one, called
+A harness is one coding-agent CLI. The app supports OMP, PI, OpenCode, Claude Code and Codex today. This guide adds a new one, called
 `acme` (binary `acme`) in the examples. The UI renders from `HarnessInfo`, `Capabilities` and the views an adapter
 returns, so most of the work is Rust in `business/`. OMP and PI are the references for a harness the app chats with
 (PI-family files and RPC). OpenCode (`business/src/harnesses/opencode/`) is the reference for a harness with another
 chat protocol (its own server, see [Other chat protocols](#other-chat-protocols)) and whose saved sessions are only
 reachable through its CLI. Claude Code (`business/src/harnesses/claude/`) is the reference for a stdio engine with a
 protocol of its own (`ChatProtocol::ClaudeStream`, no server, no password), for session files in another format and for
-a plugin marketplace plus an MCP file that only the CLI may change.
+a plugin marketplace plus an MCP file that only the CLI may change. Codex (`business/src/harnesses/codex/`) is the
+reference for an `app-server` style engine (JSON-RPC over stdio, `ChatProtocol::CodexAppServer`), for saved sessions
+read through a short-lived helper process of the CLI, for a TOML config the app only reads and for the lessons in
+[Lessons from Codex](#lessons-from-codex).
 
 **Fit check.** The chat engine drives a harness over stdio with newline-delimited JSON requests that carry an `id`,
 answered by `response` frames (`pi_family::rpc`). A CLI that can be driven that way fits, even when its frames
@@ -15,7 +18,9 @@ differ: the `RpcDialect` decides every frame it sends and decodes. A CLI with an
 stream of events with no request ids on the user's messages) needs a chat engine of its own. OpenCode has one over HTTP
 and Claude Code has one over stdio (see [Other chat protocols](#other-chat-protocols)): Claude Code has requests with
 ids (the control protocol), but its user messages carry none and a turn ends with a `result` frame instead of a
-response, so it does not fit `RpcDialect`. Whether Codex fits depends on its protocol, and it is not implemented.
+response, so it does not fit `RpcDialect`. Codex has a JSON-RPC protocol over stdio (`codex app-server`) with ids on
+requests, responses and server requests, but no `type` field on its frames, a handshake of its own and per-method
+results, so it does not fit `RpcDialect` either and has an engine of its own.
 
 A CLI without a fitting protocol can still ship with `capabilities.chat` false. Detection, the configuration and
 extension views, sessions and Recommended setup work as for any harness. `launch_spec` returns
@@ -322,7 +327,7 @@ results before delegating to `decode_common`).
 The default is `ChatProtocol::Rpc(self.dialect())`, which is OMP and PI. A harness with another protocol returns
 another variant, and `AgentSession` (`business/src/agent/engine.rs`) is an enum with one engine per protocol:
 `RpcSession` (`agent/session.rs`), `OpenCodeSession` (`agent/opencode/`), `OpenCodeV2Session` (`agent/opencode_v2/`) and
-`ClaudeSession` (`agent/claude/`). One
+`ClaudeSession` (`agent/claude/`) and `CodexSession` (`agent/codex/`). One
 harness can return different protocols by version: OpenCode answers `ChatProtocol::OpenCodeServer` for 1.x and
 `ChatProtocol::OpenCodeServerV2` for 2.x, chosen from the generation `note_version` stored. A new engine:
 
@@ -343,7 +348,7 @@ harness can return different protocols by version: OpenCode answers `ChatProtoco
   `approvalModes` and `compactInstructions` (see [Capabilities](#capabilities)).
 
 Test the engine with `fake_agent --dialect opencode --scenario <file.jsonl>` (`--dialect opencode2` for OpenCode 2,
-`--dialect claude` for Claude Code), see [Tests](#11-tests).
+`--dialect claude` for Claude Code, `--dialect codex` for Codex), see [Tests](#11-tests).
 
 **Claude Code is the reference for a stdio engine** (`ChatProtocol::ClaudeStream`, `AgentSession::Claude`). It starts one
 `claude --output-format stream-json --verbose --input-format stream-json --permission-prompt-tool stdio
@@ -373,6 +378,38 @@ policy: Claude Code sets `approvalModes` and `autoMode` but not `yoloMode`, beca
 [Capabilities](#capabilities)). `launch_spec` ignores `trust_once`: the gate is `Harness::check_project_trust` in the
 manager, and a launch that trusts the project once simply skips it. The chat is a preview (`chatPreview`). The plan with
 the protocol facts is [claude-code.md](plans/claude-code.md).
+
+**Codex is the reference for an `app-server` style engine** (`ChatProtocol::CodexAppServer`, `AgentSession::Codex`): a
+JSON-RPC peer on stdio, which has requests both ways. The app starts one `codex app-server` per chat
+(`harnesses/codex/launch.rs`) and the work splits in two, as for Claude Code:
+
+- `business/src/codex_rpc/` is pure code that never spawns anything: `wire/` (serde types for only what the app uses,
+  taken from the bindings the CLI generates, `codex app-server generate-ts`, and the encoders of the app's requests),
+  `mapper/` (`CodexMapper`: notifications and server requests to `AgentEvent`s plus hints for the engine, with `tools.rs`
+  for the tool cards and the project files a call touched, `asks.rs` for approvals and questions, `turns.rs` and
+  `replies.rs`) and `stats.rs`. It is tested against recordings.
+- `business/src/agent/codex/` is the engine on top of `AgentProcess`: `startup.rs` (spawn, `initialize` then `initialized`,
+  `model/list`, `thread/start` or `thread/resume`), `io.rs` (the stdout reader that maps every frame under the chat's lock,
+  the table that matches responses to the requests waiting for them and the refusals), `prompts.rs`, `dialogs.rs` and
+  `forms.rs` (approvals, questions, elicitations), `approvals.rs` (the approval modes and trust), `settings.rs` (model,
+  reasoning, state, statistics) and `images.rs`.
+- Saved sessions are read through a second, short-lived `codex app-server` per view load
+  (`harnesses/codex/sessions/`), never from the rollout files, whose format differs between versions.
+
+Rules for an engine like this:
+
+- **Match requests to responses by id, and map notifications on their own.** The transport pieces (`FrameReader`,
+  `PendingRequests`) fit. `RpcDialect` does not: its handshake is ready-frame based, `encode_ui_response` has no method
+  context and its decoder assumes a `type` field.
+- **Answer every request the server sends, and refuse what you do not serve.** Codex asks the app for approvals,
+  questions and tool calls, and for token refreshes. Dynamic tool calls and `account/chatgptAuthTokens/refresh` are
+  refused at once, an unknown method too (`io.rs`).
+- **Decode only the fields you use, and tolerate the rest.** Frames and items gain fields between weekly releases. An
+  item type the app does not show decodes as an ignored item (`wire/items.rs`).
+- **Settle each turn from its own end notification** (`turn/completed`), never from a response.
+- **Set the mode on the thread, not on the turn.** The approval policy and sandbox go on `thread/start` and
+  `thread/resume`, so the user's writable roots survive. A mode change resumes the thread.
+- Regenerate the bindings and re-record on every CLI version bump, and list the tested versions in `supported_versions`.
 
 ## 7. Sessions
 
@@ -405,6 +442,12 @@ OpenCode's commands, all with `--pure` (no external plugins): `session list --pu
 It takes `--standalone` instead on every call (`session list --standalone --format json -n 5000`, `session export
 --standalone <id>`, `session delete --standalone <id>`), because without it the CLI starts its background service and
 leaves it running. See `harnesses/opencode/sessions/v2.rs`.
+
+**Codex** is a third shape of CLI sessions: no command lists them, but its `app-server` does. `cli_sessions()` starts a
+short-lived `codex app-server` per view load (`harnesses/codex/sessions/app_server.rs`, a time limit of 30 seconds, one
+at a time, the result cached) and asks `thread/list`, `thread/turns/list`, `thread/items/list` and `thread/delete`. The
+adapter overrides the five file methods to return `Unsupported`, as it must for any CLI harness. What the real CLI
+does is in the [plan](plans/codex.md): `thread/list` leaves `forkedFromId` out, so there is no session tree.
 
 **Session files.** `sessions_dir` is required. The default `list_sessions`, `resolve_session`, `session_tree`, `session_messages` and
 `session_files_touched` read PI-family session files (`<timestamp>_<id>.jsonl`, entries linked by `id`/`parentId`)
@@ -453,6 +496,11 @@ Claude Code maps its plugin and marketplace actions to `claude plugin …` in th
 `message` of the result line). It has no package actions and updates one plugin at a time. It never sends `-y`/`--yes`: that
 would accept a marketplace-declared command without showing it, so such a plugin is installed from a terminal. There is
 no preview flag, so a dry run only reports the command line.
+
+Codex maps its actions to `codex plugin add|remove <name@marketplace>` and `codex plugin marketplace add|remove|upgrade`
+(`harnesses/codex/cli.rs`), always in the user scope and in the home folder. It has no `--json`, so the CLI's last line is
+the summary, no preview flag, and no command to switch a plugin on or off or to update one, so those actions return
+`Unsupported`.
 
 `run_cli_action` runs the binary without a shell in the project (or the home directory), with a 5 minute timeout and
 capped output, strips ANSI escapes and redacts both streams. See `business/src/harnesses/omp/cli.rs` and
@@ -523,6 +571,13 @@ fn companion_setup(&self) -> CompanionSetup {
   user <name> '<json>'` and `claude mcp remove --scope user <name>` (`business/src/ecosystem/mcp_cli.rs`), with the
   same decisions as for the other files, a 60 second limit per run and no retry. The entry is `{"type": "stdio",
   "command": "<absolute path>", "args": ["mcp"]}`.
+- `CodexCli`: Codex's user `config.toml` (`$CODEX_HOME/config.toml`, else `~/.codex/config.toml`), key `mcp_servers`. The
+  file is TOML with the user's own formatting and comments, so the app only reads it (`Shape::CodexCli`) and changes it
+  through `codex mcp add <name> -- <absolute path> mcp` (or `--url <url>`) and `codex mcp remove <name>`
+  (`business/src/ecosystem/mcp_cli.rs`, same decisions and limits as `ClaudeCli`). `codex mcp add` takes only a command
+  and its arguments, or a URL and a bearer token variable, so a change whose old or new entry holds anything else
+  (`env` values, `http_headers`, `enabled`, timeouts) is refused before anything runs: an entry with literal secrets is
+  never rewritten.
 - `Unsupported`: the CLI has no user MCP file the app can write. The step then shows "No MCP file to edit" for it, and
   the harness gets no project memory entry.
 
@@ -562,12 +617,14 @@ fn share_support(&self) -> ShareSupport {
 ```
 
 `ShareSupport` (`business/src/harness/mod.rs`) has one flag per `SyncItemKind`. OMP declares marketplaces, plugins and
-MCP servers, PI declares packages and MCP servers, OpenCode declares plugins and MCP servers, and Claude Code declares
-marketplaces, plugins and MCP servers.
+MCP servers, PI declares packages and MCP servers, OpenCode declares plugins and MCP servers, and Claude Code and Codex
+declare marketplaces, plugins and MCP servers.
 
 - **`mcp_servers`** needs `McpTarget::UserMcpJson` (or `OpenCodeConfig`) in `companion_setup` ([Recommended setup](#9-recommended-setup)): the
   export reads, and the import merges into, the file `mcp_target_paths` returns for the harness (it returns `None` for
-  any other target, so only strict-JSON `mcpServers` files are shared). `McpTarget::ClaudeCli` shares the user scope
+  any other target, so only strict-JSON `mcpServers` files are shared). `McpTarget::CodexCli` shares the
+  `mcp_servers` of Codex's `config.toml` as key names only (`business/src/sync/collect_codex.rs`), and the import runs `codex mcp add`
+  per server. `McpTarget::ClaudeCli` shares the user scope
   of Claude Code's global file: the import never merges it but runs `claude mcp add-json --scope user` per server
   (`business/src/sync/apply_mcp_cli.rs`, the arguments of `ecosystem::mcp_cli::add_json_args`), and a server with a
   `${…}` substitution is left out and refused. Only user scope is shared. With
@@ -586,9 +643,10 @@ marketplaces, plugins and MCP servers.
 - **Reading what is installed.** The MCP reader is generic. The other kinds read the harness's own registry files:
   `collect_kind` in `business/src/sync/collect.rs` (export) and `Machine::read` in `business/src/sync/plan_presence.rs`
   (statuses `alreadyPresent`, `differentVersion`, `conflict`) currently understand OMP's marketplace and plugin
-  registries, PI's `packages` setting, OpenCode's `plugin` lists (`business/src/harnesses/opencode/share.rs`) and Claude
+  registries, PI's `packages` setting, OpenCode's `plugin` lists (`business/src/harnesses/opencode/share.rs`), Claude
 Code's `known_marketplaces.json` and `installed_plugins.json` (`business/src/harnesses/claude/setup.rs`, export in
-`business/src/sync/collect_claude.rs`). A harness that stores these elsewhere needs a reader there too (through
+`business/src/sync/collect_claude.rs`) and the `[marketplaces]` and `[plugins]` tables of Codex's `config.toml`
+(`harnesses/codex/extensions.rs`, export in `business/src/sync/collect_codex.rs`). A harness that stores these elsewhere needs a reader there too (through
   `SafeReader`, returning only references, never credentials); one that uses the same files reuses the readers.
 - **Validation is shared.** Sources and ids are checked by `business/src/sync/validate.rs` and `validate_source.rs`
   (MCP fields by `validate_mcp.rs`), which allow `npm:` (registry names, `github:owner/repo`, `https:`/`git+https:`),
@@ -608,23 +666,25 @@ Follow the same pattern for the new harness.
 | --- | --- | --- |
 | Detection | `detection.rs` | Binary lookup, override validation, version parsing and support, install hint. |
 | Paths | `harness_paths.rs`, `session_paths.rs` | `paths` and `sessions_dir` for default and overridden env. |
-| Views | `omp_views.rs`, `pi_views.rs`, `opencode_views.rs`, `claude_views.rs`, `claude_extensions.rs` | Snapshot (`insta`) of `config_view` and `extensions_view` over a fixture home `business/tests/fixtures/acme-home/` and the demo project. |
-| Leaks | `canary.rs`, `adapter_canary.rs`, `safe_reader.rs`, `deny_claude.rs` | Hide `CANARY-7f3a9c` in deny-listed files and secret values of your fixture home; no view may contain it. `adapter_canary.rs` iterates every registered harness; add your fixture home to its environments. |
+| Views | `omp_views.rs`, `pi_views.rs`, `opencode_views.rs`, `claude_views.rs`, `claude_extensions.rs`, `codex_views.rs` | Snapshot (`insta`) of `config_view` and `extensions_view` over a fixture home `business/tests/fixtures/acme-home/` and the demo project. |
+| Leaks | `canary.rs`, `adapter_canary.rs`, `safe_reader.rs`, `deny_claude.rs`, `deny_codex.rs` | Hide `CANARY-7f3a9c` in deny-listed files and secret values of your fixture home; no view may contain it. `adapter_canary.rs` iterates every registered harness; add your fixture home to its environments. |
 | Catalog | `catalog.rs` | Native, live and shared merge; every command's invocation. |
 | Dialect | `rpc_dialects.rs`, `rpc_commands.rs`, `rpc_normalize.rs` | Encoded frames per action, decoded recorded frames, handshake. Not needed when `capabilities.chat` is false. |
-| Sessions | `sessions_store.rs`, `sessions_claude.rs`, `sessions_claude_transcript.rs` | Listing, tree and transcript over fixture sessions in `business/tests/fixtures/sessions/acme/` (Claude Code: `sessions/claude/`, synthetic files shaped after the real structure, with `attachment` and `api-request*` lines that must stay out). |
+| Sessions | `sessions_store.rs`, `sessions_claude.rs`, `sessions_claude_transcript.rs`, `sessions_codex.rs` (the helper process against `fake_agent --dialect codex`) | Listing, tree and transcript over fixture sessions in `business/tests/fixtures/sessions/acme/` (Claude Code: `sessions/claude/`, synthetic files shaped after the real structure, with `attachment` and `api-request*` lines that must stay out). |
 | CLI sessions | `sessions_opencode.rs`, `sessions_opencode_transcript.rs`, `blocking_runner.rs` | A replay `BlockingRunner` returns recorded CLI output (`business/tests/fixtures/sessions/opencode/`): list, empty list, transcript paging, files touched, delete, other-project filtering, invalid ids spawn nothing. `blocking_runner.rs` runs `StdRunner` against a real child process. |
-| CLI actions | `cli_actions.rs`, `claude_cli_actions.rs` | Argument construction, validation errors, dry run, failure line. |
-| Chat engine | `agent_session.rs`, `agent_manager.rs`, `agent_dialogs.rs`, `agent_failures.rs` | The real session engine against `fake_agent`. A non-RPC engine has its own set, for OpenCode `opencode_engine*.rs`, `opencode_launch.rs`, `opencode_http.rs` and the mapper tests, over recordings of the real server in `business/tests/fixtures/opencode/server/` and scenarios in `business/tests/fixtures/streams/opencode_*.jsonl`. For Claude Code: `claude_launch.rs`, `claude_wire*.rs`, `claude_mapper*.rs`, `claude_tools.rs`, `claude_stats.rs`, `claude_allow_list.rs` (the pure `claude_stream` code over the scrubbed recordings in `business/tests/fixtures/claude/stream/`), `claude_engine*.rs` (the engine against `fake_agent --dialect claude` and the scenarios in `business/tests/fixtures/streams/claude_*.jsonl`: approvals and questions in `claude_engine_asks.rs`, the approval modes in `claude_engine_modes.rs`, `!command` in `claude_engine_bash.rs`, session operations in `claude_engine_ops.rs`) and `claude_chat_start.rs` (the folder trust gate and the helper chat through the manager). |
-| Recommended setup | `setup_status.rs`, `setup_mcp_register.rs` | `setup_status`: skills and MCP state of your harness on an empty machine, with the skills installed and with the MCP entry present (build the fixture files in a temp home). `setup_mcp_register.rs`: the `mcp.json` merge for your `also_read` files. `setup_mcp_register_opencode.rs`: the same for a JSONC file (a file with comments gives `ManualEdit`, nothing written). `setup_status_claude.rs` and `setup_mcp_register_claude.rs`: the marketplace skills state and the `claude mcp add-json` / `remove` runs of `McpTarget::ClaudeCli`, over a recording `ProcessRunner`. The installer itself is harness-independent (`setup_installer.rs`). |
-| Share setup | `sync_export.rs`, `sync_import.rs`, `sync_import_apply.rs`, `sync_export_claude.rs`, `sync_import_claude.rs` (helpers in `business/tests/support/sync_support/`) | Export: what your fixture home yields and what is excluded, with no secret literal in the code or file. Import: statuses on an empty machine and with items present, the exact CLI steps (recording `ProcessRunner`, zero runs for hostile values), idempotent second apply, MCP merge keeps other keys and never overwrites. `sync_codec.rs` and `sync_validate.rs` are harness-independent. |
+| CLI actions | `cli_actions.rs`, `claude_cli_actions.rs`, `codex_cli_actions.rs` | Argument construction, validation errors, dry run, failure line. |
+| Chat engine | `agent_session.rs`, `agent_manager.rs`, `agent_dialogs.rs`, `agent_failures.rs` | The real session engine against `fake_agent`. A non-RPC engine has its own set, for OpenCode `opencode_engine*.rs`, `opencode_launch.rs`, `opencode_http.rs` and the mapper tests, over recordings of the real server in `business/tests/fixtures/opencode/server/` and scenarios in `business/tests/fixtures/streams/opencode_*.jsonl`. For Claude Code: `claude_launch.rs`, `claude_wire*.rs`, `claude_mapper*.rs`, `claude_tools.rs`, `claude_stats.rs`, `claude_allow_list.rs` (the pure `claude_stream` code over the scrubbed recordings in `business/tests/fixtures/claude/stream/`), `claude_engine*.rs` (the engine against `fake_agent --dialect claude` and the scenarios in `business/tests/fixtures/streams/claude_*.jsonl`: approvals and questions in `claude_engine_asks.rs`, the approval modes in `claude_engine_modes.rs`, `!command` in `claude_engine_bash.rs`, session operations in `claude_engine_ops.rs`) and `claude_chat_start.rs` (the folder trust gate and the helper chat through the manager). For Codex: `codex_wire.rs`, `codex_mapper*.rs` (the pure `codex_rpc` code over the scrubbed recordings in `business/tests/fixtures/codex/app_server/`), `codex_engine*.rs` (the engine against `fake_agent --dialect codex` and the scenarios in `business/tests/fixtures/streams/codex_*.jsonl`) and `codex_trust.rs`. |
+| Recommended setup | `setup_status.rs`, `setup_mcp_register.rs` | `setup_status`: skills and MCP state of your harness on an empty machine, with the skills installed and with the MCP entry present (build the fixture files in a temp home). `setup_mcp_register.rs`: the `mcp.json` merge for your `also_read` files. `setup_mcp_register_opencode.rs`: the same for a JSONC file (a file with comments gives `ManualEdit`, nothing written). `setup_mcp_register_codex.rs`: the `codex mcp add` / `remove` runs of `McpTarget::CodexCli`. `setup_status_claude.rs` and `setup_mcp_register_claude.rs`: the marketplace skills state and the `claude mcp add-json` / `remove` runs of `McpTarget::ClaudeCli`, over a recording `ProcessRunner`. The installer itself is harness-independent (`setup_installer.rs`). |
+| Share setup | `sync_export.rs`, `sync_import.rs`, `sync_import_apply.rs`, `sync_export_claude.rs`, `sync_import_claude.rs`, `sync_export_codex.rs`, `sync_import_codex.rs` (helpers in `business/tests/support/sync_support/`) | Export: what your fixture home yields and what is excluded, with no secret literal in the code or file. Import: statuses on an empty machine and with items present, the exact CLI steps (recording `ProcessRunner`, zero runs for hostile values), idempotent second apply, MCP merge keeps other keys and never overwrites. `sync_codec.rs` and `sync_validate.rs` are harness-independent. |
 | Fixtures | `mock_fixtures.rs` | Add the harness's views and catalog to the exported mock fixtures. |
 
 **Fake agent.** `fake_agent --dialect opencode` is a scripted `opencode serve` (an HTTP server on `127.0.0.1` with its own
 scenario steps: `allow`, `expect`, `hold`, `sse`, `listen`). Its step format is documented at the top of
 `business/src/bin/fake_agent/opencode.rs`. `fake_agent --dialect claude` is a scripted `claude` in stream-json mode: it reads NDJSON frames on stdin, answers control
 requests and can replay frames of a recording (`replay`, `include`, `$name` captures), documented at the top of
-`business/src/bin/fake_agent/claude.rs`. For the other dialects, `business/src/bin/fake_agent.rs` plays a JSONL scenario: `{"emit": {...}}` writes a frame,
+`business/src/bin/fake_agent/claude.rs`. `fake_agent --dialect codex` is a scripted `codex app-server` that speaks JSON-RPC on
+stdio and can replay the frames of a recording (`replay`, `from`, `to`, `except`, `replace`), documented at the top of
+`business/src/bin/fake_agent/codex.rs`. For the other dialects, `business/src/bin/fake_agent.rs` plays a JSONL scenario: `{"emit": {...}}` writes a frame,
 `{"expect": "get_state", "reply": {...}}` waits for a request of that type and answers it, `{"exit": 1}`,
 `{"hang": true}`, `{"stderr": "..."}`. Add scenarios under `business/tests/fixtures/streams/` (for example
 `acme_startup.jsonl`, `acme_basic.jsonl`) and start them with `ScenarioSpawner` from
@@ -675,9 +735,46 @@ The UI renders any harness from data, with these exceptions:
 - **Setup step.** The mock's per-harness maps in `ui/src/lib/ipc/mock/setup-handlers.ts` (MCP file, skills offer) and
   the `onboarding.setup.*` copy; see [Recommended setup](#9-recommended-setup).
 - **Copy.** Strings that name the supported harnesses are written by hand: `shortDescription` and `longDescription` in
-  `src-tauri/tauri.conf.json`, the README's harness table and feature list, and the i18n strings in all five locales
-  (`ui/src/lib/i18n/locales/*/`), for example `harness.gate.noneBody`, `sessions.empty.noHarness.body` and the
+  `src-tauri/tauri.conf.json`, the README's harness table and feature list, and the i18n strings in all six locales (en, de, es, fr, pl, pt;
+  `ui/src/lib/i18n/locales/*/`), for example `harness.gate.noneBody`, `sessions.empty.noHarness.body` and the
   `onboarding.*` welcome, harness and done strings. `ui/src/features/shell/views.ts` only holds the generic
   placeholder text of each view and names no harness. Never join two sentences with a semicolon in a UI string.
 
 Then run `bun run check`, `bun run test` and `bun run guard`.
+
+## Lessons from Codex
+
+Codex was the fifth harness and the first added after the per-harness code had grown. Three things are worth repeating.
+
+**Silent per-harness fallbacks are now explicit.** Several places treated "the other harness" as "OMP" or "an MCP
+file", so a new harness compiled and then did the wrong thing quietly. Each is now a `match` or `switch` that names
+every harness, with no `_`/`else` arm, so the compiler finds the next one. When you add a harness, check these:
+
+- `business/src/ecosystem/setup.rs`: the plugin and marketplace registries behind the skills state are chosen per harness
+  in `business/src/ecosystem/setup/registries.rs` (was "Claude Code, else OMP").
+- `business/src/sync/plan_presence.rs`: `Machine::read` matches the harness (was "Claude Code, else OMP").
+- `business/src/sync/collect.rs`: `collect_kind` lists every harness and kind pair, including the ones that have none
+  (was `(_, McpServer)` and a catch-all `_ => {}` that yielded nothing).
+- `ui/src/features/onboarding/onboarding-state.svelte.ts`: `approvalNotice` names each driver, and says which ones ask by
+  default.
+- `ui/src/features/extensions/actions/action-model.ts`: `installAndRemoveOnly` and the user-scope-only check name each
+  harness.
+- `ui/src/lib/ipc/mock/setup-handlers.ts` and `setup-roster.ts`: the mock keeps a real row per harness (Codex's skills
+  row says "Harness Skills for Codex are not available yet."), not a placeholder.
+
+**An `app-server` style engine is its own engine.** See [Other chat protocols](#other-chat-protocols). Take the protocol
+from the bindings the CLI generates (`codex app-server generate-ts` and `generate-json-schema`, which carry no version
+header, so regenerate them on every version bump) and confirm each method against the real CLI before relying on it.
+Several things differed from the bindings: `thread/list` leaves `forkedFromId` out, an unknown thread answers
+`-32600 "thread not loaded"`, `plugin/list` unfiltered answered 18.8 MB, and a user's configured model can be refused
+for their login. The plan keeps these as "Verified facts" ([codex.md](plans/codex.md)).
+
+**Record the real protocol, then replay it.** `business/tests/fixtures/codex/record.py` drives a real `codex app-server`
+in a scratch git repo with `python3 -I record.py <project_dir> <out_dir>` and writes both directions of every
+scenario to `<out_dir>/<scenario>.jsonl` as `{"dir": "in" | "out", "frame": …}`. `scrub.py <src> <dst> <project>` then
+rewrites paths and the account, and cuts long lists to three entries, into
+`business/tests/fixtures/codex/app_server/`. It replaces your home folder and user name by itself; pass the account
+email in `SCRUB_EMAIL` and any other private path (extra writable roots) in `SCRUB_EXTRA` as `path=replacement;…`,
+then check the output for anything else personal before you commit. Delete the scratch threads afterwards.
+`fake_agent --dialect codex` replays the scrubbed frames inside scenarios, so the mapper and the engine are tested
+against what Codex really sent.

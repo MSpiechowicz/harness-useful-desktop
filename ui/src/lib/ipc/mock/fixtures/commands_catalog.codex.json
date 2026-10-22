@@ -96,7 +96,7 @@
     "source": "builtin",
     "invocation": {
       "kind": "unsupported",
-      "reason": "Only in the Codex terminal app. The chat asks as Codex's config.toml says."
+      "reason": "Only in the Codex terminal app."
     }
   },
   {

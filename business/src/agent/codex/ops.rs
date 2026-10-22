@@ -8,8 +8,10 @@
 //!   message (an entry id of the history or the Sessions view: a message's id is its turn's):
 //!   `thread/fork{lastTurnId}` keeps the turns up to and including that turn, as
 //!   [`fork_point`](crate::harnesses::codex::sessions::CodexSessions::fork_point) reads it; a turn
-//!   the thread does not hold is `notFound`. **Clone:** `thread/fork` without a cut. Every new
-//!   thread runs in the project with the user's `config.toml` ([`Chat::thread_settings`]).
+//!   the thread does not hold is `notFound`. **Clone:** `thread/fork` without a cut. Every new,
+//!   resumed or forked thread runs in the project with the chat's approval mode (its approval
+//!   policy and sandbox, none without an override, see `approvals.rs`), so the mode survives
+//!   the move.
 //! - Each is refused while the chat is busy (a turn, a compaction, an ask or a `!command`), as
 //!   switching mid-turn would strand the turn, and in a helper chat, whose thread is not saved.
 //!   One runs at a time. A fork or clone needs a saved thread: one Codex ran a turn of.
@@ -23,6 +25,7 @@
 
 use std::sync::Arc;
 
+use super::approvals::answered_mode;
 use super::io::refused;
 use super::startup::thread;
 use super::{Chat, CodexSession, Live};
@@ -32,7 +35,7 @@ use crate::codex_rpc::wire::outbound::{Request, ThreadFork, ThreadResume, Thread
 use crate::codex_rpc::wire::results::{ThreadRead, ThreadSession};
 use crate::error::{BusinessError, Result};
 use crate::harnesses::codex::is_thread_id;
-use crate::model::{AgentAction, AgentReply, HarnessId, SessionRef};
+use crate::model::{AgentAction, AgentReply, ApprovalMode, HarnessId, SessionRef};
 use crate::opencode_server::mapper::project_dir;
 use crate::pi_family::rpc::pending::DEFAULT_TIMEOUT;
 
@@ -51,7 +54,7 @@ impl CodexSession {
     /// Starts a new thread in the chat.
     async fn new_session(&self) -> Result<AgentReply> {
         let request = Request::ThreadStart(ThreadStart {
-            settings: self.chat.thread_settings(),
+            settings: self.chat.project_settings(),
             ..ThreadStart::default()
         });
 
@@ -75,7 +78,7 @@ impl CodexSession {
 
         let request = Request::ThreadResume(ThreadResume {
             thread_id: session.id.clone(),
-            settings: chat.thread_settings(),
+            settings: chat.project_settings(),
             exclude_turns: true,
         });
 
@@ -97,7 +100,7 @@ impl CodexSession {
         let request = Request::ThreadFork(ThreadFork {
             thread_id: source,
             last_turn_id: Some(entry_id.to_owned()),
-            settings: chat.thread_settings(),
+            settings: chat.project_settings(),
             exclude_turns: true,
         });
 
@@ -112,7 +115,7 @@ impl CodexSession {
         let request = Request::ThreadFork(ThreadFork {
             thread_id: chat.saved_thread(ACTION)?,
             last_turn_id: None,
-            settings: chat.thread_settings(),
+            settings: chat.project_settings(),
             exclude_turns: true,
         });
 
@@ -121,13 +124,10 @@ impl CodexSession {
 }
 
 impl Chat {
-    /// What every thread of the chat starts with: the project as its folder, the rest from the
-    /// user's `config.toml`.
-    pub(super) fn thread_settings(&self) -> ThreadSettings {
-        ThreadSettings {
-            cwd: Some(self.project.to_string_lossy().into_owned()),
-            ..ThreadSettings::default()
-        }
+    /// What every new, resumed or forked thread of the chat runs with: the project as its folder
+    /// and the chat's approval mode (see `approvals.rs`).
+    fn project_settings(&self) -> ThreadSettings {
+        self.thread_settings(self.project.to_string_lossy().into_owned())
     }
 
     /// Right after startup: the skills, and the saved messages of a `resumed` thread, in the
@@ -232,7 +232,7 @@ impl Chat {
         let held = !live.queue.is_empty();
 
         live.mapper = CodexMapper::new(&self.project);
-        live.follow(session);
+        live.follow(session, self.approval_override);
         live.turn_id = None;
         live.turn_requests.clear();
         live.abort_pending = false;
@@ -240,6 +240,7 @@ impl Chat {
         live.last_reply = None;
         live.stats = CodexStats::default();
         live.counts = MessageCounts::default();
+        live.saved_counts = MessageCounts::default();
         live.saved = saved;
         live.transcript = None;
 
@@ -252,9 +253,11 @@ impl Chat {
 }
 
 impl Live {
-    /// Follows thread `session` (started, resumed or forked): its id, title, model, effort and
-    /// provider.
-    pub(super) fn follow(&mut self, session: ThreadSession) {
+    /// Follows thread `session` (started, resumed or forked): its id, title, model, effort,
+    /// provider and approval mode (the chat's `approval_override`, else the one Codex answered
+    /// with).
+    pub(super) fn follow(&mut self, session: ThreadSession, approval_override: Option<ApprovalMode>) {
+        self.mode = approval_override.or_else(|| answered_mode(session.approval_policy.as_ref()));
         self.mapper.follow_thread(&session.thread.id);
         self.thread_id = Some(session.thread.id.clone()).filter(|id| !id.is_empty());
         self.title = session.thread.name.clone().filter(|name| !name.trim().is_empty());

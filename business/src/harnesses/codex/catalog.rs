@@ -74,7 +74,7 @@ fn builtins() -> Vec<Builtin> {
             "permissions",
             "Choose what Codex may do without asking",
             None,
-            unsupported("Only in the Codex terminal app. The chat asks as Codex's config.toml says."),
+            unsupported(TERMINAL_ONLY),
         ),
         (
             "skills",

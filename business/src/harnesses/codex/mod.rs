@@ -9,9 +9,10 @@
 //! adapter yet. Share setup shares its marketplaces, plugins and MCP servers
 //! ([`Harness::share_support`], an imported server is added through `codex mcp add`). Sessions
 //! are read through `codex app-server` ([`sessions`]). Chat (a preview) runs `codex app-server`
-//! too ([`launch`], [`ChatProtocol::CodexAppServer`]); the catalog maps Codex's commands to the
-//! chat's actions and views and adds the skills ([`catalog`]). The login store (`auth.json`) and
-//! Codex's private files are never read ([`crate::security::deny`]).
+//! too ([`launch`], [`ChatProtocol::CodexAppServer`]) with the app's approval modes and trust
+//! once ([`trust`]); the catalog maps Codex's commands to the chat's actions and views and adds
+//! the skills ([`catalog`]). The login store (`auth.json`) and Codex's private files are never
+//! read ([`crate::security::deny`]).
 
 mod catalog;
 mod cli;
@@ -22,6 +23,7 @@ mod modes;
 mod paths;
 pub mod sessions;
 mod settings;
+mod trust;
 
 pub use catalog::CodexCatalog;
 pub use cli::codex_cli_action;
@@ -29,6 +31,7 @@ pub use extensions::{MarketplaceRecord, PluginRecord, marketplace_records, plugi
 pub use launch::{APP_SERVER_ARGS, codex_launch_spec, is_thread_id};
 pub use paths::{PROJECT_DIR_NAME, codex_home};
 pub use settings::{CONFIG_FILE, user_config_path};
+pub use trust::{ProjectTrust, project_trust};
 
 use self::modes::ConfiguredMode;
 use crate::error::BusinessError;
@@ -61,13 +64,19 @@ impl Harness for Codex {
     /// queued messages can be withdrawn and whose skills run as prompt text. Codex compacts with
     /// its own prompt, so `/compact` takes no instructions. No session tree: Codex 0.154's
     /// `thread/list` leaves `forkedFromId` out (only `thread/read` has it), so forks are not
-    /// counted.
+    /// counted. Its approval modes are Always ask, Write and Yolo, never Auto (see [`modes`]). A
+    /// chat may trust the project once ([`trust`]), but no folder is refused: Codex itself ignores
+    /// the own layer of a folder it does not trust, so nothing of the project applies unasked
+    /// (`project_trust_required` stays off).
     fn capabilities(&self) -> Capabilities {
         Capabilities {
             chat: true,
             chat_preview: true,
             slash_commands_via_prompt: true,
             remove_queued: true,
+            approval_modes: true,
+            yolo_mode: true,
+            project_trust: true,
             plugins: true,
             marketplaces: true,
             mcp: true,

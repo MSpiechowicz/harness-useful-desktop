@@ -333,6 +333,7 @@ pub async fn start_through(
         config_dir: project.clone(),
         resume,
         approval_override: approval,
+        trust_once: false,
         utility,
         sink: sink.clone(),
         options: &options,

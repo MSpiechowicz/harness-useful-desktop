@@ -4,11 +4,11 @@
 
 use crate::codex_engine_support;
 
-use codex_engine_support::{CodexChat, THREAD, prompt, start, start_as};
+use codex_engine_support::{CodexChat, Setup, THREAD, prompt, start, start_as, start_with};
 use harness_business::BusinessError;
 use harness_business::model::{
-    AgentAction, AgentEvent, AgentReply, CommandInvocation, CommandSource, HarnessId, PromptStatus, SessionRef,
-    SessionState,
+    AgentAction, AgentEvent, AgentReply, ApprovalMode, CommandInvocation, CommandSource, HarnessId, PromptStatus,
+    SessionRef, SessionState,
 };
 use pretty_assertions::assert_eq;
 
@@ -20,6 +20,14 @@ const FORK: &str = "01a164a2-2222-7000-8000-000000000002";
 
 /// The first and second turn of the saved history.
 const FIRST_TURN: &str = "01a164a0-4c86-7902-8de6-44d0f7bc8ac7";
+
+/// A chat in Write, where `!command`s run (the scenarios' Codex answers with Always ask's policy).
+fn writes() -> Setup {
+    Setup {
+        approval_override: Some(ApprovalMode::Write),
+        ..Setup::default()
+    }
+}
 
 /// Waits for a `state` of thread `id` with `messages` messages counted.
 async fn state_of(chat: &CodexChat, id: &str, messages: u32) -> SessionState {
@@ -120,7 +128,7 @@ async fn a_fork_keeps_the_turns_up_to_the_message_it_forks_at() {
 
 #[tokio::test]
 async fn rename_compaction_and_a_command_run_on_the_thread() {
-    let chat = start("codex_engine_runs.jsonl").await;
+    let chat = start_with("codex_engine_runs.jsonl", writes(), |_| {}).await;
 
     let blank = AgentAction::SetSessionName { name: "  ".to_owned() };
     assert!(matches!(
@@ -176,7 +184,7 @@ async fn rename_compaction_and_a_command_run_on_the_thread() {
 
 #[tokio::test]
 async fn an_abort_cancels_a_running_command() {
-    let chat = start("codex_engine_bash_abort.jsonl").await;
+    let chat = start_with("codex_engine_bash_abort.jsonl", writes(), |_| {}).await;
 
     let stop = async {
         // The command's quiet turn shows no events: abort once the chat counts as working.

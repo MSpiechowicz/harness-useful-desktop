@@ -5,10 +5,11 @@
 //!   stdin EOF, kill on drop).
 //! - **Startup** (`startup.rs`): spawn, the `initialize` → `initialized` handshake within the
 //!   startup limit (Codex's version from its user agent), `model/list`, then `thread/start` in the
-//!   project (or `thread/resume` without its turns), which the mapper follows from then on. No
-//!   override is sent, so the user's `config.toml` applies. Then `ready`, `state` and
-//!   `commandsUpdated`; the skills and a resumed thread's saved messages follow (`skills.rs`,
-//!   `history.rs`).
+//!   project (or `thread/resume` without its turns), which the mapper follows from then on, with
+//!   the chat's approval mode (`approvals.rs`; none without an override, so the user's
+//!   `config.toml` applies). Then `ready`, `state`, `commandsUpdated` and, in a folder whose own
+//!   settings Codex ignores, a notice; the skills and a resumed thread's saved messages follow
+//!   (`skills.rs`, `history.rs`).
 //! - **Frames** (`io.rs`): one task reads stdout (lines up to the frame limit) and maps every frame
 //!   with the [`CodexMapper`] under the chat's lock, so bookkeeping and event order never
 //!   interleave. Answers to the app's requests resolve the waiting action through the session's
@@ -16,14 +17,15 @@
 //! - **Actions:** prompts with images, steering, the app-side follow-up queue, withdrawing a
 //!   queued message and abort (`prompts.rs`, images as files in `images.rs`); the state, the
 //!   model and reasoning pickers and the statistics (`settings.rs`); new, switch, fork and clone,
-//!   all threads of the same process (`ops.rs`); renaming, compaction and `!command`s
-//!   (`runs.rs`, gated by `bash_gate.rs`); history, the last reply and the HTML export
-//!   (`history.rs`); skills as slash commands (`skills.rs`); the helper chat of AI naming
-//!   (`naming.rs`). Codex's requests become dialogs, answered with [`CodexSession::respond`]
-//!   (`dialogs.rs`); dynamic tool calls and token refreshes are refused.
+//!   all threads of the same process with the chat's approval mode (`ops.rs`); renaming,
+//!   compaction and `!command`s, refused in Always ask by [`codex_bash_allowed`] (`runs.rs`);
+//!   history, the last reply and the HTML export (`history.rs`); skills as slash commands
+//!   (`skills.rs`); the helper chat of AI naming (`naming.rs`). Codex's requests become dialogs,
+//!   answered with [`CodexSession::respond`] (`dialogs.rs`); dynamic tool calls and token
+//!   refreshes are refused.
 //! - **Stop:** stdin closes, Codex exits (killed after the grace period).
 
-mod bash_gate;
+mod approvals;
 mod dialogs;
 mod forms;
 mod history;
@@ -40,6 +42,8 @@ mod startup;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
+pub use self::approvals::codex_bash_allowed;
+
 use self::dialogs::Dialogs;
 use self::runs::Shell;
 use super::io::Shared;
@@ -51,7 +55,7 @@ use crate::codex_rpc::wire::items::UserInput;
 use crate::codex_rpc::wire::results::{Model, Skill};
 use crate::error::{BusinessError, Result};
 use crate::harnesses::codex::sessions::Transcript;
-use crate::model::{AgentAction, AgentEvent, AgentReply, BashOutput, StreamingBehavior, UiResponse};
+use crate::model::{AgentAction, AgentEvent, AgentReply, ApprovalMode, BashOutput, StreamingBehavior, UiResponse};
 use crate::process::ExitInfo;
 
 /// A running Codex chat (see the module docs).
@@ -73,6 +77,8 @@ struct Chat {
     helper: bool,
     /// One session operation at a time.
     moving: tokio::sync::Mutex<()>,
+    /// The chat's approval mode, sent with its threads (`approvals.rs`); `None` keeps the user's.
+    approval_override: Option<ApprovalMode>,
     live: Mutex<Live>,
 }
 
@@ -94,6 +100,8 @@ struct Live {
     /// The model and effort the chat picked, sent with every turn from then on.
     model: Option<String>,
     effort: Option<String>,
+    /// The approval mode the thread runs in (`approvals.rs`).
+    mode: Option<ApprovalMode>,
     /// The running turn as `turn/start` answered it (before its `turn/started`).
     turn_id: Option<String>,
     /// `turn/start` requests not answered yet: their id and whether a prompt action sent them.
@@ -107,7 +115,11 @@ struct Live {
     /// The text of the newest finished reply.
     last_reply: Option<String>,
     stats: CodexStats,
+    /// The messages of the chat since it entered its thread.
     counts: MessageCounts,
+    /// The messages the thread was saved with when the chat entered it (counted in the
+    /// background, `history.rs`).
+    saved_counts: MessageCounts,
     /// The thread has saved turns (resumed, forked, cloned, or one ran).
     saved: bool,
     /// The newest read of the thread's saved messages, which later history pages reuse.
@@ -144,6 +156,7 @@ impl Live {
             thread_effort: None,
             model: None,
             effort: None,
+            mode: None,
             turn_id: None,
             turn_requests: Vec::new(),
             abort_pending: false,
@@ -152,11 +165,24 @@ impl Live {
             last_reply: None,
             stats: CodexStats::default(),
             counts: MessageCounts::default(),
+            saved_counts: MessageCounts::default(),
             saved: false,
             transcript: None,
             skills: Vec::new(),
             shell: None,
             naming: None,
+        }
+    }
+
+    /// The thread's messages: the saved ones it was entered with and those since.
+    fn message_counts(&self) -> MessageCounts {
+        let (saved, since) = (self.saved_counts, self.counts);
+
+        MessageCounts {
+            user: saved.user + since.user,
+            assistant: saved.assistant + since.assistant,
+            tool_calls: saved.tool_calls + since.tool_calls,
+            total: saved.total + since.total,
         }
     }
 

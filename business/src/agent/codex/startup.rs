@@ -4,12 +4,13 @@
 //! from its user agent → the `initialized` notification → `model/list` (a list Codex refuses
 //! leaves the picker empty) → `thread/start` in the project, or `thread/resume` of the resumed
 //! thread without its turns (a helper chat's thread is ephemeral: not saved, not listed, see
-//! `naming.rs`) → `ready`, `state` and `commandsUpdated`, then the events that arrived meanwhile.
-//! The skills and a resumed thread's saved messages are read after that, in the background.
+//! `naming.rs`) → `ready`, `state`, `commandsUpdated` and the notice of an untrusted project,
+//! then the events that arrived meanwhile. The skills and a resumed thread's saved messages are
+//! read after that, in the background.
 //!
-//! - No model, approval policy or sandbox is sent: the user's `config.toml` applies (a helper
-//!   chat's thread never asks and only reads, see `naming.rs`). An approval override is refused
-//!   until the chat maps the approval modes.
+//! - No model is sent: the user's `config.toml` applies. The approval policy and sandbox are
+//!   those of the chat's approval mode, none without an override (`approvals.rs`, Auto is refused
+//!   before anything spawns). A helper chat's thread never asks and only reads (`naming.rs`).
 //! - The whole startup runs within the startup deadline and gives up when every session is stopped
 //!   ([`run_startup`]); a failed one kills the process and emits nothing. A process that exits
 //!   first fails the start with its last stderr lines.
@@ -19,6 +20,7 @@ use std::time::Duration;
 
 use tokio::sync::oneshot;
 
+use super::approvals::{mode_policy, trust_notice};
 use super::io::{read_stdout, refused};
 use super::naming::helper_thread;
 use super::settings::commands;
@@ -26,7 +28,7 @@ use super::{Chat, CodexSession, Live};
 use crate::agent::engine::SessionLaunch;
 use crate::agent::process::{AgentProcess, ProcessTraits, run_startup};
 use crate::codex_rpc::wire::answers::initialized;
-use crate::codex_rpc::wire::outbound::{Initialize, Request, ThreadResume, ThreadSettings, ThreadStart};
+use crate::codex_rpc::wire::outbound::{Initialize, Request, ThreadResume, ThreadStart};
 use crate::codex_rpc::wire::results::{InitializeResult, Model, Page, ThreadSession};
 use crate::error::{BusinessError, Result};
 use crate::harnesses::codex::is_thread_id;
@@ -43,11 +45,7 @@ enum Start {
 impl CodexSession {
     /// Spawns `codex app-server` and completes startup (see the module docs).
     pub async fn start(launch: SessionLaunch<'_>) -> Result<Self> {
-        if launch.approval_override.is_some() {
-            return Err(BusinessError::Unsupported(
-                "Codex chats have no approval modes yet".to_owned(),
-            ));
-        }
+        mode_policy(launch.approval_override)?;
 
         let start = match launch.resume {
             Some(id) if !is_thread_id(id) => {
@@ -80,6 +78,7 @@ impl CodexSession {
             export_dir: options.export_dir.clone(),
             helper: launch.utility,
             moving: tokio::sync::Mutex::new(()),
+            approval_override: launch.approval_override,
             live: Mutex::new(Live::new(&launch.project, launch.utility)),
         });
         chat_tx.send(chat.clone()).ok();
@@ -91,7 +90,8 @@ impl CodexSession {
             return Err(process.fail_start(error).await);
         }
 
-        chat.open();
+        let notice = trust_notice(&launch.config_dir, &launch.project, launch.trust_once, launch.utility);
+        chat.open(notice);
         chat.opened(matches!(start, Start::Resume(_)));
 
         Ok(Self { process, chat })
@@ -99,8 +99,8 @@ impl CodexSession {
 }
 
 impl Chat {
-    /// Emits the first events.
-    fn open(&self) {
+    /// Emits the first events, `notice` last.
+    fn open(&self, notice: Option<AgentEvent>) {
         let first = {
             let live = self.lock();
 
@@ -111,6 +111,9 @@ impl Chat {
                 },
                 AgentEvent::CommandsUpdated { commands: commands() },
             ]
+            .into_iter()
+            .chain(notice)
+            .collect()
         };
 
         self.shared.open(first);
@@ -145,10 +148,7 @@ async fn handshake(chat: &Chat, start: &Start, cwd: String, limit: Duration) -> 
         }
     };
 
-    let settings = ThreadSettings {
-        cwd: Some(cwd),
-        ..ThreadSettings::default()
-    };
+    let settings = chat.thread_settings(cwd);
 
     let request = match start {
         Start::New { ephemeral: true } => Request::ThreadStart(helper_thread(settings)),
@@ -168,7 +168,7 @@ async fn handshake(chat: &Chat, start: &Start, cwd: String, limit: Duration) -> 
     let mut live = chat.lock();
     live.codex_version = version;
     live.models = models;
-    live.follow(session);
+    live.follow(session, chat.approval_override);
 
     Ok(())
 }

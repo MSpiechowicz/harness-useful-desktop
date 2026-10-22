@@ -237,6 +237,7 @@ impl AgentManager {
             config_dir: harness.paths(deps.env, Some(&project)).config_root,
             resume,
             approval_override,
+            trust_once,
             utility: request.utility,
             sink,
             options: &self.options,

@@ -6,9 +6,9 @@
 //! - **Compaction:** `thread/compact/start`, which Codex runs as its own turn with a
 //!   `contextCompaction` item: the mapper's manual compaction ([`StartKind::Compact`]). Codex
 //!   compacts with its own prompt, so instructions are refused.
-//! - **`!command`** (plan decision 5): allowed by [`bash_allowed`], then `thread/shellCommand`
-//!   ([`StartKind::Shell`]). Codex runs it in the thread's shell (unsandboxed, in the project) as
-//!   its own turn and keeps the command and its output in the thread, where the model reads them
+//! - **`!command`** (plan decision 5): refused in Always ask ([`codex_bash_allowed`]), then
+//!   `thread/shellCommand` ([`StartKind::Shell`]). Codex runs it in the thread's shell
+//!   (unsandboxed, in the project) as its own turn and keeps the command and its output in the thread, where the model reads them
 //!   with the next prompt. The answer waits for that turn's end, at most [`BASH_TIMEOUT`]: the
 //!   output (redacted, capped and with the chat's secret masked, see [`parse_bash`]) and exit
 //!   code. An abort interrupts the turn (`cancelled`); a turn that failed before the command ran
@@ -24,7 +24,7 @@ use std::sync::Arc;
 use serde_json::{Value, json};
 use tokio::sync::oneshot;
 
-use super::bash_gate::bash_allowed;
+use super::approvals::codex_bash_allowed;
 use super::io::refused;
 use super::ops::working;
 use super::{Chat, CodexSession, Live};
@@ -102,7 +102,7 @@ impl Chat {
     /// Runs `command` (see the module docs).
     pub(super) async fn run_command(self: &Arc<Self>, command: &str) -> Result<BashOutput> {
         check_command(command)?;
-        bash_allowed(self.approval_mode())?;
+        codex_bash_allowed(self.lock().mode)?;
 
         let (done, ended) = oneshot::channel();
         let shell = |thread_id| Request::ThreadShellCommand {

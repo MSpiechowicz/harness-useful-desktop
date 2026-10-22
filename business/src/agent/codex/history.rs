@@ -183,7 +183,7 @@ impl Chat {
         });
     }
 
-    /// Adds the saved `messages` of `thread` to its counts, unless the chat moved on meanwhile.
+    /// Counts the saved `messages` of `thread`, unless the chat moved on meanwhile.
     fn counted(&self, thread: &str, messages: &[ChatMessage]) {
         let mut live = self.lock();
 
@@ -191,14 +191,7 @@ impl Chat {
             return;
         }
 
-        let saved = MessageCounts::of(messages);
-        let since = live.counts;
-        live.counts = MessageCounts {
-            user: saved.user + since.user,
-            assistant: saved.assistant + since.assistant,
-            tool_calls: saved.tool_calls + since.tool_calls,
-            total: saved.total + since.total,
-        };
+        live.saved_counts = MessageCounts::of(messages);
 
         if live.last_reply.is_none() {
             live.last_reply = newest_reply(messages);

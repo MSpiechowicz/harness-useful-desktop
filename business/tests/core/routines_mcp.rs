@@ -364,11 +364,11 @@ fn invalid_schedules_and_actions_are_refused_with_the_format_wording() {
         (json!({ "every": 5 }), "every belongs to when"),
         (
             json!({ "harness": "pi", "approvalMode": "yolo" }),
-            "action.approvalMode is for omp, opencode or claude only",
+            "action.approvalMode is for omp, opencode, claude or codex only",
         ),
         (
             json!({ "trustOnce": true }),
-            "action.trustOnce is for pi or claude only",
+            "action.trustOnce is for pi, claude or codex only",
         ),
         (json!({ "maxMinutes": 241 }), "from 1 to 240"),
         (
