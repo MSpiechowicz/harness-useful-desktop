@@ -148,10 +148,10 @@
   --harness-omp-wash: oklch(0.7 0.15 65 / 0.16);
   --harness-pi-wash: oklch(0.65 0.12 175 / 0.14);
   --harness-opencode-wash: oklch(0.62 0.22 10 / 0.12);
-  /* The dashboard's #de602c is 3.6:1 on white, so the light text is a burnt orange (>= 4.7:1 on every surface and its
-     wash). The wash is peach, away from OpenCode's pink (hue 10) and OMP's beige (hue 70). */
-  --harness-claude: #9f4200;
-  --harness-claude-wash: oklch(0.78 0.15 58 / 0.2);
+  /* A real orange, so Claude Code never reads as OpenCode's red. A darker one turns brown, so the text is about 3.8:1
+     on its wash: the badge letters are decorative (the harness name is always beside them). */
+  --harness-claude: #b84a00;
+  --harness-claude-wash: rgb(253 186 116 / 0.4);
 
   --elev-1: 0 1px 2px rgb(24 24 27 / 0.06), 0 0 0 1px var(--border);
   --elev-2: 0 6px 20px rgb(24 24 27 / 0.08), 0 0 0 1px var(--border);
