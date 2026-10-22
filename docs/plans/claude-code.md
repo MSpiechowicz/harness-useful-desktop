@@ -258,9 +258,10 @@ Order: S1 → (Track A: S2 → S3 → S5 → S6 ∥ Track B: S4 ∥ Track C: S0 
 | — | Shared `claude_stream/tools.rs` (tool ids, touched paths) | done (main session) |
 | S2 | Config view + deny gap | done (307e262). Managed settings show in the User layer (no Managed `ConfigLayer` yet, S12), CLAUDE.md files listed in a notice |
 | S3 | Extensions view | running (`.wt-cc/a`) |
-| S4 | Sessions | running (`.wt-cc/b`, `wip/cc-b`) |
+| S4 | Sessions | done (237fc06). Slug = Claude's `bH` (200-char cut + Java-style hash, base 36). Open: `CLAUDE_CODE_PROJECT_DIR_NAME`, Windows pid check blocks delete on a stale pid file, `sessionTree` still false, no fork parent link on disk, session totals unsupported |
+| S5 | CLI actions + Recommended setup | running (`.wt-cc/b`) |
 | S7 | Wire and mapper | running (`.wt-cc/c`, `wip/cc-c`) |
-| S5, S6, S8–S13 | | not started |
+| S6, S8–S13 | | not started |
 
 ## Verified facts (S0 recording, 2026-10-22)
 
