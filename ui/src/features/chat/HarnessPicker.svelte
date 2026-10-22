@@ -59,14 +59,16 @@
 {#if current && shown}
   <Popover label={t('chat.harness.label')} kind="menu" side="top" class="w-max min-w-52 max-w-md!">
     {#snippet trigger({ props })}
-      <!-- A live dot in the harness's colour and its full name. A narrow composer keeps only the dot. -->
+      <!-- A live dot in the harness's colour and its full name. A narrow composer keeps only the dot. The chevron's own
+           space stands in for most of the right padding, so the gaps between the composer controls match. -->
       <button
         type="button"
         {...props}
         aria-label={t('chat.harness.aria', { name: shown.info.name })}
-        class="group inline-flex h-control min-w-0 items-center gap-2 rounded-md px-2 text-sm text-fg-3 transition-colors duration-[var(--dur-fast)] hover:bg-hover hover:text-fg aria-expanded:bg-hover aria-expanded:text-fg"
+        class="group inline-flex h-control min-w-0 items-center gap-1.5 rounded-md pr-1 pl-2 text-sm text-fg-3 transition-colors duration-[var(--dur-fast)] hover:bg-hover hover:text-fg aria-expanded:bg-hover aria-expanded:text-fg"
       >
-        <span aria-hidden="true" class={cx('live-dot shrink-0', DOT[shown.info.id] ?? NEUTRAL)}></span>
+        <!-- In an icon-sized box, so the gaps match the icon controls beside it. -->
+        <span aria-hidden="true" class="grid size-4 shrink-0 place-items-center"><span class={cx('live-dot', DOT[shown.info.id] ?? NEUTRAL)}></span></span>
         <span class="whitespace-nowrap [text-box:trim-both_cap_alphabetic] @max-[460px]:hidden">{shown.info.name}</span>
         {#if session.switchingTo}
           <span class="grid size-4 shrink-0 place-items-center @max-[460px]:hidden"><Spinner size={14} class="text-accent-text" label={t('chat.tabs.starting')} /></span>
