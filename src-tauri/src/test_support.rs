@@ -22,7 +22,9 @@ use tauri::ipc::{Channel, InvokeResponseBody};
 use crate::agents::Agents;
 use crate::state::AppState;
 
+mod claude;
 mod opencode2;
+use claude::trust_in_claude;
 pub use opencode2::agent_setup_opencode2;
 
 /// A uniquely named directory under the OS temp dir, removed on drop. Its path is canonical, so
@@ -410,15 +412,6 @@ fn agent_setup_with(binary: &Path, harness: HarnessId, spawner: Arc<ScenarioSpaw
         project,
         _dir: dir,
     }
-}
-
-/// Records in the test home that the user trusted `project` in Claude Code (a chat there starts
-/// without trust once; other folders, such as the routines folder, stay untrusted).
-fn trust_in_claude(env: &Env, project: &Path) {
-    let trusted = serde_json::json!({ "projects": { project.to_string_lossy(): { "hasTrustDialogAccepted": true } } });
-
-    std::fs::write(harness_business::harnesses::claude::global_config_file(env), trusted.to_string())
-        .expect("write the Claude global file");
 }
 
 /// Writes a global hook as `author` (the desktop's is approved, an agent's pending), created
