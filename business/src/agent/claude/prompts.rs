@@ -16,17 +16,14 @@
 //!
 //! [`ClaudeSession`]: super::ClaudeSession
 
-use serde_json::Value;
-
 use super::io::send_kind;
 use super::{ClaudeSession, Queued};
-use crate::claude_stream::mapper::Ask;
 use crate::claude_stream::wire::control::CancelReply;
 use crate::claude_stream::wire::outbound::{
-    HostRequest, ImagePart, Priority, UserMessage, control_error, new_message_uuid, permission_deny, user_message,
+    HostRequest, ImagePart, Priority, UserMessage, new_message_uuid, permission_deny, user_message,
 };
 use crate::error::{BusinessError, Result};
-use crate::model::{AgentAction, AgentReply, ImageAttachment, StreamingBehavior};
+use crate::model::{AgentAction, AgentEvent, AgentReply, ImageAttachment, StreamingBehavior};
 use crate::pi_family::rpc::pending::{ABORT_TIMEOUT, DEFAULT_TIMEOUT};
 
 /// What a permission prompt or question still open at an abort is answered with.
@@ -154,7 +151,7 @@ impl ClaudeSession {
         {
             let mut live = chat.lock();
 
-            if !live.mapper.is_working() && live.asks.is_empty() {
+            if !live.mapper.is_working() && live.dialogs.is_empty() {
                 return Ok(AgentReply::Ack);
             }
 
@@ -164,21 +161,16 @@ impl ClaudeSession {
         chat.control(&HostRequest::Interrupt { cancel_queued: false }, ABORT_TIMEOUT)
             .await?;
 
-        let open: Vec<Ask> = chat.lock().asks.drain().map(|(_, ask)| ask).collect();
+        let open = chat.lock().dialogs.drain();
 
-        for ask in &open {
-            chat.write(&stopped_answer(ask)).await?;
+        for (dialog, request_id) in &open {
+            chat.shared.emit(AgentEvent::UiCancel {
+                request_id: dialog.clone(),
+            });
+            chat.write(&permission_deny(request_id, STOPPED)).await?;
         }
 
         Ok(AgentReply::Ack)
-    }
-}
-
-/// The answer to an ask the user's stop left open: a denial, or an error for a dialog.
-fn stopped_answer(ask: &Ask) -> Value {
-    match ask {
-        Ask::Permission(_) | Ask::Question(_) => permission_deny(ask.request_id(), STOPPED),
-        Ask::Dialog { .. } | Ask::Elicitation { .. } => control_error(ask.request_id(), STOPPED),
     }
 }
 

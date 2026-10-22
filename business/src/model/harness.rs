@@ -86,6 +86,10 @@ pub struct Capabilities {
     pub profiles: bool,
     /// A configurable tool approval mode (OMP `tools.approvalMode`).
     pub approval_modes: bool,
+    /// The approval modes include Yolo (tools run without asking). Without it a harness with
+    /// `approval_modes` offers Always ask and Write only (Claude Code: the app never starts its
+    /// bypass mode), and a Yolo override is refused.
+    pub yolo_mode: bool,
     /// Project trust gating of project-local resources (PI `.pi/`).
     pub project_trust: bool,
     /// Slash commands run by sending their text as a prompt.
@@ -195,4 +199,20 @@ pub struct HarnessSummary {
     pub capabilities: Capabilities,
     /// Detection result on this machine.
     pub detection: Detection,
+    /// The permission mode the harness's own user settings choose, by the harness's name for it
+    /// (Claude Code `permissions.defaultMode`); `None` for harnesses without one.
+    pub native_approval_mode: Option<NativeApprovalMode>,
+}
+
+/// A harness's own permission mode from its settings, as the harness names it. The app's approval
+/// modes cover only some of them, so the chat header shows the name read-only.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct NativeApprovalMode {
+    /// Claude Code: `default`, `acceptEdits`, `plan`, `auto`, `dontAsk` or `bypassPermissions`.
+    pub name: String,
+    /// True when the mode lets tools run without asking the user (Claude Code `bypassPermissions`
+    /// and `auto`), which onboarding points out.
+    pub unattended: bool,
 }

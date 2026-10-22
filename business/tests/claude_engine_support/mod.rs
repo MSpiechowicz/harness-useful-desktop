@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use harness_business::agent::{AgentSession, CollectingSink, SessionLaunch, SessionOptions};
 use harness_business::harness::ChatProtocol;
-use harness_business::model::{AgentAction, AgentEvent, AgentReply, SessionState};
+use harness_business::model::{AgentAction, AgentEvent, AgentReply, ApprovalMode, SessionState};
 use harness_business::process::ExecSpec;
 use tempfile::TempDir;
 
@@ -117,6 +117,20 @@ pub async fn start(name: &str) -> Chat {
 
 /// Starts scenario `name`, resuming `resume`, with `options`.
 pub async fn start_with(name: &str, resume: Option<&str>, options: SessionOptions) -> Chat {
+    start_launch(name, resume, None, options).await
+}
+
+/// Starts scenario `name` with the approval override `approval`.
+pub async fn start_in(name: &str, approval: Option<ApprovalMode>) -> Chat {
+    start_launch(name, None, approval, options()).await
+}
+
+async fn start_launch(
+    name: &str,
+    resume: Option<&str>,
+    approval_override: Option<ApprovalMode>,
+    options: SessionOptions,
+) -> Chat {
     let dir = project();
     let project = dunce::canonicalize(dir.path()).expect("canonical project");
     let sink = CollectingSink::new();
@@ -130,7 +144,7 @@ pub async fn start_with(name: &str, resume: Option<&str>, options: SessionOption
         project: project.clone(),
         sessions_dir: project.clone(),
         resume,
-        approval_override: None,
+        approval_override,
         utility: false,
         sink: sink.clone(),
         options: &options,
@@ -146,6 +160,31 @@ pub async fn start_with(name: &str, resume: Option<&str>, options: SessionOption
         project,
         _dir: dir,
     }
+}
+
+/// Waits for the `Marker` title the scenarios set; every event so far.
+pub async fn marker(chat: &Chat) -> Vec<AgentEvent> {
+    chat.wait(
+        "marker",
+        |event| matches!(event, AgentEvent::State { state } if state.session_name.as_deref() == Some("Marker")),
+    )
+    .await;
+
+    chat.events()
+}
+
+/// Stops the chat; the scripted CLI exits 0 only when every expected frame matched.
+pub async fn stop_cleanly(chat: &Chat) {
+    let events = chat.stop().await;
+
+    assert_eq!(
+        events.last(),
+        Some(&AgentEvent::Exited {
+            code: Some(0),
+            signal: None
+        }),
+        "the scripted CLI saw what it expected"
+    );
 }
 
 /// The `type` tag of an event.

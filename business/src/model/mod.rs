@@ -76,7 +76,8 @@ pub use git::{
     MAX_BRANCHES, MAX_FILE_DIFF_BYTES, MAX_TOTAL_DIFF_BYTES, MAX_UNTRACKED_FILE_BYTES, StatusEntry,
 };
 pub use harness::{
-    Capabilities, Detection, HarnessId, HarnessInfo, HarnessSummary, InstallCommand, InstallHint, VersionSupport,
+    Capabilities, Detection, HarnessId, HarnessInfo, HarnessSummary, InstallCommand, InstallHint, NativeApprovalMode,
+    VersionSupport,
 };
 pub use hook::{
     Hook, HookAction, HookApproval, HookAuthor, HookDraft, HookEvent, HookFamilyEntry, HookFamilyStatus, HookListing,

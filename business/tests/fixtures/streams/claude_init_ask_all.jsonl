@@ -1,0 +1,5 @@
+// The handshake of an Always ask chat: `initialize` must carry the ask-all `PreToolUse` hook for
+// every tool (as tools.jsonl line 2 recorded it), answered with the recorded reply (controls.jsonl
+// line 5).
+{"expect": "control_request", "subtype": "initialize", "hold": true, "match": {"/request/hooks": {"PreToolUse": [{"matcher": ".*", "hookCallbackIds": ["harness_ask_all"]}]}}}
+{"replay": "../claude/stream/controls.jsonl", "from": 5, "to": 5, "replace": {"req_1": "$initialize"}}

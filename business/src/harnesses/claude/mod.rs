@@ -19,12 +19,14 @@ mod cli;
 mod config;
 mod extensions;
 mod launch;
+mod modes;
 mod paths;
 mod sessions;
 mod setup;
 
 pub use catalog::ClaudeCatalog;
 pub use cli::{claude_cli_action, claude_summary};
+pub use modes::WIRE_DEFAULT;
 pub use paths::{PROJECT_DIR_NAME, config_dir, global_config_file, project_slug};
 pub use setup::{
     KnownMarketplace, PluginRecord, PluginScope, UserPlugin, known_marketplaces, plugin_records, user_plugins,
@@ -63,9 +65,10 @@ impl Harness for Claude {
     }
 
     /// What the views list and the extension actions the CLI runs. Chat arrives in a later step of
-    /// the plan.
+    /// the plan. Its approval modes are Always ask and Write, never Yolo (see [`modes`]).
     fn capabilities(&self) -> Capabilities {
         Capabilities {
+            approval_modes: true,
             plugins: true,
             marketplaces: true,
             mcp: true,
@@ -154,6 +157,16 @@ impl Harness for Claude {
 
     fn spawn_env(&self) -> &'static [(&'static str, &'static str)] {
         SPAWN_ENV
+    }
+
+    /// Write for Claude's `default` mode, Yolo for `bypassPermissions`, else none (see [`modes`]).
+    fn configured_approval_mode(&self, env: &Env, project: Option<&Path>) -> Option<ApprovalMode> {
+        modes::approval_mode(&modes::native_approval_mode(env, project).name)
+    }
+
+    /// `permissions.defaultMode` from the settings layers (see [`modes`]).
+    fn native_approval_mode(&self, env: &Env, project: Option<&Path>) -> Option<NativeApprovalMode> {
+        Some(modes::native_approval_mode(env, project))
     }
 
     fn cli_action(&self, action: &ExtensionAction, project: Option<&Path>) -> Result<CliInvocation> {

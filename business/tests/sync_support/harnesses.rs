@@ -26,6 +26,7 @@ pub fn summaries(installed: &[HarnessId]) -> Vec<HarnessSummary> {
                 install_hint: None,
                 error: None,
             },
+            native_approval_mode: None,
         })
         .collect()
 }

@@ -59,6 +59,12 @@ profiles: boolean,
  */
 approvalModes: boolean, 
 /**
+ * The approval modes include Yolo (tools run without asking). Without it a harness with
+ * `approval_modes` offers Always ask and Write only (Claude Code: the app never starts its
+ * bypass mode), and a Yolo override is refused.
+ */
+yoloMode: boolean, 
+/**
  * Project trust gating of project-local resources (PI `.pi/`).
  */
 projectTrust: boolean, 

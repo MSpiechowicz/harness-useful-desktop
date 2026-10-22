@@ -1,5 +1,5 @@
-// Requests the engine answers itself: a hook callback (no app hooks yet: no opinion) and a request
-// it does not handle (an error), then a permission prompt it leaves open.
+// Requests the engine answers itself: a hook callback (no app hooks without Always ask: no
+// opinion) and a request it does not handle (an error), then a permission prompt it shows.
 {"include": "claude_init.jsonl"}
 {"emit": {"type": "control_request", "request_id": "11111111-1111-4111-8111-111111111111", "request": {"subtype": "hook_callback", "callback_id": "askall", "input": {"hook_event_name": "PreToolUse", "tool_name": "Read"}}}}
 {"expect": "control_response", "match": {"/response/request_id": "11111111-1111-4111-8111-111111111111", "/response/subtype": "success", "/response/response": {}}}

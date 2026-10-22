@@ -4,36 +4,36 @@
 //!
 //! - **Process:** the shared [`AgentProcess`] (spawn, redacted stderr, `exited` last, stop on
 //!   stdin EOF, kill on drop).
-//! - **Startup** (`startup.rs`): spawn, the `initialize` control request (no app hooks yet), its
-//!   reply within the startup limit (commands and models, never the account), then `ready`,
-//!   `state` and `commandsUpdated`.
+//! - **Startup** (`startup.rs`): spawn, the `initialize` control request (with the ask-all hook
+//!   in Always ask mode), its reply within the startup limit (commands and models, never the
+//!   account), then `ready`, `state` and `commandsUpdated`. A Yolo override is refused: the app
+//!   never starts Claude Code's bypass mode.
 //! - **Frames** (`io.rs`): one task reads stdout and maps every frame with the [`ClaudeMapper`]
 //!   under the chat's lock, so prompt bookkeeping and event order never interleave. Replies to the
 //!   app's control requests resolve the waiting action through the session's pending-request table
 //!   (keyed by the app's `req_<n>` ids, each with a time limit). Requests the app does not handle are
-//!   answered at once: an unknown subtype with an error, a hook callback with no opinion (the app
-//!   registers none yet). Permission prompts, questions and dialogs wait in [`Live::asks`] without
-//!   an answer for the approvals step to show; the CLI's cancel removes them.
-//! - **Actions:** prompts, steering, follow-ups, withdrawing a queued message and abort
-//!   (`prompts.rs`); the state, the model and thinking pickers and the commands (`settings.rs`).
+//!   answered at once with an error. Permission prompts and questions become dialogs, answered with
+//!   [`ClaudeSession::respond`]; the CLI's other asks are declined at once (`dialogs.rs`).
+//! - **Actions:** prompts, steering, follow-ups, withdrawing a queued message and abort (which
+//!   denies the open asks, `prompts.rs`); the state, the model and thinking pickers and the commands (`settings.rs`).
 //!   New, resume, fork, clone, rename, compaction, statistics, export, history and `!command`s are
 //!   not available yet and refused as unsupported.
 //! - **Stop:** stdin closes, Claude Code exits (killed after the grace period).
 
+mod dialogs;
 mod io;
 mod prompts;
 mod settings;
 mod startup;
 
-use std::collections::HashMap;
 use std::path::Path;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
+use self::dialogs::Dialogs;
 use super::io::Shared;
 use super::process::AgentProcess;
 use super::sink::PromptTaken;
 use crate::claude_stream::ClaudeMapper;
-use crate::claude_stream::mapper::Ask;
 use crate::claude_stream::wire::control::{ModelInfo, SlashCommand};
 use crate::error::{BusinessError, Result};
 use crate::model::{AgentAction, AgentEvent, AgentReply, BashOutput, StreamingBehavior, UiResponse};
@@ -77,9 +77,9 @@ struct Live {
     queue: Vec<Queued>,
     /// Prompts whose taking runs the prompt-taken call.
     awaiting_take: Vec<String>,
-    /// What the CLI asks and nobody answered yet, by the CLI's request id (answered by the
-    /// approvals step; an abort denies them).
-    asks: HashMap<String, Ask>,
+    /// What the CLI asks and nobody answered yet (an abort denies it), and the chat's own
+    /// "Always allow" answers.
+    dialogs: Dialogs,
     /// The text of the newest finished reply of this process.
     last_reply: Option<String>,
 }
@@ -92,7 +92,7 @@ struct Queued {
 }
 
 impl Live {
-    fn new(project: &Path, resume: Option<&str>) -> Self {
+    fn new(project: &Path, resume: Option<&str>, ask_all: bool) -> Self {
         Self {
             mapper: ClaudeMapper::new(project),
             session_id: resume.map(str::to_owned),
@@ -106,7 +106,7 @@ impl Live {
             permission_mode: None,
             queue: Vec::new(),
             awaiting_take: Vec::new(),
-            asks: HashMap::new(),
+            dialogs: Dialogs::new(project, ask_all),
             last_reply: None,
         }
     }
@@ -186,11 +186,10 @@ impl ClaudeSession {
         }
     }
 
-    /// Refuses: no dialog is open yet (approvals and questions come with the approvals step).
+    /// Answers an open permission prompt or question (see `dialogs.rs`).
     pub async fn respond(&self, response: UiResponse) -> Result<()> {
         self.process.ensure_running()?;
-
-        Err(BusinessError::NotFound(format!("open dialog {}", response.id)))
+        self.answer_dialog(response).await
     }
 
     /// Refuses: `!command`s are not available yet.

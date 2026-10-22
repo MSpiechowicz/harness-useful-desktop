@@ -110,6 +110,7 @@ impl Harness for OpenCode {
             themes: true,
             chat: true,
             approval_modes: true,
+            yolo_mode: true,
             slash_commands_via_prompt: true,
             remove_queued: true,
             chat_preview: true,

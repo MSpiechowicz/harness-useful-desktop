@@ -18,6 +18,8 @@
 //! - `{"expect": "user", "as": "name", "match": {...}}` — wait for the next inbound user message,
 //!   capture its `uuid` as `name` (default `user`) and check `match`. It gets no answer: the steps
 //!   that follow are the CLI's output.
+//! - `{"expect": "control_response", "match": {...}}` — wait for the app's next answer to one of
+//!   the CLI's requests and check `match` (`"/response/request_id"`, …). It gets no answer.
 //! - `{"emit": {...}}` — write a frame; string values `"$name"` become the value captured as
 //!   `name`.
 //! - `{"replay": "../claude/stream/basic.jsonl", "from": 7, "to": 20, "except": ["control_request"],
@@ -107,6 +109,10 @@ impl Fake {
 
         if kind == "user" {
             self.captured.insert(name, frame["uuid"].clone());
+            return;
+        }
+
+        if kind == "control_response" {
             return;
         }
 
