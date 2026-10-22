@@ -81,11 +81,11 @@ engine `agent/codex/`. Stdio only: no ports, no password, no daemon.
 | Remove queued | app-side, nothing reaches Codex | repo pattern |
 | Abort | `turn/interrupt` → `turn/completed{interrupted}` | bindings |
 | New / resume | `thread/start` / `thread/resume{threadId}` (excludeTurns, history via `thread/turns/list`) | bindings |
-| Fork at message | `thread/fork{threadId, …}` (S0: check the cut parameter; fallback fork + `thread/rollback` n turns) | bindings, verify |
+| Fork at message | `thread/fork{threadId, …}` `lastTurnId` keeps turns up to it | S0 |
 | Clone | `thread/fork` without a cut | bindings |
 | Rename | `thread/name/set`, live echo `thread/name/updated` | bindings |
 | Compact | `thread/compact/start`, `contextCompaction` item | bindings |
-| Stats, context meter | `thread/tokenUsage/updated` (S0: model context window from `model/list` or the notification) | bindings, verify |
+| Stats, context meter | `thread/tokenUsage/updated{modelContextWindow}` | S0 |
 | Model / reasoning | per turn `model` + `effort` on `turn/start`, list from `model/list` | bindings |
 | Approval prompts | the three server requests above → the app's approval card; "Always" = `acceptForSession` | bindings |
 | Question dialogs | `item/tool/requestUserInput`, `mcpServer/elicitation/request` (form only, url → open in browser after confirm) | bindings, experimental |
@@ -179,6 +179,53 @@ engine `agent/codex/`. Stdio only: no ports, no password, no daemon.
 | Step | State |
 | --- | --- |
 | Research + plan | done, approved 2026-10-22 |
+| S0 recording | done: 10 scenarios in `business/tests/fixtures/codex/app_server/`, facts below |
+
+## Verified facts (S0 recording, 2026-10-22)
+
+Recorded with `business/tests/fixtures/codex/record.py` against 0.154.0 on the user's ChatGPT login (plan `free`) in
+a scratch git repo, scrubbed by `scrub.py` (paths → `/work/project`, `/home/user`, account email, lists cut to three,
+tool schemas dropped) into `business/tests/fixtures/codex/app_server/`. The scratch threads were deleted afterwards.
+
+1. **Transport:** stdio works as documented. No `jsonrpc` field in either direction. Notifications carry
+   `emittedAtMs`. Handshake `initialize` → `initialized` as in the bindings; `experimentalApi: true` accepted.
+2. **Configured model can be unusable:** the user's `config.toml` model `gpt-6-astra` fails every turn ("not
+   supported when using Codex with a ChatGPT account"): `warning` (no model metadata), `error{willRetry:false}`,
+   `thread/status/changed{systemError}`, `turn/completed{failed, error}`. The chat must show the error text and offer
+   the model picker. `model/list` marks `isDefault` (here gpt-5.6-terra, efforts low…ultra, input text + image).
+   **AI naming / no-model-flag rule:** fall back to `model/list`'s default when the configured model fails.
+3. **Approvals (untrusted + workspace-write):** even Codex's startup probe (`source: unifiedExecStartup`, `pwd && rg
+   --files -g AGENTS.md`) asks. `commandExecution/requestApproval` carries `command`, `cwd`, `kind`, `itemId`.
+   `fileChange/requestApproval` carries only `itemId`, `reason`, `grantRoot`: the paths come from the matching
+   `item/started{fileChange, changes[{path, kind, diff}]}`. Every answer is echoed by `serverRequest/resolved`. A
+   declined command → `item/completed{commandExecution, status failed}`, the turn continues.
+4. **Steer:** only while a turn is active, otherwise `-32600 "no active turn to steer"`. The steer text appears as a
+   second `userMessage` item in the same turn and the answer honours it.
+5. **Interrupt:** `turn/completed{status interrupted}`.
+6. **Ops:** `thread/name/set` → `thread/name/updated`. `thread/shellCommand` and `thread/compact/start` each run as
+   their own turn (`turn/started` … `commandExecution` / `contextCompaction` item … `turn/completed`). A thread must be
+   loaded in the process (start / resume / fork) before ops, otherwise "thread not found".
+7. **Fork:** `thread/fork{lastTurnId}` keeps the turns up to and including that turn (1 of 7 here), without a cut it
+   keeps all; `forkedFromId` set, the name is copied. Forks are not returned by `thread/list{cwd}` with default
+   filters. A parent cannot be deleted while a fork exists ("forked history still references it").
+8. **Tokens:** `thread/tokenUsage/updated{total, last, modelContextWindow}` (258400 here) → context meter without a
+   lookup table. `account/rateLimits/updated` arrives every turn.
+9. **History:** `thread/read{includeTurns:true}` works but emits `deprecationNotice`: use `thread/turns/list` +
+   `thread/items/list` (paged, `turnId` per item).
+10. **Reasoning:** `reasoning` items arrive with empty `summary` and `content` on the default settings, no deltas.
+    Thinking text needs `summary` on `turn/start` (S8: try `auto` / `concise`).
+11. **Ephemeral threads** work for AI naming (`thread/start{ephemeral:true}`), not listed or saved.
+12. **Question dialogs:** `request_user_input is unavailable in Default mode` (stderr): the tool exists only in Plan
+    collaboration mode. The dialog path is built from the bindings and tested with synthetic frames.
+13. **Noise to ignore or fold:** `mcpServer/startupStatus/updated` (one per MCP server per thread start),
+    `turn/moderationMetadata`, `turn/diff/updated`, `thread/settings/updated`.
+14. **Workspace roots:** `runtimeWorkspaceRoots` includes the user's extra `writable_roots`.
+15. **Sizes:** an unfiltered `plugin/list` returned 18.8 MB (whole remote catalogue): Extensions use
+    `plugin/installed` or filters, never the bare call. `mcpServerStatus/list` carries full tool schemas.
+16. **Config facts:** `-c check_for_update_on_startup=false` accepted; update prompts are also the `in_app_updates`
+    feature. Hooks live in `<codex home>/hooks.json` (and a `hooks` config key), events PreToolUse,
+    PermissionRequest, PostToolUse, PreCompact, PostCompact, SessionStart, SessionEnd, SubagentStart, SubagentStop.
+    Profiles exist (`ConfigProfile`).
 
 ## Risks
 
