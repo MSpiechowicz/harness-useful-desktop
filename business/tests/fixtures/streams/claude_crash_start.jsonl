@@ -1,0 +1,4 @@
+// Claude Code exits before it answers the handshake.
+{"expect": "control_request", "subtype": "initialize", "hold": true}
+{"stderr": "Error: unknown option --bogus"}
+{"exit": 1}

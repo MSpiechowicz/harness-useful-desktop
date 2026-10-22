@@ -10,7 +10,9 @@
 //!     [`RpcDialect`](crate::pi_family::rpc::RpcDialect): request correlation, dialogs and startup;
 //!   - [`OpenCodeSession`] — `opencode serve` over loopback HTTP and its event stream (the
 //!     manager does not offer it yet);
-//!   - [`OpenCodeV2Session`] — the same for OpenCode 2's `/api` server.
+//!   - [`OpenCodeV2Session`] — the same for OpenCode 2's `/api` server;
+//!   - [`ClaudeSession`] — `claude` in stream-json mode with its control protocol (the harness
+//!     keeps chat off until the engine is complete).
 //! - [`EventSink`] — where the normalized [`AgentEnvelope`](crate::model::AgentEnvelope)s go
 //!   (the desktop shell adapts it to a Tauri channel).
 //! - [`DeltaCoalescer`] — merges streaming deltas within [`COALESCE_WINDOW`].
@@ -36,6 +38,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+pub use claude::ClaudeSession;
 pub use coalesce::{COALESCE_WINDOW, DeltaCoalescer};
 pub use engine::{AgentSession, SessionLaunch};
 pub use manager::{AgentDeps, AgentManager, MAX_SESSIONS, Stopping};

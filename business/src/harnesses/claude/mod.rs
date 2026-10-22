@@ -8,13 +8,15 @@
 //! ([`sessions`]). Plugin and marketplace actions run `claude plugin …` ([`cli`]). Recommended
 //! setup installs the Harness Skills plugin from its marketplace ([`setup`] reads the registries)
 //! and registers the Harness family MCP servers in the user scope through `claude mcp`
-//! ([`McpTarget::ClaudeCli`]). Chat is not available yet, and the catalog lists every command as
-//! unsupported. Every spawn switches off Claude's self-updater.
+//! ([`McpTarget::ClaudeCli`]). The chat engine runs `claude` in stream-json mode ([`launch`]), but
+//! chat stays off until the engine is complete. The catalog maps Claude's commands to the chat's
+//! actions and views. Every spawn switches off Claude's self-updater.
 
 mod catalog;
 mod cli;
 mod config;
 mod extensions;
+mod launch;
 mod paths;
 mod sessions;
 mod setup;
@@ -25,7 +27,6 @@ pub use paths::{PROJECT_DIR_NAME, config_dir, global_config_file, project_slug};
 pub use setup::{KnownMarketplace, UserPlugin, known_marketplaces, user_plugins};
 
 use crate::ecosystem::catalog::{CLAUDE_SKILLS_PLUGIN, SKILLS_MARKETPLACE};
-use crate::error::BusinessError;
 use crate::harness::prelude::*;
 use crate::harnesses::pi::PiDialect;
 use crate::model::{SessionMessagesPage, SessionRef, SessionSummary, SessionTree};
@@ -88,9 +89,9 @@ impl Harness for Claude {
         &catalog::CATALOG
     }
 
-    /// Chat with Claude Code is not available yet.
-    fn launch_spec(&self, _request: &LaunchRequest<'_>) -> Result<ExecSpec> {
-        Err(chat_not_available())
+    /// `claude` in stream-json mode (see [`launch`]).
+    fn launch_spec(&self, request: &LaunchRequest<'_>) -> Result<ExecSpec> {
+        launch::claude_launch_spec(request)
     }
 
     /// Never reached: Claude chats over [`ChatProtocol::ClaudeStream`], not RPC.
@@ -186,8 +187,4 @@ impl Harness for Claude {
     fn supported_versions(&self) -> &'static [&'static str] {
         &["2.1."]
     }
-}
-
-fn chat_not_available() -> BusinessError {
-    BusinessError::Unsupported("Claude Code chat is not available yet".to_owned())
 }

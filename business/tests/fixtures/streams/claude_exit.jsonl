@@ -1,0 +1,3 @@
+// Claude Code answers the handshake, then exits at once.
+{"include": "claude_init.jsonl"}
+{"exit": 0}

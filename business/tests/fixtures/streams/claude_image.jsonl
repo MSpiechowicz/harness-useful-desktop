@@ -1,0 +1,4 @@
+// A prompt with an image: the user message carries a text block and a base64 image block.
+{"include": "claude_init.jsonl"}
+{"expect": "user", "as": "prompt", "match": {"/message/content/0": {"type": "text", "text": "What is this?"}, "/message/content/1/type": "image", "/message/content/1/source": {"type": "base64", "media_type": "image/png", "data": "iVBORw0KGgo="}}}
+{"emit": {"type": "system", "subtype": "session_title_changed", "title": "Marker", "session_id": "c1262da3-a66b-42b5-a9ee-32bb98f2045d"}}

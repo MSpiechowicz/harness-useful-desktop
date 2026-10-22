@@ -1,0 +1,147 @@
+//! The command line of a Claude Code chat: stream-json mode in the project, `--resume` only with a
+//! Claude session id, no model flag, no helper chats yet, and never a flag that skips approvals,
+//! strips a login method or bypasses the permission mode.
+
+use std::ffi::OsString;
+use std::path::PathBuf;
+
+use harness_business::harness::{Harness, LaunchRequest};
+use harness_business::harnesses::Claude;
+use harness_business::model::{ApprovalMode, IpcErrorCode};
+use harness_business::process::ResolvedBinary;
+use pretty_assertions::assert_eq;
+
+const STREAM: [&str; 8] = [
+    "--output-format",
+    "stream-json",
+    "--verbose",
+    "--input-format",
+    "stream-json",
+    "--permission-prompt-tool",
+    "stdio",
+    "--include-partial-messages",
+];
+
+const SESSION: &str = "c1262da3-a66b-42b5-a9ee-32bb98f2045d";
+
+struct Setup {
+    binary: ResolvedBinary,
+    project: PathBuf,
+}
+
+impl Setup {
+    fn new(path: &str, batch: bool) -> Self {
+        Self {
+            binary: ResolvedBinary {
+                path: PathBuf::from(path),
+                is_batch_script: batch,
+            },
+            project: PathBuf::from("/work/demo"),
+        }
+    }
+
+    fn request(&self, resume: Option<&'static str>) -> LaunchRequest<'_> {
+        LaunchRequest {
+            binary: &self.binary,
+            project: &self.project,
+            resume,
+            approval_override: None,
+            trust_once: false,
+            utility: false,
+        }
+    }
+}
+
+fn argv(request: &LaunchRequest<'_>) -> Vec<String> {
+    let spec = Claude.launch_spec(request).expect("a launch spec");
+
+    assert_eq!(spec.cwd.as_deref(), Some(request.project), "runs in the project");
+    assert_eq!(spec.program, request.binary.path);
+    assert!(spec.env.is_empty(), "the manager adds the spawn environment");
+
+    spec.args.iter().map(|arg| arg.to_string_lossy().into_owned()).collect()
+}
+
+#[test]
+fn a_new_chat_runs_stream_json_with_permission_prompts_on_stdio() {
+    let setup = Setup::new("/usr/bin/claude", false);
+
+    assert_eq!(argv(&setup.request(None)), STREAM);
+}
+
+#[test]
+fn a_resumed_chat_adds_resume_with_its_session_id() {
+    let setup = Setup::new("/usr/bin/claude", false);
+
+    let mut expected: Vec<&str> = STREAM.to_vec();
+    expected.extend(["--resume", SESSION]);
+
+    assert_eq!(argv(&setup.request(Some(SESSION))), expected);
+}
+
+#[test]
+fn only_a_lowercase_session_uuid_is_resumed() {
+    let setup = Setup::new("/usr/bin/claude", false);
+
+    for id in [
+        "C1262DA3-A66B-42B5-A9EE-32BB98F2045D",
+        "c1262da3a66b42b5a9ee32bb98f2045d",
+        "c1262da3-a66b-42b5-a9ee-32bb98f2045",
+        "ses_ea2843d6fffeeHJKZwBKUXqULv",
+        "../c1262da3-a66b-42b5-a9ee-32bb98f2045d",
+        "--fork-session",
+    ] {
+        let refused = Claude.launch_spec(&setup.request(Some(id))).expect_err(id);
+        assert_eq!(refused.code(), IpcErrorCode::InvalidInput, "{id}");
+    }
+}
+
+#[test]
+fn helper_chats_are_not_available_yet() {
+    let setup = Setup::new("/usr/bin/claude", false);
+    let request = LaunchRequest {
+        utility: true,
+        ..setup.request(None)
+    };
+
+    let refused = Claude.launch_spec(&request).expect_err("no helper chats");
+    assert_eq!(refused.code(), IpcErrorCode::Unsupported);
+}
+
+#[test]
+fn no_launch_skips_approvals_strips_a_login_or_names_a_model() {
+    let setup = Setup::new("/usr/bin/claude", false);
+    let forbidden = [
+        "dangerously",
+        "bare",
+        "bypass",
+        "permission-mode",
+        "permission-prompts",
+        "model",
+        "auto",
+    ];
+
+    for resume in [None, Some(SESSION)] {
+        for approval in [None, Some(ApprovalMode::Yolo), Some(ApprovalMode::Write)] {
+            let request = LaunchRequest {
+                approval_override: approval,
+                trust_once: true,
+                ..setup.request(resume)
+            };
+
+            for arg in argv(&request) {
+                assert!(!forbidden.iter().any(|word| arg.contains(word)), "{arg}");
+            }
+        }
+    }
+}
+
+#[test]
+fn a_batch_script_launcher_accepts_the_arguments() {
+    let setup = Setup::new("C:/npm/claude.cmd", true);
+
+    let spec = Claude
+        .launch_spec(&setup.request(Some(SESSION)))
+        .expect("every argument is batch-safe");
+    assert_eq!(spec.args.last(), Some(&OsString::from(SESSION)));
+}

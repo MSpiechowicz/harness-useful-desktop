@@ -1,0 +1,17 @@
+// The pickers against the crafted handshake (claude_startup.jsonl): list_models, set_model with
+// its local command output (controls.jsonl line 24), effort levels and thinking off, then a turn on
+// the new model (controls.jsonl lines 47 to 59).
+{"include": "claude_startup.jsonl"}
+{"expect": "control_request", "subtype": "list_models", "reply": {"models": [{"value": "default", "resolvedModel": "claude-opus-5-5", "displayName": "Default (recommended)", "supportsEffort": true, "supportedEffortLevels": ["low", "medium", "high", "xhigh", "max"], "supportsThinkingOff": false}, {"value": "sonnet", "resolvedModel": "claude-sonnet-5-5", "displayName": "Sonnet 5.5", "supportsEffort": true, "supportedEffortLevels": ["low", "medium", "high", "xhigh", "max"], "supportsThinkingOff": false}, {"value": "claude-opus-5", "resolvedModel": "claude-opus-5", "displayName": "Opus 5", "supportsEffort": true, "supportedEffortLevels": ["low", "medium", "high"], "supportsThinkingOff": true}]}}
+{"expect": "control_request", "subtype": "set_model", "match": {"/request/model": "sonnet"}, "hold": true}
+{"replay": "../claude/stream/controls.jsonl", "from": 24, "to": 24}
+{"respond": "set_model"}
+{"expect": "control_request", "subtype": "apply_flag_settings", "match": {"/request/settings": {"effortLevel": "low"}}}
+{"expect": "control_request", "subtype": "set_model", "as": "opus5", "match": {"/request/model": "claude-opus-5"}}
+{"expect": "control_request", "subtype": "set_max_thinking_tokens", "as": "off", "match": {"/request/max_thinking_tokens": 0}}
+{"expect": "control_request", "subtype": "set_max_thinking_tokens", "as": "lifted", "match": {"/request/max_thinking_tokens": null}}
+{"expect": "control_request", "subtype": "apply_flag_settings", "as": "high", "match": {"/request/settings": {"effortLevel": "high"}}}
+{"expect": "control_request", "subtype": "set_model", "as": "back", "match": {"/request/model": "sonnet"}}
+{"expect": "control_request", "subtype": "set_model", "as": "refused", "error": "Model not available"}
+{"expect": "user", "as": "two"}
+{"replay": "../claude/stream/controls.jsonl", "from": 47, "to": 59, "replace": {"d6b057f5-e768-4032-be30-fdd054e7d2ce": "$two"}}
