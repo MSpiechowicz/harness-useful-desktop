@@ -1,5 +1,5 @@
 //! A chat with a memory identity: its guards are written to Harness Memory's data folder before
-//! the harness starts, and the harness (OMP, PI, OpenCode) gets its key as
+//! the harness starts, and the harness (OMP, PI, OpenCode, Claude Code) gets its key as
 //! `HARNESS_MEMORY_SESSION`, which its MCP servers inherit. Any other launch has the variable
 //! removed, and a key that is not a lowercase UUID starts nothing. The chat file names the project
 //! root of the chat (its git root, else the folder, as a turned-off folder is listed); a chat
@@ -95,11 +95,12 @@ async fn start(harness: HarnessId, dialect: &'static str, scenario: &str, key: O
 }
 
 #[tokio::test]
-async fn omp_pi_and_opencode_get_the_chat_key_and_its_guards_first() {
+async fn every_chat_harness_gets_the_chat_key_and_its_guards_first() {
     for (harness, dialect, scenario) in [
         (HarnessId::Omp, "omp", "omp_basic.jsonl"),
         (HarnessId::Pi, "pi", "pi_basic.jsonl"),
         (HarnessId::OpenCode, "opencode", "opencode_hang.jsonl"),
+        (HarnessId::Claude, "claude", "claude_init.jsonl"),
     ] {
         let run = start(harness, dialect, scenario, Some(KEY)).await;
         let spec = spawned(&run);

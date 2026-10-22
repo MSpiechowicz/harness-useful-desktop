@@ -230,8 +230,8 @@ fn approval_mode() -> Value {
     json!({
         "type": "string",
         "enum": ["alwaysAsk", "write", "yolo", "default"],
-        "description": "agent, omp and opencode only: ask before every tool (alwaysAsk), before tools that write or run \
-            something (write), or never (yolo). Absent or default: the harness's setting",
+        "description": "agent, omp, opencode and claude only: ask before every tool (alwaysAsk), before tools that write \
+            or run something (write), or never (yolo, not claude). Absent or default: the harness's setting",
     })
 }
 

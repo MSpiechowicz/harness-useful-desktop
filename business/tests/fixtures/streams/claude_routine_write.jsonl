@@ -1,0 +1,7 @@
+// A Claude Code routine run in approval mode write with a model (src-tauri routine tests): the
+// handshake carries no Always ask hook (claude_init_write.jsonl), the model is picked before the
+// prompt, then basic.jsonl's turn with the routine's reply in place of "pong".
+{"include": "claude_init_write.jsonl"}
+{"expect": "control_request", "subtype": "set_model", "match": {"/request/model": "sonnet"}}
+{"expect": "user", "as": "prompt", "match": {"/message/content": "Check the build"}}
+{"replay": "../claude/stream/basic.jsonl", "from": 6, "to": 22, "except": ["control_response"], "replace": {"c3ffc375-3f53-4214-acb4-665d7431545c": "$prompt", "pong": "Checked the build: all green."}}
