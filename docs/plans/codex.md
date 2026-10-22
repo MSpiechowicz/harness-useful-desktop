@@ -188,7 +188,9 @@ engine `agent/codex/`. Stdio only: no ports, no password, no daemon.
 | S9 approvals + modes + trust | done (merged 21f2769). Mode sent on thread/start and thread/resume only (thread-level `sandbox` keeps the user's writable roots), a mode change resumes the thread. Yolo offered like OMP/OpenCode (`yolo_mode` capability), Auto refused. Trust once = `-c projects={"<abs>"={trust_level="trusted"}}`: real CLI check 2026-10-22, the project layer applies only with it (config/read). Open for S12: `TrustOnce.svelte` copy is PI-specific and shows without a `.codex/` folder; Windows `.cmd` launcher refuses the trust-once argument |
 | S10 ops + chat on | done (7f3eb12, merged with S9 in 30d562a). Chat on as Preview. New/switch/fork/clone stay in one process and carry the chat's mode. Real CLI check 2026-10-22: `thread/fork` honours approvalPolicy + sandbox, `thread/resume` of another thread in the same process works, a `/<skill>` text + `skill` input item runs the skill. Fork keeps the chosen message's whole turn (OpenCode/PI fork before it). Helper (naming) chat keeps Codex's tools: never-ask + read-only sandbox. `!command` is not a tool card (`Hint::Shell`). Desktop passes `attachments_dir` |
 | S13 docs | done (7dec72d, 6b2af82) |
-| Next | S11 hooks/routines/notes guard, S12 UI polish, reviews 3+3 |
+| S11 hooks, routines | done (merged 81791b0). Hooks and routines need no Codex-specific source. **Notes guard off:** Codex starts stdio MCP servers with a cleared environment (HOME, PATH, … plus the server's `env_vars`/`env`), so `HARNESS_MEMORY_SESSION` never reaches harness-memory. Open decision for the user |
+| S12 UI polish | done (merged ff762b1). Trust once harness-aware (Codex: only with an untrusted `.codex/` layer), TOML source view, harness-named refusals, sessions helper update switches. Windows `.cmd` launcher still refuses the trust-once argument |
+| Reviews | pass 1 running (3 correctness + 2 security), read-only on feat/codex |
 
 ## Verified facts (S0 recording, 2026-10-22)
 
