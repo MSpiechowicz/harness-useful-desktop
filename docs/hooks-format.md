@@ -125,7 +125,7 @@ Claude Code reports its native tool ids, which are capitalized (the matcher igno
 
 `Edit`, `MultiEdit`, `Write` and `NotebookEdit` are the file changes, so the matcher `Edit|MultiEdit|Write|NotebookEdit` (or in lowercase, `edit|multiedit|write|notebookedit`) matches every one of them. `Bash` matches the shell tool. The app lists only these names, and a tool of another name is reported as Claude Code names it and has no touched paths. Only paths inside the project count, and a call that failed adds none. A relative path resolves against the working directory of the Claude Code session. Tool calls made inside a subagent (a `Task`) are not reported: they fire no `toolEnd` and add no touched paths. Claude Code's own hooks in its settings are not these hooks and run in Claude Code as they do in a terminal.
 
-Hooks run for Claude Code once its chat is switched on. Until then (`capabilities.chat` is `false`) the app has no Claude Code chat to fire them in.
+Hooks run in a Claude Code chat like in any other (its chat is a preview, `capabilities.chat` and `capabilities.chatPreview` are `true`). The tool ids above are the ones `toolEnd` carries.
 
 ## Events
 

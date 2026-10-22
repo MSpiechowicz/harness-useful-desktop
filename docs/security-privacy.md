@@ -38,10 +38,12 @@ not guaranteed, it says so under [Limits](#limits).
   in it runs until you have read the review and confirmed. Secret and path detection in free-form text is best effort,
   and host names are part of sources and URLs. Bundles are not signed. See [Shared setups](#shared-setups).
 - Secrets in configuration and in the app's own CLI output are masked before they reach the screen.
-- No shell is spawned, with two exceptions: the companion installers (Harness Dashboard, Harness Memory and the Harness Skills
+- No shell is spawned, with three exceptions: the companion installers (Harness Dashboard, Harness Memory and the Harness Skills
   for OpenCode), fixed
-  commands that run only after you confirm them, and command hooks, shell commands that run only when you wrote them or
-  approved that exact version (see [Process spawning](#process-spawning) and [Hooks](#hooks)). Their interpreter has an
+  commands that run only after you confirm them, command hooks, shell commands that run only when you wrote them or
+  approved that exact version, and the `!command` you type in a Claude Code chat, which the app runs itself because Claude
+  Code has no shell mode there (see [Process spawning](#process-spawning), [Hooks](#hooks) and
+  [Claude Code](#claude-code)). Their interpreter has an
   absolute path (`/bin/sh`, Windows PowerShell for the installers, `cmd.exe` from `<SystemRoot>\System32` for
   command hooks), but the `curl` and `sh` the Linux and macOS command line names are
   looked up on the `PATH` the app inherited, for all three installers alike. Every other
@@ -96,7 +98,7 @@ itself, and only after consent. Enumerated:
 
 - **AI chat names** (`aiChatNames`, off by default). When on, after the first message of a new chat the app starts one
   throwaway agent of the chat's own harness (`utility` launch: `--no-session --no-tools --thinking off`, no resume,
-  stopped right after the reply), on the chat's model, and sends it the first 500 characters of that message with a
+  stopped right after the reply, for Claude Code the flags in [Claude Code](#claude-code)), on the chat's model, and sends it the first 500 characters of that message with a
   fixed instruction. The app opens no connection itself; the request goes through the harness exactly as your own chat
   does, and costs one very small request per chat. Without it, names come from the first message locally.
 - **Refresh catalogs automatically** (`autoRefreshCatalogs`, on by default). While on, the app refreshes the extension
@@ -166,7 +168,7 @@ a separate program and is not covered by these rules: it opens its own database,
 | Rule | Entries |
 | --- | --- |
 | Extensions | `db`, `db-wal`, `db-shm`, `db-journal`, `sqlite`, `sqlite3`, `log`, `pem`, `key`, `p12`, `pfx`, `heapsnapshot` |
-| Exact names | `auth.json`, `mcp-auth.json`, `install-id`, `auth-token`, `models-store.json`, `gpu_cache.json`, `credentials`, `credentials.json`, `.env`, `.credentials.json`, `mcp-needs-auth-cache.json`, `policy-limits.json`, `policy-limits.stamp.json`; `prompt-history.jsonl` directly below an `opencode` directory; `history.jsonl`, `remote-settings.json`, `stats-cache.json` directly in a Claude Code config directory |
+| Exact names | `auth.json`, `mcp-auth.json`, `install-id`, `auth-token`, `models-store.json`, `gpu_cache.json`, `credentials`, `credentials.json`, `.env`, `.credentials.json`, `.claude.json` (opened only by `SafeReader::read_claude_global_file`), `mcp-needs-auth-cache.json`, `policy-limits.json`, `policy-limits.stamp.json`; `prompt-history.jsonl` directly below an `opencode` directory; `history.jsonl`, `remote-settings.json`, `stats-cache.json` directly in a Claude Code config directory |
 | Name prefixes | `.env.`, `id_rsa`, `id_ed25519`, `.claude.json.backup` (Claude Code's copies of its global file) |
 | Prefix and suffix | `opencode.` ... `.dat` (OpenCode desktop state: `opencode.settings.dat`, `opencode.global.dat`, `opencode.workspace.*.dat`) |
 | Directories | `terminal-sessions`, `url-search`, `paste-cache`, `shell-snapshots`, `file-history`, `session-env`; `backups`, `statsig`, `debug`, `uploads`, `image-cache`, `chrome`, `ide` and `feedback*` directly in a Claude Code config directory, its `plugins/data`, and `tool-results` below a `projects` directory; `blobs` below an `agent` directory; `storage`, `repos`, `snapshot`, `tool-output`, `plans` directly below an `opencode` directory; `node_modules` directly below `.cache/opencode` (or `cache/opencode`) |
@@ -309,7 +311,7 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
 - **No shell.** `build_command` (`business/src/process/mod.rs`) requires an absolute program path and passes the
   argument list verbatim. `scripts/check-forbidden.ts` rejects `Command::new("sh" | "bash" | "cmd" | ...)` with no
   opt-out. The exceptions are the companion installers and command hooks below.
-- **Command hooks (the other shell).** `run_command` (`business/src/hooks/command.rs`) runs the `command` of an approved,
+- **Command hooks (a shell).** `run_command` (`business/src/hooks/command.rs`) runs the `command` of an approved,
   enabled hook through `/bin/sh -c` (Linux, macOS) or `<SystemRoot>\System32\cmd.exe /D /S /C` (Windows, the command
   passed unquoted as `ExecSpec::raw_arg`, which only this call uses). The interpreter has an absolute path; the command
   text is the hook's own and is never built from tool results, prompts or other hooks. It runs in the project root or the
@@ -317,12 +319,12 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
   timeout of 1 to 30 s (default 10) cut short to a 30 s budget per firing, and 16 KiB of stdout kept; stderr is dropped.
   The webview sends no command line to run: it can only save a hook, which the window approves because it saved it.
   See [Hooks](#hooks).
-- **Companion installers (one of the two shells).** Recommended setup can run the official Harness Dashboard installer
+- **Companion installers (a shell).** Recommended setup can run the official Harness Dashboard installer
   (`setup_install_dashboard`), the official Harness Memory installer (`setup_install_memory`, also offered by the
   **Project memory** switch) and the Harness Skills installer for OpenCode (`setup_install_opencode_skills`), all
   through `run_installer` in `business/src/ecosystem/installer.rs`. It is the only place
-  the app runs an install command. The only other place that names a shell is the command hook runner (see
-  [Hooks](#hooks)). Each command is a Rust constant per companion and OS
+  the app runs an install command. The only other places that name a shell are the command hook runner (see
+  [Hooks](#hooks)) and the `!command` of a Claude Code chat (see [Claude Code](#claude-code)). Each command is a Rust constant per companion and OS
   (`DASHBOARD_INSTALL_SH` / `DASHBOARD_INSTALL_PS1_SCRIPT`, `MEMORY_INSTALL_SH` / `MEMORY_INSTALL_PS1_SCRIPT` and
   `SKILLS_INSTALL_SH` / `SKILLS_INSTALL_PS1_SCRIPT` in `business/src/ecosystem/catalog.rs`): `/bin/sh -c` on Linux and macOS, Windows PowerShell from
   `<SystemRoot>\System32\WindowsPowerShell\v1.0` with `-NoProfile` on Windows. The webview sends only `confirmed`; no
@@ -752,11 +754,9 @@ OpenCode 2 gets the same guarantees through its own engine (`business/src/agent/
 
 The app chats with and manages Claude Code (`claude`) as a harness: adapter `business/src/harnesses/claude/`, the pure
 stream-json mapper `business/src/claude_stream/`, the chat engine `business/src/agent/claude/`. The plan and its
-verified protocol facts are in [claude-code.md](plans/claude-code.md). **The chat is switched off for now**
-(`capabilities.chat` is false): the engine core exists, but permission prompts, questions, the approval modes and the
-session operations (new, fork, clone, rename, compact, export) arrive in a later step ("coming in S9" for the approvals), so the app starts no
-Claude Code chat yet. Everything else below is in use: detection, the Config and Extensions views, Sessions, plugin and
-marketplace actions, Recommended setup and Share setup.
+verified protocol facts are in [claude-code.md](plans/claude-code.md). The chat is a preview (`capabilities.chat` and
+`capabilities.chatPreview` are true): permission prompts, questions, approval modes and the session operations (new,
+fork, clone, rename, compact, export, `!command`) work, and are described below.
 
 - **Terms and login.** Anthropic's terms ([code.claude.com/docs/en/legal-and-compliance](https://code.claude.com/docs/en/legal-and-compliance),
   read 2026-10-22) do not let a third-party product offer claude.ai login or "collect, store, or intermediate Claude.ai
@@ -774,6 +774,14 @@ marketplace actions, Recommended setup and Share setup.
   the global file (`~/.claude.json`, or `$CLAUDE_CONFIG_DIR/.claude.json`) only an allow-list: the top-level `mcpServers`
   and, for the open project's entry in `projects`, `mcpServers`, `enabledMcpjsonServers`, `disabledMcpjsonServers`,
   `disabledMcpServers`, `allowedTools` and `hasTrustDialogAccepted` (`harnesses/claude/config/global_file.rs`). The
+  name `.claude.json` is on the deny list everywhere, and so are its `.claude.json.*` copies. Only
+  `SafeReader::read_claude_global_file` opens it: the path must resolve canonically to a global file that
+  `global_config_file` registered (`add_claude_global_file`), the file is capped at 32 MiB (`MAX_GLOBAL_FILE_BYTES`, a
+  larger file is reported as too large, never as empty), and every other check of `SafeReader` still applies. Only
+  the readers that keep to the allow-list above call it. A project's `.claude/settings.json` and
+  `.claude/settings.local.json` must resolve inside the project (one that does not, a symlink to your own files for
+  example, is listed with an error and nothing is read from it), and so must the skills, agents, commands and
+  `.mcp.json` of a project layer. A plugin's files must resolve inside the plugin. The
   plugin registries (`plugins/installed_plugins.json`, `plugins/known_marketplaces.json` and the marketplace catalogs
   in `.claude-plugin/marketplace.json`), the skills, agents and commands files and the `.mcp.json` of the project and
   of enabled plugins. The CLAUDE.md files are listed by name and layer, never read for content. Sessions
@@ -803,35 +811,107 @@ marketplace actions, Recommended setup and Share setup.
   `<config>/session-env/<uuid>/`. It is refused (`Forbidden`) while a `<config>/sessions/<pid>.json` names the session
   and that process may still run (`business/src/harnesses/claude/sessions/delete.rs`).
 - **Spawn environment.** Every `claude` child gets `DISABLE_UPDATES=1` (see [Process spawning](#process-spawning)).
-- **The chat process.** One `claude` per chat, started by `harnesses/claude/launch.rs` with exactly
+- **The chat process.** One `claude` per chat process, started by `harnesses/claude/launch.rs` with exactly
   `--output-format stream-json --verbose --input-format stream-json --permission-prompt-tool stdio
-  --include-partial-messages`, and `--resume <id>` for a saved session (the id must be a lowercase UUID). The app
-  talks to it over stdin and stdout only: no port, no password, no server. `--permission-prompt-tool stdio` sends every
-  permission prompt to the app instead of the terminal. No model flag, `--permission-mode`, `--settings`, `--setting-sources`
-  or `--mcp-config` is passed, so the chat runs on your default model and, as in your terminal, loads your user, project,
-  local and managed settings, hooks, plugins and MCP servers. The `initialize` request registers no app hooks. Control
-  requests the engine does not handle are answered with an error and a hook callback with no opinion. The engine's frame
-  reader caps a line at 4 MiB, and every control request has a time limit.
+  --include-partial-messages`, plus `--permission-mode default` when an approval override of Always ask or Write is
+  chosen (see Approval modes below) and `--resume <id>` for a saved session (the id must be a lowercase UUID). The
+  engine adds the session flags in `agent/claude/startup.rs`: `--session-id <fresh UUID>` for a new chat, `--resume <id>
+  --fork-session --session-id <fresh UUID>` for a clone, the same with `--resume-session-at <uuid>` for a fork, and
+  `--model=<id>` once you picked a model and the chat starts another process (new chat, switch, fork or clone stop the
+  old process). The app talks to it over stdin and stdout only: no port, no password, no server.
+  `--permission-prompt-tool stdio` sends every permission prompt to the app instead of the terminal. No `--settings`,
+  `--setting-sources` or `--mcp-config` is passed, so the chat runs on your default model until you pick one and, as in
+  your terminal, loads your user, project, local and managed settings, hooks, plugins and MCP servers. The `initialize`
+  request registers a hook only in Always ask mode (see Approval modes). Control requests the engine does not handle
+  are answered with an error and a hook callback of another id with no opinion. The engine's frame reader caps a line
+  at 4 MiB, and every control request has a time limit.
 - **Forbidden flags.** The app never starts Claude Code in the `bypassPermissions` mode and never passes
   `--dangerously-skip-permissions`, `--allow-dangerously-skip-permissions`, `--bare` or `--permission-prompts none`.
   `scripts/check-forbidden.ts` rejects them with no opt-out: `skip-permissions-flag` (both skip flags, in any source
   file), `claude-bypass-mode` (`--permission-mode bypassPermissions`, and `SetPermissionMode` together with
   `bypassPermissions` in Rust), `claude-no-prompts` (`--permission-prompts none`) and `claude-bare` (`"--bare"` in
-  `business/src/claude_stream/`, `agent/claude/` and `harnesses/claude/`, since `--bare` is a valid git flag elsewhere). The plan keeps the
-  Yolo approval mode off for Claude Code for the same reason, since it would need `--allow-dangerously-skip-permissions`.
-- **Approvals.** Until the approvals step lands, the engine holds a permission prompt, a question or a dialog of Claude Code
-  without answering it (`Live::asks`, `business/src/agent/claude/mod.rs`) and denies the open ones when a turn is aborted.
-  Nothing allows a tool on your behalf. This cannot occur while the chat is off.
+  `business/src/claude_stream/`, `agent/claude/` and `harnesses/claude/`, since `--bare` is a valid git flag elsewhere). The app offers no
+  Yolo approval mode for Claude Code for the same reason, since it would need `--allow-dangerously-skip-permissions`.
+- **Approvals.** Every permission prompt of Claude Code (`can_use_tool`, also one a subagent raises) is held until you
+  answer it, and no tool runs on your behalf before that. The dialog is titled `Allow <tool>: <subject>?`, the subject
+  one redacted line (a command, a file relative to the project, a URL or query, a subagent's task), and offers
+  `Allow once`, `Always allow` and `Reject` (`business/src/claude_stream/permissions.rs`). `Allow once` lets the call
+  run with its input. `Reject`, or a dismissed dialog, denies it with "The user declined this tool call." The CLI can
+  withdraw a prompt (`control_cancel_request`), which closes its dialog, and an abort of the turn denies the open
+  ones (`agent/claude/dialogs.rs`, `prompts.rs`). At most 256 asks are open at once (`MAX_OPEN_ASKS`,
+  `agent/claude/io.rs`), the next one is denied with "Too many requests are waiting for the user". A question
+  (`AskUserQuestion`) is one dialog per question, answered with the options you pick, and a dismissed dialog denies
+  the call. A `request_user_dialog` of Claude Code is answered with an error and an MCP server's elicitation is
+  declined, each with a notice in the chat, because the chat cannot show them yet.
+- **Always allow.** It is offered only when it can be kept safely and lasts until the chat's process ends, never longer.
+  Two shapes exist. When Claude Code sends `permission_suggestions` (and the chat is not in Always ask mode), only the
+  suggestions that add an allow rule or a directory are echoed back, each with its destination set to `session`
+  (`session_rules`), so Claude Code saves nothing to a settings file, and the dialog names what they allow. Otherwise
+  (no suggestions, or Always ask, whose hook would ask again despite a session rule) the app keeps the answer itself
+  in memory (`AllowList`, `business/src/claude_stream/allow_list.rs`): a file tool (`Read`, `Write`, `Edit`,
+  `MultiEdit`, `NotebookEdit`) on a file inside the project covers later calls of that tool on files inside the
+  project, `Bash` covers the exact same command text with every other input field equal (only the model's
+  `description` may differ), and any other tool covers the exact same input. There are no command prefixes in the
+  app's list. `Always allow` is never offered, and a kept answer never covers, an ask the CLI marks
+  `suppress_always_allow_rule`, one blocked on a path (`blocked_path`) or one a safety check flagged
+  (`decision_reason_type` `safetyCheck`) (`PermissionAsk::may_always_allow`): such a call always shows its dialog.
+- **Approval modes.** Always ask starts Claude Code with `--permission-mode default` and registers a `PreToolUse` hook
+  for every tool in `initialize` (matcher `.*`, callback `harness_ask_all`, `ask_all_hooks`) whose callback answers
+  `ask`, so even calls Claude Code would allow on its own reach the dialog. Write starts it with `--permission-mode
+  default`. Yolo is not offered (`capabilities.yoloMode` is false): the picker hides it, a launch asking for it is
+  refused (`Unsupported`, `approval_override` in `business/src/agent/launch.rs` and `claude_launch_spec`), and a routine
+  with `approvalMode: "yolo"` for Claude Code is Invalid. Without an override your own `permissions.defaultMode` applies,
+  as in your terminal. The chat header shows it read-only (`Harness::native_approval_mode`,
+  `harnesses/claude/modes.rs`): the value of the last settings layer that sets a known mode (managed over local over
+  project over user, `manual` read as `default`), and `default` otherwise. `default` reads as the app's Write and
+  `bypassPermissions` as Yolo, informational only. A mode the app has no name for (`acceptEdits`, `plan`, `auto`,
+  `dontAsk`) is shown under Claude Code's name. `bypassPermissions` and `auto` let tools run without asking, so when
+  Claude Code is the daily driver and your settings choose one of them, onboarding shows a notice once (the mode's
+  `unattended` flag). The app never changes your settings.
+- **Folder trust.** Claude Code in stream-json mode shows no folder trust prompt (recorded with 2.1.304), so a folder
+  it was never trusted in would apply the project's `.claude/settings*.json` (hooks, environment, helper commands,
+  modes) and `.mcp.json` unasked. Claude Code therefore has `capabilities.projectTrust` and
+  `capabilities.projectTrustRequired`, and `Harness::check_project_trust` refuses a chat unless the project's entry
+  in the global file has `hasTrustDialogAccepted: true` (read through the allow-list above), with `Untrusted` and
+  the text "Claude Code does not trust this folder yet. Run claude in it once from a terminal, or trust it once here."
+  The chat shows a toast with a **Trust once** button that says trusting lets the project's own settings and hooks run
+  with your permissions, for this chat only. Trusting once passes no flag to `claude` and writes nothing, to the
+  global file or anywhere else: it only lets the app start the process. The app remembers it in memory, per project,
+  until the app quits (`TrustMemory`, `business/src/agent/trust_memory.rs`): the chats you open there later in the
+  same run (restarts, approval changes, reopened chats, harness moves and the AI-naming helper) trust it once too,
+  and the next app start asks again. Routine runs never use that memory, so a routine in such a folder needs
+  `trustOnce: true` in its file (see [routines-format.md](routines-format.md)).
+- **Helper chat.** AI chat names start a helper `claude` with `--tools ""`, `--strict-mcp-config`,
+  `--thinking=disabled` and `--no-session-persistence` (`UTILITY_ARGS`) and no resume, so it runs no tools, loads no
+  MCP servers (`--strict-mcp-config` without `--mcp-config` loads none, not yet checked against a real CLI), saves no
+  session and registers no hook. Nobody sees its dialogs, so every permission prompt and question is denied at once
+  with "This helper chat runs no tools." On Windows a `claude.cmd` batch shim refuses the empty `--tools` argument.
+- **`!command`.** Claude Code has no shell mode in stream-json, so the app runs the command itself: your shell
+  (`sh -c`, `cmd.exe /D /S /C` on Windows) in the project, with the environment the chat's `claude` has, stdin closed,
+  killed after 10 minutes, each output stream capped at 1 MiB (`business/src/agent/claude/runs.rs`). It runs outside
+  the approval flow, only when you type it, and is refused while the chat works or runs another command. An abort
+  or a stop of the chat kills its process group. The output you see is redacted. The model gets the command and
+  its output on its next turn as a quiet user message (`shouldQuery: false`, so it triggers no reply) in
+  `<bash-input>`, `<bash-stdout>` and `<bash-stderr>` tags, each part redacted, stripped of trailing line breaks, cut
+  to 30 KB (`MAX_HANDED_BYTES`) and tag-safe: a `<` that opens or closes a `bash-` tag becomes `&lt;`, so output cannot
+  close its tag.
+- **Bounds and ids.** A streamed reply and the streamed input of a tool call stop growing at 8 MiB
+  (`MAX_STREAMED_BYTES`, the reply ends with a note that it was cut). A dialog answer over `MAX_ACTION_TEXT_BYTES`
+  (512 KiB) is refused. A session id the app puts on a command line is a lowercase UUID: the one you resume or switch
+  to is checked (`is_session_id`), and a new, forked or cloned session gets a fresh UUID v4 of the app's own. A
+  `--resume-session-at` value is the `uuid` of a line in the session file (`fork_point`), never typed text.
 - **What the chat shows.** Tool results from Claude Code pass `redact_text` before they reach the screen, and so do the
   texts of subagent tasks and the process's stderr lines. Assistant text, thinking and tool arguments are shown as
   produced, and saved sessions are shown as written: they are your own session data (see [Secret redaction](#secret-redaction)).
-- **Trust boundary.** Claude Code in stream-json mode shows no folder trust prompt (recorded with 2.1.304), and a project's
-  `.claude/settings.json` hooks, `.mcp.json` servers and plugins run as you whatever the app does. The app's own
-  hooks stay app-side, so nothing runs twice. Open an untrusted repository the way you would with `claude -p`.
+- **Trust boundary.** Even in a trusted folder, a project's `.claude/settings.json` hooks, `.mcp.json` servers and
+  plugins run as you whatever the app does, as they would with `claude -p`. The app's own hooks stay app-side, so
+  nothing runs twice. Trust once only in a repository you would run `claude` in.
 - **Plugin installs.** `claude plugin install` and `update` never get `-y`/`--yes`. It would accept a command a marketplace
   declares (a command-source plugin or a `headersHelper`) without showing it to a person. Without a terminal such an install
   fails, and you install it from a terminal where Claude Code asks (`harnesses/claude/cli.rs`). The plugin actions run in
-  the user scope, with `--json` so the exit code and the result line decide.
+  the user scope, with `--json` so the exit code and the result line decide, and in the home folder, so no project
+  settings (hooks, environment, helpers) apply to them. Only a project-scope install you chose runs in the project
+  (`claude_cli_action`, `business/src/harnesses/claude/cli.rs`).
 - **Share setup.** A Claude Code export carries marketplaces (GitHub `owner/repo` and `https://` sources, not pinned),
   user plugins as `name@marketplace` and the user scope's MCP servers. The import runs `claude plugin marketplace add
   <source> --scope user --json`, `claude plugin install <id> --scope user --json` and `claude mcp add-json --scope user`, and a
@@ -1462,9 +1542,14 @@ command is not granted). Process errors name only the program's file name (`Exec
   whose parent already exited (see Windows above). A project hook matches the project root by its exact path, so a project that moves loses its project hooks until
   they are saved again.
 - **Claude Code runs your settings.** The chat loads your user, project, local and managed Claude Code settings, hooks,
-  plugins and MCP servers, and stream-json mode shows no folder trust prompt, so an untrusted repository's
-  `.claude/settings.json` and `.mcp.json` act as they would in `claude -p`. Claude Code's chat is off until its approvals
-  exist. The global file is rewritten by every running `claude`, so an MCP entry can change under the app: it reads the file
+  plugins and MCP servers. Claude Code shows no folder trust prompt in stream-json mode, so the app refuses a folder
+  that has no `hasTrustDialogAccepted` until you pick **Trust once**, and after that the project's `.claude/settings.json` and
+  `.mcp.json` act as they would in `claude -p`. The trust is kept in memory until the app quits and is never written.
+  The Always allow answers the app keeps itself are broad for file tools (every call of that tool inside the project),
+  and exact for commands and other tools. Your own `permissions.defaultMode` (`bypassPermissions` or `auto`) lets
+  tools run without asking, and the app never changes it. Two things are not yet checked against a real CLI:
+  `--strict-mcp-config` without `--mcp-config` (the helper chat) and whether Claude Code trusts a folder through a
+  trusted parent. The global file is rewritten by every running `claude`, so an MCP entry can change under the app: it reads the file
   before it decides, and once more when a run fails. On Windows a `claude.cmd` batch shim refuses the JSON argument of `claude
   mcp add-json` (the batch-safety check), so such a change fails there. The MCP changes are not tested against a real
   `claude mcp add-json` yet.

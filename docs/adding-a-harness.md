@@ -113,6 +113,8 @@ differs.
 | `spawn_env()` | no | none | `&'static [(&str, &str)]` set on every spawn of the binary: the version probe, CLI actions, the chat launch and CLI sessions. OpenCode sets `OPENCODE_DISABLE_AUTOUPDATE=1` so no probe updates the binary. |
 | `session_folder(env, project)` | no | `sessions_dir`, not configured | Where the sessions live and whether the project's own settings chose that folder (shown when deleting). |
 | `configured_approval_mode(env, project)` | no | `None` | Only for harnesses with `capabilities.approvalModes`. |
+| `native_approval_mode(env, project)` | no | `None` | The harness's own permission mode for the project by its own name (`NativeApprovalMode { name, unattended }`), which the chat header shows read-only and onboarding uses to warn about an unattended default. Claude Code returns `permissions.defaultMode` (`harnesses/claude/modes.rs`). |
+| `check_project_trust(env, project)` | no | `Ok(())` | Refuses a chat launch in a folder the harness itself does not trust (`BusinessError::Untrusted`). Only for harnesses with `capabilities.projectTrustRequired`, and not asked when the launch trusts the project once. Claude Code refuses a project without `hasTrustDialogAccepted` in its global file. |
 | `cli_action(action, project)` | no | `Unsupported` error | See [CLI actions](#8-cli-actions). Needs `capabilities.cliActions`. |
 | `cli_failure_line(stdout, stderr)` | no | `None` (exit code decides) | For CLIs that exit 0 on failure. |
 | `cli_summary(stdout)` | no | `None` (the last line) | The summary of a successful action when the last line is not for people (Claude Code's `--json` result line). |
@@ -137,8 +139,12 @@ really does. Beyond the extension kinds (`plugins`, `marketplaces`, `packages`, 
 
 | Flag | Meaning when true | When false |
 | --- | --- | --- |
-| `chat` | The app drives chat sessions (`launch_spec` and the chat protocol work). OMP, PI and OpenCode. Claude Code has its engine core but keeps this false until its approvals and session operations exist, so its chat view says "Chat coming soon". | The UI shows "Chat coming soon" instead of the chat, the harness picker marks the harness as coming soon, and a chat is never started with it. If no installed harness can chat, the chat view says so. |
-| `chatPreview` | Chat works but is still a preview: the UI marks it with a "Preview" badge. OpenCode. | No badge. |
+| `chat` | The app drives chat sessions (`launch_spec` and the chat protocol work). OMP, PI, OpenCode and Claude Code. | The UI shows "Chat coming soon" instead of the chat, the harness picker marks the harness as coming soon, and a chat is never started with it. If no installed harness can chat, the chat view says so. |
+| `chatPreview` | Chat works but is still a preview: the UI marks it with a "Preview" badge. OpenCode and Claude Code. | No badge. |
+| `approvalModes` | The chat has the app's approval modes (Always ask, Write, Yolo) as a per-session override (`LaunchRequest.approval_override`) and `configured_approval_mode` reports the harness's own. OMP, OpenCode and Claude Code. | No approval picker. |
+| `yoloMode` | With `approvalModes`: Yolo (tools run without asking) is one of the modes. OMP and OpenCode. | The picker and the routine form hide Yolo, and a launch asking for it is refused (`approval_override` in `business/src/agent/launch.rs`). Claude Code: the app never starts its bypass mode. |
+| `projectTrust` | A launch may trust the project's local resources once (`LaunchRequest.trust_once`, a routine's `trustOnce`). PI and Claude Code. | `trust_once` is dropped. |
+| `projectTrustRequired` | With `projectTrust`: the harness starts only in a folder it trusts itself, so `check_project_trust` runs before the launch and a refused start shows a "Trust once" toast (`ui/src/lib/stores/start-failure.ts`). Once the user trusts a project once, `TrustMemory` (`business/src/agent/trust_memory.rs`, held by the shell's `Agents`) trusts it again for the chats opened there in the same app run, never written, and never for a routine run. Claude Code. | A start is never refused for trust. |
 | `agentPicker` | The chat can switch between the harness's primary agents (`AgentAction::SetAgent`, `GetAvailableAgents`, `SessionState.agent`) and the composer shows an agent picker. None today: OpenCode's engine supports it, but the picker is off because skills cover planning. | No agent picker. |
 | `compactInstructions` | `/compact` takes instructions for the summary, so picking it asks for them first. OMP and PI. | `/compact` runs at once and an action with instructions is refused as unsupported. OpenCode. |
 | `agents` | `extensions_view` fills `agents` (`AgentInfo`) and the Extensions view has an Agents tab. OpenCode and Claude Code. | No Agents tab. |
@@ -271,7 +277,8 @@ rpc_exec_spec(request.binary, request.project, &args)
 Do not pass flags that skip approvals (`--auto-approve`) or detach the extension UI (`--no-ui`); the forbidden-pattern
 guard rejects them without opt-out. The agent inherits the app's environment so it sees the user's provider
 configuration. `approval_override` and `trust_once` reach `launch_spec` only for harnesses whose capabilities enable
-them (`approvalModes`, `projectTrust`); the manager filters them.
+them (`approvalModes`, `projectTrust`); the manager filters them, refuses Yolo where `yoloMode` is false and, where
+`projectTrustRequired` is true, refuses a start in an untrusted folder unless the launch trusts the project once.
 
 **Dialect.** `RpcDialect` (`business/src/pi_family/rpc/mod.rs`) is the protocol seam:
 
@@ -344,19 +351,26 @@ talks to it over stdin and stdout, so there is no port, no password and no serve
 - `business/src/claude_stream/` is pure code that never spawns anything: `wire/` (serde types for the frames and control
   requests, and the encoders of what the app sends), `mapper/` (`ClaudeMapper`: one inbound frame to `AgentEvent`s plus
   hints for the engine, with tool cards, subagent tasks and the answers the CLI is owed), `tools.rs` (the tool ids and
-  the project files a call touched, shared with the Sessions view) and `stats.rs`. It is tested against recordings.
+  the project files a call touched, shared with the Sessions view), `permissions.rs` (the approval dialogs, the answers
+  to them and the Always ask hook), `allow_list.rs` (the chat's own "Always allow" answers), `questions.rs` (the
+  `AskUserQuestion` dialogs) and `stats.rs`. It is tested against recordings.
 - `business/src/agent/claude/` is the engine on top of `AgentProcess`: `startup.rs` (spawn, the `initialize` control
-  request, `ready`), `io.rs` (the stdout reader that maps every frame under the chat's lock, and the table that matches
-  `control_response` frames to the requests waiting for them, each with a time limit), `prompts.rs` (prompt, steering,
-  follow-up, withdrawing a queued message, abort) and `settings.rs` (model, thinking, slash commands).
+  request with the Always ask hook, `ready`), `io.rs` (the stdout reader that maps every frame under the chat's lock,
+  and the table that matches `control_response` frames to the requests waiting for them, each with a time limit),
+  `prompts.rs` (prompt, steering, follow-up, withdrawing a queued message, abort), `dialogs.rs` (permission prompts,
+  questions and the CLI's other asks, cancels), `settings.rs` (model, thinking, mode, slash commands, rename), `ops.rs`
+  (new, switch, fork and clone: each starts the CLI again), `relay.rs` (one event stream across those processes),
+  `runs.rs` (`!command` and compaction) and `reports.rs` (statistics, history, last reply, export).
 
 Requests carry ids but user messages do not and a turn ends with a `result` frame, which is why it is not an
 `RpcDialect`. No model flag is passed, so the chat runs on the user's own default model, and `DISABLE_UPDATES=1` is the
-harness's `spawn_env`. The flags the app must never pass are in
-[security-privacy.md](security-privacy.md#claude-code). What the engine core does not do yet (permission prompts and
-questions are held without an answer, new, fork, clone, rename, compaction, export and `!command`, helper chats) is
-refused as unsupported, which is why `capabilities.chat` is still false. The plan with the protocol facts is
-[claude-code.md](plans/claude-code.md).
+harness's `spawn_env`. The flags the app must never pass, the approval dialogs and modes, the folder trust gate and the
+helper chat are in [security-privacy.md](security-privacy.md#claude-code). Two capabilities carry the approval
+policy: Claude Code sets `approvalModes` but not `yoloMode`, because the app never starts its bypass mode, and it sets
+`projectTrust` and `projectTrustRequired` because stream-json mode skips Claude Code's own trust dialog (see
+[Capabilities](#capabilities)). `launch_spec` ignores `trust_once`: the gate is `Harness::check_project_trust` in the
+manager, and a launch that trusts the project once simply skips it. The chat is a preview (`chatPreview`). The plan with
+the protocol facts is [claude-code.md](plans/claude-code.md).
 
 ## 7. Sessions
 
@@ -597,7 +611,7 @@ Add tests next to the existing ones in `business/tests/`. Follow the same patter
 | Sessions | `sessions_store.rs`, `sessions_claude.rs`, `sessions_claude_transcript.rs` | Listing, tree and transcript over fixture sessions in `business/tests/fixtures/sessions/acme/` (Claude Code: `sessions/claude/`, synthetic files shaped after the real structure, with `attachment` and `api-request*` lines that must stay out). |
 | CLI sessions | `sessions_opencode.rs`, `sessions_opencode_transcript.rs`, `blocking_runner.rs` | A replay `BlockingRunner` returns recorded CLI output (`business/tests/fixtures/sessions/opencode/`): list, empty list, transcript paging, files touched, delete, other-project filtering, invalid ids spawn nothing. `blocking_runner.rs` runs `StdRunner` against a real child process. |
 | CLI actions | `cli_actions.rs`, `claude_cli_actions.rs` | Argument construction, validation errors, dry run, failure line. |
-| Chat engine | `agent_session.rs`, `agent_manager.rs`, `agent_dialogs.rs`, `agent_failures.rs` | The real session engine against `fake_agent`. A non-RPC engine has its own set, for OpenCode `opencode_engine*.rs`, `opencode_launch.rs`, `opencode_http.rs` and the mapper tests, over recordings of the real server in `business/tests/fixtures/opencode/server/` and scenarios in `business/tests/fixtures/streams/opencode_*.jsonl`. For Claude Code: `claude_launch.rs`, `claude_wire*.rs`, `claude_mapper*.rs`, `claude_tools.rs`, `claude_stats.rs` (the pure `claude_stream` code over the scrubbed recordings in `business/tests/fixtures/claude/stream/`) and `claude_engine*.rs` (the engine against `fake_agent --dialect claude` and the scenarios in `business/tests/fixtures/streams/claude_*.jsonl`). |
+| Chat engine | `agent_session.rs`, `agent_manager.rs`, `agent_dialogs.rs`, `agent_failures.rs` | The real session engine against `fake_agent`. A non-RPC engine has its own set, for OpenCode `opencode_engine*.rs`, `opencode_launch.rs`, `opencode_http.rs` and the mapper tests, over recordings of the real server in `business/tests/fixtures/opencode/server/` and scenarios in `business/tests/fixtures/streams/opencode_*.jsonl`. For Claude Code: `claude_launch.rs`, `claude_wire*.rs`, `claude_mapper*.rs`, `claude_tools.rs`, `claude_stats.rs`, `claude_allow_list.rs` (the pure `claude_stream` code over the scrubbed recordings in `business/tests/fixtures/claude/stream/`), `claude_engine*.rs` (the engine against `fake_agent --dialect claude` and the scenarios in `business/tests/fixtures/streams/claude_*.jsonl`: approvals and questions in `claude_engine_asks.rs`, the approval modes in `claude_engine_modes.rs`, `!command` in `claude_engine_bash.rs`, session operations in `claude_engine_ops.rs`) and `claude_chat_start.rs` (the folder trust gate and the helper chat through the manager). |
 | Recommended setup | `setup_status.rs`, `setup_mcp_register.rs` | `setup_status`: skills and MCP state of your harness on an empty machine, with the skills installed and with the MCP entry present (build the fixture files in a temp home). `setup_mcp_register.rs`: the `mcp.json` merge for your `also_read` files. `setup_mcp_register_opencode.rs`: the same for a JSONC file (a file with comments gives `ManualEdit`, nothing written). `setup_status_claude.rs` and `setup_mcp_register_claude.rs`: the marketplace skills state and the `claude mcp add-json` / `remove` runs of `McpTarget::ClaudeCli`, over a recording `ProcessRunner`. The installer itself is harness-independent (`setup_installer.rs`). |
 | Share setup | `sync_export.rs`, `sync_import.rs`, `sync_import_apply.rs`, `sync_export_claude.rs`, `sync_import_claude.rs` (helpers in `business/tests/sync_support/`) | Export: what your fixture home yields and what is excluded, with no secret literal in the code or file. Import: statuses on an empty machine and with items present, the exact CLI steps (recording `ProcessRunner`, zero runs for hostile values), idempotent second apply, MCP merge keeps other keys and never overwrites. `sync_codec.rs` and `sync_validate.rs` are harness-independent. |
 | Fixtures | `mock_fixtures.rs` | Add the harness's views and catalog to the exported mock fixtures. |
@@ -638,11 +652,14 @@ The UI renders any harness from data, with these exceptions:
   agent, onboarding): `harness.chatActive` is the active harness when it can chat, else the first installed one that
   can, and `harness.chatComingSoon` names the harness to put in "Chat coming soon" when none can. `cliActions` hides the
   extension action bars and `agents` shows the Agents tab (`extension-items.ts`, `extension-groups.ts`,
-  `extension-detail.ts`). Sessions hide resume and fork when the harness cannot chat.
+  `extension-detail.ts`). Sessions hide resume and fork when the harness cannot chat. `yoloMode` decides whether Yolo is offered in the approval picker and the routine form
+  (`ApprovalBadge.svelte`, `routine-abilities.ts`), and a start refused with the `untrusted` code shows the "Trust once" toast
+  (`start-failure.ts`).
 - **Onboarding.** The harness cards are data-driven. The approval step shows a notice only for a daily driver that runs
   tools without asking (`approvalNotice` in `onboarding-state.svelte.ts`: OMP "yolo", OpenCode allow-by-default
-  permissions). The app never changes the harness's permissions, so a new harness with a permissive default needs a
-  variant of that notice.
+  permissions, and Claude Code only when its `NativeApprovalMode.unattended` is true, that is `permissions.defaultMode`
+  is `bypassPermissions` or `auto`). The app never changes the harness's permissions, so a new harness with a
+  permissive default needs a variant of that notice.
 - **Mock.** `ui/src/lib/ipc/mock/fixtures.ts` builds `Record<HarnessId, ...>` entries for config, extensions,
   commands, session info and session lists. Add the exported fixtures there. The handlers with per-harness branches
   (`extension-action-handlers.ts`, `agent-handlers.ts`, `session-handlers.ts`, `setup-handlers.ts`) need the new

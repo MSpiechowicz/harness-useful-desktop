@@ -22,9 +22,11 @@ privacy. Made with the app's demo data. [Download the full-quality 4K video](htt
 ## Features
 
 - **Chat with approvals.** Streams the agent's replies, thinking and tool calls (OMP and PI run in `--mode rpc`,
-  OpenCode as a local `opencode serve` the app talks to on this machine), answers its approval and input dialogs, picks
+  OpenCode as a local `opencode serve` the app talks to on this machine, Claude Code as a `claude` process in stream-json
+  mode), answers its approval and input dialogs, picks
   the model and thinking level (and OpenCode's agent), runs slash commands, and asks before any shell command you
-  send. Chat with OpenCode and Claude Code is a preview.
+  send. Chat with OpenCode and Claude Code is a preview. Claude Code chats offer the Always ask and Write approval modes,
+  never Yolo, and start in a folder Claude Code does not trust only after you pick Trust once.
 - **Sessions and branches.** Lists a project's saved sessions, shows the branch tree of each, opens the transcript,
   resumes or forks. OpenCode sessions are linear: the app lists them, opens the transcript and deletes them through
   the `opencode` CLI, with no branch tree, and resumes or forks them in a chat. Claude Code sessions are listed, opened
@@ -69,7 +71,7 @@ privacy. Made with the app's demo data. [Download the full-quality 4K video](htt
 | [Oh My Pi](https://omp.sh) (`omp`) | Supported. Verified against 18.6.1. |
 | [Pi](https://github.com/earendil-works/pi) (`pi`) | Supported. Tested with PI 1.1. Other versions show as untested. |
 | [OpenCode](https://opencode.ai) (`opencode`) | Partly supported. Works: detection (also in `~/.opencode/bin`), the configuration (JSON with comments, secrets masked), extensions (skills, commands, agents, plugins, MCP servers, themes, with npm plugin install and remove), sessions (list, transcript, delete), the Harness Skills install and the dashboard and memory MCP entries in Recommended setup, and Share setup of npm plugins and MCP servers. Versions 1.18, 1.19 and 2.1 are supported, others show as untested. OpenCode 2 is installed with `npm install -g @opencode/cli`, and the app never starts its background service. It does not import OpenCode 1 sessions, since OpenCode 2 does not read them. Chat works as a preview on OpenCode 1 and OpenCode 2 (see [docs/security-privacy.md](docs/security-privacy.md#opencode-chat) for how the app runs the server, and the [OpenCode 2 plan](docs/plans/opencode-v2.md)). Not done: plugin updates and project-scope plugin installs. |
-| [Claude Code](https://code.claude.com) (`claude`) | Supported, chat as a preview. Works: detection, the configuration (the settings layers, MCP entries from `~/.claude.json`, secrets masked), extensions (plugins, marketplaces, skills, commands, agents, MCP servers, with plugin and marketplace actions through `claude plugin`), sessions (list, transcript, delete, resume, fork), Recommended setup (Harness Skills plugin, MCP entries through `claude mcp`), Share setup and chat over Claude Code's stream-json mode. The app runs your own `claude` with your own login. Versions 2.1.x are supported, others show as untested. |
+| [Claude Code](https://code.claude.com) (`claude`) | Supported, chat as a preview. Works: detection, the configuration (the settings layers, MCP entries from `~/.claude.json`, secrets masked), extensions (plugins, marketplaces, skills, commands, agents, MCP servers, with plugin and marketplace actions through `claude plugin`), sessions (list, transcript, delete, resume, fork), Recommended setup (Harness Skills plugin, MCP entries through `claude mcp`), Share setup and chat over Claude Code's stream-json mode (approval dialogs and questions, Always ask and Write modes, new, resume, fork, clone, rename, compact, export and `!command`). The chat starts in a folder Claude Code does not trust only after you pick Trust once, kept in memory until the app quits, and has no Yolo mode. The app runs your own `claude` with your own login. Versions 2.1.x are supported, others show as untested. |
 | Other harness CLIs | Planned. Adding one is an implementation of the `Harness` trait; see [docs/adding-a-harness.md](docs/adding-a-harness.md). Every new harness must also join Recommended setup (skills install and dashboard MCP). |
 
 The app finds the CLI on `PATH` and in the usual install directories (bun, cargo, npm global, `~/.local/bin`, `~/.opencode/bin`, Homebrew), or you can
