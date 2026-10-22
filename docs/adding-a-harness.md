@@ -600,7 +600,9 @@ The bundle's harness key is the `HarnessId`, so a new harness appears in exports
 
 ## 11. Tests
 
-Add tests next to the existing ones in `business/tests/`. Follow the same pattern for the new harness.
+Add tests next to the existing ones. `business/tests/` holds four test binaries, `core/`, `engines/`, `setup/` and `views/`:
+each `main.rs` lists its modules (one file per area below) and the helpers it uses from `business/tests/support/`.
+Follow the same pattern for the new harness.
 
 | Test | Where | What to cover |
 | --- | --- | --- |
@@ -615,7 +617,7 @@ Add tests next to the existing ones in `business/tests/`. Follow the same patter
 | CLI actions | `cli_actions.rs`, `claude_cli_actions.rs` | Argument construction, validation errors, dry run, failure line. |
 | Chat engine | `agent_session.rs`, `agent_manager.rs`, `agent_dialogs.rs`, `agent_failures.rs` | The real session engine against `fake_agent`. A non-RPC engine has its own set, for OpenCode `opencode_engine*.rs`, `opencode_launch.rs`, `opencode_http.rs` and the mapper tests, over recordings of the real server in `business/tests/fixtures/opencode/server/` and scenarios in `business/tests/fixtures/streams/opencode_*.jsonl`. For Claude Code: `claude_launch.rs`, `claude_wire*.rs`, `claude_mapper*.rs`, `claude_tools.rs`, `claude_stats.rs`, `claude_allow_list.rs` (the pure `claude_stream` code over the scrubbed recordings in `business/tests/fixtures/claude/stream/`), `claude_engine*.rs` (the engine against `fake_agent --dialect claude` and the scenarios in `business/tests/fixtures/streams/claude_*.jsonl`: approvals and questions in `claude_engine_asks.rs`, the approval modes in `claude_engine_modes.rs`, `!command` in `claude_engine_bash.rs`, session operations in `claude_engine_ops.rs`) and `claude_chat_start.rs` (the folder trust gate and the helper chat through the manager). |
 | Recommended setup | `setup_status.rs`, `setup_mcp_register.rs` | `setup_status`: skills and MCP state of your harness on an empty machine, with the skills installed and with the MCP entry present (build the fixture files in a temp home). `setup_mcp_register.rs`: the `mcp.json` merge for your `also_read` files. `setup_mcp_register_opencode.rs`: the same for a JSONC file (a file with comments gives `ManualEdit`, nothing written). `setup_status_claude.rs` and `setup_mcp_register_claude.rs`: the marketplace skills state and the `claude mcp add-json` / `remove` runs of `McpTarget::ClaudeCli`, over a recording `ProcessRunner`. The installer itself is harness-independent (`setup_installer.rs`). |
-| Share setup | `sync_export.rs`, `sync_import.rs`, `sync_import_apply.rs`, `sync_export_claude.rs`, `sync_import_claude.rs` (helpers in `business/tests/sync_support/`) | Export: what your fixture home yields and what is excluded, with no secret literal in the code or file. Import: statuses on an empty machine and with items present, the exact CLI steps (recording `ProcessRunner`, zero runs for hostile values), idempotent second apply, MCP merge keeps other keys and never overwrites. `sync_codec.rs` and `sync_validate.rs` are harness-independent. |
+| Share setup | `sync_export.rs`, `sync_import.rs`, `sync_import_apply.rs`, `sync_export_claude.rs`, `sync_import_claude.rs` (helpers in `business/tests/support/sync_support/`) | Export: what your fixture home yields and what is excluded, with no secret literal in the code or file. Import: statuses on an empty machine and with items present, the exact CLI steps (recording `ProcessRunner`, zero runs for hostile values), idempotent second apply, MCP merge keeps other keys and never overwrites. `sync_codec.rs` and `sync_validate.rs` are harness-independent. |
 | Fixtures | `mock_fixtures.rs` | Add the harness's views and catalog to the exported mock fixtures. |
 
 **Fake agent.** `fake_agent --dialect opencode` is a scripted `opencode serve` (an HTTP server on `127.0.0.1` with its own
@@ -626,7 +628,7 @@ requests and can replay frames of a recording (`replay`, `include`, `$name` capt
 `{"expect": "get_state", "reply": {...}}` waits for a request of that type and answers it, `{"exit": 1}`,
 `{"hang": true}`, `{"stderr": "..."}`. Add scenarios under `business/tests/fixtures/streams/` (for example
 `acme_startup.jsonl`, `acme_basic.jsonl`) and start them with `ScenarioSpawner` from
-`business/tests/agent_support/mod.rs`. `--dialect omp|pi|mcp` is a command-line switch; it only changes the opening
+`business/tests/support/agent_support/mod.rs`. `--dialect omp|pi|mcp` is a command-line switch; it only changes the opening
 (the OMP `ready` frame is hard-coded for `omp`). If your handshake needs another opening frame, extend `main` in
 `fake_agent.rs`. The shell's agent command tests in `src-tauri` need the binary too; see
 [architecture.md](architecture.md#testing).
@@ -666,7 +668,7 @@ The UI renders any harness from data, with these exceptions:
   commands, session info and session lists. Add the exported fixtures there. The handlers with per-harness branches
   (`extension-action-handlers.ts`, `agent-handlers.ts`, `session-handlers.ts`, `setup-handlers.ts`) need the new
   harness as well. `harness_list.json` and
-  `project_recent.json` are synthetic (`business/tests/mock_fixtures.rs`); add the new harness summary.
+  `project_recent.json` are synthetic (`business/tests/views/mock_fixtures.rs`); add the new harness summary.
 - **Share setup.** Nothing to change: the export and import rows are data-driven from the plan the backend returns, and
   the harness name and badge come from the same sources as everywhere else. The sync mock
   (`ui/src/lib/ipc/mock/sync-handlers.ts`) has scenarios you can extend if you want your harness in them.

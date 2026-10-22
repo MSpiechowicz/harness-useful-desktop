@@ -494,10 +494,10 @@ Generated types:
 - **Bindings.** DTOs in `business/src/model/` derive `ts_rs::TS` with `#[ts(export)]`. `cargo test -p
   harness_business export_` writes `ui/src/lib/ipc/bindings/*.ts` (the target comes from `TS_RS_EXPORT_DIR` in
   `.cargo/config.toml`). Never edit these files.
-- **Fixtures.** `business/tests/mock_fixtures.rs` (`export_mock_fixtures`) writes the JSON served by the mock under
+- **Fixtures.** `business/tests/views/mock_fixtures.rs` (`export_mock_fixtures`) writes the JSON served by the mock under
   `ui/src/lib/ipc/mock/fixtures/`: real adapter, git, session and engine output over the synthetic homes in
   `business/tests/fixtures/`, with paths rewritten to `/home/demo/...`; ecosystem and update fixtures are synthetic
-  (`business/tests/samples/`). The same file asserts that fixtures contain no fixture secret and no machine path.
+  (`business/tests/support/samples/`). The same file asserts that fixtures contain no fixture secret and no machine path.
 - **Freshness.** The CI job `bindings-fresh` re-runs `cargo test -p harness_business export_` and fails on any
   diff or untracked file under those two directories.
 
@@ -505,14 +505,14 @@ Generated types:
 
 | What | How |
 | --- | --- |
-| Business logic | `cargo test -p harness_business` (CI: `cargo nextest`, 3 partitions on Linux, plus macOS and Windows). Fixture homes under `business/tests/fixtures`, snapshots with `insta`. |
+| Business logic | `cargo test -p harness_business` (CI: `cargo nextest`, 3 partitions on Linux, plus macOS and Windows). Four test binaries (`business/tests/{core,engines,setup,views}/main.rs`, one module per test file) share the helpers in `business/tests/support/`. Fixture homes under `business/tests/fixtures`, snapshots with `insta` next to each binary (`business/tests/views/snapshots`). |
 | `claude_stream/` | The Claude Code side of the chat, pure code with no process: `wire/` (serde types for the frames and control requests the CLI sends, and the encoders of what the app sends), `mapper/` (`ClaudeMapper`: frames as chat events, tool cards, subagent tasks, asks, the answers the CLI is owed), `tools.rs` (tool ids and the project files a call touched, shared with the Sessions view), `permissions.rs` (approval dialogs and answers, the Always ask hook), `allow_list.rs` (the chat's own "Always allow" answers), `questions.rs` (`AskUserQuestion` dialogs) and `stats.rs`. Rules: [Claude Code](security-privacy.md#claude-code). |
-| Agent sessions | `fake_agent` (`business/src/bin/fake_agent.rs`) plays a JSONL scenario (`business/tests/fixtures/streams/*.jsonl`) as an OMP, PI, OpenCode, Claude Code (`--dialect claude`, replaying recordings of `claude` in `business/tests/fixtures/claude/stream/`) or MCP peer. Tests run the real session engine against it (`business/tests/agent_support`). In-memory doubles: `harness_business::testing`. |
+| Agent sessions | `fake_agent` (`business/src/bin/fake_agent.rs`) plays a JSONL scenario (`business/tests/fixtures/streams/*.jsonl`) as an OMP, PI, OpenCode, Claude Code (`--dialect claude`, replaying recordings of `claude` in `business/tests/fixtures/claude/stream/`) or MCP peer. Tests run the real session engine against it (`business/tests/support/agent_support`). In-memory doubles: `harness_business::testing`. |
 | Shell commands | `cargo test -p harness_desktop` spawns `fake_agent`. Without the binary those tests skip; `HARNESS_REQUIRE_FAKE_AGENT=1` (set in CI) makes them fail instead. Build it first: `cargo build -p harness_business --bin fake_agent`. |
-| Leaks | Canary tests (`business/tests/canary.rs`, `adapter_canary.rs`) hide a marker string in deny-listed files and secret values and fail if any view contains it. |
+| Leaks | Canary tests (`business/tests/views/canary.rs`, `adapter_canary.rs`) hide a marker string in deny-listed files and secret values and fail if any view contains it. |
 | UI | Vitest with happy-dom (`bun run test`), component tests with Testing Library. Stores and features run against the mock transport. |
 | Browser preview | `bun run dev:mock` serves the UI with the mock transport and no Rust. CI greps `ui/dist` for `__HARNESS_MOCK_TRANSPORT__` so the mock never ships in a production bundle. |
-| Live checks | `business/tests/live_omp.rs`, `live_ecosystem.rs` and `real_home_smoke.rs` exist for manual runs against real tools. |
+| Live checks | `business/tests/core/live_omp.rs`, `setup/live_ecosystem.rs` and `core/real_home_smoke.rs` exist for manual runs against real tools. |
 
 ## Guards
 

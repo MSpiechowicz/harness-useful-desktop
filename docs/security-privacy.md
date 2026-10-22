@@ -421,7 +421,7 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
   array across lines, `"mcp"` followed in an argument array by `"auth"`, `"logout"`, `"list"` or `"debug"`, and an
   argument array or `.arg(` that starts with `"db"` or `"account"` (a call argument, a field or a `let` binding; a
   constant list such as the deny-list is not argv). A test (`every_spawn_runs_without_plugins_project_config_or_self_update`,
-  `business/tests/sessions_opencode.rs`) pins the exact argv set the session commands use. `--approve` goes to PI only for the user's explicit "trust this project once" choice, for that launch.
+  `business/tests/views/sessions_opencode.rs`) pins the exact argv set the session commands use. `--approve` goes to PI only for the user's explicit "trust this project once" choice, for that launch.
   The OMP `--approval-mode` flag is sent only when the user picks a per-session mode. The app does not edit either
   harness's settings, with exceptions that all concern MCP server entries in the user MCP file of a detected harness (the
   `mcp.json` of OMP and PI, the `mcp` object of OpenCode's global config file):
