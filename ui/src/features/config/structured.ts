@@ -29,22 +29,32 @@ export function groupOf(key: string): GroupId {
 
 const THINKING_LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh'] as const;
 
-/** Filled bars of the thinking meter; levels below "low" show an empty meter. */
-const METER_BARS: Readonly<Record<string, number>> = { low: 1, medium: 2, high: 3, xhigh: 4 };
+/** Filled bars of the thinking meter; levels below "low" show an empty meter, and Claude Code's "max" fills it like "xhigh". */
+const METER_BARS: Readonly<Record<string, number>> = { low: 1, medium: 2, high: 3, xhigh: 4, max: 4 };
 
 export const METER_SIZE = 4;
 
+/** A Claude Code model ID or alias, as Harness Skills accepts them in Claude Code's `models.yml`. */
+const CLAUDE_MODEL = /^(inherit|opus|sonnet|haiku|fable|claude-[a-z0-9][a-z0-9.-]{0,80})$/;
+
+const CLAUDE_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
+
 export interface ModelRef {
-  provider: string;
+  /** The provider, or null for a Claude Code selector, which names none. */
+  provider: string | null;
   model: string;
-  /** The thinking level, or null when the reference names none. */
+  /** The thinking level (a Claude Code effort), or null when the reference names none. */
   level: string | null;
 }
 
-/** Parses `provider/model[:level]`; null when the text does not have that shape. */
+/** Parses `provider/model[:level]`, or without a slash a Claude Code selector `model[:effort]`; null when the text has neither shape. */
 export function parseModelRef(text: string): ModelRef | null {
+  if (!text.includes('/')) {
+    return parseClaudeSelector(text);
+  }
+
   const slash = text.indexOf('/');
-  if (slash <= 0 || /\s/.test(text)) {
+  if (slash === 0 || /\s/.test(text)) {
     return null;
   }
 
@@ -62,6 +72,21 @@ export function parseModelRef(text: string): ModelRef | null {
   return model === '' ? null : { provider, model, level };
 }
 
+/** `model[:effort]` with a Claude model ID or alias (`opus`, `claude-opus-5-5:high`, `inherit`); null for anything else. */
+function parseClaudeSelector(text: string): ModelRef | null {
+  const [model, effort, extra] = text.split(':');
+
+  if (extra !== undefined || !CLAUDE_MODEL.test(model)) {
+    return null;
+  }
+
+  if (effort !== undefined && !(CLAUDE_EFFORTS as readonly string[]).includes(effort)) {
+    return null;
+  }
+
+  return { provider: null, model, level: effort ?? null };
+}
+
 /** How many of the four bars a thinking level fills. */
 export function meterBars(level: string): number {
   return METER_BARS[level] ?? 0;
@@ -74,9 +99,11 @@ export interface RoleRow {
   text: string;
 }
 
-/** The pieces a role row shows, which are what a search matches and highlights: the role, `provider/`, the model, the level. */
+/** The pieces a role row shows, which are what a search matches and highlights: the role, `provider/` (when named), the model, the level. */
 export function roleSegments(row: RoleRow): string[] {
-  return [row.role, `${row.ref.provider}/`, row.ref.model, ...(row.ref.level === null ? [] : [row.ref.level])];
+  const provider = row.ref.provider === null ? [] : [`${row.ref.provider}/`];
+
+  return [row.role, ...provider, row.ref.model, ...(row.ref.level === null ? [] : [row.ref.level])];
 }
 
 /** Whether the (already normalized) needle is inside one of the pieces the row shows. */

@@ -1,5 +1,6 @@
 //! The notices of the Claude Code config view: login and provider variables set in the
-//! environment (by name only), the memory files Claude loads (by name only) and what is never read.
+//! environment (by name only), the memory files Claude loads (by name only), the Harness Skills
+//! options the view cannot see (see [`super::skills`]) and what is never read.
 
 use std::path::Path;
 
@@ -36,8 +37,8 @@ const PROVIDER_SWITCHES: &[(&str, &str)] = &[
 const NEVER_READ_NOTICE: &str = "The login (.credentials.json), prompt history, caches and backups are never read. \
                                  From .claude.json only MCP servers and this project's tool and trust settings are shown.";
 
-/// Every notice of the view, in display order.
-pub(super) fn notices(env: &Env, project: Option<&Path>) -> Vec<Notice> {
+/// Every notice of the view, in display order, with `skills` after the memory files.
+pub(super) fn notices(env: &Env, project: Option<&Path>, skills: Option<Notice>) -> Vec<Notice> {
     let mut notices = Vec::new();
 
     for (name, effect) in SECRET_VARS {
@@ -56,6 +57,7 @@ pub(super) fn notices(env: &Env, project: Option<&Path>) -> Vec<Notice> {
     }
 
     notices.extend(memory_files_notice(env, project));
+    notices.extend(skills);
     notices.push(info(NEVER_READ_NOTICE.to_owned()));
     notices
 }

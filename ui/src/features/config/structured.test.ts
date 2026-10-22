@@ -26,6 +26,21 @@ describe('parseModelRef', () => {
     expect(parseModelRef('openrouter/anthropic/claude:xhigh')).toEqual({ provider: 'openrouter', model: 'anthropic/claude', level: 'xhigh' });
   });
 
+  it('reads a Claude Code selector as a model and an effort without a provider', () => {
+    expect(parseModelRef('claude-opus-5-5:high')).toEqual({ provider: null, model: 'claude-opus-5-5', level: 'high' });
+    expect(parseModelRef('opus')).toEqual({ provider: null, model: 'opus', level: null });
+    expect(parseModelRef('inherit')).toEqual({ provider: null, model: 'inherit', level: null });
+    expect(parseModelRef('sonnet:max')).toEqual({ provider: null, model: 'sonnet', level: 'max' });
+    expect(parseModelRef('anthropic/claude-sonnet-5-5:medium')).toEqual({ provider: 'anthropic', model: 'claude-sonnet-5-5', level: 'medium' });
+  });
+
+  it('rejects a Claude Code selector with an unknown model or effort', () => {
+    expect(parseModelRef('gpt-6:high')).toBeNull();
+    expect(parseModelRef('opus:extreme')).toBeNull();
+    expect(parseModelRef('opus:high:low')).toBeNull();
+    expect(parseModelRef('Opus')).toBeNull();
+  });
+
   it('rejects text without a provider, with spaces, or without a model', () => {
     expect(parseModelRef('just-a-model')).toBeNull();
     expect(parseModelRef('/model')).toBeNull();
@@ -37,6 +52,10 @@ describe('parseModelRef', () => {
 describe('meterBars', () => {
   it('fills one to four bars and none below low', () => {
     expect(['low', 'medium', 'high', 'xhigh', 'off', 'minimal'].map(meterBars)).toEqual([1, 2, 3, 4, 0, 0]);
+  });
+
+  it('fills every bar for Claude Code\'s max effort', () => {
+    expect(meterBars('max')).toBe(4);
   });
 });
 
@@ -133,6 +152,13 @@ describe('role rows', () => {
     expect(shown('sol:high')).toEqual([]);
     expect(shown('/gpt')).toEqual([]);
     expect(roleMatches(rows[0], 'sol:high')).toBe(false);
+  });
+
+  it('has no provider piece for a Claude Code selector', () => {
+    const [claude] = parseRoles(map([field('default', text('claude-opus-5-5:high'))]))!;
+
+    expect(roleSegments(claude)).toEqual(['default', 'claude-opus-5-5', 'high']);
+    expect(roleMatches(claude, '/')).toBe(false);
   });
 
   it('has no level piece for a row without one', () => {

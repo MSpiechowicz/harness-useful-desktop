@@ -35,8 +35,9 @@
           <HighlightedText text={row.role} indices={matchIndices(row.role, needle)} />
         </th>
         <td class="truncate pr-3 font-mono text-[12.5px]">
-          <span class="text-fg-3"><HighlightedText text={`${row.ref.provider}/`} indices={matchIndices(`${row.ref.provider}/`, needle)} /></span><span class="text-success"
-            ><HighlightedText text={row.ref.model} indices={matchIndices(row.ref.model, needle)} /></span
+          <!-- A Claude Code selector names no provider. -->
+          {#if row.ref.provider !== null}<span class="text-fg-3"><HighlightedText text={`${row.ref.provider}/`} indices={matchIndices(`${row.ref.provider}/`, needle)} /></span>{/if}<span
+            class="text-success"><HighlightedText text={row.ref.model} indices={matchIndices(row.ref.model, needle)} /></span
           >
         </td>
         <td>

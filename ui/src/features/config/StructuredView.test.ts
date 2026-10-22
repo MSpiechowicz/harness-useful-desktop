@@ -41,6 +41,21 @@ describe('StructuredView', () => {
     expect(rows[2].querySelectorAll('i.bg-accent')).toHaveLength(2);
   });
 
+  it('shows Claude Code selectors as a model and an effort without a provider', () => {
+    const roles = map([field('plan', text('claude-opus-5-5:max')), field('default', text('inherit')), field('review', text('anthropic/claude-sonnet-5-5:medium'))]);
+    mount({ fields: [field('modelRoles', roles)] });
+    const rows = within(screen.getByRole('table', { name: 'Model roles' })).getAllByRole('row').slice(1);
+
+    expect(rows.map((row) => within(row).getAllByRole('rowheader')[0].textContent?.trim())).toEqual(['default', 'plan', 'review']);
+    expect(within(rows[0]).getByText('inherit')).toHaveClass('text-success');
+    expect(within(rows[0]).getByText('—')).toBeInTheDocument();
+    expect(rows[1].querySelector('.text-fg-3')).toBeNull();
+    expect(within(rows[1]).getByText('claude-opus-5-5')).toHaveClass('text-success');
+    expect(within(rows[1]).getByText('max')).toBeInTheDocument();
+    expect(rows[1].querySelectorAll('i.bg-accent')).toHaveLength(4);
+    expect(within(rows[2]).getByText('anthropic/')).toHaveClass('text-fg-3');
+  });
+
   it('falls back to the tree when a role is not a model reference', () => {
     mount({ fields: [field('modelRoles', map([field('plan', text('openai/gpt:high')), field('weird', text('not a model'))]))] });
 

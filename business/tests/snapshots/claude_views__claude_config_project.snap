@@ -579,6 +579,149 @@ expression: "exported(config(&env, Some(&project)), &home, &project)"
       "error": null
     },
     {
+      "id": "user.harnessSkillsModels",
+      "title": "Harness Skills model roles",
+      "description": "The model and effort of each Harness Skills role. Claude Code picks up changes in its next session.",
+      "source": {
+        "path": "/home/demo/.claude/useful-skills/models.yml",
+        "layer": "user",
+        "profile": null,
+        "format": "yaml",
+        "exists": true
+      },
+      "entries": [
+        {
+          "key": "modelRoles",
+          "value": {
+            "kind": "map",
+            "value": [
+              {
+                "key": "research",
+                "value": {
+                  "kind": "text",
+                  "value": "claude-haiku-5-5:high"
+                }
+              },
+              {
+                "key": "frontend",
+                "value": {
+                  "kind": "text",
+                  "value": "sonnet"
+                }
+              },
+              {
+                "key": "backend",
+                "value": {
+                  "kind": "text",
+                  "value": "claude-opus-5-5:max"
+                }
+              },
+              {
+                "key": "implementation",
+                "value": {
+                  "kind": "text",
+                  "value": "anthropic/claude-sonnet-5-5:high"
+                }
+              },
+              {
+                "key": "review",
+                "value": {
+                  "kind": "text",
+                  "value": "claude-sonnet-5-5:medium"
+                }
+              },
+              {
+                "key": "security",
+                "value": {
+                  "kind": "text",
+                  "value": "claude-opus-5-5:high"
+                }
+              },
+              {
+                "key": "plan",
+                "value": {
+                  "kind": "text",
+                  "value": "opus:xhigh"
+                }
+              },
+              {
+                "key": "default",
+                "value": {
+                  "kind": "text",
+                  "value": "inherit"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "user.harnessSkillsWorkflow",
+      "title": "Harness Skills workflow",
+      "description": "The Harness Skills workflow for the Git checkout of this project and its six stages for every project. Change them with /useful-skills in Claude Code.",
+      "source": {
+        "path": "/home/demo/.claude/useful-skills/workflow-settings",
+        "layer": "user",
+        "profile": null,
+        "format": "json",
+        "exists": true
+      },
+      "entries": [
+        {
+          "key": "workflow",
+          "value": {
+            "kind": "text",
+            "value": "default (enabled)"
+          }
+        },
+        {
+          "key": "research",
+          "value": {
+            "kind": "text",
+            "value": "enabled (saved file)"
+          }
+        },
+        {
+          "key": "plan",
+          "value": {
+            "kind": "text",
+            "value": "disabled (saved file)"
+          }
+        },
+        {
+          "key": "review",
+          "value": {
+            "kind": "text",
+            "value": "enabled (saved file)"
+          }
+        },
+        {
+          "key": "security-review",
+          "value": {
+            "kind": "text",
+            "value": "default (enabled)"
+          }
+        },
+        {
+          "key": "backend-memory",
+          "value": {
+            "kind": "text",
+            "value": "default (enabled)"
+          }
+        },
+        {
+          "key": "graphify-memory",
+          "value": {
+            "kind": "text",
+            "value": "default (enabled)"
+          }
+        }
+      ],
+      "error": null
+    },
+    {
       "id": "project.settings",
       "title": "Project settings",
       "description": "Settings shared with everyone working on this project, usually committed.",
@@ -749,6 +892,10 @@ expression: "exported(config(&env, Some(&project)), &home, &project)"
     {
       "level": "info",
       "message": "Claude Code also loads these memory files, whose text is not shown here: ~/.claude/CLAUDE.md (user), CLAUDE.md (project), CLAUDE.local.md (project, local), .claude/CLAUDE.md (project)."
+    },
+    {
+      "level": "info",
+      "message": "Harness Skills options set in Claude Code's /plugin configure flow apply when no saved file exists. They are not visible here."
     },
     {
       "level": "info",

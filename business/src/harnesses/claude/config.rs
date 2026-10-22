@@ -3,7 +3,8 @@
 //! Sections, in display order (see [`files`] and [`global_file`]): managed settings and their
 //! drop-ins, the user's `settings.json`, the user's MCP servers from `.claude.json`, the project's
 //! `.claude/settings.json` and `.claude/settings.local.json`, and the project's entry in
-//! `.claude.json`. Claude applies them, lowest first: user, project, local, then managed settings
+//! `.claude.json`. What Harness Skills keeps for Claude Code (its model roles and workflow
+//! switches, [`skills`]) follows the user's sections. Claude applies them, lowest first: user, project, local, then managed settings
 //! over everything. Every file is strict JSON, and missing files are left out.
 //!
 //! Secrets are hidden by the shared rules plus Claude's own secret settings ([`redact`]). The
@@ -14,6 +15,8 @@ mod files;
 mod global_file;
 mod notices;
 mod redact;
+mod skills;
+mod workflow;
 
 use std::path::Path;
 
@@ -32,13 +35,17 @@ pub fn config_view(env: &Env, project: Option<&Path>) -> ConfigView {
 
     let mut sections: Vec<ConfigSection> = managed_files(env).iter().chain(&user).map(read_section).collect();
     sections.extend(global.user.map(|(file, document)| section(&file, &document)));
+
+    let (skills, skills_notice) = skills::sections(env, project);
+    sections.extend(skills);
+
     sections.extend(project_files.iter().map(read_section));
     sections.extend(global.project.map(|(file, document)| section(&file, &document)));
 
     ConfigView {
         harness: HarnessId::Claude,
         sections,
-        notices: notices::notices(env, project),
+        notices: notices::notices(env, project, skills_notice),
     }
 }
 

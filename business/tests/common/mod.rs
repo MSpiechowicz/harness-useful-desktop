@@ -40,8 +40,17 @@ pub fn opencode_home() -> PathBuf {
 }
 
 /// `tests/fixtures/claude-home` (canonical).
+///
+/// Git does not keep folder modes, so the Harness Skills settings folders are made private (as the
+/// plugin requires, see `harnesses::claude::config::workflow`) at run time.
 pub fn claude_home() -> PathBuf {
-    fixtures_dir().join("claude-home")
+    let home = fixtures_dir().join("claude-home");
+    let skills = home.join(".claude/useful-skills");
+
+    set_mode(&skills, 0o700);
+    set_mode(&skills.join("workflow-settings"), 0o700);
+
+    home
 }
 
 /// `tests/fixtures/projects/demo` (canonical), marked as a repository root.

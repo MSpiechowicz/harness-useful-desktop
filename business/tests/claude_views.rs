@@ -97,6 +97,8 @@ fn sections_follow_managed_user_and_project_order() {
             "managed.dropIn:10-team.json",
             "user.settings",
             "user.globalFile",
+            "user.harnessSkillsModels",
+            "user.harnessSkillsWorkflow",
             "project.settings",
             "project.localSettings",
         ]
