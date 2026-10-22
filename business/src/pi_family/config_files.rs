@@ -124,9 +124,20 @@ pub fn optional_section(text: SectionText<'_>, source: ConfigSource) -> Option<C
 
 /// Renders an already-read document.
 pub fn section_from(text: SectionText<'_>, source: ConfigSource, document: &Document) -> ConfigSection {
+    section_with(text, source, document, top_level_fields)
+}
+
+/// Renders an already-read document whose parsed value `fields` turns into redacted top-level
+/// fields (or a secret-free error), for harnesses with redaction rules of their own.
+pub fn section_with(
+    text: SectionText<'_>,
+    source: ConfigSource,
+    document: &Document,
+    fields: impl Fn(&Value) -> Result<Vec<ConfigField>, String>,
+) -> ConfigSection {
     let (entries, error) = match document {
         Document::Missing => (Vec::new(), None),
-        Document::Parsed(value) => match top_level_fields(value) {
+        Document::Parsed(value) => match fields(value) {
             Ok(entries) => (entries, None),
             Err(error) => (Vec::new(), Some(error)),
         },

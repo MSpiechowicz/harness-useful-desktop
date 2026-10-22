@@ -1,0 +1,5 @@
+{
+  "permissions": { "allow": ["Bash(bun run test)", "Edit(src/**)"] },
+  "hooks": { "Stop": [{ "hooks": [{ "type": "command", "command": "bun run guard" }] }] },
+  "enabledPlugins": { "release-notes@demo-market": true }
+}

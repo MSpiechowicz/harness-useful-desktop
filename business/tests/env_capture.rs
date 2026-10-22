@@ -40,3 +40,26 @@ fn the_opencode_2_project_config_switch_is_captured() {
 
     assert_eq!(env.var("OPENCODE_CONFIG_PROJECT_DISABLE"), Some("1"));
 }
+
+#[test]
+fn a_captured_claude_config_dir_joins_the_deny_list() {
+    let root = std::env::temp_dir().join("harness-env-capture-claude-root");
+
+    if std::env::var_os(CHILD_MARKER).is_none() {
+        run_as_child(
+            "a_captured_claude_config_dir_joins_the_deny_list",
+            &[
+                ("CLAUDE_CONFIG_DIR", &root.to_string_lossy()),
+                ("ProgramFiles", "D:\\Apps"),
+            ],
+        );
+        return;
+    }
+
+    let env = Env::from_process().expect("environment");
+
+    assert_eq!(env.var("ProgramFiles"), Some("D:\\Apps"));
+    assert!(harness_business::security::is_denied(&root.join("history.jsonl")).is_some());
+    assert!(harness_business::security::is_denied(&root.join("debug").join("x.txt")).is_some());
+    assert_eq!(harness_business::security::is_denied(&root.join("settings.json")), None);
+}

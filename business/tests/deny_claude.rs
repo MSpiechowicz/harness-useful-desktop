@@ -1,10 +1,13 @@
 //! The deny-list for Claude Code's private files: its login store, prompt history, caches,
 //! backups, telemetry and full tool outputs are never read, while its settings, skills, agents,
 //! commands, plugins and session files stay readable and same-named project folders are not caught.
+//! The private names also apply in a config directory `CLAUDE_CONFIG_DIR` gives another name.
 
 use std::path::Path;
 
-use harness_business::security::{DenyReason, is_denied};
+use harness_business::BusinessError;
+use harness_business::env::Env;
+use harness_business::security::{DenyReason, SafeReader, is_denied};
 use pretty_assertions::assert_eq;
 
 #[test]
@@ -103,4 +106,95 @@ fn generic_folder_and_file_names_outside_the_claude_dir_are_not_caught() {
     for path in allowed {
         assert_eq!(is_denied(Path::new(path)), None, "{path} must be allowed");
     }
+}
+
+/// A config directory `CLAUDE_CONFIG_DIR` gives another name: an environment naming it registers
+/// it, so the private names directly inside it are refused like in `~/.claude`.
+#[test]
+fn claude_private_names_are_denied_under_a_renamed_config_directory() {
+    let root = if cfg!(windows) {
+        "C:/h/claude-renamed"
+    } else {
+        "/h/claude-renamed"
+    };
+    let _env = Env::for_tests("/h").with_var("CLAUDE_CONFIG_DIR", root);
+
+    for private in [
+        "history.jsonl",
+        "remote-settings.json",
+        "stats-cache.json",
+        "backups/notes.json",
+        "statsig/evaluations.json",
+        "debug/0b5e6c1a.txt",
+        "uploads/pasted.txt",
+        "image-cache/img.png",
+        "chrome/state.json",
+        "ide/41234.lock",
+        "feedback/report.json",
+        "feedback-bundles/report.json",
+        "plugins/data/demo-plugin/state.json",
+    ] {
+        let path = format!("{root}/{private}");
+        assert!(is_denied(Path::new(&path)).is_some(), "{path} must be denied");
+    }
+
+    // Names are compared without case, like the `.claude` rules.
+    let shouted = if cfg!(windows) {
+        "C:/H/Claude-Renamed/History.jsonl"
+    } else {
+        "/H/Claude-Renamed/History.jsonl"
+    };
+    assert!(is_denied(Path::new(shouted)).is_some());
+
+    for readable in [
+        "settings.json",
+        ".claude.json",
+        "CLAUDE.md",
+        "skills/demo/SKILL.md",
+        "plugins/installed_plugins.json",
+        "projects/-h-demo/0b5e6c1a-0000-4000-8000-000000000001.jsonl",
+        // Only the config directory's own children are private.
+        "skills/demo/debug/notes.md",
+        "projects/-h-demo/history.jsonl",
+    ] {
+        let path = format!("{root}/{readable}");
+        assert_eq!(is_denied(Path::new(&path)), None, "{path} must be allowed");
+    }
+
+    for elsewhere in [
+        "/h/claude-renamed-not/history.jsonl",
+        "/h/proj/history.jsonl",
+        "/h/proj/debug/main.rs",
+    ] {
+        assert_eq!(is_denied(Path::new(elsewhere)), None, "{elsewhere} must be allowed");
+    }
+}
+
+#[test]
+fn a_relative_config_directory_is_not_registered() {
+    let _env = Env::for_tests("/h").with_var("CLAUDE_CONFIG_DIR", "relative-claude");
+
+    assert_eq!(is_denied(Path::new("relative-claude/history.jsonl")), None);
+}
+
+/// The deny check sees the canonical path too, so a renamed config directory reached through a
+/// symlink keeps its private files refused on either path.
+#[cfg(unix)]
+#[test]
+fn a_symlinked_config_directory_is_covered_on_its_real_path() {
+    let temp = tempfile::tempdir().unwrap();
+    let real = temp.path().join("real-claude");
+    let link = temp.path().join("linked-claude");
+    std::fs::create_dir_all(real.join("debug")).unwrap();
+    std::fs::write(real.join("history.jsonl"), "{}").unwrap();
+    std::os::unix::fs::symlink(&real, &link).unwrap();
+
+    let _env = Env::for_tests(temp.path()).with_var("CLAUDE_CONFIG_DIR", link.to_string_lossy());
+
+    assert!(is_denied(&link.join("history.jsonl")).is_some());
+    assert!(is_denied(&dunce::canonicalize(&real).unwrap().join("history.jsonl")).is_some());
+    assert!(matches!(
+        SafeReader::read_to_string(&link.join("history.jsonl"), 1024),
+        Err(BusinessError::Forbidden(_))
+    ));
 }

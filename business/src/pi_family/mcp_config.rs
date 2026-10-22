@@ -2,12 +2,13 @@
 //!
 //! Every value is redacted at its real key path (`mcpServers.<name>.env.TOKEN`), so `env`,
 //! `headers`, `auth` and `oauth` secrets never leave the business layer. How entries from several
-//! files combine differs per harness and is left to the adapters.
+//! files combine differs per harness and is left to the adapters. [`command_words`] masks the
+//! secrets an MCP command line carries in its words.
 
 use serde_json::Value;
 
 use crate::model::{ConfigField, ConfigSource, ConfigValue, McpServerInfo, McpTransport};
-use crate::security::{RedactionContext, Redactor};
+use crate::security::{RedactionContext, Redactor, redact_text};
 
 /// One parsed server plus the raw facts adapters need for merging.
 #[derive(Debug, Clone, PartialEq)]
@@ -108,5 +109,69 @@ fn enabled_flag(value: Option<&Value>) -> Option<bool> {
             _ => None,
         },
         _ => None,
+    }
+}
+
+/// Masks secrets in the already redacted words of an MCP command line: credentials and
+/// `--token=...` assignments inside a word, and the whole word after a flag whose name looks
+/// secret (`--api-key <value>`).
+pub fn command_words(words: Vec<ConfigValue>) -> Vec<ConfigValue> {
+    let mut masked: Vec<ConfigValue> = Vec::with_capacity(words.len());
+
+    for word in words {
+        let flag = match masked.last() {
+            Some(ConfigValue::Text(previous)) => flag_name(previous),
+            _ => None,
+        };
+
+        let word = match (word, flag) {
+            (ConfigValue::Text(text), Some(flag)) => {
+                Redactor.redact_at(&Value::String(text), &mut RedactionContext::at([flag]))
+            }
+            (ConfigValue::Text(text), None) => ConfigValue::Text(redact_text(&text)),
+            (other, _) => other,
+        };
+
+        masked.push(word);
+    }
+
+    masked
+}
+
+/// The name of a `--flag` / `-f` word that carries no value of its own.
+fn flag_name(word: &str) -> Option<String> {
+    let name = word.trim_start_matches('-');
+
+    if name.len() == word.len() || name.is_empty() || name.contains('=') {
+        return None;
+    }
+
+    Some(name.to_owned())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::model::SecretKind;
+
+    fn texts(words: &[&str]) -> Vec<ConfigValue> {
+        words.iter().map(|word| ConfigValue::Text((*word).to_owned())).collect()
+    }
+
+    #[test]
+    fn words_after_secret_flags_and_secret_assignments_are_hidden() {
+        let masked = command_words(texts(&[
+            "npx",
+            "server",
+            "--api-key",
+            "abc",
+            "--port",
+            "8080",
+            "--token=abc",
+        ]));
+
+        assert_eq!(masked[3], ConfigValue::Secret(SecretKind::Value));
+        assert_eq!(masked[5], ConfigValue::Text("8080".to_owned()));
+        assert_eq!(masked[6], ConfigValue::Text("--token=••••".to_owned()));
     }
 }

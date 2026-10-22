@@ -9,6 +9,7 @@ use std::fmt;
 use std::fs::{File, Metadata, OpenOptions};
 use std::io::{BufRead, BufReader, Read};
 use std::path::{Component, Path, PathBuf};
+use std::sync::RwLock;
 
 use crate::error::{BusinessError, Result};
 
@@ -83,8 +84,13 @@ const DENIED_OPENCODE_DIRS: &[&str] = &["storage", "repos", "snapshot", "tool-ou
 const DENIED_OPENCODE_FILES: &[&str] = &["prompt-history.jsonl"];
 
 /// The default name of Claude Code's config directory (`~/.claude`), whose private children the lists
-/// below name.
+/// below name. A config directory `CLAUDE_CONFIG_DIR` moves elsewhere is registered with
+/// [`add_claude_root`] and covered the same way.
 const CLAUDE_DIR: &str = ".claude";
+
+/// Claude Code config directories with another name (`CLAUDE_CONFIG_DIR`), as lowercase path
+/// components. Roots are only ever added, so registering one never weakens the list.
+static CLAUDE_ROOTS: RwLock<Vec<Vec<String>>> = RwLock::new(Vec::new());
 
 /// Directory names (lowercase) whose contents are never read when their direct parent is
 /// `.claude`: backups of the global file, telemetry, debug logs, uploaded and cached images, the
@@ -125,16 +131,50 @@ impl fmt::Display for DenyReason {
     }
 }
 
-/// Checks `path` (as given, without touching the filesystem) against the deny-list.
-/// Names are compared case-insensitively.
-pub fn is_denied(path: &Path) -> Option<DenyReason> {
-    let components: Vec<String> = path
-        .components()
+/// Registers `root` as a Claude Code config directory (`CLAUDE_CONFIG_DIR`): the private names
+/// [`is_denied`] refuses directly in a folder named `.claude` are refused below `root` too, whatever
+/// its name. [`crate::env::Env`] registers its root (and the root's canonical path) when it is
+/// captured or built, so every later check covers it. Registering the same root again changes
+/// nothing.
+pub fn add_claude_root(root: &Path) {
+    let mut roots = vec![lowercase_components(root)];
+    if let Ok(canonical) = dunce::canonicalize(root) {
+        roots.push(lowercase_components(&canonical));
+    }
+
+    let mut registered = CLAUDE_ROOTS.write().unwrap_or_else(std::sync::PoisonError::into_inner);
+    for root in roots {
+        if !root.is_empty() && !registered.contains(&root) {
+            registered.push(root);
+        }
+    }
+}
+
+/// The normal components of `path`, lowercased (drive prefixes and roots are dropped).
+fn lowercase_components(path: &Path) -> Vec<String> {
+    path.components()
         .filter_map(|component| match component {
             Component::Normal(name) => Some(name.to_string_lossy().to_lowercase()),
             _ => None,
         })
-        .collect();
+        .collect()
+}
+
+/// True when `ancestors` is a Claude Code config directory: a folder named `.claude` or a root
+/// registered with [`add_claude_root`].
+fn is_claude_root(ancestors: &[String]) -> bool {
+    if ancestors.last().is_some_and(|parent| parent == CLAUDE_DIR) {
+        return true;
+    }
+
+    let roots = CLAUDE_ROOTS.read().unwrap_or_else(std::sync::PoisonError::into_inner);
+    roots.iter().any(|root| root.as_slice() == ancestors)
+}
+
+/// Checks `path` (as given, without touching the filesystem) against the deny-list.
+/// Names are compared case-insensitively.
+pub fn is_denied(path: &Path) -> Option<DenyReason> {
+    let components = lowercase_components(path);
 
     let (file_name, parents) = components.split_last()?;
 
@@ -147,7 +187,7 @@ pub fn is_denied(path: &Path) -> Option<DenyReason> {
         return Some(DenyReason::FileName(file_name.clone()));
     }
 
-    if DENIED_CLAUDE_FILES.contains(&file_name.as_str()) && parents.last().is_some_and(|parent| parent == CLAUDE_DIR) {
+    if DENIED_CLAUDE_FILES.contains(&file_name.as_str()) && is_claude_root(parents) {
         return Some(DenyReason::FileName(file_name.clone()));
     }
 
@@ -182,16 +222,20 @@ pub fn is_denied(path: &Path) -> Option<DenyReason> {
 }
 
 /// True for Claude Code's private folders: a [`DENIED_CLAUDE_DIRS`] or `feedback*` folder directly in
-/// `.claude`, `.claude/plugins/data` (the plugins' own data) and a session's `tool-results` below a
-/// `projects` folder (full tool outputs, `~/.claude/projects/<slug>/<session>/tool-results`).
+/// a Claude config directory (see [`is_claude_root`]), its `plugins/data` (the plugins' own data)
+/// and a session's `tool-results` below a `projects` folder (full tool outputs,
+/// `~/.claude/projects/<slug>/<session>/tool-results`).
 fn is_claude_private_dir(dir: &str, ancestors: &[String]) -> bool {
-    let in_claude_dir = ancestors.last().is_some_and(|parent| parent == CLAUDE_DIR);
-
-    if in_claude_dir && (DENIED_CLAUDE_DIRS.contains(&dir) || dir.starts_with(DENIED_CLAUDE_DIR_PREFIX)) {
+    let private_name = DENIED_CLAUDE_DIRS.contains(&dir) || dir.starts_with(DENIED_CLAUDE_DIR_PREFIX);
+    if private_name && is_claude_root(ancestors) {
         return true;
     }
 
-    if dir == "data" && matches!(ancestors, [.., claude, plugins] if claude == CLAUDE_DIR && plugins == "plugins") {
+    if let [config @ .., plugins] = ancestors
+        && dir == "data"
+        && plugins == "plugins"
+        && is_claude_root(config)
+    {
         return true;
     }
 

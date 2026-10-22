@@ -1,0 +1,5 @@
+{
+  "userID": "CANARY-7f3a9c",
+  "oauthAccount": { "emailAddress": "CANARY-7f3a9c@example.com" },
+  "mcpServers": { "work-docs": { "type": "http", "url": "https://docs.example.com/mcp" } }
+}

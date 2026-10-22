@@ -3,11 +3,12 @@
 //!
 //! Everything lives in one config directory (`~/.claude` or `CLAUDE_CONFIG_DIR`, see [`paths`]),
 //! next to a global file (`~/.claude.json`) the CLI rewrites while it runs. The harness is detected
-//! and listed for now: the config and extension views are empty, sessions and chat are not
+//! and its settings are shown ([`config`]). The extension view is empty, sessions and chat are not
 //! available yet, and the catalog lists every command as unsupported. Every spawn switches off
 //! Claude's self-updater.
 
 mod catalog;
+mod config;
 mod paths;
 
 pub use catalog::ClaudeCatalog;
@@ -54,12 +55,8 @@ impl Harness for Claude {
         paths::paths(env, project)
     }
 
-    fn config_view(&self, _env: &Env, _project: Option<&Path>) -> Result<ConfigView> {
-        Ok(ConfigView {
-            harness: HarnessId::Claude,
-            sections: Vec::new(),
-            notices: Vec::new(),
-        })
+    fn config_view(&self, env: &Env, project: Option<&Path>) -> Result<ConfigView> {
+        Ok(config::config_view(env, project))
     }
 
     fn extensions_view(&self, _env: &Env, _project: Option<&Path>) -> Result<ExtensionsView> {
