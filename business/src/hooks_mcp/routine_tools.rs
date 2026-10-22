@@ -147,8 +147,9 @@ fn properties(edit: bool) -> Value {
         "trustOnce",
         json!({
             "type": "boolean",
-            "description": "agent, pi or claude only: trust the project's local resources for the run (a claude run \
-                            needs it in a folder Claude Code does not trust yet)"
+            "description": "agent, pi, claude or codex only: trust the project's local resources for the run (a \
+                            claude run needs it in a folder Claude Code does not trust yet, a codex run applies the \
+                            project's own .codex settings only with it)"
         }),
     );
     put("maxMinutes", minutes());
@@ -234,9 +235,9 @@ fn approval_mode() -> Value {
     json!({
         "type": "string",
         "enum": ["alwaysAsk", "write", "yolo", "auto", "default"],
-        "description": "agent, omp, opencode and claude only: ask before every tool (alwaysAsk), before tools that write \
-            or run something (write), never (yolo, not claude), or only about what the harness does not judge safe \
-            (auto, claude only). Absent or default: the harness's setting",
+        "description": "agent, omp, opencode, claude and codex only: ask before every tool (alwaysAsk), before tools \
+            that write or run something (write), never (yolo, not claude), or only about what the harness does not \
+            judge safe (auto, claude only). Absent or default: the harness's setting",
     })
 }
 

@@ -48,6 +48,10 @@ mod tests_agent;
 #[cfg(test)]
 mod tests_agent_claude;
 #[cfg(test)]
+mod tests_agent_cli;
+#[cfg(test)]
+mod tests_agent_codex;
+#[cfg(test)]
 mod tests_agent_end;
 #[cfg(test)]
 mod tests_agent_opencode;

@@ -35,6 +35,10 @@ mod tests;
 #[cfg(test)]
 mod tests_claude;
 #[cfg(test)]
+mod tests_cli;
+#[cfg(test)]
+mod tests_codex;
+#[cfg(test)]
 mod tests_opencode;
 #[cfg(test)]
 mod tests_opencode2;
