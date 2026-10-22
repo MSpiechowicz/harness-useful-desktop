@@ -220,7 +220,7 @@ A native notification, or an in-app toast instead when the Harness Desktop windo
 | status `needsAttention` | Routine needs attention | `<name> · See the run in Harness Desktop` |
 | status `ok` | Routine finished | `<name>` |
 
-"Needs you" and failures are always shown, "Routine finished" at most once per routine and hour (the hour counts from an OS notification that was shown: a toast while the window was in front does not use it up). The titles and texts are localised in the five app languages. Clicking any notification focuses the window. Clicking a "needs you" notification also opens the chat of the run it was about, while that run still waits (the notification carries its run id). A platform that reports the click without the notification's data opens nothing.
+"Needs you" and failures are always shown, "Routine finished" at most once per routine and hour (the hour counts from an OS notification that was shown: a toast while the window was in front does not use it up). The titles and texts are localised in the six app languages. Clicking any notification focuses the window. Clicking a "needs you" notification also opens the chat of the run it was about, while that run still waits (the notification carries its run id). A platform that reports the click without the notification's data opens nothing.
 
 ### Catch-up and the schedule file
 

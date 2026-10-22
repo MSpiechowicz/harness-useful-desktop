@@ -25,6 +25,16 @@ describe('plural forms', () => {
     expect(tn('shell.count.file', 1.5)).toBe('1,5 pliku');
   });
 
+  it('uses the Brazilian Portuguese one and other forms, with zero and one singular', async () => {
+    await i18n.load('pt');
+
+    expect(i18n.locale).toBe('pt-BR');
+    expect(tn('shell.count.file', 0)).toBe('0 arquivo');
+    expect(tn('shell.count.file', 1)).toBe('1 arquivo');
+    expect(tn('shell.count.file', 2)).toBe('2 arquivos');
+    expect(tn('shell.count.file', 17_612)).toBe('17.612 arquivos');
+  });
+
   it('groups the count the way the language does', async () => {
     expect(tn('shell.count.file', 17_612)).toBe('17,612 files');
 
@@ -57,6 +67,18 @@ describe('messages', () => {
 
     expect(t('common.cancel')).toBe('Cancel');
     expect(document.documentElement.lang).toBe('en');
+  });
+});
+
+describe('Brazilian Portuguese', () => {
+  it('is offered under its own name and switches the messages', async () => {
+    expect(LANGS.find((lang) => lang.code === 'pt')?.label).toBe('Português (Brasil)');
+
+    await i18n.load('pt');
+
+    expect(t('common.cancel')).toBe('Cancelar');
+    expect(t('shell.palette.goTo', { view: 'Chat' })).toBe('Ir para Chat');
+    expect(i18n.lang).toBe('pt');
   });
 });
 

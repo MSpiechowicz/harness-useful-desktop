@@ -546,7 +546,7 @@ named `harness-memory` that is not the app's own is never changed. A JSONC file 
 
 The webview sends only a harness id; the file path comes from `paths` (or `mcp_target`) and the installer command is fixed in Rust, so
 no new command or permission is needed. Add the harness to the setup copy as well: the strings are under
-`onboarding.setup.*` in `ui/src/lib/i18n/locales/*/onboarding.ts` (all five languages), and the mock in
+`onboarding.setup.*` in `ui/src/lib/i18n/locales/*/onboarding.ts` (all six languages), and the mock in
 `ui/src/lib/ipc/mock/setup-handlers.ts` keeps a per-harness MCP file and skills offer (`Record<HarnessId, ...>`).
 
 ## 10. Share setup

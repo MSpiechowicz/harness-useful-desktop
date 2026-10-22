@@ -73,7 +73,7 @@ pub struct ChatDefaults {
 }
 
 /// UI language codes the app ships translations for.
-pub const LANGUAGES: [&str; 5] = ["en", "de", "es", "fr", "pl"];
+pub const LANGUAGES: [&str; 6] = ["en", "de", "es", "fr", "pl", "pt"];
 
 /// UI language used when none is stored or the stored one is not in [`LANGUAGES`].
 pub const DEFAULT_LANGUAGE: &str = "en";
@@ -91,7 +91,8 @@ pub struct AppPrefs {
     pub theme: ThemePref,
     /// Animation level.
     pub motion: MotionPref,
-    /// UI language code, one of `LANGUAGES` (`en`, `de`, `es`, `fr`, `pl`); default `en`.
+    /// UI language code, one of `LANGUAGES` (`en`, `de`, `es`, `fr`, `pl`, `pt` for Brazilian
+    /// Portuguese); default `en`.
     /// Any other stored value (an unknown code, or not a string at all) loads as `en` instead of
     /// making the file unusable.
     #[serde(with = "lenient_language")]

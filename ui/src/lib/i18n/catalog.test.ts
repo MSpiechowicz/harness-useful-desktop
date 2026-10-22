@@ -5,7 +5,7 @@ import { en } from './locales/en';
 type Area = Record<string, string>;
 type Modules = Record<string, Record<string, Area>>;
 
-const LANGUAGES = ['de', 'es', 'fr', 'pl'] as const;
+const LANGUAGES = ['de', 'es', 'fr', 'pl', 'pt'] as const;
 const EXTRA_FORM = /\.(zero|two|few|many)$/;
 
 // Every area file of every language, by path: ./locales/<lang>/<area>.ts
@@ -118,6 +118,26 @@ describe('Polish plurals', () => {
     for (const base of pluralBases) {
       expect(messages[`${base}.few`], `${base}.few`).toBeTruthy();
       expect(messages[`${base}.many`], `${base}.many`).toBeTruthy();
+    }
+  });
+});
+
+describe('Portuguese plurals', () => {
+  it('keeps the one and other forms of every plural, and no Polish-style extras', () => {
+    const messages = Object.assign({}, ...Object.values(areasOf('pt'))) as Area;
+
+    for (const base of pluralBases) {
+      expect(messages[`${base}.one`], `${base}.one`).toBeTruthy();
+      expect(messages[`${base}.other`], `${base}.other`).toBeTruthy();
+      expect(messages[`${base}.few`], `${base}.few`).toBeUndefined();
+    }
+  });
+
+  it('never joins two sentences with a semicolon', () => {
+    const messages = Object.assign({}, ...Object.values(areasOf('pt'))) as Area;
+
+    for (const [key, message] of Object.entries(messages)) {
+      expect(message, key).not.toContain(';');
     }
   });
 });
