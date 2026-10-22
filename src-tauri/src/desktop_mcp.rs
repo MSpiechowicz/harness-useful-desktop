@@ -3,15 +3,16 @@
 //! only, a dev build's executable is in `target/`), its `command` following the app's program each
 //! launch (AppImage moves, updates), and in one harness at the user's request
 //! (`setup_register_desktop_mcp`, [`register_in`], dev builds included). An entry the user removed
-//! stays removed at launch (`desktop-mcp-registration.json`). Logs name the harness and the
-//! outcome, never a file's contents.
+//! stays removed at launch (`desktop-mcp-registration.json`). Claude Code's file is changed
+//! through its CLI ([`crate::mcp_cli`]). Logs name the harness and the outcome, never a file's
+//! contents.
 
 use std::path::{Path, PathBuf};
 
 use harness_business::BusinessError;
 use harness_business::ecosystem::{
-    DesktopRecord, DesktopRegistration, McpFile, current_app_command, desktop_mcp_state, mcp_target,
-    register_desktop_mcp,
+    DesktopRecord, DesktopRegistration, current_app_command, desktop_mcp_state, mcp_target, register_desktop_mcp,
+    register_desktop_mcp_cli,
 };
 use harness_business::env::Env;
 use harness_business::model::{HarnessId, McpState};
@@ -20,6 +21,7 @@ use tauri::{AppHandle, Manager};
 
 use crate::commands::harness::summaries;
 use crate::error::{CommandError, CommandResult};
+use crate::mcp_cli::{CliContext, HarnessFile, cached_binary, detected_binary};
 use crate::state::AppState;
 
 /// Registers the server in the background at launch; the window does not wait for it. A dev build
@@ -56,18 +58,20 @@ pub(crate) async fn register_detected(state: &AppState, program: PathBuf) -> Vec
     let files = detected_files(state).await;
     let env = state.env.clone();
     let config_dir = state.config_dir.clone();
+    let context = CliContext::of(state);
 
     let registered = tauri::async_runtime::spawn_blocking(move || {
         let mut record = DesktopRecord::load(&config_dir);
+        let registration = Registration {
+            env: &env,
+            context: &context,
+            program: &program,
+            as_recorded: true,
+        };
 
         let outcomes: Vec<_> = files
-            .into_iter()
-            .map(|(harness, file)| {
-                (
-                    harness,
-                    register_noted(&env, &mut record, harness, &file, &program, true),
-                )
-            })
+            .iter()
+            .map(|target| (target.0, registration.noted(&mut record, target)))
             .collect();
 
         save(&record);
@@ -110,11 +114,21 @@ pub(crate) async fn register_program_in(
 
     let env = state.env.clone();
     let config_dir = state.config_dir.clone();
+    let context = CliContext::of(state);
+    let target = (harness, file, cached_binary(state, harness).await);
 
     let registered = tauri::async_runtime::spawn_blocking(move || {
         let mut record = DesktopRecord::load(&config_dir);
-        let outcome = register_noted(&env, &mut record, harness, &file, &program, false);
+        let registration = Registration {
+            env: &env,
+            context: &context,
+            program: &program,
+            as_recorded: false,
+        };
+        let outcome = registration.noted(&mut record, &target);
         save(&record);
+
+        let file = &target.1;
 
         match outcome {
             DesktopRegistration::Refused(reason) => McpState::Refused {
@@ -122,7 +136,7 @@ pub(crate) async fn register_program_in(
                 reason,
             },
             // A manual edit is read back too: the state carries the entry to paste.
-            _ => desktop_mcp_state(&env, &file, Some(&program)),
+            _ => desktop_mcp_state(&env, file, Some(&program)),
         }
     })
     .await;
@@ -130,22 +144,34 @@ pub(crate) async fn register_program_in(
     registered.map_err(|error| CommandError::internal(format!("desktop MCP registration task failed: {error}")))
 }
 
-/// One registration in `file`, noted in `record`. `as_recorded` keeps an entry the user removed
-/// out (launch); otherwise it is added back (the user asked).
-fn register_noted(
-    env: &Env,
-    record: &mut DesktopRecord,
-    harness: HarnessId,
-    file: &McpFile,
-    program: &Path,
+/// One registration of the app's `program`, on a blocking thread. `as_recorded` keeps an entry the
+/// user removed out (launch); otherwise it is added back (the user asked).
+struct Registration<'a> {
+    env: &'a Env,
+    context: &'a CliContext,
+    program: &'a Path,
     as_recorded: bool,
-) -> DesktopRegistration {
-    let recorded = as_recorded && record.is_recorded(env, &file.path);
-    let outcome = register_desktop_mcp(file, program, recorded, record.command_in(env, &file.path));
-    tracing::info!(?harness, ?outcome, "desktop MCP registration");
+}
 
-    record.note(env, harness, &file.path, outcome, program);
-    outcome
+impl Registration<'_> {
+    /// Registers the program in the target's file (through the harness's CLI where it changes the
+    /// file) and notes it in `record`.
+    fn noted(&self, record: &mut DesktopRecord, (harness, file, binary): &HarnessFile) -> DesktopRegistration {
+        let (env, program) = (self.env, self.program);
+        let recorded = self.as_recorded && record.is_recorded(env, &file.path);
+        let previous = record.command_in(env, &file.path);
+
+        let outcome = match self.context.cli_for(*harness, file, binary.as_ref()) {
+            Some(cli) => {
+                tauri::async_runtime::block_on(register_desktop_mcp_cli(cli, file, program, recorded, previous))
+            }
+            None => register_desktop_mcp(file, program, recorded, previous),
+        };
+        tracing::info!(?harness, ?outcome, "desktop MCP registration");
+
+        record.note(env, *harness, &file.path, outcome, program);
+        outcome
+    }
 }
 
 fn save(record: &DesktopRecord) {
@@ -154,8 +180,8 @@ fn save(record: &DesktopRecord) {
     }
 }
 
-/// The user MCP file of each detected harness that has one.
-async fn detected_files(state: &AppState) -> Vec<(HarnessId, McpFile)> {
+/// The user MCP file of each detected harness that has one, with its binary.
+async fn detected_files(state: &AppState) -> Vec<HarnessFile> {
     let Ok(detected) = summaries(state).await else {
         tracing::warn!("desktop MCP: harness detection failed");
         return Vec::new();
@@ -171,7 +197,7 @@ async fn detected_files(state: &AppState) -> Vec<(HarnessId, McpFile)> {
             .get(id)
             .and_then(|harness| mcp_target(&state.env, harness))
         {
-            files.push((id, file));
+            files.push((id, file, detected_binary(summary)));
         }
     }
 

@@ -2,15 +2,16 @@
 //! and per harness the Harness Skills and the dashboard's, the memory server's and the app's own
 //! (`harness-desktop mcp`) MCP servers.
 //!
-//! Everything here only reads: the dashboard's and the memory server's version probes, the OMP plugin and marketplace
-//! registries, PI's user settings, the Harness Skills' OpenCode install record (see
+//! Everything here only reads: the dashboard's and the memory server's version probes, the OMP and
+//! Claude Code plugin and marketplace registries, PI's user settings, the Harness Skills' OpenCode install record (see
 //! [`super::skills_record`]), where `node` is (their installer needs it) and the user MCP files. The MCP files of a harness are those of
 //! its user agent directory ([`Harness::paths`] without a project), so with an OMP profile active
-//! only that profile's files count. OpenCode's is its global config file ([`mcp_target`]).
+//! only that profile's files count. OpenCode's is its global config file, Claude Code's the
+//! `mcpServers` of its global file ([`mcp_target`]).
 
 use std::path::PathBuf;
 
-use super::catalog::{SKILLS_MARKETPLACE, SKILLS_PLUGIN, SKILLS_TARGET, supported_on};
+use super::catalog::{SKILLS_PLUGIN, supported_on};
 use super::desktop_register::{current_app_command, desktop_mcp_state};
 use super::installer::{Companion, Installed, installer};
 use super::mcp_merge::Shape;
@@ -19,11 +20,11 @@ use super::skills_record::opencode_skills_version;
 use crate::env::{Env, OsKind};
 use crate::harness::{Harness, HarnessRegistry, McpTarget, OpenCodeGeneration, SkillsStrategy};
 use crate::harnesses::omp::{installed_plugins, marketplaces};
-use crate::harnesses::opencode;
 use crate::harnesses::pi::user_has_package;
+use crate::harnesses::{claude, opencode};
 use crate::model::{
-    DashboardSetup, EcosystemId, ExtensionAction, HarnessSetup, HarnessSummary, InstallScope, McpRefusal, McpState,
-    RecommendedSetup, SkillsSetup, SkillsUnavailableCode,
+    DashboardSetup, EcosystemId, ExtensionAction, HarnessId, HarnessSetup, HarnessSummary, InstallScope, McpRefusal,
+    McpState, RecommendedSetup, SkillsSetup, SkillsUnavailableCode,
 };
 use crate::process::{ProcessRunner, ResolvedBinary, resolve_binary};
 
@@ -68,12 +69,21 @@ pub async fn setup_status(
 /// The file a harness's companion MCP servers are registered in.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct McpFile {
-    /// The file written.
+    /// The file written (only read for a [`Shape::ClaudeCli`] file, which the harness's CLI
+    /// changes, see [`McpFile::via_cli`]).
     pub path: PathBuf,
     /// Files that can define servers too; only read, to find an existing entry.
     pub also_read: Vec<PathBuf>,
     /// How the files hold their servers.
     pub shape: Shape,
+}
+
+impl McpFile {
+    /// Whether servers are added to and removed from this file through the harness's CLI
+    /// ([`super::mcp_cli`]) rather than by the app.
+    pub fn via_cli(&self) -> bool {
+        !self.shape.app_writes()
+    }
 }
 
 /// The file the setup step and project memory register servers in for `harness`; `None` when the
@@ -104,6 +114,11 @@ pub fn mcp_target(env: &Env, harness: &dyn Harness) -> Option<McpFile> {
             })
         }
         McpTarget::OpenCodeConfig(generation) => Some(opencode_file(env, generation)),
+        McpTarget::ClaudeCli => Some(McpFile {
+            path: claude::global_config_file(env),
+            also_read: Vec::new(),
+            shape: Shape::ClaudeCli,
+        }),
         McpTarget::Unsupported => None,
     }
 }
@@ -279,7 +294,7 @@ fn dashboard_side_effects(os: OsKind) -> &'static [&'static str] {
 
 fn skills_setup(env: &Env, harness: &dyn Harness) -> SkillsSetup {
     match harness.companion_setup().skills {
-        SkillsStrategy::OmpMarketplace => omp_skills(env, harness),
+        SkillsStrategy::Marketplace { source, plugin } => marketplace_skills(env, harness, source, plugin),
         // PI-family settings: a package whose source names the skills' repository.
         SkillsStrategy::Package { source } => {
             if user_has_package(&harness.paths(env, None), SKILLS_PLUGIN) {
@@ -338,47 +353,109 @@ fn find_node(env: &Env) -> Option<ResolvedBinary> {
     resolve_binary(env, "node", None)
 }
 
-/// Installed when the user has the skills plugin (marketplace or npm install); otherwise the
-/// marketplace add (unless it is registered) and the user-scope plugin install.
-fn omp_skills(env: &Env, harness: &dyn Harness) -> SkillsSetup {
-    let paths = harness.paths(env, None);
-    let plugins = installed_plugins(env, &paths).plugins;
-    let marketplace_prefix = format!("{SKILLS_PLUGIN}@");
+/// Installed when the user has the skills plugin (`plugin`, or another `name@…` of its name; on OMP
+/// also an npm install) and it is not switched off; otherwise the marketplace add (unless a
+/// marketplace of `plugin`'s marketplace name or from `source` is registered) and the user-scope
+/// plugin install, or for a switched-off plugin its enable.
+fn marketplace_skills(env: &Env, harness: &dyn Harness, source: &str, plugin: &str) -> SkillsSetup {
+    let (name, marketplace) = plugin.split_once('@').unwrap_or((plugin, plugin));
+    let registries = marketplace_registries(env, harness);
+    let prefix = format!("{name}@");
 
-    let installed = plugins
+    let installed = registries
+        .plugins
         .iter()
-        .find(|plugin| plugin.id == SKILLS_PLUGIN || plugin.id.starts_with(&marketplace_prefix));
+        .find(|found| found.id == name || found.id.starts_with(&prefix));
 
-    if let Some(plugin) = installed {
-        return SkillsSetup::Installed {
-            version: plugin.version.clone(),
-        };
+    match installed {
+        Some(found) if found.enabled => {
+            return SkillsSetup::Installed {
+                version: found.version.clone(),
+            };
+        }
+        Some(found) => {
+            return SkillsSetup::Install {
+                actions: vec![ExtensionAction::PluginEnable { name: found.id.clone() }],
+            };
+        }
+        None => {}
     }
 
-    let (catalogs, _) = marketplaces(env, &paths, &plugins);
-    let marketplace_name = SKILLS_TARGET.rsplit('@').next().unwrap_or(SKILLS_PLUGIN);
-    let registered = catalogs.iter().any(|catalog| {
-        catalog.name == marketplace_name
-            || catalog
-                .source
-                .to_ascii_lowercase()
-                .contains(&SKILLS_MARKETPLACE.to_ascii_lowercase())
-    });
+    let source_lower = source.to_ascii_lowercase();
+    let registered = registries
+        .marketplaces
+        .iter()
+        .any(|(registered, from)| registered == marketplace || from.to_ascii_lowercase().contains(&source_lower));
 
     let mut actions = Vec::new();
 
     if !registered {
         actions.push(ExtensionAction::MarketplaceAdd {
-            source: SKILLS_MARKETPLACE.to_owned(),
+            source: source.to_owned(),
         });
     }
 
     actions.push(ExtensionAction::PluginInstall {
-        target: SKILLS_TARGET.to_owned(),
+        target: plugin.to_owned(),
         scope: InstallScope::User,
     });
 
     SkillsSetup::Install { actions }
+}
+
+/// What a marketplace harness has installed and registered for its user.
+struct MarketplaceRegistries {
+    plugins: Vec<FoundPlugin>,
+    /// Name and source of each registered marketplace.
+    marketplaces: Vec<(String, String)>,
+}
+
+/// A plugin installed for the user.
+struct FoundPlugin {
+    id: String,
+    version: Option<String>,
+    /// False when the harness's user settings switch it off.
+    enabled: bool,
+}
+
+/// Claude Code's plugin and marketplace registries, else OMP's (the user's plugins, every one
+/// counted as on, and its marketplace registry).
+fn marketplace_registries(env: &Env, harness: &dyn Harness) -> MarketplaceRegistries {
+    if harness.id() == HarnessId::Claude {
+        return MarketplaceRegistries {
+            plugins: claude::user_plugins(env)
+                .into_iter()
+                .map(|plugin| FoundPlugin {
+                    id: plugin.id,
+                    version: plugin.version,
+                    enabled: plugin.enabled,
+                })
+                .collect(),
+            marketplaces: claude::known_marketplaces(env)
+                .into_iter()
+                .map(|known| (known.name, known.source))
+                .collect(),
+        };
+    }
+
+    let paths = harness.paths(env, None);
+    let plugins = installed_plugins(env, &paths).plugins;
+    let (catalogs, _) = marketplaces(env, &paths, &plugins);
+
+    MarketplaceRegistries {
+        plugins: plugins
+            .into_iter()
+            .map(|plugin| FoundPlugin {
+                id: plugin.id,
+                version: plugin.version,
+                enabled: true,
+            })
+            .collect(),
+        marketplaces: catalogs
+            .into_iter()
+            .map(|catalog| (catalog.name, catalog.source))
+            .collect(),
+    }
 }
 
 /// The app's own server in `file`; a manual edit names this app's program.

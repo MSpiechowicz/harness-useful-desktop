@@ -39,11 +39,16 @@ pub const MEMORY_MCP_SERVER: &str = "harness-memory";
 /// server running the installed `mcp-server.js` by absolute path).
 pub const SKILLS_MCP_SERVER: &str = "useful_skills";
 
-/// The skills' OMP marketplace source (`omp plugin marketplace add …`).
+/// The skills' marketplace source (`omp plugin marketplace add …`, `claude plugin marketplace add
+/// …`).
 pub const SKILLS_MARKETPLACE: &str = "MSpiechowicz/harness-useful-skills";
 
 /// The skills' OMP plugin target (`omp plugin install …`).
 pub const SKILLS_TARGET: &str = "harness-useful-skills@harness-useful-skills";
+
+/// The skills' Claude Code plugin (`claude plugin install … --scope user`): the marketplace of
+/// [`SKILLS_MARKETPLACE`] names itself `useful-skills-local` (harness-useful-skills README).
+pub const CLAUDE_SKILLS_PLUGIN: &str = "useful-skills@useful-skills-local";
 
 /// The skills as a PI package source (`pi install …`).
 pub const PI_SKILLS_SOURCE: &str = "git:github.com/MSpiechowicz/harness-useful-skills";

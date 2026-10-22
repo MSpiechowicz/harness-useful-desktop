@@ -11,7 +11,7 @@
 //! Either way [`CliResult::command`] is the command line that applies the action (without the
 //! preview flag), while [`CliResult::argv`] is the one that ran.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 use std::time::Duration;
 
@@ -182,29 +182,65 @@ pub async fn run_cli_action(run: CliRun<'_>) -> Result<CliResult> {
         }
     }
 
-    // `cmd.exe` re-parses a batch script's arguments: flags are checked without their dashes.
-    let batch_safe = args.iter().all(|arg| is_safe_arg(arg.trim_start_matches('-')));
-    if run.binary.is_batch_script && !batch_safe {
-        return Err(BusinessError::Forbidden(
-            "an argument is unsafe for a batch-script binary".to_owned(),
-        ));
+    let cwd = run.project.map_or_else(|| run.env.home.clone(), Path::to_path_buf);
+    let cli = HarnessCli {
+        harness: run.harness,
+        env: run.env,
+        runner: run.runner,
+        binary: run.binary,
+    };
+
+    cli.run(args, command, cwd, CLI_ACTION_TIMEOUT).await
+}
+
+/// A harness CLI to run fixed commands with, under the rules of [`run_cli_action`] (no shell, the
+/// harness's spawn environment, capped and redacted output).
+#[derive(Clone, Copy)]
+pub struct HarnessCli<'a> {
+    /// The harness whose CLI runs.
+    pub harness: &'a dyn Harness,
+    /// The environment (the CLI runs in the home directory).
+    pub env: &'a Env,
+    /// Runs the process.
+    pub runner: &'a dyn ProcessRunner,
+    /// The harness binary (as detected).
+    pub binary: &'a ResolvedBinary,
+}
+
+impl HarnessCli<'_> {
+    /// Runs `args` (after the program name) in the home directory with the time limit `timeout`.
+    /// The arguments are the caller's own, not the webview's; `forbidden` when one is unsafe for a
+    /// batch-script binary, an error when the process could not start.
+    pub async fn run_args(self, args: Vec<String>, timeout: Duration) -> Result<CliResult> {
+        let command = display_argv(self.harness, &args);
+
+        self.run(args, command, self.env.home.clone(), timeout).await
     }
 
-    let cwd = run.project.map_or_else(|| run.env.home.clone(), Path::to_path_buf);
-    let spec = ExecSpec::new(&run.binary.path)
-        .args(args.iter().cloned())
-        .cwd(cwd)
-        .env("NO_COLOR", "1")
-        .env("FORCE_COLOR", "0")
-        .envs(run.harness.spawn_env().iter().copied())
-        .search_dirs(launcher_search_dirs(run.env, &run.binary.path))
-        .timeout(CLI_ACTION_TIMEOUT)
-        .max_output_bytes(MAX_CLI_OUTPUT_BYTES);
+    async fn run(self, args: Vec<String>, command: Vec<String>, cwd: PathBuf, timeout: Duration) -> Result<CliResult> {
+        // `cmd.exe` re-parses a batch script's arguments: flags are checked without their dashes.
+        let batch_safe = args.iter().all(|arg| is_safe_arg(arg.trim_start_matches('-')));
+        if self.binary.is_batch_script && !batch_safe {
+            return Err(BusinessError::Forbidden(
+                "an argument is unsafe for a batch-script binary".to_owned(),
+            ));
+        }
 
-    let output = run.runner.run(&spec).await?;
-    let argv = display_argv(run.harness, &args);
+        let spec = ExecSpec::new(&self.binary.path)
+            .args(args.iter().cloned())
+            .cwd(cwd)
+            .env("NO_COLOR", "1")
+            .env("FORCE_COLOR", "0")
+            .envs(self.harness.spawn_env().iter().copied())
+            .search_dirs(launcher_search_dirs(self.env, &self.binary.path))
+            .timeout(timeout)
+            .max_output_bytes(MAX_CLI_OUTPUT_BYTES);
 
-    Ok(cli_result(run.harness, argv, command, output))
+        let output = self.runner.run(&spec).await?;
+        let argv = display_argv(self.harness, &args);
+
+        Ok(cli_result(self.harness, argv, command, output, timeout))
+    }
 }
 
 /// `args` after the harness's program name.
@@ -237,7 +273,13 @@ fn preview_only(harness: &dyn Harness, command: Vec<String>) -> CliResult {
 }
 
 /// The result of a run: `argv` ran, `command` applies the action.
-fn cli_result(harness: &dyn Harness, argv: Vec<String>, command: Vec<String>, output: ExecOutput) -> CliResult {
+fn cli_result(
+    harness: &dyn Harness,
+    argv: Vec<String>,
+    command: Vec<String>,
+    output: ExecOutput,
+    timeout: Duration,
+) -> CliResult {
     let stdout = clean(&output.stdout);
     let stderr = clean(&output.stderr);
     let failure = harness.cli_failure_line(&stdout, &stderr);
@@ -245,12 +287,12 @@ fn cli_result(harness: &dyn Harness, argv: Vec<String>, command: Vec<String>, ou
 
     let summary = match failure {
         Some(line) => Some(line),
-        None if output.timed_out => Some(format!(
-            "Stopped after {} minutes without finishing.",
-            CLI_ACTION_TIMEOUT.as_secs() / 60
-        )),
+        None if output.timed_out => Some(stopped_line(timeout)),
         None if !ok => last_line(&stderr).or_else(|| exit_line(output.status)),
-        None => last_line(&stdout).or_else(|| last_line(&stderr)),
+        None => harness
+            .cli_summary(&stdout)
+            .or_else(|| last_line(&stdout))
+            .or_else(|| last_line(&stderr)),
     };
 
     CliResult {
@@ -277,6 +319,17 @@ fn last_line(text: &str) -> Option<String> {
         .map(str::trim)
         .rfind(|line| !line.is_empty())
         .map(str::to_owned)
+}
+
+/// The summary of a run that hit its time limit.
+fn stopped_line(timeout: Duration) -> String {
+    let seconds = timeout.as_secs();
+
+    if seconds >= 120 && seconds.is_multiple_of(60) {
+        format!("Stopped after {} minutes without finishing.", seconds / 60)
+    } else {
+        format!("Stopped after {seconds} seconds without finishing.")
+    }
 }
 
 fn exit_line(status: Option<i32>) -> Option<String> {

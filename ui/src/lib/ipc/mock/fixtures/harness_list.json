@@ -162,7 +162,7 @@
       "agents": true,
       "extensionModules": false,
       "themes": false,
-      "cliActions": false,
+      "cliActions": true,
       "profiles": false,
       "approvalModes": false,
       "projectTrust": false,

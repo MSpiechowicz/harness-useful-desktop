@@ -5,6 +5,8 @@
 //! registered; the UI offers its installer. An entry in a file with comments (OpenCode's JSONC) is
 //! never rewritten: turning memory off reports it for the user to remove by hand. The setup step
 //! also registers it in one harness at the user's request (`setup_register_memory`, [`register_in`]).
+//! Claude Code's file is changed through its CLI ([`crate::mcp_cli`]), with a time limit per run
+//! and no retry.
 //!
 //! Each launch also retires the copy of the bundled server older builds kept
 //! (`migrate_legacy_memory`). Logs name the harness and the outcome, never a file's contents.
@@ -14,19 +16,19 @@ use std::path::PathBuf;
 use harness_business::BusinessError;
 use harness_business::ecosystem::catalog::MEMORY_MCP_SERVER;
 use harness_business::ecosystem::{
-    Blocked, McpFile, MemoryRecord, MemoryRegistration, installed_memory, mcp_target, mcp_target_paths,
-    memory_mcp_state, migrate_legacy_memory, register_memory_mcp, unregister_memory_mcp,
+    Blocked, MemoryRecord, MemoryRegistration, installed_memory, mcp_target, mcp_target_paths, memory_mcp_state,
+    migrate_legacy_memory, register_memory_mcp, register_memory_mcp_cli, unregister_memory_mcp,
+    unregister_memory_mcp_cli,
 };
 use harness_business::model::{HarnessId, ManualRemoval, McpState};
 use harness_business::pi_family::tilde;
+use tauri::async_runtime::block_on;
 use tauri::{AppHandle, Manager};
 
 use crate::commands::harness::summaries;
 use crate::error::{CommandError, CommandResult};
+use crate::mcp_cli::{self, CliContext, HarnessFile};
 use crate::state::AppState;
-
-/// The MCP file of a harness (with the files it also reads).
-type Target = (HarnessId, McpFile);
 
 /// What a registration did per harness; `None` when the server is not installed (nothing
 /// registered).
@@ -109,6 +111,7 @@ async fn register_server(state: &AppState, fresh: bool, server: Option<PathBuf>)
     let targets = targets(state).await;
     let env = state.env.clone();
     let config_dir = state.config_dir.clone();
+    let context = CliContext::of(state);
 
     let registered = tauri::async_runtime::spawn_blocking(move || {
         let Some(server) = server else {
@@ -119,8 +122,12 @@ async fn register_server(state: &AppState, fresh: bool, server: Option<PathBuf>)
         let mut record = MemoryRecord::load(&config_dir);
         let mut outcomes = Vec::new();
 
-        for (harness, file) in targets {
-            let outcome = register_memory_mcp(&file, &server, record.is_recorded(&env, &file.path));
+        for (harness, file, binary) in targets {
+            let recorded = record.is_recorded(&env, &file.path);
+            let outcome = match context.cli_for(harness, &file, binary.as_ref()) {
+                Some(cli) => block_on(register_memory_mcp_cli(cli, &file, &server, recorded)),
+                None => register_memory_mcp(&file, &server, recorded),
+            };
             tracing::info!(?harness, ?outcome, "project memory registration");
 
             record.note(&env, harness, &file.path, outcome);
@@ -169,10 +176,15 @@ pub(crate) async fn register_in(state: &AppState, harness: HarnessId) -> Command
 
     let env = state.env.clone();
     let config_dir = state.config_dir.clone();
+    let context = CliContext::of(state);
+    let binary = mcp_cli::cached_binary(state, harness).await;
 
     let registered = tauri::async_runtime::spawn_blocking(move || {
         let mut record = MemoryRecord::load(&config_dir);
-        let outcome = register_memory_mcp(&file, &server, false);
+        let outcome = match context.cli_for(harness, &file, binary.as_ref()) {
+            Some(cli) => block_on(register_memory_mcp_cli(cli, &file, &server, false)),
+            None => register_memory_mcp(&file, &server, false),
+        };
         tracing::info!(?harness, ?outcome, "project memory registration requested");
 
         record.note(&env, harness, &file.path, outcome);
@@ -216,12 +228,16 @@ async fn switch_on(state: &AppState) -> CommandResult<()> {
 pub(crate) async fn unregister_all(state: &AppState) -> Vec<ManualRemoval> {
     let targets = targets(state).await;
     let env = state.env.clone();
+    let context = CliContext::of(state);
 
     let removed = tauri::async_runtime::spawn_blocking(move || {
         let mut manual = Vec::new();
 
-        for (harness, file) in targets {
-            let outcome = unregister_memory_mcp(&file);
+        for (harness, file, binary) in targets {
+            let outcome = match context.cli_for(harness, &file, binary.as_ref()) {
+                Some(cli) => block_on(unregister_memory_mcp_cli(cli, &file)),
+                None => unregister_memory_mcp(&file),
+            };
 
             if outcome == Err(Blocked::ManualEdit) {
                 tracing::warn!(
@@ -287,8 +303,8 @@ async fn clear_record(state: &AppState) {
     }
 }
 
-/// The MCP files of the installed harnesses that have one.
-async fn targets(state: &AppState) -> Vec<Target> {
+/// The MCP files of the installed harnesses that have one, with their binaries.
+async fn targets(state: &AppState) -> Vec<HarnessFile> {
     let summaries = match summaries(state).await {
         Ok(summaries) => summaries,
         Err(_) => {
@@ -304,7 +320,7 @@ async fn targets(state: &AppState) -> Vec<Target> {
             let harness = state.registry.get(summary.info.id)?;
             let file = mcp_target(&state.env, harness)?;
 
-            Some((summary.info.id, file))
+            Some((summary.info.id, file, mcp_cli::detected_binary(summary)))
         })
         .collect()
 }

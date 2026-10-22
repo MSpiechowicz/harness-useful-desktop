@@ -12,8 +12,8 @@ use harness_business::env::{Env, OsKind};
 use harness_business::harness::{Harness, HarnessRegistry};
 use harness_business::harnesses::{Omp, OpenCode, Pi};
 use harness_business::model::{
-    Detection, ExtensionAction, HarnessId, HarnessSetup, HarnessSummary, InstallScope, McpRefusal, McpState,
-    RecommendedSetup, SkillsSetup, VersionSupport,
+    Detection, ExtensionAction, HarnessId, HarnessSetup, HarnessSummary, InstallScope, McpState, RecommendedSetup,
+    SkillsSetup, VersionSupport,
 };
 use pretty_assertions::assert_eq;
 use serde_json::json;
@@ -95,6 +95,13 @@ fn register_skills_marketplace(home: &Path) {
         })
         .to_string(),
     );
+}
+
+fn claude_plugin_install() -> ExtensionAction {
+    ExtensionAction::PluginInstall {
+        target: "useful-skills@useful-skills-local".to_owned(),
+        scope: InstallScope::User,
+    }
 }
 
 fn plugin_install() -> ExtensionAction {
@@ -197,21 +204,27 @@ async fn an_empty_machine_is_offered_everything() {
     assert_eq!(opencode.memory_mcp, opencode_missing);
     assert_eq!(opencode.desktop_mcp, opencode_missing);
 
-    // Claude Code has no skills package and no MCP file the app writes yet.
+    // Claude Code: the skills marketplace and plugin, and the user scope of its global file.
     let claude = harness(&setup, HarnessId::Claude);
     assert!(!claude.installed);
-    assert!(
-        matches!(claude.skills, SkillsSetup::Unavailable { code: None, .. }),
-        "{:?}",
-        claude.skills
+    assert_eq!(
+        claude.skills,
+        SkillsSetup::Install {
+            actions: vec![
+                ExtensionAction::MarketplaceAdd {
+                    source: "MSpiechowicz/harness-useful-skills".to_owned()
+                },
+                claude_plugin_install(),
+            ]
+        }
     );
-    let no_file = McpState::Refused {
-        file: String::new(),
-        reason: McpRefusal::Unreadable,
+    let claude_missing = McpState::Missing {
+        file: "~/.claude.json".to_owned(),
+        exists: false,
     };
-    assert_eq!(claude.mcp, no_file);
-    assert_eq!(claude.memory_mcp, no_file);
-    assert_eq!(claude.desktop_mcp, no_file);
+    assert_eq!(claude.mcp, claude_missing);
+    assert_eq!(claude.memory_mcp, claude_missing);
+    assert_eq!(claude.desktop_mcp, claude_missing);
 }
 
 #[tokio::test]
