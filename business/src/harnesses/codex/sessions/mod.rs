@@ -33,7 +33,7 @@ use serde::de::DeserializeOwned;
 
 use self::app_server::{AppServer, CallError, failure};
 use self::cache::{CacheKey, Cached, cached, lock, store};
-use self::transcript::{Origin, Transcript, transcript};
+pub(crate) use self::transcript::{Origin, Transcript, transcript};
 use crate::agent::rfc3339;
 use crate::codex_rpc::wire::items::Turn;
 use crate::codex_rpc::wire::outbound::{Paged, Request, ThreadList};
@@ -65,14 +65,14 @@ const THREAD_PAGE: u32 = 100;
 const TURN_PAGE: u32 = 100;
 const ITEM_PAGE: u32 = 200;
 const MAX_THREADS: usize = 5_000;
-const MAX_TURNS: usize = 20_000;
-const MAX_ITEMS: usize = 100_000;
+pub(crate) const MAX_TURNS: usize = 20_000;
+pub(crate) const MAX_ITEMS: usize = 100_000;
 
 /// Every thread source but subagents: Codex's default is the interactive ones only.
 const SOURCE_KINDS: [&str; 5] = ["cli", "vscode", "exec", "appServer", "unknown"];
 
 /// The export title of a thread without a name or a prompt.
-const UNTITLED: &str = "Codex session";
+pub(crate) const UNTITLED: &str = "Codex session";
 
 /// What a refused delete says: the forks have to go first.
 const FORKS_FIRST: &str = "delete the forks of this session first";
@@ -231,26 +231,11 @@ impl CodexSessions {
         let mut server = AppServer::start(ctx, self.timeout)?;
         let thread = owned_thread(&mut server, ctx, id)?;
 
-        let paged = |cursor: Option<String>, limit: u32| Paged {
-            thread_id: id.to_owned(),
-            cursor,
-            limit: Some(limit),
-            sort_direction: Some("asc".to_owned()),
-            ..Paged::default()
-        };
+        let turns: Vec<Turn> = pages(&mut server, MAX_TURNS, |cursor| turns_page(id, cursor))
+            .map_err(|error| thread_failure(error, "thread/turns/list", id))?;
 
-        let turns: Vec<Turn> = pages(&mut server, MAX_TURNS, |cursor| {
-            Request::ThreadTurnsList(Paged {
-                items_view: Some("notLoaded".to_owned()),
-                ..paged(cursor, TURN_PAGE)
-            })
-        })
-        .map_err(|error| thread_failure(error, "thread/turns/list", id))?;
-
-        let items: Vec<ItemEntry> = pages(&mut server, MAX_ITEMS, |cursor| {
-            Request::ThreadItemsList(paged(cursor, ITEM_PAGE))
-        })
-        .map_err(|error| thread_failure(error, "thread/items/list", id))?;
+        let items: Vec<ItemEntry> = pages(&mut server, MAX_ITEMS, |cursor| items_page(id, cursor))
+            .map_err(|error| thread_failure(error, "thread/items/list", id))?;
 
         server.finish();
 
@@ -340,6 +325,29 @@ impl CliSessions for CodexSessions {
 struct Read {
     transcript: Transcript,
     title: Option<String>,
+}
+
+/// The page of thread `id`'s turns at `cursor`, oldest first, without their items.
+pub(crate) fn turns_page(id: &str, cursor: Option<String>) -> Request {
+    Request::ThreadTurnsList(Paged {
+        items_view: Some("notLoaded".to_owned()),
+        ..oldest_first(id, cursor, TURN_PAGE)
+    })
+}
+
+/// The page of thread `id`'s items at `cursor`, oldest first.
+pub(crate) fn items_page(id: &str, cursor: Option<String>) -> Request {
+    Request::ThreadItemsList(oldest_first(id, cursor, ITEM_PAGE))
+}
+
+fn oldest_first(id: &str, cursor: Option<String>, limit: u32) -> Paged {
+    Paged {
+        thread_id: id.to_owned(),
+        cursor,
+        limit: Some(limit),
+        sort_direction: Some("asc".to_owned()),
+        ..Paged::default()
+    }
 }
 
 /// Every page of a paged request (`request` for a cursor), up to `max` entries.

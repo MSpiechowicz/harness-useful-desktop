@@ -25,7 +25,7 @@ const ANY_IMAGE: &str = "image/*";
 
 /// A read thread.
 #[derive(Debug)]
-pub(super) struct Transcript {
+pub(crate) struct Transcript {
     /// Chat messages in transcript order.
     pub messages: Vec<ChatMessage>,
     /// Totals of the whole transcript.
@@ -38,13 +38,13 @@ pub(super) struct Transcript {
 
 /// What the thread ran on, for its replies.
 #[derive(Debug, Clone, Copy)]
-pub(super) struct Origin<'a> {
+pub(crate) struct Origin<'a> {
     pub model: Option<&'a str>,
     pub provider: Option<&'a str>,
 }
 
 /// The transcript of a thread with `turns` and `items` in `project` (see the module docs).
-pub(super) fn transcript(turns: &[Turn], items: &[ItemEntry], origin: Origin<'_>, project: &Path) -> Transcript {
+pub(crate) fn transcript(turns: &[Turn], items: &[ItemEntry], origin: Origin<'_>, project: &Path) -> Transcript {
     let by_id: HashMap<&str, &Turn> = turns.iter().map(|turn| (turn.id.as_str(), turn)).collect();
     let mut order: Vec<String> = turns.iter().map(|turn| turn.id.clone()).collect();
 

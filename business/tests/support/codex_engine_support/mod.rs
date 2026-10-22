@@ -2,7 +2,7 @@
 //! [`Codex::chat_protocol`] into [`AgentSession::start`], against the scripted `codex app-server`
 //! (`fake_agent --dialect codex`, see `src/bin/fake_agent/codex.rs` for the scenario format).
 //! Scenarios replay the recordings in `tests/fixtures/codex/app_server`; images go to a
-//! temporary attachments folder.
+//! temporary attachments folder, HTML exports to a temporary exports folder.
 #![allow(dead_code)]
 
 use std::path::PathBuf;
@@ -28,6 +28,8 @@ pub struct CodexChat {
     pub project: PathBuf,
     /// Where the chat saves images.
     pub attachments: TempDir,
+    /// Where the chat writes HTML exports.
+    pub exports: TempDir,
     _dir: TempDir,
 }
 
@@ -38,14 +40,21 @@ pub struct Launched {
     pub spawner: Arc<ScenarioSpawner>,
     pub project: PathBuf,
     pub attachments: TempDir,
+    pub exports: TempDir,
     pub dir: TempDir,
 }
 
 /// Launches scenario `name`, resuming `resume`, without panicking on a failed start.
 pub async fn launch(name: &str, resume: Option<&str>) -> Launched {
+    launch_as(name, resume, false).await
+}
+
+/// Launches scenario `name` as a chat, or a helper chat when `utility`.
+pub async fn launch_as(name: &str, resume: Option<&str>, utility: bool) -> Launched {
     let dir = project();
     let project = dunce::canonicalize(dir.path()).expect("canonical project");
     let attachments = tempfile::tempdir().expect("attachments dir");
+    let exports = tempfile::tempdir().expect("exports dir");
     let sink = CollectingSink::new();
     let spawner = ScenarioSpawner::new("codex", name);
 
@@ -56,15 +65,16 @@ pub async fn launch(name: &str, resume: Option<&str>) -> Launched {
         resume,
         approval_override: None,
         trust_once: false,
-        utility: false,
+        utility,
     };
     let options = harness_business::agent::SessionOptions {
         attachments_dir: Some(attachments.path().to_path_buf()),
+        export_dir: Some(exports.path().to_path_buf()),
         ..options()
     };
 
     let result = match Codex.launch_spec(&request) {
-        Ok(spec) => started(spec, &spawner, &project, resume, &sink, &options).await,
+        Ok(spec) => started(spec, &spawner, &project, &request, &sink, &options).await,
         Err(error) => Err(error),
     };
 
@@ -74,16 +84,17 @@ pub async fn launch(name: &str, resume: Option<&str>) -> Launched {
         spawner,
         project,
         attachments,
+        exports,
         dir,
     }
 }
 
-/// [`AgentSession::start`] on `spec` with the harness's protocol.
+/// [`AgentSession::start`] on `spec` with the harness's protocol, for `request`.
 async fn started(
     spec: harness_business::process::ExecSpec,
     spawner: &Arc<ScenarioSpawner>,
     project: &std::path::Path,
-    resume: Option<&str>,
+    request: &LaunchRequest<'_>,
     sink: &Arc<CollectingSink>,
     options: &harness_business::agent::SessionOptions,
 ) -> harness_business::Result<AgentSession> {
@@ -95,9 +106,9 @@ async fn started(
         project: project.to_path_buf(),
         sessions_dir: project.to_path_buf(),
         config_dir: project.to_path_buf(),
-        resume,
+        resume: request.resume,
         approval_override: None,
-        utility: false,
+        utility: request.utility,
         sink: sink.clone(),
         options,
         abort: Box::pin(std::future::pending()),
@@ -107,14 +118,23 @@ async fn started(
 
 /// Starts scenario `name` as a new chat; panics when the start fails.
 pub async fn start(name: &str) -> CodexChat {
-    let launched = launch(name, None).await;
+    started_chat(launch(name, None).await)
+}
 
+/// Starts scenario `name` as a chat of thread `resume` (or a new one), or a helper chat when
+/// `utility`; panics when the start fails.
+pub async fn start_as(name: &str, resume: Option<&str>, utility: bool) -> CodexChat {
+    started_chat(launch_as(name, resume, utility).await)
+}
+
+fn started_chat(launched: Launched) -> CodexChat {
     CodexChat {
         session: launched.result.expect("the Codex chat starts"),
         sink: launched.sink,
         spawner: launched.spawner,
         project: launched.project,
         attachments: launched.attachments,
+        exports: launched.exports,
         _dir: launched.dir,
     }
 }

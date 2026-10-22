@@ -1,0 +1,9 @@
+// A rename echoed by Codex, a compaction and a `!command` of 06_ops.jsonl, each Codex's own turn.
+{"include": "codex_engine_open.jsonl"}
+{"expect": "thread/name/set", "as": "rename", "hold": true, "match": {"/params/threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "/params/name": "Colour talk"}}
+{"emit": {"method": "thread/name/updated", "params": {"threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "threadName": "Colour talk"}, "emittedAtMs": 1}}
+{"respond": "rename", "reply": {}}
+{"expect": "thread/compact/start", "match": {"/params/threadId": "01a164a0-4c41-7613-9735-20de2a8016a8"}}
+{"replay": "../codex/app_server/06_ops.jsonl", "from": 15, "to": 22, "except": ["response"]}
+{"expect": "thread/shellCommand", "match": {"/params/threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "/params/command": "echo from-shell"}}
+{"replay": "../codex/app_server/06_ops.jsonl", "from": 6, "to": 12, "except": ["response"]}

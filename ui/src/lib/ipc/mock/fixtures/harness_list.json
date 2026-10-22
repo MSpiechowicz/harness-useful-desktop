@@ -221,7 +221,7 @@
       "homepage": "https://developers.openai.com/codex"
     },
     "capabilities": {
-      "chat": false,
+      "chat": true,
       "plugins": true,
       "marketplaces": true,
       "packages": false,
@@ -238,12 +238,12 @@
       "autoMode": false,
       "projectTrust": false,
       "projectTrustRequired": false,
-      "slashCommandsViaPrompt": false,
+      "slashCommandsViaPrompt": true,
       "sessionTree": false,
       "moveSession": false,
-      "removeQueued": false,
+      "removeQueued": true,
       "agentPicker": false,
-      "chatPreview": false,
+      "chatPreview": true,
       "compactInstructions": false,
       "memoryChatGuards": false
     },

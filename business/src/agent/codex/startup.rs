@@ -3,11 +3,13 @@
 //! within the startup limit ([`STARTUP_TIMEOUT`](crate::agent::STARTUP_TIMEOUT)), Codex's version
 //! from its user agent → the `initialized` notification → `model/list` (a list Codex refuses
 //! leaves the picker empty) → `thread/start` in the project, or `thread/resume` of the resumed
-//! thread without its turns (a helper chat's thread is ephemeral: not saved, not listed) →
-//! `ready`, `state` and `commandsUpdated`, then the events that arrived meanwhile.
+//! thread without its turns (a helper chat's thread is ephemeral: not saved, not listed, see
+//! `naming.rs`) → `ready`, `state` and `commandsUpdated`, then the events that arrived meanwhile.
+//! The skills and a resumed thread's saved messages are read after that, in the background.
 //!
-//! - No model, approval policy or sandbox is sent: the user's `config.toml` applies. An approval
-//!   override is refused until the chat maps the approval modes.
+//! - No model, approval policy or sandbox is sent: the user's `config.toml` applies (a helper
+//!   chat's thread never asks and only reads, see `naming.rs`). An approval override is refused
+//!   until the chat maps the approval modes.
 //! - The whole startup runs within the startup deadline and gives up when every session is stopped
 //!   ([`run_startup`]); a failed one kills the process and emits nothing. A process that exits
 //!   first fails the start with its last stderr lines.
@@ -18,6 +20,7 @@ use std::time::Duration;
 use tokio::sync::oneshot;
 
 use super::io::{read_stdout, refused};
+use super::naming::helper_thread;
 use super::settings::commands;
 use super::{Chat, CodexSession, Live};
 use crate::agent::engine::SessionLaunch;
@@ -72,7 +75,11 @@ impl CodexSession {
 
         let chat = Arc::new(Chat {
             shared: process.shared().clone(),
+            project: launch.project.clone(),
             attachments_dir: options.attachments_dir.clone(),
+            export_dir: options.export_dir.clone(),
+            helper: launch.utility,
+            moving: tokio::sync::Mutex::new(()),
             live: Mutex::new(Live::new(&launch.project, launch.utility)),
         });
         chat_tx.send(chat.clone()).ok();
@@ -85,6 +92,7 @@ impl CodexSession {
         }
 
         chat.open();
+        chat.opened(matches!(start, Start::Resume(_)));
 
         Ok(Self { process, chat })
     }
@@ -143,9 +151,9 @@ async fn handshake(chat: &Chat, start: &Start, cwd: String, limit: Duration) -> 
     };
 
     let request = match start {
-        Start::New { ephemeral } => Request::ThreadStart(ThreadStart {
+        Start::New { ephemeral: true } => Request::ThreadStart(helper_thread(settings)),
+        Start::New { ephemeral: false } => Request::ThreadStart(ThreadStart {
             settings,
-            ephemeral: ephemeral.then_some(true),
             ..ThreadStart::default()
         }),
         Start::Resume(thread_id) => Request::ThreadResume(ThreadResume {
@@ -160,21 +168,13 @@ async fn handshake(chat: &Chat, start: &Start, cwd: String, limit: Duration) -> 
     let mut live = chat.lock();
     live.codex_version = version;
     live.models = models;
-    live.mapper.follow_thread(&session.thread.id);
-    live.thread_id = Some(session.thread.id.clone()).filter(|id| !id.is_empty());
-    live.title = session.thread.name.clone().filter(|name| !name.trim().is_empty());
-    live.thread_model = Some(session.model).filter(|model| !model.is_empty());
-    live.thread_effort = session.reasoning_effort;
-
-    if !session.model_provider.is_empty() {
-        live.provider = session.model_provider;
-    }
+    live.follow(session);
 
     Ok(())
 }
 
-/// Starts or resumes the thread; Codex's refusal fails the start with its reason.
-async fn thread(chat: &Chat, request: &Request, limit: Duration) -> Result<ThreadSession> {
+/// Starts, resumes or forks a thread; Codex's refusal fails with its reason.
+pub(super) async fn thread(chat: &Chat, request: &Request, limit: Duration) -> Result<ThreadSession> {
     let answer = chat.call(request, limit).await?;
     let session = answer.map_err(|error| refused(request.method(), &error))?;
 

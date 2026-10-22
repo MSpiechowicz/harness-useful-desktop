@@ -104,7 +104,7 @@ impl AgentManager {
         Self::default()
     }
 
-    /// A manager with custom options (tests, fixture export).
+    /// A manager with custom options (the desktop's folders, tests, fixture export).
     pub fn with_options(options: SessionOptions) -> Self {
         Self {
             slots: Mutex::default(),

@@ -98,7 +98,6 @@ fn text(blocks: &[ChatBlock]) -> Vec<String> {
 fn codex_reads_its_sessions_through_the_app_server_without_a_fork_count() {
     assert!(Codex.cli_sessions().is_some());
     assert!(!Codex.capabilities().session_tree);
-    assert!(!Codex.capabilities().chat);
 }
 
 #[test]

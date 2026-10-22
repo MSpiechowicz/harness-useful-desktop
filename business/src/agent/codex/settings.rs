@@ -10,7 +10,7 @@
 //!   new model offers, else picks the new model's default.
 //! - **Statistics:** the thread's token counts and context meter ([`CodexStats`]) with the
 //!   chat's message counts.
-//! - **Commands:** the catalog of the harness (skills arrive with the session operations).
+//! - **Commands:** the catalog of the harness; the skills join it once listed (`skills.rs`).
 //!
 //! [`CodexStats`]: crate::codex_rpc::stats::CodexStats
 
@@ -27,7 +27,7 @@ use crate::pi_family::rpc::pending::DEFAULT_TIMEOUT;
 pub(super) const PROVIDER: &str = "openai";
 
 impl CodexSession {
-    /// Runs a state, picker, statistics or command action.
+    /// Runs a state, picker or statistics action.
     pub(super) async fn setting(&self, action: AgentAction) -> Result<AgentReply> {
         let chat = &self.chat;
 
@@ -47,10 +47,7 @@ impl CodexSession {
                     stats: live.stats.session_stats(live.counts),
                 })
             }
-            AgentAction::GetLastAssistantText => Ok(AgentReply::Text {
-                text: chat.lock().last_reply.clone(),
-            }),
-            _ => Ok(AgentReply::Commands { commands: commands() }),
+            _ => Err(BusinessError::Internal("not a setting action".to_owned())),
         }
     }
 }

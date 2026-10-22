@@ -15,13 +15,16 @@ use crate::fs_atomic::ensure_private_dir;
 use crate::model::ImageAttachment;
 
 impl Chat {
-    /// `text` and `images` as Codex input: the images saved as files Codex reads.
+    /// `text` and `images` as Codex input: a skill the text calls (`skills.rs`), the images saved
+    /// as files Codex reads.
     pub(super) async fn input(&self, text: &str, images: &[ImageAttachment]) -> Result<Vec<UserInput>> {
         let mut input = Vec::new();
 
         if !text.is_empty() {
             input.push(UserInput::text(text));
         }
+
+        input.extend(self.skill_input(text));
 
         if images.is_empty() {
             return Ok(input);

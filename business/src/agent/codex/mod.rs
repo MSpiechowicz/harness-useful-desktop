@@ -1,5 +1,5 @@
 //! The Codex chat engine: one `codex app-server` process per chat, JSON-RPC over stdin/stdout
-//! ([plan](../../../../docs/plans/codex.md), "Protocol"). The manager does not offer it yet.
+//! ([plan](../../../../docs/plans/codex.md), "Protocol"). Chat is a preview.
 //!
 //! - **Process:** the shared [`AgentProcess`] (spawn, redacted stderr, `exited` last, stop on
 //!   stdin EOF, kill on drop).
@@ -7,39 +7,50 @@
 //!   startup limit (Codex's version from its user agent), `model/list`, then `thread/start` in the
 //!   project (or `thread/resume` without its turns), which the mapper follows from then on. No
 //!   override is sent, so the user's `config.toml` applies. Then `ready`, `state` and
-//!   `commandsUpdated`.
+//!   `commandsUpdated`; the skills and a resumed thread's saved messages follow (`skills.rs`,
+//!   `history.rs`).
 //! - **Frames** (`io.rs`): one task reads stdout (lines up to the frame limit) and maps every frame
 //!   with the [`CodexMapper`] under the chat's lock, so bookkeeping and event order never
 //!   interleave. Answers to the app's requests resolve the waiting action through the session's
 //!   pending-request table (keyed by the request id's text, each with a time limit).
 //! - **Actions:** prompts with images, steering, the app-side follow-up queue, withdrawing a
 //!   queued message and abort (`prompts.rs`, images as files in `images.rs`); the state, the
-//!   model and reasoning pickers and the statistics (`settings.rs`). Codex's requests become dialogs, answered with
-//!   [`CodexSession::respond`] (`dialogs.rs`); dynamic tool calls and token refreshes are refused.
-//! - New, switch, fork, clone, rename, compact, history, export and `!command`s are not available
-//!   yet.
+//!   model and reasoning pickers and the statistics (`settings.rs`); new, switch, fork and clone,
+//!   all threads of the same process (`ops.rs`); renaming, compaction and `!command`s
+//!   (`runs.rs`, gated by `bash_gate.rs`); history, the last reply and the HTML export
+//!   (`history.rs`); skills as slash commands (`skills.rs`); the helper chat of AI naming
+//!   (`naming.rs`). Codex's requests become dialogs, answered with [`CodexSession::respond`]
+//!   (`dialogs.rs`); dynamic tool calls and token refreshes are refused.
 //! - **Stop:** stdin closes, Codex exits (killed after the grace period).
 
+mod bash_gate;
 mod dialogs;
 mod forms;
+mod history;
 mod images;
 mod io;
+mod naming;
+mod ops;
 mod prompts;
+mod runs;
 mod settings;
+mod skills;
 mod startup;
 
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use self::dialogs::Dialogs;
+use self::runs::Shell;
 use super::io::Shared;
 use super::process::AgentProcess;
 use super::sink::PromptTaken;
 use crate::codex_rpc::CodexMapper;
 use crate::codex_rpc::stats::{CodexStats, MessageCounts};
 use crate::codex_rpc::wire::items::UserInput;
-use crate::codex_rpc::wire::results::Model;
+use crate::codex_rpc::wire::results::{Model, Skill};
 use crate::error::{BusinessError, Result};
+use crate::harnesses::codex::sessions::Transcript;
 use crate::model::{AgentAction, AgentEvent, AgentReply, BashOutput, StreamingBehavior, UiResponse};
 use crate::process::ExitInfo;
 
@@ -52,8 +63,16 @@ pub struct CodexSession {
 /// What the actions and the reader task share.
 struct Chat {
     shared: Arc<Shared>,
+    /// The project every thread of the chat runs in.
+    project: PathBuf,
     /// Where images are saved for Codex to read (`None`: the app's data folder).
     attachments_dir: Option<PathBuf>,
+    /// Where HTML exports are written (`None`: the app's data folder).
+    export_dir: Option<PathBuf>,
+    /// A helper chat (AI naming): an ephemeral thread without session operations.
+    helper: bool,
+    /// One session operation at a time.
+    moving: tokio::sync::Mutex<()>,
     live: Mutex<Live>,
 }
 
@@ -89,6 +108,16 @@ struct Live {
     last_reply: Option<String>,
     stats: CodexStats,
     counts: MessageCounts,
+    /// The thread has saved turns (resumed, forked, cloned, or one ran).
+    saved: bool,
+    /// The newest read of the thread's saved messages, which later history pages reuse.
+    transcript: Option<Arc<Transcript>>,
+    /// The enabled skills `skills/list` named, offered as slash commands.
+    skills: Vec<Skill>,
+    /// The running `!command`.
+    shell: Option<Shell>,
+    /// A helper chat's prompt, sent once more on Codex's default model when its turn fails.
+    naming: Option<String>,
 }
 
 /// A queued user message.
@@ -123,7 +152,17 @@ impl Live {
             last_reply: None,
             stats: CodexStats::default(),
             counts: MessageCounts::default(),
+            saved: false,
+            transcript: None,
+            skills: Vec::new(),
+            shell: None,
+            naming: None,
         }
+    }
+
+    /// True while a turn, a compaction, an ask or a `!command` keeps the chat busy.
+    fn is_busy(&self) -> bool {
+        self.mapper.is_working() || !self.dialogs.is_empty() || self.shell.is_some()
     }
 
     /// The queue as the chat shows it.
@@ -200,23 +239,18 @@ impl CodexSession {
             | A::SetModel { .. }
             | A::GetAvailableThinkingLevels
             | A::SetThinkingLevel { .. }
-            | A::GetSessionStats
-            | A::GetLastAssistantText
-            | A::RefreshCommands => self.setting(action).await,
+            | A::GetSessionStats => self.setting(action).await,
+            A::Prompt { .. } if self.chat.helper => self.helper_prompt(action).await,
             A::Prompt { .. } | A::Steer { .. } | A::FollowUp { .. } | A::RemoveQueued { .. } | A::Abort => {
                 self.prompt_action(action).await
             }
+            A::RefreshCommands => self.chat.refresh_commands().await,
+            A::NewSession | A::SwitchSession { .. } | A::Fork { .. } | A::Clone => self.session_op(action).await,
+            A::Compact { .. } | A::SetSessionName { .. } => self.thread_op(action).await,
+            A::ExportHtml | A::GetHistory { .. } | A::GetLastAssistantText => self.report(action).await,
             A::GetAvailableAgents | A::SetAgent { .. } => Err(BusinessError::Unsupported(
                 "Codex chats have no agent picker".to_owned(),
             )),
-            A::NewSession
-            | A::SwitchSession { .. }
-            | A::Fork { .. }
-            | A::Clone
-            | A::Compact { .. }
-            | A::SetSessionName { .. }
-            | A::ExportHtml
-            | A::GetHistory { .. } => Err(not_yet()),
         }
     }
 
@@ -242,9 +276,12 @@ impl CodexSession {
         self.process.stop().await;
     }
 
-    /// Not available yet.
-    pub async fn bash(&self, _command: &str) -> Result<BashOutput> {
-        Err(not_yet())
+    /// Runs `command` in the thread's shell; its output reaches the model (see `runs.rs`). The
+    /// caller must have the user's explicit confirmation.
+    pub async fn bash(&self, command: &str) -> Result<BashOutput> {
+        self.process.ensure_running()?;
+
+        self.chat.run_command(command).await
     }
 
     /// Refuses: a Codex thread keeps its working directory.
@@ -253,9 +290,4 @@ impl CodexSession {
 
         Err(BusinessError::Unsupported(refusal.to_owned()))
     }
-}
-
-/// What the chat cannot do yet.
-fn not_yet() -> BusinessError {
-    BusinessError::Unsupported("Codex chats cannot do this yet".to_owned())
 }

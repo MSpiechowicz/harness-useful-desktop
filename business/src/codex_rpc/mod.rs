@@ -18,4 +18,4 @@ pub mod mapper;
 pub mod stats;
 pub mod wire;
 
-pub use mapper::{Ask, AskKind, CodexMapper, Hint, Mapped, StartKind};
+pub use mapper::{Ask, AskKind, CodexMapper, Hint, Mapped, ShellRun, StartKind};

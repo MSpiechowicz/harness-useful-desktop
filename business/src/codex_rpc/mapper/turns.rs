@@ -7,7 +7,8 @@
 //!   `promptResult`: `aborted` for an interrupted turn (or a failed one after
 //!   [`CodexMapper::abort_requested`]), `error` for a failed one, else `completed`. A quiet turn
 //!   ([`StartKind::Compact`], [`StartKind::Shell`]) shows no `agentStart` … `agentEnd`: a
-//!   compaction ends with a `handled` result, a `!command` only shows a failure.
+//!   compaction ends with a `handled` result, a `!command` only shows a failure (its command is
+//!   no tool card: the engine answers the `!command` with its output, see [`Hint::Shell`]).
 //! - **Errors:** `error{willRetry}` is a `retry` `start` (its attempt counted), the turn's next item
 //!   or its end the retry's `end`. Without `willRetry` it is the turn's failure, unless the
 //!   completed turn names its own. Codex's `unauthorized` becomes [`SIGN_IN_ERROR`]: the app never
@@ -113,6 +114,11 @@ impl Turn {
 
     fn is_quiet(&self) -> bool {
         self.kind != StartKind::Prompt
+    }
+
+    /// True while a `!command`'s turn runs.
+    pub(super) fn is_shell(&self) -> bool {
+        self.active && self.kind == StartKind::Shell
     }
 }
 

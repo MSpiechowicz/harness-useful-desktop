@@ -114,11 +114,12 @@ impl AppState {
     pub fn from_app<R: Runtime>(app: &AppHandle<R>) -> Result<Self, Box<dyn Error>> {
         let config_dir = app.path().app_config_dir()?;
         let env = Env::from_process()?;
-        let agents = Agents::tracked(child_processes_dir(&env));
+        let attachments_dir = app.path().app_cache_dir()?.join("attachments");
+        let agents = Agents::tracked(child_processes_dir(&env), attachments_dir.clone());
 
         Ok(Self {
             updates: Updates::from_config(app.config()),
-            attachments_dir: app.path().app_cache_dir()?.join("attachments"),
+            attachments_dir,
             agents: Arc::new(agents),
             ..Self::new(config_dir, env)
         })

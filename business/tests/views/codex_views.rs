@@ -382,7 +382,8 @@ fn codex_declares_its_views_actions_and_sharing() {
 
     assert!(capabilities.plugins && capabilities.marketplaces && capabilities.mcp && capabilities.skills);
     assert!(capabilities.cli_actions);
-    assert!(!capabilities.chat, "chat comes later");
+    assert!(capabilities.chat && capabilities.chat_preview, "chat is a preview");
+    assert!(capabilities.remove_queued && !capabilities.compact_instructions);
 
     let share = Codex.share_support();
     assert!(share.marketplaces && share.plugins && share.mcp_servers);

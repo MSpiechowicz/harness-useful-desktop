@@ -20,11 +20,11 @@ use serde_json::{Value, json};
 use tokio::sync::oneshot;
 
 use super::dialogs::Outcome;
-use super::reports::reply_text;
 use super::{Chat, Live};
 use crate::agent::io::WriterMsg;
 use crate::agent::process::Stdout;
 use crate::claude_stream::mapper::{Ask, Hint};
+use crate::claude_stream::stats::reply_text;
 use crate::claude_stream::wire::outbound::{
     HostRequest, control_error, control_request, next_request_id, permission_deny,
 };

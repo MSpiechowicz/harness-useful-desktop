@@ -12,6 +12,8 @@
 //!   order.
 //! - **Requests of Codex:** approvals and questions go to the chat's dialogs (`dialogs.rs`);
 //!   dynamic tool calls, token refreshes and unknown methods are refused at once.
+//! - **Turn ends** also finish a `!command` and may send a helper chat's prompt again
+//!   (`runs.rs`, `naming.rs`).
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -20,8 +22,7 @@ use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
 use tokio::sync::oneshot;
 
-use super::dialogs::Outcome;
-use super::{Chat, Live};
+use super::{Chat, Live, dialogs::Outcome};
 use crate::agent::io::WriterMsg;
 use crate::agent::process::Stdout;
 use crate::codex_rpc::mapper::{Hint, Mapped};
@@ -57,6 +58,8 @@ pub(super) async fn read_stdout(stdout: Stdout, chat: oneshot::Receiver<Arc<Chat
         }
     }
 
+    // A `!command` that waits for its end learns it never comes.
+    chat.lock().shell = None;
     chat.shared.pending.close("the agent closed its output");
 }
 
@@ -120,6 +123,8 @@ impl Chat {
                 if end.status != PromptStatus::Aborted {
                     self.next_follow_up(live);
                 }
+
+                self.turn_ended(live, &end, owed);
             }
             Hint::UserMessage(message) => {
                 let position = live.queue.iter().position(|queued| {
@@ -149,6 +154,7 @@ impl Chat {
             }
             Hint::Unsupported(request) => owed.push(refusal(&request)),
             Hint::Deprecation(summary) => tracing::debug!(%summary, "Codex reports a deprecated API"),
+            Hint::Shell(run) => self.shell_output(live, run),
             Hint::ThreadStarted(_) | Hint::ThreadStatus(_) => {}
         }
     }

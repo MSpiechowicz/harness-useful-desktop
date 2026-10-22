@@ -10,27 +10,19 @@
 //!   messages. A fork or clone whose own file Claude Code has not written yet shows what
 //!   it copied, a new chat without a file nothing. The last reply is the newest of this process,
 //!   else the newest saved one.
-//! - **Export:** rendered escaped by the shared exporter ([`render`]) and written (`0600`, replaced
-//!   in one rename) as `claude-<session id>.html` in
-//!   [`SessionOptions::export_dir`](crate::agent::SessionOptions::export_dir) (`0700`), by default
-//!   the `exports` folder in the app's data folder, never the project.
+//! - **Export:** the shared HTML export ([`write_export`]) as `claude-<session id>.html`.
 
-use std::path::{Path, PathBuf};
-use std::time::SystemTime;
+use std::path::Path;
 
 use super::ops::blocking;
 use super::{ClaudeSession, Origin};
-use crate::agent::rfc3339;
-use crate::app_dirs::exports_dir;
-use crate::claude_stream::stats::MessageCounts;
+use crate::agent::export::{Export, write_export};
+use crate::claude_stream::stats::reply_text;
 use crate::claude_stream::wire::control::ContextUsageReply;
 use crate::claude_stream::wire::outbound::HostRequest;
-use crate::env::Env;
 use crate::error::{BusinessError, Result};
-use crate::fs_atomic::{ensure_private_dir, replace_atomically};
 use crate::harnesses::claude::{SavedMessages, chat_messages, is_session_id, session_file};
-use crate::model::{AgentReply, ChatBlock, ChatMessage, MessageRole};
-use crate::opencode_server::export_html::{ExportPage, render};
+use crate::model::{AgentReply, MessageRole};
 use crate::pi_family::rpc::pending::DEFAULT_TIMEOUT;
 use crate::pi_family::rpc::shared::page_history;
 
@@ -98,24 +90,15 @@ impl ClaudeSession {
         }
 
         let messages = self.messages().await?;
-        let exported_at = rfc3339(SystemTime::now());
-        let page = ExportPage {
-            title: title.as_deref().unwrap_or(UNTITLED),
+        let export = Export {
             harness: "Claude Code",
+            prefix: "claude",
+            title: title.as_deref().unwrap_or(UNTITLED),
             session_id: &session,
-            exported_at: &exported_at,
+            messages: &messages,
         };
-        let html = run.chat.shared.mask(&render(&page, &messages), false);
 
-        let dir = export_dir(self.launcher.options.export_dir.as_ref())?;
-        ensure_private_dir(&dir, "create the export folder")?;
-
-        let path = dir.join(format!("claude-{session}.html"));
-        replace_atomically(&path, html.as_bytes(), "write the HTML export")?;
-
-        Ok(AgentReply::Exported {
-            path: path.to_string_lossy().into_owned(),
-        })
+        write_export(&run.chat.shared, self.launcher.options.export_dir.as_ref(), &export)
     }
 
     /// The session's saved messages (see the module docs).
@@ -162,54 +145,4 @@ pub(super) async fn saved_messages(dir: &Path, project: &Path, id: &str, cut: Op
         chat_messages(&path, cut.as_deref())
     })
     .await
-}
-
-/// The message counts of `messages`.
-pub(super) fn counts(messages: &[ChatMessage]) -> MessageCounts {
-    let mut counts = MessageCounts::default();
-
-    for message in messages {
-        counts.total += 1;
-
-        match message.role {
-            MessageRole::User => counts.user += 1,
-            MessageRole::Assistant => {
-                counts.assistant += 1;
-
-                let calls = message
-                    .blocks
-                    .iter()
-                    .filter(|block| matches!(block, ChatBlock::ToolCall { .. }))
-                    .count();
-                counts.tool_calls += u32::try_from(calls).unwrap_or(u32::MAX);
-            }
-            _ => {}
-        }
-    }
-
-    counts
-}
-
-/// The text of a reply's `blocks`, when they have some.
-pub(super) fn reply_text(blocks: &[ChatBlock]) -> Option<String> {
-    let texts: Vec<&str> = blocks
-        .iter()
-        .filter_map(|block| match block {
-            ChatBlock::Text { text } if !text.is_empty() => Some(text.as_str()),
-            _ => None,
-        })
-        .collect();
-
-    (!texts.is_empty()).then(|| texts.join("\n\n"))
-}
-
-/// `configured`, or `exports` in the app's data folder.
-fn export_dir(configured: Option<&PathBuf>) -> Result<PathBuf> {
-    if let Some(dir) = configured {
-        return Ok(dir.clone());
-    }
-
-    let env = Env::from_process()?;
-
-    exports_dir(&env).ok_or_else(|| BusinessError::NotFound("the app's data folder".to_owned()))
 }

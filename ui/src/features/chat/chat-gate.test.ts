@@ -48,7 +48,7 @@ describe('chat on a machine with no harness', () => {
   it('names the harnesses it can chat with, as the harness list says', async () => {
     render(ChatView);
 
-    expect(await screen.findByText('Chat needs Oh My Pi, Pi, or Claude Code. Install one, then set it up in Settings.')).toBeInTheDocument();
+    expect(await screen.findByText('Chat needs Oh My Pi, Pi, Claude Code, or Codex. Install one, then set it up in Settings.')).toBeInTheDocument();
   });
 
   it('names a harness as soon as its chat is on', async () => {
@@ -56,7 +56,7 @@ describe('chat on a machine with no harness', () => {
     installOnly();
     render(ChatView);
 
-    expect(await screen.findByText('Chat needs Oh My Pi, Pi, OpenCode, or Claude Code. Install one, then set it up in Settings.')).toBeInTheDocument();
+    expect(await screen.findByText('Chat needs Oh My Pi, Pi, OpenCode, Claude Code, or Codex. Install one, then set it up in Settings.')).toBeInTheDocument();
   });
 
   it('names no harness while the harness list has none to name', async () => {

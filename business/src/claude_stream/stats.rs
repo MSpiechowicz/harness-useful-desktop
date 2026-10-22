@@ -13,14 +13,15 @@
 //!   with an aliased key, say) the window an earlier result named for the same model stays. A
 //!   turn of another model without a named window hides the meter (never a stale one). A
 //!   compaction sets it to the tokens left.
-//! - **Counts** are the chat's messages, which the engine counts ([`MessageCounts`]).
+//! - **Counts** are the chat's messages, which the engine counts ([`MessageCounts`]); a session
+//!   that starts with saved messages counts them with [`MessageCounts::of`] (Claude Code and Codex).
 
 use std::collections::BTreeMap;
 
 use crate::claude_stream::wire::control::ContextUsageReply;
 use crate::claude_stream::wire::result::{ModelUsage, ResultFrame};
 use crate::claude_stream::wire::system::CompactMetadata;
-use crate::model::{ContextUsage, SessionStats, TokenUsage};
+use crate::model::{ChatBlock, ChatMessage, ContextUsage, MessageRole, SessionStats, TokenUsage};
 use crate::opencode_server::stats::usage;
 
 /// The chat's message counts.
@@ -31,6 +32,47 @@ pub struct MessageCounts {
     pub tool_calls: u32,
     /// Every message, tool results and `!command`s included.
     pub total: u32,
+}
+
+impl MessageCounts {
+    /// The counts of saved `messages`.
+    pub fn of(messages: &[ChatMessage]) -> Self {
+        let mut counts = Self::default();
+
+        for message in messages {
+            counts.total += 1;
+
+            match message.role {
+                MessageRole::User => counts.user += 1,
+                MessageRole::Assistant => {
+                    counts.assistant += 1;
+
+                    let calls = message
+                        .blocks
+                        .iter()
+                        .filter(|block| matches!(block, ChatBlock::ToolCall { .. }))
+                        .count();
+                    counts.tool_calls += u32::try_from(calls).unwrap_or(u32::MAX);
+                }
+                _ => {}
+            }
+        }
+
+        counts
+    }
+}
+
+/// The text of a reply's `blocks` (its text blocks, a blank line apart), when they have some.
+pub fn reply_text(blocks: &[ChatBlock]) -> Option<String> {
+    let texts: Vec<&str> = blocks
+        .iter()
+        .filter_map(|block| match block {
+            ChatBlock::Text { text } if !text.is_empty() => Some(text.as_str()),
+            _ => None,
+        })
+        .collect();
+
+    (!texts.is_empty()).then(|| texts.join("\n\n"))
 }
 
 /// What a chat process used so far (see the module docs).

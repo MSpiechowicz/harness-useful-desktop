@@ -13,7 +13,7 @@
 //!   - [`OpenCodeV2Session`] — the same for OpenCode 2's `/api` server;
 //!   - [`ClaudeSession`] — `claude` in stream-json mode with its control protocol (a preview),
 //!     started again when the chat moves to another session;
-//!   - [`CodexSession`] — `codex app-server` over JSON-RPC on stdio (chat not offered yet).
+//!   - [`CodexSession`] — `codex app-server` over JSON-RPC on stdio (a preview).
 //! - [`EventSink`] — where the normalized [`AgentEnvelope`](crate::model::AgentEnvelope)s go
 //!   (the desktop shell adapts it to a Tauri channel).
 //! - [`DeltaCoalescer`] — merges streaming deltas within [`COALESCE_WINDOW`].
@@ -25,6 +25,7 @@ mod claude;
 mod coalesce;
 mod codex;
 mod engine;
+mod export;
 mod io;
 mod launch;
 mod manager;

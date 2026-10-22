@@ -6,7 +6,7 @@
 use crate::codex_recorded;
 
 use codex_recorded::{FILES, THREAD, frame, replay, replay_in, shape};
-use harness_business::codex_rpc::mapper::{AskKind, COMMAND_DECLINED, Hint, UserMessage};
+use harness_business::codex_rpc::mapper::{AskKind, COMMAND_DECLINED, Hint, ShellRun, UserMessage};
 use harness_business::codex_rpc::stats::{CodexStats, MessageCounts};
 use harness_business::codex_rpc::wire::RequestId;
 use harness_business::codex_rpc::wire::results::ThreadStatus;
@@ -293,21 +293,12 @@ fn a_shell_command_and_a_compaction_run_as_quiet_turns() {
     let replay = replay("06_ops.jsonl");
     let events = replay.events.clone();
 
-    assert_eq!(
-        shape(&events),
-        [
-            "toolStart",
-            "toolUpdate",
-            "toolEnd",
-            "compaction",
-            "compaction",
-            "promptResult"
-        ]
-    );
-    assert_eq!(
-        tool_ends(&events),
-        [("shell".to_owned(), false, "from-shell\n".to_owned(), vec![])]
-    );
+    // The command is no tool card: the engine answers the `!command` with its output.
+    assert_eq!(shape(&events), ["compaction", "compaction", "promptResult"]);
+    assert!(replay.hints.contains(&Hint::Shell(ShellRun {
+        output: "from-shell\n".to_owned(),
+        exit_code: Some(0),
+    })));
 
     let compactions: Vec<(String, Option<String>)> = events
         .iter()

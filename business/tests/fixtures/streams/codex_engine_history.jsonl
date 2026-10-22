@@ -1,0 +1,7 @@
+// A resumed thread: its saved messages are counted in the background, then read again for the
+// history's first page and for the export (later history pages reuse that read).
+{"include": "codex_engine_resume.jsonl"}
+{"expect": "skills/list", "reply": {"data": [{"cwd": "/work/project", "skills": []}]}}
+{"include": "codex_engine_history_read.jsonl"}
+{"include": "codex_engine_history_read.jsonl"}
+{"include": "codex_engine_history_read.jsonl"}

@@ -8,10 +8,10 @@
 //! family MCP servers through `codex mcp` ([`McpTarget::CodexCli`]); Harness Skills have no Codex
 //! adapter yet. Share setup shares its marketplaces, plugins and MCP servers
 //! ([`Harness::share_support`], an imported server is added through `codex mcp add`). Sessions
-//! are read through `codex app-server` ([`sessions`]). The chat engine runs `codex app-server`
-//! too ([`launch`], [`ChatProtocol::CodexAppServer`]) but chat stays off until its approvals and
-//! session operations land, and the catalog lists every command as unsupported. The login store (`auth.json`) and Codex's private files are
-//! never read ([`crate::security::deny`]).
+//! are read through `codex app-server` ([`sessions`]). Chat (a preview) runs `codex app-server`
+//! too ([`launch`], [`ChatProtocol::CodexAppServer`]); the catalog maps Codex's commands to the
+//! chat's actions and views and adds the skills ([`catalog`]). The login store (`auth.json`) and
+//! Codex's private files are never read ([`crate::security::deny`]).
 
 mod catalog;
 mod cli;
@@ -57,11 +57,17 @@ impl Harness for Codex {
         }
     }
 
-    /// What the views list and the extension actions the CLI runs. No session tree: Codex 0.154's
+    /// What the views list, the extension actions the CLI runs and the chat (a preview), whose
+    /// queued messages can be withdrawn and whose skills run as prompt text. Codex compacts with
+    /// its own prompt, so `/compact` takes no instructions. No session tree: Codex 0.154's
     /// `thread/list` leaves `forkedFromId` out (only `thread/read` has it), so forks are not
-    /// counted. Chat arrives in a later step of the plan.
+    /// counted.
     fn capabilities(&self) -> Capabilities {
         Capabilities {
+            chat: true,
+            chat_preview: true,
+            slash_commands_via_prompt: true,
+            remove_queued: true,
             plugins: true,
             marketplaces: true,
             mcp: true,
@@ -89,8 +95,7 @@ impl Harness for Codex {
         Ok(extensions::extensions_view(env, project))
     }
 
-    /// `codex app-server` in the project (see [`launch`]); the manager does not offer it yet
-    /// (`capabilities.chat` is false).
+    /// `codex app-server` in the project (see [`launch`]).
     fn launch_spec(&self, request: &LaunchRequest<'_>) -> Result<ExecSpec> {
         launch::codex_launch_spec(request)
     }

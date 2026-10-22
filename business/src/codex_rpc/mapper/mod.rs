@@ -5,8 +5,8 @@
 //!   report its model calls one by one), `turn/completed` ends what is still open, then `turnEnd`,
 //!   `agentEnd`, a `promptResult` (`completed`, `aborted` when interrupted, `error` with the
 //!   failure's first line) and `settled` once the chat is idle. A compaction or a `!command` the
-//!   engine started ([`StartKind`]) runs as a quiet turn: its compaction or tool card shows, no
-//!   `agentStart` … `settled`.
+//!   engine started ([`StartKind`]) runs as a quiet turn: its compaction shows, no `agentStart` …
+//!   `settled`. A `!command`'s command is no tool card: its output is a [`Hint::Shell`].
 //! - **Replies** (see [`replies`]): each agent message is one assistant message streamed from its
 //!   deltas, confirmed by its `item/completed` (its `phase`, `commentary` or `final_answer`, is the
 //!   message's stop reason). Reasoning with text is a message with one thinking block; reasoning
@@ -96,6 +96,16 @@ pub enum Hint {
     Resolved(RequestId),
     /// An API the app uses is deprecated (for the log, never the user).
     Deprecation(String),
+    /// The command of a `!command` ([`StartKind::Shell`]) finished.
+    Shell(ShellRun),
+}
+
+/// A finished `!command` as Codex reported it (not redacted yet).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ShellRun {
+    /// Its output, stdout and stderr together.
+    pub output: String,
+    pub exit_code: Option<i64>,
 }
 
 /// A `userMessage` item Codex took.
@@ -353,6 +363,7 @@ impl CodexMapper {
         match &notification.item {
             ThreadItem::AgentMessage(message) => self.replies.message_started(message, turn_id, events),
             ThreadItem::ContextCompaction { .. } => self.compaction_started(out),
+            ThreadItem::CommandExecution(_) if self.turn.is_shell() => {}
             item => self.tools.started(item, events),
         }
     }
@@ -384,6 +395,12 @@ impl CodexMapper {
                     .reasoning_completed(reasoning, turn_id, at, &mut out.events);
             }
             ThreadItem::ContextCompaction { .. } => self.compaction_completed(out),
+            ThreadItem::CommandExecution(command) if self.turn.is_shell() => {
+                out.hint(Hint::Shell(ShellRun {
+                    output: command.aggregated_output.clone().unwrap_or_default(),
+                    exit_code: command.exit_code,
+                }));
+            }
             item => self.tools.completed(item, &mut out.events),
         }
     }

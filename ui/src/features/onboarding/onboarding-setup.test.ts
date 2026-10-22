@@ -334,7 +334,7 @@ describe('Set up step', () => {
 
     // Nothing to tick: every missing piece is part of the one action.
     expect(screen.queryAllByRole('switch')).toHaveLength(0);
-    expect(screen.getByText('7 items to install')).toBeInTheDocument();
+    expect(screen.getByText('10 items to install')).toBeInTheDocument();
 
     // The table is MCP servers only: skills are one row of the family card, summed across the harnesses found.
     expect(within(rows[0]).queryByRole('group', { name: 'Harness Skills' })).toBeNull();
@@ -348,11 +348,12 @@ describe('Set up step', () => {
     expect(within(within(claude).getByRole('group', { name: 'Harness Dashboard MCP' })).getByText('Installed')).toBeInTheDocument();
     expect(within(within(claude).getByRole('group', { name: 'Harness Memory MCP' })).getByText('Disabled')).toBeInTheDocument();
     expect(within(within(claude).getByRole('group', { name: 'Harness Desktop MCP' })).getByText('Installed')).toBeInTheDocument();
-    // The app cannot chat with Codex yet, so it gets no MCP entries and every column says so.
+    // Codex chats now too, so its missing entries are part of the one action like the others'.
     const codex = rows[3];
-    expect(within(within(codex).getByRole('group', { name: 'Harness Dashboard MCP' })).getByText('Coming soon')).toBeInTheDocument();
-    expect(within(within(codex).getByRole('group', { name: 'Harness Memory MCP' })).getByText('Coming soon')).toBeInTheDocument();
-    expect(within(within(codex).getByRole('group', { name: 'Harness Desktop MCP' })).getByText('Coming soon')).toBeInTheDocument();
+    expect(within(within(codex).getByRole('group', { name: 'Harness Dashboard MCP' })).getByText('Not installed')).toBeInTheDocument();
+    expect(within(within(codex).getByRole('group', { name: 'Harness Memory MCP' })).getByText('Not installed')).toBeInTheDocument();
+    expect(within(within(codex).getByRole('group', { name: 'Harness Desktop MCP' })).getByText('Not installed')).toBeInTheDocument();
+    expect(within(codex).queryByText('Coming soon')).toBeNull();
   });
 
   it('adds only the memory server’s missing entries when it is installed already', async () => {
@@ -394,7 +395,7 @@ describe('Set up step', () => {
     expect(screen.getByText('"harness-memory":')).toBeInTheDocument();
     expect(screen.getByText('"harness-desktop":')).toBeInTheDocument();
 
-    // The app cannot chat with Codex yet, so its row has nothing to disclose.
+    // Codex's entries are only missing (nothing to explain), so its row has nothing to disclose.
     expect(screen.queryByRole('button', { name: 'Details: Codex' })).toBeNull();
     // A switched-off entry only has a note, so it waits for the disclosure.
     expect(screen.queryByText(/It is switched off in the file/)).toBeNull();
