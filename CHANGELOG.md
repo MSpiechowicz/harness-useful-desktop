@@ -1,3 +1,10 @@
+## [0.37.1](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.37.0...v0.37.1) (2026-10-22)
+
+
+### Bug Fixes
+
+* **chat:** sent image thumbnails no longer go to older history messages ([fc9917a](https://github.com/MSpiechowicz/harness-useful-desktop/commit/fc9917a2e8c6f0bdf9b8805a1597c026131e072c))
+
 # [0.37.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.36.0...v0.37.0) (2026-10-21)
 
 
