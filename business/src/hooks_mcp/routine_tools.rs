@@ -6,6 +6,7 @@
 use serde_json::{Map, Value, json};
 
 use super::tools::{Hints, annotated, id, list_scope, project, sha256, text, tool};
+use crate::model::HarnessId;
 use crate::routines::MAX_ROUTINES_PER_SCOPE;
 use crate::routines::format::{
     DEFAULT_MAX_MINUTES, DEFAULT_TIMEOUT_SECS, MAX_COMMAND_CHARS, MAX_CRON_CHARS, MAX_DESCRIPTION_CHARS,
@@ -221,7 +222,8 @@ fn action() -> Value {
 }
 
 fn harness() -> Value {
-    json!({ "type": "string", "enum": ["omp", "pi", "opencode"], "description": "agent: the harness that runs the chat" })
+    let names: Vec<&str> = HarnessId::ALL.iter().map(|id| id.binary_name()).collect();
+    json!({ "type": "string", "enum": names, "description": "agent: the harness that runs the chat" })
 }
 
 fn approval_mode() -> Value {

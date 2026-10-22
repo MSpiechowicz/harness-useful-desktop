@@ -60,11 +60,9 @@ pub(super) fn parse_action(action: Option<&Value>) -> Result<RoutineAction, Stri
 }
 
 fn parse_agent(action: &Map<String, Value>) -> Result<RoutineAction, String> {
-    let harness = match text(action, "harness")?.as_str() {
-        "omp" => HarnessId::Omp,
-        "pi" => HarnessId::Pi,
-        "opencode" => HarnessId::OpenCode,
-        other => return Err(format!("unknown harness {other:?}")),
+    let name = text(action, "harness")?;
+    let Some(harness) = HarnessId::ALL.into_iter().find(|id| id.binary_name() == name) else {
+        return Err(format!("unknown harness {name:?}"));
     };
 
     let model = match action.get("model") {
