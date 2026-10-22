@@ -2,8 +2,9 @@
 
 Issue #20. Research 2026-10-22 against Claude Code **2.1.304** (pacman `claude-code`, `/usr/bin/claude` wrapping
 `/opt/claude-code/bin/claude`) and the TypeScript Agent SDK `@anthropic-ai/claude-agent-sdk` **0.3.308** (its
-`sdk.d.ts` is the protocol reference, line numbers below point into it). Status: **plan approved 2026-10-22 (all decisions as proposed), branch `feat/claude-code`, one commit per
-step.** The Status table says where to resume.
+`sdk.d.ts` is the protocol reference, line numbers below point into it). Status: **implementation complete 2026-10-22 on branch `feat/claude-code`** (plan approved the same day, all
+decisions as proposed). Reviews used: 3 of 3 correctness and 3 of 3 security passes, every confirmed finding fixed.
+Nothing is pushed. Next: the user's check with a real login, see [Real-provider checklist](#real-provider-checklist).
 
 Claude Code moves fast (a release every few days). Before resuming, re-check `claude --version`, the SDK version and
 the facts in [Verified facts](#verified-facts-s0-recording-2026-10-22).
@@ -270,6 +271,7 @@ Order: S1 → (Track A: S2 → S3 → S5 → S6 ∥ Track B: S4 ∥ Track C: S0 
 | S11 (rest) | Hooks, routines, memory guard tests | done (a9db235). Routine validation refuses Yolo without `yoloMode`. Team hooks not covered by a Claude test (as for OpenCode, OMP-only tests) |
 | Review 1 | 3 correctness + 2 security reviewers | done. Findings in the session scratchpad `review1.md` |
 | Review 2 + repair 2 | 2 correctness + 1 security reviewers, fixes 5a0a0c2, 7026ab5, b2ec708 | done. Git views no longer blank repos under folders named `projects`/`agent`/`opencode`, dangling symlinks count as outside the project, protected paths (`.git`, `.claude`, `.mcp.json`, shell rc files) and `workingDir` asks never get a project-files key, Trust once re-runs the caller's whole flow and names the folder, an unreadable settings file has its own code (`untrustedUnreadable`), resumed sessions must belong to the folder, project-scope plugin installs need a trusted folder. Real CLI (2026-10-22): `.claude/settings.json` and `.git/hooks/*` asks are `safetyCheck` in both modes, an outside write is `workingDir` (default) or `hook` (ask-all), `--strict-mcp-config` leaves the helper with no MCP servers. No `suppress_always_allow_rule`/`blocked_path` seen on real asks (asks carry `classifier_approvable`) |
+| Review 3 | 1 correctness + 1 security reviewer over repair round 2 | done. Correctness: nothing material. Security: the project-files key covered `~/…` and space-padded paths the CLI expands or trims → fixed in 5f40728 with Windows odd names, Claude's own protected-file list, hard links, home-holding projects and `other` review asks |
 | Repair 1 | Files/CLI (baa5bad), engine robustness (9738594), approvals + trust (6f8622c) | done. `~/.claude.json` denied except an exact canonical read (32 MiB), project files must resolve inside the project, user-scope plugin actions run in the home folder. App allow-list: Bash by exact command (all fields but `description`), file tools inside the project only, other tools by exact input, never for suppressed / blocked-path / safety-check asks. Helper chat gets `--strict-mcp-config`. Claude has `projectTrust` + `projectTrustRequired`: a folder without `hasTrustDialogAccepted` needs "Trust once" (toast), remembered in memory per project until the app quits (`TrustMemory`), routines need `trustOnce`. Not verified on a real CLI: `--strict-mcp-config` with no `--mcp-config`, whether Claude trusts a folder through a trusted parent |
 | S11 (part) | Routines name any registered harness | done (608632c). Hooks tool table, memory guards flag and engine tests wait for S10 |
 | S12 (part) | Copy in 5 locales, README, bundle text, light badge `#ac3708` | done (a0aa63c). Left for later: approval notice, demo roster entry as installed, "coming soon" wording to flip in S10 |
@@ -348,3 +350,57 @@ scratch folder, and its sessions were deleted afterwards.
   thinking.
 - **Terms:** see [Terms](#terms). Any feature that would touch credentials or offer a login is out of scope.
 - **Colour:** Claude orange next to OMP amber may read as the same harness in badges.
+
+## Residuals (known, accepted)
+
+- **Trust is per folder.** The gate needs the folder's own `hasTrustDialogAccepted`. Whether Claude Code trusts a folder
+  through a trusted parent is not verified, so a subfolder of a trusted repository asks for Trust once. It fails closed.
+- **Trust once lasts until the app quits** for that folder (`TrustMemory`), including later chats, resumes and the
+  naming helper. A change to the folder's `.claude/settings.json` during the run is not asked about again.
+- **Field names of lasting-rule refusals.** `suppress_always_allow_rule` and `blocked_path` come from the SDK types and
+  were never seen on a real ask. Real protected-path asks carry `safetyCheck` (handled) and `classifier_approvable`.
+- **Not recorded:** mid-turn auto-compaction, subagent `task_*` frames, `api_retry`, `request_user_dialog`,
+  `elicitation`, `commands_changed` after adding a skill mid-session. Mapped from the SDK types.
+- **Windows:** an npm `claude.cmd` shim refuses `claude mcp add-json` (JSON argument) and the helper's `--tools ""`
+  (empty argument). The native `claude.exe` is not affected. Nothing Windows- or macOS-specific was run here.
+- **Sessions:** `sessionTree` stays false (no fork-parent link on disk), `CLAUDE_CODE_PROJECT_DIR_NAME` is not
+  supported, a stale pid file blocks deleting a session on Windows.
+- **Setup:** command-source plugins install from a terminal only (the app never passes `-y`). The setup confirmation
+  lists Claude MCP rows as file edits although they run `claude mcp add-json`. An imported MCP server that needs env
+  values is added switched on without them.
+- **UI:** two Trust once toasts can show at start when every reopened chat and the active folder are untrusted. The
+  transcript cache is bounded by file size (64 MiB, 4 files), parsed memory can be a few hundred MB.
+- **Abort keeps queued follow-ups** (they run after the interrupt). Models report provider `anthropic` also on
+  Bedrock / Vertex. The effort level is unknown until picked.
+
+## Real-provider checklist
+
+Run with your own login, in a scratch project and in a real one. Each item names what to look for.
+
+1. **Detection and views:** Claude Code shows as detected (2.1.x Supported). Config shows your settings layers and the
+   user MCP servers, never `oauthAccount` or ids. Extensions lists your plugins (`useful-skills`, `context7`, …),
+   marketplaces, skills, agents, commands and MCP servers with the right enabled state.
+2. **Sessions:** your Claude sessions of a project are listed with their titles, open as transcripts (no system prompt
+   or CLAUDE.md text), show touched files, and one test session deletes cleanly.
+3. **Trust gate:** in a folder you never opened `claude` in, a chat start shows the "Trust once" toast naming the folder.
+   Trust once starts it, a restart or a second chat in the same folder does not ask again, an app restart asks again.
+   In a folder you trust in Claude Code, no toast.
+4. **Chat:** a prompt streams, tool cards show, thinking shows, the model and thinking pickers work, `/compact` with
+   instructions compacts, the context meter and stats move, AI naming names the chat.
+5. **Approvals:** in Always ask, Read asks too. "Always allow" on a Write in `src/` covers the next Write in `src/` but a
+   Write to `.claude/settings.json`, `.mcp.json` or outside the project asks again. Reject shows the decline in the tool
+   card. A question dialog (ask the model to use AskUserQuestion with multi-select) answers correctly. Yolo is not
+   offered. The header shows your own `permissions.defaultMode` when no mode is picked.
+6. **Queue:** steering while a tool runs is read in the same turn, a follow-up runs after it, removing a queued follow-up
+   works, abort stops the turn and closes open approval dialogs.
+7. **Session ops:** new, resume from the Sessions view, fork at a message (the fork misses later messages), clone,
+   rename, HTML export, copy last reply.
+8. **`!command`:** `!ls` shows the output and the next prompt "what did my last command print?" sees it.
+9. **Hooks and routines:** an app hook with matcher `Edit|MultiEdit|Write|NotebookEdit` fires on a Claude edit with the
+   right path. An agent routine with `harness: "claude"` runs (Write mode, trusted folder or `trustOnce`).
+10. **Recommended setup:** on a machine without them, the Harness Skills plugin installs from its marketplace and the
+    dashboard, memory and desktop MCP servers appear in `claude mcp list` (run it yourself in a terminal) under user
+    scope. Your own entries stay untouched.
+11. **Share setup:** export lists your GitHub marketplaces, user plugins and user MCP servers (no env values), import on a
+    second profile runs `claude plugin` and `claude mcp add-json` and never overwrites an existing server.
+12. **Badges:** the orange Claude Code badge reads well and stays distinct from OMP's amber in light and dark themes.
