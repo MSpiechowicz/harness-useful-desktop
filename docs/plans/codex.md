@@ -181,7 +181,7 @@ engine `agent/codex/`. Stdio only: no ports, no password, no daemon.
 | Research + plan | done, approved 2026-10-22 |
 | S0 recording | done (a9b643c): 10 scenarios in `business/tests/fixtures/codex/app_server/`, facts below |
 | S1 skeleton | done (a2703b9). Light badge `#1d64c8` (dashboard blue too faint on its wash) |
-| Track A: S2, S3, S5, S6 | running in `/home/frogius/Projekty/.wt-cx/a` (wip/cx-a) |
+| S2, S3, S5, S6 | done (merged 9814795). `sessions/` + `archived_sessions/` denied (decision 3: sessions via app-server). Unverified against the real CLI: `codex mcp add` on an existing name, `codex plugin` output/exit codes, `[marketplaces.X]` keys `ref`/`sparse_paths`, `.agents/skills` lookup, built-in `openai-curated` marketplace not listed. Config source view prints TOML in YAML style (S12) |
 | S7 wire + mapper + fake_agent dialect | done (4b6c697, merged d096c22). Codex 0.154 offers commands only accept / acceptWithExecpolicyAmendment / cancel: "Always" for a command only when `acceptForSession` is offered, never the amendment (writes a lasting rule) |
 | S4 sessions | running in `/home/frogius/Projekty/.wt-cx/b` (wip/cx-b) |
 | S8 engine core | running in `/home/frogius/Projekty/.wt-cx/c` (wip/cx-c) |
