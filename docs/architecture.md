@@ -498,14 +498,14 @@ Generated types:
   `ui/src/lib/ipc/mock/fixtures/`: real adapter, git, session and engine output over the synthetic homes in
   `business/tests/fixtures/`, with paths rewritten to `/home/demo/...`; ecosystem and update fixtures are synthetic
   (`business/tests/support/samples/`). The same file asserts that fixtures contain no fixture secret and no machine path.
-- **Freshness.** The CI job `bindings-fresh` re-runs `cargo test -p harness_business export_` and fails on any
-  diff or untracked file under those two directories.
+- **Freshness.** The CI job `Bindings and fixtures are fresh` (Linux call of `business-tests.yml`) runs the `export_`
+  tests from the nextest archive and fails on any diff or untracked file under those two directories.
 
 ## Testing
 
 | What | How |
 | --- | --- |
-| Business logic | `cargo test -p harness_business` (CI: `cargo nextest`, 3 partitions on Linux, plus macOS and Windows). Four test binaries (`business/tests/{core,engines,setup,views}/main.rs`, one module per test file) share the helpers in `business/tests/support/`. Fixture homes under `business/tests/fixtures`, snapshots with `insta` next to each binary (`business/tests/views/snapshots`). |
+| Business logic | `cargo test -p harness_business` (CI: `business-tests.yml` builds one `cargo nextest archive` per OS, then shards run it: 3 on Linux, 2 on macOS, 3 on Windows). Four test binaries (`business/tests/{core,engines,setup,views}/main.rs`, one module per test file) share the helpers in `business/tests/support/`. Fixture homes under `business/tests/fixtures`, snapshots with `insta` next to each binary (`business/tests/views/snapshots`). |
 | `claude_stream/` | The Claude Code side of the chat, pure code with no process: `wire/` (serde types for the frames and control requests the CLI sends, and the encoders of what the app sends), `mapper/` (`ClaudeMapper`: frames as chat events, tool cards, subagent tasks, asks, the answers the CLI is owed), `tools.rs` (tool ids and the project files a call touched, shared with the Sessions view), `permissions.rs` (approval dialogs and answers, the Always ask hook), `allow_list.rs` (the chat's own "Always allow" answers), `questions.rs` (`AskUserQuestion` dialogs) and `stats.rs`. Rules: [Claude Code](security-privacy.md#claude-code). |
 | Agent sessions | `fake_agent` (`business/src/bin/fake_agent.rs`) plays a JSONL scenario (`business/tests/fixtures/streams/*.jsonl`) as an OMP, PI, OpenCode, Claude Code (`--dialect claude`, replaying recordings of `claude` in `business/tests/fixtures/claude/stream/`) or MCP peer. Tests run the real session engine against it (`business/tests/support/agent_support`). In-memory doubles: `harness_business::testing`. |
 | Shell commands | `cargo test -p harness_desktop` spawns `fake_agent`. Without the binary those tests skip; `HARNESS_REQUIRE_FAKE_AGENT=1` (set in CI) makes them fail instead. Build it first: `cargo build -p harness_business --bin fake_agent`. |

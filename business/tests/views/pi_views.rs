@@ -346,6 +346,7 @@ fn a_project_listing_too_much_cannot_hide_modules_or_user_resources() {
     );
 }
 
+#[cfg(unix)]
 fn write_skill(dir: &Path) {
     std::fs::create_dir_all(dir).unwrap();
     std::fs::write(dir.join("SKILL.md"), "---\ndescription: A skill\n---\n").unwrap();

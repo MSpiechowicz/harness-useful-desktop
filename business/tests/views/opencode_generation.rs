@@ -1,9 +1,9 @@
 //! OpenCode 1 or 2: detection reads the version of the `opencode` binary (a fake script, never the
 //! real one) and the OpenCode harness follows its generation (chat protocol, install hint).
 
-use harness_business::harness::{ChatProtocol, Harness, HarnessRegistry, OpenCodeGeneration};
+use harness_business::harness::{ChatProtocol, Harness, OpenCodeGeneration};
 use harness_business::harnesses::OpenCode;
-use harness_business::model::{HarnessId, VersionSupport};
+use harness_business::model::VersionSupport;
 use pretty_assertions::assert_eq;
 
 #[cfg(unix)]
@@ -57,11 +57,13 @@ fn an_undetected_opencode_is_opencode_1() {
 #[cfg(unix)]
 mod detected {
     use harness_business::env::Env;
+    use harness_business::harness::HarnessRegistry;
+    use harness_business::model::HarnessId;
     use harness_business::process::TokioRunner;
     use pretty_assertions::assert_eq;
 
     use super::fake_cli_support::FakeCli;
-    use super::{ChatProtocol, Harness, HarnessId, HarnessRegistry, OpenCode, OpenCodeGeneration, VersionSupport};
+    use super::{ChatProtocol, Harness, OpenCode, OpenCodeGeneration, VersionSupport};
 
     /// An `opencode` script that prints `version` for `--version`, and the environment of its home.
     fn opencode_printing(version: &str) -> (FakeCli, Env) {

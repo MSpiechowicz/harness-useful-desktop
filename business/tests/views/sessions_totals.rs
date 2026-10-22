@@ -17,6 +17,7 @@ use session_support::{OMP_RELEASE, PI_NAMED, SessionHome, session_home, set_mtim
 const OMP_FIXTURE_SESSIONS: u32 = 5;
 
 /// The newest OMP fixture file (the draft).
+#[cfg(unix)]
 const OMP_FIXTURE_NEWEST: &str = "2026-10-09T12:00:30Z";
 
 fn totals(count: u32, last_used: Option<&str>) -> SessionTotals {

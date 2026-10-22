@@ -157,6 +157,7 @@ impl AgentProcess {
     /// Kills the process after a failed or abandoned startup and returns `error` with the agent's
     /// last stderr lines.
     pub async fn fail_start(&self, error: BusinessError) -> BusinessError {
+        self.discard_unopened();
         self.kill_now().await;
 
         with_stderr(error, &self.shared.stderr_tail())
@@ -174,10 +175,17 @@ impl AgentProcess {
             self.kill_now().await;
         }
 
+        self.discard_unopened();
         let emitter = self.emitter.lock().unwrap_or_else(PoisonError::into_inner).take();
         if let Some(emitter) = emitter {
             tokio::time::timeout(EMITTER_WAIT, emitter).await.ok();
         }
+    }
+
+    /// Tells the emitter that a session not opened yet never will: its held events go and the
+    /// emitter stops. An open session is not affected.
+    fn discard_unopened(&self) {
+        self.shared.events.send(EmitMsg::Discard).ok();
     }
 
     /// Kills the process group and waits (briefly) until the process was reaped.
@@ -244,7 +252,9 @@ async fn wait_exit(exited: &watch::Receiver<Option<ExitInfo>>, limit: Duration) 
 
 impl Drop for AgentProcess {
     fn drop(&mut self) {
-        // Safety net: a session dropped without `stop` must not leave its agent running.
+        // Safety net: a session dropped without `stop` must not leave its agent running, nor an
+        // unopened session its emitter waiting.
+        self.discard_unopened();
         self.control.send_replace(Control::Kill);
     }
 }

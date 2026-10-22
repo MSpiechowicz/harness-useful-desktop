@@ -341,6 +341,7 @@ fn a_project_listing_too_much_cannot_hide_the_users_modules() {
 }
 
 /// A `SKILL.md` without a `name` whose frontmatter holds `keys` extra keys of 12 bytes each.
+#[cfg(unix)]
 fn padded_skill(dir: &Path, keys: usize) {
     let padding: String = (0..keys).map(|key| format!("key{key:05}: v\n")).collect();
     write_file(

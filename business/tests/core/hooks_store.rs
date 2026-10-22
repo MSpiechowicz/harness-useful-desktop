@@ -5,8 +5,6 @@
 use crate::hook_store_support;
 
 mod hooks_store {
-    use std::path::Path;
-
     use harness_business::BusinessError;
     use harness_business::hooks::{APPROVALS_FILE, seed_defaults, sha256_hex};
     use harness_business::model::{
@@ -52,6 +50,7 @@ mod hooks_store {
     #[test]
     fn files_and_folders_are_private() {
         use std::os::unix::fs::PermissionsExt;
+        use std::path::Path;
 
         let folder = folder();
         let saved = folder.store.save(&draft("Private"), DESKTOP, NO_MEMORY, at(0)).unwrap();

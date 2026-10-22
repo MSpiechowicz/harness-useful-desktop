@@ -7,7 +7,9 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use harness_business::Result;
-use harness_business::ecosystem::{installed_memory, memory_version, parse_memory_version, resolve_memory};
+#[cfg(unix)]
+use harness_business::ecosystem::installed_memory;
+use harness_business::ecosystem::{memory_version, parse_memory_version, resolve_memory};
 use harness_business::env::{Env, OsKind};
 use harness_business::process::{BoxFuture, ExecOutput, ExecSpec, ProcessRunner, ResolvedBinary};
 use pretty_assertions::assert_eq;
@@ -33,6 +35,7 @@ fn set_mode(path: &Path, mode: u32) {
     }
 }
 
+#[cfg(unix)]
 fn binary_name() -> String {
     format!("harness-memory{}", std::env::consts::EXE_SUFFIX)
 }
@@ -135,11 +138,13 @@ fn a_symlink_into_a_folder_others_may_change_is_skipped() {
 
 /// Answers `--version` per program: `harness-memory 1.0.0` for the ones in `good`, nothing for the
 /// others.
+#[cfg(unix)]
 struct Versions {
     good: Vec<PathBuf>,
     asked: Mutex<Vec<PathBuf>>,
 }
 
+#[cfg(unix)]
 impl ProcessRunner for Versions {
     fn run<'a>(&'a self, spec: &'a ExecSpec) -> BoxFuture<'a, Result<ExecOutput>> {
         self.asked.lock().unwrap().push(spec.program.clone());
