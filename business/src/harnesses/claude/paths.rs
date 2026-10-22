@@ -5,7 +5,8 @@
 //! - Global file (user MCP servers, per-project state): `$CLAUDE_CONFIG_DIR/.claude.json` when the
 //!   variable is set, else `~/.claude.json`, next to the config directory and not inside it.
 //! - Sessions of a project: `<config>/projects/<slug>`, where the slug is the project's absolute
-//!   path with every character that is not an ASCII letter or digit replaced by `-`.
+//!   path with every character that is not an ASCII letter or digit replaced by `-`, cut to
+//!   [`MAX_SLUG_LEN`] characters plus a hash of the path when longer (see [`project_slug`]).
 //! - Project layer: `<project>/.claude`.
 
 use std::path::{Path, PathBuf};
@@ -18,6 +19,9 @@ pub const PROJECT_DIR_NAME: &str = ".claude";
 
 /// The global file's name.
 const GLOBAL_FILE_NAME: &str = ".claude.json";
+
+/// Longest slug kept whole; a longer one is cut to this length and gets a hash suffix.
+pub const MAX_SLUG_LEN: usize = 200;
 
 /// Resolves every Claude Code directory for `env` (see the module docs). Claude has no profiles;
 /// settings, plugins, skills, agents and sessions all live in the config directory.
@@ -51,17 +55,57 @@ pub fn sessions_dir(env: &Env, project: &Path) -> PathBuf {
     config_dir(env).join("projects").join(project_slug(project))
 }
 
-/// `project` as Claude names its session folder: every UTF-16 code unit that is not an ASCII
-/// letter or digit becomes `-`, as Claude's `replace(/[^a-zA-Z0-9]/g, "-")` does.
+/// `project` as Claude names its session folder, as Claude Code 2.1.304 does: every UTF-16 code
+/// unit that is not an ASCII letter or digit becomes `-` (`replace(/[^a-zA-Z0-9]/g, "-")`). A slug
+/// longer than [`MAX_SLUG_LEN`] is cut to that length and followed by `-` and the base-36
+/// absolute value of the path's 32-bit string hash (`(h << 5) - h + unit`, wrapping, over the
+/// path's UTF-16 code units).
 pub fn project_slug(project: &Path) -> String {
-    project
-        .to_string_lossy()
+    let path = project.to_string_lossy();
+    let slug: String = path
         .encode_utf16()
         .map(|unit| match char::from_u32(u32::from(unit)) {
             Some(character) if character.is_ascii_alphanumeric() => character,
             _ => '-',
         })
-        .collect()
+        .collect();
+
+    // Every character of the slug is ASCII, so its length counts UTF-16 code units as Claude does.
+    if slug.len() <= MAX_SLUG_LEN {
+        return slug;
+    }
+
+    format!(
+        "{}-{}",
+        &slug[..MAX_SLUG_LEN],
+        base36(string_hash(&path).unsigned_abs())
+    )
+}
+
+/// The 32-bit string hash Claude names long session folders with (Java's `String.hashCode`).
+fn string_hash(text: &str) -> i32 {
+    text.encode_utf16().fold(0_i32, |hash, unit| {
+        hash.wrapping_shl(5).wrapping_sub(hash).wrapping_add(i32::from(unit))
+    })
+}
+
+/// `number` in base 36 with lowercase digits, as JavaScript's `toString(36)` writes it.
+fn base36(mut number: u32) -> String {
+    const DIGITS: &[u8; 36] = b"0123456789abcdefghijklmnopqrstuvwxyz";
+
+    let mut digits = Vec::new();
+
+    loop {
+        digits.push(DIGITS[(number % 36) as usize]);
+        number /= 36;
+
+        if number == 0 {
+            break;
+        }
+    }
+
+    digits.reverse();
+    String::from_utf8(digits).unwrap_or_default()
 }
 
 /// The directory `CLAUDE_CONFIG_DIR` names, when absolute.
@@ -80,5 +124,29 @@ mod tests {
         assert_eq!(project_slug(Path::new("/home/u/.config/x")), "-home-u--config-x");
         assert_eq!(project_slug(Path::new("/w/Zażółć_1")), "-w-Za-----1");
         assert_eq!(project_slug(Path::new("/w/a😀b")), "-w-a--b");
+    }
+
+    /// Reference values from Claude's own JavaScript rule, run in Bun.
+    #[test]
+    fn a_slug_over_200_characters_is_cut_and_hashed() {
+        let exact = format!("/{}", "x".repeat(199));
+        assert_eq!(project_slug(Path::new(&exact)), exact.replace('/', "-"));
+
+        let over = format!("/{}", "x".repeat(200));
+        assert_eq!(project_slug(Path::new(&over)), format!("-{}-d0i18x", "x".repeat(199)));
+
+        let long = format!("/home/u/{}/Zażółć 😀/{}", "a".repeat(150), "b".repeat(60));
+        assert_eq!(
+            project_slug(Path::new(&long)),
+            format!("-home-u-{}-Za--------{}-vnfog3", "a".repeat(150), "b".repeat(31))
+        );
+    }
+
+    #[test]
+    fn base36_matches_javascript() {
+        assert_eq!(base36(0), "0");
+        assert_eq!(base36(35), "z");
+        assert_eq!(base36(36), "10");
+        assert_eq!(base36(2_147_483_648), "zik0zk");
     }
 }

@@ -33,6 +33,7 @@ mod windows_tree;
 
 pub use blocking::{BlockingRunner, StdRunner};
 pub use identity::ProcessIdentity;
+pub(crate) use identity::pid_may_be_running;
 pub(crate) use join::join_all;
 pub use orphans::{ChildRegistry, MAX_RECORDED_CHILDREN, SweepReport, TrackedSpawner, sweep_orphans};
 pub use resolve::{

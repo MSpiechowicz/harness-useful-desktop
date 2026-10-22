@@ -3,12 +3,13 @@
 //!
 //! Everything lives in one config directory (`~/.claude` or `CLAUDE_CONFIG_DIR`, see [`paths`]),
 //! next to a global file (`~/.claude.json`) the CLI rewrites while it runs. The harness is detected
-//! and listed for now: the config and extension views are empty, sessions and chat are not
-//! available yet, and the catalog lists every command as unsupported. Every spawn switches off
-//! Claude's self-updater.
+//! and listed for now: the config and extension views are empty, chat is not available yet, and the
+//! catalog lists every command as unsupported. Saved sessions are read from Claude's session files
+//! ([`sessions`]). Every spawn switches off Claude's self-updater.
 
 mod catalog;
 mod paths;
+mod sessions;
 
 pub use catalog::ClaudeCatalog;
 pub use paths::{PROJECT_DIR_NAME, config_dir, global_config_file, project_slug};
@@ -101,35 +102,44 @@ impl Harness for Claude {
         paths::sessions_dir(env, project)
     }
 
-    fn list_sessions(&self, _env: &Env, _project: &Path, _cache: &SessionCache) -> Result<Vec<SessionSummary>> {
-        Err(sessions_not_available())
+    /// The project's `<uuid>.jsonl` session files (see [`sessions`]).
+    fn list_sessions(&self, env: &Env, project: &Path, _cache: &SessionCache) -> Result<Vec<SessionSummary>> {
+        Ok(sessions::list_sessions(&self.sessions_dir(env, project), project))
     }
 
-    fn resolve_session(&self, _env: &Env, _project: &Path, _session: &SessionRef) -> Result<PathBuf> {
-        Err(sessions_not_available())
+    fn resolve_session(&self, env: &Env, project: &Path, session: &SessionRef) -> Result<PathBuf> {
+        let id = sessions::checked_id(session)?;
+
+        sessions::find_session(&self.sessions_dir(env, project), id)
     }
 
-    fn delete_session(&self, _env: &Env, _project: &Path, _session: &SessionRef, _empty_copy_only: bool) -> Result<()> {
-        Err(sessions_not_available())
+    /// Deletes the session file with the session's folders, refused while the session runs in
+    /// Claude Code (see [`sessions`]).
+    fn delete_session(&self, env: &Env, project: &Path, session: &SessionRef, empty_copy_only: bool) -> Result<()> {
+        let id = sessions::checked_id(session)?;
+
+        sessions::delete_session(env, project, id, empty_copy_only)
     }
 
-    fn session_tree(&self, _env: &Env, _project: &Path, _session: &SessionRef) -> Result<SessionTree> {
-        Err(sessions_not_available())
+    fn session_tree(&self, env: &Env, project: &Path, session: &SessionRef) -> Result<SessionTree> {
+        sessions::session_tree(&self.resolve_session(env, project, session)?, session)
     }
 
     fn session_messages(
         &self,
-        _env: &Env,
-        _project: &Path,
-        _session: &SessionRef,
-        _cursor: Option<&str>,
-        _limit: u32,
+        env: &Env,
+        project: &Path,
+        session: &SessionRef,
+        cursor: Option<&str>,
+        limit: u32,
     ) -> Result<SessionMessagesPage> {
-        Err(sessions_not_available())
+        let path = self.resolve_session(env, project, session)?;
+
+        sessions::session_messages(&path, cursor, limit)
     }
 
-    fn session_files_touched(&self, _env: &Env, _project: &Path, _session: &SessionRef) -> Result<Vec<String>> {
-        Err(sessions_not_available())
+    fn session_files_touched(&self, env: &Env, project: &Path, session: &SessionRef) -> Result<Vec<String>> {
+        sessions::session_files_touched(&self.resolve_session(env, project, session)?, project)
     }
 
     fn spawn_env(&self) -> &'static [(&'static str, &'static str)] {
@@ -164,8 +174,4 @@ impl Harness for Claude {
 
 fn chat_not_available() -> BusinessError {
     BusinessError::Unsupported("Claude Code chat is not available yet".to_owned())
-}
-
-fn sessions_not_available() -> BusinessError {
-    BusinessError::Unsupported("Claude Code sessions are not available yet".to_owned())
 }
