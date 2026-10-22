@@ -168,6 +168,24 @@ describe('The New routine dialog', () => {
     expect(calls(invoke, 'routine_save')[0]).toMatchObject({ draft: { action: { harness: 'opencode', approvalMode: 'write', trustOnce: false } } });
   });
 
+  it('offers every approval mode but Yolo for a harness that cannot run without asking', async () => {
+    fakeRoutines();
+    const listed = harness.summaries;
+    harness.summaries = listed.map((summary) =>
+      summary.info.id === 'claude' ? { ...summary, capabilities: { ...summary.capabilities, chat: true }, detection: { ...summary.detection, installed: true } } : summary,
+    );
+    const dialog = await openEditor();
+
+    await fireEvent.click(within(dialog).getByRole('radio', { name: 'Claude Code' }));
+    await fireEvent.click(await within(dialog).findByRole('button', { name: 'Approval mode' }));
+    expect((await screen.findAllByRole('menuitemradio')).map((choice) => choice.textContent)).toEqual([
+      expect.stringContaining('Harness'),
+      expect.stringContaining('Always ask'),
+      expect.stringContaining('Write'),
+    ]);
+    harness.summaries = listed;
+  });
+
   it('offers only the harnesses that can chat', async () => {
     fakeRoutines();
     const listed = harness.summaries;

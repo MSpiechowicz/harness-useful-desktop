@@ -31,6 +31,13 @@ export const chat: AreaMessages<typeof enChat> = {
   'chat.approval.current': 'Bieżący',
   'chat.approval.restartNote': 'Sesja uruchomi się ponownie, aby go zastosować, i wznowi pracę od tego samego miejsca.',
   'chat.approval.restart': 'Uruchom ponownie z tym trybem',
+  'chat.approval.native': '{harness}: {mode}',
+  'chat.nativeMode.default': 'Domyślny',
+  'chat.nativeMode.acceptEdits': 'Akceptuj edycje',
+  'chat.nativeMode.plan': 'Planowanie',
+  'chat.nativeMode.auto': 'Auto',
+  'chat.nativeMode.dontAsk': 'Nie pytaj',
+  'chat.nativeMode.bypassPermissions': 'Pomiń uprawnienia',
 
   'chat.approvalCard.label': 'Wymagane zatwierdzenie',
   'chat.approvalCard.denies': 'odrzuca',

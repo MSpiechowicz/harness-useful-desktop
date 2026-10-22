@@ -1,3 +1,4 @@
+import type { ApprovalMode } from '$lib/ipc/bindings/ApprovalMode';
 import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
 import { harness } from '$lib/stores/harness.svelte';
 
@@ -5,6 +6,8 @@ import { harness } from '$lib/stores/harness.svelte';
 export interface RoutineAbilities {
   /** The harness has approval modes (OMP, OpenCode), so the routine may name one. */
   approvalMode: boolean;
+  /** The harness can run without asking, so the routine may name Yolo (Claude Code has approval modes but no Yolo). */
+  yoloMode: boolean;
   /** The harness gates project-local resources behind a trust (PI), so the routine may trust them once. */
   trustOnce: boolean;
 }
@@ -17,7 +20,20 @@ export interface RoutineAbilities {
 export function abilitiesOf(id: HarnessId): RoutineAbilities {
   const capabilities = harness.get(id)?.capabilities;
 
-  return { approvalMode: capabilities?.approvalModes ?? true, trustOnce: capabilities?.projectTrust ?? true };
+  return {
+    approvalMode: capabilities?.approvalModes ?? true,
+    yoloMode: (capabilities?.approvalModes ?? true) && (capabilities?.yoloMode ?? true),
+    trustOnce: capabilities?.projectTrust ?? true,
+  };
+}
+
+/** The approval mode a routine keeps on this harness: none without approval modes, and never Yolo where it is not offered. */
+export function modeFor(abilities: RoutineAbilities, mode: ApprovalMode | null): ApprovalMode | null {
+  if (!abilities.approvalMode || (mode === 'yolo' && !abilities.yoloMode)) {
+    return null;
+  }
+
+  return mode;
 }
 
 /** The harnesses a routine can start a chat with, in the order the harness list has them, and the one the routine names already. */

@@ -28,6 +28,13 @@ export const chat = {
   'chat.approval.current': 'Current',
   'chat.approval.restartNote': 'The session restarts to apply it and picks up where it left off.',
   'chat.approval.restart': 'Restart with this mode',
+  'chat.approval.native': '{harness}: {mode}',
+  'chat.nativeMode.default': 'Default',
+  'chat.nativeMode.acceptEdits': 'Accept edits',
+  'chat.nativeMode.plan': 'Plan',
+  'chat.nativeMode.auto': 'Auto',
+  'chat.nativeMode.dontAsk': 'Don’t ask',
+  'chat.nativeMode.bypassPermissions': 'Bypass permissions',
 
   'chat.approvalCard.label': 'Approval needed',
   'chat.approvalCard.denies': 'denies',

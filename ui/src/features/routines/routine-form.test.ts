@@ -132,6 +132,21 @@ describe('the draft', () => {
     expect(runsUnattended({ ...opencode, approvalMode: 'write' })).toBe(false);
   });
 
+  it('drops Yolo for a harness without it and keeps it where it is offered', () => {
+    harness.summaries = fixtures.harnesses.map((summary) =>
+      summary.info.id === 'claude' ? { ...summary, capabilities: { ...summary.capabilities, chat: true } } : summary,
+    );
+
+    const claude = withHarness(complete({ approvalMode: 'yolo' }), 'claude');
+    expect(claude.approvalMode).toBeNull();
+    expect(draftOf({ ...claude, approvalMode: 'yolo' }, null).action).toMatchObject({ harness: 'claude', approvalMode: null });
+    expect(withHarness(complete({ approvalMode: 'write' }), 'claude').approvalMode).toBe('write');
+    expect(runsUnattended({ ...claude, approvalMode: 'yolo' })).toBe(false);
+
+    expect(withHarness(complete({ approvalMode: 'yolo' }), 'omp').approvalMode).toBe('yolo');
+    expect(runsUnattended(complete({ approvalMode: 'yolo' }))).toBe(true);
+  });
+
   it('follows the capabilities the harness list reports and not the name of the harness', () => {
     harness.summaries = fixtures.harnesses.map((summary) =>
       summary.info.id === 'omp' ? { ...summary, capabilities: { ...summary.capabilities, approvalModes: false, projectTrust: true } } : summary,

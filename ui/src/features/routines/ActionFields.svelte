@@ -45,7 +45,7 @@
     routineHarnesses(form.harness).map((id) => ({ value: id, label: HARNESS_NAMES[id], disabled: id !== form.harness && harnesses.get(id)?.detection.installed === false })),
   );
   const abilities = $derived(abilitiesOf(form.harness));
-  const modes = $derived(MODES.map((mode) => ({ value: mode, label: t(MODE_KEYS[mode][0]), hint: t(MODE_KEYS[mode][1]) })));
+  const modes = $derived(MODES.filter((mode) => mode !== 'yolo' || abilities.yoloMode).map((mode) => ({ value: mode, label: t(MODE_KEYS[mode][0]), hint: t(MODE_KEYS[mode][1]) })));
 
   const prompt = $derived(problemOf('prompt'));
   const model = $derived(problemOf('model'));
