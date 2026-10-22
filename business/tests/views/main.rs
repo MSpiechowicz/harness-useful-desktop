@@ -80,6 +80,7 @@ mod pi_views;
 mod session_paths;
 mod sessions_claude;
 mod sessions_claude_transcript;
+mod sessions_codex;
 mod sessions_copies;
 mod sessions_opencode;
 mod sessions_opencode2;

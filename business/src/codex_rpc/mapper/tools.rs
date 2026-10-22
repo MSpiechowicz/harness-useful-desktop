@@ -15,7 +15,7 @@
 //! - A card still running when its turn ends fails with [`UNFINISHED_TOOL`].
 
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde_json::{Value, json};
 
@@ -163,12 +163,8 @@ impl Tools {
             None => return,
         };
 
-        let (is_error, text, touched) = match item {
-            ThreadItem::CommandExecution(command) => command_result(command, live),
-            ThreadItem::FileChange(change) => self.file_result(change),
-            ThreadItem::McpToolCall(call) => mcp_result(call),
-            ThreadItem::WebSearch(search) => (false, search.query.clone(), Vec::new()),
-            _ => return,
+        let Some((is_error, text, touched)) = self.result(item, live) else {
+            return;
         };
 
         let name = self.calls.get(id).map(|call| call.name.clone()).unwrap_or_default();
@@ -192,6 +188,20 @@ impl Tools {
         self.calls.clear();
         self.order.clear();
         self.changes.clear();
+    }
+
+    /// Whether the finished tool `item` failed, its result text and the project files it touched
+    /// (`live`: a command's output streamed so far); `None` for other items.
+    fn result(&self, item: &ThreadItem, live: String) -> Option<(bool, String, Vec<String>)> {
+        let result = match item {
+            ThreadItem::CommandExecution(command) => command_result(command, live),
+            ThreadItem::FileChange(change) => self.file_result(change),
+            ThreadItem::McpToolCall(call) => mcp_result(call),
+            ThreadItem::WebSearch(search) => (false, search.query.clone(), Vec::new()),
+            _ => return None,
+        };
+
+        Some(result)
     }
 
     /// The result of a file change: its patches and the project files it touched.
@@ -223,6 +233,49 @@ impl Tools {
         }
 
         touched
+    }
+}
+
+/// A tool item of a saved thread (`thread/items/list`) as a finished card.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct SavedCard {
+    pub name: String,
+    pub args: Value,
+    pub is_error: bool,
+    /// The result text, redacted.
+    pub result: String,
+    /// The project files a file change touched, project-relative.
+    pub touched: Vec<String>,
+}
+
+/// The card of the saved tool `item` of a thread in `project`, as the live chat ends it; an item
+/// that never finished (its turn was cut short) fails with [`UNFINISHED_TOOL`]. `None` for items
+/// that are not tools.
+pub(crate) fn saved_card(item: &ThreadItem, project: &Path) -> Option<SavedCard> {
+    let (name, args) = card(item)?;
+
+    let (is_error, text, touched) = if status(item) == Some(ItemStatus::InProgress) {
+        (true, UNFINISHED_TOOL.to_owned(), Vec::new())
+    } else {
+        Tools::new(project.to_path_buf()).result(item, String::new())?
+    };
+
+    Some(SavedCard {
+        name,
+        args,
+        is_error,
+        result: redact_text(&text),
+        touched,
+    })
+}
+
+/// The status of a tool item that has one.
+fn status(item: &ThreadItem) -> Option<ItemStatus> {
+    match item {
+        ThreadItem::CommandExecution(command) => Some(command.status),
+        ThreadItem::FileChange(change) => Some(change.status),
+        ThreadItem::McpToolCall(call) => Some(call.status),
+        _ => None,
     }
 }
 

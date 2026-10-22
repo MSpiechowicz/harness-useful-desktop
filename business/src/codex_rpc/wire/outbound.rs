@@ -269,6 +269,13 @@ pub struct ThreadList {
     /// A part of the thread's title.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub search_term: Option<String>,
+    /// Where the threads came from (`cli`, `vscode`, `exec`, `appServer`, `subAgent…`,
+    /// `unknown`); Codex lists only interactive ones without it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_kinds: Option<Vec<String>>,
+    /// `Some(true)` lists only archived threads; otherwise only the others.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub archived: Option<bool>,
 }
 
 /// `thread/turns/list` (newest first unless `asc`) or `thread/items/list` (oldest first unless
@@ -286,6 +293,10 @@ pub struct Paged {
     /// `asc` or `desc`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sort_direction: Option<String>,
+    /// How much of each turn's items `thread/turns/list` includes: `notLoaded`, `summary` (the
+    /// default) or `full`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub items_view: Option<String>,
 }
 
 /// `turn/start`: a prompt as a new turn; the overrides hold for the turns that follow too.

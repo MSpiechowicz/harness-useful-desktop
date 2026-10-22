@@ -1,0 +1,5 @@
+// thread/read names a thread of another folder: the helper deletes nothing (a thread/delete would
+// fail the match).
+{"include": "codex_sessions_handshake.jsonl"}
+{"expect": "thread/read", "match": {"/params/threadId": "01a164a2-6c00-7000-8000-0000000e15e0"}, "reply": {"thread": {"id": "01a164a2-6c00-7000-8000-0000000e15e0", "sessionId": "01a164a2-6c00-7000-8000-0000000e15e0", "forkedFromId": null, "parentThreadId": null, "preview": "Another project", "ephemeral": false, "modelProvider": "openai", "model": "gpt-5.6-terra", "reasoningEffort": "medium", "createdAt": 1792689662, "updatedAt": 1792689663, "recencyAt": 1792689663, "status": {"type": "notLoaded"}, "cwd": "/elsewhere/project", "cliVersion": "0.154.0", "originator": "harness_desktop", "source": "vscode", "gitInfo": {"sha": "fb4ace69cf5842301b8d2ba8dead6f955473ae3c", "branch": "master", "originUrl": null}, "name": null, "turns": []}}}
+{"expect": "thread/delete", "match": {"/params/threadId": "never sent"}}

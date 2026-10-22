@@ -2,12 +2,13 @@
 //!
 //! Everything lives in one home directory (`~/.codex` or `CODEX_HOME`, see [`paths`]): the
 //! `config.toml` settings, skills, plugins and the sessions of every project. The harness is
-//! detected and listed for now: the config and extension views are empty, sessions and chat are
-//! not available yet, and the catalog lists every command as unsupported. The login store
-//! (`auth.json`) is never read.
+//! detected and listed, and its sessions are read through `codex app-server` ([`sessions`]); the
+//! config and extension views are empty, chat is not available yet, and the catalog lists every
+//! command as unsupported. The login store (`auth.json`) is never read.
 
 mod catalog;
 mod paths;
+pub mod sessions;
 
 pub use catalog::CodexCatalog;
 pub use paths::{PROJECT_DIR_NAME, codex_home};
@@ -40,9 +41,13 @@ impl Harness for Codex {
         }
     }
 
-    /// Nothing yet: the views, sessions and chat arrive in later steps of the plan.
+    /// Sessions only (forks name their parent, so the Sessions view counts them); the views and
+    /// chat arrive in later steps of the plan.
     fn capabilities(&self) -> Capabilities {
-        Capabilities::default()
+        Capabilities {
+            session_tree: true,
+            ..Capabilities::default()
+        }
     }
 
     fn paths(&self, env: &Env, project: Option<&Path>) -> HarnessPaths {
@@ -87,25 +92,26 @@ impl Harness for Codex {
         &PiDialect
     }
 
-    /// `<home>/sessions`, shared by every project (see [`paths`]).
+    /// `<home>/sessions`, shared by every project (see [`paths`]). Shown only: the sessions are
+    /// read through the app-server ([`sessions`]).
     fn sessions_dir(&self, env: &Env, _project: &Path) -> PathBuf {
         paths::sessions_dir(env)
     }
 
     fn list_sessions(&self, _env: &Env, _project: &Path, _cache: &SessionCache) -> Result<Vec<SessionSummary>> {
-        Err(sessions_not_available())
+        Err(read_through_app_server())
     }
 
     fn resolve_session(&self, _env: &Env, _project: &Path, _session: &SessionRef) -> Result<PathBuf> {
-        Err(sessions_not_available())
+        Err(read_through_app_server())
     }
 
     fn delete_session(&self, _env: &Env, _project: &Path, _session: &SessionRef, _empty_copy_only: bool) -> Result<()> {
-        Err(sessions_not_available())
+        Err(read_through_app_server())
     }
 
     fn session_tree(&self, _env: &Env, _project: &Path, _session: &SessionRef) -> Result<SessionTree> {
-        Err(sessions_not_available())
+        Err(read_through_app_server())
     }
 
     fn session_messages(
@@ -116,11 +122,16 @@ impl Harness for Codex {
         _cursor: Option<&str>,
         _limit: u32,
     ) -> Result<SessionMessagesPage> {
-        Err(sessions_not_available())
+        Err(read_through_app_server())
     }
 
     fn session_files_touched(&self, _env: &Env, _project: &Path, _session: &SessionRef) -> Result<Vec<String>> {
-        Err(sessions_not_available())
+        Err(read_through_app_server())
+    }
+
+    /// List, transcript, touched files and delete through `codex app-server` (see [`sessions`]).
+    fn cli_sessions(&self) -> Option<&dyn CliSessions> {
+        Some(sessions::cli_sessions())
     }
 
     /// The npm package, on every OS (never run by the app).
@@ -152,6 +163,7 @@ fn chat_not_available() -> BusinessError {
     BusinessError::Unsupported("Codex chat is not available yet".to_owned())
 }
 
-fn sessions_not_available() -> BusinessError {
-    BusinessError::Unsupported("Codex sessions are not available yet".to_owned())
+/// Codex has no session files the app reads; its sessions go through [`Harness::cli_sessions`].
+fn read_through_app_server() -> BusinessError {
+    BusinessError::Unsupported("Codex sessions are read through its app-server".to_owned())
 }

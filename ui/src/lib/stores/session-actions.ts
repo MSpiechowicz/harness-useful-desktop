@@ -133,6 +133,13 @@ async function removeSession(ref: SessionRef, project: string, emptyCopyOnly: bo
       return 'skipped';
     }
 
+    // A session other sessions were forked from (Codex) stays until those forks are deleted; the app never deletes them for the user.
+    if (failure.code === 'conflict') {
+      toasts.push({ title: t('sessions.delete.failed'), description: t('sessions.delete.hasForks'), tone: 'warning' });
+
+      return 'failed';
+    }
+
     toasts.push({ title: t('sessions.delete.failed'), description: failure.message, tone: 'danger' });
 
     return 'failed';

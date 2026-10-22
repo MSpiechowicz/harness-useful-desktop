@@ -78,6 +78,7 @@ export const sessions = {
   'sessions.delete.openInChat': 'This session is open in a chat',
   'sessions.delete.openInChatBody': 'Close that chat first, then delete the session.',
   'sessions.delete.failed': 'Could not delete the session',
+  'sessions.delete.hasForks': 'Other sessions were forked from this one. Delete those forks first, then this session.',
 
   'sessions.cleanup.banner.one': '{count} empty copy',
   'sessions.cleanup.banner.other': '{count} empty copies',
