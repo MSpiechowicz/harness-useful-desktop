@@ -12,13 +12,20 @@
 use std::path::{Path, PathBuf};
 
 use crate::env::Env;
+use crate::error::Result;
 use crate::harness::HarnessPaths;
+use crate::security::SafeReader;
+use crate::security::deny::{CLAUDE_GLOBAL_FILE, add_claude_global_file};
 
 /// The default config directory name below the home directory, and the project layer's name.
 pub const PROJECT_DIR_NAME: &str = ".claude";
 
 /// The global file's name.
-const GLOBAL_FILE_NAME: &str = ".claude.json";
+const GLOBAL_FILE_NAME: &str = CLAUDE_GLOBAL_FILE;
+
+/// Largest global file read. Claude Code keeps every project's state in it, so it grows well past
+/// the 2 MiB of other config files on a long-used machine.
+pub const MAX_GLOBAL_FILE_BYTES: u64 = 32 * 1024 * 1024;
 
 /// Longest slug kept whole; a longer one is cut to this length and gets a hash suffix.
 pub const MAX_SLUG_LEN: usize = 200;
@@ -43,11 +50,24 @@ pub fn config_dir(env: &Env) -> PathBuf {
 }
 
 /// The global file: `.claude.json` inside the absolute `CLAUDE_CONFIG_DIR`, else `~/.claude.json`.
+/// Its name is on the deny-list; the path is registered as the one file
+/// [`SafeReader::read_claude_global_file`] opens (see [`read_global_file`]).
 pub fn global_config_file(env: &Env) -> PathBuf {
-    match custom_config_dir(env) {
+    let path = match custom_config_dir(env) {
         Some(dir) => dir.join(GLOBAL_FILE_NAME),
         None => env.home_join(GLOBAL_FILE_NAME),
-    }
+    };
+
+    add_claude_global_file(&path);
+    path
+}
+
+/// The text of the global file at `path` (a [`global_config_file`]), read through
+/// [`SafeReader::read_claude_global_file`] with a [`MAX_GLOBAL_FILE_BYTES`] cap. Only the readers
+/// that keep to an allow-list of its keys call this: the config and extensions views, the MCP
+/// states and changes of Recommended setup, and Share setup's export.
+pub(crate) fn read_global_file(path: &Path) -> Result<String> {
+    SafeReader::read_claude_global_file(path, MAX_GLOBAL_FILE_BYTES)
 }
 
 /// The folder holding the session files of `project`: `<config>/projects/<slug>`.

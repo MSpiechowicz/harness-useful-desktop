@@ -11,8 +11,7 @@ use serde_json::{Map, Value};
 
 use super::super::config::{SettingsFile, managed_files, settings_files};
 use crate::env::Env;
-use crate::model::ConfigLayer;
-use crate::pi_family::{Document, read_json, string_list};
+use crate::pi_family::{Document, string_list};
 
 /// The parsed settings layers, lowest first. Unreadable files are left out (the config view
 /// reports them).
@@ -25,18 +24,9 @@ impl Settings {
         Self::read(settings_files(env, project).into_iter().chain(managed_files(env)))
     }
 
-    /// The user's own settings file only (`<config>/settings.json`).
-    pub(in crate::harnesses::claude) fn user(env: &Env) -> Self {
-        Self::read(
-            settings_files(env, None)
-                .into_iter()
-                .filter(|file| file.layer == ConfigLayer::User),
-        )
-    }
-
     fn read(files: impl Iterator<Item = SettingsFile>) -> Self {
         let layers = files
-            .filter_map(|file| match read_json(&file.path) {
+            .filter_map(|file| match file.read() {
                 Document::Parsed(value) => Some(value),
                 _ => None,
             })

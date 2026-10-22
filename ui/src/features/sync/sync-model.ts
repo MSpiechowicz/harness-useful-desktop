@@ -87,6 +87,8 @@ const REFUSAL_KEYS: Record<McpRefusal, MessageKey> = {
   unreadable: 'onboarding.setup.refused.unreadable',
   writeFailed: 'onboarding.setup.refused.writeFailed',
   cliFailed: 'onboarding.setup.refused.cliFailed',
+  cliRemovedEntry: 'onboarding.setup.refused.cliRemovedEntry',
+  cliBatchShim: 'onboarding.setup.refused.cliBatchShim',
 };
 
 export function noteText(note: SyncNote): string {

@@ -16,7 +16,8 @@
 //!   form of [`shared_server`]: the transport, the command and arguments or the URL, the key names
 //!   of `env` and `headers`. A server whose command, arguments or URL hold a `${…}` substitution
 //!   is left out ([`validate::claude_mcp_server`]); the app's own servers are skipped without a
-//!   row.
+//!   row. The file is read with [`read_global_file`] (up to 32 MiB); one that cannot be read or
+//!   parsed, a larger one included, is listed as excluded.
 
 use std::collections::BTreeMap;
 
@@ -30,11 +31,14 @@ use super::secrets::exportable;
 use super::validate;
 use crate::ecosystem::mcp_target;
 use crate::env::Env;
+use crate::error::BusinessError;
 use crate::harness::Harness;
-use crate::harnesses::claude::{KnownMarketplace, PluginRecord, PluginScope, known_marketplaces, plugin_records};
+use crate::harnesses::claude::{
+    KnownMarketplace, PluginRecord, PluginScope, known_marketplaces, plugin_records, read_global_file,
+};
 use crate::harnesses::plugin_registry::split_id;
-use crate::model::{HarnessId, SyncExcludedReason, SyncItemKind, SyncNote};
-use crate::pi_family::read_json;
+use crate::model::{ConfigFormat, HarnessId, SyncExcludedReason, SyncItemKind, SyncNote};
+use crate::pi_family::{Document, parse_text};
 
 /// Pseudo marketplaces Claude Code names plugins after that are local folders.
 const LOCAL_MARKETPLACES: &[&str] = &["inline", "skills-dir"];
@@ -152,7 +156,11 @@ pub(super) fn claude_servers(env: &Env, harness: &dyn Harness, found: &mut Found
         return;
     };
 
-    let document = read_json(&file.path);
+    let document = match read_global_file(&file.path) {
+        Ok(text) => parse_text(&text, ConfigFormat::Json).map_or_else(Document::Invalid, Document::Parsed),
+        Err(BusinessError::NotFound(_)) => Document::Missing,
+        Err(error) => Document::Invalid(error.to_string()),
+    };
     collect_servers(
         env,
         harness,

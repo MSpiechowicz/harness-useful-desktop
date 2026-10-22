@@ -2,7 +2,8 @@
 //!
 //! The transcript is the active path (root to leaf) as chat messages, oldest first and paged
 //! forward like the PI-family transcripts. The file is read twice: once for the tree
-//! ([`Index`]), once to convert only the lines on the path. Each line becomes:
+//! ([`Index`]), once to convert only the lines on the path; the result is kept while the file is
+//! unchanged, for the next page ([`transcript_cache`]). Each line becomes:
 //!
 //! - a prompt: a user message (images keep only their MIME type), a slash command as typed
 //!   (`/compact focus`);
@@ -18,10 +19,12 @@
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::ops::Range;
 use std::path::Path;
+use std::sync::Arc;
 
 use serde_json::{Value, json};
 
 use super::entries::{Index, Kind, command_text, kind, lines, tagged, text, text_kind};
+use super::transcript_cache;
 use crate::claude_stream::tools::touched_paths;
 use crate::error::Result;
 use crate::model::{ChatBlock, ChatMessage, MessageRole, SessionMessagesPage, TokenUsage};
@@ -84,8 +87,13 @@ pub(in crate::harnesses::claude) fn session_files_touched(path: &Path, project: 
     Ok(touched.into_iter().collect())
 }
 
-/// The chat messages of the active path.
-pub(super) fn transcript(path: &Path) -> Result<Vec<ChatMessage>> {
+/// The chat messages of the active path, parsed once per version of the file
+/// ([`transcript_cache`]).
+pub(super) fn transcript(path: &Path) -> Result<Arc<Vec<ChatMessage>>> {
+    transcript_cache::cached(path, || read_transcript(path))
+}
+
+fn read_transcript(path: &Path) -> Result<Vec<ChatMessage>> {
     let index = Index::read(path, MAX_INDEXED_ENTRIES)?;
     let wanted: HashSet<usize> = index
         .active_path()

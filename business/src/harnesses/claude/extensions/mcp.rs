@@ -6,8 +6,8 @@
 //! 4. plugins: `.mcp.json` and the manifest's inline `mcpServers` of each enabled plugin, named
 //!    `plugin:<plugin>:<server>`.
 //!
-//! A `.mcp.json` server is approved when `enabledMcpjsonServers` names it or
-//! `enableAllProjectMcpServers` is on, and turned down when `disabledMcpjsonServers` names it
+//! A `.mcp.json` that resolves outside the project is not read. A `.mcp.json` server is approved
+//! when `enabledMcpjsonServers` names it or `enableAllProjectMcpServers` is on, and turned down when `disabledMcpjsonServers` names it
 //! (settings layers or the project's entry in the global file). Claude starts neither a turned-down
 //! one nor one waiting for an answer, so both are listed off, after the others, and do not hide a
 //! server of the same name. A name in the project entry's `disabledMcpServers` is off too.
@@ -79,8 +79,7 @@ pub(super) fn mcp_servers(
     }
 
     let (approved, waiting): (Vec<McpServerInfo>, Vec<McpServerInfo>) = project
-        .map(|project| project.join(".mcp.json"))
-        .map(|path| servers(read_json(&path).get("mcpServers"), &path, ConfigLayer::Project))
+        .map(project_servers)
         .unwrap_or_default()
         .into_iter()
         .partition(|server| switches.is_approved(&server.name));
@@ -110,6 +109,17 @@ pub(super) fn mcp_servers(
     }
 
     kept
+}
+
+/// The servers of the project's `.mcp.json`; none when it resolves outside the project.
+fn project_servers(project: &Path) -> Vec<McpServerInfo> {
+    let path = project.join(".mcp.json");
+
+    if !path.exists() || canonical_within(project, &path).is_err() {
+        return Vec::new();
+    }
+
+    servers(read_json(&path).get("mcpServers"), &path, ConfigLayer::Project)
 }
 
 /// The servers of an enabled plugin, `.mcp.json` first: its `mcpServers` object, or the file's

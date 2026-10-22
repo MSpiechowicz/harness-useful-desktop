@@ -390,9 +390,11 @@ fn refused(shown: &str, reason: McpRefusal) -> BusinessError {
         McpRefusal::Unparsable | McpRefusal::NotAnObject | McpRefusal::ServersNotAnObject => {
             BusinessError::InvalidInput(format!("{shown} is not a valid OpenCode config file"))
         }
-        McpRefusal::WriteFailed | McpRefusal::CliFailed => BusinessError::Io {
-            context: format!("could not update {shown}, nothing was changed"),
-            source: io::Error::other("the write failed or the file kept changing"),
-        },
+        McpRefusal::WriteFailed | McpRefusal::CliFailed | McpRefusal::CliRemovedEntry | McpRefusal::CliBatchShim => {
+            BusinessError::Io {
+                context: format!("could not update {shown}, nothing was changed"),
+                source: io::Error::other("the write failed or the file kept changing"),
+            }
+        }
     }
 }

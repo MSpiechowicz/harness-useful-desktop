@@ -47,6 +47,9 @@ pub struct CliInvocation {
     pub args: Vec<String>,
     /// The flag that turns the action into a preview, when the CLI has one for it.
     pub dry_run_flag: Option<&'static str>,
+    /// Runs in the home directory even with a project: an action on the user's own scope, which
+    /// must not pick up the project's settings.
+    pub in_home_dir: bool,
 }
 
 impl CliInvocation {
@@ -59,7 +62,14 @@ impl CliInvocation {
         Self {
             args: args.into_iter().map(Into::into).collect(),
             dry_run_flag: None,
+            in_home_dir: false,
         }
+    }
+
+    /// Makes the action run in the home directory (see [`CliInvocation::in_home_dir`]).
+    pub fn in_home(mut self) -> Self {
+        self.in_home_dir = true;
+        self
     }
 
     /// Sets the preview flag.
@@ -164,7 +174,8 @@ pub struct CliRun<'a> {
     pub action: &'a ExtensionAction,
     /// Preview instead of applying.
     pub dry_run: bool,
-    /// The authorized project directory, for project-scoped actions; the CLI runs in it.
+    /// The authorized project directory, for project-scoped actions; the CLI runs in it unless the
+    /// action runs in the home directory ([`CliInvocation::in_home_dir`]).
     pub project: Option<&'a Path>,
 }
 
@@ -182,7 +193,10 @@ pub async fn run_cli_action(run: CliRun<'_>) -> Result<CliResult> {
         }
     }
 
-    let cwd = run.project.map_or_else(|| run.env.home.clone(), Path::to_path_buf);
+    let cwd = match run.project {
+        Some(project) if !invocation.in_home_dir => project.to_path_buf(),
+        _ => run.env.home.clone(),
+    };
     let cli = HarnessCli {
         harness: run.harness,
         env: run.env,

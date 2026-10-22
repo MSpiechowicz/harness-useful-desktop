@@ -21,7 +21,8 @@
 //!   ([`list`]).
 //!
 //! The webview only sends an opaque session ref; its id must be a lowercase UUID and is resolved by a
-//! shallow scan of the project's folder ([`find_session`]), so no other file can be named.
+//! shallow scan of the project's folder ([`find_session`]), so no other file can be named. A
+//! session of another folder with the same slug is not found ([`find_project_session`]).
 //! Deleting is in [`delete`], what the chat engine reads (fork points, the history) in [`chat`].
 //! Nothing here is redacted: the transcript is the user's own conversation, as for the other
 //! harnesses, and no credential is ever read.
@@ -31,6 +32,7 @@ mod delete;
 mod entries;
 mod list;
 mod transcript;
+mod transcript_cache;
 
 pub(super) use delete::delete_session;
 pub(super) use entries::session_tree;
@@ -108,6 +110,18 @@ pub(super) fn find_session(dir: &Path, id: &str) -> Result<PathBuf> {
     }
 
     Err(not_found(id))
+}
+
+/// [`find_session`] in `dir`, the session folder of `project`, refusing (as not found) a session
+/// that ran in another folder with the same slug, which the list leaves out too.
+pub(super) fn find_project_session(dir: &Path, project: &Path, id: &str) -> Result<PathBuf> {
+    let path = find_session(dir, id)?;
+
+    if !list::is_projects_session(dir, &path, id, project) {
+        return Err(not_found(id));
+    }
+
+    Ok(path)
 }
 
 fn not_found(id: &str) -> BusinessError {

@@ -26,7 +26,8 @@ mod setup;
 pub use catalog::ClaudeCatalog;
 pub use cli::{claude_cli_action, claude_summary};
 pub use modes::WIRE_DEFAULT;
-pub use paths::{PROJECT_DIR_NAME, config_dir, global_config_file, project_slug};
+pub(crate) use paths::read_global_file;
+pub use paths::{MAX_GLOBAL_FILE_BYTES, PROJECT_DIR_NAME, config_dir, global_config_file, project_slug};
 pub(crate) use sessions::chat::{chat_messages, fork_point, session_file};
 pub(crate) use sessions::is_session_id;
 pub use setup::{
@@ -131,7 +132,7 @@ impl Harness for Claude {
     fn resolve_session(&self, env: &Env, project: &Path, session: &SessionRef) -> Result<PathBuf> {
         let id = sessions::checked_id(session)?;
 
-        sessions::find_session(&self.sessions_dir(env, project), id)
+        sessions::find_project_session(&self.sessions_dir(env, project), project, id)
     }
 
     /// Deletes the session file with the session's folders, refused while the session runs in

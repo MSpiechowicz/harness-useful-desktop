@@ -8,12 +8,11 @@ use std::fs;
 use std::path::Path;
 
 use super::untracked::read_contained;
-use super::{GitCli, validate_paths};
+use super::{GitCli, is_denied_in, validate_paths};
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::model::MAX_UNTRACKED_FILE_BYTES;
 use crate::process::ProcessRunner;
-use crate::security::is_denied;
 
 /// Bytes inspected for a NUL byte.
 const BINARY_SNIFF_BYTES: usize = 8 * 1024;
@@ -29,7 +28,7 @@ pub async fn git_file_lines(
 ) -> Result<Vec<String>> {
     validate_paths(&[path.to_owned()])?;
 
-    if is_denied(Path::new(path)).is_some() {
+    if is_denied_in(project, path) {
         return Err(BusinessError::Forbidden("this file is not shown".to_owned()));
     }
 

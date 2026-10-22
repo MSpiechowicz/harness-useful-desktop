@@ -1,9 +1,9 @@
 //! `session_delete` for Claude Code: removes a saved session with everything Claude Code keeps for
 //! it.
 //!
-//! The session file is resolved like every other session command does ([`find_session`]: a
-//! regular `<uuid>.jsonl` file found by a shallow scan of the project's folder) and must hold a
-//! line of that session. Then, in this order:
+//! The session file is resolved like every other session command does ([`find_project_session`]:
+//! a regular `<uuid>.jsonl` file found by a shallow scan of the project's folder, not of another
+//! folder with the same slug) and must hold a line of that session. Then, in this order:
 //!
 //! 1. the session file `<uuid>.jsonl`,
 //! 2. the session's folder `<uuid>/` (subagent transcripts, tool outputs, the rename sidecar) and
@@ -27,7 +27,7 @@ use std::path::Path;
 use serde_json::Value;
 
 use super::entries::text;
-use super::{MAX_DIR_ENTRIES, find_session};
+use super::{MAX_DIR_ENTRIES, find_project_session};
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::harnesses::claude::paths::{config_dir, sessions_dir};
@@ -60,7 +60,7 @@ pub(in crate::harnesses::claude) fn delete_session(
     empty_copy_only: bool,
 ) -> Result<()> {
     let dir = sessions_dir(env, project);
-    let path = find_session(&dir, id)?;
+    let path = find_project_session(&dir, project, id)?;
 
     if !names_session(&path, id) {
         return Err(BusinessError::InvalidInput(format!(

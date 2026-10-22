@@ -5,7 +5,8 @@
 //! Skills are `<dir>/<skill>/SKILL.md` in the config directory's `skills/`, in `.claude/skills` from
 //! the project up to its repository root, and in each enabled plugin's `skills/` (named
 //! `<plugin>:<skill>`). A user skill outranks a project skill of the same name. Plugins
-//! contribute only while enabled, and only from a directory inside the plugin cache.
+//! contribute only while enabled, and only from a directory inside the plugin cache. What a
+//! project layer holds is read only when it resolves inside the folder of that layer.
 
 mod markdown;
 mod marketplaces;
@@ -18,16 +19,16 @@ use std::path::{Path, PathBuf};
 use self::markdown::{Folder, agents, commands};
 pub(super) use self::marketplaces::{known_entries, source_location};
 use self::plugins::{EnabledPlugin, installed};
-pub(super) use self::plugins::{global_install, registered};
+pub(super) use self::plugins::{global_install, is_enabled, registered};
 pub(super) use self::settings::Settings;
 use super::config::global_sections;
 use super::paths::{PROJECT_DIR_NAME, config_dir};
 use crate::env::Env;
 use crate::harnesses::plugin_registry::mark_updates;
-use crate::model::{ExtensionScope, ExtensionsView, HarnessId, SkillInfo};
+use crate::model::{ExtensionScope, ExtensionsView, HarnessId, Notice, NoticeLevel, SkillInfo};
 use crate::pi_family::{
-    MAX_WALK_ENTRIES, PerLayer, ScanBudget, SkillRoot, Truncation, WalkBudget, dedupe_skills, project_ancestors,
-    scan_roots, scan_skills_budgeted,
+    Document, MAX_WALK_ENTRIES, PerLayer, ScanBudget, SkillRoot, Truncation, WalkBudget, dedupe_skills,
+    project_ancestors, scan_roots, scan_skills_budgeted,
 };
 
 /// Claude reads `<dir>/<skill>/SKILL.md` one level deep.
@@ -42,6 +43,13 @@ pub(super) fn extensions_view(env: &Env, project: Option<&Path>) -> ExtensionsVi
 
     let global = global_sections(env, project);
     let mcp_servers = mcp::mcp_servers(project, &settings, &global, &plugins.enabled);
+    let global_notice = global.user.as_ref().and_then(|(_, document)| match document {
+        Document::Invalid(summary) => Some(Notice {
+            level: NoticeLevel::Warning,
+            message: format!("Your MCP servers in .claude.json could not be read: {summary}"),
+        }),
+        _ => None,
+    });
 
     let mut truncation = Truncation::default();
     let skills = skills(env, project, &plugins.enabled, &mut truncation);
@@ -55,6 +63,7 @@ pub(super) fn extensions_view(env: &Env, project: Option<&Path>) -> ExtensionsVi
     truncation.note_scans(&budgets);
 
     let mut notices = plugins.notices;
+    notices.extend(global_notice);
     notices.extend(marketplace_notices);
     notices.extend(truncation.notices());
 
@@ -73,14 +82,12 @@ pub(super) fn extensions_view(env: &Env, project: Option<&Path>) -> ExtensionsVi
     }
 }
 
-/// The project's `.claude` folders, closest first (see [`project_ancestors`]).
+/// The project's folders holding a `.claude` layer, closest first (see [`project_ancestors`]).
+/// What a layer holds must resolve inside its folder.
 fn project_dirs(env: &Env, project: Option<&Path>) -> Vec<PathBuf> {
     project
         .map(|project| project_ancestors(env, project))
         .unwrap_or_default()
-        .into_iter()
-        .map(|dir| dir.join(PROJECT_DIR_NAME))
-        .collect()
 }
 
 /// The `sub` folders (`agents`, `commands`) in precedence order: the project's before the user's
@@ -95,7 +102,7 @@ fn folders(
     let user = Folder::plain(config_dir(env).join(sub), ExtensionScope::User);
     let projects = project_dirs(env, project)
         .into_iter()
-        .map(|dir| Folder::plain(dir.join(sub), ExtensionScope::Project));
+        .map(|dir| Folder::within(dir.join(PROJECT_DIR_NAME).join(sub), ExtensionScope::Project, dir));
 
     let mut folders: Vec<Folder> = if project_first {
         projects.chain(std::iter::once(user)).collect()
@@ -109,19 +116,20 @@ fn folders(
 
 /// See the module docs. Walks cut short are recorded in `truncation`.
 fn skills(env: &Env, project: Option<&Path>, plugins: &[EnabledPlugin], truncation: &mut Truncation) -> Vec<SkillInfo> {
-    let mut roots = vec![SkillRoot::labeled(
-        env,
-        project,
-        config_dir(env).join("skills"),
-        ExtensionScope::User,
-    )];
-    roots.extend(
-        project_dirs(env, project)
-            .into_iter()
-            .map(|dir| SkillRoot::labeled(env, project, dir.join("skills"), ExtensionScope::Project)),
-    );
+    let user = SkillRoot::labeled(env, project, config_dir(env).join("skills"), ExtensionScope::User);
+    let mut skills = scan_roots(&[user], SKILL_DEPTH, truncation);
 
-    let mut skills = scan_roots(&roots, SKILL_DEPTH, truncation);
+    for dir in project_dirs(env, project) {
+        let root = SkillRoot::labeled(
+            env,
+            project,
+            dir.join(PROJECT_DIR_NAME).join("skills"),
+            ExtensionScope::Project,
+        );
+        let mut walk = WalkBudget::new(MAX_WALK_ENTRIES);
+        skills.extend(scan_skills_budgeted(&root, SKILL_DEPTH, Some(&dir), &mut walk));
+        truncation.note(ExtensionScope::Project, walk.truncated());
+    }
 
     for plugin in plugins {
         let root = SkillRoot {
