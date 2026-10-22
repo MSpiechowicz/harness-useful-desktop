@@ -343,10 +343,11 @@ describe('Set up step', () => {
     expect(screen.getByText('Installs the skills in Oh My Pi, Pi, and Claude Code')).toBeInTheDocument();
 
     // A column per MCP server, with the same states.
+    // The app cannot chat with Claude Code yet, so it gets no MCP entries and every column says so.
     const claude = rows[2];
-    expect(within(within(claude).getByRole('group', { name: 'Harness Dashboard MCP' })).getByText('Installed')).toBeInTheDocument();
-    expect(within(within(claude).getByRole('group', { name: 'Harness Memory MCP' })).getByText('Installed')).toBeInTheDocument();
-    expect(within(within(claude).getByRole('group', { name: 'Harness Desktop MCP' })).getByText('Installed')).toBeInTheDocument();
+    expect(within(within(claude).getByRole('group', { name: 'Harness Dashboard MCP' })).getByText('Coming soon')).toBeInTheDocument();
+    expect(within(within(claude).getByRole('group', { name: 'Harness Memory MCP' })).getByText('Coming soon')).toBeInTheDocument();
+    expect(within(within(claude).getByRole('group', { name: 'Harness Desktop MCP' })).getByText('Coming soon')).toBeInTheDocument();
     const codex = rows[3];
     expect(within(within(codex).getByRole('group', { name: 'Harness Dashboard MCP' })).getByText('Disabled')).toBeInTheDocument();
     expect(within(within(codex).getByRole('group', { name: 'Harness Memory MCP' })).getByText('Not installed')).toBeInTheDocument();

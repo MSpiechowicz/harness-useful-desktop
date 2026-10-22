@@ -88,6 +88,8 @@ pub enum ChatProtocol {
     OpenCodeServer,
     /// An `opencode serve` HTTP server of OpenCode 2 (its `/api` routes) on a loopback port.
     OpenCodeServerV2,
+    /// Claude Code's stream-json mode with its control protocol on stdin/stdout.
+    ClaudeStream,
 }
 
 /// Where a harness keeps its files, resolved from an [`Env`] (and the project, if any).

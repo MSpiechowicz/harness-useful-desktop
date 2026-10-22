@@ -1,15 +1,16 @@
-//! Directory resolution (OMP `dirs.ts` rules, PI agent dir, OpenCode XDG directories) and the
-//! shared parsing helpers.
+//! Directory resolution (OMP `dirs.ts` rules, PI agent dir, OpenCode XDG directories, Claude Code's
+//! config directory) and the shared parsing helpers.
 
 use std::fs;
 use std::path::PathBuf;
 
 use harness_business::env::{Env, OsKind};
 use harness_business::harness::Harness;
+use harness_business::harnesses::claude::global_config_file;
 use harness_business::harnesses::omp::{active_profile, omp_paths};
 use harness_business::harnesses::opencode::{custom_config_dir, data_dir, home_config_dir};
 use harness_business::harnesses::pi::pi_paths;
-use harness_business::harnesses::{Omp, OpenCode, Pi};
+use harness_business::harnesses::{Claude, Omp, OpenCode, Pi};
 use harness_business::model::ConfigFormat;
 use harness_business::pi_family::{parse_frontmatter, parse_text, project_ancestors, text_field};
 use pretty_assertions::assert_eq;
@@ -153,6 +154,36 @@ fn the_opencode_config_dir_variable_adds_a_layer_without_moving_the_root() {
 
     let relative = Env::for_tests(home()).with_var("OPENCODE_CONFIG_DIR", "team-opencode");
     assert_eq!(custom_config_dir(&relative), None);
+}
+
+#[test]
+fn claude_keeps_everything_in_dot_claude_with_the_global_file_beside_it() {
+    let project = home().join("Projects/demo");
+    let env = Env::for_tests(home());
+    let paths = Claude.paths(&env, Some(&project));
+
+    assert_eq!(paths.config_root, home().join(".claude"));
+    assert_eq!(paths.agent_dir, paths.config_root);
+    assert_eq!(paths.data_root, paths.config_root);
+    assert_eq!(paths.profile, None);
+    assert_eq!(paths.project_dir, Some(project.join(".claude")));
+    assert_eq!(global_config_file(&env), home().join(".claude.json"));
+}
+
+#[test]
+fn the_claude_config_dir_variable_moves_the_directory_and_the_global_file() {
+    let custom = home().join("claude-work");
+    let env = Env::for_tests(home()).with_var("CLAUDE_CONFIG_DIR", custom.to_string_lossy());
+    let paths = Claude.paths(&env, None);
+
+    assert_eq!(paths.config_root, custom);
+    assert_eq!(paths.agent_dir, custom);
+    assert_eq!(paths.data_root, custom);
+    assert_eq!(global_config_file(&env), custom.join(".claude.json"));
+
+    let relative = Env::for_tests(home()).with_var("CLAUDE_CONFIG_DIR", "claude-work");
+    assert_eq!(Claude.paths(&relative, None).config_root, home().join(".claude"));
+    assert_eq!(global_config_file(&relative), home().join(".claude.json"));
 }
 
 #[test]

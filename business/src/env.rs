@@ -36,6 +36,12 @@ pub const CAPTURED_VARS: &[&str] = &[
     "OPENCODE_CONFIG_PROJECT_DISABLE",
     // The Windows folder of OpenCode 2's system config directory (`%ProgramData%\opencode`).
     "ProgramData",
+    // Claude Code's config directory, which also moves its global `.claude.json`.
+    "CLAUDE_CONFIG_DIR",
+    // Claude Code's cloud provider switches (not secret, shown as set).
+    "CLAUDE_CODE_USE_BEDROCK",
+    "CLAUDE_CODE_USE_VERTEX",
+    "CLAUDE_CODE_USE_FOUNDRY",
     // Harness Memory's data folder, where the app meets the server for script run requests.
     "HARNESS_MEMORY_DIR",
     // Harness Memory's config file, when not the default one (the team database settings).
@@ -47,8 +53,20 @@ pub const CAPTURED_VARS: &[&str] = &[
 ];
 
 /// Variables whose presence [`Env::from_process`] records without their value: they may hold
-/// secrets (inline OpenCode config and permissions), and the app only reports that they are set.
-pub const PRESENCE_VARS: &[&str] = &["OPENCODE_PERMISSION", "OPENCODE_CONFIG_CONTENT"];
+/// secrets (inline OpenCode config and permissions, Claude Code's API keys, tokens and custom
+/// headers), and the app only reports that they are set.
+pub const PRESENCE_VARS: &[&str] = &[
+    "OPENCODE_PERMISSION",
+    "OPENCODE_CONFIG_CONTENT",
+    "ANTHROPIC_API_KEY",
+    "ANTHROPIC_AUTH_TOKEN",
+    "CLAUDE_CODE_OAUTH_TOKEN",
+    "CLAUDE_CODE_OAUTH_REFRESH_TOKEN",
+    "ANTHROPIC_CUSTOM_HEADERS",
+    "AWS_BEARER_TOKEN_BEDROCK",
+    "ANTHROPIC_FOUNDRY_API_KEY",
+    "ANTHROPIC_FOUNDRY_AUTH_TOKEN",
+];
 
 /// Operating-system family, used for platform-specific paths.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

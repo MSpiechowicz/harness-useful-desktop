@@ -5,8 +5,8 @@ import type { SkillsSetup } from '../bindings/SkillsSetup';
 
 /**
  * The harnesses the recommended setup is meant to scale to: the preview's `?setup=many` shows five of them, and
- * `?setup=manyLong` adds a sixth with a very long name. Ids the backend does not have (`claude`, `codex`) exist only in
- * the browser preview, the real `HarnessId` is the backend's. They are chosen to cover every state a row can be in.
+ * `?setup=manyLong` adds a sixth with a very long name. Ids the backend does not have (`codex`) exist only in the
+ * browser preview, the real `HarnessId` is the backend's. They are chosen to cover every state a row can be in.
  * `?setup=opencodeOnly` is a machine with OpenCode alone, whose config file has comments.
  */
 export interface RosterEntry {

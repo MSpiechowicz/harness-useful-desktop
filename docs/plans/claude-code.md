@@ -208,13 +208,16 @@ Order: S1 → (Track A: S2 → S3 → S5 → S6 ∥ Track B: S4 ∥ Track C: S0 
   `env.rs` (`CLAUDE_CONFIG_DIR` captured, secrets presence-only), `security/deny.rs` additions with canary fixtures,
   `ChatProtocol::ClaudeStream` and an `AgentSession` arm returning `Unsupported`, doc-only module stubs. Tests:
   `detection.rs`, `harness_paths.rs`, `canary.rs`, `adapter_canary.rs`, `model.rs`.
-- **S2 config view** (A): the five settings layers, managed drop-ins, `~/.claude.json` user and project MCP entries,
+- **S2 config view** (A): first close the S1 deny gap: the `.claude`-scoped deny names (`history.jsonl`, `backups`,
+  `statsig`, `ide`, …) only match under a folder named `.claude`, so with `CLAUDE_CONFIG_DIR` set to another name they
+  must also apply under the env's Claude root (the deny check needs that root). Then the five settings layers, managed drop-ins, `~/.claude.json` user and project MCP entries,
   CLAUDE.md files listed (names only), presence notices for env. Fixture home `business/tests/fixtures/claude-home/`,
   snapshot test `claude_views.rs`.
 - **S3 extensions view** (A): plugins (shared v2 parser from `omp/plugins.rs` moved to `pi_family` or a shared
   module, `enabledPlugins` merge), marketplaces (new reader, catalog entries and update marks reused), skills, agents
   (`capabilities.agents`), commands as prompt templates, MCP servers (user, local, project, plugin) with redaction.
-- **S4 sessions** (B): list (title rules, times, message count), resolve, tree (`parentUuid`, sidechains skipped,
+- **S4 sessions** (B): the slug's truncation plus hash for project paths over 200 characters (S1 only replaces
+  characters), the rename sidecar `<session>/custom-title.json`, skipping `api-request*` and `attachment` lines; list (title rules, times, message count), resolve, tree (`parentUuid`, sidechains skipped,
   compaction boundaries), transcript, files touched, delete with the running check. Fixtures
   `business/tests/fixtures/sessions/claude/` (synthetic, shaped after the local structure, no real content). Tests
   `sessions_claude*.rs`.
@@ -237,7 +240,8 @@ Order: S1 → (Track A: S2 → S3 → S5 → S6 ∥ Track B: S4 ∥ Track C: S0 
   `["omp","pi","opencode"]` (`routines/format/action.rs:63-68`, `hooks_mcp/routine_tools.rs:223-224`),
   `memoryChatGuards` once S0 shows `HARNESS_MEMORY_SESSION` reaches stdio MCP children. Tests
   `src-tauri/src/hooks/tests_claude.rs`, `src-tauri/src/routines/tests_agent_claude.rs`.
-- **S12 UI:** badge and tokens (`Badge.svelte`, `HarnessBadge.svelte`, `tokens.css`, `app.css`), onboarding card and
+- **S12 UI:** light-theme badge contrast (S1 uses the dashboard's `#de602c`, about 3.5:1 on light surfaces, below the
+  4.5:1 the other harnesses meet), Claude in the demo roster as an installed harness with its copy; badge and tokens (`Badge.svelte`, `HarnessBadge.svelte`, `tokens.css`, `app.css`), onboarding card and
   approval notice variant, i18n in all five locales, mock fixtures and handlers, `tauri.conf.json` descriptions,
   README table. Copy rules: no semicolons, "Harness family".
 - **S13 docs and wrap-up:** `adding-a-harness.md` (Claude as the stdio-engine reference, fix the fit-check
@@ -250,7 +254,8 @@ Order: S1 → (Track A: S2 → S3 → S5 → S6 ∥ Track B: S4 ∥ Track C: S0 
 | # | Step | Status |
 | --- | --- | --- |
 | S0 | Recording | done (fixtures in `business/tests/fixtures/claude/`) |
-| S1–S13 | | not started |
+| S1 | Skeleton and detection | done |
+| S2–S13 | | not started |
 
 ## Verified facts (S0 recording, 2026-10-22)
 

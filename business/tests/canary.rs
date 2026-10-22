@@ -102,6 +102,41 @@ fn reading_and_redacting_the_fixture_home_never_reveals_the_canary() {
     }
 }
 
+/// `tests/fixtures/claude-home`: a synthetic Claude Code home whose private files all hide the canary.
+fn claude_home() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/claude-home")
+}
+
+#[test]
+fn every_private_claude_file_is_refused_and_only_its_settings_stay_readable() {
+    let home = claude_home();
+    let mut readable = BTreeSet::new();
+
+    for path in files_below(&home) {
+        let name = path.strip_prefix(&home).unwrap().to_string_lossy().replace('\\', "/");
+
+        match SafeReader::read_to_string(&path, SafeReader::DEFAULT_MAX_BYTES) {
+            Ok(text) => {
+                assert!(!text.contains(CANARY), "{name} is readable and holds the canary");
+                readable.insert(name);
+            }
+            Err(BusinessError::Forbidden(_)) => {
+                assert!(
+                    is_denied(&path).is_some(),
+                    "{name} is refused without touching the filesystem"
+                );
+            }
+            Err(other) => panic!("unexpected error for {name}: {other}"),
+        }
+    }
+
+    let expected: BTreeSet<String> = [".claude.json", ".claude/settings.json"]
+        .into_iter()
+        .map(String::from)
+        .collect();
+    assert_eq!(readable, expected);
+}
+
 #[test]
 fn every_deny_listed_fixture_is_recognized_without_touching_the_filesystem() {
     for name in ["agent.db", "auth.json", "mcp-auth.json", "x.log", "install-id"] {

@@ -12,8 +12,8 @@ use harness_business::env::{Env, OsKind};
 use harness_business::harness::{Harness, HarnessRegistry};
 use harness_business::harnesses::{Omp, OpenCode, Pi};
 use harness_business::model::{
-    Detection, ExtensionAction, HarnessId, HarnessSetup, HarnessSummary, InstallScope, McpState, RecommendedSetup,
-    SkillsSetup, VersionSupport,
+    Detection, ExtensionAction, HarnessId, HarnessSetup, HarnessSummary, InstallScope, McpRefusal, McpState,
+    RecommendedSetup, SkillsSetup, VersionSupport,
 };
 use pretty_assertions::assert_eq;
 use serde_json::json;
@@ -133,7 +133,7 @@ async fn an_empty_machine_is_offered_everything() {
 
     assert_eq!(
         setup.harnesses.iter().map(|entry| entry.harness).collect::<Vec<_>>(),
-        [HarnessId::Omp, HarnessId::Pi, HarnessId::OpenCode]
+        HarnessId::ALL
     );
 
     let omp = harness(&setup, HarnessId::Omp);
@@ -196,6 +196,22 @@ async fn an_empty_machine_is_offered_everything() {
     assert_eq!(opencode.mcp, opencode_missing);
     assert_eq!(opencode.memory_mcp, opencode_missing);
     assert_eq!(opencode.desktop_mcp, opencode_missing);
+
+    // Claude Code has no skills package and no MCP file the app writes yet.
+    let claude = harness(&setup, HarnessId::Claude);
+    assert!(!claude.installed);
+    assert!(
+        matches!(claude.skills, SkillsSetup::Unavailable { code: None, .. }),
+        "{:?}",
+        claude.skills
+    );
+    let no_file = McpState::Refused {
+        file: String::new(),
+        reason: McpRefusal::Unreadable,
+    };
+    assert_eq!(claude.mcp, no_file);
+    assert_eq!(claude.memory_mcp, no_file);
+    assert_eq!(claude.desktop_mcp, no_file);
 }
 
 #[tokio::test]
@@ -289,7 +305,7 @@ async fn without_a_detection_a_harness_counts_as_missing() {
     let setup = status(&Env::for_tests(home.path()), &[]).await;
 
     assert!(setup.harnesses.iter().all(|entry| !entry.installed));
-    assert_eq!(setup.harnesses.len(), 3);
+    assert_eq!(setup.harnesses.len(), HarnessId::ALL.len());
 }
 
 #[tokio::test]

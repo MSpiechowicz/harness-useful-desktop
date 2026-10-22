@@ -31,6 +31,7 @@
     omp: 'bg-omp-wash text-omp',
     pi: 'bg-pi-wash text-pi',
     opencode: 'bg-opencode-wash text-opencode',
+    claude: 'bg-claude-wash text-claude',
   };
 
   const SIZES = {

@@ -76,7 +76,8 @@ const OPENCODE_SKILLS_OUTPUT_FAILED: InstallLogLine[] = [
   { stream: 'stderr', line: 'error: could not download the Harness Skills package' },
 ];
 
-const MCP_FILE: Record<HarnessId, string> = { omp: '~/.omp/agent/mcp.json', pi: '~/.pi/agent/mcp.json', opencode: '~/.config/opencode/opencode.json' };
+/** Each harness's user MCP file, empty for a harness with none the app writes (Claude Code, for now). */
+const MCP_FILE: Record<HarnessId, string> = { omp: '~/.omp/agent/mcp.json', pi: '~/.pi/agent/mcp.json', opencode: '~/.config/opencode/opencode.json', claude: '' };
 /** OpenCode's config when it has comments: the app never rewrites it. */
 const OPENCODE_COMMENTED_FILE = '~/.config/opencode/opencode.jsonc';
 const SKILLS_TARGET = 'harness-useful-skills@harness-useful-skills';
@@ -119,6 +120,10 @@ function delay(ms: number): Promise<void> {
 }
 
 function skillsOffer(harness: HarnessId, nodeFound: boolean): SkillsSetup {
+  if (harness === 'claude') {
+    return { type: 'unavailable', reason: 'Harness Skills for Claude Code are not available yet.', code: null };
+  }
+
   if (harness === 'opencode') {
     return nodeFound ? OPENCODE_SKILLS : OPENCODE_SKILLS_NO_NODE;
   }
@@ -253,6 +258,10 @@ export function setupHandlers(
 
   /** The dashboard's entry (`registered` holds `mcp`), the memory server's (`memoryMcp`) or the app's own (`desktopMcp`) in a harness's MCP file. */
   function mcpState(harness: HarnessId, registered: Set<HarnessId> = mcp): McpState {
+    if (MCP_FILE[harness] === '') {
+      return { type: 'refused', file: '', reason: 'unreadable' };
+    }
+
     if (registered.has(harness)) {
       return { type: 'configured', file: MCP_FILE[harness], name: entryName(registered) };
     }

@@ -1,4 +1,4 @@
-//! Session folder names and locations for OMP and PI on Linux, macOS and Windows.
+//! Session folder names and locations for OMP, PI and Claude Code on Linux, macOS and Windows.
 
 mod session_support;
 
@@ -7,7 +7,8 @@ use std::path::PathBuf;
 
 use harness_business::env::{Env, OsKind};
 use harness_business::harness::Harness;
-use harness_business::harnesses::{Omp, Pi};
+use harness_business::harnesses::claude::project_slug;
+use harness_business::harnesses::{Claude, Omp, Pi};
 use harness_business::pi_family::sessions::{omp_dir_name, pi_dir_name, temp_root};
 use pretty_assertions::assert_eq;
 use session_support::session_home;
@@ -167,6 +168,49 @@ fn omp_folders_honor_profiles_xdg_data_and_the_session_dir_variable() {
         .clone()
         .with_var("PI_CODING_AGENT_SESSION_DIR", "sessions-here");
     assert_eq!(Omp.sessions_dir(&custom, project), project.join("sessions-here"));
+}
+
+#[test]
+fn claude_slugs_replace_every_character_but_ascii_letters_and_digits() {
+    let cases = [
+        ("/home/u/.config/x", "-home-u--config-x"),
+        (
+            "/home/u/Projekty/harness-useful-desktop",
+            "-home-u-Projekty-harness-useful-desktop",
+        ),
+        ("/w/my_app v2", "-w-my-app-v2"),
+        ("/w/zażółć", "-w-za----"),
+        (r"C:\Users\u\dev\app", "C--Users-u-dev-app"),
+    ];
+
+    for (project, expected) in cases {
+        assert_eq!(project_slug(std::path::Path::new(project)), expected, "{project}");
+    }
+}
+
+#[test]
+fn claude_folders_live_below_the_config_dir_and_follow_its_variable() {
+    let home = session_home();
+    let project = &home.project;
+    let slug = project_slug(project);
+
+    assert_eq!(
+        Claude.sessions_dir(&home.env, project),
+        home.home.join(".claude/projects").join(&slug)
+    );
+
+    let custom = home.home.join("claude-work");
+    let moved = home.env.clone().with_var("CLAUDE_CONFIG_DIR", custom.to_string_lossy());
+    assert_eq!(
+        Claude.sessions_dir(&moved, project),
+        custom.join("projects").join(&slug)
+    );
+
+    let relative = home.env.clone().with_var("CLAUDE_CONFIG_DIR", "claude-work");
+    assert_eq!(
+        Claude.sessions_dir(&relative, project),
+        home.home.join(".claude/projects").join(&slug)
+    );
 }
 
 #[test]

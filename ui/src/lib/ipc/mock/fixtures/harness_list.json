@@ -141,5 +141,58 @@
       "installHint": null,
       "error": null
     }
+  },
+  {
+    "info": {
+      "id": "claude",
+      "name": "Claude Code",
+      "shortName": "CC",
+      "binaryName": "claude",
+      "description": "Anthropic's terminal coding agent with plugins, skills, subagents and hooks, on your own Claude login.",
+      "homepage": "https://code.claude.com"
+    },
+    "capabilities": {
+      "chat": false,
+      "plugins": false,
+      "marketplaces": false,
+      "packages": false,
+      "mcp": false,
+      "skills": false,
+      "promptTemplates": false,
+      "agents": false,
+      "extensionModules": false,
+      "themes": false,
+      "cliActions": false,
+      "profiles": false,
+      "approvalModes": false,
+      "projectTrust": false,
+      "slashCommandsViaPrompt": false,
+      "sessionTree": false,
+      "moveSession": false,
+      "removeQueued": false,
+      "agentPicker": false,
+      "chatPreview": false,
+      "compactInstructions": false,
+      "memoryChatGuards": false
+    },
+    "detection": {
+      "installed": false,
+      "binaryPath": null,
+      "isBatchScript": false,
+      "version": null,
+      "versionSupport": "unknown",
+      "configDir": "/home/demo/.claude",
+      "configDirExists": false,
+      "installHint": {
+        "commands": [
+          {
+            "label": null,
+            "command": "curl -fsSL https://claude.ai/install.sh | bash"
+          }
+        ],
+        "docsUrl": "https://code.claude.com/docs/en/setup"
+      },
+      "error": null
+    }
   }
 ]

@@ -219,7 +219,7 @@ fn unknown_harnesses_kinds_and_fields_are_counted_and_ignored() {
         "format": "harness-useful-desktop/setup", "version": 1, "future": { "x": 1 },
         "harnesses": {
             "omp": { "plugins": [{ "id": "review@official", "extra": true }], "themes": [{}, {}], "note": "x" },
-            "claude": { "skills": [1, 2], "agents": [3] },
+            "acme": { "skills": [1, 2], "agents": [3] },
             "bad key!": { "y": [1] },
             "codex": "not an object",
         },
@@ -243,7 +243,7 @@ fn unknown_harnesses_kinds_and_fields_are_counted_and_ignored() {
             },
             SyncUnsupported {
                 harness: None,
-                name: "claude".to_owned(),
+                name: "acme".to_owned(),
                 item_count: 3
             },
             SyncUnsupported {

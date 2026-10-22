@@ -29,6 +29,7 @@
     omp: 'bg-omp-wash text-omp',
     pi: 'bg-pi-wash text-pi',
     opencode: 'bg-opencode-wash text-opencode',
+    claude: 'bg-claude-wash text-claude',
   };
   /** The badge is sized for "OMP": a longer name ("OpenCode") is reduced to a short mark, "OC", and the full name stays in the text beside it. */
   const mark = $derived(harnessMark(info.shortName));

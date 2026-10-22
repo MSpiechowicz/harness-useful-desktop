@@ -7,7 +7,7 @@ use std::sync::Mutex;
 
 use harness_business::env::{Env, OsKind};
 use harness_business::harness::{Harness, HarnessRegistry, first_semver, override_name_matches};
-use harness_business::harnesses::{Omp, OpenCode, Pi};
+use harness_business::harnesses::{Claude, Omp, OpenCode, Pi};
 use harness_business::model::{BinaryOverride, HarnessId, VersionSupport};
 use harness_business::process::{BoxFuture, ExecOutput, ExecSpec, ProcessRunner, TokioRunner};
 use harness_business::{BusinessError, Result};
@@ -75,6 +75,19 @@ fn binary_file(name: &str) -> String {
     } else {
         name.to_owned()
     }
+}
+
+/// Asserts that the first command `runner` saw ran `binary --version` with `switch=1` set.
+fn assert_version_probe(runner: &CannedRunner, binary: &Path, switch: &str) {
+    let seen = runner.seen.lock().unwrap();
+
+    assert_eq!(seen[0].program, binary);
+    assert_eq!(seen[0].args, ["--version"]);
+    assert!(
+        seen[0].env.iter().any(|(name, value)| name == switch && value == "1"),
+        "{:?}",
+        seen[0].env
+    );
 }
 
 /// An empty home whose PATH holds only `bin`.
@@ -278,7 +291,7 @@ async fn the_registry_detects_every_harness_and_honours_overrides() {
         .await;
 
     let ids: Vec<HarnessId> = summaries.iter().map(|summary| summary.info.id).collect();
-    assert_eq!(ids, [HarnessId::Omp, HarnessId::Pi, HarnessId::OpenCode]);
+    assert_eq!(ids, HarnessId::ALL);
     assert!(!summaries[0].detection.installed);
     assert_eq!(summaries[1].detection.version.as_deref(), Some("1.1.0"));
     assert_eq!(summaries[1].detection.version_support, VersionSupport::Supported);
@@ -301,6 +314,10 @@ fn the_registry_lists_every_harness() {
     assert_eq!(
         registry.get(HarnessId::OpenCode).unwrap().info().homepage,
         "https://opencode.ai"
+    );
+    assert_eq!(
+        registry.get(HarnessId::Claude).unwrap().info().homepage,
+        "https://code.claude.com"
     );
 }
 
@@ -340,17 +357,7 @@ async fn opencode_prints_a_bare_version_and_is_probed_without_updating_itself() 
         )
     );
 
-    let seen = runner.seen.lock().unwrap();
-    assert_eq!(seen[0].program, binary);
-    assert_eq!(seen[0].args, ["--version"]);
-    assert!(
-        seen[0]
-            .env
-            .iter()
-            .any(|(name, value)| name == "OPENCODE_DISABLE_AUTOUPDATE" && value == "1"),
-        "{:?}",
-        seen[0].env
-    );
+    assert_version_probe(&runner, &binary, "OPENCODE_DISABLE_AUTOUPDATE");
 }
 
 #[tokio::test]
@@ -412,4 +419,52 @@ async fn the_first_detection_of_opencode_2_shows_the_config_dir_it_reads() {
 
     assert_eq!(detection.version.as_deref(), Some("2.1.2"));
     assert_eq!(detection.config_dir, Some(team.to_string_lossy().into_owned()));
+}
+
+#[test]
+fn claude_2_1_is_supported_and_everything_else_untested() {
+    assert_eq!(first_semver("2.1.304 (Claude Code)\n").as_deref(), Some("2.1.304"));
+    assert_eq!(Claude.version_support("2.1.304"), VersionSupport::Supported);
+    assert_eq!(Claude.version_support("2.2.0"), VersionSupport::Untested);
+    assert_eq!(Claude.version_support("1.0.128"), VersionSupport::Untested);
+}
+
+#[tokio::test]
+async fn claude_is_probed_with_its_updater_off_and_shows_its_config_dir() {
+    let home = TempDir::new().unwrap();
+    let (env, bin) = env_with_bin(&home);
+    let custom = home.path().join("claude-work");
+    let env = env.with_var("CLAUDE_CONFIG_DIR", custom.to_string_lossy());
+    let binary = fake_binary(&bin, &binary_file("claude"), "");
+    let runner = CannedRunner::printing("2.1.304 (Claude Code)\n");
+
+    let detection = Claude.detect(&env, &runner, None).await;
+
+    assert!(detection.installed);
+    assert_eq!(detection.version.as_deref(), Some("2.1.304"));
+    assert_eq!(detection.version_support, VersionSupport::Supported);
+    assert_eq!(detection.error, None);
+    assert_eq!(detection.config_dir, Some(custom.to_string_lossy().into_owned()));
+
+    assert_version_probe(&runner, &binary, "DISABLE_UPDATES");
+}
+
+#[tokio::test]
+async fn a_missing_claude_offers_the_native_installer_of_the_os() {
+    let home = TempDir::new().unwrap();
+    let (env, _) = env_with_bin(&home);
+
+    let detection = Claude.detect(&env, &NoRunner, None).await;
+
+    assert!(!detection.installed);
+    let hint = detection.install_hint.unwrap();
+    let command = if cfg!(windows) {
+        "irm https://claude.ai/install.ps1 | iex"
+    } else {
+        "curl -fsSL https://claude.ai/install.sh | bash"
+    };
+    assert_eq!(hint.commands.len(), 1);
+    assert_eq!(hint.commands[0].label, None);
+    assert_eq!(hint.commands[0].command, command);
+    assert_eq!(hint.docs_url, "https://code.claude.com/docs/en/setup");
 }

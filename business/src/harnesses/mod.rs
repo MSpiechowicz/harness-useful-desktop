@@ -4,10 +4,12 @@
 //! [`crate::harness::Harness`], export it here and register it in
 //! [`crate::harness::HarnessRegistry::with_defaults`].
 
+pub mod claude;
 pub mod omp;
 pub mod opencode;
 pub mod pi;
 
+pub use claude::Claude;
 pub use omp::Omp;
 pub use opencode::OpenCode;
 pub use pi::Pi;

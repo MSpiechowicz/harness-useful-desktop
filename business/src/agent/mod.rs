@@ -18,6 +18,7 @@
 //! The webview never sees raw frames: every event is normalized, redacted where it carries agent
 //! diagnostics, and numbered per session.
 
+mod claude;
 mod coalesce;
 mod engine;
 mod io;

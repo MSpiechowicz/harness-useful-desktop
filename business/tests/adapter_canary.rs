@@ -1,12 +1,13 @@
 //! Canary test for the adapters: the fixture homes hide `CANARY-7f3a9c` in every secret value,
 //! every deny-listed file (`agent.db`, `opencode.db`, `auth.json`, `mcp-auth.json`,
-//! `models-store.json`, OpenCode's `storage/` transcripts and logs), skill, template, agent and
-//! command bodies, plugin settings, MCP command-line arguments and a catalog outside the
-//! marketplace cache. No view any adapter produces may contain it.
+//! `models-store.json`, OpenCode's `storage/` transcripts and logs, Claude Code's login store,
+//! prompt history, caches and backups), skill, template, agent and command bodies, plugin
+//! settings, MCP command-line arguments and a catalog outside the marketplace cache. No view any
+//! adapter produces may contain it.
 
 mod common;
 
-use common::{CANARY, demo_project, env_at, json_text, omp_home, opencode_home, pi_home};
+use common::{CANARY, claude_home, demo_project, env_at, json_text, omp_home, opencode_home, pi_home};
 use harness_business::env::Env;
 use harness_business::harness::HarnessRegistry;
 
@@ -31,6 +32,7 @@ fn no_view_reveals_the_canary() {
     let omp = omp_home();
     let pi = pi_home();
     let opencode = opencode_home();
+    let claude = claude_home();
     let opencode_overrides = env_at(&opencode)
         .with_var(
             "OPENCODE_CONFIG",
@@ -45,6 +47,8 @@ fn no_view_reveals_the_canary() {
         env_at(&pi),
         env_at(&opencode),
         opencode_overrides,
+        env_at(&claude),
+        env_at(&claude).with_var("CLAUDE_CONFIG_DIR", claude.join(".claude").to_string_lossy()),
     ];
 
     for env in envs {

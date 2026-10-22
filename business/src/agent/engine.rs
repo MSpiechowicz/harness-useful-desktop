@@ -4,6 +4,7 @@
 //! - RPC ([`RpcSession`]): OMP and PI in `--mode rpc`.
 //! - OpenCode server ([`OpenCodeSession`]): `opencode serve` (the manager does not offer it yet).
 //! - OpenCode 2 server ([`OpenCodeV2Session`]): `opencode serve` 2.x and its `/api` routes.
+//! - Claude Code stream-json ([`ChatProtocol::ClaudeStream`]): not available yet, starting fails.
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -14,7 +15,7 @@ use super::opencode_v2::OpenCodeV2Session;
 use super::process::StartAbort;
 use super::session::RpcSession;
 use super::sink::{EventSink, PromptTaken};
-use crate::error::Result;
+use crate::error::{BusinessError, Result};
 use crate::harness::ChatProtocol;
 use crate::model::{AgentAction, AgentEvent, AgentReply, ApprovalMode, BashOutput, UiResponse};
 use crate::process::{ExecSpec, ExitInfo, ProcessSpawner};
@@ -65,6 +66,9 @@ impl AgentSession {
             ChatProtocol::Rpc(dialect) => RpcSession::start(launch, dialect).await.map(Self::Rpc),
             ChatProtocol::OpenCodeServer => OpenCodeSession::start(launch).await.map(Self::OpenCode),
             ChatProtocol::OpenCodeServerV2 => OpenCodeV2Session::start(launch).await.map(Self::OpenCodeV2),
+            ChatProtocol::ClaudeStream => Err(BusinessError::Unsupported(
+                "Claude Code chat is not available yet".to_owned(),
+            )),
         }
     }
 

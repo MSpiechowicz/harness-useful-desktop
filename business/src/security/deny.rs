@@ -25,6 +25,8 @@ const DENIED_EXTENSIONS: &[&str] = &[
     "key",
     "p12",
     "pfx",
+    // Claude Code's memory dumps (`/heapdump`), which can hold tokens.
+    "heapsnapshot",
 ];
 
 /// Exact file names (lowercase) that are never read.
@@ -38,17 +40,37 @@ const DENIED_NAMES: &[&str] = &[
     "credentials",
     "credentials.json",
     ".env",
+    // Claude Code's login store and its cached account and policy state.
+    ".credentials.json",
+    "mcp-needs-auth-cache.json",
+    "policy-limits.json",
+    "policy-limits.stamp.json",
 ];
 
 /// File-name prefixes (lowercase) that are never read.
-const DENIED_PREFIXES: &[&str] = &[".env.", "id_rsa", "id_ed25519"];
+const DENIED_PREFIXES: &[&str] = &[
+    ".env.",
+    "id_rsa",
+    "id_ed25519",
+    // Claude Code's copies of its global file (`.claude.json.backup.<timestamp>`).
+    ".claude.json.backup",
+];
 
 /// File names (lowercase) with this prefix and suffix are never read: the OpenCode desktop app's
 /// state (`opencode.settings.dat`, `opencode.global.dat`, `opencode.workspace.<id>.dat`).
 const DENIED_PREFIX_SUFFIXES: &[(&str, &str)] = &[("opencode.", ".dat")];
 
-/// Directory names (lowercase) whose contents are never read.
-const DENIED_DIRS: &[&str] = &["terminal-sessions", "url-search"];
+/// Directory names (lowercase) whose contents are never read: OMP's terminal and search stores,
+/// and Claude Code's pasted text, shell environment snapshots, file edit history and per-session
+/// environments.
+const DENIED_DIRS: &[&str] = &[
+    "terminal-sessions",
+    "url-search",
+    "paste-cache",
+    "shell-snapshots",
+    "file-history",
+    "session-env",
+];
 
 /// Directory names (lowercase) whose contents are never read when their direct parent is
 /// `opencode`: transcripts, cached repositories, project snapshots, full tool outputs and session
@@ -59,6 +81,25 @@ const DENIED_OPENCODE_DIRS: &[&str] = &["storage", "repos", "snapshot", "tool-ou
 /// File names (lowercase) never read when their direct parent is `opencode`: the prompts typed
 /// into OpenCode (`<state>/opencode/prompt-history.jsonl`).
 const DENIED_OPENCODE_FILES: &[&str] = &["prompt-history.jsonl"];
+
+/// The default name of Claude Code's config directory (`~/.claude`), whose private children the lists
+/// below name.
+const CLAUDE_DIR: &str = ".claude";
+
+/// Directory names (lowercase) whose contents are never read when their direct parent is
+/// `.claude`: backups of the global file, telemetry, debug logs, uploaded and cached images, the
+/// browser extension's state and the IDE connection locks, which hold an auth token
+/// (`~/.claude/backups`, `statsig`, `debug`, `uploads`, `image-cache`, `chrome`, `ide`). The names
+/// alone are too generic.
+const DENIED_CLAUDE_DIRS: &[&str] = &["backups", "statsig", "debug", "uploads", "image-cache", "chrome", "ide"];
+
+/// Prefix of directory names (lowercase) never read when their direct parent is `.claude`: the
+/// feedback bundles (`~/.claude/feedback-*`).
+const DENIED_CLAUDE_DIR_PREFIX: &str = "feedback";
+
+/// File names (lowercase) never read when their direct parent is `.claude`: the prompts typed into
+/// Claude Code, the remotely managed settings and the usage statistics cache.
+const DENIED_CLAUDE_FILES: &[&str] = &["history.jsonl", "remote-settings.json", "stats-cache.json"];
 
 /// Maximum symlink hops followed when checking link targets.
 const MAX_LINK_HOPS: usize = 40;
@@ -106,6 +147,10 @@ pub fn is_denied(path: &Path) -> Option<DenyReason> {
         return Some(DenyReason::FileName(file_name.clone()));
     }
 
+    if DENIED_CLAUDE_FILES.contains(&file_name.as_str()) && parents.last().is_some_and(|parent| parent == CLAUDE_DIR) {
+        return Some(DenyReason::FileName(file_name.clone()));
+    }
+
     for (index, dir) in parents.iter().enumerate() {
         if DENIED_DIRS.contains(&dir.as_str()) {
             return Some(DenyReason::Directory(dir.clone()));
@@ -127,9 +172,30 @@ pub fn is_denied(path: &Path) -> Option<DenyReason> {
         if dir == "node_modules" && is_opencode_cache(&parents[..index]) {
             return Some(DenyReason::Directory(dir.clone()));
         }
+
+        if is_claude_private_dir(dir, &parents[..index]) {
+            return Some(DenyReason::Directory(dir.clone()));
+        }
     }
 
     None
+}
+
+/// True for Claude Code's private folders: a [`DENIED_CLAUDE_DIRS`] or `feedback*` folder directly in
+/// `.claude`, `.claude/plugins/data` (the plugins' own data) and a session's `tool-results` below a
+/// `projects` folder (full tool outputs, `~/.claude/projects/<slug>/<session>/tool-results`).
+fn is_claude_private_dir(dir: &str, ancestors: &[String]) -> bool {
+    let in_claude_dir = ancestors.last().is_some_and(|parent| parent == CLAUDE_DIR);
+
+    if in_claude_dir && (DENIED_CLAUDE_DIRS.contains(&dir) || dir.starts_with(DENIED_CLAUDE_DIR_PREFIX)) {
+        return true;
+    }
+
+    if dir == "data" && matches!(ancestors, [.., claude, plugins] if claude == CLAUDE_DIR && plugins == "plugins") {
+        return true;
+    }
+
+    dir == "tool-results" && ancestors.iter().any(|ancestor| ancestor == "projects")
 }
 
 /// True when `ancestors` ends in `.cache/opencode` (or `cache/opencode`).

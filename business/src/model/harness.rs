@@ -15,11 +15,13 @@ pub enum HarnessId {
     Pi,
     /// OpenCode (`opencode`).
     OpenCode,
+    /// Claude Code (`claude`).
+    Claude,
 }
 
 impl HarnessId {
     /// Every supported harness, in display order.
-    pub const ALL: [HarnessId; 3] = [HarnessId::Omp, HarnessId::Pi, HarnessId::OpenCode];
+    pub const ALL: [HarnessId; 4] = [HarnessId::Omp, HarnessId::Pi, HarnessId::OpenCode, HarnessId::Claude];
 
     /// The default executable name of the harness CLI.
     pub fn binary_name(self) -> &'static str {
@@ -27,6 +29,7 @@ impl HarnessId {
             HarnessId::Omp => "omp",
             HarnessId::Pi => "pi",
             HarnessId::OpenCode => "opencode",
+            HarnessId::Claude => "claude",
         }
     }
 }

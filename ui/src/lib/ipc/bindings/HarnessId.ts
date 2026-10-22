@@ -6,4 +6,4 @@
  * Adding a harness means adding a variant here plus a `harnesses/<name>` module that
  * implements the harness trait and a registry entry; the UI renders data-driven from those.
  */
-export type HarnessId = "omp" | "pi" | "opencode";
+export type HarnessId = "omp" | "pi" | "opencode" | "claude";
