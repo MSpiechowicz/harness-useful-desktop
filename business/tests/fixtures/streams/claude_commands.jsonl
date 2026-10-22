@@ -2,6 +2,8 @@
 // turn whose system/init lists the skills (controls.jsonl lines 7 to 21).
 {"include": "claude_startup.jsonl"}
 {"expect": "control_request", "subtype": "reload_skills", "reply": {"skills": [{"name": "figma", "description": "Import Figma content into a composition (user)", "argumentHint": ""}, {"name": "review-pr", "description": "Review a pull request (user)", "argumentHint": "<number>"}]}}
+// The pause lets the engine apply the reload_skills reply before commands_changed replaces the list.
+{"sleep": 300}
 {"replay": "../claude/stream/controls.jsonl", "from": 44, "to": 44}
 {"expect": "user", "as": "one"}
 {"replay": "../claude/stream/controls.jsonl", "from": 7, "to": 21, "replace": {"b16575cf-0628-406e-a6c1-394fd4c3a22a": "$one"}}
