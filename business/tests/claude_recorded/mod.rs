@@ -7,12 +7,20 @@
 #![allow(dead_code)]
 
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde_json::Value;
 
 /// The recorded project directory.
 pub const PROJECT: &str = "/home/user/project";
+
+/// The JSON text of `frame` with the recorded project directory moved to `project`, written as a
+/// JSON string so a Windows path keeps its backslashes escaped.
+pub fn moved(frame: &Value, project: &Path) -> String {
+    let quoted = serde_json::to_string(&project.to_string_lossy()).expect("a path as JSON");
+
+    frame.to_string().replace(PROJECT, &quoted[1..quoted.len() - 1])
+}
 
 /// Every recording.
 pub const FILES: [&str; 12] = [

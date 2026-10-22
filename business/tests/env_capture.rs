@@ -57,8 +57,14 @@ fn a_captured_claude_config_dir_joins_the_deny_list() {
     }
 
     let env = Env::from_process().expect("environment");
+    // Windows sets `ProgramFiles` itself in every new process, over the value the parent passed.
+    let program_files = if cfg!(windows) {
+        std::env::var("ProgramFiles").expect("set by Windows")
+    } else {
+        "D:\\Apps".to_owned()
+    };
 
-    assert_eq!(env.var("ProgramFiles"), Some("D:\\Apps"));
+    assert_eq!(env.var("ProgramFiles"), Some(program_files.as_str()));
     assert!(harness_business::security::is_denied(&root.join("history.jsonl")).is_some());
     assert!(harness_business::security::is_denied(&root.join("debug").join("x.txt")).is_some());
     assert_eq!(harness_business::security::is_denied(&root.join("settings.json")), None);

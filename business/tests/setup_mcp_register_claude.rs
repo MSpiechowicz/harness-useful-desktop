@@ -113,7 +113,13 @@ fn the_target_is_the_user_scope_of_the_global_file_also_under_claude_config_dir(
 #[tokio::test]
 async fn the_dashboard_is_added_by_its_absolute_path_through_add_json() {
     let home = Home::new();
-    let dashboard = home.dir.path().join(".local/bin/harness-dashboard");
+    // Joined part by part and with `.exe` on Windows, as the PATH search names the program it finds.
+    let dashboard = home
+        .dir
+        .path()
+        .join(".local")
+        .join("bin")
+        .join(format!("harness-dashboard{}", std::env::consts::EXE_SUFFIX));
     std::fs::create_dir_all(dashboard.parent().unwrap()).unwrap();
     std::fs::write(&dashboard, "never run").unwrap();
     #[cfg(unix)]

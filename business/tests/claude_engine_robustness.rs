@@ -9,7 +9,7 @@ mod claude_engine_support;
 use std::sync::Arc;
 use std::time::Duration;
 
-use claude_engine_support::{Chat, Setup, marker, prompt, start, stop_cleanly};
+use claude_engine_support::{Chat, Setup, lf, marker, prompt, start, stop_cleanly};
 use harness_business::BusinessError;
 use harness_business::model::{AgentAction, AgentEvent, AgentReply, IpcErrorCode};
 use pretty_assertions::assert_eq;
@@ -59,7 +59,7 @@ async fn a_dropped_command_frees_the_chat_for_the_next_one() {
     assert!(dropped.is_err(), "the call was dropped while the command ran");
 
     let output = chat.session().bash("echo freed").await.expect("the chat is free");
-    assert_eq!(output.output, "freed\n");
+    assert_eq!(lf(&output.output), "freed\n");
 
     chat.stop().await;
 }

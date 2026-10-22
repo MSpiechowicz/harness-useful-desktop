@@ -12,7 +12,7 @@ use harness_business::claude_stream::wire::decode_value;
 use harness_business::model::{AgentEvent, ChatMessage, MessageRole};
 use serde_json::Value;
 
-use crate::claude_recorded::{Dir, PROJECT, rows};
+use crate::claude_recorded::{Dir, PROJECT, moved, rows};
 
 /// A replayed recording.
 pub struct Replay {
@@ -45,14 +45,12 @@ impl Replay {
 pub fn replay_in(file: &str, project: &Path) -> Replay {
     let mut mapper = ClaudeMapper::new(project);
     let mut out = Vec::new();
-    let directory = project.to_str().unwrap();
 
     for row in rows(file) {
         match row.dir {
             Dir::In => announce(&mut mapper, &row.frame),
             Dir::Out => {
-                let moved = row.frame.to_string().replace(PROJECT, directory);
-                let frame = serde_json::from_str(&moved).unwrap();
+                let frame = serde_json::from_str(&moved(&row.frame, project)).unwrap();
                 let frame = decode_value(frame).unwrap_or_else(|error| panic!("{file}: {error:?}"));
                 out.extend(mapper.on_frame(&frame));
             }

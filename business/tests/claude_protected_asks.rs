@@ -9,7 +9,7 @@ mod claude_recorded;
 
 use std::path::Path;
 
-use claude_recorded::{Dir, PROJECT, frames};
+use claude_recorded::{Dir, frames, moved};
 use harness_business::claude_stream::ClaudeMapper;
 use harness_business::claude_stream::allow_list::{AllowKey, AllowList};
 use harness_business::claude_stream::mapper::{Ask, Hint, Mapped, PermissionAsk};
@@ -31,10 +31,7 @@ fn recorded_asks(file: &str, project: &Path) -> Vec<PermissionAsk> {
     frames(file, Dir::Out)
         .into_iter()
         .filter(|frame| frame["request"]["subtype"] == "can_use_tool")
-        .flat_map(|frame| {
-            let line = frame.to_string().replace(PROJECT, &project.to_string_lossy());
-            mapper.on_line(&line)
-        })
+        .flat_map(|frame| mapper.on_line(&moved(&frame, project)))
         .filter_map(|mapped| match mapped {
             Mapped::Hint(Hint::Ask(Ask::Permission(ask))) => Some(*ask),
             _ => None,

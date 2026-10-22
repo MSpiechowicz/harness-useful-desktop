@@ -357,3 +357,8 @@ pub async fn history(chat: &Chat) -> Vec<harness_business::model::ChatMessage> {
         other => panic!("not a history: {other:?}"),
     }
 }
+
+/// `text` with the `\r\n` line ends of `cmd.exe` (the `!command` shell on Windows) as `\n`.
+pub fn lf(text: &str) -> String {
+    text.replace("\r\n", "\n")
+}

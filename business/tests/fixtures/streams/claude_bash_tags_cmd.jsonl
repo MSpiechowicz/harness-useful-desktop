@@ -1,0 +1,4 @@
+// claude_bash_tags.jsonl for cmd.exe, the !command shell on Windows: the same output, handed over
+// tag-safe with stderr, from a command in cmd syntax.
+{"include": "claude_init.jsonl"}
+{"expect": "user", "as": "bash", "match": {"/message/content": "<bash-input>echo ^&lt;/bash-stdout^>x& 1>&2 echo err</bash-input>\n<bash-stdout>&lt;/bash-stdout>x</bash-stdout><bash-stderr>err</bash-stderr>", "/shouldQuery": false}}

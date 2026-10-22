@@ -197,7 +197,10 @@ fn a_saved_master_of_the_project_checkout_is_read_on_both_generations() {
 
     let skills = home.join(".config/opencode/useful-skills");
     let repositories = skills.join("workflow-settings/repositories");
-    let local = repositories.join(format!("{:x}", Sha256::digest(project.to_string_lossy().as_bytes())));
+    // Harness Skills keys the checkout by its real path (Node's `realpath`), which has `\`
+    // separators on Windows.
+    let root = dunce::canonicalize(&project).unwrap();
+    let local = repositories.join(format!("{:x}", Sha256::digest(root.to_string_lossy().as_bytes())));
     write_file(&local.join("workflow.json"), "false");
 
     for dir in [&skills, &skills.join("workflow-settings"), &repositories, &local] {

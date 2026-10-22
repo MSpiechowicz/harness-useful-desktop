@@ -277,9 +277,11 @@ mod tests {
     #[test]
     fn only_local_keys_naming_the_project_folder_are_resolved() {
         let canonical = Path::new("/w/demo");
+        // An absolute local path has a drive on Windows: `/elsewhere` is relative to the current one.
+        let drive = if cfg!(windows) { "C:" } else { "" };
 
-        assert!(may_resolve_to("/elsewhere/Demo", canonical));
-        assert!(!may_resolve_to("/elsewhere/other", canonical));
+        assert!(may_resolve_to(&format!("{drive}/elsewhere/Demo"), canonical));
+        assert!(!may_resolve_to(&format!("{drive}/elsewhere/other"), canonical));
         assert!(!may_resolve_to("//host/share/demo", canonical));
         assert!(!may_resolve_to("\\\\host\\share\\demo", canonical));
         assert!(!may_resolve_to("demo", canonical));

@@ -386,7 +386,9 @@ fn with_saved_session(env: Env, project: &Path, cwd: impl Fn(&str) -> String) ->
 
     let dir = Claude.sessions_dir(&env, &project);
     std::fs::create_dir_all(&dir).expect("the session folder");
-    let recorded = text.replace("/home/demo/Projects/demo", &cwd(&project.to_string_lossy()));
+    // Written as a JSON string, so a Windows path keeps its backslashes escaped.
+    let quoted = serde_json::to_string(&cwd(&project.to_string_lossy())).expect("a path as JSON");
+    let recorded = text.replace("/home/demo/Projects/demo", &quoted[1..quoted.len() - 1]);
     std::fs::write(dir.join(format!("{SAVED_SESSION}.jsonl")), recorded).expect("write the session");
 
     env

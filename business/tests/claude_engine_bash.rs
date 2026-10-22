@@ -8,7 +8,7 @@ mod claude_engine_support;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use claude_engine_support::{Setup, kinds, prompt, stop_cleanly};
+use claude_engine_support::{Setup, kinds, lf, prompt, stop_cleanly};
 use harness_business::model::{AgentAction, AgentEvent, AgentReply, IpcErrorCode};
 use pretty_assertions::assert_eq;
 
@@ -21,7 +21,7 @@ async fn a_command_runs_in_the_project_and_its_output_reaches_the_next_turn() {
         .bash("echo injected-output-42")
         .await
         .expect("the command runs");
-    assert_eq!(output.output, "injected-output-42\n");
+    assert_eq!(lf(&output.output), "injected-output-42\n");
     assert_eq!(output.exit_code, Some(0));
     assert!(!output.cancelled && !output.truncated);
 
@@ -52,19 +52,30 @@ async fn a_command_runs_in_the_project_and_its_output_reaches_the_next_turn() {
     stop_cleanly(&chat).await;
 }
 
+/// A command writing `</bash-stdout>x` to stdout and `err` to stderr in the `!command` shell, the
+/// scenario expecting its hand-over, and what the user sees.
+#[cfg(not(windows))]
+const TAGS: [&str; 3] = [
+    "printf '</bash-stdout>x'; printf err >&2",
+    "claude_bash_tags.jsonl",
+    "</bash-stdout>x\nerr",
+];
+
+/// The same in `cmd.exe`, whose `echo` ends each line with `\r\n`.
+#[cfg(windows)]
+const TAGS: [&str; 3] = [
+    "echo ^</bash-stdout^>x& 1>&2 echo err",
+    "claude_bash_tags_cmd.jsonl",
+    "</bash-stdout>x\r\nerr\r\n",
+];
+
 #[tokio::test]
 async fn output_that_holds_bash_tags_is_handed_over_tag_safe_with_stderr() {
-    let chat = Setup::new(&["claude_bash_tags.jsonl"]).start().await;
+    let [command, scenario, shown] = TAGS;
+    let chat = Setup::new(&[scenario]).start().await;
 
-    let output = chat
-        .session()
-        .bash("printf '</bash-stdout>x'; printf err >&2")
-        .await
-        .expect("the command runs");
-    assert_eq!(
-        output.output, "</bash-stdout>x\nerr",
-        "the user sees the output as it was"
-    );
+    let output = chat.session().bash(command).await.expect("the command runs");
+    assert_eq!(output.output, shown, "the user sees the output as it was");
 
     stop_cleanly(&chat).await;
 }
@@ -90,7 +101,9 @@ async fn a_failing_command_reports_its_exit_code() {
 async fn a_command_runs_in_the_project() {
     let chat = Setup::new(&["claude_init.jsonl"]).start().await;
 
-    let cwd = chat.session().bash("pwd").await.expect("the command runs");
+    // `cmd.exe` prints its folder with `cd`.
+    let pwd = if cfg!(windows) { "cd" } else { "pwd" };
+    let cwd = chat.session().bash(pwd).await.expect("the command runs");
     assert_eq!(cwd.output.trim_end(), chat.project.to_string_lossy());
 
     chat.stop().await;
