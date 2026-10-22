@@ -75,7 +75,7 @@ describe('a failed claude mcp run', () => {
   });
 
   it('has a sentence for every refusal', () => {
-    const all: Record<McpRefusal, true> = { unparsable: true, notAnObject: true, serversNotAnObject: true, symlink: true, notRegularFile: true, tooLarge: true, unreadable: true, writeFailed: true, cliFailed: true };
+    const all: Record<McpRefusal, true> = { unparsable: true, notAnObject: true, serversNotAnObject: true, symlink: true, notRegularFile: true, tooLarge: true, unreadable: true, writeFailed: true, cliFailed: true, cliRemovedEntry: true, cliBatchShim: true };
 
     for (const reason of Object.keys(all) as McpRefusal[]) {
       expect(refusalText(reason)).not.toMatch(/^onboarding\./);
@@ -90,5 +90,18 @@ describe('a failed claude mcp run', () => {
     expect(screen.getByText(/“claude mcp” command failed/)).toBeInTheDocument();
     expect(screen.queryByText(/mcpServers/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Add this to the file yourself/)).not.toBeInTheDocument();
+  });
+
+  it('says how to add a removed entry back, and to use the native installer for a batch shim, without a snippet', () => {
+    const props = { kind: 'desktopMcp', harness: 'claude', title: 'Harness Desktop MCP', manualEdit: null, disabled: false, waitsFor: null, failure: null } as const;
+
+    const removed = render(SetupMcpNote, { ...props, refused: 'cliRemovedEntry' });
+    expect(screen.getByText(/Run Recommended setup again to add it\./)).toBeInTheDocument();
+    expect(screen.queryByText(/Add this to the file yourself/)).not.toBeInTheDocument();
+    removed.unmount();
+
+    render(SetupMcpNote, { ...props, refused: 'cliBatchShim' });
+    expect(screen.getByText(/Use the native installer\./)).toBeInTheDocument();
+    expect(screen.queryByText(/mcpServers/)).not.toBeInTheDocument();
   });
 });

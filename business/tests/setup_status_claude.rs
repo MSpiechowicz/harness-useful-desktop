@@ -45,6 +45,22 @@ fn installed_plugins(config: &Path, entries: serde_json::Value) {
     );
 }
 
+/// The user settings switching the skills plugin on, as `claude plugin install` leaves them.
+fn switched_on(config: &Path) {
+    write_json(
+        &config.join("settings.json"),
+        &json!({ "enabledPlugins": { "useful-skills@useful-skills-local": true } }),
+    );
+}
+
+fn enable() -> SkillsSetup {
+    SkillsSetup::Install {
+        actions: vec![ExtensionAction::PluginEnable {
+            name: "useful-skills@useful-skills-local".to_owned(),
+        }],
+    }
+}
+
 #[tokio::test]
 async fn the_skills_plugin_of_the_user_scope_counts_with_its_version() {
     let home = tempfile::tempdir().unwrap();
@@ -53,6 +69,7 @@ async fn the_skills_plugin_of_the_user_scope_counts_with_its_version() {
         &config,
         json!([{ "scope": "user", "installPath": "/x", "version": "0.3.1" }]),
     );
+    switched_on(&config);
 
     let setup = claude(&Env::for_tests(home.path())).await;
 
@@ -66,14 +83,14 @@ async fn the_skills_plugin_of_the_user_scope_counts_with_its_version() {
 
 #[tokio::test]
 async fn a_project_install_does_not_count_and_a_registered_marketplace_is_not_added_again() {
-    // Registered by the name the skills' marketplace gives itself, or from the skills' repository
-    // under any name.
+    // Registered from the skills' repository, under any name.
     let registries = [
         json!({ "useful-skills-local": {
             "source": { "source": "github", "repo": "MSpiechowicz/harness-useful-skills" },
             "installLocation": "/x"
         } }),
         json!({ "mine": { "source": { "source": "git", "url": "https://github.com/mspiechowicz/harness-useful-skills.git" } } }),
+        json!({ "mine": { "source": { "source": "url", "url": "https://github.com/MSpiechowicz/harness-useful-skills/" } } }),
     ];
 
     for registry in registries {
@@ -97,6 +114,38 @@ async fn a_project_install_does_not_count_and_a_registered_marketplace_is_not_ad
     }
 }
 
+/// A marketplace that only takes the skills' marketplace name, or whose source merely contains the
+/// repository's name, is someone else's: the skills' own is still added.
+#[tokio::test]
+async fn a_marketplace_of_the_same_name_from_elsewhere_does_not_count() {
+    let registries = [
+        json!({ "useful-skills-local": { "source": { "source": "github", "repo": "someone/useful-skills" } } }),
+        json!({ "useful-skills-local": { "source": { "source": "directory", "path": "/tmp/fake" } } }),
+        json!({ "fork": { "source": { "source": "git", "url": "https://evil.example/MSpiechowicz/harness-useful-skills.git" } } }),
+        json!({ "fork": { "source": { "source": "github", "repo": "MSpiechowicz/harness-useful-skills-fork" } } }),
+    ];
+
+    for registry in registries {
+        let home = tempfile::tempdir().unwrap();
+        write_json(&home.path().join(".claude/plugins/known_marketplaces.json"), &registry);
+
+        let setup = claude(&Env::for_tests(home.path())).await;
+
+        assert_eq!(
+            setup.skills,
+            SkillsSetup::Install {
+                actions: vec![
+                    ExtensionAction::MarketplaceAdd {
+                        source: "MSpiechowicz/harness-useful-skills".to_owned()
+                    },
+                    install()
+                ]
+            },
+            "{registry}"
+        );
+    }
+}
+
 #[tokio::test]
 async fn a_switched_off_plugin_is_offered_its_enable() {
     let home = tempfile::tempdir().unwrap();
@@ -109,14 +158,31 @@ async fn a_switched_off_plugin_is_offered_its_enable() {
 
     let setup = claude(&Env::for_tests(home.path())).await;
 
-    assert_eq!(
-        setup.skills,
-        SkillsSetup::Install {
-            actions: vec![ExtensionAction::PluginEnable {
-                name: "useful-skills@useful-skills-local".to_owned()
-            }]
-        }
+    assert_eq!(setup.skills, enable());
+}
+
+/// The extensions view's rule: only `enabledPlugins` set to `true` in the merged settings switches
+/// a plugin on, so a plugin no layer names, or one managed settings switch off, is offered its
+/// enable.
+#[tokio::test]
+async fn a_plugin_the_settings_do_not_switch_on_is_offered_its_enable() {
+    let home = tempfile::tempdir().unwrap();
+    let config = home.path().join(".claude");
+    installed_plugins(&config, json!([{ "scope": "user", "version": "0.3.1" }]));
+
+    let env = Env::for_tests(home.path());
+    assert_eq!(claude(&env).await.skills, enable(), "named nowhere");
+
+    switched_on(&config);
+    let managed = home.path().join("Program Files/ClaudeCode");
+    write_json(
+        &managed.join("managed-settings.json"),
+        &json!({ "enabledPlugins": { "useful-skills@useful-skills-local": false } }),
     );
+    let env = env
+        .with_os(harness_business::env::OsKind::Windows)
+        .with_var("ProgramFiles", home.path().join("Program Files").to_string_lossy());
+    assert_eq!(claude(&env).await.skills, enable(), "switched off by managed settings");
 }
 
 #[tokio::test]
@@ -160,6 +226,7 @@ async fn claude_config_dir_moves_the_registries_and_the_global_file() {
     let home = tempfile::tempdir().unwrap();
     let custom = home.path().join("claude-work");
     installed_plugins(&custom, json!([{ "scope": "user" }]));
+    switched_on(&custom);
     write_json(
         &custom.join(".claude.json"),
         &json!({ "mcpServers": { "harness-memory": stdio("/x/harness-memory") } }),

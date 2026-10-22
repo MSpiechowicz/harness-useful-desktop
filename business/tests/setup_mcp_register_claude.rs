@@ -55,6 +55,14 @@ impl Home {
             .unwrap_or(Value::Null)
     }
 
+    /// Writes an owned `harness-memory` entry of an older install and returns it.
+    fn old_memory_entry(&self) -> Value {
+        let old = stdio("/old/place/harness-memory");
+        write_json(&self.global(), &json!({ "mcpServers": { "harness-memory": old } }));
+
+        old
+    }
+
     fn fake(&self) -> FakeClaude {
         FakeClaude::new(&self.global())
     }
@@ -262,8 +270,7 @@ async fn a_failed_remove_is_refused_as_a_failed_cli_run_and_not_a_write_failure(
 #[tokio::test]
 async fn a_failed_change_puts_the_old_entry_back() {
     let home = Home::new();
-    let old = stdio("/old/place/harness-memory");
-    write_json(&home.global(), &json!({ "mcpServers": { "harness-memory": old } }));
+    let old = home.old_memory_entry();
 
     let fake = home.fake();
     fake.fail("add-json");
@@ -356,19 +363,49 @@ async fn the_app_is_added_once_and_a_removed_entry_stays_out_at_launch() {
     assert_eq!(fake.argvs().len(), 1);
 }
 
+/// A batch shim (`claude.cmd`) never gets the JSON argument, and an entry it could not add back
+/// is never removed: nothing runs.
 #[tokio::test]
 async fn a_batch_script_claude_never_gets_the_json_argument() {
-    let home = Home::new();
-    let fake = home.fake();
-    let shim = ResolvedBinary {
+    let shim = |home: &Home| ResolvedBinary {
         path: home.dir.path().join("claude.cmd"),
         is_batch_script: true,
     };
 
-    let outcome = register_memory_mcp_cli(cli(&home.env, &fake, &shim), &home.file(), &home.memory(), false).await;
+    let home = Home::new();
+    let fake = home.fake();
+    let outcome =
+        register_memory_mcp_cli(cli(&home.env, &fake, &shim(&home)), &home.file(), &home.memory(), false).await;
 
-    assert_eq!(outcome, MemoryRegistration::Refused(McpRefusal::CliFailed));
+    assert_eq!(outcome, MemoryRegistration::Refused(McpRefusal::CliBatchShim));
     assert!(fake.argvs().is_empty(), "nothing runs");
+
+    let home = Home::new();
+    let old = home.old_memory_entry();
+    let fake = home.fake();
+    let outcome =
+        register_memory_mcp_cli(cli(&home.env, &fake, &shim(&home)), &home.file(), &home.memory(), true).await;
+
+    assert_eq!(outcome, MemoryRegistration::Refused(McpRefusal::CliBatchShim));
+    assert!(fake.argvs().is_empty(), "not even the remove runs");
+    assert_eq!(home.servers(), json!({ "harness-memory": old }));
+}
+
+#[tokio::test]
+async fn an_entry_removed_and_not_added_back_is_refused_as_removed() {
+    let home = Home::new();
+    home.old_memory_entry();
+
+    let fake = home.fake();
+    fake.fail("add-json");
+    fake.fail("add-json");
+
+    assert_eq!(
+        home.memory_registration(&fake, true).await,
+        MemoryRegistration::Refused(McpRefusal::CliRemovedEntry)
+    );
+    assert_eq!(fake.argvs().len(), 3, "remove, add, add back; no retry");
+    assert_eq!(home.servers(), json!({}), "the entry is gone");
 }
 
 #[test]

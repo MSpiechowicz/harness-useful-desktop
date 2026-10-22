@@ -21,7 +21,7 @@ pub(super) use self::files::{SettingsFile, managed_files, settings_files};
 pub(super) use self::global_file::{GlobalSections, global_sections, names_project};
 use crate::env::Env;
 use crate::model::{ConfigFormat, ConfigLayer, ConfigSection, ConfigView, HarnessId};
-use crate::pi_family::{Document, SectionText, read_document, section_with, source};
+use crate::pi_family::{Document, SectionText, section_with, source};
 
 /// See the module docs.
 pub fn config_view(env: &Env, project: Option<&Path>) -> ConfigView {
@@ -43,7 +43,7 @@ pub fn config_view(env: &Env, project: Option<&Path>) -> ConfigView {
 }
 
 fn read_section(file: &SettingsFile) -> ConfigSection {
-    section(file, &read_document(&file.path, ConfigFormat::Json))
+    section(file, &file.read())
 }
 
 /// `file` rendered with the redacted fields of `document`.

@@ -354,11 +354,11 @@ fn find_node(env: &Env) -> Option<ResolvedBinary> {
 }
 
 /// Installed when the user has the skills plugin (`plugin`, or another `name@…` of its name; on OMP
-/// also an npm install) and it is not switched off; otherwise the marketplace add (unless a
-/// marketplace of `plugin`'s marketplace name or from `source` is registered) and the user-scope
-/// plugin install, or for a switched-off plugin its enable.
+/// also an npm install) and it is switched on; otherwise the marketplace add (unless a marketplace
+/// from `source` is registered, see [`same_repository`]) and the user-scope plugin install, or for
+/// a plugin that is off its enable.
 fn marketplace_skills(env: &Env, harness: &dyn Harness, source: &str, plugin: &str) -> SkillsSetup {
-    let (name, marketplace) = plugin.split_once('@').unwrap_or((plugin, plugin));
+    let name = plugin.split_once('@').map_or(plugin, |(name, _)| name);
     let registries = marketplace_registries(env, harness);
     let prefix = format!("{name}@");
 
@@ -381,11 +381,10 @@ fn marketplace_skills(env: &Env, harness: &dyn Harness, source: &str, plugin: &s
         None => {}
     }
 
-    let source_lower = source.to_ascii_lowercase();
     let registered = registries
         .marketplaces
         .iter()
-        .any(|(registered, from)| registered == marketplace || from.to_ascii_lowercase().contains(&source_lower));
+        .any(|(_, from)| same_repository(from, source));
 
     let mut actions = Vec::new();
 
@@ -403,6 +402,20 @@ fn marketplace_skills(env: &Env, harness: &dyn Harness, source: &str, plugin: &s
     SkillsSetup::Install { actions }
 }
 
+/// True when the marketplace source `registered` names the GitHub repository `repo` (`owner/repo`):
+/// as `owner/repo` or as its `https://github.com/` URL (with or without `.git` and a trailing `/`),
+/// in any ASCII case. A marketplace of the same name from elsewhere does not count.
+fn same_repository(registered: &str, repo: &str) -> bool {
+    let normalized = registered.trim().to_ascii_lowercase();
+    let path = normalized
+        .strip_prefix("https://github.com/")
+        .unwrap_or(&normalized)
+        .trim_end_matches('/');
+    let path = path.strip_suffix(".git").unwrap_or(path);
+
+    path == repo.to_ascii_lowercase()
+}
+
 /// What a marketplace harness has installed and registered for its user.
 struct MarketplaceRegistries {
     plugins: Vec<FoundPlugin>,
@@ -414,7 +427,7 @@ struct MarketplaceRegistries {
 struct FoundPlugin {
     id: String,
     version: Option<String>,
-    /// False when the harness's user settings switch it off.
+    /// False when the harness's settings do not switch it on.
     enabled: bool,
 }
 

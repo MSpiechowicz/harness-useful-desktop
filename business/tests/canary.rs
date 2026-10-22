@@ -11,6 +11,7 @@ use common::files_below;
 
 use harness_business::BusinessError;
 use harness_business::env::Env;
+use harness_business::harnesses::claude::global_config_file;
 use harness_business::model::{ConfigValue, SecretKind};
 use harness_business::security::{RedactionContext, Redactor, SafeReader, is_denied, redact_text};
 use serde_json::json;
@@ -93,12 +94,11 @@ fn claude_home() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/claude-home")
 }
 
-/// The files of the Claude fixture home that stay readable: the global files, settings, managed
-/// settings, memory files, plugin registries, catalogs and plugin contents, and the user's skills,
+/// The files of the Claude fixture home that stay readable: settings, managed settings, memory
+/// files, plugin registries, catalogs and plugin contents, and the user's skills,
 /// agents and commands. Their canaries sit in values the views hide or never show (see
 /// `adapter_canary.rs`).
 const CLAUDE_READABLE: &[&str] = &[
-    ".claude.json",
     ".claude/CLAUDE.md",
     ".claude/agents/notes.md",
     ".claude/agents/planner.md",
@@ -123,9 +123,12 @@ const CLAUDE_READABLE: &[&str] = &[
     "Program Files/ClaudeCode/managed-settings.d/README.txt",
     "Program Files/ClaudeCode/managed-settings.json",
     "claude-markets/local-market/.claude-plugin/marketplace.json",
-    "claude-work/.claude.json",
     "claude-work/settings.json",
 ];
+
+/// Claude's global files, which only its allow-listed readers open
+/// ([`SafeReader::read_claude_global_file`]).
+const CLAUDE_GLOBAL_FILES: &[&str] = &[".claude.json", "claude-work/.claude.json"];
 
 #[test]
 fn every_private_claude_file_is_refused_and_only_its_settings_stay_readable() {
@@ -153,6 +156,16 @@ fn every_private_claude_file_is_refused_and_only_its_settings_stay_readable() {
 
     let expected: BTreeSet<String> = CLAUDE_READABLE.iter().copied().map(String::from).collect();
     assert_eq!(readable, expected);
+
+    let home_env = Env::for_tests(&home);
+    for global in [global_config_file(&home_env), global_config_file(&_env)] {
+        let name = global.strip_prefix(&home).unwrap().to_string_lossy().replace('\\', "/");
+        assert!(CLAUDE_GLOBAL_FILES.contains(&name.as_str()), "{name}");
+        assert!(
+            SafeReader::read_claude_global_file(&global, 1024 * 1024).is_ok(),
+            "{name} opens for its own readers"
+        );
+    }
 }
 
 #[test]

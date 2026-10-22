@@ -196,7 +196,14 @@ const REFUSAL_KEYS: Record<McpRefusal, MessageKey> = {
   unreadable: 'onboarding.setup.refused.unreadable',
   writeFailed: 'onboarding.setup.refused.writeFailed',
   cliFailed: 'onboarding.setup.refused.cliFailed',
+  cliRemovedEntry: 'onboarding.setup.refused.cliRemovedEntry',
+  cliBatchShim: 'onboarding.setup.refused.cliBatchShim',
 };
+
+/** True for a refusal of a file only the harness's CLI changes, where an entry to paste would be wrong advice. */
+export function isCliRefusal(reason: McpRefusal): boolean {
+  return reason === 'cliFailed' || reason === 'cliRemovedEntry' || reason === 'cliBatchShim';
+}
 
 /** Why the app leaves an MCP file alone, in a sentence. */
 export function refusalText(reason: McpRefusal): string {

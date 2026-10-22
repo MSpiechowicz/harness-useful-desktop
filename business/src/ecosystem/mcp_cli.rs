@@ -16,6 +16,12 @@
 //!   spawn environment ([`HarnessCli`]). When one fails, the file is read once more: a decision
 //!   that no longer needs a change (the server appeared meanwhile) is reported, anything else is
 //!   refused as `CliFailed`. Nothing is retried, so a registration at launch never loops.
+//! - A change that removed an entry and could add neither the new nor the old one back is refused
+//!   as `CliRemovedEntry` without that second read (it would take the missing entry for one the
+//!   user removed).
+//! - A batch-shim CLI (`claude.cmd`, an npm install on Windows) cannot take the JSON argument of
+//!   `add-json`: such a change is refused as `CliBatchShim` before anything runs, so no entry is
+//!   removed and left out.
 //!
 //! Logs name the harness, the command and the server, with the CLI's redacted last line; never a
 //! file's contents.
@@ -34,7 +40,7 @@ use super::memory_register::{MemoryRegistration, memory_change, memory_outcome, 
 use super::setup::McpFile;
 use crate::harness::HarnessCli;
 use crate::model::{McpRefusal, McpState};
-use crate::security::redact_text;
+use crate::security::{is_safe_arg, redact_text};
 
 /// Time limit of one `claude mcp` run (it only edits the file, so this is generous).
 pub const MCP_CLI_TIMEOUT: Duration = Duration::from_secs(60);
@@ -105,8 +111,16 @@ async fn change_via_cli<R>(
         Change::Write(document, value) => (document, value),
     };
 
-    if apply(cli, &edits(&target.document(), &document, file.shape)).await {
-        return Ok(value);
+    let edits = edits(&target.document(), &document, file.shape);
+
+    if cli.binary.is_batch_script && !edits.iter().all(|edit| batch_safe(&edit_args(edit))) {
+        return Err(Blocked::Refused(McpRefusal::CliBatchShim));
+    }
+
+    match apply(cli, &edits).await {
+        Applied::All => return Ok(value),
+        Applied::RemovedEntry => return Err(Blocked::Refused(McpRefusal::CliRemovedEntry)),
+        Applied::Failed => {}
     }
 
     let again = load(&file.path, file.shape).map_err(Blocked::Refused)?;
@@ -151,42 +165,73 @@ fn edits(before: &Map<String, Value>, after: &Map<String, Value>, shape: Shape) 
     removed.chain(added_or_changed).collect()
 }
 
-/// Runs `edits` in order, stopping at the first that fails; true when all of them succeeded.
-async fn apply(cli: HarnessCli<'_>, edits: &[Edit]) -> bool {
+/// How far [`apply`] got.
+enum Applied {
+    /// Every edit succeeded.
+    All,
+    /// An edit failed and the file is as it was, or holds the edits before it.
+    Failed,
+    /// A replace removed its entry and could add neither definition back.
+    RemovedEntry,
+}
+
+/// Runs `edits` in order, stopping at the first that fails.
+async fn apply(cli: HarnessCli<'_>, edits: &[Edit]) -> Applied {
     for edit in edits {
-        let done = match edit {
-            Edit::Add { name, definition } => add(cli, name, definition).await,
-            Edit::Remove { name } => remove(cli, name).await,
+        let applied = match edit {
+            Edit::Add { name, definition } => done(add(cli, name, definition).await),
+            Edit::Remove { name } => done(remove(cli, name).await),
             Edit::Replace { name, old, new } => replace(cli, name, old, new).await,
         };
 
-        if !done {
-            return false;
+        if !matches!(applied, Applied::All) {
+            return applied;
         }
     }
 
-    true
+    Applied::All
+}
+
+fn done(ok: bool) -> Applied {
+    if ok { Applied::All } else { Applied::Failed }
 }
 
 /// Removes `name` and adds it as `new`; when the add fails, adds it back as `old`.
-async fn replace(cli: HarnessCli<'_>, name: &str, old: &Value, new: &Value) -> bool {
+async fn replace(cli: HarnessCli<'_>, name: &str, old: &Value, new: &Value) -> Applied {
     if !remove(cli, name).await {
-        return false;
+        return Applied::Failed;
     }
 
     if add(cli, name, new).await {
-        return true;
+        return Applied::All;
     }
 
-    if !add(cli, name, old).await {
-        tracing::warn!(
-            harness = ?cli.harness.id(),
-            server = name,
-            "MCP entry removed to change it, and neither the new nor the old one could be added"
-        );
+    if add(cli, name, old).await {
+        return Applied::Failed;
     }
 
-    false
+    tracing::warn!(
+        harness = ?cli.harness.id(),
+        server = name,
+        "MCP entry removed to change it, and neither the new nor the old one could be added"
+    );
+    Applied::RemovedEntry
+}
+
+/// The CLI arguments of `edit`'s runs (a replace: the remove and both adds).
+fn edit_args(edit: &Edit) -> Vec<String> {
+    match edit {
+        Edit::Add { name, definition } => add_json_args(name, definition),
+        Edit::Remove { name } => remove_args(name),
+        Edit::Replace { name, old, new } => {
+            [remove_args(name), add_json_args(name, new), add_json_args(name, old)].concat()
+        }
+    }
+}
+
+/// Whether a batch shim takes `args` (the rule of [`HarnessCli::run_args`]).
+fn batch_safe(args: &[String]) -> bool {
+    args.iter().all(|arg| is_safe_arg(arg.trim_start_matches('-')))
 }
 
 /// The arguments (after the program name) that add the server `name` with `definition` to the
@@ -208,17 +253,18 @@ async fn add(cli: HarnessCli<'_>, name: &str, definition: &Value) -> bool {
 }
 
 async fn remove(cli: HarnessCli<'_>, name: &str) -> bool {
-    run(
-        cli,
-        vec![
-            "mcp".to_owned(),
-            "remove".to_owned(),
-            "--scope".to_owned(),
-            "user".to_owned(),
-            name.to_owned(),
-        ],
-    )
-    .await
+    run(cli, remove_args(name)).await
+}
+
+/// `mcp remove --scope user <name>`.
+fn remove_args(name: &str) -> Vec<String> {
+    vec![
+        "mcp".to_owned(),
+        "remove".to_owned(),
+        "--scope".to_owned(),
+        "user".to_owned(),
+        name.to_owned(),
+    ]
 }
 
 /// Runs `args`; true when the CLI reports success. Logs the outcome (see the module docs).

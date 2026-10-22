@@ -5,7 +5,7 @@
   import { harness as harnesses } from '$lib/stores/harness.svelte';
 
   import SetupCommand from './SetupCommand.svelte';
-  import { mcpSnippet, refusalText, type McpKind } from './setup-model';
+  import { isCliRefusal, mcpSnippet, refusalText, type McpKind } from './setup-model';
 
   interface Props {
     kind: McpKind;
@@ -31,7 +31,7 @@
 <section class="flex flex-col gap-2" aria-label={title}>
   <h4 class="text-xs font-medium tracking-wider text-fg-3 uppercase">{title}</h4>
 
-  {#if refused === 'cliFailed'}
+  {#if refused && isCliRefusal(refused)}
     <!-- Claude Code's file is changed by its CLI only: a snippet to paste into it would be wrong advice. -->
     <p class="text-sm text-fg-2">{refusalText(refused)}</p>
   {:else if refused}

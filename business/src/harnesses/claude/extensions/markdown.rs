@@ -10,7 +10,8 @@
 //!   command outranks a project one, as for skills.
 //!
 //! Only the `*.md` files directly in each folder are listed. Each layer's scans share a
-//! [`ScanBudget`], and a plugin's files must resolve inside the plugin.
+//! [`ScanBudget`]. A plugin's files must resolve inside the plugin, a project layer's inside the
+//! folder that holds its `.claude`.
 
 use std::path::{Path, PathBuf};
 
@@ -25,8 +26,11 @@ use crate::security::redact_text;
 pub(super) struct Folder {
     pub dir: PathBuf,
     pub scope: ExtensionScope,
-    /// The plugin directory the files must stay in, and the plugin name prefixed to theirs.
-    pub plugin: Option<(PathBuf, String)>,
+    /// The directory the files must resolve inside (a plugin's, or the project folder a project
+    /// layer belongs to).
+    pub within: Option<PathBuf>,
+    /// The plugin name prefixed to the files' names.
+    pub plugin: Option<String>,
 }
 
 impl Folder {
@@ -34,7 +38,16 @@ impl Folder {
         Self {
             dir,
             scope,
+            within: None,
             plugin: None,
+        }
+    }
+
+    /// A project layer's folder, whose files must resolve inside `within`.
+    pub(super) fn within(dir: PathBuf, scope: ExtensionScope, within: PathBuf) -> Self {
+        Self {
+            within: Some(within),
+            ..Self::plain(dir, scope)
         }
     }
 
@@ -42,13 +55,14 @@ impl Folder {
         Self {
             dir: plugin.dir.join(sub),
             scope: ExtensionScope::Plugin,
-            plugin: Some((plugin.dir.clone(), plugin.name.clone())),
+            within: Some(plugin.dir.clone()),
+            plugin: Some(plugin.name.clone()),
         }
     }
 
     fn named(&self, name: String) -> String {
         match &self.plugin {
-            Some((_, plugin)) => format!("{plugin}:{name}"),
+            Some(plugin) => format!("{plugin}:{name}"),
             None => name,
         }
     }
@@ -116,11 +130,11 @@ pub(super) fn commands(folders: &[Folder], budgets: &mut PerLayer<ScanBudget>) -
     commands
 }
 
-/// The `*.md` files directly in `folder` (inside its plugin, if any) with their frontmatter
+/// The `*.md` files directly in `folder` (inside its boundary, if any) with their frontmatter
 /// (`null` without one), charged to the folder's layer.
 fn markdown(folder: &Folder, budgets: &mut PerLayer<ScanBudget>) -> Vec<(PathBuf, Value)> {
     let budget = budgets.get(folder.scope);
-    let boundary: Option<&Path> = folder.plugin.as_ref().map(|(dir, _)| dir.as_path());
+    let boundary: Option<&Path> = folder.within.as_deref();
 
     let files: Vec<PathBuf> = budget
         .list_dir(&folder.dir)
