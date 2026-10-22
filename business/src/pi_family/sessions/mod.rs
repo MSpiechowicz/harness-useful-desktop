@@ -32,6 +32,7 @@ mod tree;
 pub use delete::delete_session;
 pub use encode::{canonical_text, omp_dir_name, pi_dir_name, temp_root};
 pub use parse::epoch_millis;
+pub(crate) use parse::{Lines, preview_text, tail_bytes};
 pub use scan::{MAX_SESSION_FILES, SUMMARY_BYTES, SessionCache, list_sessions};
 pub(crate) use stats::{StatsTally, page_range};
 pub use totals::{MAX_TOTALS_ENTRIES, SessionStore, configured_store, session_totals};

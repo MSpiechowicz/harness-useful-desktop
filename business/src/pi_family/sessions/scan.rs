@@ -15,18 +15,17 @@
 
 use std::collections::{HashMap, HashSet};
 use std::fs;
-use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, PoisonError};
 use std::time::SystemTime;
 
 use serde_json::Value;
 
-use super::parse::{Lines, epoch_millis, preview_text};
+use super::parse::{Lines, epoch_millis, preview_text, tail_bytes};
 use super::session_id_of;
 use crate::agent::rfc3339;
 use crate::model::{HarnessId, MAX_FIRST_PROMPT_CHARS, SessionRef, SessionSummary, SessionTitleSource};
-use crate::security::{SafeReader, is_denied};
+use crate::security::is_denied;
 
 /// Session files summarized at most per listing (the newest ones).
 pub const MAX_SESSION_FILES: usize = 500;
@@ -144,20 +143,7 @@ fn is_bare_copy(facts: &Facts, path: &Path, size: u64) -> bool {
 /// Whether the whole lines of the last [`TAIL_BYTES`] of `path` show a bare copy; `None` when
 /// the tail cannot be read. A tail of `session_exit` records alone is unknown, so not bare.
 fn tail_is_bare(path: &Path, copied_at: Option<i64>) -> Option<bool> {
-    let mut file = SafeReader::open(path).ok()?;
-    let length = file.metadata().ok()?.len();
-    file.seek(SeekFrom::Start(length.saturating_sub(TAIL_BYTES))).ok()?;
-
-    let mut bytes = Vec::new();
-    file.take(TAIL_BYTES).read_to_end(&mut bytes).ok()?;
-
-    // The first line is cut unless the tail starts the file.
-    let whole = if length > TAIL_BYTES {
-        let start = bytes.iter().position(|byte| *byte == b'\n')? + 1;
-        &bytes[start..]
-    } else {
-        &bytes[..]
-    };
+    let whole = tail_bytes(path, TAIL_BYTES)?;
 
     let mut check = CopyCheck {
         copied_at,
