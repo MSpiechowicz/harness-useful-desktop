@@ -2,22 +2,33 @@
 //! [`Codex::chat_protocol`] into [`AgentSession::start`], against the scripted `codex app-server`
 //! (`fake_agent --dialect codex`, see `src/bin/fake_agent/codex.rs` for the scenario format).
 //! Scenarios replay the recordings in `tests/fixtures/codex/app_server`; images go to a
-//! temporary attachments folder.
+//! temporary attachments folder, and the Codex home is [`HOME`] in the project.
 #![allow(dead_code)]
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use harness_business::agent::{AgentSession, CollectingSink, SessionLaunch};
 use harness_business::harness::{Harness, LaunchRequest};
 use harness_business::harnesses::Codex;
-use harness_business::model::{AgentAction, AgentEvent, AgentReply, UiOutcome, UiRequest, UiResponse};
+use harness_business::model::{AgentAction, AgentEvent, AgentReply, ApprovalMode, UiOutcome, UiRequest, UiResponse};
 use tempfile::TempDir;
 
 use crate::agent_support::{ScenarioSpawner, WAIT, binary, options, project};
 
 /// The recorded thread every scenario starts.
 pub const THREAD: &str = "01a164a0-4c41-7613-9735-20de2a8016a8";
+
+/// The Codex home of a chat, a folder in its project (holding nothing unless a test writes it).
+pub const HOME: &str = "codex-home";
+
+/// How a chat launches besides its scenario: its approval mode and whether it trusts the project
+/// once.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct Setup {
+    pub approval_override: Option<ApprovalMode>,
+    pub trust_once: bool,
+}
 
 /// A Codex chat and what it saw.
 pub struct CodexChat {
@@ -43,8 +54,16 @@ pub struct Launched {
 
 /// Launches scenario `name`, resuming `resume`, without panicking on a failed start.
 pub async fn launch(name: &str, resume: Option<&str>) -> Launched {
+    launch_with(name, resume, Setup::default(), |_| {}).await
+}
+
+/// [`launch`] with `setup`, after `prepare` wrote what the test needs into the (canonical)
+/// project.
+pub async fn launch_with(name: &str, resume: Option<&str>, setup: Setup, prepare: impl FnOnce(&Path)) -> Launched {
     let dir = project();
     let project = dunce::canonicalize(dir.path()).expect("canonical project");
+    prepare(&project);
+
     let attachments = tempfile::tempdir().expect("attachments dir");
     let sink = CollectingSink::new();
     let spawner = ScenarioSpawner::new("codex", name);
@@ -54,8 +73,8 @@ pub async fn launch(name: &str, resume: Option<&str>) -> Launched {
         binary: &binary,
         project: &project,
         resume,
-        approval_override: None,
-        trust_once: false,
+        approval_override: setup.approval_override,
+        trust_once: setup.trust_once,
         utility: false,
     };
     let options = harness_business::agent::SessionOptions {
@@ -64,7 +83,7 @@ pub async fn launch(name: &str, resume: Option<&str>) -> Launched {
     };
 
     let result = match Codex.launch_spec(&request) {
-        Ok(spec) => started(spec, &spawner, &project, resume, &sink, &options).await,
+        Ok(spec) => started(spec, &spawner, &project, resume, setup, &sink, &options).await,
         Err(error) => Err(error),
     };
 
@@ -82,8 +101,9 @@ pub async fn launch(name: &str, resume: Option<&str>) -> Launched {
 async fn started(
     spec: harness_business::process::ExecSpec,
     spawner: &Arc<ScenarioSpawner>,
-    project: &std::path::Path,
+    project: &Path,
     resume: Option<&str>,
+    setup: Setup,
     sink: &Arc<CollectingSink>,
     options: &harness_business::agent::SessionOptions,
 ) -> harness_business::Result<AgentSession> {
@@ -94,9 +114,10 @@ async fn started(
         protocol: Codex.chat_protocol(),
         project: project.to_path_buf(),
         sessions_dir: project.to_path_buf(),
-        config_dir: project.to_path_buf(),
+        config_dir: project.join(HOME),
         resume,
-        approval_override: None,
+        approval_override: setup.approval_override,
+        trust_once: setup.trust_once,
         utility: false,
         sink: sink.clone(),
         options,
@@ -107,7 +128,12 @@ async fn started(
 
 /// Starts scenario `name` as a new chat; panics when the start fails.
 pub async fn start(name: &str) -> CodexChat {
-    let launched = launch(name, None).await;
+    start_with(name, Setup::default(), |_| {}).await
+}
+
+/// [`start`] with `setup` and `prepare` (see [`launch_with`]).
+pub async fn start_with(name: &str, setup: Setup, prepare: impl FnOnce(&Path)) -> CodexChat {
+    let launched = launch_with(name, None, setup, prepare).await;
 
     CodexChat {
         session: launched.result.expect("the Codex chat starts"),

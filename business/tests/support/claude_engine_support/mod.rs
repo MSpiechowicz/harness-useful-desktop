@@ -195,6 +195,7 @@ impl<'a> Setup<'a> {
             config_dir: config.path().to_path_buf(),
             resume: self.resume,
             approval_override: self.approval,
+            trust_once: false,
             utility: self.utility,
             sink: sink.clone(),
             options: &self.options,

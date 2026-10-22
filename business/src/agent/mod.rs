@@ -43,7 +43,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 pub use claude::ClaudeSession;
 pub use coalesce::{COALESCE_WINDOW, DeltaCoalescer};
-pub use codex::CodexSession;
+pub use codex::{CodexSession, codex_bash_allowed};
 pub use engine::{AgentSession, SessionLaunch};
 pub use manager::{AgentDeps, AgentManager, MAX_SESSIONS, Stopping};
 pub use opencode::OpenCodeSession;

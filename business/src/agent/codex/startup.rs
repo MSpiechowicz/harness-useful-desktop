@@ -4,10 +4,12 @@
 //! from its user agent → the `initialized` notification → `model/list` (a list Codex refuses
 //! leaves the picker empty) → `thread/start` in the project, or `thread/resume` of the resumed
 //! thread without its turns (a helper chat's thread is ephemeral: not saved, not listed) →
-//! `ready`, `state` and `commandsUpdated`, then the events that arrived meanwhile.
+//! `ready`, `state`, `commandsUpdated` and the notice of an untrusted project, then the events that
+//! arrived meanwhile.
 //!
-//! - No model, approval policy or sandbox is sent: the user's `config.toml` applies. An approval
-//!   override is refused until the chat maps the approval modes.
+//! - No model is sent: the user's `config.toml` applies. The approval policy and sandbox are
+//!   those of the chat's approval mode, none without an override (`approvals.rs`, Auto is refused
+//!   before anything spawns).
 //! - The whole startup runs within the startup deadline and gives up when every session is stopped
 //!   ([`run_startup`]); a failed one kills the process and emits nothing. A process that exits
 //!   first fails the start with its last stderr lines.
@@ -17,13 +19,14 @@ use std::time::Duration;
 
 use tokio::sync::oneshot;
 
+use super::approvals::{answered_mode, mode_policy, trust_notice};
 use super::io::{read_stdout, refused};
 use super::settings::commands;
 use super::{Chat, CodexSession, Live};
 use crate::agent::engine::SessionLaunch;
 use crate::agent::process::{AgentProcess, ProcessTraits, run_startup};
 use crate::codex_rpc::wire::answers::initialized;
-use crate::codex_rpc::wire::outbound::{Initialize, Request, ThreadResume, ThreadSettings, ThreadStart};
+use crate::codex_rpc::wire::outbound::{Initialize, Request, ThreadResume, ThreadStart};
 use crate::codex_rpc::wire::results::{InitializeResult, Model, Page, ThreadSession};
 use crate::error::{BusinessError, Result};
 use crate::harnesses::codex::is_thread_id;
@@ -40,11 +43,7 @@ enum Start {
 impl CodexSession {
     /// Spawns `codex app-server` and completes startup (see the module docs).
     pub async fn start(launch: SessionLaunch<'_>) -> Result<Self> {
-        if launch.approval_override.is_some() {
-            return Err(BusinessError::Unsupported(
-                "Codex chats have no approval modes yet".to_owned(),
-            ));
-        }
+        mode_policy(launch.approval_override)?;
 
         let start = match launch.resume {
             Some(id) if !is_thread_id(id) => {
@@ -73,6 +72,7 @@ impl CodexSession {
         let chat = Arc::new(Chat {
             shared: process.shared().clone(),
             attachments_dir: options.attachments_dir.clone(),
+            approval_override: launch.approval_override,
             live: Mutex::new(Live::new(&launch.project, launch.utility)),
         });
         chat_tx.send(chat.clone()).ok();
@@ -84,15 +84,16 @@ impl CodexSession {
             return Err(process.fail_start(error).await);
         }
 
-        chat.open();
+        let notice = trust_notice(&launch.config_dir, &launch.project, launch.trust_once, launch.utility);
+        chat.open(notice);
 
         Ok(Self { process, chat })
     }
 }
 
 impl Chat {
-    /// Emits the first events.
-    fn open(&self) {
+    /// Emits the first events, `notice` last.
+    fn open(&self, notice: Option<AgentEvent>) {
         let first = {
             let live = self.lock();
 
@@ -103,6 +104,9 @@ impl Chat {
                 },
                 AgentEvent::CommandsUpdated { commands: commands() },
             ]
+            .into_iter()
+            .chain(notice)
+            .collect()
         };
 
         self.shared.open(first);
@@ -137,10 +141,7 @@ async fn handshake(chat: &Chat, start: &Start, cwd: String, limit: Duration) -> 
         }
     };
 
-    let settings = ThreadSettings {
-        cwd: Some(cwd),
-        ..ThreadSettings::default()
-    };
+    let settings = chat.thread_settings(cwd);
 
     let request = match start {
         Start::New { ephemeral } => Request::ThreadStart(ThreadStart {
@@ -165,6 +166,9 @@ async fn handshake(chat: &Chat, start: &Start, cwd: String, limit: Duration) -> 
     live.title = session.thread.name.clone().filter(|name| !name.trim().is_empty());
     live.thread_model = Some(session.model).filter(|model| !model.is_empty());
     live.thread_effort = session.reasoning_effort;
+    live.mode = chat
+        .approval_override
+        .or_else(|| answered_mode(session.approval_policy.as_ref()));
 
     if !session.model_provider.is_empty() {
         live.provider = session.model_provider;
