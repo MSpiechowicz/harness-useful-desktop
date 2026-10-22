@@ -5,9 +5,10 @@
 //!   stdin EOF, kill on drop).
 //! - **Startup** (`startup.rs`): spawn, the `initialize` → `initialized` handshake within the
 //!   startup limit (Codex's version from its user agent), `model/list`, then `thread/start` in the
-//!   project (or `thread/resume` without its turns), which the mapper follows from then on. No
-//!   override is sent, so the user's `config.toml` applies. Then `ready`, `state` and
-//!   `commandsUpdated`.
+//!   project (or `thread/resume` without its turns), which the mapper follows from then on, with
+//!   the chat's approval mode (`approvals.rs`; none without an override, so the user's
+//!   `config.toml` applies). Then `ready`, `state`, `commandsUpdated` and, in a folder whose own
+//!   settings Codex ignores, a notice.
 //! - **Frames** (`io.rs`): one task reads stdout (lines up to the frame limit) and maps every frame
 //!   with the [`CodexMapper`] under the chat's lock, so bookkeeping and event order never
 //!   interleave. Answers to the app's requests resolve the waiting action through the session's
@@ -17,9 +18,10 @@
 //!   model and reasoning pickers and the statistics (`settings.rs`). Codex's requests become dialogs, answered with
 //!   [`CodexSession::respond`] (`dialogs.rs`); dynamic tool calls and token refreshes are refused.
 //! - New, switch, fork, clone, rename, compact, history, export and `!command`s are not available
-//!   yet.
+//!   yet (a `!command` is refused in Always ask: [`codex_bash_allowed`]).
 //! - **Stop:** stdin closes, Codex exits (killed after the grace period).
 
+mod approvals;
 mod dialogs;
 mod forms;
 mod images;
@@ -31,6 +33,8 @@ mod startup;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
+pub use self::approvals::codex_bash_allowed;
+
 use self::dialogs::Dialogs;
 use super::io::Shared;
 use super::process::AgentProcess;
@@ -40,7 +44,7 @@ use crate::codex_rpc::stats::{CodexStats, MessageCounts};
 use crate::codex_rpc::wire::items::UserInput;
 use crate::codex_rpc::wire::results::Model;
 use crate::error::{BusinessError, Result};
-use crate::model::{AgentAction, AgentEvent, AgentReply, BashOutput, StreamingBehavior, UiResponse};
+use crate::model::{AgentAction, AgentEvent, AgentReply, ApprovalMode, BashOutput, StreamingBehavior, UiResponse};
 use crate::process::ExitInfo;
 
 /// A running Codex chat (see the module docs).
@@ -54,6 +58,8 @@ struct Chat {
     shared: Arc<Shared>,
     /// Where images are saved for Codex to read (`None`: the app's data folder).
     attachments_dir: Option<PathBuf>,
+    /// The chat's approval mode, sent with its thread (`approvals.rs`); `None` keeps the user's.
+    approval_override: Option<ApprovalMode>,
     live: Mutex<Live>,
 }
 
@@ -75,6 +81,8 @@ struct Live {
     /// The model and effort the chat picked, sent with every turn from then on.
     model: Option<String>,
     effort: Option<String>,
+    /// The approval mode the thread runs in (`approvals.rs`).
+    mode: Option<ApprovalMode>,
     /// The running turn as `turn/start` answered it (before its `turn/started`).
     turn_id: Option<String>,
     /// `turn/start` requests not answered yet: their id and whether a prompt action sent them.
@@ -115,6 +123,7 @@ impl Live {
             thread_effort: None,
             model: None,
             effort: None,
+            mode: None,
             turn_id: None,
             turn_requests: Vec::new(),
             abort_pending: false,

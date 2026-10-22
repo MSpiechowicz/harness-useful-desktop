@@ -214,15 +214,15 @@ pub(crate) fn has_chat(harness: HarnessId) -> bool {
     capabilities(harness).chat
 }
 
-/// The harnesses whose agent routine may set an approval mode (OMP, OpenCode, Claude Code).
+/// The harnesses whose agent routine may set an approval mode (OMP, OpenCode, Claude Code, Codex).
 pub(crate) fn takes_approval_mode(harness: HarnessId) -> bool {
     let capabilities = capabilities(harness);
 
     capabilities.chat && capabilities.approval_modes
 }
 
-/// The harnesses whose agent routine may run in Yolo (OMP, OpenCode; not Claude Code, whose chats
-/// never start in its bypass mode).
+/// The harnesses whose agent routine may run in Yolo (OMP, OpenCode, Codex; not Claude Code, whose
+/// chats never start in its bypass mode).
 pub(crate) fn takes_yolo(harness: HarnessId) -> bool {
     takes_approval_mode(harness) && capabilities(harness).yolo_mode
 }
@@ -233,7 +233,7 @@ pub(crate) fn takes_auto(harness: HarnessId) -> bool {
     takes_approval_mode(harness) && capabilities(harness).auto_mode
 }
 
-/// The harnesses whose agent routine may trust the project once (PI, Claude Code).
+/// The harnesses whose agent routine may trust the project once (PI, Claude Code, Codex).
 pub(crate) fn takes_trust_once(harness: HarnessId) -> bool {
     let capabilities = capabilities(harness);
 

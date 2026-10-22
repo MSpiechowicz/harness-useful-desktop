@@ -407,7 +407,7 @@ fn run_end_step(step: &Value) -> ! {
 }
 
 /// Exits 4 unless `frame` (of `kind`) carries every field of the step's `match`: keys starting with
-/// `/` are JSON pointers into the frame.
+/// `/` are JSON pointers into the frame. A `null` field matches a field that is null or absent.
 fn check_match(kind: &str, frame: &Value, step: &Value) {
     let Some(Value::Object(expected)) = step.get("match") else {
         return;
@@ -420,7 +420,9 @@ fn check_match(kind: &str, frame: &Value, step: &Value) {
             frame.get(key)
         };
 
-        if actual != Some(value) {
+        let absent = value.is_null() && actual.is_none_or(Value::is_null);
+
+        if !absent && actual != Some(value) {
             fail(4, &format!("{kind}.{key} was {actual:?}, expected {value}"));
         }
     }

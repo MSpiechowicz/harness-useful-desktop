@@ -72,7 +72,7 @@ yoloMode: boolean,
 autoMode: boolean, 
 /**
  * Project trust gating of project-local resources (PI `.pi/`, Claude Code's `.claude/`
- * settings): a launch may trust the project once (`trustOnce`).
+ * settings, Codex's `.codex/` layer): a launch may trust the project once (`trustOnce`).
  */
 projectTrust: boolean, 
 /**

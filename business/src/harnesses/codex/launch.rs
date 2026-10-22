@@ -3,11 +3,13 @@
 //!
 //! The chat talks JSON-RPC over stdin and stdout (`--listen stdio://`, the default), one process
 //! per chat. Every launch switches Codex's own update check and update prompts off
-//! ([`APP_SERVER_ARGS`]); nothing else of the user's `config.toml` is overridden here. The chat
+//! ([`APP_SERVER_ARGS`]); a launch that trusts the project once trusts it for this process only
+//! ([`trust_once_args`]). Nothing else of the user's `config.toml` is overridden here. The chat
 //! engine names the thread after the handshake (`thread/start`, or `thread/resume` for a resumed
-//! chat) with the project as its working directory, so no session, model or approval flag is ever
-//! on the command line. A resumed thread id is a lowercase UUID.
+//! chat) with the project as its working directory and the chat's approval mode, so no session,
+//! model or approval flag is ever on the command line. A resumed thread id is a lowercase UUID.
 
+use super::trust::trust_once_args;
 use crate::error::{BusinessError, Result};
 use crate::harness::{LaunchRequest, rpc_exec_spec};
 use crate::process::ExecSpec;
@@ -23,8 +25,8 @@ pub const APP_SERVER_ARGS: [&str; 5] = [
     "features.in_app_updates=false",
 ];
 
-/// `codex app-server <update overrides>` in the project. A resumed thread is checked here and
-/// named by the engine.
+/// `codex app-server <update overrides> [<trust once>]` in the project. A resumed thread is
+/// checked here and named by the engine.
 pub fn codex_launch_spec(request: &LaunchRequest<'_>) -> Result<ExecSpec> {
     if let Some(id) = request.resume
         && !is_thread_id(id)
@@ -34,7 +36,11 @@ pub fn codex_launch_spec(request: &LaunchRequest<'_>) -> Result<ExecSpec> {
         ));
     }
 
-    let args = APP_SERVER_ARGS.map(str::to_owned);
+    let mut args = APP_SERVER_ARGS.map(str::to_owned).to_vec();
+
+    if request.trust_once {
+        args.extend(trust_once_args(request.project)?);
+    }
 
     rpc_exec_spec(request.binary, request.project, &args)
 }

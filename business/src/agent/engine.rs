@@ -48,6 +48,9 @@ pub struct SessionLaunch<'a> {
     pub resume: Option<&'a str>,
     /// The per-session approval mode, where the harness supports one.
     pub approval_override: Option<ApprovalMode>,
+    /// The launch trusts the project once (the command line already says so, an engine may tell
+    /// the user what an untrusted project leaves out without it).
+    pub trust_once: bool,
     /// A short-lived helper agent without a saved session.
     pub utility: bool,
     /// Receives the events.
