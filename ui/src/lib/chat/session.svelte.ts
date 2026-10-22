@@ -174,7 +174,7 @@ export class ChatSession {
     this.afterChange(before, next);
   }
 
-  /** Gives each new user message that carries images the thumbnails of the oldest send still waiting. */
+  /** Gives each new user message that carries images the thumbnails of the oldest send still waiting. History items (order -1) are older than any send and never match. */
   private matchSentImages(after: ChatState): void {
     if (this.unmatchedImages.length === 0) {
       return;
@@ -183,7 +183,7 @@ export class ChatSession {
     const matched: Record<string, string[]> = {};
 
     for (const item of after.items) {
-      const hasImages = item.kind === 'message' && item.role === 'user' && item.blocks.some((block) => block.type === 'image');
+      const hasImages = item.kind === 'message' && item.role === 'user' && item.order >= 0 && item.blocks.some((block) => block.type === 'image');
       if (!hasImages || item.key in this.sentImages || this.unmatchedImages.length === 0) {
         continue;
       }
