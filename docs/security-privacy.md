@@ -13,6 +13,8 @@ not guaranteed, it says so under [Limits](#limits).
   See [Network](#network).
 - The app runs your own, unmodified `claude`, signed in the way you signed in. It offers no Claude login and never
   reads Claude Code's login store or tokens. See [Claude Code](#claude-code).
+- The same holds for Codex: the app runs your own `codex`, offers no login (sign in from a terminal with `codex login`),
+  never reads `auth.json` and never answers Codex's token refresh requests. See [Codex](#codex).
 - The app never reads credential stores, databases, logs or private keys, even through a symlink. The one database in
   the picture is the project memory that the `harness-memory` server (a separate program from its own repository, which
   you install; your harnesses start it) opens directly with SQLite; the desktop app never opens it itself. See [Project memory](#project-memory).
@@ -25,7 +27,8 @@ not guaranteed, it says so under [Limits](#limits).
   yourself), the `harness-dashboard` entry when you choose it in Recommended setup, and the MCP servers you
   tick when you import a shared setup. Claude Code's global file (`~/.claude.json`) is never written by the app. Its
   MCP servers change only when the app runs `claude mcp add-json` and
-  `claude mcp remove` in the user scope (see [Claude Code](#claude-code)). An OpenCode config file that has comments is never rewritten
+  `claude mcp remove` in the user scope (see [Claude Code](#claude-code)). The same goes for Codex's `~/.codex/config.toml`: its MCP servers
+  change only when the app runs `codex mcp add` and `codex mcp remove` (see [Codex](#codex)). An OpenCode config file that has comments is never rewritten
   (the app shows the entry to paste or the plugin to remove instead). Switching project memory off does not rewrite such a file either: the app's
   own `harness-memory` entry stays in it, and Settings names the file and the entry so you can remove it yourself. An
   existing entry is never overwritten; the only change to one is the `command`
@@ -139,12 +142,12 @@ Everything else:
   client. What a hook adds to a prompt, and a command hook's redacted output, are sent by the harness to its model
   provider like the rest of the prompt. A command a hook runs may open connections of its own: that is the command you
   approved.
-- Harness CLIs make their own provider requests. Extension actions (`omp plugin install`, `pi install`, `opencode plugin <module> -g`, `claude plugin install`) run the CLI,
+- Harness CLIs make their own provider requests. Extension actions (`omp plugin install`, `pi install`, `opencode plugin <module> -g`, `claude plugin install`, `codex plugin add`) run the CLI,
   which may download packages. The UI asks first and previews with the CLI's dry-run flag where one exists. Recommended
   setup installs the Harness Skills for OMP the same way (`omp plugin marketplace add`, then `omp plugin install` at
   user scope, through `extension_action`, after you confirm). For PI it runs `pi install` of the skills' package the same
   way. For Claude Code it runs `claude plugin marketplace add` and `claude plugin install` of the skills' plugin at user
-  scope the same way, after you confirm. For OpenCode it runs the Harness Skills installer (see the Network table). Removing an OpenCode plugin runs nothing:
+  scope the same way, after you confirm. Codex has no Harness Skills adapter yet, so Recommended setup installs none for it. For OpenCode it runs the Harness Skills installer (see the Network table). Removing an OpenCode plugin runs nothing:
   it edits a local file.
 - Share setup opens no connection. Export and import read and write local files; an import's marketplace, plugin and
   package installs go through the harness CLI, which fetches from the sources in the setup you confirmed, exactly as
@@ -216,7 +219,19 @@ directory `CLAUDE_CONFIG_DIR` names (`Env::from_process` registers it with `add_
 so renaming the directory does not lift them. A project folder with such a name stays readable. The macOS Keychain is never
 asked for anything. See [Claude Code](#claude-code).
 
-The `canary` tests (`business/tests/canary.rs`, `adapter_canary.rs`, `deny_claude.rs`) hide a marker in denied files and secret values of
+Codex's login store (`auth.json`, denied by name like OpenCode's), the prompts you typed (`history.jsonl`), the session
+titles (`session_index.jsonl`), dictation transcripts, its install id, the desktop app's state, its copy of `config.toml`
+(`config.toml.backup`, which holds the same secrets) and its memory stores (`memories_*`) fall under the rules in
+`business/src/security/deny/codex.rs`. So do the folders `sessions` and `archived_sessions` (the rollout files: the app reads
+sessions through `codex app-server`, never from them), `shell_snapshots`, `mcp-oauth-locks`, `computer-use`,
+`dictation-history`, `log`, `logs`, `sqlite`, `cache`, `ipc`, `generated_images`, `node_repl`, `pets`,
+`thread-writer-locks`, `tmp`, `rollout-migrations`, `visualizations` and `memories`. These names match only directly inside a
+Codex home: a folder named `.codex`, or the absolute directory `CODEX_HOME` names (`Env` registers it with
+`add_codex_root`), so renaming the home does not lift them and a project folder with such a name stays readable. A
+relative `CODEX_HOME` is ignored. `config.toml`, `AGENTS.md`, skills, rules, plugins and the marketplace clones stay
+readable. See [Codex](#codex).
+
+The `canary` tests (`business/tests/canary.rs`, `adapter_canary.rs`, `deny_claude.rs`, `deny_codex.rs`) hide a marker in denied files and secret values of
 fixture homes and fail if any read or view contains it.
 
 ## Secret redaction
@@ -396,6 +411,13 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
   app runs only `claude --version`, `claude plugin …`, `claude mcp add-json` and `claude mcp remove` (all with an argument
   list and no shell) and the chat process described in [Claude Code](#claude-code). It never runs `claude mcp list` or
   `claude mcp get` (they start the servers), or any Claude Code login command.
+- **Codex.** The app runs only `codex --version`, `codex plugin …`, `codex mcp add`, `codex mcp remove` and `codex
+  app-server` (all with an argument list and no shell), the last for a chat and, briefly, for the Sessions view. It never
+  runs `codex login`, `codex mcp list` or `codex mcp get`, `codex cloud` or any Codex login command. Every chat process
+  starts as `codex app-server -c check_for_update_on_startup=false -c features.in_app_updates=false`
+  (`APP_SERVER_ARGS`, `business/src/harnesses/codex/launch.rs`), so Codex neither checks for nor offers updates behind your
+  back. The Sessions view's helper passes `-c check_for_update_on_startup=false` (`harnesses/codex/sessions/app_server.rs`).
+  Nothing else of your `config.toml` is overridden on the command line, and no model, session or approval flag is.
 - **Binary resolution.** `resolve_binary` uses absolute `PATH` entries only, then the standard install directories. A
   relative or empty `PATH` entry is ignored, so a project cannot plant a binary. A user-chosen override must be an
   absolute existing file whose name is exactly the harness binary name, and is set only through the native file
@@ -407,7 +429,9 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
   tag, never a path, URL, `file:`, `github:` or `git+` spec. The argv is then exactly `opencode plugin <module> -g`
   (user scope only, no `-f`). A Claude Code plugin or marketplace target passes `cli_target` and runs
   `claude plugin … --scope user --json` (`--scope project` only for a project-scope install you chose, never `-y`/`--yes`,
-  see [Claude Code](#claude-code)). A name that fails any check is refused before anything is spawned, without echoing it.
+  see [Claude Code](#claude-code)). A Codex plugin or marketplace target passes `cli_target` (a marketplace source also
+  `marketplace_source`) and runs `codex plugin add|remove <name@marketplace>` or `codex plugin marketplace add|remove|upgrade`
+  in the home folder, user scope only. A name that fails any check is refused before anything is spawned, without echoing it.
   OpenCode has no preview flag, so a dry run never starts the CLI. Windows `.cmd`/`.bat` shims (re-parsed by `cmd.exe`) only
   receive arguments that pass `is_safe_arg` after the leading dashes are removed. The webview sends typed actions,
   never command lines.
@@ -458,6 +482,13 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
   project's config, another global file or a plugin file). In those cases nothing is written, and the result names the
   file and what to remove yourself. Removing a plugin that is not listed changes nothing. A dry run only reads. The
   webview sends the plugin's id, never a path.
+- **Codex MCP registration.** Codex's `config.toml` is TOML with your own formatting and comments, so the app never writes
+  it (`Shape::CodexCli` refuses a file write). Recommended setup, project memory, the app's own `harness-desktop` entry and
+  a Share import add a server by running `codex mcp add <name> -- <absolute path> mcp` (or `--url <url>`) and remove one with
+  `codex mcp remove <name>` (`business/src/ecosystem/mcp_cli.rs`), with the same decisions, limits and no retry as for
+  Claude Code. `codex mcp add` takes only a command and its arguments, or a URL and a bearer token variable. A change whose
+  old or new entry holds anything else (`env` values, `http_headers`, `enabled`, timeouts) is refused as `CliFailed` before
+  anything runs, so an entry with literal secrets is never rewritten or copied.
 - **Claude Code MCP registration.** The user scope of Claude Code's global file is rewritten by every running `claude`,
   so the app never writes it (`Shape::ClaudeCli` refuses a file write, `business/src/ecosystem/mcp_merge.rs`). Recommended
   setup, project memory, the app's own `harness-desktop` entry and a Share import change it by running `claude mcp
@@ -925,6 +956,76 @@ fork, clone, rename, compact, export, `!command`) work, and are described below.
   machine's environment. Claude Code has no way to write a server switched off, so a server that declares env or header
   keys is added switched on and without values: a stdio server runs with Claude Code's environment until you add them.
   See [Shared setups](#shared-setups) and [share-setup.md](share-setup.md).
+
+## Codex
+
+The app chats with and manages Codex (`codex`) as a harness: adapter `business/src/harnesses/codex/`, the pure
+JSON-RPC mapper `business/src/codex_rpc/`, the chat engine `business/src/agent/codex/` and the Sessions helper
+`business/src/harnesses/codex/sessions/`. The plan and its verified protocol facts are in [codex.md](plans/codex.md). The
+chat is a preview. Approval dialogs, approval modes and Trust once work as described below. New, resume, fork, clone, rename,
+compact, export and `!command` are chat operations listed in the plan's parity map and are being finished: the rules for
+them below are the ones they follow.
+
+- **Terms and login.** Codex is Apache-2.0 and the app spawns your own installed `codex`, which uses the login you made
+  with `codex login`. The app offers no login, runs no login command and never reads `auth.json` (denied by name,
+  `business/src/security/deny.rs`). `account/chatgptAuthTokens/refresh`, the request Codex sends when it wants the host
+  to supply ChatGPT tokens, is always refused (`business/src/agent/codex/io.rs`), as are dynamic tool calls (the app
+  registers none) and any method the app does not know. The one account call the app can send is `account/read` with
+  `refreshToken: false`, and its result type keeps only whether there is a login, its kind (`apiKey`, `chatgpt`,
+  `amazonBedrock`) and whether Codex needs one: the account's email is not decoded (`AccountRead`,
+  `business/src/codex_rpc/wire/results.rs`). When Codex reports that it is not signed in, the chat shows "Codex is not signed
+  in. Sign in from a terminal: run codex login." (`SIGN_IN_ERROR`, `business/src/codex_rpc/mapper/turns.rs`).
+- **What it reads.** Through `SafeReader`: the user's `config.toml` (`$CODEX_HOME`, else `~/.codex`) and the project's
+  `.codex/config.toml` (which must resolve inside the project, else it is listed with an error and nothing is read), the
+  plugin and marketplace entries of `config.toml` and the plugin cache, skills, and the names of the rule files
+  (`rules/*.rules`) and instruction files (`AGENTS.md`), which are never read for content. Sessions come from `codex
+  app-server` (`thread/list`, `thread/turns/list`, `thread/items/list`, `thread/delete`), never from the rollout files.
+- **What it never reads.** `auth.json` and the other names under [Files the app never reads](#files-the-app-never-reads):
+  `history.jsonl`, `session_index.jsonl`, `config.toml.backup`, `memories_*`, the `sessions` and `archived_sessions` folders,
+  logs, databases and caches. With an absolute `CODEX_HOME`, the same names stay unread under a renamed home.
+- **Secrets in `config.toml`.** The file can hold secrets: `mcp_servers.<name>.env`, `http_headers` with a literal
+  `Authorization` value, a bearer token. The config view hides `env`, `http_headers`, `query_params` and
+  `shell_environment_policy.set`, masks secret-looking words in MCP `args`, shows an `env_key` or a `*_env_var` as the
+  variable it names, and runs the usual redaction over the rest (`business/src/harnesses/codex/config.rs`).
+  `OPENAI_API_KEY` and `CODEX_API_KEY` are presence-only: the view says they are set and never their value. Share setup
+  exports key names, never values (`business/src/sync/collect_codex.rs`).
+- **MCP is written only through `codex mcp`.** See [Process spawning](#process-spawning). The app does not edit
+  `config.toml` for plugins or marketplaces either: they run `codex plugin …`.
+- **Approval dialogs.** Codex's requests (`item/commandExecution/requestApproval`, `item/fileChange/requestApproval`,
+  `item/permissions/requestApproval`, questions and MCP elicitations) become the app's dialogs. The app keeps no allow-list
+  of its own and allows nothing Codex asks about without you. **Always allow** is Codex's `acceptForSession`, and for a
+  command only when Codex offers it. The app never sends `acceptWithExecpolicyAmendment`, because that writes a lasting
+  rule into your Codex command rules.
+- **Approval modes.** Always ask is `approvalPolicy: untrusted` with the `workspace-write` sandbox, Write is `on-request`
+  with `workspace-write` (Codex's own default) and Yolo is `never` with `danger-full-access`. Yolo is offered because
+  Codex's `capabilities.yoloMode` is true, and it runs commands with full access to the machine without asking. Auto is
+  refused before anything starts: Codex has no such mode. The mode goes on `thread/start` and `thread/resume` and names
+  only the sandbox mode, so Codex keeps the writable roots and network setting of your `[sandbox_workspace_write]`.
+  Changing the mode resumes the thread. With no override nothing is sent and your `config.toml` applies. The chat header
+  and onboarding show the configured `approval_policy / sandbox`, and onboarding warns when it is `never` or
+  `danger-full-access`. The app never changes your Codex settings.
+- **Trust once.** Codex applies a project's own `.codex/config.toml`, hooks and rules only in a folder your `config.toml`
+  trusts (`[projects."<path>"] trust_level = "trusted"`), and ignores them elsewhere, so a chat starts either way. The
+  chat says so when the folder has such a layer and is not trusted. **Trust once** passes
+  `-c projects={"<path>"={trust_level="trusted"}}` to that one process (`business/src/harnesses/codex/trust.rs`): the project is
+  a quoted key of an inline table, so a path with dots or quotes stays one key, and a path that is not absolute text, or
+  holds a control character, is refused. It never writes `config.toml`, and it holds for that launch only.
+- **`!command`.** The app's `!command` is Codex's `thread/shellCommand`, whose output lands in the thread so the model sees
+  it. It runs unsandboxed with full access and without asking, so Always ask refuses it (`codex_bash_allowed`,
+  `business/src/agent/codex/approvals.rs`) and the other modes keep the app's usual confirmation.
+- **What the chat shows.** Tool results from Codex pass `redact_text` before they reach the screen (`business/src/codex_rpc/mapper/tools.rs`),
+  and so does the process's stderr. Assistant text, reasoning and tool arguments are shown as produced, and saved sessions as
+  written: they are your own session data. A thread id the app puts on a command line or a request is a lowercase UUID
+  (`is_thread_id`). Frames over 4 MiB a line are not read.
+- **Trust boundary.** In a trusted folder, a project's `.codex` hooks, rules and MCP servers run as you, as in a terminal.
+  The user's own Codex hooks run as they do there too, and the app's own hooks stay app-side, so nothing runs twice. Trust
+  once only in a repository you would run `codex` in.
+- **Share setup.** A Codex export carries `[marketplaces]` whose source another machine can add (a GitHub `owner/repo` or an
+  `https://` URL: local folders, Codex's bundled marketplaces, sources pinned to a ref or a sparse checkout, SSH URLs and
+  sources with credentials are left out), the user's plugins as `name@marketplace`, and the MCP servers of `config.toml`
+  with the key names of `env` and `env_vars` and the header names of `http_headers`, never a value. The import runs `codex
+  plugin marketplace add`, `codex plugin add` and `codex mcp add`. See [Shared setups](#shared-setups) and
+  [share-setup.md](share-setup.md).
 
 ## Shared setups
 
@@ -1559,6 +1660,12 @@ command is not granted). Process errors name only the program's file name (`Exec
   before it decides, and once more when a run fails. On Windows a `claude.cmd` batch shim refuses the JSON argument of `claude
   mcp add-json` (the batch-safety check), so such a change fails there. The MCP changes are not tested against a real
   `claude mcp add-json` yet.
+- **Codex is an experimental protocol.** `codex app-server` is labelled experimental, ships weekly and its frames change
+  between releases. The app is tested with Codex 0.154 to 0.156 (others show as untested), decodes only the fields it uses
+  and refuses what it does not know. Not yet checked against a real CLI: `codex mcp add` on an existing name, the output
+  and exit codes of `codex plugin`, the `ref` and `sparse_paths` keys of `[marketplaces.<name>]`, and the `.agents/skills`
+  lookup. A Windows `.cmd` launcher (an npm install) refuses the Trust once argument. Your `approval_policy` of
+  `never` or `sandbox_mode` of `danger-full-access` lets commands run without asking, and the app never changes them.
 - **Heuristics.** The entropy rule and key-name rules can hide harmless values and can miss unusual secrets. The same
   holds for Share setup: secret flags and machine paths in free-form MCP arguments and URLs are detected by patterns,
   so an exotic form can be missed on export, and host names are always part of what is shared.
