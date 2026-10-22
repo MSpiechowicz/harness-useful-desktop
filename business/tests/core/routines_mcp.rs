@@ -132,7 +132,7 @@ fn tools_list_has_the_routine_tools_with_flat_arguments() {
     );
     assert_eq!(
         add["inputSchema"]["properties"]["harness"]["enum"],
-        json!(["omp", "pi", "opencode", "claude"])
+        json!(["omp", "pi", "opencode", "claude", "codex"])
     );
     assert_eq!(add["inputSchema"]["additionalProperties"], json!(false));
 

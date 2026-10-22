@@ -44,6 +44,8 @@ pub const CAPTURED_VARS: &[&str] = &[
     "CLAUDE_CODE_USE_BEDROCK",
     "CLAUDE_CODE_USE_VERTEX",
     "CLAUDE_CODE_USE_FOUNDRY",
+    // Codex's home directory (`~/.codex` by default).
+    "CODEX_HOME",
     // Harness Memory's data folder, where the app meets the server for script run requests.
     "HARNESS_MEMORY_DIR",
     // Harness Memory's config file, when not the default one (the team database settings).
@@ -56,7 +58,7 @@ pub const CAPTURED_VARS: &[&str] = &[
 
 /// Variables whose presence [`Env::from_process`] records without their value: they may hold
 /// secrets (inline OpenCode config and permissions, Claude Code's API keys, tokens and custom
-/// headers), and the app only reports that they are set.
+/// headers, Codex's API keys), and the app only reports that they are set.
 pub const PRESENCE_VARS: &[&str] = &[
     "OPENCODE_PERMISSION",
     "OPENCODE_CONFIG_CONTENT",
@@ -68,6 +70,8 @@ pub const PRESENCE_VARS: &[&str] = &[
     "AWS_BEARER_TOKEN_BEDROCK",
     "ANTHROPIC_FOUNDRY_API_KEY",
     "ANTHROPIC_FOUNDRY_AUTH_TOKEN",
+    "OPENAI_API_KEY",
+    "CODEX_API_KEY",
 ];
 
 /// Operating-system family, used for platform-specific paths.

@@ -4,7 +4,7 @@ import type { HarnessId } from './bindings/HarnessId';
  * Every harness id the backend can send. A `Record` over `HarnessId` has to list each variant, so a harness added
  * to the generated type fails the type check here until it is listed, and is never silently treated as unknown.
  */
-const KNOWN: Record<HarnessId, true> = { omp: true, pi: true, opencode: true, claude: true };
+const KNOWN: Record<HarnessId, true> = { omp: true, pi: true, opencode: true, claude: true, codex: true };
 
 export const HARNESS_IDS = Object.keys(KNOWN) as HarnessId[];
 

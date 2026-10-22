@@ -326,15 +326,15 @@ describe('Set up step', () => {
     await openSetup();
 
     const matrix = await screen.findByRole('region', { name: 'MCP servers' });
-    // OpenCode is in every reading; Codex only in this scenario's, so waiting for it waits for the fresh one.
-    await within(matrix).findByText('Codex');
+    const names = () => within(matrix).getAllByRole('listitem').map((row) => within(row).getAllByText(/^(Oh My Pi|Pi|Claude Code|Codex|OpenCode)$/)[0]?.textContent);
+    // Every harness is in every reading, but only this scenario's lists OpenCode last, so waiting for that order waits for the fresh one.
+    await waitFor(() => expect(names()).toEqual(['Oh My Pi', 'Pi', 'Claude Code', 'Codex', 'OpenCode']));
 
     const rows = within(matrix).getAllByRole('listitem');
-    expect(rows.map((row) => within(row).getAllByText(/^(Oh My Pi|Pi|Claude Code|Codex|OpenCode)$/)[0]?.textContent)).toEqual(['Oh My Pi', 'Pi', 'Claude Code', 'Codex', 'OpenCode']);
 
     // Nothing to tick: every missing piece is part of the one action.
     expect(screen.queryAllByRole('switch')).toHaveLength(0);
-    expect(screen.getByText('9 items to install')).toBeInTheDocument();
+    expect(screen.getByText('7 items to install')).toBeInTheDocument();
 
     // The table is MCP servers only: skills are one row of the family card, summed across the harnesses found.
     expect(within(rows[0]).queryByRole('group', { name: 'Harness Skills' })).toBeNull();
@@ -348,11 +348,11 @@ describe('Set up step', () => {
     expect(within(within(claude).getByRole('group', { name: 'Harness Dashboard MCP' })).getByText('Installed')).toBeInTheDocument();
     expect(within(within(claude).getByRole('group', { name: 'Harness Memory MCP' })).getByText('Installed')).toBeInTheDocument();
     expect(within(within(claude).getByRole('group', { name: 'Harness Desktop MCP' })).getByText('Installed')).toBeInTheDocument();
+    // The app cannot chat with Codex yet, so it gets no MCP entries and every column says so.
     const codex = rows[3];
-    expect(within(within(codex).getByRole('group', { name: 'Harness Dashboard MCP' })).getByText('Disabled')).toBeInTheDocument();
-    expect(within(within(codex).getByRole('group', { name: 'Harness Memory MCP' })).getByText('Not installed')).toBeInTheDocument();
-    // The app's own server needs no installer, so its entry is on offer wherever the file can be edited.
-    expect(within(within(codex).getByRole('group', { name: 'Harness Desktop MCP' })).getByText('Not installed')).toBeInTheDocument();
+    expect(within(within(codex).getByRole('group', { name: 'Harness Dashboard MCP' })).getByText('Coming soon')).toBeInTheDocument();
+    expect(within(within(codex).getByRole('group', { name: 'Harness Memory MCP' })).getByText('Coming soon')).toBeInTheDocument();
+    expect(within(within(codex).getByRole('group', { name: 'Harness Desktop MCP' })).getByText('Coming soon')).toBeInTheDocument();
   });
 
   it('adds only the memory server’s missing entries when it is installed already', async () => {
@@ -394,10 +394,9 @@ describe('Set up step', () => {
     expect(screen.getByText('"harness-memory":')).toBeInTheDocument();
     expect(screen.getByText('"harness-desktop":')).toBeInTheDocument();
 
-    // Codex only has a note, so it waits for the disclosure.
+    // The app cannot chat with Codex yet, so its row has nothing to disclose, its switched-off entry included.
+    expect(screen.queryByRole('button', { name: 'Details: Codex' })).toBeNull();
     expect(screen.queryByText(/It is switched off in the file/)).toBeNull();
-    await fireEvent.click(screen.getByRole('button', { name: 'Details: Codex' }));
-    expect(await screen.findByText(/It is switched off in the file/)).toBeInTheDocument();
     // A found harness the skills cannot be installed in is listed on the skills row with its reason.
     expect(within(installer('Harness Skills')).queryByRole('region', { name: 'Codex' })).toBeNull();
     await openFamilyDetails();

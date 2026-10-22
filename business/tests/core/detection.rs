@@ -17,9 +17,9 @@ use pretty_assertions::assert_eq;
 use tempfile::TempDir;
 
 /// A runner that answers every command with a canned output and records what it was asked.
-struct CannedRunner {
+pub(crate) struct CannedRunner {
     output: ExecOutput,
-    seen: Mutex<Vec<ExecSpec>>,
+    pub(crate) seen: Mutex<Vec<ExecSpec>>,
 }
 
 impl CannedRunner {
@@ -30,7 +30,7 @@ impl CannedRunner {
         }
     }
 
-    fn printing(stdout: &str) -> Self {
+    pub(crate) fn printing(stdout: &str) -> Self {
         Self::new(ExecOutput {
             status: Some(0),
             stdout: stdout.to_owned(),
@@ -48,7 +48,7 @@ impl ProcessRunner for CannedRunner {
 }
 
 /// A runner that must never be called.
-struct NoRunner;
+pub(crate) struct NoRunner;
 
 impl ProcessRunner for NoRunner {
     fn run<'a>(&'a self, _spec: &'a ExecSpec) -> BoxFuture<'a, Result<ExecOutput>> {
@@ -57,7 +57,7 @@ impl ProcessRunner for NoRunner {
 }
 
 /// An executable named `name` in `dir` (content is irrelevant for canned runners).
-fn fake_binary(dir: &Path, name: &str, script: &str) -> PathBuf {
+pub(crate) fn fake_binary(dir: &Path, name: &str, script: &str) -> PathBuf {
     let path = dir.join(name);
     fs::create_dir_all(dir).unwrap();
     fs::write(&path, script).unwrap();
@@ -71,7 +71,7 @@ fn fake_binary(dir: &Path, name: &str, script: &str) -> PathBuf {
     path
 }
 
-fn binary_file(name: &str) -> String {
+pub(crate) fn binary_file(name: &str) -> String {
     if cfg!(windows) {
         format!("{name}.exe")
     } else {
@@ -93,7 +93,7 @@ fn assert_version_probe(runner: &CannedRunner, binary: &Path, switch: &str) {
 }
 
 /// An empty home whose PATH holds only `bin`.
-fn env_with_bin(home: &TempDir) -> (Env, PathBuf) {
+pub(crate) fn env_with_bin(home: &TempDir) -> (Env, PathBuf) {
     let bin = home.path().join("bin");
     fs::create_dir_all(&bin).unwrap();
     let env = Env::for_tests(home.path()).with_var("PATH", bin.to_string_lossy());
@@ -322,6 +322,10 @@ fn the_registry_lists_every_harness() {
     assert_eq!(
         registry.get(HarnessId::Claude).unwrap().info().homepage,
         "https://code.claude.com"
+    );
+    assert_eq!(
+        registry.get(HarnessId::Codex).unwrap().info().homepage,
+        "https://developers.openai.com/codex"
     );
 }
 

@@ -2,14 +2,14 @@
 //! needs real binaries) and the recent projects.
 
 use harness_business::harness::Harness;
-use harness_business::harnesses::{Claude, Omp, OpenCode, Pi};
+use harness_business::harnesses::{Claude, Codex, Omp, OpenCode, Pi};
 use harness_business::model::{Detection, HarnessSummary, ProjectInfo, VersionSupport};
 
 use crate::common::{DEMO_HOME, DEMO_PROJECT};
 
 /// OMP installed and supported; PI not installed (its config left behind), with an install hint;
 /// OpenCode installed by its install script and supported; Claude Code not installed and never
-/// used (no config folder), with its install hint.
+/// used (no config folder), with its install hint; Codex the same.
 pub fn harness_list() -> Vec<HarnessSummary> {
     let omp = HarnessSummary {
         info: Omp.info(),
@@ -79,7 +79,24 @@ pub fn harness_list() -> Vec<HarnessSummary> {
         native_approval_mode: None,
     };
 
-    vec![omp, pi, opencode, claude]
+    let codex = HarnessSummary {
+        info: Codex.info(),
+        capabilities: Codex.capabilities(),
+        detection: Detection {
+            installed: false,
+            binary_path: None,
+            is_batch_script: false,
+            version: None,
+            version_support: VersionSupport::Unknown,
+            config_dir: Some(format!("{DEMO_HOME}/.codex")),
+            config_dir_exists: false,
+            install_hint: Some(Codex.install_hint()),
+            error: None,
+        },
+        native_approval_mode: None,
+    };
+
+    vec![omp, pi, opencode, claude, codex]
 }
 
 /// Recent projects, most recent first: the demo repo, a plain folder and one that was deleted.

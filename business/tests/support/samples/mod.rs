@@ -27,6 +27,7 @@ fn session_key(harness: HarnessId) -> &'static str {
         HarnessId::Pi => "8c2d4e6f-1a3b-4c5d-8e7f-9a0b1c2d3e4f",
         HarnessId::OpenCode => unreachable!("OpenCode has no chat"),
         HarnessId::Claude => unreachable!("Claude Code has no chat"),
+        HarnessId::Codex => unreachable!("Codex has no chat"),
     }
 }
 
@@ -45,6 +46,7 @@ async fn start(harness: HarnessId, scenario: &str) -> Run {
         HarnessId::Pi => "pi",
         HarnessId::OpenCode => unreachable!("OpenCode has no chat"),
         HarnessId::Claude => unreachable!("Claude Code has no chat"),
+        HarnessId::Codex => unreachable!("Codex has no chat"),
     };
 
     start_with(harness, dialect, scenario, options(harness), |_| {})

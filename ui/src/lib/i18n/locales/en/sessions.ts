@@ -6,7 +6,7 @@ export const sessions = {
   'sessions.resize.list': 'Resize session list',
 
   'sessions.empty.noHarness.title': 'Install a harness to browse sessions',
-  'sessions.empty.noHarness.body': 'Sessions are read from OMP, PI, OpenCode or Claude Code. Run the setup to detect the one you use.',
+  'sessions.empty.noHarness.body': 'Sessions are read from OMP, PI, OpenCode, Claude Code or Codex. Run the setup to detect the one you use.',
   'sessions.empty.noHarness.action': 'Set up a harness',
   'sessions.empty.noProject.title': 'Open a project to see its sessions',
   'sessions.empty.noProject.body': 'Sessions are saved per project folder. Pick the project whose history you want to browse.',

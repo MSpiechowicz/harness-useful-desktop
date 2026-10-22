@@ -13,7 +13,7 @@ export const shell: AreaMessages<typeof enShell> = {
   'shell.view.changes.body': 'Un diff graphique de votre arbre de travail. Commentez n’importe quelle ligne et renvoyez-la directement à l’agent.',
   'shell.view.config': 'Configuration',
   'shell.view.config.heading': 'La configuration de votre harness, lisible',
-  'shell.view.config.body': 'Paramètres, serveurs MCP et profils d’OMP, de PI, d’OpenCode et de Claude Code au même endroit, secrets masqués en toute sécurité.',
+  'shell.view.config.body': 'Paramètres, serveurs MCP et profils d’OMP, de PI, d’OpenCode, de Claude Code et de Codex au même endroit, secrets masqués en toute sécurité.',
   'shell.view.extensions': 'Extensions',
   'shell.view.extensions.heading': 'Plugins, skills et MCP',
   'shell.view.extensions.body': 'Gérez plugins, marketplaces, skills et thèmes, avec un aperçu à blanc avant tout changement.',
@@ -72,7 +72,7 @@ export const shell: AreaMessages<typeof enShell> = {
 
 
   'shell.toast.noHarness.title': 'Aucun harness pour discuter',
-  'shell.toast.noHarness.description': 'Lancez la configuration pour détecter OMP, PI, OpenCode ou Claude Code.',
+  'shell.toast.noHarness.description': 'Lancez la configuration pour détecter OMP, PI, OpenCode, Claude Code ou Codex.',
   'shell.toast.needProject.title': 'Ouvrez d’abord un projet',
   'shell.toast.needProject.description': 'L’agent travaille dans un seul dossier.',
   'shell.toast.noSession': 'Aucune session enregistrée à reprendre',

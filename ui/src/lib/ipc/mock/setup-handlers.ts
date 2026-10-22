@@ -76,8 +76,8 @@ const OPENCODE_SKILLS_OUTPUT_FAILED: InstallLogLine[] = [
   { stream: 'stderr', line: 'error: could not download the Harness Skills package' },
 ];
 
-/** Each harness's user MCP file, empty for a harness with none the app writes. Claude Code's is only read, its CLI writes it. */
-const MCP_FILE: Record<HarnessId, string> = { omp: '~/.omp/agent/mcp.json', pi: '~/.pi/agent/mcp.json', opencode: '~/.config/opencode/opencode.json', claude: '~/.claude.json' };
+/** Each harness's user MCP file, empty for a harness with none the app writes (Codex, for now). Claude Code's is only read, its CLI writes it. */
+const MCP_FILE: Record<HarnessId, string> = { omp: '~/.omp/agent/mcp.json', pi: '~/.pi/agent/mcp.json', opencode: '~/.config/opencode/opencode.json', claude: '~/.claude.json', codex: '' };
 /** OpenCode's config when it has comments: the app never rewrites it. */
 const OPENCODE_COMMENTED_FILE = '~/.config/opencode/opencode.jsonc';
 const SKILLS_TARGET = 'harness-useful-skills@harness-useful-skills';
@@ -122,6 +122,10 @@ function delay(ms: number): Promise<void> {
 }
 
 function skillsOffer(harness: HarnessId, nodeFound: boolean): SkillsSetup {
+  if (harness === 'codex') {
+    return { type: 'unavailable', reason: 'Harness Skills for Codex are not available yet.', code: null };
+  }
+
   if (harness === 'opencode') {
     return nodeFound ? OPENCODE_SKILLS : OPENCODE_SKILLS_NO_NODE;
   }

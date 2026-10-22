@@ -48,10 +48,12 @@
   --color-pi: var(--harness-pi);
   --color-opencode: var(--harness-opencode);
   --color-claude: var(--harness-claude);
+  --color-codex: var(--harness-codex);
   --color-omp-wash: var(--harness-omp-wash);
   --color-pi-wash: var(--harness-pi-wash);
   --color-opencode-wash: var(--harness-opencode-wash);
   --color-claude-wash: var(--harness-claude-wash);
+  --color-codex-wash: var(--harness-codex-wash);
 
   --font-sans: var(--font-ui);
   --font-mono: var(--font-code);

@@ -7,6 +7,7 @@
 //! Harness Skills keeps for Claude Code and OpenCode in `skills_config`.
 
 pub mod claude;
+pub mod codex;
 pub mod omp;
 pub mod opencode;
 pub mod pi;
@@ -14,6 +15,7 @@ pub mod plugin_registry;
 mod skills_config;
 
 pub use claude::Claude;
+pub use codex::Codex;
 pub use omp::Omp;
 pub use opencode::OpenCode;
 pub use pi::Pi;

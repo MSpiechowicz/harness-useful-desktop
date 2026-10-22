@@ -6,12 +6,15 @@
 //! adapter produces may contain it. Claude Code's fixture also hides it in the private keys of its
 //! global file, in managed settings and in a second config directory (`claude-work`, for
 //! `CLAUDE_CONFIG_DIR`) whose private files must be refused although the folder is not `.claude`.
+//! Codex's fixture hides it in its login store, in `.codex` and in a home `CODEX_HOME` names.
 
 use crate::common;
 
 use std::path::{Path, PathBuf};
 
-use common::{CANARY, claude_home, demo_project, env_at, files_below, json_text, omp_home, opencode_home, pi_home};
+use common::{
+    CANARY, claude_home, codex_home, demo_project, env_at, files_below, json_text, omp_home, opencode_home, pi_home,
+};
 use harness_business::BusinessError;
 use harness_business::env::{Env, OsKind};
 use harness_business::harness::HarnessRegistry;
@@ -51,6 +54,7 @@ fn no_view_reveals_the_canary() {
     let pi = pi_home();
     let opencode = opencode_home();
     let claude = claude_home();
+    let codex = codex_home();
     let opencode_overrides = env_at(&opencode)
         .with_var(
             "OPENCODE_CONFIG",
@@ -69,6 +73,8 @@ fn no_view_reveals_the_canary() {
         env_at(&claude).with_var("CLAUDE_CONFIG_DIR", claude.join(".claude").to_string_lossy()),
         claude_work_env(&claude),
         claude_managed_env(&claude),
+        env_at(&codex),
+        env_at(&codex).with_var("CODEX_HOME", codex.join("codex-work").to_string_lossy()),
     ];
 
     for env in envs {

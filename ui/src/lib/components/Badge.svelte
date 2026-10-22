@@ -32,6 +32,7 @@
     pi: 'bg-pi-wash text-pi',
     opencode: 'bg-opencode-wash text-opencode',
     claude: 'bg-claude-wash text-claude',
+    codex: 'bg-codex-wash text-codex',
   };
 
   const SIZES = {

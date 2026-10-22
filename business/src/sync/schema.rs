@@ -276,17 +276,20 @@ impl ParsedSection {
 ///
 /// OpenCode plugins and servers pass [`validate::opencode_plugin`] and
 /// [`validate::opencode_mcp_server`], Claude Code's [`validate::claude_plugin`] and
-/// [`validate::claude_mcp_server`].
+/// [`validate::claude_mcp_server`]. Codex shares nothing yet ([`ShareSupport::NONE`]), so its items
+/// pass the generic checks and are then blocked.
+///
+/// [`ShareSupport::NONE`]: crate::harness::ShareSupport::NONE
 pub fn parse_section(harness: HarnessId, section: &Map<String, Value>) -> ParsedSection {
     let plugin: fn(&Plugin) -> Check = match harness {
         HarnessId::OpenCode => validate::opencode_plugin,
         HarnessId::Claude => validate::claude_plugin,
-        HarnessId::Omp | HarnessId::Pi => validate::plugin,
+        HarnessId::Omp | HarnessId::Pi | HarnessId::Codex => validate::plugin,
     };
     let mcp_server: fn(&McpServer) -> Check = match harness {
         HarnessId::OpenCode => validate::opencode_mcp_server,
         HarnessId::Claude => validate::claude_mcp_server,
-        HarnessId::Omp | HarnessId::Pi => validate::mcp_server,
+        HarnessId::Omp | HarnessId::Pi | HarnessId::Codex => validate::mcp_server,
     };
 
     ParsedSection {

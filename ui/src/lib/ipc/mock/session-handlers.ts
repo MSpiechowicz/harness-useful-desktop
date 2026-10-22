@@ -32,6 +32,10 @@ function listed(state: MockState, harness: SessionRef['harness']): SessionSummar
     throw IpcFailure.from({ code: 'unsupported', message: 'Claude Code sessions are not available yet' });
   }
 
+  if (harness === 'codex') {
+    throw IpcFailure.from({ code: 'unsupported', message: 'Codex sessions are not available yet' });
+  }
+
   const all = harness === 'opencode' ? (sessionsListOpenCode as unknown as SessionSummary[]) : fixtures.sessions.list[harness];
 
   const kept = all.filter((summary) => !state.deletedSessions.has(keyOf(summary.ref)));
@@ -73,6 +77,11 @@ function folderOf(harness: SessionRef['harness'], project: string): SessionFolde
   // Claude Code names the folder after the whole path, every character but ASCII letters and digits a `-`.
   if (harness === 'claude') {
     return { path: `${HOME}/.claude/projects/${project.replaceAll(/[^a-zA-Z0-9]/g, '-')}`, configured: false };
+  }
+
+  // Codex keeps every project's sessions in one folder of its home.
+  if (harness === 'codex') {
+    return { path: `${HOME}/.codex/sessions`, configured: false };
   }
 
   const path =
@@ -159,6 +168,10 @@ export function sessionHandlers(state: MockState, routines: Pick<MockRoutines, '
 
       if (harness === 'claude') {
         throw IpcFailure.from({ code: 'unsupported', message: 'CC has no session files' });
+      }
+
+      if (harness === 'codex') {
+        throw IpcFailure.from({ code: 'unsupported', message: 'CX has no session files' });
       }
 
       return structuredClone(harness === 'pi' ? totalsPi : totalsOmp) as SessionTotals;

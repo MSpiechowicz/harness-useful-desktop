@@ -4,7 +4,7 @@ use std::path::Path;
 
 use super::Harness;
 use crate::env::Env;
-use crate::harnesses::{Claude, Omp, OpenCode, Pi};
+use crate::harnesses::{Claude, Codex, Omp, OpenCode, Pi};
 use crate::model::{BinaryOverride, HarnessId, HarnessSummary};
 use crate::process::{ProcessRunner, find_override, join_all};
 
@@ -21,6 +21,7 @@ impl HarnessRegistry {
             Box::new(Pi),
             Box::new(OpenCode::default()),
             Box::new(Claude),
+            Box::new(Codex),
         ])
     }
 

@@ -71,3 +71,29 @@ fn a_captured_claude_config_dir_joins_the_deny_list() {
     assert!(harness_business::security::is_denied(&root.join("debug").join("x.txt")).is_some());
     assert_eq!(harness_business::security::is_denied(&root.join("settings.json")), None);
 }
+
+#[test]
+fn the_codex_home_is_captured_and_its_api_keys_only_as_set() {
+    let value = ["not", "a", "key"].join("-");
+
+    if std::env::var_os(CHILD_MARKER).is_none() {
+        run_as_child(
+            "the_codex_home_is_captured_and_its_api_keys_only_as_set",
+            &[
+                ("CODEX_HOME", "/srv/codex-home"),
+                ("OPENAI_API_KEY", &value),
+                ("CODEX_API_KEY", &value),
+            ],
+        );
+        return;
+    }
+
+    let env = Env::from_process().expect("environment");
+
+    assert_eq!(env.var("CODEX_HOME"), Some("/srv/codex-home"));
+
+    for name in ["OPENAI_API_KEY", "CODEX_API_KEY"] {
+        assert!(env.is_set(name), "{name} is reported as set");
+        assert_eq!(env.var(name), None, "{name} keeps no value");
+    }
+}

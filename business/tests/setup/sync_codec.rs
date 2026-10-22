@@ -220,7 +220,7 @@ fn unknown_harnesses_kinds_and_fields_are_counted_and_ignored() {
             "omp": { "plugins": [{ "id": "review@official", "extra": true }], "themes": [{}, {}], "note": "x" },
             "acme": { "skills": [1, 2], "agents": [3] },
             "bad key!": { "y": [1] },
-            "codex": "not an object",
+            "nova": "not an object",
         },
     })
     .to_string();
@@ -252,7 +252,7 @@ fn unknown_harnesses_kinds_and_fields_are_counted_and_ignored() {
             },
             SyncUnsupported {
                 harness: None,
-                name: "codex".to_owned(),
+                name: "nova".to_owned(),
                 item_count: 0
             },
         ]

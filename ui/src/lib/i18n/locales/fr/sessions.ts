@@ -9,7 +9,7 @@ export const sessions: AreaMessages<typeof enSessions> = {
   'sessions.resize.list': 'Redimensionner la liste des sessions',
 
   'sessions.empty.noHarness.title': 'Installer un harness pour parcourir les sessions',
-  'sessions.empty.noHarness.body': 'Les sessions sont lues depuis OMP, PI, OpenCode ou Claude Code. Lancez la configuration pour détecter celui que vous utilisez.',
+  'sessions.empty.noHarness.body': 'Les sessions sont lues depuis OMP, PI, OpenCode, Claude Code ou Codex. Lancez la configuration pour détecter celui que vous utilisez.',
   'sessions.empty.noHarness.action': 'Configurer un harness',
   'sessions.empty.noProject.title': 'Ouvrir un projet pour voir ses sessions',
   'sessions.empty.noProject.body': 'Les sessions sont enregistrées par dossier de projet. Choisissez le projet dont vous voulez parcourir l’historique.',

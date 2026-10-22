@@ -24,6 +24,7 @@
     pi: 'text-pi',
     opencode: 'text-opencode',
     claude: 'text-claude',
+    codex: 'text-codex',
   };
   /** A harness without accent tokens of its own gets a neutral dot. */
   const NEUTRAL = 'text-fg-3';

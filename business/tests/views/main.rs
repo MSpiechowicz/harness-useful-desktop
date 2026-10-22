@@ -54,6 +54,7 @@ mod claude_views;
 mod cli_actions;
 mod dashboard_query;
 mod deny_claude;
+mod deny_codex;
 mod mock_fixtures;
 mod omp_views;
 mod opencode2_asks_mapper;

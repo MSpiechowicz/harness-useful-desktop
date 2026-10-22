@@ -79,7 +79,7 @@ export const ACTION_LABELS: Record<ActionKind, MessageKey> = {
 export const ACTION_ICONS: Record<ActionKind, IconComponent> = { agent: Bot, command: SquareTerminal, script: FileCode };
 
 /** What a harness is called on screen. These are product names and stay the same in every language. */
-export const HARNESS_NAMES: Record<HarnessId, string> = { omp: 'OMP', pi: 'PI', opencode: 'OpenCode', claude: 'Claude Code' };
+export const HARNESS_NAMES: Record<HarnessId, string> = { omp: 'OMP', pi: 'PI', opencode: 'OpenCode', claude: 'Claude Code', codex: 'Codex' };
 
 export const STATUS_LABELS: Record<RoutineStatus, MessageKey> = {
   active: 'routines.status.active',
