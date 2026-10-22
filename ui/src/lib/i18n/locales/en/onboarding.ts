@@ -167,6 +167,7 @@ export const onboarding = {
   'onboarding.approval.cc.stricter': 'You can pick a stricter mode for a single chat from the chat header, without touching your Claude Code settings.',
   'onboarding.approval.cx.title': 'Codex can run commands without asking',
   'onboarding.approval.cx.body': 'Your Codex settings use “{mode}”: commands run without asking for confirmation, exactly as in your terminal.',
+  'onboarding.approval.cx.bodyFullAccess': 'Your Codex settings use “{mode}”: commands run with full access to your machine, without a sandbox. Codex asks only when it decides a command needs your approval.',
   'onboarding.approval.cx.modes': 'Codex approval policies and sandboxes',
   'onboarding.approval.cx.default': 'Codex default',
   'onboarding.approval.cx.untrusted.label': 'Untrusted',

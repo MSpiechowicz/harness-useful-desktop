@@ -303,8 +303,10 @@ impl HarnessCli<'_> {
             .args(args.iter().cloned())
             .cwd(cwd)
             .env("NO_COLOR", "1")
-            .env("FORCE_COLOR", "0")
-            .envs(self.harness.spawn_env().iter().copied())
+            .env("FORCE_COLOR", "0");
+        let spec = self
+            .harness
+            .spawn_spec(self.env, spec)
             .search_dirs(launcher_search_dirs(self.env, &self.binary.path))
             .timeout(timeout)
             .max_output_bytes(MAX_CLI_OUTPUT_BYTES);

@@ -28,9 +28,10 @@ mod trust;
 pub use catalog::CodexCatalog;
 pub use cli::codex_cli_action;
 pub use extensions::{MarketplaceRecord, PluginRecord, marketplace_records, plugin_records};
+use launch::memory_session_args;
 pub use launch::{APP_SERVER_ARGS, codex_launch_spec, is_thread_id};
 pub use paths::{PROJECT_DIR_NAME, codex_home};
-pub use settings::{CONFIG_FILE, user_config_path};
+pub use settings::{CONFIG_FILE, is_plain_name, mcp_servers, user_config_path};
 pub use trust::{ProjectTrust, project_trust};
 
 use self::modes::ConfiguredMode;
@@ -67,7 +68,8 @@ impl Harness for Codex {
     /// counted. Its approval modes are Always ask, Write and Yolo, never Auto (see [`modes`]). A
     /// chat may trust the project once ([`trust`]), but no folder is refused: Codex itself ignores
     /// the own layer of a folder it does not trust, so nothing of the project applies unasked
-    /// (`project_trust_required` stays off).
+    /// (`project_trust_required` stays off). Its harness-memory servers get the chat's key through
+    /// a launch override ([`launch`]), so the chat has memory guards.
     fn capabilities(&self) -> Capabilities {
         Capabilities {
             chat: true,
@@ -82,6 +84,7 @@ impl Harness for Codex {
             mcp: true,
             skills: true,
             cli_actions: true,
+            memory_chat_guards: true,
             ..Capabilities::default()
         }
     }
@@ -173,6 +176,24 @@ impl Harness for Codex {
 
     /// Only for a project with an own layer (`.codex/` settings, hooks or rules) the user's
     /// `config.toml` does not trust: Codex ignores that layer until it is trusted.
+    /// Without a relative `CODEX_HOME`, which the app ignores ([`paths`]) but Codex would resolve
+    /// against its working directory (a project could then pick the Codex home).
+    fn spawn_spec(&self, env: &Env, spec: ExecSpec) -> ExecSpec {
+        let relative_home = env
+            .var("CODEX_HOME")
+            .is_some_and(|home| !Path::new(&home).is_absolute());
+
+        if relative_home {
+            spec.env_remove_prefix("CODEX_HOME")
+        } else {
+            spec
+        }
+    }
+
+    fn memory_session_args(&self, env: &Env, request: &LaunchRequest<'_>) -> Vec<String> {
+        memory_session_args(env, request.project, request.trust_once)
+    }
+
     fn trust_once_offered(&self, env: &Env, project: &Path) -> bool {
         project_trust(&codex_home(env), project) == ProjectTrust::Untrusted
     }

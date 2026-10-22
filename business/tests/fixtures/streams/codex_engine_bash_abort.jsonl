@@ -1,5 +1,5 @@
 // A `!command` stopped while it runs: the turn of 06_ops.jsonl is interrupted.
-{"include": "codex_engine_open.jsonl"}
+{"include": "codex_engine_mode_write.jsonl"}
 {"expect": "thread/shellCommand", "match": {"/params/command": "sleep 60"}}
 {"replay": "../codex/app_server/06_ops.jsonl", "from": 6, "to": 8, "except": ["response"]}
 {"expect": "turn/interrupt", "match": {"/params/threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "/params/turnId": "01a164a0-dabb-70f3-98e6-8661b3e382e5"}}

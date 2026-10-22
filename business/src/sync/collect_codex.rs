@@ -13,7 +13,8 @@
 //! - MCP servers: `[mcp_servers.<name>]` in the shared form: stdio (`command`, `args`) or
 //!   streamable HTTP (`url`), the key names of `env` and `env_vars`, and the header names of
 //!   `http_headers` and `env_http_headers` (`Authorization` for a `bearer_token_env_var`). Never a
-//!   value. The app's own servers are skipped without a row.
+//!   value. A server switched off (`enabled = false`) is left out, so the import never adds it
+//!   switched on. The app's own servers are skipped without a row.
 
 use std::collections::BTreeMap;
 
@@ -126,6 +127,10 @@ pub(super) fn codex_servers(env: &Env, harness: &dyn Harness, found: &mut Found)
 /// The shared form of one Codex server and the notes on what stays here, or why it is left out.
 fn shared_codex_server(name: &str, server: &Value) -> Result<(McpServer, Vec<SyncNote>), SyncExcludedReason> {
     let fields = server_fields(name, server)?;
+
+    if fields.get("enabled") == Some(&Value::Bool(false)) {
+        return Err(SyncExcludedReason::SwitchedOff);
+    }
 
     let (transport, command, args, url) = match (fields.contains_key("command"), fields.contains_key("url")) {
         (true, _) => (

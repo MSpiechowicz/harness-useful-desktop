@@ -116,6 +116,11 @@ impl Turn {
         self.kind != StartKind::Prompt
     }
 
+    /// True while a prompt's turn (not a quiet one) runs.
+    pub(super) fn is_prompt_running(&self) -> bool {
+        self.active && !self.is_quiet()
+    }
+
     /// True while a `!command`'s turn runs.
     pub(super) fn is_shell(&self) -> bool {
         self.active && self.kind == StartKind::Shell

@@ -14,7 +14,17 @@ const PROMPT: &str =
 
 #[tokio::test]
 async fn a_failed_model_is_retried_once_on_the_default_model_before_the_helper_settles() {
-    let chat = start_as("codex_engine_naming.jsonl", None, true).await;
+    // The user's MCP server is switched off for the helper's thread (the scenario checks it).
+    let helper = codex_engine_support::Setup {
+        utility: true,
+        ..codex_engine_support::Setup::default()
+    };
+    let chat = codex_engine_support::start_with("codex_engine_naming.jsonl", helper, |project| {
+        let config = project.join(codex_engine_support::HOME).join("config.toml");
+        std::fs::create_dir_all(config.parent().unwrap()).unwrap();
+        std::fs::write(config, "[mcp_servers.docs]\ncommand = \"docs-server\"\n").unwrap();
+    })
+    .await;
 
     chat.act(codex_engine_support::prompt(PROMPT)).await;
     let events = chat.settled(1).await;

@@ -52,6 +52,7 @@ const EXCLUDED_KEYS: Record<SyncExcludedReason, MessageKey> = {
   localPath: 'sync.excluded.localPath',
   projectScope: 'sync.excluded.projectScope',
   unsupported: 'sync.excluded.unsupported',
+  switchedOff: 'sync.excluded.switchedOff',
   invalid: 'sync.excluded.invalid',
   tooMany: 'sync.excluded.tooMany',
 };

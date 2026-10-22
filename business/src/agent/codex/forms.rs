@@ -201,9 +201,19 @@ fn value(kind: Kind, text: String) -> Value {
     parsed.unwrap_or(Value::String(text))
 }
 
+/// A question asking `text` (redacted, as Codex and an MCP server may echo a secret) with
+/// `options`, whose descriptions are redacted too (their labels are the answers).
 fn question_of(text: String, options: Vec<QuestionOption>) -> Question {
+    let options = options
+        .into_iter()
+        .map(|option| QuestionOption {
+            description: option.description.map(|text| redact_text(&text)),
+            ..option
+        })
+        .collect();
+
     Question {
-        question: text,
+        question: redact_text(&text),
         options,
         ..Question::default()
     }

@@ -16,8 +16,9 @@
 //! - Both are refused while the chat is busy; one Codex does not take is taken back from the
 //!   mapper.
 //! - **A turn's end** marks the thread as saved (not a helper chat's), drops the history read
-//!   before it, finishes a running `!command` and lets a helper chat send its prompt again
-//!   (`naming.rs`).
+//!   before it, sends the state after a quiet turn (its context and count changed, and no
+//!   `settled` makes the chat ask for it), finishes a running `!command` and lets a helper chat
+//!   send its prompt again (`naming.rs`).
 
 use std::sync::Arc;
 
@@ -177,6 +178,7 @@ impl Chat {
             live.shell = None;
 
             let mapped = live.mapper.withdrawn();
+            live.forget_abort();
             self.apply(&mut live, mapped)
         };
 
@@ -198,6 +200,11 @@ impl Chat {
     pub(super) fn turn_ended(self: &Arc<Self>, live: &mut Live, end: &TurnEnd, owed: &mut Vec<Value>) {
         live.saved |= !self.helper;
         live.transcript = None;
+
+        // A quiet turn ends without `settled`, after which the chat reads its state: it is sent now.
+        if end.kind != StartKind::Prompt {
+            self.emit_state(live);
+        }
 
         if end.kind == StartKind::Shell
             && let Some(shell) = live.shell.take()

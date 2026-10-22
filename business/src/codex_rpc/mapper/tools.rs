@@ -12,7 +12,9 @@
 //!   inside the project only. Its files stay known from `item/started` (and
 //!   `item/fileChange/patchUpdated`) until the turn ends: the approval Codex asks for names only
 //!   the item.
-//! - A card still running when its turn ends fails with [`UNFINISHED_TOOL`].
+//! - A card still running when its turn ends fails with [`UNFINISHED_TOOL`], one whose end could
+//!   not be read with [`RESULT_TOO_LARGE`] (a file change still names the project files it was
+//!   about, which it may have changed).
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -36,6 +38,9 @@ pub const APPLY_PATCH: &str = "apply_patch";
 
 /// The card name of a web search.
 pub const WEB_SEARCH: &str = "web_search";
+
+/// Result text of a tool whose `item/completed` was larger than the app reads.
+pub const RESULT_TOO_LARGE: &str = "The result was larger than the app reads, so it is not shown.";
 
 /// Result text of a command the user declined.
 pub const COMMAND_DECLINED: &str = "The user declined this command.";
@@ -169,6 +174,23 @@ impl Tools {
 
         let name = self.calls.get(id).map(|call| call.name.clone()).unwrap_or_default();
         out.push(ended(id, name, is_error, &text, touched));
+    }
+
+    /// Ends running card `id`, whose `item/completed` could not be read, with [`RESULT_TOO_LARGE`].
+    pub(super) fn lost(&mut self, id: &str, out: &mut Vec<AgentEvent>) {
+        let Some(call) = self.calls.get_mut(id).filter(|call| !call.ended) else {
+            return;
+        };
+
+        call.ended = true;
+        let name = call.name.clone();
+        let touched = if name == APPLY_PATCH {
+            self.touched(self.file_changes(id))
+        } else {
+            Vec::new()
+        };
+
+        out.push(ended(id, name, true, RESULT_TOO_LARGE, touched));
     }
 
     /// Ends every card still running (its turn ended) with [`UNFINISHED_TOOL`].

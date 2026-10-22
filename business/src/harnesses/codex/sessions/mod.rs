@@ -10,12 +10,17 @@
 //! - Transcript and touched files: `thread/read` (the thread must be of the project or a folder
 //!   inside it), then every page of `thread/turns/list` and `thread/items/list`, oldest first
 //!   (never `includeTurns`, which Codex deprecates), as in [`transcript`]. Later pages and the
-//!   touched files reuse the read of the first page.
+//!   touched files reuse the read of the first page. A page's cursor holds its offset and a
+//!   fingerprint of the messages before it: when a later read (the cached one expired) no longer
+//!   starts with them, the page is refused as `Changed` instead of repeating or skipping messages.
 //! - Delete: `thread/read` (same check), then `thread/delete`. Codex refuses a thread whose
 //!   forks still reference it: that is `Conflict`, the forks are never deleted for the user.
 //! - The chat engine forks at a turn ([`CodexSessions::fork_point`]: a message's id is its
 //!   turn's) and resumes by the thread id; the export renders the saved messages with the shared
 //!   HTML exporter ([`CodexSessions::export_html`]).
+//!
+//! Each call to the app-server has [`TIMEOUT`], and one run reads at most [`MAX_READ_BYTES`]: past
+//! that the paging stops and what was read is kept (as past [`MAX_TURNS`] or [`MAX_ITEMS`]).
 //!
 //! Lists are cached for [`LIST_TTL`] and reads for [`READ_TTL`], per binary and project. One
 //! app-server runs at a time; a caller that waited for another finds its result in the cache.
@@ -23,21 +28,21 @@
 
 mod app_server;
 mod cache;
+mod paging;
 mod transcript;
 
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, UNIX_EPOCH};
 
-use serde::de::DeserializeOwned;
-
 use self::app_server::{AppServer, CallError, failure};
 use self::cache::{CacheKey, Cached, cached, lock, store};
+use self::paging::{page_cursor, page_offset, pages};
 pub(crate) use self::transcript::{Origin, Transcript, transcript};
 use crate::agent::rfc3339;
 use crate::codex_rpc::wire::items::Turn;
 use crate::codex_rpc::wire::outbound::{Paged, Request, ThreadList};
-use crate::codex_rpc::wire::results::{ItemEntry, Page, Thread, ThreadRead};
+use crate::codex_rpc::wire::results::{ItemEntry, Thread, ThreadRead};
 use crate::error::{BusinessError, Result};
 use crate::harness::{CliSessionCtx, CliSessions};
 use crate::model::{
@@ -47,8 +52,11 @@ use crate::opencode_server::export_html::{ExportPage, render};
 use crate::opencode_server::mapper::project_dir;
 use crate::pi_family::sessions::{is_safe_session_id, page_range};
 
-/// How long one app-server run may take, start to last answer.
+/// How long the handshake and each later call of an app-server run may take.
 const TIMEOUT: Duration = Duration::from_secs(30);
+
+/// The most bytes one app-server run reads: paging stops past it.
+const MAX_READ_BYTES: usize = 64 * 1024 * 1024;
 
 /// How long a session list is reused.
 const LIST_TTL: Duration = Duration::from_secs(5);
@@ -81,6 +89,7 @@ const FORKS_FIRST: &str = "delete the forks of this session first";
 #[derive(Debug)]
 pub struct CodexSessions {
     timeout: Duration,
+    budget: usize,
     lists: Mutex<Vec<Cached<Vec<SessionSummary>>>>,
     reads: Mutex<Vec<Cached<Read>>>,
     /// Held while an app-server runs.
@@ -101,15 +110,22 @@ pub fn cli_sessions() -> &'static CodexSessions {
 }
 
 impl CodexSessions {
-    /// Empty caches, each app-server run limited to 30 seconds.
+    /// Empty caches, each app-server call limited to 30 seconds and each run to 64 MiB read.
     pub const fn new() -> Self {
-        Self::with_timeout(TIMEOUT)
+        Self::with_limits(TIMEOUT, MAX_READ_BYTES)
     }
 
-    /// Empty caches, each app-server run limited to `timeout` (then it is killed).
+    /// Empty caches, each app-server call limited to `timeout` (then it is killed).
     pub const fn with_timeout(timeout: Duration) -> Self {
+        Self::with_limits(timeout, MAX_READ_BYTES)
+    }
+
+    /// Empty caches, each app-server call limited to `timeout` and each run to `budget` bytes
+    /// read.
+    pub const fn with_limits(timeout: Duration, budget: usize) -> Self {
         Self {
             timeout,
+            budget,
             lists: Mutex::new(Vec::new()),
             reads: Mutex::new(Vec::new()),
             runs: Mutex::new(()),
@@ -176,7 +192,7 @@ impl CodexSessions {
         let mut server = AppServer::start(ctx, self.timeout)?;
         let cwd = ctx.project.to_string_lossy().into_owned();
 
-        let threads: Vec<Thread> = pages(&mut server, MAX_THREADS, |cursor| {
+        let threads: Vec<Thread> = pages(&mut server, MAX_THREADS, self.budget, |cursor| {
             Request::ThreadList(ThreadList {
                 cwd: Some(cwd.clone()),
                 cursor,
@@ -231,10 +247,10 @@ impl CodexSessions {
         let mut server = AppServer::start(ctx, self.timeout)?;
         let thread = owned_thread(&mut server, ctx, id)?;
 
-        let turns: Vec<Turn> = pages(&mut server, MAX_TURNS, |cursor| turns_page(id, cursor))
+        let turns: Vec<Turn> = pages(&mut server, MAX_TURNS, self.budget, |cursor| turns_page(id, cursor))
             .map_err(|error| thread_failure(error, "thread/turns/list", id))?;
 
-        let items: Vec<ItemEntry> = pages(&mut server, MAX_ITEMS, |cursor| items_page(id, cursor))
+        let items: Vec<ItemEntry> = pages(&mut server, MAX_ITEMS, self.budget, |cursor| items_page(id, cursor))
             .map_err(|error| thread_failure(error, "thread/items/list", id))?;
 
         server.finish();
@@ -264,7 +280,8 @@ impl CliSessions for CodexSessions {
         Ok(self.sessions(ctx)?.as_ref().clone())
     }
 
-    /// The first page (no cursor) reads the thread again; later pages page the same read.
+    /// The first page (no cursor) reads the thread again; later pages page the same read, or a
+    /// newer one that starts with the same messages (see the module docs).
     fn messages(
         &self,
         ctx: &CliSessionCtx<'_>,
@@ -275,11 +292,16 @@ impl CliSessions for CodexSessions {
         let id = checked_id(session)?;
         let read = self.read(ctx, id, cursor.is_none())?;
         let messages = &read.transcript.messages;
-        let range = page_range(cursor, limit, messages.len())?;
+
+        let offset = match cursor {
+            Some(cursor) => Some(page_offset(cursor, messages)?),
+            None => None,
+        };
+        let range = page_range(offset.as_deref(), limit, messages.len())?;
 
         Ok(SessionMessagesPage {
             messages: messages[range.clone()].to_vec(),
-            next_cursor: (range.end < messages.len()).then(|| range.end.to_string()),
+            next_cursor: (range.end < messages.len()).then(|| page_cursor(messages, range.end)),
             total: u32::try_from(messages.len()).unwrap_or(u32::MAX),
             stats: cursor.is_none().then(|| read.transcript.stats.clone()),
         })
@@ -348,32 +370,6 @@ fn oldest_first(id: &str, cursor: Option<String>, limit: u32) -> Paged {
         sort_direction: Some("asc".to_owned()),
         ..Paged::default()
     }
-}
-
-/// Every page of a paged request (`request` for a cursor), up to `max` entries.
-fn pages<T: DeserializeOwned>(
-    server: &mut AppServer,
-    max: usize,
-    request: impl Fn(Option<String>) -> Request,
-) -> std::result::Result<Vec<T>, CallError> {
-    let mut entries = Vec::new();
-    let mut cursor = None;
-
-    loop {
-        let page: Page<T> = server.call(&request(cursor))?;
-        let empty = page.data.is_empty();
-        entries.extend(page.data);
-
-        cursor = page.next_cursor;
-
-        if cursor.is_none() || empty || entries.len() >= max {
-            break;
-        }
-    }
-
-    entries.truncate(max);
-
-    Ok(entries)
 }
 
 /// Thread `id` by `thread/read`, when it belongs to the project (or a folder inside it).

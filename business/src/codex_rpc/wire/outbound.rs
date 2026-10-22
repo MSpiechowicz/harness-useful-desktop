@@ -190,6 +190,17 @@ pub enum ApprovalPolicy {
     Never,
 }
 
+impl ApprovalPolicy {
+    /// The policy as Codex names it.
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Untrusted => "untrusted",
+            Self::OnRequest => "on-request",
+            Self::Never => "never",
+        }
+    }
+}
+
 /// What the sandbox allows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "kebab-case")]
@@ -197,6 +208,17 @@ pub enum SandboxMode {
     ReadOnly,
     WorkspaceWrite,
     DangerFullAccess,
+}
+
+impl SandboxMode {
+    /// The `type` of the sandbox policy Codex answers a thread with for this mode.
+    pub fn policy_type(self) -> &'static str {
+        match self {
+            Self::ReadOnly => "readOnly",
+            Self::WorkspaceWrite => "workspaceWrite",
+            Self::DangerFullAccess => "dangerFullAccess",
+        }
+    }
 }
 
 /// Settings of a thread being started, resumed or forked; `None` keeps the configured one.
@@ -211,6 +233,9 @@ pub struct ThreadSettings {
     pub approval_policy: Option<ApprovalPolicy>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sandbox: Option<SandboxMode>,
+    /// Who answers approvals: `user` (the app asks the user), else a model reviewer.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub approvals_reviewer: Option<String>,
     /// `-c`-style config overrides for this thread.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub config: Option<Map<String, Value>>,

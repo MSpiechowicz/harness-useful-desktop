@@ -120,3 +120,107 @@ async fn questions_and_forms_are_asked_one_dialog_at_a_time() {
 
     chat.finish().await;
 }
+
+#[tokio::test]
+async fn asks_are_answered_by_what_the_chat_can_show() {
+    let chat = start("codex_engine_asks_shown.jsonl").await;
+    chat.act(prompt("Tidy up.")).await;
+
+    // The permissions it cannot show and the other thread's ask got no dialog.
+    let change = chat.dialog(0).await;
+    let (title, options) = select(&change);
+    assert!(title.starts_with("Allow apply_patch: outside the project /home/user/.bashrc, a.rs, b.rs, c.rs and 1 more, writing anywhere below /"), "{title}");
+    assert_eq!(
+        options,
+        ["Allow once", "Reject"],
+        "no Always allow for a folder to write below"
+    );
+    assert!(change.id.starts_with("s-file%3A1"), "{}", change.id);
+    chat.pick(&change.id, "Allow once").await.unwrap();
+
+    let stdin = answer(&chat, 1, "Reject").await;
+    assert_eq!(select(&stdin).0, "Allow input to the running command: python3?");
+
+    let permissions = answer(&chat, 2, "Allow once").await;
+    assert_eq!(
+        select(&permissions).0,
+        "Allow extra permissions: network access, writing /srv/out?"
+    );
+
+    let events = chat.settled(1).await;
+    assert!(events.iter().any(|event| matches!(
+        event,
+        AgentEvent::Notice { level: NoticeLevel::Warning, message } if message.contains("cannot show in full")
+    )));
+    let shown = events
+        .iter()
+        .filter(|event| matches!(event, AgentEvent::UiRequest { .. }))
+        .count();
+    assert_eq!(shown, 3);
+
+    chat.finish().await;
+}
+
+#[tokio::test]
+async fn a_long_command_says_how_much_is_left_out_and_a_form_masks_secrets() {
+    let chat = start("codex_engine_asks_long.jsonl").await;
+    chat.act(prompt("Echo a lot.")).await;
+
+    let dialog = answer(&chat, 0, "Reject").await;
+    let (title, _) = select(&dialog);
+    assert!(
+        title.ends_with("… (500 more characters)?"),
+        "{}",
+        &title[title.len() - 60..]
+    );
+
+    let form = chat.dialog(1).await;
+    let shown = input_title(&form);
+    assert!(shown.starts_with("tracker asks for Code. Sign in with"), "{shown}");
+    assert!(!shown.contains("Zx9Qw8Er7Ty6Ui5Op4As3Df2Gh1Jk0Lm"), "{shown}");
+    chat.session
+        .respond(harness_business::model::UiResponse {
+            id: form.id.clone(),
+            outcome: harness_business::model::UiOutcome::Cancelled,
+        })
+        .await
+        .unwrap();
+
+    chat.settled(1).await;
+    chat.finish().await;
+}
+
+#[tokio::test]
+async fn frames_over_the_limit_are_answered_and_end_what_they_were_about() {
+    let chat = start("codex_engine_oversized.jsonl").await;
+    chat.act(prompt("Make it big.")).await;
+
+    let events = chat.settled(1).await;
+    let ended = events.iter().find_map(|event| match event {
+        AgentEvent::ToolEnd {
+            tool_call_id,
+            is_error,
+            touched_paths,
+            ..
+        } if tool_call_id == "patch-big" => Some((*is_error, touched_paths.clone())),
+        _ => None,
+    });
+    assert_eq!(ended, Some((true, vec!["big.rs".to_owned()])));
+    let faults = events
+        .iter()
+        .filter(|event| matches!(event, AgentEvent::FrameError { .. }))
+        .count();
+    assert_eq!(faults, 2);
+    assert!(
+        !events.iter().any(|event| matches!(event, AgentEvent::UiRequest { .. })),
+        "nothing waits for an answer"
+    );
+
+    let started = std::time::Instant::now();
+    let rename = harness_business::model::AgentAction::SetSessionName { name: "Big".to_owned() };
+    let refused = chat.session.send(rename).await.unwrap_err();
+    assert!(matches!(refused, BusinessError::Protocol(_)), "{refused:?}");
+    assert!(started.elapsed() < std::time::Duration::from_secs(5), "failed at once");
+
+    chat.finish().await;
+}

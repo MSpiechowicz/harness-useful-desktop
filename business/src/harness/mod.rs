@@ -313,6 +313,20 @@ pub trait Harness: Send + Sync {
         &[]
     }
 
+    /// `spec` with [`Harness::spawn_env`] and what else every spawn of the harness binary needs
+    /// in `env`, e.g. without a variable the harness would resolve differently from the app.
+    /// Default: only [`Harness::spawn_env`].
+    fn spawn_spec(&self, _env: &Env, spec: ExecSpec) -> ExecSpec {
+        spec.envs(self.spawn_env().iter().copied())
+    }
+
+    /// Arguments a chat launch with a memory identity adds after [`Harness::launch_spec`]'s, so
+    /// the harness passes `HARNESS_MEMORY_SESSION` on to its harness-memory MCP servers. Default:
+    /// none (they inherit it).
+    fn memory_session_args(&self, _env: &Env, _request: &LaunchRequest<'_>) -> Vec<String> {
+        Vec::new()
+    }
+
     /// Refuses a chat launch in `project` the harness itself does not trust yet
     /// ([`BusinessError::Untrusted`](crate::error::BusinessError::Untrusted)), for harnesses with
     /// `capabilities.projectTrustRequired`. Not asked for a launch that trusts the project once.

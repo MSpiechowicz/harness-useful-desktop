@@ -37,6 +37,14 @@ describe('the approval mode of a Codex chat', () => {
     expect(screen.getByText('Approvals: ask for writes')).toBeInTheDocument();
   });
 
+  it('offers no trust button in the mock chat, as for a project without a .codex layer', () => {
+    const info = baseSessionInfo('codex');
+
+    render(ChatControls, { session: chatSession([], info).session });
+
+    expect(screen.queryByRole('button', { name: 'Trust project once' })).toBeNull();
+  });
+
   it('names the approval policy and sandbox read-only when they have no mode of the app', () => {
     render(ChatControls, { session: codexSession(null, { name: 'on-request / read-only', unattended: false }) });
 

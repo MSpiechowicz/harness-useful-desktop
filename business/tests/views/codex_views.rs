@@ -181,6 +181,71 @@ fn an_untrusted_project_cannot_change_the_mode() {
 }
 
 #[test]
+fn an_unset_mode_is_read_only_in_an_untrusted_folder() {
+    let home = tempfile::tempdir().unwrap();
+    let project = home.path().join("work/app");
+    std::fs::create_dir_all(&project).unwrap();
+    let env = Env::for_tests(home.path());
+
+    let native = Codex.native_approval_mode(&env, Some(&project)).unwrap();
+    assert_eq!(native.name, "on-request / read-only");
+    assert_eq!(Codex.configured_approval_mode(&env, Some(&project)), None);
+
+    write(
+        &home.path().join(".codex/config.toml"),
+        &format!("[projects.\"{}\"]\ntrust_level = \"trusted\"\n", project.display()),
+    );
+    assert_eq!(
+        Codex.configured_approval_mode(&env, Some(&project)),
+        Some(ApprovalMode::Write)
+    );
+}
+
+/// The user's `config.toml` under `home` trusting `folder`.
+fn trust(home: &Path, folder: &Path) {
+    write(
+        &home.join(".codex/config.toml"),
+        &format!("[projects.\"{}\"]\ntrust_level = \"trusted\"\n", folder.display()),
+    );
+}
+
+/// Whether the project's own `approval_policy = "never"` applies (only in a trusted folder).
+fn project_layer_applies(env: &Env, project: &Path) -> bool {
+    write(&project.join(".codex/config.toml"), "approval_policy = \"never\"\n");
+
+    Codex.native_approval_mode(env, Some(project)).unwrap().unattended
+}
+
+#[test]
+fn trust_covers_the_folder_and_its_repository_root_only() {
+    let home = tempfile::tempdir().unwrap();
+    let env = Env::for_tests(home.path());
+
+    // A subfolder of a trusted folder that is not a repository is not trusted.
+    let plain = home.path().join("plain");
+    trust(home.path(), &plain);
+    assert!(!project_layer_applies(&env, &plain.join("sub")));
+    assert!(project_layer_applies(&env, &plain));
+
+    // A subfolder of a trusted repository root is.
+    let repo = home.path().join("repo");
+    std::fs::create_dir_all(repo.join(".git/worktrees/wt")).unwrap();
+    trust(home.path(), &repo);
+    assert!(project_layer_applies(&env, &repo.join("crates/app")));
+
+    // So is a worktree of it, through the repository's common git folder.
+    let worktree = home.path().join("wt");
+    write(&repo.join(".git/worktrees/wt/commondir"), "../..\n");
+    write(
+        &worktree.join(".git"),
+        &format!("gitdir: {}\n", repo.join(".git/worktrees/wt").display()),
+    );
+    let canonical_repo = std::fs::canonicalize(&repo).unwrap();
+    trust(home.path(), &canonical_repo);
+    assert!(project_layer_applies(&env, &worktree));
+}
+
+#[test]
 fn a_full_access_sandbox_alone_runs_unattended() {
     let home = tempfile::tempdir().unwrap();
     write(

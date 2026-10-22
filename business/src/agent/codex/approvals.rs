@@ -9,6 +9,10 @@
 //!   user's `[sandbox_workspace_write]`. A turn's `sandboxPolicy` would have to spell those out, so
 //!   the mode never changes per turn: changing it restarts the chat, which resumes its thread with
 //!   the new mode.
+//! - **Override:** the policy and sandbox go with `approvalsReviewer: user`, so the user answers
+//!   every ask. When Codex answers the thread with another policy, sandbox or reviewer (settings
+//!   it must keep, such as an organisation's requirements), the chat warns and its mode follows
+//!   Codex's policy, also for the `!command` gate ([`followed_mode`]).
 //! - **No override:** nothing is sent and the user's `config.toml` applies. The chat's mode is
 //!   then the one Codex answers the thread with (by its approval policy).
 //! - **`!command`s** (`thread/shellCommand`) run outside Codex's sandbox without asking: refused in
@@ -25,6 +29,7 @@ use serde_json::Value;
 
 use super::{Chat, CodexSession};
 use crate::codex_rpc::wire::outbound::{ApprovalPolicy, SandboxMode, ThreadSettings};
+use crate::codex_rpc::wire::results::ThreadSession;
 use crate::error::{BusinessError, Result};
 use crate::harnesses::codex::{ProjectTrust, project_trust};
 use crate::model::{AgentEvent, ApprovalMode, NoticeLevel};
@@ -61,6 +66,54 @@ pub fn codex_bash_allowed(mode: Option<ApprovalMode>) -> Result<()> {
     }
 }
 
+/// The reviewer an override asks for: the user.
+const USER_REVIEWER: &str = "user";
+
+/// The chat's mode for the thread Codex answered with `session` when the chat asked for
+/// `requested` (see the module docs), and the warning when Codex runs it otherwise.
+pub(super) fn followed_mode(
+    requested: Option<ApprovalMode>,
+    session: &ThreadSession,
+) -> (Option<ApprovalMode>, Option<AgentEvent>) {
+    let answered = answered_mode(session.approval_policy.as_ref());
+    let Some((policy, sandbox)) = mode_policy(requested).ok().flatten() else {
+        return (answered, None);
+    };
+
+    let answered_policy = match &session.approval_policy {
+        Some(Value::String(name)) => name.as_str(),
+        Some(_) => "granular",
+        None => policy.name(),
+    };
+    let answered_sandbox = session
+        .sandbox
+        .as_ref()
+        .and_then(|sandbox| sandbox.get("type"))
+        .and_then(Value::as_str)
+        .unwrap_or(sandbox.policy_type());
+    let reviewer = session
+        .approvals_reviewer
+        .as_deref()
+        .filter(|reviewer| *reviewer != USER_REVIEWER);
+
+    let differs = answered_policy != policy.name() || answered_sandbox != sandbox.policy_type() || reviewer.is_some();
+    if !differs {
+        return (requested, None);
+    }
+
+    let reviewed = reviewer.map(|reviewer| format!(", approvals reviewed by {reviewer}"));
+    let runs = format!("{answered_policy} / {answered_sandbox}{}", reviewed.unwrap_or_default());
+    let warning = AgentEvent::Notice {
+        level: NoticeLevel::Warning,
+        message: format!(
+            "Codex runs this chat with {runs}, not with the mode the chat asked for: Codex's own settings keep it. The chat shows what Codex runs"
+        ),
+    };
+
+    // A granular policy has no mode of the app: the requested one stays (and with it the gate).
+    (answered.or(requested), Some(warning))
+}
+
 /// The app's mode for the approval policy Codex answered a thread with (a granular one has none).
 pub(super) fn answered_mode(policy: Option<&Value>) -> Option<ApprovalMode> {
     match policy?.as_str()? {
@@ -94,6 +147,7 @@ impl Chat {
             cwd: Some(cwd),
             approval_policy: policy.map(|(approval, _)| approval),
             sandbox: policy.map(|(_, sandbox)| sandbox),
+            approvals_reviewer: policy.map(|_| USER_REVIEWER.to_owned()),
             ..ThreadSettings::default()
         }
     }

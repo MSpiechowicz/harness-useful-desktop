@@ -8,7 +8,7 @@
 //! [`ServerRequestKind::Unknown`] and answered with an error.
 
 use serde::Deserialize;
-use serde_json::Value;
+use serde_json::{Map, Value, json};
 
 use super::items::{CommandAction, shown_command};
 use super::{RequestId, params};
@@ -182,6 +182,68 @@ impl PermissionsApproval {
             .and_then(Value::as_array)
             .map(|paths| paths.iter().filter_map(Value::as_str).map(str::to_owned).collect())
             .unwrap_or_default()
+    }
+
+    /// The profile a dialog can show in full ([`Self::network`], [`Self::read_paths`],
+    /// [`Self::write_paths`]), which is all a grant may give; `None` when the request asks for
+    /// anything else (`fileSystem.entries`, a key the app does not know), so it is declined.
+    pub fn shown_profile(&self) -> Option<Value> {
+        let shown = |part: &str, keys: &[&str]| match self.permissions.get(part) {
+            None | Some(Value::Null) => true,
+            Some(Value::Object(fields)) => fields
+                .iter()
+                .all(|(key, value)| keys.contains(&key.as_str()) || is_empty(value)),
+            Some(_) => false,
+        };
+        let known = match &self.permissions {
+            Value::Object(parts) => parts
+                .iter()
+                .all(|(part, value)| matches!(part.as_str(), "network" | "fileSystem") || is_empty(value)),
+            Value::Null => true,
+            _ => false,
+        };
+        let listed = |access: &str| match self.permissions.pointer(&format!("/fileSystem/{access}")) {
+            None | Some(Value::Null) => true,
+            Some(Value::Array(paths)) => paths.iter().all(Value::is_string),
+            Some(_) => false,
+        };
+
+        if !known || !shown("network", &["enabled"]) || !shown("fileSystem", &["read", "write"]) {
+            return None;
+        }
+
+        if !listed("read") || !listed("write") {
+            return None;
+        }
+
+        let mut profile = Map::new();
+
+        if self.network() {
+            profile.insert("network".to_owned(), json!({ "enabled": true }));
+        }
+
+        let mut file_system = Map::new();
+        for (access, paths) in [("read", self.read_paths()), ("write", self.write_paths())] {
+            if !paths.is_empty() {
+                file_system.insert(access.to_owned(), json!(paths));
+            }
+        }
+
+        if !file_system.is_empty() {
+            profile.insert("fileSystem".to_owned(), Value::Object(file_system));
+        }
+
+        Some(Value::Object(profile))
+    }
+}
+
+/// A value that asks for nothing: null, `false`, or an empty list or object.
+fn is_empty(value: &Value) -> bool {
+    match value {
+        Value::Null | Value::Bool(false) => true,
+        Value::Array(items) => items.is_empty(),
+        Value::Object(fields) => fields.is_empty(),
+        _ => false,
     }
 }
 

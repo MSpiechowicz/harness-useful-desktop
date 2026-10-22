@@ -1,8 +1,8 @@
-// A resumed thread forked at its first turn: the counted history, a read that finds no such
-// message, the read of the fork, then thread/fork keeping that turn and the fork's own messages.
+// A resumed thread forked at its first turn: the counted history, a read of the turns that finds no
+// such message, the turns read for the fork, then thread/fork keeping that turn and the fork's own messages.
 {"include": "codex_engine_resume.jsonl"}
 {"include": "codex_engine_history_read.jsonl"}
-{"include": "codex_engine_history_read.jsonl"}
-{"include": "codex_engine_history_read.jsonl"}
+{"include": "codex_engine_history_turns.jsonl"}
+{"include": "codex_engine_history_turns.jsonl"}
 {"expect": "thread/fork", "match": {"/params/threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "/params/lastTurnId": "01a164a0-4c86-7902-8de6-44d0f7bc8ac7", "/params/excludeTurns": true}, "reply": {"thread": {"id": "01a164a2-2222-7000-8000-000000000002", "sessionId": "01a164a2-2222-7000-8000-000000000002", "forkedFromId": null, "parentThreadId": null, "preview": "", "ephemeral": false, "modelProvider": "openai", "model": "gpt-5.6-terra", "reasoningEffort": "high", "createdAt": 1792689589, "updatedAt": 1792689589, "status": {"type": "idle"}, "cwd": "/work/project", "cliVersion": "0.154.0", "gitInfo": null, "name": "Recorded thread", "turns": []}, "model": "gpt-5.6-terra", "modelProvider": "openai", "serviceTier": "default", "cwd": "/work/project", "runtimeWorkspaceRoots": ["/work/project"], "approvalPolicy": "untrusted", "sandbox": {"type": "workspaceWrite", "writableRoots": [], "networkAccess": true}, "reasoningEffort": "high"}}
 {"include": "codex_engine_history_fork.jsonl"}

@@ -151,6 +151,18 @@ async fn the_dashboard_is_added_by_its_absolute_path_through_mcp_add() {
 }
 
 #[tokio::test]
+async fn a_relative_codex_home_is_not_passed_on_to_the_cli() {
+    let home = Home::new();
+    let (_, env) = dashboard_on_path(home.dir.path(), &home.env);
+    let env = env.with_var("CODEX_HOME", "codex");
+
+    home.dashboard(&env).await;
+
+    let spec = &home.fake.specs()[0];
+    assert!(spec.env_remove_prefixes.contains(&"CODEX_HOME".into()));
+}
+
+#[tokio::test]
 async fn the_memory_server_is_added_and_a_removed_one_stays_out() {
     let home = Home::new();
 

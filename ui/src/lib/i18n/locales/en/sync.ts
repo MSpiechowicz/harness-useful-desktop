@@ -75,6 +75,7 @@ export const sync = {
   'sync.excluded.unsupported': 'Not supported',
   'sync.excluded.invalid': 'Invalid',
   'sync.excluded.tooMany': 'Too many items',
+  'sync.excluded.switchedOff': 'Switched off',
 
   // Import dialog: the input.
   'sync.importDialog.title': 'Import setup',

@@ -307,7 +307,7 @@ export const chat: AreaMessages<typeof enChat> = {
   'chat.trust.popover': 'Faire confiance à ce projet',
   'chat.trust.trigger': 'Approuver le projet une fois',
   'chat.trust.warning': '{harness} ignore les extensions, skills et modèles de prompt de ce projet tant que vous ne lui faites pas confiance. Lui faire confiance permet au code du projet de s’exécuter avec vos autorisations.',
-  'chat.trust.warning.codex': 'Codex ignore les réglages, hooks et règles de .codex/ de ce projet tant que vous ne lui faites pas confiance. Lui faire confiance permet au code du projet de s’exécuter avec vos autorisations.',
+  'chat.trust.warning.codex': 'Codex ignore les réglages, hooks et règles de .codex/ de ce projet tant que vous ne lui faites pas confiance. Ensuite ils s’appliquent à cette discussion, y compris les règles de commandes sans demande, les dossiers supplémentaires en écriture et qui examine les approbations. Lui faire confiance permet au code du projet de s’exécuter avec vos autorisations.',
   'chat.trust.scope': 'Valable pour cette session uniquement. L’app redemande au prochain démarrage de {harness}. La session redémarre et reprend là où elle s’était arrêtée.',
   'chat.trust.action': 'Redémarrer et approuver ce projet',
 

@@ -314,7 +314,7 @@ export const chat: AreaMessages<typeof enChat> = {
   'chat.trust.popover': 'Zaufaj temu projektowi',
   'chat.trust.trigger': 'Zaufaj projektowi jednorazowo',
   'chat.trust.warning': '{harness} pomija rozszerzenia, skille i szablony promptów tego projektu, dopóki mu nie zaufasz. Zaufanie pozwala uruchamiać kod z projektu z Twoimi uprawnieniami.',
-  'chat.trust.warning.codex': 'Codex ignoruje ustawienia, hooki i reguły z .codex/ tego projektu, dopóki mu nie zaufasz. Zaufanie pozwala uruchamiać kod z projektu z Twoimi uprawnieniami.',
+  'chat.trust.warning.codex': 'Codex ignoruje ustawienia, hooki i reguły z .codex/ tego projektu, dopóki mu nie zaufasz. Potem obowiązują w tym czacie, także reguły poleceń bez pytania, dodatkowe foldery do zapisu i to, kto ocenia zgody. Zaufanie pozwala uruchamiać kod z projektu z Twoimi uprawnieniami.',
   'chat.trust.scope': 'Dotyczy tylko tej sesji. Aplikacja zapyta ponownie przy następnym uruchomieniu {harness}. Sesja uruchomi się ponownie i wznowi pracę od tego samego miejsca.',
   'chat.trust.action': 'Uruchom ponownie i zaufaj temu projektowi',
 

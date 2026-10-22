@@ -35,6 +35,7 @@ mod agent_failures;
 mod agent_launch;
 mod agent_manager;
 mod agent_memory_session;
+mod agent_memory_session_codex;
 mod agent_session;
 mod agent_session_ids;
 mod claude_allow_list;

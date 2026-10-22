@@ -82,6 +82,9 @@
   });
   /** Codex's mode is named as its settings read: `<approval policy> / <sandbox>`. */
   const codexMode = $derived(harness.get('codex')?.nativeApprovalMode?.name ?? '');
+  // The mode is named `<approval policy> / <sandbox>`: only the policy `never` runs every command unasked, a full-access
+  // sandbox alone still lets Codex ask.
+  const codexAsksNever = $derived(codexMode.split(' / ')[0] === 'never');
 
   const MODES_LABEL = $derived({
     omp: t('onboarding.approval.modes'),
@@ -109,7 +112,7 @@
   {:else if notice === 'claude'}
     <StepHeader eyebrow={t('onboarding.approval.eyebrow')} title={t('onboarding.approval.cc.title')} body={t('onboarding.approval.cc.body', { mode: claudeMode })} />
   {:else if notice === 'codex'}
-    <StepHeader eyebrow={t('onboarding.approval.eyebrow')} title={t('onboarding.approval.cx.title')} body={t('onboarding.approval.cx.body', { mode: codexMode })} />
+    <StepHeader eyebrow={t('onboarding.approval.eyebrow')} title={t('onboarding.approval.cx.title')} body={t(codexAsksNever ? 'onboarding.approval.cx.body' : 'onboarding.approval.cx.bodyFullAccess', { mode: codexMode })} />
   {:else}
     <StepHeader eyebrow={t('onboarding.approval.eyebrow')} title={t('onboarding.approval.title')} body={t('onboarding.approval.body')} />
   {/if}

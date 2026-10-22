@@ -1,0 +1,12 @@
+// Frames over the app's 4 MiB limit: Codex's approval request is answered with an error, the end
+// of a file change ends its card as failed (naming the file), and an oversized answer to the app's
+// rename fails it at once.
+{"include": "codex_engine_open.jsonl"}
+{"expect": "turn/start", "reply": {"turn": {"id": "turn-big", "items": [], "itemsView": "notLoaded", "status": "inProgress", "error": null, "startedAt": null, "completedAt": null, "durationMs": null}}}
+{"emit": {"method": "turn/started", "params": {"threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "turn": {"id": "turn-big", "items": [], "status": "inProgress", "error": null}}, "emittedAtMs": 1}}
+{"emit": {"id": 40, "method": "item/commandExecution/requestApproval", "params": {"kind": "command", "threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "turnId": "turn-big", "itemId": "exec-big", "command": "$pad:5000000", "cwd": "/work/project", "commandActions": []}}}
+{"expect": "answer", "match": {"/id": 40, "/error/message": "the request is larger than the app reads"}}
+{"emit": {"method": "item/started", "params": {"item": {"type": "fileChange", "id": "patch-big", "changes": [{"path": "/work/project/big.rs", "kind": {"type": "update", "unified_diff": null}, "diff": "x\n"}], "status": "inProgress"}, "threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "turnId": "turn-big"}, "emittedAtMs": 1}}
+{"emit": {"method": "item/completed", "params": {"item": {"type": "fileChange", "id": "patch-big", "changes": [{"path": "/work/project/big.rs", "kind": {"type": "update", "unified_diff": null}, "diff": "$pad:5000000"}], "status": "completed"}, "threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "turnId": "turn-big"}, "emittedAtMs": 1}}
+{"emit": {"method": "turn/completed", "params": {"threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "turn": {"id": "turn-big", "items": [], "status": "completed", "error": null}}, "emittedAtMs": 1}}
+{"expect": "thread/name/set", "reply": {"pad": "$pad:5000000"}}

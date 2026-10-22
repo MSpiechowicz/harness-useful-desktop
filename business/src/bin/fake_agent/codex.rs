@@ -21,7 +21,7 @@
 //! - `{"emit": {...}}` — write a frame; string values `"$name"` become the value captured as
 //!   `name`, and the recorded project directory `/work/project` at the start of a string becomes
 //!   the working directory. With `"times": n` it is written n times, `"$index"` being 0, 1, … in
-//!   turn (a request id).
+//!   turn (a request id). `"$pad:<bytes>"` becomes that many `x` (a frame over the app's limit).
 //! - `{"replay": "../codex/app_server/02_turn_approvals_accept.jsonl", "from": 3, "to": 40,
 //!   "except": ["response", "mcpServer/startupStatus/updated"], "replace": {"<recorded value>":
 //!   "$name"}}` — write Codex's frames (rows with `dir: in`) of that recording (relative to the

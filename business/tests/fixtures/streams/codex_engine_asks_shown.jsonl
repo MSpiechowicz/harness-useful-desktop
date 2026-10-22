@@ -1,0 +1,19 @@
+// Crafted asks the chat answers by what it can show: extra permissions it cannot show in full are
+// declined at once, an ask about another thread too, a file change names the path outside the
+// project and the folder it asks to write below (and offers no Always allow), input for a running
+// command is named as such, and a grant gives only what the dialog showed.
+{"include": "codex_engine_open.jsonl"}
+{"expect": "turn/start", "reply": {"turn": {"id": "turn-shown", "items": [], "itemsView": "notLoaded", "status": "inProgress", "error": null, "startedAt": null, "completedAt": null, "durationMs": null}}}
+{"emit": {"method": "turn/started", "params": {"threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "turn": {"id": "turn-shown", "items": [], "status": "inProgress", "error": null}}, "emittedAtMs": 1}}
+{"emit": {"id": 20, "method": "item/permissions/requestApproval", "params": {"threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "turnId": "turn-shown", "itemId": "exec-1", "cwd": "/work/project", "reason": "tidy up", "permissions": {"fileSystem": {"read": null, "write": null, "entries": [{"path": {"type": "special", "value": {"kind": "root"}}, "access": "write"}]}}}}}
+{"expect": "answer", "match": {"/id": 20, "/result/permissions": {}, "/result/scope": "turn"}}
+{"emit": {"id": 21, "method": "item/commandExecution/requestApproval", "params": {"kind": "command", "threadId": "01a164a0-0000-7000-8000-00000000ffff", "turnId": "elsewhere", "itemId": "exec-2", "command": "rm -rf build", "cwd": "/work/project", "commandActions": []}}}
+{"expect": "answer", "match": {"/id": 21, "/result/decision": "decline"}}
+{"emit": {"method": "item/started", "params": {"item": {"type": "fileChange", "id": "patch-out", "changes": [{"path": "/work/project/a.rs", "kind": {"type": "update", "unified_diff": null}, "diff": "x\n"}, {"path": "/work/project/b.rs", "kind": {"type": "update", "unified_diff": null}, "diff": "x\n"}, {"path": "/work/project/c.rs", "kind": {"type": "update", "unified_diff": null}, "diff": "x\n"}, {"path": "/work/project/d.rs", "kind": {"type": "update", "unified_diff": null}, "diff": "x\n"}, {"path": "/home/user/.bashrc", "kind": {"type": "update", "unified_diff": null}, "diff": "x\n"}], "status": "inProgress"}, "threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "turnId": "turn-shown"}, "emittedAtMs": 1}}
+{"emit": {"id": "file:1", "method": "item/fileChange/requestApproval", "params": {"threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "turnId": "turn-shown", "itemId": "patch-out", "reason": null, "grantRoot": "/"}}}
+{"expect": "answer", "match": {"/id": "file:1", "/result/decision": "accept"}}
+{"emit": {"id": 22, "method": "item/commandExecution/requestApproval", "params": {"kind": "writeStdin", "threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "turnId": "turn-shown", "itemId": "exec-3", "command": "python3", "cwd": "/work/project", "commandActions": []}}}
+{"expect": "answer", "match": {"/id": 22, "/result/decision": "decline"}}
+{"emit": {"id": 23, "method": "item/permissions/requestApproval", "params": {"threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "turnId": "turn-shown", "itemId": "exec-4", "cwd": "/work/project", "reason": "publish", "permissions": {"network": {"enabled": true}, "fileSystem": {"read": null, "write": ["/srv/out"], "entries": []}}}}}
+{"expect": "answer", "match": {"/id": 23, "/result/permissions": {"network": {"enabled": true}, "fileSystem": {"write": ["/srv/out"]}}, "/result/scope": "turn"}}
+{"emit": {"method": "turn/completed", "params": {"threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "turn": {"id": "turn-shown", "items": [], "status": "completed", "error": null}}, "emittedAtMs": 1}}

@@ -172,8 +172,9 @@ harness-memory MCP child was read from `/proc/<pid>/environ`.
 | OMP | installed `omp` | yes | MCP child started with the RPC session |
 | PI | installed `pi` | yes | MCP child started with the RPC session |
 | OpenCode | 1.19.3 | yes | MCP children start lazily (first `/mcp` or session use). Two servers at once each had their own child and value |
+| Codex | 0.154.0 | only when named | Codex starts stdio MCP servers with a cleared environment plus the server's `env_vars`/`env`. Each chat launch adds `-c mcp_servers.<name>.env_vars=[<its own…>, "HARNESS_MEMORY_SESSION"]` for every harness-memory stdio server in the settings that apply (user file, project file when trusted or trusted once), never for a missing server (`codex app-server` exits) and nothing written to `config.toml` (plan `codex.md` decision 11). A server with a dotted name, and a batch-script `codex.cmd`, get no override, so their chats run unguarded |
 
-All three keep `memoryChatGuards: true`. Not tested: OpenCode 2.x, macOS, Windows.
+All four keep `memoryChatGuards: true`. Not tested: OpenCode 2.x, macOS, Windows.
 
 ## Review round 1 repairs (contract changes)
 

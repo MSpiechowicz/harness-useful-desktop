@@ -12,11 +12,12 @@
 //!   own turn once the running one ended (plan decision 4). While a compaction runs, steering is
 //!   held like a follow-up.
 //! - Every message gets a fresh `clientUserMessageId` and every turn counts with the mapper
-//!   (`sent`) before it is written; one Codex does not take is taken back (`withdrawn`). The
-//!   prompt-taken call runs when Codex answered a prompt action's `turn/start` (`io.rs`).
+//!   (`sent`) before it is written; one Codex does not take is taken back (`withdrawn`), and so is
+//!   the message from the chat's counts. The prompt-taken call runs when Codex answered a prompt
+//!   action's `turn/start` (`io.rs`).
 //! - **Abort:** the open asks are cancelled (their dialogs close), then `turn/interrupt` stops the
-//!   running turn; one whose id is not known yet is interrupted once it is. Held follow-ups stay
-//!   held.
+//!   running turn; one whose id is not known yet is interrupted once it is, unless Codex never
+//!   starts it (the stop then ends with it). Held follow-ups stay held.
 
 use std::sync::Arc;
 
@@ -116,7 +117,12 @@ impl Chat {
             live.counts.user += 1;
             live.counts.total += 1;
 
-            self.place(&mut live, message)?
+            let placed = self.place(&mut live, message);
+            if placed.is_err() {
+                uncount(&mut live);
+            }
+
+            placed?
         };
 
         match placed {
@@ -191,6 +197,7 @@ impl Chat {
         self.unlist(&message.client_id);
 
         if let Some(error) = error {
+            uncount(&mut self.lock());
             return Err(error);
         }
 
@@ -234,6 +241,7 @@ impl Chat {
         };
 
         live.queue.remove(position);
+        uncount(&mut live);
         self.queue_changed(&mut live);
 
         AgentReply::QueueRemoval { removed: true }
@@ -345,8 +353,10 @@ impl Chat {
         let owed = {
             let mut live = self.lock();
             live.turn_requests.retain(|(request, _)| *request != key);
+            uncount(&mut live);
 
             let mapped = live.mapper.withdrawn();
+            live.forget_abort();
             self.apply(&mut live, mapped)
         };
         self.write_later(owed);
@@ -413,6 +423,22 @@ impl Chat {
                 }
             }
         });
+    }
+}
+
+/// Takes a message Codex did not take back from the chat's counts.
+fn uncount(live: &mut Live) {
+    live.counts.user = live.counts.user.saturating_sub(1);
+    live.counts.total = live.counts.total.saturating_sub(1);
+}
+
+impl Live {
+    /// A stop of a turn that never began ends once nothing is starting any more, so the next
+    /// turn is not interrupted for it.
+    pub(super) fn forget_abort(&mut self) {
+        if !self.mapper.is_working() {
+            self.abort_pending = false;
+        }
     }
 }
 

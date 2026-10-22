@@ -30,6 +30,8 @@ pub struct Setup {
     pub approval_override: Option<ApprovalMode>,
     pub trust_once: bool,
     pub utility: bool,
+    /// The limit of each startup step, when not the default.
+    pub startup_timeout: Option<std::time::Duration>,
 }
 
 /// A Codex chat and what it saw.
@@ -96,6 +98,9 @@ pub async fn launch_with(name: &str, resume: Option<&str>, setup: Setup, prepare
     let options = harness_business::agent::SessionOptions {
         attachments_dir: Some(attachments.path().to_path_buf()),
         export_dir: Some(exports.path().to_path_buf()),
+        startup_timeout: setup
+            .startup_timeout
+            .unwrap_or(harness_business::agent::STARTUP_TIMEOUT),
         ..options()
     };
 

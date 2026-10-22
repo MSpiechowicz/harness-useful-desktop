@@ -5,8 +5,9 @@
 //!
 //! [`AppServer::start`] spawns it and runs the handshake (`initialize`, then `initialized`),
 //! [`AppServer::call`] sends one request and waits for its response, [`AppServer::finish`] closes
-//! stdin and waits for the exit. Everything shares one deadline: past it the process is killed
-//! and the call fails with `Timeout`. Lines longer than [`MAX_LINE_BYTES`] fail the call; lines
+//! stdin and waits for the exit. The handshake and each call have their own deadline: past it the
+//! process is killed and the call fails with `Timeout`. [`AppServer::read_bytes`] counts what was
+//! read, for the caller's budget. Lines longer than [`MAX_LINE_BYTES`] fail the call; lines
 //! that are not frames and Codex's notifications are skipped, and a request of Codex is refused
 //! (the Sessions view never answers questions).
 
@@ -40,7 +41,8 @@ const MAX_ERROR_CHARS: usize = 200;
 /// A running `codex app-server` (see the module docs).
 pub(super) struct AppServer {
     child: LineChild,
-    deadline: Instant,
+    timeout: Duration,
+    read_bytes: usize,
 }
 
 /// Why a call failed: Codex answered with an error, or the process did not answer.
@@ -57,19 +59,21 @@ impl From<BusinessError> for CallError {
 }
 
 impl AppServer {
-    /// Spawns the app-server for `ctx` and runs the handshake; everything must be done within
-    /// `timeout`.
+    /// Spawns the app-server for `ctx` and runs the handshake; the handshake and each later call
+    /// must be done within `timeout`.
     pub(super) fn start(ctx: &CliSessionCtx<'_>, timeout: Duration) -> Result<Self> {
         let args = APP_SERVER_ARGS.map(str::to_owned);
         let spec = rpc_exec_spec(ctx.binary, ctx.project, &args)?
             .env("CODEX_HOME", codex_home(ctx.env))
-            .env("NO_COLOR", "1")
-            .envs(Codex.spawn_env().iter().copied())
+            .env("NO_COLOR", "1");
+        let spec = Codex
+            .spawn_spec(ctx.env, spec)
             .search_dirs(launcher_search_dirs(ctx.env, &ctx.binary.path));
 
         let mut server = Self {
             child: LineChild::spawn(&spec, MAX_LINE_BYTES)?,
-            deadline: Instant::now() + timeout,
+            timeout,
+            read_bytes: 0,
         };
 
         let handshake = Request::Initialize(Initialize::desktop(env!("CARGO_PKG_VERSION")));
@@ -84,15 +88,17 @@ impl AppServer {
     /// Sends `request` and returns its result as `T`.
     pub(super) fn call<T: DeserializeOwned>(&mut self, request: &Request) -> std::result::Result<T, CallError> {
         let id = next_request_id();
+        let deadline = Instant::now() + self.timeout;
         self.send(&request.frame(&id))?;
 
         loop {
-            let line = match self.child.read_line(self.deadline) {
+            let line = match self.child.read_line(deadline) {
                 ReadLine::Line(line) => line,
                 ReadLine::TooLong => return Err(too_large(request).into()),
                 ReadLine::Closed => return Err(self.ended().into()),
                 ReadLine::TimedOut => return Err(BusinessError::Timeout(format!("codex {}", request.method())).into()),
             };
+            self.read_bytes = self.read_bytes.saturating_add(line.len());
 
             match decode(&line) {
                 Ok(Inbound::Response(response)) if response.id == id => {
@@ -103,6 +109,11 @@ impl AppServer {
                 _ => {}
             }
         }
+    }
+
+    /// The bytes of every line read so far.
+    pub(super) fn read_bytes(&self) -> usize {
+        self.read_bytes
     }
 
     /// Closes stdin and waits a moment for the exit (the process is killed otherwise).

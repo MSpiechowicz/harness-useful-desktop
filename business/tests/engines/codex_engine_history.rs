@@ -95,3 +95,24 @@ async fn a_resumed_thread_counts_pages_and_exports_its_saved_messages() {
 
     chat.finish().await;
 }
+
+#[tokio::test]
+async fn a_turn_that_runs_while_the_saved_messages_are_counted_counts_once() {
+    let chat = start_as("codex_engine_history_live.jsonl", Some(THREAD), false).await;
+
+    chat.act(codex_engine_support::prompt("Ask me about colours.")).await;
+    chat.settled(1).await;
+
+    // Six saved messages and the new turn's three.
+    chat.wait(
+        "the counted messages",
+        |event| matches!(event, AgentEvent::State { state } if state.message_count >= 9),
+    )
+    .await;
+    let AgentReply::Stats { stats } = chat.act(AgentAction::GetSessionStats).await else {
+        panic!("not stats");
+    };
+    assert_eq!(stats.total_messages, 9);
+
+    chat.finish().await;
+}

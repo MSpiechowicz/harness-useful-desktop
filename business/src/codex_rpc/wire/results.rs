@@ -112,6 +112,8 @@ pub struct ThreadSession {
     pub approval_policy: Option<Value>,
     /// The sandbox policy (`{"type": "workspaceWrite", …}`).
     pub sandbox: Option<Value>,
+    /// Who answers approvals (`user`, `auto_review`, `guardian_subagent`).
+    pub approvals_reviewer: Option<String>,
     pub reasoning_effort: Option<String>,
     /// The folders the sandbox may write (the project, the user's extra writable roots).
     #[serde(deserialize_with = "nullable")]

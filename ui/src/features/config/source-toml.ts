@@ -106,11 +106,12 @@ export function toTomlLines(fields: ConfigField[]): SourceLine[] {
     lines[open].foldEnd = lines.length - 1;
   }
 
-  /** A `[path]` header (`[[path]]` for a list element) and the table under it. */
+  /** A `[path]` header (`[[path]]` for a list element) and the table under it. A list element always gets its header, which is
+   * what tells it from the next one, also when it holds only tables. */
   function table(path: string[], entries: ConfigField[], id: string, array: boolean): void {
     const hasOwnLines = entries.some((entry) => !isMapWithEntries(entry.value) && !isTableArray(entry.value));
 
-    if (hasOwnLines) {
+    if (hasOwnLines || array) {
       const shown = path.map(tomlKey).join('.');
 
       if (lines.length > 0) {

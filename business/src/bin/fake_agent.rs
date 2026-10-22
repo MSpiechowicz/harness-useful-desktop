@@ -453,9 +453,15 @@ fn run_output_step(step: &Value) -> bool {
 }
 
 /// Replaces every string `"$name"` in `value` for which `lookup(name)` has a value.
+/// The longest `"$pad:<bytes>"` string (a frame over the app's 4 MiB limit).
+const MAX_PAD_BYTES: usize = 8 * 1024 * 1024;
+
 fn substitute(value: &Value, lookup: &dyn Fn(&str) -> Option<Value>) -> Value {
     match value {
-        Value::String(text) => text.strip_prefix('$').and_then(lookup).unwrap_or_else(|| value.clone()),
+        Value::String(text) => match text.strip_prefix("$pad:").and_then(|bytes| bytes.parse::<usize>().ok()) {
+            Some(bytes) => Value::String("x".repeat(bytes.min(MAX_PAD_BYTES))),
+            None => text.strip_prefix('$').and_then(lookup).unwrap_or_else(|| value.clone()),
+        },
         Value::Array(items) => Value::Array(items.iter().map(|item| substitute(item, lookup)).collect()),
         Value::Object(map) => Value::Object(
             map.iter()

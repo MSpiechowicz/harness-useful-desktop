@@ -6,8 +6,8 @@ use std::collections::BTreeMap;
 
 use harness_business::codex_rpc::mapper::{Ask, AskKind, CodexMapper, Hint, Mapped};
 use harness_business::codex_rpc::wire::answers::{
-    Decision, ElicitationAction, GrantScope, command_amendment, elicitation_answer, file_change_decision,
-    permissions_deny, permissions_grant, refusal, user_input_answers,
+    Decision, ElicitationAction, GrantScope, elicitation_answer, file_change_decision, permissions_deny,
+    permissions_grant, refusal, user_input_answers,
 };
 use harness_business::codex_rpc::wire::{RequestId, decode_value};
 use pretty_assertions::assert_eq;
@@ -155,12 +155,13 @@ fn extra_permissions_are_granted_as_asked_or_not_at_all() {
     assert_eq!(approval.write_paths(), ["/work/out"]);
     assert!(approval.read_paths().is_empty());
 
+    let shown = approval.shown_profile().expect("a profile the dialog shows");
     assert_eq!(
-        permissions_grant(&ask.request_id, &approval.permissions, GrantScope::Session),
+        permissions_grant(&ask.request_id, &shown, GrantScope::Session),
         json!({
             "id": "perm-1",
             "result": {
-                "permissions": { "network": { "enabled": true }, "fileSystem": { "read": null, "write": ["/work/out"] } },
+                "permissions": { "network": { "enabled": true }, "fileSystem": { "write": ["/work/out"] } },
                 "scope": "session",
             },
         })
@@ -172,16 +173,45 @@ fn extra_permissions_are_granted_as_asked_or_not_at_all() {
 }
 
 #[test]
+fn permissions_a_dialog_cannot_show_have_no_profile_to_grant() {
+    let asked = |permissions: serde_json::Value| {
+        let ask = ask(request(
+            json!(5),
+            "item/permissions/requestApproval",
+            json!({ "threadId": "thread-1", "turnId": "turn-1", "itemId": "exec-1", "cwd": PROJECT, "permissions": permissions }),
+        ));
+        let AskKind::Permissions(approval) = ask.kind else {
+            panic!("permissions: {ask:?}");
+        };
+        approval.shown_profile()
+    };
+    let root = json!({ "path": { "type": "special", "value": { "kind": "root" } }, "access": "write" });
+
+    assert_eq!(
+        asked(json!({ "fileSystem": { "read": null, "write": null, "entries": [root] } })),
+        None
+    );
+    assert_eq!(
+        asked(json!({ "network": { "enabled": true }, "macos": { "automation": true } })),
+        None
+    );
+    assert_eq!(
+        asked(json!({ "network": { "enabled": true, "domains": ["evil.example"] } })),
+        None
+    );
+    assert_eq!(
+        asked(json!({ "network": null, "fileSystem": { "read": ["/work/in"], "entries": [] } })),
+        Some(json!({ "fileSystem": { "read": ["/work/in"] } }))
+    );
+}
+
+#[test]
 fn approval_answers_keep_the_request_id_as_sent() {
     let id = RequestId::Text("approval-9".to_owned());
 
     assert_eq!(
         file_change_decision(&id, Decision::AcceptForSession),
         json!({ "id": "approval-9", "result": { "decision": "acceptForSession" } })
-    );
-    assert_eq!(
-        command_amendment(&RequestId::Number(4), &["sleep".to_owned(), "6".to_owned()]),
-        json!({ "id": 4, "result": { "decision": { "acceptWithExecpolicyAmendment": { "execpolicy_amendment": ["sleep", "6"] } } } })
     );
 }
 

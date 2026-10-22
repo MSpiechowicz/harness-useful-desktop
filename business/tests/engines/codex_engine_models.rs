@@ -83,3 +83,16 @@ async fn an_unusable_model_shows_its_error_and_a_picked_one_runs_the_next_turn()
 
     chat.finish().await;
 }
+
+#[tokio::test]
+async fn a_model_list_codex_does_not_send_in_time_leaves_the_picker_empty() {
+    let setup = codex_engine_support::Setup {
+        startup_timeout: Some(std::time::Duration::from_millis(500)),
+        ..codex_engine_support::Setup::default()
+    };
+    let chat = codex_engine_support::start_with("codex_engine_models_late.jsonl", setup, |_| {}).await;
+
+    chat.wait("the chat opened", |event| matches!(event, AgentEvent::Ready { .. }))
+        .await;
+    chat.finish().await;
+}

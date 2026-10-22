@@ -229,6 +229,14 @@ impl CodexMapper {
         out.finish()
     }
 
+    /// The `item/completed` of tool item `id` could not be read (over the frame limit): its card
+    /// ends as failed (see [`tools`]).
+    pub fn item_lost(&mut self, id: &str) -> Vec<Mapped> {
+        let mut out = Out::default();
+        self.tools.lost(id, &mut out.events);
+        out.finish()
+    }
+
     /// The engine is about to start a turn of `kind`; call before writing its request.
     pub fn sent(&mut self, kind: StartKind) {
         self.pending.push_back(kind);
@@ -269,6 +277,12 @@ impl CodexMapper {
     /// True while a turn runs or one the engine started has not begun.
     pub fn is_working(&self) -> bool {
         self.turn.is_active() || !self.pending.is_empty()
+    }
+
+    /// True while a prompt's turn runs or one the engine started has not begun; a quiet turn
+    /// (compaction, `!command`) streams nothing.
+    pub fn is_streaming(&self) -> bool {
+        self.turn.is_prompt_running() || self.pending.contains(&StartKind::Prompt)
     }
 
     /// True while a compaction runs.

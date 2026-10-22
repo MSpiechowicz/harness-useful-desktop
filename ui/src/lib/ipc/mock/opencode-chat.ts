@@ -51,8 +51,9 @@ export function baseSessionInfo(harness: HarnessId): AgentSessionInfo {
     return structuredClone(recorded);
   }
 
+  // A Codex project usually has no .codex layer of its own to trust, so the real app offers no trust button.
   if (harness === 'codex') {
-    return { ...structuredClone(fixtures.agent.sessionInfo.omp), harness, ...CODEX_DEFAULT_MODE, protocolVersion: null };
+    return { ...structuredClone(fixtures.agent.sessionInfo.omp), harness, ...CODEX_DEFAULT_MODE, protocolVersion: null, trustOffered: false };
   }
 
   // OpenCode keeps its approval rules in its own settings, which the app does not read.

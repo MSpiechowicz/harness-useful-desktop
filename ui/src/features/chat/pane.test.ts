@@ -131,8 +131,8 @@ describe('Codex trust', () => {
 
     await fireEvent.click(screen.getByRole('button', { name: 'Trust project once' }));
 
-    expect(await screen.findByText(/Pi skips this project's extensions, skills and prompt templates/)).toBeInTheDocument();
-    expect(screen.getByText(/the next time Pi starts/)).toBeInTheDocument();
+    expect(await screen.findByText(/PI skips this project's extensions, skills and prompt templates/)).toBeInTheDocument();
+    expect(screen.getByText(/the next time PI starts/)).toBeInTheDocument();
   });
 });
 

@@ -11,6 +11,8 @@
   import { t, type MessageKey } from '$lib/i18n/i18n.svelte';
   import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
 
+  import { HARNESS_NAMES } from '../routines/routine-format';
+
   interface Props {
     session: ChatSession;
   }
@@ -24,7 +26,8 @@
   // A harness that starts only in a folder it trusts (Claude Code) keeps a folder trusted once for every chat in it until
   // the app quits; PI trusts it for this session only.
   const untilQuit = $derived(Boolean(harness.get(session.info.harness)?.capabilities.projectTrustRequired));
-  const harnessName = $derived(harness.get(session.info.harness)?.info.name ?? '');
+  // The app's own name of the harness (PI, not its package name Pi).
+  const harnessName = $derived(HARNESS_NAMES[session.info.harness]);
 
   async function trust(): Promise<void> {
     open = false;

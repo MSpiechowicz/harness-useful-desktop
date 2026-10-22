@@ -245,7 +245,7 @@
       "agentPicker": false,
       "chatPreview": true,
       "compactInstructions": false,
-      "memoryChatGuards": false
+      "memoryChatGuards": true
     },
     "detection": {
       "installed": false,

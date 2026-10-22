@@ -46,14 +46,6 @@ pub fn command_decision(id: &RequestId, decision: Decision) -> Value {
     result(id, json!({ "decision": decision.wire() }))
 }
 
-/// Accepts the command of approval `id` and adds `amendment` (a command prefix) to the user's
-/// rules, so commands starting with it no longer ask.
-pub fn command_amendment(id: &RequestId, amendment: &[String]) -> Value {
-    let decision = json!({ "acceptWithExecpolicyAmendment": { "execpolicy_amendment": amendment } });
-
-    result(id, json!({ "decision": decision }))
-}
-
 /// The answer to `item/fileChange/requestApproval` `id`.
 pub fn file_change_decision(id: &RequestId, decision: Decision) -> Value {
     command_decision(id, decision)
@@ -66,7 +58,9 @@ pub enum GrantScope {
     Session,
 }
 
-/// Grants what `item/permissions/requestApproval` `id` asked for (`requested`, its `permissions`).
+/// Grants `requested` (the profile the dialog showed, see
+/// [`PermissionsApproval::shown_profile`](super::requests::PermissionsApproval::shown_profile))
+/// to `item/permissions/requestApproval` `id`.
 pub fn permissions_grant(id: &RequestId, requested: &Value, scope: GrantScope) -> Value {
     let granted: Map<String, Value> = requested
         .as_object()

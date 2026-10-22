@@ -6,11 +6,13 @@
 //!   Sessions view reads them ([`transcript`]). A thread without saved turns (a new chat before its
 //!   first turn, a helper chat) has none and is not asked.
 //! - **History:** its first page reads the thread again, later pages page that read.
-//! - **Last reply:** the newest of the chat, else the newest saved one.
+//! - **Last reply:** the newest of the chat, else the newest saved one (from the history's read
+//!   when there is one).
 //! - **Export:** the shared HTML export ([`write_export`]) as `codex-<thread id>.html`, titled with
 //!   the thread's name. Refused in a helper chat.
 //! - **Counts:** a resumed, forked or cloned thread's saved messages count in the statistics
-//!   (read in the background, best effort), and its newest reply is the last reply.
+//!   (read in the background, best effort, leaving out the turns the chat ran meanwhile, which it
+//!   counts itself), and its newest reply is the last reply.
 
 use std::sync::Arc;
 
@@ -57,7 +59,9 @@ impl CodexSession {
             return Ok(AgentReply::Text { text: Some(text) });
         }
 
-        let read = self.chat.saved_messages(true).await?;
+        // The read the history keeps is dropped when a turn ends, so it is never older than the
+        // newest reply.
+        let read = self.chat.saved_messages(false).await?;
         let messages = read.as_ref().map(|read| read.messages.as_slice()).unwrap_or_default();
 
         Ok(AgentReply::Text {
@@ -124,6 +128,13 @@ impl Chat {
         Ok(Some(read))
     }
 
+    /// The ids of `thread`'s saved turns, without their items (a fork checks its message there).
+    pub(super) async fn turn_ids(&self, thread: &str) -> Result<Vec<String>> {
+        let turns: Vec<Turn> = self.all_pages(MAX_TURNS, |cursor| turns_page(thread, cursor)).await?;
+
+        Ok(turns.into_iter().map(|turn| turn.id).collect())
+    }
+
     /// Reads every saved message of `thread` (see the module docs).
     pub(super) async fn read_thread(&self, thread: &str) -> Result<Arc<Transcript>> {
         let turns: Vec<Turn> = self.all_pages(MAX_TURNS, |cursor| turns_page(thread, cursor)).await?;
@@ -183,7 +194,8 @@ impl Chat {
         });
     }
 
-    /// Counts the saved `messages` of `thread`, unless the chat moved on meanwhile.
+    /// Counts the saved `messages` of `thread`, unless the chat moved on meanwhile. The turns the
+    /// chat ran since it entered the thread are counted already (the read may hold them).
     fn counted(&self, thread: &str, messages: &[ChatMessage]) {
         let mut live = self.lock();
 
@@ -191,7 +203,12 @@ impl Chat {
             return;
         }
 
-        live.saved_counts = MessageCounts::of(messages);
+        let saved: Vec<ChatMessage> = messages
+            .iter()
+            .filter(|message| message.id.as_ref().is_none_or(|turn| !live.run_turns.contains(turn)))
+            .cloned()
+            .collect();
+        live.saved_counts = MessageCounts::of(&saved);
 
         if live.last_reply.is_none() {
             live.last_reply = newest_reply(messages);

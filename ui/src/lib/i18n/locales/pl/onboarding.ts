@@ -174,6 +174,7 @@ export const onboarding: AreaMessages<typeof enOnboarding> = {
   'onboarding.approval.cc.stricter': 'Możesz wybrać surowszy tryb dla jednego czatu w nagłówku czatu, bez ruszania ustawień Claude Code.',
   'onboarding.approval.cx.title': 'Codex może uruchamiać polecenia bez pytania',
   'onboarding.approval.cx.body': 'Twoje ustawienia Codex używają „{mode}”: polecenia działają bez potwierdzenia, tak jak w twoim terminalu.',
+  'onboarding.approval.cx.bodyFullAccess': 'Twoje ustawienia Codex używają „{mode}”: polecenia działają z pełnym dostępem do komputera, bez piaskownicy. Codex pyta tylko wtedy, gdy sam uzna, że polecenie wymaga twojej zgody.',
   'onboarding.approval.cx.modes': 'Zasady zatwierdzania i piaskownice Codex',
   'onboarding.approval.cx.default': 'Domyślnie w Codex',
   'onboarding.approval.cx.untrusted.label': 'Bez zaufania',

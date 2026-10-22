@@ -13,28 +13,31 @@
 //!   URL is declined at once with a notice: the chat cannot open it yet.
 //! - Codex withdraws an ask by resolving it elsewhere (`serverRequest/resolved`): its dialog
 //!   closes. An abort cancels every open ask (`cancel`, no permissions, no answers).
+//! - Extra permissions are granted only as the dialog shows them (network access, folders to
+//!   read, folders to write): an ask for anything else is declined at once with a notice. A file
+//!   change names every path outside the project and the folder it asks to write below, and then
+//!   offers no `Always allow`. A command shows in full (a very long one says how much is left out),
+//!   input for a running command is named as such.
 //! - A helper chat (AI naming) declines every ask at once, as does any chat past [`MAX_OPEN_ASKS`]
-//!   open ones.
+//!   open ones, and an ask about another thread than the chat's. A dialog's id names the type of
+//!   Codex's request id (`n-<number>`, `s-<text>`), so no two asks and no question step share one.
 
 use std::path::{Path, PathBuf};
 
 use serde_json::Value;
 
 use super::Chat;
+use super::dialog_text::{approval_dialog, command_dialog, dialog_id, file_change_subject, permissions_dialog, titled};
 use super::forms::{ACCEPT, Asked, Form, form, questions};
-use crate::claude_stream::permissions::{ALLOW_ONCE, ALWAYS_ALLOW, Choice, REJECT, choice};
+use crate::claude_stream::permissions::{Choice, choice};
 use crate::codex_rpc::mapper::{Ask, AskKind};
 use crate::codex_rpc::wire::RequestId;
 use crate::codex_rpc::wire::answers::{
     Decision, ElicitationAction, GrantScope, command_decision, elicitation_answer, file_change_decision,
     permissions_deny, permissions_grant, user_input_answers,
 };
-use crate::codex_rpc::wire::items::FileUpdateChange;
-use crate::codex_rpc::wire::requests::{CommandApproval, PermissionsApproval};
 use crate::error::{BusinessError, Result};
-use crate::model::{
-    AgentEvent, MAX_ACTION_TEXT_BYTES, NoticeLevel, UiOutcome, UiPurpose, UiRequest, UiRequestKind, UiResponse,
-};
+use crate::model::{AgentEvent, MAX_ACTION_TEXT_BYTES, NoticeLevel, UiOutcome, UiPurpose, UiResponse};
 use crate::security::redact_text;
 
 /// The most asks open at once; Codex's next one is declined.
@@ -42,12 +45,6 @@ pub(super) const MAX_OPEN_ASKS: usize = 256;
 
 /// The `available_decisions` name of Codex's session-wide approval.
 const FOR_SESSION: &str = "acceptForSession";
-
-/// The files a file change's title names before it counts the rest.
-const NAMED_FILES: usize = 3;
-
-/// The longest subject a title shows, in characters.
-const MAX_SUBJECT_CHARS: usize = 300;
 
 /// The open asks of a chat.
 pub(super) struct Dialogs {
@@ -67,7 +64,7 @@ struct Open {
 
 enum OpenKind {
     Command { always: bool },
-    FileChange,
+    FileChange { always: bool },
     Permissions { requested: Value },
     Questions(Asked),
     Form { asked: Asked, form: Form },
@@ -93,15 +90,19 @@ impl Dialogs {
         self.open.is_empty()
     }
 
-    /// Codex asks `ask` (see the module docs).
-    pub(super) fn asked(&mut self, ask: Ask, out: &mut Outcome) {
-        if self.helper || self.open.len() >= MAX_OPEN_ASKS {
+    /// Codex asks `ask` in the chat following `thread` (see the module docs).
+    pub(super) fn asked(&mut self, ask: Ask, thread: Option<&str>, out: &mut Outcome) {
+        let elsewhere = ask
+            .thread_id()
+            .is_some_and(|asked| thread.is_some_and(|followed| asked != followed));
+
+        if self.helper || elsewhere || self.open.len() >= MAX_OPEN_ASKS {
             out.answers.push(declined(&ask));
             return;
         }
 
         let request_id = ask.request_id.clone();
-        let dialog = request_id.to_string();
+        let dialog = dialog_id(&request_id);
         let tool_call_id = ask.item_id().map(str::to_owned);
 
         let (event, kind) = match ask.kind {
@@ -111,15 +112,30 @@ impl Dialogs {
                 (event, OpenKind::Command { always })
             }
             AskKind::FileChange { approval, changes } => {
-                let subject = files(&changes, &self.project).or_else(|| approval.grant_root.clone());
+                let grant_root = approval.grant_root.as_deref().filter(|root| !root.is_empty());
+                let subject = file_change_subject(&changes, &self.project, grant_root);
                 let title = titled("apply_patch", subject.as_deref());
-                let always = "Allows changes to these files again until this chat ends";
-                let event = approval_dialog(&dialog, &title, approval.reason.as_deref(), Some(always));
-                (event, OpenKind::FileChange)
+                let always = grant_root
+                    .is_none()
+                    .then_some("Allows changes to these files again until this chat ends");
+                let event = approval_dialog(&dialog, &title, approval.reason.as_deref(), always);
+                (
+                    event,
+                    OpenKind::FileChange {
+                        always: always.is_some(),
+                    },
+                )
             }
             AskKind::Permissions(approval) => {
+                let Some(requested) = approval.shown_profile() else {
+                    out.events.push(notice(
+                        "Codex asked for permissions this chat cannot show in full. They were declined.".to_owned(),
+                    ));
+                    out.answers.push(permissions_deny(&request_id));
+                    return;
+                };
+
                 let event = permissions_dialog(&dialog, &approval);
-                let requested = approval.permissions.clone();
                 (event, OpenKind::Permissions { requested })
             }
             AskKind::Questions(request) => match questions(&dialog, &request) {
@@ -189,8 +205,8 @@ impl Dialogs {
 
         // A wrong option fails before the ask leaves the list, so its dialog stays open.
         let picked = match &open.kind {
-            OpenKind::Command { always } => Some(choice(&response.outcome, *always)?),
-            OpenKind::FileChange | OpenKind::Permissions { .. } => Some(choice(&response.outcome, true)?),
+            OpenKind::Command { always } | OpenKind::FileChange { always } => Some(choice(&response.outcome, *always)?),
+            OpenKind::Permissions { .. } => Some(choice(&response.outcome, true)?),
             OpenKind::Questions(_) | OpenKind::Form { .. } => None,
         };
 
@@ -258,7 +274,7 @@ fn answer(open: &Open, picked: Choice, given: bool) -> Value {
 
     match &open.kind {
         OpenKind::Command { .. } => command_decision(id, decision),
-        OpenKind::FileChange => file_change_decision(id, decision),
+        OpenKind::FileChange { .. } => file_change_decision(id, decision),
         OpenKind::Permissions { requested } => match picked {
             Choice::Once => permissions_grant(id, requested, GrantScope::Turn),
             Choice::Always => permissions_grant(id, requested, GrantScope::Session),
@@ -287,7 +303,7 @@ fn cancelled(open: &Open) -> Value {
 
     match &open.kind {
         OpenKind::Command { .. } => command_decision(id, Decision::Cancel),
-        OpenKind::FileChange => file_change_decision(id, Decision::Cancel),
+        OpenKind::FileChange { .. } => file_change_decision(id, Decision::Cancel),
         OpenKind::Permissions { .. } => permissions_deny(id),
         OpenKind::Questions(_) => user_input_answers(id, &Default::default()),
         OpenKind::Form { .. } => elicitation_answer(id, ElicitationAction::Cancel, None),
@@ -307,106 +323,6 @@ fn declined(ask: &Ask) -> Value {
     }
 }
 
-/// The dialog of a command: the command (or the host of a network approval) in its title.
-fn command_dialog(dialog: &str, approval: &CommandApproval, always: bool) -> AgentEvent {
-    let host = approval
-        .network_approval_context
-        .as_ref()
-        .map(|context| context.host.as_str())
-        .filter(|host| !host.is_empty());
-
-    let title = match host {
-        Some(host) => format!("Allow network access to {}?", one_line(host)),
-        None => titled("shell", approval.shown_command()),
-    };
-    let always = always.then_some("Allows this command again until this chat ends");
-
-    approval_dialog(dialog, &title, approval.reason.as_deref(), always)
-}
-
-/// The dialog of extra permissions: what they add in its title.
-fn permissions_dialog(dialog: &str, approval: &PermissionsApproval) -> AgentEvent {
-    let mut parts = Vec::new();
-
-    if approval.network() {
-        parts.push("network access".to_owned());
-    }
-
-    for (access, paths) in [("reading", approval.read_paths()), ("writing", approval.write_paths())] {
-        if !paths.is_empty() {
-            parts.push(format!("{access} {}", paths.join(", ")));
-        }
-    }
-
-    let subject = (!parts.is_empty()).then(|| parts.join(", "));
-    let title = titled("extra permissions", subject.as_deref());
-
-    approval_dialog(
-        dialog,
-        &title,
-        approval.reason.as_deref(),
-        Some("Keeps these permissions until this chat ends"),
-    )
-}
-
-/// `Allow <label>: <subject>?` on one line, or `Allow <label>?`.
-fn titled(label: &str, subject: Option<&str>) -> String {
-    match subject.map(one_line).filter(|subject| !subject.is_empty()) {
-        Some(subject) => format!("Allow {label}: {subject}?"),
-        None => format!("Allow {label}?"),
-    }
-}
-
-/// The project files of `changes` (relative to `project`), the first few and a count of the rest.
-fn files(changes: &[FileUpdateChange], project: &Path) -> Option<String> {
-    let names: Vec<String> = changes
-        .iter()
-        .map(|change| {
-            let path = Path::new(&change.path);
-            let shown = path.strip_prefix(project).unwrap_or(path);
-            shown.to_string_lossy().into_owned()
-        })
-        .collect();
-
-    let (named, rest) = names.split_at(names.len().min(NAMED_FILES));
-    let listed = named.join(", ");
-
-    match rest.len() {
-        0 if listed.is_empty() => None,
-        0 => Some(listed),
-        more => Some(format!("{listed} and {more} more")),
-    }
-}
-
-/// An approval `select` as `dialog`, titled `title`, with `reason` as the detail of `Allow once`
-/// and `always` as the one of `Always allow` (left out without it).
-fn approval_dialog(dialog: &str, title: &str, reason: Option<&str>, always: Option<&str>) -> AgentEvent {
-    let mut options = vec![ALLOW_ONCE.to_owned()];
-    let mut details = vec![reason.map(redact_text)];
-
-    if let Some(always) = always {
-        options.push(ALWAYS_ALLOW.to_owned());
-        details.push(Some(always.to_owned()));
-    }
-
-    options.push(REJECT.to_owned());
-    details.push(None);
-
-    let kind = UiRequestKind::Select {
-        title: redact_text(title),
-        options,
-        details,
-        timeout_ms: None,
-    };
-
-    AgentEvent::UiRequest {
-        request: UiRequest {
-            purpose: Some(UiPurpose::Approval),
-            ..UiRequest::new(dialog, kind)
-        },
-    }
-}
-
 /// `event` (a dialog) bound to the tool card `tool_call_id` when it is an approval.
 fn bound(event: AgentEvent, tool_call_id: Option<String>) -> AgentEvent {
     match event {
@@ -418,16 +334,6 @@ fn bound(event: AgentEvent, tool_call_id: Option<String>) -> AgentEvent {
             AgentEvent::UiRequest { request }
         }
         other => other,
-    }
-}
-
-/// `text` on one line, at most [`MAX_SUBJECT_CHARS`] characters.
-fn one_line(text: &str) -> String {
-    let line = text.split_whitespace().collect::<Vec<_>>().join(" ");
-
-    match line.char_indices().nth(MAX_SUBJECT_CHARS) {
-        Some((end, _)) => format!("{}…", &line[..end]),
-        None => line,
     }
 }
 

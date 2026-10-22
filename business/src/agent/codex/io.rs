@@ -14,6 +14,10 @@
 //!   dynamic tool calls, token refreshes and unknown methods are refused at once.
 //! - **Turn ends** also finish a `!command` and may send a helper chat's prompt again
 //!   (`runs.rs`, `naming.rs`).
+//! - **A frame over the limit** is a `frameError`, and what its first bytes name is acted on: a
+//!   request of Codex is answered with an error (nothing waits for an answer that never comes),
+//!   the app's request it answers fails at once, and the tool card of an `item/completed` ends as
+//!   failed, naming the project files its file change was about.
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -29,10 +33,10 @@ use crate::codex_rpc::mapper::{Hint, Mapped};
 use crate::codex_rpc::wire::answers::refusal;
 use crate::codex_rpc::wire::outbound::{Request, next_request_id};
 use crate::codex_rpc::wire::results::TurnStarted;
-use crate::codex_rpc::wire::{RequestId, Response, RpcError, decode_value};
+use crate::codex_rpc::wire::{INVALID_REQUEST, RequestId, Response, RpcError, decode_value};
 use crate::error::{BusinessError, Result};
 use crate::model::{AgentEvent, ChatBlock, ChatMessage, MessageRole, PromptStatus, StreamingBehavior};
-use crate::pi_family::rpc::{Frame, FrameReader, RequestKind, RpcResponse, await_response, encode_frame};
+use crate::pi_family::rpc::{Frame, FrameFault, FrameReader, RequestKind, RpcResponse, await_response, encode_frame};
 use crate::security::redact_text;
 
 /// What Codex answered a request with: its result, or its error.
@@ -48,8 +52,13 @@ pub(super) async fn read_stdout(stdout: Stdout, chat: oneshot::Receiver<Arc<Chat
     while let Some(frame) = frames.next_frame().await {
         let owed = {
             let mut live = chat.lock();
-            let mapped = map_frame(&mut live, frame);
-            chat.apply(&mut live, mapped)
+            match frame {
+                Frame::Fault(fault) => chat.faulted(&mut live, fault),
+                frame => {
+                    let mapped = map_frame(&mut live, frame);
+                    chat.apply(&mut live, mapped)
+                }
+            }
         };
 
         // A frame Codex no longer reads is no reason to stop reading what it writes.
@@ -79,7 +88,55 @@ fn map_frame(live: &mut Live, frame: Frame) -> Vec<Mapped> {
     vec![Mapped::Event(Box::new(event))]
 }
 
+impl Live {
+    /// The chat runs turn `id` (counted in `counts`, never again as saved).
+    fn ran(&mut self, id: &str) {
+        if !self.run_turns.iter().any(|turn| turn == id) {
+            self.run_turns.push(id.to_owned());
+        }
+    }
+}
+
+/// The error Codex gets for a request of its own the app could not read.
+const TOO_LARGE: &str = "the request is larger than the app reads";
+
 impl Chat {
+    /// A frame over the limit (see the module docs): its `frameError` and what follows from it;
+    /// the frames Codex is owed.
+    fn faulted(self: &Arc<Self>, live: &mut Live, fault: FrameFault) -> Vec<Value> {
+        let event = AgentEvent::FrameError {
+            original_type: fault.original_type,
+            error: fault.error,
+        };
+        let mut mapped = vec![Mapped::Event(Box::new(event))];
+        let mut owed = Vec::new();
+
+        let id = fault.rpc_id.as_deref().map(|id| match id.parse::<i64>() {
+            Ok(number) => RequestId::Number(number),
+            Err(_) => RequestId::Text(id.trim_matches('"').to_owned()),
+        });
+
+        match (id, fault.method.as_deref()) {
+            (Some(id), Some(_)) => {
+                owed.push(json!({ "id": id, "error": { "code": INVALID_REQUEST, "message": TOO_LARGE } }));
+            }
+            (Some(id), None) => {
+                let error = BusinessError::Protocol("Codex's answer exceeded the frame limit".to_owned());
+                self.shared.pending.fail(&id.to_string(), error);
+            }
+            (None, Some("item/completed")) => {
+                if let Some(item) = fault.item_id.as_deref() {
+                    mapped.extend(live.mapper.item_lost(item));
+                }
+            }
+            (None, _) => {}
+        }
+
+        let mut answers = self.apply(live, mapped);
+        answers.extend(owed);
+        answers
+    }
+
     /// Emits the events of `mapped` and acts on its hints, in order; the frames Codex is owed.
     pub(super) fn apply(self: &Arc<Self>, live: &mut Live, mapped: Vec<Mapped>) -> Vec<Value> {
         let mut owed = Vec::new();
@@ -110,6 +167,7 @@ impl Chat {
             Hint::TokenUsage(usage) => live.stats.on_token_usage(&usage),
             Hint::TurnStarted(id) => {
                 if !id.is_empty() {
+                    live.ran(&id);
                     live.turn_id = Some(id);
                 }
 
@@ -142,7 +200,7 @@ impl Chat {
             }
             Hint::Ask(ask) => {
                 let mut out = Outcome::default();
-                live.dialogs.asked(ask, &mut out);
+                live.dialogs.asked(ask, live.thread_id.as_deref(), &mut out);
 
                 out.events.into_iter().for_each(|event| self.shared.emit(event));
                 owed.extend(out.answers);
@@ -170,6 +228,7 @@ impl Chat {
 
             if let Ok(started) = response.result::<TurnStarted>() {
                 if live.mapper.is_working() && !started.turn.id.is_empty() {
+                    live.ran(&started.turn.id);
                     live.turn_id = Some(started.turn.id);
                 }
 

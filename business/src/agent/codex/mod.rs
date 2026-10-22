@@ -26,6 +26,7 @@
 //! - **Stop:** stdin closes, Codex exits (killed after the grace period).
 
 mod approvals;
+mod dialog_text;
 mod dialogs;
 mod forms;
 mod history;
@@ -117,6 +118,8 @@ struct Live {
     stats: CodexStats,
     /// The messages of the chat since it entered its thread.
     counts: MessageCounts,
+    /// The turns the chat ran since it entered its thread, which `counts` holds already.
+    run_turns: Vec<String>,
     /// The messages the thread was saved with when the chat entered it (counted in the
     /// background, `history.rs`).
     saved_counts: MessageCounts,
@@ -165,6 +168,7 @@ impl Live {
             last_reply: None,
             stats: CodexStats::default(),
             counts: MessageCounts::default(),
+            run_turns: Vec::new(),
             saved_counts: MessageCounts::default(),
             saved: false,
             transcript: None,

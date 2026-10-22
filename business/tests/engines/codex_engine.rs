@@ -79,6 +79,17 @@ async fn a_resumed_chat_resumes_its_thread_without_turns() {
 }
 
 #[tokio::test]
+async fn a_thread_of_another_folder_is_never_resumed() {
+    let launched = launch("codex_engine_resume_elsewhere.jsonl", Some(THREAD)).await;
+
+    assert!(
+        matches!(launched.result, Err(BusinessError::NotFound(_))),
+        "{:?}",
+        launched.result.as_ref().err()
+    );
+}
+
+#[tokio::test]
 async fn a_thread_id_that_is_not_a_uuid_is_refused_before_spawning() {
     let launched = launch("codex_engine_resume.jsonl", Some("../thread")).await;
 

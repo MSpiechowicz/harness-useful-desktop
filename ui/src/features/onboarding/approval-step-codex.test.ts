@@ -26,6 +26,16 @@ describe('the Codex approval notice', () => {
     expect(screen.getByText(/never changes Codex’s settings/)).toBeInTheDocument();
   });
 
+  it('says Codex still asks when only the sandbox gives full access', () => {
+    harness.summaries = fixtures.harnesses.map((summary) =>
+      summary.info.id === 'codex' ? { ...summary, nativeApprovalMode: { name: 'on-request / danger-full-access', unattended: true } } : summary,
+    );
+    render(ApprovalStep, { notice: 'codex' });
+
+    expect(screen.getByText(/“on-request \/ danger-full-access”: commands run with full access to your machine, without a sandbox\. Codex asks only when/)).toBeInTheDocument();
+    expect(screen.queryByText(/commands run without asking/)).toBeNull();
+  });
+
   it('lists the modes from asking to full access, with Codex’s default marked', () => {
     render(ApprovalStep, { notice: 'codex' });
 

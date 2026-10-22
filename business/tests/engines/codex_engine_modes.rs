@@ -150,3 +150,31 @@ fn routines_take_the_modes_codex_offers() {
     let yolo = refusal(HarnessId::Claude, Some(ApprovalMode::Yolo), false).expect("no Yolo on Claude Code");
     assert!(yolo.ends_with("is for omp, opencode or codex only"), "{yolo}");
 }
+
+#[tokio::test]
+async fn a_mode_codex_does_not_run_is_named_and_the_chat_follows_codex() {
+    let (chat, mode) = started_mode("codex_engine_mode_clamped.jsonl", mode(ApprovalMode::Yolo)).await;
+
+    assert_eq!(
+        mode,
+        Some(ApprovalMode::AlwaysAsk),
+        "the policy Codex runs, not the one asked for"
+    );
+
+    let warning = chat
+        .wait("the warning", |event| matches!(event, AgentEvent::Notice { .. }))
+        .await;
+    let AgentEvent::Notice { level, message } = warning else {
+        unreachable!();
+    };
+    assert_eq!(level, harness_business::model::NoticeLevel::Warning);
+    assert!(
+        message.contains("untrusted / readOnly, approvals reviewed by auto_review"),
+        "{message}"
+    );
+
+    let refused = chat.session.bash("ls").await.expect_err("a !command waits for Write");
+    assert_eq!(refused.code(), IpcErrorCode::Forbidden);
+
+    chat.finish().await;
+}

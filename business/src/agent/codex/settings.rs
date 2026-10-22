@@ -131,7 +131,7 @@ impl Chat {
             context_usage: live.stats.context().cloned(),
             message_count: live.message_counts().total,
             queued_count: queued,
-            is_streaming: live.mapper.is_working(),
+            is_streaming: live.mapper.is_streaming(),
             is_compacting: live.mapper.is_compacting(),
         }
     }

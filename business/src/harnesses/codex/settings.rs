@@ -3,14 +3,15 @@
 //!
 //! - User: `<home>/config.toml` ([`user_config_path`]).
 //! - Project: `<project>/.codex/config.toml`, which Codex applies only in a folder it trusts
-//!   (`[projects."<path>"] trust_level = "trusted"` in the user file, for the folder or a folder
-//!   above it). A project file that resolves outside the project is not read.
+//!   (`[projects."<path>"] trust_level = "trusted"` in the user file, for the folder itself or
+//!   the root of its git repository, see [`is_trusted`]). A project file that resolves outside
+//!   the project is not read.
 //!
 //! The values are only read here: nothing is ever written to these files by the app.
 
 use std::path::{Path, PathBuf};
 
-use serde_json::Value;
+use serde_json::{Map, Value};
 
 use super::paths::{PROJECT_DIR_NAME, codex_home};
 use crate::env::Env;
@@ -50,18 +51,81 @@ pub(super) fn project_config(project: &Path) -> Document {
     read_document(&path, ConfigFormat::Toml)
 }
 
-/// Whether the user file trusts `project` or a folder above it.
+/// Whether the user file trusts `project`: Codex looks up the folder itself and the root of its
+/// git repository (the main checkout for a worktree), never any other folder above it.
 pub(super) fn is_trusted(user: &Document, project: &Path) -> bool {
     let Some(projects) = user.get("projects").and_then(Value::as_object) else {
         return false;
     };
-
-    project.ancestors().any(|dir| {
+    let trusted = |dir: &Path| {
         projects
             .get(dir.to_string_lossy().as_ref())
             .and_then(|entry| text_field(entry, "trust_level"))
             .is_some_and(|level| level == "trusted")
-    })
+    };
+
+    trusted(project) || repository_root(project).is_some_and(|root| trusted(&root))
+}
+
+/// The root of the git repository holding `dir`: the folder of the nearest `.git` above it, or
+/// for a worktree (a `.git` file) the folder of the repository's common git directory.
+fn repository_root(dir: &Path) -> Option<PathBuf> {
+    let checkout = dir.ancestors().find(|folder| folder.join(".git").exists())?;
+    let marker = checkout.join(".git");
+
+    if marker.is_dir() {
+        return Some(checkout.to_path_buf());
+    }
+
+    let text = std::fs::read_to_string(&marker).ok()?;
+    let git_dir = checkout.join(text.trim().strip_prefix("gitdir:")?.trim());
+    let common = match std::fs::read_to_string(git_dir.join("commondir")) {
+        Ok(relative) => git_dir.join(relative.trim()),
+        Err(_) => git_dir,
+    };
+    let common = std::fs::canonicalize(&common).unwrap_or(common);
+
+    common.parent().map(Path::to_path_buf)
+}
+
+/// The MCP servers of the settings that apply to a chat in `project` with its Codex home in
+/// `codex_home`: the user file's, then the project file's in a trusted folder or one trusted
+/// once (`trust_once`), each merged over the user's server of the same name.
+pub fn mcp_servers(codex_home: &Path, project: &Path, trust_once: bool) -> Map<String, Value> {
+    let user_path = codex_home.join(CONFIG_FILE);
+    let user = read_document(&user_path, ConfigFormat::Toml);
+    let mut servers = servers_of(&user);
+
+    let project_layer = trust_once || is_trusted(&user, project);
+    if project_layer && project_config_path(project) != user_path {
+        for (name, server) in servers_of(&project_config(project)) {
+            let merged = servers.entry(name).or_insert_with(|| Value::Object(Map::new()));
+
+            if let (Value::Object(merged), Value::Object(server)) = (merged, server) {
+                merged.extend(server);
+            }
+        }
+    }
+
+    servers
+}
+
+/// The `mcp_servers` table of `document`.
+fn servers_of(document: &Document) -> Map<String, Value> {
+    document
+        .get("mcp_servers")
+        .and_then(Value::as_object)
+        .cloned()
+        .unwrap_or_default()
+}
+
+/// True for a server name a `-c` key path can name (`mcp_servers.<name>.…`): letters, digits,
+/// `-` and `_` (Codex splits the path at every dot).
+pub fn is_plain_name(name: &str) -> bool {
+    !name.is_empty()
+        && name
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || character == '-' || character == '_')
 }
 
 /// The settings that apply, in Codex's order: the user file, the project file in a trusted
@@ -69,6 +133,8 @@ pub(super) fn is_trusted(user: &Document, project: &Path) -> bool {
 /// table of the same file or the user's).
 pub(super) struct Layers {
     values: Vec<Value>,
+    /// Whether the user file trusts the project (no project: true).
+    pub trusted: bool,
 }
 
 impl Layers {
@@ -76,8 +142,9 @@ impl Layers {
     pub(super) fn load(env: &Env, project: Option<&Path>) -> Self {
         let user = user_config(env);
         let mut files: Vec<Value> = user.value().cloned().into_iter().collect();
+        let trusted = project.is_none_or(|project| is_trusted(&user, project));
 
-        if let Some(project) = project.filter(|project| is_trusted(&user, project)) {
+        if let Some(project) = project.filter(|_| trusted) {
             let same_as_user = project_config_path(project) == user_config_path(env);
 
             if !same_as_user && let Document::Parsed(value) = project_config(project) {
@@ -94,7 +161,7 @@ impl Layers {
         });
 
         files.extend(selected);
-        Self { values: files }
+        Self { values: files, trusted }
     }
 
     /// The last string the layers set for `key`.

@@ -8,7 +8,7 @@
 //!   message (an entry id of the history or the Sessions view: a message's id is its turn's):
 //!   `thread/fork{lastTurnId}` keeps the turns up to and including that turn, as
 //!   [`fork_point`](crate::harnesses::codex::sessions::CodexSessions::fork_point) reads it; a turn
-//!   the thread does not hold is `notFound`. **Clone:** `thread/fork` without a cut. Every new,
+//!   the thread does not hold (its turns are read without their items) is `notFound`. **Clone:** `thread/fork` without a cut. Every new,
 //!   resumed or forked thread runs in the project with the chat's approval mode (its approval
 //!   policy and sandbox, none without an override, see `approvals.rs`), so the mode survives
 //!   the move.
@@ -25,7 +25,7 @@
 
 use std::sync::Arc;
 
-use super::approvals::answered_mode;
+use super::approvals::followed_mode;
 use super::io::refused;
 use super::startup::thread;
 use super::{Chat, CodexSession, Live};
@@ -35,7 +35,7 @@ use crate::codex_rpc::wire::outbound::{Request, ThreadFork, ThreadResume, Thread
 use crate::codex_rpc::wire::results::{ThreadRead, ThreadSession};
 use crate::error::{BusinessError, Result};
 use crate::harnesses::codex::is_thread_id;
-use crate::model::{AgentAction, AgentReply, ApprovalMode, HarnessId, SessionRef};
+use crate::model::{AgentAction, AgentEvent, AgentReply, ApprovalMode, HarnessId, SessionRef};
 use crate::opencode_server::mapper::project_dir;
 use crate::pi_family::rpc::pending::DEFAULT_TIMEOUT;
 
@@ -91,9 +91,9 @@ impl CodexSession {
 
         let chat = &self.chat;
         let source = chat.saved_thread(ACTION)?;
-        let read = chat.read_thread(&source).await?;
+        let turns = chat.turn_ids(&source).await?;
 
-        if !read.turns.iter().any(|turn| turn == entry_id) {
+        if !turns.iter().any(|turn| turn == entry_id) {
             return Err(BusinessError::NotFound(format!("message {entry_id} in this chat")));
         }
 
@@ -170,7 +170,7 @@ impl Chat {
     }
 
     /// Checks that saved thread `id` belongs to the project (or a folder inside it).
-    async fn check_owned(&self, id: &str) -> Result<()> {
+    pub(super) async fn check_owned(&self, id: &str) -> Result<()> {
         let request = Request::ThreadRead {
             thread_id: id.to_owned(),
         };
@@ -232,7 +232,9 @@ impl Chat {
         let held = !live.queue.is_empty();
 
         live.mapper = CodexMapper::new(&self.project);
-        live.follow(session, self.approval_override);
+        if let Some(warning) = live.follow(session, self.approval_override) {
+            self.shared.emit(warning);
+        }
         live.turn_id = None;
         live.turn_requests.clear();
         live.abort_pending = false;
@@ -240,6 +242,7 @@ impl Chat {
         live.last_reply = None;
         live.stats = CodexStats::default();
         live.counts = MessageCounts::default();
+        live.run_turns.clear();
         live.saved_counts = MessageCounts::default();
         live.saved = saved;
         live.transcript = None;
@@ -254,10 +257,17 @@ impl Chat {
 
 impl Live {
     /// Follows thread `session` (started, resumed or forked): its id, title, model, effort,
-    /// provider and approval mode (the chat's `approval_override`, else the one Codex answered
-    /// with).
-    pub(super) fn follow(&mut self, session: ThreadSession, approval_override: Option<ApprovalMode>) {
-        self.mode = approval_override.or_else(|| answered_mode(session.approval_policy.as_ref()));
+    /// provider and approval mode (the chat's `approval_override` when Codex runs it, else the one
+    /// Codex answered with, see [`followed_mode`]). The warning when Codex does not run the
+    /// override.
+    pub(super) fn follow(
+        &mut self,
+        session: ThreadSession,
+        approval_override: Option<ApprovalMode>,
+    ) -> Option<AgentEvent> {
+        let (mode, warning) = followed_mode(approval_override, &session);
+
+        self.mode = mode;
         self.mapper.follow_thread(&session.thread.id);
         self.thread_id = Some(session.thread.id.clone()).filter(|id| !id.is_empty());
         self.title = session.thread.name.clone().filter(|name| !name.trim().is_empty());
@@ -267,6 +277,8 @@ impl Live {
         if !session.model_provider.is_empty() {
             self.provider = session.model_provider;
         }
+
+        warning
     }
 }
 

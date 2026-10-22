@@ -299,7 +299,7 @@ export const chat = {
   'chat.trust.popover': 'Trust this project',
   'chat.trust.trigger': 'Trust project once',
   'chat.trust.warning': "{harness} skips this project's extensions, skills and prompt templates until you trust it. Trusting lets code from the project run with your permissions.",
-  'chat.trust.warning.codex': "Codex ignores this project's .codex/ settings, hooks and rules until you trust it. Trusting lets code from the project run with your permissions.",
+  'chat.trust.warning.codex': "Codex ignores this project's .codex/ settings, hooks and rules until you trust it. Once trusted they apply to this chat, also command rules that skip asking, extra writable folders and who reviews approvals. Trusting lets code from the project run with your permissions.",
   'chat.trust.scope': 'It applies to this session only. The app asks again the next time {harness} starts. The session restarts and continues where it left off.',
   'chat.trust.action': 'Restart and trust this project',
 

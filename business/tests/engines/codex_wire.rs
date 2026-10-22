@@ -225,6 +225,7 @@ fn requests_are_written_as_recorded() {
             model: Some("gpt-5.6-terra".to_owned()),
             approval_policy: Some(ApprovalPolicy::Untrusted),
             sandbox: Some(SandboxMode::WorkspaceWrite),
+            approvals_reviewer: None,
             config: None,
         },
         ..ThreadStart::default()

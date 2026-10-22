@@ -1,11 +1,11 @@
 //! What Codex asks the user, as data for the engine's dialogs, answered with the encoders of
 //! [`answers`](crate::codex_rpc::wire::answers) under [`Ask::request_id`]:
 //!
-//! - a command: [`command_decision`](crate::codex_rpc::wire::answers::command_decision) (or
-//!   `command_amendment` for its proposed rule, when offered);
+//! - a command: [`command_decision`](crate::codex_rpc::wire::answers::command_decision) (never a
+//!   rule amendment, which Codex would save);
 //! - a file change, with its files from the item's `item/started` (Codex names only the item):
 //!   `file_change_decision`;
-//! - extra permissions: `permissions_grant` or `permissions_deny`;
+//! - extra permissions: `permissions_grant` (of what a dialog can show) or `permissions_deny`;
 //! - the model's questions: `user_input_answers`;
 //! - an MCP server's form or URL: `elicitation_answer`.
 //!
@@ -55,6 +55,19 @@ impl Ask {
             AskKind::Permissions(approval) => &approval.item_id,
             AskKind::Questions(request) => &request.item_id,
             AskKind::Elicitation(_) => return None,
+        };
+
+        (!id.is_empty()).then_some(id.as_str())
+    }
+
+    /// The thread the ask is about, when Codex names it.
+    pub fn thread_id(&self) -> Option<&str> {
+        let id = match &self.kind {
+            AskKind::Command(approval) => &approval.thread_id,
+            AskKind::FileChange { approval, .. } => &approval.thread_id,
+            AskKind::Permissions(approval) => &approval.thread_id,
+            AskKind::Questions(request) => &request.thread_id,
+            AskKind::Elicitation(elicitation) => &elicitation.thread_id,
         };
 
         (!id.is_empty()).then_some(id.as_str())

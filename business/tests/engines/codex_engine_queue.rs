@@ -165,3 +165,37 @@ async fn abort_cancels_the_open_approval_and_interrupts_the_turn() {
     );
     chat.finish().await;
 }
+
+#[tokio::test]
+async fn a_stop_before_a_turn_codex_refuses_ends_with_it() {
+    let chat = start("codex_engine_abort_refused.jsonl").await;
+
+    let (refused, stopped) = tokio::join!(chat.session.send(prompt("Never starts.")), async {
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        chat.session.send(AgentAction::Abort).await
+    });
+    assert!(refused.is_err(), "Codex refused the turn");
+    assert_eq!(stopped.unwrap(), AgentReply::Ack);
+
+    chat.act(prompt("Ask me about colours.")).await;
+    let events = chat
+        .wait("the next turn's end", |event| {
+            matches!(event, AgentEvent::PromptResult { .. })
+        })
+        .await;
+    assert!(matches!(
+        events,
+        AgentEvent::PromptResult {
+            status: PromptStatus::Completed,
+            ..
+        }
+    ));
+
+    let AgentReply::Stats { stats } = chat.act(AgentAction::GetSessionStats).await else {
+        panic!("not stats");
+    };
+    assert_eq!(stats.user_messages, 1, "the refused message is not counted");
+
+    // The scripted Codex fails on any turn/interrupt.
+    chat.finish().await;
+}

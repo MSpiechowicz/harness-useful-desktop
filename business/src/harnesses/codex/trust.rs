@@ -30,7 +30,8 @@ const PROJECT_LAYER: [&str; 3] = [CONFIG_FILE, "hooks.json", "rules"];
 pub enum ProjectTrust {
     /// The project has no layer of its own (or its `.codex` is the Codex home).
     NothingToTrust,
-    /// The user's `config.toml` trusts the folder (or one above it): Codex applies the layer.
+    /// The user's `config.toml` trusts the folder (or its git repository's root): Codex applies
+    /// the layer.
     Trusted,
     /// The folder is not trusted: Codex ignores the project's layer.
     Untrusted,
@@ -74,7 +75,7 @@ pub(super) fn trust_once_args(project: &Path) -> Result<[String; 2]> {
 }
 
 /// `text` as a TOML basic string, `None` when it holds a control character.
-fn toml_string(text: &str) -> Option<String> {
+pub(super) fn toml_string(text: &str) -> Option<String> {
     if text.is_empty() || text.chars().any(char::is_control) {
         return None;
     }

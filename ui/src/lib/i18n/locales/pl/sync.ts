@@ -69,6 +69,7 @@ export const sync: AreaMessages<typeof enSync> = {
   'sync.excluded.unsupported': 'Nieobsługiwane',
   'sync.excluded.invalid': 'Nieprawidłowe',
   'sync.excluded.tooMany': 'Za dużo elementów',
+  'sync.excluded.switchedOff': 'Wyłączony',
   'sync.importDialog.title': 'Import konfiguracji',
   'sync.importDialog.titleReview': 'Przejrzyj import',
   'sync.importDialog.titleApplying': 'Importowanie…',

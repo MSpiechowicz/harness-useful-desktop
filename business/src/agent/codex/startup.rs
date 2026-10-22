@@ -1,16 +1,18 @@
 //! Startup of a [`CodexSession`]: spawn `codex app-server` → the stdout reader → `initialize`
 //! (the app's name and version, the experimental API on, Codex's noise opted out of) → its result
 //! within the startup limit ([`STARTUP_TIMEOUT`](crate::agent::STARTUP_TIMEOUT)), Codex's version
-//! from its user agent → the `initialized` notification → `model/list` (a list Codex refuses
-//! leaves the picker empty) → `thread/start` in the project, or `thread/resume` of the resumed
-//! thread without its turns (a helper chat's thread is ephemeral: not saved, not listed, see
-//! `naming.rs`) → `ready`, `state`, `commandsUpdated` and the notice of an untrusted project,
+//! from its user agent → the `initialized` notification → `model/list` (a list Codex refuses or
+//! does not send in time leaves the picker empty until it asks again) → `thread/start` in the
+//! project, or `thread/read` (the thread must be of the project or a folder inside it, else
+//! `notFound`) and `thread/resume` of the resumed thread without its turns (a helper chat's
+//! thread is ephemeral: not saved, not listed, see `naming.rs`) → `ready`, `state`, `commandsUpdated` and the notice of an untrusted project,
 //! then the events that arrived meanwhile. The skills and a resumed thread's saved messages are
 //! read after that, in the background.
 //!
 //! - No model is sent: the user's `config.toml` applies. The approval policy and sandbox are
 //!   those of the chat's approval mode, none without an override (`approvals.rs`, Auto is refused
-//!   before anything spawns). A helper chat's thread never asks and only reads (`naming.rs`).
+//!   before anything spawns). A helper chat's thread only reads, without web search or MCP
+//!   servers, and its asks are declined (`naming.rs`).
 //! - The whole startup runs within the startup deadline and gives up when every session is stopped
 //!   ([`run_startup`]); a failed one kills the process and emits nothing. A process that exits
 //!   first fails the start with its last stderr lines.
@@ -31,7 +33,7 @@ use crate::codex_rpc::wire::answers::initialized;
 use crate::codex_rpc::wire::outbound::{Initialize, Request, ThreadResume, ThreadStart};
 use crate::codex_rpc::wire::results::{InitializeResult, Model, Page, ThreadSession};
 use crate::error::{BusinessError, Result};
-use crate::harnesses::codex::is_thread_id;
+use crate::harnesses::codex::{is_thread_id, mcp_servers};
 use crate::model::AgentEvent;
 
 /// What a thread starts with.
@@ -83,8 +85,17 @@ impl CodexSession {
         });
         chat_tx.send(chat.clone()).ok();
 
+        // The helper's thread switches off the MCP servers Codex would start for it.
+        let helper_servers: Vec<String> = match launch.utility {
+            true => mcp_servers(&launch.config_dir, &launch.project, launch.trust_once)
+                .into_iter()
+                .map(|(name, _)| name)
+                .collect(),
+            false => Vec::new(),
+        };
+
         let cwd = launch.project.to_string_lossy().into_owned();
-        let steps = handshake(&chat, &start, cwd, options.startup_timeout);
+        let steps = handshake(&chat, &start, cwd, &helper_servers, options.startup_timeout);
 
         if let Err(error) = run_startup(options, launch.abort, steps).await {
             return Err(process.fail_start(error).await);
@@ -121,7 +132,7 @@ impl Chat {
 }
 
 /// The handshake, the models and the thread, each within `limit`.
-async fn handshake(chat: &Chat, start: &Start, cwd: String, limit: Duration) -> Result<()> {
+async fn handshake(chat: &Chat, start: &Start, cwd: String, helper_servers: &[String], limit: Duration) -> Result<()> {
     let hello = Request::Initialize(Initialize::desktop(env!("CARGO_PKG_VERSION")));
     let init: InitializeResult = chat.request(&hello, limit).await.map_err(|error| match error {
         BusinessError::Timeout(_) => BusinessError::Timeout(format!(
@@ -140,18 +151,27 @@ async fn handshake(chat: &Chat, start: &Start, cwd: String, limit: Duration) -> 
         "Codex app server started"
     );
 
-    let models = match chat.call(&Request::ModelList { include_hidden: false }, limit).await? {
-        Ok(listed) => serde_json::from_value::<Page<Model>>(listed).map_or_else(|_| Vec::new(), |page| page.data),
-        Err(error) => {
+    let models = match chat.call(&Request::ModelList { include_hidden: false }, limit).await {
+        Ok(Ok(listed)) => serde_json::from_value::<Page<Model>>(listed).map_or_else(|_| Vec::new(), |page| page.data),
+        Ok(Err(error)) => {
             tracing::debug!(error = %error.message, "Codex listed no models");
+            Vec::new()
+        }
+        Err(error) => {
+            tracing::debug!(%error, "Codex did not list its models");
             Vec::new()
         }
     };
 
+    // A thread of another folder is never resumed here (as a switch checks it too).
+    if let Start::Resume(thread_id) = start {
+        chat.check_owned(thread_id).await?;
+    }
+
     let settings = chat.thread_settings(cwd);
 
     let request = match start {
-        Start::New { ephemeral: true } => Request::ThreadStart(helper_thread(settings)),
+        Start::New { ephemeral: true } => Request::ThreadStart(helper_thread(settings, helper_servers)),
         Start::New { ephemeral: false } => Request::ThreadStart(ThreadStart {
             settings,
             ..ThreadStart::default()
@@ -168,7 +188,9 @@ async fn handshake(chat: &Chat, start: &Start, cwd: String, limit: Duration) -> 
     let mut live = chat.lock();
     live.codex_version = version;
     live.models = models;
-    live.follow(session, chat.approval_override);
+    if let Some(warning) = live.follow(session, chat.approval_override) {
+        chat.shared.emit(warning);
+    }
 
     Ok(())
 }

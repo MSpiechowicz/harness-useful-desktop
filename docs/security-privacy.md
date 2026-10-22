@@ -170,7 +170,7 @@ a separate program and is not covered by these rules: it opens its own database,
 
 | Rule | Entries |
 | --- | --- |
-| Extensions | `db`, `db-wal`, `db-shm`, `db-journal`, `sqlite`, `sqlite3`, `log`, `pem`, `key`, `p12`, `pfx`, `heapsnapshot` |
+| Extensions | `db`, `db-wal`, `db-shm`, `db-journal`, `sqlite`, `sqlite3` and their `-wal`, `-shm` and `-journal` side files, `log`, `pem`, `key`, `p12`, `pfx`, `heapsnapshot` |
 | Exact names | `auth.json`, `mcp-auth.json`, `install-id`, `auth-token`, `models-store.json`, `gpu_cache.json`, `credentials`, `credentials.json`, `.env`, `.credentials.json`, `.claude.json` (opened only by `SafeReader::read_claude_global_file`), `mcp-needs-auth-cache.json`, `policy-limits.json`, `policy-limits.stamp.json`; `prompt-history.jsonl` directly below an `opencode` directory; `history.jsonl`, `remote-settings.json`, `stats-cache.json` directly in a Claude Code config directory |
 | Name prefixes | `.env.`, `id_rsa`, `id_ed25519`, `.claude.json.backup` (Claude Code's copies of its global file) |
 | Prefix and suffix | `opencode.` ... `.dat` (OpenCode desktop state: `opencode.settings.dat`, `opencode.global.dat`, `opencode.workspace.*.dat`) |
@@ -195,8 +195,8 @@ Session scans skip denied paths and never enter a session's companion directory.
 Credential files are never listed in the configuration view either (PI: `auth.json`, `mcp-auth.json`,
 `models-store.json`). The Harness Dashboard's `usage.db` and `auth-token` fall under the same rules, and so does the
 project memory database `memory.sqlite3` (the `sqlite3` extension is denied), so the desktop app could not read it
-through `SafeReader` either. Its `-wal` and `-shm` side files carry the `sqlite3-wal` and `sqlite3-shm` extensions,
-which are not listed; the app has no code that opens them.
+through `SafeReader` either, nor its `-wal` and `-shm` side files (`sqlite3-wal`, `sqlite3-shm`). The same goes for
+the `-wal`, `-shm` and `-journal` files of Codex's stores in its home (`state_5.sqlite-wal` and the like).
 
 OpenCode's credential stores (`auth.json`, `mcp-auth.json`), its database (`opencode.db`, `opencode-<channel>.db` and
 their `-wal`/`-shm` files) and its logs fall under the name and extension rules. The scoped directory rules keep out
@@ -995,13 +995,18 @@ them below are the ones they follow.
   `item/permissions/requestApproval`, questions and MCP elicitations) become the app's dialogs. The app keeps no allow-list
   of its own and allows nothing Codex asks about without you. **Always allow** is Codex's `acceptForSession`, and for a
   command only when Codex offers it. The app never sends `acceptWithExecpolicyAmendment`, because that writes a lasting
-  rule into your Codex command rules.
+  rule into your Codex command rules. Extra permissions are granted only as the dialog shows them (network access,
+  folders to read, folders to write): a request for anything else, such as `fileSystem.entries`, is declined at once.
+  A file change names every path outside the project and the folder it asks to write below, and then offers no Always
+  allow. An ask about another thread than the chat's is declined (`business/src/agent/codex/dialogs.rs`).
 - **Approval modes.** Always ask is `approvalPolicy: untrusted` with the `workspace-write` sandbox, Write is `on-request`
   with `workspace-write` (Codex's own default) and Yolo is `never` with `danger-full-access`. Yolo is offered because
   Codex's `capabilities.yoloMode` is true, and it runs commands with full access to the machine without asking. Auto is
   refused before anything starts: Codex has no such mode. The mode goes on `thread/start` and `thread/resume` and names
   only the sandbox mode, so Codex keeps the writable roots and network setting of your `[sandbox_workspace_write]`.
-  Changing the mode resumes the thread. With no override nothing is sent and your `config.toml` applies. The chat header
+  Changing the mode resumes the thread. An override also sends `approvalsReviewer: "user"`. When Codex answers the
+  thread with another policy, sandbox or reviewer (settings it must keep), the chat warns and follows what Codex runs,
+  also for the `!command` gate. With no override nothing is sent and your `config.toml` applies. The chat header
   and onboarding show the configured `approval_policy / sandbox`, and onboarding warns when it is `never` or
   `danger-full-access`. The app never changes your Codex settings.
 - **Trust once.** Codex applies a project's own `.codex/config.toml`, hooks and rules only in a folder your `config.toml`
@@ -1009,14 +1014,18 @@ them below are the ones they follow.
   chat says so when the folder has such a layer and is not trusted. **Trust once** passes
   `-c projects={"<path>"={trust_level="trusted"}}` to that one process (`business/src/harnesses/codex/trust.rs`): the project is
   a quoted key of an inline table, so a path with dots or quotes stays one key, and a path that is not absolute text, or
-  holds a control character, is refused. It never writes `config.toml`, and it holds for that launch only.
+  holds a control character, is refused. It never writes `config.toml`, and it holds for that launch only. Codex trusts
+  the folder itself or the root of its git repository, never another folder above it, and the app reads trust the same
+  way. A resumed chat's thread must belong to the project (`thread/read` checks its folder before `thread/resume`).
 - **`!command`.** The app's `!command` is Codex's `thread/shellCommand`, whose output lands in the thread so the model sees
   it. It runs unsandboxed with full access and without asking, so Always ask refuses it (`codex_bash_allowed`,
   `business/src/agent/codex/approvals.rs`) and the other modes keep the app's usual confirmation.
 - **What the chat shows.** Tool results from Codex pass `redact_text` before they reach the screen (`business/src/codex_rpc/mapper/tools.rs`),
   and so does the process's stderr. Assistant text, reasoning and tool arguments are shown as produced, and saved sessions as
   written: they are your own session data. A thread id the app puts on a command line or a request is a lowercase UUID
-  (`is_thread_id`). Frames over 4 MiB a line are not read.
+  (`is_thread_id`). Frames over 4 MiB a line are not read: a request among them is answered with an error, the app's
+  request they answer fails at once, and a tool card whose end was dropped ends as failed. The AI-naming helper's thread
+  runs read-only with web search and the configured MCP servers switched off, and its asks are declined.
 - **Trust boundary.** In a trusted folder, a project's `.codex` hooks, rules and MCP servers run as you, as in a terminal.
   The user's own Codex hooks run as they do there too, and the app's own hooks stay app-side, so nothing runs twice. Trust
   once only in a repository you would run `codex` in.
@@ -1290,8 +1299,10 @@ every chat, the Ask default new chats start with, and the repositories where age
   trust before it runs. A repository you turned off applies to everything a chat in that repository writes,
   global notes and scripts included. The agent is told that nothing was saved and not to retry.
 - **The session variable.** The app starts every chat's harness with `HARNESS_MEMORY_SESSION=<chatKey>`, a random
-  lowercase UUID per chat, which the `harness-memory mcp` child inherits. It names the chat to the server and is no
-  secret. A utility agent and any launch without a chat identity get no value (an inherited one is removed). A value that
+  lowercase UUID per chat, which the `harness-memory mcp` child inherits. Codex clears the environment of its MCP
+  servers, so a Codex chat launch also names the variable in each harness-memory server's `env_vars`, for that process
+  only (`-c mcp_servers.<name>.env_vars=[…]`, the server's own variables kept, `config.toml` never written). It names
+  the chat to the server and is no secret. A utility agent and any launch without a chat identity get no value (an inherited one is removed). A value that
   is not a UUID makes every guarded call refuse.
 - **Local files, never in the team database.** In the same folder as `desktop.alive` (`<data>/harness-memory`,
   `HARNESS_MEMORY_DIR` overrides it): `guards/global.json` and `guards/chats/<chatKey>.json`, written by the app (version

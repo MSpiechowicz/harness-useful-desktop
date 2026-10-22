@@ -169,6 +169,12 @@ describe('mock agent', () => {
     });
   });
 
+  it('offers no trust button for a Codex chat by default, as for a project without a .codex layer', async () => {
+    const codex = await start({ ...REQUEST, harness: 'codex', trustOnce: false });
+
+    expect(codex.info).toMatchObject({ harness: 'codex', trustOffered: false, trustedOnce: false });
+  });
+
   it('lists running sessions, forgets stopped ones and refuses unknown keys', async () => {
     const { transport, info } = await start();
 

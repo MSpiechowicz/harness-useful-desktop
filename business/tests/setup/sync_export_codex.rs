@@ -56,7 +56,6 @@ fn the_fixture_home_shares_its_git_marketplace_plugins_and_servers_by_reference(
             "codex:plugin:ghost@demo-market",
             "codex:plugin:lint-tools@demo-market",
             "codex:mcp:docs",
-            "codex:mcp:paused",
         ]
     );
 
@@ -121,6 +120,7 @@ fn the_fixture_home_names_what_it_leaves_out_and_never_a_value() {
                 SyncExcludedReason::LocalPath
             ),
             left_out(SyncItemKind::McpServer, "github", SyncExcludedReason::ContainsSecret),
+            left_out(SyncItemKind::McpServer, "paused", SyncExcludedReason::SwitchedOff),
         ]
     );
     assert_nothing_shows(&collection, &[FIXTURE_CANARY, "bundled-marketplaces"]);
@@ -192,6 +192,10 @@ args = ["${{HOME}}/notes"]
 [mcp_servers.nothing]
 startup_timeout_sec = 5
 
+[mcp_servers.off]
+command = "off-server"
+enabled = false
+
 [mcp_servers.harness-memory]
 command = "harness-memory"
 args = ["mcp"]
@@ -249,6 +253,7 @@ fn servers_share_variable_and_header_names_only() {
         [
             left_out(SyncItemKind::McpServer, "home-arg", SyncExcludedReason::Invalid),
             left_out(SyncItemKind::McpServer, "nothing", SyncExcludedReason::Unsupported),
+            left_out(SyncItemKind::McpServer, "off", SyncExcludedReason::SwitchedOff),
         ]
     );
 

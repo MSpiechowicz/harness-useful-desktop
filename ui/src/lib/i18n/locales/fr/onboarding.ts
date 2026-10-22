@@ -170,6 +170,7 @@ export const onboarding: AreaMessages<typeof enOnboarding> = {
   'onboarding.approval.cc.stricter': 'Vous pouvez choisir un mode plus strict pour un seul chat depuis l’en-tête du chat, sans toucher à vos paramètres Claude Code.',
   'onboarding.approval.cx.title': 'Codex peut exécuter des commandes sans demander',
   'onboarding.approval.cx.body': 'Vos paramètres Codex utilisent « {mode} » : les commandes s’exécutent sans confirmation, exactement comme dans votre terminal.',
+  'onboarding.approval.cx.bodyFullAccess': 'Vos paramètres Codex utilisent « {mode} » : les commandes s’exécutent avec un accès complet à votre machine, sans sandbox. Codex ne demande que lorsqu’il juge qu’une commande a besoin de votre accord.',
   'onboarding.approval.cx.modes': 'Règles d’approbation et bacs à sable de Codex',
   'onboarding.approval.cx.default': 'Par défaut dans Codex',
   'onboarding.approval.cx.untrusted.label': 'Non fiable',

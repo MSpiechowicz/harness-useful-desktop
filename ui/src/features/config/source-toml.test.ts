@@ -91,6 +91,23 @@ describe('toLines as TOML', () => {
     expect(lines[0].foldStart).not.toBe(lines[3].foldStart);
   });
 
+  it('keeps the double-bracket header of a list element that holds only tables', () => {
+    const element = (command: string) => map([field('hooks', list([map([field('command', text(command))])]))]);
+    const lines = toLines([field('hooks', map([field('PreToolUse', list([element('lint'), element('test')]))]))], 'toml');
+
+    expect(print(lines)).toEqual([
+      '[[hooks.PreToolUse]]',
+      '',
+      '[[hooks.PreToolUse.hooks]]',
+      'command = "lint"',
+      '',
+      '[[hooks.PreToolUse]]',
+      '',
+      '[[hooks.PreToolUse.hooks]]',
+      'command = "test"',
+    ]);
+  });
+
   it('writes a list that holds a secret over several lines, and a list inside it on one line when it fits', () => {
     const lines = toLines(
       [field('args', list([text('--token'), { kind: 'secret', value: { type: 'envRef', name: 'T' } }])), field('grid', list([list([{ kind: 'number', value: '1' }])]))],

@@ -23,7 +23,7 @@ use harness_business::process::{ExecSpec, LineChild, ReadLine, StdRunner};
 use pretty_assertions::assert_eq;
 use session_support::{SessionHome, session, session_home};
 
-const PARENT: &str = "01a164a0-4c41-7613-9735-20de2a8016a8";
+pub(crate) const PARENT: &str = "01a164a0-4c41-7613-9735-20de2a8016a8";
 const FORK: &str = "01a164a1-51b0-7192-935e-520ff4afa71d";
 const CLONE: &str = "01a164a1-5205-7fa2-a5bc-2a7b7e0bc633";
 const OLDER: &str = "01a1649c-d6df-73c3-a197-2c212fd07a54";
@@ -35,13 +35,13 @@ const PROMPT: &str = "Create a file hello.txt containing the single word hi, the
 
 /// A Codex binary that plays one scenario on every run, recording its argv, `CODEX_HOME`, pid and
 /// the number of runs beside it.
-struct FakeCodex {
-    cli: FakeCli,
-    home: SessionHome,
+pub(crate) struct FakeCodex {
+    pub(crate) cli: FakeCli,
+    pub(crate) home: SessionHome,
 }
 
 impl FakeCodex {
-    fn new(name: &str) -> Self {
+    pub(crate) fn new(name: &str) -> Self {
         let fake = env!("CARGO_BIN_EXE_fake_agent");
         let scenario = scenario(name);
         let body = format!(
@@ -56,7 +56,7 @@ impl FakeCodex {
         }
     }
 
-    fn ctx(&self) -> CliSessionCtx<'_> {
+    pub(crate) fn ctx(&self) -> CliSessionCtx<'_> {
         CliSessionCtx {
             env: &self.home.env,
             project: &self.home.project,
@@ -65,7 +65,7 @@ impl FakeCodex {
         }
     }
 
-    fn runs(&self) -> usize {
+    pub(crate) fn runs(&self) -> usize {
         self.cli.recorded("runs").map_or(0, |runs| runs.lines().count())
     }
 
@@ -74,11 +74,11 @@ impl FakeCodex {
     }
 }
 
-fn thread(id: &str) -> SessionRef {
+pub(crate) fn thread(id: &str) -> SessionRef {
     session(HarnessId::Codex, id)
 }
 
-fn code<T: std::fmt::Debug>(result: harness_business::Result<T>) -> IpcErrorCode {
+pub(crate) fn code<T: std::fmt::Debug>(result: harness_business::Result<T>) -> IpcErrorCode {
     result.expect_err("expected an error").code()
 }
 
@@ -164,7 +164,7 @@ fn a_thread_opens_as_a_paged_transcript_with_its_touched_files() {
     // One app-server read serves every page and the touched files.
     assert_eq!(codex.runs(), 1);
     assert_eq!(first.total, 12);
-    assert_eq!(first.next_cursor.as_deref(), Some("4"));
+    assert!(first.next_cursor.as_deref().unwrap().starts_with("4."));
     assert_eq!(rest.next_cursor, None);
     assert_eq!(rest.stats, None);
     assert_eq!(touched, ["hello.txt", "src/new.rs", "src/old.rs"]);

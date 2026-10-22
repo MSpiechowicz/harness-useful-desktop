@@ -180,6 +180,24 @@ async fn rename_compaction_and_a_command_run_on_the_thread() {
         !events.iter().any(|event| matches!(event, AgentEvent::ToolStart { .. })),
         "the command shows no tool card of its own"
     );
+
+    // Each quiet turn ends with the chat's state (no `settled` asks for it), and none streams.
+    let ends: Vec<usize> = events
+        .iter()
+        .enumerate()
+        .filter(|(_, event)| matches!(event, AgentEvent::PromptResult { .. }))
+        .map(|(index, _)| index)
+        .collect();
+    assert!(!ends.is_empty());
+    assert!(
+        matches!(events.get(ends[0] + 1), Some(AgentEvent::State { .. })),
+        "a state follows the compaction"
+    );
+    assert!(
+        !events
+            .iter()
+            .any(|event| matches!(event, AgentEvent::State { state } if state.is_streaming))
+    );
 }
 
 #[tokio::test]
@@ -187,18 +205,14 @@ async fn an_abort_cancels_a_running_command() {
     let chat = start_with("codex_engine_bash_abort.jsonl", writes(), |_| {}).await;
 
     let stop = async {
-        // The command's quiet turn shows no events: abort once the chat counts as working.
-        loop {
-            let AgentReply::State { state } = chat.act(AgentAction::GetState).await else {
-                panic!("not a state");
-            };
+        // The command's quiet turn shows no events and streams nothing (its state says so too):
+        // the first poll of `bash` already counts the turn, so a moment later the stop reaches it.
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
 
-            if state.is_streaming {
-                break;
-            }
-
-            tokio::time::sleep(std::time::Duration::from_millis(5)).await;
-        }
+        let AgentReply::State { state } = chat.act(AgentAction::GetState).await else {
+            panic!("not a state");
+        };
+        assert!(!state.is_streaming, "a quiet turn does not stream");
 
         chat.act(AgentAction::Abort).await
     };

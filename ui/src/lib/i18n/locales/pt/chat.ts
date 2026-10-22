@@ -302,7 +302,7 @@ export const chat: AreaMessages<typeof enChat> = {
   'chat.trust.popover': 'Confiar neste projeto',
   'chat.trust.trigger': 'Confiar no projeto uma vez',
   'chat.trust.warning': 'O {harness} ignora as extensões, as skills e os modelos de prompt deste projeto até você confiar nele. Confiar permite que o código do projeto rode com as suas permissões.',
-  'chat.trust.warning.codex': 'O Codex ignora as configurações, os hooks e as regras de .codex/ deste projeto até você confiar nele. Confiar permite que o código do projeto rode com as suas permissões.',
+  'chat.trust.warning.codex': 'O Codex ignora as configurações, os hooks e as regras de .codex/ deste projeto até você confiar nele. Depois eles valem para este chat, inclusive regras de comandos que não perguntam, pastas extras com escrita e quem revisa as aprovações. Confiar permite que o código do projeto rode com as suas permissões.',
   'chat.trust.scope': 'Vale só para esta sessão. O app pergunta de novo na próxima vez que o {harness} iniciar. A sessão reinicia e continua de onde parou.',
   'chat.trust.action': 'Reiniciar e confiar neste projeto',
 

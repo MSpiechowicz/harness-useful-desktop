@@ -1,7 +1,10 @@
 //! The helper chat of AI naming ([plan](../../../../docs/plans/codex.md), decision 9), like the
-//! other harnesses' utility launch: an ephemeral thread (not saved, not listed) that never asks
-//! and cannot change anything (`approvalPolicy: never`, a read-only sandbox), on the model the
-//! caller picks, else the user's configured one (no model flag).
+//! other harnesses' utility launch: an ephemeral thread (not saved, not listed) that cannot
+//! change anything and reaches nothing outside (a read-only sandbox, web search off and every MCP
+//! server of its settings switched off for the thread), on the model the caller picks, else the
+//! user's configured one (no model flag). It asks about anything not known to be safe
+//! (`approvalPolicy: untrusted`), and every ask is declined at once (`dialogs.rs`). A server whose
+//! name a config key path cannot hold stays as configured.
 //!
 //! The configured model may be one Codex refuses (a ChatGPT login cannot use every model, Verified
 //! fact 2). So when the helper's first prompt fails, it is sent once more on the model `model/list`
@@ -10,7 +13,7 @@
 
 use std::sync::Arc;
 
-use serde_json::Value;
+use serde_json::{Map, Value, json};
 
 use super::{Chat, CodexSession, Live, Queued};
 use crate::codex_rpc::StartKind;
@@ -18,14 +21,25 @@ use crate::codex_rpc::mapper::TurnEnd;
 use crate::codex_rpc::wire::items::UserInput;
 use crate::codex_rpc::wire::outbound::{ApprovalPolicy, SandboxMode, ThreadSettings, ThreadStart};
 use crate::error::Result;
+use crate::harnesses::codex::is_plain_name;
 use crate::model::{AgentAction, AgentReply, PromptStatus, StreamingBehavior};
 
-/// The helper's ephemeral thread with `settings` (see the module docs).
-pub(super) fn helper_thread(settings: ThreadSettings) -> ThreadStart {
+/// The helper's ephemeral thread with `settings`, switching off the MCP servers `servers` (see
+/// the module docs).
+pub(super) fn helper_thread(settings: ThreadSettings, servers: &[String]) -> ThreadStart {
+    let mut config = Map::new();
+    config.insert("web_search".to_owned(), json!("disabled"));
+
+    for name in servers.iter().filter(|name| is_plain_name(name)) {
+        config.insert(format!("mcp_servers.{name}.enabled"), json!(false));
+    }
+
     ThreadStart {
         settings: ThreadSettings {
-            approval_policy: Some(ApprovalPolicy::Never),
+            approval_policy: Some(ApprovalPolicy::Untrusted),
             sandbox: Some(SandboxMode::ReadOnly),
+            approvals_reviewer: Some("user".to_owned()),
+            config: Some(config),
             ..settings
         },
         ephemeral: Some(true),
