@@ -8,7 +8,9 @@
 //!   a resumed session adds what its history used.
 //! - **Context**, as Claude Code's `/context` shows it: the `get_context_usage` reply when asked
 //!   (its `totalTokens` of `maxTokens`), else the newest model call of a turn (its input, cache and
-//!   output tokens) against the model's context window. A compaction sets it to the tokens left.
+//!   output tokens) against the context window the turn's result names for the session's model. A
+//!   turn whose result names no window for that model hides the meter (never a stale one). A
+//!   compaction sets it to the tokens left.
 //! - **Counts** are the chat's messages, which the engine counts ([`MessageCounts`]).
 
 use std::collections::BTreeMap;
@@ -50,11 +52,18 @@ impl ClaudeStats {
         let (tokens, cost) = totals(&result.model_usage);
         self.tokens = tokens;
         self.cost_usd = result.total_cost_usd.filter(|cost| *cost > 0.0).or(cost);
-        self.window = window(&result.model_usage, model).or(self.window);
 
-        if let Some(context) = result_context(result, self.window) {
-            self.context = Some(context);
-        }
+        let known = window(&result.model_usage, model);
+
+        // A turn without a model call (a quiet run) leaves the meter as it was.
+        let Some(used) = last_call_tokens(result) else {
+            self.window = known.or(self.window);
+            return;
+        };
+
+        // The window of an earlier model (or none at all) would show a wrong meter: it hides.
+        self.window = known;
+        self.context = usage(used, known);
     }
 
     /// The `get_context_usage` reply.
@@ -129,9 +138,14 @@ fn window(models: &BTreeMap<String, ModelUsage>, model: Option<&str>) -> Option<
 /// The context after a turn: its newest model call's tokens against `window`; `None` for a turn
 /// without a model call.
 pub fn result_context(result: &ResultFrame, window: Option<u64>) -> Option<ContextUsage> {
+    usage(last_call_tokens(result)?, window)
+}
+
+/// The tokens of the turn's newest model call; `None` for a turn without one.
+fn last_call_tokens(result: &ResultFrame) -> Option<u64> {
     let last = result.usage.as_ref()?.iterations.last()?;
 
-    usage(last.total(), window)
+    Some(last.total())
 }
 
 /// The context `get_context_usage` reports; `None` without a window.

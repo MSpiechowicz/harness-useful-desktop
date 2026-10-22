@@ -5,7 +5,7 @@ use serde::de::DeserializeOwned;
 use serde_json::Value;
 
 use super::control::SlashCommand;
-use super::nullable;
+use super::{lenient, lenient_option, nullable};
 
 /// A `system` frame.
 #[derive(Debug, Clone, PartialEq)]
@@ -140,7 +140,9 @@ pub struct CompactBoundary {
 pub struct CompactMetadata {
     /// `manual` or `auto`.
     pub trigger: Option<String>,
+    #[serde(deserialize_with = "lenient_option")]
     pub pre_tokens: Option<u64>,
+    #[serde(deserialize_with = "lenient_option")]
     pub post_tokens: Option<u64>,
 }
 
@@ -179,11 +181,11 @@ pub struct TaskProgress {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
 #[serde(default)]
 pub struct TaskUsage {
-    #[serde(deserialize_with = "nullable")]
+    #[serde(deserialize_with = "lenient")]
     pub total_tokens: u64,
-    #[serde(deserialize_with = "nullable")]
+    #[serde(deserialize_with = "lenient")]
     pub tool_uses: u64,
-    #[serde(deserialize_with = "nullable")]
+    #[serde(deserialize_with = "lenient")]
     pub duration_ms: u64,
 }
 
@@ -237,9 +239,13 @@ pub struct Hook {
 #[derive(Debug, Clone, PartialEq, Eq, Default, Deserialize)]
 #[serde(default)]
 pub struct ApiRetry {
+    #[serde(deserialize_with = "lenient_option")]
     pub attempt: Option<u32>,
+    #[serde(deserialize_with = "lenient_option")]
     pub max_retries: Option<u32>,
+    #[serde(deserialize_with = "lenient_option")]
     pub retry_delay_ms: Option<u64>,
+    #[serde(deserialize_with = "lenient_option")]
     pub error_status: Option<u16>,
     /// The error kind (`rate_limit`, `overloaded`, `server_error`, …).
     pub error: Option<String>,
@@ -282,7 +288,7 @@ struct Commands {
 #[derive(Default, Deserialize)]
 #[serde(default)]
 struct Fields {
-    #[serde(deserialize_with = "nullable")]
+    #[serde(deserialize_with = "lenient")]
     estimated_tokens: u64,
     #[serde(deserialize_with = "nullable")]
     state: String,

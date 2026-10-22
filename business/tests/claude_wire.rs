@@ -385,7 +385,7 @@ fn broken_lines_are_errors_without_their_content() {
     assert_eq!(error.frame_type, None);
     assert!(!error.error.contains("secret-value"));
 
-    let error = decode(r#"{"type":"result","num_turns":"secret-value"}"#).unwrap_err();
+    let error = decode(r#"{"type":"result","errors":"secret-value"}"#).unwrap_err();
     assert_eq!(error.frame_type.as_deref(), Some("result"));
     assert!(!error.error.contains("secret-value"));
 

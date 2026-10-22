@@ -2,8 +2,11 @@
 //! startup failures, withdrawn follow-ups, replies without partial messages, unfinished tool
 //! calls, dialogs, API errors and automatic or failed compactions.
 
+mod claude_frames;
+
 use std::path::Path;
 
+use claude_frames::{hints, requesting};
 use harness_business::claude_stream::mapper::{Ask, ClaudeMapper, Hint, Mapped, SendKind, UNFINISHED_TOOL, events};
 use harness_business::claude_stream::wire::decode_value;
 use harness_business::model::{AgentEvent, ChatBlock, PromptStatus, SubagentStatus};
@@ -31,20 +34,6 @@ fn kinds(mapped: &[Mapped]) -> Vec<String> {
                 .to_owned()
         })
         .collect()
-}
-
-fn hints(mapped: &[Mapped]) -> Vec<Hint> {
-    mapped
-        .iter()
-        .filter_map(|mapped| match mapped {
-            Mapped::Hint(hint) => Some(hint.clone()),
-            Mapped::Event(_) => None,
-        })
-        .collect()
-}
-
-fn requesting(uuid: &str) -> Value {
-    json!({ "type": "system", "subtype": "status", "status": "requesting", "user_message_uuids": [uuid] })
 }
 
 fn text_reply(id: &str, text: &str) -> Value {
@@ -370,6 +359,7 @@ fn an_automatic_compaction_during_a_turn_and_a_failed_one_show_their_end() {
     let failed = feed(
         &mut mapper,
         &[
+            json!({ "type": "command_lifecycle", "command_uuid": "c1", "state": "started" }),
             json!({ "type": "system", "subtype": "status", "status": "compacting" }),
             json!({ "type": "system", "subtype": "status", "status": null, "compact_result": "failed",
                 "compact_error": "Not enough messages to compact." }),

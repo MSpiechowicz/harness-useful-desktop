@@ -14,8 +14,10 @@
 //!   until a result serves it, or it completes or is cancelled. A turn's end settles the chat
 //!   (`settled`) once nothing waits; while a follow-up waits for its own turn, the settle waits for
 //!   that turn (or the follow-up's withdrawal).
-//! - **Compaction:** `system/status compacting` is `compaction` `start` (`manual` when the engine
-//!   sent `/compact`), `compact_boundary` (or a failed `compact_result`, or the result) its `end`.
+//! - **Compaction:** `system/status compacting` is `compaction` `start` (`manual` while a
+//!   `/compact` the engine sent runs: the CLI started it and is not done with it),
+//!   `compact_boundary` (or a failed `compact_result`, or the result) its `end`, with the
+//!   boundary's own trigger.
 //! - **Retries:** `system/api_retry` is `retry` `start`, the next model step or the result its `end`.
 //! - **Errors:** the CLI's sign-in error (an `authentication_failed` message, or a result that asks
 //!   for `/login`) becomes [`SIGN_IN_ERROR`]: the app never signs in itself.
@@ -164,15 +166,21 @@ impl Turn {
 /// The user messages the engine sent and the CLI has not finished with.
 #[derive(Default)]
 pub(super) struct Sends {
-    /// How each was sent, until a result serves it.
-    kinds: HashMap<String, SendKind>,
+    /// How each was sent, until a result serves it or it is done.
+    kinds: HashMap<String, Sent>,
     /// Those still waiting, in order.
     waiting: Vec<String>,
 }
 
+/// How a message was sent, and whether the CLI started it.
+struct Sent {
+    kind: SendKind,
+    started: bool,
+}
+
 impl Sends {
     pub(super) fn sent(&mut self, uuid: &str, kind: SendKind) {
-        self.kinds.insert(uuid.to_owned(), kind);
+        self.kinds.insert(uuid.to_owned(), Sent { kind, started: false });
         self.queued(uuid);
     }
 
@@ -182,16 +190,28 @@ impl Sends {
         }
     }
 
+    /// The CLI started message `uuid` (a turn or a local command took it).
+    pub(super) fn started(&mut self, uuid: &str) {
+        if let Some(sent) = self.kinds.get_mut(uuid) {
+            sent.started = true;
+        }
+    }
+
+    /// The CLI is done with message `uuid` (completed, cancelled, interrupted or withdrawn).
     pub(super) fn done(&mut self, uuid: &str) {
         self.waiting.retain(|waiting| waiting != uuid);
+        self.kinds.remove(uuid);
     }
 
     pub(super) fn waiting(&self) -> bool {
         !self.waiting.is_empty()
     }
 
+    /// True while a `/compact` the engine sent runs: the compaction is the user's.
     fn compact_sent(&self) -> bool {
-        self.kinds.values().any(|kind| *kind == SendKind::Compact)
+        self.kinds
+            .values()
+            .any(|sent| sent.kind == SendKind::Compact && sent.started)
     }
 
     /// `prompts` were served: how each was sent (when the engine said).
@@ -199,8 +219,9 @@ impl Sends {
         prompts
             .iter()
             .filter_map(|uuid| {
+                let kind = self.kinds.get(uuid).map(|sent| sent.kind);
                 self.done(uuid);
-                self.kinds.remove(uuid)
+                kind
             })
             .collect()
     }
@@ -241,7 +262,10 @@ impl ClaudeMapper {
 
         if shown {
             out.event(AgentEvent::PromptResult {
-                request_id: result.user_message_uuid.clone(),
+                request_id: result
+                    .user_message_uuid
+                    .clone()
+                    .or_else(|| result.user_message_uuids.first().cloned()),
                 status,
                 error,
                 retryable,
@@ -340,6 +364,10 @@ impl ClaudeMapper {
                 self.turn.ensure_started(&mut out.events);
 
                 if !status.user_message_uuids.is_empty() {
+                    for uuid in &status.user_message_uuids {
+                        self.sends.started(uuid);
+                    }
+
                     out.hint(Hint::PromptsTaken(status.user_message_uuids.clone()));
                 }
             }

@@ -107,6 +107,11 @@ impl Dialogs {
         self.open.is_empty()
     }
 
+    /// How many asks are open.
+    pub(super) fn len(&self) -> usize {
+        self.open.len()
+    }
+
     /// The CLI asks `ask` (see the module docs).
     pub(super) fn asked(&mut self, ask: Ask, out: &mut Outcome) {
         match ask {

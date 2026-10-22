@@ -1,0 +1,4 @@
+// Claude Code answers the handshake, then exits a moment later (while the chat moves on).
+{"include": "claude_init.jsonl"}
+{"sleep": 500}
+{"exit": 0}

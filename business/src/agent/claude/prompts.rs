@@ -12,8 +12,9 @@
 //!   message whose write fails is taken back. A prompt's taking (the CLI queued or started it)
 //!   runs the prompt-taken call in event order.
 //! - **Abort:** `interrupt` (the queue is kept: a waiting follow-up runs next). An ask still open
-//!   when the CLI answered is denied, so a stopped turn never waits for an answer. A running
-//!   `!command` is killed.
+//!   once the CLI answered, failed or timed out is closed and denied, so a stopped turn never
+//!   waits for an answer. A failed interrupt is reported after that. A running `!command` is
+//!   killed.
 //!
 //! [`ClaudeSession`]: super::ClaudeSession
 
@@ -163,7 +164,7 @@ impl ClaudeSession {
             let mut live = chat.lock();
 
             if let Some(shell) = live.shell.take() {
-                shell.send(()).ok();
+                shell.stop();
             }
 
             if !live.mapper.is_working() && live.dialogs.is_empty() {
@@ -173,17 +174,26 @@ impl ClaudeSession {
             live.mapper.abort_requested();
         }
 
-        chat.control(&HostRequest::Interrupt { cancel_queued: false }, ABORT_TIMEOUT)
-            .await?;
+        let interrupted = chat
+            .control(&HostRequest::Interrupt { cancel_queued: false }, ABORT_TIMEOUT)
+            .await;
 
+        // Whatever the interrupt's answer, no ask stays open: a failed write skips no other deny.
         let open = chat.lock().dialogs.drain();
+        let mut denied = Ok(());
 
         for (dialog, request_id) in &open {
             chat.shared.emit(AgentEvent::UiCancel {
                 request_id: dialog.clone(),
             });
-            chat.write(&permission_deny(request_id, STOPPED)).await?;
+
+            if let Err(error) = chat.write(&permission_deny(request_id, STOPPED)).await {
+                denied = Err(error);
+            }
         }
+
+        interrupted?;
+        denied?;
 
         Ok(AgentReply::Ack)
     }

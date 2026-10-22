@@ -1,5 +1,6 @@
 //! The `result` frame: exactly one per turn, `success` or `error_*`, with the turn's main-loop
-//! usage and the process's running totals (`total_cost_usd`, `modelUsage`).
+//! usage and the process's running totals (`total_cost_usd`, `modelUsage`). Its numbers are read
+//! leniently: a float or an odd value never loses the result.
 
 use std::collections::BTreeMap;
 
@@ -7,7 +8,7 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use super::messages::ApiUsage;
-use super::nullable;
+use super::{lenient, lenient_option, nullable};
 
 /// The `subtype` of a successful turn (it may still be `is_error`, e.g. without a login).
 pub const SUCCESS: &str = "success";
@@ -23,7 +24,7 @@ pub struct ResultFrame {
     pub is_error: bool,
     /// Model calls of the turn; 0 for a turn that never asked the model (a `shouldQuery: false`
     /// message, `/compact`, a local command).
-    #[serde(deserialize_with = "nullable")]
+    #[serde(deserialize_with = "lenient")]
     pub num_turns: u32,
     /// The final reply text, or the error text of an `is_error` success.
     pub result: Option<String>,
@@ -36,8 +37,10 @@ pub struct ResultFrame {
     /// The local command that made the turn (`compact`).
     pub local_command: Option<String>,
     /// The HTTP status of a failed API call.
+    #[serde(deserialize_with = "lenient_option")]
     pub api_error_status: Option<u16>,
     /// API-equivalent cost of the process so far, in US dollars.
+    #[serde(deserialize_with = "lenient_option")]
     pub total_cost_usd: Option<f64>,
     /// The turn's main-loop usage, summed over its model calls (see [`ResultUsage::iterations`]).
     pub usage: Option<ResultUsage>,
@@ -46,9 +49,12 @@ pub struct ResultFrame {
     pub model_usage: BTreeMap<String, ModelUsage>,
     #[serde(deserialize_with = "nullable")]
     pub permission_denials: Vec<PermissionDenial>,
+    #[serde(deserialize_with = "lenient_option")]
     pub duration_ms: Option<u64>,
+    #[serde(deserialize_with = "lenient_option")]
     pub duration_api_ms: Option<u64>,
-    /// The last prompt the turn served.
+    /// The first prompt the turn served (queue2.jsonl: a turn that read a steer names the prompt
+    /// that started it).
     pub user_message_uuid: Option<String>,
     /// Every prompt the turn served, in order.
     #[serde(deserialize_with = "nullable")]
@@ -86,19 +92,21 @@ pub struct ResultUsage {
 #[derive(Debug, Clone, Copy, PartialEq, Default, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct ModelUsage {
-    #[serde(deserialize_with = "nullable")]
+    #[serde(deserialize_with = "lenient")]
     pub input_tokens: u64,
-    #[serde(deserialize_with = "nullable")]
+    #[serde(deserialize_with = "lenient")]
     pub output_tokens: u64,
-    #[serde(deserialize_with = "nullable")]
+    #[serde(deserialize_with = "lenient")]
     pub cache_read_input_tokens: u64,
-    #[serde(deserialize_with = "nullable")]
+    #[serde(deserialize_with = "lenient")]
     pub cache_creation_input_tokens: u64,
-    #[serde(deserialize_with = "nullable")]
+    #[serde(deserialize_with = "lenient")]
     pub thinking_tokens: u64,
-    #[serde(rename = "costUSD", deserialize_with = "nullable")]
+    #[serde(rename = "costUSD", deserialize_with = "lenient")]
     pub cost_usd: f64,
+    #[serde(deserialize_with = "lenient_option")]
     pub context_window: Option<u64>,
+    #[serde(deserialize_with = "lenient_option")]
     pub max_output_tokens: Option<u64>,
 }
 

@@ -1,0 +1,8 @@
+// A Claude Code routine run whose agent asks a question nobody answers (src-tauri routine tests, the
+// AskUserQuestion of question.jsonl): the app dismisses it, which denies the call. Any other answer
+// fails the match, and the fake exits 4.
+{"include": "claude_init.jsonl"}
+{"expect": "user", "as": "prompt", "match": {"/message/content": "Pick a colour"}}
+{"replay": "../claude/stream/question.jsonl", "from": 7, "to": 30, "replace": {"bb1a7a34-2265-4203-8ac4-0be3d6ebdbaa": "$prompt"}}
+{"expect": "control_response", "match": {"/response/request_id": "bbb7f33f-6e53-4681-ad89-6e1977429fc2", "/response/response": {"behavior": "deny", "message": "The user dismissed the questions without answering."}}}
+{"hang": true}
