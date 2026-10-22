@@ -62,6 +62,10 @@ pub enum McpTarget {
     /// which the app only reads. Servers are added and removed through `claude mcp add-json
     /// --scope user` and `claude mcp remove --scope user` (see [`crate::ecosystem::mcp_cli`]).
     ClaudeCli,
+    /// Codex's user settings: the `mcp_servers` table of its `config.toml`, which the app only
+    /// reads. Servers are added and removed through `codex mcp add` and `codex mcp remove`, which
+    /// keep the file's formatting and comments (see [`crate::ecosystem::mcp_cli`]).
+    CodexCli,
     /// The harness has no user MCP file the app can register a server in.
     Unsupported,
 }

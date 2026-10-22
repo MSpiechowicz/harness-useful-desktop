@@ -1,0 +1,5 @@
+model = "gpt-5"
+
+[mcp_servers.project-tools]
+command = "project-tools"
+env = { PROJECT_TOKEN = "CANARY-7f3a9c" }

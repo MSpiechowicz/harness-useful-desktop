@@ -40,6 +40,7 @@ pub const OPENCODE_JSONC: &str = ".config/opencode/opencode.jsonc";
 pub const CLAUDE_GLOBAL: &str = ".claude.json";
 pub const CLAUDE_MARKETPLACES: &str = ".claude/plugins/known_marketplaces.json";
 pub const CLAUDE_PLUGINS: &str = ".claude/plugins/installed_plugins.json";
+pub const CODEX_CONFIG: &str = ".codex/config.toml";
 
 /// What the fake `opencode debug config` answers.
 #[derive(Debug, Clone)]
@@ -98,6 +99,11 @@ impl Machine {
 
     pub fn json(&self, relative: &str) -> Value {
         serde_json::from_str(&self.text(relative).expect("file exists")).unwrap()
+    }
+
+    /// The TOML file as JSON values.
+    pub fn toml(&self, relative: &str) -> Value {
+        toml::from_str(&self.text(relative).expect("file exists")).unwrap()
     }
 
     /// The review of `bundle` (share file JSON) on this machine. It reads files only: there is

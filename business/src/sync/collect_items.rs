@@ -1,4 +1,7 @@
-//! Export readers for marketplaces and plugins (OMP) and packages (PI). See [`super::collect`].
+//! Export readers for marketplaces and plugins (OMP) and packages (PI), and the plugin rules
+//! Claude Code and Codex share ([`marketplace_plugins`]). See [`super::collect`].
+
+use std::collections::BTreeMap;
 
 use super::collect::{
     CollectedItem, Entry, Found, excluded_reason, is_safe_text, item_id, package_identity, preview_row, safe_label,
@@ -6,10 +9,11 @@ use super::collect::{
 };
 use super::schema::{Marketplace, Package, Plugin};
 use super::secrets::exportable;
-use super::validate;
+use super::validate::{self, Check};
 use crate::harness::HarnessPaths;
 use crate::harnesses::omp::{MarketplaceRecord, PluginOrigin, PluginRecord, marketplace_records, user_plugin_records};
 use crate::harnesses::pi::{PackageRecord, user_package_records};
+use crate::harnesses::plugin_registry::split_id;
 use crate::model::{HarnessId, SyncExcludedReason, SyncExportItem, SyncItemKind, SyncNote};
 
 /// The marketplace registry: local marketplaces and sources with secrets or credentials are left out.
@@ -199,4 +203,70 @@ fn package_label(source: &str) -> String {
     }
 
     name.to_owned()
+}
+
+/// A plugin of a harness that names its plugins `name@marketplace` (Claude Code, Codex), as its
+/// registry records it.
+pub(super) struct MarketplacePlugin {
+    /// `name@marketplace`, as written.
+    pub id: String,
+    /// The recorded version (informational: the import installs the latest).
+    pub version: Option<String>,
+    /// Why the harness's own rules keep it here (its scope, a pseudo marketplace), if they do.
+    pub refused: Option<SyncExcludedReason>,
+}
+
+/// Shares or excludes each of `plugins`: refused by the harness's rules, an id without a
+/// marketplace, a plugin of a marketplace in `left_out` (for that marketplace's reason), an id
+/// holding a secret, or one `check` refuses are left out. A version that is not display-safe is
+/// dropped.
+pub(super) fn marketplace_plugins(
+    harness: HarnessId,
+    found: &mut Found,
+    plugins: Vec<MarketplacePlugin>,
+    left_out: &BTreeMap<String, SyncExcludedReason>,
+    check: fn(&Plugin) -> Check,
+) {
+    for plugin in plugins {
+        let label = safe_label(Some(&plugin.id));
+
+        match shared_plugin(plugin, left_out, check) {
+            Ok(plugin) => found.items.push(plugin_item(harness, plugin)),
+            Err(reason) => found.exclude(harness, SyncItemKind::Plugin, label, reason),
+        }
+    }
+}
+
+fn shared_plugin(
+    plugin: MarketplacePlugin,
+    left_out: &BTreeMap<String, SyncExcludedReason>,
+    check: fn(&Plugin) -> Check,
+) -> Result<Plugin, SyncExcludedReason> {
+    if let Some(reason) = plugin.refused {
+        return Err(reason);
+    }
+
+    let marketplace = match split_id(&plugin.id) {
+        (_, Some(marketplace)) => marketplace.to_owned(),
+        (_, None) => return Err(SyncExcludedReason::Invalid),
+    };
+
+    if let Some(reason) = left_out.get(&marketplace) {
+        return Err(*reason);
+    }
+
+    if !exportable(&plugin.id) {
+        return Err(SyncExcludedReason::ContainsSecret);
+    }
+
+    let shared = Plugin {
+        id: plugin.id,
+        marketplace: Some(marketplace),
+        version: plugin
+            .version
+            .filter(|version| validate::version(Some(version)).is_ok()),
+    };
+    check(&shared).map_err(excluded_reason)?;
+
+    Ok(shared)
 }

@@ -9,16 +9,18 @@ use harness_business::process::{BoxFuture, ExecOutput, ExecSpec, ProcessRunner};
 use serde_json::{Value, json};
 
 use super::{
-    CLAUDE_GLOBAL, CLAUDE_MARKETPLACES, CLAUDE_PLUGINS, Machine, OMP_MARKETPLACES, OMP_PLUGINS, OPENCODE_JSON,
-    OPENCODE_JSONC, PI_SETTINGS, Probe, write_json,
+    CLAUDE_GLOBAL, CLAUDE_MARKETPLACES, CLAUDE_PLUGINS, CODEX_CONFIG, Machine, OMP_MARKETPLACES, OMP_PLUGINS,
+    OPENCODE_JSON, OPENCODE_JSONC, PI_SETTINGS, Probe, write_json,
 };
+use crate::codex_support::{read_toml, write_toml};
 
-/// The fake `omp`, `pi`, `opencode` and `claude`: records each command line (program file name
-/// first) and, unless told to fail it, does what it asks to the files of `home`: registers a
+/// The fake `omp`, `pi`, `opencode`, `claude` and `codex`: records each command line (program file
+/// name first) and, unless told to fail it, does what it asks to the files of `home`: registers a
 /// marketplace (named after `marketplace_names`), installs a user plugin, adds a PI package, adds an
 /// OpenCode plugin to `opencode.json` (`plugin <spec> -g` to `plugin`, OpenCode 2's `plugin add
 /// <spec>` to `plugins`), adds a server to the user scope of Claude Code's global file (`mcp
-/// add-json`, refused with exit code 1 for a name it has, as Claude Code does).
+/// add-json`, refused with exit code 1 for a name it has, as Claude Code does) or to Codex's
+/// `config.toml` (`mcp add`, which replaces a server of the same name).
 ///
 /// `opencode debug config` answers the machine's [`Probe`]; it is recorded in
 /// [`FakeCli::probes`], not in [`FakeCli::seen`].
@@ -221,8 +223,43 @@ impl FakeCli {
                 registry["plugins"][*id] = json!([{ "scope": "user", "version": "1.0.0" }]);
                 write_json(&path, &registry);
             }
+            ["codex", "plugin", "marketplace", "add", source] => {
+                let name = self
+                    .marketplace_names
+                    .iter()
+                    .find(|(known, _)| known == source)
+                    .map_or(*source, |(_, name)| name.as_str());
+                self.change_codex(|config| {
+                    let marketplaces = table(config, "marketplaces");
+                    marketplaces.insert(name.to_owned(), json!({ "source_type": "git", "source": source }));
+                });
+            }
+            ["codex", "plugin", "add", id] => {
+                self.change_codex(|config| {
+                    table(config, "plugins").insert((*id).to_owned(), json!({ "enabled": true }));
+                });
+            }
+            ["codex", "mcp", "add", name, "--", command, args @ ..] => {
+                self.change_codex(|config| {
+                    table(config, "mcp_servers")
+                        .insert((*name).to_owned(), json!({ "command": command, "args": args }));
+                });
+            }
+            ["codex", "mcp", "add", name, "--url", url] => {
+                self.change_codex(|config| {
+                    table(config, "mcp_servers").insert((*name).to_owned(), json!({ "url": url }));
+                });
+            }
             _ => panic!("unexpected command {argv:?}"),
         }
+    }
+
+    /// Reads Codex's `config.toml`, lets `change` edit it and writes it back.
+    fn change_codex(&self, change: impl FnOnce(&mut serde_json::Map<String, Value>)) {
+        let path = self.home.join(CODEX_CONFIG);
+        let mut config = read_toml(&path);
+        change(&mut config);
+        write_toml(&path, &config);
     }
 
     /// `claude mcp add-json --scope user <name> <json>`: `None` for any other command line.
@@ -301,4 +338,9 @@ fn read_json(path: &Path) -> Value {
         .ok()
         .and_then(|text| serde_json::from_str(&text).ok())
         .unwrap_or_else(|| json!({}))
+}
+
+/// The table `key` of `config`, created when missing.
+fn table<'a>(config: &'a mut serde_json::Map<String, Value>, key: &str) -> &'a mut serde_json::Map<String, Value> {
+    config.entry(key).or_insert_with(|| json!({})).as_object_mut().unwrap()
 }

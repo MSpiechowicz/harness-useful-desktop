@@ -39,7 +39,7 @@ pub use catalog::{
 pub(crate) use cli::clean;
 pub use cli::{
     CLI_ACTION_TIMEOUT, CliInvocation, CliRun, HarnessCli, MAX_CLI_TARGET_CHARS, TargetKind, cli_target,
-    optional_cli_target, run_cli_action,
+    marketplace_source, optional_cli_target, run_cli_action,
 };
 pub use companion::{CompanionSetup, McpTarget, SkillsStrategy};
 pub use detect::{VERSION_TIMEOUT, first_semver, override_name_matches};
@@ -61,10 +61,10 @@ pub mod prelude {
     pub use crate::error::Result;
     pub use crate::model::{
         ApprovalMode, Capabilities, CliResult, ConfigView, ExtensionAction, ExtensionsView, HarnessId, HarnessInfo,
-        InstallHint, NativeApprovalMode, SessionFolder,
+        InstallHint, NativeApprovalMode, SessionFolder, SessionMessagesPage, SessionRef, SessionSummary, SessionTree,
     };
     pub use crate::pi_family::rpc::RpcDialect;
-    pub use crate::pi_family::sessions::SessionStore;
+    pub use crate::pi_family::sessions::{SessionCache, SessionStore};
     pub use crate::process::ExecSpec;
 }
 
@@ -112,8 +112,8 @@ pub struct HarnessPaths {
 
 /// Which kinds of items "Share setup" exports from a harness and imports into it (see
 /// [`crate::sync`]). The default shares nothing, so a new harness opts in kind by kind; MCP servers
-/// also need a [`McpTarget::UserMcpJson`] or [`McpTarget::OpenCodeConfig`] in
-/// [`Harness::companion_setup`].
+/// also need an MCP target other than [`McpTarget::Unsupported`] in [`Harness::companion_setup`]
+/// (and an export reader in [`crate::sync`]).
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct ShareSupport {
     /// Plugin marketplaces (OMP's marketplace registry).

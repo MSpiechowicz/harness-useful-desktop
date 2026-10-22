@@ -11,8 +11,8 @@
 //!   runs anything);
 //! - [`apply`] — applying the reviewed items the user selected (runs the harness CLIs and, before
 //!   writing an OpenCode server, `opencode debug config`, or `opencode api --standalone` on
-//!   OpenCode 2, for the names OpenCode merges; merges MCP files, or adds Claude Code's servers
-//!   through `claude mcp add-json`).
+//!   OpenCode 2, for the names OpenCode merges; merges MCP files, or adds Claude Code's and
+//!   Codex's servers through `claude mcp add-json` and `codex mcp add`).
 //!
 //! Apart from [`collect`], [`plan`] and [`apply`], these modules are pure: no file IO, no
 //! processes. Only references are shared, never secret values (env/header values, auth, tokens);
@@ -25,6 +25,7 @@ mod apply_mcp_cli;
 pub mod codec;
 pub mod collect;
 mod collect_claude;
+mod collect_codex;
 mod collect_items;
 mod collect_mcp;
 mod collect_opencode;

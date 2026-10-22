@@ -100,11 +100,16 @@ pub(super) fn preview(id: String, server: &McpServer, notes: Vec<SyncNote>) -> S
     }
 }
 
-/// The shared form of one server and the notes on what stays here, or why it is left out.
-pub(super) fn shared_server(name: &str, server: &Value) -> Result<(McpServer, Vec<SyncNote>), SyncExcludedReason> {
+/// The fields of the server `name`, once its name is one the import accepts.
+pub(super) fn server_fields<'a>(name: &str, server: &'a Value) -> Result<&'a Map<String, Value>, SyncExcludedReason> {
     validate::mcp_name(name).map_err(excluded_reason)?;
 
-    let fields = server.as_object().ok_or(SyncExcludedReason::Invalid)?;
+    server.as_object().ok_or(SyncExcludedReason::Invalid)
+}
+
+/// The shared form of one server and the notes on what stays here, or why it is left out.
+pub(super) fn shared_server(name: &str, server: &Value) -> Result<(McpServer, Vec<SyncNote>), SyncExcludedReason> {
+    let fields = server_fields(name, server)?;
     let transport = transport(fields).ok_or(SyncExcludedReason::Unsupported)?;
 
     let (command, args, url) = match transport {

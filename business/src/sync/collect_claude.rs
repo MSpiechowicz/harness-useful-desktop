@@ -24,10 +24,9 @@ use std::collections::BTreeMap;
 use serde_json::Value;
 
 use super::collect::{Found, excluded_reason, safe_label, source_problem};
-use super::collect_items::{marketplace_item, plugin_item};
+use super::collect_items::{MarketplacePlugin, marketplace_item, marketplace_plugins};
 use super::collect_mcp::{collect_servers, shared_server};
-use super::schema::{Marketplace, McpServer, Plugin};
-use super::secrets::exportable;
+use super::schema::{Marketplace, McpServer};
 use super::validate;
 use crate::ecosystem::mcp_target;
 use crate::env::Env;
@@ -91,62 +90,36 @@ fn marketplace(known: &KnownMarketplace) -> Result<Marketplace, SyncExcludedReas
 
 /// The user plugins (see the module docs).
 pub(super) fn claude_plugins(env: &Env, found: &mut Found) {
-    let harness = HarnessId::Claude;
-    let kind = SyncItemKind::Plugin;
-
     let left_out: BTreeMap<String, SyncExcludedReason> = known_marketplaces(env)
         .iter()
         .filter_map(|known| marketplace(known).err().map(|reason| (known.name.clone(), reason)))
         .collect();
+    let plugins = plugin_records(env)
+        .into_iter()
+        .map(|record| MarketplacePlugin {
+            refused: refused(&record),
+            id: record.id,
+            version: record.version,
+        })
+        .collect();
 
-    for record in plugin_records(env) {
-        let label = safe_label(Some(&record.id));
-
-        match plugin(record, &left_out) {
-            Ok(plugin) => found.items.push(plugin_item(harness, plugin)),
-            Err(reason) => found.exclude(harness, kind, label, reason),
-        }
-    }
+    marketplace_plugins(HarnessId::Claude, found, plugins, &left_out, validate::claude_plugin);
 }
 
-fn plugin(record: PluginRecord, left_out: &BTreeMap<String, SyncExcludedReason>) -> Result<Plugin, SyncExcludedReason> {
+/// Why Claude Code's own rules keep `record` here: installed only for projects or by the
+/// organization, or from a pseudo marketplace.
+fn refused(record: &PluginRecord) -> Option<SyncExcludedReason> {
     match record.scope {
         PluginScope::User => {}
-        PluginScope::Project => return Err(SyncExcludedReason::ProjectScope),
-        PluginScope::Managed => return Err(SyncExcludedReason::Unsupported),
+        PluginScope::Project => return Some(SyncExcludedReason::ProjectScope),
+        PluginScope::Managed => return Some(SyncExcludedReason::Unsupported),
     }
 
-    let marketplace = match split_id(&record.id) {
-        (_, Some(marketplace)) => marketplace.to_owned(),
-        (_, None) => return Err(SyncExcludedReason::Invalid),
-    };
-
-    if LOCAL_MARKETPLACES.contains(&marketplace.as_str()) {
-        return Err(SyncExcludedReason::LocalPath);
+    match split_id(&record.id).1 {
+        Some(marketplace) if LOCAL_MARKETPLACES.contains(&marketplace) => Some(SyncExcludedReason::LocalPath),
+        Some(SYNCED_MARKETPLACE) => Some(SyncExcludedReason::Unsupported),
+        _ => None,
     }
-
-    if marketplace == SYNCED_MARKETPLACE {
-        return Err(SyncExcludedReason::Unsupported);
-    }
-
-    if let Some(reason) = left_out.get(&marketplace) {
-        return Err(*reason);
-    }
-
-    if !exportable(&record.id) {
-        return Err(SyncExcludedReason::ContainsSecret);
-    }
-
-    let plugin = Plugin {
-        id: record.id,
-        marketplace: Some(marketplace),
-        version: record
-            .version
-            .filter(|version| validate::version(Some(version)).is_ok()),
-    };
-    validate::claude_plugin(&plugin).map_err(excluded_reason)?;
-
-    Ok(plugin)
 }
 
 /// The servers of the user scope; nothing when the global file is missing or has no

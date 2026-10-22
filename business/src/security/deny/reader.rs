@@ -6,7 +6,7 @@ use std::io::{BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
 use std::sync::RwLock;
 
-use super::{CLAUDE_GLOBAL_FILE, DenyReason, MAX_LINK_HOPS, is_denied, is_denied_under_claude_root};
+use super::{CLAUDE_GLOBAL_FILE, DenyReason, MAX_LINK_HOPS, is_denied, is_denied_under_private_root};
 use crate::error::{BusinessError, Result};
 
 /// The global files of Claude Code ([`crate::harnesses::claude::global_config_file`] registers each
@@ -45,7 +45,7 @@ enum Lift<'a> {
     ClaudeGlobalName,
     /// The rules that match an ancestor's name, for the part of a path above this canonical project
     /// folder ([`SafeReader::open_in_project`]): below it the project-relative path meets every
-    /// rule and the full path the private names of a Claude Code config directory.
+    /// rule and the full path the private names of a Claude Code config directory or a Codex home.
     AboveProject(&'a Path),
 }
 
@@ -54,7 +54,7 @@ impl Lift<'_> {
         if let Self::AboveProject(project) = self
             && let Ok(relative) = path.strip_prefix(project)
         {
-            return is_denied(relative).or_else(|| is_denied_under_claude_root(path));
+            return is_denied(relative).or_else(|| is_denied_under_private_root(path));
         }
 
         let reason = is_denied(path)?;

@@ -197,28 +197,45 @@ export function outcomeNote(outcome: SyncOutcome, notes: SyncNote[] = []): strin
   }
 }
 
-/** The sentence under an MCP server that the harness's own CLI failed to add (Claude Code's `claude mcp add-json`), or null for any other item. The CLI's summary and command line are shown under it. */
+/**
+ * The sentence under an MCP server that the harness's own CLI failed to add (Claude Code's `claude mcp add-json`,
+ * Codex's `codex mcp add`), or null for any other item. The CLI's summary and command line are shown under it.
+ */
 export function failedCliNote(item: Pick<SyncItemOutcome, 'kind' | 'outcome' | 'argv'>): string | null {
-  return item.kind === 'mcpServer' && item.outcome.type === 'failed' && item.argv[1] === 'mcp' ? t('sync.outcome.cliFailed') : null;
+  return item.kind === 'mcpServer' && item.outcome.type === 'failed' && item.argv[1] === 'mcp' ? t('sync.outcome.cliFailed', { command: `${item.argv[0]} mcp` }) : null;
 }
 
-/** True for an MCP server the import adds by running the harness's CLI (Claude Code's `claude mcp add-json`) instead of writing a file. */
+/**
+ * The command that adds an MCP server through the harness's CLI instead of writing a file (Claude Code's `claude mcp
+ * add-json`, Codex's `codex mcp add`), or null for any other item.
+ */
+export function cliAddCommand(item: { kind: SyncItemKind; steps: SyncStep[] }): string | null {
+  if (item.kind !== 'mcpServer') {
+    return null;
+  }
+
+  const step = item.steps.find((candidate) => candidate.type === 'cli');
+
+  return step?.type === 'cli' ? step.command.slice(0, 3).join(' ') : null;
+}
+
+/** True for an MCP server the import adds by running the harness's CLI instead of writing a file. */
 export function addedByCli(item: { kind: SyncItemKind; steps: SyncStep[] }): boolean {
-  return item.kind === 'mcpServer' && item.steps.some((step) => step.type === 'cli');
+  return cliAddCommand(item) !== null;
 }
 
 /**
  * The names of the variables and headers a server needs, for "Needs …", or null when it needs none. A server added through the CLI
- * has no file the person can edit, so the line says where its values go.
+ * of `cliHarness` (its name) has no file the person can edit, so the line says where its values go.
  */
-export function keysLine(envKeys: string[], headerKeys: string[], viaCli = false): string | null {
+export function keysLine(envKeys: string[], headerKeys: string[], cliHarness: string | null = null): string | null {
   const keys = [...envKeys, ...headerKeys];
 
   if (keys.length === 0) {
     return null;
   }
 
-  return t(viaCli ? 'sync.needsKeysCli' : 'sync.needsKeys', { keys: keys.join(', ') });
+  return cliHarness ? t('sync.needsKeysCli', { keys: keys.join(', '), harness: cliHarness }) : t('sync.needsKeys', { keys: keys.join(', ') });
 }
 
 /** The MCP entry an import writes, as it lands in the harness's servers object: exactly the fields the backend writes, arguments on one line. OpenCode's file has its own shape, and OpenCode 2's differs from OpenCode 1's. */

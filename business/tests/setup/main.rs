@@ -4,6 +4,8 @@
 
 #[path = "../support/claude_support/mod.rs"]
 mod claude_support;
+#[path = "../support/codex_support/mod.rs"]
+mod codex_support;
 #[path = "../support/common/mod.rs"]
 mod common;
 #[path = "../support/sync_support/import.rs"]
@@ -18,6 +20,8 @@ mod memory_notes_copy_support;
 mod memory_remote_support;
 #[path = "../support/memory_stand_in/mod.rs"]
 mod memory_stand_in;
+#[path = "../support/recording_cli/mod.rs"]
+mod recording_cli;
 #[path = "../support/setup_support/mod.rs"]
 mod setup_support;
 #[path = "../support/sync_support/mod.rs"]
@@ -63,6 +67,7 @@ mod memory_user_save;
 mod setup_installer;
 mod setup_mcp_register;
 mod setup_mcp_register_claude;
+mod setup_mcp_register_codex;
 mod setup_mcp_register_opencode;
 mod setup_mcp_register_opencode2;
 mod setup_opencode_skills;
@@ -71,6 +76,7 @@ mod setup_status_claude;
 mod sync_codec;
 mod sync_export;
 mod sync_export_claude;
+mod sync_export_codex;
 mod sync_export_limits;
 mod sync_export_opencode;
 mod sync_export_opencode2;
@@ -78,6 +84,7 @@ mod sync_export_reserved;
 mod sync_import;
 mod sync_import_apply;
 mod sync_import_claude;
+mod sync_import_codex;
 mod sync_import_mcp_layers;
 mod sync_import_opencode;
 mod sync_import_opencode2;

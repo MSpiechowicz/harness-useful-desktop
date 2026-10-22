@@ -68,17 +68,35 @@ describe('commandOf for Claude Code shows the line that really runs', () => {
   });
 });
 
+describe('commandOf for Codex shows the line that really runs', () => {
+  const line = (action: ExtensionAction) => commandOf('codex', action);
+
+  it('adds plugins by name@marketplace and upgrades marketplaces', () => {
+    expect(line({ type: 'pluginInstall', target: 'review@acme', scope: 'user' })).toBe('codex plugin add review@acme');
+    expect(line({ type: 'pluginUninstall', name: 'review@acme' })).toBe('codex plugin remove review@acme');
+    expect(line({ type: 'marketplaceAdd', source: 'acme/codex-plugins' })).toBe('codex plugin marketplace add acme/codex-plugins');
+    expect(line({ type: 'marketplaceRemove', name: 'acme' })).toBe('codex plugin marketplace remove acme');
+    expect(line({ type: 'marketplaceUpdate', name: 'acme' })).toBe('codex plugin marketplace upgrade acme');
+    expect(line({ type: 'marketplaceUpdate', name: null })).toBe('codex plugin marketplace upgrade');
+  });
+});
+
 describe('a failed claude mcp run', () => {
   it('is told apart from a file the app could not write', () => {
-    expect(refusalText('cliFailed')).toBe('The “claude mcp” command failed, so nothing was changed. Run it in a terminal to see why.');
-    expect(refusalText('cliFailed')).not.toBe(refusalText('writeFailed'));
+    expect(refusalText('cliFailed', 'claude')).toBe('The “claude mcp” command failed, so nothing was changed. Run it in a terminal to see why.');
+    expect(refusalText('cliFailed', 'claude')).not.toBe(refusalText('writeFailed', 'claude'));
+  });
+
+  it('names Codex’s own command for a Codex file', () => {
+    expect(refusalText('cliFailed', 'codex')).toBe('The “codex mcp” command failed, so nothing was changed. Run it in a terminal to see why.');
+    expect(refusalText('cliRemovedEntry', 'codex')).toMatch(/^The “codex mcp” command removed the app’s entry/);
   });
 
   it('has a sentence for every refusal', () => {
     const all: Record<McpRefusal, true> = { unparsable: true, notAnObject: true, serversNotAnObject: true, symlink: true, notRegularFile: true, tooLarge: true, unreadable: true, writeFailed: true, cliFailed: true, cliRemovedEntry: true, cliBatchShim: true };
 
     for (const reason of Object.keys(all) as McpRefusal[]) {
-      expect(refusalText(reason)).not.toMatch(/^onboarding\./);
+      expect(refusalText(reason, 'claude')).not.toMatch(/^onboarding\./);
     }
   });
 

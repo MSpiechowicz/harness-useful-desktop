@@ -47,4 +47,12 @@ describe('pluginActions', () => {
     expect(actions.map((action) => action.label)).toEqual(['Uninstall']);
     expect(actions[0].request.action).toEqual({ type: 'pluginUninstall', name: 'opencode-wakatime' });
   });
+
+  it('offers Codex plugins nothing but the removal, since Codex cannot switch or update one', () => {
+    const actions = pluginActions('codex', plugin({ id: 'lint-tools@demo-market', marketplace: 'demo-market', updateAvailable: true }), null);
+
+    expect(actions.map((action) => action.label)).toEqual(['Uninstall']);
+    expect(actions[0].request.action).toEqual({ type: 'pluginUninstall', name: 'lint-tools@demo-market' });
+    expect(actions[0].request.scope).toBe('user');
+  });
 });

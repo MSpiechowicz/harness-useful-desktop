@@ -24,7 +24,7 @@ export function pluginUpdateRequest(harness: HarnessId, plugin: PluginInfo, proj
 /**
  * Enable or disable, upgrade and uninstall of an installed plugin. Upgrade is offered only when the marketplace
  * catalog has a newer version: the CLI would otherwise reinstall the same version and call it a success.
- * OpenCode plugins can only be removed.
+ * OpenCode's and Codex's plugins can only be removed.
  */
 export function pluginActions(harness: HarnessId, plugin: PluginInfo, project: string | null): BarAction[] {
   const scope = scopeOf(plugin.scope);

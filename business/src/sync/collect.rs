@@ -13,7 +13,8 @@
 //! user plugin registry and `<plugins>/package.json`; PI's user `settings.json` `packages`; the user
 //! MCP file of [`mcp_target_paths`]; OpenCode's global config (`plugin` and `mcp`, see
 //! [`super::collect_opencode`]); Claude Code's marketplace and plugin registries and the user
-//! scope of its global file (see [`super::collect_claude`]). Only installed harnesses (per
+//! scope of its global file (see [`super::collect_claude`]); Codex's `config.toml` (see
+//! [`super::collect_codex`]). Only installed harnesses (per
 //! `summaries`) are read, and only the kinds their [`Harness::share_support`] allows. Files are
 //! read through `SafeReader`; auth files are never opened, and no value is logged.
 //!
@@ -34,6 +35,7 @@ use std::collections::BTreeSet;
 
 use super::codec;
 use super::collect_claude::{claude_marketplaces, claude_plugins, claude_servers};
+use super::collect_codex::{codex_marketplaces, codex_plugins, codex_servers};
 use super::collect_items::{marketplaces, packages, plugins};
 use super::collect_mcp::mcp_servers;
 use super::collect_opencode::{opencode_plugins, opencode_servers};
@@ -163,15 +165,20 @@ fn collect_kind(env: &Env, harness: &dyn Harness, kind: SyncItemKind) -> Found {
     match (harness.id(), kind) {
         (HarnessId::Omp, SyncItemKind::Marketplace) => marketplaces(harness.id(), &paths, &mut found),
         (HarnessId::Omp, SyncItemKind::Plugin) => plugins(harness.id(), &paths, &mut found),
+        (HarnessId::Omp | HarnessId::Pi, SyncItemKind::McpServer) => mcp_servers(env, harness, &mut found),
         (HarnessId::Pi, SyncItemKind::Package) => packages(harness.id(), &paths, &mut found),
         (HarnessId::OpenCode, SyncItemKind::Plugin) => opencode_plugins(env, harness, &mut found),
         (HarnessId::OpenCode, SyncItemKind::McpServer) => opencode_servers(env, harness, &mut found),
         (HarnessId::Claude, SyncItemKind::Marketplace) => claude_marketplaces(env, &mut found),
         (HarnessId::Claude, SyncItemKind::Plugin) => claude_plugins(env, &mut found),
         (HarnessId::Claude, SyncItemKind::McpServer) => claude_servers(env, harness, &mut found),
-        (_, SyncItemKind::McpServer) => mcp_servers(env, harness, &mut found),
-        // A kind a harness declares without a reader here yields nothing.
-        _ => {}
+        (HarnessId::Codex, SyncItemKind::Marketplace) => codex_marketplaces(env, &mut found),
+        (HarnessId::Codex, SyncItemKind::Plugin) => codex_plugins(env, &mut found),
+        (HarnessId::Codex, SyncItemKind::McpServer) => codex_servers(env, harness, &mut found),
+        // Kinds these harnesses do not have (see `Harness::share_support`).
+        (HarnessId::Omp | HarnessId::Claude | HarnessId::Codex, SyncItemKind::Package)
+        | (HarnessId::Pi, SyncItemKind::Marketplace | SyncItemKind::Plugin)
+        | (HarnessId::OpenCode, SyncItemKind::Marketplace | SyncItemKind::Package) => {}
     }
 
     found
