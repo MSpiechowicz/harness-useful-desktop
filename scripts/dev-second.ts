@@ -4,6 +4,8 @@
 // preferences), and the product name (window and tray title).
 import { fileURLToPath } from 'node:url';
 
+import { runTauriDev } from './tauri-dev';
+
 const root = fileURLToPath(new URL('..', import.meta.url));
 const port = Number(process.argv[2] ?? process.env.HARNESS_DEV_PORT ?? 1421);
 
@@ -27,13 +29,4 @@ const override = {
   },
 };
 
-const child = Bun.spawn(['bun', 'run', 'tauri', 'dev', '--config', JSON.stringify(override)], {
-  cwd: root,
-  stdio: ['inherit', 'inherit', 'inherit'],
-});
-
-for (const signal of ['SIGINT', 'SIGTERM'] as const) {
-  process.on(signal, () => child.kill(signal));
-}
-
-process.exit(await child.exited);
+await runTauriDev(['--config', JSON.stringify(override)]);

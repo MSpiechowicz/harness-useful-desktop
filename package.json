@@ -9,7 +9,7 @@
     "url": "git+https://github.com/MSpiechowicz/harness-useful-desktop.git"
   },
   "scripts": {
-    "dev": "tauri dev",
+    "dev": "bun scripts/dev.ts",
     "dev:second": "bun scripts/dev-second.ts",
     "dev:ui": "vite --config ui/vite.config.ts",
     "dev:mock": "vite --config ui/vite.config.ts --mode mock",
