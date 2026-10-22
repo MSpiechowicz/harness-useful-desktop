@@ -66,7 +66,7 @@ pub fn untracked_diff(project: &Path, relative: &str, budget: &mut DiffBudget) -
 /// The bytes of `full` when it resolves inside `project` and is readable.
 pub(super) fn read_contained(project: &Path, full: &Path) -> Option<Vec<u8>> {
     let canonical = canonical_within(project, full).ok()?;
-    let reader = SafeReader::open(&canonical).ok()?;
+    let reader = SafeReader::open_in_project(project, &canonical).ok()?;
 
     let mut content = Vec::new();
     reader

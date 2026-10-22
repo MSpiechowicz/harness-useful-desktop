@@ -6,7 +6,7 @@ use std::io::{BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
 use std::sync::RwLock;
 
-use super::{CLAUDE_GLOBAL_FILE, DenyReason, MAX_LINK_HOPS, is_denied};
+use super::{CLAUDE_GLOBAL_FILE, DenyReason, MAX_LINK_HOPS, is_denied, is_denied_under_claude_root};
 use crate::error::{BusinessError, Result};
 
 /// The global files of Claude Code ([`crate::harnesses::claude::global_config_file`] registers each
@@ -38,15 +38,25 @@ fn is_claude_global_file(canonical: &Path) -> bool {
 
 /// Which deny reasons a read lifts.
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum Lift {
+enum Lift<'a> {
     /// None: every deny reason refuses.
     Nothing,
     /// The name of Claude Code's global file, for [`SafeReader::read_claude_global_file`] only.
     ClaudeGlobalName,
+    /// The rules that match an ancestor's name, for the part of a path above this canonical project
+    /// folder ([`SafeReader::open_in_project`]): below it the project-relative path meets every
+    /// rule and the full path the private names of a Claude Code config directory.
+    AboveProject(&'a Path),
 }
 
-impl Lift {
+impl Lift<'_> {
     fn denies(self, path: &Path) -> Option<DenyReason> {
+        if let Self::AboveProject(project) = self
+            && let Ok(relative) = path.strip_prefix(project)
+        {
+            return is_denied(relative).or_else(|| is_denied_under_claude_root(path));
+        }
+
         let reason = is_denied(path)?;
         let lifted = self == Self::ClaudeGlobalName && reason == DenyReason::FileName(CLAUDE_GLOBAL_FILE.to_owned());
 
@@ -78,28 +88,59 @@ impl SafeReader {
     /// file (see [`add_claude_global_file`]); every other check of
     /// [`SafeReader::read_to_string`] still applies, and the backup copies stay refused.
     ///
+    /// The opened file must still be the registered one (the same device and inode). Claude Code
+    /// replaces the file while it runs, so a file replaced during the open is opened once more.
+    ///
     /// Errors: as [`SafeReader::read_to_string`], and `Forbidden` when `path` resolves to anything
     /// but a registered global file.
     pub fn read_claude_global_file(path: &Path, max_bytes: u64) -> Result<String> {
-        let canonical = dunce::canonicalize(path)
-            .map_err(|error| BusinessError::from_io(format!("resolving {}", path.display()), error))?;
+        let mut attempts = 2;
 
-        if !is_claude_global_file(&canonical) {
-            return Err(BusinessError::Forbidden(format!(
-                "{} is not Claude Code's global file",
-                path.display()
-            )));
+        loop {
+            attempts -= 1;
+
+            let canonical = dunce::canonicalize(path)
+                .map_err(|error| BusinessError::from_io(format!("resolving {}", path.display()), error))?;
+
+            if !is_claude_global_file(&canonical) {
+                return Err(BusinessError::Forbidden(format!(
+                    "{} is not Claude Code's global file",
+                    path.display()
+                )));
+            }
+
+            let (file, metadata) = open_checked(path, Lift::ClaudeGlobalName)?;
+
+            // Re-checked on the open handle: the path may have been swapped after the first check.
+            if is_same_file(&canonical, &metadata) {
+                return read_opened(path, file, &metadata, max_bytes);
+            }
+
+            if attempts == 0 {
+                return Err(BusinessError::Forbidden(format!(
+                    "{} changed while it was opened",
+                    path.display()
+                )));
+            }
         }
-
-        let (file, metadata) = open_checked(path, Lift::ClaudeGlobalName)?;
-
-        read_opened(path, file, &metadata, max_bytes)
     }
 
     /// Opens a file for a bounded streaming read (session transcripts, untracked files). The
     /// caller caps how much it reads. Same access checks as [`SafeReader::read_to_string`].
     pub fn open(path: &Path) -> Result<File> {
         open_checked(path, Lift::Nothing).map(|(file, _)| file)
+    }
+
+    /// Opens a file of the project folder `project` (a repository's working tree) like
+    /// [`SafeReader::open`], except that the folders above the project do not count: a project
+    /// cloned below a folder named `projects` or `opencode` is read like any other. Below the
+    /// project the relative path meets the whole list, a Claude Code config directory inside it
+    /// keeps its private files, and a symlink hop that leaves the project meets the whole list.
+    pub fn open_in_project(project: &Path, path: &Path) -> Result<File> {
+        let project = dunce::canonicalize(project)
+            .map_err(|error| BusinessError::from_io(format!("resolving {}", project.display()), error))?;
+
+        open_checked(path, Lift::AboveProject(&project)).map(|(file, _)| file)
     }
 
     /// Reads up to `n` lines from the start of a file, splitting on `\n` only (Unicode line
@@ -179,7 +220,7 @@ fn forbidden(path: &Path, reason: &DenyReason) -> BusinessError {
 }
 
 /// Applies every check (but the deny reasons `lift` lifts) and opens the canonical path for reading.
-fn open_checked(path: &Path, lift: Lift) -> Result<(File, Metadata)> {
+fn open_checked(path: &Path, lift: Lift<'_>) -> Result<(File, Metadata)> {
     if let Some(reason) = lift.denies(path) {
         return Err(forbidden(path, &reason));
     }
@@ -207,6 +248,21 @@ fn open_checked(path: &Path, lift: Lift) -> Result<(File, Metadata)> {
     Ok((file, metadata))
 }
 
+/// True when the open handle's `opened` metadata is the file at `canonical` now: the same device
+/// and inode on Unix, the same canonical path elsewhere.
+#[cfg(unix)]
+fn is_same_file(canonical: &Path, opened: &Metadata) -> bool {
+    use std::os::unix::fs::MetadataExt;
+
+    std::fs::metadata(canonical).is_ok_and(|now| now.dev() == opened.dev() && now.ino() == opened.ino())
+        && dunce::canonicalize(canonical).is_ok_and(|now| now == canonical)
+}
+
+#[cfg(not(unix))]
+fn is_same_file(canonical: &Path, _opened: &Metadata) -> bool {
+    dunce::canonicalize(canonical).is_ok_and(|now| now == canonical)
+}
+
 fn inspect_error(path: &Path, error: std::io::Error) -> BusinessError {
     BusinessError::from_io(format!("inspecting {}", path.display()), error)
 }
@@ -223,7 +279,7 @@ fn ensure_regular(path: &Path, metadata: &Metadata) -> Result<()> {
 }
 
 /// Follows a symlink chain hop by hop and refuses it when any hop names a denied file.
-fn check_link_chain(path: &Path, lift: Lift) -> Result<()> {
+fn check_link_chain(path: &Path, lift: Lift<'_>) -> Result<()> {
     let mut current = path.to_path_buf();
 
     for _ in 0..MAX_LINK_HOPS {

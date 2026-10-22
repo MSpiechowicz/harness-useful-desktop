@@ -5,7 +5,7 @@
 //! one file read with [`read_global_file`] (a name every other read refuses, and a cap of
 //! [`MAX_GLOBAL_FILE_BYTES`]); a larger file is reported as such, never as an empty one.
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use serde_json::{Map, Value};
 
@@ -72,15 +72,36 @@ pub(in crate::harnesses::claude) fn global_sections(env: &Env, project: Option<&
     }
 }
 
-/// True when the user accepted Claude Code's trust dialog for `project`: its `projects` entry in
-/// the global file has `hasTrustDialogAccepted: true`. A missing, unreadable or invalid file, or no
-/// entry, is not trusted.
-pub(in crate::harnesses::claude) fn trusts_project(env: &Env, project: &Path) -> bool {
-    let Some((_, Document::Parsed(entry))) = global_sections(env, Some(project)).project else {
-        return false;
-    };
+/// What Claude Code's global file says about trusting a folder.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(in crate::harnesses::claude) enum ProjectTrust {
+    /// The user accepted Claude Code's trust dialog for the folder.
+    Trusted,
+    /// No file, no entry for the folder, or an entry without an accepted trust dialog.
+    Untrusted,
+    /// The file exists but could not be read: unreadable, invalid or too large.
+    Unreadable,
+}
 
-    entry.get(TRUST_KEY) == Some(&Value::Bool(true))
+/// Whether the user accepted Claude Code's trust dialog for `project`: its `projects` entry in the
+/// global file has `hasTrustDialogAccepted: true`. Only the entry of the folder itself counts, as
+/// trust is per folder. A file that exists but cannot be read trusts nothing either, reported as
+/// [`ProjectTrust::Unreadable`].
+pub(in crate::harnesses::claude) fn project_trust(env: &Env, project: &Path) -> ProjectTrust {
+    let sections = global_sections(env, Some(project));
+
+    if let Some((_, Document::Parsed(entry))) = &sections.project {
+        if entry.get(TRUST_KEY) == Some(&Value::Bool(true)) {
+            return ProjectTrust::Trusted;
+        }
+
+        return ProjectTrust::Untrusted;
+    }
+
+    match sections.user {
+        Some((_, Document::Invalid(_))) => ProjectTrust::Unreadable,
+        _ => ProjectTrust::Untrusted,
+    }
 }
 
 /// The global file at `path` as a document: missing, parsed, or the reason it was not read.
@@ -160,6 +181,7 @@ fn project_entry<'a>(projects: &'a Map<String, Value>, project: &Path) -> Option
     let canonical = canonical?;
     projects
         .iter()
+        .filter(|(key, _)| may_resolve_to(key, &canonical))
         .take(MAX_RESOLVED_KEYS)
         .find(|(key, _)| resolves_to(key, &canonical))
         .map(|(_, entry)| entry)
@@ -178,14 +200,31 @@ pub(in crate::harnesses::claude) fn names_project(key: &str, project: &Path) -> 
 }
 
 fn resolves_to(key: &str, canonical: &Path) -> bool {
-    let path = PathBuf::from(key);
-
-    path.is_absolute() && dunce::canonicalize(path).is_ok_and(|resolved| resolved == canonical)
+    may_resolve_to(key, canonical) && dunce::canonicalize(key).is_ok_and(|resolved| resolved == canonical)
 }
 
-/// `path` with `/` separators and no trailing separator.
+/// True when `key` is worth resolving on disk to compare it with `canonical`: an absolute local
+/// path whose last folder has the project's name (case aside). A network path (`//host/share`,
+/// `\\host\share`) is never resolved, as that would reach out to the host.
+fn may_resolve_to(key: &str, canonical: &Path) -> bool {
+    let path = Path::new(key);
+    let network = key.starts_with("//") || key.starts_with("\\\\");
+
+    if network || !path.is_absolute() {
+        return false;
+    }
+
+    let name = |path: &Path| path.file_name().map(|name| name.to_string_lossy().to_lowercase());
+    name(path).is_some() && name(path) == name(canonical)
+}
+
+/// `path` with no trailing separator, and with `/` separators on Windows (where `\\` is one too).
 fn key_form(path: &str) -> String {
-    let path = path.replace('\\', "/");
+    let path = if cfg!(windows) {
+        path.replace('\\', "/")
+    } else {
+        path.to_owned()
+    };
 
     match path.trim_end_matches('/') {
         "" => path,
@@ -200,23 +239,50 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_project_entry_is_found_with_either_separator() {
+    fn the_project_entry_is_found_without_a_trailing_separator() {
         let projects = json!({
             "/w/other": { "allowedTools": ["a"] },
-            "C:/w/demo": { "allowedTools": ["b"] },
             "/w/demo/": { "allowedTools": ["c"] },
         });
         let projects = projects.as_object().unwrap();
 
         assert_eq!(
-            project_entry(projects, Path::new("C:\\w\\demo")),
-            Some(&json!({ "allowedTools": ["b"] }))
-        );
-        assert_eq!(
             project_entry(projects, Path::new("/w/demo")),
             Some(&json!({ "allowedTools": ["c"] }))
         );
         assert_eq!(project_entry(projects, Path::new("/w/none")), None);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn the_project_entry_is_found_with_either_separator_on_windows() {
+        let projects = json!({ "C:/w/demo": { "allowedTools": ["b"] } });
+
+        assert_eq!(
+            project_entry(projects.as_object().unwrap(), Path::new("C:\\w\\demo")),
+            Some(&json!({ "allowedTools": ["b"] }))
+        );
+    }
+
+    /// A backslash is part of a folder name outside Windows, so `/w/a\b` is not `/w/a/b`.
+    #[cfg(unix)]
+    #[test]
+    fn a_backslash_is_no_separator_outside_windows() {
+        let projects = json!({ "/w/a\\b": { "allowedTools": ["d"] } });
+
+        assert_eq!(project_entry(projects.as_object().unwrap(), Path::new("/w/a/b")), None);
+        assert!(!names_project("/w/a\\b", Path::new("/w/a/b")));
+    }
+
+    #[test]
+    fn only_local_keys_naming_the_project_folder_are_resolved() {
+        let canonical = Path::new("/w/demo");
+
+        assert!(may_resolve_to("/elsewhere/Demo", canonical));
+        assert!(!may_resolve_to("/elsewhere/other", canonical));
+        assert!(!may_resolve_to("//host/share/demo", canonical));
+        assert!(!may_resolve_to("\\\\host\\share\\demo", canonical));
+        assert!(!may_resolve_to("demo", canonical));
     }
 
     #[test]

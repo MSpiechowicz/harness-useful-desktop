@@ -1,8 +1,9 @@
 //! All running agent sessions of the app, addressed by session key.
 //!
 //! The manager validates what the business layer can check itself: the harness matches, the
-//! project is an existing directory, a resumed session id is safe, the per-session approval
-//! override (Yolo only where offered) and one-time trust apply only where supported, and at most
+//! project is an existing directory, a resumed session id is safe and the project's
+//! ([`resumed_session`]), the per-session approval override (Yolo only where offered) and
+//! one-time trust apply only where supported, and at most
 //! [`MAX_SESSIONS`] run at once. The rule that `project` must be the active or a recent project
 //! is enforced by the caller (the desktop shell), as is the explicit user confirmation required
 //! before [`AgentManager::bash`].
@@ -31,7 +32,7 @@ use tokio::time::Instant;
 
 use super::SessionOptions;
 use super::engine::{AgentSession, SessionLaunch};
-use super::launch::{approval_override, ensure_chat, exec_spec, prepare_memory_chat, trust_once};
+use super::launch::{approval_override, ensure_chat, exec_spec, prepare_memory_chat, resumed_session, trust_once};
 use super::sink::{EventSink, PromptTaken};
 use super::slots::{
     BindingSink, Bound, Claimant, Entry, Holder, Reservation, SessionClaim, Slots, bind, open_elsewhere, still_stopping,
@@ -42,7 +43,6 @@ use crate::harness::{Harness, LaunchRequest};
 use crate::model::{
     AgentAction, AgentEvent, AgentReply, AgentSessionInfo, AgentStartRequest, BashOutput, NoticeLevel, UiResponse,
 };
-use crate::pi_family::sessions::is_safe_session_id;
 use crate::process::{ProcessSpawner, ResolvedBinary};
 use crate::security::validate_project_dir;
 
@@ -187,20 +187,7 @@ impl AgentManager {
         ensure_chat(harness)?;
 
         let project = validate_project_dir(deps.env, Path::new(&request.project))?;
-        let resume = match &request.resume {
-            Some(session) if session.harness != harness.id() || !is_safe_session_id(&session.id) => {
-                return Err(BusinessError::InvalidInput("invalid session to resume".to_owned()));
-            }
-            Some(session) => Some(session.id.as_str()),
-            None => None,
-        };
-
-        if request.utility && request.resume.is_some() {
-            return Err(BusinessError::InvalidInput(
-                "a utility agent cannot resume a session".to_owned(),
-            ));
-        }
-
+        let resume = resumed_session(harness, deps.env, &project, &request)?;
         let approval_override = approval_override(harness, request.approval_override)?;
         let trust_once = trust_once(harness, deps.env, &project, request.trust_once)?;
 

@@ -368,6 +368,7 @@ async fn only_a_project_install_runs_in_the_project() {
 
     let home = tempfile::tempdir().unwrap();
     let project = tempfile::tempdir().unwrap();
+    trust(home.path(), project.path());
     let fake = FakeClaude::new(&home.path().join(".claude.json"));
     let env = Env::for_tests(home.path());
     let claude = binary(home.path());
@@ -410,4 +411,49 @@ async fn only_a_project_install_runs_in_the_project() {
     assert_eq!(user.len(), user_scope.len());
     assert!(user.iter().all(|cwd| cwd.as_deref() == Some(home.path())), "{user:?}");
     assert_eq!(last.as_deref(), Some(project.path()));
+}
+
+/// Records in the test home that the user trusted `project` in Claude Code.
+fn trust(home: &Path, project: &Path) {
+    let projects = serde_json::json!({ "projects": { project.to_string_lossy(): { "hasTrustDialogAccepted": true } } });
+    std::fs::write(home.join(".claude.json"), projects.to_string()).unwrap();
+}
+
+/// A project-scope install runs Claude Code in the project, where its settings and hooks apply:
+/// in a folder Claude Code does not trust it is refused before anything runs (no trust once
+/// here), while the user-scope actions still run in the home directory.
+#[tokio::test]
+async fn a_project_install_in_a_folder_claude_does_not_trust_is_refused() {
+    let home = tempfile::tempdir().unwrap();
+    let project = tempfile::tempdir().unwrap();
+    let fake = FakeClaude::new(&home.path().join(".claude.json"));
+    let env = Env::for_tests(home.path());
+    let claude = binary(home.path());
+    let run_in_project = |action| CliRun {
+        harness: &Claude,
+        env: &env,
+        runner: &fake,
+        binary: &claude,
+        action,
+        dry_run: false,
+        project: Some(project.path()),
+    };
+
+    let project_install = ExtensionAction::PluginInstall {
+        target: name(),
+        scope: InstallScope::Project,
+    };
+    let error = run_cli_action(run_in_project(&project_install))
+        .await
+        .expect_err("an untrusted folder");
+    assert!(matches!(error, BusinessError::Untrusted(_)), "{error:?}");
+    assert!(fake.argvs().is_empty(), "nothing runs");
+
+    let user_install = install();
+    run_cli_action(run_in_project(&user_install)).await.unwrap();
+    assert_eq!(fake.specs().len(), 1, "a user-scope install still runs");
+
+    trust(home.path(), project.path());
+    run_cli_action(run_in_project(&project_install)).await.unwrap();
+    assert_eq!(fake.specs().len(), 2, "trusted in Claude Code, the install runs");
 }

@@ -34,6 +34,7 @@ pub use setup::{
     KnownMarketplace, PluginRecord, PluginScope, UserPlugin, known_marketplaces, plugin_records, user_plugins,
 };
 
+use self::config::ProjectTrust;
 use crate::ecosystem::catalog::{CLAUDE_SKILLS_PLUGIN, SKILLS_MARKETPLACE};
 use crate::error::BusinessError;
 use crate::harness::prelude::*;
@@ -46,8 +47,10 @@ use crate::pi_family::sessions::SessionCache;
 pub const SPAWN_ENV: &[(&str, &str)] = &[("DISABLE_UPDATES", "1")];
 
 /// Why a chat in a folder Claude Code does not trust yet is refused.
-const UNTRUSTED: &str =
-    "Claude Code does not trust this folder yet. Run claude in it once from a terminal, or trust it once here.";
+const UNTRUSTED: &str = "Claude Code trusts each folder on its own and does not trust this one yet. Run claude in it once from a terminal, or trust it once here.";
+
+/// Why a chat is refused when Claude Code's global file exists but cannot be read.
+const UNREADABLE: &str = "Claude Code's settings file could not be read, so this folder counts as untrusted.";
 
 /// The Claude Code adapter.
 #[derive(Debug, Clone, Copy, Default)]
@@ -120,13 +123,20 @@ impl Harness for Claude {
 
     /// Claude Code skips its own trust dialog in stream-json mode, so the project's
     /// `.claude/settings*.json` (hooks, environment, helpers, modes) would apply unasked: a folder
-    /// the user never trusted in Claude Code is refused. The app never records a trust answer.
+    /// the user never trusted in Claude Code is refused, and so is every folder while the global
+    /// file cannot be read. Only the folder's own entry counts. The app never records a trust answer.
     fn check_project_trust(&self, env: &Env, project: &Path) -> Result<()> {
-        if config::trusts_project(env, project) {
-            return Ok(());
+        match config::project_trust(env, project) {
+            ProjectTrust::Trusted => Ok(()),
+            ProjectTrust::Untrusted => Err(BusinessError::Untrusted(UNTRUSTED.to_owned())),
+            ProjectTrust::Unreadable => Err(BusinessError::Untrusted(UNREADABLE.to_owned())),
         }
+    }
 
-        Err(BusinessError::Untrusted(UNTRUSTED.to_owned()))
+    /// Only a session saved in the project's session folder by this folder is resumed: one of
+    /// another folder with the same slug is not found ([`sessions`]).
+    fn check_resume(&self, env: &Env, project: &Path, session: &SessionRef) -> Result<()> {
+        self.resolve_session(env, project, session).map(|_| ())
     }
 
     /// Never reached: Claude chats over [`ChatProtocol::ClaudeStream`], not RPC.

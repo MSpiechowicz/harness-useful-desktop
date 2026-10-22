@@ -1,6 +1,6 @@
-//! What a start launches: only harnesses with chat, in a project the harness trusts or trusts
-//! once, run through the harness's command line with its spawn environment and the launcher
-//! search path of its binary. A chat with a memory identity
+//! What a start launches: only harnesses with chat, resuming only a session of the project, in a
+//! project the harness trusts or trusts once, run through the harness's command line with its
+//! spawn environment and the launcher search path of its binary. A chat with a memory identity
 //! has its guards written first ([`prepare_memory_chat`]) and, once they are, its key passed as
 //! `HARNESS_MEMORY_SESSION`, which the harness's MCP servers inherit; any other launch has that
 //! variable removed, so a value the app itself inherited never names a chat.
@@ -13,7 +13,8 @@ use crate::ecosystem::memory_guards::{SESSION_VAR, chat_repo_root, check_chat_ke
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::harness::{Harness, LaunchRequest};
-use crate::model::{ApprovalMode, MemoryChatStart};
+use crate::model::{AgentStartRequest, ApprovalMode, MemoryChatStart};
+use crate::pi_family::sessions::is_safe_session_id;
 use crate::process::{ExecSpec, launcher_search_dirs};
 
 /// Refuses a harness whose chat the app cannot drive yet, before anything is resolved or spawned.
@@ -48,6 +49,34 @@ pub(super) fn approval_override(
     }
 
     Ok(requested)
+}
+
+/// The session id `request` resumes in `project`. Refused (`invalidInput`) when it names another
+/// harness, is not a safe id or comes with a utility agent, and refused before anything is spawned
+/// when the harness finds it is not one of the project's sessions ([`Harness::check_resume`]).
+pub(super) fn resumed_session<'a>(
+    harness: &dyn Harness,
+    env: &Env,
+    project: &Path,
+    request: &'a AgentStartRequest,
+) -> Result<Option<&'a str>> {
+    let Some(session) = &request.resume else {
+        return Ok(None);
+    };
+
+    if session.harness != harness.id() || !is_safe_session_id(&session.id) {
+        return Err(BusinessError::InvalidInput("invalid session to resume".to_owned()));
+    }
+
+    if request.utility {
+        return Err(BusinessError::InvalidInput(
+            "a utility agent cannot resume a session".to_owned(),
+        ));
+    }
+
+    harness.check_resume(env, project, session)?;
+
+    Ok(Some(&session.id))
 }
 
 /// Whether a chat of `harness` in `project` trusts the project once: only when `requested` and the

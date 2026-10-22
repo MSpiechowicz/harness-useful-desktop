@@ -7,21 +7,23 @@ mod agent_support;
 
 use std::path::Path;
 
-use agent_support::{options, start_in, start_with};
+use agent_support::{options, start_at, start_in, start_with};
 use harness_business::agent::TrustMemory;
 use harness_business::env::Env;
 use harness_business::harness::Harness;
-use harness_business::harnesses::claude::global_config_file;
+use harness_business::harnesses::claude::{MAX_GLOBAL_FILE_BYTES, global_config_file};
 use harness_business::harnesses::{Claude, Pi};
 use harness_business::model::{
-    AgentAction, AgentEvent, AgentReply, AgentSessionInfo, ApprovalMode, HarnessId, IpcErrorCode,
+    AgentAction, AgentEvent, AgentReply, AgentSessionInfo, ApprovalMode, HarnessId, IpcErrorCode, SessionRef,
 };
 use pretty_assertions::assert_eq;
 use serde_json::json;
 
 /// What a chat in a folder Claude Code does not trust is refused with.
-const UNTRUSTED: &str =
-    "Claude Code does not trust this folder yet. Run claude in it once from a terminal, or trust it once here.";
+const UNTRUSTED: &str = "Claude Code trusts each folder on its own and does not trust this one yet. Run claude in it once from a terminal, or trust it once here.";
+
+/// What a chat is refused with while Claude Code's global file cannot be read.
+const UNREADABLE: &str = "Claude Code's settings file could not be read, so this folder counts as untrusted.";
 
 /// `env` with a Claude global file that names no project.
 fn no_trusted_folder(env: Env) -> Env {
@@ -97,17 +99,39 @@ fn only_a_folder_whose_trust_dialog_was_accepted_counts_as_trusted() {
     large["history"] = json!("x".repeat(3 * 1024 * 1024));
     assert!(refused(Some(large.to_string())).is_ok(), "a large global file is read");
 
+    // Trust is per folder: an entry for the parent or a subfolder trusts nothing here.
+    let parent = project.parent().expect("a parent folder");
     for global in [
         None,
-        Some("{ not json".to_owned()),
         Some(json!({ "hasTrustDialogAccepted": true }).to_string()),
         Some(trust_entry(project, json!(false))),
         Some(trust_entry(project, json!("true"))),
         Some(trust_entry(&project.join("sub"), json!(true))),
+        Some(trust_entry(parent, json!(true))),
     ] {
         let error = refused(global.clone()).expect_err("not trusted");
         assert_eq!(error.code(), IpcErrorCode::Untrusted, "{global:?}");
         assert_eq!(error.to_string(), UNTRUSTED);
+    }
+}
+
+/// A global file that exists but cannot be read (invalid, not an object, past the read cap) trusts
+/// no folder, and the refusal says why, with the same error code (so trust once is still offered).
+#[test]
+fn an_unreadable_global_file_refuses_with_its_own_reason() {
+    let project = tempfile::tempdir().expect("project");
+    let project = project.path();
+
+    let mut too_large = json!({ "projects": { project.to_string_lossy(): { "hasTrustDialogAccepted": true } } });
+    let past_cap = usize::try_from(MAX_GLOBAL_FILE_BYTES).expect("the cap fits") + 1;
+    too_large["history"] = json!("x".repeat(past_cap));
+
+    for global in ["{ not json".to_owned(), "[]".to_owned(), too_large.to_string()] {
+        let (_home, env) = home_with(Some(&global));
+
+        let error = Claude.check_project_trust(&env, project).expect_err("not trusted");
+        assert_eq!(error.code(), IpcErrorCode::Untrusted);
+        assert_eq!(error.to_string(), UNREADABLE, "{}", &global[..global.len().min(20)]);
     }
 }
 
@@ -298,4 +322,76 @@ async fn a_helper_chat_denies_a_permission_prompt_at_once_without_a_dialog() {
     );
 
     stop_cleanly(&run).await;
+}
+
+/// The saved session the resume tests put in the project's session folder.
+const SAVED_SESSION: &str = "c1262da3-a66b-42b5-a9ee-32bb98f2045d";
+
+/// `env` with the fixture session [`SAVED_SESSION`] saved for `project`, recording `cwd` (a function
+/// of the canonical project) as the folder it ran in.
+fn with_saved_session(env: Env, project: &Path, cwd: impl Fn(&str) -> String) -> Env {
+    let project = dunce::canonicalize(project).expect("canonical project");
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/fixtures/sessions/claude")
+        .join(format!("{SAVED_SESSION}.jsonl"));
+    let text = std::fs::read_to_string(fixture).expect("the fixture session");
+
+    let dir = Claude.sessions_dir(&env, &project);
+    std::fs::create_dir_all(&dir).expect("the session folder");
+    let recorded = text.replace("/home/demo/Projects/demo", &cwd(&project.to_string_lossy()));
+    std::fs::write(dir.join(format!("{SAVED_SESSION}.jsonl")), recorded).expect("write the session");
+
+    env
+}
+
+fn resume_saved(request: &mut harness_business::model::AgentStartRequest) {
+    request.resume = Some(SessionRef {
+        harness: HarnessId::Claude,
+        id: SAVED_SESSION.to_owned(),
+    });
+}
+
+/// A resumed chat must be one of the project's sessions: a session in its session folder that
+/// ran in another folder with the same slug (`/tmp/.tmpX` and `/tmp/_tmpX`), or no saved session,
+/// is refused before anything is spawned, and the project's own session resumes.
+#[tokio::test]
+async fn a_chat_resumes_only_a_session_of_its_own_folder() {
+    let elsewhere = start_at(
+        HarnessId::Claude,
+        "claude",
+        "claude_init.jsonl",
+        options(),
+        |env, project| with_saved_session(env, project, |project| project.replace('.', "_")),
+        resume_saved,
+    )
+    .await
+    .err()
+    .expect("another folder's session is refused");
+    assert_eq!(elsewhere.code(), IpcErrorCode::NotFound, "{elsewhere}");
+
+    let missing = start_with(
+        HarnessId::Claude,
+        "claude",
+        "claude_init.jsonl",
+        options(),
+        resume_saved,
+    )
+    .await
+    .err()
+    .expect("an unknown session is refused");
+    assert_eq!(missing.code(), IpcErrorCode::NotFound, "{missing}");
+
+    let own = start_at(
+        HarnessId::Claude,
+        "claude",
+        "claude_init.jsonl",
+        options(),
+        |env, project| with_saved_session(env, project, str::to_owned),
+        resume_saved,
+    )
+    .await
+    .expect("the project's own session resumes");
+    assert!(args(&own).iter().any(|arg| arg == SAVED_SESSION), "{:?}", args(&own));
+
+    own.manager.begin_stop_all().finish().await;
 }

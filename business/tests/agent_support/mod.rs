@@ -261,11 +261,31 @@ pub async fn start_in(
     environment: impl FnOnce(Env) -> Env,
     customize: impl FnOnce(&mut AgentStartRequest),
 ) -> harness_business::Result<Run> {
+    start_at(
+        harness,
+        dialect,
+        scenario_name,
+        options,
+        |env, _| environment(env),
+        customize,
+    )
+    .await
+}
+
+/// [`start_in`] with an `environment` that also sees the project folder.
+pub async fn start_at(
+    harness: HarnessId,
+    dialect: &'static str,
+    scenario_name: &str,
+    options: SessionOptions,
+    environment: impl FnOnce(Env, &Path) -> Env,
+    customize: impl FnOnce(&mut AgentStartRequest),
+) -> harness_business::Result<Run> {
     let registry = HarnessRegistry::with_defaults();
     let adapter: &dyn Harness = registry.get(harness).expect("registered harness");
     let project = project();
     let home = tempfile::tempdir().expect("temp home");
-    let env = environment(Env::for_tests(home.path()));
+    let env = environment(Env::for_tests(home.path()), project.path());
 
     if harness == HarnessId::Claude {
         trust_in_claude(&env, project.path());

@@ -319,6 +319,13 @@ pub trait Harness: Send + Sync {
         Ok(())
     }
 
+    /// Refuses resuming `session` in `project` when it is not one of the project's saved sessions,
+    /// before anything is spawned. Default: nothing is checked (the harness reports an unknown
+    /// session itself).
+    fn check_resume(&self, _env: &Env, _project: &Path, _session: &SessionRef) -> Result<()> {
+        Ok(())
+    }
+
     /// The approval mode the user configured for `project` (harnesses with
     /// `capabilities.approvalModes`); `None` when the harness has no approval modes or its own
     /// settings decide without one (OpenCode).

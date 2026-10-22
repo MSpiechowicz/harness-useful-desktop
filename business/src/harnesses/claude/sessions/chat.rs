@@ -76,16 +76,15 @@ pub fn fork_point(path: &Path, entry_id: &str) -> Result<String> {
 
 /// The transcript of the session file at `path`, oldest first, up to and with the last message of
 /// `cut` when one is named (and found).
+/// Only the kept messages are copied out of the cached transcript.
 pub fn chat_messages(path: &Path, cut: Option<&str>) -> Result<Vec<ChatMessage>> {
-    let mut messages = transcript(path)?.as_ref().clone();
+    let messages = transcript(path)?;
 
-    let end = cut.and_then(|cut| messages.iter().rposition(|message| message.id.as_deref() == Some(cut)));
+    let end = cut
+        .and_then(|cut| messages.iter().rposition(|message| message.id.as_deref() == Some(cut)))
+        .map_or(messages.len(), |end| end + 1);
 
-    if let Some(end) = end {
-        messages.truncate(end + 1);
-    }
-
-    Ok(messages)
+    Ok(messages[..end].to_vec())
 }
 
 /// True for an entry that begins a turn of its own.

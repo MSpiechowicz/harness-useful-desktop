@@ -33,6 +33,7 @@ use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::model::{Branch, DiffRequest, DiffScope, FileDiff, GitStatus};
 use crate::process::ProcessRunner;
+use crate::security::deny::is_denied_under_claude_root;
 use crate::security::is_denied;
 
 /// Paths accepted at most in one [`DiffRequest`].
@@ -157,14 +158,21 @@ async fn untracked_files(git: &GitCli<'_>, paths: &[String], budget: &mut DiffBu
     Ok(diffs)
 }
 
-/// True when the project-relative `relative` is deny-listed as written, below `project` (where a
-/// Claude Code config directory `CLAUDE_CONFIG_DIR` names is registered) or at its real path.
+/// True when the project-relative `relative` is deny-listed as written, or when its full or real
+/// path lies among the private files of a Claude Code config directory (a `CLAUDE_CONFIG_DIR`
+/// inside the project). Only the relative path meets the rules that match any ancestor's name, so
+/// a project cloned below a folder such as `projects` or `opencode` keeps its diffs.
 pub(crate) fn is_denied_in(project: &Path, relative: &str) -> bool {
-    let full = project.join(relative);
+    if is_denied(Path::new(relative)).is_some() {
+        return true;
+    }
 
-    is_denied(Path::new(relative)).is_some()
-        || is_denied(&full).is_some()
-        || dunce::canonicalize(&full).is_ok_and(|real| is_denied(&real).is_some())
+    let full = project.join(relative);
+    if is_denied_under_claude_root(&full).is_some() {
+        return true;
+    }
+
+    dunce::canonicalize(&full).is_ok_and(|real| is_denied_under_claude_root(&real).is_some())
 }
 
 /// Request paths must be project-relative: not absolute, no `..`, no NUL, at most

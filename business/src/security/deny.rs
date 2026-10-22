@@ -233,25 +233,59 @@ pub fn is_denied(path: &Path) -> Option<DenyReason> {
     None
 }
 
+/// Checks `path` (as given, without touching the filesystem) only against the private names of a
+/// Claude Code config directory: a folder named `.claude` or a root registered with
+/// [`add_claude_root`]. Unlike [`is_denied`] it ignores the rules that match a name anywhere among
+/// the ancestors (`projects`, `agent`, `opencode`, `terminal-sessions`), so a project's absolute
+/// path that happens to cross such a folder is not caught. Names are compared case-insensitively.
+pub(crate) fn is_denied_under_claude_root(path: &Path) -> Option<DenyReason> {
+    let components = lowercase_components(path);
+
+    let (file_name, parents) = components.split_last()?;
+
+    if DENIED_CLAUDE_FILES.contains(&file_name.as_str()) && is_claude_root(parents) {
+        return Some(DenyReason::FileName(file_name.clone()));
+    }
+
+    for (index, dir) in parents.iter().enumerate() {
+        let ancestors = &parents[..index];
+
+        if is_claude_config_private_dir(dir, ancestors) {
+            return Some(DenyReason::Directory(dir.clone()));
+        }
+
+        // A session's full tool outputs, `<config>/projects/<slug>/<session>/tool-results`.
+        let below_claude_projects =
+            (1..ancestors.len()).any(|split| ancestors[split] == "projects" && is_claude_root(&ancestors[..split]));
+        if dir == "tool-results" && below_claude_projects {
+            return Some(DenyReason::Directory(dir.clone()));
+        }
+    }
+
+    None
+}
+
 /// True for Claude Code's private folders: a [`DENIED_CLAUDE_DIRS`] or `feedback*` folder directly in
 /// a Claude config directory (see [`is_claude_root`]), its `plugins/data` (the plugins' own data)
 /// and a session's `tool-results` below a `projects` folder (full tool outputs,
 /// `~/.claude/projects/<slug>/<session>/tool-results`).
 fn is_claude_private_dir(dir: &str, ancestors: &[String]) -> bool {
+    if is_claude_config_private_dir(dir, ancestors) {
+        return true;
+    }
+
+    dir == "tool-results" && ancestors.iter().any(|ancestor| ancestor == "projects")
+}
+
+/// True for a [`DENIED_CLAUDE_DIRS`] or `feedback*` folder directly in a Claude config directory
+/// (see [`is_claude_root`]) and for its `plugins/data`.
+fn is_claude_config_private_dir(dir: &str, ancestors: &[String]) -> bool {
     let private_name = DENIED_CLAUDE_DIRS.contains(&dir) || dir.starts_with(DENIED_CLAUDE_DIR_PREFIX);
     if private_name && is_claude_root(ancestors) {
         return true;
     }
 
-    if let [config @ .., plugins] = ancestors
-        && dir == "data"
-        && plugins == "plugins"
-        && is_claude_root(config)
-    {
-        return true;
-    }
-
-    dir == "tool-results" && ancestors.iter().any(|ancestor| ancestor == "projects")
+    matches!(ancestors, [config @ .., plugins] if dir == "data" && plugins == "plugins" && is_claude_root(config))
 }
 
 /// True when `ancestors` ends in `.cache/opencode` (or `cache/opencode`).

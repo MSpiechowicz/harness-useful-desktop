@@ -9,8 +9,11 @@
 //! only that profile's files count. OpenCode's is its global config file, Claude Code's the
 //! `mcpServers` of its global file ([`mcp_target`]).
 
+mod github;
+
 use std::path::PathBuf;
 
+use self::github::same_repository;
 use super::catalog::{SKILLS_PLUGIN, supported_on};
 use super::desktop_register::{current_app_command, desktop_mcp_state};
 use super::installer::{Companion, Installed, installer};
@@ -400,20 +403,6 @@ fn marketplace_skills(env: &Env, harness: &dyn Harness, source: &str, plugin: &s
     });
 
     SkillsSetup::Install { actions }
-}
-
-/// True when the marketplace source `registered` names the GitHub repository `repo` (`owner/repo`):
-/// as `owner/repo` or as its `https://github.com/` URL (with or without `.git` and a trailing `/`),
-/// in any ASCII case. A marketplace of the same name from elsewhere does not count.
-fn same_repository(registered: &str, repo: &str) -> bool {
-    let normalized = registered.trim().to_ascii_lowercase();
-    let path = normalized
-        .strip_prefix("https://github.com/")
-        .unwrap_or(&normalized)
-        .trim_end_matches('/');
-    let path = path.strip_suffix(".git").unwrap_or(path);
-
-    path == repo.to_ascii_lowercase()
 }
 
 /// What a marketplace harness has installed and registered for its user.

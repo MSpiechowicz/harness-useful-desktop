@@ -91,6 +91,10 @@ async fn a_project_install_does_not_count_and_a_registered_marketplace_is_not_ad
         } }),
         json!({ "mine": { "source": { "source": "git", "url": "https://github.com/mspiechowicz/harness-useful-skills.git" } } }),
         json!({ "mine": { "source": { "source": "url", "url": "https://github.com/MSpiechowicz/harness-useful-skills/" } } }),
+        json!({ "mine": { "source": { "source": "git", "url": "git@github.com:MSpiechowicz/harness-useful-skills.git" } } }),
+        json!({ "mine": { "source": { "source": "git", "url": "ssh://git@github.com/MSpiechowicz/harness-useful-skills" } } }),
+        json!({ "mine": { "source": { "source": "url", "url": "http://www.github.com/MSpiechowicz/harness-useful-skills" } } }),
+        json!({ "mine": { "source": { "source": "git", "url": "github.com/MSpiechowicz/harness-useful-skills.git" } } }),
     ];
 
     for registry in registries {
@@ -123,6 +127,8 @@ async fn a_marketplace_of_the_same_name_from_elsewhere_does_not_count() {
         json!({ "useful-skills-local": { "source": { "source": "directory", "path": "/tmp/fake" } } }),
         json!({ "fork": { "source": { "source": "git", "url": "https://evil.example/MSpiechowicz/harness-useful-skills.git" } } }),
         json!({ "fork": { "source": { "source": "github", "repo": "MSpiechowicz/harness-useful-skills-fork" } } }),
+        json!({ "fork": { "source": { "source": "git", "url": "git@gitlab.com:MSpiechowicz/harness-useful-skills.git" } } }),
+        json!({ "fork": { "source": { "source": "url", "url": "https://MSpiechowicz/harness-useful-skills" } } }),
     ];
 
     for registry in registries {

@@ -179,8 +179,10 @@ pub struct CliRun<'a> {
     pub project: Option<&'a Path>,
 }
 
-/// Runs `run` (see the module docs). Errors: the action is invalid or unsupported by the harness,
-/// an argument is unsafe for a batch-script shim (`forbidden`), or the process could not start.
+/// Runs `run` (see the module docs). An action that runs in the project runs only in a folder the
+/// harness trusts ([`Harness::check_project_trust`], no trust once). Errors: the action is invalid
+/// or unsupported by the harness, the project is not trusted (`untrusted`), an argument is unsafe
+/// for a batch-script shim (`forbidden`), or the process could not start.
 pub async fn run_cli_action(run: CliRun<'_>) -> Result<CliResult> {
     let invocation = run.harness.cli_action(run.action, run.project)?;
     let command = display_argv(run.harness, &invocation.args);
@@ -194,7 +196,11 @@ pub async fn run_cli_action(run: CliRun<'_>) -> Result<CliResult> {
     }
 
     let cwd = match run.project {
-        Some(project) if !invocation.in_home_dir => project.to_path_buf(),
+        Some(project) if !invocation.in_home_dir => {
+            // The CLI applies the project's own settings there, as a chat would.
+            run.harness.check_project_trust(run.env, project)?;
+            project.to_path_buf()
+        }
         _ => run.env.home.clone(),
     };
     let cli = HarnessCli {
