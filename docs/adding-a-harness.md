@@ -1,18 +1,21 @@
 # Adding a harness
 
-A harness is one coding-agent CLI. The app supports OMP, PI and OpenCode today. This guide adds a new one, called
+A harness is one coding-agent CLI. The app supports OMP, PI, OpenCode and Claude Code today. This guide adds a new one, called
 `acme` (binary `acme`) in the examples. The UI renders from `HarnessInfo`, `Capabilities` and the views an adapter
 returns, so most of the work is Rust in `business/`. OMP and PI are the references for a harness the app chats with
 (PI-family files and RPC). OpenCode (`business/src/harnesses/opencode/`) is the reference for a harness with another
 chat protocol (its own server, see [Other chat protocols](#other-chat-protocols)) and whose saved sessions are only
-reachable through its CLI.
+reachable through its CLI. Claude Code (`business/src/harnesses/claude/`) is the reference for a stdio engine with a
+protocol of its own (`ChatProtocol::ClaudeStream`, no server, no password), for session files in another format and for
+a plugin marketplace plus an MCP file that only the CLI may change.
 
 **Fit check.** The chat engine drives a harness over stdio with newline-delimited JSON requests that carry an `id`,
 answered by `response` frames (`pi_family::rpc`). A CLI that can be driven that way fits, even when its frames
 differ: the `RpcDialect` decides every frame it sends and decodes. A CLI with another protocol (for example a
-one-shot streaming mode without request ids) needs a chat engine of its own, as OpenCode has (see
-[Other chat protocols](#other-chat-protocols)). Whether Claude Code or Codex fit depends on their protocol; neither is
-implemented, and that engine work is not covered here.
+stream of events with no request ids on the user's messages) needs a chat engine of its own. OpenCode has one over HTTP
+and Claude Code has one over stdio (see [Other chat protocols](#other-chat-protocols)): Claude Code has requests with
+ids (the control protocol), but its user messages carry none and a turn ends with a `result` frame instead of a
+response, so it does not fit `RpcDialect`. Whether Codex fits depends on its protocol, and it is not implemented.
 
 A CLI without a fitting protocol can still ship with `capabilities.chat` false. Detection, the configuration and
 extension views, sessions and Recommended setup work as for any harness. `launch_spec` returns
@@ -42,9 +45,9 @@ unsupported.
 generated `HarnessId.ts`.
 
 ```rust
-pub enum HarnessId { Omp, Pi, OpenCode }
-pub const ALL: [HarnessId; 3] = [HarnessId::Omp, HarnessId::Pi, HarnessId::OpenCode];
-pub fn binary_name(self) -> &'static str { /* "omp", "pi", "opencode" */ }
+pub enum HarnessId { Omp, Pi, OpenCode, Claude }
+pub const ALL: [HarnessId; 4] = [HarnessId::Omp, HarnessId::Pi, HarnessId::OpenCode, HarnessId::Claude];
+pub fn binary_name(self) -> &'static str { /* "omp", "pi", "opencode", "claude" */ }
 ```
 
 Add the variant, extend `ALL` (display order) and `binary_name`. The variant serializes lowercase, so `OpenCode` is
@@ -69,10 +72,11 @@ Register it in two places:
 - `HarnessRegistry::with_defaults` in `business/src/harness/registry.rs`:
 
 ```rust
-Self::new(vec![Box::new(Omp), Box::new(Pi), Box::new(OpenCode)])   // add Box::new(Acme)
+Self::new(vec![Box::new(Omp), Box::new(Pi), Box::new(OpenCode::default()), Box::new(Claude)])   // add Box::new(Acme)
 ```
 
-The registry order is the display order. Nothing else enumerates harnesses by hand: the shell, the `open_external`
+The registry order is the display order. The routine format and the routine MCP tool take their harness ids from
+`HarnessId::ALL`, so a new id needs no change there ([routines-format.md](routines-format.md)). Nothing else enumerates harnesses by hand: the shell, the `open_external`
 link allowlist (each harness's `homepage` and install `docs_url`) and the reveal roots (each harness's `paths`) all
 iterate the registry.
 
@@ -133,11 +137,11 @@ really does. Beyond the extension kinds (`plugins`, `marketplaces`, `packages`, 
 
 | Flag | Meaning when true | When false |
 | --- | --- | --- |
-| `chat` | The app drives chat sessions (`launch_spec` and the chat protocol work). OMP, PI and OpenCode. | The UI shows "Chat coming soon" instead of the chat, the harness picker marks the harness as coming soon, and a chat is never started with it. If no installed harness can chat, the chat view says so. |
+| `chat` | The app drives chat sessions (`launch_spec` and the chat protocol work). OMP, PI and OpenCode. Claude Code has its engine core but keeps this false until its approvals and session operations exist, so its chat view says "Chat coming soon". | The UI shows "Chat coming soon" instead of the chat, the harness picker marks the harness as coming soon, and a chat is never started with it. If no installed harness can chat, the chat view says so. |
 | `chatPreview` | Chat works but is still a preview: the UI marks it with a "Preview" badge. OpenCode. | No badge. |
 | `agentPicker` | The chat can switch between the harness's primary agents (`AgentAction::SetAgent`, `GetAvailableAgents`, `SessionState.agent`) and the composer shows an agent picker. None today: OpenCode's engine supports it, but the picker is off because skills cover planning. | No agent picker. |
 | `compactInstructions` | `/compact` takes instructions for the summary, so picking it asks for them first. OMP and PI. | `/compact` runs at once and an action with instructions is refused as unsupported. OpenCode. |
-| `agents` | `extensions_view` fills `agents` (`AgentInfo`) and the Extensions view has an Agents tab. | No Agents tab. OpenCode sets it. |
+| `agents` | `extensions_view` fills `agents` (`AgentInfo`) and the Extensions view has an Agents tab. OpenCode and Claude Code. | No Agents tab. |
 | `cliActions` | Extension changes run the harness CLI (`cli_action`). | The install, enable, update and remove bars are hidden and the view is read-only. |
 
 The default for every flag is false (`Capabilities` derives `Default`), so an adapter lists only what it has.
@@ -151,7 +155,8 @@ Implement `binary_name` (or rely on `HarnessId::binary_name`), `install_hint`, `
   name is exactly the binary name, see `override_name_matches`), then absolute `PATH` entries, then the usual install
   directories (`~/.bun/bin`, `~/.local/bin`, `~/.cargo/bin`, `~/.npm-global/bin`, `~/.opencode/bin` (the OpenCode install
   script's target), Homebrew paths on macOS, `/usr/local/bin`). Add yours to `extra_search_dirs` in
-  `business/src/process/resolve.rs` when the CLI's installer puts it elsewhere. A shell is never asked for `PATH`. Relative `PATH` entries are
+  `business/src/process/resolve.rs` when the CLI's installer puts it elsewhere (Claude Code's native installer puts a
+  launcher in `~/.local/bin`, which is already searched). A shell is never asked for `PATH`. Relative `PATH` entries are
   ignored.
 - Every spawn of the binary (version probe, CLI actions, RPC launch, CLI sessions) sets the harness's `spawn_env`
   and appends the binary's own directory and the same
@@ -161,10 +166,17 @@ Implement `binary_name` (or rely on `HarnessId::binary_name`), `install_hint`, `
   and reports the config directory from `paths(env, None).config_root`.
 - Failures become a short secret-free `Detection.error`; a missing binary yields `install_hint`.
 
+Claude Code is the example of a harness that also moves its files with a variable: `CLAUDE_CONFIG_DIR` (captured) moves
+`~/.claude` and its global file. An absolute directory it names is registered with
+`security::deny::add_claude_root` (`Env::from_process` does it), so the private names the deny list refuses below
+`.claude` (`history.jsonl`, `backups`, `file-history`, ...) are refused below that directory too. Do the same when your
+harness's private folders are only recognisable by their parent's name.
+
 Environment variables your `paths` reads must be listed in `CAPTURED_VARS` (`business/src/env.rs`); `Env` captures
 nothing else from the process. A variable that may hold secrets and that you only need to know is set (OpenCode's
 `OPENCODE_PERMISSION` and `OPENCODE_CONFIG_CONTENT`) goes in `PRESENCE_VARS` instead: `Env` keeps whether it is set
-(`Env::is_set`) and never its value, so a view can say "set" without reading it.
+(`Env::is_set`) and never its value, so a view can say "set" without reading it. Claude Code's `ANTHROPIC_API_KEY`,
+`ANTHROPIC_AUTH_TOKEN`, `CLAUDE_CODE_OAUTH_TOKEN` and similar are in that list.
 
 ## 4. Config and extension views
 
@@ -197,9 +209,14 @@ If you add a new way to turn an unparsed file into output, redact there too (`Re
 listed in [security-privacy.md](security-privacy.md#secret-redaction).
 
 Extensions: reuse `pi_family::scan_skills`, `parse_servers` (MCP), `themes_in_dir`, `extension_module_paths` and
-`package_manifest`; write adapter code only for what is specific (plugin registries, package layers, another MCP shape:
-OpenCode's `mcp` object holds `{"type": "local", "command": [...]}` or `{"type": "remote", "url": ...}` entries, parsed
-in `harnesses/opencode/extensions/mcp.rs`). `ExtensionsView` also has `agents` (`AgentInfo`: name, description, mode
+`package_manifest`; write adapter code only for what is specific (plugin registries, package layers, another MCP shape).
+A harness with Claude-style plugins and marketplaces reuses `harnesses/plugin_registry/` (`installed` parses
+`installed_plugins.json` version 2, `catalog` reads marketplace catalogs and marks plugins that have an update). OMP and
+Claude Code share it and keep what a registry entry means (enabled state, scopes, where a plugin may live) in their own
+adapters. Another MCP shape gets its own parser: OpenCode's `mcp` object holds `{"type": "local", "command": [...]}` or
+`{"type": "remote", "url": ...}` entries, parsed in `harnesses/opencode/extensions/mcp.rs`, and Claude Code's servers
+come from several places (`~/.claude.json`, `.mcp.json` and plugins, `harnesses/claude/extensions/mcp.rs`).
+`ExtensionsView` also has `agents` (`AgentInfo`: name, description, mode
 `primary`, `subagent` or `all`, model, built-in, hidden, scope and path); fill it and set `capabilities.agents` when the
 harness has named agents. Every command-line word and value passes redaction before it leaves the business layer.
 `Capabilities` must match what the views fill in.
@@ -295,7 +312,8 @@ results before delegating to `decode_common`).
 `Harness::chat_protocol()` tells the manager which engine drives a chat (`ChatProtocol` in `business/src/harness/mod.rs`).
 The default is `ChatProtocol::Rpc(self.dialect())`, which is OMP and PI. A harness with another protocol returns
 another variant, and `AgentSession` (`business/src/agent/engine.rs`) is an enum with one engine per protocol:
-`RpcSession` (`agent/session.rs`), `OpenCodeSession` (`agent/opencode/`) and `OpenCodeV2Session` (`agent/opencode_v2/`). One
+`RpcSession` (`agent/session.rs`), `OpenCodeSession` (`agent/opencode/`), `OpenCodeV2Session` (`agent/opencode_v2/`) and
+`ClaudeSession` (`agent/claude/`). One
 harness can return different protocols by version: OpenCode answers `ChatProtocol::OpenCodeServer` for 1.x and
 `ChatProtocol::OpenCodeServerV2` for 2.x, chosen from the generation `note_version` stored. A new engine:
 
@@ -315,7 +333,30 @@ harness can return different protocols by version: OpenCode answers `ChatProtoco
 - sets the capability flags the engine supports: `chat`, `chatPreview` while it is new, `agentPicker`,
   `approvalModes` and `compactInstructions` (see [Capabilities](#capabilities)).
 
-Test the engine with `fake_agent --dialect opencode --scenario <file.jsonl>` (`--dialect opencode2` for OpenCode 2), see [Tests](#11-tests).
+Test the engine with `fake_agent --dialect opencode --scenario <file.jsonl>` (`--dialect opencode2` for OpenCode 2,
+`--dialect claude` for Claude Code), see [Tests](#11-tests).
+
+**Claude Code is the reference for a stdio engine** (`ChatProtocol::ClaudeStream`, `AgentSession::Claude`). It starts one
+`claude --output-format stream-json --verbose --input-format stream-json --permission-prompt-tool stdio
+--include-partial-messages` process per chat (`harnesses/claude/launch.rs`, `--resume <id>` for a saved session) and
+talks to it over stdin and stdout, so there is no port, no password and no server left behind. The work splits in two:
+
+- `business/src/claude_stream/` is pure code that never spawns anything: `wire/` (serde types for the frames and control
+  requests, and the encoders of what the app sends), `mapper/` (`ClaudeMapper`: one inbound frame to `AgentEvent`s plus
+  hints for the engine, with tool cards, subagent tasks and the answers the CLI is owed), `tools.rs` (the tool ids and
+  the project files a call touched, shared with the Sessions view) and `stats.rs`. It is tested against recordings.
+- `business/src/agent/claude/` is the engine on top of `AgentProcess`: `startup.rs` (spawn, the `initialize` control
+  request, `ready`), `io.rs` (the stdout reader that maps every frame under the chat's lock, and the table that matches
+  `control_response` frames to the requests waiting for them, each with a time limit), `prompts.rs` (prompt, steering,
+  follow-up, withdrawing a queued message, abort) and `settings.rs` (model, thinking, slash commands).
+
+Requests carry ids but user messages do not and a turn ends with a `result` frame, which is why it is not an
+`RpcDialect`. No model flag is passed, so the chat runs on the user's own default model, and `DISABLE_UPDATES=1` is the
+harness's `spawn_env`. The flags the app must never pass are in
+[security-privacy.md](security-privacy.md#claude-code). What the engine core does not do yet (permission prompts and
+questions are held without an answer, new, fork, clone, rename, compaction, export and `!command`, helper chats) is
+refused as unsupported, which is why `capabilities.chat` is still false. The plan with the protocol facts is
+[claude-code.md](plans/claude-code.md).
 
 ## 7. Sessions
 
@@ -353,7 +394,11 @@ leaves it running. See `harnesses/opencode/sessions/v2.rs`.
 `session_files_touched` read PI-family session files (`<timestamp>_<id>.jsonl`, entries linked by `id`/`parentId`)
 through `pi_family::sessions`. A harness with the same file format only supplies the folder. Helpers:
 `pi_dir_name`, `omp_dir_name`, `canonical_text`, `configured_session_dir`. A harness with another format overrides the
-five methods. The webview only sends a `SessionRef { harness, id }`; the id is resolved by a shallow scan of the
+five methods. Claude Code does: `<config>/projects/<slug>/<uuid>.jsonl` (the slug is the project path with every
+non-alphanumeric character turned into `-`, cut and hashed over 200 characters), message lines linked by
+`parentUuid`, and lines the Sessions view must skip (`attachment` and `api-request*` lines hold the user's CLAUDE.md
+and the system prompt). Its delete removes the session's own folders as well and is refused while a running `claude`
+names the session in `<config>/sessions/<pid>.json` (`harnesses/claude/sessions/`). The webview only sends a `SessionRef { harness, id }`; the id is resolved by a shallow scan of the
 project's folder, so no other file can be named, and companion directories (subagent transcripts, tool logs) are never
 entered.
 
@@ -386,6 +431,12 @@ installs, upgrade (`-f`), enable, disable and marketplace actions are `Unsupport
 dry run never starts the CLI. `PluginUninstall` goes through `config_action` and removes the entry from the `plugin`
 list of the global config file (`plugin_remove.rs`, on OpenCode 2 the `plugins` list and the legacy `plugin` list). It never edits another file, and it leaves a file with comments, a
 `[spec, options]` entry or a plugin another file defines to the user (`config_edit.manualEdit`, `ok` false).
+
+Claude Code maps its plugin and marketplace actions to `claude plugin …` in the user scope (`--scope user`, or
+`--scope project` for a project-scope install) with `--json` (`harnesses/claude/cli.rs`, `cli_summary` reads the
+`message` of the result line). It has no package actions and updates one plugin at a time. It never sends `-y`/`--yes`: that
+would accept a marketplace-declared command without showing it, so such a plugin is installed from a terminal. There is
+no preview flag, so a dry run only reports the command line.
 
 `run_cli_action` runs the binary without a shell in the project (or the home directory), with a 5 minute timeout and
 capped output, strips ANSI escapes and redacts both streams. See `business/src/harnesses/omp/cli.rs` and
@@ -539,21 +590,23 @@ Add tests next to the existing ones in `business/tests/`. Follow the same patter
 | --- | --- | --- |
 | Detection | `detection.rs` | Binary lookup, override validation, version parsing and support, install hint. |
 | Paths | `harness_paths.rs`, `session_paths.rs` | `paths` and `sessions_dir` for default and overridden env. |
-| Views | `omp_views.rs`, `pi_views.rs`, `opencode_views.rs` | Snapshot (`insta`) of `config_view` and `extensions_view` over a fixture home `business/tests/fixtures/acme-home/` and the demo project. |
-| Leaks | `canary.rs`, `adapter_canary.rs`, `safe_reader.rs` | Hide `CANARY-7f3a9c` in deny-listed files and secret values of your fixture home; no view may contain it. `adapter_canary.rs` iterates every registered harness; add your fixture home to its environments. |
+| Views | `omp_views.rs`, `pi_views.rs`, `opencode_views.rs`, `claude_views.rs`, `claude_extensions.rs` | Snapshot (`insta`) of `config_view` and `extensions_view` over a fixture home `business/tests/fixtures/acme-home/` and the demo project. |
+| Leaks | `canary.rs`, `adapter_canary.rs`, `safe_reader.rs`, `deny_claude.rs` | Hide `CANARY-7f3a9c` in deny-listed files and secret values of your fixture home; no view may contain it. `adapter_canary.rs` iterates every registered harness; add your fixture home to its environments. |
 | Catalog | `catalog.rs` | Native, live and shared merge; every command's invocation. |
 | Dialect | `rpc_dialects.rs`, `rpc_commands.rs`, `rpc_normalize.rs` | Encoded frames per action, decoded recorded frames, handshake. Not needed when `capabilities.chat` is false. |
-| Sessions | `sessions_store.rs` | Listing, tree and transcript over fixture sessions in `business/tests/fixtures/sessions/acme/`. |
+| Sessions | `sessions_store.rs`, `sessions_claude.rs`, `sessions_claude_transcript.rs` | Listing, tree and transcript over fixture sessions in `business/tests/fixtures/sessions/acme/` (Claude Code: `sessions/claude/`, synthetic files shaped after the real structure, with `attachment` and `api-request*` lines that must stay out). |
 | CLI sessions | `sessions_opencode.rs`, `sessions_opencode_transcript.rs`, `blocking_runner.rs` | A replay `BlockingRunner` returns recorded CLI output (`business/tests/fixtures/sessions/opencode/`): list, empty list, transcript paging, files touched, delete, other-project filtering, invalid ids spawn nothing. `blocking_runner.rs` runs `StdRunner` against a real child process. |
-| CLI actions | `cli_actions.rs` | Argument construction, validation errors, dry run, failure line. |
-| Chat engine | `agent_session.rs`, `agent_manager.rs`, `agent_dialogs.rs`, `agent_failures.rs` | The real session engine against `fake_agent`. A non-RPC engine has its own set, for OpenCode `opencode_engine*.rs`, `opencode_launch.rs`, `opencode_http.rs` and the mapper tests, over recordings of the real server in `business/tests/fixtures/opencode/server/` and scenarios in `business/tests/fixtures/streams/opencode_*.jsonl`. |
-| Recommended setup | `setup_status.rs`, `setup_mcp_register.rs` | `setup_status`: skills and MCP state of your harness on an empty machine, with the skills installed and with the MCP entry present (build the fixture files in a temp home). `setup_mcp_register.rs`: the `mcp.json` merge for your `also_read` files. `setup_mcp_register_opencode.rs`: the same for a JSONC file (a file with comments gives `ManualEdit`, nothing written). The installer itself is harness-independent (`setup_installer.rs`). |
-| Share setup | `sync_export.rs`, `sync_import.rs`, `sync_import_apply.rs` (helpers in `business/tests/sync_support/`) | Export: what your fixture home yields and what is excluded, with no secret literal in the code or file. Import: statuses on an empty machine and with items present, the exact CLI steps (recording `ProcessRunner`, zero runs for hostile values), idempotent second apply, MCP merge keeps other keys and never overwrites. `sync_codec.rs` and `sync_validate.rs` are harness-independent. |
+| CLI actions | `cli_actions.rs`, `claude_cli_actions.rs` | Argument construction, validation errors, dry run, failure line. |
+| Chat engine | `agent_session.rs`, `agent_manager.rs`, `agent_dialogs.rs`, `agent_failures.rs` | The real session engine against `fake_agent`. A non-RPC engine has its own set, for OpenCode `opencode_engine*.rs`, `opencode_launch.rs`, `opencode_http.rs` and the mapper tests, over recordings of the real server in `business/tests/fixtures/opencode/server/` and scenarios in `business/tests/fixtures/streams/opencode_*.jsonl`. For Claude Code: `claude_launch.rs`, `claude_wire*.rs`, `claude_mapper*.rs`, `claude_tools.rs`, `claude_stats.rs` (the pure `claude_stream` code over the scrubbed recordings in `business/tests/fixtures/claude/stream/`) and `claude_engine*.rs` (the engine against `fake_agent --dialect claude` and the scenarios in `business/tests/fixtures/streams/claude_*.jsonl`). |
+| Recommended setup | `setup_status.rs`, `setup_mcp_register.rs` | `setup_status`: skills and MCP state of your harness on an empty machine, with the skills installed and with the MCP entry present (build the fixture files in a temp home). `setup_mcp_register.rs`: the `mcp.json` merge for your `also_read` files. `setup_mcp_register_opencode.rs`: the same for a JSONC file (a file with comments gives `ManualEdit`, nothing written). `setup_status_claude.rs` and `setup_mcp_register_claude.rs`: the marketplace skills state and the `claude mcp add-json` / `remove` runs of `McpTarget::ClaudeCli`, over a recording `ProcessRunner`. The installer itself is harness-independent (`setup_installer.rs`). |
+| Share setup | `sync_export.rs`, `sync_import.rs`, `sync_import_apply.rs`, `sync_export_claude.rs`, `sync_import_claude.rs` (helpers in `business/tests/sync_support/`) | Export: what your fixture home yields and what is excluded, with no secret literal in the code or file. Import: statuses on an empty machine and with items present, the exact CLI steps (recording `ProcessRunner`, zero runs for hostile values), idempotent second apply, MCP merge keeps other keys and never overwrites. `sync_codec.rs` and `sync_validate.rs` are harness-independent. |
 | Fixtures | `mock_fixtures.rs` | Add the harness's views and catalog to the exported mock fixtures. |
 
 **Fake agent.** `fake_agent --dialect opencode` is a scripted `opencode serve` (an HTTP server on `127.0.0.1` with its own
 scenario steps: `allow`, `expect`, `hold`, `sse`, `listen`). Its step format is documented at the top of
-`business/src/bin/fake_agent/opencode.rs`. For the other dialects, `business/src/bin/fake_agent.rs` plays a JSONL scenario: `{"emit": {...}}` writes a frame,
+`business/src/bin/fake_agent/opencode.rs`. `fake_agent --dialect claude` is a scripted `claude` in stream-json mode: it reads NDJSON frames on stdin, answers control
+requests and can replay frames of a recording (`replay`, `include`, `$name` captures), documented at the top of
+`business/src/bin/fake_agent/claude.rs`. For the other dialects, `business/src/bin/fake_agent.rs` plays a JSONL scenario: `{"emit": {...}}` writes a frame,
 `{"expect": "get_state", "reply": {...}}` waits for a request of that type and answers it, `{"exit": 1}`,
 `{"hang": true}`, `{"stderr": "..."}`. Add scenarios under `business/tests/fixtures/streams/` (for example
 `acme_startup.jsonl`, `acme_basic.jsonl`) and start them with `ScenarioSpawner` from

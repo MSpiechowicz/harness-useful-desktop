@@ -11,6 +11,8 @@ not guaranteed, it says so under [Limits](#limits).
 - The app itself makes two kinds of network request, both to GitHub and both possible to turn off: the update check and
   download (only when the build carries an updater key), and the companion release lookup (Harness Memory's included).
   See [Network](#network).
+- The app runs your own, unmodified `claude`, signed in the way you signed in. It offers no Claude login and never
+  reads Claude Code's login store or tokens. See [Claude Code](#claude-code).
 - The app never reads credential stores, databases, logs or private keys, even through a symlink. The one database in
   the picture is the project memory that the `harness-memory` server (a separate program from its own repository, which
   you install; your harnesses start it) opens directly with SQLite; the desktop app never opens it itself. See [Project memory](#project-memory).
@@ -21,7 +23,9 @@ not guaranteed, it says so under [Limits](#limits).
   off in Settings or remove the entry yourself), the `harness-desktop` entry (the app's own MCP server for hooks, added
   automatically on launch in release builds, or when you choose it in Recommended setup, until you remove the entry
   yourself), the `harness-dashboard` entry when you choose it in Recommended setup, and the MCP servers you
-  tick when you import a shared setup. An OpenCode config file that has comments is never rewritten
+  tick when you import a shared setup. Claude Code's global file (`~/.claude.json`) is never written by the app. Its
+  MCP servers change only when the app runs `claude mcp add-json` and
+  `claude mcp remove` in the user scope (see [Claude Code](#claude-code)). An OpenCode config file that has comments is never rewritten
   (the app shows the entry to paste or the plugin to remove instead). Switching project memory off does not rewrite such a file either: the app's
   own `harness-memory` entry stays in it, and Settings names the file and the entry so you can remove it yourself. An
   existing entry is never overwritten; the only change to one is the `command`
@@ -133,11 +137,12 @@ Everything else:
   client. What a hook adds to a prompt, and a command hook's redacted output, are sent by the harness to its model
   provider like the rest of the prompt. A command a hook runs may open connections of its own: that is the command you
   approved.
-- Harness CLIs make their own provider requests. Extension actions (`omp plugin install`, `pi install`, `opencode plugin <module> -g`) run the CLI,
+- Harness CLIs make their own provider requests. Extension actions (`omp plugin install`, `pi install`, `opencode plugin <module> -g`, `claude plugin install`) run the CLI,
   which may download packages. The UI asks first and previews with the CLI's dry-run flag where one exists. Recommended
   setup installs the Harness Skills for OMP the same way (`omp plugin marketplace add`, then `omp plugin install` at
   user scope, through `extension_action`, after you confirm). For PI it runs `pi install` of the skills' package the same
-  way. For OpenCode it runs the Harness Skills installer (see the Network table). Removing an OpenCode plugin runs nothing:
+  way. For Claude Code it runs `claude plugin marketplace add` and `claude plugin install` of the skills' plugin at user
+  scope the same way, after you confirm. For OpenCode it runs the Harness Skills installer (see the Network table). Removing an OpenCode plugin runs nothing:
   it edits a local file.
 - Share setup opens no connection. Export and import read and write local files; an import's marketplace, plugin and
   package installs go through the harness CLI, which fetches from the sources in the setup you confirmed, exactly as
@@ -160,11 +165,11 @@ a separate program and is not covered by these rules: it opens its own database,
 
 | Rule | Entries |
 | --- | --- |
-| Extensions | `db`, `db-wal`, `db-shm`, `db-journal`, `sqlite`, `sqlite3`, `log`, `pem`, `key`, `p12`, `pfx` |
-| Exact names | `auth.json`, `mcp-auth.json`, `install-id`, `auth-token`, `models-store.json`, `gpu_cache.json`, `credentials`, `credentials.json`, `.env`; `prompt-history.jsonl` directly below an `opencode` directory |
-| Name prefixes | `.env.`, `id_rsa`, `id_ed25519` |
+| Extensions | `db`, `db-wal`, `db-shm`, `db-journal`, `sqlite`, `sqlite3`, `log`, `pem`, `key`, `p12`, `pfx`, `heapsnapshot` |
+| Exact names | `auth.json`, `mcp-auth.json`, `install-id`, `auth-token`, `models-store.json`, `gpu_cache.json`, `credentials`, `credentials.json`, `.env`, `.credentials.json`, `mcp-needs-auth-cache.json`, `policy-limits.json`, `policy-limits.stamp.json`; `prompt-history.jsonl` directly below an `opencode` directory; `history.jsonl`, `remote-settings.json`, `stats-cache.json` directly in a Claude Code config directory |
+| Name prefixes | `.env.`, `id_rsa`, `id_ed25519`, `.claude.json.backup` (Claude Code's copies of its global file) |
 | Prefix and suffix | `opencode.` ... `.dat` (OpenCode desktop state: `opencode.settings.dat`, `opencode.global.dat`, `opencode.workspace.*.dat`) |
-| Directories | `terminal-sessions`, `url-search`; `blobs` below an `agent` directory; `storage`, `repos`, `snapshot`, `tool-output`, `plans` directly below an `opencode` directory; `node_modules` directly below `.cache/opencode` (or `cache/opencode`) |
+| Directories | `terminal-sessions`, `url-search`, `paste-cache`, `shell-snapshots`, `file-history`, `session-env`; `backups`, `statsig`, `debug`, `uploads`, `image-cache`, `chrome`, `ide` and `feedback*` directly in a Claude Code config directory, its `plugins/data`, and `tool-results` below a `projects` directory; `blobs` below an `agent` directory; `storage`, `repos`, `snapshot`, `tool-output`, `plans` directly below an `opencode` directory; `node_modules` directly below `.cache/opencode` (or `cache/opencode`) |
 
 `SafeReader` also:
 
@@ -200,7 +205,16 @@ substitution in an OpenCode config (it shows the reference, like `{env:...}`, by
 only from `opencode session list --format json` and `opencode export <id>`, never from the database (see
 [Process spawning](#process-spawning)).
 
-The `canary` tests (`business/tests/canary.rs`, `adapter_canary.rs`) hide a marker in denied files and secret values of
+Claude Code's login store (`.credentials.json`), its cached account and policy state, the prompts you typed
+(`history.jsonl`), pasted text, shell snapshots, file edit history, per-session environments, backups of the global
+file, debug logs, uploads, the IDE connection locks (which hold an auth token), the full tool outputs of a session
+(`<session>/tool-results/`) and plugin data fall under these rules. The scoped names (`history.jsonl`, `backups`, `debug`,
+`ide`, ...) match only directly inside a Claude Code config directory: a folder named `.claude`, or the absolute
+directory `CLAUDE_CONFIG_DIR` names (`Env::from_process` registers it with `add_claude_root`, `business/src/security/deny.rs`),
+so renaming the directory does not lift them. A project folder with such a name stays readable. The macOS Keychain is never
+asked for anything. See [Claude Code](#claude-code).
+
+The `canary` tests (`business/tests/canary.rs`, `adapter_canary.rs`, `deny_claude.rs`) hide a marker in denied files and secret values of
 fixture homes and fail if any read or view contains it.
 
 ## Secret redaction
@@ -375,6 +389,11 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
   process tree, see [Limits](#limits)), so every wait above is bounded by those limits. A command that exited normally
   gets 2 seconds for any process it left holding its output, then that process group, if any member is left, is killed
   too (on Unix only: on Windows such a process is left running).
+- **Claude Code.** Every `claude` child gets `DISABLE_UPDATES=1` (`SPAWN_ENV`, `business/src/harnesses/claude/mod.rs`,
+  through `Harness::spawn_env`), so no probe, plugin action, MCP change or chat updates the binary behind your back. The
+  app runs only `claude --version`, `claude plugin …`, `claude mcp add-json` and `claude mcp remove` (all with an argument
+  list and no shell) and the chat process described in [Claude Code](#claude-code). It never runs `claude mcp list` or
+  `claude mcp get` (they start the servers), or any Claude Code login command.
 - **Binary resolution.** `resolve_binary` uses absolute `PATH` entries only, then the standard install directories. A
   relative or empty `PATH` entry is ignored, so a project cannot plant a binary. A user-chosen override must be an
   absolute existing file whose name is exactly the harness binary name, and is set only through the native file
@@ -384,12 +403,16 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
   `A-Z a-z 0-9 @ . _ / : + = , -`, no URL credentials. An OpenCode plugin install passes `cli_target` with the stricter
   npm module kind: an npm registry name (`name` or `@scope/name`, at most 214 characters) with an optional version or
   tag, never a path, URL, `file:`, `github:` or `git+` spec. The argv is then exactly `opencode plugin <module> -g`
-  (user scope only, no `-f`). A name that fails any check is refused before anything is spawned, without echoing it.
+  (user scope only, no `-f`). A Claude Code plugin or marketplace target passes `cli_target` and runs
+  `claude plugin … --scope user --json` (`--scope project` only for a project-scope install you chose, never `-y`/`--yes`,
+  see [Claude Code](#claude-code)). A name that fails any check is refused before anything is spawned, without echoing it.
   OpenCode has no preview flag, so a dry run never starts the CLI. Windows `.cmd`/`.bat` shims (re-parsed by `cmd.exe`) only
   receive arguments that pass `is_safe_arg` after the leading dashes are removed. The webview sends typed actions,
   never command lines.
 - **Flags never passed.** `--auto-approve`, `--auto`, `--yolo`, `--dangerously-skip-permissions`, `--no-ui`, login and
-  credential RPCs (`get_login_providers`), `set_ask_dialog`. OpenCode is never run with `auth login`, `providers login`,
+  credential RPCs (`get_login_providers`), `set_ask_dialog`. For Claude Code also `--allow-dangerously-skip-permissions`,
+  `--permission-mode bypassPermissions`, a switch to `bypassPermissions` over the control protocol, `--permission-prompts
+  none` and `--bare` (see [Claude Code](#claude-code)). OpenCode is never run with `auth login`, `providers login`,
   `auth logout`, `mcp auth`, `mcp logout`, `account`, `db`, `mcp list`, `mcp debug` (the last two start MCP servers) or
   `export` without a session id. `scripts/check-forbidden.ts` rejects, with no opt-out, the four flags (`"--auto"` also
   as `"--auto=`), an `"auth"` or `"providers"` literal followed by `"login"` on one line or later in the same argument
@@ -433,6 +456,15 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
   project's config, another global file or a plugin file). In those cases nothing is written, and the result names the
   file and what to remove yourself. Removing a plugin that is not listed changes nothing. A dry run only reads. The
   webview sends the plugin's id, never a path.
+- **Claude Code MCP registration.** The user scope of Claude Code's global file is rewritten by every running `claude`,
+  so the app never writes it (`Shape::ClaudeCli` refuses a file write, `business/src/ecosystem/mcp_merge.rs`). Recommended
+  setup, project memory, the app's own `harness-desktop` entry and a Share import change it by running `claude mcp
+  add-json --scope user <name> <json>` and `claude mcp remove --scope user <name>` (`business/src/ecosystem/mcp_cli.rs`).
+  The decisions are the ones the file merge makes (an entry you own is never changed, a removed one is not added back,
+  `add-json` refuses a name the user scope has), made on a read of the file. The entry is `{"type": "stdio", "command":
+  "<absolute path>", "args": ["mcp"]}`. Moving an owned entry to a new program path is a remove and an add, and the old
+  entry is added back when the add fails. Each run has a 60 s limit, no shell and no retry. A failed run is reported
+  as a refusal without the CLI's output, and logs hold the harness, the command, the server and the CLI's redacted last line.
 - **Project memory registration.** At every launch, in the background and only while `memoryEnabled` is on (the
   default) and the server is installed, the shell (`src-tauri/src/memory_setup.rs`) registers it in the user MCP file
   (`mcp.json`, or OpenCode's global config file) of every detected harness whose adapter has one (`register_memory_mcp`, `business/src/ecosystem/memory_register.rs`);
@@ -716,6 +748,98 @@ OpenCode 2 gets the same guarantees through its own engine (`business/src/agent/
 - **Orphans.** Like every agent process, the server is recorded while it runs, and the next app start kills one a
   crashed app left behind (see [Process spawning](#process-spawning)).
 
+## Claude Code
+
+The app chats with and manages Claude Code (`claude`) as a harness: adapter `business/src/harnesses/claude/`, the pure
+stream-json mapper `business/src/claude_stream/`, the chat engine `business/src/agent/claude/`. The plan and its
+verified protocol facts are in [claude-code.md](plans/claude-code.md). **The chat is switched off for now**
+(`capabilities.chat` is false): the engine core exists, but permission prompts, questions, the approval modes and the
+session operations (new, fork, clone, rename, compact, export) arrive in a later step ("coming in S9" for the approvals), so the app starts no
+Claude Code chat yet. Everything else below is in use: detection, the Config and Extensions views, Sessions, plugin and
+marketplace actions, Recommended setup and Share setup.
+
+- **Terms and login.** Anthropic's terms ([code.claude.com/docs/en/legal-and-compliance](https://code.claude.com/docs/en/legal-and-compliance),
+  read 2026-10-22) do not let a third-party product offer claude.ai login or "collect, store, or intermediate Claude.ai
+  credentials or session tokens", and allow "an end user ... signing in to the unmodified Claude Code binary with their own
+  Claude subscription". So the app spawns your own installed, unmodified `claude`, which uses the login you made through
+  Anthropic's own flow. It offers no login, runs no login command, never reads `.credentials.json` or the macOS Keychain,
+  never sees a token, and passes nothing that strips an authentication method (`--bare` is rejected by the guard). When
+  Claude Code reports that it is not signed in, the chat shows "Claude Code is not signed in. Sign in from a terminal:
+  run claude, then type /login." (`SIGN_IN_ERROR`, `business/src/claude_stream/mapper/turns.rs`).
+- **What it reads.** Through `SafeReader`: the settings layers (`/etc/claude-code/managed-settings.json` and
+  `managed-settings.d/*.json` or the macOS and Windows managed folders, `~/.claude/settings.json`, and the project's
+  `.claude/settings.json` and `.claude/settings.local.json`), shown with the usual redaction plus Claude's own secret
+  settings (`apiKeyHelper`, `awsCredentialExport`, `awsAuthRefresh`, `otelHeadersHelper` are shown as hidden commands,
+  `pluginConfigs` is hidden whole, secret-looking words in MCP `args` are masked, `env` and `headers` are hidden). From
+  the global file (`~/.claude.json`, or `$CLAUDE_CONFIG_DIR/.claude.json`) only an allow-list: the top-level `mcpServers`
+  and, for the open project's entry in `projects`, `mcpServers`, `enabledMcpjsonServers`, `disabledMcpjsonServers`,
+  `disabledMcpServers`, `allowedTools` and `hasTrustDialogAccepted` (`harnesses/claude/config/global_file.rs`). The
+  plugin registries (`plugins/installed_plugins.json`, `plugins/known_marketplaces.json` and the marketplace catalogs
+  in `.claude-plugin/marketplace.json`), the skills, agents and commands files and the `.mcp.json` of the project and
+  of enabled plugins. The CLAUDE.md files are listed by name and layer, never read for content. Sessions
+  (`<config>/projects/<slug>/<uuid>.jsonl`, plus the `<uuid>/custom-title.json` rename sidecar) are read without the
+  `api-request*` lines (they hold the full system prompt, with your CLAUDE.md and hook context), the `attachment` lines
+  and subagent lines. The running-session check reads `<config>/sessions/<pid>.json` (at most 64 KiB).
+- **What it never reads.** `.credentials.json`, the Keychain, `oauthAccount`, `userID`, `machineID`, `githubRepoPaths` and
+  every other project's entry in the global file (the allow-list never copies them), and the folders and files of the
+  [deny list](#files-the-app-never-reads): `history.jsonl`, `paste-cache/`, `shell-snapshots/`, `file-history/`,
+  `session-env/`, `backups/`, `statsig/`, `debug/`, `uploads/`, `image-cache/`, `chrome/`, `ide/`, `feedback*/`,
+  `plugins/data/`, `projects/**/tool-results/`, `remote-settings.json`, `policy-limits*.json`, `stats-cache.json`,
+  `mcp-needs-auth-cache.json`, `.claude.json.backup*` and `*.heapsnapshot`. With `CLAUDE_CONFIG_DIR` set to an absolute
+  path, `Env::from_process` registers that directory with `add_claude_root`, so the same private names stay unread
+  under a renamed directory. A relative `CLAUDE_CONFIG_DIR` is ignored: the app keeps using `~/.claude`.
+- **Secret variables are presence-only.** `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `CLAUDE_CODE_OAUTH_TOKEN`,
+  `CLAUDE_CODE_OAUTH_REFRESH_TOKEN`, `ANTHROPIC_CUSTOM_HEADERS`, `AWS_BEARER_TOKEN_BEDROCK`, `ANTHROPIC_FOUNDRY_API_KEY` and
+  `ANTHROPIC_FOUNDRY_AUTH_TOKEN` are in `PRESENCE_VARS` (`business/src/env.rs`): `Env` records that they are set and
+  never their value, and the Config view says "is set in the environment ... Its value is not shown". `CLAUDE_CONFIG_DIR` is
+  captured. `CLAUDE_CODE_USE_BEDROCK`, `_VERTEX` and `_FOUNDRY` are captured and shown as the provider in use. The
+  app does not remove these variables from the children it starts, so `claude` sees what your shell gave the app.
+- **What it writes.** Never the global file (`.claude.json`) and never a settings file. Claude Code's MCP servers change
+  only through `claude mcp add-json --scope user` and `claude mcp remove --scope user` (see
+  [Process spawning](#process-spawning)), and plugins and marketplaces only through `claude plugin ...` (the CLI writes
+  its own registries). Deleting a session in the Sessions view removes, without reading them and never following a symlink:
+  the `<uuid>.jsonl` file, the `<uuid>/` folder next to it (subagent transcripts, tool outputs, the rename sidecar),
+  `<uuid>.ccr-tip.json` and `<uuid>.precompact.json` next to it, `<config>/file-history/<uuid>/` and
+  `<config>/session-env/<uuid>/`. It is refused (`Forbidden`) while a `<config>/sessions/<pid>.json` names the session
+  and that process may still run (`business/src/harnesses/claude/sessions/delete.rs`).
+- **Spawn environment.** Every `claude` child gets `DISABLE_UPDATES=1` (see [Process spawning](#process-spawning)).
+- **The chat process.** One `claude` per chat, started by `harnesses/claude/launch.rs` with exactly
+  `--output-format stream-json --verbose --input-format stream-json --permission-prompt-tool stdio
+  --include-partial-messages`, and `--resume <id>` for a saved session (the id must be a lowercase UUID). The app
+  talks to it over stdin and stdout only: no port, no password, no server. `--permission-prompt-tool stdio` sends every
+  permission prompt to the app instead of the terminal. No model flag, `--permission-mode`, `--settings`, `--setting-sources`
+  or `--mcp-config` is passed, so the chat runs on your default model and, as in your terminal, loads your user, project,
+  local and managed settings, hooks, plugins and MCP servers. The `initialize` request registers no app hooks. Control
+  requests the engine does not handle are answered with an error and a hook callback with no opinion. The engine's frame
+  reader caps a line at 4 MiB, and every control request has a time limit.
+- **Forbidden flags.** The app never starts Claude Code in the `bypassPermissions` mode and never passes
+  `--dangerously-skip-permissions`, `--allow-dangerously-skip-permissions`, `--bare` or `--permission-prompts none`.
+  `scripts/check-forbidden.ts` rejects them with no opt-out: `skip-permissions-flag` (both skip flags, in any source
+  file), `claude-bypass-mode` (`--permission-mode bypassPermissions`, and `SetPermissionMode` together with
+  `bypassPermissions` in Rust), `claude-no-prompts` (`--permission-prompts none`) and `claude-bare` (`"--bare"` in
+  `business/src/claude_stream/`, `agent/claude/` and `harnesses/claude/`, since `--bare` is a valid git flag elsewhere). The plan keeps the
+  Yolo approval mode off for Claude Code for the same reason, since it would need `--allow-dangerously-skip-permissions`.
+- **Approvals.** Until the approvals step lands, the engine holds a permission prompt, a question or a dialog of Claude Code
+  without answering it (`Live::asks`, `business/src/agent/claude/mod.rs`) and denies the open ones when a turn is aborted.
+  Nothing allows a tool on your behalf. This cannot occur while the chat is off.
+- **What the chat shows.** Tool results from Claude Code pass `redact_text` before they reach the screen, and so do the
+  texts of subagent tasks and the process's stderr lines. Assistant text, thinking and tool arguments are shown as
+  produced, and saved sessions are shown as written: they are your own session data (see [Secret redaction](#secret-redaction)).
+- **Trust boundary.** Claude Code in stream-json mode shows no folder trust prompt (recorded with 2.1.304), and a project's
+  `.claude/settings.json` hooks, `.mcp.json` servers and plugins run as you whatever the app does. The app's own
+  hooks stay app-side, so nothing runs twice. Open an untrusted repository the way you would with `claude -p`.
+- **Plugin installs.** `claude plugin install` and `update` never get `-y`/`--yes`. It would accept a command a marketplace
+  declares (a command-source plugin or a `headersHelper`) without showing it to a person. Without a terminal such an install
+  fails, and you install it from a terminal where Claude Code asks (`harnesses/claude/cli.rs`). The plugin actions run in
+  the user scope, with `--json` so the exit code and the result line decide.
+- **Share setup.** A Claude Code export carries marketplaces (GitHub `owner/repo` and `https://` sources, not pinned),
+  user plugins as `name@marketplace` and the user scope's MCP servers. The import runs `claude plugin marketplace add
+  <source> --scope user --json`, `claude plugin install <id> --scope user --json` and `claude mcp add-json --scope user`, and a
+  Claude Code server whose command, arguments or URL holds `${` is refused, because Claude Code expands it from this
+  machine's environment. Claude Code has no way to write a server switched off, so a server that declares env or header
+  keys is added switched on and without values: a stdio server runs with Claude Code's environment until you add them.
+  See [Shared setups](#shared-setups) and [share-setup.md](share-setup.md).
+
 ## Shared setups
 
 Share setup (Settings) exports the extensions and MCP servers of your harnesses as a `hud1:` string or a `.json` file
@@ -748,6 +872,13 @@ config file: a `local` server as stdio, a `remote` one as http, with the key nam
 values, OAuth settings and other fields are never exported, and a server whose command, arguments or URL hold a
 `{env:…}` or `{file:…}` substitution is left out whole.
 
+**Claude Code.** Its export has three kinds. Marketplaces are the entries of `plugins/known_marketplaces.json`, shared as
+GitHub `owner/repo` or `https://` sources (local, npm, `ssh`, plain `http` and pinned sources are left out). Plugins are the
+user-scope entries of `plugins/installed_plugins.json` as `name@marketplace`.
+MCP servers are the top-level `mcpServers` of the global file (the user scope), with the key names of `env` and `headers`.
+The values, a project's or local scope's servers and every other part of the global file are never read for it. A server
+whose command, arguments or URL holds a `${` is left out.
+
 **An import is untrusted input.** A pasted string or picked file is decoded defensively (`codec.rs`): pasted text at
 most 128 KiB, compressed payload 96 KiB, decompressed JSON 256 KiB read through a capped reader (zip-bomb guard), at
 most 16 sections, 200 items per kind and 500 in total, serde_json's recursion limit kept. Every field of every item is
@@ -770,6 +901,9 @@ then validated in Rust (`validate.rs`, `validate_source.rs`, `validate_mcp.rs`, 
   `${VAR}` and `$NAME` on your machine and could send the value to the setup's author; secret flags in arguments are
   refused. Machine paths in arguments and URLs are left out on export and, as free-form text, not checked on import:
   read them in the review.
+- Claude Code items: a plugin id is `name@marketplace` only (a bare name would install from whichever registered
+  marketplace lists it), and a server's command, arguments and URL may hold no `${`, not even a declared `${NAME}`,
+  since Claude Code expands `${NAME}` and `${NAME:-default}` from this machine's environment.
 - OpenCode items: a plugin id is a bare npm package name (no `name@marketplace`, no marketplace), its version a
   registry version, range or tag, and the install runs `opencode plugin <id>@<version> -g`. A server's command, arguments
   and URL may hold no `{env:…}` or `{file:…}` substitution in any case, since OpenCode would expand it on your machine
@@ -782,7 +916,8 @@ are ignored and only counted. Secret and machine-path detection in free-form arg
 review lists the exact command line or `mcp.json` entry of every item so you can read what would run.
 
 **What an import can do.** Add only, in the user scope: `omp plugin marketplace add`, `omp plugin install --scope user`,
-`pi install` (no `--local`), `opencode plugin <module> -g`, and an atomic merge of MCP entries into the harness's user
+`pi install` (no `--local`), `opencode plugin <module> -g`, `claude plugin marketplace add <source> --scope user --json`, `claude plugin install <id> --scope user
+--json`, `claude mcp add-json --scope user <name> <json>` (one run per server, and the app never writes `~/.claude.json`) and an atomic merge of MCP entries into the harness's user
 `mcp.json` (OpenCode: the `mcp` object of its global config file). It never uninstalls,
 upgrades, downgrades, overwrites or touches project scope, preferences or harness settings. Commands are built in Rust
 from validated fields and go through `cli_target` and the harness's own `cli_action`; the webview sends only a plan id,
@@ -803,6 +938,12 @@ never a path from the bundle. An OpenCode server is written as `{"type": "local"
 overwritten: the same definition counts as already present, another one as a conflict. If the OpenCode config file has
 comments, nothing is written and the server is skipped as `manualEdit`, with the entry to paste. The merge is gated by the plan's installed state: a harness that was not installed at
 review time has no file, so its servers are skipped.
+
+A Claude Code server is added with the JSON `type` and `command` and `args`, or `type` and `url`, nothing else. Claude Code has no
+`enabled` field, so a server that declares env or header keys is added switched on and without values, and a stdio server
+sees Claude Code's environment until you add them in Claude Code. The review checks only the user scope for the name: a
+local or project server of the same name shadows the imported one. `add-json` refuses a name the user scope has, so
+nothing is overwritten.
 
 **Name clashes with other config layers.** OpenCode deep-merges its config layers by server name, so an imported server
 named like one from another layer could inherit that server's headers or env. The review therefore checks more than the
@@ -1320,6 +1461,13 @@ command is not granted). Process errors name only the program's file name (`Exec
   model request per user run that earns one. On Windows a timed-out command kills its process tree, which can miss a process
   whose parent already exited (see Windows above). A project hook matches the project root by its exact path, so a project that moves loses its project hooks until
   they are saved again.
+- **Claude Code runs your settings.** The chat loads your user, project, local and managed Claude Code settings, hooks,
+  plugins and MCP servers, and stream-json mode shows no folder trust prompt, so an untrusted repository's
+  `.claude/settings.json` and `.mcp.json` act as they would in `claude -p`. Claude Code's chat is off until its approvals
+  exist. The global file is rewritten by every running `claude`, so an MCP entry can change under the app: it reads the file
+  before it decides, and once more when a run fails. On Windows a `claude.cmd` batch shim refuses the JSON argument of `claude
+  mcp add-json` (the batch-safety check), so such a change fails there. The MCP changes are not tested against a real
+  `claude mcp add-json` yet.
 - **Heuristics.** The entropy rule and key-name rules can hide harmless values and can miss unusual secrets. The same
   holds for Share setup: secret flags and machine paths in free-form MCP arguments and URLs are detected by patterns,
   so an exotic form can be missed on export, and host names are always part of what is shared.
