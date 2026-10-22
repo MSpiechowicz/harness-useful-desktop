@@ -179,7 +179,11 @@ engine `agent/codex/`. Stdio only: no ports, no password, no daemon.
 | Step | State |
 | --- | --- |
 | Research + plan | done, approved 2026-10-22 |
-| S0 recording | done: 10 scenarios in `business/tests/fixtures/codex/app_server/`, facts below |
+| S0 recording | done (a9b643c): 10 scenarios in `business/tests/fixtures/codex/app_server/`, facts below |
+| S1 skeleton | done (a2703b9). Light badge `#1d64c8` (dashboard blue too faint on its wash) |
+| Track A: S2, S3, S5, S6 | running in `/home/frogius/Projekty/.wt-cx/a` (wip/cx-a) |
+| Track C: S7 wire + mapper + fake_agent dialect | running in `/home/frogius/Projekty/.wt-cx/c` (wip/cx-c) |
+| Next | S4 sessions + S8 engine after C merges, then S9, S10, S11, S12, S13, reviews 3+3 |
 
 ## Verified facts (S0 recording, 2026-10-22)
 
