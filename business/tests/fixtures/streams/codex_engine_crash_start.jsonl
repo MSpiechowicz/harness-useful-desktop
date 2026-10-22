@@ -1,0 +1,3 @@
+// Codex exits before it answers the handshake.
+{"stderr": "error: unexpected argument found"}
+{"exit": 2}

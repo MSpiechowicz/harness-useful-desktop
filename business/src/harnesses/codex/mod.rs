@@ -8,14 +8,16 @@
 //! family MCP servers through `codex mcp` ([`McpTarget::CodexCli`]); Harness Skills have no Codex
 //! adapter yet. Share setup shares its marketplaces, plugins and MCP servers
 //! ([`Harness::share_support`], an imported server is added through `codex mcp add`). Sessions
-//! are read through `codex app-server` ([`sessions`]). Chat is not available yet, and the catalog
-//! lists every command as unsupported. The login store (`auth.json`) and Codex's private files are
+//! are read through `codex app-server` ([`sessions`]). The chat engine runs `codex app-server`
+//! too ([`launch`], [`ChatProtocol::CodexAppServer`]) but chat stays off until its approvals and
+//! session operations land, and the catalog lists every command as unsupported. The login store (`auth.json`) and Codex's private files are
 //! never read ([`crate::security::deny`]).
 
 mod catalog;
 mod cli;
 mod config;
 mod extensions;
+mod launch;
 mod modes;
 mod paths;
 pub mod sessions;
@@ -24,6 +26,7 @@ mod settings;
 pub use catalog::CodexCatalog;
 pub use cli::codex_cli_action;
 pub use extensions::{MarketplaceRecord, PluginRecord, marketplace_records, plugin_records};
+pub use launch::{APP_SERVER_ARGS, codex_launch_spec, is_thread_id};
 pub use paths::{PROJECT_DIR_NAME, codex_home};
 pub use settings::{CONFIG_FILE, user_config_path};
 
@@ -86,14 +89,19 @@ impl Harness for Codex {
         Ok(extensions::extensions_view(env, project))
     }
 
-    /// Chat with Codex is not available yet.
-    fn launch_spec(&self, _request: &LaunchRequest<'_>) -> Result<ExecSpec> {
-        Err(chat_not_available())
+    /// `codex app-server` in the project (see [`launch`]); the manager does not offer it yet
+    /// (`capabilities.chat` is false).
+    fn launch_spec(&self, request: &LaunchRequest<'_>) -> Result<ExecSpec> {
+        launch::codex_launch_spec(request)
     }
 
-    /// Never reached: chat is off (`capabilities.chat` is false).
+    /// Never reached: Codex chats over [`ChatProtocol::CodexAppServer`], not RPC.
     fn dialect(&self) -> &'static dyn RpcDialect {
         &PiDialect
+    }
+
+    fn chat_protocol(&self) -> ChatProtocol {
+        ChatProtocol::CodexAppServer
     }
 
     /// `<home>/sessions`, shared by every project (see [`paths`]). Shown only: the sessions are
@@ -186,10 +194,6 @@ impl Harness for Codex {
     fn supported_versions(&self) -> &'static [&'static str] {
         &["0.154.", "0.155.", "0.156."]
     }
-}
-
-fn chat_not_available() -> BusinessError {
-    BusinessError::Unsupported("Codex chat is not available yet".to_owned())
 }
 
 /// Codex has no session files the app reads; its sessions go through [`Harness::cli_sessions`].

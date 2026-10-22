@@ -1,0 +1,6 @@
+// Codex dies in the middle of a turn.
+{"include": "codex_engine_open.jsonl"}
+{"expect": "turn/start", "reply": {"turn": {"id": "turn-crash", "items": [], "itemsView": "notLoaded", "status": "inProgress", "error": null, "startedAt": null, "completedAt": null, "durationMs": null}}}
+{"emit": {"method": "turn/started", "params": {"threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "turn": {"id": "turn-crash", "items": [], "status": "inProgress", "error": null}}, "emittedAtMs": 1}}
+{"stderr": "thread 'main' panicked"}
+{"exit": 101}

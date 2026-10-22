@@ -92,6 +92,8 @@ pub enum ChatProtocol {
     OpenCodeServerV2,
     /// Claude Code's stream-json mode with its control protocol on stdin/stdout.
     ClaudeStream,
+    /// `codex app-server`: JSON-RPC on stdin/stdout.
+    CodexAppServer,
 }
 
 /// Where a harness keeps its files, resolved from an [`Env`] (and the project, if any).

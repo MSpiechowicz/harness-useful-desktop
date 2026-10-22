@@ -12,7 +12,8 @@
 //!     manager does not offer it yet);
 //!   - [`OpenCodeV2Session`] — the same for OpenCode 2's `/api` server;
 //!   - [`ClaudeSession`] — `claude` in stream-json mode with its control protocol (a preview),
-//!     started again when the chat moves to another session.
+//!     started again when the chat moves to another session;
+//!   - [`CodexSession`] — `codex app-server` over JSON-RPC on stdio (chat not offered yet).
 //! - [`EventSink`] — where the normalized [`AgentEnvelope`](crate::model::AgentEnvelope)s go
 //!   (the desktop shell adapts it to a Tauri channel).
 //! - [`DeltaCoalescer`] — merges streaming deltas within [`COALESCE_WINDOW`].
@@ -22,6 +23,7 @@
 
 mod claude;
 mod coalesce;
+mod codex;
 mod engine;
 mod io;
 mod launch;
@@ -41,6 +43,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 pub use claude::ClaudeSession;
 pub use coalesce::{COALESCE_WINDOW, DeltaCoalescer};
+pub use codex::CodexSession;
 pub use engine::{AgentSession, SessionLaunch};
 pub use manager::{AgentDeps, AgentManager, MAX_SESSIONS, Stopping};
 pub use opencode::OpenCodeSession;
@@ -88,6 +91,9 @@ pub struct SessionOptions {
     pub export_dir: Option<PathBuf>,
     /// See [`EVENT_SILENCE`].
     pub event_silence: Duration,
+    /// Where an engine that hands images to the agent as files (Codex) saves them; `None` is the
+    /// `attachments` folder in the app's data folder, never the project.
+    pub attachments_dir: Option<PathBuf>,
 }
 
 impl Default for SessionOptions {
@@ -101,6 +107,7 @@ impl Default for SessionOptions {
             clock: Arc::new(|| rfc3339(SystemTime::now())),
             export_dir: None,
             event_silence: EVENT_SILENCE,
+            attachments_dir: None,
         }
     }
 }
@@ -114,6 +121,7 @@ impl std::fmt::Debug for SessionOptions {
             .field("startup_deadline", &self.startup_deadline)
             .field("export_dir", &self.export_dir)
             .field("event_silence", &self.event_silence)
+            .field("attachments_dir", &self.attachments_dir)
             .finish_non_exhaustive()
     }
 }
