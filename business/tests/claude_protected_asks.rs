@@ -15,11 +15,11 @@ use harness_business::claude_stream::allow_list::{AllowKey, AllowList};
 use harness_business::claude_stream::mapper::{Ask, Hint, Mapped, PermissionAsk};
 use harness_business::claude_stream::permissions::{Always, permission_dialog};
 use harness_business::model::{AgentEvent, UiRequestKind};
-use harness_business::pi_family::touched::touched_paths;
 use pretty_assertions::assert_eq;
 use serde_json::json;
 
 /// The detail of a ProjectFiles key for `Write`.
+#[cfg(unix)]
 const PROJECT_FILES: &str = "Allows every Write call on files in this project until this chat ends";
 /// The detail of an exact key for `Write`.
 const EXACT: &str = "Allows this exact Write call again until this chat ends";
@@ -213,6 +213,8 @@ fn an_outside_write_in_ask_all_mode_is_kept_by_its_exact_input() {
 #[cfg(unix)]
 #[test]
 fn a_dangling_symlink_in_the_project_counts_as_outside_it() {
+    use harness_business::pi_family::touched::touched_paths;
+
     let dir = project();
     let project = dir.path();
     let away = tempfile::tempdir().expect("away");

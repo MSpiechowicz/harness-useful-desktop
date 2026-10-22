@@ -7,7 +7,7 @@ mod setup_support;
 
 use std::path::Path;
 
-use common::{CANARY, json_text, write_file};
+use common::{CANARY, write_file};
 use harness_business::BusinessError;
 use harness_business::ecosystem::setup_status;
 use harness_business::env::Env;
@@ -153,6 +153,8 @@ fn only_the_global_file_itself_opens_for_its_readers() {
 #[cfg(unix)]
 #[test]
 fn project_settings_linked_to_the_global_file_show_an_error_and_no_fields() {
+    use common::json_text;
+
     let home = tempfile::tempdir().unwrap();
     let dotfiles = home.path().join("dotfiles/claude.json");
     write_file(

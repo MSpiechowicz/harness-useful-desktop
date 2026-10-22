@@ -8,8 +8,10 @@ use std::sync::Mutex;
 use harness_business::env::{Env, OsKind};
 use harness_business::harness::{Harness, HarnessRegistry, first_semver, override_name_matches};
 use harness_business::harnesses::{Claude, Omp, OpenCode, Pi};
-use harness_business::model::{BinaryOverride, HarnessId, VersionSupport};
-use harness_business::process::{BoxFuture, ExecOutput, ExecSpec, ProcessRunner, TokioRunner};
+use harness_business::model::{HarnessId, VersionSupport};
+#[cfg(unix)]
+use harness_business::process::TokioRunner;
+use harness_business::process::{BoxFuture, ExecOutput, ExecSpec, ProcessRunner};
 use harness_business::{BusinessError, Result};
 use pretty_assertions::assert_eq;
 use tempfile::TempDir;
@@ -278,6 +280,8 @@ async fn a_launcher_script_finds_its_interpreter_outside_the_inherited_path() {
 #[cfg(unix)]
 #[tokio::test]
 async fn the_registry_detects_every_harness_and_honours_overrides() {
+    use harness_business::model::BinaryOverride;
+
     let home = TempDir::new().unwrap();
     let (env, _) = env_with_bin(&home);
     let custom = fake_binary(&home.path().join("custom"), "pi", "#!/bin/sh\necho 1.1.0\n"); // guard-allow: installer-shell
