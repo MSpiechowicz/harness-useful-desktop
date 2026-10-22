@@ -37,85 +37,45 @@
 //! After the last step the fake waits for stdin EOF and exits 0, as the CLI does. An `expect`
 //! that sees EOF exits 0 too; a failed `match` exits 4 with a message on stderr.
 
-use std::collections::HashMap;
-use std::io::Write;
-use std::path::{Path, PathBuf};
-use std::sync::mpsc::Receiver;
+use std::path::Path;
 
 use serde_json::{Map, Value, json};
 
-use crate::{check_match, fail, run_end_step, run_output_step, spawn_stdin_reader, substitute};
+use crate::check_match;
+use crate::recorded::{Dialect, Player, write};
 
 /// The project directory of the recordings.
 const RECORDED_PROJECT: &str = "/home/user/project";
 
 /// Plays `steps` (see the module docs) and exits.
 pub fn serve(steps: &[Value], scenario: &Path) -> ! {
-    let mut fake = Fake {
-        stdin: spawn_stdin_reader(),
-        unclaimed: Vec::new(),
-        captured: HashMap::new(),
-        dir: scenario.parent().map(Path::to_path_buf).unwrap_or_default(),
-        cwd: std::env::current_dir()
-            .map(|dir| dir.to_string_lossy().into_owned())
-            .unwrap_or_default(),
-    };
-
-    for step in steps {
-        fake.run(step);
-    }
-
-    while fake.stdin.recv().is_ok() {}
-    std::process::exit(0);
+    Player::play::<Claude>(steps, scenario, RECORDED_PROJECT, "out")
 }
 
-struct Fake {
-    stdin: Receiver<Value>,
-    unclaimed: Vec<Value>,
-    captured: HashMap<String, Value>,
-    /// The scenario's folder (replayed recordings are relative to it).
-    dir: PathBuf,
-    cwd: String,
-}
+struct Claude;
 
-impl Fake {
-    fn run(&mut self, step: &Value) {
-        if run_output_step(step) {
-            return;
-        }
-
-        let field = |name: &str| step.get(name);
-
-        if let Some(kind) = field("expect").and_then(Value::as_str) {
-            self.expect(kind, step);
-        } else if let Some(name) = field("respond").and_then(Value::as_str) {
-            let id = self.captured.get(name).cloned().unwrap_or(Value::Null);
-            self.answer(&id, step);
-        } else if let Some(frame) = field("emit") {
-            let times = field("times").and_then(Value::as_u64).unwrap_or(1);
-
-            for index in 0..times {
-                self.captured.insert("index".to_owned(), json!(format!("ask-{index}")));
-                let frame = self.substitute(frame);
-                write(&self.recorded(&frame, &[]));
-            }
-        } else if let Some(file) = field("replay").and_then(Value::as_str) {
-            self.replay(file, step);
-        } else {
-            run_end_step(step);
-        }
+impl Dialect for Claude {
+    fn kind(frame: &Value) -> Option<String> {
+        frame["type"].as_str().map(str::to_owned)
     }
 
-    fn expect(&mut self, kind: &str, step: &Value) {
+    fn index(index: u64) -> Value {
+        json!(format!("ask-{index}"))
+    }
+
+    fn expect(player: &mut Player, kind: &str, step: &Value) {
         let subtype = step.get("subtype").and_then(Value::as_str);
-        let frame = self.next_of(kind, subtype);
+        let frame = player.inbox.next(|frame: &Value| {
+            frame["type"] == kind
+                && subtype.is_none_or(|subtype| frame.pointer("/request/subtype") == Some(&json!(subtype)))
+        });
         let label = subtype.unwrap_or(kind);
         let name = step.get("as").and_then(Value::as_str).unwrap_or(label).to_owned();
 
         check_match(label, &frame, step);
 
         if kind == "user" {
-            self.captured.insert(name, frame["uuid"].clone());
+            player.captured.insert(name, frame["uuid"].clone());
             return;
         }
 
@@ -124,15 +84,14 @@ impl Fake {
         }
 
         let id = frame["request_id"].clone();
-        self.captured.insert(name, id.clone());
+        player.captured.insert(name, id.clone());
 
         if !step.get("hold").and_then(Value::as_bool).unwrap_or(false) {
-            self.answer(&id, step);
+            Self::answer(player, &id, step);
         }
     }
 
-    /// Answers the request `id` with the step's `reply` (or `error`).
-    fn answer(&self, id: &Value, step: &Value) {
+    fn answer(player: &Player, id: &Value, step: &Value) {
         let mut response = Map::new();
         response.insert("request_id".to_owned(), id.clone());
 
@@ -143,114 +102,10 @@ impl Fake {
             response.insert("subtype".to_owned(), json!("success"));
 
             if let Some(reply) = step.get("reply") {
-                response.insert("response".to_owned(), self.substitute(reply));
+                response.insert("response".to_owned(), player.substitute(reply));
             }
         }
 
         write(&json!({ "type": "control_response", "response": Value::Object(response) }));
-    }
-
-    /// The next inbound frame of `kind` (and request `subtype`); exits quietly when stdin closes
-    /// first.
-    fn next_of(&mut self, kind: &str, subtype: Option<&str>) -> Value {
-        let wanted = |frame: &Value| {
-            frame["type"] == kind
-                && subtype.is_none_or(|subtype| frame.pointer("/request/subtype") == Some(&json!(subtype)))
-        };
-
-        if let Some(index) = self.unclaimed.iter().position(wanted) {
-            return self.unclaimed.remove(index);
-        }
-
-        loop {
-            let Ok(frame) = self.stdin.recv() else {
-                std::process::exit(0);
-            };
-
-            if wanted(&frame) {
-                return frame;
-            }
-
-            self.unclaimed.push(frame);
-        }
-    }
-
-    fn replay(&self, file: &str, step: &Value) {
-        let path = self.dir.join(file);
-        let text =
-            std::fs::read_to_string(&path).unwrap_or_else(|_| fail(2, &format!("cannot read {}", path.display())));
-        let line = |name: &str| step.get(name).and_then(Value::as_u64).map(|line| line as usize);
-        let (from, to) = (line("from").unwrap_or(1), line("to").unwrap_or(usize::MAX));
-        let except: Vec<&str> = step
-            .get("except")
-            .and_then(Value::as_array)
-            .map(|kinds| kinds.iter().filter_map(Value::as_str).collect())
-            .unwrap_or_default();
-
-        let replace: Vec<(Value, Value)> = step
-            .get("replace")
-            .and_then(Value::as_object)
-            .map(|pairs| {
-                pairs
-                    .iter()
-                    .map(|(recorded, value)| (json!(recorded), self.substitute(value)))
-                    .collect()
-            })
-            .unwrap_or_default();
-
-        for (index, row) in text.lines().enumerate() {
-            let number = index + 1;
-            if number < from || number > to || row.trim().is_empty() {
-                continue;
-            }
-
-            let row: Value =
-                serde_json::from_str(row).unwrap_or_else(|_| fail(2, &format!("bad row {number} of {file}")));
-            let frame = &row["frame"];
-            let left_out = frame["type"].as_str().is_some_and(|kind| except.contains(&kind));
-
-            if row["dir"] != "out" || left_out {
-                continue;
-            }
-
-            write(&self.recorded(frame, &replace));
-        }
-    }
-
-    /// A recorded frame with `replace` and the working directory applied.
-    fn recorded(&self, value: &Value, replace: &[(Value, Value)]) -> Value {
-        if let Some((_, value)) = replace.iter().find(|(recorded, _)| recorded == value) {
-            return value.clone();
-        }
-
-        match value {
-            Value::String(text) => match text.strip_prefix(RECORDED_PROJECT) {
-                Some(rest) => Value::String(format!("{}{rest}", self.cwd)),
-                None => value.clone(),
-            },
-            Value::Array(items) => Value::Array(items.iter().map(|item| self.recorded(item, replace)).collect()),
-            Value::Object(map) => Value::Object(
-                map.iter()
-                    .map(|(key, item)| (key.clone(), self.recorded(item, replace)))
-                    .collect(),
-            ),
-            other => other.clone(),
-        }
-    }
-
-    /// Replaces `"$name"` strings with captured values.
-    fn substitute(&self, value: &Value) -> Value {
-        substitute(value, &|name| self.captured.get(name).cloned())
-    }
-}
-
-/// Writes one frame and a newline; exits once stdout is gone.
-fn write(frame: &Value) {
-    let mut line = serde_json::to_vec(frame).unwrap_or_default();
-    line.push(b'\n');
-
-    let mut stdout = std::io::stdout().lock();
-    if stdout.write_all(&line).and_then(|()| stdout.flush()).is_err() {
-        std::process::exit(0);
     }
 }

@@ -1,9 +1,10 @@
 //! Scripted OMP/PI RPC peer for the agent-session integration tests, scripted MCP server for the
 //! MCP client tests, scripted `opencode serve` for the OpenCode chat tests ([`opencode`], OpenCode
-//! 2: [`opencode2`]), and scripted `claude` in stream-json mode for the Claude Code chat tests
-//! ([`claude`], its own step format).
+//! 2: [`opencode2`]), scripted `claude` in stream-json mode for the Claude Code chat tests
+//! ([`claude`], its own step format) and scripted `codex app-server` for the Codex chat tests
+//! ([`codex`], its own step format; both replay recordings with [`recorded`]).
 //!
-//! `fake_agent --dialect omp|pi|mcp|opencode|opencode2|claude --scenario <file.jsonl>` plays a
+//! `fake_agent --dialect omp|pi|mcp|opencode|opencode2|claude|codex --scenario <file.jsonl>` plays a
 //! scenario: one JSON step per line (blank lines and `//` comments are skipped). With `--dialect omp` the OMP `ready` frame is
 //! sent first. With `--dialect mcp` messages are JSON-RPC 2.0: an `expect` names a `method`
 //! instead of a `type`, and replies are `{"jsonrpc":"2.0","id":…, ...reply}` (so `reply` holds
@@ -50,6 +51,8 @@ use serde_json::{Map, Value, json};
 
 #[path = "fake_agent/claude.rs"]
 mod claude;
+#[path = "fake_agent/codex.rs"]
+mod codex;
 #[path = "fake_agent/memory.rs"]
 mod memory;
 #[path = "fake_agent/memory_cli.rs"]
@@ -76,6 +79,8 @@ mod opencode2_http;
 mod opencode_config;
 #[path = "fake_agent/opencode_http.rs"]
 mod opencode_http;
+#[path = "fake_agent/recorded.rs"]
+mod recorded;
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
@@ -124,11 +129,11 @@ fn main() {
     let (Some(dialect), Some(scenario)) = (option("--dialect"), option("--scenario")) else {
         fail(
             2,
-            "usage: fake_agent --dialect omp|pi|mcp|opencode|opencode2|claude --scenario <file.jsonl>",
+            "usage: fake_agent --dialect omp|pi|mcp|opencode|opencode2|claude|codex --scenario <file.jsonl>",
         );
     };
 
-    if !["omp", "pi", "mcp", "opencode", "opencode2", "claude"].contains(&dialect.as_str()) {
+    if !["omp", "pi", "mcp", "opencode", "opencode2", "claude", "codex"].contains(&dialect.as_str()) {
         fail(2, &format!("unknown dialect: {dialect}"));
     }
 
@@ -144,6 +149,10 @@ fn main() {
 
     if dialect == "claude" {
         claude::serve(&steps, Path::new(&scenario));
+    }
+
+    if dialect == "codex" {
+        codex::serve(&steps, Path::new(&scenario));
     }
 
     let mut agent = Agent {
