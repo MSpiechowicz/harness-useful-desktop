@@ -33,6 +33,7 @@ use std::path::Path;
 pub use self::asks::{Ask, AskKind};
 use self::replies::Replies;
 use self::tools::Tools;
+pub(crate) use self::tools::saved_card;
 pub use self::tools::{COMMAND_DECLINED, FILE_CHANGE_DECLINED, UNFINISHED_TOOL};
 use self::turns::Turn;
 pub use self::turns::{SIGN_IN_ERROR, TurnEnd};

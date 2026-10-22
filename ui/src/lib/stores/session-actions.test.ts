@@ -71,6 +71,18 @@ describe('deleting sessions', () => {
     expect(toasts.items.at(-1)?.title).toBe('This session is open in a chat');
   });
 
+  it('says to delete the forks first when the harness refuses a session others were forked from', async () => {
+    vi.spyOn(ipc, 'invoke').mockRejectedValue(IpcFailure.from({ code: 'conflict', message: 'delete the forks of this session first' }));
+    const { store } = storeWithMock();
+
+    expect(await deleteSession(store, REF, PROJECT, () => Promise.resolve(true))).toBe(false);
+
+    expect(toasts.items.at(-1)).toMatchObject({
+      title: 'Could not delete the session',
+      description: 'Other sessions were forked from this one. Delete those forks first, then this session.',
+    });
+  });
+
   it('cleans up the empty copies one after the other, leaving out one an open chat runs', async () => {
     const invoke = vi.spyOn(ipc, 'invoke').mockResolvedValue(null as never);
     const { store } = storeWithMock();

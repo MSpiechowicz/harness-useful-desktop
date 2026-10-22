@@ -8,9 +8,9 @@
 //! family MCP servers through `codex mcp` ([`McpTarget::CodexCli`]); Harness Skills have no Codex
 //! adapter yet. Share setup shares its marketplaces, plugins and MCP servers
 //! ([`Harness::share_support`], an imported server is added through `codex mcp add`). Sessions
-//! and chat are not available yet, and the catalog lists every command as unsupported. The login
-//! store (`auth.json`) and Codex's private files are never read
-//! ([`crate::security::deny`]).
+//! are read through `codex app-server` ([`sessions`]). Chat is not available yet, and the catalog
+//! lists every command as unsupported. The login store (`auth.json`) and Codex's private files are
+//! never read ([`crate::security::deny`]).
 
 mod catalog;
 mod cli;
@@ -18,6 +18,7 @@ mod config;
 mod extensions;
 mod modes;
 mod paths;
+pub mod sessions;
 mod settings;
 
 pub use catalog::CodexCatalog;
@@ -53,8 +54,8 @@ impl Harness for Codex {
         }
     }
 
-    /// What the views list and the extension actions the CLI runs. Sessions and chat arrive in
-    /// later steps of the plan.
+    /// What the views list, the extension actions the CLI runs and the sessions (forks name their
+    /// parent, so the Sessions view counts them). Chat arrives in a later step of the plan.
     fn capabilities(&self) -> Capabilities {
         Capabilities {
             plugins: true,
@@ -62,6 +63,7 @@ impl Harness for Codex {
             mcp: true,
             skills: true,
             cli_actions: true,
+            session_tree: true,
             ..Capabilities::default()
         }
     }
@@ -94,25 +96,26 @@ impl Harness for Codex {
         &PiDialect
     }
 
-    /// `<home>/sessions`, shared by every project (see [`paths`]).
+    /// `<home>/sessions`, shared by every project (see [`paths`]). Shown only: the sessions are
+    /// read through the app-server ([`sessions`]).
     fn sessions_dir(&self, env: &Env, _project: &Path) -> PathBuf {
         paths::sessions_dir(env)
     }
 
     fn list_sessions(&self, _env: &Env, _project: &Path, _cache: &SessionCache) -> Result<Vec<SessionSummary>> {
-        Err(sessions_not_available())
+        Err(read_through_app_server())
     }
 
     fn resolve_session(&self, _env: &Env, _project: &Path, _session: &SessionRef) -> Result<PathBuf> {
-        Err(sessions_not_available())
+        Err(read_through_app_server())
     }
 
     fn delete_session(&self, _env: &Env, _project: &Path, _session: &SessionRef, _empty_copy_only: bool) -> Result<()> {
-        Err(sessions_not_available())
+        Err(read_through_app_server())
     }
 
     fn session_tree(&self, _env: &Env, _project: &Path, _session: &SessionRef) -> Result<SessionTree> {
-        Err(sessions_not_available())
+        Err(read_through_app_server())
     }
 
     fn session_messages(
@@ -123,11 +126,16 @@ impl Harness for Codex {
         _cursor: Option<&str>,
         _limit: u32,
     ) -> Result<SessionMessagesPage> {
-        Err(sessions_not_available())
+        Err(read_through_app_server())
     }
 
     fn session_files_touched(&self, _env: &Env, _project: &Path, _session: &SessionRef) -> Result<Vec<String>> {
-        Err(sessions_not_available())
+        Err(read_through_app_server())
+    }
+
+    /// List, transcript, touched files and delete through `codex app-server` (see [`sessions`]).
+    fn cli_sessions(&self) -> Option<&dyn CliSessions> {
+        Some(sessions::cli_sessions())
     }
 
     /// Always ask for `untrusted`, Write for `on-request`, both in a `workspace-write` sandbox, and
@@ -184,6 +192,7 @@ fn chat_not_available() -> BusinessError {
     BusinessError::Unsupported("Codex chat is not available yet".to_owned())
 }
 
-fn sessions_not_available() -> BusinessError {
-    BusinessError::Unsupported("Codex sessions are not available yet".to_owned())
+/// Codex has no session files the app reads; its sessions go through [`Harness::cli_sessions`].
+fn read_through_app_server() -> BusinessError {
+    BusinessError::Unsupported("Codex sessions are read through its app-server".to_owned())
 }

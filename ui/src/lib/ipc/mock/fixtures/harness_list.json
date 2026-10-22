@@ -239,7 +239,7 @@
       "projectTrust": false,
       "projectTrustRequired": false,
       "slashCommandsViaPrompt": false,
-      "sessionTree": false,
+      "sessionTree": true,
       "moveSession": false,
       "removeQueued": false,
       "agentPicker": false,

@@ -81,6 +81,7 @@ export const sessions: AreaMessages<typeof enSessions> = {
   'sessions.delete.openInChat': 'Esta sesión está abierta en un chat',
   'sessions.delete.openInChatBody': 'Cierra primero ese chat y luego elimina la sesión.',
   'sessions.delete.failed': 'No se pudo eliminar la sesión',
+  'sessions.delete.hasForks': 'Otras sesiones se bifurcaron de esta. Elimina primero esas bifurcaciones y luego esta sesión.',
 
   'sessions.cleanup.banner.one': '{count} copia vacía',
   'sessions.cleanup.banner.other': '{count} copias vacías',

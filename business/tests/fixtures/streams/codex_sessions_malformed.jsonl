@@ -1,0 +1,14 @@
+// thread/list after lines that are no frames the helper waits for: not JSON objects, a frame
+// without method or id, a stale response, a known notification with broken params, and a request
+// of Codex, which the helper refuses.
+{"include": "codex_sessions_handshake.jsonl"}
+{"emit": [1, 2, 3]}
+{"emit": "not a frame"}
+{"emit": {"neither": true}}
+{"emit": {"id": {"nested": 1}, "result": {}}}
+{"emit": {"id": 987654, "result": {"data": []}}}
+{"emit": {"method": "turn/started", "params": {"turn": "broken"}}}
+{"emit": {"method": "account/rateLimits/updated", "params": {}}}
+{"emit": {"id": 0, "method": "item/tool/call", "params": {"threadId": "01a164a0-4c41-7613-9735-20de2a8016a8"}}}
+{"expect": "answer", "match": {"/id": 0, "/error/code": -32601}}
+{"expect": "thread/list", "reply": {"data": [{"id": "01a1649c-d6df-73c3-a197-2c212fd07a54", "sessionId": "01a1649c-d6df-73c3-a197-2c212fd07a54", "forkedFromId": null, "parentThreadId": null, "preview": "Create a file hello.txt containing the single word hi, then run the shell command `ls -1` and tell me the output. Be brief.", "ephemeral": false, "modelProvider": "openai", "model": "gpt-5.6-terra", "reasoningEffort": "medium", "createdAt": 1792689362, "updatedAt": 1792689367, "recencyAt": 1792689367, "status": {"type": "notLoaded"}, "cwd": "/work/project", "cliVersion": "0.154.0", "originator": "harness_desktop", "source": "vscode", "gitInfo": {"sha": "fb4ace69cf5842301b8d2ba8dead6f955473ae3c", "branch": "master", "originUrl": null}, "name": null, "turns": []}], "nextCursor": null}}
