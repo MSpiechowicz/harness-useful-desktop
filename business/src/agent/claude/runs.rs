@@ -8,6 +8,7 @@
 //!   capped at [`MAX_BASH_OUTPUT_BYTES`]. The answer is the output (stdout, then stderr), redacted
 //!   and capped like the RPC engine's. An abort or a stop of the chat kills the command's process
 //!   group (cancelled, nothing handed on). The chat refuses while it works or runs another command.
+//!   A run frees the chat's command slot however it ends, and never one a later command holds.
 //! - **Hand-over:** the command and its output reach the model as a user message it reads with the
 //!   next prompt (`shouldQuery: false`, sent quietly: its empty result is not shown):
 //!   `<bash-input>…</bash-input>\n<bash-stdout>…</bash-stdout><bash-stderr>…</bash-stderr>`, as
@@ -51,20 +52,8 @@ impl ClaudeSession {
         run.process.ensure_running()?;
 
         let chat = &run.chat;
-        let stop = {
-            let mut live = chat.lock();
-
-            if live.retired || live.is_busy() {
-                return Err(BusinessError::Unsupported(BUSY.to_owned()));
-            }
-
-            let (sender, stop) = oneshot::channel();
-            live.shell = Some(sender);
-
-            stop
-        };
-
         let spec = self.shell_spec(command)?;
+        let (slot, stop) = ShellSlot::take(chat)?;
         let runner = TokioRunner;
 
         // Dropping the run kills the command's process group.
@@ -73,7 +62,7 @@ impl ClaudeSession {
             _ = stop => None,
         };
 
-        chat.lock().shell = None;
+        drop(slot);
 
         let Some(output) = ran else {
             return Ok(BashOutput {
@@ -141,6 +130,55 @@ impl ClaudeSession {
         }
 
         Ok(AgentReply::Ack)
+    }
+}
+
+/// The running `!command` (see [`Live::shell`](super::Live)): its stop and its number.
+pub(super) struct Shell {
+    run: u64,
+    stop: oneshot::Sender<()>,
+}
+
+impl Shell {
+    /// Stops the command.
+    pub(super) fn stop(self) {
+        self.stop.send(()).ok();
+    }
+}
+
+/// The chat's `!command` slot, held by one run: freed when the run ends in any way (an error, an
+/// abort, a dropped call), unless an abort freed it and another command holds it by then.
+struct ShellSlot<'a> {
+    chat: &'a Chat,
+    run: u64,
+}
+
+impl<'a> ShellSlot<'a> {
+    /// Takes the slot, or refuses while the chat is busy; the receiver hears the stop.
+    fn take(chat: &'a Chat) -> Result<(Self, oneshot::Receiver<()>)> {
+        let mut live = chat.lock();
+
+        if live.retired || live.is_busy() {
+            return Err(BusinessError::Unsupported(BUSY.to_owned()));
+        }
+
+        let (stop, heard) = oneshot::channel();
+        live.shell_runs += 1;
+
+        let run = live.shell_runs;
+        live.shell = Some(Shell { run, stop });
+
+        Ok((Self { chat, run }, heard))
+    }
+}
+
+impl Drop for ShellSlot<'_> {
+    fn drop(&mut self) {
+        let mut live = self.chat.lock();
+
+        if live.shell.as_ref().is_some_and(|shell| shell.run == self.run) {
+            live.shell = None;
+        }
     }
 }
 

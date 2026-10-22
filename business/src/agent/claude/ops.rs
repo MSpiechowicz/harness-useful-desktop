@@ -13,9 +13,10 @@
 //!   chat's model pick (`--model`).
 //! - The move: the new process starts (its events held back) while the old one keeps serving the
 //!   chat. A prompt that arrives meanwhile wins: the move is refused and the new process stopped.
-//!   Otherwise the old process is retired (its later events, `exited` too, never reach the chat),
-//!   the new one opens (`ready`, `state` with the new session id, `commandsUpdated`) and the old
-//!   one stops. A stop of the chat gives a move under way up.
+//!   So is a move whose old process exited meanwhile (its `exited` ended the chat). Otherwise the
+//!   old process is retired (its later events, `exited` too, never reach the chat), the new one
+//!   opens (`ready`, `state` with the new session id, `commandsUpdated`) and the old one stops. A
+//!   stop of the chat gives a move under way up.
 
 use std::path::PathBuf;
 use std::sync::{Arc, PoisonError};
@@ -157,8 +158,9 @@ impl ClaudeSession {
         Ok(AgentReply::Ack)
     }
 
-    /// Hands the chat from `old` to `new`, unless a stop came meanwhile or the old process got a
-    /// message since it had `sent` (its count of the session's messages).
+    /// Hands the chat from `old` to `new`, unless a stop came meanwhile, the old process exited
+    /// (its `exited` ended the chat) or it got a message since it had `sent` (its count of the
+    /// session's messages).
     fn commit(&self, old: &Run, new: &Arc<Run>, reply: InitializeReply, sent: u32, action: &str) -> Result<()> {
         let mut current = self.current.lock().unwrap_or_else(PoisonError::into_inner);
 
@@ -173,10 +175,13 @@ impl ClaudeSession {
                 return Err(working(action));
             }
 
+            if !old.port.retire_running(&old.process) {
+                return Err(BusinessError::Process("the agent session has exited".to_owned()));
+            }
+
             live.retired = true;
         }
 
-        old.port.retire();
         new.open(reply);
         *current = new.clone();
 

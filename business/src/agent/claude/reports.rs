@@ -27,7 +27,7 @@ use crate::claude_stream::wire::outbound::HostRequest;
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::fs_atomic::{ensure_private_dir, replace_atomically};
-use crate::harnesses::claude::{chat_messages, session_file};
+use crate::harnesses::claude::{chat_messages, is_session_id, session_file};
 use crate::model::{AgentReply, ChatBlock, ChatMessage, MessageRole};
 use crate::opencode_server::export_html::{ExportPage, render};
 use crate::pi_family::rpc::pending::DEFAULT_TIMEOUT;
@@ -90,6 +90,11 @@ impl ClaudeSession {
                 "this chat has no saved session to export".to_owned(),
             ));
         };
+
+        // The id names the export file.
+        if !is_session_id(&session) {
+            return Err(BusinessError::Internal("the chat's session id is not valid".to_owned()));
+        }
 
         let messages = self.messages().await?;
         let exported_at = rfc3339(SystemTime::now());

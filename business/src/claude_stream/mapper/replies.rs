@@ -12,15 +12,21 @@
 //! - `message_delta` brings the stop reason and the final usage, `message_stop` ends the message
 //!   (`messageEnd`, with every block). A turn's end closes what is still open (as `aborted` after
 //!   an interrupt). A message that ended is never reported again.
+//! - A reply's streamed text stops at [`MAX_STREAMED_BYTES`]: [`REPLY_CUT`] ends it, and what
+//!   follows (deltas, confirmations) changes nothing.
 
 use std::collections::HashSet;
 
+use super::MAX_STREAMED_BYTES;
 use super::tools::Tools;
 use crate::claude_stream::wire::messages::{ApiUsage, AssistantFrame, ContentBlock, Delta};
 use crate::model::{AgentEvent, ChatBlock, ChatMessage, MessageRole, TokenUsage};
 
 /// The stop reason of a message an interrupt cut off.
 const ABORTED: &str = "aborted";
+
+/// What ends a reply whose streamed text reached [`MAX_STREAMED_BYTES`].
+pub const REPLY_CUT: &str = "\n\n[The reply was cut here because it is too long to show.]";
 
 /// Open replies (see the module docs).
 #[derive(Default)]
@@ -39,6 +45,10 @@ struct Reply {
     usage: Option<ApiUsage>,
     aborted: bool,
     timestamp: Option<i64>,
+    /// Bytes of text and thinking streamed so far.
+    streamed: usize,
+    /// Its text reached the bound: nothing more is added.
+    cut: bool,
 }
 
 struct Block {
@@ -221,6 +231,8 @@ impl Replies {
                     usage: None,
                     aborted: false,
                     timestamp: None,
+                    streamed: 0,
+                    cut: false,
                 });
                 self.open.len() - 1
             }
@@ -320,6 +332,10 @@ fn confirm_other(reply: &mut Reply, kind: &str) {
 /// Confirms a text (or, not `is_text`, thinking) block with its full `text`: the first streamed
 /// one of its kind waiting gets what did not stream yet, else it is a new block.
 fn confirm_text(reply: &mut Reply, text: &str, is_text: bool, out: &mut Vec<AgentEvent>) {
+    if reply.cut {
+        return;
+    }
+
     let waiting = reply.blocks.iter().position(|known| {
         !known.confirmed
             && match known.kind {
@@ -351,7 +367,10 @@ fn confirm_text(reply: &mut Reply, text: &str, is_text: bool, out: &mut Vec<Agen
 
     match text.strip_prefix(streamed.as_str()) {
         Some(rest) => append(reply, position, rest, is_text, out),
-        None => set_text(&mut reply.blocks[position].kind, text.to_owned()),
+        None => {
+            reply.streamed = reply.streamed - streamed.len() + text.len();
+            set_text(&mut reply.blocks[position].kind, text.to_owned());
+        }
     }
 }
 
@@ -363,19 +382,28 @@ fn unstreamed(kind: BlockKind) -> Block {
     }
 }
 
-/// Appends `text` to the text or thinking block at `position` and streams it.
+/// Appends `text` to the text or thinking block at `position` and streams it; at the bound, the
+/// part that fits and [`REPLY_CUT`].
 fn append(reply: &mut Reply, position: usize, text: &str, is_text: bool, out: &mut Vec<AgentEvent>) {
-    if text.is_empty() {
+    if text.is_empty() || reply.cut {
         return;
     }
 
+    let room = MAX_STREAMED_BYTES.saturating_sub(reply.streamed);
+    let mut delta = fitting(text, room).to_owned();
+    reply.streamed += delta.len();
+
+    if delta.len() < text.len() {
+        reply.cut = true;
+        delta.push_str(REPLY_CUT);
+    }
+
     if let BlockKind::Text(streamed) | BlockKind::Thinking(streamed) = &mut reply.blocks[position].kind {
-        streamed.push_str(text);
+        streamed.push_str(&delta);
     }
 
     let message_id = reply.id.clone();
     let content_index = u32::try_from(position).unwrap_or(u32::MAX);
-    let delta = text.to_owned();
 
     out.push(if is_text {
         AgentEvent::TextDelta {
@@ -390,6 +418,20 @@ fn append(reply: &mut Reply, position: usize, text: &str, is_text: bool, out: &m
             delta,
         }
     });
+}
+
+/// The longest start of `text` of at most `room` bytes that ends on a character boundary.
+fn fitting(text: &str, room: usize) -> &str {
+    if text.len() <= room {
+        return text;
+    }
+
+    let mut end = room;
+    while !text.is_char_boundary(end) {
+        end -= 1;
+    }
+
+    &text[..end]
 }
 
 fn set_text(kind: &mut BlockKind, text: String) {
