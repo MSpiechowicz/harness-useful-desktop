@@ -1,7 +1,7 @@
 import type { Capabilities } from '$lib/ipc/bindings/Capabilities';
 import type { MessageKey } from '$lib/i18n/locales/en';
 
-/** The capabilities worth naming on a harness's introduction, in the order they are listed. Chat is not one: every harness listed has it. */
+/** The capabilities worth naming on a harness's introduction, in the order they are listed. Chat is not one: a harness without it is greyed out on its card instead. */
 const TAGS: { capability: keyof Capabilities; label: MessageKey }[] = [
   { capability: 'plugins', label: 'onboarding.meet.tag.plugins' },
   { capability: 'packages', label: 'onboarding.meet.tag.packages' },

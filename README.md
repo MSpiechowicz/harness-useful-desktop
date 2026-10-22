@@ -24,17 +24,19 @@ privacy. Made with the app's demo data. [Download the full-quality 4K video](htt
 - **Chat with approvals.** Streams the agent's replies, thinking and tool calls (OMP and PI run in `--mode rpc`,
   OpenCode as a local `opencode serve` the app talks to on this machine), answers its approval and input dialogs, picks
   the model and thinking level (and OpenCode's agent), runs slash commands, and asks before any shell command you
-  send. Chat with OpenCode is a preview.
+  send. Chat with OpenCode is a preview. Chat with Claude Code is coming soon.
 - **Sessions and branches.** Lists a project's saved sessions, shows the branch tree of each, opens the transcript,
   resumes or forks. OpenCode sessions are linear: the app lists them, opens the transcript and deletes them through
-  the `opencode` CLI, with no branch tree, and resumes or forks them in a chat.
+  the `opencode` CLI, with no branch tree, and resumes or forks them in a chat. Claude Code sessions are listed, opened
+  as a transcript and deleted, without a branch tree, and cannot be resumed from the app until its chat arrives.
 - **Changes panel with review comments.** A graphical diff of the working tree (staged, unstaged, untracked). Comment
   on any line and send the comments to the agent as one prompt.
-- **Config viewer.** Settings, MCP servers and profiles in one readable place, with secrets masked.
+- **Config viewer.** Settings, MCP servers and profiles of OMP, PI, OpenCode and Claude Code in one readable place, with
+  secrets masked.
 - **Extensions.** Plugins, marketplaces, packages, skills, commands, agents, MCP servers and themes, with install,
   enable and update actions run through the harness's own CLI and a dry-run preview where the CLI offers one. For
   OpenCode you can install npm plugins (`opencode plugin <module> -g`) and remove them (the app edits the `plugin` list of
-  the global config), but not update or enable them.
+  the global config), but not update or enable them. Claude Code's extensions are shown read-only for now.
 - **Ecosystem tab and dashboard widgets.** Detects the companion tools and shows cost and token widgets from the local
   [Harness Dashboard](https://github.com/MSpiechowicz/harness-useful-dashboard) when it is installed.
 - **Recommended setup.** An optional onboarding step (also **Run recommended setup** on the Ecosystem screen) that,
@@ -66,6 +68,7 @@ privacy. Made with the app's demo data. [Download the full-quality 4K video](htt
 | [Oh My Pi](https://omp.sh) (`omp`) | Supported. Verified against 18.6.1. |
 | [Pi](https://github.com/earendil-works/pi) (`pi`) | Supported. Tested with PI 1.1. Other versions show as untested. |
 | [OpenCode](https://opencode.ai) (`opencode`) | Partly supported. Works: detection (also in `~/.opencode/bin`), the configuration (JSON with comments, secrets masked), extensions (skills, commands, agents, plugins, MCP servers, themes, with npm plugin install and remove), sessions (list, transcript, delete), the Harness Skills install and the dashboard and memory MCP entries in Recommended setup, and Share setup of npm plugins and MCP servers. Versions 1.18, 1.19 and 2.1 are supported, others show as untested. OpenCode 2 is installed with `npm install -g @opencode/cli`, and the app never starts its background service. It does not import OpenCode 1 sessions, since OpenCode 2 does not read them. Chat works as a preview on OpenCode 1 and OpenCode 2 (see [docs/security-privacy.md](docs/security-privacy.md#opencode-chat) for how the app runs the server, and the [OpenCode 2 plan](docs/plans/opencode-v2.md)). Not done: plugin updates and project-scope plugin installs. |
+| [Claude Code](https://code.claude.com) (`claude`) | Partly supported. Works: detection, the configuration (the five settings layers, MCP entries from `~/.claude.json`, secrets masked), a read-only view of extensions (plugins, marketplaces, skills, commands, agents, MCP servers) and sessions (list, transcript, delete). Versions 2.1.x are supported, others show as untested. Chat with Claude Code is coming soon, so it is greyed out in the harness picker for now. Not yet: plugin actions, the Harness Skills install and the MCP entries in Recommended setup, and Share setup. |
 | Other harness CLIs | Planned. Adding one is an implementation of the `Harness` trait; see [docs/adding-a-harness.md](docs/adding-a-harness.md). Every new harness must also join Recommended setup (skills install and dashboard MCP). |
 
 The app finds the CLI on `PATH` and in the usual install directories (bun, cargo, npm global, `~/.local/bin`, `~/.opencode/bin`, Homebrew), or you can

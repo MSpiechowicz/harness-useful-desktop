@@ -148,7 +148,8 @@
   --harness-omp-wash: oklch(0.7 0.15 65 / 0.16);
   --harness-pi-wash: oklch(0.65 0.12 175 / 0.14);
   --harness-opencode-wash: oklch(0.62 0.22 10 / 0.12);
-  --harness-claude: #de602c;
+  /* The dashboard's #de602c is 3.6:1 on white, so the light text is a deeper orange (>= 4.5:1 on its wash, redder than OMP's amber). */
+  --harness-claude: #ac3708;
   --harness-claude-wash: rgb(247 119 69 / 0.14);
 
   --elev-1: 0 1px 2px rgb(24 24 27 / 0.06), 0 0 0 1px var(--border);
