@@ -3,7 +3,7 @@
 
 use serde_json::{Map, Value};
 
-use super::{check_plain_text, harness_names, has_chat, takes_approval_mode, takes_trust_once};
+use super::{check_plain_text, harness_names, has_chat, takes_approval_mode, takes_trust_once, takes_yolo};
 use crate::model::{ApprovalMode, HarnessId, HookScope, RoutineAction, RoutineModel, ScriptScope};
 use crate::signed_docs::fields::typed_object;
 use crate::signed_docs::unicode::is_hidden_char;
@@ -159,6 +159,13 @@ pub fn check_action(action: &RoutineAction, scope: HookScope) -> Result<(), Stri
                 return Err(format!(
                     "action.approvalMode is for {} only",
                     harness_names(takes_approval_mode)
+                ));
+            }
+
+            if *approval_mode == Some(ApprovalMode::Yolo) && !takes_yolo(*harness) {
+                return Err(format!(
+                    "action.approvalMode \"yolo\" is for {} only",
+                    harness_names(takes_yolo)
                 ));
             }
 

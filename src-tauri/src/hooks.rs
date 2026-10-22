@@ -33,6 +33,8 @@ mod team_tests;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
+mod tests_claude;
+#[cfg(test)]
 mod tests_opencode;
 #[cfg(test)]
 mod tests_opencode2;

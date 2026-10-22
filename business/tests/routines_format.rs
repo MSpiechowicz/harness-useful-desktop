@@ -136,6 +136,26 @@ fn harness_rules_and_value_types_are_checked() {
             true,
         ),
         (
+            json!({"type": "agent", "harness": "omp", "prompt": "x", "approvalMode": "yolo"}),
+            true,
+        ),
+        (
+            json!({"type": "agent", "harness": "opencode", "prompt": "x", "approvalMode": "yolo"}),
+            true,
+        ),
+        (
+            json!({"type": "agent", "harness": "claude", "prompt": "x", "approvalMode": "alwaysAsk"}),
+            true,
+        ),
+        (
+            json!({"type": "agent", "harness": "claude", "prompt": "x", "approvalMode": "write"}),
+            true,
+        ),
+        (
+            json!({"type": "agent", "harness": "claude", "prompt": "x", "approvalMode": "yolo"}),
+            false,
+        ),
+        (
             json!({"type": "agent", "harness": "omp", "prompt": "x", "trustOnce": false}),
             true,
         ),
