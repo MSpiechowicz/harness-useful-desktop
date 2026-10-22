@@ -104,6 +104,15 @@
     void goTo(nearest);
   }
 
+  /** What sits between a key and its value: `key: value` in YAML and JSON, `key = value` in TOML. */
+  function assign(line: SourceLine): string {
+    if (format === 'toml') {
+      return ' = ';
+    }
+
+    return line.text !== '' || line.secret !== undefined ? ': ' : ':';
+  }
+
   function summary(line: SourceLine): string {
     return tn(line.valueKind === 'map' ? 'components.config.key' : 'components.config.item', line.foldCount ?? 0);
   }
@@ -150,9 +159,11 @@
     <!-- A flex row, so the template's own whitespace never becomes a space between the pieces of a line. -->
     <span class="flex min-w-0 items-center overflow-hidden whitespace-pre text-fg-2" style:padding-left="{line.depth * 2}ch">
       {#if line.bullet}<span class="text-fg-3">{'- '}</span>{/if}
-      {#if line.key !== undefined}
+      {#if line.header}
         <span class="text-accent-text">{@render marked(key, hit, current)}</span>
-        <span class="text-fg-3">{line.text !== '' || line.secret !== undefined ? ': ' : ':'}</span>
+      {:else if line.key !== undefined}
+        <span class="text-accent-text">{@render marked(key, hit, current)}</span>
+        <span class="text-fg-3">{assign(line)}</span>
       {/if}
       {#if line.secret !== undefined}
         <ConfigValueView value={{ kind: 'secret', value: line.secret }} />
@@ -164,6 +175,8 @@
         <span class="text-accent-text">{@render marked(line.text, hit, current)}</span>
       {:else if line.valueKind === 'null'}
         <span class="text-fg-3 italic">{@render marked(line.text, hit, current)}</span>
+      {:else if line.valueKind === 'inline'}
+        <span>{@render marked(line.text, hit, current)}</span>
       {:else if line.text !== ''}
         <span>{line.text}</span>
       {/if}

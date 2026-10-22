@@ -1,6 +1,5 @@
 import { t, type MessageKey } from '$lib/i18n/i18n.svelte';
 import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
-import type { McpRefusal } from '$lib/ipc/bindings/McpRefusal';
 import type { SyncBlockReason } from '$lib/ipc/bindings/SyncBlockReason';
 import type { SyncExcludedReason } from '$lib/ipc/bindings/SyncExcludedReason';
 import type { SyncInvalidReason } from '$lib/ipc/bindings/SyncInvalidReason';
@@ -14,6 +13,8 @@ import type { SyncOutcome } from '$lib/ipc/bindings/SyncOutcome';
 import type { SyncSkipReason } from '$lib/ipc/bindings/SyncSkipReason';
 import type { SyncStep } from '$lib/ipc/bindings/SyncStep';
 import type { OpenCodeGeneration } from '$lib/ipc/harness-ids';
+
+import { refusalText } from '../onboarding/setup-model';
 
 export type Tone = 'neutral' | 'accent' | 'success' | 'warning' | 'danger' | 'info';
 
@@ -77,20 +78,6 @@ const INVALID_KEYS: Record<SyncInvalidReason, MessageKey> = {
   missingField: 'sync.invalid.missingField',
 };
 
-const REFUSAL_KEYS: Record<McpRefusal, MessageKey> = {
-  unparsable: 'onboarding.setup.refused.unparsable',
-  notAnObject: 'onboarding.setup.refused.notAnObject',
-  serversNotAnObject: 'onboarding.setup.refused.serversNotAnObject',
-  symlink: 'onboarding.setup.refused.symlink',
-  notRegularFile: 'onboarding.setup.refused.notRegularFile',
-  tooLarge: 'onboarding.setup.refused.tooLarge',
-  unreadable: 'onboarding.setup.refused.unreadable',
-  writeFailed: 'onboarding.setup.refused.writeFailed',
-  cliFailed: 'onboarding.setup.refused.cliFailed',
-  cliRemovedEntry: 'onboarding.setup.refused.cliRemovedEntry',
-  cliBatchShim: 'onboarding.setup.refused.cliBatchShim',
-};
-
 export function noteText(note: SyncNote): string {
   return t(NOTE_KEYS[note]);
 }
@@ -151,14 +138,14 @@ export function outcomeChip(outcome: SyncOutcome): Chip {
   }
 }
 
-function skipText(reason: SyncSkipReason): string {
+function skipText(reason: SyncSkipReason, harness: HarnessId): string {
   switch (reason.type) {
     case 'dependencyFailed':
       return t('sync.skip.dependencyFailed');
     case 'harnessNotInstalled':
       return t('sync.skip.harnessNotInstalled');
     case 'mcpFileRefused':
-      return t('sync.skip.mcpFileRefused', { reason: t(REFUSAL_KEYS[reason.refusal]) });
+      return t('sync.skip.mcpFileRefused', { reason: refusalText(reason.refusal, harness) });
     case 'manualEdit':
       return t('sync.skip.manualEdit', { file: reason.file });
   }
@@ -186,10 +173,10 @@ function conflictNote(notes: SyncNote[]): string | null {
 }
 
 /** The sentence under a finished item: why it was skipped, or null when the chip says it all. */
-export function outcomeNote(outcome: SyncOutcome, notes: SyncNote[] = []): string | null {
+export function outcomeNote(outcome: SyncOutcome, harness: HarnessId, notes: SyncNote[] = []): string | null {
   switch (outcome.type) {
     case 'skipped':
-      return skipText(outcome.reason);
+      return skipText(outcome.reason, harness);
     case 'conflict':
       return conflictNote(notes);
     default:

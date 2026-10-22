@@ -293,7 +293,7 @@ function finishedRow(outcome: SyncItemOutcome, label: string = outcome.label): R
     kind: outcome.kind,
     label,
     chip: outcomeChip(outcome.outcome),
-    note: failedCliNote(outcome) ?? outcomeNote(outcome.outcome, outcome.notes),
+    note: failedCliNote(outcome) ?? outcomeNote(outcome.outcome, outcome.harness, outcome.notes),
     notes: outcome.notes,
     summary: outcome.summary,
     argv: outcome.argv,

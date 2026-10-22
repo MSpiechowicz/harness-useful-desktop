@@ -157,6 +157,18 @@ describe('mock agent', () => {
     expect(pi.info).toMatchObject({ approvalOverride: null, trustedOnce: true, harness: 'pi' });
   });
 
+  it('starts a Codex chat with the mode Codex runs in by default, and trusts the project once on request', async () => {
+    const codex = await start({ ...REQUEST, harness: 'codex', trustOnce: true });
+
+    expect(codex.info).toMatchObject({
+      harness: 'codex',
+      configuredApprovalMode: 'write',
+      nativeApprovalMode: { name: 'on-request / workspace-write', unattended: false },
+      trustOffered: true,
+      trustedOnce: true,
+    });
+  });
+
   it('lists running sessions, forgets stopped ones and refuses unknown keys', async () => {
     const { transport, info } = await start();
 

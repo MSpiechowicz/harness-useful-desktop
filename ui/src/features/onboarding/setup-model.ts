@@ -7,6 +7,7 @@ import type { McpRefusal } from '$lib/ipc/bindings/McpRefusal';
 import type { McpState } from '$lib/ipc/bindings/McpState';
 import type { SkillsUnavailableCode } from '$lib/ipc/bindings/SkillsUnavailableCode';
 import type { OpenCodeGeneration } from '$lib/ipc/harness-ids';
+import { harness as harnesses } from '$lib/stores/harness.svelte';
 
 /** What one item of the step is doing: `idle` until a run reaches it. */
 export type ItemPhase = 'idle' | 'running' | 'done' | 'failed' | 'skipped';
@@ -90,7 +91,7 @@ export function mcpTitle(kind: McpKind): string {
 const MCP_SERVER: Record<McpKind, string> = { mcp: 'harness-dashboard', memoryMcp: 'harness-memory', desktopMcp: 'harness-desktop' };
 
 /**
- * The JSON a person adds to an MCP file when the app leaves it alone, one key per line so it never wraps mid-token.
+ * The entry a person adds to an MCP file when the app leaves it alone (a `[mcp_servers.<name>]` table for Codex, JSON for the rest), one key per line so it never wraps mid-token.
  * OpenCode 1 keeps its servers under "mcp" with `enabled`. OpenCode 2 keeps them under "mcp.servers" and has no `enabled`.
  * Either way the command is one list.
  */
@@ -120,6 +121,12 @@ export function mcpSnippet(kind: McpKind, harness?: HarnessId, generation: OpenC
     }
   }
 }`;
+  }
+
+  if (harness === 'codex') {
+    return `[mcp_servers.${server}]
+command = "${server}"
+args = ["mcp"]`;
   }
 
   return `{
@@ -234,14 +241,22 @@ const REFUSAL_KEYS: Record<McpRefusal, MessageKey> = {
   cliBatchShim: 'onboarding.setup.refused.cliBatchShim',
 };
 
+/** Codex keeps its servers in a TOML file, so two refusals read differently for it. */
+const CODEX_REFUSAL_KEYS: Partial<Record<McpRefusal, MessageKey>> = {
+  unparsable: 'onboarding.setup.refused.unparsableToml',
+  serversNotAnObject: 'onboarding.setup.refused.serversNotATable',
+};
+
 /** True for a refusal of a file only the harness's CLI changes, where an entry to paste would be wrong advice. */
 export function isCliRefusal(reason: McpRefusal): boolean {
   return reason === 'cliFailed' || reason === 'cliRemovedEntry' || reason === 'cliBatchShim';
 }
 
-/** Why the app leaves an MCP file of `harness` alone, in a sentence; a failed CLI run names that harness's `mcp` command. */
+/** Why the app leaves an MCP file of `harness` alone, in a sentence; a failed CLI run names that harness's `mcp` command, a batch shim the harness itself. */
 export function refusalText(reason: McpRefusal, harness: HarnessId): string {
-  return t(REFUSAL_KEYS[reason], { command: `${harness} mcp` });
+  const key = (harness === 'codex' ? CODEX_REFUSAL_KEYS[reason] : undefined) ?? REFUSAL_KEYS[reason];
+
+  return t(key, { command: `${harness} mcp`, harness: harnesses.get(harness)?.info.name ?? harness });
 }
 
 /** The chip of a running or finished item, or null while it shows the state read from the machine. */

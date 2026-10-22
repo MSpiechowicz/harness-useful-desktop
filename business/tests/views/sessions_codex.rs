@@ -137,7 +137,7 @@ fn the_project_threads_are_listed_newest_first_with_forks_under_their_parent() {
 
     assert_eq!(
         codex.cli.recorded("args").unwrap(),
-        "app-server\n-c\ncheck_for_update_on_startup=false\n"
+        "app-server\n-c\ncheck_for_update_on_startup=false\n-c\nfeatures.in_app_updates=false\n"
     );
     assert_eq!(
         codex.cli.recorded("codex_home").unwrap(),

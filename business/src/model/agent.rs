@@ -85,6 +85,10 @@ pub struct AgentSessionInfo {
     pub native_approval_mode: Option<NativeApprovalMode>,
     /// True when the session was launched with the one-time project trust.
     pub trusted_once: bool,
+    /// Whether trusting the project once would change anything for this harness: false when it
+    /// has nothing of the project to leave out (Codex without an untrusted `.codex/` layer), so
+    /// the chat offers no trust button.
+    pub trust_offered: bool,
     /// RPC protocol version reported by the agent, once known.
     pub protocol_version: Option<u32>,
 }

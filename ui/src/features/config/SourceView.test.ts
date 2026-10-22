@@ -53,6 +53,25 @@ describe('SourceView', () => {
     expect(printed(rows[1])).toBe('2 "name": "omp",');
   });
 
+  it('prints TOML with `key = value` lines and table headers, not YAML', () => {
+    mount({
+      format: 'toml',
+      fields: [field('model', text('gpt-5.6-terra')), field('mcp_servers', map([field('memory', map([field('command', text('harness-memory'))]))]))],
+    });
+    const rows = within(screen.getByRole('list', { name: 'Source' })).getAllByRole('listitem');
+
+    expect(rows.map(printed)).toEqual(['1 model = "gpt-5.6-terra"', '2 ', '3 [mcp_servers.memory]', '4 command = "harness-memory"']);
+  });
+
+  it('folds a TOML table under its header', async () => {
+    mount({ format: 'toml', fields: [field('mcp_servers', map([field('memory', map([field('command', text('harness-memory'))]))]))] });
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Fold block at line 1' }));
+
+    expect(screen.queryByText('command')).toBeNull();
+    expect(screen.getByRole('button', { name: '1 key' })).toBeInTheDocument();
+  });
+
   it('shows a secret as a lock chip and never puts its value in the page', () => {
     const { container } = mount();
 

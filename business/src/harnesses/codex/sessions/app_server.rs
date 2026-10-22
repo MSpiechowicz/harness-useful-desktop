@@ -1,6 +1,6 @@
 //! The short-lived `codex app-server` the Sessions view asks: one process per view load, never a
-//! shell. It runs in the project with Codex's update check off (`-c
-//! check_for_update_on_startup=false`), the Codex home the app resolves (`CODEX_HOME`), the
+//! shell. It runs in the project with Codex's update check and update prompts off (the chat's
+//! [`APP_SERVER_ARGS`]), the Codex home the app resolves (`CODEX_HOME`), the
 //! harness's spawn environment and the launcher search directories.
 //!
 //! [`AppServer::start`] spawns it and runs the handshake (`initialize`, then `initialized`),
@@ -20,7 +20,7 @@ use crate::codex_rpc::wire::outbound::{Initialize, Request, next_request_id};
 use crate::codex_rpc::wire::{Inbound, RpcError, decode};
 use crate::error::{BusinessError, Result};
 use crate::harness::{CliSessionCtx, Harness, rpc_exec_spec};
-use crate::harnesses::codex::{Codex, codex_home};
+use crate::harnesses::codex::{APP_SERVER_ARGS, Codex, codex_home};
 use crate::pi_family::normalize::plain_text;
 use crate::process::{LineChild, ReadLine, launcher_search_dirs};
 use crate::security::redact_text;
@@ -36,9 +36,6 @@ const STDERR_GRACE: Duration = Duration::from_secs(1);
 
 /// Longest Codex error text passed on, in characters.
 const MAX_ERROR_CHARS: usize = 200;
-
-/// The arguments: the app-server, without its update check.
-const ARGS: [&str; 3] = ["app-server", "-c", "check_for_update_on_startup=false"];
 
 /// A running `codex app-server` (see the module docs).
 pub(super) struct AppServer {
@@ -63,7 +60,7 @@ impl AppServer {
     /// Spawns the app-server for `ctx` and runs the handshake; everything must be done within
     /// `timeout`.
     pub(super) fn start(ctx: &CliSessionCtx<'_>, timeout: Duration) -> Result<Self> {
-        let args: Vec<String> = ARGS.iter().map(|arg| (*arg).to_owned()).collect();
+        let args = APP_SERVER_ARGS.map(str::to_owned);
         let spec = rpc_exec_spec(ctx.binary, ctx.project, &args)?
             .env("CODEX_HOME", codex_home(ctx.env))
             .env("NO_COLOR", "1")

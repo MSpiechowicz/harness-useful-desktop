@@ -321,6 +321,13 @@ pub trait Harness: Send + Sync {
         Ok(())
     }
 
+    /// Whether trusting `project` once changes anything for a chat of the harness with
+    /// `capabilities.projectTrust`: false when the harness has nothing of the project to leave out
+    /// (the chat then offers no trust button). Default: true.
+    fn trust_once_offered(&self, _env: &Env, _project: &Path) -> bool {
+        true
+    }
+
     /// Refuses resuming `session` in `project` when it is not one of the project's saved sessions,
     /// before anything is spawned. Default: nothing is checked (the harness reports an unknown
     /// session itself).

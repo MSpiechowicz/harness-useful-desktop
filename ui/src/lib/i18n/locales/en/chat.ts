@@ -298,8 +298,9 @@ export const chat = {
   'chat.trust.doneUntilQuit': 'Folder trusted until you quit the app',
   'chat.trust.popover': 'Trust this project',
   'chat.trust.trigger': 'Trust project once',
-  'chat.trust.warning': "PI skips this project's extensions, skills and prompt templates until you trust it. Trusting lets code from the project run with your permissions.",
-  'chat.trust.scope': 'It applies to this session only. The app asks again the next time PI starts. The session restarts and continues where it left off.',
+  'chat.trust.warning': "{harness} skips this project's extensions, skills and prompt templates until you trust it. Trusting lets code from the project run with your permissions.",
+  'chat.trust.warning.codex': "Codex ignores this project's .codex/ settings, hooks and rules until you trust it. Trusting lets code from the project run with your permissions.",
+  'chat.trust.scope': 'It applies to this session only. The app asks again the next time {harness} starts. The session restarts and continues where it left off.',
   'chat.trust.action': 'Restart and trust this project',
 
   'chat.request.closes': 'Closes by itself when the time runs out',

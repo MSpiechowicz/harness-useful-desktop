@@ -1,8 +1,10 @@
 import { render, screen } from '@testing-library/svelte';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import type { ExtensionAction } from '$lib/ipc/bindings/ExtensionAction';
 import type { McpRefusal } from '$lib/ipc/bindings/McpRefusal';
+import { fixtures } from '$lib/ipc/mock/fixtures';
+import { harness } from '$lib/stores/harness.svelte';
 
 import SetupMcpNote from './SetupMcpNote.svelte';
 import { commandOf, mcpSnippet, refusalText } from './setup-model';
@@ -68,6 +70,23 @@ describe('commandOf for Claude Code shows the line that really runs', () => {
   });
 });
 
+describe('a Codex MCP file the app leaves alone', () => {
+  it('is TOML, so the refusals and the entry to paste say TOML', () => {
+    expect(refusalText('unparsable', 'codex')).toBe('The file is not valid TOML.');
+    expect(refusalText('serversNotAnObject', 'codex')).toBe('“mcp_servers” in the file is not a table.');
+    expect(refusalText('unparsable', 'claude')).toBe('The file is not valid JSON.');
+    expect(mcpSnippet('memoryMcp', 'codex')).toBe('[mcp_servers.harness-memory]\ncommand = "harness-memory"\nargs = ["mcp"]');
+  });
+
+  it('shows that entry under the refusal', () => {
+    render(SetupMcpNote, { kind: 'desktopMcp', harness: 'codex', title: 'Harness Desktop MCP', refused: 'unparsable', manualEdit: null, disabled: false, waitsFor: null, failure: null });
+
+    expect(screen.getByText(/The file is not valid TOML\./)).toBeInTheDocument();
+    expect(screen.getByText(/\[mcp_servers\.harness-desktop\]/)).toBeInTheDocument();
+    expect(screen.queryByText(/mcpServers/)).not.toBeInTheDocument();
+  });
+});
+
 describe('commandOf for Codex shows the line that really runs', () => {
   const line = (action: ExtensionAction) => commandOf('codex', action);
 
@@ -82,6 +101,11 @@ describe('commandOf for Codex shows the line that really runs', () => {
 });
 
 describe('a failed claude mcp run', () => {
+  afterEach(() => {
+    harness.summaries = [];
+  });
+
+
   it('is told apart from a file the app could not write', () => {
     expect(refusalText('cliFailed', 'claude')).toBe('The “claude mcp” command failed, so nothing was changed. Run it in a terminal to see why.');
     expect(refusalText('cliFailed', 'claude')).not.toBe(refusalText('writeFailed', 'claude'));
@@ -119,7 +143,15 @@ describe('a failed claude mcp run', () => {
     removed.unmount();
 
     render(SetupMcpNote, { ...props, refused: 'cliBatchShim' });
-    expect(screen.getByText(/Use the native installer\./)).toBeInTheDocument();
+    expect(screen.getByText(/Install it again without npm\./)).toBeInTheDocument();
     expect(screen.queryByText(/mcpServers/)).not.toBeInTheDocument();
+  });
+
+  it('names the harness whose CLI is a batch shim, never another one', () => {
+    harness.summaries = fixtures.harnesses;
+
+    expect(refusalText('cliBatchShim', 'claude')).toBe('Claude Code installed through npm cannot take this command on Windows. Install it again without npm.');
+    expect(refusalText('cliBatchShim', 'codex')).toBe('Codex installed through npm cannot take this command on Windows. Install it again without npm.');
+    expect(refusalText('cliBatchShim', 'codex')).not.toMatch(/Claude/);
   });
 });

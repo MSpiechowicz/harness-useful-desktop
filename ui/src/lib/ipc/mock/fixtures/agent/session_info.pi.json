@@ -7,5 +7,6 @@
   "configuredApprovalMode": null,
   "nativeApprovalMode": null,
   "trustedOnce": false,
+  "trustOffered": true,
   "protocolVersion": null
 }

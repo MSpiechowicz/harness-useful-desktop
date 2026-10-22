@@ -254,6 +254,7 @@ impl AgentManager {
             configured_approval_mode: harness.configured_approval_mode(deps.env, Some(&project)),
             native_approval_mode: harness.native_approval_mode(deps.env, Some(&project)),
             trusted_once: trust_once,
+            trust_offered: harness.trust_once_offered(deps.env, &project),
             protocol_version: session.protocol_version(),
         };
 
