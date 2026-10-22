@@ -83,8 +83,8 @@ fn an_active_profile_replaces_the_user_layer() {
     assert!(settings.source.path.contains("profiles"));
     assert_eq!(settings.entries[0].key, "modelRoles");
 
-    let notice = &view.notices[0];
-    assert_eq!(notice.message, "Active profile: work. Other profiles: home-lab.");
+    let messages: Vec<&str> = view.notices.iter().map(|notice| notice.message.as_str()).collect();
+    assert_eq!(messages[..2], ["Active profile: work.", "Other profiles: home-lab."]);
 }
 
 #[test]

@@ -174,7 +174,7 @@ pub fn omp_config_view(env: &Env, project: Option<&Path>) -> ConfigView {
     sections.extend(project_mcp.iter().filter_map(|file| mcp_section(file, &user)));
 
     let mut notices = Vec::new();
-    notices.extend(profiles_notice(&paths));
+    notices.extend(profiles_notices(&paths));
     notices.push(Notice {
         level: NoticeLevel::Info,
         message: DATABASES_NOTICE.to_owned(),
@@ -234,25 +234,33 @@ fn project_settings_sections(dir: &Path) -> Vec<ConfigSection> {
         .collect()
 }
 
-/// Names of the profiles (never their content), pointing out the active one.
-fn profiles_notice(paths: &HarnessPaths) -> Option<Notice> {
+/// Names of the profiles (never their content), pointing out the active one: one notice for the
+/// active profile and one for the others.
+fn profiles_notices(paths: &HarnessPaths) -> Vec<Notice> {
     let others: Vec<String> = profile_names(paths)
         .into_iter()
         .filter(|name| Some(name) != paths.profile.as_ref())
         .collect();
 
-    let message = match (&paths.profile, others.is_empty()) {
-        (Some(active), true) => format!("Active profile: {active}."),
-        (Some(active), false) => format!("Active profile: {active}. Other profiles: {}.", others.join(", ")),
-        (None, false) => format!(
+    let messages = match (&paths.profile, others.is_empty()) {
+        (Some(active), true) => vec![format!("Active profile: {active}.")],
+        (Some(active), false) => vec![
+            format!("Active profile: {active}."),
+            format!("Other profiles: {}.", others.join(", ")),
+        ],
+        // The UI shows this one as a profile list (`ui/src/features/config/profiles.ts`).
+        (None, false) => vec![format!(
             "Profiles: {}. Start OMP with --profile <name> to use one.",
             others.join(", ")
-        ),
-        (None, true) => return None,
+        )],
+        (None, true) => Vec::new(),
     };
 
-    Some(Notice {
-        level: NoticeLevel::Info,
-        message,
-    })
+    messages
+        .into_iter()
+        .map(|message| Notice {
+            level: NoticeLevel::Info,
+            message,
+        })
+        .collect()
 }

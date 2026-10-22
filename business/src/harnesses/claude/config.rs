@@ -16,7 +16,6 @@ mod global_file;
 mod notices;
 mod redact;
 mod skills;
-mod workflow;
 
 use std::path::Path;
 

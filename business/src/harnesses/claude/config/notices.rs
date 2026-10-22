@@ -34,8 +34,10 @@ const PROVIDER_SWITCHES: &[(&str, &str)] = &[
     ("CLAUDE_CODE_USE_FOUNDRY", "Microsoft Foundry"),
 ];
 
-const NEVER_READ_NOTICE: &str = "The login (.credentials.json), prompt history, caches and backups are never read. \
-                                 From .claude.json only MCP servers and this project's tool and trust settings are shown.";
+const NEVER_READ_NOTICE: &str = "The login (.credentials.json), prompt history, caches and backups are never read.";
+
+const GLOBAL_FILE_NOTICE: &str =
+    "From .claude.json only MCP servers and this project's tool and trust settings are shown.";
 
 /// Every notice of the view, in display order, with `skills` after the memory files.
 pub(super) fn notices(env: &Env, project: Option<&Path>, skills: Option<Notice>) -> Vec<Notice> {
@@ -59,6 +61,7 @@ pub(super) fn notices(env: &Env, project: Option<&Path>, skills: Option<Notice>)
     notices.extend(memory_files_notice(env, project));
     notices.extend(skills);
     notices.push(info(NEVER_READ_NOTICE.to_owned()));
+    notices.push(info(GLOBAL_FILE_NOTICE.to_owned()));
     notices
 }
 

@@ -94,7 +94,9 @@ fn layers_follow_the_opencode_merge_order() {
     let env = env_at(&home)
         .with_var("OPENCODE_CONFIG", home.join("custom-opencode.jsonc").to_string_lossy())
         .with_var("OPENCODE_CONFIG_DIR", home.join("team-opencode").to_string_lossy());
-    let view = config(&env, Some(&project));
+    let mut view = config(&env, Some(&project));
+    // The Harness Skills sections follow these files (see `opencode_skills_config.rs`).
+    view.sections.retain(|section| !section.id.contains("harnessSkills"));
 
     assert_eq!(
         section_files(&view, &home, &project),
@@ -110,20 +112,9 @@ fn layers_follow_the_opencode_merge_order() {
         ]
     );
 
+    use ConfigLayer::{Project, User};
     let layers: Vec<ConfigLayer> = view.sections.iter().map(|section| section.source.layer).collect();
-    assert_eq!(
-        layers,
-        [
-            ConfigLayer::User,
-            ConfigLayer::User,
-            ConfigLayer::User,
-            ConfigLayer::Project,
-            ConfigLayer::Project,
-            ConfigLayer::Project,
-            ConfigLayer::User,
-            ConfigLayer::User,
-        ]
-    );
+    assert_eq!(layers, [User, User, User, Project, Project, Project, User, User]);
     assert_eq!(view.sections[0].source.format, ConfigFormat::Jsonc);
     assert_eq!(view.sections[3].source.format, ConfigFormat::Json);
     assert!(view.sections.iter().all(|section| section.error.is_none()));

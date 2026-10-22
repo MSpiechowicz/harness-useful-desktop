@@ -1,6 +1,7 @@
-//! The Harness Skills workflow switches for Claude Code, read the way the plugin reads them
-//! (harness-useful-skills `workflow-settings.js` and `claude/settings.js`). Below the canonical
-//! config directory, `useful-skills/workflow-settings/` holds the repository master
+//! The Harness Skills workflow switches, read the way the plugin reads them (harness-useful-skills
+//! `workflow-settings.js`, `claude/settings.js` and `opencode/settings.js`). Below the harness's
+//! settings root (Claude Code's config directory, OpenCode's XDG config directory),
+//! `useful-skills/workflow-settings/` holds the repository master
 //! `repositories/<sha256 of the scope root>/workflow.json` and the six profile-wide stage files
 //! `<stage>.json`. The scope root is the nearest enclosing Git checkout of the project (a `.git`
 //! folder, or a `.git` file naming its `gitdir:`), else the canonical project.
@@ -8,7 +9,9 @@
 //! Each file holds a JSON boolean of at most [`MAX_SETTING_BYTES`]. A missing file means enabled.
 //! An unsafe or unreadable file is an error for its key, never a default: a symlink, anything
 //! but a regular file, a file too big or not a boolean, or a folder of the store that is a
-//! symlink or (on Unix) open to other users. Nothing is created or changed.
+//! symlink or (on Unix) open to other users. A settings root that cannot be resolved is an error
+//! for every key, unless it is missing and the harness reads that as no saved settings
+//! ([`MissingRoot`]). Nothing is created or changed.
 
 use std::fs::{self, Metadata};
 use std::io::ErrorKind;
@@ -20,7 +23,7 @@ use sha2::{Digest, Sha256};
 use crate::security::SafeReader;
 
 /// The profile-wide stages, in the plugin's order.
-pub(super) const STAGES: [&str; 6] = [
+const STAGES: [&str; 6] = [
     "research",
     "plan",
     "review",
@@ -30,7 +33,7 @@ pub(super) const STAGES: [&str; 6] = [
 ];
 
 /// The per-repository master switch.
-pub(super) const WORKFLOW: &str = "workflow";
+const WORKFLOW: &str = "workflow";
 
 /// Largest settings file and `.git` file read, as in the plugin.
 const MAX_SETTING_BYTES: u64 = 4096;
@@ -40,7 +43,7 @@ const MAX_SETTING_BYTES: u64 = 4096;
 pub(super) enum Setting {
     /// Read from its file.
     Saved(bool),
-    /// No file, so enabled (or the `/plugin` option, which only Claude Code's hooks see).
+    /// No file, so enabled (on Claude Code, or the `/plugin` option, which only its hooks see).
     Default,
     /// The repository master without a project open.
     Unavailable,
@@ -61,47 +64,65 @@ impl Setting {
     }
 }
 
-/// The settings folder below `config`: `useful-skills/workflow-settings`.
-pub(super) fn settings_dir(config: &Path) -> PathBuf {
-    config.join("useful-skills").join("workflow-settings")
+/// What a settings root that does not exist means.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(in crate::harnesses) enum MissingRoot {
+    /// An error for every key, as Claude Code's plugin reads it.
+    Error,
+    /// No saved settings, as OpenCode's plugin reads it.
+    Defaults,
+}
+
+/// The settings folder below `root`: `useful-skills/workflow-settings`.
+pub(super) fn settings_dir(root: &Path) -> PathBuf {
+    root.join("useful-skills").join("workflow-settings")
 }
 
 /// Every switch, the master first (see the module docs).
-pub(super) fn read_settings(config: &Path, project: Option<&Path>) -> Vec<(&'static str, Setting)> {
-    let Ok(config) = dunce::canonicalize(config) else {
-        return every_key(&Setting::Error("Cannot resolve agent profile directory.".to_owned()));
-    };
-
-    let directory = settings_dir(&config);
-    let master = project.map(scope_root);
-
-    let present = check_ancestor(directory.parent().unwrap_or(&directory))
-        .and_then(|present| Ok(present && check_ancestor(&directory)?));
-
-    let present = match present {
-        Ok(present) => present,
+pub(super) fn read_settings(root: &Path, missing: MissingRoot, project: Option<&Path>) -> Vec<(&'static str, Setting)> {
+    let directory = match store_dir(root, missing) {
+        Ok(directory) => directory,
         Err(reason) => return every_key(&Setting::Error(reason)),
     };
 
-    let workflow = match master {
-        None => Setting::Unavailable,
-        Some(Err(reason)) => Setting::Error(reason),
-        Some(Ok(_)) if !present => Setting::Default,
-        Some(Ok(root)) => read_master(&directory, &root),
+    let workflow = match (project.map(scope_root), &directory) {
+        (None, _) => Setting::Unavailable,
+        (Some(Err(reason)), _) => Setting::Error(reason),
+        (Some(Ok(_)), None) => Setting::Default,
+        (Some(Ok(root)), Some(directory)) => read_master(directory, &root),
     };
 
     let mut settings = vec![(WORKFLOW, workflow)];
     settings.extend(STAGES.iter().map(|&stage| {
-        let setting = if present {
-            read_setting(&directory, stage)
-        } else {
-            Setting::Default
+        let setting = match &directory {
+            Some(directory) => read_setting(directory, stage),
+            None => Setting::Default,
         };
 
         (stage, setting)
     }));
 
     settings
+}
+
+/// The settings folder below the canonical `root`, `None` when there is none yet, or why it
+/// cannot be read safely.
+fn store_dir(root: &Path, missing: MissingRoot) -> Result<Option<PathBuf>, String> {
+    let canonical = match dunce::canonicalize(root) {
+        Ok(canonical) => canonical,
+        Err(_) if missing == MissingRoot::Defaults && is_missing(root) => return Ok(None),
+        Err(_) => return Err("Cannot resolve agent profile directory.".to_owned()),
+    };
+
+    let directory = settings_dir(&canonical);
+    let present = check_ancestor(directory.parent().unwrap_or(&directory))? && check_ancestor(&directory)?;
+
+    Ok(present.then_some(directory))
+}
+
+/// True only when nothing is at `path`, not even a dangling link.
+fn is_missing(path: &Path) -> bool {
+    fs::symlink_metadata(path).is_err_and(|error| error.kind() == ErrorKind::NotFound)
 }
 
 fn every_key(setting: &Setting) -> Vec<(&'static str, Setting)> {
@@ -126,7 +147,7 @@ fn read_master(directory: &Path, root: &Path) -> Setting {
 }
 
 /// The folder name of the repository at `root`: the SHA-256 hex digest of its path.
-pub(super) fn repository_key(root: &Path) -> String {
+fn repository_key(root: &Path) -> String {
     format!("{:x}", Sha256::digest(root.to_string_lossy().as_bytes()))
 }
 

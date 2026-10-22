@@ -799,12 +799,161 @@ expression: "exported(config(&env, Some(&project)), &home, &project)"
         }
       ],
       "error": null
+    },
+    {
+      "id": "user.harnessSkillsModels",
+      "title": "Harness Skills model roles",
+      "description": "The model and variant of each Harness Skills role. OpenCode picks up changes in its next session.",
+      "source": {
+        "path": "/home/demo/.config/opencode/useful-skills/models.yml",
+        "layer": "user",
+        "profile": null,
+        "format": "yaml",
+        "exists": true
+      },
+      "entries": [
+        {
+          "key": "modelRoles",
+          "value": {
+            "kind": "map",
+            "value": [
+              {
+                "key": "default",
+                "value": {
+                  "kind": "text",
+                  "value": "ollama/llama3:8b"
+                }
+              },
+              {
+                "key": "research",
+                "value": {
+                  "kind": "text",
+                  "value": "anthropic/claude-haiku-5-5:low"
+                }
+              },
+              {
+                "key": "review",
+                "value": {
+                  "kind": "text",
+                  "value": "anthropic/claude-sonnet-5-5:high"
+                }
+              },
+              {
+                "key": "security",
+                "value": {
+                  "kind": "text",
+                  "value": "inherit"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "user.harnessSkillsWorkflow",
+      "title": "Harness Skills workflow",
+      "description": "The Harness Skills workflow for the Git checkout of this project and its six stages for every project. Change them with /useful-skills in OpenCode.",
+      "source": {
+        "path": "/home/demo/.config/opencode/useful-skills/workflow-settings",
+        "layer": "user",
+        "profile": null,
+        "format": "json",
+        "exists": true
+      },
+      "entries": [
+        {
+          "key": "workflow",
+          "value": {
+            "kind": "text",
+            "value": "default (enabled)"
+          }
+        },
+        {
+          "key": "research",
+          "value": {
+            "kind": "text",
+            "value": "default (enabled)"
+          }
+        },
+        {
+          "key": "plan",
+          "value": {
+            "kind": "text",
+            "value": "enabled (saved file)"
+          }
+        },
+        {
+          "key": "review",
+          "value": {
+            "kind": "text",
+            "value": "disabled (saved file)"
+          }
+        },
+        {
+          "key": "security-review",
+          "value": {
+            "kind": "text",
+            "value": "default (enabled)"
+          }
+        },
+        {
+          "key": "backend-memory",
+          "value": {
+            "kind": "text",
+            "value": "default (enabled)"
+          }
+        },
+        {
+          "key": "graphify-memory",
+          "value": {
+            "kind": "text",
+            "value": "default (enabled)"
+          }
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "project.harnessSkillsModels",
+      "title": "Project Harness Skills model roles",
+      "description": "The model and variant of each Harness Skills role installed in this project. OpenCode picks up changes in its next session.",
+      "source": {
+        "path": "/home/demo/Projects/demo/.opencode/useful-skills/models.yml",
+        "layer": "project",
+        "profile": null,
+        "format": "yaml",
+        "exists": true
+      },
+      "entries": [
+        {
+          "key": "modelRoles",
+          "value": {
+            "kind": "map",
+            "value": [
+              {
+                "key": "backend",
+                "value": {
+                  "kind": "text",
+                  "value": "openai/gpt-5:medium"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "error": null
     }
   ],
   "notices": [
     {
       "level": "info",
-      "message": "Credentials (auth.json, mcp-auth.json) and the session database (opencode.db) are never read. {env:…} and {file:…} references are shown, never resolved."
+      "message": "Credentials (auth.json, mcp-auth.json) and the session database (opencode.db) are never read."
+    },
+    {
+      "level": "info",
+      "message": "{env:…} and {file:…} references are shown, never resolved."
     }
   ]
 }

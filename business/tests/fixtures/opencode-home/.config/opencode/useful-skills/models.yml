@@ -1,0 +1,11 @@
+# Useful Skills model roles for OpenCode.
+# Selector: <provider>/<model>[:<variant>], for example anthropic/claude-sonnet-4-5:high.
+# Variant: none, minimal, low, medium, high, xhigh, max; any other `:suffix` stays part of the model ID.
+# `inherit` uses the session model. Roles: research, frontend, backend, implementation, review, security, plan, default.
+# A missing role uses `default`; without `default` the agent inherits the session model.
+# Changes apply to OpenCode sessions started afterwards.
+modelRoles:
+  default: ollama/llama3:8b
+  research: anthropic/claude-haiku-5-5:low
+  review: anthropic/claude-sonnet-5-5:high
+  security: inherit

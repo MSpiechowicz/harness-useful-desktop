@@ -899,7 +899,11 @@ expression: "exported(config(&env, Some(&project)), &home, &project)"
     },
     {
       "level": "info",
-      "message": "The login (.credentials.json), prompt history, caches and backups are never read. From .claude.json only MCP servers and this project's tool and trust settings are shown."
+      "message": "The login (.credentials.json), prompt history, caches and backups are never read."
+    },
+    {
+      "level": "info",
+      "message": "From .claude.json only MCP servers and this project's tool and trust settings are shown."
     }
   ]
 }

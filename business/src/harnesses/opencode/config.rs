@@ -19,11 +19,14 @@
 //! referenced file is never read.
 //!
 //! [`layers`] finds the files and directories; this module renders them as redacted sections.
+//! What Harness Skills keeps for OpenCode (its model roles and workflow switches, [`skills`])
+//! follows the OpenCode files.
 
 mod discovery_v2;
 mod keys;
 mod layers;
 mod read;
+mod skills;
 
 use std::path::Path;
 
@@ -40,8 +43,10 @@ pub(super) use crate::pi_family::mcp_config::command_words;
 use crate::pi_family::{SectionText, origin_label, section_from, source};
 pub(super) use discovery_v2::walk as v2_walk;
 
-const CREDENTIALS_NOTICE: &str = "Credentials (auth.json, mcp-auth.json) and the session database (opencode.db) are \
-                                  never read. {env:…} and {file:…} references are shown, never resolved.";
+const CREDENTIALS_NOTICE: &str =
+    "Credentials (auth.json, mcp-auth.json) and the session database (opencode.db) are never read.";
+
+const REFERENCES_NOTICE: &str = "{env:…} and {file:…} references are shown, never resolved.";
 
 const PROJECT_CONFIG_OFF_NOTICE: &str =
     "OPENCODE_DISABLE_PROJECT_CONFIG is on, so OpenCode ignores this project's settings and .opencode directories.";
@@ -68,6 +73,8 @@ pub fn config_view(env: &Env, project: Option<&Path>, generation: OpenCodeGenera
             sections.extend(view.dir_sections(&dir.path, dir.place));
         }
     }
+
+    sections.extend(skills::sections(env, project, generation));
 
     ConfigView {
         harness: HarnessId::OpenCode,
@@ -280,7 +287,7 @@ fn section_text(place: Place, kind: FileKind, generation: OpenCodeGeneration) ->
     }
 }
 
-/// Environment overrides (by name only), the project switch and the credentials notice. OpenCode 2
+/// Environment overrides (by name only), the project switch, and what is never read or resolved. OpenCode 2
 /// has no `OPENCODE_PERMISSION`.
 fn notices(env: &Env, project: Option<&Path>, generation: OpenCodeGeneration) -> Vec<Notice> {
     let mut notices = Vec::new();
@@ -303,6 +310,7 @@ fn notices(env: &Env, project: Option<&Path>, generation: OpenCodeGeneration) ->
     }
 
     notices.push(info(CREDENTIALS_NOTICE));
+    notices.push(info(REFERENCES_NOTICE));
     notices
 }
 

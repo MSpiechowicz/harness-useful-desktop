@@ -1,0 +1,3 @@
+# Useful Skills model roles for OpenCode (project scope).
+modelRoles:
+  backend: openai/gpt-5:medium

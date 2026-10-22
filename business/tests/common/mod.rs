@@ -35,8 +35,16 @@ pub fn pi_home() -> PathBuf {
 }
 
 /// `tests/fixtures/opencode-home` (canonical).
+///
+/// Its Harness Skills settings folders are made private at run time, as for [`claude_home`].
 pub fn opencode_home() -> PathBuf {
-    fixtures_dir().join("opencode-home")
+    let home = fixtures_dir().join("opencode-home");
+    let skills = home.join(".config/opencode/useful-skills");
+
+    set_mode(&skills, 0o700);
+    set_mode(&skills.join("workflow-settings"), 0o700);
+
+    home
 }
 
 /// `tests/fixtures/claude-home` (canonical).
