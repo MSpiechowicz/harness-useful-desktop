@@ -446,7 +446,17 @@ async fn a_project_install_in_a_folder_claude_does_not_trust_is_refused() {
     let error = run_cli_action(run_in_project(&project_install))
         .await
         .expect_err("an untrusted folder");
-    assert!(matches!(error, BusinessError::Untrusted(_)), "{error:?}");
+    let BusinessError::Untrusted(message) = &error else {
+        panic!("{error:?}")
+    };
+    assert!(
+        message.starts_with("Claude Code does not trust this folder yet."),
+        "{message}"
+    );
+    assert!(
+        !message.contains("trust it once"),
+        "no trust once for a plugin install: {message}"
+    );
     assert!(fake.argvs().is_empty(), "nothing runs");
 
     let user_install = install();

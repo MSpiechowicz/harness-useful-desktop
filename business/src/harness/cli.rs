@@ -198,7 +198,16 @@ pub async fn run_cli_action(run: CliRun<'_>) -> Result<CliResult> {
     let cwd = match run.project {
         Some(project) if !invocation.in_home_dir => {
             // The CLI applies the project's own settings there, as a chat would.
-            run.harness.check_project_trust(run.env, project)?;
+            // No trust once here, so the refusal says how to trust the folder instead.
+            run.harness
+                .check_project_trust(run.env, project)
+                .map_err(|error| match error {
+                    BusinessError::Untrusted(_) => BusinessError::Untrusted(format!(
+                        "{} does not trust this folder yet. Run it there once from a terminal, then try again.",
+                        run.harness.info().name
+                    )),
+                    other => other,
+                })?;
             project.to_path_buf()
         }
         _ => run.env.home.clone(),
