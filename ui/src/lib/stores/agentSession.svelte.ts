@@ -14,7 +14,7 @@ import type { SessionRoutineTag } from '$lib/ipc/bindings/SessionRoutineTag';
 import { ipc } from '$lib/ipc/client';
 import { IpcFailure, type Transport } from '$lib/ipc/transport';
 
-import { buffered, nextNumber, type RestartOptions, type RestoredChat, type StartingChat } from './agent-tabs';
+import { buffered, nextNumber, type RestartOptions, type RestoredChat, type StartingChat, startFailureMessage } from './agent-tabs';
 import { harness } from './harness.svelte';
 import { type MemoryIdentities, withMemory } from './agent-memory';
 import { type ChatMemory, memoryChat } from './memoryChat.svelte';
@@ -111,11 +111,7 @@ export class AgentSessionsStore {
       session = new ChatSession(info, this.transport, this.notifications);
     } catch (error) {
       if (!quiet) {
-        const failure = IpcFailure.from(error);
-        // An agent that never answered or spoke wrongly is most often outdated: say so, in the user's language.
-        // `process` stays without it (missing binary, a folder to chmod: those name their own fix).
-        const outdated = failure.code === 'timeout' || failure.code === 'protocol';
-        const message = outdated ? `${t('chat.toast.startFailedHint')} ${failure.message}` : failure.message;
+        const message = startFailureMessage(error);
         // A long reason names a fix to carry out (a folder to chmod): it stays until the user dismisses it.
         this.notifications.push({ title: t('chat.toast.startFailed'), description: message, tone: 'danger', duration: message.length > LONG_START_FAILURE ? 0 : undefined });
       }

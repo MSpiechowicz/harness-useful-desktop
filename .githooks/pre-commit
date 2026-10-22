@@ -1,0 +1,4 @@
+#!/bin/sh
+# Runs the same guards as CI (file size, case collisions, forbidden patterns, IPC contract) before a commit is made.
+# Installed by `bun install` (the `prepare` script sets core.hooksPath). Skip once with `git commit --no-verify`.
+exec bun run guard

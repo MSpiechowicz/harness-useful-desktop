@@ -254,7 +254,7 @@ Prerequisites:
 Commands:
 
 ```sh
-bun install                        # install JS dependencies
+bun install                        # install JS dependencies and the pre-commit hook (runs bun run guard)
 bun run dev:ui                     # UI only, in a browser (http://localhost:1420)
 bun run dev:mock                   # UI with the mock transport (no Rust needed)
 bun run dev                        # full desktop app (tauri dev)

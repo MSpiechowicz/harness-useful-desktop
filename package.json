@@ -18,6 +18,7 @@
     "tauri": "tauri",
     "check": "svelte-check --tsconfig ui/tsconfig.json --fail-on-warnings",
     "test": "vitest run --config ui/vitest.config.ts --passWithNoTests",
+    "prepare": "git config core.hooksPath .githooks || true",
     "guard": "bun scripts/check-file-size.ts && bun scripts/check-case-collisions.ts && bun scripts/check-forbidden.ts && bun scripts/check-ipc-contract.ts",
     "dup": "jscpd --config .jscpd.json",
     "desktop-entry": "bun scripts/linux-desktop-entry.ts",
