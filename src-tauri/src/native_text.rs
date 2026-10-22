@@ -185,6 +185,31 @@ const PL: NativeText = NativeText {
     choose_executable: "Wybierz plik wykonywalny `{binary}`",
 };
 
+const PT: NativeText = NativeText {
+    show_window: "Mostrar o Harness Desktop",
+    hide_window: "Ocultar a janela",
+    quit: "Sair do Harness Desktop",
+    open_project_folder: "Abrir a pasta de um projeto",
+    choose_folder: "Escolher uma pasta",
+    open_setup_file: "Abrir arquivo de configuração",
+    save_setup_file: "Salvar configuração",
+    setup_files: "Arquivos de configuração",
+    open_notes_file: "Importar notas de um arquivo",
+    notes_files: "Arquivos CSV e JSON",
+    save_notes_example: "Salvar um arquivo de notas de exemplo",
+    csv_files: "Arquivos CSV",
+    json_files: "Arquivos JSON",
+    script_request_title: "Um agente quer executar um script",
+    script_request_review: "Revise no Harness Desktop",
+    routine_needs_you: "Uma rotina precisa de você",
+    routine_answer: "Responda no Harness Desktop",
+    routine_failed: "Uma rotina falhou",
+    routine_attention: "Uma rotina precisa de atenção",
+    routine_see_run: "Veja a execução no Harness Desktop",
+    routine_finished: "Rotina concluída",
+    choose_executable: "Escolher o executável `{binary}`",
+};
+
 /// The native strings for the UI language `lang` (English when it is not a shipped language).
 pub fn native_text(lang: &str) -> &'static NativeText {
     match lang {
@@ -192,6 +217,7 @@ pub fn native_text(lang: &str) -> &'static NativeText {
         "es" => &ES,
         "fr" => &FR,
         "pl" => &PL,
+        "pt" => &PT,
         _ => &EN,
     }
 }

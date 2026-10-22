@@ -1,7 +1,7 @@
 import { en, type MessageKey } from './locales/en';
 import type { Dict } from './locales/types';
 
-export type Lang = 'en' | 'de' | 'es' | 'fr' | 'pl';
+export type Lang = 'en' | 'de' | 'es' | 'fr' | 'pl' | 'pt';
 
 /** Each language named in itself, as a language picker lists them. */
 export const LANGS: readonly { code: Lang; label: string }[] = [
@@ -10,6 +10,7 @@ export const LANGS: readonly { code: Lang; label: string }[] = [
   { code: 'es', label: 'Español' },
   { code: 'fr', label: 'Français' },
   { code: 'pl', label: 'Polski' },
+  { code: 'pt', label: 'Português (Brasil)' },
 ];
 
 // English is built in. The others load when chosen, each from its own chunk.
@@ -18,9 +19,10 @@ const LOADERS: Record<Exclude<Lang, 'en'>, () => Promise<Dict>> = {
   es: () => import('./locales/es').then((module) => module.es),
   fr: () => import('./locales/fr').then((module) => module.fr),
   pl: () => import('./locales/pl').then((module) => module.pl),
+  pt: () => import('./locales/pt').then((module) => module.pt),
 };
 
-const LOCALES: Record<Lang, string> = { en: 'en-US', de: 'de-DE', es: 'es-ES', fr: 'fr-FR', pl: 'pl-PL' };
+const LOCALES: Record<Lang, string> = { en: 'en-US', de: 'de-DE', es: 'es-ES', fr: 'fr-FR', pl: 'pl-PL', pt: 'pt-BR' };
 
 /** The saved language code as a supported language; anything unknown is English. */
 export function toLang(code: string | null | undefined): Lang {

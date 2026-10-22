@@ -127,6 +127,9 @@ fn save_keeps_a_known_language_and_falls_back_to_english() {
     let cases = [
         ("pl", "pl"),
         ("PL", "pl"),
+        ("pt", "pt"),
+        (" PT ", "pt"),
+        ("pt-BR", "en"),
         (" de ", "de"),
         ("xx", "en"),
         ("", "en"),

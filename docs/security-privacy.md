@@ -1472,7 +1472,7 @@ Details of keys and releases: [release-and-updater-keys.md](release-and-updater-
 | Log files | The OS log directory | See [Logging](#logging). Rotated at 1 MiB, 3 files kept. |
 
 `AppPrefs` (`business/src/model/prefs.rs`) has twenty-three fields and never holds secrets or chat content:
-`version`, `theme`, `motion`, `language` (`en`, `de`, `es`, `fr` or `pl`; anything else loads as `en`), `introEnabled`,
+`version`, `theme`, `motion`, `language` (`en`, `de`, `es`, `fr`, `pl` or `pt` for Brazilian Portuguese; anything else loads as `en`), `introEnabled`,
 `soundEnabled`, `showThinking`, `showMessageUsage`, `defaultHarness`, `activeProject`, `rememberRecentProjects`, `recentProjects` (12 at
 most), `updatePolicy`, `checkCompanionUpdates`, `autoUpdateExtensions`, `autoRefreshCatalogs`, `openAnyLink`, `aiChatNames`, `onboardingCompleted`, `approvalNoticeSeen`,
 `binaryOverrides`, `chatDefaults` and `memoryEnabled` (project memory, on by default).
