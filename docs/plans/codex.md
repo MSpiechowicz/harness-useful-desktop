@@ -88,7 +88,7 @@ engine `agent/codex/`. Stdio only: no ports, no password, no daemon.
 | Stats, context meter | `thread/tokenUsage/updated{modelContextWindow}` | S0 |
 | Model / reasoning | per turn `model` + `effort` on `turn/start`, list from `model/list` | bindings |
 | Approval prompts | the three server requests above → the app's approval card; "Always" = `acceptForSession` | bindings |
-| Question dialogs | `item/tool/requestUserInput`, `mcpServer/elicitation/request` (form only, url → open in browser after confirm) | bindings, experimental |
+| Question dialogs | `item/tool/requestUserInput`, `mcpServer/elicitation/request` (form only, url → declined with a notice) | bindings, experimental |
 | Slash commands | app built-ins (new, compact, rename, model, …) + skills from `skills/list` sent as `skill` input items | bindings |
 | Subagents | collab/subagent items shown as task cards (S0) | verify |
 | `!command` | decision 5 | — |
@@ -196,7 +196,7 @@ engine `agent/codex/`. Stdio only: no ports, no password, no daemon.
 | S13 docs | done (7dec72d, 6b2af82) |
 | S11 hooks, routines | done (merged 81791b0). Hooks and routines need no Codex-specific source. **Notes guard off:** Codex starts stdio MCP servers with a cleared environment (HOME, PATH, … plus the server's `env_vars`/`env`), so `HARNESS_MEMORY_SESSION` never reaches harness-memory. Open decision for the user |
 | S12 UI polish | done (merged ff762b1). Trust once harness-aware (Codex: only with an untrusted `.codex/` layer), TOML source view, harness-named refusals, sessions helper update switches. Windows `.cmd` launcher still refuses the trust-once argument |
-| Reviews | pass 1 running (3 correctness + 2 security), read-only on feat/codex |
+| Reviews | pass 1 done (3 correctness + 2 security; 1/3 + 1/3). Repair round 1 (one agent, user's budget) merged 188fa24: decision 11 notes guard, trust = exact folder or repo root (real CLI), untrusted default read-only (real CLI), permission grants limited to what the dialog shows, `approvalsReviewer: user` + warning when Codex answers another mode, oversized frames answered, stale abort/counts, sessions per-call deadlines + 64 MiB read budget + page fingerprints, ownership check before resume, relative CODEX_HOME dropped, sqlite side files denied, switched-off Codex servers not shared (other harnesses still share them). Real CLI: naming helper thread `config` `{"web_search":"disabled","mcp_servers.<n>.enabled":false}` works. Next: pass 2 (small: 1 correctness + 1 security) |
 
 ## Verified facts (S0 recording, 2026-10-22)
 
