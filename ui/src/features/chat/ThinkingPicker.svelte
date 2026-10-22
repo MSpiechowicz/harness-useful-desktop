@@ -1,5 +1,5 @@
 <script lang="ts">
-  import Brain from '@lucide/svelte/icons/brain';
+  import Sparkles from '@lucide/svelte/icons/sparkles';
   import ChevronDown from '@lucide/svelte/icons/chevron-down';
 
   import Popover from '$lib/components/Popover.svelte';
@@ -31,7 +31,7 @@
   <Popover label={t('chat.thinking.picker')} kind="menu" side="top" align="end" bind:open={session.ui.thinkingPicker} class="min-w-44">
     {#snippet trigger({ props })}
       <button type="button" {...props} class="inline-flex h-control items-center gap-1.5 rounded-md px-2 text-sm text-fg-3 transition-colors duration-[var(--dur-fast)] hover:bg-hover hover:text-fg aria-expanded:bg-hover aria-expanded:text-fg">
-        <Brain size={16} aria-hidden="true" />
+        <Sparkles size={16} aria-hidden="true" />
         <!-- The icon says "thinking"; the word stays in the accessible name. -->
         <span><span class="sr-only">{t('chat.thinking.prefix')}</span>{level ?? t('chat.thinking.default')}</span>
         <ChevronDown size={16} aria-hidden="true" class="text-fg-3" />
