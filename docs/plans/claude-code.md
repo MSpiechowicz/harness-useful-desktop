@@ -262,10 +262,11 @@ Order: S1 → (Track A: S2 → S3 → S5 → S6 ∥ Track B: S4 ∥ Track C: S0 
 | S4 | Sessions | done (237fc06). Slug = Claude's `bH` (200-char cut + Java-style hash, base 36). Open: `CLAUDE_CODE_PROJECT_DIR_NAME`, Windows pid check blocks delete on a stale pid file, `sessionTree` still false, no fork parent link on disk, session totals unsupported |
 | S5 | CLI actions + Recommended setup | done (9f00105). Never passes `-y` (it would skip the marketplace-command trust prompt), so command-source plugins install from a terminal. UI follow-ups for S12: MCP rows stay "Coming soon" while chat is off (`comingSoon()`), `commandOf` misses `--scope user --json`, `pluginEnable` label, a failed CLI run reads as `writeFailed`. Windows `claude.cmd` refuses the JSON argument (batch safety). Untested against a real `claude mcp add-json` |
 | S7 | Wire and mapper | done (93743b5). Mid-turn auto-compaction, subagent `task_*`, `api_retry`, `request_user_dialog` and `elicitation` are mapped from the SDK types only (not recorded) |
-| S8 | Engine core | running (`.wt-cc/c`) |
+| S8 | Engine core | done. Abort keeps queued follow-ups (they run after the interrupt, `cancel_queued:false`) and denies open asks. A new chat learns its id from the first frame (S10: pass `--session-id`). Effort level unknown until picked. Models report provider `anthropic` also on Bedrock/Vertex |
+| S9 | Approvals and modes | running (`.wt-cc/c`) |
 | S11 (part) | Routines name any registered harness | done (608632c). Hooks tool table, memory guards flag and engine tests wait for S10 |
 | S12 (part) | Copy in 5 locales, README, bundle text, light badge `#ac3708` | done (a0aa63c). Left for later: approval notice, demo roster entry as installed, "coming soon" wording to flip in S10 |
-| S9, S10, S13 | | not started |
+| S10, S13 | | not started |
 
 ## Verified facts (S0 recording, 2026-10-22)
 
