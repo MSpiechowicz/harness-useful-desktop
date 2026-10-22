@@ -34,6 +34,9 @@ pub enum Shape {
     /// strict JSON: the user scope of Claude Code's global file. The app only reads it; its CLI
     /// adds and removes the servers (see [`Shape::app_writes`]).
     ClaudeCli,
+    /// `[mcp_servers.<name>]` with `command = "<binary>"` and `args = ["mcp"]`, TOML: Codex's
+    /// `config.toml`. The app only reads it; `codex mcp add` and `remove` change it.
+    CodexCli,
 }
 
 impl Shape {
@@ -42,13 +45,14 @@ impl Shape {
         match self {
             Self::McpServers | Self::ClaudeCli => "mcpServers",
             Self::OpenCode | Self::OpenCodeV2 => "mcp",
+            Self::CodexCli => "mcp_servers",
         }
     }
 
     /// The entry that runs `<command> mcp`.
     pub fn entry(self, command: &str) -> Value {
         match self {
-            Self::McpServers => json!({ "command": command, "args": ["mcp"] }),
+            Self::McpServers | Self::CodexCli => json!({ "command": command, "args": ["mcp"] }),
             Self::OpenCode => json!({ "type": "local", "command": [command, "mcp"], "enabled": true }),
             Self::OpenCodeV2 => json!({ "type": "local", "command": [command, "mcp"] }),
             Self::ClaudeCli => json!({ "type": "stdio", "command": command, "args": ["mcp"] }),
@@ -56,9 +60,10 @@ impl Shape {
     }
 
     /// Whether the app writes files of this shape itself. A [`Shape::ClaudeCli`] file is rewritten
-    /// by every running Claude Code, so only the CLI changes it.
+    /// by every running Claude Code, and a [`Shape::CodexCli`] file is TOML with the user's
+    /// formatting and comments, so only the harness's CLI changes them.
     pub fn app_writes(self) -> bool {
-        self != Self::ClaudeCli
+        !matches!(self, Self::ClaudeCli | Self::CodexCli)
     }
 
     /// Whether the file is an OpenCode config file (JSONC, `command` arrays).

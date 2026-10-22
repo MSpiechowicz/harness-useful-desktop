@@ -2,21 +2,34 @@
 //!
 //! Everything lives in one home directory (`~/.codex` or `CODEX_HOME`, see [`paths`]): the
 //! `config.toml` settings, skills, plugins and the sessions of every project. The harness is
-//! detected and listed for now: the config and extension views are empty, sessions and chat are
-//! not available yet, and the catalog lists every command as unsupported. The login store
-//! (`auth.json`) is never read.
+//! detected, its settings are shown ([`config`], with the configured mode of [`modes`]) and its
+//! plugins, marketplaces, skills and MCP servers are listed ([`extensions`]). Plugin and
+//! marketplace actions run `codex plugin …` ([`cli`]). Recommended setup registers the Harness
+//! family MCP servers through `codex mcp` ([`McpTarget::CodexCli`]); Harness Skills have no Codex
+//! adapter yet. Share setup shares its marketplaces, plugins and MCP servers
+//! ([`Harness::share_support`], an imported server is added through `codex mcp add`). Sessions
+//! and chat are not available yet, and the catalog lists every command as unsupported. The login
+//! store (`auth.json`) and Codex's private files are never read
+//! ([`crate::security::deny`]).
 
 mod catalog;
+mod cli;
+mod config;
+mod extensions;
+mod modes;
 mod paths;
+mod settings;
 
 pub use catalog::CodexCatalog;
+pub use cli::codex_cli_action;
+pub use extensions::{MarketplaceRecord, PluginRecord, marketplace_records, plugin_records};
 pub use paths::{PROJECT_DIR_NAME, codex_home};
+pub use settings::{CONFIG_FILE, user_config_path};
 
+use self::modes::ConfiguredMode;
 use crate::error::BusinessError;
 use crate::harness::prelude::*;
 use crate::harnesses::pi::PiDialect;
-use crate::model::{SessionMessagesPage, SessionRef, SessionSummary, SessionTree};
-use crate::pi_family::sessions::SessionCache;
 
 /// The Codex adapter.
 #[derive(Debug, Clone, Copy, Default)]
@@ -40,41 +53,35 @@ impl Harness for Codex {
         }
     }
 
-    /// Nothing yet: the views, sessions and chat arrive in later steps of the plan.
+    /// What the views list and the extension actions the CLI runs. Sessions and chat arrive in
+    /// later steps of the plan.
     fn capabilities(&self) -> Capabilities {
-        Capabilities::default()
+        Capabilities {
+            plugins: true,
+            marketplaces: true,
+            mcp: true,
+            skills: true,
+            cli_actions: true,
+            ..Capabilities::default()
+        }
     }
 
     fn paths(&self, env: &Env, project: Option<&Path>) -> HarnessPaths {
         paths::paths(env, project)
     }
 
-    fn config_view(&self, _env: &Env, _project: Option<&Path>) -> Result<ConfigView> {
-        Ok(ConfigView {
-            harness: HarnessId::Codex,
-            sections: Vec::new(),
-            notices: Vec::new(),
-        })
-    }
-
-    fn extensions_view(&self, _env: &Env, _project: Option<&Path>) -> Result<ExtensionsView> {
-        Ok(ExtensionsView {
-            harness: HarnessId::Codex,
-            plugins: Vec::new(),
-            marketplaces: Vec::new(),
-            skills: Vec::new(),
-            prompt_templates: Vec::new(),
-            agents: Vec::new(),
-            mcp_servers: Vec::new(),
-            themes: Vec::new(),
-            packages: Vec::new(),
-            extension_modules: Vec::new(),
-            notices: Vec::new(),
-        })
-    }
-
     fn catalog(&self) -> &dyn CommandCatalog {
         &catalog::CATALOG
+    }
+
+    /// `config.toml` of the user and the project (see [`config`]).
+    fn config_view(&self, env: &Env, project: Option<&Path>) -> Result<ConfigView> {
+        Ok(config::config_view(env, project))
+    }
+
+    /// Plugins, marketplaces, skills and MCP servers (see [`extensions`]).
+    fn extensions_view(&self, env: &Env, project: Option<&Path>) -> Result<ExtensionsView> {
+        Ok(extensions::extensions_view(env, project))
     }
 
     /// Chat with Codex is not available yet.
@@ -123,6 +130,21 @@ impl Harness for Codex {
         Err(sessions_not_available())
     }
 
+    /// Always ask for `untrusted`, Write for `on-request`, both in a `workspace-write` sandbox, and
+    /// Yolo for `never` with `danger-full-access`; else none (see [`modes`]).
+    fn configured_approval_mode(&self, env: &Env, project: Option<&Path>) -> Option<ApprovalMode> {
+        ConfiguredMode::load(env, project).approval_mode()
+    }
+
+    /// `approval_policy / sandbox_mode` from the settings layers (see [`modes`]).
+    fn native_approval_mode(&self, env: &Env, project: Option<&Path>) -> Option<NativeApprovalMode> {
+        Some(ConfiguredMode::load(env, project).native())
+    }
+
+    fn cli_action(&self, action: &ExtensionAction, project: Option<&Path>) -> Result<CliInvocation> {
+        codex_cli_action(action, project)
+    }
+
     /// The npm package, on every OS (never run by the app).
     fn install_hint(&self) -> InstallHint {
         InstallHint::single(
@@ -131,14 +153,24 @@ impl Harness for Codex {
         )
     }
 
-    /// Nothing yet: the MCP registration through `codex mcp` comes later, and Harness Skills has
-    /// no Codex adapter.
+    /// The MCP servers in the user's `config.toml` through `codex mcp`. Harness Skills has no
+    /// Codex adapter yet (plan Decision 6), so no skills row.
     fn companion_setup(&self) -> CompanionSetup {
         CompanionSetup {
             skills: SkillsStrategy::Unsupported {
                 reason: "Harness Skills for Codex are not available yet.",
             },
-            mcp: McpTarget::Unsupported,
+            mcp: McpTarget::CodexCli,
+        }
+    }
+
+    /// Marketplaces, plugins and the MCP servers of `config.toml` (see [`crate::sync`]).
+    fn share_support(&self) -> ShareSupport {
+        ShareSupport {
+            marketplaces: true,
+            plugins: true,
+            packages: false,
+            mcp_servers: true,
         }
     }
 

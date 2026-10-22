@@ -169,8 +169,9 @@ impl Env {
     }
 
     /// Adds the config directory an absolute `CLAUDE_CONFIG_DIR` names to the deny-list's Claude
-    /// roots (see [`crate::security::deny::add_claude_root`]), so its private files stay unread
-    /// whatever the directory is called.
+    /// roots (see [`crate::security::deny::add_claude_root`]) and the home an absolute `CODEX_HOME`
+    /// names to its Codex roots ([`crate::security::deny::add_codex_root`]), so their private files
+    /// stay unread whatever the directories are called.
     fn guard_private_roots(&self) {
         let claude_root = self
             .var("CLAUDE_CONFIG_DIR")
@@ -183,6 +184,14 @@ impl Env {
 
         // The default folder too, which may be a symlink into a repository opened as a project.
         crate::security::deny::add_claude_root(&self.home.join(".claude"));
+
+        let codex_root = self.var("CODEX_HOME").map(Path::new).filter(|dir| dir.is_absolute());
+
+        if let Some(root) = codex_root {
+            crate::security::deny::add_codex_root(root);
+        }
+
+        crate::security::deny::add_codex_root(&self.home.join(".codex"));
     }
 
     /// Returns a copy that reports `os` (for platform-specific path tests).

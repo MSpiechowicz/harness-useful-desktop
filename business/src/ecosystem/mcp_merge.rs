@@ -22,7 +22,8 @@
 //! - A [`Shape::ClaudeCli`] file is only read (a symlink followed): every write is refused as
 //!   `WriteFailed`, since Claude Code's CLI changes it (see [`super::mcp_cli`]). It is Claude Code's
 //!   global file, read with [`claude::read_global_file`] (its name is denied to every other read)
-//!   and a cap of [`claude::MAX_GLOBAL_FILE_BYTES`].
+//!   and a cap of [`claude::MAX_GLOBAL_FILE_BYTES`]. A [`Shape::CodexCli`] file (Codex's
+//!   `config.toml`, TOML) is only read too: `codex mcp` changes it.
 //! - The write is atomic (temporary sibling, flushed, renamed over the file) and keeps the file's
 //!   permissions. A file that changed meanwhile is read again once, then refused; a write that
 //!   fails (or a second change) is refused as `WriteFailed`, the file left as it was.
@@ -40,8 +41,8 @@ use crate::env::Env;
 use crate::error::BusinessError;
 use crate::fs_atomic::{temp_sibling, write_synced};
 use crate::harnesses::claude;
-use crate::model::McpRefusal;
-use crate::pi_family::jsonc;
+use crate::model::{ConfigFormat, McpRefusal};
+use crate::pi_family::{jsonc, parse_text};
 use crate::security::SafeReader;
 
 mod shape;
@@ -348,6 +349,9 @@ fn parse(text: &str, shape: Shape) -> Result<(Map<String, Value>, bool), McpRefu
     let (value, rewritable) = if shape.is_opencode() {
         let value = jsonc::parse(text).map_err(|_| McpRefusal::Unparsable)?;
         (value, !jsonc::has_comments(text))
+    } else if shape == Shape::CodexCli {
+        let value = parse_text(text, ConfigFormat::Toml).map_err(|_| McpRefusal::Unparsable)?;
+        (value, false)
     } else {
         let value = serde_json::from_str(text).map_err(|_| McpRefusal::Unparsable)?;
         (value, true)

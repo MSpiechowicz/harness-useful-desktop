@@ -174,3 +174,28 @@ fn non_secret_claude_configuration_stays_visible() {
     assert!(managed_text.contains("Bash(curl:*)"));
     assert!(managed_text.contains("claude-opus-4-1"));
 }
+
+#[test]
+fn non_secret_codex_configuration_stays_visible() {
+    let home = codex_home();
+    let default_text = every_view(&env_at(&home));
+    let work_text = every_view(&env_at(&home).with_var("CODEX_HOME", home.join("codex-work").to_string_lossy()));
+
+    for visible in [
+        "gpt-5-codex",
+        "@modelcontextprotocol/server-github",
+        "GITHUB_PERSONAL_ACCESS_TOKEN",
+        "https://docs.example.com/mcp",
+        "DOCS_TOKEN",
+        "AZURE_OPENAI_API_KEY",
+        "acme/demo-market",
+        "Linters and formatters for every project.",
+        "Explain a piece of code step by step.",
+    ] {
+        assert!(default_text.contains(visible), "expected {visible} in the Codex views");
+    }
+
+    assert!(work_text.contains("gpt-5-mini"));
+    assert!(work_text.contains("https://notes.example.com/mcp"));
+    assert!(work_text.contains("Keep work notes."));
+}

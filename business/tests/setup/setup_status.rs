@@ -12,8 +12,8 @@ use harness_business::env::{Env, OsKind};
 use harness_business::harness::{Harness, HarnessRegistry};
 use harness_business::harnesses::{Omp, OpenCode, Pi};
 use harness_business::model::{
-    Detection, ExtensionAction, HarnessId, HarnessSetup, HarnessSummary, InstallScope, McpRefusal, McpState,
-    RecommendedSetup, SkillsSetup, VersionSupport,
+    Detection, ExtensionAction, HarnessId, HarnessSetup, HarnessSummary, InstallScope, McpState, RecommendedSetup,
+    SkillsSetup, VersionSupport,
 };
 use pretty_assertions::assert_eq;
 use serde_json::json;
@@ -227,7 +227,7 @@ async fn an_empty_machine_is_offered_everything() {
     assert_eq!(claude.memory_mcp, claude_missing);
     assert_eq!(claude.desktop_mcp, claude_missing);
 
-    // Codex has no skills package and no MCP registration the app runs yet.
+    // Codex: no Harness Skills adapter yet, and its config.toml through `codex mcp`.
     let codex = harness(&setup, HarnessId::Codex);
     assert!(!codex.installed);
     assert!(
@@ -235,13 +235,13 @@ async fn an_empty_machine_is_offered_everything() {
         "{:?}",
         codex.skills
     );
-    let no_target = McpState::Refused {
-        file: String::new(),
-        reason: McpRefusal::Unreadable,
+    let codex_missing = McpState::Missing {
+        file: "~/.codex/config.toml".to_owned(),
+        exists: false,
     };
-    assert_eq!(codex.mcp, no_target);
-    assert_eq!(codex.memory_mcp, no_target);
-    assert_eq!(codex.desktop_mcp, no_target);
+    assert_eq!(codex.mcp, codex_missing);
+    assert_eq!(codex.memory_mcp, codex_missing);
+    assert_eq!(codex.desktop_mcp, codex_missing);
 }
 
 #[tokio::test]

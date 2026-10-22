@@ -90,3 +90,24 @@ pub fn assert_windows_installer(spec: &InstallerSpec, script: &str, command: &st
     );
     assert_eq!(spec.command, command);
 }
+
+/// An executable `harness-dashboard` (never run) in `<home>/.local/bin`, joined part by part and
+/// with `.exe` on Windows, as the PATH search names the program it finds, and `env` with that
+/// folder as its `PATH`.
+pub fn dashboard_on_path(home: &Path, env: &Env) -> (PathBuf, Env) {
+    let dashboard = home
+        .join(".local")
+        .join("bin")
+        .join(format!("harness-dashboard{}", std::env::consts::EXE_SUFFIX));
+    std::fs::create_dir_all(dashboard.parent().unwrap()).unwrap();
+    std::fs::write(&dashboard, "never run").unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&dashboard, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+
+    let path = dashboard.parent().unwrap().to_string_lossy().into_owned();
+
+    (dashboard.clone(), env.clone().with_var("PATH", path))
+}

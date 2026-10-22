@@ -147,9 +147,40 @@ export function hasNoPreview(result: CliResult): boolean {
   return result.exitCode === null && !result.timedOut && !result.configEdit;
 }
 
-/** OpenCode plugins can be installed from npm and removed, and nothing else: no scope, enable, disable, upgrade, marketplace or package. */
+/**
+ * Plugins that can only be installed and removed: no enable, disable or upgrade. OpenCode's are npm packages. Codex has
+ * no command to switch a plugin on or off or to update one (its marketplaces are upgraded instead).
+ */
 export function installAndRemoveOnly(harness: HarnessId | undefined): boolean {
+  switch (harness) {
+    case 'opencode':
+    case 'codex':
+      return true;
+    case 'omp':
+    case 'pi':
+    case 'claude':
+    case undefined:
+      return false;
+  }
+}
+
+/** OpenCode's plugins are npm packages, so its install dialog asks for a package name. */
+export function npmPlugins(harness: HarnessId | undefined): boolean {
   return harness === 'opencode';
+}
+
+/** Plugins installed for the user only, never for a project: OpenCode's and Codex's. */
+export function userScopeOnly(harness: HarnessId | undefined): boolean {
+  switch (harness) {
+    case 'opencode':
+    case 'codex':
+      return true;
+    case 'omp':
+    case 'pi':
+    case 'claude':
+    case undefined:
+      return false;
+  }
 }
 
 export type Outcome = 'confirmed' | 'missing' | 'unchecked';

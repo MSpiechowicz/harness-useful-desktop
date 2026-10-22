@@ -1,0 +1,3 @@
+{ "name": "openai-bundled", "interface": { "displayName": "OpenAI Bundled" }, "plugins": [
+  { "name": "pdf", "source": { "source": "local", "path": "./plugins/pdf" } }
+] }

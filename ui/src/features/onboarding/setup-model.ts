@@ -159,14 +159,48 @@ function claudeCommand(action: ExtensionAction): string | null {
   }
 }
 
+/**
+ * The `codex` line an action runs, exactly as `business/src/harnesses/codex/cli.rs` builds it: plugins by
+ * `name@marketplace` for the user, marketplaces upgraded rather than updated. An action Codex cannot run (switching or
+ * updating a plugin, a package) has no line.
+ */
+function codexCommand(action: ExtensionAction): string | null {
+  switch (action.type) {
+    case 'pluginInstall':
+      return `codex plugin add ${action.target}`;
+    case 'pluginUninstall':
+      return `codex plugin remove ${action.name}`;
+    case 'marketplaceAdd':
+      return `codex plugin marketplace add ${action.source}`;
+    case 'marketplaceRemove':
+      return `codex plugin marketplace remove ${action.name}`;
+    case 'marketplaceUpdate':
+      return action.name ? `codex plugin marketplace upgrade ${action.name}` : 'codex plugin marketplace upgrade';
+    default:
+      return null;
+  }
+}
+
+/** The line of a harness whose CLI the app words its own way, or null for one that takes the generic form. */
+function ownCommand(harness: HarnessId, action: ExtensionAction): string | null {
+  switch (harness) {
+    case 'claude':
+      return claudeCommand(action);
+    case 'codex':
+      return codexCommand(action);
+    case 'omp':
+    case 'pi':
+    case 'opencode':
+      return null;
+  }
+}
+
 /** The harness CLI line an action stands for, as shown in the confirmation. */
 export function commandOf(harness: HarnessId, action: ExtensionAction): string {
-  if (harness === 'claude') {
-    const line = claudeCommand(action);
+  const own = ownCommand(harness, action);
 
-    if (line) {
-      return line;
-    }
+  if (own) {
+    return own;
   }
 
   switch (action.type) {
@@ -205,9 +239,9 @@ export function isCliRefusal(reason: McpRefusal): boolean {
   return reason === 'cliFailed' || reason === 'cliRemovedEntry' || reason === 'cliBatchShim';
 }
 
-/** Why the app leaves an MCP file alone, in a sentence. */
-export function refusalText(reason: McpRefusal): string {
-  return t(REFUSAL_KEYS[reason]);
+/** Why the app leaves an MCP file of `harness` alone, in a sentence; a failed CLI run names that harness's `mcp` command. */
+export function refusalText(reason: McpRefusal, harness: HarnessId): string {
+  return t(REFUSAL_KEYS[reason], { command: `${harness} mcp` });
 }
 
 /** The chip of a running or finished item, or null while it shows the state read from the machine. */

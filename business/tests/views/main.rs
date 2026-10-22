@@ -14,6 +14,8 @@ mod claude_recorded;
 mod claude_session_support;
 #[path = "../support/claude_support/mod.rs"]
 mod claude_support;
+#[path = "../support/codex_support/mod.rs"]
+mod codex_support;
 #[path = "../support/common/mod.rs"]
 mod common;
 #[cfg(unix)]
@@ -31,6 +33,8 @@ mod opencode2_recorded;
 mod opencode_mapper_support;
 #[path = "../support/opencode_session_support/mod.rs"]
 mod opencode_session_support;
+#[path = "../support/recording_cli/mod.rs"]
+mod recording_cli;
 #[path = "../support/samples/mod.rs"]
 mod samples;
 #[path = "../support/session_support/mod.rs"]
@@ -52,6 +56,8 @@ mod claude_stats;
 mod claude_tools;
 mod claude_views;
 mod cli_actions;
+mod codex_cli_actions;
+mod codex_views;
 mod dashboard_query;
 mod deny_claude;
 mod deny_codex;

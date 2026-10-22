@@ -6,7 +6,7 @@ import type { SyncNote } from '$lib/ipc/bindings/SyncNote';
 import type { SyncStep } from '$lib/ipc/bindings/SyncStep';
 
 import SyncNotices from './SyncNotices.svelte';
-import { addedByCli, failedCliNote, itemLabel, keysLine, mcpEntryJson, showsVersion } from './sync-model';
+import { addedByCli, cliAddCommand, failedCliNote, itemLabel, keysLine, mcpEntryJson, showsVersion } from './sync-model';
 
 const stdio: SyncMcpPreview = { name: 'files', transport: 'stdio', command: 'npx', args: ['-y', 'files-mcp'], url: null, enabled: true };
 const remote: SyncMcpPreview = { name: 'docs', transport: 'http', command: null, args: [], url: 'https://docs.example/mcp', enabled: true };
@@ -83,7 +83,7 @@ describe('itemLabel', () => {
 describe('an MCP server that Claude Code adds through its CLI', () => {
   const cliStep: SyncStep = { type: 'cli', command: ['claude', 'mcp', 'add-json', '--scope', 'user', 'files', '{}'] };
   const notes: SyncNote[] = [];
-  const props = { runsProgram: false, envKeys: ['API_KEY'], headerKeys: ['Authorization'], notes, viaCli: true };
+  const props = { runsProgram: false, envKeys: ['API_KEY'], headerKeys: ['Authorization'], notes, viaCli: { command: 'claude mcp add-json', harness: 'Claude Code' } };
 
   it('is recognised by its command step, and only for an MCP server', () => {
     expect(addedByCli({ kind: 'mcpServer', steps: [cliStep] })).toBe(true);
@@ -107,9 +107,9 @@ describe('an MCP server that Claude Code adds through its CLI', () => {
 
   it('keeps the wording of a file-based harness', () => {
     expect(keysLine(['API_KEY'], [])).toBe('Needs API_KEY. Set it after importing.');
-    expect(keysLine([], [], true)).toBeNull();
+    expect(keysLine([], [], 'Claude Code')).toBeNull();
 
-    render(SyncNotices, { ...props, viaCli: false });
+    render(SyncNotices, { ...props, viaCli: null });
 
     expect(screen.queryByText(/claude mcp add-json/)).not.toBeInTheDocument();
   });
@@ -122,5 +122,13 @@ describe('an MCP server that Claude Code adds through its CLI', () => {
     expect(failedCliNote({ ...failed, outcome: { type: 'done' } })).toBeNull();
     expect(failedCliNote({ ...failed, kind: 'plugin' })).toBeNull();
     expect(failedCliNote({ ...failed, argv: ['omp', 'plugin', 'install'] })).toBeNull();
+  });
+
+  it('names Codex’s own command for a server Codex adds', () => {
+    const codexStep: SyncStep = { type: 'cli', command: ['codex', 'mcp', 'add', 'files', '--', 'files-server'] };
+
+    expect(cliAddCommand({ kind: 'mcpServer', steps: [codexStep] })).toBe('codex mcp add');
+    expect(failedCliNote({ kind: 'mcpServer', outcome: { type: 'failed' }, argv: codexStep.command })).toBe('The “codex mcp” command failed.');
+    expect(keysLine(['FILES_TOKEN'], [], 'Codex')).toBe('Needs FILES_TOKEN. Set the values in Codex after importing.');
   });
 });

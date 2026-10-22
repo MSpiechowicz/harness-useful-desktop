@@ -343,10 +343,10 @@ describe('Set up step', () => {
     expect(screen.getByText('Installs the skills in Oh My Pi, Pi, and Claude Code')).toBeInTheDocument();
 
     // A column per MCP server, with the same states.
-    // Claude Code chats now, so its MCP entries show their state like the others' (all installed in this scenario).
+    // Claude Code chats now, so its MCP entries show their state like the others' (its memory entry is switched off here).
     const claude = rows[2];
     expect(within(within(claude).getByRole('group', { name: 'Harness Dashboard MCP' })).getByText('Installed')).toBeInTheDocument();
-    expect(within(within(claude).getByRole('group', { name: 'Harness Memory MCP' })).getByText('Installed')).toBeInTheDocument();
+    expect(within(within(claude).getByRole('group', { name: 'Harness Memory MCP' })).getByText('Disabled')).toBeInTheDocument();
     expect(within(within(claude).getByRole('group', { name: 'Harness Desktop MCP' })).getByText('Installed')).toBeInTheDocument();
     // The app cannot chat with Codex yet, so it gets no MCP entries and every column says so.
     const codex = rows[3];
@@ -394,14 +394,17 @@ describe('Set up step', () => {
     expect(screen.getByText('"harness-memory":')).toBeInTheDocument();
     expect(screen.getByText('"harness-desktop":')).toBeInTheDocument();
 
-    // The app cannot chat with Codex yet, so its row has nothing to disclose, its switched-off entry included.
+    // The app cannot chat with Codex yet, so its row has nothing to disclose.
     expect(screen.queryByRole('button', { name: 'Details: Codex' })).toBeNull();
+    // A switched-off entry only has a note, so it waits for the disclosure.
     expect(screen.queryByText(/It is switched off in the file/)).toBeNull();
+    await fireEvent.click(screen.getByRole('button', { name: 'Details: Claude Code' }));
+    expect(await screen.findByText(/It is switched off in the file/)).toBeInTheDocument();
     // A found harness the skills cannot be installed in is listed on the skills row with its reason.
     expect(within(installer('Harness Skills')).queryByRole('region', { name: 'Codex' })).toBeNull();
     await openFamilyDetails();
     const unavailable = family().getByRole('region', { name: 'Codex' });
-    expect(within(unavailable).getByText('Not supported yet.')).toBeInTheDocument();
+    expect(within(unavailable).getByText('Harness Skills for Codex are not available yet.')).toBeInTheDocument();
   });
 
   it('shows OpenCode as coming soon and leaves its config alone', async () => {

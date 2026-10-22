@@ -9,8 +9,9 @@ import type { ManualRemoval } from '../bindings/ManualRemoval';
 import type { McpState } from '../bindings/McpState';
 import type { RecommendedSetup } from '../bindings/RecommendedSetup';
 import type { SkillsSetup } from '../bindings/SkillsSetup';
+import { HARNESS_IDS } from '../harness-ids';
 import { IpcFailure } from '../transport';
-import { OPENCODE_SKILLS, OPENCODE_SKILLS_COMMAND, OPENCODE_SKILLS_NO_NODE, opencodeSnippet, rosterFor, type RosterEntry } from './setup-roster';
+import { CODEX_SKILLS, OPENCODE_SKILLS, OPENCODE_SKILLS_COMMAND, OPENCODE_SKILLS_NO_NODE, opencodeSnippet, rosterFor, type RosterEntry } from './setup-roster';
 import type { Handlers } from './types';
 
 type SetupCommands = 'setup_status' | 'setup_install_dashboard' | 'setup_install_memory' | 'setup_install_opencode_skills' | 'setup_register_mcp' | 'setup_register_memory' | 'setup_register_desktop_mcp';
@@ -76,8 +77,14 @@ const OPENCODE_SKILLS_OUTPUT_FAILED: InstallLogLine[] = [
   { stream: 'stderr', line: 'error: could not download the Harness Skills package' },
 ];
 
-/** Each harness's user MCP file, empty for a harness with none the app writes (Codex, for now). Claude Code's is only read, its CLI writes it. */
-const MCP_FILE: Record<HarnessId, string> = { omp: '~/.omp/agent/mcp.json', pi: '~/.pi/agent/mcp.json', opencode: '~/.config/opencode/opencode.json', claude: '~/.claude.json', codex: '' };
+/** Each harness's user MCP file. Claude Code's and Codex's are only read, their CLIs write them. */
+const MCP_FILE: Record<HarnessId, string> = {
+  omp: '~/.omp/agent/mcp.json',
+  pi: '~/.pi/agent/mcp.json',
+  opencode: '~/.config/opencode/opencode.json',
+  claude: '~/.claude.json',
+  codex: '~/.codex/config.toml',
+};
 /** OpenCode's config when it has comments: the app never rewrites it. */
 const OPENCODE_COMMENTED_FILE = '~/.config/opencode/opencode.jsonc';
 const SKILLS_TARGET = 'harness-useful-skills@harness-useful-skills';
@@ -121,26 +128,31 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function skillsOffer(harness: HarnessId, nodeFound: boolean): SkillsSetup {
-  if (harness === 'codex') {
-    return { type: 'unavailable', reason: 'Harness Skills for Codex are not available yet.', code: null };
-  }
-
-  if (harness === 'opencode') {
-    return nodeFound ? OPENCODE_SKILLS : OPENCODE_SKILLS_NO_NODE;
-  }
-
-  if (harness === 'pi') {
-    return { type: 'manual', command: 'pi install git:github.com/MSpiechowicz/harness-useful-skills', note: 'Installing the skills as a PI package has not been verified yet.' };
-  }
-
+/** The marketplace and plugin of the Harness Skills in a harness that installs them from a marketplace. */
+function marketplaceSkills(target: string): SkillsSetup {
   return {
     type: 'install',
     actions: [
       { type: 'marketplaceAdd', source: 'MSpiechowicz/harness-useful-skills' },
-      { type: 'pluginInstall', target: harness === 'claude' ? CLAUDE_SKILLS_TARGET : SKILLS_TARGET, scope: 'user' },
+      { type: 'pluginInstall', target, scope: 'user' },
     ],
   };
+}
+
+/** What `setup_status` offers for each harness's skills, as the backend's `companion_setup` decides it. */
+function skillsOffer(harness: HarnessId, nodeFound: boolean): SkillsSetup {
+  switch (harness) {
+    case 'omp':
+      return marketplaceSkills(SKILLS_TARGET);
+    case 'claude':
+      return marketplaceSkills(CLAUDE_SKILLS_TARGET);
+    case 'pi':
+      return { type: 'manual', command: 'pi install git:github.com/MSpiechowicz/harness-useful-skills', note: 'Installing the skills as a PI package has not been verified yet.' };
+    case 'opencode':
+      return nodeFound ? OPENCODE_SKILLS : OPENCODE_SKILLS_NO_NODE;
+    case 'codex':
+      return CODEX_SKILLS;
+  }
 }
 
 /** One companion installer of the mock: what it prints and reports. */
@@ -235,15 +247,17 @@ export function setupHandlers(
     if (scenario() === 'configured') {
       dashboardInstalled = true;
       memoryInstalled = true;
-      (['omp', 'pi', 'opencode'] as const).forEach((id) => {
-        skills.add(id);
+
+      // Every harness, each with what it can have: Codex has no Harness Skills to install yet.
+      HARNESS_IDS.forEach((id) => {
+        if (skillsOffer(id, true).type !== 'unavailable') {
+          skills.add(id);
+        }
+
         mcp.add(id);
         memoryMcp.add(id);
         desktopMcp.add(id);
       });
-      mcp.add('opencode');
-      memoryMcp.add('opencode');
-      desktopMcp.add('opencode');
     }
 
     if (scenario() === 'memory') {

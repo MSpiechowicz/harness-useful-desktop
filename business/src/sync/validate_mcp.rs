@@ -8,7 +8,9 @@
 //! in its config file, which would put this machine's variables or file contents into the command
 //! line or the URL, so its servers may hold neither ([`opencode_mcp_server`]). Claude Code expands
 //! `${NAME}` and `${NAME:-default}` in the command, the arguments and the URL, and has no switch to
-//! write a server disabled, so its servers may hold no `${` at all ([`claude_mcp_server`]).
+//! write a server disabled, so its servers may hold no `${` at all ([`claude_mcp_server`]). Codex
+//! talks to servers over stdio and streamable HTTP only and cannot write one disabled through its
+//! CLI either ([`codex_mcp_server`]).
 
 use std::sync::LazyLock;
 
@@ -261,6 +263,19 @@ pub fn claude_mcp_server(item: &McpServer) -> Check {
     let mut fields = item.command.iter().chain(&item.args).chain(&item.url);
     if fields.any(|value| value.contains("${")) {
         return Err(SyncInvalidReason::UnsafeValue);
+    }
+
+    Ok(())
+}
+
+/// A whole shared Codex server: [`claude_mcp_server`]'s rules (a server cannot be written switched
+/// off, so it may hold no `${`), and no SSE transport (`unsupportedSource`): Codex speaks stdio and
+/// streamable HTTP only.
+pub fn codex_mcp_server(item: &McpServer) -> Check {
+    claude_mcp_server(item)?;
+
+    if item.transport == Transport::Sse {
+        return Err(SyncInvalidReason::UnsupportedSource);
     }
 
     Ok(())

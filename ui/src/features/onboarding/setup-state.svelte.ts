@@ -456,7 +456,7 @@ export class SetupController {
       if (state.type === 'configured') {
         this.set(key, 'done');
       } else if (state.type === 'refused' && state.file !== '') {
-        this.set(key, 'failed', refusalText(state.reason));
+        this.set(key, 'failed', refusalText(state.reason, harness));
       } else if (state.type === 'manualEdit') {
         // The file gained comments since it was read: the app leaves it alone and the row shows the entry to paste.
         this.set(key, 'failed', t('onboarding.setup.failed.manualEdit'));

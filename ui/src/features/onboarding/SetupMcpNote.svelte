@@ -32,10 +32,10 @@
   <h4 class="text-xs font-medium tracking-wider text-fg-3 uppercase">{title}</h4>
 
   {#if refused && isCliRefusal(refused)}
-    <!-- Claude Code's file is changed by its CLI only: a snippet to paste into it would be wrong advice. -->
-    <p class="text-sm text-fg-2">{refusalText(refused)}</p>
+    <!-- Claude Code's and Codex's files are changed by their CLIs only: a snippet to paste into them would be wrong advice. -->
+    <p class="text-sm text-fg-2">{refusalText(refused, harness)}</p>
   {:else if refused}
-    <p class="text-sm text-fg-2">{t('onboarding.setup.mcp.refused', { reason: refusalText(refused) })}</p>
+    <p class="text-sm text-fg-2">{t('onboarding.setup.mcp.refused', { reason: refusalText(refused, harness) })}</p>
     <SetupCommand text={mcpSnippet(kind, harness, harnesses.openCodeGeneration)} copyLabel={t('onboarding.setup.copySnippet')} />
   {:else if manualEdit}
     <p class="text-sm text-fg-2">{t('onboarding.setup.mcp.manualEdit', { file: manualEdit.file })}</p>

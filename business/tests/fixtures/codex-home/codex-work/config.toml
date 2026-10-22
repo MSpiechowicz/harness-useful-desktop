@@ -1,0 +1,6 @@
+model = "gpt-5-mini"
+approval_policy = "never"
+sandbox_mode = "danger-full-access"
+
+[mcp_servers.notes]
+url = "https://notes.example.com/mcp"

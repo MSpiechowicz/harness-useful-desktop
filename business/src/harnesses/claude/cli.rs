@@ -22,7 +22,7 @@ use std::path::Path;
 use serde_json::Value;
 
 use crate::error::{BusinessError, Result};
-use crate::harness::{CliInvocation, TargetKind, cli_target};
+use crate::harness::{CliInvocation, TargetKind, cli_target, marketplace_source};
 use crate::model::{ExtensionAction, InstallScope};
 
 /// Asks for the machine-readable result line.
@@ -158,48 +158,4 @@ pub fn claude_summary(stdout: &str) -> Option<String> {
         .map(str::trim)
         .find(|line| !line.is_empty())
         .map(str::to_owned)
-}
-
-/// A marketplace source the app passes on: a GitHub `owner/repo`, an `https://` URL or an absolute
-/// path, after [`cli_target`]'s checks. A network path (`//host/share`, `\\host\share`) is
-/// refused: Claude Code would reach out to that host.
-fn marketplace_source(source: &str) -> Result<String> {
-    let source = cli_target(TargetKind::MarketplaceSource, source)?;
-
-    if source.starts_with("//") || source.starts_with("\\\\") {
-        return Err(BusinessError::InvalidInput(
-            "the marketplace source must not be a network path".to_owned(),
-        ));
-    }
-
-    let url = source
-        .strip_prefix("https://")
-        .is_some_and(|rest| !rest.is_empty() && !rest.starts_with('/'));
-
-    if url || is_github_repo(&source) || Path::new(&source).is_absolute() {
-        return Ok(source);
-    }
-
-    Err(BusinessError::InvalidInput(
-        "the marketplace source must be a GitHub owner/repo, an https:// URL or an absolute path".to_owned(),
-    ))
-}
-
-/// `owner/repo`: an owner of letters, digits and `-`, and a repository name of letters, digits,
-/// `.`, `_` and `-` that is not `.` or `..`.
-fn is_github_repo(source: &str) -> bool {
-    let Some((owner, repo)) = source.split_once('/') else {
-        return false;
-    };
-
-    let owner_ok = !owner.is_empty()
-        && owner
-            .chars()
-            .all(|character| character.is_ascii_alphanumeric() || character == '-');
-    let repo_ok = !matches!(repo, "" | "." | "..")
-        && repo
-            .chars()
-            .all(|character| character.is_ascii_alphanumeric() || "._-".contains(character));
-
-    owner_ok && repo_ok
 }

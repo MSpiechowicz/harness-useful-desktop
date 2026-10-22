@@ -1,10 +1,10 @@
 import { readJson, writeJson } from '$lib/utils/persisted';
 
 /** Whose "tools run without asking" notice the approval step shows. */
-export type ApprovalNotice = 'omp' | 'opencode' | 'claude';
+export type ApprovalNotice = 'omp' | 'opencode' | 'claude' | 'codex';
 
 const KEY = 'harness:approval-notices-seen';
-const NOTICES: readonly ApprovalNotice[] = ['omp', 'opencode', 'claude'];
+const NOTICES: readonly ApprovalNotice[] = ['omp', 'opencode', 'claude', 'codex'];
 
 function isNoticeList(value: unknown): value is ApprovalNotice[] {
   return Array.isArray(value) && value.every((entry) => NOTICES.includes(entry as ApprovalNotice));

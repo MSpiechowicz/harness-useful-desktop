@@ -38,5 +38,6 @@ pub use resources::{
     extension_name, list_dir, origin_label, package_manifest, themes_in_dir, themes_in_dir_budgeted, tilde,
 };
 pub use skills::{
-    SKILL_FILE, SkillRoot, dedupe_skills, load_skill, project_ancestors, scan_roots, scan_skills, scan_skills_budgeted,
+    SKILL_FILE, SkillRoot, dedupe_skills, load_skill, project_ancestors, scan_plugin_skills, scan_project_skills,
+    scan_roots, scan_skills, scan_skills_budgeted,
 };

@@ -26,6 +26,7 @@ use crate::ecosystem::mcp_merge::{existing_entry, read_only_entry};
 use crate::env::Env;
 use crate::harness::Harness;
 use crate::harnesses::claude::{self, PluginScope};
+use crate::harnesses::codex;
 use crate::harnesses::omp::{PluginOrigin, marketplace_records, user_plugin_records};
 use crate::harnesses::opencode::user_npm_plugins;
 use crate::harnesses::pi::user_package_records;
@@ -60,8 +61,8 @@ pub(super) struct Machine {
 
 impl Machine {
     /// Reads the registries of `harness` (missing or unreadable files contribute nothing). OpenCode
-    /// has only plugins: the npm plugins of every user config layer. Claude Code has marketplaces
-    /// and plugins.
+    /// has only plugins: the npm plugins of every user config layer. Claude Code and Codex have
+    /// marketplaces and plugins.
     pub fn read(env: &Env, harness: &dyn Harness) -> Self {
         if let Some(generation) = harness.opencode_generation() {
             return Self {
@@ -70,8 +71,10 @@ impl Machine {
             };
         }
 
-        if harness.id() == HarnessId::Claude {
-            return Self::claude(env);
+        match harness.id() {
+            HarnessId::Claude => return Self::claude(env),
+            HarnessId::Codex => return Self::codex(env),
+            HarnessId::Omp | HarnessId::Pi | HarnessId::OpenCode => {}
         }
 
         let paths = harness.paths(env, None);
@@ -113,6 +116,29 @@ impl Machine {
         let plugins = claude::plugin_records(env)
             .into_iter()
             .filter(|record| record.scope != PluginScope::Project)
+            .map(|record| (record.id, record.version))
+            .collect();
+
+        Self {
+            marketplaces,
+            plugins,
+            packages: Vec::new(),
+        }
+    }
+
+    /// Codex's marketplaces and plugins of its `config.toml` (source as written), every plugin
+    /// there being the user's.
+    fn codex(env: &Env) -> Self {
+        let marketplaces = codex::marketplace_records(env)
+            .into_iter()
+            .map(|record| {
+                let source = Some(record.source).filter(|source| !source.is_empty());
+                (record.name, source)
+            })
+            .collect();
+
+        let plugins = codex::plugin_records(env)
+            .into_iter()
             .map(|record| (record.id, record.version))
             .collect();
 
@@ -245,7 +271,7 @@ pub(super) fn mcp_presence(files: &McpFiles, shared: &McpServer) -> Result<Prese
     }
 
     let same = match files.shape {
-        Shape::McpServers | Shape::ClaudeCli => same_server,
+        Shape::McpServers | Shape::ClaudeCli | Shape::CodexCli => same_server,
         Shape::OpenCode | Shape::OpenCodeV2 => same_opencode_server,
     };
 
