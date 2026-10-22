@@ -1,14 +1,14 @@
 //! The harnesses a "Share setup" test machine has, and their summaries.
 
 use harness_business::harness::Harness;
-use harness_business::harnesses::{Omp, OpenCode, Pi};
+use harness_business::harnesses::{Claude, Omp, OpenCode, Pi};
 use harness_business::model::{Detection, HarnessId, HarnessSummary, VersionSupport};
 
 pub const BOTH: &[HarnessId] = &[HarnessId::Omp, HarnessId::Pi];
 
-/// The summaries of OMP, PI and OpenCode, with `installed` detected as installed.
+/// The summaries of OMP, PI, OpenCode and Claude Code, with `installed` detected as installed.
 pub fn summaries(installed: &[HarnessId]) -> Vec<HarnessSummary> {
-    let harnesses: [&dyn Harness; 3] = [&Omp, &Pi, &OpenCode::default()];
+    let harnesses: [&dyn Harness; 4] = [&Omp, &Pi, &OpenCode::default(), &Claude];
 
     harnesses
         .iter()

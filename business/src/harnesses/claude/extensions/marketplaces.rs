@@ -11,7 +11,7 @@
 
 use std::path::{Path, PathBuf};
 
-use serde_json::Value;
+use serde_json::{Map, Value};
 
 use super::plugins::plugins_dir;
 use super::settings::Settings;
@@ -33,19 +33,18 @@ pub(super) fn marketplaces(
     settings: &Settings,
     installed: &[PluginInfo],
 ) -> (Vec<MarketplaceInfo>, Vec<Notice>) {
-    let dir = plugins_dir(env);
-    let known = read_json(&dir.join("known_marketplaces.json"));
+    let entries = match known_entries(env) {
+        Ok(entries) => entries,
+        Err(summary) => {
+            let notice = Notice {
+                level: NoticeLevel::Warning,
+                message: format!("The marketplace list could not be read: {summary}"),
+            };
+            return (Vec::new(), vec![notice]);
+        }
+    };
 
-    if let Document::Invalid(summary) = &known {
-        let notice = Notice {
-            level: NoticeLevel::Warning,
-            message: format!("The marketplace list could not be read: {summary}"),
-        };
-        return (Vec::new(), vec![notice]);
-    }
-
-    let downloads = dir.join("marketplaces");
-    let entries = known.value().and_then(Value::as_object).cloned().unwrap_or_default();
+    let downloads = plugins_dir(env).join("marketplaces");
 
     let mut marketplaces: Vec<MarketplaceInfo> = entries
         .iter()
@@ -79,12 +78,27 @@ pub(super) fn marketplaces(
     (marketplaces, Vec::new())
 }
 
+/// The entries of `known_marketplaces.json` by name, as written (a missing file has none, an
+/// entry that is not an object is kept); the error is a secret-free summary.
+pub(in crate::harnesses::claude) fn known_entries(env: &Env) -> Result<Map<String, Value>, String> {
+    match read_json(&plugins_dir(env).join("known_marketplaces.json")) {
+        Document::Invalid(summary) => Err(summary),
+        known => Ok(known.value().and_then(Value::as_object).cloned().unwrap_or_default()),
+    }
+}
+
+/// Where a marketplace `source` object points, as written: its `repo` (GitHub), `url` (git or a
+/// catalog URL), `path` (a folder or file) or `package` (npm).
+pub(in crate::harnesses::claude) fn source_location(source: &Value) -> Option<String> {
+    ["repo", "url", "path", "package"]
+        .iter()
+        .find_map(|key| text_field(source, key))
+}
+
 /// A marketplace without a catalog yet: its name and source.
 fn described(name: &str, source: Option<&Value>) -> MarketplaceInfo {
     let source = source.cloned().unwrap_or(Value::Null);
-    let shown = ["repo", "url", "path", "package"]
-        .iter()
-        .find_map(|key| text_field(&source, key));
+    let shown = source_location(&source);
 
     MarketplaceInfo {
         name: name.to_owned(),

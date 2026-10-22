@@ -189,21 +189,22 @@ async fn replace(cli: HarnessCli<'_>, name: &str, old: &Value, new: &Value) -> b
     false
 }
 
-async fn add(cli: HarnessCli<'_>, name: &str, definition: &Value) -> bool {
-    let json = Value::to_string(definition);
+/// The arguments (after the program name) that add the server `name` with `definition` to the
+/// user scope: `mcp add-json --scope user <name> <json>`. Share setup imports servers with them
+/// too.
+pub fn add_json_args(name: &str, definition: &Value) -> Vec<String> {
+    vec![
+        "mcp".to_owned(),
+        "add-json".to_owned(),
+        "--scope".to_owned(),
+        "user".to_owned(),
+        name.to_owned(),
+        Value::to_string(definition),
+    ]
+}
 
-    run(
-        cli,
-        vec![
-            "mcp".to_owned(),
-            "add-json".to_owned(),
-            "--scope".to_owned(),
-            "user".to_owned(),
-            name.to_owned(),
-            json,
-        ],
-    )
-    .await
+async fn add(cli: HarnessCli<'_>, name: &str, definition: &Value) -> bool {
+    run(cli, add_json_args(name, definition)).await
 }
 
 async fn remove(cli: HarnessCli<'_>, name: &str) -> bool {

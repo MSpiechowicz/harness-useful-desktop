@@ -36,7 +36,10 @@ An import only **adds**. These are the only actions it can produce, and only in 
 | Plugin (OMP) | `omp plugin install <id> --scope user` |
 | Package (PI) | `pi install <source>` (global, no `--local`) |
 | Plugin (OpenCode) | `opencode plugin <name>[@<version>] -g` |
+| Marketplace (Claude Code) | `claude plugin marketplace add <source> --scope user --json` |
+| Plugin (Claude Code) | `claude plugin install <id> --scope user --json` |
 | MCP server | One atomic merge of the entry into the harness's user `mcp.json` (OpenCode: the `mcp` object of its global config file) |
+| MCP server (Claude Code) | `claude mcp add-json --scope user <name> <json>`, one run per server (the app never writes `~/.claude.json`) |
 
 It never uninstalls, removes, upgrades, downgrades, overwrites, or touches project scope, app preferences or harness
 settings. Something already present is left alone. Versions in a bundle are informational: the latest version is
@@ -115,10 +118,11 @@ Empty lists are omitted when written. Top level:
 | `version` | integer | `1`. |
 | `app` | string, optional | App version that wrote it, semver-like (`0.15.0`, `v2.1`, `1.0.0-beta.1`). Anything else is dropped. |
 | `createdAt` | string, optional | Export date, `YYYY-MM-DD` with a month of 01 to 12 and a day of 01 to 31. Anything else is dropped. |
-| `harnesses` | object | One section per harness id (`omp`, `pi`, `opencode`). |
+| `harnesses` | object | One section per harness id (`omp`, `pi`, `opencode`, `claude`). |
 
 A harness section holds up to four arrays; which ones a harness accepts depends on what it supports (OMP:
-marketplaces, plugins, MCP servers; PI: packages, MCP servers; OpenCode: plugins, MCP servers). An OpenCode
+marketplaces, plugins, MCP servers; PI: packages, MCP servers; OpenCode: plugins, MCP servers; Claude Code:
+marketplaces, plugins, MCP servers). A Claude Code plugin is always `name@marketplace`. An OpenCode
 plugin is an npm package name (`@scope/name`) with the version, range or tag its config pins, never a marketplace. An
 OpenCode server uses the same fields as the others (`local` is shared as stdio, `remote` as http) and is written as
 `{"type": "local" | "remote", ...}` with `enabled` set.
@@ -173,7 +177,8 @@ is never echoed back. Besides the shapes above:
   - `git:` takes `host/owner/repo`, `git@host:owner/repo` or an `https://` URL; `git:file:…` is a local path, and any
     other `://` form (`ssh://`, `git+ssh://`, `http://`) is refused.
 - **Plugin ids:** `name@marketplace` or an npm package name, never a path or URL; `marketplace`, if present, matches the
-  `@marketplace` part.
+  `@marketplace` part. Claude Code takes `name@marketplace` only: it would install a bare name from whichever
+  registered marketplace lists it.
 - **MCP server names:** the pattern above. `harness-dashboard`, `harness-memory` and `useful_skills` (any case) are
   reserved: Recommended setup installs and registers the first, the app installs and registers the second (project
   memory), and the Harness Skills installer registers the third for OpenCode. None is ever exported, and an imported one
@@ -187,6 +192,9 @@ is never echoed back. Besides the shapes above:
   reference a name the same item lists in `envKeys`, as a plain `$NAME` or `${NAME}` (and then the server is written
   disabled); an undeclared name and any other `${…}` form (a default such as `${NAME:-x}`, an unclosed brace) are
   refused. A `$` that does not start a name (`5$`, `$1`) is not a reference.
+- **Claude Code servers:** no `${` in the command, an argument or the URL, not even a declared `${NAME}`. Claude Code
+  expands `${NAME}` and `${NAME:-default}` there from its environment, and it has no way to write a server switched
+  off. A plain `$NAME` is passed on as written.
 - **MCP URLs:** `http://` or `https://` with a host, no whitespace, no user info, no `${…}` or `$NAME` (even a declared
   one), no secret query value (`?api_key=…`).
 - **Machine paths.** On export, an MCP server whose arguments or URL hold a path of this machine is left out whole: an
@@ -224,6 +232,9 @@ Left out of the file and listed in the export dialog by name and reason (never b
 | Local or unknown PI packages, local marketplaces, `file:` / `link:` plugin specs | Machine paths. |
 | OpenCode plugins that are local files, git, `github:` or URL specs, and `[spec, options]` entries | Machine paths, and options that may hold secrets. Only npm registry specs are shared. |
 | OpenCode servers with a `{env:...}` or `{file:...}` substitution in the command, arguments or URL | OpenCode would put this machine's variables or file contents there. An import refuses them as well. |
+| Claude Code servers with a `${...}` substitution in the command, arguments or URL, and servers of another transport (`ws`) | Claude Code would put this machine's variables there. An import refuses them as well. |
+| Claude Code marketplaces from a folder or file, from npm, over `ssh` or plain `http`, or pinned to a ref, a folder inside the repository or a sparse checkout | Machine paths, or a source another machine would not add the same way. |
+| Claude Code plugins installed only for a project or by the organization, plugins of Claude's own `inline`, `skills-dir` and `synced` entries, and plugins of a marketplace that is left out | Not the user's, local folders, the account's, or not installable from the setup. |
 | Sources with credentials | Secrets. |
 | Project-scope plugins and servers | The share is user scope only. |
 | Auth and credential files | Never opened. |
@@ -295,13 +306,20 @@ registered here.
     missed. OpenCode also names a server's tools by a sanitized server name, so servers such as `foo.bar` and `foo_bar`
     produce the same tool names: one server's tools can shadow the other's. They are still separate entries and do not
     share headers or env.
+- **Claude Code.** The user scope of `~/.claude.json` (or `$CLAUDE_CONFIG_DIR/.claude.json`) is read for the name,
+  and each new server is added with `claude mcp add-json --scope user <name> <json>`, the command line the review
+  shows. The JSON holds `type` and the `command` and `args` or the `url`, nothing else. Claude Code has no `enabled`
+  field, so a server that declares `envKeys` or `headerKeys` is added switched on and without values: a stdio server
+  sees Claude Code's environment, and the values can be added in Claude Code afterwards. `add-json` refuses a name the
+  user scope has, and the file is checked again right before each run, so nothing is overwritten. Each run needs the
+  `claude` binary, like the CLI items.
 - **OpenCode config files with comments.** Such a file is never rewritten: its servers end `skipped` (`manualEdit`)
   and the import's result shows the entry to paste.
 
 ## Applying
 
 Order: harnesses one after another; within a harness the CLI items in plan order (marketplaces, plugins, packages),
-then the MCP servers, written with one merge per file. Only one apply runs at a time.
+then the MCP servers, written with one merge per file (Claude Code: one `claude mcp add-json` per server). Only one apply runs at a time.
 
 - Rust refuses the whole request (nothing runs) without `confirmed`, while another import is running, with an unknown or
   stale plan id, an empty selection, an id that is not a selectable item of that plan, or a plugin whose marketplace

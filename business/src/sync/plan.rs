@@ -11,7 +11,8 @@
 //! user scope (an OpenCode plugin as `<name>[@<version>]`), `PackageInstall` (no project), or an MCP
 //! entry holding only `type`, `command`, `args`, `url` and, when the server needs env or header
 //! values, `"enabled": false` (OpenCode: `type`, the `command` array or `url`, and `enabled`). The
-//! MCP file comes from [`share_mcp_target`], never from the bundle. Statuses compare the bundle with this machine's
+//! MCP file comes from [`share_mcp_target`], never from the bundle. A Claude Code server is
+//! not merged: its step is the `claude mcp add-json --scope user <name> <json>` command line. Statuses compare the bundle with this machine's
 //! files in process (see [`super::plan_presence`]); existing MCP definitions and local sources never
 //! reach the plan.
 //!
@@ -36,7 +37,9 @@ use std::collections::HashSet;
 use super::codec::DecodedBundle;
 use super::collect::item_id;
 use super::plan_presence::{Machine, McpFiles, Presence, mcp_presence};
-use super::plan_rows::{Dependency, Row, SharedMarketplace, Step, StoredPlan, display_argv, mcp_preview};
+use super::plan_rows::{
+    Dependency, Row, SharedMarketplace, Step, StoredPlan, display_argv, mcp_cli_preview, mcp_preview,
+};
 use super::schema::{McpServer, Parsed, ParsedSection, Plugin};
 use crate::ecosystem::share_mcp_target;
 use crate::env::Env;
@@ -334,10 +337,15 @@ impl<'a> Context<'a> {
     /// Makes a `new` row selectable with its displayed step.
     fn select(&self, row: &mut Row, step: Step, dependency: Option<Dependency>) {
         let display = match &step {
-            Step::Mcp(server) => self
-                .mcp_files
-                .as_ref()
-                .map(|files| (mcp_preview(tilde(self.env, &files.target), server), Some(files.clone()))),
+            Step::Mcp(server) => self.mcp_files.as_ref().map(|files| {
+                let display = if files.via_cli() {
+                    mcp_cli_preview(self.id, server, files.shape)
+                } else {
+                    mcp_preview(tilde(self.env, &files.target), server)
+                };
+
+                (display, Some(files.clone()))
+            }),
             _ => self
                 .harness
                 .zip(step.action(self.id))

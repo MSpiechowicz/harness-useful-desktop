@@ -6,7 +6,9 @@
 //! and arguments only reference the env keys the server declares (it is then written switched off
 //! until the user fills them in). OpenCode also substitutes `{env:NAME}` and `{file:path}` anywhere
 //! in its config file, which would put this machine's variables or file contents into the command
-//! line or the URL, so its servers may hold neither ([`opencode_mcp_server`]).
+//! line or the URL, so its servers may hold neither ([`opencode_mcp_server`]). Claude Code expands
+//! `${NAME}` and `${NAME:-default}` in the command, the arguments and the URL, and has no switch to
+//! write a server disabled, so its servers may hold no `${` at all ([`claude_mcp_server`]).
 
 use std::sync::LazyLock;
 
@@ -248,4 +250,18 @@ fn has_substitution(value: &str) -> bool {
     let lower = value.to_ascii_lowercase();
 
     lower.contains("{env:") || lower.contains("{file:")
+}
+
+/// A whole shared Claude Code server: [`mcp_server`], and no `${` in the command, an argument or
+/// the URL (`unsafeValue`). Claude Code would put this machine's variables there, a declared one
+/// too, since a server cannot be written switched off. A plain `$NAME` is passed on as written.
+pub fn claude_mcp_server(item: &McpServer) -> Check {
+    mcp_server(item)?;
+
+    let mut fields = item.command.iter().chain(&item.args).chain(&item.url);
+    if fields.any(|value| value.contains("${")) {
+        return Err(SyncInvalidReason::UnsafeValue);
+    }
+
+    Ok(())
 }

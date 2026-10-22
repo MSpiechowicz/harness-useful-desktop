@@ -101,7 +101,7 @@ pub(super) fn preview(id: String, server: &McpServer, notes: Vec<SyncNote>) -> S
 }
 
 /// The shared form of one server and the notes on what stays here, or why it is left out.
-fn shared_server(name: &str, server: &Value) -> Result<(McpServer, Vec<SyncNote>), SyncExcludedReason> {
+pub(super) fn shared_server(name: &str, server: &Value) -> Result<(McpServer, Vec<SyncNote>), SyncExcludedReason> {
     validate::mcp_name(name).map_err(excluded_reason)?;
 
     let fields = server.as_object().ok_or(SyncExcludedReason::Invalid)?;

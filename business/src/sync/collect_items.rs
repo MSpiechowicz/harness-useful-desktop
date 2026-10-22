@@ -20,16 +20,23 @@ pub(super) fn marketplaces(harness: HarnessId, paths: &HarnessPaths, found: &mut
         let label = safe_label(record.name.as_deref());
 
         match marketplace(record) {
-            Ok(marketplace) => found.items.push(CollectedItem {
-                preview: SyncExportItem {
-                    id: item_id(harness, kind, &marketplace.name),
-                    detail: Some(marketplace.source.clone()),
-                    ..preview_row(kind, marketplace.name.clone())
-                },
-                entry: Entry::Marketplace(marketplace),
-            }),
+            Ok(marketplace) => found.items.push(marketplace_item(harness, marketplace)),
             Err(reason) => found.exclude(harness, kind, label, reason),
         }
+    }
+}
+
+/// The export row of a shareable marketplace.
+pub(super) fn marketplace_item(harness: HarnessId, marketplace: Marketplace) -> CollectedItem {
+    let kind = SyncItemKind::Marketplace;
+
+    CollectedItem {
+        preview: SyncExportItem {
+            id: item_id(harness, kind, &marketplace.name),
+            detail: Some(marketplace.source.clone()),
+            ..preview_row(kind, marketplace.name.clone())
+        },
+        entry: Entry::Marketplace(marketplace),
     }
 }
 
@@ -61,21 +68,26 @@ pub(super) fn plugins(harness: HarnessId, paths: &HarnessPaths, found: &mut Foun
         let label = safe_label(Some(&record.id));
 
         match plugin(record) {
-            Ok(plugin) => {
-                let notes = plugin.version.iter().map(|_| SyncNote::VersionInformational).collect();
-
-                found.items.push(CollectedItem {
-                    preview: SyncExportItem {
-                        id: item_id(harness, kind, &plugin.id),
-                        version: plugin.version.clone(),
-                        notes,
-                        ..preview_row(kind, plugin.id.clone())
-                    },
-                    entry: Entry::Plugin(plugin),
-                });
-            }
+            Ok(plugin) => found.items.push(plugin_item(harness, plugin)),
             Err(reason) => found.exclude(harness, kind, label, reason),
         }
+    }
+}
+
+/// The export row of a shareable plugin whose version is informational (the import installs the
+/// latest).
+pub(super) fn plugin_item(harness: HarnessId, plugin: Plugin) -> CollectedItem {
+    let kind = SyncItemKind::Plugin;
+    let notes = plugin.version.iter().map(|_| SyncNote::VersionInformational).collect();
+
+    CollectedItem {
+        preview: SyncExportItem {
+            id: item_id(harness, kind, &plugin.id),
+            version: plugin.version.clone(),
+            notes,
+            ..preview_row(kind, plugin.id.clone())
+        },
+        entry: Entry::Plugin(plugin),
     }
 }
 

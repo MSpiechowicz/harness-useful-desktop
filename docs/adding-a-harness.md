@@ -495,11 +495,15 @@ fn share_support(&self) -> ShareSupport {
 ```
 
 `ShareSupport` (`business/src/harness/mod.rs`) has one flag per `SyncItemKind`. OMP declares marketplaces, plugins and
-MCP servers, PI declares packages and MCP servers, and OpenCode declares plugins and MCP servers.
+MCP servers, PI declares packages and MCP servers, OpenCode declares plugins and MCP servers, and Claude Code declares
+marketplaces, plugins and MCP servers.
 
 - **`mcp_servers`** needs `McpTarget::UserMcpJson` (or `OpenCodeConfig`) in `companion_setup` ([Recommended setup](#9-recommended-setup)): the
   export reads, and the import merges into, the file `mcp_target_paths` returns for the harness (it returns `None` for
-  any other target, so only strict-JSON `mcpServers` files are shared). Only user scope is shared. With
+  any other target, so only strict-JSON `mcpServers` files are shared). `McpTarget::ClaudeCli` shares the user scope
+  of Claude Code's global file: the import never merges it but runs `claude mcp add-json --scope user` per server
+  (`business/src/sync/apply_mcp_cli.rs`, the arguments of `ecosystem::mcp_cli::add_json_args`), and a server with a
+  `${…}` substitution is left out and refused. Only user scope is shared. With
   `McpTarget::Unsupported` the harness's servers are blocked as not supported. `McpTarget::OpenCodeConfig` shares the
   `mcp` key of the global config file (`local` as stdio, `remote` as http), with key names only for `environment` and
   `headers`. A server whose command, arguments or URL hold a `{env:…}` or `{file:…}` substitution is left out on
@@ -515,7 +519,9 @@ MCP servers, PI declares packages and MCP servers, and OpenCode declares plugins
 - **Reading what is installed.** The MCP reader is generic. The other kinds read the harness's own registry files:
   `collect_kind` in `business/src/sync/collect.rs` (export) and `Machine::read` in `business/src/sync/plan_presence.rs`
   (statuses `alreadyPresent`, `differentVersion`, `conflict`) currently understand OMP's marketplace and plugin
-  registries, PI's `packages` setting and OpenCode's `plugin` lists (`business/src/harnesses/opencode/share.rs`). A harness that stores these elsewhere needs a reader there too (through
+  registries, PI's `packages` setting, OpenCode's `plugin` lists (`business/src/harnesses/opencode/share.rs`) and Claude
+Code's `known_marketplaces.json` and `installed_plugins.json` (`business/src/harnesses/claude/setup.rs`, export in
+`business/src/sync/collect_claude.rs`). A harness that stores these elsewhere needs a reader there too (through
   `SafeReader`, returning only references, never credentials); one that uses the same files reuses the readers.
 - **Validation is shared.** Sources and ids are checked by `business/src/sync/validate.rs` and `validate_source.rs`
   (MCP fields by `validate_mcp.rs`), which allow `npm:` (registry names, `github:owner/repo`, `https:`/`git+https:`),

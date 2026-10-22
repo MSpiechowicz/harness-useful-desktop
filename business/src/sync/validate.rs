@@ -15,7 +15,7 @@ use regex::Regex;
 use super::schema::{MAX_TEXT_CHARS, Marketplace, Package, Plugin};
 use super::secrets::exportable;
 pub use super::validate_mcp::{
-    is_shell, key_names, mcp_args, mcp_command, mcp_name, mcp_server, mcp_url, opencode_mcp_server,
+    claude_mcp_server, is_shell, key_names, mcp_args, mcp_command, mcp_name, mcp_server, mcp_url, opencode_mcp_server,
 };
 use super::validate_source::{is_npm_registry_spec, split_npm_spec};
 pub use super::validate_source::{marketplace_source, package_source};
@@ -299,6 +299,18 @@ pub fn plugin(item: &Plugin) -> Check {
         Some((_, from_id)) if !item.id.starts_with('@') && from_id == marketplace => Ok(()),
         _ => Err(SyncInvalidReason::Malformed),
     }
+}
+
+/// A whole shared Claude Code plugin: [`plugin`] with a `name@marketplace` id. Claude Code would
+/// install a bare name from whichever registered marketplace lists it.
+pub fn claude_plugin(item: &Plugin) -> Check {
+    plugin(item)?;
+
+    if !MARKETPLACE_PLUGIN.is_match(&item.id) {
+        return Err(SyncInvalidReason::BadName);
+    }
+
+    Ok(())
 }
 
 /// A whole shared OpenCode plugin: an npm package name (`name` or `@scope/name`, never
