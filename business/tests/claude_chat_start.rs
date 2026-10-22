@@ -8,11 +8,14 @@ mod agent_support;
 use std::path::Path;
 
 use agent_support::{options, start_in, start_with};
+use harness_business::agent::TrustMemory;
 use harness_business::env::Env;
 use harness_business::harness::Harness;
-use harness_business::harnesses::Claude;
 use harness_business::harnesses::claude::global_config_file;
-use harness_business::model::{AgentAction, AgentEvent, AgentReply, ApprovalMode, HarnessId, IpcErrorCode};
+use harness_business::harnesses::{Claude, Pi};
+use harness_business::model::{
+    AgentAction, AgentEvent, AgentReply, AgentSessionInfo, ApprovalMode, HarnessId, IpcErrorCode,
+};
 use pretty_assertions::assert_eq;
 use serde_json::json;
 
@@ -88,6 +91,12 @@ fn only_a_folder_whose_trust_dialog_was_accepted_counts_as_trusted() {
     assert!(Claude.capabilities().project_trust && Claude.capabilities().project_trust_required);
     assert!(refused(Some(trust_entry(project, json!(true)))).is_ok());
 
+    // The trust answer of a global file past the usual 2 MiB read cap (Claude Code keeps every
+    // project's history in it) still counts.
+    let mut large = json!({ "projects": { project.to_string_lossy(): { "hasTrustDialogAccepted": true } } });
+    large["history"] = json!("x".repeat(3 * 1024 * 1024));
+    assert!(refused(Some(large.to_string())).is_ok(), "a large global file is read");
+
     for global in [
         None,
         Some("{ not json".to_owned()),
@@ -100,6 +109,39 @@ fn only_a_folder_whose_trust_dialog_was_accepted_counts_as_trusted() {
         assert_eq!(error.code(), IpcErrorCode::Untrusted, "{global:?}");
         assert_eq!(error.to_string(), UNTRUSTED);
     }
+}
+
+#[test]
+fn only_claude_remembers_a_project_trusted_once() {
+    let project = tempfile::tempdir().expect("project");
+    let request = |harness| agent_support::request(harness, project.path());
+    let info = |harness| AgentSessionInfo {
+        key: "key-1".to_owned(),
+        harness,
+        project: project.path().to_string_lossy().into_owned(),
+        started_at: "2026-10-22T10:00:00Z".to_owned(),
+        approval_override: None,
+        configured_approval_mode: None,
+        native_approval_mode: None,
+        trusted_once: true,
+        protocol_version: None,
+    };
+
+    let memory = TrustMemory::new();
+    let mut before = request(HarnessId::Claude);
+    memory.apply(&Claude, &mut before);
+    assert!(!before.trust_once, "nothing trusted yet");
+
+    memory.remember(&Claude, &info(HarnessId::Claude));
+    memory.remember(&Pi, &info(HarnessId::Pi));
+
+    let mut claude = request(HarnessId::Claude);
+    memory.apply(&Claude, &mut claude);
+    assert!(claude.trust_once, "trusted once again in this run");
+
+    let mut pi = request(HarnessId::Pi);
+    memory.apply(&Pi, &mut pi);
+    assert!(!pi.trust_once, "PI asks every launch, as before");
 }
 
 #[tokio::test]

@@ -110,9 +110,10 @@ impl ClaudeSession {
     /// The file of saved session `id`; `notFound` before Claude Code wrote it.
     async fn saved_file(&self, id: &str) -> Result<PathBuf> {
         let dir = self.launcher.sessions_dir.clone();
+        let project = self.launcher.project.clone();
         let id = id.to_owned();
 
-        blocking(move || session_file(&dir, &id)).await
+        blocking(move || session_file(&dir, &project, &id)).await
     }
 
     /// The file of session `id`, which a fork or clone copies; refused before Claude Code wrote it.

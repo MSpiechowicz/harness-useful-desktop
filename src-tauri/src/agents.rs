@@ -13,7 +13,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 
-use harness_business::agent::AgentManager;
+use harness_business::agent::{AgentManager, TrustMemory};
 use harness_business::process::{ChildRegistry, ProcessSpawner, TokioSpawner, TrackedSpawner, sweep_orphans};
 use tauri::async_runtime::{self, JoinHandle};
 
@@ -21,6 +21,8 @@ use tauri::async_runtime::{self, JoinHandle};
 pub struct Agents {
     manager: AgentManager,
     spawner: Arc<dyn ProcessSpawner>,
+    /// The projects the user trusted once in this run (Claude Code), never saved.
+    trust: TrustMemory,
     /// Where the started children are recorded; `None` when they are not.
     children_dir: Option<PathBuf>,
     background: Mutex<Vec<JoinHandle<()>>>,
@@ -60,6 +62,7 @@ impl Agents {
         Self {
             manager,
             spawner,
+            trust: TrustMemory::new(),
             children_dir: None,
             background: Mutex::new(Vec::new()),
             phase: AtomicU8::new(RUNNING),
@@ -69,6 +72,11 @@ impl Agents {
     /// The running sessions.
     pub fn manager(&self) -> &AgentManager {
         &self.manager
+    }
+
+    /// The projects the user trusted once in this run.
+    pub fn trust(&self) -> &TrustMemory {
+        &self.trust
     }
 
     /// Starts agent processes.

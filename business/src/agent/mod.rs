@@ -33,6 +33,7 @@ mod session;
 mod sink;
 mod slots;
 mod startup;
+mod trust_memory;
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -48,6 +49,7 @@ pub use process::{MAX_STDERR_LINE, MAX_STDERR_PER_SECOND, StartAbort};
 pub use session::{BASH_TIMEOUT, RpcSession};
 pub use sink::{CollectingSink, EventSink, PromptTaken};
 pub use slots::SessionClaim;
+pub use trust_memory::TrustMemory;
 
 /// Time limit for the handshake and the first `get_state`.
 pub const STARTUP_TIMEOUT: Duration = Duration::from_secs(10);

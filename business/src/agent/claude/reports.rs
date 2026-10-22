@@ -129,34 +129,40 @@ impl ClaudeSession {
             return Ok(Vec::new());
         };
 
-        let dir = &self.launcher.sessions_dir;
+        let (dir, project) = (&self.launcher.sessions_dir, &self.launcher.project);
 
-        match saved_messages(dir, &session, None).await {
-            Err(BusinessError::NotFound(_)) => copied(dir, origin).await,
+        match saved_messages(dir, project, &session, None).await {
+            Err(BusinessError::NotFound(_)) => copied(dir, project, origin).await,
             read => read,
         }
     }
 }
 
 /// What a fork or clone copied from `origin`; nothing without one, or once it is gone.
-async fn copied(dir: &Path, origin: Option<Origin>) -> Result<Vec<ChatMessage>> {
+async fn copied(dir: &Path, project: &Path, origin: Option<Origin>) -> Result<Vec<ChatMessage>> {
     let Some(origin) = origin else {
         return Ok(Vec::new());
     };
 
-    match saved_messages(dir, &origin.session, origin.cut).await {
+    match saved_messages(dir, project, &origin.session, origin.cut).await {
         Err(BusinessError::NotFound(_)) => Ok(Vec::new()),
         read => read,
     }
 }
 
-/// The messages of saved session `id` in the session folder `dir`, up to and with `cut`.
-pub(super) async fn saved_messages(dir: &Path, id: &str, cut: Option<String>) -> Result<Vec<ChatMessage>> {
-    let dir = dir.to_path_buf();
+/// The messages of saved session `id` in `dir`, the session folder of `project`, up to and with
+/// `cut`.
+pub(super) async fn saved_messages(
+    dir: &Path,
+    project: &Path,
+    id: &str,
+    cut: Option<String>,
+) -> Result<Vec<ChatMessage>> {
+    let (dir, project) = (dir.to_path_buf(), project.to_path_buf());
     let id = id.to_owned();
 
     blocking(move || {
-        let path = session_file(&dir, &id)?;
+        let path = session_file(&dir, &project, &id)?;
         chat_messages(&path, cut.as_deref())
     })
     .await

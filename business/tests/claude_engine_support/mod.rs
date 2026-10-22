@@ -266,3 +266,18 @@ pub fn prompt(message: &str) -> AgentAction {
         streaming_behavior: None,
     }
 }
+
+/// The chat's saved messages (`GetHistory`, one page).
+pub async fn history(chat: &Chat) -> Vec<harness_business::model::ChatMessage> {
+    let reply = chat
+        .send(AgentAction::GetHistory {
+            cursor: None,
+            limit: 200,
+        })
+        .await;
+
+    match reply {
+        AgentReply::History { messages, .. } => messages,
+        other => panic!("not a history: {other:?}"),
+    }
+}

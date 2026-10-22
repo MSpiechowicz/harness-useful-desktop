@@ -8,7 +8,7 @@ mod claude_engine_support;
 
 use std::time::Duration;
 
-use claude_engine_support::{BASIC_SESSION, Chat, Setup, argv, flag, kinds, prompt, stop_cleanly};
+use claude_engine_support::{BASIC_SESSION, Chat, Setup, argv, flag, history, kinds, prompt, stop_cleanly};
 use harness_business::model::{
     AgentAction, AgentEvent, AgentReply, ChatMessage, HarnessId, IpcErrorCode, MessageRole, SessionRef, TokenUsage,
 };
@@ -63,20 +63,6 @@ fn session_of(event: &AgentEvent) -> Option<&str> {
     match event {
         AgentEvent::State { state } => Some(&state.session_id),
         _ => None,
-    }
-}
-
-async fn history(chat: &Chat) -> Vec<ChatMessage> {
-    let reply = chat
-        .send(AgentAction::GetHistory {
-            cursor: None,
-            limit: 200,
-        })
-        .await;
-
-    match reply {
-        AgentReply::History { messages, .. } => messages,
-        other => panic!("not a history: {other:?}"),
     }
 }
 

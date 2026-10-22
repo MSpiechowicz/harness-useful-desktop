@@ -14,16 +14,17 @@ use std::path::{Path, PathBuf};
 
 use super::entries::{Index, Kind};
 use super::transcript::transcript;
-use super::{find_session, is_session_id};
+use super::{find_project_session, is_session_id};
 use crate::error::{BusinessError, Result};
 use crate::model::ChatMessage;
 
 /// Entries indexed at most when locating a fork point.
 const MAX_INDEXED_ENTRIES: usize = 500_000;
 
-/// The session file of session `id` in the project's session folder `dir`.
-pub fn session_file(dir: &Path, id: &str) -> Result<PathBuf> {
-    find_session(dir, id)
+/// The session file of session `id` in `dir`, the session folder of `project`; a session of another
+/// folder with the same slug is not found ([`find_project_session`]).
+pub fn session_file(dir: &Path, project: &Path, id: &str) -> Result<PathBuf> {
+    find_project_session(dir, project, id)
 }
 
 /// The `uuid` a fork from message `entry_id` of the session file at `path` resumes at (see the

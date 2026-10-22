@@ -215,7 +215,7 @@ impl Launcher {
         };
 
         if let Some(origin) = start.origin() {
-            let saved = saved_messages(&self.sessions_dir, &origin.session, origin.cut).await;
+            let saved = saved_messages(&self.sessions_dir, &self.project, &origin.session, origin.cut).await;
             chat.lock().counts = counts(&saved.unwrap_or_default());
         }
 
