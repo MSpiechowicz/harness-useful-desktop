@@ -6,7 +6,7 @@ Issue #20. Research 2026-10-22 against Claude Code **2.1.304** (pacman `claude-c
 step.** The Status table says where to resume.
 
 Claude Code moves fast (a release every few days). Before resuming, re-check `claude --version`, the SDK version and
-the unknowns in [To confirm by recording](#to-confirm-by-recording).
+the facts in [Verified facts](#verified-facts-s0-recording-2026-10-22).
 
 ## Goal
 
@@ -202,7 +202,7 @@ before the steps that use them (S5, S9, S12).
 Order: S1 → (Track A: S2 → S3 → S5 → S6 ∥ Track B: S4 ∥ Track C: S0 → S7 → S8 → S9 → S10) → S11 → S12 → S13.
 
 - **S0 recording** (main session, needs decision 2): recorder script in the scratchpad covering every item of
-  [To confirm by recording](#to-confirm-by-recording); scrubbed recordings to `business/tests/fixtures/claude/stream/`.
+  [Verified facts](#verified-facts-s0-recording-2026-10-22); scrubbed recordings to `business/tests/fixtures/claude/stream/`.
 - **S1 skeleton and detection:** `HarnessId::Claude`, registry, `harnesses/claude/mod.rs` (info, capabilities with
   `chat` false until S10, `supported_versions` `2.1.`, install hint per OS, `spawn_env` `DISABLE_UPDATES=1`), `paths`,
   `env.rs` (`CLAUDE_CONFIG_DIR` captured, secrets presence-only), `security/deny.rs` additions with canary fixtures,
@@ -249,23 +249,71 @@ Order: S1 → (Track A: S2 → S3 → S5 → S6 ∥ Track B: S4 ∥ Track C: S0 
 
 | # | Step | Status |
 | --- | --- | --- |
-| S0 | Recording | in progress |
+| S0 | Recording | done (fixtures in `business/tests/fixtures/claude/`) |
 | S1–S13 | | not started |
 
-## To confirm by recording
+## Verified facts (S0 recording, 2026-10-22)
 
-1. The exact `control_response` shape for `can_use_tool` (camelCase `PermissionResult` assumed).
-2. Whether a user frame may precede the initialize reply, and whether `system/init` repeats every turn.
-3. `--permission-mode default` vs `manual` (CLI help lists `manual`, the SDK type says `default`).
-4. Typed `!cmd` in stream-json, and how a `shouldQuery:false` bash append shows on resume.
-5. When `--fork-session` assigns the new id (spawn or first prompt), and how the fork is linked on disk.
-6. `/compact <instructions>` and the order `status` → `compact_boundary` → `result`.
-7. `priority:"next"` / `"later"`, the `uuid` echo and `cancel_async_message`.
-8. `total_cost_usd` and `get_session_cost` on a subscription login.
-9. `commands_changed` after a skill or plugin is added mid-session.
-10. Whether the workspace trust dialog blocks a stream-json run in an untrusted folder (decides `projectTrust`).
-11. Whether stdio MCP children inherit `HARNESS_MEMORY_SESSION` (decides `memoryChatGuards`).
-12. `AskUserQuestion` multi-select answer format, and the no-login error text.
+Claude Code 2.1.304, default model `claude-opus-5-5`, subscription login. Scrubbed recordings (account, emails, paths,
+system reminders, thinking signatures and hook output removed; long lists cut to three entries) are in
+`business/tests/fixtures/claude/stream/*.jsonl` (`{"t", "dir": in|out|err|note, "frame"}`) and the matching session
+files in `business/tests/fixtures/claude/sessions/` (`sessions.json` maps scenario → session id). The recorder
+(`rec.py`, `scenarios.py`, `scrub.py`) lived in the session scratchpad. Each scenario ran in a fresh, untrusted
+scratch folder, and its sessions were deleted afterwards.
+
+1. **Permission reply:** `control_response{subtype:"success", request_id, response:{behavior:"allow", updatedInput,
+   updatedPermissions?} | {behavior:"deny", message}}` works (the SDK also adds `toolUseID`). A deny becomes an
+   `is_error` tool result with the message. `can_use_tool` carries `tool_name`, `display_name`, `input`,
+   `description`, `decision_reason_type`, `tool_use_id`. The CLI's request ids are UUIDs.
+2. **Order:** a user frame may be sent before `initialize`, and is answered after it. `system/init` repeats at the
+   start of every turn. The first turn starts about 2 s after spawn (plugins, MCP servers and SessionStart hooks run
+   first, as `system/hook_*` frames).
+3. **Mode names:** `--permission-mode manual` and `set_permission_mode{mode:"manual"}` are accepted and reported as
+   `default`. Use `default` on the wire.
+4. **`!command`:** a typed `!cmd` is not run as shell mode. It reaches the model as text, and the model runs it with
+   Bash. The injection works: a user frame with `shouldQuery:false` holding `<bash-input>` / `<bash-stdout>` /
+   `<bash-stderr>` answers with a `result` of `num_turns: 0` at once, and the next turn sees the output.
+5. **Fork and clone:** `--resume <id> --fork-session` gets its new session id at spawn (the first `system/hook_*` frame
+   carries it). `--resume-session-at <uuid>` needs the `uuid` of a `user` or `assistant` line after the last compact
+   boundary. Anything else fails at once with `result{subtype:"error_during_execution", errors:["No message found with
+   message.uuid of: …"]}`, exit 1. The fork keeps the history up to that message, including a steering message given in
+   that turn. `--resume` without `--fork-session` keeps the session id.
+6. **Compact:** `/compact <instructions>` gives `system/compact_boundary{compact_metadata:{trigger:"manual",
+   pre_tokens, post_tokens}}`, a user frame with the summary, a `<local-command-stdout>Compacted </local-command-stdout>`
+   user frame and `result{num_turns:0, result:""}`, all without a `status:compacting` frame.
+7. **Queue:** `priority:"next"` sent while a tool runs is read in the same turn. `priority:"later"` runs as its own
+   turn after the result. `cancel_async_message{message_uuid}` answers `{cancelled:true}` and the message never runs.
+   `system/status{status:"requesting", user_message_uuids}` names the prompts a request serves.
+   `command_lifecycle{command_uuid, state: queued|started|completed}` frames track each sent message.
+8. **Cost:** `result.total_cost_usd` is reported on a subscription login (API-equivalent, cumulative per process).
+   `get_session_cost` answers `{text}` (the `/cost` text, not structured). `get_context_usage` answers `{totalTokens,
+   maxTokens, rawMaxTokens, percentage, categories, isAutoCompactEnabled, autoCompactThreshold, …}`.
+   `rate_limit_event{rate_limit_info:{status, resetsAt, rateLimitType, unifiedWindows}}` arrives each turn.
+9. **Not recorded:** `commands_changed` after a skill is added mid-session. `reload_plugins` does emit
+   `system/commands_changed{commands}`, and `reload_skills` answers `{skills}`.
+10. **Trust:** an untrusted folder does not block a stream-json run (no trust prompt). `projectTrust` stays false.
+11. **MCP env:** stdio MCP servers inherit the CLI's environment (`HARNESS_MEMORY_SESSION` reached a probe server), so
+    `memoryChatGuards` can be true.
+12. **Questions:** `AskUserQuestion` comes as `can_use_tool` with `input.questions[{question, header,
+    options[{label, description}], multiSelect}]`. Answer with allow and `updatedInput` = the input plus
+    `answers{<question>: "<label>"}`; multi-select labels are joined with `", "`.
+13. **No login** (empty `CLAUDE_CONFIG_DIR`): initialize still succeeds, the turn answers an assistant text and
+    `result{subtype:"success", is_error:true, result:"Not logged in · Please run /login"}`, then the process exits 1.
+14. **Interrupt:** `interrupt` answers `{still_queued:[]}`, then a user frame `[Request interrupted by user]` and
+    `result{subtype:"error_during_execution"}`. The process stays usable for the next prompt.
+15. **Controls:** `set_model{model:"sonnet"}` succeeds and emits a user frame `<local-command-stdout>Set model to …`.
+    `list_models` answers `models[{value, resolvedModel, displayName, description, supportsEffort,
+    supportedEffortLevels}]`. `apply_flag_settings{settings:{effortLevel}}`, `set_max_thinking_tokens` and
+    `rename_session` succeed. `rename_session` emits `system/session_title_changed{title}` and writes
+    `<session>/custom-title.json` (`{"customTitle"}`) next to the transcript.
+16. **AI naming:** `--tools "" --thinking=disabled --no-session-persistence` works (`--thinking` is not in `--help` but
+    is accepted). The answer arrives in about 3 s.
+17. **Frames seen that the SDK types do not list:** `command_lifecycle`, `rate_limit_event`,
+    `system/background_tasks_changed`, `system/thinking_tokens{estimated_tokens}`. One API message is split into one
+    `assistant` frame per content block, all with the same `message.id`.
+18. **Session files:** they also hold `api-request-blob` / `api-request-shape` lines (full system prompt text: the
+    user's CLAUDE.md, hook context) and `attachment` lines. The Sessions view and export must skip both. A steering
+    message is not a `user` line of its own.
 
 ## Risks
 
