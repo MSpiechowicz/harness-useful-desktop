@@ -4,18 +4,19 @@
 //! Everything lives in one config directory (`~/.claude` or `CLAUDE_CONFIG_DIR`, see [`paths`]),
 //! next to a global file (`~/.claude.json`) the CLI rewrites while it runs. The harness is detected
 //! and its settings are shown ([`config`]). Saved sessions are read from Claude's session files
-//! ([`sessions`]). The extension view is empty, chat is not available yet, and the catalog lists
-//! every command as unsupported. Every spawn switches off Claude's self-updater.
+//! ([`sessions`]). The extension view is empty. The chat engine runs `claude` in stream-json mode
+//! ([`launch`]), but chat stays off until the engine is complete; the catalog maps Claude's
+//! commands to the chat's actions and views. Every spawn switches off Claude's self-updater.
 
 mod catalog;
 mod config;
+mod launch;
 mod paths;
 mod sessions;
 
 pub use catalog::ClaudeCatalog;
 pub use paths::{PROJECT_DIR_NAME, config_dir, global_config_file, project_slug};
 
-use crate::error::BusinessError;
 use crate::harness::prelude::*;
 use crate::harnesses::pi::PiDialect;
 use crate::model::{SessionMessagesPage, SessionRef, SessionSummary, SessionTree};
@@ -80,9 +81,9 @@ impl Harness for Claude {
         &catalog::CATALOG
     }
 
-    /// Chat with Claude Code is not available yet.
-    fn launch_spec(&self, _request: &LaunchRequest<'_>) -> Result<ExecSpec> {
-        Err(chat_not_available())
+    /// `claude` in stream-json mode (see [`launch`]).
+    fn launch_spec(&self, request: &LaunchRequest<'_>) -> Result<ExecSpec> {
+        launch::claude_launch_spec(request)
     }
 
     /// Never reached: Claude chats over [`ChatProtocol::ClaudeStream`], not RPC.
@@ -167,8 +168,4 @@ impl Harness for Claude {
     fn supported_versions(&self) -> &'static [&'static str] {
         &["2.1."]
     }
-}
-
-fn chat_not_available() -> BusinessError {
-    BusinessError::Unsupported("Claude Code chat is not available yet".to_owned())
 }

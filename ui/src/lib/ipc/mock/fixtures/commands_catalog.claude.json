@@ -1,32 +1,12 @@
 [
   {
-    "name": "init",
-    "description": "Create a CLAUDE.md for this project",
-    "argumentHint": null,
-    "source": "builtin",
-    "invocation": {
-      "kind": "unsupported",
-      "reason": "Chat with Claude Code is coming soon."
-    }
-  },
-  {
-    "name": "review",
-    "description": "Review a pull request",
-    "argumentHint": null,
-    "source": "builtin",
-    "invocation": {
-      "kind": "unsupported",
-      "reason": "Chat with Claude Code is coming soon."
-    }
-  },
-  {
     "name": "clear",
     "description": "Start a new conversation",
     "argumentHint": null,
     "source": "builtin",
     "invocation": {
-      "kind": "unsupported",
-      "reason": "Chat with Claude Code is coming soon."
+      "kind": "rpc",
+      "action": "newSession"
     }
   },
   {
@@ -35,8 +15,8 @@
     "argumentHint": null,
     "source": "builtin",
     "invocation": {
-      "kind": "unsupported",
-      "reason": "Chat with Claude Code is coming soon."
+      "kind": "gui",
+      "target": "resumePicker"
     }
   },
   {
@@ -45,8 +25,8 @@
     "argumentHint": "<name>",
     "source": "builtin",
     "invocation": {
-      "kind": "unsupported",
-      "reason": "Chat with Claude Code is coming soon."
+      "kind": "rpc",
+      "action": "setSessionName"
     }
   },
   {
@@ -55,8 +35,8 @@
     "argumentHint": "[instructions]",
     "source": "builtin",
     "invocation": {
-      "kind": "unsupported",
-      "reason": "Chat with Claude Code is coming soon."
+      "kind": "rpc",
+      "action": "compact"
     }
   },
   {
@@ -66,17 +46,27 @@
     "source": "builtin",
     "invocation": {
       "kind": "unsupported",
-      "reason": "Chat with Claude Code is coming soon."
+      "reason": "Only in the Claude Code terminal app. Fork from an earlier message instead."
     }
   },
   {
     "name": "export",
-    "description": "Export the conversation",
+    "description": "Export the conversation as HTML",
     "argumentHint": null,
     "source": "builtin",
     "invocation": {
-      "kind": "unsupported",
-      "reason": "Chat with Claude Code is coming soon."
+      "kind": "rpc",
+      "action": "exportHtml"
+    }
+  },
+  {
+    "name": "copy",
+    "description": "Copy the last reply",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "rpc",
+      "action": "getLastAssistantText"
     }
   },
   {
@@ -85,8 +75,8 @@
     "argumentHint": null,
     "source": "builtin",
     "invocation": {
-      "kind": "unsupported",
-      "reason": "Chat with Claude Code is coming soon."
+      "kind": "gui",
+      "target": "modelPicker"
     }
   },
   {
@@ -95,8 +85,8 @@
     "argumentHint": null,
     "source": "builtin",
     "invocation": {
-      "kind": "unsupported",
-      "reason": "Chat with Claude Code is coming soon."
+      "kind": "rpc",
+      "action": "getSessionStats"
     }
   },
   {
@@ -105,8 +95,26 @@
     "argumentHint": null,
     "source": "builtin",
     "invocation": {
-      "kind": "unsupported",
-      "reason": "Chat with Claude Code is coming soon."
+      "kind": "rpc",
+      "action": "getSessionStats"
+    }
+  },
+  {
+    "name": "init",
+    "description": "Create a CLAUDE.md for this project",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "promptText"
+    }
+  },
+  {
+    "name": "review",
+    "description": "Review a pull request",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "promptText"
     }
   },
   {
@@ -116,7 +124,7 @@
     "source": "builtin",
     "invocation": {
       "kind": "unsupported",
-      "reason": "Chat with Claude Code is coming soon."
+      "reason": "Only in the Claude Code terminal app."
     }
   },
   {
@@ -126,7 +134,7 @@
     "source": "builtin",
     "invocation": {
       "kind": "unsupported",
-      "reason": "Chat with Claude Code is coming soon."
+      "reason": "Manage MCP servers in the Extensions view."
     }
   },
   {
@@ -136,7 +144,7 @@
     "source": "builtin",
     "invocation": {
       "kind": "unsupported",
-      "reason": "Chat with Claude Code is coming soon."
+      "reason": "Manage plugins in the Extensions view."
     }
   },
   {
@@ -146,7 +154,7 @@
     "source": "builtin",
     "invocation": {
       "kind": "unsupported",
-      "reason": "Chat with Claude Code is coming soon."
+      "reason": "Only in the Claude Code terminal app."
     }
   },
   {
@@ -156,7 +164,7 @@
     "source": "builtin",
     "invocation": {
       "kind": "unsupported",
-      "reason": "Chat with Claude Code is coming soon."
+      "reason": "Only in the Claude Code terminal app."
     }
   },
   {
@@ -166,7 +174,7 @@
     "source": "builtin",
     "invocation": {
       "kind": "unsupported",
-      "reason": "Chat with Claude Code is coming soon."
+      "reason": "Only in the Claude Code terminal app."
     }
   },
   {
@@ -176,7 +184,7 @@
     "source": "builtin",
     "invocation": {
       "kind": "unsupported",
-      "reason": "Chat with Claude Code is coming soon."
+      "reason": "Only in the Claude Code terminal app."
     }
   },
   {
@@ -186,7 +194,7 @@
     "source": "builtin",
     "invocation": {
       "kind": "unsupported",
-      "reason": "Chat with Claude Code is coming soon."
+      "reason": "Only in the Claude Code terminal app."
     }
   },
   {
@@ -196,7 +204,7 @@
     "source": "builtin",
     "invocation": {
       "kind": "unsupported",
-      "reason": "Chat with Claude Code is coming soon."
+      "reason": "Only in the Claude Code terminal app."
     }
   },
   {
@@ -206,7 +214,17 @@
     "source": "builtin",
     "invocation": {
       "kind": "unsupported",
-      "reason": "Chat with Claude Code is coming soon."
+      "reason": "Only in the Claude Code terminal app."
+    }
+  },
+  {
+    "name": "exit",
+    "description": "Exit Claude Code",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Stop the session from the desktop app instead."
     }
   },
   {
@@ -215,8 +233,8 @@
     "argumentHint": null,
     "source": "shared",
     "invocation": {
-      "kind": "unsupported",
-      "reason": "Chat with Claude Code is coming soon."
+      "kind": "rpc",
+      "action": "newSession"
     }
   },
   {
@@ -225,8 +243,8 @@
     "argumentHint": null,
     "source": "shared",
     "invocation": {
-      "kind": "unsupported",
-      "reason": "Chat with Claude Code is coming soon."
+      "kind": "gui",
+      "target": "thinkingPicker"
     }
   },
   {
@@ -235,8 +253,8 @@
     "argumentHint": "<name>",
     "source": "shared",
     "invocation": {
-      "kind": "unsupported",
-      "reason": "Chat with Claude Code is coming soon."
+      "kind": "rpc",
+      "action": "setSessionName"
     }
   },
   {
@@ -245,8 +263,8 @@
     "argumentHint": null,
     "source": "shared",
     "invocation": {
-      "kind": "unsupported",
-      "reason": "Chat with Claude Code is coming soon."
+      "kind": "rpc",
+      "action": "abort"
     }
   }
 ]

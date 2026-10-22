@@ -1,0 +1,8 @@
+// queue2.jsonl without its follow-ups: a Bash call runs, a steer is queued and read in the same
+// turn once the tool finished.
+{"include": "claude_init.jsonl"}
+{"expect": "user", "as": "prompt"}
+{"replay": "../claude/stream/queue2.jsonl", "from": 7, "to": 24, "replace": {"1ce282ed-e2e7-435b-a239-06cebea7fa1e": "$prompt"}}
+{"expect": "user", "as": "steer", "match": {"priority": "next", "/message/content": "Also end your final answer with the word BANANA."}}
+{"replay": "../claude/stream/queue2.jsonl", "from": 29, "to": 29, "replace": {"e8159cf5-373a-4231-bf75-ea8bda736346": "$steer"}}
+{"replay": "../claude/stream/queue2.jsonl", "from": 34, "to": 53, "replace": {"1ce282ed-e2e7-435b-a239-06cebea7fa1e": "$prompt", "e8159cf5-373a-4231-bf75-ea8bda736346": "$steer"}}
