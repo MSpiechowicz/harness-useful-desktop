@@ -256,10 +256,11 @@ Order: S1 → (Track A: S2 → S3 → S5 → S6 ∥ Track B: S4 ∥ Track C: S0 
 | S0 | Recording | done (fixtures in `business/tests/fixtures/claude/`) |
 | S1 | Skeleton and detection | done |
 | — | Shared `claude_stream/tools.rs` (tool ids, touched paths) | done (main session) |
-| S2 | Config view + deny gap | running (worktree `.wt-cc/a`, branch `wip/cc-a`) |
+| S2 | Config view + deny gap | done (307e262). Managed settings show in the User layer (no Managed `ConfigLayer` yet, S12), CLAUDE.md files listed in a notice |
+| S3 | Extensions view | running (`.wt-cc/a`) |
 | S4 | Sessions | running (`.wt-cc/b`, `wip/cc-b`) |
 | S7 | Wire and mapper | running (`.wt-cc/c`, `wip/cc-c`) |
-| S3, S5, S6, S8–S13 | | not started |
+| S5, S6, S8–S13 | | not started |
 
 ## Verified facts (S0 recording, 2026-10-22)
 
