@@ -66,6 +66,7 @@ async fn opencode_skills(env: &Env) -> SkillsSetup {
             install_hint: None,
             error: None,
         },
+        native_approval_mode: None,
     };
     let setup = setup_status(
         env,

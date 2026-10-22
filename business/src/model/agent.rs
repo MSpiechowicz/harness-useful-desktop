@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use super::{HarnessId, MemoryChatStart};
+use super::{HarnessId, MemoryChatStart, NativeApprovalMode};
 
 /// An opaque reference to a harness session (OMP/PI session uuid).
 ///
@@ -74,6 +74,10 @@ pub struct AgentSessionInfo {
     /// The approval mode from the harness configuration (OMP `tools.approvalMode`, default
     /// `yolo`); `None` for harnesses without approval modes.
     pub configured_approval_mode: Option<ApprovalMode>,
+    /// The harness's own permission mode for the project, by its own name (Claude Code
+    /// `permissions.defaultMode`), shown read-only next to the approval mode; `None` for
+    /// harnesses without one.
+    pub native_approval_mode: Option<NativeApprovalMode>,
     /// True when the session was launched with the one-time project trust.
     pub trusted_once: bool,
     /// RPC protocol version reported by the agent, once known.

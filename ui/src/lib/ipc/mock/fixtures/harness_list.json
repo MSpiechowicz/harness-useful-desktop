@@ -22,6 +22,7 @@
       "cliActions": true,
       "profiles": true,
       "approvalModes": true,
+      "yoloMode": true,
       "projectTrust": false,
       "slashCommandsViaPrompt": true,
       "sessionTree": true,
@@ -42,7 +43,8 @@
       "configDirExists": true,
       "installHint": null,
       "error": null
-    }
+    },
+    "nativeApprovalMode": null
   },
   {
     "info": {
@@ -67,6 +69,7 @@
       "cliActions": true,
       "profiles": false,
       "approvalModes": false,
+      "yoloMode": false,
       "projectTrust": true,
       "slashCommandsViaPrompt": false,
       "sessionTree": true,
@@ -95,7 +98,8 @@
         "docsUrl": "https://github.com/earendil-works/pi"
       },
       "error": null
-    }
+    },
+    "nativeApprovalMode": null
   },
   {
     "info": {
@@ -120,6 +124,7 @@
       "cliActions": true,
       "profiles": false,
       "approvalModes": true,
+      "yoloMode": true,
       "projectTrust": false,
       "slashCommandsViaPrompt": true,
       "sessionTree": false,
@@ -140,7 +145,8 @@
       "configDirExists": true,
       "installHint": null,
       "error": null
-    }
+    },
+    "nativeApprovalMode": null
   },
   {
     "info": {
@@ -164,7 +170,8 @@
       "themes": false,
       "cliActions": true,
       "profiles": false,
-      "approvalModes": false,
+      "approvalModes": true,
+      "yoloMode": false,
       "projectTrust": false,
       "slashCommandsViaPrompt": false,
       "sessionTree": false,
@@ -193,6 +200,7 @@
         "docsUrl": "https://code.claude.com/docs/en/setup"
       },
       "error": null
-    }
+    },
+    "nativeApprovalMode": null
   }
 ]

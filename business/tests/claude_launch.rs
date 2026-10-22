@@ -1,6 +1,7 @@
 //! The command line of a Claude Code chat: stream-json mode in the project, `--resume` only with a
-//! Claude session id, no model flag, no helper chats yet, and never a flag that skips approvals,
-//! strips a login method or bypasses the permission mode.
+//! Claude session id, no model flag, no helper chats yet, `--permission-mode default` for an
+//! Always ask or Write override (Yolo refused), and never a flag that skips approvals, strips a
+//! login method or bypasses the permission mode.
 
 use std::ffi::OsString;
 use std::path::PathBuf;
@@ -111,18 +112,10 @@ fn helper_chats_are_not_available_yet() {
 #[test]
 fn no_launch_skips_approvals_strips_a_login_or_names_a_model() {
     let setup = Setup::new("/usr/bin/claude", false);
-    let forbidden = [
-        "dangerously",
-        "bare",
-        "bypass",
-        "permission-mode",
-        "permission-prompts",
-        "model",
-        "auto",
-    ];
+    let forbidden = ["dangerously", "bare", "bypass", "permission-prompts", "model", "auto"];
 
     for resume in [None, Some(SESSION)] {
-        for approval in [None, Some(ApprovalMode::Yolo), Some(ApprovalMode::Write)] {
+        for approval in [None, Some(ApprovalMode::AlwaysAsk), Some(ApprovalMode::Write)] {
             let request = LaunchRequest {
                 approval_override: approval,
                 trust_once: true,
@@ -134,6 +127,36 @@ fn no_launch_skips_approvals_strips_a_login_or_names_a_model() {
             }
         }
     }
+}
+
+#[test]
+fn always_ask_and_write_start_in_the_default_mode_and_no_override_keeps_the_users() {
+    let setup = Setup::new("/usr/bin/claude", false);
+
+    for approval in [ApprovalMode::AlwaysAsk, ApprovalMode::Write] {
+        let request = LaunchRequest {
+            approval_override: Some(approval),
+            ..setup.request(Some(SESSION))
+        };
+
+        let mut expected: Vec<&str> = STREAM.to_vec();
+        expected.extend(["--permission-mode", "default", "--resume", SESSION]);
+        assert_eq!(argv(&request), expected, "{approval:?}");
+    }
+
+    assert!(!argv(&setup.request(None)).iter().any(|arg| arg == "--permission-mode"));
+}
+
+#[test]
+fn a_yolo_override_is_refused() {
+    let setup = Setup::new("/usr/bin/claude", false);
+    let request = LaunchRequest {
+        approval_override: Some(ApprovalMode::Yolo),
+        ..setup.request(None)
+    };
+
+    let refused = Claude.launch_spec(&request).expect_err("no Yolo mode");
+    assert_eq!(refused.code(), IpcErrorCode::Unsupported);
 }
 
 #[test]

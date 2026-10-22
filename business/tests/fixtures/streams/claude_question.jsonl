@@ -1,0 +1,7 @@
+// The turn of question.jsonl: a multi-select AskUserQuestion, answered with two of its labels
+// joined by ", ", then the reply.
+{"include": "claude_init.jsonl"}
+{"expect": "user", "as": "prompt"}
+{"replay": "../claude/stream/question.jsonl", "from": 7, "to": 30, "replace": {"bb1a7a34-2265-4203-8ac4-0be3d6ebdbaa": "$prompt"}}
+{"expect": "control_response", "match": {"/response/request_id": "bbb7f33f-6e53-4681-ad89-6e1977429fc2", "/response/response/behavior": "allow", "/response/response/updatedInput/answers": {"Which colours do you like?": "Red, Green"}, "/response/response/updatedInput/questions/0/multiSelect": true}}
+{"replay": "../claude/stream/question.jsonl", "from": 32, "to": 50, "replace": {"bb1a7a34-2265-4203-8ac4-0be3d6ebdbaa": "$prompt"}}

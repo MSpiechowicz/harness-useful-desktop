@@ -1,6 +1,7 @@
 //! The settings the extensions view needs from every layer the config view lists
 //! ([`settings_files`], [`managed_files`]): plugins switched on or off, marketplaces named in
-//! settings, and the answers for the project's `.mcp.json` servers. Claude applies the layers
+//! settings, and the answers for the project's `.mcp.json` servers (and the permission mode, for
+//! the chat). Claude applies the layers
 //! lowest first (user, project, local, managed settings and then their drop-ins by name), so a
 //! later layer wins.
 
@@ -14,12 +15,12 @@ use crate::pi_family::{Document, read_json, string_list};
 
 /// The parsed settings layers, lowest first. Unreadable files are left out (the config view
 /// reports them).
-pub(super) struct Settings {
+pub(in crate::harnesses::claude) struct Settings {
     layers: Vec<Value>,
 }
 
 impl Settings {
-    pub(super) fn load(env: &Env, project: Option<&Path>) -> Self {
+    pub(in crate::harnesses::claude) fn load(env: &Env, project: Option<&Path>) -> Self {
         let files = settings_files(env, project).into_iter().chain(managed_files(env));
         let layers = files
             .filter_map(|file| match read_json(&file.path) {
@@ -45,6 +46,15 @@ impl Settings {
     /// The boolean at `key` of the last layer that sets one.
     pub(super) fn flag(&self, key: &str) -> Option<bool> {
         self.layers.iter().rev().find_map(|layer| layer.get(key)?.as_bool())
+    }
+
+    /// The strings at JSON `pointer` (`/permissions/defaultMode`) of the layers that set one,
+    /// lowest first.
+    pub(in crate::harnesses::claude) fn texts(&self, pointer: &str) -> Vec<&str> {
+        self.layers
+            .iter()
+            .filter_map(|layer| layer.pointer(pointer)?.as_str())
+            .collect()
     }
 
     /// Every layer's string list at `key`, combined.

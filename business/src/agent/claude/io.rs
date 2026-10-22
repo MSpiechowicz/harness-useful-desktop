@@ -7,9 +7,8 @@
 //! - **Control requests** ([`Chat::control`]): the app's request under a fresh `req_<n>` id,
 //!   registered in the session's pending table before it is written; the CLI's `control_response`
 //!   resolves it, and a request without an answer within its limit fails as timed out.
-//! - **Requests of the CLI:** a hook callback is answered with no opinion (the app registers no
-//!   hooks yet), an unknown subtype with an error; permission prompts, questions and dialogs wait
-//!   in [`Live::asks`] until answered or withdrawn by the CLI.
+//! - **Requests of the CLI:** permission prompts, questions, dialogs and hook callbacks go to the
+//!   chat's dialogs (`dialogs.rs`), an unknown subtype is answered with an error.
 //!
 //! [`ClaudeMapper`]: crate::claude_stream::ClaudeMapper
 
@@ -19,11 +18,12 @@ use std::time::Duration;
 use serde_json::{Value, json};
 use tokio::sync::oneshot;
 
+use super::dialogs::Outcome;
 use super::{Chat, Live};
 use crate::agent::io::WriterMsg;
 use crate::agent::process::Stdout;
 use crate::claude_stream::mapper::Hint;
-use crate::claude_stream::wire::outbound::{HostRequest, control_error, control_request, hook_output, next_request_id};
+use crate::claude_stream::wire::outbound::{HostRequest, control_error, control_request, next_request_id};
 use crate::claude_stream::wire::{ControlResponse, decode_value};
 use crate::claude_stream::{Mapped, SendKind};
 use crate::error::{BusinessError, Result};
@@ -126,12 +126,20 @@ impl Chat {
             }
             Hint::PermissionMode(mode) => live.permission_mode = Some(mode),
             Hint::Ask(ask) => {
-                live.asks.insert(ask.request_id().to_owned(), ask);
+                let mut out = Outcome::default();
+                live.dialogs.asked(ask, &mut out);
+
+                out.events.into_iter().for_each(|event| self.shared.emit(event));
+                answers.extend(out.answers);
             }
             Hint::Withdrawn(request_id) => {
-                live.asks.remove(&request_id);
+                if let Some(closed) = live.dialogs.withdrawn(&request_id) {
+                    self.shared.emit(closed);
+                }
             }
-            Hint::HookCallback { request_id, .. } => answers.push(hook_output(&request_id, json!({}))),
+            Hint::HookCallback { request_id, callback } => {
+                answers.push(live.dialogs.hook_answer(&request_id, &callback))
+            }
             Hint::Unsupported { request_id, subtype } => {
                 let error = format!("the desktop app does not handle {subtype} requests");
                 answers.push(control_error(&request_id, &error));

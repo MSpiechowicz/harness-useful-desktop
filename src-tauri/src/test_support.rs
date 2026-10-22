@@ -259,6 +259,7 @@ pub fn cache_detection(state: &AppState, harness: HarnessId, binary: Option<&Pat
             install_hint: None,
             error: None,
         },
+        native_approval_mode: None,
     };
 
     block_on(state.detections.write()).insert(harness, summary);

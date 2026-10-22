@@ -1,13 +1,13 @@
 //! Turns of the Claude Code chat engine against the scripted `claude` replaying recorded traffic:
 //! a streamed reply, tool calls with touched paths, images, the prompt-taken call, the last reply,
-//! and the CLI's requests the engine answers itself or leaves open.
+//! and the CLI's requests the engine answers itself or shows (dialogs are in `claude_engine_asks.rs`).
 
 mod agent_support;
 mod claude_engine_support;
 
 use std::sync::{Arc, Mutex};
 
-use claude_engine_support::{BASIC_SESSION, Chat, kinds, prompt, start};
+use claude_engine_support::{BASIC_SESSION, kinds, marker, prompt, start, stop_cleanly};
 use harness_business::model::{AgentAction, AgentEvent, AgentReply, ImageAttachment, PromptStatus};
 use pretty_assertions::assert_eq;
 
@@ -19,31 +19,6 @@ fn from_turn(events: &[AgentEvent]) -> Vec<AgentEvent> {
         .expect("a turn");
 
     events[start..].to_vec()
-}
-
-/// Waits for the `Marker` title the scenarios set; every event so far.
-async fn marker(chat: &Chat) -> Vec<AgentEvent> {
-    chat.wait(
-        "marker",
-        |event| matches!(event, AgentEvent::State { state } if state.session_name.as_deref() == Some("Marker")),
-    )
-    .await;
-
-    chat.events()
-}
-
-/// Stops the chat; the scripted CLI exits 0 only when every expected frame matched.
-async fn stop_cleanly(chat: &Chat) {
-    let events = chat.stop().await;
-
-    assert_eq!(
-        events.last(),
-        Some(&AgentEvent::Exited {
-            code: Some(0),
-            signal: None
-        }),
-        "the scripted CLI saw what it expected"
-    );
 }
 
 #[tokio::test]
@@ -203,13 +178,15 @@ async fn a_prompt_with_an_image_sends_a_text_and_an_image_block() {
 }
 
 #[tokio::test]
-async fn hook_callbacks_and_unknown_requests_are_answered_and_permission_prompts_wait() {
+async fn hook_callbacks_and_unknown_requests_are_answered_and_permission_prompts_wait_in_a_dialog() {
     let chat = start("claude_requests.jsonl").await;
     let events = marker(&chat).await;
 
     assert!(
-        !events.iter().any(|event| matches!(event, AgentEvent::UiRequest { .. })),
-        "approvals are not shown yet: {events:#?}"
+        events.iter().any(
+            |event| matches!(event, AgentEvent::UiRequest { request } if request.id == "f9c23b59-dafb-4bcb-aa8f-fd0d3dd816c9")
+        ),
+        "the permission prompt waits in its dialog: {events:#?}"
     );
 
     stop_cleanly(&chat).await;

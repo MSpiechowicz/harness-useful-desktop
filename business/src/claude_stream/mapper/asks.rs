@@ -51,6 +51,8 @@ pub struct PermissionAsk {
     pub input: Value,
     /// A short description of the call (a file name, a command's description).
     pub description: Option<String>,
+    /// The CLI's own sentence for the prompt, when it sends one.
+    pub title: Option<String>,
     /// Why the CLI asks, in words, when it says.
     pub reason: Option<String>,
     /// The rules an "always allow" answer echoes as `updatedPermissions`; empty when the CLI
@@ -141,6 +143,7 @@ fn permission_ask(request_id: &str, permission: &PermissionRequest) -> Permissio
         label,
         input: permission.input.clone(),
         description: permission.description.clone().filter(|text| !text.is_empty()),
+        title: permission.title.clone().filter(|text| !text.is_empty()),
         reason: permission.decision_reason.clone().filter(|text| !text.is_empty()),
         suggestions: permission.permission_suggestions.clone(),
         always_allowed: !permission.suppress_always_allow_rule,

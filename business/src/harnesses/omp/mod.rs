@@ -66,6 +66,7 @@ impl Harness for Omp {
             cli_actions: true,
             profiles: true,
             approval_modes: true,
+            yolo_mode: true,
             slash_commands_via_prompt: true,
             session_tree: true,
             move_session: true,

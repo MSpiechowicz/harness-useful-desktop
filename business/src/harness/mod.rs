@@ -61,7 +61,7 @@ pub mod prelude {
     pub use crate::error::Result;
     pub use crate::model::{
         ApprovalMode, Capabilities, CliResult, ConfigView, ExtensionAction, ExtensionsView, HarnessId, HarnessInfo,
-        InstallHint, SessionFolder,
+        InstallHint, NativeApprovalMode, SessionFolder,
     };
     pub use crate::pi_family::rpc::RpcDialect;
     pub use crate::pi_family::sessions::SessionStore;
@@ -74,8 +74,8 @@ use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::model::{
     ApprovalMode, Capabilities, CliResult, ConfigView, Detection, ExtensionAction, ExtensionsView, HarnessId,
-    HarnessInfo, HarnessSummary, InstallHint, SessionFolder, SessionMessagesPage, SessionRef, SessionSummary,
-    SessionTotals, SessionTree, SyncItemKind, VersionSupport,
+    HarnessInfo, HarnessSummary, InstallHint, NativeApprovalMode, SessionFolder, SessionMessagesPage, SessionRef,
+    SessionSummary, SessionTotals, SessionTree, SyncItemKind, VersionSupport,
 };
 use crate::pi_family::rpc::RpcDialect;
 use crate::pi_family::sessions::{self, SessionCache};
@@ -318,6 +318,12 @@ pub trait Harness: Send + Sync {
         None
     }
 
+    /// The harness's own permission mode for `project` (the user's layers without one), by the
+    /// harness's name for it (Claude Code `permissions.defaultMode`). Default: `None`.
+    fn native_approval_mode(&self, _env: &Env, _project: Option<&Path>) -> Option<NativeApprovalMode> {
+        None
+    }
+
     /// The CLI arguments of an extension action (see [`run_cli_action`]). `project` is the
     /// authorized project directory when the UI acts on the project layer (the CLI then runs in
     /// it). Default: every action is unsupported.
@@ -436,6 +442,7 @@ pub trait Harness: Send + Sync {
                 info: self.info(),
                 capabilities: self.capabilities(),
                 detection: self.detect(env, runner, override_path).await,
+                native_approval_mode: self.native_approval_mode(env, None),
             }
         })
     }

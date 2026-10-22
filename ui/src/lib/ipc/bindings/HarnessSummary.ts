@@ -2,6 +2,7 @@
 import type { Capabilities } from "./Capabilities";
 import type { Detection } from "./Detection";
 import type { HarnessInfo } from "./HarnessInfo";
+import type { NativeApprovalMode } from "./NativeApprovalMode";
 
 /**
  * Everything the UI needs to list a harness: what it is, what it can do and whether it is here.
@@ -18,4 +19,9 @@ capabilities: Capabilities,
 /**
  * Detection result on this machine.
  */
-detection: Detection, };
+detection: Detection, 
+/**
+ * The permission mode the harness's own user settings choose, by the harness's name for it
+ * (Claude Code `permissions.defaultMode`); `None` for harnesses without one.
+ */
+nativeApprovalMode: NativeApprovalMode | null, };

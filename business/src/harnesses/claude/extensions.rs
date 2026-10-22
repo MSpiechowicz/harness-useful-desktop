@@ -11,7 +11,7 @@ mod markdown;
 mod marketplaces;
 mod mcp;
 mod plugins;
-mod settings;
+pub(super) mod settings;
 
 use std::path::{Path, PathBuf};
 

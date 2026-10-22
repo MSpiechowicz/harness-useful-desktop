@@ -12,7 +12,7 @@ use crate::ecosystem::memory_guards::{SESSION_VAR, chat_repo_root, check_chat_ke
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::harness::{Harness, LaunchRequest};
-use crate::model::MemoryChatStart;
+use crate::model::{ApprovalMode, MemoryChatStart};
 use crate::process::{ExecSpec, launcher_search_dirs};
 
 /// Refuses a harness whose chat the app cannot drive yet, before anything is resolved or spawned.
@@ -25,6 +25,28 @@ pub(super) fn ensure_chat(harness: &dyn Harness) -> Result<()> {
         "chat with {} is coming soon",
         harness.info().name
     )))
+}
+
+/// The approval override `requested` for a chat of `harness`: dropped where the harness has no
+/// approval modes, refused when it is Yolo and the harness does not offer it (Claude Code).
+pub(super) fn approval_override(
+    harness: &dyn Harness,
+    requested: Option<ApprovalMode>,
+) -> Result<Option<ApprovalMode>> {
+    let capabilities = harness.capabilities();
+
+    if !capabilities.approval_modes {
+        return Ok(None);
+    }
+
+    if requested == Some(ApprovalMode::Yolo) && !capabilities.yolo_mode {
+        return Err(BusinessError::Unsupported(format!(
+            "{} chats have no Yolo mode: choose Always ask or Write",
+            harness.info().name
+        )));
+    }
+
+    Ok(requested)
 }
 
 /// The command line of `request` for the harness of `deps`, naming chat `memory_session` to

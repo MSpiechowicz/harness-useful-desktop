@@ -2,7 +2,7 @@
 //!
 //! The manager validates what the business layer can check itself: the harness matches, the
 //! project is an existing directory, a resumed session id is safe, the per-session approval
-//! override and one-time trust are honoured only where the harness supports them, and at most
+//! override (Yolo only where offered) and one-time trust apply only where supported, and at most
 //! [`MAX_SESSIONS`] run at once. The rule that `project` must be the active or a recent project
 //! is enforced by the caller (the desktop shell), as is the explicit user confirmation required
 //! before [`AgentManager::bash`].
@@ -31,7 +31,7 @@ use tokio::time::Instant;
 
 use super::SessionOptions;
 use super::engine::{AgentSession, SessionLaunch};
-use super::launch::{ensure_chat, exec_spec, prepare_memory_chat};
+use super::launch::{approval_override, ensure_chat, exec_spec, prepare_memory_chat};
 use super::sink::{EventSink, PromptTaken};
 use super::slots::{
     BindingSink, Bound, Claimant, Entry, Holder, Reservation, SessionClaim, Slots, bind, open_elsewhere, still_stopping,
@@ -201,9 +201,8 @@ impl AgentManager {
             ));
         }
 
-        let capabilities = harness.capabilities();
-        let approval_override = request.approval_override.filter(|_| capabilities.approval_modes);
-        let trust_once = request.trust_once && capabilities.project_trust;
+        let approval_override = approval_override(harness, request.approval_override)?;
+        let trust_once = request.trust_once && harness.capabilities().project_trust;
 
         // A utility agent saves nothing, so it has no memory identity.
         let memory_session = match request.memory_chat.as_ref().filter(|_| !request.utility) {
@@ -264,6 +263,7 @@ impl AgentManager {
             started_at: (self.options.clock)(),
             approval_override,
             configured_approval_mode: harness.configured_approval_mode(deps.env, Some(&project)),
+            native_approval_mode: harness.native_approval_mode(deps.env, Some(&project)),
             trusted_once: trust_once,
             protocol_version: session.protocol_version(),
         };

@@ -25,6 +25,7 @@ pub fn harness_list() -> Vec<HarnessSummary> {
             install_hint: None,
             error: None,
         },
+        native_approval_mode: None,
     };
 
     let pi = HarnessSummary {
@@ -41,6 +42,7 @@ pub fn harness_list() -> Vec<HarnessSummary> {
             install_hint: Some(Pi.install_hint()),
             error: None,
         },
+        native_approval_mode: None,
     };
 
     let opencode = HarnessSummary {
@@ -57,6 +59,7 @@ pub fn harness_list() -> Vec<HarnessSummary> {
             install_hint: None,
             error: None,
         },
+        native_approval_mode: None,
     };
 
     let claude = HarnessSummary {
@@ -73,6 +76,7 @@ pub fn harness_list() -> Vec<HarnessSummary> {
             install_hint: Some(Claude.install_hint()),
             error: None,
         },
+        native_approval_mode: None,
     };
 
     vec![omp, pi, opencode, claude]

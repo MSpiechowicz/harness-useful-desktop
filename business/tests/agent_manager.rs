@@ -161,10 +161,10 @@ async fn invalid_start_requests_are_refused_before_spawning() {
     assert!(spawner.requested().is_empty());
 }
 
-/// PI without chat: every adapter of the registry chats, so the guard is checked on a stand-in.
-struct ChatlessPi;
+/// PI with other capabilities: the guards on chat and approval modes are checked on a stand-in.
+struct PiWith(Capabilities);
 
-impl Harness for ChatlessPi {
+impl Harness for PiWith {
     fn id(&self) -> HarnessId {
         Pi.id()
     }
@@ -174,10 +174,7 @@ impl Harness for ChatlessPi {
     }
 
     fn capabilities(&self) -> Capabilities {
-        Capabilities {
-            chat: false,
-            ..Pi.capabilities()
-        }
+        self.0
     }
 
     fn paths(&self, env: &Env, project: Option<&Path>) -> HarnessPaths {
@@ -227,8 +224,12 @@ async fn a_harness_without_chat_is_refused_before_anything_spawns() {
         ..
     } = omp_manager("omp_hang.jsonl");
 
+    let chatless = PiWith(Capabilities {
+        chat: false,
+        ..Pi.capabilities()
+    });
     let deps = AgentDeps {
-        harness: &ChatlessPi,
+        harness: &chatless,
         env: &env,
         spawner: spawner.clone(),
         binary: binary(),
@@ -242,6 +243,37 @@ async fn a_harness_without_chat_is_refused_before_anything_spawns() {
         matches!(&error, BusinessError::Unsupported(message) if message == "chat with Pi is coming soon"),
         "{error:?}"
     );
+    assert!(spawner.requested().is_empty());
+    assert!(manager.list().is_empty());
+}
+
+#[tokio::test]
+async fn a_yolo_override_is_refused_where_the_harness_offers_no_yolo_mode() {
+    let OmpManager {
+        project,
+        env,
+        manager,
+        spawner,
+        ..
+    } = omp_manager("omp_hang.jsonl");
+
+    let without_yolo = PiWith(Capabilities {
+        approval_modes: true,
+        yolo_mode: false,
+        ..Pi.capabilities()
+    });
+    let deps = AgentDeps {
+        harness: &without_yolo,
+        env: &env,
+        spawner: spawner.clone(),
+        binary: binary(),
+    };
+    let mut yolo = request(HarnessId::Pi, project.path());
+    yolo.approval_override = Some(ApprovalMode::Yolo);
+
+    let error = manager.start(yolo, deps, CollectingSink::new()).await.unwrap_err();
+
+    assert_eq!(error.code(), IpcErrorCode::Unsupported, "{error:?}");
     assert!(spawner.requested().is_empty());
     assert!(manager.list().is_empty());
 }

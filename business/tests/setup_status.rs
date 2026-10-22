@@ -39,6 +39,7 @@ fn summary(harness: &dyn Harness, installed: bool) -> HarnessSummary {
             install_hint: None,
             error: None,
         },
+        native_approval_mode: None,
     }
 }
 
