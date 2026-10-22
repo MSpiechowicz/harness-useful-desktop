@@ -138,7 +138,7 @@ Codex reports four tool names, which the app gives its tool cards (`business/src
 
 `apply_patch` is the only file change, so the matcher `apply_patch` matches every one of them, and `shell` matches the shell tool. A tool of another kind is not a card and fires no `toolEnd`. Only paths inside the project count, and a change that was declined or failed adds none. Codex names the files with absolute paths. Codex's approval for a change carries only the item, so the files come from the item when it started (and from its later patch updates). Items of a subagent are not shown by the app, so they fire no `toolEnd` and add no touched paths. Codex's own hooks (`hooks.json` in its home, and the `hooks` key of `config.toml`) are not these hooks and run in Codex as they do in a terminal.
 
-Hooks run in a Codex chat like in any other once its chat is on (a preview, `capabilities.chat` and `capabilities.chatPreview`).
+Hooks run in a Codex chat like in any other (its chat is a preview, `capabilities.chat` and `capabilities.chatPreview` are `true`). The tool ids above are the ones `toolEnd` carries, so `mcp__harness-memory__note_save` matches a note Harness Memory saved.
 
 ## Events
 

@@ -6,19 +6,13 @@
 //! one Claude Code does not trust: a run there is refused before anything starts, unless the
 //! routine trusts the project once, as the runs above do.
 
-use std::sync::Arc;
-use std::time::{Duration, SystemTime};
-
-use harness_business::model::{
-    ApprovalMode, HarnessId, HookAuthor, RoutineAction, RoutineModel, RoutineWhen, RunSession, RunStatus,
-};
-use serde_json::Value;
+use harness_business::model::{ApprovalMode, HarnessId, RoutineAction, RoutineModel, RunSession, RunStatus};
 
 use super::agent_run::{AgentTiming, UNTRUSTED_MESSAGE};
-use super::relay::RelaySink;
-use super::tests::draft;
 use super::tests_agent::{Fixture, timing};
-use crate::test_support::{collecting_channel, wait_until};
+use super::tests_agent_cli::{
+    assert_run_ends_tagged, assert_run_takes_its_turn, assert_save_refused, assert_unanswered_ask_is_closed,
+};
 
 /// The session of the recorded turn `claude_routine_write.jsonl` replays (basic.jsonl).
 const SESSION: &str = "c1262da3-a66b-42b5-a9ee-32bb98f2045d";
@@ -53,43 +47,10 @@ fn fixture(scenario: &str, timing: AgentTiming) -> Option<Fixture> {
     Fixture::of(HarnessId::Claude, scenario, timing)
 }
 
-/// Runs `prompt` in `approval_mode`, which the agent stalls on with an ask nobody answers, and
-/// checks that the CLI got the scenario's answer. The chat is stopped before the fake could exit
-/// with its mismatch code, so the check is the fake's report of any other answer on stderr
-/// (`fake_agent: …`).
-fn assert_unanswered_ask_is_closed(scenario: &str, prompt: &str, approval_mode: Option<ApprovalMode>) {
-    let quick = AgentTiming {
-        ui_wait: Duration::from_millis(300),
-        ..timing()
-    };
-    let Some(fixture) = fixture(scenario, quick) else {
-        return;
-    };
-    let relay = fixture.run_unanswered(claude(prompt, approval_mode, None));
-
-    wait_until("the CLI's exit", || {
-        events(&relay).iter().any(|event| event["type"] == "exited")
-    });
-
-    let mismatches: Vec<Value> = events(&relay)
-        .into_iter()
-        .filter(|event| event["type"] == "stderr")
-        .filter(|event| {
-            event["line"]
-                .as_str()
-                .is_some_and(|line| line.starts_with("fake_agent:"))
-        })
-        .collect();
-    assert!(mismatches.is_empty(), "{mismatches:#?}");
-}
-
-/// The events of the run's chat so far.
-fn events(relay: &Arc<RelaySink>) -> Vec<Value> {
-    let (window, received) = collecting_channel();
-    relay.attach(window).expect("the chat's events");
-    let messages = received.lock().unwrap();
-
-    messages.iter().map(|message| message["event"].clone()).collect()
+/// Runs `prompt` in `approval_mode`, which the CLI stalls on with an ask nobody answers, and checks
+/// that the CLI got the scenario's answer.
+fn assert_unanswered_claude_ask_is_closed(scenario: &str, prompt: &str, approval_mode: Option<ApprovalMode>) {
+    assert_unanswered_ask_is_closed(HarnessId::Claude, scenario, claude(prompt, approval_mode, None));
 }
 
 #[test]
@@ -101,34 +62,19 @@ fn an_unattended_claude_run_in_approval_mode_write_takes_its_turn_and_finishes()
         provider: "anthropic".to_owned(),
         id: "sonnet".to_owned(),
     };
+    let session = RunSession {
+        harness: HarnessId::Claude,
+        id: SESSION.to_owned(),
+    };
 
     // The CLI refuses a start with the Always ask hook and a prompt before the model.
-    let (id, run_id) = fixture.run(claude("Check the build", Some(ApprovalMode::Write), Some(model)));
-    let run = fixture.ended(&id);
-
-    assert_eq!(run.record.status, RunStatus::Ok, "{:?}", run.record.message);
-    assert_eq!(run.record.excerpt.as_deref(), Some("Checked the build: all green."));
-    assert_eq!(
-        run.record.session,
-        Some(RunSession {
-            harness: HarnessId::Claude,
-            id: SESSION.to_owned(),
-        })
-    );
-    wait_until("the CLI to stop", || fixture.chats().is_empty());
-    assert_eq!(fixture.setup.spawner.spawned(), 1, "one CLI process");
-
-    let tags = fixture.state.routines.session_tags();
-    let tag = tags.get(HarnessId::Claude, SESSION).expect("the session is tagged");
-    assert_eq!(
-        (tag.routine_id.as_str(), tag.run_id.as_str()),
-        (id.as_str(), run_id.as_str())
-    );
+    let action = claude("Check the build", Some(ApprovalMode::Write), Some(model));
+    assert_run_ends_tagged(&fixture, action, &session, "Checked the build: all green.");
 }
 
 #[test]
 fn a_claude_permission_prompt_nobody_answers_in_always_ask_is_denied_and_the_run_needs_attention() {
-    assert_unanswered_ask_is_closed(
+    assert_unanswered_claude_ask_is_closed(
         "claude_routine_ask.jsonl",
         "Run the tests",
         Some(ApprovalMode::AlwaysAsk),
@@ -137,7 +83,7 @@ fn a_claude_permission_prompt_nobody_answers_in_always_ask_is_denied_and_the_run
 
 #[test]
 fn a_claude_permission_prompt_nobody_answers_in_write_is_denied_and_the_run_needs_attention() {
-    assert_unanswered_ask_is_closed(
+    assert_unanswered_claude_ask_is_closed(
         "claude_routine_ask_write.jsonl",
         "Write the report",
         Some(ApprovalMode::Write),
@@ -146,7 +92,7 @@ fn a_claude_permission_prompt_nobody_answers_in_write_is_denied_and_the_run_need
 
 #[test]
 fn a_claude_question_nobody_answers_is_dismissed_and_the_run_needs_attention() {
-    assert_unanswered_ask_is_closed("claude_routine_question.jsonl", "Pick a colour", None);
+    assert_unanswered_claude_ask_is_closed("claude_routine_question.jsonl", "Pick a colour", None);
 }
 
 #[test]
@@ -154,24 +100,9 @@ fn a_claude_routine_in_yolo_is_refused() {
     let Some(fixture) = fixture("claude_routine_write.jsonl", timing()) else {
         return;
     };
-    let store = fixture.state.routines.store().expect("a routines folder");
     let action = claude("Check the build", Some(ApprovalMode::Yolo), None);
 
-    let refused = store
-        .save(
-            &draft("Nightly check", RoutineWhen::AppStart, action),
-            HookAuthor::Desktop,
-            SystemTime::now(),
-        )
-        .expect_err("no Yolo for Claude Code");
-
-    assert!(
-        refused
-            .to_string()
-            .contains("\"yolo\" is for omp, opencode or codex only"),
-        "{refused}"
-    );
-    assert_eq!(fixture.setup.spawner.spawned(), 0, "nothing started");
+    assert_save_refused(&fixture, action, "\"yolo\" is for omp, opencode or codex only");
 }
 
 #[test]
@@ -194,11 +125,5 @@ fn a_claude_run_that_trusts_the_project_once_takes_its_turn() {
         return;
     };
 
-    let (id, _) = fixture.run(pong(true));
-    let run = fixture.ended(&id);
-
-    assert_eq!(run.record.status, RunStatus::Ok, "{:?}", run.record.message);
-    assert_eq!(run.record.excerpt.as_deref(), Some("pong"));
-    wait_until("the agent to stop", || fixture.chats().is_empty());
-    assert_eq!(fixture.setup.spawner.spawned(), 1);
+    assert_run_takes_its_turn(&fixture, pong(true), "pong");
 }

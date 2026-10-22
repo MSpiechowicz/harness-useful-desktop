@@ -160,6 +160,26 @@ fn harness_rules_and_value_types_are_checked() {
             true,
         ),
         (
+            json!({"type": "agent", "harness": "codex", "prompt": "x", "approvalMode": "alwaysAsk"}),
+            true,
+        ),
+        (
+            json!({"type": "agent", "harness": "codex", "prompt": "x", "approvalMode": "write"}),
+            true,
+        ),
+        (
+            json!({"type": "agent", "harness": "codex", "prompt": "x", "approvalMode": "yolo"}),
+            true,
+        ),
+        (
+            json!({"type": "agent", "harness": "codex", "prompt": "x", "approvalMode": "auto"}),
+            false,
+        ),
+        (
+            json!({"type": "agent", "harness": "codex", "prompt": "x", "trustOnce": true}),
+            true,
+        ),
+        (
             json!({"type": "agent", "harness": "omp", "prompt": "x", "approvalMode": "auto"}),
             false,
         ),

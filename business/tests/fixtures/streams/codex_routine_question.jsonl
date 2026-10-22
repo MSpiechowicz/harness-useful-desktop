@@ -1,0 +1,9 @@
+// A Codex routine run whose model asks a question nobody answers (src-tauri routine tests, the request
+// of codex_engine_questions.jsonl): the app answers none. Any other answer fails the match, and the
+// fake exits 4.
+{"include": "codex_engine_open.jsonl"}
+{"expect": "turn/start", "match": {"/params/threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "/params/input/0/text": "Pick a colour"}, "reply": {"turn": {"id": "turn-routine-question", "items": [], "itemsView": "notLoaded", "status": "inProgress", "error": null, "startedAt": null, "completedAt": null, "durationMs": null}}}
+{"emit": {"method": "turn/started", "params": {"threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "turn": {"id": "turn-routine-question", "items": [], "status": "inProgress", "error": null}}, "emittedAtMs": 1}}
+{"emit": {"id": 5, "method": "item/tool/requestUserInput", "params": {"threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "turnId": "turn-routine-question", "itemId": "call-ask", "isBlocking": true, "questions": [{"id": "colour", "header": "Colour", "question": "Which colour?", "isOther": true, "isSecret": false, "options": [{"label": "red", "description": "Warm"}, {"label": "blue", "description": "Cool"}]}]}}}
+{"expect": "answer", "match": {"/id": 5, "/result/answers": {}}}
+{"hang": true}
