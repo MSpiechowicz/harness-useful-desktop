@@ -107,46 +107,56 @@ pub fn register_desktop_mcp(
     previous: Option<&str>,
 ) -> DesktopRegistration {
     let command = command.to_string_lossy();
-
     let changed = change_file(&file.path, file.shape, |target| {
-        let Some(server) = find_server(file, target, DESKTOP_MCP_SERVER, DESKTOP_BINARY) else {
-            if recorded {
-                return Change::Keep(DesktopRegistration::SkippedRemoved);
-            }
-
-            let mut document = target.document();
-            add_server(
-                &mut document,
-                file.shape,
-                DESKTOP_MCP_SERVER,
-                file.shape.entry(&command),
-            );
-            return Change::Write(document, DesktopRegistration::Added);
-        };
-
-        let program = server_program(&server.definition);
-        let follows = is_owned(&file.path, &server, &command, previous) && program != Some(&*command);
-
-        if follows {
-            tracing::info!(
-                file = %file.path.display(),
-                from = program.unwrap_or_default(),
-                to = %command,
-                "the app's MCP entry now runs this app"
-            );
-
-            let mut document = target.document();
-            repoint(&mut document, file.shape, &command);
-            return Change::Write(document, DesktopRegistration::Updated);
-        }
-
-        Change::Keep(if server.disabled {
-            DesktopRegistration::Disabled
-        } else {
-            DesktopRegistration::Present
-        })
+        desktop_change(file, target, &command, recorded, previous)
     });
 
+    desktop_outcome(changed)
+}
+
+/// What registering the app's server as `command mcp` does with `target` (see the module docs).
+pub(crate) fn desktop_change(
+    file: &McpFile,
+    target: &Target,
+    command: &str,
+    recorded: bool,
+    previous: Option<&str>,
+) -> Change<DesktopRegistration> {
+    let Some(server) = find_server(file, target, DESKTOP_MCP_SERVER, DESKTOP_BINARY) else {
+        if recorded {
+            return Change::Keep(DesktopRegistration::SkippedRemoved);
+        }
+
+        let mut document = target.document();
+        add_server(&mut document, file.shape, DESKTOP_MCP_SERVER, file.shape.entry(command));
+        return Change::Write(document, DesktopRegistration::Added);
+    };
+
+    let program = server_program(&server.definition);
+    let follows = is_owned(&file.path, &server, command, previous) && program != Some(command);
+
+    if follows {
+        tracing::info!(
+            file = %file.path.display(),
+            from = program.unwrap_or_default(),
+            to = %command,
+            "the app's MCP entry now runs this app"
+        );
+
+        let mut document = target.document();
+        repoint(&mut document, file.shape, command);
+        return Change::Write(document, DesktopRegistration::Updated);
+    }
+
+    Change::Keep(if server.disabled {
+        DesktopRegistration::Disabled
+    } else {
+        DesktopRegistration::Present
+    })
+}
+
+/// The registration a desktop change ends in.
+pub(crate) fn desktop_outcome(changed: Result<DesktopRegistration, Blocked>) -> DesktopRegistration {
     changed.unwrap_or_else(|blocked| match blocked {
         Blocked::Refused(reason) => DesktopRegistration::Refused(reason),
         Blocked::ManualEdit => DesktopRegistration::ManualEdit,

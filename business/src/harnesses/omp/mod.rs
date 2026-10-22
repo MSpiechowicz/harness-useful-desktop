@@ -31,6 +31,7 @@ pub use plugins::{InstalledPlugins, installed_plugins};
 pub(crate) use plugins::{PluginOrigin, PluginRecord, user_plugin_records};
 pub use sessions::{omp_session_store, omp_sessions_dir, omp_sessions_root};
 
+use crate::ecosystem::catalog::{SKILLS_MARKETPLACE, SKILLS_TARGET};
 use crate::harness::prelude::*;
 
 /// The OMP adapter.
@@ -128,7 +129,10 @@ impl Harness for Omp {
 
     fn companion_setup(&self) -> CompanionSetup {
         CompanionSetup {
-            skills: SkillsStrategy::OmpMarketplace,
+            skills: SkillsStrategy::Marketplace {
+                source: SKILLS_MARKETPLACE,
+                plugin: SKILLS_TARGET,
+            },
             mcp: McpTarget::UserMcpJson {
                 also_read: &[".mcp.json"],
             },

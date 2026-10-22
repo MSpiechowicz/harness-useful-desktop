@@ -76,11 +76,13 @@ const OPENCODE_SKILLS_OUTPUT_FAILED: InstallLogLine[] = [
   { stream: 'stderr', line: 'error: could not download the Harness Skills package' },
 ];
 
-/** Each harness's user MCP file, empty for a harness with none the app writes (Claude Code, for now). */
-const MCP_FILE: Record<HarnessId, string> = { omp: '~/.omp/agent/mcp.json', pi: '~/.pi/agent/mcp.json', opencode: '~/.config/opencode/opencode.json', claude: '' };
+/** Each harness's user MCP file, empty for a harness with none the app writes. Claude Code's is only read, its CLI writes it. */
+const MCP_FILE: Record<HarnessId, string> = { omp: '~/.omp/agent/mcp.json', pi: '~/.pi/agent/mcp.json', opencode: '~/.config/opencode/opencode.json', claude: '~/.claude.json' };
 /** OpenCode's config when it has comments: the app never rewrites it. */
 const OPENCODE_COMMENTED_FILE = '~/.config/opencode/opencode.jsonc';
 const SKILLS_TARGET = 'harness-useful-skills@harness-useful-skills';
+/** The Harness Skills plugin of Claude Code (its marketplace names itself `useful-skills-local`). */
+const CLAUDE_SKILLS_TARGET = 'useful-skills@useful-skills-local';
 
 const OUTPUT_OK: InstallLogLine[] = [
   { stream: 'stdout', line: 'Downloading harness-dashboard 0.9.4 for linux-x86_64' },
@@ -120,10 +122,6 @@ function delay(ms: number): Promise<void> {
 }
 
 function skillsOffer(harness: HarnessId, nodeFound: boolean): SkillsSetup {
-  if (harness === 'claude') {
-    return { type: 'unavailable', reason: 'Harness Skills for Claude Code are not available yet.', code: null };
-  }
-
   if (harness === 'opencode') {
     return nodeFound ? OPENCODE_SKILLS : OPENCODE_SKILLS_NO_NODE;
   }
@@ -136,7 +134,7 @@ function skillsOffer(harness: HarnessId, nodeFound: boolean): SkillsSetup {
     type: 'install',
     actions: [
       { type: 'marketplaceAdd', source: 'MSpiechowicz/harness-useful-skills' },
-      { type: 'pluginInstall', target: SKILLS_TARGET, scope: 'user' },
+      { type: 'pluginInstall', target: harness === 'claude' ? CLAUDE_SKILLS_TARGET : SKILLS_TARGET, scope: 'user' },
     ],
   };
 }
@@ -435,7 +433,7 @@ export function setupHandlers(
     memoryServer,
 
     actionApplied: (harness, action) => {
-      if (action.type === 'pluginInstall' && action.target === SKILLS_TARGET) {
+      if (action.type === 'pluginInstall' && (action.target === SKILLS_TARGET || action.target === CLAUDE_SKILLS_TARGET)) {
         skills.add(harness);
       }
     },

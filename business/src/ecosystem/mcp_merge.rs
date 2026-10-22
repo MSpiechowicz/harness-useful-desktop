@@ -19,6 +19,8 @@
 //! - JSONC: a file of a JSONC shape is read as JSONC. One with comments is never written
 //!   ([`Blocked::ManualEdit`]): a rewrite would lose them. One with only trailing commas is
 //!   rewritten as plain JSON. A new file of an OpenCode shape starts with OpenCode's `$schema`.
+//! - A [`Shape::ClaudeCli`] file is only read (a symlink followed): every write is refused as
+//!   `WriteFailed`, since Claude Code's CLI changes it (see [`super::mcp_cli`]).
 //! - The write is atomic (temporary sibling, flushed, renamed over the file) and keeps the file's
 //!   permissions. A file that changed meanwhile is read again once, then refused; a write that
 //!   fails (or a second change) is refused as `WriteFailed`, the file left as it was.
@@ -177,6 +179,11 @@ pub(crate) fn change_file<R>(
             Change::Write(document, value) => (document, value),
         };
 
+        // The harness's CLI changes such a file; the app never writes it.
+        if !shape.app_writes() {
+            return Err(Blocked::Refused(McpRefusal::WriteFailed));
+        }
+
         let original = match target {
             Target::Absent { .. } => None,
             Target::Present { rewritable: false, .. } => return Err(Blocked::ManualEdit),
@@ -271,9 +278,16 @@ impl Stamp {
     }
 }
 
-/// Reads `path` as a `shape` MCP file, or says why it is refused.
+/// Reads `path` as a `shape` MCP file, or says why it is refused. A symlink is refused, except for
+/// a file the app only reads (see [`Shape::app_writes`]), where it is followed.
 pub(crate) fn load(path: &Path, shape: Shape) -> Result<Target, McpRefusal> {
-    let metadata = match fs::symlink_metadata(path) {
+    let metadata = if shape.app_writes() {
+        fs::symlink_metadata(path)
+    } else {
+        fs::metadata(path)
+    };
+
+    let metadata = match metadata {
         Ok(metadata) => metadata,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
             return Ok(Target::Absent {

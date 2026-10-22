@@ -8,7 +8,8 @@
 //! - [`installer`]: runs the dashboard's, the memory server's or the Harness Skills' OpenCode
 //!   installer, once the user confirms, and [`skills_record`]: the install record that tells
 //!   whether the Harness Skills for OpenCode are installed.
-//! - [`mcp_merge`]: adds server entries to a harness's user MCP file without overwriting any.
+//! - [`mcp_merge`]: adds server entries to a harness's user MCP file without overwriting any, and
+//!   [`mcp_cli`]: the companion servers in a file only the harness's CLI changes (Claude Code).
 //! - [`mcp_register`]: the dashboard's MCP server in a harness's user MCP file, and the state of
 //!   the memory server's.
 //! - [`memory_binary`]: the installed `harness-memory` server and its version.
@@ -59,6 +60,7 @@ pub mod desktop_register;
 pub mod detect;
 pub mod installer;
 mod installer_log;
+pub mod mcp_cli;
 pub mod mcp_client;
 pub mod mcp_merge;
 pub mod mcp_pool;
@@ -104,6 +106,10 @@ pub use desktop_register::{
 };
 pub use detect::ecosystem_status;
 pub use installer::{Companion, Installed, InstallerSpec, installer, run_installer, run_installer_with};
+pub use mcp_cli::{
+    MCP_CLI_TIMEOUT, register_dashboard_mcp_cli, register_desktop_mcp_cli, register_memory_mcp_cli,
+    unregister_memory_mcp_cli,
+};
 pub use mcp_client::{McpClient, McpOptions, McpTool, ToolOutput};
 pub use mcp_merge::{Blocked, MergeOutcome, MergeResult, MergedServer, Shape, existing_server, merge_servers};
 pub use mcp_pool::{McpPool, PoolOptions};

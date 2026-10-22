@@ -111,6 +111,7 @@ differs.
 | `configured_approval_mode(env, project)` | no | `None` | Only for harnesses with `capabilities.approvalModes`. |
 | `cli_action(action, project)` | no | `Unsupported` error | See [CLI actions](#8-cli-actions). Needs `capabilities.cliActions`. |
 | `cli_failure_line(stdout, stderr)` | no | `None` (exit code decides) | For CLIs that exit 0 on failure. |
+| `cli_summary(stdout)` | no | `None` (the last line) | The summary of a successful action when the last line is not for people (Claude Code's `--json` result line). |
 
 Signature examples:
 
@@ -410,9 +411,12 @@ fn companion_setup(&self) -> CompanionSetup {
 
 `SkillsStrategy`:
 
-- `OmpMarketplace`: the CLI has OMP's plugin marketplace. The app runs `marketplace add` and `plugin install` (user
-  scope) through `extension_action`, so `cli_action` must support both ([CLI actions](#8-cli-actions)). Only a harness
-  with that exact plugin system qualifies.
+- `Marketplace { source, plugin }`: the CLI has a plugin marketplace (OMP's `omp plugin`, Claude Code's `claude
+  plugin`). The app runs `marketplace add <source>` (unless a marketplace of the plugin's marketplace name or from
+  `source` is registered) and `plugin install <plugin>` in the user scope through `extension_action`, so `cli_action`
+  must support both ([CLI actions](#8-cli-actions)). A plugin the user settings switch off is offered its `plugin
+  enable` instead. The registries are read per harness in `marketplace_skills` (`business/src/ecosystem/setup.rs`);
+  a new marketplace CLI needs its reader there.
 - `Package { source }`: the CLI has its own package manager (PI's `pi install <source>`, which PI uses). The app installs the source
   for the user through `extension_action` (`PackageInstall`), so `cli_action` must support it. The step reports the
   skills as installed when the harness's user settings list the package (`user_has_package`, in
@@ -446,6 +450,12 @@ fn companion_setup(&self) -> CompanionSetup {
   The target carries the OpenCode generation (`OpenCodeConfig(OpenCodeGeneration)`). On OpenCode 2 the entry is
   `mcp.servers.<name>` with `{"type": "local", "command": ["harness-dashboard", "mcp"]}` and no `enabled`, there is
   no `config.json`, and an existing entry is recognised in either shape.
+- `ClaudeCli`: Claude Code's user scope, the top-level `mcpServers` of its global file (`~/.claude.json`, or
+  `.claude.json` in `CLAUDE_CONFIG_DIR`). Every running Claude Code rewrites that file, so the app only reads it
+  (`Shape::ClaudeCli`, a write through the file path is refused) and changes it through `claude mcp add-json --scope
+  user <name> '<json>'` and `claude mcp remove --scope user <name>` (`business/src/ecosystem/mcp_cli.rs`), with the
+  same decisions as for the other files, a 60 second limit per run and no retry. The entry is `{"type": "stdio",
+  "command": "<absolute path>", "args": ["mcp"]}`.
 - `Unsupported`: the CLI has no user MCP file the app can write. The step then shows "No MCP file to edit" for it, and
   the harness gets no project memory entry.
 

@@ -4,17 +4,25 @@
 //! Everything lives in one config directory (`~/.claude` or `CLAUDE_CONFIG_DIR`, see [`paths`]),
 //! next to a global file (`~/.claude.json`) the CLI rewrites while it runs. The harness is detected
 //! and its settings are shown ([`config`]). Saved sessions are read from Claude's session files
-//! ([`sessions`]). The extension view is empty, chat is not available yet, and the catalog lists
-//! every command as unsupported. Every spawn switches off Claude's self-updater.
+//! ([`sessions`]). Plugin and marketplace actions run `claude plugin …` ([`cli`]). Recommended
+//! setup installs the Harness Skills plugin from its marketplace ([`setup`] reads the registries)
+//! and registers the companion MCP servers in the user scope through `claude mcp`
+//! ([`McpTarget::ClaudeCli`]). The extension view is empty, chat is not available yet, and the
+//! catalog lists every command as unsupported. Every spawn switches off Claude's self-updater.
 
 mod catalog;
+mod cli;
 mod config;
 mod paths;
 mod sessions;
+mod setup;
 
 pub use catalog::ClaudeCatalog;
+pub use cli::{claude_cli_action, claude_summary};
 pub use paths::{PROJECT_DIR_NAME, config_dir, global_config_file, project_slug};
+pub use setup::{KnownMarketplace, UserPlugin, known_marketplaces, user_plugins};
 
+use crate::ecosystem::catalog::{CLAUDE_SKILLS_PLUGIN, SKILLS_MARKETPLACE};
 use crate::error::BusinessError;
 use crate::harness::prelude::*;
 use crate::harnesses::pi::PiDialect;
@@ -47,9 +55,12 @@ impl Harness for Claude {
         }
     }
 
-    /// Nothing yet: the views, sessions and chat arrive in later steps of the plan.
+    /// Plugin and marketplace actions so far: the views and chat arrive in later steps of the plan.
     fn capabilities(&self) -> Capabilities {
-        Capabilities::default()
+        Capabilities {
+            cli_actions: true,
+            ..Capabilities::default()
+        }
     }
 
     fn paths(&self, env: &Env, project: Option<&Path>) -> HarnessPaths {
@@ -143,6 +154,15 @@ impl Harness for Claude {
         SPAWN_ENV
     }
 
+    fn cli_action(&self, action: &ExtensionAction, project: Option<&Path>) -> Result<CliInvocation> {
+        claude_cli_action(action, project)
+    }
+
+    /// The `message` of the `--json` result line.
+    fn cli_summary(&self, stdout: &str) -> Option<String> {
+        claude_summary(stdout)
+    }
+
     /// The native installer script for the OS (never run by the app).
     fn install_hint(&self) -> InstallHint {
         let command = if cfg!(windows) {
@@ -154,13 +174,15 @@ impl Harness for Claude {
         InstallHint::single(command, "https://code.claude.com/docs/en/setup")
     }
 
-    /// Nothing yet: the Harness Skills plugin and the MCP registration through the CLI come later.
+    /// The Harness Skills plugin from its marketplace (harness-useful-skills README), and the MCP
+    /// servers in the user scope through `claude mcp`.
     fn companion_setup(&self) -> CompanionSetup {
         CompanionSetup {
-            skills: SkillsStrategy::Unsupported {
-                reason: "Harness Skills for Claude Code are not available yet.",
+            skills: SkillsStrategy::Marketplace {
+                source: SKILLS_MARKETPLACE,
+                plugin: CLAUDE_SKILLS_PLUGIN,
             },
-            mcp: McpTarget::Unsupported,
+            mcp: McpTarget::ClaudeCli,
         }
     }
 

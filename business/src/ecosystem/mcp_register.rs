@@ -101,28 +101,42 @@ fn server_state(env: &Env, file: &McpFile, server: Server) -> McpState {
 /// (see the module docs), and returns the resulting state.
 pub fn register_dashboard_mcp(env: &Env, file: &McpFile) -> McpState {
     let entry = file.shape.entry(DASHBOARD_BINARY);
-
-    // Every read of the file is checked for the server first, so an entry that appeared meanwhile
-    // (under any name) is reported rather than doubled.
     let changed = change_file(&file.path, file.shape, |target| {
-        if let Some(state) = found(env, file, target, DASHBOARD) {
-            return Change::Keep(state);
-        }
-
-        let mut document = target.document();
-        add_server(&mut document, file.shape, DASHBOARD_MCP_SERVER, entry.clone());
-
-        let configured = McpState::Configured {
-            file: tilde(env, &file.path),
-            name: DASHBOARD_MCP_SERVER.to_owned(),
-        };
-        Change::Write(document, configured)
+        dashboard_change(env, file, target, &entry)
     });
 
+    dashboard_outcome(env, file, &entry, changed)
+}
+
+/// What registering the dashboard's server as `entry` does with `target`. Every read of the file
+/// is checked for the server first, so an entry that appeared meanwhile (under any name) is
+/// reported rather than doubled.
+pub(crate) fn dashboard_change(env: &Env, file: &McpFile, target: &Target, entry: &Value) -> Change<McpState> {
+    if let Some(state) = found(env, file, target, DASHBOARD) {
+        return Change::Keep(state);
+    }
+
+    let mut document = target.document();
+    add_server(&mut document, file.shape, DASHBOARD_MCP_SERVER, entry.clone());
+
+    let configured = McpState::Configured {
+        file: tilde(env, &file.path),
+        name: DASHBOARD_MCP_SERVER.to_owned(),
+    };
+    Change::Write(document, configured)
+}
+
+/// The state a dashboard registration of `entry` ends in.
+pub(crate) fn dashboard_outcome(
+    env: &Env,
+    file: &McpFile,
+    entry: &Value,
+    changed: Result<McpState, Blocked>,
+) -> McpState {
     match changed {
         Ok(state) => state,
         Err(Blocked::Refused(reason)) => refused(env, &file.path, reason),
-        Err(Blocked::ManualEdit) => manual_edit(env, &file.path, DASHBOARD_MCP_SERVER, &entry),
+        Err(Blocked::ManualEdit) => manual_edit(env, &file.path, DASHBOARD_MCP_SERVER, entry),
     }
 }
 

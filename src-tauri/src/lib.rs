@@ -13,6 +13,7 @@ mod error;
 mod hooks;
 mod lifecycle;
 mod logging;
+mod mcp_cli;
 mod memory_held;
 mod memory_requests;
 mod memory_setup;

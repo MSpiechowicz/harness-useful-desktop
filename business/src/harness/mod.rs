@@ -26,6 +26,7 @@
 
 mod catalog;
 mod cli;
+mod companion;
 mod detect;
 mod launch;
 mod opencode_generation;
@@ -37,9 +38,10 @@ pub use catalog::{
 };
 pub(crate) use cli::clean;
 pub use cli::{
-    CLI_ACTION_TIMEOUT, CliInvocation, CliRun, MAX_CLI_TARGET_CHARS, TargetKind, cli_target, optional_cli_target,
-    run_cli_action,
+    CLI_ACTION_TIMEOUT, CliInvocation, CliRun, HarnessCli, MAX_CLI_TARGET_CHARS, TargetKind, cli_target,
+    optional_cli_target, run_cli_action,
 };
+pub use companion::{CompanionSetup, McpTarget, SkillsStrategy};
 pub use detect::{VERSION_TIMEOUT, first_semver, override_name_matches};
 pub use launch::{LaunchRequest, flag_with, rpc_exec_spec, utility_args};
 pub use opencode_generation::OpenCodeGeneration;
@@ -106,59 +108,6 @@ pub struct HarnessPaths {
     pub profile: Option<String>,
     /// The project-local configuration directory (`<project>/.omp`, `<project>/.pi`).
     pub project_dir: Option<PathBuf>,
-}
-
-/// How the "Recommended setup" step provides the companion tools for a harness.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CompanionSetup {
-    /// How the Harness Skills are installed.
-    pub skills: SkillsStrategy,
-    /// Where the `harness-dashboard` MCP server is registered.
-    pub mcp: McpTarget,
-}
-
-/// How the Harness Skills get into a harness.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum SkillsStrategy {
-    /// The skills' OMP marketplace: add it, then install the plugin for the user.
-    OmpMarketplace,
-    /// A package of the harness's own package manager (PI's `pi install`): the app installs it for the user.
-    Package {
-        /// The package source, as the harness CLI takes it (for example `git:github.com/owner/repo`).
-        source: &'static str,
-    },
-    /// The Harness Skills' own installer script (OpenCode's `install.sh` / `install.ps1`): the app
-    /// runs it for the user once they confirm, and its install record tells whether it is there.
-    Installer,
-    /// A command the user runs themselves.
-    Manual {
-        /// The command to copy.
-        command: &'static str,
-        /// A remark shown next to it.
-        note: &'static str,
-    },
-    /// The skills do not exist for this harness.
-    Unsupported {
-        /// Why, for display.
-        reason: &'static str,
-    },
-}
-
-/// Where a harness reads user MCP servers from.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum McpTarget {
-    /// `<agent dir>/mcp.json` with an `mcpServers` object (written by the setup step), plus other
-    /// files in the agent directory that define servers too (only read, to find an existing entry).
-    UserMcpJson {
-        /// File names in the agent directory that are also read.
-        also_read: &'static [&'static str],
-    },
-    /// The servers of the global OpenCode config file of this generation, whose entries run
-    /// `command` arrays: `mcp.<name>` on OpenCode 1, `mcp.servers.<name>` on OpenCode 2 (see
-    /// [`crate::ecosystem::mcp_target`]).
-    OpenCodeConfig(OpenCodeGeneration),
-    /// The harness has no user MCP file the app can register a server in.
-    Unsupported,
 }
 
 /// Which kinds of items "Share setup" exports from a harness and imports into it (see
@@ -400,6 +349,13 @@ pub trait Harness: Send + Sync {
     /// The output line that reports a failed extension action although the CLI exited with 0
     /// (`stdout` and `stderr` are already cleaned and redacted). Default: the exit code decides.
     fn cli_failure_line(&self, _stdout: &str, _stderr: &str) -> Option<String> {
+        None
+    }
+
+    /// The summary of a successful extension action from its `stdout` (already cleaned and
+    /// redacted), for a CLI whose last line is not meant for people (a JSON result line). Default:
+    /// the last line.
+    fn cli_summary(&self, _stdout: &str) -> Option<String> {
         None
     }
 

@@ -6,11 +6,13 @@
 //!
 //! The webview sends no command line and no path: the installer is fixed per OS and the MCP file
 //! follows from the harness id (its user agent directory, the active OMP profile's when one is
-//! set, or OpenCode's global config file). The UI confirms each action with the user first.
+//! set, OpenCode's global config file, or Claude Code's user scope, changed through its CLI). The
+//! UI confirms each action with the user first.
 
 use harness_business::BusinessError;
 use harness_business::ecosystem::{
-    Companion, mcp_target, register_dashboard_mcp, resolve_dashboard, run_installer, setup_status as status,
+    Companion, mcp_target, register_dashboard_mcp, register_dashboard_mcp_cli, resolve_dashboard, run_installer,
+    setup_status as status,
 };
 use harness_business::model::{DashboardInstallResult, HarnessId, InstallLogLine, McpState, RecommendedSetup};
 use harness_business::process::{ProcessSpawner, TokioSpawner};
@@ -22,6 +24,7 @@ use super::blocking;
 use super::harness::{ensure_detected, find, find_in, installed_binary, summaries};
 use crate::error::CommandResult;
 use crate::hooks::after_member_install;
+use crate::mcp_cli::CliContext;
 use crate::memory_setup::{after_install, register_in};
 use crate::state::AppState;
 
@@ -142,10 +145,11 @@ pub async fn setup_register_mcp(state: State<'_, AppState>, harness: HarnessId) 
 
 async fn register(state: &AppState, harness: HarnessId) -> CommandResult<McpState> {
     find(state, harness)?;
-    installed_binary(state, harness).await?;
+    let binary = installed_binary(state, harness).await?;
 
     let env = state.env.clone();
     let registry = state.registry.clone();
+    let context = CliContext::of(state);
 
     let registered = blocking(move || {
         if resolve_dashboard(&env).is_none() {
@@ -157,7 +161,10 @@ async fn register(state: &AppState, harness: HarnessId) -> CommandResult<McpStat
             return Err(BusinessError::Unsupported(format!("{harness:?} has no user MCP file")).into());
         };
 
-        Ok(register_dashboard_mcp(&env, &file))
+        match context.cli_for(harness, &file, Some(&binary)) {
+            Some(cli) => Ok(block_on(register_dashboard_mcp_cli(cli, &file))),
+            None => Ok(register_dashboard_mcp(&env, &file)),
+        }
     })
     .await?;
 

@@ -205,7 +205,7 @@ pub(super) fn mcp_presence(files: &McpFiles, shared: &McpServer) -> Result<Prese
     }
 
     let same = match files.shape {
-        Shape::McpServers => same_server,
+        Shape::McpServers | Shape::ClaudeCli => same_server,
         Shape::OpenCode | Shape::OpenCodeV2 => same_opencode_server,
     };
 
