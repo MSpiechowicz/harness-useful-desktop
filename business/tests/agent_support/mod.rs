@@ -34,16 +34,22 @@ pub fn scenario(name: &str) -> PathBuf {
 /// Starts `fake_agent --dialect <dialect> --scenario <scenario>` for every spawn request.
 pub struct ScenarioSpawner {
     dialect: &'static str,
-    scenario: PathBuf,
+    /// The scenario of each spawn in turn; the last one plays for every later spawn.
+    scenarios: Vec<PathBuf>,
     requested: Mutex<Vec<ExecSpec>>,
     exited: Arc<AtomicUsize>,
 }
 
 impl ScenarioSpawner {
     pub fn new(dialect: &'static str, scenario_name: &str) -> Arc<Self> {
+        Self::sequence(dialect, &[scenario_name])
+    }
+
+    /// Plays `scenario_names` one per spawn (an engine that starts its agent again).
+    pub fn sequence(dialect: &'static str, scenario_names: &[&str]) -> Arc<Self> {
         Arc::new(Self {
             dialect,
-            scenario: scenario(scenario_name),
+            scenarios: scenario_names.iter().map(|name| scenario(name)).collect(),
             requested: Mutex::new(Vec::new()),
             exited: Arc::default(),
         })
@@ -62,13 +68,19 @@ impl ScenarioSpawner {
 
 impl ProcessSpawner for ScenarioSpawner {
     fn spawn(&self, spec: &ExecSpec) -> harness_business::Result<SpawnedProcess> {
-        self.requested.lock().unwrap().push(spec.clone());
+        let scenario = {
+            let mut requested = self.requested.lock().unwrap();
+            requested.push(spec.clone());
+
+            let turn = (requested.len() - 1).min(self.scenarios.len() - 1);
+            self.scenarios[turn].clone()
+        };
 
         let mut fake = ExecSpec::new(env!("CARGO_BIN_EXE_fake_agent")).args([
             "--dialect".into(),
             self.dialect.to_owned(),
             "--scenario".into(),
-            self.scenario.to_string_lossy().into_owned(),
+            scenario.to_string_lossy().into_owned(),
         ]);
         fake.cwd = spec.cwd.clone();
         fake.env = spec.env.clone();

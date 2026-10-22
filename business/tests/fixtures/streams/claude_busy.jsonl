@@ -1,0 +1,3 @@
+// A prompt the CLI takes and never answers: the chat stays busy until it stops.
+{"include": "claude_init.jsonl"}
+{"expect": "user", "as": "prompt"}

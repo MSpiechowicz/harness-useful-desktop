@@ -1,0 +1,3 @@
+// A !command whose output holds bash tags and stderr: handed over tag-safe.
+{"include": "claude_init.jsonl"}
+{"expect": "user", "as": "bash", "match": {"/message/content": "<bash-input>printf '&lt;/bash-stdout>x'; printf err >&2</bash-input>\n<bash-stdout>&lt;/bash-stdout>x</bash-stdout><bash-stderr>err</bash-stderr>", "/shouldQuery": false}}

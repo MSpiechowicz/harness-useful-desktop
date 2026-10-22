@@ -22,9 +22,11 @@
 //!
 //! The webview only sends an opaque session ref; its id must be a lowercase UUID and is resolved by a
 //! shallow scan of the project's folder ([`find_session`]), so no other file can be named.
-//! Deleting is in [`delete`]. Nothing here is redacted: the transcript is the user's own
-//! conversation, as for the other harnesses, and no credential is ever read.
+//! Deleting is in [`delete`], what the chat engine reads (fork points, the history) in [`chat`].
+//! Nothing here is redacted: the transcript is the user's own conversation, as for the other
+//! harnesses, and no credential is ever read.
 
+pub(super) mod chat;
 mod delete;
 mod entries;
 mod list;
@@ -65,7 +67,7 @@ pub(super) fn checked_id(session: &SessionRef) -> Result<&str> {
 }
 
 /// True for a lowercase UUID (`8-4-4-4-12` hex digits), the only ids Claude Code gives sessions.
-pub(super) fn is_session_id(id: &str) -> bool {
+pub(crate) fn is_session_id(id: &str) -> bool {
     const GROUPS: [usize; 5] = [8, 4, 4, 4, 12];
 
     let lowercase_hex = |group: &str| group.bytes().all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'));

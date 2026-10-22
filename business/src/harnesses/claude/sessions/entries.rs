@@ -159,6 +159,8 @@ pub(super) struct Index {
     pub nodes: Vec<Node>,
     /// The entry of the last message line.
     pub leaf: Option<usize>,
+    /// The file line of the last compaction boundary.
+    pub last_boundary: Option<usize>,
     /// True when the file had more than the allowed entries.
     pub truncated: bool,
 }
@@ -171,6 +173,10 @@ impl Index {
         let mut ids: HashMap<String, Option<usize>> = HashMap::new();
 
         for (ordinal, line) in lines(path)? {
+            if is_boundary(&line) {
+                index.last_boundary = Some(ordinal);
+            }
+
             let Some(uuid) = text(&line, "uuid").map(str::to_owned) else {
                 continue;
             };
@@ -258,10 +264,12 @@ impl Index {
 
 /// The parent a line names: `parentUuid`, or for a compaction boundary the message before it.
 fn parent_uuid(line: &Value) -> Option<&str> {
-    text(line, "parentUuid").or_else(|| {
-        let boundary = text(line, "type") == Some("system") && text(line, "subtype") == Some("compact_boundary");
-        boundary.then(|| text(line, "logicalParentUuid")).flatten()
-    })
+    text(line, "parentUuid").or_else(|| is_boundary(line).then(|| text(line, "logicalParentUuid")).flatten())
+}
+
+/// True for a compaction boundary line.
+fn is_boundary(line: &Value) -> bool {
+    text(line, "type") == Some("system") && text(line, "subtype") == Some("compact_boundary")
 }
 
 /// `message.id` of an `assistant` line.

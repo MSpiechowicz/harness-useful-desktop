@@ -1,13 +1,14 @@
-//! The Claude Code chat engine: one `claude` process per chat in stream-json mode, driven over
-//! stdin/stdout with the control protocol ([plan](../../../../docs/plans/claude-code.md)). Chat
-//! stays off in the harness's capabilities until the engine is complete.
+//! The Claude Code chat engine: a `claude` process in stream-json mode, driven over stdin/stdout
+//! with the control protocol ([plan](../../../../docs/plans/claude-code.md)). Chat is a preview.
 //!
 //! - **Process:** the shared [`AgentProcess`] (spawn, redacted stderr, `exited` last, stop on
-//!   stdin EOF, kill on drop).
-//! - **Startup** (`startup.rs`): spawn, the `initialize` control request (with the ask-all hook
-//!   in Always ask mode), its reply within the startup limit (commands and models, never the
-//!   account), then `ready`, `state` and `commandsUpdated`. A Yolo override is refused: the app
-//!   never starts Claude Code's bypass mode.
+//!   stdin EOF, kill on drop). A chat that moves to another session starts the CLI again: its
+//!   events keep one stream across processes (`relay.rs`).
+//! - **Startup** (`startup.rs`): spawn (a new chat names its session with `--session-id`), the
+//!   `initialize` control request (with the ask-all hook in Always ask mode), its reply within the
+//!   startup limit (commands and models, never the account), then `ready`, `state` and
+//!   `commandsUpdated`. A Yolo override is refused: the app never starts Claude Code's bypass mode.
+//!   A helper chat (AI naming) runs without tools and denies every ask.
 //! - **Frames** (`io.rs`): one task reads stdout and maps every frame with the [`ClaudeMapper`]
 //!   under the chat's lock, so prompt bookkeeping and event order never interleave. Replies to the
 //!   app's control requests resolve the waiting action through the session's pending-request table
@@ -15,25 +16,35 @@
 //!   answered at once with an error. Permission prompts and questions become dialogs, answered with
 //!   [`ClaudeSession::respond`]; the CLI's other asks are declined at once (`dialogs.rs`).
 //! - **Actions:** prompts, steering, follow-ups, withdrawing a queued message and abort (which
-//!   denies the open asks, `prompts.rs`); the state, the model and thinking pickers and the commands (`settings.rs`).
-//!   New, resume, fork, clone, rename, compaction, statistics, export, history and `!command`s are
-//!   not available yet and refused as unsupported.
+//!   denies the open asks and stops a running `!command`, `prompts.rs`); the state, the model and
+//!   thinking pickers, the commands and renaming (`settings.rs`); new, switch, fork and clone
+//!   (`ops.rs`); `!command`s and compaction (`runs.rs`); statistics, history, export and the last
+//!   reply (`reports.rs`).
 //! - **Stop:** stdin closes, Claude Code exits (killed after the grace period).
 
 mod dialogs;
 mod io;
+mod ops;
 mod prompts;
+mod relay;
+mod reports;
+mod runs;
 mod settings;
 mod startup;
 
 use std::path::Path;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
+use tokio::sync::{oneshot, watch};
+
 use self::dialogs::Dialogs;
+use self::relay::Port;
+use self::startup::Launcher;
 use super::io::Shared;
 use super::process::AgentProcess;
 use super::sink::PromptTaken;
 use crate::claude_stream::ClaudeMapper;
+use crate::claude_stream::stats::{ClaudeStats, MessageCounts};
 use crate::claude_stream::wire::control::{ModelInfo, SlashCommand};
 use crate::error::{BusinessError, Result};
 use crate::model::{AgentAction, AgentEvent, AgentReply, BashOutput, StreamingBehavior, UiResponse};
@@ -41,11 +52,24 @@ use crate::process::ExitInfo;
 
 /// A running Claude Code chat (see the module docs).
 pub struct ClaudeSession {
-    process: AgentProcess,
-    chat: Arc<Chat>,
+    /// The process the chat runs on now.
+    current: Mutex<Arc<Run>>,
+    /// What starting another process takes (boxed: the spec and options are large).
+    launcher: Box<Launcher>,
+    /// One session move at a time.
+    moving: tokio::sync::Mutex<()>,
+    /// Set by `stop`: a move under way gives up.
+    stopped: watch::Sender<bool>,
 }
 
-/// What the actions and the reader task share.
+/// One `claude` process of the chat.
+struct Run {
+    process: AgentProcess,
+    chat: Arc<Chat>,
+    port: Arc<Port>,
+}
+
+/// What the actions and the reader task of one process share.
 struct Chat {
     shared: Arc<Shared>,
     live: Mutex<Live>,
@@ -54,8 +78,7 @@ struct Chat {
 /// The chat's changing state.
 struct Live {
     mapper: ClaudeMapper,
-    /// The session id, once known (the resumed one from the start, a new one from the first frame
-    /// that names it).
+    /// The session id: the one the chat named or resumed, then any other the frames name.
     session_id: Option<String>,
     title: Option<String>,
     /// The models `initialize` (or the latest `list_models`) offered.
@@ -82,6 +105,23 @@ struct Live {
     dialogs: Dialogs,
     /// The text of the newest finished reply of this process.
     last_reply: Option<String>,
+    /// Tokens, cost and the context meter of this process.
+    stats: ClaudeStats,
+    /// The session's messages: those it started with and those since.
+    counts: MessageCounts,
+    /// The session a fork or clone copied, shown until its own file exists.
+    origin: Option<Origin>,
+    /// Stops the running `!command`.
+    shell: Option<oneshot::Sender<()>>,
+    /// The chat moved on to another process: nothing more is sent here.
+    retired: bool,
+}
+
+/// What a fork or clone copied: session `session`, up to the message `cut` when it is a fork.
+#[derive(Debug, Clone)]
+struct Origin {
+    session: String,
+    cut: Option<String>,
 }
 
 /// A queued user message.
@@ -92,10 +132,10 @@ struct Queued {
 }
 
 impl Live {
-    fn new(project: &Path, resume: Option<&str>, ask_all: bool) -> Self {
+    fn new(project: &Path, session_id: Option<&str>, ask_all: bool, helper: bool) -> Self {
         Self {
             mapper: ClaudeMapper::new(project),
-            session_id: resume.map(str::to_owned),
+            session_id: session_id.map(str::to_owned),
             title: None,
             models: Vec::new(),
             model: None,
@@ -106,8 +146,13 @@ impl Live {
             permission_mode: None,
             queue: Vec::new(),
             awaiting_take: Vec::new(),
-            dialogs: Dialogs::new(project, ask_all),
+            dialogs: Dialogs::new(project, ask_all, helper),
             last_reply: None,
+            stats: ClaudeStats::default(),
+            counts: MessageCounts::default(),
+            origin: None,
+            shell: None,
+            retired: false,
         }
     }
 
@@ -127,6 +172,11 @@ impl Live {
             live_steered: 0,
         }
     }
+
+    /// True while a turn, a compaction, an ask or a `!command` keeps the chat busy.
+    fn is_busy(&self) -> bool {
+        self.mapper.is_working() || !self.dialogs.is_empty() || self.shell.is_some()
+    }
 }
 
 impl Chat {
@@ -136,6 +186,11 @@ impl Chat {
 }
 
 impl ClaudeSession {
+    /// The process the chat runs on now.
+    fn run(&self) -> Arc<Run> {
+        self.current.lock().unwrap_or_else(PoisonError::into_inner).clone()
+    }
+
     /// Claude Code has no RPC protocol version.
     pub fn protocol_version(&self) -> Option<u32> {
         None
@@ -143,12 +198,12 @@ impl ClaudeSession {
 
     /// How the process ended, once it has.
     pub fn exit_info(&self) -> Option<ExitInfo> {
-        self.process.exit_info()
+        self.run().process.exit_info()
     }
 
     /// True until the process exited.
     pub fn is_running(&self) -> bool {
-        self.process.is_running()
+        self.run().process.is_running()
     }
 
     /// Runs `action` (validated first).
@@ -156,7 +211,7 @@ impl ClaudeSession {
         use AgentAction as A;
 
         action.validate()?;
-        self.process.ensure_running()?;
+        self.run().process.ensure_running()?;
 
         match action {
             A::Prompt { .. } | A::Steer { .. } | A::FollowUp { .. } | A::RemoveQueued { .. } | A::Abort => {
@@ -167,34 +222,35 @@ impl ClaudeSession {
             | A::SetModel { .. }
             | A::GetAvailableThinkingLevels
             | A::SetThinkingLevel { .. }
-            | A::RefreshCommands
-            | A::GetLastAssistantText => self.setting(action).await,
-            A::SwitchSession { .. } => Err(BusinessError::Unsupported(
-                "Claude Code chats cannot switch sessions: open the session from the Sessions view".to_owned(),
-            )),
+            | A::SetSessionName { .. }
+            | A::RefreshCommands => self.setting(action).await,
+            A::NewSession => self.new_session().await,
+            A::SwitchSession { session } => self.switch_session(&session).await,
+            A::Fork { entry_id } => self.fork(&entry_id).await,
+            A::Clone => self.clone_session().await,
+            A::Compact { instructions } => self.compact(instructions.as_deref()).await,
+            A::GetSessionStats => self.stats().await,
+            A::ExportHtml => self.export_html().await,
+            A::GetHistory { cursor, limit } => self.history(cursor.as_deref(), limit).await,
+            A::GetLastAssistantText => self.last_reply().await,
             A::GetAvailableAgents | A::SetAgent { .. } => Err(BusinessError::Unsupported(
                 "Claude Code chats have no agent picker".to_owned(),
             )),
-            A::NewSession => Err(not_yet("start a new session")),
-            A::Fork { .. } => Err(not_yet("fork")),
-            A::Clone => Err(not_yet("be cloned")),
-            A::Compact { .. } => Err(not_yet("compact")),
-            A::SetSessionName { .. } => Err(not_yet("be renamed")),
-            A::GetSessionStats => Err(not_yet("report statistics")),
-            A::ExportHtml => Err(not_yet("export")),
-            A::GetHistory { .. } => Err(not_yet("read the history")),
         }
     }
 
     /// Answers an open permission prompt or question (see `dialogs.rs`).
     pub async fn respond(&self, response: UiResponse) -> Result<()> {
-        self.process.ensure_running()?;
-        self.answer_dialog(response).await
+        let run = self.run();
+        run.process.ensure_running()?;
+
+        run.chat.answer_dialog(response).await
     }
 
-    /// Refuses: `!command`s are not available yet.
-    pub async fn bash(&self, _command: &str) -> Result<BashOutput> {
-        Err(not_yet("run commands"))
+    /// Runs `command` in the project and hands its output to the model (see `runs.rs`). The
+    /// caller must have the user's explicit confirmation.
+    pub async fn bash(&self, command: &str) -> Result<BashOutput> {
+        self.run_command(command).await
     }
 
     /// Refuses: Claude Code keeps a session in its project.
@@ -206,21 +262,26 @@ impl ClaudeSession {
 
     /// Puts `event` into the session's stream, after the events already in it.
     pub fn emit(&self, event: AgentEvent) {
-        self.chat.shared.emit(event);
+        self.run().chat.shared.emit(event);
     }
 
     /// Calls `taken` in the session's event order when the agent takes the next prompt.
     pub fn on_prompt_taken(&self, taken: PromptTaken) {
-        self.chat.shared.on_prompt_taken(taken);
+        self.run().chat.shared.on_prompt_taken(taken);
     }
 
-    /// Stops the agent (see `AgentProcess::stop`) and waits until `exited` was delivered.
+    /// Stops the agent (see `AgentProcess::stop`) and waits until `exited` was delivered; a running
+    /// `!command` stops too, and a move under way gives up.
     pub async fn stop(&self) {
-        self.process.stop().await;
-    }
-}
+        self.stopped.send_replace(true);
 
-/// An action this engine does not offer yet.
-fn not_yet(what: &str) -> BusinessError {
-    BusinessError::Unsupported(format!("Claude Code chats cannot {what} yet"))
+        let run = self.run();
+        let shell = run.chat.lock().shell.take();
+
+        if let Some(shell) = shell {
+            shell.send(()).ok();
+        }
+
+        run.process.stop().await;
+    }
 }

@@ -1,8 +1,8 @@
 //! Starts the Claude Code chat engine directly ([`AgentSession::start`] with
-//! [`ChatProtocol::ClaudeStream`]: the harness keeps chat off, so the manager would refuse it)
-//! against the scripted `claude` (`fake_agent --dialect claude`, see
-//! `src/bin/fake_agent/claude.rs` for the scenario format). Scenarios replay the recordings in
-//! `tests/fixtures/claude/stream`.
+//! [`ChatProtocol::ClaudeStream`]) against the scripted `claude` (`fake_agent --dialect claude`,
+//! see `src/bin/fake_agent/claude.rs` for the scenario format). Scenarios replay the recordings in
+//! `tests/fixtures/claude/stream`. The project folder is also the session folder; [`Setup`] puts
+//! saved sessions there and plays one scenario per process of the chat.
 #![allow(dead_code)]
 
 use std::path::PathBuf;
@@ -117,49 +117,107 @@ pub async fn start(name: &str) -> Chat {
 
 /// Starts scenario `name`, resuming `resume`, with `options`.
 pub async fn start_with(name: &str, resume: Option<&str>, options: SessionOptions) -> Chat {
-    start_launch(name, resume, None, options).await
+    Setup {
+        resume,
+        options,
+        ..Setup::new(&[name])
+    }
+    .start()
+    .await
 }
 
 /// Starts scenario `name` with the approval override `approval`.
 pub async fn start_in(name: &str, approval: Option<ApprovalMode>) -> Chat {
-    start_launch(name, None, approval, options()).await
+    Setup {
+        approval,
+        ..Setup::new(&[name])
+    }
+    .start()
+    .await
 }
 
-async fn start_launch(
-    name: &str,
-    resume: Option<&str>,
-    approval_override: Option<ApprovalMode>,
-    options: SessionOptions,
-) -> Chat {
-    let dir = project();
-    let project = dunce::canonicalize(dir.path()).expect("canonical project");
-    let sink = CollectingSink::new();
-    let spawner = ScenarioSpawner::new("claude", name);
+/// A start of the chat engine.
+pub struct Setup<'a> {
+    /// The scenario of each process in turn.
+    pub scenarios: &'a [&'a str],
+    pub resume: Option<&'a str>,
+    pub approval: Option<ApprovalMode>,
+    pub utility: bool,
+    /// Session files of `tests/fixtures/sessions/claude` copied into the session folder.
+    pub sessions: &'a [&'a str],
+    pub options: SessionOptions,
+}
 
-    let launch = SessionLaunch {
-        key: "key-1".to_owned(),
-        spec: launch_spec(&project),
-        spawner: spawner.as_ref(),
-        protocol: ChatProtocol::ClaudeStream,
-        project: project.clone(),
-        sessions_dir: project.clone(),
-        resume,
-        approval_override,
-        utility: false,
-        sink: sink.clone(),
-        options: &options,
-        abort: Box::pin(std::future::pending()),
-    };
-
-    let session = AgentSession::start(launch).await;
-
-    Chat {
-        session,
-        sink,
-        spawner,
-        project,
-        _dir: dir,
+impl<'a> Setup<'a> {
+    pub fn new(scenarios: &'a [&'a str]) -> Self {
+        Self {
+            scenarios,
+            resume: None,
+            approval: None,
+            utility: false,
+            sessions: &[],
+            options: options(),
+        }
     }
+
+    pub async fn start(self) -> Chat {
+        let dir = project();
+        let project = dunce::canonicalize(dir.path()).expect("canonical project");
+        let sink = CollectingSink::new();
+        let spawner = ScenarioSpawner::sequence("claude", self.scenarios);
+
+        for id in self.sessions {
+            let file = format!("{id}.jsonl");
+            std::fs::copy(saved_session(id), project.join(file)).expect("copy the session file");
+        }
+
+        let launch = SessionLaunch {
+            key: "key-1".to_owned(),
+            spec: launch_spec(&project),
+            spawner: spawner.clone(),
+            protocol: ChatProtocol::ClaudeStream,
+            project: project.clone(),
+            sessions_dir: project.clone(),
+            resume: self.resume,
+            approval_override: self.approval,
+            utility: self.utility,
+            sink: sink.clone(),
+            options: &self.options,
+            abort: Box::pin(std::future::pending()),
+        };
+
+        let session = AgentSession::start(launch).await;
+
+        Chat {
+            session,
+            sink,
+            spawner,
+            project,
+            _dir: dir,
+        }
+    }
+}
+
+/// The synthetic session file `id` (`tests/fixtures/sessions/claude`).
+pub fn saved_session(id: &str) -> PathBuf {
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/fixtures/sessions/claude")
+        .join(format!("{id}.jsonl"))
+}
+
+/// The arguments of spawn `index` (from 0).
+pub fn argv(chat: &Chat, index: usize) -> Vec<String> {
+    let specs = chat.spawner.requested();
+    let spec = specs.get(index).expect("that many spawns");
+
+    spec.args.iter().map(|arg| arg.to_string_lossy().into_owned()).collect()
+}
+
+/// The value after `flag` in `args`.
+pub fn flag<'a>(args: &'a [String], name: &str) -> Option<&'a str> {
+    let at = args.iter().position(|arg| arg == name)?;
+
+    args.get(at + 1).map(String::as_str)
 }
 
 /// Waits for the `Marker` title the scenarios set; every event so far.

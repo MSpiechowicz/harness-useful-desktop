@@ -243,7 +243,7 @@ impl AgentManager {
         let session = AgentSession::start(SessionLaunch {
             key: key.clone(),
             spec,
-            spawner: deps.spawner.as_ref(),
+            spawner: deps.spawner.clone(),
             protocol: harness.chat_protocol(),
             project: project.clone(),
             sessions_dir: harness.sessions_dir(deps.env, &project),

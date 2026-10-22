@@ -28,8 +28,8 @@ pub struct SessionLaunch<'a> {
     pub key: String,
     /// The command to run.
     pub spec: ExecSpec,
-    /// Starts the process.
-    pub spawner: &'a dyn ProcessSpawner,
+    /// Starts the process (an engine that starts it again keeps it).
+    pub spawner: Arc<dyn ProcessSpawner>,
     /// How the harness talks to the app (picks the engine).
     pub protocol: ChatProtocol,
     /// Canonical project directory.

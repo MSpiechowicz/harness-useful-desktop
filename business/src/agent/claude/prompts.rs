@@ -12,7 +12,8 @@
 //!   message whose write fails is taken back. A prompt's taking (the CLI queued or started it)
 //!   runs the prompt-taken call in event order.
 //! - **Abort:** `interrupt` (the queue is kept: a waiting follow-up runs next). An ask still open
-//!   when the CLI answered is denied, so a stopped turn never waits for an answer.
+//!   when the CLI answered is denied, so a stopped turn never waits for an answer. A running
+//!   `!command` is killed.
 //!
 //! [`ClaudeSession`]: super::ClaudeSession
 
@@ -72,14 +73,22 @@ impl ClaudeSession {
         busy: StreamingBehavior,
         prompt: bool,
     ) -> Result<bool> {
-        let chat = &self.chat;
+        let run = self.run();
+        let chat = &run.chat;
         let uuid = new_message_uuid();
 
         let message = {
             let mut live = chat.lock();
+
+            if live.retired {
+                return Err(moved());
+            }
+
             let queue = live.mapper.is_working().then_some(busy);
 
             live.mapper.sent(&uuid, send_kind(queue));
+            live.counts.user += 1;
+            live.counts.total += 1;
 
             if prompt {
                 live.awaiting_take.push(uuid.clone());
@@ -113,7 +122,8 @@ impl ClaudeSession {
 
     /// Withdraws the first message in `queue` whose text is `text`, unless the CLI took it.
     async fn remove_queued(&self, text: &str, queue: StreamingBehavior) -> Result<AgentReply> {
-        let chat = &self.chat;
+        let run = self.run();
+        let chat = &run.chat;
         let uuid = {
             let live = chat.lock();
             let found = live
@@ -146,10 +156,15 @@ impl ClaudeSession {
 
     /// Interrupts the running turn, then denies what it still asks; nothing to do while idle.
     async fn abort(&self) -> Result<AgentReply> {
-        let chat = &self.chat;
+        let run = self.run();
+        let chat = &run.chat;
 
         {
             let mut live = chat.lock();
+
+            if let Some(shell) = live.shell.take() {
+                shell.send(()).ok();
+            }
 
             if !live.mapper.is_working() && live.dialogs.is_empty() {
                 return Ok(AgentReply::Ack);
@@ -172,6 +187,11 @@ impl ClaudeSession {
 
         Ok(AgentReply::Ack)
     }
+}
+
+/// Why a message reached a process the chat has left (it moved to another session meanwhile).
+fn moved() -> BusinessError {
+    BusinessError::Unsupported("the chat moved to another session. Send the message again".to_owned())
 }
 
 fn priority(queue: StreamingBehavior) -> Priority {

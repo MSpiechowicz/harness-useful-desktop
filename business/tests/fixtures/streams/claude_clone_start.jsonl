@@ -1,0 +1,6 @@
+// The start of a clone (clone.jsonl lines 3 to 5): the SessionStart hook frames name the clone's
+// own id, then the handshake reply. The first prompt runs on the copied history (lines 8 to 22).
+{"expect": "control_request", "subtype": "initialize", "hold": true}
+{"replay": "../claude/stream/clone.jsonl", "from": 3, "to": 5, "replace": {"req_1": "$initialize"}}
+{"expect": "user", "as": "cloned", "match": {"/message/content": "Reply with exactly: cloned"}}
+{"replay": "../claude/stream/clone.jsonl", "from": 8, "to": 22, "replace": {"4c2a9fee-2d32-4698-9966-b1b627d5ce17": "$cloned"}}

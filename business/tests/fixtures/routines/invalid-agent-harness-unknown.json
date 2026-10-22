@@ -11,7 +11,7 @@
   },
   "action": {
     "type": "agent",
-    "harness": "claude",
+    "harness": "cursor",
     "model": null,
     "prompt": "Summarize the open pull requests and list the ones that wait for my review."
   },

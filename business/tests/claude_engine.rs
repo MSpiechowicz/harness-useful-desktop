@@ -1,6 +1,6 @@
 //! The Claude Code chat engine's lifecycle against the scripted `claude`: startup and the first
 //! events, the handshake's commands and models, resume, startup failures, crashes, the missing
-//! login and the actions that are not available yet.
+//! login and the missing agent picker.
 
 mod agent_support;
 mod claude_engine_support;
@@ -43,7 +43,18 @@ async fn startup_sends_initialize_and_emits_ready_state_and_commands_first() {
     let AgentEvent::State { state } = &events[1] else {
         unreachable!()
     };
-    assert_eq!(state.session_id, "", "a new session learns its id from the first frame");
+    let spec = chat.spawner.requested().pop().expect("spawned");
+    let args: Vec<String> = spec.args.iter().map(|arg| arg.to_string_lossy().into_owned()).collect();
+    let named = args
+        .iter()
+        .position(|arg| arg == "--session-id")
+        .map(|flag| args[flag + 1].clone());
+    assert_eq!(
+        named.as_deref(),
+        Some(state.session_id.as_str()),
+        "a new chat names its session at startup"
+    );
+    assert_eq!(state.session_id.len(), 36, "a UUID");
     assert_eq!(state.model, None, "no turn named the model yet");
     assert_eq!(state.thinking_level, None, "Claude Code does not report its effort");
     assert!(!state.is_streaming);
@@ -235,24 +246,11 @@ async fn without_a_login_the_turn_fails_with_the_sign_in_error_and_the_chat_ends
 }
 
 #[tokio::test]
-async fn actions_of_later_steps_are_refused_as_unsupported() {
+async fn the_agent_picker_is_refused_and_an_unknown_dialog_is_not_found() {
     let chat = start("claude_init.jsonl").await;
     let session = chat.session();
 
     for action in [
-        AgentAction::NewSession,
-        AgentAction::Clone,
-        AgentAction::Fork {
-            entry_id: "x".to_owned(),
-        },
-        AgentAction::Compact { instructions: None },
-        AgentAction::SetSessionName { name: "n".to_owned() },
-        AgentAction::GetSessionStats,
-        AgentAction::ExportHtml,
-        AgentAction::GetHistory {
-            cursor: None,
-            limit: 10,
-        },
         AgentAction::GetAvailableAgents,
         AgentAction::SetAgent {
             agent: "plan".to_owned(),
@@ -261,8 +259,6 @@ async fn actions_of_later_steps_are_refused_as_unsupported() {
         let refused = session.send(action.clone()).await.expect_err("refused");
         assert_eq!(refused.code(), IpcErrorCode::Unsupported, "{action:?}");
     }
-
-    assert!(session.bash("ls").await.is_err());
 
     let response = UiResponse {
         id: "nothing-open".to_owned(),

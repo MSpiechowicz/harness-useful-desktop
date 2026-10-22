@@ -58,7 +58,7 @@ impl RpcSession {
         let decode = DecodeState::new(&launch.project);
 
         let process = AgentProcess::spawn(
-            launch.spawner,
+            launch.spawner.as_ref(),
             &launch.spec,
             launch.key,
             launch.sink,

@@ -10,8 +10,7 @@
 //! and registers the Harness family MCP servers in the user scope through `claude mcp`
 //! ([`McpTarget::ClaudeCli`]). Share setup shares its marketplaces, user plugins and user MCP
 //! servers ([`Harness::share_support`], an imported server is added through `claude mcp add-json`).
-//! The chat engine runs `claude` in stream-json mode ([`launch`]), but chat stays off until the
-//! engine is complete. The catalog maps Claude's commands to the chat's actions and views. Every
+//! The chat engine runs `claude` in stream-json mode ([`launch`]); chat is a preview. The catalog maps Claude's commands to the chat's actions and views. Every
 //! spawn switches off Claude's self-updater.
 
 mod catalog;
@@ -28,6 +27,8 @@ pub use catalog::ClaudeCatalog;
 pub use cli::{claude_cli_action, claude_summary};
 pub use modes::WIRE_DEFAULT;
 pub use paths::{PROJECT_DIR_NAME, config_dir, global_config_file, project_slug};
+pub(crate) use sessions::chat::{chat_messages, fork_point, session_file};
+pub(crate) use sessions::is_session_id;
 pub use setup::{
     KnownMarketplace, PluginRecord, PluginScope, UserPlugin, known_marketplaces, plugin_records, user_plugins,
 };
@@ -64,10 +65,17 @@ impl Harness for Claude {
         }
     }
 
-    /// What the views list and the extension actions the CLI runs. Chat arrives in a later step of
-    /// the plan. Its approval modes are Always ask and Write, never Yolo (see [`modes`]).
+    /// What the views list, the extension actions the CLI runs and the chat (a preview). Its
+    /// approval modes are Always ask and Write, never Yolo (see [`modes`]). Live slash commands run
+    /// as prompt text, `/compact` takes instructions, and the CLI's stdio MCP servers inherit
+    /// `HARNESS_MEMORY_SESSION`. No session tree: a fork leaves no link to its parent on disk.
     fn capabilities(&self) -> Capabilities {
         Capabilities {
+            chat: true,
+            chat_preview: true,
+            slash_commands_via_prompt: true,
+            compact_instructions: true,
+            memory_chat_guards: true,
             approval_modes: true,
             plugins: true,
             marketplaces: true,

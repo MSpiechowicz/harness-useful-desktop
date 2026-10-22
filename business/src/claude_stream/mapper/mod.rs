@@ -243,6 +243,11 @@ impl ClaudeMapper {
         }
     }
 
+    /// True while a compaction runs.
+    pub fn is_compacting(&self) -> bool {
+        self.turn.is_compacting()
+    }
+
     /// True while a turn runs, a compaction runs or a sent message waits in the CLI's queue.
     pub fn is_working(&self) -> bool {
         self.turn.is_active() || self.turn.is_compacting() || self.sends.waiting()

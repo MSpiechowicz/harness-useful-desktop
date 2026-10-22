@@ -14,12 +14,14 @@
 //!   and says so in a notice. The CLI never waits on them.
 //! - **Always ask:** the hook callback answers `ask` for every tool call; callbacks of other ids
 //!   get no opinion.
+//! - **Helper chats** (AI naming) run without tools and nobody sees their dialogs: a permission
+//!   prompt or question is denied at once.
 
 use std::path::{Path, PathBuf};
 
 use serde_json::{Value, json};
 
-use super::ClaudeSession;
+use super::Chat;
 use crate::claude_stream::allow_list::AllowList;
 use crate::claude_stream::mapper::{Ask, PermissionAsk, QuestionAsk};
 use crate::claude_stream::permissions::{ASK_ALL_CALLBACK, Always, Choice, DECLINED, choice, permission_dialog};
@@ -38,11 +40,16 @@ const DISMISSED: &str = "The user dismissed the questions without answering.";
 /// What the model is told about questions with nothing to ask.
 const NO_QUESTIONS: &str = "The questions could not be shown: they were empty.";
 
+/// What a helper chat answers every permission prompt and question with.
+const HELPER: &str = "This helper chat runs no tools.";
+
 /// The open asks of a chat and its own "Always allow" answers.
 pub(super) struct Dialogs {
     project: PathBuf,
     /// The chat runs the Always ask hook.
     ask_all: bool,
+    /// A helper chat, which nobody watches: every ask is denied at once.
+    helper: bool,
     open: Vec<Open>,
     allowed: AllowList,
 }
@@ -85,10 +92,11 @@ pub(super) struct Outcome {
 }
 
 impl Dialogs {
-    pub(super) fn new(project: &Path, ask_all: bool) -> Self {
+    pub(super) fn new(project: &Path, ask_all: bool, helper: bool) -> Self {
         Self {
             project: project.to_path_buf(),
             ask_all,
+            helper,
             open: Vec::new(),
             allowed: AllowList::default(),
         }
@@ -101,6 +109,8 @@ impl Dialogs {
     /// The CLI asks `ask` (see the module docs).
     pub(super) fn asked(&mut self, ask: Ask, out: &mut Outcome) {
         match ask {
+            Ask::Permission(ask) if self.helper => out.answers.push(permission_deny(&ask.request_id, HELPER)),
+            Ask::Question(ask) if self.helper => out.answers.push(permission_deny(&ask.request_id, HELPER)),
             Ask::Permission(ask) => self.permission(ask, out),
             Ask::Question(ask) => match QuestionDialog::new(&ask) {
                 Some(questions) => {
@@ -255,7 +265,7 @@ impl Dialogs {
     }
 }
 
-impl ClaudeSession {
+impl Chat {
     /// Answers an open dialog; fails for ids that are not open (answered, withdrawn or unknown).
     pub(super) async fn answer_dialog(&self, response: UiResponse) -> Result<()> {
         if let UiOutcome::Value { value } = &response.outcome
@@ -266,20 +276,19 @@ impl ClaudeSession {
             )));
         }
 
-        let chat = &self.chat;
         let mut out = Outcome::default();
 
         {
-            let mut live = chat.lock();
+            let mut live = self.lock();
             live.dialogs.answer(&response, &mut out)?;
 
             for event in out.events {
-                chat.shared.emit(event);
+                self.shared.emit(event);
             }
         }
 
         for answer in &out.answers {
-            chat.write(answer).await?;
+            self.write(answer).await?;
         }
 
         Ok(())

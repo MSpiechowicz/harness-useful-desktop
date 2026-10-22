@@ -1,7 +1,7 @@
 //! The command line of a Claude Code chat: stream-json mode in the project, `--resume` only with a
-//! Claude session id, no model flag, no helper chats yet, `--permission-mode default` for an
-//! Always ask or Write override (Yolo refused), and never a flag that skips approvals, strips a
-//! login method or bypasses the permission mode.
+//! Claude session id, no model flag, helper chats without tools, thinking or a saved session,
+//! `--permission-mode default` for an Always ask or Write override (Yolo refused), and never a flag
+//! that skips approvals, strips a login method or bypasses the permission mode.
 
 use std::ffi::OsString;
 use std::path::PathBuf;
@@ -98,15 +98,25 @@ fn only_a_lowercase_session_uuid_is_resumed() {
 }
 
 #[test]
-fn helper_chats_are_not_available_yet() {
+fn a_helper_chat_runs_without_tools_thinking_or_a_saved_session_on_the_default_model() {
     let setup = Setup::new("/usr/bin/claude", false);
     let request = LaunchRequest {
         utility: true,
+        approval_override: Some(ApprovalMode::AlwaysAsk),
         ..setup.request(None)
     };
 
-    let refused = Claude.launch_spec(&request).expect_err("no helper chats");
-    assert_eq!(refused.code(), IpcErrorCode::Unsupported);
+    let mut expected: Vec<&str> = STREAM.to_vec();
+    expected.extend([
+        "--permission-mode",
+        "default",
+        "--tools",
+        "",
+        "--thinking=disabled",
+        "--no-session-persistence",
+    ]);
+
+    assert_eq!(argv(&request), expected);
 }
 
 #[test]

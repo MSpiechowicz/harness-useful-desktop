@@ -11,8 +11,8 @@
 //!   - [`OpenCodeSession`] — `opencode serve` over loopback HTTP and its event stream (the
 //!     manager does not offer it yet);
 //!   - [`OpenCodeV2Session`] — the same for OpenCode 2's `/api` server;
-//!   - [`ClaudeSession`] — `claude` in stream-json mode with its control protocol (the harness
-//!     keeps chat off until the engine is complete).
+//!   - [`ClaudeSession`] — `claude` in stream-json mode with its control protocol (a preview),
+//!     started again when the chat moves to another session.
 //! - [`EventSink`] — where the normalized [`AgentEnvelope`](crate::model::AgentEnvelope)s go
 //!   (the desktop shell adapts it to a Tauri channel).
 //! - [`DeltaCoalescer`] — merges streaming deltas within [`COALESCE_WINDOW`].
