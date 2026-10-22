@@ -24,8 +24,8 @@ pub use extensions::omp_extensions_view;
 pub use launch::{
     DEFAULT_APPROVAL_MODE, cli_approval_mode, configured_approval_mode, omp_launch_spec, parse_approval_mode,
 };
-pub(crate) use marketplaces::{GITHUB_REPO, MarketplaceRecord, is_word_like, marketplace_records};
-pub use marketplaces::{mark_updates, marketplaces};
+pub use marketplaces::marketplaces;
+pub(crate) use marketplaces::{MarketplaceRecord, marketplace_records};
 pub use paths::{active_profile, omp_paths};
 pub use plugins::{InstalledPlugins, installed_plugins};
 pub(crate) use plugins::{PluginOrigin, PluginRecord, user_plugin_records};

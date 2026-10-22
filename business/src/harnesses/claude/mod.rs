@@ -2,13 +2,14 @@
 //! ([plan](../../../../docs/plans/claude-code.md)).
 //!
 //! Everything lives in one config directory (`~/.claude` or `CLAUDE_CONFIG_DIR`, see [`paths`]),
-//! next to a global file (`~/.claude.json`) the CLI rewrites while it runs. The harness is detected
-//! and its settings are shown ([`config`]). The extension view is empty, sessions and chat are not
-//! available yet, and the catalog lists every command as unsupported. Every spawn switches off
-//! Claude's self-updater.
+//! next to a global file (`~/.claude.json`) the CLI rewrites while it runs. The harness is detected,
+//! its settings are shown ([`config`]) and its plugins, marketplaces, skills, agents, commands and
+//! MCP servers are listed ([`extensions`], read-only). Sessions and chat are not available yet, and
+//! the catalog lists every command as unsupported. Every spawn switches off Claude's self-updater.
 
 mod catalog;
 mod config;
+mod extensions;
 mod paths;
 
 pub use catalog::ClaudeCatalog;
@@ -46,9 +47,18 @@ impl Harness for Claude {
         }
     }
 
-    /// Nothing yet: the views, sessions and chat arrive in later steps of the plan.
+    /// What the extensions view lists. Extension actions, sessions and chat arrive in later steps
+    /// of the plan.
     fn capabilities(&self) -> Capabilities {
-        Capabilities::default()
+        Capabilities {
+            plugins: true,
+            marketplaces: true,
+            mcp: true,
+            skills: true,
+            prompt_templates: true,
+            agents: true,
+            ..Capabilities::default()
+        }
     }
 
     fn paths(&self, env: &Env, project: Option<&Path>) -> HarnessPaths {
@@ -59,20 +69,8 @@ impl Harness for Claude {
         Ok(config::config_view(env, project))
     }
 
-    fn extensions_view(&self, _env: &Env, _project: Option<&Path>) -> Result<ExtensionsView> {
-        Ok(ExtensionsView {
-            harness: HarnessId::Claude,
-            plugins: Vec::new(),
-            marketplaces: Vec::new(),
-            skills: Vec::new(),
-            prompt_templates: Vec::new(),
-            agents: Vec::new(),
-            mcp_servers: Vec::new(),
-            themes: Vec::new(),
-            packages: Vec::new(),
-            extension_modules: Vec::new(),
-            notices: Vec::new(),
-        })
+    fn extensions_view(&self, env: &Env, project: Option<&Path>) -> Result<ExtensionsView> {
+        Ok(extensions::extensions_view(env, project))
     }
 
     fn catalog(&self) -> &dyn CommandCatalog {

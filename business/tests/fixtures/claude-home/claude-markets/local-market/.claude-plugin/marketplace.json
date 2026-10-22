@@ -1,0 +1,5 @@
+{
+  "name": "local-market",
+  "owner": { "name": "Demo" },
+  "plugins": [{ "name": "local-helper", "description": "A plugin from a folder on this computer.", "source": "./local-helper" }]
+}

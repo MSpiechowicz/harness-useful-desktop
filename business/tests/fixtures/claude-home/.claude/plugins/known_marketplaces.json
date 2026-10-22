@@ -1,0 +1,28 @@
+{
+  "useful-skills-local": {
+    "source": { "source": "github", "repo": "demo-org/useful-skills" },
+    "installLocation": "~/.claude/plugins/marketplaces/useful-skills-local",
+    "lastUpdated": "2026-10-01T09:58:00.000Z",
+    "autoUpdate": true
+  },
+  "demo-market": {
+    "source": { "source": "git", "url": "https://git.example.com/demo/market.git" },
+    "installLocation": "~/.claude/plugins/marketplaces/demo-market",
+    "lastUpdated": "2026-10-05T12:00:00.000Z"
+  },
+  "local-market": {
+    "source": { "source": "directory", "path": "~/claude-markets/local-market" },
+    "installLocation": "~/claude-markets/local-market",
+    "lastUpdated": "2026-10-06T12:00:00.000Z"
+  },
+  "escape": {
+    "source": { "source": "git", "url": "https://deploy:CANARY-7f3a9c@git.example.com/team/plugins.git" },
+    "installLocation": "~/claude-markets/local-market",
+    "lastUpdated": "2026-10-06T12:00:00.000Z"
+  },
+  "fresh": {
+    "source": { "source": "github", "repo": "demo-org/fresh-plugins" },
+    "installLocation": "~/.claude/plugins/marketplaces/fresh",
+    "lastUpdated": "2026-10-07T12:00:00.000Z"
+  }
+}
