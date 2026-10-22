@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { i18n } from '$lib/i18n/i18n.svelte';
+import type { ApprovalMode } from '$lib/ipc/bindings/ApprovalMode';
 import type { NativeApprovalMode } from '$lib/ipc/bindings/NativeApprovalMode';
 import { fixtures } from '$lib/ipc/mock/fixtures';
 import { harness } from '$lib/stores/harness.svelte';
@@ -16,7 +17,7 @@ function withClaudeChat(yoloMode: boolean) {
   );
 }
 
-function claudeSession(nativeApprovalMode: NativeApprovalMode | null, approvalOverride: 'alwaysAsk' | null = null) {
+function claudeSession(nativeApprovalMode: NativeApprovalMode | null, approvalOverride: ApprovalMode | null = null) {
   return chatSession([], { harness: 'claude', configuredApprovalMode: null, approvalOverride, nativeApprovalMode }).session;
 }
 
@@ -28,7 +29,7 @@ afterEach(async () => {
 });
 
 describe('the approval modes offered in the chat header', () => {
-  it('leaves Yolo out for a harness that has no such mode', async () => {
+  it('offers Claude Code its Auto mode and leaves Yolo out', async () => {
     render(ChatControls, { session: claudeSession(null) });
 
     await fireEvent.click(screen.getByRole('button', { name: /^Approval mode: Claude Code settings/ }));
@@ -38,7 +39,25 @@ describe('the approval modes offered in the chat header', () => {
       expect.stringContaining('Use my configuration'),
       expect.stringContaining('ask every time'),
       expect.stringContaining('ask for writes'),
+      expect.stringContaining('Claude Code decides which tool calls are safe and asks about the rest'),
     ]);
+  });
+
+  it('offers Auto to no other harness', async () => {
+    render(ChatControls, { session: chatSession([], { harness: 'omp', configuredApprovalMode: 'yolo', approvalOverride: null }).session });
+
+    await fireEvent.click(screen.getByRole('button', { name: /^Approval mode: yolo/ }));
+    const choices = await screen.findAllByRole('menuitemradio');
+
+    expect(choices).toHaveLength(4);
+    expect(screen.queryByRole('menuitemradio', { name: /auto/ })).toBeNull();
+  });
+
+  it('shows Auto with the warning icon once a chat runs in it', () => {
+    const { container } = render(ChatControls, { session: claudeSession(null, 'auto') });
+
+    expect(screen.getByText('Approvals: auto')).toBeInTheDocument();
+    expect(container.querySelector('.lucide-shield-alert')).not.toBeNull();
   });
 
   it('offers Yolo again once the harness can run without asking', async () => {
@@ -57,6 +76,14 @@ describe('the mode Claude Code is configured with', () => {
 
     expect(screen.getByText('Claude Code: Accept edits')).toBeInTheDocument();
     expect(screen.queryByText(/Approvals:/)).toBeNull();
+  });
+
+  it('names a configured auto mode as the app\'s Auto', () => {
+    const session = chatSession([], { harness: 'claude', configuredApprovalMode: 'auto', approvalOverride: null, nativeApprovalMode: { name: 'auto', unattended: true } }).session;
+    const { container } = render(ChatControls, { session });
+
+    expect(screen.getByText('Approvals: auto')).toBeInTheDocument();
+    expect(container.querySelector('.lucide-shield-alert')).not.toBeNull();
   });
 
   it('marks a mode that runs tools unattended with the warning icon', () => {

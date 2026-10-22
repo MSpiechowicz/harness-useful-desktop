@@ -176,3 +176,13 @@ pub fn fixture_id(bytes: &[u8]) -> Option<String> {
     let value: Value = serde_json::from_slice(bytes).ok()?;
     Some(value.get("id")?.as_str()?.to_owned())
 }
+
+/// `tools/call` of `tool` on `server`: whether it was refused, and its text.
+pub fn mcp_call(server: &mut harness_business::hooks_mcp::Server, tool: &str, arguments: Value) -> (bool, String) {
+    let params = json!({ "name": tool, "arguments": arguments });
+    let request = json!({ "jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": params });
+    let result = server.handle(request).expect("answered")["result"].clone();
+
+    let text = result["content"][0]["text"].as_str().unwrap_or_default().to_owned();
+    (result["isError"] == json!(true), text)
+}

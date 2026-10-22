@@ -8,6 +8,8 @@ export interface RoutineAbilities {
   approvalMode: boolean;
   /** The harness can run without asking, so the routine may name Yolo (Claude Code has approval modes but no Yolo). */
   yoloMode: boolean;
+  /** The harness judges which tool calls are safe itself, so the routine may name Auto (Claude Code only). */
+  autoMode: boolean;
   /** The harness gates project-local resources behind a trust (PI), so the routine may trust them once. */
   trustOnce: boolean;
 }
@@ -23,17 +25,31 @@ export function abilitiesOf(id: HarnessId): RoutineAbilities {
   return {
     approvalMode: capabilities?.approvalModes ?? true,
     yoloMode: (capabilities?.approvalModes ?? true) && (capabilities?.yoloMode ?? true),
+    autoMode: (capabilities?.approvalModes ?? true) && (capabilities?.autoMode ?? true),
     trustOnce: capabilities?.projectTrust ?? true,
   };
 }
 
-/** The approval mode a routine keeps on this harness: none without approval modes, and never Yolo where it is not offered. */
+/** The approval mode a routine keeps on this harness: none without approval modes, and never Yolo or Auto where it is not offered. */
 export function modeFor(abilities: RoutineAbilities, mode: ApprovalMode | null): ApprovalMode | null {
-  if (!abilities.approvalMode || (mode === 'yolo' && !abilities.yoloMode)) {
+  if (!abilities.approvalMode || !offers(abilities, mode)) {
     return null;
   }
 
   return mode;
+}
+
+/** Whether the harness offers `mode`: Yolo and Auto only where its abilities say so, the harness setting and the others always. */
+export function offers(abilities: RoutineAbilities, mode: ApprovalMode | 'harness' | null): boolean {
+  if (mode === 'yolo') {
+    return abilities.yoloMode;
+  }
+
+  if (mode === 'auto') {
+    return abilities.autoMode;
+  }
+
+  return true;
 }
 
 /** The harnesses a routine can start a chat with, in the order the harness list has them, and the one the routine names already. */

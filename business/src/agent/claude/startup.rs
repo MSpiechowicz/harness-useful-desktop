@@ -147,7 +147,7 @@ impl ClaudeSession {
         // The launch spec refuses Yolo too: it needs Claude Code's bypass mode.
         if launch.approval_override == Some(ApprovalMode::Yolo) {
             return Err(BusinessError::Unsupported(
-                "Claude Code chats have no Yolo mode: choose Always ask or Write".to_owned(),
+                "Claude Code chats have no Yolo mode: choose Always ask, Write or Auto".to_owned(),
             ));
         }
 

@@ -3,7 +3,7 @@
 
 use serde_json::{Map, Value};
 
-use super::{check_plain_text, harness_names, has_chat, takes_approval_mode, takes_trust_once, takes_yolo};
+use super::{check_plain_text, harness_names, has_chat, takes_approval_mode, takes_auto, takes_trust_once, takes_yolo};
 use crate::model::{ApprovalMode, HarnessId, HookScope, RoutineAction, RoutineModel, ScriptScope};
 use crate::signed_docs::fields::typed_object;
 use crate::signed_docs::unicode::is_hidden_char;
@@ -80,6 +80,7 @@ fn parse_agent(action: &Map<String, Value>) -> Result<RoutineAction, String> {
             "alwaysAsk" => ApprovalMode::AlwaysAsk,
             "write" => ApprovalMode::Write,
             "yolo" => ApprovalMode::Yolo,
+            "auto" => ApprovalMode::Auto,
             other => return Err(format!("unknown action.approvalMode {other:?}")),
         }),
         Some(_) => return Err("action.approvalMode must be a string or null".to_owned()),
@@ -166,6 +167,13 @@ pub fn check_action(action: &RoutineAction, scope: HookScope) -> Result<(), Stri
                 return Err(format!(
                     "action.approvalMode \"yolo\" is for {} only",
                     harness_names(takes_yolo)
+                ));
+            }
+
+            if *approval_mode == Some(ApprovalMode::Auto) && !takes_auto(*harness) {
+                return Err(format!(
+                    "action.approvalMode \"auto\" is for {} only",
+                    harness_names(takes_auto)
                 ));
             }
 

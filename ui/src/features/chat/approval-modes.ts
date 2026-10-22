@@ -1,5 +1,6 @@
 import { t } from '$lib/i18n/i18n.svelte';
 import type { ApprovalMode } from '$lib/ipc/bindings/ApprovalMode';
+import type { Capabilities } from '$lib/ipc/bindings/Capabilities';
 import type { NativeApprovalMode } from '$lib/ipc/bindings/NativeApprovalMode';
 
 export type ModeTone = 'warning' | 'success' | 'info';
@@ -40,9 +41,24 @@ export const MODES: Record<ApprovalMode, ModeInfo> = {
       return t('chat.mode.alwaysAsk.explanation');
     },
   },
+  // Claude Code's classifier runs what it judges safe without asking, so it warns like Yolo.
+  auto: {
+    get label() {
+      return t('chat.mode.auto.label');
+    },
+    tone: 'warning',
+    get explanation() {
+      return t('chat.mode.auto.explanation');
+    },
+  },
 };
 
-export const MODE_ORDER: ApprovalMode[] = ['alwaysAsk', 'write', 'yolo'];
+export const MODE_ORDER: ApprovalMode[] = ['alwaysAsk', 'write', 'auto', 'yolo'];
+
+/** The modes a harness offers: Auto and Yolo only where its capabilities say so. */
+export function offeredModes(capabilities: Pick<Capabilities, 'yoloMode' | 'autoMode'> | undefined): ApprovalMode[] {
+  return MODE_ORDER.filter((mode) => (mode !== 'yolo' || capabilities?.yoloMode) && (mode !== 'auto' || capabilities?.autoMode));
+}
 
 /** The mode in force: the per-session override, else the harness configuration. */
 export function activeMode(override: ApprovalMode | null, configured: ApprovalMode | null): ApprovalMode | null {

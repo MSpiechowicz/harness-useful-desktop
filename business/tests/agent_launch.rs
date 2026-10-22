@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use agent_support::binary;
 use harness_business::harness::{Harness, LaunchRequest};
 use harness_business::harnesses::{Omp, OpenCode, Pi};
-use harness_business::model::ApprovalMode;
+use harness_business::model::{ApprovalMode, IpcErrorCode};
 use harness_business::process::ResolvedBinary;
 use pretty_assertions::assert_eq;
 
@@ -49,6 +49,19 @@ fn omp_runs_in_rpc_mode_with_optional_approval_override_and_resume() {
         args(&Omp, full),
         ["--mode", "rpc", "--approval-mode", "always-ask", "--resume", "0199c1f2"]
     );
+}
+
+#[test]
+fn omp_refuses_an_auto_override_it_has_no_mode_for() {
+    let binary = binary();
+    let project = PathBuf::from("/work/demo");
+    let auto = LaunchRequest {
+        approval_override: Some(ApprovalMode::Auto),
+        ..launch(&binary, &project)
+    };
+
+    let refused = Omp.launch_spec(&auto).expect_err("no Auto mode");
+    assert_eq!(refused.code(), IpcErrorCode::Unsupported);
 }
 
 #[test]

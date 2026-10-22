@@ -20,6 +20,7 @@ const MODE_LABELS: Record<ApprovalMode, MessageKey> = {
   alwaysAsk: 'routines.mode.alwaysAsk',
   write: 'routines.mode.write',
   yolo: 'routines.mode.yolo',
+  auto: 'routines.mode.auto',
 };
 
 /** The words for the approval mode of an agent action, and for an unset one. */
@@ -42,7 +43,7 @@ function approvalFacts(action: Extract<RoutineAction, { type: 'agent' }>): FactR
   const rows: FactRow[] = [];
 
   if (abilities.approvalMode) {
-    rows.push({ label: t('routines.field.approvalMode'), value: modeText(action.approvalMode), tone: action.approvalMode === 'yolo' ? 'warning' : undefined });
+    rows.push({ label: t('routines.field.approvalMode'), value: modeText(action.approvalMode), tone: action.approvalMode === 'yolo' || action.approvalMode === 'auto' ? 'warning' : undefined });
   }
 
   if (abilities.trustOnce) {

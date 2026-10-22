@@ -75,7 +75,7 @@ impl Harness for Claude {
     }
 
     /// What the views list, the extension actions the CLI runs and the chat (a preview). Its
-    /// approval modes are Always ask and Write, never Yolo (see [`modes`]). A chat starts only in a
+    /// approval modes are Always ask, Write and Auto, never Yolo (see [`modes`]). A chat starts only in a
     /// folder Claude Code trusts, or with trust once ([`Harness::check_project_trust`]). Live
     /// slash commands run as prompt text, `/compact` takes instructions, and the CLI's stdio MCP
     /// servers inherit `HARNESS_MEMORY_SESSION`. No session tree: a fork leaves no link to its parent on disk.
@@ -87,6 +87,7 @@ impl Harness for Claude {
             compact_instructions: true,
             memory_chat_guards: true,
             approval_modes: true,
+            auto_mode: true,
             project_trust: true,
             project_trust_required: true,
             plugins: true,
@@ -197,7 +198,8 @@ impl Harness for Claude {
         SPAWN_ENV
     }
 
-    /// Write for Claude's `default` mode, Yolo for `bypassPermissions`, else none (see [`modes`]).
+    /// Write for Claude's `default` mode, Auto for `auto`, Yolo for `bypassPermissions`, else none
+    /// (see [`modes`]).
     fn configured_approval_mode(&self, env: &Env, project: Option<&Path>) -> Option<ApprovalMode> {
         modes::approval_mode(&modes::native_approval_mode(env, project).name)
     }

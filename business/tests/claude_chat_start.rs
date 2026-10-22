@@ -53,7 +53,7 @@ fn args(run: &agent_support::Run) -> Vec<String> {
     let spec = run.spawner.requested().pop().expect("spawned");
     let args: Vec<String> = spec.args.iter().map(|arg| arg.to_string_lossy().into_owned()).collect();
 
-    claude_engine_support::assert_allowed_flags(&args);
+    claude_engine_support::assert_allowed_flags(&args, run.info.approval_override);
     args
 }
 
@@ -83,6 +83,10 @@ fn the_harness_offers_chat_as_a_preview() {
     assert!(capabilities.compact_instructions && capabilities.memory_chat_guards);
     assert!(capabilities.slash_commands_via_prompt);
     assert!(!capabilities.yolo_mode && !capabilities.session_tree);
+    assert!(
+        capabilities.approval_modes && capabilities.auto_mode,
+        "Auto is Claude Code's own mode"
+    );
 }
 
 #[test]
@@ -233,6 +237,45 @@ async fn a_claude_chat_starts_through_the_manager_on_the_session_it_names() {
     assert!(run.manager.holds_session(&named), "the manager binds the named session");
 
     run.manager.begin_stop_all().finish().await;
+}
+
+#[tokio::test]
+async fn an_auto_chat_starts_in_claudes_auto_mode_without_the_ask_all_hook_and_keeps_it_for_a_new_session() {
+    // claude_init_write.jsonl matches an `initialize` that carries no hook, for both processes.
+    let run = start_with(
+        HarnessId::Claude,
+        "claude",
+        "claude_init_write.jsonl",
+        options(),
+        |request| {
+            request.approval_override = Some(ApprovalMode::Auto);
+        },
+    )
+    .await
+    .expect("the chat starts");
+    assert_eq!(run.info.approval_override, Some(ApprovalMode::Auto));
+
+    let mode = |args: &[String]| {
+        let at = args.iter().position(|arg| arg == "--permission-mode")?;
+        args.get(at + 1).cloned()
+    };
+    assert_eq!(mode(&args(&run)).as_deref(), Some("auto"));
+
+    let reply = run.manager.send(run.key(), AgentAction::NewSession).await;
+    assert_eq!(reply.expect("a new session"), AgentReply::Ack);
+    run.wait_until("two ready events", |events| {
+        events
+            .iter()
+            .filter(|event| matches!(event, AgentEvent::Ready { .. }))
+            .count()
+            >= 2
+    })
+    .await;
+
+    assert_eq!(run.spawner.requested().len(), 2, "the CLI started again");
+    assert_eq!(mode(&args(&run)).as_deref(), Some("auto"), "the new session keeps Auto");
+
+    stop_cleanly(&run).await;
 }
 
 #[tokio::test]

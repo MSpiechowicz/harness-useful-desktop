@@ -9,18 +9,8 @@ use std::time::SystemTime;
 use harness_business::hooks_mcp::Server;
 use harness_business::model::{HookAuthor, HookScope};
 use pretty_assertions::assert_eq;
-use routine_support::{Root, command_draft, root};
-use serde_json::{Value, json};
-
-/// `tools/call` of `tool`: whether it was refused, and its text.
-fn call(server: &mut Server, tool: &str, arguments: Value) -> (bool, String) {
-    let params = json!({ "name": tool, "arguments": arguments });
-    let request = json!({ "jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": params });
-    let result = server.handle(request).expect("answered")["result"].clone();
-
-    let text = result["content"][0]["text"].as_str().unwrap_or_default().to_owned();
-    (result["isError"] == json!(true), text)
-}
+use routine_support::{Root, command_draft, mcp_call as call, root};
+use serde_json::json;
 
 /// A project folder next to the server's own, canonical.
 fn other_project(root: &Root) -> String {

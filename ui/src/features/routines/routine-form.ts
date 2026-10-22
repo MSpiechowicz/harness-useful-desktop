@@ -355,7 +355,7 @@ function scriptProblems(form: RoutineForm): Problem[] {
   return form.scope === 'global' && form.scriptScope === 'repo' ? [{ field: 'script', message: 'routines.editor.script.repoNeedsProject', required: false }] : [];
 }
 
-/** Whether the routine would run tools without asking: the agent is set to "yolo" or trusts the project's resources. */
+/** Whether the routine would run tools without asking: the agent is set to "yolo" or "auto", or trusts the project's resources. */
 export function runsUnattended(form: Pick<RoutineForm, 'kind' | 'harness' | 'approvalMode' | 'trustOnce'>): boolean {
   if (form.kind !== 'agent') {
     return false;
@@ -363,7 +363,7 @@ export function runsUnattended(form: Pick<RoutineForm, 'kind' | 'harness' | 'app
 
   const abilities = abilitiesOf(form.harness);
 
-  return (abilities.yoloMode && form.approvalMode === 'yolo') || (abilities.trustOnce && form.trustOnce);
+  return (abilities.yoloMode && form.approvalMode === 'yolo') || (abilities.autoMode && form.approvalMode === 'auto') || (abilities.trustOnce && form.trustOnce);
 }
 
 function actionOf(form: RoutineForm): RoutineAction {

@@ -84,12 +84,16 @@ pub struct Capabilities {
     pub cli_actions: bool,
     /// Named configuration profiles.
     pub profiles: bool,
-    /// A configurable tool approval mode (OMP `tools.approvalMode`).
+    /// A configurable tool approval mode (OMP `tools.approvalMode`, Claude Code
+    /// `permissions.defaultMode`): Always ask and Write, with Yolo and Auto where flagged.
     pub approval_modes: bool,
     /// The approval modes include Yolo (tools run without asking). Without it a harness with
-    /// `approval_modes` offers Always ask and Write only (Claude Code: the app never starts its
-    /// bypass mode), and a Yolo override is refused.
+    /// `approval_modes` offers no Yolo (Claude Code: the app never starts its bypass mode), and a
+    /// Yolo override is refused.
     pub yolo_mode: bool,
+    /// The approval modes include Auto: the harness judges which tool calls are safe and asks
+    /// about the rest (Claude Code's auto mode). Without it an Auto override is refused.
+    pub auto_mode: bool,
     /// Project trust gating of project-local resources (PI `.pi/`, Claude Code's `.claude/`
     /// settings): a launch may trust the project once (`trustOnce`).
     pub project_trust: bool,

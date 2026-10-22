@@ -78,6 +78,7 @@ enum ModeArg {
     AlwaysAsk,
     Write,
     Yolo,
+    Auto,
     Default,
 }
 
@@ -87,6 +88,7 @@ impl ModeArg {
             Self::AlwaysAsk => Some(ApprovalMode::AlwaysAsk),
             Self::Write => Some(ApprovalMode::Write),
             Self::Yolo => Some(ApprovalMode::Yolo),
+            Self::Auto => Some(ApprovalMode::Auto),
             Self::Default => None,
         }
     }

@@ -1,7 +1,7 @@
 <script lang="ts">
   import ShieldAlert from '@lucide/svelte/icons/shield-alert';
 
-  import { MODE_ORDER, MODES, nativeModeLabel } from '../chat/approval-modes';
+  import { MODES, nativeModeLabel } from '../chat/approval-modes';
   import Badge from '$lib/components/Badge.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
   import { harness } from '$lib/stores/harness.svelte';
@@ -30,15 +30,18 @@
     isDefault: boolean;
   }
 
+  /** The modes OMP has (Auto is Claude Code's own). */
+  const OMP_MODES = ['alwaysAsk', 'write', 'yolo'] as const;
+
   /** How each OMP mode behaves in practice, next to its name. */
-  const OMP_DETAILS = $derived<Record<(typeof MODE_ORDER)[number], { cli: string; when: string; good: string }>>({
+  const OMP_DETAILS = $derived<Record<(typeof OMP_MODES)[number], { cli: string; when: string; good: string }>>({
     alwaysAsk: { cli: 'always-ask', when: t('onboarding.approval.alwaysAsk.when'), good: t('onboarding.approval.alwaysAsk.good') },
     write: { cli: 'write', when: t('onboarding.approval.write.when'), good: t('onboarding.approval.write.good') },
     yolo: { cli: 'yolo', when: t('onboarding.approval.yolo.when'), good: t('onboarding.approval.yolo.good') },
   });
 
   const OMP_CARDS = $derived<ModeCard[]>(
-    MODE_ORDER.map((mode) => ({
+    OMP_MODES.map((mode) => ({
       id: mode,
       label: MODES[mode].label,
       tone: MODES[mode].tone,

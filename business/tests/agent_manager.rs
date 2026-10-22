@@ -15,7 +15,7 @@ use harness_business::agent::{AgentDeps, AgentManager, CollectingSink, MAX_SESSI
 use harness_business::env::Env;
 use harness_business::error::BusinessError;
 use harness_business::harness::{CommandCatalog, CompanionSetup, Harness, HarnessPaths, LaunchRequest};
-use harness_business::harnesses::{Omp, Pi};
+use harness_business::harnesses::{Omp, OpenCode, Pi};
 use harness_business::model::{
     ApprovalMode, Capabilities, ConfigView, ExtensionsView, HarnessId, HarnessInfo, InstallHint, IpcErrorCode,
     SessionRef,
@@ -274,6 +274,49 @@ async fn a_yolo_override_is_refused_where_the_harness_offers_no_yolo_mode() {
     let error = manager.start(yolo, deps, CollectingSink::new()).await.unwrap_err();
 
     assert_eq!(error.code(), IpcErrorCode::Unsupported, "{error:?}");
+    assert!(spawner.requested().is_empty());
+    assert!(manager.list().is_empty());
+}
+
+#[tokio::test]
+async fn an_auto_override_is_refused_where_the_harness_offers_no_auto_mode() {
+    let OmpManager {
+        project,
+        env,
+        manager,
+        spawner,
+        ..
+    } = omp_manager("omp_hang.jsonl");
+
+    let opencode = OpenCode::default();
+    let harnesses: [&dyn Harness; 2] = [&Omp, &opencode];
+    for harness in harnesses {
+        assert!(!harness.capabilities().auto_mode, "{:?}", harness.id());
+
+        let deps = AgentDeps {
+            harness,
+            env: &env,
+            spawner: spawner.clone(),
+            binary: binary(),
+        };
+        let mut auto = request(harness.id(), project.path());
+        auto.approval_override = Some(ApprovalMode::Auto);
+
+        let error = manager.start(auto, deps, CollectingSink::new()).await.unwrap_err();
+
+        assert_eq!(error.code(), IpcErrorCode::Unsupported, "{error:?}");
+        assert!(error.to_string().contains("no Auto mode"), "{error}");
+    }
+
+    // Like Yolo, a harness without approval modes (PI) drops the override.
+    let pi = start_with(HarnessId::Pi, "pi", "pi_startup.jsonl", options(), |request| {
+        request.approval_override = Some(ApprovalMode::Auto);
+    })
+    .await
+    .unwrap();
+    assert_eq!(pi.info.approval_override, None);
+    pi.manager.stop(pi.key()).await.unwrap();
+
     assert!(spawner.requested().is_empty());
     assert!(manager.list().is_empty());
 }

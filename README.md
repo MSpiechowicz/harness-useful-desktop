@@ -25,7 +25,7 @@ privacy. Made with the app's demo data. [Download the full-quality 4K video](htt
   OpenCode as a local `opencode serve` the app talks to on this machine, Claude Code as a `claude` process in stream-json
   mode), answers its approval and input dialogs, picks
   the model and thinking level (and OpenCode's agent), runs slash commands, and asks before any shell command you
-  send. Chat with OpenCode and Claude Code is a preview. Claude Code chats offer the Always ask and Write approval modes,
+  send. Chat with OpenCode and Claude Code is a preview. Claude Code chats offer the Always ask, Write and Auto approval modes,
   never Yolo, and start in a folder Claude Code does not trust only after you pick Trust once.
 - **Sessions and branches.** Lists a project's saved sessions, shows the branch tree of each, opens the transcript,
   resumes or forks. OpenCode sessions are linear: the app lists them, opens the transcript and deletes them through

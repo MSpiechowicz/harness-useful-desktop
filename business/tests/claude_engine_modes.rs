@@ -1,5 +1,5 @@
 //! Approval modes of Claude Code chats: Always ask registers the ask-all hook in `initialize` and
-//! answers its callbacks with `ask`, Write registers none, Yolo is refused before anything spawns,
+//! answers its callbacks with `ask`, Write and Auto register none, Yolo is refused before anything spawns,
 //! and the configured mode comes from `permissions.defaultMode` of the settings layers (managed
 //! over local over project over user).
 
@@ -28,6 +28,14 @@ async fn always_ask_registers_the_ask_all_hook_and_answers_its_callbacks_with_as
 #[tokio::test]
 async fn write_registers_no_hook() {
     let chat = start_in("claude_mode_write.jsonl", Some(ApprovalMode::Write)).await;
+
+    marker(&chat).await;
+    stop_cleanly(&chat).await;
+}
+
+#[tokio::test]
+async fn auto_registers_no_hook() {
+    let chat = start_in("claude_mode_write.jsonl", Some(ApprovalMode::Auto)).await;
 
     marker(&chat).await;
     stop_cleanly(&chat).await;
@@ -103,7 +111,7 @@ fn the_configured_mode_is_the_last_layer_that_sets_one_and_maps_where_the_app_ha
     mode_file(&managed, "auto");
     assert_eq!(
         configured(&env, project.path()),
-        (None, native("auto", true)),
+        (Some(ApprovalMode::Auto), native("auto", true)),
         "managed settings win"
     );
 

@@ -86,11 +86,13 @@ impl Rule {
 }
 
 /// The rules of `mode` for an agent with `rules` (see the module docs); `None` without an override.
+/// Auto is Claude Code's and refused before an OpenCode chat starts; should it reach here, it asks
+/// like Always ask.
 pub fn mode_rules(mode: Option<ApprovalMode>, rules: &[Rule]) -> Option<Vec<Rule>> {
     let rules: Vec<v1::Rule> = rules.iter().map(Rule::to_v1).collect();
 
     let list = match mode? {
-        ApprovalMode::AlwaysAsk => v1::gated(&rules, &ASK_EXEMPT, &[]),
+        ApprovalMode::AlwaysAsk | ApprovalMode::Auto => v1::gated(&rules, &ASK_EXEMPT, &[]),
         ApprovalMode::Write => v1::gated(&rules, &WRITE_EXEMPT, &WRITE_KEPT),
         ApprovalMode::Yolo => v1::relaxed(&rules),
     };
@@ -99,10 +101,10 @@ pub fn mode_rules(mode: Option<ApprovalMode>, rules: &[Rule]) -> Option<Vec<Rule
 }
 
 /// The actions `mode` lets through without asking whatever the agent says; `None` when the mode
-/// asks for nothing (Yolo).
+/// asks for nothing (Yolo). Auto, never an OpenCode mode, counts as Always ask.
 pub fn never_asked(mode: ApprovalMode) -> Option<&'static [&'static str]> {
     match mode {
-        ApprovalMode::AlwaysAsk => Some(&ASK_EXEMPT),
+        ApprovalMode::AlwaysAsk | ApprovalMode::Auto => Some(&ASK_EXEMPT),
         ApprovalMode::Write => Some(&WRITE_EXEMPT),
         ApprovalMode::Yolo => None,
     }

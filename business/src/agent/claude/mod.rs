@@ -8,8 +8,10 @@
 //!   `initialize` control request (with the ask-all hook in Always ask mode), its reply within the
 //!   startup limit (commands and models, never the account), then `ready`, `state` and
 //!   `commandsUpdated`. A new session without a model pick starts on Harness Skills' default model
-//!   role (`roles.rs`). A Yolo override is refused: the app never starts Claude Code's bypass mode.
-//!   A helper chat (AI naming) runs without tools and denies every ask.
+//!   role (`roles.rs`). An Auto override starts Claude Code in its `auto` mode, with no hook: its
+//!   classifier approves what it judges safe and the rest arrives as permission prompts. A Yolo
+//!   override is refused: the app never starts Claude Code's bypass mode. A helper chat (AI
+//!   naming) runs without tools and denies every ask.
 //! - **Frames** (`io.rs`): one task reads stdout and maps every frame with the [`ClaudeMapper`]
 //!   under the chat's lock, so prompt bookkeeping and event order never interleave. Replies to the
 //!   app's control requests resolve the waiting action through the session's pending-request table

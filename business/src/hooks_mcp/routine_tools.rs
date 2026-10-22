@@ -233,9 +233,10 @@ fn harness() -> Value {
 fn approval_mode() -> Value {
     json!({
         "type": "string",
-        "enum": ["alwaysAsk", "write", "yolo", "default"],
+        "enum": ["alwaysAsk", "write", "yolo", "auto", "default"],
         "description": "agent, omp, opencode and claude only: ask before every tool (alwaysAsk), before tools that write \
-            or run something (write), or never (yolo, not claude). Absent or default: the harness's setting",
+            or run something (write), never (yolo, not claude), or only about what the harness does not judge safe \
+            (auto, claude only). Absent or default: the harness's setting",
     })
 }
 
