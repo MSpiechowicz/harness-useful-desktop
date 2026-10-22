@@ -18,7 +18,7 @@ use super::super::config::names_project;
 use super::super::paths::config_dir;
 use super::settings::Settings;
 use crate::env::Env;
-use crate::harnesses::plugin_registry::{install_path, read_registry, split_id, verified_dir};
+use crate::harnesses::plugin_registry::{Registered, install_path, read_registry, split_id, verified_dir};
 use crate::model::{ExtensionScope, Notice, NoticeLevel, PluginInfo};
 use crate::pi_family::{read_json, text_field};
 
@@ -51,12 +51,28 @@ pub(super) fn plugins_dir(env: &Env) -> PathBuf {
     config_dir(env).join("plugins")
 }
 
+/// The plugins of `installed_plugins.json` with their install records (see
+/// [`read_registry`]); the error is a secret-free summary.
+pub(in crate::harnesses::claude) fn registered(env: &Env) -> Result<Vec<Registered>, String> {
+    read_registry(&plugins_dir(env).join("installed_plugins.json"))
+}
+
+/// The install record that applies everywhere: the user's (scope `user`, or none) and, when
+/// `managed`, also the organization's (`managed`).
+pub(in crate::harnesses::claude) fn global_install(installs: &[Value], managed: bool) -> Option<&Value> {
+    installs.iter().find(|install| {
+        let scope = install.get("scope").and_then(Value::as_str);
+
+        install.is_object() && scope.is_none_or(|scope| scope == "user" || (managed && scope == "managed"))
+    })
+}
+
 /// See the module docs.
 pub(super) fn installed(env: &Env, project: Option<&Path>, settings: &Settings) -> Plugins {
     let dir = plugins_dir(env);
     let mut found = Plugins::default();
 
-    let registered = match read_registry(&dir.join("installed_plugins.json")) {
+    let registered = match registered(env) {
         Ok(registered) => registered,
         Err(summary) => {
             found.notices.push(Notice {
@@ -97,15 +113,10 @@ fn applicable_install<'a>(installs: &'a [Value], project: Option<&Path>) -> Opti
         })
     };
 
-    let user = installs.iter().find(|install| {
-        let scope = install.get("scope").and_then(Value::as_str);
-        install.is_object() && scope.is_none_or(|scope| scope == "user" || scope == "managed")
-    });
-
     scoped("local")
         .or_else(|| scoped("project"))
         .map(|install| (install, ExtensionScope::Project))
-        .or_else(|| user.map(|install| (install, ExtensionScope::User)))
+        .or_else(|| global_install(installs, true).map(|install| (install, ExtensionScope::User)))
 }
 
 /// One plugin and, when it is enabled and its directory verified, what may be read from it.

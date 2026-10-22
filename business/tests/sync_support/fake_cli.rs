@@ -8,12 +8,17 @@ use harness_business::Result;
 use harness_business::process::{BoxFuture, ExecOutput, ExecSpec, ProcessRunner};
 use serde_json::{Value, json};
 
-use super::{Machine, OMP_MARKETPLACES, OMP_PLUGINS, OPENCODE_JSON, OPENCODE_JSONC, PI_SETTINGS, Probe, write_json};
+use super::{
+    CLAUDE_GLOBAL, CLAUDE_MARKETPLACES, CLAUDE_PLUGINS, Machine, OMP_MARKETPLACES, OMP_PLUGINS, OPENCODE_JSON,
+    OPENCODE_JSONC, PI_SETTINGS, Probe, write_json,
+};
 
-/// The fake `omp`, `pi` and `opencode`: records each command line (program file name first) and,
-/// unless told to fail it, does what it asks to the files of `home`: registers a marketplace (named
-/// after `marketplace_names`), installs a user plugin, adds a PI package, adds an OpenCode plugin to
-/// `opencode.json` (`plugin <spec> -g` to `plugin`, OpenCode 2's `plugin add <spec>` to `plugins`).
+/// The fake `omp`, `pi`, `opencode` and `claude`: records each command line (program file name
+/// first) and, unless told to fail it, does what it asks to the files of `home`: registers a
+/// marketplace (named after `marketplace_names`), installs a user plugin, adds a PI package, adds an
+/// OpenCode plugin to `opencode.json` (`plugin <spec> -g` to `plugin`, OpenCode 2's `plugin add
+/// <spec>` to `plugins`), adds a server to the user scope of Claude Code's global file (`mcp
+/// add-json`, refused with exit code 1 for a name it has, as Claude Code does).
 ///
 /// `opencode debug config` answers the machine's [`Probe`]; it is recorded in
 /// [`FakeCli::probes`], not in [`FakeCli::seen`].
@@ -183,8 +188,68 @@ impl FakeCli {
                 }
                 write_json(&path, &config);
             }
+            [
+                "claude",
+                "plugin",
+                "marketplace",
+                "add",
+                source,
+                "--scope",
+                "user",
+                "--json",
+            ] => {
+                let name = self
+                    .marketplace_names
+                    .iter()
+                    .find(|(known, _)| known == source)
+                    .map_or(*source, |(_, name)| name.as_str());
+                let recorded = match source.strip_prefix("https://") {
+                    Some(_) => json!({ "source": "git", "url": source }),
+                    None => json!({ "source": "github", "repo": source }),
+                };
+                let path = self.home.join(CLAUDE_MARKETPLACES);
+                let mut registry = read_json(&path);
+                registry[name] = json!({ "source": recorded, "installLocation": "~/.claude/plugins/marketplaces/x" });
+                write_json(&path, &registry);
+            }
+            ["claude", "plugin", "install", id, "--scope", "user", "--json"] => {
+                let path = self.home.join(CLAUDE_PLUGINS);
+                let mut registry = read_json(&path);
+                if registry.get("plugins").is_none() {
+                    registry = json!({ "version": 2, "plugins": {} });
+                }
+                registry["plugins"][*id] = json!([{ "scope": "user", "version": "1.0.0" }]);
+                write_json(&path, &registry);
+            }
             _ => panic!("unexpected command {argv:?}"),
         }
+    }
+
+    /// `claude mcp add-json --scope user <name> <json>`: `None` for any other command line.
+    fn claude_mcp(&self, argv: &[String]) -> Option<ExecOutput> {
+        let args: Vec<&str> = argv.iter().map(String::as_str).collect();
+        let ["claude", "mcp", "add-json", "--scope", "user", name, definition] = args.as_slice() else {
+            return None;
+        };
+
+        let path = self.home.join(CLAUDE_GLOBAL);
+        let mut global = read_json(&path);
+        if global["mcpServers"].get(*name).is_some() {
+            return Some(ExecOutput {
+                status: Some(1),
+                stderr: format!("MCP server {name} already exists in user config"),
+                ..ExecOutput::default()
+            });
+        }
+
+        global["mcpServers"][*name] = serde_json::from_str(definition).unwrap();
+        write_json(&path, &global);
+
+        Some(ExecOutput {
+            status: Some(0),
+            stdout: format!("Added MCP server {name} to user config"),
+            ..ExecOutput::default()
+        })
     }
 }
 
@@ -216,6 +281,8 @@ impl ProcessRunner for FakeCli {
                 stderr: "✘ Failed to add marketplace: Error: not found".to_owned(),
                 ..ExecOutput::default()
             }
+        } else if let Some(output) = self.claude_mcp(&argv) {
+            output
         } else {
             self.perform(&argv);
             ExecOutput {

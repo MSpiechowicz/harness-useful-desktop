@@ -16,8 +16,10 @@ mod settings;
 use std::path::{Path, PathBuf};
 
 use self::markdown::{Folder, agents, commands};
+pub(super) use self::marketplaces::{known_entries, source_location};
 use self::plugins::{EnabledPlugin, installed};
-use self::settings::Settings;
+pub(super) use self::plugins::{global_install, registered};
+pub(super) use self::settings::Settings;
 use super::config::global_sections;
 use super::paths::{PROJECT_DIR_NAME, config_dir};
 use crate::env::Env;

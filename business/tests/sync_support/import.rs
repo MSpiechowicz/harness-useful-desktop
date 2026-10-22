@@ -39,6 +39,9 @@ pub const OMP_PLUGINS: &str = ".omp/plugins/installed_plugins.json";
 pub const PI_SETTINGS: &str = ".pi/agent/settings.json";
 pub const OPENCODE_JSON: &str = ".config/opencode/opencode.json";
 pub const OPENCODE_JSONC: &str = ".config/opencode/opencode.jsonc";
+pub const CLAUDE_GLOBAL: &str = ".claude.json";
+pub const CLAUDE_MARKETPLACES: &str = ".claude/plugins/known_marketplaces.json";
+pub const CLAUDE_PLUGINS: &str = ".claude/plugins/installed_plugins.json";
 
 /// What the fake `opencode debug config` answers.
 #[derive(Debug, Clone)]

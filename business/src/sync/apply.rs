@@ -12,7 +12,9 @@
 //! through [`run_cli_action`] (fixed argv, no shell, ANSI stripped, output redacted and capped), in
 //! the user scope and without a project. The MCP servers of one file are written by one
 //! `merge_entries` call; a refused file skips all of them, and an OpenCode config file with
-//! comments skips them as `manualEdit`, each with the entry to paste. OpenCode servers are first
+//! comments skips them as `manualEdit`, each with the entry to paste. Claude Code's servers are
+//! never merged: each is added through `claude mcp add-json --scope user` ([`super::apply_mcp_cli`],
+//! which needs the binary like a CLI item). OpenCode servers are first
 //! checked against the names OpenCode merges from all its layers (`merged_mcp_names`: `opencode
 //! debug config`, on OpenCode 2 `opencode api --standalone GET /api/config`; run once per apply
 //! after OpenCode's CLI items and before any of its servers is written, and only when one of them
@@ -31,6 +33,7 @@ use std::collections::{BTreeMap, HashSet};
 
 use super::StoredPlan;
 use super::apply_mcp::{Names, any_missing, mcp_batch, opencode_merged};
+use super::apply_mcp_cli::cli_server;
 use super::plan_presence::{Machine, McpFiles, Presence};
 use super::plan_rows::{Step, StoredItem};
 use crate::env::Env;
@@ -99,6 +102,16 @@ pub async fn apply_plan(
         };
 
         for (files, servers) in by_file(&servers) {
+            // Claude Code's servers are added one by one through its CLI.
+            if let Some(files) = files.as_ref().filter(|files| files.via_cli()) {
+                for item in servers {
+                    run.started(item, &mut sink);
+                    let outcome = cli_server(context, files, item).await;
+                    run.finished(item, outcome, &mut sink);
+                }
+                continue;
+            }
+
             for item in &servers {
                 run.started(item, &mut sink);
             }

@@ -8,8 +8,10 @@
 //! ([`sessions`]). Plugin and marketplace actions run `claude plugin …` ([`cli`]). Recommended
 //! setup installs the Harness Skills plugin from its marketplace ([`setup`] reads the registries)
 //! and registers the Harness family MCP servers in the user scope through `claude mcp`
-//! ([`McpTarget::ClaudeCli`]). Chat is not available yet, and the catalog lists every command as
-//! unsupported. Every spawn switches off Claude's self-updater.
+//! ([`McpTarget::ClaudeCli`]). Share setup shares its marketplaces, user plugins and user MCP
+//! servers ([`Harness::share_support`]; an imported server is added through `claude mcp add-json`).
+//! Chat is not available yet, and the catalog lists every command as unsupported. Every spawn
+//! switches off Claude's self-updater.
 
 mod catalog;
 mod cli;
@@ -22,7 +24,9 @@ mod setup;
 pub use catalog::ClaudeCatalog;
 pub use cli::{claude_cli_action, claude_summary};
 pub use paths::{PROJECT_DIR_NAME, config_dir, global_config_file, project_slug};
-pub use setup::{KnownMarketplace, UserPlugin, known_marketplaces, user_plugins};
+pub use setup::{
+    KnownMarketplace, PluginRecord, PluginScope, UserPlugin, known_marketplaces, plugin_records, user_plugins,
+};
 
 use crate::ecosystem::catalog::{CLAUDE_SKILLS_PLUGIN, SKILLS_MARKETPLACE};
 use crate::error::BusinessError;
@@ -180,6 +184,16 @@ impl Harness for Claude {
                 plugin: CLAUDE_SKILLS_PLUGIN,
             },
             mcp: McpTarget::ClaudeCli,
+        }
+    }
+
+    /// Marketplaces, user plugins and the user scope's MCP servers (see [`crate::sync`]).
+    fn share_support(&self) -> ShareSupport {
+        ShareSupport {
+            marketplaces: true,
+            plugins: true,
+            packages: false,
+            mcp_servers: true,
         }
     }
 
