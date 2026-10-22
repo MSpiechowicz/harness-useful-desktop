@@ -5,7 +5,7 @@
 use serde::Deserialize;
 use serde_json::Value;
 
-use super::nullable;
+use super::{lenient, nullable};
 
 /// An `assistant` frame: one content block of an API message (several frames share `message.id`).
 #[derive(Debug, Clone, PartialEq, Default, Deserialize)]
@@ -50,13 +50,13 @@ pub struct ApiMessage {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
 #[serde(default)]
 pub struct ApiUsage {
-    #[serde(deserialize_with = "nullable")]
+    #[serde(deserialize_with = "lenient")]
     pub input_tokens: u64,
-    #[serde(deserialize_with = "nullable")]
+    #[serde(deserialize_with = "lenient")]
     pub output_tokens: u64,
-    #[serde(deserialize_with = "nullable")]
+    #[serde(deserialize_with = "lenient")]
     pub cache_read_input_tokens: u64,
-    #[serde(deserialize_with = "nullable")]
+    #[serde(deserialize_with = "lenient")]
     pub cache_creation_input_tokens: u64,
 }
 

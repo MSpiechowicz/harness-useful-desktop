@@ -12,14 +12,17 @@
 //! - **Replies** (see [`replies`]): streamed from the `stream_event` frames, confirmed by the
 //!   `assistant` frames; **tool cards** (see [`tools`]) with touched paths; **subagents** from the
 //!   `task_*` frames (see [`tasks`]). Frames of a subagent (`parent_tool_use_id`) are not shown.
+//! - **Bounds:** a reply's streamed text and a tool call's streamed input stop growing at
+//!   [`MAX_STREAMED_BYTES`] (the reply ends with a note that it was cut).
 //! - **User frames** are never shown as the user's messages (the engine shows what it sent): tool
 //!   results end tool cards, `[Request interrupted by user]` aborts the turn, a compaction summary
 //!   is skipped, and `<local-command-stdout>` (from `set_model`, a local command) is a notice.
 //! - **Errors:** the CLI's sign-in error becomes [`SIGN_IN_ERROR`]; other API errors and `error_*`
 //!   results fail the turn with their first redacted line.
-//! - **Hints:** the session id, `system/init`, where each sent message is in the CLI's queue, the
-//!   turn's outcome for statistics, compactions, permission prompts and questions ([`Ask`]), hook
-//!   callbacks, replies to the engine's control requests, and session changes.
+//! - **Hints:** the session id (only a well-formed one, a UUID), `system/init`, where each sent
+//!   message is in the CLI's queue, the turn's outcome for statistics, compactions, permission
+//!   prompts and questions ([`Ask`]), hook callbacks, replies to the engine's control requests,
+//!   and session changes.
 
 mod asks;
 mod notes;
@@ -31,10 +34,11 @@ mod turns;
 use std::path::Path;
 
 pub use self::asks::{Ask, PermissionAsk, Question, QuestionAsk, QuestionOption};
+pub use self::replies::REPLY_CUT;
 use self::replies::Replies;
 use self::tasks::Tasks;
 use self::tools::Tools;
-pub use self::tools::UNFINISHED_TOOL;
+pub use self::tools::{TOOL_INPUT_CUT, UNFINISHED_TOOL};
 pub use self::turns::{SIGN_IN_ERROR, TurnEnd};
 use self::turns::{Sends, Turn};
 use crate::claude_stream::wire::control::{HookCallback, SlashCommand};
@@ -44,7 +48,12 @@ use crate::claude_stream::wire::{
     CliRequest, CommandLifecycle, ControlRequestFrame, ControlResponse, ConversationReset, Inbound, LifecycleState,
     RateLimitInfo, decode,
 };
+use crate::harnesses::claude::is_session_id;
 use crate::model::AgentEvent;
+
+/// The most bytes of streamed text one open reply (its text and thinking) or one tool call's
+/// streamed input holds; what streams past it is dropped, after a note.
+pub const MAX_STREAMED_BYTES: usize = 8 * 1024 * 1024;
 
 /// One output of the mapper, in order.
 #[derive(Debug, Clone, PartialEq)]
@@ -253,8 +262,10 @@ impl ClaudeMapper {
         self.turn.is_active() || self.turn.is_compacting() || self.sends.waiting()
     }
 
+    /// Notes the session id `frame` names; one that is not a Claude Code session id (a UUID) is
+    /// ignored, as it names files and folders of the session.
     fn note_session(&mut self, frame: &Inbound, out: &mut Out) {
-        let Some(id) = frame.session_id() else {
+        let Some(id) = frame.session_id().filter(|id| is_session_id(id)) else {
             return;
         };
 
@@ -377,7 +388,10 @@ impl ClaudeMapper {
                 self.sends.queued(&uuid);
                 out.hint(Hint::PromptQueued(uuid));
             }
-            LifecycleState::Started => out.hint(Hint::PromptStarted(uuid)),
+            LifecycleState::Started => {
+                self.sends.started(&uuid);
+                out.hint(Hint::PromptStarted(uuid));
+            }
             LifecycleState::Completed => {
                 self.sends.done(&uuid);
                 out.hint(Hint::PromptCompleted(uuid));

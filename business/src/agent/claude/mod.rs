@@ -35,10 +35,11 @@ mod startup;
 use std::path::Path;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
-use tokio::sync::{oneshot, watch};
+use tokio::sync::watch;
 
 use self::dialogs::Dialogs;
 use self::relay::Port;
+use self::runs::Shell;
 use self::startup::Launcher;
 use super::io::Shared;
 use super::process::AgentProcess;
@@ -112,7 +113,9 @@ struct Live {
     /// The session a fork or clone copied, shown until its own file exists.
     origin: Option<Origin>,
     /// Stops the running `!command`.
-    shell: Option<oneshot::Sender<()>>,
+    shell: Option<Shell>,
+    /// The `!command`s started so far (each run's number).
+    shell_runs: u64,
     /// The chat moved on to another process: nothing more is sent here.
     retired: bool,
 }
@@ -152,6 +155,7 @@ impl Live {
             counts: MessageCounts::default(),
             origin: None,
             shell: None,
+            shell_runs: 0,
             retired: false,
         }
     }
@@ -279,7 +283,7 @@ impl ClaudeSession {
         let shell = run.chat.lock().shell.take();
 
         if let Some(shell) = shell {
-            shell.send(()).ok();
+            shell.stop();
         }
 
         run.process.stop().await;

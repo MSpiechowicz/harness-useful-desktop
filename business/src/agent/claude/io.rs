@@ -8,7 +8,8 @@
 //!   registered in the session's pending table before it is written; the CLI's `control_response`
 //!   resolves it, and a request without an answer within its limit fails as timed out.
 //! - **Requests of the CLI:** permission prompts, questions, dialogs and hook callbacks go to the
-//!   chat's dialogs (`dialogs.rs`), an unknown subtype is answered with an error.
+//!   chat's dialogs (`dialogs.rs`), an unknown subtype is answered with an error. A prompt or
+//!   question past [`MAX_OPEN_ASKS`] open ones is denied at once.
 //!
 //! [`ClaudeMapper`]: crate::claude_stream::ClaudeMapper
 
@@ -23,14 +24,22 @@ use super::reports::reply_text;
 use super::{Chat, Live};
 use crate::agent::io::WriterMsg;
 use crate::agent::process::Stdout;
-use crate::claude_stream::mapper::Hint;
-use crate::claude_stream::wire::outbound::{HostRequest, control_error, control_request, next_request_id};
+use crate::claude_stream::mapper::{Ask, Hint};
+use crate::claude_stream::wire::outbound::{
+    HostRequest, control_error, control_request, next_request_id, permission_deny,
+};
 use crate::claude_stream::wire::{ControlResponse, decode_value};
 use crate::claude_stream::{Mapped, SendKind};
 use crate::error::{BusinessError, Result};
 use crate::model::{AgentEvent, MessageRole, StreamingBehavior};
 use crate::pi_family::rpc::{Frame, FrameReader, RequestKind, RpcResponse, await_response, encode_frame};
 use crate::security::redact_text;
+
+/// The most asks open at once; the CLI's next one is denied.
+pub(super) const MAX_OPEN_ASKS: usize = 256;
+
+/// The deny of an ask past [`MAX_OPEN_ASKS`].
+const TOO_MANY_ASKS: &str = "Too many requests are waiting for the user. Answer those first.";
 
 /// Waits for the chat (built once the process runs), then reads its stdout until it ends.
 pub(super) async fn read_stdout(stdout: Stdout, chat: oneshot::Receiver<Arc<Chat>>) {
@@ -137,6 +146,9 @@ impl Chat {
                 self.emit_commands(live);
             }
             Hint::PermissionMode(mode) => live.permission_mode = Some(mode),
+            Hint::Ask(ask) if live.dialogs.len() >= MAX_OPEN_ASKS && opens_dialog(&ask) => {
+                answers.push(permission_deny(ask.request_id(), TOO_MANY_ASKS));
+            }
             Hint::Ask(ask) => {
                 let mut out = Outcome::default();
                 live.dialogs.asked(ask, &mut out);
@@ -239,6 +251,11 @@ impl Chat {
             state: self.state(live),
         });
     }
+}
+
+/// True for an ask that waits as a dialog (the others are answered at once).
+fn opens_dialog(ask: &Ask) -> bool {
+    matches!(ask, Ask::Permission(_) | Ask::Question(_))
 }
 
 /// What a sent user message is to the mapper.

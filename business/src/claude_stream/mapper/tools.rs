@@ -8,6 +8,8 @@
 //! - The `tool_result` block of a `user` frame ends it (`toolEnd`) with its redacted text and
 //!   `is_error` (a denied call is an error with the denial message). A call that did not fail
 //!   names the project files it may have changed ([`touched_paths`]).
+//! - Streamed input stops growing at [`MAX_STREAMED_BYTES`]: a call that starts from it then shows
+//!   [`TOOL_INPUT_CUT`] as its only argument.
 //! - A call still running when its turn ends fails with [`UNFINISHED_TOOL`]. Results of calls the
 //!   chat never saw start (a subagent's, an earlier process's) are not shown.
 
@@ -16,6 +18,7 @@ use std::path::PathBuf;
 
 use serde_json::{Value, json};
 
+use super::MAX_STREAMED_BYTES;
 use crate::claude_stream::tools::touched_paths;
 use crate::model::{AgentEvent, ChatBlock};
 use crate::pi_family::normalize::tool_result;
@@ -23,6 +26,9 @@ use crate::security::redact_text;
 
 /// Result text of a call still running when its turn ended.
 pub const UNFINISHED_TOOL: &str = "The tool call did not finish.";
+
+/// The `note` argument of a call whose streamed input grew past [`MAX_STREAMED_BYTES`].
+pub const TOOL_INPUT_CUT: &str = "The tool input was too long to show.";
 
 /// The calls of the running turn.
 pub(super) struct Tools {
@@ -38,6 +44,8 @@ struct Call {
     name: String,
     /// The input as streamed so far.
     raw: String,
+    /// The streamed input grew past the bound (and was dropped).
+    raw_cut: bool,
     /// The complete input, once known.
     input: Value,
     started: bool,
@@ -66,6 +74,7 @@ impl Tools {
             Call {
                 name: name.to_owned(),
                 raw: String::new(),
+                raw_cut: false,
                 input: Value::Null,
                 started: false,
                 ended: false,
@@ -76,9 +85,17 @@ impl Tools {
     }
 
     pub(super) fn input_delta(&mut self, id: &str, json: &str) {
-        if let Some(call) = self.calls.get_mut(id) {
-            call.raw.push_str(json);
+        let Some(call) = self.calls.get_mut(id).filter(|call| !call.raw_cut) else {
+            return;
+        };
+
+        if call.raw.len() + json.len() > MAX_STREAMED_BYTES {
+            call.raw_cut = true;
+            call.raw = String::new();
+            return;
         }
+
+        call.raw.push_str(json);
     }
 
     /// The block of call `id` stopped: it starts with the streamed input, unless it already did.
@@ -88,7 +105,7 @@ impl Tools {
         };
 
         if call.input.is_null() {
-            call.input = parsed(&call.raw);
+            call.input = streamed_input(call);
         }
 
         start(id, call, out);
@@ -152,7 +169,7 @@ impl Tools {
         };
 
         if call.input.is_null() {
-            call.input = parsed(&call.raw);
+            call.input = streamed_input(call);
         }
 
         start(id, call, out);
@@ -187,6 +204,15 @@ fn start(id: &str, call: &mut Call, out: &mut Vec<AgentEvent>) {
         args: object(&call.input),
         intent: intent(&call.input),
     });
+}
+
+/// The input `call` streamed; a note once it grew past the bound.
+fn streamed_input(call: &Call) -> Value {
+    if call.raw_cut {
+        return json!({ "note": TOOL_INPUT_CUT });
+    }
+
+    parsed(&call.raw)
 }
 
 /// The streamed input as JSON; `null` while it is incomplete.

@@ -1,0 +1,8 @@
+// A turn (tools.jsonl lines 7 to 26) asks 257 permission prompts at once, shaped after tools.jsonl
+// line 30: the engine opens 256 and denies the last, then the `Marker` title tells the test.
+{"include": "claude_init.jsonl"}
+{"expect": "user", "as": "prompt"}
+{"replay": "../claude/stream/tools.jsonl", "from": 7, "to": 26, "replace": {"8eaa941b-e611-4895-bac2-95b7d3e75f4f": "$prompt"}}
+{"emit": {"type": "control_request", "request_id": "$index", "request": {"subtype": "can_use_tool", "tool_name": "Read", "display_name": "Read", "input": {"file_path": "notes.txt"}, "description": "notes.txt", "tool_use_id": "toolu_01ATYkU9KWcM1vnvdzgqt7b2"}}, "times": 257}
+{"expect": "control_response", "match": {"/response/request_id": "ask-256", "/response/subtype": "success", "/response/response/behavior": "deny", "/response/response/message": "Too many requests are waiting for the user. Answer those first."}}
+{"emit": {"type": "system", "subtype": "session_title_changed", "title": "Marker", "session_id": "0a433744-8ef1-4d3c-861b-8ff5bc0e302c"}}

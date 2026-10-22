@@ -5,7 +5,9 @@
 //! - [`decode`] reads one stdout line as an [`Inbound`] frame. A frame type or `system` subtype this
 //!   app does not know decodes to an `Unknown` variant, and unknown fields are ignored, so a newer
 //!   Claude Code never breaks the chat. Only a line that is not a JSON object, or a known frame whose
-//!   shape does not fit, is a [`FrameError`] (it never carries frame content).
+//!   shape does not fit, is a [`FrameError`] (it never carries frame content). Informational
+//!   numbers (counts, durations, tokens, costs) are read leniently ([`lenient`]): a float or
+//!   another value where a whole number was expected never fails the frame.
 //! - [`messages`]: `assistant`, `user` and `stream_event` frames and their content blocks.
 //! - [`system`]: the `system` subtypes (`init`, `status`, `compact_boundary`, `task_*`, …).
 //! - [`result`]: the `result` frame that ends every turn.
@@ -232,4 +234,62 @@ where
     T: Default + Deserialize<'de>,
 {
     Ok(Option::<T>::deserialize(deserializer)?.unwrap_or_default())
+}
+
+/// A number field read leniently: a whole number, or a float rounded (a negative or non-finite one,
+/// a string or any other value reads as the default), so an informational number never fails a
+/// frame. `null` and an absent field read as the default too.
+pub(crate) fn lenient<'de, D, T>(deserializer: D) -> Result<T, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Lenient + Default,
+{
+    Ok(lenient_option(deserializer)?.unwrap_or_default())
+}
+
+/// As [`lenient`], `None` for what is not a fitting number.
+pub(crate) fn lenient_option<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Lenient,
+{
+    Ok(T::read(&Value::deserialize(deserializer)?))
+}
+
+/// A number type [`lenient`] reads.
+pub(crate) trait Lenient: Sized {
+    fn read(value: &Value) -> Option<Self>;
+}
+
+impl Lenient for f64 {
+    fn read(value: &Value) -> Option<Self> {
+        value.as_f64().filter(|number| number.is_finite())
+    }
+}
+
+macro_rules! lenient_whole {
+    ($($kind:ty),*) => {$(
+        impl Lenient for $kind {
+            fn read(value: &Value) -> Option<Self> {
+                Self::try_from(whole(value)?).ok()
+            }
+        }
+    )*};
+}
+
+lenient_whole!(u16, u32, u64);
+
+/// `value` as a whole number: as sent, or a float rounded; `None` when negative, not finite or not
+/// a number.
+fn whole(value: &Value) -> Option<u64> {
+    if let Some(number) = value.as_u64() {
+        return Some(number);
+    }
+
+    let number = value.as_f64().filter(|number| number.is_finite() && *number >= 0.0)?;
+    let rounded = number.round();
+
+    // Saturates above u64::MAX, which no real count reaches.
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    Some(rounded as u64)
 }
