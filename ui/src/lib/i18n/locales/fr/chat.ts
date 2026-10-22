@@ -359,6 +359,7 @@ export const chat: AreaMessages<typeof enChat> = {
   'chat.toast.noAnswer': 'L’agent n’a pas reçu votre réponse',
   'chat.toast.alreadySent': 'Ce message a déjà atteint l’agent',
   'chat.toast.startFailed': 'Impossible de démarrer l’agent',
+  'chat.toast.startFailedHint': 'Vérifiez que l’agent (OMP, PI, OpenCode) est à jour. Une version obsolète est la cause la plus fréquente.',
   'chat.toast.comingSoon': 'Le chat avec {harness} arrive bientôt',
   'chat.toast.comingSoonBody': 'Les sessions, la configuration et les extensions fonctionnent déjà.',
   'chat.toast.untrusted': '{harness} ne fait pas encore confiance à {folder}',

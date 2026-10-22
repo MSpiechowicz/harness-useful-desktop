@@ -2,7 +2,7 @@ import { t, tn } from '$lib/i18n/i18n.svelte';
 import type { AgentStartRequest } from '$lib/ipc/bindings/AgentStartRequest';
 import { IpcFailure } from '$lib/ipc/transport';
 
-import type { RestoredChat } from './agent-tabs';
+import { type RestoredChat, startFailureMessage } from './agent-tabs';
 import { harness } from './harness.svelte';
 import type { ToastInput } from './toasts.svelte';
 
@@ -48,7 +48,10 @@ export function startFailureToast(error: unknown, request: AgentStartRequest, tr
   }
 
   // A long reason names a fix to carry out (a folder to chmod): it stays until the user dismisses it.
-  return { title: t('chat.toast.startFailed'), description: failure.message, tone: 'danger', duration: failure.message.length > LONG_START_FAILURE ? 0 : undefined };
+  // An agent that never answered or spoke wrongly is most often outdated: the message says so (startFailureMessage).
+  const message = startFailureMessage(error);
+
+  return { title: t('chat.toast.startFailed'), description: message, tone: 'danger', duration: message.length > LONG_START_FAILURE ? 0 : undefined };
 }
 
 /**

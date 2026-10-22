@@ -1,7 +1,9 @@
 import type { AgentEnvelope } from '$lib/ipc/bindings/AgentEnvelope';
 import type { ApprovalMode } from '$lib/ipc/bindings/ApprovalMode';
 import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
+import { t } from '$lib/i18n/i18n.svelte';
 import type { SessionRoutineTag } from '$lib/ipc/bindings/SessionRoutineTag';
+import { IpcFailure } from '$lib/ipc/transport';
 import { generatedNameCount } from '$lib/chat/naming';
 import type { ChatSession } from '$lib/chat/session.svelte';
 import type { ChatMemory } from './memory-chat';
@@ -69,4 +71,15 @@ export function nextNumber(taken: Iterable<number>): number {
   }
 
   return next;
+}
+
+/**
+ * What a failed agent start says. An agent that never answered or spoke wrongly is most often outdated, so that is said first, in the user's language.
+ * Other failures (a missing binary, a folder to chmod) name their own fix and stay as they are.
+ */
+export function startFailureMessage(error: unknown): string {
+  const failure = IpcFailure.from(error);
+  const outdated = failure.code === 'timeout' || failure.code === 'protocol';
+
+  return outdated ? `${t('chat.toast.startFailedHint')} ${failure.message}` : failure.message;
 }

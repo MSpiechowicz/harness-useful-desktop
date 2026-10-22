@@ -1,3 +1,11 @@
+## [0.37.2](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.37.1...v0.37.2) (2026-10-22)
+
+
+### Bug Fixes
+
+* **chat:** hint at an outdated agent when its start times out or breaks the protocol ([a4df37e](https://github.com/MSpiechowicz/harness-useful-desktop/commit/a4df37e88fdb3f6df1fc450a85b6c68af520864d))
+* **memory:** show a loading state instead of an empty list while a cleared filter is read ([d06f4e4](https://github.com/MSpiechowicz/harness-useful-desktop/commit/d06f4e4758dfbf370738b3d40ee89ebab59452a6))
+
 ## [0.37.1](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.37.0...v0.37.1) (2026-10-22)
 
 
