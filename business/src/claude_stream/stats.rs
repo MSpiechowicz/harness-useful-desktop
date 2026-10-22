@@ -8,8 +8,10 @@
 //!   a resumed session adds what its history used.
 //! - **Context**, as Claude Code's `/context` shows it: the `get_context_usage` reply when asked
 //!   (its `totalTokens` of `maxTokens`), else the newest model call of a turn (its input, cache and
-//!   output tokens) against the context window the turn's result names for the session's model. A
-//!   turn whose result names no window for that model hides the meter (never a stale one). A
+//!   output tokens) against the context window the turn's result names for the session's model
+//!   (its key, else the only model listed). When the result names none for it (several models
+//!   with an aliased key, say) the window an earlier result named for the same model stays. A
+//!   turn of another model without a named window hides the meter (never a stale one). A
 //!   compaction sets it to the tokens left.
 //! - **Counts** are the chat's messages, which the engine counts ([`MessageCounts`]).
 
@@ -39,6 +41,8 @@ pub struct ClaudeStats {
     context: Option<ContextUsage>,
     /// The context window of the session's model, once a result named it.
     window: Option<u64>,
+    /// The newest window a result named, with the session model it was named for.
+    named: Option<(String, u64)>,
 }
 
 impl ClaudeStats {
@@ -53,7 +57,17 @@ impl ClaudeStats {
         self.tokens = tokens;
         self.cost_usd = result.total_cost_usd.filter(|cost| *cost > 0.0).or(cost);
 
-        let known = window(&result.model_usage, model);
+        let named = window(&result.model_usage, model);
+
+        if let (Some(model), Some(window)) = (model, named) {
+            self.named = Some((model.to_owned(), window));
+        }
+
+        let earlier = match (&self.named, model) {
+            (Some((named_for, window)), Some(model)) if named_for == model => Some(*window),
+            _ => None,
+        };
+        let known = named.or(earlier);
 
         // A turn without a model call (a quiet run) leaves the meter as it was.
         let Some(used) = last_call_tokens(result) else {

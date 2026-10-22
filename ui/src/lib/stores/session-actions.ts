@@ -27,12 +27,18 @@ function emptyChatFor(agents: AgentSessionsStore, ref: SessionRef, project: stri
   return agents.active && empty(agents.active) ? agents.active : agents.sessions.find(empty);
 }
 
-function startResumed(agents: AgentSessionsStore, ref: SessionRef, project: string): Promise<ChatSession | null> {
-  return agents.start({ harness: ref.harness, project, resume: ref, approvalOverride: null, trustOnce: false, utility: false, memoryChat: null });
+/** Whether a start trusts the folder once: only after the user picked "Trust once" on the toast of a refused start. */
+interface TrustOption {
+  trustOnce?: boolean;
+}
+
+/** Starts an agent on saved session `ref`; `retry` is the caller's flow again, trusting the folder once (see `AgentSessionsStore.start`). */
+function startResumed(agents: AgentSessionsStore, ref: SessionRef, project: string, trustOnce: boolean, retry: () => void): Promise<ChatSession | null> {
+  return agents.start({ harness: ref.harness, project, resume: ref, approvalOverride: null, trustOnce, utility: false, memoryChat: null }, { retry });
 }
 
 /** Opens a saved session in the chat view, reusing the chat that already has it open. */
-export async function resumeInChat(agents: AgentSessionsStore, ref: SessionRef, project: string): Promise<boolean> {
+export async function resumeInChat(agents: AgentSessionsStore, ref: SessionRef, project: string, { trustOnce = false }: TrustOption = {}): Promise<boolean> {
   const open = openChatOf(agents, ref);
   if (open) {
     agents.select(open.key);
@@ -42,7 +48,7 @@ export async function resumeInChat(agents: AgentSessionsStore, ref: SessionRef, 
   }
 
   const empty = emptyChatFor(agents, ref, project);
-  const session = await startResumed(agents, ref, project);
+  const session = await startResumed(agents, ref, project, trustOnce, () => void resumeInChat(agents, ref, project, { trustOnce: true }));
   if (!session) {
     return false;
   }
@@ -61,14 +67,14 @@ export async function resumeInChat(agents: AgentSessionsStore, ref: SessionRef, 
  * resumed in a fresh agent first. Either way the history is reloaded so the chat shows the forked path. A refused
  * fork stops the agent that was started for it, never a chat the user already had open.
  */
-export async function forkInChat(agents: AgentSessionsStore, ref: SessionRef, entryId: string, project: string): Promise<boolean> {
+export async function forkInChat(agents: AgentSessionsStore, ref: SessionRef, entryId: string, project: string, { trustOnce = false }: TrustOption = {}): Promise<boolean> {
   const open = openChatOf(agents, ref);
   if (open) {
     return forkOpenChat(agents, open, entryId);
   }
 
   const empty = emptyChatFor(agents, ref, project);
-  const session = await startResumed(agents, ref, project);
+  const session = await startResumed(agents, ref, project, trustOnce, () => void forkInChat(agents, ref, entryId, project, { trustOnce: true }));
   if (!session) {
     return false;
   }

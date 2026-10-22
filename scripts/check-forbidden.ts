@@ -226,6 +226,25 @@ const CLAUDE_RULES: readonly Rule[] = [
     extensions: SOURCE,
     optOut: false,
   },
+  {
+    id: 'claude-prompt-tool',
+    reason: 'Claude Code permission prompts go only to the app (--permission-prompt-tool stdio), never to another tool',
+    // Over the whole file: the value may be the next argv token on its own line.
+    pattern: new RegExp(String.raw`--permission-prompt-tool(?:=|[ \t]+|${QUOTE}\s*,\s*${QUOTE})(?![ \t]|stdio\b)`, 'g'),
+    extensions: ['.rs'],
+    only: CLAUDE_ENGINE,
+    scope: 'file',
+    optOut: false,
+  },
+  {
+    id: 'claude-settings-flags',
+    reason:
+      'never pass --settings, --setting-sources, --allowedTools or --add-dir to Claude Code; rules, folders and settings stay the user\'s',
+    pattern: /["'`]--(?:settings|setting-sources|allowedTools|allowed-tools|add-dir)(?:["'`]|=)/,
+    extensions: ['.rs'],
+    only: CLAUDE_ENGINE,
+    optOut: false,
+  },
 ];
 
 const RULES: readonly Rule[] = [

@@ -223,7 +223,7 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.memoryRemote.routines.title': 'Routines',
   'settings.memoryRemote.routines.description': 'Vos routines restent toujours ici. Distant ajoute celles que d’autres partagent.',
   'settings.memoryRemote.trustRoutines.title': 'Exécuter les routines distantes sans demander',
-  'settings.memoryRemote.trustRoutines.description': 'Les routines de la base de données distante s’exécutent sans vous demander d’abord. Toute personne pouvant écrire dans la base de données distante pourra alors exécuter du code sur cet ordinateur.',
+  'settings.memoryRemote.trustRoutines.description': 'Les routines de la base de données distante s’exécutent sans vous demander d’abord. Les routines PI et Claude Code peuvent alors aussi faire confiance une fois à leur dossier. Toute personne pouvant écrire dans la base de données distante pourra alors exécuter du code sur cet ordinateur.',
   'settings.memoryRemote.target.remoteLocal': 'Distant + cet ordinateur',
   'settings.memoryRemote.routing.unsupported': 'Mettez Harness Memory à jour pour lire les notes distantes et enregistrer les nouvelles sur cet ordinateur.',
   'settings.memoryRemote.change.title': 'Changer l’emplacement de la mémoire ?',

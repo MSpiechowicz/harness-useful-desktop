@@ -1,10 +1,8 @@
 import { applyChatDefaults } from '$lib/chat/chat-defaults';
 import { activeSubagentCount } from '$lib/chat/subagents';
-import { SvelteMap } from 'svelte/reactivity';
 
 import { t } from '$lib/i18n/i18n.svelte';
 import { requestAiLabel } from '$lib/chat/ai-name';
-import { generatedName } from '$lib/chat/naming';
 import { ChatSession } from '$lib/chat/session.svelte';
 import type { AgentStartRequest } from '$lib/ipc/bindings/AgentStartRequest';
 import type { CommandSpec } from '$lib/ipc/bindings/CommandSpec';
@@ -14,63 +12,22 @@ import type { SessionRoutineTag } from '$lib/ipc/bindings/SessionRoutineTag';
 import { ipc } from '$lib/ipc/client';
 import { IpcFailure, type Transport } from '$lib/ipc/transport';
 
-import { buffered, nextNumber, type RestartOptions, type RestoredChat, type StartingChat } from './agent-tabs';
+import { ChatTabs } from './agent-tab-list.svelte';
+import { buffered, nextNumber, type RestartOptions, type RestoredChat } from './agent-tabs';
 import { harness } from './harness.svelte';
 import { type MemoryIdentities, withMemory } from './agent-memory';
 import { type ChatMemory, memoryChat } from './memoryChat.svelte';
 import { prefs } from './prefs.svelte';
 import { openRunWindow } from './routine-window';
-import { startFailureToast } from './start-failure';
+import { isUntrusted, startFailureToast, untrustedReopenToast } from './start-failure';
 import { toasts, type ToastsStore } from './toasts.svelte';
 
 export type { RestartOptions, RestoredChat, StartingChat } from './agent-tabs';
 
-/** Every open chat session (the tabs) and which one is showing. */
-export class AgentSessionsStore {
-  sessions = $state.raw<ChatSession[]>([]);
-  /** New chats whose agent is still starting (it can take a few seconds). */
-  starting = $state.raw<StartingChat[]>([]);
-  activeKey = $state<string | null>(null);
-
-  active: ChatSession | null = $derived(this.sessions.find((session) => session.key === this.activeKey) ?? null);
-  activeStarting: StartingChat | null = $derived(this.starting.find((chat) => chat.key === this.activeKey) ?? null);
-
-  private startingCount = 0;
+/** Every open chat session (the tabs, see `ChatTabs`) and the agents behind them. */
+export class AgentSessionsStore extends ChatTabs {
   /** The routine runs being attached to, by run id, so that a second ask waits for the same tab. */
   private attaching = new Map<string, Promise<ChatSession | null>>();
-  /** Each open chat's number, the "3" of "Chat 3" (a random free one), kept while the agent has not named it. */
-  private numbers = new SvelteMap<string, number>();
-
-  /**
-   * A chat's title: the name the user typed, else the helper's, else the agent's own, else the opening words of the
-   * first message, else a generated creature name.
-   */
-  title(key: string): string {
-    const session = this.get(key);
-    const generated = generatedName(this.numbers.get(key) ?? 1);
-    if (!session) {
-      return generated;
-    }
-
-    return (session.userNamed ? session.name : null) ?? session.aiLabel?.name ?? session.name ?? session.label?.name ?? generated;
-  }
-
-  /**
-   * What a chat's tooltip says: a name cut short by the row shows the message it came from in full rather than the
-   * same words twice; otherwise the name, and below it what the chat is about.
-   */
-  tip(key: string): { text: string; detail: string } {
-    const title = this.title(key);
-    const description = this.description(key);
-    const stem = title.replace(/…$/, '');
-
-    return description.startsWith(stem) ? { text: description, detail: '' } : { text: title, detail: description };
-  }
-
-  /** The line under a chat's title on its card; empty when there is nothing to add to the title. */
-  description(key: string): string {
-    return this.get(key)?.label?.description ?? '';
-  }
 
   private catalogs = new Map<HarnessId, Promise<CommandSpec[]>>();
 
@@ -78,26 +35,49 @@ export class AgentSessionsStore {
     private readonly transport: Transport,
     private readonly notifications: ToastsStore,
     readonly memory: MemoryIdentities = memoryChat,
-  ) {}
-
-  get(key: string): ChatSession | undefined {
-    return this.sessions.find((session) => session.key === key);
+  ) {
+    super();
   }
 
   /**
    * Starts an agent. Events can arrive before the command returns, so they wait until the session exists.
    * `quiet` drops a failure without a toast (reopening last run's chats: one that can't come back just stays closed).
    * A chat gets its memory identity here (see `withMemory`): `keep` is the identity of the chat being replaced or brought back.
+   * `retry` is the caller's whole flow again with the folder trusted once: the "Trust once" action of the toast for a
+   * folder the harness does not trust yet. Without one the action starts the same request again, trusting it once.
    */
-  async start(request: AgentStartRequest, { activate = true, quiet = false, keep = null }: { activate?: boolean; quiet?: boolean; keep?: ChatMemory | null } = {}): Promise<ChatSession | null> {
-    // The callers gate on chat support already, this keeps a missed path from launching an agent that cannot run.
-    if (!harness.canChat(request.harness)) {
-      if (!quiet) {
-        const name = harness.get(request.harness)?.info.name ?? request.harness;
-        this.notifications.push({ title: t('chat.toast.comingSoon', { harness: name }), description: t('chat.toast.comingSoonBody'), tone: 'info' });
-      }
+  async start(
+    request: AgentStartRequest,
+    { activate = true, quiet = false, keep = null, retry }: { activate?: boolean; quiet?: boolean; keep?: ChatMemory | null; retry?: () => void } = {},
+  ): Promise<ChatSession | null> {
+    const launched = await this.launch(request, activate, keep);
+
+    if (launched.kind === 'started') {
+      return launched.session;
+    }
+
+    if (quiet) {
+      return null;
+    }
+
+    if (launched.kind === 'unsupported') {
+      const name = harness.get(request.harness)?.info.name ?? request.harness;
+      this.notifications.push({ title: t('chat.toast.comingSoon', { harness: name }), description: t('chat.toast.comingSoonBody'), tone: 'info' });
 
       return null;
+    }
+
+    const trustOnce = retry ?? (() => void this.start({ ...request, trustOnce: true }, { activate, keep }));
+    this.notifications.push(startFailureToast(launched.error, request, trustOnce));
+
+    return null;
+  }
+
+  /** Starts an agent (see `start`) and says how it went, without telling the user. */
+  private async launch(request: AgentStartRequest, activate: boolean, keep: ChatMemory | null): Promise<Launch> {
+    // The callers gate on chat support already, this keeps a missed path from launching an agent that cannot run.
+    if (!harness.canChat(request.harness)) {
+      return { kind: 'unsupported' };
     }
 
     const feed = buffered();
@@ -108,11 +88,9 @@ export class AgentSessionsStore {
       const info = await this.transport.invoke('agent_start', { request: launched, onEvent: feed.onEvent });
       session = new ChatSession(info, this.transport, this.notifications);
     } catch (error) {
-      if (!quiet) {
-        this.notifications.push(startFailureToast(error, request, () => void this.start({ ...request, trustOnce: true }, { keep })));
-      }
+      const untrusted = isUntrusted(error) && !request.trustOnce;
 
-      return null;
+      return { kind: untrusted ? 'untrusted' : 'failed', error };
     }
 
     feed.bind(session);
@@ -124,7 +102,7 @@ export class AgentSessionsStore {
 
     this.show(session, activate);
 
-    return session;
+    return { kind: 'started', session };
   }
 
   /** Adds a session to the tabs, with a number for its placeholder name, and shows it when asked. */
@@ -199,14 +177,13 @@ export class AgentSessionsStore {
    * The tab appears at once as a starting chat and turns into the session when the agent is ready; the new chat is
    * shown then only if the user is still looking at its tab.
    */
-  async create(harness: HarnessId, project: string): Promise<ChatSession | null> {
-    this.startingCount += 1;
-    const placeholder: StartingChat = { key: `starting-${this.startingCount}`, harness, project };
-    this.numbers.set(placeholder.key, nextNumber(this.numbers.values()));
+  async create(harness: HarnessId, project: string, { trustOnce = false }: { trustOnce?: boolean } = {}): Promise<ChatSession | null> {
+    const placeholder = this.slot(harness, project);
     this.starting = [...this.starting, placeholder];
     this.activeKey = placeholder.key;
 
-    const session = await this.start({ harness, project, resume: null, approvalOverride: null, trustOnce: false, utility: false, memoryChat: null }, { activate: false });
+    const request: AgentStartRequest = { harness, project, resume: null, approvalOverride: null, trustOnce, utility: false, memoryChat: null };
+    const session = await this.start(request, { activate: false, retry: () => void this.create(harness, project, { trustOnce: true }) });
     this.starting = this.starting.filter((chat) => chat.key !== placeholder.key);
     this.handOverNumber(placeholder.key, session?.key ?? null);
 
@@ -224,30 +201,43 @@ export class AgentSessionsStore {
   /**
    * Reopens last run's chats together: each shows as a starting tab at once and turns into its session when its agent
    * is ready, so the chat that was showing appears as soon as it alone is up, not after every agent. Tabs keep their
-   * saved order whatever order the agents finish in. Returns how many came back.
+   * saved order whatever order the agents finish in. Chats whose folder the harness does not trust yet stay closed,
+   * and one toast lists them with a "Trust once" action that reopens them in their places. Returns how many came back.
    */
   async restore(chats: RestoredChat[], wanted: number): Promise<number> {
-    const slots = chats.map((chat): StartingChat => {
-      this.startingCount += 1;
-      const slot = { key: `starting-${this.startingCount}`, harness: chat.harness, project: chat.project };
-      this.numbers.set(slot.key, nextNumber(this.numbers.values()));
+    return this.reopenAll(chats, wanted, chats.map((_, index) => index), [], false);
+  }
 
-      return slot;
-    });
+  /**
+   * Reopens `chats[index]` for each of `indexes` (see `restore`). `back` holds the indexes that are open already, so
+   * each tab lands in its saved place among them. `trustOnce` trusts each folder once.
+   */
+  private async reopenAll(chats: RestoredChat[], wanted: number, indexes: number[], back: number[], trustOnce: boolean): Promise<number> {
+    const slots = indexes.map((index) => this.slot(chats[index].harness, chats[index].project));
     if (slots.length === 0) {
       return 0;
     }
 
     this.starting = [...this.starting, ...slots];
-    this.activeKey = (slots[wanted] ?? slots[0]).key;
-    const back: number[] = [];
+    const shown = indexes.indexOf(wanted);
+    if (shown !== -1 || !trustOnce) {
+      this.activeKey = (slots[shown] ?? slots[0]).key;
+    }
+
+    const untrusted: number[] = [];
 
     const sessions = await Promise.all(
-      chats.map(async (chat, index) => {
-        const slot = slots[index];
-        const session = await this.reopen(chat);
+      indexes.map(async (index, at) => {
+        const chat = chats[index];
+        const slot = slots[at];
+        const reopened = await this.reopen(chat, trustOnce);
+        const session = reopened === 'untrusted' ? null : reopened;
         this.starting = this.starting.filter((other) => other.key !== slot.key);
         this.handOverNumber(slot.key, session?.key ?? null);
+
+        if (reopened === 'untrusted') {
+          untrusted.push(index);
+        }
 
         if (session) {
           session.aiLabel = chat.label;
@@ -268,14 +258,20 @@ export class AgentSessionsStore {
       }),
     );
 
+    if (untrusted.length > 0) {
+      const closed = untrusted.sort((a, b) => a - b);
+      this.notifications.push(untrustedReopenToast(closed.map((index) => chats[index]), () => void this.reopenAll(chats, wanted, closed, back, true)));
+    }
+
     return sessions.filter(Boolean).length;
   }
 
   /**
    * Brings one chat of the last run back: the window of a routine run that is still going on, else the saved
-   * conversation (a run that ended meanwhile leaves its session to read).
+   * conversation (a run that ended meanwhile leaves its session to read). `untrusted` when the harness does not trust
+   * its folder yet (and `trustOnce` did not trust it).
    */
-  private async reopen(chat: RestoredChat): Promise<ChatSession | null> {
+  private async reopen(chat: RestoredChat, trustOnce: boolean): Promise<ChatSession | 'untrusted' | null> {
     if (chat.routine) {
       const attached = await this.attachRoutine(chat.routine, { activate: false, quiet: true });
       if (attached || chat.sessionId === '') {
@@ -283,10 +279,14 @@ export class AgentSessionsStore {
       }
     }
 
-    return this.start(
-      { harness: chat.harness, project: chat.project, resume: { harness: chat.harness, id: chat.sessionId }, approvalOverride: null, trustOnce: false, utility: false, memoryChat: null },
-      { activate: false, quiet: true, keep: chat.memory ?? null },
-    );
+    const request: AgentStartRequest = { harness: chat.harness, project: chat.project, resume: { harness: chat.harness, id: chat.sessionId }, approvalOverride: null, trustOnce, utility: false, memoryChat: null };
+    const launched = await this.launch(request, false, chat.memory ?? null);
+
+    if (launched.kind === 'untrusted') {
+      return 'untrusted';
+    }
+
+    return launched.kind === 'started' ? launched.session : null;
   }
 
   /** Closes a tab and stops its agent. */
@@ -320,31 +320,47 @@ export class AgentSessionsStore {
       return null;
     }
 
-    const resume = resumable(old);
-    const draft = old.draft;
-    const index = this.sessions.indexOf(old);
-    const number = this.numbers.get(key);
-    const keep = this.memory.get(key); // the replacement is the same chat for Harness Memory: its key, with the guards as they are now
+    const approvalOverride = options.approvalOverride === undefined ? old.info.approvalOverride : options.approvalOverride;
+    const replacement: Replacement = {
+      request: { harness: old.info.harness, project: old.info.project, resume: resumable(old), approvalOverride, trustOnce: options.trustOnce ?? false, utility: false, memoryChat: null },
+      slot: `restart-${key}`,
+      draft: old.draft,
+      index: this.sessions.indexOf(old),
+      number: this.numbers.get(key),
+      // The replacement is the same chat for Harness Memory: its key, with the guards as they are now.
+      keep: this.memory.get(key),
+      aiLabel: old.aiLabel,
+      userNamed: old.userNamed,
+    };
 
     await this.stop(key);
-    if (number !== undefined) {
-      // Reserved under a temporary key so the replacement keeps the tab's number.
-      this.numbers.set(`restart-${key}`, number);
+
+    return this.replace(replacement);
+  }
+
+  /**
+   * Starts the replacement of a stopped chat in its tab (see `restart`). Trusting the folder once from the toast of a
+   * refused start runs this again, so the chat still comes back in its place with its draft and history.
+   */
+  private async replace(chat: Replacement): Promise<ChatSession | null> {
+    // Reserved under a temporary key so the replacement keeps the tab's number (unless another chat took it meanwhile).
+    if (chat.number !== undefined && ![...this.numbers.values()].includes(chat.number)) {
+      this.numbers.set(chat.slot, chat.number);
     }
 
-    const approvalOverride = options.approvalOverride === undefined ? old.info.approvalOverride : options.approvalOverride;
-    const fresh = await this.start({ harness: old.info.harness, project: old.info.project, resume, approvalOverride, trustOnce: options.trustOnce ?? false, utility: false, memoryChat: null }, { keep });
+    const retry = () => void this.replace({ ...chat, request: { ...chat.request, trustOnce: true } });
+    const fresh = await this.start(chat.request, { keep: chat.keep, retry });
 
-    this.handOverNumber(`restart-${key}`, fresh?.key ?? null);
+    this.handOverNumber(chat.slot, fresh?.key ?? null);
     if (!fresh) {
       return null;
     }
 
-    fresh.draft = draft;
-    fresh.aiLabel = old.aiLabel;
-    fresh.userNamed = old.userNamed;
-    this.moveTo(fresh.key, index);
-    if (resume) {
+    fresh.draft = chat.draft;
+    fresh.aiLabel = chat.aiLabel;
+    fresh.userNamed = chat.userNamed;
+    this.moveTo(fresh.key, chat.index);
+    if (chat.request.resume) {
       void fresh.loadHistory();
     }
 
@@ -372,14 +388,15 @@ export class AgentSessionsStore {
    * place, number, draft and any name the user gave it. The old conversation stays in Sessions. A failed start leaves
    * the chat as it was.
    */
-  async changeHarness(key: string, harnessId: HarnessId): Promise<ChatSession | null> {
+  async changeHarness(key: string, harnessId: HarnessId, { trustOnce = false }: { trustOnce?: boolean } = {}): Promise<ChatSession | null> {
     const old = this.get(key);
     if (!old || old.switchingTo || old.info.harness === harnessId) {
       return null;
     }
 
     old.switchingTo = harnessId;
-    const fresh = await this.start({ harness: harnessId, project: old.info.project, resume: null, approvalOverride: null, trustOnce: false, utility: false, memoryChat: null }, { activate: false });
+    const request: AgentStartRequest = { harness: harnessId, project: old.info.project, resume: null, approvalOverride: null, trustOnce, utility: false, memoryChat: null };
+    const fresh = await this.start(request, { activate: false, retry: () => void this.changeHarness(key, harnessId, { trustOnce: true }) });
     if (!fresh) {
       old.switchingTo = null;
 
@@ -413,15 +430,6 @@ export class AgentSessionsStore {
     await this.stop(oldKey);
   }
 
-  /** Moves the number reserved under `from` to session `to` (or frees it when the start failed). */
-  private handOverNumber(from: string, to: string | null): void {
-    const number = this.numbers.get(from);
-    this.numbers.delete(from);
-    if (to !== null && number !== undefined) {
-      this.numbers.set(to, number);
-    }
-  }
-
   /**
    * Moves chat `key`, conversation included, to `project` (OMP `/move`): the tab, its messages and its draft stay,
    * only the project changes. Returns false, with a notification, when the harness refuses (PI, a busy agent).
@@ -443,31 +451,6 @@ export class AgentSessionsStore {
     }
   }
 
-  /** Shows the next (`1`) or previous (`-1`) tab, wrapping around; starting chats count as tabs. */
-  cycle(step: 1 | -1): void {
-    const keys = [...this.sessions.map((session) => session.key), ...this.starting.map((chat) => chat.key)];
-    if (keys.length === 0) {
-      return;
-    }
-
-    const current = this.activeKey === null ? -1 : keys.indexOf(this.activeKey);
-    this.activeKey = keys[(current + step + keys.length) % keys.length];
-  }
-
-  select(key: string): void {
-    if (this.get(key) || this.starting.some((chat) => chat.key === key)) {
-      this.activeKey = key;
-    }
-  }
-
-  private moveTo(key: string, index: number): void {
-    const rest = this.sessions.filter((session) => session.key !== key);
-    const moved = this.sessions.find((session) => session.key === key);
-    if (moved) {
-      this.sessions = [...rest.slice(0, index), moved, ...rest.slice(index)];
-    }
-  }
-
   /** The static slash-command catalog of a harness, fetched once and shared by its sessions. */
   private async loadCatalog(session: ChatSession): Promise<void> {
     const harness = session.info.harness;
@@ -480,6 +463,22 @@ export class AgentSessionsStore {
 
     session.catalog = await catalog;
   }
+}
+
+/** How a start went (see `AgentSessionsStore.launch`): `untrusted` when the harness does not trust the folder yet and the start did not trust it once. */
+type Launch = { kind: 'started'; session: ChatSession } | { kind: 'unsupported' } | { kind: 'untrusted' | 'failed'; error: unknown };
+
+/** A stopped chat to start again in its tab (see `AgentSessionsStore.restart`). */
+interface Replacement {
+  request: AgentStartRequest;
+  /** The temporary key its number waits under. */
+  slot: string;
+  draft: string;
+  index: number;
+  number: number | undefined;
+  keep: ChatMemory | null;
+  aiLabel: ChatSession['aiLabel'];
+  userNamed: boolean;
 }
 
 export const agentSessions = new AgentSessionsStore(ipc, toasts);

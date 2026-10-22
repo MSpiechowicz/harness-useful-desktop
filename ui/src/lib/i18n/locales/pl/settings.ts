@@ -223,7 +223,7 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.memoryRemote.routines.title': 'Rutyny',
   'settings.memoryRemote.routines.description': 'Twoje rutyny zawsze zostają tutaj. Zdalnie dodaje te, które udostępniają inni.',
   'settings.memoryRemote.trustRoutines.title': 'Uruchamiaj zdalne rutyny bez pytania',
-  'settings.memoryRemote.trustRoutines.description': 'Rutyny ze zdalnej bazy danych uruchamiają się bez pytania cię o zgodę. Każdy, kto może zapisywać w zdalnej bazie danych, będzie wtedy mógł uruchamiać kod na tym komputerze.',
+  'settings.memoryRemote.trustRoutines.description': 'Rutyny ze zdalnej bazy danych uruchamiają się bez pytania cię o zgodę. Pozwala to też rutynom PI i Claude Code jednorazowo zaufać swojemu folderowi. Każdy, kto może zapisywać w zdalnej bazie danych, będzie wtedy mógł uruchamiać kod na tym komputerze.',
   'settings.memoryRemote.target.remoteLocal': 'Zdalnie + ten komputer',
   'settings.memoryRemote.routing.unsupported': 'Zaktualizuj Harness Memory, aby czytać zdalne notatki i zapisywać nowe na tym komputerze.',
   'settings.memoryRemote.change.title': 'Zmienić, gdzie jest przechowywana pamięć?',

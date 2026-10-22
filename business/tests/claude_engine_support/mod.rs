@@ -205,12 +205,59 @@ pub fn saved_session(id: &str) -> PathBuf {
         .join(format!("{id}.jsonl"))
 }
 
-/// The arguments of spawn `index` (from 0).
+/// The arguments of spawn `index` (from 0), checked with [`assert_allowed_flags`].
 pub fn argv(chat: &Chat, index: usize) -> Vec<String> {
     let specs = chat.spawner.requested();
     let spec = specs.get(index).expect("that many spawns");
+    let args: Vec<String> = spec.args.iter().map(|arg| arg.to_string_lossy().into_owned()).collect();
 
-    spec.args.iter().map(|arg| arg.to_string_lossy().into_owned()).collect()
+    assert_allowed_flags(&args);
+    args
+}
+
+/// Flags no Claude Code launch may carry, assembled at run time (the guard scans this file too).
+fn forbidden_flags() -> Vec<String> {
+    let flag = |name: &str| ["--", name].concat();
+
+    vec![
+        flag("settings"),
+        flag("setting-sources"),
+        flag("allowedTools"),
+        flag("allowed-tools"),
+        flag("add-dir"),
+        flag("bare"),
+        flag("permission-prompts"),
+        flag(&["dangerously", "skip-permissions"].join("-")),
+        flag(&["allow", "dangerously", "skip-permissions"].join("-")),
+    ]
+}
+
+/// Asserts a Claude Code command line `args` carries no forbidden flag, sends its permission
+/// prompts to the app (`--permission-prompt-tool stdio`, once) and names no mode but `default`.
+pub fn assert_allowed_flags(args: &[String]) {
+    let forbidden = forbidden_flags();
+    let mut prompt_tools = 0;
+
+    for (at, arg) in args.iter().enumerate() {
+        let (name, inline) = match arg.split_once('=') {
+            Some((name, value)) => (name, Some(value)),
+            None => (arg.as_str(), None),
+        };
+        let value = inline.or_else(|| args.get(at + 1).map(String::as_str));
+
+        assert!(!forbidden.iter().any(|flag| flag == name), "{name} in {args:?}");
+
+        if name == "--permission-prompt-tool" {
+            prompt_tools += 1;
+            assert_eq!(value, Some("stdio"), "{args:?}");
+        }
+
+        if name == "--permission-mode" {
+            assert_eq!(value, Some("default"), "{args:?}");
+        }
+    }
+
+    assert_eq!(prompt_tools, 1, "{args:?}");
 }
 
 /// The value after `flag` in `args`.

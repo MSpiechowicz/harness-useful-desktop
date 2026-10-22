@@ -4,6 +4,7 @@
 //! not asked, and a folder Claude Code does not trust starts only when the launch trusts it once.
 
 mod agent_support;
+mod claude_engine_support;
 
 use std::path::Path;
 
@@ -47,10 +48,13 @@ fn trust_entry(project: &Path, answer: serde_json::Value) -> String {
     json!({ "projects": { project.to_string_lossy(): { "hasTrustDialogAccepted": answer } } }).to_string()
 }
 
+/// The arguments of the newest spawn, checked with [`claude_engine_support::assert_allowed_flags`].
 fn args(run: &agent_support::Run) -> Vec<String> {
     let spec = run.spawner.requested().pop().expect("spawned");
+    let args: Vec<String> = spec.args.iter().map(|arg| arg.to_string_lossy().into_owned()).collect();
 
-    spec.args.iter().map(|arg| arg.to_string_lossy().into_owned()).collect()
+    claude_engine_support::assert_allowed_flags(&args);
+    args
 }
 
 /// Stops every chat; the scripted CLI exits 0 only when every expected frame matched.
@@ -116,7 +120,7 @@ fn only_a_folder_whose_trust_dialog_was_accepted_counts_as_trusted() {
 }
 
 /// A global file that exists but cannot be read (invalid, not an object, past the read cap) trusts
-/// no folder, and the refusal says why, with the same error code (so trust once is still offered).
+/// no folder, and the refusal says why, under its own code (trust once is still offered).
 #[test]
 fn an_unreadable_global_file_refuses_with_its_own_reason() {
     let project = tempfile::tempdir().expect("project");
@@ -130,7 +134,7 @@ fn an_unreadable_global_file_refuses_with_its_own_reason() {
         let (_home, env) = home_with(Some(&global));
 
         let error = Claude.check_project_trust(&env, project).expect_err("not trusted");
-        assert_eq!(error.code(), IpcErrorCode::Untrusted);
+        assert_eq!(error.code(), IpcErrorCode::UntrustedUnreadable);
         assert_eq!(error.to_string(), UNREADABLE, "{}", &global[..global.len().min(20)]);
     }
 }
@@ -198,6 +202,7 @@ async fn a_chat_or_helper_in_a_folder_claude_does_not_trust_is_refused_unless_tr
     .expect("trusted once, the chat starts");
     assert!(run.info.trusted_once);
     assert_eq!(run.spawner.requested().len(), 1);
+    args(&run);
 
     run.manager.begin_stop_all().finish().await;
 }

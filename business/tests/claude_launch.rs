@@ -135,6 +135,10 @@ fn forbidden() -> Vec<String> {
         flag("bare"),
         flag("permission-prompts"),
         flag("settings"),
+        flag("setting-sources"),
+        flag("allowedTools"),
+        flag("allowed-tools"),
+        flag("add-dir"),
         flag("model"),
     ]
 }
@@ -163,6 +167,11 @@ fn no_launch_skips_approvals_strips_a_login_names_a_model_or_leaves_the_default_
                     if arg.starts_with("--permission-mode") {
                         assert_eq!(arg, "--permission-mode", "{args:?}");
                         assert_eq!(args.get(at + 1).map(String::as_str), Some("default"), "{args:?}");
+                    }
+
+                    if arg.starts_with("--permission-prompt-tool") {
+                        assert_eq!(arg, "--permission-prompt-tool", "{args:?}");
+                        assert_eq!(args.get(at + 1).map(String::as_str), Some("stdio"), "{args:?}");
                     }
                 }
             }

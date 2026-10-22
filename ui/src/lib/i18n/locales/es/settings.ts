@@ -223,7 +223,7 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.memoryRemote.routines.title': 'Rutinas',
   'settings.memoryRemote.routines.description': 'Tus rutinas siempre se quedan aquí. Remoto añade las que comparten otros.',
   'settings.memoryRemote.trustRoutines.title': 'Ejecutar las rutinas remotas sin preguntar',
-  'settings.memoryRemote.trustRoutines.description': 'Las rutinas de la base de datos remota se ejecutan sin preguntarte antes. Cualquiera que pueda escribir en la base de datos remota podrá ejecutar código en este equipo.',
+  'settings.memoryRemote.trustRoutines.description': 'Las rutinas de la base de datos remota se ejecutan sin preguntarte antes. También permite que las rutinas de PI y Claude Code confíen una vez en su carpeta. Cualquiera que pueda escribir en la base de datos remota podrá ejecutar código en este equipo.',
   'settings.memoryRemote.target.remoteLocal': 'Remoto + este equipo',
   'settings.memoryRemote.routing.unsupported': 'Actualiza Harness Memory para leer las notas remotas y guardar las nuevas en este equipo.',
   'settings.memoryRemote.change.title': '¿Cambiar dónde se guarda la memoria?',

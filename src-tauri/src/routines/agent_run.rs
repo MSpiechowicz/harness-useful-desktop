@@ -389,7 +389,7 @@ async fn start(
 
             return Err(match error.code() {
                 IpcErrorCode::NotFound => RunOutcome::failed(NOT_INSTALLED),
-                IpcErrorCode::Untrusted => RunOutcome::failed(UNTRUSTED_MESSAGE),
+                IpcErrorCode::Untrusted | IpcErrorCode::UntrustedUnreadable => RunOutcome::failed(UNTRUSTED_MESSAGE),
                 _ => RunOutcome::failed(START_FAILED),
             });
         }

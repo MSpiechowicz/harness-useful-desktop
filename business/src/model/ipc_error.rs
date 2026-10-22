@@ -31,6 +31,10 @@ pub enum IpcErrorCode {
     /// The harness does not trust the project folder yet (Claude Code's own trust answer): the UI
     /// offers to start again with `trustOnce`, which only the user can choose.
     Untrusted,
+    /// Like [`Untrusted`](Self::Untrusted), because the harness's own settings file (Claude Code's
+    /// global file, which holds its trust answers) cannot be read: the UI says so and offers the
+    /// same `trustOnce` start.
+    UntrustedUnreadable,
     /// A bug or an unexpected internal state.
     Internal,
 }
