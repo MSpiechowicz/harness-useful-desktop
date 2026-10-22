@@ -130,9 +130,6 @@ pub enum HostRequest {
     CancelAsyncMessage {
         message_uuid: String,
     },
-    SetPermissionMode {
-        mode: String,
-    },
     /// `None` returns to the default model.
     SetModel {
         model: Option<String>,
@@ -187,10 +184,6 @@ fn request_body(request: &HostRequest) -> Value {
         HostRequest::CancelAsyncMessage { message_uuid } => {
             field("message_uuid", Value::from(message_uuid.as_str()));
             "cancel_async_message"
-        }
-        HostRequest::SetPermissionMode { mode } => {
-            field("mode", Value::from(mode.as_str()));
-            "set_permission_mode"
         }
         HostRequest::SetModel { model } => {
             if let Some(model) = model {

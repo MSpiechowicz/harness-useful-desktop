@@ -154,6 +154,51 @@ describe('starting sessions', () => {
     expect(notifications.items[0]).toMatchObject({ description: message, duration: 0 });
   });
 
+  it('offers to trust a folder the harness does not trust yet once, and starts again only when the user picks that', async () => {
+    const notifications = new ToastsStore();
+    const requests: AgentStartRequest[] = [];
+    const info = sampleInfo({ harness: 'claude', trustedOnce: true });
+    const transport: Transport = {
+      invoke: (name, args) => {
+        if (name !== 'agent_start') {
+          return Promise.resolve([] as never);
+        }
+
+        const { request } = args as { request: AgentStartRequest };
+        requests.push(request);
+
+        return request.trustOnce ? Promise.resolve(info as never) : Promise.reject(new IpcFailure({ code: 'untrusted', message: 'Claude Code does not trust this folder yet.' }));
+      },
+    };
+    const store = new AgentSessionsStore(transport, notifications);
+
+    expect(await store.start({ ...REQUEST, harness: 'claude' })).toBeNull();
+    expect(store.sessions).toHaveLength(0);
+    expect(requests.map((request) => request.trustOnce)).toEqual([false]);
+
+    const toast = notifications.items[0];
+    expect(toast).toMatchObject({ tone: 'warning', duration: 0 });
+    expect(toast.title).toMatch(/ does not trust this folder yet$/);
+    expect(toast.description).toContain('Run claude in it once from a terminal, or trust it once here.');
+    expect(toast.action?.label).toBe('Trust once');
+
+    toast.action?.run();
+
+    await vi.waitFor(() => expect(store.sessions).toHaveLength(1));
+    expect(requests.map((request) => request.trustOnce)).toEqual([false, true]);
+    expect(store.active?.info.trustedOnce).toBe(true);
+  });
+
+  it('offers no trust for a start that already trusted the folder once', async () => {
+    const notifications = new ToastsStore();
+    const transport: Transport = { invoke: () => Promise.reject(new IpcFailure({ code: 'untrusted', message: 'Claude Code does not trust this folder yet.' })) };
+    const store = new AgentSessionsStore(transport, notifications);
+
+    expect(await store.start({ ...REQUEST, harness: 'claude', trustOnce: true })).toBeNull();
+    expect(notifications.items[0]).toMatchObject({ title: 'Could not start the agent', tone: 'danger' });
+    expect(notifications.items[0].action).toBeUndefined();
+  });
+
   it('opens a tab per session, activates the newest and loads the slash catalog once per harness', async () => {
     const { store, of } = storeWithMock();
 

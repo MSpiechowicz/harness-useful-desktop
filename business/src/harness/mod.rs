@@ -311,6 +311,14 @@ pub trait Harness: Send + Sync {
         &[]
     }
 
+    /// Refuses a chat launch in `project` the harness itself does not trust yet
+    /// ([`BusinessError::Untrusted`](crate::error::BusinessError::Untrusted)), for harnesses with
+    /// `capabilities.projectTrustRequired`. Not asked for a launch that trusts the project once.
+    /// Default: every project is fine.
+    fn check_project_trust(&self, _env: &Env, _project: &Path) -> Result<()> {
+        Ok(())
+    }
+
     /// The approval mode the user configured for `project` (harnesses with
     /// `capabilities.approvalModes`); `None` when the harness has no approval modes or its own
     /// settings decide without one (OpenCode).

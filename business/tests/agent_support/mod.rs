@@ -15,6 +15,7 @@ use std::time::Duration;
 use harness_business::agent::{AgentDeps, AgentManager, CollectingSink, SessionOptions};
 use harness_business::env::Env;
 use harness_business::harness::{Harness, HarnessRegistry};
+use harness_business::harnesses::claude::global_config_file;
 use harness_business::model::{AgentEvent, AgentSessionInfo, AgentStartRequest, HarnessId};
 use harness_business::process::{
     BoxFuture, ChildHandle, ExecSpec, ExitInfo, ProcessSpawner, ResolvedBinary, SpawnedProcess, TokioSpawner,
@@ -238,7 +239,20 @@ pub async fn start_with(
     start_in(harness, dialect, scenario_name, options, |env| env, customize).await
 }
 
-/// [`start_with`] in the test environment as `environment` changes it.
+/// Records in the test home that the user trusted `project` in Claude Code, unless `environment`
+/// wrote a global file of its own (to test an untrusted folder).
+fn trust_in_claude(env: &Env, project: &Path) {
+    let file = global_config_file(env);
+    if file.exists() {
+        return;
+    }
+
+    let projects = serde_json::json!({ "projects": { project.to_string_lossy(): { "hasTrustDialogAccepted": true } } });
+    std::fs::write(file, projects.to_string()).expect("write the Claude global file");
+}
+
+/// [`start_with`] in the test environment as `environment` changes it. A Claude Code chat starts
+/// in a project the test home trusts, unless `environment` wrote a global file itself.
 pub async fn start_in(
     harness: HarnessId,
     dialect: &'static str,
@@ -252,6 +266,10 @@ pub async fn start_in(
     let project = project();
     let home = tempfile::tempdir().expect("temp home");
     let env = environment(Env::for_tests(home.path()));
+
+    if harness == HarnessId::Claude {
+        trust_in_claude(&env, project.path());
+    }
 
     let manager = AgentManager::with_options(options);
     let sink = CollectingSink::new();

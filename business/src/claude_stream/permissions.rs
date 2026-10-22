@@ -2,8 +2,9 @@
 //! Always ask mode (plan Decision 3, Verified facts 1 and 3).
 //!
 //! - **Dialog:** a `select` with `Allow once`, `Always allow` (left out when the CLI allows no
-//!   lasting rule) and `Reject`, marked as an approval and bound to the asking tool call (not for a
-//!   subagent, whose calls the chat does not show). It is titled `Allow <tool>: <subject>?` (`for
+//!   lasting rule, blocked the call on a path or a safety check flagged it) and `Reject`, marked
+//!   as an approval and bound to the asking tool call (not for a subagent, whose calls the chat
+//!   does not show). It is titled `Allow <tool>: <subject>?` (`for
 //!   a subagent` when one asks), the subject on one redacted line: a command, a file (relative to
 //!   the project), a URL or query, a subagent's task, else the CLI's description. Without one the
 //!   CLI's own title for the prompt is the title. Why the CLI asks, when it says, is the detail
@@ -67,17 +68,18 @@ pub enum Always {
 }
 
 impl Always {
-    /// What "Always allow" means for `ask`; `None` when the CLI allows no lasting rule.
-    /// `ask_all`: the chat runs the Always ask hook.
-    pub fn of(ask: &PermissionAsk, ask_all: bool) -> Option<Self> {
-        if !ask.always_allowed {
+    /// What "Always allow" means for `ask` in the chat of `project`; `None` when no lasting answer
+    /// may cover it ([`PermissionAsk::may_always_allow`]). `ask_all`: the chat runs the Always ask
+    /// hook.
+    pub fn of(ask: &PermissionAsk, project: &Path, ask_all: bool) -> Option<Self> {
+        if !ask.may_always_allow() {
             return None;
         }
 
         let rules = session_rules(&ask.suggestions);
 
         if ask_all || rules.is_empty() {
-            return Some(Self::Key(AllowKey::of(ask)));
+            return Some(Self::Key(AllowKey::of(ask, project)));
         }
 
         Some(Self::Rules(rules))

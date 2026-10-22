@@ -21,7 +21,8 @@
 //! - `{"expect": "control_response", "match": {...}}` — wait for the app's next answer to one of
 //!   the CLI's requests and check `match` (`"/response/request_id"`, …). It gets no answer.
 //! - `{"emit": {...}}` — write a frame; string values `"$name"` become the value captured as
-//!   `name`.
+//!   `name`, and the recorded project directory `/home/user/project` at the start of a string
+//!   becomes the working directory (as for `replay`).
 //! - `{"replay": "../claude/stream/basic.jsonl", "from": 7, "to": 20, "except": ["control_request"],
 //!   "replace": {"<recorded value>": "$name"}}` — write the CLI's frames (rows with `dir: out`) of
 //!   that recording (relative to the scenario) from line `from` to line `to` (1-based, both
@@ -90,7 +91,7 @@ impl Fake {
             let id = self.captured.get(name).cloned().unwrap_or(Value::Null);
             self.answer(&id, step);
         } else if let Some(frame) = field("emit") {
-            let frame = self.substitute(frame);
+            let frame = self.recorded(&self.substitute(frame), &[]);
             write(&frame);
         } else if let Some(file) = field("replay").and_then(Value::as_str) {
             self.replay(file, step);

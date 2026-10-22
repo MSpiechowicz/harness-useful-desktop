@@ -1,7 +1,8 @@
 //! The command line of a Claude Code chat: stream-json mode in the project, `--resume` only with a
-//! Claude session id, no model flag, helper chats without tools, thinking or a saved session,
-//! `--permission-mode default` for an Always ask or Write override (Yolo refused), and never a flag
-//! that skips approvals, strips a login method or bypasses the permission mode.
+//! Claude session id, no model flag, helper chats without tools, MCP servers, thinking or a saved
+//! session, `--permission-mode default` for an Always ask or Write override (Yolo refused), and
+//! never a flag that skips approvals, strips a login method, loads other settings or leaves the
+//! default permission mode.
 
 use std::ffi::OsString;
 use std::path::PathBuf;
@@ -98,7 +99,7 @@ fn only_a_lowercase_session_uuid_is_resumed() {
 }
 
 #[test]
-fn a_helper_chat_runs_without_tools_thinking_or_a_saved_session_on_the_default_model() {
+fn a_helper_chat_runs_without_tools_mcp_servers_thinking_or_a_saved_session_on_the_default_model() {
     let setup = Setup::new("/usr/bin/claude", false);
     let request = LaunchRequest {
         utility: true,
@@ -112,6 +113,7 @@ fn a_helper_chat_runs_without_tools_thinking_or_a_saved_session_on_the_default_m
         "default",
         "--tools",
         "",
+        "--strict-mcp-config",
         "--thinking=disabled",
         "--no-session-persistence",
     ]);
@@ -119,21 +121,50 @@ fn a_helper_chat_runs_without_tools_thinking_or_a_saved_session_on_the_default_m
     assert_eq!(argv(&request), expected);
 }
 
+/// Flags and modes no launch may carry, assembled at run time (the guard scans this file too).
+fn forbidden() -> Vec<String> {
+    let flag = |name: &str| ["--", name].concat();
+
+    vec![
+        "bypassPermissions".to_owned(),
+        "auto".to_owned(),
+        "dontAsk".to_owned(),
+        "acceptEdits".to_owned(),
+        flag(&["dangerously", "skip-permissions"].join("-")),
+        flag(&["allow", "dangerously", "skip-permissions"].join("-")),
+        flag("bare"),
+        flag("permission-prompts"),
+        flag("settings"),
+        flag("model"),
+    ]
+}
+
 #[test]
-fn no_launch_skips_approvals_strips_a_login_or_names_a_model() {
+fn no_launch_skips_approvals_strips_a_login_names_a_model_or_leaves_the_default_mode() {
     let setup = Setup::new("/usr/bin/claude", false);
-    let forbidden = ["dangerously", "bare", "bypass", "permission-prompts", "model", "auto"];
+    let forbidden = forbidden();
 
     for resume in [None, Some(SESSION)] {
         for approval in [None, Some(ApprovalMode::AlwaysAsk), Some(ApprovalMode::Write)] {
-            let request = LaunchRequest {
-                approval_override: approval,
-                trust_once: true,
-                ..setup.request(resume)
-            };
+            for (trust_once, utility) in [(false, false), (true, false), (false, true), (true, true)] {
+                let request = LaunchRequest {
+                    approval_override: approval,
+                    trust_once,
+                    utility,
+                    ..setup.request(resume)
+                };
+                let args = argv(&request);
 
-            for arg in argv(&request) {
-                assert!(!forbidden.iter().any(|word| arg.contains(word)), "{arg}");
+                for arg in &args {
+                    assert!(!forbidden.iter().any(|word| arg.contains(word.as_str())), "{arg}");
+                }
+
+                for (at, arg) in args.iter().enumerate() {
+                    if arg.starts_with("--permission-mode") {
+                        assert_eq!(arg, "--permission-mode", "{args:?}");
+                        assert_eq!(args.get(at + 1).map(String::as_str), Some("default"), "{args:?}");
+                    }
+                }
             }
         }
     }

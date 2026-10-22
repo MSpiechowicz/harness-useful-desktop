@@ -366,7 +366,10 @@ fn invalid_schedules_and_actions_are_refused_with_the_format_wording() {
             json!({ "harness": "pi", "approvalMode": "yolo" }),
             "action.approvalMode is for omp, opencode or claude only",
         ),
-        (json!({ "trustOnce": true }), "action.trustOnce is for pi only"),
+        (
+            json!({ "trustOnce": true }),
+            "action.trustOnce is for pi or claude only",
+        ),
         (json!({ "maxMinutes": 241 }), "from 1 to 240"),
         (
             json!({ "command": "ls" }),

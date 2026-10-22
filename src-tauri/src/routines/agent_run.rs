@@ -53,6 +53,9 @@ pub const START_FAILED: &str = "The chat could not start";
 /// The message of a run whose harness is not installed.
 pub const NOT_INSTALLED: &str = "The agent is not installed";
 
+/// The message of a run whose harness does not trust the folder yet (Claude Code).
+pub const UNTRUSTED_MESSAGE: &str = "The agent does not trust this folder yet. Run it there once from a terminal, or let the routine trust the project once";
+
 /// The message of a run whose agent refused the prompt.
 pub const PROMPT_FAILED: &str = "The agent did not take the prompt";
 
@@ -386,6 +389,7 @@ async fn start(
 
             return Err(match error.code() {
                 IpcErrorCode::NotFound => RunOutcome::failed(NOT_INSTALLED),
+                IpcErrorCode::Untrusted => RunOutcome::failed(UNTRUSTED_MESSAGE),
                 _ => RunOutcome::failed(START_FAILED),
             });
         }

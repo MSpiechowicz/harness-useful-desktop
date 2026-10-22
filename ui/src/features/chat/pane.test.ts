@@ -99,6 +99,23 @@ describe('PI trust', () => {
   });
 });
 
+describe('Claude Code trust', () => {
+  it('offers nothing to trust in a running chat, which only starts in a trusted folder', () => {
+    const { session } = chatSession([], { harness: 'claude', configuredApprovalMode: null, trustedOnce: false });
+    render(ChatControls, { session });
+
+    expect(screen.queryByRole('button', { name: 'Trust project once' })).toBeNull();
+    expect(screen.queryByText('Project trusted for this session')).toBeNull();
+  });
+
+  it('shows that the chat trusted the folder once', () => {
+    const { session } = chatSession([], { harness: 'claude', configuredApprovalMode: null, trustedOnce: true });
+    render(ChatControls, { session });
+
+    expect(screen.getByText('Project trusted for this session')).toBeInTheDocument();
+  });
+});
+
 describe('header controls', () => {
   it('lists models grouped by provider and switches the model from the composer', async () => {
     const { session, of } = await startedSession();

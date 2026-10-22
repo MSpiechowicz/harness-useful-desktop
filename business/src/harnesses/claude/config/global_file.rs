@@ -24,8 +24,11 @@ const PROJECT_KEYS: &[&str] = &[
     "disabledMcpjsonServers",
     "disabledMcpServers",
     "allowedTools",
-    "hasTrustDialogAccepted",
+    TRUST_KEY,
 ];
+
+/// The project entry's answer to Claude Code's trust dialog.
+const TRUST_KEY: &str = "hasTrustDialogAccepted";
 
 /// Most project keys resolved on disk when none names the project as given.
 const MAX_RESOLVED_KEYS: usize = 256;
@@ -64,6 +67,17 @@ pub(in crate::harnesses::claude) fn global_sections(env: &Env, project: Option<&
         user: Some((user_file(&path), Document::Parsed(allowed(&root, USER_KEYS)))),
         project,
     }
+}
+
+/// True when the user accepted Claude Code's trust dialog for `project`: its `projects` entry in
+/// the global file has `hasTrustDialogAccepted: true`. A missing, unreadable or invalid file, or no
+/// entry, is not trusted.
+pub(in crate::harnesses::claude) fn trusts_project(env: &Env, project: &Path) -> bool {
+    let Some((_, Document::Parsed(entry))) = global_sections(env, Some(project)).project else {
+        return false;
+    };
+
+    entry.get(TRUST_KEY) == Some(&Value::Bool(true))
 }
 
 fn user_only(path: &Path, document: Document) -> GlobalSections {

@@ -6,7 +6,7 @@
 //! - A single choice is a `select` of the option labels (their descriptions as details) and a
 //!   trailing [`OWN_ANSWER`], which asks for a typed answer in an `input` (Claude Code takes any
 //!   text as an answer). Several choices are an `input` of comma-separated labels (typed ones
-//!   too), a question without options an `input`.
+//!   too, a known label with a comma in it counts whole), a question without options an `input`.
 //! - The answers go back together after the last one, keyed by the question text, the labels
 //!   joined with `", "` ([`question_answers`](super::wire::outbound::question_answers)). A blank
 //!   typed answer leaves its question unanswered.
@@ -203,14 +203,49 @@ fn picked(question: &Question, value: &str) -> Result<Vec<String>> {
         return Ok(typed(value));
     }
 
-    let chosen = value.split(',').map(str::trim).filter(|part| !part.is_empty());
+    Ok(chosen(labels, value))
+}
 
-    Ok(chosen
-        .map(|part| {
-            let known = labels.iter().find(|label| label.eq_ignore_ascii_case(part));
-            known.map_or_else(|| part.to_owned(), |label| (*label).to_owned())
-        })
-        .collect())
+/// The labels a comma-separated answer names: at each point the longest known label (any case,
+/// commas in it included) that ends at a comma or the end, else the typed text up to the next
+/// comma.
+fn chosen(mut labels: Vec<&str>, value: &str) -> Vec<String> {
+    labels.sort_by_key(|label| std::cmp::Reverse(label.len()));
+
+    let mut chosen = Vec::new();
+    let mut rest = value;
+
+    loop {
+        rest = rest.trim_start_matches(|character: char| character == ',' || character.is_whitespace());
+
+        if rest.is_empty() {
+            return chosen;
+        }
+
+        let known = labels.iter().find(|label| starts_with_label(rest, label));
+
+        let (part, tail) = match known {
+            Some(label) => ((*label).to_owned(), &rest[label.len()..]),
+            None => {
+                let end = rest.find(',').unwrap_or(rest.len());
+                (rest[..end].trim().to_owned(), &rest[end..])
+            }
+        };
+
+        chosen.push(part);
+        rest = tail;
+    }
+}
+
+/// True when `text` starts with `label` (any case), followed by a comma or nothing.
+fn starts_with_label(text: &str, label: &str) -> bool {
+    let Some(head) = text.get(..label.len()) else {
+        return false;
+    };
+
+    let after = text[label.len()..].trim_start();
+
+    head.eq_ignore_ascii_case(label) && (after.is_empty() || after.starts_with(','))
 }
 
 /// A typed answer: its trimmed text, or no answer when it is blank.

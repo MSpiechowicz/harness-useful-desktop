@@ -90,8 +90,13 @@ pub struct Capabilities {
     /// `approval_modes` offers Always ask and Write only (Claude Code: the app never starts its
     /// bypass mode), and a Yolo override is refused.
     pub yolo_mode: bool,
-    /// Project trust gating of project-local resources (PI `.pi/`).
+    /// Project trust gating of project-local resources (PI `.pi/`, Claude Code's `.claude/`
+    /// settings): a launch may trust the project once (`trustOnce`).
     pub project_trust: bool,
+    /// With `project_trust`: the harness starts only in a folder it trusts itself (Claude Code's
+    /// trust dialog). Elsewhere a start is refused (`untrusted`) unless it trusts the project
+    /// once, so a running chat has nothing left to trust.
+    pub project_trust_required: bool,
     /// Slash commands run by sending their text as a prompt.
     pub slash_commands_via_prompt: bool,
     /// Sessions form a branching tree (fork/resume from any entry).

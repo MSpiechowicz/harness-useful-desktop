@@ -34,6 +34,7 @@ pub use setup::{
 };
 
 use crate::ecosystem::catalog::{CLAUDE_SKILLS_PLUGIN, SKILLS_MARKETPLACE};
+use crate::error::BusinessError;
 use crate::harness::prelude::*;
 use crate::harnesses::pi::PiDialect;
 use crate::model::{SessionMessagesPage, SessionRef, SessionSummary, SessionTree};
@@ -42,6 +43,10 @@ use crate::pi_family::sessions::SessionCache;
 /// Environment variables set on every spawn of `claude` (see [`Harness::spawn_env`]): its
 /// self-updater stays off.
 pub const SPAWN_ENV: &[(&str, &str)] = &[("DISABLE_UPDATES", "1")];
+
+/// Why a chat in a folder Claude Code does not trust yet is refused.
+const UNTRUSTED: &str =
+    "Claude Code does not trust this folder yet. Run claude in it once from a terminal, or trust it once here.";
 
 /// The Claude Code adapter.
 #[derive(Debug, Clone, Copy, Default)]
@@ -66,9 +71,10 @@ impl Harness for Claude {
     }
 
     /// What the views list, the extension actions the CLI runs and the chat (a preview). Its
-    /// approval modes are Always ask and Write, never Yolo (see [`modes`]). Live slash commands run
-    /// as prompt text, `/compact` takes instructions, and the CLI's stdio MCP servers inherit
-    /// `HARNESS_MEMORY_SESSION`. No session tree: a fork leaves no link to its parent on disk.
+    /// approval modes are Always ask and Write, never Yolo (see [`modes`]). A chat starts only in a
+    /// folder Claude Code trusts, or with trust once ([`Harness::check_project_trust`]). Live
+    /// slash commands run as prompt text, `/compact` takes instructions, and the CLI's stdio MCP
+    /// servers inherit `HARNESS_MEMORY_SESSION`. No session tree: a fork leaves no link to its parent on disk.
     fn capabilities(&self) -> Capabilities {
         Capabilities {
             chat: true,
@@ -77,6 +83,8 @@ impl Harness for Claude {
             compact_instructions: true,
             memory_chat_guards: true,
             approval_modes: true,
+            project_trust: true,
+            project_trust_required: true,
             plugins: true,
             marketplaces: true,
             mcp: true,
@@ -107,6 +115,17 @@ impl Harness for Claude {
     /// `claude` in stream-json mode (see [`launch`]).
     fn launch_spec(&self, request: &LaunchRequest<'_>) -> Result<ExecSpec> {
         launch::claude_launch_spec(request)
+    }
+
+    /// Claude Code skips its own trust dialog in stream-json mode, so the project's
+    /// `.claude/settings*.json` (hooks, environment, helpers, modes) would apply unasked: a folder
+    /// the user never trusted in Claude Code is refused. The app never records a trust answer.
+    fn check_project_trust(&self, env: &Env, project: &Path) -> Result<()> {
+        if config::trusts_project(env, project) {
+            return Ok(());
+        }
+
+        Err(BusinessError::Untrusted(UNTRUSTED.to_owned()))
     }
 
     /// Never reached: Claude chats over [`ChatProtocol::ClaudeStream`], not RPC.

@@ -1,5 +1,6 @@
-//! What a start launches: only harnesses with chat, run through the harness's command line with
-//! its spawn environment and the launcher search path of its binary. A chat with a memory identity
+//! What a start launches: only harnesses with chat, in a project the harness trusts or trusts
+//! once, run through the harness's command line with its spawn environment and the launcher
+//! search path of its binary. A chat with a memory identity
 //! has its guards written first ([`prepare_memory_chat`]) and, once they are, its key passed as
 //! `HARNESS_MEMORY_SESSION`, which the harness's MCP servers inherit; any other launch has that
 //! variable removed, so a value the app itself inherited never names a chat.
@@ -47,6 +48,19 @@ pub(super) fn approval_override(
     }
 
     Ok(requested)
+}
+
+/// Whether a chat of `harness` in `project` trusts the project once: only when `requested` and the
+/// harness has project trust. A launch that does not is refused in a folder the harness does not
+/// trust yet ([`Harness::check_project_trust`]), before anything is spawned.
+pub(super) fn trust_once(harness: &dyn Harness, env: &Env, project: &Path, requested: bool) -> Result<bool> {
+    let trust_once = requested && harness.capabilities().project_trust;
+
+    if !trust_once {
+        harness.check_project_trust(env, project)?;
+    }
+
+    Ok(trust_once)
 }
 
 /// The command line of `request` for the harness of `deps`, naming chat `memory_session` to

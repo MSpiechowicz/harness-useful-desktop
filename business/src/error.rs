@@ -59,6 +59,11 @@ pub enum BusinessError {
     #[error("changed: {0}")]
     Changed(String),
 
+    /// The harness does not trust the project folder yet; only an explicit trust once starts it.
+    /// The text is a sentence for the user.
+    #[error("{0}")]
+    Untrusted(String),
+
     /// A bug or unexpected state.
     #[error("internal error: {0}")]
     Internal(String),
@@ -89,6 +94,7 @@ impl BusinessError {
             Self::Protocol(_) => IpcErrorCode::Protocol,
             Self::Conflict(_) => IpcErrorCode::Conflict,
             Self::Changed(_) => IpcErrorCode::Changed,
+            Self::Untrusted(_) => IpcErrorCode::Untrusted,
             Self::Internal(_) => IpcErrorCode::Internal,
         }
     }

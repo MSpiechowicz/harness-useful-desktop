@@ -221,7 +221,7 @@ pub(crate) fn takes_approval_mode(harness: HarnessId) -> bool {
     capabilities.chat && capabilities.approval_modes
 }
 
-/// The harnesses whose agent routine may trust the project once (PI).
+/// The harnesses whose agent routine may trust the project once (PI, Claude Code).
 pub(crate) fn takes_trust_once(harness: HarnessId) -> bool {
     let capabilities = capabilities(harness);
 

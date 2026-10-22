@@ -44,8 +44,9 @@ pub struct AgentStartRequest {
     pub resume: Option<SessionRef>,
     /// Per-session approval mode; honoured only by harnesses with `capabilities.approvalModes`.
     pub approval_override: Option<ApprovalMode>,
-    /// Trust the project's local resources for this launch only (PI project trust); honoured only
-    /// by harnesses with `capabilities.projectTrust`. Never implied.
+    /// Trust the project's local resources for this launch only (PI project trust, a folder Claude
+    /// Code does not trust yet); honoured only by harnesses with `capabilities.projectTrust`. Never
+    /// implied.
     pub trust_once: bool,
     /// A throwaway helper agent (naming a chat): no tools, no saved session, no thinking. Cannot
     /// resume a session.

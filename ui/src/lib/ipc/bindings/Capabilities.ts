@@ -65,9 +65,16 @@ approvalModes: boolean,
  */
 yoloMode: boolean, 
 /**
- * Project trust gating of project-local resources (PI `.pi/`).
+ * Project trust gating of project-local resources (PI `.pi/`, Claude Code's `.claude/`
+ * settings): a launch may trust the project once (`trustOnce`).
  */
 projectTrust: boolean, 
+/**
+ * With `project_trust`: the harness starts only in a folder it trusts itself (Claude Code's
+ * trust dialog). Elsewhere a start is refused (`untrusted`) unless it trusts the project
+ * once, so a running chat has nothing left to trust.
+ */
+projectTrustRequired: boolean, 
 /**
  * Slash commands run by sending their text as a prompt.
  */

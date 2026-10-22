@@ -20,12 +20,10 @@ import { type MemoryIdentities, withMemory } from './agent-memory';
 import { type ChatMemory, memoryChat } from './memoryChat.svelte';
 import { prefs } from './prefs.svelte';
 import { openRunWindow } from './routine-window';
+import { startFailureToast } from './start-failure';
 import { toasts, type ToastsStore } from './toasts.svelte';
 
 export type { RestartOptions, RestoredChat, StartingChat } from './agent-tabs';
-
-/** A start failure longer than this many characters is a sentence to read and act on, not a label. */
-const LONG_START_FAILURE = 80;
 
 /** Every open chat session (the tabs) and which one is showing. */
 export class AgentSessionsStore {
@@ -111,9 +109,7 @@ export class AgentSessionsStore {
       session = new ChatSession(info, this.transport, this.notifications);
     } catch (error) {
       if (!quiet) {
-        const message = IpcFailure.from(error).message;
-        // A long reason names a fix to carry out (a folder to chmod): it stays until the user dismisses it.
-        this.notifications.push({ title: t('chat.toast.startFailed'), description: message, tone: 'danger', duration: message.length > LONG_START_FAILURE ? 0 : undefined });
+        this.notifications.push(startFailureToast(error, request, () => void this.start({ ...request, trustOnce: true }, { keep })));
       }
 
       return null;

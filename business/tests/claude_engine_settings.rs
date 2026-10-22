@@ -4,7 +4,7 @@
 mod agent_support;
 mod claude_engine_support;
 
-use claude_engine_support::{prompt, start};
+use claude_engine_support::{Setup, argv, prompt, start};
 use harness_business::model::{
     AgentAction, AgentEvent, AgentReply, CommandSource, CommandSpec, IpcErrorCode, ModelOption,
 };
@@ -40,6 +40,29 @@ fn last_catalog(events: &[AgentEvent]) -> Vec<CommandSpec> {
             _ => None,
         })
         .expect("a catalog")
+}
+
+#[tokio::test]
+async fn a_new_session_starts_on_the_picked_model_as_one_argument() {
+    let chat = Setup::new(&["claude_model_pick.jsonl", "claude_startup.jsonl"])
+        .start()
+        .await;
+
+    assert_eq!(chat.send(set_model("sonnet")).await, AgentReply::Ack);
+    assert_eq!(chat.send(AgentAction::NewSession).await, AgentReply::Ack);
+    let deadline = tokio::time::Instant::now() + agent_support::WAIT;
+    while chat.spawner.requested().len() < 2 {
+        assert!(tokio::time::Instant::now() < deadline, "no second process");
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
+
+    let first = argv(&chat, 0);
+    let second = argv(&chat, 1);
+    assert!(!first.iter().any(|arg| arg.starts_with("--model")), "{first:?}");
+    assert!(second.contains(&"--model=sonnet".to_owned()), "{second:?}");
+    assert!(!second.contains(&"--model".to_owned()), "{second:?}");
+
+    chat.stop().await;
 }
 
 #[tokio::test]

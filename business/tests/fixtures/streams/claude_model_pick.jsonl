@@ -1,0 +1,3 @@
+// The crafted handshake, then a model pick the CLI takes: a later process of the chat starts on it.
+{"include": "claude_startup.jsonl"}
+{"expect": "control_request", "subtype": "set_model", "match": {"/request/model": "sonnet"}}

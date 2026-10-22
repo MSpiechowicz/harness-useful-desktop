@@ -31,7 +31,7 @@ use tokio::time::Instant;
 
 use super::SessionOptions;
 use super::engine::{AgentSession, SessionLaunch};
-use super::launch::{approval_override, ensure_chat, exec_spec, prepare_memory_chat};
+use super::launch::{approval_override, ensure_chat, exec_spec, prepare_memory_chat, trust_once};
 use super::sink::{EventSink, PromptTaken};
 use super::slots::{
     BindingSink, Bound, Claimant, Entry, Holder, Reservation, SessionClaim, Slots, bind, open_elsewhere, still_stopping,
@@ -202,7 +202,7 @@ impl AgentManager {
         }
 
         let approval_override = approval_override(harness, request.approval_override)?;
-        let trust_once = request.trust_once && harness.capabilities().project_trust;
+        let trust_once = trust_once(harness, deps.env, &project, request.trust_once)?;
 
         // A utility agent saves nothing, so it has no memory identity.
         let memory_session = match request.memory_chat.as_ref().filter(|_| !request.utility) {

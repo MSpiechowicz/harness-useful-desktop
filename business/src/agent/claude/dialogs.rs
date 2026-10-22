@@ -3,9 +3,10 @@
 //! [`questions`](crate::claude_stream::questions).
 //!
 //! - **Permission prompts** (also a subagent's): one the chat's own "Always allow" answers cover
-//!   is allowed at once, any other shows its dialog until the user answers it, the CLI withdraws
-//!   it (`control_cancel_request`: the dialog closes) or the user stops the turn (denied, see
-//!   `prompts.rs`). An "Always allow" answer the chat keeps also allows the open prompts it
+//!   is allowed at once (never one the CLI suppresses lasting rules for, blocked on a path or
+//!   flagged by a safety check), any other shows its dialog until the user answers it, the CLI
+//!   withdraws it (`control_cancel_request`: the dialog closes) or the user stops the turn
+//!   (denied, see `prompts.rs`). An "Always allow" answer the chat keeps also allows the open prompts it
 //!   covers, and their dialogs close.
 //! - **Questions:** one dialog per question; the answers go back after the last one, a dismissed
 //!   dialog denies the call.
@@ -98,7 +99,7 @@ impl Dialogs {
             ask_all,
             helper,
             open: Vec::new(),
-            allowed: AllowList::default(),
+            allowed: AllowList::new(project),
         }
     }
 
@@ -154,7 +155,7 @@ impl Dialogs {
             return;
         }
 
-        let always = Always::of(&ask, self.ask_all);
+        let always = Always::of(&ask, &self.project, self.ask_all);
         out.events.push(permission_dialog(&ask, &self.project, always.as_ref()));
 
         self.forget(&ask.request_id);

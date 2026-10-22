@@ -28,6 +28,9 @@ pub enum IpcErrorCode {
     /// What the user reviewed changed meanwhile (an agent saved a held note or script again): the
     /// UI shows the new version for another review.
     Changed,
+    /// The harness does not trust the project folder yet (Claude Code's own trust answer): the UI
+    /// offers to start again with `trustOnce`, which only the user can choose.
+    Untrusted,
     /// A bug or an unexpected internal state.
     Internal,
 }

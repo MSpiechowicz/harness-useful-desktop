@@ -121,7 +121,8 @@ pub enum RoutineAction {
         prompt: String,
         /// OMP and OpenCode only: the chat's approval mode; `None` keeps the harness's setting.
         approval_mode: Option<ApprovalMode>,
-        /// PI only: trust the project's local resources for this launch.
+        /// PI and Claude Code only: trust the project's local resources for this launch (a Claude
+        /// Code run in a folder it does not trust yet is refused without it).
         trust_once: bool,
         /// 1 to 240; `None` means 30. The run is stopped after that long.
         max_minutes: Option<u32>,
@@ -144,7 +145,8 @@ pub enum RoutineAction {
 
 impl RoutineAction {
     /// True for an agent action that runs tools without asking: OMP or OpenCode
-    /// `approvalMode: "yolo"`, or PI `trustOnce: true`.
+    /// `approvalMode: "yolo"`, or `trustOnce: true` (PI, Claude Code: the project's own resources
+    /// and hooks run unasked).
     pub fn runs_unattended(&self) -> bool {
         match self {
             Self::Agent {

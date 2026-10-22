@@ -58,10 +58,27 @@ pub struct PermissionAsk {
     /// The rules an "always allow" answer echoes as `updatedPermissions`; empty when the CLI
     /// suggests none.
     pub suggestions: Vec<Value>,
-    /// False when no persistent "always allow" may be offered.
-    pub always_allowed: bool,
+    /// The CLI's `suppress_always_allow_rule`: no "always allow" may be offered.
+    pub suppress_always_allow_rule: bool,
+    /// The path the CLI blocked the call on (outside the allowed directories, a protected file).
+    pub blocked_path: Option<String>,
+    /// Why the CLI asks (`hook`, `rule`, `mode`, `workingDir`, `safetyCheck`, …).
+    pub decision_reason_type: Option<String>,
     /// True when a subagent asks.
     pub from_subagent: bool,
+}
+
+/// Why the CLI asks when a safety check flagged the call (a protected path, a risky command).
+const SAFETY_CHECK: &str = "safetyCheck";
+
+impl PermissionAsk {
+    /// False when no "Always allow" may cover the call: the CLI suppresses lasting rules for it,
+    /// blocked it on a path, or a safety check flagged it. Such a call always shows its dialog.
+    pub fn may_always_allow(&self) -> bool {
+        !self.suppress_always_allow_rule
+            && self.blocked_path.is_none()
+            && self.decision_reason_type.as_deref() != Some(SAFETY_CHECK)
+    }
 }
 
 /// `AskUserQuestion` questions, asked together.
@@ -146,7 +163,9 @@ fn permission_ask(request_id: &str, permission: &PermissionRequest) -> Permissio
         title: permission.title.clone().filter(|text| !text.is_empty()),
         reason: permission.decision_reason.clone().filter(|text| !text.is_empty()),
         suggestions: permission.permission_suggestions.clone(),
-        always_allowed: !permission.suppress_always_allow_rule,
+        suppress_always_allow_rule: permission.suppress_always_allow_rule,
+        blocked_path: permission.blocked_path.clone().filter(|path| !path.is_empty()),
+        decision_reason_type: permission.decision_reason_type.clone().filter(|kind| !kind.is_empty()),
         from_subagent: permission.agent_id.is_some(),
     }
 }

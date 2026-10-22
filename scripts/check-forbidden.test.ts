@@ -206,3 +206,39 @@ describe('rules that already cover OpenCode files', () => {
     expectViolation(HARNESS, `let args = vec![${['"account"'].join(', ')}];\n`, 'private-store-argv');
   });
 });
+
+describe('Claude Code permission-mode rules', () => {
+  const CLAUDE_LAUNCH = 'business/src/harnesses/claude/sample.rs';
+  const CLAUDE_SESSION = 'business/src/agent/claude/sample.rs';
+  const flag = ['--permission', 'mode'].join('-');
+
+  test.each(['bypassPermissions', 'auto', 'dontAsk', 'acceptEdits', 'plan'])(
+    'starting in the %s mode is forbidden in the engine',
+    (mode) => {
+      expectViolation(CLAUDE_LAUNCH, argv(flag, mode), 'claude-permission-mode');
+      expectViolation(CLAUDE_SESSION, `let arg = "${flag}=${mode}";\n`, 'claude-permission-mode');
+      expectViolation(CLAUDE_SESSION, `//! runs \`${flag}  ${mode}\`\n`, 'claude-permission-mode');
+    },
+  );
+
+  test('switching the mode over the control protocol is forbidden in the engine', () => {
+    const subtype = ['set', 'permission', 'mode'].join('_');
+
+    expectViolation('business/src/claude_stream/sample.rs', `fn s() -> &'static str { "${subtype}" }\n`, 'claude-permission-mode');
+  });
+
+  test('the default mode passes', () => {
+    const allowed = [
+      argv(flag, 'default'),
+      `let arg = "${flag}=default";\n`,
+      `fn a() -> Vec<String> { flag_with("${flag}", WIRE_DEFAULT) }\n`,
+      `//! starts in \`${flag} default\`\n`,
+    ].join('');
+
+    expectClean(CLAUDE_LAUNCH, allowed);
+  });
+
+  test('the rules stay out of the rest of the code', () => {
+    expectClean('business/src/other/sample.rs', argv(flag, 'plan'));
+  });
+});

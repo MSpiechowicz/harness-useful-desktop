@@ -145,7 +145,11 @@ fn properties(edit: bool) -> Value {
     put("approvalMode", approval_mode());
     put(
         "trustOnce",
-        json!({ "type": "boolean", "description": "agent, pi only: trust the project's local resources for the run" }),
+        json!({
+            "type": "boolean",
+            "description": "agent, pi or claude only: trust the project's local resources for the run (a claude run \
+                            needs it in a folder Claude Code does not trust yet)"
+        }),
     );
     put("maxMinutes", minutes());
     put(

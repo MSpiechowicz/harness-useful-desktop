@@ -3,4 +3,4 @@
 /**
  * Stable error category returned over IPC; the UI branches on this, never on the message.
  */
-export type IpcErrorCode = "invalidInput" | "notFound" | "forbidden" | "unsupported" | "io" | "process" | "timeout" | "protocol" | "conflict" | "changed" | "internal";
+export type IpcErrorCode = "invalidInput" | "notFound" | "forbidden" | "unsupported" | "io" | "process" | "timeout" | "protocol" | "conflict" | "changed" | "untrusted" | "internal";

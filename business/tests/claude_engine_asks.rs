@@ -16,6 +16,8 @@ use pretty_assertions::assert_eq;
 const READ_ASK: &str = "f9c23b59-dafb-4bcb-aa8f-fd0d3dd816c9";
 const WRITE_ASK: &str = "33b799d2-2e75-432e-8d84-d2a660dd3979";
 const BASH_ASK: &str = "42443ed3-2830-4af2-ac90-1baccc6fc545";
+const SETTINGS_WRITE_ASK: &str = "5e1f0a2b-0000-4000-8000-000000000002";
+const OUTSIDE_WRITE_ASK: &str = "5e1f0a2b-0000-4000-8000-000000000003";
 
 /// Waits for the dialog `id`.
 async fn dialog(chat: &Chat, id: &str) -> UiRequest {
@@ -104,7 +106,11 @@ async fn always_ask_shows_every_prompt_and_keeps_an_always_answer_for_the_chat()
         (
             "Allow Read: notes.txt?",
             vec!["Allow once", "Always allow", "Reject"],
-            vec![None, Some("Allows every Read call until this chat ends"), None]
+            vec![
+                None,
+                Some("Allows every Read call on files in this project until this chat ends"),
+                None
+            ]
         )
     );
     answer(&chat, READ_ASK, "Allow once").await;
@@ -113,17 +119,37 @@ async fn always_ask_shows_every_prompt_and_keeps_an_always_answer_for_the_chat()
     assert_eq!(select(&write).0, "Allow Write: hello.txt?");
     answer(&chat, WRITE_ASK, "Always allow").await;
 
+    let settings = dialog(&chat, SETTINGS_WRITE_ASK).await;
+    assert_eq!(
+        select(&settings),
+        (
+            "Allow Write: .claude/settings.json?",
+            vec!["Allow once", "Reject"],
+            vec![Some("Claude Code settings files need approval"), None]
+        ),
+        "a call the CLI allows no lasting rule for is never covered and offers no Always allow"
+    );
+    answer(&chat, SETTINGS_WRITE_ASK, "Reject").await;
+
+    let outside = dialog(&chat, OUTSIDE_WRITE_ASK).await;
+    assert_eq!(
+        select(&outside).2[1],
+        Some("Allows this exact Write call again until this chat ends"),
+        "a file outside the project is not covered by the project's Write answer"
+    );
+    answer(&chat, OUTSIDE_WRITE_ASK, "Allow once").await;
+
     let bash = dialog(&chat, BASH_ASK).await;
     let (title, _, details) = select(&bash);
     assert_eq!(title, "Allow Bash: ls?");
-    assert_eq!(details[1], Some("Allows every \"ls …\" command until this chat ends"));
+    assert_eq!(details[1], Some("Allows this exact command again until this chat ends"));
     answer(&chat, BASH_ASK, "Reject").await;
 
     let events = chat.settled(1).await;
     assert_eq!(
         dialog_ids(&events),
-        [READ_ASK, WRITE_ASK, BASH_ASK],
-        "the second Write prompt was allowed without a dialog"
+        [READ_ASK, WRITE_ASK, SETTINGS_WRITE_ASK, OUTSIDE_WRITE_ASK, BASH_ASK],
+        "the second Write prompt in the project was allowed without a dialog"
     );
 
     let refused = dismiss(&chat, READ_ASK).await.expect_err("already answered");
@@ -169,13 +195,13 @@ async fn always_allow_echoes_the_suggested_rules_for_the_session_and_subagents_a
 }
 
 #[tokio::test]
-async fn a_kept_command_runs_again_unless_it_chains_others_and_other_asks_are_declined_at_once() {
+async fn only_the_exact_kept_command_runs_again_and_other_asks_are_declined_at_once() {
     let chat = start("claude_ask_commands.jsonl").await;
 
     let first = dialog(&chat, "0c7e0c11-0000-4000-8000-000000000001").await;
     assert_eq!(
         select(&first).2[1],
-        Some("Allows every \"cargo test …\" command until this chat ends")
+        Some("Allows this exact command again until this chat ends")
     );
     answer(&chat, &first.id, "Always allow").await;
 

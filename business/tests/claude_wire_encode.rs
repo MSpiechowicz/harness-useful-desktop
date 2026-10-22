@@ -117,14 +117,6 @@ fn control_requests_are_written_as_recorded() {
         ),
         (
             "controls.jsonl",
-            "set_permission_mode",
-            0,
-            HostRequest::SetPermissionMode {
-                mode: "acceptEdits".to_owned(),
-            },
-        ),
-        (
-            "controls.jsonl",
             "rename_session",
             0,
             HostRequest::RenameSession {

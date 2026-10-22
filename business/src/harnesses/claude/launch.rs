@@ -11,8 +11,9 @@
 //! own mode applies. A resumed session is `--resume <id>`, its id a Claude session UUID; the chat
 //! engine names a new session itself (`--session-id`) and starts the CLI again for a new session,
 //! a switch, a fork or a clone. No model flag is passed: the chat starts on the user's own default
-//! model, and the launch request names none. A helper chat (AI naming) runs without tools, thinking
-//! or a saved session ([`UTILITY_ARGS`]), also on the default model.
+//! model, and the launch request names none (the chat engine adds `--model=<id>` for a picked
+//! model). A helper chat (AI naming) runs without tools, MCP servers, thinking or a saved session
+//! ([`UTILITY_ARGS`]), also on the default model.
 
 use super::modes::WIRE_DEFAULT;
 use super::sessions::is_session_id;
@@ -33,8 +34,15 @@ pub const STREAM_ARGS: [&str; 8] = [
     "--include-partial-messages",
 ];
 
-/// The arguments of a helper chat: no tools, no thinking, nothing saved.
-pub const UTILITY_ARGS: [&str; 4] = ["--tools", "", "--thinking=disabled", "--no-session-persistence"];
+/// The arguments of a helper chat: no tools, no MCP servers (`--strict-mcp-config` without an
+/// `--mcp-config` loads none), no thinking, nothing saved.
+pub const UTILITY_ARGS: [&str; 5] = [
+    "--tools",
+    "",
+    "--strict-mcp-config",
+    "--thinking=disabled",
+    "--no-session-persistence",
+];
 
 /// `claude <stream args> [--permission-mode default] [--resume <id> | <utility args>]` in the
 /// project.

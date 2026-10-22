@@ -41,6 +41,9 @@ use crate::process::{ExecSpec, ProcessSpawner};
 /// The flags that name the session or its model, each with its value (`--fork-session` has none).
 const SESSION_FLAGS: [&str; 4] = ["--resume", "--session-id", "--resume-session-at", "--model"];
 
+/// The model flag with its value in one argument (`--model=sonnet`), so no value reads as a flag.
+const MODEL_FLAG: &str = "--model=";
+
 /// The flag that copies the resumed session.
 const FORK_FLAG: &str = "--fork-session";
 
@@ -251,13 +254,14 @@ pub(super) fn fresh_id() -> String {
     new_message_uuid()
 }
 
-/// `base` with the flags of `start` (and `--model` for a picked model other than the default).
+/// `base` with the flags of `start` (and `--model=<id>` for a picked model other than the
+/// default).
 fn command_line(base: &ExecSpec, start: &Start, model: Option<&str>) -> ExecSpec {
     let mut spec = base.clone();
     spec.args.extend(start.args().into_iter().map(OsString::from));
 
     if let Some(model) = model.filter(|model| *model != DEFAULT_MODEL) {
-        spec.args.extend(["--model", model].map(OsString::from));
+        spec.args.push(OsString::from(format!("{MODEL_FLAG}{model}")));
     }
 
     spec
@@ -278,7 +282,7 @@ fn base_spec(mut spec: ExecSpec) -> ExecSpec {
 
         if SESSION_FLAGS.contains(&name) {
             skip_value = true;
-        } else if name != FORK_FLAG {
+        } else if name != FORK_FLAG && !name.starts_with(MODEL_FLAG) {
             args.push(arg);
         }
     }

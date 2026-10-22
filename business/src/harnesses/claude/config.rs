@@ -18,7 +18,7 @@ mod redact;
 use std::path::Path;
 
 pub(super) use self::files::{SettingsFile, managed_files, settings_files};
-pub(super) use self::global_file::{GlobalSections, global_sections, names_project};
+pub(super) use self::global_file::{GlobalSections, global_sections, names_project, trusts_project};
 use crate::env::Env;
 use crate::model::{ConfigFormat, ConfigLayer, ConfigSection, ConfigView, HarnessId};
 use crate::pi_family::{Document, SectionText, read_document, section_with, source};

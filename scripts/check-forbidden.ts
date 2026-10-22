@@ -204,10 +204,19 @@ const CLAUDE_RULES: readonly Rule[] = [
     optOut: false,
   },
   {
-    id: 'claude-bypass-mode',
-    reason: 'never switch Claude Code to the bypassPermissions mode over the control protocol',
-    pattern: /SetPermissionMode\b.*bypassPermissions/,
+    id: 'claude-permission-mode',
+    reason: 'the Claude Code engine starts Claude Code only in its default mode; approvals stay with the user',
+    pattern: new RegExp(String.raw`--permission-mode(?:=|\s+|${QUOTE}\s*,\s*${QUOTE})(?!\s|default\b)`),
     extensions: ['.rs'],
+    only: CLAUDE_ENGINE,
+    optOut: false,
+  },
+  {
+    id: 'claude-permission-mode',
+    reason: 'the Claude Code engine never switches the permission mode over the control protocol',
+    pattern: /"set_permission_mode"/,
+    extensions: ['.rs'],
+    only: CLAUDE_ENGINE,
     optOut: false,
   },
   {
