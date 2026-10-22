@@ -16,7 +16,9 @@
   let { session }: Props = $props();
 
   const level = $derived(session.chat.session?.thinkingLevel ?? null);
-  const supported = $derived(session.chat.session?.model?.reasoning !== false);
+  const model = $derived(session.chat.session?.model ?? null);
+  // Levels belong to a model: none is offered before the session reports one.
+  const supported = $derived(model !== null && model.reasoning !== false);
 
   $effect(() => {
     if (session.ui.thinkingPicker) {

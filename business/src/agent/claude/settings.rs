@@ -5,12 +5,15 @@
 //!   for them (the cached list stays when that fails). A model is offered by its `set_model` value
 //!   (`default`, `opus`, a full model id) under the provider [`PROVIDER`]; context window and
 //!   input kinds are unknown, so they stay empty. The chat's model is the one it picked, else the
-//!   entry of the model the newest `system/init` named, else unknown.
+//!   entry of the model the newest `system/init` named, else of the one the process started on
+//!   (Harness Skills' default role), else of the `default` entry's resolved model, so the picker
+//!   names the model the CLI uses from the start. An entry is the one with that value, else one
+//!   that resolves to it (another than `default` first).
 //! - **Thinking:** a model's levels are its `supportedEffortLevels`, after `off` when it can turn
 //!   thinking off. A level is `apply_flag_settings{effortLevel}`, `off` is
 //!   `set_max_thinking_tokens 0` (lifted again before the next level). Claude Code does not report
-//!   its effort, so the level is unknown until the chat picks one; a model change keeps it only
-//!   when the new model has it.
+//!   its effort, so the level is unknown until the chat picks one or starts with an `--effort`; a
+//!   model change keeps it only when the new model has it.
 //! - **Renaming:** `rename_session`; the title comes back as `session_title_changed`.
 //! - **Commands:** the `initialize` list, replaced by every `system/commands_changed`, labelled
 //!   with the skill names of `system/init`; `refreshCommands` asks `reload_skills` and adds the
@@ -110,9 +113,7 @@ impl Chat {
             model: current_model(&live),
         });
 
-        let kept = live.thinking.as_ref().is_none_or(|level| levels(&live).contains(level));
-
-        if !kept {
+        if !thinking_offered(&live) {
             live.thinking = None;
             self.emit_state(&live);
         }
@@ -262,16 +263,32 @@ fn current_model(live: &Live) -> Option<ModelOption> {
         });
     }
 
-    let running = live.running_model.as_deref()?;
-    let resolves = |model: &&ModelInfo| model.resolved_model.as_deref() == Some(running);
+    let default = live.models.iter().find(|model| model.value == DEFAULT_MODEL);
+    let known = live.running_model.as_deref().or(live.launched_model.as_deref());
 
-    let named = live
-        .models
+    let Some(id) = known.or_else(|| default?.resolved_model.as_deref()) else {
+        return default.map(option);
+    };
+
+    Some(named(live, id).map_or_else(|| bare(id), option))
+}
+
+/// The offered model `id` names (see the module docs).
+fn named<'a>(live: &'a Live, id: &str) -> Option<&'a ModelInfo> {
+    let models = &live.models;
+    let resolves = |model: &&ModelInfo| model.resolved_model.as_deref() == Some(id);
+    let alias = |model: &&ModelInfo| model.value != DEFAULT_MODEL && resolves(model);
+
+    models
         .iter()
-        .find(|model| model.value != DEFAULT_MODEL && resolves(model))
-        .or_else(|| live.models.iter().find(resolves));
+        .find(|model| model.value == id)
+        .or_else(|| models.iter().find(alias))
+        .or_else(|| models.iter().find(resolves))
+}
 
-    Some(named.map_or_else(|| bare(running), option))
+/// True unless the chat's thinking level is one its model does not offer.
+pub(super) fn thinking_offered(live: &Live) -> bool {
+    live.thinking.as_ref().is_none_or(|level| levels(live).contains(level))
 }
 
 /// The thinking levels of the chat's model.

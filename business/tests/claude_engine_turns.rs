@@ -64,20 +64,18 @@ async fn a_prompt_streams_one_turn_and_settles() {
         )
     }));
 
-    let model = events.iter().find_map(|event| match event {
-        AgentEvent::ModelChanged { model } => model.clone(),
-        _ => None,
-    });
-    assert_eq!(
-        model.map(|model| model.id).as_deref(),
-        Some("opus"),
-        "the model system/init named"
+    assert!(
+        !events
+            .iter()
+            .any(|event| matches!(event, AgentEvent::ModelChanged { .. })),
+        "system/init names the default's model, reported from the start"
     );
 
     let AgentReply::State { state } = chat.send(AgentAction::GetState).await else {
         panic!("a state")
     };
     assert_eq!(state.session_id, BASIC_SESSION);
+    assert_eq!(state.model.map(|model| model.id).as_deref(), Some("opus"));
     assert!(!state.is_streaming);
     assert_eq!(state.queued_count, 0);
 
