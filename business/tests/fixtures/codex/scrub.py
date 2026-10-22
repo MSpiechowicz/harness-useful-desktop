@@ -1,13 +1,19 @@
-"""Scrub S0 recordings into fixtures: paths, account, long lists cut to three."""
+"""Scrub S0 recordings into fixtures: paths, account, long lists cut to three.
+
+Usage: SCRUB_EMAIL=<account email> SCRUB_EXTRA='<path>=<replacement>' python3 -I scrub.py <src> <dst> <project>
+"""
 import json, os, re, sys
 src, dst, project = sys.argv[1], sys.argv[2], sys.argv[3]
-SUBS = [
-    (project, "/work/project"),
-    ("/home/frogius/Projekty/track-things-backend", "/work/extra-root"),
-    ("/home/frogius", "/home/user"),
-    ("maciej.spiechowicz@gmail.com", "user@example.invalid"),
-    ("frogius", "user"),
-]
+# The recorder's own home, user name and account email never reach a fixture. Extra private
+# paths (other writable roots, …) go in SCRUB_EXTRA as "path=replacement;…".
+HOME = os.path.expanduser("~")
+SUBS = [(project, "/work/project")]
+for pair in filter(None, os.environ.get("SCRUB_EXTRA", "").split(";")):
+    old, _, new = pair.partition("=")
+    SUBS.append((old, new or "/work/extra-root"))
+SUBS += [(HOME, "/home/user"), (os.path.basename(HOME), "user")]
+if os.environ.get("SCRUB_EMAIL"):
+    SUBS.append((os.environ["SCRUB_EMAIL"], "user@example.invalid"))
 def cut(v):
     if isinstance(v, list):
         return [cut(x) for x in v[:3]]

@@ -773,7 +773,8 @@ for their login. The plan keeps these as "Verified facts" ([codex.md](plans/code
 in a scratch git repo with `python3 -I record.py <project_dir> <out_dir>` and writes both directions of every
 scenario to `<out_dir>/<scenario>.jsonl` as `{"dir": "in" | "out", "frame": …}`. `scrub.py <src> <dst> <project>` then
 rewrites paths and the account, and cuts long lists to three entries, into
-`business/tests/fixtures/codex/app_server/`. Its `SUBS` list holds the recorder's own home and email: edit it for your
-machine and check the output for anything else personal before you commit. Delete the scratch threads afterwards.
+`business/tests/fixtures/codex/app_server/`. It replaces your home folder and user name by itself; pass the account
+email in `SCRUB_EMAIL` and any other private path (extra writable roots) in `SCRUB_EXTRA` as `path=replacement;…`,
+then check the output for anything else personal before you commit. Delete the scratch threads afterwards.
 `fake_agent --dialect codex` replays the scrubbed frames inside scenarios, so the mapper and the engine are tested
 against what Codex really sent.
