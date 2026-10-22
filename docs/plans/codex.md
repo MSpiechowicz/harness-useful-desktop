@@ -142,6 +142,12 @@ engine `agent/codex/`. Stdio only: no ports, no password, no daemon.
 10. **Naming:** harness id `codex`, name "Codex", short "CX", colour from the dashboard palette's existing Codex entry
     (`ui/src/lib/dashboard/palette.ts:48`), contrast checked in both themes.
 
+11. **Notes guard (user, 2026-10-22: "a"):** each chat launch adds
+    `-c mcp_servers.<name>.env_vars=[<existing…>, "HARNESS_MEMORY_SESSION"]` for every harness-memory stdio server
+    already in the effective config, so the guard can work. Nothing is written to `config.toml`. Real CLI check: the
+    override merges (command, args and other keys stay); an override for a server that is not configured makes
+    `codex app-server` exit, so it is never added for a missing server.
+
 ## Architecture
 
 - `business/src/harnesses/codex/`: detection, config view, extensions, setup, share, CLI actions.
