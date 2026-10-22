@@ -1,0 +1,7 @@
+{
+  "name": "useful-skills-local",
+  "owner": { "name": "Demo Org" },
+  "plugins": [
+    { "name": "useful-skills", "version": "0.3.1", "description": "Review, planning and release skills.", "source": "./claude" }
+  ]
+}

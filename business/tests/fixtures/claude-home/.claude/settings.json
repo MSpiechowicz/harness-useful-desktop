@@ -18,7 +18,8 @@
       }
     ]
   },
-  "enabledPlugins": { "useful-skills@useful-skills-local": true },
+  "enabledPlugins": { "useful-skills@useful-skills-local": true, "lint-tools@demo-market": false, "escaping@demo-market": true },
+  "extraKnownMarketplaces": { "team-tools": { "source": { "source": "github", "repo": "demo-org/team-tools" } } },
   "pluginConfigs": { "useful-skills@useful-skills-local": { "options": { "endpoint": "CANARY-7f3a9c", "retries": 3 } } },
   "statusLine": { "type": "command", "command": "~/.claude/statusline.sh" }
 }

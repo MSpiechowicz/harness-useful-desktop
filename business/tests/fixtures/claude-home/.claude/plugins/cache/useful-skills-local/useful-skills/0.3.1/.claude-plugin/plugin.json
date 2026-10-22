@@ -1,0 +1,13 @@
+{
+  "name": "useful-skills",
+  "version": "0.3.1",
+  "description": "Review, planning and release skills.",
+  "author": { "name": "Demo Org" },
+  "mcpServers": {
+    "notes": {
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/notes",
+      "args": ["serve", "--token", "CANARY-7f3a9c"],
+      "env": { "NOTES_TOKEN": "CANARY-7f3a9c" }
+    }
+  }
+}

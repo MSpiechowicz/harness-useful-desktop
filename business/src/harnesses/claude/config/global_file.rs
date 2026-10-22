@@ -32,7 +32,7 @@ const MAX_RESOLVED_KEYS: usize = 256;
 
 /// The global file's sections, each with its allow-listed content.
 #[derive(Debug, Default)]
-pub(super) struct GlobalSections {
+pub(in crate::harnesses::claude) struct GlobalSections {
     /// The user's MCP servers. Present whenever the file exists, with the read or parse error if any.
     pub user: Option<(SettingsFile, Document)>,
     /// The open project's entry, when the file names the project.
@@ -40,7 +40,7 @@ pub(super) struct GlobalSections {
 }
 
 /// Reads the global file of `env` (see the module docs).
-pub(super) fn global_sections(env: &Env, project: Option<&Path>) -> GlobalSections {
+pub(in crate::harnesses::claude) fn global_sections(env: &Env, project: Option<&Path>) -> GlobalSections {
     let path = global_config_file(env);
 
     let root = match read_document(&path, ConfigFormat::Json) {
@@ -124,6 +124,18 @@ fn project_entry<'a>(projects: &'a Map<String, Value>, project: &Path) -> Option
         .take(MAX_RESOLVED_KEYS)
         .find(|(key, _)| resolves_to(key, &canonical))
         .map(|(_, entry)| entry)
+}
+
+/// True when `key` (a path Claude wrote, such as an install record's `projectPath`) names
+/// `project`, with either separator or through a link to the same folder.
+pub(in crate::harnesses::claude) fn names_project(key: &str, project: &Path) -> bool {
+    let wanted = key_form(key);
+    if wanted == key_form(&project.to_string_lossy()) {
+        return true;
+    }
+
+    dunce::canonicalize(project)
+        .is_ok_and(|canonical| wanted == key_form(&canonical.to_string_lossy()) || resolves_to(key, &canonical))
 }
 
 fn resolves_to(key: &str, canonical: &Path) -> bool {

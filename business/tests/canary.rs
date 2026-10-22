@@ -94,16 +94,35 @@ fn claude_home() -> PathBuf {
 }
 
 /// The files of the Claude fixture home that stay readable: the global files, settings, managed
-/// settings and memory files. Their canaries sit in values the views hide or never show (see
+/// settings, memory files, plugin registries, catalogs and plugin contents, and the user's skills,
+/// agents and commands. Their canaries sit in values the views hide or never show (see
 /// `adapter_canary.rs`).
 const CLAUDE_READABLE: &[&str] = &[
     ".claude.json",
     ".claude/CLAUDE.md",
+    ".claude/agents/notes.md",
+    ".claude/agents/planner.md",
+    ".claude/commands/plain.md",
+    ".claude/commands/standup.md",
+    ".claude/plugins/cache/demo-market/lint-tools/1.0.0/.claude-plugin/plugin.json",
+    ".claude/plugins/cache/demo-market/lint-tools/1.0.0/skills/lint/SKILL.md",
+    ".claude/plugins/cache/useful-skills-local/useful-skills/0.3.1/.claude-plugin/plugin.json",
+    ".claude/plugins/cache/useful-skills-local/useful-skills/0.3.1/.mcp.json",
+    ".claude/plugins/cache/useful-skills-local/useful-skills/0.3.1/agents/reviewer.md",
+    ".claude/plugins/cache/useful-skills-local/useful-skills/0.3.1/commands/ship.md",
+    ".claude/plugins/cache/useful-skills-local/useful-skills/0.3.1/hooks/hooks.json",
+    ".claude/plugins/cache/useful-skills-local/useful-skills/0.3.1/skills/review/SKILL.md",
+    ".claude/plugins/installed_plugins.json",
+    ".claude/plugins/known_marketplaces.json",
+    ".claude/plugins/marketplaces/demo-market/.claude-plugin/marketplace.json",
+    ".claude/plugins/marketplaces/useful-skills-local/.claude-plugin/marketplace.json",
     ".claude/settings.json",
+    ".claude/skills/explain/SKILL.md",
     "Program Files/ClaudeCode/managed-settings.d/.draft.json",
     "Program Files/ClaudeCode/managed-settings.d/10-team.json",
     "Program Files/ClaudeCode/managed-settings.d/README.txt",
     "Program Files/ClaudeCode/managed-settings.json",
+    "claude-markets/local-market/.claude-plugin/marketplace.json",
     "claude-work/.claude.json",
     "claude-work/settings.json",
 ];

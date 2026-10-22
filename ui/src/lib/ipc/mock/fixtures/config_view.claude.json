@@ -218,6 +218,58 @@
                   "kind": "bool",
                   "value": true
                 }
+              },
+              {
+                "key": "lint-tools@demo-market",
+                "value": {
+                  "kind": "bool",
+                  "value": false
+                }
+              },
+              {
+                "key": "escaping@demo-market",
+                "value": {
+                  "kind": "bool",
+                  "value": true
+                }
+              }
+            ]
+          }
+        },
+        {
+          "key": "extraKnownMarketplaces",
+          "value": {
+            "kind": "map",
+            "value": [
+              {
+                "key": "team-tools",
+                "value": {
+                  "kind": "map",
+                  "value": [
+                    {
+                      "key": "source",
+                      "value": {
+                        "kind": "map",
+                        "value": [
+                          {
+                            "key": "source",
+                            "value": {
+                              "kind": "text",
+                              "value": "github"
+                            }
+                          },
+                          {
+                            "key": "repo",
+                            "value": {
+                              "kind": "text",
+                              "value": "demo-org/team-tools"
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
               }
             ]
           }

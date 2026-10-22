@@ -1,5 +1,6 @@
-//! The Claude Code config view over the synthetic fixture home (`claude-home`, with managed
-//! settings under `Program Files` and a second config directory `claude-work`) and the demo project.
+//! The Claude Code config and extensions views over the synthetic fixture home (`claude-home`, with
+//! managed settings under `Program Files` and a second config directory `claude-work`) and the demo
+//! project. Extension details are covered in `claude_extensions.rs`.
 
 mod common;
 
@@ -66,6 +67,20 @@ fn config_view_snapshots() {
     insta::assert_json_snapshot!(
         "claude_config_project",
         exported(config(&env, Some(&project)), &home, &project)
+    );
+}
+
+#[test]
+fn extensions_view_snapshots() {
+    let home = claude_home();
+    let project = demo_project();
+    let env = env_at(&home);
+    let view = |project: Option<&Path>| Claude.extensions_view(&env, project).unwrap();
+
+    insta::assert_json_snapshot!("claude_extensions_user", exported(view(None), &home, &project));
+    insta::assert_json_snapshot!(
+        "claude_extensions_project",
+        exported(view(Some(&project)), &home, &project)
     );
 }
 

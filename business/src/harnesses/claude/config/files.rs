@@ -27,7 +27,7 @@ const LOCAL_SETTINGS_FILE: &str = "settings.local.json";
 
 /// One settings file of the view.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) struct SettingsFile {
+pub(in crate::harnesses::claude) struct SettingsFile {
     /// Section id.
     pub id: String,
     /// Section title.
@@ -42,7 +42,7 @@ pub(super) struct SettingsFile {
 }
 
 /// The managed settings files that exist.
-pub(super) fn managed_files(env: &Env) -> Vec<SettingsFile> {
+pub(in crate::harnesses::claude) fn managed_files(env: &Env) -> Vec<SettingsFile> {
     let dir = managed_dir(env);
     let mut files = Vec::new();
 
@@ -75,7 +75,7 @@ pub(super) fn managed_files(env: &Env) -> Vec<SettingsFile> {
 
 /// The user's settings and, with a project, the project's shared and local settings, when they
 /// exist. A project file that is the user's file (the project is the home directory) is listed once.
-pub(super) fn settings_files(env: &Env, project: Option<&Path>) -> Vec<SettingsFile> {
+pub(in crate::harnesses::claude) fn settings_files(env: &Env, project: Option<&Path>) -> Vec<SettingsFile> {
     let user = config_dir(env).join(SETTINGS_FILE);
     let mut files = vec![SettingsFile {
         id: "user.settings".to_owned(),
