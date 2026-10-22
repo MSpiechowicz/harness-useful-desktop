@@ -185,7 +185,9 @@ engine `agent/codex/`. Stdio only: no ports, no password, no daemon.
 | S7 wire + mapper + fake_agent dialect | done (4b6c697, merged d096c22). Codex 0.154 offers commands only accept / acceptWithExecpolicyAmendment / cancel: "Always" for a command only when `acceptForSession` is offered, never the amendment (writes a lasting rule) |
 | S4 sessions | done (merged 6ca290a). Real CLI check 2026-10-22: `thread/list` leaves `forkedFromId` out (only `thread/read` has it), so no session tree / fork count; a fork is listed only after its own first turn (preview = its own prompt); an unknown id answers `-32600 "thread not loaded: <id>"` (→ NotFound); unloaded saved threads read fine; parent delete with forks → `-32600 "… forked history still references it"`. Cwd filter is exact (subfolder threads not listed) |
 | S8 engine core | done (merged dbf2185). Spawn `-c check_for_update_on_startup=false -c features.in_app_updates=false` (both accepted by the real CLI). `summary:"auto"` accepted but gpt-5.6-terra returns no reasoning text either way. Approval overrides refused until S9. Desktop does not pass `attachments_dir` yet (S10) |
-| Next | S9 approvals + modes + trust, S10 ops + chat on, then S11, S12, S13, reviews 3+3 |
+| S9 approvals + modes + trust | done (merged 21f2769). Mode sent on thread/start and thread/resume only (thread-level `sandbox` keeps the user's writable roots), a mode change resumes the thread. Yolo offered like OMP/OpenCode (`yolo_mode` capability), Auto refused. Trust once = `-c projects={"<abs>"={trust_level="trusted"}}`: real CLI check 2026-10-22, the project layer applies only with it (config/read). Open for S12: `TrustOnce.svelte` copy is PI-specific and shows without a `.codex/` folder; Windows `.cmd` launcher refuses the trust-once argument |
+| S10 ops + chat on | running in `/home/frogius/Projekty/.wt-cx/c` (wip/cx-c); at merge: `bash_gate.rs` → `codex_bash_allowed`, fork uses `thread_settings(cwd)`, un-ignore the routine test |
+| Next | S11, S12, S13, reviews 3+3 |
 
 ## Verified facts (S0 recording, 2026-10-22)
 
