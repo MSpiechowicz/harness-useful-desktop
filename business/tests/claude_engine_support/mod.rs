@@ -27,6 +27,7 @@ pub struct Chat {
     /// The canonical project directory.
     pub project: PathBuf,
     _dir: TempDir,
+    _config: TempDir,
 }
 
 impl Chat {
@@ -145,6 +146,8 @@ pub struct Setup<'a> {
     pub utility: bool,
     /// Session files of `tests/fixtures/sessions/claude` copied into the session folder.
     pub sessions: &'a [&'a str],
+    /// The text of Harness Skills' models file in the config directory, none when `None`.
+    pub models_file: Option<&'a str>,
     pub options: SessionOptions,
 }
 
@@ -156,6 +159,7 @@ impl<'a> Setup<'a> {
             approval: None,
             utility: false,
             sessions: &[],
+            models_file: None,
             options: options(),
         }
     }
@@ -165,6 +169,14 @@ impl<'a> Setup<'a> {
         let project = dunce::canonicalize(dir.path()).expect("canonical project");
         let sink = CollectingSink::new();
         let spawner = ScenarioSpawner::sequence("claude", self.scenarios);
+
+        let config = tempfile::tempdir().expect("config dir");
+
+        if let Some(text) = self.models_file {
+            let dir = config.path().join("useful-skills");
+            std::fs::create_dir_all(&dir).expect("create the models folder");
+            std::fs::write(dir.join("models.yml"), text).expect("write the models file");
+        }
 
         for id in self.sessions {
             let file = format!("{id}.jsonl");
@@ -178,6 +190,7 @@ impl<'a> Setup<'a> {
             protocol: ChatProtocol::ClaudeStream,
             project: project.clone(),
             sessions_dir: project.clone(),
+            config_dir: config.path().to_path_buf(),
             resume: self.resume,
             approval_override: self.approval,
             utility: self.utility,
@@ -194,6 +207,7 @@ impl<'a> Setup<'a> {
             spawner,
             project,
             _dir: dir,
+            _config: config,
         }
     }
 }
@@ -233,7 +247,8 @@ fn forbidden_flags() -> Vec<String> {
 }
 
 /// Asserts a Claude Code command line `args` carries no forbidden flag, sends its permission
-/// prompts to the app (`--permission-prompt-tool stdio`, once) and names no mode but `default`.
+/// prompts to the app (`--permission-prompt-tool stdio`, once), names no mode but `default` and no
+/// effort but one of Claude Code's levels, in one argument.
 pub fn assert_allowed_flags(args: &[String]) {
     let forbidden = forbidden_flags();
     let mut prompt_tools = 0;
@@ -254,6 +269,11 @@ pub fn assert_allowed_flags(args: &[String]) {
 
         if name == "--permission-mode" {
             assert_eq!(value, Some("default"), "{args:?}");
+        }
+
+        if name == "--effort" {
+            let levels = ["low", "medium", "high", "xhigh", "max"];
+            assert!(inline.is_some_and(|level| levels.contains(&level)), "{args:?}");
         }
     }
 

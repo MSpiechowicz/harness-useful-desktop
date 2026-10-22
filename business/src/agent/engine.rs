@@ -36,6 +36,11 @@ pub struct SessionLaunch<'a> {
     pub project: PathBuf,
     /// The project's session folder (for `switchSession`).
     pub sessions_dir: PathBuf,
+    /// The harness's config directory ([`HarnessPaths::config_root`]): a new Claude Code chat reads
+    /// Harness Skills' default model role from it.
+    ///
+    /// [`HarnessPaths::config_root`]: crate::harness::HarnessPaths::config_root
+    pub config_dir: PathBuf,
     /// The resumed session id. The RPC command line already has it, an engine without one applies
     /// it after spawn (as the next three).
     pub resume: Option<&'a str>,

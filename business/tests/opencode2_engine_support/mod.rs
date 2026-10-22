@@ -330,6 +330,7 @@ pub async fn start_through(
         protocol: ChatProtocol::OpenCodeServerV2,
         project: project.clone(),
         sessions_dir: project.clone(),
+        config_dir: project.clone(),
         resume,
         approval_override: approval,
         utility,

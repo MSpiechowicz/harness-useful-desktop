@@ -1,3 +1,4 @@
+import { waitFor } from '@testing-library/svelte';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { prefs } from '$lib/stores/prefs.svelte';
@@ -43,5 +44,32 @@ describe('chat defaults', () => {
     const types = of('agent_send').map((call) => call.action.type);
     expect(types).not.toContain('setModel');
     expect(types).not.toContain('setThinkingLevel');
+  });
+});
+
+describe('chat defaults over the model a Claude Code chat starts on', () => {
+  // The mock agent starts on Sonnet 4.5 at medium, as a chat that Harness Skills' default model role started.
+  it('keeps that model and level when nothing is saved', async () => {
+    prefs.value = samplePrefs();
+
+    const { session, of } = await startedSession('claude');
+    await waitFor(() => expect(session.chat.session?.model?.id).toBe('claude-sonnet-4-5'));
+    await applyChatDefaults(session);
+
+    const types = of('agent_send').map((call) => call.action.type);
+    expect(types).not.toContain('setModel');
+    expect(types).not.toContain('setThinkingLevel');
+    expect(session.chat.session?.model?.id).toBe('claude-sonnet-4-5');
+    expect(session.chat.session?.thinkingLevel).toBe('medium');
+  });
+
+  it('puts a new chat on the saved model and level instead', async () => {
+    prefs.value = samplePrefs({ chatDefaults: [{ harness: 'claude', provider: 'anthropic', modelId: 'claude-haiku-4-5', thinkingLevel: 'high' }] });
+
+    const { session, of } = await startedSession('claude');
+
+    await waitFor(() => expect(session.chat.session?.thinkingLevel).toBe('high'));
+    expect(session.chat.session?.model?.id).toBe('claude-haiku-4-5');
+    expect(of('agent_send').map((call) => call.action)).toContainEqual({ type: 'setModel', provider: 'anthropic', modelId: 'claude-haiku-4-5' });
   });
 });

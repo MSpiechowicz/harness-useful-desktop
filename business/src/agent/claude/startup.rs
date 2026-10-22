@@ -10,6 +10,10 @@
 //!   --fork-session --session-id <fresh uuid>`, a fork cut with `--resume-session-at <uuid>`. A
 //!   frame that names another id still wins (a fresh `state` then). A helper chat saves nothing and
 //!   learns its id from the frames.
+//! - **Model:** the chat's pick (`--model=<value>`, not for `default`). A new session the chat has
+//!   picked no model for starts on Harness Skills' default role when its models file names one
+//!   (`--model=<model>` and `--effort=<effort>`, see `roles.rs`), its thinking level then that
+//!   effort while the model offers it. A resumed, forked, cloned or helper session never reads it.
 //! - **Messages:** a session that starts with saved messages (resumed, forked, cloned) counts them
 //!   from its session file, best effort.
 //! - The whole startup runs within the startup deadline and gives up when every session is stopped
@@ -24,9 +28,11 @@ use std::time::Duration;
 use tokio::sync::{oneshot, watch};
 
 use super::io::read_stdout;
+use super::ops::blocking;
 use super::relay::{Port, Relay};
 use super::reports::{counts, saved_messages};
-use super::settings::{DEFAULT_MODEL, catalog};
+use super::roles::{Selection, default_selection};
+use super::settings::{DEFAULT_MODEL, catalog, thinking_offered};
 use super::{Chat, ClaudeSession, Live, Origin, Run};
 use crate::agent::SessionOptions;
 use crate::agent::engine::SessionLaunch;
@@ -43,6 +49,9 @@ const SESSION_FLAGS: [&str; 4] = ["--resume", "--session-id", "--resume-session-
 
 /// The model flag with its value in one argument (`--model=sonnet`), so no value reads as a flag.
 const MODEL_FLAG: &str = "--model=";
+
+/// The effort flag with its value in one argument (`--effort=high`).
+const EFFORT_FLAG: &str = "--effort=";
 
 /// The flag that copies the resumed session.
 const FORK_FLAG: &str = "--fork-session";
@@ -124,6 +133,8 @@ pub(super) struct Launcher {
     pub(super) base: ExecSpec,
     pub(super) project: PathBuf,
     pub(super) sessions_dir: PathBuf,
+    /// Claude Code's config directory, where Harness Skills keeps its model roles.
+    config_dir: PathBuf,
     ask_all: bool,
     pub(super) helper: bool,
     relay: Arc<Relay>,
@@ -153,6 +164,7 @@ impl ClaudeSession {
             base: base_spec(launch.spec),
             project: launch.project,
             sessions_dir: launch.sessions_dir,
+            config_dir: launch.config_dir,
             ask_all: !helper && launch.approval_override == Some(ApprovalMode::AlwaysAsk),
             helper,
             relay: Relay::new(launch.sink),
@@ -172,15 +184,21 @@ impl ClaudeSession {
 }
 
 impl Launcher {
-    /// Spawns `claude` for `start` (on `model`, the chat's pick, when there is one) and completes
-    /// the handshake; the process is not opened yet. A failed start kills it.
+    /// Spawns `claude` for `start` (on `model`, the chat's pick, when there is one, else a new
+    /// session on Harness Skills' default role) and completes the handshake; the process is not
+    /// opened yet. A failed start kills it.
     pub(super) async fn launch(
         &self,
         start: &Start,
         model: Option<&str>,
         abort: StartAbort<'_>,
     ) -> Result<(Arc<Run>, InitializeReply)> {
-        let spec = command_line(&self.base, start, model);
+        let role = match start {
+            Start::New(_) if model.is_none() => self.default_role().await,
+            _ => None,
+        };
+
+        let spec = command_line(&self.base, start, model, role.as_ref());
         let port = Port::new(&self.relay);
         let options = &self.options;
         let (chat_tx, chat_rx) = oneshot::channel();
@@ -196,6 +214,11 @@ impl Launcher {
 
         let mut live = Live::new(&self.project, start.session_id(), self.ask_all, self.helper);
         live.model = model.map(str::to_owned);
+
+        if let Some(role) = role {
+            live.launched_model = Some(role.model);
+            live.thinking = role.effort;
+        }
 
         if matches!(start, Start::Fork { .. }) {
             live.origin = start.origin();
@@ -221,6 +244,13 @@ impl Launcher {
 
         Ok((Arc::new(Run { process, chat, port }), reply))
     }
+
+    /// Harness Skills' default role, read off the async workers; `None` on any failure.
+    async fn default_role(&self) -> Option<Selection> {
+        let dir = self.config_dir.clone();
+
+        blocking(move || Ok(default_selection(&dir))).await.ok().flatten()
+    }
 }
 
 impl Run {
@@ -233,6 +263,11 @@ impl Run {
             live.commands = reply.commands;
             live.models = reply.models;
             live.permission_mode = reply.current_permission_mode;
+
+            // The effort the process started with shows only when its model offers it.
+            if !thinking_offered(&live) {
+                live.thinking = None;
+            }
 
             vec![
                 AgentEvent::Ready { protocol_version: None },
@@ -254,14 +289,20 @@ pub(super) fn fresh_id() -> String {
     new_message_uuid()
 }
 
-/// `base` with the flags of `start` (and `--model=<id>` for a picked model other than the
-/// default).
-fn command_line(base: &ExecSpec, start: &Start, model: Option<&str>) -> ExecSpec {
+/// `base` with the flags of `start`, `--model=<id>` for a picked model other than the default, else
+/// `--model=<model>` and `--effort=<effort>` of `role`.
+fn command_line(base: &ExecSpec, start: &Start, model: Option<&str>, role: Option<&Selection>) -> ExecSpec {
     let mut spec = base.clone();
     spec.args.extend(start.args().into_iter().map(OsString::from));
 
-    if let Some(model) = model.filter(|model| *model != DEFAULT_MODEL) {
+    let picked = model.filter(|model| *model != DEFAULT_MODEL);
+
+    if let Some(model) = picked.or(role.map(|role| role.model.as_str())) {
         spec.args.push(OsString::from(format!("{MODEL_FLAG}{model}")));
+    }
+
+    if let Some(effort) = role.and_then(|role| role.effort.as_deref()) {
+        spec.args.push(OsString::from(format!("{EFFORT_FLAG}{effort}")));
     }
 
     spec

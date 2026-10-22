@@ -7,7 +7,8 @@
 //! - **Startup** (`startup.rs`): spawn (a new chat names its session with `--session-id`), the
 //!   `initialize` control request (with the ask-all hook in Always ask mode), its reply within the
 //!   startup limit (commands and models, never the account), then `ready`, `state` and
-//!   `commandsUpdated`. A Yolo override is refused: the app never starts Claude Code's bypass mode.
+//!   `commandsUpdated`. A new session without a model pick starts on Harness Skills' default model
+//!   role (`roles.rs`). A Yolo override is refused: the app never starts Claude Code's bypass mode.
 //!   A helper chat (AI naming) runs without tools and denies every ask.
 //! - **Frames** (`io.rs`): one task reads stdout and maps every frame with the [`ClaudeMapper`]
 //!   under the chat's lock, so prompt bookkeeping and event order never interleave. Replies to the
@@ -28,6 +29,7 @@ mod ops;
 mod prompts;
 mod relay;
 mod reports;
+mod roles;
 mod runs;
 mod settings;
 mod startup;
@@ -86,6 +88,8 @@ struct Live {
     models: Vec<ModelInfo>,
     /// The model the chat picked (a `set_model` value), `None` until it picks one.
     model: Option<String>,
+    /// The model the process started on without a pick (Harness Skills' default role).
+    launched_model: Option<String>,
     /// The model the latest `system/init` named.
     running_model: Option<String>,
     /// The thinking level the chat picked, `None` until it picks one (Claude Code does not report
@@ -142,6 +146,7 @@ impl Live {
             title: None,
             models: Vec::new(),
             model: None,
+            launched_model: None,
             running_model: None,
             thinking: None,
             commands: Vec::new(),

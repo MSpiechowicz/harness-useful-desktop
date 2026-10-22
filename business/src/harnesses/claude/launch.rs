@@ -10,9 +10,9 @@
 //! default`, see [`modes`](super::modes)); Yolo is refused, and without an override the user's
 //! own mode applies. A resumed session is `--resume <id>`, its id a Claude session UUID; the chat
 //! engine names a new session itself (`--session-id`) and starts the CLI again for a new session,
-//! a switch, a fork or a clone. No model flag is passed: the chat starts on the user's own default
-//! model, and the launch request names none (the chat engine adds `--model=<id>` for a picked
-//! model). A helper chat (AI naming) runs without tools, MCP servers, thinking or a saved session
+//! a switch, a fork or a clone. No model flag is passed here: the launch request names none (the
+//! chat engine adds `--model=<id>` for a picked model, and Harness Skills' default model role with
+//! its `--effort` for a new session without a pick). A helper chat (AI naming) runs without tools, MCP servers, thinking or a saved session
 //! ([`UTILITY_ARGS`]), also on the default model.
 
 use super::modes::WIRE_DEFAULT;

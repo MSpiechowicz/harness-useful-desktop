@@ -234,6 +234,7 @@ impl AgentManager {
             protocol: harness.chat_protocol(),
             project: project.clone(),
             sessions_dir: harness.sessions_dir(deps.env, &project),
+            config_dir: harness.paths(deps.env, Some(&project)).config_root,
             resume,
             approval_override,
             utility: request.utility,

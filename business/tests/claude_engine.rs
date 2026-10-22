@@ -54,7 +54,11 @@ async fn startup_sends_initialize_and_emits_ready_state_and_commands_first() {
         "a new chat names its session at startup"
     );
     assert_eq!(state.session_id.len(), 36, "a UUID");
-    assert_eq!(state.model, None, "no turn named the model yet");
+    assert_eq!(
+        state.model.as_ref().map(|model| model.id.as_str()),
+        Some("default"),
+        "before a turn names the model: the entry of the default's resolved model"
+    );
     assert_eq!(state.thinking_level, None, "Claude Code does not report its effort");
     assert!(!state.is_streaming);
 
