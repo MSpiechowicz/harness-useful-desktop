@@ -34,8 +34,9 @@ const BASH_DISPLAY_FIELDS: [&str; 1] = ["description"];
 /// Path components that make a file protected (compared in any case).
 const PROTECTED_DIRS: [&str; 4] = [".git", ".claude", ".vscode", ".idea"];
 
-/// File names that make a file protected (compared in any case).
-const PROTECTED_FILES: [&str; 8] = [
+/// File names that make a file protected (compared in any case): shell, git and tool startup files
+/// that run code, and the files Claude Code 2.1.304 itself protects.
+const PROTECTED_FILES: [&str; 33] = [
     ".mcp.json",
     ".gitmodules",
     ".gitconfig",
@@ -44,6 +45,31 @@ const PROTECTED_FILES: [&str; 8] = [
     ".profile",
     ".bash_profile",
     "config.fish",
+    ".zshenv",
+    ".zprofile",
+    ".zlogin",
+    ".zlogout",
+    ".bash_login",
+    ".bash_aliases",
+    ".bash_logout",
+    ".envrc",
+    ".npmrc",
+    ".yarnrc",
+    ".yarnrc.yml",
+    ".pnp.cjs",
+    ".pnp.loader.mjs",
+    ".pnpmfile.cjs",
+    "bunfig.toml",
+    ".bazelrc",
+    ".pre-commit-config.yaml",
+    "lefthook.yml",
+    "lefthook.yaml",
+    "gradle-wrapper.properties",
+    "maven-wrapper.properties",
+    ".devcontainer.json",
+    "pyrightconfig.json",
+    ".claude.json",
+    ".ripgreprc",
 ];
 
 /// Why the CLI asks about a path outside its working directories.
@@ -154,12 +180,47 @@ fn is_project_file(ask: &PermissionAsk, project: &Path) -> bool {
         return false;
     };
 
+    // The CLI trims a path and expands `~` to the home folder. A relative path it resolves against
+    // the project, as `touched_paths` does, so only a trimmed path without `~` reads the same here.
+    let plain = path == path.trim() && !path.starts_with('~');
+
+    if !plain || holds_home(project) || is_hard_linked(Path::new(path)) {
+        return false;
+    }
+
     let touched = touched_paths(project, "write", &json!({ "file_path": path }));
 
     match touched.first() {
         Some(relative) => !is_protected(relative),
         None => false,
     }
+}
+
+/// True when `project` is the home folder or holds it: every file of the user would count as a
+/// project file there.
+fn holds_home(project: &Path) -> bool {
+    let Some(home) = dirs::home_dir() else {
+        return true;
+    };
+
+    let home = dunce::canonicalize(&home).unwrap_or(home);
+    let project = dunce::canonicalize(project).unwrap_or_else(|_| project.to_path_buf());
+
+    home.starts_with(&project)
+}
+
+/// True for an existing file with more than one name: writing it in place changes a file that may
+/// live outside the project.
+#[cfg(unix)]
+fn is_hard_linked(path: &Path) -> bool {
+    use std::os::unix::fs::MetadataExt;
+
+    std::fs::symlink_metadata(path).is_ok_and(|meta| meta.is_file() && meta.nlink() > 1)
+}
+
+#[cfg(not(unix))]
+fn is_hard_linked(_path: &Path) -> bool {
+    false
 }
 
 /// True when the project-relative `path` has a protected component or file name.
@@ -169,8 +230,19 @@ fn is_protected(path: &str) -> bool {
 
     let in_protected_dir = parts.iter().any(|part| named(&PROTECTED_DIRS, part));
     let protected_name = parts.last().is_some_and(|part| named(&PROTECTED_FILES, part));
+    let odd_name = parts.iter().any(|part| is_odd_windows_name(part));
 
-    in_protected_dir || protected_name
+    in_protected_dir || protected_name || odd_name
+}
+
+/// True for a name Windows reads as another one: an alternate data stream (`a:stream`), a
+/// trailing dot or space (`.mcp.json.`), or an 8.3 short name (`GIT~1`).
+fn is_odd_windows_name(part: &str) -> bool {
+    let short_name = part
+        .split_once('~')
+        .is_some_and(|(_, rest)| rest.chars().next().is_some_and(|c| c.is_ascii_digit()));
+
+    part.contains(':') || part.ends_with('.') || part.ends_with(' ') || short_name
 }
 
 /// The input an exact key compares (see the module docs).

@@ -30,6 +30,11 @@ fn ask(tool: &str, input: Value) -> PermissionAsk {
     }
 }
 
+/// A Write of `file` in `project`.
+fn write_in(project: &Path, file: &str) -> PermissionAsk {
+    ask("Write", json!({ "file_path": project.join(file), "content": "x" }))
+}
+
 fn bash(command: &str) -> PermissionAsk {
     ask("Bash", json!({ "command": command }))
 }
@@ -51,7 +56,7 @@ fn project() -> tempfile::TempDir {
 fn a_kept_write_never_covers_a_call_the_cli_allows_no_lasting_rule_for() {
     let dir = project();
     let project = dir.path();
-    let write = |file: &str| ask("Write", json!({ "file_path": project.join(file), "content": "x" }));
+    let write = |file: &str| write_in(project, file);
     let list = list_after(project, &write("src/a.txt"));
 
     assert!(list.covers(&write("src/b.txt")));
@@ -202,5 +207,65 @@ fn a_typed_multi_select_answer_keeps_labels_with_commas_whole() {
 
         let labels: Vec<String> = labels.into_iter().map(str::to_owned).collect();
         assert_eq!(dialog.answers(), vec![(question.question.clone(), labels)], "{typed}");
+    }
+}
+
+/// The CLI trims a path and expands `~` to the home folder, so a kept project-files answer covers
+/// only paths it reads the same way: a repository's own `~/.ssh` folder never stands in for the real one.
+#[test]
+fn a_kept_write_never_covers_a_path_the_cli_trims_or_expands() {
+    let dir = project();
+    let project = dir.path();
+    std::fs::create_dir_all(project.join("~/.ssh")).expect("a folder named ~");
+    std::fs::write(project.join("~/.ssh/authorized_keys"), "").expect("placeholder");
+    let write = |file: Value| ask("Write", json!({ "file_path": file, "content": "x" }));
+    let list = list_after(project, &write(json!(project.join("src/a.txt"))));
+
+    assert!(list.covers(&write(json!(project.join("src/b.txt")))));
+    assert!(
+        !list.covers(&write(json!("~/.ssh/authorized_keys"))),
+        "~ is the home folder for the CLI"
+    );
+
+    let padded = format!("  {}", project.join("src/b.txt").display());
+    assert!(!list.covers(&write(json!(padded))), "the CLI trims the path");
+
+    let trailing = format!("{} ", project.join(".mcp.json").display());
+    assert!(!list.covers(&write(json!(trailing))));
+}
+
+/// Names Windows reads as another file, files Claude Code protects itself, hard links to a file
+/// elsewhere, and asks the CLI sends for a manual review all need their own answer.
+#[test]
+fn odd_names_protected_tool_files_hard_links_and_review_asks_need_their_own_answer() {
+    let dir = project();
+    let project = dir.path();
+    let write = |file: &str| write_in(project, file);
+    let list = list_after(project, &write("src/a.txt"));
+
+    for file in [
+        ".mcp.json::$DATA",
+        ".mcp.json.",
+        "GIT~1/config",
+        ".envrc",
+        "web/.npmrc",
+        "bunfig.toml",
+    ] {
+        assert!(!list.covers(&write(file)), "{file}");
+    }
+
+    let review = PermissionAsk {
+        decision_reason_type: Some("other".to_owned()),
+        ..write("src/b.txt")
+    };
+    assert!(!list.covers(&review), "a manual-review ask");
+    assert!(!review.may_always_allow());
+
+    #[cfg(unix)]
+    {
+        let outside = tempfile::tempdir().expect("outside");
+        std::fs::write(outside.path().join("keys"), "").expect("outside file");
+        std::fs::hard_link(outside.path().join("keys"), project.join("src/keys")).expect("hard link");
+        assert!(!list.covers(&write("src/keys")), "a hard link to a file elsewhere");
     }
 }

@@ -176,6 +176,9 @@ impl Env {
         if let Some(root) = claude_root {
             crate::security::deny::add_claude_root(root);
         }
+
+        // The default folder too, which may be a symlink into a repository opened as a project.
+        crate::security::deny::add_claude_root(&self.home.join(".claude"));
     }
 
     /// Returns a copy that reports `os` (for platform-specific path tests).

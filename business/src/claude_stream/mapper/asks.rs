@@ -71,6 +71,10 @@ pub struct PermissionAsk {
 /// Why the CLI asks when a safety check flagged the call (a protected path, a risky command).
 const SAFETY_CHECK: &str = "safetyCheck";
 
+/// Why the CLI asks for a manual review of an unusual path (Windows streams, short names, long path
+/// prefixes).
+const OTHER_CHECK: &str = "other";
+
 impl PermissionAsk {
     /// False when no "Always allow" may cover the call: the CLI suppresses lasting rules for it,
     /// blocked it on a path, or a safety check flagged it. Such a call always shows its dialog.
@@ -78,6 +82,7 @@ impl PermissionAsk {
         !self.suppress_always_allow_rule
             && self.blocked_path.is_none()
             && self.decision_reason_type.as_deref() != Some(SAFETY_CHECK)
+            && self.decision_reason_type.as_deref() != Some(OTHER_CHECK)
     }
 }
 
