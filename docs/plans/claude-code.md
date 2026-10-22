@@ -260,8 +260,9 @@ Order: S1 → (Track A: S2 → S3 → S5 → S6 ∥ Track B: S4 ∥ Track C: S0 
 | S3 | Extensions view | running (`.wt-cc/a`) |
 | S4 | Sessions | done (237fc06). Slug = Claude's `bH` (200-char cut + Java-style hash, base 36). Open: `CLAUDE_CODE_PROJECT_DIR_NAME`, Windows pid check blocks delete on a stale pid file, `sessionTree` still false, no fork parent link on disk, session totals unsupported |
 | S5 | CLI actions + Recommended setup | running (`.wt-cc/b`) |
-| S7 | Wire and mapper | running (`.wt-cc/c`, `wip/cc-c`) |
-| S6, S8–S13 | | not started |
+| S7 | Wire and mapper | done (93743b5). Mid-turn auto-compaction, subagent `task_*`, `api_retry`, `request_user_dialog` and `elicitation` are mapped from the SDK types only (not recorded) |
+| S8 | Engine core | running (`.wt-cc/c`) |
+| S6, S9–S13 | | not started |
 
 ## Verified facts (S0 recording, 2026-10-22)
 
@@ -291,7 +292,7 @@ scratch folder, and its sessions were deleted afterwards.
    that turn. `--resume` without `--fork-session` keeps the session id.
 6. **Compact:** `/compact <instructions>` gives `system/compact_boundary{compact_metadata:{trigger:"manual",
    pre_tokens, post_tokens}}`, a user frame with the summary, a `<local-command-stdout>Compacted </local-command-stdout>`
-   user frame and `result{num_turns:0, result:""}`, all without a `status:compacting` frame.
+   user frame and `result{num_turns:0, result:""}`, after a `system/status{status:"compacting"}` frame.
 7. **Queue:** `priority:"next"` sent while a tool runs is read in the same turn. `priority:"later"` runs as its own
    turn after the result. `cancel_async_message{message_uuid}` answers `{cancelled:true}` and the message never runs.
    `system/status{status:"requesting", user_message_uuids}` names the prompts a request serves.
