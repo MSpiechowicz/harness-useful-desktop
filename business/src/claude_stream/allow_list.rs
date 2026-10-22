@@ -6,7 +6,11 @@
 //! - **File tools** (`Read`, `Write`, `Edit`, `MultiEdit`, `NotebookEdit`) on a file inside the
 //!   project are kept by the tool: a later call of that tool is covered when its file lies inside
 //!   the project too (after canonicalization, as for
-//!   [`touched_paths`](crate::pi_family::touched::touched_paths)).
+//!   [`touched_paths`](crate::pi_family::touched::touched_paths)). Protected files never count as
+//!   project files: any path with a `.git`, `.claude`, `.vscode` or `.idea` component, or named
+//!   `.mcp.json`, `.gitmodules`, `.gitconfig` or a shell's startup file (any case). Neither does a
+//!   call the CLI asks about because it lies outside its working directories (`workingDir`). Such
+//!   calls are kept by their exact input, like every other call.
 //! - **Every other call** is kept by its tool and exact input, so only the same call again is
 //!   covered. For `Bash` that is the exact command text with every other input field equal
 //!   (`timeout`, `run_in_background`, `dangerouslyDisableSandbox`, …), only the model's
@@ -27,6 +31,24 @@ use crate::security::redact_text;
 /// `Bash` input fields that only describe the command to the user.
 const BASH_DISPLAY_FIELDS: [&str; 1] = ["description"];
 
+/// Path components that make a file protected (compared in any case).
+const PROTECTED_DIRS: [&str; 4] = [".git", ".claude", ".vscode", ".idea"];
+
+/// File names that make a file protected (compared in any case).
+const PROTECTED_FILES: [&str; 8] = [
+    ".mcp.json",
+    ".gitmodules",
+    ".gitconfig",
+    ".bashrc",
+    ".zshrc",
+    ".profile",
+    ".bash_profile",
+    "config.fish",
+];
+
+/// Why the CLI asks about a path outside its working directories.
+const OUTSIDE_WORKING_DIRS: &str = "workingDir";
+
 /// What one "Always allow" answer allows.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AllowKey {
@@ -45,7 +67,7 @@ enum Scope {
 impl AllowKey {
     /// The key an "Always allow" answer to `ask` keeps, in the chat of `project`.
     pub fn of(ask: &PermissionAsk, project: &Path) -> Self {
-        let scope = if in_project(ask, project) {
+        let scope = if is_project_file(ask, project) {
             Scope::ProjectFiles
         } else {
             Scope::Exact(exact_input(ask))
@@ -64,7 +86,7 @@ impl AllowKey {
         }
 
         match &self.scope {
-            Scope::ProjectFiles => in_project(ask, project),
+            Scope::ProjectFiles => is_project_file(ask, project),
             Scope::Exact(input) => *input == exact_input(ask),
         }
     }
@@ -121,13 +143,34 @@ fn file_path(ask: &PermissionAsk) -> Option<&str> {
     ask.input.get(field).and_then(Value::as_str)
 }
 
-/// True for a file tool's call on a file inside `project`.
-fn in_project(ask: &PermissionAsk, project: &Path) -> bool {
+/// True for a file tool's call on a file inside `project` that is not protected, and that the CLI
+/// does not ask about as outside its working directories (see the module docs).
+fn is_project_file(ask: &PermissionAsk, project: &Path) -> bool {
+    if ask.decision_reason_type.as_deref() == Some(OUTSIDE_WORKING_DIRS) {
+        return false;
+    }
+
     let Some(path) = file_path(ask) else {
         return false;
     };
 
-    !touched_paths(project, "write", &json!({ "file_path": path })).is_empty()
+    let touched = touched_paths(project, "write", &json!({ "file_path": path }));
+
+    match touched.first() {
+        Some(relative) => !is_protected(relative),
+        None => false,
+    }
+}
+
+/// True when the project-relative `path` has a protected component or file name.
+fn is_protected(path: &str) -> bool {
+    let named = |names: &[&str], part: &str| names.iter().any(|name| part.eq_ignore_ascii_case(name));
+    let parts: Vec<&str> = path.split('/').filter(|part| !part.is_empty()).collect();
+
+    let in_protected_dir = parts.iter().any(|part| named(&PROTECTED_DIRS, part));
+    let protected_name = parts.last().is_some_and(|part| named(&PROTECTED_FILES, part));
+
+    in_protected_dir || protected_name
 }
 
 /// The input an exact key compares (see the module docs).

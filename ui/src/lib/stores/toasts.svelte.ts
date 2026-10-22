@@ -8,6 +8,8 @@ export interface ToastInput {
   duration?: number;
   /** One follow-up action, e.g. "Reveal"; running it dismisses the toast. */
   action?: ToastAction;
+  /** The project folder the toast is about: it is dismissed when another project becomes the active one. */
+  project?: string;
 }
 
 export interface ToastAction {
@@ -22,6 +24,7 @@ export interface ToastItem {
   tone: ToastTone;
   duration: number;
   action?: ToastAction;
+  project?: string;
 }
 
 const DEFAULT_DURATION_MS = 5000;
@@ -43,6 +46,7 @@ export class ToastsStore {
       tone: input.tone ?? 'neutral',
       duration: input.duration ?? DEFAULT_DURATION_MS,
       action: input.action,
+      project: input.project,
     };
 
     this.items = [...this.items, item].slice(-MAX_VISIBLE);
@@ -52,6 +56,11 @@ export class ToastsStore {
 
   dismiss(id: number): void {
     this.items = this.items.filter((item) => item.id !== id);
+  }
+
+  /** Dismisses the toasts about a project other than `path`, the one that became active (see `ToastInput.project`). */
+  leaveProjects(path: string | null): void {
+    this.items = this.items.filter((item) => item.project === undefined || item.project === path);
   }
 }
 

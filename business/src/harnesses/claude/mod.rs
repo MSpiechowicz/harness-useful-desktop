@@ -28,7 +28,7 @@ pub use cli::{claude_cli_action, claude_summary};
 pub use modes::WIRE_DEFAULT;
 pub(crate) use paths::read_global_file;
 pub use paths::{MAX_GLOBAL_FILE_BYTES, PROJECT_DIR_NAME, config_dir, global_config_file, project_slug};
-pub(crate) use sessions::chat::{chat_messages, fork_point, session_file};
+pub(crate) use sessions::chat::{SavedMessages, chat_messages, fork_point, session_file};
 pub(crate) use sessions::is_session_id;
 pub use setup::{
     KnownMarketplace, PluginRecord, PluginScope, UserPlugin, known_marketplaces, plugin_records, user_plugins,
@@ -129,7 +129,7 @@ impl Harness for Claude {
         match config::project_trust(env, project) {
             ProjectTrust::Trusted => Ok(()),
             ProjectTrust::Untrusted => Err(BusinessError::Untrusted(UNTRUSTED.to_owned())),
-            ProjectTrust::Unreadable => Err(BusinessError::Untrusted(UNREADABLE.to_owned())),
+            ProjectTrust::Unreadable => Err(BusinessError::UntrustedUnreadable(UNREADABLE.to_owned())),
         }
     }
 

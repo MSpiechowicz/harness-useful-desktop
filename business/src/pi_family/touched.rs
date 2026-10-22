@@ -4,8 +4,8 @@
 //! count, and only their top-level string arguments `path`, `file_path` and `moveTo`. A path is
 //! resolved against the project, `.`/`..` are folded, and it is kept only when it lies inside the
 //! project after canonicalization: an existing file is canonicalized itself, a new file through
-//! its parent directory (so symlinked directories cannot point outside). The result is
-//! project-relative with forward slashes.
+//! its parent directory (so symlinked directories cannot point outside), and a symlink whose
+//! target cannot be resolved is never kept. The result is project-relative with forward slashes.
 
 use std::path::{Component, Path, PathBuf};
 
@@ -101,10 +101,17 @@ fn fold(path: &Path) -> Option<PathBuf> {
 }
 
 /// The canonical path of an existing file, or of a new file's existing parent joined with its
-/// name.
+/// name. `None` for a symlink whose target cannot be resolved (dangling, a loop): where a write
+/// through it lands is unknown, so it never counts as inside the project.
 fn canonical_or_new(path: &Path) -> Option<PathBuf> {
     if let Ok(canonical) = dunce::canonicalize(path) {
         return Some(canonical);
+    }
+
+    let is_link = std::fs::symlink_metadata(path).is_ok_and(|meta| meta.file_type().is_symlink());
+
+    if is_link {
+        return None;
     }
 
     let parent = dunce::canonicalize(path.parent()?).ok()?;

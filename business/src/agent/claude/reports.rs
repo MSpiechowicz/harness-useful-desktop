@@ -6,7 +6,8 @@
 //!   saved ones it started with, then those since) and the context meter, asked fresh with
 //!   `get_context_usage` (the newest turn's tokens when that fails).
 //! - **History, export, last reply:** the session file, read as the Sessions view reads it
-//!   ([`chat_messages`]). A fork or clone whose own file Claude Code has not written yet shows what
+//!   ([`chat_messages`]), shared with the transcript cache: a history page copies only its own
+//!   messages. A fork or clone whose own file Claude Code has not written yet shows what
 //!   it copied, a new chat without a file nothing. The last reply is the newest of this process,
 //!   else the newest saved one.
 //! - **Export:** rendered escaped by the shared exporter ([`render`]) and written (`0600`, replaced
@@ -27,11 +28,11 @@ use crate::claude_stream::wire::outbound::HostRequest;
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::fs_atomic::{ensure_private_dir, replace_atomically};
-use crate::harnesses::claude::{chat_messages, is_session_id, session_file};
+use crate::harnesses::claude::{SavedMessages, chat_messages, is_session_id, session_file};
 use crate::model::{AgentReply, ChatBlock, ChatMessage, MessageRole};
 use crate::opencode_server::export_html::{ExportPage, render};
 use crate::pi_family::rpc::pending::DEFAULT_TIMEOUT;
-use crate::pi_family::rpc::shared::slice_history;
+use crate::pi_family::rpc::shared::page_history;
 
 /// The title of an export of a session Claude Code has not named yet.
 const UNTITLED: &str = "Claude Code session";
@@ -58,7 +59,7 @@ impl ClaudeSession {
 
     /// The history page ending before `cursor`.
     pub(super) async fn history(&self, cursor: Option<&str>, limit: u32) -> Result<AgentReply> {
-        slice_history(self.messages().await?, cursor, limit)
+        page_history(&self.messages().await?, cursor, limit)
     }
 
     /// `getLastAssistantText`.
@@ -118,7 +119,7 @@ impl ClaudeSession {
     }
 
     /// The session's saved messages (see the module docs).
-    async fn messages(&self) -> Result<Vec<ChatMessage>> {
+    async fn messages(&self) -> Result<SavedMessages> {
         let (session, origin) = {
             let run = self.run();
             let live = run.chat.lock();
@@ -126,7 +127,7 @@ impl ClaudeSession {
         };
 
         let Some(session) = session.filter(|_| !self.launcher.helper) else {
-            return Ok(Vec::new());
+            return Ok(SavedMessages::default());
         };
 
         let (dir, project) = (&self.launcher.sessions_dir, &self.launcher.project);
@@ -139,25 +140,20 @@ impl ClaudeSession {
 }
 
 /// What a fork or clone copied from `origin`; nothing without one, or once it is gone.
-async fn copied(dir: &Path, project: &Path, origin: Option<Origin>) -> Result<Vec<ChatMessage>> {
+async fn copied(dir: &Path, project: &Path, origin: Option<Origin>) -> Result<SavedMessages> {
     let Some(origin) = origin else {
-        return Ok(Vec::new());
+        return Ok(SavedMessages::default());
     };
 
     match saved_messages(dir, project, &origin.session, origin.cut).await {
-        Err(BusinessError::NotFound(_)) => Ok(Vec::new()),
+        Err(BusinessError::NotFound(_)) => Ok(SavedMessages::default()),
         read => read,
     }
 }
 
 /// The messages of saved session `id` in `dir`, the session folder of `project`, up to and with
 /// `cut`.
-pub(super) async fn saved_messages(
-    dir: &Path,
-    project: &Path,
-    id: &str,
-    cut: Option<String>,
-) -> Result<Vec<ChatMessage>> {
+pub(super) async fn saved_messages(dir: &Path, project: &Path, id: &str, cut: Option<String>) -> Result<SavedMessages> {
     let (dir, project) = (dir.to_path_buf(), project.to_path_buf());
     let id = id.to_owned();
 

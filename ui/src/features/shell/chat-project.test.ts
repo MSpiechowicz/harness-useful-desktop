@@ -7,6 +7,7 @@ import { harness } from '$lib/stores/harness.svelte';
 import { nav } from '$lib/stores/nav.svelte';
 import { prefs } from '$lib/stores/prefs.svelte';
 import { project } from '$lib/stores/project.svelte';
+import { toasts } from '$lib/stores/toasts.svelte';
 
 import { chatSession } from '../../../tests/chat-helpers';
 import { samplePrefs } from '../../../tests/helpers';
@@ -56,5 +57,23 @@ describe('the open chat decides the project', () => {
     await new Promise((resolve) => setTimeout(resolve, 50));
 
     expect(project.active?.path).toBe(second);
+  });
+});
+
+describe('a toast about a folder to trust', () => {
+  it('goes away when another project becomes the active one', async () => {
+    const { session: a } = chatSession([], { key: 'chat-a', project: first });
+    agentSessions.sessions = [a];
+    agentSessions.activeKey = a.key;
+
+    render(Shell);
+    await waitFor(() => expect(project.active?.path).toBe(first));
+    toasts.push({ title: 'Claude Code does not trust this folder yet', project: first, duration: 0 });
+    toasts.push({ title: 'Something else', duration: 0 });
+
+    await project.open(second);
+
+    await waitFor(() => expect(toasts.items.map((item) => item.title)).toEqual(['Something else']));
+    toasts.items = [];
   });
 });

@@ -178,8 +178,9 @@ describe('starting sessions', () => {
 
     const toast = notifications.items[0];
     expect(toast).toMatchObject({ tone: 'warning', duration: 0 });
-    expect(toast.title).toMatch(/ does not trust this folder yet$/);
+    expect(toast.title).toMatch(new RegExp(` does not trust ${PROJECT.split('/').at(-1)} yet$`));
     expect(toast.description).toContain('Run claude in it once from a terminal, or trust it once here.');
+    expect(toast.description).toContain('It applies to every chat in this folder until you quit the app.');
     expect(toast.action?.label).toBe('Trust once');
 
     toast.action?.run();

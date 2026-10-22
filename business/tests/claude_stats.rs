@@ -135,3 +135,47 @@ fn session_stats_combine_the_counts_with_the_totals() {
     assert_eq!(session.tokens.output, 472);
     assert!(session.context_usage.is_some());
 }
+
+/// A result whose newest model call used `tokens` input tokens, with `models` as `modelUsage`.
+fn result_of(tokens: u64, models: serde_json::Value) -> harness_business::claude_stream::wire::result::ResultFrame {
+    serde_json::from_value(serde_json::json!({
+        "type": "result",
+        "subtype": "success",
+        "total_cost_usd": 0.1,
+        "usage": { "iterations": [{ "input_tokens": tokens, "output_tokens": 0 }] },
+        "modelUsage": models,
+    }))
+    .expect("a result")
+}
+
+#[test]
+fn a_result_without_the_models_window_keeps_the_window_named_earlier_for_it() {
+    let opus = "claude-opus-5-5";
+    let both = serde_json::json!({
+        "claude-opus-5-5[1m]": { "inputTokens": 1, "contextWindow": 1_000_000 },
+        "claude-haiku-5-5": { "inputTokens": 1, "contextWindow": 200_000 },
+    });
+    let mut stats = ClaudeStats::default();
+
+    stats.on_result(
+        &result_of(
+            1000,
+            serde_json::json!({ opus: { "inputTokens": 1, "contextWindow": 1_000_000 } }),
+        ),
+        Some(opus),
+    );
+    stats.on_result(&result_of(50_000, both.clone()), Some(opus));
+
+    assert_eq!(
+        stats.context().map(|context| (context.tokens, context.context_window)),
+        Some((50_000, 1_000_000)),
+        "several models, an aliased key: the same model's earlier window"
+    );
+
+    stats.on_result(&result_of(60_000, both), Some("claude-sonnet-5-5"));
+    assert_eq!(
+        stats.context(),
+        None,
+        "another model without a named window hides the meter"
+    );
+}

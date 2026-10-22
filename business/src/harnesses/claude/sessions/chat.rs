@@ -10,7 +10,9 @@
 //! - **Messages:** the transcript, cut after the last message of a fork point when one is named (a
 //!   fork whose own file Claude Code has not written yet shows what it copied).
 
+use std::ops::Deref;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use super::entries::{Index, Kind};
 use super::transcript::transcript;
@@ -74,17 +76,32 @@ pub fn fork_point(path: &Path, entry_id: &str) -> Result<String> {
     Ok(point.id.clone())
 }
 
+/// The first messages of a cached transcript, shared with the cache: nothing is copied until a
+/// caller copies the messages it needs (a page of the history). Empty by default.
+#[derive(Debug, Clone, Default)]
+pub struct SavedMessages {
+    all: Arc<Vec<ChatMessage>>,
+    end: usize,
+}
+
+impl Deref for SavedMessages {
+    type Target = [ChatMessage];
+
+    fn deref(&self) -> &[ChatMessage] {
+        &self.all[..self.end]
+    }
+}
+
 /// The transcript of the session file at `path`, oldest first, up to and with the last message of
 /// `cut` when one is named (and found).
-/// Only the kept messages are copied out of the cached transcript.
-pub fn chat_messages(path: &Path, cut: Option<&str>) -> Result<Vec<ChatMessage>> {
-    let messages = transcript(path)?;
+pub fn chat_messages(path: &Path, cut: Option<&str>) -> Result<SavedMessages> {
+    let all = transcript(path)?;
 
     let end = cut
-        .and_then(|cut| messages.iter().rposition(|message| message.id.as_deref() == Some(cut)))
-        .map_or(messages.len(), |end| end + 1);
+        .and_then(|cut| all.iter().rposition(|message| message.id.as_deref() == Some(cut)))
+        .map_or(all.len(), |end| end + 1);
 
-    Ok(messages[..end].to_vec())
+    Ok(SavedMessages { all, end })
 }
 
 /// True for an entry that begins a turn of its own.

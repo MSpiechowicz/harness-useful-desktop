@@ -108,11 +108,13 @@ describe('Claude Code trust', () => {
     expect(screen.queryByText('Project trusted for this session')).toBeNull();
   });
 
-  it('shows that the chat trusted the folder once', () => {
+  it('shows that the chat trusted the folder until the app quits, never in the words PI uses', () => {
     const { session } = chatSession([], { harness: 'claude', configuredApprovalMode: null, trustedOnce: true });
     render(ChatControls, { session });
 
-    expect(screen.getByText('Project trusted for this session')).toBeInTheDocument();
+    expect(screen.getByText('Folder trusted until you quit the app')).toBeInTheDocument();
+    expect(screen.queryByText('Project trusted for this session')).toBeNull();
+    expect(screen.queryByText(/applies to this session only/)).toBeNull();
   });
 });
 

@@ -8,7 +8,7 @@ mod claude_engine_support;
 use std::time::{Duration, Instant};
 
 use agent_support::options;
-use claude_engine_support::{BASIC_SESSION, kind, kinds, prompt, start, start_with};
+use claude_engine_support::{BASIC_SESSION, argv, flag, kind, kinds, prompt, start, start_with};
 use harness_business::BusinessError;
 use harness_business::agent::SessionOptions;
 use harness_business::claude_stream::mapper::SIGN_IN_ERROR;
@@ -43,8 +43,7 @@ async fn startup_sends_initialize_and_emits_ready_state_and_commands_first() {
     let AgentEvent::State { state } = &events[1] else {
         unreachable!()
     };
-    let spec = chat.spawner.requested().pop().expect("spawned");
-    let args: Vec<String> = spec.args.iter().map(|arg| arg.to_string_lossy().into_owned()).collect();
+    let args = argv(&chat, 0);
     let named = args
         .iter()
         .position(|arg| arg == "--session-id")
@@ -106,7 +105,7 @@ async fn the_spawn_uses_the_launch_spec_in_the_project() {
     chat.session();
 
     let spec = chat.spawner.requested().pop().expect("spawned");
-    let args: Vec<String> = spec.args.iter().map(|arg| arg.to_string_lossy().into_owned()).collect();
+    let args = argv(&chat, 0);
     assert_eq!(args[..2], ["--output-format", "stream-json"]);
     assert_eq!(spec.cwd.as_deref(), Some(chat.project.as_path()));
     assert_eq!(chat.spawner.requested().len(), 1, "one process per chat");
@@ -122,6 +121,7 @@ async fn a_resumed_chat_knows_its_session_id_from_the_start() {
         .wait("state", |event| matches!(event, AgentEvent::State { .. }))
         .await;
     assert!(matches!(state, AgentEvent::State { state } if state.session_id == BASIC_SESSION));
+    assert_eq!(flag(&argv(&chat, 0), "--resume"), Some(BASIC_SESSION));
 
     chat.stop().await;
 }

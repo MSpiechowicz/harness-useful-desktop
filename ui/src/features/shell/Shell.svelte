@@ -12,6 +12,7 @@
   import { GIT_POLL_MS, HARNESS_FOCUS_GAP_MS } from '$lib/stores/live';
   import { project } from '$lib/stores/project.svelte';
   import { sessionDetail, sessionList } from '$lib/stores/sessions.svelte';
+  import { toasts } from '$lib/stores/toasts.svelte';
   import { ui } from '$lib/stores/ui-state.svelte';
   import { palette } from '$lib/stores/palette.svelte';
   import { prefs } from '$lib/stores/prefs.svelte';
@@ -94,6 +95,13 @@
         void project.open(path);
       }
     });
+  });
+
+  // A toast about one project (a folder to trust once) goes away when another project becomes the active one.
+  $effect(() => {
+    const path = project.active?.path ?? null;
+
+    untrack(() => toasts.leaveProjects(path));
   });
 
   // The rail and the chat card show git state everywhere, not only in Changes.

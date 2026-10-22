@@ -221,7 +221,7 @@ export const settings = {
   'settings.memoryRemote.routines.title': 'Routines',
   'settings.memoryRemote.routines.description': 'Your routines always stay here. Remote adds the ones others share.',
   'settings.memoryRemote.trustRoutines.title': 'Run remote routines without asking',
-  'settings.memoryRemote.trustRoutines.description': 'Routines from the remote database run without asking you first. Anyone who can write to the remote database can then run code on this computer.',
+  'settings.memoryRemote.trustRoutines.description': 'Routines from the remote database run without asking you first. This also lets PI and Claude Code routines trust their folder once. Anyone who can write to the remote database can then run code on this computer.',
   'settings.memoryRemote.target.remoteLocal': 'Remote + this computer',
   'settings.memoryRemote.routing.unsupported': 'Update Harness Memory to read remote notes and save new ones on this computer.',
   'settings.memoryRemote.change.title': 'Change where memory is kept?',
