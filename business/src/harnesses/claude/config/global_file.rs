@@ -1,17 +1,20 @@
 //! The part of Claude Code's global file (`~/.claude.json`, see [`global_config_file`]) the view
 //! shows. The file also holds the account, device ids, caches and every other project's state,
 //! so it is read through an allow-list: the user's MCP servers (top-level `mcpServers`) and, for
-//! the open project, a few keys of its `projects` entry. Nothing else leaves this module.
+//! the open project, a few keys of its `projects` entry. Nothing else leaves this module. It is the
+//! one file read with [`read_global_file`] (a name every other read refuses, and a cap of
+//! [`MAX_GLOBAL_FILE_BYTES`]); a larger file is reported as such, never as an empty one.
 
 use std::path::{Path, PathBuf};
 
 use serde_json::{Map, Value};
 
-use super::super::paths::global_config_file;
+use super::super::paths::{MAX_GLOBAL_FILE_BYTES, global_config_file, read_global_file};
 use super::files::SettingsFile;
 use crate::env::Env;
+use crate::error::BusinessError;
 use crate::model::{ConfigFormat, ConfigLayer};
-use crate::pi_family::{Document, read_document};
+use crate::pi_family::{Document, parse_text};
 
 /// Top-level keys shown.
 const USER_KEYS: &[&str] = &["mcpServers"];
@@ -46,7 +49,7 @@ pub(in crate::harnesses::claude) struct GlobalSections {
 pub(in crate::harnesses::claude) fn global_sections(env: &Env, project: Option<&Path>) -> GlobalSections {
     let path = global_config_file(env);
 
-    let root = match read_document(&path, ConfigFormat::Json) {
+    let root = match read(&path) {
         Document::Missing => return GlobalSections::default(),
         Document::Parsed(Value::Object(root)) => root,
         Document::Parsed(_) => {
@@ -80,6 +83,26 @@ pub(in crate::harnesses::claude) fn trusts_project(env: &Env, project: &Path) ->
     entry.get(TRUST_KEY) == Some(&Value::Bool(true))
 }
 
+/// The global file at `path` as a document: missing, parsed, or the reason it was not read.
+fn read(path: &Path) -> Document {
+    match read_global_file(path) {
+        Ok(text) => match parse_text(&text, ConfigFormat::Json) {
+            Ok(value) => Document::Parsed(value),
+            Err(summary) => Document::Invalid(summary),
+        },
+        Err(BusinessError::NotFound(_)) => Document::Missing,
+        Err(_) if is_too_large(path) => Document::Invalid(format!(
+            "The file is larger than {} MiB, so it is not read",
+            MAX_GLOBAL_FILE_BYTES / (1024 * 1024)
+        )),
+        Err(error) => Document::Invalid(error.to_string()),
+    }
+}
+
+fn is_too_large(path: &Path) -> bool {
+    std::fs::metadata(path).is_ok_and(|metadata| metadata.len() > MAX_GLOBAL_FILE_BYTES)
+}
+
 fn user_only(path: &Path, document: Document) -> GlobalSections {
     GlobalSections {
         user: Some((user_file(path), document)),
@@ -94,6 +117,7 @@ fn user_file(path: &Path) -> SettingsFile {
         description: "Your MCP servers in .claude.json, available in every project. Nothing else in this file is shown.",
         path: path.to_path_buf(),
         layer: ConfigLayer::User,
+        within: None,
     }
 }
 
@@ -104,6 +128,7 @@ fn project_file(path: &Path) -> SettingsFile {
         description: "MCP servers only you use here, the .mcp.json servers you approved or turned off, approved tools and the trust answer.",
         path: path.to_path_buf(),
         layer: ConfigLayer::Project,
+        within: None,
     }
 }
 

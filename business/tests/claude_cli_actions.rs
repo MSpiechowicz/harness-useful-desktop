@@ -182,6 +182,10 @@ fn hostile_or_unknown_values_are_refused_without_echoing_them() {
         "owner/..",
         "https://user:pass@example.com/m.git",
         "a b/c",
+        // Network paths, which Windows would reach out to.
+        "//host/share",
+        "//host/share/market",
+        "\\\\host\\share",
     ];
 
     let mut actions: Vec<ExtensionAction> = Vec::new();
@@ -354,4 +358,56 @@ async fn a_run_reports_the_json_message_and_the_exit_code_decides() {
             .any(|(name, value)| name == "DISABLE_UPDATES" && value == "1")
     );
     assert!(!args(&specs[0]).iter().any(|arg| arg == "-y" || arg == "--yes"));
+}
+
+/// Only a project-scope install runs in the project: every other action is on the user's scope
+/// and runs in the home directory, so the project's settings never apply to it.
+#[tokio::test]
+async fn only_a_project_install_runs_in_the_project() {
+    use ExtensionAction::*;
+
+    let home = tempfile::tempdir().unwrap();
+    let project = tempfile::tempdir().unwrap();
+    let fake = FakeClaude::new(&home.path().join(".claude.json"));
+    let env = Env::for_tests(home.path());
+    let claude = binary(home.path());
+
+    let user_scope = [
+        install(),
+        PluginEnable { name: name() },
+        PluginDisable { name: name() },
+        PluginUninstall { name: name() },
+        PluginUpgrade { name: Some(name()) },
+        MarketplaceAdd {
+            source: "MSpiechowicz/harness-useful-skills".to_owned(),
+        },
+        MarketplaceRemove {
+            name: "useful-skills-local".to_owned(),
+        },
+        MarketplaceUpdate { name: None },
+    ];
+    let project_install = PluginInstall {
+        target: name(),
+        scope: InstallScope::Project,
+    };
+
+    for action in user_scope.iter().chain([&project_install]) {
+        run_cli_action(CliRun {
+            harness: &Claude,
+            env: &env,
+            runner: &fake,
+            binary: &claude,
+            action,
+            dry_run: false,
+            project: Some(project.path()),
+        })
+        .await
+        .unwrap();
+    }
+
+    let cwds: Vec<_> = fake.specs().into_iter().map(|spec| spec.cwd).collect();
+    let (last, user) = cwds.split_last().unwrap();
+    assert_eq!(user.len(), user_scope.len());
+    assert!(user.iter().all(|cwd| cwd.as_deref() == Some(home.path())), "{user:?}");
+    assert_eq!(last.as_deref(), Some(project.path()));
 }

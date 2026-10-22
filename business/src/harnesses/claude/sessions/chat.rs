@@ -76,7 +76,7 @@ pub fn fork_point(path: &Path, entry_id: &str) -> Result<String> {
 /// The transcript of the session file at `path`, oldest first, up to and with the last message of
 /// `cut` when one is named (and found).
 pub fn chat_messages(path: &Path, cut: Option<&str>) -> Result<Vec<ChatMessage>> {
-    let mut messages = transcript(path)?;
+    let mut messages = transcript(path)?.as_ref().clone();
 
     let end = cut.and_then(|cut| messages.iter().rposition(|message| message.id.as_deref() == Some(cut)));
 

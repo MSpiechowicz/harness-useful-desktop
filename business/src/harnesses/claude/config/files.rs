@@ -1,14 +1,16 @@
 //! The settings files Claude Code reads, in the order the view shows them: managed settings
 //! (`managed-settings.json`, then its `managed-settings.d/*.json` drop-ins by name), the user's
 //! `settings.json`, the project's `.claude/settings.json` and `.claude/settings.local.json`. Only
-//! files that exist are listed.
+//! files that exist are listed. A project file that resolves outside the project (a symlink to
+//! the user's files) is listed with an error and nothing read from it.
 
 use std::path::{Path, PathBuf};
 
 use super::super::paths::{PROJECT_DIR_NAME, config_dir};
 use crate::env::{Env, OsKind};
-use crate::model::ConfigLayer;
-use crate::pi_family::list_dir;
+use crate::model::{ConfigFormat, ConfigLayer};
+use crate::pi_family::{Document, list_dir, read_document};
+use crate::security::canonical_within;
 
 /// The managed settings file in the managed directory.
 const MANAGED_FILE: &str = "managed-settings.json";
@@ -39,6 +41,24 @@ pub(in crate::harnesses::claude) struct SettingsFile {
     /// The layer it is shown in. Managed settings have no layer of their own and are shown with the
     /// user's, above the user's own file.
     pub layer: ConfigLayer,
+    /// The project a project file must resolve inside to be read.
+    pub within: Option<PathBuf>,
+}
+
+impl SettingsFile {
+    /// The file's document; an error when it resolves outside [`SettingsFile::within`].
+    pub(in crate::harnesses::claude) fn read(&self) -> Document {
+        let outside = self
+            .within
+            .as_deref()
+            .is_some_and(|project| self.path.exists() && canonical_within(project, &self.path).is_err());
+
+        if outside {
+            return Document::Invalid("The file resolves outside the project, so it is not read".to_owned());
+        }
+
+        read_document(&self.path, ConfigFormat::Json)
+    }
 }
 
 /// The managed settings files that exist.
@@ -54,6 +74,7 @@ pub(in crate::harnesses::claude) fn managed_files(env: &Env) -> Vec<SettingsFile
             description: "Settings your organization manages. They override every other file.",
             path: base,
             layer: ConfigLayer::User,
+            within: None,
         });
     }
 
@@ -68,6 +89,7 @@ pub(in crate::harnesses::claude) fn managed_files(env: &Env) -> Vec<SettingsFile
         description: "A managed drop-in file. Claude Code applies the drop-ins after managed-settings.json, in name order.",
         path: entry.path,
         layer: ConfigLayer::User,
+        within: None,
     }));
 
     files
@@ -83,6 +105,7 @@ pub(in crate::harnesses::claude) fn settings_files(env: &Env, project: Option<&P
         description: "Global Claude Code settings: model, permissions, hooks, environment and plugins.",
         path: user.clone(),
         layer: ConfigLayer::User,
+        within: None,
     }];
 
     if let Some(project) = project {
@@ -94,6 +117,7 @@ pub(in crate::harnesses::claude) fn settings_files(env: &Env, project: Option<&P
             description: "Settings shared with everyone working on this project, usually committed.",
             path: dir.join(SETTINGS_FILE),
             layer: ConfigLayer::Project,
+            within: Some(project.to_path_buf()),
         });
         files.push(SettingsFile {
             id: "project.localSettings".to_owned(),
@@ -101,6 +125,7 @@ pub(in crate::harnesses::claude) fn settings_files(env: &Env, project: Option<&P
             description: "Your own settings for this project, not committed. They override the project settings.",
             path: dir.join(LOCAL_SETTINGS_FILE),
             layer: ConfigLayer::Project,
+            within: Some(project.to_path_buf()),
         });
     }
 

@@ -6,15 +6,16 @@
 //!   counts for the user when it has an install record of the user scope (or one without a scope).
 //!   One the organization installed (`managed`) applies everywhere too, and one installed only for
 //!   projects (`project`, `local`) is someone else's ([`PluginScope`]).
-//! - Switched off: `enabledPlugins` of the user settings (`<config>/settings.json`) maps the id to
-//!   `false`.
+//! - Switched on: the merged `enabledPlugins` of the user and managed settings (the layers the
+//!   extensions view reads without a project) maps the id to `true`, the view's rule
+//!   ([`is_enabled`]). Anything else is off, so setup offers to enable it.
 //! - Marketplaces: `<config>/plugins/known_marketplaces.json`, an object keyed by marketplace name
 //!   whose `source` object has a `source` type and a `repo` (GitHub), a `url` (git, catalog URL), a
 //!   `path` (folder, file) or a `package` (npm).
 
 use serde_json::Value;
 
-use super::extensions::{Settings, global_install, known_entries, registered, source_location};
+use super::extensions::{Settings, global_install, is_enabled, known_entries, registered, source_location};
 use crate::env::Env;
 use crate::pi_family::text_field;
 
@@ -25,7 +26,7 @@ pub struct UserPlugin {
     pub id: String,
     /// The installed version, when recorded.
     pub version: Option<String>,
-    /// False when the user settings switch it off.
+    /// True only when the settings switch it on (see the module docs).
     pub enabled: bool,
 }
 
@@ -92,13 +93,13 @@ pub fn plugin_records(env: &Env) -> Vec<PluginRecord> {
 
 /// The plugins installed in the user scope, in registry order (see the module docs).
 pub fn user_plugins(env: &Env) -> Vec<UserPlugin> {
-    let switched = Settings::user(env).merged("enabledPlugins");
+    let switched = Settings::load(env, None).merged("enabledPlugins");
 
     plugin_records(env)
         .into_iter()
         .filter(|plugin| plugin.scope == PluginScope::User)
         .map(|plugin| UserPlugin {
-            enabled: switched.get(&plugin.id) != Some(&Value::Bool(false)),
+            enabled: is_enabled(&switched, &plugin.id),
             id: plugin.id,
             version: plugin.version,
         })

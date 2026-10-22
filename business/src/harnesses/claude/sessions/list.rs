@@ -85,6 +85,25 @@ pub(in crate::harnesses::claude) fn list_sessions(dir: &Path, project: &Path) ->
         .collect()
 }
 
+/// False when the session file `path` of session `id` in `dir`, the session folder of `project`,
+/// records another folder with the same slug as its working directory (the rule of the list). A
+/// file the list leaves out for another reason records none and counts as the project's.
+pub(super) fn is_projects_session(dir: &Path, path: &Path, id: &str, project: &Path) -> bool {
+    let Ok(metadata) = fs::symlink_metadata(path) else {
+        return true;
+    };
+
+    let folder = dir.join(id);
+    let sidecar = folder.join(SIDECAR_NAME);
+    let stamp = Stamp {
+        size: metadata.len(),
+        modified: metadata.modified().unwrap_or(SystemTime::UNIX_EPOCH),
+        sidecar: sidecar_time(&folder, &sidecar),
+    };
+
+    cached(path, &stamp, || summarize(id, path, &stamp, &sidecar)).is_none_or(|summary| belongs_to(&summary, project))
+}
+
 /// A candidate session file.
 struct SessionFile {
     id: String,

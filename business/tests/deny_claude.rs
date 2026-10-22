@@ -1,6 +1,7 @@
 //! The deny-list for Claude Code's private files: its login store, prompt history, caches,
 //! backups, telemetry and full tool outputs are never read, while its settings, skills, agents,
 //! commands, plugins and session files stay readable and same-named project folders are not caught.
+//! Its global file `.claude.json` is refused everywhere, except to its own readers.
 //! The private names also apply in a config directory `CLAUDE_CONFIG_DIR` gives another name.
 
 use std::path::Path;
@@ -21,8 +22,14 @@ fn deny_list_covers_claude_private_files_and_folders() {
         "/h/.claude/policy-limits.stamp.json",
         "/h/.claude/stats-cache.json",
         "/h/.claude/mcp-needs-auth-cache.json",
+        "/h/.claude.json",
+        "/h/dotfiles/.claude.json",
+        "/h/claude-work/.claude.json",
+        "C:/Users/me/.Claude.json",
         "/h/.claude.json.backup",
         "/h/.claude.json.backup.1760000000000",
+        "/h/.claude.json.corrupted.1760000000000",
+        "/h/.claude.json.tmp.4242.1760000000000",
         "/h/.claude/backups/.claude.json.backup.1760000000000",
         "/h/.claude/dump-1.heapsnapshot",
         "/h/.claude/paste-cache/abc.txt",
@@ -42,7 +49,6 @@ fn deny_list_covers_claude_private_files_and_folders() {
         // CLAUDE_CONFIG_DIR may give the directory any name.
         "/h/claude-work/projects/-h-demo/0b5e6c1a/tool-results/toolu_1.txt",
         "/h/claude-work/.credentials.json",
-        "/h/claude-work/paste-cache/abc.txt",
     ];
 
     for path in denied {
@@ -62,7 +68,6 @@ fn deny_list_covers_claude_private_files_and_folders() {
 #[test]
 fn claude_settings_extensions_and_sessions_stay_readable() {
     let allowed = [
-        "/h/.claude.json",
         "/h/.claude/settings.json",
         "/h/.claude/settings.local.json",
         "/h/.claude/CLAUDE.md",
@@ -101,6 +106,11 @@ fn generic_folder_and_file_names_outside_the_claude_dir_are_not_caught() {
         "/h/proj/plugins/data/schema.json",
         "/h/proj/tool-results/out.txt",
         "/h/.omp/agent/plugins/data/x.json",
+        // Claude Code's per-session stores are private only in its config directory.
+        "/h/proj/src/file-history/x.ts",
+        "/h/proj/session-env/README.md",
+        "/h/proj/paste-cache/index.ts",
+        "/h/proj/tools/shell-snapshots/fixture.sh",
     ];
 
     for path in allowed {
@@ -133,6 +143,12 @@ fn claude_private_names_are_denied_under_a_renamed_config_directory() {
         "feedback/report.json",
         "feedback-bundles/report.json",
         "plugins/data/demo-plugin/state.json",
+        "paste-cache/abc.txt",
+        "shell-snapshots/snapshot-bash-1.sh",
+        "file-history/0b5e6c1a/x.ts@v1",
+        "session-env/0b5e6c1a/env",
+        ".claude.json",
+        ".claude.json.backup.1760000000000",
     ] {
         let path = format!("{root}/{private}");
         assert!(is_denied(Path::new(&path)).is_some(), "{path} must be denied");
@@ -148,7 +164,6 @@ fn claude_private_names_are_denied_under_a_renamed_config_directory() {
 
     for readable in [
         "settings.json",
-        ".claude.json",
         "CLAUDE.md",
         "skills/demo/SKILL.md",
         "plugins/installed_plugins.json",
@@ -195,6 +210,38 @@ fn a_symlinked_config_directory_is_covered_on_its_real_path() {
     assert!(is_denied(&dunce::canonicalize(&real).unwrap().join("history.jsonl")).is_some());
     assert!(matches!(
         SafeReader::read_to_string(&link.join("history.jsonl"), 1024),
+        Err(BusinessError::Forbidden(_))
+    ));
+}
+
+/// Folders of a project that share a name with Claude Code's per-session stores are read like any
+/// other: only the config directory's own are private.
+#[test]
+fn project_folders_named_like_claudes_session_stores_are_readable() {
+    let project = tempfile::tempdir().unwrap();
+
+    for relative in [
+        "src/file-history/x.ts",
+        "session-env/README.md",
+        "paste-cache/index.ts",
+        "shell-snapshots/fixture.sh",
+    ] {
+        let path = project.path().join(relative);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(&path, "content").unwrap();
+
+        assert_eq!(
+            SafeReader::read_to_string(&path, 1024).unwrap(),
+            "content",
+            "{relative}"
+        );
+    }
+
+    let private = project.path().join(".claude/file-history/0b5e6c1a/x.ts@v1");
+    std::fs::create_dir_all(private.parent().unwrap()).unwrap();
+    std::fs::write(&private, "content").unwrap();
+    assert!(matches!(
+        SafeReader::read_to_string(&private, 1024),
         Err(BusinessError::Forbidden(_))
     ));
 }

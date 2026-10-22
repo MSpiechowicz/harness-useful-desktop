@@ -175,7 +175,7 @@ pub enum McpRefusal {
     Symlink,
     /// The path is not a regular file (a directory, a FIFO, ...).
     NotRegularFile,
-    /// The file is larger than 2 MiB.
+    /// The file is larger than the app reads (2 MiB, 32 MiB for Claude Code's global file).
     TooLarge,
     /// The file could not be read (permissions, an I/O error, ...).
     Unreadable,
@@ -187,6 +187,12 @@ pub enum McpRefusal {
     /// that run failed, timed out or could not start. The file was read again afterwards and still
     /// needs the change. Nothing is retried.
     CliFailed,
+    /// Changing the app's entry through the harness's CLI removed it, and adding it back failed
+    /// (the new and the old definition both). The entry is gone until Recommended setup runs again.
+    CliRemovedEntry,
+    /// The harness's CLI is a Windows batch shim (Claude Code installed through npm), which cannot
+    /// take the server's JSON argument safely. Nothing ran.
+    CliBatchShim,
 }
 
 /// Outcome of running a companion installer (`setup_install_dashboard`, `setup_install_memory`).

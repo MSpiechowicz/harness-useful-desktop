@@ -140,6 +140,24 @@ fn a_session_of_another_folder_with_the_same_slug_is_left_out() {
     let list = list(&home);
     assert!(list.iter().all(|summary| summary.session.id != QUEUE));
     assert_eq!(list.len(), NEWEST_FIRST.len() - 1);
+
+    // Nor can it be read or deleted through this project.
+    let env = &home.home.env;
+    let project = &home.home.project;
+    let session = claude(QUEUE);
+    assert_eq!(
+        error_code(Claude.resolve_session(env, project, &session)),
+        IpcErrorCode::NotFound
+    );
+    assert_eq!(
+        error_code(Claude.session_messages(env, project, &session, None, 50)),
+        IpcErrorCode::NotFound
+    );
+    assert_eq!(
+        error_code(Claude.delete_session(env, project, &session, false)),
+        IpcErrorCode::NotFound
+    );
+    assert!(home.file(QUEUE).is_file());
 }
 
 #[test]

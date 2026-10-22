@@ -7,8 +7,9 @@
 //! `projectPath` names the open project. The most specific install wins: local, project, then
 //! user. A plugin directory is read only when its `installPath` lies inside `<config>/plugins/cache`;
 //! one outside is listed with nothing read from it. From a plugin directory the view reads its
-//! manifest (`.claude-plugin/plugin.json`: name, version, description, inline `mcpServers`) here
-//! and, for enabled plugins, its `skills/`, `agents/`, `commands/` and `.mcp.json` elsewhere.
+//! manifest (`.claude-plugin/plugin.json`: name, version, description, inline `mcpServers`; only
+//! when it resolves inside the plugin directory, the description redacted) here and, for enabled
+//! plugins, its `skills/`, `agents/`, `commands/` and `.mcp.json` elsewhere.
 
 use std::path::{Path, PathBuf};
 
@@ -21,6 +22,7 @@ use crate::env::Env;
 use crate::harnesses::plugin_registry::{Registered, install_path, read_registry, split_id, verified_dir};
 use crate::model::{ExtensionScope, Notice, NoticeLevel, PluginInfo};
 use crate::pi_family::{read_json, text_field};
+use crate::security::{canonical_within, redact_text};
 
 /// The plugin manifest below a plugin directory.
 const MANIFEST: &str = ".claude-plugin/plugin.json";
@@ -65,6 +67,12 @@ pub(in crate::harnesses::claude) fn global_install(installs: &[Value], managed: 
 
         install.is_object() && scope.is_none_or(|scope| scope == "user" || (managed && scope == "managed"))
     })
+}
+
+/// Whether the merged `enabledPlugins` of the settings layers (`switched`) turn plugin `id` on:
+/// only an explicit `true` does. The extensions view and Recommended setup share this rule.
+pub(in crate::harnesses::claude) fn is_enabled(switched: &Map<String, Value>, id: &str) -> bool {
+    switched.get(id) == Some(&Value::Bool(true))
 }
 
 /// See the module docs.
@@ -119,6 +127,13 @@ fn applicable_install<'a>(installs: &'a [Value], project: Option<&Path>) -> Opti
         .or_else(|| global_install(installs, true).map(|install| (install, ExtensionScope::User)))
 }
 
+/// The manifest of the plugin directory `dir`, when it is a JSON object that resolves inside `dir`.
+fn read_manifest(dir: &Path) -> Option<Value> {
+    let path = canonical_within(dir, &dir.join(MANIFEST)).ok()?;
+
+    read_json(&path).value().cloned().filter(Value::is_object)
+}
+
 /// One plugin and, when it is enabled and its directory verified, what may be read from it.
 fn plugin_info(
     env: &Env,
@@ -132,20 +147,17 @@ fn plugin_info(
 
     let raw_path = install_path(env, install);
     let verified = raw_path.as_deref().and_then(|dir| verified_dir(cache, dir));
-    let manifest = verified
-        .as_deref()
-        .and_then(|dir| read_json(&dir.join(MANIFEST)).value().cloned())
-        .filter(Value::is_object);
+    let manifest = verified.as_deref().and_then(read_manifest);
 
     let field = |key: &str| manifest.as_ref().and_then(|manifest| text_field(manifest, key));
     let name = field("name").unwrap_or_else(|| id_name.to_owned());
-    let enabled = switched.get(id) == Some(&Value::Bool(true));
+    let enabled = is_enabled(switched, id);
 
     let info = PluginInfo {
         id: id.to_owned(),
         name: name.clone(),
         version: text_field(install, "version").or_else(|| field("version")),
-        description: field("description"),
+        description: field("description").map(|text| redact_text(&text)),
         enabled,
         scope,
         marketplace: marketplace.map(str::to_owned),

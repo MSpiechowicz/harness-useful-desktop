@@ -332,3 +332,81 @@ fn a_directory_marketplace_reads_only_its_catalog() {
     );
     assert!(view.marketplaces[1].error.is_some());
 }
+
+/// A plugin manifest that resolves outside the plugin directory is not read, and a manifest's
+/// description is redacted like every other free text.
+#[cfg(unix)]
+#[test]
+fn a_plugin_manifest_outside_its_plugin_is_not_read_and_descriptions_are_redacted() {
+    let scratch = Scratch::new();
+    let token = format!("sk-ant-{}", "a1".repeat(12));
+
+    let linked = scratch.cached_plugin("linked");
+    write_file(
+        &scratch.home.join("outside/plugin.json"),
+        &json!({ "name": "renamed", "description": CANARY }).to_string(),
+    );
+    std::fs::create_dir_all(linked.join(".claude-plugin")).unwrap();
+    std::os::unix::fs::symlink(
+        scratch.home.join("outside/plugin.json"),
+        linked.join(".claude-plugin/plugin.json"),
+    )
+    .unwrap();
+
+    let plain = scratch.cached_plugin("plain");
+    write_file(
+        &plain.join(".claude-plugin/plugin.json"),
+        &json!({ "name": "plain", "description": format!("Uses {token} to log in.") }).to_string(),
+    );
+
+    scratch.install(json!({
+        "linked@market": [{ "scope": "user", "installPath": linked }],
+        "plain@market": [{ "scope": "user", "installPath": plain }],
+    }));
+
+    let view = extensions(&scratch.env(), None);
+
+    let linked = plugin(&view, "linked@market");
+    assert_eq!((linked.name.as_str(), linked.description.as_deref()), ("linked", None));
+
+    let description = plugin(&view, "plain@market").description.clone().unwrap();
+    assert!(description.starts_with("Uses "), "{description}");
+    assert!(!description.contains(&token));
+    assert!(!json_text(&view).contains(CANARY));
+}
+
+/// What a project layer holds is read only inside the folder that holds it: a skill or agent
+/// linked in from elsewhere is not listed.
+#[cfg(unix)]
+#[test]
+fn project_skills_and_agents_linked_from_outside_the_project_are_not_read() {
+    let scratch = Scratch::new();
+    write_file(
+        &scratch.home.join("shared/skills/outside/SKILL.md"),
+        "---\nname: outside\ndescription: Linked in.\n---\n",
+    );
+    write_file(
+        &scratch.home.join("shared/agents/outside.md"),
+        "---\nname: outside\ndescription: Linked in.\n---\n",
+    );
+    write_file(
+        &scratch.project.join(".claude/skills/inside/SKILL.md"),
+        "---\nname: inside\ndescription: Own.\n---\n",
+    );
+    std::fs::create_dir_all(scratch.project.join(".claude/agents")).unwrap();
+    std::os::unix::fs::symlink(
+        scratch.home.join("shared/skills/outside"),
+        scratch.project.join(".claude/skills/outside"),
+    )
+    .unwrap();
+    std::os::unix::fs::symlink(
+        scratch.home.join("shared/agents/outside.md"),
+        scratch.project.join(".claude/agents/outside.md"),
+    )
+    .unwrap();
+
+    let view = extensions(&scratch.env(), Some(&scratch.project));
+
+    assert_eq!(names(&view.skills, |skill| &skill.name), ["inside"]);
+    assert!(view.agents.is_empty(), "{:?}", view.agents);
+}

@@ -14,6 +14,8 @@
 //!   command (a command-source plugin, or a `headersHelper`) without showing it to a person.
 //!   Without a TTY such an install fails, and the user installs it from a terminal.
 //! - Packages are not Claude actions.
+//! - Only a project-scope install runs in the project; every other action runs in the home
+//!   directory.
 
 use std::path::Path;
 
@@ -29,8 +31,28 @@ const JSON: &str = "--json";
 /// The scope the app manages plugins and marketplaces in.
 const USER: &str = "user";
 
-/// The `claude` arguments of `action`. `project` must be set for a project-scope install.
+/// The `claude` arguments of `action`. `project` must be set for a project-scope install, the only
+/// action that runs in the project; every other one acts on the user's scope and runs in the home
+/// directory, so no project settings (hooks, environment, helpers) apply to it.
 pub fn claude_cli_action(action: &ExtensionAction, project: Option<&Path>) -> Result<CliInvocation> {
+    let invocation = invocation(action, project)?;
+
+    let in_project = matches!(
+        action,
+        ExtensionAction::PluginInstall {
+            scope: InstallScope::Project,
+            ..
+        }
+    );
+
+    if in_project {
+        Ok(invocation)
+    } else {
+        Ok(invocation.in_home())
+    }
+}
+
+fn invocation(action: &ExtensionAction, project: Option<&Path>) -> Result<CliInvocation> {
     let plugin = |verb: &str, name: &str| -> Result<CliInvocation> {
         let name = cli_target(TargetKind::PluginName, name)?;
 
@@ -139,9 +161,16 @@ pub fn claude_summary(stdout: &str) -> Option<String> {
 }
 
 /// A marketplace source the app passes on: a GitHub `owner/repo`, an `https://` URL or an absolute
-/// path, after [`cli_target`]'s checks.
+/// path, after [`cli_target`]'s checks. A network path (`//host/share`, `\\host\share`) is
+/// refused: Claude Code would reach out to that host.
 fn marketplace_source(source: &str) -> Result<String> {
     let source = cli_target(TargetKind::MarketplaceSource, source)?;
+
+    if source.starts_with("//") || source.starts_with("\\\\") {
+        return Err(BusinessError::InvalidInput(
+            "the marketplace source must not be a network path".to_owned(),
+        ));
+    }
 
     let url = source
         .strip_prefix("https://")

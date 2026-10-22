@@ -33,6 +33,7 @@ use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::model::{Branch, DiffRequest, DiffScope, FileDiff, GitStatus};
 use crate::process::ProcessRunner;
+use crate::security::is_denied;
 
 /// Paths accepted at most in one [`DiffRequest`].
 pub const MAX_DIFF_PATHS: usize = 1000;
@@ -112,6 +113,17 @@ pub async fn git_diff(
 
         let output = git.run_ok(args).await?;
         let mut parsed = parse_diff(&output.stdout, cached, &mut budget);
+        parsed
+            .iter_mut()
+            .filter(|file| {
+                std::iter::once(&file.path)
+                    .chain(&file.old_path)
+                    .any(|path| is_denied_in(git.project(), path))
+            })
+            .for_each(|file| {
+                file.hunks.clear();
+                file.truncated = true;
+            });
 
         if output.truncated
             && let Some(last) = parsed.last_mut()
@@ -143,6 +155,16 @@ async fn untracked_files(git: &GitCli<'_>, paths: &[String], budget: &mut DiffBu
         .collect();
 
     Ok(diffs)
+}
+
+/// True when the project-relative `relative` is deny-listed as written, below `project` (where a
+/// Claude Code config directory `CLAUDE_CONFIG_DIR` names is registered) or at its real path.
+pub(crate) fn is_denied_in(project: &Path, relative: &str) -> bool {
+    let full = project.join(relative);
+
+    is_denied(Path::new(relative)).is_some()
+        || is_denied(&full).is_some()
+        || dunce::canonicalize(&full).is_ok_and(|real| is_denied(&real).is_some())
 }
 
 /// Request paths must be project-relative: not absolute, no `..`, no NUL, at most

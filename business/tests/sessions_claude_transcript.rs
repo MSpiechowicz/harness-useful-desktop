@@ -5,7 +5,7 @@ mod claude_session_support;
 mod common;
 mod session_support;
 
-use claude_session_support::{CLONE, COMPACTED, EDITS, SHELL, TOOLS, claude, claude_home};
+use claude_session_support::{CLONE, COMPACTED, EDITS, SHELL, TOOLS, append_line, claude, claude_home, replace_in};
 use common::CANARY;
 use harness_business::harness::Harness;
 use harness_business::harnesses::Claude;
@@ -320,4 +320,42 @@ fn pages_continue_where_the_previous_one_ended() {
 
     let unknown = Claude.session_messages(env, project, &session, Some("99"), 5);
     assert_eq!(unknown.expect_err("unknown cursor").code(), IpcErrorCode::InvalidInput);
+}
+
+/// Paging through a session parses its file once while it is unchanged: a later page comes from
+/// that parse, and a file that changed size is read again.
+#[test]
+fn later_pages_reuse_the_parse_until_the_file_changes() {
+    let home = claude_home();
+    let env = &home.home.env;
+    let project = &home.home.project;
+    let session = claude(EDITS);
+    let reply = |page: &SessionMessagesPage| {
+        page.messages
+            .iter()
+            .any(|message| texts(message).contains(&"A terminal."))
+    };
+
+    Claude.session_messages(env, project, &session, None, 5).unwrap();
+    let rest = Claude.session_messages(env, project, &session, Some("5"), 200).unwrap();
+    assert!(reply(&rest));
+
+    // Same size and modification time: the parse is kept.
+    replace_in(&home.file(EDITS), "A terminal.", "A computer.");
+    let cached = Claude.session_messages(env, project, &session, Some("5"), 200).unwrap();
+    assert_eq!(cached, rest);
+
+    // A new line changes the size: the file is read again.
+    append_line(
+        &home.file(EDITS),
+        &serde_json::json!({ "type": "summary", "summary": "x" }),
+    );
+    let fresh = Claude.session_messages(env, project, &session, Some("5"), 200).unwrap();
+    assert!(!reply(&fresh));
+    assert!(
+        fresh
+            .messages
+            .iter()
+            .any(|message| texts(message).contains(&"A computer."))
+    );
 }
