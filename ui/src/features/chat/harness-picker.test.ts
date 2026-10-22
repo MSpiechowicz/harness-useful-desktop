@@ -24,6 +24,16 @@ async function openPicker() {
 }
 
 describe('harness picker', () => {
+  it('shows the harness by its full name once, beside its dot, not its short name again', () => {
+    const { session } = chatSession([{ type: 'ready', protocolVersion: 1 }], { project: '/home/demo/app' });
+    render(HarnessPicker, { session });
+    const info = harness.get(session.info.harness)!.info;
+    const trigger = screen.getByRole('button', { name: /^Harness: / });
+
+    expect(trigger).toHaveTextContent(new RegExp(`^${info.name}$`));
+    expect(trigger.querySelector('.live-dot')).not.toBeNull();
+  });
+
   it('names the chat\'s harness and lists every harness, the missing ones greyed out', async () => {
     const { session, menu } = await openPicker();
     const rows = within(menu).getAllByRole('menuitemradio');
