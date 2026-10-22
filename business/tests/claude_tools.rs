@@ -14,7 +14,10 @@ fn file_tools_name_their_file_relative_to_the_project() {
 
     assert_eq!(touched_paths(project.path(), "Write", &write), ["src/new.rs"]);
     assert_eq!(touched_paths(project.path(), "Edit", &write), ["src/new.rs"]);
-    assert_eq!(touched_paths(project.path(), "NotebookEdit", &notebook), ["src/demo.ipynb"]);
+    assert_eq!(
+        touched_paths(project.path(), "NotebookEdit", &notebook),
+        ["src/demo.ipynb"]
+    );
 }
 
 #[test]
